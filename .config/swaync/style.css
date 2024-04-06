@@ -1,0 +1,276 @@
+@import url('./colors.css');
+
+* {
+  all: unset;
+  border: none;
+  border-radius: 0;
+  font-size: 14px;
+  font-family: 'Fira Code', FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  transition: 200ms;
+}
+
+.floating-notifications.background .notification-row .notification-background {
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 5px;
+  padding: 10px;
+  min-width: 200px;
+  background-color: @fg-color;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification.critical {
+  box-shadow: inset 0 0 10px 0 @lightcoral-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification .notification-content {
+  margin: 10px;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification .notification-content .summary {
+  margin-left: 10px;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification .notification-content .time {
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification .notification-content .body {
+  margin-left: 10px;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification > *:last-child > * {
+  min-height: 5em;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification > *:last-child > * .notification-action {
+  border-radius: 10px;
+  color: @lightsteelblue-color;
+  background-color: @bg-color;
+  box-shadow: inset 0 0 0 1px @fg-color;
+  margin: 10px;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification > *:last-child > * .notification-action:hover {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @bg-color;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .notification > *:last-child > * .notification-action:active {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .close-button {
+  margin: 10px;
+  padding: 5px;
+  border-radius: 10px;
+  color: @lightsteelblue-color;
+  background-color: @lightcoral-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .close-button:hover {
+  background-color: @lightcoral-color;
+  color: @lightsteelblue-color;
+}
+
+.floating-notifications.background .notification-row .notification-background .close-button:active {
+  background-color: @lightcoral-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center {
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.8), inset 0 0 0 1px @fg-color;
+  border-radius: 15px;
+  margin: 20px 20px 20px;
+  background-color: @fg-color;
+  color: @lightsteelblue-color;
+  padding: 15px;
+  border: 2px solid @cornflowerblue-color;
+}
+
+.control-center .widget-title {
+  color: @lightsteelblue-color;
+  font-size: 1.5em;
+}
+
+.control-center .widget-title button {
+  border-radius: 10px;
+  color: @lightsteelblue-color;
+  font-size: 1.5em;
+  background-color: @bg-color;
+  box-shadow: inset 0 0 0 1px @fg-color;
+  padding: 10px;
+}
+
+.control-center .widget-title button:hover {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .widget-title button:active {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background {
+  border-radius: 10px;
+  color: @lightsteelblue-color;
+  background-color: @bg-color;
+  box-shadow: inset 0 0 0 1px @fg-color;
+  margin-top: 14px;
+}
+
+.control-center .notification-row .notification-background .notification {
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.control-center .notification-row .notification-background .notification.critical {
+  box-shadow: inset 0 0 10px 0 @lightcoral-color;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content {
+  margin: 10px;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .summary {
+  margin-left: 10px;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .time {
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .notification .notification-content .body {
+  margin-left: 10px;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .notification > *:last-child > * {
+  min-height: 3.5em;
+}
+
+.control-center .notification-row .notification-background .notification > *:last-child > * .notification-action {
+  border-radius: 10px;
+  color: @lightsteelblue-color;
+  background-color: @fg-color;
+  box-shadow: inset 0 0 0 1px @fg-color;
+  margin: 10px;
+}
+
+.control-center .notification-row .notification-background .notification > *:last-child > * .notification-action:hover {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @bg-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .notification > *:last-child > * .notification-action:active {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .close-button {
+  margin: 10px;
+  padding: 2px;
+  border-radius: 5px;
+  color: @lightsteelblue-color;
+  background-color: @lightcoral-color;
+}
+
+.control-center .notification-row .notification-background .close-button:hover {
+  background-color: @lightcoral-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background .close-button:active {
+  background-color: @lightcoral-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background:hover {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+.control-center .notification-row .notification-background:active {
+  box-shadow: inset 0 0 0 1px @fg-color;
+  background-color: @dark-slate-blue-color;
+  color: @lightsteelblue-color;
+}
+
+progressbar,
+progress,
+trough {
+  border-radius: 15px;
+}
+
+progressbar {
+  box-shadow: inset 0 0 0 1px @fg-color;
+}
+
+.notification.critical progress {
+  background-color: @lightcoral-color;
+}
+
+.notification.low progress,
+.notification.normal progress {
+  background-color: @skyblue-color;
+}
+
+trough {
+  background-color: @bg-color;
+}
+
+.control-center trough {
+  background-color: @fg-color;
+}
+
+.control-center-dnd {
+  margin-top: 5px;
+  border-radius: 10px;
+  background: @bg-color;
+  border: 1px solid @fg-color;
+  box-shadow: none;
+}
+
+.control-center-dnd:checked {
+  background: @bg-color;
+}
+
+.control-center-dnd slider {
+  background: @fg-color;
+  border-radius: 10px;
+}
+
+.widget-dnd {
+  margin: 0px;
+  font-size: 1rem;
+}
+
+.widget-dnd > switch {
+  font-size: initial;
+  border-radius: 10px;
+  background: @bg-color;
+  border: 1px solid @fg-color;
+  box-shadow: none;
+}
+
+.widget-dnd > switch:checked {
+  background: @cornflowerblue-color;
+}
+
+.widget-dnd > switch slider {
+  background: @fg-color;
+  border-radius: 10px;
+  border: 1px solid @dark-slate-blue-color;
+}

@@ -1,0 +1,66 @@
+* {
+  background-image: none;
+  font-family: "Fira Code", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  transition: 20ms;
+}
+
+window {
+  background-color: rgba(12, 12, 12, 0.7);
+}
+
+button {
+  margin: 5px;
+  border: 2px solid #7dcfff;
+  border-radius: 25px;
+  background-color: #12131a;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 25%;
+  font-size: 20px;
+  color: white;
+}
+
+button:focus,
+button:active,
+button:hover {
+  background-color: #1d202e;
+  outline-style: none;
+}
+
+#lock {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/lock.png"));
+}
+
+#logout {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/logout.png"));
+}
+
+#suspend {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/suspend.png"));
+}
+
+#hibernate {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/hibernate.png"));
+}
+
+#shutdown {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/shutdown.png"));
+}
+
+#reboot {
+  margin: 10px;
+  border-radius: 20px;
+  background-image: image(url("assets/png/white/reboot.png"));
+}

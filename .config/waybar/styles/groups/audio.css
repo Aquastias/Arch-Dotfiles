@@ -1,0 +1,40 @@
+#audio {
+  margin: 5px;
+  padding: 0 10px;
+  border: 2px solid @cornflowerblue-color;
+  border-top-right-radius: 25px;
+  border-bottom-left-radius: 25px;
+  border-radius: 25px 50px;
+  background-color: @fg-color;
+}
+
+#pulseaudio,
+#pulseaudio-slider {
+  padding: 0 10px;
+}
+
+#pulseaudio {
+  color: @burlywood-color;
+}
+
+#pulseaudio-slider slider {
+  opacity: 0;
+  min-width: 0px;
+  min-height: 0px;
+  border: none;
+  background-image: none;
+  box-shadow: none;
+}
+
+#pulseaudio-slider trough {
+  min-width: 80px;
+  min-height: 10px;
+  border-radius: 5px;
+  background-color: @dark-slate-gray-color;
+}
+
+#pulseaudio-slider highlight {
+  min-height: 10px;
+  border-radius: 5px;
+  background-color: @burlywood-color;
+}

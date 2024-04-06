@@ -1,0 +1,9 @@
+#custom-power {
+  margin: 5px;
+  padding: 0 20px;
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 50px 25px;
+  background-color: @fg-color;
+  font-size: 120%;
+  color: @cornflowerblue-color;
+}

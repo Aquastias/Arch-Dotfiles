@@ -1,0 +1,23 @@
+{
+  "custom/wl-gammarelay-brightness": {
+    "exec": "wl-gammarelay-rs watch {bp}",
+    "format": "{}% ",
+    "on-click": "wl-gammactl",
+    "on-scroll-down": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateBrightness d -0.02",
+    "on-scroll-up": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateBrightness d +0.02"
+  },
+  "custom/wl-gammarelay-gamma": {
+    "exec": "wl-gammarelay-rs watch {g}",
+    "format": " {}% γ",
+    "on-click": "wl-gammactl",
+    "on-scroll-down": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateGamma d -0.02",
+    "on-scroll-up": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateGamma d +0.02"
+  },
+  "custom/wl-gammarelay-temperature": {
+    "exec": "wl-gammarelay-rs watch {t}",
+    "format": " {} ",
+    "on-click": "wl-gammactl",
+    "on-scroll-down": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateTemperature n -100",
+    "on-scroll-up": "busctl --user -- call rs.wl-gammarelay / rs.wl.gammarelay UpdateTemperature n +100"
+  }
+}

@@ -1,0 +1,21 @@
+#language-and-keyboard {
+  margin: 5px;
+  padding: 0 10px;
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 25px;
+  background-color: @fg-color;
+}
+
+#keyboard-state,
+#language {
+  padding: 0 10px;
+}
+
+#language {
+  color: @lightsteelblue-color;
+}
+
+#keyboard-state {
+  padding-left: 5px;
+  color: @skyblue-color;
+}

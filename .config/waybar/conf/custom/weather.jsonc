@@ -1,0 +1,9 @@
+{
+"custom/weather": {
+    "format": "{} °",
+    "tooltip": true,
+    "interval": 3600,
+    "exec": "wttrbar --date-format '%m/%d' --location Ramnicu_Valcea --hide-conditions",
+    "return-type": "json"
+}
+}

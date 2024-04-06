@@ -1,0 +1,13 @@
+[Unit]
+Description=Run brightness update every minute
+
+[Timer]
+OnCalendar=
+OnCalendar=*-*-* *:*:00
+OnActiveSec=1min
+OnUnitActiveSec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

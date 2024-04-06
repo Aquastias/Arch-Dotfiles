@@ -1,0 +1,6 @@
+[Unit]
+Description=Update temperature using the script based on wl-gammarelay-rs
+
+[Service]
+ExecStart=%h/.config/waybar/scripts/update-temperature.sh
+

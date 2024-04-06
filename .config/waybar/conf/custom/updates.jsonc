@@ -1,0 +1,10 @@
+{
+  "custom/updates": {
+    "exec": "$HOME/.config/waybar/scripts/update-system.sh",
+    "format": "  {} Update(s)",
+    "interval": 300,
+    "signal": 10,
+    "on-click": "$HOME/.config/waybar/scripts/update-system.sh update; pkill -SIGRTMIN+10 waybar",
+    "tooltip": false
+  }
+}

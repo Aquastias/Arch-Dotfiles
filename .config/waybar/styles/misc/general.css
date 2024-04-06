@@ -1,0 +1,22 @@
+* {
+  all: unset;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  font-size: 16px;
+  font-family: "Fira Code", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 600;
+}
+
+tooltip {
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 5px;
+  background: @fg-color;
+}
+
+tooltip label {
+  padding: 10px;
+  color: @lightsteelblue-color;
+}

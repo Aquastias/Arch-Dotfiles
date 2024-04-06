@@ -1,0 +1,23 @@
+.waybar {
+  background-color: transparent;
+  color: @lightsteelblue-color;
+}
+
+.waybar menu {
+  background-color: transparent;
+}
+
+.waybar menu > * :first-child {
+  margin-left: -50px;
+}
+
+.waybar menu label {
+  margin-bottom: 10px;
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 5px;
+  padding: 10px;
+  min-width: 200px;
+  background-color: @bg-color;
+  color: @lightsteelblue-color;
+  opacity: 1;
+}

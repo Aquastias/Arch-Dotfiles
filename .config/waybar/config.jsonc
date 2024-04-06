@@ -1,0 +1,71 @@
+[
+  // TOP BAR
+  {
+    "exclusive": true,
+    "gtk-layer-shell": true,
+    "height": 50,
+    "include": [
+      "~/.config/waybar/conf/groups.jsonc",
+      "~/.config/waybar/conf/hyprland.jsonc",
+      "~/.config/waybar/conf/clock.jsonc",
+      "~/.config/waybar/conf/hardware.jsonc",
+      "~/.config/waybar/conf/tray.jsonc",
+      "~/.config/waybar/conf/gamemode.jsonc",
+      "~/.config/waybar/conf/audio.jsonc",
+      "~/.config/waybar/conf/custom/power.jsonc",
+      "~/.config/waybar/conf/custom/updates.jsonc",
+      "~/.config/waybar/conf/custom/gamma.jsonc",
+      "~/.config/waybar/conf/custom/notification.jsonc",
+      "~/.config/waybar/conf/custom/weather.jsonc"
+    ],
+    "layer": "top",
+    "modules-center": [],
+    "modules-left": [
+      "custom/power",
+      "gamemode",
+      "hyprland/workspaces",
+      "hyprland/submap",
+      "hyprland/window"
+    ],
+    "modules-right": [
+      "custom/updates",
+      "group/audio",
+      "tray",
+      "custom/notification",
+      "custom/weather",
+      "clock"
+    ],
+    "name": "waybar",
+    "position": "top",
+    "reload_style_on_change": true,
+    "spacing": 5
+  },
+
+  // BOTTOM BAR
+  {
+    "exclusive": true,
+    "gtk-layer-shell": true,
+    "height": 50,
+    "include": [
+      "~/.config/waybar/conf/groups.jsonc",
+      "~/.config/waybar/conf/hardware.jsonc",
+      "~/.config/waybar/conf/custom/gamma.jsonc",
+      "~/.config/waybar/conf/idle-inhibitor.jsonc"
+    ],
+    "layer": "top",
+    "modules-center": [
+      "group/language-and-keyboard",
+      "idle_inhibitor",
+      "group/wl-gammarelay",
+      "bluetooth",
+      "custom/gpu-usage",
+      "group/hardware"
+    ],
+    "modules-left": [],
+    "modules-right": [],
+    "name": "waybar",
+    "position": "bottom",
+    "reload_style_on_change": true,
+    "spacing": 5
+  }
+]

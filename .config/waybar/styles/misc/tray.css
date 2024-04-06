@@ -1,0 +1,11 @@
+#tray {
+  margin: 5px;
+  padding: 0 20px;
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 25px 50px;
+  background-color: @fg-color;
+}
+
+#tray > * {
+  padding: 0 5px;
+}

@@ -1,0 +1,47 @@
+#hardware {
+  margin: 5px;
+  padding: 0 10px;
+  border: 2px solid @cornflowerblue-color;
+  border-radius: 25px;
+  background-color: @fg-color;
+}
+
+#battery,
+#network,
+#disk,
+#memory,
+#cpu,
+#temperature {
+  padding: 0 10px;
+}
+
+#cpu {
+  color: @mediumpurple-color;
+}
+
+#temperature {
+  color: @lightcoral-color;
+}
+
+#network {
+  color: @skyblue-color;
+}
+
+#memory {
+  color: @sandybrown-color;
+}
+
+#disk {
+  padding-left: 10px;
+}
+
+#disk,
+#battery,
+#battery.charging {
+  color: @lightgreen-color;
+}
+
+#battery.warning:not(.charging) {
+  background-color: @lightcoral-color;
+  color: @dark-slate-gray-color;
+}

@@ -1,0 +1,14 @@
+{
+  "idle_inhibitor": {
+    "format": "Idle {icon}",
+    "format-icons": {
+      "activated": "",
+      "deactivated": ""
+    },
+    "max-length": 80,
+    "tooltip": true,
+    "tooltip-format-activated": "Idle inhibition is {status}",
+    "tooltip-format-deactivated": "Idle inhibition is {status}",
+    "start-activated": true
+  }
+}
