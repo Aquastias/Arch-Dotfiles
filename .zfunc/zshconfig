@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+function zshconfig() {
+  local editors=("vim" "nvim" "nano" "code" "gedit" "kate")
+  local installed_editors=()
+  local selected_editor=""
+  local zshrc_source="$HOME/.zshrc"
+
+  if ! command -v fzf &> /dev/null; then
+    echo "Please install fzf and try again!"
+    return 1
+  fi
+
+  if ! command -v tr &> /dev/null; then
+    echo "Please install tr and try again!"
+    return 1
+  fi
+
+  for editor in "${editors[@]}"; do
+    if command -v "$editor" &> /dev/null; then
+      installed_editors+=("$editor")
+    fi
+  done
+
+  selected_editor=$(printf '%s\n' "${installed_editors[@]}" | fzf)
+
+  if [[ -n "$selected_editor" ]]; then
+    if [[ ! " ${installed_editors[*]} " =~ " ${selected_editor} " ]]; then
+      echo "The selected editor is not installed!"
+      return 1
+    else
+      "$selected_editor" "$zshrc_source"
+    fi
+  else
+    echo "No editor was selected. Exiting..."
+    return 1
+  fi
+}

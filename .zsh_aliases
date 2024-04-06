@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+# Variables
+SUDO="sudo"
+ZSHRC_SOURCE="$HOME/.zshrc"
+SCRIPTS_SOURCE="$HOME/Templates/Scripts"
+
+
+### Easier directory navigation
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+###
+
+### System
+alias ls="ls --color=auto"
+alias system-upgrade="paru -Syyu"
+###
+
+### Config
+alias zshconfig="zshconfig";
+alias zshreload='source $ZSHRC_SOURCE';
+###
+
+### Scripts
+alias chtsh='$SCRIPTS_SOURCE/chtsh.sh';
+###
+
+### Pacman
+alias pacrmdb='$SUDO rm /var/lib/pacman/db.lck'
+###
+
+### CKB Next
+alias ckb-reload='$SUDO systemctl enable --now ckb-next-daemon'
+###
+
+### Anime
+alias anime="ani-cli"
+###
+
+### Ls exa
+alias  l='exa -l  --icons'
+alias ls='exa -1  --icons'
+alias ll='exa -la --icons'
+alias ld='exa -lD --icons'
+###
