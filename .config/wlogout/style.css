@@ -1,3 +1,5 @@
+@import url('./themes/mocha.css');
+
 * {
   background-image: none;
   font-family: "Fira Code", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
@@ -11,56 +13,50 @@ window {
 }
 
 button {
-  margin: 5px;
-  border: 2px solid #7dcfff;
-  border-radius: 25px;
-  background-color: #12131a;
+  margin: 10px;
+  border: 2px solid @red;
+  border-radius: 20px;
+  background-color: @crust;
   background-repeat: no-repeat;
   background-position: center;
   background-size: 25%;
   font-size: 20px;
-  color: white;
+  color: @text;
 }
 
 button:focus,
 button:active,
 button:hover {
-  background-color: #1d202e;
+  background-color: #181825;
   outline-style: none;
 }
 
+#lock,
+#suspend,
+#shutdown {
+  border-color: @sapphire;
+}
+
 #lock {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/lock.png"));
 }
 
 #logout {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/logout.png"));
 }
 
 #suspend {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/suspend.png"));
 }
 
 #hibernate {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/hibernate.png"));
 }
 
 #shutdown {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/shutdown.png"));
 }
 
 #reboot {
-  margin: 10px;
-  border-radius: 20px;
   background-image: image(url("assets/png/white/reboot.png"));
 }
