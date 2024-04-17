@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function zshconfig() {
-  local editors=("vim" "nvim" "nano" "code" "gedit" "kate")
+  local editors=("vim" "nvim" "nano" "code" "codium" "gedit" "kate")
   local installed_editors=()
   local selected_editor=""
   local zshrc_source="$HOME/.zshrc"
