@@ -1,11 +1,9 @@
 #audio {
   margin: 5px;
   padding: 0 10px;
-  border: 2px solid @cornflowerblue-color;
-  border-top-right-radius: 25px;
-  border-bottom-left-radius: 25px;
+  border: 2px solid @blue;
   border-radius: 25px 50px;
-  background-color: @fg-color;
+  background-color: @mantle;
 }
 
 #pulseaudio,
@@ -14,7 +12,7 @@
 }
 
 #pulseaudio {
-  color: @burlywood-color;
+  color: @yellow;
 }
 
 #pulseaudio-slider slider {
@@ -30,11 +28,11 @@
   min-width: 80px;
   min-height: 10px;
   border-radius: 5px;
-  background-color: @dark-slate-gray-color;
+  background-color: @mauve;
 }
 
 #pulseaudio-slider highlight {
   min-height: 10px;
   border-radius: 5px;
-  background-color: @burlywood-color;
+  background-color: @yellow;
 }

@@ -19,7 +19,6 @@ btop
 btrfs-progs
 candy-icons-git
 ccache
-ckb-next
 clamav
 clamav-unofficial-sigs
 clamtk
@@ -76,7 +75,6 @@ lib32-mpg123
 lib32-ocl-icd
 lib32-openal
 lib32-v4l-utils
-libdbusmenu-qt6
 libpulse
 linux
 linux-firmware

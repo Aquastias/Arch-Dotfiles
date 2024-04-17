@@ -1,9 +1,9 @@
 #language-and-keyboard {
   margin: 5px;
   padding: 0 10px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 25px;
-  background-color: @fg-color;
+  background-color: @mantle;
 }
 
 #keyboard-state,
@@ -12,10 +12,10 @@
 }
 
 #language {
-  color: @lightsteelblue-color;
+  color: @text;
 }
 
 #keyboard-state {
   padding-left: 5px;
-  color: @skyblue-color;
+  color: @teal;
 }

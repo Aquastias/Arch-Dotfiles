@@ -1,8 +1,8 @@
 #custom-notification {
   margin: 5px;
   padding: 0 20px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 25px 50px;
-  color: @lightsteelblue-color;
-  background-color: @fg-color;
+  color: @text;
+  background-color: @mantle;
 }

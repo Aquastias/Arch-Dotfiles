@@ -1,6 +1,6 @@
 .waybar {
   background-color: transparent;
-  color: @lightsteelblue-color;
+  color: @text;
 }
 
 .waybar menu {
@@ -13,11 +13,11 @@
 
 .waybar menu label {
   margin-bottom: 10px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 5px;
   padding: 10px;
   min-width: 200px;
-  background-color: @bg-color;
-  color: @lightsteelblue-color;
+  background-color: @base;
+  color: @text;
   opacity: 1;
 }

@@ -1,12 +1,12 @@
 #idle_inhibitor {
   margin: 5px;
-  padding: 0 25px 0 20px;
-  border: 2px solid @cornflowerblue-color;
+  padding: 0 20px;
+  border: 2px solid @blue;
   border-radius: 50px;
-  background-color: @fg-color;
-  color: @lightsteelblue-color;
+  background-color: @mantle;
+  color: @text;
 }
 
 #idle_inhibitor.activated {
-  color: @mediumpurple-color;
+  color: @pink;
 }

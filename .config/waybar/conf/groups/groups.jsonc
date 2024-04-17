@@ -1,0 +1,57 @@
+{
+  "group/audio": {
+    "drawer": {
+      "children-class": "drawer-child-audio"
+    },
+    "modules": [
+      "pulseaudio",
+      "pulseaudio/slider"
+    ],
+    "orientation": "horizontal"
+  },
+  "group/monitor": {
+    "drawer": {
+      "children-class": "drawer-child-monitor"
+    },
+    "modules": [
+      "battery",
+      "temperature",
+      "disk",
+      "network",
+      "memory",
+      "cpu"      
+    ],
+    "orientation": "horizontal"
+  },
+  "group/language-and-keyboard": {
+    "drawer": {
+      "children-class": "drawer-child-language-and-keyboard"
+    },
+    "modules": [
+      "hyprland/language",
+      "keyboard-state"
+    ],
+    "orientation": "horizontal"
+  },
+  "group/wl-gammarelay": {
+    "drawer": {
+      "children-class": "drawer-child-gammarelay"
+    },
+    "modules": [
+      "custom/wl-gammarelay-temperature",
+      "custom/wl-gammarelay-brightness",
+      "custom/wl-gammarelay-gamma"
+    ],
+    "orientation": "horizontal"
+  },
+  "group/misc": {
+    "drawer": {
+      "children-class": "drawer-child-misc"
+    },
+    "modules": [
+      "idle_inhibitor",
+      "privacy"
+    ],
+    "orientation": "horizontal"
+  }
+}

@@ -1,8 +1,8 @@
 #bluetooth {
   margin: 5px;
   padding: 0 20px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 25px;
-  color: @skyblue-color;
-  background-color: @fg-color;
+  color: @teal;
+  background-color: @mantle;
 }

@@ -5,13 +5,13 @@
     "gtk-layer-shell": true,
     "height": 50,
     "include": [
-      "~/.config/waybar/conf/groups.jsonc",
-      "~/.config/waybar/conf/hyprland.jsonc",
-      "~/.config/waybar/conf/clock.jsonc",
-      "~/.config/waybar/conf/hardware.jsonc",
-      "~/.config/waybar/conf/tray.jsonc",
-      "~/.config/waybar/conf/gamemode.jsonc",
-      "~/.config/waybar/conf/audio.jsonc",
+      "~/.config/waybar/conf/groups/audio.jsonc",
+      "~/.config/waybar/conf/groups/monitor.jsonc",
+      "~/.config/waybar/conf/groups/groups.jsonc",
+      "~/.config/waybar/conf/misc/hyprland.jsonc",
+      "~/.config/waybar/conf/misc/clock.jsonc",
+      "~/.config/waybar/conf/misc/tray.jsonc",
+      "~/.config/waybar/conf/misc/gamemode.jsonc",
       "~/.config/waybar/conf/custom/power.jsonc",
       "~/.config/waybar/conf/custom/updates.jsonc",
       "~/.config/waybar/conf/custom/gamma.jsonc",
@@ -47,10 +47,11 @@
     "gtk-layer-shell": true,
     "height": 50,
     "include": [
-      "~/.config/waybar/conf/groups.jsonc",
-      "~/.config/waybar/conf/hardware.jsonc",
-      "~/.config/waybar/conf/custom/gamma.jsonc",
-      "~/.config/waybar/conf/idle-inhibitor.jsonc"
+      "~/.config/waybar/conf/groups/monitor.jsonc",
+      "~/.config/waybar/conf/groups/groups.jsonc",
+      "~/.config/waybar/conf/misc/bluetooth.jsonc",
+      "~/.config/waybar/conf/misc/idle-inhibitor.jsonc",
+      "~/.config/waybar/conf/custom/gamma.jsonc"
     ],
     "layer": "top",
     "modules-center": [
@@ -59,7 +60,7 @@
       "group/wl-gammarelay",
       "bluetooth",
       "custom/gpu-usage",
-      "group/hardware"
+      "group/monitor"
     ],
     "modules-left": [],
     "modules-right": [],

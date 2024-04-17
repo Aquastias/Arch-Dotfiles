@@ -1,24 +1,15 @@
 #wl-gammarelay {
   margin: 5px;
   padding: 0 10px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 25px;
-  background-color: @fg-color;
+  background-color: @mantle;
 }
 
 #custom-wl-gammarelay-temperature,
 #custom-wl-gammarelay-brightness,
 #custom-wl-gammarelay-gamma {
-  padding: 0 10px;
-  color: @mediumpurple-color;
+  color: @mauve;
 }
 
-#custom-wl-gammarelay-brightness,
-#custom-wl-gammarelay-gamma {
-  padding-right: 5px;
-}
 
-#custom-wl-gammarelay-temperature {
-  padding-right: 15px;
-  padding-left: 5px;
-}

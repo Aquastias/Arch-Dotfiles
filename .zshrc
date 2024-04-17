@@ -74,8 +74,8 @@ zplug "zsh-users/zsh-history-substring-search"
 zplug "zsh-users/zsh-syntax-highlighting"
 
 # Theme
-zplug "themes/robbyrussell", from:oh-my-zsh
-#zplug "themes/half-life", from:oh-my-zsh
+#zplug "themes/robbyrussell", from:oh-my-zsh
+zplug "themes/half-life", from:oh-my-zsh
 
 # Install/load new plugins when zsh is started or reloaded.
 if ! zplug check --verbose; then

@@ -1,0 +1,49 @@
+#monitor {
+  margin: 5px;
+  padding: 0 10px;
+  border: 2px solid @blue;
+  border-radius: 25px;
+  background-color: @mantle;
+}
+
+#network,
+#disk,
+#memory,
+#cpu,
+#temperature {
+  padding: 0 10px;
+}
+
+#cpu {
+  color: @flamingo;
+}
+
+#temperature {
+  color: @maroon;
+}
+
+#network {
+  color: @teal;
+}
+
+#memory {
+  color: @peach;
+}
+
+#disk {
+  color: @lavender;
+}
+
+#battery,
+#battery.charging {
+  padding-left: 10px;
+  color: @green;
+}
+
+#battery.warning:not(.charging) {
+  color: @yellow;
+}
+
+#battery.critical:not(.charging) {
+  color: @red;
+}

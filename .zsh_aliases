@@ -3,8 +3,6 @@
 # Variables
 SUDO="sudo"
 ZSHRC_SOURCE="$HOME/.zshrc"
-SCRIPTS_SOURCE="$HOME/Templates/Scripts"
-
 
 ### Easier directory navigation
 alias ..="cd .."
@@ -23,12 +21,12 @@ alias zshconfig="zshconfig";
 alias zshreload='source $ZSHRC_SOURCE';
 ###
 
-### Scripts
-alias chtsh='$SCRIPTS_SOURCE/chtsh.sh';
-###
-
 ### Pacman
 alias pacrmdb='$SUDO rm /var/lib/pacman/db.lck'
+###
+
+### Grub
+alias update-grub='$SUDO grub-mkconfig -o /boot/grub/grub.cfg'
 ###
 
 ### CKB Next
@@ -44,4 +42,5 @@ alias  l='exa -l  --icons'
 alias ls='exa -1  --icons'
 alias ll='exa -la --icons'
 alias ld='exa -lD --icons'
+alias lh='exa -lh --icons'
 ###

@@ -1,9 +1,9 @@
 #custom-power {
   margin: 5px;
   padding: 0 20px;
-  border: 2px solid @cornflowerblue-color;
+  border: 2px solid @blue;
   border-radius: 50px 25px;
-  background-color: @fg-color;
+  background-color: @mantle;
   font-size: 120%;
-  color: @cornflowerblue-color;
+  color: @sapphire;
 }
