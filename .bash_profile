@@ -1,5 +1,5 @@
-#
-# ~/.bash_profile
-#
+#!/usr/bin/bash env
 
-[[ -f ~/.bashrc ]] && . ~/.bashrc
+# shellcheck source=/dev/null
+
+[[ -f ~/.bashrc ]] && source ~/.bashrc;

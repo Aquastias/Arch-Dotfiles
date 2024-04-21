@@ -1,24 +1,132 @@
 #!/usr/bin/env bash
 
-# Variables
-SUDO="sudo"
-ZSHRC_SOURCE="$HOME/.zshrc"
+### Config
+alias zshconfig="zshconfig";
+alias zshreload='source $ZSHRC_SOURCE';
+###
+
+### System
+alias system-upgrade="system_upgrade"
+###
+
+### Modified commands
+alias grep='grep --color=auto'
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -iv'
+alias mkdir='mkdir -p'
+alias ps='ps auxf'
+alias ping='ping -c 10'
+alias less='less -R'
+alias cls='clear'
+alias freshclam='$SUDO freshclam'
+alias vi='nvim'
+alias vim='nvim'
+alias svi='$SUDO nvim'
+alias vis='nvim "+set si"'
+###
 
 ### Easier directory navigation
+alias web='cd /var/www/html'
+alias home='cd ~'
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
 ###
 
-### System
-alias ls="ls --color=auto"
-alias system-upgrade="paru -Syyu"
+### Directory utils
+alias cpp='copy_progress_bar'
+alias cpg='copy_and_go'
+alias mvg='move_and_go'
+alias mkdirg='mkdir_and_go'
+alias updir='up_n_dirs'
+alias pwdt='pwd_last_two'
 ###
 
-### Config
-alias zshconfig="zshconfig";
-alias zshreload='source $ZSHRC_SOURCE';
+### Remove a directory and all files
+alias rmd='/bin/rm  --recursive --force --verbose '
+###
+
+### Chmod commands
+alias mx='chmod a+x'
+alias 000='chmod -R 000'
+alias 400='chmod -R 400'
+alias 444='chmod -R 444'
+alias 600='chmod -R 600'
+alias 644='chmod -R 644'
+alias 666='chmod -R 666'
+alias 700='chmod -R 700'
+alias 755='chmod -R 755'
+alias 777='chmod -R 777'
+###
+
+### Search running processes
+alias psg='ps aux | grep -v grep | grep -i -e VSZ -e'
+alias psgrep='ps aux | grep -v grep | grep -i -e VSZ -e'
+alias topcpu='ps auxf | sort -nr -k 3 | head -10'
+###
+
+### Search files in current folder
+alias f='find . | grep -i -e';
+alias fgrep='find . | grep -i -e';
+alias ftext='find_text_in_files'
+###
+
+### Count all files (recursively) in the current folder
+alias countfiles='find . -type f | wc -l'
+###
+
+### To see if a command is aliased, a file, or a built-in command
+alias checkcommand="type -t"
+###
+
+### Network commands
+alias netinfo='network_info'
+alias whatismyip="whatsmyip"
+alias connections='ss | less' # get all connections
+alias connectionstcpnlm='ss -t' # get TCP connections not in listen mode
+alias connectionsudpsnlm='ss -u' # get UDP connections not in listen mode
+alias connectionsunix='ss -x' # get Unix domain socket connections
+alias connectionstcpa='ss -at' # get all TCP connections (both listening and non-listening)
+alias connectionsudpa='ss -au' # get all UDP connections
+alias connectionsnsnr='ss -tn' # TCP without service name resolution
+alias connectionsnsnrl='ss -ltn' # listening TCP without service name resolution
+alias connectionstcppn='ss -ltp' # listening TCP with PID and name
+alias connectionsstat='ss -s' # prints statistics
+alias connectionstcptimer='ss -tn -o' # TCP connections, show keepalive timer
+alias connectionsipv4='ss -lt4' # IPv4 (TCP) connections
+alias openports='ss -lntu' # open ports
+alias ipview='ip addr show' # view IP addresses
+###
+
+### Disk space and space used in a folder
+alias diskspace="du -S | sort -n -r |more"
+alias folders='du -h --max-depth=1'
+alias folderssort='find . -maxdepth 1 -type d -print0 | xargs -0 du -sk | sort -rn'
+alias tree='tree -CAhF --dirsfirst'
+alias treed='tree -CAFd'
+alias mountedinfo='df -hT'
+###
+
+### Archives commands
+alias extractarchive='extract_archive'
+alias untar='tar -zxvf'
+alias untarbz2='tar -jxvf'
+alias untargz='tar -zxvf'
+alias untarxz='tar -Jxvf'
+alias untarzip='unzip'
+alias untarrar='unrar x'
+alias untar7z='7z x'
+alias untarxz='tar -Jxvf'
+alias mkzip='zip -r'
+alias mktar='tar -czvf'
+alias mktarbz2='tar -cjvf'
+alias mktarxz='tar -cJvf'
+alias mktargz='tar -czvf'
+alias mktarxz='tar -cJvf'
+alias mktarrar='rar a'
+alias mktar7z='7z a'
 ###
 
 ### Pacman
@@ -35,12 +143,4 @@ alias ckb-reload='$SUDO systemctl enable --now ckb-next-daemon'
 
 ### Anime
 alias anime="ani-cli"
-###
-
-### Ls exa
-alias  l='exa -l  --icons'
-alias ls='exa -1  --icons'
-alias ll='exa -la --icons'
-alias ld='exa -lD --icons'
-alias lh='exa -lh --icons'
 ###

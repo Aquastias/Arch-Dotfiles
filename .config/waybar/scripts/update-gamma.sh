@@ -5,17 +5,17 @@ if ! hyprctl monitors | grep -q 'Monitor'; then
   exit 0
 fi
 
-if ! command -v wl-gammarelay-rs &> /dev/null; then
+if ! command -v wl-gammarelay-rs &>/dev/null; then
   echo 'wl-gammarelay-rs command not found! Exiting...'
   exit 127
 fi
 
-if ! command -v busctl &> /dev/null; then
+if ! command -v busctl &>/dev/null; then
   echo 'busctl command not found! Exiting...'
   exit 127
 fi
 
-if ! command -v bc &> /dev/null; then
+if ! command -v bc &>/dev/null; then
   echo 'bc command not found! Exiting...'
   exit 127
 fi

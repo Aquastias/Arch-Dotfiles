@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+function chtsh() {
+  local languages=("typescript" "js" "rust" "nodejs" "bash")
+  local core_utils=("xargs" "find" "mv" "sed" "awk")
+
+  # Check if fzf is installed
+  if ! command -v fzf &>/dev/null; then
+    echo "Error: fzf is required but not installed. Please install fzf." >&2
+    return 127
+  fi
+
+  # Prompt the user to select a language or core utility
+  echo "Select a language or core utility:"
+  selected=$(printf "%s\n" "${languages[@]}" "${core_utils[@]}" | fzf)
+
+  # If no selection made, exit
+  if [ -z "$selected" ]; then
+    echo "No selection made. Exiting."
+    return 1
+  fi
+
+  # If the user selected a language, query the cheat sheet website for that language
+  if [[ "${languages[*]}" =~ $selected ]]; then
+    echo "Enter your query:"
+    read query
+    if [ -z "$query" ]; then
+      echo "No query entered. Exiting."
+      return 1
+    fi
+    curl -s "cht.sh/$selected/$query"
+  # If the user selected a core utility, display its man page
+  elif [[ "${core_utils[*]}" =~ $selected ]]; then
+    man "$selected"
+  else
+    echo "Invalid selection" >&2
+    return 1
+  fi
+}

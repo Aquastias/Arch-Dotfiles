@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if ! command -v blueman-applet &> /dev/null; then
+if ! command -v blueman-applet &>/dev/null; then
   echo 'blueman-applet command not found! Exiting...'
   exit 127
 fi

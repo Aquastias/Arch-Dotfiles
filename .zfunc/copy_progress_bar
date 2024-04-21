@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+function copy_progress_bar() {
+  # Check that source and destination files exist
+  if [ ! -e "$1" ]; then
+    echo "Error: Source file '$1' does not exist." >&2
+    return 1
+  fi
+  if [ -e "$2" ]; then
+    echo "Error: Destination file '$2' already exists." >&2
+    return 1
+  fi
+
+  # Use pv to display progress while copying the file
+  pv --progress --eta "$1" > "$2"
+}

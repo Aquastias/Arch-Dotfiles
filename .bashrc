@@ -1,102 +1,167 @@
 #!/usr/bin/env bash
 
-# shellcheck source=/dev/null
+# shellcheck disable=SC2034
 
-# GLOBAL VARIABLES
-GLOBAL_DEFINITIONS_DIRECTORY=/etc/bashrc
-BASHRC_CONFIG_DIRECTORY=$HOME/.bashrc.d/
+OH_MY_BASH_DIR="$HOME/.oh-my-bash"
 
-# Source global definitions
-if [ -f "$GLOBAL_DEFINITIONS_DIRECTORY" ]; then
-  source "$GLOBAL_DEFINITIONS_DIRECTORY"
+# Check if Oh My Bash directory exists
+if [ ! -d "$OH_MY_BASH_DIR" ]; then
+  echo "Oh My Bash not found. Installing..."
+  # Clone Oh My Bash repository
+  git clone https://github.com/ohmybash/oh-my-bash.git "$OH_MY_BASH_DIR"
 fi
 
-# Source all files from .BASHRC_CONFIG_DIRECTORY directory
-# if [ -d "$BASHRC_CONFIG_DIRECTORY" ]; then
-#   for file in $(find "$BASHRC_CONFIG_DIRECTORY" -type f -name '*.sh'); do
-#     source "$file"
-#   done
-# fi
-while IFS= read -r -d '' file; do
-  source "${file}"
-done < <(find "$BASHRC_CONFIG_DIRECTORY" -mtime -7 -name '*.sh' -print0)
-
-# Enable programmable completion features (you don't need to enable
-# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
-# sources /etc/bash.bashrc).
-if ! shopt -oq posix; then
-  if [ -f /usr/share/bash-completion/bash_completion ]; then
-    source /usr/share/bash-completion/bash_completion
-  elif [ -f /etc/bash_completion ]; then
-    source /etc/bash_completion
-  fi
-fi
-
-# ~/.bashrc: executed by bash(1) for non-login shells.
-# See /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
-
-# If not running interactively, don't do anything
+# Enable the subsequent settings only in interactive sessions
 case $- in
 *i*) ;;
 *) return ;;
 esac
 
-# VARIABLES
-PS1='[\u@\h \W]\$ '
-# Don't put duplicate lines or lines starting with space in the history.
-# See bash(1) for more options
-HISTCONTROL=ignoreboth
-# For setting history length see HISTSIZE and HISTFILESIZE in bash(1)
-# HISTSIZE=1000'
-# HISTFILESIZE=2000
-# LS_COLORS='rs=0:di=01
-# 34:ln=01
-# 36:mh=00:pi=40
-# 33'
+# Path to your oh-my-bash installation.
+export OSH="$HOME/.oh-my-bash"
 
-# export LS_COLORS
-# export CLICOLOR=1
+# Set name of the theme to load. Optionally, if you set this to "random"
+# it'll load a random theme each time that oh-my-bash is loaded.
+OSH_THEME="half-life"
 
-# # Append to the history file, don't overwrite it
-shopt -s histappend
+# If you set OSH_THEME to "random", you can ignore themes you don't like.
+# OMB_THEME_RANDOM_IGNORED=("powerbash10k" "wanelo")
 
-# Check the window size after each command and, if necessary,
-# Update the values of LINES and COLUMNS.
-shopt -s checkwinsize
+# Uncomment the following line to use case-sensitive completion.
+# OMB_CASE_SENSITIVE="true"
 
-# If set, the pattern "**" used in a pathname expansion context will
-# match all files and zero or more directories and subdirectories.
-shopt -s globstar
+# Uncomment the following line to use hyphen-insensitive completion. Case
+# sensitive completion must be off. _ and - will be interchangeable.
+# OMB_HYPHEN_SENSITIVE="false"
 
-# Make less more friendly for non-text input files, see lesspipe(1).
-[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+# Uncomment the following line to disable bi-weekly auto-update checks.
+# DISABLE_AUTO_UPDATE="true"
 
-# Set a fancy prompt (non-color, unless we know we "want" color)
-case "$TERM" in
-xterm-color) color_prompt=yes ;;
-esac
+# Uncomment the following line to change how often to auto-update (in days).
+# export UPDATE_OSH_DAYS=13
 
-# Uncomment for a colored prompt, if the terminal has the capability; turned
-# off by default to not distract the user: the focus in a terminal window
-# should be on the output of commands, not on the prompt.
-#force_color_prompt=yes
+# Uncomment the following line to disable colors in ls.
+# DISABLE_LS_COLORS="true"
 
-if [ -n "$force_color_prompt" ]; then
-  if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
-    # We have color support; assume it's compliant with Ecma-48
-    # (ISO/IEC-6429). (Lack of such support is extremely rare, and such
-    # a case would tend to support setf rather than setaf.)
-    color_prompt=yes
-  else
-    color_prompt=
-  fi
-fi
+# Uncomment the following line to disable auto-setting terminal title.
+# DISABLE_AUTO_TITLE="true"
 
-unset color_prompt force_color_prompt
+# Uncomment the following line to enable command auto-correction.
+ENABLE_CORRECTION="true"
 
-# START ssh-agent
-# Setup
+# Uncomment the following line to display red dots whilst waiting for completion.
+COMPLETION_WAITING_DOTS="true"
 
-# END ssh-agent
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# DISABLE_UNTRACKED_FILES_DIRTY="true"
 
+# Uncomment the following line if you don't want the repository to be considered dirty
+# if there are untracked files.
+# SCM_GIT_DISABLE_UNTRACKED_DIRTY="true"
+
+# Uncomment the following line if you want to completely ignore the presence
+# of untracked files in the repository.
+# SCM_GIT_IGNORE_UNTRACKED="true"
+
+# Uncomment the following line if you want to change the command execution time
+# stamp shown in the history command output.  One of the following values can
+# be used to specify the timestamp format.
+# * 'mm/dd/yyyy'     # mm/dd/yyyy + time
+# * 'dd.mm.yyyy'     # dd.mm.yyyy + time
+# * 'yyyy-mm-dd'     # yyyy-mm-dd + time
+# * '[mm/dd/yyyy]'   # [mm/dd/yyyy] + [time] with colors
+# * '[dd.mm.yyyy]'   # [dd.mm.yyyy] + [time] with colors
+# * '[yyyy-mm-dd]'   # [yyyy-mm-dd] + [time] with colors
+# If not set, the default value is 'yyyy-mm-dd'.
+# HIST_STAMPS='yyyy-mm-dd'
+
+# Uncomment the following line if you do not want OMB to overwrite the existing
+# aliases by the default OMB aliases defined in lib/*.sh
+# OMB_DEFAULT_ALIASES="check"
+
+# Would you like to use another custom folder than $OSH/custom?
+# OSH_CUSTOM=/path/to/new-custom-folder
+
+# To disable the uses of "sudo" by oh-my-bash, please set "false" to
+# this variable.  The default behavior for the empty value is "true".
+OMB_USE_SUDO=true
+
+# To enable/disable display of Python virtualenv and condaenv
+# OMB_PROMPT_SHOW_PYTHON_VENV=true  # enable
+# OMB_PROMPT_SHOW_PYTHON_VENV=false # disable
+
+# Which completions would you like to load? (completions can be found in ~/.oh-my-bash/completions/*)
+# Custom completions may be added to ~/.oh-my-bash/custom/completions/
+# Example format: completions=(ssh git bundler gem pip pip3)
+# Add wisely, as too many completions slow down shell startup.
+completions=(
+  git
+  composer
+  ssh
+  docker
+  docker-compose
+  nvm
+  ssh
+)
+
+# Which aliases would you like to load? (aliases can be found in ~/.oh-my-bash/aliases/*)
+# Custom aliases may be added to ~/.oh-my-bash/custom/aliases/
+# Example format: aliases=(vagrant composer git-avh)
+# Add wisely, as too many aliases slow down shell startup.
+aliases=(
+  general
+  docker
+  ls
+  misc
+)
+
+# Which plugins would you like to load? (plugins can be found in ~/.oh-my-bash/plugins/*)
+# Custom plugins may be added to ~/.oh-my-bash/custom/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(
+  git
+  bashmarks
+  nvm
+  zoxide
+)
+
+# Which plugins would you like to conditionally load? (plugins can be found in ~/.oh-my-bash/plugins/*)
+# Custom plugins may be added to ~/.oh-my-bash/custom/plugins/
+# Example format:
+#  if [ "$DISPLAY" ] || [ "$SSH" ]; then
+#      plugins+=(tmux-autoattach)
+#  fi
+# shellcheck source=/dev/null
+
+source "$OSH"/oh-my-bash.sh
+
+# User configuration
+export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+export LANG=en_US.UTF-8
+
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='mvim'
+# fi
+
+# Compilation flags
+export ARCHFLAGS="-arch x86_64"
+
+# ssh
+# export SSH_KEY_PATH="~/.ssh/rsa_id"
+
+# Set personal aliases, overriding those provided by oh-my-bash libs,
+# plugins, and themes. Aliases can be placed here, though oh-my-bash
+# users are encouraged to define aliases within the OSH_CUSTOM folder.
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+alias bashconfig="nvim ~/.bashrc"
+alias ohmybash="nvim ~/.oh-my-bash"

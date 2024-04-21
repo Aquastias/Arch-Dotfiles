@@ -9,11 +9,11 @@
     },
     "calendar": {
       "format": {
-        "days": "<span color='#e0af68'><b>{}</b></span>",
-        "months": "<span color='#c0caf5'><b>{}</b></span>",
-        "today": "<span color='#f7768e'><b><u>{}</u></b></span>",
+        "days": "<span color='#f5e0dc'><b>{}</b></span>",
+        "months": "<span color='#cba6f7'><b>{}</b></span>",
+        "today": "<span color='#f38ba8'><b><u>{}</u></b></span>",
         "weekdays": "<span color='#ff9e64'><b>{}</b></span>",
-        "weeks": "<span color='#82e4ff'><b>W{}</b></span>"
+        "weeks": "<span color='#94e2d5'><b>W{}</b></span>"
       },
       "mode": "year",
       "mode-mon-col": 3,

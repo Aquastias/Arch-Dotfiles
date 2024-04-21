@@ -8,6 +8,16 @@ if [ ! -f /etc/arch-release ]; then
   exit 0
 fi
 
+# If kitty is not installed, exit the script
+if ! command -v kitty -Syyu &>/dev/null; then
+  exit 0
+fi
+
+# If paru is not installed, exit the script
+if ! command -v paru -Syyu &>/dev/null; then
+  exit 0
+fi
+
 # Calculate updates for each service
 AUR=$(paru -Qua | wc -l)
 OFFICIAL=$(checkupdates | wc -l)
@@ -22,9 +32,8 @@ esac
 if [ "$1" = "update" ]; then
   COUNT=$((OFFICIAL+AUR))
 
-  if [[ "$COUNT" != "0" ]]
-  then
-    kitty --title update-system sh -c 'paru -Syu'
+  if [[ "$COUNT" != "0" ]]; then
+    kitty --title update-system sh -c 'paru -Syyu --newsonupgrade'
   fi
 fi
 

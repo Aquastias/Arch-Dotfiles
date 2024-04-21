@@ -15,12 +15,12 @@ sleep 1
 hyprland_portal=/usr/lib/xdg-desktop-portal-hyprland
 default_portal=/usr/lib/xdg-desktop-portal
 
-if ! command -v $hyprland_portal &> /dev/null; then
+if ! command -v $hyprland_portal &>/dev/null; then
   echo 'xdg-desktop-portal-hyprland command not found! Exiting ...'
   exit 127
 fi
 
-if ! command -v $default_portal &> /dev/null; then
+if ! command -v $default_portal &>/dev/null; then
   echo 'xdg-desktop-portal command not found! Exiting ...'
   exit 127
 fi

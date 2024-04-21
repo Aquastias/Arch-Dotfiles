@@ -4,22 +4,22 @@
 CONFIG_DIRECTORY="$HOME/.config/waybar/"
 WAYBAR_PROCESS_NAME="waybar"
 
-if ! command -v "$WAYBAR_PROCESS_NAME" &> /dev/null; then
+if ! command -v "$WAYBAR_PROCESS_NAME" &>/dev/null; then
   echo "$WAYBAR_PROCESS_NAME command not found! Exiting..."
   exit 127
 fi
 
-if ! command -v inotifywait &> /dev/null; then
+if ! command -v inotifywait &>/dev/null; then
   echo 'inotifywait command not found! Exiting...'
   exit 127
 fi
 
-if ! command -v logger &> /dev/null; then
+if ! command -v logger &>/dev/null; then
   echo 'logger command not found! Exiting...'
   exit 127
 fi
 
-if ! command -v killall &> /dev/null; then
+if ! command -v killall &>/dev/null; then
   echo 'killall command not found! Exiting...'
   exit 127
 fi
