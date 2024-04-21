@@ -101,8 +101,9 @@ zstyle ':omz:plugins:eza' 'show-group' yes
 zstyle ':omz:plugins:eza' 'size-prefix' si
 
 # - SSH
+zstyle :omz:plugins:ssh-agent quiet yes
 zstyle :omz:plugins:ssh-agent agent-forwarding yes
-zstyle :omz:plugins:ssh-agent identities id_rsa
+zstyle :omz:plugins:ssh-agent lazy yes
 
 # Install/load new plugins when zsh is started or reloaded.
 if ! zplug check --verbose; then
