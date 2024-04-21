@@ -4,7 +4,7 @@
   font-family: "Fira Code Nerd Font", "JetBrainsMono Nerd Font", "CaskaydiaCove Nerd Font", "Font Awesome 5 Free", sans-serif;
 }
 
-.floating-notifications,
+.floating-notifications.background .notification-row .notification-background,
 .control-center {
   border: 2px solid #89b4fa;
 }

@@ -1,0 +1,11 @@
+@theme "catppuccin-mocha"
+
+* {
+  width: 1000;
+  font: "FiraCode Nerd Font Bold 12";
+}
+
+window {
+  border-color: @blue;
+  border-radius: 5px;
+}
