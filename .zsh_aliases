@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 ### Config
-alias zshconfig="zshconfig";
-alias zshreload='source $ZSHRC_SOURCE';
+alias zshconfig="zshconfig"
+alias zshreload='source $ZSHRC_SOURCE'
 ###
 
 ### System
@@ -68,8 +68,8 @@ alias topcpu='ps auxf | sort -nr -k 3 | head -10'
 ###
 
 ### Search files in current folder
-alias f='find . | grep -i -e';
-alias fgrep='find . | grep -i -e';
+alias f='find . | grep -i -e'
+alias fgrep='find . | grep -i -e'
 alias ftext='find_text_in_files'
 ###
 
@@ -84,20 +84,20 @@ alias checkcommand="type -t"
 ### Network commands
 alias netinfo='network_info'
 alias whatismyip="whatsmyip"
-alias connections='ss | less' # get all connections
-alias connectionstcpnlm='ss -t' # get TCP connections not in listen mode
-alias connectionsudpsnlm='ss -u' # get UDP connections not in listen mode
-alias connectionsunix='ss -x' # get Unix domain socket connections
-alias connectionstcpa='ss -at' # get all TCP connections (both listening and non-listening)
-alias connectionsudpa='ss -au' # get all UDP connections
-alias connectionsnsnr='ss -tn' # TCP without service name resolution
-alias connectionsnsnrl='ss -ltn' # listening TCP without service name resolution
-alias connectionstcppn='ss -ltp' # listening TCP with PID and name
-alias connectionsstat='ss -s' # prints statistics
+alias connections='ss | less'         # get all connections
+alias connectionstcpnlm='ss -t'       # get TCP connections not in listen mode
+alias connectionsudpsnlm='ss -u'      # get UDP connections not in listen mode
+alias connectionsunix='ss -x'         # get Unix domain socket connections
+alias connectionstcpa='ss -at'        # get all TCP connections (both listening and non-listening)
+alias connectionsudpa='ss -au'        # get all UDP connections
+alias connectionsnsnr='ss -tn'        # TCP without service name resolution
+alias connectionsnsnrl='ss -ltn'      # listening TCP without service name resolution
+alias connectionstcppn='ss -ltp'      # listening TCP with PID and name
+alias connectionsstat='ss -s'         # prints statistics
 alias connectionstcptimer='ss -tn -o' # TCP connections, show keepalive timer
-alias connectionsipv4='ss -lt4' # IPv4 (TCP) connections
-alias openports='ss -lntu' # open ports
-alias ipview='ip addr show' # view IP addresses
+alias connectionsipv4='ss -lt4'       # IPv4 (TCP) connections
+alias openports='ss -lntu'            # open ports
+alias ipview='ip addr show'           # view IP addresses
 ###
 
 ### Disk space and space used in a folder
@@ -127,6 +127,10 @@ alias mktargz='tar -czvf'
 alias mktarxz='tar -cJvf'
 alias mktarrar='rar a'
 alias mktar7z='7z a'
+###
+
+### NetworkManager
+alias showwifipass="nmcli device wifi show-password"
 ###
 
 ### Pacman
