@@ -24,12 +24,12 @@ fi
 if command -v timedatectl; then
   timezone=$(timedatectl | grep "Time zone" | awk '{print $3}')
 else
-  timezone=$(date +%Z);
+  timezone=$(date +%Z)
 fi
 
 # Set the start and end times for brightness adjustment in 24-hour format
 start_time="16:00"
-end_time="07:59"
+end_time="23:59"
 
 # Set the daylight time in 24-hour format
 daylight_time="08:00"
@@ -45,7 +45,7 @@ daylight_time_sec=$(date -d "$daylight_time" +"%s")
 midnight=$(date -d "00:00" +"%s")
 
 # Check if the current time is within the specified range
-if [[ "$current_time_sec" > "$start_time_sec" && "$current_time_sec" < "$end_time_sec" ]]; then
+if [[ "$current_time_sec" -gt "$start_time_sec" && "$current_time_sec" -lt "$end_time_sec" ]]; then
   # Calculate the brightness reduction within the time range, with steps of 0.02
   # This formula gradually reduces the brightness value by 0.02 for each 1800 seconds (30 minutes) within the time range
   brightness_step=0.02
@@ -53,14 +53,18 @@ if [[ "$current_time_sec" > "$start_time_sec" && "$current_time_sec" < "$end_tim
   brightness=$(echo "1.0 - $brightness_reduction" | bc -l 2>/dev/null)
 
   # In case the brightness falls under 80% set it back
-  if (( $(echo "$brightness < 0.8" | bc -l 2>/dev/null) )); then
-    brightness=0.8
+  if (($(echo "$brightness < 0.8" | bc -l 2>/dev/null))); then
+    if [ "$current_time_sec" -ge "$daylight_time_sec" ] && [ "$current_time_sec" -lt "$start_time_sec" ]; then
+      brightness=1.0
+    else
+      brightness=0.8
+    fi
   fi
 
   # Set the brightness value using busctl
   busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d "$brightness"
 else
-	if [[ "$current_time_sec" < "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
+  if [[ "$current_time_sec" -lt "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
     # Outside the specified time range but before daylight, set brightness to 80%
     busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d 0.8
   else

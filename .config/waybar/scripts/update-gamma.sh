@@ -24,7 +24,7 @@ fi
 if command -v timedatectl; then
   timezone=$(timedatectl | grep "Time zone" | awk '{print $3}')
 else
-  timezone=$(date +%Z);
+  timezone=$(date +%Z)
 fi
 
 # Set the start and end times for gamma adjustment in 24-hour format
@@ -53,14 +53,18 @@ if [[ "$current_time_sec" > "$start_time_sec" && "$current_time_sec" < "$end_tim
   gamma=$(echo "1.0 - $gamma_reduction" | bc -l 2>/dev/null)
 
   # In case the gamma falls under 80% set it back
-  if (( $(echo "$gamma < 0.8" | bc -l 2>/dev/null) )); then
-    gamma=0.8
+  if (($(echo "$gamma < 0.8" | bc -l 2>/dev/null))); then
+    if [ "$current_time_sec" -ge "$daylight_time_sec" ] && [ "$current_time_sec" -lt "$start_time_sec" ]; then
+      gamma=1.0
+    else
+      gamma=0.8
+    fi
   fi
 
   # Set the gamma value using busctl
   busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Gamma d "$gamma"
 else
-	if [[ "$current_time_sec" < "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
+  if [[ "$current_time_sec" < "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
     # Outside the specified time range but before daylight, set gamma to 80%
     busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Gamma d 0.8
   else
