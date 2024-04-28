@@ -87,6 +87,7 @@ zplug "zplug/zplug", hook-build: "zplug --self-manage"
 zplug "zsh-users/zsh-autosuggestions"
 zplug "zsh-users/zsh-completions"
 zplug "zsh-users/zsh-syntax-highlighting"
+zplug "baliestri/pnpm.plugin.zsh"
 
 # Theme
 #zplug "themes/robbyrussell", from:oh-my-zsh
@@ -118,5 +119,8 @@ fi
 zplug load
 # END - zplug
 
-#Display Pokemon
+# Display Pokemon
 krabby random | tail -n +2
+
+# NVM - NodeJs version manager
+source /usr/share/nvm/init-nvm.sh
