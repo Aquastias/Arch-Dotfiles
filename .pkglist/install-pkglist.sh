@@ -9,6 +9,6 @@ else
   if command -v yay -S --noconfirm --mflags --skipinteg &>/dev/null; then
     for x in $(<pkglist-aur.txt); do yay -S "$x"; done
   else
-    echo "Please install an AUR helper https://wiki.archlinux.org/title/AUR_helpers"
+    echo "Please install paru or yay."
   fi
 fi
