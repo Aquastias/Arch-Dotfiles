@@ -22,4 +22,5 @@ _darcs
 ^/LICENSE.*
 ^/COPYING
 
-installed_packages.txt
+\.pkglist
+make-executable.sh
