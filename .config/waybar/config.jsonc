@@ -50,6 +50,7 @@
       "~/.config/waybar/conf/groups/monitor.jsonc",
       "~/.config/waybar/conf/groups/groups.jsonc",
       "~/.config/waybar/conf/misc/bluetooth.jsonc",
+      "~/.config/waybar/conf/misc/battery.jsonc",
       "~/.config/waybar/conf/misc/idle-inhibitor.jsonc",
       "~/.config/waybar/conf/custom/gamma.jsonc"
     ],
@@ -60,7 +61,8 @@
       "group/wl-gammarelay",
       "bluetooth",
       "custom/gpu-usage",
-      "group/monitor"
+      "group/monitor",
+      "battery"
     ],
     "modules-left": [],
     "modules-right": [],

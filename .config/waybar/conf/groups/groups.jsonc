@@ -3,34 +3,21 @@
     "drawer": {
       "children-class": "drawer-child-audio"
     },
-    "modules": [
-      "pulseaudio",
-      "pulseaudio/slider"
-    ],
+    "modules": ["pulseaudio", "pulseaudio/slider"],
     "orientation": "horizontal"
   },
   "group/monitor": {
     "drawer": {
       "children-class": "drawer-child-monitor"
     },
-    "modules": [
-      "battery",
-      "temperature",
-      "disk",
-      "network",
-      "memory",
-      "cpu"      
-    ],
+    "modules": ["cpu", "temperature", "disk", "network", "memory"],
     "orientation": "horizontal"
   },
   "group/language-and-keyboard": {
     "drawer": {
       "children-class": "drawer-child-language-and-keyboard"
     },
-    "modules": [
-      "hyprland/language",
-      "keyboard-state"
-    ],
+    "modules": ["hyprland/language", "keyboard-state"],
     "orientation": "horizontal"
   },
   "group/wl-gammarelay": {
@@ -48,10 +35,7 @@
     "drawer": {
       "children-class": "drawer-child-misc"
     },
-    "modules": [
-      "idle_inhibitor",
-      "privacy"
-    ],
+    "modules": ["idle_inhibitor", "privacy"],
     "orientation": "horizontal"
   }
 }

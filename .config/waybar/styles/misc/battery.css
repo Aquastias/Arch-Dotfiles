@@ -1,0 +1,20 @@
+#battery {
+  margin: 5px;
+  padding: 0 20px;
+  border: 2px solid @blue;
+  border-radius: 25px 50px;
+  color: @mauve;
+  background-color: @mantle;
+}
+
+#battery.charging {
+  color: @teal;
+}
+
+#battery.warning:not(.charging) {
+  color: @yellow;
+}
+
+#battery.critical:not(.charging) {
+  color: @red;
+}

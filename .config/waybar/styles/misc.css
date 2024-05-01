@@ -3,6 +3,7 @@
 @import url('./misc/general.css');
 @import url('./misc/clock.css');
 @import url('./misc/bluetooth.css');
+@import url('./misc/battery.css');
 @import url('./misc/tray.css');
 @import url('./misc/gamemode.css');
 @import url('./misc/idle-inhibitor.css');

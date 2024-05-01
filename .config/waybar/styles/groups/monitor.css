@@ -33,17 +33,3 @@
 #disk {
   color: @lavender;
 }
-
-#battery,
-#battery.charging {
-  padding-left: 10px;
-  color: @green;
-}
-
-#battery.warning:not(.charging) {
-  color: @yellow;
-}
-
-#battery.critical:not(.charging) {
-  color: @red;
-}
