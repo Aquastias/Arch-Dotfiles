@@ -1,8 +1,8 @@
 #battery {
   margin: 5px;
-  padding: 0 20px;
+  padding: 0 10px 0 15px;
   border: 2px solid @blue;
-  border-radius: 25px 50px;
+  border-radius: 25px;
   color: @mauve;
   background-color: @mantle;
 }
