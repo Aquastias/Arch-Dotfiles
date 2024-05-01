@@ -10,7 +10,8 @@ catppuccin-gtk-theme-frappe
 catppuccin-gtk-theme-latte
 catppuccin-gtk-theme-macchiato
 catppuccin-gtk-theme-mocha
-ckb-next
+ckb-next-git
+clamav-unofficial-sigs
 flameshot-git
 hyprkeys
 hyprpicker
