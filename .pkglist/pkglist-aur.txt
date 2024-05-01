@@ -1,4 +1,4 @@
-7-zip
+7-zip-bin
 amdgpu_top-bin
 ani-cli-git
 auto-cpufreq
@@ -10,7 +10,7 @@ catppuccin-gtk-theme-frappe
 catppuccin-gtk-theme-latte
 catppuccin-gtk-theme-macchiato
 catppuccin-gtk-theme-mocha
-clamav-unofficial-sigs
+ckb-next
 flameshot-git
 hyprkeys
 hyprpicker
@@ -23,7 +23,7 @@ papirus-folders-catppuccin-git
 paru
 paru-debug
 realmd
-rofi-lbonn-wayland
+rofi-lbonn-wayland-git
 sddm-theme-catppuccin-git
 swww
 ttf-ms-fonts
