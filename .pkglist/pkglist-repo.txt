@@ -1,5 +1,6 @@
 amd-ucode
 apparmor
+arch-install-scripts
 arj
 atril
 base
@@ -22,7 +23,9 @@ discord
 dnsmasq
 docker
 docker-compose
+dolphin
 dpkg
+dunst
 efibootmgr
 egl-wayland
 extra-cmake-modules
@@ -92,7 +95,6 @@ noto-fonts-cjk
 noto-fonts-emoji
 nvidia-utils
 obs-studio
-openssh
 os-prober
 otf-font-awesome
 otf-monaspace
@@ -165,7 +167,6 @@ uwsgi
 uwsgi-plugin-python
 vim
 virt-manager
-vlc
 vulkan-intel
 vulkan-radeon
 waybar
@@ -173,7 +174,7 @@ wget
 wireless_tools
 wireplumber
 wl-clipboard
-wpa_supplicant
+wofi
 xclip
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
