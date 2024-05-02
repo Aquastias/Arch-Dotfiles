@@ -30,7 +30,7 @@ realmd
 rofi-lbonn-wayland-git
 sddm-theme-catppuccin-git
 swww
-teamspeak3-addon-installer
+teamspeak
 ttf-ms-fonts
 update-grub
 virt-bootstrap-git
