@@ -2,6 +2,7 @@
 amdgpu_top-bin
 ani-cli-git
 auto-cpufreq
+betterbird-bin
 catppuccin-cursors-frappe
 catppuccin-cursors-latte
 catppuccin-cursors-macchiato
@@ -13,6 +14,7 @@ catppuccin-gtk-theme-mocha
 ckb-next-git
 clamav-unofficial-sigs
 flameshot-git
+grub-hook
 hyprkeys
 hyprpicker
 hyprshot
@@ -23,11 +25,13 @@ nwg-look-bin
 papirus-folders-catppuccin-git
 paru
 paru-debug
+protonmail-bridge
 realmd
 rofi-lbonn-wayland-git
 sddm-theme-catppuccin-git
 swww
 ttf-ms-fonts
+update-grub
 virt-bootstrap-git
 vscodium-bin
 vscodium-marketplace
@@ -36,4 +40,5 @@ wl-gammarelay-rs
 wlogout
 woeusb
 wttrbar
+yay
 zplug
