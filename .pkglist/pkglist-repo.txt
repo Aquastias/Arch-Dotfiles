@@ -86,7 +86,6 @@ lzip
 man-db
 metalog
 nano
-neofetch
 neovim
 network-manager-applet
 networkmanager

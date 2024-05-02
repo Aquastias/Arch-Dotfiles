@@ -25,6 +25,7 @@ nwg-look-bin
 papirus-folders-catppuccin-git
 paru
 paru-debug
+pfetch
 protonmail-bridge
 realmd
 rofi-lbonn-wayland-git
