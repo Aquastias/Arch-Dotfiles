@@ -75,7 +75,8 @@ COMPLETION_WAITING_DOTS="true"
 # * '[dd.mm.yyyy]'   # [dd.mm.yyyy] + [time] with colors
 # * '[yyyy-mm-dd]'   # [yyyy-mm-dd] + [time] with colors
 # If not set, the default value is 'yyyy-mm-dd'.
-# HIST_STAMPS='yyyy-mm-dd'
+HIST_STAMPS='yyyy-mm-dd'
+
 
 # Uncomment the following line if you do not want OMB to overwrite the existing
 # aliases by the default OMB aliases defined in lib/*.sh
@@ -155,7 +156,7 @@ export LANG=en_US.UTF-8
 export ARCHFLAGS="-arch x86_64"
 
 # ssh
-# export SSH_KEY_PATH="~/.ssh/rsa_id"
+export SSH_KEY_PATH="~/.ssh/rsa_id"
 
 # Set personal aliases, overriding those provided by oh-my-bash libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-bash
@@ -164,4 +165,8 @@ export ARCHFLAGS="-arch x86_64"
 #
 # Example aliases
 alias bashconfig="nvim ~/.bashrc"
+alias bashreload="source ~/.bashrc"
 alias ohmybash="nvim ~/.oh-my-bash"
+
+# History ignore
+export HISTIGNORE="*sudo -S*:$HISTIGNORE"

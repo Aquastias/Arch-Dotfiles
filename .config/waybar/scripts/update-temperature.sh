@@ -2,6 +2,7 @@
 
 # Is Hyprland running
 if ! hyprctl monitors | grep -q 'Monitor'; then
+  echo 'Hyprland is not running! Exiting...'
   exit 0
 fi
 
@@ -42,31 +43,39 @@ start_time_sec=$(date -d "$start_time" +"%s")
 end_time_sec=$(date -d "$end_time" +"%s")
 current_time_sec=$(date -d "$current_time" +"%s")
 daylight_time_sec=$(date -d "$daylight_time" +"%s")
-midnight=$(date -d "00:00" +"%s")
 
-# Check if the current time is within the specified range
-if [[ "$current_time_sec" -gt "$start_time_sec" && "$current_time_sec" -lt "$end_time_sec" ]]; then
+function is_time_in_interval() {
+  local current_time="$1"
+  local start_time="$2"
+  local end_time="$3"
+
+  if [[ "$current_time" -ge "$start_time" && "$current_time" -le "$end_time" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function set_temperature() {
+  local temperature="$1"
+
+  busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay Temperature q "$temperature"
+}
+
+if is_time_in_interval "$current_time_sec" "$start_time_sec" "$end_time_sec"; then
   # Calculate the temperature value based on the current time (adjust this formula as needed)
   # This formula gradually reduces the temperature value from 6500 to 4500 over the time range
   temperature=$(echo "6500 - 2000 * ($current_time_sec - $start_time_sec) / ($end_time_sec - $start_time_sec)" | bc)
 
-  # In case the temperature falls under 4500 set it back
   if [ "$temperature" -lt 4500 ]; then
-    if [ "$current_time_sec" -ge "$daylight_time_sec" ] && [ "$current_time_sec" -lt "$start_time_sec" ]; then
-      temperature=6500
-    else
-      temperature=4500
-    fi
+    temperature=4500
   fi
 
-  # Set the temperature value using busctl
-  busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay Temperature q "$temperature"
+  set_temperature "$temperature"
 else
-  if [[ "$current_time_sec" -lt "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
-    # Before daylight time or at midnight, set temperature to 4500
-    busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay Temperature q 4500
+  if [[ "$current_time_sec" -lt "$daylight_time_sec" ]]; then
+    set_temperature 4500
   else
-    # After daylight time, set the temperature value to a default (e.g., 6500)
-    busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay Temperature q 6500
+    set_temperature 6500
   fi
 fi

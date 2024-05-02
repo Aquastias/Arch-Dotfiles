@@ -2,6 +2,7 @@
 
 # Is Hyprland running
 if ! hyprctl monitors | grep -q 'Monitor'; then
+  echo 'Hyprland is not running! Exiting...'
   exit 0
 fi
 
@@ -42,33 +43,41 @@ start_time_sec=$(date -d "$start_time" +"%s")
 end_time_sec=$(date -d "$end_time" +"%s")
 current_time_sec=$(date -d "$current_time" +"%s")
 daylight_time_sec=$(date -d "$daylight_time" +"%s")
-midnight=$(date -d "00:00" +"%s")
 
-# Check if the current time is within the specified range
-if [[ "$current_time_sec" -gt "$start_time_sec" && "$current_time_sec" -lt "$end_time_sec" ]]; then
+function is_time_in_interval() {
+  local current_time="$1"
+  local start_time="$2"
+  local end_time="$3"
+
+  if [[ "$current_time" -ge "$start_time" && "$current_time" -le "$end_time" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function set_brightness() {
+  local brightness="$1"
+
+  busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d "$brightness"
+}
+
+if is_time_in_interval "$current_time_sec" "$start_time_sec" "$end_time_sec"; then
   # Calculate the brightness reduction within the time range, with steps of 0.02
   # This formula gradually reduces the brightness value by 0.02 for each 1800 seconds (30 minutes) within the time range
   brightness_step=0.02
   brightness_reduction=$(echo "($current_time_sec - $start_time_sec) / 1800 * $brightness_step" | bc -l 2>/dev/null)
   brightness=$(echo "1.0 - $brightness_reduction" | bc -l 2>/dev/null)
 
-  # In case the brightness falls under 80% set it back
   if (($(echo "$brightness < 0.8" | bc -l 2>/dev/null))); then
-    if [ "$current_time_sec" -ge "$daylight_time_sec" ] && [ "$current_time_sec" -lt "$start_time_sec" ]; then
-      brightness=1.0
-    else
-      brightness=0.8
-    fi
+    brightness=0.8
   fi
 
-  # Set the brightness value using busctl
-  busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d "$brightness"
+  set_brightness "$brightness"
 else
-  if [[ "$current_time_sec" -lt "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
-    # Outside the specified time range but before daylight, set brightness to 80%
-    busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d 0.8
+  if [[ "$current_time_sec" -lt "$daylight_time_sec" ]]; then
+    set_brightness 0.8
   else
-    # Outside the specified time range, set the brightness value to a default (e.g., 1.0)
-    busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Brightness d 1.0
+    set_brightness 1.0
   fi
 fi

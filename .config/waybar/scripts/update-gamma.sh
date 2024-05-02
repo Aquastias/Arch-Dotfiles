@@ -2,6 +2,7 @@
 
 # Is Hyprland running
 if ! hyprctl monitors | grep -q 'Monitor'; then
+  echo 'Hyprland is not running! Exiting...'
   exit 0
 fi
 
@@ -42,33 +43,41 @@ start_time_sec=$(date -d "$start_time" +"%s")
 end_time_sec=$(date -d "$end_time" +"%s")
 current_time_sec=$(date -d "$current_time" +"%s")
 daylight_time_sec=$(date -d "$daylight_time" +"%s")
-midnight=$(date -d "00:00" +"%s")
 
-# Check if the current time is within the specified range
-if [[ "$current_time_sec" > "$start_time_sec" && "$current_time_sec" < "$end_time_sec" ]]; then
+function is_time_in_interval() {
+  local current_time="$1"
+  local start_time="$2"
+  local end_time="$3"
+
+  if [[ "$current_time" -ge "$start_time" && "$current_time" -le "$end_time" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function set_gamma() {
+  local gamma="$1"
+
+  busctl --user set-property rs.wl-gammarelay / rs.wl.gammarelay gamma d "$gamma"
+}
+
+if is_time_in_interval "$current_time_sec" "$start_time_sec" "$end_time_sec"; then
   # Calculate the gamma reduction within the time range, with steps of 0.02
   # This formula gradually reduces the gamma value by 0.02 for each 1800 seconds (30 minutes) within the time range
   gamma_step=0.02
   gamma_reduction=$(echo "($current_time_sec - $start_time_sec) / 1800 * $gamma_step" | bc -l 2>/dev/null)
   gamma=$(echo "1.0 - $gamma_reduction" | bc -l 2>/dev/null)
 
-  # In case the gamma falls under 80% set it back
   if (($(echo "$gamma < 0.8" | bc -l 2>/dev/null))); then
-    if [ "$current_time_sec" -ge "$daylight_time_sec" ] && [ "$current_time_sec" -lt "$start_time_sec" ]; then
-      gamma=1.0
-    else
-      gamma=0.8
-    fi
+    gamma=0.8
   fi
 
-  # Set the gamma value using busctl
-  busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Gamma d "$gamma"
+  set_gamma "$gamma"
 else
-  if [[ "$current_time_sec" < "$daylight_time_sec" || "$current_time_sec" -ge "$midnight" ]]; then
-    # Outside the specified time range but before daylight, set gamma to 80%
-    busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Gamma d 0.8
+  if [[ "$current_time_sec" -lt "$daylight_time_sec" ]]; then
+    set_gamma 0.8
   else
-    # Outside the specified time range, set the gamma value to a default (e.g., 1.0)
-    busctl --user -- set-property rs.wl-gammarelay / rs.wl.gammarelay Gamma d 1.0
+    set_gamma 1.0
   fi
 fi
