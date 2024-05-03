@@ -2,7 +2,6 @@
 amdgpu_top-bin
 ani-cli-git
 auto-cpufreq
-betterbird-bin
 catppuccin-cursors-frappe
 catppuccin-cursors-latte
 catppuccin-cursors-macchiato
@@ -31,7 +30,6 @@ realmd
 rofi-lbonn-wayland-git
 sddm-theme-catppuccin-git
 swww
-teamspeak
 timeshift-autosnap
 timeshift-systemd-timer
 ttf-ms-fonts
