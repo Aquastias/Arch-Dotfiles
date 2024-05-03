@@ -32,6 +32,8 @@ rofi-lbonn-wayland-git
 sddm-theme-catppuccin-git
 swww
 teamspeak
+timeshift-autosnap
+timeshift-systemd-timer
 ttf-ms-fonts
 update-grub
 virt-bootstrap-git

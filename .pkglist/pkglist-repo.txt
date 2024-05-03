@@ -23,7 +23,6 @@ discord
 dnsmasq
 docker
 docker-compose
-dolphin
 dpkg
 efibootmgr
 egl-wayland
@@ -81,6 +80,7 @@ linux-firmware
 linux-lts
 lld
 llvm
+lxappearance
 lynx
 lzip
 man-db
@@ -133,6 +133,7 @@ stow
 swayidle
 swaylock
 swaync
+teamspeak3
 testdisk
 thunar
 thunar-archive-plugin
