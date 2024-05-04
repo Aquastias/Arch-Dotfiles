@@ -1,26 +1,29 @@
 ### Global
 ## ZSH
-ZSHRC_SOURCE="$HOME/.zshrc"
-ZSH_FUNCTIONS_PATH="$HOME/.zfunc"
-ZSH_ALIASES="$HOME/.zsh_aliases"
+export ZSHRC_SOURCE="$HOME/.zshrc"
+export ZSH_FUNCTIONS_PATH="$HOME/.zfunc"
+export ZSH_ALIASES="$HOME/.zsh_aliases"
 
 ## Sudo
-SUDO="sudo"
+export SUDO="sudo"
+
+## Shell commons path
+export SHELL_COMMONS="$HOME/.dotfiles/shell-commons"
 
 ## Zplug
-ZPLUG="$HOME/.zplug"
-ZPLUG_REPO_URL="https://github.com/zplug/zplug"
-ZPLUG_INIT_PATH="/usr/share/zsh/scripts/zplug/init.zsh"
+export ZPLUG="$HOME/.zplug"
+export ZPLUG_REPO_URL="https://github.com/zplug/zplug"
+export ZPLUG_INIT_PATH="/usr/share/zsh/scripts/zplug/init.zsh"
 
 # Colorize
-ZSH_COLORIZE_STYLE="colorful"
-ZSH_COLORIZE_CHROMA_FORMATTER=terminal256
+export ZSH_COLORIZE_STYLE="colorful"
+export ZSH_COLORIZE_CHROMA_FORMATTER=terminal256
 
 # Web search
-ZSH_WEB_SEARCH_ENGINES=(searxng "http://localhost:8080/search/?q=")
+export ZSH_WEB_SEARCH_ENGINES=(whoogle "http://localhost:5000/search?q=")
 
 # Zoxide
-ZOXIDE_CMD_OVERRIDE="cd"
+export ZOXIDE_CMD_OVERRIDE="cd"
 ###
 
 ### Exportable

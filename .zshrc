@@ -120,8 +120,15 @@ fi
 zplug load
 # END - zplug
 
-# Display Pokemon
-krabby random | tail -n +2
-
 # NVM - NodeJs version manager
 source /usr/share/nvm/init-nvm.sh
+
+# Display banner
+echo "
+  .-------.
+  |  Hi   |
+  '-------'
+      ^      (\_/)
+      '----- (O.o)
+             (> <)
+"

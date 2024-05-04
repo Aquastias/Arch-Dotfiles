@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-function package_installed() {
-  pacman -Q "$1" &>/dev/null
-}
+# shellcheck source=/dev/null
+source "$SHELL_COMMONS/commands.sh"
+source "$SHELL_COMMONS/packages.sh"
+
+check_command "paru"
 
 echo "Installing teamspeak3..."
 

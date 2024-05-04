@@ -191,6 +191,7 @@ vulkan-intel
 vulkan-radeon
 waybar
 wget
+whoogle
 wireless_tools
 wireplumber
 wl-clipboard

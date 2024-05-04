@@ -8,7 +8,6 @@ ckb-next-git
 grub-hook
 hyprkeys
 hyprpicker
-krabby-bin
 musikcube-bin
 nwg-look-bin
 papirus-folders-catppuccin-git
