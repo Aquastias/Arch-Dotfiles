@@ -4,7 +4,7 @@
 source "$SHELL_COMMONS/arrays.sh"
 source "$SHELL_COMMONS/packages.sh"
 
-ignore_pkgs=("teamspeak3")
+ignore_pkgs=("teamspeak3" "whoogle")
 
 # Install packages from repository
 # shellcheck disable=SC2024
@@ -29,5 +29,9 @@ fi
 # Execute teamspeak3 script
 chmod +x ./teamspeak3/install.sh
 ./teamspeak3/install.sh
+
+# Execute whoogle script
+chmod +x ./whoogle/install.sh
+./whoogle/install.sh
 
 echo "All packages now installed!"
