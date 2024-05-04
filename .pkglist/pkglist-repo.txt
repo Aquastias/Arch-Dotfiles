@@ -3,6 +3,7 @@ apparmor
 arch-install-scripts
 arj
 atril
+auto-cpufreq
 base
 base-devel
 bat
@@ -15,8 +16,16 @@ bridge-utils
 brightnessctl
 btop
 btrfs-progs
+catppuccin-cursors-mocha
+catppuccin-gtk-theme-frappe
+catppuccin-gtk-theme-latte
+catppuccin-gtk-theme-macchiato
+catppuccin-gtk-theme-mocha
 ccache
+chaotic-keyring
+chaotic-mirrorlist
 clamav
+clamav-unofficial-sigs
 clamtk
 cliphist
 discord
@@ -34,6 +43,7 @@ ffmpegthumbnailer
 file-roller
 firefox-developer-edition
 firewalld
+flameshot-git
 fwupd
 fzf
 gamemode
@@ -48,6 +58,7 @@ htop
 hypridle
 hyprland
 hyprlock
+hyprshot
 inotify-tools
 intel-media-driver
 iwd
@@ -92,15 +103,18 @@ networkmanager
 noto-fonts-cjk
 noto-fonts-emoji
 nvidia-utils
+nvm
 obs-studio
 os-prober
 otf-font-awesome
 otf-monaspace
 p7zip
 packagekit-qt5
+paru
 pavucontrol
 pdftk
 perl-cpanplus-dist-arch
+pfetch
 pipewire
 pipewire-alsa
 pipewire-jack
@@ -120,7 +134,9 @@ qt5ct
 qt6-wayland
 qt6ct
 ranger
+realmd
 reflector
+rofi-lbonn-wayland-git
 rpm-tools
 sddm
 seahorse
@@ -133,6 +149,7 @@ stow
 swayidle
 swaylock
 swaync
+swww
 teamspeak3
 testdisk
 thunar
@@ -140,6 +157,7 @@ thunar-archive-plugin
 thunar-media-tags-plugin
 thunar-volman
 timeshift
+timeshift-autosnap
 tree
 ttf-cascadia-code-nerd
 ttf-dejavu
@@ -151,6 +169,7 @@ ttf-jetbrains-mono-nerd
 ttf-linux-libertine
 ttf-meslo-nerd
 ttf-monaspace-variable
+ttf-ms-fonts
 ttf-nerd-fonts-symbols
 ttf-nerd-fonts-symbols-mono
 ttf-roboto
@@ -161,11 +180,13 @@ unace
 unarj
 unrar
 unzip
+update-grub
 uwsgi
 uwsgi-plugin-python
 vim
 virt-manager
 vlc
+vscodium-marketplace
 vulkan-intel
 vulkan-radeon
 waybar
@@ -173,6 +194,8 @@ wget
 wireless_tools
 wireplumber
 wl-clipboard
+wlogout
+woeusb
 xclip
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
@@ -184,6 +207,7 @@ xf86-video-vmware
 xorg-server
 xorg-xinit
 xsel
+yay
 zip
 zoxide
 zram-generator

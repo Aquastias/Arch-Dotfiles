@@ -1,3 +1,5 @@
 [user]
 	email = alexandrumlakar@gmail.com
 	name = Mlakar Alexandru Laurian
+[safe]
+	directory = /usr/local/searxng-docker
