@@ -29,9 +29,9 @@ if [ ! -d "$HOME/.ts3client/styles" ]; then
   mkdir "$HOME/.ts3client/styles"
 fi
 
-cp -R "$HOME/.dotfiles/.pkglist/teamspeak3/addons/icons/MaterialForTeamspeakWhite" "$HOME/.ts3client/gfx"
-cp -R "$HOME/.dotfiles/.pkglist/teamspeak3/addons/themes/Demus/Demus" "$HOME/.ts3client/styles"
-cp -R "$HOME/.dotfiles/.pkglist/teamspeak3/addons/themes/Demus/Demus.qss" "$HOME/.ts3client/styles"
-cp -R "$HOME/.dotfiles/.pkglist/teamspeak3/addons/themes/Demus/Demus_chat.qss" "$HOME/.ts3client/styles"
+cp -R "$DOTFILES/.pkglist/teamspeak3/addons/icons/MaterialForTeamspeakWhite" "$HOME/.ts3client/gfx"
+cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus" "$HOME/.ts3client/styles"
+cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus.qss" "$HOME/.ts3client/styles"
+cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus_chat.qss" "$HOME/.ts3client/styles"
 
 echo "Installation finished!"
