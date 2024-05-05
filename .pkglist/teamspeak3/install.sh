@@ -3,15 +3,12 @@
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
 source "$SHELL_COMMONS/packages.sh"
+source "$SHELL_COMMONS/permissions.sh"
 
+check_root
 check_command "paru"
 
 echo "Installing teamspeak3..."
-
-if ! command -v paru &>/dev/null; then
-  echo "paru is not installed!"
-  exit 127
-fi
 
 if ! package_installed "teamspeak3"; then
   paru -S --noconfirm --skipreview teamspeak3

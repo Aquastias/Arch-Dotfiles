@@ -3,19 +3,21 @@
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
 source "$SHELL_COMMONS/packages.sh"
+source "$SHELL_COMMONS/permissions.sh"
 
+check_root
 check_command "paru"
 
-echo "Installing teamspeak3..."
+echo "Installing whoogle..."
 
 if ! package_installed "whoogle"; then
-  eval "$SUDO paru -S --skipreview --noconfirm whoogle"
+  paru -S --skipreview --noconfirm whoogle
 fi
 
 sleep 5
 
-eval "$SUDO chown -R whoogle:whoogle /opt/whoogle-search/"
-eval "$SUDO systemctl enable --now whoogle"
+chown -R whoogle:whoogle /opt/whoogle-search/
+systemctl enable --now whoogle
 
 echo "Installation finished!"
 echo "Whoogle is now available at localhost:5000!"
