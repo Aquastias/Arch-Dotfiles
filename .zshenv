@@ -7,6 +7,9 @@ export ZSH_ALIASES="$HOME/.zsh_aliases"
 ## Sudo
 export SUDO="sudo"
 
+## Dotfiles
+export DOTFILES="$HOME/.dotfiles"
+
 ## Shell commons path
 export SHELL_COMMONS="$HOME/.dotfiles/shell-commons"
 

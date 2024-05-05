@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# Check if the script is run as root
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script must be run as root"
   exit 1
@@ -18,6 +17,12 @@ sed -i 's/^# Defaults env_keep += "HOME"/Defaults env_keep += "HOME"/' "$sudoers
 
 if ! grep -Rq 'Defaults env_keep += "SHELL_COMMONS"' "$sudoers_file"; then
   sed -i '/Defaults env_keep += "HOME"/aDefaults env_keep += "SHELL_COMMONS"' "$sudoers_file"
+fi
+
+if ! grep -Rq 'Defaults env_keep += "DOTFILES"' "$sudoers_file"; then
+  if grep -Rq 'Defaults env_keep += "SHELL_COMMONS"' "$sudoers_file"; then
+    sed -i '/Defaults env_keep += "SHELL_COMMONS"/aDefaults env_keep += "DOTFILES"' "$sudoers_file"
+  fi
 fi
 
 echo "Changes applied to $sudoers_file"
