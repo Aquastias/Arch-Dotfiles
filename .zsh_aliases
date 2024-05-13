@@ -148,3 +148,13 @@ alias ckb-reload='$SUDO systemctl enable --now ckb-next-daemon'
 ### Anime
 alias anime="ani-cli"
 ###
+
+### Pnpm
+alias pn="pnpm"
+alias pna="pnpm add"
+alias pnad="pnpm add -D"
+alias pned="pnpm add -ED"
+alias pnup="pnpm update"
+alias pnin="pnpm install"
+alias pni="pnpm init"
+###

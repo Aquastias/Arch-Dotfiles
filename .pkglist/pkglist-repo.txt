@@ -48,8 +48,10 @@ fwupd
 fzf
 gamemode
 git
+git-lfs
 gn
 gnome-keyring
+google-chrome
 grim
 grub
 gscan2pdf
@@ -100,6 +102,7 @@ nano
 neovim
 network-manager-applet
 networkmanager
+nodejs
 noto-fonts-cjk
 noto-fonts-emoji
 nvidia-utils
