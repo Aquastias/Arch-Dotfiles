@@ -12,7 +12,6 @@ musikcube-bin
 nwg-look-bin
 papirus-folders-catppuccin-git
 paru-debug
-protonmail-bridge
 sddm-theme-catppuccin-git
 timeshift-systemd-timer
 virt-bootstrap-git
