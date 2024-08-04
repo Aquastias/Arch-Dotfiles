@@ -36,7 +36,7 @@ chmod +x ./whoogle/install.sh
 ./whoogle/install.sh
 
 # Execute searxng script
-chmod +x ./searxng/install.sh
-./searxng/install.sh
+#chmod +x ./searxng/install.sh
+#./searxng/install.sh
 
 echo "All packages now installed!"

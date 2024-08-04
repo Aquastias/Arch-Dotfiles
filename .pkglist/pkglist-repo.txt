@@ -95,6 +95,7 @@ linux-firmware
 linux-lts
 lld
 llvm
+lxappearance
 lynx
 lzip
 man-db
@@ -147,7 +148,6 @@ seahorse
 slurp
 smartmontools
 sof-firmware
-spdlog
 speech-dispatcher
 steam
 stow
