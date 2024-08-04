@@ -193,7 +193,7 @@ vlc
 vscodium-marketplace
 vulkan-intel
 vulkan-radeon
-waybar-git
+waybar
 wget
 whoogle
 wireless_tools
