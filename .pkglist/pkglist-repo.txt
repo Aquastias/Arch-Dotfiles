@@ -148,6 +148,7 @@ seahorse
 slurp
 smartmontools
 sof-firmware
+spdlog
 speech-dispatcher
 steam
 stow
