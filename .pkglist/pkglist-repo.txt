@@ -12,6 +12,7 @@ bitwarden
 blueman
 bluez-cups
 bluez-utils
+brave-bin
 bridge-utils
 brightnessctl
 btop
@@ -30,7 +31,6 @@ clamtk
 cliphist
 discord
 dnsmasq
-docker
 docker-compose
 dpkg
 efibootmgr
@@ -53,6 +53,7 @@ gn
 gnome-keyring
 google-chrome
 grim
+grimblast-git
 grub
 gscan2pdf
 gst-plugin-pipewire
@@ -60,6 +61,7 @@ htop
 hypridle
 hyprland
 hyprlock
+hyprpicker-git
 hyprshot
 inotify-tools
 intel-media-driver
@@ -93,7 +95,6 @@ linux-firmware
 linux-lts
 lld
 llvm
-lxappearance
 lynx
 lzip
 man-db
@@ -146,6 +147,7 @@ seahorse
 slurp
 smartmontools
 sof-firmware
+spdlog
 speech-dispatcher
 steam
 stow
@@ -192,7 +194,7 @@ vlc
 vscodium-marketplace
 vulkan-intel
 vulkan-radeon
-waybar
+waybar-git
 wget
 whoogle
 wireless_tools

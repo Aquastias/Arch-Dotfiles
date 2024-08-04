@@ -7,8 +7,6 @@ catppuccin-cursors-macchiato
 ckb-next-git
 grub-hook
 hyprkeys
-hyprpicker
-musikcube-bin
 nwg-look-bin
 papirus-folders-catppuccin-git
 paru-debug
