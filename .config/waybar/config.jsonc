@@ -55,17 +55,18 @@
       "~/.config/waybar/conf/custom/gamma.jsonc"
     ],
     "layer": "top",
-    "modules-center": [
+    "modules-center": [],
+    "modules-left": [
       "group/language-and-keyboard",
       "idle_inhibitor",
-      "group/wl-gammarelay",
+      "group/wl-gammarelay"
+    ],
+    "modules-right": [
       "bluetooth",
       "custom/gpu-usage",
       "group/monitor",
       "battery"
     ],
-    "modules-left": [],
-    "modules-right": [],
     "name": "waybar",
     "position": "bottom",
     "reload_style_on_change": true,
