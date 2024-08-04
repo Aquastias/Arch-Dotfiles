@@ -12,7 +12,6 @@ papirus-folders-catppuccin-git
 paru-debug
 sddm-theme-catppuccin-git
 timeshift-systemd-timer
-virt-bootstrap-git
 vscodium-bin
 waypaper
 wl-gammarelay-rs

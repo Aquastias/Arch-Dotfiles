@@ -189,7 +189,6 @@ update-grub
 uwsgi
 uwsgi-plugin-python
 vim
-virt-manager
 vlc
 vscodium-marketplace
 vulkan-intel
