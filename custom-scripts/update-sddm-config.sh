@@ -18,7 +18,7 @@ RebootCommand=/usr/bin/systemctl reboot
 [Theme]
 Current=catppuccin-mocha
 CursorSize=32
-CursorTheme=Catppuccin-Mocha-Mauve-Cursors
+CursorTheme=catppuccin-mocha-mauve-cursors
 DisableAvatarsThreshold=7
 EnableAvatars=true
 FacesDir=/usr/share/sddm/faces
@@ -64,7 +64,7 @@ else
 fi
 
 # Define the new Inherits value
-new_inherits_value="Catppuccin-Mocha-Mauve-Cursors"
+new_inherits_value="catppuccin-mocha-mauve-cursors"
 
 # Check if the index.theme file exists
 if [ -f /usr/share/icons/default/index.theme ]; then

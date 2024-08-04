@@ -1,13 +1,13 @@
 #workspaces {
-  margin: 5px;
+  margin: 5px 0;
   padding: 0 10px;
   border: 2px solid @blue;
-  border-radius: 50px 25px;
+  border-radius: 10px;
   background-color: @mantle;
 }
 
 #workspaces button {
-  margin: 5px;
+  margin: 5px 0;
   padding: 0 10px;
   color: @text;
 }
@@ -19,10 +19,10 @@
 }
 
 #window {
-  margin: 5px;
+  margin: 5px 0;
   padding: 0 20px;
   border: 2px solid @blue;
-  border-radius: 50px 25px;
+  border-radius: 10px;
   background-color: @mantle;
   font-size: 90%;
   color: @sapphire;
