@@ -18,7 +18,7 @@
       "~/.config/waybar/conf/custom/notification.jsonc",
       "~/.config/waybar/conf/custom/weather.jsonc"
     ],
-    "layer": "top",
+    "layer": "bottom",
     "modules-center": [],
     "modules-left": [
       "custom/power",
@@ -54,7 +54,7 @@
       "~/.config/waybar/conf/misc/idle-inhibitor.jsonc",
       "~/.config/waybar/conf/custom/gamma.jsonc"
     ],
-    "layer": "top",
+    "layer": "bottom",
     "modules-center": [],
     "modules-left": [
       "group/language-and-keyboard",
