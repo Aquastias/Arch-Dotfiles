@@ -8,7 +8,6 @@ base
 base-devel
 bat
 bc
-bitwarden
 blueman
 bluez-cups
 bluez-utils
@@ -43,7 +42,6 @@ ffmpegthumbnailer
 file-roller
 firefox-developer-edition
 firewalld
-flameshot-git
 fwupd
 fzf
 gamemode
@@ -89,12 +87,12 @@ lib32-openal
 lib32-v4l-utils
 libpulse
 libva-intel-driver
-libva-mesa-driver
 linux
 linux-firmware
 linux-lts
 lld
 llvm
+lutris
 lxappearance
 lynx
 lzip
@@ -139,9 +137,7 @@ qt5ct
 qt6-wayland
 qt6ct
 ranger
-realmd
 reflector
-rofi-lbonn-wayland-git
 rpm-tools
 sddm
 seahorse
@@ -181,6 +177,7 @@ ttf-roboto
 ttf-sazanami
 ttf-ubuntu-font-family
 tumbler
+udiskie
 unace
 unarj
 unrar
@@ -196,8 +193,10 @@ vulkan-radeon
 waybar
 wget
 whoogle
+wine
 wireless_tools
 wireplumber
+wl-clip-persist
 wl-clipboard
 wlogout
 woeusb
