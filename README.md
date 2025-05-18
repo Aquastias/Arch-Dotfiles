@@ -1,6 +1,6 @@
-# My dotfiles
+# My Arch Linux dotfiles
 
-This directory contains the dotfiles for my system: Eterniox.
+This directory contains the dotfiles for my Arch Linux system: Eterniox.
 
 ## Requirements
 
