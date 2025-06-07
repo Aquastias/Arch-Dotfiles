@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+function find_text_in_files () {
+  if [ -d "$1" ]; then
+      folder="$1"
+      shift
+  else
+      folder="."
+  fi
+
+  # Use find to search for only files (not directories)
+  # Use -type f to exclude directories
+  # Use -not -path '*/\.*' to exclude hidden files
+  # Use -print0 and xargs -0 to handle filenames with spaces
+  # Use grep -nH --color=always to print line numbers and highlight matches
+  find "$folder" -type f -not -path '*/\.*' -print0 | xargs -0 grep -nHir --color=always "$@" | less -R
+}

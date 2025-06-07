@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Define default value for SUDO if not already defined
+: "${SUDO:=sudo}"
+
+# Function to perform system upgrade
+function system_upgrade() {
+  if command -v paru &>/dev/null; then
+    if ! paru -Syyu --newsonupgrade; then
+      echo "Failed to upgrade system using paru" >&2
+      return 1
+    fi
+  else
+    if ! $SUDO pacman -Syyu; then
+      echo "Failed to upgrade system using pacman" >&2
+      return 1
+    fi
+  fi
+}

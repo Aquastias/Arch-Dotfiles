@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+function up_n_dirs() {
+  # Default to going up one directory
+  local levels=${1:-1}
+
+  # Build the string of '..' levels
+  local dots=""
+  for (( i=1; i<=levels; i++ )); do
+    dots="../$dots"
+  done
+
+  # Change to the target directory
+  if cd "$dots"; then
+    pwd
+  else
+    echo "Error: Failed to change directory." >&2
+    return 1
+  fi
+}

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+function mkdir_and_go() {
+  # Check that the directory name is provided
+  if [ -z "$1" ]; then
+    echo "Error: No directory name provided." >&2
+    return 1
+  fi
+
+  # Create directory and change to it
+  mkdir -p "$1" && cd "$1" || return 1
+}

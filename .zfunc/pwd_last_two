@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+function pwd_last_two () {
+  printf '%s\n' "$(pwd | awk -F/ '{printf "%s/%s\n", $(NF-1), $NF}')"
+}

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+function move_and_go() {
+  # Check that source file exists
+  if [ ! -e "$1" ]; then
+    echo "Error: Source file '$1' does not exist." >&2
+    return 1
+  fi
+
+  # Check that destination directory exists and is writable
+  if [ ! -d "$2" ]; then
+    echo "Error: Destination directory '$2' does not exist." >&2
+    return 1
+  elif [ ! -w "$2" ]; then
+    echo "Error: Destination directory '$2' is not writable." >&2
+    return 1
+  fi
+
+  # Move file and change to destination directory
+  mv "$1" "$2" && cd "$2" || return 1
+}
