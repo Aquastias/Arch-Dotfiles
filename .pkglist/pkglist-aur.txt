@@ -1,0 +1,7 @@
+ckb-next-git
+paru
+paru-debug
+qt6ct-kde
+vscodium-bin
+zen-browser-bin
+zinit
