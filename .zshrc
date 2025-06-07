@@ -8,6 +8,9 @@ source "$HOME/.zshenv"
 # Vi keybindings
 bindkey -e
 
+# Set LS_COLORS
+eval "$(dircolors -b)"
+
 ZSH_BASE_DIR="$HOME/.zsh"
 
 # Standard
