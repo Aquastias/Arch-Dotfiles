@@ -20,7 +20,7 @@ pacman -S --needed - <pkglist-repo.txt
 echo "Installing AUR packages..."
 
 for pkg in $(<pkglist-aur.txt); do
-  if ! package_installed "$pkg" && ! string_in_array "$pkg" "${ignore_pkgs[@]}"; then
+  if ! package_installed "$pkg" && ! array_contains "$pkg" "${ignore_pkgs[@]}"; then
     paru -S --noconfirm --skipreview "$pkg"
   else
     echo "$pkg is already installed."
