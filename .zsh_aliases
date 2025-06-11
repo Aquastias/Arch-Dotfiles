@@ -129,6 +129,13 @@ alias mktarrar='rar a'
 alias mktar7z='7z a'
 ###
 
+### Encrypt / Decrypt
+alias archiveopenssl='archive_encrypt_openssl'
+alias unarchiveopenssl='unarchive_decrypt_openssl'
+alias ageencrypt='encrypt_with_age'
+alias agedecrypt='decrypt_with_age'
+###
+
 ### NetworkManager
 alias showwifipass="nmcli device wifi show-password"
 ###

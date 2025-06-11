@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+function archive_encrypt_openssl() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: archive_encrypt_openssl output_file.tar.gz.enc file1 [file2 ...]"
+    echo "Example: archive_encrypt_openssl my_archive.tar.gz.enc my_document.pdf my_photos/"
+    return 1
+  fi
+
+  local output_file="$1"
+  shift
+  local files_to_archive=("$@")
+
+  echo "Preparing to archive and encrypt files..."
+  echo "Output file: $output_file"
+  echo "Files to archive: ${files_to_archive[*]}"
+  echo ""
+
+  local password
+  local password_confirm
+
+  while true; do
+    read -r -s "password?Enter encryption password: "
+    echo
+    read -r -s "password_confirm?Confirm encryption password: "
+    echo
+
+    if [ "$password" = "$password_confirm" ]; then
+      if [ -z "$password" ]; then
+        echo "Password cannot be empty. Please try again."
+      else
+        break
+      fi
+    else
+      echo "Passwords do not match. Please try again."
+    fi
+  done
+
+  echo "Archiving and encrypting... This may take a moment."
+
+  # Use a temporary file descriptor to pass the password
+  # This is generally considered more secure than environment variables
+  if tar czf - "${files_to_archive[@]}" |
+    openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -e -out "$output_file" -pass fd:3 3<<<"$password"; then
+    echo "Encryption complete! Output saved to: $output_file"
+  else
+    echo "Error: Archiving or encryption failed."
+    rm -f "$output_file"
+    return 1
+  fi
+}

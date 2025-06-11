@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+function unarchive_decrypt_openssl() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: decrypt_archive_openssl input_file.tar.gz.enc target_directory"
+    echo "Example: decrypt_archive_openssl my_archive.tar.gz.enc extracted_files/"
+    return 1
+  fi
+
+  local input_file="$1"
+  local target_directory="$2"
+
+  echo "Preparing to decrypt archive..."
+  echo "Input file: $input_file"
+  echo "Target directory: $target_directory"
+  echo ""
+
+  if [ ! -f "$input_file" ]; then
+    echo "Error: Input file '$input_file' not found."
+    return 1
+  fi
+
+  if [ ! -d "$target_directory" ]; then
+    echo "Creating target directory: $target_directory"
+    mkdir -p "$target_directory"
+    # shellcheck disable=SC2181
+    if [ $? -ne 0 ]; then
+      echo "Error: Failed to create target directory '$target_directory'."
+      return 1
+    fi
+  fi
+
+  local password
+
+  read -r -s "password?Enter decryption password: "
+  echo
+  echo "Decrypting and extracting... This may take a moment."
+  echo
+
+  if openssl enc -aes-256-cbc -d -pbkdf2 -iter 100000 -salt -in "$input_file" -pass fd:3 3<<<"$password" |
+    tar xzf - -C "$target_directory"; then
+    echo "Decryption and extraction complete! Files extracted to: $target_directory"
+  else
+    echo "Error: Decryption or extraction failed. Check the password and file integrity."
+    return 1
+  fi
+}

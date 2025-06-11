@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+function encrypt_with_age() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: encrypt_with_age output_file.age input_file"
+    echo "Example: encrypt_with_age my_document.pdf.age my_document.pdf"
+    return 1
+  fi
+
+  local output_file="$1"
+  local input_file="$2"
+
+  echo "Preparing to encrypt with age..."
+  echo "Input file: $input_file"
+  echo "Output file: $output_file"
+  echo ""
+
+  # Check if input file exists
+  if [ ! -f "$input_file" ]; then
+    echo "Error: Input file '$input_file' not found."
+    return 1
+  fi
+
+  echo "Please enter your encryption passphrase. Age will ask for confirmation."
+
+  if age -e -p -o "$output_file" "$input_file"; then
+    echo "Encryption complete! Output saved to: $output_file"
+  else
+    echo "Error: Encryption with age failed. This might be due to an empty passphrase or a mismatch during confirmation."
+    rm -f "$output_file"
+    return 1
+  fi
+}

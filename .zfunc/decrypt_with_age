@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+function decrypt_with_age() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: decrypt_with_age input_file.age output_file"
+    echo "Example: decrypt_with_age my_document.pdf.age my_document.pdf"
+    return 1
+  fi
+
+  local input_file="$1"
+  local output_file="$2"
+
+  echo "Preparing to decrypt with age..."
+  echo "Input file: $input_file"
+  echo "Output file: $output_file"
+  echo ""
+
+  if [ ! -f "$input_file" ]; then
+    echo "Error: Input file '$input_file' not found."
+    return 1
+  fi
+
+  if [ -f "$output_file" ]; then
+    read -rq "choice?Output file '$output_file' already exists. Overwrite? (y/N) "
+    echo
+    # shellcheck disable=SC2154
+    if [[ ! "$choice" =~ ^[yY]$ ]]; then
+      echo "Decryption cancelled."
+      return 1
+    fi
+  fi
+
+  echo "Please enter your decryption passphrase. Age will prompt if needed."
+
+  if age -d -o "$output_file" "$input_file"; then
+    echo "Decryption complete! Output saved to: $output_file"
+  else
+    echo "Error: Decryption with age failed. Check the passphrase or file integrity."
+    rm -f "$output_file"
+    return 1
+  fi
+}
