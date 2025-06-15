@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly timer for SearxNG updater as %i
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+Unit=searxng-update@%i.service
+
+[Install]
+WantedBy=timers.target

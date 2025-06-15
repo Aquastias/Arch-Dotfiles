@@ -21,18 +21,27 @@ else
 fi
 
 # Enable http and https in firewalld
-if ! package_installed "firewalld"; then
+if ! package_installed "firewalld" && ! package_installed "ufw"; then
   paru -S --skipreview --noconfirm firewalld
   systemctl enable --now firewalld
+
+  if ! firewall-cmd --zone=public --list-services | grep -q -w "http" && ! firewall-cmd --zone=public --list-services | grep -q -w "https"; then
+    echo "Firewall http or https service is not enabled in the public zone. Enabling..."
+
+    firewall-cmd --permanent --zone=public --add-service=http
+    firewall-cmd --permanent --zone=public --add-service=https
+    firewall-cmd --reload
+  else
+    echo "Firewall http and https services are enabled in the public zone!"
+  fi
 fi
 
-if ! firewall-cmd --zone=public --list-services | grep -q -w "http" && ! firewall-cmd --zone=public --list-services | grep -q -w "https"; then
-  echo "Firewall http or https service is not enabled in the public zone. Enabling..."
+# Enable http and https in ufw
+if ! package_installed "ufw"; then
+  paru -S --skipreview --noconfirm ufw
+  systemctl enable --now ufw
+  ufw allow http,https
 
-  firewall-cmd --permanent --zone=public --add-service=http
-  firewall-cmd --permanent --zone=public --add-service=https
-  firewall-cmd --reload
-else
   echo "Firewall http and https services are enabled in the public zone!"
 fi
 
@@ -50,6 +59,10 @@ if [ ! -d "/usr/local/searxng-docker" ]; then
   # Start services
   cp searxng-docker.service.template searxng-docker.service
   systemctl enable --now "$(pwd)"/searxng-docker.service
+
+  # Enable update timer
+  systemctl --user daemon-reload
+  systemctl --user enable --now searxng-update@"$(whoami)".timer
 else
   echo "SearxNG docker is already installed!"
 fi

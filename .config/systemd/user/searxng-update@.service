@@ -1,0 +1,9 @@
+[Unit]
+Description=Update service for SearxNG as %i
+After=network.target
+
+[Service]
+Type=oneshot
+User=%i
+ExecStart=/home/%i/.dotfiles/.pkglist/searxng/update.sh
+

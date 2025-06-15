@@ -5,13 +5,13 @@ export ZSH_FUNCTIONS_PATH="$HOME/.zfunc"
 export ZSH_ALIASES="$HOME/.zsh_aliases"
 
 ## Sudo
-export SUDO="sudo"
+export SUDO="sudo -E"
 
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"
 
 ## Shell commons path
-export SHELL_COMMONS="$HOME/.dotfiles/.shell-commons"
+export SHELL_COMMONS="$DOTFILES/.pkglist/shell-commons"
 
 # Colorize
 export ZSH_COLORIZE_STYLE="colorful"
