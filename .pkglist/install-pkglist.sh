@@ -28,10 +28,10 @@ for pkg in $(<pkglist-aur.txt); do
 done
 
 # Execute teamspeak3 script
-chmod +x ./teamspeak3/install.sh && ./teamspeak3/install.sh
+chmod +x ./programs/teamspeak3/install.sh && ./programs/teamspeak3/install.sh
 
-# Execute searxng script
-#chmod +x ./searxng/install.sh
-#./searxng/install.sh
+# Execute SearxNG scripts
+chmod +x ./programs/searxng/install.sh && ./programs/searxng/install.sh
+chmod +x ./programs/searxng/update.sh && ./programs/searxng/update.sh
 
 echo "All packages now installed!"
