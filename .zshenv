@@ -11,7 +11,7 @@ export SUDO="sudo"
 export DOTFILES="$HOME/.dotfiles"
 
 ## Shell commons path
-export SHELL_COMMONS="$HOME/.dotfiles/shell-commons"
+export SHELL_COMMONS="$HOME/.dotfiles/.shell-commons"
 
 # Colorize
 export ZSH_COLORIZE_STYLE="colorful"
