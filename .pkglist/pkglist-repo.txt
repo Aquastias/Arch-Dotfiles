@@ -49,6 +49,7 @@ ktorrent
 kwalletmanager
 less
 lhasa
+lib32-gamemode
 libavif
 libpulse
 linux
