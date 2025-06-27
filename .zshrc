@@ -35,3 +35,5 @@ fi
 SYNTAX_THEME="$HOME/.zsh/syntax-highlighting/themes/catppuccin-mocha.zsh"
 [[ -f "$SYNTAX_THEME" ]] && source "$SYNTAX_THEME"
 
+# Suppress P10k prompt on initialization
+typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
