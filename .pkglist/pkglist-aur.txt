@@ -16,6 +16,7 @@ catppuccin-sddm-theme-macchiato
 catppuccin-sddm-theme-mocha
 ckb-next-git
 clamav-unofficial-sigs
+grub-secureboot-scripts
 octopi
 papirus-folders-catppuccin-git
 paru
