@@ -1,0 +1,8 @@
+[Unit]
+Description=ClamAV Daily Scan
+
+[Service]
+ExecStart=/home/%u/.config/clamav/clamav_daily_scan.sh
+Environment=DISPLAY=:0
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus
+

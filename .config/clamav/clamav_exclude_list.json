@@ -1,0 +1,27 @@
+{
+  "exclude_files": [
+    ".*\\.log$",
+    ".*\\.bak$",
+    ".*\\.tmp$",
+    ".*\\.iso$",
+    ".*\\.vdi$",
+    ".*\\.histfile$",
+    ".*\\.img$"
+  ],
+  "exclude_dirs": [
+    "^/proc",
+    "^/sys",
+    "^/dev",
+    "^/run",
+    "^/var/cache",
+    ".*\\.cache$",
+    "Trash",
+    "^/var/lib/docker",
+    "^/snap",
+    "^/var/lib/flatpak",
+    "Downloads",
+    ".mozilla",
+    ".zen",
+    ".local/share/klipper"
+  ]
+}
