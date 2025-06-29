@@ -91,7 +91,6 @@ speech-dispatcher
 steam
 steam-native-runtime
 stow
-teamspeak3
 timeshift
 ttf-fira-code
 ttf-sazanami
