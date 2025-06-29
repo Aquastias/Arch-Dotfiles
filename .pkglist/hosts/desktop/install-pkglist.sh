@@ -35,7 +35,6 @@ make_env_bash_scripts_executable ./programs
 
 # Execute SearxNG scripts
 ./programs/searxng/install.sh
-./programs/searxng/update.sh
 
 # Execute TeamSpeak3 script
 ./programs/teamspeak3/install.sh

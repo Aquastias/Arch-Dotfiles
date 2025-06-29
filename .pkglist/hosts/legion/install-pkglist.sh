@@ -35,6 +35,5 @@ make_env_bash_scripts_executable ./programs
 
 # Execute SearxNG scripts
 ./programs/searxng/install.sh
-./programs/searxng/update.sh
 
 echo "All packages now installed!"

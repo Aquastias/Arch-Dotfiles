@@ -66,3 +66,5 @@ if [ ! -d "/usr/local/searxng-docker" ]; then
 else
   echo "SearxNG docker is already installed!"
 fi
+
+./update.sh
