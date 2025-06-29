@@ -7,3 +7,17 @@ function check_root() {
     exit 1
   fi
 }
+
+function make_env_bash_scripts_executable() {
+  local target_dir="${1:-.}"
+
+  # Find all files and check for exact shebang
+  while IFS= read -r -d '' file; do
+    if head -n 1 "$file" | grep -q '^#!/usr/bin/env bash$'; then
+      chmod +x "$file"
+      echo "Made executable: $file"
+    fi
+  done < <(find "$target_dir" -type f -print0)
+
+  echo "Finished setting executable permissions for scripts with '#!/usr/bin/env bash'."
+}
