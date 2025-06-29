@@ -9,8 +9,8 @@ source "$SHELL_COMMONS/permissions.sh"
 check_root
 
 if ! command_exists "paru"; then
-  if [[ -f "$PKGLIST/programs/paru/install.sh" ]]; then
-    chmod +x "$PKGLIST/programs/paru/install.sh" && "$PKGLIST/programs/paru/install.sh"
+  if [[ -f "$PROGRAMS/paru/install.sh" ]]; then
+    chmod +x "$PROGRAMS/paru/install.sh" && "$PROGRAMS/paru/install.sh"
   else
     echo "⚠️  Not found or not a regular file: $script"
   fi
@@ -42,12 +42,12 @@ for pkg in $(<pkglist-aur.txt); do
 done
 
 # Make scripts executable
-make_env_bash_scripts_executable "$PKGLIST/programs"
+make_env_bash_scripts_executable "$PROGRAMS"
 
 # Setup programs
 local EXCLUDES=()
 
-for script in "$PKGLIST/programs/*/install.sh"; do
+for script in "$PROGRAMS/*/install.sh"; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list

@@ -13,6 +13,9 @@ export DOTFILES="$HOME/.dotfiles"
 ## Pkglist
 export PKGLIST="$DOTFILES/.pkglist"
 
+## Programs path
+export PROGRAMS="$PKGLIST/programs"
+
 ## Shell commons path
 export SHELL_COMMONS="$PKGLIST/shell-commons"
 
