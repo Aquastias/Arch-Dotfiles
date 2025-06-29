@@ -10,8 +10,11 @@ export SUDO="sudo -E"
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"
 
+## Pkglist
+export PKGLIST="$DOTFILES/.pkglist"
+
 ## Shell commons path
-export SHELL_COMMONS="$DOTFILES/.pkglist/shell-commons"
+export SHELL_COMMONS="$PKGLIST/shell-commons"
 
 # Colorize
 export ZSH_COLORIZE_STYLE="colorful"

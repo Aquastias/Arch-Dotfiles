@@ -7,7 +7,14 @@ source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
 
 check_root
-check_command "paru"
+
+if ! command_exists "paru"; then
+  if [[ -f "$PKGLIST/programs/paru/install.sh" ]]; then
+    chmod +x "$PKGLIST/programs/paru/install.sh" && "$PKGLIST/programs/paru/install.sh"
+  else
+    echo "⚠️  Not found or not a regular file: $script"
+  fi
+fi
 
 local ignore_pkgs=(
   "apparmor"
@@ -35,12 +42,12 @@ for pkg in $(<pkglist-aur.txt); do
 done
 
 # Make scripts executable
-make_env_bash_scripts_executable ./programs
+make_env_bash_scripts_executable "$PKGLIST/programs"
 
 # Setup programs
 local EXCLUDES=()
 
-for script in ./programs/*/install.sh; do
+for script in "$PKGLIST/programs/*/install.sh"; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list
