@@ -27,8 +27,8 @@ for pkg in $(<pkglist-aur.txt); do
   fi
 done
 
-# Execute teamspeak3 script
-chmod +x ./programs/teamspeak3/install.sh && ./programs/teamspeak3/install.sh
+# Setup AppArmor
+chmod +x ./programs/apparmor/install.sh && ./programs/apparmor/install.sh
 
 # Execute SearxNG scripts
 chmod +x ./programs/searxng/install.sh && ./programs/searxng/install.sh
