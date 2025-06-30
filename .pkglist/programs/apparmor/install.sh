@@ -10,6 +10,10 @@ check_command "paru"
 echo "==> Installing AppArmor and required tools..."
 paru -S --skipreview --noconfirm apparmor
 
+if ! command_exists "grub-mkconfig"; then
+  chmod +x "$PROGRAMS/grub/install.sh" && "./$PROGRAMS/grub/install.sh"
+fi
+
 PARAMS_TO_ADD=(
   "apparmor=1"
   "security=apparmor"

@@ -25,4 +25,5 @@ else
   exit 1
 fi
 
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB --recheck --removable
 grub-mkconfig -o "$GRUB_BOOT_CFG"
