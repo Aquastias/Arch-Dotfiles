@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Define default value for SUDO if not already defined
-: "${SUDO:=sudo}"
-
 # Function to perform system upgrade
 function system_upgrade() {
   if command -v paru &>/dev/null; then

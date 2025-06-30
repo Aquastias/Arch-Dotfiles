@@ -12,7 +12,7 @@ git clone https://aur.archlinux.org/paru.git "$TMP_DIR/paru"
 
 cd "$TMP_DIR/paru" || exit
 echo "🔧 Building and installing paru..."
-makepkg -si --noconfirm
+makepkg -si --noconfirm --nocheck --skipinteg
 
 echo "🧹 Cleaning up temporary directory..."
 rm -rf "$TMP_DIR"

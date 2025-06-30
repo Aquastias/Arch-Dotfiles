@@ -145,7 +145,7 @@ alias pacrmdb='$SUDO rm /var/lib/pacman/db.lck'
 ###
 
 ### Grub
-alias update-grub='$SUDO grub-mkconfig -o /boot/grub/grub.cfg'
+alias update-grub='$SUDO grub-mkconfig -o $GRUB_BOOT_CFG'
 ###
 
 ### CKB Next

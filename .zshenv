@@ -5,7 +5,9 @@ export ZSH_FUNCTIONS_PATH="$HOME/.zfunc"
 export ZSH_ALIASES="$HOME/.zsh_aliases"
 
 ## Sudo
-export SUDO="sudo -E"
+export SUDO="sudo"
+export SUDOE="sudo -E"
+export SUDOU="sudo -u"
 
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"

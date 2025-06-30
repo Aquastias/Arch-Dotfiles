@@ -2,7 +2,7 @@
 
 # === Configuration ===
 SCAN_DIR="/home"
-EXCLUDE_JSON="$HOME/.config/clamav/clamav_exclude_list.json"
+EXCLUDE_JSON="$PROGRAMS/clamav/clamav_exclude_list.json"
 LOG_FILE="/tmp/clamav-scan.log"
 
 # === Start logging ===
