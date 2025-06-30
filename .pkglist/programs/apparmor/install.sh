@@ -19,7 +19,7 @@ PARAMS_TO_ADD=(
 echo "==> Updating GRUB_CMDLINE_LINUX_DEFAULT with required parameters..."
 
 # Extract current GRUB_CMDLINE_LINUX_DEFAULT value
-current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_CFG" | cut -d'"' -f2)
+current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
 
 # Initialize new_cmdline with current values
 new_cmdline="$current_cmdline"
@@ -34,13 +34,13 @@ done
 # Update GRUB config only if changes are needed
 if [[ "$new_cmdline" != "$current_cmdline" ]]; then
   echo "[OK] Appending required parameters to GRUB_CMDLINE_LINUX_DEFAULT..."
-  sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$GRUB_CFG"
+  sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$GRUB_DEFAULT_FILE"
 else
   echo "[SKIP] All required parameters already present in GRUB_CMDLINE_LINUX_DEFAULT."
 fi
 
-echo "==> Regenerating GRUB configuration at $GRUB_OUTPUT..."
-grub-mkconfig -o "$GRUB_OUTPUT"
+echo "==> Regenerating GRUB configuration at $GRUB_BOOT_CFG..."
+grub-mkconfig -o "$GRUB_BOOT_CFG"
 
 echo "==> Enabling and starting AppArmor service..."
 systemctl enable --now apparmor.service
