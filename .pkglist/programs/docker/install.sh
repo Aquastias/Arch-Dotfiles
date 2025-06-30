@@ -2,7 +2,6 @@
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
-source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
 
 check_root

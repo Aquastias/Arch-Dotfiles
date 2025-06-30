@@ -16,7 +16,7 @@ if ! command_exists "paru"; then
   fi
 fi
 
-local ignore_pkgs=(
+ignore_pkgs=(
   "apparmor"
   "docker"
   "docker-compose"
@@ -44,13 +44,13 @@ done
 make_env_bash_scripts_executable "$PROGRAMS"
 
 # Setup programs
-local EXCLUDES=("teamspeak3")
+EXCLUDES=("teamspeak3")
 
-for script in "$PROGRAMS/*/install.sh"; do
+for script in $PROGRAMS/*/install.sh; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list
-  if [[ " ${EXCLUDES[*]} " =~ " $dir_name " ]]; then
+  if [[ " ${EXCLUDES[*]} " =~ $dir_name ]]; then
     echo "🚫 Skipping (excluded): $script"
     continue
   fi

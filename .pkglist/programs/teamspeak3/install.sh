@@ -8,7 +8,7 @@ source "$SHELL_COMMONS/permissions.sh"
 check_root
 check_command "paru"
 
-echo "Installing teamspeak3..."
+echo "Installing TeamSpeak3..."
 
 if ! package_installed "teamspeak3"; then
   paru -S --noconfirm --skipreview teamspeak3

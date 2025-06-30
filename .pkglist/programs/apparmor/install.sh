@@ -2,17 +2,14 @@
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
-source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
 
 check_root
 check_command "paru"
 
 echo "==> Installing AppArmor and required tools..."
-paru -Sy --noconfirm apparmor grub
+paru -S --skipreview --noconfirm apparmor
 
-GRUB_CFG="/etc/default/grub"
-GRUB_OUTPUT="/boot/grub/grub.cfg"
 PARAMS_TO_ADD=(
   "apparmor=1"
   "security=apparmor"
