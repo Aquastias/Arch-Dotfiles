@@ -11,13 +11,13 @@ export SUDO="sudo"
 export DOTFILES="$HOME/.dotfiles"
 
 ## Pkglist
-export PKGLIST="$DOTFILES/.pkglist"
+export PACKAGE_LIST="$DOTFILES/.pkglist"
 
 ## Programs path
-export PROGRAMS="$PKGLIST/programs"
+export PROGRAMS="$PACKAGE_LIST/programs"
 
 ## Shell commons path
-export SHELL_COMMONS="$PKGLIST/shell-commons"
+export SHELL_COMMONS="$PACKAGE_LIST/shell-commons"
 
 # Colorize
 export ZSH_COLORIZE_STYLE="colorful"
