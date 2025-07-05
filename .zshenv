@@ -6,8 +6,6 @@ export ZSH_ALIASES="$HOME/.zsh_aliases"
 
 ## Sudo
 export SUDO="sudo"
-export SUDOE="sudo -E"
-export SUDOU="sudo -u"
 
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"

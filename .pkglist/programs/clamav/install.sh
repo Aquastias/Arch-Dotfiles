@@ -13,7 +13,7 @@ CLAMAV_SERVICES="$PROGRAMS/clamav/services"
 
 echo "🔧 Installing ClamAV and required tools..."
 paru -S --skipreview --noconfirm clamav
-"$SUDOU" "$SUDO_USER" -i paru -S --needed --skipreview --noconfirm clamav-unofficial-sigs
+"$SUDO" -u "$SUDO_USER" -i paru -S --needed --skipreview --noconfirm clamav-unofficial-sigs
 
 # Copy configs
 echo "🔧 Copying configurations..."

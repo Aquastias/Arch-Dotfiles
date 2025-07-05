@@ -1,0 +1,1 @@
+paru/install.sh

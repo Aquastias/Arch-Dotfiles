@@ -1,20 +1,26 @@
 #!/usr/bin/env bash
 
+set -e
+
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
 
-check_root
+# Create a temporary working directory
+TMPDIR=$(mktemp -d)
+echo "📁 Creating temporary directory to clone paru into: $TMPDIR"
+chown -R "$SUDO_USER":"$SUDO_USER" "$TMPDIR"
 
-TMP_DIR=$(mktemp -d)
-echo "📁 Cloning paru into temporary directory: $TMP_DIR"
-
-git clone https://aur.archlinux.org/paru.git "$TMP_DIR/paru"
-
-cd "$TMP_DIR/paru" || exit
+# Clone and build paru as the original user
 echo "🔧 Building and installing paru..."
+"$SUDO" -u "$SUDO_USER" bash <<EOF
+cd "$TMPDIR"
+git clone https://aur.archlinux.org/paru.git
+cd paru
 makepkg -si --noconfirm --nocheck --skipinteg
+EOF
 
-echo "🧹 Cleaning up temporary directory..."
-rm -rf "$TMP_DIR"
+# Clean up
+echo "📁 Removing temporary directory: $TMPDIR"
+rm -rf "$TMPDIR"
 
 echo "✅ Paru installed successfully."
