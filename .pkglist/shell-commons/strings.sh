@@ -61,8 +61,7 @@ function string_is_empty_or_null() {
 #
 # Example:
 #
-# string_substr "hello world" 0 5
-#   Returns "hello"
+# string_substr "hello world" 0 5 returns "hello"
 function string_substr() {
   local -r str="$1"
   local -r start="$2"
@@ -83,4 +82,91 @@ function string_substr() {
   fi
 
   echo "${str:$start:$end}"
+}
+
+# Prints a message in a specified color
+#
+# Usage:
+#
+# print_status "This is a plain message."
+# print_status success "Installation completed successfully."
+# print_status error "Installation failed!"
+# print_status warning "Low disk space."
+# print_status info "Starting installation..."
+# print_status custom red "This is a custom red message without prefix."
+# print_status custom magenta "Custom magenta text."
+# print_status custom unknown "No color because unknown color name."
+function print_status() {
+  local type="$1"
+  shift
+
+  local message
+  local color_name
+
+  # If no type provided, just print message plainly
+  if [ -z "$type" ]; then
+    message="$*"
+    echo "$message"
+    return
+  fi
+
+  # If type is "custom", next argument is color, then message
+  if [ "$type" == "custom" ]; then
+    color_name="$1"
+    shift
+    message="$*"
+  else
+    message="$*"
+  fi
+
+  # Define color codes
+  local RED='\033[0;31m'
+  local GREEN='\033[0;32m'
+  local YELLOW='\033[0;33m'
+  local BLUE='\033[0;34m'
+  local MAGENTA='\033[0;35m'
+  local CYAN='\033[0;36m'
+  local WHITE='\033[0;37m'
+  local NC='\033[0m' # No Color
+
+  local color_code=""
+  local prefix=""
+
+  case "$type" in
+  success)
+    color_code="$GREEN"
+    prefix="[SUCCESS]"
+    ;;
+  warning)
+    color_code="$YELLOW"
+    prefix="[WARNING]"
+    ;;
+  error)
+    color_code="$RED"
+    prefix="[ERROR]"
+    ;;
+  info)
+    color_code="$BLUE"
+    prefix="[INFO]"
+    ;;
+  custom)
+    case "$color_name" in
+    red) color_code="$RED" ;;
+    green) color_code="$GREEN" ;;
+    yellow) color_code="$YELLOW" ;;
+    blue) color_code="$BLUE" ;;
+    magenta) color_code="$MAGENTA" ;;
+    cyan) color_code="$CYAN" ;;
+    white) color_code="$WHITE" ;;
+    *) color_code="$NC" ;; # default no color
+    esac
+    prefix="" # no prefix for custom
+    ;;
+  *)
+    color_code="$NC"
+    prefix=""
+    ;;
+  esac
+
+  echo -e "${color_code}${prefix:+$prefix }$message${NC}"
 }
