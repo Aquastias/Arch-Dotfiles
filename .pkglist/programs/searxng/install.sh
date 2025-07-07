@@ -4,13 +4,14 @@
 source "$SHELL_COMMONS/commands.sh"
 source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
+source "$SHELL_COMMONS/strings.sh"
 
 check_root
 check_command "paru"
 
 # Symlink docker in /usr/local/bin
 if ! package_installed "docker"; then
-  echo "Docker not found. Please make sure Docker is installed and in your PATH."
+  print_status error "Docker not found. Please make sure Docker is installed and in your PATH."
   exit 1
 else
   docker_src=$(command -v docker)
@@ -26,13 +27,13 @@ if ! package_installed "firewalld" && ! package_installed "ufw"; then
   systemctl enable --now firewalld
 
   if ! firewall-cmd --zone=public --list-services | grep -q -w "http" && ! firewall-cmd --zone=public --list-services | grep -q -w "https"; then
-    echo "Firewall http or https service is not enabled in the public zone. Enabling..."
+    print_status info "Firewall http or https service is not enabled in the public zone. Enabling..."
 
     firewall-cmd --permanent --zone=public --add-service=http
     firewall-cmd --permanent --zone=public --add-service=https
     firewall-cmd --reload
   else
-    echo "Firewall http and https services are enabled in the public zone!"
+    print_status success "Firewall http and https services are enabled in the public zone!"
   fi
 fi
 
@@ -42,7 +43,7 @@ if ! package_installed "ufw"; then
   systemctl enable --now ufw
   ufw allow http,https
 
-  echo "Firewall http and https services are enabled in the public zone!"
+  print_status success "Firewall http and https services are enabled in the public zone!"
 fi
 
 if [ ! -d "/usr/local/searxng-docker" ]; then
@@ -64,7 +65,7 @@ if [ ! -d "/usr/local/searxng-docker" ]; then
   systemctl --user daemon-reload
   systemctl --user enable --now searxng-update@"$(whoami)".timer
 else
-  echo "SearxNG docker is already installed!"
+  print_status info "SearxNG docker is already installed!"
 fi
 
 ./update.sh

@@ -2,10 +2,11 @@
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/packages.sh"
+source "$SHELL_COMMONS/strings.sh"
 
 # Symlink docker in /usr/local/bin
 if ! package_installed "docker"; then
-  echo "Docker not found. Please make sure Docker is installed and in your PATH."
+  print_status error "Docker not found. Please make sure Docker is installed and in your PATH."
   exit 1
 else
   docker_src=$(command -v docker)
@@ -22,5 +23,5 @@ if [ -d "/usr/local/searxng-docker" ]; then
   docker compose pull
   docker compose up -d
 else
-  echo "SearxNG Docker repo has not been cloned on this host."
+  print_status error "SearxNG Docker repo has not been cloned on this host."
 fi
