@@ -4,11 +4,12 @@
 source "$SHELL_COMMONS/commands.sh"
 source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
+source "$SHELL_COMMONS/strings.sh"
 
 check_root
 check_command "paru"
 
-echo "Installing TeamSpeak3..."
+print_status info "Installing TeamSpeak3..."
 
 if ! package_installed "teamspeak3"; then
   paru -S --noconfirm --skipreview teamspeak3
@@ -31,4 +32,4 @@ cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus" "$HOME/.ts3clien
 cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus.qss" "$HOME/.ts3client/styles"
 cp -R "$DOTFILES/.pkglist/teamspeak3/addons/themes/Demus/Demus_chat.qss" "$HOME/.ts3client/styles"
 
-echo "Installation finished!"
+print_status success "Installation finished!"
