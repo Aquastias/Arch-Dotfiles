@@ -38,6 +38,33 @@ cp -f "$CLAMAV_SERVICES/clamav-clamonacc.service" /usr/lib/systemd/system/clamav
 # Copy scripts
 chmod +x "$CLAMAV_SCRIPTS/virus-event.sh" && cp -f "$CLAMAV_SCRIPTS/virus-event.sh" /etc/clamav/virus-event.sh
 
+# Allow notify-send to be called by all users via sudo
+SUDOERS_FILE="/etc/sudoers.d/clamav"
+SUDOERS_LINE="clamav ALL = (ALL) NOPASSWD: SETENV: /usr/bin/notify-send"
+
+print_status info "Ensuring sudoers rule exists in $SUDOERS_FILE..."
+
+# Create the file if it doesn't exist
+if [[ ! -f "$SUDOERS_FILE" ]]; then
+  print_status info "File doesn't exist. Creating it..."
+  echo "$SUDOERS_LINE" >"$SUDOERS_FILE"
+  chmod 0440 "$SUDOERS_FILE"
+elif ! grep -Fxq "$SUDOERS_LINE" "$SUDOERS_FILE"; then
+  print_status info "Line not present. Appending to file..."
+  echo "$SUDOERS_LINE" >>"$SUDOERS_FILE"
+else
+  print_status success "Sudoers line already exists. No changes made."
+fi
+
+# Validate the sudoers file
+if visudo -c -f "$SUDOERS_FILE"; then
+  print_status success "Sudoers file is valid."
+else
+  print_status error "Sudoers file is invalid! Removing..."
+  rm -f "$SUDOERS_FILE"
+  exit 1
+fi
+
 # Update virus database
 print_status info "Updating virus definitions..."
 freshclam
