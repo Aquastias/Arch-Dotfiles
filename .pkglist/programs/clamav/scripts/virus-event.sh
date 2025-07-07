@@ -7,5 +7,5 @@ ALERT="Signature detected by clamav: $CLAM_VIRUSEVENT_VIRUSNAME in $CLAM_VIRUSEV
 for ADDRESS in /run/user/*; do
   USERID=${ADDRESS#/run/user/}
   /usr/bin/sudo -u "#$USERID" DBUS_SESSION_BUS_ADDRESS="unix:path=$ADDRESS/bus" PATH=${PATH} \
-    /usr/bin/notify-send --app-name="ClamAV Virus Event" -t=15000 -e -i clamav "[WARNING] Virus found!" "$ALERT"
+    /usr/bin/notify-send -a "ClamAV Virus Event" -h "string:desktop-entry:clamav" -t 15000 -i clamav "[WARNING] Virus found!" "$ALERT"
 done

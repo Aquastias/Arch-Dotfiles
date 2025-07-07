@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 # === Configuration ===
-SCAN_DIR="/home"
+SCAN_DIR="/home/aquastias/.dotfiles"
 EXCLUDE_JSON="$PROGRAMS/clamav/clamav_exclude_list.json"
-LOG_FILE="/tmp/clamav-scan.log"
+LOG_FILE="/tmp/clamav-scan-$(date +%Y%m%d-%H%M%S).log"
+EXIT_ON_FIRST_INFECTION=false
+STOP_ON_INFECTION=true
 
 # === Start logging ===
 {
@@ -39,19 +41,47 @@ else
   echo "Exclude list not found: $EXCLUDE_JSON" >>"$LOG_FILE"
 fi
 
-# === Run ClamAV scan and exit on first infection ===
-{
-  clamscan -r --infected --no-summary "${EXCLUDE_ARGS[@]}" "$SCAN_DIR" 2>&1 |
-    while IFS= read -r line; do
-      echo "$line" >>"$LOG_FILE"
-      if [[ "$line" == *"FOUND" ]]; then
-        THREAT=$(echo "$line" | sed 's/ FOUND$//')
-        notify-send --app-name="ClamAV Daily Scan" -t=15000 -i "clamav" "[WARNING] ClamAV Alert" "Infection detected: $THREAT"
-        echo "[WARNING] Infection detected: $THREAT" >>"$LOG_FILE"
-        exit 1
-      fi
-    done
-} || exit 1
+if [[ "$EXIT_ON_FIRST_INFECTION" == true ]]; then
+  # === Run ClamAV scan and exit on first infection ===
+  {
+    clamscan -r -i --no-summary "${EXCLUDE_ARGS[@]}" "$SCAN_DIR" 2>&1 |
+      while IFS= read -r line; do
+        echo "$line" >>"$LOG_FILE"
+        if [[ "$line" == *"FOUND" ]]; then
+          THREAT=$(echo "$line" | sed 's/ FOUND$//')
 
-# === If no infection found ===
-echo "[SUCCESS] No infections found." >>"$LOG_FILE"
+          "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "ClamAV Daily Scan" \
+            -h "string:desktop-entry:clamav" \
+            -t 15000 \
+            -i "clamav" \
+            "[WARNING] ClamAV Alert" \
+            "Infection detected: $THREAT"
+
+          echo "[WARNING] Infection detected: $THREAT" >>"$LOG_FILE"
+
+          if [[ "$STOP_ON_INFECTION" == true ]]; then
+            echo "[INFO] Stopping scan early due to infection." >>"$LOG_FILE"
+            kill $$
+          fi
+        fi
+      done
+  } || exit 1
+else
+  # === Run ClamAV scan and generate summary ===
+  SCAN_OUTPUT=$(clamscan -r -i "${EXCLUDE_ARGS[@]}" "$SCAN_DIR")
+  echo "$SCAN_OUTPUT" >>"$LOG_FILE"
+
+  # Extract the number of infected files from the output
+  INFECTED_COUNT=$(echo "$SCAN_OUTPUT" | grep "Infected files:" | awk '{print $3}')
+
+  if [[ "$INFECTED_COUNT" -gt 0 ]]; then
+    "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "ClamAV Daily Scan" \
+      -h "string:desktop-entry:clamav" \
+      -t 15000 \
+      -i "clamav" \
+      "[WARNING] ClamAV Alert" \
+      "Scan completed: $INFECTED_COUNT infected file(s) found. Check latest log: $LOG_FILE"
+  else
+    echo -e "\n[INFO] No infections found." >>"$LOG_FILE"
+  fi
+fi

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=ClamAV
+Exec=clamd
+Icon=clamav
+Type=Application
+Categories=Utility;Security;
