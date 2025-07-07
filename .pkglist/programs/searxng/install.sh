@@ -9,6 +9,8 @@ source "$SHELL_COMMONS/strings.sh"
 check_root
 check_command "paru"
 
+print_status info "Installing SearxNG..."
+
 # Symlink docker in /usr/local/bin
 if ! package_installed "docker"; then
   print_status error "Docker not found. Please make sure Docker is installed and in your PATH."
