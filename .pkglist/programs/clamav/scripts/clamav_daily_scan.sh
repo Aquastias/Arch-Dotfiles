@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # === Configuration ===
-SCAN_DIR="/home/aquastias/.dotfiles"
+SCAN_DIR="/home"
 EXCLUDE_JSON="$PROGRAMS/clamav/clamav_exclude_list.json"
 LOG_FILE="/tmp/clamav-scan-$(date +%Y%m%d-%H%M%S).log"
 EXIT_ON_FIRST_INFECTION=false
