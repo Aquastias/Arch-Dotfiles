@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
 source "$SHELL_COMMONS/strings.sh"
