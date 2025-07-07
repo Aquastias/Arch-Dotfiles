@@ -12,13 +12,13 @@ print_status info "Installing Docker..."
 
 paru -S --skipreview --noconfirm docker docker-compose
 
-print_status success "Docker installed."
+print_status success "Docker installed!"
 
 # Enable and start docker service
 print_status info "Enabling and starting Docker service..."
 systemctl enable --now docker.socket
 systemctl enable --now docker.service
-print_status success "Docker service is running."
+print_status success "Docker service is running!"
 
 # Add the current (non-root) user to docker group
 if [[ -n $SUDO_USER ]]; then
@@ -28,7 +28,7 @@ if [[ -n $SUDO_USER ]]; then
   print_status success "User '$user' added to docker group."
   print_status warning "You may need to log out and back in for group changes to take effect."
 else
-  print_status warning "Could not detect non-root user. Skipping usermod."
+  print_status warning "Could not detect non-root user. Skipping usermod..."
 fi
 
 print_status success "Docker setup complete!"
