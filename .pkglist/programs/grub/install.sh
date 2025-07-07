@@ -20,9 +20,9 @@ if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
     echo 'GRUB_DISABLE_OS_PROBER=false' >>"$GRUB_DEFAULT_FILE"
   fi
 
-  print_status success "os-prober enabled in $GRUB_DEFAULT_FILE"
+  print_status success "os-prober enabled in $GRUB_DEFAULT_FILE."
 else
-  print_status error "$GRUB_DEFAULT_FILE not found"
+  print_status error "$GRUB_DEFAULT_FILE not found."
   exit 1
 fi
 
