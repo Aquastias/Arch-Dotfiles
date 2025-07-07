@@ -4,14 +4,16 @@ set -e
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+source "$SHELL_COMMONS/strings.sh"
 
 # Create a temporary working directory
 TMPDIR=$(mktemp -d)
-echo "📁 Creating temporary directory to clone paru into: $TMPDIR"
+print_status info "Creating temporary directory to clone paru into: $TMPDIR ..."
+
 chown -R "$SUDO_USER":"$SUDO_USER" "$TMPDIR"
 
 # Clone and build paru as the original user
-echo "🔧 Building and installing paru..."
+print_status info "Building and installing paru..."
 "$SUDO" -u "$SUDO_USER" bash <<EOF
 cd "$TMPDIR"
 git clone https://aur.archlinux.org/paru.git
@@ -20,7 +22,7 @@ makepkg -si --noconfirm --nocheck --skipinteg
 EOF
 
 # Clean up
-echo "📁 Removing temporary directory: $TMPDIR"
+print_status info "Removing temporary directory: $TMPDIR"
 rm -rf "$TMPDIR"
 
-echo "✅ Paru installed successfully."
+print_status success "Paru installed successfully!"
