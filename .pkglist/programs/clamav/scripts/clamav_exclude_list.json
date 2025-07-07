@@ -16,6 +16,8 @@
     "^/var/cache",
     ".*\\.cache$",
     "Trash",
+    "^/var/lib/clamav",
+    "^/var/lib/clamav-unofficial-sigs",
     "^/var/lib/docker",
     "^/snap",
     "^/var/lib/flatpak",

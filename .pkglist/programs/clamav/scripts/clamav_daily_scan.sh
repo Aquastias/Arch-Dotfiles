@@ -46,12 +46,12 @@ fi
       echo "$line" >>"$LOG_FILE"
       if [[ "$line" == *"FOUND" ]]; then
         THREAT=$(echo "$line" | sed 's/ FOUND$//')
-        notify-send -t=15000 -e -i "clamav" "⚠️ ClamAV Alert" "Infection detected: $THREAT"
-        echo "⚠️ Infection detected: $THREAT" >>"$LOG_FILE"
+        notify-send --app-name="ClamAV Daily Scan" -t=15000 -i "clamav" "[WARNING] ClamAV Alert" "Infection detected: $THREAT"
+        echo "[WARNING] Infection detected: $THREAT" >>"$LOG_FILE"
         exit 1
       fi
     done
 } || exit 1
 
 # === If no infection found ===
-echo "✅ No infections found." >>"$LOG_FILE"
+echo "[SUCCESS] No infections found." >>"$LOG_FILE"
