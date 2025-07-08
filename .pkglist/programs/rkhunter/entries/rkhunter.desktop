@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Run RKHunter Scan
+Comment=Check your system for rootkits (requires root)
+Exec=pkexec /usr/local/lib/rkhunter/rkhunter_scan.sh
+Icon=security-high
+Terminal=true
+Type=Application
+Categories=System;Security;
+X-GNOME-UsesNotifications=true

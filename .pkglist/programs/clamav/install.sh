@@ -70,11 +70,12 @@ print_status info "Updating virus definitions..."
 freshclam
 
 print_status info "Reloading systemd daemon..."
-sudo systemctl daemon-reexec
-sudo systemctl daemon-reload
+systemctl daemon-reexec
+systemctl daemon-reload
 
 # Enable services
 print_status info "Enabling services..."
+
 systemctl disable clamav-daemon.socket
 systemctl disable clamav-daemon.service
 systemctl disable clamav-freshclam.service
@@ -85,9 +86,5 @@ systemctl enable --now clamav-daemon.service
 systemctl enable --now clamav-freshclam.service
 systemctl enable --now clamav-clamonacc.service
 systemctl enable --now clamav-unofficial-sigs.timer
-
-print_status info "Reloading systemd daemon..."
-sudo systemctl daemon-reexec
-sudo systemctl daemon-reload
 
 print_status success "ClamAV installed successfully."

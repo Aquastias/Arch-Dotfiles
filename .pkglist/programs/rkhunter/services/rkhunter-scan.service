@@ -1,0 +1,12 @@
+[Unit]
+Description=Run daily rkhunter scan
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rkhunter_scan.sh
+
+# Set environment variables for user notification:
+# Replace 1000 with your user UID
+Environment=DISPLAY=:0
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+User=root
