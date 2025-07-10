@@ -51,6 +51,6 @@ systemctl enable --now rkhunter-scan.timer
 
 # Enable logrotate
 LOGROTATE_SCRIPT="$RKHUNTER_SCRIPTS/rkhunter_logrotate.sh"
-chmod +x "$LOGROTATE_SCRIPT" && "$LOGROTATE_SCRIPT"
+make_executable_and_run "$LOGROTATE_SCRIPT"
 
 print_status success "RKHunter installed successfully."

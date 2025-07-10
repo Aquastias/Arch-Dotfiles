@@ -5,14 +5,15 @@ source "$SHELL_COMMONS/arrays.sh"
 source "$SHELL_COMMONS/commands.sh"
 source "$SHELL_COMMONS/packages.sh"
 source "$SHELL_COMMONS/permissions.sh"
+source "$SHELL_COMMONS/strings.sh"
 
 check_root
 
 if ! command_exists "paru"; then
   if [[ -f "$PROGRAMS/paru/install.sh" ]]; then
-    chmod +x "$PROGRAMS/paru/install.sh" && "$PROGRAMS/paru/install.sh"
+    make_executable_and_run "$PROGRAMS/paru/install.sh"
   else
-    echo "⚠️  Not found or not a regular file: $script"
+    print_status warning "Not found or not a regular file: $script"
   fi
 fi
 
@@ -27,17 +28,17 @@ ignore_pkgs=(
 
 # Install packages from repository
 # shellcheck disable=SC2024
-echo "Installing repo packages..."
+print_status info "Installing repo packages..."
 paru -S --needed - <pkglist-repo.txt
 
 # Install packages from AUR
-echo "Installing AUR packages..."
+print_status info "Installing AUR packages..."
 
 for pkg in $(<pkglist-aur.txt); do
   if ! package_installed "$pkg" && ! array_contains "$pkg" "${ignore_pkgs[@]}"; then
     paru -S --noconfirm --skipreview "$pkg"
   else
-    echo "$pkg is already installed."
+    print_status info "$pkg is already installed."
   fi
 done
 
@@ -52,21 +53,19 @@ for script in $PROGRAMS/*/install.sh; do
 
   # Skip if in exclude list
   if [[ " ${EXCLUDES[*]} " =~ $dir_name ]]; then
-    echo "🚫 Skipping (excluded): $script"
+    print_status info "Skipping (excluded): $script"
     continue
   fi
 
   if [[ -f "$script" ]]; then
-    echo
-    echo "🔧 Running: $script"
-    echo "------------------------------"
+    print_status info "\nRunning: $script"
+    print_status info "------------------------------"
     "$script"
-    echo "✅ Finished: $script"
-    echo "=============================="
-    echo
+    print_status success "\nFinished: $script"
+    print_status success "==============================\n"
   else
-    echo "⚠️  Not found or not a regular file: $script"
+    print_status warning "Not found or not a regular file: $script"
   fi
 done
 
-echo "All packages now installed!"
+print_status success "All packages now installed!"

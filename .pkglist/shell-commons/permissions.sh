@@ -21,3 +21,19 @@ function make_env_bash_scripts_executable() {
 
   echo "Finished setting executable permissions for scripts with '#!/usr/bin/env bash'."
 }
+
+function make_executable_and_run() {
+  local script="$1"
+
+  if [ -z "$script" ]; then
+    echo "Usage: make_executable_and_run /path/to/script"
+    return 1
+  fi
+
+  if [ ! -f "$script" ]; then
+    echo "Error: File not found: $script"
+    return 1
+  fi
+
+  chmod +x "$script" && "$script"
+}
