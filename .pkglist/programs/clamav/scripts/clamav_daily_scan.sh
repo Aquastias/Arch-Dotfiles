@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=/dev/null
+source "$SHELL_COMMONS/helpers.sh"
+
 # === Configuration ===
 SCAN_DIR="/home"
 EXCLUDE_JSON="$PROGRAMS/clamav/clamav_exclude_list.json"
@@ -50,12 +53,11 @@ if [[ "$EXIT_ON_FIRST_INFECTION" == true ]]; then
         if [[ "$line" == *"FOUND" ]]; then
           THREAT=$(echo "$line" | sed 's/ FOUND$//')
 
-          "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "ClamAV Daily Scan" \
-            -h "string:desktop-entry:clamav" \
-            -t 15000 \
-            -i "clamav" \
+          send_user_notification \
             "[WARNING] ClamAV Alert" \
-            "Infection detected: $THREAT"
+            "Infection detected: $THREAT" \
+            "clamav" \
+            "ClamAV Daily Scan"
 
           echo "[WARNING] Infection detected: $THREAT" >>"$LOG_FILE"
 
@@ -75,12 +77,11 @@ else
   INFECTED_COUNT=$(echo "$SCAN_OUTPUT" | grep "Infected files:" | awk '{print $3}')
 
   if [[ "$INFECTED_COUNT" -gt 0 ]]; then
-    "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "ClamAV Daily Scan" \
-      -h "string:desktop-entry:clamav" \
-      -t 15000 \
-      -i "clamav" \
+    send_user_notification \
       "[WARNING] ClamAV Alert" \
-      "Scan completed: $INFECTED_COUNT infected file(s) found. Check latest log: $LOG_FILE"
+      "Scan completed: $INFECTED_COUNT infected file(s) found. Check latest log: $LOG_FILE" \
+      "clamav" \
+      "ClamAV Daily Scan"
   else
     echo -e "\n[INFO] No infections found." >>"$LOG_FILE"
   fi

@@ -4,6 +4,7 @@ set -euo pipefail
 trap 'echo "Error on line $LINENO"' ERR
 
 # shellcheck source=/dev/null
+source "$SHELL_COMMONS/helpers.sh"
 source "$SHELL_COMMONS/permissions.sh"
 source "$SHELL_COMMONS/strings.sh"
 
@@ -25,18 +26,20 @@ WARNINGS=$(grep "Warning:" "$SYSTEM_LOG" || true)
 
 if [ -n "$WARNINGS" ]; then
   print_status warning "RKHunter found warnings!" | tee -a "$SYSTEM_LOG"
-  "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "RKHunter Scan" \
-    -h "string:desktop-entry:rkhunter" \
-    -t 15000 \
-    -i "security-medium" \
+  send_user_notification \
     "Warnings detected!" \
-    "Check $SYSTEM_LOG"
+    "Check $SYSTEM_LOG" \
+    "security-medium" \
+    "RKHunter Scan" \
+    15000 \
+    "rkhunter"
 else
   print_status success "No warnings found." | tee -a "$SYSTEM_LOG"
-  "$SUDO" -u "$SUDO_USER" DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus notify-send -a "RKHunter Scan" \
-    -h "string:desktop-entry:rkhunter" \
-    -t 15000 \
-    -i "security-high" \
+  send_user_notification \
     "RKHunter Scan Complete" \
-    "No warnings found."
+    "No warnings found." \
+    "security-high" \
+    "RKHunter Scan" \
+    15000 \
+    "rkhunter"
 fi
