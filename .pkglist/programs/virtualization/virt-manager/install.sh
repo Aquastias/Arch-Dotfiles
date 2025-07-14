@@ -5,7 +5,9 @@ trap 'echo "Error on line $LINENO"' ERR
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
 
 check_root

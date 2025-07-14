@@ -5,8 +5,11 @@ trap 'echo "Error on line $LINENO"' ERR
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/packages.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
 
 check_root
@@ -46,7 +49,8 @@ fi
 if ! package_installed "ufw"; then
   paru -S --skipreview --noconfirm ufw
   systemctl enable --now ufw
-  ufw allow http,https
+  ufw allow http
+  ufw allow https
 
   print_status success "Firewall http and https services are enabled in the public zone!"
 fi
@@ -59,7 +63,7 @@ if [ ! -d "/usr/local/searxng-docker" ]; then
 
   # Prepare settings
   rm -f searxng/settings.yml
-  cp "$DOTFILES/.pkglist/searxng/settings.yml" searxng
+  cp "$PROGRAMS/privacy/searxng/settings.yml" searxng
   sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" searxng/settings.yml
 
   # Start services
@@ -73,4 +77,4 @@ else
   print_status info "SearxNG docker is already installed!"
 fi
 
-./update.sh
+make_executable_and_run "$PROGRAMS/privacy/searxng/update.sh"

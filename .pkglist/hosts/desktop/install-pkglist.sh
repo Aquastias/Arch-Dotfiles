@@ -2,9 +2,13 @@
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/arrays.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/packages.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
 
 check_root
@@ -45,7 +49,7 @@ make_env_bash_scripts_executable "$PROGRAMS"
 # Setup programs
 EXCLUDES=()
 
-for script in "$PROGRAMS"/*/install.sh; do
+for script in "$PROGRAMS"/**/*/install.sh; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list
@@ -65,4 +69,4 @@ for script in "$PROGRAMS"/*/install.sh; do
   fi
 done
 
-print_status success "All packages now installed!"
+print_status success "All packages are now installed!"

@@ -5,16 +5,18 @@ trap 'echo "Error on line $LINENO"' ERR
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
 
 check_root
 check_command "paru"
 
-CLAMAV_CONFIGS="$PROGRAMS/clamav/configs"
-CLAMAV_ENTRIES="$PROGRAMS/clamav/entries"
-CLAMAV_SCRIPTS="$PROGRAMS/clamav/scripts"
-CLAMAV_SERVICES="$PROGRAMS/clamav/services"
+CLAMAV_CONFIGS="$PROGRAMS/security/clamav/configs"
+CLAMAV_ENTRIES="$PROGRAMS/security/clamav/entries"
+CLAMAV_SCRIPTS="$PROGRAMS/security/clamav/scripts"
+CLAMAV_SERVICES="$PROGRAMS/security/clamav/services"
 
 print_status info "Installing ClamAV and required tools..."
 paru -S --skipreview --noconfirm clamav
@@ -22,8 +24,8 @@ paru -S --skipreview --noconfirm clamav
 
 # Copy configs
 print_status info "Copying configurations..."
-chown root:root "$CLAMAV_CONFIGS/clamd.conf" && cp -f ./configs/clamd.conf /etc/clamav/clamd.conf
-chown root:root "$CLAMAV_CONFIGS/freshclam.conf" && cp -f ./configs/freshclam.conf /etc/clamav/freshclam.conf
+chown root:root "$CLAMAV_CONFIGS/clamd.conf" && cp -f "$CLAMAV_CONFIGS/clamd.conf" /etc/clamav/clamd.conf
+chown root:root "$CLAMAV_CONFIGS/freshclam.conf" && cp -f "$CLAMAV_CONFIGS/freshclam.conf" /etc/clamav/freshclam.conf
 cp -f "$CLAMAV_CONFIGS/user.conf" /etc/clamav-unofficial-sigs/user.conf
 
 # Copy entries
@@ -76,6 +78,7 @@ systemctl daemon-reload
 # Enable services
 print_status info "Enabling services..."
 
+systemctl stop clamav-daemon.socket
 systemctl disable clamav-daemon.socket
 systemctl disable clamav-daemon.service
 systemctl disable clamav-freshclam.service

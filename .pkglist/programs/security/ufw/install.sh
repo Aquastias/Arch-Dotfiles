@@ -5,11 +5,19 @@ trap 'echo "Error on line $LINENO"' ERR
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
 
 check_root
 check_command "paru"
+
+print_status info "Checking to see if firewalld is installed..."
+if command_exists "firewalld"; then
+  print_status error "firewalld is installed. Aborting..."
+  exit 1
+fi
 
 print_status info "Installing UFW..."
 paru -S --skipreview --noconfirm ufw
@@ -29,6 +37,9 @@ ufw allow out 53/udp comment 'Allow DNS for VMs'
 # Allow all traffic on virbr0 (libvirt default NAT bridge)
 ufw allow in on virbr0 comment 'Allow incoming VM traffic'
 ufw allow out on virbr0 comment 'Allow outgoing VM traffic'
+# Allow http and https
+ufw allow http
+ufw allow https
 
 print_status info "Adding NAT masquerading for libvirt VMs in /etc/ufw/before.rules..."
 

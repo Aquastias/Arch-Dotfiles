@@ -2,10 +2,15 @@
 
 # shellcheck source=/dev/null
 source "$SHELL_COMMONS/arrays.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/commands.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/packages.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/permissions.sh"
+# shellcheck source=/dev/null
 source "$SHELL_COMMONS/strings.sh"
+# shellcheck source=/dev/null
 
 check_root
 
@@ -13,7 +18,7 @@ if ! command_exists "paru"; then
   if [[ -f "$PROGRAMS/paru/install.sh" ]]; then
     make_executable_and_run "$PROGRAMS/paru/install.sh"
   else
-    print_status warning "Not found or not a regular file: $script"
+    print_status warning "Not found or not a regular file: $PROGRAMS/paru/install.sh"
   fi
 fi
 
@@ -45,7 +50,7 @@ make_env_bash_scripts_executable "$PROGRAMS"
 # Setup programs
 EXCLUDES=()
 
-for script in "$PROGRAMS"/*/install.sh; do
+for script in "$PROGRAMS"/**/*/install.sh; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list
@@ -65,4 +70,4 @@ for script in "$PROGRAMS"/*/install.sh; do
   fi
 done
 
-print_status success "All packages now installed!"
+print_status success "All packages are now installed!"
