@@ -17,13 +17,11 @@ if ! command_exists "paru"; then
   fi
 fi
 
-ignore_pkgs=(
-  "apparmor"
-  "docker"
-  "docker-compose"
-  "grub"
-  "paru"
-)
+ignore_pkgs=()
+
+while IFS= read -r dir; do
+  ignore_pkgs+=("$dir")
+done < <(find "$PROGRAMS"/ -mindepth 2 -maxdepth 2 -type d -exec basename {} \;)
 
 # Install packages from repository
 # shellcheck disable=SC2024
@@ -47,7 +45,7 @@ make_env_bash_scripts_executable "$PROGRAMS"
 # Setup programs
 EXCLUDES=()
 
-for script in $PROGRAMS/*/install.sh; do
+for script in "$PROGRAMS"/*/install.sh; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list

@@ -13,18 +13,15 @@ if ! command_exists "paru"; then
   if [[ -f "$PROGRAMS/paru/install.sh" ]]; then
     make_executable_and_run "$PROGRAMS/paru/install.sh"
   else
-    print_status warning "Not found or not a regular file: $script"
+    print_status warning "Not found or not a regular file: $PROGRAMS/paru/install.sh"
   fi
 fi
 
-ignore_pkgs=(
-  "apparmor"
-  "docker"
-  "docker-compose"
-  "grub"
-  "paru"
-  "teamspeak3"
-)
+ignore_pkgs=()
+
+while IFS= read -r dir; do
+  ignore_pkgs+=("$dir")
+done < <(find "$PROGRAMS"/ -mindepth 2 -maxdepth 2 -type d -exec basename {} \;)
 
 # Install packages from repository
 # shellcheck disable=SC2024
@@ -48,7 +45,7 @@ make_env_bash_scripts_executable "$PROGRAMS"
 # Setup programs
 EXCLUDES=()
 
-for script in $PROGRAMS/*/install.sh; do
+for script in "$PROGRAMS"/*/install.sh; do
   dir_name=$(basename "$(dirname "$script")")
 
   # Skip if in exclude list
