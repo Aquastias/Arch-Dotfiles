@@ -37,7 +37,7 @@ print_status info "Installing AUR packages..."
 
 for pkg in $(<pkglist-aur.txt); do
   if ! package_installed "$pkg" && ! array_contains "$pkg" "${ignore_pkgs[@]}"; then
-    paru -S --noconfirm --skipreview "$pkg"
+    "$SUDO" -u "$SUDO_USER" paru -S --noconfirm --skipreview "$pkg"
   else
     print_status info "$pkg is already installed."
   fi
