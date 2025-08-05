@@ -45,7 +45,7 @@ gwenview
 htop
 hyprland
 inxi
-iptables-nft
+iptables
 iwd
 jfsutils
 jq
@@ -133,6 +133,9 @@ vim
 virt-manager
 virt-viewer
 vlc
+vlc-plugin-freetype
+vlc-plugin-notify
+vlc-plugin-srt
 vulkan-radeon
 wget
 wireless_tools

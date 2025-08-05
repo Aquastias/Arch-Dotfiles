@@ -1,4 +1,5 @@
 ani-cli-git
+bolt-launcher
 btop-theme-catppuccin
 catppuccin-cursors-frappe
 catppuccin-cursors-latte
@@ -16,12 +17,14 @@ catppuccin-sddm-theme-macchiato
 catppuccin-sddm-theme-mocha
 ckb-next-git
 clamav-unofficial-sigs
+grayjay-bin
 octopi
 papirus-folders-catppuccin-git
 paru
 paru-debug
 plymouth-theme-catppuccin-mocha-git
 qt6ct-kde
+runelite
 ttf-ms-fonts
 vscodium-bin
 vscodium-marketplace
