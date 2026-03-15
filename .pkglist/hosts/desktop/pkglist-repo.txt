@@ -8,7 +8,7 @@ base
 base-devel
 bc
 bcachefs-tools
-bridge-utils
+biome
 btop
 btrfs-progs
 calligra
@@ -29,6 +29,7 @@ extra-cmake-modules
 eza
 f2fs-tools
 fatresize
+fd
 filelight
 firefox
 flatpak
@@ -62,6 +63,7 @@ krita
 krusader
 ktorrent
 kwalletmanager
+lact
 less
 lhasa
 lib32-gamemode
@@ -73,6 +75,7 @@ linux-firmware
 linux-lts
 logrotate
 lsb-release
+lutris
 lvm2
 lynx
 man-db
@@ -93,6 +96,7 @@ os-prober
 pacmanlogviewer
 papirus-icon-theme
 partitionmanager
+pavucontrol
 pipewire
 pipewire-alsa
 pipewire-jack
@@ -100,6 +104,7 @@ pipewire-pulse
 plasma-meta
 plasma-workspace
 polkit-kde-agent
+qbittorrent
 qemu-base
 qt5-wayland
 qt6-wayland
@@ -114,8 +119,9 @@ sof-firmware
 sops
 speech-dispatcher
 steam
-steam-native-runtime
 stow
+stress
+stress-ng
 teamspeak3
 timeshift
 ttf-fira-code
@@ -138,6 +144,9 @@ vlc-plugin-notify
 vlc-plugin-srt
 vulkan-radeon
 wget
+wine
+wine-gecko
+wine-mono
 wireless_tools
 wireplumber
 wofi
@@ -149,6 +158,7 @@ xf86-video-ati
 xfsprogs
 xorg-xinit
 yazi
+zed
 zoxide
 zram-generator
 zsh

@@ -155,3 +155,7 @@ alias ckb-reload='$SUDO systemctl enable --now ckb-next-daemon'
 ### Anime
 alias anime="ani-cli"
 ###
+
+### NodeJS package managers
+alias pn="pnpm"
+###
