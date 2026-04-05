@@ -81,18 +81,64 @@ check_live_env() {
 
 check_internet() {
   section "Network"
+
+  # Wait briefly for DHCP to complete if the interface just came up.
+  # The Arch ISO starts dhcpcd/NetworkManager in the background at boot;
+  # running the script immediately after login can race with it.
+  # We check for a default route rather than sleeping a fixed amount.
+  local waited=0
+  while ((waited < 10)); do
+    ip route show default &>/dev/null && break
+    info "Waiting for default route... (${waited}s)"
+    sleep 1
+    ((waited++))
+  done
+
+  # Test connectivity by opening a TCP connection to a well-known IP.
+  # curl --max-time 3 is faster than ping because:
+  #   - ping requires ICMP which some networks/VMs block
+  #   - TCP connect returns the moment the SYN-ACK arrives, not after a
+  #     full round-trip wait
+  #   - We run all three checks in parallel with & and wait for any one
+  #     to succeed rather than testing them sequentially
   info "Testing internet connectivity..."
-  local ok=false
-  for host in archlinux.org archzfs.com 8.8.8.8; do
-    if ping -c1 -W3 "$host" &>/dev/null; then
+
+  local ok=false tmpdir
+  tmpdir="$(mktemp -d)"
+
+  # Fire all checks in parallel; first success writes a flag file
+  for host in 8.8.8.8 1.1.1.1 archlinux.org; do
+    (
+      if curl -s --max-time 3 --connect-timeout 3 \
+        -o /dev/null "http://${host}" 2>/dev/null; then
+        touch "${tmpdir}/ok"
+      fi
+    ) &
+  done
+
+  # Wait up to 5 seconds for any parallel check to succeed
+  local elapsed=0
+  while ((elapsed < 5)); do
+    if [[ -f "${tmpdir}/ok" ]]; then
       ok=true
-      info "Reachable: $host"
       break
     fi
+    sleep 0.5
+    ((elapsed++)) || true
   done
-  $ok || error "No internet connection.
-  Ethernet: should work automatically via DHCP.
-  Wi-Fi:    run 'iwctl' then: device list → station wlan0 connect <SSID>"
+
+  # Reap background jobs
+  wait 2>/dev/null || true
+  rm -rf "${tmpdir}"
+
+  $ok || error "No internet connection detected.
+  Ethernet : should work automatically via DHCP.
+  Wi-Fi    : run 'iwctl', then:
+               device list
+               station wlan0 connect \"<Your Network>\"
+  Check route: ip route show default"
+
+  info "Internet connection OK."
 }
 
 check_ram() {
@@ -412,4 +458,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"
