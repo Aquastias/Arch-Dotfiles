@@ -89,6 +89,69 @@ HOOK
 # CHROOT CONFIGURATION
 # =============================================================================
 
+collect_passwords() {
+  # Collects passwords for root and all users interactively on the LIVE ISO
+  # terminal (before entering the chroot where stdin is not a tty).
+  # Returns a compact JSON object: {"root":"pw","user1":"pw",...}
+  local users_json="$1"
+  local user_count
+  user_count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$users_json")"
+
+  local result="{}"
+
+  _prompt_password() {
+    # Prompts for a password with confirmation loop. Echoes the password to stdout.
+    local label="$1"
+    local pw1 pw2
+    while true; do
+      read -rsp "  Password for ${label}: " pw1 </dev/tty
+      echo >&2
+      read -rsp "  Confirm for ${label}: " pw2 </dev/tty
+      echo >&2
+      if [[ -z "$pw1" ]]; then
+        echo "  Cannot be empty — try again." >&2
+        continue
+      fi
+      if [[ "$pw1" != "$pw2" ]]; then
+        echo "  Passwords do not match — try again." >&2
+        continue
+      fi
+      printf '%s' "$pw1"
+      return
+    done
+  }
+
+  echo "" >&2
+  echo "━━━  Set passwords  ━━━" >&2
+  echo "  (Passwords are collected now and applied inside the chroot)" >&2
+  echo "" >&2
+
+  local root_pw
+  root_pw="$(_prompt_password "root")"
+  result="$(python3 -c "
+import json,sys
+d=json.loads(sys.argv[1])
+d['root']=sys.argv[2]
+print(json.dumps(d))
+" "$result" "$root_pw")"
+
+  local i
+  for ((i = 0; i < user_count; i++)); do
+    local uname
+    uname="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$users_json")"
+    local upw
+    upw="$(_prompt_password "$uname")"
+    result="$(python3 -c "
+import json,sys
+d=json.loads(sys.argv[1])
+d[sys.argv[2]]=sys.argv[3]
+print(json.dumps(d))
+" "$result" "$uname" "$upw")"
+  done
+
+  printf '%s' "$result"
+}
+
 configure_system() {
   section "Configuring System (arch-chroot)"
 
@@ -160,18 +223,25 @@ configure_system() {
   bootloader="$(cfgo '.options.bootloader')"
   bootloader="${bootloader:-systemd-boot}"
 
+  # ── Collect passwords interactively HERE, before entering the chroot ─────
+  # arch-chroot redirects stdin to the heredoc, so 'read' inside the chroot
+  # cannot read from the terminal. We collect all passwords now, then pass
+  # them in as a JSON string so chpasswd can set them non-interactively.
+  local passwords_json
+  passwords_json="$(collect_passwords "$users_json")"
+
   arch-chroot "${MOUNT_ROOT}" /bin/bash -s \
     "$hostname" "$timezone" "$locale" "$keymap" \
     "$users_json" "$rpool" "$swap" "$esp_count" \
     "$do_kde" "$do_backup" "$do_security" \
-    "$kernel" "$bootloader" \
+    "$kernel" "$bootloader" "$passwords_json" \
     <<'CHROOT'
 
 # ── Positional argument unpacking ────────────────────────────────────────────
-HOSTNAME="$1";   TIMEZONE="$2";   LOCALE="$3";    KEYMAP="$4"
-USERS_JSON="$5"; RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
-DO_KDE="$9";     DO_BACKUP="${10}"; DO_SECURITY="${11}"
-KERNEL="${12:-lts}"; BOOTLOADER="${13:-systemd-boot}"
+HOSTNAME="$1";       TIMEZONE="$2";   LOCALE="$3";    KEYMAP="$4"
+USERS_JSON="$5";     RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
+DO_KDE="$9";         DO_BACKUP="${10}"; DO_SECURITY="${11}"
+KERNEL="${12:-lts}"; BOOTLOADER="${13:-systemd-boot}"; PASSWORDS_JSON="${14}"
 
 # Derive kernel image names from the kernel flavour.
 # linux-lts images have '-lts' in the filename; linux (default) do not.
@@ -489,49 +559,22 @@ fi
 #   To switch to a keyfile for unattended boots:
 #     zfs change-key -o keyformat=raw -o keylocation=file:///etc/zfs/<key> <dataset>
 
-# ── Password helper ──────────────────────────────────────────────────────────
-# Prompts interactively until two matching non-empty passwords are entered.
-# Uses chpasswd (feeds user:pass via stdin) which bypasses PAM quality checks,
-# so any password including short or simple ones is accepted.
-_set_password() {
-    local account="$1"
-    local pw1 pw2
-    while true; do
-        echo -n "  Enter password for ${account}: "
-        read -rs pw1; echo
-        echo -n "  Confirm password for ${account}: "
-        read -rs pw2; echo
-        if [[ -z "$pw1" ]]; then
-            echo "  Password cannot be empty — try again."; continue
-        fi
-        if [[ "$pw1" != "$pw2" ]]; then
-            echo "  Passwords do not match — try again."; continue
-        fi
-        printf '%s:%s\n' "$account" "$pw1" | chpasswd 2>/dev/null \
-            || printf '%s\n%s\n' "$pw1" "$pw1" | passwd "$account" 2>/dev/null \
-            || { echo "  Failed to set password — try again."; continue; }
-        echo "  Password set for ${account}."
-        break
-    done
-}
-
 # ── Enable sudo for wheel group ───────────────────────────────────────────────
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# ── Root password ─────────────────────────────────────────────────────────────
-echo ""
-echo "━━━  Set ROOT password  ━━━"
-_set_password root
+# ── Set root password ─────────────────────────────────────────────────────────
+# Passwords were collected on the live ISO terminal before entering the chroot.
+# PASSWORDS_JSON is a JSON object: {"root":"pw", "username":"pw", ...}
+ROOT_PW="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['root'])" "$PASSWORDS_JSON")"
+printf '%s:%s\n' "root" "$ROOT_PW" | chpasswd
+echo "Root password set."
 
 # ── Create users from install.json ────────────────────────────────────────────
-# USERS_JSON is the compact JSON array from system.users, passed in as $5.
-# Each entry: { "name": "...", "shell": "...", "sudo": true/false, "groups": [...] }
-# python3 is used for JSON parsing — it is installed via base-devel in pacstrap.
 USER_COUNT="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$USERS_JSON")"
 
 for (( _i=0; _i<USER_COUNT; _i++ )); do
-    _NAME="$(python3  -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u['name'])"                                         "$USERS_JSON")"
-    _SHELL="$(python3 -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u.get('shell','/bin/bash'))"                        "$USERS_JSON")"
+    _NAME="$(python3  -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u['name'])"                   "$USERS_JSON")"
+    _SHELL="$(python3 -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u.get('shell','/bin/bash'))"  "$USERS_JSON")"
     _GROUPS="$(python3 -c "
 import json,sys
 u=json.loads(sys.argv[1])[$_i]
@@ -541,16 +584,18 @@ if u.get('sudo',False) and 'wheel' not in g:
 print(','.join(g))
 " "$USERS_JSON")"
 
-    echo ""
-    echo "━━━  Creating user: ${_NAME}  ━━━"
+    echo "Creating user: ${_NAME}  (shell: ${_SHELL}  groups: ${_GROUPS})"
     useradd -m -s "$_SHELL" ${_GROUPS:+-G "$_GROUPS"} "$_NAME" \
         || echo "  Warning: useradd failed for ${_NAME} — may already exist."
 
-    _set_password "$_NAME"
-
-    info_str="  Shell: ${_SHELL}"
-    [[ -n "$_GROUPS" ]] && info_str+="  |  Groups: ${_GROUPS}"
-    echo "  $info_str"
+    # Set password from the pre-collected passwords JSON
+    _UPW="$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2],''))" "$PASSWORDS_JSON" "$_NAME")"
+    if [[ -n "$_UPW" ]]; then
+        printf '%s:%s\n' "$_NAME" "$_UPW" | chpasswd
+        echo "  Password set for ${_NAME}."
+    else
+        echo "  Warning: no password found for ${_NAME} — account locked."
+    fi
 done
 
 # ── Post-install optional scripts ─────────────────────────────────────────────
