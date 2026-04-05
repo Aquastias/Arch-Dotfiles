@@ -93,14 +93,16 @@ collect_passwords() {
   # Collects passwords for root and all users interactively on the LIVE ISO
   # terminal (before entering the chroot where stdin is not a tty).
   # Returns a compact JSON object: {"root":"pw","user1":"pw",...}
+  # Uses jq for JSON — always available after 01-bootstrap-zfs.sh runs.
   local users_json="$1"
   local user_count
-  user_count="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$users_json")"
+  user_count="$(printf '%s' "$users_json" | jq 'length')"
 
-  local result="{}"
+  local result='{}'
 
   _prompt_password() {
-    # Prompts for a password with confirmation loop. Echoes the password to stdout.
+    # Prompts for a password with confirmation loop, reading from /dev/tty
+    # so it works even when stdin is redirected. Echoes the password to stdout.
     local label="$1"
     local pw1 pw2
     while true; do
@@ -123,30 +125,18 @@ collect_passwords() {
 
   echo "" >&2
   echo "━━━  Set passwords  ━━━" >&2
-  echo "  (Passwords are collected now and applied inside the chroot)" >&2
+  echo "  Passwords are collected now and applied inside the chroot." >&2
   echo "" >&2
 
   local root_pw
   root_pw="$(_prompt_password "root")"
-  result="$(python3 -c "
-import json,sys
-d=json.loads(sys.argv[1])
-d['root']=sys.argv[2]
-print(json.dumps(d))
-" "$result" "$root_pw")"
+  result="$(printf '%s' "$result" | jq --arg pw "$root_pw" '. + {root: $pw}')"
 
-  local i
+  local i uname upw
   for ((i = 0; i < user_count; i++)); do
-    local uname
-    uname="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$users_json")"
-    local upw
+    uname="$(printf '%s' "$users_json" | jq -r ".[$i].name")"
     upw="$(_prompt_password "$uname")"
-    result="$(python3 -c "
-import json,sys
-d=json.loads(sys.argv[1])
-d[sys.argv[2]]=sys.argv[3]
-print(json.dumps(d))
-" "$result" "$uname" "$upw")"
+    result="$(printf '%s' "$result" | jq --arg u "$uname" --arg pw "$upw" '. + {($u): $pw}')"
   done
 
   printf '%s' "$result"
@@ -565,31 +555,34 @@ sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 # ── Set root password ─────────────────────────────────────────────────────────
 # Passwords were collected on the live ISO terminal before entering the chroot.
 # PASSWORDS_JSON is a JSON object: {"root":"pw", "username":"pw", ...}
-ROOT_PW="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['root'])" "$PASSWORDS_JSON")"
+# jq is used for all JSON parsing — it is always available (installed via pacstrap).
+ROOT_PW="$(printf '%s' "$PASSWORDS_JSON" | jq -r '.root')"
 printf '%s:%s\n' "root" "$ROOT_PW" | chpasswd
 echo "Root password set."
 
 # ── Create users from install.json ────────────────────────────────────────────
-USER_COUNT="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$USERS_JSON")"
+USER_COUNT="$(printf '%s' "$USERS_JSON" | jq 'length')"
 
 for (( _i=0; _i<USER_COUNT; _i++ )); do
-    _NAME="$(python3  -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u['name'])"                   "$USERS_JSON")"
-    _SHELL="$(python3 -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u.get('shell','/bin/bash'))"  "$USERS_JSON")"
-    _GROUPS="$(python3 -c "
-import json,sys
-u=json.loads(sys.argv[1])[$_i]
-g=list(u.get('groups',[]))
-if u.get('sudo',False) and 'wheel' not in g:
-    g=['wheel']+g
-print(','.join(g))
-" "$USERS_JSON")"
+    _NAME="$(  printf '%s' "$USERS_JSON" | jq -r ".[$_i].name")"
+    _SHELL="$( printf '%s' "$USERS_JSON" | jq -r ".[$_i].shell // \"/bin/bash\"")"
+    _SUDO="$(  printf '%s' "$USERS_JSON" | jq -r ".[$_i].sudo // false")"
+
+    # Build groups list: start from config groups, add wheel if sudo=true
+    _GROUPS="$(printf '%s' "$USERS_JSON" | jq -r "
+        .[$_i] |
+        (.groups // []) +
+        (if .sudo == true and ((.groups // []) | index(\"wheel\") == null)
+         then [\"wheel\"] else [] end) |
+        join(\",\")
+    ")"
 
     echo "Creating user: ${_NAME}  (shell: ${_SHELL}  groups: ${_GROUPS})"
     useradd -m -s "$_SHELL" ${_GROUPS:+-G "$_GROUPS"} "$_NAME" \
         || echo "  Warning: useradd failed for ${_NAME} — may already exist."
 
     # Set password from the pre-collected passwords JSON
-    _UPW="$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2],''))" "$PASSWORDS_JSON" "$_NAME")"
+    _UPW="$(printf '%s' "$PASSWORDS_JSON" | jq -r --arg u "$_NAME" '.[$u] // ""')"
     if [[ -n "$_UPW" ]]; then
         printf '%s:%s\n' "$_NAME" "$_UPW" | chpasswd
         echo "  Password set for ${_NAME}."
