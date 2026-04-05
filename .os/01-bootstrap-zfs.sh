@@ -95,73 +95,79 @@ check_internet() {
   Wi-Fi:    run 'iwctl' then: device list → station wlan0 connect <SSID>"
 }
 
-check_disk_space() {
-  # The Arch ISO root filesystem is an OVERLAY, not a plain tmpfs.
-  # It consists of:
-  #   - a read-only squashfs base  (the ISO image content)
-  #   - a writable tmpfs upper     (/run/archiso/cowspace)
-  # df -m / reports the overlay apparent size — this is nearly always tiny
-  # because the squashfs base is read-only and appears nearly full by design.
-  # Checking df / is the wrong measure and will always give a false alarm.
-  #
-  # The correct places to check:
-  #   /run/archiso/cowspace  — writable tmpfs where packages land when
-  #                            installed into the live environment.
-  #                            Size controlled by cow_spacesize= kernel param.
-  #                            Default: 256M on older ISOs, ~25% RAM on newer.
-  #   /proc/meminfo          — total RAM: kernel + tmpfs mounts compete for it.
-  #
-  # Required space:
-  #   zfs-linux (pre-built):       ~80 MB in cowspace
-  #   zfs-dkms + linux-headers:   ~900 MB in cowspace  (DKMS fallback path)
-
-  section "Checking Available Space"
-
-  # ── RAM check ─────────────────────────────────────────────────────────────
+check_ram() {
+  # Refuse to proceed if RAM is genuinely too low.
+  # Everything else (cowspace, package cache) lives in RAM on the live ISO,
+  # so RAM is the one hard constraint we cannot work around automatically.
+  section "Checking RAM"
   local total_ram_mb
   total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
   info "Total RAM: ${total_ram_mb} MB"
 
   if ((total_ram_mb < 1024)); then
     error "Only ${total_ram_mb} MB RAM detected. At least 1 GB is required.
-  In virt-manager: Machine → Details → Memory → set to 2048 MB or more.
-  On real hardware: this installer requires a machine with >= 1 GB RAM."
+  In virt-manager: Machine → Details → Memory — raise to 2048 MB or more."
   elif ((total_ram_mb < 2048)); then
-    warn "${total_ram_mb} MB RAM — the DKMS build fallback may run out of space."
-    warn "Recommended: 2 GB+. The pre-built zfs-linux path (~80 MB) should be fine."
+    warn "${total_ram_mb} MB RAM. Pre-built zfs-linux (~80 MB) will be fine."
+    warn "DKMS fallback (~900 MB) may fail — it will only be used if no pre-built exists."
   else
     info "RAM OK: ${total_ram_mb} MB"
   fi
+}
 
-  # ── cowspace check (Arch ISO specific) ────────────────────────────────────
-  if findmnt /run/archiso/cowspace &>/dev/null 2>&1; then
-    local cow_avail_mb
-    cow_avail_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $4}')"
-    info "cowspace available: ${cow_avail_mb} MB  (writable layer for live ISO packages)"
+expand_cowspace() {
+  # The Arch ISO root is an overlay filesystem:
+  #   lower = squashfs  (read-only — always appears "full" in df)
+  #   upper = /run/archiso/cowspace  (a tmpfs, default size 256 MB)
+  #
+  # Installing ZFS packages (zfs-linux ~80 MB, zfs-dkms ~900 MB) writes into
+  # this upper tmpfs. The default 256 MB fills up immediately.
+  #
+  # Fix: remount cowspace with a larger size derived from available RAM.
+  # This is safe — tmpfs only consumes physical RAM as it is actually written,
+  # so allocating "2G" does not immediately use 2 GB of RAM.
+  #
+  # This function is idempotent: if cowspace is already large enough, it skips.
 
-    if ((cow_avail_mb < 80)); then
-      error "Only ${cow_avail_mb} MB free in cowspace. Need ≥80 MB for zfs-linux.
-  Reboot the ISO and add  cow_spacesize=2G  to the kernel cmdline.
-  In the boot menu: press 'e' on the Arch Linux entry, append to the linux line:
-    cow_spacesize=2G
-  Then press F10 to boot."
-    elif ((cow_avail_mb < 900)); then
-      warn "cowspace: ${cow_avail_mb} MB free."
-      warn "  Pre-built zfs-linux (~80 MB)  — should fit OK."
-      warn "  DKMS fallback      (~900 MB)  — may fail if pre-built unavailable."
-      warn "  To guarantee DKMS space, reboot with  cow_spacesize=2G  on the cmdline."
-    else
-      info "cowspace OK: ${cow_avail_mb} MB free."
-    fi
+  section "Expanding cowspace"
 
-  else
-    # Not an Arch ISO (custom live env or installed system) — use /tmp as proxy
-    local tmp_avail_mb
-    tmp_avail_mb="$(df -m /tmp 2>/dev/null | awk 'NR==2{print $4}' || echo 0)"
-    info "cowspace not found (non-archiso env). /tmp free: ${tmp_avail_mb} MB"
-    ((tmp_avail_mb >= 80)) ||
-      warn "Less than 80 MB free in /tmp — package installs may fail."
+  # Only applies to Arch ISO environments
+  if ! findmnt /run/archiso/cowspace &>/dev/null 2>&1; then
+    info "cowspace not present — not running on Arch ISO, skipping."
+    return
   fi
+
+  local cow_total_mb cow_avail_mb total_ram_mb
+  cow_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
+  cow_avail_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $4}')"
+  total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
+
+  info "cowspace current size : ${cow_total_mb} MB"
+  info "cowspace available    : ${cow_avail_mb} MB"
+
+  # Target: 75% of total RAM, floored at 1024 MB, capped at total RAM - 512 MB
+  # This leaves ~512 MB of RAM for the kernel + running processes.
+  local target_mb=$((total_ram_mb * 75 / 100))
+  ((target_mb < 1024)) && target_mb=1024
+  local cap=$((total_ram_mb - 512))
+  ((target_mb > cap && cap > 512)) && target_mb=$cap
+
+  if ((cow_total_mb >= target_mb)); then
+    info "cowspace is already ${cow_total_mb} MB — no expansion needed."
+    return
+  fi
+
+  info "Expanding cowspace: ${cow_total_mb} MB → ${target_mb} MB ..."
+  # mount --remount,size= resizes the underlying tmpfs in place.
+  # No data is lost; the overlay stays mounted throughout.
+  mount -o remount,size="${target_mb}M" /run/archiso/cowspace ||
+    error "Failed to expand cowspace.
+  This should not happen on the official Arch ISO.
+  Try rebooting with  cow_spacesize=2G  on the kernel cmdline as a workaround."
+
+  local new_total_mb
+  new_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
+  info "cowspace expanded to ${new_total_mb} MB."
 }
 
 # =============================================================================
@@ -257,7 +263,7 @@ install_zfs() {
   else
     warn "No pre-built module for kernel ${kver}. Falling back to DKMS build."
     warn "DKMS will compile ZFS from source. Download + build: ~15–30 min."
-    warn "Required disk space: ~900 MB on tmpfs. Run check_disk_space if unsure."
+    warn "Required cowspace: ~900 MB. cowspace has been auto-expanded by this script."
 
     # Install linux-headers matching the EXACT running kernel version.
     # 'linux-headers' alone may pull in a different version on some mirrors.
@@ -268,7 +274,7 @@ install_zfs() {
     pacman -S --noconfirm --needed "${headers_pkg}" dkms zfs-dkms zfs-utils ||
       error "ZFS DKMS installation failed.
   Check: pacman -Si zfs-dkms   (is the archzfs repo reachable?)
-  Check: df -h /                (is there enough tmpfs space?)"
+  Check: df -h /run/archiso/cowspace  (is there enough cowspace?)"
     info "DKMS build complete."
   fi
 }
@@ -340,7 +346,8 @@ main() {
   check_uefi
   check_live_env
   check_internet
-  check_disk_space
+  check_ram       # hard RAM floor — errors if < 1 GB
+  expand_cowspace # remount cowspace larger BEFORE any pacman installs
   sync_clock
   add_archzfs_repo
   install_zfs
@@ -349,4 +356,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"
+main "$@"ain "$@"ain "$@"
