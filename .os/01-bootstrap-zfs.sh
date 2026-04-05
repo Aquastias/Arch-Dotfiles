@@ -613,6 +613,48 @@ install_zfs() {
 
   info "ZFS module verified in /lib/modules/${kver}/."
 }
+_kexec_into_matching_kernel() {
+  # The installed ZFS module does not match the running kernel version.
+  # Strategy: find the kernel image that matches the installed module,
+  # then use kexec to soft-reboot into it — no full reboot needed.
+  # After kexec the live environment restarts with the matching kernel
+  # and modprobe zfs will succeed.
+  local ko_kver="$1"
+
+  warn "Kernel mismatch: running ${kver}, ZFS module is for ${ko_kver}."
+  warn "Attempting kexec to boot the matching kernel (no full reboot needed)..."
+
+  # Find the vmlinuz for the module's kernel version
+  local vmlinuz
+  vmlinuz="$(find /lib/modules/"${ko_kver}" -name 'vmlinuz' 2>/dev/null | head -1)"
+  # Also check /boot
+  [[ -z "$vmlinuz" ]] && vmlinuz="/boot/vmlinuz-${ko_kver%%.*}-lts"
+  [[ -f "$vmlinuz" ]] || vmlinuz="$(ls /boot/vmlinuz-* 2>/dev/null | head -1)"
+
+  if [[ ! -f "$vmlinuz" ]]; then
+    return 1 # kexec not possible, caller handles fallback
+  fi
+
+  # Install kexec-tools if not present
+  command -v kexec &>/dev/null || pacman -S --noconfirm --needed kexec-tools 2>/dev/null || true
+
+  if ! command -v kexec &>/dev/null; then
+    return 1
+  fi
+
+  local cmdline
+  cmdline="$(cat /proc/cmdline)"
+  info "Loading kernel ${ko_kver} via kexec..."
+  kexec -l "$vmlinuz" --initrd="/boot/initramfs-linux-lts.img" \
+    --command-line="$cmdline" 2>/dev/null || return 1
+
+  warn "kexec loaded. Re-executing into the new kernel now..."
+  warn "The script will need to be re-run after kexec completes."
+  warn "Run: ./01-bootstrap-zfs.sh"
+  sleep 2
+  kexec -e # this replaces the running kernel — does not return
+}
+
 load_zfs_module() {
   section "Loading ZFS Kernel Module"
 
@@ -621,17 +663,17 @@ load_zfs_module() {
     return
   fi
 
-  # Run depmod so the kernel module index knows about the newly installed .ko.
-  # Required after any module install outside the normal package manager path.
+  # Rebuild the module index for the running kernel.
+  # depmod -a is safe to run even when /lib/modules/<kver> doesn't fully exist —
+  # it will just warn about missing files (which we suppress).
   info "Updating kernel module index (depmod)..."
-  depmod -a
+  depmod -a 2>/dev/null || true
 
   local kver
   kver="$(uname -r)"
+  info "Loading ZFS module (running kernel: ${kver})..."
 
-  info "Loading ZFS module..."
-
-  # Try standard modprobe first — works when the module was built for this kernel
+  # ── Attempt 1: modprobe (standard path) ──────────────────────────────────
   if modprobe zfs 2>/dev/null; then
     local zver
     zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
@@ -639,10 +681,7 @@ load_zfs_module() {
     return
   fi
 
-  # modprobe failed — the .ko may exist but for a different kernel directory
-  # (e.g. zfs-linux-lts installed for 6.18-lts while ISO runs 6.19 mainline).
-  # Find the .ko and load it directly with insmod — insmod bypasses the kernel
-  # version check that modprobe enforces via the module directory structure.
+  # ── modprobe failed — find what we have ──────────────────────────────────
   local ko
   ko="$(find /lib/modules -name 'zfs.ko.zst' -o -name 'zfs.ko' \
     2>/dev/null | head -1)"
@@ -654,55 +693,53 @@ load_zfs_module() {
 
   local ko_kver
   ko_kver="$(echo "$ko" | sed 's|/lib/modules/||;s|/.*||')"
-  warn "Module for running kernel (${kver}) not found."
-  warn "Found module built for: ${ko_kver}"
-  warn "Attempting direct insmod with full path ..."
+  warn "ZFS module found for kernel ${ko_kver} but running ${kver} — version mismatch."
 
-  # insmod requires uncompressed .ko — decompress .ko.zst first if needed
-  local ko_load="$ko"
-  if [[ "$ko" == *.zst ]]; then
-    local ko_tmp="/tmp/zfs.ko"
-    zstd -d "$ko" -o "$ko_tmp" -f 2>/dev/null ||
-      error "Failed to decompress ${ko}"
-    ko_load="$ko_tmp"
+  # ── Attempt 2: kexec into the matching kernel ─────────────────────────────
+  # kexec soft-reboots the live ISO into the kernel that matches the ZFS module.
+  # The user just needs to re-run the script after kexec completes.
+  if _kexec_into_matching_kernel "$ko_kver"; then
+    # kexec -e never returns — if we get here, kexec failed
+    true
   fi
 
-  # Load ZFS dependencies first — insmod does not resolve deps automatically
-  # spl is merged into ZFS since OpenZFS 2.0; these are the typical dep modules
-  for dep in spl zavl znvpair zunicode zcommon icp; do
-    local dep_ko
-    dep_ko="$(find /lib/modules -name "${dep}.ko*" 2>/dev/null | head -1)"
-    if [[ -n "$dep_ko" ]]; then
-      if [[ "$dep_ko" == *.zst ]]; then
-        zstd -d "$dep_ko" -o "/tmp/${dep}.ko" -f 2>/dev/null &&
-          insmod "/tmp/${dep}.ko" 2>/dev/null || true
-      else
-        insmod "$dep_ko" 2>/dev/null || true
-      fi
-    fi
-  done
+  # ── Attempt 3: install zfs-linux for the exact running kernel ─────────────
+  # The archzfs GitHub repo may have a zfs-linux build for the running kernel.
+  # Try installing it now — this is the cleanest fix.
+  warn "kexec not available. Trying to install zfs-linux for kernel ${kver} ..."
+  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
+  depmod -a 2>/dev/null || true
 
-  insmod "$ko_load" ||
-    error "insmod ${ko_load} failed.
-  The ZFS module (${ko_kver}) may be incompatible with the running kernel (${kver}).
-  This is a known limitation: zfs-linux-lts is built for the LTS kernel,
-  not the ISO's mainline kernel.
-  The installer will still install linux-lts on your system — the installed
-  system will use zfs-linux-lts and everything will work correctly there.
-  However this bootstrap step requires a loadable module on the live ISO.
-  Options:
-    1. Run: pacman -S zfs-linux   (installs module for kernel ${kver})
-       Then re-run: ./01-bootstrap-zfs.sh
-    2. Boot an Arch ISO that ships the LTS kernel (unlikely but possible)"
+  if modprobe zfs 2>/dev/null; then
+    local zver
+    zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
+    info "ZFS module loaded after installing zfs-linux. Version: ${zver:-unknown}"
+    return
+  fi
 
-  lsmod | grep -q '^zfs ' ||
-    error "insmod appeared to succeed but ZFS module is not in lsmod output."
+  # ── Nothing worked ────────────────────────────────────────────────────────
+  error "Cannot load ZFS module on kernel ${kver}.
 
-  local zver
-  zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
-  info "ZFS module loaded via insmod (direct path). Version: ${zver:-unknown}"
-  warn "Module was loaded from ${ko_kver} path — this is fine for the live ISO."
-  warn "The installed system will use the correct LTS kernel + module."
+  The installed ZFS module is for kernel: ${ko_kver}
+  The running kernel is               : ${kver}
+
+  The archzfs repository does not yet have a pre-built module for ${kver},
+  and the module for ${ko_kver} cannot be loaded on a different kernel version.
+
+  SOLUTIONS (pick one):
+
+  1. Upgrade the running kernel to match the ZFS module — run these commands
+     and then re-run this script (no reboot needed if kexec-tools is available):
+         pacman -S --noconfirm linux
+         uname -r           # should now show a version matching the ZFS module
+         ./01-bootstrap-zfs.sh
+
+  2. If 'pacman -S linux' installs a version that still doesn't match:
+         pacman -Si zfs-linux | grep 'Depends'   # see what kernel archzfs requires
+         # Then downgrade linux to that exact version from the Arch archive.
+
+  3. Reboot the live ISO after running 'pacman -S linux' — the new kernel
+     will be active and modprobe will work."
 }
 
 # =============================================================================
