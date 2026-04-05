@@ -35,10 +35,10 @@
 set -Eeuo pipefail
 trap '_on_error $LINENO' ERR
 _on_error() {
-    # Colours may not be loaded yet if the error is very early, so use raw codes
-    echo -e "\n\033[0;31m[ERROR]\033[0m Installer failed at line $1." >&2
-    echo -e "\033[2mCheck the output above for details.\033[0m" >&2
-    exit 1
+  # Colours may not be loaded yet if the error is very early, so use raw codes
+  echo -e "\n\033[0;31m[ERROR]\033[0m Installer failed at line $1." >&2
+  echo -e "\033[2mCheck the output above for details.\033[0m" >&2
+  exit 1
 }
 
 # =============================================================================
@@ -60,13 +60,13 @@ MOUNT_ROOT="/mnt"
 # =============================================================================
 
 source_module() {
-    local path="$1"
-    [[ -f "$path" ]] || {
-        echo -e "\033[0;31m[ERROR]\033[0m Required module not found: $path" >&2
-        exit 1
-    }
-    # shellcheck source=/dev/null
-    source "$path"
+  local path="$1"
+  [[ -f "$path" ]] || {
+    echo -e "\033[0;31m[ERROR]\033[0m Required module not found: $path" >&2
+    exit 1
+  }
+  # shellcheck source=/dev/null
+  source "$path"
 }
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
@@ -83,55 +83,66 @@ source_module "${SCRIPT_DIR}/lib/finalize.sh"
 # =============================================================================
 
 main() {
-    echo -e "\n${CYAN}${BOLD}  Arch Linux ZFS Installer${NC}"
-    echo -e "${DIM}  ─────────────────────────────────────────────────${NC}"
-    echo -e "${DIM}  Config : ${CONFIG_FILE}${NC}"
-    echo -e "${DIM}  Modules: ${SCRIPT_DIR}/lib/${NC}\n"
+  echo -e "\n${CYAN}${BOLD}  Arch Linux ZFS Installer${NC}"
+  echo -e "${DIM}  ─────────────────────────────────────────────────${NC}"
+  echo -e "${DIM}  Config : ${CONFIG_FILE}${NC}"
+  echo -e "${DIM}  Modules: ${SCRIPT_DIR}/lib/${NC}\n"
 
-    # ── Pre-flight checks ─────────────────────────────────────────────────────
-    [[ $EUID -eq 0 ]]          || error "Run as root (sudo -i)."
-    [[ -d /sys/firmware/efi ]] || error "Not in UEFI mode. Reboot and select a UEFI entry."
-    command -v jq &>/dev/null  || pacman -Sy --noconfirm --needed jq
-    ping -c1 -W3 archlinux.org &>/dev/null \
-        || error "No internet connection. Required for pacstrap."
+  # ── Pre-flight checks ─────────────────────────────────────────────────────
+  [[ $EUID -eq 0 ]] || error "Run as root (sudo -i)."
+  [[ -d /sys/firmware/efi ]] || error "Not in UEFI mode. Reboot and select a UEFI entry."
 
-    # ── Config phase ──────────────────────────────────────────────────────────
-    load_config
-    detect_mode
-    validate_config
+  # Install jq only if missing — skip the slow pacman -Sy if already present
+  if ! command -v jq &>/dev/null; then
+    info "Installing jq..."
+    pacman -S --noconfirm --needed jq || error "Failed to install jq. Run 01-bootstrap-zfs.sh first."
+  fi
 
-    # ── Interactive topology resolution (before any disk writes) ──────────────
-    if [[ "$INSTALL_MODE" == "single" ]]; then
-        calculate_single_disk_layout
-    else
-        resolve_os_topology
-        resolve_storage_topologies
-    fi
+  # Quick connectivity check via TCP (faster than ping, works through more firewalls)
+  # Uses /dev/tcp which is built into bash — zero external dependencies
+  if ! timeout 5 bash -c 'cat < /dev/null > /dev/tcp/archlinux.org/80' 2>/dev/null; then
+    error "No internet connection. Required for pacstrap.
+  Check: ip route show default   (needs a default gateway)
+  Check: ping 8.8.8.8            (basic connectivity)"
+  fi
 
-    # ── Final confirmation (shows full plan, asks user to proceed) ────────────
-    print_summary
+  # ── Config phase ──────────────────────────────────────────────────────────
+  load_config
+  detect_mode
+  validate_config
 
-    # ── Disk operations ───────────────────────────────────────────────────────
-    if [[ "$INSTALL_MODE" == "single" ]]; then
-        partition_single_disk
-        install_zfs_tools_if_needed
-        create_single_pools
-        mount_single_esp
-    else
-        partition_os_disks_multi
-        partition_storage_disks_multi
-        install_zfs_tools_if_needed
-        create_multi_rpool
-        create_multi_dpool
-        mount_multi_esps
-    fi
+  # ── Interactive topology resolution (before any disk writes) ──────────────
+  if [[ "$INSTALL_MODE" == "single" ]]; then
+    calculate_single_disk_layout
+  else
+    resolve_os_topology
+    resolve_storage_topologies
+  fi
 
-    # ── Install & configure ───────────────────────────────────────────────────
-    install_base
-    configure_system
+  # ── Final confirmation (shows full plan, asks user to proceed) ────────────
+  print_summary
 
-    # ── Cleanup ───────────────────────────────────────────────────────────────
-    finalize
+  # ── Disk operations ───────────────────────────────────────────────────────
+  if [[ "$INSTALL_MODE" == "single" ]]; then
+    partition_single_disk
+    install_zfs_tools_if_needed
+    create_single_pools
+    mount_single_esp
+  else
+    partition_os_disks_multi
+    partition_storage_disks_multi
+    install_zfs_tools_if_needed
+    create_multi_rpool
+    create_multi_dpool
+    mount_multi_esps
+  fi
+
+  # ── Install & configure ───────────────────────────────────────────────────
+  install_base
+  configure_system
+
+  # ── Cleanup ───────────────────────────────────────────────────────────────
+  finalize
 }
 
 main "$@"
