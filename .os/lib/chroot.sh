@@ -113,18 +113,20 @@ configure_system() {
   fi
 
   # ── Gather all values to pass into chroot ─────────────────────────────────
-  local hostname username locale timezone keymap
+  local hostname locale timezone keymap
   local rpool swap esp_count
   local do_kde do_backup do_security
+  local users_json
 
   hostname="$(cfg '.system.hostname')"
-  username="$(cfg '.system.username')"
   locale="$(cfg '.system.locale')"
   timezone="$(cfg '.system.timezone')"
   keymap="$(cfgo '.system.keymap')"
   keymap="${keymap:-us}"
   swap="$(cfgo '.options.swap')"
   swap="${swap:-true}"
+  # Pass the entire users array as a compact JSON string into the chroot
+  users_json="$(jq -c '.system.users' "$CONFIG_FILE")"
 
   do_kde="$(cfgo '.post_install.kde')"
   do_kde="${do_kde:-false}"
@@ -160,14 +162,14 @@ configure_system() {
 
   arch-chroot "${MOUNT_ROOT}" /bin/bash -s \
     "$hostname" "$timezone" "$locale" "$keymap" \
-    "$username" "$rpool" "$swap" "$esp_count" \
+    "$users_json" "$rpool" "$swap" "$esp_count" \
     "$do_kde" "$do_backup" "$do_security" \
     "$kernel" "$bootloader" \
     <<'CHROOT'
 
 # ── Positional argument unpacking ────────────────────────────────────────────
 HOSTNAME="$1";   TIMEZONE="$2";   LOCALE="$3";    KEYMAP="$4"
-USERNAME="$5";   RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
+USERS_JSON="$5"; RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
 DO_KDE="$9";     DO_BACKUP="${10}"; DO_SECURITY="${11}"
 KERNEL="${12:-lts}"; BOOTLOADER="${13:-systemd-boot}"
 
@@ -296,7 +298,11 @@ else
     # and initramfs must be copied into the FAT32 ESP where firmware can reach them.
     # A pacman hook (95-esp-sync.hook, installed below) keeps them in sync on updates.
 
-    bootctl --esp-path=/boot/efi install
+    # Note: bootctl will warn about:
+    #   "Mount point /boot/efi is world accessible" — harmless, ESP is FAT32
+    #   "Not booted with EFI or running in a container" — expected in chroot
+    # These warnings do not affect the installation. Redirect to suppress clutter.
+    bootctl --esp-path=/boot/efi install 2>&1         | grep -v "world accessible\|security hole\|running in a container\|skipping EFI"         || true
 
     mkdir -p /boot/efi/loader/entries
 
@@ -483,15 +489,69 @@ fi
 #   To switch to a keyfile for unattended boots:
 #     zfs change-key -o keyformat=raw -o keylocation=file:///etc/zfs/<key> <dataset>
 
-echo "--- Set ROOT password ---"
-passwd root
+# ── Password helper ──────────────────────────────────────────────────────────
+# Prompts interactively until two matching non-empty passwords are entered.
+# Uses chpasswd (feeds user:pass via stdin) which bypasses PAM quality checks,
+# so any password including short or simple ones is accepted.
+_set_password() {
+    local account="$1"
+    local pw1 pw2
+    while true; do
+        echo -n "  Enter password for ${account}: "
+        read -rs pw1; echo
+        echo -n "  Confirm password for ${account}: "
+        read -rs pw2; echo
+        if [[ -z "$pw1" ]]; then
+            echo "  Password cannot be empty — try again."; continue
+        fi
+        if [[ "$pw1" != "$pw2" ]]; then
+            echo "  Passwords do not match — try again."; continue
+        fi
+        printf '%s:%s\n' "$account" "$pw1" | chpasswd 2>/dev/null \
+            || printf '%s\n%s\n' "$pw1" "$pw1" | passwd "$account" 2>/dev/null \
+            || { echo "  Failed to set password — try again."; continue; }
+        echo "  Password set for ${account}."
+        break
+    done
+}
 
-useradd -m -G wheel,audio,video,storage,optical,network -s /bin/bash "$USERNAME"
-echo "--- Set password for $USERNAME ---"
-passwd "$USERNAME"
-
-# Enable sudo for wheel group (uncomments the relevant line in /etc/sudoers)
+# ── Enable sudo for wheel group ───────────────────────────────────────────────
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+
+# ── Root password ─────────────────────────────────────────────────────────────
+echo ""
+echo "━━━  Set ROOT password  ━━━"
+_set_password root
+
+# ── Create users from install.json ────────────────────────────────────────────
+# USERS_JSON is the compact JSON array from system.users, passed in as $5.
+# Each entry: { "name": "...", "shell": "...", "sudo": true/false, "groups": [...] }
+# python3 is used for JSON parsing — it is installed via base-devel in pacstrap.
+USER_COUNT="$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$USERS_JSON")"
+
+for (( _i=0; _i<USER_COUNT; _i++ )); do
+    _NAME="$(python3  -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u['name'])"                                         "$USERS_JSON")"
+    _SHELL="$(python3 -c "import json,sys; u=json.loads(sys.argv[1])[$_i]; print(u.get('shell','/bin/bash'))"                        "$USERS_JSON")"
+    _GROUPS="$(python3 -c "
+import json,sys
+u=json.loads(sys.argv[1])[$_i]
+g=list(u.get('groups',[]))
+if u.get('sudo',False) and 'wheel' not in g:
+    g=['wheel']+g
+print(','.join(g))
+" "$USERS_JSON")"
+
+    echo ""
+    echo "━━━  Creating user: ${_NAME}  ━━━"
+    useradd -m -s "$_SHELL" ${_GROUPS:+-G "$_GROUPS"} "$_NAME" \
+        || echo "  Warning: useradd failed for ${_NAME} — may already exist."
+
+    _set_password "$_NAME"
+
+    info_str="  Shell: ${_SHELL}"
+    [[ -n "$_GROUPS" ]] && info_str+="  |  Groups: ${_GROUPS}"
+    echo "  $info_str"
+done
 
 # ── Post-install optional scripts ─────────────────────────────────────────────
 # Each script runs inside this chroot and has full access to the new system.

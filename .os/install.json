@@ -7,10 +7,29 @@
   },
   "system": {
     "hostname": "archzfs",
-    "username": "user",
     "locale": "en_US.UTF-8",
     "timezone": "UTC",
-    "keymap": "us"
+    "keymap": "us",
+    "_users_help": "List of users to create. Each user needs at least 'name'. All fields below are optional.",
+    "users": [
+      {
+        "name": "aquastias",
+        "_name": "Unix username — lowercase letters, digits, hyphens only.",
+        "shell": "/bin/bash",
+        "_shell": "Login shell. Common choices: /bin/bash  /bin/zsh  /bin/fish",
+        "sudo": true,
+        "_sudo": "true = full passwordless-free sudo via wheel group.",
+        "groups": [
+          "wheel",
+          "audio",
+          "video",
+          "storage",
+          "optical",
+          "network"
+        ],
+        "_groups": "Extra groups. 'wheel' gives sudo. Remove 'wheel' for non-admin users."
+      }
+    ]
   },
   "options": {
     "kernel": "lts",
