@@ -234,6 +234,10 @@ sync_clock() {
 add_archzfs_repo() {
   section "Adding archzfs Repository"
 
+  # Remove any stale [archzfs-testing] block before touching the DB.
+  # pacman -Sy would fail trying to fetch archzfs-testing.db if it's present.
+  _remove_stale_archzfs_testing
+
   # Initialise and populate the pacman keyring first.
   # On a fresh live ISO this is needed before any new keys can be added.
   info "Refreshing pacman keyring..."
@@ -320,19 +324,17 @@ zfs_module_exists() {
 # ARCHZFS REPO HELPERS
 # =============================================================================
 
-_archzfs_add_testing() {
-  # Adds the archzfs-testing repo if not already present.
-  # archzfs-testing tracks newer ZFS releases sooner than the stable repo
-  # and may support a kernel version that stable does not yet have.
+_remove_stale_archzfs_testing() {
+  # archzfs-testing no longer exists as a separate repo since the project
+  # moved to GitHub in Feb 2026. The single GitHub repo is always current.
+  # Remove any stale [archzfs-testing] block left from previous script runs
+  # to prevent pacman from trying to fetch a non-existent database.
   if grep -q '\[archzfs-testing\]' /etc/pacman.conf; then
-    return
+    warn "Removing stale [archzfs-testing] entry from /etc/pacman.conf ..."
+    # Delete the [archzfs-testing] block (header + Server line + blank line)
+    sed -i '/^\[archzfs-testing\]/,/^$/d' /etc/pacman.conf
+    info "[archzfs-testing] removed."
   fi
-  # archzfs-testing is now at the same GitHub repo — same URL, just a
-  # different package group. The stable [archzfs] repo is usually sufficient.
-  info "[archzfs-testing] not needed — GitHub repo is already current."
-  return
-  pacman -Sy --noconfirm
-  info "[archzfs-testing] repo added."
 }
 
 _install_zfs_prebuilt() {
@@ -345,7 +347,7 @@ _install_zfs_prebuilt() {
   #      Works even when the ISO ships a newer mainline kernel.
   #   2. zfs-linux      — built against the mainline kernel.
   #      Only works if the ISO kernel exactly matches archzfs's build.
-  #   3. Both from archzfs-testing repo as a last resort.
+  #   3. DKMS build (zfs-dkms) — compiles from source against the running kernel.
   local kver="$1"
 
   info "Trying pre-built zfs-linux-lts (recommended — always in sync with archzfs) ..."
@@ -362,9 +364,9 @@ _install_zfs_prebuilt() {
     return 0
   fi
 
-  # Stable archzfs didn't have it — try archzfs-testing for both variants
-  info "Stable archzfs has no pre-built for ${kver}. Trying archzfs-testing ..."
-  _archzfs_add_testing
+  # Remove any stale archzfs-testing repo that could cause pacman DB errors
+  _remove_stale_archzfs_testing
+  info "Pre-built not available for ${kver} from archzfs. Will try DKMS."
   pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
   if zfs_module_exists; then
     info "zfs-linux-lts (testing) installed successfully."
@@ -477,14 +479,14 @@ _install_zfs_dkms() {
   fi
 
   # Install the DKMS framework and the ZFS source package.
-  # Try stable archzfs first, then archzfs-testing which may have a newer
-  # ZFS release that supports the running kernel.
+  # Install DKMS framework and ZFS source package from the archzfs GitHub repo.
   info "Installing dkms + zfs-dkms from archzfs ..."
   if ! pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils 2>/dev/null; then
-    warn "zfs-dkms install failed from stable archzfs. Trying archzfs-testing ..."
-    _archzfs_add_testing
+    warn "zfs-dkms install failed. Retrying after cleanup ..."
+    _remove_stale_archzfs_testing
+    pacman -Sy --noconfirm # refresh DB after cleanup
     pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils ||
-      error "Failed to install zfs-dkms from both archzfs and archzfs-testing.
+      error "Failed to install zfs-dkms from archzfs.
   Check: pacman -Ss zfs-dkms
   Check: df -h /run/archiso/cowspace  (need ~900 MB free)"
   fi
@@ -675,4 +677,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"
