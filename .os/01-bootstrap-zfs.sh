@@ -239,57 +239,113 @@ EOF
 # ZFS MODULE INSTALLATION
 # =============================================================================
 
+zfs_module_exists() {
+  # Returns 0 (true) if a zfs.ko file exists for the running kernel.
+  # This is the definitive test — pacman exit code is not reliable because
+  # zfs-linux can "succeed" by installing only zfs-utils when no matching
+  # kernel module package exists for the exact running kernel version.
+  local kver
+  kver="$(uname -r)"
+  find "/lib/modules/${kver}" -name "zfs.ko" -o -name "zfs.ko.zst" \
+    2>/dev/null | grep -q .
+}
+
 install_zfs() {
   section "Installing ZFS"
 
   local kver
   kver="$(uname -r)"
-  info "Running kernel: $kver"
+  info "Running kernel: ${kver}"
 
-  # Strategy:
-  #   1. Try zfs-linux (pre-built binary module for the exact running kernel).
-  #      This is fast (~seconds) and preferred.
-  #   2. If no pre-built module exists for this kernel, fall back to zfs-dkms
-  #      which compiles ZFS from source using DKMS. This takes 5–15 minutes
-  #      depending on CPU speed but works on any kernel version.
-
-  # Size note:
-  #   zfs-linux (pre-built):  ~40–80 MB download, loads instantly
-  #   zfs-dkms + linux-headers + dkms: ~600–900 MB download+build, 5–15 min
-  # Always try pre-built first.
-  info "Attempting pre-built zfs-linux module..."
-  if pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null; then
-    info "Pre-built module installed successfully (~80 MB)."
-  else
-    warn "No pre-built module for kernel ${kver}. Falling back to DKMS build."
-    warn "DKMS will compile ZFS from source. Download + build: ~15–30 min."
-    warn "Required cowspace: ~900 MB. cowspace has been auto-expanded by this script."
-
-    # Install linux-headers matching the EXACT running kernel version.
-    # 'linux-headers' alone may pull in a different version on some mirrors.
-    local headers_pkg="linux-headers"
-    # For LTS or hardened kernels running on the ISO (uncommon but possible):
-    if uname -r | grep -q 'lts'; then headers_pkg="linux-lts-headers"; fi
-
-    pacman -S --noconfirm --needed "${headers_pkg}" dkms zfs-dkms zfs-utils ||
-      error "ZFS DKMS installation failed.
-  Check: pacman -Si zfs-dkms   (is the archzfs repo reachable?)
-  Check: df -h /run/archiso/cowspace  (is there enough cowspace?)"
-    info "DKMS build complete."
+  # If already loaded (e.g. script re-run), nothing to do.
+  if lsmod | grep -q '^zfs '; then
+    info "ZFS module already loaded — skipping install."
+    return
   fi
+
+  # ── Strategy ──────────────────────────────────────────────────────────────
+  # 1. Pre-built (zfs-linux): archzfs provides a binary .ko for each kernel
+  #    version they track. Fast (~80 MB), but only works if the ISO kernel
+  #    exactly matches a version archzfs has built for.
+  #
+  # 2. DKMS (zfs-dkms): compiles ZFS source against the running kernel's
+  #    headers. Works for any kernel but takes 5–30 min and needs ~900 MB
+  #    of cowspace (already expanded by expand_cowspace() above).
+  #
+  # Critical: pacman -S zfs-linux can exit 0 even when no kernel module
+  # package exists — it installs zfs-utils and exits cleanly. We must
+  # verify the .ko file actually landed in /lib/modules/<kver>/ rather
+  # than trusting the pacman exit code alone.
+
+  # ── Attempt 1: pre-built ──────────────────────────────────────────────────
+  info "Attempting pre-built zfs-linux module for kernel ${kver} ..."
+  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
+
+  if zfs_module_exists; then
+    info "Pre-built zfs-linux module installed and verified."
+    return
+  fi
+
+  # ── Attempt 2: DKMS build ─────────────────────────────────────────────────
+  warn "Pre-built module not found for kernel ${kver} (archzfs may not track this version yet)."
+  warn "Falling back to DKMS — compiling ZFS from source against the running kernel."
+  warn "This will take 5–30 minutes depending on CPU speed."
+  info "cowspace has been pre-expanded; ~900 MB is needed for this build."
+
+  # linux-headers must exactly match the running kernel version.
+  # Detect the right headers package name from the kernel release string.
+  local headers_pkg
+  if uname -r | grep -q '\-lts'; then
+    headers_pkg="linux-lts-headers"
+  elif uname -r | grep -q '\-hardened'; then
+    headers_pkg="linux-hardened-headers"
+  elif uname -r | grep -q '\-zen'; then
+    headers_pkg="linux-zen-headers"
+  else
+    headers_pkg="linux-headers"
+  fi
+  info "Using headers package: ${headers_pkg}"
+
+  # Install headers, dkms framework, and the zfs-dkms source package.
+  # dkms will automatically build the module during package install.
+  pacman -S --noconfirm --needed "${headers_pkg}" dkms zfs-dkms zfs-utils ||
+    error "ZFS DKMS installation failed.
+  Common causes:
+    - archzfs repo unreachable  →  check internet: ping archzfs.com
+    - cowspace too small        →  check: df -h /run/archiso/cowspace
+    - headers version mismatch  →  running kernel: $(uname -r)"
+
+  # Verify the DKMS build actually produced a module
+  if ! zfs_module_exists; then
+    error "DKMS build completed but zfs.ko not found in /lib/modules/${kver}/.
+  The build may have silently failed. Check DKMS status:
+    dkms status
+    journalctl -b | grep -i dkms"
+  fi
+
+  info "DKMS build complete — zfs.ko verified in /lib/modules/${kver}/."
 }
 
 load_zfs_module() {
   section "Loading ZFS Kernel Module"
 
   if lsmod | grep -q '^zfs '; then
-    info "ZFS module already loaded."
+    info "ZFS module already loaded — skipping modprobe."
     return
   fi
 
-  modprobe zfs || error "Failed to load ZFS kernel module.
-  This usually means the DKMS build failed or the module is for a different kernel.
-  Try rebooting the ISO and re-running this script."
+  # Run depmod so the kernel module index knows about the newly installed .ko.
+  # This is required after installing a module outside of the normal boot path.
+  info "Updating kernel module index (depmod)..."
+  depmod -a
+
+  info "Loading ZFS module..."
+  modprobe zfs || error "modprobe zfs failed.
+  Kernel : $(uname -r)
+  Module : $(find /lib/modules/$(uname -r) -name 'zfs.ko*' 2>/dev/null | head -1 || echo 'NOT FOUND')
+  Try:
+    depmod -a && modprobe zfs
+  If the module is still missing, re-run 01-bootstrap-zfs.sh from scratch."
 
   local zver
   zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
@@ -356,4 +412,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"
