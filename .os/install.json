@@ -1,0 +1,133 @@
+{
+  "_readme": "Arch Linux ZFS Installer config. Edit the ACTIVE CONFIG section below, then run ./03-install.sh",
+
+  "_MODE_HELP": {
+    "single": "One disk — auto-partitioned: ESP + rpool (OS) + dpool (storage). Set 'disk' to the target device.",
+    "multi":  "Multiple disks — OS pool (rpool) + storage groups (dpool). Set 'os_pool' and 'storage_groups'.",
+    "auto":   "Omit 'mode' to auto-detect: 'disk' key present → single, 'os_pool.disks' with entries → multi."
+  },
+
+  "system": {
+    "hostname":  "archzfs",
+    "username":  "user",
+    "locale":    "en_US.UTF-8",
+    "timezone":  "UTC",
+    "keymap":    "us"
+  },
+
+  "options": {
+    "encryption":  false,
+    "_encryption": "ZFS native AES-256-GCM on all pools. You will be prompted for a passphrase during install.",
+    "swap":        true,
+    "swap_size":   "auto",
+    "_swap_size":  "'auto' = RAM×2 (recommended for hibernation support). Or fixed: '8G', '16G', '32G'.",
+    "esp_size":    "512M",
+    "_esp_size":   "EFI System Partition size per disk. 512M is plenty for systemd-boot + kernels."
+  },
+
+  "packages": {
+    "_help":  "All packages are installed via pacstrap alongside the base system. Use exact pacman package names.",
+    "extra":  [],
+    "_extra": "Flat list of any additional packages. Example: ['htop', 'neofetch', 'firefox', 'vlc']",
+    "groups": {
+      "cli":   [],
+      "_cli":  "CLI tools. Example: ['tmux', 'bat', 'fd', 'ripgrep', 'fzf', 'zsh', 'fish']",
+      "dev":   [],
+      "_dev":  "Development. Example: ['python', 'nodejs', 'npm', 'docker', 'go', 'rust']",
+      "gui":   [],
+      "_gui":  "GUI apps — useful when combined with post_install.kde=true. Example: ['firefox', 'vlc', 'gimp']"
+    }
+  },
+
+  "post_install": {
+    "_help":      "Each script in extras/ runs inside chroot at the end of installation when set to true.",
+    "kde":        false,
+    "_kde":       "extras/kde.sh — KDE Plasma 6 + SDDM + PipeWire audio + Bluetooth + printing.",
+    "backup":     false,
+    "_backup":    "extras/backup.sh — zfs-auto-snapshot (Timeshift-style) + Borg/Vorta encrypted backups.",
+    "security":   false,
+    "_security":  "extras/security.sh — UFW firewall (deny-by-default) + ClamAV (weekly scan + daily defs update)."
+  },
+
+  "_SINGLE_DISK_EXAMPLE": {
+    "_info":   "Laptop or single-disk desktop. The disk is split automatically.",
+    "mode":              "single",
+    "disk":              "/dev/sda",
+    "ashift":            12,
+    "_ashift":           "12 = 4K sectors (SATA SSD/HDD). 13 = 8K sectors (NVMe, optional but common).",
+    "os_size":           "auto",
+    "_os_size":          "'auto' = max(20% of disk, RAM×2+30GiB, 40GiB). Or fixed: '80G', '120G'.",
+    "os_pool_name":      "rpool",
+    "storage_pool_name": "dpool",
+    "storage_mount":     "/data"
+  },
+
+  "_MULTI_MIRROR_EXAMPLE": {
+    "_info":   "2 NVMes mirrored for OS. 3 SSDs as raidz1 storage.",
+    "mode":    "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "mirror",
+      "_topology": "mirror | stripe | none | (omit to be prompted at runtime)",
+      "ashift":    13,
+      "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+    },
+    "storage_groups": [
+      {
+        "name":      "ssd",
+        "mount":     "/data/ssd",
+        "ashift":    12,
+        "topology":  "raidz1",
+        "_topology": "mirror | stripe | raidz1 | raidz2 | independent | (omit to be prompted)",
+        "disks":     ["/dev/sda", "/dev/sdb", "/dev/sdc"]
+      }
+    ]
+  },
+
+  "_MULTI_NO_RAID_EXAMPLE": {
+    "_info":   "2 NVMes listed; topology=none means you pick one for OS at runtime, the other joins dpool.",
+    "mode":    "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    13,
+      "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+    },
+    "storage_groups": [
+      { "name": "ssd", "mount": "/data/ssd", "ashift": 12,
+        "disks": ["/dev/sda", "/dev/sdb", "/dev/sdc"] }
+    ]
+  },
+
+  "_MULTI_PROMPTED_EXAMPLE": {
+    "_info":   "Omit 'topology' in os_pool and/or storage_groups to be prompted at runtime with suggestions.",
+    "mode":    "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "ashift":    13,
+      "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+    },
+    "storage_groups": [
+      { "name": "ssd", "mount": "/data/ssd", "ashift": 12,
+        "disks": ["/dev/sda", "/dev/sdb", "/dev/sdc"] }
+    ]
+  },
+
+  "=== ACTIVE CONFIG — edit below, leave examples above as reference ===": "",
+
+  "mode":  "single",
+  "disk":  "/dev/sda",
+  "ashift": 12,
+  "os_size": "auto",
+  "os_pool_name":      "rpool",
+  "storage_pool_name": "dpool",
+  "storage_mount":     "/data",
+
+  "os_pool": {
+    "pool_name": "rpool",
+    "ashift":    13,
+    "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+  },
+
+  "storage_groups": []
+}
