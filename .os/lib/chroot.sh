@@ -223,6 +223,36 @@ else
 fi
 sed -i "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block keyboard zfs filesystems)/" \
     /etc/mkinitcpio.conf
+
+# Determine the preset file name from the kernel flavour.
+# linux-lts  → /etc/mkinitcpio.d/linux-lts.preset
+# linux       → /etc/mkinitcpio.d/linux.preset
+if [[ "$KERNEL" == "lts" ]]; then
+    PRESET_NAME="linux-lts"
+else
+    PRESET_NAME="linux"
+fi
+PRESET_FILE="/etc/mkinitcpio.d/${PRESET_NAME}.preset"
+
+# Ensure the preset includes a 'fallback' entry.
+# On minimal installs the preset may only have 'default'.
+if [[ -f "$PRESET_FILE" ]]; then
+    if ! grep -q "^PRESETS=.*fallback" "$PRESET_FILE"; then
+        echo "Adding fallback preset to ${PRESET_FILE} ..."
+        sed -i "s/^PRESETS=('default')/PRESETS=('default' 'fallback')/" "$PRESET_FILE"
+        cat >> "$PRESET_FILE" << PRESET
+
+# Fallback preset — builds without autodetect (all modules included)
+# Added by the ZFS installer to ensure a recovery boot option exists.
+fallback_config="/etc/mkinitcpio.conf"
+fallback_image="/boot/${INITRAMFS_FB}"
+fallback_options="-S autodetect"
+PRESET
+    fi
+else
+    echo "Warning: preset file not found at ${PRESET_FILE} — mkinitcpio -P will use defaults."
+fi
+
 mkinitcpio -P
 
 # ── Bootloader installation ───────────────────────────────────────────────────
@@ -300,9 +330,26 @@ EOF
     # Copy kernel and initramfs to the ESP.
     # systemd-boot reads these directly from the FAT32 ESP — the ZFS root
     # is not yet mounted at the point the firmware loads them.
-    cp "/boot/${VMLINUZ}"     /boot/efi/
-    cp "/boot/${INITRAMFS}"   /boot/efi/
-    cp "/boot/${INITRAMFS_FB}" /boot/efi/
+    cp "/boot/${VMLINUZ}"   /boot/efi/
+    cp "/boot/${INITRAMFS}" /boot/efi/
+
+    # The fallback initramfs may not exist if the linux-lts preset only defines
+    # the default image. Generate it explicitly if missing, then copy if present.
+    if [[ ! -f "/boot/${INITRAMFS_FB}" ]]; then
+        echo "Fallback initramfs not found — generating now ..."
+        mkinitcpio -p "linux-${KERNEL/default/}" -S autodetect 2>/dev/null \
+            || mkinitcpio -g "/boot/${INITRAMFS_FB}" 2>/dev/null \
+            || true
+    fi
+    if [[ -f "/boot/${INITRAMFS_FB}" ]]; then
+        cp "/boot/${INITRAMFS_FB}" /boot/efi/
+    else
+        # No fallback available — remove the fallback boot entry so systemd-boot
+        # does not show a broken entry that points to a missing file.
+        rm -f /boot/efi/loader/entries/arch-zfs-fallback.conf
+        echo "Note: fallback initramfs not available — fallback boot entry removed."
+    fi
+
     [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img /boot/efi/ || true
     [[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   /boot/efi/ || true
 
