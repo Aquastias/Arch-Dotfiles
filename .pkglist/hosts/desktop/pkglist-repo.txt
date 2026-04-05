@@ -38,6 +38,7 @@ fzf
 gamemode
 gimp
 git
+go
 grim
 grub
 gst-plugin-pipewire
@@ -45,6 +46,7 @@ gufw
 gwenview
 htop
 hyprland
+imagemagick
 inxi
 iptables
 iwd
@@ -64,6 +66,7 @@ krusader
 ktorrent
 kwalletmanager
 lact
+lazygit
 less
 lhasa
 lib32-gamemode
@@ -79,6 +82,7 @@ lutris
 lvm2
 lynx
 man-db
+mermaid-cli
 nano
 neovide
 neovim
@@ -104,8 +108,11 @@ pipewire-pulse
 plasma-meta
 plasma-workspace
 polkit-kde-agent
+python-pip
+python-pipx
 qbittorrent
 qemu-base
+qemu-full
 qt5-wayland
 qt6-wayland
 reflector
@@ -123,7 +130,9 @@ stow
 stress
 stress-ng
 teamspeak3
+tectonic
 timeshift
+tree-sitter-cli
 ttf-fira-code
 ttf-sazanami
 udftools
@@ -149,6 +158,7 @@ wine-gecko
 wine-mono
 wireless_tools
 wireplumber
+wl-clipboard
 wofi
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
@@ -159,6 +169,7 @@ xfsprogs
 xorg-xinit
 yazi
 zed
+zip
 zoxide
 zram-generator
 zsh
