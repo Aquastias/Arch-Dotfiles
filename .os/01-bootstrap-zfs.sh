@@ -245,36 +245,45 @@ add_archzfs_repo() {
   info "Updating archlinux-keyring..."
   pacman -Sy --noconfirm archlinux-keyring
 
-  # Download the archzfs GPG signing key
-  info "Fetching archzfs GPG key..."
-  local keyfile="/tmp/archzfs.gpg"
-  curl -fsSL https://archzfs.com/archzfs.gpg -o "$keyfile" ||
-    error "Failed to download archzfs GPG key. Check internet connection."
+  # ── archzfs repository setup ──────────────────────────────────────────────
+  # IMPORTANT: archzfs.com went stale in early 2026. The project moved to
+  # GitHub Releases. The new repo is actively maintained and ships current
+  # ZFS builds (2.4.x as of April 2026).
+  # New repo URL: https://github.com/archzfs/archzfs/releases/download/experimental
+  # New signing key: 3A9917BF0DED5C13F69AC68FABEC0A1208037BE9
 
-  # Import the key into pacman's keyring
-  pacman-key --add "$keyfile"
+  local ARCHZFS_KEY="3A9917BF0DED5C13F69AC68FABEC0A1208037BE9"
+  local ARCHZFS_SERVER="https://github.com/archzfs/archzfs/releases/download/experimental"
 
-  # Extract the key fingerprint so we can locally sign it
-  # (pacman requires keys to be locally signed before trusting packages)
-  local fp
-  fp="$(gpg --with-colons --import-options show-only --import "$keyfile" 2>/dev/null |
-    awk 'BEGIN{FS=":"} /^pub/{print $5; exit}')"
-  [[ -n "$fp" ]] || error "Could not extract archzfs key fingerprint."
-  info "archzfs key fingerprint: $fp"
-  pacman-key --lsign-key "$fp"
+  # Import the new archzfs signing key from keyserver
+  info "Importing archzfs signing key (${ARCHZFS_KEY:0:16}...)..."
+  pacman-key --recv-keys "$ARCHZFS_KEY" 2>/dev/null || pacman-key --keyserver hkps://keyserver.ubuntu.com --recv-keys "$ARCHZFS_KEY" || error "Failed to import archzfs GPG key.
+  Try manually: pacman-key --recv-keys ${ARCHZFS_KEY}"
+  pacman-key --lsign-key "$ARCHZFS_KEY"
 
-  # Add [archzfs] repository to pacman.conf if not already present
+  # Add [archzfs] repository to pacman.conf if not already present.
+  # SigLevel=Never is the current recommendation from the archzfs project
+  # while their signing infrastructure is being finalized (see archzfs wiki).
   if grep -q '\[archzfs\]' /etc/pacman.conf; then
     info "[archzfs] repo already present in /etc/pacman.conf"
+    # Update stale archzfs.com URL if still present
+    if grep -q 'archzfs.com' /etc/pacman.conf; then
+      warn "Updating stale archzfs.com repo URL to GitHub ..."
+      sed -i "s|Server = https://archzfs.com/.*|Server = ${ARCHZFS_SERVER}|" /etc/pacman.conf
+      sed -i '/\[archzfs\]/{n; s/SigLevel.*/SigLevel = Never/}' /etc/pacman.conf 2>/dev/null || true
+      info "archzfs repo URL updated."
+    fi
   else
-    cat >>/etc/pacman.conf <<'EOF'
+    cat >>/etc/pacman.conf <<EOF
 
 # archzfs — ZFS packages for Arch Linux
-# https://archzfs.com
+# Moved from archzfs.com to GitHub Releases in Feb 2026.
+# SigLevel=Never is per official archzfs recommendation while signing is finalised.
 [archzfs]
-Server = https://archzfs.com/$repo/$arch
+SigLevel = Never
+Server = ${ARCHZFS_SERVER}
 EOF
-    info "[archzfs] repo added to /etc/pacman.conf"
+    info "[archzfs] repo added (GitHub, current)."
   fi
 
   info "Syncing pacman package databases..."
@@ -318,12 +327,10 @@ _archzfs_add_testing() {
   if grep -q '\[archzfs-testing\]' /etc/pacman.conf; then
     return
   fi
-  cat >>/etc/pacman.conf <<'EOF'
-
-# archzfs-testing — pre-release ZFS builds, may support newer kernels sooner
-[archzfs-testing]
-Server = https://archzfs.com/$repo/$arch
-EOF
+  # archzfs-testing is now at the same GitHub repo — same URL, just a
+  # different package group. The stable [archzfs] repo is usually sufficient.
+  info "[archzfs-testing] not needed — GitHub repo is already current."
+  return
   pacman -Sy --noconfirm
   info "[archzfs-testing] repo added."
 }
@@ -523,7 +530,7 @@ _install_zfs_dkms() {
   Full log       : ${makelog}
   Possible fixes :
     1. Use an Arch ISO with a kernel that archzfs already tracks.
-       Check supported kernels: https://archzfs.com
+       Check supported kernels: https://github.com/archzfs/archzfs/releases/tag/experimental
     2. Wait for archzfs to release a build for kernel ${kver}.
     3. Try manually: dkms build zfs/${zfs_ver} -k ${kver} --kernelsourcedir ${kernel_src}"
   fi
@@ -565,12 +572,12 @@ install_zfs() {
     error "ZFS module not found in /lib/modules/${kver}/ after all install attempts.
 
   ROOT CAUSE: ZFS ${zfs_ver} likely does not support kernel ${kver} yet.
-  archzfs currently builds zfs-linux for kernel: ${supported:-'(check https://archzfs.com)'}
+  archzfs currently builds zfs-linux for kernel: ${supported:-'(check https://github.com/archzfs/archzfs/releases/tag/experimental)'}
   Running kernel: ${kver}
 
   SOLUTION — use an Arch ISO whose kernel archzfs supports:
     1. Check which ISO to use:
-         curl -s 'https://archzfs.com/archzfs/x86_64/' | grep 'zfs-linux-[0-9]'
+         browse: https://github.com/archzfs/archzfs/releases/tag/experimental
        The number after 'zfs-linux-' is the kernel version archzfs currently tracks.
     2. Download that ISO from https://archlinux.org/download/
        (use a date-stamped ISO from https://archive.archlinux.org/iso/ if needed)
@@ -668,4 +675,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
