@@ -307,13 +307,41 @@ zfs_module_exists() {
     2>/dev/null | grep -q .
 }
 
+# =============================================================================
+# ARCHZFS REPO HELPERS
+# =============================================================================
+
+_archzfs_add_testing() {
+  # Adds the archzfs-testing repo if not already present.
+  # archzfs-testing tracks newer ZFS releases sooner than the stable repo
+  # and may support a kernel version that stable does not yet have.
+  if grep -q '\[archzfs-testing\]' /etc/pacman.conf; then
+    return
+  fi
+  cat >>/etc/pacman.conf <<'EOF'
+
+# archzfs-testing — pre-release ZFS builds, may support newer kernels sooner
+[archzfs-testing]
+Server = https://archzfs.com/$repo/$arch
+EOF
+  pacman -Sy --noconfirm
+  info "[archzfs-testing] repo added."
+}
+
 _install_zfs_prebuilt() {
-  # Attempt 1: archzfs pre-built binary module.
-  # The archzfs repo ships zfs-linux packages built against specific kernel
-  # versions. This is fast (~80 MB) but only works when the ISO kernel
-  # version exactly matches what archzfs has built.
+  # Try to install a pre-built zfs-linux binary module.
+  # The archzfs repo builds zfs-linux against specific kernel versions.
+  # Returns 0 if a .ko was actually installed, 1 otherwise.
   local kver="$1"
   info "Trying pre-built zfs-linux for kernel ${kver} ..."
+  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
+  if zfs_module_exists; then
+    return 0
+  fi
+
+  # Stable archzfs didn't have it — try archzfs-testing
+  info "Stable archzfs has no pre-built for ${kver}. Trying archzfs-testing ..."
+  _archzfs_add_testing
   pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
   zfs_module_exists
 }
@@ -421,11 +449,17 @@ _install_zfs_dkms() {
   fi
 
   # Install the DKMS framework and the ZFS source package.
-  # zfs-dkms contains the ZFS source; DKMS will compile it automatically.
-  pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils ||
-    error "Failed to install zfs-dkms from archzfs repo.
-  Check: pacman -Si zfs-dkms
+  # Try stable archzfs first, then archzfs-testing which may have a newer
+  # ZFS release that supports the running kernel.
+  info "Installing dkms + zfs-dkms from archzfs ..."
+  if ! pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils 2>/dev/null; then
+    warn "zfs-dkms install failed from stable archzfs. Trying archzfs-testing ..."
+    _archzfs_add_testing
+    pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils ||
+      error "Failed to install zfs-dkms from both archzfs and archzfs-testing.
+  Check: pacman -Ss zfs-dkms
   Check: df -h /run/archiso/cowspace  (need ~900 MB free)"
+  fi
 
   # Determine the ZFS version from the installed source directory.
   # zfs-dkms always installs its source to /usr/src/zfs-<version>/.
@@ -451,13 +485,27 @@ _install_zfs_dkms() {
   # uses the headers that match the RUNNING kernel, not whatever linux-headers
   # pacman installed (which may be a newer version).
   info "Building ZFS ${zfs_ver} against kernel ${kver} ..."
-  dkms build -m zfs -v "$zfs_ver" -k "$kver" --kernelsourcedir "$kernel_src" ||
+  info "Build log: /var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
+
+  if ! dkms build -m zfs -v "$zfs_ver" -k "$kver" --kernelsourcedir "$kernel_src"; then
+    local makelog="/var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
+    echo ""
+    warn "DKMS build failed. Last 30 lines of make.log:"
+    echo "─────────────────────────────────────────────"
+    tail -30 "$makelog" 2>/dev/null || echo "(log not found at ${makelog})"
+    echo "─────────────────────────────────────────────"
+    echo ""
     error "DKMS build failed for ZFS ${zfs_ver} / kernel ${kver}.
-  Build log: /var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log
-  Common causes:
-    - Missing build tools  →  pacman -S --noconfirm base-devel
-    - cowspace full        →  df -h /run/archiso/cowspace
-    - Bad kernel headers   →  ls ${kernel_src}"
+  The most common cause is a ZFS version that does not yet support this kernel.
+  Running kernel : ${kver}
+  ZFS source     : ${zfs_ver}
+  Full log       : ${makelog}
+  Possible fixes :
+    1. Use an Arch ISO with a kernel that archzfs already tracks.
+       Check supported kernels: https://archzfs.com
+    2. Wait for archzfs to release a build for kernel ${kver}.
+    3. Try manually: dkms build zfs/${zfs_ver} -k ${kver} --kernelsourcedir ${kernel_src}"
+  fi
 
   # Install the built module into /lib/modules/<kver>/
   dkms install -m zfs -v "$zfs_ver" -k "$kver" ||
@@ -488,11 +536,27 @@ install_zfs() {
 
   # Final verification — must have the .ko before we try modprobe
   if ! zfs_module_exists; then
-    error "ZFS module file still not found in /lib/modules/${kver}/ after all attempts.
-  Run manually to diagnose:
-    dkms status
-    ls /lib/modules/${kver}/extra/
-    journalctl -b | grep -i 'dkms\|zfs'"
+    # Query archzfs to find out which kernel versions it currently supports
+    local supported=""
+    supported="$(pacman -Si zfs-linux 2>/dev/null | awk '/Depends On/{print}' |
+      grep -oP 'linux=\K[^\s]+')" || true
+
+    error "ZFS module not found in /lib/modules/${kver}/ after all install attempts.
+
+  ROOT CAUSE: ZFS ${zfs_ver} likely does not support kernel ${kver} yet.
+  archzfs currently builds zfs-linux for kernel: ${supported:-'(check https://archzfs.com)'}
+  Running kernel: ${kver}
+
+  SOLUTION — use an Arch ISO whose kernel archzfs supports:
+    1. Check which ISO to use:
+         curl -s 'https://archzfs.com/archzfs/x86_64/' | grep 'zfs-linux-[0-9]'
+       The number after 'zfs-linux-' is the kernel version archzfs currently tracks.
+    2. Download that ISO from https://archlinux.org/download/
+       (use a date-stamped ISO from https://archive.archlinux.org/iso/ if needed)
+    3. Reboot from that ISO and re-run this script.
+
+  Or wait for archzfs to release a build for kernel ${kver} (usually within days
+  of a new kernel release)."
   fi
 
   info "ZFS module verified in /lib/modules/${kver}/."
@@ -583,4 +647,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
