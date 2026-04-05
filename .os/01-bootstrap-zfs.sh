@@ -340,24 +340,84 @@ _install_zfs_dkms() {
   warn "This will take 5–30 minutes depending on CPU speed."
   info "cowspace has been pre-expanded for this build (~900 MB needed)."
 
-  # Verify the ISO's own kernel headers are present at the expected path.
-  # On the Arch ISO this symlink always exists; on non-ISO systems it may not.
+  # ── Locate kernel headers for the EXACT running kernel ──────────────────────
+  # DKMS needs headers that match the running kernel version precisely.
+  # The build directory is /usr/lib/modules/<kver>/build (a symlink to the
+  # kernel source tree). Three scenarios:
+  #
+  #   A) /usr/lib/modules/<kver>/build exists  — ISO ships matching headers.
+  #      Use them directly, no download needed.
+  #
+  #   B) Mirror has the exact matching linux-headers version.
+  #      Install it and the /build symlink will be created.
+  #
+  #   C) Mirror has moved on to a newer version (most common case when the
+  #      ISO is a few days old). The exact version is no longer on the mirror
+  #      but IS available on the Arch Linux Archive (archive.archlinux.org).
+  #      Download it from there and install with pacman -U.
+
   local kernel_src="/usr/lib/modules/${kver}/build"
-  if [[ ! -d "$kernel_src" ]]; then
-    # Headers not present — fall back to installing from pacman.
-    # Determine the correct package name for this kernel flavour.
+
+  if [[ -d "$kernel_src" ]]; then
+    info "Kernel headers already present: ${kernel_src}"
+
+  else
+    warn "Kernel headers not found at ${kernel_src}."
+    warn "The running kernel (${kver}) does not match the installed headers."
+
+    # Determine the correct headers package name for this kernel flavour
     local headers_pkg="linux-headers"
     echo "$kver" | grep -q '\-lts' && headers_pkg="linux-lts-headers"
     echo "$kver" | grep -q '\-hardened' && headers_pkg="linux-hardened-headers"
     echo "$kver" | grep -q '\-zen' && headers_pkg="linux-zen-headers"
-    warn "Kernel headers not found at ${kernel_src}."
-    warn "Installing ${headers_pkg} from pacman (must match running kernel exactly)."
-    pacman -S --noconfirm --needed "$headers_pkg" ||
-      error "Failed to install ${headers_pkg}. Mirror may have a newer version.
-  Running kernel : ${kver}
-  To fix: reboot from a newer Arch ISO whose kernel matches the mirror."
-  else
-    info "Using ISO kernel headers at: ${kernel_src}"
+
+    # Build the exact pkgver string pacman/archive uses.
+    # Arch kernel version strings are like: 6.19.10-arch1-1
+    # The package version is:               6.19.10.arch1-1  (dot not dash before arch)
+    # Convert kernel release string to pacman package version.
+    # Kernel: 6.19.10-arch1-1  →  Package: 6.19.10.arch1-1
+    # (the hyphen before "arch" becomes a dot in the package version)
+    local pkg_ver
+    pkg_ver="$(echo "$kver" | sed 's/\([0-9]\)-arch/\1.arch/')"
+
+    info "Need ${headers_pkg}=${pkg_ver}"
+
+    # ── Scenario B: try the current mirror first ──────────────────────────
+    info "Attempting to install ${headers_pkg} from current mirror ..."
+    if pacman -S --noconfirm --needed "${headers_pkg}=${pkg_ver}" 2>/dev/null &&
+      [[ -d "$kernel_src" ]]; then
+      info "Headers installed from mirror."
+
+    else
+      # ── Scenario C: fetch exact version from Arch Linux Archive ──────
+      warn "Exact version not on mirror. Fetching from Arch Linux Archive..."
+      warn "URL: https://archive.archlinux.org/packages/"
+
+      # The archive path uses the package name's first letter as a subdir.
+      # linux-headers → l/linux-headers/linux-headers-6.19.10.arch1-1-x86_64.pkg.tar.zst
+      local arch="x86_64"
+      local pkg_file="${headers_pkg}-${pkg_ver}-${arch}.pkg.tar.zst"
+      local first_char="${headers_pkg:0:1}"
+      local archive_url="https://archive.archlinux.org/packages/${first_char}/${headers_pkg}/${pkg_file}"
+
+      info "Downloading: ${pkg_file}"
+      local tmp_pkg="/tmp/${pkg_file}"
+      curl -fL --progress-bar "$archive_url" -o "$tmp_pkg" ||
+        error "Failed to download headers from Arch Linux Archive.
+  URL tried: ${archive_url}
+  Check the archive manually: https://archive.archlinux.org/packages/l/${headers_pkg}/
+  Then install manually: pacman -U /path/to/${pkg_file}"
+
+      info "Installing headers from archive package ..."
+      pacman -U --noconfirm "$tmp_pkg" ||
+        error "pacman -U failed for ${tmp_pkg}"
+      rm -f "$tmp_pkg"
+
+      [[ -d "$kernel_src" ]] ||
+        error "Headers installed but ${kernel_src} still missing.
+  This should not happen. Check: ls /usr/lib/modules/${kver}/"
+      info "Headers installed from Arch Linux Archive."
+    fi
   fi
 
   # Install the DKMS framework and the ZFS source package.
@@ -523,4 +583,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
