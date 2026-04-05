@@ -154,8 +154,8 @@ check_ram() {
     error "Only ${total_ram_mb} MB RAM detected. At least 1 GB is required.
   In virt-manager: Machine → Details → Memory — raise to 2048 MB or more."
   elif ((total_ram_mb < 2048)); then
-    warn "${total_ram_mb} MB RAM. Pre-built zfs-linux (~80 MB) will be fine."
-    warn "DKMS fallback (~900 MB) may fail — it will only be used if no pre-built exists."
+    warn "${total_ram_mb} MB RAM. DKMS build (~900 MB) may run out of space."
+    warn "Recommended: 2 GB+ RAM for a reliable DKMS build."
   else
     info "RAM OK: ${total_ram_mb} MB"
   fi
@@ -297,46 +297,18 @@ EOF
 # =============================================================================
 # ZFS MODULE INSTALLATION
 # =============================================================================
-
-zfs_module_exists() {
-  # Returns 0 (true) if a ZFS kernel module file exists for the running kernel.
-  # pacman exit codes are unreliable — we check the filesystem directly.
-  #
-  # Checks two locations:
-  #   1. /lib/modules/$(uname -r)/  — exact match for running kernel
-  #   2. Any subdirectory of /lib/modules/ — catches version string mismatches
-  #      between uname -r (e.g. 6.19.11-arch1-1) and the package install path
-  #      (which may differ slightly in separator style).
-  local kver
-  kver="$(uname -r)"
-  local moddir="/lib/modules/${kver}"
-
-  # Exact match first
-  if [[ -d "$moddir" ]]; then
-    if find "$moddir" \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
-      2>/dev/null | grep -q .; then
-      return 0
-    fi
-  fi
-
-  # Broad search across all installed kernel module directories.
-  # This catches cases where the package version string differs slightly
-  # from uname -r (e.g. dots vs dashes in arch suffix).
-  [[ -d /lib/modules ]] || return 1
-  find /lib/modules -maxdepth 4 \
-    \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
-    2>/dev/null | grep -q .
-}
-
-zfs_pkg_installed() {
-  # Returns 0 if any zfs-linux* package is installed (pre-built path succeeded).
-  # Used to avoid trying DKMS when a pre-built package already owns the .ko.
-  pacman -Qq zfs-linux zfs-linux-lts 2>/dev/null | grep -q .
-}
-
-# =============================================================================
-# ARCHZFS REPO HELPERS
-# =============================================================================
+#
+# Design:
+#   On the live ISO, always use DKMS. The Arch ISO ships the kernel headers for
+#   its own kernel at /usr/lib/modules/$(uname -r)/build — DKMS uses exactly
+#   those, so the compiled module always matches the running kernel perfectly.
+#
+#   Pre-built zfs-linux packages are pinned to a specific kernel version and
+#   will almost never match the live ISO's kernel exactly. Attempting them leads
+#   to version magic mismatches that cannot be worked around.
+#
+#   The installed system uses zfs-dkms too (configured in lib/packages.sh),
+#   which compiles against whatever linux-lts kernel is installed at pacstrap time.
 
 _remove_stale_archzfs_testing() {
   # archzfs-testing no longer exists as a separate repo since the project
@@ -349,44 +321,6 @@ _remove_stale_archzfs_testing() {
     sed -i '/^\[archzfs-testing\]/,/^$/d' /etc/pacman.conf
     info "[archzfs-testing] removed."
   fi
-}
-
-_install_zfs_prebuilt() {
-  # Try to install a pre-built ZFS binary module.
-  # Returns 0 if a .ko was actually installed, 1 otherwise.
-  #
-  # Try order:
-  #   1. zfs-linux-lts  — built against the LTS kernel (6.12.x).
-  #      Preferred because linux-lts is always in sync with archzfs.
-  #      Works even when the ISO ships a newer mainline kernel.
-  #   2. zfs-linux      — built against the mainline kernel.
-  #      Only works if the ISO kernel exactly matches archzfs's build.
-  #   3. DKMS build (zfs-dkms) — compiles from source against the running kernel.
-  local kver="$1"
-
-  # On the live ISO, the running kernel is mainline (linux), not LTS.
-  # Try zfs-linux first — if archzfs has a build for the running kernel it
-  # will install the .ko into /lib/modules/$(uname -r)/ and modprobe works.
-  # If not, zfs-linux-lts installs a module for the LTS kernel directory;
-  # the live ISO can still load it via insmod (load_zfs_module handles this).
-
-  info "Trying pre-built zfs-linux for running kernel ${kver} ..."
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
-  if zfs_module_exists; then
-    info "zfs-linux installed — module matches running kernel."
-    return 0
-  fi
-
-  info "zfs-linux not available for ${kver}. Trying zfs-linux-lts ..."
-  info "(Module will be for the LTS kernel; insmod will load it on the live ISO.)"
-  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
-  if zfs_pkg_installed; then
-    info "zfs-linux-lts installed successfully."
-    return 0 # module may be for a different kernel dir; insmod handles it
-  fi
-
-  _remove_stale_archzfs_testing
-  return 1
 }
 
 _install_zfs_dkms() {
@@ -565,181 +499,43 @@ install_zfs() {
   kver="$(uname -r)"
   info "Running kernel: ${kver}"
 
-  # Already loaded — idempotent re-run
+  # Idempotent — skip if already loaded
   if lsmod | grep -q '^zfs '; then
-    info "ZFS module already loaded — skipping install."
+    info "ZFS module already loaded — skipping."
     return
   fi
 
-  # Try pre-built first; if the .ko doesn't land on disk, use DKMS.
-  # IMPORTANT: check zfs_pkg_installed() FIRST — if a zfs-linux* package is
-  # already installed, never attempt zfs-dkms (they conflict with each other).
-  if _install_zfs_prebuilt "$kver"; then
-    info "Pre-built ZFS module installed."
-  elif zfs_pkg_installed; then
-    # A zfs-linux package is installed but zfs_module_exists returned false.
-    # This means the .ko is for a different kernel directory. That is fine —
-    # modprobe will find it via depmod. Do NOT install zfs-dkms (it conflicts).
-    info "zfs-linux package present — skipping DKMS (would conflict)."
-  else
-    warn "Pre-built module not available for kernel ${kver}. Falling back to DKMS."
-    _install_zfs_dkms "$kver"
-  fi
+  # Remove any stale testing repo entries before touching pacman
+  _remove_stale_archzfs_testing
 
-  # Final verification — must have the .ko before we try modprobe
-  if ! zfs_module_exists; then
-    # Query archzfs to find out which kernel versions it currently supports
-    local supported=""
-    supported="$(pacman -Si zfs-linux 2>/dev/null | awk '/Depends On/{print}' |
-      grep -oP 'linux=\K[^\s]+')" || true
-
-    error "ZFS module not found in /lib/modules/${kver}/ after all install attempts.
-
-  ROOT CAUSE: ZFS ${zfs_ver} likely does not support kernel ${kver} yet.
-  archzfs currently builds zfs-linux for kernel: ${supported:-'(check https://github.com/archzfs/archzfs/releases/tag/experimental)'}
-  Running kernel: ${kver}
-
-  SOLUTION — use an Arch ISO whose kernel archzfs supports:
-    1. Check which ISO to use:
-         browse: https://github.com/archzfs/archzfs/releases/tag/experimental
-       The number after 'zfs-linux-' is the kernel version archzfs currently tracks.
-    2. Download that ISO from https://archlinux.org/download/
-       (use a date-stamped ISO from https://archive.archlinux.org/iso/ if needed)
-    3. Reboot from that ISO and re-run this script.
-
-  Or wait for archzfs to release a build for kernel ${kver} (usually within days
-  of a new kernel release)."
-  fi
-
-  info "ZFS module verified in /lib/modules/${kver}/."
-}
-_kexec_into_matching_kernel() {
-  # The installed ZFS module does not match the running kernel version.
-  # Strategy: find the kernel image that matches the installed module,
-  # then use kexec to soft-reboot into it — no full reboot needed.
-  # After kexec the live environment restarts with the matching kernel
-  # and modprobe zfs will succeed.
-  local ko_kver="$1"
-
-  warn "Kernel mismatch: running ${kver}, ZFS module is for ${ko_kver}."
-  warn "Attempting kexec to boot the matching kernel (no full reboot needed)..."
-
-  # Find the vmlinuz for the module's kernel version
-  local vmlinuz
-  vmlinuz="$(find /lib/modules/"${ko_kver}" -name 'vmlinuz' 2>/dev/null | head -1)"
-  # Also check /boot
-  [[ -z "$vmlinuz" ]] && vmlinuz="/boot/vmlinuz-${ko_kver%%.*}-lts"
-  [[ -f "$vmlinuz" ]] || vmlinuz="$(ls /boot/vmlinuz-* 2>/dev/null | head -1)"
-
-  if [[ ! -f "$vmlinuz" ]]; then
-    return 1 # kexec not possible, caller handles fallback
-  fi
-
-  # Install kexec-tools if not present
-  command -v kexec &>/dev/null || pacman -S --noconfirm --needed kexec-tools 2>/dev/null || true
-
-  if ! command -v kexec &>/dev/null; then
-    return 1
-  fi
-
-  local cmdline
-  cmdline="$(cat /proc/cmdline)"
-  info "Loading kernel ${ko_kver} via kexec..."
-  kexec -l "$vmlinuz" --initrd="/boot/initramfs-linux-lts.img" \
-    --command-line="$cmdline" 2>/dev/null || return 1
-
-  warn "kexec loaded. Re-executing into the new kernel now..."
-  warn "The script will need to be re-run after kexec completes."
-  warn "Run: ./01-bootstrap-zfs.sh"
-  sleep 2
-  kexec -e # this replaces the running kernel — does not return
+  # Always DKMS on the live ISO — compiles against the exact running kernel
+  _install_zfs_dkms "$kver"
 }
 
 load_zfs_module() {
   section "Loading ZFS Kernel Module"
 
   if lsmod | grep -q '^zfs '; then
-    info "ZFS module already loaded — skipping modprobe."
+    info "ZFS module already loaded."
     return
   fi
-
-  # Rebuild the module index for the running kernel.
-  # depmod -a is safe to run even when /lib/modules/<kver> doesn't fully exist —
-  # it will just warn about missing files (which we suppress).
-  info "Updating kernel module index (depmod)..."
-  depmod -a 2>/dev/null || true
 
   local kver
   kver="$(uname -r)"
-  info "Loading ZFS module (running kernel: ${kver})..."
 
-  # ── Attempt 1: modprobe (standard path) ──────────────────────────────────
-  if modprobe zfs 2>/dev/null; then
-    local zver
-    zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
-    info "ZFS module loaded. Version: ${zver:-unknown}"
-    return
-  fi
+  # Rebuild module index so the kernel finds the newly compiled .ko
+  info "Running depmod..."
+  depmod -a
 
-  # ── modprobe failed — find what we have ──────────────────────────────────
-  local ko
-  ko="$(find /lib/modules -name 'zfs.ko.zst' -o -name 'zfs.ko' \
-    2>/dev/null | head -1)"
+  info "Loading ZFS module..."
+  modprobe zfs || error "modprobe zfs failed for kernel ${kver}.
+  DKMS should have built the module for this exact kernel — check the build log:
+    /var/lib/dkms/zfs/*/$(uname -r)/$(uname -m)/log/make.log
+  Or re-run: ./01-bootstrap-zfs.sh"
 
-  if [[ -z "$ko" ]]; then
-    error "modprobe zfs failed and no zfs.ko found anywhere in /lib/modules/.
-  Re-run 01-bootstrap-zfs.sh from scratch."
-  fi
-
-  local ko_kver
-  ko_kver="$(echo "$ko" | sed 's|/lib/modules/||;s|/.*||')"
-  warn "ZFS module found for kernel ${ko_kver} but running ${kver} — version mismatch."
-
-  # ── Attempt 2: kexec into the matching kernel ─────────────────────────────
-  # kexec soft-reboots the live ISO into the kernel that matches the ZFS module.
-  # The user just needs to re-run the script after kexec completes.
-  if _kexec_into_matching_kernel "$ko_kver"; then
-    # kexec -e never returns — if we get here, kexec failed
-    true
-  fi
-
-  # ── Attempt 3: install zfs-linux for the exact running kernel ─────────────
-  # The archzfs GitHub repo may have a zfs-linux build for the running kernel.
-  # Try installing it now — this is the cleanest fix.
-  warn "kexec not available. Trying to install zfs-linux for kernel ${kver} ..."
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
-  depmod -a 2>/dev/null || true
-
-  if modprobe zfs 2>/dev/null; then
-    local zver
-    zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
-    info "ZFS module loaded after installing zfs-linux. Version: ${zver:-unknown}"
-    return
-  fi
-
-  # ── Nothing worked ────────────────────────────────────────────────────────
-  error "Cannot load ZFS module on kernel ${kver}.
-
-  The installed ZFS module is for kernel: ${ko_kver}
-  The running kernel is               : ${kver}
-
-  The archzfs repository does not yet have a pre-built module for ${kver},
-  and the module for ${ko_kver} cannot be loaded on a different kernel version.
-
-  SOLUTIONS (pick one):
-
-  1. Upgrade the running kernel to match the ZFS module — run these commands
-     and then re-run this script (no reboot needed if kexec-tools is available):
-         pacman -S --noconfirm linux
-         uname -r           # should now show a version matching the ZFS module
-         ./01-bootstrap-zfs.sh
-
-  2. If 'pacman -S linux' installs a version that still doesn't match:
-         pacman -Si zfs-linux | grep 'Depends'   # see what kernel archzfs requires
-         # Then downgrade linux to that exact version from the Arch archive.
-
-  3. Reboot the live ISO after running 'pacman -S linux' — the new kernel
-     will be active and modprobe will work."
+  local zver
+  zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
+  info "ZFS module loaded. Version: ${zver:-unknown}"
 }
 
 # =============================================================================
@@ -802,4 +598,4 @@ main() {
   print_summary
 }
 
-main "$@"
+main "$@"ain "$@"
