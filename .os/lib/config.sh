@@ -14,6 +14,11 @@
 # =============================================================================
 
 # =============================================================================
+# RESOLVED GLOBALS — set during validate_config, consumed by configure_system
+# =============================================================================
+RESOLVED_HOSTNAME=""
+
+# =============================================================================
 # TEMPLATE GENERATOR
 # =============================================================================
 # Called when install.json is missing. Writes a fully commented template to
@@ -217,7 +222,8 @@ validate_config() {
   section "Validating Config"
 
   # System fields — always required regardless of mode
-  # Hostname: prompt interactively if not set in config
+  # Hostname: prompt once here; stored in RESOLVED_HOSTNAME so
+  # configure_system can use it without prompting a second time.
   local hostname
   hostname="$(cfgo '.system.hostname')"
   if [[ -z "$hostname" ]]; then
@@ -229,7 +235,9 @@ validate_config() {
     info "Hostname: ${hostname}"
   fi
   # Validate: RFC 1123 — letters, digits, hyphens; no leading/trailing hyphen
-  [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
+  [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
+    error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
+  RESOLVED_HOSTNAME="$hostname" # consumed by configure_system()
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
 

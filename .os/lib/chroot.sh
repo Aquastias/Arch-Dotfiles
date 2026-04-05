@@ -173,14 +173,9 @@ configure_system() {
   local do_kde do_backup do_security
   local users_json
 
-  # Hostname: use config value or prompt (same logic as validate_config)
-  hostname="$(cfgo '.system.hostname')"
-  if [[ -z "$hostname" ]]; then
-    while true; do
-      read -rp "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" hostname </dev/tty
-      [[ -n "$hostname" ]] && break
-    done
-  fi
+  # Hostname was already prompted (if needed) and validated in validate_config().
+  # Use the resolved value directly — no second prompt.
+  hostname="$RESOLVED_HOSTNAME"
   locale="$(cfg '.system.locale')"
   timezone="$(cfg '.system.timezone')"
   keymap="$(cfgo '.system.keymap')"
@@ -528,6 +523,23 @@ systemctl enable zfs-mount
 systemctl enable zfs-zed
 systemctl enable zfs.target
 
+# ── ZFS encryption unlock at boot ────────────────────────────────────────────
+# The initramfs ZFS hook (from zfs-utils) handles passphrase prompting when
+# keylocation=prompt is set on an encrypted dataset. It calls zfs-load-key
+# before attempting to mount the root dataset.
+# For any additional encrypted datasets (dpool etc.) that mount after boot,
+# enable the systemd service that loads their keys at login.
+if zpool list -H -o name 2>/dev/null | grep -q .; then
+    for _pool in $(zpool list -H -o name 2>/dev/null); do
+        local _enc
+        _enc="$(zfs get -H -o value encryption "${_pool}" 2>/dev/null)"
+        if [[ "$_enc" != "off" && "$_enc" != "-" ]]; then
+            # zfs-load-key@<pool>.service loads the key for the pool at boot
+            systemctl enable "zfs-load-key@${_pool}.service" 2>/dev/null || true
+        fi
+    done
+fi
+
 # Populate the zfs-mount-generator dataset cache.
 # The generator (/usr/lib/systemd/system-generators/zfs-mount-generator) reads
 # /etc/zfs/zfs-list.cache/<poolname> at boot to know which datasets to mount.
@@ -554,11 +566,20 @@ fi
 
 # ── Passwords & user ─────────────────────────────────────────────────────────
 # NOTE on ZFS encryption:
-#   If encryption was enabled, the ZFS passphrase is prompted at boot by the
-#   initramfs ZFS hook (zfs-load-key). No PAM module is needed for this — it
-#   happens before any user login.
-#   To switch to a keyfile for unattended boots:
-#     zfs change-key -o keyformat=raw -o keylocation=file:///etc/zfs/<key> <dataset>
+#   Passphrase was collected on the live ISO and piped to zpool create.
+#   At boot, the initramfs ZFS hook (zfs-load-key) prompts for the passphrase
+#   on the console before mounting the root dataset. No PAM module is needed.
+#
+#   Boot unlock flow:
+#     1. initramfs starts
+#     2. zfs hook runs: zfs load-key <root-dataset>  (prompts on console)
+#     3. zfs hook mounts root dataset
+#     4. System continues booting normally
+#
+#   To switch to a keyfile for unattended boots (e.g. on a server):
+#     dd if=/dev/urandom of=/etc/zfs/keys/rpool.key bs=32 count=1
+#     zfs change-key -o keyformat=raw -o keylocation=file:///etc/zfs/keys/rpool.key <dataset>
+#     chmod 000 /etc/zfs/keys/rpool.key
 
 # ── Enable sudo for wheel group ───────────────────────────────────────────────
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
