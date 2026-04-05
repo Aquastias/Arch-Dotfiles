@@ -300,24 +300,38 @@ EOF
 
 zfs_module_exists() {
   # Returns 0 (true) if a ZFS kernel module file exists for the running kernel.
-  # pacman exit codes are unreliable for this — we check the filesystem directly.
+  # pacman exit codes are unreliable — we check the filesystem directly.
   #
-  # Two pitfalls fixed here:
-  #   1. find -name A -o -name B without parentheses has wrong precedence;
-  #      use \( ... \) to group the OR correctly.
-  #   2. find exits non-zero when the search directory doesn't exist yet
-  #      (ZFS not installed). With set -Eeuo pipefail that kills the script.
-  #      Use [[ -d ]] guard and return 1 explicitly instead.
+  # Checks two locations:
+  #   1. /lib/modules/$(uname -r)/  — exact match for running kernel
+  #   2. Any subdirectory of /lib/modules/ — catches version string mismatches
+  #      between uname -r (e.g. 6.19.11-arch1-1) and the package install path
+  #      (which may differ slightly in separator style).
   local kver
   kver="$(uname -r)"
   local moddir="/lib/modules/${kver}"
 
-  [[ -d "$moddir" ]] || return 1
+  # Exact match first
+  if [[ -d "$moddir" ]]; then
+    if find "$moddir" \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
+      2>/dev/null | grep -q .; then
+      return 0
+    fi
+  fi
 
-  # find exits 0 whether or not it found anything; grep -q . returns 1 if
-  # the find output is empty (no .ko file found), which is what we want.
-  find "$moddir" \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
+  # Broad search across all installed kernel module directories.
+  # This catches cases where the package version string differs slightly
+  # from uname -r (e.g. dots vs dashes in arch suffix).
+  [[ -d /lib/modules ]] || return 1
+  find /lib/modules -maxdepth 4 \
+    \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
     2>/dev/null | grep -q .
+}
+
+zfs_pkg_installed() {
+  # Returns 0 if any zfs-linux* package is installed (pre-built path succeeded).
+  # Used to avoid trying DKMS when a pre-built package already owns the .ko.
+  pacman -Qq zfs-linux zfs-linux-lts 2>/dev/null | grep -q .
 }
 
 # =============================================================================
@@ -558,9 +572,18 @@ install_zfs() {
     return
   fi
 
-  # Try pre-built first; if the .ko doesn't land on disk, use DKMS
-  if ! _install_zfs_prebuilt "$kver"; then
-    warn "Pre-built module not available for kernel ${kver}."
+  # Try pre-built first; if the .ko doesn't land on disk, use DKMS.
+  # IMPORTANT: check zfs_pkg_installed() FIRST — if a zfs-linux* package is
+  # already installed, never attempt zfs-dkms (they conflict with each other).
+  if _install_zfs_prebuilt "$kver"; then
+    info "Pre-built ZFS module installed."
+  elif zfs_pkg_installed; then
+    # A zfs-linux package is installed but zfs_module_exists returned false.
+    # This means the .ko is for a different kernel directory. That is fine —
+    # modprobe will find it via depmod. Do NOT install zfs-dkms (it conflicts).
+    info "zfs-linux package present — skipping DKMS (would conflict)."
+  else
+    warn "Pre-built module not available for kernel ${kver}. Falling back to DKMS."
     _install_zfs_dkms "$kver"
   fi
 
@@ -600,17 +623,34 @@ load_zfs_module() {
   fi
 
   # Run depmod so the kernel module index knows about the newly installed .ko.
-  # This is required after installing a module outside of the normal boot path.
+  # Required after any module install outside the normal package manager path.
   info "Updating kernel module index (depmod)..."
   depmod -a
 
+  local kver
+  kver="$(uname -r)"
+  local ko
+  ko="$(find /lib/modules -name 'zfs.ko*' 2>/dev/null | head -1)"
+
   info "Loading ZFS module..."
-  modprobe zfs || error "modprobe zfs failed.
-  Kernel : $(uname -r)
-  Module : $(find /lib/modules/$(uname -r) -name 'zfs.ko*' 2>/dev/null | head -1 || echo 'NOT FOUND')
-  Try:
-    depmod -a && modprobe zfs
-  If the module is still missing, re-run 01-bootstrap-zfs.sh from scratch."
+  if ! modprobe zfs 2>/dev/null; then
+    # modprobe failed — diagnose why
+    if [[ -z "$ko" ]]; then
+      error "modprobe zfs failed: no zfs.ko found anywhere in /lib/modules/.
+  The ZFS install step must have failed silently. Re-run 01-bootstrap-zfs.sh."
+    else
+      local ko_kver
+      ko_kver="$(echo "$ko" | grep -oP '/lib/modules/\K[^/]+')"
+      error "modprobe zfs failed.
+  Running kernel : ${kver}
+  Module found   : ${ko}  (built for kernel: ${ko_kver})
+  These do not match — the pre-built zfs-linux package was built for a different
+  kernel than the one currently running.
+  Fix: reboot the ISO. The kernel and module will match after reboot.
+  Or:  install the correct module:
+         pacman -S zfs-linux   (for kernel ${kver})"
+    fi
+  fi
 
   local zver
   zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
@@ -677,4 +717,4 @@ main() {
   print_summary
 }
 
-main "$@"
+main "$@"ain "$@"
