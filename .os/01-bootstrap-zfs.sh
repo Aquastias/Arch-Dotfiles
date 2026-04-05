@@ -367,26 +367,44 @@ _install_zfs_dkms() {
   Check: pacman -Si zfs-dkms
   Check: df -h /run/archiso/cowspace  (need ~900 MB free)"
 
-  # Run the DKMS build explicitly against the exact kernel tree.
-  # This avoids any confusion about which headers DKMS picks up.
+  # Determine the ZFS version from the installed source directory.
+  # zfs-dkms always installs its source to /usr/src/zfs-<version>/.
+  # This is more reliable than parsing `dkms status`, whose output format
+  # changed in DKMS 3.x (Arch ships DKMS 3.x) from:
+  #   old: "zfs, 2.1.x, ..."
+  #   new: "zfs/2.1.x, 6.10.x-arch1-1, x86_64: added"
   local zfs_ver
-  zfs_ver="$(dkms status zfs 2>/dev/null | awk -F'[,/]' '/zfs/{print $2; exit}' | tr -d ' ')"
+  zfs_ver="$(ls -1 /usr/src/ 2>/dev/null | grep '^zfs-' | sort -V | tail -1 | sed 's/^zfs-//')"
   if [[ -z "$zfs_ver" ]]; then
-    error "zfs-dkms installed but DKMS does not see a ZFS module to build.
-  Run: dkms status"
+    error "zfs-dkms installed but /usr/src/zfs-* source directory not found.
+  This means the zfs-dkms package did not install correctly.
+  Try: pacman -S --noconfirm zfs-dkms && ls /usr/src/zfs-*"
   fi
+  info "ZFS source version: ${zfs_ver}"
+
+  # Register the module with DKMS if not already registered.
+  # `dkms add` is idempotent — safe to call even if already added.
+  dkms add -m zfs -v "$zfs_ver" 2>/dev/null || true
+
+  # Build explicitly against the ISO kernel source tree.
+  # --kernelsourcedir overrides DKMS's default header search so it always
+  # uses the headers that match the RUNNING kernel, not whatever linux-headers
+  # pacman installed (which may be a newer version).
   info "Building ZFS ${zfs_ver} against kernel ${kver} ..."
   dkms build -m zfs -v "$zfs_ver" -k "$kver" --kernelsourcedir "$kernel_src" ||
     error "DKMS build failed for ZFS ${zfs_ver} / kernel ${kver}.
-  Full build log: /var/lib/dkms/zfs/${zfs_ver}/build/make.log
+  Build log: /var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log
   Common causes:
-    - Missing build tools (make, gcc)  →  pacman -S base-devel
-    - cowspace full                    →  df -h /run/archiso/cowspace"
+    - Missing build tools  →  pacman -S --noconfirm base-devel
+    - cowspace full        →  df -h /run/archiso/cowspace
+    - Bad kernel headers   →  ls ${kernel_src}"
 
+  # Install the built module into /lib/modules/<kver>/
   dkms install -m zfs -v "$zfs_ver" -k "$kver" ||
-    error "DKMS install step failed — module built but could not be installed."
+    error "DKMS install failed — module built but could not be installed.
+  Try manually: dkms install zfs/${zfs_ver} -k ${kver}"
 
-  info "DKMS build and install complete."
+  info "DKMS build and install complete (ZFS ${zfs_ver})."
 }
 
 install_zfs() {
@@ -505,4 +523,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
