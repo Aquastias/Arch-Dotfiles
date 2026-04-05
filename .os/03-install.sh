@@ -122,6 +122,11 @@ main() {
   # ── Final confirmation (shows full plan, asks user to proceed) ────────────
   print_summary
 
+  # ── Collect encryption passphrase before any disk writes ─────────────────
+  # Must run after confirmation (user has committed) but before pool creation.
+  # Collects once; piped to every zpool create call so all pools share one key.
+  collect_enc_passphrase
+
   # ── Disk operations ───────────────────────────────────────────────────────
   if [[ "$INSTALL_MODE" == "single" ]]; then
     partition_single_disk
@@ -145,4 +150,4 @@ main() {
   finalize
 }
 
-main "$@"
+main "$@"ain "$@"

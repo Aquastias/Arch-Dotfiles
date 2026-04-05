@@ -149,8 +149,10 @@ configure_system() {
   # The pool cache and hostid must exist in the new system before the
   # initramfs is built, otherwise the ZFS hook cannot import the pool at boot.
   mkdir -p "${MOUNT_ROOT}/etc/zfs"
-  cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null ||
-    warn "zpool.cache not found — pool may not import on first boot without zfs-import-scan."
+  # Copy zpool.cache into the new system so zfs-import-cache can find it.
+  # Also regenerate it from the currently imported pools to ensure it's fresh.
+  mkdir -p "${MOUNT_ROOT}/etc/zfs"
+  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" $(zpool list -H -o name | tr '\n' ' ') 2>/dev/null || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null || warn "zpool.cache could not be written — zfs-import-scan will handle first boot."
   cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
 
   # Copy archzfs repo config so the new system can update ZFS packages
@@ -171,7 +173,14 @@ configure_system() {
   local do_kde do_backup do_security
   local users_json
 
-  hostname="$(cfg '.system.hostname')"
+  # Hostname: use config value or prompt (same logic as validate_config)
+  hostname="$(cfgo '.system.hostname')"
+  if [[ -z "$hostname" ]]; then
+    while true; do
+      read -rp "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" hostname </dev/tty
+      [[ -n "$hostname" ]] && break
+    done
+  fi
   locale="$(cfg '.system.locale')"
   timezone="$(cfg '.system.timezone')"
   keymap="$(cfgo '.system.keymap')"
@@ -506,12 +515,14 @@ systemctl enable systemd-timesyncd
 
 # ── ZFS services ─────────────────────────────────────────────────────────────
 # Boot sequence:
-#   1. zfs-import-cache  — reads /etc/zfs/zpool.cache and imports listed pools
-#   2. zfs-import.target — signals all imports done; other units wait on this
-#   3. zfs-mount         — mounts all ZFS datasets with canmount!=off
-#   4. zfs-zed           — ZFS Event Daemon: handles scrub alerts, fault events
-#   5. zfs.target        — passive aggregation target that downstream units want
+#   1. zfs-import-cache  — reads /etc/zfs/zpool.cache (fast, preferred)
+#   2. zfs-import-scan   — scans block devices as fallback if cache is empty
+#   3. zfs-import.target — signals all imports done
+#   4. zfs-mount         — mounts all ZFS datasets with canmount!=off
+#   5. zfs-zed           — ZFS Event Daemon: scrub alerts, fault events
+#   6. zfs.target        — passive aggregation target
 systemctl enable zfs-import-cache
+systemctl enable zfs-import-scan    # fallback if zpool.cache is missing/empty
 systemctl enable zfs-import.target
 systemctl enable zfs-mount
 systemctl enable zfs-zed

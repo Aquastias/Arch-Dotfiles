@@ -6,7 +6,8 @@
     "auto": "Omit 'mode' to auto-detect: 'disk' key present → single, 'os_pool.disks' with entries → multi."
   },
   "system": {
-    "hostname": "archzfs",
+    "hostname": "",
+    "_hostname": "Machine hostname. Leave empty to be prompted during install.",
     "locale": "en_US.UTF-8",
     "timezone": "UTC",
     "keymap": "us",

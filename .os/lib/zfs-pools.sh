@@ -65,16 +65,59 @@ install_zfs_tools_if_needed() {
 # ENCRYPTION OPTIONS
 # =============================================================================
 
+# Global passphrase storage — set by collect_enc_passphrase(), used by _zpool_create()
+ZFS_PASSPHRASE=""
+
+collect_enc_passphrase() {
+  # Prompts for the ZFS encryption passphrase with confirmation before any
+  # pool creation. Reads from /dev/tty so it works regardless of stdin state.
+  # Sets the global ZFS_PASSPHRASE used by _zpool_create via stdin pipe.
+  local enc
+  enc="$(cfgo '.options.encryption')"
+  enc="${enc:-false}"
+  [[ "$enc" == "true" ]] || return 0
+
+  section "ZFS Encryption Passphrase"
+  warn "Encryption is enabled. ALL data on the pools will be encrypted."
+  warn "This passphrase is required at EVERY boot. Losing it means losing all data."
+  echo ""
+
+  local pw1 pw2
+  while true; do
+    read -rsp "  ZFS passphrase        : " pw1 </dev/tty
+    echo >&2
+    read -rsp "  Confirm passphrase    : " pw2 </dev/tty
+    echo >&2
+    if [[ -z "$pw1" ]]; then
+      warn "Passphrase cannot be empty."
+      continue
+    fi
+    if [[ "${#pw1}" -lt 8 ]]; then
+      warn "Passphrase must be at least 8 characters."
+      continue
+    fi
+    if [[ "$pw1" != "$pw2" ]]; then
+      warn "Passphrases do not match — try again."
+      continue
+    fi
+    break
+  done
+
+  ZFS_PASSPHRASE="$pw1"
+  info "Passphrase set. It will be applied to all encrypted pools."
+}
+
 build_enc_opts() {
-  # Reads encryption setting from config and populates the ENC_OPTS global.
-  # ENC_OPTS is appended to every zpool create call via "${ENC_OPTS[@]}".
+  # Populates ENC_OPTS global from config.
+  # The passphrase is NOT set here — it must be collected via
+  # collect_enc_passphrase() before pool creation, then piped via stdin.
   ENC_OPTS=()
   local enc
   enc="$(cfgo '.options.encryption')"
   enc="${enc:-false}"
   if [[ "$enc" == "true" ]]; then
-    warn "Encryption enabled — you will be prompted for a passphrase now."
-    warn "This same passphrase is required at every boot (entered at the console)."
+    # keylocation=prompt means zpool create reads the passphrase from stdin.
+    # We pipe ZFS_PASSPHRASE to it in _zpool_create() below.
     ENC_OPTS=(
       -O encryption=aes-256-gcm
       -O keyformat=passphrase
@@ -114,21 +157,41 @@ _zpool_create() {
   local vdev_spec="$*"
 
   # shellcheck disable=SC2086
-  zpool create -f \
-    -o ashift="${ashift}" \
-    -o autotrim=on \
-    -O acltype=posixacl \
-    -O xattr=sa \
-    -O dnodesize=auto \
-    -O compression=lz4 \
-    -O normalization=formD \
-    -O relatime=on \
-    -O canmount=off \
-    -O mountpoint=none \
-    "${ENC_OPTS[@]}" \
-    -R "${MOUNT_ROOT}" \
-    "${pool_name}" \
-    $vdev_spec
+  if [[ -n "$ZFS_PASSPHRASE" ]]; then
+    # Pipe the passphrase via stdin — zpool create reads it once when
+    # keylocation=prompt is set. printf ensures no trailing newline issues.
+    printf '%s\n' "$ZFS_PASSPHRASE" | zpool create -f \
+      -o ashift="${ashift}" \
+      -o autotrim=on \
+      -O acltype=posixacl \
+      -O xattr=sa \
+      -O dnodesize=auto \
+      -O compression=lz4 \
+      -O normalization=formD \
+      -O relatime=on \
+      -O canmount=off \
+      -O mountpoint=none \
+      "${ENC_OPTS[@]}" \
+      -R "${MOUNT_ROOT}" \
+      "${pool_name}" \
+      $vdev_spec
+  else
+    zpool create -f \
+      -o ashift="${ashift}" \
+      -o autotrim=on \
+      -O acltype=posixacl \
+      -O xattr=sa \
+      -O dnodesize=auto \
+      -O compression=lz4 \
+      -O normalization=formD \
+      -O relatime=on \
+      -O canmount=off \
+      -O mountpoint=none \
+      "${ENC_OPTS[@]}" \
+      -R "${MOUNT_ROOT}" \
+      "${pool_name}" \
+      $vdev_spec
+  fi
 
   info "Pool '${pool_name}' created (ashift=${ashift})."
 }

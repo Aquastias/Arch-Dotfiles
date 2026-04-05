@@ -32,7 +32,8 @@ generate_template() {
   },
 
   "system": {
-    "hostname": "archzfs",
+    "hostname": "",
+    "_hostname": "Machine hostname. Leave empty to be prompted during install.",
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",
     "keymap":   "us",
@@ -216,7 +217,19 @@ validate_config() {
   section "Validating Config"
 
   # System fields — always required regardless of mode
-  cfg '.system.hostname' 'system.hostname'
+  # Hostname: prompt interactively if not set in config
+  local hostname
+  hostname="$(cfgo '.system.hostname')"
+  if [[ -z "$hostname" ]]; then
+    while true; do
+      read -rp "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" hostname </dev/tty
+      [[ -n "$hostname" ]] && break
+      warn "Hostname cannot be empty."
+    done
+    info "Hostname: ${hostname}"
+  fi
+  # Validate: RFC 1123 — letters, digits, hyphens; no leading/trailing hyphen
+  [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] || error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
 
@@ -382,7 +395,10 @@ print_summary() {
   local swap
   swap="$(cfgo '.options.swap')"
   swap="${swap:-true}"
-  printf "  %-16s %s\n" "Hostname:" "$(cfg '.system.hostname')"
+  local _hn
+  _hn="$(cfgo '.system.hostname')"
+  _hn="${_hn:-(prompted during install)}"
+  printf "  %-16s %s\n" "Hostname:" "$_hn"
   local _users
   _users="$(jq -r '.system.users[].name' "$CONFIG_FILE" | tr '\n' ' ')"
   printf "  %-16s %s\n" "Users:" "${_users}"
