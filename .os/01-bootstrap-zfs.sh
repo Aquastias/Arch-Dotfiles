@@ -364,30 +364,29 @@ _install_zfs_prebuilt() {
   #   3. DKMS build (zfs-dkms) — compiles from source against the running kernel.
   local kver="$1"
 
-  info "Trying pre-built zfs-linux-lts (recommended — always in sync with archzfs) ..."
-  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
+  # On the live ISO, the running kernel is mainline (linux), not LTS.
+  # Try zfs-linux first — if archzfs has a build for the running kernel it
+  # will install the .ko into /lib/modules/$(uname -r)/ and modprobe works.
+  # If not, zfs-linux-lts installs a module for the LTS kernel directory;
+  # the live ISO can still load it via insmod (load_zfs_module handles this).
+
+  info "Trying pre-built zfs-linux for running kernel ${kver} ..."
+  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
   if zfs_module_exists; then
+    info "zfs-linux installed — module matches running kernel."
+    return 0
+  fi
+
+  info "zfs-linux not available for ${kver}. Trying zfs-linux-lts ..."
+  info "(Module will be for the LTS kernel; insmod will load it on the live ISO.)"
+  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
+  if zfs_pkg_installed; then
     info "zfs-linux-lts installed successfully."
-    return 0
+    return 0 # module may be for a different kernel dir; insmod handles it
   fi
 
-  info "Trying pre-built zfs-linux for kernel ${kver} ..."
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
-  if zfs_module_exists; then
-    info "zfs-linux installed successfully."
-    return 0
-  fi
-
-  # Remove any stale archzfs-testing repo that could cause pacman DB errors
   _remove_stale_archzfs_testing
-  info "Pre-built not available for ${kver} from archzfs. Will try DKMS."
-  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
-  if zfs_module_exists; then
-    info "zfs-linux-lts (testing) installed successfully."
-    return 0
-  fi
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
-  zfs_module_exists
+  return 1
 }
 
 _install_zfs_dkms() {
@@ -629,32 +628,81 @@ load_zfs_module() {
 
   local kver
   kver="$(uname -r)"
-  local ko
-  ko="$(find /lib/modules -name 'zfs.ko*' 2>/dev/null | head -1)"
 
   info "Loading ZFS module..."
-  if ! modprobe zfs 2>/dev/null; then
-    # modprobe failed — diagnose why
-    if [[ -z "$ko" ]]; then
-      error "modprobe zfs failed: no zfs.ko found anywhere in /lib/modules/.
-  The ZFS install step must have failed silently. Re-run 01-bootstrap-zfs.sh."
-    else
-      local ko_kver
-      ko_kver="$(echo "$ko" | grep -oP '/lib/modules/\K[^/]+')"
-      error "modprobe zfs failed.
-  Running kernel : ${kver}
-  Module found   : ${ko}  (built for kernel: ${ko_kver})
-  These do not match — the pre-built zfs-linux package was built for a different
-  kernel than the one currently running.
-  Fix: reboot the ISO. The kernel and module will match after reboot.
-  Or:  install the correct module:
-         pacman -S zfs-linux   (for kernel ${kver})"
-    fi
+
+  # Try standard modprobe first — works when the module was built for this kernel
+  if modprobe zfs 2>/dev/null; then
+    local zver
+    zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
+    info "ZFS module loaded. Version: ${zver:-unknown}"
+    return
   fi
+
+  # modprobe failed — the .ko may exist but for a different kernel directory
+  # (e.g. zfs-linux-lts installed for 6.18-lts while ISO runs 6.19 mainline).
+  # Find the .ko and load it directly with insmod — insmod bypasses the kernel
+  # version check that modprobe enforces via the module directory structure.
+  local ko
+  ko="$(find /lib/modules -name 'zfs.ko.zst' -o -name 'zfs.ko' \
+    2>/dev/null | head -1)"
+
+  if [[ -z "$ko" ]]; then
+    error "modprobe zfs failed and no zfs.ko found anywhere in /lib/modules/.
+  Re-run 01-bootstrap-zfs.sh from scratch."
+  fi
+
+  local ko_kver
+  ko_kver="$(echo "$ko" | sed 's|/lib/modules/||;s|/.*||')"
+  warn "Module for running kernel (${kver}) not found."
+  warn "Found module built for: ${ko_kver}"
+  warn "Attempting direct insmod with full path ..."
+
+  # insmod requires uncompressed .ko — decompress .ko.zst first if needed
+  local ko_load="$ko"
+  if [[ "$ko" == *.zst ]]; then
+    local ko_tmp="/tmp/zfs.ko"
+    zstd -d "$ko" -o "$ko_tmp" -f 2>/dev/null ||
+      error "Failed to decompress ${ko}"
+    ko_load="$ko_tmp"
+  fi
+
+  # Load ZFS dependencies first — insmod does not resolve deps automatically
+  # spl is merged into ZFS since OpenZFS 2.0; these are the typical dep modules
+  for dep in spl zavl znvpair zunicode zcommon icp; do
+    local dep_ko
+    dep_ko="$(find /lib/modules -name "${dep}.ko*" 2>/dev/null | head -1)"
+    if [[ -n "$dep_ko" ]]; then
+      if [[ "$dep_ko" == *.zst ]]; then
+        zstd -d "$dep_ko" -o "/tmp/${dep}.ko" -f 2>/dev/null &&
+          insmod "/tmp/${dep}.ko" 2>/dev/null || true
+      else
+        insmod "$dep_ko" 2>/dev/null || true
+      fi
+    fi
+  done
+
+  insmod "$ko_load" ||
+    error "insmod ${ko_load} failed.
+  The ZFS module (${ko_kver}) may be incompatible with the running kernel (${kver}).
+  This is a known limitation: zfs-linux-lts is built for the LTS kernel,
+  not the ISO's mainline kernel.
+  The installer will still install linux-lts on your system — the installed
+  system will use zfs-linux-lts and everything will work correctly there.
+  However this bootstrap step requires a loadable module on the live ISO.
+  Options:
+    1. Run: pacman -S zfs-linux   (installs module for kernel ${kver})
+       Then re-run: ./01-bootstrap-zfs.sh
+    2. Boot an Arch ISO that ships the LTS kernel (unlikely but possible)"
+
+  lsmod | grep -q '^zfs ' ||
+    error "insmod appeared to succeed but ZFS module is not in lsmod output."
 
   local zver
   zver="$(modinfo zfs 2>/dev/null | awk '/^version:/{print $2}')"
-  info "ZFS module loaded. Version: ${zver:-unknown}"
+  info "ZFS module loaded via insmod (direct path). Version: ${zver:-unknown}"
+  warn "Module was loaded from ${ko_kver} path — this is fine for the live ISO."
+  warn "The installed system will use the correct LTS kernel + module."
 }
 
 # =============================================================================
@@ -717,4 +765,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"
+main "$@"
