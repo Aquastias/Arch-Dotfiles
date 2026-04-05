@@ -286,12 +286,24 @@ EOF
 # =============================================================================
 
 zfs_module_exists() {
-  # Checks for a zfs.ko (or zfs.ko.zst for compressed modules) in the
-  # running kernel's module directory. This is the only reliable test —
-  # pacman's exit code is not trustworthy for this purpose.
+  # Returns 0 (true) if a ZFS kernel module file exists for the running kernel.
+  # pacman exit codes are unreliable for this — we check the filesystem directly.
+  #
+  # Two pitfalls fixed here:
+  #   1. find -name A -o -name B without parentheses has wrong precedence;
+  #      use \( ... \) to group the OR correctly.
+  #   2. find exits non-zero when the search directory doesn't exist yet
+  #      (ZFS not installed). With set -Eeuo pipefail that kills the script.
+  #      Use [[ -d ]] guard and return 1 explicitly instead.
   local kver
   kver="$(uname -r)"
-  find "/lib/modules/${kver}" -name "zfs.ko" -o -name "zfs.ko.zst" \
+  local moddir="/lib/modules/${kver}"
+
+  [[ -d "$moddir" ]] || return 1
+
+  # find exits 0 whether or not it found anything; grep -q . returns 1 if
+  # the find output is empty (no .ko file found), which is what we want.
+  find "$moddir" \( -name "zfs.ko" -o -name "zfs.ko.zst" \) \
     2>/dev/null | grep -q .
 }
 
@@ -493,4 +505,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
