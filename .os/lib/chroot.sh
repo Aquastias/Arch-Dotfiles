@@ -531,13 +531,13 @@ systemctl enable zfs.target
 # enable the systemd service that loads their keys at login.
 if zpool list -H -o name 2>/dev/null | grep -q .; then
     for _pool in $(zpool list -H -o name 2>/dev/null); do
-        local _enc
         _enc="$(zfs get -H -o value encryption "${_pool}" 2>/dev/null)"
         if [[ "$_enc" != "off" && "$_enc" != "-" ]]; then
             # zfs-load-key@<pool>.service loads the key for the pool at boot
             systemctl enable "zfs-load-key@${_pool}.service" 2>/dev/null || true
         fi
     done
+    unset _enc
 fi
 
 # Populate the zfs-mount-generator dataset cache.
