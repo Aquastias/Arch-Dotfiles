@@ -329,19 +329,40 @@ EOF
 }
 
 _install_zfs_prebuilt() {
-  # Try to install a pre-built zfs-linux binary module.
-  # The archzfs repo builds zfs-linux against specific kernel versions.
+  # Try to install a pre-built ZFS binary module.
   # Returns 0 if a .ko was actually installed, 1 otherwise.
+  #
+  # Try order:
+  #   1. zfs-linux-lts  — built against the LTS kernel (6.12.x).
+  #      Preferred because linux-lts is always in sync with archzfs.
+  #      Works even when the ISO ships a newer mainline kernel.
+  #   2. zfs-linux      — built against the mainline kernel.
+  #      Only works if the ISO kernel exactly matches archzfs's build.
+  #   3. Both from archzfs-testing repo as a last resort.
   local kver="$1"
-  info "Trying pre-built zfs-linux for kernel ${kver} ..."
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
+
+  info "Trying pre-built zfs-linux-lts (recommended — always in sync with archzfs) ..."
+  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
   if zfs_module_exists; then
+    info "zfs-linux-lts installed successfully."
     return 0
   fi
 
-  # Stable archzfs didn't have it — try archzfs-testing
+  info "Trying pre-built zfs-linux for kernel ${kver} ..."
+  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
+  if zfs_module_exists; then
+    info "zfs-linux installed successfully."
+    return 0
+  fi
+
+  # Stable archzfs didn't have it — try archzfs-testing for both variants
   info "Stable archzfs has no pre-built for ${kver}. Trying archzfs-testing ..."
   _archzfs_add_testing
+  pacman -S --noconfirm --needed zfs-linux-lts zfs-utils 2>/dev/null || true
+  if zfs_module_exists; then
+    info "zfs-linux-lts (testing) installed successfully."
+    return 0
+  fi
   pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || true
   zfs_module_exists
 }
@@ -647,4 +668,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"
+main "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"ain "$@"

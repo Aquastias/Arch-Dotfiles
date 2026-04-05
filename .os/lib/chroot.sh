@@ -21,35 +21,35 @@
 # =============================================================================
 
 write_fstab_single() {
-    # Single-disk fstab: one ESP entry only.
-    # ZFS datasets are auto-mounted by zfs-mount-generator (no fstab entries).
-    {
-        echo "# EFI System Partition"
-        echo "UUID=$(blkid -s UUID -o value "$SINGLE_ESP_PART")  /boot/efi  vfat  umask=0077  0 2"
-        echo ""
-        echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
-        echo "# (reads /etc/zfs/zfs-list.cache/<poolname> at boot)"
-    } > "${MOUNT_ROOT}/etc/fstab"
-    info "fstab written (single-disk)."
+  # Single-disk fstab: one ESP entry only.
+  # ZFS datasets are auto-mounted by zfs-mount-generator (no fstab entries).
+  {
+    echo "# EFI System Partition"
+    echo "UUID=$(blkid -s UUID -o value "$SINGLE_ESP_PART")  /boot/efi  vfat  umask=0077  0 2"
+    echo ""
+    echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
+    echo "# (reads /etc/zfs/zfs-list.cache/<poolname> at boot)"
+  } >"${MOUNT_ROOT}/etc/fstab"
+  info "fstab written (single-disk)."
 }
 
 write_fstab_multi() {
-    # Multi-disk fstab: primary ESP + all secondary ESPs.
-    # Secondary ESPs are kept in sync by the 95-esp-mirror pacman hook.
-    {
-        echo "# EFI System Partition — primary ($(basename "${OS_ESP_PARTS[0]}"))"
-        echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
+  # Multi-disk fstab: primary ESP + all secondary ESPs.
+  # Secondary ESPs are kept in sync by the 95-esp-mirror pacman hook.
+  {
+    echo "# EFI System Partition — primary ($(basename "${OS_ESP_PARTS[0]}"))"
+    echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
 
-        for i in $(seq 1 $(( ${#OS_ESP_PARTS[@]} - 1 ))); do
-            echo ""
-            echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
-            echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[$i]}")  /boot/efi${i}  vfat  umask=0077  0 2"
-        done
+    for i in $(seq 1 $((${#OS_ESP_PARTS[@]} - 1))); do
+      echo ""
+      echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
+      echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[$i]}")  /boot/efi${i}  vfat  umask=0077  0 2"
+    done
 
-        echo ""
-        echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
-    } > "${MOUNT_ROOT}/etc/fstab"
-    info "fstab written (multi-disk, ${#OS_ESP_PARTS[@]} ESP(s))."
+    echo ""
+    echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
+  } >"${MOUNT_ROOT}/etc/fstab"
+  info "fstab written (multi-disk, ${#OS_ESP_PARTS[@]} ESP(s))."
 }
 
 # =============================================================================
@@ -57,19 +57,19 @@ write_fstab_multi() {
 # =============================================================================
 
 write_esp_mirror_hook() {
-    # Installs a pacman hook that rsyncs the primary ESP (/boot/efi) to all
-    # secondary ESPs (/boot/efi1, /boot/efi2, ...) after every kernel update
-    # or systemd-boot update. This keeps every OS disk independently bootable.
-    #
-    # The hook fires on any change to:
-    #   usr/lib/modules/*/vmlinuz  — kernel image updated
-    #   usr/lib/systemd/boot/efi/*.efi  — systemd-boot EFI binary updated
+  # Installs a pacman hook that rsyncs the primary ESP (/boot/efi) to all
+  # secondary ESPs (/boot/efi1, /boot/efi2, ...) after every kernel update
+  # or systemd-boot update. This keeps every OS disk independently bootable.
+  #
+  # The hook fires on any change to:
+  #   usr/lib/modules/*/vmlinuz  — kernel image updated
+  #   usr/lib/systemd/boot/efi/*.efi  — systemd-boot EFI binary updated
 
-    local esp_count="$1"
-    (( esp_count > 1 )) || return   # nothing to mirror for single-ESP installs
+  local esp_count="$1"
+  ((esp_count > 1)) || return # nothing to mirror for single-ESP installs
 
-    mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
-    cat > "${MOUNT_ROOT}/etc/pacman.d/hooks/95-esp-mirror.hook" << 'HOOK'
+  mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
+  cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/95-esp-mirror.hook" <<'HOOK'
 [Trigger]
 Type = Path
 Operation = Install
@@ -82,7 +82,7 @@ Description = Mirroring ESP to secondary OS disks...
 When = PostTransaction
 Exec = /usr/bin/bash -c 'for d in /boot/efi*/; do [[ "$d" != "/boot/efi/" ]] && rsync -a --delete /boot/efi/ "$d"; done'
 HOOK
-    info "ESP mirror pacman hook installed."
+  info "ESP mirror pacman hook installed."
 }
 
 # =============================================================================
@@ -90,70 +90,98 @@ HOOK
 # =============================================================================
 
 configure_system() {
-    section "Configuring System (arch-chroot)"
+  section "Configuring System (arch-chroot)"
 
-    # ── Seed ZFS state into the new root ──────────────────────────────────────
-    # The pool cache and hostid must exist in the new system before the
-    # initramfs is built, otherwise the ZFS hook cannot import the pool at boot.
-    mkdir -p "${MOUNT_ROOT}/etc/zfs"
-    cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null \
-        || warn "zpool.cache not found — pool may not import on first boot without zfs-import-scan."
-    cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
+  # ── Seed ZFS state into the new root ──────────────────────────────────────
+  # The pool cache and hostid must exist in the new system before the
+  # initramfs is built, otherwise the ZFS hook cannot import the pool at boot.
+  mkdir -p "${MOUNT_ROOT}/etc/zfs"
+  cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null ||
+    warn "zpool.cache not found — pool may not import on first boot without zfs-import-scan."
+  cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
 
-    # Copy archzfs repo config so the new system can update ZFS packages
-    cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
+  # Copy archzfs repo config so the new system can update ZFS packages
+  cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
 
-    # ── Copy extras/ scripts for execution inside chroot ──────────────────────
-    if [[ -d "${SCRIPT_DIR}/extras" ]]; then
-        cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
-        chmod +x "${MOUNT_ROOT}/root/extras/"*.sh 2>/dev/null || true
-        info "Copied extras/ → /root/extras/"
-    else
-        warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
-    fi
+  # ── Copy extras/ scripts for execution inside chroot ──────────────────────
+  if [[ -d "${SCRIPT_DIR}/extras" ]]; then
+    cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
+    chmod +x "${MOUNT_ROOT}/root/extras/"*.sh 2>/dev/null || true
+    info "Copied extras/ → /root/extras/"
+  else
+    warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
+  fi
 
-    # ── Gather all values to pass into chroot ─────────────────────────────────
-    local hostname username locale timezone keymap
-    local rpool swap esp_count
-    local do_kde do_backup do_security
+  # ── Gather all values to pass into chroot ─────────────────────────────────
+  local hostname username locale timezone keymap
+  local rpool swap esp_count
+  local do_kde do_backup do_security
 
-    hostname="$(cfg '.system.hostname')"
-    username="$(cfg '.system.username')"
-    locale="$(cfg   '.system.locale')"
-    timezone="$(cfg '.system.timezone')"
-    keymap="$(cfgo  '.system.keymap')";  keymap="${keymap:-us}"
-    swap="$(cfgo    '.options.swap')";   swap="${swap:-true}"
+  hostname="$(cfg '.system.hostname')"
+  username="$(cfg '.system.username')"
+  locale="$(cfg '.system.locale')"
+  timezone="$(cfg '.system.timezone')"
+  keymap="$(cfgo '.system.keymap')"
+  keymap="${keymap:-us}"
+  swap="$(cfgo '.options.swap')"
+  swap="${swap:-true}"
 
-    do_kde="$(cfgo      '.post_install.kde')";      do_kde="${do_kde:-false}"
-    do_backup="$(cfgo   '.post_install.backup')";   do_backup="${do_backup:-false}"
-    do_security="$(cfgo '.post_install.security')"; do_security="${do_security:-false}"
+  do_kde="$(cfgo '.post_install.kde')"
+  do_kde="${do_kde:-false}"
+  do_backup="$(cfgo '.post_install.backup')"
+  do_backup="${do_backup:-false}"
+  do_security="$(cfgo '.post_install.security')"
+  do_security="${do_security:-false}"
 
-    if [[ "$INSTALL_MODE" == "single" ]]; then
-        rpool="$(cfgo '.os_pool_name')"; rpool="${rpool:-rpool}"
-        esp_count=1
-        write_fstab_single
-    else
-        rpool="$(cfg '.os_pool.pool_name')"
-        esp_count="${#OS_ESP_PARTS[@]}"
-        write_fstab_multi
-        write_esp_mirror_hook "$esp_count"
-    fi
+  if [[ "$INSTALL_MODE" == "single" ]]; then
+    rpool="$(cfgo '.os_pool_name')"
+    rpool="${rpool:-rpool}"
+    esp_count=1
+    write_fstab_single
+  else
+    rpool="$(cfg '.os_pool.pool_name')"
+    esp_count="${#OS_ESP_PARTS[@]}"
+    write_fstab_multi
+    write_esp_mirror_hook "$esp_count"
+  fi
 
-    # ── Run configuration inside chroot ───────────────────────────────────────
-    # Values are passed as positional args ($1–$11) to avoid export issues.
-    # The heredoc is quoted ('CHROOT') so variable expansion happens INSIDE
-    # the chroot shell, not in the outer script.
+  # ── Run configuration inside chroot ───────────────────────────────────────
+  # Values are passed as positional args ($1–$11) to avoid export issues.
+  # The heredoc is quoted ('CHROOT') so variable expansion happens INSIDE
+  # the chroot shell, not in the outer script.
 
-    arch-chroot "${MOUNT_ROOT}" /bin/bash -s \
-        "$hostname"   "$timezone"  "$locale"     "$keymap" \
-        "$username"   "$rpool"     "$swap"        "$esp_count" \
-        "$do_kde"     "$do_backup" "$do_security" \
-        << 'CHROOT'
+  # Kernel and bootloader selection from config
+  local kernel
+  kernel="$(cfgo '.options.kernel')"
+  kernel="${kernel:-lts}"
+  local bootloader
+  bootloader="$(cfgo '.options.bootloader')"
+  bootloader="${bootloader:-systemd-boot}"
+
+  arch-chroot "${MOUNT_ROOT}" /bin/bash -s \
+    "$hostname" "$timezone" "$locale" "$keymap" \
+    "$username" "$rpool" "$swap" "$esp_count" \
+    "$do_kde" "$do_backup" "$do_security" \
+    "$kernel" "$bootloader" \
+    <<'CHROOT'
 
 # ── Positional argument unpacking ────────────────────────────────────────────
 HOSTNAME="$1";   TIMEZONE="$2";   LOCALE="$3";    KEYMAP="$4"
 USERNAME="$5";   RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
 DO_KDE="$9";     DO_BACKUP="${10}"; DO_SECURITY="${11}"
+KERNEL="${12:-lts}"; BOOTLOADER="${13:-systemd-boot}"
+
+# Derive kernel image names from the kernel flavour.
+# linux-lts images have '-lts' in the filename; linux (default) do not.
+if [[ "$KERNEL" == "lts" ]]; then
+    VMLINUZ="vmlinuz-linux-lts"
+    INITRAMFS="initramfs-linux-lts.img"
+    INITRAMFS_FB="initramfs-linux-lts-fallback.img"
+else
+    VMLINUZ="vmlinuz-linux"
+    INITRAMFS="initramfs-linux.img"
+    INITRAMFS_FB="initramfs-linux-fallback.img"
+fi
 
 set -e
 
@@ -197,55 +225,126 @@ sed -i "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block keyboard z
     /etc/mkinitcpio.conf
 mkinitcpio -P
 
-# ── systemd-boot ─────────────────────────────────────────────────────────────
-# Install systemd-boot EFI binaries to /boot/efi/EFI/systemd/
-bootctl --esp-path=/boot/efi install
-
+# ── Bootloader installation ───────────────────────────────────────────────────
 POOL_ROOT="$RPOOL/ROOT/arch"
-mkdir -p /boot/efi/loader/entries
 
-# Bootloader configuration
-cat > /boot/efi/loader/loader.conf << EOF
+if [[ "$BOOTLOADER" == "grub" ]]; then
+
+    # ── GRUB ─────────────────────────────────────────────────────────────────
+    # GRUB can read ZFS pools natively and does not need kernel/initramfs
+    # copied to the ESP — it reads them directly from the ZFS dataset.
+    # grub-install writes the EFI binary; grub-mkconfig generates grub.cfg.
+
+    # Install GRUB EFI binary to the ESP
+    grub-install \
+        --target=x86_64-efi \
+        --efi-directory=/boot/efi \
+        --bootloader-id=GRUB \
+        --recheck
+
+    # Tell GRUB which ZFS dataset is the root filesystem
+    # GRUB_CMDLINE_LINUX sets the kernel command line for all entries
+    cat > /etc/default/grub << EOF
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=4
+GRUB_DISTRIBUTOR="Arch Linux (ZFS)"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX="root=ZFS=${POOL_ROOT}"
+GRUB_PRELOAD_MODULES="zfs"
+GRUB_DISABLE_OS_PROBER=false
+EOF
+
+    # Generate GRUB configuration — discovers all installed kernels automatically
+    grub-mkconfig -o /boot/grub/grub.cfg
+
+    echo "GRUB installed. Boot entries generated by grub-mkconfig."
+
+else
+
+    # ── systemd-boot (default) ────────────────────────────────────────────────
+    # systemd-boot is a lightweight EFI loader. It cannot read ZFS, so kernel
+    # and initramfs must be copied into the FAT32 ESP where firmware can reach them.
+    # A pacman hook (95-esp-sync.hook, installed below) keeps them in sync on updates.
+
+    bootctl --esp-path=/boot/efi install
+
+    mkdir -p /boot/efi/loader/entries
+
+    cat > /boot/efi/loader/loader.conf << EOF
 default arch-zfs.conf
 timeout 4
 console-mode max
 editor no
 EOF
 
-# Normal boot entry
-cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
-title   Arch Linux (ZFS)
-linux   /vmlinuz-linux
+    # Normal boot entry
+    cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
+title   Arch Linux (ZFS${KERNEL:+ — ${KERNEL}-lts})
+linux   /${VMLINUZ}
 initrd  /intel-ucode.img
 initrd  /amd-ucode.img
-initrd  /initramfs-linux.img
-options root=ZFS=$POOL_ROOT rw
+initrd  /${INITRAMFS}
+options root=ZFS=${POOL_ROOT} rw
 EOF
 
-# Fallback entry (verbose initramfs, used for troubleshooting)
-cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
+    # Fallback entry — uses a verbose initramfs for troubleshooting boot failures
+    cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
 title   Arch Linux (ZFS — fallback)
-linux   /vmlinuz-linux
+linux   /${VMLINUZ}
 initrd  /intel-ucode.img
 initrd  /amd-ucode.img
-initrd  /initramfs-linux-fallback.img
-options root=ZFS=$POOL_ROOT rw
+initrd  /${INITRAMFS_FB}
+options root=ZFS=${POOL_ROOT} rw
 EOF
 
-# Copy kernel and initramfs into the ESP.
-# systemd-boot reads them directly from the ESP — they must be there, not
-# just in /boot, because the ESP is what the firmware can access before the
-# ZFS root is mounted.
-cp /boot/vmlinuz-linux                /boot/efi/
-cp /boot/initramfs-linux.img          /boot/efi/
-cp /boot/initramfs-linux-fallback.img /boot/efi/
-[[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img /boot/efi/ || true
-[[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   /boot/efi/ || true
+    # Copy kernel and initramfs to the ESP.
+    # systemd-boot reads these directly from the FAT32 ESP — the ZFS root
+    # is not yet mounted at the point the firmware loads them.
+    cp "/boot/${VMLINUZ}"     /boot/efi/
+    cp "/boot/${INITRAMFS}"   /boot/efi/
+    cp "/boot/${INITRAMFS_FB}" /boot/efi/
+    [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img /boot/efi/ || true
+    [[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   /boot/efi/ || true
+
+    # Install a pacman hook so the ESP copies are updated on every kernel upgrade.
+    # Without this, the files in the ESP would go stale after the first update.
+    mkdir -p /etc/pacman.d/hooks
+    cat > /etc/pacman.d/hooks/96-esp-kernel-sync.hook << 'HOOK'
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/vmlinuz
+
+[Action]
+Description = Syncing kernel and initramfs to ESP...
+When = PostTransaction
+Exec = /usr/bin/bash -c '\
+    for f in /boot/vmlinuz-linux* /boot/initramfs-linux*.img \
+              /boot/intel-ucode.img /boot/amd-ucode.img; do \
+        [[ -f "$f" ]] && cp "$f" /boot/efi/ && \
+            for d in /boot/efi*/; do \
+                [[ "$d" != "/boot/efi/" ]] && cp "$f" "$d"; \
+            done; \
+    done'
+HOOK
+
+    echo "systemd-boot installed."
+
+fi
 
 # ── Secondary ESP mirroring ───────────────────────────────────────────────────
 # For multi-disk installs: rsync the primary ESP to each secondary, then
 # register each secondary as an independent UEFI boot entry via efibootmgr.
 # This allows booting from any OS disk if the primary fails.
+# GRUB: the EFI binary is at EFI/GRUB/grubx64.efi
+# systemd-boot: the EFI binary is at EFI/systemd/systemd-bootx64.efi
+if [[ "$BOOTLOADER" == "grub" ]]; then
+    EFI_LOADER='\EFI\GRUB\grubx64.efi'
+else
+    EFI_LOADER='\EFI\systemd\systemd-bootx64.efi'
+fi
+
 if [[ "$ESP_COUNT" -gt 1 ]]; then
     for i in $(seq 1 $(( ESP_COUNT - 1 ))); do
         rsync -a --delete /boot/efi/ "/boot/efi${i}/"
@@ -258,7 +357,7 @@ if [[ "$ESP_COUNT" -gt 1 ]]; then
             efibootmgr --create \
                 --disk "$EFI_DISK" --part 1 \
                 --label "Arch Linux (fallback disk $((i+1)))" \
-                --loader '\EFI\systemd\systemd-bootx64.efi' \
+                --loader "$EFI_LOADER" \
                 || true   # non-fatal: UEFI vars may be read-only in some VMs
         fi
     done
