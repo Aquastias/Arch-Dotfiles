@@ -417,6 +417,11 @@ systemctl enable NetworkManager
 # systemd-resolved provides a caching stub DNS resolver.
 # /etc/resolv.conf must point to its stub socket for DNS to work after boot.
 systemctl enable systemd-resolved
+# Point resolv.conf at systemd-resolved's stub resolver.
+# Remove first in case it already exists as a regular file or a symlink
+# pointing elsewhere — ln -sf will fail with "same file" if the symlink
+# already points to the correct target and the target resolves to the same inode.
+rm -f /etc/resolv.conf
 ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 # systemd-timesyncd is a lightweight NTP client. It syncs the clock at boot
