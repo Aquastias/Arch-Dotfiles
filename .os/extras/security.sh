@@ -25,9 +25,13 @@
 
 set -Eeuo pipefail
 
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-info()    { echo -e "${GREEN}[SEC]${NC}   $*"; }
-warn()    { echo -e "${YELLOW}[SEC]${NC}   $*"; }
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+info() { echo -e "${GREEN}[SEC]${NC}   $*"; }
+warn() { echo -e "${YELLOW}[SEC]${NC}   $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 
 # =============================================================================
@@ -39,10 +43,10 @@ section "Installing UFW Firewall (nftables backend)"
 pacman -S --noconfirm --needed ufw
 
 # ── Default policies ──────────────────────────────────────────────────────────
-ufw --force reset            # Clear any previous rules
-ufw default deny incoming    # Block all unsolicited inbound traffic
-ufw default allow outgoing   # Allow all outbound traffic
-ufw default deny forward     # No forwarding (desktop, not a router)
+ufw --force reset          # Clear any previous rules
+ufw default deny incoming  # Block all unsolicited inbound traffic
+ufw default allow outgoing # Allow all outbound traffic
+ufw default deny forward   # No forwarding (desktop, not a router)
 
 # ── Essential rules ───────────────────────────────────────────────────────────
 # SSH — rate-limited (max 6 connections per 30 seconds) to resist brute-force
@@ -56,10 +60,10 @@ ufw allow in to any port 68 proto udp comment "DHCP client"
 
 # ── KDE Connect (if KDE is installed) ────────────────────────────────────────
 if pacman -Qi sddm &>/dev/null 2>&1 || pacman -Qi plasma-desktop &>/dev/null 2>&1; then
-    # KDE Connect uses ports 1714–1764 for device pairing and sync
-    ufw allow 1714:1764/tcp comment "KDE Connect"
-    ufw allow 1714:1764/udp comment "KDE Connect"
-    info "KDE Connect rules added."
+  # KDE Connect uses ports 1714–1764 for device pairing and sync
+  ufw allow 1714:1764/tcp comment "KDE Connect"
+  ufw allow 1714:1764/udp comment "KDE Connect"
+  info "KDE Connect rules added."
 fi
 
 # ── Enable UFW ────────────────────────────────────────────────────────────────
@@ -76,8 +80,8 @@ ufw status verbose
 section "Installing ClamAV Antivirus"
 
 pacman -S --noconfirm --needed \
-    clamav \
-    clamtk   # GTK GUI for ClamAV (optional, works fine without KDE)
+  clamav \
+  clamtk # GTK GUI for ClamAV (optional, works fine without KDE)
 
 # ── freshclam — virus definition updater ─────────────────────────────────────
 # freshclam.service is enabled at the end of this script after all config is done.
@@ -90,7 +94,7 @@ systemctl enable clamav-freshclam-once.service 2>/dev/null || true
 # freshclam will retry automatically on first boot.
 info "Attempting initial ClamAV definition update (may take several minutes)..."
 info "This downloads ~200 MB — safe to Ctrl+C if you want to defer to first boot."
-freshclam 2>/dev/null && info "Definitions updated."     || warn "freshclam deferred — will run automatically on first boot."
+freshclam 2>/dev/null && info "Definitions updated." || warn "freshclam deferred — will run automatically on first boot."
 
 # ── clamd — background scanning daemon ───────────────────────────────────────
 # Edit /etc/clamav/clamd.conf to tune; notable options:
@@ -103,7 +107,7 @@ sed -i 's/^Example/#Example/' /etc/clamav/clamd.conf
 sed -i 's/^Example/#Example/' /etc/clamav/freshclam.conf
 
 # Add sensible exclusions to avoid scanning virtual filesystems
-cat >> /etc/clamav/clamd.conf << 'CLAMCONF'
+cat >>/etc/clamav/clamd.conf <<'CLAMCONF'
 
 # Exclude virtual/kernel filesystems — scanning these causes errors and hangs
 ExcludePath ^/proc
@@ -126,7 +130,7 @@ CLAMCONF
 # ── Scheduled weekly full scan via systemd timer ─────────────────────────────
 # Uses standalone clamscan (no daemon needed). Requires freshclam to have
 # run at least once so virus definitions exist.
-cat > /etc/systemd/system/clamav-scan.service << 'CLAMSVC'
+cat >/etc/systemd/system/clamav-scan.service <<'CLAMSVC'
 [Unit]
 Description=ClamAV weekly full system scan
 # Wants freshclam to have updated definitions before scanning.
@@ -145,7 +149,7 @@ ExecStart=/usr/bin/clamscan --recursive --infected --suppress-ok-results /home /
     --log=/var/log/clamav/weekly-scan.log
 CLAMSVC
 
-cat > /etc/systemd/system/clamav-scan.timer << 'CLAMTIMER'
+cat >/etc/systemd/system/clamav-scan.timer <<'CLAMTIMER'
 [Unit]
 Description=Run ClamAV weekly scan every Sunday at 02:30
 
@@ -164,6 +168,8 @@ mkdir -p /var/log/clamav
 chown clamav:clamav /var/log/clamav 2>/dev/null || true
 systemctl enable clamav-scan.timer
 systemctl enable clamav-freshclam.service
+
+paccache -rk0 --noconfirm 2>/dev/null || true
 
 info "ClamAV installed and configured."
 info "Weekly scan scheduled: Sundays at 02:30, results in /var/log/clamav/weekly-scan.log"

@@ -1,0 +1,153 @@
+// Arch Linux ZFS Installer — main configuration
+// Edit this file, then run: ./03-install.sh
+//
+// MODES:
+//   single  One disk — auto-partitioned: ESP + rpool (OS) + dpool (storage). Set "disk".
+//   multi   Multiple disks — OS pool (rpool) + storage groups (dpool). Set "os_pool".
+//   auto    Omit "mode" to auto-detect: "disk" present → single, "os_pool.disks" → multi.
+
+{
+  // ── System ────────────────────────────────────────────────────────────────
+  "system": {
+    // Leave empty to be prompted during install.
+    "hostname": "",
+
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us",
+
+    // At least one user required.
+    // Fields: name (required), shell, sudo, groups (all optional).
+    "users": [
+      {
+        // Unix username — lowercase letters, digits, hyphens only.
+        "name": "aquastias",
+
+        // Login shell. Common: /bin/bash  /bin/zsh  /bin/fish
+        "shell": "/bin/bash",
+
+        // true = full sudo via wheel group.
+        "sudo": true,
+
+        // Remove "wheel" for non-admin users.
+        "groups": ["wheel", "audio", "video", "storage", "optical", "network"]
+      }
+    ]
+  },
+
+  // ── Options ───────────────────────────────────────────────────────────────
+  "options": {
+    // "lts" = linux-lts (recommended — always supported by archzfs).
+    // "default" = linux (rolling — may temporarily be unsupported by archzfs).
+    "kernel": "lts",
+
+    // "systemd-boot" = lightweight EFI-only loader (recommended).
+    // "grub" = GRUB with full ZFS support.
+    "bootloader": "systemd-boot",
+
+    // ZFS native AES-256-GCM. Passphrase prompted before disk writes.
+    "encryption": false,
+
+    "swap": true,
+
+    // "auto" = RAM×2 (recommended for hibernation). Or fixed: "8G", "16G", "32G".
+    "swap_size": "auto",
+
+    // EFI System Partition size. 512M is plenty for both bootloaders.
+    "esp_size": "512M"
+  },
+
+  // ── Extra packages ────────────────────────────────────────────────────────
+  // All installed via pacstrap alongside the base system.
+  // Use exact pacman package names.
+  "packages": {
+    // Flat list of individual packages.
+    "extra": [],
+
+    // Grouped for organisation — all enabled groups are installed together.
+    // Leave groups empty [] that you don't need.
+    "groups": {
+      "system":   [],   // System management and hardware tools.
+      "network":  [],   // Network utilities (networkmanager always included).
+      "security": [],   // Security hardening tools.
+      "fs":       [],   // Filesystem utilities (btrfs-progs, xfsprogs, etc.).
+      "archive":  [],   // Archive format support (7zip, unrar, zip, etc.).
+      "wayland":  [],   // Wayland compositor and tools.
+      "audio":    [],   // Audio stack (pipewire, wireplumber, etc.).
+      "gpu":      [],   // GPU drivers (vulkan-radeon, xf86-video-amdgpu, etc.).
+      "fonts":    [],   // Fonts and icon themes.
+      "terminal": [],   // Terminal emulators and CLI tools.
+      "dev":      [],   // Development tools and runtimes.
+      "media":    [],   // Media players, browsers, communication apps.
+      "gaming":   [],   // Gaming (steam, lutris, wine).
+      "virt":     [],   // Virtualisation (qemu, virt-manager).
+      "misc":     []    // Anything else.
+    }
+  },
+
+  // ── Post-install scripts ──────────────────────────────────────────────────
+  // Set to true to run the corresponding extras/ script inside the chroot.
+  "post_install": {
+    // extras/backup.sh — zfs-auto-snapshot + Borg/Vorta encrypted backups.
+    "backup": false,
+
+    // extras/security.sh — UFW firewall (deny-by-default) + ClamAV.
+    "security": false,
+
+    "desktop": {
+      // extras/desktop/kde/kde.sh — KDE Plasma shell + KDE applications.
+      // Configure which packages to install in extras/desktop/kde/install-kde.jsonc
+      "kde": false
+    }
+  },
+
+  // ── EXAMPLES (reference only — not read by the installer) ─────────────────
+
+  // Single disk — laptop or desktop. Disk is split automatically.
+  // "_SINGLE_DISK_EXAMPLE": {
+  //   "mode":              "single",
+  //   "disk":              "/dev/sda",
+  //   "ashift":            12,        // 12 = 4K sectors (SSD/HDD). 13 = 8K (NVMe).
+  //   "os_size":           "auto",    // Or fixed: "80G", "120G".
+  //   "os_pool_name":      "rpool",
+  //   "storage_pool_name": "dpool",
+  //   "storage_mount":     "/data"
+  // },
+
+  // Multi-disk — 2 NVMes mirrored for OS, 3 SSDs as raidz1 storage.
+  // "_MULTI_MIRROR_EXAMPLE": {
+  //   "mode": "multi",
+  //   "os_pool": {
+  //     "pool_name": "rpool",
+  //     "topology":  "mirror",   // mirror | stripe | none
+  //     "ashift":    13,
+  //     "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+  //   },
+  //   "storage_groups": [
+  //     {
+  //       "name":     "ssd",
+  //       "mount":    "/data/ssd",
+  //       "ashift":   12,
+  //       "topology": "raidz1",  // mirror | stripe | raidz1 | raidz2
+  //       "disks":    ["/dev/sda", "/dev/sdb", "/dev/sdc"]
+  //     }
+  //   ]
+  // },
+
+  // ── Active disk config — edit below ──────────────────────────────────────
+  "mode":  "single",
+  "disk":  "/dev/sda",
+  "ashift": 12,
+  "os_size": "auto",
+  "os_pool_name":      "rpool",
+  "storage_pool_name": "dpool",
+  "storage_mount":     "/data",
+
+  "os_pool": {
+    "pool_name": "rpool",
+    "ashift":    13,
+    "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+  },
+
+  "storage_groups": []
+}

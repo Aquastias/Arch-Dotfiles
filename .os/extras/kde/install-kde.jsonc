@@ -1,0 +1,40 @@
+// KDE Plasma package configuration
+// Read by extras/desktop/kde/kde.sh when post_install.desktop.kde = true
+//
+// To add packages after install: sudo pacman -S <package>
+
+{
+  // Install KDE Plasma shell + SDDM display manager.
+  "shell": true,
+
+  // Install KDE applications (controlled individually in apps_list below).
+  "apps": true,
+
+  // Individual KDE apps — set to false to skip any you don't want.
+  "apps_list": {
+    "ark":              true,   // Archive manager
+    "calligra":         true,   // Office suite (Writer, Sheets, Stage)
+    "dolphin":          true,   // File manager
+    "filelight":        true,   // Disk usage visualiser
+    "gwenview":         true,   // Image viewer
+    "kate":             true,   // Advanced text editor
+    "kdiff3":           true,   // Diff and merge tool
+    "keditbookmarks":   true,   // Bookmark editor
+    "kleopatra":        true,   // GPG certificate manager
+    "kompare":          true,   // Diff viewer
+    "konsole":          true,   // Terminal emulator
+    "krename":          true,   // Batch file renamer
+    "krita":            true,   // Digital painting
+    "krusader":         true,   // Twin-panel file manager
+    "ktorrent":         true,   // BitTorrent client
+    "kwalletmanager":   true,   // Wallet/secrets manager
+    "okular":           true,   // Document viewer (PDF, EPUB, etc.)
+    "pacmanlogviewer":  true,   // Pacman log viewer
+    "partitionmanager": true,   // Partition editor
+    "skanlite":         true,   // Simple scanner
+    "skanpage":         true    // Multi-page scanner
+  },
+
+  // Any additional KDE-framework packages not listed above.
+  "extra": []
+}

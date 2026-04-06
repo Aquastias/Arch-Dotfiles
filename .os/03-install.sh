@@ -50,7 +50,7 @@ _on_error() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Path to the JSON config file. Can be overridden via command-line argument.
-CONFIG_FILE="${1:-${SCRIPT_DIR}/install.json}"
+CONFIG_FILE="${1:-${SCRIPT_DIR}/install.jsonc}"
 
 # Mountpoint for the new system during installation.
 MOUNT_ROOT="/mnt"
@@ -150,4 +150,4 @@ main() {
   finalize
 }
 
-main "$@"ain "$@"
+main "$@"

@@ -180,8 +180,7 @@ configure_system() {
   # ── Copy extras/ scripts for execution inside chroot ──────────────────────
   if [[ -d "${SCRIPT_DIR}/extras" ]]; then
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
-    chmod +x "${MOUNT_ROOT}/root/extras/"*.sh 2>/dev/null || true
-    chmod +x "${MOUNT_ROOT}/root/extras/desktop/"*/"*.sh" 2>/dev/null || true
+    find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
@@ -203,7 +202,7 @@ configure_system() {
   swap="$(cfgo '.options.swap')"
   swap="${swap:-true}"
   # Pass the entire users array as a compact JSON string into the chroot
-  users_json="$(jq -c '.system.users' "$CONFIG_FILE")"
+  users_json="$(jsonc "$CONFIG_FILE" | jq -c '.system.users')"
 
   do_kde="$(cfgo '.post_install.desktop.kde')"
   do_kde="${do_kde:-false}"

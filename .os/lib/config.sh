@@ -84,8 +84,9 @@ generate_template() {
 
   "post_install": {
     "_help":      "Set true to run the matching extras/ script inside chroot at the end of install.",
-    "kde":        false,
-    "_kde":       "extras/kde.sh — KDE Plasma 6, SDDM, PipeWire audio, Bluetooth, Avahi, printing.",
+    "desktop": {
+      "kde": false,
+      "_kde":       "extras/kde.sh — KDE Plasma 6, SDDM, PipeWire audio, Bluetooth, Avahi, printing.",
     "backup":     false,
     "_backup":    "extras/backup.sh — zfs-auto-snapshot (scheduled snapshots) + Borg/Vorta backups.",
     "security":   false,
@@ -179,7 +180,7 @@ load_config() {
     exit 0
   fi
   command -v jq &>/dev/null || error "'jq' not found. Run 01-bootstrap-zfs.sh first."
-  jq empty "$CONFIG_FILE" 2>/dev/null || error "Invalid JSON: $CONFIG_FILE"
+  jsonc "$CONFIG_FILE" | jq empty 2>/dev/null || error "Invalid JSON: $CONFIG_FILE"
   info "Loaded: $CONFIG_FILE"
 }
 
@@ -202,7 +203,7 @@ detect_mode() {
   local single_disk
   single_disk="$(cfgo '.disk')"
   local os_cnt
-  os_cnt="$(jq '.os_pool.disks | length // 0' "$CONFIG_FILE")"
+  os_cnt="$(jsonc "$CONFIG_FILE" | jq '.os_pool.disks | length // 0')"
 
   if [[ -n "$single_disk" && "$os_cnt" -lt 2 ]]; then
     INSTALL_MODE="single"
@@ -243,12 +244,12 @@ validate_config() {
 
   # Validate users array
   local user_count
-  user_count="$(jq '.system.users | length' "$CONFIG_FILE")"
+  user_count="$(jsonc "$CONFIG_FILE" | jq '.system.users | length')"
   ((user_count >= 1)) || error "system.users must contain at least one user."
   local _ui
   for ((_ui = 0; _ui < user_count; _ui++)); do
     local _uname
-    _uname="$(jq -r ".system.users[${_ui}].name // empty" "$CONFIG_FILE")"
+    _uname="$(jsonc "$CONFIG_FILE" | jq -r ".system.users[${_ui}].name // empty")"
     [[ -n "$_uname" ]] || error "system.users[${_ui}] missing required field 'name'."
     [[ "$_uname" =~ ^[a-z_][a-z0-9_-]*$ ]] ||
       error "system.users[${_ui}].name '${_uname}' invalid. Use lowercase letters/digits/hyphens."
@@ -271,24 +272,24 @@ validate_config() {
     fi
 
     local cnt
-    cnt="$(jq '.os_pool.disks | length' "$CONFIG_FILE")"
+    cnt="$(jsonc "$CONFIG_FILE" | jq '.os_pool.disks | length')"
     ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
     while IFS= read -r d; do
       [[ -b "$d" ]] || error "OS disk not found: $d"
-    done < <(jq -r '.os_pool.disks[]' "$CONFIG_FILE")
+    done < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
 
     # Validate each storage group
     local sg
-    sg="$(jq '.storage_groups | length' "$CONFIG_FILE")"
+    sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
     for ((i = 0; i < sg; i++)); do
       local gname
       gname="$(cfg ".storage_groups[$i].name")"
       local gdc
-      gdc="$(jq ".storage_groups[$i].disks | length" "$CONFIG_FILE")"
+      gdc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
       ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
       while IFS= read -r d; do
         [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
-      done < <(jq -r ".storage_groups[$i].disks[]" "$CONFIG_FILE")
+      done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
     done
   fi
 
@@ -338,11 +339,11 @@ print_summary() {
         local s
         s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
         printf "    %s  (%s)\n" "$d" "$s"
-      done < <(jq -r '.os_pool.disks[]' "$CONFIG_FILE")
+      done < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
     fi
 
     local sg
-    sg="$(jq '.storage_groups | length' "$CONFIG_FILE")"
+    sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
     local has_left=false
     [[ -v "STORAGE_PARTS[_leftover]" ]] && has_left=true
 
@@ -366,13 +367,13 @@ print_summary() {
 
   # Packages
   local extras
-  extras="$(jq -r '(.packages.extra // []) | join(", ")' "$CONFIG_FILE")"
+  extras="$(jsonc "$CONFIG_FILE" | jq -r '(.packages.extra // []) | join(", ")')"
   local cli
-  cli="$(jq -r '(.packages.groups.cli // []) | join(", ")' "$CONFIG_FILE")"
+  cli="$(jsonc "$CONFIG_FILE" | jq -r '(.packages.groups.cli // []) | join(", ")')"
   local dev
-  dev="$(jq -r '(.packages.groups.dev // []) | join(", ")' "$CONFIG_FILE")"
+  dev="$(jsonc "$CONFIG_FILE" | jq -r '(.packages.groups.dev // []) | join(", ")')"
   local gui
-  gui="$(jq -r '(.packages.groups.gui // []) | join(", ")' "$CONFIG_FILE")"
+  gui="$(jsonc "$CONFIG_FILE" | jq -r '(.packages.groups.gui // []) | join(", ")')"
   echo ""
   echo -e "  ${BOLD}Packages:${NC}"
   [[ -n "$extras" ]] && printf "    extra: %s\n" "$extras"
@@ -382,7 +383,7 @@ print_summary() {
 
   # Post-install
   local kde
-  kde="$(cfgo '.post_install.kde')"
+  kde="$(cfgo '.desktop.kde')"
   kde="${kde:-false}"
   local backup
   backup="$(cfgo '.post_install.backup')"
@@ -408,7 +409,7 @@ print_summary() {
   _hn="${_hn:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$_hn"
   local _users
-  _users="$(jq -r '.system.users[].name' "$CONFIG_FILE" | tr '\n' ' ')"
+  _users="$(jsonc "$CONFIG_FILE" | jq -r '.system.users[].name' | tr '\n' ' ')"
   printf "  %-16s %s\n" "Users:" "${_users}"
   printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
   printf "  %-16s %s\n" "Encryption:" "$enc"

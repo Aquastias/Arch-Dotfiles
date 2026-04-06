@@ -598,4 +598,4 @@ main() {
   print_summary
 }
 
-main "$@"ain "$@"
+main "$@"

@@ -105,20 +105,19 @@ collect_packages() {
   # ── User-defined flat extra list ──────────────────────────────────────────
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(jq -r '.packages.extra[]? // empty' "$CONFIG_FILE" 2>/dev/null)
+  done < <(jsonc "$CONFIG_FILE" | jq -r '.packages.extra[]? // empty' 2>/dev/null)
 
   # ── User-defined groups ───────────────────────────────────────────────────
   # Filter out keys starting with "_" (they are inline comment fields, not
   # real package group keys). Only process values that are arrays.
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(jq -r '
+  done < <(jsonc "$CONFIG_FILE" | jq -r '
         .packages.groups // {}
         | to_entries[]?
-        | select(.key | startswith("_") | not)
         | select(.value | type == "array")
         | .value[]?
-    ' "$CONFIG_FILE" 2>/dev/null)
+    ' 2>/dev/null)
 
   # Sort and deduplicate — pacstrap handles duplicates gracefully but this
   # keeps the output clean and avoids confusion in the install log.

@@ -20,13 +20,14 @@ section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 # ── Locate install-kde.json ───────────────────────────────────────────────────
 # When running inside chroot it is copied to /root/extras/install-kde.json
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KDE_JSON="${SCRIPT_DIR}/install-kde.json"
+KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
 [[ -f "$KDE_JSON" ]] || {
   echo "[KDE] ERROR: install-kde.json not found at ${KDE_JSON}"
   exit 1
 }
 
-_jq() { jq -r "$1" "$KDE_JSON"; }
+# Strip // comments before passing to jq
+_jq() { sed -e 's|[[:space:]]//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$KDE_JSON" | jq -r "$1"; }
 
 do_shell="$(_jq '.shell // true')"
 do_apps="$(_jq '.apps  // true')"
