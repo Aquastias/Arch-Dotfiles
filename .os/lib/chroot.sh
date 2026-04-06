@@ -182,6 +182,17 @@ configure_system() {
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
+    # Verify desktop scripts are present if enabled
+    if [[ "$do_kde" == "true" ]]; then
+      if [[ -f "${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh" ]]; then
+        info "KDE script found: extras/desktop/kde/kde.sh"
+      else
+        error "KDE is enabled (post_install.desktop.kde=true) but \
+extras/desktop/kde/kde.sh was not found.
+  Expected path: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
+  Make sure you have the latest version of the installer files."
+      fi
+    fi
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
   fi
@@ -645,12 +656,32 @@ done
 # ── Post-install optional scripts ─────────────────────────────────────────────
 # Each script runs inside this chroot and has full access to the new system.
 # They are copied from extras/ on the installer USB by configure_system().
-if [[ "$DO_KDE" == "true" && -f /root/extras/desktop/kde/kde.sh ]]; then
-    # kde.sh reads install-kde.json from the same directory
-    bash /root/extras/desktop/kde/kde.sh
+if [[ "$DO_KDE" == "true" ]]; then
+    if [[ -f /root/extras/desktop/kde/kde.sh ]]; then
+        echo "[INFO] Running KDE installer..."
+        bash /root/extras/desktop/kde/kde.sh
+    else
+        echo "[ERROR] KDE is enabled but /root/extras/desktop/kde/kde.sh was not found."
+        echo "        Ensure extras/desktop/kde/kde.sh exists in your installer directory."
+        exit 1
+    fi
 fi
-[[ "$DO_BACKUP"   == "true" && -f /root/extras/backup.sh   ]] && bash /root/extras/backup.sh
-[[ "$DO_SECURITY" == "true" && -f /root/extras/security.sh ]] && bash /root/extras/security.sh
+
+if [[ "$DO_BACKUP" == "true" ]]; then
+    if [[ -f /root/extras/backup.sh ]]; then
+        bash /root/extras/backup.sh
+    else
+        echo "[WARN] backup enabled but /root/extras/backup.sh not found — skipping."
+    fi
+fi
+
+if [[ "$DO_SECURITY" == "true" ]]; then
+    if [[ -f /root/extras/security.sh ]]; then
+        bash /root/extras/security.sh
+    else
+        echo "[WARN] security enabled but /root/extras/security.sh not found — skipping."
+    fi
+fi
 
 echo ""
 echo "[CHROOT] Configuration complete."
