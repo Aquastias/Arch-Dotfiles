@@ -151,5 +151,17 @@ install_base() {
   # shellcheck disable=SC2068
   pacstrap -K "${MOUNT_ROOT}" --needed ${pkgs[@]}
 
+  # Clean the package cache inside the new root — downloaded .pkg.tar.zst
+  # files are no longer needed after install and take ~500 MB–1.5 GB.
+  # Keep 0 cached versions (keep=0 removes everything).
+  info "Cleaning pacman package cache..."
+  arch-chroot "${MOUNT_ROOT}" paccache -rk0 --noconfirm 2>/dev/null || rm -rf "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.* 2>/dev/null || true
+
+  # Configure pacman to keep only 1 cached version going forward
+  # (prevents cache from growing unbounded after updates)
+  if ! grep -q '^CleanMethod' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null; then
+    sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null || true
+  fi
+
   info "Base system installed."
 }

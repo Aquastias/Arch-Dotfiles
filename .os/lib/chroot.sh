@@ -83,6 +83,25 @@ When = PostTransaction
 Exec = /usr/bin/bash -c 'for d in /boot/efi*/; do [[ "$d" != "/boot/efi/" ]] && rsync -a --delete /boot/efi/ "$d"; done'
 HOOK
   info "ESP mirror pacman hook installed."
+
+  # Install paccache cleanup hook — runs after every pacman transaction
+  # and keeps only the 2 most recent versions of each package in cache.
+  # This prevents /var/cache/pacman/pkg from growing unbounded after updates.
+  mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
+  cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/90-paccache.hook" <<'HOOK'
+[Trigger]
+Operation = Upgrade
+Operation = Install
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+Description = Cleaning pacman cache (keeping last 2 versions)...
+When = PostTransaction
+Exec = /usr/bin/paccache -rk2 --noconfirm
+HOOK
+  info "paccache auto-cleanup hook installed."
 }
 
 # =============================================================================
@@ -162,6 +181,7 @@ configure_system() {
   if [[ -d "${SCRIPT_DIR}/extras" ]]; then
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     chmod +x "${MOUNT_ROOT}/root/extras/"*.sh 2>/dev/null || true
+    chmod +x "${MOUNT_ROOT}/root/extras/desktop/"*/"*.sh" 2>/dev/null || true
     info "Copied extras/ → /root/extras/"
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
@@ -185,7 +205,7 @@ configure_system() {
   # Pass the entire users array as a compact JSON string into the chroot
   users_json="$(jq -c '.system.users' "$CONFIG_FILE")"
 
-  do_kde="$(cfgo '.post_install.kde')"
+  do_kde="$(cfgo '.post_install.desktop.kde')"
   do_kde="${do_kde:-false}"
   do_backup="$(cfgo '.post_install.backup')"
   do_backup="${do_backup:-false}"
@@ -626,7 +646,10 @@ done
 # ── Post-install optional scripts ─────────────────────────────────────────────
 # Each script runs inside this chroot and has full access to the new system.
 # They are copied from extras/ on the installer USB by configure_system().
-[[ "$DO_KDE"      == "true" && -f /root/extras/kde.sh      ]] && bash /root/extras/kde.sh
+if [[ "$DO_KDE" == "true" && -f /root/extras/desktop/kde/kde.sh ]]; then
+    # kde.sh reads install-kde.json from the same directory
+    bash /root/extras/desktop/kde/kde.sh
+fi
 [[ "$DO_BACKUP"   == "true" && -f /root/extras/backup.sh   ]] && bash /root/extras/backup.sh
 [[ "$DO_SECURITY" == "true" && -f /root/extras/security.sh ]] && bash /root/extras/security.sh
 

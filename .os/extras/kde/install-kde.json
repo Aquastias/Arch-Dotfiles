@@ -1,0 +1,33 @@
+{
+  "_readme": "KDE Plasma package configuration. Read by extras/kde.sh when desktop.kde=true in install.json.",
+  "_shell_help": "KDE Plasma shell + SDDM display manager.",
+  "shell": true,
+  "_apps_help": "KDE applications — apps built on KDE Frameworks.",
+  "apps": true,
+  "_apps_list_help": "Individual KDE apps. Set to false to skip, true to install.",
+  "apps_list": {
+    "ark": true,
+    "calligra": true,
+    "dolphin": true,
+    "filelight": true,
+    "gwenview": true,
+    "kate": true,
+    "kdiff3": true,
+    "keditbookmarks": true,
+    "kleopatra": true,
+    "kompare": true,
+    "konsole": true,
+    "krename": true,
+    "krita": true,
+    "krusader": true,
+    "ktorrent": true,
+    "kwalletmanager": true,
+    "okular": true,
+    "pacmanlogviewer": true,
+    "partitionmanager": true,
+    "skanlite": true,
+    "skanpage": true
+  },
+  "_extra_help": "Any additional KDE-framework packages to install.",
+  "extra": []
+}
