@@ -215,23 +215,6 @@ configure_system() {
   do_security="$(cfgo '.post_install.security')"
   do_security="${do_security:-false}"
 
-  # ── Verify post-install scripts exist before entering chroot ─────────
-  if [[ "$do_kde" == "true" ]]; then
-    local kde_script="${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh"
-    if [[ -f "$kde_script" ]]; then
-      info "KDE installer ready."
-    else
-      # Show what actually got copied to help diagnose path issues
-      warn "Expected KDE script at: ${kde_script}"
-      warn "Contents of ${MOUNT_ROOT}/root/extras/ (if it exists):"
-      find "${MOUNT_ROOT}/root/extras" -type f 2>/dev/null | sed "s|${MOUNT_ROOT}||" | sort >&2 || warn "  (directory does not exist)"
-      error "KDE is enabled but extras/desktop/kde/kde.sh was not found after copying.
-  Source checked: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
-  Destination:    ${kde_script}
-  See file listing above for what was actually copied."
-    fi
-  fi
-
   if [[ "$INSTALL_MODE" == "single" ]]; then
     rpool="$(cfgo '.os_pool_name')"
     rpool="${rpool:-rpool}"
