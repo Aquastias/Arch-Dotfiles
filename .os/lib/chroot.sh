@@ -182,17 +182,6 @@ configure_system() {
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
-    # Verify desktop scripts are present if enabled
-    if [[ "$do_kde" == "true" ]]; then
-      if [[ -f "${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh" ]]; then
-        info "KDE script found: extras/desktop/kde/kde.sh"
-      else
-        error "KDE is enabled (post_install.desktop.kde=true) but \
-extras/desktop/kde/kde.sh was not found.
-  Expected path: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
-  Make sure you have the latest version of the installer files."
-      fi
-    fi
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
   fi
@@ -221,6 +210,17 @@ extras/desktop/kde/kde.sh was not found.
   do_backup="${do_backup:-false}"
   do_security="$(cfgo '.post_install.security')"
   do_security="${do_security:-false}"
+
+  # ── Verify post-install scripts exist before entering chroot ─────────
+  if [[ "$do_kde" == "true" ]]; then
+    if [[ -f "${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh" ]]; then
+      info "KDE installer ready: extras/desktop/kde/kde.sh"
+    else
+      error "KDE is enabled (post_install.desktop.kde=true) but script not found.
+  Expected: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
+  Ensure extras/desktop/kde/ exists in your installer directory."
+    fi
+  fi
 
   if [[ "$INSTALL_MODE" == "single" ]]; then
     rpool="$(cfgo '.os_pool_name')"
