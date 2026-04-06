@@ -179,6 +179,10 @@ configure_system() {
 
   # ── Copy extras/ scripts for execution inside chroot ──────────────────────
   if [[ -d "${SCRIPT_DIR}/extras" ]]; then
+    # Remove any previous copy first so cp -r is always idempotent.
+    # Without rm: if /root/extras already exists, cp -r would nest the
+    # contents inside /root/extras/extras/ instead of /root/extras/.
+    rm -rf "${MOUNT_ROOT}/root/extras"
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
@@ -213,12 +217,18 @@ configure_system() {
 
   # ── Verify post-install scripts exist before entering chroot ─────────
   if [[ "$do_kde" == "true" ]]; then
-    if [[ -f "${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh" ]]; then
-      info "KDE installer ready: extras/desktop/kde/kde.sh"
+    local kde_script="${MOUNT_ROOT}/root/extras/desktop/kde/kde.sh"
+    if [[ -f "$kde_script" ]]; then
+      info "KDE installer ready."
     else
-      error "KDE is enabled (post_install.desktop.kde=true) but script not found.
-  Expected: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
-  Ensure extras/desktop/kde/ exists in your installer directory."
+      # Show what actually got copied to help diagnose path issues
+      warn "Expected KDE script at: ${kde_script}"
+      warn "Contents of ${MOUNT_ROOT}/root/extras/ (if it exists):"
+      find "${MOUNT_ROOT}/root/extras" -type f 2>/dev/null | sed "s|${MOUNT_ROOT}||" | sort >&2 || warn "  (directory does not exist)"
+      error "KDE is enabled but extras/desktop/kde/kde.sh was not found after copying.
+  Source checked: ${SCRIPT_DIR}/extras/desktop/kde/kde.sh
+  Destination:    ${kde_script}
+  See file listing above for what was actually copied."
     fi
   fi
 
