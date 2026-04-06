@@ -448,7 +448,28 @@ EOF
 
     # Install a pacman hook so the ESP copies are updated on every kernel upgrade.
     # Without this, the files in the ESP would go stale after the first update.
+    # The Exec= line in a pacman hook is passed directly to execv() — no shell,
+    # no line continuations. We write a helper script and call that instead.
     mkdir -p /etc/pacman.d/hooks
+    mkdir -p /usr/local/lib/archzfs
+
+    # Helper script — does the actual sync
+    cat > /usr/local/lib/archzfs/esp-kernel-sync.sh << 'SCRIPT'
+#!/usr/bin/env bash
+# Syncs kernel images and initramfs to all ESP partitions after a kernel update.
+# Called by the 96-esp-kernel-sync pacman hook.
+for f in /boot/vmlinuz-linux* /boot/initramfs-linux*.img \
+          /boot/intel-ucode.img /boot/amd-ucode.img; do
+    [[ -f "$f" ]] || continue
+    cp "$f" /boot/efi/
+    for d in /boot/efi*/; do
+        [[ "$d" != "/boot/efi/" ]] && cp "$f" "$d"
+    done
+done
+SCRIPT
+    chmod +x /usr/local/lib/archzfs/esp-kernel-sync.sh
+
+    # Hook — Exec must be a single absolute path + args, no shell syntax
     cat > /etc/pacman.d/hooks/96-esp-kernel-sync.hook << 'HOOK'
 [Trigger]
 Type = Path
@@ -459,14 +480,7 @@ Target = usr/lib/modules/*/vmlinuz
 [Action]
 Description = Syncing kernel and initramfs to ESP...
 When = PostTransaction
-Exec = /usr/bin/bash -c '\
-    for f in /boot/vmlinuz-linux* /boot/initramfs-linux*.img \
-              /boot/intel-ucode.img /boot/amd-ucode.img; do \
-        [[ -f "$f" ]] && cp "$f" /boot/efi/ && \
-            for d in /boot/efi*/; do \
-                [[ "$d" != "/boot/efi/" ]] && cp "$f" "$d"; \
-            done; \
-    done'
+Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh
 HOOK
 
     echo "systemd-boot installed."
