@@ -93,8 +93,9 @@ collect_packages() {
     vim
     git
     sudo
-    rsync # used by the ESP mirror pacman hook
-    jq    # used by the installer; handy on the installed system
+    rsync          # used by the ESP mirror pacman hook
+    jq             # used by the installer; handy on the installed system
+    pacman-contrib # provides paccache for package cache management
 
     # ── Documentation ─────────────────────────────────────────────────────
     man-db
@@ -154,7 +155,10 @@ install_base() {
   # files are no longer needed after install and take ~500 MB–1.5 GB.
   # Keep 0 cached versions (keep=0 removes everything).
   info "Cleaning pacman package cache..."
-  arch-chroot "${MOUNT_ROOT}" paccache -rk0 --noconfirm 2>/dev/null || rm -rf "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.* 2>/dev/null || true
+  # Remove all cached packages directly — no need to enter chroot.
+  # paccache would work too but requires the chroot to be fully set up.
+  rm -f "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.zst "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
+  info "Package cache cleared ($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null | cut -f1) remaining)."
 
   # Configure pacman to keep only 1 cached version going forward
   # (prevents cache from growing unbounded after updates)

@@ -129,18 +129,20 @@ calculate_single_disk_layout() {
     # so there is always room for a storage partition.
     local floor=20                              # absolute minimum in GiB
     local ram_based=$((swap_gib + 20))          # swap + OS headroom
-    local pct=$((usable_mib * 70 / 100 / 1024)) # 70% of usable space
+    local pct=$((usable_mib * 80 / 100 / 1024)) # 80% of usable space
+    # Note: 80% gives ~31G on a 40G disk — enough for KDE + base + headroom.
+    # Storage pool gets the remaining 20% (~8G) for user data.
 
     os_gib=$floor
     ((ram_based > os_gib)) && os_gib=$ram_based
     ((pct > os_gib)) && os_gib=$pct
 
-    # Hard cap: never claim more than 85% of usable MiB
-    local os_cap_mib=$((usable_mib * 85 / 100))
+    # Hard cap: never claim more than 90% of usable MiB
+    local os_cap_mib=$((usable_mib * 90 / 100))
     local os_cap_gib=$((os_cap_mib / 1024))
     ((os_gib > os_cap_gib && os_cap_gib > 0)) && os_gib=$os_cap_gib
 
-    info "OS size (auto): floor=${floor}G  ram-based=${ram_based}G  70%=$((usable_mib * 70 / 100 / 1024))G  → ${os_gib}G  (cap: ${os_cap_gib}G)"
+    info "OS size (auto): floor=${floor}G  ram-based=${ram_based}G  80%=$((usable_mib * 80 / 100 / 1024))G  → ${os_gib}G  (cap: ${os_cap_gib}G)"
   else
     os_gib="$(parse_size_to_gib "$cfg_os")"
     info "OS size: ${os_gib} GiB  (from config)"

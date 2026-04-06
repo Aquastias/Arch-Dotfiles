@@ -138,6 +138,8 @@
   "mode":  "single",
   "disk":  "/dev/sda",
   "ashift": 12,
+  // "auto" gives ~27G on a 40G disk — enough for base but tight with KDE.
+  // Set explicitly if installing a desktop environment: "32G" recommended.
   "os_size": "auto",
   "os_pool_name":      "rpool",
   "storage_pool_name": "dpool",
