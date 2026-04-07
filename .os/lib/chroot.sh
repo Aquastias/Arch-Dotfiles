@@ -184,6 +184,9 @@ configure_system() {
     # contents inside /root/extras/extras/ instead of /root/extras/.
     rm -rf "${MOUNT_ROOT}/root/extras"
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
+    # Copy lib/common.sh so extras scripts can source jsonc() and helpers
+    mkdir -p "${MOUNT_ROOT}/root/lib"
+    cp "${SCRIPT_DIR}/lib/common.sh" "${MOUNT_ROOT}/root/lib/common.sh"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
   else

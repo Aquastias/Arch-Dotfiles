@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# extras/kde.sh — KDE Plasma Desktop
+# extras/desktop/kde/kde.sh — KDE Plasma Desktop
 # =============================================================================
 # Installs KDE Plasma shell and KDE applications ONLY.
-# Package selection is driven by install-kde.json in the same directory.
-# Everything else (audio, wayland, fonts, gaming, etc.) belongs in
-# install.json packages.groups and is installed by pacstrap.
+# Package selection is driven by install-kde.jsonc in the same directory.
+# Sourced helpers: /root/lib/common.sh provides jsonc() for JSONC parsing.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -17,20 +16,26 @@ NC='\033[0m'
 info() { echo -e "${GREEN}[KDE]${NC}  $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 
-# ── Locate install-kde.json ───────────────────────────────────────────────────
-# When running inside chroot it is copied to /root/extras/install-kde.json
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
+
+# Source common.sh for jsonc() — strips // comments before piping to jq
+COMMON="${SCRIPT_DIR}/../../lib/common.sh" # /root/extras/desktop/kde/../../lib/
+if [[ -f "$COMMON" ]]; then
+  # shellcheck source=/dev/null
+  source "$COMMON"
+else
+  # Fallback: inline jsonc() if common.sh not available
+  jsonc() { sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$1"; }
+fi
+
 [[ -f "$KDE_JSON" ]] || {
-  echo "[KDE] ERROR: install-kde.json not found at ${KDE_JSON}"
+  echo "[KDE] ERROR: install-kde.jsonc not found at ${KDE_JSON}"
   exit 1
 }
 
-# Strip // comments before passing to jq
-_jq() { sed -e 's|[[:space:]]//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$KDE_JSON" | jq -r "$1"; }
-
-do_shell="$(_jq '.shell // true')"
-do_apps="$(_jq '.apps  // true')"
+do_shell="$(jsonc "$KDE_JSON" | jq -r '.shell // true')"
+do_apps="$(jsonc "$KDE_JSON" | jq -r '.apps  // true')"
 
 # =============================================================================
 # PLASMA SHELL
@@ -55,28 +60,27 @@ if [[ "$do_shell" == "true" ]]; then
 fi
 
 # =============================================================================
-# KDE APPLICATIONS — built individually from apps_list
+# KDE APPLICATIONS
 # =============================================================================
 if [[ "$do_apps" == "true" ]]; then
   section "KDE Applications"
 
-  # Build install list from apps_list — only entries set to true
   mapfile -t kde_apps < <(
-    jq -r '.apps_list | to_entries[] | select(.value == true) | .key' "$KDE_JSON"
+    jsonc "$KDE_JSON" | jq -r '.apps_list | to_entries[] | select(.value == true) | .key'
   )
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then
     pacman -S --noconfirm --needed "${kde_apps[@]}"
     info "Installed ${#kde_apps[@]} KDE applications."
   else
-    info "No KDE applications selected (all set to false in install-kde.json)."
+    info "No KDE applications selected (all set to false in install-kde.jsonc)."
   fi
 fi
 
 # =============================================================================
-# EXTRA KDE PACKAGES — install-kde.json extra[]
+# EXTRA KDE PACKAGES
 # =============================================================================
-mapfile -t kde_extra < <(jq -r '.extra[]? // empty' "$KDE_JSON")
+mapfile -t kde_extra < <(jsonc "$KDE_JSON" | jq -r '.extra[]? // empty')
 if [[ ${#kde_extra[@]} -gt 0 ]]; then
   section "Extra KDE Packages"
   pacman -S --noconfirm --needed "${kde_extra[@]}"
@@ -88,12 +92,13 @@ fi
 # =============================================================================
 section "Cleaning Package Cache"
 paccache -rk0 --noconfirm 2>/dev/null ||
-  rm -rf /var/cache/pacman/pkg/*.pkg.tar.* 2>/dev/null ||
+  rm -f /var/cache/pacman/pkg/*.pkg.tar.zst \
+    /var/cache/pacman/pkg/*.pkg.tar.xz 2>/dev/null ||
   true
 
 section "KDE Installation Complete"
 [[ "$do_shell" == "true" ]] && info "  ✔  Plasma Shell + SDDM"
 [[ "$do_apps" == "true" ]] && info "  ✔  KDE Applications ($(
-  jq '[.apps_list | to_entries[] | select(.value==true)] | length' "$KDE_JSON"
+  jsonc "$KDE_JSON" | jq '[.apps_list | to_entries[] | select(.value==true)] | length'
 ) apps)"
 [[ ${#kde_extra[@]} -gt 0 ]] && info "  ✔  Extra: ${kde_extra[*]}"
