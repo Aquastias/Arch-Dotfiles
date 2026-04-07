@@ -25,10 +25,24 @@
 
 set -Eeuo pipefail
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# ── Source common.sh for shared helpers ──────────────────────────────────────
+# When running inside chroot, common.sh is at /root/lib/common.sh
+COMMON="/root/lib/common.sh"
+if [[ -f "$COMMON" ]]; then
+  # shellcheck source=/dev/null
+  source "$COMMON"
+else
+  # Fallback inline definitions
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'
+  BOLD='\033[1m'
+  NC='\033[0m'
+  info() { echo -e "${GREEN}[BACKUP]${NC}  $*"; }
+  warn() { echo -e "${YELLOW}[BACKUP]${NC}  $*"; }
+  section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
+fi
+# Script-specific prefix overrides (applied whether or not common.sh was sourced)
 info() { echo -e "${GREEN}[BACKUP]${NC}  $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 

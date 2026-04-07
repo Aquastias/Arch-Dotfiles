@@ -25,11 +25,22 @@
 
 set -Eeuo pipefail
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# ── Source common.sh for shared helpers ──────────────────────────────────────
+COMMON="/root/lib/common.sh"
+if [[ -f "$COMMON" ]]; then
+  # shellcheck source=/dev/null
+  source "$COMMON"
+else
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  CYAN='\033[0;36m'
+  BOLD='\033[1m'
+  NC='\033[0m'
+  info() { echo -e "${GREEN}[SEC]${NC}   $*"; }
+  warn() { echo -e "${YELLOW}[SEC]${NC}   $*"; }
+  section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
+fi
+# Script-specific prefix overrides
 info() { echo -e "${GREEN}[SEC]${NC}   $*"; }
 warn() { echo -e "${YELLOW}[SEC]${NC}   $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }

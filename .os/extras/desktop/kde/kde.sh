@@ -9,10 +9,7 @@
 
 set -Eeuo pipefail
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Script-specific output prefix — overrides info/section from common.sh
 info() { echo -e "${GREEN}[KDE]${NC}  $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 

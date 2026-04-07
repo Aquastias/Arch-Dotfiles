@@ -47,21 +47,10 @@ _on_error() {
   exit 1
 }
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-NC='\033[0m'
-
-info() { echo -e "${GREEN}[INFO]${NC}  $*"; }
-warn() { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-error() {
-  echo -e "${RED}[ERROR]${NC} $*" >&2
-  exit 1
-}
-section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
+# ── Source shared helpers ────────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
 
 # Final list of disks to wipe — populated interactively
 DISKS_TO_WIPE=()
