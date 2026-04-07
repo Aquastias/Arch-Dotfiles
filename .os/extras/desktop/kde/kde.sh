@@ -97,8 +97,9 @@ paccache -rk0 --noconfirm 2>/dev/null ||
   true
 
 section "KDE Installation Complete"
-[[ "$do_shell" == "true" ]] && info "  ✔  Plasma Shell + SDDM"
-[[ "$do_apps" == "true" ]] && info "  ✔  KDE Applications ($(
-  jsonc "$KDE_JSON" | jq '[.apps_list | to_entries[] | select(.value==true)] | length'
-) apps)"
-[[ ${#kde_extra[@]} -gt 0 ]] && info "  ✔  Extra: ${kde_extra[*]}"
+if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi
+if [[ "$do_apps" == "true" ]]; then
+  app_count="$(jsonc "$KDE_JSON" | jq '[.apps_list | to_entries[] | select(.value==true)] | length')"
+  info "  ✔  KDE Applications (${app_count} apps)"
+fi
+if [[ ${#kde_extra[@]} -gt 0 ]]; then info "  ✔  Extra: ${kde_extra[*]}"; fi
