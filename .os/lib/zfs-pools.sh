@@ -10,7 +10,7 @@
 #   build_enc_opts               — populates ENC_OPTS array from config
 #   _zpool_create                — creates a pool with standard Arch ZFS settings
 #   _create_os_datasets          — creates ROOT/arch, home, var, tmp, swap zvol
-#   build_storage_vdev_spec      — converts (topology, parts) → vdev spec string
+#   build_vdev_spec              — converts (topology, parts) → vdev spec string
 #
 # GLOBALS:
 #   ENC_OPTS   — array of -O encryption flags for zpool create; set by build_enc_opts
@@ -59,6 +59,17 @@ install_zfs_tools_if_needed() {
   modprobe zfs || error "Failed to load ZFS kernel module after install."
   [[ -f /etc/hostid ]] || zgenhostid
   info "ZFS installed. hostid: $(hostid)"
+}
+
+# =============================================================================
+# RAM DETECTION (shared between layout modules)
+# =============================================================================
+
+ram_gib() {
+  # Returns total installed RAM in whole GiB (rounded up).
+  local kib
+  kib="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+  echo $(((kib + 1048575) / 1048576))
 }
 
 # =============================================================================
@@ -286,16 +297,17 @@ _create_os_datasets() {
 # STORAGE VDEV SPEC BUILDER
 # =============================================================================
 
-build_storage_vdev_spec() {
+build_vdev_spec() {
   # Converts a topology name and a list of partition paths into a zpool
   # vdev specification string suitable for passing to zpool create.
   #
-  # Usage: build_storage_vdev_spec <topology> <part1> [part2] ...
+  # Usage: build_vdev_spec <topology> <part1> [part2] ...
   # Outputs: the vdev spec string (echoed to stdout)
   #
   # Topologies:
   #   mirror      — "mirror part1 part2 ..."  (all disks mirrored)
   #   stripe      — "part1 part2 ..."          (striped, no redundancy)
+  #   none        — "part1"                    (single disk, first only)
   #   raidz1      — "raidz1 part1 part2 ..."  (1 parity disk)
   #   raidz2      — "raidz2 part1 part2 ..."  (2 parity disks)
   #   independent — "part1 part2 ..."          (each disk its own vdev;
@@ -306,11 +318,12 @@ build_storage_vdev_spec() {
   shift
   local parts=("$@")
   case "$topo" in
-  mirror) echo "mirror ${parts[*]}" ;;
-  stripe) echo "${parts[*]}" ;;
-  raidz1) echo "raidz1 ${parts[*]}" ;;
-  raidz2) echo "raidz2 ${parts[*]}" ;;
+  mirror)      echo "mirror ${parts[*]}" ;;
+  stripe)      echo "${parts[*]}" ;;
+  none)        echo "${parts[0]}" ;;
+  raidz1)      echo "raidz1 ${parts[*]}" ;;
+  raidz2)      echo "raidz2 ${parts[*]}" ;;
   independent) echo "${parts[*]}" ;;
-  *) error "Unknown storage topology: '$topo'" ;;
+  *)           error "Unknown topology: '$topo'" ;;
   esac
 }

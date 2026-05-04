@@ -99,3 +99,15 @@ cfgo() { jsonc "$CONFIG_FILE" | jq -r "$1 // empty"; }
 
 INSTALL_MODE="" # "single" | "multi"  — set by detect_mode() in config.sh
 PICK_RESULT=""  # last pick_option() result
+
+# =============================================================================
+# DISK UTILITIES (shared between layout modules)
+# =============================================================================
+
+part_name() {
+  # Returns the full partition device path for a disk + partition number.
+  # NVMe/eMMC use a 'p' separator: nvme0n1 + 1 → nvme0n1p1
+  # SATA/SCSI do not:             sda     + 1 → sda1
+  local disk="$1" num="$2"
+  [[ "$disk" =~ nvme|mmcblk ]] && echo "${disk}p${num}" || echo "${disk}${num}"
+}

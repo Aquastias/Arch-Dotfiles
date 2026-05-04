@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
 
-### Config
-alias zshconfig="zshconfig"
-alias zshreload='source $ZSHRC_SOURCE'
-###
-
-### System
-alias system-upgrade="system_upgrade"
-###
-
 ### Modified commands
 alias grep='grep --color=auto'
 alias cp='cp -i'
@@ -33,15 +24,6 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
-###
-
-### Directory utils
-alias cpp='copy_progress_bar'
-alias cpg='copy_and_go'
-alias mvg='move_and_go'
-alias mkdirg='mkdir_and_go'
-alias updir='up_n_dirs'
-alias pwdt='pwd_last_two'
 ###
 
 ### Remove a directory and all files
@@ -70,7 +52,6 @@ alias topcpu='ps auxf | sort -nr -k 3 | head -10'
 ### Search files in current folder
 alias f='find . | grep -i -e'
 alias fgrep='find . | grep -i -e'
-alias ftext='find_text_in_files'
 ###
 
 ### Count all files (recursively) in the current folder
@@ -82,8 +63,6 @@ alias checkcommand="type -t"
 ###
 
 ### Network commands
-alias netinfo='network_info'
-alias whatismyip="whatsmyip"
 alias connections='ss | less'         # get all connections
 alias connectionstcpnlm='ss -t'       # get TCP connections not in listen mode
 alias connectionsudpsnlm='ss -u'      # get UDP connections not in listen mode
@@ -110,7 +89,6 @@ alias mountedinfo='df -hT'
 ###
 
 ### Archives commands
-alias extractarchive='extract_archive'
 alias untar='tar -zxvf'
 alias untarbz2='tar -jxvf'
 alias untargz='tar -zxvf'
@@ -127,13 +105,6 @@ alias mktargz='tar -czvf'
 alias mktarxz='tar -cJvf'
 alias mktarrar='rar a'
 alias mktar7z='7z a'
-###
-
-### Encrypt / Decrypt
-alias archiveopenssl='archive_encrypt_openssl'
-alias unarchiveopenssl='unarchive_decrypt_openssl'
-alias ageencrypt='encrypt_with_age'
-alias agedecrypt='decrypt_with_age'
 ###
 
 ### NetworkManager

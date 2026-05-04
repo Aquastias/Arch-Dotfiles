@@ -22,14 +22,12 @@ source "$ZSH_BASE_DIR/zstyle/default.zsh"
 source "$ZSH_BASE_DIR/vendors/p10k/default.zsh"
 source "$ZSH_BASE_DIR/vendors/nodejs/nvm/default.zsh"
 
-# Load aliases and functions
+# Load aliases and topic functions
 [[ -f $ZSH_ALIASES ]] && source $ZSH_ALIASES
 
-if [[ -n "$ZSH_FUNCTIONS_PATH" && -d "$ZSH_FUNCTIONS_PATH" ]]; then
-  for file in $ZSH_FUNCTIONS_PATH/**/*(.); do
-    autoload -Uz "$file"
-  done
-fi
+for file in "$ZSH_BASE_DIR/topics"/*.zsh; do
+  [[ -f "$file" ]] && source "$file"
+done
 
 # Syntax highlighting theme (loaded later for performance)
 SYNTAX_THEME="$HOME/.zsh/syntax-highlighting/themes/catppuccin-mocha.zsh"

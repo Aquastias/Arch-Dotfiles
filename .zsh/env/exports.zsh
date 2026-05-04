@@ -1,6 +1,5 @@
 ## ZSH
 export ZSHRC_SOURCE="$HOME/.zshrc"
-export ZSH_FUNCTIONS_PATH="$HOME/.zfunc"
 export ZSH_ALIASES="$HOME/.zsh_aliases"
 
 ## Sudo

@@ -3,8 +3,8 @@
 # lib/layout-multi.sh — Multi-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=multi.
-# Requires: lib/common.sh, lib/zfs-pools.sh, lib/layout-single.sh (for part_name
-#           and ram_gib) already sourced.
+# Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
+#           build_vdev_spec, ram_gib) already sourced.
 #
 # Provides:
 #   resolve_os_topology          — determines rpool topology; prompts if needed
@@ -14,6 +14,10 @@
 #   create_multi_rpool           — creates rpool with resolved topology
 #   create_multi_dpool           — creates dpool with all storage groups
 #   mount_multi_esps             — mounts primary + secondary ESPs
+#   layout_plan           — seam: wraps resolve_os_topology; resolve_storage_topologies
+#   layout_partition      — seam: wraps partition_os_disks_multi; partition_storage_disks_multi
+#   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
+#   layout_mount_esp      — seam: wraps mount_multi_esps
 #
 # GLOBALS SET:
 #   OS_ESP_PARTS[]         — ESP partitions on OS disks
@@ -314,12 +318,7 @@ create_multi_rpool() {
   ashift="${ashift:-13}"
 
   local vdev_spec
-  case "$MULTI_OS_TOPOLOGY" in
-  mirror) vdev_spec="mirror ${OS_ZFS_PARTS[*]}" ;;
-  stripe) vdev_spec="${OS_ZFS_PARTS[*]}" ;;
-  none) vdev_spec="${OS_ZFS_PARTS[0]}" ;;
-  *) error "Unknown OS topology: '${MULTI_OS_TOPOLOGY}'" ;;
-  esac
+  vdev_spec="$(build_vdev_spec "${MULTI_OS_TOPOLOGY}" "${OS_ZFS_PARTS[@]}")"
 
   info "Pool: ${pool_name}  topology: ${MULTI_OS_TOPOLOGY}"
   info "vdev: ${vdev_spec}"
@@ -351,7 +350,7 @@ create_multi_dpool() {
     local topo="${RESOLVED_TOPOLOGIES[$name]:-stripe}"
     read -ra parts <<<"${STORAGE_PARTS[$name]}"
     local vs
-    vs="$(build_storage_vdev_spec "$topo" "${parts[@]}")"
+    vs="$(build_vdev_spec "$topo" "${parts[@]}")"
     all_vdevs+=($vs)
     info "  Group '${name}': ${topo}  [${parts[*]}]"
   done
@@ -360,7 +359,7 @@ create_multi_dpool() {
     local topo="${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
     read -ra parts <<<"${STORAGE_PARTS[_leftover]}"
     local vs
-    vs="$(build_storage_vdev_spec "$topo" "${parts[@]}")"
+    vs="$(build_vdev_spec "$topo" "${parts[@]}")"
     all_vdevs+=($vs)
     info "  Group '_leftover': ${topo}  [${parts[*]}]"
   fi
@@ -440,3 +439,12 @@ mount_multi_esps() {
     info "Secondary ESP ${i}: ${OS_ESP_PARTS[$i]} → /boot/efi${i}"
   done
 }
+
+# =============================================================================
+# LAYOUT INTERFACE (called by 03-install.sh)
+# =============================================================================
+
+layout_plan()         { resolve_os_topology; resolve_storage_topologies; }
+layout_partition()    { partition_os_disks_multi; partition_storage_disks_multi; }
+layout_create_pools() { create_multi_rpool; create_multi_dpool; }
+layout_mount_esp()    { mount_multi_esps; }

@@ -3,13 +3,18 @@
 # lib/layout-single.sh — Single-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=single.
-# Requires: lib/common.sh, lib/zfs-pools.sh already sourced.
+# Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
+#           _create_os_datasets, ram_gib) already sourced.
 #
 # Provides:
 #   calculate_single_disk_layout  — computes partition sizes, prints layout table
 #   partition_single_disk         — wipes disk, creates 3 GPT partitions
 #   create_single_pools           — creates rpool (OS) and dpool (storage)
 #   mount_single_esp              — mounts the ESP into MOUNT_ROOT
+#   layout_plan           — seam: wraps calculate_single_disk_layout
+#   layout_partition      — seam: wraps partition_single_disk
+#   layout_create_pools   — seam: wraps create_single_pools
+#   layout_mount_esp      — seam: wraps mount_single_esp
 #
 # GLOBALS SET:
 #   SINGLE_DISK       — target disk device path
@@ -41,13 +46,6 @@ parse_size_to_gib() {
   T | TIB) echo $((num * 1024)) ;;
   *) error "Cannot parse size string: '$1'" ;;
   esac
-}
-
-ram_gib() {
-  # Returns total installed RAM in whole GiB (rounded up).
-  local kib
-  kib="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
-  echo $(((kib + 1048575) / 1048576))
 }
 
 # =============================================================================
@@ -188,14 +186,6 @@ calculate_single_disk_layout() {
 # PARTITIONING
 # =============================================================================
 
-part_name() {
-  # Returns the full partition device path for a disk + partition number.
-  # NVMe/eMMC use a 'p' separator: nvme0n1 + 1 → nvme0n1p1
-  # SATA/SCSI do not:             sda     + 1 → sda1
-  local disk="$1" num="$2"
-  [[ "$disk" =~ nvme|mmcblk ]] && echo "${disk}p${num}" || echo "${disk}${num}"
-}
-
 partition_single_disk() {
   section "Partitioning Single Disk"
   warn "ALL DATA ON $SINGLE_DISK WILL BE DESTROYED."
@@ -273,3 +263,12 @@ mount_single_esp() {
   mount "$SINGLE_ESP_PART" "${MOUNT_ROOT}/boot/efi"
   info "ESP: $SINGLE_ESP_PART → /boot/efi"
 }
+
+# =============================================================================
+# LAYOUT INTERFACE (called by 03-install.sh)
+# =============================================================================
+
+layout_plan()         { calculate_single_disk_layout; }
+layout_partition()    { partition_single_disk; }
+layout_create_pools() { create_single_pools; }
+layout_mount_esp()    { mount_single_esp; }
