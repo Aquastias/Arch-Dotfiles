@@ -1,0 +1,12 @@
+// Program metadata for ufw.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for ufw + /etc writes.
+// Mutually exclusive with firewalld; install.sh aborts if firewalld is
+// already installed.
+
+{
+  "name": "ufw",
+  "system": false,
+  "description": "Uncomplicated Firewall with libvirt bridge rules and NAT masquerading."
+}

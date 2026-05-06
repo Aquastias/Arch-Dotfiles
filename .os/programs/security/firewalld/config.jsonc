@@ -1,10 +1,11 @@
 // Program metadata for firewalld.
 //
-// system=true → installed by the profile runner with pacman during the
-// chroot phase. Referenced by name only from host configs.
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for root writes. firewalld
+// is not OS-essential; any user can opt in via their user config.
 
 {
   "name": "firewalld",
-  "system": true,
+  "system": false,
   "description": "Stateful firewall (replaces ufw) with libvirt bridge support."
 }

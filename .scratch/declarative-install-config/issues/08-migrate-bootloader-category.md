@@ -13,10 +13,10 @@ Port the `bootloader/` programs from `.pkglist/programs/bootloader/` into `.os/p
 
 ## Acceptance criteria
 
-- [ ] `.os/programs/bootloader/grub/config.jsonc` exists with `system: true`
-- [ ] `.os/programs/bootloader/grub/install.sh` installs and configures grub
-- [ ] install.sh sources `.os/lib/shell-stdlib.sh` and uses the standard env vars (`OS_DIR`, `PROGRAMS`, `SHELL_COMMONS`)
-- [ ] `.pkglist/programs/bootloader/` is unchanged
+- [x] `.os/programs/bootloader/grub/config.jsonc` exists with `system: true`
+- [x] `.os/programs/bootloader/grub/install.sh` installs and configures grub
+- [x] install.sh sources `.os/lib/shell-stdlib.sh` and uses the standard env vars (`OS_DIR`, `PROGRAMS`, `SHELL_COMMONS`)
+- [x] `.pkglist/programs/bootloader/` is unchanged
 - [ ] grub can be referenced from a host config and installs successfully on a VM run
 
 ## Blocked by

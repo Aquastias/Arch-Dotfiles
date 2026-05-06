@@ -1,0 +1,14 @@
+// Program metadata for searxng.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru (with temp NOPASSWD sudo for /usr/local writes and
+// systemctl enable). Bundled settings.yml seeds the SearxNG container
+// config; update.sh is a re-runnable post-boot helper. docker compose
+// pull/up cannot run inside the unbooted chroot — the systemd unit is
+// enabled and starts containers on first boot.
+
+{
+  "name": "searxng",
+  "system": false,
+  "description": "Privacy-respecting metasearch engine running via searxng-docker."
+}

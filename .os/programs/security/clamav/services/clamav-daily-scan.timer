@@ -1,0 +1,9 @@
+[Unit]
+Description=Run clamav daily scan
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target

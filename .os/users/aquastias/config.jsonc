@@ -2,15 +2,24 @@
 //
 // Directory name == username. Merged on top of `.os/users/core/config.jsonc`.
 //
-// `programs` here lists user-level programs (paru-installed inside the
-// chroot). Each name must resolve to a directory under
-// `.os/programs/<cat>/<name>/` with `system: false` in its config.jsonc.
+// `programs` lists user-level programs (paru-installed inside the chroot
+// via `su - <user>`, with temp NOPASSWD sudo for root writes). Each name
+// must resolve to a directory under `.os/programs/<cat>/<name>/` with
+// `system: false` in its config.jsonc.
 
 {
   "shell": "/bin/bash",
   "sudo": true,
-  "groups": [],
-  "programs": ["teamspeak3"],
+  "groups": ["docker", "libvirt", "kvm"],
+  "programs": [
+    "firewalld",
+    "apparmor",
+    "clamav",
+    "rkhunter",
+    "docker",
+    "virt-manager",
+    "teamspeak3"
+  ],
   "git": {
     "name": "Mlakar Alexandru Laurian",
     "email": "alexandrumlakar@gmail.com"

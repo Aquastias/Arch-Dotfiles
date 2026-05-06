@@ -1,0 +1,13 @@
+// Program metadata for virt-manager.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for /etc writes and
+// systemctl + group ops. Sets unix socket group=libvirt and qemu user/group,
+// drops a polkit rule for the kvm group, and enables libvirtd. User
+// membership in `libvirt` and `kvm` is declared per-user via user configs.
+
+{
+  "name": "virt-manager",
+  "system": false,
+  "description": "virt-manager + KVM/QEMU stack with libvirt socket and polkit configured."
+}

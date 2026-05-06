@@ -13,12 +13,12 @@ Port the `virtualization/` programs from `.pkglist/programs/virtualization/` int
 
 ## Acceptance criteria
 
-- [ ] `.os/programs/virtualization/docker/config.jsonc` exists with `system: true`
-- [ ] `.os/programs/virtualization/docker/install.sh` installs Docker, enables the daemon, and adds appropriate group membership
-- [ ] `.os/programs/virtualization/virt-manager/config.jsonc` exists with `system: true`
-- [ ] `.os/programs/virtualization/virt-manager/install.sh` installs virt-manager + KVM/QEMU stack and enables required services
-- [ ] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
-- [ ] `.pkglist/programs/virtualization/` is unchanged
+- [x] `.os/programs/virtualization/docker/config.jsonc` exists with `system: true`
+- [x] `.os/programs/virtualization/docker/install.sh` installs Docker, enables the daemon, and adds appropriate group membership
+- [x] `.os/programs/virtualization/virt-manager/config.jsonc` exists with `system: true`
+- [x] `.os/programs/virtualization/virt-manager/install.sh` installs virt-manager + KVM/QEMU stack and enables required services
+- [x] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
+- [x] `.pkglist/programs/virtualization/` is unchanged
 - [ ] Each program installs successfully on a VM run when referenced from a config
 
 ## Blocked by

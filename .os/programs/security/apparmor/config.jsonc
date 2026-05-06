@@ -1,0 +1,11 @@
+// Program metadata for apparmor.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for /etc/default/grub edits
+// and grub-mkconfig. Patches kernel params; effective after reboot.
+
+{
+  "name": "apparmor",
+  "system": false,
+  "description": "AppArmor mandatory access control with required GRUB kernel parameters."
+}

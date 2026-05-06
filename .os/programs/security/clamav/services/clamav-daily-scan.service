@@ -1,0 +1,11 @@
+[Unit]
+Description=ClamAV daily scan of /home
+Requires=clamav-daemon.service
+After=clamav-daemon.service network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/clamav/clamav_daily_scan.sh
+User=root
+Environment=DISPLAY=:0
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus

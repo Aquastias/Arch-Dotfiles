@@ -4,8 +4,12 @@
 // (or prompted at install time) implicitly links to this directory.
 //
 // Merged on top of `.os/hosts/core/config.jsonc`.
+//
+// `system_programs` is reserved for OS-essential programs (e.g. bootloader,
+// init-system pieces). Anything a regular user could install themselves —
+// firewall, antivirus, virtualization stack — belongs in user configs.
 
 {
   "users": ["aquastias"],
-  "system_programs": ["firewalld"]
+  "system_programs": ["grub"]
 }

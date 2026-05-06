@@ -13,12 +13,12 @@ Port the remaining `security/` programs from `.pkglist/programs/security/` into 
 
 ## Acceptance criteria
 
-- [ ] `.os/programs/security/apparmor/` exists with `config.jsonc` (`system: true`) and `install.sh`
-- [ ] `.os/programs/security/clamav/` exists with `config.jsonc`, `install.sh`, and the bundled `configs/`, `entries/`, `scripts/`, `services/`, `clamav_exclude_list.json`
-- [ ] `.os/programs/security/rkhunter/` exists with `config.jsonc`, `install.sh`, and the bundled `configs/`, `entries/`, `scripts/`, `services/`
-- [ ] `.os/programs/security/ufw/` exists with `config.jsonc` and `install.sh`
-- [ ] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
-- [ ] `.pkglist/programs/security/` is unchanged (including firewalld)
+- [x] `.os/programs/security/apparmor/` exists with `config.jsonc` (`system: true`) and `install.sh`
+- [x] `.os/programs/security/clamav/` exists with `config.jsonc`, `install.sh`, and the bundled `configs/`, `entries/`, `scripts/`, `services/`, `clamav_exclude_list.json`
+- [x] `.os/programs/security/rkhunter/` exists with `config.jsonc`, `install.sh`, and the bundled `configs/`, `entries/`, `scripts/`, `services/`
+- [x] `.os/programs/security/ufw/` exists with `config.jsonc` and `install.sh`
+- [x] All install.sh scripts source `.os/lib/shell-stdlib.sh` and use the standard env vars
+- [x] `.pkglist/programs/security/` is unchanged (including firewalld)
 - [ ] Each program installs successfully on a VM run when referenced from a config
 
 ## Blocked by

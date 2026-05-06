@@ -1,0 +1,12 @@
+// Program metadata for rkhunter.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for /etc, /usr/lib/systemd,
+// /usr/local/lib writes. Bundled configs/, entries/, scripts/, services/
+// are staged into system locations by install.sh.
+
+{
+  "name": "rkhunter",
+  "system": false,
+  "description": "Rootkit Hunter with scheduled scans and logrotate."
+}

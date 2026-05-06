@@ -1,0 +1,13 @@
+// Program metadata for grub.
+//
+// system=true → installed by the profile runner with pacman during the
+// chroot phase. Referenced by name only from host configs. Note: 03-install.sh
+// already installs grub when the install.jsonc bootloader is set to "grub";
+// this program exists for hosts that want to (re)apply grub via the
+// declarative path or layer extra config (os-prober).
+
+{
+  "name": "grub",
+  "system": true,
+  "description": "GRUB bootloader with os-prober enabled."
+}

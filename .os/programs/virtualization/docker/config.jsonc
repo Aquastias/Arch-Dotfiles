@@ -1,0 +1,12 @@
+// Program metadata for docker.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for systemctl + group ops.
+// The pacman package creates the `docker` group; user membership belongs in
+// user configs (groups: ["docker", ...]).
+
+{
+  "name": "docker",
+  "system": false,
+  "description": "Docker engine + docker-compose; daemon enabled at boot."
+}
