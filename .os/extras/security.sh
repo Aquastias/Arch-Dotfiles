@@ -36,9 +36,6 @@ else
   CYAN='\033[0;36m'
   BOLD='\033[1m'
   NC='\033[0m'
-  info() { echo -e "${GREEN}[SEC]${NC}   $*"; }
-  warn() { echo -e "${YELLOW}[SEC]${NC}   $*"; }
-  section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 fi
 # Script-specific prefix overrides
 info() { echo -e "${GREEN}[SEC]${NC}   $*"; }
@@ -105,7 +102,13 @@ systemctl enable clamav-freshclam-once.service 2>/dev/null || true
 # freshclam will retry automatically on first boot.
 info "Attempting initial ClamAV definition update (may take several minutes)..."
 info "This downloads ~200 MB — safe to Ctrl+C if you want to defer to first boot."
-freshclam 2>/dev/null && info "Definitions updated." || warn "freshclam deferred — will run automatically on first boot."
+# SC2015 fix: explicit if/else so the warn branch fires only on freshclam
+# failure, never on a (theoretically) failing info call.
+if freshclam 2>/dev/null; then
+  info "Definitions updated."
+else
+  warn "freshclam deferred — will run automatically on first boot."
+fi
 
 # ── clamd — background scanning daemon ───────────────────────────────────────
 # Edit /etc/clamav/clamd.conf to tune; notable options:

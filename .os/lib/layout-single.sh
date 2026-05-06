@@ -87,12 +87,14 @@ calculate_single_disk_layout() {
   esp_mib="$(parse_size_to_gib "$esp_sz")"
   esp_mib=$((esp_mib * 1024))
   # parse_size_to_gib rounds to whole GiB; handle sub-GiB ESP directly
-  case "${esp_sz^^}" in
+  local esp_upper esp_digits
+  esp_upper="${esp_sz^^}"
+  esp_digits="${esp_upper//[^0-9]/}"
+  case "$esp_upper" in
   *M | *MIB)
-    esp_mib="${esp_sz^^}"
-    esp_mib="${esp_mib//[^0-9]/}"
+    esp_mib="$esp_digits"
     ;;
-  *G | *GIB) esp_mib=$((${esp_sz^^//[^0-9]/} * 1024)) ;;
+  *G | *GIB) esp_mib=$((esp_digits * 1024)) ;;
   esac
 
   # Usable MiB after ESP and 1 MiB alignment gaps (GPT header, partition gaps)
@@ -108,10 +110,10 @@ calculate_single_disk_layout() {
     # Cap swap to 25% of disk for small disks so the OS still fits
     local swap_cap=$((total_gib / 4))
     ((swap_cap < 2)) && swap_cap=2
-    ((swap_gib > swap_cap)) && {
+    if ((swap_gib > swap_cap)); then
       warn "Swap auto (${swap_gib}G = RAM×2) capped to ${swap_cap}G on this small disk."
       swap_gib=$swap_cap
-    }
+    fi
     info "Swap: ${swap_gib} GiB  (auto)"
   else
     swap_gib="$(parse_size_to_gib "$cfg_swap")"
@@ -204,7 +206,7 @@ partition_single_disk() {
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
   #   3  ZFS storage pool      (type bf00)
   sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$SINGLE_DISK"
-  sgdisk -n2:0:+${SINGLE_OS_SECTORS}s -t2:bf00 -c2:"ZFS rpool" "$SINGLE_DISK"
+  sgdisk -n2:0:+"${SINGLE_OS_SECTORS}s" -t2:bf00 -c2:"ZFS rpool" "$SINGLE_DISK"
   sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$SINGLE_DISK"
 
   # Re-probe so the kernel sees the new partition table

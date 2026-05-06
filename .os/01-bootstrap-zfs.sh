@@ -76,7 +76,9 @@ check_internet() {
   # We check for a default route rather than sleeping a fixed amount.
   local waited=0
   while ((waited < 10)); do
-    ip route show default &>/dev/null && break
+    if ip route show default &>/dev/null; then
+      break
+    fi
     info "Waiting for default route... (${waited}s)"
     sleep 1
     ((waited++))
@@ -95,6 +97,7 @@ check_internet() {
   tmpdir="$(mktemp -d)"
 
   # Fire all checks in parallel; first success writes a flag file
+  local host
   for host in 8.8.8.8 1.1.1.1 archlinux.org; do
     (
       if curl -s --max-time 3 --connect-timeout 3 \
@@ -249,8 +252,11 @@ add_archzfs_repo() {
 
   # Import the new archzfs signing key from keyserver
   info "Importing archzfs signing key (${ARCHZFS_KEY:0:16}...)..."
-  pacman-key --recv-keys "$ARCHZFS_KEY" 2>/dev/null || pacman-key --keyserver hkps://keyserver.ubuntu.com --recv-keys "$ARCHZFS_KEY" || error "Failed to import archzfs GPG key.
+  if ! pacman-key --recv-keys "$ARCHZFS_KEY" 2>/dev/null; then
+    pacman-key --keyserver hkps://keyserver.ubuntu.com --recv-keys "$ARCHZFS_KEY" ||
+      error "Failed to import archzfs GPG key.
   Try manually: pacman-key --recv-keys ${ARCHZFS_KEY}"
+  fi
   pacman-key --lsign-key "$ARCHZFS_KEY"
 
   # Add [archzfs] repository to pacman.conf if not already present.
@@ -360,9 +366,11 @@ _install_zfs_dkms() {
 
     # Determine the correct headers package name for this kernel flavour
     local headers_pkg="linux-headers"
-    echo "$kver" | grep -q '\-lts' && headers_pkg="linux-lts-headers"
-    echo "$kver" | grep -q '\-hardened' && headers_pkg="linux-hardened-headers"
-    echo "$kver" | grep -q '\-zen' && headers_pkg="linux-zen-headers"
+    case "$kver" in
+    *-lts*)      headers_pkg="linux-lts-headers"      ;;
+    *-hardened*) headers_pkg="linux-hardened-headers" ;;
+    *-zen*)      headers_pkg="linux-zen-headers"     ;;
+    esac
 
     # Build the exact pkgver string pacman/archive uses.
     # Arch kernel version strings are like: 6.19.10-arch1-1
@@ -371,7 +379,7 @@ _install_zfs_dkms() {
     # Kernel: 6.19.10-arch1-1  →  Package: 6.19.10.arch1-1
     # (the hyphen before "arch" becomes a dot in the package version)
     local pkg_ver
-    pkg_ver="$(echo "$kver" | sed 's/\([0-9]\)-arch/\1.arch/')"
+    pkg_ver="${kver/-arch/.arch}"
 
     info "Need ${headers_pkg}=${pkg_ver}"
 
@@ -432,12 +440,23 @@ _install_zfs_dkms() {
   # changed in DKMS 3.x (Arch ships DKMS 3.x) from:
   #   old: "zfs, 2.1.x, ..."
   #   new: "zfs/2.1.x, 6.10.x-arch1-1, x86_64: added"
+  # SC2012 fix: avoid `ls | grep | sort | tail` — use a glob expansion to
+  # collect zfs-* directories, then version-sort with sort -V.
   local zfs_ver
-  zfs_ver="$(ls -1 /usr/src/ 2>/dev/null | grep '^zfs-' | sort -V | tail -1 | sed 's/^zfs-//')"
-  if [[ -z "$zfs_ver" ]]; then
+  local -a _zfs_src_dirs=()
+  shopt -s nullglob
+  _zfs_src_dirs=(/usr/src/zfs-*)
+  shopt -u nullglob
+  if ((${#_zfs_src_dirs[@]} == 0)); then
     error "zfs-dkms installed but /usr/src/zfs-* source directory not found.
   This means the zfs-dkms package did not install correctly.
   Try: pacman -S --noconfirm zfs-dkms && ls /usr/src/zfs-*"
+  fi
+  # Pick the highest version directory: strip path, sort -V, take last, strip prefix.
+  zfs_ver="$(printf '%s\n' "${_zfs_src_dirs[@]##*/}" | sort -V | tail -1)"
+  zfs_ver="${zfs_ver#zfs-}"
+  if [[ -z "$zfs_ver" ]]; then
+    error "Could not determine ZFS version from /usr/src/zfs-* directory names."
   fi
   info "ZFS source version: ${zfs_ver}"
 
@@ -453,7 +472,8 @@ _install_zfs_dkms() {
   info "Build log: /var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
 
   if ! dkms build -m zfs -v "$zfs_ver" -k "$kver" --kernelsourcedir "$kernel_src"; then
-    local makelog="/var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
+    local makelog
+    makelog="/var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
     echo ""
     warn "DKMS build failed. Last 30 lines of make.log:"
     echo "─────────────────────────────────────────────"

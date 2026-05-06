@@ -171,7 +171,9 @@ configure_system() {
   # Copy zpool.cache into the new system so zfs-import-cache can find it.
   # Also regenerate it from the currently imported pools to ensure it's fresh.
   mkdir -p "${MOUNT_ROOT}/etc/zfs"
-  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" $(zpool list -H -o name | tr '\n' ' ') 2>/dev/null || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null || warn "zpool.cache could not be written — zfs-import-scan will handle first boot."
+  local _pools=()
+  mapfile -t _pools < <(zpool list -H -o name)
+  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}" 2>/dev/null || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null || warn "zpool.cache could not be written — zfs-import-scan will handle first boot."
   cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
 
   # Copy archzfs repo config so the new system can update ZFS packages

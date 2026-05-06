@@ -141,15 +141,16 @@ install_base() {
   info "Packages to install: ${#pkgs[@]}"
 
   # pacstrap flags:
-  #   -K  — initialise a fresh pacman keyring inside the chroot (required for
-  #          signature verification of newly installed packages)
+  #   -K       — initialise a fresh pacman keyring inside the chroot (required
+  #              for signature verification of newly installed packages)
   #   --needed — skip packages that are already installed in the target
   #              (guards against re-installing if pacstrap is re-run)
   #
-  # Note: ${pkgs[@]} is intentionally unquoted so each element becomes a
-  # separate argument to pacstrap, not a single quoted string.
-  # shellcheck disable=SC2068
-  pacstrap -K "${MOUNT_ROOT}" --needed ${pkgs[@]}
+  # "${pkgs[@]}" is properly quoted: each array element becomes its own arg
+  # to pacstrap. Package names never contain whitespace, so even unquoted
+  # would be safe — quoted is the shellcheck-clean idiom (no SC2068 disable
+  # needed).
+  pacstrap -K "${MOUNT_ROOT}" --needed "${pkgs[@]}"
 
   # Clean the package cache inside the new root — downloaded .pkg.tar.zst
   # files are no longer needed after install and take ~500 MB–1.5 GB.
@@ -157,7 +158,10 @@ install_base() {
   info "Cleaning pacman package cache..."
   # Remove all cached packages directly — no need to enter chroot.
   # paccache would work too but requires the chroot to be fully set up.
-  rm -f "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.zst "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
+  rm -f "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.zst \
+    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz \
+    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz \
+    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
   info "Package cache cleared ($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null | cut -f1) remaining)."
 
   # Configure pacman to keep only 1 cached version going forward

@@ -238,7 +238,8 @@ validate_config() {
   # Validate: RFC 1123 — letters, digits, hyphens; no leading/trailing hyphen
   [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
     error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
-  RESOLVED_HOSTNAME="$hostname" # consumed by configure_system()
+  # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
+  RESOLVED_HOSTNAME="$hostname"
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
 

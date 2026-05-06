@@ -9,7 +9,9 @@
 
 set -Eeuo pipefail
 
-# Script-specific output prefix — overrides info/section from common.sh
+# Script-specific output prefix — overrides info/section from common.sh.
+# Colour vars (GREEN, CYAN, BOLD, NC) come from common.sh which is sourced
+# below before any info/section call is reached.
 info() { echo -e "${GREEN}[KDE]${NC}  $*"; }
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 
@@ -88,10 +90,13 @@ fi
 # CLEAN CACHE
 # =============================================================================
 section "Cleaning Package Cache"
-paccache -rk0 --noconfirm 2>/dev/null ||
+# Try paccache first; fall back to a glob-based delete. Both branches end in
+# `|| true` to make the section idempotent under `set -e`. Wrapped in an
+# explicit if/else to avoid the SC2015 A && B || C antipattern.
+if ! paccache -rk0 --noconfirm 2>/dev/null; then
   rm -f /var/cache/pacman/pkg/*.pkg.tar.zst \
-    /var/cache/pacman/pkg/*.pkg.tar.xz 2>/dev/null ||
-  true
+    /var/cache/pacman/pkg/*.pkg.tar.xz 2>/dev/null || true
+fi
 
 section "KDE Installation Complete"
 if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi

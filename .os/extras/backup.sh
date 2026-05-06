@@ -38,9 +38,7 @@ else
   CYAN='\033[0;36m'
   BOLD='\033[1m'
   NC='\033[0m'
-  info() { echo -e "${GREEN}[BACKUP]${NC}  $*"; }
   warn() { echo -e "${YELLOW}[BACKUP]${NC}  $*"; }
-  section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 fi
 # Script-specific prefix overrides (applied whether or not common.sh was sourced)
 info() { echo -e "${GREEN}[BACKUP]${NC}  $*"; }
@@ -89,7 +87,11 @@ for unit in \
   zfs-auto-snapshot-daily.timer \
   zfs-auto-snapshot-weekly.timer \
   zfs-auto-snapshot-monthly.timer; do
-  systemctl enable "$unit" 2>/dev/null && info "Enabled: $unit" || true
+  # SC2015 fix: explicit if so the "|| true" tail does not depend on the
+  # success of the info call (which always returns 0, but the form is fragile).
+  if systemctl enable "$unit" 2>/dev/null; then
+    info "Enabled: $unit"
+  fi
 done
 
 # Tag the datasets you want snapshotted with the ZFS property.
@@ -133,7 +135,9 @@ pacman -S --noconfirm --needed \
 # Write a starter borgmatic config for the first user
 # (Actual setup — init repo, set passphrase, configure sources — must be done
 # by the user after install. This config is just a documented starting point.)
-FIRST_USER
+# (Removed a stray bareword `FIRST_USER` line that previously sat above the
+# assignment; it would have been treated as a command and hit "command not
+# found" at runtime.)
 FIRST_USER="$(awk -F: '$3>=1000 && $3<65534{print $1; exit}' /etc/passwd || echo '')"
 if [[ -n "$FIRST_USER" ]]; then
   cfg_dir="/home/${FIRST_USER}/.config/borgmatic"

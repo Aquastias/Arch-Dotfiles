@@ -178,6 +178,7 @@ resolve_storage_topologies() {
   # ── Config-defined storage groups ─────────────────────────────────────────
   local sg_count
   sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  local i
   for ((i = 0; i < sg_count; i++)); do
     local name
     name="$(cfg ".storage_groups[$i].name")"
@@ -244,6 +245,7 @@ partition_os_disks_multi() {
       < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
   fi
 
+  local disk
   for disk in "${rpool_disks[@]}"; do
     info "Partitioning OS disk: $disk"
     wipefs -af "$disk"
@@ -258,6 +260,7 @@ partition_os_disks_multi() {
   done
 
   sleep 2
+  local i
   for i in "${!OS_ESP_PARTS[@]}"; do
     mkfs.fat -F32 -n "EFI$((i + 1))" "${OS_ESP_PARTS[$i]}"
     info "Formatted ESP $((i + 1)): ${OS_ESP_PARTS[$i]}"
@@ -270,6 +273,7 @@ partition_storage_disks_multi() {
   # Config-defined storage groups
   local sg
   sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  local i
   for ((i = 0; i < sg; i++)); do
     local name
     name="$(cfg ".storage_groups[$i].name")"
@@ -288,6 +292,7 @@ partition_storage_disks_multi() {
   # Leftover OS disks (topology=none, 2+ OS disks listed)
   if ((${#MULTI_LEFTOVER_DISKS[@]} > 0)); then
     local lparts=()
+    local disk
     for disk in "${MULTI_LEFTOVER_DISKS[@]}"; do
       info "Partitioning leftover OS disk → dpool: $disk"
       wipefs -af "$disk"
@@ -323,6 +328,9 @@ create_multi_rpool() {
   info "Pool: ${pool_name}  topology: ${MULTI_OS_TOPOLOGY}"
   info "vdev: ${vdev_spec}"
 
+  # SC2086 (intentional): vdev_spec must be word-split into multiple args
+  # for _zpool_create (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args). Built
+  # from controlled inputs in build_vdev_spec, so word-splitting is safe.
   # shellcheck disable=SC2086
   _zpool_create "${pool_name}" "${ashift}" $vdev_spec
   _create_os_datasets "${pool_name}"
@@ -344,22 +352,30 @@ create_multi_dpool() {
 
   # Collect vdev specs from all groups
   local all_vdevs=()
+  local i
   for ((i = 0; i < sg; i++)); do
     local name
     name="$(cfg ".storage_groups[$i].name")"
     local topo="${RESOLVED_TOPOLOGIES[$name]:-stripe}"
+    local parts
     read -ra parts <<<"${STORAGE_PARTS[$name]}"
     local vs
     vs="$(build_vdev_spec "$topo" "${parts[@]}")"
+    # SC2206 (intentional): vs is a single string built from build_vdev_spec
+    # output that we want word-split into separate vdev tokens (e.g.
+    # "mirror /dev/sdb1 /dev/sdc1" → 3 array elements).
+    # shellcheck disable=SC2206
     all_vdevs+=($vs)
     info "  Group '${name}': ${topo}  [${parts[*]}]"
   done
 
   if $has_left; then
     local topo="${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
+    local parts
     read -ra parts <<<"${STORAGE_PARTS[_leftover]}"
     local vs
     vs="$(build_vdev_spec "$topo" "${parts[@]}")"
+    # shellcheck disable=SC2206  # see comment in loop above
     all_vdevs+=($vs)
     info "  Group '_leftover': ${topo}  [${parts[*]}]"
   fi
@@ -369,6 +385,9 @@ create_multi_dpool() {
   pashift="$(cfgo '.storage_groups[0].ashift')"
   pashift="${pashift:-12}"
 
+  # SC2068 (intentional): all_vdevs holds pre-tokenised vdev spec elements
+  # that must each become a separate argument to zpool create. Names are
+  # internally generated so word-splitting is safe.
   # shellcheck disable=SC2068
   _zpool_create "dpool" "${pashift}" ${all_vdevs[@]}
 
@@ -386,7 +405,9 @@ create_multi_dpool() {
     if [[ "$topo" == "independent" ]]; then
       # Per-disk sub-datasets so each disk can be managed separately
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/${name}"
+      local parts
       read -ra parts <<<"${STORAGE_PARTS[$name]}"
+      local j
       for j in "${!parts[@]}"; do
         zfs create \
           -o mountpoint="${mnt}/disk$((j + 1))" \
@@ -404,7 +425,9 @@ create_multi_dpool() {
     local topo="${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
     if [[ "$topo" == "independent" ]]; then
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/extra"
+      local parts
       read -ra parts <<<"${STORAGE_PARTS[_leftover]}"
+      local j
       for j in "${!parts[@]}"; do
         zfs create \
           -o mountpoint="/data/extra/disk$((j + 1))" \
@@ -433,6 +456,7 @@ mount_multi_esps() {
   info "Primary ESP: ${OS_ESP_PARTS[0]} → /boot/efi"
 
   # Secondary ESPs → /boot/efi1, /boot/efi2, ...
+  local i
   for i in $(seq 1 $((${#OS_ESP_PARTS[@]} - 1))); do
     mkdir -p "${MOUNT_ROOT}/boot/efi${i}"
     mount "${OS_ESP_PARTS[$i]}" "${MOUNT_ROOT}/boot/efi${i}"

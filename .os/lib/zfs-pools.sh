@@ -167,10 +167,14 @@ _zpool_create() {
   shift 2
   local vdev_spec="$*"
 
-  # shellcheck disable=SC2086
+  # SC2086 (intentional): vdev_spec must be word-split into multiple args
+  # (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args to zpool create). It is built
+  # by build_vdev_spec() from controlled inputs (topology + partition paths)
+  # so word-splitting is the desired behaviour here.
   if [[ -n "$ZFS_PASSPHRASE" ]]; then
     # Pipe the passphrase via stdin — zpool create reads it once when
     # keylocation=prompt is set. printf ensures no trailing newline issues.
+    # shellcheck disable=SC2086
     printf '%s\n' "$ZFS_PASSPHRASE" | zpool create -f \
       -o ashift="${ashift}" \
       -o autotrim=on \
@@ -187,6 +191,7 @@ _zpool_create() {
       "${pool_name}" \
       $vdev_spec
   else
+    # shellcheck disable=SC2086
     zpool create -f \
       -o ashift="${ashift}" \
       -o autotrim=on \

@@ -53,6 +53,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${1:-${SCRIPT_DIR}/install.jsonc}"
 
 # Mountpoint for the new system during installation.
+# shellcheck disable=SC2034 # consumed by sourced modules
 MOUNT_ROOT="/mnt"
 
 # =============================================================================

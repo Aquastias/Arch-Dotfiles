@@ -97,7 +97,9 @@ cfgo() { jsonc "$CONFIG_FILE" | jq -r "$1 // empty"; }
 # MOUNT_ROOT and CONFIG_FILE are set by 03-install.sh before sourcing modules.
 # Declare here so all modules can reference them without re-declaring.
 
+# shellcheck disable=SC2034 # set/read across sourced modules
 INSTALL_MODE="" # "single" | "multi"  — set by detect_mode() in config.sh
+# shellcheck disable=SC2034 # set/read across sourced modules
 PICK_RESULT=""  # last pick_option() result
 
 # =============================================================================

@@ -66,17 +66,21 @@ find_live_disk() {
   src="$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || true)"
   if [[ -n "$src" ]]; then
     # Strip partition suffix: nvme0n1p1 → nvme0n1, sda1 → sda
-    [[ "$src" =~ nvme|mmcblk ]] &&
-      echo "${src%p[0-9]*}" ||
+    if [[ "$src" =~ nvme|mmcblk ]]; then
+      echo "${src%p[0-9]*}"
+    else
       echo "${src%[0-9]*}"
+    fi
     return
   fi
   # Fallback: the device mounted at / (works on non-archiso live envs)
   src="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
   if [[ -n "$src" && "$src" != "overlay" && "$src" != "airootfs" ]]; then
-    [[ "$src" =~ nvme|mmcblk ]] &&
-      echo "${src%p[0-9]*}" ||
+    if [[ "$src" =~ nvme|mmcblk ]]; then
+      echo "${src%p[0-9]*}"
+    else
       echo "${src%[0-9]*}"
+    fi
     return
   fi
   echo ""
@@ -119,10 +123,14 @@ detect_disks() {
 
 disk_info_table() {
   local disks=("$@")
+  # SC2059: BOLD/NC are colour escapes that we deliberately interpolate into
+  # the printf format string for ANSI colouring of the header row.
+  # shellcheck disable=SC2059
   printf "\n  ${BOLD}%-5s  %-14s  %-8s  %-8s  %-28s  %s${NC}\n" \
     "Idx" "Device" "Size" "Type" "Model" "Serial"
   printf "  %s\n" "$(printf '─%.0s' {1..84})"
   local i=1
+  local disk
   for disk in "${disks[@]}"; do
     local size model serial rota tran dtype
     size="$(lsblk -dno SIZE "$disk" 2>/dev/null | xargs || echo '?')"
@@ -137,6 +145,7 @@ disk_info_table() {
     elif [[ "$rota" == "1" ]]; then
       dtype="HDD"
     else dtype="?"; fi
+    # shellcheck disable=SC2059  # see header printf above
     printf "  ${BOLD}%-5s${NC}  %-14s  %-8s  %-8s  %-28s  %s\n" \
       "[$i]" "$disk" "$size" "$dtype" "${model:0:28}" "$serial"
     ((i++))
@@ -164,7 +173,9 @@ select_disks() {
   }
 
   local final=()
+  local excl_arr
   read -ra excl_arr <<<"$excl"
+  local i ex
   for i in "${!all_disks[@]}"; do
     local skip=false
     for ex in "${excl_arr[@]}"; do
@@ -191,6 +202,7 @@ final_confirm() {
   echo -e "  ${RED}${BOLD}║  IRREVERSIBLY ZERO-FILLED. ALL DATA IS LOST.          ║${NC}"
   echo -e "  ${RED}${BOLD}╚═══════════════════════════════════════════════════════╝${NC}"
   echo ""
+  local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
     local size model
     size="$(lsblk -dno SIZE "$disk" 2>/dev/null | xargs || echo '?')"
@@ -212,13 +224,16 @@ teardown_zfs() {
   local disk="$1"
   command -v zpool &>/dev/null || return 0
 
-  # Destroy any already-imported pools using this disk
-  for pool in $(zpool list -H -o name 2>/dev/null || true); do
+  # Destroy any already-imported pools using this disk.
+  # Pool names cannot contain whitespace, so word-splitting is safe.
+  local pool
+  while IFS= read -r pool; do
+    [[ -z "$pool" ]] && continue
     if zpool status "$pool" 2>/dev/null | grep -q "$(basename "$disk")"; then
       warn "Destroying imported ZFS pool '${pool}' on ${disk}"
       zpool destroy -f "$pool" 2>/dev/null || true
     fi
-  done
+  done < <(zpool list -H -o name 2>/dev/null || true)
 
   # Try to import and then destroy any un-imported pools on this disk.
   # Limit the device scan to /dev to avoid hanging on network devices.
@@ -269,7 +284,8 @@ teardown_mdraid() {
 
 wipe_one_disk() {
   local disk="$1"
-  local log="/tmp/wipe-$(basename "$disk").log"
+  local log
+  log="/tmp/wipe-$(basename "$disk").log"
   {
     echo "[$(date '+%T')] Starting: $disk"
 
@@ -306,6 +322,7 @@ run_parallel_wipe() {
   section "Wiping Disks (parallel)"
 
   declare -a pids disk_map
+  local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
     info "Spawning wipe job: $disk"
     wipe_one_disk "$disk" &
@@ -323,16 +340,21 @@ run_parallel_wipe() {
   while ! $all_done; do
     all_done=true
     local line=""
+    local i
     for i in "${!pids[@]}"; do
       local pid="${pids[$i]}"
-      local disk="${disk_map[$i]}"
+      local disk_i="${disk_map[$i]}"
       if kill -0 "$pid" 2>/dev/null; then
         all_done=false
-        line+="  ${YELLOW}●${NC} $(basename "$disk") running  "
+        line+="  ${YELLOW}●${NC} $(basename "$disk_i") running  "
       else
-        wait "$pid" 2>/dev/null &&
-          line+="  ${GREEN}✔${NC} $(basename "$disk") done  " ||
-          line+="  ${YELLOW}!${NC} $(basename "$disk") check log  "
+        # SC2015 fix: use explicit if/else instead of A && B || C, so the
+        # branch chosen does not depend on whether B itself succeeded.
+        if wait "$pid" 2>/dev/null; then
+          line+="  ${GREEN}✔${NC} $(basename "$disk_i") done  "
+        else
+          line+="  ${YELLOW}!${NC} $(basename "$disk_i") check log  "
+        fi
       fi
     done
     printf "\r%b" "$line"
@@ -342,9 +364,11 @@ run_parallel_wipe() {
 
   # Collect exit statuses — dd "no space" exit is normal, not an error
   local any_failed=false
+  local i
   for i in "${!pids[@]}"; do
     wait "${pids[$i]}" 2>/dev/null || {
-      local log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
+      local log
+      log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
       # Only flag as failure if the log doesn't end with "Done:"
       if ! grep -q "^.*Done:" "$log" 2>/dev/null; then
         warn "Wipe may have failed for ${disk_map[$i]} — check $log"
@@ -362,8 +386,10 @@ run_parallel_wipe() {
 print_summary() {
   section "Wipe Complete"
   echo ""
+  local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
-    local log="/tmp/wipe-$(basename "$disk").log"
+    local log
+    log="/tmp/wipe-$(basename "$disk").log"
     local last
     last="$(tail -1 "$log" 2>/dev/null || echo 'no log')"
     echo -e "  ${GREEN}✔${NC}  $disk   ${DIM}${last}${NC}"
@@ -388,6 +414,7 @@ main() {
   echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"
 
   [[ $EUID -eq 0 ]] || error "Run as root."
+  local cmd
   for cmd in lsblk wipefs sgdisk dd blockdev partprobe; do
     command -v "$cmd" &>/dev/null || error "Required tool not found: $cmd"
   done
