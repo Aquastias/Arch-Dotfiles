@@ -1,0 +1,11 @@
+// Example Host Config.
+//
+// Directory name == hostname. The hostname declared in `install.jsonc`
+// (or prompted at install time) implicitly links to this directory.
+//
+// Merged on top of `.os/hosts/core/config.jsonc`.
+
+{
+  "users": ["aquastias"],
+  "system_programs": ["firewalld"]
+}

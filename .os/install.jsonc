@@ -14,26 +14,14 @@
 
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",
-    "keymap":   "us",
-
-    // At least one user required.
-    // Fields: name (required), shell, sudo, groups (all optional).
-    "users": [
-      {
-        // Unix username — lowercase letters, digits, hyphens only.
-        "name": "aquastias",
-
-        // Login shell. Common: /bin/bash  /bin/zsh  /bin/fish
-        "shell": "/bin/bash",
-
-        // true = full sudo via wheel group.
-        "sudo": true,
-
-        // Remove "wheel" for non-admin users.
-        "groups": ["wheel", "audio", "video", "storage", "optical", "network"]
-      }
-    ]
+    "keymap":   "us"
   },
+
+  // ── Software ───────────────────────────────────────────────────────────────
+  // Users and programs are declared under .os/hosts/<hostname>/config.jsonc
+  // and .os/users/<username>/config.jsonc, applied by .os/lib/profiles.sh
+  // after the chroot is configured. See .scratch/declarative-install-config/
+  // PRD.md and CONTEXT.md for the schema.
 
   // ── Options ───────────────────────────────────────────────────────────────
   "options": {

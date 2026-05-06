@@ -29,6 +29,9 @@
 #                          layout_create_pools, layout_mount_esp
 #   lib/packages.sh      — package collection, pacstrap
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
+#   lib/configs.sh       — host/user config loader+merger (host/user core)
+#   lib/profiles.sh      — runs after configure_system: creates users,
+#                          installs system + user programs from host/user configs
 #   lib/finalize.sh      — unmount, pool export, completion summary
 # =============================================================================
 
@@ -72,9 +75,11 @@ source_module() {
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
 source_module "${SCRIPT_DIR}/lib/config.sh"
+source_module "${SCRIPT_DIR}/lib/configs.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
+source_module "${SCRIPT_DIR}/lib/profiles.sh"
 source_module "${SCRIPT_DIR}/lib/finalize.sh"
 
 # =============================================================================
@@ -131,6 +136,9 @@ main() {
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
   configure_system
+
+  # ── Profiles runner (host/user configs) ───────────────────────────────────
+  run_profiles
 
   # ── Cleanup ───────────────────────────────────────────────────────────────
   finalize

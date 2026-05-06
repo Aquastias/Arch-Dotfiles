@@ -417,7 +417,7 @@ Update `install.json` with the correct device names for your VM.
    "ashift": 12
    ```
 
-5. Run `./01-bootstrap-zfs.sh` then `./03-install.sh`
+5. Run `./install.sh` (bootstrap → wipe → install)
 6. Reboot and verify the system boots
 
 ### Test scenario: multi-disk with mirror (RAID-1)
@@ -508,7 +508,7 @@ ls /boot/efi/
 
 ### Cleaning up a VM for a fresh test run
 
-Rather than recreating the VM, run `02-wipe.sh` on the booted ISO to zero all disks and start over. This is much faster than creating new VMs.
+Rather than recreating the VM, just rerun `./install.sh` — the wipe step is now mandatory and zeroes all disks before reinstalling. This is much faster than creating new VMs.
 
 ---
 

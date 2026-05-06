@@ -1,0 +1,11 @@
+// Program metadata for teamspeak3.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru. Bundled icons + theme files live under ./addons/
+// and are copied into ~/.ts3client/ by install.sh.
+
+{
+  "name": "teamspeak3",
+  "system": false,
+  "description": "TeamSpeak 3 client (AUR) with Material icon pack and Demus theme."
+}

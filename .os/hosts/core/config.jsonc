@@ -1,0 +1,16 @@
+// Host Core — base layer applied to every host config.
+//
+// Lists declared here are concatenated with the specific host config (with
+// dedupe). Scalars in the host config override these.
+//
+// Field reference:
+//   users            string[]  Usernames to create. Each must have a matching
+//                              .os/users/<name>/config.jsonc.
+//   system_programs  string[]  Programs installed via pacman in the chroot.
+//                              Each must exist under .os/programs/<cat>/<name>/
+//                              with `system: true` in its config.jsonc.
+
+{
+  "users": [],
+  "system_programs": []
+}

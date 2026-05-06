@@ -41,22 +41,10 @@ generate_template() {
     "_hostname": "Machine hostname. Leave empty to be prompted during install.",
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",
-    "keymap":   "us",
-
-    "_users_help": "List of users to create. At least one required.",
-    "users": [
-      {
-        "name":    "youruser",
-        "_name":   "Unix username — lowercase letters, digits, hyphens only.",
-        "shell":   "/bin/bash",
-        "_shell":  "Login shell: /bin/bash  /bin/zsh  /bin/fish",
-        "sudo":    true,
-        "_sudo":   "true = admin user (added to wheel group, full sudo access).",
-        "groups":  ["wheel", "audio", "video", "storage", "optical", "network"],
-        "_groups": "Additional groups. Remove wheel for non-admin users."
-      }
-    ]
+    "keymap":   "us"
   },
+
+  "_software_help": "Users and programs are declared under .os/hosts/<hostname>/ and .os/users/<name>/. See PRD.md.",
 
   "options": {
     "encryption":  false,
@@ -243,19 +231,6 @@ validate_config() {
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
 
-  # Validate users array
-  local user_count
-  user_count="$(jsonc "$CONFIG_FILE" | jq '.system.users | length')"
-  ((user_count >= 1)) || error "system.users must contain at least one user."
-  local _ui
-  for ((_ui = 0; _ui < user_count; _ui++)); do
-    local _uname
-    _uname="$(jsonc "$CONFIG_FILE" | jq -r ".system.users[${_ui}].name // empty")"
-    [[ -n "$_uname" ]] || error "system.users[${_ui}] missing required field 'name'."
-    [[ "$_uname" =~ ^[a-z_][a-z0-9_-]*$ ]] ||
-      error "system.users[${_ui}].name '${_uname}' invalid. Use lowercase letters/digits/hyphens."
-  done
-
   if [[ "$INSTALL_MODE" == "single" ]]; then
     local d
     d="$(cfg '.disk' 'disk')"
@@ -409,9 +384,6 @@ print_summary() {
   _hn="$(cfgo '.system.hostname')"
   _hn="${_hn:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$_hn"
-  local _users
-  _users="$(jsonc "$CONFIG_FILE" | jq -r '.system.users[].name' | tr '\n' ' ')"
-  printf "  %-16s %s\n" "Users:" "${_users}"
   printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
   printf "  %-16s %s\n" "Encryption:" "$enc"
   printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)"

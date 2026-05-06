@@ -109,19 +109,13 @@ HOOK
 # =============================================================================
 
 collect_passwords() {
-  # Collects passwords for root and all users interactively on the LIVE ISO
-  # terminal (before entering the chroot where stdin is not a tty).
-  # Returns a compact JSON object: {"root":"pw","user1":"pw",...}
-  # Uses jq for JSON — always available after 01-bootstrap-zfs.sh runs.
-  local users_json="$1"
-  local user_count
-  user_count="$(printf '%s' "$users_json" | jq 'length')"
-
+  # Collects the root password interactively on the LIVE ISO terminal (before
+  # entering the chroot where stdin is bound to the heredoc).
+  # Returns a compact JSON object: {"root":"pw"}.
+  # User passwords are handled by the profiles runner with a default password.
   local result='{}'
 
   _prompt_password() {
-    # Prompts for a password with confirmation loop, reading from /dev/tty
-    # so it works even when stdin is redirected. Echoes the password to stdout.
     local label="$1"
     local pw1 pw2
     while true; do
@@ -143,21 +137,12 @@ collect_passwords() {
   }
 
   echo "" >&2
-  echo "━━━  Set passwords  ━━━" >&2
-  echo "  Passwords are collected now and applied inside the chroot." >&2
+  echo "━━━  Set root password  ━━━" >&2
   echo "" >&2
 
   local root_pw
   root_pw="$(_prompt_password "root")"
   result="$(printf '%s' "$result" | jq --arg pw "$root_pw" '. + {root: $pw}')"
-
-  local i uname upw
-  for ((i = 0; i < user_count; i++)); do
-    uname="$(printf '%s' "$users_json" | jq -r ".[$i].name")"
-    upw="$(_prompt_password "$uname")"
-    result="$(printf '%s' "$result" | jq --arg u "$uname" --arg pw "$upw" '. + {($u): $pw}')"
-  done
-
   printf '%s' "$result"
 }
 
@@ -199,7 +184,6 @@ configure_system() {
   local hostname locale timezone keymap
   local rpool swap esp_count
   local do_kde do_backup do_security
-  local users_json
 
   # Hostname was already prompted (if needed) and validated in validate_config().
   # Use the resolved value directly — no second prompt.
@@ -210,8 +194,6 @@ configure_system() {
   keymap="${keymap:-us}"
   swap="$(cfgo '.options.swap')"
   swap="${swap:-true}"
-  # Pass the entire users array as a compact JSON string into the chroot
-  users_json="$(jsonc "$CONFIG_FILE" | jq -c '.system.users')"
 
   do_kde="$(cfgo '.post_install.desktop.kde')"
   do_kde="${do_kde:-false}"
@@ -233,7 +215,7 @@ configure_system() {
   fi
 
   # ── Run configuration inside chroot ───────────────────────────────────────
-  # Values are passed as positional args ($1–$11) to avoid export issues.
+  # Values are passed as positional args ($1–$13) to avoid export issues.
   # The heredoc is quoted ('CHROOT') so variable expansion happens INSIDE
   # the chroot shell, not in the outer script.
 
@@ -250,20 +232,20 @@ configure_system() {
   # cannot read from the terminal. We collect all passwords now, then pass
   # them in as a JSON string so chpasswd can set them non-interactively.
   local passwords_json
-  passwords_json="$(collect_passwords "$users_json")"
+  passwords_json="$(collect_passwords)"
 
   arch-chroot "${MOUNT_ROOT}" /bin/bash -s \
     "$hostname" "$timezone" "$locale" "$keymap" \
-    "$users_json" "$rpool" "$swap" "$esp_count" \
+    "$rpool" "$swap" "$esp_count" \
     "$do_kde" "$do_backup" "$do_security" \
     "$kernel" "$bootloader" "$passwords_json" \
     <<'CHROOT'
 
 # ── Positional argument unpacking ────────────────────────────────────────────
 HOSTNAME="$1";       TIMEZONE="$2";   LOCALE="$3";    KEYMAP="$4"
-USERS_JSON="$5";     RPOOL="$6";      SWAP="$7";      ESP_COUNT="$8"
-DO_KDE="$9";         DO_BACKUP="${10}"; DO_SECURITY="${11}"
-KERNEL="${12:-lts}"; BOOTLOADER="${13:-systemd-boot}"; PASSWORDS_JSON="${14}"
+RPOOL="$5";          SWAP="$6";       ESP_COUNT="$7"
+DO_KDE="$8";         DO_BACKUP="$9";  DO_SECURITY="${10}"
+KERNEL="${11:-lts}"; BOOTLOADER="${12:-systemd-boot}"; PASSWORDS_JSON="${13}"
 
 # Derive kernel image names from the kernel flavour.
 # linux-lts images have '-lts' in the filename; linux (default) do not.
@@ -634,36 +616,8 @@ ROOT_PW="$(printf '%s' "$PASSWORDS_JSON" | jq -r '.root')"
 printf '%s:%s\n' "root" "$ROOT_PW" | chpasswd
 echo "Root password set."
 
-# ── Create users from install.json ────────────────────────────────────────────
-USER_COUNT="$(printf '%s' "$USERS_JSON" | jq 'length')"
-
-for (( _i=0; _i<USER_COUNT; _i++ )); do
-    _NAME="$(  printf '%s' "$USERS_JSON" | jq -r ".[$_i].name")"
-    _SHELL="$( printf '%s' "$USERS_JSON" | jq -r ".[$_i].shell // \"/bin/bash\"")"
-    _SUDO="$(  printf '%s' "$USERS_JSON" | jq -r ".[$_i].sudo // false")"
-
-    # Build groups list: start from config groups, add wheel if sudo=true
-    _GROUPS="$(printf '%s' "$USERS_JSON" | jq -r "
-        .[$_i] |
-        (.groups // []) +
-        (if .sudo == true and ((.groups // []) | index(\"wheel\") == null)
-         then [\"wheel\"] else [] end) |
-        join(\",\")
-    ")"
-
-    echo "Creating user: ${_NAME}  (shell: ${_SHELL}  groups: ${_GROUPS})"
-    useradd -m -s "$_SHELL" ${_GROUPS:+-G "$_GROUPS"} "$_NAME" \
-        || echo "  Warning: useradd failed for ${_NAME} — may already exist."
-
-    # Set password from the pre-collected passwords JSON
-    _UPW="$(printf '%s' "$PASSWORDS_JSON" | jq -r --arg u "$_NAME" '.[$u] // ""')"
-    if [[ -n "$_UPW" ]]; then
-        printf '%s:%s\n' "$_NAME" "$_UPW" | chpasswd
-        echo "  Password set for ${_NAME}."
-    else
-        echo "  Warning: no password found for ${_NAME} — account locked."
-    fi
-done
+# Users are created by the profile runner (lib/profiles.sh) after
+# configure_system() returns — see ADRs 0001 and 0004.
 
 # ── Post-install optional scripts ─────────────────────────────────────────────
 # Each script runs inside this chroot and has full access to the new system.

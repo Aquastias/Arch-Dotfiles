@@ -1,0 +1,18 @@
+// Example User Config.
+//
+// Directory name == username. Merged on top of `.os/users/core/config.jsonc`.
+//
+// `programs` here lists user-level programs (paru-installed inside the
+// chroot). Each name must resolve to a directory under
+// `.os/programs/<cat>/<name>/` with `system: false` in its config.jsonc.
+
+{
+  "shell": "/bin/bash",
+  "sudo": true,
+  "groups": [],
+  "programs": ["teamspeak3"],
+  "git": {
+    "name": "Mlakar Alexandru Laurian",
+    "email": "alexandrumlakar@gmail.com"
+  }
+}

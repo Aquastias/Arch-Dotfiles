@@ -37,42 +37,26 @@ tar -xzf arch-zfs-installer.tar.gz
 cd arch-zfs-installer
 ```
 
-### 4. Bootstrap ZFS on the live ISO
+### 4. Edit the configs
 
 ```bash
-chmod +x 01-bootstrap-zfs.sh
-./01-bootstrap-zfs.sh
+vim install.jsonc                            # disk layout, ZFS, locale, hostname
+vim hosts/<hostname>/config.jsonc            # users + system programs (optional)
+vim users/<username>/config.jsonc            # shell, sudo, user programs (optional)
 ```
 
-This adds the archzfs repo, installs ZFS modules into the live environment, and loads them.
+See the examples inside the files and `REFERENCE.md` for all options.
 
-### 5. (Optional) Wipe all disks
-
-Only run this if you want every disk completely blank. **Destroys all data.**
+### 5. Install
 
 ```bash
-chmod +x 02-wipe.sh
-./02-wipe.sh
+chmod +x install.sh
+./install.sh
 ```
 
-### 6. Edit the config
+`install.sh` runs the three numbered scripts in order — bootstrap, wipe, then install — confirming destructive steps as it goes. The numbered scripts (`01-bootstrap-zfs.sh`, `02-wipe.sh`, `03-install.sh`) remain individually runnable for debugging.
 
-```bash
-vim install.json
-```
-
-See the examples inside the file and `REFERENCE.md` for all options.
-
-### 7. Install
-
-```bash
-chmod +x 03-install.sh
-./03-install.sh
-```
-
-The installer will prompt for any topology choices not set in the config, confirm the plan, then proceed.
-
-### 8. Reboot
+### 6. Reboot
 
 ```bash
 reboot
@@ -86,16 +70,20 @@ Remove the installation media when prompted.
 
 ```
 arch-zfs-installer/
-├── 01-bootstrap-zfs.sh   # Step 1 — prepare ZFS on the live ISO
-├── 02-wipe.sh            # Step 2 — wipe all disks (optional)
-├── 03-install.sh         # Step 3 — main installer
-├── install.json          # Configuration file (edit this)
-├── extras/
-│   ├── kde.sh            # Optional: KDE Plasma desktop
-│   ├── backup.sh         # Optional: Timeshift + Borg/Vorta
-│   └── security.sh       # Optional: UFW firewall + ClamAV
-├── README.md             # This file — quickstart
-└── REFERENCE.md          # Full config reference + VM testing guide
+├── install.sh             # Entry point — runs 01 → 02 → 03 in order
+├── 01-bootstrap-zfs.sh    # Bootstrap ZFS on the live ISO
+├── 02-wipe.sh             # Wipe all disks
+├── 03-install.sh          # Partition, pacstrap, configure, run profiles
+├── install.jsonc          # Disk + ZFS + locale config
+├── hosts/                 # Host configs (users + system programs per host)
+│   └── core/              # Shared base layer for every host
+├── users/                 # User configs (shell, sudo, user programs)
+│   └── core/              # Shared base layer for every user
+├── programs/              # Self-contained programs (config.jsonc + install.sh)
+├── lib/                   # Installer modules (configs, profiles, chroot, ...)
+├── extras/                # Optional post-install scripts (kde, backup, security)
+├── README.md              # This file — quickstart
+└── REFERENCE.md           # Full config reference + VM testing guide
 ```
 
 ---

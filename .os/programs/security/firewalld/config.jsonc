@@ -1,0 +1,10 @@
+// Program metadata for firewalld.
+//
+// system=true → installed by the profile runner with pacman during the
+// chroot phase. Referenced by name only from host configs.
+
+{
+  "name": "firewalld",
+  "system": true,
+  "description": "Stateful firewall (replaces ufw) with libvirt bridge support."
+}
