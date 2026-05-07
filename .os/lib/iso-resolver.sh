@@ -10,17 +10,25 @@
 #
 #       Returns non-zero if:
 #         - DOWNLOADS_DIR does not exist (the module does not create it)
-#         - the HEAD redirect cannot be resolved
+#         - the latest-version lookup fails or returns no .iso filename
 #         - the download fails
 #
 #       No checksum verification — pacstrap will surface a corrupted ISO at
 #       use time, and the cost of GPG/sha256 plumbing is not worth the win.
 #
+# Source mirror:
+#   archlinux.org currently returns 403 for /iso/ paths; the geo-routing
+#   official mirror geo.mirror.pkgbuild.com serves the same tree. The
+#   resolver scrapes its `latest/` directory listing for the versioned
+#   filename rather than relying on a redirect, because the mirror exposes
+#   `archlinux-x86_64.iso` as a 200-OK symlink with no Location header.
+#
 # Test seam:
-#   _iso_resolver_resolve_url URL
-#       Echo the final, redirect-followed URL of the ISO. Default
-#       implementation uses `curl`. Tests override this function to return a
-#       deterministic URL without hitting the network.
+#   _iso_resolver_resolve_url DIR_URL
+#       Echo the full URL of the latest Arch x86_64 ISO. Default
+#       implementation HTTP-GETs DIR_URL and greps for the versioned ISO
+#       filename. Tests override this function to return a deterministic
+#       URL without hitting the network.
 #
 #   _iso_resolver_download URL DEST
 #       Fetch URL into DEST atomically. Default implementation uses `curl`.
@@ -28,17 +36,28 @@
 #       download.
 # =============================================================================
 
-# Latest-ISO redirect target. Always resolves to a versioned filename of the
-# form `archlinux-YYYY.MM.DD-x86_64.iso` on a chosen mirror.
-ISO_RESOLVER_LATEST_URL="https://archlinux.org/iso/latest/archlinux-x86_64.iso"
+# Directory URL whose listing contains the versioned latest ISO file.
+ISO_RESOLVER_LATEST_DIR="https://geo.mirror.pkgbuild.com/iso/latest/"
+
+# Pattern matching the versioned filename Arch publishes
+# (e.g. `archlinux-2026.05.01-x86_64.iso`).
+ISO_RESOLVER_FILENAME_REGEX='archlinux-[0-9]+\.[0-9]+\.[0-9]+-x86_64\.iso'
 
 # ── Internal seams (override in tests) ───────────────────────────────────────
 
 _iso_resolver_resolve_url() {
-  local url="$1"
-  # -s silent, -I HEAD, -L follow redirects, -o /dev/null discard headers,
-  # -w '%{url_effective}' print the final URL after all redirects.
-  curl -sILo /dev/null -w '%{url_effective}' "$url"
+  local dir_url="$1"
+  # Strip trailing slash so the join below produces a single slash.
+  dir_url="${dir_url%/}"
+
+  local listing
+  listing="$(curl -fsSL "$dir_url/" 2>/dev/null)" || return 1
+
+  local filename
+  filename="$(echo "$listing" | grep -oE "$ISO_RESOLVER_FILENAME_REGEX" | head -1)"
+  [[ -n "$filename" ]] || return 1
+
+  printf '%s/%s\n' "$dir_url" "$filename"
 }
 
 _iso_resolver_download() {
@@ -62,12 +81,12 @@ iso_resolver_get() {
   }
 
   local final_url
-  final_url="$(_iso_resolver_resolve_url "$ISO_RESOLVER_LATEST_URL")" || {
-    echo "iso-resolver: HEAD failed for $ISO_RESOLVER_LATEST_URL" >&2
+  final_url="$(_iso_resolver_resolve_url "$ISO_RESOLVER_LATEST_DIR")" || {
+    echo "iso-resolver: lookup failed at $ISO_RESOLVER_LATEST_DIR" >&2
     return 1
   }
   [[ -n "$final_url" ]] || {
-    echo "iso-resolver: empty redirect from $ISO_RESOLVER_LATEST_URL" >&2
+    echo "iso-resolver: empty result from $ISO_RESOLVER_LATEST_DIR" >&2
     return 1
   }
 
@@ -83,8 +102,8 @@ iso_resolver_get() {
     return 0
   fi
 
-  _iso_resolver_download "$ISO_RESOLVER_LATEST_URL" "$target" || {
-    echo "iso-resolver: download failed: $ISO_RESOLVER_LATEST_URL → $target" >&2
+  _iso_resolver_download "$final_url" "$target" || {
+    echo "iso-resolver: download failed: $final_url → $target" >&2
     return 1
   }
   printf '%s\n' "$target"

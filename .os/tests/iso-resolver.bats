@@ -71,7 +71,7 @@ teardown() {
 
 # ── HEAD failure: non-zero exit, no silent fallback ──────────────────────────
 
-@test "HEAD failure: returns non-zero and does not download" {
+@test "lookup failure: returns non-zero and does not download" {
   _iso_resolver_resolve_url() { return 1; }
   _iso_resolver_download() {
     DOWNLOAD_CALLS=$((DOWNLOAD_CALLS + 1))
@@ -80,7 +80,7 @@ teardown() {
 
   run iso_resolver_get "$DOWNLOADS_DIR"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "HEAD failed" ]]
+  [[ "$output" =~ "lookup failed" ]]
 
   DOWNLOAD_CALLS=0
   iso_resolver_get "$DOWNLOADS_DIR" >/dev/null 2>&1 || true
@@ -89,18 +89,18 @@ teardown() {
 
 # ── HEAD returns empty body ──────────────────────────────────────────────────
 
-@test "HEAD empty: returns non-zero with a clear message" {
+@test "lookup empty: returns non-zero with a clear message" {
   _iso_resolver_resolve_url() { echo ""; }
   _iso_resolver_download() { return 0; }
 
   run iso_resolver_get "$DOWNLOADS_DIR"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "empty redirect" ]]
+  [[ "$output" =~ "empty result" ]]
 }
 
 # ── HEAD returns non-iso URL ─────────────────────────────────────────────────
 
-@test "HEAD non-iso URL: returns non-zero with a clear message" {
+@test "non-iso URL: returns non-zero with a clear message" {
   _iso_resolver_resolve_url() { echo "https://mirror.example.com/index.html"; }
   _iso_resolver_download() { return 0; }
 
