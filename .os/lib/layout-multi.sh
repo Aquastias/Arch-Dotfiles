@@ -265,6 +265,9 @@ partition_os_disks_multi() {
     mkfs.fat -F32 -n "EFI$((i + 1))" "${OS_ESP_PARTS[$i]}"
     info "Formatted ESP $((i + 1)): ${OS_ESP_PARTS[$i]}"
   done
+  # Publish layout state record (consumed by chroot.sh, finalize.sh).
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_ESP_PARTS=("${OS_ESP_PARTS[@]}")
 }
 
 partition_storage_disks_multi() {
@@ -468,7 +471,22 @@ mount_multi_esps() {
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
 
-layout_plan()         { resolve_os_topology; resolve_storage_topologies; }
+
+layout_plan() {
+  resolve_os_topology
+  resolve_storage_topologies
+  # Publish layout state record (consumed by chroot.sh, finalize.sh).
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_OS_POOL_NAME="$(cfg '.os_pool.pool_name')"
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_DATA_POOL_NAME=""
+  local _sg_count
+  _sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  if ((_sg_count > 0)) || ((${#MULTI_LEFTOVER_DISKS[@]} > 0)); then
+    # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+    LAYOUT_DATA_POOL_NAME="dpool"
+  fi
+}
 layout_partition()    { partition_os_disks_multi; partition_storage_disks_multi; }
 layout_create_pools() { create_multi_rpool; create_multi_dpool; }
 layout_mount_esp()    { mount_multi_esps; }

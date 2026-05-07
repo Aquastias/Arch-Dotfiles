@@ -12,9 +12,6 @@
 set -Eeuo pipefail
 trap 'echo "[ufw] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 if check_command "firewall-cmd" || package_installed "firewalld"; then
   print_status error "firewalld is installed; firewalld and ufw cannot coexist."
   exit 1

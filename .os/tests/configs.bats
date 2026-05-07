@@ -197,3 +197,89 @@ write_config() {
   echo "$output" | jq -e '.users == ["alice"]'
   echo "$output" | jq -e '.system_programs == ["firewalld"]'
 }
+
+# ── program resolution ───────────────────────────────────────────────────────
+
+write_program() {
+  local cat="$1" name="$2" system="$3"
+  mkdir -p "$TEST_DIR/programs/$cat/$name"
+  printf '{"name":"%s","system":%s}\n' "$name" "$system" \
+    > "$TEST_DIR/programs/$cat/$name/config.jsonc"
+  printf '#!/bin/sh\n' > "$TEST_DIR/programs/$cat/$name/install.sh"
+}
+
+@test "resolve_program: returns category/name when found" {
+  write_program "security" "ufw" "false"
+
+  run resolve_program ufw
+  [ "$status" -eq 0 ]
+  [ "$output" = "security/ufw" ]
+}
+
+@test "resolve_program: returns 1 when not found" {
+  run resolve_program nope
+  [ "$status" -eq 1 ]
+}
+
+# ── program validation ───────────────────────────────────────────────────────
+
+@test "validate_program: accepts system program from host config" {
+  write_program "bootloader" "grub" "true"
+
+  run validate_program true grub
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_program: accepts user program from user config" {
+  write_program "security" "firewalld" "false"
+
+  run validate_program false firewalld
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_program: rejects user program from host config (system mismatch)" {
+  write_program "security" "firewalld" "false"
+
+  run validate_program true firewalld
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "system=false" ]]
+}
+
+@test "validate_program: rejects system program from user config (system mismatch)" {
+  write_program "bootloader" "grub" "true"
+
+  run validate_program false grub
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "system=true" ]]
+}
+
+@test "validate_program: missing program reports not-found" {
+  run validate_program false nope
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "not found" ]]
+}
+
+@test "validate_program: program missing install.sh is rejected" {
+  mkdir -p "$TEST_DIR/programs/security/half"
+  printf '{"name":"half","system":false}\n' > "$TEST_DIR/programs/security/half/config.jsonc"
+
+  run validate_program false half
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "missing install.sh" ]]
+}
+
+@test "validate_programs: all-pass returns 0" {
+  write_program "security" "ufw" "false"
+  write_program "security" "clamav" "false"
+
+  run validate_programs false ufw clamav
+  [ "$status" -eq 0 ]
+}
+
+@test "validate_programs: any-fail returns 1 but reports each failure" {
+  write_program "security" "ufw" "false"
+
+  run validate_programs false ufw nope
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "not found" ]]
+}

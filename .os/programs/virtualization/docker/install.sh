@@ -13,9 +13,6 @@
 set -Eeuo pipefail
 trap 'echo "[docker] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 print_status info "Installing Docker..."
 paru -S --noconfirm --needed --skipreview docker docker-compose
 

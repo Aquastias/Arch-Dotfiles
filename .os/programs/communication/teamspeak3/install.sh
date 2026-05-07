@@ -12,9 +12,6 @@
 set -Eeuo pipefail
 trap 'echo "[teamspeak3] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 if ! package_installed "teamspeak3"; then
   print_status info "Installing teamspeak3 from AUR..."
   paru -S --noconfirm --skipreview teamspeak3

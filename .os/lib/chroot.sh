@@ -6,8 +6,7 @@
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   write_fstab_single    — writes /etc/fstab for single-disk layout
-#   write_fstab_multi     — writes /etc/fstab for multi-disk layout
+#   write_fstab           — writes /etc/fstab from LAYOUT_ESP_PARTS (1+ ESPs)
 #   write_esp_mirror_hook — installs a pacman hook that syncs secondary ESPs
 #   configure_system      — seeds ZFS state, then runs the full chroot configuration
 #
@@ -20,36 +19,30 @@
 # FSTAB WRITERS
 # =============================================================================
 
-write_fstab_single() {
-  # Single-disk fstab: one ESP entry only.
-  # ZFS datasets are auto-mounted by zfs-mount-generator (no fstab entries).
+# Unified fstab writer. Length of LAYOUT_ESP_PARTS picks the format:
+#   N=1: one ESP entry.
+#   N>1: primary + N-1 secondary entries (kept in sync by 95-esp-mirror.hook).
+write_fstab() {
+  local count="${#LAYOUT_ESP_PARTS[@]}"
+  ((count >= 1)) || error "write_fstab: LAYOUT_ESP_PARTS is empty."
   {
-    echo "# EFI System Partition"
-    echo "UUID=$(blkid -s UUID -o value "$SINGLE_ESP_PART")  /boot/efi  vfat  umask=0077  0 2"
-    echo ""
-    echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
-    echo "# (reads /etc/zfs/zfs-list.cache/<poolname> at boot)"
-  } >"${MOUNT_ROOT}/etc/fstab"
-  info "fstab written (single-disk)."
-}
-
-write_fstab_multi() {
-  # Multi-disk fstab: primary ESP + all secondary ESPs.
-  # Secondary ESPs are kept in sync by the 95-esp-mirror pacman hook.
-  {
-    echo "# EFI System Partition — primary ($(basename "${OS_ESP_PARTS[0]}"))"
-    echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
-
-    for i in $(seq 1 $((${#OS_ESP_PARTS[@]} - 1))); do
-      echo ""
-      echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
-      echo "UUID=$(blkid -s UUID -o value "${OS_ESP_PARTS[$i]}")  /boot/efi${i}  vfat  umask=0077  0 2"
-    done
-
+    if ((count == 1)); then
+      echo "# EFI System Partition"
+      echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
+    else
+      echo "# EFI System Partition — primary ($(basename "${LAYOUT_ESP_PARTS[0]}"))"
+      echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
+      local i
+      for i in $(seq 1 $((count - 1))); do
+        echo ""
+        echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
+        echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[$i]}")  /boot/efi${i}  vfat  umask=0077  0 2"
+      done
+    fi
     echo ""
     echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
   } >"${MOUNT_ROOT}/etc/fstab"
-  info "fstab written (multi-disk, ${#OS_ESP_PARTS[@]} ESP(s))."
+  info "fstab written (${count} ESP(s))."
 }
 
 # =============================================================================
@@ -202,17 +195,10 @@ configure_system() {
   do_security="$(cfgo '.post_install.security')"
   do_security="${do_security:-false}"
 
-  if [[ "$INSTALL_MODE" == "single" ]]; then
-    rpool="$(cfgo '.os_pool_name')"
-    rpool="${rpool:-rpool}"
-    esp_count=1
-    write_fstab_single
-  else
-    rpool="$(cfg '.os_pool.pool_name')"
-    esp_count="${#OS_ESP_PARTS[@]}"
-    write_fstab_multi
-    write_esp_mirror_hook "$esp_count"
-  fi
+  rpool="$LAYOUT_OS_POOL_NAME"
+  esp_count="${#LAYOUT_ESP_PARTS[@]}"
+  write_fstab
+  write_esp_mirror_hook "$esp_count"
 
   # ── Run configuration inside chroot ───────────────────────────────────────
   # Values are passed as positional args ($1–$13) to avoid export issues.

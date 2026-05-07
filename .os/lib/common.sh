@@ -12,6 +12,20 @@
 #   CONFIG_FILE         path to install.json (set by 03-install.sh)
 #   SCRIPT_DIR          directory containing 03-install.sh (set by 03-install.sh)
 #   PICK_RESULT         last result from pick_option()
+#
+# LAYOUT CONTRACT (Layout Module → consumers):
+#   The active layout module (lib/layout-<mode>.sh) populates the LAYOUT_*
+#   globals below. Consumers (chroot.sh, finalize.sh) read these instead of
+#   the layout-private SINGLE_* / MULTI_* / OS_ESP_PARTS / STORAGE_PARTS,
+#   so they don't need to know which mode is active.
+#
+#     LAYOUT_ESP_PARTS[]      Resolved ESP partition device paths. Index 0
+#                             is the primary (mounted at /boot/efi). Length
+#                             ≥ 1 after layout_partition() has run.
+#     LAYOUT_OS_POOL_NAME     Resolved OS pool name (e.g. "rpool"). Set by
+#                             layout_plan(); safe to read after planning.
+#     LAYOUT_DATA_POOL_NAME   Resolved data pool name, or empty string when
+#                             no data pool will be created.
 # =============================================================================
 
 # ── Colour codes ──────────────────────────────────────────────────────────────
@@ -101,6 +115,14 @@ cfgo() { jsonc "$CONFIG_FILE" | jq -r "$1 // empty"; }
 INSTALL_MODE="" # "single" | "multi"  — set by detect_mode() in config.sh
 # shellcheck disable=SC2034 # set/read across sourced modules
 PICK_RESULT=""  # last pick_option() result
+
+# ── Layout state record (populated by lib/layout-<mode>.sh) ───────────────────
+# shellcheck disable=SC2034 # set by layout-*.sh, read by chroot.sh/finalize.sh
+LAYOUT_ESP_PARTS=()
+# shellcheck disable=SC2034
+LAYOUT_OS_POOL_NAME=""
+# shellcheck disable=SC2034
+LAYOUT_DATA_POOL_NAME=""
 
 # =============================================================================
 # DISK UTILITIES (shared between layout modules)

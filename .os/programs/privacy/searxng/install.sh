@@ -15,9 +15,6 @@
 set -Eeuo pipefail
 trap 'echo "[searxng] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 if ! package_installed "docker"; then
   print_status error "Docker must be installed before searxng (declare it in system_programs first)."
   exit 1

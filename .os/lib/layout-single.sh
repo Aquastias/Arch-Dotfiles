@@ -217,6 +217,10 @@ partition_single_disk() {
   SINGLE_OS_PART="$(part_name "$SINGLE_DISK" 2)"
   SINGLE_STOR_PART="$(part_name "$SINGLE_DISK" 3)"
 
+  # ── Publish layout state record ───────────────────────────────────────────
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_ESP_PARTS=("$SINGLE_ESP_PART")
+
   mkfs.fat -F32 -n EFI "$SINGLE_ESP_PART"
   info "Partitioned:"
   info "  ESP     → $SINGLE_ESP_PART"
@@ -270,7 +274,16 @@ mount_single_esp() {
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
 
-layout_plan()         { calculate_single_disk_layout; }
+layout_plan() {
+  calculate_single_disk_layout
+  # Publish layout state record (consumed by chroot.sh, finalize.sh).
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_OS_POOL_NAME="$(cfgo .os_pool_name)"
+  LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
+  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
+  LAYOUT_DATA_POOL_NAME="$(cfgo .storage_pool_name)"
+  LAYOUT_DATA_POOL_NAME="${LAYOUT_DATA_POOL_NAME:-dpool}"
+}
 layout_partition()    { partition_single_disk; }
 layout_create_pools() { create_single_pools; }
 layout_mount_esp()    { mount_single_esp; }

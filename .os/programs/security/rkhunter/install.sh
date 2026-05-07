@@ -15,9 +15,6 @@
 set -Eeuo pipefail
 trap 'echo "[rkhunter] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 RKHUNTER_CONFIGS="${PROGRAMS}/security/rkhunter/configs"
 RKHUNTER_ENTRIES="${PROGRAMS}/security/rkhunter/entries"
 RKHUNTER_SCRIPTS="${PROGRAMS}/security/rkhunter/scripts"

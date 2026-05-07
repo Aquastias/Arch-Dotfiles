@@ -15,9 +15,6 @@
 set -Eeuo pipefail
 trap 'echo "[grub] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 GRUB_DEFAULT_FILE="/etc/default/grub"
 GRUB_BOOT_CFG="/boot/grub/grub.cfg"
 

@@ -14,8 +14,16 @@
 #   - Hosts/users core config missing → warn and return (graceful).
 #   - Specific host config missing    → warn and return (graceful).
 #   - User dir referenced but missing → hard error.
-#   - Program not found               → hard error.
-#   - System flag mismatch            → hard error.
+#   - Program not found / system flag mismatch → hard error
+#     (validation lives in lib/configs.sh and runs before any side effects).
+#   - Staged runtime missing pieces   → hard error (caught by
+#     _profiles_validate_staging before any program runs).
+#
+# Program execution:
+#   Every Program Install Script is invoked via lib/run-program.sh, which
+#   verifies the chroot-side staging, sources Shell Stdlib once, and sources
+#   the install.sh in the same shell. Programs do not need to source stdlib
+#   themselves.
 #
 # Exports inside arch-chroot for each program install.sh:
 #   OS_DIR, PROGRAMS, SHELL_COMMONS
@@ -29,45 +37,8 @@ readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 # INTERNAL HELPERS
 # =============================================================================
 
-# Resolve a program name to its "category/name" relative path under programs/.
-# Echoes the relative path on stdout. Returns 1 if not found.
-_profiles_resolve_program() {
-  local name="$1"
-  local d cat
-  for d in "${OS_DIR}/programs"/*/"$name"; do
-    [[ -d "$d" ]] || continue
-    cat="$(basename "$(dirname "$d")")"
-    printf '%s/%s\n' "$cat" "$name"
-    return 0
-  done
-  return 1
-}
-
-# Validate a list of program names against an expected `system` flag.
-# $1 = "true" or "false". Remaining args = program names.
-_profiles_validate_programs() {
-  local expected="$1"
-  shift
-  local prog rel dir is_sys
-  for prog in "$@"; do
-    rel="$(_profiles_resolve_program "$prog")" ||
-      error "Program '${prog}' not found under ${OS_DIR}/programs/<cat>/${prog}/."
-    dir="${OS_DIR}/programs/${rel}"
-    [[ -f "$dir/config.jsonc" ]] || error "Program '${prog}' missing config.jsonc at ${dir}/"
-    [[ -f "$dir/install.sh" ]] || error "Program '${prog}' missing install.sh at ${dir}/"
-    is_sys="$(_configs_parse "$dir/config.jsonc" | jq -r '.system')"
-    if [[ "$is_sys" != "$expected" ]]; then
-      if [[ "$expected" == "true" ]]; then
-        error "Program '${prog}' is referenced from a host config but its config.jsonc has system=${is_sys}. Expected true."
-      else
-        error "Program '${prog}' is referenced from a user config but its config.jsonc has system=${is_sys}. Expected false."
-      fi
-    fi
-  done
-}
-
-# Stage program tree + shell-stdlib.sh inside the chroot so install.sh scripts
-# can run via arch-chroot with stable, predictable paths.
+# Stage program tree + Shell Stdlib + program runner inside the chroot so
+# install.sh scripts can run via arch-chroot with stable, predictable paths.
 _profiles_stage_runtime() {
   local target="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
   rm -rf "$target"
@@ -78,7 +49,21 @@ _profiles_stage_runtime() {
     mkdir -p "$target/programs"
   fi
   cp "${OS_DIR}/lib/shell-stdlib.sh" "$target/lib/shell-stdlib.sh"
+  cp "${OS_DIR}/lib/run-program.sh"  "$target/lib/run-program.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
+}
+
+# Verify the staged tree is complete before invoking any install.sh. Catches
+# partial copies / I/O failures early so the first program doesn't fail with
+# an opaque "stdlib not found" error mid-execution.
+_profiles_validate_staging() {
+  local target="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
+  [[ -d "$target/programs" ]] ||
+    error "Staging incomplete: ${target}/programs missing."
+  [[ -r "$target/lib/shell-stdlib.sh" ]] ||
+    error "Staging incomplete: ${target}/lib/shell-stdlib.sh missing or unreadable."
+  [[ -r "$target/lib/run-program.sh" ]] ||
+    error "Staging incomplete: ${target}/lib/run-program.sh missing or unreadable."
 }
 
 # Remove the staged runtime tree and any leftover sudoers drop-ins.
@@ -125,13 +110,14 @@ CHROOT_USER
 _profiles_install_system_program() {
   local prog="$1"
   local rel
-  rel="$(_profiles_resolve_program "$prog")"
+  rel="$(resolve_program "$prog")"
   info "Installing system program: ${prog}  (.os/programs/${rel})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/env \
     OS_DIR="${_PROFILES_RUNTIME_DIR}" \
     PROGRAMS="${_PROFILES_RUNTIME_DIR}/programs" \
     SHELL_COMMONS="${_PROFILES_RUNTIME_DIR}/lib" \
-    /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh"
+    /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/lib/run-program.sh" \
+    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh"
 }
 
 # Temporarily grant NOPASSWD sudo to a user. Required for paru/makepkg to
@@ -175,7 +161,7 @@ CHROOT_PARU
 _profiles_install_user_program() {
   local user="$1" prog="$2"
   local rel
-  rel="$(_profiles_resolve_program "$prog")"
+  rel="$(resolve_program "$prog")"
   info "Installing user program: ${prog}  (user=${user}, .os/programs/${rel})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
     "$user" \
@@ -187,7 +173,7 @@ su - "$USER_NAME" -c "
   export OS_DIR='${OS_DIR_IN}'
   export PROGRAMS='${OS_DIR_IN}/programs'
   export SHELL_COMMONS='${OS_DIR_IN}/lib'
-  bash '${INSTALL_SH}'
+  bash '${OS_DIR_IN}/lib/run-program.sh' '${INSTALL_SH}'
 "
 CHROOT_USERPROG
 }
@@ -248,7 +234,7 @@ run_profiles() {
 
   # All host-level programs must exist and be marked system: true.
   if ((${#sys_progs[@]} > 0)); then
-    _profiles_validate_programs "true" "${sys_progs[@]}"
+    validate_programs "true" "${sys_progs[@]}" || error "Host config references invalid system programs."
   fi
 
   # Pre-load every user config and validate their program lists.
@@ -266,12 +252,13 @@ run_profiles() {
     local -a uprogs=()
     mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" | jq -r '.programs[]?')
     if ((${#uprogs[@]} > 0)); then
-      _profiles_validate_programs "false" "${uprogs[@]}"
+      validate_programs "false" "${uprogs[@]}" || error "User '${u}' config references invalid user programs."
     fi
   done
 
-  # ── Stage runtime, create users, install programs ────────────────────────
+  # ── Stage runtime, validate it, create users, install programs ───────────
   _profiles_stage_runtime
+  _profiles_validate_staging
 
   for u in "${users[@]}"; do
     _profiles_create_user "$u" "${USER_JSONS[$u]}"

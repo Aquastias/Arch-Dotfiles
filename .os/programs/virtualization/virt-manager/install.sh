@@ -16,9 +16,6 @@
 set -Eeuo pipefail
 trap 'echo "[virt-manager] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 LIBVIRT_GROUP="libvirt"
 LIBVIRTD_CONF="/etc/libvirt/libvirtd.conf"
 QEMU_CONF="/etc/libvirt/qemu.conf"

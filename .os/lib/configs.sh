@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/configs.sh — Host/user config loader and merger
+# lib/configs.sh — Host/user config loader, merger, and validator
 # =============================================================================
 # Loads a host or user config by name and emits the merged result of core +
 # specific to stdout as JSON. Pure: no side effects beyond reading files and
 # writing to stdout/stderr.
 #
 # Public API:
-#   load_host_config <hostname>   → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   load_user_config <username>   → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   load_host_config <hostname>            → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   load_user_config <username>            → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   resolve_program <name>                 → echoes "<cat>/<name>"; returns 1 if not found
+#   validate_program <expected> <name>     → 0 ok | 1 with stderr message
+#   validate_programs <expected> <name...> → 0 if all ok | 1 if any failed
 #
 # Merge rules:
 #   - Arrays on both sides:  concatenate + dedupe (order preserving)
@@ -101,3 +104,68 @@ _configs_load() {
 
 load_host_config() { _configs_load hosts "$1"; }
 load_user_config() { _configs_load users "$1"; }
+
+# =============================================================================
+# PROGRAM RESOLUTION & VALIDATION
+# =============================================================================
+# Programs live at $OS_DIR/programs/<category>/<name>/. Resolution is by name
+# only — the category is recovered from the path. Validation enforces the
+# system-flag contract: programs referenced from a host config must have
+# system: true; from a user config, system: false.
+
+# Echo "<category>/<name>" for a program name. Return 1 if not found.
+resolve_program() {
+  local name="$1"
+  local d cat
+  for d in "${OS_DIR}/programs"/*/"$name"; do
+    [[ -d "$d" ]] || continue
+    cat="$(basename "$(dirname "$d")")"
+    printf '%s/%s\n' "$cat" "$name"
+    return 0
+  done
+  return 1
+}
+
+# Validate one program. $1 = "true"|"false" (expected system flag), $2 = name.
+# Returns 0 if program exists and its system flag matches; 1 with a stderr
+# message otherwise. Pure (no exit).
+validate_program() {
+  local expected="$1" name="$2"
+  local rel
+  if ! rel="$(resolve_program "$name")"; then
+    echo "configs: program '${name}' not found under ${OS_DIR}/programs/<cat>/${name}/" >&2
+    return 1
+  fi
+  local dir="${OS_DIR}/programs/${rel}"
+  [[ -f "$dir/config.jsonc" ]] || {
+    echo "configs: program '${name}' missing config.jsonc at ${dir}/" >&2
+    return 1
+  }
+  [[ -f "$dir/install.sh" ]] || {
+    echo "configs: program '${name}' missing install.sh at ${dir}/" >&2
+    return 1
+  }
+  local is_sys
+  is_sys="$(_configs_parse "$dir/config.jsonc" | jq -r '.system')"
+  if [[ "$is_sys" != "$expected" ]]; then
+    if [[ "$expected" == "true" ]]; then
+      echo "configs: program '${name}' is referenced from a host config but its config.jsonc has system=${is_sys}. Expected true." >&2
+    else
+      echo "configs: program '${name}' is referenced from a user config but its config.jsonc has system=${is_sys}. Expected false." >&2
+    fi
+    return 1
+  fi
+  return 0
+}
+
+# Validate a list of programs. Returns 0 if all pass, 1 if any fail.
+# All failures are reported to stderr (no early exit).
+validate_programs() {
+  local expected="$1"
+  shift
+  local rc=0 name
+  for name in "$@"; do
+    validate_program "$expected" "$name" || rc=1
+  done
+  return "$rc"
+}

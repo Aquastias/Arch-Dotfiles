@@ -11,12 +11,30 @@
 #   detect_mode        — sets INSTALL_MODE from config or auto-detects
 #   validate_config    — checks all required fields and disk paths exist
 #   print_summary      — prints the installation plan and asks for confirmation
+#
+# Adding a new mode:
+#   1. add an entry to _CONFIG_MODE_SIG below (mode → defining JSON path),
+#   2. add a per-mode validator: _validate_<mode>(),
+#   3. drop a lib/layout-<mode>.sh implementing the layout interface.
 # =============================================================================
 
 # =============================================================================
 # RESOLVED GLOBALS — set during validate_config, consumed by configure_system
 # =============================================================================
 RESOLVED_HOSTNAME=""
+
+# =============================================================================
+# MODE SIGNATURES — single source of truth for valid modes
+# =============================================================================
+# Each mode is defined by a "signature": a JSON path whose presence (and,
+# for arrays, non-empty length) marks the config as belonging to that mode.
+# detect_mode() picks a mode by signature; validate_config() dispatches to
+# _validate_<mode>() for mode-specific checks.
+
+declare -gA _CONFIG_MODE_SIG=(
+  [single]=".disk"
+  [multi]=".os_pool.disks"
+)
 
 # =============================================================================
 # TEMPLATE GENERATOR
@@ -175,44 +193,64 @@ load_config() {
 # =============================================================================
 # MODE DETECTION
 # =============================================================================
+# Picks the mode by signature presence in the config. Each mode in
+# _CONFIG_MODE_SIG defines a JSON path whose presence (or non-empty length,
+# for paths ending in .disks) selects that mode.
+
+# Returns 0 if the given mode's signature is satisfied by the current config.
+_config_mode_matches() {
+  local mode="$1"
+  local sig="${_CONFIG_MODE_SIG[$mode]:-}"
+  [[ -n "$sig" ]] || return 1
+
+  if [[ "$sig" == *.disks ]]; then
+    local cnt
+    cnt="$(jsonc "$CONFIG_FILE" | jq "${sig} | length // 0")"
+    ((cnt >= 1))
+  else
+    local v
+    v="$(cfgo "$sig")"
+    [[ -n "$v" ]]
+  fi
+}
 
 detect_mode() {
   section "Detecting Install Mode"
+
   local cfg_mode
   cfg_mode="$(cfgo '.mode')"
 
-  if [[ "$cfg_mode" == "single" || "$cfg_mode" == "multi" ]]; then
+  if [[ -n "$cfg_mode" ]]; then
+    [[ -v "_CONFIG_MODE_SIG[$cfg_mode]" ]] ||
+      error "Unknown mode '${cfg_mode}'. Valid: ${!_CONFIG_MODE_SIG[*]}."
     INSTALL_MODE="$cfg_mode"
     info "Mode from config: ${INSTALL_MODE}"
     return
   fi
 
-  # Auto-detect: 'disk' key present and os_pool.disks count < 2 → single
-  local single_disk
-  single_disk="$(cfgo '.disk')"
-  local os_cnt
-  os_cnt="$(jsonc "$CONFIG_FILE" | jq '.os_pool.disks | length // 0')"
+  # Auto-detect: pick the first mode whose signature is satisfied. Order is
+  # significant; iterate the keys deterministically (sorted) so single beats
+  # multi when both signatures could plausibly match.
+  local m
+  for m in $(echo "${!_CONFIG_MODE_SIG[@]}" | tr ' ' '\n' | sort); do
+    if _config_mode_matches "$m"; then
+      INSTALL_MODE="$m"
+      info "Auto-detected mode: ${INSTALL_MODE}"
+      return
+    fi
+  done
 
-  if [[ -n "$single_disk" && "$os_cnt" -lt 2 ]]; then
-    INSTALL_MODE="single"
-  elif ((os_cnt >= 1)); then
-    INSTALL_MODE="multi"
-  else
-    error "Cannot auto-detect mode. Set 'mode': 'single' or 'multi' in config."
-  fi
-  info "Auto-detected mode: ${INSTALL_MODE}"
+  error "Cannot auto-detect mode. Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
 }
 
 # =============================================================================
 # VALIDATION
 # =============================================================================
 
-validate_config() {
-  section "Validating Config"
-
-  # System fields — always required regardless of mode
-  # Hostname: prompt once here; stored in RESOLVED_HOSTNAME so
-  # configure_system can use it without prompting a second time.
+# System fields required regardless of mode. Prompts for hostname if blank,
+# validates it against RFC 1123, and stores it in RESOLVED_HOSTNAME for
+# configure_system().
+_validate_system_fields() {
   local hostname
   hostname="$(cfgo '.system.hostname')"
   if [[ -z "$hostname" ]]; then
@@ -223,50 +261,62 @@ validate_config() {
     done
     info "Hostname: ${hostname}"
   fi
-  # Validate: RFC 1123 — letters, digits, hyphens; no leading/trailing hyphen
   [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
     error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
   # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
+}
 
-  if [[ "$INSTALL_MODE" == "single" ]]; then
-    local d
-    d="$(cfg '.disk' 'disk')"
-    [[ -b "$d" ]] || error "Single disk not found: $d"
+_validate_single() {
+  local d
+  d="$(cfg '.disk' 'disk')"
+  [[ -b "$d" ]] || error "Single disk not found: $d"
+}
 
-  else # multi
-    # topology is optional (prompted if missing); at least 1 disk required
-    local topo
-    topo="$(cfgo '.os_pool.topology')"
-    if [[ -n "$topo" ]]; then
-      case "$topo" in
-      mirror | stripe | none) ;;
-      *) error "os_pool.topology must be mirror | stripe | none, got: '${topo}'" ;;
-      esac
-    fi
+_validate_multi() {
+  local topo
+  topo="$(cfgo '.os_pool.topology')"
+  if [[ -n "$topo" ]]; then
+    case "$topo" in
+    mirror | stripe | none) ;;
+    *) error "os_pool.topology must be mirror | stripe | none, got: '${topo}'" ;;
+    esac
+  fi
 
-    local cnt
-    cnt="$(jsonc "$CONFIG_FILE" | jq '.os_pool.disks | length')"
-    ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
+  local cnt
+  cnt="$(jsonc "$CONFIG_FILE" | jq '.os_pool.disks | length')"
+  ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
+
+  local d
+  while IFS= read -r d; do
+    [[ -b "$d" ]] || error "OS disk not found: $d"
+  done < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+
+  local sg gname gdc
+  sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  for ((i = 0; i < sg; i++)); do
+    gname="$(cfg ".storage_groups[$i].name")"
+    gdc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
+    ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
     while IFS= read -r d; do
-      [[ -b "$d" ]] || error "OS disk not found: $d"
-    done < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+      [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
+    done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+  done
+}
 
-    # Validate each storage group
-    local sg
-    sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
-    for ((i = 0; i < sg; i++)); do
-      local gname
-      gname="$(cfg ".storage_groups[$i].name")"
-      local gdc
-      gdc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
-      ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
-      while IFS= read -r d; do
-        [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
-      done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-    done
+validate_config() {
+  section "Validating Config"
+  _validate_system_fields
+
+  # Dispatch to the per-mode validator. INSTALL_MODE was already restricted
+  # to known modes by detect_mode, so this is exhaustive by construction.
+  local validator="_validate_${INSTALL_MODE}"
+  if declare -F "$validator" >/dev/null; then
+    "$validator"
+  else
+    error "No validator for mode '${INSTALL_MODE}' (expected function ${validator})."
   fi
 
   info "Config valid."

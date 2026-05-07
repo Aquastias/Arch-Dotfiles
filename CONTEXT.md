@@ -33,7 +33,13 @@ A program installed for a specific user via paru inside the chroot. Declared in 
 `.os/install.sh`. The one script a user runs from the Arch live CD after cloning the repo and providing configs. Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system config → system programs → user programs → cleanup and pool export.
 
 ### Shell Stdlib
-`.os/lib/shell-stdlib.sh`. Shared utility library sourced by all program `install.sh` scripts inside `.os/programs/`. Mirrors the role of `.pkglist/shell-commons/shell-stdlib.sh`, which is reference-only and not modified.
+`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by the Program Runner (not by the install.sh itself), so program scripts get its helpers without their own source line. Mirrors the role of `.pkglist/shell-commons/shell-stdlib.sh`, which is reference-only and not modified.
 
 ### Program Install Script
-`install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for all installation logic: package install, file copying, service enabling. Called by the runner with env vars `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced by name only across all categories (names are unique).
+`install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for all installation logic: package install, file copying, service enabling. Invoked by the Program Runner via `lib/run-program.sh`, which validates staging, sources Shell Stdlib, then sources the install.sh in the same shell. Receives env vars `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced by name only across all categories (names are unique).
+
+### Layout Module
+`.os/lib/layout-<mode>.sh` (`layout-single.sh`, `layout-multi.sh`). Each implements the layout interface (`layout_plan`, `layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]` (resolved ESP device paths, primary at index 0), `LAYOUT_OS_POOL_NAME`, `LAYOUT_DATA_POOL_NAME` (empty when no data pool). The active module is selected by `INSTALL_MODE` and sourced from `03-install.sh`. Mode-private globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`, `RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
+
+### Program Runner
+`.os/lib/run-program.sh`. Wrapper invoked by the Runner inside arch-chroot for every Program Install Script. Verifies the chroot-side staged tree (Shell Stdlib readable, install.sh readable) and exits 99 with a clear message on mismatch. Sources Shell Stdlib once and sources the install.sh in the same shell, so install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a per-script source line.

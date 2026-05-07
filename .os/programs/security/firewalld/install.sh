@@ -13,9 +13,6 @@
 set -Eeuo pipefail
 trap 'echo "[firewalld] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 ZONE="public"
 BRIDGE_IF="virbr0"
 SUBNET="192.168.122.0/24"

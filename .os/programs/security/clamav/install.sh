@@ -17,9 +17,6 @@
 set -Eeuo pipefail
 trap 'echo "[clamav] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
 CLAMAV_PROG_DIR="${PROGRAMS}/security/clamav"
 CLAMAV_CONFIGS="${CLAMAV_PROG_DIR}/configs"
 CLAMAV_ENTRIES="${CLAMAV_PROG_DIR}/entries"
