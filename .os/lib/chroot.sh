@@ -136,7 +136,7 @@ collect_passwords() {
     # Root follows the same convention in unattended mode so the test
     # harness never blocks on a password prompt. Treat all installs from
     # this path as throwaway — change the password on first boot.
-    info "Unattended mode — using default root password '12345'."
+    info "Unattended mode — using default root password '12345'." >&2
     result="$(printf '%s' "$result" | jq --arg pw "12345" '. + {root: $pw}')"
     printf '%s' "$result"
     return
