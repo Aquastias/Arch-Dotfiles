@@ -50,10 +50,13 @@ teardown() {
   [ "$first_line" = "#cloud-config" ]
 }
 
-@test "user-data: redirects to /dev/ttyS0 in runcmd" {
+@test "user-data: routes cloud-init output to /dev/ttyS0" {
   run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "exec > /dev/ttyS0 2>&1" ]]
+  # output: directive is the right hook for cloud-init's own stdio routing.
+  # A bare `exec > /dev/ttyS0` line only redirects one runcmd shell.
+  [[ "$output" =~ "tee -a /dev/ttyS0" ]]
+  [[ "$output" =~ "output:" ]]
 }
 
 @test "user-data: runs install.sh --unattended" {

@@ -59,7 +59,9 @@ write_esp_mirror_hook() {
   #   usr/lib/systemd/boot/efi/*.efi  — systemd-boot EFI binary updated
 
   local esp_count="$1"
-  ((esp_count > 1)) || return # nothing to mirror for single-ESP installs
+  # Explicit `return 0`: bare `return` would propagate the false-arithmetic
+  # exit status from `((esp_count > 1))`, tripping the ERR trap one frame up.
+  ((esp_count > 1)) || return 0
 
   mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
   cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/95-esp-mirror.hook" <<'HOOK'
@@ -128,6 +130,17 @@ collect_passwords() {
       return
     done
   }
+
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    # Default per CONTEXT.md: user passwords are hardcoded to "12345".
+    # Root follows the same convention in unattended mode so the test
+    # harness never blocks on a password prompt. Treat all installs from
+    # this path as throwaway — change the password on first boot.
+    info "Unattended mode — using default root password '12345'."
+    result="$(printf '%s' "$result" | jq --arg pw "12345" '. + {root: $pw}')"
+    printf '%s' "$result"
+    return
+  fi
 
   echo "" >&2
   echo "━━━  Set root password  ━━━" >&2

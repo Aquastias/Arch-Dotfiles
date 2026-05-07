@@ -45,7 +45,15 @@ VM_DISK_GB=40
 # Where the harness reads/writes filesystem artefacts.
 ISO_DIR="${HOME}/Downloads"
 CACHE_DIR="${SCRIPT_DIR}/.vm-test"
-LOG_FILE="${SCRIPT_DIR}/testing-vm-logs"
+LOG_FILE="${SCRIPT_DIR}/testing-vm-logs.txt"
+
+# Escape hatch: pin an exact ISO URL. Leave empty to let the harness pick
+# the newest archived ISO whose kernel matches a kernel archzfs has prebuilt
+# zfs-linux for (see `iso_resolver_get_zfs_compatible` in lib/iso-resolver.sh).
+# That dynamic pick avoids the "DKMS build failed" trap that hits when Arch
+# bumps its kernel before archzfs catches up.
+# Example: ISO_URL_OVERRIDE="https://archive.archlinux.org/iso/2026.04.01/archlinux-2026.04.01-x86_64.iso"
+ISO_URL_OVERRIDE=""
 
 # Hard timeout for a full install. Override per-run via VM_TEST_TIMEOUT.
 TIMEOUT_SEC="${VM_TEST_TIMEOUT:-1800}"
@@ -76,7 +84,7 @@ Usage: setup-vm-for-testing.sh [--recreate] [--help]
 
 Spins up (or reuses) a libvirt VM that boots the latest Arch live CD,
 clones this repo, and runs install.sh --unattended. Streams the installer's
-output to ./testing-vm-logs and exits with the installer's exit code, or
+output to ./testing-vm-logs.txt and exits with the installer's exit code, or
 124 on timeout.
 
 Options:
@@ -119,6 +127,8 @@ ensure_deps() {
   command -v virt-install >/dev/null 2>&1 || missing+=(virt-install)
   command -v virsh >/dev/null 2>&1 || missing+=(libvirt)
   command -v cloud-localds >/dev/null 2>&1 || missing+=(cloud-image-utils)
+  command -v script >/dev/null 2>&1 || missing+=(util-linux)
+  command -v jq >/dev/null 2>&1 || missing+=(jq)
   if ((${#missing[@]} > 0)); then
     info "Installing missing host dependencies: ${missing[*]}"
     sudo pacman -S --needed --noconfirm "${missing[@]}"
@@ -146,6 +156,21 @@ ensure_libvirtd() {
 
 vm_exists() { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
 vm_running() { [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]; }
+
+# Reads the source file of the first cdrom in the domain XML (the install
+# ISO — by virt-install convention, sdb in our spec). Empty string if no
+# cdrom is attached or the domain doesn't exist.
+vm_install_iso_path() {
+  # Grab the first <disk device='cdrom'>...</disk> block (sdb = install ISO
+  # by virt-install convention), then extract the source file path. The
+  # second cdrom (sdc) is the seed.iso, which is never relevant here since
+  # the seed is always re-rendered before invocation and lives in CACHE_DIR.
+  virsh dumpxml "$VM_NAME" 2>/dev/null |
+    sed -n "/device='cdrom'/,/<\/disk>/p" |
+    grep -oE "source file='[^']+\.iso'" |
+    head -1 |
+    sed -E "s/^source file='(.*)'\$/\1/"
+}
 
 vm_destroy_undefine() {
   if vm_exists; then
@@ -189,19 +214,47 @@ vm_boot_for_run() {
   virsh start "$VM_NAME" >/dev/null
 }
 
+# _resolve_pinned_iso URL DOWNLOADS_DIR
+# Cache-aware fetch of a specific ISO URL. Mirrors the iso-resolver contract
+# (return cached path if present, else download) but bypasses the
+# latest-version lookup. Used when ISO_URL_OVERRIDE is set.
+_resolve_pinned_iso() {
+  local url="$1" downloads_dir="$2"
+  local filename="${url##*/}"
+  local target="${downloads_dir%/}/${filename}"
+  if [[ -f "$target" ]]; then
+    printf '%s\n' "$target"
+    return 0
+  fi
+  local tmp="${target}.partial"
+  curl -fSL --retry 2 -o "$tmp" "$url" >&2 || {
+    rm -f "$tmp"
+    error "Pinned ISO download failed: $url"
+  }
+  mv -f "$tmp" "$target"
+  printf '%s\n' "$target"
+}
+
 # =============================================================================
 # CONSOLE CAPTURE
 # =============================================================================
-# `virsh console --force "$VM_NAME" | tee LOG_FILE` is run inside a wrapper
-# subshell so we can identify and kill the whole pipeline on cleanup. The
-# wrapper PID is the parent of `virsh` and `tee`; pkill -P kills both.
+# `virsh console --force` refuses to run when its stdin/stdout is a pipe —
+# it requires a controlling TTY for its interactive escape handling, even
+# when we never intend to type into it. Wrapping it with `script(1)` gives
+# it a pseudo-TTY; the typescript is written straight to LOG_FILE with
+# line-buffered flushes (`-f`) so the user can `tail -F` it live.
+#
+# `script` exits when the wrapped command exits (poweroff inside the VM
+# closes the serial pty, virsh console drops, script returns). On cleanup
+# we send SIGTERM to script's PID; it propagates to virsh.
 
 CONSOLE_WRAP_PID=""
 
 start_console_capture() {
   : > "$LOG_FILE"
-  { virsh console --force "$VM_NAME" 2>&1 | tee -a "$LOG_FILE"; } &
+  script -qfc "virsh console --force \"$VM_NAME\"" "$LOG_FILE" >/dev/null 2>&1 &
   CONSOLE_WRAP_PID=$!
+  info "Console capture running — \`tail -F ${LOG_FILE}\` to watch live."
 }
 
 stop_console_capture() {
@@ -212,7 +265,15 @@ stop_console_capture() {
   CONSOLE_WRAP_PID=""
 }
 
-trap 'stop_console_capture' EXIT INT TERM
+# shellcheck disable=SC2329 # invoked from a `trap` command string below
+on_signal() {
+  stop_console_capture
+  # 128 + signal number; 130 = INT, 143 = TERM. Standard for shell scripts.
+  exit "$((128 + ${1:-2}))"
+}
+trap 'stop_console_capture' EXIT
+trap 'on_signal 2' INT
+trap 'on_signal 15' TERM
 
 # =============================================================================
 # MAIN
@@ -227,8 +288,14 @@ main() {
 
   section "Resolving Arch ISO"
   local iso
-  iso="$(iso_resolver_get "$ISO_DIR")"
-  info "ISO: ${iso}"
+  if [[ -n "$ISO_URL_OVERRIDE" ]]; then
+    iso="$(_resolve_pinned_iso "$ISO_URL_OVERRIDE" "$ISO_DIR")"
+    info "ISO (pinned): ${iso}"
+  else
+    info "Picking newest archived ISO whose kernel archzfs supports."
+    iso="$(iso_resolver_get_zfs_compatible "$ISO_DIR")"
+    info "ISO (archzfs-compatible): ${iso}"
+  fi
 
   section "Building cloud-init seed"
   local seed
@@ -239,11 +306,30 @@ main() {
   if $RECREATE; then
     vm_destroy_undefine
   fi
+
+  # If the resolver picked a different ISO than the existing domain has
+  # baked in (e.g. archzfs bumped its kernel pin, or the cached ISO file
+  # was deleted), the domain's cdrom reference is stale. Undefine + let
+  # the create branch below build a fresh domain that points at the new
+  # ISO. Avoids `virsh start` failing with "Cannot access storage file".
+  if vm_exists; then
+    local current_iso
+    current_iso="$(vm_install_iso_path)"
+    if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
+      info "Existing VM points at stale ISO (${current_iso}); recreating with ${iso}."
+      vm_destroy_undefine
+    fi
+  fi
+
   if ! vm_exists; then
     vm_create "$iso" "$seed"
-  else
-    vm_boot_for_run
   fi
+  # virt-install with --noautoconsole --noreboot defines the domain but
+  # leaves it shut off on this libvirt version. Reused domains may also
+  # be running from a previous run. Both cases are normalised here:
+  # force-stop if needed, then start fresh so the console capture below
+  # attaches to a guaranteed-running VM.
+  vm_boot_for_run
 
   section "Capturing installer log → ${LOG_FILE}"
   start_console_capture
