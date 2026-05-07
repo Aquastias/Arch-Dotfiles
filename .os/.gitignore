@@ -1,0 +1,4 @@
+# VM test harness artefacts (lib/iso-resolver.sh, seed-generator.sh,
+# sentinel-watcher.sh, setup-vm-for-testing.sh).
+.vm-test/
+testing-vm-logs

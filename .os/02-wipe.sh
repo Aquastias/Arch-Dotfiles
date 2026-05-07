@@ -37,7 +37,12 @@
 #
 # USAGE:
 #   chmod +x 02-wipe.sh
-#   ./02-wipe.sh
+#   ./02-wipe.sh                    # interactive
+#   ./02-wipe.sh -y                 # unattended (no exclusions, skip WIPE prompt)
+#   ./02-wipe.sh --unattended
+#
+# Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag, so
+# it works whether invoked directly or via install.sh.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -161,6 +166,11 @@ select_disks() {
   local all_disks=("$@")
   DISKS_TO_WIPE=("${all_disks[@]}")
 
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    info "Unattended mode — all detected disks selected for wiping (no exclusions)."
+    return
+  fi
+
   echo -e "  ${BOLD}All detected disks will be wiped by default.${NC}"
   echo -e "  To ${YELLOW}EXCLUDE${NC} disks, enter their index numbers (space-separated)."
   echo -e "  Press ${BOLD}Enter${NC} with no input to wipe everything listed above."
@@ -210,6 +220,11 @@ final_confirm() {
     echo -e "    ${RED}✗${NC}  $disk  ($size  —  $model)"
   done
   echo ""
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    warn "Unattended mode — proceeding without WIPE confirmation."
+    return
+  fi
+
   echo -e "  ${BOLD}Type  ${RED}WIPE${NC}${BOLD}  (all caps) to confirm and begin:${NC}"
   read -rp "  > " _confirm
   [[ "$_confirm" == "WIPE" ]] ||
@@ -408,7 +423,31 @@ print_summary() {
 # MAIN
 # =============================================================================
 
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -y | --unattended)
+        export INSTALL_UNATTENDED=1
+        shift
+        ;;
+      -h | --help)
+        echo "Usage: $(basename "$0") [-y|--unattended] [-h|--help]"
+        echo ""
+        echo "  -y, --unattended  Skip the disk-exclude prompt and the WIPE"
+        echo "                    confirmation. Wipes every detected disk."
+        echo "  -h, --help        Show this help and exit."
+        exit 0
+        ;;
+      *)
+        error "Unknown argument: $1"
+        ;;
+    esac
+  done
+}
+
 main() {
+  parse_args "$@"
+
   echo -e "\n${CYAN}${BOLD}  Disk Wipe Utility${NC}"
   echo -e "${DIM}  Full zero-fill wipe — all detected physical disks${NC}"
   echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"

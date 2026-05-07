@@ -8,8 +8,12 @@
 #   3. 03-install.sh         — this script
 #
 # USAGE:
-#   ./03-install.sh                    # uses install.json in same directory
-#   ./03-install.sh /path/to/cfg.json  # specify a different config file
+#   ./03-install.sh                          # uses install.jsonc in same dir
+#   ./03-install.sh /path/to/cfg.jsonc       # alternate config path
+#   ./03-install.sh -y                       # unattended (skip "Proceed?")
+#   ./03-install.sh --unattended /path/cfg   # unattended + alternate config
+#
+# Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag.
 #
 # If install.json is missing, a documented template is generated and the
 # script exits so you can edit it before re-running.
@@ -52,8 +56,44 @@ _on_error() {
 # All lib/ paths and the default config path are relative to this.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Parse recognised flags off the front of "$@", leaving any positional config
+# path in $1 for the line that follows. Recognises -y/--unattended (sets the
+# INSTALL_UNATTENDED env var consumed by lib/common.sh::confirm) and -h/--help.
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -y | --unattended)
+        export INSTALL_UNATTENDED=1
+        shift
+        ;;
+      -h | --help)
+        echo "Usage: $(basename "$0") [-y|--unattended] [CONFIG_FILE]"
+        echo ""
+        echo "  -y, --unattended  Bypass the final 'Proceed?' confirmation."
+        echo "  -h, --help        Show this help and exit."
+        exit 0
+        ;;
+      --)
+        shift
+        REMAINING_ARGS=("$@")
+        return
+        ;;
+      -*)
+        echo "[03-install.sh] Unknown option: $1" >&2
+        exit 2
+        ;;
+      *)
+        REMAINING_ARGS+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+REMAINING_ARGS=()
+parse_args "$@"
+
 # Path to the JSON config file. Can be overridden via command-line argument.
-CONFIG_FILE="${1:-${SCRIPT_DIR}/install.jsonc}"
+CONFIG_FILE="${REMAINING_ARGS[0]:-${SCRIPT_DIR}/install.jsonc}"
 
 # Mountpoint for the new system during installation.
 # shellcheck disable=SC2034 # consumed by sourced modules

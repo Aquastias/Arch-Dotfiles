@@ -48,7 +48,12 @@ error() {
 section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
 
 # Prompts [y/N]; errors (exits) if the user does not confirm.
+# Honors INSTALL_UNATTENDED=1 — auto-accepts every prompt with a log line.
 confirm() {
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    info "Auto-confirmed (unattended): $*"
+    return
+  fi
   local ans
   read -rp "$(echo -e "${YELLOW}[?]${NC} $* [y/N]: ")" ans
   [[ "${ans,,}" == "y" ]] || error "Aborted by user."
