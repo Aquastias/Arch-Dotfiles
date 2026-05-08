@@ -61,12 +61,20 @@ confirm() {
 
 # Displays a numbered menu and sets PICK_RESULT to the first word of the
 # chosen entry. Loops until a valid number is entered.
+# Honors INSTALL_UNATTENDED=1 — auto-selects option 1 with a log line.
 #
 # Usage: pick_option "Question" "option one text" "option two text" ...
 pick_option() {
   local question="$1"
   shift
   local options=("$@")
+
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    PICK_RESULT="$(echo "${options[0]}" | awk '{print $1}')"
+    info "Auto-picked option 1 (unattended): ${options[0]}"
+    return
+  fi
+
   echo -e "\n${YELLOW}[?]${NC} ${question}"
   for i in "${!options[@]}"; do
     printf "    ${BOLD}%d)${NC} %s\n" "$((i + 1))" "${options[$i]}"
