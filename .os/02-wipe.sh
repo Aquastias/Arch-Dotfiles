@@ -64,28 +64,34 @@ DISKS_TO_WIPE=()
 # DISK DETECTION
 # =============================================================================
 
+# Strips the partition suffix from a device path to return the raw disk.
+#   nvme0n1p1  →  nvme0n1   (NVMe / eMMC use 'p' separator)
+#   sda1       →  sda       (SATA/SCSI use trailing digit)
+#   sr0        →  sr0       (optical drives ARE the disk — no suffix to strip)
+_strip_partition() {
+  local src="$1"
+  if [[ "$src" =~ nvme|mmcblk ]]; then
+    echo "${src%p[0-9]*}"
+  elif [[ "$src" =~ /dev/sr ]]; then
+    echo "$src"
+  else
+    echo "${src%[0-9]*}"
+  fi
+}
+
 find_live_disk() {
   # Returns the raw disk device (e.g. /dev/sda) that the live ISO is running
   # from, so we can exclude it from the wipe list.
   local src
   src="$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || true)"
   if [[ -n "$src" ]]; then
-    # Strip partition suffix: nvme0n1p1 → nvme0n1, sda1 → sda
-    if [[ "$src" =~ nvme|mmcblk ]]; then
-      echo "${src%p[0-9]*}"
-    else
-      echo "${src%[0-9]*}"
-    fi
+    _strip_partition "$src"
     return
   fi
   # Fallback: the device mounted at / (works on non-archiso live envs)
   src="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
   if [[ -n "$src" && "$src" != "overlay" && "$src" != "airootfs" ]]; then
-    if [[ "$src" =~ nvme|mmcblk ]]; then
-      echo "${src%p[0-9]*}"
-    else
-      echo "${src%[0-9]*}"
-    fi
+    _strip_partition "$src"
     return
   fi
   echo ""
@@ -117,7 +123,7 @@ detect_disks() {
     fi
 
     disks+=("$path")
-  done < <(lsblk -dno NAME,TYPE | awk '$2=="disk"{print $1}')
+  done < <(lsblk -dno NAME,TYPE,RO | awk '$2=="disk" && $3=="0" {print $1}')
 
   ((${#disks[@]} > 0)) && printf '%s\n' "${disks[@]}" || true
 }
