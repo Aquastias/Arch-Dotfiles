@@ -34,8 +34,8 @@ OS_ZFS_PARTS=()
 MULTI_OS_DISK=""
 MULTI_OS_TOPOLOGY=""
 MULTI_LEFTOVER_DISKS=()
-declare -A STORAGE_PARTS
-declare -A RESOLVED_TOPOLOGIES
+declare -gA STORAGE_PARTS
+declare -gA RESOLVED_TOPOLOGIES
 
 # =============================================================================
 # OS TOPOLOGY SUGGESTIONS
