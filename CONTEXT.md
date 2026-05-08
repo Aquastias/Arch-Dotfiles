@@ -43,3 +43,12 @@ A program installed for a specific user via paru inside the chroot. Declared in 
 
 ### Program Runner
 `.os/lib/run-program.sh`. Wrapper invoked by the Runner inside arch-chroot for every Program Install Script. Verifies the chroot-side staged tree (Shell Stdlib readable, install.sh readable) and exits 99 with a clear message on mismatch. Sources Shell Stdlib once and sources the install.sh in the same shell, so install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a per-script source line.
+
+### Chroot Configuration Module
+`.os/lib/chroot/`. Set of shell scripts copied into `/mnt/root/lib-chroot/` before `arch-chroot` and orchestrated by `configure.sh` inside the chroot. Each sub-script owns one concern: identity (locale/timezone/keymap/hostname), pacman config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner (KDE/backup/security), plus a Bootloader Adapter. `lib/chroot.sh` shrinks to live-ISO concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and the single `arch-chroot` invocation that stages and runs `configure.sh`.
+
+### Bootloader Module
+The seam selecting between Bootloader Adapters. The active adapter is chosen by `options.bootloader` in the Install Config (`systemd-boot` or `grub`). The chroot orchestrator invokes `bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding a new bootloader means dropping in a new Bootloader Adapter — no `if/elif` branches grow.
+
+### Bootloader Adapter
+`.os/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation: package install, config file generation, kernel-image entry registration. Two adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP info, etc.) and is interchangeable from the orchestrator's view.
