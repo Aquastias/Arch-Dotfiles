@@ -142,7 +142,11 @@ _vm_destroy_undefine() {
   if _vm_exists; then
     _vm_running && { info "Force-stopping VM '${VM_NAME}'."; virsh destroy "$VM_NAME" >/dev/null; }
     info "Undefining VM '${VM_NAME}' (storage + NVRAM removed)."
-    virsh undefine --remove-all-storage --nvram "$VM_NAME" >/dev/null
+    local i
+    for i in "${!VM_DISK_SIZES[@]}"; do
+      rm -f "${CACHE_DIR}/${VM_NAME}-disk${i}.qcow2"
+    done
+    virsh undefine --nvram "$VM_NAME" >/dev/null
   fi
 }
 
@@ -384,8 +388,6 @@ run_harness() {
   local seed
   seed="$(_build_seed)"
   info "Seed: ${seed}"
-  _refresh_pool_for_path "$iso"
-  _refresh_pool_for_path "$seed"
 
   section "VM lifecycle"
   if $RECREATE; then _vm_destroy_undefine; fi
@@ -399,6 +401,8 @@ run_harness() {
     fi
   fi
 
+  _refresh_pool_for_path "$iso"
+  _refresh_pool_for_path "$seed"
   _vm_exists || _vm_create "$iso" "$seed"
   _vm_boot
 
