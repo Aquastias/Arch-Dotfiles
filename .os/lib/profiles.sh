@@ -50,6 +50,7 @@ _profiles_stage_runtime() {
   fi
   cp "${OS_DIR}/lib/shell-stdlib.sh" "$target/lib/shell-stdlib.sh"
   cp "${OS_DIR}/lib/run-program.sh"  "$target/lib/run-program.sh"
+  chmod +x "$target/lib/run-program.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
 }
 
