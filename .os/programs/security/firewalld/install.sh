@@ -17,7 +17,7 @@ ZONE="public"
 BRIDGE_IF="virbr0"
 SUBNET="192.168.122.0/24"
 
-if check_command "ufw"; then
+if command_exists "ufw"; then
   print_status error "ufw is installed; firewalld and ufw cannot coexist."
   exit 1
 fi
