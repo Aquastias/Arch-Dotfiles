@@ -87,24 +87,76 @@ _profiles_create_user() {
 
   info "Creating user: ${name}  (shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
 
+  # Groups like docker/libvirt/kvm are created by their packages, which are
+  # installed later. Filter to only groups that currently exist; the remainder
+  # are applied by _profiles_apply_user_groups after program installation.
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
     "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" <<'CHROOT_USER'
 set -e
 NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
+
+filter_existing_groups() {
+  local csv="$1" existing="" g
+  IFS=',' read -ra _ALL <<< "$csv"
+  for g in "${_ALL[@]}"; do
+    [[ -z "$g" ]] && continue
+    if getent group "$g" >/dev/null 2>&1; then
+      existing+="${g},"
+    else
+      echo "  [user-create] group '${g}' absent — will reconcile after program install" >&2
+    fi
+  done
+  printf '%s' "${existing%,}"
+}
+
+PRESENT="$(filter_existing_groups "$GROUPS_CSV")"
+
 if id "$NAME" &>/dev/null; then
   usermod -s "$LOGIN_SHELL" "$NAME"
-  if [[ -n "$GROUPS_CSV" ]]; then
-    usermod -G "$GROUPS_CSV" "$NAME"
+  if [[ -n "$PRESENT" ]]; then
+    usermod -G "$PRESENT" "$NAME"
   fi
 else
-  if [[ -n "$GROUPS_CSV" ]]; then
-    useradd -m -s "$LOGIN_SHELL" -G "$GROUPS_CSV" "$NAME"
+  if [[ -n "$PRESENT" ]]; then
+    useradd -m -s "$LOGIN_SHELL" -G "$PRESENT" "$NAME"
   else
     useradd -m -s "$LOGIN_SHELL" "$NAME"
   fi
 fi
 printf '%s:%s\n' "$NAME" "$PASSWORD" | chpasswd
 CHROOT_USER
+}
+
+# Re-apply the full group list for a user. Run after all programs are installed
+# so package-created groups (docker, libvirt, kvm, …) now exist in the chroot.
+_profiles_apply_user_groups() {
+  local name="$1" json="$2"
+  local groups_csv
+  groups_csv="$(printf '%s' "$json" | jq -r '
+    (.groups // []) +
+    (if .sudo == true and ((.groups // []) | index("wheel") == null)
+      then ["wheel"] else [] end)
+    | unique_by(.) | join(",")
+  ')"
+  [[ -z "$groups_csv" ]] && return 0
+  info "Reconciling groups for user: ${name}  (groups=${groups_csv})"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$name" "$groups_csv" <<'CHROOT_GROUPS'
+set -e
+NAME="$1"; GROUPS_CSV="$2"
+IFS=',' read -ra _ALL <<< "$GROUPS_CSV"
+existing=""
+for g in "${_ALL[@]}"; do
+  [[ -z "$g" ]] && continue
+  if getent group "$g" >/dev/null 2>&1; then
+    existing+="${g},"
+  else
+    echo "  [reconcile] group '${g}' still absent after install — skipping" >&2
+  fi
+done
+existing="${existing%,}"
+[[ -z "$existing" ]] && exit 0
+usermod -aG "$existing" "$NAME"
+CHROOT_GROUPS
 }
 
 _profiles_install_system_program() {
@@ -286,6 +338,11 @@ run_profiles() {
       _profiles_install_user_program "$u" "$prog"
     done
     _profiles_revoke_temp_sudo
+  done
+
+  # Re-apply full group memberships now that package-created groups exist.
+  for u in "${users[@]}"; do
+    _profiles_apply_user_groups "$u" "${USER_JSONS[$u]}"
   done
 
   _profiles_cleanup
