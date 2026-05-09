@@ -12,13 +12,13 @@
 set -Eeuo pipefail
 trap 'echo "[ufw] error on line $LINENO" >&2' ERR
 
-if check_command "firewall-cmd" || package_installed "firewalld"; then
+if command_exists "firewall-cmd" || package_installed "firewalld"; then
   print_status error "firewalld is installed; firewalld and ufw cannot coexist."
   exit 1
 fi
 
 print_status info "Installing UFW..."
-paru -S --noconfirm --needed --skipreview ufw
+paru -S --noconfirm --needed ufw
 
 print_status info "Resetting UFW to defaults..."
 sudo ufw --force reset

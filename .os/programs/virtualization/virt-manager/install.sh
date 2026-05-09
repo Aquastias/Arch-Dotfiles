@@ -22,7 +22,7 @@ QEMU_CONF="/etc/libvirt/qemu.conf"
 POLKIT_RULE="/etc/polkit-1/rules.d/50-libvirt.rules"
 
 print_status info "Installing virt-manager and required tools..."
-paru -S --noconfirm --needed --skipreview \
+paru -S --noconfirm --needed \
   qemu-base virt-manager virt-viewer dnsmasq vde2 bridge-utils \
   openbsd-netcat ebtables iptables-nft libguestfs edk2-ovmf
 

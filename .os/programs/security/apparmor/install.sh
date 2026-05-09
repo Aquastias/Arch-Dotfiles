@@ -17,7 +17,7 @@ GRUB_DEFAULT_FILE="/etc/default/grub"
 GRUB_BOOT_CFG="/boot/grub/grub.cfg"
 
 print_status info "Installing AppArmor..."
-paru -S --noconfirm --needed --skipreview apparmor
+paru -S --noconfirm --needed apparmor
 
 PARAMS_TO_ADD=(
   "apparmor=1"
@@ -25,26 +25,30 @@ PARAMS_TO_ADD=(
   "lsm=landlock,lockdown,yama,integrity,apparmor,bpf"
 )
 
-print_status info "Updating GRUB_CMDLINE_LINUX_DEFAULT with required parameters..."
-current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
-new_cmdline="$current_cmdline"
+if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
+  print_status info "Updating GRUB_CMDLINE_LINUX_DEFAULT with required parameters..."
+  current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
+  new_cmdline="$current_cmdline"
 
-for param in "${PARAMS_TO_ADD[@]}"; do
-  if [[ "$new_cmdline" != *"$param"* ]]; then
-    new_cmdline="$new_cmdline $param"
+  for param in "${PARAMS_TO_ADD[@]}"; do
+    if [[ "$new_cmdline" != *"$param"* ]]; then
+      new_cmdline="$new_cmdline $param"
+    fi
+  done
+
+  if [[ "$new_cmdline" != "$current_cmdline" ]]; then
+    print_status info "Appending required parameters to GRUB_CMDLINE_LINUX_DEFAULT..."
+    sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$GRUB_DEFAULT_FILE"
+  else
+    print_status info "All required parameters already present in GRUB_CMDLINE_LINUX_DEFAULT."
   fi
-done
 
-if [[ "$new_cmdline" != "$current_cmdline" ]]; then
-  print_status info "Appending required parameters to GRUB_CMDLINE_LINUX_DEFAULT..."
-  sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$GRUB_DEFAULT_FILE"
+  if command -v grub-mkconfig &>/dev/null; then
+    print_status info "Regenerating GRUB configuration at $GRUB_BOOT_CFG..."
+    sudo grub-mkconfig -o "$GRUB_BOOT_CFG"
+  fi
 else
-  print_status info "All required parameters already present in GRUB_CMDLINE_LINUX_DEFAULT."
-fi
-
-if command -v grub-mkconfig &>/dev/null; then
-  print_status info "Regenerating GRUB configuration at $GRUB_BOOT_CFG..."
-  sudo grub-mkconfig -o "$GRUB_BOOT_CFG"
+  print_status warning "$GRUB_DEFAULT_FILE not found; skipping GRUB param injection (grub program must run first)."
 fi
 
 print_status info "Enabling AppArmor service..."

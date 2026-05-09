@@ -14,7 +14,7 @@ set -Eeuo pipefail
 trap 'echo "[docker] error on line $LINENO" >&2' ERR
 
 print_status info "Installing Docker..."
-paru -S --noconfirm --needed --skipreview docker docker-compose
+paru -S --noconfirm --needed docker docker-compose
 
 print_status info "Enabling Docker service (starts on first boot)..."
 sudo systemctl enable docker.socket

@@ -23,7 +23,7 @@ if command_exists "ufw"; then
 fi
 
 print_status info "Installing firewalld..."
-paru -S --noconfirm --needed --skipreview firewalld
+paru -S --noconfirm --needed firewalld
 
 print_status info "Enabling firewalld at boot..."
 sudo systemctl enable firewalld

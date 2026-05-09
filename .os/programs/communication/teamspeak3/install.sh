@@ -14,7 +14,7 @@ trap 'echo "[teamspeak3] error on line $LINENO" >&2' ERR
 
 if ! package_installed "teamspeak3"; then
   print_status info "Installing teamspeak3 from AUR..."
-  paru -S --noconfirm --skipreview teamspeak3
+  paru -S --noconfirm teamspeak3
 fi
 
 mkdir -p "${HOME}/.ts3client/gfx" "${HOME}/.ts3client/styles"

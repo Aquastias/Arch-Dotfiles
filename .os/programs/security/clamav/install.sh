@@ -24,7 +24,7 @@ CLAMAV_SCRIPTS="${CLAMAV_PROG_DIR}/scripts"
 CLAMAV_SERVICES="${CLAMAV_PROG_DIR}/services"
 
 print_status info "Installing ClamAV + clamav-unofficial-sigs..."
-paru -S --noconfirm --needed --skipreview clamav clamav-unofficial-sigs
+paru -S --noconfirm --needed clamav clamav-unofficial-sigs
 
 print_status info "Copying configurations..."
 sudo install -o root -g root -m 644 "$CLAMAV_CONFIGS/clamd.conf"     /etc/clamav/clamd.conf
