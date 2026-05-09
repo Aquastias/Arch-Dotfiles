@@ -259,7 +259,10 @@ EOF
 _build_seed() {
   local user_data="${CACHE_DIR}/${VM_NAME}-user-data"
   local seed_iso="${CACHE_DIR}/${VM_NAME}-seed.iso"
-  _render_installer_script "${REPO_URL}" > "${user_data}"
+  # Empty cloud-config: gives cloud-init a nocloud datasource so it exits
+  # immediately without running anything. The installer is launched separately
+  # via virsh send-key (see _launch_installer).
+  printf '#cloud-config\n' > "${user_data}"
   cloud-localds "${seed_iso}" "${user_data}" >/dev/null \
     || error "cloud-localds failed for ${user_data}"
   [[ -s "${seed_iso}" ]] || error "cloud-localds produced empty seed at ${seed_iso}"
