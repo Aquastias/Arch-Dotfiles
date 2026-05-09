@@ -204,7 +204,7 @@ su - "$USER_NAME" -c "
   set -e
   git clone --depth 1 https://aur.archlinux.org/paru.git '${BUILD}'
   cd '${BUILD}'
-  makepkg -si --noconfirm --skipreview
+  makepkg -si --noconfirm
 "
 rm -rf "$BUILD"
 CHROOT_PARU
