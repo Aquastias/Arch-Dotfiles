@@ -14,5 +14,6 @@
 # VM test harness — vendored bats, caches, and run logs
 .os/tests/bats/
 .os/**/.vm-test/
+.os/**/.vm-cache/
 .os/testing-vm-logs
 .os/tests/vm/*.log

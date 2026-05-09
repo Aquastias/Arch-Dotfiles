@@ -75,6 +75,7 @@ _configs_load() {
   local base="${OS_DIR}/${kind}"
   local core_file="${base}/${_CONFIGS_RESERVED_CORE}/config.jsonc"
   local specific_file="${base}/${name}/config.jsonc"
+  [[ -f "$specific_file" ]] || specific_file="${base}/vm/${name}/config.jsonc"
 
   if [[ ! -f "$core_file" ]]; then
     echo "configs: missing ${kind} core config: ${core_file}" >&2
