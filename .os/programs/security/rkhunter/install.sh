@@ -45,7 +45,6 @@ print_status info "Enabling rkhunter-scan.timer (fires on first boot)..."
 sudo systemctl enable rkhunter-scan.timer
 
 print_status info "Applying logrotate config..."
-chmod +x "$RKHUNTER_SCRIPTS/rkhunter_logrotate.sh"
 sudo SHELL_COMMONS="${SHELL_COMMONS}" "$RKHUNTER_SCRIPTS/rkhunter_logrotate.sh"
 
 print_status success "RKHunter staged."
