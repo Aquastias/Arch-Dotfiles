@@ -174,5 +174,13 @@ install_base() {
     sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null || true
   fi
 
+
+  # pacstrap -K initialises the keyring but gpg-agent state can be stale by
+  # the time paru runs inside arch-chroot. Re-init and populate explicitly so
+  # pacman signature checks work reliably during profile installs.
+  info "Initialising pacman keyring inside chroot..."
+  arch-chroot "${MOUNT_ROOT}" pacman-key --init
+  arch-chroot "${MOUNT_ROOT}" pacman-key --populate archlinux
+
   info "Base system installed."
 }
