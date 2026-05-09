@@ -30,7 +30,7 @@
 # =============================================================================
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
-readonly _PROFILES_RUNTIME_DIR="/root/.os-runtime"
+readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 
 # =============================================================================
