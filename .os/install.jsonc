@@ -73,6 +73,15 @@
     }
   },
 
+  // ── Desktop environment ───────────────────────────────────────────────────
+  // desktop: "kde" | "hyprland" | ["kde","hyprland"] | null (server install)
+  // gpu:     "amd" | "nvidia" | "intel" | ["amd","nvidia"] | "auto"
+  // Audio (PipeWire) is auto-derived: installed when desktop is non-null.
+  "environment": {
+    "desktop": null,
+    "gpu":     "auto"
+  },
+
   // ── Post-install scripts ──────────────────────────────────────────────────
   // Set to true to run the corresponding extras/ script inside the chroot.
   "post_install": {
@@ -80,13 +89,7 @@
     "backup": false,
 
     // extras/security.sh — UFW firewall (deny-by-default) + ClamAV.
-    "security": false,
-
-    "desktop": {
-      // extras/desktop/kde/kde.sh — KDE Plasma shell + KDE applications.
-      // Configure which packages to install in extras/desktop/kde/install-kde.jsonc
-      "kde": false
-    }
+    "security": false
   },
 
   // ── EXAMPLES (reference only — not read by the installer) ─────────────────

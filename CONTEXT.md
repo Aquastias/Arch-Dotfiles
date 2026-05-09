@@ -52,3 +52,24 @@ The seam selecting between Bootloader Adapters. The active adapter is chosen by 
 
 ### Bootloader Adapter
 `.os/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation: package install, config file generation, kernel-image entry registration. Two adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP info, etc.) and is interchangeable from the orchestrator's view.
+
+### Environment Config
+The `"environment"` key in `install.jsonc`. Declares desktop environment selection and GPU driver selection. Audio is not declared — it is auto-derived (PipeWire when any desktop is selected, omitted for server installs). Processed at config-load time; populates `packages.groups.gpu` and `packages.groups.audio` before pacstrap. Valid desktop values: `"kde"`, `"hyprland"`, or `["kde", "hyprland"]`. Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd", "nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous schema.
+
+### Desktop Environment Adapter
+Script at `extras/desktop/<name>/<name>.sh` with a companion `install-<name>.jsonc` for per-component toggles. Invoked dynamically by the Environment Runner based on `environment.desktop`. Each adapter installs its packages, writes its display manager config, and enables its services. Adding a new DE requires only a new `extras/desktop/<name>/` directory — no runner code changes.
+
+### Environment Runner
+The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved `environment.desktop` array and invokes each Desktop Environment Adapter by directory convention (`extras/desktop/<de>/<de>.sh`). No DE names are hardcoded in the runner — dispatch is purely by convention. Also runs `post_install.backup` and `post_install.security` extras.
+
+### GPU Resolution
+Translation of `environment.gpu` into driver packages at config-load time. `"auto"` uses `lspci` on the live ISO to detect all GPU vendors and resolves to a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor drivers plus `envycontrol`. Resolved packages populate `packages.groups.gpu` before pacstrap.
+
+Vendor → package mapping:
+- `"amd"` → `vulkan-radeon xf86-video-amdgpu mesa libva-mesa-driver`
+- `"nvidia"` → `nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland` (open kernel module only; requires Turing+/RTX 20xx+; DKMS used so it builds against both `linux` and `linux-lts`)
+- `"intel"` → `intel-media-driver` (Broadwell/5th-gen+) or `libva-intel-driver` (pre-Broadwell), auto-selected by parsing `lspci` device ID
+- VM GPU (VMware/VirtualBox/virtio-gpu) → `mesa` only (software rendering); detection logs a notice and continues without aborting
+
+### Display Manager
+Auto-selected by each Desktop Environment Adapter based on the full resolved desktop array — not a config key. KDE-only or KDE+Hyprland → SDDM (enabled by the KDE adapter). Hyprland-only → greetd + greetd-tuigreet (enabled by the Hyprland adapter, config written to `/etc/greetd/config.toml`).

@@ -24,7 +24,7 @@
 set -Eeuo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="${HARNESS_DIR}/../lib"
+LIB_DIR="${HARNESS_DIR}/../../lib"
 
 # =============================================================================
 # DEFAULTS
@@ -40,9 +40,9 @@ LIB_DIR="${HARNESS_DIR}/../lib"
 # =============================================================================
 # PATHS
 # =============================================================================
-ISO_DIR="${HOME}/Downloads"
-CACHE_DIR="${HARNESS_DIR}/.vm-test"
-LOG_FILE="${HARNESS_DIR}/${VM_NAME}.log"
+: "${ISO_DIR:=${HOME}/Downloads}"
+: "${CACHE_DIR:=${HARNESS_DIR}/.vm-test}"
+: "${LOG_FILE:=${HARNESS_DIR}/${VM_NAME}.log}"
 
 # =============================================================================
 # MODULE IMPORTS

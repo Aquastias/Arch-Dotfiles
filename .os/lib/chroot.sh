@@ -190,7 +190,7 @@ configure_system() {
   # ── Gather all values to pass into chroot ─────────────────────────────────
   local hostname locale timezone keymap
   local rpool swap esp_count
-  local do_kde do_backup do_security
+  local do_backup do_security
 
   # Hostname was already prompted (if needed) and validated in validate_config().
   # Use the resolved value directly — no second prompt.
@@ -202,8 +202,6 @@ configure_system() {
   swap="$(cfgo '.options.swap')"
   swap="${swap:-true}"
 
-  do_kde="$(cfgo '.post_install.desktop.kde')"
-  do_kde="${do_kde:-false}"
   do_backup="$(cfgo '.post_install.backup')"
   do_backup="${do_backup:-false}"
   do_security="$(cfgo '.post_install.security')"
@@ -253,15 +251,14 @@ configure_system() {
     --arg rpool       "$rpool"      \
     --arg swap        "$swap"       \
     --argjson esp_count "$esp_count" \
-    --argjson extras_kde      "$([[ "$do_kde"      == "true" ]] && printf 'true' || printf 'false')" \
     --argjson extras_backup   "$([[ "$do_backup"   == "true" ]] && printf 'true' || printf 'false')" \
     --argjson extras_security "$([[ "$do_security" == "true" ]] && printf 'true' || printf 'false')" \
     '{ hostname:$hostname, timezone:$timezone, locale:$locale, keymap:$keymap,
        kernel:$kernel, bootloader:$bootloader, rpool:$rpool, swap:$swap,
        esp_count:$esp_count,
-       extras:{ kde:$extras_kde, backup:$extras_backup, security:$extras_security } }' \
+       extras:{ backup:$extras_backup, security:$extras_security } }' \
     > "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
-  ROOT_PW="$root_pw" arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
+  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" ROOT_PW="$root_pw" arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }

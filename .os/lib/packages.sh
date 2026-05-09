@@ -120,6 +120,10 @@ collect_packages() {
         | .value[]?
     ' 2>/dev/null)
 
+  # GPU and audio packages resolved during validate_config
+  pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
+  pkgs+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")
+
   # Sort and deduplicate — pacstrap handles duplicates gracefully but this
   # keeps the output clean and avoids confusion in the install log.
   printf '%s\n' "${pkgs[@]}" | sort -u

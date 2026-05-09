@@ -276,6 +276,12 @@ run_profiles() {
 
     _profiles_grant_temp_sudo "$u"
     _profiles_bootstrap_paru "$u"
+    # Install AUR GPU packages (e.g. envycontrol for hybrid setups) via paru
+    # for the primary user, before user programs run.
+    if [[ "${u}" == "${users[0]}" && "${#GPU_PARU_PACKAGES[@]:-0}" -gt 0 ]]; then
+      info "Installing GPU AUR packages for ${u}: ${GPU_PARU_PACKAGES[*]}"
+      arch-chroot "$MOUNT_ROOT" su - "$u" -c         "paru -S --noconfirm --needed ${GPU_PARU_PACKAGES[*]}"
+    fi
     for prog in "${uprogs[@]}"; do
       _profiles_install_user_program "$u" "$prog"
     done

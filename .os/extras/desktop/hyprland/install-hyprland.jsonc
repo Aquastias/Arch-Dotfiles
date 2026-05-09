@@ -1,0 +1,11 @@
+{
+  // Hyprland companion tools — set false to skip installation
+  "bar":           true,  // waybar
+  "notifications": true,  // dunst
+  "launcher":      true,  // fuzzel
+  "rofi":          true,  // rofi-wayland
+  "terminal":      true,  // alacritty
+  "lock":          true,  // hyprlock
+  "idle":          true,  // hypridle
+  "wallpaper":     true   // hyprpaper
+}
