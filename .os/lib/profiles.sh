@@ -49,6 +49,8 @@ _profiles_stage_runtime() {
     mkdir -p "$target/programs"
   fi
   cp "${OS_DIR}/lib/shell-stdlib.sh" "$target/lib/shell-stdlib.sh"
+  # Copy shell/ domain modules sourced by shell-stdlib.sh
+  cp -r "${OS_DIR}/lib/shell" "$target/lib/shell"
   cp "${OS_DIR}/lib/run-program.sh"  "$target/lib/run-program.sh"
   chmod +x "$target/lib/run-program.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
@@ -63,6 +65,8 @@ _profiles_validate_staging() {
     error "Staging incomplete: ${target}/programs missing."
   [[ -r "$target/lib/shell-stdlib.sh" ]] ||
     error "Staging incomplete: ${target}/lib/shell-stdlib.sh missing or unreadable."
+  [[ -d "$target/lib/shell" ]] ||
+    error "Staging incomplete: ${target}/lib/shell/ missing."
   [[ -r "$target/lib/run-program.sh" ]] ||
     error "Staging incomplete: ${target}/lib/run-program.sh missing or unreadable."
 }
