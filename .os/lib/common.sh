@@ -4,33 +4,16 @@
 # =============================================================================
 # Sourced by 03-install.sh before any other module.
 # Provides: colour codes, output helpers, config accessors (cfg/cfgo),
-#           interactive prompt helpers, and all shared global variables.
+#           interactive prompt helpers.
 #
-# GLOBALS DEFINED HERE (written by other modules, declared here for clarity):
-#   INSTALL_MODE        "single" | "multi"
-#   MOUNT_ROOT          /mnt (constant)
-#   CONFIG_FILE         path to install.json (set by 03-install.sh)
-#   SCRIPT_DIR          directory containing 03-install.sh (set by 03-install.sh)
-#   PICK_RESULT         last result from pick_option()
-#
-# LAYOUT CONTRACT (Layout Module → consumers):
-#   The active layout module (lib/layout-<mode>.sh) populates the LAYOUT_*
-#   globals below. Consumers (chroot.sh, finalize.sh) read these instead of
-#   the layout-private SINGLE_* / MULTI_* / OS_ESP_PARTS / STORAGE_PARTS,
-#   so they don't need to know which mode is active.
-#
-#     LAYOUT_ESP_PARTS[]      Resolved ESP partition device paths. Index 0
-#                             is the primary (mounted at /boot/efi). Length
-#                             ≥ 1 after layout_partition() has run.
-#     LAYOUT_OS_POOL_NAME     Resolved OS pool name (e.g. "rpool"). Set by
-#                             layout_plan(); safe to read after planning.
-#     LAYOUT_DATA_POOL_NAME   Resolved data pool name, or empty string when
-#                             no data pool will be created.
+# Cross-module globals and the layout contract: see lib/globals.sh.
 # =============================================================================
 
 
 # shellcheck source=./jsonc.sh
 source "${BASH_SOURCE[0]%/*}/jsonc.sh"
+# shellcheck source=./globals.sh
+source "${BASH_SOURCE[0]%/*}/globals.sh"
 # ── Colour codes ──────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -109,23 +92,6 @@ cfg() {
 # cfgo PATH
 # Optional field — returns empty string if the field is missing or null.
 cfgo() { jsonc_read_opt "$CONFIG_FILE" "$1"; }
-
-# ── Shared globals ────────────────────────────────────────────────────────────
-# MOUNT_ROOT and CONFIG_FILE are set by 03-install.sh before sourcing modules.
-# Declare here so all modules can reference them without re-declaring.
-
-# shellcheck disable=SC2034 # set/read across sourced modules
-INSTALL_MODE="" # "single" | "multi"  — set by detect_mode() in config.sh
-# shellcheck disable=SC2034 # set/read across sourced modules
-PICK_RESULT=""  # last pick_option() result
-
-# ── Layout state record (populated by lib/layout-<mode>.sh) ───────────────────
-# shellcheck disable=SC2034 # set by layout-*.sh, read by chroot.sh/finalize.sh
-LAYOUT_ESP_PARTS=()
-# shellcheck disable=SC2034
-LAYOUT_OS_POOL_NAME=""
-# shellcheck disable=SC2034
-LAYOUT_DATA_POOL_NAME=""
 
 # =============================================================================
 # DISK UTILITIES (shared between layout modules)
