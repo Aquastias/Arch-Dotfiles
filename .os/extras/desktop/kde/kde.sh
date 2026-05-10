@@ -4,29 +4,16 @@
 # =============================================================================
 # Installs KDE Plasma shell and KDE applications ONLY.
 # Package selection is driven by install-kde.jsonc in the same directory.
-# Sourced helpers: /root/lib/common.sh provides jsonc() for JSONC parsing.
 # =============================================================================
 
 set -Eeuo pipefail
 
-# Script-specific output prefix — overrides info/section from common.sh.
-# Colour vars (GREEN, CYAN, BOLD, NC) come from common.sh which is sourced
-# below before any info/section call is reached.
-info() { echo -e "${GREEN}[KDE]${NC}  $*"; }
-section() { echo -e "\n${CYAN}${BOLD}━━━  $*  ━━━${NC}"; }
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
 
-# Source common.sh for jsonc() — strips // comments before piping to jq
-COMMON="${SCRIPT_DIR}/../../../lib/common.sh" # /root/extras/desktop/kde/../../../lib/
-if [[ -f "$COMMON" ]]; then
-  # shellcheck source=/dev/null
-  source "$COMMON"
-else
-  # Fallback: inline jsonc() if common.sh not available
-  jsonc() { sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$1"; }
-fi
+DE_TAG=KDE
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 
 [[ -f "$KDE_JSON" ]] || {
   echo "[KDE] ERROR: install-kde.jsonc not found at ${KDE_JSON}"

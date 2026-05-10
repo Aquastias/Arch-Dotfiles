@@ -9,16 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HYPR_JSON="${HYPR_JSON:-${SCRIPT_DIR}/install-hyprland.jsonc}"
 GREETD_CONF_DIR="${GREETD_CONF_DIR:-/etc/greetd}"
 
-COMMON="${SCRIPT_DIR}/../../lib/common.sh"
-if [[ -f "$COMMON" ]]; then
-  # shellcheck source=/dev/null
-  source "$COMMON"
-else
-  jsonc() { sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$1"; }
-fi
-
-info()    { echo "[HYPR] $*"; }
-section() { echo "━━━  $*  ━━━"; }
+DE_TAG=HYPR
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 
 [[ -f "$HYPR_JSON" ]] || {
   echo "[HYPR] ERROR: install-hyprland.jsonc not found at $HYPR_JSON" >&2
