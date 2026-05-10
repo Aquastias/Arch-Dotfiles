@@ -29,6 +29,9 @@
 #   RESOLVED_TOPOLOGIES[]  — associative: group name → topology string
 # =============================================================================
 
+# shellcheck source=./layout-common.sh
+source "${BASH_SOURCE[0]%/*}/layout-common.sh"
+
 OS_ESP_PARTS=()
 OS_ZFS_PARTS=()
 MULTI_OS_DISK=""
@@ -231,8 +234,7 @@ resolve_storage_topologies() {
 partition_os_disks_multi() {
   section "Partitioning OS Disk(s)"
   local esp_sz
-  esp_sz="$(cfgo '.options.esp_size')"
-  esp_sz="${esp_sz:-512M}"
+  esp_sz="$(layout_resolve_esp_size)"
   OS_ESP_PARTS=()
   OS_ZFS_PARTS=()
 
@@ -471,7 +473,6 @@ mount_multi_esps() {
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
 
-
 layout_plan() {
   resolve_os_topology
   resolve_storage_topologies
@@ -486,7 +487,8 @@ layout_plan() {
     # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
     LAYOUT_DATA_POOL_NAME="dpool"
   fi
+  _layout_verify_plan_contract
 }
-layout_partition()    { partition_os_disks_multi; partition_storage_disks_multi; }
+layout_partition()    { partition_os_disks_multi; partition_storage_disks_multi; _layout_verify_partition_contract; }
 layout_create_pools() { create_multi_rpool; create_multi_dpool; }
 layout_mount_esp()    { mount_multi_esps; }
