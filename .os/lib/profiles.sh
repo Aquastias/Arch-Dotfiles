@@ -74,58 +74,25 @@ _profiles_cleanup() {
   rm -f "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
 }
 
+resolve_user_groups() {
+  local json="$1"
+  printf '%s' "$json" | jq -r '
+    (.groups // []) +
+    (if .sudo == true and ((.groups // []) | index("wheel") == null)
+      then ["wheel"] else [] end)
+    | unique_by(.) | join(",")
+  '
+}
+
 _profiles_create_user() {
   local name="$1" json="$2"
   local shell sudo_flag groups_csv
   shell="$(printf '%s' "$json" | jq -r '.shell // "/bin/bash"')"
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
-  groups_csv="$(printf '%s' "$json" | jq -r '
-    (.groups // []) +
-    (if .sudo == true and ((.groups // []) | index("wheel") == null)
-      then ["wheel"] else [] end)
-    | unique_by(.) | join(",")
-  ')"
-
+  groups_csv="$(resolve_user_groups "$json")"
   info "Creating user: ${name}  (shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
-
-  # Groups like docker/libvirt/kvm are created by their packages, which are
-  # installed later. Filter to only groups that currently exist; the remainder
-  # are applied by _profiles_apply_user_groups after program installation.
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" <<'CHROOT_USER'
-set -e
-NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
-
-filter_existing_groups() {
-  local csv="$1" existing="" g
-  IFS=',' read -ra _ALL <<< "$csv"
-  for g in "${_ALL[@]}"; do
-    [[ -z "$g" ]] && continue
-    if getent group "$g" >/dev/null 2>&1; then
-      existing+="${g},"
-    else
-      echo "  [user-create] group '${g}' absent — will reconcile after program install" >&2
-    fi
-  done
-  printf '%s' "${existing%,}"
-}
-
-PRESENT="$(filter_existing_groups "$GROUPS_CSV")"
-
-if id "$NAME" &>/dev/null; then
-  usermod -s "$LOGIN_SHELL" "$NAME"
-  if [[ -n "$PRESENT" ]]; then
-    usermod -G "$PRESENT" "$NAME"
-  fi
-else
-  if [[ -n "$PRESENT" ]]; then
-    useradd -m -s "$LOGIN_SHELL" -G "$PRESENT" "$NAME"
-  else
-    useradd -m -s "$LOGIN_SHELL" "$NAME"
-  fi
-fi
-printf '%s:%s\n' "$NAME" "$PASSWORD" | chpasswd
-CHROOT_USER
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash /root/lib-chroot/create-user.sh \
+    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD"
 }
 
 # Re-apply the full group list for a user. Run after all programs are installed
@@ -133,12 +100,7 @@ CHROOT_USER
 _profiles_apply_user_groups() {
   local name="$1" json="$2"
   local groups_csv
-  groups_csv="$(printf '%s' "$json" | jq -r '
-    (.groups // []) +
-    (if .sudo == true and ((.groups // []) | index("wheel") == null)
-      then ["wheel"] else [] end)
-    | unique_by(.) | join(",")
-  ')"
+  groups_csv="$(resolve_user_groups "$json")"
   [[ -z "$groups_csv" ]] && return 0
   info "Reconciling groups for user: ${name}  (groups=${groups_csv})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$name" "$groups_csv" <<'CHROOT_GROUPS'
