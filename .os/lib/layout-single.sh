@@ -24,29 +24,14 @@
 #   SINGLE_OS_SECTORS — size of the OS partition in 512-byte sectors
 # =============================================================================
 
+# shellcheck source=./layout-common.sh
+source "${BASH_SOURCE[0]%/*}/layout-common.sh"
+
 SINGLE_DISK=""
 SINGLE_ESP_PART=""
 SINGLE_OS_PART=""
 SINGLE_STOR_PART=""
 SINGLE_OS_SECTORS=0
-
-# =============================================================================
-# SIZE HELPERS
-# =============================================================================
-
-parse_size_to_gib() {
-  # Converts a human-readable size string to integer GiB (rounded up).
-  # Accepts: "512M", "80G", "2T"  (case-insensitive)
-  local raw="${1^^}"
-  local num="${raw//[^0-9]/}"
-  local unit="${raw//[0-9]/}"
-  case "$unit" in
-  M | MIB) echo $(((num + 1023) / 1024)) ;;
-  G | GIB) echo "$num" ;;
-  T | TIB) echo $((num * 1024)) ;;
-  *) error "Cannot parse size string: '$1'" ;;
-  esac
-}
 
 # =============================================================================
 # LAYOUT CALCULATION
@@ -81,11 +66,8 @@ calculate_single_disk_layout() {
 
   # ESP size in MiB (parsed from config, default 512M)
   local esp_sz
-  esp_sz="$(cfgo '.options.esp_size')"
-  esp_sz="${esp_sz:-512M}"
+  esp_sz="$(layout_resolve_esp_size)"
   local esp_mib
-  esp_mib="$(parse_size_to_gib "$esp_sz")"
-  esp_mib=$((esp_mib * 1024))
   # parse_size_to_gib rounds to whole GiB; handle sub-GiB ESP directly
   local esp_upper esp_digits
   esp_upper="${esp_sz^^}"
@@ -95,6 +77,7 @@ calculate_single_disk_layout() {
     esp_mib="$esp_digits"
     ;;
   *G | *GIB) esp_mib=$((esp_digits * 1024)) ;;
+  *)         esp_mib=$(( $(parse_size_to_gib "$esp_sz") * 1024 )) ;;
   esac
 
   # Usable MiB after ESP and 1 MiB alignment gaps (GPT header, partition gaps)
@@ -194,8 +177,7 @@ partition_single_disk() {
   confirm "Confirm partitioning?"
 
   local esp_sz
-  esp_sz="$(cfgo '.options.esp_size')"
-  esp_sz="${esp_sz:-512M}"
+  esp_sz="$(layout_resolve_esp_size)"
 
   # Wipe all existing signatures and partition tables
   wipefs -af "$SINGLE_DISK"
@@ -283,7 +265,8 @@ layout_plan() {
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_DATA_POOL_NAME="$(cfgo .storage_pool_name)"
   LAYOUT_DATA_POOL_NAME="${LAYOUT_DATA_POOL_NAME:-dpool}"
+  _layout_verify_plan_contract
 }
-layout_partition()    { partition_single_disk; }
+layout_partition()    { partition_single_disk; _layout_verify_partition_contract; }
 layout_create_pools() { create_single_pools; }
 layout_mount_esp()    { mount_single_esp; }
