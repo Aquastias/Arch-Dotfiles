@@ -36,7 +36,6 @@ zinit light-mode for \
   OMZ::plugins/systemd \
   OMZ::plugins/urltools \
   OMZ::plugins/web-search \
-  OMZ::plugins/zoxide \
   OMZ::plugins/zsh-interactive-cd
 
 # Zsh plugin extras
