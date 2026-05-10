@@ -7,11 +7,13 @@
 # writing to stdout/stderr.
 #
 # Public API:
-#   load_host_config <hostname>            → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   load_user_config <username>            → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   resolve_program <name>                 → echoes "<cat>/<name>"; returns 1 if not found
-#   validate_program <expected> <name>     → 0 ok | 1 with stderr message
-#   validate_programs <expected> <name...> → 0 if all ok | 1 if any failed
+#   load_host_config <hostname>              → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   load_user_config <username>              → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   configs_build_registry                   → build in-memory program index from $OS_DIR/programs/
+#   resolve_program <name>                   → echoes "<cat>/<name>"; uses registry if built; 1 if not found
+#   validate_program <expected> <name>       → 0 ok | 1 with stderr message
+#   validate_programs <expected> <name...>   → 0 if all ok | 1 if any failed
+#   configs_preflight_programs <hostname>    → 0 ok | 1 any invalid; reports all failures
 #
 # Merge rules:
 #   - Arrays on both sides:  concatenate + dedupe (order preserving)
@@ -108,9 +110,32 @@ load_user_config() { _configs_load users "$1"; }
 # system-flag contract: programs referenced from a host config must have
 # system: true; from a user config, system: false.
 
-# Echo "<category>/<name>" for a program name. Return 1 if not found.
+# Build an in-memory index: _CONFIGS_REGISTRY[name]="cat/name".
+# Call once after OS_DIR is set; resolve_program uses it automatically.
+configs_build_registry() {
+  [[ -z "${OS_DIR:-}" ]] && { echo "configs: OS_DIR is not set" >&2; return 2; }
+  declare -gA _CONFIGS_REGISTRY=()
+  local d name cat
+  for d in "${OS_DIR}/programs"/*/*; do
+    [[ -d "$d" ]] || continue
+    name="$(basename "$d")"
+    cat="$(basename "$(dirname "$d")")"
+    _CONFIGS_REGISTRY["$name"]="${cat}/${name}"
+  done
+}
+
+# Echo "<category>/<name>" for a program name. Uses registry when built (O(1));
+# falls back to glob scan otherwise. Return 1 if not found.
 resolve_program() {
   local name="$1"
+  if [[ -v _CONFIGS_REGISTRY ]]; then
+    local rel="${_CONFIGS_REGISTRY[$name]:-}"
+    if [[ -n "$rel" ]]; then
+      printf '%s\n' "$rel"
+      return 0
+    fi
+    return 1
+  fi
   local d cat
   for d in "${OS_DIR}/programs"/*/"$name"; do
     [[ -d "$d" ]] || continue
@@ -163,4 +188,48 @@ validate_programs() {
     validate_program "$expected" "$name" || rc=1
   done
   return "$rc"
+}
+
+# Validate all programs referenced by the host config for <hostname> and its
+# users' configs. Requires OS_DIR set and configs_build_registry called.
+# Returns 0 if all valid, 1 if any invalid (all failures reported to stderr).
+configs_preflight_programs() {
+  local hostname="$1"
+  [[ -z "${OS_DIR:-}" ]] && { echo "configs: OS_DIR is not set" >&2; return 2; }
+  [[ -f "${OS_DIR}/hosts/core/config.jsonc" ]] || return 0
+  [[ -f "${OS_DIR}/users/core/config.jsonc" ]] || return 0
+
+  local host_json rc=0
+  host_json="$(load_host_config "$hostname" 2>/dev/null)" || rc=$?
+  case "$rc" in
+  1) return 0 ;;
+  2) echo "configs: preflight: cannot load host core config" >&2; return 1 ;;
+  3) echo "configs: preflight: hostname 'core' is reserved" >&2; return 1 ;;
+  esac
+
+  local any_fail=0
+  local -a sys_progs users
+  mapfile -t sys_progs < <(printf '%s' "$host_json" | jq -r '.system_programs[]?')
+  mapfile -t users     < <(printf '%s' "$host_json" | jq -r '.users[]?')
+
+  if ((${#sys_progs[@]} > 0)); then
+    validate_programs "true" "${sys_progs[@]}" || any_fail=1
+  fi
+
+  local u uj urc
+  local -a uprogs
+  for u in "${users[@]}"; do
+    urc=0
+    uj="$(load_user_config "$u" 2>/dev/null)" || urc=$?
+    case "$urc" in
+    0 | 1) ;;
+    *) echo "configs: preflight: cannot load user config '${u}'" >&2; any_fail=1; continue ;;
+    esac
+    mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
+    if ((${#uprogs[@]} > 0)); then
+      validate_programs "false" "${uprogs[@]}" || any_fail=1
+    fi
+  done
+
+  return "$any_fail"
 }

@@ -154,6 +154,15 @@ main() {
   load_config
   detect_mode
   validate_config
+
+  # ── Program pre-flight ───────────────────────────────────────────────────
+  # Validate all program references before any disk operations. OS_DIR is set
+  # here so configs_build_registry can scan programs/ on the live system.
+  export OS_DIR="${SCRIPT_DIR}"
+  configs_build_registry
+  configs_preflight_programs "$RESOLVED_HOSTNAME" ||
+    error "Program pre-flight failed. Fix configs before re-running."
+
   source_module "${SCRIPT_DIR}/lib/layout-${INSTALL_MODE}.sh"
 
   # ── Planning (topology resolution / size calculation) ─────────────────────
