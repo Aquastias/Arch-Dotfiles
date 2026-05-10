@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # lib/chroot/identity.sh — Chroot Configuration Module: system identity
-# Runs inside arch-chroot. Reads install-state.json; no positional args.
+# Runs inside arch-chroot. Reads install-state.json via load-state.sh.
 set -Eeuo pipefail
 trap 'echo "[chroot:identity] failed at line $LINENO" >&2' ERR
 
-STATE=/root/lib-chroot/install-state.json
-HOSTNAME="$(jq -r .hostname  "$STATE")"
-TIMEZONE="$(jq -r .timezone  "$STATE")"
-LOCALE="$(  jq -r .locale    "$STATE")"
-KEYMAP="$(  jq -r .keymap    "$STATE")"
+# shellcheck source=./load-state.sh
+source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
 
 # ── Timezone ──────────────────────────────────────────────────────────────────
 ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime

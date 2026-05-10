@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # lib/chroot/bootloader-grub.sh — Bootloader Adapter: GRUB
-# Runs inside arch-chroot. Reads install-state.json; no positional args.
+# Runs inside arch-chroot. Reads install-state.json via load-state.sh.
 set -Eeuo pipefail
 trap 'echo "[chroot:bootloader-grub] failed at line $LINENO" >&2' ERR
 
-STATE=/root/lib-chroot/install-state.json
-RPOOL="$(jq -r .rpool "$STATE")"
+# shellcheck source=./load-state.sh
+source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
+
 POOL_ROOT="$RPOOL/ROOT/arch"
 
 # GRUB can read ZFS pools natively — kernel/initramfs stay on the ZFS dataset.

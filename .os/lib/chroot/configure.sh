@@ -8,11 +8,8 @@
 set -Eeuo pipefail
 trap 'echo "[chroot:configure] failed at line $LINENO" >&2' ERR
 
-STATE=/root/lib-chroot/install-state.json
-BOOTLOADER="$(jq -r .bootloader "$STATE")"
-ESP_COUNT="$(  jq -r .esp_count  "$STATE")"
-RPOOL="$(      jq -r .rpool      "$STATE")"
-SWAP="$(       jq -r .swap       "$STATE")"
+# shellcheck source=./load-state.sh
+source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
 
 bash /root/lib-chroot/identity.sh
 bash /root/lib-chroot/initcpio.sh
