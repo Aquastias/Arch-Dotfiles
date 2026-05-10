@@ -28,6 +28,9 @@
 #                             no data pool will be created.
 # =============================================================================
 
+
+# shellcheck source=./jsonc.sh
+source "${BASH_SOURCE[0]%/*}/jsonc.sh"
 # ── Colour codes ──────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -94,31 +97,18 @@ pick_option() {
 # ── Config accessors ──────────────────────────────────────────────────────────
 # Both functions require CONFIG_FILE to be set before use.
 
-# jsonc FILE
-# Strips // line-comments from a JSONC file and emits plain JSON on stdout.
-# Handles comments at end-of-line and on their own line.
-# Safe for URLs — only matches // that are not inside a string value.
-# (Simple heuristic: strips // not preceded by : or " on the same line segment)
-jsonc() {
-  sed \
-    -e 's|[[:space:]]*//$||' \
-    -e 's|[[:space:]]//[^"]*$||' \
-    -e '/^[[:space:]]*\/\//d' \
-    "$1" 2>/dev/null
-}
-
 # cfg PATH [LABEL]
 # Required field — exits with a clear error if the field is missing or null.
 cfg() {
   local v
-  v="$(jsonc "$CONFIG_FILE" | jq -r "$1 // empty")"
+  v="$(jsonc_read_opt "$CONFIG_FILE" "$1")"
   [[ -n "$v" ]] || error "Missing required config field: ${2:-$1}"
   echo "$v"
 }
 
 # cfgo PATH
 # Optional field — returns empty string if the field is missing or null.
-cfgo() { jsonc "$CONFIG_FILE" | jq -r "$1 // empty"; }
+cfgo() { jsonc_read_opt "$CONFIG_FILE" "$1"; }
 
 # ── Shared globals ────────────────────────────────────────────────────────────
 # MOUNT_ROOT and CONFIG_FILE are set by 03-install.sh before sourcing modules.

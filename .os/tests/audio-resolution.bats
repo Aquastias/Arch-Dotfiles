@@ -5,17 +5,17 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
 
-  jsonc()   { cat "$1"; }
-  cfgo()    { jsonc "$CONFIG_FILE" | jq -r "${1} // empty"; }
-  cfg()     { jsonc "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  jsonc_strip() { cat "$1"; }
+  cfgo()    { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  cfg()     { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()   { echo "ERROR: $*" >&2; exit 1; }
   info()    { :; }
   section() { :; }
   warn()    { :; }
   confirm() { :; }
 
-  # shellcheck source=../lib/config.sh
-  source "$BATS_TEST_DIRNAME/../lib/config.sh"
+  # shellcheck source=../lib/environment.sh
+  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
 }
 
 teardown() {

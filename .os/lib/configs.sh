@@ -23,21 +23,15 @@
 # or users. The directory name `core` is reserved.
 # =============================================================================
 
-readonly _CONFIGS_RESERVED_CORE="core"
+# shellcheck source=./jsonc.sh
+source "${BASH_SOURCE[0]%/*}/jsonc.sh"
 
-# Strip JSONC // comments and emit JSON on stdout.
-_configs_strip_comments() {
-  sed \
-    -e 's|[[:space:]]*//$||' \
-    -e 's|[[:space:]]//[^"]*$||' \
-    -e '/^[[:space:]]*\/\//d' \
-    "$1" 2>/dev/null
-}
+readonly _CONFIGS_RESERVED_CORE="core"
 
 _configs_parse() {
   local file="$1"
   [[ -f "$file" ]] || return 1
-  _configs_strip_comments "$file" | jq '.'
+  jsonc_strip "$file" | jq '.'
 }
 
 # Merge two JSON values per the rules above.
