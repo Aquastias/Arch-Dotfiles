@@ -8,6 +8,9 @@
 # Provides:
 #   collect_packages  — merges base + config extra/groups into a sorted unique list
 #   install_base      — updates mirrorlist, runs pacstrap with collected packages
+#
+# Precondition: validate_config() (lib/config.sh) must be called before
+#   collect_packages() so that GPU_PACMAN_PACKAGES and AUDIO_PACKAGES are resolved.
 # =============================================================================
 
 # =============================================================================
@@ -28,8 +31,16 @@ collect_packages() {
   #   4. packages.extra[] — flat list from config
   #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from config
   #      (keys starting with "_" are comment fields and are filtered out)
+  #   6. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in validate_config()
+  #   7. AUDIO_PACKAGES — resolved by resolve_audio_packages() in validate_config()
   #
   # Output: one package name per line, sorted and deduplicated.
+
+  # Precondition: GPU_PACMAN_PACKAGES and AUDIO_PACKAGES must be resolved.
+  [[ -v GPU_PACMAN_PACKAGES ]] ||
+    error "collect_packages: GPU_PACMAN_PACKAGES not set — call validate_config() first"
+  [[ -v AUDIO_PACKAGES ]] ||
+    error "collect_packages: AUDIO_PACKAGES not set — call validate_config() first"
 
   # ── Kernel selection ──────────────────────────────────────────────────────
   local kernel
