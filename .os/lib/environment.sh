@@ -10,13 +10,29 @@
 #   validate_environment   — reads CONFIG_FILE; sets ENVIRONMENT_DESKTOP/GPU
 #   resolve_gpu_packages   — ENVIRONMENT_GPU  → GPU_PACMAN_PACKAGES + GPU_PARU_PACKAGES
 #   resolve_audio_packages — ENVIRONMENT_DESKTOP → AUDIO_PACKAGES
+#
+# Pipeline contract
+# ─────────────────
+# validate_config() (lib/config.sh) calls all three in order. Callers that
+# use GPU_PACMAN_PACKAGES, GPU_PARU_PACKAGES, or AUDIO_PACKAGES must call
+# validate_config() first — collect_packages() in lib/packages.sh enforces this.
 # =============================================================================
 
-# ── RESOLVED GLOBALS (set by validate_environment, consumed by configure_system) ─
+# ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────
+# Set by validate_environment; consumed by resolve_gpu_packages,
+# resolve_audio_packages, and collect_packages.
 # shellcheck disable=SC2034
 ENVIRONMENT_DESKTOP=()
 # shellcheck disable=SC2034
 ENVIRONMENT_GPU=()
+
+# Set by resolve_gpu_packages; consumed by collect_packages.
+# Declared here so collect_packages can detect unresolved state.
+GPU_PACMAN_PACKAGES=()
+GPU_PARU_PACKAGES=()
+
+# Set by resolve_audio_packages; consumed by collect_packages.
+AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
 _VALID_DESKTOP=(kde hyprland)
