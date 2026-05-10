@@ -35,3 +35,6 @@ SYNTAX_THEME="$HOME/.zsh/syntax-highlighting/themes/catppuccin-mocha.zsh"
 
 # Suppress P10k prompt on initialization
 typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
+
+# Initialize zoxide (must be last)
+eval "$(zoxide init zsh)"
