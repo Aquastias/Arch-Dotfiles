@@ -314,7 +314,7 @@ _char_to_keys() {
   esac
 }
 
-_virsh_type() {
+_type_into_console() {
   local vm="$1" text="$2"
   local i char keys
   for ((i = 0; i < ${#text}; i++)); do
@@ -349,7 +349,7 @@ _launch_installer() {
   local url="http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/run"
   local cmd="curl -s ${url}|bash"
   info "Sending to VGA console: ${cmd}"
-  _virsh_type "${VM_NAME}" "${cmd}"
+  _type_into_console "${VM_NAME}" "${cmd}"
   info "Installer command sent — running inside VM."
 }
 

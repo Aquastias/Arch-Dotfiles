@@ -164,18 +164,23 @@ Remove the installation media when prompted.
 │   ├── backup.sh               # ZFS auto-snapshots + Borg encrypted backups
 │   └── security.sh             # UFW firewall (deny-all-in) + ClamAV weekly scans
 │
-├── tests/                      # BATS unit test suite
+├── tests/                      # BATS unit test suite + VM integration tests
 │   ├── run.sh                  # Test runner
 │   ├── shellcheck.sh           # Code quality checks
-│   └── *.bats                  # Test files (configs, iso-resolver, ...)
+│   ├── *.bats                  # Test files (configs, iso-resolver, ...)
+│   └── vm/                     # Disposable VM integration tests
+│       ├── _harness.sh         #   Shared test infrastructure
+│       ├── testing-single-disk.sh          # 1 × 40 GiB SATA
+│       ├── testing-multi-os-mirror.sh      # 2 × 40 GiB, rpool mirror
+│       ├── testing-multi-os-stripe.sh      # 2 × 40 GiB, rpool stripe
+│       ├── testing-multi-os-none.sh        # 2 × 40 GiB, topology=none
+│       └── testing-multi-os-mirror-storage.sh  # 2 × 40 GiB OS + 3 × 40 GiB dpool raidz1
 │
-├── vm/                         # VM integration test harness
-│   ├── _harness.sh             # Shared infrastructure (ISO pick, cloud-init, virsh)
-│   ├── testing-single-disk.sh          # 1 × 40 GiB SATA
-│   ├── testing-multi-os-mirror.sh      # 2 × 40 GiB, rpool mirror
-│   ├── testing-multi-os-stripe.sh      # 2 × 40 GiB, rpool stripe
-│   ├── testing-multi-os-none.sh        # 2 × 40 GiB, topology=none
-│   └── testing-multi-os-mirror-storage.sh  # 2 × 40 GiB OS + 3 × 40 GiB dpool raidz1
+├── vm/                         # Persistent usable VMs (manual testing / dev)
+│   ├── _harness.sh             # Shared infrastructure (ISO pick, libvirt, HTTP)
+│   ├── vm-kde.sh               # 1 × 60 GiB, KDE Plasma + SDDM
+│   ├── vm-hyprland.sh          # 1 × 40 GiB, Hyprland + greetd
+│   └── vm-kde-hyprland.sh      # 1 × 80 GiB, KDE + Hyprland (SDDM)
 │
 ├── README.md                   # This file
 └── REFERENCE.md                # Full config reference + VM testing guide
@@ -241,24 +246,26 @@ Enable in `install.jsonc` under `post_install`:
 
 ## VM Testing
 
-The `vm/` directory contains an integration test harness built on `libvirt` + cloud-init. Each test script spins up a throwaway VM, runs the installer unattended, and exits with the installer's exit code.
+The `tests/vm/` directory contains a disposable integration test harness built on `libvirt` + cloud-init. Each test script spins up a throwaway VM, runs the installer unattended, and exits with the installer's exit code.
+
+> For **persistent, reusable VMs** (manual testing / dev), see [`vm/`](vm/).
 
 **Prerequisites:** `virt-install`, `virsh`, `cloud-localds`, `jq`, `libvirtd` running, user in `libvirt` group.
 
 ```bash
 # Single-disk smoke test
-bash vm/testing-single-disk.sh
+bash tests/vm/testing-single-disk.sh
 
 # Multi-disk mirror
-bash vm/testing-multi-os-mirror.sh
+bash tests/vm/testing-multi-os-mirror.sh
 
 # Multi-disk mirror OS + raidz1 storage
-bash vm/testing-multi-os-mirror-storage.sh
+bash tests/vm/testing-multi-os-mirror-storage.sh
 ```
 
-Each script writes a timestamped log to `vm/<vm-name>.log`. The harness watches for an `===INSTALLER-EXIT-N===` sentinel line (written by cloud-init) and propagates the installer's exit code. Timeout defaults to 1800 s (`VM_TEST_TIMEOUT` env var overrides).
+Each script writes a timestamped log to `tests/vm/<vm-name>.log`. The harness watches for an `===INSTALLER-EXIT-N===` sentinel line (written by cloud-init) and propagates the installer's exit code. Timeout defaults to 1800 s (`VM_TEST_TIMEOUT` env var overrides).
 
-The ISO is auto-resolved to the newest archzfs-compatible Arch release (cached in `vm/.vm-test/`).
+The ISO is auto-resolved to the newest archzfs-compatible Arch release (cached in `tests/vm/.vm-test/`).
 
 ---
 
