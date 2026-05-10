@@ -245,6 +245,8 @@ _render_installer_script() {
 #!/usr/bin/env bash
 set -euo pipefail
 set -x
+pacman-key --init
+pacman-key --populate archlinux
 pacman -Sy --noconfirm --needed git
 rm -rf /root/dotfiles
 git clone ${repo_url} /root/dotfiles
