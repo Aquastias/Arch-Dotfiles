@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # lib/chroot/initcpio.sh — Chroot Configuration Module: initramfs
-# Runs inside arch-chroot. Reads install-state.json; no positional args.
+# Runs inside arch-chroot. Reads install-state.json via load-state.sh.
 set -Eeuo pipefail
 trap 'echo "[chroot:initcpio] failed at line $LINENO" >&2' ERR
 
-STATE=/root/lib-chroot/install-state.json
-KERNEL="$(jq -r .kernel "$STATE")"
+# shellcheck source=./load-state.sh
+source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
 
 if [[ "$KERNEL" == "lts" ]]; then
     PRESET_NAME="linux-lts"
