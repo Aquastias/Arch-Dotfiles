@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
 
 # Source common.sh for jsonc() — strips // comments before piping to jq
-COMMON="${SCRIPT_DIR}/../../lib/common.sh" # /root/extras/desktop/kde/../../lib/
+COMMON="${SCRIPT_DIR}/../../../lib/common.sh" # /root/extras/desktop/kde/../../../lib/
 if [[ -f "$COMMON" ]]; then
   # shellcheck source=/dev/null
   source "$COMMON"
