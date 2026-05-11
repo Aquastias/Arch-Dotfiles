@@ -71,7 +71,6 @@ else
 fi
 
 print_status info "Enabling services (started on first boot)..."
-sudo systemctl enable clamav-daemon.socket
 sudo systemctl enable clamav-daemon.service
 sudo systemctl enable clamav-freshclam.service
 sudo systemctl enable clamav-clamonacc.service

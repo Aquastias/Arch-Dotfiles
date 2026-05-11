@@ -1,0 +1,10 @@
+// Program metadata for zfs-auto-snapshot.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for systemctl writes.
+
+{
+  "name": "zfs-auto-snapshot",
+  "system": false,
+  "description": "Automatic ZFS snapshot scheduling (hourly/daily/weekly/monthly) with dataset tagging."
+}

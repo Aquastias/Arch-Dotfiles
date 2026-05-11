@@ -1,0 +1,11 @@
+// Program metadata for borg.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for systemctl writes.
+// Actual repo init and passphrase setup must be done by the user post-boot.
+
+{
+  "name": "borg",
+  "system": false,
+  "description": "Borg encrypted deduplicated backup with Vorta GUI and borgmatic scheduler."
+}
