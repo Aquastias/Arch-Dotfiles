@@ -19,26 +19,26 @@
 #   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
 #   layout_mount_esp      — seam: wraps mount_multi_esps
 #
-# GLOBALS SET:
-#   OS_ESP_PARTS[]         — ESP partitions on OS disks
-#   OS_ZFS_PARTS[]         — ZFS partitions on OS disks (for rpool)
-#   MULTI_OS_DISK          — chosen single OS disk (topology=none only)
-#   MULTI_OS_TOPOLOGY      — resolved topology string
-#   MULTI_LEFTOVER_DISKS[] — OS-list disks folded into dpool (topology=none)
-#   STORAGE_PARTS[name]    — associative: group name → "part1 part2 ..."
-#   RESOLVED_TOPOLOGIES[]  — associative: group name → topology string
+# INTERNAL STATE (do not reference outside this module):
+#   _LAYOUT_IMPL_ESP_PARTS[]         — ESP partitions on OS disks
+#   _LAYOUT_IMPL_ZFS_PARTS[]         — ZFS partitions on OS disks (for rpool)
+#   _LAYOUT_IMPL_OS_DISK          — chosen single OS disk (topology=none only)
+#   _LAYOUT_IMPL_OS_TOPOLOGY      — resolved topology string
+#   _LAYOUT_IMPL_LEFTOVER_DISKS[] — OS-list disks folded into dpool (topology=none)
+#   _LAYOUT_IMPL_STORAGE_PARTS[name]    — associative: group name → "part1 part2 ..."
+#   _LAYOUT_IMPL_TOPOLOGIES[]  — associative: group name → topology string
 # =============================================================================
 
 # shellcheck source=./layout-common.sh
 source "${BASH_SOURCE[0]%/*}/layout-common.sh"
 
-OS_ESP_PARTS=()
-OS_ZFS_PARTS=()
-MULTI_OS_DISK=""
-MULTI_OS_TOPOLOGY=""
-MULTI_LEFTOVER_DISKS=()
-declare -gA STORAGE_PARTS
-declare -gA RESOLVED_TOPOLOGIES
+_LAYOUT_IMPL_ESP_PARTS=()
+_LAYOUT_IMPL_ZFS_PARTS=()
+_LAYOUT_IMPL_OS_DISK=""
+_LAYOUT_IMPL_OS_TOPOLOGY=""
+_LAYOUT_IMPL_LEFTOVER_DISKS=()
+declare -gA _LAYOUT_IMPL_STORAGE_PARTS
+declare -gA _LAYOUT_IMPL_TOPOLOGIES
 
 # =============================================================================
 # OS TOPOLOGY SUGGESTIONS
@@ -119,8 +119,8 @@ resolve_os_topology() {
 
   if [[ -n "$cfg_topo" ]]; then
     # Topology set in config — use it directly without prompting
-    MULTI_OS_TOPOLOGY="$cfg_topo"
-    info "OS topology from config: ${MULTI_OS_TOPOLOGY}"
+    _LAYOUT_IMPL_OS_TOPOLOGY="$cfg_topo"
+    info "OS topology from config: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   else
     # Auto-suggest based on disk count and let user choose
     echo -e "\n  ${BOLD}OS pool — ${cnt} disk(s):${NC}"
@@ -133,17 +133,17 @@ resolve_os_topology() {
     while IFS= read -r line; do opts+=("$line"); done \
       < <(suggest_os_topologies "$cnt")
     pick_option "Choose OS pool topology:" "${opts[@]}"
-    MULTI_OS_TOPOLOGY="$PICK_RESULT"
-    info "OS topology selected: ${MULTI_OS_TOPOLOGY}"
+    _LAYOUT_IMPL_OS_TOPOLOGY="$PICK_RESULT"
+    info "OS topology selected: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   fi
 
   # topology=none: pick one install disk, fold the rest into dpool
-  if [[ "$MULTI_OS_TOPOLOGY" == "none" ]]; then
+  if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
     if ((cnt == 1)); then
       # Only one disk listed — no choice needed
-      MULTI_OS_DISK="${all_os[0]}"
-      MULTI_LEFTOVER_DISKS=()
-      info "Single OS disk (no RAID): ${MULTI_OS_DISK}"
+      _LAYOUT_IMPL_OS_DISK="${all_os[0]}"
+      _LAYOUT_IMPL_LEFTOVER_DISKS=()
+      info "Single OS disk (no RAID): ${_LAYOUT_IMPL_OS_DISK}"
     else
       echo ""
       echo -e "  ${BOLD}Select the disk to install the OS on:${NC}"
@@ -156,17 +156,17 @@ resolve_os_topology() {
         disk_opts+=("${d}  ${s}  ${m}")
       done
       pick_option "Install OS on which disk?" "${disk_opts[@]}"
-      MULTI_OS_DISK="$PICK_RESULT"
+      _LAYOUT_IMPL_OS_DISK="$PICK_RESULT"
 
       # All other listed OS disks become storage leftovers
-      MULTI_LEFTOVER_DISKS=()
+      _LAYOUT_IMPL_LEFTOVER_DISKS=()
       for d in "${all_os[@]}"; do
-        [[ "$d" != "$MULTI_OS_DISK" ]] && MULTI_LEFTOVER_DISKS+=("$d")
+        [[ "$d" != "$_LAYOUT_IMPL_OS_DISK" ]] && _LAYOUT_IMPL_LEFTOVER_DISKS+=("$d")
       done
 
-      info "OS install disk   : ${MULTI_OS_DISK}"
-      ((${#MULTI_LEFTOVER_DISKS[@]} > 0)) &&
-        info "Leftover → dpool  : ${MULTI_LEFTOVER_DISKS[*]}"
+      info "OS install disk   : ${_LAYOUT_IMPL_OS_DISK}"
+      ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)) &&
+        info "Leftover → dpool  : ${_LAYOUT_IMPL_LEFTOVER_DISKS[*]}"
     fi
   fi
 }
@@ -191,7 +191,7 @@ resolve_storage_topologies() {
     topo="$(cfgo ".storage_groups[$i].topology")"
 
     if [[ -n "$topo" ]]; then
-      RESOLVED_TOPOLOGIES["$name"]="$topo"
+      _LAYOUT_IMPL_TOPOLOGIES["$name"]="$topo"
       info "Group '${name}' (${dc} disk(s)): topology '${topo}' (from config)"
     else
       local opts=()
@@ -204,25 +204,25 @@ resolve_storage_topologies() {
         printf "    %s  (%s)\n" "$disk" "$s"
       done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
       pick_option "Choose topology for '${name}':" "${opts[@]}"
-      RESOLVED_TOPOLOGIES["$name"]="$PICK_RESULT"
+      _LAYOUT_IMPL_TOPOLOGIES["$name"]="$PICK_RESULT"
       info "Group '${name}': topology '${PICK_RESULT}' (selected)"
     fi
   done
 
   # ── Leftover OS disks (when topology=none and 2+ OS disks listed) ─────────
-  if ((${#MULTI_LEFTOVER_DISKS[@]} > 0)); then
-    local lc="${#MULTI_LEFTOVER_DISKS[@]}"
+  if ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
+    local lc="${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]}"
     local opts=()
     while IFS= read -r line; do opts+=("$line"); done \
       < <(suggest_storage_topologies "$lc")
     echo -e "\n  ${BOLD}Leftover OS disks → dpool (${lc} disk(s)):${NC}"
-    for d in "${MULTI_LEFTOVER_DISKS[@]}"; do
+    for d in "${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}"; do
       local s
       s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
       printf "    %s  (%s)\n" "$d" "$s"
     done
     pick_option "Choose topology for leftover OS disks in dpool:" "${opts[@]}"
-    RESOLVED_TOPOLOGIES["_leftover"]="$PICK_RESULT"
+    _LAYOUT_IMPL_TOPOLOGIES["_leftover"]="$PICK_RESULT"
     info "Leftover disks topology: ${PICK_RESULT}"
   fi
 }
@@ -235,13 +235,13 @@ partition_os_disks_multi() {
   section "Partitioning OS Disk(s)"
   local esp_sz
   esp_sz="$(layout_resolve_esp_size)"
-  OS_ESP_PARTS=()
-  OS_ZFS_PARTS=()
+  _LAYOUT_IMPL_ESP_PARTS=()
+  _LAYOUT_IMPL_ZFS_PARTS=()
 
   # When topology=none, only the chosen disk goes into rpool
   local rpool_disks=()
-  if [[ "$MULTI_OS_TOPOLOGY" == "none" ]]; then
-    rpool_disks=("$MULTI_OS_DISK")
+  if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
+    rpool_disks=("$_LAYOUT_IMPL_OS_DISK")
   else
     while IFS= read -r d; do rpool_disks+=("$d"); done \
       < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
@@ -257,19 +257,19 @@ partition_os_disks_multi() {
     # p2 — ZFS rpool (rest of disk)
     sgdisk -n2:0:0 -t2:bf00 -c2:"ZFS rpool" "$disk"
     partprobe "$disk"
-    OS_ESP_PARTS+=("$(part_name "$disk" 1)")
-    OS_ZFS_PARTS+=("$(part_name "$disk" 2)")
+    _LAYOUT_IMPL_ESP_PARTS+=("$(part_name "$disk" 1)")
+    _LAYOUT_IMPL_ZFS_PARTS+=("$(part_name "$disk" 2)")
   done
 
   sleep 2
   local i
-  for i in "${!OS_ESP_PARTS[@]}"; do
-    mkfs.fat -F32 -n "EFI$((i + 1))" "${OS_ESP_PARTS[$i]}"
-    info "Formatted ESP $((i + 1)): ${OS_ESP_PARTS[$i]}"
+  for i in "${!_LAYOUT_IMPL_ESP_PARTS[@]}"; do
+    mkfs.fat -F32 -n "EFI$((i + 1))" "${_LAYOUT_IMPL_ESP_PARTS[$i]}"
+    info "Formatted ESP $((i + 1)): ${_LAYOUT_IMPL_ESP_PARTS[$i]}"
   done
   # Publish layout state record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_ESP_PARTS=("${OS_ESP_PARTS[@]}")
+  LAYOUT_ESP_PARTS=("${_LAYOUT_IMPL_ESP_PARTS[@]}")
 }
 
 partition_storage_disks_multi() {
@@ -291,14 +291,14 @@ partition_storage_disks_multi() {
       partprobe "$disk"
       parts+=("$(part_name "$disk" 1)")
     done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-    STORAGE_PARTS["$name"]="${parts[*]}"
+    _LAYOUT_IMPL_STORAGE_PARTS["$name"]="${parts[*]}"
   done
 
   # Leftover OS disks (topology=none, 2+ OS disks listed)
-  if ((${#MULTI_LEFTOVER_DISKS[@]} > 0)); then
+  if ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
     local lparts=()
     local disk
-    for disk in "${MULTI_LEFTOVER_DISKS[@]}"; do
+    for disk in "${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}"; do
       info "Partitioning leftover OS disk → dpool: $disk"
       wipefs -af "$disk"
       sgdisk --zap-all "$disk"
@@ -306,7 +306,7 @@ partition_storage_disks_multi() {
       partprobe "$disk"
       lparts+=("$(part_name "$disk" 1)")
     done
-    STORAGE_PARTS["_leftover"]="${lparts[*]}"
+    _LAYOUT_IMPL_STORAGE_PARTS["_leftover"]="${lparts[*]}"
   fi
 
   sleep 2
@@ -328,9 +328,9 @@ create_multi_rpool() {
   ashift="${ashift:-13}"
 
   local vdev_spec
-  vdev_spec="$(build_vdev_spec "${MULTI_OS_TOPOLOGY}" "${OS_ZFS_PARTS[@]}")"
+  vdev_spec="$(build_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" "${_LAYOUT_IMPL_ZFS_PARTS[@]}")"
 
-  info "Pool: ${pool_name}  topology: ${MULTI_OS_TOPOLOGY}"
+  info "Pool: ${pool_name}  topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   info "vdev: ${vdev_spec}"
 
   # SC2086 (intentional): vdev_spec must be word-split into multiple args
@@ -347,7 +347,7 @@ create_multi_dpool() {
   local sg
   sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local has_left=false
-  [[ -v "STORAGE_PARTS[_leftover]" ]] && has_left=true
+  [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]] && has_left=true
 
   if ((sg == 0)) && ! $has_left; then
     info "No storage groups and no leftover disks — skipping dpool."
@@ -361,9 +361,9 @@ create_multi_dpool() {
   for ((i = 0; i < sg; i++)); do
     local name
     name="$(cfg ".storage_groups[$i].name")"
-    local topo="${RESOLVED_TOPOLOGIES[$name]:-stripe}"
+    local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
     local parts
-    read -ra parts <<<"${STORAGE_PARTS[$name]}"
+    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
     local vs
     vs="$(build_vdev_spec "$topo" "${parts[@]}")"
     # SC2206 (intentional): vs is a single string built from build_vdev_spec
@@ -375,9 +375,9 @@ create_multi_dpool() {
   done
 
   if $has_left; then
-    local topo="${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
+    local topo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
     local parts
-    read -ra parts <<<"${STORAGE_PARTS[_leftover]}"
+    read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
     local vs
     vs="$(build_vdev_spec "$topo" "${parts[@]}")"
     # shellcheck disable=SC2206  # see comment in loop above
@@ -405,13 +405,13 @@ create_multi_dpool() {
     name="$(cfg ".storage_groups[$i].name")"
     local mnt
     mnt="$(cfg ".storage_groups[$i].mount")"
-    local topo="${RESOLVED_TOPOLOGIES[$name]:-stripe}"
+    local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
 
     if [[ "$topo" == "independent" ]]; then
       # Per-disk sub-datasets so each disk can be managed separately
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/${name}"
       local parts
-      read -ra parts <<<"${STORAGE_PARTS[$name]}"
+      read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
       local j
       for j in "${!parts[@]}"; do
         zfs create \
@@ -427,11 +427,11 @@ create_multi_dpool() {
 
   # Dataset(s) for leftover OS disks
   if $has_left; then
-    local topo="${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
+    local topo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
     if [[ "$topo" == "independent" ]]; then
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/extra"
       local parts
-      read -ra parts <<<"${STORAGE_PARTS[_leftover]}"
+      read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
       local j
       for j in "${!parts[@]}"; do
         zfs create \
@@ -457,15 +457,15 @@ mount_multi_esps() {
 
   # Primary ESP (first OS disk) → /boot/efi
   mkdir -p "${MOUNT_ROOT}/boot/efi"
-  mount "${OS_ESP_PARTS[0]}" "${MOUNT_ROOT}/boot/efi"
-  info "Primary ESP: ${OS_ESP_PARTS[0]} → /boot/efi"
+  mount "${_LAYOUT_IMPL_ESP_PARTS[0]}" "${MOUNT_ROOT}/boot/efi"
+  info "Primary ESP: ${_LAYOUT_IMPL_ESP_PARTS[0]} → /boot/efi"
 
   # Secondary ESPs → /boot/efi1, /boot/efi2, ...
   local i
-  for i in $(seq 1 $((${#OS_ESP_PARTS[@]} - 1))); do
+  for i in $(seq 1 $((${#_LAYOUT_IMPL_ESP_PARTS[@]} - 1))); do
     mkdir -p "${MOUNT_ROOT}/boot/efi${i}"
-    mount "${OS_ESP_PARTS[$i]}" "${MOUNT_ROOT}/boot/efi${i}"
-    info "Secondary ESP ${i}: ${OS_ESP_PARTS[$i]} → /boot/efi${i}"
+    mount "${_LAYOUT_IMPL_ESP_PARTS[$i]}" "${MOUNT_ROOT}/boot/efi${i}"
+    info "Secondary ESP ${i}: ${_LAYOUT_IMPL_ESP_PARTS[$i]} → /boot/efi${i}"
   done
 }
 
@@ -483,7 +483,7 @@ layout_plan() {
   LAYOUT_DATA_POOL_NAME=""
   local _sg_count
   _sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
-  if ((_sg_count > 0)) || ((${#MULTI_LEFTOVER_DISKS[@]} > 0)); then
+  if ((_sg_count > 0)) || ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
     # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
     LAYOUT_DATA_POOL_NAME="dpool"
   fi

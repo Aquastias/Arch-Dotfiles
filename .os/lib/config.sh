@@ -277,14 +277,14 @@ print_summary() {
     local op
     op="$(cfg '.os_pool.pool_name')"
     echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
-    echo -e "  ${BOLD}OS pool: ${op}${NC}  topology: ${MULTI_OS_TOPOLOGY}"
+    echo -e "  ${BOLD}OS pool: ${op}${NC}  topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
 
-    if [[ "$MULTI_OS_TOPOLOGY" == "none" ]]; then
+    if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
       local s
-      s="$(lsblk -dno SIZE "$MULTI_OS_DISK" 2>/dev/null || echo '?')"
-      printf "    OS disk  : %s  (%s)\n" "$MULTI_OS_DISK" "$s"
-      ((${#MULTI_LEFTOVER_DISKS[@]} > 0)) &&
-        printf "    → dpool  : %s\n" "${MULTI_LEFTOVER_DISKS[*]}"
+      s="$(lsblk -dno SIZE "$_LAYOUT_IMPL_OS_DISK" 2>/dev/null || echo '?')"
+      printf "    OS disk  : %s  (%s)\n" "$_LAYOUT_IMPL_OS_DISK" "$s"
+      ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)) &&
+        printf "    → dpool  : %s\n" "${_LAYOUT_IMPL_LEFTOVER_DISKS[*]}"
     else
       while IFS= read -r d; do
         local s
@@ -296,7 +296,7 @@ print_summary() {
     local sg
     sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
     local has_left=false
-    [[ -v "STORAGE_PARTS[_leftover]" ]] && has_left=true
+    [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]] && has_left=true
 
     if ((sg > 0)) || $has_left; then
       echo -e "\n  ${BOLD}Data pool: dpool${NC}"
@@ -305,13 +305,13 @@ print_summary() {
         gn="$(cfg ".storage_groups[$i].name")"
         local gm
         gm="$(cfg ".storage_groups[$i].mount")"
-        local gt="${RESOLVED_TOPOLOGIES[$gn]:-?}"
+        local gt="${_LAYOUT_IMPL_TOPOLOGIES[$gn]:-?}"
         printf "    '%-12s  → %-20s  topology: %s\n" "${gn}'" "$gm" "$gt"
       done
       if $has_left; then
         printf "    '%-12s  → %-20s  topology: %s\n" \
           "extra (auto)'" "/data/extra" \
-          "${RESOLVED_TOPOLOGIES[_leftover]:-independent}"
+          "${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
       fi
     fi
   fi

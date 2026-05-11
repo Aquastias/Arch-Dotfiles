@@ -9,8 +9,8 @@
 # ───────────────
 # layout_plan() in the active lib/layout-<mode>.sh MUST populate the three
 # LAYOUT_* variables before returning. Consumers (chroot.sh, finalize.sh) read
-# these and never reference layout-private variables (SINGLE_*, OS_ESP_PARTS,
-# STORAGE_PARTS), so they work with either mode without changes.
+# these and never reference layout-private variables (_LAYOUT_IMPL_*),
+# so they work with either mode without changes.
 #
 #   LAYOUT_ESP_PARTS[]     Resolved ESP partition device paths.
 #                          Index 0 = primary (/boot/efi).

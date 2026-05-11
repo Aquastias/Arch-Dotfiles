@@ -16,22 +16,22 @@
 #   layout_create_pools   — seam: wraps create_single_pools
 #   layout_mount_esp      — seam: wraps mount_single_esp
 #
-# GLOBALS SET:
-#   SINGLE_DISK       — target disk device path
-#   SINGLE_ESP_PART   — partition 1 (ESP, FAT32)
-#   SINGLE_OS_PART    — partition 2 (ZFS rpool)
-#   SINGLE_STOR_PART  — partition 3 (ZFS dpool)
-#   SINGLE_OS_SECTORS — size of the OS partition in 512-byte sectors
+# INTERNAL STATE (do not reference outside this module):
+#   _LAYOUT_IMPL_DISK       — target disk device path
+#   _LAYOUT_IMPL_ESP_PART   — partition 1 (ESP, FAT32)
+#   _LAYOUT_IMPL_OS_PART    — partition 2 (ZFS rpool)
+#   _LAYOUT_IMPL_STOR_PART  — partition 3 (ZFS dpool)
+#   _LAYOUT_IMPL_OS_SECTORS — size of the OS partition in 512-byte sectors
 # =============================================================================
 
 # shellcheck source=./layout-common.sh
 source "${BASH_SOURCE[0]%/*}/layout-common.sh"
 
-SINGLE_DISK=""
-SINGLE_ESP_PART=""
-SINGLE_OS_PART=""
-SINGLE_STOR_PART=""
-SINGLE_OS_SECTORS=0
+_LAYOUT_IMPL_DISK=""
+_LAYOUT_IMPL_ESP_PART=""
+_LAYOUT_IMPL_OS_PART=""
+_LAYOUT_IMPL_STOR_PART=""
+_LAYOUT_IMPL_OS_SECTORS=0
 
 # =============================================================================
 # LAYOUT CALCULATION
@@ -50,19 +50,19 @@ calculate_single_disk_layout() {
 
   section "Calculating Single-Disk Layout"
 
-  SINGLE_DISK="$(cfg '.disk' 'disk')"
-  [[ -b "$SINGLE_DISK" ]] || error "Disk not found: $SINGLE_DISK"
+  _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
+  [[ -b "$_LAYOUT_IMPL_DISK" ]] || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
   # Use blockdev --getsize64 (bytes) for precision — avoids the truncation
   # error from sector-based math on disks that are not exact GiB multiples.
   # Virtual disks from virt-manager are often 1-2 MB short of a round GiB.
   local total_bytes
-  total_bytes="$(blockdev --getsize64 "$SINGLE_DISK")"
+  total_bytes="$(blockdev --getsize64 "$_LAYOUT_IMPL_DISK")"
   local total_mib=$((total_bytes / 1024 / 1024))
   local total_gib=$((total_mib / 1024))
   local ram
   ram="$(ram_gib)"
-  info "Disk: $SINGLE_DISK — ${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
+  info "Disk: $_LAYOUT_IMPL_DISK — ${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
   # ESP size in MiB (parsed from config, default 512M)
   local esp_sz
@@ -154,11 +154,11 @@ calculate_single_disk_layout() {
   fi
 
   # OS partition size in sectors for sgdisk (uses 512-byte sectors)
-  SINGLE_OS_SECTORS=$((os_mib * 1024 * 1024 / 512))
+  _LAYOUT_IMPL_OS_SECTORS=$((os_mib * 1024 * 1024 / 512))
 
   # ── Layout table ──────────────────────────────────────────────────────────
   echo ""
-  echo -e "  ${BOLD}Partition layout — $SINGLE_DISK (${total_mib} MiB):${NC}"
+  echo -e "  ${BOLD}Partition layout — $_LAYOUT_IMPL_DISK (${total_mib} MiB):${NC}"
   printf "    %-5s  %-14s  %s\n" "Part" "Size" "Purpose"
   printf "    %-5s  %-14s  %s\n" "----" "--------------" "-------"
   printf "    %-5s  %-14s  %s\n" "p1" "${esp_sz}" "EFI System Partition (FAT32)"
@@ -173,41 +173,41 @@ calculate_single_disk_layout() {
 
 partition_single_disk() {
   section "Partitioning Single Disk"
-  warn "ALL DATA ON $SINGLE_DISK WILL BE DESTROYED."
+  warn "ALL DATA ON $_LAYOUT_IMPL_DISK WILL BE DESTROYED."
   confirm "Confirm partitioning?"
 
   local esp_sz
   esp_sz="$(layout_resolve_esp_size)"
 
   # Wipe all existing signatures and partition tables
-  wipefs -af "$SINGLE_DISK"
-  sgdisk --zap-all "$SINGLE_DISK"
+  wipefs -af "$_LAYOUT_IMPL_DISK"
+  sgdisk --zap-all "$_LAYOUT_IMPL_DISK"
 
   # GPT partition layout:
   #   1  EFI System Partition  (type ef00 = EFI, FAT32)
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
   #   3  ZFS storage pool      (type bf00)
-  sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$SINGLE_DISK"
-  sgdisk -n2:0:+"${SINGLE_OS_SECTORS}s" -t2:bf00 -c2:"ZFS rpool" "$SINGLE_DISK"
-  sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$SINGLE_DISK"
+  sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$_LAYOUT_IMPL_DISK"
+  sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_SECTORS}s" -t2:bf00 -c2:"ZFS rpool" "$_LAYOUT_IMPL_DISK"
+  sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$_LAYOUT_IMPL_DISK"
 
   # Re-probe so the kernel sees the new partition table
-  partprobe "$SINGLE_DISK"
+  partprobe "$_LAYOUT_IMPL_DISK"
   sleep 2
 
-  SINGLE_ESP_PART="$(part_name "$SINGLE_DISK" 1)"
-  SINGLE_OS_PART="$(part_name "$SINGLE_DISK" 2)"
-  SINGLE_STOR_PART="$(part_name "$SINGLE_DISK" 3)"
+  _LAYOUT_IMPL_ESP_PART="$(part_name "$_LAYOUT_IMPL_DISK" 1)"
+  _LAYOUT_IMPL_OS_PART="$(part_name "$_LAYOUT_IMPL_DISK" 2)"
+  _LAYOUT_IMPL_STOR_PART="$(part_name "$_LAYOUT_IMPL_DISK" 3)"
 
   # ── Publish layout state record ───────────────────────────────────────────
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_ESP_PARTS=("$SINGLE_ESP_PART")
+  LAYOUT_ESP_PARTS=("$_LAYOUT_IMPL_ESP_PART")
 
-  mkfs.fat -F32 -n EFI "$SINGLE_ESP_PART"
+  mkfs.fat -F32 -n EFI "$_LAYOUT_IMPL_ESP_PART"
   info "Partitioned:"
-  info "  ESP     → $SINGLE_ESP_PART"
-  info "  rpool   → $SINGLE_OS_PART"
-  info "  dpool   → $SINGLE_STOR_PART"
+  info "  ESP     → $_LAYOUT_IMPL_ESP_PART"
+  info "  rpool   → $_LAYOUT_IMPL_OS_PART"
+  info "  dpool   → $_LAYOUT_IMPL_STOR_PART"
 }
 
 # =============================================================================
@@ -232,11 +232,11 @@ create_single_pools() {
   mnt="${mnt:-/data}"
 
   # rpool — single partition, no RAID
-  _zpool_create "${rp}" "${ashift}" "${SINGLE_OS_PART}"
+  _zpool_create "${rp}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
   _create_os_datasets "${rp}"
 
   # dpool — the remaining partition; one dataset at the configured mount
-  _zpool_create "${dp}" "${ashift}" "${SINGLE_STOR_PART}"
+  _zpool_create "${dp}" "${ashift}" "${_LAYOUT_IMPL_STOR_PART}"
   zfs create -o mountpoint="${mnt}" "${dp}/storage"
   info "dpool '${dp}' → ${mnt}"
 }
@@ -248,8 +248,8 @@ create_single_pools() {
 mount_single_esp() {
   section "Mounting ESP"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
-  mount "$SINGLE_ESP_PART" "${MOUNT_ROOT}/boot/efi"
-  info "ESP: $SINGLE_ESP_PART → /boot/efi"
+  mount "$_LAYOUT_IMPL_ESP_PART" "${MOUNT_ROOT}/boot/efi"
+  info "ESP: $_LAYOUT_IMPL_ESP_PART → /boot/efi"
 }
 
 # =============================================================================
