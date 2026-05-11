@@ -175,10 +175,9 @@ validate_staging() {
   local target="$1"
   [[ -d "$target/programs" ]] ||
     error "Staging incomplete: ${target}/programs missing."
-  [[ -r "$target/lib/shell-stdlib.sh" ]] ||
-    error "Staging incomplete: ${target}/lib/shell-stdlib.sh missing or unreadable."
-  [[ -d "$target/lib/shell" ]] ||
-    error "Staging incomplete: ${target}/lib/shell/ missing."
-  [[ -r "$target/lib/run-program.sh" ]] ||
-    error "Staging incomplete: ${target}/lib/run-program.sh missing or unreadable."
+  local f
+  for f in "${_STAGED_RUNTIME_FILES[@]}"; do
+    [[ -e "$target/${f}" ]] ||
+      error "Staging incomplete: ${target}/${f} missing."
+  done
 }
