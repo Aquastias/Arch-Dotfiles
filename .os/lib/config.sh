@@ -28,10 +28,9 @@ RESOLVED_HOSTNAME=""
 # =============================================================================
 # MODE SIGNATURES — single source of truth for valid modes
 # =============================================================================
-# Each mode is defined by a "signature": a JSON path whose presence (and,
-# for arrays, non-empty length) marks the config as belonging to that mode.
-# detect_mode() picks a mode by signature; validate_install_context() dispatches
-# to _validation_<mode>() for mode-specific checks.
+# Each mode is defined by a "signature": a JSON path that must be present and
+# non-empty. If multiple signatures match, detect_mode() errors — set 'mode'
+# explicitly instead. validate_install_context() dispatches to _validation_<mode>().
 
 declare -gA _CONFIG_MODE_SIG=(
   [single]=".disk"
@@ -195,9 +194,8 @@ load_config() {
 # =============================================================================
 # MODE DETECTION
 # =============================================================================
-# Picks the mode by signature presence in the config. Each mode in
-# _CONFIG_MODE_SIG defines a JSON path whose presence (or non-empty length,
-# for paths ending in .disks) selects that mode.
+# Picks the mode by signature presence in the config. Returns 0 if the given
+# mode's JSON-path signature resolves to a non-null, non-empty value.
 
 # Returns 0 if the given mode's signature is satisfied by the current config.
 _config_mode_matches() {
@@ -230,17 +228,22 @@ detect_mode() {
     return
   fi
 
-  # Auto-detect: pick the first mode whose signature is satisfied. Order is
-  # significant; iterate the keys deterministically (sorted) so single beats
-  # multi when both signatures could plausibly match.
-  local m
+  # Auto-detect: collect every mode whose signature is satisfied. Ambiguity
+  # (two signatures match) is an explicit error — callers must set 'mode'.
+  local m matched=()
   for m in $(echo "${!_CONFIG_MODE_SIG[@]}" | tr ' ' '\n' | sort); do
-    if _config_mode_matches "$m"; then
-      INSTALL_MODE="$m"
-      info "Auto-detected mode: ${INSTALL_MODE}"
-      return
-    fi
+    _config_mode_matches "$m" && matched+=("$m")
   done
+
+  if ((${#matched[@]} > 1)); then
+    error "Ambiguous config: signatures for [${matched[*]}] all match. Set 'mode' explicitly."
+  fi
+
+  if ((${#matched[@]} == 1)); then
+    INSTALL_MODE="${matched[0]}"
+    info "Auto-detected mode: ${INSTALL_MODE}"
+    return
+  fi
 
   error "Cannot auto-detect mode. Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
 }
