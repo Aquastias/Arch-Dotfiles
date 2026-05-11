@@ -20,29 +20,40 @@
 # FSTAB WRITERS
 # =============================================================================
 
-# Unified fstab writer. Length of LAYOUT_ESP_PARTS picks the format:
-#   N=1: one ESP entry.
-#   N>1: primary + N-1 secondary entries (kept in sync by 95-esp-mirror.hook).
+# Pure fstab generator — no I/O. Args: one or more UUID strings (primary first).
+# Returns fstab content on stdout. Test seam: call directly with fake UUIDs.
+_chroot_fstab_generate() {
+  (($# >= 1)) || { echo "_chroot_fstab_generate: no UUIDs provided" >&2; return 1; }
+  local -a uuids=("$@")
+  local count="${#uuids[@]}"
+  if ((count == 1)); then
+    echo "# EFI System Partition"
+    echo "UUID=${uuids[0]}  /boot/efi  vfat  umask=0077  0 2"
+  else
+    echo "# EFI System Partition — primary"
+    echo "UUID=${uuids[0]}  /boot/efi  vfat  umask=0077  0 2"
+    local i
+    for i in $(seq 1 $((count - 1))); do
+      echo ""
+      echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
+      echo "UUID=${uuids[$i]}  /boot/efi${i}  vfat  umask=0077  0 2"
+    done
+  fi
+  echo ""
+  echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
+}
+
+# Resolves UUIDs from LAYOUT_ESP_PARTS via blkid, delegates to _chroot_fstab_generate,
+# writes result to ${MOUNT_ROOT}/etc/fstab.
 write_fstab() {
   local count="${#LAYOUT_ESP_PARTS[@]}"
   ((count >= 1)) || error "write_fstab: LAYOUT_ESP_PARTS is empty."
-  {
-    if ((count == 1)); then
-      echo "# EFI System Partition"
-      echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
-    else
-      echo "# EFI System Partition — primary ($(basename "${LAYOUT_ESP_PARTS[0]}"))"
-      echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[0]}")  /boot/efi  vfat  umask=0077  0 2"
-      local i
-      for i in $(seq 1 $((count - 1))); do
-        echo ""
-        echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
-        echo "UUID=$(blkid -s UUID -o value "${LAYOUT_ESP_PARTS[$i]}")  /boot/efi${i}  vfat  umask=0077  0 2"
-      done
-    fi
-    echo ""
-    echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
-  } >"${MOUNT_ROOT}/etc/fstab"
+  local -a uuids=()
+  local part
+  for part in "${LAYOUT_ESP_PARTS[@]}"; do
+    uuids+=("$(blkid -s UUID -o value "$part")")
+  done
+  _chroot_fstab_generate "${uuids[@]}" >"${MOUNT_ROOT}/etc/fstab"
   info "fstab written (${count} ESP(s))."
 }
 
