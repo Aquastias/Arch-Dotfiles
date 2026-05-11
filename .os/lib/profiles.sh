@@ -21,9 +21,8 @@
 #
 # Program execution:
 #   Every Program Install Script is invoked via lib/run-program.sh, which
-#   verifies the chroot-side staging, sources Shell Stdlib once, and sources
-#   the install.sh in the same shell. Programs do not need to source stdlib
-#   themselves.
+#   sources Shell Stdlib once and sources the install.sh in the same shell.
+#   Programs do not need to source stdlib themselves.
 #
 # Exports inside arch-chroot for each program install.sh:
 #   OS_DIR, PROGRAMS, SHELL_COMMONS
@@ -32,6 +31,14 @@
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
+# Paths (relative to the runtime root) that constitute a valid staged tree.
+# Both _profiles_stage_runtime and validate_staging iterate this array so the
+# contract lives in one place.
+readonly -a _STAGED_RUNTIME_FILES=(
+  "lib/shell-stdlib.sh"
+  "lib/shell"
+  "lib/run-program.sh"
+)
 
 # =============================================================================
 # INTERNAL HELPERS
@@ -48,10 +55,10 @@ _profiles_stage_runtime() {
   else
     mkdir -p "$target/programs"
   fi
-  cp "${OS_DIR}/lib/shell-stdlib.sh" "$target/lib/shell-stdlib.sh"
-  # Copy shell/ domain modules sourced by shell-stdlib.sh
-  cp -r "${OS_DIR}/lib/shell" "$target/lib/shell"
-  cp "${OS_DIR}/lib/run-program.sh"  "$target/lib/run-program.sh"
+  local f
+  for f in "${_STAGED_RUNTIME_FILES[@]}"; do
+    cp -r "${OS_DIR}/${f}" "$target/${f}"
+  done
   chmod +x "$target/lib/run-program.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
 }
