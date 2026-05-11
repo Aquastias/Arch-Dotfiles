@@ -191,7 +191,9 @@ configure_system() {
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.
     mkdir -p "${MOUNT_ROOT}/root/lib"
-    cp "${SCRIPT_DIR}/lib/common.sh" "${MOUNT_ROOT}/root/lib/common.sh"
+    cp "${SCRIPT_DIR}/lib/common.sh"   "${MOUNT_ROOT}/root/lib/common.sh"
+    cp "${SCRIPT_DIR}/lib/jsonc.sh"    "${MOUNT_ROOT}/root/lib/jsonc.sh"
+    cp "${SCRIPT_DIR}/lib/globals.sh"  "${MOUNT_ROOT}/root/lib/globals.sh"
     mkdir -p "${MOUNT_ROOT}/root/lib/chroot"
     cp "${SCRIPT_DIR}/lib/chroot/extras-common.sh" "${MOUNT_ROOT}/root/lib/chroot/extras-common.sh"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
