@@ -15,6 +15,9 @@ jsonc_strip() {
     "$1" 2>/dev/null
 }
 
+# jsonc FILE → alias for jsonc_strip; retained for callers predating the rename.
+jsonc() { jsonc_strip "$1"; }
+
 # jsonc_read FILE PATH → raw jq read; jq null for missing fields.
 jsonc_read() { jsonc_strip "$1" | jq -r "$2"; }
 
