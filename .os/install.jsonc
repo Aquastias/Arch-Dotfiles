@@ -23,6 +23,10 @@
   // after the chroot is configured. See .scratch/declarative-install-config/
   // PRD.md and CONTEXT.md for the schema.
 
+  // Git URL cloned to ~/.dotfiles and stowed for each user during install.
+  // Leave empty to skip dotfiles deployment.
+  "dotfiles_repo": "",
+
   // ── Options ───────────────────────────────────────────────────────────────
   "options": {
     // "lts" = linux-lts (recommended — always supported by archzfs).

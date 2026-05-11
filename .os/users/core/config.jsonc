@@ -4,15 +4,17 @@
 // dedupe). Scalars in the user config override these.
 //
 // Field reference:
-//   shell     string     Login shell path. Override per user.
-//   sudo      bool       true → user added to wheel group.
-//   groups    string[]   Supplementary groups. wheel is added automatically
-//                        when sudo=true; do not duplicate it here.
-//   programs  string[]   User-level programs (system: false in their config).
+//   shell               string     Login shell path. Override per user.
+//   sudo                bool       true → user added to wheel group.
+//   groups              string[]   Supplementary groups. wheel is added automatically
+//                                  when sudo=true; do not duplicate it here.
+//   programs            string[]   User-level programs (system: false in their config).
+//   ssh_authorized_keys string[]   Public keys written to ~/.ssh/authorized_keys.
 
 {
   "shell": "/bin/bash",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network"],
-  "programs": []
+  "programs": [],
+  "ssh_authorized_keys": []
 }

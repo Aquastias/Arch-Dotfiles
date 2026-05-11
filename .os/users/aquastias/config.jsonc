@@ -6,6 +6,8 @@
 // via `su - <user>`, with temp NOPASSWD sudo for root writes). Each name
 // must resolve to a directory under `.os/programs/<cat>/<name>/` with
 // `system: false` in its config.jsonc.
+//
+// `ssh_authorized_keys` lists public keys written to ~/.ssh/authorized_keys.
 
 {
   "shell": "/bin/bash",
@@ -20,6 +22,7 @@
     "virt-manager",
     "teamspeak3"
   ],
+  "ssh_authorized_keys": [],
   "git": {
     "name": "Mlakar Alexandru Laurian",
     "email": "alexandrumlakar@gmail.com"
