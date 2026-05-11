@@ -452,6 +452,9 @@ print_summary() {
   printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
   printf "  %-16s %s\n" "Encryption:" "$enc"
   printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)"
+  local _dr
+  _dr="$(cfgo '.dotfiles_repo')"
+  [[ -n "$_dr" ]] && printf "  %-16s %s\n" "Dotfiles:" "$_dr"
   echo ""
   warn "ALL DATA ON THE LISTED DISKS WILL BE PERMANENTLY DESTROYED."
   confirm "Proceed with installation?"

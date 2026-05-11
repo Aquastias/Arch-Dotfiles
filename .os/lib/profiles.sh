@@ -197,6 +197,85 @@ su - "$USER_NAME" -c "
 CHROOT_USERPROG
 }
 
+
+_profiles_write_authorized_keys() {
+  local user="$1" json="$2"
+  local -a keys=()
+  mapfile -t keys < <(printf '%s' "$json" | jq -r '.ssh_authorized_keys[]?' 2>/dev/null)
+  ((${#keys[@]} > 0)) || return 0
+  info "Writing authorized_keys for user: ${user}  (${#keys[@]} key(s))"
+  local tmp="${MOUNT_ROOT}/tmp/.authorized_keys_${user}"
+  printf '%s\n' "${keys[@]}" > "$tmp"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "/tmp/.authorized_keys_${user}" <<'CHROOT_AUTHKEYS'
+set -e
+USER_NAME="$1"; KEYS_TMP="$2"
+HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+mkdir -p "${HOME_DIR}/.ssh"
+chmod 700 "${HOME_DIR}/.ssh"
+cp "$KEYS_TMP" "${HOME_DIR}/.ssh/authorized_keys"
+rm -f "$KEYS_TMP"
+chmod 600 "${HOME_DIR}/.ssh/authorized_keys"
+chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.ssh"
+CHROOT_AUTHKEYS
+}
+
+_profiles_enable_system_services() {
+  local prog="$1"
+  local rel config_file
+  rel="$(resolve_program "$prog")"
+  config_file="${OS_DIR}/programs/${rel}/config.jsonc"
+  local -a svcs=()
+  mapfile -t svcs < <(jsonc_strip "$config_file" | jq -r '.system_services[]?' 2>/dev/null)
+  ((${#svcs[@]} > 0)) || return 0
+  local svc
+  for svc in "${svcs[@]}"; do
+    info "Enabling system service: ${svc}"
+    arch-chroot "$MOUNT_ROOT" systemctl enable "$svc"
+  done
+}
+
+_profiles_enable_user_services() {
+  local user="$1" prog="$2"
+  local rel config_file
+  rel="$(resolve_program "$prog")"
+  config_file="${OS_DIR}/programs/${rel}/config.jsonc"
+  local -a svcs=()
+  mapfile -t svcs < <(jsonc_strip "$config_file" | jq -r '.user_services[]?' 2>/dev/null)
+  ((${#svcs[@]} > 0)) || return 0
+  local svc
+  for svc in "${svcs[@]}"; do
+    info "Enabling user service: ${svc}  (user=${user})"
+    arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$svc" <<'CHROOT_USERSVC'
+set -e
+USER_NAME="$1"; SVC="$2"
+HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+SVC_DIR="${HOME_DIR}/.config/systemd/user/default.target.wants"
+mkdir -p "$SVC_DIR"
+SVC_FILE="$(find /usr/lib/systemd/user /usr/local/lib/systemd/user -name "${SVC}.service" 2>/dev/null | head -1)"
+if [[ -z "$SVC_FILE" ]]; then
+  echo "  [user-service] ${SVC}.service not found — skipping" >&2
+  exit 0
+fi
+ln -sf "$SVC_FILE" "${SVC_DIR}/${SVC}.service"
+chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.config/systemd"
+CHROOT_USERSVC
+  done
+}
+
+_profiles_clone_dotfiles() {
+  local user="$1" repo="$2"
+  [[ -n "$repo" ]] || return 0
+  info "Cloning dotfiles for user: ${user}  (${repo})"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$repo" <<'CHROOT_DOTFILES'
+set -e
+USER_NAME="$1"; REPO="$2"
+CLONE_SCRIPT="$(mktemp)"
+printf 'set -e\nDOTFILES="${HOME}/.dotfiles"\nif [[ -d "$DOTFILES" ]]; then echo "  dotfiles dir exists — skipping" >&2; exit 0; fi\ngit clone "%s" "$DOTFILES"\ncd "$DOTFILES"\nstow --no-folding */\n' "$REPO" > "$CLONE_SCRIPT"
+su - "$USER_NAME" -c "bash '$CLONE_SCRIPT'"
+rm -f "$CLONE_SCRIPT"
+CHROOT_DOTFILES
+}
+
 # =============================================================================
 # PUBLIC ENTRY POINT
 # =============================================================================
@@ -275,17 +354,22 @@ run_profiles() {
     fi
   done
 
+  local dotfiles_repo
+  dotfiles_repo="$(cfgo '.dotfiles_repo')"
+
   # ── Stage runtime, validate it, create users, install programs ───────────
   _profiles_stage_runtime
   _profiles_validate_staging
 
   for u in "${users[@]}"; do
     _profiles_create_user "$u" "${USER_JSONS[$u]}"
+    _profiles_write_authorized_keys "$u" "${USER_JSONS[$u]}"
   done
 
   local prog
   for prog in "${sys_progs[@]}"; do
     _profiles_install_system_program "$prog"
+    _profiles_enable_system_services "$prog"
   done
 
   for u in "${users[@]}"; do
@@ -303,13 +387,16 @@ run_profiles() {
     fi
     for prog in "${uprogs[@]}"; do
       _profiles_install_user_program "$u" "$prog"
+      _profiles_enable_user_services "$u" "$prog"
     done
     _profiles_revoke_temp_sudo
   done
 
   # Re-apply full group memberships now that package-created groups exist.
+  # Then clone dotfiles and stow for each user.
   for u in "${users[@]}"; do
     _profiles_apply_user_groups "$u" "${USER_JSONS[$u]}"
+    _profiles_clone_dotfiles "$u" "$dotfiles_repo"
   done
 
   _profiles_cleanup
