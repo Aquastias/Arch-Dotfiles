@@ -192,7 +192,7 @@ configure_system() {
   local rpool swap esp_count
   local do_backup do_security
 
-  # Hostname was already prompted (if needed) and validated in validate_config().
+  # Hostname was already prompted (if needed) and validated in validate_install_context().
   # Use the resolved value directly — no second prompt.
   hostname="$RESOLVED_HOSTNAME"
   locale="$(cfg '.system.locale')"

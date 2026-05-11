@@ -17,7 +17,7 @@
 #   - Program not found / system flag mismatch → hard error
 #     (validation lives in lib/configs.sh and runs before any side effects).
 #   - Staged runtime missing pieces   → hard error (caught by
-#     _profiles_validate_staging before any program runs).
+#     validate_staging before any program runs).
 #
 # Program execution:
 #   Every Program Install Script is invoked via lib/run-program.sh, which
@@ -56,20 +56,6 @@ _profiles_stage_runtime() {
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
 }
 
-# Verify the staged tree is complete before invoking any install.sh. Catches
-# partial copies / I/O failures early so the first program doesn't fail with
-# an opaque "stdlib not found" error mid-execution.
-_profiles_validate_staging() {
-  local target="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
-  [[ -d "$target/programs" ]] ||
-    error "Staging incomplete: ${target}/programs missing."
-  [[ -r "$target/lib/shell-stdlib.sh" ]] ||
-    error "Staging incomplete: ${target}/lib/shell-stdlib.sh missing or unreadable."
-  [[ -d "$target/lib/shell" ]] ||
-    error "Staging incomplete: ${target}/lib/shell/ missing."
-  [[ -r "$target/lib/run-program.sh" ]] ||
-    error "Staging incomplete: ${target}/lib/run-program.sh missing or unreadable."
-}
 
 # Remove the staged runtime tree and any leftover sudoers drop-ins.
 # Idempotent — safe to call from finalize and from error traps.
@@ -322,21 +308,10 @@ run_profiles() {
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
   mapfile -t sys_progs < <(printf '%s' "$host_json" | jq -r '.system_programs[]?')
 
-  # ── Validation ────────────────────────────────────────────────────────────
-  # Every user referenced by the host config must have a directory.
-  local u
-  for u in "${users[@]}"; do
-    [[ -d "${OS_DIR}/users/${u}" ]] ||
-      error "Host config references user '${u}' but ${OS_DIR}/users/${u}/ does not exist."
-  done
-
-  # All host-level programs must exist and be marked system: true.
-  if ((${#sys_progs[@]} > 0)); then
-    validate_programs "true" "${sys_progs[@]}" || error "Host config references invalid system programs."
-  fi
-
-  # Pre-load every user config and validate their program lists.
+  # Pre-load user configs for install execution.
+  # Program contract validation was done by validate_install_context.
   declare -A USER_JSONS=()
+  local u
   for u in "${users[@]}"; do
     local uj urc=0
     uj="$(load_user_config "$u" 2>/dev/null)" || urc=$?
@@ -346,12 +321,6 @@ run_profiles() {
     3) error "User '${u}' is named 'core' (reserved)." ;;
     *) error "Unexpected return code ${urc} from load_user_config for '${u}'." ;;
     esac
-
-    local -a uprogs=()
-    mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" | jq -r '.programs[]?')
-    if ((${#uprogs[@]} > 0)); then
-      validate_programs "false" "${uprogs[@]}" || error "User '${u}' config references invalid user programs."
-    fi
   done
 
   local dotfiles_repo
@@ -359,7 +328,7 @@ run_profiles() {
 
   # ── Stage runtime, validate it, create users, install programs ───────────
   _profiles_stage_runtime
-  _profiles_validate_staging
+  validate_staging "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
 
   for u in "${users[@]}"; do
     _profiles_create_user "$u" "${USER_JSONS[$u]}"

@@ -36,6 +36,7 @@
 #   lib/configs.sh       — host/user config loader+merger (host/user core)
 #   lib/profiles.sh      — runs after configure_system: creates users,
 #                          installs system + user programs from host/user configs
+#   lib/validation.sh    — single seam for all config contract checks
 #   lib/finalize.sh      — unmount, pool export, completion summary
 # =============================================================================
 
@@ -120,6 +121,7 @@ source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles.sh"
+source_module "${SCRIPT_DIR}/lib/validation.sh"
 source_module "${SCRIPT_DIR}/lib/finalize.sh"
 
 # =============================================================================
@@ -153,15 +155,8 @@ main() {
   # ── Config phase ──────────────────────────────────────────────────────────
   load_config
   detect_mode
-  validate_config
-
-  # ── Program pre-flight ───────────────────────────────────────────────────
-  # Validate all program references before any disk operations. OS_DIR is set
-  # here so configs_build_registry can scan programs/ on the live system.
   export OS_DIR="${SCRIPT_DIR}"
-  configs_build_registry
-  configs_preflight_programs "$RESOLVED_HOSTNAME" ||
-    error "Program pre-flight failed. Fix configs before re-running."
+  validate_install_context
 
   source_module "${SCRIPT_DIR}/lib/layout-${INSTALL_MODE}.sh"
 
