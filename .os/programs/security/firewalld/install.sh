@@ -31,8 +31,6 @@ sudo systemctl enable firewalld
 print_status info "Seeding zone '${ZONE}' rules..."
 sudo firewall-offline-cmd --zone="${ZONE}" --add-service=dhcp
 sudo firewall-offline-cmd --zone="${ZONE}" --add-service=dns
-sudo firewall-offline-cmd --zone="${ZONE}" --add-service=http
-sudo firewall-offline-cmd --zone="${ZONE}" --add-service=https
 sudo firewall-offline-cmd --zone="${ZONE}" --add-interface="${BRIDGE_IF}"
 sudo firewall-offline-cmd --zone="${ZONE}" --add-masquerade
 sudo firewall-offline-cmd --direct --add-rule ipv4 nat POSTROUTING 0 \

@@ -5,8 +5,9 @@
 # Invoked by .os/lib/profiles.sh inside arch-chroot, as the owning user, with
 # OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
 #
-# Installs ufw via paru and seeds default policies + libvirt bridge rules +
-# NAT masquerading. Aborts if firewalld is installed (mutually exclusive).
+# Installs ufw via paru and seeds default policies + host-level rules +
+# libvirt bridge rules + NAT masquerading. Aborts if firewalld is installed
+# (mutually exclusive).
 # =============================================================================
 
 set -Eeuo pipefail
@@ -23,17 +24,27 @@ paru -S --noconfirm --needed ufw
 print_status info "Resetting UFW to defaults..."
 sudo ufw --force reset
 
-print_status info "Setting default policy: deny incoming, allow outgoing..."
+print_status info "Setting default policies..."
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
+sudo ufw default deny forward
+
+print_status info "Adding host-level rules..."
+sudo ufw limit ssh                              comment 'SSH (rate-limited)'
+sudo ufw allow in to any port 5353 proto udp   comment 'mDNS/Avahi'
+sudo ufw allow in to any port 68 proto udp     comment 'DHCP client'
+
+if pacman -Qq sddm &>/dev/null || pacman -Qq plasma-desktop &>/dev/null; then
+  print_status info "KDE detected — adding KDE Connect rules..."
+  sudo ufw allow 1714:1764/tcp comment 'KDE Connect'
+  sudo ufw allow 1714:1764/udp comment 'KDE Connect'
+fi
 
 print_status info "Adding rules for libvirt (DHCP, DNS, virbr0 bridge)..."
 sudo ufw allow out 67,68/udp comment 'Allow DHCP for VMs'
 sudo ufw allow out 53/udp    comment 'Allow DNS for VMs'
 sudo ufw allow in on virbr0  comment 'Allow incoming VM traffic'
 sudo ufw allow out on virbr0 comment 'Allow outgoing VM traffic'
-sudo ufw allow http
-sudo ufw allow https
 
 print_status info "Adding NAT masquerading for libvirt VMs..."
 

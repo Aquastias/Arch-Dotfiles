@@ -23,6 +23,12 @@ RKHUNTER_SERVICES="${PROGRAMS}/security/rkhunter/services"
 print_status info "Installing rkhunter and required tools..."
 paru -S --noconfirm --needed rkhunter unhide
 
+print_status info "Updating rkhunter malware database..."
+sudo rkhunter --update || true
+
+print_status info "Building file properties baseline..."
+sudo rkhunter --propupd
+
 print_status info "Copying configurations..."
 sudo install -o root -g root -m 644 "$RKHUNTER_CONFIGS/rkhunter.conf" /etc/rkhunter.conf
 
