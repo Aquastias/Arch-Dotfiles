@@ -13,9 +13,9 @@
 #
 # Pipeline contract
 # ─────────────────
-# validate_config() (lib/config.sh) calls all three in order. Callers that
+# validate_install_context() (lib/validation.sh) calls all three in order. Callers that
 # use GPU_PACMAN_PACKAGES, GPU_PARU_PACKAGES, or AUDIO_PACKAGES must call
-# validate_config() first — collect_packages() in lib/packages.sh enforces this.
+# validate_install_context() first — collect_packages() in lib/packages.sh enforces this.
 # =============================================================================
 
 # ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────

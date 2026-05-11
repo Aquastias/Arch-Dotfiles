@@ -9,20 +9,18 @@
 #   generate_template  — writes a documented install.json template and exits
 #   load_config        — validates the config file exists and is valid JSON
 #   detect_mode        — sets INSTALL_MODE from config or auto-detects
-#   validate_config    — checks all required fields and disk paths exist
 #   print_summary      — prints the installation plan and asks for confirmation
 #
 # Adding a new mode:
 #   1. add an entry to _CONFIG_MODE_SIG below (mode → defining JSON path),
-#   2. add a per-mode validator: _validate_<mode>(),
-#   3. drop a lib/layout-<mode>.sh implementing the layout interface.
+#   2. drop a lib/layout-<mode>.sh implementing the layout interface.
 # =============================================================================
 
 # shellcheck source=./environment.sh
 source "${BASH_SOURCE[0]%/*}/environment.sh"
 
 # =============================================================================
-# RESOLVED GLOBALS — set during validate_config, consumed by configure_system
+# RESOLVED GLOBALS — set during validate_install_context, consumed by configure_system
 # =============================================================================
 RESOLVED_HOSTNAME=""
 
@@ -32,8 +30,8 @@ RESOLVED_HOSTNAME=""
 # =============================================================================
 # Each mode is defined by a "signature": a JSON path whose presence (and,
 # for arrays, non-empty length) marks the config as belonging to that mode.
-# detect_mode() picks a mode by signature; validate_config() dispatches to
-# _validate_<mode>() for mode-specific checks.
+# detect_mode() picks a mode by signature; validate_install_context() dispatches
+# to _validation_<mode>() for mode-specific checks.
 
 declare -gA _CONFIG_MODE_SIG=(
   [single]=".disk"
@@ -245,89 +243,6 @@ detect_mode() {
   done
 
   error "Cannot auto-detect mode. Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
-}
-
-# =============================================================================
-# VALIDATION
-# =============================================================================
-
-# System fields required regardless of mode. Prompts for hostname if blank,
-# validates it against RFC 1123, and stores it in RESOLVED_HOSTNAME for
-# configure_system().
-_validate_system_fields() {
-  local hostname
-  hostname="$(cfgo '.system.hostname')"
-  if [[ -z "$hostname" ]]; then
-    while true; do
-      read -rp "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" hostname </dev/tty
-      [[ -n "$hostname" ]] && break
-      warn "Hostname cannot be empty."
-    done
-    info "Hostname: ${hostname}"
-  fi
-  [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
-    error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
-  # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
-  RESOLVED_HOSTNAME="$hostname"
-  cfg '.system.locale' 'system.locale'
-  cfg '.system.timezone' 'system.timezone'
-}
-
-_validate_single() {
-  local d
-  d="$(cfg '.disk' 'disk')"
-  [[ -b "$d" ]] || error "Single disk not found: $d"
-}
-
-_validate_multi() {
-  local topo
-  topo="$(cfgo '.os_pool.topology')"
-  if [[ -n "$topo" ]]; then
-    case "$topo" in
-    mirror | stripe | none) ;;
-    *) error "os_pool.topology must be mirror | stripe | none, got: '${topo}'" ;;
-    esac
-  fi
-
-  local cnt
-  cnt="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
-  ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
-
-  local d
-  while IFS= read -r d; do
-    [[ -b "$d" ]] || error "OS disk not found: $d"
-  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
-
-  local sg gname gdc
-  sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
-  for ((i = 0; i < sg; i++)); do
-    gname="$(cfg ".storage_groups[$i].name")"
-    gdc="$(jsonc_strip "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
-    ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
-    while IFS= read -r d; do
-      [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
-    done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-  done
-}
-
-validate_config() {
-  section "Validating Config"
-  _validate_system_fields
-
-  # Dispatch to the per-mode validator. INSTALL_MODE was already restricted
-  # to known modes by detect_mode, so this is exhaustive by construction.
-  local validator="_validate_${INSTALL_MODE}"
-  if declare -F "$validator" >/dev/null; then
-    "$validator"
-  else
-    error "No validator for mode '${INSTALL_MODE}' (expected function ${validator})."
-  fi
-
-  validate_environment
-  resolve_gpu_packages
-  resolve_audio_packages
-
-  info "Config valid."
 }
 
 
