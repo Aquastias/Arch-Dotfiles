@@ -73,3 +73,18 @@ Vendor → package mapping:
 
 ### Display Manager
 Auto-selected by each Desktop Environment Adapter based on the full resolved desktop array — not a config key. KDE-only or KDE+Hyprland → SDDM (enabled by the KDE adapter). Hyprland-only → greetd + greetd-tuigreet (enabled by the Hyprland adapter, config written to `/etc/greetd/config.toml`).
+
+### User Secrets
+SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains sensitive per-user data: `password`, `ssh_identity_private_key`, and `ssh_identity_key_type` (`ed25519` | `rsa` | `ecdsa`; defaults to `ed25519`). Values are encrypted (keys remain plaintext). Optional — if absent, user password defaults to `12345` and no SSH identity is deployed. Parallel to User Config; read by the Secrets Module at install time and consumed by user creation and SSH provisioning. Not merged with User Core — secrets are always user-specific.
+
+### Host Secrets
+SOPS-encrypted JSON file at `.os/hosts/<hostname>/secrets.json`. Contains `root_password` for the host. Parallel to Host Config; read by the Secrets Module at install time and consumed by root password provisioning. Optional — if absent, root password falls back to interactive prompt.
+
+### Secrets Module
+`lib/secrets.sh`. Runs immediately after config load in `03-install.sh`. Locates the passphrase-encrypted age key file (scans removable devices for `/age/key.age`), prompts for its passphrase, decrypts all User Secrets and Host Secrets to a tmpfs, and writes the tmpfs paths into `install-state.json` for consumption by chroot scripts. Unmounts the key device and clears the tmpfs after the chroot phase completes.
+
+### Machine Age Key
+Age private key stored at `/etc/secrets/age/keys.txt` on the installed system. Derived at install time from the machine's `ssh_host_ed25519_key` via `ssh-to-age`. Used exclusively by the SOPS Runtime Service for boot-time decryption. Must be added as a recipient in `.sops.yaml` and secrets re-encrypted via `sops updatekeys` after first install.
+
+### SOPS Runtime Service
+Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all SOPS-encrypted secret files using the Machine Age Key, and sets declared ownership and permissions. Programs that need runtime secrets reference `/run/secrets/<name>` paths.

@@ -109,6 +109,114 @@ Remove the installation media when prompted.
 
 ---
 
+
+## Secrets Management (SOPS)
+
+Secrets are optional. Without any `secrets.json` files the installer works exactly as before — user passwords default to `12345` (changed on first login) and no SSH identity is deployed.
+
+### Prerequisites (operator machine)
+
+```bash
+pacman -S age sops        # or: brew install age sops
+```
+
+### 1. Generate your age key
+
+```bash
+age-keygen -o age-key.txt
+# Public key is printed to stdout: age1...
+# Keep this public key — it goes in .sops.yaml
+```
+
+Encrypt the key with a passphrase so it is safe to carry on a USB stick:
+
+```bash
+age -p -o age-key.age age-key.txt
+rm age-key.txt            # keep only the encrypted copy
+```
+
+### 2. Copy the key to your install USB
+
+The installer scans removable devices for a file at `/age/key.age`:
+
+```bash
+mount /dev/sdX1 /mnt/usb
+mkdir -p /mnt/usb/age
+cp age-key.age /mnt/usb/age/key.age
+```
+
+### 3. Configure `.sops.yaml`
+
+Create `.sops.yaml` at the repo root, listing your age public key as recipient:
+
+```yaml
+creation_rules:
+  - path_regex: .os/(users|hosts)/.*secrets.json$
+    age: "age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+Replace the `age1...` value with the public key printed in step 1.
+
+### 4. Create secrets files
+
+```bash
+# User secrets
+sops .os/users/<username>/secrets.json
+```
+
+Add content (values are encrypted on save; keys remain plaintext):
+
+```json
+{
+    "password": "your-real-password",
+    "ssh_identity_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\n...",
+    "ssh_identity_key_type": "ed25519"
+}
+```
+
+```bash
+# Host secrets (root password)
+sops .os/hosts/<hostname>/secrets.json
+```
+
+```json
+{
+    "root_password": "your-real-root-password"
+}
+```
+
+### 5. Install
+
+Plug in the USB carrying `age-key.age` **before** running `./install.sh`. The Secrets Module will find the key, prompt for its passphrase, decrypt secrets, and proceed. At the end of the install, the machine's age public key is printed:
+
+```
+==> Machine age public key: age1yyyyyy...
+==> Add it to .sops.yaml and run: sops updatekeys .os/users/*/secrets.json .os/hosts/*/secrets.json
+```
+
+### 6. Add the machine key and re-encrypt
+
+```yaml
+# .sops.yaml — add the machine key alongside yours
+creation_rules:
+  - path_regex: .os/(users|hosts)/.*secrets.json$
+    age: |
+      age1xxxxxx...   # your personal key
+      age1yyyyyy...   # machine key (from install output)
+```
+
+```bash
+sops updatekeys .os/users/<username>/secrets.json
+sops updatekeys .os/hosts/<hostname>/secrets.json
+git add .sops.yaml .os/users/<username>/secrets.json .os/hosts/<hostname>/secrets.json
+git commit -m "secrets: add machine age key for <hostname>"
+```
+
+After this commit, the runtime SOPS service on the machine can decrypt secrets on every boot without the USB.
+
+---
+
+
 ## File Layout
 
 ```
