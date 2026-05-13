@@ -1,0 +1,13 @@
+[Unit]
+Description=Valkey for SearXNG
+After=network.target
+
+[Container]
+Image=docker.io/valkey/valkey:alpine
+Network=searxng.network
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

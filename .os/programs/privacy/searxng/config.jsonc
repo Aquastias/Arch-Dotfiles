@@ -1,14 +1,15 @@
 // Program metadata for searxng.
 //
 // system=false → installed by the profile runner inside the chroot as the
-// owning user via paru (with temp NOPASSWD sudo for /usr/local writes and
-// systemctl enable). Bundled settings.yml seeds the SearxNG container
-// config; update.sh is a re-runnable post-boot helper. docker compose
-// pull/up cannot run inside the unbooted chroot — the systemd unit is
-// enabled and starts containers on first boot.
+// owning user via paru, with temp NOPASSWD sudo for /var/lib/systemd/linger
+// write.
+// Requires podman to be declared before searxng in the user programs list.
+// Quadlet units (.container/.network) are stowed from dotfiles and picked up
+// by the user systemd generator at boot; container images are pulled on first
+// start.
 
 {
   "name": "searxng",
   "system": false,
-  "description": "Privacy-respecting metasearch engine running via searxng-docker."
+  "description": "Privacy-respecting metasearch engine running via rootless podman quadlets, bound to 127.0.0.1:8080"
 }

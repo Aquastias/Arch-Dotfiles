@@ -1,0 +1,16 @@
+[Unit]
+Description=SearXNG metasearch engine
+After=network.target valkey.service
+
+[Container]
+Image=docker.io/searxng/searxng:latest
+Network=searxng.network
+PublishPort=127.0.0.1:8080:8080
+Volume=%h/.config/searxng:/etc/searxng:ro
+Environment=SEARXNG_BASE_URL=http://localhost:8080/
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
