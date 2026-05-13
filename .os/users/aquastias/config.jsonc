@@ -20,7 +20,9 @@
     "rkhunter",
     "docker",
     "virt-manager",
-    "teamspeak3"
+    "teamspeak3",
+    "podman",
+    "searxng"
   ],
   "ssh_authorized_keys": [],
   "git": {

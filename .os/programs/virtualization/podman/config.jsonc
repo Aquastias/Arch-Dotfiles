@@ -1,0 +1,14 @@
+// Program metadata for podman.
+//
+// system=false → installed by the profile runner inside the chroot as the
+// owning user via paru, with temp NOPASSWD sudo for usermod (subuid/subgid
+// entries if missing).
+// Rootless podman; no group membership required. Quadlet units in
+// ~/.config/containers/systemd/ are picked up by the user systemd generator
+// automatically at boot.
+
+{
+  "name": "podman",
+  "system": false,
+  "description": "Rootless OCI container runtime with systemd quadlet support via fuse-overlayfs and slirp4netns"
+}

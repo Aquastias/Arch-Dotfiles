@@ -2,34 +2,19 @@
 # =============================================================================
 # programs/privacy/searxng/update.sh
 # =============================================================================
-# Re-runnable helper for an already-installed SearxNG container stack.
-# Invoke after first boot, not during chroot install (docker daemon is not
-# running inside the chroot). Sources shell-stdlib.sh for print_status /
-# package_installed.
+# Re-runnable post-boot helper. Pulls new images and restarts quadlet units.
+# Run manually or via the searxng-update@.timer.
 # =============================================================================
 
 set -Eeuo pipefail
 trap 'echo "[searxng:update] error on line $LINENO" >&2' ERR
 
-# shellcheck source=/dev/null
-source "${SHELL_COMMONS}/shell-stdlib.sh"
-
-if ! package_installed "docker"; then
-  print_status error "Docker not found. Please make sure Docker is installed and in your PATH."
+if ! command -v podman &>/dev/null; then
+  echo "[searxng:update] error: podman not found" >&2
   exit 1
 fi
 
-docker_src=$(command -v docker)
-if [[ ! -L "/usr/local/bin/docker" ]]; then
-  ln -s "$docker_src" "/usr/local/bin/docker"
-fi
+podman pull docker.io/searxng/searxng:latest
+podman pull docker.io/valkey/valkey:alpine
 
-if [[ -d "/usr/local/searxng-docker" ]]; then
-  cd "/usr/local/searxng-docker"
-  git pull
-  docker compose pull
-  docker compose up -d
-else
-  print_status error "SearxNG Docker repo has not been cloned on this host."
-  exit 1
-fi
+systemctl --user restart valkey.service searxng.service

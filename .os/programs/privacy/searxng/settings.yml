@@ -12,4 +12,4 @@ ui:
   hotkeys: 'vim'
   static_use_hash: true
 redis:
-  url: redis://redis:6379/0
+  url: redis://valkey:6379/0
