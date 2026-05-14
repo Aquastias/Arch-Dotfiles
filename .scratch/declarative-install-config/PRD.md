@@ -1,6 +1,6 @@
 # PRD: Declarative Install Config Layer
 
-Status: ready-for-human
+Status: done
 Category: enhancement
 
 ## Problem Statement

@@ -1,6 +1,6 @@
 # PRD: Environment Selection (Desktop, GPU, Audio)
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Problem Statement

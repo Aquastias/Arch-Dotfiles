@@ -1,6 +1,6 @@
 # Shellcheck baseline across .os/
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

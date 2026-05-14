@@ -1,6 +1,6 @@
 # Port shell-stdlib into .os/lib/
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

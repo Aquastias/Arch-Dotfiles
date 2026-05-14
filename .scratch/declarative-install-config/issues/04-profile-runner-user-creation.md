@@ -1,6 +1,6 @@
 # Profile runner — user creation
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

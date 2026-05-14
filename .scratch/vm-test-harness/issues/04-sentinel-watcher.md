@@ -1,6 +1,6 @@
 # Sentinel watcher module
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

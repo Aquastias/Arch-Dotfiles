@@ -1,6 +1,6 @@
 # Environment Runner + KDE Desktop Environment Adapter update
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

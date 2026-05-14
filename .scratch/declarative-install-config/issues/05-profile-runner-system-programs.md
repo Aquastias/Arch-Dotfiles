@@ -1,6 +1,6 @@
 # Profile runner — system program install
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

@@ -1,6 +1,6 @@
 # PRD: VM Test Harness for Installer
 
-Status: ready-for-human
+Status: done
 Category: enhancement
 
 ## Problem Statement
