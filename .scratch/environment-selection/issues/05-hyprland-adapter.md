@@ -1,6 +1,6 @@
 # Hyprland Desktop Environment Adapter
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

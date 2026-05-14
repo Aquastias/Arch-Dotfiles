@@ -1,6 +1,6 @@
 # Migrate privacy category into .os/programs/
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

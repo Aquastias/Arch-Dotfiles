@@ -1,6 +1,6 @@
 # Profile runner — user program install + paru bootstrap
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent

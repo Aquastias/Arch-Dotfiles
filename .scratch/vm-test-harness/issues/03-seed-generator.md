@@ -1,6 +1,6 @@
 # Cloud-init seed generator module
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Parent
