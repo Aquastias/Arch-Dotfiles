@@ -37,9 +37,9 @@ collect_packages() {
   # Output: one package name per line, sorted and deduplicated.
 
   # Precondition: GPU_PACMAN_PACKAGES and AUDIO_PACKAGES must be resolved.
-  [[ -v GPU_PACMAN_PACKAGES ]] ||
+  declare -p GPU_PACMAN_PACKAGES &>/dev/null ||
     error "collect_packages: GPU_PACMAN_PACKAGES not set — call validate_install_context() first"
-  [[ -v AUDIO_PACKAGES ]] ||
+  declare -p AUDIO_PACKAGES &>/dev/null ||
     error "collect_packages: AUDIO_PACKAGES not set — call validate_install_context() first"
 
   # ── Kernel selection ──────────────────────────────────────────────────────
