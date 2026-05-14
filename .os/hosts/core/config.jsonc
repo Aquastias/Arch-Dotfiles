@@ -12,5 +12,5 @@
 
 {
   "users": [],
-  "system_programs": []
+  "system_programs": ["sops"]
 }
