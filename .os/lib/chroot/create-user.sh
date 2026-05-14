@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # lib/chroot/create-user.sh — Create or update a system user.
-# Args: NAME LOGIN_SHELL GROUPS_CSV PASSWORD
+# Args: NAME LOGIN_SHELL GROUPS_CSV PASSWORD [SECRETS_FILE]
 # Run inside arch-chroot by profiles.sh::_profiles_create_user().
 set -Eeuo pipefail
 trap 'echo "[chroot:create-user] failed at line $LINENO" >&2' ERR
 
 NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
+SECRETS_FILE="${5:-}"
 
 # Groups like docker/libvirt/kvm are created by their packages, installed
 # later.  Filter to only groups that currently exist; the remainder are
@@ -36,4 +37,10 @@ else
     useradd -m -s "$LOGIN_SHELL" "$NAME"
   fi
 fi
+
+if [[ -n "$SECRETS_FILE" && -f "$SECRETS_FILE" ]]; then
+  sec_pw="$(jq -r '.password // empty' "$SECRETS_FILE")"
+  [[ -n "$sec_pw" ]] && PASSWORD="$sec_pw"
+fi
+
 printf '%s:%s\n' "$NAME" "$PASSWORD" | chpasswd
