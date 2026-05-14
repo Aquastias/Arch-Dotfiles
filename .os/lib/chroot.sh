@@ -164,6 +164,16 @@ collect_passwords() {
   printf '%s' "$result"
 }
 
+_chroot_resolve_host_secrets() {
+  local host_state="${MOUNT_ROOT}/install-state.json"
+  [[ -f "$host_state" ]] || return 0
+  local raw_path
+  raw_path="$(jq -r '.secrets.host // empty' "$host_state")"
+  [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
+  cp "$raw_path" "${MOUNT_ROOT}/root/lib-chroot/host-secrets.json"
+  printf '%s' "/root/lib-chroot/host-secrets.json"
+}
+
 configure_system() {
   section "Configuring System (arch-chroot)"
 
@@ -275,5 +285,9 @@ configure_system() {
     > "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
-  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" ROOT_PW="$root_pw" arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
+  local _host_sec_path
+  _host_sec_path="$(_chroot_resolve_host_secrets)"
+  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" ROOT_PW="$root_pw" \
+    HOST_SECRETS_FILE="$_host_sec_path" \
+    arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }

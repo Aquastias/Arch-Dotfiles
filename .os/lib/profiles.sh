@@ -81,6 +81,19 @@ resolve_user_groups() {
   '
 }
 
+_profiles_resolve_user_secrets() {
+  local name="$1"
+  local host_state="${MOUNT_ROOT}/install-state.json"
+  [[ -f "$host_state" ]] || return 0
+  local raw_path
+  raw_path="$(jq -r --arg n "$name" '.secrets.users[$n] // empty' "$host_state")"
+  [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
+  local chroot_dir="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets"
+  mkdir -p "$chroot_dir"
+  cp "$raw_path" "${chroot_dir}/${name}-secrets.json"
+  printf '%s' "${_PROFILES_RUNTIME_DIR}/secrets/${name}-secrets.json"
+}
+
 _profiles_create_user() {
   local name="$1" json="$2"
   local shell sudo_flag groups_csv
@@ -88,8 +101,10 @@ _profiles_create_user() {
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
   groups_csv="$(resolve_user_groups "$json")"
   info "Creating user: ${name}  (shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
+  local sec_path
+  sec_path="$(_profiles_resolve_user_secrets "$name")"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash /root/lib-chroot/create-user.sh \
-    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD"
+    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" ${sec_path:+"$sec_path"}
 }
 
 # Re-apply the full group list for a user. Run after all programs are installed
