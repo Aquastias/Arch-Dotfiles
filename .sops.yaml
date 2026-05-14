@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: (users|hosts)/[^/]+/secrets\.json$
+    age: >-
+      age1REPLACE_WITH_OPERATOR_PUBLIC_KEY
