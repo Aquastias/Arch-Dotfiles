@@ -23,6 +23,16 @@ set -Eeuo pipefail
 
 SCRIPT="${1:?run-program: missing install.sh path}"
 
+[[ -n "${SHELL_COMMONS:-}" ]] || {
+  echo "[run-program] SHELL_COMMONS not set" >&2
+  exit 99
+}
+
+[[ -r "${SHELL_COMMONS}/shell-stdlib.sh" ]] || {
+  echo "[run-program] shell-stdlib.sh not readable: ${SHELL_COMMONS}/shell-stdlib.sh" >&2
+  exit 99
+}
+
 [[ -r "${SCRIPT}" ]] || {
   echo "[run-program] install.sh not readable: ${SCRIPT}" >&2
   exit 99
