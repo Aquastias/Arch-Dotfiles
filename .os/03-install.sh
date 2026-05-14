@@ -116,6 +116,7 @@ source_module() {
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
 source_module "${SCRIPT_DIR}/lib/config.sh"
+source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/configs.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
@@ -170,6 +171,10 @@ main() {
   # Must run after confirmation (user has committed) but before pool creation.
   # Collects once; piped to every zpool create call so all pools share one key.
   collect_enc_passphrase
+
+  # ── Decrypt secrets before any disk writes ──────────────────────────────
+  trap secrets_cleanup EXIT
+  secrets_load "$RESOLVED_HOSTNAME"
 
   # ── Disk operations ───────────────────────────────────────────────────────
   layout_partition
