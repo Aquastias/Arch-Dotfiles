@@ -81,7 +81,7 @@ SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains sensit
 SOPS-encrypted JSON file at `.os/hosts/<hostname>/secrets.json`. Contains `root_password` for the host. Parallel to Host Config; read by the Secrets Module at install time and consumed by root password provisioning. Optional — if absent, root password falls back to interactive prompt.
 
 ### Secrets Module
-`lib/secrets.sh`. Runs immediately after config load in `03-install.sh`. Locates the passphrase-encrypted age key file (scans removable devices for `/age/key.age`), prompts for its passphrase, decrypts all User Secrets and Host Secrets to a tmpfs, and writes the tmpfs paths into `install-state.json` for consumption by chroot scripts. Unmounts the key device and clears the tmpfs after the chroot phase completes.
+`lib/secrets.sh`. Runs immediately after config load in `03-install.sh`. Locates the passphrase-encrypted Operator Age Key via two sources in priority order: (1) a removable USB device scanned for `/age/key.age`; (2) an HTTPS download from `options.age_key_url` in `install.jsonc` (live-CD fallback when no USB is present). Prompts for the passphrase, decrypts all User Secrets and Host Secrets to a tmpfs, and writes the tmpfs paths into `install-state.json` for consumption by chroot scripts. Clears the tmpfs after the chroot phase completes.
 
 ### Machine Age Key
 Age private key stored at `/etc/secrets/age/keys.txt` on the installed system. Derived at install time from the machine's `ssh_host_ed25519_key` via `ssh-to-age`. Used exclusively by the SOPS Runtime Service for boot-time decryption. Must be added as a recipient in `.sops.yaml` and secrets re-encrypted via `sops updatekeys` after first install.

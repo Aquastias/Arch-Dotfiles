@@ -46,7 +46,11 @@
     "swap_size": "auto",
 
     // EFI System Partition size. 512M is plenty for both bootloaders.
-    "esp_size": "512M"
+    "esp_size": "512M",
+
+    // HTTPS URL to a passphrase-encrypted age key (.age). Used as a fallback
+    // when no USB stick is present (e.g. live CD). Leave empty to skip.
+    "age_key_url": ""
   },
 
   // ── Extra packages ────────────────────────────────────────────────────────

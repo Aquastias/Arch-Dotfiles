@@ -30,17 +30,38 @@ secrets_load() {
     return 0
   fi
 
-  local key_device="${SECRETS_KEY_DEVICE:-$(_secrets_find_key_device)}"
+  local age_enc=""
+  local _url_tmp=""
+
+  if [[ -n "${SECRETS_KEY_DEVICE:-}" ]]; then
+    age_enc="${SECRETS_KEY_DEVICE}/age/key.age"
+  elif key_device="$(_secrets_find_key_device 2>/dev/null)"; then
+    age_enc="${key_device}/age/key.age"
+  elif [[ -n "${SECRETS_KEY_URL:-}" ]]; then
+    _url_tmp="$(mktemp --suffix=.age)"
+    echo "[secrets] downloading age key from ${SECRETS_KEY_URL}" >&2
+    if ! curl -fsSL "$SECRETS_KEY_URL" -o "$_url_tmp"; then
+      echo "[secrets] failed to download age key" >&2
+      rm -f "$_url_tmp"
+      return 1
+    fi
+    age_enc="$_url_tmp"
+  else
+    echo "[secrets] no key source — plug in USB or set age_key_url in install.jsonc" >&2
+    return 1
+  fi
 
   _SECRETS_TMPFS="$(mktemp -d)"
   mount -t tmpfs -o size=10m,mode=700 tmpfs "$_SECRETS_TMPFS"
 
   local age_key="${_SECRETS_TMPFS}/keys.txt"
-  if ! age --decrypt -o "$age_key" "${key_device}/age/key.age"; then
+  if ! age --decrypt -o "$age_key" "$age_enc"; then
     echo "[secrets] wrong passphrase or corrupt key" >&2
+    rm -f "$_url_tmp"
     secrets_cleanup
     return 1
   fi
+  rm -f "$_url_tmp"
   chmod 600 "$age_key"
 
   if [[ $has_host -eq 1 ]]; then
