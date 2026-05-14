@@ -112,3 +112,26 @@ secrets_cleanup() {
   rm -rf "$_SECRETS_TMPFS"
   _SECRETS_TMPFS=""
 }
+
+# secrets_print_machine_key
+# Reads the Machine Age Key from /mnt/etc/secrets/age/keys.txt after the chroot
+# phase and prints the age public key plus the sops updatekeys command.
+# No-op if the key file is absent (sops program not installed on this host).
+secrets_print_machine_key() {
+  local key_file="${MOUNT_ROOT:-/mnt}/etc/secrets/age/keys.txt"
+  [[ -f "$key_file" ]] || return 0
+
+  local pub_key=""
+  if command -v age-keygen &>/dev/null; then
+    pub_key="$(age-keygen -y "$key_file" 2>/dev/null)" || true
+  fi
+  if [[ -z "$pub_key" ]]; then
+    pub_key="$(grep '^# public key:' "$key_file" | awk '{print $NF}')" || true
+  fi
+  [[ -n "$pub_key" ]] || return 0
+
+  echo ""
+  echo "==> Machine age public key: ${pub_key}"
+  echo "==> Run: sops updatekeys .os/users/*/secrets.json .os/hosts/*/secrets.json"
+  echo "==> Then update .sops.yaml to include this key and commit."
+}

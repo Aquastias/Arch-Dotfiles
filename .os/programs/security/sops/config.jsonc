@@ -1,0 +1,12 @@
+// Program metadata for sops.
+//
+// system=true → installed by the profile runner inside arch-chroot as root
+// via pacman. install.sh derives the Machine Age Key from the SSH host key
+// and installs sops-runtime.service, which decrypts /etc/secrets/sops/*.json
+// to /run/secrets/ at every boot using the machine's age key.
+
+{
+  "name": "sops",
+  "system": true,
+  "description": "SOPS secrets decryption — derives Machine Age Key and installs boot-time runtime service."
+}
