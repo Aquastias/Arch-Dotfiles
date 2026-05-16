@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # lib/chroot/load-state.sh — centralized install-state.json reader
-# Source once per chroot sub-script; exports all install-state fields as shell vars.
+# Source once per chroot sub-script; exports all install-state fields
+# as shell vars.
 # STATE is injectable for tests; defaults to the production path.
 set -Eeuo pipefail
 

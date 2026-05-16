@@ -8,7 +8,8 @@
 # Provides:
 #   write_fstab           — writes /etc/fstab from LAYOUT_ESP_PARTS (1+ ESPs)
 #   write_esp_mirror_hook — installs a pacman hook that syncs secondary ESPs
-#   configure_system      — seeds ZFS state, then runs the full chroot configuration
+#   configure_system — seeds ZFS state, then runs the full chroot
+#                      configuration
 #
 # configure_system stages lib/chroot/ as /root/lib-chroot/ in the new root,
 # writes install-state.json (non-secret params), passes ROOT_PW via env var,
@@ -23,7 +24,10 @@
 # Pure fstab generator — no I/O. Args: one or more UUID strings (primary first).
 # Returns fstab content on stdout. Test seam: call directly with fake UUIDs.
 _chroot_fstab_generate() {
-  (($# >= 1)) || { echo "_chroot_fstab_generate: no UUIDs provided" >&2; return 1; }
+  (($# >= 1)) || {
+    echo "_chroot_fstab_generate: no UUIDs provided" >&2
+    return 1
+  }
   local -a uuids=("$@")
   local count="${#uuids[@]}"
   if ((count == 1)); then
@@ -35,7 +39,8 @@ _chroot_fstab_generate() {
     local i
     for i in $(seq 1 $((count - 1))); do
       echo ""
-      echo "# EFI System Partition — secondary ${i} (kept in sync by pacman hook)"
+      echo "# EFI System Partition — secondary ${i}" \
+           "(kept in sync by pacman hook)"
       echo "UUID=${uuids[$i]}  /boot/efi${i}  vfat  umask=0077  0 2"
     done
   fi
@@ -43,7 +48,8 @@ _chroot_fstab_generate() {
   echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
 }
 
-# Resolves UUIDs from LAYOUT_ESP_PARTS via blkid, delegates to _chroot_fstab_generate,
+# Resolves UUIDs from LAYOUT_ESP_PARTS via blkid, delegates to
+# _chroot_fstab_generate,
 # writes result to ${MOUNT_ROOT}/etc/fstab.
 write_fstab() {
   local count="${#LAYOUT_ESP_PARTS[@]}"
@@ -87,7 +93,11 @@ Target = usr/lib/systemd/boot/efi/*.efi
 [Action]
 Description = Mirroring ESP to secondary OS disks...
 When = PostTransaction
-Exec = /usr/bin/bash -c 'for d in /boot/efi*/; do [[ "$d" != "/boot/efi/" ]] && rsync -a --delete /boot/efi/ "$d"; done'
+Exec = /usr/bin/bash -c '\
+  for d in /boot/efi*/; do\
+    [[ "$d" != "/boot/efi/" ]] \
+      && rsync -a --delete /boot/efi/ "$d"\
+  done'
 HOOK
   info "ESP mirror pacman hook installed."
 
@@ -186,7 +196,11 @@ configure_system() {
   mkdir -p "${MOUNT_ROOT}/etc/zfs"
   local _pools=()
   mapfile -t _pools < <(zpool list -H -o name)
-  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}" 2>/dev/null || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null || warn "zpool.cache could not be written — zfs-import-scan will handle first boot."
+  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" \
+    "${_pools[@]}" 2>/dev/null \
+    || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null \
+    || warn "zpool.cache could not be written —" \
+            "zfs-import-scan will handle first boot."
   cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
 
   # Copy archzfs repo config so the new system can update ZFS packages
@@ -205,11 +219,13 @@ configure_system() {
     cp "${SCRIPT_DIR}/lib/jsonc.sh"    "${MOUNT_ROOT}/root/lib/jsonc.sh"
     cp "${SCRIPT_DIR}/lib/globals.sh"  "${MOUNT_ROOT}/root/lib/globals.sh"
     mkdir -p "${MOUNT_ROOT}/root/lib/chroot"
-    cp "${SCRIPT_DIR}/lib/chroot/extras-common.sh" "${MOUNT_ROOT}/root/lib/chroot/extras-common.sh"
+    cp "${SCRIPT_DIR}/lib/chroot/extras-common.sh" \
+       "${MOUNT_ROOT}/root/lib/chroot/extras-common.sh"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
   else
-    warn "extras/ directory not found at ${SCRIPT_DIR}/extras — post-install scripts won't run."
+    warn "extras/ directory not found at ${SCRIPT_DIR}/extras" \
+         "— post-install scripts won't run."
   fi
 
   # ── Gather all values to pass into chroot ─────────────────────────────────
@@ -217,7 +233,8 @@ configure_system() {
   local rpool swap esp_count
   local do_backup do_security
 
-  # Hostname was already prompted (if needed) and validated in validate_install_context().
+  # Hostname was already prompted (if needed) and validated
+  # in validate_install_context().
   # Use the resolved value directly — no second prompt.
   hostname="$RESOLVED_HOSTNAME"
   locale="$(cfg '.system.locale')"
@@ -276,8 +293,10 @@ configure_system() {
     --arg rpool       "$rpool"      \
     --arg swap        "$swap"       \
     --argjson esp_count "$esp_count" \
-    --argjson extras_backup   "$([[ "$do_backup"   == "true" ]] && printf 'true' || printf 'false')" \
-    --argjson extras_security "$([[ "$do_security" == "true" ]] && printf 'true' || printf 'false')" \
+    --argjson extras_backup \
+      "$([[ "$do_backup"   == "true" ]] && printf 'true' || printf 'false')" \
+    --argjson extras_security \
+      "$([[ "$do_security" == "true" ]] && printf 'true' || printf 'false')" \
     '{ hostname:$hostname, timezone:$timezone, locale:$locale, keymap:$keymap,
        kernel:$kernel, bootloader:$bootloader, rpool:$rpool, swap:$swap,
        esp_count:$esp_count,

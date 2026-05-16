@@ -30,22 +30,32 @@ print_status info "Building file properties baseline..."
 sudo rkhunter --propupd
 
 print_status info "Copying configurations..."
-sudo install -o root -g root -m 644 "$RKHUNTER_CONFIGS/rkhunter.conf" /etc/rkhunter.conf
+sudo install -o root -g root -m 644 \
+  "$RKHUNTER_CONFIGS/rkhunter.conf" /etc/rkhunter.conf
 
 print_status info "Copying entries..."
-sudo install -o root -g root -m 644 "$RKHUNTER_ENTRIES/rkhunter.desktop" /usr/share/applications/rkhunter.desktop
+sudo install -o root -g root -m 644 \
+  "$RKHUNTER_ENTRIES/rkhunter.desktop" \
+  /usr/share/applications/rkhunter.desktop
 
 print_status info "Copying services..."
-sudo install -o root -g root -m 644 "$RKHUNTER_SERVICES/rkhunter-scan.service" /usr/lib/systemd/system/rkhunter-scan.service
-sudo install -o root -g root -m 644 "$RKHUNTER_SERVICES/rkhunter-scan.timer"   /usr/lib/systemd/system/rkhunter-scan.timer
+sudo install -o root -g root -m 644 \
+  "$RKHUNTER_SERVICES/rkhunter-scan.service" \
+  /usr/lib/systemd/system/rkhunter-scan.service
+sudo install -o root -g root -m 644 \
+  "$RKHUNTER_SERVICES/rkhunter-scan.timer" \
+  /usr/lib/systemd/system/rkhunter-scan.timer
 
 # Stage shell-stdlib.sh for post-boot use by rkhunter_scan.sh. The runtime
 # script sources from this fixed path because $SHELL_COMMONS is only set
 # during install.
 print_status info "Staging shell-stdlib.sh at /usr/local/lib/shell-stdlib.sh..."
 sudo install -d -o root -g root -m 755 /usr/local/lib /usr/local/lib/rkhunter
-sudo install -o root -g root -m 644 "${SHELL_COMMONS}/shell-stdlib.sh"        /usr/local/lib/shell-stdlib.sh
-sudo install -o root -g root -m 755 "$RKHUNTER_SCRIPTS/rkhunter_scan.sh"      /usr/local/lib/rkhunter/rkhunter_scan.sh
+sudo install -o root -g root -m 644 \
+  "${SHELL_COMMONS}/shell-stdlib.sh" /usr/local/lib/shell-stdlib.sh
+sudo install -o root -g root -m 755 \
+  "$RKHUNTER_SCRIPTS/rkhunter_scan.sh" \
+  /usr/local/lib/rkhunter/rkhunter_scan.sh
 
 print_status info "Enabling rkhunter-scan.timer (fires on first boot)..."
 sudo systemctl enable rkhunter-scan.timer

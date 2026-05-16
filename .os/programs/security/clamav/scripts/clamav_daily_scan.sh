@@ -76,12 +76,14 @@ else
   echo "$SCAN_OUTPUT" >>"$LOG_FILE"
 
   # Extract the number of infected files from the output
-  INFECTED_COUNT=$(echo "$SCAN_OUTPUT" | grep "Infected files:" | awk '{print $3}')
+  INFECTED_COUNT=$(echo "$SCAN_OUTPUT" \
+    | grep "Infected files:" | awk '{print $3}')
 
   if [[ "$INFECTED_COUNT" -gt 0 ]]; then
     send_user_notification \
       "[WARNING] ClamAV Alert" \
-      "Scan completed: $INFECTED_COUNT infected file(s) found. Check latest log: $LOG_FILE" \
+      "Scan completed: $INFECTED_COUNT infected file(s) found." \
+      "Check latest log: $LOG_FILE" \
       "clamav" \
       "ClamAV Daily Scan"
   else

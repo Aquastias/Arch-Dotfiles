@@ -8,5 +8,5 @@
 {
   "name": "ufw",
   "system": false,
-  "description": "Uncomplicated Firewall with libvirt bridge rules and NAT masquerading."
+  "description": "UFW with libvirt bridge rules and NAT masquerading."
 }

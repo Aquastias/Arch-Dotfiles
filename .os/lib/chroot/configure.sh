@@ -3,7 +3,8 @@
 # Entry point run by configure_system() via:
 #   ROOT_PW="<pw>" arch-chroot /mnt bash /root/lib-chroot/configure.sh
 #
-# All non-secret params come from install-state.json (written before arch-chroot).
+# All non-secret params come from install-state.json
+# (written before arch-chroot).
 # ROOT_PW is passed as an env var — never written to disk.
 set -Eeuo pipefail
 trap 'echo "[chroot:configure] failed at line $LINENO" >&2' ERR

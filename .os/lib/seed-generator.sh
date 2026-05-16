@@ -65,7 +65,9 @@ runcmd:
         && rm -rf /root/dotfiles \\
         && git clone ${repo_url} /root/dotfiles \\
         && cd /root/dotfiles/.os \\
-        && sed -i 's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' install.jsonc \\
+        && sed -i \
+  's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' \
+  install.jsonc \\
         && ./install.sh --unattended
     }
     rc=\$?
@@ -94,7 +96,8 @@ seed_generator_build() {
   }
 
   command -v cloud-localds >/dev/null 2>&1 || {
-    echo "seed-generator: cloud-localds not found — install cloud-image-utils" >&2
+    echo "seed-generator: cloud-localds not found —" \
+         "install cloud-image-utils" >&2
     return 1
   }
 

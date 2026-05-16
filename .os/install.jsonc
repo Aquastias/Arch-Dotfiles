@@ -2,9 +2,12 @@
 // Edit this file, then run: ./03-install.sh
 //
 // MODES:
-//   single  One disk — auto-partitioned: ESP + rpool (OS) + dpool (storage). Set "disk".
-//   multi   Multiple disks — OS pool (rpool) + storage groups (dpool). Set "os_pool".
-//   auto    Omit "mode" to auto-detect: "disk" present → single, "os_pool.disks" → multi.
+//   single  One disk — auto-partitioned: ESP + rpool + dpool.
+//           Set "disk".
+//   multi   Multiple disks — rpool + storage groups (dpool).
+//           Set "os_pool".
+//   auto    Omit "mode" to auto-detect: "disk" present → single,
+//           "os_pool.disks" → multi.
 
 {
   // ── System ────────────────────────────────────────────────────────────────
@@ -42,7 +45,8 @@
 
     "swap": true,
 
-    // "auto" = RAM×2 (recommended for hibernation). Or fixed: "8G", "16G", "32G".
+    // "auto" = RAM×2 (recommended for hibernation).
+    // Or fixed: "8G", "16G", "32G".
     "swap_size": "auto",
 
     // EFI System Partition size. 512M is plenty for both bootloaders.
@@ -106,7 +110,7 @@
   // "_SINGLE_DISK_EXAMPLE": {
   //   "mode":              "single",
   //   "disk":              "/dev/sda",
-  //   "ashift":            12,        // 12 = 4K sectors (SSD/HDD). 13 = 8K (NVMe).
+  //   "ashift":            12,        // 12 = 4K (SSD/HDD). 13 = 8K (NVMe).
   //   "os_size":           "auto",    // Or fixed: "80G", "120G".
   //   "os_pool_name":      "rpool",
   //   "storage_pool_name": "dpool",

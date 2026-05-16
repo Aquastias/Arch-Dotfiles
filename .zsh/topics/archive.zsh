@@ -7,7 +7,10 @@ extract_archive() {
         *.tar.bz2)  tar xvjf "$archive"   ;;
         *.tar.gz)   tar xvzf "$archive"   ;;
         *.bz2)      bunzip2 "$archive"    ;;
-        *.rar)      type -P rar >/dev/null && rar x "$archive" || echo "rar not found." ;;
+        *.rar)
+          type -P rar >/dev/null \
+            && rar x "$archive" \
+            || echo "rar not found." ;;
         *.gz)       gunzip "$archive"     ;;
         *.tar)      tar xvf "$archive"    ;;
         *.tbz2)     tar xvjf "$archive"   ;;
@@ -25,7 +28,8 @@ extract_archive() {
 
 archive_encrypt_openssl() {
   if [ $# -lt 2 ]; then
-    echo "Usage: archive_encrypt_openssl output_file.tar.gz.enc file1 [file2 ...]"
+    echo "Usage: archive_encrypt_openssl"\
+         "output_file.tar.gz.enc file1 [file2 ...]"
     return 1
   fi
   local output_file="$1"; shift
@@ -41,8 +45,9 @@ archive_encrypt_openssl() {
       echo "Passwords do not match."
     fi
   done
-  if tar czf - "${files_to_archive[@]}" |
-    openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -e -out "$output_file" -pass fd:3 3<<<"$password"; then
+  if tar czf - "${files_to_archive[@]}" \
+    | openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -e \
+        -out "$output_file" -pass fd:3 3<<<"$password"; then
     echo "Encrypted: $output_file"
   else
     echo "Error: archiving or encryption failed." >&2
@@ -53,16 +58,19 @@ archive_encrypt_openssl() {
 
 unarchive_decrypt_openssl() {
   if [ $# -lt 2 ]; then
-    echo "Usage: unarchive_decrypt_openssl input_file.tar.gz.enc target_directory"
+    echo "Usage: unarchive_decrypt_openssl"\
+         "input_file.tar.gz.enc target_directory"
     return 1
   fi
   local input_file="$1" target_directory="$2"
-  [ ! -f "$input_file" ] && { echo "Error: '$input_file' not found." >&2; return 1; }
+  [ ! -f "$input_file" ] \
+    && { echo "Error: '$input_file' not found." >&2; return 1; }
   [ ! -d "$target_directory" ] && { mkdir -p "$target_directory" || return 1; }
   local password
   read -r -s "password?Enter decryption password: "; echo
-  if openssl enc -aes-256-cbc -d -pbkdf2 -iter 100000 -salt -in "$input_file" -pass fd:3 3<<<"$password" |
-    tar xzf - -C "$target_directory"; then
+  if openssl enc -aes-256-cbc -d -pbkdf2 -iter 100000 -salt \
+      -in "$input_file" -pass fd:3 3<<<"$password" \
+    | tar xzf - -C "$target_directory"; then
     echo "Decrypted to: $target_directory"
   else
     echo "Error: decryption or extraction failed." >&2
@@ -76,7 +84,8 @@ encrypt_with_age() {
     return 1
   fi
   local output_file="$1" input_file="$2"
-  [ ! -f "$input_file" ] && { echo "Error: '$input_file' not found." >&2; return 1; }
+  [ ! -f "$input_file" ] \
+    && { echo "Error: '$input_file' not found." >&2; return 1; }
   if age -e -p -o "$output_file" "$input_file"; then
     echo "Encrypted: $output_file"
   else
@@ -91,7 +100,8 @@ decrypt_with_age() {
     return 1
   fi
   local input_file="$1" output_file="$2"
-  [ ! -f "$input_file" ] && { echo "Error: '$input_file' not found." >&2; return 1; }
+  [ ! -f "$input_file" ] \
+    && { echo "Error: '$input_file' not found." >&2; return 1; }
   if [ -f "$output_file" ]; then
     read -rq "choice?'$output_file' exists. Overwrite? (y/N) "; echo
     [[ ! "$choice" =~ ^[yY]$ ]] && { echo "Cancelled."; return 1; }

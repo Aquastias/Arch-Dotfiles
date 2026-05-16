@@ -3,13 +3,15 @@
 _op_and_go() {
   local op="$1" src="$2" dst="$3"
   [[ ! -e "$src" ]] && { echo "Error: '$src' does not exist." >&2; return 1; }
-  [[ ! -d "$dst" ]] && { echo "Error: '$dst' is not a directory." >&2; return 1; }
+  [[ ! -d "$dst" ]] \
+    && { echo "Error: '$dst' is not a directory." >&2; return 1; }
   [[ ! -w "$dst" ]] && { echo "Error: '$dst' is not writable." >&2; return 1; }
   "$op" "$src" "$dst" && cd "$dst"
 }
 
 copy_and_go() {
-  [[ ! -f "$1" ]] && { echo "Error: '$1' is not a regular file." >&2; return 1; }
+  [[ ! -f "$1" ]] \
+    && { echo "Error: '$1' is not a regular file." >&2; return 1; }
   _op_and_go cp "$1" "$2"
 }
 

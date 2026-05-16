@@ -4,7 +4,8 @@
 
 # Install zinit if not present
 if [[ ! -f ~/.zinit/bin/zinit.zsh ]]; then
-  mkdir -p ~/.zinit && git clone https://github.com/zdharma-continuum/zinit ~/.zinit/bin
+  mkdir -p ~/.zinit && \
+    git clone https://github.com/zdharma-continuum/zinit ~/.zinit/bin
 fi
 source ~/.zinit/bin/zinit.zsh
 

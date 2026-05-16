@@ -6,5 +6,5 @@
 {
   "name": "zfs-auto-snapshot",
   "system": false,
-  "description": "Automatic ZFS snapshot scheduling (hourly/daily/weekly/monthly) with dataset tagging."
+  "description": "Auto ZFS snapshot scheduling (hourly/daily/weekly/monthly)."
 }

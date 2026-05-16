@@ -20,13 +20,15 @@ secrets_load() {
     name="$(basename "$(dirname "$f")")"
     user_secs+=("$f")
     user_names+=("$name")
-  done < <(find "${OS_DIR}/users" -maxdepth 2 -name "secrets.json" -print0 2>/dev/null | sort -z)
+  done < <(find "${OS_DIR}/users" -maxdepth 2 -name "secrets.json" \
+    -print0 2>/dev/null | sort -z)
 
   local has_host=0
   [[ -f "$host_sec" ]] && has_host=1
 
   if [[ $has_host -eq 0 && ${#user_secs[@]} -eq 0 ]]; then
-    echo "[secrets] no secrets files found — install continues with defaults" >&2
+    echo "[secrets] no secrets files found —" \
+         "install continues with defaults" >&2
     return 0
   fi
 
@@ -47,7 +49,8 @@ secrets_load() {
     fi
     age_enc="$_url_tmp"
   else
-    echo "[secrets] no key source — plug in USB or set age_key_url in install.jsonc" >&2
+    echo "[secrets] no key source —" \
+         "plug in USB or set age_key_url in install.jsonc" >&2
     return 1
   fi
 
@@ -75,7 +78,8 @@ secrets_load() {
 
   for i in "${!user_secs[@]}"; do
     local out="${_SECRETS_TMPFS}/${user_names[$i]}-secrets.json"
-    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "${user_secs[$i]}" > "$out"; then
+    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt \
+         "${user_secs[$i]}" > "$out"; then
       secrets_cleanup
       return 1
     fi
@@ -98,7 +102,8 @@ _secrets_write_state() {
       '.host = $p' <<< "$secrets")"
   fi
   for name in "${names[@]+"${names[@]}"}"; do
-    secrets="$(jq --arg n "$name" --arg p "${_SECRETS_TMPFS}/${name}-secrets.json" \
+    secrets="$(jq --arg n "$name" \
+      --arg p "${_SECRETS_TMPFS}/${name}-secrets.json" \
       '.users[$n] = $p' <<< "$secrets")"
   done
 
@@ -153,6 +158,7 @@ secrets_print_machine_key() {
 
   echo ""
   echo "==> Machine age public key: ${pub_key}"
-  echo "==> Run: sops updatekeys .os/users/*/secrets.json .os/hosts/*/secrets.json"
+  echo "==> Run: sops updatekeys" \
+       ".os/users/*/secrets.json .os/hosts/*/secrets.json"
   echo "==> Then update .sops.yaml to include this key and commit."
 }

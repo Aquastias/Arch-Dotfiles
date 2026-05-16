@@ -237,7 +237,7 @@ write_program() {
   [ "$status" -eq 0 ]
 }
 
-@test "validate_program: rejects user program from host config (system mismatch)" {
+@test "validate_program: rejects user program from host config" {
   write_program "security" "firewalld" "false"
 
   run validate_program true firewalld
@@ -245,7 +245,7 @@ write_program() {
   [[ "$output" =~ "system=false" ]]
 }
 
-@test "validate_program: rejects system program from user config (system mismatch)" {
+@test "validate_program: rejects system program from user config" {
   write_program "bootloader" "grub" "true"
 
   run validate_program false grub
@@ -261,7 +261,8 @@ write_program() {
 
 @test "validate_program: program missing install.sh is rejected" {
   mkdir -p "$TEST_DIR/programs/security/half"
-  printf '{"name":"half","system":false}\n' > "$TEST_DIR/programs/security/half/config.jsonc"
+  printf '{"name":"half","system":false}\n' \
+    > "$TEST_DIR/programs/security/half/config.jsonc"
 
   run validate_program false half
   [ "$status" -eq 1 ]

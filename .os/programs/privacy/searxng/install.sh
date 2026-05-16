@@ -15,17 +15,21 @@ set -Eeuo pipefail
 trap 'echo "[searxng] error on line $LINENO" >&2' ERR
 
 if ! package_installed "podman"; then
-  print_status error "podman must be installed before searxng (declare it before searxng in programs)."
+  print_status error "podman must be installed before searxng" \
+    "(declare it before searxng in programs)."
   exit 1
 fi
 
 mkdir -p "${HOME}/.config/searxng"
-cp "${PROGRAMS}/privacy/searxng/settings.yml" "${HOME}/.config/searxng/settings.yml"
-sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" "${HOME}/.config/searxng/settings.yml"
+cp "${PROGRAMS}/privacy/searxng/settings.yml" \
+  "${HOME}/.config/searxng/settings.yml"
+sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" \
+  "${HOME}/.config/searxng/settings.yml"
 print_status info "Seeded ~/.config/searxng/settings.yml."
 
 sudo mkdir -p /var/lib/systemd/linger
 sudo touch "/var/lib/systemd/linger/${USER}"
 print_status info "Linger enabled for ${USER}."
 
-print_status success "SearXNG staged. Quadlet units start on first boot; containers pulled then."
+print_status success "SearXNG staged." \
+  "Quadlet units start on first boot; containers pulled then."

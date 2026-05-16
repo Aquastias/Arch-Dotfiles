@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout-common.sh — parse_size_to_gib and layout_resolve_esp_size.
+# Tests for .os/lib/layout-common.sh — parse_size_to_gib and
+# layout_resolve_esp_size.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

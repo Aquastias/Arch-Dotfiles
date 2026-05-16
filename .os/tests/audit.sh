@@ -84,7 +84,8 @@ _section "2. Staged file manifest  (configure_system → /root/)"
 #   lib/globals.sh  → /root/lib/globals.sh
 #   lib/chroot/extras-common.sh → /root/lib/chroot/extras-common.sh
 # (lib/chroot/* is also cp -r to /root/lib-chroot/ — covered in section 4)
-for f in lib/common.sh lib/jsonc.sh lib/globals.sh lib/chroot/extras-common.sh; do
+for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
+  lib/chroot/extras-common.sh; do
   _file "${OS}/${f}" "${f}  (staged → /root/${f})"
 done
 
@@ -109,7 +110,8 @@ _section "3. Chroot source chain  (extras scripts running at /root/)"
 # It sources: ../../../lib/chroot/extras-common.sh
 #   → resolves to /root/lib/chroot/extras-common.sh  (staged in §2)
 # extras-common.sh sources ../common.sh → /root/lib/common.sh  (staged in §2)
-# common.sh sources jsonc.sh and globals.sh relative to itself → /root/lib/{jsonc,globals}.sh
+# common.sh sources jsonc.sh and globals.sh relative to itself →
+# /root/lib/{jsonc,globals}.sh
 
 for de in kde hyprland; do
   script="${OS}/extras/desktop/${de}/${de}.sh"
@@ -117,7 +119,8 @@ for de in kde hyprland; do
     _fail "extras/desktop/${de}/${de}.sh  (missing)"
     continue
   fi
-  # Must source the extras-common.sh path that resolves to /root/lib/chroot/extras-common.sh
+  # Must source the extras-common.sh path that resolves to
+  # /root/lib/chroot/extras-common.sh
   if grep -q 'lib/chroot/extras-common\.sh' "$script"; then
     _pass "extras/${de}: sources lib/chroot/extras-common.sh"
   else
@@ -125,15 +128,20 @@ for de in kde hyprland; do
   fi
   # Must NOT call jsonc() or other helpers before the source line
   src_line=$(grep -n 'extras-common\.sh' "$script" | head -1 | cut -d: -f1)
-  if grep -nE '\bjsonc[[:space:](]' "$script" 2>/dev/null | grep -v '\.jsonc' | awk -F: '$1 < '"${src_line:-999}"' {found=1} END{exit !found}'; then
-    _fail "extras/${de}: calls jsonc() before sourcing extras-common.sh (line ${src_line})"
+  if grep -nE '\bjsonc[[:space:](]' "$script" 2>/dev/null \
+      | grep -v '\.jsonc' \
+      | awk -F: '$1 < '"${src_line:-999}"' {found=1} END{exit !found}'; \
+      then
+    _fail "extras/${de}: calls jsonc() before sourcing" \
+          "extras-common.sh (line ${src_line})"
   else
     _pass "extras/${de}: no jsonc() call before source"
   fi
 done
 
 # extras-common.sh must source ../common.sh (the _EC_COMMON path)
-if grep -q '_EC_COMMON\|\.\.\/common\.sh' "${OS}/lib/chroot/extras-common.sh" 2>/dev/null; then
+if grep -q '_EC_COMMON\|\.\.\/common\.sh' \
+    "${OS}/lib/chroot/extras-common.sh" 2>/dev/null; then
   _pass "extras-common.sh: sources ../common.sh"
 else
   _fail "extras-common.sh: does not source ../common.sh"
@@ -158,14 +166,16 @@ for f in configure.sh extras.sh load-state.sh identity.sh initcpio.sh \
 done
 
 # configure.sh must source load-state.sh via a relative path (not absolute)
-if grep -qE 'source.*load-state\.sh' "${OS}/lib/chroot/configure.sh" 2>/dev/null; then
+if grep -qE 'source.*load-state\.sh' \
+    "${OS}/lib/chroot/configure.sh" 2>/dev/null; then
   _pass "configure.sh: sources load-state.sh"
 else
   _fail "configure.sh: does not source load-state.sh"
 fi
 
 # extras.sh must source load-state.sh
-if grep -qE 'source.*load-state\.sh' "${OS}/lib/chroot/extras.sh" 2>/dev/null; then
+if grep -qE 'source.*load-state\.sh' \
+    "${OS}/lib/chroot/extras.sh" 2>/dev/null; then
   _pass "extras.sh: sources load-state.sh"
 else
   _fail "extras.sh: does not source load-state.sh"
@@ -214,11 +224,14 @@ _check_program() {
   local dir="${_prog_dir[$name]}"
   local got_system
   got_system="$(grep '"system"' "${dir}/config.jsonc" 2>/dev/null \
-                | head -1 | sed 's/.*"system"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/')"
+                | head -1 \
+                | sed 's/.*"system"[[:space:]]*:'\
+                       '[[:space:]]*\(true\|false\).*/\1/')"
   if [[ "$got_system" == "$want_system" ]]; then
     _pass "${context}: program '${name}' (system=${got_system})"
   else
-    _fail "${context}: program '${name}' has system=${got_system}, expected ${want_system}"
+    _fail "${context}: program '${name}' has" \
+          "system=${got_system}, expected ${want_system}"
   fi
   if [[ ! -f "${dir}/install.sh" ]]; then
     _fail "${context}: program '${name}' missing install.sh"

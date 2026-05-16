@@ -40,7 +40,8 @@ echo 'unix_sock_rw_perms = "0770"' | sudo tee -a "$LIBVIRTD_CONF" >/dev/null
 
 target_user="$(id -un)"
 
-print_status info "Backing up and editing $QEMU_CONF (qemu user='$target_user')..."
+print_status info "Backing up and editing $QEMU_CONF" \
+  "(qemu user='$target_user')..."
 sudo cp "$QEMU_CONF" "$QEMU_CONF.bak"
 sudo sed -i '/^#\?user *=/d'  "$QEMU_CONF"
 sudo sed -i '/^user *=/d'     "$QEMU_CONF"
@@ -51,7 +52,8 @@ echo "group = \"$LIBVIRT_GROUP\"" | sudo tee -a "$QEMU_CONF" >/dev/null
 
 print_status info "Writing polkit rule at $POLKIT_RULE..."
 sudo tee "$POLKIT_RULE" >/dev/null <<'EOF'
-/* Allow users in kvm group to manage the libvirt daemon without authentication */
+/* Allow users in kvm group to manage the libvirt daemon
+   without authentication */
 polkit.addRule(function(action, subject) {
     if (action.id == "org.libvirt.unix.manage" &&
         subject.isInGroup("kvm")) {
@@ -62,13 +64,18 @@ EOF
 sudo chown root:root "$POLKIT_RULE"
 sudo chmod 644 "$POLKIT_RULE"
 
-print_status info "Defining default libvirt network (autostart on first boot)..."
+print_status info "Defining default libvirt network" \
+  "(autostart on first boot)..."
 DEFAULT_NET_XML="/etc/libvirt/qemu/networks/default.xml"
 DEFAULT_NET_AUTOSTART="/etc/libvirt/qemu/networks/autostart/default.xml"
 if [[ -f /usr/share/libvirt/networks/default.xml ]]; then
-  sudo install -d -o root -g root -m 755 "$(dirname "$DEFAULT_NET_XML")" "$(dirname "$DEFAULT_NET_AUTOSTART")"
-  sudo install -o root -g root -m 644 /usr/share/libvirt/networks/default.xml "$DEFAULT_NET_XML"
+  sudo install -d -o root -g root -m 755 \
+    "$(dirname "$DEFAULT_NET_XML")" \
+    "$(dirname "$DEFAULT_NET_AUTOSTART")"
+  sudo install -o root -g root -m 644 \
+    /usr/share/libvirt/networks/default.xml "$DEFAULT_NET_XML"
   sudo ln -sf "$DEFAULT_NET_XML" "$DEFAULT_NET_AUTOSTART"
 fi
 
-print_status success "virt-manager staged (libvirtd + default network start on first boot)."
+print_status success "virt-manager staged" \
+  "(libvirtd + default network start on first boot)."

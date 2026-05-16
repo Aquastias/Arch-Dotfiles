@@ -20,7 +20,8 @@ source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 
 # ── Core (always installed) ───────────────────────────────────────────────
 section "Hyprland core"
-pacman -S --noconfirm --needed hyprland xdg-desktop-portal-hyprland polkit-kde-agent
+pacman -S --noconfirm --needed \
+  hyprland xdg-desktop-portal-hyprland polkit-kde-agent
 
 # ── Companion toggles ─────────────────────────────────────────────────────
 _companion() {

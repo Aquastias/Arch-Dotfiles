@@ -50,7 +50,8 @@ check_uefi() {
   # The installer uses systemd-boot which requires UEFI.
   # /sys/firmware/efi is only present when booted in UEFI mode.
   [[ -d /sys/firmware/efi ]] ||
-    error "Not in UEFI mode. Reboot and select UEFI entry in your firmware menu."
+    error "Not in UEFI mode." \
+          "Reboot and select UEFI entry in your firmware menu."
   info "UEFI mode confirmed."
 }
 
@@ -235,8 +236,10 @@ add_archzfs_repo() {
   pacman-key --init
   pacman-key --populate archlinux
 
-  # Update the keyring package itself to avoid "unknown key" errors on older ISOs.
-  # -Sy alone (no -u) is safe here because we only need the keyring, not a full upgrade.
+  # Update the keyring package itself to avoid "unknown key"
+  # errors on older ISOs.
+  # -Sy alone (no -u) is safe here because we only need the keyring,
+  # not a full upgrade.
   info "Updating archlinux-keyring..."
   pacman -Sy --noconfirm archlinux-keyring
 
@@ -244,16 +247,19 @@ add_archzfs_repo() {
   # IMPORTANT: archzfs.com went stale in early 2026. The project moved to
   # GitHub Releases. The new repo is actively maintained and ships current
   # ZFS builds (2.4.x as of April 2026).
-  # New repo URL: https://github.com/archzfs/archzfs/releases/download/experimental
+  # New repo URL:
+  # https://github.com/archzfs/archzfs/releases/download/experimental
   # New signing key: 3A9917BF0DED5C13F69AC68FABEC0A1208037BE9
 
   local ARCHZFS_KEY="3A9917BF0DED5C13F69AC68FABEC0A1208037BE9"
-  local ARCHZFS_SERVER="https://github.com/archzfs/archzfs/releases/download/experimental"
+  local ARCHZFS_SERVER=\
+"https://github.com/archzfs/archzfs/releases/download/experimental"
 
   # Import the new archzfs signing key from keyserver
   info "Importing archzfs signing key (${ARCHZFS_KEY:0:16}...)..."
   if ! pacman-key --recv-keys "$ARCHZFS_KEY" 2>/dev/null; then
-    pacman-key --keyserver hkps://keyserver.ubuntu.com --recv-keys "$ARCHZFS_KEY" ||
+    pacman-key --keyserver hkps://keyserver.ubuntu.com \
+      --recv-keys "$ARCHZFS_KEY" ||
       error "Failed to import archzfs GPG key.
   Try manually: pacman-key --recv-keys ${ARCHZFS_KEY}"
   fi
@@ -267,8 +273,10 @@ add_archzfs_repo() {
     # Update stale archzfs.com URL if still present
     if grep -q 'archzfs.com' /etc/pacman.conf; then
       warn "Updating stale archzfs.com repo URL to GitHub ..."
-      sed -i "s|Server = https://archzfs.com/.*|Server = ${ARCHZFS_SERVER}|" /etc/pacman.conf
-      sed -i '/\[archzfs\]/{n; s/SigLevel.*/SigLevel = Never/}' /etc/pacman.conf 2>/dev/null || true
+      sed -i "s|Server = https://archzfs.com/.*|Server = ${ARCHZFS_SERVER}|" \
+        /etc/pacman.conf
+      sed -i '/\[archzfs\]/{n; s/SigLevel.*/SigLevel = Never/}' \
+        /etc/pacman.conf 2>/dev/null || true
       info "archzfs repo URL updated."
     fi
   else
@@ -276,7 +284,8 @@ add_archzfs_repo() {
 
 # archzfs — ZFS packages for Arch Linux
 # Moved from archzfs.com to GitHub Releases in Feb 2026.
-# SigLevel=Never is per official archzfs recommendation while signing is finalised.
+# SigLevel=Never is per official archzfs recommendation while signing
+# is finalised.
 [archzfs]
 SigLevel = Never
 Server = ${ARCHZFS_SERVER}
@@ -302,7 +311,8 @@ EOF
 #   to version magic mismatches that cannot be worked around.
 #
 #   The installed system uses zfs-dkms too (configured in lib/packages.sh),
-#   which compiles against whatever linux-lts kernel is installed at pacstrap time.
+#   which compiles against whatever linux-lts kernel is installed
+#   at pacstrap time.
 
 _remove_stale_archzfs_testing() {
   # archzfs-testing no longer exists as a separate repo since the project
@@ -374,7 +384,8 @@ _install_zfs_dkms() {
 
     # Build the exact pkgver string pacman/archive uses.
     # Arch kernel version strings are like: 6.19.10-arch1-1
-    # The package version is:               6.19.10.arch1-1  (dot not dash before arch)
+    # The package version is:               6.19.10.arch1-1
+    # (dot not dash before arch)
     # Convert kernel release string to pacman package version.
     # Kernel: 6.19.10-arch1-1  →  Package: 6.19.10.arch1-1
     # (the hyphen before "arch" becomes a dot in the package version)
@@ -395,18 +406,22 @@ _install_zfs_dkms() {
       warn "URL: https://archive.archlinux.org/packages/"
 
       # The archive path uses the package name's first letter as a subdir.
-      # linux-headers → l/linux-headers/linux-headers-6.19.10.arch1-1-x86_64.pkg.tar.zst
+      # linux-headers →
+      # l/linux-headers/linux-headers-6.19.10.arch1-1-x86_64.pkg.tar.zst
       local arch="x86_64"
       local pkg_file="${headers_pkg}-${pkg_ver}-${arch}.pkg.tar.zst"
       local first_char="${headers_pkg:0:1}"
-      local archive_url="https://archive.archlinux.org/packages/${first_char}/${headers_pkg}/${pkg_file}"
+      local archive_url=\
+"https://archive.archlinux.org/packages/${first_char}"\
+"/${headers_pkg}/${pkg_file}"
 
       info "Downloading: ${pkg_file}"
       local tmp_pkg="/tmp/${pkg_file}"
       curl -fL --progress-bar "$archive_url" -o "$tmp_pkg" ||
         error "Failed to download headers from Arch Linux Archive.
   URL tried: ${archive_url}
-  Check the archive manually: https://archive.archlinux.org/packages/l/${headers_pkg}/
+  Check the archive manually:
+  https://archive.archlinux.org/packages/l/${headers_pkg}/
   Then install manually: pacman -U /path/to/${pkg_file}"
 
       info "Installing headers from archive package ..."
@@ -452,7 +467,8 @@ _install_zfs_dkms() {
   This means the zfs-dkms package did not install correctly.
   Try: pacman -S --noconfirm zfs-dkms && ls /usr/src/zfs-*"
   fi
-  # Pick the highest version directory: strip path, sort -V, take last, strip prefix.
+  # Pick the highest version directory: strip path, sort -V,
+  # take last, strip prefix.
   zfs_ver="$(printf '%s\n' "${_zfs_src_dirs[@]##*/}" | sort -V | tail -1)"
   zfs_ver="${zfs_ver#zfs-}"
   if [[ -z "$zfs_ver" ]]; then
@@ -469,9 +485,11 @@ _install_zfs_dkms() {
   # uses the headers that match the RUNNING kernel, not whatever linux-headers
   # pacman installed (which may be a newer version).
   info "Building ZFS ${zfs_ver} against kernel ${kver} ..."
-  info "Build log: /var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
+  info "Build log:" \
+       "/var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
 
-  if ! dkms build -m zfs -v "$zfs_ver" -k "$kver" --kernelsourcedir "$kernel_src"; then
+  if ! dkms build -m zfs -v "$zfs_ver" -k "$kver" \
+         --kernelsourcedir "$kernel_src"; then
     local makelog
     makelog="/var/lib/dkms/zfs/${zfs_ver}/${kver}/$(uname -m)/log/make.log"
     echo ""
@@ -487,9 +505,11 @@ _install_zfs_dkms() {
   Full log       : ${makelog}
   Possible fixes :
     1. Use an Arch ISO with a kernel that archzfs already tracks.
-       Check supported kernels: https://github.com/archzfs/archzfs/releases/tag/experimental
+       Check supported kernels:
+       https://github.com/archzfs/archzfs/releases/tag/experimental
     2. Wait for archzfs to release a build for kernel ${kver}.
-    3. Try manually: dkms build zfs/${zfs_ver} -k ${kver} --kernelsourcedir ${kernel_src}"
+    3. Try manually:
+       dkms build zfs/${zfs_ver} -k ${kver} --kernelsourcedir ${kernel_src}"
   fi
 
   # Install the built module into /lib/modules/<kver>/
@@ -573,14 +593,17 @@ print_summary() {
   echo -e "  ${BOLD}The live environment is ready for ZFS installation.${NC}"
   echo ""
   printf "  %-22s %s\n" "Kernel:" "$(uname -r)"
-  printf "  %-22s %s\n" "ZFS version:" "$(zfs version 2>/dev/null | head -1 || echo 'unknown')"
+  printf "  %-22s %s\n" "ZFS version:" \
+    "$(zfs version 2>/dev/null | head -1 || echo 'unknown')"
   printf "  %-22s %s\n" "hostid:" "$(hostid)"
   printf "  %-22s %s\n" "Time:" "$(date)"
   echo ""
   echo -e "  ${BOLD}Next steps:${NC}"
   echo -e "  ${GREEN}✔${NC}  01-bootstrap-zfs.sh   ${DIM}(done)${NC}"
-  echo -e "  ${YELLOW}→${NC}  02-wipe.sh            ${DIM}(optional — wipes all disks to factory blank)${NC}"
-  echo -e "  ${DIM}   03-install.sh         (edit install.json first, then run)${NC}"
+  echo -e "  ${YELLOW}→${NC}  02-wipe.sh           " \
+          "${DIM}(optional — wipes all disks to factory blank)${NC}"
+  echo -e "  ${DIM}   03-install.sh         " \
+          "(edit install.json first, then run)${NC}"
   echo ""
 }
 

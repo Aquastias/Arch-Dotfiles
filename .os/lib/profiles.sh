@@ -86,7 +86,8 @@ _profiles_resolve_user_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
   local raw_path
-  raw_path="$(jq -r --arg n "$name" '.secrets.users[$n] // empty' "$host_state")"
+  raw_path="$(jq -r --arg n "$name" \
+    '.secrets.users[$n] // empty' "$host_state")"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
   local chroot_dir="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets"
   mkdir -p "$chroot_dir"
@@ -100,11 +101,13 @@ _profiles_create_user() {
   shell="$(printf '%s' "$json" | jq -r '.shell // "/bin/bash"')"
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
   groups_csv="$(resolve_user_groups "$json")"
-  info "Creating user: ${name}  (shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
+  info "Creating user: ${name}" \
+       "(shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
   local sec_path
   sec_path="$(_profiles_resolve_user_secrets "$name")"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash /root/lib-chroot/create-user.sh \
-    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" ${sec_path:+"$sec_path"}
+    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" \
+    ${sec_path:+"$sec_path"}
 }
 
 # Re-apply the full group list for a user. Run after all programs are installed
@@ -115,7 +118,8 @@ _profiles_apply_user_groups() {
   groups_csv="$(resolve_user_groups "$json")"
   [[ -z "$groups_csv" ]] && return 0
   info "Reconciling groups for user: ${name}  (groups=${groups_csv})"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$name" "$groups_csv" <<'CHROOT_GROUPS'
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+    "$name" "$groups_csv" <<'CHROOT_GROUPS'
 set -e
 NAME="$1"; GROUPS_CSV="$2"
 IFS=',' read -ra _ALL <<< "$GROUPS_CSV"
@@ -209,12 +213,14 @@ CHROOT_USERPROG
 _profiles_write_authorized_keys() {
   local user="$1" json="$2"
   local -a keys=()
-  mapfile -t keys < <(printf '%s' "$json" | jq -r '.ssh_authorized_keys[]?' 2>/dev/null)
+  mapfile -t keys < <(printf '%s' "$json" \
+    | jq -r '.ssh_authorized_keys[]?' 2>/dev/null)
   ((${#keys[@]} > 0)) || return 0
   info "Writing authorized_keys for user: ${user}  (${#keys[@]} key(s))"
   local tmp="${MOUNT_ROOT}/tmp/.authorized_keys_${user}"
   printf '%s\n' "${keys[@]}" > "$tmp"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "/tmp/.authorized_keys_${user}" <<'CHROOT_AUTHKEYS'
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+    "$user" "/tmp/.authorized_keys_${user}" <<'CHROOT_AUTHKEYS'
 set -e
 USER_NAME="$1"; KEYS_TMP="$2"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -233,7 +239,8 @@ _profiles_enable_system_services() {
   rel="$(resolve_program "$prog")"
   config_file="${OS_DIR}/programs/${rel}/config.jsonc"
   local -a svcs=()
-  mapfile -t svcs < <(jsonc_strip "$config_file" | jq -r '.system_services[]?' 2>/dev/null)
+  mapfile -t svcs < <(jsonc_strip "$config_file" \
+    | jq -r '.system_services[]?' 2>/dev/null)
   ((${#svcs[@]} > 0)) || return 0
   local svc
   for svc in "${svcs[@]}"; do
@@ -248,18 +255,21 @@ _profiles_enable_user_services() {
   rel="$(resolve_program "$prog")"
   config_file="${OS_DIR}/programs/${rel}/config.jsonc"
   local -a svcs=()
-  mapfile -t svcs < <(jsonc_strip "$config_file" | jq -r '.user_services[]?' 2>/dev/null)
+  mapfile -t svcs < <(jsonc_strip "$config_file" \
+    | jq -r '.user_services[]?' 2>/dev/null)
   ((${#svcs[@]} > 0)) || return 0
   local svc
   for svc in "${svcs[@]}"; do
     info "Enabling user service: ${svc}  (user=${user})"
-    arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$svc" <<'CHROOT_USERSVC'
+    arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+      "$user" "$svc" <<'CHROOT_USERSVC'
 set -e
 USER_NAME="$1"; SVC="$2"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 SVC_DIR="${HOME_DIR}/.config/systemd/user/default.target.wants"
 mkdir -p "$SVC_DIR"
-SVC_FILE="$(find /usr/lib/systemd/user /usr/local/lib/systemd/user -name "${SVC}.service" 2>/dev/null | head -1)"
+SVC_FILE="$(find /usr/lib/systemd/user /usr/local/lib/systemd/user \
+  -name "${SVC}.service" 2>/dev/null | head -1)"
 if [[ -z "$SVC_FILE" ]]; then
   echo "  [user-service] ${SVC}.service not found — skipping" >&2
   exit 0
@@ -274,11 +284,22 @@ _profiles_clone_dotfiles() {
   local user="$1" repo="$2"
   [[ -n "$repo" ]] || return 0
   info "Cloning dotfiles for user: ${user}  (${repo})"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$repo" <<'CHROOT_DOTFILES'
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+    "$user" "$repo" <<'CHROOT_DOTFILES'
 set -e
 USER_NAME="$1"; REPO="$2"
 CLONE_SCRIPT="$(mktemp)"
-printf 'set -e\nDOTFILES="${HOME}/.dotfiles"\nif [[ -d "$DOTFILES" ]]; then echo "  dotfiles dir exists — skipping" >&2; exit 0; fi\ngit clone "%s" "$DOTFILES"\ncd "$DOTFILES"\nstow --no-folding */\n' "$REPO" > "$CLONE_SCRIPT"
+cat > "$CLONE_SCRIPT" <<CLONE_INNER
+set -e
+DOTFILES="\${HOME}/.dotfiles"
+if [[ -d "\$DOTFILES" ]]; then
+  echo "  dotfiles dir exists — skipping" >&2
+  exit 0
+fi
+git clone "${REPO}" "\$DOTFILES"
+cd "\$DOTFILES"
+stow --no-folding */
+CLONE_INNER
 su - "$USER_NAME" -c "bash '$CLONE_SCRIPT'"
 rm -f "$CLONE_SCRIPT"
 CHROOT_DOTFILES
@@ -288,11 +309,14 @@ CHROOT_DOTFILES
 _profiles_apply_sysctl() {
   local host_json="$1"
   local sysctl_json
-  sysctl_json="$(printf '%s' "$host_json" | jq -c '.sysctl // empty' 2>/dev/null)"
+  sysctl_json="$(printf '%s' "$host_json" \
+    | jq -c '.sysctl // empty' 2>/dev/null)"
   [[ -n "$sysctl_json" ]] || return 0
   info "Writing sysctl defaults to /etc/sysctl.d/99-os.conf"
   mkdir -p "${MOUNT_ROOT}/etc/sysctl.d"
-  printf '%s' "$sysctl_json" | jq -r 'to_entries[] | "\(.key) = \(.value)"'     > "${MOUNT_ROOT}/etc/sysctl.d/99-os.conf"
+  printf '%s' "$sysctl_json" \
+    | jq -r 'to_entries[] | "\(.key) = \(.value)"' \
+    > "${MOUNT_ROOT}/etc/sysctl.d/99-os.conf"
 }
 
 # =============================================================================
@@ -313,11 +337,13 @@ run_profiles() {
   export OS_DIR="${SCRIPT_DIR}"
 
   if [[ ! -f "${OS_DIR}/hosts/core/config.jsonc" ]]; then
-    warn "Hosts core config not found at ${OS_DIR}/hosts/core/config.jsonc — skipping profiles runner."
+    warn "Hosts core config not found at" \
+         "${OS_DIR}/hosts/core/config.jsonc — skipping profiles runner."
     return 0
   fi
   if [[ ! -f "${OS_DIR}/users/core/config.jsonc" ]]; then
-    warn "Users core config not found at ${OS_DIR}/users/core/config.jsonc — skipping profiles runner."
+    warn "Users core config not found at" \
+         "${OS_DIR}/users/core/config.jsonc — skipping profiles runner."
     return 0
   fi
 
@@ -326,7 +352,8 @@ run_profiles() {
   case "$rc" in
   0) info "Loaded host config: ${hostname}" ;;
   1)
-    warn "No host config at ${OS_DIR}/hosts/${hostname}/ — skipping profiles runner."
+    warn "No host config at ${OS_DIR}/hosts/${hostname}/" \
+         "— skipping profiles runner."
     return 0
     ;;
   2)
@@ -341,7 +368,8 @@ run_profiles() {
 
   local -a users sys_progs
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
-  mapfile -t sys_progs < <(printf '%s' "$host_json" | jq -r '.system_programs[]?')
+  mapfile -t sys_progs < <(printf '%s' "$host_json" \
+    | jq -r '.system_programs[]?')
 
   # Pre-load user configs for install execution.
   # Program contract validation was done by validate_install_context.
@@ -354,7 +382,8 @@ run_profiles() {
     0 | 1) USER_JSONS["$u"]="$uj" ;;
     2) error "Users core config could not be loaded." ;;
     3) error "User '${u}' is named 'core' (reserved)." ;;
-    *) error "Unexpected return code ${urc} from load_user_config for '${u}'." ;;
+    *) error "Unexpected return code ${urc} from" \
+             "load_user_config for '${u}'." ;;
     esac
   done
 
@@ -377,27 +406,35 @@ run_profiles() {
   done
 
   local -a host_aur=()
-  mapfile -t host_aur < <(printf '%s' "$host_json" | jq -r '.packages.aur[]?' 2>/dev/null)
+  mapfile -t host_aur < <(printf '%s' "$host_json" \
+    | jq -r '.packages.aur[]?' 2>/dev/null)
 
   for u in "${users[@]}"; do
     local -a uprogs=()
-    mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" | jq -r '.programs[]?')
+    mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" \
+      | jq -r '.programs[]?')
 
     # Bootstrap paru for this user if they have programs, or if they are the
     # primary user and there are host/GPU AUR packages to install.
     local needs_paru=0
     ((${#uprogs[@]} > 0)) && needs_paru=1
-    [[ "${u}" == "${users[0]}" ]] && ((${#host_aur[@]} + ${#GPU_PARU_PACKAGES[@]} > 0)) && needs_paru=1
+    [[ "${u}" == "${users[0]}" ]] \
+      && ((${#host_aur[@]} + ${#GPU_PARU_PACKAGES[@]} > 0)) \
+      && needs_paru=1
     ((needs_paru)) || continue
 
     _profiles_grant_temp_sudo "$u"
     _profiles_bootstrap_paru "$u"
     # Install host AUR packages and GPU AUR packages for the primary user.
     if [[ "${u}" == "${users[0]}" ]]; then
-      local -a primary_aur=("${host_aur[@]+"${host_aur[@]}"}" "${GPU_PARU_PACKAGES[@]+"${GPU_PARU_PACKAGES[@]}"}")
+      local -a primary_aur=(
+        "${host_aur[@]+"${host_aur[@]}"}"
+        "${GPU_PARU_PACKAGES[@]+"${GPU_PARU_PACKAGES[@]}"}"
+      )
       if ((${#primary_aur[@]} > 0)); then
         info "Installing AUR packages for ${u}: ${#primary_aur[@]} packages"
-        arch-chroot "$MOUNT_ROOT" su - "$u" -c           "paru -S --noconfirm --needed ${primary_aur[*]}"
+        arch-chroot "$MOUNT_ROOT" su - "$u" -c \
+          "paru -S --noconfirm --needed ${primary_aur[*]}"
       fi
     fi
     for prog in "${uprogs[@]}"; do

@@ -38,7 +38,7 @@
 # USAGE:
 #   chmod +x 02-wipe.sh
 #   ./02-wipe.sh                    # interactive
-#   ./02-wipe.sh -y                 # unattended (no exclusions, skip WIPE prompt)
+#   ./02-wipe.sh -y     # unattended (no exclusions, skip WIPE prompt)
 #   ./02-wipe.sh --unattended
 #
 # Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag, so
@@ -100,7 +100,8 @@ find_live_disk() {
 detect_disks() {
   local live_disk
   live_disk="$(find_live_disk)"
-  [[ -n "$live_disk" ]] && info "Live boot disk detected (will be excluded): ${live_disk}"
+  [[ -n "$live_disk" ]] \
+    && info "Live boot disk detected (will be excluded): ${live_disk}"
 
   local disks=()
   while IFS= read -r dev; do
@@ -173,13 +174,16 @@ select_disks() {
   DISKS_TO_WIPE=("${all_disks[@]}")
 
   if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    info "Unattended mode — all detected disks selected for wiping (no exclusions)."
+    info "Unattended mode — all detected disks selected for wiping" \
+         "(no exclusions)."
     return
   fi
 
   echo -e "  ${BOLD}All detected disks will be wiped by default.${NC}"
-  echo -e "  To ${YELLOW}EXCLUDE${NC} disks, enter their index numbers (space-separated)."
-  echo -e "  Press ${BOLD}Enter${NC} with no input to wipe everything listed above."
+  echo -e "  To ${YELLOW}EXCLUDE${NC} disks, enter their index" \
+          "numbers (space-separated)."
+  echo -e "  Press ${BOLD}Enter${NC} with no input to wipe" \
+          "everything listed above."
   echo ""
   read -rp "  Exclude disks by index (e.g. '1 3'), or Enter to wipe all: " excl
 
@@ -212,11 +216,11 @@ select_disks() {
 
 final_confirm() {
   echo ""
-  echo -e "  ${RED}${BOLD}╔═══════════════════════════════════════════════════════╗${NC}"
-  echo -e "  ${RED}${BOLD}║         !! POINT OF NO RETURN !!                     ║${NC}"
-  echo -e "  ${RED}${BOLD}║  The following disks will be COMPLETELY and           ║${NC}"
-  echo -e "  ${RED}${BOLD}║  IRREVERSIBLY ZERO-FILLED. ALL DATA IS LOST.          ║${NC}"
-  echo -e "  ${RED}${BOLD}╚═══════════════════════════════════════════════════════╝${NC}"
+  echo -e "  ${RED}${BOLD}╔════════════════════════════════════════════╗${NC}"
+  echo -e "  ${RED}${BOLD}║       !! POINT OF NO RETURN !!             ║${NC}"
+  echo -e "  ${RED}${BOLD}║  Disks will be COMPLETELY and              ║${NC}"
+  echo -e "  ${RED}${BOLD}║  IRREVERSIBLY ZERO-FILLED. ALL DATA LOST.  ║${NC}"
+  echo -e "  ${RED}${BOLD}╚════════════════════════════════════════════╝${NC}"
   echo ""
   local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
@@ -231,7 +235,8 @@ final_confirm() {
     return
   fi
 
-  echo -e "  ${BOLD}Type  ${RED}WIPE${NC}${BOLD}  (all caps) to confirm and begin:${NC}"
+  echo -e "  ${BOLD}Type  ${RED}WIPE${NC}${BOLD}" \
+          "(all caps) to confirm and begin:${NC}"
   read -rp "  > " _confirm
   [[ "$_confirm" == "WIPE" ]] ||
     error "Confirmation not received. No disks were modified."
@@ -282,7 +287,8 @@ teardown_lvm() {
       vgremove -f "$vg" 2>/dev/null || true
     fi
     pvremove -f "$pv" 2>/dev/null || true
-  done < <(pvs --noheadings -o pv_name 2>/dev/null | grep "^[[:space:]]*${disk}" || true)
+  done < <(pvs --noheadings -o pv_name 2>/dev/null \
+    | grep "^[[:space:]]*${disk}" || true)
 }
 
 teardown_mdraid() {
@@ -467,7 +473,8 @@ main() {
   section "Detecting Disks"
   mapfile -t all_disks < <(detect_disks)
   ((${#all_disks[@]} > 0)) ||
-    error "No eligible disks detected. Check connections and that no disk is mounted."
+    error "No eligible disks detected." \
+          "Check connections and that no disk is mounted."
 
   info "Found ${#all_disks[@]} disk(s):"
   disk_info_table "${all_disks[@]}"

@@ -67,7 +67,9 @@ pick_option() {
   done
   local choice
   while true; do
-    read -rp "$(echo -e "${DIM}    Enter number [1-${#options[@]}]: ${NC}")" choice
+    read -rp \
+      "$(echo -e "${DIM}    Enter number [1-${#options[@]}]: ${NC}")" \
+      choice
     if [[ "$choice" =~ ^[0-9]+$ ]] &&
       ((choice >= 1 && choice <= ${#options[@]})); then
       PICK_RESULT="$(echo "${options[$((choice - 1))]}" | awk '{print $1}')"

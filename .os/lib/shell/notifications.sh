@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# lib/shell/notifications.sh — desktop notification helpers (requires sudo context)
+# lib/shell/notifications.sh — desktop notification helpers
+# (requires sudo context)
 
 function send_user_notification() {
   local title="$1"

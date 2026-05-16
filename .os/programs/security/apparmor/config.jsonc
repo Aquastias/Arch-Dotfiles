@@ -7,5 +7,5 @@
 {
   "name": "apparmor",
   "system": false,
-  "description": "AppArmor mandatory access control with required GRUB kernel parameters."
+  "description": "AppArmor MAC with required GRUB kernel parameters."
 }

@@ -53,11 +53,13 @@ print_status info "Adding NAT masquerading for libvirt VMs..."
 EXT_IF="${UFW_EXT_IF:-}"
 if [[ -z "$EXT_IF" ]]; then
   if command -v ip &>/dev/null; then
-    EXT_IF="$(ip route show default 0.0.0.0/0 2>/dev/null | awk '{for(i=1;i<=NF;i++){if($i=="dev"){print $(i+1); exit}}}')"
+    EXT_IF="$(ip route show default 0.0.0.0/0 2>/dev/null \
+      | awk '{for(i=1;i<=NF;i++){if($i=="dev"){print $(i+1); exit}}}')"
   fi
 fi
 if [[ -z "$EXT_IF" ]]; then
-  print_status warning "Could not detect external NIC; defaulting to eth0. Set UFW_EXT_IF to override."
+  print_status warning "Could not detect external NIC;" \
+    "defaulting to eth0. Set UFW_EXT_IF to override."
   EXT_IF="eth0"
 fi
 

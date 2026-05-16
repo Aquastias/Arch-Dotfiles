@@ -6,11 +6,15 @@
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   collect_packages  — merges base + config extra/groups into a sorted unique list
-#   install_base      — updates mirrorlist, runs pacstrap with collected packages
+#   collect_packages — merges base + config extra/groups into a
+#                      sorted unique list
+#   install_base — updates mirrorlist, runs pacstrap with
+#                  collected packages
 #
-# Precondition: validate_install_context() (lib/validation.sh) must be called before
-#   collect_packages() so that GPU_PACMAN_PACKAGES and AUDIO_PACKAGES are resolved.
+# Precondition: validate_install_context() (lib/validation.sh) must be
+# called before
+#   collect_packages() so that GPU_PACMAN_PACKAGES and AUDIO_PACKAGES
+#   are resolved.
 # =============================================================================
 
 # =============================================================================
@@ -31,17 +35,22 @@ collect_packages() {
   #   4. packages.extra[] — flat list from install.jsonc
   #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from install.jsonc
   #      (keys starting with "_" are comment fields and are filtered out)
-  #   6. Host packages.repo[] — official-repo packages from the merged host config
-  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in validate_install_context()
-  #   8. AUDIO_PACKAGES — resolved by resolve_audio_packages() in validate_install_context()
+  #   6. Host packages.repo[] — repo packages from the merged host
+  #                            config
+  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in
+  #                            validate_install_context()
+  #   8. AUDIO_PACKAGES — resolved by resolve_audio_packages() in
+  #                       validate_install_context()
   #
   # Output: one package name per line, sorted and deduplicated.
 
   # Precondition: GPU_PACMAN_PACKAGES and AUDIO_PACKAGES must be resolved.
   declare -p GPU_PACMAN_PACKAGES &>/dev/null ||
-    error "collect_packages: GPU_PACMAN_PACKAGES not set — call validate_install_context() first"
+    error "collect_packages: GPU_PACMAN_PACKAGES not set —" \
+          "call validate_install_context() first"
   declare -p AUDIO_PACKAGES &>/dev/null ||
-    error "collect_packages: AUDIO_PACKAGES not set — call validate_install_context() first"
+    error "collect_packages: AUDIO_PACKAGES not set —" \
+          "call validate_install_context() first"
 
   # ── Kernel selection ──────────────────────────────────────────────────────
   local kernel
@@ -118,7 +127,8 @@ collect_packages() {
   # ── User-defined flat extra list ──────────────────────────────────────────
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(jsonc "$CONFIG_FILE" | jq -r '.packages.extra[]? // empty' 2>/dev/null)
+  done < <(jsonc "$CONFIG_FILE" \
+    | jq -r '.packages.extra[]? // empty' 2>/dev/null)
 
   # ── User-defined groups ───────────────────────────────────────────────────
   # Filter out keys starting with "_" (they are inline comment fields, not
@@ -134,14 +144,17 @@ collect_packages() {
 
   # ── Host repo packages ─────────────────────────────────────────────────────
   # packages.repo[] from the merged host config (host core + host-specific).
-  # AUR packages (packages.aur[]) are handled separately in profiles.sh via paru.
+  # AUR packages (packages.aur[]) are handled separately in profiles.sh
+  # via paru.
   if [[ -n "${RESOLVED_HOSTNAME:-}" ]]; then
     local host_json host_rc=0
-    host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null)" || host_rc=$?
+    host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null)" \
+      || host_rc=$?
     if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
       while IFS= read -r p; do
         [[ -n "$p" ]] && pkgs+=("$p")
-      done < <(printf '%s' "$host_json" | jq -r '.packages.repo[]? // empty' 2>/dev/null)
+      done < <(printf '%s' "$host_json" \
+        | jq -r '.packages.repo[]? // empty' 2>/dev/null)
     fi
   fi
 
@@ -163,7 +176,8 @@ install_base() {
 
   # Refresh mirrorlist with the fastest mirrors (non-fatal if reflector fails)
   info "Updating mirror list..."
-  reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null ||
+  reflector --latest 10 --sort rate \
+    --save /etc/pacman.d/mirrorlist 2>/dev/null ||
     warn "reflector failed — using existing mirrorlist."
 
   mapfile -t pkgs < <(collect_packages)
@@ -191,12 +205,15 @@ install_base() {
     "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz \
     "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz \
     "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
-  info "Package cache cleared ($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null | cut -f1) remaining)."
+  info "Package cache cleared" \
+       "($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null \
+          | cut -f1) remaining)."
 
   # Configure pacman to keep only 1 cached version going forward
   # (prevents cache from growing unbounded after updates)
   if ! grep -q '^CleanMethod' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null; then
-    sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null || true
+    sed -i 's/^#CleanMethod.*/CleanMethod = KeepCurrent/' \
+      "${MOUNT_ROOT}/etc/pacman.conf" 2>/dev/null || true
   fi
 
 

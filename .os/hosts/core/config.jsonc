@@ -9,9 +9,11 @@
 //   system_programs  string[]  Programs installed via pacman in the chroot.
 //                              Each must exist under .os/programs/<cat>/<name>/
 //                              with `system: true` in its config.jsonc.
-//   sysctl           object    Key-value pairs written to /etc/sysctl.d/99-os.conf.
+//   sysctl           object    Key-value pairs written to
+//                              /etc/sysctl.d/99-os.conf.
 //   packages.repo    string[]  Official-repo packages installed via pacstrap.
-//   packages.aur     string[]  AUR packages installed via paru for the primary user.
+//   packages.aur     string[]  AUR packages installed via paru for
+//                              the primary user.
 
 {
   "users": [],

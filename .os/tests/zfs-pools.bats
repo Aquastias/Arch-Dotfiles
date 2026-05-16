@@ -58,7 +58,7 @@ write_config() {
   [ "$output" = "raidz2 /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1" ]
 }
 
-@test "build_vdev_spec: independent emits all parts space-separated (same as stripe)" {
+@test "build_vdev_spec: independent emits parts space-separated" {
   run build_vdev_spec independent /dev/sda1 /dev/sdb1
   [ "$status" -eq 0 ]
   [ "$output" = "/dev/sda1 /dev/sdb1" ]
@@ -84,13 +84,13 @@ write_config() {
   [[ "${ENC_OPTS[*]}" == *"aes-256-gcm"* ]]
 }
 
-@test "build_enc_opts: encryption true → ENC_OPTS includes keyformat=passphrase" {
+@test "build_enc_opts: encryption=true → ENC_OPTS has keyformat=passphrase" {
   write_config '{"options": {"encryption": "true"}}'
   build_enc_opts
   [[ "${ENC_OPTS[*]}" == *"keyformat=passphrase"* ]]
 }
 
-@test "build_enc_opts: missing encryption field defaults to false → ENC_OPTS empty" {
+@test "build_enc_opts: missing encryption defaults false → ENC_OPTS empty" {
   write_config '{}'
   build_enc_opts
   [ "${#ENC_OPTS[@]}" -eq 0 ]

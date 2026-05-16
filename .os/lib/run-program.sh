@@ -29,7 +29,8 @@ SCRIPT="${1:?run-program: missing install.sh path}"
 }
 
 [[ -r "${SHELL_COMMONS}/shell-stdlib.sh" ]] || {
-  echo "[run-program] shell-stdlib.sh not readable: ${SHELL_COMMONS}/shell-stdlib.sh" >&2
+  echo "[run-program] shell-stdlib.sh not readable:" \
+       "${SHELL_COMMONS}/shell-stdlib.sh" >&2
   exit 99
 }
 

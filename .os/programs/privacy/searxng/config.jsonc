@@ -11,5 +11,5 @@
 {
   "name": "searxng",
   "system": false,
-  "description": "Privacy-respecting metasearch engine running via rootless podman quadlets, bound to 127.0.0.1:8080"
+  "description": "Privacy metasearch via rootless podman, on 127.0.0.1:8080"
 }

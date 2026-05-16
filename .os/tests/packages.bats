@@ -101,7 +101,8 @@ write_config() {
 }
 
 @test "collect_packages: _ prefixed group keys are filtered out" {
-  write_config '{"packages": {"groups": {"_comment": ["fake-pkg"], "cli": ["htop"]}}}'
+  write_config \
+    '{"packages": {"groups": {"_comment": ["fake-pkg"], "cli": ["htop"]}}}'
   run collect_packages
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -q "^fake-pkg$"

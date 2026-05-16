@@ -42,15 +42,18 @@ _run_create_user() {
 }
 
 @test "falls back to PASSWORD arg when SECRETS_FILE has no password field" {
-  printf '{"ssh_identity_private_key":"dummykey"}\n' > "$TEST_DIR/user-secrets.json"
-  run _run_create_user "alice" "/bin/bash" "" "fallback" "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"dummykey"}\n' \
+    > "$TEST_DIR/user-secrets.json"
+  run _run_create_user "alice" "/bin/bash" "" "fallback" \
+    "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_DIR/chpasswd_input")" = "alice:fallback" ]
 }
 
 @test "uses password from SECRETS_FILE when password field is present" {
   printf '{"password":"s3cr3tpw"}\n' > "$TEST_DIR/user-secrets.json"
-  run _run_create_user "alice" "/bin/bash" "" "12345" "$TEST_DIR/user-secrets.json"
+  run _run_create_user "alice" "/bin/bash" "" "12345" \
+    "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_DIR/chpasswd_input")" = "alice:s3cr3tpw" ]
 }
@@ -65,14 +68,16 @@ _run_create_user() {
 }
 
 @test "writes private key to id_ed25519 when key type absent (default)" {
-  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' > "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' \
+    > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_DIR/home/alice/.ssh/id_ed25519")" = "FAKEKEY" ]
 }
 
 @test "writes private key to id_rsa when key type is rsa" {
-  printf '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"rsa"}\n' \
+  printf \
+  '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"rsa"}\n' \
     > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
@@ -80,7 +85,8 @@ _run_create_user() {
 }
 
 @test "writes private key to id_ecdsa when key type is ecdsa" {
-  printf '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"ecdsa"}\n' \
+  printf \
+  '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"ecdsa"}\n' \
     > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
@@ -88,7 +94,8 @@ _run_create_user() {
 }
 
 @test "writes private key to id_ed25519 when key type is ed25519 explicitly" {
-  printf '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"ed25519"}\n' \
+  printf \
+  '{"ssh_identity_private_key":"FAKEKEY","ssh_identity_key_type":"ed25519"}\n' \
     > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
@@ -96,28 +103,33 @@ _run_create_user() {
 }
 
 @test "private key file has permissions 600" {
-  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' > "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' \
+    > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(stat -c '%a' "$TEST_DIR/home/alice/.ssh/id_ed25519")" = "600" ]
 }
 
 @test "public key file has permissions 644" {
-  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' > "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' \
+    > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(stat -c '%a' "$TEST_DIR/home/alice/.ssh/id_ed25519.pub")" = "644" ]
 }
 
 @test "public key content comes from ssh-keygen -y" {
-  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' > "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' \
+    > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
-  [ "$(cat "$TEST_DIR/home/alice/.ssh/id_ed25519.pub")" = "ssh-ed25519 AAAAFAKE testkey" ]
+  expected="ssh-ed25519 AAAAFAKE testkey"
+  [ "$(cat "$TEST_DIR/home/alice/.ssh/id_ed25519.pub")" = "$expected" ]
 }
 
 @test "chown called with username on ssh dir and key files" {
-  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' > "$TEST_DIR/user-secrets.json"
+  printf '{"ssh_identity_private_key":"FAKEKEY"}\n' \
+    > "$TEST_DIR/user-secrets.json"
   run _run_create_user "alice" "/bin/bash" "" "pw" "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   grep -q "alice:alice" "$TEST_DIR/chown_calls"

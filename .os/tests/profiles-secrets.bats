@@ -74,7 +74,8 @@ _setup_archroot_capture() {
     > "$MOUNT_ROOT/install-state.json"
 
   _profiles_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
-  grep -qF "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" "$TEST_DIR/archroot_args"
+  grep -qF "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" \
+    "$TEST_DIR/archroot_args"
 }
 
 @test "_profiles_create_user omits secrets arg when user has no entry" {

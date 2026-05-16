@@ -10,5 +10,5 @@
 {
   "name": "podman",
   "system": false,
-  "description": "Rootless OCI container runtime with systemd quadlet support via fuse-overlayfs and slirp4netns"
+  "description": "Rootless OCI runtime with systemd quadlets."
 }

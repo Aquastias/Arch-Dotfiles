@@ -33,6 +33,7 @@ print_status info "Testing logrotate configuration..."
 if ! command_exists logrotate; then
   pacman -S --noconfirm --needed logrotate
 fi
-logrotate -d "$LOGROTATE_CONF" 2>&1 | grep -v 'logrotate in debug mode does nothing'
+logrotate -d "$LOGROTATE_CONF" 2>&1 \
+  | grep -v 'logrotate in debug mode does nothing'
 
 print_status success "Log rotation activated!"

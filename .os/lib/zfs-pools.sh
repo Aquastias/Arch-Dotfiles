@@ -8,12 +8,13 @@
 # Provides:
 #   install_zfs_tools_if_needed  — fallback ZFS install if bootstrap was skipped
 #   build_enc_opts               — populates ENC_OPTS array from config
-#   _zpool_create                — creates a pool with standard Arch ZFS settings
+#   _zpool_create — creates a pool with standard Arch ZFS settings
 #   _create_os_datasets          — creates ROOT/arch, home, var, tmp, swap zvol
 #   build_vdev_spec              — converts (topology, parts) → vdev spec string
 #
 # GLOBALS:
-#   ENC_OPTS   — array of -O encryption flags for zpool create; set by build_enc_opts
+#   ENC_OPTS — array of -O encryption flags for zpool create;
+#                set by build_enc_opts
 # =============================================================================
 
 ENC_OPTS=() # populated by build_enc_opts(); consumed by _zpool_create()
@@ -31,7 +32,8 @@ install_zfs_tools_if_needed() {
   fi
 
   section "Installing ZFS Tools (fallback — bootstrap was not run)"
-  warn "ZFS is not loaded. It is strongly recommended to run 01-bootstrap-zfs.sh first."
+  warn "ZFS is not loaded." \
+       "Run 01-bootstrap-zfs.sh first (strongly recommended)."
   warn "Attempting fallback install now..."
 
   # Add archzfs repo if not already present
@@ -42,7 +44,9 @@ install_zfs_tools_if_needed() {
       pacman-key --keyserver hkps://keyserver.ubuntu.com \
         --recv-keys "$ARCHZFS_KEY"
     pacman-key --lsign-key "$ARCHZFS_KEY"
-    printf '\n[archzfs]\nSigLevel = Never\nServer = https://github.com/archzfs/archzfs/releases/download/experimental\n' \
+    printf '\n[archzfs]\nSigLevel = Never\n%s\n' \
+      'Server = https://github.com/archzfs/archzfs/releases/download/'\
+      'experimental' \
       >>/etc/pacman.conf
     pacman -Sy --noconfirm
   fi
@@ -76,7 +80,8 @@ ram_gib() {
 # ENCRYPTION OPTIONS
 # =============================================================================
 
-# Global passphrase storage — set by collect_enc_passphrase(), used by _zpool_create()
+# Global passphrase storage — set by collect_enc_passphrase(),
+# used by _zpool_create()
 ZFS_PASSPHRASE=""
 
 collect_enc_passphrase() {
@@ -90,7 +95,8 @@ collect_enc_passphrase() {
 
   section "ZFS Encryption Passphrase"
   warn "Encryption is enabled. ALL data on the pools will be encrypted."
-  warn "This passphrase is required at EVERY boot. Losing it means losing all data."
+  warn "This passphrase is required at EVERY boot." \
+       "Losing it means losing all data."
   echo ""
 
   local pw1 pw2
@@ -157,11 +163,14 @@ _zpool_create() {
   #   acltype=posixacl  — required for correct Linux ACL support
   #   xattr=sa          — stores xattrs in inodes (faster than separate files)
   #   dnodesize=auto    — allows larger dnodes for xattr-heavy workloads
-  #   compression=lz4   — transparent compression; near-zero CPU cost, saves ~20–40%
+  #   compression=lz4 — transparent compression; near-zero CPU cost,
+  #                     saves ~20–40%
   #   normalization=formD — Unicode normalization for filename compatibility
-  #   relatime=on       — atime only updated if mtime or ctime also changed (performance)
+  #   relatime=on     — atime only updated if mtime or ctime also
+  #                     changed (performance)
   #   canmount=off      — pool root dataset should not be auto-mounted
-  #   mountpoint=none   — no default mountpoint; individual datasets set their own
+  #   mountpoint=none — no default mountpoint; individual datasets
+  #                     set their own
 
   local pool_name="$1" ashift="$2"
   shift 2

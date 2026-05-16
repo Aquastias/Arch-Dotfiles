@@ -1,10 +1,13 @@
 # Catppuccin Latte Theme (for zsh-syntax-highlighting)
 #
-# Paste this files contents inside your ~/.zshrc before you activate zsh-syntax-highlighting
+# Paste this files contents inside your ~/.zshrc before you activate
+# zsh-syntax-highlighting
 ZSH_HIGHLIGHT_HIGHLIGHTERS=(main cursor)
 typeset -gA ZSH_HIGHLIGHT_STYLES
 
-# Main highlighter styling: https://github.com/zsh-users/zsh-syntax-highlighting/blob/master/docs/highlighters/main.md
+# Main highlighter styling:
+# https://github.com/zsh-users/zsh-syntax-highlighting/blob/master/
+# docs/highlighters/main.md
 #
 ## General
 ### Diffs

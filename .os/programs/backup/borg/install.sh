@@ -16,7 +16,8 @@ trap 'echo "[borg] error on line $LINENO" >&2' ERR
 print_status info "Installing borgbackup, vorta, and borgmatic..."
 paru -S --noconfirm --needed borgbackup vorta python-borgmatic
 
-FIRST_USER="$(awk -F: '$3>=1000 && $3<65534{print $1; exit}' /etc/passwd || true)"
+FIRST_USER="$(awk -F: '$3>=1000 && $3<65534{print $1; exit}' \
+  /etc/passwd || true)"
 
 if [[ -n "$FIRST_USER" ]]; then
   cfg_dir="/home/${FIRST_USER}/.config/borgmatic"
@@ -59,4 +60,5 @@ fi
 print_status info "Enabling borgmatic daily timer..."
 sudo systemctl enable borgmatic.timer
 
-print_status success "Borg staged. Next steps: init repo, set passphrase, run borgmatic."
+print_status success "Borg staged." \
+  "Next steps: init repo, set passphrase, run borgmatic."

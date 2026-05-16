@@ -8,5 +8,5 @@
 {
   "name": "clamav",
   "system": false,
-  "description": "ClamAV antivirus daemon with on-access scanning, freshclam, and daily timer."
+  "description": "ClamAV antivirus daemon with on-access scan + daily timer."
 }

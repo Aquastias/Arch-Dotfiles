@@ -20,11 +20,13 @@ else
 fi
 POOL_ROOT="$RPOOL/ROOT/arch"
 
-# systemd-boot cannot read ZFS — kernel and initramfs must live on the FAT32 ESP.
+# systemd-boot cannot read ZFS — kernel and initramfs must live
+# on the FAT32 ESP.
 # bootctl warns about "world accessible" and "running in a container" in chroot;
 # both are harmless — filter them to keep output clean.
 bootctl --esp-path=/boot/efi install 2>&1 \
-    | grep -v "world accessible\|security hole\|running in a container\|skipping EFI" \
+    | grep -v "world accessible\|security hole" \
+    | grep -v "running in a container\|skipping EFI" \
     || true
 
 mkdir -p /boot/efi/loader/entries

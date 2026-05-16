@@ -22,13 +22,19 @@ Complete configuration reference, concept explanations, and VM testing guide.
 
 ### Why ZFS?
 
-ZFS is a combined filesystem and volume manager with features not available in ext4/btrfs:
+ZFS is a combined filesystem and volume manager with features not
+available in ext4/btrfs:
 
-- **Copy-on-write** — data is never overwritten in place; consistent state on power loss
-- **Checksumming** — every block is checksummed; silent data corruption is detected and (with RAID) repaired automatically
-- **Snapshots** — instant, space-efficient snapshots of any dataset; rollback in seconds
-- **Compression** — transparent LZ4 compression is on by default; typically saves 20–40% space with near-zero CPU cost
-- **RAID-Z** — software RAID built into the filesystem; no separate mdadm layer needed
+- **Copy-on-write** — data is never overwritten in place;
+  consistent state on power loss
+- **Checksumming** — every block is checksummed; silent data
+  corruption is detected and (with RAID) repaired automatically
+- **Snapshots** — instant, space-efficient snapshots of any dataset;
+  rollback in seconds
+- **Compression** — transparent LZ4 compression is on by default;
+  typically saves 20–40% space with near-zero CPU cost
+- **RAID-Z** — software RAID built into the filesystem;
+  no separate mdadm layer needed
 - **Native encryption** — AES-256-GCM per-pool or per-dataset
 
 ### ZFS Terminology
@@ -36,10 +42,10 @@ ZFS is a combined filesystem and volume manager with features not available in e
 | Term | Meaning |
 |---|---|
 | **pool** | Top-level storage container spanning one or more physical devices |
-| **vdev** | Virtual device — a disk, mirror set, or RAID-Z group within a pool |
+| **vdev** | Virtual device — a disk, mirror set, or RAID-Z group |
 | **dataset** | A mountable filesystem inside a pool (e.g. `rpool/home`) |
 | **zvol** | A block device inside a pool (used for swap here) |
-| **ashift** | Log₂ of the physical sector size. 12 = 4096 bytes (SSD/HDD), 13 = 8192 bytes (some NVMe) |
+| **ashift** | Log₂ sector size. 12 = 4096B (SSD/HDD), 13 = 8192B (NVMe) |
 | **rpool** | Conventional name for the root/OS pool |
 | **dpool** | Conventional name for the data/storage pool |
 
@@ -52,11 +58,18 @@ A pool is built from one or more **vdevs**. The vdev type determines redundancy:
 - **Stripe** — 2+ disks treated as one; no redundancy, full combined capacity
 - **RAID-Z1** — 3+ disks, 1 parity; survives 1 disk failure; N-1 usable disks
 - **RAID-Z2** — 4+ disks, 2 parity; survives 2 disk failures; N-2 usable disks
-- **Independent** — each disk is its own single-disk vdev in the pool; no RAID across them
+- **Independent** — each disk is its own single-disk vdev in the pool;
+  no RAID across them
 
 ### ESP Mirroring
 
-When multiple OS disks are used, each gets its own EFI System Partition (FAT32). A pacman hook (`/etc/pacman.d/hooks/95-esp-mirror.hook`) rsyncs the primary ESP to all secondaries after every kernel or bootloader update. Each secondary is also registered as a UEFI boot entry via `efibootmgr`, so the machine can boot from any OS disk independently if another fails.
+When multiple OS disks are used, each gets its own EFI System
+Partition (FAT32). A pacman hook
+(`/etc/pacman.d/hooks/95-esp-mirror.hook`) rsyncs the primary ESP to
+all secondaries after every kernel or bootloader update. Each
+secondary is also registered as a UEFI boot entry via `efibootmgr`,
+so the machine can boot from any OS disk independently if another
+fails.
 
 ---
 
@@ -76,9 +89,9 @@ When multiple OS disks are used, each gets its own EFI System Partition (FAT32).
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `encryption` | bool | `false` | ZFS native AES-256-GCM encryption on all pools |
+| `encryption` | bool | `false` | ZFS AES-256-GCM on all pools |
 | `swap` | bool | `true` | Create a swap zvol on rpool |
-| `swap_size` | string | `"auto"` | Swap size. `"auto"` = RAM×2. Or fixed: `"8G"`, `"16G"` |
+| `swap_size` | string | `"auto"` | `"auto"` = RAM×2. Or `"8G"`, `"16G"` |
 | `esp_size` | string | `"512M"` | EFI partition size per OS disk |
 
 ### `mode`
@@ -97,7 +110,7 @@ Used when `mode = "single"`:
 |---|---|---|---|
 | `disk` | string | — | Target disk device path, e.g. `"/dev/nvme0n1"` |
 | `ashift` | int | `12` | Sector size exponent (12=4K, 13=8K) |
-| `os_size` | string | `"auto"` | OS partition size. `"auto"` or fixed e.g. `"80G"` |
+| `os_size` | string | `"auto"` | OS partition. `"auto"` or fixed `"80G"` |
 | `os_pool_name` | string | `"rpool"` | Name for the OS ZFS pool |
 | `storage_pool_name` | string | `"dpool"` | Name for the storage ZFS pool |
 | `storage_mount` | string | `"/data"` | Mount point for the storage pool |
@@ -107,11 +120,14 @@ Used when `mode = "single"`:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `pool_name` | string | — | Name for the OS pool |
-| `topology` | string | *(prompted)* | `mirror`, `stripe`, or `none`. Omit to be prompted. |
+| `topology` | str | *(prompted)* | `mirror`, `stripe`, `none` — or prompted |
 | `ashift` | int | `13` | Sector size exponent |
 | `disks` | array | — | List of disk device paths |
 
-**topology = `"none"`**: The script will ask which disk to install the OS on. All other disks from this list are automatically added to `dpool` as the `extra` storage group, with their own topology prompt.
+**topology = `"none"`**: The script will ask which disk to install
+the OS on. All other disks from this list are automatically added
+to `dpool` as the `extra` storage group, with their own topology
+prompt.
 
 ### `storage_groups` (multi-disk)
 
@@ -122,19 +138,20 @@ Array of storage group objects. Each group becomes a vdev in `dpool`:
 | `name` | string | — | Group identifier (used in dataset name and logs) |
 | `mount` | string | — | Mount point, e.g. `"/data/ssd"` |
 | `ashift` | int | `12` | Sector size exponent |
-| `topology` | string | *(prompted)* | Storage topology. Omit to be auto-suggested and prompted. |
+| `topology` | str | *(prompted)* | Storage topology. Auto if omitted |
 | `disks` | array | — | List of disk device paths in this group |
 
 ### `packages`
 
 | Field | Type | Description |
 |---|---|---|
-| `extra` | array | Flat list of any pacman packages, e.g. `["htop", "firefox"]` |
+| `extra` | array | Flat list of packages, e.g. `["htop", "firefox"]` |
 | `groups.cli` | array | CLI tools, e.g. `["tmux", "zsh", "fzf"]` |
-| `groups.dev` | array | Development tools, e.g. `["python", "nodejs", "docker"]` |
+| `groups.dev` | array | Dev tools, e.g. `["python", "nodejs", "docker"]` |
 | `groups.gui` | array | GUI applications, e.g. `["firefox", "vlc", "gimp"]` |
 
-All lists are merged and deduplicated at install time. Use exact pacman package names.
+All lists are merged and deduplicated at install time.
+Use exact pacman package names.
 
 ### `post_install`
 
@@ -182,7 +199,7 @@ All lists are merged and deduplicated at install time. Use exact pacman package 
 ├── p1 [ESP] → /boot/efi           └── p1 [ZFS] ─────────────────────┐
 └── p2 [ZFS] → rpool (single)                                         │
                ├── ROOT/arch                                    dpool  │
-               ├── home                                         ├── DATA/extra/disk1
+               ├── home                              ├── DATA/extra/disk1
                └── swap                                         └── DATA/ssd
 ```
 
@@ -194,9 +211,9 @@ All lists are merged and deduplicated at install time. Use exact pacman package 
 
 | Topology | Min disks | Redundancy | Notes |
 |---|---|---|---|
-| `mirror` | 2 | Full (1 failure) | Recommended for OS. Uses half the combined capacity. |
-| `stripe` | 2 | None | Full capacity + speed. Single disk failure = total data loss. |
-| `none` | 1 | None | No vdev grouping. One disk for OS; others fold into dpool. |
+| `mirror` | 2 | Full (1 fail) | Recommended for OS. Half combined capacity |
+| `stripe` | 2 | None | Full capacity + speed. 1 disk = total data loss |
+| `none` | 1 | None | No vdev grouping. 1 disk for OS; rest in dpool |
 
 ### Storage group topologies
 
@@ -206,7 +223,7 @@ All lists are merged and deduplicated at install time. Use exact pacman package 
 | `stripe` | 2 | N× | 0 | Speed/capacity, no safety |
 | `raidz1` | 3 | N-1 | 1 failure | Recommended for 3–4 disks |
 | `raidz2` | 4 | N-2 | 2 failures | Recommended for 5+ disks |
-| `independent` | 1 | N× | 0 per disk | Each disk its own vdev. No cross-disk redundancy but each disk can be managed separately. |
+| `independent` | 1 | N× | 0/disk | Each disk own vdev. No redundancy |
 
 **Auto-suggestion rules** (when topology is omitted):
 
@@ -222,11 +239,12 @@ All lists are merged and deduplicated at install time. Use exact pacman package 
 
 ## OS Partition Sizing (single-disk)
 
-When `os_size = "auto"`, the installer calculates the OS partition size as the **maximum** of three values:
+When `os_size = "auto"`, the installer calculates the OS partition
+size as the **maximum** of three values:
 
 ```
 floor     = 40 GiB              (absolute minimum, avoids cramped installs)
-ram-based = RAM_GiB × 2 + 30   (accommodates swap zvol + reasonable root headroom)
+ram-based = RAM_GiB × 2 + 30   (swap zvol + reasonable root headroom)
 percentage = disk_GiB × 20%    (scales with larger disks)
 
 os_size = max(floor, ram-based, percentage)
@@ -260,7 +278,8 @@ Packages are collected from three sources and deduplicated before pacstrap:
 }
 ```
 
-All packages must be valid pacman package names. Use `pacman -Ss <keyword>` on a running Arch system to find package names.
+All packages must be valid pacman package names. Use
+`pacman -Ss <keyword>` on a running Arch system to find package names.
 
 **Useful package suggestions:**
 
@@ -350,7 +369,9 @@ sudo systemctl enable --now clamav-daemon
 
 ## Testing in Virtual Machines
 
-Testing the installer in virtual machines before running on real hardware is strongly recommended. The following instructions use **virt-manager** with **QEMU/KVM**.
+Testing the installer in virtual machines before running on real
+hardware is strongly recommended. The following instructions use
+**virt-manager** with **QEMU/KVM**.
 
 ### Prerequisites
 
@@ -400,7 +421,7 @@ sudo usermod -aG libvirt $USER
 |---|---|---|
 | VirtIO | `/dev/vda`, `/dev/vdb`, ... | Best performance, use for most tests |
 | SATA | `/dev/sda`, `/dev/sdb`, ... | Tests the SATA path in scripts |
-| NVMe | `/dev/nvme0n1`, `/dev/nvme1n1`, ... | Add via "NVMe" bus type in virt-manager |
+| NVMe | `/dev/nvme0n1`, `/dev/nvme1n1`, ... | Add via "NVMe" bus type |
 
 Update `install.json` with the correct device names for your VM.
 
@@ -508,7 +529,9 @@ ls /boot/efi/
 
 ### Cleaning up a VM for a fresh test run
 
-Rather than recreating the VM, just rerun `./install.sh` — the wipe step is now mandatory and zeroes all disks before reinstalling. This is much faster than creating new VMs.
+Rather than recreating the VM, just rerun `./install.sh` — the
+wipe step is now mandatory and zeroes all disks before
+reinstalling. This is much faster than creating new VMs.
 
 ---
 
@@ -550,7 +573,9 @@ Run `lsblk` on the live ISO to see current device names:
 lsblk -o NAME,SIZE,TYPE,MODEL,SERIAL,TRAN
 ```
 
-Device names can shift between boots if disks are added/removed. Using `/dev/disk/by-id/` paths in the config is more stable for permanent installs.
+Device names can shift between boots if disks are added/removed.
+Using `/dev/disk/by-id/` paths in the config is more stable for
+permanent installs.
 
 ### systemd-boot not showing menu
 

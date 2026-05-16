@@ -20,9 +20,10 @@
 #   LAYOUT_DATA_POOL_NAME  Resolved data pool name, or "" when no data pool.
 # =============================================================================
 
-# shellcheck disable=SC2034  # all vars here are consumed by other sourced modules
+# shellcheck disable=SC2034  # all vars consumed by other sourced modules
 
-INSTALL_MODE=""          # "single" | "multi" — set by detect_mode() in config.sh
+# "single" | "multi" — set by detect_mode() in config.sh
+INSTALL_MODE=""
 PICK_RESULT=""           # last result from pick_option() in common.sh
 
 LAYOUT_ESP_PARTS=()      # populated by layout_plan() — see contract above

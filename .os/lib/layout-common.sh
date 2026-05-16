@@ -26,14 +26,18 @@ parse_size_to_gib() {
   esac
 }
 
-# Asserts layout_plan() set the OS pool name. Call at end of every layout_plan().
+# Asserts layout_plan() set the OS pool name.
+# Call at end of every layout_plan().
 _layout_verify_plan_contract() {
   [[ -n "$LAYOUT_OS_POOL_NAME" ]] ||
-    error "Layout contract: LAYOUT_OS_POOL_NAME must be non-empty after layout_plan()"
+    error "Layout contract: LAYOUT_OS_POOL_NAME must be non-empty" \
+          "after layout_plan()"
 }
 
-# Asserts layout_partition() populated LAYOUT_ESP_PARTS. Call at end of every layout_partition().
+# Asserts layout_partition() populated LAYOUT_ESP_PARTS.
+# Call at end of every layout_partition().
 _layout_verify_partition_contract() {
   ((${#LAYOUT_ESP_PARTS[@]} >= 1)) ||
-    error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element after layout_partition()"
+    error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element" \
+          "after layout_partition()"
 }
