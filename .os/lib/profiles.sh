@@ -284,6 +284,17 @@ rm -f "$CLONE_SCRIPT"
 CHROOT_DOTFILES
 }
 
+
+_profiles_apply_sysctl() {
+  local host_json="$1"
+  local sysctl_json
+  sysctl_json="$(printf '%s' "$host_json" | jq -c '.sysctl // empty' 2>/dev/null)"
+  [[ -n "$sysctl_json" ]] || return 0
+  info "Writing sysctl defaults to /etc/sysctl.d/99-os.conf"
+  mkdir -p "${MOUNT_ROOT}/etc/sysctl.d"
+  printf '%s' "$sysctl_json" | jq -r 'to_entries[] | "\(.key) = \(.value)"'     > "${MOUNT_ROOT}/etc/sysctl.d/99-os.conf"
+}
+
 # =============================================================================
 # PUBLIC ENTRY POINT
 # =============================================================================
@@ -326,6 +337,8 @@ run_profiles() {
   *) error "Unexpected return code ${rc} from load_host_config." ;;
   esac
 
+  _profiles_apply_sysctl "$host_json"
+
   local -a users sys_progs
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
   mapfile -t sys_progs < <(printf '%s' "$host_json" | jq -r '.system_programs[]?')
@@ -363,18 +376,29 @@ run_profiles() {
     _profiles_enable_system_services "$prog"
   done
 
+  local -a host_aur=()
+  mapfile -t host_aur < <(printf '%s' "$host_json" | jq -r '.packages.aur[]?' 2>/dev/null)
+
   for u in "${users[@]}"; do
     local -a uprogs=()
     mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" | jq -r '.programs[]?')
-    ((${#uprogs[@]} > 0)) || continue
+
+    # Bootstrap paru for this user if they have programs, or if they are the
+    # primary user and there are host/GPU AUR packages to install.
+    local needs_paru=0
+    ((${#uprogs[@]} > 0)) && needs_paru=1
+    [[ "${u}" == "${users[0]}" ]] && ((${#host_aur[@]} + ${#GPU_PARU_PACKAGES[@]} > 0)) && needs_paru=1
+    ((needs_paru)) || continue
 
     _profiles_grant_temp_sudo "$u"
     _profiles_bootstrap_paru "$u"
-    # Install AUR GPU packages (e.g. envycontrol for hybrid setups) via paru
-    # for the primary user, before user programs run.
-    if [[ "${u}" == "${users[0]}" && "${#GPU_PARU_PACKAGES[@]}" -gt 0 ]]; then
-      info "Installing GPU AUR packages for ${u}: ${GPU_PARU_PACKAGES[*]}"
-      arch-chroot "$MOUNT_ROOT" su - "$u" -c         "paru -S --noconfirm --needed ${GPU_PARU_PACKAGES[*]}"
+    # Install host AUR packages and GPU AUR packages for the primary user.
+    if [[ "${u}" == "${users[0]}" ]]; then
+      local -a primary_aur=("${host_aur[@]+"${host_aur[@]}"}" "${GPU_PARU_PACKAGES[@]+"${GPU_PARU_PACKAGES[@]}"}")
+      if ((${#primary_aur[@]} > 0)); then
+        info "Installing AUR packages for ${u}: ${#primary_aur[@]} packages"
+        arch-chroot "$MOUNT_ROOT" su - "$u" -c           "paru -S --noconfirm --needed ${primary_aur[*]}"
+      fi
     fi
     for prog in "${uprogs[@]}"; do
       _profiles_install_user_program "$u" "$prog"

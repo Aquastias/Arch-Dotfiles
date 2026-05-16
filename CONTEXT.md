@@ -33,7 +33,7 @@ A program installed for a specific user via paru inside the chroot. Declared in 
 `.os/install.sh`. The one script a user runs from the Arch live CD after cloning the repo and providing configs. Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system config → system programs → user programs → cleanup and pool export.
 
 ### Shell Stdlib
-`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by the Program Runner (not by the install.sh itself), so program scripts get its helpers without their own source line. Mirrors the role of `.pkglist/shell-commons/shell-stdlib.sh`, which is reference-only and not modified.
+`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by the Program Runner (not by the install.sh itself), so program scripts get its helpers without their own source line.
 
 ### Program Install Script
 `install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for all installation logic: package install, file copying, service enabling. Invoked by the Program Runner via `lib/run-program.sh`, which validates staging, sources Shell Stdlib, then sources the install.sh in the same shell. Receives env vars `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced by name only across all categories (names are unique).
@@ -88,3 +88,12 @@ Age private key stored at `/etc/secrets/age/keys.txt` on the installed system. D
 
 ### SOPS Runtime Service
 Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all SOPS-encrypted secret files using the Machine Age Key, and sets declared ownership and permissions. Programs that need runtime secrets reference `/run/secrets/<name>` paths.
+
+### Host Package List
+`packages` object in a Host Config with two arrays: `repo` (official-repo packages installed via pacstrap) and `aur` (AUR packages installed via paru for the primary user). Declared in the host-specific config — not in Host Core — because the list differs per machine. Deduplicated against base packages by the installer. AUR packages are installed once for the system via the first declared user's paru instance before any user programs run.
+
+### Sysctl Defaults
+`sysctl` object in Host Core (or a host-specific config), containing key-value pairs written verbatim to `/etc/sysctl.d/99-os.conf` during the profiles phase. Applied to every host via Host Core. A host-specific config can add keys (they deep-merge per the core merge rules) but cannot remove keys declared in core.
+
+### Tools
+`.os/tools/`. Utility scripts for managing a running system — not part of the install flow. Currently: `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`) and `install-pkglist.sh` (installs packages from those files). Both default to `$(hostname)` but accept a hostname argument.
