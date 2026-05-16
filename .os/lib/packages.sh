@@ -28,11 +28,12 @@ collect_packages() {
   #      'default' → linux + linux-headers           (latest rolling kernel,
   #                  may temporarily be unsupported by archzfs)
   #   3. Bootloader packages — selected by options.bootloader in config
-  #   4. packages.extra[] — flat list from config
-  #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from config
+  #   4. packages.extra[] — flat list from install.jsonc
+  #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from install.jsonc
   #      (keys starting with "_" are comment fields and are filtered out)
-  #   6. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in validate_install_context()
-  #   7. AUDIO_PACKAGES — resolved by resolve_audio_packages() in validate_install_context()
+  #   6. Host packages.repo[] — official-repo packages from the merged host config
+  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in validate_install_context()
+  #   8. AUDIO_PACKAGES — resolved by resolve_audio_packages() in validate_install_context()
   #
   # Output: one package name per line, sorted and deduplicated.
 
@@ -130,6 +131,19 @@ collect_packages() {
         | select(.value | type == "array")
         | .value[]?
     ' 2>/dev/null)
+
+  # ── Host repo packages ─────────────────────────────────────────────────────
+  # packages.repo[] from the merged host config (host core + host-specific).
+  # AUR packages (packages.aur[]) are handled separately in profiles.sh via paru.
+  if [[ -n "${RESOLVED_HOSTNAME:-}" ]]; then
+    local host_json host_rc=0
+    host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null)" || host_rc=$?
+    if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
+      while IFS= read -r p; do
+        [[ -n "$p" ]] && pkgs+=("$p")
+      done < <(printf '%s' "$host_json" | jq -r '.packages.repo[]? // empty' 2>/dev/null)
+    fi
+  fi
 
   # GPU and audio packages resolved during validate_install_context
   pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
