@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# lib/chroot/extras.sh — Chroot Configuration Module: optional post-install scripts
+# lib/chroot/extras.sh — Chroot Configuration Module:
+# optional post-install scripts
 # Runs inside arch-chroot.
 # ENVIRONMENT_DESKTOP: space-separated list of desktop environments to install.
 #   Passed as env var from the host into the chroot.
@@ -27,7 +28,8 @@ if [[ "$EXTRAS_BACKUP" == "true" ]]; then
   if [[ -f "${EXTRAS_DIR}/backup.sh" ]]; then
     bash "${EXTRAS_DIR}/backup.sh"
   else
-    echo "[WARN] backup enabled but ${EXTRAS_DIR}/backup.sh not found — skipping."
+    echo "[WARN] backup enabled but ${EXTRAS_DIR}/backup.sh" \
+         "not found — skipping."
   fi
 fi
 
@@ -35,6 +37,7 @@ if [[ "$EXTRAS_SECURITY" == "true" ]]; then
   if [[ -f "${EXTRAS_DIR}/security.sh" ]]; then
     bash "${EXTRAS_DIR}/security.sh"
   else
-    echo "[WARN] security enabled but ${EXTRAS_DIR}/security.sh not found — skipping."
+    echo "[WARN] security enabled but ${EXTRAS_DIR}/security.sh" \
+         "not found — skipping."
   fi
 fi

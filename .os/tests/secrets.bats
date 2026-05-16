@@ -36,8 +36,16 @@ _write_age_stub() {
     printf '#!/usr/bin/env bash\n'
     printf 'output=""; input=""; skip_next=0\n'
     printf 'for arg; do\n'
-    printf '  if [[ $skip_next -eq 1 ]]; then output="$arg"; skip_next=0; continue; fi\n'
-    printf '  case "$arg" in --decrypt|-d) ;; -o) skip_next=1 ;; *) input="$arg" ;; esac\n'
+    printf \
+  '  if [[ $skip_next -eq 1 ]]; then\n'
+    printf \
+  '    output="$arg"; skip_next=0; continue\n  fi\n'
+    printf \
+  '  case "$arg" in --decrypt|-d) ;;\n'
+    printf \
+  '             -o) skip_next=1 ;;\n'
+    printf \
+  '             *) input="$arg" ;; esac\n'
     printf 'done\n'
     if [[ $ec -eq 0 ]]; then
       printf '[[ -n "$output" ]] && cat "$input" > "$output" || cat "$input"\n'
@@ -70,9 +78,10 @@ _write_sops_stub() {
 
 # ── correct key: host secrets ─────────────────────────────────────────────────
 
-@test "writes secrets.host path to install-state.json when host secrets.json exists" {
+@test "writes secrets.host path to install-state.json when host exists" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -89,7 +98,7 @@ _write_sops_stub() {
 
 # ── correct key: user secrets ─────────────────────────────────────────────────
 
-@test "writes secrets.users.<name> path to install-state.json when user secrets.json exists" {
+@test "writes secrets.users.<name> path to install-state.json (user)" {
   mkdir -p "$OS_DIR/users/alice"
   printf '{"password":"s3cr3t"}\n' > "$OS_DIR/users/alice/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
@@ -110,7 +119,8 @@ _write_sops_stub() {
 
 @test "exits non-zero with clear message when age decryption fails" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -126,7 +136,8 @@ _write_sops_stub() {
 
 @test "secrets_cleanup unmounts and removes tmpfs after successful load" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -158,7 +169,10 @@ _write_curl_stub() {
     printf '#!/usr/bin/env bash\n'
     printf 'output=""; skip_next=0\n'
     printf 'for arg; do\n'
-    printf '  if [[ $skip_next -eq 1 ]]; then output="$arg"; skip_next=0; continue; fi\n'
+    printf \
+  '  if [[ $skip_next -eq 1 ]]; then\n'
+    printf \
+  '    output="$arg"; skip_next=0; continue\n  fi\n'
     printf '  case "$arg" in -o) skip_next=1 ;; esac\n'
     printf 'done\n'
     if [[ $ec -eq 0 && -n "$src" ]]; then
@@ -173,7 +187,8 @@ _write_curl_stub() {
 
 @test "URL fallback: loads secrets when no USB and SECRETS_KEY_URL is set" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   local key_file="$TEST_DIR/key.age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$key_file"
   export SECRETS_KEY_URL="https://example.com/age/key.age"
@@ -192,7 +207,8 @@ _write_curl_stub() {
 
 @test "no source: exits non-zero with clear message when no USB and no URL" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   _write_lsblk_stub
   unset SECRETS_KEY_DEVICE SECRETS_KEY_URL
 
@@ -203,7 +219,8 @@ _write_curl_stub() {
 
 @test "URL download failure: exits non-zero with clear message" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   export SECRETS_KEY_URL="https://example.com/age/key.age"
   _write_lsblk_stub
   _write_curl_stub 1
@@ -213,9 +230,10 @@ _write_curl_stub() {
   [[ "$output" =~ "failed to download" ]]
 }
 
-@test "USB takes priority: SECRETS_KEY_DEVICE used even when SECRETS_KEY_URL is set" {
+@test "USB takes priority: SECRETS_KEY_DEVICE wins over SECRETS_KEY_URL" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -233,7 +251,8 @@ _write_curl_stub() {
 
 @test "URL temp file removed after successful decrypt" {
   mkdir -p "$OS_DIR/hosts/myhostname"
-  printf '{"root_password":"s3cr3t"}\n' > "$OS_DIR/hosts/myhostname/secrets.json"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$OS_DIR/hosts/myhostname/secrets.json"
   local key_file="$TEST_DIR/key.age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$key_file"
   export SECRETS_KEY_URL="https://example.com/age/key.age"

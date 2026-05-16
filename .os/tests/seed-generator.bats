@@ -96,7 +96,8 @@ teardown() {
 # ── missing cloud-localds is a clear failure (no install attempt) ────────────
 
 @test "missing cloud-localds: returns non-zero with a clear message" {
-  PATH="/this/does/not/exist" run seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$OUT_DIR"
+  PATH="/this/does/not/exist" \
+    run seed_generator_build "$REPO_URL" "$HOSTNAME_FIXTURE" "$OUT_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "cloud-localds not found" ]]
 }

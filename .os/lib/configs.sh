@@ -7,10 +7,14 @@
 # writing to stdout/stderr.
 #
 # Public API:
-#   load_host_config <hostname>              → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   load_user_config <username>              → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   configs_build_registry                   → build in-memory program index from $OS_DIR/programs/
-#   resolve_program <name>                   → echoes "<cat>/<name>"; uses registry if built; 1 if not found
+#   load_host_config <hostname>
+#       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   load_user_config <username>
+#       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   configs_build_registry
+#       → build in-memory program index from $OS_DIR/programs/
+#   resolve_program <name>
+#       → echoes "<cat>/<name>"; uses registry if built; 1 if not found
 #   validate_program <expected> <name>       → 0 ok | 1 with stderr message
 #   validate_programs <expected> <name...>   → 0 if all ok | 1 if any failed
 #
@@ -46,7 +50,8 @@ _configs_merge() {
       elif (x | type) == "array"  and (y | type) == "array"
         then ((x + y) | dedup_keep_first)
       elif (x | type) == "object" and (y | type) == "object"
-        then reduce ((x + y) | keys_unsorted | unique[]) as $k ({}; .[$k] = merge(x[$k]; y[$k]))
+        then reduce ((x + y) | keys_unsorted | unique[]) as $k
+          ({}; .[$k] = merge(x[$k]; y[$k]))
       else y
       end;
     merge($a; $b)
@@ -63,7 +68,8 @@ _configs_load() {
   fi
 
   if [[ "$name" == "$_CONFIGS_RESERVED_CORE" ]]; then
-    echo "configs: '${_CONFIGS_RESERVED_CORE}' is a reserved name and cannot be loaded as a real ${kind%s}" >&2
+    echo "configs: '${_CONFIGS_RESERVED_CORE}' is a reserved name" \
+         "and cannot be loaded as a real ${kind%s}" >&2
     return 3
   fi
 
@@ -152,7 +158,8 @@ validate_program() {
   local expected="$1" name="$2"
   local rel
   if ! rel="$(resolve_program "$name")"; then
-    echo "configs: program '${name}' not found under ${OS_DIR}/programs/<cat>/${name}/" >&2
+    echo "configs: program '${name}' not found under" \
+         "${OS_DIR}/programs/<cat>/${name}/" >&2
     return 1
   fi
   local dir="${OS_DIR}/programs/${rel}"
@@ -168,9 +175,13 @@ validate_program() {
   is_sys="$(_configs_parse "$dir/config.jsonc" | jq -r '.system')"
   if [[ "$is_sys" != "$expected" ]]; then
     if [[ "$expected" == "true" ]]; then
-      echo "configs: program '${name}' is referenced from a host config but its config.jsonc has system=${is_sys}. Expected true." >&2
+      echo "configs: program '${name}' is referenced from a host" \
+           "config but its config.jsonc has system=${is_sys}." \
+           "Expected true." >&2
     else
-      echo "configs: program '${name}' is referenced from a user config but its config.jsonc has system=${is_sys}. Expected false." >&2
+      echo "configs: program '${name}' is referenced from a user" \
+           "config but its config.jsonc has system=${is_sys}." \
+           "Expected false." >&2
     fi
     return 1
   fi

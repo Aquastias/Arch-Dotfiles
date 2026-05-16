@@ -18,7 +18,8 @@
 #   VM_RAM_MB               RAM in MiB                    (default: 4096)
 #   VM_VCPUS                vCPU count                    (default: 2)
 #   TIMEOUT_SEC             install timeout in seconds     (default: 1800)
-#   ISO_URL_OVERRIDE        pin a specific ISO URL         (default: auto-resolve)
+#   ISO_URL_OVERRIDE   pin a specific ISO URL
+#                      (default: auto-resolve)
 # =============================================================================
 
 set -Eeuo pipefail
@@ -81,7 +82,8 @@ _parse_args() {
     case "$1" in
       --recreate) RECREATE=true; shift ;;
       -h | --help) usage; exit 0 ;;
-      *) echo "[$(basename "$0")] Unknown argument: $1" >&2; usage >&2; exit 2 ;;
+      *) echo "[$(basename "$0")] Unknown argument: $1" >&2
+         usage >&2; exit 2 ;;
     esac
   done
 }
@@ -121,7 +123,9 @@ _ensure_libvirtd() {
 # VM LIFECYCLE
 # =============================================================================
 _vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
-_vm_running() { [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]; }
+_vm_running() {
+  [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]
+}
 
 # Returns the source file path of the first cdrom attached to the domain, or
 # empty string if none. Used to detect stale ISO references.
@@ -135,7 +139,10 @@ _vm_install_iso_path() {
 
 _vm_destroy_undefine() {
   if _vm_exists; then
-    _vm_running && { info "Force-stopping VM '${VM_NAME}'."; virsh destroy "$VM_NAME" >/dev/null; }
+    _vm_running && {
+      info "Force-stopping VM '${VM_NAME}'."
+      virsh destroy "$VM_NAME" >/dev/null
+    }
     info "Undefining VM '${VM_NAME}' (storage + NVRAM removed)."
     virsh undefine --remove-all-storage --nvram "$VM_NAME" >/dev/null
   fi
@@ -149,11 +156,13 @@ _vm_create() {
   local i
   for i in "${!VM_DISK_SIZES[@]}"; do
     local disk_path="${CACHE_DIR}/${VM_NAME}-disk${i}.qcow2"
-    disk_args+=(--disk "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
+    disk_args+=(--disk \
+      "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
   done
   local disk_summary
   disk_summary="$(printf '%sG ' "${VM_DISK_SIZES[@]}")"
-  info "Creating VM '${VM_NAME}' (${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary% })."
+  info "Creating VM '${VM_NAME}'" \
+       "(${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary% })."
   virt-install \
     --name          "$VM_NAME" \
     --memory        "$VM_RAM_MB" \
@@ -218,7 +227,9 @@ runcmd:
         && rm -rf /root/dotfiles \\
         && git clone ${repo_url} /root/dotfiles \\
         && cd /root/dotfiles/.os \\
-        && sed -i 's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' install.jsonc \\
+        && sed -i \
+  's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' \
+  install.jsonc \\
         && ./install.sh --unattended
     }
     rc=\$?
@@ -247,7 +258,8 @@ runcmd:
       pacman -Sy --noconfirm --needed git \\
         && rm -rf /root/dotfiles \\
         && git clone ${repo_url} /root/dotfiles \\
-        && printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.os/install.jsonc \\
+        && printf '%s' '${config_b64}' | base64 -d \
+  > /root/dotfiles/.os/install.jsonc \\
         && cd /root/dotfiles/.os \\
         && ./install.sh --unattended
     }
@@ -268,8 +280,10 @@ _build_seed() {
     _render_user_data_single "${REPO_URL}" "${TEST_HOSTNAME}" > "${user_data}"
   fi
 
-  cloud-localds "${seed_iso}" "${user_data}" >/dev/null || error "cloud-localds failed for ${user_data}"
-  [[ -s "${seed_iso}" ]] || error "cloud-localds produced empty seed at ${seed_iso}"
+  cloud-localds "${seed_iso}" "${user_data}" >/dev/null \
+    || error "cloud-localds failed for ${user_data}"
+  [[ -s "${seed_iso}" ]] || \
+    error "cloud-localds produced empty seed at ${seed_iso}"
   printf '%s\n' "${seed_iso}"
 }
 
@@ -342,7 +356,8 @@ run_harness() {
     local current_iso
     current_iso="$(_vm_install_iso_path)"
     if [[ -n "$current_iso" && "$current_iso" != "$iso" ]]; then
-      info "Existing VM points at stale ISO (${current_iso}); recreating with ${iso}."
+      info "Existing VM points at stale ISO (${current_iso});" \
+           "recreating with ${iso}."
       _vm_destroy_undefine
     fi
   fi

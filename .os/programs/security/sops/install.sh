@@ -31,7 +31,8 @@ install -d -o root -g root -m 755 /usr/local/lib/sops
 install -o root -g root -m 755 \
   "$SOPS_SCRIPTS/sops-runtime.sh" /usr/local/lib/sops/sops-runtime.sh
 install -o root -g root -m 644 \
-  "$SOPS_SERVICES/sops-runtime.service" /usr/lib/systemd/system/sops-runtime.service
+  "$SOPS_SERVICES/sops-runtime.service" \
+  /usr/lib/systemd/system/sops-runtime.service
 
 print_status info "Enabling sops-runtime.service..."
 systemctl enable sops-runtime.service

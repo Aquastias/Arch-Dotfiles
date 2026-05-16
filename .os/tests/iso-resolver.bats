@@ -139,14 +139,22 @@ teardown() {
 # available/unavailable to verify both filters apply.
 COMPAT_RELEASES_JSON='{
   "releases": [
-    {"version": "2099.05.01", "kernel_version": "7.0.3",   "iso_url": "/iso/2099.05.01/archlinux-2099.05.01-x86_64.iso", "available": true},
-    {"version": "2099.04.01", "kernel_version": "6.19.10", "iso_url": "/iso/2099.04.01/archlinux-2099.04.01-x86_64.iso", "available": true},
-    {"version": "2099.03.01", "kernel_version": "6.19.5",  "iso_url": "/iso/2099.03.01/archlinux-2099.03.01-x86_64.iso", "available": false},
-    {"version": "2099.02.01", "kernel_version": "6.18.13", "iso_url": "/iso/2099.02.01/archlinux-2099.02.01-x86_64.iso", "available": true}
+    {"version": "2099.05.01", "kernel_version": "7.0.3",
+     "iso_url": "/iso/2099.05.01/archlinux-2099.05.01-x86_64.iso",
+     "available": true},
+    {"version": "2099.04.01", "kernel_version": "6.19.10",
+     "iso_url": "/iso/2099.04.01/archlinux-2099.04.01-x86_64.iso",
+     "available": true},
+    {"version": "2099.03.01", "kernel_version": "6.19.5",
+     "iso_url": "/iso/2099.03.01/archlinux-2099.03.01-x86_64.iso",
+     "available": false},
+    {"version": "2099.02.01", "kernel_version": "6.18.13",
+     "iso_url": "/iso/2099.02.01/archlinux-2099.02.01-x86_64.iso",
+     "available": true}
   ]
 }'
 
-@test "compat: picks newest available ISO whose kernel major.minor matches archzfs" {
+@test "compat: picks newest available ISO matching archzfs major.minor" {
   _iso_resolver_fetch_archzfs_kernels() { printf '6.19\n'; }
   _iso_resolver_fetch_arch_releases() { echo "$COMPAT_RELEASES_JSON"; }
   _iso_resolver_download() {
@@ -175,7 +183,7 @@ COMPAT_RELEASES_JSON='{
   [[ "$output" == *"/archlinux-2099.04.01-x86_64.iso" ]]
 }
 
-@test "compat: falls back to older major.minor when newer ones are unsupported" {
+@test "compat: falls back to older major.minor when newer unsupported" {
   # archzfs only knows 6.18 → newest matching ISO is .02.01 (6.18.13).
   _iso_resolver_fetch_archzfs_kernels() { printf '6.18\n'; }
   _iso_resolver_fetch_arch_releases() { echo "$COMPAT_RELEASES_JSON"; }
@@ -252,7 +260,9 @@ COMPAT_RELEASES_JSON='{
   _iso_resolver_fetch_archzfs_kernels() { printf '6.19\n'; }
   _iso_resolver_fetch_arch_releases() { cat <<'JSON'
 {"releases": [
-  {"version":"2099.06.01","kernel_version":"6.190.5","iso_url":"/iso/2099.06.01/archlinux-2099.06.01-x86_64.iso","available":true}
+  {"version":"2099.06.01","kernel_version":"6.190.5",
+   "iso_url":"/iso/2099.06.01/archlinux-2099.06.01-x86_64.iso",
+   "available":true}
 ]}
 JSON
   }

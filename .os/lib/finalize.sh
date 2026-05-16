@@ -3,7 +3,8 @@
 # lib/finalize.sh — Post-install cleanup and completion summary
 # =============================================================================
 # Sourced by 03-install.sh.
-# Requires: lib/common.sh already sourced; LAYOUT_ESP_PARTS, LAYOUT_OS_POOL_NAME,
+# Requires: lib/common.sh already sourced; LAYOUT_ESP_PARTS,
+# LAYOUT_OS_POOL_NAME,
 #           LAYOUT_DATA_POOL_NAME populated by the active layout module.
 #
 # Provides:
@@ -59,6 +60,7 @@ finalize() {
   fi
 
   echo ""
-  echo -e "  ${DIM}ZFS encryption passphrase is required at every boot (if encryption was enabled).${NC}"
+  echo -e "  ${DIM}ZFS encryption passphrase is required at every boot" \
+          "(if encryption was enabled).${NC}"
   echo ""
 }

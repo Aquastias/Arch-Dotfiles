@@ -27,7 +27,8 @@
 #   lib/config.sh        — template generation, load/validate config, mode
 #                          detection, installation summary
 #   lib/zfs-pools.sh     — ZFS tool fallback, ram_gib, encryption opts, pool
-#                          creation helper, OS dataset creation, vdev spec builder
+#                          creation helper, OS dataset creation, vdev spec
+#                          builder
 #   lib/layout-<mode>.sh — sourced after detect_mode(); implements the layout
 #                          interface: layout_plan, layout_partition,
 #                          layout_create_pools, layout_mount_esp
@@ -35,7 +36,8 @@
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
 #   lib/configs.sh       — host/user config loader+merger (host/user core)
 #   lib/profiles.sh      — runs after configure_system: creates users,
-#                          installs system + user programs from host/user configs
+#                          installs system + user programs from host/user
+#                          configs
 #   lib/validation.sh    — single seam for all config contract checks
 #   lib/finalize.sh      — unmount, pool export, completion summary
 # =============================================================================
@@ -137,17 +139,20 @@ main() {
 
   # ── Pre-flight checks ─────────────────────────────────────────────────────
   [[ $EUID -eq 0 ]] || error "Run as root (sudo -i)."
-  [[ -d /sys/firmware/efi ]] || error "Not in UEFI mode. Reboot and select a UEFI entry."
+  [[ -d /sys/firmware/efi ]] \
+    || error "Not in UEFI mode. Reboot and select a UEFI entry."
 
   # Install jq only if missing — skip the slow pacman -Sy if already present
   if ! command -v jq &>/dev/null; then
     info "Installing jq..."
-    pacman -S --noconfirm --needed jq || error "Failed to install jq. Run 01-bootstrap-zfs.sh first."
+    pacman -S --noconfirm --needed jq \
+      || error "Failed to install jq. Run 01-bootstrap-zfs.sh first."
   fi
 
-  # Quick connectivity check via TCP (faster than ping, works through more firewalls)
-  # Uses /dev/tcp which is built into bash — zero external dependencies
-  if ! timeout 5 bash -c 'cat < /dev/null > /dev/tcp/archlinux.org/80' 2>/dev/null; then
+  # Quick connectivity check via TCP (faster than ping, works through more
+  # firewalls). Uses /dev/tcp which is built into bash — zero external deps.
+  if ! timeout 5 bash -c \
+      'cat < /dev/null > /dev/tcp/archlinux.org/80' 2>/dev/null; then
     error "No internet connection. Required for pacstrap.
   Check: ip route show default   (needs a default gateway)
   Check: ping 8.8.8.8            (basic connectivity)"

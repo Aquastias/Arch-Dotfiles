@@ -50,7 +50,8 @@ write_file() {
 "a": 1, // inline
 "b": "two"
 }'
-  run bash -c "source '$BATS_TEST_DIRNAME/../lib/jsonc.sh' && jsonc_strip '$TEST_DIR/f.jsonc' | jq -r '.b'"
+  run bash -c "source '$BATS_TEST_DIRNAME/../lib/jsonc.sh' \
+    && jsonc_strip '$TEST_DIR/f.jsonc' | jq -r '.b'"
   [ "$status" -eq 0 ]
   [ "$output" = "two" ]
 }

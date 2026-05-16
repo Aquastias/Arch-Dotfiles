@@ -24,7 +24,9 @@ if [[ -e /usr/lib/initcpio/hooks/kmod ]]; then
 else
     MODCONF_HOOK="modconf"
 fi
-sed -i "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block keyboard zfs filesystems)/" \
+sed -i \
+  "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block "\
+  "keyboard zfs filesystems)/" \
     /etc/mkinitcpio.conf
 
 # ── Fallback preset ───────────────────────────────────────────────────────────
@@ -33,7 +35,8 @@ sed -i "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block keyboard z
 if [[ -f "$PRESET_FILE" ]]; then
     if ! grep -q "^PRESETS=.*fallback" "$PRESET_FILE"; then
         echo "Adding fallback preset to ${PRESET_FILE} ..."
-        sed -i "s/^PRESETS=('default')/PRESETS=('default' 'fallback')/" "$PRESET_FILE"
+        sed -i "s/^PRESETS=('default')/PRESETS=('default' 'fallback')/" \
+          "$PRESET_FILE"
         cat >> "$PRESET_FILE" << EOF
 
 # Fallback preset — builds without autodetect (all modules included)
@@ -43,7 +46,8 @@ fallback_options="-S autodetect"
 EOF
     fi
 else
-    echo "Warning: preset file not found at ${PRESET_FILE} — mkinitcpio -P will use defaults."
+    echo "Warning: preset file not found at ${PRESET_FILE} —" \
+         "mkinitcpio -P will use defaults."
 fi
 
 mkinitcpio -P

@@ -8,14 +8,17 @@
 #
 # Public API (three separate calls, in order):
 #   validate_environment   — reads CONFIG_FILE; sets ENVIRONMENT_DESKTOP/GPU
-#   resolve_gpu_packages   — ENVIRONMENT_GPU  → GPU_PACMAN_PACKAGES + GPU_PARU_PACKAGES
+#   resolve_gpu_packages — ENVIRONMENT_GPU →
+#                        GPU_PACMAN_PACKAGES + GPU_PARU_PACKAGES
 #   resolve_audio_packages — ENVIRONMENT_DESKTOP → AUDIO_PACKAGES
 #
 # Pipeline contract
 # ─────────────────
-# validate_install_context() (lib/validation.sh) calls all three in order. Callers that
+# validate_install_context() (lib/validation.sh) calls all three in order.
+# Callers that
 # use GPU_PACMAN_PACKAGES, GPU_PARU_PACKAGES, or AUDIO_PACKAGES must call
-# validate_install_context() first — collect_packages() in lib/packages.sh enforces this.
+# validate_install_context() first — collect_packages() in
+# lib/packages.sh enforces this.
 # =============================================================================
 
 # ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────
@@ -50,11 +53,15 @@ _gpu_vendor_packages() {
   local vendor="$1"
   case "$vendor" in
     amd)    echo "vulkan-radeon xf86-video-amdgpu mesa libva-mesa-driver" ;;
-    nvidia) echo "nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland" ;;
+    nvidia)
+      echo "nvidia-open-dkms nvidia-utils lib32-nvidia-utils" \
+           "libva-nvidia-driver egl-wayland"
+      ;;
     intel)
       local lspci_out device_id dec_id
       lspci_out="$(_gpu_lspci_output)"
-      device_id="$(echo "$lspci_out" | grep -i "intel" | grep -oP '8086:\K[0-9a-fA-F]+' | head -1)"
+      device_id="$(echo "$lspci_out" | grep -i "intel" \
+        | grep -oP '8086:\K[0-9a-fA-F]+' | head -1)"
       if [[ -n "$device_id" ]]; then
         dec_id=$(( 16#$device_id ))
         if (( dec_id >= 0x1600 )); then
@@ -77,7 +84,8 @@ _gpu_detect_vendors() {
   lspci_out="$(_gpu_lspci_output)"
   local found=false
 
-  if echo "$lspci_out" | grep -qiP '15ad:|1af4:1050|VMware|Virtio GPU|VirtualBox'; then
+  if echo "$lspci_out" \
+      | grep -qiP '15ad:|1af4:1050|VMware|Virtio GPU|VirtualBox'; then
     echo "vm"
     return
   fi
@@ -87,7 +95,8 @@ _gpu_detect_vendors() {
   echo "$lspci_out" | grep -qi '8086:'  && { echo "intel";  found=true; }
 
   if ! $found; then
-    warn "GPU auto-detection: no recognised vendor found in lspci output — using mesa fallback."
+    warn "GPU auto-detection: no recognised vendor in lspci output" \
+         "— using mesa fallback."
     echo "vm"
   fi
 }
@@ -98,7 +107,8 @@ resolve_gpu_packages() {
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
 
-  if [[ "${#ENVIRONMENT_GPU[@]}" -eq 1 && "${ENVIRONMENT_GPU[0]}" == "auto" ]]; then
+  if [[ "${#ENVIRONMENT_GPU[@]}" -eq 1 \
+     && "${ENVIRONMENT_GPU[0]}" == "auto" ]]; then
     mapfile -t ENVIRONMENT_GPU < <(_gpu_detect_vendors)
   fi
 
@@ -114,7 +124,8 @@ resolve_gpu_packages() {
     [[ "$_v" == "amd" ]]    && _has_amd=true
     [[ "$_v" == "nvidia" ]] && _has_nvidia=true
   done
-  [[ "$_has_amd" == "true" && "$_has_nvidia" == "true" ]] && GPU_PARU_PACKAGES+=( envycontrol ) || true
+  [[ "$_has_amd" == "true" && "$_has_nvidia" == "true" ]] \
+    && GPU_PARU_PACKAGES+=( envycontrol ) || true
 }
 
 # Derive audio packages from the resolved desktop array. PipeWire is installed
@@ -140,39 +151,49 @@ validate_environment() {
 
   # ── desktop ──────────────────────────────────────────────────────────────
   local _dt
-  _dt="$(jsonc_strip "$CONFIG_FILE" | jq -r '.environment.desktop | type // "null"')"
+  _dt="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.desktop | type // "null"')"
   case "$_dt" in
     string)
-      mapfile -t ENVIRONMENT_DESKTOP < <(jsonc_strip "$CONFIG_FILE" | jq -r '[.environment.desktop] | .[]')
+      mapfile -t ENVIRONMENT_DESKTOP < <(jsonc_strip "$CONFIG_FILE" \
+        | jq -r '[.environment.desktop] | .[]')
       ;;
     array)
-      mapfile -t ENVIRONMENT_DESKTOP < <(jsonc_strip "$CONFIG_FILE" | jq -r '.environment.desktop[]?')
+      mapfile -t ENVIRONMENT_DESKTOP < <(jsonc_strip "$CONFIG_FILE" \
+        | jq -r '.environment.desktop[]?')
       ;;
     *) ;;
   esac
 
   for _de in "${ENVIRONMENT_DESKTOP[@]}"; do
     local _ok=false
-    for _v in "${_VALID_DESKTOP[@]}"; do [[ "$_de" == "$_v" ]] && _ok=true && break; done
+    for _v in "${_VALID_DESKTOP[@]}"; do
+      [[ "$_de" == "$_v" ]] && _ok=true && break
+    done
     $_ok || error "Unknown desktop '${_de}'. Valid: ${_VALID_DESKTOP[*]}."
   done
 
   # ── gpu ──────────────────────────────────────────────────────────────────
   local _gt
-  _gt="$(jsonc_strip "$CONFIG_FILE" | jq -r '.environment.gpu | type // "null"')"
+  _gt="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.gpu | type // "null"')"
   case "$_gt" in
     string)
-      mapfile -t ENVIRONMENT_GPU < <(jsonc_strip "$CONFIG_FILE" | jq -r '[.environment.gpu] | .[]')
+      mapfile -t ENVIRONMENT_GPU < <(jsonc_strip "$CONFIG_FILE" \
+        | jq -r '[.environment.gpu] | .[]')
       ;;
     array)
-      mapfile -t ENVIRONMENT_GPU < <(jsonc_strip "$CONFIG_FILE" | jq -r '.environment.gpu[]?')
+      mapfile -t ENVIRONMENT_GPU < <(jsonc_strip "$CONFIG_FILE" \
+        | jq -r '.environment.gpu[]?')
       ;;
     *) ;;
   esac
 
   for _gpu in "${ENVIRONMENT_GPU[@]}"; do
     local _ok=false
-    for _v in "${_VALID_GPU[@]}"; do [[ "$_gpu" == "$_v" ]] && _ok=true && break; done
+    for _v in "${_VALID_GPU[@]}"; do
+      [[ "$_gpu" == "$_v" ]] && _ok=true && break
+    done
     $_ok || error "Unknown GPU '${_gpu}'. Valid: ${_VALID_GPU[*]}."
   done
 }

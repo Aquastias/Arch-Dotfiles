@@ -7,7 +7,8 @@
 #           _create_os_datasets, ram_gib) already sourced.
 #
 # Provides:
-#   calculate_single_disk_layout  — computes partition sizes, prints layout table
+#   calculate_single_disk_layout — computes partition sizes,
+#                                  prints layout table
 #   partition_single_disk         — wipes disk, creates 3 GPT partitions
 #   create_single_pools           — creates rpool (OS) and dpool (storage)
 #   mount_single_esp              — mounts the ESP into MOUNT_ROOT
@@ -62,7 +63,8 @@ calculate_single_disk_layout() {
   local total_gib=$((total_mib / 1024))
   local ram
   ram="$(ram_gib)"
-  info "Disk: $_LAYOUT_IMPL_DISK — ${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
+  info "Disk: $_LAYOUT_IMPL_DISK —" \
+       "${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
   # ESP size in MiB (parsed from config, default 512M)
   local esp_sz
@@ -94,7 +96,8 @@ calculate_single_disk_layout() {
     local swap_cap=$((total_gib / 4))
     ((swap_cap < 2)) && swap_cap=2
     if ((swap_gib > swap_cap)); then
-      warn "Swap auto (${swap_gib}G = RAM×2) capped to ${swap_cap}G on this small disk."
+      warn "Swap auto (${swap_gib}G = RAM×2) capped to ${swap_cap}G" \
+           "on this small disk."
       swap_gib=$swap_cap
     fi
     info "Swap: ${swap_gib} GiB  (auto)"
@@ -125,7 +128,9 @@ calculate_single_disk_layout() {
     local os_cap_gib=$((os_cap_mib / 1024))
     ((os_gib > os_cap_gib && os_cap_gib > 0)) && os_gib=$os_cap_gib
 
-    info "OS size (auto): floor=${floor}G  ram-based=${ram_based}G  80%=$((usable_mib * 80 / 100 / 1024))G  → ${os_gib}G  (cap: ${os_cap_gib}G)"
+    info "OS size (auto): floor=${floor}G ram-based=${ram_based}G" \
+         "80%=$((usable_mib * 80 / 100 / 1024))G" \
+         "→ ${os_gib}G (cap: ${os_cap_gib}G)"
   else
     os_gib="$(parse_size_to_gib "$cfg_os")"
     info "OS size: ${os_gib} GiB  (from config)"
@@ -143,7 +148,8 @@ calculate_single_disk_layout() {
   fi
 
   if ((stor_mib < 512)); then
-    error "Storage partition would be only ${stor_mib} MiB — too small to be useful.
+    error "Storage partition would be only ${stor_mib} MiB" \
+          "— too small to be useful.
   Disk usable space: $((usable_mib / 1024)) GiB  |  OS: ${os_gib} GiB
   Fix: use a larger disk, or set a smaller 'os_size' in install.json."
   fi
@@ -158,11 +164,13 @@ calculate_single_disk_layout() {
 
   # ── Layout table ──────────────────────────────────────────────────────────
   echo ""
-  echo -e "  ${BOLD}Partition layout — $_LAYOUT_IMPL_DISK (${total_mib} MiB):${NC}"
+  echo -e "  ${BOLD}Partition layout — $_LAYOUT_IMPL_DISK" \
+          "(${total_mib} MiB):${NC}"
   printf "    %-5s  %-14s  %s\n" "Part" "Size" "Purpose"
   printf "    %-5s  %-14s  %s\n" "----" "--------------" "-------"
   printf "    %-5s  %-14s  %s\n" "p1" "${esp_sz}" "EFI System Partition (FAT32)"
-  printf "    %-5s  %-14s  %s\n" "p2" "${os_gib} GiB" "ZFS rpool  —  / /home /var swap(${swap_gib}G)"
+  printf "    %-5s  %-14s  %s\n" "p2" "${os_gib} GiB" \
+    "ZFS rpool  —  / /home /var swap(${swap_gib}G)"
   printf "    %-5s  %-14s  %s\n" "p3" "~${stor_gib} GiB" "ZFS dpool  —  /data"
   echo ""
 }
@@ -188,7 +196,8 @@ partition_single_disk() {
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
   #   3  ZFS storage pool      (type bf00)
   sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$_LAYOUT_IMPL_DISK"
-  sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_SECTORS}s" -t2:bf00 -c2:"ZFS rpool" "$_LAYOUT_IMPL_DISK"
+  sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_SECTORS}s" -t2:bf00 \
+    -c2:"ZFS rpool" "$_LAYOUT_IMPL_DISK"
   sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$_LAYOUT_IMPL_DISK"
 
   # Re-probe so the kernel sees the new partition table
@@ -267,6 +276,9 @@ layout_plan() {
   LAYOUT_DATA_POOL_NAME="${LAYOUT_DATA_POOL_NAME:-dpool}"
   _layout_verify_plan_contract
 }
-layout_partition()    { partition_single_disk; _layout_verify_partition_contract; }
+layout_partition() {
+  partition_single_disk
+  _layout_verify_partition_contract
+}
 layout_create_pools() { create_single_pools; }
 layout_mount_esp()    { mount_single_esp; }

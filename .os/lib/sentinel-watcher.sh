@@ -47,7 +47,8 @@ sentinel_watcher_wait() {
     if [[ -f "$log_path" ]]; then
       # Find the first matching line. grep -m1 stops scanning on first hit;
       # combined with the regex anchor it's a strict O(n) scan.
-      line="$(grep -E -m1 "$SENTINEL_WATCHER_REGEX" "$log_path" 2>/dev/null || true)"
+      line="$(grep -E -m1 "$SENTINEL_WATCHER_REGEX" "$log_path" \
+        2>/dev/null || true)"
       if [[ "$line" =~ $SENTINEL_WATCHER_REGEX ]]; then
         code="${BASH_REMATCH[1]}"
         # Defensive: if the value somehow exceeds the bash exit-status range,

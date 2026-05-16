@@ -26,7 +26,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$(cat "$TEST_DIR/chpasswd_input")" = "root:envpassword" ]
 }
 
-@test "falls back to ROOT_PW when HOST_SECRETS_FILE has no root_password field" {
+@test "falls back to ROOT_PW when HOST_SECRETS_FILE has no root_password" {
   printf '{"other_field":"value"}\n' > "$TEST_DIR/host-secrets.json"
   run env ROOT_PW="fallback" HOST_SECRETS_FILE="$TEST_DIR/host-secrets.json" \
     bash "$BATS_TEST_DIRNAME/../lib/chroot/password.sh"

@@ -116,7 +116,7 @@ EOF
 ### Editing existing files
 
 ```bash
-sudo sed -i '/^#\?key *=/d' /path/to/file     # remove old line (commented or not)
+sudo sed -i '/^#\?key *=/d' /path/to/file  # remove old (commented or not)
 echo 'key = "value"' | sudo tee -a /path/to/file >/dev/null  # append new line
 ```
 
@@ -127,7 +127,7 @@ not already exist.
 
 ```bash
 sudo systemctl enable <service>.service   # ✓ correct — deferred to boot
-sudo systemctl start  <service>.service   # ✗ wrong  — daemon not running in chroot
+sudo systemctl start  <service>.service   # ✗ daemon not in chroot
 ```
 
 For units that must run exactly once on first boot, install a oneshot service:
@@ -184,21 +184,28 @@ GRUB_DEFAULT_FILE="/etc/default/grub"
 SBOOT_ENTRIES_DIR="/boot/efi/loader/entries"
 
 if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
-  current=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
+  current=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" \
+    "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
   new="$current"
   for param in "${PARAMS_TO_ADD[@]}"; do
     [[ "$new" != *"$param"* ]] && new="$new $param"
   done
   if [[ "$new" != "$current" ]]; then
-    sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new\"|" "$GRUB_DEFAULT_FILE"
-    command -v grub-mkconfig &>/dev/null && sudo grub-mkconfig -o /boot/grub/grub.cfg
+    sudo sed -i \
+      "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|"\
+      "GRUB_CMDLINE_LINUX_DEFAULT=\"$new\"|" \
+      "$GRUB_DEFAULT_FILE"
+    command -v grub-mkconfig &>/dev/null && \
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
   fi
 elif [[ -d "$SBOOT_ENTRIES_DIR" ]]; then
   while IFS= read -r -d '' entry; do
-    grep -q "^options " "$entry" && _inject_params_into_options_line "$entry" || true
+    grep -q "^options " "$entry" && \
+      _inject_params_into_options_line "$entry" || true
   done < <(find "$SBOOT_ENTRIES_DIR" -name "*.conf" -print0)
 else
-  print_status warning "No bootloader config found; skipping kernel param injection."
+  print_status warning "No bootloader config found;" \
+    "skipping kernel param injection."
 fi
 ```
 
@@ -208,17 +215,20 @@ If the program is mutually exclusive with another (e.g. firewalld vs ufw):
 
 ```bash
 if command_exists "conflicting-tool"; then
-  print_status error "<conflicting-tool> is installed; <name> and it cannot coexist."
+  print_status error "<conflicting-tool> is installed;" \
+    "<name> and it cannot coexist."
   exit 1
 fi
 ```
 
 ### Post-boot instructions
 
-If the user must take manual steps after first boot, say so in `print_status success`:
+If the user must take manual steps after first boot, say so in
+`print_status success`:
 
 ```bash
-print_status success "<Name> staged. Next steps: <what the user must do post-boot>."
+print_status success "<Name> staged." \
+  "Next steps: <what the user must do post-boot>."
 ```
 
 ---

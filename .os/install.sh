@@ -4,7 +4,8 @@
 # =============================================================================
 # Runs the three numbered scripts in order:
 #   1. 01-bootstrap-zfs.sh — adds archzfs and loads ZFS modules on the live ISO
-#   2. 02-wipe.sh          — wipes every detected disk (always run; not optional)
+#   2. 02-wipe.sh          — wipes every detected disk (always run;
+#                            not optional)
 #   3. 03-install.sh       — partitions, pacstraps, configures, runs profiles
 #
 # The numbered scripts remain individually runnable for debugging. An optional
@@ -12,7 +13,8 @@
 # Recognised flags are stripped here and re-emitted to the numbered scripts.
 #
 # USAGE:
-#   ./install.sh                           # uses install.jsonc next to this file
+#   ./install.sh                           # uses install.jsonc next to this
+#                                          # file
 #   ./install.sh /path/to/install.jsonc    # alternate config
 #   ./install.sh -y                        # unattended (no prompts)
 #   ./install.sh --unattended /path/cfg    # unattended + alternate config
@@ -26,7 +28,10 @@
 # =============================================================================
 
 set -Eeuo pipefail
-trap 'echo -e "\n\033[0;31m[install.sh]\033[0m aborted at line $LINENO." >&2' ERR
+_install_on_err() {
+  echo -e "\n\033[0;31m[install.sh]\033[0m aborted at line $1." >&2
+}
+trap '_install_on_err "$LINENO"' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

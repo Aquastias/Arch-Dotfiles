@@ -3,7 +3,9 @@
 find_text_in_files() {
   local folder="."
   [ -d "$1" ] && { folder="$1"; shift; }
-  find "$folder" -type f -not -path '*/\.*' -print0 | xargs -0 grep -nHir --color=always "$@" | less -R
+  find "$folder" -type f -not -path '*/\.*' -print0 \
+    | xargs -0 grep -nHir --color=always "$@" \
+    | less -R
 }
 
 chtsh() {

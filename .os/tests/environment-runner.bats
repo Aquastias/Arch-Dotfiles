@@ -3,7 +3,8 @@
 #
 # Strategy: run extras.sh as a subprocess. Injectable seams:
 #   EXTRAS_DIR — base path for adapter scripts (default /root/extras)
-#   STATE      — path to install-state.json (default /root/lib-chroot/install-state.json)
+#   STATE  — path to install-state.json
+#            (default /root/lib-chroot/install-state.json)
 # Adapter stubs are executable scripts under $EXTRAS_DIR/desktop/<de>/<de>.sh
 # that append the DE name to $STUB_LOG.
 
@@ -35,14 +36,16 @@ make_de_stub() {
 # ── runner dispatch ───────────────────────────────────────────────────────
 
 @test "empty ENVIRONMENT_DESKTOP exits 0 and invokes no adapters" {
-  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
   [ ! -f "$STUB_LOG" ]
 }
 
 @test "single DE in ENVIRONMENT_DESKTOP invokes that adapter" {
   make_de_stub kde
-  run env ENVIRONMENT_DESKTOP="kde" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="kde" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
   grep -qx "kde" "$STUB_LOG"
 }
@@ -50,31 +53,37 @@ make_de_stub() {
 @test "multiple DEs invoke all adapters in order" {
   make_de_stub kde
   make_de_stub hyprland
-  run env ENVIRONMENT_DESKTOP="kde hyprland" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="kde hyprland" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
   [ "$(cat "$STUB_LOG")" = "$(printf 'kde\nhyprland')" ]
 }
 
 @test "unknown DE exits non-zero with clear error" {
-  run env ENVIRONMENT_DESKTOP="gnome" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="gnome" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "gnome" ]]
 }
 
 @test "backup script invoked when backup=true in state" {
   printf '{"extras":{"backup":true,"security":false}}' > "$STATE_FILE"
-  printf '#!/usr/bin/env bash\necho "backup" >> "$STUB_LOG"\n' > "$EXTRAS_DIR/backup.sh"
+  printf '#!/usr/bin/env bash\necho "backup" >> "$STUB_LOG"\n' \
+    > "$EXTRAS_DIR/backup.sh"
   chmod +x "$EXTRAS_DIR/backup.sh"
-  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
   grep -qx "backup" "$STUB_LOG"
 }
 
 @test "security script invoked when security=true in state" {
   printf '{"extras":{"backup":false,"security":true}}' > "$STATE_FILE"
-  printf '#!/usr/bin/env bash\necho "security" >> "$STUB_LOG"\n' > "$EXTRAS_DIR/security.sh"
+  printf '#!/usr/bin/env bash\necho "security" >> "$STUB_LOG"\n' \
+    > "$EXTRAS_DIR/security.sh"
   chmod +x "$EXTRAS_DIR/security.sh"
-  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
   grep -qx "security" "$STUB_LOG"
 }

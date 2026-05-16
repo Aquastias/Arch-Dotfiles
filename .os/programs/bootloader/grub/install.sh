@@ -25,7 +25,8 @@ if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
   if grep -q '^#\s*GRUB_DISABLE_OS_PROBER=' "$GRUB_DEFAULT_FILE"; then
     sed -i 's/^#\s*\(GRUB_DISABLE_OS_PROBER=\).*/\1false/' "$GRUB_DEFAULT_FILE"
   elif grep -q '^GRUB_DISABLE_OS_PROBER=' "$GRUB_DEFAULT_FILE"; then
-    sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' "$GRUB_DEFAULT_FILE"
+    sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' \
+    "$GRUB_DEFAULT_FILE"
   else
     echo 'GRUB_DISABLE_OS_PROBER=false' >>"$GRUB_DEFAULT_FILE"
   fi

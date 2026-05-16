@@ -9,5 +9,5 @@
 {
   "name": "virt-manager",
   "system": false,
-  "description": "virt-manager + KVM/QEMU stack with libvirt socket and polkit configured."
+  "description": "virt-manager + KVM/QEMU with libvirt socket and polkit."
 }

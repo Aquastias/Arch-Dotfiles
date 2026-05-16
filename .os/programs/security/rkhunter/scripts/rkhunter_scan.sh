@@ -20,7 +20,9 @@ rkhunter --update >>"$SYSTEM_LOG" 2>&1
 rkhunter --propupd -q >>"$SYSTEM_LOG" 2>&1
 
 # Run the scan
-{ rkhunter --check --sk --nocolors --quiet 2>&1 | grep -v -e 'egrep: warning' -e 'grep: warning' || true; } | tee -a "$SYSTEM_LOG"
+{ rkhunter --check --sk --nocolors --quiet 2>&1 \
+    | grep -v -e 'egrep: warning' -e 'grep: warning' \
+    || true; } | tee -a "$SYSTEM_LOG"
 
 # Check for warnings
 WARNINGS=$(grep "Warning:" "$SYSTEM_LOG" || true)

@@ -36,4 +36,5 @@ sudo firewall-offline-cmd --zone="${ZONE}" --add-masquerade
 sudo firewall-offline-cmd --direct --add-rule ipv4 nat POSTROUTING 0 \
   -s "${SUBNET}" -j MASQUERADE
 
-print_status success "firewalld installed and configured (will start on first boot)."
+print_status success "firewalld installed and configured" \
+  "(will start on first boot)."

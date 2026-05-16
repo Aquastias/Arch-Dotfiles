@@ -3,14 +3,17 @@
 # lib/validation.sh — Single validation seam for all config contracts
 # =============================================================================
 # Sourced by 03-install.sh after common.sh, config.sh, and configs.sh.
-# Requires: common.sh, environment.sh (via config.sh), configs.sh already sourced.
+# Requires: common.sh, environment.sh (via config.sh),
+# configs.sh already sourced.
 #
 # Public API:
 #   validate_install_context    — validate system fields, disk paths,
-#                                 environment, and program contracts in one pass;
+#                                 environment, and program contracts in
+#                                 one pass;
 #                                 exits via error() on any failure
 #   validate_staging <dir>      — verify staged runtime tree at <dir> is
-#                                 complete; exits via error() on any missing piece
+#                                 complete; exits via error() on any
+#                                 missing piece
 #
 # This is the single place where "is this install context valid?" is answered.
 # The three former validation layers — config-load (system fields, disks),
@@ -28,14 +31,17 @@ _validation_system_fields() {
   hostname="$(cfgo '.system.hostname')"
   if [[ -z "$hostname" ]]; then
     while true; do
-      read -rp "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" hostname </dev/tty
+      read -rp \
+        "$(echo -e "${YELLOW}[?]${NC} Enter hostname for this machine: ")" \
+        hostname </dev/tty
       [[ -n "$hostname" ]] && break
       warn "Hostname cannot be empty."
     done
     info "Hostname: ${hostname}"
   fi
   [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
-    error "Invalid hostname '${hostname}'. Use letters, digits, hyphens only (no leading/trailing hyphen)."
+    error "Invalid hostname '${hostname}'." \
+          "Use letters, digits, hyphens only (no leading/trailing hyphen)."
   # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
   cfg '.system.locale' 'system.locale'
@@ -59,7 +65,7 @@ _validation_multi() {
   if [[ -n "$topo" ]]; then
     case "$topo" in
     mirror | stripe | none) ;;
-    *) error "os_pool.topology must be mirror | stripe | none, got: '${topo}'" ;;
+    *) error "os_pool.topology must be mirror|stripe|none, got: '${topo}'" ;;
     esac
   fi
 
@@ -76,7 +82,8 @@ _validation_multi() {
   sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
   for ((i = 0; i < sg; i++)); do
     gname="$(cfg ".storage_groups[$i].name")"
-    gdc="$(jsonc_strip "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
+    gdc="$(jsonc_strip "$CONFIG_FILE" \
+      | jq ".storage_groups[$i].disks | length")"
     ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
     while IFS= read -r d; do
       [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
@@ -107,13 +114,15 @@ _validation_preflight_programs() {
   esac
 
   local -a sys_progs users
-  mapfile -t sys_progs < <(printf '%s' "$host_json" | jq -r '.system_programs[]?')
+  mapfile -t sys_progs < <(printf '%s' "$host_json" \
+    | jq -r '.system_programs[]?')
   mapfile -t users     < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
   local u
   for u in "${users[@]}"; do
     [[ -d "${OS_DIR}/users/${u}" ]] ||
-      error "Host config references user '${u}' but ${OS_DIR}/users/${u}/ does not exist."
+      error "Host config references user '${u}' but" \
+            "${OS_DIR}/users/${u}/ does not exist."
   done
 
   local any_fail=0
@@ -128,7 +137,8 @@ _validation_preflight_programs() {
     uj="$(load_user_config "$u" 2>/dev/null)" || urc=$?
     case "$urc" in
     0 | 1) ;;
-    *) echo "validation: cannot load user config '${u}'" >&2; any_fail=1; continue ;;
+    *) echo "validation: cannot load user config '${u}'" >&2
+       any_fail=1; continue ;;
     esac
     mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
     if ((${#uprogs[@]} > 0)); then
@@ -136,7 +146,8 @@ _validation_preflight_programs() {
     fi
   done
 
-  ((any_fail == 0)) || error "Program contracts failed. Fix the errors above and re-run."
+  ((any_fail == 0)) || \
+    error "Program contracts failed. Fix the errors above and re-run."
 }
 
 # =============================================================================
@@ -156,7 +167,8 @@ validate_install_context() {
   if declare -F "$validator" >/dev/null; then
     "$validator"
   else
-    error "No validator for mode '${INSTALL_MODE}' (expected function ${validator})."
+    error "No validator for mode '${INSTALL_MODE}'" \
+          "(expected function ${validator})."
   fi
 
   validate_environment

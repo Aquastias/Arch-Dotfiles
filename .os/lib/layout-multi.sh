@@ -14,8 +14,10 @@
 #   create_multi_rpool           — creates rpool with resolved topology
 #   create_multi_dpool           — creates dpool with all storage groups
 #   mount_multi_esps             — mounts primary + secondary ESPs
-#   layout_plan           — seam: wraps resolve_os_topology; resolve_storage_topologies
-#   layout_partition      — seam: wraps partition_os_disks_multi; partition_storage_disks_multi
+#   layout_plan      — seam: wraps resolve_os_topology;
+#                     resolve_storage_topologies
+#   layout_partition — seam: wraps partition_os_disks_multi;
+#                     partition_storage_disks_multi
 #   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
 #   layout_mount_esp      — seam: wraps mount_multi_esps
 #
@@ -24,8 +26,10 @@
 #   _LAYOUT_IMPL_ZFS_PARTS[]         — ZFS partitions on OS disks (for rpool)
 #   _LAYOUT_IMPL_OS_DISK          — chosen single OS disk (topology=none only)
 #   _LAYOUT_IMPL_OS_TOPOLOGY      — resolved topology string
-#   _LAYOUT_IMPL_LEFTOVER_DISKS[] — OS-list disks folded into dpool (topology=none)
-#   _LAYOUT_IMPL_STORAGE_PARTS[name]    — associative: group name → "part1 part2 ..."
+#   _LAYOUT_IMPL_LEFTOVER_DISKS[] — OS-list disks folded into dpool
+#                                 (topology=none)
+#   _LAYOUT_IMPL_STORAGE_PARTS[name]    — associative:
+#                                         group name → "part1 part2 ..."
 #   _LAYOUT_IMPL_TOPOLOGIES[]  — associative: group name → topology string
 # =============================================================================
 
@@ -52,9 +56,12 @@ suggest_os_topologies() {
     echo "none  (only option for 1 disk — no RAID possible)"
     return
   fi
-  echo "mirror  ← recommended  (RAID-1: survives 1 disk failure, half total capacity)"
-  echo "stripe  (RAID-0: full speed/capacity, no redundancy — not recommended for OS)"
-  echo "none  (no RAID: pick one disk for OS, remaining disks go to dpool as storage)"
+  echo "mirror  ← recommended  (RAID-1: 1 failure tolerance," \
+       "half capacity)"
+  echo "stripe  (RAID-0: full speed/capacity, no redundancy" \
+       "— not for OS)"
+  echo "none  (no RAID: pick one disk for OS," \
+       "rest go to dpool as storage)"
 }
 
 # =============================================================================
@@ -88,7 +95,8 @@ suggest_storage_topologies() {
     echo "independent  (each disk its own vdev)"
     ;;
   5)
-    echo "raidz2  ← recommended  (2 parity disks, 3× usable, survives 2 failures)"
+    echo "raidz2  ← recommended  (2 parity disks, 3× usable," \
+         "2 failures)"
     echo "raidz1  (1 parity disk, 4× usable)"
     echo "stripe  (no redundancy)"
     echo "independent  (each disk its own vdev)"
@@ -161,7 +169,8 @@ resolve_os_topology() {
       # All other listed OS disks become storage leftovers
       _LAYOUT_IMPL_LEFTOVER_DISKS=()
       for d in "${all_os[@]}"; do
-        [[ "$d" != "$_LAYOUT_IMPL_OS_DISK" ]] && _LAYOUT_IMPL_LEFTOVER_DISKS+=("$d")
+        [[ "$d" != "$_LAYOUT_IMPL_OS_DISK" ]] \
+          && _LAYOUT_IMPL_LEFTOVER_DISKS+=("$d")
       done
 
       info "OS install disk   : ${_LAYOUT_IMPL_OS_DISK}"
@@ -328,7 +337,8 @@ create_multi_rpool() {
   ashift="${ashift:-13}"
 
   local vdev_spec
-  vdev_spec="$(build_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" "${_LAYOUT_IMPL_ZFS_PARTS[@]}")"
+  vdev_spec="$(build_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" \
+    "${_LAYOUT_IMPL_ZFS_PARTS[@]}")"
 
   info "Pool: ${pool_name}  topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   info "vdev: ${vdev_spec}"
@@ -489,6 +499,10 @@ layout_plan() {
   fi
   _layout_verify_plan_contract
 }
-layout_partition()    { partition_os_disks_multi; partition_storage_disks_multi; _layout_verify_partition_contract; }
+layout_partition() {
+  partition_os_disks_multi
+  partition_storage_disks_multi
+  _layout_verify_partition_contract
+}
 layout_create_pools() { create_multi_rpool; create_multi_dpool; }
 layout_mount_esp()    { mount_multi_esps; }

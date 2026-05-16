@@ -42,8 +42,10 @@ _inject_params_into_options_line() {
 }
 
 if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
-  print_status info "Updating GRUB_CMDLINE_LINUX_DEFAULT with required parameters..."
-  current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
+  print_status info "Updating GRUB_CMDLINE_LINUX_DEFAULT" \
+    "with required parameters..."
+  current_cmdline=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" \
+    "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
   new_cmdline="$current_cmdline"
 
   for param in "${PARAMS_TO_ADD[@]}"; do
@@ -51,10 +53,15 @@ if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
   done
 
   if [[ "$new_cmdline" != "$current_cmdline" ]]; then
-    print_status info "Appending required parameters to GRUB_CMDLINE_LINUX_DEFAULT..."
-    sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" "$GRUB_DEFAULT_FILE"
+    print_status info "Appending required parameters to" \
+      "GRUB_CMDLINE_LINUX_DEFAULT..."
+    sudo sed -i \
+      "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|"\
+      "GRUB_CMDLINE_LINUX_DEFAULT=\"$new_cmdline\"|" \
+      "$GRUB_DEFAULT_FILE"
   else
-    print_status info "All required parameters already present in GRUB_CMDLINE_LINUX_DEFAULT."
+    print_status info "All required parameters already present" \
+      "in GRUB_CMDLINE_LINUX_DEFAULT."
   fi
 
   if command -v grub-mkconfig &>/dev/null; then
@@ -62,7 +69,8 @@ if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
     sudo grub-mkconfig -o "$GRUB_BOOT_CFG"
   fi
 elif [[ -d "$SBOOT_ENTRIES_DIR" ]]; then
-  print_status info "systemd-boot detected — patching boot entries in $SBOOT_ENTRIES_DIR..."
+  print_status info "systemd-boot detected — patching boot entries" \
+    "in $SBOOT_ENTRIES_DIR..."
   patched=0
   while IFS= read -r -d '' entry; do
     if grep -q "^options " "$entry"; then
@@ -74,9 +82,11 @@ elif [[ -d "$SBOOT_ENTRIES_DIR" ]]; then
       fi
     fi
   done < <(find "$SBOOT_ENTRIES_DIR" -name "*.conf" -print0)
-  [[ $patched -eq 0 ]] && print_status info "All entries already had required parameters."
+  [[ $patched -eq 0 ]] && \
+    print_status info "All entries already had required parameters."
 else
-  print_status warning "No bootloader config found; skipping kernel param injection."
+  print_status warning "No bootloader config found;" \
+    "skipping kernel param injection."
 fi
 
 print_status info "Enabling AppArmor service..."

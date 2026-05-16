@@ -27,29 +27,46 @@ print_status info "Installing ClamAV + clamav-unofficial-sigs..."
 paru -S --noconfirm --needed clamav clamav-unofficial-sigs
 
 print_status info "Copying configurations..."
-sudo install -o root -g root -m 644 "$CLAMAV_CONFIGS/clamd.conf"     /etc/clamav/clamd.conf
-sudo install -o root -g root -m 644 "$CLAMAV_CONFIGS/freshclam.conf" /etc/clamav/freshclam.conf
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_CONFIGS/clamd.conf" /etc/clamav/clamd.conf
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_CONFIGS/freshclam.conf" /etc/clamav/freshclam.conf
 sudo install -d -o root -g root -m 755 /etc/clamav-unofficial-sigs
-sudo install -o root -g root -m 644 "$CLAMAV_CONFIGS/user.conf"      /etc/clamav-unofficial-sigs/user.conf
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_CONFIGS/user.conf" /etc/clamav-unofficial-sigs/user.conf
 
 print_status info "Copying entries..."
-sudo install -o root -g root -m 644 "$CLAMAV_ENTRIES/clamav.desktop" /usr/share/applications/clamav.desktop
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_ENTRIES/clamav.desktop" /usr/share/applications/clamav.desktop
 
 print_status info "Copying services..."
-sudo install -o root -g root -m 644 "$CLAMAV_SERVICES/clamav-clamonacc.service"   /usr/lib/systemd/system/clamav-clamonacc.service
-sudo install -o root -g root -m 644 "$CLAMAV_SERVICES/clamav-daily-scan.service"  /usr/lib/systemd/system/clamav-daily-scan.service
-sudo install -o root -g root -m 644 "$CLAMAV_SERVICES/clamav-daily-scan.timer"    /usr/lib/systemd/system/clamav-daily-scan.timer
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_SERVICES/clamav-clamonacc.service" \
+  /usr/lib/systemd/system/clamav-clamonacc.service
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_SERVICES/clamav-daily-scan.service" \
+  /usr/lib/systemd/system/clamav-daily-scan.service
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_SERVICES/clamav-daily-scan.timer" \
+  /usr/lib/systemd/system/clamav-daily-scan.timer
 
 # Stage shell-stdlib.sh + exclude list + daily-scan helper for the timer.
 # These run post-boot, where $SHELL_COMMONS / $PROGRAMS are no longer set.
-print_status info "Staging shell-stdlib.sh and daily-scan helper under /usr/local/lib..."
+print_status info "Staging shell-stdlib.sh and daily-scan helper" \
+  "under /usr/local/lib..."
 sudo install -d -o root -g root -m 755 /usr/local/lib /usr/local/lib/clamav
-sudo install -o root -g root -m 644 "${SHELL_COMMONS}/shell-stdlib.sh"             /usr/local/lib/shell-stdlib.sh
-sudo install -o root -g root -m 644 "$CLAMAV_PROG_DIR/clamav_exclude_list.json"    /usr/local/lib/clamav/clamav_exclude_list.json
-sudo install -o root -g root -m 755 "$CLAMAV_SCRIPTS/clamav_daily_scan.sh"         /usr/local/lib/clamav/clamav_daily_scan.sh
+sudo install -o root -g root -m 644 \
+  "${SHELL_COMMONS}/shell-stdlib.sh" /usr/local/lib/shell-stdlib.sh
+sudo install -o root -g root -m 644 \
+  "$CLAMAV_PROG_DIR/clamav_exclude_list.json" \
+  /usr/local/lib/clamav/clamav_exclude_list.json
+sudo install -o root -g root -m 755 \
+  "$CLAMAV_SCRIPTS/clamav_daily_scan.sh" \
+  /usr/local/lib/clamav/clamav_daily_scan.sh
 
 print_status info "Installing virus-event hook..."
-sudo install -o root -g root -m 755 "$CLAMAV_SCRIPTS/virus-event.sh" /etc/clamav/virus-event.sh
+sudo install -o root -g root -m 755 \
+  "$CLAMAV_SCRIPTS/virus-event.sh" /etc/clamav/virus-event.sh
 
 SUDOERS_FILE="/etc/sudoers.d/clamav"
 SUDOERS_LINE="clamav ALL = (ALL) NOPASSWD: SETENV: /usr/bin/notify-send"

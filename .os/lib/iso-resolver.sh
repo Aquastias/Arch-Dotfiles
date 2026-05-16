@@ -72,7 +72,8 @@ ISO_RESOLVER_ARCH_RELEASES_JSON="https://archlinux.org/releng/releases/json/"
 
 # archzfs experimental release — the source of truth for which kernels
 # currently have a prebuilt zfs-linux package.
-ISO_RESOLVER_ARCHZFS_API="https://api.github.com/repos/archzfs/archzfs/releases/tags/experimental"
+ISO_RESOLVER_ARCHZFS_API=\
+"https://api.github.com/repos/archzfs/archzfs/releases/tags/experimental"
 
 # Pattern matching the versioned filename Arch publishes
 # (e.g. `archlinux-2026.05.01-x86_64.iso`).
@@ -88,7 +89,8 @@ _iso_resolver_resolve_url() {
   listing="$(curl -fsSL "$dir_url/" 2>/dev/null)" || return 1
 
   local filename
-  filename="$(echo "$listing" | grep -oE "$ISO_RESOLVER_FILENAME_REGEX" | head -1)"
+  filename="$(echo "$listing" \
+    | grep -oE "$ISO_RESOLVER_FILENAME_REGEX" | head -1)"
   [[ -n "$filename" ]] || return 1
 
   printf '%s/%s\n' "$dir_url" "$filename"
@@ -139,7 +141,8 @@ _iso_resolver_pick_compatible_release() {
   # start and forces a literal dot after the major.minor — this prevents
   # `6.19` from matching `6.190.x`.
   local k_alt
-  k_alt="$(echo "$kernels_text" | sed 's/\./\\./g' | tr '\n' '|' | sed 's/|$//')"
+  k_alt="$(echo "$kernels_text" \
+    | sed 's/\./\\./g' | tr '\n' '|' | sed 's/|$//')"
   [[ -n "$k_alt" ]] || return 1
 
   local picked
@@ -207,7 +210,8 @@ iso_resolver_get_zfs_compatible() {
     return 1
   }
   [[ -n "$kernels" ]] || {
-    echo "iso-resolver: no archzfs prebuilt kernels detected — refusing to guess" >&2
+    echo "iso-resolver: no archzfs prebuilt kernels detected" \
+         "— refusing to guess" >&2
     return 1
   }
 
@@ -222,10 +226,12 @@ iso_resolver_get_zfs_compatible() {
   }
 
   local iso_path
-  iso_path="$(_iso_resolver_pick_compatible_release "$kernels" "$releases_json")" || {
+  iso_path="$(_iso_resolver_pick_compatible_release \
+    "$kernels" "$releases_json")" || {
     local k_csv
     k_csv="$(echo "$kernels" | tr '\n' ',' | sed 's/,$//')"
-    echo "iso-resolver: no available archived ISO matches archzfs kernels: ${k_csv}" >&2
+    echo "iso-resolver: no available archived ISO matches" \
+         "archzfs kernels: ${k_csv}" >&2
     return 1
   }
 

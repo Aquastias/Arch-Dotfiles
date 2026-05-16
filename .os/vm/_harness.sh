@@ -25,10 +25,12 @@
 #   VM_RAM_MB             (default: 8192)
 #   VM_VCPUS              (default: 4)
 #   ISO_URL_OVERRIDE      pin a specific ISO URL
-#   LIBVIRT_GATEWAY       libvirt bridge IP the VM can reach (default: 192.168.122.1)
+#   LIBVIRT_GATEWAY  libvirt bridge IP the VM can reach
+#                    (default: 192.168.122.1)
 #   HTTP_PORT             port the host HTTP server listens on (default: 9876)
 #   BOOT_TIMEOUT_SEC      seconds to wait for VM IP + SSH (default: 300)
-#   INSTALL_TIMEOUT_SEC   seconds to wait for installer to finish (default: 3600)
+#   INSTALL_TIMEOUT_SEC  seconds to wait for installer to finish
+#                        (default: 3600)
 # =============================================================================
 
 set -Eeuo pipefail
@@ -87,7 +89,8 @@ _parse_args() {
     case "$1" in
       --recreate) RECREATE=true; shift ;;
       -h | --help) usage; exit 0 ;;
-      *) echo "[$(basename "$0")] Unknown argument: $1" >&2; usage >&2; exit 2 ;;
+      *) echo "[$(basename "$0")] Unknown argument: $1" >&2
+         usage >&2; exit 2 ;;
     esac
   done
 }
@@ -128,7 +131,9 @@ _ensure_libvirtd() {
 # VM LIFECYCLE
 # =============================================================================
 _vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
-_vm_running() { [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]; }
+_vm_running() {
+  [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]
+}
 
 _vm_install_iso_path() {
   virsh dumpxml "$VM_NAME" 2>/dev/null |
@@ -140,7 +145,10 @@ _vm_install_iso_path() {
 
 _vm_destroy_undefine() {
   if _vm_exists; then
-    _vm_running && { info "Force-stopping VM '${VM_NAME}'."; virsh destroy "$VM_NAME" >/dev/null; }
+    _vm_running && {
+      info "Force-stopping VM '${VM_NAME}'."
+      virsh destroy "$VM_NAME" >/dev/null
+    }
     info "Undefining VM '${VM_NAME}' (storage + NVRAM removed)."
     local i
     for i in "${!VM_DISK_SIZES[@]}"; do
@@ -156,11 +164,13 @@ _vm_create() {
   local i
   for i in "${!VM_DISK_SIZES[@]}"; do
     local disk_path="${CACHE_DIR}/${VM_NAME}-disk${i}.qcow2"
-    disk_args+=(--disk "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
+    disk_args+=(--disk \
+      "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
   done
   local disk_summary
   disk_summary="$(printf '%sG ' "${VM_DISK_SIZES[@]}")"
-  info "Creating VM '${VM_NAME}' (${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary% })."
+  info "Creating VM '${VM_NAME}'" \
+       "(${VM_RAM_MB} MiB, ${VM_VCPUS} vCPU, disks: ${disk_summary% })."
   virt-install \
     --name          "$VM_NAME" \
     --memory        "$VM_RAM_MB" \
@@ -267,7 +277,8 @@ _build_seed() {
   printf '#cloud-config\n' > "${user_data}"
   cloud-localds "${seed_iso}" "${user_data}" >/dev/null \
     || error "cloud-localds failed for ${user_data}"
-  [[ -s "${seed_iso}" ]] || error "cloud-localds produced empty seed at ${seed_iso}"
+  [[ -s "${seed_iso}" ]] || \
+    error "cloud-localds produced empty seed at ${seed_iso}"
   printf '%s\n' "${seed_iso}"
 }
 
@@ -282,7 +293,8 @@ _get_vm_ip() {
           | head -1)"
     [[ -n "$ip" ]] && { printf '%s\n' "$ip"; return 0; }
     sleep 5; elapsed=$((elapsed + 5))
-    ((elapsed >= BOOT_TIMEOUT_SEC)) && error "Timed out waiting for VM IP address."
+    ((elapsed >= BOOT_TIMEOUT_SEC)) && \
+      error "Timed out waiting for VM IP address."
   done
 }
 
@@ -291,7 +303,8 @@ _wait_for_ssh() {
   info "Waiting for live system to finish booting (SSH port on ${ip})."
   while ! nc -z "$ip" 22 >/dev/null 2>&1; do
     sleep 5; elapsed=$((elapsed + 5))
-    ((elapsed >= BOOT_TIMEOUT_SEC)) && error "Timed out waiting for SSH on ${ip}."
+    ((elapsed >= BOOT_TIMEOUT_SEC)) && \
+      error "Timed out waiting for SSH on ${ip}."
   done
   sleep 5  # let tty1 auto-login settle
 }
@@ -358,10 +371,12 @@ _launch_installer() {
 # =============================================================================
 _wait_for_poweroff() {
   local elapsed=0
-  info "Waiting for installer to finish (max ${INSTALL_TIMEOUT_SEC}s — takes 10-30 min)."
+  info "Waiting for installer to finish" \
+       "(max ${INSTALL_TIMEOUT_SEC}s — takes 10-30 min)."
   while _vm_running; do
     sleep 15; elapsed=$((elapsed + 15))
-    ((elapsed >= INSTALL_TIMEOUT_SEC)) && error "Installer timed out after ${INSTALL_TIMEOUT_SEC}s."
+    ((elapsed >= INSTALL_TIMEOUT_SEC)) && \
+      error "Installer timed out after ${INSTALL_TIMEOUT_SEC}s."
   done
   info "VM powered off — installer complete."
 }

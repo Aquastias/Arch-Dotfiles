@@ -50,7 +50,7 @@ teardown() {
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 
-@test "gpu ['amd','nvidia'] populates both sets and adds envycontrol to paru list" {
+@test "gpu ['amd','nvidia'] populates both sets and adds envycontrol" {
   ENVIRONMENT_GPU=("amd" "nvidia")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
@@ -62,7 +62,9 @@ teardown() {
 
 @test "gpu 'intel' with Broadwell+ device ID uses intel-media-driver" {
   # 0x1612 = Broadwell Iris Pro (>= 0x1600)
-  _gpu_lspci_output() { echo "00:02.0 VGA [0300]: Intel Corporation [8086:1612]"; }
+  _gpu_lspci_output() {
+    echo "00:02.0 VGA [0300]: Intel Corporation [8086:1612]"
+  }
   ENVIRONMENT_GPU=("intel")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" intel-media-driver "* ]]
@@ -71,7 +73,9 @@ teardown() {
 
 @test "gpu 'intel' with pre-Broadwell device ID uses libva-intel-driver" {
   # 0x0a16 = Haswell (< 0x1600)
-  _gpu_lspci_output() { echo "00:02.0 VGA [0300]: Intel Corporation [8086:0a16]"; }
+  _gpu_lspci_output() {
+    echo "00:02.0 VGA [0300]: Intel Corporation [8086:0a16]"
+  }
   ENVIRONMENT_GPU=("intel")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" libva-intel-driver "* ]]
@@ -81,16 +85,21 @@ teardown() {
 # ── auto detection ─────────────────────────────────────────────────────────
 
 @test "auto with AMD lspci resolves to AMD packages" {
-  _gpu_lspci_output() { echo "00:00.0 VGA [0300]: Advanced Micro Devices [AMD/ATI] Navi 21 [1002:73bf]"; }
+  _gpu_lspci_output() {
+    echo "00:00.0 VGA [0300]: Advanced Micro Devices" \
+         "[AMD/ATI] Navi 21 [1002:73bf]"
+  }
   ENVIRONMENT_GPU=("auto")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
 }
 
-@test "auto with hybrid AMD+NVIDIA lspci resolves both sets and adds envycontrol" {
+@test "auto with hybrid AMD+NVIDIA lspci resolves both + envycontrol" {
   _gpu_lspci_output() {
-    echo "00:00.0 VGA [0300]: Advanced Micro Devices [AMD/ATI] Renoir [1002:1636]"
-    echo "01:00.0 VGA [0300]: NVIDIA Corporation GA107M [GeForce RTX 3050] [10de:25a2]"
+    echo "00:00.0 VGA [0300]: Advanced Micro Devices" \
+         "[AMD/ATI] Renoir [1002:1636]"
+    echo "01:00.0 VGA [0300]: NVIDIA Corporation GA107M" \
+         "[GeForce RTX 3050] [10de:25a2]"
   }
   ENVIRONMENT_GPU=("auto")
   resolve_gpu_packages
@@ -100,7 +109,9 @@ teardown() {
 }
 
 @test "auto with VMware GPU resolves to mesa only; does not abort" {
-  _gpu_lspci_output() { echo "00:0f.0 VGA [0300]: VMware SVGA II Adapter [15ad:0405]"; }
+  _gpu_lspci_output() {
+    echo "00:0f.0 VGA [0300]: VMware SVGA II Adapter [15ad:0405]"
+  }
   ENVIRONMENT_GPU=("auto")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
@@ -109,7 +120,9 @@ teardown() {
 }
 
 @test "auto with virtio-gpu resolves to mesa only; does not abort" {
-  _gpu_lspci_output() { echo "00:02.0 VGA [0300]: Red Hat, Inc. Virtio GPU [1af4:1050]"; }
+  _gpu_lspci_output() {
+    echo "00:02.0 VGA [0300]: Red Hat, Inc. Virtio GPU [1af4:1050]"
+  }
   ENVIRONMENT_GPU=("auto")
   resolve_gpu_packages
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]

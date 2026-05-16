@@ -7,5 +7,5 @@
 {
   "name": "borg",
   "system": false,
-  "description": "Borg encrypted deduplicated backup with Vorta GUI and borgmatic scheduler."
+  "description": "Borg encrypted backup with Vorta GUI and borgmatic."
 }

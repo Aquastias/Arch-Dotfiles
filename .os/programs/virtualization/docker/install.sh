@@ -17,7 +17,8 @@ trap 'echo "[docker] error on line $LINENO" >&2' ERR
 print_status info "Installing Docker..."
 paru -S --noconfirm --needed docker docker-compose
 
-print_status info "Enabling Docker socket (daemon starts on first connection)..."
+print_status info "Enabling Docker socket" \
+  "(daemon starts on first connection)..."
 sudo systemctl enable docker.socket
 
 # pacman creates the `docker` group as part of the docker package; this is a

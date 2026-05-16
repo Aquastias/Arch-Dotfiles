@@ -19,15 +19,19 @@ setup() {
 
   export PACMAN_LOG SYSTEMCTL_LOG GREETD_CONF_DIR HYPR_JSON
 
-  printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' > "$STUB_BIN/pacman"
-  printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' > "$STUB_BIN/systemctl"
+  printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
+    > "$STUB_BIN/pacman"
+  printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
+    > "$STUB_BIN/systemctl"
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl"
 
   export PATH="$STUB_BIN:$PATH"
 
   # Default: all companions enabled
-  printf '{"bar":true,"notifications":true,"launcher":true,"rofi":true,"terminal":true,"lock":true,"idle":true,"wallpaper":true}' \
-    > "$HYPR_JSON"
+  cat > "$HYPR_JSON" <<'JSON'
+{"bar":true,"notifications":true,"launcher":true,"rofi":true,
+ "terminal":true,"lock":true,"idle":true,"wallpaper":true}
+JSON
 }
 
 teardown() {
@@ -70,8 +74,10 @@ teardown() {
 # ── companion toggles ─────────────────────────────────────────────────────
 
 @test "disabled companion not passed to pacman" {
-  printf '{"bar":false,"notifications":true,"launcher":true,"rofi":true,"terminal":true,"lock":true,"idle":true,"wallpaper":true}' \
-    > "$HYPR_JSON"
+  cat > "$HYPR_JSON" <<'JSON'
+{"bar":false,"notifications":true,"launcher":true,"rofi":true,
+ "terminal":true,"lock":true,"idle":true,"wallpaper":true}
+JSON
   run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
   [ "$status" -eq 0 ]
   ! grep -q "waybar" "$PACMAN_LOG"

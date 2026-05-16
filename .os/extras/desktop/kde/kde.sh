@@ -52,7 +52,8 @@ if [[ "$do_apps" == "true" ]]; then
   section "KDE Applications"
 
   mapfile -t kde_apps < <(
-    jsonc "$KDE_JSON" | jq -r '.apps_list | to_entries[] | select(.value == true) | .key'
+    jsonc "$KDE_JSON" \
+      | jq -r '.apps_list | to_entries[] | select(.value == true) | .key'
   )
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then
@@ -88,7 +89,8 @@ fi
 section "KDE Installation Complete"
 if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi
 if [[ "$do_apps" == "true" ]]; then
-  app_count="$(jsonc "$KDE_JSON" | jq '[.apps_list | to_entries[] | select(.value==true)] | length')"
+  app_count="$(jsonc "$KDE_JSON" \
+    | jq '[.apps_list | to_entries[] | select(.value==true)] | length')"
   info "  ✔  KDE Applications (${app_count} apps)"
 fi
 if [[ ${#kde_extra[@]} -gt 0 ]]; then info "  ✔  Extra: ${kde_extra[*]}"; fi

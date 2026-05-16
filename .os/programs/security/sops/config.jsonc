@@ -8,5 +8,5 @@
 {
   "name": "sops",
   "system": true,
-  "description": "SOPS secrets decryption — derives Machine Age Key and installs boot-time runtime service."
+  "description": "SOPS secrets — Machine Age Key + boot-time runtime service."
 }

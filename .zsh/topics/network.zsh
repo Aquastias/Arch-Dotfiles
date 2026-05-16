@@ -2,7 +2,11 @@
 
 network_info() {
   echo "--------------- Network Information ---------------"
-  ip addr show | awk '/inet / {print "IP Address:",$2} /inet /{print "Netmask:",$4} /ether /{print "MAC Address:",$2}'
+  ip addr show | awk '
+    /inet / {print "IP Address:",$2}
+    /inet / {print "Netmask:",$4}
+    /ether / {print "MAC Address:",$2}
+  '
   echo "---------------------------------------------------"
 }
 

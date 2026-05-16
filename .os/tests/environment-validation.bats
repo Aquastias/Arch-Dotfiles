@@ -48,7 +48,8 @@ write_config() {
 }
 
 @test "desktop array ['kde','hyprland'] passes and sets two-element array" {
-  write_config '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
+  write_config \
+    '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
   validate_environment
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
@@ -83,7 +84,8 @@ write_config() {
 
 @test "gpu 'amd', 'nvidia', 'intel' each pass validation" {
   for vendor in amd nvidia intel; do
-    write_config "{\"environment\": {\"desktop\": null, \"gpu\": \"${vendor}\"}}"
+    write_config \
+      "{\"environment\": {\"desktop\": null, \"gpu\": \"${vendor}\"}}"
     validate_environment
     [ "${ENVIRONMENT_GPU[0]}" = "$vendor" ]
   done

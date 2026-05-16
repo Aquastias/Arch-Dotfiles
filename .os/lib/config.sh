@@ -20,7 +20,8 @@
 source "${BASH_SOURCE[0]%/*}/environment.sh"
 
 # =============================================================================
-# RESOLVED GLOBALS — set during validate_install_context, consumed by configure_system
+# RESOLVED GLOBALS — set during validate_install_context,
+# consumed by configure_system
 # =============================================================================
 RESOLVED_HOSTNAME=""
 
@@ -30,7 +31,8 @@ RESOLVED_HOSTNAME=""
 # =============================================================================
 # Each mode is defined by a "signature": a JSON path that must be present and
 # non-empty. If multiple signatures match, detect_mode() errors — set 'mode'
-# explicitly instead. validate_install_context() dispatches to _validation_<mode>().
+# explicitly instead. validate_install_context() dispatches
+# to _validation_<mode>().
 
 declare -gA _CONFIG_MODE_SIG=(
   [single]=".disk"
@@ -47,12 +49,12 @@ generate_template() {
   local target="$1"
   cat >"$target" <<'TEMPLATE'
 {
-  "_readme": "Arch Linux ZFS Installer config. Edit the ACTIVE CONFIG section, then run 03-install.sh.",
+  "_readme": "Arch ZFS Installer config. Edit ACTIVE CONFIG, run 03-install.",
 
   "_MODE_HELP": {
-    "single": "One disk — auto-partitioned: ESP + rpool (OS) + dpool (storage).",
-    "multi":  "Multiple disks — OS pool (rpool) + optional storage groups (dpool).",
-    "auto":   "Omit 'mode' to auto-detect: 'disk' key present → single; 'os_pool.disks' entries → multi."
+    "single": "One disk — auto-partitioned: ESP + rpool + dpool.",
+    "multi":  "Multiple disks — rpool + optional storage groups (dpool).",
+    "auto":   "Omit 'mode' to auto-detect from 'disk' or 'os_pool.disks'."
   },
 
   "system": {
@@ -63,51 +65,51 @@ generate_template() {
     "keymap":   "us"
   },
 
-  "_software_help": "Users and programs are declared under .os/hosts/<hostname>/ and .os/users/<name>/. See PRD.md.",
+  "_software_help": "Users + programs in hosts/ and users/. See PRD.md.",
 
   "options": {
     "encryption":  false,
-    "_encryption": "ZFS native AES-256-GCM on all pools. Passphrase prompted at install and at every boot.",
+    "_encryption": "ZFS AES-256-GCM. Passphrase at install + boot.",
     "swap":        true,
     "swap_size":   "auto",
-    "_swap_size":  "'auto' = RAM×2 (recommended). Fixed examples: '8G', '16G', '32G'.",
+    "_swap_size":  "'auto' = RAM×2. Or fixed: '8G', '16G', '32G'.",
     "esp_size":    "512M",
-    "_esp_size":   "EFI System Partition size per OS disk. 512M is sufficient for systemd-boot."
+    "_esp_size":   "EFI partition per OS disk. 512M is enough for systemd-boot."
   },
 
   "packages": {
-    "_help":  "All packages installed via pacstrap alongside the base system. Use exact pacman names.",
+    "_help":  "All pkgs installed via pacstrap. Use exact pacman names.",
     "extra":  [],
     "_extra": "Flat list. Example: ['htop', 'firefox', 'vlc', 'neofetch']",
     "groups": {
       "cli":   [],
-      "_cli":  "CLI tools. Example: ['tmux', 'bat', 'ripgrep', 'fzf', 'zsh', 'fish']",
+      "_cli":  "CLI tools. Example: ['tmux', 'bat', 'ripgrep', 'fzf', 'zsh']",
       "dev":   [],
-      "_dev":  "Dev tools. Example: ['python', 'nodejs', 'npm', 'docker', 'go', 'rustup']",
+      "_dev":  "Dev tools. Example: ['python', 'nodejs', 'docker', 'go']",
       "gui":   [],
-      "_gui":  "GUI apps (pair with post_install.kde=true). Example: ['firefox', 'vlc', 'gimp']"
+      "_gui":  "GUI apps (with post_install.kde). Example: ['firefox', 'vlc']"
     }
   },
 
   "post_install": {
-    "_help":      "Set true to run the matching extras/ script inside chroot at the end of install.",
+    "_help":      "Set true to run the matching extras/ script at install end.",
     "desktop": {
       "kde": false,
-      "_kde":       "extras/kde.sh — KDE Plasma 6, SDDM, PipeWire audio, Bluetooth, Avahi, printing.",
+      "_kde":       "extras/kde.sh — KDE 6, SDDM, PipeWire, Bluetooth, Avahi.",
     "backup":     false,
-    "_backup":    "extras/backup.sh — zfs-auto-snapshot (scheduled snapshots) + Borg/Vorta backups.",
+    "_backup":    "extras/backup.sh — zfs-auto-snapshot + Borg/Vorta backups.",
     "security":   false,
-    "_security":  "extras/security.sh — UFW firewall (deny-all-in) + ClamAV weekly scan."
+    "_security":  "extras/security.sh — UFW (deny-all-in) + ClamAV weekly scan."
   },
 
   "_SINGLE_DISK_EXAMPLE": {
-    "_info":             "Laptop or single-disk desktop. The disk is split automatically.",
+    "_info":             "Laptop or single-disk desktop. Auto-split.",
     "mode":              "single",
     "disk":              "/dev/sda",
     "ashift":            12,
-    "_ashift":           "12 = 4K sectors (SATA SSD/HDD). 13 = 8K (NVMe, optional).",
+    "_ashift":           "12 = 4K sectors (SSD/HDD). 13 = 8K (NVMe).",
     "os_size":           "auto",
-    "_os_size":          "'auto' = max(20% of disk, RAM×2+30GiB, 40GiB floor). Fixed: '80G', '120G'.",
+    "_os_size":          "'auto' = max(20% disk, RAM×2+30GiB, 40GiB).",
     "os_pool_name":      "rpool",
     "storage_pool_name": "dpool",
     "storage_mount":     "/data"
@@ -129,14 +131,14 @@ generate_template() {
         "mount":     "/data/ssd",
         "ashift":    12,
         "topology":  "raidz1",
-        "_topology": "mirror | stripe | raidz1 | raidz2 | independent | (omit → prompted)",
+        "_topology": "mirror|stripe|raidz1|raidz2|independent|(omit→prompted)",
         "disks":     ["/dev/sda", "/dev/sdb", "/dev/sdc"]
       }
     ]
   },
 
   "_MULTI_NO_RAID_EXAMPLE": {
-    "_info":   "2 NVMes listed; topology=none → pick one for OS at runtime, other joins dpool.",
+    "_info":   "2 NVMes; topology=none → pick one for OS, other joins dpool.",
     "mode":    "multi",
     "os_pool": {
       "pool_name": "rpool",
@@ -186,8 +188,10 @@ load_config() {
       "   ${DIM}./03-install.sh${NC}\n"
     exit 0
   fi
-  command -v jq &>/dev/null || error "'jq' not found. Run 01-bootstrap-zfs.sh first."
-  jsonc_strip "$CONFIG_FILE" | jq empty 2>/dev/null || error "Invalid JSON: $CONFIG_FILE"
+  command -v jq &>/dev/null ||
+    error "'jq' not found. Run 01-bootstrap-zfs.sh first."
+  jsonc_strip "$CONFIG_FILE" | jq empty 2>/dev/null ||
+    error "Invalid JSON: $CONFIG_FILE"
   info "Loaded: $CONFIG_FILE"
 }
 
@@ -236,7 +240,8 @@ detect_mode() {
   done
 
   if ((${#matched[@]} > 1)); then
-    error "Ambiguous config: signatures for [${matched[*]}] all match. Set 'mode' explicitly."
+    error "Ambiguous config: signatures for [${matched[*]}] all match." \
+          "Set 'mode' explicitly."
   fi
 
   if ((${#matched[@]} == 1)); then
@@ -245,7 +250,8 @@ detect_mode() {
     return
   fi
 
-  error "Cannot auto-detect mode. Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
+  error "Cannot auto-detect mode." \
+        "Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
 }
 
 
@@ -280,7 +286,8 @@ print_summary() {
     local op
     op="$(cfg '.os_pool.pool_name')"
     echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
-    echo -e "  ${BOLD}OS pool: ${op}${NC}  topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
+    echo -e "  ${BOLD}OS pool: ${op}${NC}" \
+            " topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
 
     if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
       local s
@@ -321,13 +328,17 @@ print_summary() {
 
   # Packages
   local extras
-  extras="$(jsonc_strip "$CONFIG_FILE" | jq -r '(.packages.extra // []) | join(", ")')"
+  extras="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '(.packages.extra // []) | join(", ")')"
   local cli
-  cli="$(jsonc_strip "$CONFIG_FILE" | jq -r '(.packages.groups.cli // []) | join(", ")')"
+  cli="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '(.packages.groups.cli // []) | join(", ")')"
   local dev
-  dev="$(jsonc_strip "$CONFIG_FILE" | jq -r '(.packages.groups.dev // []) | join(", ")')"
+  dev="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '(.packages.groups.dev // []) | join(", ")')"
   local gui
-  gui="$(jsonc_strip "$CONFIG_FILE" | jq -r '(.packages.groups.gui // []) | join(", ")')"
+  gui="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '(.packages.groups.gui // []) | join(", ")')"
   echo ""
   echo -e "  ${BOLD}Packages:${NC}"
   [[ -n "$extras" ]] && printf "    extra: %s\n" "$extras"

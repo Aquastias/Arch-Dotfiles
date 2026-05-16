@@ -1,8 +1,10 @@
 #!/usr/bin/env bats
 # Tests for programs/security/sops — SOPS runtime service
 
-SOPS_SERVICE="$BATS_TEST_DIRNAME/../programs/security/sops/services/sops-runtime.service"
-SOPS_SCRIPT="$BATS_TEST_DIRNAME/../programs/security/sops/scripts/sops-runtime.sh"
+SOPS_SERVICE="$BATS_TEST_DIRNAME/../programs/security/sops/services"
+SOPS_SERVICE="$SOPS_SERVICE/sops-runtime.service"
+SOPS_SCRIPT="$BATS_TEST_DIRNAME/../programs/security/sops/scripts"
+SOPS_SCRIPT="$SOPS_SCRIPT/sops-runtime.sh"
 
 setup() {
   TEST_DIR="$(mktemp -d)"
