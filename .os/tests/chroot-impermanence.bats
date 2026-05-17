@@ -541,3 +541,191 @@ seed_curated() {
   [ -n "$last_mv" ] && [ -n "$first_snap" ]
   [ "$last_mv" -lt "$first_snap" ]
 }
+
+# ── slice 3 cycle 1 (tracer): enabled writes pacman hook file ───────────────
+
+@test "resnapshot hook: enabled writes pacman hook file" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  [ -f "$f" ]
+}
+
+@test "resnapshot hook: [Trigger] Type=Package" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE "^Type ?= ?Package$" "$f"
+}
+
+@test "resnapshot hook: [Trigger] Operation Install|Upgrade|Remove" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE "^Operation ?= ?Install$" "$f"
+  grep -qE "^Operation ?= ?Upgrade$" "$f"
+  grep -qE "^Operation ?= ?Remove$"  "$f"
+}
+
+@test "resnapshot hook: [Trigger] Target=*" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE '^Target ?= ?\*$' "$f"
+}
+
+@test "resnapshot hook: [Action] When=PostTransaction" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE "^When ?= ?PostTransaction$" "$f"
+}
+
+@test "resnapshot hook: [Action] Exec=/usr/lib/impermanence/resnapshot.sh" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE "^Exec ?= ?/usr/lib/impermanence/resnapshot\.sh$" "$f"
+}
+
+@test "resnapshot hook: [Action] Description present" {
+  run_enabled
+  local f="$FAKEROOT/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook"
+  grep -qE "^Description ?= ?" "$f"
+}
+
+@test "resnapshot helper: written at /usr/lib/impermanence/resnapshot.sh" {
+  run_enabled
+  [ -f "$FAKEROOT/usr/lib/impermanence/resnapshot.sh" ]
+}
+
+@test "resnapshot helper: is executable" {
+  run_enabled
+  [ -x "$FAKEROOT/usr/lib/impermanence/resnapshot.sh" ]
+}
+
+@test "resnapshot helper: starts with bash shebang" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  head -1 "$f" | grep -qE "^#!.*bash"
+}
+
+@test "resnapshot helper: references all 5 Rollback Datasets" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh" ds
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "rpool/ROOT/$ds" "$f" \
+      || { echo "missing rpool/ROOT/$ds in helper"; return 1; }
+  done
+}
+
+@test "resnapshot helper: contains zfs destroy and zfs snapshot @blank" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  grep -qE "zfs destroy .*@blank" "$f"
+  grep -qE "zfs snapshot .*@blank" "$f"
+}
+
+@test "resnapshot helper: destroy precedes snapshot in script" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local d s
+  d="$(grep -nE "zfs destroy " "$f" | head -1 | cut -d: -f1)"
+  s="$(grep -nE "zfs snapshot " "$f" | head -1 | cut -d: -f1)"
+  [ -n "$d" ] && [ -n "$s" ]
+  [ "$d" -lt "$s" ]
+}
+
+@test "resnapshot helper: end-to-end re-snapshots every dataset" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"
+  : > "$log"
+  # Source the helper in a fresh bash subshell with our own zfs/logger
+  # stubs to capture invocations. The setup()-exported zfs function is
+  # explicitly unset so it does not shadow the stub.
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+zfs()    { printf 'zfs %s\n'    "\$*" >> "$log"; }
+logger() { :; }
+source "$f"
+SUBSHELL
+  local ds
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "zfs destroy rpool/ROOT/$ds@blank" "$log" \
+      || { echo "no destroy for $ds"; cat "$log"; return 1; }
+    grep -qE "zfs snapshot rpool/ROOT/$ds@blank" "$log" \
+      || { echo "no snapshot for $ds"; cat "$log"; return 1; }
+  done
+}
+
+@test "resnapshot helper: idempotent when destroy fails (no @blank)" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"
+  : > "$log"
+  # destroy returns nonzero (no such snapshot); helper must still snapshot.
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+zfs() {
+  printf 'zfs %s\n' "\$*" >> "$log"
+  if [[ "\$1" == "destroy" ]]; then return 1; fi
+  return 0
+}
+logger() { :; }
+source "$f"
+status=\$?
+echo "exit=\$status" >> "$log"
+SUBSHELL
+  grep -qE "exit=0$" "$log"
+  local ds
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "zfs snapshot rpool/ROOT/$ds@blank" "$log" \
+      || { echo "no snapshot for $ds"; cat "$log"; return 1; }
+  done
+}
+
+@test "resnapshot helper: idempotent when snapshot fails (continues)" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"
+  : > "$log"
+  # Even if snapshot of first dataset fails, remaining are attempted and
+  # helper exits 0 (errors are logged, not aborted).
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+zfs() {
+  printf 'zfs %s\n' "\$*" >> "$log"
+  if [[ "\$1" == "snapshot" && "\$2" == *"/etc@blank" ]]; then return 1; fi
+  return 0
+}
+logger() { :; }
+source "$f"
+echo "exit=\$?" >> "$log"
+SUBSHELL
+  grep -qE "exit=0$" "$log"
+  grep -qE "zfs snapshot rpool/ROOT/usrlocal@blank" "$log"
+}
+
+@test "resnapshot helper: invokes logger with -t impermanence" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  grep -qE "logger -t impermanence" "$f"
+}
+
+@test "resnapshot helper: logger called at runtime per dataset" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"
+  : > "$log"
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+zfs()    { printf 'zfs %s\n'    "\$*" >> "$log"; }
+logger() { printf 'logger %s\n' "\$*" >> "$log"; }
+source "$f"
+SUBSHELL
+  # at least one logger invocation tagged impermanence
+  grep -qE "^logger .*-t impermanence" "$log"
+}
+
+@test "resnapshot helper: documents v1 leak in comments" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  # Operator who reads the helper should learn that no pre-transaction
+  # wipe exists (the documented v1 leak).
+  grep -qE "v1 leak|pre-transaction|leak" "$f"
+}

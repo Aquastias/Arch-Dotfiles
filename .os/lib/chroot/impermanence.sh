@@ -249,6 +249,61 @@ _impermanence_write_extension_tmpfiles() {
   done
 }
 
+_impermanence_write_resnapshot_helper() {
+  local dir="${ROOT:-}/usr/lib/impermanence"
+  local f="$dir/resnapshot.sh"
+  local entry suffix ds_list=""
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    ds_list+="$RPOOL/ROOT/$suffix "
+  done
+  ds_list="${ds_list% }"
+  mkdir -p "$dir"
+  cat > "$f" <<HELPER
+#!/usr/bin/env bash
+# Re-snapshot @blank on every Rollback Dataset after a pacman transaction.
+# Idempotent: a missing @blank (destroy error) is ignored; the snapshot
+# command then creates it fresh. Errors are logged but never abort —
+# pacman has already succeeded by the time this hook fires.
+#
+# v1 leak: this script runs PostTransaction only. User edits to non-
+# persisted paths made before a pacman run get baked into the new @blank
+# and survive one extra reboot. The fix is a pre-transaction strict-mode
+# hook with 'os impermanence diff/accept-drift/revert-drift' verbs,
+# deferred to v2.
+datasets="$ds_list"
+for ds in \$datasets; do
+  if zfs destroy "\${ds}@blank" 2>/dev/null; then
+    logger -t impermanence "destroyed \${ds}@blank"
+  fi
+  if zfs snapshot "\${ds}@blank"; then
+    logger -t impermanence "snapshotted \${ds}@blank"
+  else
+    logger -t impermanence "FAILED snapshot \${ds}@blank"
+  fi
+done
+HELPER
+  chmod 0755 "$f"
+}
+
+_impermanence_write_resnapshot_hook() {
+  local dir="${ROOT:-}/etc/pacman.d/hooks"
+  mkdir -p "$dir"
+  cat > "$dir/zz-impermanence-resnapshot.hook" <<'HOOK'
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = *
+
+[Action]
+Description = Re-snapshotting @blank on Rollback Datasets...
+When = PostTransaction
+Exec = /usr/lib/impermanence/resnapshot.sh
+HOOK
+}
+
 impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
   _impermanence_create_persist_dataset
@@ -262,6 +317,8 @@ impermanence_apply() {
   _impermanence_write_rollback_hook
   _impermanence_move_curated
   _impermanence_move_extensions
+  _impermanence_write_resnapshot_hook
+  _impermanence_write_resnapshot_helper
   _impermanence_snapshot_blank
 }
 
