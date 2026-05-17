@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Pacman Resnapshot Hook
 
@@ -24,13 +24,13 @@ Document the v1 leak as a comment in the helper script so a future reader unders
 
 ## Acceptance criteria
 
-- [ ] Pacman hook file is installed only when impermanence is enabled
-- [ ] Hook runs `PostTransaction` for `Install|Upgrade|Remove` of `Type=Package`
-- [ ] Helper script re-snapshots `@blank` on every Rollback Dataset (`rpool/ROOT/{etc,root,opt,srv,usrlocal}`)
-- [ ] Helper script is idempotent — running it when `@blank` is absent creates it; running it when present destroys and replaces it
-- [ ] Hook helper script logs to the journal on each invocation
+- [x] Pacman hook file is installed only when impermanence is enabled
+- [x] Hook runs `PostTransaction` for `Install|Upgrade|Remove` of `Type=Package`
+- [x] Helper script re-snapshots `@blank` on every Rollback Dataset (`rpool/ROOT/{etc,root,opt,srv,usrlocal}`)
+- [x] Helper script is idempotent — running it when `@blank` is absent creates it; running it when present destroys and replaces it
+- [x] Hook helper script logs to the journal on each invocation
 - [ ] After installing a test package (e.g. one that ships a `/etc/<pkg>/` config), reboot, and verify the package's `/etc/<pkg>/` config survives the rollback
-- [ ] `tests/chroot-impermanence.bats` covers hook/helper file generation (presence, contents, mocked `zfs` calls)
+- [x] `tests/chroot-impermanence.bats` covers hook/helper file generation (presence, contents, mocked `zfs` calls)
 
 ## Blocked by
 
