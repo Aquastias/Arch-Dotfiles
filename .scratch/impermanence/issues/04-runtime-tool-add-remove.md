@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Runtime tool: `add` / `remove`
 
@@ -35,13 +35,13 @@ The `status` and `apply-defaults` verbs are slice 5; this slice ships only `add`
 
 ## Acceptance criteria
 
-- [ ] `tools/impermanence.sh add <path>` writes the host config jsonc, copies data, generates the Persist Mount + tmpfiles entry, and reloads systemd
-- [ ] `tools/impermanence.sh remove <path>` reverses the above, with operator confirmation before moving data back
-- [ ] Both verbs refuse to operate on Curated Persist Default paths
-- [ ] Both verbs refuse to operate when impermanence is not enabled on the running system
-- [ ] jsonc edits preserve comments and formatting (use the existing jsonc primitive)
-- [ ] Both verbs are idempotent
-- [ ] `tests/impermanence-tool.bats` covers happy paths, error paths, and idempotency for both verbs with mocked external commands
+- [x] `tools/impermanence.sh add <path>` writes the host config jsonc, copies data, generates the Persist Mount + tmpfiles entry, and reloads systemd
+- [x] `tools/impermanence.sh remove <path>` reverses the above, with operator confirmation before moving data back
+- [x] Both verbs refuse to operate on Curated Persist Default paths
+- [x] Both verbs refuse to operate when impermanence is not enabled on the running system
+- [x] jsonc edits preserve comments and formatting (use the existing jsonc primitive)
+- [x] Both verbs are idempotent
+- [x] `tests/impermanence-tool.bats` covers happy paths, error paths, and idempotency for both verbs with mocked external commands
 
 ## Blocked by
 

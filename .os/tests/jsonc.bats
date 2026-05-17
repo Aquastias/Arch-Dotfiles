@@ -94,3 +94,104 @@ write_file() {
   [ "$status" -eq 0 ]
   [ "$output" = "/dev/sda" ]
 }
+
+# ── jsonc_append_to_array ─────────────────────────────────────────────────────
+
+@test "jsonc_append_to_array: appends to empty array" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  "persist": {
+    "files": []
+  }
+}'
+  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
+  grep -qE '"/etc/foo"' "$f"
+}
+
+@test "jsonc_append_to_array: appends to non-empty array" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  "persist": {
+    "files": [
+      "/etc/bar"
+    ]
+  }
+}'
+  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
+  grep -qE '"/etc/bar"' "$f"
+  grep -qE '"/etc/foo"' "$f"
+}
+
+@test "jsonc_append_to_array: preserves // line comments" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  // top-level comment
+  "persist": {
+    // inner comment
+    "files": []
+  }
+}'
+  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
+  grep -qF '// top-level comment' "$f"
+  grep -qF '// inner comment' "$f"
+}
+
+@test "jsonc_append_to_array: no-op when value already present" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  "persist": {
+    "files": [
+      "/etc/foo"
+    ]
+  }
+}'
+  jsonc_append_to_array "$f" '.persist.files' '/etc/foo'
+  # exactly one occurrence
+  local n; n="$(grep -cE '"/etc/foo"' "$f")"
+  [ "$n" -eq 1 ]
+}
+
+# ── jsonc_remove_from_array ───────────────────────────────────────────────────
+
+@test "jsonc_remove_from_array: removes the value" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  "persist": {
+    "files": [
+      "/etc/foo",
+      "/etc/bar"
+    ]
+  }
+}'
+  jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
+  ! grep -qE '"/etc/foo"' "$f"
+  grep -qE '"/etc/bar"' "$f"
+}
+
+@test "jsonc_remove_from_array: preserves comments" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  // top-level comment
+  "persist": {
+    "files": [
+      "/etc/foo"
+    ]
+  }
+}'
+  jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
+  grep -qF '// top-level comment' "$f"
+}
+
+@test "jsonc_remove_from_array: no-op when value absent" {
+  local f="$TEST_DIR/c.jsonc"
+  write_file "$f" '{
+  "persist": {
+    "files": [
+      "/etc/bar"
+    ]
+  }
+}'
+  run jsonc_remove_from_array "$f" '.persist.files' '/etc/foo'
+  [ "$status" -eq 0 ]
+  grep -qE '"/etc/bar"' "$f"
+}
