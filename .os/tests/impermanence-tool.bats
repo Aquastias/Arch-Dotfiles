@@ -146,6 +146,27 @@ teardown() { rm -rf "$TEST_DIR"; }
   [[ "$output" == *"absolute"* ]]
 }
 
+@test "add: rejects path with trailing slash" {
+  run "$TOOL" add /etc/foo/
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"trailing slash"* ]]
+}
+
+@test "add: rejects path that is a symlink" {
+  mkdir -p "$IMPERMANENCE_ROOT/etc"
+  echo data > "$IMPERMANENCE_ROOT/etc/realfile"
+  ln -s realfile "$IMPERMANENCE_ROOT/etc/foolink"
+  run "$TOOL" add /etc/foolink
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"symlink"* ]]
+}
+
+@test "remove: rejects path with trailing slash" {
+  run "$TOOL" remove /etc/foo/
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"trailing slash"* ]]
+}
+
 @test "add: rejects path that does not exist on disk" {
   run "$TOOL" add /etc/does-not-exist-on-disk
   [ "$status" -ne 0 ]
@@ -276,6 +297,17 @@ seed_live_dir() {
   grep -qE '"/etc/wireguard"' "$cfg"
 }
 
+@test "add: rolls back host config entry when materialization fails" {
+  seed_live_dir /var/lib/foo
+  chmod 555 "$IMPERMANENCE_MOUNT"
+  run "$TOOL" add /var/lib/foo
+  chmod 755 "$IMPERMANENCE_MOUNT"
+  [ "$status" -ne 0 ]
+  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc"
+  run grep -F "/var/lib/foo" "$cfg"
+  [ "$status" -ne 0 ]
+}
+
 # ── cycle 5: remove happy path ──────────────────────────────────────────────
 
 # Seed a persisted state: file is already on /persist, unit + tmpfiles exist,
@@ -346,6 +378,14 @@ seed_persisted_file() {
   "$TOOL" remove --yes /etc/foo.conf
   [ -f "$IMPERMANENCE_ROOT/etc/foo.conf" ]
   [ ! -e "$IMPERMANENCE_MOUNT/etc/foo.conf" ]
+}
+
+@test "remove --yes: warns when persisted data is missing" {
+  seed_persisted_file /etc/foo.conf
+  rm -rf "$IMPERMANENCE_MOUNT/etc/foo.conf"
+  run "$TOOL" remove --yes /etc/foo.conf
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"nothing to move back"* ]]
 }
 
 @test "remove idempotent: second run on non-persisted path is a no-op" {
@@ -599,4 +639,28 @@ seed_all_curated_live() {
   "$TOOL" apply-defaults
   [ -f "$ext_tmp" ]
   grep -qx "f /etc/extfoo 0644 root root - -" "$ext_tmp"
+}
+
+@test "apply-defaults: removes stale extension unit when path becomes curated" {
+  : > "$IMPERMANENCE_MANIFEST"
+  seed_all_curated_live
+  local ext_dir="$IMPERMANENCE_MOUNT/etc/systemd/system"
+  local ext_unit="$ext_dir/persist-etc-ssh.mount"
+  mkdir -p "$ext_dir"
+  echo "STALE-EXT" > "$ext_unit"
+  "$TOOL" apply-defaults
+  [ ! -f "$ext_unit" ]
+}
+
+@test "apply-defaults: removes stale extension tmpfiles entry when path becomes curated" {
+  : > "$IMPERMANENCE_MANIFEST"
+  seed_all_curated_live
+  local ext_tmp="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  mkdir -p "$(dirname "$ext_tmp")"
+  echo "d /etc/ssh 0755 root root - -" > "$ext_tmp"
+  echo "f /etc/extfoo 0644 root root - -" >> "$ext_tmp"
+  "$TOOL" apply-defaults
+  run grep -F "/etc/ssh" "$ext_tmp"
+  [ "$status" -ne 0 ]
+  grep -qF "/etc/extfoo" "$ext_tmp"
 }
