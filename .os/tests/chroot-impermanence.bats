@@ -134,24 +134,24 @@ run_enabled() {
 @test "enabled: writes .mount unit for /etc/machine-id" {
   run_enabled
   local u="$FAKEROOT/usr/lib/systemd/system"
-  [ -f "$u/etc-machine\\x2did.mount" ]
+  [ -f "$u/persist-etc-machine\\x2did.mount" ]
 }
 
 @test "enabled: file .mount has What=/persist/etc/machine-id" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-machine\\x2did.mount"
   grep -qE "^What=/persist/etc/machine-id$" "$u"
 }
 
 @test "enabled: file .mount has Where=/etc/machine-id" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-machine\\x2did.mount"
   grep -qE "^Where=/etc/machine-id$" "$u"
 }
 
 @test "enabled: file .mount has Type=none and Options=bind" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-machine\\x2did.mount"
   grep -qE "^Type=none$" "$u"
   grep -qE "^Options=bind$" "$u"
 }
@@ -161,7 +161,7 @@ run_enabled() {
   local u="$FAKEROOT/usr/lib/systemd/system" f esc
   for f in "${CURATED_FILES[@]}"; do
     esc="$(systemd-escape --path "$f")"
-    [ -f "$u/$esc.mount" ] || { echo "missing $f → $esc.mount"; return 1; }
+    [ -f "$u/persist-$esc.mount" ] || { echo "missing $f → $esc.mount"; return 1; }
   done
 }
 
@@ -169,7 +169,7 @@ run_enabled() {
 
 @test "enabled: writes .mount unit for /etc/ssh (dir)" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-ssh.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-ssh.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/ssh$" "$u"
   grep -qE "^Where=/etc/ssh$" "$u"
@@ -180,7 +180,7 @@ run_enabled() {
   local u="$FAKEROOT/usr/lib/systemd/system" d esc
   for d in "${CURATED_DIRS[@]}"; do
     esc="$(systemd-escape --path "$d")"
-    [ -f "$u/$esc.mount" ] || { echo "missing $d → $esc.mount"; return 1; }
+    [ -f "$u/persist-$esc.mount" ] || { echo "missing $d → $esc.mount"; return 1; }
   done
 }
 
@@ -189,7 +189,7 @@ run_enabled() {
   local u="$FAKEROOT/usr/lib/systemd/system" p esc unit
   for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
     esc="$(systemd-escape --path "$p")"
-    unit="$u/$esc.mount"
+    unit="$u/persist-$esc.mount"
     grep -qE "^After=systemd-tmpfiles-setup\.service$" "$unit" \
       || { echo "$p missing After"; return 1; }
     grep -qE "^Before=local-fs\.target$" "$unit" \
@@ -204,7 +204,7 @@ run_enabled() {
   local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants" p esc
   for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
     esc="$(systemd-escape --path "$p")"
-    [ -L "$w/$esc.mount" ] \
+    [ -L "$w/persist-$esc.mount" ] \
       || { echo "missing wants symlink for $p"; return 1; }
   done
 }
@@ -214,8 +214,8 @@ run_enabled() {
   local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
   local esc target
   esc="$(systemd-escape --path /etc/ssh)"
-  target="$(readlink "$w/$esc.mount")"
-  [ "$target" = "../$esc.mount" ]
+  target="$(readlink "$w/persist-$esc.mount")"
+  [ "$target" = "../persist-$esc.mount" ]
 }
 
 # ── cycle 7: tmpfiles snippet for curated paths ──────────────────────────────
@@ -253,7 +253,7 @@ run_enabled() {
 
 @test "enabled: bootstrap .mount unit exists for /etc/systemd/system" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-systemd-system.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-systemd-system.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/systemd/system$" "$u"
   grep -qE "^Where=/etc/systemd/system$" "$u"
@@ -261,7 +261,7 @@ run_enabled() {
 
 @test "enabled: bootstrap .mount unit exists for /etc/tmpfiles.d" {
   run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-tmpfiles.d.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/persist-etc-tmpfiles.d.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/tmpfiles\.d$" "$u"
   grep -qE "^Where=/etc/tmpfiles\.d$" "$u"
@@ -270,8 +270,8 @@ run_enabled() {
 @test "enabled: bootstrap units have .wants symlinks" {
   run_enabled
   local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
-  [ -L "$w/etc-systemd-system.mount" ]
-  [ -L "$w/etc-tmpfiles.d.mount" ]
+  [ -L "$w/persist-etc-systemd-system.mount" ]
+  [ -L "$w/persist-etc-tmpfiles.d.mount" ]
 }
 
 # ── cycle 9: move (not copy) curated paths → /persist ────────────────────────
@@ -456,7 +456,7 @@ seed_curated() {
 @test "extension dir: writes .mount unit under /persist/etc/systemd/system" {
   PERSIST_DIRECTORIES=("/etc/wireguard")
   run_enabled
-  local u="$FAKEROOT/persist/etc/systemd/system/etc-wireguard.mount"
+  local u="$FAKEROOT/persist/etc/systemd/system/persist-etc-wireguard.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/wireguard$" "$u"
   grep -qE "^Where=/etc/wireguard$" "$u"
@@ -476,7 +476,7 @@ seed_curated() {
   local conf="$FAKEROOT/persist/etc/tmpfiles.d/impermanence-extensions.conf"
   local esc unit
   esc="$(systemd-escape --path /etc/foo.conf)"
-  unit="$FAKEROOT/persist/etc/systemd/system/$esc.mount"
+  unit="$FAKEROOT/persist/etc/systemd/system/persist-$esc.mount"
   grep -qE "^f /etc/foo\.conf " "$conf"
   [ -f "$unit" ]
   grep -qE "^Where=/etc/foo\.conf$" "$unit"
@@ -498,9 +498,9 @@ seed_curated() {
   local esc1 esc2
   esc1="$(systemd-escape --path /etc/wireguard)"
   esc2="$(systemd-escape --path /etc/foo.conf)"
-  [ -L "$w/$esc1.mount" ]
-  [ -L "$w/$esc2.mount" ]
-  [ "$(readlink "$w/$esc1.mount")" = "../$esc1.mount" ]
+  [ -L "$w/persist-$esc1.mount" ]
+  [ -L "$w/persist-$esc2.mount" ]
+  [ "$(readlink "$w/persist-$esc1.mount")" = "../persist-$esc1.mount" ]
 }
 
 @test "extension: moves dir content; source absent, dest present" {
