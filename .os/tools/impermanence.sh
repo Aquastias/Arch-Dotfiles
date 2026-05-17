@@ -54,6 +54,13 @@ require_absolute() {
   fi
 }
 
+require_no_trailing_slash() {
+  if [[ "$1" != / && "$1" == */ ]]; then
+    echo "path must not have trailing slash: '$1'" >&2
+    exit 2
+  fi
+}
+
 require_not_curated() {
   if [[ -f "$IMPERMANENCE_MANIFEST" ]] \
      && grep -qxF "$1" "$IMPERMANENCE_MANIFEST"; then
@@ -65,6 +72,13 @@ require_not_curated() {
 require_exists() {
   if [[ ! -e "${IMPERMANENCE_ROOT}$1" ]]; then
     echo "path does not exist on disk: '$1'" >&2
+    exit 2
+  fi
+}
+
+require_not_symlink() {
+  if [[ -L "${IMPERMANENCE_ROOT}$1" ]]; then
+    echo "path is a symlink; resolve to canonical path: '$1'" >&2
     exit 2
   fi
 }
@@ -124,7 +138,10 @@ move_data_back() {
   local target="$1"
   local src="$IMPERMANENCE_MOUNT$target"
   local dst="${IMPERMANENCE_ROOT}$target"
-  [[ -e "$src" ]] || return 0
+  if [[ ! -e "$src" ]]; then
+    echo "warning: no persisted data at $src; nothing to move back" >&2
+    return 0
+  fi
   mkdir -p "$(dirname "$dst")"
   rm -rf "$dst"
   mv "$src" "$dst"
@@ -168,8 +185,10 @@ cmd_add() {
   local target="$1" kind unit
   require_enabled
   require_absolute "$target"
+  require_no_trailing_slash "$target"
   require_not_curated "$target"
   require_exists "$target"
+  require_not_symlink "$target"
   unit="$(unit_path "$target")"
   if [[ -f "$unit" ]]; then
     echo "impermanence: '$target' is already persisted; no-op"
@@ -177,10 +196,15 @@ cmd_add() {
   fi
   kind="$(path_kind "$target")"
   declare_in_host_config "$target" "$kind"
-  copy_live_data "$target"
-  write_mount_unit "$target"
-  append_tmpfiles_entry "$target" "$kind"
-  reload_and_start "$target"
+  if ! (
+    copy_live_data "$target" &&
+    write_mount_unit "$target" &&
+    append_tmpfiles_entry "$target" "$kind" &&
+    reload_and_start "$target"
+  ); then
+    undeclare_in_host_config "$target"
+    return 1
+  fi
 }
 
 cmd_remove() {
@@ -197,6 +221,7 @@ cmd_remove() {
   fi
   require_enabled
   require_absolute "$target"
+  require_no_trailing_slash "$target"
   require_not_curated "$target"
   local unit; unit="$(unit_path "$target")"
   if [[ ! -f "$unit" ]]; then
@@ -262,6 +287,9 @@ apply_defaults_add_one() {
     mkdir -p "$(dirname "$dst")"
     cp -a "$src" "$dst"
   fi
+  local esc; esc="$(systemd-escape --path "$target")"
+  rm -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  remove_tmpfiles_entry "$target"
   imp_write_mount_unit "$target" \
     "${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
   imp_link_wants "$target" \
