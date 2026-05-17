@@ -26,3 +26,11 @@ IMPERMANENCE_DATASET="$( jq -r '.impermanence.dataset // "rpool/persist"' \
   "$STATE")"
 IMPERMANENCE_MOUNT="$(   jq -r '.impermanence.mount   // "/persist"' \
   "$STATE")"
+
+# ── Persist Extensions (default: empty arrays) ──────────────────────────────
+PERSIST_DIRECTORIES=()
+PERSIST_FILES=()
+mapfile -t PERSIST_DIRECTORIES < <(jq -r \
+  '(.persist.directories // [])[]' "$STATE")
+mapfile -t PERSIST_FILES < <(jq -r \
+  '(.persist.files // [])[]' "$STATE")
