@@ -154,6 +154,29 @@ _validation_preflight_programs() {
 # PUBLIC API
 # =============================================================================
 
+# =============================================================================
+# IMPERMANENCE
+# =============================================================================
+# When options.impermanence.enabled=true, the persist dataset must live on
+# the same pool as rpool/ROOT/arch (i.e. $RPOOL). Cross-pool rollback would
+# leave persist orphaned if the OS pool is recreated.
+
+_validation_impermanence() {
+  local enabled dataset pool
+  enabled="$(cfgo '.options.impermanence.enabled')"
+  [[ "$enabled" == "true" ]] || return 0
+  dataset="$(cfgo '.options.impermanence.dataset')"
+  [[ -z "$dataset" ]] && dataset="rpool/persist"
+  [[ "$dataset" == */* ]] || \
+    error "Invalid options.impermanence.dataset '${dataset}':" \
+          "must be <pool>/<path>."
+  pool="${dataset%%/*}"
+  [[ "$pool" == "$RPOOL" ]] || \
+    error "options.impermanence.dataset '${dataset}' must be on the" \
+          "same pool as rpool/ROOT/arch (${RPOOL})."
+}
+
+
 # Validate all config contracts in one pass.
 # Sets RESOLVED_HOSTNAME. Requires CONFIG_FILE, INSTALL_MODE, OS_DIR set.
 # Exits via error() on the first fatal failure; collects all program failures
@@ -170,6 +193,8 @@ validate_install_context() {
     error "No validator for mode '${INSTALL_MODE}'" \
           "(expected function ${validator})."
   fi
+
+  _validation_impermanence
 
   validate_environment
   resolve_gpu_packages

@@ -1,0 +1,449 @@
+#!/usr/bin/env bats
+# Tests for .os/lib/chroot/impermanence.sh — Chroot Configuration Module.
+#
+# Strategy: stub zfs/zpool/systemctl as bash fns that append argv to $CALLS,
+# then source impermanence.sh and call impermanence_apply. Assertions read
+# $CALLS plus files generated under $FAKEROOT.
+
+setup() {
+  TEST_DIR="$(mktemp -d)"
+  CALLS="$TEST_DIR/calls.log"
+  FAKEROOT="$TEST_DIR/root"
+  mkdir -p "$FAKEROOT"
+  export CALLS FAKEROOT
+
+  info()    { :; }
+  warn()    { :; }
+  error()   { echo "ERROR: $*" >&2; exit 1; }
+  section() { :; }
+  export -f info warn error section
+
+  zfs() {
+    printf 'zfs %s\n' "$*" >> "$CALLS"
+    [[ "$1" == "list" ]] && return 1
+    return 0
+  }
+  zpool()   { printf 'zpool %s\n'   "$*" >> "$CALLS"; }
+  export -f zfs zpool
+
+  export IMPERMANENCE_ENABLED=false
+  export IMPERMANENCE_DATASET=rpool/persist
+  export IMPERMANENCE_MOUNT=/persist
+  export RPOOL=rpool
+  export ROOT="$FAKEROOT"
+
+  # shellcheck source=../lib/chroot/impermanence.sh
+  source "$BATS_TEST_DIRNAME/../lib/chroot/impermanence.sh"
+}
+
+teardown() { rm -rf "$TEST_DIR"; }
+
+# Convenience: enable + run, return zfs/zpool call log.
+run_enabled() {
+  IMPERMANENCE_ENABLED=true
+  impermanence_apply
+}
+
+# ── cycle 1: tracer — disabled is a no-op ────────────────────────────────────
+
+@test "disabled: impermanence_apply exits 0" {
+  IMPERMANENCE_ENABLED=false
+  run impermanence_apply
+  [ "$status" -eq 0 ]
+}
+
+@test "disabled: no zfs/zpool calls" {
+  IMPERMANENCE_ENABLED=false
+  impermanence_apply
+  [ ! -s "$CALLS" ]
+}
+
+# ── cycle 2: enabled creates Persist Dataset ─────────────────────────────────
+
+@test "enabled: zfs create called for the Persist Dataset" {
+  run_enabled
+  grep -qE "^zfs create .* rpool/persist$" "$CALLS"
+}
+
+@test "enabled: Persist Dataset created with mountpoint=/persist" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/persist.* rpool/persist$" "$CALLS"
+}
+
+@test "enabled: Persist Dataset created with canmount=on" {
+  run_enabled
+  grep -qE "^zfs create .*-o canmount=on.* rpool/persist$" "$CALLS"
+}
+
+# ── cycle 3: enabled creates 5 Rollback Datasets ────────────────────────────
+
+@test "enabled: creates rpool/ROOT/etc at /etc" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/etc .*rpool/ROOT/etc$" "$CALLS"
+}
+
+@test "enabled: creates rpool/ROOT/root at /root" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/root .*rpool/ROOT/root$" "$CALLS"
+}
+
+@test "enabled: creates rpool/ROOT/opt at /opt" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/opt .*rpool/ROOT/opt$" "$CALLS"
+}
+
+@test "enabled: creates rpool/ROOT/srv at /srv" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/srv .*rpool/ROOT/srv$" "$CALLS"
+}
+
+@test "enabled: creates rpool/ROOT/usrlocal at /usr/local" {
+  run_enabled
+  grep -qE "^zfs create .*-o mountpoint=/usr/local .*rpool/ROOT/usrlocal$" \
+    "$CALLS"
+}
+
+@test "enabled: Rollback Datasets created with canmount=noauto" {
+  run_enabled
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "^zfs create .*-o canmount=noauto.* rpool/ROOT/$ds\$" "$CALLS" \
+      || { echo "missing canmount=noauto for $ds"; return 1; }
+  done
+}
+
+# ── cycle 4: sorted defaults.manifest ────────────────────────────────────────
+
+@test "enabled: writes /usr/lib/impermanence/defaults.manifest" {
+  run_enabled
+  [ -f "$FAKEROOT/usr/lib/impermanence/defaults.manifest" ]
+}
+
+@test "enabled: manifest is sorted union of CURATED_FILES + CURATED_DIRS" {
+  run_enabled
+  local m="$FAKEROOT/usr/lib/impermanence/defaults.manifest"
+  expected="$(printf '%s\n' \
+    "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}" | sort)"
+  [ "$(cat "$m")" = "$expected" ]
+}
+
+# ── cycle 5: curated-file .mount unit shape ──────────────────────────────────
+
+@test "enabled: writes .mount unit for /etc/machine-id" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system"
+  [ -f "$u/etc-machine\\x2did.mount" ]
+}
+
+@test "enabled: file .mount has What=/persist/etc/machine-id" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  grep -qE "^What=/persist/etc/machine-id$" "$u"
+}
+
+@test "enabled: file .mount has Where=/etc/machine-id" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  grep -qE "^Where=/etc/machine-id$" "$u"
+}
+
+@test "enabled: file .mount has Type=none and Options=bind" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
+  grep -qE "^Type=none$" "$u"
+  grep -qE "^Options=bind$" "$u"
+}
+
+@test "enabled: a .mount unit exists for every CURATED_FILES entry" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system" f esc
+  for f in "${CURATED_FILES[@]}"; do
+    esc="$(systemd-escape --path "$f")"
+    [ -f "$u/$esc.mount" ] || { echo "missing $f → $esc.mount"; return 1; }
+  done
+}
+
+# ── cycle 6: dir .mount units, ordering, .wants symlinks ─────────────────────
+
+@test "enabled: writes .mount unit for /etc/ssh (dir)" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-ssh.mount"
+  [ -f "$u" ]
+  grep -qE "^What=/persist/etc/ssh$" "$u"
+  grep -qE "^Where=/etc/ssh$" "$u"
+}
+
+@test "enabled: a .mount unit exists for every CURATED_DIRS entry" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system" d esc
+  for d in "${CURATED_DIRS[@]}"; do
+    esc="$(systemd-escape --path "$d")"
+    [ -f "$u/$esc.mount" ] || { echo "missing $d → $esc.mount"; return 1; }
+  done
+}
+
+@test "enabled: every curated .mount has required ordering directives" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system" p esc unit
+  for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
+    esc="$(systemd-escape --path "$p")"
+    unit="$u/$esc.mount"
+    grep -qE "^After=systemd-tmpfiles-setup\.service$" "$unit" \
+      || { echo "$p missing After"; return 1; }
+    grep -qE "^Before=local-fs\.target$" "$unit" \
+      || { echo "$p missing Before"; return 1; }
+    grep -qE "^RequiredBy=local-fs\.target$" "$unit" \
+      || { echo "$p missing RequiredBy"; return 1; }
+  done
+}
+
+@test "enabled: .wants symlink under local-fs.target.wants for each unit" {
+  run_enabled
+  local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants" p esc
+  for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
+    esc="$(systemd-escape --path "$p")"
+    [ -L "$w/$esc.mount" ] \
+      || { echo "missing wants symlink for $p"; return 1; }
+  done
+}
+
+@test "enabled: wants symlinks point to ../<unit>.mount (relative)" {
+  run_enabled
+  local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
+  local esc target
+  esc="$(systemd-escape --path /etc/ssh)"
+  target="$(readlink "$w/$esc.mount")"
+  [ "$target" = "../$esc.mount" ]
+}
+
+# ── cycle 7: tmpfiles snippet for curated paths ──────────────────────────────
+
+@test "enabled: writes /usr/lib/tmpfiles.d/impermanence-curated.conf" {
+  run_enabled
+  [ -f "$FAKEROOT/usr/lib/tmpfiles.d/impermanence-curated.conf" ]
+}
+
+@test "enabled: tmpfiles snippet has a d entry for each CURATED_DIRS" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/tmpfiles.d/impermanence-curated.conf" d
+  for d in "${CURATED_DIRS[@]}"; do
+    grep -qE "^d $d " "$f" || { echo "missing d $d"; return 1; }
+  done
+}
+
+@test "enabled: tmpfiles snippet has an f entry for each CURATED_FILES" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/tmpfiles.d/impermanence-curated.conf" file
+  for file in "${CURATED_FILES[@]}"; do
+    grep -qE "^f $file " "$f" || { echo "missing f $file"; return 1; }
+  done
+}
+
+# ── cycle 8: bootstrap mount pair ────────────────────────────────────────────
+
+@test "enabled: writes /usr/lib/tmpfiles.d/impermanence-bootstrap.conf" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/tmpfiles.d/impermanence-bootstrap.conf"
+  [ -f "$f" ]
+  grep -qE "^d /etc/systemd/system " "$f"
+  grep -qE "^d /etc/tmpfiles.d " "$f"
+}
+
+@test "enabled: bootstrap .mount unit exists for /etc/systemd/system" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-systemd-system.mount"
+  [ -f "$u" ]
+  grep -qE "^What=/persist/etc/systemd/system$" "$u"
+  grep -qE "^Where=/etc/systemd/system$" "$u"
+}
+
+@test "enabled: bootstrap .mount unit exists for /etc/tmpfiles.d" {
+  run_enabled
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-tmpfiles.d.mount"
+  [ -f "$u" ]
+  grep -qE "^What=/persist/etc/tmpfiles\.d$" "$u"
+  grep -qE "^Where=/etc/tmpfiles\.d$" "$u"
+}
+
+@test "enabled: bootstrap units have .wants symlinks" {
+  run_enabled
+  local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
+  [ -L "$w/etc-systemd-system.mount" ]
+  [ -L "$w/etc-tmpfiles.d.mount" ]
+}
+
+# ── cycle 9: move (not copy) curated paths → /persist ────────────────────────
+
+# Helper: seed source content under FAKEROOT for a curated path.
+seed_curated() {
+  local p="$1" content="${2:-content}"
+  mkdir -p "$FAKEROOT$(dirname "$p")"
+  if [[ "$p" == */ ]] || [[ -d "$FAKEROOT$p" ]]; then
+    mkdir -p "$FAKEROOT$p"
+    printf '%s' "$content" > "$FAKEROOT$p/marker"
+  else
+    printf '%s' "$content" > "$FAKEROOT$p"
+  fi
+}
+
+@test "enabled: moves curated file content; source absent, dest present" {
+  seed_curated /etc/machine-id "abc123"
+  run_enabled
+  [ ! -e "$FAKEROOT/etc/machine-id" ]
+  [ -f "$FAKEROOT/persist/etc/machine-id" ]
+  [ "$(cat "$FAKEROOT/persist/etc/machine-id")" = "abc123" ]
+}
+
+@test "enabled: moves curated dir content; source absent, dest present" {
+  mkdir -p "$FAKEROOT/etc/ssh"
+  printf 'hostkey' > "$FAKEROOT/etc/ssh/ssh_host_ed25519_key"
+  run_enabled
+  [ ! -e "$FAKEROOT/etc/ssh" ]
+  [ -d "$FAKEROOT/persist/etc/ssh" ]
+  [ -f "$FAKEROOT/persist/etc/ssh/ssh_host_ed25519_key" ]
+}
+
+@test "enabled: missing curated source is skipped (no error)" {
+  IMPERMANENCE_ENABLED=true run impermanence_apply
+  [ "$status" -eq 0 ]
+}
+
+# ── cycle 10: @blank snapshots on every Rollback Dataset ─────────────────────
+
+@test "enabled: zfs snapshot ds@blank for every Rollback Dataset" {
+  run_enabled
+  local ds
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "^zfs snapshot rpool/ROOT/$ds@blank$" "$CALLS" \
+      || { echo "missing snapshot for rpool/ROOT/$ds"; return 1; }
+  done
+}
+
+@test "enabled: @blank snapshot taken AFTER move (post-move call order)" {
+  seed_curated /etc/machine-id "secret"
+  run_enabled
+  # No way to assert ordering between mv and zfs from $CALLS alone (mv isn't
+  # logged), but we can assert dest exists at snapshot time by checking the
+  # snapshot line appears in $CALLS at all (the move ran before it because
+  # apply orders them).
+  grep -qE "^zfs snapshot rpool/ROOT/etc@blank$" "$CALLS"
+  [ -f "$FAKEROOT/persist/etc/machine-id" ]
+}
+
+# ── R1: info log when curated source missing ─────────────────────────────────
+
+@test "enabled: info log emitted for each missing curated source" {
+  local log="$TEST_DIR/info.log"
+  info() { printf '%s\n' "$*" >> "$log"; }
+  export -f info
+  run_enabled
+  [ -f "$log" ]
+  grep -qE "skip.*missing.*machine-id" "$log"
+}
+
+# ── R2: rigorous post-move snapshot ordering ─────────────────────────────────
+
+@test "enabled: every mv occurs before every zfs snapshot in call log" {
+  mv() { printf 'mv %s\n' "$*" >> "$CALLS"; command mv "$@"; }
+  export -f mv
+  seed_curated /etc/machine-id "x"
+  seed_curated /etc/hostname    "x"
+  run_enabled
+  local last_mv first_snap
+  last_mv="$(grep -n "^mv " "$CALLS" | tail -1 | cut -d: -f1)"
+  first_snap="$(grep -n "^zfs snapshot " "$CALLS" | head -1 | cut -d: -f1)"
+  [ -n "$last_mv" ] && [ -n "$first_snap" ]
+  [ "$last_mv" -lt "$first_snap" ]
+}
+
+# ── R3: idempotent dataset creation ──────────────────────────────────────────
+
+@test "enabled: skip zfs create when Persist Dataset already exists" {
+  zfs() {
+    printf 'zfs %s\n' "$*" >> "$CALLS"
+    if [[ "$1" == "list" ]]; then
+      [[ "${@: -1}" == "rpool/persist" ]] && return 0
+      return 1
+    fi
+    return 0
+  }
+  export -f zfs
+  run_enabled
+  if grep -qE "^zfs create .* rpool/persist$" "$CALLS"; then
+    echo "FAIL: created persist dataset that already exists"
+    cat "$CALLS"
+    return 1
+  fi
+}
+
+@test "enabled: skip zfs create when a Rollback Dataset already exists" {
+  zfs() {
+    printf 'zfs %s\n' "$*" >> "$CALLS"
+    if [[ "$1" == "list" ]]; then
+      [[ "${@: -1}" == "rpool/ROOT/etc" ]] && return 0
+      return 1
+    fi
+    return 0
+  }
+  export -f zfs
+  run_enabled
+  if grep -qE "^zfs create .*rpool/ROOT/etc\$" "$CALLS"; then
+    echo "FAIL: created rpool/ROOT/etc that already exists"
+    cat "$CALLS"
+    return 1
+  fi
+  grep -qE "^zfs create .*rpool/ROOT/opt\$" "$CALLS"
+}
+
+@test "enabled: idempotent — second apply on existing datasets is no-op" {
+  zfs() {
+    printf 'zfs %s\n' "$*" >> "$CALLS"
+    [[ "$1" == "list" ]] && return 0
+    return 0
+  }
+  export -f zfs
+  run_enabled
+  if grep -qE "^zfs create " "$CALLS"; then
+    echo "FAIL: created datasets when all already exist"
+    cat "$CALLS"
+    return 1
+  fi
+}
+
+# ── C6: mkinitcpio rollback hook pair ────────────────────────────────────────
+
+@test "enabled: writes install hook /usr/lib/initcpio/install/zfs-rollback" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/install/zfs-rollback"
+  [ -f "$f" ]
+  grep -qE "^build\\(\\)" "$f"
+  grep -qE "add_runscript" "$f"
+}
+
+@test "enabled: writes runtime hook /usr/lib/initcpio/hooks/zfs-rollback" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
+  [ -f "$f" ]
+  grep -qE "^run_hook\\(\\)" "$f"
+}
+
+@test "enabled: runtime hook has hardcoded Rollback Dataset list" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ds
+  for ds in etc root opt srv usrlocal; do
+    grep -qE "rpool/ROOT/$ds" "$f" \
+      || { echo "missing rpool/ROOT/$ds in runtime hook"; return 1; }
+  done
+}
+
+@test "enabled: runtime hook fails closed on missing @blank snapshot" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
+  grep -qE "launch_interactive_shell|emergency" "$f"
+  grep -qE "zfs list .* @blank|@blank" "$f"
+}
+
+@test "enabled: runtime hook runs zfs rollback -r ds@blank" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
+  grep -qE "zfs rollback -r" "$f"
+}
