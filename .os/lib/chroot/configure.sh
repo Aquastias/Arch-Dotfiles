@@ -106,5 +106,10 @@ bash /root/lib-chroot/password.sh
 
 bash /root/lib-chroot/extras.sh
 
+# ── Impermanence (last step) ─────────────────────────────────────────────────
+# Runs after all other configuration so curated paths exist on disk before
+# being moved to the persist dataset and snapshotted.
+bash /root/lib-chroot/impermanence.sh
+
 echo ""
 echo "[CHROOT] Configuration complete."

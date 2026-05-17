@@ -7,6 +7,20 @@ trap 'echo "[chroot:initcpio] failed at line $LINENO" >&2' ERR
 # shellcheck source=./load-state.sh
 source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
 
+# Pure helper: emit the HOOKS=(...) line. When impermanence is enabled the
+# zfs-rollback hook is inserted between zfs and filesystems so rollback runs
+# after the pool import and before any dataset is mounted.
+_initcpio_hooks_line() {
+  local modconf="$1" imp_enabled="$2"
+  local tail="zfs filesystems"
+  [[ "$imp_enabled" == "true" ]] && tail="zfs zfs-rollback filesystems"
+  printf 'HOOKS=(base udev autodetect %s block keyboard %s)\n' \
+    "$modconf" "$tail"
+}
+
+# Lib-only sourcing for tests: skip all side effects below.
+[[ "${INITCPIO_LIB_ONLY:-0}" == "1" ]] && return 0
+
 if [[ "$KERNEL" == "lts" ]]; then
     PRESET_NAME="linux-lts"
     INITRAMFS_FB="initramfs-linux-lts-fallback.img"
@@ -24,10 +38,10 @@ if [[ -e /usr/lib/initcpio/hooks/kmod ]]; then
 else
     MODCONF_HOOK="modconf"
 fi
-sed -i \
-  "s/^HOOKS=.*/HOOKS=(base udev autodetect ${MODCONF_HOOK} block "\
-  "keyboard zfs filesystems)/" \
-    /etc/mkinitcpio.conf
+_hooks_line="$(_initcpio_hooks_line "$MODCONF_HOOK" \
+  "$IMPERMANENCE_ENABLED")"
+sed -i "s|^HOOKS=.*|${_hooks_line}|" /etc/mkinitcpio.conf
+unset _hooks_line
 
 # ── Fallback preset ───────────────────────────────────────────────────────────
 # Minimal installs may only define the 'default' preset — ensure 'fallback'

@@ -54,7 +54,23 @@
 
     // HTTPS URL to a passphrase-encrypted age key (.age). Used as a fallback
     // when no USB stick is present (e.g. live CD). Leave empty to skip.
-    "age_key_url": ""
+    "age_key_url": "",
+
+    // ── Impermanence ───────────────────────────────────────────────────────
+    // ZFS dataset rollback to @blank on every boot. Curated paths bind-mount
+    // from "mount" to survive rollback. See ADR-0008.
+    "impermanence": {
+      // false = standard install. true = rollback datasets created, /etc /root
+      // /opt /srv /usr/local revert to @blank on boot.
+      "enabled": false,
+
+      // Dataset that holds persisted state. Must be on the same pool as
+      // rpool/ROOT/arch.
+      "dataset": "rpool/persist",
+
+      // Mountpoint for the persist dataset.
+      "mount": "/persist"
+    }
   },
 
   // ── Extra packages ────────────────────────────────────────────────────────

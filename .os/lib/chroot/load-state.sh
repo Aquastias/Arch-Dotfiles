@@ -19,3 +19,10 @@ SWAP="$(          jq -r .swap               "$STATE")"
 ESP_COUNT="$(     jq -r .esp_count          "$STATE")"
 EXTRAS_BACKUP="$( jq -r '.extras.backup'    "$STATE")"
 EXTRAS_SECURITY="$(jq -r '.extras.security' "$STATE")"
+
+# ── Impermanence (defaults: disabled, rpool/persist at /persist) ────────────
+IMPERMANENCE_ENABLED="$( jq -r '.impermanence.enabled // false' "$STATE")"
+IMPERMANENCE_DATASET="$( jq -r '.impermanence.dataset // "rpool/persist"' \
+  "$STATE")"
+IMPERMANENCE_MOUNT="$(   jq -r '.impermanence.mount   // "/persist"' \
+  "$STATE")"

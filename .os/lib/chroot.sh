@@ -251,6 +251,15 @@ configure_system() {
 
   rpool="$LAYOUT_OS_POOL_NAME"
   esp_count="${#LAYOUT_ESP_PARTS[@]}"
+
+  local imp_enabled imp_dataset imp_mount
+  imp_enabled="$(cfgo '.options.impermanence.enabled')"
+  imp_enabled="${imp_enabled:-false}"
+  imp_dataset="$(cfgo '.options.impermanence.dataset')"
+  imp_dataset="${imp_dataset:-rpool/persist}"
+  imp_mount="$(cfgo '.options.impermanence.mount')"
+  imp_mount="${imp_mount:-/persist}"
+
   write_fstab
   write_esp_mirror_hook "$esp_count"
 
@@ -297,10 +306,16 @@ configure_system() {
       "$([[ "$do_backup"   == "true" ]] && printf 'true' || printf 'false')" \
     --argjson extras_security \
       "$([[ "$do_security" == "true" ]] && printf 'true' || printf 'false')" \
+    --argjson imp_enabled \
+      "$([[ "$imp_enabled" == "true" ]] && printf 'true' || printf 'false')" \
+    --arg imp_dataset "$imp_dataset" \
+    --arg imp_mount   "$imp_mount"   \
     '{ hostname:$hostname, timezone:$timezone, locale:$locale, keymap:$keymap,
        kernel:$kernel, bootloader:$bootloader, rpool:$rpool, swap:$swap,
        esp_count:$esp_count,
-       extras:{ backup:$extras_backup, security:$extras_security } }' \
+       extras:{ backup:$extras_backup, security:$extras_security },
+       impermanence:{ enabled:$imp_enabled, dataset:$imp_dataset,
+         mount:$imp_mount } }' \
     > "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
