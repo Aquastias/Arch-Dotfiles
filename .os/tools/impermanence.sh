@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# tools/impermanence.sh — operator CLI for Persist Extensions.
+#
+# Verbs: add <path>, remove [--yes] <path>.
+# Host config is the source of truth; the tool edits jsonc first, then
+# materializes mount unit + tmpfiles + data move to match.
+#
+# Env overrides (for testing):
+#   IMPERMANENCE_ROOT       default empty; prefixes live-fs paths
+#   IMPERMANENCE_MOUNT      default /persist
+#   IMPERMANENCE_MANIFEST   default /usr/lib/impermanence/defaults.manifest
+#   IMPERMANENCE_HOSTNAME   default $(hostname)
+#   IMPERMANENCE_HOSTS_DIR  default <repo>/.os/hosts
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OS_DIR="$(dirname "$SCRIPT_DIR")"
+
+# shellcheck source=../lib/jsonc.sh
+source "$OS_DIR/lib/jsonc.sh"
+
+: "${IMPERMANENCE_ROOT:=}"
+: "${IMPERMANENCE_MOUNT:=/persist}"
+: "${IMPERMANENCE_MANIFEST:=/usr/lib/impermanence/defaults.manifest}"
+: "${IMPERMANENCE_HOSTNAME:=$(hostname)}"
+: "${IMPERMANENCE_HOSTS_DIR:=$OS_DIR/hosts}"
+
+usage() {
+  cat >&2 <<EOF
+Usage: impermanence.sh <verb> [args]
+  add <path>                 persist <path> across reboots
+  remove [--yes] <path>      stop persisting <path>
+                               --yes moves data back to live path
+EOF
+}
+
+require_enabled() {
+  if [[ ! -d "$IMPERMANENCE_MOUNT" ]]; then
+    echo "impermanence not enabled on this system (no $IMPERMANENCE_MOUNT)" >&2
+    exit 1
+  fi
+}
+
+require_absolute() {
+  if [[ "$1" != /* ]]; then
+    echo "path must be absolute: '$1'" >&2
+    exit 2
+  fi
+}
+
+require_not_curated() {
+  if [[ -f "$IMPERMANENCE_MANIFEST" ]] \
+     && grep -qxF "$1" "$IMPERMANENCE_MANIFEST"; then
+    echo "'$1' is a curated persist default; managed via apply-defaults" >&2
+    exit 2
+  fi
+}
+
+require_exists() {
+  if [[ ! -e "${IMPERMANENCE_ROOT}$1" ]]; then
+    echo "path does not exist on disk: '$1'" >&2
+    exit 2
+  fi
+}
+
+path_kind() {
+  if [[ -d "${IMPERMANENCE_ROOT}$1" ]]; then echo d; else echo f; fi
+}
+
+unit_path() {
+  local target="$1" esc
+  esc="$(systemd-escape --path "$target")"
+  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+}
+
+host_config() {
+  echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/config.jsonc"
+}
+
+write_mount_unit() {
+  local target="$1"
+  local unit; unit="$(unit_path "$target")"
+  mkdir -p "$(dirname "$unit")"
+  cat > "$unit" <<UNIT
+[Unit]
+Description=Bind-mount persist over $target
+After=systemd-tmpfiles-setup.service
+Before=local-fs.target
+
+[Mount]
+What=$IMPERMANENCE_MOUNT$target
+Where=$target
+Type=none
+Options=bind
+
+[Install]
+RequiredBy=local-fs.target
+UNIT
+}
+
+append_tmpfiles_entry() {
+  local target="$1" kind="$2"
+  local dir="$IMPERMANENCE_MOUNT/etc/tmpfiles.d"
+  local conf="$dir/impermanence-extensions.conf"
+  local mode
+  mkdir -p "$dir"
+  [[ "$kind" == d ]] && mode=0755 || mode=0644
+  printf "%s %s %s root root - -\n" "$kind" "$target" "$mode" >> "$conf"
+}
+
+remove_tmpfiles_entry() {
+  local target="$1"
+  local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  [[ -f "$conf" ]] || return 0
+  local tmp; tmp="$(mktemp)"
+  awk -v t="$target" '
+    {
+      if ($0 ~ "^[df] " t " ") next
+      print
+    }
+  ' "$conf" > "$tmp"
+  mv "$tmp" "$conf"
+}
+
+copy_live_data() {
+  local target="$1"
+  local src="${IMPERMANENCE_ROOT}$target"
+  local dst="$IMPERMANENCE_MOUNT$target"
+  mkdir -p "$(dirname "$dst")"
+  cp -a "$src" "$dst"
+}
+
+move_data_back() {
+  local target="$1"
+  local src="$IMPERMANENCE_MOUNT$target"
+  local dst="${IMPERMANENCE_ROOT}$target"
+  [[ -e "$src" ]] || return 0
+  mkdir -p "$(dirname "$dst")"
+  rm -rf "$dst"
+  mv "$src" "$dst"
+}
+
+reload_and_start() {
+  local target="$1" esc
+  esc="$(systemd-escape --path "$target")"
+  systemctl daemon-reload
+  systemctl start "$esc.mount"
+}
+
+stop_and_reload() {
+  local target="$1" esc
+  esc="$(systemd-escape --path "$target")"
+  systemctl stop "$esc.mount"
+  systemctl daemon-reload
+}
+
+declare_in_host_config() {
+  local target="$1" kind="$2" cfg sel
+  cfg="$(host_config)"
+  [[ -f "$cfg" ]] || return 0
+  [[ "$kind" == d ]] && sel='.persist.directories' || sel='.persist.files'
+  jsonc_append_to_array "$cfg" "$sel" "$target"
+}
+
+undeclare_in_host_config() {
+  local target="$1" cfg
+  cfg="$(host_config)"
+  [[ -f "$cfg" ]] || return 0
+  jsonc_remove_from_array "$cfg" '.persist.files' "$target"
+  jsonc_remove_from_array "$cfg" '.persist.directories' "$target"
+}
+
+cmd_add() {
+  if [[ $# -lt 1 ]]; then
+    echo "impermanence: add requires a path" >&2
+    exit 2
+  fi
+  local target="$1" kind unit
+  require_enabled
+  require_absolute "$target"
+  require_not_curated "$target"
+  require_exists "$target"
+  unit="$(unit_path "$target")"
+  if [[ -f "$unit" ]]; then
+    echo "impermanence: '$target' is already persisted; no-op"
+    return 0
+  fi
+  kind="$(path_kind "$target")"
+  declare_in_host_config "$target" "$kind"
+  copy_live_data "$target"
+  write_mount_unit "$target"
+  append_tmpfiles_entry "$target" "$kind"
+  reload_and_start "$target"
+}
+
+cmd_remove() {
+  local move_back=0 target=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --yes) move_back=1; shift ;;
+      *)     target="$1"; shift ;;
+    esac
+  done
+  if [[ -z "$target" ]]; then
+    echo "impermanence: remove requires a path" >&2
+    exit 2
+  fi
+  require_enabled
+  require_absolute "$target"
+  require_not_curated "$target"
+  local unit; unit="$(unit_path "$target")"
+  if [[ ! -f "$unit" ]]; then
+    echo "impermanence: '$target' is not persisted; no-op"
+    return 0
+  fi
+  stop_and_reload "$target"
+  rm -f "$unit"
+  remove_tmpfiles_entry "$target"
+  undeclare_in_host_config "$target"
+  if (( move_back )); then
+    move_data_back "$target"
+  fi
+}
+
+main() {
+  if [[ $# -lt 1 ]]; then
+    usage
+    exit 2
+  fi
+  local verb="$1"; shift
+  case "$verb" in
+    add)    cmd_add "$@" ;;
+    remove) cmd_remove "$@" ;;
+    *)      usage; exit 2 ;;
+  esac
+}
+
+main "$@"
