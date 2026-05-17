@@ -6,32 +6,9 @@
 # All file writes are rooted at ${ROOT:-} so tests can redirect under a
 # temp dir. Production callers leave ROOT unset (writes to / inside chroot).
 
-# ── Curated Persist Defaults — single source of truth ───────────────────────
-CURATED_FILES=(
-  /etc/machine-id
-  /etc/hostname
-  /etc/locale.conf
-  /etc/vconsole.conf
-  /etc/adjtime
-  /etc/fstab
-)
-CURATED_DIRS=(
-  /etc/ssh
-  /etc/secrets
-  /etc/NetworkManager/system-connections
-  /etc/sudoers.d
-  /etc/pacman.d
-  /root
-)
-
-# Rollback Datasets — dataset suffix → mountpoint.
-ROLLBACK_DATASETS=(
-  "etc:/etc"
-  "root:/root"
-  "opt:/opt"
-  "srv:/srv"
-  "usrlocal:/usr/local"
-)
+# Curated Persist Defaults + writers come from the shared common lib.
+# shellcheck source=../impermanence-common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../impermanence-common.sh"
 
 _impermanence_dataset_exists() {
   zfs list -H -o name "$1" >/dev/null 2>&1
@@ -72,47 +49,11 @@ _impermanence_write_manifest() {
     | sort > "$dir/defaults.manifest"
 }
 
-# Write one bind-mount .mount unit at $base/<esc>.mount.
-# $base defaults to /usr/lib/systemd/system (curated location).
-_impermanence_write_mount_unit() {
-  local target="$1"
-  local units="${2:-${ROOT:-}/usr/lib/systemd/system}"
-  local esc unit
-  esc="$(systemd-escape --path "$target")"
-  unit="$units/$esc.mount"
-  mkdir -p "$units"
-  cat > "$unit" <<UNIT
-[Unit]
-Description=Bind-mount persist over $target
-After=systemd-tmpfiles-setup.service
-Before=local-fs.target
-
-[Mount]
-What=$IMPERMANENCE_MOUNT$target
-Where=$target
-Type=none
-Options=bind
-
-[Install]
-RequiredBy=local-fs.target
-UNIT
-}
-
-# Link <esc>.mount under <wants>/. $wants defaults to the curated wants dir.
-_impermanence_link_wants() {
-  local target="$1"
-  local wants="${2:-${ROOT:-}/usr/lib/systemd/system/local-fs.target.wants}"
-  local esc
-  esc="$(systemd-escape --path "$target")"
-  mkdir -p "$wants"
-  ln -sf "../$esc.mount" "$wants/$esc.mount"
-}
-
 _impermanence_write_curated_units() {
   local p
   for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
-    _impermanence_write_mount_unit "$p"
-    _impermanence_link_wants "$p"
+    imp_write_mount_unit "$p"
+    imp_link_wants "$p"
   done
 }
 
@@ -138,8 +79,8 @@ _impermanence_write_bootstrap() {
   : > "$f"
   for p in /etc/systemd/system /etc/tmpfiles.d; do
     printf "d %s 0755 root root - -\n" "$p" >> "$f"
-    _impermanence_write_mount_unit "$p"
-    _impermanence_link_wants "$p"
+    imp_write_mount_unit "$p"
+    imp_link_wants "$p"
   done
 }
 
@@ -228,8 +169,8 @@ _impermanence_write_extension_units() {
   local target
   for target in "${PERSIST_DIRECTORIES[@]:-}" "${PERSIST_FILES[@]:-}"; do
     [[ -z "$target" ]] && continue
-    _impermanence_write_mount_unit "$target" "$base"
-    _impermanence_link_wants       "$target" "$wants"
+    imp_write_mount_unit "$target" "$base"
+    imp_link_wants       "$target" "$wants"
   done
 }
 

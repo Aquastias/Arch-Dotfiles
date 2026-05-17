@@ -19,12 +19,15 @@ OS_DIR="$(dirname "$SCRIPT_DIR")"
 
 # shellcheck source=../lib/jsonc.sh
 source "$OS_DIR/lib/jsonc.sh"
+# shellcheck source=../lib/impermanence-common.sh
+source "$OS_DIR/lib/impermanence-common.sh"
 
 : "${IMPERMANENCE_ROOT:=}"
 : "${IMPERMANENCE_MOUNT:=/persist}"
 : "${IMPERMANENCE_MANIFEST:=/usr/lib/impermanence/defaults.manifest}"
 : "${IMPERMANENCE_HOSTNAME:=$(hostname)}"
 : "${IMPERMANENCE_HOSTS_DIR:=$OS_DIR/hosts}"
+: "${IMPERMANENCE_RPOOL:=rpool}"
 
 usage() {
   cat >&2 <<EOF
@@ -32,6 +35,8 @@ Usage: impermanence.sh <verb> [args]
   add <path>                 persist <path> across reboots
   remove [--yes] <path>      stop persisting <path>
                                --yes moves data back to live path
+  status                     report active Persist Mounts and drift
+  apply-defaults             reconcile curated defaults with manifest
 EOF
 }
 
@@ -71,7 +76,7 @@ path_kind() {
 unit_path() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
-  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
 }
 
 host_config() {
@@ -80,23 +85,7 @@ host_config() {
 
 write_mount_unit() {
   local target="$1"
-  local unit; unit="$(unit_path "$target")"
-  mkdir -p "$(dirname "$unit")"
-  cat > "$unit" <<UNIT
-[Unit]
-Description=Bind-mount persist over $target
-After=systemd-tmpfiles-setup.service
-Before=local-fs.target
-
-[Mount]
-What=$IMPERMANENCE_MOUNT$target
-Where=$target
-Type=none
-Options=bind
-
-[Install]
-RequiredBy=local-fs.target
-UNIT
+  imp_write_mount_unit "$target" "$IMPERMANENCE_MOUNT/etc/systemd/system"
 }
 
 append_tmpfiles_entry() {
@@ -145,13 +134,13 @@ reload_and_start() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
   systemctl daemon-reload
-  systemctl start "$esc.mount"
+  systemctl start "persist-$esc.mount"
 }
 
 stop_and_reload() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
-  systemctl stop "$esc.mount"
+  systemctl stop "persist-$esc.mount"
   systemctl daemon-reload
 }
 
@@ -223,6 +212,126 @@ cmd_remove() {
   fi
 }
 
+cmd_status() {
+  require_enabled
+  local line unit fp label
+  while read -r line; do
+    [[ -z "$line" ]] && continue
+    unit="${line%% *}"
+    fp="$(systemctl show -p FragmentPath --value "$unit")"
+    case "$fp" in
+      /usr/lib/*) label="curated" ;;
+      /persist/*) label="extension" ;;
+      *)          label="unknown" ;;
+    esac
+    echo "[$label] $unit"
+  done < <(systemctl list-units --type=mount --no-legend 'persist-*.mount')
+
+  local entry suffix ds count missing=0
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    ds="$IMPERMANENCE_RPOOL/ROOT/$suffix"
+    if ! zfs list -t snapshot "$ds@blank" >/dev/null 2>&1; then
+      echo "ERROR: $ds@blank is missing — Rollback Hook will fail closed on boot" >&2
+      missing=1
+      continue
+    fi
+    count="$(zfs diff "$ds@blank" "$ds" 2>/dev/null | wc -l)"
+    echo "$ds: $count paths changed since @blank (run: zfs diff $ds@blank $ds)"
+  done
+  (( missing == 0 ))
+}
+
+curated_kind() {
+  local target="$1" p
+  for p in "${CURATED_FILES[@]}"; do
+    [[ "$p" == "$target" ]] && { echo f; return; }
+  done
+  echo d
+}
+
+apply_defaults_add_one() {
+  local target="$1"
+  local src="${IMPERMANENCE_ROOT}$target"
+  local dst="$IMPERMANENCE_MOUNT$target"
+  if [[ ! -e "$src" && ! -e "$dst" ]]; then
+    echo "warning: skip missing curated source: $target" >&2
+    return 0
+  fi
+  if [[ -e "$src" && ! -e "$dst" ]]; then
+    mkdir -p "$(dirname "$dst")"
+    cp -a "$src" "$dst"
+  fi
+  imp_write_mount_unit "$target" \
+    "${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
+  imp_link_wants "$target" \
+    "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants"
+}
+
+rewrite_curated_tmpfiles() {
+  local dir="${IMPERMANENCE_ROOT}/usr/lib/tmpfiles.d"
+  local f="$dir/impermanence-curated.conf"
+  mkdir -p "$dir"
+  : > "$f"
+  local d file
+  for d in "${CURATED_DIRS[@]}"; do
+    printf "d %s 0755 root root - -\n" "$d" >> "$f"
+  done
+  for file in "${CURATED_FILES[@]}"; do
+    printf "f %s 0644 root root - -\n" "$file" >> "$f"
+  done
+}
+
+apply_defaults_remove_one() {
+  local target="$1"
+  local esc; esc="$(systemd-escape --path "$target")"
+  local unit_dir="${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
+  local unit="$unit_dir/persist-$esc.mount"
+  local wants="$unit_dir/local-fs.target.wants/persist-$esc.mount"
+  systemctl stop "persist-$esc.mount" 2>/dev/null || true
+  rm -f "$unit" "$wants"
+  local dst="$IMPERMANENCE_MOUNT$target"
+  if [[ -e "$dst" ]]; then
+    echo "removed curated default: $target (data preserved at $dst — delete manually if not needed)"
+  else
+    echo "removed curated default: $target"
+  fi
+}
+
+rewrite_manifest() {
+  local dir; dir="$(dirname "$IMPERMANENCE_MANIFEST")"
+  mkdir -p "$dir"
+  printf '%s\n' "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}" \
+    | sort > "$IMPERMANENCE_MANIFEST"
+}
+
+cmd_apply_defaults() {
+  require_enabled
+  local cur prev added target
+  cur="$(mktemp)"
+  prev="$(mktemp)"
+  printf '%s\n' "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}" | sort > "$cur"
+  if [[ -f "$IMPERMANENCE_MANIFEST" ]]; then
+    sort "$IMPERMANENCE_MANIFEST" > "$prev"
+  else
+    : > "$prev"
+  fi
+  added="$(comm -23 "$cur" "$prev")"
+  local removed
+  removed="$(comm -13 "$cur" "$prev")"
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    apply_defaults_add_one "$target"
+  done <<< "$added"
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    apply_defaults_remove_one "$target"
+  done <<< "$removed"
+  rewrite_curated_tmpfiles
+  rewrite_manifest
+  rm -f "$cur" "$prev"
+}
+
 main() {
   if [[ $# -lt 1 ]]; then
     usage
@@ -232,6 +341,8 @@ main() {
   case "$verb" in
     add)    cmd_add "$@" ;;
     remove) cmd_remove "$@" ;;
+    status) cmd_status "$@" ;;
+    apply-defaults) cmd_apply_defaults "$@" ;;
     *)      usage; exit 2 ;;
   esac
 }
