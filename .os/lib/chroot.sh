@@ -174,6 +174,13 @@ collect_passwords() {
   printf '%s' "$result"
 }
 
+_chroot_persist_state_obj() {
+  printf '%s' "$1" | jq '{
+    directories: (.persist.directories // []),
+    files:       (.persist.files       // [])
+  }'
+}
+
 _chroot_resolve_host_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
@@ -286,6 +293,11 @@ configure_system() {
   local root_pw
   root_pw="$(printf '%s' "$passwords_json" | jq -r '.root')"
 
+  # ── Build persist sub-object from merged host config ─────────────────────
+  local persist_obj host_json
+  host_json="$(load_host_config "$hostname" 2>/dev/null || printf '{}')"
+  persist_obj="$(_chroot_persist_state_obj "$host_json")"
+
   # ── Stage Chroot Configuration Module ───────────────────────────────────
   rm -rf "${MOUNT_ROOT}/root/lib-chroot"
   cp -r "${SCRIPT_DIR}/lib/chroot" "${MOUNT_ROOT}/root/lib-chroot"
@@ -310,12 +322,14 @@ configure_system() {
       "$([[ "$imp_enabled" == "true" ]] && printf 'true' || printf 'false')" \
     --arg imp_dataset "$imp_dataset" \
     --arg imp_mount   "$imp_mount"   \
+    --argjson persist "$persist_obj" \
     '{ hostname:$hostname, timezone:$timezone, locale:$locale, keymap:$keymap,
        kernel:$kernel, bootloader:$bootloader, rpool:$rpool, swap:$swap,
        esp_count:$esp_count,
        extras:{ backup:$extras_backup, security:$extras_security },
        impermanence:{ enabled:$imp_enabled, dataset:$imp_dataset,
-         mount:$imp_mount } }' \
+         mount:$imp_mount },
+       persist:$persist }' \
     > "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 

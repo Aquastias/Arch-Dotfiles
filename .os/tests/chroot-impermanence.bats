@@ -31,6 +31,9 @@ setup() {
   export IMPERMANENCE_MOUNT=/persist
   export RPOOL=rpool
   export ROOT="$FAKEROOT"
+  PERSIST_DIRECTORIES=()
+  PERSIST_FILES=()
+  export PERSIST_DIRECTORIES PERSIST_FILES
 
   # shellcheck source=../lib/chroot/impermanence.sh
   source "$BATS_TEST_DIRNAME/../lib/chroot/impermanence.sh"
@@ -446,4 +449,95 @@ seed_curated() {
   run_enabled
   local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
   grep -qE "zfs rollback -r" "$f"
+}
+
+# ── slice 2 cycle 1 (tracer): one extension dir → .mount under /persist ─────
+
+@test "extension dir: writes .mount unit under /persist/etc/systemd/system" {
+  PERSIST_DIRECTORIES=("/etc/wireguard")
+  run_enabled
+  local u="$FAKEROOT/persist/etc/systemd/system/etc-wireguard.mount"
+  [ -f "$u" ]
+  grep -qE "^What=/persist/etc/wireguard$" "$u"
+  grep -qE "^Where=/etc/wireguard$" "$u"
+}
+
+@test "extension dir: writes /persist tmpfiles snippet for extensions" {
+  PERSIST_DIRECTORIES=("/etc/wireguard")
+  run_enabled
+  local f="$FAKEROOT/persist/etc/tmpfiles.d/impermanence-extensions.conf"
+  [ -f "$f" ]
+  grep -qE "^d /etc/wireguard " "$f"
+}
+
+@test "extension file: writes f entry and .mount unit" {
+  PERSIST_FILES=("/etc/foo.conf")
+  run_enabled
+  local conf="$FAKEROOT/persist/etc/tmpfiles.d/impermanence-extensions.conf"
+  local esc unit
+  esc="$(systemd-escape --path /etc/foo.conf)"
+  unit="$FAKEROOT/persist/etc/systemd/system/$esc.mount"
+  grep -qE "^f /etc/foo\.conf " "$conf"
+  [ -f "$unit" ]
+  grep -qE "^Where=/etc/foo\.conf$" "$unit"
+}
+
+@test "extension dir does NOT appear as f entry in tmpfiles" {
+  PERSIST_DIRECTORIES=("/etc/wireguard")
+  PERSIST_FILES=()
+  run_enabled
+  local conf="$FAKEROOT/persist/etc/tmpfiles.d/impermanence-extensions.conf"
+  if grep -qE "^f /etc/wireguard " "$conf"; then return 1; fi
+}
+
+@test "extension: .wants symlink under /persist/.../local-fs.target.wants" {
+  PERSIST_DIRECTORIES=("/etc/wireguard")
+  PERSIST_FILES=("/etc/foo.conf")
+  run_enabled
+  local w="$FAKEROOT/persist/etc/systemd/system/local-fs.target.wants"
+  local esc1 esc2
+  esc1="$(systemd-escape --path /etc/wireguard)"
+  esc2="$(systemd-escape --path /etc/foo.conf)"
+  [ -L "$w/$esc1.mount" ]
+  [ -L "$w/$esc2.mount" ]
+  [ "$(readlink "$w/$esc1.mount")" = "../$esc1.mount" ]
+}
+
+@test "extension: moves dir content; source absent, dest present" {
+  PERSIST_DIRECTORIES=("/etc/wireguard")
+  mkdir -p "$FAKEROOT/etc/wireguard"
+  printf 'k' > "$FAKEROOT/etc/wireguard/wg0.conf"
+  run_enabled
+  [ ! -e "$FAKEROOT/etc/wireguard" ]
+  [ -f "$FAKEROOT/persist/etc/wireguard/wg0.conf" ]
+}
+
+@test "extension: moves file content; source absent, dest present" {
+  PERSIST_FILES=("/etc/foo.conf")
+  mkdir -p "$FAKEROOT/etc"
+  printf 'bar' > "$FAKEROOT/etc/foo.conf"
+  run_enabled
+  [ ! -e "$FAKEROOT/etc/foo.conf" ]
+  [ -f "$FAKEROOT/persist/etc/foo.conf" ]
+  [ "$(cat "$FAKEROOT/persist/etc/foo.conf")" = "bar" ]
+}
+
+@test "extension: missing source is skipped (no error)" {
+  PERSIST_DIRECTORIES=("/etc/nonexistent")
+  IMPERMANENCE_ENABLED=true run impermanence_apply
+  [ "$status" -eq 0 ]
+}
+
+@test "extension: mv occurs before zfs snapshot" {
+  mv() { printf 'mv %s\n' "$*" >> "$CALLS"; command mv "$@"; }
+  export -f mv
+  PERSIST_FILES=("/etc/foo.conf")
+  mkdir -p "$FAKEROOT/etc"
+  printf 'x' > "$FAKEROOT/etc/foo.conf"
+  run_enabled
+  local last_mv first_snap
+  last_mv="$(grep -n "^mv .*/etc/foo.conf " "$CALLS" | tail -1 | cut -d: -f1)"
+  first_snap="$(grep -n "^zfs snapshot " "$CALLS" | head -1 | cut -d: -f1)"
+  [ -n "$last_mv" ] && [ -n "$first_snap" ]
+  [ "$last_mv" -lt "$first_snap" ]
 }

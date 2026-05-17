@@ -177,6 +177,92 @@ _validation_impermanence() {
 }
 
 
+# Validate persist paths from a merged host config JSON.
+# Errors abort via error(); warnings are printed via warn().
+_validation_persist() {
+  local host_json="$1"
+  local any_err=0
+  local path
+
+  local -a dirs files
+  mapfile -t dirs  < <(printf '%s' "$host_json" \
+    | jq -r '(.persist.directories // [])[]')
+  mapfile -t files < <(printf '%s' "$host_json" \
+    | jq -r '(.persist.files       // [])[]')
+
+  local imp_enabled
+  imp_enabled="$(cfgo '.options.impermanence.enabled' 2>/dev/null)"
+  if [[ "$imp_enabled" != "true" ]] \
+     && (( ${#dirs[@]} + ${#files[@]} > 0 )); then
+    warn "Host declares persist paths but impermanence is disabled."
+  fi
+
+  for path in "${dirs[@]}"; do
+    [[ -z "$path" ]] && continue
+    _validation_persist_one dir "$path" || any_err=1
+  done
+  for path in "${files[@]}"; do
+    [[ -z "$path" ]] && continue
+    _validation_persist_one file "$path" || any_err=1
+  done
+
+  (( any_err == 0 )) || error "Persist path validation failed."
+}
+
+# Curated Persist Defaults — must mirror lib/chroot/impermanence.sh.
+_VALIDATION_CURATED=(
+  /etc/machine-id /etc/hostname /etc/locale.conf /etc/vconsole.conf
+  /etc/adjtime /etc/fstab
+  /etc/ssh /etc/secrets /etc/NetworkManager/system-connections
+  /etc/sudoers.d /etc/pacman.d /root
+)
+
+_VALIDATION_PERSISTENT_DATASETS=(
+  /home /var/log /var/cache /var /tmp
+)
+
+# Validate one persist entry. Returns 0 on pass, 1 on (collected) error.
+_validation_persist_one() {
+  local kind="$1" path="$2"
+  if [[ "$path" != /* ]]; then
+    echo "Persist path must be absolute: '${path}'." >&2
+    return 1
+  fi
+  if [[ "$path" == *..* || "$path" == *"~"* ]]; then
+    echo "Persist path must not contain '..' or '~': '${path}'." >&2
+    return 1
+  fi
+  if [[ "$kind" == "file" && -d "$path" ]]; then
+    echo "Persist file is a directory on disk: '${path}'." \
+         "Move to persist.directories." >&2
+    return 1
+  fi
+  if [[ "$kind" == "dir" && -f "$path" ]]; then
+    echo "Persist directory is a file on disk: '${path}'." \
+         "Move to persist.files." >&2
+    return 1
+  fi
+
+  local ds
+  for ds in "${_VALIDATION_PERSISTENT_DATASETS[@]}"; do
+    if [[ "$path" == "$ds" || "$path" == "$ds"/* ]]; then
+      warn "Persist path '${path}' is under ${ds}, already persistent." \
+           "Redundant."
+      return 0
+    fi
+  done
+
+  local c
+  for c in "${_VALIDATION_CURATED[@]}"; do
+    if [[ "$path" == "$c" || "$path" == "$c"/* ]]; then
+      warn "Persist path '${path}' is in curated defaults. Redundant."
+      return 0
+    fi
+  done
+
+  return 0
+}
+
 # Validate all config contracts in one pass.
 # Sets RESOLVED_HOSTNAME. Requires CONFIG_FILE, INSTALL_MODE, OS_DIR set.
 # Exits via error() on the first fatal failure; collects all program failures
@@ -202,6 +288,11 @@ validate_install_context() {
 
   configs_build_registry
   _validation_preflight_programs "$RESOLVED_HOSTNAME"
+
+  local _host_json
+  _host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null || \
+    printf '{}')"
+  _validation_persist "$_host_json"
 
   info "Install context valid."
 }

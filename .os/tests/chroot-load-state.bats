@@ -51,3 +51,28 @@ JSON
   [ "$IMPERMANENCE_DATASET" = "rpool/persist" ]
   [ "$IMPERMANENCE_MOUNT"   = "/persist" ]
 }
+
+@test "load-state: PERSIST_DIRECTORIES read from .persist.directories" {
+  minimal_state ',
+  "persist": { "directories": ["/etc/wireguard", "/var/lib/myapp"],
+    "files": [] }' > "$STATE"
+  source "$BATS_TEST_DIRNAME/../lib/chroot/load-state.sh"
+  [ "${#PERSIST_DIRECTORIES[@]}" -eq 2 ]
+  [ "${PERSIST_DIRECTORIES[0]}" = "/etc/wireguard" ]
+  [ "${PERSIST_DIRECTORIES[1]}" = "/var/lib/myapp" ]
+}
+
+@test "load-state: PERSIST_FILES read from .persist.files" {
+  minimal_state ',
+  "persist": { "directories": [], "files": ["/etc/foo.conf"] }' > "$STATE"
+  source "$BATS_TEST_DIRNAME/../lib/chroot/load-state.sh"
+  [ "${#PERSIST_FILES[@]}" -eq 1 ]
+  [ "${PERSIST_FILES[0]}" = "/etc/foo.conf" ]
+}
+
+@test "load-state: PERSIST_* default to empty arrays when absent" {
+  minimal_state '' > "$STATE"
+  source "$BATS_TEST_DIRNAME/../lib/chroot/load-state.sh"
+  [ "${#PERSIST_DIRECTORIES[@]}" -eq 0 ]
+  [ "${#PERSIST_FILES[@]}" -eq 0 ]
+}

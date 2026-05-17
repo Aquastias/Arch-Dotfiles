@@ -62,3 +62,129 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   run _validation_impermanence
   [ "$status" -ne 0 ]
 }
+
+# ── persist paths: errors ───────────────────────────────────────────────────
+
+@test "persist dir path must be absolute" {
+  local json='{"persist":{"directories":["relative/path"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "must be absolute" ]]
+  [[ "$output" =~ "relative/path" ]]
+}
+
+@test "persist file path must be absolute" {
+  local json='{"persist":{"directories":[],"files":["foo.conf"]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "must be absolute" ]]
+}
+
+@test "persist path must not contain ..  " {
+  local json='{"persist":{"directories":["/etc/../bad"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "must not contain" ]]
+}
+
+@test "persist path must not contain ~" {
+  local json='{"persist":{"directories":["/~/bad"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "must not contain" ]]
+}
+
+@test "persist file that exists as directory: errors" {
+  mkdir -p "$TEST_DIR/etc/wireguard"
+  local json
+  json='{"persist":{"directories":[],"files":["'"$TEST_DIR"'/etc/wireguard"]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "is a directory on disk" ]]
+  [[ "$output" =~ "Move to persist.directories" ]]
+}
+
+@test "persist directory that exists as file: errors" {
+  mkdir -p "$TEST_DIR/etc"
+  printf x > "$TEST_DIR/etc/foo.conf"
+  local json
+  json='{"persist":{"directories":["'"$TEST_DIR"'/etc/foo.conf"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "is a file on disk" ]]
+  [[ "$output" =~ "Move to persist.files" ]]
+}
+
+@test "persist: clean dirs and files pass" {
+  mkdir -p "$TEST_DIR/etc/wireguard" "$TEST_DIR/etc"
+  printf x > "$TEST_DIR/etc/foo.conf"
+  local json
+  json='{"persist":{"directories":["'"$TEST_DIR"'/etc/wireguard"],'
+  json+='"files":["'"$TEST_DIR"'/etc/foo.conf"]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+}
+
+# ── persist paths: warnings ─────────────────────────────────────────────────
+
+@test "persist: warn when path under /home (already persistent)" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  local json='{"persist":{"directories":["/home/foo"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+  [ -f "$log" ]
+  grep -qE "already persistent" "$log"
+  grep -qE "/home/foo" "$log"
+}
+
+@test "persist: warn when path under /var, /var/log, /var/cache, /tmp" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  for prefix in /var /var/log /var/cache /tmp; do
+    local json
+    json='{"persist":{"directories":["'"$prefix"'/x"],"files":[]}}'
+    run _validation_persist "$json"
+    [ "$status" -eq 0 ]
+  done
+  for prefix in /var /var/log /var/cache /tmp; do
+    grep -qE "$prefix" "$log" || { echo "missing $prefix"; return 1; }
+  done
+}
+
+@test "persist: warn when path is in curated defaults" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  local json='{"persist":{"directories":["/etc/ssh"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+  grep -qE "curated defaults" "$log"
+}
+
+@test "persist: warn when declared while impermanence disabled" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  write_config '{"options":{"impermanence":{"enabled":false}}}'
+  local json='{"persist":{"directories":["/etc/wireguard"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+  grep -qE "impermanence is disabled" "$log"
+}
+
+@test "persist: NO disabled-warning when impermanence enabled" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  write_config '{"options":{"impermanence":{"enabled":true,
+    "dataset":"rpool/persist"}}}'
+  local json='{"persist":{"directories":["/etc/wireguard"],"files":[]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+  if [[ -f "$log" ]] && grep -qE "impermanence is disabled" "$log"; then
+    return 1
+  fi
+}

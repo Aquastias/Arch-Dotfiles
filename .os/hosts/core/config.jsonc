@@ -14,6 +14,11 @@
 //   packages.repo    string[]  Official-repo packages installed via pacstrap.
 //   packages.aur     string[]  AUR packages installed via paru for
 //                              the primary user.
+//   persist          object    Persist Extensions. When impermanence is
+//                              enabled, these paths are bind-mounted from
+//                              the Persist Dataset on every boot.
+//     .directories   string[]  Absolute paths persisted as directories.
+//     .files         string[]  Absolute paths persisted as single files.
 
 {
   "users": [],
