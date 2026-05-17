@@ -97,3 +97,36 @@ Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early
 
 ### Tools
 `.os/tools/`. Utility scripts for managing a running system — not part of the install flow. Currently: `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`) and `install-pkglist.sh` (installs packages from those files). Both default to `$(hostname)` but accept a hostname argument.
+
+### Impermanence
+Optional install-time feature that resets selected system directories to a clean state on every boot via ZFS dataset rollback. Enabled by `options.impermanence` in Install Config. When enabled, the installer creates a Persist Dataset, splits a set of Rollback Datasets out of the OS pool, takes a Blank Snapshot of each, and installs a Rollback Hook in initramfs. Inspired by NixOS impermanence; deliberately narrower in scope — Arch lacks a `/nix/store`-equivalent, so rolling back all of `/` would erase every pacman update, hence Impermanence targets `/etc`, `/root`, `/opt`, `/srv`, `/usr/local` only.
+
+### Persist Dataset
+ZFS dataset (default `rpool/persist`, mounted at `/persist`) that holds all state surviving across reboots when Impermanence is enabled. Name and mountpoint configurable via `options.impermanence.dataset` and `options.impermanence.mount` in Install Config. Must live on the same pool as `rpool/ROOT/arch` so the early-boot bind-mounts complete before `local-fs.target`. Holds the Persist Payload (operator-editable `.mount` units + tmpfiles snippets) plus the actual data of every persisted path.
+
+### Rollback Datasets
+The set of ZFS datasets reverted to their Blank Snapshot on every boot when Impermanence is enabled: `rpool/ROOT/etc` (`/etc`), `rpool/ROOT/root` (`/root`), `rpool/ROOT/opt` (`/opt`), `rpool/ROOT/srv` (`/srv`), `rpool/ROOT/usrlocal` (`/usr/local`). Deliberately excludes `rpool/ROOT/arch` (so pacman writes to `/usr` survive reboots without re-snapshot), `rpool/home`, `rpool/var`, `rpool/var/log`, `rpool/var/cache`, `rpool/tmp` (already separate datasets, naturally persistent except `/tmp` which is intended ephemeral). Created by the installer when Impermanence is enabled; absent otherwise.
+
+### Blank Snapshot
+ZFS snapshot named `@blank` on each Rollback Dataset, taken at the end of the chroot phase after Curated Persist Defaults have been moved off the dataset onto the Persist Dataset. The Rollback Hook reverts each Rollback Dataset to its Blank Snapshot at every boot. Re-created by the Pacman Resnapshot Hook after every successful pacman transaction so that pacman's writes to `/etc/<pkg>/` etc. survive across reboots. If `@blank` is missing on any Rollback Dataset, the Rollback Hook drops to emergency shell — fail-closed.
+
+### Rollback Hook
+mkinitcpio hook pair installed under `/etc/initcpio/hooks/` and `/etc/initcpio/install/` and added to `HOOKS=` in `mkinitcpio.conf` between the `zfs` and `filesystems` hooks. Runs in initramfs after the ZFS module loads and pool is imported (and decrypted, if `options.encryption=true`), and before `zfs-mount-generator` mounts the Rollback Datasets. Hardcoded at install time with the list of Rollback Datasets to revert. Fails closed if any Blank Snapshot is missing — drops to emergency shell rather than continuing with stale state.
+
+### Bootstrap Mount
+Pair of files baked into `/usr/lib` at install time that bridge the Persist Dataset into systemd's standard discovery paths. `/usr/lib/tmpfiles.d/impermanence-bootstrap.conf` creates `/etc/systemd/system/` and `/etc/tmpfiles.d/` as empty directories at early boot. `/usr/lib/systemd/system/persist-etc-systemd-system.mount` and `persist-etc-tmpfiles-d.mount` bind `/persist/etc/systemd/system` and `/persist/etc/tmpfiles.d` over those placeholders. Lives on `rpool/ROOT/arch` (non-rolled-back) so it persists across reboots without snapshot manipulation.
+
+### Persist Mount
+`.mount` unit named `persist-<slug>.mount`, one per persisted path. Each unit bind-mounts `/persist/<path>` over `<path>` early in boot. Ordered `After=systemd-tmpfiles-setup.service` and `Before=local-fs.target` with `RequiredBy=local-fs.target` so a failed bind cascades to emergency. Curated Persist Defaults ship as units under `/usr/lib/systemd/system/` (vendor-owned, snapshot-immune); host-declared Persist Extensions ship as units under `/persist/etc/systemd/system/` (operator-editable).
+
+### Curated Persist Defaults
+Fixed list of system-identity paths the installer always persists when Impermanence is enabled. Files: `/etc/machine-id`, `/etc/hostname`, `/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`. Directories: `/etc/ssh`, `/etc/secrets`, `/etc/NetworkManager/system-connections`, `/etc/sudoers.d`, `/etc/pacman.d`, `/root`. Loss of any of these breaks first reboot — host keys, Machine Age Key, hostname, network connections, fstab. Shipped as Persist Mount units under `/usr/lib/systemd/system/` so they're stable across operator edits.
+
+### Persist Extensions
+`persist` object in a Host Config or Host Core with two arrays: `directories` and `files`. Each entry is an absolute path. Deep-merged across Host Core and the specific Host Config per the standard merge rules. Translated by the installer into Persist Mount units under `/persist/etc/systemd/system/` and tmpfiles entries placed under `/persist/etc/tmpfiles.d/`. Only meaningful when `options.impermanence.enabled=true`. Validation warns on paths already covered by an always-persistent dataset (`/home`, `/var`, `/var/log`, `/var/cache`, `/tmp`) or by a Curated Persist Default.
+
+### Pacman Resnapshot Hook
+Pacman post-transaction hook at `/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook` (or shipped under `/usr/share/libalpm/hooks/`) that destroys and re-takes the Blank Snapshot on every Rollback Dataset after a successful pacman transaction. Necessary because pacman writes config defaults under `/etc/<pkg>/` etc.; without this hook those writes would vanish on next reboot. Known v1 limitation: user edits to non-persisted paths under a Rollback Dataset made *before* a pacman transaction get baked into the new Blank Snapshot and survive one additional reboot. A future opt-in pre-transaction drift check (`zfs diff` fails loudly if dirty) closes this leak.
+
+### Impermanence Tool
+`.os/tools/impermanence.sh`. Runtime utility for managing Persist Extensions on a system where Impermanence is enabled. Verbs: `add <path>` (writes the path into the host's `persist.directories` or `persist.files` in `hosts/<hostname>/config.jsonc`, copies current data onto the Persist Dataset, generates the Persist Mount, daemon-reloads); `remove <path>` (reverses); `status` (lists active Persist Mounts and runs `zfs diff` against `@blank` for each Rollback Dataset); `apply-defaults` (regenerates Curated Persist Defaults' unit files under `/usr/lib/systemd/system/` from the installer's current curated list, used after pulling an updated dotfiles repo). Does not edit Curated Persist Defaults directly — those are vendor-shipped.
