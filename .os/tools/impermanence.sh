@@ -202,6 +202,9 @@ cmd_add() {
     append_tmpfiles_entry "$target" "$kind" &&
     reload_and_start "$target"
   ); then
+    rm -rf "$IMPERMANENCE_MOUNT$target"
+    rm -f "$unit"
+    remove_tmpfiles_entry "$target"
     undeclare_in_host_config "$target"
     return 1
   fi
@@ -326,6 +329,26 @@ apply_defaults_remove_one() {
   fi
 }
 
+warn_kind_mismatch() {
+  local target dst actual
+  for target in "${CURATED_FILES[@]}"; do
+    dst="$IMPERMANENCE_MOUNT$target"
+    [[ -e "$dst" ]] || continue
+    [[ -d "$dst" ]] && actual=d || actual=f
+    if [[ "$actual" != f ]]; then
+      echo "warning: $target persisted as directory but curated kind is file; manual migration of $dst may be required" >&2
+    fi
+  done
+  for target in "${CURATED_DIRS[@]}"; do
+    dst="$IMPERMANENCE_MOUNT$target"
+    [[ -e "$dst" ]] || continue
+    [[ -d "$dst" ]] && actual=d || actual=f
+    if [[ "$actual" != d ]]; then
+      echo "warning: $target persisted as file but curated kind is directory; manual migration of $dst may be required" >&2
+    fi
+  done
+}
+
 rewrite_manifest() {
   local dir; dir="$(dirname "$IMPERMANENCE_MANIFEST")"
   mkdir -p "$dir"
@@ -357,6 +380,7 @@ cmd_apply_defaults() {
   done <<< "$removed"
   rewrite_curated_tmpfiles
   rewrite_manifest
+  warn_kind_mismatch
   rm -f "$cur" "$prev"
 }
 
