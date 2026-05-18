@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Install Config Reader module + one consumer migrated (tracer)
 
