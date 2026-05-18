@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # User-facing docs for impermanence
 
