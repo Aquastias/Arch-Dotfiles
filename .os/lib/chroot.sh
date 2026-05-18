@@ -248,8 +248,7 @@ configure_system() {
   timezone="$(cfg '.system.timezone')"
   keymap="$(cfgo '.system.keymap')"
   keymap="${keymap:-us}"
-  swap="$(cfgo '.options.swap')"
-  swap="${swap:-true}"
+  swap="$(install_config_swap_enabled)"
 
   do_backup="$(cfgo '.post_install.backup')"
   do_backup="${do_backup:-false}"
@@ -260,12 +259,9 @@ configure_system() {
   esp_count="${#LAYOUT_ESP_PARTS[@]}"
 
   local imp_enabled imp_dataset imp_mount
-  imp_enabled="$(cfgo '.options.impermanence.enabled')"
-  imp_enabled="${imp_enabled:-false}"
-  imp_dataset="$(cfgo '.options.impermanence.dataset')"
-  imp_dataset="${imp_dataset:-rpool/persist}"
-  imp_mount="$(cfgo '.options.impermanence.mount')"
-  imp_mount="${imp_mount:-/persist}"
+  imp_enabled="$(install_config_impermanence_enabled)"
+  imp_dataset="$(install_config_impermanence_dataset)"
+  imp_mount="$(install_config_impermanence_mount)"
 
   write_fstab
   write_esp_mirror_hook "$esp_count"
@@ -275,13 +271,10 @@ configure_system() {
   # The heredoc is quoted ('CHROOT') so variable expansion happens INSIDE
   # the chroot shell, not in the outer script.
 
-  # Kernel and bootloader selection from config
-  local kernel
-  kernel="$(cfgo '.options.kernel')"
-  kernel="${kernel:-lts}"
-  local bootloader
-  bootloader="$(cfgo '.options.bootloader')"
-  bootloader="${bootloader:-systemd-boot}"
+  # Kernel and bootloader selection from Install Config.
+  local kernel bootloader
+  kernel="$(install_config_kernel)"
+  bootloader="$(install_config_bootloader)"
 
   # ── Collect passwords interactively HERE, before entering the chroot ─────
   # arch-chroot redirects stdin to the heredoc, so 'read' inside the chroot

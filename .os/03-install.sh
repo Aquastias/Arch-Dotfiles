@@ -117,6 +117,7 @@ source_module() {
 }
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
+source_module "${SCRIPT_DIR}/lib/install-config.sh"
 source_module "${SCRIPT_DIR}/lib/config.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/configs.sh"
