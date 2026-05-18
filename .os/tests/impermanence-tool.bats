@@ -664,3 +664,71 @@ seed_all_curated_live() {
   [ "$status" -ne 0 ]
   grep -qF "/etc/extfoo" "$ext_tmp"
 }
+
+# ── slice 6 cycle 1: apply-defaults warns on /persist kind mismatch ─────────
+
+@test "apply-defaults: warns when /persist data kind disagrees with curated kind" {
+  : > "$IMPERMANENCE_MANIFEST"
+  seed_all_curated_live
+  # /etc/ssh is in CURATED_DIRS, but stage /persist/etc/ssh as a FILE
+  # (simulates an older schema where the path used to be a file).
+  mkdir -p "$IMPERMANENCE_MOUNT/etc"
+  rm -rf "$IMPERMANENCE_MOUNT/etc/ssh"
+  echo "wrong-kind" > "$IMPERMANENCE_MOUNT/etc/ssh"
+  run "$TOOL" apply-defaults
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"/etc/ssh"* ]]
+  [[ "$output" == *"kind"* ]]
+}
+
+# ── slice 6 cycle 2: status zero-drift output ───────────────────────────────
+
+@test "status: clean rollback datasets each report zero drift" {
+  # default fixture: no zfs-diff-* files staged → all datasets show 0
+  run "$TOOL" status
+  [ "$status" -eq 0 ]
+  for ds in rpool/ROOT/etc rpool/ROOT/root rpool/ROOT/opt \
+            rpool/ROOT/srv rpool/ROOT/usrlocal; do
+    echo "$output" | grep -qE "^$ds: 0 paths changed " \
+      || { echo "missing clean line for $ds in: $output"; return 1; }
+  done
+}
+
+# ── slice 6 cycle 3: add tmpfiles idempotency ───────────────────────────────
+
+@test "add idempotent: tmpfiles conf stays at exactly one entry for the path" {
+  seed_live_file /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  [ -f "$conf" ]
+  local n; n="$(grep -cE "^[df] /etc/foo\\.conf " "$conf")"
+  [ "$n" -eq 1 ]
+}
+
+# ── slice 6 cycle 4: add atomic failure — clean all artifacts ───────────────
+
+@test "add atomic: late systemctl start failure leaves no orphan unit/tmpfiles/data" {
+  seed_live_dir /var/lib/foo
+  # Replace systemctl stub: succeed on daemon-reload, fail on start.
+  cat > "$BIN_STUBS/systemctl" <<'STUB'
+#!/usr/bin/env bash
+printf 'systemctl %s\n' "$*" >> "$CALLS"
+case "$1" in
+  start) exit 1 ;;
+  *) exit 0 ;;
+esac
+STUB
+  chmod +x "$BIN_STUBS/systemctl"
+  run "$TOOL" add /var/lib/foo
+  [ "$status" -ne 0 ]
+  local esc; esc="$(systemd-escape --path /var/lib/foo)"
+  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  [ ! -f "$unit" ]
+  [ ! -e "$IMPERMANENCE_MOUNT/var/lib/foo" ]
+  if [ -f "$conf" ]; then
+    run grep -F "/var/lib/foo" "$conf"
+    [ "$status" -ne 0 ]
+  fi
+}
