@@ -285,14 +285,16 @@ decrypt secrets on every boot without the USB.
 │   │   ├── bootloader-systemd-boot.sh
 │   │   ├── bootloader-grub.sh
 │   │   ├── password.sh
-│   │   └── extras.sh
+│   │   ├── extras.sh
+│   │   └── impermanence.sh   # Rollback datasets + persist mounts
 │   ├── profiles.sh         # Users + program installation
 │   ├── finalize.sh         # Unmount + pool export
 │   ├── iso-resolver.sh     # Arch ISO version selection
 │   ├── seed-generator.sh   # Cloud-init seed for VM tests
 │   ├── sentinel-watcher.sh # Log sentinel for VM tests
 │   ├── shell-stdlib.sh     # Shared install.sh helpers
-│   └── run-program.sh      # Program installation wrapper
+│   ├── run-program.sh      # Program installation wrapper
+│   └── impermanence-common.sh # Shared by chroot module + runtime tool
 │
 ├── hosts/                  # Per-hostname config
 │   ├── core/               # Shared base for all hosts
@@ -316,7 +318,8 @@ decrypt secrets on every boot without the USB.
 │
 ├── tools/                  # Operator utilities
 │   ├── save-pkglist.sh     # Snapshot current packages
-│   └── install-pkglist.sh  # Restore packages from txt
+│   ├── install-pkglist.sh  # Restore packages from txt
+│   └── impermanence.sh     # Runtime add/remove/status/apply-defaults
 │
 ├── tests/                  # BATS + VM integration tests
 │   ├── run.sh              # Test runner
@@ -400,6 +403,14 @@ Enable in `install.jsonc` under `post_install`:
 | `"security": true` | `extras/security.sh`        | UFW (deny-all-in) +   |
 |                    |                             | ClamAV weekly scans   |
 
+Enable in `install.jsonc` under `options`:
+
+| Key                    | Module               | What it does            |
+| ---------------------- | -------------------- | ----------------------- |
+| `impermanence.enabled` | `lib/chroot/`        | ZFS rollback to `@blank`|
+|                        | `impermanence.sh`    | on every boot. See      |
+|                        |                      | `REFERENCE.md`.         |
+
 ---
 
 ## 7. VM Testing
@@ -446,6 +457,9 @@ release (cached in `tests/vm/.vm-test/`).
 3. Verify swap: `swapon --show`
 4. Set up networking if needed: `nmtui`
 5. Update the system: `sudo pacman -Syu`
+6. If impermanence is enabled, run `bash tools/impermanence.sh
+   status` to confirm `@blank` snapshots exist on every Rollback
+   Dataset. Missing snapshots fail-close on the next reboot.
 
 ### 8.2 If ZFS fails to import on boot
 

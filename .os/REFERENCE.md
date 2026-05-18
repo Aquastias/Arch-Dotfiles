@@ -13,8 +13,9 @@ Complete configuration reference, concept explanations, and VM testing guide.
 5. [OS Partition Sizing (single-disk)](#os-partition-sizing-single-disk)
 6. [Custom Packages](#custom-packages)
 7. [Post-Install Components](#post-install-components)
-8. [Testing in Virtual Machines (virt-manager)](#testing-in-virtual-machines)
-9. [Troubleshooting](#troubleshooting)
+8. [Impermanence](#impermanence)
+9. [Testing in Virtual Machines (virt-manager)](#testing-in-virtual-machines)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -93,6 +94,9 @@ fails.
 | `swap` | bool | `true` | Create a swap zvol on rpool |
 | `swap_size` | string | `"auto"` | `"auto"` = RAM×2. Or `"8G"`, `"16G"` |
 | `esp_size` | string | `"512M"` | EFI partition size per OS disk |
+| `impermanence.enabled` | bool | `false` | Rollback to `@blank` on boot |
+| `impermanence.dataset` | string | `"rpool/persist"` | Persist dataset |
+| `impermanence.mount` | string | `"/persist"` | Persist mountpoint |
 
 ### `mode`
 
@@ -364,6 +368,102 @@ To enable real-time scanning:
 ```bash
 sudo systemctl enable --now clamav-daemon
 ```
+
+---
+
+## Impermanence
+
+ZFS dataset rollback to a Blank Snapshot on every boot. When
+enabled, `/etc`, `/root`, `/opt`, `/srv`, and `/usr/local` revert
+to `@blank` at every boot; anything not on the Persist Dataset
+disappears. Curated system-identity files (machine-id, SSH host
+keys, Machine Age Key, NetworkManager connections, ...) survive
+by virtue of bind mounts from `/persist`. See
+[ADR-0008](../docs/adr/0008-impermanence-via-zfs-dataset-rollback.md)
+for the design rationale and
+[CONTEXT.md](../CONTEXT.md) for the glossary.
+
+### Enable
+
+In `install.jsonc`:
+
+```jsonc
+"options": {
+  "impermanence": {
+    "enabled": true,
+    "dataset": "rpool/persist",
+    "mount":   "/persist"
+  }
+}
+```
+
+Impermanence is install-time only. Toggling later requires a
+re-install.
+
+### Persist Extensions
+
+Declare additional paths in `hosts/<hostname>/config.jsonc` (or
+`hosts/core/config.jsonc` for shared paths). Deep-merged across
+Host Core and Host Config.
+
+```jsonc
+"persist": {
+  "directories": ["/etc/wireguard", "/var/lib/myapp"],
+  "files":       ["/etc/foo.conf"]
+}
+```
+
+Directories and files are declared in separate arrays so the
+installer emits the correct tmpfiles type without ambiguity.
+Absolute paths only; `..` and `~` are rejected.
+
+### Runtime tool — `tools/impermanence.sh`
+
+Four verbs. Host config is the source of truth: `add` and
+`remove` edit the host config jsonc first, then apply.
+
+| Verb              | Effect                                                 |
+| ----------------- | ------------------------------------------------------ |
+| `add <path>`      | Detect dir vs file, append to host config, copy data   |
+|                   | to `/persist`, write `.mount` unit + tmpfiles, start.  |
+| `remove <path>`   | Reverse `add`: stop mount, remove unit + tmpfiles,     |
+|                   | optionally move data back, edit host config.           |
+| `status`          | List active `persist-*.mount` units; `zfs diff` each   |
+|                   | Rollback Dataset against `@blank`.                     |
+| `apply-defaults`  | Regenerate Curated Persist Defaults from the current   |
+|                   | installer list. Idempotent.                            |
+
+Examples:
+
+```bash
+# Persist a new directory
+sudo bash tools/impermanence.sh add /etc/wireguard
+
+# Remove an experiment
+sudo bash tools/impermanence.sh remove /etc/wireguard
+
+# Boot-time health check
+sudo bash tools/impermanence.sh status
+
+# Pull updated curated list after `git pull`
+sudo bash tools/impermanence.sh apply-defaults
+```
+
+### Curated Persist Defaults
+
+A fixed list of system-identity paths persisted automatically:
+`/etc/machine-id`, `/etc/ssh`, `/etc/secrets`, `/etc/hostname`,
+`/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`,
+`/etc/NetworkManager/system-connections`, `/etc/pacman.d`,
+`/var/lib/systemd`, plus the bootstrap pair. The complete list
+lives in `lib/impermanence-common.sh` as `CURATED_DIRS` and
+`CURATED_FILES`.
+
+The runtime tool refuses to `add` or `remove` curated paths —
+they would silently break system identity. To pick up new
+entries after `git pull`, run `apply-defaults`. Edits made
+directly to unit files under `/usr/lib/systemd/system/` will be
+overwritten on the next `apply-defaults`.
 
 ---
 

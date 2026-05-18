@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # KDE + encryption VM fixture
 
