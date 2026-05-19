@@ -1,4 +1,4 @@
-Status: needs-triage
+Status: ready-for-agent
 
 # Disk Config accessors + remove stale `.desktop.kde` reference
 
