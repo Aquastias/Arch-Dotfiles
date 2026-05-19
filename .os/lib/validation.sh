@@ -21,6 +21,9 @@
 # owned here. Callers get one seam and one error-signaling convention.
 # =============================================================================
 
+# shellcheck source=./impermanence-common.sh
+source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
+
 # =============================================================================
 # SYSTEM FIELDS
 # =============================================================================
@@ -208,14 +211,6 @@ _validation_persist() {
   (( any_err == 0 )) || error "Persist path validation failed."
 }
 
-# Curated Persist Defaults — must mirror lib/chroot/impermanence.sh.
-_VALIDATION_CURATED=(
-  /etc/machine-id /etc/hostname /etc/locale.conf /etc/vconsole.conf
-  /etc/adjtime /etc/fstab
-  /etc/ssh /etc/secrets /etc/NetworkManager/system-connections
-  /etc/sudoers.d /etc/pacman.d /root
-)
-
 _VALIDATION_PERSISTENT_DATASETS=(
   /home /var/log /var/cache /var /tmp
 )
@@ -252,7 +247,7 @@ _validation_persist_one() {
   done
 
   local c
-  for c in "${_VALIDATION_CURATED[@]}"; do
+  for c in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
     if [[ "$path" == "$c" || "$path" == "$c"/* ]]; then
       warn "Persist path '${path}' is in curated defaults. Redundant."
       return 0

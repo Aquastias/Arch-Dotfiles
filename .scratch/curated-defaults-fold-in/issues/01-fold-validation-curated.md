@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Fold `_VALIDATION_CURATED` into `impermanence-common.sh`
 
