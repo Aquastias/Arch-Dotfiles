@@ -244,16 +244,13 @@ configure_system() {
   # in validate_install_context().
   # Use the resolved value directly — no second prompt.
   hostname="$RESOLVED_HOSTNAME"
-  locale="$(cfg '.system.locale')"
-  timezone="$(cfg '.system.timezone')"
-  keymap="$(cfgo '.system.keymap')"
-  keymap="${keymap:-us}"
+  locale="$(install_config_locale)"
+  timezone="$(install_config_timezone)"
+  keymap="$(install_config_keymap)"
   swap="$(install_config_swap_enabled)"
 
-  do_backup="$(cfgo '.post_install.backup')"
-  do_backup="${do_backup:-false}"
-  do_security="$(cfgo '.post_install.security')"
-  do_security="${do_security:-false}"
+  do_backup="$(install_config_extras_backup)"
+  do_security="$(install_config_extras_security)"
 
   rpool="$LAYOUT_OS_POOL_NAME"
   esp_count="${#LAYOUT_ESP_PARTS[@]}"

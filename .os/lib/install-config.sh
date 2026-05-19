@@ -58,3 +58,64 @@ install_config_impermanence_mount() {
 install_config_age_key_url() {
   cfgo '.options.age_key_url'
 }
+
+install_config_hostname() {
+  cfgo '.system.hostname'
+}
+
+install_config_locale() {
+  local v; v="$(cfgo '.system.locale')"
+  printf '%s\n' "${v:-en_US.UTF-8}"
+}
+
+install_config_timezone() {
+  local v; v="$(cfgo '.system.timezone')"
+  printf '%s\n' "${v:-UTC}"
+}
+
+install_config_keymap() {
+  local v; v="$(cfgo '.system.keymap')"
+  printf '%s\n' "${v:-us}"
+}
+
+# Array reader: accepts string ("kde"), array (["kde","hyprland"]), or
+# null/absent. Emits one line per element; zero lines when absent/null.
+_install_config_array() {
+  jsonc_read "$CONFIG_FILE" "$1 | if type == \"array\" then .[]
+    elif type == \"string\" then . else empty end"
+}
+
+install_config_desktop() {
+  _install_config_array '.environment.desktop'
+}
+
+install_config_gpu() {
+  local out; out="$(_install_config_array '.environment.gpu')"
+  printf '%s\n' "${out:-auto}"
+}
+
+install_config_extras_backup() {
+  _install_config_bool '.post_install.backup' 'false'
+}
+
+install_config_extras_security() {
+  _install_config_bool '.post_install.security' 'false'
+}
+
+install_config_packages_extra() {
+  _install_config_array '.packages.extra'
+}
+
+install_config_packages_groups() {
+  jsonc_read "$CONFIG_FILE" '
+    .packages.groups // {}
+    | to_entries[]?
+    | select(.key | startswith("_") | not)
+    | select(.value | type == "array")
+    | .value[]?
+  '
+}
+
+install_config_dotfiles_repo() {
+  cfgo '.dotfiles_repo'
+}

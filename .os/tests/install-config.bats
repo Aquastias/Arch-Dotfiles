@@ -154,3 +154,248 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ── install_config_hostname ──────────────────────────────────────────────────
+
+@test "install_config_hostname: returns field when present" {
+  write_cfg '{"system":{"hostname":"laptop"}}'
+  run install_config_hostname
+  [ "$status" -eq 0 ]
+  [ "$output" = "laptop" ]
+}
+
+@test "install_config_hostname: returns empty when absent (no default)" {
+  write_cfg '{"system":{}}'
+  run install_config_hostname
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── install_config_locale ────────────────────────────────────────────────────
+
+@test "install_config_locale: returns field when present" {
+  write_cfg '{"system":{"locale":"fr_FR.UTF-8"}}'
+  run install_config_locale
+  [ "$status" -eq 0 ]
+  [ "$output" = "fr_FR.UTF-8" ]
+}
+
+@test "install_config_locale: returns default 'en_US.UTF-8' when absent" {
+  write_cfg '{"system":{}}'
+  run install_config_locale
+  [ "$status" -eq 0 ]
+  [ "$output" = "en_US.UTF-8" ]
+}
+
+# ── install_config_timezone ──────────────────────────────────────────────────
+
+@test "install_config_timezone: returns field when present" {
+  write_cfg '{"system":{"timezone":"Europe/Paris"}}'
+  run install_config_timezone
+  [ "$status" -eq 0 ]
+  [ "$output" = "Europe/Paris" ]
+}
+
+@test "install_config_timezone: returns default 'UTC' when absent" {
+  write_cfg '{"system":{}}'
+  run install_config_timezone
+  [ "$status" -eq 0 ]
+  [ "$output" = "UTC" ]
+}
+
+# ── install_config_keymap ────────────────────────────────────────────────────
+
+@test "install_config_keymap: returns field when present" {
+  write_cfg '{"system":{"keymap":"de"}}'
+  run install_config_keymap
+  [ "$status" -eq 0 ]
+  [ "$output" = "de" ]
+}
+
+@test "install_config_keymap: returns default 'us' when absent" {
+  write_cfg '{"system":{}}'
+  run install_config_keymap
+  [ "$status" -eq 0 ]
+  [ "$output" = "us" ]
+}
+
+# ── install_config_desktop ───────────────────────────────────────────────────
+
+@test "install_config_desktop: string yields one line" {
+  write_cfg '{"environment":{"desktop":"kde"}}'
+  run install_config_desktop
+  [ "$status" -eq 0 ]
+  [ "$output" = "kde" ]
+}
+
+@test "install_config_desktop: array yields one line per element" {
+  write_cfg '{"environment":{"desktop":["kde","hyprland"]}}'
+  run install_config_desktop
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "kde" ]
+  [ "${lines[1]}" = "hyprland" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "install_config_desktop: null yields empty" {
+  write_cfg '{"environment":{"desktop":null}}'
+  run install_config_desktop
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "install_config_desktop: absent yields empty" {
+  write_cfg '{"environment":{}}'
+  run install_config_desktop
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── install_config_gpu ───────────────────────────────────────────────────────
+
+@test "install_config_gpu: string yields one line" {
+  write_cfg '{"environment":{"gpu":"amd"}}'
+  run install_config_gpu
+  [ "$status" -eq 0 ]
+  [ "$output" = "amd" ]
+}
+
+@test "install_config_gpu: array yields one line per element" {
+  write_cfg '{"environment":{"gpu":["amd","nvidia"]}}'
+  run install_config_gpu
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "amd" ]
+  [ "${lines[1]}" = "nvidia" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "install_config_gpu: null yields default 'auto'" {
+  write_cfg '{"environment":{"gpu":null}}'
+  run install_config_gpu
+  [ "$status" -eq 0 ]
+  [ "$output" = "auto" ]
+}
+
+@test "install_config_gpu: absent yields default 'auto'" {
+  write_cfg '{"environment":{}}'
+  run install_config_gpu
+  [ "$status" -eq 0 ]
+  [ "$output" = "auto" ]
+}
+
+# ── install_config_extras_backup ─────────────────────────────────────────────
+
+@test "install_config_extras_backup: returns 'true' when set true" {
+  write_cfg '{"post_install":{"backup":true}}'
+  run install_config_extras_backup
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "install_config_extras_backup: returns 'false' when set false" {
+  write_cfg '{"post_install":{"backup":false}}'
+  run install_config_extras_backup
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+@test "install_config_extras_backup: returns default 'false' when absent" {
+  write_cfg '{"post_install":{}}'
+  run install_config_extras_backup
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+# ── install_config_extras_security ───────────────────────────────────────────
+
+@test "install_config_extras_security: returns 'true' when set true" {
+  write_cfg '{"post_install":{"security":true}}'
+  run install_config_extras_security
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "install_config_extras_security: returns 'false' when set false" {
+  write_cfg '{"post_install":{"security":false}}'
+  run install_config_extras_security
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+@test "install_config_extras_security: returns default 'false' when absent" {
+  write_cfg '{"post_install":{}}'
+  run install_config_extras_security
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+# ── install_config_packages_extra ────────────────────────────────────────────
+
+@test "install_config_packages_extra: array yields one line per element" {
+  write_cfg '{"packages":{"extra":["firefox","vlc"]}}'
+  run install_config_packages_extra
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "firefox" ]
+  [ "${lines[1]}" = "vlc" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "install_config_packages_extra: empty array yields empty" {
+  write_cfg '{"packages":{"extra":[]}}'
+  run install_config_packages_extra
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "install_config_packages_extra: absent yields empty" {
+  write_cfg '{"packages":{}}'
+  run install_config_packages_extra
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── install_config_packages_groups ───────────────────────────────────────────
+
+@test "install_config_packages_groups: flattens all groups into one list" {
+  write_cfg '{"packages":{"groups":{"dev":["git","vim"],"media":["mpv"]}}}'
+  run install_config_packages_groups
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 3 ]
+}
+
+@test "install_config_packages_groups: skips _-prefixed keys" {
+  write_cfg '{"packages":{"groups":{"_comment":["ignored"],"dev":["git"]}}}'
+  run install_config_packages_groups
+  [ "$status" -eq 0 ]
+  [ "$output" = "git" ]
+}
+
+@test "install_config_packages_groups: skips non-array values" {
+  write_cfg '{"packages":{"groups":{"bogus":"oops","dev":["git"]}}}'
+  run install_config_packages_groups
+  [ "$status" -eq 0 ]
+  [ "$output" = "git" ]
+}
+
+@test "install_config_packages_groups: absent yields empty" {
+  write_cfg '{"packages":{}}'
+  run install_config_packages_groups
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── install_config_dotfiles_repo ─────────────────────────────────────────────
+
+@test "install_config_dotfiles_repo: returns field when present" {
+  write_cfg '{"dotfiles_repo":"https://github.com/u/dotfiles"}'
+  run install_config_dotfiles_repo
+  [ "$status" -eq 0 ]
+  [ "$output" = "https://github.com/u/dotfiles" ]
+}
+
+@test "install_config_dotfiles_repo: returns empty when absent (no default)" {
+  write_cfg '{}'
+  run install_config_dotfiles_repo
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

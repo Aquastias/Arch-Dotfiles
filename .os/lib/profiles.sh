@@ -388,7 +388,7 @@ run_profiles() {
   done
 
   local dotfiles_repo
-  dotfiles_repo="$(cfgo '.dotfiles_repo')"
+  dotfiles_repo="$(install_config_dotfiles_repo)"
 
   # ── Stage runtime, validate it, create users, install programs ───────────
   _profiles_stage_runtime

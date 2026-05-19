@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Migrate remaining Install Config consumers
 
@@ -18,10 +18,12 @@ namespaces touched by current default-fallback sites:
 - `post_install.*` — `install_config_extras_backup` (default `false`),
   `install_config_extras_security` (default `false`)
 - `packages.*` — `install_config_packages_extra`,
-  `install_config_packages_groups`,
-  `install_config_packages_repo` (host-level),
-  `install_config_packages_aur` (host-level)
+  `install_config_packages_groups`
 - `dotfiles_repo` (top-level)
+
+`packages.repo` and `packages.aur` are Host Config fields (read from
+`.os/hosts/<hostname>/config.jsonc`, not `CONFIG_FILE`) and belong to
+a future Host Config Reader — out of scope for this issue.
 
 Migrate every remaining consumer that today reads a default-bearing
 field via `cfgo + ${X:-default}`:
