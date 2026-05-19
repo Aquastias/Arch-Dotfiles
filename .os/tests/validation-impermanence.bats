@@ -167,6 +167,17 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   grep -qE "curated defaults" "$log"
 }
 
+@test "persist: warn when path is curated file (CURATED_FILES)" {
+  local log="$TEST_DIR/warn.log"
+  warn() { printf '%s\n' "$*" >> "$log"; }
+  export -f warn
+  local json='{"persist":{"directories":[],"files":["/etc/machine-id"]}}'
+  run _validation_persist "$json"
+  [ "$status" -eq 0 ]
+  grep -qE "curated defaults" "$log"
+  grep -qE "/etc/machine-id" "$log"
+}
+
 @test "persist: warn when declared while impermanence disabled" {
   local log="$TEST_DIR/warn.log"
   warn() { printf '%s\n' "$*" >> "$log"; }
