@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Install State module + replace `load-state.sh` + remove dead defaults
 

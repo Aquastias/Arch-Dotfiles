@@ -159,26 +159,26 @@ done
 # =============================================================================
 _section "4. lib/chroot/ scripts  (staged → /root/lib-chroot/)"
 # =============================================================================
-for f in configure.sh extras.sh load-state.sh identity.sh initcpio.sh \
+for f in configure.sh extras.sh identity.sh initcpio.sh \
           bootloader-systemd-boot.sh bootloader-grub.sh \
           create-user.sh password.sh extras-common.sh; do
   _file "${OS}/lib/chroot/${f}" "lib/chroot/${f}"
 done
 
-# configure.sh must source load-state.sh via a relative path (not absolute)
-if grep -qE 'source.*load-state\.sh' \
+# configure.sh must source install-state.sh (staged from lib/install-state.sh)
+if grep -qE 'source.*install-state\.sh' \
     "${OS}/lib/chroot/configure.sh" 2>/dev/null; then
-  _pass "configure.sh: sources load-state.sh"
+  _pass "configure.sh: sources install-state.sh"
 else
-  _fail "configure.sh: does not source load-state.sh"
+  _fail "configure.sh: does not source install-state.sh"
 fi
 
-# extras.sh must source load-state.sh
-if grep -qE 'source.*load-state\.sh' \
+# extras.sh must source install-state.sh
+if grep -qE 'source.*install-state\.sh' \
     "${OS}/lib/chroot/extras.sh" 2>/dev/null; then
-  _pass "extras.sh: sources load-state.sh"
+  _pass "extras.sh: sources install-state.sh"
 else
-  _fail "extras.sh: does not source load-state.sh"
+  _fail "extras.sh: does not source install-state.sh"
 fi
 
 # =============================================================================

@@ -10,8 +10,14 @@ trap 'echo "[chroot:extras] failed at line $LINENO" >&2' ERR
 
 EXTRAS_DIR="${EXTRAS_DIR:-/root/extras}"
 
-# shellcheck source=./load-state.sh
-source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
+# shellcheck source=./install-state.sh
+STATE="${STATE:-/root/lib-chroot/install-state.json}"
+_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+_INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
+[[ -f "$_INSTALL_STATE_SH" ]] || _INSTALL_STATE_SH="$_LIB_DIR/../install-state.sh"
+# shellcheck disable=SC1090
+source "$_INSTALL_STATE_SH"
+install_state_load "$STATE"
 
 # Environment Runner: dispatch to desktop/<de>/<de>.sh for each selected DE.
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"

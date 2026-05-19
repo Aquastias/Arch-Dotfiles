@@ -265,8 +265,14 @@ impermanence_apply() {
 
 # When invoked as a script (not sourced), load state and apply.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  # shellcheck source=./load-state.sh
-  source "$(dirname "${BASH_SOURCE[0]}")/load-state.sh"
+  # shellcheck source=./install-state.sh
+  STATE="${STATE:-/root/lib-chroot/install-state.json}"
+  _LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+  _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
+  [[ -f "$_INSTALL_STATE_SH" ]] || _INSTALL_STATE_SH="$_LIB_DIR/../install-state.sh"
+  # shellcheck disable=SC1090
+  source "$_INSTALL_STATE_SH"
+  install_state_load "$STATE"
   set -Eeuo pipefail
   trap 'echo "[chroot:impermanence] failed at line $LINENO" >&2' ERR
   impermanence_apply
