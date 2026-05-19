@@ -119,3 +119,37 @@ install_config_packages_groups() {
 install_config_dotfiles_repo() {
   cfgo '.dotfiles_repo'
 }
+
+install_config_os_pool_name() {
+  local v; v="$(cfgo '.os_pool_name')"
+  printf '%s\n' "${v:-rpool}"
+}
+
+install_config_storage_pool_name() {
+  local v; v="$(cfgo '.storage_pool_name')"
+  printf '%s\n' "${v:-dpool}"
+}
+
+install_config_storage_mount() {
+  local v; v="$(cfgo '.storage_mount')"
+  printf '%s\n' "${v:-/data}"
+}
+
+install_config_ashift() {
+  local v; v="$(cfgo '.ashift')"
+  printf '%s\n' "${v:-12}"
+}
+
+install_config_os_pool_ashift() {
+  local v; v="$(cfgo '.os_pool.ashift')"
+  printf '%s\n' "${v:-13}"
+}
+
+install_config_storage_group_ashift() {
+  local v; v="$(cfgo ".storage_groups[$1].ashift")"
+  printf '%s\n' "${v:-12}"
+}
+
+install_config_encryption_enabled() {
+  _install_config_bool '.options.encryption' 'false'
+}

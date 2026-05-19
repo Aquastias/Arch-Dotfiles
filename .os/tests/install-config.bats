@@ -399,3 +399,122 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ── install_config_os_pool_name ──────────────────────────────────────────────
+
+@test "install_config_os_pool_name: returns field when present" {
+  write_cfg '{"os_pool_name":"tank"}'
+  run install_config_os_pool_name
+  [ "$status" -eq 0 ]
+  [ "$output" = "tank" ]
+}
+
+@test "install_config_os_pool_name: returns default 'rpool' when absent" {
+  write_cfg '{}'
+  run install_config_os_pool_name
+  [ "$status" -eq 0 ]
+  [ "$output" = "rpool" ]
+}
+
+# ── install_config_storage_pool_name ─────────────────────────────────────────
+
+@test "install_config_storage_pool_name: returns field when present" {
+  write_cfg '{"storage_pool_name":"tank"}'
+  run install_config_storage_pool_name
+  [ "$status" -eq 0 ]
+  [ "$output" = "tank" ]
+}
+
+@test "install_config_storage_pool_name: returns default 'dpool' when absent" {
+  write_cfg '{}'
+  run install_config_storage_pool_name
+  [ "$status" -eq 0 ]
+  [ "$output" = "dpool" ]
+}
+
+# ── install_config_storage_mount ─────────────────────────────────────────────
+
+@test "install_config_storage_mount: returns field when present" {
+  write_cfg '{"storage_mount":"/srv"}'
+  run install_config_storage_mount
+  [ "$status" -eq 0 ]
+  [ "$output" = "/srv" ]
+}
+
+@test "install_config_storage_mount: returns default '/data' when absent" {
+  write_cfg '{}'
+  run install_config_storage_mount
+  [ "$status" -eq 0 ]
+  [ "$output" = "/data" ]
+}
+
+# ── install_config_ashift ────────────────────────────────────────────────────
+
+@test "install_config_ashift: returns field when present" {
+  write_cfg '{"ashift":13}'
+  run install_config_ashift
+  [ "$status" -eq 0 ]
+  [ "$output" = "13" ]
+}
+
+@test "install_config_ashift: returns default '12' when absent" {
+  write_cfg '{}'
+  run install_config_ashift
+  [ "$status" -eq 0 ]
+  [ "$output" = "12" ]
+}
+
+# ── install_config_os_pool_ashift ────────────────────────────────────────────
+
+@test "install_config_os_pool_ashift: returns field when present" {
+  write_cfg '{"os_pool":{"ashift":12}}'
+  run install_config_os_pool_ashift
+  [ "$status" -eq 0 ]
+  [ "$output" = "12" ]
+}
+
+@test "install_config_os_pool_ashift: returns default '13' when absent" {
+  write_cfg '{"os_pool":{}}'
+  run install_config_os_pool_ashift
+  [ "$status" -eq 0 ]
+  [ "$output" = "13" ]
+}
+
+# ── install_config_storage_group_ashift ──────────────────────────────────────
+
+@test "install_config_storage_group_ashift: returns field for given index" {
+  write_cfg '{"storage_groups":[{"ashift":9},{"ashift":13}]}'
+  run install_config_storage_group_ashift 1
+  [ "$status" -eq 0 ]
+  [ "$output" = "13" ]
+}
+
+@test "install_config_storage_group_ashift: returns default '12' when absent" {
+  write_cfg '{"storage_groups":[{}]}'
+  run install_config_storage_group_ashift 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "12" ]
+}
+
+# ── install_config_encryption_enabled ────────────────────────────────────────
+
+@test "install_config_encryption_enabled: returns 'true' when set true" {
+  write_cfg '{"options":{"encryption":true}}'
+  run install_config_encryption_enabled
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "install_config_encryption_enabled: returns 'false' when set false" {
+  write_cfg '{"options":{"encryption":false}}'
+  run install_config_encryption_enabled
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+@test "install_config_encryption_enabled: returns default 'false' when absent" {
+  write_cfg '{"options":{}}'
+  run install_config_encryption_enabled
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}

@@ -88,9 +88,7 @@ collect_enc_passphrase() {
   # Prompts for the ZFS encryption passphrase with confirmation before any
   # pool creation. Reads from /dev/tty so it works regardless of stdin state.
   # Sets the global ZFS_PASSPHRASE used by _zpool_create via stdin pipe.
-  local enc
-  enc="$(cfgo '.options.encryption')"
-  enc="${enc:-false}"
+  local enc; enc="$(install_config_encryption_enabled)"
   [[ "$enc" == "true" ]] || return 0
 
   section "ZFS Encryption Passphrase"
@@ -129,9 +127,7 @@ build_enc_opts() {
   # The passphrase is NOT set here — it must be collected via
   # collect_enc_passphrase() before pool creation, then piped via stdin.
   ENC_OPTS=()
-  local enc
-  enc="$(cfgo '.options.encryption')"
-  enc="${enc:-false}"
+  local enc; enc="$(install_config_encryption_enabled)"
   if [[ "$enc" == "true" ]]; then
     # keylocation=prompt means zpool create reads the passphrase from stdin.
     # We pipe ZFS_PASSPHRASE to it in _zpool_create() below.
