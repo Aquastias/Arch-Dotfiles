@@ -18,11 +18,23 @@ setup() {
   mkdir -p "$EXTRAS_DIR"
   export EXTRAS_DIR STATE_FILE STUB_LOG
 
-  printf '{"extras":{"backup":false,"security":false}}' > "$STATE_FILE"
+  _state > "$STATE_FILE"
 }
 
 teardown() {
   rm -rf "$TEST_DIR"
+}
+
+# Full minimum install-state body. Override fields via $1 (jq filter).
+_state() {
+  local override="${1:-.}"
+  jq -c "$override" <<'JSON'
+{"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","keymap":"us",
+ "kernel":"lts","bootloader":"systemd-boot","rpool":"rpool","swap":true,
+ "esp_count":1,"extras":{"backup":false,"security":false},
+ "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
+ "persist":{"directories":[],"files":[]}}
+JSON
 }
 
 make_de_stub() {
@@ -67,7 +79,7 @@ make_de_stub() {
 }
 
 @test "backup script invoked when backup=true in state" {
-  printf '{"extras":{"backup":true,"security":false}}' > "$STATE_FILE"
+  _state '.extras.backup = true' > "$STATE_FILE"
   printf '#!/usr/bin/env bash\necho "backup" >> "$STUB_LOG"\n' \
     > "$EXTRAS_DIR/backup.sh"
   chmod +x "$EXTRAS_DIR/backup.sh"
@@ -78,7 +90,7 @@ make_de_stub() {
 }
 
 @test "security script invoked when security=true in state" {
-  printf '{"extras":{"backup":false,"security":true}}' > "$STATE_FILE"
+  _state '.extras.security = true' > "$STATE_FILE"
   printf '#!/usr/bin/env bash\necho "security" >> "$STUB_LOG"\n' \
     > "$EXTRAS_DIR/security.sh"
   chmod +x "$EXTRAS_DIR/security.sh"

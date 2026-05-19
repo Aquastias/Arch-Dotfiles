@@ -3,6 +3,10 @@
 
 set -Eeuo pipefail
 
+# shellcheck source=./install-state.sh
+[[ "$(type -t install_state_update)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/install-state.sh"
+
 _SECRETS_TMPFS=""
 
 # secrets_load <hostname>
@@ -95,22 +99,17 @@ _secrets_write_state() {
   local -a names=("$@")
 
   local state="${INSTALL_STATE:-/mnt/install-state.json}"
-  local secrets="{}"
+  local enc
 
+  install_state_update "$state" '.secrets' '{}'
   if [[ $has_host -eq 1 ]]; then
-    secrets="$(jq --arg p "${_SECRETS_TMPFS}/host-secrets.json" \
-      '.host = $p' <<< "$secrets")"
+    enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
+    install_state_update "$state" '.secrets.host' "$enc"
   fi
   for name in "${names[@]+"${names[@]}"}"; do
-    secrets="$(jq --arg n "$name" \
-      --arg p "${_SECRETS_TMPFS}/${name}-secrets.json" \
-      '.users[$n] = $p' <<< "$secrets")"
+    enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" '$v')"
+    install_state_update "$state" ".secrets.users[\"$name\"]" "$enc"
   done
-
-  local tmp
-  tmp="$(mktemp)"
-  jq --argjson s "$secrets" '.secrets = $s' "$state" > "$tmp"
-  mv "$tmp" "$state"
 }
 
 _secrets_find_key_device() {

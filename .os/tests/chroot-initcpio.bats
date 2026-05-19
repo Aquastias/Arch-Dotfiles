@@ -6,10 +6,12 @@
 setup() {
   TEST_DIR="$(mktemp -d)"
   export STATE="$TEST_DIR/install-state.json"
-  cat > "$STATE" <<JSON
+  cat > "$STATE" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","keymap":"us",
- "kernel":"lts","bootloader":"systemd-boot","rpool":"rpool","swap":"true",
- "esp_count":1,"extras":{"backup":false,"security":false}}
+ "kernel":"lts","bootloader":"systemd-boot","rpool":"rpool","swap":true,
+ "esp_count":1,"extras":{"backup":false,"security":false},
+ "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
+ "persist":{"directories":[],"files":[]}}
 JSON
   # Source initcpio.sh in lib-only mode so its side-effect block doesn't run.
   INITCPIO_LIB_ONLY=1 source \

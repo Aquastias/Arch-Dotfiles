@@ -3,7 +3,7 @@
 # lib/chroot.sh — System configuration inside arch-chroot
 # =============================================================================
 # Sourced by 03-install.sh.
-# Requires: lib/common.sh already sourced.
+# Requires: lib/common.sh and lib/install-state.sh already sourced.
 #
 # Provides:
 #   write_fstab           — writes /etc/fstab from LAYOUT_ESP_PARTS (1+ ESPs)
@@ -12,9 +12,8 @@
 #                      configuration
 #
 # configure_system stages lib/chroot/ as /root/lib-chroot/ in the new root,
-# writes install-state.json (non-secret params), passes ROOT_PW via env var,
-# then runs /root/lib-chroot/configure.sh (or individual sub-scripts directly
-# until that orchestrator is added in a later PR).
+# delegates install-state.json writing to install_state_write, passes ROOT_PW
+# via env var, then runs /root/lib-chroot/configure.sh.
 # =============================================================================
 
 # =============================================================================
@@ -174,13 +173,6 @@ collect_passwords() {
   printf '%s' "$result"
 }
 
-_chroot_persist_state_obj() {
-  printf '%s' "$1" | jq '{
-    directories: (.persist.directories // []),
-    files:       (.persist.files       // [])
-  }'
-}
-
 _chroot_resolve_host_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
@@ -235,43 +227,8 @@ configure_system() {
          "— post-install scripts won't run."
   fi
 
-  # ── Gather all values to pass into chroot ─────────────────────────────────
-  local hostname locale timezone keymap
-  local rpool swap esp_count
-  local do_backup do_security
-
-  # Hostname was already prompted (if needed) and validated
-  # in validate_install_context().
-  # Use the resolved value directly — no second prompt.
-  hostname="$RESOLVED_HOSTNAME"
-  locale="$(install_config_locale)"
-  timezone="$(install_config_timezone)"
-  keymap="$(install_config_keymap)"
-  swap="$(install_config_swap_enabled)"
-
-  do_backup="$(install_config_extras_backup)"
-  do_security="$(install_config_extras_security)"
-
-  rpool="$LAYOUT_OS_POOL_NAME"
-  esp_count="${#LAYOUT_ESP_PARTS[@]}"
-
-  local imp_enabled imp_dataset imp_mount
-  imp_enabled="$(install_config_impermanence_enabled)"
-  imp_dataset="$(install_config_impermanence_dataset)"
-  imp_mount="$(install_config_impermanence_mount)"
-
   write_fstab
-  write_esp_mirror_hook "$esp_count"
-
-  # ── Run configuration inside chroot ───────────────────────────────────────
-  # Values are passed as positional args ($1–$13) to avoid export issues.
-  # The heredoc is quoted ('CHROOT') so variable expansion happens INSIDE
-  # the chroot shell, not in the outer script.
-
-  # Kernel and bootloader selection from Install Config.
-  local kernel bootloader
-  kernel="$(install_config_kernel)"
-  bootloader="$(install_config_bootloader)"
+  write_esp_mirror_hook "${#LAYOUT_ESP_PARTS[@]}"
 
   # ── Collect passwords interactively HERE, before entering the chroot ─────
   # arch-chroot redirects stdin to the heredoc, so 'read' inside the chroot
@@ -283,44 +240,18 @@ configure_system() {
   local root_pw
   root_pw="$(printf '%s' "$passwords_json" | jq -r '.root')"
 
-  # ── Build persist sub-object from merged host config ─────────────────────
-  local persist_obj host_json
-  host_json="$(load_host_config "$hostname" 2>/dev/null || printf '{}')"
-  persist_obj="$(_chroot_persist_state_obj "$host_json")"
-
   # ── Stage Chroot Configuration Module ───────────────────────────────────
   rm -rf "${MOUNT_ROOT}/root/lib-chroot"
   cp -r "${SCRIPT_DIR}/lib/chroot" "${MOUNT_ROOT}/root/lib-chroot"
+  cp "${SCRIPT_DIR}/lib/install-state.sh" \
+     "${MOUNT_ROOT}/root/lib-chroot/install-state.sh"
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
-  # ── Write install-state.json (non-secret install params for chroot scripts)
-  jq -n \
-    --arg hostname    "$hostname"   \
-    --arg timezone    "$timezone"   \
-    --arg locale      "$locale"     \
-    --arg keymap      "$keymap"     \
-    --arg kernel      "$kernel"     \
-    --arg bootloader  "$bootloader" \
-    --arg rpool       "$rpool"      \
-    --arg swap        "$swap"       \
-    --argjson esp_count "$esp_count" \
-    --argjson extras_backup \
-      "$([[ "$do_backup"   == "true" ]] && printf 'true' || printf 'false')" \
-    --argjson extras_security \
-      "$([[ "$do_security" == "true" ]] && printf 'true' || printf 'false')" \
-    --argjson imp_enabled \
-      "$([[ "$imp_enabled" == "true" ]] && printf 'true' || printf 'false')" \
-    --arg imp_dataset "$imp_dataset" \
-    --arg imp_mount   "$imp_mount"   \
-    --argjson persist "$persist_obj" \
-    '{ hostname:$hostname, timezone:$timezone, locale:$locale, keymap:$keymap,
-       kernel:$kernel, bootloader:$bootloader, rpool:$rpool, swap:$swap,
-       esp_count:$esp_count,
-       extras:{ backup:$extras_backup, security:$extras_security },
-       impermanence:{ enabled:$imp_enabled, dataset:$imp_dataset,
-         mount:$imp_mount },
-       persist:$persist }' \
-    > "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
+  # ── Write install-state.json via the Install State module ────────────────
+  # shellcheck disable=SC2034  # consumed by install_state_write
+  INSTALL_STATE_HOST_JSON="$(load_host_config "$RESOLVED_HOSTNAME" \
+    2>/dev/null || printf '{}')"
+  install_state_write "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
   local _host_sec_path
