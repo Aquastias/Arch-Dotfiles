@@ -9,6 +9,8 @@ setup() {
   # shellcheck source=../lib/common.sh
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
   # shellcheck source=../lib/zfs-pools.sh
+  # shellcheck source=../lib/install-config.sh
+  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
   source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
 }
 

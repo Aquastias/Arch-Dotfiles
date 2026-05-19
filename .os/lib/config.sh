@@ -268,15 +268,10 @@ print_summary() {
     d="$(cfgo '.disk')"
     local sz
     sz="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-    local rp
-    rp="$(cfgo '.os_pool_name')"
-    rp="${rp:-rpool}"
-    local dp
-    dp="$(cfgo '.storage_pool_name')"
-    dp="${dp:-dpool}"
-    local mnt
-    mnt="$(cfgo '.storage_mount')"
-    mnt="${mnt:-/data}"
+    local rp dp mnt
+    rp="$(install_config_os_pool_name)"
+    dp="$(install_config_storage_pool_name)"
+    mnt="$(install_config_storage_mount)"
     echo -e "\n  ${BOLD}Mode: single-disk${NC}"
     printf "    %-16s %s\n" "Disk:" "$d  ($sz)"
     printf "    %-16s %s\n" "OS pool:" "$rp  (no RAID, single partition)"
@@ -352,23 +347,17 @@ print_summary() {
   print_environment_summary
 
   # Post-install
-  local kde
-  kde="$(cfgo '.desktop.kde')"
-  kde="${kde:-false}"
   local backup
   backup="$(install_config_extras_backup)"
   local security
   security="$(install_config_extras_security)"
   echo ""
   echo -e "  ${BOLD}Post-install scripts:${NC}"
-  printf "    %-12s %s\n" "kde:" "$kde"
   printf "    %-12s %s\n" "backup:" "$backup"
   printf "    %-12s %s\n" "security:" "$security"
 
   echo ""
-  local enc
-  enc="$(cfgo '.options.encryption')"
-  enc="${enc:-false}"
+  local enc; enc="$(install_config_encryption_enabled)"
   local swap
   swap="$(install_config_swap_enabled)"
   local _hn

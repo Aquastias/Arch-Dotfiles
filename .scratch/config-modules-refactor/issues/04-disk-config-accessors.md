@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Disk Config accessors + remove stale `.desktop.kde` reference
 

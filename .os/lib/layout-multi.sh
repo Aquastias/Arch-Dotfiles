@@ -332,9 +332,7 @@ create_multi_rpool() {
 
   local pool_name
   pool_name="$(cfg '.os_pool.pool_name')"
-  local ashift
-  ashift="$(cfgo '.os_pool.ashift')"
-  ashift="${ashift:-13}"
+  local ashift; ashift="$(install_config_os_pool_ashift)"
 
   local vdev_spec
   vdev_spec="$(build_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" \
@@ -396,9 +394,7 @@ create_multi_dpool() {
   fi
 
   # Use the first storage group's ashift (all storage disks ideally match)
-  local pashift
-  pashift="$(cfgo '.storage_groups[0].ashift')"
-  pashift="${pashift:-12}"
+  local pashift; pashift="$(install_config_storage_group_ashift 0)"
 
   # SC2068 (intentional): all_vdevs holds pre-tokenised vdev spec elements
   # that must each become a separate argument to zpool create. Names are

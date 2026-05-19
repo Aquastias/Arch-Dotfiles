@@ -227,18 +227,11 @@ create_single_pools() {
   section "Creating ZFS Pools (single-disk)"
   build_enc_opts
 
-  local rp
-  rp="$(cfgo '.os_pool_name')"
-  rp="${rp:-rpool}"
-  local dp
-  dp="$(cfgo '.storage_pool_name')"
-  dp="${dp:-dpool}"
-  local ashift
-  ashift="$(cfgo '.ashift')"
-  ashift="${ashift:-12}"
-  local mnt
-  mnt="$(cfgo '.storage_mount')"
-  mnt="${mnt:-/data}"
+  local rp dp ashift mnt
+  rp="$(install_config_os_pool_name)"
+  dp="$(install_config_storage_pool_name)"
+  ashift="$(install_config_ashift)"
+  mnt="$(install_config_storage_mount)"
 
   # rpool — single partition, no RAID
   _zpool_create "${rp}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
