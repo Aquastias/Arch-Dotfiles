@@ -7,16 +7,19 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
   jsonc_strip() { cat "$1"; }
+  jsonc_read() { jsonc_strip "$1" | jq -r "$2"; }
   cfgo()    { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   cfg()     { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()   { echo "ERROR: $*" >&2; exit 1; }
   info()    { :; }
   section() { :; }
   warn()    { :; }
-  export -f jsonc_strip cfgo cfg error info section warn
+  export -f jsonc_strip jsonc_read cfgo cfg error info section warn
 
   export RPOOL=rpool
 
+  # shellcheck source=../lib/install-config.sh
+  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
   # shellcheck source=../lib/validation.sh
   source "$BATS_TEST_DIRNAME/../lib/validation.sh"
 }

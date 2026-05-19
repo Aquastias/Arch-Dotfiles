@@ -28,7 +28,7 @@
 
 _validation_system_fields() {
   local hostname
-  hostname="$(cfgo '.system.hostname')"
+  hostname="$(install_config_hostname)"
   if [[ -z "$hostname" ]]; then
     while true; do
       read -rp \
@@ -163,10 +163,9 @@ _validation_preflight_programs() {
 
 _validation_impermanence() {
   local enabled dataset pool
-  enabled="$(cfgo '.options.impermanence.enabled')"
+  enabled="$(install_config_impermanence_enabled)"
   [[ "$enabled" == "true" ]] || return 0
-  dataset="$(cfgo '.options.impermanence.dataset')"
-  [[ -z "$dataset" ]] && dataset="rpool/persist"
+  dataset="$(install_config_impermanence_dataset)"
   [[ "$dataset" == */* ]] || \
     error "Invalid options.impermanence.dataset '${dataset}':" \
           "must be <pool>/<path>."
@@ -191,7 +190,7 @@ _validation_persist() {
     | jq -r '(.persist.files       // [])[]')
 
   local imp_enabled
-  imp_enabled="$(cfgo '.options.impermanence.enabled' 2>/dev/null)"
+  imp_enabled="$(install_config_impermanence_enabled)"
   if [[ "$imp_enabled" != "true" ]] \
      && (( ${#dirs[@]} + ${#files[@]} > 0 )); then
     warn "Host declares persist paths but impermanence is disabled."

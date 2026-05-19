@@ -8,9 +8,7 @@
 
 # Reads .options.esp_size from Install Config. Returns "512M" when unset.
 layout_resolve_esp_size() {
-  local sz
-  sz="$(cfgo '.options.esp_size')"
-  printf '%s' "${sz:-512M}"
+  install_config_esp_size
 }
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.

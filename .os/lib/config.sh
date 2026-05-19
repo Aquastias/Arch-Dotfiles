@@ -356,11 +356,9 @@ print_summary() {
   kde="$(cfgo '.desktop.kde')"
   kde="${kde:-false}"
   local backup
-  backup="$(cfgo '.post_install.backup')"
-  backup="${backup:-false}"
+  backup="$(install_config_extras_backup)"
   local security
-  security="$(cfgo '.post_install.security')"
-  security="${security:-false}"
+  security="$(install_config_extras_security)"
   echo ""
   echo -e "  ${BOLD}Post-install scripts:${NC}"
   printf "    %-12s %s\n" "kde:" "$kde"
@@ -372,17 +370,16 @@ print_summary() {
   enc="$(cfgo '.options.encryption')"
   enc="${enc:-false}"
   local swap
-  swap="$(cfgo '.options.swap')"
-  swap="${swap:-true}"
+  swap="$(install_config_swap_enabled)"
   local _hn
-  _hn="$(cfgo '.system.hostname')"
+  _hn="$(install_config_hostname)"
   _hn="${_hn:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$_hn"
   printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
   printf "  %-16s %s\n" "Encryption:" "$enc"
   printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)"
   local _dr
-  _dr="$(cfgo '.dotfiles_repo')"
+  _dr="$(install_config_dotfiles_repo)"
   [[ -n "$_dr" ]] && printf "  %-16s %s\n" "Dotfiles:" "$_dr"
   echo ""
   warn "ALL DATA ON THE LISTED DISKS WILL BE PERMANENTLY DESTROYED."

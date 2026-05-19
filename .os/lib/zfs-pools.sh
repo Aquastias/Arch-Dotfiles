@@ -243,8 +243,7 @@ _create_os_datasets() {
   section "Creating OS Datasets (${pool_name})"
 
   local swap_on
-  swap_on="$(cfgo '.options.swap')"
-  swap_on="${swap_on:-true}"
+  swap_on="$(install_config_swap_enabled)"
   local cfg_swap_sz
   cfg_swap_sz="$(cfgo '.options.swap_size')"
   local swap_arg

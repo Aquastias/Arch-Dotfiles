@@ -54,8 +54,7 @@ collect_packages() {
 
   # ── Kernel selection ──────────────────────────────────────────────────────
   local kernel
-  kernel="$(cfgo '.options.kernel')"
-  kernel="${kernel:-lts}"
+  kernel="$(install_config_kernel)"
   local kernel_pkg kernel_headers_pkg zfs_pkg
   if [[ "$kernel" == "lts" ]]; then
     kernel_pkg="linux-lts"
@@ -71,8 +70,7 @@ collect_packages() {
 
   # ── Bootloader selection ──────────────────────────────────────────────────
   local bootloader
-  bootloader="$(cfgo '.options.bootloader')"
-  bootloader="${bootloader:-systemd-boot}"
+  bootloader="$(install_config_bootloader)"
   local bootloader_pkgs=()
   if [[ "$bootloader" == "grub" ]]; then
     # grub-zfs-config-grub2 provides ZFS-aware GRUB setup via grub-mkconfig.
@@ -127,20 +125,12 @@ collect_packages() {
   # ── User-defined flat extra list ──────────────────────────────────────────
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(jsonc "$CONFIG_FILE" \
-    | jq -r '.packages.extra[]? // empty' 2>/dev/null)
+  done < <(install_config_packages_extra)
 
   # ── User-defined groups ───────────────────────────────────────────────────
-  # Filter out keys starting with "_" (they are inline comment fields, not
-  # real package group keys). Only process values that are arrays.
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(jsonc "$CONFIG_FILE" | jq -r '
-        .packages.groups // {}
-        | to_entries[]?
-        | select(.value | type == "array")
-        | .value[]?
-    ' 2>/dev/null)
+  done < <(install_config_packages_groups)
 
   # ── Host repo packages ─────────────────────────────────────────────────────
   # packages.repo[] from the merged host config (host core + host-specific).
