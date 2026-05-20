@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # `persist_apply` + `persist_stage_in_copy`, migrate runtime `cmd_add`
 

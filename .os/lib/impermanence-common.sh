@@ -67,3 +67,47 @@ imp_link_wants() {
   mkdir -p "$wants"
   ln -sf "../persist-$esc.mount" "$wants/persist-$esc.mount"
 }
+
+# ── Persist Mount verbs (orchestrators) ─────────────────────────────────────
+
+# Write the Persist Mount unit for $target. No reload, no start — pair with
+# persist_activate when the running system should pick the unit up
+# immediately (runtime). Install-time callers skip persist_activate because
+# the system is not running.
+persist_apply() {
+  local target="$1" kind="$2"
+  local units="$IMPERMANENCE_MOUNT/etc/systemd/system"
+  imp_write_mount_unit "$target" "$units"
+  local dir="$IMPERMANENCE_MOUNT/etc/tmpfiles.d"
+  local conf="$dir/impermanence-extensions.conf"
+  local mode entry
+  mkdir -p "$dir"
+  [[ "$kind" == d ]] && mode=0755 || mode=0644
+  entry="$(printf "%s %s %s root root - -" "$kind" "$target" "$mode")"
+  if [[ ! -f "$conf" ]] || ! grep -qxF "$entry" "$conf"; then
+    printf "%s\n" "$entry" >> "$conf"
+  fi
+}
+
+# Reload systemd and start the Persist Mount for $target. Pairs with
+# persist_apply; install-time callers skip this because the system is not
+# running yet.
+persist_activate() {
+  local target="$1" esc
+  esc="$(systemd-escape --path "$target")"
+  systemctl daemon-reload
+  systemctl start "persist-$esc.mount"
+}
+
+# ── Persist data-staging helpers ────────────────────────────────────────────
+
+# Copy live data at $target into the Persist Dataset (cp -a). Runtime-only:
+# the bind mount activates immediately and the original must remain visible
+# until the Persist Mount covers it.
+persist_stage_in_copy() {
+  local target="$1"
+  local src="${IMPERMANENCE_ROOT}$target"
+  local dst="$IMPERMANENCE_MOUNT$target"
+  mkdir -p "$(dirname "$dst")"
+  cp -a "$src" "$dst"
+}

@@ -97,21 +97,6 @@ host_config() {
   echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/config.jsonc"
 }
 
-write_mount_unit() {
-  local target="$1"
-  imp_write_mount_unit "$target" "$IMPERMANENCE_MOUNT/etc/systemd/system"
-}
-
-append_tmpfiles_entry() {
-  local target="$1" kind="$2"
-  local dir="$IMPERMANENCE_MOUNT/etc/tmpfiles.d"
-  local conf="$dir/impermanence-extensions.conf"
-  local mode
-  mkdir -p "$dir"
-  [[ "$kind" == d ]] && mode=0755 || mode=0644
-  printf "%s %s %s root root - -\n" "$kind" "$target" "$mode" >> "$conf"
-}
-
 remove_tmpfiles_entry() {
   local target="$1"
   local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
@@ -126,14 +111,6 @@ remove_tmpfiles_entry() {
   mv "$tmp" "$conf"
 }
 
-copy_live_data() {
-  local target="$1"
-  local src="${IMPERMANENCE_ROOT}$target"
-  local dst="$IMPERMANENCE_MOUNT$target"
-  mkdir -p "$(dirname "$dst")"
-  cp -a "$src" "$dst"
-}
-
 move_data_back() {
   local target="$1"
   local src="$IMPERMANENCE_MOUNT$target"
@@ -145,13 +122,6 @@ move_data_back() {
   mkdir -p "$(dirname "$dst")"
   rm -rf "$dst"
   mv "$src" "$dst"
-}
-
-reload_and_start() {
-  local target="$1" esc
-  esc="$(systemd-escape --path "$target")"
-  systemctl daemon-reload
-  systemctl start "persist-$esc.mount"
 }
 
 stop_and_reload() {
@@ -197,10 +167,9 @@ cmd_add() {
   kind="$(path_kind "$target")"
   declare_in_host_config "$target" "$kind"
   if ! (
-    copy_live_data "$target" &&
-    write_mount_unit "$target" &&
-    append_tmpfiles_entry "$target" "$kind" &&
-    reload_and_start "$target"
+    persist_stage_in_copy "$target" &&
+    persist_apply "$target" "$kind" &&
+    persist_activate "$target"
   ); then
     rm -rf "$IMPERMANENCE_MOUNT$target"
     rm -f "$unit"
