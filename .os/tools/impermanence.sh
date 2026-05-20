@@ -97,40 +97,6 @@ host_config() {
   echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/config.jsonc"
 }
 
-remove_tmpfiles_entry() {
-  local target="$1"
-  local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  [[ -f "$conf" ]] || return 0
-  local tmp; tmp="$(mktemp)"
-  awk -v t="$target" '
-    {
-      if ($0 ~ "^[df] " t " ") next
-      print
-    }
-  ' "$conf" > "$tmp"
-  mv "$tmp" "$conf"
-}
-
-move_data_back() {
-  local target="$1"
-  local src="$IMPERMANENCE_MOUNT$target"
-  local dst="${IMPERMANENCE_ROOT}$target"
-  if [[ ! -e "$src" ]]; then
-    echo "warning: no persisted data at $src; nothing to move back" >&2
-    return 0
-  fi
-  mkdir -p "$(dirname "$dst")"
-  rm -rf "$dst"
-  mv "$src" "$dst"
-}
-
-stop_and_reload() {
-  local target="$1" esc
-  esc="$(systemd-escape --path "$target")"
-  systemctl stop "persist-$esc.mount"
-  systemctl daemon-reload
-}
-
 declare_in_host_config() {
   local target="$1" kind="$2" cfg sel
   cfg="$(host_config)"
@@ -171,9 +137,8 @@ cmd_add() {
     persist_apply "$target" "$kind" &&
     persist_activate "$target"
   ); then
+    persist_unapply "$target"
     rm -rf "$IMPERMANENCE_MOUNT$target"
-    rm -f "$unit"
-    remove_tmpfiles_entry "$target"
     undeclare_in_host_config "$target"
     return 1
   fi
@@ -200,12 +165,10 @@ cmd_remove() {
     echo "impermanence: '$target' is not persisted; no-op"
     return 0
   fi
-  stop_and_reload "$target"
-  rm -f "$unit"
-  remove_tmpfiles_entry "$target"
+  persist_unapply "$target"
   undeclare_in_host_config "$target"
   if (( move_back )); then
-    move_data_back "$target"
+    persist_restore_data "$target"
   fi
 }
 
@@ -259,9 +222,7 @@ apply_defaults_add_one() {
     mkdir -p "$(dirname "$dst")"
     cp -a "$src" "$dst"
   fi
-  local esc; esc="$(systemd-escape --path "$target")"
-  rm -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
-  remove_tmpfiles_entry "$target"
+  persist_unapply "$target"
   imp_write_mount_unit "$target" \
     "${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
   imp_link_wants "$target" \

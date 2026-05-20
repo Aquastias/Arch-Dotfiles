@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # `persist_unapply` + `persist_restore_data`, migrate runtime `cmd_remove`
 
