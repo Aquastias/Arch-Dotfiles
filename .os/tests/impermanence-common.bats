@@ -155,3 +155,54 @@ teardown() { rm -rf "$TEST_DIR"; }
   run persist_restore_data /etc/never-persisted
   [ "$status" -eq 0 ]
 }
+
+# ── persist_stage_in_move ───────────────────────────────────────────────────
+
+@test "persist_stage_in_move file: moves live → persist; source removed" {
+  mkdir -p "$IMPERMANENCE_ROOT/etc"
+  printf "payload\n" > "$IMPERMANENCE_ROOT/etc/foo.conf"
+  persist_stage_in_move /etc/foo.conf
+  [ -f "$IMPERMANENCE_MOUNT/etc/foo.conf" ]
+  [ ! -e "$IMPERMANENCE_ROOT/etc/foo.conf" ]
+  grep -qxF "payload" "$IMPERMANENCE_MOUNT/etc/foo.conf"
+}
+
+@test "persist_stage_in_move dir: moves recursively; source removed" {
+  mkdir -p "$IMPERMANENCE_ROOT/etc/wireguard"
+  printf "marker\n" > "$IMPERMANENCE_ROOT/etc/wireguard/marker"
+  persist_stage_in_move /etc/wireguard
+  [ -f "$IMPERMANENCE_MOUNT/etc/wireguard/marker" ]
+  [ ! -e "$IMPERMANENCE_ROOT/etc/wireguard" ]
+}
+
+@test "persist_stage_in_move: missing source is a no-op (no error)" {
+  run persist_stage_in_move /etc/never-existed
+  [ "$status" -eq 0 ]
+}
+
+# ── persist_apply: install-time path overrides ──────────────────────────────
+
+@test "persist_apply: optional unit_dir overrides default location" {
+  local alt="$TEST_DIR/alt-units"
+  persist_apply /etc/foo.conf f "$alt"
+  [ -f "$alt/persist-etc-foo.conf.mount" ]
+  [ ! -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-etc-foo.conf.mount" ]
+}
+
+@test "persist_apply: optional tmpfiles_file overrides default location" {
+  local alt_units="$TEST_DIR/alt-units"
+  local alt_conf="$TEST_DIR/alt-tmpfiles/impermanence-curated.conf"
+  persist_apply /etc/foo.conf f "$alt_units" "$alt_conf"
+  [ -f "$alt_conf" ]
+  grep -qxF "f /etc/foo.conf 0644 root root - -" "$alt_conf"
+}
+
+@test "persist_stage_in_move: optional roots override IMPERMANENCE_ROOT/IMPERMANENCE_MOUNT" {
+  local live="$TEST_DIR/live"
+  local dest="$TEST_DIR/dest"
+  mkdir -p "$live/etc"
+  printf "x\n" > "$live/etc/foo.conf"
+  persist_stage_in_move /etc/foo.conf "$live" "$dest"
+  [ -f "$dest/etc/foo.conf" ]
+  [ ! -e "$live/etc/foo.conf" ]
+}

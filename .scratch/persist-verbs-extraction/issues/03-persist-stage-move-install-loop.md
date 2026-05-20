@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # `persist_stage_in_move`, migrate install-time loop
 

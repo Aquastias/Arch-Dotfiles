@@ -76,12 +76,11 @@ imp_link_wants() {
 # the system is not running.
 persist_apply() {
   local target="$1" kind="$2"
-  local units="$IMPERMANENCE_MOUNT/etc/systemd/system"
+  local units="${3:-$IMPERMANENCE_MOUNT/etc/systemd/system}"
+  local conf="${4:-$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf}"
   imp_write_mount_unit "$target" "$units"
-  local dir="$IMPERMANENCE_MOUNT/etc/tmpfiles.d"
-  local conf="$dir/impermanence-extensions.conf"
   local mode entry
-  mkdir -p "$dir"
+  mkdir -p "$(dirname "$conf")"
   [[ "$kind" == d ]] && mode=0755 || mode=0644
   entry="$(printf "%s %s %s root root - -" "$kind" "$target" "$mode")"
   if [[ ! -f "$conf" ]] || ! grep -qxF "$entry" "$conf"; then
@@ -151,5 +150,20 @@ persist_restore_data() {
   fi
   mkdir -p "$(dirname "$dst")"
   rm -rf "$dst"
+  mv "$src" "$dst"
+}
+
+# Move live data at $target to the Persist Dataset (mv). Install-time only:
+# the rolled-back dataset will lose any live copy on next boot anyway, so
+# the move is safe and avoids leaving a duplicate. Missing source is a
+# no-op (curated lists include paths not present on every host).
+persist_stage_in_move() {
+  local target="$1"
+  local live_root="${2:-${IMPERMANENCE_ROOT:-}}"
+  local persist_root="${3:-$IMPERMANENCE_MOUNT}"
+  local src="$live_root$target"
+  local dst="$persist_root$target"
+  [[ -e "$src" ]] || return 0
+  mkdir -p "$(dirname "$dst")"
   mv "$src" "$dst"
 }

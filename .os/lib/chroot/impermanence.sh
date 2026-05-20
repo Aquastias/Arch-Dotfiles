@@ -49,25 +49,59 @@ _impermanence_write_manifest() {
     | sort > "$dir/defaults.manifest"
 }
 
-_impermanence_write_curated_units() {
-  local p
-  for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
-    imp_write_mount_unit "$p"
-    imp_link_wants "$p"
+_impermanence_apply_curated() {
+  local units="${ROOT:-}/usr/lib/systemd/system"
+  local wants="$units/local-fs.target.wants"
+  local conf="${ROOT:-}/usr/lib/tmpfiles.d/impermanence-curated.conf"
+  mkdir -p "$(dirname "$conf")"
+  : > "$conf"
+  local target
+  for target in "${CURATED_DIRS[@]}"; do
+    persist_apply "$target" d "$units" "$conf"
+    imp_link_wants "$target" "$wants"
+    if [[ -e "${ROOT:-}$target" ]]; then
+      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+    else
+      info "impermanence: skip missing curated source $target"
+    fi
+  done
+  for target in "${CURATED_FILES[@]}"; do
+    persist_apply "$target" f "$units" "$conf"
+    imp_link_wants "$target" "$wants"
+    if [[ -e "${ROOT:-}$target" ]]; then
+      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+    else
+      info "impermanence: skip missing curated source $target"
+    fi
   done
 }
 
-_impermanence_write_curated_tmpfiles() {
-  local dir="${ROOT:-}/usr/lib/tmpfiles.d"
-  local f="$dir/impermanence-curated.conf"
-  local d file
-  mkdir -p "$dir"
-  : > "$f"
-  for d in "${CURATED_DIRS[@]}"; do
-    printf "d %s 0755 root root - -\n" "$d" >> "$f"
+_impermanence_apply_extensions() {
+  local units="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/systemd/system"
+  local wants="$units/local-fs.target.wants"
+  local conf="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/tmpfiles.d/impermanence-extensions.conf"
+  mkdir -p "$(dirname "$conf")"
+  : > "$conf"
+  local target
+  for target in "${PERSIST_DIRECTORIES[@]:-}"; do
+    [[ -z "$target" ]] && continue
+    persist_apply "$target" d "$units" "$conf"
+    imp_link_wants "$target" "$wants"
+    if [[ -e "${ROOT:-}$target" ]]; then
+      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+    else
+      info "impermanence: skip missing extension source $target"
+    fi
   done
-  for file in "${CURATED_FILES[@]}"; do
-    printf "f %s 0644 root root - -\n" "$file" >> "$f"
+  for target in "${PERSIST_FILES[@]:-}"; do
+    [[ -z "$target" ]] && continue
+    persist_apply "$target" f "$units" "$conf"
+    imp_link_wants "$target" "$wants"
+    if [[ -e "${ROOT:-}$target" ]]; then
+      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+    else
+      info "impermanence: skip missing extension source $target"
+    fi
   done
 }
 
@@ -81,35 +115,6 @@ _impermanence_write_bootstrap() {
     printf "d %s 0755 root root - -\n" "$p" >> "$f"
     imp_write_mount_unit "$p"
     imp_link_wants "$p"
-  done
-}
-
-_impermanence_move_curated() {
-  local p src dst
-  for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
-    src="${ROOT:-}$p"
-    dst="${ROOT:-}${IMPERMANENCE_MOUNT}$p"
-    if [[ ! -e "$src" ]]; then
-      info "impermanence: skip missing curated source $p"
-      continue
-    fi
-    mkdir -p "$(dirname "$dst")"
-    mv "$src" "$dst"
-  done
-}
-
-_impermanence_move_extensions() {
-  local p src dst
-  for p in "${PERSIST_DIRECTORIES[@]:-}" "${PERSIST_FILES[@]:-}"; do
-    [[ -z "$p" ]] && continue
-    src="${ROOT:-}$p"
-    dst="${ROOT:-}${IMPERMANENCE_MOUNT}$p"
-    if [[ ! -e "$src" ]]; then
-      info "impermanence: skip missing extension source $p"
-      continue
-    fi
-    mkdir -p "$(dirname "$dst")"
-    mv "$src" "$dst"
   done
 }
 
@@ -161,33 +166,6 @@ run_hook() {
   done
 }
 HOOK
-}
-
-_impermanence_write_extension_units() {
-  local base="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/systemd/system"
-  local wants="$base/local-fs.target.wants"
-  local target
-  for target in "${PERSIST_DIRECTORIES[@]:-}" "${PERSIST_FILES[@]:-}"; do
-    [[ -z "$target" ]] && continue
-    imp_write_mount_unit "$target" "$base"
-    imp_link_wants       "$target" "$wants"
-  done
-}
-
-_impermanence_write_extension_tmpfiles() {
-  local dir="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/tmpfiles.d"
-  local f="$dir/impermanence-extensions.conf"
-  local d file
-  mkdir -p "$dir"
-  : > "$f"
-  for d in "${PERSIST_DIRECTORIES[@]:-}"; do
-    [[ -z "$d" ]] && continue
-    printf "d %s 0755 root root - -\n" "$d" >> "$f"
-  done
-  for file in "${PERSIST_FILES[@]:-}"; do
-    [[ -z "$file" ]] && continue
-    printf "f %s 0644 root root - -\n" "$file" >> "$f"
-  done
 }
 
 _impermanence_write_resnapshot_helper() {
@@ -250,14 +228,10 @@ impermanence_apply() {
   _impermanence_create_persist_dataset
   _impermanence_create_rollback_datasets
   _impermanence_write_manifest
-  _impermanence_write_curated_units
-  _impermanence_write_curated_tmpfiles
+  _impermanence_apply_curated
   _impermanence_write_bootstrap
-  _impermanence_write_extension_units
-  _impermanence_write_extension_tmpfiles
+  _impermanence_apply_extensions
   _impermanence_write_rollback_hook
-  _impermanence_move_curated
-  _impermanence_move_extensions
   _impermanence_write_resnapshot_hook
   _impermanence_write_resnapshot_helper
   _impermanence_snapshot_blank
