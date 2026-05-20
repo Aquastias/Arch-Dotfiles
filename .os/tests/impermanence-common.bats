@@ -89,3 +89,69 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -f "$IMPERMANENCE_MOUNT/etc/wireguard/marker" ]
   [ -f "$IMPERMANENCE_ROOT/etc/wireguard/marker" ]
 }
+
+# ── persist_unapply ─────────────────────────────────────────────────────────
+
+@test "persist_unapply: stops the escaped unit and daemon-reloads" {
+  persist_apply /etc/foo.conf f
+  : > "$CALLS"
+  persist_unapply /etc/foo.conf
+  grep -qxF "systemctl stop persist-etc-foo.conf.mount" "$CALLS"
+  grep -qxF "systemctl daemon-reload" "$CALLS"
+}
+
+@test "persist_unapply: removes the mount unit file" {
+  persist_apply /etc/foo.conf f
+  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-etc-foo.conf.mount"
+  [ -f "$unit" ]
+  persist_unapply /etc/foo.conf
+  [ ! -f "$unit" ]
+}
+
+@test "persist_unapply: removes the tmpfiles entry; preserves other lines" {
+  conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  mkdir -p "$(dirname "$conf")"
+  printf "d /etc/other 0755 root root - -\n" > "$conf"
+  persist_apply /etc/foo.conf f
+  persist_unapply /etc/foo.conf
+  grep -qxF "d /etc/other 0755 root root - -" "$conf"
+  ! grep -qE "^[df] /etc/foo.conf " "$conf"
+}
+
+@test "persist_unapply: does NOT move or delete data at /persist<target>" {
+  mkdir -p "$IMPERMANENCE_MOUNT/etc"
+  printf "payload\n" > "$IMPERMANENCE_MOUNT/etc/foo.conf"
+  persist_apply /etc/foo.conf f
+  persist_unapply /etc/foo.conf
+  [ -f "$IMPERMANENCE_MOUNT/etc/foo.conf" ]
+}
+
+@test "persist_unapply: idempotent — no-op on a never-applied target" {
+  : > "$CALLS"
+  run persist_unapply /etc/never-applied
+  [ "$status" -eq 0 ]
+}
+
+# ── persist_restore_data ────────────────────────────────────────────────────
+
+@test "persist_restore_data: moves persist → live; source removed" {
+  mkdir -p "$IMPERMANENCE_MOUNT/etc" "$IMPERMANENCE_ROOT/etc"
+  printf "payload\n" > "$IMPERMANENCE_MOUNT/etc/foo.conf"
+  persist_restore_data /etc/foo.conf
+  [ -f "$IMPERMANENCE_ROOT/etc/foo.conf" ]
+  [ ! -e "$IMPERMANENCE_MOUNT/etc/foo.conf" ]
+  grep -qxF "payload" "$IMPERMANENCE_ROOT/etc/foo.conf"
+}
+
+@test "persist_restore_data: replaces existing live path" {
+  mkdir -p "$IMPERMANENCE_MOUNT/etc" "$IMPERMANENCE_ROOT/etc"
+  printf "stale\n"  > "$IMPERMANENCE_ROOT/etc/foo.conf"
+  printf "fresh\n"  > "$IMPERMANENCE_MOUNT/etc/foo.conf"
+  persist_restore_data /etc/foo.conf
+  grep -qxF "fresh" "$IMPERMANENCE_ROOT/etc/foo.conf"
+}
+
+@test "persist_restore_data: missing persist source is a no-op warning" {
+  run persist_restore_data /etc/never-persisted
+  [ "$status" -eq 0 ]
+}

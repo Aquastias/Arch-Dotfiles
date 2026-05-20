@@ -111,3 +111,45 @@ persist_stage_in_copy() {
   mkdir -p "$(dirname "$dst")"
   cp -a "$src" "$dst"
 }
+
+# Tear down the Persist Mount for $target: stop the unit, remove the unit
+# file, remove the tmpfiles entry, daemon-reload. No data movement; pair
+# with persist_restore_data when the runtime caller wants `--yes` semantics.
+# Idempotent: no-op when the unit file is absent.
+persist_unapply() {
+  local target="$1" esc unit conf tmp
+  esc="$(systemd-escape --path "$target")"
+  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  if [[ -f "$unit" ]]; then
+    systemctl stop "persist-$esc.mount"
+    rm -f "$unit"
+    systemctl daemon-reload
+  fi
+  conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  if [[ -f "$conf" ]]; then
+    tmp="$(mktemp)"
+    awk -v t="$target" '
+      {
+        if ($0 ~ "^[df] " t " ") next
+        print
+      }
+    ' "$conf" > "$tmp"
+    mv "$tmp" "$conf"
+  fi
+}
+
+# Move data at $IMPERMANENCE_MOUNT$target back to ${IMPERMANENCE_ROOT}$target.
+# Used by runtime `remove --yes`. Missing source is a warned no-op so the
+# operator can recover from partial state without an error.
+persist_restore_data() {
+  local target="$1"
+  local src="$IMPERMANENCE_MOUNT$target"
+  local dst="${IMPERMANENCE_ROOT}$target"
+  if [[ ! -e "$src" ]]; then
+    echo "warning: no persisted data at $src; nothing to move back" >&2
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  rm -rf "$dst"
+  mv "$src" "$dst"
+}
