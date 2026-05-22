@@ -96,7 +96,7 @@ Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early
 `sysctl` object in Host Core (or a host-specific config), containing key-value pairs written verbatim to `/etc/sysctl.d/99-os.conf` during the profiles phase. Applied to every host via Host Core. A host-specific config can add keys (they deep-merge per the core merge rules) but cannot remove keys declared in core.
 
 ### Tools
-`.os/tools/`. Utility scripts for managing a running system — not part of the install flow. Currently: `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`) and `install-pkglist.sh` (installs packages from those files). Both default to `$(hostname)` but accept a hostname argument.
+`.os/tools/`. Utility scripts for managing a running system — not part of the install flow. Currently: `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`), `install-pkglist.sh` (installs packages from those files), and `impermanence.sh` (see Impermanence Tool). The pkglist tools default to `$(hostname)` but accept a hostname argument.
 
 ### Impermanence
 Optional install-time feature that resets selected system directories to a clean state on every boot via ZFS dataset rollback. Enabled by `options.impermanence` in Install Config. When enabled, the installer creates a Persist Dataset, splits a set of Rollback Datasets out of the OS pool, takes a Blank Snapshot of each, and installs a Rollback Hook in initramfs. Inspired by NixOS impermanence; deliberately narrower in scope — Arch lacks a `/nix/store`-equivalent, so rolling back all of `/` would erase every pacman update, hence Impermanence targets `/etc`, `/root`, `/opt`, `/srv`, `/usr/local` only.

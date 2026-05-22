@@ -7,7 +7,7 @@ Complete configuration reference, concept explanations, and VM testing guide.
 ## Table of Contents
 
 1. [Concepts](#concepts)
-2. [install.json Reference](#installjson-reference)
+2. [install.jsonc Reference](#installjsonc-reference)
 3. [Disk Layout Modes](#disk-layout-modes)
 4. [Topology Options](#topology-options)
 5. [OS Partition Sizing (single-disk)](#os-partition-sizing-single-disk)
@@ -74,29 +74,62 @@ fails.
 
 ---
 
-## install.json Reference
+## install.jsonc Reference
+
+### Top-level fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `dotfiles_repo` | string | `""` | Cloned to `~/.dotfiles`, stowed |
+
+The disk-layout fields (`mode`, `disk`, `ashift`, `os_size`,
+`os_pool_name`, `storage_pool_name`, `storage_mount`, `os_pool`,
+`storage_groups`) also live at top level — see § Disk Layout Modes.
 
 ### `system`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `hostname` | string | `"archzfs"` | Machine hostname |
-| `username` | string | `"user"` | Primary non-root user |
+| `hostname` | string | `""` | Machine hostname. `""` = prompted |
 | `locale` | string | `"en_US.UTF-8"` | System locale |
 | `timezone` | string | `"UTC"` | Timezone path under `/usr/share/zoneinfo/` |
 | `keymap` | string | `"us"` | Console keymap (see `localectl list-keymaps`) |
+
+Users are not declared here — they live in
+`hosts/<hostname>/config.jsonc` (`users` array) with one
+`users/<username>/config.jsonc` each.
 
 ### `options`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
+| `kernel` | string | `"lts"` | `"lts"` (linux-lts) or `"default"` (linux) |
+| `bootloader` | string | `"systemd-boot"` | `"systemd-boot"` or `"grub"` |
 | `encryption` | bool | `false` | ZFS AES-256-GCM on all pools |
 | `swap` | bool | `true` | Create a swap zvol on rpool |
 | `swap_size` | string | `"auto"` | `"auto"` = RAM×2. Or `"8G"`, `"16G"` |
 | `esp_size` | string | `"512M"` | EFI partition size per OS disk |
-| `impermanence.enabled` | bool | `false` | Rollback to `@blank` on boot |
-| `impermanence.dataset` | string | `"rpool/persist"` | Persist dataset |
+| `age_key_url` | string | `""` | HTTPS URL for `.age` key (live-CD fallback) |
+| `impermanence.enabled` | bool | `false` | Rollback to `@blank` on every boot |
+| `impermanence.dataset` | string | `"rpool/persist"` | Persist dataset name |
 | `impermanence.mount` | string | `"/persist"` | Persist mountpoint |
+
+### `environment`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `desktop` | varies | `null` | `"kde"`, `"hyprland"`, both, or `null` |
+| `gpu` | varies | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
+
+Each selected desktop dispatches to
+`extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
+when any desktop is selected. Display manager is chosen per
+adapter: KDE-only or KDE+Hyprland → SDDM; Hyprland-only →
+greetd + greetd-tuigreet. GPU `"auto"` resolves all detected
+vendors and installs the right driver set (`vulkan-radeon`,
+`nvidia-open-dkms` + `envycontrol` for hybrids, `intel-media-
+driver` / `libva-intel-driver` by device generation, `mesa`
+only for VM GPUs).
 
 ### `mode`
 
@@ -149,21 +182,40 @@ Array of storage group objects. Each group becomes a vdev in `dpool`:
 
 | Field | Type | Description |
 |---|---|---|
-| `extra` | array | Flat list of packages, e.g. `["htop", "firefox"]` |
-| `groups.cli` | array | CLI tools, e.g. `["tmux", "zsh", "fzf"]` |
-| `groups.dev` | array | Dev tools, e.g. `["python", "nodejs", "docker"]` |
-| `groups.gui` | array | GUI applications, e.g. `["firefox", "vlc", "gimp"]` |
+| `extra`           | array | Flat list, e.g. `["htop", "firefox"]` |
+| `groups.system`    | array | System management and hardware tools |
+| `groups.network`  | array | Network utils (networkmanager included) |
+| `groups.security`  | array | Security hardening tools |
+| `groups.fs`       | array | Filesystem utils (btrfs-progs, xfsprogs, …) |
+| `groups.archive`   | array | Archive support (7zip, unrar, zip, ...) |
+| `groups.wayland`   | array | Wayland compositor and tools |
+| `groups.audio`    | array | Audio (auto-derived from `environment.desktop`) |
+| `groups.gpu`      | array | GPU drivers (auto from `environment.gpu`) |
+| `groups.fonts`     | array | Fonts and icon themes |
+| `groups.terminal`  | array | Terminal emulators and CLI tools |
+| `groups.dev`       | array | Development tools and runtimes |
+| `groups.media`     | array | Media players, browsers, communication |
+| `groups.gaming`    | array | Gaming (steam, lutris, wine) |
+| `groups.virt`      | array | Virtualisation (qemu, virt-manager) |
+| `groups.misc`      | array | Anything else |
 
-All lists are merged and deduplicated at install time.
-Use exact pacman package names.
+All lists are merged and deduplicated at install time. Use exact
+pacman package names. Host-specific package lists (incl. AUR)
+live under `hosts/<hostname>/config.jsonc` `packages.repo` /
+`packages.aur` — see CONTEXT.md.
 
 ### `post_install`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `kde` | bool | `false` | Run `extras/kde.sh` — KDE Plasma 6 + SDDM |
-| `backup` | bool | `false` | Run `extras/backup.sh` — ZFS snapshots + Borg |
-| `security` | bool | `false` | Run `extras/security.sh` — UFW + ClamAV |
+| `backup`   | bool | `false` | Run `extras/backup.sh` if present (operator) |
+| `security` | bool | `false` | Run `extras/security.sh` if present (operator) |
+
+> For production backups and hardening, declare the relevant
+> programs under `system_programs` in your host config —
+> `borg`, `zfs-auto-snapshot`, `ufw`/`firewalld`, `clamav`,
+> `apparmor`, `rkhunter`, `sops`. See § Post-Install
+> Components.
 
 ---
 
@@ -275,9 +327,10 @@ Packages are collected from three sources and deduplicated before pacstrap:
 "packages": {
   "extra":  ["htop", "neofetch", "rsync", "wget"],
   "groups": {
-    "cli":  ["tmux", "bat", "ripgrep", "fzf", "zsh"],
-    "dev":  ["python", "nodejs", "npm", "docker", "go"],
-    "gui":  ["firefox", "vlc", "gimp", "thunderbird"]
+    "system":   ["smartmontools", "lm_sensors"],
+    "terminal": ["tmux", "bat", "ripgrep", "fzf", "zsh"],
+    "dev":      ["python", "nodejs", "npm", "go"],
+    "media":    ["firefox", "vlc", "gimp"]
   }
 }
 ```
@@ -299,75 +352,102 @@ All packages must be valid pacman package names. Use
 | GUI browsers | `firefox` `chromium` |
 | Media | `vlc` `mpv` `ffmpeg` |
 
+For machine-specific lists (incl. AUR), prefer the host config
+`packages.repo` / `packages.aur` over `install.jsonc` — see
+CONTEXT.md § Host Package List.
+
 ---
 
 ## Post-Install Components
 
-### `extras/kde.sh` — KDE Plasma 6
+### Desktop environments — `environment.desktop`
 
-Installs:
+The Environment Runner (`lib/chroot/extras.sh`) dispatches to
+`extras/desktop/<de>/<de>.sh` for each entry in
+`environment.desktop`. Two adapters ship today.
+
+**KDE Plasma 6 — `extras/desktop/kde/kde.sh`**
 
 - `plasma-meta` — full KDE Plasma 6 desktop
 - `sddm` — display manager (graphical login screen)
-- `plasma-wayland-session` — Wayland support alongside X11
 - PipeWire audio stack (replaces PulseAudio)
 - BlueDevil Bluetooth integration
 - CUPS printing
 - Noto fonts (covers Latin, CJK, emoji)
 
-Enables: `sddm.service`, `bluetooth.service`, `cups.service`
+Enables: `sddm.service`, `bluetooth.service`, `cups.service`.
+Per-component toggles live in
+`extras/desktop/kde/install-kde.jsonc`.
 
-### `extras/backup.sh` — Backup
+**Hyprland — `extras/desktop/hyprland/hyprland.sh`**
 
-**Timeshift via zfs-auto-snapshot:**
+- `hyprland` — Wayland compositor
+- `greetd` + `greetd-tuigreet` — text-mode login
+- Default config under `/etc/greetd/config.toml`
+- PipeWire audio stack
 
-- Installs `zfs-auto-snapshot` (AUR)
-- Enables systemd timers: hourly (24 kept), daily (31), weekly (8), monthly (12)
-- Tags `rpool/ROOT/arch` and `rpool/home` with `com.sun:auto-snapshot=true`
-- Snapshots are browsable at `.zfs/snapshot/` under each dataset
+Enables: `greetd.service`. Per-component toggles in
+`extras/desktop/hyprland/install-hyprland.jsonc`.
 
-**Borg + Vorta:**
+Selecting both (`"desktop": ["kde","hyprland"]`) installs both
+adapters; the KDE adapter wins on display manager (SDDM).
 
-- `borgbackup` — deduplicated, encrypted, compressed backup engine
-- `vorta` — KDE/Qt GUI for managing Borg repositories
-- `python-borgmatic` — CLI wrapper for automated Borg jobs
-- Writes a starter `~/.config/borgmatic/config.yaml` for the first user
+### Backup — `programs/backup/`
 
-**After install, to set up Borg:**
+Declared as system programs in your host config:
+
+```jsonc
+// .os/hosts/<hostname>/config.jsonc
+"system_programs": ["zfs-auto-snapshot", "borg"]
+```
+
+**`zfs-auto-snapshot`** — hourly / daily / weekly / monthly ZFS
+snapshots via systemd timers (24 / 31 / 8 / 12 kept by default).
+Tags `rpool/ROOT/arch` and `rpool/home` with
+`com.sun:auto-snapshot=true`. Snapshots are browsable under
+`.zfs/snapshot/` on each tagged dataset.
+
+**`borg`** — deduplicated, encrypted, compressed backups via
+`borgbackup` + a starter `borgmatic` config. Pair with `vorta`
+(installed via your user config) for a Qt GUI.
+
+To set up a Borg repo after install:
 
 ```bash
-# Initialise a local repo
 borg init --encryption=repokey-blake2 /mnt/backup/borg
-
-# Run first backup
 borgmatic --verbosity 1
-
-# Or open the Vorta GUI
-vorta
 ```
 
-### `extras/security.sh` — Security
+The `post_install.backup` flag in `install.jsonc` is a gate for
+an operator-supplied `extras/backup.sh` (not shipped with this
+repo). Leave it `false` and use the programs above for the
+maintained path.
 
-**UFW Firewall:**
+### Security — `programs/security/`
 
-- Default policy: deny incoming, allow outgoing
-- Allows: SSH (rate-limited), mDNS (UDP 5353), DHCP client (UDP 68)
-- KDE Connect ports (1714–1764) added if KDE is detected
-- Backed by nftables (modern kernel firewall)
+Declared as system programs in your host config:
 
-**ClamAV:**
-
-- `clamd` daemon + `freshclam` definition updater
-- Daily automatic virus definition updates
-- Weekly scheduled full scan of `/home` and `/tmp` (Sundays 02:30)
-- Results logged to `/var/log/clamav/weekly-scan.log`
-- On-access scanning available but disabled by default (high I/O cost)
-
-To enable real-time scanning:
-
-```bash
-sudo systemctl enable --now clamav-daemon
+```jsonc
+"system_programs": [
+  "ufw", "firewalld", "clamav", "apparmor", "rkhunter", "sops"
+]
 ```
+
+- **`ufw`** — uncomplicated firewall (default deny incoming).
+- **`firewalld`** — alternative dynamic firewall (pick one).
+- **`clamav`** — antivirus daemon + freshclam definitions +
+  weekly scheduled scan of `/home` and `/tmp`.
+- **`apparmor`** — mandatory access control profiles.
+- **`rkhunter`** — rootkit scanner.
+- **`sops`** — SOPS Runtime Service: decrypts secrets to a
+  tmpfs at `/run/secrets/` on every boot using the Machine Age
+  Key. Required by any other program that reads
+  `/run/secrets/<name>`.
+
+The `post_install.security` flag in `install.jsonc` is a gate
+for an operator-supplied `extras/security.sh` (not shipped with
+this repo). Leave it `false` and use the programs above for the
+maintained path.
 
 ---
 
@@ -473,6 +553,11 @@ Testing the installer in virtual machines before running on real
 hardware is strongly recommended. The following instructions use
 **virt-manager** with **QEMU/KVM**.
 
+For automated CI-style runs, see the disposable test harness
+under `tests/vm/` (cloud-init driven). The instructions below
+cover manual virt-manager runs; the reusable VMs under `vm/`
+(see `vm/README.md`) automate the same setup for repeated use.
+
 ### Prerequisites
 
 Install virt-manager and enable the libvirt daemon on your host:
@@ -523,14 +608,14 @@ sudo usermod -aG libvirt $USER
 | SATA | `/dev/sda`, `/dev/sdb`, ... | Tests the SATA path in scripts |
 | NVMe | `/dev/nvme0n1`, `/dev/nvme1n1`, ... | Add via "NVMe" bus type |
 
-Update `install.json` with the correct device names for your VM.
+Update `install.jsonc` with the correct device names for your VM.
 
 ### Test scenario: single-disk (no RAID)
 
 1. Create one VM with one 40 GiB VirtIO disk (`/dev/vda`)
 2. Boot the Arch ISO
 3. Inside the VM, copy the scripts (e.g. via shared folder or download)
-4. Set `install.json`:
+4. Set `install.jsonc`:
 
    ```json
    "mode": "single",
@@ -544,7 +629,7 @@ Update `install.json` with the correct device names for your VM.
 ### Test scenario: multi-disk with mirror (RAID-1)
 
 1. Create a VM with **two 20 GiB** VirtIO disks (`/dev/vda`, `/dev/vdb`)
-2. Set `install.json`:
+2. Set `install.jsonc`:
 
    ```json
    "mode": "multi",
@@ -576,7 +661,7 @@ zpool status rpool        # should show DEGRADED, vdb2 OFFLINE
 ### Test scenario: multi-disk with storage groups
 
 1. Create a VM with **5 disks**: 2 × 10 GiB (OS) + 3 × 8 GiB (storage)
-2. Set `install.json`:
+2. Set `install.jsonc`:
 
    ```json
    "mode": "multi",
@@ -596,7 +681,7 @@ zpool status rpool        # should show DEGRADED, vdb2 OFFLINE
 ### Test scenario: topology=none (no OS RAID, leftovers to storage)
 
 1. Create a VM with **2 OS disks** + **1 storage disk**
-2. Set `install.json` with `"topology": "none"` in `os_pool`
+2. Set `install.jsonc` with `"topology": "none"` in `os_pool`
 3. During install, select `/dev/vda` as the OS disk
 4. Verify `/dev/vdb` is added to dpool as `extra`
 
