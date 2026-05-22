@@ -2,8 +2,9 @@
 
 A fully scripted, config-driven Arch Linux installer with ZFS as the
 root filesystem. Supports single-disk laptops, multi-disk RAID
-desktops, optional encryption, custom packages, KDE desktop,
-automated backups, and system hardening.
+desktops, optional encryption, declarative host/user profiles, KDE
+or Hyprland desktops, SOPS-encrypted secrets, and optional ZFS
+impermanence (rollback-to-blank on every boot).
 
 ---
 
@@ -24,33 +25,56 @@ automated backups, and system hardening.
 
 ```
 install.sh                  Entry point. Runs phases in order.
+│                           Forwards -y/--unattended and an
+│                           optional config path.
 │
 ├─ 01-bootstrap-zfs.sh      Add archzfs repo, install ZFS DKMS.
 ├─ 02-wipe.sh               Tear down LVM/RAID/ZFS, zero disks.
 └─ 03-install.sh            Thin orchestrator. Sources lib/.
     │
-    ├─ lib/config.sh        Load install.jsonc, validate.
-    │                       Detect mode (single | multi).
+    ├─ lib/config.sh        Load install.jsonc, validate, detect
+    │                       mode (single | multi).
+    ├─ lib/install-config.sh  Schema, defaults, template gen.
+    ├─ lib/environment.sh   Resolve environment.desktop / .gpu
+    │                       into package groups.
+    ├─ lib/secrets.sh       Locate operator age key (USB or
+    │                       options.age_key_url), decrypt
+    │                       host/user secrets to tmpfs.
     ├─ lib/layout-single.sh ESP + rpool + optional dpool.
     ├─ lib/layout-multi.sh  ESP per disk, rpool topology,
     │                       storage_groups (mirror/stripe/raidz).
     ├─ lib/packages.sh      Collect packages, pacstrap base.
-    ├─ lib/chroot.sh        Stage scripts, run arch-chroot.
+    ├─ lib/chroot.sh        Write fstab, ESP-mirror hook, stage
+    │                       scripts, run arch-chroot.
     │   └─ lib/chroot/      Runs inside chroot (see below).
-    ├─ lib/profiles.sh      Create users, bootstrap paru,
-    │                       install programs.
+    ├─ lib/configs.sh       Merge host/user core + specific
+    │                       configs; validate program refs.
+    ├─ lib/profiles.sh      Install system programs, create
+    │                       users, bootstrap paru, install user
+    │                       programs.
+    ├─ lib/validation.sh    Single seam for config-contract
+    │                       checks (impermanence, programs, …).
     └─ lib/finalize.sh      Unmount ESPs, zpool export.
 ```
 
 Scripts inside `lib/chroot/`:
 
-- `configure.sh` — sub-script orchestrator
-- `identity.sh` — locale, timezone, hostname, mkinitcpio.conf
-- `initcpio.sh` — ZFS hooks, `mkinitcpio -P`
+- `configure.sh`        — sub-script orchestrator
+- `identity.sh`         — locale, timezone, hostname,
+                          mkinitcpio.conf
+- `initcpio.sh`         — ZFS hooks, `mkinitcpio -P`
 - `bootloader-systemd-boot.sh` — selected by `options.bootloader`
-- `bootloader-grub.sh` — selected by `options.bootloader`
-- `password.sh` — root password
-- `extras.sh` — `post_install` flags → `extras/` scripts
+- `bootloader-grub.sh`  — selected by `options.bootloader`
+- `password.sh`         — root password (uses host secrets if
+                          present, else prompts)
+- `create-user.sh`      — per-user creation (shell, groups,
+                          sudo, password, SSH identity)
+- `impermanence.sh`     — rollback datasets, `@blank` snapshots,
+                          persist mounts, initramfs hook
+- `extras-common.sh`    — shared helpers for the extras stage
+- `extras.sh`           — Environment Runner: dispatches to
+                          `extras/desktop/<de>/<de>.sh` plus
+                          `post_install` toggles
 
 ### Multi-disk ESP mirroring
 
@@ -89,39 +113,47 @@ exit
 
 ```bash
 mount /dev/sdX1 /mnt/usb
-cp -r /mnt/usb/arch-zfs-installer/* /root/
+cp -r /mnt/usb/dotfiles /root/
+cd /root/dotfiles/.os
 ```
 
 **From a URL (if you have network):**
 
 ```bash
-curl -LO https://your-host/arch-zfs-installer.tar.gz
-tar -xzf arch-zfs-installer.tar.gz
-cd arch-zfs-installer
+curl -LO https://your-host/dotfiles.tar.gz
+tar -xzf dotfiles.tar.gz
+cd dotfiles/.os
 ```
 
 ### 2.4 Edit the configs
 
 ```bash
-vim install.jsonc                     # disk, ZFS, locale, host
-vim hosts/<hostname>/config.jsonc     # system programs (optional)
-vim users/<username>/config.jsonc     # shell, sudo, user progs
+vim install.jsonc                     # disk, ZFS, locale,
+                                      # environment, packages
+vim hosts/<hostname>/config.jsonc     # users + system programs
+vim users/<username>/config.jsonc     # shell, sudo, programs
 ```
 
-See the examples inside the files and `REFERENCE.md` for all
-options.
+`install.jsonc` covers live-CD concerns (disks, ZFS, locale,
+bootloader, encryption, impermanence, packages, environment).
+Host configs declare which users exist and which system programs
+are installed; user configs declare per-user shell, sudo, groups,
+and user-level programs. See `REFERENCE.md` for the full schema.
 
 ### 2.5 Install
 
 ```bash
 chmod +x install.sh
-./install.sh
+./install.sh                          # interactive
+./install.sh -y                       # unattended
+./install.sh /path/to/cfg.jsonc       # alternate config
 ```
 
 `install.sh` runs the three numbered scripts in order —
 bootstrap, wipe, then install — confirming destructive steps as
-it goes. Each numbered script is also individually runnable for
-debugging.
+it goes. `-y` / `--unattended` bypasses every confirmation
+prompt (the hostname must already be set in the config). Each
+numbered script remains individually runnable for debugging.
 
 ### 2.6 Reboot
 
@@ -143,7 +175,7 @@ deployed.
 ### 3.1 Prerequisites (operator machine)
 
 ```bash
-pacman -S age sops        # or: brew install age sops
+pacman -S age sops
 ```
 
 ### 3.2 Generate your age key
@@ -172,6 +204,10 @@ mount /dev/sdX1 /mnt/usb
 mkdir -p /mnt/usb/age
 cp age-key.age /mnt/usb/age/key.age
 ```
+
+As a live-CD fallback (no USB available) you can also set
+`options.age_key_url` in `install.jsonc` to an HTTPS URL serving
+the same passphrase-encrypted `.age` file.
 
 ### 3.4 Configure `.sops.yaml`
 
@@ -221,8 +257,9 @@ sops .os/hosts/<hostname>/secrets.json
 ### 3.6 Install
 
 Plug in the USB carrying `age-key.age` **before** running
-`./install.sh`. The Secrets Module finds the key, prompts for
-its passphrase, decrypts secrets, and proceeds.
+`./install.sh` (or set `options.age_key_url`). The Secrets
+Module finds the key, prompts for its passphrase, decrypts
+secrets to tmpfs, and proceeds.
 
 At the end of the install, the machine's age public key is
 printed:
@@ -254,8 +291,9 @@ git add .sops.yaml \
 git commit -m "secrets: add machine age key for <hostname>"
 ```
 
-After this commit, the runtime SOPS service on the machine can
-decrypt secrets on every boot without the USB.
+After this commit, the runtime SOPS service on the machine
+(installed by `programs/security/sops`) can decrypt secrets on
+every boot without the USB.
 
 ---
 
@@ -267,13 +305,21 @@ decrypt secrets on every boot without the USB.
 ├── 01-bootstrap-zfs.sh     # ZFS DKMS on the live ISO
 ├── 02-wipe.sh              # Wipe disks (dd + wipefs + sgdisk)
 ├── 03-install.sh           # Partition, pacstrap, configure
-├── install.jsonc           # Primary config (disk, ZFS, locale)
+├── install.jsonc           # Primary config
 │
 ├── lib/                    # Installer modules
 │   ├── common.sh           # Colors, output, JSON helpers
-│   ├── config.sh           # Config loading and validation
+│   ├── globals.sh          # Shared runtime globals
+│   ├── config.sh           # Top-level config load + summary
+│   ├── install-config.sh   # Schema, defaults, template gen
+│   ├── install-state.sh    # install-state.json read/write
+│   ├── jsonc.sh            # JSONC parser
 │   ├── configs.sh          # Host/user config merging
+│   ├── validation.sh       # Config-contract checks
+│   ├── environment.sh      # Desktop + GPU resolution
+│   ├── secrets.sh          # Age key + SOPS decryption
 │   ├── zfs-pools.sh        # Pool/dataset primitives
+│   ├── layout-common.sh    # Shared layout helpers
 │   ├── layout-single.sh    # Single-disk layout
 │   ├── layout-multi.sh     # Multi-disk layout
 │   ├── packages.sh         # Package collection + pacstrap
@@ -285,46 +331,57 @@ decrypt secrets on every boot without the USB.
 │   │   ├── bootloader-systemd-boot.sh
 │   │   ├── bootloader-grub.sh
 │   │   ├── password.sh
-│   │   ├── extras.sh
-│   │   └── impermanence.sh   # Rollback datasets + persist mounts
+│   │   ├── create-user.sh
+│   │   ├── impermanence.sh
+│   │   ├── extras-common.sh
+│   │   └── extras.sh
 │   ├── profiles.sh         # Users + program installation
+│   ├── run-program.sh      # Program-install wrapper
 │   ├── finalize.sh         # Unmount + pool export
 │   ├── iso-resolver.sh     # Arch ISO version selection
 │   ├── seed-generator.sh   # Cloud-init seed for VM tests
 │   ├── sentinel-watcher.sh # Log sentinel for VM tests
-│   ├── shell-stdlib.sh     # Shared install.sh helpers
-│   ├── run-program.sh      # Program installation wrapper
-│   └── impermanence-common.sh # Shared by chroot module + runtime tool
+│   ├── shell-stdlib.sh     # Shared helpers for program scripts
+│   ├── shell/              # Stdlib submodules
+│   └── impermanence-common.sh  # Shared by chroot module +
+│                               # runtime tool
 │
 ├── hosts/                  # Per-hostname config
 │   ├── core/               # Shared base for all hosts
-│   └── <hostname>/         # Host-specific overrides
+│   ├── desktop/
+│   ├── laptop/
+│   └── vm/
 │
 ├── users/                  # Per-user config
 │   ├── core/               # Shared base for all users
 │   └── <username>/         # User-specific overrides
 │
 ├── programs/               # Self-contained installers
-│   ├── bootloader/grub/
-│   ├── communication/      # TeamSpeak3
-│   ├── privacy/            # SearXNG
-│   ├── security/           # Firewalld, AppArmor, ClamAV, ...
-│   └── virtualization/     # Docker, virt-manager
+│   ├── PROGRAM_SPEC.md
+│   ├── backup/             # borg, zfs-auto-snapshot
+│   ├── bootloader/         # grub
+│   ├── communication/      # teamspeak3
+│   ├── privacy/            # searxng
+│   ├── security/           # apparmor, clamav, firewalld,
+│   │                       # rkhunter, sops, ufw
+│   └── virtualization/     # docker, podman, virt-manager
 │
-├── extras/                 # Optional post-install scripts
-│   ├── desktop/kde/kde.sh  # KDE Plasma 6 + SDDM
-│   ├── backup.sh           # ZFS snapshots + Borg backups
-│   └── security.sh         # UFW + ClamAV weekly scans
+├── extras/                 # In-chroot extras (DE adapters)
+│   └── desktop/
+│       ├── kde/kde.sh      # KDE Plasma 6 + SDDM
+│       └── hyprland/hyprland.sh  # Hyprland + greetd
 │
-├── tools/                  # Operator utilities
+├── tools/                  # Operator utilities (runtime)
 │   ├── save-pkglist.sh     # Snapshot current packages
 │   ├── install-pkglist.sh  # Restore packages from txt
-│   └── impermanence.sh     # Runtime add/remove/status/apply-defaults
+│   └── impermanence.sh     # add/remove/status/apply-defaults
 │
 ├── tests/                  # BATS + VM integration tests
-│   ├── run.sh              # Test runner
+│   ├── run.sh              # BATS runner
 │   ├── shellcheck.sh       # Code quality checks
-│   ├── *.bats              # Unit test files
+│   ├── audit.sh
+│   ├── *.bats              # Unit + chroot test files
+│   ├── bats/               # Bundled BATS sources
 │   └── vm/                 # Disposable VM tests
 │
 ├── vm/                     # Persistent reusable VMs
@@ -390,26 +447,63 @@ is automatically added to `dpool`.
 
 ## 6. Optional Components
 
-Enable in `install.jsonc` under `post_install`:
+### Desktop environment
 
-| Key                | Script                      | What it does          |
-| ------------------ | --------------------------- | --------------------- |
-| `"kde": true`      | `extras/desktop/kde/kde.sh` | KDE Plasma 6, SDDM,   |
-|                    |                             | PipeWire, Bluetooth,  |
-|                    |                             | printing              |
-| `"backup": true`   | `extras/backup.sh`          | ZFS auto-snapshots +  |
-|                    |                             | Borg/Vorta encrypted  |
-|                    |                             | backups               |
-| `"security": true` | `extras/security.sh`        | UFW (deny-all-in) +   |
-|                    |                             | ClamAV weekly scans   |
+Set under `environment` in `install.jsonc`:
 
-Enable in `install.jsonc` under `options`:
+```json
+"environment": {
+  "desktop": "kde",          // or "hyprland",
+                             // or ["kde","hyprland"], or null
+  "gpu":     "auto"          // or "amd"/"nvidia"/"intel"/array
+}
+```
 
-| Key                    | Module               | What it does            |
-| ---------------------- | -------------------- | ----------------------- |
-| `impermanence.enabled` | `lib/chroot/`        | ZFS rollback to `@blank`|
-|                        | `impermanence.sh`    | on every boot. See      |
-|                        |                      | `REFERENCE.md`.         |
+Each desktop dispatches dynamically to `extras/desktop/<de>/
+<de>.sh`. Audio (PipeWire) is auto-derived when any desktop is
+selected; GPU drivers are auto-detected with `"auto"`. Display
+manager is chosen per the adapter (SDDM for KDE / KDE+Hyprland;
+greetd for Hyprland-only).
+
+### Impermanence
+
+Set under `options` in `install.jsonc`:
+
+```json
+"options": {
+  "impermanence": {
+    "enabled": true,
+    "dataset": "rpool/persist",
+    "mount":   "/persist"
+  }
+}
+```
+
+When enabled, the installer creates rollback datasets for
+`/etc`, `/root`, `/opt`, `/srv`, `/usr/local`, snapshots each as
+`@blank`, and installs an initramfs hook that reverts them on
+every boot. Curated defaults (machine-id, fstab, NM connections,
+etc.) are bind-mounted from the Persist Dataset. See
+`REFERENCE.md` § Impermanence for the full list.
+
+### Backup / security programs
+
+Backups and security hardening are now declared as system
+programs in your host config, not as `extras/` scripts:
+
+```jsonc
+// .os/hosts/<hostname>/config.jsonc
+"system_programs": [
+  "zfs-auto-snapshot", "borg",   // backups
+  "ufw", "clamav", "apparmor",   // security
+  "firewalld", "rkhunter", "sops"
+]
+```
+
+The `post_install.backup` and `post_install.security` toggles in
+`install.jsonc` remain as gates for any operator-supplied
+`extras/backup.sh` / `extras/security.sh`; if those files are
+absent (the default), the toggles are no-ops.
 
 ---
 
@@ -427,14 +521,23 @@ exits with the installer's exit code.
 `jq`, `libvirtd` running, user in `libvirt` group.
 
 ```bash
-# Single-disk smoke test
+# Single-disk smoke
 bash tests/vm/testing-single-disk.sh
+bash tests/vm/testing-single-disk-impermanent.sh
+bash tests/vm/testing-single-disk-impermanent-kde-encrypted.sh
+bash tests/vm/testing-single-disk-impermanent-kde-sops.sh
 
-# Multi-disk mirror
+# Multi-disk topologies
 bash tests/vm/testing-multi-os-mirror.sh
-
-# Multi-disk mirror OS + raidz1 storage
 bash tests/vm/testing-multi-os-mirror-storage.sh
+bash tests/vm/testing-multi-os-mirror-impermanent.sh
+bash tests/vm/testing-multi-os-none.sh
+bash tests/vm/testing-multi-os-stripe.sh
+
+# Desktop environments
+bash tests/vm/testing-env-kde.sh
+bash tests/vm/testing-env-hyprland.sh
+bash tests/vm/testing-env-kde-hyprland.sh
 ```
 
 Each script writes a timestamped log to
