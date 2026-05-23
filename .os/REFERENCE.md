@@ -8,14 +8,15 @@ Complete configuration reference, concept explanations, and VM testing guide.
 
 1. [Concepts](#concepts)
 2. [install.jsonc Reference](#installjsonc-reference)
-3. [Disk Layout Modes](#disk-layout-modes)
-4. [Topology Options](#topology-options)
-5. [OS Partition Sizing (single-disk)](#os-partition-sizing-single-disk)
-6. [Custom Packages](#custom-packages)
-7. [Post-Install Components](#post-install-components)
-8. [Impermanence](#impermanence)
-9. [Testing in Virtual Machines (virt-manager)](#testing-in-virtual-machines)
-10. [Troubleshooting](#troubleshooting)
+3. [install.template.jsonc Reference](#installtemplatejsonc-reference)
+4. [Disk Layout Modes](#disk-layout-modes)
+5. [Topology Options](#topology-options)
+6. [OS Partition Sizing (single-disk)](#os-partition-sizing-single-disk)
+7. [Custom Packages](#custom-packages)
+8. [Post-Install Components](#post-install-components)
+9. [Impermanence](#impermanence)
+10. [Testing in Virtual Machines (virt-manager)](#testing-in-virtual-machines)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -216,6 +217,55 @@ live under `hosts/<hostname>/config.jsonc` `packages.repo` /
 > `borg`, `zfs-auto-snapshot`, `ufw`/`firewalld`, `clamav`,
 > `apparmor`, `rkhunter`, `sops`. See § Post-Install
 > Components.
+
+---
+
+## install.template.jsonc Reference
+
+Read by the **Pre-Install Picker** (`tools/pick.sh`) — see
+README § 3. Defines every per-host field the picker copies into
+the generated `install.jsonc`. Authored once per host and
+committed alongside `hosts/<hostname>/config.jsonc`.
+
+### Schema
+
+A template is the **same shape as `install.jsonc`** except:
+
+- `hostname` is **never** in the template — derived from the
+  hosts/ directory basename when the picker writes
+  `install.jsonc`.
+- `disks` (single-mode) and `os_pool.disks` / `storage_groups[].disks`
+  (multi-mode) are **never** in the template — supplied by the
+  operator's interactive disk pick.
+
+Every other field documented in § `install.jsonc Reference`
+applies unchanged: `mode`, `ashift`, `os_size`, `kernel`,
+`locale`, `timezone`, `keymap`, `environment.desktop`,
+`environment.gpu`, `options.bootloader`, `options.encryption`,
+`options.impermanence.*`, `options.age_key_url`, ZFS pool/dataset
+names, `packages.*`, `post_install.*`.
+
+### Merge with `hosts/core/install.template.jsonc`
+
+The template is merged with `hosts/core/install.template.jsonc`
+using the same rules as Host Config / Host Core:
+
+- arrays — concat + dedupe
+- objects — deep merge
+- scalars — host template wins over core
+
+Put cross-host defaults (e.g. `locale`, `timezone`, `keymap`,
+`kernel`) in core; put machine-specific fields (e.g. disk
+topology mode, DE choice, impermanence on/off) in the host
+template.
+
+### Validation
+
+The picker validates the operator-driven layout
+(`picker_validate_layout`) — mode vs disk count — before assembly.
+**No further config-shape check** runs at picker time: a malformed
+template can still fail at `install.sh` time. Run a VM test
+(README § 8) to catch this early.
 
 ---
 
