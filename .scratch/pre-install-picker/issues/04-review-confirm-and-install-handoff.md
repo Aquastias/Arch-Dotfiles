@@ -80,3 +80,26 @@ replaced. `install.sh` remains unmodified.
 ## Blocked by
 
 - `.scratch/pre-install-picker/issues/02-fzf-with-preview.md`
+
+## Comments
+
+### 2026-05-23 — Post-implementation: validation scope reduced
+
+The acceptance criterion "existing `lib/install-config.sh` validation
+passes" and the matching PRD/CONTEXT.md claim were dropped on
+implementation. `lib/install-config.sh` is a sourced library of typed
+accessors, not an executable validator; the real validator
+(`validate_install_context` in `lib/validation.sh`) requires the full
+install-time scaffolding (`CONFIG_FILE`, `INSTALL_MODE`, `OS_DIR`,
+configs registry, environment/GPU/persist checks) and would
+legitimately fail at picker time on a live CD that doesn't match the
+target host.
+
+Picker-time validation is now layout-only via `picker_validate_layout`
+(mode-vs-disk-count). Operator-driven input failures are still caught;
+malformed Install Templates are not — they will surface at install
+time. CONTEXT.md and pick.sh header updated to reflect this.
+
+A narrower `validate_install_config_shape` helper (field
+presence/types only, no environment dependencies) could be added in a
+future slice if template-shape errors become a real source of pain.
