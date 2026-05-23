@@ -12,12 +12,13 @@ impermanence (rollback-to-blank on every boot).
 
 1. [Architecture](#1-architecture)
 2. [Quick Start](#2-quick-start)
-3. [Secrets Management (SOPS)](#3-secrets-management-sops)
-4. [File Layout](#4-file-layout)
-5. [Common Configurations](#5-common-configurations)
-6. [Optional Components](#6-optional-components)
-7. [VM Testing](#7-vm-testing)
-8. [After Installation](#8-after-installation)
+3. [Pre-Install Picker](#3-pre-install-picker)
+4. [Secrets Management (SOPS)](#4-secrets-management-sops)
+5. [File Layout](#5-file-layout)
+6. [Common Configurations](#6-common-configurations)
+7. [Optional Components](#7-optional-components)
+8. [VM Testing](#8-vm-testing)
+9. [After Installation](#9-after-installation)
 
 ---
 
@@ -125,7 +126,19 @@ tar -xzf dotfiles.tar.gz
 cd dotfiles/.os
 ```
 
-### 2.4 Edit the configs
+### 2.4 Build `install.jsonc`
+
+The recommended path is the **Pre-Install Picker** — an fzf-driven
+config builder that fills in `install.jsonc` from the chosen host's
+committed `install.template.jsonc` plus an interactive disk pick.
+See [§3](#3-pre-install-picker).
+
+```bash
+./tools/pick.sh
+```
+
+Fallback (host has no `install.template.jsonc`, or you want to
+hand-author): edit the configs directly.
 
 ```bash
 vim install.jsonc                     # disk, ZFS, locale,
@@ -155,6 +168,10 @@ it goes. `-y` / `--unattended` bypasses every confirmation
 prompt (the hostname must already be set in the config). Each
 numbered script remains individually runnable for debugging.
 
+> If you ran `./tools/pick.sh` and chose `[i]nstall` at the
+> review screen, this step is already running — the picker
+> exec's `install.sh` in the same shell.
+
 ### 2.6 Reboot
 
 ```bash
@@ -165,20 +182,124 @@ Remove the installation media when prompted.
 
 ---
 
-## 3. Secrets Management (SOPS)
+## 3. Pre-Install Picker
+
+`tools/pick.sh` is the live-CD config builder. It generates
+`.os/install.jsonc` from a host's committed Install Template
+(`hosts/<hostname>/install.template.jsonc`) plus an interactive
+disk pick. `install.sh` itself stays a pure config-applier — the
+picker is a parallel tool, not part of the install flow. See
+[ADR-0010](../docs/adr/0010-pre-install-picker-as-separate-tool.md)
+for the rationale.
+
+### 3.1 Run it
+
+Prerequisites: live CD with network (the picker self-installs
+`fzf` and `jq` via `pacman -Sy`), and at least one host with an
+`install.template.jsonc` checked into the repo.
+
+```bash
+./tools/pick.sh
+```
+
+You'll be prompted for three things, in order:
+
+1. **Host** — fzf list of hosts that ship an
+   `install.template.jsonc`. The basename becomes `hostname` in
+   the generated config; there is no override. Hosts without a
+   template are silently omitted.
+2. **Install mode** — `single`, `mirror`, or `raidz`.
+3. **Target disk(s)** — fzf multi-select over
+   `/dev/disk/by-id/*` with an `lsblk`/`smartctl` preview pane.
+   The live medium is filtered out automatically. The number of
+   disks is checked against the chosen mode.
+
+The picker then shows a **review screen** with the diff against
+any existing `install.jsonc` and a four-way action prompt:
+
+| Key | Action                                                 |
+|-----|--------------------------------------------------------|
+| `i` | Write `install.jsonc`, then `exec install.sh` in place |
+| `w` | Write `install.jsonc` and exit 0 (review and commit)   |
+| `e` | Re-pick mode → disks (host kept; abort+rerun to swap)  |
+| `a` | Abort, write nothing, exit non-zero                    |
+
+> **What the picker won't re-ask.** `bootloader`, `locale`,
+> `timezone`, `keymap`, `kernel`, `environment.desktop`,
+> `environment.gpu`, `options.encryption`,
+> `options.impermanence.*`, ZFS pool/dataset names, and `ashift`
+> all come from the host's Install Template and are copied
+> through unchanged. They are properties of the machine, not of
+> the install — changing them means editing the template, not
+> re-running the picker.
+
+### 3.2 Authoring a host template
+
+To make a host pickable, drop an `install.template.jsonc` next
+to its config:
+
+```
+hosts/<hostname>/
+├── config.jsonc            # users + system programs
+└── install.template.jsonc  # everything else (picker reads this)
+```
+
+The template is merged with `hosts/core/install.template.jsonc`
+using the same rules as Host Config / Host Core (arrays
+concat+dedupe, objects deep-merge, scalars from the host config
+win).
+
+Example — single-disk laptop, KDE, impermanence, USB-delivered
+age key:
+
+```jsonc
+// hosts/laptop/install.template.jsonc
+{
+  "mode":     "single",
+  // "disks" is intentionally absent — the picker fills it.
+  "ashift":   13,
+  "os_size":  "auto",
+  "kernel":   "linux",
+  "locale":   "en_US.UTF-8",
+  "timezone": "Europe/Berlin",
+  "keymap":   "us",
+
+  "environment": {
+    "desktop": "kde",
+    "gpu":     "auto"
+  },
+
+  "options": {
+    "bootloader":  "systemd-boot",
+    "encryption":  false,
+    "impermanence": {
+      "enabled": true,
+      "dataset": "rpool/persist",
+      "mount":   "/persist"
+    }
+  }
+}
+```
+
+See `REFERENCE.md` § `install.template.jsonc Reference` for the
+full field list.
+
+---
+
+## 4. Secrets Management (SOPS)
 
 Secrets are optional. Without any `secrets.json` files the
 installer works exactly as before — user passwords default to
 `12345` (changed on first login) and no SSH identity is
 deployed.
 
-### 3.1 Prerequisites (operator machine)
+### 4.1 Prerequisites (operator machine)
 
 ```bash
 pacman -S age sops
 ```
 
-### 3.2 Generate your age key
+### 4.2 Generate your age key
 
 ```bash
 age-keygen -o age-key.txt
@@ -194,7 +315,7 @@ age -p -o age-key.age age-key.txt
 rm age-key.txt            # keep only the encrypted copy
 ```
 
-### 3.3 Copy the key to your install USB
+### 4.3 Copy the key to your install USB
 
 The installer scans removable devices for a file at
 `/age/key.age`:
@@ -209,7 +330,7 @@ As a live-CD fallback (no USB available) you can also set
 `options.age_key_url` in `install.jsonc` to an HTTPS URL serving
 the same passphrase-encrypted `.age` file.
 
-### 3.4 Configure `.sops.yaml`
+### 4.4 Configure `.sops.yaml`
 
 Create `.sops.yaml` at the repo root, listing your age public
 key as recipient:
@@ -221,9 +342,9 @@ creation_rules:
 ```
 
 Replace the `age1...` value with the public key printed in
-step 3.2.
+step 4.2.
 
-### 3.5 Create secrets files
+### 4.5 Create secrets files
 
 User secrets:
 
@@ -254,7 +375,7 @@ sops .os/hosts/<hostname>/secrets.json
 }
 ```
 
-### 3.6 Install
+### 4.6 Install
 
 Plug in the USB carrying `age-key.age` **before** running
 `./install.sh` (or set `options.age_key_url`). The Secrets
@@ -271,7 +392,7 @@ printed:
 ==>                   .os/hosts/*/secrets.json
 ```
 
-### 3.7 Add the machine key and re-encrypt
+### 4.7 Add the machine key and re-encrypt
 
 ```yaml
 # .sops.yaml — add the machine key alongside yours
@@ -297,7 +418,7 @@ every boot without the USB.
 
 ---
 
-## 4. File Layout
+## 5. File Layout
 
 ```
 .os/
@@ -335,6 +456,7 @@ every boot without the USB.
 │   │   ├── impermanence.sh
 │   │   ├── extras-common.sh
 │   │   └── extras.sh
+│   ├── picker.sh           # Pre-Install Picker deep modules
 │   ├── profiles.sh         # Users + program installation
 │   ├── run-program.sh      # Program-install wrapper
 │   ├── finalize.sh         # Unmount + pool export
@@ -372,6 +494,7 @@ every boot without the USB.
 │       └── hyprland/hyprland.sh  # Hyprland + greetd
 │
 ├── tools/                  # Operator utilities (runtime)
+│   ├── pick.sh             # Pre-Install Picker (see §3)
 │   ├── save-pkglist.sh     # Snapshot current packages
 │   ├── install-pkglist.sh  # Restore packages from txt
 │   └── impermanence.sh     # add/remove/status/apply-defaults
@@ -396,9 +519,9 @@ every boot without the USB.
 
 ---
 
-## 5. Common Configurations
+## 6. Common Configurations
 
-### 5.1 Laptop (single disk)
+### 6.1 Laptop (single disk)
 
 ```json
 "mode":    "single",
@@ -407,7 +530,7 @@ every boot without the USB.
 "os_size": "auto"
 ```
 
-### 5.2 Desktop (2 NVMes mirrored + 3 SSDs storage)
+### 6.2 Desktop (2 NVMes mirrored + 3 SSDs storage)
 
 ```json
 "mode": "multi",
@@ -428,7 +551,7 @@ every boot without the USB.
 ]
 ```
 
-### 5.3 Desktop (2 NVMes, pick one for OS)
+### 6.3 Desktop (2 NVMes, pick one for OS)
 
 ```json
 "mode": "multi",
@@ -445,7 +568,7 @@ is automatically added to `dpool`.
 
 ---
 
-## 6. Optional Components
+## 7. Optional Components
 
 ### Desktop environment
 
@@ -507,7 +630,7 @@ absent (the default), the toggles are no-ops.
 
 ---
 
-## 7. VM Testing
+## 8. VM Testing
 
 The `tests/vm/` directory contains a disposable integration
 test harness built on `libvirt` + cloud-init. Each test script
@@ -551,9 +674,9 @@ release (cached in `tests/vm/.vm-test/`).
 
 ---
 
-## 8. After Installation
+## 9. After Installation
 
-### 8.1 First boot checklist
+### 9.1 First boot checklist
 
 1. Verify ZFS pools: `zpool status`
 2. Check datasets mounted: `zfs list`
@@ -564,7 +687,7 @@ release (cached in `tests/vm/.vm-test/`).
    status` to confirm `@blank` snapshots exist on every Rollback
    Dataset. Missing snapshots fail-close on the next reboot.
 
-### 8.2 If ZFS fails to import on boot
+### 9.2 If ZFS fails to import on boot
 
 Boot from the live ISO, run `01-bootstrap-zfs.sh` again, then:
 
@@ -573,7 +696,7 @@ zpool import -f rpool
 zpool import -f dpool
 ```
 
-### 8.3 ESP backup (single-disk, no RAID)
+### 9.3 ESP backup (single-disk, no RAID)
 
 ```bash
 sudo rsync -a /boot/efi/ /mnt/backup-esp/
