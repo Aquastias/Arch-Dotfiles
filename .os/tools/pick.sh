@@ -16,6 +16,13 @@
 # fzf prompts, the prompt loop, the file write, the exec hand-off — are
 # shallow TTY-coupled glue and are validated by running pick.sh on the live
 # CD, not by bats.
+#
+# Picker-time validation is layout-only: `picker_validate_layout` checks the
+# mode/disk-count pair before assembly. There is no further config-shape
+# check before write — a malformed Install Template can still fail at install
+# time. Tightening this would require running `validate_install_context` from
+# `lib/validation.sh`, which pulls in environment/GPU/persist checks that
+# would legitimately fail at picker time on the live CD.
 
 set -euo pipefail
 
@@ -115,14 +122,6 @@ main() {
 
   while :; do
     config="$(picker_assemble_config "$template" "$host" "$MODE" "${DISKS[@]}")"
-
-    # Validate the assembled JSONC before showing the review block, so
-    # picker-time errors never surface later at install time.
-    if ! echo "$config" | "$OS_DIR/lib/install-config.sh" >/dev/null 2>&1; then
-      echo "assembled install.jsonc failed validation — re-pick" >&2
-      collect_mode_and_disks
-      continue
-    fi
 
     existing_arg=""
     [[ -f "$OUT_FILE" ]] && existing_arg="$OUT_FILE"
