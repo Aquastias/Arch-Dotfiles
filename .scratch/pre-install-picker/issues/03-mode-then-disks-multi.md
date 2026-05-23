@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Mode-then-disks: mirror and raidz multi-disk layouts
 

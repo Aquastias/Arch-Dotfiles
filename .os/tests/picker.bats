@@ -55,9 +55,9 @@ zeta"
 }
 
 @test "picker_validate_layout: unknown mode → error" {
-  run picker_validate_layout mirror 2
+  run picker_validate_layout stripe 2
   [ "$status" -ne 0 ]
-  [[ "$output" == *mode* ]] || [[ "$output" == *mirror* ]]
+  [[ "$output" == *mode* ]] || [[ "$output" == *stripe* ]]
 }
 
 # ── picker_load_template ──────────────────────────────────────────────────────
@@ -345,4 +345,77 @@ nvme0n1 931.5G
   run picker_format_disk_preview "$BY_ID/nvme-does-not-exist"
   [ "$status" -ne 0 ]
   [[ "$output" == *"nvme-does-not-exist"* ]] || [[ "$output" == *"not found"* ]]
+}
+
+# ── picker_validate_layout: slice 3 (mirror, raidz) ──────────────────────────
+
+@test "picker_validate_layout: mirror + 2 disks → ok" {
+  run picker_validate_layout mirror 2
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_validate_layout: mirror + 1 disk → error names mode and count" {
+  run picker_validate_layout mirror 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *mirror* ]]
+  [[ "$output" == *2* ]]
+}
+
+@test "picker_validate_layout: mirror + 3 disks → ok" {
+  run picker_validate_layout mirror 3
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_validate_layout: raidz + 3 disks → ok" {
+  run picker_validate_layout raidz 3
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_validate_layout: raidz + 2 disks → error names mode and count" {
+  run picker_validate_layout raidz 2
+  [ "$status" -ne 0 ]
+  [[ "$output" == *raidz* ]]
+  [[ "$output" == *3* ]]
+}
+
+@test "picker_validate_layout: raidz + 4 disks → ok" {
+  run picker_validate_layout raidz 4
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── picker_assemble_config: slice 3 (multi-disk) ─────────────────────────────
+
+@test "picker_assemble_config: mirror + 2 disks → mode=multi, os_pool.topology=mirror" {
+  template='{ "system": { "timezone": "UTC" } }'
+  run picker_assemble_config "$template" myhost mirror \
+    /dev/disk/by-id/d1 /dev/disk/by-id/d2
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
+  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/disk/by-id/d1","/dev/disk/by-id/d2"]' ]
+  [ "$(echo "$output" | jq -r '.disk')" = "null" ]
+}
+
+@test "picker_assemble_config: raidz + 3 disks → mode=multi, os_pool.topology=raidz1" {
+  template='{ "system": { "timezone": "UTC" } }'
+  run picker_assemble_config "$template" myhost raidz \
+    /dev/disk/by-id/d1 /dev/disk/by-id/d2 /dev/disk/by-id/d3
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "raidz1" ]
+  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/disk/by-id/d1","/dev/disk/by-id/d2","/dev/disk/by-id/d3"]' ]
+}
+
+@test "picker_assemble_config: template os_pool fields pass through; disks override" {
+  template='{ "os_pool": { "pool_name": "rpool", "ashift": 13, "disks": ["/old/disk"] } }'
+  run picker_assemble_config "$template" h mirror /dev/d1 /dev/d2
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.os_pool.pool_name')" = "rpool" ]
+  [ "$(echo "$output" | jq -r '.os_pool.ashift')" = "13" ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
+  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/d1","/dev/d2"]' ]
 }
