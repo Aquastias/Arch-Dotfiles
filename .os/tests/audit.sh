@@ -17,6 +17,7 @@
 #   9.  Extras JSON files — valid JSONC
 #  10.  Host config cross-refs — referenced users exist
 #  11.  User config cross-refs — referenced programs exist + correct flag
+#  12.  Program install scripts — no local commons-helper redefinitions
 #
 # Usage: ./tests/audit.sh
 # Exit:  0 = all pass, 1 = one or more failures
@@ -296,6 +297,29 @@ while IFS= read -r cfg; do
     fi
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
 done < <(find "${OS}/users" -name "config.jsonc")
+
+# =============================================================================
+_section "12. Program install scripts must not redefine commons helpers"
+# =============================================================================
+# Per ADR 0011, programs/*/install.sh sources Shell Stdlib via the Program
+# Runner. Local redefinitions of commons-named helpers silently shadow the
+# stdlib version and split the source of truth.
+_commons_fns=(print_status check_root send_user_notification command_exists \
+              package_installed)
+_dups_found=0
+while IFS= read -r script; do
+  rel="${script#${OS}/}"
+  for fn in "${_commons_fns[@]}"; do
+    if grep -qE "^[[:space:]]*(function[[:space:]]+)?${fn}[[:space:]]*\(" \
+        "$script" 2>/dev/null; then
+      _fail "${rel}: redefines commons helper '${fn}()' (see ADR 0011)"
+      _dups_found=$((_dups_found + 1))
+    fi
+  done
+done < <(find "${OS}/programs" -name install.sh)
+if (( _dups_found == 0 )); then
+  _pass "no programs/*/install.sh redefines a commons helper"
+fi
 
 # =============================================================================
 echo ""
