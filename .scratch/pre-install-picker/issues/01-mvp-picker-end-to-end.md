@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # MVP picker: end-to-end, single-disk, plain `select`
 
