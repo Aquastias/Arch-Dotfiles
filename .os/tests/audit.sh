@@ -225,8 +225,7 @@ _check_program() {
   local got_system
   got_system="$(grep '"system"' "${dir}/config.jsonc" 2>/dev/null \
                 | head -1 \
-                | sed 's/.*"system"[[:space:]]*:'\
-                       '[[:space:]]*\(true\|false\).*/\1/')"
+                | sed 's/.*"system"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/')"
   if [[ "$got_system" == "$want_system" ]]; then
     _pass "${context}: program '${name}' (system=${got_system})"
   else
