@@ -25,5 +25,8 @@
   "system_programs": ["sops"],
   "sysctl": {
     "vm.swappiness": 10
+  },
+  "packages": {
+    "repo": ["parallel"]
   }
 }
