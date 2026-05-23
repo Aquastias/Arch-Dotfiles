@@ -419,3 +419,74 @@ nvme0n1 931.5G
   [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
   [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/d1","/dev/d2"]' ]
 }
+
+# ── picker_parse_choice (slice 4) ─────────────────────────────────────────────
+
+@test "picker_parse_choice: 'i' → write_install" {
+  run picker_parse_choice i
+  [ "$status" -eq 0 ]
+  [ "$output" = "write_install" ]
+}
+
+@test "picker_parse_choice: 'w' → write_only" {
+  run picker_parse_choice w
+  [ "$status" -eq 0 ]
+  [ "$output" = "write_only" ]
+}
+
+@test "picker_parse_choice: 'e' → edit" {
+  run picker_parse_choice e
+  [ "$status" -eq 0 ]
+  [ "$output" = "edit" ]
+}
+
+@test "picker_parse_choice: 'a' → abort" {
+  run picker_parse_choice a
+  [ "$status" -eq 0 ]
+  [ "$output" = "abort" ]
+}
+
+@test "picker_parse_choice: unrecognised key → non-zero, no stdout" {
+  run picker_parse_choice x
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_parse_choice: empty input → non-zero, no stdout" {
+  run picker_parse_choice ""
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
+# ── picker_render_review (slice 4) ────────────────────────────────────────────
+
+@test "picker_render_review: empty existing path → prints jsonc verbatim" {
+  jsonc='{ "mode": "single", "disk": "/dev/disk/by-id/foo" }'
+  run picker_render_review "$jsonc" ""
+  [ "$status" -eq 0 ]
+  [ "$output" = "$jsonc" ]
+}
+
+@test "picker_render_review: existing path absent → prints jsonc verbatim" {
+  jsonc='{ "x": 1 }'
+  run picker_render_review "$jsonc" "$TEST_DIR/does-not-exist.jsonc"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$jsonc" ]
+}
+
+@test "picker_render_review: differing existing file → emits diff -u markers" {
+  echo '{ "x": 1 }' > "$TEST_DIR/old.jsonc"
+  run picker_render_review '{ "x": 2 }' "$TEST_DIR/old.jsonc"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"--- "* ]]
+  [[ "$output" == *"+++ "* ]]
+  [[ "$output" == *"-"*"\"x\": 1"* ]]
+  [[ "$output" == *"+"*"\"x\": 2"* ]]
+}
+
+@test "picker_render_review: identical content → exits 0" {
+  jsonc='{ "x": 1 }'
+  echo "$jsonc" > "$TEST_DIR/old.jsonc"
+  run picker_render_review "$jsonc" "$TEST_DIR/old.jsonc"
+  [ "$status" -eq 0 ]
+}

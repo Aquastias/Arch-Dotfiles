@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-# tools/pick.sh — Pre-Install Picker (slice 2: fzf + disk preview, single-disk).
+# tools/pick.sh — Pre-Install Picker (slice 4: review + 4-way + hand-off).
 #
 # Generates .os/install.jsonc from a chosen host's Install Template plus
-# operator-picked target disk. See ADR-0010, CONTEXT.md → Pre-Install Picker.
+# operator-picked mode and target disks, then runs the review/confirm loop.
+# See ADR-0010, CONTEXT.md → Pre-Install Picker.
 #
-# Slice 2 scope: fzf single-select for hosts + disks, lsblk/smartctl preview
-# pane, single-disk only, no review screen, no install hand-off.
+# Four-way prompt keys (after the review block):
+#   [i]nstall    — write .os/install.jsonc, then exec install.sh
+#   [w]rite only — write .os/install.jsonc and exit 0
+#   [e]dit       — re-enter at mode → disks (host kept; abort+rerun to
+#                  change host)
+#   [a]bort      — exit non-zero, no file written
+#
+# Deep modules (lib/picker.sh) are pure and bats-tested. The pieces here —
+# fzf prompts, the prompt loop, the file write, the exec hand-off — are
+# shallow TTY-coupled glue and are validated by running pick.sh on the live
+# CD, not by bats.
 
 set -euo pipefail
 
@@ -17,9 +27,8 @@ source "$OS_DIR/lib/picker.sh"
 
 HOSTS_DIR="$OS_DIR/hosts"
 OUT_FILE="$OS_DIR/install.jsonc"
+INSTALL_SH="$OS_DIR/install.sh"
 
-# Self-install fzf + jq via pacman. Fails loudly on no-network live CDs —
-# same constraint that gates pacstrap, so the operator sees the right error.
 ensure_deps() {
   local need=()
   command -v fzf >/dev/null 2>&1 || need+=(fzf)
@@ -31,7 +40,6 @@ ensure_deps() {
   fi
 }
 
-# Resolve the live medium whole-disk path. Empty if not on a live CD.
 resolve_live_dev() {
   local part_dev part_base disk_base
   if [[ -d /run/archiso/bootmnt ]]; then
@@ -56,7 +64,12 @@ prompt_host() {
   printf '%s\n' "${hosts[@]}" | fzf --prompt='host> ' --height=40% --reverse
 }
 
-prompt_disk() {
+prompt_mode() {
+  printf '%s\n' single mirror raidz \
+    | fzf --prompt='mode> ' --height=20% --reverse
+}
+
+prompt_disks() {
   local live_dev disks=()
   live_dev="$(resolve_live_dev)"
   mapfile -t disks < <(picker_enum_disks "$live_dev")
@@ -65,30 +78,91 @@ prompt_disk() {
     exit 1
   fi
   printf '%s\n' "${disks[@]}" | fzf \
-    --prompt='disk> ' --reverse \
+    --prompt='disks (TAB=multi, ENTER=confirm)> ' --reverse --multi \
     --preview="bash -c 'source \"$OS_DIR/lib/picker.sh\"; picker_format_disk_preview {}'" \
     --preview-window=right,60%
+}
+
+# Re-prompt mode + disks until layout validates. Returns via globals
+# MODE and DISKS (array). Used both on first entry and on [e]dit re-entry.
+collect_mode_and_disks() {
+  while :; do
+    MODE="$(prompt_mode)"
+    [[ -n "${MODE:-}" ]] || { echo "no mode selected" >&2; exit 1; }
+    local picked
+    picked="$(prompt_disks)" || { echo "no disks selected" >&2; exit 1; }
+    [[ -n "$picked" ]] || { echo "no disks selected" >&2; exit 1; }
+    mapfile -t DISKS <<< "$picked"
+    if picker_validate_layout "$MODE" "${#DISKS[@]}"; then
+      return 0
+    fi
+    echo "re-pick mode/disks..." >&2
+  done
 }
 
 main() {
   ensure_deps
 
-  local host disk template config
+  local host template config existing_arg
   host="$(prompt_host)"
   [[ -n "$host" ]] || { echo "no host selected" >&2; exit 1; }
-  disk="$(prompt_disk)"
-  [[ -n "$disk" ]] || { echo "no disk selected" >&2; exit 1; }
-
-  if ! picker_validate_layout single 1; then
-    exit 1
-  fi
 
   template="$(picker_load_template "$HOSTS_DIR" "$host")"
-  config="$(picker_assemble_config "$template" "$host" single "$disk")"
 
-  echo "$config" > "$OUT_FILE"
-  echo "wrote $OUT_FILE" >&2
-  echo "next: run $OS_DIR/install.sh" >&2
+  MODE=""
+  DISKS=()
+  collect_mode_and_disks
+
+  while :; do
+    config="$(picker_assemble_config "$template" "$host" "$MODE" "${DISKS[@]}")"
+
+    # Validate the assembled JSONC before showing the review block, so
+    # picker-time errors never surface later at install time.
+    if ! echo "$config" | "$OS_DIR/lib/install-config.sh" >/dev/null 2>&1; then
+      echo "assembled install.jsonc failed validation — re-pick" >&2
+      collect_mode_and_disks
+      continue
+    fi
+
+    existing_arg=""
+    [[ -f "$OUT_FILE" ]] && existing_arg="$OUT_FILE"
+    echo
+    picker_render_review "$config" "$existing_arg"
+    echo
+    echo "[i]nstall  [w]rite only  [e]dit  [a]bort"
+
+    local key action
+    while :; do
+      read -r -n1 -p "> " key || true
+      echo
+      if action="$(picker_parse_choice "$key")"; then
+        break
+      fi
+      echo "unrecognised — pick one of i/w/e/a" >&2
+    done
+
+    case "$action" in
+      write_install)
+        echo "$config" > "$OUT_FILE"
+        echo "wrote $OUT_FILE — handing off to install.sh" >&2
+        exec "$INSTALL_SH"
+        ;;
+      write_only)
+        echo "$config" > "$OUT_FILE"
+        echo "wrote $OUT_FILE" >&2
+        echo "next: run $INSTALL_SH" >&2
+        exit 0
+        ;;
+      edit)
+        collect_mode_and_disks
+        continue
+        ;;
+      abort)
+        echo "aborted — $OUT_FILE unchanged" >&2
+        exit 1
+        ;;
+    esac
+  done
 }
 
 main "$@"

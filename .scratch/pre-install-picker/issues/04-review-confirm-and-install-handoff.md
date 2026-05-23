@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Review-confirm screen, edit loop, and install hand-off
 
