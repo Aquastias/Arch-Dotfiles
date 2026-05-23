@@ -190,3 +190,33 @@ picker_format_disk_preview() {
   echo "── Partitions ──"
   lsblk -no NAME,SIZE,FSTYPE,LABEL,PARTLABEL "$dev"
 }
+
+
+# picker_parse_choice <char>
+#   Maps the four-way review-screen keypress to an action keyword on stdout.
+#   Unrecognised input → non-zero, no stdout.
+#     i → write_install   w → write_only   e → edit   a → abort
+picker_parse_choice() {
+  case "$1" in
+    i) echo write_install ;;
+    w) echo write_only ;;
+    e) echo edit ;;
+    a) echo abort ;;
+    *) return 1 ;;
+  esac
+}
+
+# picker_render_review <jsonc_text> <existing_path>
+#   Renders the review block printed before the four-way prompt.
+#   When <existing_path> is non-empty and the file exists, prints a unified
+#   diff against it (operator-readable, not pretty). Otherwise prints the
+#   JSONC text verbatim. Always returns 0 — `diff` exit 1 (differences
+#   present) is a successful render, not a failure.
+picker_render_review() {
+  local jsonc="$1" existing="$2"
+  if [[ -n "$existing" && -f "$existing" ]]; then
+    diff -u "$existing" <(printf '%s\n' "$jsonc") || true
+  else
+    printf '%s' "$jsonc"
+  fi
+}
