@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # fzf-powered pick with disk preview pane
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# tools/pick.sh — Pre-Install Picker (slice 1: plain `select`, single-disk).
+# tools/pick.sh — Pre-Install Picker (slice 2: fzf + disk preview, single-disk).
 #
 # Generates .os/install.jsonc from a chosen host's Install Template plus
 # operator-picked target disk. See ADR-0010, CONTEXT.md → Pre-Install Picker.
 #
-# Slice 1 scope: plain `select` prompts, single-disk only, no fzf, no review
-# screen, no install hand-off.
+# Slice 2 scope: fzf single-select for hosts + disks, lsblk/smartctl preview
+# pane, single-disk only, no review screen, no install hand-off.
 
 set -euo pipefail
 
@@ -17,6 +17,19 @@ source "$OS_DIR/lib/picker.sh"
 
 HOSTS_DIR="$OS_DIR/hosts"
 OUT_FILE="$OS_DIR/install.jsonc"
+
+# Self-install fzf + jq via pacman. Fails loudly on no-network live CDs —
+# same constraint that gates pacstrap, so the operator sees the right error.
+ensure_deps() {
+  local need=()
+  command -v fzf >/dev/null 2>&1 || need+=(fzf)
+  command -v jq  >/dev/null 2>&1 || need+=(jq)
+  (( ${#need[@]} == 0 )) && return 0
+  if ! pacman -Sy --noconfirm "${need[@]}"; then
+    echo "pick.sh: pacman -Sy ${need[*]} failed — live CD needs network" >&2
+    exit 1
+  fi
+}
 
 # Resolve the live medium whole-disk path. Empty if not on a live CD.
 resolve_live_dev() {
@@ -40,10 +53,7 @@ prompt_host() {
     echo "no hosts ship install.template.jsonc — hand-edit $OUT_FILE" >&2
     exit 1
   fi
-  echo "Pick a host:" >&2
-  select choice in "${hosts[@]}"; do
-    [[ -n "${choice:-}" ]] && { echo "$choice"; return; }
-  done
+  printf '%s\n' "${hosts[@]}" | fzf --prompt='host> ' --height=40% --reverse
 }
 
 prompt_disk() {
@@ -54,16 +64,20 @@ prompt_disk() {
     echo "no /dev/disk/by-id/* candidates found" >&2
     exit 1
   fi
-  echo "Pick a target disk:" >&2
-  select choice in "${disks[@]}"; do
-    [[ -n "${choice:-}" ]] && { echo "$choice"; return; }
-  done
+  printf '%s\n' "${disks[@]}" | fzf \
+    --prompt='disk> ' --reverse \
+    --preview="bash -c 'source \"$OS_DIR/lib/picker.sh\"; picker_format_disk_preview {}'" \
+    --preview-window=right,60%
 }
 
 main() {
+  ensure_deps
+
   local host disk template config
   host="$(prompt_host)"
+  [[ -n "$host" ]] || { echo "no host selected" >&2; exit 1; }
   disk="$(prompt_disk)"
+  [[ -n "$disk" ]] || { echo "no disk selected" >&2; exit 1; }
 
   if ! picker_validate_layout single 1; then
     exit 1

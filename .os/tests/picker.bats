@@ -222,3 +222,127 @@ JSONC
   [ "$(echo "$output" | jq -r '.system.timezone')" = "UTC" ]
   [ "$(echo "$output" | jq -r '.environment.desktop')" = "kde" ]
 }
+
+# ── picker_format_disk_preview ────────────────────────────────────────────────
+
+setup_preview_stubs() {
+  mkdir -p "$TEST_DIR/bin" "$TEST_DIR/dev/disk/by-id"
+  BY_ID="$TEST_DIR/dev/disk/by-id"
+  export BY_ID
+  export PATH="$TEST_DIR/bin:$PATH"
+  : > "$TEST_DIR/dev/nvme0n1"
+  ln -sf "../../nvme0n1" "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+}
+
+_stub_lsblk() {
+  local dno="$1" no="${2:-}"
+  printf '%s\n' "$dno" > "$TEST_DIR/lsblk_dno.out"
+  printf '%s\n' "$no"  > "$TEST_DIR/lsblk_no.out"
+  cat > "$TEST_DIR/bin/lsblk" <<'STUB'
+#!/usr/bin/env bash
+case "$1" in
+  -dno) cat "$TEST_DIR/lsblk_dno.out" ;;
+  -no)  cat "$TEST_DIR/lsblk_no.out"  ;;
+esac
+STUB
+  chmod +x "$TEST_DIR/bin/lsblk"
+}
+
+_stub_smartctl() {
+  local ec="$1" out="${2:-}"
+  printf '%s\n' "$out" > "$TEST_DIR/smartctl.out"
+  cat > "$TEST_DIR/bin/smartctl" <<STUB
+#!/usr/bin/env bash
+cat "\$TEST_DIR/smartctl.out"
+exit $ec
+STUB
+  chmod +x "$TEST_DIR/bin/smartctl"
+}
+
+@test "picker_format_disk_preview: emits Disk section with lsblk -dno line" {
+  setup_preview_stubs
+  _stub_lsblk "nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme"
+  _stub_smartctl 1
+
+  run picker_format_disk_preview "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"── Disk ──"* ]]
+  [[ "$output" == *"nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme"* ]]
+}
+
+@test "picker_format_disk_preview: emits Partitions section with lsblk -no tree" {
+  setup_preview_stubs
+  _stub_lsblk \
+    "nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme" \
+    "nvme0n1 931.5G
+├─nvme0n1p1 1G vfat ESP
+└─nvme0n1p2 930.5G zfs_member zroot"
+  _stub_smartctl 1
+
+  run picker_format_disk_preview "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"── Partitions ──"* ]]
+  [[ "$output" == *"├─nvme0n1p1 1G vfat ESP"* ]]
+}
+
+@test "picker_format_disk_preview: includes SMART section when smartctl -i succeeds" {
+  setup_preview_stubs
+  _stub_lsblk "nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme" "nvme0n1 931.5G"
+  _stub_smartctl 0 "=== START OF INFORMATION SECTION ===
+Model Family:     Samsung based SSDs
+Device Model:     Samsung SSD 980 PRO 1TB"
+
+  run picker_format_disk_preview "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"── SMART ──"* ]]
+  [[ "$output" == *"Model Family:     Samsung based SSDs"* ]]
+}
+
+@test "picker_format_disk_preview: omits SMART section when smartctl -i fails, still exits 0" {
+  setup_preview_stubs
+  _stub_lsblk "nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme" "nvme0n1 931.5G"
+  _stub_smartctl 1 "smartctl error noise that must not appear"
+
+  run picker_format_disk_preview "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"── SMART ──"* ]]
+  [[ "$output" != *"smartctl error noise"* ]]
+}
+
+@test "picker_format_disk_preview: full snapshot — Disk, SMART, Partitions in order" {
+  setup_preview_stubs
+  _stub_lsblk \
+    "nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme" \
+    "nvme0n1 931.5G
+├─nvme0n1p1 1G vfat ESP
+└─nvme0n1p2 930.5G zfs_member zroot"
+  _stub_smartctl 0 "=== START OF INFORMATION SECTION ===
+Model Family:     Samsung based SSDs
+Device Model:     Samsung SSD 980 PRO 1TB"
+
+  run picker_format_disk_preview "$BY_ID/nvme-Samsung_SSD_980_PRO_S1"
+  [ "$status" -eq 0 ]
+  expected="── Disk ──
+nvme0n1 931.5G Samsung_SSD_980_PRO S6B0 nvme
+
+── SMART ──
+=== START OF INFORMATION SECTION ===
+Model Family:     Samsung based SSDs
+Device Model:     Samsung SSD 980 PRO 1TB
+
+── Partitions ──
+nvme0n1 931.5G
+├─nvme0n1p1 1G vfat ESP
+└─nvme0n1p2 930.5G zfs_member zroot"
+  [ "$output" = "$expected" ]
+}
+
+@test "picker_format_disk_preview: missing by-id path → non-zero, clear error" {
+  setup_preview_stubs
+  _stub_lsblk "ignored" "ignored"
+  _stub_smartctl 1
+
+  run picker_format_disk_preview "$BY_ID/nvme-does-not-exist"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"nvme-does-not-exist"* ]] || [[ "$output" == *"not found"* ]]
+}
