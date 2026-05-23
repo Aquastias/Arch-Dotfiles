@@ -42,8 +42,20 @@ picker_validate_layout() {
         return 1
       fi
       ;;
+    mirror)
+      if (( count < 2 )); then
+        echo "mirror mode requires at least 2 disks (got $count)" >&2
+        return 1
+      fi
+      ;;
+    raidz)
+      if (( count < 3 )); then
+        echo "raidz mode requires at least 3 disks (got $count)" >&2
+        return 1
+      fi
+      ;;
     *)
-      echo "unknown mode '$mode' (expected: single)" >&2
+      echo "unknown mode '$mode' (expected: single, mirror, raidz)" >&2
       return 1
       ;;
   esac
@@ -107,20 +119,48 @@ picker_enum_disks() {
 # picker_assemble_config <template_json> <hostname> <mode> <disk> [<disk>...]
 #   Returns full install.jsonc text on stdout. The template provides every
 #   per-machine field; hostname overrides .system.hostname; layout fields
-#   (.mode, .disk for single) are written fresh.
+#   are written fresh based on <mode>:
+#     single  → .mode="single", .disk=<disk>
+#     mirror  → .mode="multi",  .os_pool.topology="mirror",
+#               .os_pool.disks=[<disks>...]
+#     raidz   → .mode="multi",  .os_pool.topology="raidz1",
+#               .os_pool.disks=[<disks>...]
 picker_assemble_config() {
   local template="$1" hostname="$2" mode="$3"
   shift 3
-  local disk="$1"
-  jq -n --argjson tpl "$template" \
-        --arg hostname "$hostname" \
-        --arg mode "$mode" \
-        --arg disk "$disk" '
-    $tpl
-    | .system.hostname = $hostname
-    | .mode = $mode
-    | .disk = $disk
-  '
+  local disks_json
+  disks_json="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
+  case "$mode" in
+    single)
+      jq -n --argjson tpl "$template" \
+            --arg hostname "$hostname" \
+            --arg disk "$1" '
+        $tpl
+        | .system.hostname = $hostname
+        | .mode = "single"
+        | .disk = $disk
+      '
+      ;;
+    mirror|raidz)
+      local topology
+      [[ "$mode" == raidz ]] && topology="raidz1" || topology="mirror"
+      jq -n --argjson tpl "$template" \
+            --arg hostname "$hostname" \
+            --arg topology "$topology" \
+            --argjson disks "$disks_json" '
+        $tpl
+        | .system.hostname = $hostname
+        | .mode = "multi"
+        | .os_pool = (.os_pool // {})
+                     + { topology: $topology, disks: $disks }
+        | del(.disk)
+      '
+      ;;
+    *)
+      echo "picker_assemble_config: unknown mode '$mode'" >&2
+      return 1
+      ;;
+  esac
 }
 
 # picker_format_disk_preview <by_id_path>
