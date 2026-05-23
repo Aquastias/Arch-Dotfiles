@@ -122,3 +122,31 @@ picker_assemble_config() {
     | .disk = $disk
   '
 }
+
+# picker_format_disk_preview <by_id_path>
+#   Returns a multi-line preview block for the given /dev/disk/by-id/* path,
+#   intended for fzf --preview in the disk picker. Sections:
+#     ── Disk ──          lsblk -dno NAME,SIZE,MODEL,SERIAL,TRAN
+#     ── SMART ──         smartctl -i (omitted when smartctl -i exits non-zero)
+#     ── Partitions ──    lsblk -no NAME,SIZE,FSTYPE,LABEL,PARTLABEL
+#   Deterministic given the same inputs; safe for snapshot tests.
+picker_format_disk_preview() {
+  local by_id="$1" dev
+  if [[ ! -e "$by_id" ]]; then
+    echo "by-id path not found: $by_id" >&2
+    return 1
+  fi
+  dev="$(readlink -f "$by_id")"
+  echo "── Disk ──"
+  lsblk -dno NAME,SIZE,MODEL,SERIAL,TRAN "$dev"
+  local smart
+  if smart="$(smartctl -i "$dev" 2>/dev/null)"; then
+    echo
+    echo "── SMART ──"
+    printf '%s
+' "$smart"
+  fi
+  echo
+  echo "── Partitions ──"
+  lsblk -no NAME,SIZE,FSTYPE,LABEL,PARTLABEL "$dev"
+}
