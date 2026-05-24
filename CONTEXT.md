@@ -136,3 +136,24 @@ Pacman post-transaction hook at `/etc/pacman.d/hooks/zz-impermanence-resnapshot.
 
 ### Impermanence Tool
 `.os/tools/impermanence.sh`. Runtime utility for managing Persist Extensions on a system where Impermanence is enabled. Verbs: `add <path>` (writes the path into the host's `persist.directories` or `persist.files` in `hosts/<hostname>/config.jsonc`, copies current data onto the Persist Dataset, generates the Persist Mount, daemon-reloads); `remove <path>` (reverses); `status` (lists active Persist Mounts and runs `zfs diff` against `@blank` for each Rollback Dataset); `apply-defaults` (regenerates Curated Persist Defaults' unit files under `/usr/lib/systemd/system/` from the installer's current curated list, used after pulling an updated dotfiles repo). Does not edit Curated Persist Defaults directly — those are vendor-shipped.
+
+### Stow Tree
+Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step. Layout groups files by destination path, not by program. Legacy as of ADR 0012 — being migrated program-by-program into Program Config Trees, but remains supported indefinitely. Path collisions with the Generated Stow Tree abort the Config Generator.
+
+### Program Config Tree
+Per-program user-side config files under `.os/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is the default; sibling `configs@<variant>/` directories hold alternates (Config Variants). Optional — programs without user-side config omit the dir entirely. Manifest scope is user paths only; system paths stay in the program's `install.sh`. Authoring location only — never directly symlinked or copied; the Config Generator materializes the Generated Stow Tree from these.
+
+### Config Variant
+An alternate version of a program's Program Config Tree, named by the suffix on `configs@<variant>/`. Variant names match `[a-z0-9-]+`; `default` is reserved and refers to the unsuffixed `configs/`. Selected per-user via a `variants` object in User Config (with House Defaults inheritable from User Core, overridden per-key by User Config). Unselected variants fall back to `configs/`; programs with only `configs@*/` and no `configs/` require an explicit selection or the generator aborts.
+
+### Config Manifest
+`manifest.jsonc` inside each `configs[@variant]/` directory. Declares file placement only — `files` is an array of `{ src, dst, mode? }` entries. `src` is relative to the manifest's directory; `dst` is a `~/`-rooted user path. No templating, no conditionals, no hooks, no system paths, no encrypted entries. Constraints exist so that complexity is forced into the Config Variant axis instead of into per-file metadata.
+
+### Generated Stow Tree
+Per-user materialized tree at `~/.dotfiles/.stow/<user>/` produced by the Config Generator on the target machine. Mirrors destination paths (`.config/<...>`, `.local/<...>`, home-relative files at root). Gitignored — never committed, always regenerable from the repo + User Config + Config Variants. Consumed by `stow -d ~/.dotfiles/.stow/<user> --no-folding .`, which runs after the legacy Stow Tree pass.
+
+### Config Generator
+`.os/tools/generate-configs.sh`. Reads the merged User Core + User Config for a target user, resolves each program's Config Variant, validates all relevant Config Manifests, and materializes the Generated Stow Tree. Invoked by the Runner inside `arch-chroot` per user between the dotfiles clone and the stow invocation. Also runnable standalone after install (`--user <name>`) to re-render after variant edits. Flags `--validate-only` and `--dry-run` are supported. Aborts if a planned destination is already owned by the legacy Stow Tree.
+
+### House Defaults
+Variants declared in User Core's `variants` object, applied to every user unless overridden per-key in their own User Config. Same merge semantics as the rest of the User Core / User Config relationship — core first, user adds on top, individual keys can be replaced without replacing the whole object.

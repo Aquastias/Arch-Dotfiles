@@ -17,3 +17,6 @@
 .os/**/.vm-cache/
 .os/testing-vm-logs
 .os/tests/vm/*.log
+
+# Generated per-user stow tree (ADR 0012)
+.stow/
