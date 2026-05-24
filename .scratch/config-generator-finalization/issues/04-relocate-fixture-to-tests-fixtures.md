@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Relocate fixture program to .os/tests/fixtures/programs/hello/
 
