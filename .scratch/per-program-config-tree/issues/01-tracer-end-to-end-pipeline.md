@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Tracer: end-to-end pipeline, one program one file
 
@@ -47,29 +47,33 @@ stow -d ~/.dotfiles/.stow/<u> --no-folding .             # added
 Exact legacy package list passed to the first stow is whatever the
 Runner does today — this slice does not change it.
 
-A fixture program (e.g. `.os/programs/_fixture/hello/configs/`
-with one tiny file mapped to `~/.config/hello/greeting`) lives in
-the test tree so subsequent slices can reuse it.
+A fixture program lives at
+`.os/tests/fixtures/programs/_fixture/hello/configs/` (relocated
+out of the production tree per ADR 0013 + finalization slice 04;
+category-level depth matches production so the resolver finds it
+under `PROGRAMS_ROOT`).
 
 ## Acceptance criteria
 
-- [ ] `.os/tools/generate-configs.sh --user <u>` runs end-to-end
+- [x] `.os/tools/generate-configs.sh --user <u>` runs end-to-end
       against the fixture program and produces
-      `~/.dotfiles/.stow/<u>/.config/hello/greeting`
-- [ ] Runner integration: per-user generator invocation runs inside
+      `$STOW_ROOT/.config/hello/greeting` (verified via
+      `PROGRAMS_ROOT=.os/tests/fixtures/programs` smoke run)
+- [x] Runner integration: per-user generator invocation runs inside
       `arch-chroot` between the dotfiles clone and the second stow
-- [ ] Second `stow -d ~/.dotfiles/.stow/<u> --no-folding .` runs
+      (`profiles.sh:301,303`)
+- [x] Second `stow -d ~/.dotfiles/.stow/<u> --no-folding .` runs
       after the first; both stow invocations succeed
-- [ ] `$HOME/.config/hello/greeting` exists as a stow symlink after
-      install
-- [ ] One happy-path bats per module exists under `.os/tests/`,
+- [x] `$HOME/.config/hello/greeting` exists as a stow symlink after
+      install (covered by runner integration)
+- [x] One happy-path bats per module exists under `.os/tests/`,
       named `configs-variant-resolver.bats`,
       `configs-manifest-validator.bats`,
       `configs-plan-builder.bats`,
       `configs-conflict-detector.bats`
-- [ ] All bats pass via `.os/tests/run.sh` (or equivalent existing
+- [x] All bats pass via `.os/tests/run.sh` (or equivalent existing
       runner)
-- [ ] `tests/audit.sh` still passes (no name collisions with
+- [x] `tests/audit.sh` still passes (no name collisions with
       Shell Stdlib helpers)
 
 ## Blocked by
