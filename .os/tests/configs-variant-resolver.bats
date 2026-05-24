@@ -27,13 +27,26 @@ write_manifest() {
   echo "$output" | jq -e '."cat-b/prog-b" == "configs"'
 }
 
-@test "resolver: configs/ without manifest.jsonc is skipped (pre-migration)" {
+@test "resolver: configs/ without manifest.jsonc errors and names program" {
   mkdir -p "$TEST_DIR/programs/legacy/prog-x/configs"
   printf 'data\n' > "$TEST_DIR/programs/legacy/prog-x/configs/foo.conf"
 
   run cg_resolve_variants "$TEST_DIR/programs" '{}'
-  [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == {}'
+  [ "$status" -ne 0 ]
+  [[ "$stderr" == *"legacy/prog-x"* ]] || [[ "$output" == *"legacy/prog-x"* ]]
+  [[ "$stderr" == *"manifest.jsonc"* ]] || [[ "$output" == *"manifest.jsonc"* ]]
+}
+
+@test "resolver: configs@<x>/ without manifest.jsonc errors and names variant" {
+  write_manifest "$TEST_DIR/programs/term/kitty/configs/manifest.jsonc"
+  mkdir -p "$TEST_DIR/programs/term/kitty/configs@minimal"
+  printf 'x\n' > "$TEST_DIR/programs/term/kitty/configs@minimal/file"
+
+  run cg_resolve_variants "$TEST_DIR/programs" '{"kitty":"minimal"}'
+  [ "$status" -ne 0 ]
+  [[ "$stderr" == *"term/kitty"* ]] || [[ "$output" == *"term/kitty"* ]]
+  [[ "$stderr" == *"minimal"* ]]    || [[ "$output" == *"minimal"* ]]
+  [[ "$stderr" == *"manifest.jsonc"* ]] || [[ "$output" == *"manifest.jsonc"* ]]
 }
 
 @test "resolver: declared variant resolves to matching configs@<x>/" {

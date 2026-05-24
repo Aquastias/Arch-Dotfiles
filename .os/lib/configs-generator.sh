@@ -44,7 +44,12 @@ cg_resolve_variants() {
       vbase="$(basename "$vd")"
       [[ "$vbase" == 'configs@*' ]] && continue
       if [[ "$vbase" == "configs" ]]; then
-        [[ -f "$vd/manifest.jsonc" ]] || continue
+        if [[ ! -f "$vd/manifest.jsonc" ]]; then
+          printf 'error: %s: configs/ missing %s\n' \
+            "$cat/$prog" "$vd/manifest.jsonc" >&2
+          errors=1
+          continue
+        fi
         have_default=1
         continue
       fi
@@ -61,7 +66,12 @@ cg_resolve_variants() {
         errors=1
         continue
       fi
-      [[ -f "$vd/manifest.jsonc" ]] || continue
+      if [[ ! -f "$vd/manifest.jsonc" ]]; then
+        printf 'error: %s: configs@%s/ missing %s\n' \
+          "$cat/$prog" "$name" "$vd/manifest.jsonc" >&2
+        errors=1
+        continue
+      fi
       variant_dirs+=("$name")
     done
 
