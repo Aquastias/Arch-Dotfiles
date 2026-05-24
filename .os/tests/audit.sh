@@ -322,6 +322,22 @@ if (( _dups_found == 0 )); then
 fi
 
 # =============================================================================
+_section "13. No _fixture/ directories under .os/programs/"
+# =============================================================================
+# Per ADR 0013 + config-generator-finalization slice 04, the production
+# programs/ tree must ship no fixture program. Test fixtures live under
+# .os/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT overrides.
+_strays=0
+while IFS= read -r d; do
+  rel="${d#${OS}/}"
+  _fail "${rel}: _fixture/ directory must not live under programs/"
+  _strays=$((_strays + 1))
+done < <(find "${OS}/programs" -type d -name "_fixture")
+if (( _strays == 0 )); then
+  _pass "no _fixture/ directories under programs/"
+fi
+
+# =============================================================================
 echo ""
 if ((_fail == 0)); then
   echo -e "${BOLD}${GREEN}All ${_pass} checks passed.${NC}"
