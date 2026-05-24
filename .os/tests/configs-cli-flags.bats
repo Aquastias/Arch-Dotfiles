@@ -139,3 +139,17 @@ JSONC
   [[ "$output" == *"[ERROR]"* ]]
   [[ "$output" == *"manifest invalid"* ]]
 }
+
+@test "cli: aborts with non-zero and no writes when conflict detected" {
+  # Legacy stow tree owns ~/.config/hello/greeting already.
+  local LEG="$TEST_DIR/legacy"
+  mkdir -p "$LEG/.config/hello"
+  printf 'legacy\n' > "$LEG/.config/hello/greeting"
+
+  run env PROGRAMS_ROOT="$PROGS" LEGACY_ROOT="$LEG" \
+      "$CLI" --user alex
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"$PROGS/_fixture/hello/configs/greeting"* ]]
+  [[ "$output" == *"$LEG/.config/hello/greeting"* ]]
+  [ ! -e "$HOME/.dotfiles/.stow/alex" ]
+}
