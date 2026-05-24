@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: wontfix
 
 # Scenario-split chroot-impermanence.bats (conditional)
 
@@ -58,3 +58,11 @@ from issue 01, apply the ~5s threshold, then either close (defer)
 or perform the scenario split. The threshold is a soft cutoff; if
 the number is borderline, err on the side of closing (defer) and
 let the maintainer reopen if needed.
+
+### 2026-05-24 — deferred per gate
+
+Measurement from issue 01 (post-parallelism, 24-core host):
+`chroot-impermanence.bats` runs in **4.83s** parallel wall time.
+Threshold is ~5s; per triage note "if borderline, err on the side
+of closing (defer)". Closing as `wontfix`. Maintainer can reopen
+if the file grows past the threshold.
