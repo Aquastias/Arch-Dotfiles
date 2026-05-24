@@ -1,4 +1,4 @@
-Status: ready-for-human
+Status: done
 
 # layout-single.bats coverage
 

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # finalize.bats tracer-bullet
 
@@ -27,14 +27,23 @@ Patterns to follow:
 
 ## Acceptance criteria
 
-- [ ] `tests/finalize.bats` exists
-- [ ] One test asserts `zpool export <os_pool>` is called when only
+- [x] `tests/finalize.bats` exists
+- [x] One test asserts `zpool export <os_pool>` is called when only
       `LAYOUT_OS_POOL_NAME` is set
-- [ ] One test asserts both `zpool export` calls are made when
+- [x] One test asserts both `zpool export` calls are made when
       `LAYOUT_DATA_POOL_NAME` is also set
-- [ ] Stub-call-log assertions only — no real `zpool` invocations
-- [ ] Full bats suite passes
+- [x] Stub-call-log assertions only — no real `zpool` invocations
+- [x] Full bats suite passes
 
 ## Blocked by
 
 None - can start immediately
+
+## Comments
+
+### 2026-05-24 — completed
+
+3 tracer-bullet tests in `.os/tests/finalize.bats`: os-only export,
+data-pool skipped when empty, both exports when both set. Stub
+strategy mirrors `chroot-impermanence.bats` (zpool / zfs / umount as
+fns appending to `$CALLS`). Full suite: 565 / 0 fail (was 562).

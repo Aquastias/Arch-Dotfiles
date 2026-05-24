@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Commons cleanup + ADR + audit lint + commons tests
 
@@ -57,22 +57,22 @@ entry remains accurate.
 
 ## Acceptance criteria
 
-- [ ] All 20 listed functions removed; surviving 5 unchanged in
+- [x] All 20 listed functions removed; surviving 5 unchanged in
       behavior
-- [ ] Empty modules read as `#!/usr/bin/env bash` + existing
+- [x] Empty modules read as `#!/usr/bin/env bash` + existing
       header + the *Reserved* line; no further content
-- [ ] `shell-stdlib.sh` still sources all 9 modules (no facade
+- [x] `shell-stdlib.sh` still sources all 9 modules (no facade
       change)
-- [ ] ADR 0011 published with Status, Context, Decision,
+- [x] ADR 0011 published with Status, Context, Decision,
       Consequences; scope and rule stated as in this issue
-- [ ] `tests/audit.sh` section 12 added; passes today; fails when
+- [x] `tests/audit.sh` section 12 added; passes today; fails when
       a duplicate is introduced (verify with a one-line test
       modification, then revert)
-- [ ] 5 new `commons-<module>.bats` files exist, each exercising
+- [x] 5 new `commons-<module>.bats` files exist, each exercising
       its module's surviving function(s) via external behavior
       only (stdout capture, exit code, stub argv)
-- [ ] Full bats suite passes
-- [ ] No callers in `programs/*/install.sh` broken by the
+- [x] Full bats suite passes
+- [x] No callers in `programs/*/install.sh` broken by the
       deletions (zero callers existed pre-change; verify post-change)
 
 ## Blocked by
