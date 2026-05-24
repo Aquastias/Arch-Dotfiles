@@ -130,3 +130,12 @@ JSONC
   [[ "$output" == *"bravo/configs@minimal/file"* ]]
   [[ "$output" != *"bravo/configs/file"* ]]
 }
+
+@test "cli: errors are emitted via print_status (with [ERROR] prefix)" {
+  printf '{ not json }\n' > \
+    "$PROGS/_fixture/hello/configs/manifest.jsonc"
+  run env PROGRAMS_ROOT="$PROGS" "$CLI" --validate-only --user alex
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"[ERROR]"* ]]
+  [[ "$output" == *"manifest invalid"* ]]
+}

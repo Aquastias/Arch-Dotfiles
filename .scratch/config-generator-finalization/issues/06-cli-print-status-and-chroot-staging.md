@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # CLI: stderr via print_status; ensure Shell Stdlib is staged for chroot
 
