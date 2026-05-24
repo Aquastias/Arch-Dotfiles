@@ -15,7 +15,7 @@
 set -Eeuo pipefail
 trap 'echo "[rkhunter] error on line $LINENO" >&2' ERR
 
-RKHUNTER_CONFIGS="${PROGRAMS}/security/rkhunter/configs"
+RKHUNTER_INSTALL="${PROGRAMS}/security/rkhunter/install"
 RKHUNTER_ENTRIES="${PROGRAMS}/security/rkhunter/entries"
 RKHUNTER_SCRIPTS="${PROGRAMS}/security/rkhunter/scripts"
 RKHUNTER_SERVICES="${PROGRAMS}/security/rkhunter/services"
@@ -31,7 +31,7 @@ sudo rkhunter --propupd
 
 print_status info "Copying configurations..."
 sudo install -o root -g root -m 644 \
-  "$RKHUNTER_CONFIGS/rkhunter.conf" /etc/rkhunter.conf
+  "$RKHUNTER_INSTALL/rkhunter.conf" /etc/rkhunter.conf
 
 print_status info "Copying entries..."
 sudo install -o root -g root -m 644 \
