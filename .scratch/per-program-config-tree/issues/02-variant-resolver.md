@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Variant Resolver: full logic + bats
 
@@ -44,26 +44,26 @@ merge function — this slice does not introduce a parallel merger.
 
 ## Acceptance criteria
 
-- [ ] Resolver returns `configs` for every program when no
+- [x] Resolver returns `configs` for every program when no
       `variants` key exists in either User Core or User Config
-- [ ] Resolver returns the matching `configs@<x>/` when
+- [x] Resolver returns the matching `configs@<x>/` when
       `variants.<program> = "<x>"` and that directory exists
-- [ ] Resolver returns `configs` when `variants.<program> =
+- [x] Resolver returns `configs` when `variants.<program> =
       "default"` (reserved name)
-- [ ] Resolver errors when `variants.<program> = "<x>"` and no
+- [x] Resolver errors when `variants.<program> = "<x>"` and no
       matching `configs@<x>/` exists
-- [ ] Resolver errors when a program has only `configs@*/`
+- [x] Resolver errors when a program has only `configs@*/`
       directories and no variant was declared for it
-- [ ] Resolver errors when a `configs@default/` directory exists on
+- [x] Resolver errors when a `configs@default/` directory exists on
       disk
-- [ ] Resolver errors when a variant directory name violates
+- [x] Resolver errors when a variant directory name violates
       `[a-z0-9-]+`
-- [ ] User Core's `variants.<program>` is overridden by User
+- [x] User Core's `variants.<program>` is overridden by User
       Config's `variants.<program>` on a per-key basis, not
       whole-object replace (House Defaults pattern)
-- [ ] `configs-variant-resolver.bats` covers every case above with
+- [x] `configs-variant-resolver.bats` covers every case above with
       fixture inputs; all bats pass
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 
