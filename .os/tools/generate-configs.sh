@@ -15,9 +15,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS_DIR="${OS_DIR:-$(dirname "$SCRIPT_DIR")}"
+export OS_DIR
 
 # shellcheck source=../lib/configs-generator.sh
 source "$OS_DIR/lib/configs-generator.sh"
+# shellcheck source=../lib/configs.sh
+source "$OS_DIR/lib/configs.sh"
 
 usage() {
   echo "Usage: $(basename "$0") [--user <name>] [--dry-run]" \
@@ -65,10 +68,17 @@ fi
 
 STOW_ROOT="${STOW_ROOT:-$HOME/.dotfiles/.stow/$USER_NAME}"
 
-# Resolve variants. Slice 02 supports user-merged variants, but slice 06
-# does not yet wire `load_user_config` (slice 05 owns the host/user merge
-# integration). Pass empty variants for now.
-resolved="$(cg_resolve_variants "$PROGRAMS_ROOT" '{}')"
+# Merge users/core + users/<USER_NAME> and extract .variants (or {} if absent).
+# load_user_config returns 0 when both core and specific exist, 1 when only
+# core exists (still fine — empty variants), >=2 on hard error.
+user_merged="$(load_user_config "$USER_NAME")" || urc=$?
+urc="${urc:-0}"
+if (( urc >= 2 )); then
+  exit 1
+fi
+variants="$(jq -c '.variants // {}' <<<"$user_merged")"
+
+resolved="$(cg_resolve_variants "$PROGRAMS_ROOT" "$variants")"
 
 while IFS=$'\t' read -r prog variant; do
   [[ -n "$prog" ]] || continue

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # CLI: wire load_user_config → .variants into the resolver call
 
