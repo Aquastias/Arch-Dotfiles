@@ -16,14 +16,104 @@
 source "${BASH_SOURCE[0]%/*}/jsonc.sh"
 
 cg_validate_manifest() {
-  local manifest="$1"
-  [[ -f "$manifest" ]] || return 1
-  jsonc_strip "$manifest" \
-    | jq -e '
-        (.files | type) == "array"
-        and all(.files[]; (.src | type) == "string"
-                          and (.dst | type) == "string")
-      ' >/dev/null
+  local manifest="$1" json errors=0 dir
+  if [[ ! -f "$manifest" ]]; then
+    printf 'error: %s: not a file\n' "$manifest" >&2
+    return 1
+  fi
+  dir="$(dirname "$manifest")"
+
+  if ! json="$(jsonc_strip "$manifest" | jq -c '.' 2>/dev/null)"; then
+    printf 'error: %s: malformed JSONC\n' "$manifest" >&2
+    return 1
+  fi
+
+  if ! jq -e 'type == "object"' <<<"$json" >/dev/null; then
+    printf 'error: %s: top level must be an object\n' "$manifest" >&2
+    return 1
+  fi
+
+  local extra
+  extra="$(jq -r 'keys - ["files"] | .[]' <<<"$json")"
+  if [[ -n "$extra" ]]; then
+    while IFS= read -r k; do
+      printf 'error: %s: unknown top-level key %q\n' "$manifest" "$k" >&2
+    done <<<"$extra"
+    errors=1
+  fi
+
+  if ! jq -e '(.files | type) == "array"' <<<"$json" >/dev/null; then
+    printf 'error: %s: missing or non-array "files"\n' "$manifest" >&2
+    return 1
+  fi
+
+  local count i entry src dst mode entry_extra expanded
+  count="$(jq '.files | length' <<<"$json")"
+  for (( i=0; i<count; i++ )); do
+    entry="$(jq -c ".files[$i]" <<<"$json")"
+
+    if ! jq -e 'type == "object"' <<<"$entry" >/dev/null; then
+      printf 'error: %s [%d]: entry must be an object\n' "$manifest" "$i" >&2
+      errors=1
+      continue
+    fi
+
+    entry_extra="$(jq -r 'keys - ["src","dst","mode"] | .[]' <<<"$entry")"
+    if [[ -n "$entry_extra" ]]; then
+      while IFS= read -r k; do
+        printf 'error: %s [%d]: unknown key %q\n' "$manifest" "$i" "$k" >&2
+      done <<<"$entry_extra"
+      errors=1
+    fi
+
+    src="$(jq -r '.src // empty' <<<"$entry")"
+    dst="$(jq -r '.dst // empty' <<<"$entry")"
+    mode="$(jq -r '.mode // empty' <<<"$entry")"
+
+    if [[ -z "$src" ]]; then
+      printf 'error: %s [%d]: missing src\n' "$manifest" "$i" >&2
+      errors=1
+    elif [[ ! -f "$dir/$src" ]]; then
+      printf 'error: %s [%d]: src %q not found under %s\n' \
+        "$manifest" "$i" "$src" "$dir" >&2
+      errors=1
+    fi
+
+    if [[ -z "$dst" ]]; then
+      printf 'error: %s [%d]: missing dst\n' "$manifest" "$i" >&2
+      errors=1
+    else
+      [[ "$dst" == "~/"* ]] || {
+        printf 'error: %s [%d]: dst %q must start with ~/\n' \
+          "$manifest" "$i" "$dst" >&2
+        errors=1
+      }
+      [[ "/$dst/" == *"/../"* ]] && {
+        printf 'error: %s [%d]: dst %q contains .. segment\n' \
+          "$manifest" "$i" "$dst" >&2
+        errors=1
+      }
+      expanded="${dst/#\~\//$HOME/}"
+      if [[ "$expanded" == */etc/* || "$expanded" == /etc/* ]]; then
+        printf 'error: %s [%d]: dst expands under /etc/ (%s)\n' \
+          "$manifest" "$i" "$expanded" >&2
+        errors=1
+      fi
+      if [[ "$expanded" == */usr/* || "$expanded" == /usr/* ]]; then
+        printf 'error: %s [%d]: dst expands under /usr/ (%s)\n' \
+          "$manifest" "$i" "$expanded" >&2
+        errors=1
+      fi
+    fi
+
+    if [[ -n "$mode" ]] && ! [[ "$mode" =~ ^0?[0-7]{3,4}$ ]]; then
+      printf 'error: %s [%d]: mode %q not octal (0?[0-7]{3,4})\n' \
+        "$manifest" "$i" "$mode" >&2
+      errors=1
+    fi
+  done
+
+  return "$errors"
 }
 
 cg_resolve_variants() {
