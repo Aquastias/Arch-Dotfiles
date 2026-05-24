@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Manifest Validator: hardening + bats
 
@@ -40,23 +40,23 @@ they render consistently with the rest of install output.
 
 ## Acceptance criteria
 
-- [ ] Valid minimal manifest (one `{ src, dst }` entry) passes
-- [ ] Valid manifest with `mode` passes for accepted octal forms
+- [x] Valid minimal manifest (one `{ src, dst }` entry) passes
+- [x] Valid manifest with `mode` passes for accepted octal forms
       (`0600`, `600`, `0644`, `644`, `4755`)
-- [ ] Malformed JSONC fails with a clear message
-- [ ] Missing `files` array fails
-- [ ] Unknown top-level key (e.g. `meta`) fails
-- [ ] `dst` not starting with `~/` fails
-- [ ] `dst` containing `..` fails
-- [ ] `dst` resolving under `/etc/` or `/usr/` fails
-- [ ] `mode` not matching the regex fails (e.g. `"rwxr"`, `"999"`,
+- [x] Malformed JSONC fails with a clear message
+- [x] Missing `files` array fails
+- [x] Unknown top-level key (e.g. `meta`) fails
+- [x] `dst` not starting with `~/` fails
+- [x] `dst` containing `..` fails
+- [x] `dst` resolving under `/etc/` or `/usr/` fails
+- [x] `mode` not matching the regex fails (e.g. `"rwxr"`, `"999"`,
       `"08"`)
-- [ ] `src` file does not exist relative to manifest dir → fails
-- [ ] Unknown per-entry key (e.g. `template`) fails
-- [ ] Error messages name the manifest path and the offending entry
-- [ ] `configs-manifest-validator.bats` covers every case above
+- [x] `src` file does not exist relative to manifest dir → fails
+- [x] Unknown per-entry key (e.g. `template`) fails
+- [x] Error messages name the manifest path and the offending entry
+- [x] `configs-manifest-validator.bats` covers every case above
       with fixture manifests; all bats pass
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 
