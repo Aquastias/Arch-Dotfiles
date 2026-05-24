@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 # layout-single.bats coverage
 
@@ -30,16 +30,29 @@ Mirror the existing patterns:
 
 ## Acceptance criteria
 
-- [ ] `tests/layout-single.bats` exists and exercises each of
+- [x] `tests/layout-single.bats` exists and exercises each of
       `layout_plan`, `layout_partition`, `layout_create_pools`,
       `layout_mount_esp`
-- [ ] Tests cover at least the same scenarios as `layout-multi.bats`
+- [x] Tests cover at least the same scenarios as `layout-multi.bats`
       (happy path + the documented edge cases)
-- [ ] Tests assert only on `LAYOUT_*` published state, not on
+- [x] Tests assert only on `LAYOUT_*` published state, not on
       `SINGLE_*` or other mode-private globals
-- [ ] All tests pass on a clean checkout
-- [ ] Full bats suite passes
+- [x] All tests pass on a clean checkout
+- [x] Full bats suite passes
 
 ## Blocked by
 
 None - can start immediately
+
+## Comments
+
+### 2026-05-24 — completed
+
+Landed 13 tracer-bullet + scenario tests in `.os/tests/layout-single.bats`
+covering the four seam functions. Full bats suite: 562 / 0 fail
+(previously 549). Stubbing strategy mirrors `chroot-impermanence.bats`
+(stub external cmds + zfs-pools seams as fns appending argv to
+`$CALLS`); calculation math (`calculate_single_disk_layout`) is
+stubbed for contract tests since it requires a real block device —
+one separate test exercises its `[[ -b ]]` guard. Exhaustive sizing
+math (floor / RAM-based / 80% / cap branches) deliberately deferred.
