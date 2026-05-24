@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Audit: assert no _fixture/ under .os/programs/
 
