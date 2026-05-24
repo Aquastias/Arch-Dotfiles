@@ -72,6 +72,7 @@ if (( VALIDATE_ONLY == 1 )) && [[ -z "$USER_NAME" ]]; then
 fi
 
 STOW_ROOT="${STOW_ROOT:-$HOME/.dotfiles/.stow/$USER_NAME}"
+LEGACY_ROOT="${LEGACY_ROOT:-$HOME/.dotfiles}"
 
 # Merge users/core + users/<USER_NAME> and extract .variants (or {} if absent).
 # load_user_config returns 0 when both core and specific exist, 1 when only
@@ -99,10 +100,10 @@ if (( VALIDATE_ONLY == 1 )); then
 fi
 
 plan="$(cg_build_plan "$PROGRAMS_ROOT" "$resolved" "$STOW_ROOT")"
-conflicts="$(cg_detect_conflicts "$plan" "" "")"
+conflicts="$(cg_detect_conflicts "$plan" "$LEGACY_ROOT" "$STOW_ROOT")"
 
 if [[ "$(jq 'length' <<<"$conflicts")" != "0" ]]; then
-  jq -r '.[] | "conflict: \(.plan_entry.dst_in_stow_tree) ↔ \(.legacy_path)"' \
+  jq -r '.[] | "conflict: \(.plan_src) ↔ \(.legacy_src) (target: \(.target))"' \
     <<<"$conflicts" \
     | while IFS= read -r line; do print_status error "$line" >&2; done
   exit 1

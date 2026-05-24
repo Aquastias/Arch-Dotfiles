@@ -6,7 +6,8 @@
 #   cg_validate_manifest <manifest-path>
 #   cg_resolve_variants  <programs_root> <variants_json>
 #   cg_build_plan        <programs_root> <resolved_json> <stow_root>
-#   cg_detect_conflicts  <plan_json> <legacy_root> <legacy_packages>
+#   cg_legacy_packages   <legacy_root>
+#   cg_detect_conflicts  <plan_json> <legacy_root> <stow_root>
 #   cg_materialize       <plan_json>
 #
 # See .scratch/per-program-config-tree/PRD.md and ADR 0012.
@@ -14,6 +15,26 @@
 
 # shellcheck source=./jsonc.sh
 source "${BASH_SOURCE[0]%/*}/jsonc.sh"
+
+# Single source of truth for the legacy stow package list. Both the Runner
+# (lib/profiles.sh) and cg_detect_conflicts call this so the two cannot drift.
+# Excludes repo metadata that must never be stowed.
+cg_legacy_packages() {
+  local root="$1"
+  [[ -d "$root" ]] || return 0
+  (
+    cd "$root" || exit 0
+    shopt -s dotglob nullglob
+    local d name
+    for d in */; do
+      name="${d%/}"
+      case "$name" in
+        .git|.os|.scratch|.stow) continue ;;
+      esac
+      printf '%s\n' "$name"
+    done
+  )
+}
 
 cg_validate_manifest() {
   local manifest="$1" json errors=0 dir
@@ -225,8 +246,48 @@ cg_build_plan() {
   printf '%s\n' "$plan"
 }
 
+# Detect overlap between the plan's post-stow targets and the legacy stow
+# tree's post-stow targets. Both are computed relative to $HOME because both
+# stow runs land symlinks there. Output: JSON array of
+# { plan_src, legacy_src, target } records (empty when no conflicts).
 cg_detect_conflicts() {
-  printf '[]\n'
+  local plan="$1" legacy_root="$2" stow_root="$3"
+  local home="${HOME}"
+  local conflicts='[]'
+  declare -A legacy_targets
+
+  if [[ -n "$legacy_root" && -d "$legacy_root" ]]; then
+    local pkg pkg_root f rel
+    while IFS= read -r pkg; do
+      pkg_root="$legacy_root/$pkg"
+      [[ -d "$pkg_root" ]] || continue
+      while IFS= read -r f; do
+        rel="${f#"$legacy_root"/}"
+        legacy_targets["$home/$rel"]="$f"
+      done < <(find "$pkg_root" -type f 2>/dev/null)
+    done < <(cg_legacy_packages "$legacy_root")
+  fi
+
+  local src dst_stow rel target
+  while IFS=$'\t' read -r src dst_stow; do
+    [[ -n "$src" ]] || continue
+    if [[ -n "$stow_root" ]]; then
+      rel="${dst_stow#"$stow_root"/}"
+    else
+      rel="$dst_stow"
+    fi
+    target="$home/$rel"
+    if [[ -n "${legacy_targets[$target]:-}" ]]; then
+      conflicts="$(jq -c \
+        --arg p "$src" \
+        --arg l "${legacy_targets[$target]}" \
+        --arg t "$target" \
+        '. + [{plan_src: $p, legacy_src: $l, target: $t}]' \
+        <<<"$conflicts")"
+    fi
+  done < <(jq -r '.[] | [.src_abs, .dst_in_stow_tree] | @tsv' <<<"$plan")
+
+  printf '%s\n' "$conflicts"
 }
 
 cg_materialize() {

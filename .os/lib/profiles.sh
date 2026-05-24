@@ -299,7 +299,9 @@ fi
 git clone "${REPO}" "\$DOTFILES"
 cd "\$DOTFILES"
 "\$DOTFILES/.os/tools/generate-configs.sh" --user "${USER_NAME}"
-stow --no-folding */
+source "\$DOTFILES/.os/lib/configs-generator.sh"
+mapfile -t _pkgs < <(cg_legacy_packages ".")
+stow --no-folding "\${_pkgs[@]}"
 stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .
 CLONE_INNER
 su - "$USER_NAME" -c "bash '$CLONE_SCRIPT'"

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Conflict Detector: atomic-migration safety
 
@@ -42,26 +42,28 @@ used in the chroot orchestrators.
 
 ## Acceptance criteria
 
-- [ ] Detector returns empty when no plan `dst` overlaps any legacy
+- [x] Detector returns empty when no plan `dst` overlaps any legacy
       stow package's contents
-- [ ] Detector flags a conflict when a plan `dst` matches a path
+- [x] Detector flags a conflict when a plan `dst` matches a path
       already present under a legacy stow package
       (e.g. plan emits `.config/kitty/kitty.conf` and
       `.dotfiles/.config/kitty/kitty.conf` exists)
-- [ ] Detector does NOT flag a conflict when the plan and a legacy
+- [x] Detector does NOT flag a conflict when the plan and a legacy
       package own paths with the same suffix but in different
       packages (e.g. plan emits `.config/foo` and legacy
       `.zsh/foo` both exist — different stow packages, no actual
       collision)
-- [ ] Generator CLI aborts with non-zero exit when the detector
+- [x] Generator CLI aborts with non-zero exit when the detector
       returns conflicts; no `.stow/<u>/` writes occur in that run
-- [ ] Error message names BOTH source paths for each conflict
-- [ ] The legacy-package list consumed by the detector comes from
-      the same source the Runner uses (no duplicated list literal)
-- [ ] `configs-conflict-detector.bats` covers clean, single
+- [x] Error message names BOTH source paths for each conflict
+- [x] The legacy-package list consumed by the detector comes from
+      the same source the Runner uses (`cg_legacy_packages` helper
+      in `lib/configs-generator.sh`, called from both Runner heredoc
+      and `cg_detect_conflicts`)
+- [x] `configs-conflict-detector.bats` covers clean, single
       conflict, multi-conflict, and the same-suffix-different-
       package non-conflict; all bats pass
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 
