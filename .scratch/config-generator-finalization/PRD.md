@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Config Generator finalization (ADR 0013 rollout)
 
