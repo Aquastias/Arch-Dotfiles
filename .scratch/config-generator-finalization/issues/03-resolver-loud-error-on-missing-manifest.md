@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Resolver: loud error on missing manifest in configs/
 
