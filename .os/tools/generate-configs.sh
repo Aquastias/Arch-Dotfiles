@@ -17,15 +17,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS_DIR="${OS_DIR:-$(dirname "$SCRIPT_DIR")}"
 export OS_DIR
 
+# shellcheck source=../lib/shell-stdlib.sh
+source "$OS_DIR/lib/shell-stdlib.sh"
 # shellcheck source=../lib/configs-generator.sh
 source "$OS_DIR/lib/configs-generator.sh"
 # shellcheck source=../lib/configs.sh
 source "$OS_DIR/lib/configs.sh"
 
 usage() {
-  echo "Usage: $(basename "$0") [--user <name>] [--dry-run]" \
-       "[--validate-only]" >&2
-  echo "  --dry-run and --validate-only are mutually exclusive." >&2
+  {
+    echo "Usage: $(basename "$0") [--user <name>] [--dry-run]" \
+         "[--validate-only]"
+    echo "  --dry-run and --validate-only are mutually exclusive."
+  } >&2
   exit 2
 }
 
@@ -38,12 +42,13 @@ while (( $# > 0 )); do
     --dry-run)       DRY_RUN=1; shift ;;
     --validate-only) VALIDATE_ONLY=1; shift ;;
     -h|--help)       usage ;;
-    *) echo "unknown flag: $1" >&2; usage ;;
+    *) print_status error "unknown flag: $1" >&2; usage ;;
   esac
 done
 
 if (( DRY_RUN == 1 )) && (( VALIDATE_ONLY == 1 )); then
-  echo "--dry-run and --validate-only are mutually exclusive" >&2
+  print_status error \
+    "--dry-run and --validate-only are mutually exclusive" >&2
   usage
 fi
 
@@ -59,7 +64,7 @@ if (( VALIDATE_ONLY == 1 )) && [[ -z "$USER_NAME" ]]; then
                   "$PROGRAMS_ROOT"/*/*/configs@*/manifest.jsonc; do
     [[ -f "$manifest" ]] || continue
     if ! cg_validate_manifest "$manifest"; then
-      echo "manifest invalid: $manifest" >&2
+      print_status error "manifest invalid: $manifest" >&2
       errors=1
     fi
   done
@@ -84,7 +89,7 @@ while IFS=$'\t' read -r prog variant; do
   [[ -n "$prog" ]] || continue
   manifest="$PROGRAMS_ROOT/$prog/$variant/manifest.jsonc"
   if ! cg_validate_manifest "$manifest"; then
-    echo "manifest invalid: $manifest" >&2
+    print_status error "manifest invalid: $manifest" >&2
     exit 1
   fi
 done < <(jq -r 'to_entries[] | "\(.key)\t\(.value)"' <<<"$resolved")
@@ -98,7 +103,8 @@ conflicts="$(cg_detect_conflicts "$plan" "" "")"
 
 if [[ "$(jq 'length' <<<"$conflicts")" != "0" ]]; then
   jq -r '.[] | "conflict: \(.plan_entry.dst_in_stow_tree) ↔ \(.legacy_path)"' \
-    <<<"$conflicts" >&2
+    <<<"$conflicts" \
+    | while IFS= read -r line; do print_status error "$line" >&2; done
   exit 1
 fi
 
