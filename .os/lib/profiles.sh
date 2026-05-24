@@ -298,7 +298,9 @@ if [[ -d "\$DOTFILES" ]]; then
 fi
 git clone "${REPO}" "\$DOTFILES"
 cd "\$DOTFILES"
+"\$DOTFILES/.os/tools/generate-configs.sh" --user "${USER_NAME}"
 stow --no-folding */
+stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .
 CLONE_INNER
 su - "$USER_NAME" -c "bash '$CLONE_SCRIPT'"
 rm -f "$CLONE_SCRIPT"

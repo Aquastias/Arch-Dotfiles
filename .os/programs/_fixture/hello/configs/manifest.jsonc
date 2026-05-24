@@ -1,0 +1,8 @@
+{
+  // Fixture program used by the Config Generator tracer slice.
+  // Subsequent slices (03/04/05/06) reuse this manifest.
+  "files": [
+    { "src": "greeting",
+      "dst": "~/.config/hello/greeting" }
+  ]
+}
