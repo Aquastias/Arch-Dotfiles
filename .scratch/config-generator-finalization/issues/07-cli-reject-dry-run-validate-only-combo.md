@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # CLI: reject --dry-run --validate-only combination
 

@@ -83,3 +83,8 @@ JSONC
   [ "$status" -eq 0 ]
   [ "$first" = "$output" ]
 }
+
+@test "cli: --dry-run --validate-only together rejected (exit 2)" {
+  run env PROGRAMS_ROOT="$PROGS" "$CLI" --dry-run --validate-only --user alex
+  [ "$status" -eq 2 ]
+}

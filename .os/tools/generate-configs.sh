@@ -7,6 +7,8 @@
 #   --dry-run         run the full pipeline, print the plan, no writes
 #   --validate-only   validate manifests (+ resolve variants if --user);
 #                     no plan output, no writes
+#
+# --dry-run and --validate-only are mutually exclusive.
 # =============================================================================
 
 set -euo pipefail
@@ -20,6 +22,7 @@ source "$OS_DIR/lib/configs-generator.sh"
 usage() {
   echo "Usage: $(basename "$0") [--user <name>] [--dry-run]" \
        "[--validate-only]" >&2
+  echo "  --dry-run and --validate-only are mutually exclusive." >&2
   exit 2
 }
 
@@ -35,6 +38,11 @@ while (( $# > 0 )); do
     *) echo "unknown flag: $1" >&2; usage ;;
   esac
 done
+
+if (( DRY_RUN == 1 )) && (( VALIDATE_ONLY == 1 )); then
+  echo "--dry-run and --validate-only are mutually exclusive" >&2
+  usage
+fi
 
 if (( VALIDATE_ONLY == 0 )) && [[ -z "$USER_NAME" ]]; then
   usage
