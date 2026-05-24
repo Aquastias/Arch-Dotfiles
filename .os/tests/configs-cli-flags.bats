@@ -88,3 +88,45 @@ JSONC
   run env PROGRAMS_ROOT="$PROGS" "$CLI" --dry-run --validate-only --user alex
   [ "$status" -eq 2 ]
 }
+
+@test "cli: --user resolves House Default from core, override from user" {
+  # OS_DIR layout: users/core + users/alex variants, programs/ tree.
+  local OSD="$TEST_DIR/osdir"
+  mkdir -p "$OSD/users/core" "$OSD/users/alex" \
+           "$OSD/programs/_fixture/alpha/configs" \
+           "$OSD/programs/_fixture/alpha/configs@minimal" \
+           "$OSD/programs/_fixture/alpha/configs@gaudy" \
+           "$OSD/programs/_fixture/bravo/configs" \
+           "$OSD/programs/_fixture/bravo/configs@minimal"
+  ln -s "$BATS_TEST_DIRNAME/../lib" "$OSD/lib"
+
+  cat > "$OSD/users/core/config.jsonc" <<'JSONC'
+{ "variants": { "alpha": "gaudy", "bravo": "minimal" } }
+JSONC
+  cat > "$OSD/users/alex/config.jsonc" <<'JSONC'
+{ "variants": { "alpha": "minimal" } }
+JSONC
+
+  for d in \
+    "$OSD/programs/_fixture/alpha/configs" \
+    "$OSD/programs/_fixture/alpha/configs@minimal" \
+    "$OSD/programs/_fixture/alpha/configs@gaudy" \
+    "$OSD/programs/_fixture/bravo/configs" \
+    "$OSD/programs/_fixture/bravo/configs@minimal"; do
+    printf 'x\n' > "$d/file"
+    cat > "$d/manifest.jsonc" <<JSONC
+{ "files": [ { "src": "file",
+               "dst": "~/.config/$(basename "$(dirname "$d")")/$(basename "$d")" } ] }
+JSONC
+  done
+
+  run env OS_DIR="$OSD" PROGRAMS_ROOT="$OSD/programs" \
+      "$CLI" --dry-run --user alex
+  [ "$status" -eq 0 ]
+  # alpha: user override wins (minimal), not core's gaudy
+  [[ "$output" == *"alpha/configs@minimal/file"* ]]
+  [[ "$output" != *"alpha/configs@gaudy/file"* ]]
+  # bravo: House Default from core (minimal) applied
+  [[ "$output" == *"bravo/configs@minimal/file"* ]]
+  [[ "$output" != *"bravo/configs/file"* ]]
+}
