@@ -18,7 +18,7 @@ set -Eeuo pipefail
 trap 'echo "[clamav] error on line $LINENO" >&2' ERR
 
 CLAMAV_PROG_DIR="${PROGRAMS}/security/clamav"
-CLAMAV_CONFIGS="${CLAMAV_PROG_DIR}/configs"
+CLAMAV_INSTALL="${CLAMAV_PROG_DIR}/install"
 CLAMAV_ENTRIES="${CLAMAV_PROG_DIR}/entries"
 CLAMAV_SCRIPTS="${CLAMAV_PROG_DIR}/scripts"
 CLAMAV_SERVICES="${CLAMAV_PROG_DIR}/services"
@@ -28,12 +28,12 @@ paru -S --noconfirm --needed clamav clamav-unofficial-sigs
 
 print_status info "Copying configurations..."
 sudo install -o root -g root -m 644 \
-  "$CLAMAV_CONFIGS/clamd.conf" /etc/clamav/clamd.conf
+  "$CLAMAV_INSTALL/clamd.conf" /etc/clamav/clamd.conf
 sudo install -o root -g root -m 644 \
-  "$CLAMAV_CONFIGS/freshclam.conf" /etc/clamav/freshclam.conf
+  "$CLAMAV_INSTALL/freshclam.conf" /etc/clamav/freshclam.conf
 sudo install -d -o root -g root -m 755 /etc/clamav-unofficial-sigs
 sudo install -o root -g root -m 644 \
-  "$CLAMAV_CONFIGS/user.conf" /etc/clamav-unofficial-sigs/user.conf
+  "$CLAMAV_INSTALL/user.conf" /etc/clamav-unofficial-sigs/user.conf
 
 print_status info "Copying entries..."
 sudo install -o root -g root -m 644 \
