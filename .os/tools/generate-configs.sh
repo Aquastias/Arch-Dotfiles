@@ -74,15 +74,38 @@ fi
 STOW_ROOT="${STOW_ROOT:-$HOME/.dotfiles/.stow/$USER_NAME}"
 LEGACY_ROOT="${LEGACY_ROOT:-$HOME/.dotfiles}"
 
-# Merge users/core + users/<USER_NAME> and extract .variants (or {} if absent).
-# load_user_config returns 0 when both core and specific exist, 1 when only
-# core exists (still fine — empty variants), >=2 on hard error.
-user_merged="$(load_user_config "$USER_NAME")" || urc=$?
-urc="${urc:-0}"
-if (( urc >= 2 )); then
-  exit 1
+# Merge users/core + users/<USER_NAME>. Extract variants and declared user
+# programs. load_user_config returns 0 (both exist), 1 (core only, fine for
+# variants={} and programs=[]), >=2 on hard error.
+user_progs_json='[]'
+variants='{}'
+if [[ -f "$OS_DIR/users/core/config.jsonc" ]]; then
+  urc=0
+  user_merged="$(load_user_config "$USER_NAME")" || urc=$?
+  if (( urc >= 2 )); then
+    exit 1
+  fi
+  variants="$(jq -c '.variants // {}' <<<"$user_merged")"
+  user_progs_json="$(jq -c '.programs // []' <<<"$user_merged")"
 fi
-variants="$(jq -c '.variants // {}' <<<"$user_merged")"
+
+# Merge hosts/core + hosts/<hostname>. Extract system_programs declared for
+# this machine. Missing hosts/core is tolerated (no system programs).
+sys_progs_json='[]'
+if [[ -f "$OS_DIR/hosts/core/config.jsonc" ]]; then
+  hostname_now="$(hostname 2>/dev/null || printf '%s' "${HOSTNAME:-}")"
+  hrc=0
+  host_merged="$(load_host_config "$hostname_now")" || hrc=$?
+  if (( hrc >= 2 )); then
+    exit 1
+  fi
+  sys_progs_json="$(jq -c '.system_programs // []' <<<"$host_merged")"
+fi
+
+declared_progs_json="$(jq -c -n \
+  --argjson u "$user_progs_json" \
+  --argjson s "$sys_progs_json" \
+  '($u + $s) | unique')"
 
 resolved="$(cg_resolve_variants "$PROGRAMS_ROOT" "$variants")"
 
@@ -99,7 +122,8 @@ if (( VALIDATE_ONLY == 1 )); then
   exit 0
 fi
 
-plan="$(cg_build_plan "$PROGRAMS_ROOT" "$resolved" "$STOW_ROOT")"
+plan="$(cg_build_plan "$PROGRAMS_ROOT" "$resolved" "$STOW_ROOT" \
+  "$declared_progs_json")"
 conflicts="$(cg_detect_conflicts "$plan" "$LEGACY_ROOT" "$STOW_ROOT")"
 
 if [[ "$(jq 'length' <<<"$conflicts")" != "0" ]]; then
@@ -110,7 +134,7 @@ if [[ "$(jq 'length' <<<"$conflicts")" != "0" ]]; then
 fi
 
 if (( DRY_RUN == 1 )); then
-  jq -r '.[] | "\(.src_abs) -> \(.dst_in_stow_tree)"' <<<"$plan" | LC_ALL=C sort
+  jq -r '.[] | "\(.src_abs) -> \(.dst_in_stow_tree)"' <<<"$plan"
   exit 0
 fi
 

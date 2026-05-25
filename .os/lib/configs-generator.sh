@@ -6,6 +6,7 @@
 #   cg_validate_manifest <manifest-path>
 #   cg_resolve_variants  <programs_root> <variants_json>
 #   cg_build_plan        <programs_root> <resolved_json> <stow_root>
+#                        <declared_progs_json>
 #   cg_legacy_packages   <legacy_root>
 #   cg_detect_conflicts  <plan_json> <legacy_root> <stow_root>
 #   cg_materialize       <plan_json>
@@ -225,12 +226,21 @@ cg_resolve_variants() {
   return "$errors"
 }
 
+# Build a deterministic plan of {src_abs, dst_in_stow_tree, mode?} entries
+# for the programs that are actually declared for this user/host. The
+# resolved map may carry every program with a configs tree on disk;
+# declared_progs is the filter (basename match against "cat/prog" keys).
 cg_build_plan() {
-  local root="$1" resolved="$2" stow_root="$3"
-  local plan='[]' prog variant prog_dir manifest entries
-  while IFS=$'\t' read -r prog variant; do
-    [[ -n "$prog" ]] || continue
-    prog_dir="$root/$prog/$variant"
+  local root="$1" resolved="$2" stow_root="$3" declared="${4:-[]}"
+  local plan='[]' key variant prog_dir manifest entries prog
+  while IFS=$'\t' read -r key variant; do
+    [[ -n "$key" ]] || continue
+    prog="${key##*/}"
+    if ! jq -e --arg p "$prog" 'index($p) != null' \
+      <<<"$declared" >/dev/null; then
+      continue
+    fi
+    prog_dir="$root/$key/$variant"
     manifest="$prog_dir/manifest.jsonc"
     entries="$(jsonc_strip "$manifest" \
       | jq -c --arg base "$prog_dir" --arg stow "$stow_root" '
@@ -243,7 +253,7 @@ cg_build_plan() {
     plan="$(jq -c --argjson a "$plan" --argjson b "$entries" \
       -n '$a + $b')"
   done < <(jq -r 'to_entries[] | "\(.key)\t\(.value)"' <<<"$resolved")
-  printf '%s\n' "$plan"
+  jq -c 'sort_by(.dst_in_stow_tree)' <<<"$plan"
 }
 
 # Detect overlap between the plan's post-stow targets and the legacy stow
