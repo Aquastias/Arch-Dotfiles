@@ -1,0 +1,13 @@
+// User Config for vm-test — throwaway user for the vm-secure smoke test.
+//
+// Merged on top of `.os/users/core/config.jsonc`. No user programs are
+// declared: the smoke test exercises the system install path, not user
+// program installation.
+
+{
+  "shell": "/bin/bash",
+  "sudo":  true,
+  "groups": [],
+  "programs": [],
+  "ssh_authorized_keys": []
+}

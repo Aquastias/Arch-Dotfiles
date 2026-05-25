@@ -1,0 +1,39 @@
+// Install Template for vm/arch-secure — overrides hosts/core/install.template.jsonc.
+//
+// Mirrors the INSTALL_CONFIG_CONTENT inlined by .os/vm/vm-secure.sh so the
+// host is also installable from tools/pick.sh on real hardware with the
+// same combined feature set (SOPS + impermanence + ZFS encryption,
+// 2-disk mirror, headless).
+
+{
+  "mode": "multi",
+
+  "os_pool": {
+    "topology": "mirror",
+    "disks":    ["/dev/sda", "/dev/sdb"]
+  },
+
+  "options": {
+    "encryption": true,
+
+    "impermanence": {
+      "enabled": true,
+      "dataset": "rpool/persist",
+      "mount":   "/persist"
+    },
+
+    "age_key_url": "http://192.168.122.1:9876/key.age"
+  },
+
+  "environment": {
+    "desktop": [],
+    "gpu":     "auto"
+  },
+
+  "post_install": {
+    "backup":   false,
+    "security": false
+  },
+
+  "ashift": 12
+}
