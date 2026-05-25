@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Wire up Test Host arch-secure and Test User vm-test
 

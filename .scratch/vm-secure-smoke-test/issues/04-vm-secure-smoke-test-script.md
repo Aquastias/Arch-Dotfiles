@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Add vm-secure.sh end-to-end smoke test
 

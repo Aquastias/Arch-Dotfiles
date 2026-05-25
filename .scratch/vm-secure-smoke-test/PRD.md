@@ -1,6 +1,6 @@
 # PRD: Secure VM smoke test (sops + impermanence + encryption)
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Problem Statement
