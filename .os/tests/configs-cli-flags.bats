@@ -163,3 +163,27 @@ JSONC
   [[ "$output" == *"$LEG/.config/hello/greeting"* ]]
   [ ! -e "$HOME/.dotfiles/.stow/alex" ]
 }
+
+@test "cli: --dry-run --user aborts on legacy conflict (non-zero, no writes)" {
+  local LEG="$TEST_DIR/legacy"
+  mkdir -p "$LEG/.config/hello"
+  printf 'legacy\n' > "$LEG/.config/hello/greeting"
+
+  run env PROGRAMS_ROOT="$PROGS" LEGACY_ROOT="$LEG" \
+      "$CLI" --dry-run --user alex
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"$PROGS/_fixture/hello/configs/greeting"* ]]
+  [[ "$output" == *"$LEG/.config/hello/greeting"* ]]
+  [ ! -e "$HOME/.dotfiles/.stow/alex" ]
+}
+
+@test "cli: --validate-only --user fails on missing variant directory" {
+  mkdir -p "$OS_DIR/users/alex"
+  cat > "$OS_DIR/users/alex/config.jsonc" <<'JSONC'
+{ "variants": { "hello": "ghost" } }
+JSONC
+
+  run env PROGRAMS_ROOT="$PROGS" "$CLI" --validate-only --user alex
+  [ "$status" -ne 0 ]
+  [ ! -e "$HOME/.dotfiles/.stow/alex" ]
+}
