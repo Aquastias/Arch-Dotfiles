@@ -6,6 +6,9 @@ setup() {
   STATE="$TEST_DIR/install-state.json"
   # shellcheck source=../lib/install-state.sh
   source "$BATS_TEST_DIRNAME/../lib/install-state.sh"
+  # shellcheck source=../lib/configs.sh
+  source "$BATS_TEST_DIRNAME/../lib/configs.sh"
+  FIXTURES="$BATS_TEST_DIRNAME/fixtures"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -115,7 +118,6 @@ set_field() {
 # ── install_state_write ──────────────────────────────────────────────────────
 
 setup_writer_globals() {
-  RESOLVED_HOSTNAME="box01"
   install_config_timezone()             { echo "UTC"; }
   install_config_locale()               { echo "en_US.UTF-8"; }
   install_config_keymap()               { echo "us"; }
@@ -129,23 +131,21 @@ setup_writer_globals() {
   install_config_impermanence_mount()   { echo "/persist"; }
   LAYOUT_OS_POOL_NAME="rpool"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
-  INSTALL_STATE_HOST_JSON='{}'
+  export OS_DIR="$FIXTURES"
 }
 
-@test "install_state_write: writes .hostname from RESOLVED_HOSTNAME" {
+@test "install_state_write: writes .hostname from positional arg" {
   setup_writer_globals
-  install_state_write "$STATE"
-  [ "$(jq -r .hostname "$STATE")" = "box01" ]
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r .hostname "$STATE")" = "host-a" ]
 }
 
 @test "install_state_write: assembles full schema with nested objects" {
   setup_writer_globals
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
-  INSTALL_STATE_HOST_JSON='{"persist":{"directories":["/etc/wireguard"],
-    "files":["/etc/foo"]}}'
-  install_state_write "$STATE"
+  install_state_write "$STATE" "host-a"
 
-  [ "$(jq -r .hostname     "$STATE")" = "box01" ]
+  [ "$(jq -r .hostname     "$STATE")" = "host-a" ]
   [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
   [ "$(jq -r .locale       "$STATE")" = "en_US.UTF-8" ]
   [ "$(jq -r .keymap       "$STATE")" = "us" ]
@@ -165,7 +165,7 @@ setup_writer_globals() {
 
 @test "install_state_write: types — swap/extras/impermanence are booleans" {
   setup_writer_globals
-  install_state_write "$STATE"
+  install_state_write "$STATE" "host-a"
   [ "$(jq -r '.swap | type'                 "$STATE")" = "boolean" ]
   [ "$(jq -r '.extras.backup | type'        "$STATE")" = "boolean" ]
   [ "$(jq -r '.impermanence.enabled | type' "$STATE")" = "boolean" ]
@@ -173,17 +173,23 @@ setup_writer_globals() {
   [ "$(jq -r '.persist.directories | type'  "$STATE")" = "array" ]
 }
 
+@test "install_state_write: persist empty when host dir absent (fallback)" {
+  setup_writer_globals
+  export OS_DIR="$TEST_DIR/no-such-os-dir"
+  install_state_write "$STATE" "ghost-host"
+  [ "$(jq -r '.persist.directories | length' "$STATE")" = "0" ]
+  [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
+}
+
 # ── round-trip ───────────────────────────────────────────────────────────────
 
 @test "round-trip: write then load — every schema field intact" {
   setup_writer_globals
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
-  INSTALL_STATE_HOST_JSON='{"persist":{"directories":["/etc/wg"],
-    "files":["/etc/foo"]}}'
-  install_state_write "$STATE"
+  install_state_write "$STATE" "host-b"
   install_state_load  "$STATE"
 
-  [ "$HOSTNAME"             = "box01" ]
+  [ "$HOSTNAME"             = "host-b" ]
   [ "$TIMEZONE"             = "UTC" ]
   [ "$LOCALE"               = "en_US.UTF-8" ]
   [ "$KEYMAP"               = "us" ]

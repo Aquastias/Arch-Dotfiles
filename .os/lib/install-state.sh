@@ -57,17 +57,13 @@ install_state_load() {
   done
 }
 
-# install_state_write <path>
-# Reads globals + install_config_* accessors, writes the full state JSON.
-# Required inputs (caller's scope):
-#   RESOLVED_HOSTNAME, LAYOUT_OS_POOL_NAME, LAYOUT_ESP_PARTS (array),
-#   INSTALL_STATE_HOST_JSON (merged host config; persist sub-object built
-#   from it).
+# install_state_write <path> <hostname>
 install_state_write() {
-  local path="$1" persist
-  persist="$(_install_state_persist_obj "$INSTALL_STATE_HOST_JSON")"
+  local path="$1" hostname="$2" host_json persist
+  host_json="$(load_host_config "$hostname" 2>/dev/null || printf '{}')"
+  persist="$(_install_state_persist_obj "$host_json")"
   jq -n \
-    --arg     hostname    "$RESOLVED_HOSTNAME"                       \
+    --arg     hostname    "$hostname"                                \
     --arg     timezone    "$(install_config_timezone)"               \
     --arg     locale      "$(install_config_locale)"                 \
     --arg     keymap      "$(install_config_keymap)"                 \
