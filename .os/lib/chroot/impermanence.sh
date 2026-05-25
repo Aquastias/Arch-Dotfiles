@@ -7,8 +7,13 @@
 # temp dir. Production callers leave ROOT unset (writes to / inside chroot).
 
 # Curated Persist Defaults + writers come from the shared common lib.
+# Chroot stages it as sibling; source tree has it one level up.
 # shellcheck source=../impermanence-common.sh
-source "$(dirname "${BASH_SOURCE[0]}")/../impermanence-common.sh"
+_IMP_DIR="$(dirname "${BASH_SOURCE[0]}")"
+_IMP_COMMON="$_IMP_DIR/impermanence-common.sh"
+[[ -f "$_IMP_COMMON" ]] || _IMP_COMMON="$_IMP_DIR/../impermanence-common.sh"
+# shellcheck disable=SC1090
+source "$_IMP_COMMON"
 
 _impermanence_dataset_exists() {
   zfs list -H -o name "$1" >/dev/null 2>&1
