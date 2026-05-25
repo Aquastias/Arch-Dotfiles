@@ -52,49 +52,6 @@ _validation_system_fields() {
 }
 
 # =============================================================================
-# DISK VALIDATORS
-# =============================================================================
-# Dispatched by mode from validate_install_context.
-
-_validation_single() {
-  local d
-  d="$(cfg '.disk' 'disk')"
-  [[ -b "$d" ]] || error "Single disk not found: $d"
-}
-
-_validation_multi() {
-  local topo
-  topo="$(cfgo '.os_pool.topology')"
-  if [[ -n "$topo" ]]; then
-    case "$topo" in
-    mirror | stripe | none) ;;
-    *) error "os_pool.topology must be mirror|stripe|none, got: '${topo}'" ;;
-    esac
-  fi
-
-  local cnt
-  cnt="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
-  ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
-
-  local d
-  while IFS= read -r d; do
-    [[ -b "$d" ]] || error "OS disk not found: $d"
-  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
-
-  local sg gname gdc
-  sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
-  for ((i = 0; i < sg; i++)); do
-    gname="$(cfg ".storage_groups[$i].name")"
-    gdc="$(jsonc_strip "$CONFIG_FILE" \
-      | jq ".storage_groups[$i].disks | length")"
-    ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
-    while IFS= read -r d; do
-      [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
-    done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-  done
-}
-
-# =============================================================================
 # PROGRAM PREFLIGHT
 # =============================================================================
 # Validates all program contracts for <hostname> and its users.
@@ -266,13 +223,7 @@ validate_install_context() {
 
   _validation_system_fields
 
-  local validator="_validation_${INSTALL_MODE}"
-  if declare -F "$validator" >/dev/null; then
-    "$validator"
-  else
-    error "No validator for mode '${INSTALL_MODE}'" \
-          "(expected function ${validator})."
-  fi
+  layout_validate
 
   _validation_impermanence
 

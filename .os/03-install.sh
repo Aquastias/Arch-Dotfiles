@@ -29,9 +29,10 @@
 #   lib/zfs-pools.sh     — ZFS tool fallback, ram_gib, encryption opts, pool
 #                          creation helper, OS dataset creation, vdev spec
 #                          builder
-#   lib/layout-<mode>.sh — sourced after detect_mode(); implements the layout
-#                          interface: layout_plan, layout_partition,
-#                          layout_create_pools, layout_mount_esp
+#   lib/layout-<mode>.sh — sourced after detect_mode(), before validation;
+#                          implements the layout interface: layout_validate,
+#                          layout_plan, layout_partition, layout_create_pools,
+#                          layout_mount_esp
 #   lib/packages.sh      — package collection, pacstrap
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
 #   lib/configs.sh       — host/user config loader+merger (host/user core)
@@ -164,9 +165,8 @@ main() {
   load_config
   detect_mode
   export OS_DIR="${SCRIPT_DIR}"
-  validate_install_context
-
   source_module "${SCRIPT_DIR}/lib/layout-${INSTALL_MODE}.sh"
+  validate_install_context
 
   # ── Planning (topology resolution / size calculation) ─────────────────────
   layout_plan

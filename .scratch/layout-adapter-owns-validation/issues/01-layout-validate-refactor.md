@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Move mode-specific validation into Layout Adapters
 

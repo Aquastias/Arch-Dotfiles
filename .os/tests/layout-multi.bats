@@ -13,6 +13,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
   # shellcheck source=../lib/layout-multi.sh
   source "$BATS_TEST_DIRNAME/../lib/layout-multi.sh"
+  _LAYOUT_PHASE=1  # simulate validate phase having run
 }
 
 teardown() {
@@ -141,4 +142,75 @@ JSONC
   run layout_partition
   [ "$status" -ne 0 ]
   [[ "$output" == *"out of order"* ]]
+}
+
+# ── layout_validate (ADR 0014) ──────────────────────────────────────────────
+
+write_multi_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
+
+_find_block_device() {
+  local d
+  for d in /dev/loop0 /dev/loop1 /dev/sda /dev/nvme0n1 /dev/vda /dev/ram0; do
+    [[ -b "$d" ]] && { printf %s "$d"; return; }
+  done
+  return 1
+}
+
+@test "layout_validate: errors on bad os_pool.topology value" {
+  _LAYOUT_PHASE=0
+  write_multi_config '{
+    "os_pool":{"topology":"bogus","disks":["/dev/sdz"]},
+    "storage_groups":[]
+  }'
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"os_pool.topology must be mirror|stripe|none"* ]]
+}
+
+@test "layout_validate: errors when os_pool.disks is empty" {
+  _LAYOUT_PHASE=0
+  write_multi_config '{
+    "os_pool":{"disks":[]},
+    "storage_groups":[]
+  }'
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"os_pool.disks must list at least 1 disk"* ]]
+}
+
+@test "layout_validate: errors when OS disk is not a block device" {
+  _LAYOUT_PHASE=0
+  write_multi_config '{
+    "os_pool":{"disks":["/tmp/not-a-real-disk-xyz"]},
+    "storage_groups":[]
+  }'
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"OS disk not found: /tmp/not-a-real-disk-xyz"* ]]
+}
+
+@test "layout_validate: errors when storage group has no disks" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[{\"name\":\"empty\",\"disks\":[]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Storage group 'empty' has no disks"* ]]
+}
+
+@test "layout_validate: errors when storage group disk missing" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[{\"name\":\"data\",\"disks\":[\"/tmp/not-real\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Group 'data' disk not found: /tmp/not-real"* ]]
 }
