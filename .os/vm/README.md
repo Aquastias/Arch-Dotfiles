@@ -23,6 +23,11 @@ bash vm/vm-hyprland.sh
 
 # KDE + Hyprland side-by-side (single disk, 80 GiB)
 bash vm/vm-kde-hyprland.sh
+
+# Headless mirror with SOPS + impermanence + ZFS encryption
+# (2 × 40 GiB). Type `test` at the Age-key passphrase prompt
+# when the Secrets Module asks during install.
+bash vm/vm-secure.sh
 ```
 
 Each script: resolves the latest archzfs-compatible Arch ISO →
@@ -42,6 +47,7 @@ Default credentials: `aquastias / 12345` (or `root / 12345`).
 | `vm-kde.sh` | `arch-kde` | 1 × 60 GiB | 8 GiB | KDE Plasma 6 + SDDM |
 | `vm-hyprland.sh` | `arch-hyprland` | 1×40 GiB | 6 GiB | Hyprland + greetd |
 | `vm-kde-hyprland.sh` | `arch-kde-hyprland` | 80 GiB | 8 GiB | KDE+Hyprland |
+| `vm-secure.sh` | `arch-secure` | 2 × 40 GiB (mirror) | 6 GiB | none (headless) |
 
 ---
 
