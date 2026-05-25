@@ -14,7 +14,7 @@ CURATED_FILES=(
 )
 CURATED_DIRS=(
   /etc/ssh
-  /etc/secrets
+  /etc/secrets    # sops age key lives here
   /etc/NetworkManager/system-connections
   /etc/sudoers.d
   /etc/pacman.d

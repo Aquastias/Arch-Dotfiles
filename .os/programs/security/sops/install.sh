@@ -16,8 +16,18 @@ trap 'echo "[sops] error on line $LINENO" >&2' ERR
 SOPS_SERVICES="${PROGRAMS}/security/sops/services"
 SOPS_SCRIPTS="${PROGRAMS}/security/sops/scripts"
 
-print_status info "Installing sops and ssh-to-age..."
-pacman -S --noconfirm --needed sops ssh-to-age
+print_status info "Installing sops..."
+pacman -S --noconfirm --needed sops
+
+# ssh-to-age has no Arch package; build from upstream via go.
+print_status info "Building ssh-to-age from source..."
+pacman -S --noconfirm --needed go
+GOBIN=/usr/local/bin go install \
+  github.com/Mic92/ssh-to-age/cmd/...@latest
+
+print_status info "Ensuring SSH host key exists..."
+pacman -S --noconfirm --needed openssh
+[[ -f /etc/ssh/ssh_host_ed25519_key ]] || ssh-keygen -A
 
 print_status info "Deriving Machine Age Key from SSH host key..."
 mkdir -p /etc/secrets/age
