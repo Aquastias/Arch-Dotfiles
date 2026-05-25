@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Per-program config tree with variants
 
