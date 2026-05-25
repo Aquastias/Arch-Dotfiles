@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # CLI ergonomics: --dry-run and --validate-only
 
