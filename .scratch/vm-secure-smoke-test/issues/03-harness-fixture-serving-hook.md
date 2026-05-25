@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Add VM_FIXTURE_FILES hook to the VM harness
 

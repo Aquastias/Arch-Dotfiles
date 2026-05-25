@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Commit SOPS test fixtures + regeneration script
 

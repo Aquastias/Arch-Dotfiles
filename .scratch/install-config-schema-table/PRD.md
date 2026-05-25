@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Install Config schema-driven accessors
 

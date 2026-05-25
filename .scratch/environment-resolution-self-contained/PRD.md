@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Environment resolution is self-contained at each consumer
 
