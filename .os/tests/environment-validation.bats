@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for validate_environment() in lib/config.sh.
+# Tests for _resolve_env_validate() in lib/config.sh.
 #
 # Strategy: stub common.sh helpers (cfgo, jsonc, error, info, section, warn)
 # so the module can be sourced without a live system. Happy-path tests call
-# validate_environment() directly and assert globals. Error-path tests use
+# _resolve_env_validate() directly and assert globals. Error-path tests use
 # `run` so error() exits the subshell rather than the test process.
 
 setup() {
@@ -36,21 +36,21 @@ write_config() {
 
 @test "desktop 'kde' passes validation and sets ENVIRONMENT_DESKTOP" {
   write_config '{"environment": {"desktop": "kde", "gpu": "auto"}}'
-  validate_environment
+  _resolve_env_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
 
 @test "desktop 'hyprland' passes validation" {
   write_config '{"environment": {"desktop": "hyprland", "gpu": "auto"}}'
-  validate_environment
+  _resolve_env_validate
   [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
 }
 
 @test "desktop array ['kde','hyprland'] passes and sets two-element array" {
   write_config \
     '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
-  validate_environment
+  _resolve_env_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
   [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
@@ -58,19 +58,19 @@ write_config() {
 
 @test "desktop null passes validation and gives empty array" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
-  validate_environment
+  _resolve_env_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 0 ]
 }
 
 @test "environment key missing entirely passes validation" {
   write_config '{"mode": "single", "disk": "/dev/sda"}'
-  validate_environment
+  _resolve_env_validate
   [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 0 ]
 }
 
 @test "desktop 'gnome' fails validation with error naming valid options" {
   write_config '{"environment": {"desktop": "gnome", "gpu": "auto"}}'
-  run validate_environment
+  run _resolve_env_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "kde" ]]
   [[ "$output" =~ "hyprland" ]]
@@ -78,7 +78,7 @@ write_config() {
 
 @test "gpu 'auto' passes validation" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
-  validate_environment
+  _resolve_env_validate
   [ "${ENVIRONMENT_GPU[0]}" = "auto" ]
 }
 
@@ -86,14 +86,14 @@ write_config() {
   for vendor in amd nvidia intel; do
     write_config \
       "{\"environment\": {\"desktop\": null, \"gpu\": \"${vendor}\"}}"
-    validate_environment
+    _resolve_env_validate
     [ "${ENVIRONMENT_GPU[0]}" = "$vendor" ]
   done
 }
 
 @test "gpu array ['amd','nvidia'] passes and sets two-element array" {
   write_config '{"environment": {"desktop": null, "gpu": ["amd", "nvidia"]}}'
-  validate_environment
+  _resolve_env_validate
   [ "${#ENVIRONMENT_GPU[@]}" -eq 2 ]
   [ "${ENVIRONMENT_GPU[0]}" = "amd" ]
   [ "${ENVIRONMENT_GPU[1]}" = "nvidia" ]
@@ -101,7 +101,7 @@ write_config() {
 
 @test "gpu 'vulkan' fails validation with error naming valid options" {
   write_config '{"environment": {"desktop": null, "gpu": "vulkan"}}'
-  run validate_environment
+  run _resolve_env_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "amd" ]]
   [[ "$output" =~ "nvidia" ]]

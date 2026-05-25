@@ -276,9 +276,7 @@ validate_install_context() {
 
   _validation_impermanence
 
-  validate_environment
-  resolve_gpu_packages
-  resolve_audio_packages
+  resolve_environment
 
   configs_build_registry
   _validation_preflight_programs "$RESOLVED_HOSTNAME"

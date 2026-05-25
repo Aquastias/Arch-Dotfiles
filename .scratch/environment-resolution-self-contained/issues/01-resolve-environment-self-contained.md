@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Make collect_packages self-contained via resolve_environment
 

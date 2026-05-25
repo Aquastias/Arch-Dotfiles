@@ -6,35 +6,27 @@
 # Requires: lib/common.sh already sourced (provides error, warn, jsonc_strip,
 #           and CONFIG_FILE global).
 #
-# Public API (three separate calls, in order):
-#   validate_environment   — reads CONFIG_FILE; sets ENVIRONMENT_DESKTOP/GPU
-#   resolve_gpu_packages — ENVIRONMENT_GPU →
-#                        GPU_PACMAN_PACKAGES + GPU_PARU_PACKAGES
-#   resolve_audio_packages — ENVIRONMENT_DESKTOP → AUDIO_PACKAGES
-#
-# Pipeline contract
-# ─────────────────
-# validate_install_context() (lib/validation.sh) calls all three in order.
-# Callers that
-# use GPU_PACMAN_PACKAGES, GPU_PARU_PACKAGES, or AUDIO_PACKAGES must call
-# validate_install_context() first — collect_packages() in
-# lib/packages.sh enforces this.
+# Public API:
+#   resolve_environment — idempotent; populates ENVIRONMENT_DESKTOP,
+#                         ENVIRONMENT_GPU, GPU_PACMAN_PACKAGES,
+#                         GPU_PARU_PACKAGES, AUDIO_PACKAGES from
+#                         CONFIG_FILE.
 # =============================================================================
 
 # ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────
-# Set by validate_environment; consumed by resolve_gpu_packages,
-# resolve_audio_packages, and collect_packages.
+# Set by _resolve_env_validate; consumed by _resolve_env_gpu,
+# _resolve_env_audio, and collect_packages.
 # shellcheck disable=SC2034
 ENVIRONMENT_DESKTOP=()
 # shellcheck disable=SC2034
 ENVIRONMENT_GPU=()
 
-# Set by resolve_gpu_packages; consumed by collect_packages.
+# Set by _resolve_env_gpu; consumed by collect_packages.
 # Declared here so collect_packages can detect unresolved state.
 GPU_PACMAN_PACKAGES=()
 GPU_PARU_PACKAGES=()
 
-# Set by resolve_audio_packages; consumed by collect_packages.
+# Set by _resolve_env_audio; consumed by collect_packages.
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
@@ -103,7 +95,7 @@ _gpu_detect_vendors() {
 
 # Translate ENVIRONMENT_GPU → GPU_PACMAN_PACKAGES + GPU_PARU_PACKAGES.
 # If ENVIRONMENT_GPU=("auto"), runs lspci detection and updates ENVIRONMENT_GPU.
-resolve_gpu_packages() {
+_resolve_env_gpu() {
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
 
@@ -131,7 +123,7 @@ resolve_gpu_packages() {
 # Derive audio packages from the resolved desktop array. PipeWire is installed
 # whenever any desktop is selected.
 # Sets AUDIO_PACKAGES (bash array) — idempotent, deduplicates on repeat calls.
-resolve_audio_packages() {
+_resolve_env_audio() {
   AUDIO_PACKAGES=()
   [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]] && return 0
   local _pipewire=(pipewire pipewire-pulse pipewire-alsa wireplumber)
@@ -145,7 +137,7 @@ resolve_audio_packages() {
 # normalises each to a bash array, and validates values against the allowed
 # sets. Sets ENVIRONMENT_DESKTOP and ENVIRONMENT_GPU globals.
 
-validate_environment() {
+_resolve_env_validate() {
   ENVIRONMENT_DESKTOP=()
   ENVIRONMENT_GPU=()
 
@@ -196,6 +188,23 @@ validate_environment() {
     done
     $_ok || error "Unknown GPU '${_gpu}'. Valid: ${_VALID_GPU[*]}."
   done
+}
+
+# =============================================================================
+# PUBLIC ENTRY
+# =============================================================================
+
+# Single idempotent entry point. Resets the five resolved globals and re-runs
+# the full pipeline (validate -> GPU -> audio). Safe to call repeatedly.
+resolve_environment() {
+  ENVIRONMENT_DESKTOP=()
+  ENVIRONMENT_GPU=()
+  GPU_PACMAN_PACKAGES=()
+  GPU_PARU_PACKAGES=()
+  AUDIO_PACKAGES=()
+  _resolve_env_validate
+  _resolve_env_gpu
+  _resolve_env_audio
 }
 
 # =============================================================================
