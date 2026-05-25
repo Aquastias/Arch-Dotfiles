@@ -95,8 +95,8 @@ write_config() {
 
 # ── phase lifecycle helpers ───────────────────────────────────────────────────
 # Phase ordinals: validate=1, plan=2, partition=3, pools=4, esp=5.
-# Until ADR 0014 adds layout_validate, _LAYOUT_PHASE is seeded to 1 so the
-# first callable phase is `plan`.
+# _LAYOUT_PHASE is seeded to 0; tests below set it to 1 to simulate the
+# validate phase having run, so the first callable phase under test is `plan`.
 
 @test "_layout_enter_phase plan: succeeds from fresh state" {
   _LAYOUT_PHASE=1

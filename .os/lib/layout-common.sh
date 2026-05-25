@@ -48,8 +48,8 @@ _layout_verify_partition_contract() {
 # calls abort via error before any destructive operation runs.
 #
 # Phase map (private): validate=1, plan=2, partition=3, pools=4, esp=5.
-# Seeded to 1 until ADR 0014 adds the `layout_validate` wrapper; then init→0.
-_LAYOUT_PHASE=1
+# Seeded to 0 — the first callable phase is `validate` (ADR 0014).
+_LAYOUT_PHASE=0
 
 _layout_phase_ordinal() {
   case "$1" in

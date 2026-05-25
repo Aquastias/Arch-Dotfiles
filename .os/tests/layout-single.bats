@@ -24,6 +24,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
   # shellcheck source=../lib/layout-single.sh
   source "$BATS_TEST_DIRNAME/../lib/layout-single.sh"
+  _LAYOUT_PHASE=1  # simulate validate phase having run
+
 
   # Quiet output; error still aborts.
   info()    { :; }
@@ -175,4 +177,14 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   run layout_partition
   [ "$status" -ne 0 ]
   [[ "$output" == *"out of order"* ]]
+}
+
+# ── layout_validate (ADR 0014) ──────────────────────────────────────────────
+
+@test "layout_validate: errors when .disk is not a block device" {
+  _LAYOUT_PHASE=0
+  write_config '{"disk":"/tmp/not-a-real-disk-xyz"}'
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Single disk not found"* ]]
 }

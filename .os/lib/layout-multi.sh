@@ -14,6 +14,7 @@
 #   create_multi_rpool           — creates rpool with resolved topology
 #   create_multi_dpool           — creates dpool with all storage groups
 #   mount_multi_esps             — mounts primary + secondary ESPs
+#   layout_validate  — seam: validates os_pool + storage_groups inputs
 #   layout_plan      — seam: wraps resolve_os_topology;
 #                     resolve_storage_topologies
 #   layout_partition — seam: wraps partition_os_disks_multi;
@@ -478,6 +479,40 @@ mount_multi_esps() {
 # =============================================================================
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
+
+layout_validate() {
+  _layout_enter_phase validate
+  local topo
+  topo="$(cfgo '.os_pool.topology')"
+  if [[ -n "$topo" ]]; then
+    case "$topo" in
+    mirror | stripe | none) ;;
+    *) error "os_pool.topology must be mirror|stripe|none, got: '${topo}'" ;;
+    esac
+  fi
+
+  local cnt
+  cnt="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
+  ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
+
+  local d
+  while IFS= read -r d; do
+    [[ -b "$d" ]] || error "OS disk not found: $d"
+  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+
+  local sg gname gdc i
+  sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
+  for ((i = 0; i < sg; i++)); do
+    gname="$(cfg ".storage_groups[$i].name")"
+    gdc="$(jsonc_strip "$CONFIG_FILE" \
+      | jq ".storage_groups[$i].disks | length")"
+    ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
+    while IFS= read -r d; do
+      [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
+    done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+  done
+  _layout_exit_phase validate
+}
 
 layout_plan() {
   _layout_enter_phase plan

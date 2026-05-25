@@ -12,6 +12,7 @@
 #   partition_single_disk         — wipes disk, creates 3 GPT partitions
 #   create_single_pools           — creates rpool (OS) and dpool (storage)
 #   mount_single_esp              — mounts the ESP into MOUNT_ROOT
+#   layout_validate       — seam: validates single-disk config inputs
 #   layout_plan           — seam: wraps calculate_single_disk_layout
 #   layout_partition      — seam: wraps partition_single_disk
 #   layout_create_pools   — seam: wraps create_single_pools
@@ -257,6 +258,14 @@ mount_single_esp() {
 # =============================================================================
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
+
+layout_validate() {
+  _layout_enter_phase validate
+  local d
+  d="$(cfg '.disk' 'disk')"
+  [[ -b "$d" ]] || error "Single disk not found: $d"
+  _layout_exit_phase validate
+}
 
 layout_plan() {
   _layout_enter_phase plan
