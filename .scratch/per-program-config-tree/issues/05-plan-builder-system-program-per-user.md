@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Plan Builder: multi-program + system-program-per-user
 
@@ -47,24 +47,24 @@ consumes that and the host's system-program list.
 
 ## Acceptance criteria
 
-- [ ] Plan for a single user-program produces one entry per
+- [x] Plan for a single user-program produces one entry per
       manifest file
-- [ ] Plan correctly selects the per-user variant for each program
-- [ ] System program declared in Host Config with `configs/` is
+- [x] Plan correctly selects the per-user variant for each program
+- [x] System program declared in Host Config with `configs/` is
       included in the plan for every user on the host
-- [ ] Two users on the same host with different variants of the
+- [x] Two users on the same host with different variants of the
       same system program produce different plans (each gets their
       own variant)
-- [ ] System program with NO `configs/` (or `configs@*/`) is not
+- [x] System program with NO `configs/` (or `configs@*/`) is not
       included in any user's plan
-- [ ] `mode` passes through unchanged when present in the manifest
-- [ ] `dst_in_stow_tree` correctly strips `~/` and roots under the
+- [x] `mode` passes through unchanged when present in the manifest
+- [x] `dst_in_stow_tree` correctly strips `~/` and roots under the
       target stow root
-- [ ] Two runs with identical inputs produce byte-identical plan
+- [x] Two runs with identical inputs produce byte-identical plan
       output (deterministic order)
-- [ ] `configs-plan-builder.bats` covers all cases above with
+- [x] `configs-plan-builder.bats` covers all cases above with
       fixture host configs and programs; all bats pass
-- [ ] `tests/audit.sh` still passes
+- [x] `tests/audit.sh` still passes
 
 ## Blocked by
 

@@ -14,6 +14,18 @@ setup() {
 { "files": [ { "src": "greeting",
                "dst": "~/.config/hello/greeting" } ] }
 JSONC
+
+  # Minimal OS_DIR seed so the CLI's host/user merge picks up declared
+  # programs without contaminating from the real .os/ tree.
+  export OS_DIR="$TEST_DIR/osdir"
+  mkdir -p "$OS_DIR/users/core" "$OS_DIR/hosts/core"
+  cat > "$OS_DIR/users/core/config.jsonc" <<'JSONC'
+{ "programs": ["hello", "alpha", "beta"] }
+JSONC
+  cat > "$OS_DIR/hosts/core/config.jsonc" <<'JSONC'
+{ "system_programs": [] }
+JSONC
+  ln -s "$BATS_TEST_DIRNAME/../lib" "$OS_DIR/lib"
 }
 
 teardown() {
@@ -90,29 +102,27 @@ JSONC
 }
 
 @test "cli: --user resolves House Default from core, override from user" {
-  # OS_DIR layout: users/core + users/alex variants, programs/ tree.
-  local OSD="$TEST_DIR/osdir"
-  mkdir -p "$OSD/users/core" "$OSD/users/alex" \
-           "$OSD/programs/_fixture/alpha/configs" \
-           "$OSD/programs/_fixture/alpha/configs@minimal" \
-           "$OSD/programs/_fixture/alpha/configs@gaudy" \
-           "$OSD/programs/_fixture/bravo/configs" \
-           "$OSD/programs/_fixture/bravo/configs@minimal"
-  ln -s "$BATS_TEST_DIRNAME/../lib" "$OSD/lib"
+  mkdir -p "$OS_DIR/users/alex" \
+           "$OS_DIR/programs/_fixture/alpha/configs" \
+           "$OS_DIR/programs/_fixture/alpha/configs@minimal" \
+           "$OS_DIR/programs/_fixture/alpha/configs@gaudy" \
+           "$OS_DIR/programs/_fixture/bravo/configs" \
+           "$OS_DIR/programs/_fixture/bravo/configs@minimal"
 
-  cat > "$OSD/users/core/config.jsonc" <<'JSONC'
-{ "variants": { "alpha": "gaudy", "bravo": "minimal" } }
+  cat > "$OS_DIR/users/core/config.jsonc" <<'JSONC'
+{ "programs": ["alpha", "bravo"],
+  "variants": { "alpha": "gaudy", "bravo": "minimal" } }
 JSONC
-  cat > "$OSD/users/alex/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/users/alex/config.jsonc" <<'JSONC'
 { "variants": { "alpha": "minimal" } }
 JSONC
 
   for d in \
-    "$OSD/programs/_fixture/alpha/configs" \
-    "$OSD/programs/_fixture/alpha/configs@minimal" \
-    "$OSD/programs/_fixture/alpha/configs@gaudy" \
-    "$OSD/programs/_fixture/bravo/configs" \
-    "$OSD/programs/_fixture/bravo/configs@minimal"; do
+    "$OS_DIR/programs/_fixture/alpha/configs" \
+    "$OS_DIR/programs/_fixture/alpha/configs@minimal" \
+    "$OS_DIR/programs/_fixture/alpha/configs@gaudy" \
+    "$OS_DIR/programs/_fixture/bravo/configs" \
+    "$OS_DIR/programs/_fixture/bravo/configs@minimal"; do
     printf 'x\n' > "$d/file"
     cat > "$d/manifest.jsonc" <<JSONC
 { "files": [ { "src": "file",
@@ -120,7 +130,7 @@ JSONC
 JSONC
   done
 
-  run env OS_DIR="$OSD" PROGRAMS_ROOT="$OSD/programs" \
+  run env PROGRAMS_ROOT="$OS_DIR/programs" \
       "$CLI" --dry-run --user alex
   [ "$status" -eq 0 ]
   # alpha: user override wins (minimal), not core's gaudy
