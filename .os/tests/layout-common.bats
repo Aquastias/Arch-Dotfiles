@@ -92,3 +92,44 @@ write_config() {
   [ "$status" -eq 0 ]
   [ "$output" = "512M" ]
 }
+
+# ── phase lifecycle helpers ───────────────────────────────────────────────────
+# Phase ordinals: validate=1, plan=2, partition=3, pools=4, esp=5.
+# Until ADR 0014 adds layout_validate, _LAYOUT_PHASE is seeded to 1 so the
+# first callable phase is `plan`.
+
+@test "_layout_enter_phase plan: succeeds from fresh state" {
+  _LAYOUT_PHASE=1
+  run _layout_enter_phase plan
+  [ "$status" -eq 0 ]
+}
+
+@test "_layout_enter_phase partition: from fresh state errors out-of-order" {
+  _LAYOUT_PHASE=1
+  run _layout_enter_phase partition
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"out of order"* ]]
+}
+
+@test "_layout_enter_phase plan: errors when called twice in a row" {
+  _LAYOUT_PHASE=1
+  _layout_enter_phase plan
+  _layout_exit_phase plan
+  run _layout_enter_phase plan
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"out of order"* ]]
+}
+
+@test "phase walk plan→partition→pools→esp leaves _LAYOUT_PHASE=5" {
+  _LAYOUT_PHASE=1
+  _layout_enter_phase plan;      _layout_exit_phase plan
+  _layout_enter_phase partition; _layout_exit_phase partition
+  _layout_enter_phase pools;     _layout_exit_phase pools
+  _layout_enter_phase esp;       _layout_exit_phase esp
+  [ "$_LAYOUT_PHASE" -eq 5 ]
+}
+
+@test "_layout_phase_ordinal: unknown phase name errors" {
+  run _layout_phase_ordinal bogus
+  [ "$status" -ne 0 ]
+}

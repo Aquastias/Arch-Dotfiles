@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Enforce Layout Module phase ordering at the seam
 
@@ -110,3 +110,10 @@ land together. `CONTEXT.md` already updated.
 `.scratch/layout-adapter-owns-validation/issues/01-layout-validate-refactor.md`
 — `layout_validate` must exist on both adapters before the
 `validate=1` phase entry has anything to wrap.
+
+## Comments
+
+- 2026-05-25: Landed scoped to phases 2-5 (plan/partition/pools/esp).
+  `_LAYOUT_PHASE` seeded to 1; `validate=1` reserved in the ordinal map.
+  When `layout-adapter-owns-validation/01` (ADR 0014) merges, change
+  `_LAYOUT_PHASE=1` → `=0` and wrap `layout_validate`.

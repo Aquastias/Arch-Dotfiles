@@ -156,6 +156,23 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
 @test "layout_mount_esp: mounts ESP at MOUNT_ROOT/boot/efi" {
   layout_plan
   layout_partition
+  _LAYOUT_PHASE=4  # skip layout_create_pools; isolate mount_esp behaviour
   layout_mount_esp
   grep -qE "^mount /dev/sdz1 ${MOUNT_ROOT}/boot/efi$" "$CALLS"
+}
+
+# ── phase lifecycle smoke (ADR 0016) ────────────────────────────────────────
+
+@test "phase lifecycle: full chain leaves _LAYOUT_PHASE=5" {
+  layout_plan
+  layout_partition
+  layout_create_pools
+  layout_mount_esp
+  [ "$_LAYOUT_PHASE" -eq 5 ]
+}
+
+@test "phase lifecycle: layout_partition before layout_plan errors" {
+  run layout_partition
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"out of order"* ]]
 }

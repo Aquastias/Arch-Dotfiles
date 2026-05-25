@@ -480,6 +480,7 @@ mount_multi_esps() {
 # =============================================================================
 
 layout_plan() {
+  _layout_enter_phase plan
   resolve_os_topology
   resolve_storage_topologies
   # Publish layout state record (consumed by chroot.sh, finalize.sh).
@@ -494,11 +495,23 @@ layout_plan() {
     LAYOUT_DATA_POOL_NAME="dpool"
   fi
   _layout_verify_plan_contract
+  _layout_exit_phase plan
 }
 layout_partition() {
+  _layout_enter_phase partition
   partition_os_disks_multi
   partition_storage_disks_multi
   _layout_verify_partition_contract
+  _layout_exit_phase partition
 }
-layout_create_pools() { create_multi_rpool; create_multi_dpool; }
-layout_mount_esp()    { mount_multi_esps; }
+layout_create_pools() {
+  _layout_enter_phase pools
+  create_multi_rpool
+  create_multi_dpool
+  _layout_exit_phase pools
+}
+layout_mount_esp() {
+  _layout_enter_phase esp
+  mount_multi_esps
+  _layout_exit_phase esp
+}
