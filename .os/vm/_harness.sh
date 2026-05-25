@@ -37,6 +37,9 @@ set -Eeuo pipefail
 
 HARNESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${HARNESS_DIR}/../lib"
+# Directory of the VM script that sourced us (vm-kde.sh, vm-secure.sh).
+# Used to resolve relative entries in VM_FIXTURE_FILES.
+VM_SCRIPT_DIR="${VM_SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[1]:-${HARNESS_DIR}/_harness.sh}")" && pwd)}"
 
 # =============================================================================
 # DEFAULTS
@@ -349,6 +352,33 @@ _stop_http_server() {
   _HTTP_PID=""
 }
 
+_stage_fixture_files() {
+  local entries=("${VM_FIXTURE_FILES[@]:-}")
+  ((${#entries[@]} == 0)) && return 0
+  [[ -z "${entries[0]:-}" && ${#entries[@]} -eq 1 ]] && return 0
+
+  declare -A _seen=()
+  local entry resolved base dest
+  for entry in "${entries[@]}"; do
+    [[ -z "$entry" ]] && continue
+    if [[ "$entry" = /* ]]; then
+      resolved="$entry"
+    else
+      resolved="${VM_SCRIPT_DIR}/${entry}"
+    fi
+    [[ -f "$resolved" ]] \
+      || error "VM_FIXTURE_FILES: missing source file: $entry"
+    base="$(basename "$resolved")"
+    [[ "$base" == "run" ]] \
+      && error "VM_FIXTURE_FILES: basename collides with installer 'run': $entry"
+    [[ -n "${_seen[$base]:-}" ]] \
+      && error "VM_FIXTURE_FILES: duplicate basename '$base': $entry"
+    _seen[$base]=1
+    dest="${CACHE_DIR}/${base}"
+    cp -f "$resolved" "$dest"
+  done
+}
+
 _launch_installer() {
   local script="${CACHE_DIR}/run"
   _render_installer_script "${REPO_URL}" > "${script}"
@@ -432,6 +462,7 @@ run_harness() {
   info "VM IP: ${vm_ip}"
   _wait_for_ssh "$vm_ip"
 
+  _stage_fixture_files
   section "Launching installer"
   _launch_installer
 
