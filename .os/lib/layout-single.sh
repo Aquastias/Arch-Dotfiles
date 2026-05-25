@@ -259,6 +259,7 @@ mount_single_esp() {
 # =============================================================================
 
 layout_plan() {
+  _layout_enter_phase plan
   calculate_single_disk_layout
   # Publish layout state record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
@@ -268,10 +269,21 @@ layout_plan() {
   LAYOUT_DATA_POOL_NAME="$(cfgo .storage_pool_name)"
   LAYOUT_DATA_POOL_NAME="${LAYOUT_DATA_POOL_NAME:-dpool}"
   _layout_verify_plan_contract
+  _layout_exit_phase plan
 }
 layout_partition() {
+  _layout_enter_phase partition
   partition_single_disk
   _layout_verify_partition_contract
+  _layout_exit_phase partition
 }
-layout_create_pools() { create_single_pools; }
-layout_mount_esp()    { mount_single_esp; }
+layout_create_pools() {
+  _layout_enter_phase pools
+  create_single_pools
+  _layout_exit_phase pools
+}
+layout_mount_esp() {
+  _layout_enter_phase esp
+  mount_single_esp
+  _layout_exit_phase esp
+}

@@ -39,3 +39,39 @@ _layout_verify_partition_contract() {
     error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element" \
           "after layout_partition()"
 }
+
+# =============================================================================
+# Layout phase lifecycle (ADR 0016)
+# =============================================================================
+# Single ordinal counter + two guards enforce seam-verb ordering. Adapters
+# bracket each verb with _layout_enter_phase / _layout_exit_phase. Out-of-order
+# calls abort via error before any destructive operation runs.
+#
+# Phase map (private): validate=1, plan=2, partition=3, pools=4, esp=5.
+# Seeded to 1 until ADR 0014 adds the `layout_validate` wrapper; then init→0.
+_LAYOUT_PHASE=1
+
+_layout_phase_ordinal() {
+  case "$1" in
+  validate)  echo 1 ;;
+  plan)      echo 2 ;;
+  partition) echo 3 ;;
+  pools)     echo 4 ;;
+  esp)       echo 5 ;;
+  *) error "Unknown layout phase name: '$1'" ;;
+  esac
+}
+
+_layout_enter_phase() {
+  local name="$1" ord
+  ord="$(_layout_phase_ordinal "$name")"
+  (( _LAYOUT_PHASE == ord - 1 )) ||
+    error "Layout phase '$name' out of order:" \
+          "_LAYOUT_PHASE=$_LAYOUT_PHASE, expected $((ord - 1))"
+}
+
+_layout_exit_phase() {
+  local name="$1" ord
+  ord="$(_layout_phase_ordinal "$name")"
+  _LAYOUT_PHASE="$ord"
+}
