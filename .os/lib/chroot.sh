@@ -248,10 +248,9 @@ configure_system() {
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
   # ── Write install-state.json via the Install State module ────────────────
-  # shellcheck disable=SC2034  # consumed by install_state_write
-  INSTALL_STATE_HOST_JSON="$(load_host_config "$RESOLVED_HOSTNAME" \
-    2>/dev/null || printf '{}')"
-  install_state_write "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
+  install_state_write \
+    "${MOUNT_ROOT}/root/lib-chroot/install-state.json" \
+    "$RESOLVED_HOSTNAME"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
   local _host_sec_path

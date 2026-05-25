@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: install_state_write takes hostname as positional arg
 

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Pass hostname positionally into install_state_write
 
