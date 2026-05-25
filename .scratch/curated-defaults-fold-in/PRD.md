@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Fold Curated Defaults List into impermanence-common
 
