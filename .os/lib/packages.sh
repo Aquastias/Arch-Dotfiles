@@ -10,11 +10,6 @@
 #                      sorted unique list
 #   install_base — updates mirrorlist, runs pacstrap with
 #                  collected packages
-#
-# Precondition: validate_install_context() (lib/validation.sh) must be
-# called before
-#   collect_packages() so that GPU_PACMAN_PACKAGES and AUDIO_PACKAGES
-#   are resolved.
 # =============================================================================
 
 # =============================================================================
@@ -37,20 +32,11 @@ collect_packages() {
   #      (keys starting with "_" are comment fields and are filtered out)
   #   6. Host packages.repo[] — repo packages from the merged host
   #                            config
-  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_gpu_packages() in
-  #                            validate_install_context()
-  #   8. AUDIO_PACKAGES — resolved by resolve_audio_packages() in
-  #                       validate_install_context()
+  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_environment()
+  #   8. AUDIO_PACKAGES — resolved by resolve_environment()
   #
   # Output: one package name per line, sorted and deduplicated.
-
-  # Precondition: GPU_PACMAN_PACKAGES and AUDIO_PACKAGES must be resolved.
-  declare -p GPU_PACMAN_PACKAGES &>/dev/null ||
-    error "collect_packages: GPU_PACMAN_PACKAGES not set —" \
-          "call validate_install_context() first"
-  declare -p AUDIO_PACKAGES &>/dev/null ||
-    error "collect_packages: AUDIO_PACKAGES not set —" \
-          "call validate_install_context() first"
+  resolve_environment
 
   # ── Kernel selection ──────────────────────────────────────────────────────
   local kernel

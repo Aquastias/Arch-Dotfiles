@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for resolve_gpu_packages() in lib/config.sh.
+# Tests for _resolve_env_gpu() in lib/config.sh.
 #
 # Strategy: override _gpu_lspci_output() as an injectable seam so tests
 # control lspci output without real hardware. Set ENVIRONMENT_GPU directly
@@ -31,7 +31,7 @@ teardown() {
 
 @test "gpu 'amd' populates AMD package set; paru list empty" {
   ENVIRONMENT_GPU=("amd")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" xf86-video-amdgpu "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
@@ -41,7 +41,7 @@ teardown() {
 
 @test "gpu 'nvidia' populates NVIDIA open package set; paru list empty" {
   ENVIRONMENT_GPU=("nvidia")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-utils "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" lib32-nvidia-utils "* ]]
@@ -52,7 +52,7 @@ teardown() {
 
 @test "gpu ['amd','nvidia'] populates both sets and adds envycontrol" {
   ENVIRONMENT_GPU=("amd" "nvidia")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
   [[ " ${GPU_PARU_PACKAGES[*]} " == *" envycontrol "* ]]
@@ -66,7 +66,7 @@ teardown() {
     echo "00:02.0 VGA [0300]: Intel Corporation [8086:1612]"
   }
   ENVIRONMENT_GPU=("intel")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" intel-media-driver "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" libva-intel-driver "* ]]
 }
@@ -77,7 +77,7 @@ teardown() {
     echo "00:02.0 VGA [0300]: Intel Corporation [8086:0a16]"
   }
   ENVIRONMENT_GPU=("intel")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" libva-intel-driver "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" intel-media-driver "* ]]
 }
@@ -90,7 +90,7 @@ teardown() {
          "[AMD/ATI] Navi 21 [1002:73bf]"
   }
   ENVIRONMENT_GPU=("auto")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
 }
 
@@ -102,7 +102,7 @@ teardown() {
          "[GeForce RTX 3050] [10de:25a2]"
   }
   ENVIRONMENT_GPU=("auto")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
   [[ " ${GPU_PARU_PACKAGES[*]} " == *" envycontrol "* ]]
@@ -113,7 +113,7 @@ teardown() {
     echo "00:0f.0 VGA [0300]: VMware SVGA II Adapter [15ad:0405]"
   }
   ENVIRONMENT_GPU=("auto")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
   [ "${#GPU_PACMAN_PACKAGES[@]}" -eq 1 ]
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
@@ -124,7 +124,7 @@ teardown() {
     echo "00:02.0 VGA [0300]: Red Hat, Inc. Virtio GPU [1af4:1050]"
   }
   ENVIRONMENT_GPU=("auto")
-  resolve_gpu_packages
+  _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
   [ "${#GPU_PACMAN_PACKAGES[@]}" -eq 1 ]
 }

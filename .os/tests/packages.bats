@@ -6,14 +6,14 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
-  GPU_PACMAN_PACKAGES=()
-  AUDIO_PACKAGES=()
   # shellcheck source=../lib/common.sh
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
   # shellcheck source=../lib/install-config.sh
   source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
   # shellcheck source=../lib/packages.sh
   source "$BATS_TEST_DIRNAME/../lib/packages.sh"
+  # shellcheck source=../lib/environment.sh
+  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
 }
 
 teardown() {
@@ -113,22 +113,20 @@ write_config() {
 
 # ── GPU and audio packages ────────────────────────────────────────────────────
 
-@test "collect_packages: GPU_PACMAN_PACKAGES are included" {
-  write_config '{}'
-  GPU_PACMAN_PACKAGES=(nvidia nvidia-utils)
+@test "collect_packages: environment.gpu=nvidia drivers appear in output" {
+  write_config '{"environment": {"gpu": "nvidia"}}'
   run collect_packages
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "^nvidia$"
+  echo "$output" | grep -q "^nvidia-open-dkms$"
   echo "$output" | grep -q "^nvidia-utils$"
 }
 
-@test "collect_packages: AUDIO_PACKAGES are included" {
-  write_config '{}'
-  AUDIO_PACKAGES=(pipewire pipewire-alsa)
+@test "collect_packages: environment.desktop=kde pulls pipewire" {
+  write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
   run collect_packages
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^pipewire$"
-  echo "$output" | grep -q "^pipewire-alsa$"
+  echo "$output" | grep -q "^wireplumber$"
 }
 
 # ── deduplication ─────────────────────────────────────────────────────────────
@@ -140,20 +138,4 @@ write_config() {
   local count
   count="$(echo "$output" | grep -c "^vim$")"
   [ "$count" -eq 1 ]
-}
-
-# ── preconditions ─────────────────────────────────────────────────────────────
-
-@test "collect_packages: fails when GPU_PACMAN_PACKAGES is unset" {
-  write_config '{}'
-  unset GPU_PACMAN_PACKAGES
-  run collect_packages
-  [ "$status" -ne 0 ]
-}
-
-@test "collect_packages: fails when AUDIO_PACKAGES is unset" {
-  write_config '{}'
-  unset AUDIO_PACKAGES
-  run collect_packages
-  [ "$status" -ne 0 ]
 }
