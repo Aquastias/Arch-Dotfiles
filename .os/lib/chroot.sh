@@ -80,6 +80,19 @@ write_esp_mirror_hook() {
   # exit status from `((esp_count > 1))`, tripping the ERR trap one frame up.
   ((esp_count > 1)) || return 0
 
+  # alpm-hooks Exec must be a single line — no backslash continuation.
+  # Keep logic in a script so the hook stays declarative.
+  mkdir -p "${MOUNT_ROOT}/usr/local/sbin"
+  cat >"${MOUNT_ROOT}/usr/local/sbin/esp-mirror" <<'SCRIPT'
+#!/usr/bin/bash
+set -euo pipefail
+for d in /boot/efi*/; do
+  [[ "$d" != "/boot/efi/" ]] || continue
+  rsync -a --delete /boot/efi/ "$d"
+done
+SCRIPT
+  chmod 755 "${MOUNT_ROOT}/usr/local/sbin/esp-mirror"
+
   mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
   cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/95-esp-mirror.hook" <<'HOOK'
 [Trigger]
@@ -92,11 +105,7 @@ Target = usr/lib/systemd/boot/efi/*.efi
 [Action]
 Description = Mirroring ESP to secondary OS disks...
 When = PostTransaction
-Exec = /usr/bin/bash -c '\
-  for d in /boot/efi*/; do\
-    [[ "$d" != "/boot/efi/" ]] \
-      && rsync -a --delete /boot/efi/ "$d"\
-  done'
+Exec = /usr/local/sbin/esp-mirror
 HOOK
   info "ESP mirror pacman hook installed."
 
