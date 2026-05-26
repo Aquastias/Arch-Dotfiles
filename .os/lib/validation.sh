@@ -118,11 +118,11 @@ _validation_preflight_programs() {
 # IMPERMANENCE
 # =============================================================================
 # When options.impermanence.enabled=true, the persist dataset must live on
-# the same pool as rpool/ROOT/arch (i.e. $RPOOL). Cross-pool rollback would
+# the same pool as the OS root (os_pool_name). Cross-pool rollback would
 # leave persist orphaned if the OS pool is recreated.
 
 _validation_impermanence() {
-  local enabled dataset pool
+  local enabled dataset pool os_pool
   enabled="$(install_config_impermanence_enabled)"
   [[ "$enabled" == "true" ]] || return 0
   dataset="$(install_config_impermanence_dataset)"
@@ -130,9 +130,10 @@ _validation_impermanence() {
     error "Invalid options.impermanence.dataset '${dataset}':" \
           "must be <pool>/<path>."
   pool="${dataset%%/*}"
-  [[ "$pool" == "$RPOOL" ]] || \
+  os_pool="$(install_config_os_pool_name)"
+  [[ "$pool" == "$os_pool" ]] || \
     error "options.impermanence.dataset '${dataset}' must be on the" \
-          "same pool as rpool/ROOT/arch (${RPOOL})."
+          "same pool as ${os_pool}/ROOT/arch."
 }
 
 
