@@ -279,5 +279,12 @@ configure_system() {
 apply_impermanence() {
   [[ -d "${MOUNT_ROOT}/root/lib-chroot" ]] || return 0
   section "Applying Impermanence"
-  arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/impermanence.sh
+  # Tee to two logs: the target's /var/log (survives reboot, readable on
+  # the booted system) and the live ISO's /tmp (readable immediately if
+  # apply aborts and the system can't boot).
+  local tgt_log="${MOUNT_ROOT}/var/log/install-impermanence.log"
+  local iso_log="/tmp/install-impermanence.log"
+  mkdir -p "$(dirname "$tgt_log")"
+  arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/impermanence.sh \
+    2>&1 | tee -a "$tgt_log" "$iso_log"
 }

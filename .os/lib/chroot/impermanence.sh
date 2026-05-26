@@ -234,16 +234,22 @@ HOOK
 
 impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
-  _impermanence_create_persist_dataset
-  _impermanence_create_rollback_datasets
-  _impermanence_write_manifest
-  _impermanence_apply_curated
-  _impermanence_write_bootstrap
-  _impermanence_apply_extensions
-  _impermanence_write_rollback_hook
-  _impermanence_write_resnapshot_hook
-  _impermanence_write_resnapshot_helper
-  _impermanence_snapshot_blank
+  local step
+  for step in \
+    _impermanence_create_persist_dataset \
+    _impermanence_create_rollback_datasets \
+    _impermanence_write_manifest \
+    _impermanence_apply_curated \
+    _impermanence_write_bootstrap \
+    _impermanence_apply_extensions \
+    _impermanence_write_rollback_hook \
+    _impermanence_write_resnapshot_hook \
+    _impermanence_write_resnapshot_helper \
+    _impermanence_snapshot_blank
+  do
+    info "step: $step"
+    "$step"
+  done
 }
 
 # When invoked as a script (not sourced), load state and apply.
@@ -257,6 +263,18 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   source "$_INSTALL_STATE_SH"
   install_state_load "$STATE"
   set -Eeuo pipefail
-  trap 'echo "[chroot:impermanence] failed at line $LINENO" >&2' ERR
+  _imp_on_err() {
+    local rc=$? lineno=$1
+    {
+      echo "[chroot:impermanence] FAILED"
+      echo "  line:    $lineno"
+      echo "  command: $BASH_COMMAND"
+      echo "  funcs:   ${FUNCNAME[*]:1}"
+      echo "  rc:      $rc"
+    } >&2
+    exit "$rc"
+  }
+  trap '_imp_on_err $LINENO' ERR
+  [[ "${IMP_DEBUG:-0}" == "1" ]] && set -x
   impermanence_apply
 fi
