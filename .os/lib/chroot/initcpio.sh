@@ -49,6 +49,16 @@ _hooks_line="$(_initcpio_hooks_line "$MODCONF_HOOK" \
 sed -i "s|^HOOKS=.*|${_hooks_line}|" /etc/mkinitcpio.conf
 unset _hooks_line
 
+# Install the zfs-rollback hook files before mkinitcpio runs, otherwise
+# mkinitcpio errors with "Hook 'zfs-rollback' cannot be found". The full
+# impermanence_apply runs later in configure.sh — this just stages the
+# initcpio hook files it needs at build time.
+if [[ "$IMPERMANENCE_ENABLED" == "true" ]]; then
+    # shellcheck source=./impermanence.sh
+    source "$_LIB_DIR/impermanence.sh"
+    _impermanence_write_rollback_hook
+fi
+
 # ── Fallback preset ───────────────────────────────────────────────────────────
 # Minimal installs may only define the 'default' preset — ensure 'fallback'
 # also exists so there is a recovery boot option with all modules included.
