@@ -112,10 +112,10 @@ bash /root/lib-chroot/password.sh
 
 bash /root/lib-chroot/extras.sh
 
-# ── Impermanence (last step) ─────────────────────────────────────────────────
-# Runs after all other configuration so curated paths exist on disk before
-# being moved to the persist dataset and snapshotted.
-bash /root/lib-chroot/impermanence.sh
+# Impermanence is intentionally NOT invoked here — it moves /root into the
+# persist dataset, which would erase /root/lib-chroot/ before the Profiles
+# Runner can use it. apply_impermanence() runs it from the host after
+# run_profiles. See ADRs 0001 and 0004.
 
 echo ""
 echo "[CHROOT] Configuration complete."

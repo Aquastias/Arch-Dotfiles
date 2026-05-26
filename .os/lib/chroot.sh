@@ -261,3 +261,14 @@ configure_system() {
     HOST_SECRETS_FILE="$_host_sec_path" \
     arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
+
+# apply_impermanence
+# Runs the impermanence Chroot Configuration Module from the host after
+# run_profiles. Kept out of configure.sh because it moves /root into the
+# persist dataset, which would erase /root/lib-chroot/ before the Profiles
+# Runner can read it.
+apply_impermanence() {
+  [[ -d "${MOUNT_ROOT}/root/lib-chroot" ]] || return 0
+  section "Applying Impermanence"
+  arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/impermanence.sh
+}
