@@ -201,6 +201,9 @@ main() {
   # ── Profiles runner (host/user configs) ───────────────────────────────────
   run_profiles
 
+  # ── Impermanence (after users + programs, before unmount) ────────────────
+  apply_impermanence
+
   # ── Print machine age key for sops updatekeys ─────────────────────────────
   secrets_print_machine_key
 
