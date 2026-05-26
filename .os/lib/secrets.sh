@@ -8,6 +8,8 @@ set -Eeuo pipefail
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
 
 _SECRETS_TMPFS=""
+_SECRETS_HAS_HOST=0
+_SECRETS_USER_NAMES=()
 
 # secrets_load <hostname>
 # Discovers users/*/secrets.json and hosts/<hostname>/secrets.json,
@@ -103,23 +105,28 @@ secrets_load() {
     chmod 600 "$out"
   done
 
-  _secrets_write_state "$has_host" "${user_names[@]+"${user_names[@]}"}"
+  _SECRETS_HAS_HOST="$has_host"
+  _SECRETS_USER_NAMES=("${user_names[@]+"${user_names[@]}"}")
 }
 
-_secrets_write_state() {
-  local has_host="$1"
-  shift
-  local -a names=("$@")
+# secrets_persist_state
+# Writes secret tmpfs paths into /mnt/install-state.json (or $INSTALL_STATE).
+# Must run after the root pool is mounted, before configure_system.
+secrets_persist_state() {
+  [[ -z "${_SECRETS_TMPFS:-}" ]] && return 0
 
   local state="${INSTALL_STATE:-/mnt/install-state.json}"
   local enc
+  mkdir -p "$(dirname "$state")"
+  [[ -f "$state" ]] || echo '{}' > "$state"
 
   install_state_update "$state" '.secrets' '{}'
-  if [[ $has_host -eq 1 ]]; then
+  if [[ "${_SECRETS_HAS_HOST:-0}" -eq 1 ]]; then
     enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
     install_state_update "$state" '.secrets.host' "$enc"
   fi
-  for name in "${names[@]+"${names[@]}"}"; do
+  local name
+  for name in "${_SECRETS_USER_NAMES[@]+"${_SECRETS_USER_NAMES[@]}"}"; do
     enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" '$v')"
     install_state_update "$state" ".secrets.users[\"$name\"]" "$enc"
   done

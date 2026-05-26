@@ -191,6 +191,9 @@ main() {
   layout_create_pools
   layout_mount_esp
 
+  # ── Persist secrets state now that /mnt is mounted ────────────────────────
+  secrets_persist_state
+
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
   configure_system
