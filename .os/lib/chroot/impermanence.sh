@@ -15,6 +15,10 @@ _IMP_COMMON="$_IMP_DIR/impermanence-common.sh"
 # shellcheck disable=SC1090
 source "$_IMP_COMMON"
 
+# Local logger — chroot scripts don't source lib/common.sh, and the unset
+# `info` shadows by texinfo's /usr/bin/info, which fails under set -e.
+info() { printf '[impermanence] %s\n' "$*" >&2; }
+
 _impermanence_dataset_exists() {
   zfs list -H -o name "$1" >/dev/null 2>&1
 }
