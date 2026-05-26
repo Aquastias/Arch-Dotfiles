@@ -88,6 +88,7 @@ collect_packages() {
 
     # ── Network ───────────────────────────────────────────────────────────
     networkmanager # handles wired + wireless; enabled in chroot
+    openssh        # ssh-keygen used by create-user.sh + sops setup
 
     # ── Bootloader + EFI tools ────────────────────────────────────────────
     efibootmgr # manages UEFI boot entries
