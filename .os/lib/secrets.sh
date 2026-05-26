@@ -13,8 +13,20 @@ _SECRETS_TMPFS=""
 # Discovers users/*/secrets.json and hosts/<hostname>/secrets.json,
 # decrypts each to a tmpfs, and writes paths into install-state.json.
 # Caller must register: trap secrets_cleanup EXIT
+
+# Arch ISO ships neither age nor sops; install them on demand.
+_secrets_install_tools() {
+  local -a pkgs=()
+  command -v age  >/dev/null 2>&1 || pkgs+=("age")
+  command -v sops >/dev/null 2>&1 || pkgs+=("sops")
+  [[ ${#pkgs[@]} -eq 0 ]] && return 0
+  echo "[secrets] installing on live ISO: ${pkgs[*]}" >&2
+  pacman -Sy --noconfirm --needed "${pkgs[@]}" >&2
+}
+
 secrets_load() {
   local hostname="$1"
+  _secrets_install_tools || return 1
 
   local host_sec="${OS_DIR}/hosts/${hostname}/secrets.json"
   local -a user_secs=() user_names=()
@@ -63,7 +75,8 @@ secrets_load() {
 
   local age_key="${_SECRETS_TMPFS}/keys.txt"
   if ! age --decrypt -o "$age_key" "$age_enc"; then
-    echo "[secrets] wrong passphrase or corrupt key" >&2
+    echo "[secrets] age --decrypt failed —" \
+         "wrong passphrase, corrupt key, or missing 'age' binary" >&2
     rm -f "$_url_tmp"
     secrets_cleanup
     return 1
