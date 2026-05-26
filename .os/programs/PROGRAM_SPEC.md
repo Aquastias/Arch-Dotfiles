@@ -8,9 +8,18 @@ compliant `config.jsonc` and `install.sh` for a new program.
 ## Invocation context
 
 Every `install.sh` is sourced (not executed as a subprocess) by
-`lib/run-program.sh` inside **arch-chroot**, running as the **owning user**
-with temporary passwordless sudo. The shell stdlib is already sourced before
-`install.sh` runs — do not re-source it.
+`lib/run-program.sh` inside **arch-chroot**. The shell stdlib is already
+sourced before `install.sh` runs — do not re-source it.
+
+Two execution modes, selected by `"system"` in `config.jsonc`:
+
+- `system: false` — runs as the **owning user** with temporary passwordless
+  sudo. Packages installed via `paru` (AUR-capable). Use this by default.
+- `system: true` — runs as **root**. Packages installed via `pacman`. Use this
+  only when the install genuinely needs root and no per-user state
+  (e.g. deriving machine-wide keys, writing under `/etc`/`/usr/lib`
+  unconditionally, bootloader setup). Listed under `system_programs` in the
+  host config; runs before user programs.
 
 Key consequences:
 
@@ -25,7 +34,8 @@ Key consequences:
 
 ## Shell stdlib — available helpers
 
-These are provided by `lib/shell-stdlib.sh` and are available without sourcing:
+Provided by `lib/shell-stdlib.sh` (facade over `lib/shell/*.sh`) and available
+without sourcing:
 
 ```bash
 print_status info    "message"   # → [program] message
@@ -33,11 +43,19 @@ print_status success "message"   # → [program] ✓ message
 print_status warning "message"   # → [program] ⚠ message
 print_status error   "message"   # → stderr; does NOT exit
 command_exists "name"            # → true if name is on PATH
+package_installed "pkg"          # → true if pkg installed (pacman -Qi)
+check_root                       # → exits 1 if not running as root
+send_user_notification "user" "title" "body"  # → notify-send as $user
 ```
+
+Domains under `lib/shell/` (`strings.sh`, `arrays.sh`, `directories.sh`,
+`environments.sh`) are reserved for future helpers — currently empty.
 
 ---
 
 ## `config.jsonc` format
+
+### `system: false` (default)
 
 ```jsonc
 // Program metadata for <name>.
@@ -49,18 +67,52 @@ command_exists "name"            # → true if name is on PATH
 //  e.g. which groups are created, what the user must do post-boot.>
 
 {
-  "name": "<program-name>",     // must match the directory name exactly
-  "system": false,              // always false — programs install as the user
-  "description": "<one sentence: what is installed and what state it leaves>"
+  "name": "<program-name>",
+  "system": false,
+  "description": "<one sentence: what is installed and what state it leaves.>"
 }
 ```
 
+### `system: true`
+
+```jsonc
+// Program metadata for <name>.
+//
+// system=true → installed by the profile runner inside arch-chroot as root
+// via pacman. <One or two sentences explaining what root-only work this
+// script does — e.g. deriving machine keys, installing services under
+// /usr/lib/systemd, patching bootloader.>
+
+{
+  "name": "<program-name>",
+  "system": true,
+  "description": "<one sentence: what is installed and what state it leaves.>"
+}
+```
+
+### Optional fields
+
+```jsonc
+{
+  ...
+  "system_services": ["foo.service", "bar.timer"],  // enabled by runner
+  "user_services":   ["baz.service"]                // enabled per-user
+}
+```
+
+- `system_services[]` — unit names the runner enables system-wide after
+  `install.sh` finishes (via `systemctl enable` inside the chroot). Use this
+  instead of calling `systemctl enable` from the script when the unit ships
+  with the package.
+- `user_services[]` — user units the runner symlinks into each owning user's
+  `~/.config/systemd/user/default.target.wants/`.
+
 Rules:
 - `"name"` must be the kebab-case directory name under `programs/<category>/`.
-- `"system"` is always `false`. System-level packages go in `packages.jsonc`.
-- `"description"` is one sentence, present tense, no trailing period.
-- The header comment must name what sudo is needed for so readers understand
-  why the script has elevated access.
+- `"system"` is `false` by default; set `true` only when root is required.
+- `"description"` is one sentence, present tense, ends with a period.
+- The header comment must name what sudo (or root) is needed for so readers
+  understand why the script has elevated access.
 
 ---
 
@@ -71,8 +123,9 @@ Rules:
 # =============================================================================
 # programs/<category>/<name>/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles.sh inside arch-chroot, as the owning user, with
-# OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# Invoked by .os/lib/profiles.sh inside arch-chroot, <as the owning user with
+# temp NOPASSWD sudo | as root>, with OS_DIR, PROGRAMS, SHELL_COMMONS
+# pre-exported.
 #
 # <What the script does, in one to three sentences. Name every distinct action:
 #  packages installed, files written, services enabled, groups created, etc.
@@ -89,12 +142,21 @@ print_status success "<Name> staged."
 
 ### Package installation
 
+For `system: false`:
+
 ```bash
 paru -S --noconfirm --needed <pkg1> <pkg2>
 ```
 
+For `system: true`:
+
+```bash
+pacman -S --noconfirm --needed <pkg1> <pkg2>
+```
+
 - Always use `--needed` (idempotent).
-- Prefer official repo packages; fall back to AUR only if the Arch Wiki says so.
+- Prefer official repo packages; fall back to AUR only if the Arch Wiki says so
+  (AUR access requires `system: false` + `paru`).
 - Split long package lists across lines with `\`.
 
 ### File writes
@@ -104,6 +166,8 @@ sudo tee /path/to/file >/dev/null <<'EOF'
 ...content...
 EOF
 ```
+
+(Drop `sudo` if running as root via `system: true`.)
 
 - Use `<<'EOF'` (single-quoted) to suppress variable expansion unless you need
   it, in which case use `<<EOF` and be deliberate.
@@ -124,6 +188,9 @@ Prefer append-after-delete over in-place substitution when the line may or may
 not already exist.
 
 ### Service management
+
+Prefer declaring units in `config.jsonc` (`system_services` / `user_services`)
+when the unit ships with the package. Otherwise enable in the script:
 
 ```bash
 sudo systemctl enable <service>.service   # ✓ correct — deferred to boot
@@ -238,10 +305,15 @@ print_status success "<Name> staged." \
 Before emitting output, verify:
 
 - [ ] `config.jsonc` `"name"` matches the intended directory name
-- [ ] Header comment names every `sudo` operation performed
+- [ ] `"system"` value matches the header comment variant used
+- [ ] `"description"` is one sentence, present tense, ends with a period
+- [ ] Header comment names every `sudo`/root operation performed
 - [ ] All packages come from the Arch Wiki page for this program
+- [ ] `paru` used iff `system: false`; `pacman` used iff `system: true`
 - [ ] No `systemctl start` anywhere
-- [ ] `systemctl enable` used for every service the Wiki says to enable
+- [ ] Services that ship with packages declared in `system_services` /
+      `user_services` instead of `systemctl enable` in the script
+- [ ] `systemctl enable` (in-script) used only for units the script writes
 - [ ] Every config value matches the Arch Wiki recommendation exactly
 - [ ] Files written with `tee`, ownership/permissions set explicitly
 - [ ] Groups created with `getent group ... || groupadd`, users not added
