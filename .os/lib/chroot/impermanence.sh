@@ -161,9 +161,12 @@ INSTALL
   done
   ds_list="${ds_list% }"
 
+  # Must be run_latehook: the archzfs zfs hook only imports the pool in
+  # its own run_latehook, so during run_hook the pool isn't available and
+  # `zfs list` fails. HOOKS= order still applies (zfs latehook → ours).
   cat > "$hdir/zfs-rollback" <<HOOK
 #!/usr/bin/ash
-run_hook() {
+run_latehook() {
   local datasets="$ds_list"
   local ds
   for ds in \$datasets; do
