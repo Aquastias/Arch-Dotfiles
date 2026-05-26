@@ -426,7 +426,8 @@ seed_curated() {
   run_enabled
   local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
   [ -f "$f" ]
-  grep -qE "^run_hook\\(\\)" "$f"
+  # Must be run_latehook so archzfs has finished its zpool import.
+  grep -qE "^run_latehook\\(\\)" "$f"
 }
 
 @test "enabled: runtime hook has hardcoded Rollback Dataset list" {
