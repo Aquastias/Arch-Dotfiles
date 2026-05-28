@@ -116,27 +116,33 @@ picker_enum_disks() {
   done | sort
 }
 
-# picker_assemble_config <template_json> <hostname> <mode> <disk> [<disk>...]
+# picker_assemble_config <template_json> <profile> <mode> <disk> [<disk>...]
 #   Returns full install.jsonc text on stdout. The template provides every
-#   per-machine field; hostname overrides .system.hostname; layout fields
-#   are written fresh based on <mode>:
+#   per-machine field. The <profile> arg is the chosen host directory name
+#   (the Host Profile). Hostname resolution: template's .system.hostname
+#   wins when set, else falls back to <profile>. Always writes
+#   .host_profile = <profile>. Layout fields are written fresh per <mode>:
 #     single  → .mode="single", .disk=<disk>
 #     mirror  → .mode="multi",  .os_pool.topology="mirror",
 #               .os_pool.disks=[<disks>...]
 #     raidz   → .mode="multi",  .os_pool.topology="raidz1",
 #               .os_pool.disks=[<disks>...]
 picker_assemble_config() {
-  local template="$1" hostname="$2" mode="$3"
+  local template="$1" profile="$2" mode="$3"
   shift 3
   local disks_json
   disks_json="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
   case "$mode" in
     single)
       jq -n --argjson tpl "$template" \
-            --arg hostname "$hostname" \
+            --arg profile "$profile" \
             --arg disk "$1" '
         $tpl
-        | .system.hostname = $hostname
+        | .system = (.system // {})
+        | .system.hostname =
+            (if (.system.hostname // "") == ""
+             then $profile else .system.hostname end)
+        | .host_profile = $profile
         | .mode = "single"
         | .disk = $disk
       '
@@ -145,11 +151,15 @@ picker_assemble_config() {
       local topology
       [[ "$mode" == raidz ]] && topology="raidz1" || topology="mirror"
       jq -n --argjson tpl "$template" \
-            --arg hostname "$hostname" \
+            --arg profile "$profile" \
             --arg topology "$topology" \
             --argjson disks "$disks_json" '
         $tpl
-        | .system.hostname = $hostname
+        | .system = (.system // {})
+        | .system.hostname =
+            (if (.system.hostname // "") == ""
+             then $profile else .system.hostname end)
+        | .host_profile = $profile
         | .mode = "multi"
         | .os_pool = (.os_pool // {})
                      + { topology: $topology, disks: $disks }

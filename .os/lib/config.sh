@@ -24,6 +24,7 @@ source "${BASH_SOURCE[0]%/*}/environment.sh"
 # consumed by configure_system
 # =============================================================================
 RESOLVED_HOSTNAME=""
+RESOLVED_HOST_PROFILE=""
 
 
 # =============================================================================

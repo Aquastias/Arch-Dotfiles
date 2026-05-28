@@ -6,7 +6,7 @@
 # Requires: lib/common.sh and lib/configs.sh already sourced.
 #
 # Public API:
-#   run_profiles  Entry point. Reads merged host config for $RESOLVED_HOSTNAME,
+#   run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
 #                 creates users, installs system programs, bootstraps paru per
 #                 user, installs user programs, then cleans up the staged tree.
 #
@@ -330,9 +330,9 @@ _profiles_apply_sysctl() {
 run_profiles() {
   section "Profiles Runner"
 
-  local hostname="${RESOLVED_HOSTNAME:-}"
-  if [[ -z "$hostname" ]]; then
-    warn "RESOLVED_HOSTNAME unset — skipping profiles runner."
+  local profile="${RESOLVED_HOST_PROFILE:-}"
+  if [[ -z "$profile" ]]; then
+    warn "RESOLVED_HOST_PROFILE unset — skipping profiles runner."
     return 0
   fi
 
@@ -352,11 +352,11 @@ run_profiles() {
   fi
 
   local host_json rc=0
-  host_json="$(load_host_config "$hostname" 2>/dev/null)" || rc=$?
+  host_json="$(load_host_config "$profile" 2>/dev/null)" || rc=$?
   case "$rc" in
-  0) info "Loaded host config: ${hostname}" ;;
+  0) info "Loaded host config: ${profile}" ;;
   1)
-    warn "No host config at ${OS_DIR}/hosts/${hostname}/" \
+    warn "No host config at ${OS_DIR}/hosts/${profile}/" \
          "— skipping profiles runner."
     return 0
     ;;
@@ -364,7 +364,7 @@ run_profiles() {
     warn "Hosts core config could not be loaded — skipping profiles runner."
     return 0
     ;;
-  3) error "Reserved hostname 'core' cannot be installed." ;;
+  3) error "Reserved profile name 'core' cannot be installed." ;;
   *) error "Unexpected return code ${rc} from load_host_config." ;;
   esac
 

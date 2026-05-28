@@ -7,7 +7,7 @@
 # writing to stdout/stderr.
 #
 # Public API:
-#   load_host_config <hostname>
+#   load_host_config <profile>
 #       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
 #   load_user_config <username>
 #       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name

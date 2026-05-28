@@ -11,8 +11,8 @@ _SECRETS_TMPFS=""
 _SECRETS_HAS_HOST=0
 _SECRETS_USER_NAMES=()
 
-# secrets_load <hostname>
-# Discovers users/*/secrets.json and hosts/<hostname>/secrets.json,
+# secrets_load <profile>
+# Discovers users/*/secrets.json and hosts/<profile>/secrets.json,
 # decrypts each to a tmpfs, and writes paths into install-state.json.
 # Caller must register: trap secrets_cleanup EXIT
 
@@ -27,10 +27,10 @@ _secrets_install_tools() {
 }
 
 secrets_load() {
-  local hostname="$1"
+  local profile="$1"
   _secrets_install_tools || return 1
 
-  local host_sec="${OS_DIR}/hosts/${hostname}/secrets.json"
+  local host_sec="${OS_DIR}/hosts/${profile}/secrets.json"
   local -a user_secs=() user_names=()
 
   while IFS= read -r -d '' f; do

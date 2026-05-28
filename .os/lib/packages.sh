@@ -123,9 +123,9 @@ collect_packages() {
   # packages.repo[] from the merged host config (host core + host-specific).
   # AUR packages (packages.aur[]) are handled separately in profiles.sh
   # via paru.
-  if [[ -n "${RESOLVED_HOSTNAME:-}" ]]; then
+  if [[ -n "${RESOLVED_HOST_PROFILE:-}" ]]; then
     local host_json host_rc=0
-    host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null)" \
+    host_json="$(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null)" \
       || host_rc=$?
     if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
       while IFS= read -r p; do

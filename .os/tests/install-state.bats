@@ -118,6 +118,7 @@ set_field() {
 # ── install_state_write ──────────────────────────────────────────────────────
 
 setup_writer_globals() {
+  install_config_hostname()             { echo "${MOCK_HOSTNAME:-host-a}"; }
   install_config_timezone()             { echo "UTC"; }
   install_config_locale()               { echo "en_US.UTF-8"; }
   install_config_keymap()               { echo "us"; }
@@ -134,10 +135,11 @@ setup_writer_globals() {
   export OS_DIR="$FIXTURES"
 }
 
-@test "install_state_write: writes .hostname from positional arg" {
+@test "install_state_write: .hostname comes from install_config_hostname" {
   setup_writer_globals
+  MOCK_HOSTNAME="eterniox"
   install_state_write "$STATE" "host-a"
-  [ "$(jq -r .hostname "$STATE")" = "host-a" ]
+  [ "$(jq -r .hostname "$STATE")" = "eterniox" ]
 }
 
 @test "install_state_write: assembles full schema with nested objects" {
@@ -185,6 +187,7 @@ setup_writer_globals() {
 
 @test "round-trip: write then load — every schema field intact" {
   setup_writer_globals
+  MOCK_HOSTNAME="host-b"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1 /dev/nvme1n1p1)
   install_state_write "$STATE" "host-b"
   install_state_load  "$STATE"

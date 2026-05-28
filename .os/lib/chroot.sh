@@ -261,7 +261,7 @@ configure_system() {
   # ── Write install-state.json via the Install State module ────────────────
   install_state_write \
     "${MOUNT_ROOT}/root/lib-chroot/install-state.json" \
-    "$RESOLVED_HOSTNAME"
+    "$RESOLVED_HOST_PROFILE"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
   local _host_sec_path

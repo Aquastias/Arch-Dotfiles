@@ -30,6 +30,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
+  "host_profile|.host_profile|scalar|"
   "locale|.system.locale|scalar|en_US.UTF-8"
   "timezone|.system.timezone|scalar|UTC"
   "keymap|.system.keymap|scalar|us"
