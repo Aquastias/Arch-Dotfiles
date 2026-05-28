@@ -29,6 +29,10 @@ teardown() {
   secrets_cleanup 2>/dev/null || true
   rm -rf "$TEST_DIR"
 }
+_load_and_persist() {
+  secrets_load "$@" && secrets_persist_state
+}
+
 
 _write_age_stub() {
   local ec="${1:-0}"
@@ -88,7 +92,7 @@ _write_sops_stub() {
   _write_age_stub 0
   _write_sops_stub 0
 
-  run secrets_load "myhostname"
+  run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"
@@ -107,7 +111,7 @@ _write_sops_stub() {
   _write_age_stub 0
   _write_sops_stub 0
 
-  run secrets_load "myhostname"
+  run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local user_path
   user_path="$(jq -r '.secrets.users.alice' "$INSTALL_STATE")"
@@ -197,7 +201,7 @@ _write_curl_stub() {
   _write_age_stub 0
   _write_sops_stub 0
 
-  run secrets_load "myhostname"
+  run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"
@@ -242,7 +246,7 @@ _write_curl_stub() {
   _write_age_stub 0
   _write_sops_stub 0
 
-  run secrets_load "myhostname"
+  run _load_and_persist "myhostname"
   [ "$status" -eq 0 ]
   local host_path
   host_path="$(jq -r '.secrets.host' "$INSTALL_STATE")"

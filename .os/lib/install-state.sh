@@ -57,13 +57,17 @@ install_state_load() {
   done
 }
 
-# install_state_write <path> <hostname>
+# install_state_write <path> <profile>
+# <profile> is the Host Profile (directory key under hosts/), used only for
+# load_host_config to assemble the persist payload. The .hostname field
+# written into install-state.json comes from install_config_hostname,
+# which is the machine identity — not the profile name.
 install_state_write() {
-  local path="$1" hostname="$2" host_json persist
-  host_json="$(load_host_config "$hostname" 2>/dev/null || printf '{}')"
+  local path="$1" profile="$2" host_json persist
+  host_json="$(load_host_config "$profile" 2>/dev/null || printf '{}')"
   persist="$(_install_state_persist_obj "$host_json")"
   jq -n \
-    --arg     hostname    "$hostname"                                \
+    --arg     hostname    "$(install_config_hostname)"               \
     --arg     timezone    "$(install_config_timezone)"               \
     --arg     locale      "$(install_config_locale)"                 \
     --arg     keymap      "$(install_config_keymap)"                 \

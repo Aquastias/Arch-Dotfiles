@@ -169,20 +169,22 @@ $BY_ID/nvme-WD_Black_SN850_X2-part1"
 
 # ── picker_assemble_config ────────────────────────────────────────────────────
 
-@test "picker_assemble_config: writes hostname/mode/disk fresh" {
+@test "picker_assemble_config: hostname falls back to profile name when template omits it" {
   template='{ "system": { "locale": "en_US.UTF-8", "timezone": "UTC" } }'
   run picker_assemble_config "$template" myhost single /dev/disk/by-id/foo
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
+  [ "$(echo "$output" | jq -r '.host_profile')" = "myhost" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/disk/by-id/foo" ]
 }
 
-@test "picker_assemble_config: hostname overrides any template value" {
-  template='{ "system": { "hostname": "OLD" } }'
-  run picker_assemble_config "$template" newname single /dev/sda
+@test "picker_assemble_config: template hostname wins; host_profile records dirname" {
+  template='{ "system": { "hostname": "eterniox" } }'
+  run picker_assemble_config "$template" desktop single /dev/sda
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "newname" ]
+  [ "$(echo "$output" | jq -r '.system.hostname')" = "eterniox" ]
+  [ "$(echo "$output" | jq -r '.host_profile')" = "desktop" ]
 }
 
 @test "picker_assemble_config: template fields pass through unchanged" {

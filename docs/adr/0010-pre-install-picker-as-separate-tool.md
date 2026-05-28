@@ -1,7 +1,7 @@
 # ADR 0010: Pre-Install Picker as a separate tool, not a flag on install.sh
 
 ## Status
-Accepted
+Accepted. Superseded in part by ADR-0020 (Host Profile decoupled from hostname).
 
 ## Context
 `install.sh` is a declarative config-applier: every input lives in

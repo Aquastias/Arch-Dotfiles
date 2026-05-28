@@ -183,7 +183,7 @@ main() {
   trap secrets_cleanup EXIT
   _age_key_url="$(cfgo '.options.age_key_url')"
   [[ -n "$_age_key_url" ]] && export SECRETS_KEY_URL="$_age_key_url"
-  secrets_load "$RESOLVED_HOSTNAME"
+  secrets_load "$RESOLVED_HOST_PROFILE"
 
   # ── Disk operations ───────────────────────────────────────────────────────
   layout_partition

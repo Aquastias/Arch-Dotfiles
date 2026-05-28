@@ -21,8 +21,25 @@ export OS_DIR
 source "$OS_DIR/lib/shell-stdlib.sh"
 # shellcheck source=../lib/configs-generator.sh
 source "$OS_DIR/lib/configs-generator.sh"
+# shellcheck source=../lib/jsonc.sh
+source "$OS_DIR/lib/jsonc.sh"
 # shellcheck source=../lib/configs.sh
 source "$OS_DIR/lib/configs.sh"
+
+# Resolve the Host Profile for this machine. Prefers .host_profile in
+# install.jsonc; falls back to the live hostname (legacy behaviour).
+_gc_resolve_host_profile() {
+  local inst="${OS_DIR}/install.jsonc" hp=""
+  if [[ -f "$inst" ]]; then
+    hp="$(jsonc_strip "$inst" 2>/dev/null \
+        | jq -r '.host_profile // empty' 2>/dev/null || true)"
+  fi
+  if [[ -n "$hp" ]]; then
+    printf '%s' "$hp"
+    return
+  fi
+  hostname 2>/dev/null || printf '%s' "${HOSTNAME:-}"
+}
 
 usage() {
   {
@@ -89,13 +106,13 @@ if [[ -f "$OS_DIR/users/core/config.jsonc" ]]; then
   user_progs_json="$(jq -c '.programs // []' <<<"$user_merged")"
 fi
 
-# Merge hosts/core + hosts/<hostname>. Extract system_programs declared for
+# Merge hosts/core + hosts/<profile>. Extract system_programs declared for
 # this machine. Missing hosts/core is tolerated (no system programs).
 sys_progs_json='[]'
 if [[ -f "$OS_DIR/hosts/core/config.jsonc" ]]; then
-  hostname_now="$(hostname 2>/dev/null || printf '%s' "${HOSTNAME:-}")"
+  profile="$(_gc_resolve_host_profile)"
   hrc=0
-  host_merged="$(load_host_config "$hostname_now")" || hrc=$?
+  host_merged="$(load_host_config "$profile")" || hrc=$?
   if (( hrc >= 2 )); then
     exit 1
   fi

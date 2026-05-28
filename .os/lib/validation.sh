@@ -27,10 +27,12 @@ source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
 # =============================================================================
 # SYSTEM FIELDS
 # =============================================================================
-# Sets RESOLVED_HOSTNAME; requires CONFIG_FILE to be set.
+# Sets RESOLVED_HOSTNAME and RESOLVED_HOST_PROFILE; requires CONFIG_FILE set.
+# host_profile defaults to the resolved hostname when unset in install.jsonc
+# (preserves pre-ADR-0020 "dirname == hostname" behaviour).
 
 _validation_system_fields() {
-  local hostname
+  local hostname profile
   hostname="$(install_config_hostname)"
   if [[ -z "$hostname" ]]; then
     while true; do
@@ -47,6 +49,13 @@ _validation_system_fields() {
           "Use letters, digits, hyphens only (no leading/trailing hyphen)."
   # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
+
+  profile="$(install_config_host_profile)"
+  [[ -n "$profile" ]] || profile="$hostname"
+  # shellcheck disable=SC2034 # consumed by callers passing it to
+  # load_host_config and secrets_load.
+  RESOLVED_HOST_PROFILE="$profile"
+
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'
 }
@@ -54,23 +63,23 @@ _validation_system_fields() {
 # =============================================================================
 # PROGRAM PREFLIGHT
 # =============================================================================
-# Validates all program contracts for <hostname> and its users.
+# Validates all program contracts for <profile> and its users.
 # Requires OS_DIR set and configs_build_registry already called.
 # Returns immediately (no-op) if no core configs are present — profiles will
 # be skipped at runtime and there is nothing to validate.
 # Exits via error() on any validation failure or corrupt core config.
 
 _validation_preflight_programs() {
-  local hostname="$1"
+  local profile="$1"
   [[ -f "${OS_DIR}/hosts/core/config.jsonc" ]] || return 0
   [[ -f "${OS_DIR}/users/core/config.jsonc" ]] || return 0
 
   local host_json rc=0
-  host_json="$(load_host_config "$hostname" 2>/dev/null)" || rc=$?
+  host_json="$(load_host_config "$profile" 2>/dev/null)" || rc=$?
   case "$rc" in
   1) return 0 ;;
   2) error "validation: cannot load host core config." ;;
-  3) error "validation: hostname '${hostname}' is reserved." ;;
+  3) error "validation: host profile '${profile}' is reserved." ;;
   esac
 
   local -a sys_progs users
@@ -216,7 +225,8 @@ _validation_persist_one() {
 }
 
 # Validate all config contracts in one pass.
-# Sets RESOLVED_HOSTNAME. Requires CONFIG_FILE, INSTALL_MODE, OS_DIR set.
+# Sets RESOLVED_HOSTNAME and RESOLVED_HOST_PROFILE.
+# Requires CONFIG_FILE, INSTALL_MODE, OS_DIR set.
 # Exits via error() on the first fatal failure; collects all program failures
 # before exiting so every problem is visible at once.
 validate_install_context() {
@@ -231,10 +241,10 @@ validate_install_context() {
   resolve_environment
 
   configs_build_registry
-  _validation_preflight_programs "$RESOLVED_HOSTNAME"
+  _validation_preflight_programs "$RESOLVED_HOST_PROFILE"
 
   local _host_json
-  _host_json="$(load_host_config "$RESOLVED_HOSTNAME" 2>/dev/null || \
+  _host_json="$(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null || \
     printf '{}')"
   _validation_persist "$_host_json"
 

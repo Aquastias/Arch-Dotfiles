@@ -20,6 +20,12 @@
     "keymap":   "us"
   },
 
+  // Host Profile — directory under .os/hosts/ whose config to apply.
+  // When empty, falls back to system.hostname (legacy behaviour:
+  // dir name == hostname). Set this to decouple the machine's
+  // hostname from the profile bundle. Picker writes this field.
+  "host_profile": "",
+
   // ── Software ───────────────────────────────────────────────────────────────
   // Users and programs are declared under .os/hosts/<hostname>/config.jsonc
   // and .os/users/<username>/config.jsonc, applied by .os/lib/profiles.sh
