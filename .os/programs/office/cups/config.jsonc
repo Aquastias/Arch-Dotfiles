@@ -1,0 +1,12 @@
+// Program metadata for cups.
+//
+// system=true → installed by the profile runner inside arch-chroot as
+// root via pacman. install.sh installs cups and enables
+// cups.service so the print daemon comes up on first boot,
+// independent of desktop environment selection.
+
+{
+  "name": "cups",
+  "system": true,
+  "description": "CUPS print daemon — installed and enabled at boot."
+}

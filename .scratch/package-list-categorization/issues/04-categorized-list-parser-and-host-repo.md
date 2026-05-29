@@ -1,6 +1,6 @@
 # Categorized List Parser + first consumer (host packages.repo); ADR 0022
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

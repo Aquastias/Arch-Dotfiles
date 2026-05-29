@@ -11,9 +11,12 @@
 //                              with `system: true` in its config.jsonc.
 //   sysctl           object    Key-value pairs written to
 //                              /etc/sysctl.d/99-os.conf.
-//   packages.repo    string[]  Official-repo packages installed via pacstrap.
+//   packages.repo    object    Categorized pacstrap packages — kebab-case
+//                              category names mapped to string[] of pacman
+//                              package names. Flattened at install time.
 //   packages.aur     string[]  AUR packages installed via paru for
-//                              the primary user.
+//                              the primary user. Migrated to categorized
+//                              shape in a later slice.
 //   persist          object    Persist Extensions. When impermanence is
 //                              enabled, these paths are bind-mounted from
 //                              the Persist Dataset on every boot.
@@ -22,11 +25,13 @@
 
 {
   "users": [],
-  "system_programs": ["sops"],
+  "system_programs": ["sops", "cups"],
   "sysctl": {
     "vm.swappiness": 10
   },
   "packages": {
-    "repo": ["parallel"]
+    "repo": {
+      "misc": ["extra-cmake-modules", "parallel"]
+    }
   }
 }

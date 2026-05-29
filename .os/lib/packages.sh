@@ -128,10 +128,12 @@ collect_packages() {
     host_json="$(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null)" \
       || host_rc=$?
     if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
+      local repo_json
+      repo_json="$(printf '%s' "$host_json" \
+        | jq -c '.packages.repo // {}')"
       while IFS= read -r p; do
         [[ -n "$p" ]] && pkgs+=("$p")
-      done < <(printf '%s' "$host_json" \
-        | jq -r '.packages.repo[]? // empty' 2>/dev/null)
+      done < <(categorized_list_parse "$repo_json" string "packages.repo")
     fi
   fi
 

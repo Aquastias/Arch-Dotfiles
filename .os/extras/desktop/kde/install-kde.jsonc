@@ -17,6 +17,7 @@
     "kate": true, // Advanced text editor
     "kdiff3": true, // Diff and merge tool
     "keditbookmarks": true, // Bookmark editor
+    "kimageformats5": true, // Qt5 image format plugins (HEIC, AVIF, …)
     "kleopatra": true, // GPG certificate manager
     "kompare": true, // Diff viewer
     "konsole": true, // Terminal emulator
@@ -26,10 +27,11 @@
     "ktorrent": true, // BitTorrent client
     "kwalletmanager": true, // Wallet/secrets manager
     "okular": true, // Document viewer (PDF, EPUB, etc.)
+    "pacmanlogviewer": true, // Pacman log viewer
     "partitionmanager": true, // Partition editor
+    "sddm-kcm": true, // KCM module for SDDM theming
     "skanlite": true, // Simple scanner
-    "skanpage": true // Multi-page scanner
-  },
-  // Any additional KDE-framework packages not listed above.
-  "extra": []
+    "skanpage": true, // Multi-page scanner
+    "xdg-desktop-portal-kde": true // Plasma portal integration
+  }
 }
