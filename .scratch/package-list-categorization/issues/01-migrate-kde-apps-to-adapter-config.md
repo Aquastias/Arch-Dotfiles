@@ -1,6 +1,6 @@
 # Migrate KDE apps from desktop host config to install-kde.jsonc
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

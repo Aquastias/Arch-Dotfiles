@@ -1,6 +1,6 @@
 # Create cups System Program; register in host core
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

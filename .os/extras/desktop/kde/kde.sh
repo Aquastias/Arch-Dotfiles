@@ -33,15 +33,9 @@ if [[ "$do_shell" == "true" ]]; then
     plasma-workspace \
     polkit-kde-agent \
     sddm \
-    sddm-kcm \
-    extra-cmake-modules \
-    kimageformats5 \
-    xdg-desktop-portal-kde \
-    print-manager \
-    cups
+    print-manager
 
   systemctl enable sddm
-  systemctl enable cups
   info "Plasma shell installed. SDDM enabled."
 fi
 
@@ -65,16 +59,6 @@ if [[ "$do_apps" == "true" ]]; then
 fi
 
 # =============================================================================
-# EXTRA KDE PACKAGES
-# =============================================================================
-mapfile -t kde_extra < <(jsonc "$KDE_JSON" | jq -r '.extra[]? // empty')
-if [[ ${#kde_extra[@]} -gt 0 ]]; then
-  section "Extra KDE Packages"
-  pacman -S --noconfirm --needed "${kde_extra[@]}"
-  info "Extra packages installed: ${kde_extra[*]}"
-fi
-
-# =============================================================================
 # CLEAN CACHE
 # =============================================================================
 section "Cleaning Package Cache"
@@ -93,4 +77,3 @@ if [[ "$do_apps" == "true" ]]; then
     | jq '[.apps_list | to_entries[] | select(.value==true)] | length')"
   info "  ✔  KDE Applications (${app_count} apps)"
 fi
-if [[ ${#kde_extra[@]} -gt 0 ]]; then info "  ✔  Extra: ${kde_extra[*]}"; fi

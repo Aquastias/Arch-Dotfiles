@@ -1,6 +1,6 @@
 # Trim kde.sh shell block; relocate extra-cmake-modules; drop extra field; ADR 0021
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
