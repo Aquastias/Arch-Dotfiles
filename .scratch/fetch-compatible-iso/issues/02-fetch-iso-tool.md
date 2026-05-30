@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # 02 — fetch-iso.sh tool (end-to-end)
 
