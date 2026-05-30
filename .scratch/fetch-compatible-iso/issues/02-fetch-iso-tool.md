@@ -50,6 +50,10 @@ clearly to the operator.
 - [ ] No flashing is performed; resolver failures surface with clear
       errors.
 - [ ] VM harness behavior is unchanged.
+- [ ] The tool is sourceable (`main` guarded by `BASH_SOURCE == $0`)
+      and `tests/fetch-iso.bats` covers output-dir resolution
+      (default + arg), checksum-mismatch cleanup, and happy-path
+      orchestration with the resolver/verify functions stubbed.
 
 ## Blocked by
 
