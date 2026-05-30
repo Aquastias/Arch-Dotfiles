@@ -107,6 +107,9 @@ Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early
 ### Tools
 `.os/tools/`. Utility scripts for managing a running system or preparing an install — not part of the install flow itself. Currently: `pick.sh` (see Pre-Install Picker; live-CD config builder), `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`), `install-pkglist.sh` (installs packages from those files), and `impermanence.sh` (see Impermanence Tool). The pkglist tools default to `$(hostname)` but accept a hostname argument.
 
+### archzfs-Compatible ISO
+Newest archived Arch ISO (from `archive.archlinux.org`) whose kernel major.minor matches a kernel `archzfs` ships a prebuilt `zfs-linux` for. The prebuilt-kernel list is used as a proxy for "the current ZFS source is known to compile against this kernel" — even though the installer always builds ZFS via DKMS, not the prebuilt. Resolved by `iso_resolver_get_zfs_compatible` in `lib/iso-resolver.sh`. The installer cannot use the latest Arch ISO when its kernel is newer than `archzfs` tracks: DKMS then fails to build the ZFS module against that kernel.
+
 ### Impermanence
 Optional install-time feature that resets selected system directories to a clean state on every boot via ZFS dataset rollback. Enabled by `options.impermanence` in Install Config. When enabled, the installer creates a Persist Dataset, splits a set of Rollback Datasets out of the OS pool, takes a Blank Snapshot of each, and installs a Rollback Hook in initramfs. Inspired by NixOS impermanence; deliberately narrower in scope — Arch lacks a `/nix/store`-equivalent, so rolling back all of `/` would erase every pacman update, hence Impermanence targets `/etc`, `/root`, `/opt`, `/srv`, `/usr/local` only.
 
