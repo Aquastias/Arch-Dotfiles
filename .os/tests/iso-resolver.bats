@@ -282,3 +282,59 @@ JSON
   [ "$status" -ne 0 ]
   [[ "$output" =~ "does not exist" ]]
 }
+
+
+# ── sha256 verification ──────────────────────────────────────────────────────
+# The sums-file fetch is stubbed (the _iso_resolver_fetch_sha256sums seam),
+# matching how the compat tests stub the other network seams.
+
+@test "verify: matching sha256 returns 0" {
+  iso="$DOWNLOADS_DIR/archlinux-2099.04.01-x86_64.iso"
+  printf 'fake-iso-bytes' > "$iso"
+  real_sum="$(sha256sum "$iso" | awk '{print $1}')"
+  _iso_resolver_fetch_sha256sums() {
+    echo "${real_sum}  archlinux-2099.04.01-x86_64.iso"
+  }
+
+  run iso_resolver_verify_sha256 "$iso"
+  [ "$status" -eq 0 ]
+}
+
+@test "verify: sha256 mismatch returns non-zero and names the file" {
+  iso="$DOWNLOADS_DIR/archlinux-2099.04.01-x86_64.iso"
+  printf 'fake-iso-bytes' > "$iso"
+  _iso_resolver_fetch_sha256sums() {
+    printf '%s  %s\n' \
+      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" \
+      "archlinux-2099.04.01-x86_64.iso"
+  }
+
+  run iso_resolver_verify_sha256 "$iso"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "archlinux-2099.04.01-x86_64.iso" ]]
+}
+
+@test "verify: no sums line for the filename returns non-zero" {
+  iso="$DOWNLOADS_DIR/archlinux-2099.04.01-x86_64.iso"
+  printf 'fake-iso-bytes' > "$iso"
+  # sums for a DIFFERENT release only — no line for our filename.
+  _iso_resolver_fetch_sha256sums() {
+    printf '%s  %s\n' \
+      "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd" \
+      "archlinux-2099.01.01-x86_64.iso"
+  }
+
+  run iso_resolver_verify_sha256 "$iso"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "no sha256sums line" ]]
+}
+
+@test "verify: sums fetch failure returns non-zero with clear message" {
+  iso="$DOWNLOADS_DIR/archlinux-2099.04.01-x86_64.iso"
+  printf 'fake-iso-bytes' > "$iso"
+  _iso_resolver_fetch_sha256sums() { return 1; }
+
+  run iso_resolver_verify_sha256 "$iso"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "failed to fetch" ]]
+}
