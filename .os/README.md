@@ -89,13 +89,37 @@ can boot the machine standalone.
 
 ## 2. Quick Start
 
-### 2.1 Boot the Arch ISO
+### 2.1 Prepare the install media
 
-Download the latest ISO from
-[archlinux.org/download](https://archlinux.org/download/) and
-boot in UEFI mode.
+On your **current machine** (Arch), from this repo, download the ISO
+the installer can build ZFS against:
 
-### 2.2 Connect to the internet
+```bash
+bash .os/tools/fetch-iso.sh
+#   → ~/Downloads/archlinux-<ver>-x86_64.iso
+# or pass a directory:
+bash .os/tools/fetch-iso.sh /path/to/dir
+```
+
+Then flash it to a USB stick with `dd` (or Ventoy / Impression /
+Rufus):
+
+```bash
+sudo dd if=~/Downloads/archlinux-<ver>-x86_64.iso of=/dev/sdX \
+  bs=4M status=progress oflag=sync
+```
+
+> **Why not the latest Arch ISO?** ZFS will not build against a kernel
+> newer than `archzfs` tracks, so the latest ISO breaks the
+> installer's DKMS step. `fetch-iso.sh` resolves the newest
+> **archzfs-Compatible ISO** instead — see the term in `CONTEXT.md`
+> and ADR 0023.
+
+### 2.2 Boot the Arch ISO
+
+Boot the USB stick you just flashed in **UEFI mode**.
+
+### 2.3 Connect to the internet
 
 **Ethernet** — works automatically via DHCP.
 
@@ -108,7 +132,7 @@ station wlan0 connect "Your Network"
 exit
 ```
 
-### 2.3 Copy the scripts to the live environment
+### 2.4 Copy the scripts to the live environment
 
 **From a USB stick:**
 
@@ -126,7 +150,7 @@ tar -xzf dotfiles.tar.gz
 cd dotfiles/.os
 ```
 
-### 2.4 Build `install.jsonc`
+### 2.5 Build `install.jsonc`
 
 The recommended path is the **Pre-Install Picker** — an fzf-driven
 config builder that fills in `install.jsonc` from the chosen host's
@@ -153,7 +177,7 @@ Host configs declare which users exist and which system programs
 are installed; user configs declare per-user shell, sudo, groups,
 and user-level programs. See `REFERENCE.md` for the full schema.
 
-### 2.5 Install
+### 2.6 Install
 
 ```bash
 chmod +x install.sh
@@ -172,7 +196,7 @@ numbered script remains individually runnable for debugging.
 > review screen, this step is already running — the picker
 > exec's `install.sh` in the same shell.
 
-### 2.6 Reboot
+### 2.7 Reboot
 
 ```bash
 reboot

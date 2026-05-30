@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # 03 — README "Prepare the install media" + CONTEXT Tools entry
 
