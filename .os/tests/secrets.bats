@@ -103,6 +103,7 @@ _write_sops_stub() {
 # ── correct key: user secrets ─────────────────────────────────────────────────
 
 @test "writes secrets.users.<name> path to install-state.json (user)" {
+  load_host_config() { printf '%s' '{"users":["alice"]}'; }
   mkdir -p "$OS_DIR/users/alice"
   printf '{"password":"s3cr3t"}\n' > "$OS_DIR/users/alice/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
@@ -269,4 +270,35 @@ _write_curl_stub() {
   local leftover
   leftover="$(find "$TEST_DIR" -maxdepth 1 -name 'tmp*.age' 2>/dev/null)"
   [ -z "$leftover" ]
+}
+
+# ── host-scoped user secrets ────────────────────────────────────────────────
+
+@test "user secrets scoped to host: foreign user is excluded" {
+  load_host_config() { printf '%s' '{"users":["alice"]}'; }
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/vm-test"
+  printf '{"password":"a"}\n'  > "$OS_DIR/users/alice/secrets.json"
+  printf '{"password":"x"}\n'  > "$OS_DIR/users/vm-test/secrets.json"
+  mkdir -p "$TEST_DIR/usb/age"
+  printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
+  export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
+  _write_age_stub 0
+  _write_sops_stub 0
+
+  run _load_and_persist "myhostname"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.secrets.users.alice' "$INSTALL_STATE")" != "null" ]
+  [ "$(jq -r '.secrets.users["vm-test"]' "$INSTALL_STATE")" = "null" ]
+}
+
+@test "host with no declared secrets skips even if other users have secrets" {
+  load_host_config() { printf '%s' '{"users":[]}'; }
+  mkdir -p "$OS_DIR/users/vm-test"
+  printf '{"password":"x"}\n' > "$OS_DIR/users/vm-test/secrets.json"
+  _write_lsblk_stub
+  unset SECRETS_KEY_DEVICE SECRETS_KEY_URL
+
+  run secrets_load "myhostname"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "no secrets for host" ]]
 }

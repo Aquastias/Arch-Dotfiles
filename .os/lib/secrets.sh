@@ -28,27 +28,38 @@ _secrets_install_tools() {
 
 secrets_load() {
   local profile="$1"
-  _secrets_install_tools || return 1
 
   local host_sec="${OS_DIR}/hosts/${profile}/secrets.json"
   local -a user_secs=() user_names=()
 
-  while IFS= read -r -d '' f; do
-    local name
-    name="$(basename "$(dirname "$f")")"
-    user_secs+=("$f")
-    user_names+=("$name")
-  done < <(find "${OS_DIR}/users" -maxdepth 2 -name "secrets.json" \
-    -print0 2>/dev/null | sort -z)
+  # Scope user secrets to the users this host declares (mirrors run_profiles'
+  # .users[]), not every users/*/secrets.json in the repo. Otherwise a
+  # committed fixture such as users/vm-test/secrets.json would force every
+  # host to demand an age key. When load_host_config is unavailable (unit
+  # tests sourcing this file standalone) no users are scoped in.
+  local host_json="" u uf
+  if host_json="$(load_host_config "$profile" 2>/dev/null)"; then
+    while IFS= read -r u; do
+      [[ -n "$u" ]] || continue
+      uf="${OS_DIR}/users/${u}/secrets.json"
+      [[ -f "$uf" ]] && { user_secs+=("$uf"); user_names+=("$u"); }
+    done < <(printf '%s' "$host_json" | jq -r '.users[]?')
+  fi
 
   local has_host=0
   [[ -f "$host_sec" ]] && has_host=1
 
+  # Gate: nothing to decrypt for this host → skip without installing age/sops
+  # or requiring an age key. Secrets tooling runs only where the host or one
+  # of its declared users ships an encrypted secrets.json.
   if [[ $has_host -eq 0 && ${#user_secs[@]} -eq 0 ]]; then
-    echo "[secrets] no secrets files found —" \
-         "install continues with defaults" >&2
+    echo "[secrets] no secrets for host '${profile}' —" \
+         "skipping (age/sops not installed)" >&2
     return 0
   fi
+
+  # Something to decrypt → install age + sops on the live ISO on demand.
+  _secrets_install_tools || return 1
 
   local age_enc=""
   local _url_tmp=""
