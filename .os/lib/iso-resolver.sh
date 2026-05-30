@@ -111,6 +111,15 @@ _iso_resolver_fetch_arch_releases() {
   curl -fsSL "$ISO_RESOLVER_ARCH_RELEASES_JSON" 2>/dev/null
 }
 
+_iso_resolver_fetch_sha256sums() {
+  # Echo the release's sha256sums.txt. The releng JSON's per-release
+  # sha256_sum is null for archived releases, so the per-release sums file
+  # on the archive is the authoritative source (see ADR 0023).
+  local version="$1"
+  curl -fsSL \
+    "${ISO_RESOLVER_ARCHIVE_BASE}/iso/${version}/sha256sums.txt" 2>/dev/null
+}
+
 _iso_resolver_download() {
   local url="$1" dest="$2"
   local tmp="${dest}.partial"
@@ -249,4 +258,32 @@ iso_resolver_get_zfs_compatible() {
     return 1
   }
   printf '%s\n' "$target"
+}
+
+# ── Public API: verify a downloaded ISO's sha256 ──────────────────────────────
+
+iso_resolver_verify_sha256() {
+  local file="$1"
+
+  local filename version sums expected actual
+  filename="${file##*/}"
+  version="$(sed -E 's/^archlinux-(.+)-x86_64\.iso$/\1/' <<<"$filename")"
+
+  if ! sums="$(_iso_resolver_fetch_sha256sums "$version")"; then
+    echo "iso-resolver: failed to fetch sha256sums for ${filename}" >&2
+    return 1
+  fi
+  expected="$(awk -v f="$filename" '$2 == f {print $1; exit}' <<<"$sums")"
+  [[ -n "$expected" ]] || {
+    echo "iso-resolver: no sha256sums line for ${filename}" >&2
+    return 1
+  }
+  actual="$(sha256sum "$file" | awk '{print $1}')"
+
+  if [[ "$actual" != "$expected" ]]; then
+    echo "iso-resolver: sha256 mismatch for ${filename}" >&2
+    echo "  expected: ${expected}" >&2
+    echo "  actual:   ${actual}" >&2
+    return 1
+  fi
 }
