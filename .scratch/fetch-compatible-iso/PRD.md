@@ -172,8 +172,15 @@ and the term in CONTEXT.md.
   3. Sums text has no line for the filename → non-zero, clear error.
   4. Sums fetch failure (seam returns non-zero) → non-zero, clear
      error.
-- **`fetch-iso.sh` is glue — not unit-tested**, consistent with
-  `pick.sh` and `save-pkglist.sh` having no bats coverage.
+- **`fetch-iso.sh` is made sourceable** (its `main` is guarded by
+  `[[ BASH_SOURCE == $0 ]]`) so its orchestration is unit-testable —
+  a new pattern for tools in this repo. `tests/fetch-iso.bats` covers:
+  output-directory resolution (default `~/Downloads` and a positional
+  arg, each created), checksum-mismatch cleanup (corrupt ISO removed
+  + non-zero exit), and happy-path orchestration (resolver + verify
+  stubbed → path + flash hint printed, file kept). Dependency
+  self-install stays untested glue (stubbing `pacman`/`command -v` is
+  brittle for no real signal).
 
 ## Out of Scope
 
