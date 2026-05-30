@@ -101,8 +101,16 @@ cfgo() { jsonc_read_opt "$CONFIG_FILE" "$1"; }
 
 part_name() {
   # Returns the full partition device path for a disk + partition number.
-  # NVMe/eMMC use a 'p' separator: nvme0n1 + 1 → nvme0n1p1
-  # SATA/SCSI do not:             sda     + 1 → sda1
+  # Stable /dev/disk symlinks use a '-part' suffix (udev), regardless of bus:
+  #   /dev/disk/by-id/nvme-… + 1 → /dev/disk/by-id/nvme-…-part1
+  # NVMe/eMMC kernel nodes use a 'p' separator:
+  #   nvme0n1 + 1 → nvme0n1p1
+  # SATA/SCSI kernel nodes do not:
+  #   sda     + 1 → sda1
   local disk="$1" num="$2"
-  [[ "$disk" =~ nvme|mmcblk ]] && echo "${disk}p${num}" || echo "${disk}${num}"
+  case "$disk" in
+  /dev/disk/*)       echo "${disk}-part${num}" ;;
+  *nvme* | *mmcblk*) echo "${disk}p${num}" ;;
+  *)                 echo "${disk}${num}" ;;
+  esac
 }
