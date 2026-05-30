@@ -25,6 +25,16 @@
 #     - Any disk with currently mounted partitions
 #     - Loop devices, optical drives, RAM disks
 #
+# ALREADY-ZEROED DISKS:
+#   Before wiping, each selected disk is checked: if it carries no signatures,
+#   no partition table, and samples clean of non-zero data, it is reported as
+#   already blank and SKIPPED (no redundant zero-fill). See is_disk_zeroed().
+#
+# CONFIRMATION:
+#   Two gates protect the wipe (both skipped under unattended mode):
+#     1. "Do you wish to wipe the disk(s)?"  [y/N]
+#     2. Type WIPE (all caps) at the point of no return.
+#
 # WIPE DEPTH:
 #   Full zero-fill (dd). All disks are wiped IN PARALLEL to minimise total
 #   wall-clock time. Progress is logged to /tmp/wipe-<diskname>.log.
@@ -38,7 +48,7 @@
 # USAGE:
 #   chmod +x 02-wipe.sh
 #   ./02-wipe.sh                    # interactive
-#   ./02-wipe.sh -y     # unattended (no exclusions, skip WIPE prompt)
+#   ./02-wipe.sh -y     # unattended (no exclusions, skip prompts)
 #   ./02-wipe.sh --unattended
 #
 # Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag, so
@@ -211,9 +221,91 @@ select_disks() {
 }
 
 # =============================================================================
-# FINAL CONFIRMATION
+# ALREADY-ZEROED DETECTION
 # =============================================================================
 
+# Returns 0 if the disk appears already blank/zeroed, 1 otherwise.
+#   1. Any filesystem/partition signature (wipefs)  → not zeroed (return 1)
+#   2. Any child partitions (lsblk)                 → not zeroed
+#   3. Sample 4 MiB windows at 33 evenly-spaced
+#      offsets; any non-zero byte                   → not zeroed
+# Steps 1-2 catch all *structured* data (filesystems, partition tables,
+# LVM/MD/ZFS labels). Step 3 catches gross leftover data but is heuristic —
+# not an exhaustive every-sector scan, since a full read of a multi-TB disk
+# would cost as much as the zero-fill it is meant to skip. A disk that passes
+# all three is safe to install onto as-is, so skipping its zero-fill is sound
+# even in the rare case unstructured data hides between the sample windows.
+is_disk_zeroed() {
+  local disk="$1"
+
+  # Any filesystem/partition signature → definitely not blank.
+  [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && return 1
+
+  # Any child partitions → not blank.
+  local nparts
+  nparts="$(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2 | wc -l)"
+  ((nparts > 0)) && return 1
+
+  local size
+  size="$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)"
+  ((size > 0)) || return 1
+
+  # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
+  # Any non-zero byte in any window means the disk still holds data.
+  local chunk=$((4 * 1024 * 1024))
+  local windows=32
+  local step=$((size > chunk ? (size - chunk) / windows : 0))
+  local i off nz
+  for ((i = 0; i <= windows; i++)); do
+    off=$((i * step))
+    ((off > size - chunk)) && off=$((size > chunk ? size - chunk : 0))
+    nz="$(dd if="$disk" bs="$chunk" count=1 skip="$off" \
+      iflag=skip_bytes status=none 2>/dev/null | tr -d '\0' | wc -c)"
+    ((nz > 0)) && return 1
+  done
+  return 0
+}
+
+# Drops already-zeroed disks from DISKS_TO_WIPE, reporting each skip.
+skip_zeroed_disks() {
+  section "Checking for Already-Zeroed Disks"
+  local kept=() disk
+  for disk in "${DISKS_TO_WIPE[@]}"; do
+    if is_disk_zeroed "$disk"; then
+      info "Skipping $disk — already blank/zeroed (no wipe needed)."
+    else
+      kept+=("$disk")
+    fi
+  done
+  DISKS_TO_WIPE=("${kept[@]}")
+}
+
+# =============================================================================
+# CONFIRMATION
+# =============================================================================
+
+# First gate: a plain yes/no intent check before the point of no return.
+confirm_wipe_intent() {
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    info "Unattended mode — wipe intent assumed: yes."
+    return
+  fi
+  echo ""
+  echo -e "  ${BOLD}Do you wish to wipe the disk(s) listed above?${NC}"
+  local reply
+  read -rp "  Wipe these disk(s)? [y/N]: " reply
+  case "$reply" in
+    [yY] | [yY][eE][sS])
+      info "Proceeding to final confirmation."
+      ;;
+    *)
+      info "Wipe declined. No disks were modified."
+      exit 0
+      ;;
+  esac
+}
+
+# Second gate: type WIPE at the point of no return.
 final_confirm() {
   echo ""
   echo -e "  ${RED}${BOLD}╔════════════════════════════════════════════╗${NC}"
@@ -389,21 +481,28 @@ run_parallel_wipe() {
   done
   echo ""
 
-  # Collect exit statuses — dd "no space" exit is normal, not an error
+  # Collect results. The pids were already reaped by the ticker's `wait`, so a
+  # second `wait` here would return non-zero (not a child) regardless of the
+  # real outcome. The authoritative success signal is the "Done:" line written
+  # at the end of each disk's log.
   local any_failed=false
   local i
   for i in "${!pids[@]}"; do
-    wait "${pids[$i]}" 2>/dev/null || {
-      local log
-      log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
-      # Only flag as failure if the log doesn't end with "Done:"
-      if ! grep -q "^.*Done:" "$log" 2>/dev/null; then
-        warn "Wipe may have failed for ${disk_map[$i]} — check $log"
-        any_failed=true
-      fi
-    }
+    local log
+    log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
+    if ! grep -q "Done:" "$log" 2>/dev/null; then
+      warn "Wipe may have failed for ${disk_map[$i]} — check $log"
+      any_failed=true
+    fi
   done
-  $any_failed && warn "One or more wipes may need attention. Check logs above."
+
+  # NOTE: must not let this be the function's final command as a bare
+  # `$any_failed && warn ...`; under `set -e` that returns 1 when any_failed is
+  # false (the normal success case) and trips the ERR trap at the call site.
+  if $any_failed; then
+    warn "One or more wipes may need attention. Check logs above."
+  fi
+  return 0
 }
 
 # =============================================================================
@@ -445,8 +544,9 @@ parse_args() {
       -h | --help)
         echo "Usage: $(basename "$0") [-y|--unattended] [-h|--help]"
         echo ""
-        echo "  -y, --unattended  Skip the disk-exclude prompt and the WIPE"
-        echo "                    confirmation. Wipes every detected disk."
+        echo "  -y, --unattended  Skip the disk-exclude prompt and both wipe"
+        echo "                    confirmations. Wipes every detected disk"
+        echo "                    that is not already zeroed."
         echo "  -h, --help        Show this help and exit."
         exit 0
         ;;
@@ -486,10 +586,18 @@ main() {
     exit 0
   }
 
+  # Drop disks that are already blank — no point zero-filling them again.
+  skip_zeroed_disks
+  ((${#DISKS_TO_WIPE[@]} > 0)) || {
+    info "All selected disks are already zeroed. Nothing to do."
+    exit 0
+  }
+
   echo ""
   info "Disks selected for wiping (${#DISKS_TO_WIPE[@]}):"
   disk_info_table "${DISKS_TO_WIPE[@]}"
 
+  confirm_wipe_intent
   final_confirm
   run_parallel_wipe
   print_summary
