@@ -18,9 +18,12 @@
 #  10.  Host config cross-refs — referenced users exist
 #  11.  User config cross-refs — referenced programs exist + correct flag
 #  12.  Program install scripts — no local commons-helper redefinitions
+#  13.  No _fixture/ directories under .os/programs/
+#  14.  Package existence — packages.repo in official repos, packages.aur in AUR
+#       (offline via pacman/AUR RPC; SKIPs when tooling/network unavailable)
 #
 # Usage: ./tests/audit.sh
-# Exit:  0 = all pass, 1 = one or more failures
+# Exit:  0 = all pass, 1 = one or more failures  (SKIPs never fail the run)
 # =============================================================================
 
 set -euo pipefail
@@ -31,10 +34,11 @@ OS="$(cd "$HERE/.." && pwd)"
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'
 BOLD='\033[1m'; NC='\033[0m'
 
-_pass=0; _fail=0
+_pass=0; _fail=0; _nskip=0
 
 _pass() { echo -e "  ${GREEN}PASS${NC}  $*"; : $(( _pass++ )); }
 _fail() { echo -e "  ${RED}FAIL${NC}  $*"; : $(( _fail++ )); }
+_skip() { echo -e "  ${YELLOW}SKIP${NC}  $*"; : $(( _nskip++ )); }
 _section() { echo -e "\n${BOLD}── $* ──${NC}"; }
 
 _file() {
@@ -338,11 +342,100 @@ if (( _strays == 0 )); then
 fi
 
 # =============================================================================
-echo ""
-if ((_fail == 0)); then
-  echo -e "${BOLD}${GREEN}All ${_pass} checks passed.${NC}"
+_section "14. Package existence  (repo → official/archzfs, aur → AUR/official)"
+# =============================================================================
+# Guards the bug class where a config lists a package that no longer exists in
+# any installable source (renamed / moved repo↔AUR / dropped), which makes
+# pacstrap or paru fail mid-install. Repo packages resolve offline via
+# `pacman -Sp` (which also follows provides); AUR packages via the AUR RPC.
+# Both degrade to SKIP when pacman/network is unavailable, so the audit stays
+# safe on any host.
+
+# archzfs packages live in the [archzfs] repo — added by the live ISO at
+# install time, but a dev host may not have it configured. Allowlist them so
+# they don't false-fail the offline resolver.
+_ARCHZFS_OK=" zfs-dkms zfs-utils zfs-linux zfs-linux-headers zfs-linux-lts \
+zfs-linux-lts-headers "
+
+# Collect config-declared packages (the user-editable surface).
+_repo_pkgs="$(
+  while IFS= read -r cfg; do
+    _strip "$cfg" | jq -r '(.packages.repo // {}) | [.. | strings] | .[]' \
+      2>/dev/null
+  done < <(find "${OS}/hosts" "${OS}/users" -name config.jsonc) | sort -u
+)"
+_aur_pkgs="$(
+  while IFS= read -r cfg; do
+    _strip "$cfg" | jq -r '.packages.aur[]?' 2>/dev/null
+  done < <(find "${OS}/hosts" "${OS}/users" -name config.jsonc) | sort -u
+)"
+
+# Resolve AUR membership once (used by both checks). Empty if curl/net absent.
+_aur_found=""
+if command -v curl >/dev/null 2>&1; then
+  _aur_args=""
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && _aur_args+="&arg[]=${p}"
+  done <<<"${_aur_pkgs}"$'\n'"${_repo_pkgs}"
+  _aur_found="$(curl -fsS --max-time 20 \
+    "https://aur.archlinux.org/rpc/v5/info?${_aur_args#&}" 2>/dev/null \
+    | jq -r '.results[]?.Name' 2>/dev/null | sort -u || true)"
+fi
+_in_aur() { [[ -n "$_aur_found" ]] && grep -qxF "$1" <<<"$_aur_found"; }
+
+# ── Repo packages → must resolve in the official repos (or archzfs) ──────────
+if command -v pacman >/dev/null 2>&1 \
+   && pacman -Sp --print-format '%n' bash >/dev/null 2>&1; then
+  _avail="$(pacman -Slq 2>/dev/null | sort -u)"
+  _repo_bad=0
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    grep -qxF "$p" <<<"$_avail" && continue              # direct repo match
+    [[ "$_ARCHZFS_OK" == *" $p "* ]] && continue          # archzfs allowlist
+    pacman -Sp --print-format '%n' "$p" >/dev/null 2>&1 && continue  # provides
+    if _in_aur "$p"; then
+      _fail "packages.repo: '${p}' exists only in AUR — move to packages.aur"
+    else
+      _fail "packages.repo: '${p}' not found in any official repo or AUR"
+    fi
+    _repo_bad=$(( _repo_bad + 1 ))
+  done <<<"$_repo_pkgs"
+  (( _repo_bad == 0 )) \
+    && _pass "all packages.repo entries resolve (official repos / archzfs)"
 else
-  echo -e "${BOLD}${GREEN}${_pass} passed${NC}  ${RED}${_fail} failed${NC}"
+  _skip "packages.repo existence — pacman or synced DBs unavailable"
+fi
+
+# ── AUR packages → must exist in the AUR (or be an official repo package) ────
+if command -v curl >/dev/null 2>&1 \
+   && curl -fsS --max-time 8 \
+        "https://aur.archlinux.org/rpc/v5/info?arg[]=paru" >/dev/null 2>&1; then
+  _have_pacman=0
+  command -v pacman >/dev/null 2>&1 \
+    && pacman -Sp --print-format '%n' bash >/dev/null 2>&1 && _have_pacman=1
+  _aur_bad=0
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    _in_aur "$p" && continue                               # in AUR
+    # paru also installs plain repo packages — accept those too.
+    (( _have_pacman )) \
+      && pacman -Sp --print-format '%n' "$p" >/dev/null 2>&1 && continue
+    _fail "packages.aur: '${p}' not found in AUR (or official repos)"
+    _aur_bad=$(( _aur_bad + 1 ))
+  done <<<"$_aur_pkgs"
+  (( _aur_bad == 0 )) && _pass "all packages.aur entries exist in AUR/official"
+else
+  _skip "packages.aur existence — curl or AUR RPC unavailable"
+fi
+
+# =============================================================================
+echo ""
+_skipnote=""
+(( _nskip > 0 )) && _skipnote="  ${YELLOW}${_nskip} skipped${NC}"
+if ((_fail == 0)); then
+  echo -e "${BOLD}${GREEN}All ${_pass} checks passed.${NC}${_skipnote}"
+else
+  echo -e "${BOLD}${GREEN}${_pass} passed${NC}  ${RED}${_fail} failed${NC}${_skipnote}"
   echo -e "${RED}Audit found failures — fix before running the installer.${NC}"
   exit 1
 fi
