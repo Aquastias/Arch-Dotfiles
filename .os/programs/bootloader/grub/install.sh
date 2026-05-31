@@ -45,6 +45,8 @@ grub-install \
   --removable
 
 print_status info "Regenerating GRUB configuration at $GRUB_BOOT_CFG..."
-grub-mkconfig -o "$GRUB_BOOT_CFG"
+# ZPOOL_VDEV_NAME_PATH=YES lets grub-probe resolve ZFS-root vdevs by /dev path
+# so grub-mkconfig succeeds on ZFS without grub-libzfs (OpenZFS-documented).
+ZPOOL_VDEV_NAME_PATH=YES grub-mkconfig -o "$GRUB_BOOT_CFG"
 
 print_status success "grub installed and configured."
