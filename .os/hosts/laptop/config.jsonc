@@ -106,8 +106,7 @@
       "gaming": [
         "gamemode",
         "lib32-gamemode",
-        "steam",
-        "steam-native-runtime"
+        "steam"
       ],
       "virt": [
         "virt-manager"
@@ -159,9 +158,9 @@
       "octopi",
       "papirus-folders-catppuccin-git",
       "paru",
-      "paru-debug",
       "plymouth-theme-catppuccin-mocha-git",
       "qt6ct-kde",
+      "steam-native-runtime",
       "ttf-ms-fonts",
       "vscodium-bin",
       "vscodium-marketplace",

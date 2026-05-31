@@ -44,7 +44,7 @@ _gpu_lspci_output() { lspci -nn 2>/dev/null; }
 _gpu_vendor_packages() {
   local vendor="$1"
   case "$vendor" in
-    amd)    echo "vulkan-radeon xf86-video-amdgpu mesa libva-mesa-driver" ;;
+    amd)    echo "vulkan-radeon xf86-video-amdgpu mesa" ;;
     nvidia)
       echo "nvidia-open-dkms nvidia-utils lib32-nvidia-utils" \
            "libva-nvidia-driver egl-wayland"
