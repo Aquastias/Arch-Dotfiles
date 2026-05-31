@@ -13,6 +13,13 @@ _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
 source "$_INSTALL_STATE_SH"
 install_state_load "$STATE"
 
+# Kernel Selection token table — maps the Primary Kernel token to its package
+# base (= initramfs preset name). Staged next to install-state.sh.
+_KERNEL_SH="$_LIB_DIR/kernel.sh"
+[[ -f "$_KERNEL_SH" ]] || _KERNEL_SH="$_LIB_DIR/../kernel.sh"
+# shellcheck disable=SC1090
+source "$_KERNEL_SH"
+
 # Pure helper: emit the HOOKS=(...) line. When impermanence is enabled the
 # zfs-rollback hook is inserted between zfs and filesystems so rollback runs
 # after the pool import and before any dataset is mounted.
@@ -27,13 +34,11 @@ _initcpio_hooks_line() {
 # Lib-only sourcing for tests: skip all side effects below.
 [[ "${INITCPIO_LIB_ONLY:-0}" == "1" ]] && return 0
 
-if [[ "$KERNEL" == "lts" ]]; then
-    PRESET_NAME="linux-lts"
-    INITRAMFS_FB="initramfs-linux-lts-fallback.img"
-else
-    PRESET_NAME="linux"
-    INITRAMFS_FB="initramfs-linux-fallback.img"
-fi
+# Preset name = the Primary Kernel's package base (linux-lts/linux/linux-zen/
+# linux-hardened). mkinitcpio -P still builds every installed kernel's preset;
+# the custom fallback injection below stays Primary-Kernel-only (interim).
+PRESET_NAME="$(kernel_pkg "$KERNEL")"
+INITRAMFS_FB="initramfs-${PRESET_NAME}-fallback.img"
 PRESET_FILE="/etc/mkinitcpio.d/${PRESET_NAME}.preset"
 
 # ── ZFS hook ──────────────────────────────────────────────────────────────────

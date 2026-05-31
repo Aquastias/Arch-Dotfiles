@@ -68,6 +68,23 @@ write_config() {
   echo "$output" | grep -q "^linux-lts$"
 }
 
+@test "collect_packages: two-token list installs both kernels and headers" {
+  write_config '{"options":{"kernel":["default","lts"]}}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "linux"
+  echo "$output" | grep -qx "linux-headers"
+  echo "$output" | grep -qx "linux-lts"
+  echo "$output" | grep -qx "linux-lts-headers"
+}
+
+@test "collect_packages: zfs-dkms appears exactly once for a multi-kernel list" {
+  write_config '{"options":{"kernel":["default","lts"]}}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | grep -cx "zfs-dkms")" -eq 1 ]
+}
+
 # ── bootloader selection ──────────────────────────────────────────────────────
 
 @test "collect_packages: grub bootloader includes grub" {

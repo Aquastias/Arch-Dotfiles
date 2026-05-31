@@ -39,20 +39,15 @@ collect_packages() {
   resolve_environment
 
   # ── Kernel selection ──────────────────────────────────────────────────────
-  local kernel
-  kernel="$(install_config_kernel)"
-  local kernel_pkg kernel_headers_pkg zfs_pkg
-  if [[ "$kernel" == "lts" ]]; then
-    kernel_pkg="linux-lts"
-    kernel_headers_pkg="linux-lts-headers"
-    # zfs-dkms works for both kernels; zfs-linux-lts is the pre-built
-    # option but zfs-dkms will build against whichever headers are present.
-    zfs_pkg="zfs-dkms"
-  else
-    kernel_pkg="linux"
-    kernel_headers_pkg="linux-headers"
-    zfs_pkg="zfs-dkms"
-  fi
+  # Every selected flavour token (Kernel Selection) is installed with its
+  # matching headers, mapped through the single token table in lib/kernel.sh.
+  # zfs-dkms builds ZFS against whichever headers are present, so one zfs-dkms
+  # covers all installed kernels (added once below, regardless of count).
+  local kernel_pkgs=() tok
+  while IFS= read -r tok; do
+    [[ -n "$tok" ]] || continue
+    kernel_pkgs+=("$(kernel_pkg "$tok")" "$(kernel_headers_pkg "$tok")")
+  done < <(install_config_kernels)
 
   # ── Bootloader selection ──────────────────────────────────────────────────
   local bootloader
@@ -72,8 +67,7 @@ collect_packages() {
     # ── Core system ───────────────────────────────────────────────────────
     base
     base-devel
-    "$kernel_pkg"
-    "$kernel_headers_pkg" # needed by zfs-dkms to build against on updates
+    "${kernel_pkgs[@]}" # kernel(s) + headers; headers needed by zfs-dkms
     linux-firmware
 
     # ── CPU microcode (both; unused one is harmlessly ignored at boot) ────
@@ -85,7 +79,7 @@ collect_packages() {
     #   For linux-lts this is very reliable — the LTS kernel rarely outpaces
     #   archzfs, unlike the rolling linux kernel which often does.
     # zfs-utils: provides zpool, zfs, and all ZFS userspace commands.
-    "$zfs_pkg"
+    zfs-dkms
     zfs-utils
 
     # ── Network ───────────────────────────────────────────────────────────

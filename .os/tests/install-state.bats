@@ -18,7 +18,8 @@ valid_state() {
   cat <<'JSON' > "$STATE"
 {
   "hostname": "h", "timezone": "UTC", "locale": "en_US.UTF-8",
-  "keymap": "us", "kernel": "lts", "bootloader": "systemd-boot",
+  "keymap": "us", "kernel": "lts", "kernels": ["lts"],
+  "bootloader": "systemd-boot",
   "rpool": "rpool", "swap": true, "esp_count": 1,
   "extras":       { "backup": false, "security": false },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
