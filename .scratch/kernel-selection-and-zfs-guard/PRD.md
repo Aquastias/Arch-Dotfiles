@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Kernel Selection list + ZFS Module Guard
 

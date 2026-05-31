@@ -19,6 +19,7 @@ _INSTALL_STATE_SCHEMA=(
   "LOCALE|.locale|scalar"
   "KEYMAP|.keymap|scalar"
   "KERNEL|.kernel|scalar"
+  "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
   "RPOOL|.rpool|scalar"
   "SWAP|.swap|bool"
@@ -63,15 +64,18 @@ install_state_load() {
 # written into install-state.json comes from install_config_hostname,
 # which is the machine identity — not the profile name.
 install_state_write() {
-  local path="$1" profile="$2" host_json persist
+  local path="$1" profile="$2" host_json persist kernels
   host_json="$(load_host_config "$profile" 2>/dev/null || printf '{}')"
   persist="$(_install_state_persist_obj "$host_json")"
+  # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.
+  kernels="$(install_config_kernels | jq -R . | jq -sc .)"
   jq -n \
     --arg     hostname    "$(install_config_hostname)"               \
     --arg     timezone    "$(install_config_timezone)"               \
     --arg     locale      "$(install_config_locale)"                 \
     --arg     keymap      "$(install_config_keymap)"                 \
     --arg     kernel      "$(install_config_kernel)"                 \
+    --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
     --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
     --argjson swap        "$(install_config_swap_enabled)"           \
@@ -84,7 +88,8 @@ install_state_write() {
     --argjson persist     "$persist"                                 \
     '{
       hostname:$hostname, timezone:$timezone, locale:$locale,
-      keymap:$keymap, kernel:$kernel, bootloader:$bootloader,
+      keymap:$keymap, kernel:$kernel, kernels:$kernels,
+      bootloader:$bootloader,
       rpool:$rpool, swap:$swap, esp_count:$esp_count,
       extras:       { backup:$backup, security:$security },
       impermanence: { enabled:$imp_enabled, dataset:$imp_dataset,

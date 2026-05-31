@@ -13,17 +13,19 @@ _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
 source "$_INSTALL_STATE_SH"
 install_state_load "$STATE"
 
-if [[ "$KERNEL" == "lts" ]]; then
-    VMLINUZ="vmlinuz-linux-lts"
-    INITRAMFS="initramfs-linux-lts.img"
-    INITRAMFS_FB="initramfs-linux-lts-fallback.img"
-    ENTRY_TITLE="Arch Linux (ZFS — linux-lts)"
-else
-    VMLINUZ="vmlinuz-linux"
-    INITRAMFS="initramfs-linux.img"
-    INITRAMFS_FB="initramfs-linux-fallback.img"
-    ENTRY_TITLE="Arch Linux (ZFS)"
-fi
+# Kernel Selection token table — staged next to install-state.sh.
+_KERNEL_SH="$_LIB_DIR/kernel.sh"
+[[ -f "$_KERNEL_SH" ]] || _KERNEL_SH="$_LIB_DIR/../kernel.sh"
+# shellcheck disable=SC1090
+source "$_KERNEL_SH"
+
+# Boot entry tracks the Primary Kernel's package base (interim primary-only
+# bridge; secondary kernels still get default presets via mkinitcpio -P).
+KBASE="$(kernel_pkg "$KERNEL")"
+VMLINUZ="vmlinuz-${KBASE}"
+INITRAMFS="initramfs-${KBASE}.img"
+INITRAMFS_FB="initramfs-${KBASE}-fallback.img"
+ENTRY_TITLE="Arch Linux (ZFS — ${KBASE})"
 POOL_ROOT="$RPOOL/ROOT/arch"
 
 # systemd-boot cannot read ZFS — kernel and initramfs must live
@@ -67,7 +69,7 @@ cp "/boot/${INITRAMFS}" /boot/efi/
 
 if [[ ! -f "/boot/${INITRAMFS_FB}" ]]; then
     echo "Fallback initramfs not found — generating now ..."
-    mkinitcpio -p "linux-${KERNEL/default/}" -S autodetect 2>/dev/null \
+    mkinitcpio -p "$KBASE" -S autodetect 2>/dev/null \
         || mkinitcpio -g "/boot/${INITRAMFS_FB}" 2>/dev/null \
         || true
 fi

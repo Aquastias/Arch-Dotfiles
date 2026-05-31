@@ -7,9 +7,9 @@
 # and default value. The `install_config_<name>` wrappers are generated from
 # this schema at source time and forward to `install_config_get`.
 #
-# To find where `install_config_kernel` (or any other regular accessor) is
-# defined, grep this file for the schema row — that is the declaration site.
-# Four genuinely-special accessors remain hand-written below the schema.
+# To find where a regular accessor is defined, grep this file for the schema
+# row — that is the declaration site. The hand-written specials below the
+# schema (notably Kernel Selection) each break the schema mould.
 #
 # Sourced by 03-install.sh after lib/common.sh (which provides cfgo).
 # =============================================================================
@@ -18,10 +18,13 @@
 [[ "$(type -t cfgo)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/common.sh"
 
+# shellcheck source=./kernel.sh
+[[ "$(type -t kernel_is_valid_token)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/kernel.sh"
+
 # Schema rows: name|jq_path|type|default
 # Type ∈ {scalar, bool, array}. Empty default = emit empty when absent.
 _INSTALL_CONFIG_SCHEMA=(
-  "kernel|.options.kernel|scalar|lts"
   "bootloader|.options.bootloader|scalar|systemd-boot"
   "swap_enabled|.options.swap|bool|true"
   "esp_size|.options.esp_size|scalar|512M"
@@ -95,6 +98,31 @@ _install_config_array() {
 install_config_gpu() {
   local out; out="$(_install_config_array '.environment.gpu')"
   printf '%s\n' "${out:-auto}"
+}
+
+# Kernel Selection — accepts a single flavour token (string) or a list. Emits
+# one token per line, ordered, primary (first selected) first. Defaults to
+# 'lts' when absent or null. Aborts on any unknown flavour token, so a typo
+# cannot silently install the wrong or no kernel.
+install_config_kernels() {
+  local out tok
+  out="$(_install_config_array '.options.kernel')"
+  out="${out:-lts}"
+  while IFS= read -r tok; do
+    [[ -n "$tok" ]] || continue
+    kernel_is_valid_token "$tok" || {
+      error "Unknown kernel token in options.kernel: '$tok'.
+  Valid tokens: $(kernel_valid_tokens). See ADR 0024."
+      return 1
+    }
+  done <<< "$out"
+  printf '%s\n' "$out"
+}
+
+# Primary Kernel — the first selected token. Back-compat scalar accessor for
+# consumers (initramfs preset, bootloader default) that understand one kernel.
+install_config_kernel() {
+  install_config_kernels | head -n1
 }
 
 install_config_packages_groups() {

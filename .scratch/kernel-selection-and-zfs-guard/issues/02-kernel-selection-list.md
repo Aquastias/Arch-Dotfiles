@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Kernel Selection flavour-token list + primary-kernel bridge
 
@@ -30,24 +30,44 @@ the list path ships exercised only by tests.
 
 ## Acceptance criteria
 
-- [ ] `options.kernel` accepts a single token or a list; both
+- [x] `options.kernel` accepts a single token or a list; both
       normalise to an ordered list with primary = first.
-- [ ] `install_config_kernel` returns the primary; a new
+- [x] `install_config_kernel` returns the primary; a new
       `install_config_kernels` returns the full list; an unknown
       token aborts at config load. Covered by `install-config.bats`.
-- [ ] The token map (`lts`/`default`/`zen`/`hardened` → kernel pkg +
+- [x] The token map (`lts`/`default`/`zen`/`hardened` → kernel pkg +
       `-headers`) is a single table.
-- [ ] `collect_packages` emits each selected kernel and its headers,
+- [x] `collect_packages` emits each selected kernel and its headers,
       with `zfs-dkms` exactly once; `packages.bats` covers scalar
       `lts` (unchanged) and a two-token list (installs both).
-- [ ] Install-state carries scalar `KERNEL` (primary) and array
+- [x] Install-state carries scalar `KERNEL` (primary) and array
       `KERNELS`.
-- [ ] Initramfs preset and bootloader default are derived from the
+- [x] Initramfs preset and bootloader default are derived from the
       primary token, including `zen`/`hardened`.
-- [ ] `mkinitcpio -P` still builds every installed kernel's preset;
+- [x] `mkinitcpio -P` still builds every installed kernel's preset;
       custom fallback injection stays primary-only.
-- [ ] No host config hardcodes kernel packages; the installed kernel
+- [x] No host config hardcodes kernel packages; the installed kernel
       set is owned solely by `options.kernel`.
+
+## Comments
+
+Implemented via TDD. New `lib/kernel.sh` is the single token table
+(`kernel_pkg`/`kernel_headers_pkg`/`kernel_is_valid_token`), staged into the
+chroot alongside `install-state.sh` so host and chroot share one mapping.
+- `install_config_kernels` (string|array→ordered list, default `lts`, aborts
+  on unknown token) + `install_config_kernel` (primary = first); `kernel`
+  dropped from the schema table and hand-written as a special.
+- `collect_packages` loops the list via the table; `zfs-dkms`/`zfs-utils`
+  once.
+- install-state schema gains `KERNELS` (array); writer emits it; `KERNEL`
+  stays the scalar primary.
+- `initcpio.sh` + `bootloader-systemd-boot.sh` derive preset/vmlinuz/title
+  from `kernel_pkg "$KERNEL"` (now covers `zen`/`hardened`); `mkinitcpio -P`
+  unchanged; custom fallback stays primary-only.
+Tests: new `kernel.bats` (4) + extensions to install-config/packages/
+install-state; every install-state fixture gains the now-required `kernels`
+field. Full suite 657/657 green; shellcheck clean. Host configs hardcode no
+kernels (audit 81/81). CONTEXT.md already documents the terms.
 
 ## Blocked by
 

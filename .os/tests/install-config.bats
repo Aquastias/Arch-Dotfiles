@@ -212,6 +212,57 @@ set_path_cfg() {
   [ "$output" = "12" ]
 }
 
+# ── Special: Kernel Selection (string|array list + primary bridge) ──────────
+
+@test "kernels: absent defaults to lts" {
+  write_cfg '{}'
+  run install_config_kernels
+  [ "$status" -eq 0 ]
+  [ "$output" = "lts" ]
+}
+
+@test "kernels: scalar token yields a single-element list" {
+  write_cfg '{"options":{"kernel":"default"}}'
+  run install_config_kernels
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+}
+
+@test "kernels: array yields one token per line, order preserved" {
+  write_cfg '{"options":{"kernel":["default","lts"]}}'
+  run install_config_kernels
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "default" ]
+  [ "${lines[1]}" = "lts" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "kernel: primary is the first token of an array selection" {
+  write_cfg '{"options":{"kernel":["default","lts"]}}'
+  run install_config_kernel
+  [ "$status" -eq 0 ]
+  [ "$output" = "default" ]
+}
+
+@test "kernel: scalar selection passes through as primary" {
+  write_cfg '{"options":{"kernel":"zen"}}'
+  run install_config_kernel
+  [ "$status" -eq 0 ]
+  [ "$output" = "zen" ]
+}
+
+@test "kernels: unknown flavour token aborts config load" {
+  write_cfg '{"options":{"kernel":"frobnicate"}}'
+  run install_config_kernels
+  [ "$status" -ne 0 ]
+}
+
+@test "kernels: an unknown token inside a list aborts" {
+  write_cfg '{"options":{"kernel":["lts","frobnicate"]}}'
+  run install_config_kernels
+  [ "$status" -ne 0 ]
+}
+
 # ── install_config_get: unknown name errors ─────────────────────────────────
 
 @test "install_config_get: unknown name exits non-zero" {
