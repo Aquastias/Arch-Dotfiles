@@ -34,6 +34,7 @@
 #                          layout_plan, layout_partition, layout_create_pools,
 #                          layout_mount_esp
 #   lib/packages.sh      — package collection, pacstrap
+#   lib/zfs-verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
 #   lib/configs.sh       — host/user config loader+merger (host/user core)
 #   lib/profiles.sh      — runs after configure_system: creates users,
@@ -127,6 +128,7 @@ source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/configs.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
+source_module "${SCRIPT_DIR}/lib/zfs-verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles.sh"
 source_module "${SCRIPT_DIR}/lib/validation.sh"
@@ -198,6 +200,9 @@ main() {
 
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
+  # Fail-fast before chroot config: every installed kernel must have a ZFS
+  # module, else the install would crash later in mkinitcpio (ADR 0024).
+  zfs_verify_target_modules
   configure_system
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────
