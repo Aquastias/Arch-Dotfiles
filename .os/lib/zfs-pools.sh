@@ -22,8 +22,11 @@ ENC_OPTS=() # populated by build_enc_opts(); consumed by _zpool_create()
 # =============================================================================
 # FALLBACK ZFS INSTALL
 # =============================================================================
-# Runs only if the ZFS kernel module is not already loaded.
-# This means 01-bootstrap-zfs.sh was not run — we handle it gracefully here.
+# Runs only if the ZFS kernel module is not currently loaded — e.g. because
+# 01-bootstrap-zfs.sh was skipped, or its build did not leave a loaded module.
+# We recover here using the SAME shared logic bootstrap uses (lib/zfs-module.sh),
+# so this path can never drift into the old bug where it pulled the wrong
+# kernel's headers and DKMS built a module modprobe could not find (ADR 0023).
 
 install_zfs_tools_if_needed() {
   if lsmod | grep -q '^zfs '; then
@@ -31,36 +34,23 @@ install_zfs_tools_if_needed() {
     return
   fi
 
-  section "Installing ZFS Tools (fallback — bootstrap was not run)"
-  warn "ZFS is not loaded." \
-       "Run 01-bootstrap-zfs.sh first (strongly recommended)."
-  warn "Attempting fallback install now..."
+  section "Installing ZFS Tools (ZFS module not loaded — fallback)"
+  warn "ZFS kernel module is not loaded." \
+       "01-bootstrap-zfs.sh normally loads it; running the fallback now."
 
-  # Add archzfs repo if not already present
-  # Note: archzfs.com is stale since Feb 2026. Use the GitHub repo.
-  if ! grep -q '\[archzfs\]' /etc/pacman.conf; then
-    local ARCHZFS_KEY="3A9917BF0DED5C13F69AC68FABEC0A1208037BE9"
-    pacman-key --recv-keys "$ARCHZFS_KEY" 2>/dev/null ||
-      pacman-key --keyserver hkps://keyserver.ubuntu.com \
-        --recv-keys "$ARCHZFS_KEY"
-    pacman-key --lsign-key "$ARCHZFS_KEY"
-    printf '\n[archzfs]\nSigLevel = Never\n%s\n' \
-      'Server = https://github.com/archzfs/archzfs/releases/download/'\
-      'experimental' \
-      >>/etc/pacman.conf
-    pacman -Sy --noconfirm
-  fi
+  local kver
+  kver="$(uname -r)"
 
-  # Try pre-built first (~80 MB), fall back to DKMS build (~900 MB)
-  pacman -S --noconfirm --needed zfs-linux zfs-utils 2>/dev/null || {
-    warn "No pre-built module available. DKMS build will start (5–30 min)..."
-    local headers_pkg="linux-headers"
-    uname -r | grep -q 'lts' && headers_pkg="linux-lts-headers"
-    pacman -S --noconfirm --needed "${headers_pkg}" dkms zfs-dkms zfs-utils ||
-      error "ZFS DKMS install failed. Check network and archzfs availability."
-  }
+  # Ensure the archzfs repo + signing key are present (idempotent — no-op if
+  # bootstrap already added them).
+  zfs_add_archzfs_repo
 
-  modprobe zfs || error "Failed to load ZFS kernel module after install."
+  # Always DKMS on the live ISO, built against the EXACT running kernel using
+  # the ISO's own headers — never an unpinned `pacman -S linux-headers`, which
+  # would grab a newer kernel's headers and break the build.
+  zfs_install_dkms "$kver"
+  zfs_load_module
+
   [[ -f /etc/hostid ]] || zgenhostid
   info "ZFS installed. hostid: $(hostid)"
 }
