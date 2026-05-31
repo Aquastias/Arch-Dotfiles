@@ -118,6 +118,7 @@ source_module() {
 }
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
+source_module "${SCRIPT_DIR}/lib/zfs-module.sh"
 source_module "${SCRIPT_DIR}/lib/categorized-list.sh"
 source_module "${SCRIPT_DIR}/lib/install-config.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"

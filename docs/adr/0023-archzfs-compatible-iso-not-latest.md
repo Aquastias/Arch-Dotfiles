@@ -56,3 +56,10 @@ target that can break unpredictably mid-install.
   an outage of either surfaces as a clear resolver error.
 - Operators cannot simply grab today's ISO — the README and tooling
   make the compatible ISO the default, removing the foot-gun.
+- The DKMS build/load is implemented once in `lib/zfs-module.sh`
+  (`zfs_install_dkms` / `zfs_load_module`) and shared by both
+  `01-bootstrap-zfs.sh` and the `03-install.sh` fallback. Earlier the
+  fallback kept its own copy that installed `linux-headers` unpinned and
+  skipped `--kernelsourcedir`, so when the mirror moved past the ISO
+  kernel it built ZFS for the wrong kernel and `modprobe` found nothing.
+  One implementation prevents that drift.
