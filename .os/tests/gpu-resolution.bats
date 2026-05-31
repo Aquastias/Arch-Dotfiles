@@ -35,7 +35,8 @@ teardown() {
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" xf86-video-amdgpu "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
-  [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" libva-mesa-driver "* ]]
+  # libva-mesa-driver is no longer a standalone package — mesa provides it.
+  [[ " ${GPU_PACMAN_PACKAGES[*]} " != *" libva-mesa-driver "* ]]
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 

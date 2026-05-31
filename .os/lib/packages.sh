@@ -59,9 +59,11 @@ collect_packages() {
   bootloader="$(install_config_bootloader)"
   local bootloader_pkgs=()
   if [[ "$bootloader" == "grub" ]]; then
-    # grub-zfs-config-grub2 provides ZFS-aware GRUB setup via grub-mkconfig.
-    # grub handles ZFS pools natively — no separate zfs module needed.
-    bootloader_pkgs=(grub grub-zfs-config)
+    # grub ships the zfs.mod and boots ZFS pools natively — no extra repo pkg.
+    # (grub-zfs-config does NOT exist in any repo.) grub-mkconfig runs with
+    # ZPOOL_VDEV_NAME_PATH=YES in the bootloader adapter so grub-probe resolves
+    # the ZFS root without grub-libzfs — see lib/chroot/bootloader-grub.sh.
+    bootloader_pkgs=(grub)
   fi
   # systemd-boot ships with systemd (already in base); no extra package needed.
   # efibootmgr is needed by both to register UEFI boot entries.
@@ -150,6 +152,26 @@ collect_packages() {
 # BASE SYSTEM INSTALLATION
 # =============================================================================
 
+enable_multilib() {
+  # The Arch live ISO ships [multilib] commented out, but lib32-* packages
+  # (steam, lib32-nvidia-utils, lib32-gamemode) live there. pacstrap reads the
+  # HOST /etc/pacman.conf, so multilib must be enabled here or those targets
+  # error as "target not found". configure_system (chroot.sh) later copies this
+  # pacman.conf into the new root, so the installed system inherits multilib for
+  # future lib32 updates. Idempotent.
+  if grep -q '^\[multilib\]' /etc/pacman.conf; then
+    info "[multilib] repo already enabled."
+    return 0
+  fi
+  info "Enabling [multilib] repository..."
+  # Uncomment the [multilib] header and its adjacent Include line. The range is
+  # anchored on '#[multilib]' (not '#[multilib-testing]', which lacks the ']').
+  sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+  grep -q '^\[multilib\]' /etc/pacman.conf \
+    || error "Failed to enable [multilib] in /etc/pacman.conf."
+  pacman -Sy --noconfirm >/dev/null 2>&1 || true
+}
+
 install_base() {
   section "Installing Base System (pacstrap)"
 
@@ -158,6 +180,9 @@ install_base() {
   reflector --latest 10 --sort rate \
     --save /etc/pacman.d/mirrorlist 2>/dev/null ||
     warn "reflector failed — using existing mirrorlist."
+
+  # lib32-* / steam packages need [multilib] enabled before pacstrap runs.
+  enable_multilib
 
   mapfile -t pkgs < <(collect_packages)
   info "Packages to install: ${#pkgs[@]}"
