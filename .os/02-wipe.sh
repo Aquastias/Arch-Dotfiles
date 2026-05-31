@@ -398,6 +398,90 @@ teardown_mdraid() {
 }
 
 # =============================================================================
+# PRIOR INSTALL STATE RESET  (runs before disk detection)
+# =============================================================================
+# A failed/aborted 03-install.sh leaves the target's ZFS pools imported with
+# altroot=/mnt and the datasets + ESP mounted under /mnt. detect_disks() then
+# sees a mounted partition (the ESP at /mnt/boot/efi) and SKIPS the very disk
+# you want to wipe — "No eligible disks". teardown_zfs() can't help: it runs
+# per-disk, AFTER detection has already excluded the disk. So clear that
+# scratch state here, first.
+#
+# Scoped strictly to /mnt (the installer's mountpoint) and pools whose altroot
+# is /mnt — never the live system, which lives at '/'. Unmounting/exporting is
+# non-destructive: no disk data is erased, pools can be re-imported.
+
+# Injectable seams (overridden in tests).
+_wipe_mounts_under_mnt() {
+  findmnt -rno TARGET 2>/dev/null | grep -E '^/mnt(/|$)' || true
+}
+_wipe_pools_altroot_mnt() {
+  command -v zpool &>/dev/null || return 0
+  zpool list -H -o name,altroot 2>/dev/null \
+    | awk '$2 ~ /^\/mnt(\/|$)/ {print $1}'
+}
+
+# Returns 0 if a previous-install scratch state is present at /mnt.
+wipe_prior_state_present() {
+  [[ -n "$(_wipe_mounts_under_mnt)" ]] && return 0
+  [[ -n "$(_wipe_pools_altroot_mnt)" ]] && return 0
+  return 1
+}
+
+reset_prior_install_state() {
+  wipe_prior_state_present || return 0
+
+  section "Previous Install Environment Detected"
+  local _mounts _pools _line
+  _mounts="$(_wipe_mounts_under_mnt)"
+  _pools="$(_wipe_pools_altroot_mnt | xargs || true)"
+  if [[ -n "$_mounts" ]]; then
+    warn "Mounted under /mnt:"
+    while IFS= read -r _line; do
+      [[ -n "$_line" ]] && echo "      ${_line}"
+    done <<<"$_mounts"
+  fi
+  [[ -n "$_pools" ]] && warn "Imported pool(s) with altroot=/mnt: ${_pools}"
+
+  if [[ "${INSTALL_UNATTENDED:-0}" != "1" ]]; then
+    echo ""
+    local reply
+    read -rp "  Tear down this /mnt install env so the disk is wipeable? [y/N]: " \
+      reply
+    case "$reply" in
+      [yY] | [yY][eE][sS]) ;;
+      *) warn "Left /mnt state intact — the target disk will stay excluded."
+         return 0 ;;
+    esac
+  fi
+
+  # 1. swapoff any swap backed by a zvol (e.g. /dev/zvol/rpool/swap).
+  if command -v swapon &>/dev/null; then
+    local _sw
+    while IFS= read -r _sw; do
+      [[ -n "$_sw" ]] && { swapoff "$_sw" 2>/dev/null || true; }
+    done < <(swapon --show=NAME --noheadings 2>/dev/null \
+             | grep '^/dev/zvol/' || true)
+  fi
+  # 2. Unmount the whole /mnt tree (ESP + datasets); lazy fallback for busy.
+  umount -R /mnt 2>/dev/null || umount -Rl /mnt 2>/dev/null || true
+  # 3. Export the /mnt-scoped pools (forced fallback) to release the disk.
+  local _pool
+  while IFS= read -r _pool; do
+    [[ -z "$_pool" ]] && continue
+    warn "Exporting pool '${_pool}'"
+    zpool export "$_pool" 2>/dev/null \
+      || zpool export -f "$_pool" 2>/dev/null || true
+  done < <(_wipe_pools_altroot_mnt)
+
+  if wipe_prior_state_present; then
+    warn "Some /mnt state remains — inspect: mount | grep /mnt ; zpool list"
+  else
+    info "Previous install env cleared — disk is now wipeable."
+  fi
+}
+
+# =============================================================================
 # SINGLE DISK WIPE (runs in background per disk)
 # =============================================================================
 
@@ -570,6 +654,10 @@ main() {
     command -v "$cmd" &>/dev/null || error "Required tool not found: $cmd"
   done
 
+  # Clear any leftover /mnt install env from a failed run, so the target disk
+  # isn't excluded by detect_disks() as "mounted". No-op when /mnt is clean.
+  reset_prior_install_state
+
   section "Detecting Disks"
   mapfile -t all_disks < <(detect_disks)
   ((${#all_disks[@]} > 0)) ||
@@ -603,4 +691,7 @@ main() {
   print_summary
 }
 
-main "$@"
+# Execute only when run directly; when sourced (e.g. by bats) it won't auto-run.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
