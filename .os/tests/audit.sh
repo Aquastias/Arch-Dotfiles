@@ -312,7 +312,7 @@ _commons_fns=(print_status check_root send_user_notification command_exists \
               package_installed)
 _dups_found=0
 while IFS= read -r script; do
-  rel="${script#${OS}/}"
+  rel="${script#"${OS}"/}"
   for fn in "${_commons_fns[@]}"; do
     if grep -qE "^[[:space:]]*(function[[:space:]]+)?${fn}[[:space:]]*\(" \
         "$script" 2>/dev/null; then
@@ -333,7 +333,7 @@ _section "13. No _fixture/ directories under .os/programs/"
 # .os/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT overrides.
 _strays=0
 while IFS= read -r d; do
-  rel="${d#${OS}/}"
+  rel="${d#"${OS}"/}"
   _fail "${rel}: _fixture/ directory must not live under programs/"
   _strays=$((_strays + 1))
 done < <(find "${OS}/programs" -type d -name "_fixture")

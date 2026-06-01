@@ -105,6 +105,7 @@ cg_validate_manifest() {
       printf 'error: %s [%d]: missing dst\n' "$manifest" "$i" >&2
       errors=1
     else
+      # shellcheck disable=SC2088 # literal '~/' prefix test on a spec string
       [[ "$dst" == "~/"* ]] || {
         printf 'error: %s [%d]: dst %q must start with ~/\n' \
           "$manifest" "$i" "$dst" >&2

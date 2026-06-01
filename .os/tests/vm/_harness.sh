@@ -48,11 +48,11 @@ LIB_DIR="${HARNESS_DIR}/../../lib"
 # =============================================================================
 # MODULE IMPORTS
 # =============================================================================
-# shellcheck source=../lib/common.sh
+# shellcheck source=../../lib/common.sh
 source "${LIB_DIR}/common.sh"
-# shellcheck source=../lib/iso-resolver.sh
+# shellcheck source=../../lib/iso-resolver.sh
 source "${LIB_DIR}/iso-resolver.sh"
-# shellcheck source=../lib/sentinel-watcher.sh
+# shellcheck source=../../lib/sentinel-watcher.sh
 source "${LIB_DIR}/sentinel-watcher.sh"
 
 # =============================================================================

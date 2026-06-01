@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HYPR_JSON="${HYPR_JSON:-${SCRIPT_DIR}/install-hyprland.jsonc}"
 GREETD_CONF_DIR="${GREETD_CONF_DIR:-/etc/greetd}"
 
+# shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
 DE_TAG=HYPR
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"

@@ -4,6 +4,8 @@
 # Defaults + the unit/wants writers both consumers need. Sourced only.
 
 # ── Curated Persist Defaults — single source of truth ───────────────────────
+# shellcheck disable=SC2034 # consumed by chroot/impermanence.sh, validation.sh,
+# tools/impermanence.sh
 CURATED_FILES=(
   /etc/machine-id
   /etc/hostname
@@ -12,6 +14,8 @@ CURATED_FILES=(
   /etc/adjtime
   /etc/fstab
 )
+# shellcheck disable=SC2034 # consumed by chroot/impermanence.sh, validation.sh,
+# tools/impermanence.sh
 CURATED_DIRS=(
   /etc/ssh
   /etc/secrets    # sops age key lives here
@@ -22,6 +26,8 @@ CURATED_DIRS=(
 )
 
 # Rollback Datasets — dataset suffix → mountpoint.
+# shellcheck disable=SC2034 # consumed by chroot/impermanence.sh, validation.sh,
+# tools/impermanence.sh
 ROLLBACK_DATASETS=(
   "etc:/etc"
   "root:/root"
