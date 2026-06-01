@@ -331,6 +331,17 @@ _eject_cdroms() {
             | awk '$2 == "cdrom" { print $3 }')
 }
 
+# Polls virsh ttyconsole until the domain's serial PTY is assigned (or a short
+# timeout elapses), so console capture attaches to a live pty instead of dying.
+_wait_for_serial_pty() {
+  local i
+  for i in $(seq 1 50); do
+    [[ -n "$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" ]] && return 0
+    sleep 0.1
+  done
+  return 0   # best-effort; console capture surfaces any genuine failure
+}
+
 # Boots the installed disk and waits for SEED_GENERATOR_FIRSTBOOT_MARKER on the
 # serial console. Returns 0 if the marker appears within BOOT_TIMEOUT_SEC,
 # 125 otherwise (distinct from installer exit codes and the 124 timeout).
@@ -339,9 +350,14 @@ _run_boot_verify() {
   _eject_cdroms
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
 
-  _start_console_capture "$BOOT_LOG_FILE"
+  # Start the VM BEFORE attaching console capture. Capturing first races the
+  # serial PTY allocation — `virsh console` dies with "PTY device is not yet
+  # assigned" and the boot goes unobserved (false 600s timeout). virsh
+  # ttyconsole prints the pty path once libvirt wires it up, a beat after start.
   info "Booting installed disk → ${BOOT_LOG_FILE}"
   virsh start "$VM_NAME" >/dev/null
+  _wait_for_serial_pty
+  _start_console_capture "$BOOT_LOG_FILE"
 
   local brc=0
   set +e
