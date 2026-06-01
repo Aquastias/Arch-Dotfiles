@@ -192,23 +192,43 @@ _chroot_resolve_host_secrets() {
   printf '%s' "/root/lib-chroot/host-secrets.json"
 }
 
+# Seed a valid zpool.cache into the new root's /etc/zfs so the initramfs ZFS
+# hook imports every pool at boot. `zpool set` takes exactly ONE pool per call
+# — passing all pools at once (single-disk makes rpool AND dpool) made it fail,
+# and the old `cp` fallback then copied the live ISO's stale/empty zpool.cache,
+# baking a corrupt cache into the initramfs (boot died in a retry loop with
+# "invalid or corrupt cache file"). Loop one pool per call so all land in one
+# valid file. If any set fails or the file ends up empty, remove it entirely so
+# the hook falls back to scan import (what the VMs did, hence they booted).
+_chroot_seed_zpool_cache() {
+  local cache="$1"; shift
+  local p
+  mkdir -p "$(dirname "$cache")"
+  for p in "$@"; do
+    if ! zpool set cachefile="$cache" "$p" 2>/dev/null; then
+      rm -f "$cache"
+      warn "zpool.cache could not be written for '$p' —" \
+           "zfs-import-scan will handle first boot."
+      return 0
+    fi
+  done
+  if [[ ! -s "$cache" ]]; then
+    rm -f "$cache"
+    warn "zpool.cache is empty — zfs-import-scan will handle first boot."
+    return 0
+  fi
+  info "Seeded zpool.cache with: $*"
+}
+
 configure_system() {
   section "Configuring System (arch-chroot)"
 
   # ── Seed ZFS state into the new root ──────────────────────────────────────
   # The pool cache and hostid must exist in the new system before the
   # initramfs is built, otherwise the ZFS hook cannot import the pool at boot.
-  mkdir -p "${MOUNT_ROOT}/etc/zfs"
-  # Copy zpool.cache into the new system so zfs-import-cache can find it.
-  # Also regenerate it from the currently imported pools to ensure it's fresh.
-  mkdir -p "${MOUNT_ROOT}/etc/zfs"
   local _pools=()
   mapfile -t _pools < <(zpool list -H -o name)
-  zpool set cachefile="${MOUNT_ROOT}/etc/zfs/zpool.cache" \
-    "${_pools[@]}" 2>/dev/null \
-    || cp /etc/zfs/zpool.cache "${MOUNT_ROOT}/etc/zfs/" 2>/dev/null \
-    || warn "zpool.cache could not be written —" \
-            "zfs-import-scan will handle first boot."
+  _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
   cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
 
   # Copy archzfs repo config so the new system can update ZFS packages

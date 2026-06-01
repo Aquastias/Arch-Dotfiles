@@ -55,3 +55,36 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ── _chroot_seed_zpool_cache ──────────────────────────────────────────────────
+
+@test "seeds a valid zpool.cache one pool per zpool set call" {
+  # Real zpool: `set cachefile=PATH pool` accepts exactly ONE pool; >1 errors.
+  zpool() {
+    [ "$1" = set ] || return 0
+    shift
+    local kv="$1"; shift
+    [ "$#" -eq 1 ] || return 2
+    printf 'cache:%s\n' "$1" >> "${kv#cachefile=}"
+  }
+  export -f zpool
+
+  run _chroot_seed_zpool_cache "$MOUNT_ROOT/etc/zfs/zpool.cache" rpool dpool
+  [ "$status" -eq 0 ]
+  [ -s "$MOUNT_ROOT/etc/zfs/zpool.cache" ]
+  grep -q '^cache:rpool$' "$MOUNT_ROOT/etc/zfs/zpool.cache"
+  grep -q '^cache:dpool$' "$MOUNT_ROOT/etc/zfs/zpool.cache"
+}
+
+@test "removes any stale cache when a pool's cachefile cannot be set" {
+  # The laptop bug: leaving a corrupt/stale cache makes the initramfs ZFS hook
+  # loop on "invalid or corrupt cache file". On failure we must leave NO cache.
+  zpool() { return 1; }
+  export -f zpool
+  mkdir -p "$MOUNT_ROOT/etc/zfs"
+  printf 'stale-garbage\n' > "$MOUNT_ROOT/etc/zfs/zpool.cache"
+
+  run _chroot_seed_zpool_cache "$MOUNT_ROOT/etc/zfs/zpool.cache" rpool dpool
+  [ "$status" -eq 0 ]
+  [ ! -e "$MOUNT_ROOT/etc/zfs/zpool.cache" ]
+}

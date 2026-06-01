@@ -46,13 +46,16 @@ console-mode max
 editor no
 EOF
 
+# zfs_import_dir=/dev/disk/by-id makes the initramfs ZFS hook import by scanning
+# stable by-id paths instead of /etc/zfs/zpool.cache. A stale/corrupt cache then
+# cannot brick boot (the hook ignores it when zfs_import_dir is set).
 cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
 title   ${ENTRY_TITLE}
 linux   /${VMLINUZ}
 initrd  /intel-ucode.img
 initrd  /amd-ucode.img
 initrd  /${INITRAMFS}
-options root=ZFS=${POOL_ROOT} rw
+options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
 EOF
 
 cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
@@ -61,7 +64,7 @@ linux   /${VMLINUZ}
 initrd  /intel-ucode.img
 initrd  /amd-ucode.img
 initrd  /${INITRAMFS_FB}
-options root=ZFS=${POOL_ROOT} rw
+options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
 EOF
 
 cp "/boot/${VMLINUZ}"   /boot/efi/
