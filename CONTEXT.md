@@ -98,6 +98,9 @@ Age private key stored at `/etc/secrets/age/keys.txt` on the installed system. D
 ### SOPS Runtime Service
 Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all SOPS-encrypted secret files using the Machine Age Key, and sets declared ownership and permissions. Programs that need runtime secrets reference `/run/secrets/<name>` paths. The sops Program is secrets-activated: the Runner installs it (deriving the Machine Age Key and building `ssh-to-age` via `go`) only when the host or one of its declared users ships a `secrets.json` — consistent with secrets being optional. It is therefore not a member of any host's declared System Programs, including Host Core; a host with no secrets gets neither the service nor `go`.
 
+### Base Package List
+The hardcoded set pacstrapped onto every host regardless of config, defined in `lib/packages.sh:collect_packages` (e.g. `base`, `base-devel`, the selected kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`, `zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`, `vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `man-db`, `cronie`). The **only** cross-host package base — Host Core carries no package list. A Host Package List is deduplicated against it at install time. Universal infrastructure daemons whose package lives here (NetworkManager, cron) are enabled by the Chroot Configuration Module, not by a Program (ADR 0026).
+
 ### Host Package List
 `packages` object in a Host Config with two fields: `repo` (official-repo packages installed via pacstrap) and `aur` (AUR packages installed via paru for the primary user). `repo` is a 2-level categorized object — kebab-case category keys mapped to string arrays — flattened to a sorted-unique list by the Categorized List Parser at install time. Categories are cosmetic; renaming `media` to `multimedia` does not change what installs. Shape, leaf-type, or category-name violations abort at config-load with the offending path. `aur` is still a flat string array (categorized shape arrives in a later slice). Declared in the host-specific config — not in Host Core — because the list differs per machine. Deduplicated against base packages by the installer. AUR packages are installed once for the system via the first declared user's paru instance before any user programs run.
 
@@ -175,3 +178,8 @@ Pure function inside the Config Generator. Inputs: the resolved Config Variant m
 
 ### House Defaults
 Variants declared in User Core's `variants` object, applied to every user unless overridden per-key in their own User Config. Same merge semantics as the rest of the User Core / User Config relationship — core first, user adds on top, individual keys can be replaced without replacing the whole object.
+
+## Flagged ambiguities
+
+- "base packages" vs "core packages" — resolved: the **Base Package List** (hardcoded in `lib/packages.sh`) is the only shared package base. **Host Core** carries **no** `packages` object — only `system_programs` and `sysctl`; package lists live per-host (ADR 0007). The ADR 0021 clause placing `extra-cmake-modules` in Host Core is withdrawn (see ADR 0021 amendment); ECM is dropped entirely since paru resolves makedepends at build time.
+- DE packages in host configs — resolved: every package derivable from `environment.desktop` belongs to its **Desktop Environment Adapter**, not a Host Config (ADR 0021). Applies to Hyprland as of the 0021 amendment, not only KDE.
