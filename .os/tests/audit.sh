@@ -366,7 +366,8 @@ _repo_pkgs="$(
 )"
 _aur_pkgs="$(
   while IFS= read -r cfg; do
-    _strip "$cfg" | jq -r '.packages.aur[]?' 2>/dev/null
+    _strip "$cfg" | jq -r '(.packages.aur // {}) | [.. | strings] | .[]' \
+      2>/dev/null
   done < <(find "${OS}/hosts" "${OS}/users" -name config.jsonc) | sort -u
 )"
 

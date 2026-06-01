@@ -14,9 +14,11 @@
 //   packages.repo    object    Categorized pacstrap packages — kebab-case
 //                              category names mapped to string[] of pacman
 //                              package names. Flattened at install time.
-//   packages.aur     string[]  AUR packages installed via paru for
-//                              the primary user. Migrated to categorized
-//                              shape in a later slice.
+//   packages.aur     object    Categorized AUR packages — kebab-case
+//                              category names mapped to string[] of AUR
+//                              package names. Flattened and deduped with
+//                              each selected DE adapter's aur list into one
+//                              paru pass for the primary user at install.
 //   persist          object    Persist Extensions. When impermanence is
 //                              enabled, these paths are bind-mounted from
 //                              the Persist Dataset on every boot.
