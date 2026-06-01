@@ -9,12 +9,14 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
+KDE_JSON="${KDE_JSON:-${SCRIPT_DIR}/install-kde.jsonc}"
 
 # shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
 DE_TAG=KDE
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../../../lib/categorized-list.sh"
 
 [[ -f "$KDE_JSON" ]] || {
   echo "[KDE] ERROR: install-kde.jsonc not found at ${KDE_JSON}"
@@ -46,10 +48,14 @@ fi
 if [[ "$do_apps" == "true" ]]; then
   section "KDE Applications"
 
-  mapfile -t kde_apps < <(
-    jsonc "$KDE_JSON" \
-      | jq -r '.apps_list | to_entries[] | select(.value == true) | .key'
-  )
+  # apps_list is a 2-level Categorized List { category: { pkg: bool } }.
+  # Parse in bool mode via command substitution so a shape/leaf/category
+  # violation aborts the install here (error() exit propagates under set -e);
+  # a process substitution would swallow it.
+  apps_json="$(jsonc "$KDE_JSON" | jq -c '.apps_list')"
+  apps_out="$(categorized_list_parse "$apps_json" bool apps_list)"
+  kde_apps=()
+  [[ -n "$apps_out" ]] && mapfile -t kde_apps <<< "$apps_out"
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then
     pacman -S --noconfirm --needed "${kde_apps[@]}"
@@ -74,7 +80,5 @@ fi
 section "KDE Installation Complete"
 if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi
 if [[ "$do_apps" == "true" ]]; then
-  app_count="$(jsonc "$KDE_JSON" \
-    | jq '[.apps_list | to_entries[] | select(.value==true)] | length')"
-  info "  ✔  KDE Applications (${app_count} apps)"
+  info "  ✔  KDE Applications (${#kde_apps[@]} apps)"
 fi
