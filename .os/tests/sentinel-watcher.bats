@@ -113,3 +113,53 @@ teardown() {
   [ "$status" -eq 2 ]
   [[ "$output" =~ "log path is empty" ]]
 }
+
+# ── sentinel_watcher_wait_marker (literal substring) ──────────────────────────
+
+@test "marker present on its own line: returns 0" {
+  printf 'boot noise\n===FIRSTBOOT-OK===\nmore\n' > "$LOG"
+
+  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
+  [ "$status" -eq 0 ]
+}
+
+@test "marker absent within timeout: returns 124" {
+  printf 'no marker here\nmore noise\n' > "$LOG"
+
+  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 1
+  [ "$status" -eq 124 ]
+}
+
+@test "marker appended after a delay: returns 0 before timeout" {
+  : > "$LOG"
+  (
+    sleep 0.3
+    printf '===FIRSTBOOT-OK===\n' >> "$LOG"
+  ) &
+
+  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 3
+  [ "$status" -eq 0 ]
+
+  wait || true
+}
+
+@test "serial CRLF line (trailing carriage return): returns 0" {
+  printf '===FIRSTBOOT-OK===\r\n' > "$LOG"
+
+  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" 2
+  [ "$status" -eq 0 ]
+}
+
+@test "empty marker: returns 2 with a clear message" {
+  printf 'some content\n' > "$LOG"
+
+  run sentinel_watcher_wait_marker "$LOG" "" 1
+  [ "$status" -eq 2 ]
+  [[ "$output" =~ "marker is empty" ]]
+}
+
+@test "marker: non-numeric timeout returns 2 with a clear message" {
+  run sentinel_watcher_wait_marker "$LOG" "===FIRSTBOOT-OK===" "soon"
+  [ "$status" -eq 2 ]
+  [[ "$output" =~ "non-negative integer" ]]
+}
