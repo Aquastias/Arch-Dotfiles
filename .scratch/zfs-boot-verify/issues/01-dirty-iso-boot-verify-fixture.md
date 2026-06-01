@@ -100,3 +100,31 @@ power-cycles to the installed disk and confirms it boots.
 - Code-complete; only real-libvirt verification remains (no libvirt/zpool on
   the dev host). Full bats suite green (699), shellcheck clean. Kept
   `ready-for-agent` for an agent/host with libvirt to run + confirm.
+- Real-libvirt run attempted on a libvirt-capable host (virsh 12.3, qemu 11,
+  /dev/kvm, OVMF). ISO pinned to cached 2026.05.01 (kernel 7.0.3 ↔ archzfs
+  7.0; auto-resolver picked today's 2026.06.01 which 404s on archive — release
+  day). The run uncovered + fixed TWO blockers, then exposed a third:
+  - **Install blocker (fixed, pushed):** `install_state_write` appended `{}`
+    onto `load_host_config`'s graceful core-only JSON (rc 1 WITH stdout) →
+    `--argjson persist` got two JSON values → install died `EXIT-1` before
+    boot-verify. Hits any config whose host_profile has no specific dir (incl.
+    repo default). Fixed TDD-style + new `install-state.bats` case (the old
+    "host dir absent" test masked it by pointing OS_DIR at a missing dir →
+    different empty-stdout branch). Commit
+    `fix(installer): Don't concat {} onto core-only host JSON in state write`.
+    Install now reaches `EXIT-0` (verified twice).
+  - **Harness blocker (fixed):** `_run_boot_verify` started console capture
+    BEFORE `virsh start` → `PTY device is not yet assigned`, boot unobserved
+    → false 600s timeout. Reordered to start → wait-for-pty → capture (+
+    `_wait_for_serial_pty` via `virsh ttyconsole`). Commit
+    `fix(vm): Start boot-verify VM before console capture to win PTY race`.
+    Capture now attaches (systemd-boot menu visible on serial).
+  - **Open (filed as `02-installed-system-silent-on-boot-verify.md`):** with
+    both fixes, install → `EXIT-0` → power-cycle → systemd-boot menu →
+    kernel handoff → SILENCE for 600s; never reaches `===FIRSTBOOT-OK===`.
+    No `console=ttyS0` on the installed cmdline (by design) makes the
+    initramfs/ZFS phase invisible, so root cause needs a serial-console boot
+    (needs root/guestfish — unavailable in this session). Installed disk
+    preserved for that diagnosis.
+- AC items 2 and 6 (real boot to FIRSTBOOT-OK + negative control) remain
+  unverified, now blocked on `02`. Status stays `ready-for-agent`.
