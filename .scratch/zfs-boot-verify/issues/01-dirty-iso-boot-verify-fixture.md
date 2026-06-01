@@ -51,21 +51,25 @@ power-cycles to the installed disk and confirms it boots.
 
 ## Acceptance criteria
 
-- [ ] Fixture pre-seeds a garbage `/etc/zfs/zpool.cache` on the live
-      ISO before install.
+- [x] Fixture pre-seeds a garbage `/etc/zfs/zpool.cache` on the live
+      ISO before install (renderer `DIRTY_CACHE`, unit-tested).
 - [ ] After a successful install, the harness power-cycles to the
       installed disk (cdroms ejected) and the installed system
       reaches `===FIRSTBOOT-OK===` on serial within the boot timeout.
-- [ ] The first-boot sentinel unit self-disables and is injected
-      test-only — a normal (non-fixture) install never contains it.
+      (Implemented; needs a real libvirt run to verify.)
+- [x] The first-boot sentinel unit self-disables and is injected
+      test-only — a normal (non-fixture) install never contains it
+      (renderer `VERIFY_BOOT`, unit-tested incl. default-off).
 - [x] `sentinel-watcher` waits on an arbitrary marker; existing
       `INSTALLER-EXIT-N` parsing unchanged (regression-covered in
       `sentinel-watcher.bats`).
-- [ ] The boot phase is opt-in (`--verify-boot`); the default VM
-      suite's runtime/behaviour is unchanged for other fixtures.
+- [x] The boot phase is opt-in (`--verify-boot`); the default VM
+      suite's runtime/behaviour is unchanged for other fixtures
+      (full bats suite still green; knobs default off).
 - [ ] With the shipped fix in place the fixture passes; reverting
       either the per-pool seeding loop or `zfs_import_dir` makes it
       fail (proves it guards the real bug class).
+      (Needs a real libvirt run to verify.)
 
 ## Notes
 
@@ -82,3 +86,17 @@ power-cycles to the installed disk and confirms it boots.
   Remaining: items 1-3, 5 (dirty-cache pre-seed, first-boot unit injection,
   harness `--verify-boot` phase, dedicated env script). Status stays
   `ready-for-agent`.
+- Items 1-3, 5 implemented:
+  - `lib/seed-generator.sh` — `DIRTY_CACHE`/`VERIFY_BOOT` render flags,
+    `SEED_GENERATOR_FIRSTBOOT_MARKER`, `_seed_generator_firstboot_block`;
+    harness single-disk path now uses this renderer (duplicate
+    `_render_user_data_single` removed). 5 new `seed-generator.bats` cases;
+    rendered user-data validated as YAML for both flag combos.
+  - `tests/vm/_harness.sh` — `--verify-boot` flag + `DIRTY_CACHE`/`VERIFY_BOOT`/
+    `BOOT_TIMEOUT_SEC` knobs, `_eject_cdroms` + `_run_boot_verify` (power-cycle
+    to HD, wait marker, exit 125 on boot failure), `_start_console_capture`
+    takes a log path.
+  - `tests/vm/testing-single-disk-dirty-cache.sh` — dedicated fixture.
+- Code-complete; only real-libvirt verification remains (no libvirt/zpool on
+  the dev host). Full bats suite green (699), shellcheck clean. Kept
+  `ready-for-agent` for an agent/host with libvirt to run + confirm.
