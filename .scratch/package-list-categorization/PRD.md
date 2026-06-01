@@ -1,6 +1,6 @@
 # PRD: DE Adapter Package Ownership and Categorized List Schema
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ## Problem Statement
@@ -434,3 +434,16 @@ here.
   non-KDE packages. After PR 2, the KDE adapter is the
   single source of truth for KDE. After PR 3, all four schemas are
   uniform.
+
+## Completion note
+
+All 6 issues done; ADRs 0021/0022 landed; parser, adapter ownership,
+`cups` System Program, categorized host/adapter lists, Runner AUR merge,
+and CONTEXT.md all shipped. `octopi` migrated from host `packages.aur`
+(desktop + laptop) into `install-kde.jsonc:aur` — it now installs only
+when KDE is selected (PRD story 21 closed).
+
+Deviation: category names in this PRD's examples use underscores
+(`plasma_extras`, `qt_theming`, `file_management`). The Categorized List
+Parser enforces kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`), so the shipped
+config uses `plasma-extras`, `qt-theming`, etc.
