@@ -163,10 +163,8 @@
         "age",
         "apparmor",
         "clamav",
-        "gufw",
         "rkhunter",
-        "sops",
-        "ufw"
+        "sops"
       ],
       "archive": [
         "7zip",
