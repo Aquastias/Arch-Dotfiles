@@ -117,3 +117,23 @@ _adapter() {
   [ "$status" -eq 0 ]
   ! grep -qx "octopi" <<< "$output"
 }
+
+# ── steam: repo package, not AUR steam-native-runtime (libjpeg6 conflict) ────
+# steam-native-runtime pulls the virtual libjpeg6 dep, whose default provider
+# jpegli-git conflicts with libjxl — fatal under paru --noconfirm. Repo `steam`
+# already covers gaming, so the AUR runtime is dropped from every host.
+
+@test "steam-native-runtime is not declared in any host packages.aur" {
+  local h
+  for h in desktop laptop; do
+    ! grep -q '"steam-native-runtime"' \
+      "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+  done
+}
+
+@test "each host still declares repo steam in packages.repo" {
+  local h
+  for h in desktop laptop; do
+    grep -q '"steam"' "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+  done
+}

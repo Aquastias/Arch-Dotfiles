@@ -252,6 +252,50 @@ rm -rf "$BUILD"
 CHROOT_PARU
 }
 
+# Resolve + install an AUR set for a user. A print-only pre-flight pass runs
+# first in the real installed environment, so a provider/conflict failure — a
+# virtual dep (e.g. libjpeg6) whose default provider conflicts with an already
+# installed package — aborts *before* any download, with an actionable hint,
+# instead of the bare ERR-trap line number. The real install then streams live.
+_profiles_aur_install() {
+  local user="$1"; shift
+  local -a pkgs=("$@")
+  ((${#pkgs[@]} > 0)) || return 0
+
+  info "Pre-flight resolving AUR set for ${user}..."
+  local out rc=0
+  out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+    "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
+  if ((rc != 0)); then
+    if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
+      _profiles_aur_conflict_report "$out"
+      error "AUR pre-flight found an unresolvable conflict for ${user}." \
+            "Pin a non-conflicting provider, then re-run."
+    fi
+    # Non-conflict failure (e.g. transient resolver hiccup): warn, let the real
+    # pass surface it through the normal ERR trap.
+    warn "AUR pre-flight returned non-zero with no conflict signature;" \
+         "proceeding to install."
+    printf '%s\n' "$out" >&2
+  fi
+
+  arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+    "paru -S --noconfirm --needed ${pkgs[*]}"
+}
+
+# Surface a provider conflict from captured paru resolution output. The output
+# already holds the provider menus, the 'Conflicts found:' block, and the
+# 'can not install conflicting packages' error — print it, framed by guidance.
+_profiles_aur_conflict_report() {
+  local out="$1"
+  warn "AUR provider conflict: a package's default provider conflicts with" \
+       "an already-installed package, and paru can not confirm conflicts" \
+       "under --noconfirm. Resolver output follows:"
+  printf '%s\n' "$out" >&2
+  warn "Fix: pin a non-conflicting provider in the host's packages.aur" \
+       "(e.g. 'libjpeg6-turbo' to satisfy a 'libjpeg6' dependency)."
+}
+
 _profiles_install_user_program() {
   local user="$1" prog="$2"
   local rel
@@ -515,8 +559,7 @@ run_profiles() {
       )
       if ((${#primary_aur[@]} > 0)); then
         info "Installing AUR packages for ${u}: ${#primary_aur[@]} packages"
-        arch-chroot "$MOUNT_ROOT" su - "$u" -c \
-          "paru -S --noconfirm --needed ${primary_aur[*]}"
+        _profiles_aur_install "$u" "${primary_aur[@]}"
       fi
     fi
     for prog in "${uprogs[@]}"; do
