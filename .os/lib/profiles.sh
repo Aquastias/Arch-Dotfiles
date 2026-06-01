@@ -38,6 +38,7 @@ readonly -a _STAGED_RUNTIME_FILES=(
   "lib/shell-stdlib.sh"
   "lib/shell"
   "lib/run-program.sh"
+  "lib/grub-common.sh"
 )
 
 # =============================================================================

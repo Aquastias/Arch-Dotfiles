@@ -260,6 +260,8 @@ configure_system() {
      "${MOUNT_ROOT}/root/lib-chroot/kernel.sh"
   cp "${SCRIPT_DIR}/lib/impermanence-common.sh" \
      "${MOUNT_ROOT}/root/lib-chroot/impermanence-common.sh"
+  cp "${SCRIPT_DIR}/lib/grub-common.sh" \
+     "${MOUNT_ROOT}/root/lib-chroot/grub-common.sh"
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
   # ── Write install-state.json via the Install State module ────────────────
