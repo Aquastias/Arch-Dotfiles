@@ -25,7 +25,7 @@
 
 {
   "users": [],
-  "system_programs": ["sops", "cups"],
+  "system_programs": ["cups"],
   "sysctl": {
     "vm.swappiness": 10
   },
