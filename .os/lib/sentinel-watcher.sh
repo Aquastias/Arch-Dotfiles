@@ -12,6 +12,14 @@
 #       The log file may not exist when called; the function tolerates a
 #       file that appears mid-window. The log is never modified or deleted.
 #
+#   sentinel_watcher_wait_marker LOG_PATH MARKER TIMEOUT_SEC
+#       Watch LOG_PATH for the first line CONTAINING the literal MARKER
+#       (fixed-string substring, so serial CRLF and surrounding noise are
+#       tolerated). Returns 0 on match, 124 on timeout, 2 on bad args. Same
+#       late-creation / no-mutation contract as sentinel_watcher_wait. Used by
+#       the VM boot-verify phase to wait for the installed system's first-boot
+#       sentinel (===FIRSTBOOT-OK===).
+#
 #       No libvirt or network dependency — pure file watcher.
 #
 # The sentinel format is a hard contract with .os/lib/seed-generator.sh
@@ -55,6 +63,33 @@ sentinel_watcher_wait() {
         # bash will modulo the rest. The test contract only asserts [0,255].
         return "$code"
       fi
+    fi
+    sleep 0.1
+  done
+
+  return 124
+}
+
+sentinel_watcher_wait_marker() {
+  local log_path="$1" marker="$2" timeout_sec="$3"
+
+  [[ -n "$log_path" ]] || {
+    echo "sentinel-watcher: log path is empty" >&2
+    return 2
+  }
+  [[ -n "$marker" ]] || {
+    echo "sentinel-watcher: marker is empty" >&2
+    return 2
+  }
+  [[ "$timeout_sec" =~ ^[0-9]+$ ]] || {
+    echo "sentinel-watcher: timeout must be a non-negative integer" >&2
+    return 2
+  }
+
+  local deadline=$((SECONDS + timeout_sec))
+  while ((SECONDS < deadline)); do
+    if grep -F -q -- "$marker" "$log_path" 2>/dev/null; then
+      return 0
     fi
     sleep 0.1
   done
