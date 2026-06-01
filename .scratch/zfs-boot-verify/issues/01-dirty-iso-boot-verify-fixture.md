@@ -58,7 +58,7 @@ power-cycles to the installed disk and confirms it boots.
       reaches `===FIRSTBOOT-OK===` on serial within the boot timeout.
 - [ ] The first-boot sentinel unit self-disables and is injected
       test-only — a normal (non-fixture) install never contains it.
-- [ ] `sentinel-watcher` waits on an arbitrary marker; existing
+- [x] `sentinel-watcher` waits on an arbitrary marker; existing
       `INSTALLER-EXIT-N` parsing unchanged (regression-covered in
       `sentinel-watcher.bats`).
 - [ ] The boot phase is opt-in (`--verify-boot`); the default VM
@@ -72,3 +72,13 @@ power-cycles to the installed disk and confirms it boots.
 - `zfs_import_dir=/dev/disk/by-id` on the boot cmdline means a bad
   cache cannot brick boot regardless; this fixture also guards that.
 - Heavy (~doubles fixture runtime) — keep it out of the fast path.
+
+## Comments
+
+- Item 4 done (TDD): `sentinel_watcher_wait_marker LOG MARKER TIMEOUT` in
+  `lib/sentinel-watcher.sh` — fixed-substring match, returns 0/124/2, same
+  late-creation + no-mutation contract; 6 new `sentinel-watcher.bats` cases
+  (found, timeout, late-arrival, serial CRLF, empty-marker, bad-timeout).
+  Remaining: items 1-3, 5 (dirty-cache pre-seed, first-boot unit injection,
+  harness `--verify-boot` phase, dedicated env script). Status stays
+  `ready-for-agent`.
