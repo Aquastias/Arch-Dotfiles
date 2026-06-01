@@ -93,6 +93,45 @@ teardown() {
   [[ "$output" =~ "install.jsonc" ]]
 }
 
+# ── dirty-cache pre-seed (boot-verify fixture) ───────────────────────────────
+
+@test "dirty-cache off by default: no zpool.cache garbage in user-data" {
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "zpool.cache" ]]
+}
+
+@test "dirty-cache on: corrupts /etc/zfs/zpool.cache before install.sh" {
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE" true false
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "/etc/zfs/zpool.cache" ]]
+  # the garbage write must be chained ahead of the installer
+  pre="${output%%./install.sh*}"
+  [[ "$pre" =~ "/etc/zfs/zpool.cache" ]]
+}
+
+# ── first-boot sentinel injection (boot-verify fixture) ──────────────────────
+
+@test "verify-boot off by default: no first-boot unit in user-data" {
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "firstboot-ok" ]]
+}
+
+@test "verify-boot on: injects a self-disabling first-boot sentinel unit" {
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE" false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "firstboot-ok.service" ]]
+  [[ "$output" =~ "$SEED_GENERATOR_FIRSTBOOT_MARKER" ]]
+  [[ "$output" =~ "systemctl disable firstboot-ok.service" ]]
+  [[ "$output" =~ "zpool import -f -R /mnt rpool" ]]
+  [[ "$output" =~ "zpool export rpool" ]]
+}
+
+@test "verify-boot marker matches the shared constant contract" {
+  [ "$SEED_GENERATOR_FIRSTBOOT_MARKER" = "===FIRSTBOOT-OK===" ]
+}
+
 # ── missing cloud-localds is a clear failure (no install attempt) ────────────
 
 @test "missing cloud-localds: returns non-zero with a clear message" {
