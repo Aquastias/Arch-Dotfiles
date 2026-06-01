@@ -187,7 +187,8 @@
         "ttf-sazanami"
       ]
     },
-    "aur": [
+    "aur": {
+      "misc": [
       "ani-cli-git",
       "bolt-launcher",
       "brave-bin",
@@ -223,6 +224,7 @@
       "vscodium-marketplace",
       "zen-browser-bin",
       "zinit"
-    ]
+      ]
+    }
   }
 }

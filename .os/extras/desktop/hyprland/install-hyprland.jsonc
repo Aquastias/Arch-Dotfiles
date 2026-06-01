@@ -7,5 +7,14 @@
   "terminal":      true,  // alacritty
   "lock":          true,  // hyprlock
   "idle":          true,  // hypridle
-  "wallpaper":     true   // hyprpaper
+  "wallpaper":     true,  // hyprpaper
+
+  // AUR dependencies for this DE as a Categorized List { category:
+  // { pkg: bool } }. Declared here (not installed by this adapter) — the
+  // Runner merges these into its single paru pass. Categories are cosmetic.
+  "aur": {
+    "qt-theming": {
+      "qt6ct-kde": true // Qt6 control panel matching the Plasma/KDE theme
+    }
+  }
 }

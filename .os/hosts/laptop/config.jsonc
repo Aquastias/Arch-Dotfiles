@@ -133,7 +133,8 @@
         "ttf-sazanami"
       ]
     },
-    "aur": [
+    "aur": {
+      "misc": [
       "ani-cli-git",
       "btop-theme-catppuccin",
       "catppuccin-cursors-frappe",
@@ -164,6 +165,7 @@
       "vscodium-marketplace",
       "zen-browser-bin",
       "zinit"
-    ]
+      ]
+    }
   }
 }

@@ -109,6 +109,40 @@ _profiles_sops_selection() {
   ((${#progs[@]})) && printf '%s\n' "${progs[@]}"
 }
 
+# Pure resolver for the Runner AUR pass. Unions host packages.aur (categorized
+# string mode) with each desktop adapter's `aur` field (categorized bool mode),
+# read from ${OS_DIR}/extras/desktop/<de>/install-<de>.jsonc. Prints the
+# sorted-unique union, one per line. A missing host field, adapter file, or
+# adapter `aur` field contributes nothing. Parses are captured by command
+# substitution (not process substitution) so a parser error() abort propagates
+# here rather than being swallowed. Args: <host_json> [desktop...].
+_profiles_resolve_aur() {
+  local host_json="$1"; shift
+  local -a out=()
+  local parsed
+
+  local host_aur_json
+  host_aur_json="$(printf '%s' "$host_json" | jq -c '.packages.aur // empty')"
+  if [[ -n "$host_aur_json" ]]; then
+    parsed="$(categorized_list_parse "$host_aur_json" string packages.aur)" \
+      || return 1
+    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
+  fi
+
+  local de adapter aur_json
+  for de in "$@"; do
+    adapter="${OS_DIR}/extras/desktop/${de}/install-${de}.jsonc"
+    [[ -f "$adapter" ]] || continue
+    aur_json="$(jsonc_strip "$adapter" | jq -c '.aur // empty')"
+    [[ -n "$aur_json" ]] || continue
+    parsed="$(categorized_list_parse "$aur_json" bool aur)" || return 1
+    [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
+  done
+
+  ((${#out[@]})) || return 0
+  printf '%s\n' "${out[@]}" | sort -u
+}
+
 _profiles_resolve_user_secrets() {
   local name="$1"
   local host_state="${MOUNT_ROOT}/install-state.json"
@@ -447,9 +481,14 @@ run_profiles() {
     _profiles_enable_system_services "$prog"
   done
 
+  # Resolve the AUR set: host packages.aur ∪ each desktop adapter's `aur`
+  # list, deduped into a single paru pass (pkg-categorization slice 06).
+  # Aborts here on a malformed list (resolver propagates the parser error).
   local -a host_aur=()
-  mapfile -t host_aur < <(printf '%s' "$host_json" \
-    | jq -r '.packages.aur[]?' 2>/dev/null)
+  local _aur_out
+  _aur_out="$(_profiles_resolve_aur "$host_json" \
+    "${ENVIRONMENT_DESKTOP[@]+"${ENVIRONMENT_DESKTOP[@]}"}")"
+  [[ -n "$_aur_out" ]] && mapfile -t host_aur <<< "$_aur_out"
 
   for u in "${users[@]}"; do
     local -a uprogs=()
