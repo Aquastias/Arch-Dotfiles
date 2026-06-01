@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Secrets-activated sops Program
 
@@ -24,20 +24,30 @@ exception already recorded in `CONTEXT.md`.
 
 ## Acceptance criteria
 
-- [ ] Host Core `system_programs` no longer lists `sops`.
-- [ ] A pure predicate returns true iff install-state `.secrets.host`
+- [x] Host Core `system_programs` no longer lists `sops`.
+- [x] A pure predicate returns true iff install-state `.secrets.host`
       is set or `.secrets.users` is non-empty; bats covers empty →
       false, host-secret → true, user-secret → true.
-- [ ] When secrets are present, the Runner installs the sops Program
+- [x] When secrets are present, the Runner installs the sops Program
       via the normal system-program path, deduplicated against
       declared programs.
-- [ ] When no secrets are present, sops is not installed and `go` is
+- [x] When no secrets are present, sops is not installed and `go` is
       never pulled in.
-- [ ] `programs/security/sops/install.sh` is unchanged; `go` remains
+- [x] `programs/security/sops/install.sh` is unchanged; `go` remains
       after building `ssh-to-age`.
-- [ ] No System Program other than sops gains implicit activation;
+- [x] No System Program other than sops gains implicit activation;
       the `CONTEXT.md` exception holds.
 
 ## Blocked by
 
 - None - can start immediately.
+
+## Comments
+
+Done via TDD. Predicate `_profiles_host_uses_secrets` + pure
+list-shaper `_profiles_sops_selection` in `lib/profiles.sh`; Runner
+selects `sops` implicitly when install-state records secrets, deduped.
+Host Core `system_programs` → `["cups"]`. `arch-secure` comment
+refreshed; `CONTEXT.md` System Program rule cross-references the sops
+exception. 9 new bats in `profiles-secrets.bats`; full suite 666/666;
+`sops/install.sh` untouched.

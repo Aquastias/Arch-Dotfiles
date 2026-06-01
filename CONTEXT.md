@@ -30,7 +30,7 @@ Declarative JSONC file at `.os/users/core/config.jsonc`. Declares the base set o
 Declarative JSONC file at `.os/programs/<category>/<name>/config.jsonc`. Contains orchestration metadata only: display name, `system` flag, and optional description. The adjacent `install.sh` is the source of truth for installation logic.
 
 ### System Program
-A program that requires root and is installed via pacman during the chroot phase. Declared in host config or host core. Marked `"system": true` in its program config. Only official repo packages (no AUR) should be system programs.
+A program that requires root and is installed via pacman during the chroot phase. Declared in host config or host core. Marked `"system": true` in its program config. Only official repo packages (no AUR) should be system programs. One documented exception to the "declared" rule: the sops Program is secrets-activated, not declared — the Runner selects it implicitly when install-state records secrets (see SOPS Runtime Service, ADR 0025).
 
 ### User Program
 A program installed for a specific user via paru inside the chroot. Declared in user config or user core. Marked `"system": false` in its program config. Paru is bootstrapped per user before any user programs are installed. `base-devel` is hardcoded into pacstrap and always available in the chroot.

@@ -58,6 +58,69 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -z "$output" ]
 }
 
+# ── _profiles_host_uses_secrets ───────────────────────────────────────────────
+
+@test "_profiles_host_uses_secrets is false for empty install-state" {
+  printf '{}\n' > "$MOUNT_ROOT/install-state.json"
+
+  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  [ "$status" -eq 1 ]
+}
+
+@test "_profiles_host_uses_secrets is true when .secrets.host is set" {
+  printf '{"secrets":{"host":"/run/x/host-secrets.json"}}\n' \
+    > "$MOUNT_ROOT/install-state.json"
+
+  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "_profiles_host_uses_secrets is true when .secrets.users non-empty" {
+  printf '{"secrets":{"users":{"alice":"/run/x/alice.json"}}}\n' \
+    > "$MOUNT_ROOT/install-state.json"
+
+  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "_profiles_host_uses_secrets is false for empty .secrets.users map" {
+  printf '{"secrets":{"users":{}}}\n' > "$MOUNT_ROOT/install-state.json"
+
+  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  [ "$status" -eq 1 ]
+}
+
+@test "_profiles_host_uses_secrets is false when state file is missing" {
+  run _profiles_host_uses_secrets "$MOUNT_ROOT/nonexistent.json"
+  [ "$status" -eq 1 ]
+}
+
+# ── _profiles_sops_selection ──────────────────────────────────────────────────
+
+@test "_profiles_sops_selection appends sops when active and absent" {
+  run _profiles_sops_selection 1 cups base
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'cups\nbase\nsops')" ]
+}
+
+@test "_profiles_sops_selection dedupes when sops already declared" {
+  run _profiles_sops_selection 1 sops cups
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'sops\ncups')" ]
+}
+
+@test "_profiles_sops_selection leaves list untouched when inactive" {
+  run _profiles_sops_selection 0 cups base
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'cups\nbase')" ]
+}
+
+@test "_profiles_sops_selection yields just sops when active and list empty" {
+  run _profiles_sops_selection 1
+  [ "$status" -eq 0 ]
+  [ "$output" = "sops" ]
+}
+
 # ── _profiles_create_user wire-up ─────────────────────────────────────────────
 
 _setup_archroot_capture() {

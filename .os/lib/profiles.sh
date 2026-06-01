@@ -81,6 +81,34 @@ resolve_user_groups() {
   '
 }
 
+# Pure predicate: true (0) iff install-state at <path> records any secret —
+# `.secrets.host` set or `.secrets.users` non-empty. False (1) otherwise,
+# including a missing file. Reads only; no side effects. Drives implicit
+# sops activation in run_profiles (ADR 0025).
+_profiles_host_uses_secrets() {
+  local state="$1"
+  [[ -f "$state" ]] || return 1
+  jq -e '(.secrets.host // "") != ""
+    or ((.secrets.users // {}) | length > 0)' "$state" >/dev/null 2>&1
+}
+
+# Pure list-shaper: echoes the system-program list (one per line) with
+# `sops` appended when <active> is "1" and `sops` is not already present.
+# Dedupes against declared programs; leaves the list untouched when inactive.
+# Args: <active 0|1> [prog...].
+_profiles_sops_selection() {
+  local active="$1"; shift
+  local -a progs=("$@")
+  if [[ "$active" == "1" ]]; then
+    local p has=0
+    for p in "${progs[@]+"${progs[@]}"}"; do
+      [[ "$p" == "sops" ]] && has=1
+    done
+    ((has)) || progs+=("sops")
+  fi
+  ((${#progs[@]})) && printf '%s\n' "${progs[@]}"
+}
+
 _profiles_resolve_user_secrets() {
   local name="$1"
   local host_state="${MOUNT_ROOT}/install-state.json"
@@ -374,6 +402,16 @@ run_profiles() {
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
   mapfile -t sys_progs < <(printf '%s' "$host_json" \
     | jq -r '.system_programs[]?')
+
+  # Implicit sops activation (ADR 0025): sops is not declared in any host
+  # config; the Runner selects it through the normal system-program path
+  # only when install-state records secrets, deduped against declarations.
+  local _sec_active=0
+  if _profiles_host_uses_secrets "${MOUNT_ROOT}/install-state.json"; then
+    _sec_active=1
+  fi
+  mapfile -t sys_progs < <(_profiles_sops_selection "$_sec_active" \
+    "${sys_progs[@]+"${sys_progs[@]}"}")
 
   # Pre-load user configs for install execution.
   # Program contract validation was done by validate_install_context.

@@ -1,9 +1,10 @@
 // Host Config for vm/arch-secure — VM smoke-test host that exercises
 // SOPS + impermanence + ZFS native encryption together.
 //
-// Merged on top of `.os/hosts/core/config.jsonc`. The Host Core already
-// pulls in the `sops` system program; no other system programs are needed
-// for the smoke test to demonstrate the combined install path.
+// Merged on top of `.os/hosts/core/config.jsonc`. This host ships a
+// secrets.json, so the Runner secrets-activates the `sops` Program
+// implicitly (ADR 0025); no system programs need be declared here for
+// the smoke test to demonstrate the combined install path.
 
 {
   "users": ["vm-test"],
