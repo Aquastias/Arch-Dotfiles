@@ -42,7 +42,7 @@ GRUB_DEFAULT=0
 GRUB_TIMEOUT=4
 GRUB_DISTRIBUTOR="Arch Linux (ZFS)"
 GRUB_CMDLINE_LINUX_DEFAULT="quiet"
-GRUB_CMDLINE_LINUX="root=ZFS=${pool_root}"
+GRUB_CMDLINE_LINUX="root=ZFS=${pool_root} zfs_import_dir=/dev/disk/by-id"
 GRUB_PRELOAD_MODULES="zfs"
 GRUB_DISABLE_OS_PROBER=false
 EOF
