@@ -65,7 +65,13 @@ install_state_load() {
 # which is the machine identity — not the profile name.
 install_state_write() {
   local path="$1" profile="$2" host_json persist kernels
-  host_json="$(load_host_config "$profile" 2>/dev/null || printf '{}')"
+  # load_host_config prints core-only JSON *and* returns 1 when no host-specific
+  # config exists (its graceful path). Capture stdout and ignore the exit
+  # status; fall back to {} only when nothing was printed (a hard load
+  # failure). A `|| printf '{}'` here would append a second JSON value onto
+  # valid output, corrupting the --argjson persist payload below.
+  host_json="$(load_host_config "$profile" 2>/dev/null)" || true
+  [[ -n "$host_json" ]] || host_json='{}'
   persist="$(_install_state_persist_obj "$host_json")"
   # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.
   kernels="$(install_config_kernels | jq -R . | jq -sc .)"

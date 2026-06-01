@@ -184,6 +184,21 @@ setup_writer_globals() {
   [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
 }
 
+@test "install_state_write: core-only host (graceful) writes valid single JSON" {
+  # Real-install condition: hosts/core/config.jsonc EXISTS but the
+  # host-specific dir does NOT, so load_host_config prints core JSON *and*
+  # returns 1. A `|| printf '{}'` fallback then concatenates a second JSON
+  # value, corrupting the --argjson persist payload. The state file must
+  # remain a single valid JSON document with an empty persist.
+  setup_writer_globals
+  export OS_DIR="$FIXTURES"   # core present, "ghost-host" absent → rc 1 + stdout
+  install_state_write "$STATE" "ghost-host"
+  run jq -e . "$STATE"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.persist.directories | length' "$STATE")" = "0" ]
+  [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
+}
+
 # ── round-trip ───────────────────────────────────────────────────────────────
 
 @test "round-trip: write then load — every schema field intact" {
