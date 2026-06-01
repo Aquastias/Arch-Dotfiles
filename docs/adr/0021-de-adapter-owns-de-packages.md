@@ -74,3 +74,22 @@ in `kde.sh` is a safety rail.
 - Sets the pattern for other DE adapters. The Hyprland adapter will
   follow the same rule once its `aur:` field lands (ADR 0022 / PR3
   scope).
+
+## Amendment (2026-06-02)
+
+Two clauses are revised to honor ADR 0007 ("packages live in host
+config, not Host Core"). The decisions are adopted; the config/code
+changes are pending a later implementation pass.
+
+- **`extra-cmake-modules` → Host Core is withdrawn.** ECM is a pure
+  makedepend; paru installs makedepends transparently when building
+  AUR packages and they are orphaned afterward. It is dropped from all
+  configs rather than relocated. Host Core therefore carries no
+  `packages` object at all — only `system_programs` and `sysctl`.
+- **The deferred Hyprland migration is adopted.** DE-derivable packages
+  move into `extras/desktop/hyprland/` (`hyprland`,
+  `xdg-desktop-portal-hyprland`, `xdg-desktop-portal-gtk`,
+  `wl-clipboard` in the adapter core; `dunst`, `wofi`, `grim`+`slurp`,
+  `nwg-look` as companion toggles). General, non-DE packages stay in
+  host configs (`xdg-utils`, `papirus-icon-theme`); `xorg-xinit` is
+  dropped (pure-Wayland session, no `.xinitrc`).
