@@ -110,9 +110,7 @@
       "security": [
         "age",
         "apparmor",
-        "gufw",
-        "sops",
-        "ufw"
+        "sops"
       ],
       "archive": [
         "7zip",
