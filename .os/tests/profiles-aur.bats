@@ -94,3 +94,26 @@ _adapter() {
   local f="$BATS_TEST_DIRNAME/../extras/desktop/kde/install-kde.jsonc"
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
 }
+
+# ── octopi is KDE-adapter-owned, not host-declared (PRD story 21) ───────────
+
+@test "octopi resolves under kde via the real adapter" {
+  OS_DIR="$BATS_TEST_DIRNAME/.."   # resolve against the shipped adapters
+  run _profiles_resolve_aur '{}' kde
+  [ "$status" -eq 0 ]
+  grep -qx "octopi" <<< "$output"
+}
+
+@test "octopi is no longer declared in any host packages.aur" {
+  local h
+  for h in desktop laptop; do
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+  done
+}
+
+@test "octopi does not resolve under hyprland-only" {
+  OS_DIR="$BATS_TEST_DIRNAME/.."
+  run _profiles_resolve_aur '{}' hyprland
+  [ "$status" -eq 0 ]
+  ! grep -qx "octopi" <<< "$output"
+}
