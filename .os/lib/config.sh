@@ -23,7 +23,9 @@ source "${BASH_SOURCE[0]%/*}/environment.sh"
 # RESOLVED GLOBALS — set during validate_install_context,
 # consumed by configure_system
 # =============================================================================
+# shellcheck disable=SC2034 # consumed by validation.sh, profiles.sh, chroot.sh
 RESOLVED_HOSTNAME=""
+# shellcheck disable=SC2034 # consumed by validation.sh, profiles.sh, chroot.sh
 RESOLVED_HOST_PROFILE=""
 
 

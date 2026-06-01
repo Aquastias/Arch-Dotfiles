@@ -11,6 +11,7 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KDE_JSON="${SCRIPT_DIR}/install-kde.jsonc"
 
+# shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
 DE_TAG=KDE
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"

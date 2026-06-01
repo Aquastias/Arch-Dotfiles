@@ -50,6 +50,7 @@ confirm() {
 # Honors INSTALL_UNATTENDED=1 — auto-selects option 1 with a log line.
 #
 # Usage: pick_option "Question" "option one text" "option two text" ...
+# shellcheck disable=SC2034 # PICK_RESULT is the out-param, read by layout-*.sh
 pick_option() {
   local question="$1"
   shift
