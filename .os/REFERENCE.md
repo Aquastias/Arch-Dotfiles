@@ -238,9 +238,15 @@ A template is the **same shape as `install.jsonc`** except:
   (multi-mode) are **never** in the template — supplied by the
   operator's interactive disk pick.
 
+> **Planned (ADR 0029):** a template may *pin* OS-pool layout via
+> `mode` + `os_pool.topology`; the picker then skips its mode prompt
+> and honors that topology (disks still picked). Today the picker
+> prompts for mode and overrides any layout fields in the template.
+
 Every other field documented in § `install.jsonc Reference`
-applies unchanged: `mode`, `ashift`, `os_size`, `kernel`,
-`locale`, `timezone`, `keymap`, `environment.desktop`,
+applies unchanged, at its canonical (nested) path: `mode`,
+`ashift`, `os_size`, `options.kernel`, `system.locale`,
+`system.timezone`, `system.keymap`, `environment.desktop`,
 `environment.gpu`, `options.bootloader`, `options.encryption`,
 `options.impermanence.*`, `options.age_key_url`, ZFS pool/dataset
 names, `packages.*`, `post_install.*`.
@@ -254,10 +260,10 @@ using the same rules as Host Config / Host Core:
 - objects — deep merge
 - scalars — host template wins over core
 
-Put cross-host defaults (e.g. `locale`, `timezone`, `keymap`,
-`kernel`) in core; put machine-specific fields (e.g. disk
-topology mode, DE choice, impermanence on/off) in the host
-template.
+Put cross-host defaults (e.g. `system.locale`, `system.timezone`,
+`system.keymap`, `options.kernel`) in core; put machine-specific
+fields (e.g. disk topology `mode`, `environment.desktop`,
+`options.impermanence.enabled`) in the host template.
 
 ### Validation
 
