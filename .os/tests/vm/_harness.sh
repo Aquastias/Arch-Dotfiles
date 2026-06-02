@@ -156,8 +156,19 @@ _vm_destroy_undefine() {
       info "Force-stopping VM '${VM_NAME}'."
       virsh destroy "$VM_NAME" >/dev/null
     }
-    info "Undefining VM '${VM_NAME}' (storage + NVRAM removed)."
-    virsh undefine --remove-all-storage --nvram "$VM_NAME" >/dev/null
+    # Remove only the VM's own data disks — never the cdroms (shared install
+    # ISO + seed). libvirt manages ~/Downloads as a storage pool, so
+    # --remove-all-storage deletes the reused Arch ISO too; the next run then
+    # resolves the cached path, finds the file gone, and fails in _vm_create.
+    local own_disks
+    own_disks="$(virsh domblklist --details "$VM_NAME" 2>/dev/null \
+      | awk '$2 == "disk" { printf "%s%s", sep, $4; sep="," }')"
+    info "Undefining VM '${VM_NAME}' (NVRAM + own data disks removed)."
+    if [[ -n "$own_disks" ]]; then
+      virsh undefine --nvram --storage "$own_disks" "$VM_NAME" >/dev/null
+    else
+      virsh undefine --nvram "$VM_NAME" >/dev/null
+    fi
   fi
 }
 
