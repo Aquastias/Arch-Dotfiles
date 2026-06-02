@@ -1,6 +1,6 @@
 # 03 — Pool-name + uniqueness + mount validation
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -31,20 +31,46 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] An invalid name (leading digit, illegal char like `.`, reserved
+- [x] An invalid name (leading digit, illegal char like `.`, reserved
       word `mirror`/`raidz1`, `cN` prefix) aborts with a clear message;
       `tank0` and `tank-photos` pass.
-- [ ] A duplicate pool name across rpool/dpool/data_pools aborts.
-- [ ] A disk used in more than one place (OS pool / storage group /
+- [x] A duplicate pool name across rpool/dpool/data_pools aborts.
+- [x] A disk used in more than one place (OS pool / storage group /
       another data pool) aborts.
-- [ ] Two pools with the same mountpoint abort; a mount equal to a
+- [x] Two pools with the same mountpoint abort; a mount equal to a
       reserved path (e.g. `/home`, `/boot/efi`) aborts.
-- [ ] Nested mounts (`/data` and `/data/tank0`) are accepted.
-- [ ] Validation runs before any destructive operation.
-- [ ] Unit tests cover `_zfs_valid_pool_name` (valid + each rejection
+- [x] Nested mounts (`/data` and `/data/tank0`) are accepted.
+- [x] Validation runs before any destructive operation (all checks run
+      in the `validate` phase, ADR 0016).
+- [x] Unit tests cover `_zfs_valid_pool_name` (valid + each rejection
       class) and the validate rules (prior art:
       `tests/zfs-pools.bats`, `tests/layout-multi.bats`).
 
 ## Blocked by
 
 - 01 — Declarative standalone data pool (single-disk, end-to-end)
+
+## Comments
+
+- Done (TDD). Two new pure helpers + cross-cutting guards in
+  `layout_validate` (ADR 0014), all in the `validate` phase before any
+  disk op.
+  - `_zfs_valid_pool_name <name>` (`lib/zfs-pools.sh`): silent+0 ok /
+    reason+1 bad. Enforces `^[A-Za-z][A-Za-z0-9_-]*$`, rejects `cN`
+    prefix and reserved ZFS words (`mirror`, `raidz{,1,2,3}`, `draid*`,
+    `spare`, `log`, `cache`, `special`, `dedup`). Applied to
+    `data_pools[].name` only (os/storage names retrofit out of scope).
+  - `_mount_is_reserved <path>` (`lib/layout-multi.sh`): 0 when the path
+    shadows an OS dataset — `/`, `/home`, `/tmp`, `/persist`, or the
+    `/var{,/*}` / `/boot{,/*}` **subtrees** (subtree, not bare prefix, so
+    `/data` is free and `/variable` is not reserved).
+  - `layout_validate` (gated on `data_pools[]` present, so existing multi
+    configs are untouched): per-entry name format; pool-name uniqueness
+    across `{rpool, dpool, data_pools…}`; disk reuse across os/storage/
+    data (`sort|uniq -d`); mount rules over all declared storage mounts —
+    reserved-path reject + exact-duplicate reject, nested mounts allowed.
+  - Tests: 7 `_zfs_valid_pool_name` + 6 `_mount_is_reserved` unit cases;
+    8 `layout_validate` integration cases (bad name, dup name, name==
+    rpool, disk reuse ×2, reserved mount, dup mount, nested-pass). Full
+    suite 767 green, shellcheck clean.
+  - Unblocks 05 (interactive own-pool reuses both helpers) and 06.

@@ -585,6 +585,21 @@ mount_multi_esps() {
 }
 
 # =============================================================================
+# MOUNT VALIDATION HELPER (issue 03)
+# =============================================================================
+
+_mount_is_reserved() {
+  # Returns 0 when the mountpoint shadows an OS/reserved dataset, so a data
+  # pool can't break boot. Subtree semantics (not bare prefix): /var and
+  # /boot match their whole subtree; /data, /variable etc. are free.
+  case "$1" in
+  / | /home | /tmp | /persist) return 0 ;;
+  /var | /var/* | /boot | /boot/*) return 0 ;;
+  esac
+  return 1
+}
+
+# =============================================================================
 # LAYOUT INTERFACE (called by 03-install.sh)
 # =============================================================================
 
@@ -626,6 +641,9 @@ layout_validate() {
   dp="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
   for ((i = 0; i < dp; i++)); do
     dname="$(cfg ".data_pools[$i].name")"
+    if ! reason="$(_zfs_valid_pool_name "$dname")"; then
+      error "Data pool: ${reason}"
+    fi
     dtopo="$(jsonc_strip "$CONFIG_FILE" \
       | jq -r ".data_pools[$i].topology // \"stripe\"")"
     ddc="$(jsonc_strip "$CONFIG_FILE" \
@@ -634,6 +652,48 @@ layout_validate() {
       error "Data pool '${dname}': ${reason}"
     fi
   done
+
+  # Cross-cutting data-pool guards (only when data_pools are declared, so
+  # existing multi configs without them are untouched).
+  if ((dp > 0)); then
+    # Pool-name uniqueness across rpool + the Combined Data Pool (dpool) +
+    # every Standalone Data Pool.
+    local rpool_name dup
+    rpool_name="$(cfg '.os_pool.pool_name')"
+    dup="$( { printf '%s\n' "$rpool_name" dpool
+              jsonc_strip "$CONFIG_FILE" | jq -r '.data_pools[].name'
+            } | sort | uniq -d | head -1)"
+    [[ -z "$dup" ]] || error "Duplicate pool name '${dup}': names must be" \
+      "unique across rpool, dpool, and all data_pools."
+
+    # Disk reuse across OS pool, storage groups, and data pools.
+    local ddisk
+    ddisk="$(jsonc_strip "$CONFIG_FILE" | jq -r '
+      [ (.os_pool.disks // [])[],
+        (.storage_groups[]?.disks // [])[],
+        (.data_pools[]?.disks // [])[] ] | .[]' \
+      | sort | uniq -d | head -1)"
+    [[ -z "$ddisk" ]] || error "Disk '${ddisk}' is used in more than one" \
+      "place (OS pool / storage group / data pool)."
+
+    # Mount rules over all declared storage mounts (storage groups + data
+    # pools, the latter defaulting to /data/<name>). None may shadow a
+    # reserved OS path; no two may claim the same exact mountpoint. Nested
+    # mounts (/data + /data/tank0) are fine — only exact dups are rejected.
+    local mounts=() m mdup
+    while IFS= read -r m; do
+      [[ -n "$m" ]] && mounts+=("$m")
+    done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
+      [ (.storage_groups[]? | .mount // empty),
+        (.data_pools[]? | .mount // ("/data/" + .name)) ] | .[]')
+    for m in "${mounts[@]}"; do
+      ! _mount_is_reserved "$m" \
+        || error "Mountpoint '${m}' is reserved for the OS — choose another."
+    done
+    mdup="$(printf '%s\n' "${mounts[@]}" | sort | uniq -d | head -1)"
+    [[ -z "$mdup" ]] || error "Mountpoint '${mdup}' is claimed by more than" \
+      "one pool."
+  fi
   _layout_exit_phase validate
 }
 
