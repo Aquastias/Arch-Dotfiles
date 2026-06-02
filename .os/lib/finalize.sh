@@ -5,7 +5,7 @@
 # Sourced by 03-install.sh.
 # Requires: lib/common.sh already sourced; LAYOUT_ESP_PARTS,
 # LAYOUT_OS_POOL_NAME,
-#           LAYOUT_DATA_POOL_NAME populated by the active layout module.
+#           LAYOUT_DATA_POOL_NAMES populated by the active layout module.
 #
 # Provides:
 #   finalize  — unmounts ESPs and ZFS datasets, exports pools, prints summary
@@ -32,11 +32,11 @@ finalize() {
   # Exporting writes a clean "last_txg" and clears the active flag so the
   # pools are importable on the installed system without -f (force).
   local rp="${LAYOUT_OS_POOL_NAME}"
-  local dp="${LAYOUT_DATA_POOL_NAME}"
   zpool export "${rp}" 2>/dev/null || warn "Could not export ${rp} cleanly."
-  if [[ -n "$dp" ]]; then
+  local dp
+  for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
     zpool export "${dp}" 2>/dev/null || true
-  fi
+  done
 
   # ── Completion message ────────────────────────────────────────────────────
   echo ""
@@ -55,9 +55,9 @@ finalize() {
   # (e.g. if /etc/zfs/zpool.cache was missing or the hostid changed).
   warn "If ZFS pools fail to import on first boot, boot the live ISO and run:"
   echo "    zpool import -f ${rp}"
-  if [[ -n "$dp" ]]; then
+  for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
     echo "    zpool import -f ${dp}"
-  fi
+  done
 
   echo ""
   echo -e "  ${DIM}ZFS encryption passphrase is required at every boot" \

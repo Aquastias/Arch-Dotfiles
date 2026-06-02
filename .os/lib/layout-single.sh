@@ -274,9 +274,10 @@ layout_plan() {
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(cfgo .os_pool_name)"
   LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
-  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_DATA_POOL_NAME="$(cfgo .storage_pool_name)"
-  LAYOUT_DATA_POOL_NAME="${LAYOUT_DATA_POOL_NAME:-dpool}"
+  local _dp
+  _dp="$(cfgo .storage_pool_name)"
+  # shellcheck disable=SC2034 # consumed by finalize.sh
+  LAYOUT_DATA_POOL_NAMES=("${_dp:-dpool}")
   _layout_verify_plan_contract
   _layout_exit_phase plan
 }

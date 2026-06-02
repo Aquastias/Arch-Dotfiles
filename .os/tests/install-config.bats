@@ -212,6 +212,73 @@ set_path_cfg() {
   [ "$output" = "12" ]
 }
 
+# ── Standalone Data Pools — data_pools[] accessors (ADR 0027) ────────────────
+
+@test "data_pools_count: counts declared entries" {
+  write_cfg '{"data_pools":[{"name":"a"},{"name":"b"}]}'
+  run install_config_data_pools_count
+  [ "$status" -eq 0 ]
+  [ "$output" = "2" ]
+}
+
+@test "data_pools_count: zero when absent" {
+  write_cfg '{}'
+  run install_config_data_pools_count
+  [ "$status" -eq 0 ]
+  [ "$output" = "0" ]
+}
+
+@test "data_pool_name: returns the entry name" {
+  write_cfg '{"data_pools":[{"name":"tank0"}]}'
+  run install_config_data_pool_name 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "tank0" ]
+}
+
+@test "data_pool_topology: defaults to 'stripe' when absent" {
+  write_cfg '{"data_pools":[{"name":"tank0"}]}'
+  run install_config_data_pool_topology 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "stripe" ]
+}
+
+@test "data_pool_topology: explicit value passes through" {
+  write_cfg '{"data_pools":[{"name":"tank0","topology":"mirror"}]}'
+  run install_config_data_pool_topology 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "mirror" ]
+}
+
+@test "data_pool_mount: defaults to /data/<name>" {
+  write_cfg '{"data_pools":[{"name":"tank0"}]}'
+  run install_config_data_pool_mount 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "/data/tank0" ]
+}
+
+@test "data_pool_mount: explicit mount passes through" {
+  write_cfg '{"data_pools":[{"name":"tank0","mount":"/srv/tank"}]}'
+  run install_config_data_pool_mount 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "/srv/tank" ]
+}
+
+@test "data_pool_ashift: defaults to '12' when absent" {
+  write_cfg '{"data_pools":[{"name":"tank0"}]}'
+  run install_config_data_pool_ashift 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "12" ]
+}
+
+@test "data_pool_disks: one device path per line" {
+  write_cfg '{"data_pools":[{"name":"t","disks":["/dev/sdb","/dev/sdc"]}]}'
+  run install_config_data_pool_disks 0
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "/dev/sdb" ]
+  [ "${lines[1]}" = "/dev/sdc" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
 # ── Special: Kernel Selection (string|array list + primary bridge) ──────────
 
 @test "kernels: absent defaults to lts" {

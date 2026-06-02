@@ -29,29 +29,40 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── slice 1: only OS pool set ────────────────────────────────────────────────
+# ── only OS pool set (no data pools) ─────────────────────────────────────────
 
-@test "exports os pool when only LAYOUT_OS_POOL_NAME is set" {
-  export LAYOUT_OS_POOL_NAME=rpool
-  export LAYOUT_DATA_POOL_NAME=""
+@test "exports os pool when no data pools are set" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
   finalize >/dev/null
   grep -qx 'zpool export rpool' "$CALLS"
 }
 
-@test "skips data pool export when LAYOUT_DATA_POOL_NAME is empty" {
-  export LAYOUT_OS_POOL_NAME=rpool
-  export LAYOUT_DATA_POOL_NAME=""
+@test "exports only the os pool when LAYOUT_DATA_POOL_NAMES is empty" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
   finalize >/dev/null
   [ "$(grep -c '^zpool export ' "$CALLS")" -eq 1 ]
 }
 
-# ── slice 2: both pools set ──────────────────────────────────────────────────
+# ── multiple data pools (combined dpool + standalones) ───────────────────────
 
-@test "exports both pools when LAYOUT_DATA_POOL_NAME is also set" {
-  export LAYOUT_OS_POOL_NAME=rpool
-  export LAYOUT_DATA_POOL_NAME=tank
+@test "exports the os pool and every pool in LAYOUT_DATA_POOL_NAMES" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=(dpool tank0 tank1)
   finalize >/dev/null
   grep -qx 'zpool export rpool' "$CALLS"
-  grep -qx 'zpool export tank'  "$CALLS"
-  [ "$(grep -c '^zpool export ' "$CALLS")" -eq 2 ]
+  grep -qx 'zpool export dpool' "$CALLS"
+  grep -qx 'zpool export tank0' "$CALLS"
+  grep -qx 'zpool export tank1' "$CALLS"
+  [ "$(grep -c '^zpool export ' "$CALLS")" -eq 4 ]
+}
+
+@test "recovery hint lists the os pool and each data pool" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=(tank0 tank1)
+  run finalize
+  [[ "$output" == *"zpool import -f rpool"* ]]
+  [[ "$output" == *"zpool import -f tank0"* ]]
+  [[ "$output" == *"zpool import -f tank1"* ]]
 }

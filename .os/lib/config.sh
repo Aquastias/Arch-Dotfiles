@@ -322,6 +322,16 @@ print_summary() {
           "${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
       fi
     fi
+
+    if ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)); then
+      echo -e "\n  ${BOLD}Standalone data pools:${NC}"
+      local dpn
+      for dpn in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+        printf "    '%-12s  → %-20s  topology: %s\n" \
+          "${dpn}'" "${_LAYOUT_IMPL_DATA_POOL_MOUNT[$dpn]}" \
+          "${_LAYOUT_IMPL_DATA_POOL_TOPO[$dpn]}"
+      done
+    fi
   fi
 
   # Packages

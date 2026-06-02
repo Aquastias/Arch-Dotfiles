@@ -4,8 +4,8 @@
 // MODES:
 //   single  One disk — auto-partitioned: ESP + rpool + dpool.
 //           Set "disk".
-//   multi   Multiple disks — rpool + storage groups (dpool).
-//           Set "os_pool".
+//   multi   Multiple disks — rpool + storage groups (shared dpool)
+//           and/or data_pools (each its own pool). Set "os_pool".
 //   auto    Omit "mode" to auto-detect: "disk" present → single,
 //           "os_pool.disks" → multi.
 
@@ -159,6 +159,26 @@
   //   ]
   // },
 
+  // Standalone Data Pools — different-size disks, each its OWN pool (own
+  // failure domain). Contrast storage_groups, which fold into one shared
+  // dpool. multi mode only. See ADR 0027.
+  //   name      required — the zpool name (letters/digits/_/-, no reserved
+  //                        ZFS words like mirror/raidz/log/spare).
+  //   disks     required — one or more device paths.
+  //   topology  optional — stripe (default) | mirror | raidz1 | raidz2.
+  //                        (none / independent are rejected.)
+  //   mount     optional — defaults to /data/<name>.
+  //   ashift    optional — defaults to 12.
+  // "_DATA_POOLS_EXAMPLE": {
+  //   "mode": "multi",
+  //   "os_pool": { "pool_name": "rpool", "disks": ["/dev/nvme0n1"] },
+  //   "data_pools": [
+  //     { "name": "tank0", "disks": ["/dev/sdb"] },
+  //     { "name": "tank1", "topology": "mirror",
+  //       "disks": ["/dev/sdc", "/dev/sdd"] }
+  //   ]
+  // },
+
   // ── Active disk config — edit below ──────────────────────────────────────
   "mode":  "single",
   "disk":  "/dev/sda",
@@ -176,5 +196,8 @@
     "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
   },
 
-  "storage_groups": []
+  "storage_groups": [],
+
+  // Standalone Data Pools (multi mode) — see _DATA_POOLS_EXAMPLE above.
+  "data_pools": []
 }

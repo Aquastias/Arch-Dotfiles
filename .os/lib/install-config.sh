@@ -139,3 +139,46 @@ install_config_storage_group_ashift() {
   local v; v="$(cfgo ".storage_groups[$1].ashift")"
   printf '%s\n' "${v:-12}"
 }
+
+# =============================================================================
+# Standalone Data Pools — data_pools[] accessors (ADR 0027)
+# =============================================================================
+# Each entry becomes its own zpool. name + disks are required (read raw);
+# topology, mount, ashift carry defaults. Indexed like the storage-group
+# ashift special above.
+
+# Number of declared data_pools[] entries (0 when absent).
+install_config_data_pools_count() {
+  jsonc_read "$CONFIG_FILE" '(.data_pools // []) | length'
+}
+
+# Pool name at index — the literal zpool name. Emitted raw.
+install_config_data_pool_name() {
+  cfgo ".data_pools[$1].name"
+}
+
+# Topology at index — defaults to 'stripe'.
+install_config_data_pool_topology() {
+  local v; v="$(cfgo ".data_pools[$1].topology")"
+  printf '%s\n' "${v:-stripe}"
+}
+
+# Mountpoint at index — defaults to /data/<name>.
+install_config_data_pool_mount() {
+  local v; v="$(cfgo ".data_pools[$1].mount")"
+  if [[ -z "$v" ]]; then
+    v="/data/$(install_config_data_pool_name "$1")"
+  fi
+  printf '%s\n' "$v"
+}
+
+# Ashift at index — defaults to 12.
+install_config_data_pool_ashift() {
+  local v; v="$(cfgo ".data_pools[$1].ashift")"
+  printf '%s\n' "${v:-12}"
+}
+
+# Disks at index — one device path per line.
+install_config_data_pool_disks() {
+  jsonc_read "$CONFIG_FILE" ".data_pools[$1].disks[]?"
+}
