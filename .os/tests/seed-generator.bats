@@ -124,7 +124,9 @@ teardown() {
   [[ "$output" =~ "firstboot-ok.service" ]]
   [[ "$output" =~ "$SEED_GENERATOR_FIRSTBOOT_MARKER" ]]
   [[ "$output" =~ "systemctl disable firstboot-ok.service" ]]
-  [[ "$output" =~ "zpool import -f -R /mnt rpool" ]]
+  # -N (no auto-mount) keeps the export clean — without it the busy datasets
+  # leave the pool active + hostid-stamped and the next boot panics.
+  [[ "$output" =~ "zpool import -f -N -R /mnt rpool" ]]
   [[ "$output" =~ "zpool export rpool" ]]
 }
 
@@ -157,7 +159,9 @@ teardown() {
 @test "multi firstboot block: re-imports and exports rpool around injection" {
   run _seed_generator_multi_firstboot_block "rpool" ""
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "zpool import -f -R /mnt rpool" ]]
+  # -N (no auto-mount) keeps the export clean — without it the busy datasets
+  # leave the pool active + hostid-stamped and the next boot panics.
+  [[ "$output" =~ "zpool import -f -N -R /mnt rpool" ]]
   [[ "$output" =~ "zpool export rpool" ]]
 }
 

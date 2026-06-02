@@ -50,17 +50,52 @@
 # in sync with vm/_harness.sh.
 SEED_GENERATOR_FIRSTBOOT_MARKER='===FIRSTBOOT-OK==='
 
+# (test-only) Append a serial console to the installed kernel cmdline so the
+# boot-verify phase can observe the boot. The product cmdline carries no
+# console=ttyS0 (systemd-boot itself prints to serial, but once the kernel
+# starts the serial goes dark), so the host sees only the boot menu then 600 s
+# of silence — even the first-boot sentinel write was invisible. Mount the ESP
+# holding systemd-boot's loader entries and add console=ttyS0 last so /dev/console
+# (kernel logs, systemd, emergency prompts, and the sentinel) lands on serial.
+# Emitted as 6-space-indented runcmd lines; runs on the live ISO with the
+# installed root already mounted at /mnt. Single-quoted heredoc: the inner $/$()
+# are literal, evaluated on the VM, not at render time.
+_seed_generator_esp_serial_lines() {
+  cat <<'LINES'
+      mkdir -p /mnt/boot/efi
+      for _p in $(blkid -o device -t TYPE=vfat); do
+        mount "$_p" /mnt/boot/efi 2>/dev/null || continue
+        if [ -d /mnt/boot/efi/loader/entries ]; then
+          for _e in /mnt/boot/efi/loader/entries/*.conf; do
+            grep -q console=ttyS0 "$_e" \
+              || sed -i '/^options /s/$/ console=ttyS0,115200/' "$_e"
+          done
+          umount /mnt/boot/efi; break
+        fi
+        umount /mnt/boot/efi
+      done
+LINES
+}
+
 # Render the post-install boot-verify injection: re-import the freshly
 # installed root pool at an altroot, drop a self-disabling oneshot unit that
 # echoes the boot sentinel to /dev/ttyS0, wire it into multi-user.target, then
 # export. Emitted as shell lines indented to sit inside the runcmd YAML block.
 # Test-only — never part of a production install.
+#
+# Import with -N (no auto-mount) and mount ONLY the root dataset: a plain
+# `zpool import` mounts every dataset (home, var, var/log, …), which are then
+# busy at `zpool export` time. The export fails, the pool stays active stamped
+# with the live ISO's hostid, and the next boot panics in the initramfs ZFS
+# hook ("pool was previously in use from another system"). -N keeps the export
+# clean so the installed system imports root without -f. Do not drop it.
 _seed_generator_firstboot_block() {
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
-      zpool import -f -R /mnt rpool || true
+      zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
+$(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "echo ${m} > /dev/ttyS0"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
@@ -89,8 +124,9 @@ _seed_generator_multi_firstboot_block() {
   exec+=" systemctl disable firstboot-ok.service"
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
-      zpool import -f -R /mnt rpool || true
+      zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
+$(_seed_generator_esp_serial_lines)
       install -Dm644 /root/dotfiles/.os/lib/vm-pool-verify.sh "/mnt${lib}"
       printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})' > "/mnt${env}"
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
