@@ -144,6 +144,58 @@ JSONC
   [[ "$output" == *"out of order"* ]]
 }
 
+# ── resolve_data_pools size warning (issue 04) ───────────────────────────────
+# Drives the plan step with a stubbed lsblk (so no real disks needed) and a
+# warn() that echoes to stdout, then asserts on the captured $output.
+
+setup_data_pool_size_fixture() {
+  # shellcheck source=../lib/install-config.sh
+  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  section() { :; }
+  info()    { :; }
+  warn()    { echo "WARN: $*"; }
+  # lsblk -bdno SIZE <disk> → bytes; lsblk -dno SIZE <disk> → human.
+  lsblk() {
+    local disk="${!#}" human bytes
+    case "$disk" in
+    *da) human="100G"; bytes="$((100 * 1024 * 1024 * 1024))" ;;
+    *db) human="200G"; bytes="$((200 * 1024 * 1024 * 1024))" ;;
+    *dc) human="100G"; bytes="$((100 * 1024 * 1024 * 1024))" ;;
+    *)   human="?";    bytes="0" ;;
+    esac
+    if [[ "$*" == *-b* ]]; then printf '%s\n' "$bytes"
+    else printf '%s\n' "$human"; fi
+  }
+}
+
+@test "resolve_data_pools: warns on unequal-size mirror pool" {
+  setup_data_pool_size_fixture
+  write_multi_config '{
+    "os_pool":{"pool_name":"rpool","disks":["/dev/osd"]},
+    "storage_groups":[],
+    "data_pools":[{"name":"tank","topology":"mirror",
+                   "disks":["/dev/da","/dev/db"]}]
+  }'
+  run resolve_data_pools
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"WARN:"* ]]
+  [[ "$output" == *"tank"* ]]
+  [[ "$output" == *"100G"* ]]
+}
+
+@test "resolve_data_pools: silent on equal-size mirror pool" {
+  setup_data_pool_size_fixture
+  write_multi_config '{
+    "os_pool":{"pool_name":"rpool","disks":["/dev/osd"]},
+    "storage_groups":[],
+    "data_pools":[{"name":"tank","topology":"mirror",
+                   "disks":["/dev/da","/dev/dc"]}]
+  }'
+  run resolve_data_pools
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"WARN:"* ]]
+}
+
 # ── _mount_is_reserved (pure, issue 03) ──────────────────────────────────────
 
 @test "_mount_is_reserved: /home is reserved" {
@@ -316,6 +368,7 @@ _find_block_device() {
 
 @test "layout_validate: valid data pools pass (mirror x2, stripe x1)" {
   _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -437,8 +490,23 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
   [[ "$output" == *"/data/shared"* ]]
 }
 
+@test "layout_validate: data pool disk that does not exist aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"disks\":[\"/tmp/not-a-real-disk\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not found"* ]]
+  [[ "$output" == *"/tmp/not-a-real-disk"* ]]
+}
+
 @test "layout_validate: nested data pool mounts are allowed" {
   _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
   local osd; osd="$(_os_disk_or_skip)"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},

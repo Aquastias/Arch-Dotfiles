@@ -390,3 +390,24 @@ _zfs_valid_pool_name() {
   esac
   return 0
 }
+
+_zfs_redundant_size_mismatch() {
+  # Pure decision: returns 0 (warn) when a redundant topology spans disks of
+  # differing sizes — ZFS caps usable space to the smallest member. Returns
+  # 1 (no warn) for stripe, a single disk, or equal-size redundant disks.
+  #
+  # Usage: _zfs_redundant_size_mismatch <topology> <size1> [size2] ...
+  local topo="$1"
+  shift
+  local sizes=("$@")
+  case "$topo" in
+  mirror | raidz1 | raidz2 | raidz3) ;;
+  *) return 1 ;; # stripe / none / independent / unknown — never warn
+  esac
+  ((${#sizes[@]} >= 2)) || return 1
+  local first="${sizes[0]}" s
+  for s in "${sizes[@]}"; do
+    [[ "$s" != "$first" ]] && return 0
+  done
+  return 1
+}

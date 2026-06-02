@@ -166,6 +166,38 @@ write_config() {
   [[ "$output" == *"cN"* ]]
 }
 
+# ── _zfs_redundant_size_mismatch (pure, ADR 0027) ────────────────────────────
+
+@test "_zfs_redundant_size_mismatch: mirror over unequal disks warns" {
+  run _zfs_redundant_size_mismatch mirror 100 200
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_redundant_size_mismatch: mirror over equal disks does not warn" {
+  run _zfs_redundant_size_mismatch mirror 100 100
+  [ "$status" -ne 0 ]
+}
+
+@test "_zfs_redundant_size_mismatch: stripe over unequal disks does not warn" {
+  run _zfs_redundant_size_mismatch stripe 100 200
+  [ "$status" -ne 0 ]
+}
+
+@test "_zfs_redundant_size_mismatch: single disk does not warn" {
+  run _zfs_redundant_size_mismatch mirror 100
+  [ "$status" -ne 0 ]
+}
+
+@test "_zfs_redundant_size_mismatch: raidz1 unequal warns" {
+  run _zfs_redundant_size_mismatch raidz1 100 200 100
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_redundant_size_mismatch: raidz2 equal does not warn" {
+  run _zfs_redundant_size_mismatch raidz2 50 50 50
+  [ "$status" -ne 0 ]
+}
+
 # ── build_enc_opts ────────────────────────────────────────────────────────────
 
 @test "build_enc_opts: encryption false → ENC_OPTS is empty" {
