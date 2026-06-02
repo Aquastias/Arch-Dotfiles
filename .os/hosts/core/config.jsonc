@@ -3,6 +3,11 @@
 // Lists declared here are concatenated with the specific host config (with
 // dedupe). Scalars in the host config override these.
 //
+// Per ADR 0007, Host Core carries only users, System Programs, and Sysctl
+// Defaults — never a Host Package List. Package lists (packages.repo /
+// packages.aur) are declared in the host-specific config; the shared base
+// every host receives lives in the Base Package List (lib/packages.sh).
+//
 // Field reference:
 //   users            string[]  Usernames to create. Each must have a matching
 //                              .os/users/<name>/config.jsonc.
@@ -11,29 +16,15 @@
 //                              with `system: true` in its config.jsonc.
 //   sysctl           object    Key-value pairs written to
 //                              /etc/sysctl.d/99-os.conf.
-//   packages.repo    object    Categorized pacstrap packages — kebab-case
-//                              category names mapped to string[] of pacman
-//                              package names. Flattened at install time.
-//   packages.aur     object    Categorized AUR packages — kebab-case
-//                              category names mapped to string[] of AUR
-//                              package names. Flattened and deduped with
-//                              each selected DE adapter's aur list into one
-//                              paru pass for the primary user at install.
 //   persist          object    Persist Extensions. When impermanence is
 //                              enabled, these paths are bind-mounted from
 //                              the Persist Dataset on every boot.
 //     .directories   string[]  Absolute paths persisted as directories.
 //     .files         string[]  Absolute paths persisted as single files.
-
 {
   "users": [],
   "system_programs": ["cups"],
   "sysctl": {
     "vm.swappiness": 10
-  },
-  "packages": {
-    "repo": {
-      "misc": ["extra-cmake-modules", "parallel"]
-    }
   }
 }

@@ -32,6 +32,31 @@ write_config() {
   echo "$output" | jq -e '.system_programs == ["firewalld"]'
 }
 
+# ── real Host Core conforms to ADR 0007 (no Host Package List in core) ────────
+
+@test "real host core declares no packages object (ADR 0007)" {
+  local core="$BATS_TEST_DIRNAME/../hosts/core/config.jsonc"
+  jsonc_strip "$core" | jq -e '.packages == null'
+}
+
+@test "real host core system_programs is exactly [cups]" {
+  local core="$BATS_TEST_DIRNAME/../hosts/core/config.jsonc"
+  jsonc_strip "$core" | jq -e '.system_programs == ["cups"]'
+}
+
+@test "host: core without packages object preserves host packages on merge" {
+  write_config "$TEST_DIR/hosts/core/config.jsonc" \
+    '{"users": [], "system_programs": ["cups"], "sysctl": {"vm.swappiness": 10}}'
+  write_config "$TEST_DIR/hosts/desktop/config.jsonc" \
+    '{"users": ["alice"], "packages": {"repo": {"shell": ["zsh"]}}}'
+
+  run load_host_config desktop
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.users == ["alice"]'
+  echo "$output" | jq -e '.packages.repo.shell == ["zsh"]'
+}
+
 # ── empty core + specific ─────────────────────────────────────────────────────
 
 @test "host: empty core + specific returns specific fields unchanged" {
