@@ -1,6 +1,6 @@
 # cronie as universal infrastructure
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -22,14 +22,26 @@ Config (the duplicate `cronie` entries are removed in the dedup slice).
 
 ## Acceptance criteria
 
-- [ ] `collect_packages` output includes `cronie`.
-- [ ] The collected list remains sorted and deduplicated.
-- [ ] The Chroot Configuration Module enables `cronie.service` (no
+- [x] `collect_packages` output includes `cronie`.
+- [x] The collected list remains sorted and deduplicated.
+- [x] The Chroot Configuration Module enables `cronie.service` (no
       `systemctl start`).
-- [ ] `packages.bats` asserts `cronie` is in the collected base set.
-- [ ] `chroot-configure.bats` asserts `cronie.service` is enabled
+- [x] `packages.bats` asserts `cronie` is in the collected base set.
+- [x] `chroot-configure.bats` asserts `cronie.service` is enabled
       alongside NetworkManager/resolved/timesyncd.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- Done (TDD). `cronie` added to the base array in `collect_packages`
+  (`lib/packages.sh`). Service enable extracted into a sourceable helper
+  `lib/chroot/base-services.sh::enable_base_services` (NetworkManager,
+  systemd-resolved, systemd-timesyncd, cronie) so the set is testable;
+  `configure.sh` now calls it instead of inline `systemctl enable` lines.
+  The helper ships via the existing `cp -r lib/chroot` staging.
+- Tests: +1 `packages.bats` (cronie in base), +2 `chroot-configure.bats`
+  (stub systemctl → assert the four enables). Full bats suite green,
+  shellcheck clean.

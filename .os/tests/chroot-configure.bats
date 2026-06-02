@@ -88,3 +88,29 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [ ! -e "$MOUNT_ROOT/etc/zfs/zpool.cache" ]
 }
+
+# ── enable_base_services (lib/chroot/base-services.sh) ─────────────────────────
+# The Chroot Configuration Module enables the always-on base daemons through
+# this helper. Stub systemctl, source the helper, assert each enable lands.
+
+_load_base_services() {
+  SYSCTL_LOG="$TEST_DIR/systemctl.log"
+  : > "$SYSCTL_LOG"
+  systemctl() { echo "systemctl $*" >> "$SYSCTL_LOG"; }
+  # shellcheck source=../lib/chroot/base-services.sh
+  source "$BATS_TEST_DIRNAME/../lib/chroot/base-services.sh"
+}
+
+@test "enable_base_services enables NetworkManager, resolved, and timesyncd" {
+  _load_base_services
+  enable_base_services
+  grep -qx "systemctl enable NetworkManager"    "$SYSCTL_LOG"
+  grep -qx "systemctl enable systemd-resolved"  "$SYSCTL_LOG"
+  grep -qx "systemctl enable systemd-timesyncd" "$SYSCTL_LOG"
+}
+
+@test "enable_base_services enables cronie alongside the base daemons" {
+  _load_base_services
+  enable_base_services
+  grep -qx "systemctl enable cronie" "$SYSCTL_LOG"
+}

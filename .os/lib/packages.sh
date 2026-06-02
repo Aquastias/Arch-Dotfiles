@@ -86,6 +86,9 @@ collect_packages() {
     networkmanager # handles wired + wireless; enabled in chroot
     openssh        # ssh-keygen used by create-user.sh + sops setup
 
+    # ── Universal infrastructure ──────────────────────────────────────────
+    cronie # cron daemon; enabled in chroot (ADR 0026) — every host needs it
+
     # ── Bootloader + EFI tools ────────────────────────────────────────────
     efibootmgr # manages UEFI boot entries
     dosfstools # mkfs.fat for ESP formatting

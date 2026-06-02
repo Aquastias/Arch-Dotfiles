@@ -146,6 +146,15 @@ write_config() {
   echo "$output" | grep -q "^wireplumber$"
 }
 
+# ── universal infrastructure ──────────────────────────────────────────────────
+
+@test "collect_packages: base set includes cronie" {
+  write_config '{}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "cronie"
+}
+
 # ── deduplication ─────────────────────────────────────────────────────────────
 
 @test "collect_packages: duplicate packages appear only once" {

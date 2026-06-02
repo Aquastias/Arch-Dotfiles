@@ -18,6 +18,9 @@ _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
 source "$_INSTALL_STATE_SH"
 install_state_load "$STATE"
 
+# shellcheck source=./base-services.sh
+source "$_LIB_DIR/base-services.sh"
+
 bash /root/lib-chroot/identity.sh
 bash /root/lib-chroot/initcpio.sh
 bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
@@ -47,10 +50,9 @@ if [[ "$ESP_COUNT" -gt 1 ]]; then
     done
 fi
 
-# ── Network & time services ───────────────────────────────────────────────────
-systemctl enable NetworkManager
-systemctl enable systemd-resolved
-systemctl enable systemd-timesyncd
+# ── Network, time & cron services ─────────────────────────────────────────────
+# Always-on base daemons (incl. cronie, ADR 0026) — see base-services.sh.
+enable_base_services
 
 # /etc/resolv.conf is bind-mounted in the chroot — can't symlink it here.
 # Drop-in + tmpfiles rule create the stub symlink on first real boot.
