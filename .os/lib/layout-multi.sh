@@ -619,6 +619,21 @@ layout_validate() {
       [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
     done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
   done
+
+  # Standalone Data Pools (ADR 0027): topology must match the disk count and
+  # cannot be none/independent. Pure check — no disk is touched here.
+  local dp dname dtopo ddc reason
+  dp="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
+  for ((i = 0; i < dp; i++)); do
+    dname="$(cfg ".data_pools[$i].name")"
+    dtopo="$(jsonc_strip "$CONFIG_FILE" \
+      | jq -r ".data_pools[$i].topology // \"stripe\"")"
+    ddc="$(jsonc_strip "$CONFIG_FILE" \
+      | jq "(.data_pools[$i].disks // []) | length")"
+    if ! reason="$(_zfs_validate_pool_topology "$dtopo" "$ddc")"; then
+      error "Data pool '${dname}': ${reason}"
+    fi
+  done
   _layout_exit_phase validate
 }
 

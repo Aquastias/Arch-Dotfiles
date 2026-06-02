@@ -71,6 +71,60 @@ write_config() {
   [ "$status" -ne 0 ]
 }
 
+# ── _zfs_validate_pool_topology (pure, ADR 0027) ─────────────────────────────
+
+@test "_zfs_validate_pool_topology: stripe with one disk is valid" {
+  run _zfs_validate_pool_topology stripe 1
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "_zfs_validate_pool_topology: mirror with two disks is valid" {
+  run _zfs_validate_pool_topology mirror 2
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_validate_pool_topology: raidz1 with two disks is valid" {
+  run _zfs_validate_pool_topology raidz1 2
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_validate_pool_topology: raidz2 with three disks is valid" {
+  run _zfs_validate_pool_topology raidz2 3
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_validate_pool_topology: mirror with one disk gives a reason" {
+  run _zfs_validate_pool_topology mirror 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"at least 2"* ]]
+}
+
+@test "_zfs_validate_pool_topology: raidz2 with two disks gives a reason" {
+  run _zfs_validate_pool_topology raidz2 2
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"at least 3"* ]]
+}
+
+@test "_zfs_validate_pool_topology: none is rejected with guidance" {
+  run _zfs_validate_pool_topology none 2
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"stripe"* ]]
+  [[ "$output" == *"data_pools[]"* ]]
+}
+
+@test "_zfs_validate_pool_topology: independent is rejected" {
+  run _zfs_validate_pool_topology independent 2
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"independent"* ]]
+}
+
+@test "_zfs_validate_pool_topology: unknown topology is rejected" {
+  run _zfs_validate_pool_topology raidz3 4
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown topology"* ]]
+}
+
 # ── build_enc_opts ────────────────────────────────────────────────────────────
 
 @test "build_enc_opts: encryption false → ENC_OPTS is empty" {
