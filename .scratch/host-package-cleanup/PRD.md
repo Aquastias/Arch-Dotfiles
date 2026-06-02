@@ -1,6 +1,6 @@
 # PRD: Host package dedup and Host Core package eviction
 
-Status: ready-for-agent
+Status: done
 Category: refactor
 
 ## Problem Statement
