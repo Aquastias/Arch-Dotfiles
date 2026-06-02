@@ -147,6 +147,20 @@ teardown() {
   [[ "$output" =~ "VM_VERIFY_MOUNTS=(tank0/data:/data/tank0 tank1/data:/data/tank1)" ]]
 }
 
+@test "multi firstboot block: byid arg bakes VM_VERIFY_BYID into the env" {
+  run _seed_generator_multi_firstboot_block "rpool tank0" \
+    "tank0/data:/data/tank0" true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "VM_VERIFY_BYID=true" ]]
+}
+
+@test "multi firstboot block: byid defaults off (no VM_VERIFY_BYID line)" {
+  run _seed_generator_multi_firstboot_block "rpool tank0" \
+    "tank0/data:/data/tank0"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"VM_VERIFY_BYID"* ]]
+}
+
 @test "multi firstboot block: emits the marker only via the verifier" {
   run _seed_generator_multi_firstboot_block "rpool" ""
   [ "$status" -eq 0 ]

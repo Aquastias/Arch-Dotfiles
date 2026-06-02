@@ -130,6 +130,72 @@ build_enc_opts() {
 }
 
 # =============================================================================
+# STABLE DEVICE PATHS (multi-disk reorder safety)
+# =============================================================================
+# Pools must be created with /dev/disk/by-id paths, never bare /dev/sdX. ZFS
+# records the path it was given in the vdev label AND in zpool.cache; on a
+# multi-disk machine the kernel's disk-enumeration order changes across reboots,
+# so a cached /dev/sdb1 points at a DIFFERENT disk at boot. The root pool
+# survives (the initramfs imports it by scanning /dev/disk/by-id via
+# zfs_import_dir), but data pools imported from the cache fail with
+# "one or more devices is currently unavailable". by-id names are stable, so
+# translating here fixes both the initramfs late-hook import and the post-boot
+# zfs-import-cache.service. (ADR 0028.)
+
+_zfs_dir_match() {
+  # Prints the symlink in <dir> that resolves to <target>, or empty if none.
+  # Prefers a non-wwn id (ata-/nvme-/scsi-/partuuid), else a wwn-, each chosen
+  # lexicographically for a deterministic result.
+  local dir="$1" target="$2" link pref="" wwn=""
+  [[ -d "$dir" ]] || return 0
+  for link in "$dir"/*; do
+    [[ -e "$link" ]] || continue
+    [[ "$(readlink -f "$link" 2>/dev/null)" == "$target" ]] || continue
+    case "${link##*/}" in
+    wwn-*) [[ -z "$wwn" || "$link" < "$wwn" ]] && wwn="$link" ;;
+    *) [[ -z "$pref" || "$link" < "$pref" ]] && pref="$link" ;;
+    esac
+  done
+  printf '%s' "${pref:-$wwn}"
+}
+
+_zfs_stable_part_path() {
+  # Resolves a partition device path to a stable symlink that points at the
+  # same node, so the pool label + zpool.cache survive /dev/sdX reordering.
+  # Tier 1: /dev/disk/by-id (matches the repo's zfs_import_dir convention).
+  # Tier 2: /dev/disk/by-partuuid (always present for GPT partitions, fully
+  # stable — covers disks/VMs that expose no usable by-id). Falls back to the
+  # input unchanged when nothing maps to it (loop/zram, or a bare test host).
+  # ZFS_BYID_DIR / ZFS_BYPARTUUID_DIR override the dirs for tests.
+  local part="$1"
+  local target
+  target="$(readlink -f "$part" 2>/dev/null)"
+  [[ -n "$target" ]] || { printf '%s' "$part"; return; }
+  local found
+  found="$(_zfs_dir_match "${ZFS_BYID_DIR:-/dev/disk/by-id}" "$target")"
+  [[ -n "$found" ]] && { printf '%s' "$found"; return; }
+  found="$(_zfs_dir_match \
+    "${ZFS_BYPARTUUID_DIR:-/dev/disk/by-partuuid}" "$target")"
+  [[ -n "$found" ]] && { printf '%s' "$found"; return; }
+  printf '%s' "$part"
+}
+
+_zpool_translate_vdev() {
+  # Echoes a vdev spec with each device token mapped to its stable by-id path;
+  # topology keywords (mirror/raidz.../log/cache/...) pass through untouched.
+  local out=() tok
+  for tok in "$@"; do
+    case "$tok" in
+    mirror | raidz | raidz1 | raidz2 | raidz3 | draid | draid[0-9]* \
+      | spare | log | cache | special | dedup | stripe)
+      out+=("$tok") ;;
+    *) out+=("$(_zfs_stable_part_path "$tok")") ;;
+    esac
+  done
+  printf '%s' "${out[*]}"
+}
+
+# =============================================================================
 # POOL CREATION HELPER
 # =============================================================================
 
@@ -161,6 +227,14 @@ _zpool_create() {
   local pool_name="$1" ashift="$2"
   shift 2
   local vdev_spec="$*"
+
+  # Map bare /dev/sdX device tokens to stable /dev/disk/by-id paths so the pool
+  # label + zpool.cache survive disk-enumeration reordering across reboots
+  # (ADR 0028). Settle udev first so the freshly-created -partN by-id symlinks
+  # exist. SC2086 (intentional): word-split the controlled vdev_spec into tokens.
+  command -v udevadm >/dev/null 2>&1 && udevadm settle 2>/dev/null || true
+  # shellcheck disable=SC2086
+  vdev_spec="$(_zpool_translate_vdev $vdev_spec)"
 
   # SC2086 (intentional): vdev_spec must be word-split into multiple args
   # (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args to zpool create). It is built

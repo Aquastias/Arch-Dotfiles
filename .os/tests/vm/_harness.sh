@@ -43,6 +43,13 @@ LIB_DIR="${HARNESS_DIR}/../../lib"
 # power-cycles to the installed disk to confirm it boots.
 : "${DIRTY_CACHE:=false}"
 : "${VERIFY_BOOT:=false}"
+# Multi-disk only: also assert every pool's leaf vdevs resolve via
+# /dev/disk/by-id (regression guard for the disk-reorder bug, ADR 0028).
+: "${VM_VERIFY_BYID:=false}"
+# Multi-disk only: between install and boot-verify, permute data-disk backing
+# files so the system boots with a different /dev/sdX order than it installed
+# under — the faithful in-VM repro of the reorder bug (ADR 0028).
+: "${VM_REORDER_BOOT_DISKS:=false}"
 : "${BOOT_TIMEOUT_SEC:=${VM_BOOT_TIMEOUT:-600}}"
 : "${BOOT_LOG_FILE:=${HARNESS_DIR}/${VM_NAME}-boot.log}"
 
@@ -252,7 +259,8 @@ _render_user_data_multi() {
   local boot_block=""
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
     boot_block="$(_seed_generator_multi_firstboot_block \
-      "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}")"
+      "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
+      "${VM_VERIFY_BYID:-false}")"
   fi
 
   cat <<EOF
@@ -367,10 +375,30 @@ _wait_for_serial_pty() {
 # Boots the installed disk and waits for SEED_GENERATOR_FIRSTBOOT_MARKER on the
 # serial console. Returns 0 if the marker appears within BOOT_TIMEOUT_SEC,
 # 125 otherwise (distinct from installer exit codes and the 124 timeout).
+# Permute data-disk backing files on the (shut-off) domain so the installed
+# system boots with a different /dev/sdX order than it installed under. The OS
+# disk stays put; only the data disks move. _reorder-disks.py is pure + unit-
+# tested (vm-reorder-disks.bats). Faithful in-VM repro of the reorder bug.
+_reorder_boot_disks() {
+  command -v python3 >/dev/null 2>&1 \
+    || { warn "python3 missing — skipping disk reorder."; return 1; }
+  local reordered="${CACHE_DIR}/${VM_NAME}-reordered.xml"
+  info "Reordering data disks before boot (multi-disk reorder repro)."
+  virsh dumpxml --inactive "$VM_NAME" \
+    | python3 "${HARNESS_DIR}/_reorder-disks.py" > "$reordered" \
+    || { warn "Could not render reordered domain XML."; return 1; }
+  virsh define "$reordered" >/dev/null \
+    || { warn "Could not define reordered domain."; return 1; }
+}
+
 _run_boot_verify() {
   section "Verifying installed system boots (timeout: ${BOOT_TIMEOUT_SEC}s)"
   _eject_cdroms
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
+  if [[ "${VM_REORDER_BOOT_DISKS}" == "true" ]]; then
+    _reorder_boot_disks \
+      || warn "Disk reorder failed — boot uses the original disk order."
+  fi
 
   # Start the VM BEFORE attaching console capture. Capturing first races the
   # serial PTY allocation — `virsh console` dies with "PTY device is not yet

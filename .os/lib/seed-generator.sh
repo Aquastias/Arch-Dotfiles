@@ -113,7 +113,7 @@ BLOCK
 # emits no marker, so the host boot-verify times out and the test fails loudly.
 # Args: <pools-space-list> <mounts-space-list>. Test-only — never production.
 _seed_generator_multi_firstboot_block() {
-  local pools="$1" mounts="$2"
+  local pools="$1" mounts="$2" byid="${3:-false}"
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
   local lib="/usr/local/lib/vm-pool-verify.sh"
   local env="/usr/local/lib/vm-pool-verify.env"
@@ -122,13 +122,18 @@ _seed_generator_multi_firstboot_block() {
   local exec=". ${env}; . ${lib};"
   exec+=" if vm_pool_verify 2>/dev/ttyS0; then echo ${m} > /dev/ttyS0; fi;"
   exec+=" systemctl disable firstboot-ok.service"
+  # VM_VERIFY_BYID=true additionally asserts every leaf vdev resolves via
+  # /dev/disk/by-id — the regression guard for the multi-disk reorder bug
+  # (ADR 0028). Emitted only when requested so legacy fixtures are untouched.
+  local byid_line=""
+  [[ "$byid" == "true" ]] && byid_line=" 'VM_VERIFY_BYID=true'"
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
 $(_seed_generator_esp_serial_lines)
       install -Dm644 /root/dotfiles/.os/lib/vm-pool-verify.sh "/mnt${lib}"
-      printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})' > "/mnt${env}"
+      printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})'${byid_line} > "/mnt${env}"
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=pool-verify sentinel (test-only)' 'After=zfs.target zfs-mount.service' 'Wants=zfs.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service

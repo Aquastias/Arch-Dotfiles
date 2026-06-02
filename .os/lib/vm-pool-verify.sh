@@ -30,9 +30,30 @@ vm_dataset_mounted_at() {
   [[ "$got_mounted" == "yes" && "$got_mp" == "$mp" ]]
 }
 
+# 0 if every leaf vdev of every pool in VM_VERIFY_POOLS[] resolves via
+# /dev/disk/by-id (stable). Flags bare kernel names (/dev/sdX, /dev/nvme…,
+# /dev/vd…) — pools recorded that way fail to import after disk-enumeration
+# reordering across reboots ("one or more devices is currently unavailable",
+# ADR 0028). `zpool status -P` prints the path as recorded in the label/cache.
+vm_pool_vdevs_stable() {
+  local rc=0 p tok
+  for p in "${VM_VERIFY_POOLS[@]}"; do
+    for tok in $(zpool status -P "$p" 2>/dev/null); do
+      case "$tok" in
+      /dev/disk/by-id/*) ;;                       # stable — good
+      /dev/sd* | /dev/nvme* | /dev/vd* | /dev/mmcblk* | /dev/hd*)
+        echo "UNSTABLE VDEV in $p: $tok" >&2
+        rc=1 ;;
+      esac
+    done
+  done
+  return "$rc"
+}
+
 # Verifies every pool in VM_VERIFY_POOLS[] is imported and every
-# "<dataset>:<mountpoint>" in VM_VERIFY_MOUNTS[] is mounted there. Prints each
-# failure; returns non-zero if any check fails.
+# "<dataset>:<mountpoint>" in VM_VERIFY_MOUNTS[] is mounted there. When
+# VM_VERIFY_BYID=true it also asserts every leaf vdev is a stable by-id path.
+# Prints each failure; returns non-zero if any check fails.
 vm_pool_verify() {
   local rc=0 p entry ds mp
   for p in "${VM_VERIFY_POOLS[@]}"; do
@@ -49,5 +70,8 @@ vm_pool_verify() {
       rc=1
     fi
   done
+  if [[ "${VM_VERIFY_BYID:-false}" == "true" ]]; then
+    vm_pool_vdevs_stable || rc=1
+  fi
   return "$rc"
 }
