@@ -214,3 +214,87 @@ _find_block_device() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"Group 'data' disk not found: /tmp/not-real"* ]]
 }
+
+# ── layout_validate: data_pools[] topology rules (ADR 0027, issue 02) ────────
+
+@test "layout_validate: data pool mirror with one disk aborts" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"mirror\",
+                     \"disks\":[\"/dev/x1\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Data pool 'tank'"* ]]
+  [[ "$output" == *"mirror"* ]]
+  [[ "$output" == *"at least 2"* ]]
+}
+
+@test "layout_validate: data pool raidz2 with two disks aborts" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"vault\",\"topology\":\"raidz2\",
+                     \"disks\":[\"/dev/x1\",\"/dev/x2\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Data pool 'vault'"* ]]
+  [[ "$output" == *"at least 3"* ]]
+}
+
+@test "layout_validate: data pool topology none aborts with guidance" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"none\",
+                     \"disks\":[\"/dev/x1\",\"/dev/x2\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Data pool 'tank'"* ]]
+  [[ "$output" == *"stripe"* ]]
+  [[ "$output" == *"data_pools[]"* ]]
+}
+
+@test "layout_validate: data pool topology independent aborts" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"independent\",
+                     \"disks\":[\"/dev/x1\",\"/dev/x2\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"independent"* ]]
+}
+
+@test "layout_validate: valid data pools pass (mirror x2, stripe x1)" {
+  _LAYOUT_PHASE=0
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[
+      {\"name\":\"mir\",\"topology\":\"mirror\",
+       \"disks\":[\"/dev/x1\",\"/dev/x2\"]},
+      {\"name\":\"solo\",\"disks\":[\"/dev/x3\"]}
+    ]
+  }"
+  run layout_validate
+  [ "$status" -eq 0 ]
+}

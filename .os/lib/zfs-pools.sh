@@ -326,3 +326,42 @@ build_vdev_spec() {
   *)           error "Unknown topology: '$topo'" ;;
   esac
 }
+
+# =============================================================================
+# STANDALONE DATA POOL TOPOLOGY VALIDATION (ADR 0027)
+# =============================================================================
+
+_zfs_validate_pool_topology() {
+  # Pure check for a Standalone Data Pool's topology against its disk count.
+  # Silent + returns 0 when valid; prints a reason + returns 1 when invalid.
+  #
+  # Usage: _zfs_validate_pool_topology <topology> <disk_count>
+  #
+  # 'none' and 'independent' are rejected: build_vdev_spec maps 'none' to the
+  # first disk only (silently dropping the rest), and 'independent' has no
+  # meaning for a single standalone pool. Operators are pointed to 'stripe'
+  # (one non-redundant pool) or multiple data_pools[] entries (separate pools).
+  local topo="$1" count="$2" min
+  case "$topo" in
+  none | independent)
+    printf '%s' "topology '${topo}' is not valid for a standalone data" \
+      " pool; use 'stripe' for one non-redundant pool, or multiple" \
+      " data_pools[] entries for separate pools"
+    return 1
+    ;;
+  stripe) min=1 ;;
+  mirror) min=2 ;;
+  raidz1) min=2 ;;
+  raidz2) min=3 ;;
+  *)
+    printf '%s' "unknown topology '${topo}'"
+    return 1
+    ;;
+  esac
+  if ((count < min)); then
+    printf '%s' "topology '${topo}' needs at least ${min} disk(s), got" \
+      " ${count}"
+    return 1
+  fi
+  return 0
+}
