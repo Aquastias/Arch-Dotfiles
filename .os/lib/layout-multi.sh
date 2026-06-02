@@ -285,6 +285,26 @@ resolve_data_pools() {
     _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
     _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
     info "Data pool '${name}': ${topo}  [${disks[*]}] → ${mount}"
+
+    # Non-fatal heads-up: a redundant pool over unequal disks caps usable
+    # space to its smallest member (ADR 0027). Sizes from real disks here;
+    # bytes drive the decision, the human string is for the message.
+    local bytes=() human=() bd
+    for bd in "${disks[@]}"; do
+      bytes+=("$(lsblk -bdno SIZE "$bd" 2>/dev/null || echo 0)")
+      human+=("$(lsblk -dno SIZE "$bd" 2>/dev/null || echo '?')")
+    done
+    if _zfs_redundant_size_mismatch "$topo" "${bytes[@]}"; then
+      local mi=0 bi
+      for bi in "${!bytes[@]}"; do
+        ((bytes[bi] < bytes[mi])) && mi="$bi"
+      done
+      warn "Data pool '${name}' (${topo}) spans unequal-size disks —" \
+        "usable space caps to ${human[$mi]} (smallest member):"
+      for bi in "${!disks[@]}"; do
+        warn "  ${disks[$bi]}  (${human[$bi]})"
+      done
+    fi
   done
 }
 
@@ -585,8 +605,15 @@ mount_multi_esps() {
 }
 
 # =============================================================================
-# MOUNT VALIDATION HELPER (issue 03)
+# VALIDATION HELPERS (issue 03/04)
 # =============================================================================
+
+_layout_disk_exists() {
+  # Seam over the block-device test so layout_validate's existence checks are
+  # overridable in unit tests (which use fake disk paths). Returns 0 when the
+  # path is a block device.
+  [[ -b "$1" ]]
+}
 
 _mount_is_reserved() {
   # Returns 0 when the mountpoint shadows an OS/reserved dataset, so a data
@@ -620,7 +647,7 @@ layout_validate() {
 
   local d
   while IFS= read -r d; do
-    [[ -b "$d" ]] || error "OS disk not found: $d"
+    _layout_disk_exists "$d" || error "OS disk not found: $d"
   done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
 
   local sg gname gdc i
@@ -631,7 +658,7 @@ layout_validate() {
       | jq ".storage_groups[$i].disks | length")"
     ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
     while IFS= read -r d; do
-      [[ -b "$d" ]] || error "Group '${gname}' disk not found: $d"
+      _layout_disk_exists "$d" || error "Group '${gname}' disk not found: $d"
     done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
   done
 
@@ -693,6 +720,16 @@ layout_validate() {
     mdup="$(printf '%s\n' "${mounts[@]}" | sort | uniq -d | head -1)"
     [[ -z "$mdup" ]] || error "Mountpoint '${mdup}' is claimed by more than" \
       "one pool."
+
+    # Every data-pool disk must exist before any destructive op (typo fails
+    # safely). Last, so the name/topology/mount errors above surface first.
+    for ((i = 0; i < dp; i++)); do
+      dname="$(cfg ".data_pools[$i].name")"
+      while IFS= read -r d; do
+        _layout_disk_exists "$d" \
+          || error "Data pool '${dname}' disk not found: $d"
+      done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".data_pools[$i].disks[]?")
+    done
   fi
   _layout_exit_phase validate
 }
