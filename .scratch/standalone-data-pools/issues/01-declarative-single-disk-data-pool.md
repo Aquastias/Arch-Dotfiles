@@ -1,6 +1,6 @@
 # 01 — Declarative standalone data pool (single-disk, end-to-end)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
