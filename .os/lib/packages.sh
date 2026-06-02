@@ -169,6 +169,23 @@ enable_multilib() {
   pacman -Sy --noconfirm >/dev/null 2>&1 || true
 }
 
+disable_checkspace() {
+  # pacman's CheckSpace mis-estimates free space on ZFS: it rounds every file
+  # up to the dataset recordsize (128K), inflating the "needed" total several-
+  # fold, so pacstrap aborts "Partition /mnt too full" even with gigabytes
+  # free (e.g. a 20G OS disk after an 8G swap zvol — ~9G free, but ~10G
+  # "needed" for a 2.3G install). pacstrap reads the HOST /etc/pacman.conf and
+  # chroot.sh copies it into the new root, so disabling it here also spares the
+  # installed ZFS system the same false failure on every future pacman -Syu.
+  # Idempotent.
+  if grep -q '^CheckSpace' /etc/pacman.conf; then
+    info "Disabling pacman CheckSpace (unreliable on ZFS)..."
+    sed -i 's/^CheckSpace/#CheckSpace/' /etc/pacman.conf
+  else
+    info "pacman CheckSpace already disabled."
+  fi
+}
+
 install_base() {
   section "Installing Base System (pacstrap)"
 
@@ -180,6 +197,10 @@ install_base() {
 
   # lib32-* / steam packages need [multilib] enabled before pacstrap runs.
   enable_multilib
+
+  # ZFS reports space in a way pacman's CheckSpace can't read — disable it so
+  # pacstrap (and later upgrades) don't abort with a false "too full".
+  disable_checkspace
 
   mapfile -t pkgs < <(collect_packages)
   info "Packages to install: ${#pkgs[@]}"
