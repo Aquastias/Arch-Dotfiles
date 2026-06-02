@@ -24,6 +24,10 @@ impermanence (rollback-to-blank on every boot).
 
 ## 1. Architecture
 
+> Config-altitude view (lifecycle flow, config→effect map, merge
+> model) lives in [`ARCHITECTURE.md`](ARCHITECTURE.md). The tree
+> below is the module-altitude view.
+
 ```
 install.sh                  Entry point. Runs phases in order.
 │                           Forwards -y/--unattended and an
@@ -278,30 +282,35 @@ age key:
 
 ```jsonc
 // hosts/laptop/install.template.jsonc
+// Same nested shape as install.jsonc. Merged on top of
+// hosts/core/install.template.jsonc. The picker fills "mode" and
+// the disk(s) — omit them here.
 {
-  "mode":     "single",
-  // "disks" is intentionally absent — the picker fills it.
-  "ashift":   13,
-  "os_size":  "auto",
-  "kernel":   "linux",
-  "locale":   "en_US.UTF-8",
-  "timezone": "Europe/Berlin",
-  "keymap":   "us",
+  "system": {
+    "hostname": "chronos",
+    "locale":   "en_US.UTF-8",
+    "timezone": "Europe/Berlin",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "impermanence": {
+      "enabled": true,
+      "dataset": "rpool/persist",
+      "mount":   "/persist"
+    }
+  },
 
   "environment": {
     "desktop": "kde",
     "gpu":     "auto"
   },
 
-  "options": {
-    "bootloader":  "systemd-boot",
-    "encryption":  false,
-    "impermanence": {
-      "enabled": true,
-      "dataset": "rpool/persist",
-      "mount":   "/persist"
-    }
-  }
+  "ashift":  13,
+  "os_size": "auto"
 }
 ```
 

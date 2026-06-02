@@ -1,4 +1,5 @@
-// Install Template for vm/arch-secure — overrides hosts/core/install.template.jsonc.
+// Install Template for vm/arch-secure.
+// Overrides hosts/core/install.template.jsonc.
 //
 // Mirrors the INSTALL_CONFIG_CONTENT inlined by .os/vm/vm-secure.sh so the
 // host is also installable from tools/pick.sh on real hardware with the
@@ -6,11 +7,14 @@
 // 2-disk mirror, headless).
 
 {
+  // Layout pin (ADR 0029): mode + os_pool.topology express this host's
+  // fixed 2-disk mirror. Disks are always operator-picked, never in the
+  // template. Until the picker honors pins it still prompts for mode and
+  // overrides these — they are inert today, meaningful once it lands.
   "mode": "multi",
 
   "os_pool": {
-    "topology": "mirror",
-    "disks":    ["/dev/sda", "/dev/sdb"]
+    "topology": "mirror"
   },
 
   "options": {
