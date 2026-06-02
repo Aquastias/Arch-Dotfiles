@@ -1,37 +1,38 @@
 #!/usr/bin/env bash
 # =============================================================================
-# vm/testing-multi-data-pools.sh — VM test: Standalone Data Pools end-to-end
+# vm/testing-multi-data-pools-reorder.sh — VM test: data pools survive a
+# disk-enumeration reorder across reboot (ADR 0028)
 # =============================================================================
-# Layout: 4 × 20 GiB SATA disks (ADR 0027, issue 06)
-#   /dev/sda → rpool         (OS, topology=none, single disk)
-#   /dev/sdb → tank0         (Standalone Data Pool, single-disk stripe)
-#   /dev/sdc + /dev/sdd → tank1  (Standalone Data Pool, 2-disk mirror)
+# Same layout as testing-multi-data-pools.sh (rpool + tank0 + tank1 over 4
+# disks of DIFFERENT sizes), but between install and first boot the harness
+# permutes the data-disk backing files so the kernel assigns /dev/sdX in a
+# different order than the installer saw. This is the faithful reproduction of
+# the field bug: a data pool recorded by a bare /dev/sdX kernel name fails to
+# import on the reordered boot ("one or more devices is currently
+# unavailable"), while pools recorded by stable /dev/disk/by-id or by-partuuid
+# paths (the fix) follow their disk and import cleanly.
 #
-# Exercises the real zpool/sgdisk paths unit tests can't: declarative
-# data_pools[] are partitioned, created, and exported by the installer, then
-# auto-imported on first boot. VERIFY_BOOT injects a first-boot unit that runs
-# the unit-tested verifier (lib/vm-pool-verify.sh) and emits the boot sentinel
-# only when every pool imported and every <name>/data dataset is mounted at its
-# mountpoint — so the test fails loudly (host timeout) on any missing/unmounted
-# pool.
+# The boot-verify sentinel only fires when every pool imported, every data
+# dataset is mounted, AND every leaf vdev resolves to a stable path
+# (VM_VERIFY_BYID). On unfixed code this times out → the test fails loudly.
+#
+# Disks are intentionally varied in size to mirror the reporting hardware and
+# nudge enumeration order to differ.
 # =============================================================================
 
-VM_NAME="arch-zfs-test-multi-data-pools"
-VM_DISK_SIZES=(20 20 20 20)
+VM_NAME="arch-zfs-test-multi-data-pools-reorder"
+VM_DISK_SIZES=(20 30 25 25)
 
-# Verify the installed system on first boot (the point of this smoke test).
 VERIFY_BOOT=true
+VM_REORDER_BOOT_DISKS=true
 
-# Booted-system expectations consumed by the verify-boot first-boot unit.
 VM_VERIFY_POOLS=(rpool tank0 tank1)
 VM_VERIFY_MOUNTS=(tank0/data:/data/tank0 tank1/data:/data/tank1)
-# Assert every leaf vdev resolves via /dev/disk/by-id — guards the disk-reorder
-# bug where a pool recorded as /dev/sdX fails to import after reboot (ADR 0028).
 VM_VERIFY_BYID=true
 
 INSTALL_CONFIG_CONTENT='{
   "system": {
-    "hostname": "vm-test-multi-data-pools",
+    "hostname": "vm-test-multi-data-pools-reorder",
     "locale":   "en_US.UTF-8",
     "timezone": "UTC",
     "keymap":   "us"

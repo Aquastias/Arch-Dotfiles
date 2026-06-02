@@ -57,6 +57,61 @@ _healthy_stubs() {
   [[ "$output" == *"NOT MOUNTED: tank1/data at /data/tank1"* ]]
 }
 
+@test "vm_pool_vdevs_stable: passes when every leaf vdev is a by-id path" {
+  zpool() {                                  # `zpool status -P <pool>`
+    cat <<'OUT'
+  pool: tank0
+ state: ONLINE
+	NAME                                  STATE
+	tank0                                 ONLINE
+	  /dev/disk/by-id/ata-DISK_B-part1    ONLINE
+OUT
+  }
+  VM_VERIFY_POOLS=(tank0)
+  run vm_pool_vdevs_stable
+  [ "$status" -eq 0 ]
+}
+
+@test "vm_pool_vdevs_stable: fails loudly on a bare /dev/sdX leaf vdev" {
+  zpool() {                                  # the multi-disk reorder bug
+    cat <<'OUT'
+  pool: tank0
+	NAME          STATE
+	tank0         ONLINE
+	  /dev/sdb1   ONLINE
+OUT
+  }
+  VM_VERIFY_POOLS=(tank0)
+  run vm_pool_vdevs_stable
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"UNSTABLE VDEV"* ]]
+  [[ "$output" == *"/dev/sdb1"* ]]
+}
+
+@test "vm_pool_verify: by-id check off by default (legacy single-disk path)" {
+  _healthy_stubs                             # zpool stub returns 0, no paths
+  VM_VERIFY_POOLS=(rpool)
+  VM_VERIFY_MOUNTS=()
+  run vm_pool_verify
+  [ "$status" -eq 0 ]
+}
+
+@test "vm_pool_verify: VM_VERIFY_BYID=true folds the unstable-vdev failure in" {
+  zpool() {
+    case "$1" in
+    list) return 0 ;;                        # pool imported
+    status) printf '\t  /dev/sdb1   ONLINE\n' ;;
+    esac
+  }
+  zfs() { echo yes; }                        # mounted check is satisfied
+  VM_VERIFY_BYID=true
+  VM_VERIFY_POOLS=(tank0)
+  VM_VERIFY_MOUNTS=()
+  run vm_pool_verify
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"UNSTABLE VDEV"* ]]
+}
+
 @test "vm_pool_verify: fails when a dataset is mounted at the wrong path" {
   _healthy_stubs
   zfs() {                                    # tank0/data mounted at /mnt/wrong

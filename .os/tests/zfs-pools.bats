@@ -71,6 +71,77 @@ write_config() {
   [ "$status" -ne 0 ]
 }
 
+# ── _zfs_stable_part_path / _zpool_translate_vdev (multi-disk reorder) ───────
+# Regression: pools created with bare /dev/sdX record that kernel name in the
+# label + zpool.cache. On a multi-disk machine the enumeration order changes
+# across reboots, so the cached path points at a different disk → import fails
+# ("one or more devices is currently unavailable"). Pools must be created via
+# stable /dev/disk/by-id paths instead. ZFS_BYID_DIR overrides the search dir.
+
+# Builds a fake /dev/disk/by-id with id->kernel-node symlinks; isolates the
+# by-partuuid tier to an empty dir so the host's real one never leaks in.
+# Echoes the by-id dir.
+_fake_byid() {
+  local dir="$TEST_DIR/by-id"
+  mkdir -p "$dir" "$TEST_DIR/dev" "$TEST_DIR/empty"
+  ZFS_BYPARTUUID_DIR="$TEST_DIR/empty"
+  : > "$TEST_DIR/dev/sdb1"
+  : > "$TEST_DIR/dev/sdc1"
+  ln -sf "$TEST_DIR/dev/sdb1" "$dir/ata-FAKE_DISK_B-part1"
+  ln -sf "$TEST_DIR/dev/sdb1" "$dir/wwn-0xb-part1"
+  ln -sf "$TEST_DIR/dev/sdc1" "$dir/ata-FAKE_DISK_C-part1"
+  printf '%s' "$dir"
+}
+
+@test "_zfs_stable_part_path: maps a kernel part to its by-id symlink" {
+  ZFS_BYID_DIR="$(_fake_byid)"
+  run _zfs_stable_part_path "$TEST_DIR/dev/sdb1"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$ZFS_BYID_DIR/ata-FAKE_DISK_B-part1" ]
+}
+
+@test "_zfs_stable_part_path: prefers a non-wwn id over wwn" {
+  ZFS_BYID_DIR="$(_fake_byid)"
+  run _zfs_stable_part_path "$TEST_DIR/dev/sdb1"
+  [[ "$output" != *"/wwn-"* ]]
+}
+
+@test "_zfs_stable_part_path: unmatched part falls back to input unchanged" {
+  ZFS_BYID_DIR="$(_fake_byid)"
+  run _zfs_stable_part_path /dev/sdz9
+  [ "$status" -eq 0 ]
+  [ "$output" = "/dev/sdz9" ]
+}
+
+@test "_zfs_stable_part_path: falls back to by-partuuid when no by-id maps" {
+  ZFS_BYID_DIR="$TEST_DIR/by-id"        # exists but has no matching link
+  ZFS_BYPARTUUID_DIR="$TEST_DIR/by-partuuid"
+  mkdir -p "$ZFS_BYID_DIR" "$ZFS_BYPARTUUID_DIR" "$TEST_DIR/dev"
+  : > "$TEST_DIR/dev/sdd1"
+  ln -sf "$TEST_DIR/dev/sdd1" "$ZFS_BYPARTUUID_DIR/1234-abcd"
+  run _zfs_stable_part_path "$TEST_DIR/dev/sdd1"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$ZFS_BYPARTUUID_DIR/1234-abcd" ]
+}
+
+@test "_zfs_stable_part_path: no stable link anywhere falls back to input" {
+  ZFS_BYID_DIR="$TEST_DIR/nope"
+  ZFS_BYPARTUUID_DIR="$TEST_DIR/nope2"
+  mkdir -p "$TEST_DIR/dev"
+  : > "$TEST_DIR/dev/sdb1"
+  run _zfs_stable_part_path "$TEST_DIR/dev/sdb1"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$TEST_DIR/dev/sdb1" ]
+}
+
+@test "_zpool_translate_vdev: topology keyword passes through, devs map by-id" {
+  ZFS_BYID_DIR="$(_fake_byid)"
+  run _zpool_translate_vdev mirror "$TEST_DIR/dev/sdb1" "$TEST_DIR/dev/sdc1"
+  [ "$status" -eq 0 ]
+  [ "$output" = "mirror $ZFS_BYID_DIR/ata-FAKE_DISK_B-part1 \
+$ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
+}
+
 # ── _zfs_validate_pool_topology (pure, ADR 0027) ─────────────────────────────
 
 @test "_zfs_validate_pool_topology: stripe with one disk is valid" {
