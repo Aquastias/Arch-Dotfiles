@@ -57,6 +57,105 @@ write_config() {
   echo "$output" | jq -e '.packages.repo.shell == ["zsh"]'
 }
 
+# ── real Host Configs are deduped vs Base/adapters/User Programs (issue 04) ───
+# Every package an essentials script, a Bootloader/DE Adapter, the paru
+# bootstrap, or a User Program already installs must NOT be re-declared in a
+# Host Config. These guards read the real desktop/laptop configs.
+
+DESKTOP_CFG="$BATS_TEST_DIRNAME/../hosts/desktop/config.jsonc"
+LAPTOP_CFG="$BATS_TEST_DIRNAME/../hosts/laptop/config.jsonc"
+
+_repo_pkgs() { jsonc_strip "$1" | jq -r '.packages.repo | to_entries[].value[]'; }
+_repo_cats() { jsonc_strip "$1" | jq -r '.packages.repo | keys[]'; }
+_aur_pkgs()  { jsonc_strip "$1" | jq -r '.packages.aur  | to_entries[].value[]'; }
+
+# Packages owned elsewhere — none may appear in any Host Config packages.repo.
+_assert_no_duplicates() {
+  local pkgs; pkgs="$(_repo_pkgs "$1")"
+  local p
+  for p in base base-devel amd-ucode efibootmgr linux-firmware man-db \
+           dosfstools networkmanager jq vim git cronie grub os-prober \
+           timeshift kimageformats5 extra-cmake-modules apparmor clamav \
+           rkhunter unhide xorg-xinit hyprland wl-clipboard grim slurp \
+           nwg-look wofi dunst xdg-desktop-portal-hyprland \
+           xdg-desktop-portal-gtk; do
+    if grep -qx "$p" <<< "$pkgs"; then
+      echo "leftover duplicate package: $p"
+      return 1
+    fi
+  done
+}
+
+@test "desktop repo declares no Base/adapter/User-Program duplicates" {
+  _assert_no_duplicates "$DESKTOP_CFG"
+}
+
+@test "laptop repo declares no Base/adapter/User-Program duplicates" {
+  _assert_no_duplicates "$LAPTOP_CFG"
+}
+
+@test "desktop repo adds parallel; keeps xdg-utils + qt-wayland + papirus" {
+  local pkgs; pkgs="$(_repo_pkgs "$DESKTOP_CFG")"
+  grep -qx "parallel"           <<< "$pkgs"
+  grep -qx "xdg-utils"          <<< "$pkgs"
+  grep -qx "qt5-wayland"        <<< "$pkgs"
+  grep -qx "qt6-wayland"        <<< "$pkgs"
+  grep -qx "papirus-icon-theme" <<< "$pkgs"
+}
+
+@test "laptop repo adds parallel; keeps xdg-utils + qt5-wayland" {
+  local pkgs; pkgs="$(_repo_pkgs "$LAPTOP_CFG")"
+  grep -qx "parallel"    <<< "$pkgs"
+  grep -qx "xdg-utils"   <<< "$pkgs"
+  grep -qx "qt5-wayland" <<< "$pkgs"
+}
+
+@test "desktop+laptop repo group residual generals under 'desktop' category" {
+  local f
+  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
+    local cats; cats="$(_repo_cats "$f")"
+    grep -qx "desktop"    <<< "$cats"
+    ! grep -qx "qt-and-kde" <<< "$cats"
+    ! grep -qx "hyprland"   <<< "$cats"
+  done
+}
+
+@test "desktop+laptop repo declares no sops/age (ADR 0025 owns them)" {
+  local f
+  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
+    local pkgs; pkgs="$(_repo_pkgs "$f")"
+    ! grep -qx "sops" <<< "$pkgs"
+    ! grep -qx "age"  <<< "$pkgs"
+  done
+}
+
+@test "desktop+laptop aur drops bootstrapped paru and clamav companion" {
+  local f
+  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
+    local aur; aur="$(_aur_pkgs "$f")"
+    ! grep -qx "paru"                  <<< "$aur"
+    ! grep -qx "clamav-unofficial-sigs" <<< "$aur"
+  done
+}
+
+@test "desktop keeps system_programs [grub] with no grub/os-prober package" {
+  jsonc_strip "$DESKTOP_CFG" | jq -e '.system_programs == ["grub"]'
+  local pkgs; pkgs="$(_repo_pkgs "$DESKTOP_CFG")"
+  ! grep -qx "grub"      <<< "$pkgs"
+  ! grep -qx "os-prober" <<< "$pkgs"
+}
+
+@test "real desktop+laptop packages.repo parse as Categorized Lists" {
+  source "$BATS_TEST_DIRNAME/../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../lib/categorized-list.sh"
+  local f
+  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
+    local repo; repo="$(jsonc_strip "$f" | jq -c '.packages.repo')"
+    run categorized_list_parse "$repo" string packages.repo
+    [ "$status" -eq 0 ]
+  done
+}
+
 # ── empty core + specific ─────────────────────────────────────────────────────
 
 @test "host: empty core + specific returns specific fields unchanged" {

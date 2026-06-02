@@ -6,6 +6,12 @@
 // packages.repo is categorized (kebab-case → string[]). Flattened at
 // install time. Categories are cosmetic — renaming `media` to
 // `multimedia` does not change what gets installed.
+//
+// Only host-specific packages live here. The shared base every host
+// receives is the Base Package List (lib/packages.sh); grub/os-prober come
+// from the GRUB Bootloader Adapter; the Hyprland packages from its Desktop
+// Environment Adapter; apparmor/clamav/rkhunter from User Programs. None of
+// those are re-declared here.
 
 {
   "users": ["aquastias"],
@@ -13,18 +19,9 @@
   "packages": {
     "repo": {
       "system": [
-        "amd-ucode",
-        "base",
-        "base-devel",
-        "cronie",
-        "efibootmgr",
         "fwupd",
-        "grub",
-        "linux-firmware",
         "logrotate",
         "lsb-release",
-        "man-db",
-        "os-prober",
         "reflector",
         "sbctl",
         "smartmontools",
@@ -33,14 +30,12 @@
         "stress",
         "stress-ng",
         "tectonic",
-        "timeshift",
         "uwsm",
         "zram-generator"
       ],
       "filesystems": [
         "bcachefs-tools",
         "btrfs-progs",
-        "dosfstools",
         "exfatprogs",
         "f2fs-tools",
         "fatresize",
@@ -55,7 +50,6 @@
         "iptables",
         "iwd",
         "network-manager-applet",
-        "networkmanager",
         "nftables",
         "openbsd-netcat",
         "wget",
@@ -69,13 +63,12 @@
         "fzf",
         "htop",
         "inxi",
-        "jq",
         "kitty",
         "lazygit",
         "less",
         "lynx",
         "nano",
-        "vim",
+        "parallel",
         "yazi",
         "zoxide",
         "zsh"
@@ -90,7 +83,6 @@
         "ccache",
         "docker",
         "docker-compose",
-        "git",
         "go",
         "mermaid-cli",
         "nvm",
@@ -98,25 +90,11 @@
         "python-pipx",
         "tree-sitter-cli"
       ],
-      "qt-and-kde": [
-        "extra-cmake-modules",
-        "kimageformats5",
-        "qt5-wayland",
-        "qt6-wayland"
-      ],
-      "hyprland": [
-        "dunst",
-        "grim",
-        "hyprland",
-        "nwg-look",
+      "desktop": [
         "papirus-icon-theme",
-        "slurp",
-        "wl-clipboard",
-        "wofi",
-        "xdg-desktop-portal-gtk",
-        "xdg-desktop-portal-hyprland",
-        "xdg-utils",
-        "xorg-xinit"
+        "qt5-wayland",
+        "qt6-wayland",
+        "xdg-utils"
       ],
       "browsers": [
         "firefox"
@@ -159,13 +137,6 @@
         "virt-manager",
         "virt-viewer"
       ],
-      "security": [
-        "age",
-        "apparmor",
-        "clamav",
-        "rkhunter",
-        "sops"
-      ],
       "archive": [
         "7zip",
         "arj",
@@ -173,7 +144,6 @@
         "lhasa",
         "unace",
         "unarj",
-        "unhide",
         "unrar",
         "unzip",
         "zip"
@@ -207,11 +177,9 @@
       "catppuccin-sddm-theme-macchiato",
       "catppuccin-sddm-theme-mocha",
       "ckb-next-git",
-      "clamav-unofficial-sigs",
       "grayjay-bin",
       "lua-format",
       "papirus-folders-catppuccin-git",
-      "paru",
       "plymouth-theme-catppuccin-mocha-git",
       "qt6ct-kde",
       "runelite",
