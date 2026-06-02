@@ -20,16 +20,22 @@ source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 }
 
 # ── Core (always installed) ───────────────────────────────────────────────
+# Every package derivable from environment.desktop=hyprland (ADR 0021): the
+# compositor, both portals, the polkit agent, the Wayland clipboard bridge.
 section "Hyprland core"
 pacman -S --noconfirm --needed \
-  hyprland xdg-desktop-portal-hyprland polkit-kde-agent
+  hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
+  polkit-kde-agent wl-clipboard
 
 # ── Companion toggles ─────────────────────────────────────────────────────
+# A toggle installs its package(s) unless its key is explicitly false. Keys
+# may contain hyphens, so look them up via $k rather than ".key" (jq reads
+# ".gtk-look" as subtraction). Trailing args are the package(s) to install.
 _companion() {
-  local key="$1" pkg="$2"
+  local key="$1"; shift
   local val
-  val="$(jsonc "$HYPR_JSON" | jq -r ".${key}")"
-  [[ "$val" != "false" ]] && pacman -S --noconfirm --needed "$pkg" || true
+  val="$(jsonc "$HYPR_JSON" | jq -r --arg k "$key" '.[$k]')"
+  [[ "$val" != "false" ]] && pacman -S --noconfirm --needed "$@" || true
 }
 
 _companion bar           waybar
@@ -40,6 +46,9 @@ _companion terminal      alacritty
 _companion lock          hyprlock
 _companion idle          hypridle
 _companion wallpaper     hyprpaper
+_companion screenshot    grim slurp
+_companion gtk-look      nwg-look
+_companion wofi          wofi
 
 # ── Display manager: greetd when KDE is absent ───────────────────────────
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"

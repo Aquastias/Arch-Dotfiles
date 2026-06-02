@@ -8,6 +8,9 @@
   "lock":          true,  // hyprlock
   "idle":          true,  // hypridle
   "wallpaper":     true,  // hyprpaper
+  "screenshot":    true,  // grim + slurp
+  "gtk-look":      true,  // nwg-look
+  "wofi":          true,  // wofi launcher
 
   // AUR dependencies for this DE as a Categorized List { category:
   // { pkg: bool } }. Declared here (not installed by this adapter) — the

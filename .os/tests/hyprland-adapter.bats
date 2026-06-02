@@ -48,6 +48,13 @@ teardown() {
   grep -q "polkit-kde-agent" "$PACMAN_LOG"
 }
 
+@test "core installs wl-clipboard and xdg-desktop-portal-gtk" {
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "wl-clipboard"            "$PACMAN_LOG"
+  grep -q "xdg-desktop-portal-gtk" "$PACMAN_LOG"
+}
+
 # ── display manager ───────────────────────────────────────────────────────
 
 @test "greetd installed and enabled when only hyprland" {
@@ -94,4 +101,50 @@ JSON
   grep -q "hyprlock"     "$PACMAN_LOG"
   grep -q "hypridle"     "$PACMAN_LOG"
   grep -q "hyprpaper"    "$PACMAN_LOG"
+}
+
+# ── DE-derivable companion toggles (screenshot / gtk-look / wofi) ───────────
+
+@test "screenshot=true installs grim and slurp" {
+  printf '{"screenshot":true}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "grim"  "$PACMAN_LOG"
+  grep -q "slurp" "$PACMAN_LOG"
+}
+
+@test "screenshot=false installs neither grim nor slurp" {
+  printf '{"screenshot":false}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "grim"  "$PACMAN_LOG"
+  ! grep -q "slurp" "$PACMAN_LOG"
+}
+
+@test "gtk-look=true installs nwg-look" {
+  printf '{"gtk-look":true}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "nwg-look" "$PACMAN_LOG"
+}
+
+@test "gtk-look=false does not install nwg-look" {
+  printf '{"gtk-look":false}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "nwg-look" "$PACMAN_LOG"
+}
+
+@test "wofi=true installs wofi" {
+  printf '{"wofi":true}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "wofi" "$PACMAN_LOG"
+}
+
+@test "wofi=false does not install wofi" {
+  printf '{"wofi":false}\n' > "$HYPR_JSON"
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "wofi" "$PACMAN_LOG"
 }
