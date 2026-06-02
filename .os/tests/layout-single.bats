@@ -71,9 +71,10 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   [ "$LAYOUT_OS_POOL_NAME" = "rpool" ]
 }
 
-@test "layout_plan: publishes LAYOUT_DATA_POOL_NAME=dpool by default" {
+@test "layout_plan: publishes LAYOUT_DATA_POOL_NAMES=(dpool) by default" {
   layout_plan
-  [ "$LAYOUT_DATA_POOL_NAME" = "dpool" ]
+  [ "${LAYOUT_DATA_POOL_NAMES[0]}" = "dpool" ]
+  [ "${#LAYOUT_DATA_POOL_NAMES[@]}" -eq 1 ]
 }
 
 @test "layout_plan: LAYOUT_OS_POOL_NAME reflects .os_pool_name config" {
@@ -82,10 +83,10 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   [ "$LAYOUT_OS_POOL_NAME" = "tank" ]
 }
 
-@test "layout_plan: LAYOUT_DATA_POOL_NAME reflects .storage_pool_name" {
+@test "layout_plan: LAYOUT_DATA_POOL_NAMES reflects .storage_pool_name" {
   write_config '{"disk":"/dev/sdz","storage_pool_name":"vault"}'
   layout_plan
-  [ "$LAYOUT_DATA_POOL_NAME" = "vault" ]
+  [ "${LAYOUT_DATA_POOL_NAMES[0]}" = "vault" ]
 }
 
 # ── calculate_single_disk_layout: input validation ──────────────────────────
@@ -138,11 +139,11 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   grep -qE "^_zpool_create ${LAYOUT_OS_POOL_NAME} 12 /dev/sdz2$" "$CALLS"
 }
 
-@test "layout_create_pools: creates data pool with LAYOUT_DATA_POOL_NAME" {
+@test "layout_create_pools: creates data pool named in LAYOUT_DATA_POOL_NAMES" {
   layout_plan
   layout_partition
   layout_create_pools
-  grep -qE "^_zpool_create ${LAYOUT_DATA_POOL_NAME} 12 /dev/sdz3$" "$CALLS"
+  grep -qE "^_zpool_create ${LAYOUT_DATA_POOL_NAMES[0]} 12 /dev/sdz3$" "$CALLS"
 }
 
 @test "layout_create_pools: creates dpool/storage dataset at configured mount" {

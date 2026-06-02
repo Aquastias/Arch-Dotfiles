@@ -13,6 +13,9 @@
 #   partition_storage_disks_multi— partitions storage group disk(s)
 #   create_multi_rpool           — creates rpool with resolved topology
 #   create_multi_dpool           — creates dpool with all storage groups
+#   resolve_data_pools           — reads data_pools[] into internal state
+#   partition_data_pools         — partitions Standalone Data Pool disk(s)
+#   create_data_pools            — creates each Standalone Data Pool + dataset
 #   mount_multi_esps             — mounts primary + secondary ESPs
 #   layout_validate  — seam: validates os_pool + storage_groups inputs
 #   layout_plan      — seam: wraps resolve_os_topology;
@@ -32,6 +35,12 @@
 #   _LAYOUT_IMPL_STORAGE_PARTS[name]    — associative:
 #                                         group name → "part1 part2 ..."
 #   _LAYOUT_IMPL_TOPOLOGIES[]  — associative: group name → topology string
+#   _LAYOUT_IMPL_DATA_POOL_NAMES[]  — ordered Standalone Data Pool names
+#   _LAYOUT_IMPL_DATA_POOL_DISKS[]  — associative: pool name → "disk1 ..."
+#   _LAYOUT_IMPL_DATA_POOL_TOPO[]   — associative: pool name → topology
+#   _LAYOUT_IMPL_DATA_POOL_MOUNT[]  — associative: pool name → mountpoint
+#   _LAYOUT_IMPL_DATA_POOL_ASHIFT[] — associative: pool name → ashift
+#   _LAYOUT_IMPL_DATA_POOL_PARTS[]  — associative: pool name → "part1 ..."
 # =============================================================================
 
 # shellcheck source=./layout-common.sh
@@ -44,6 +53,12 @@ _LAYOUT_IMPL_OS_TOPOLOGY=""
 _LAYOUT_IMPL_LEFTOVER_DISKS=()
 declare -gA _LAYOUT_IMPL_STORAGE_PARTS
 declare -gA _LAYOUT_IMPL_TOPOLOGIES
+_LAYOUT_IMPL_DATA_POOL_NAMES=()
+declare -gA _LAYOUT_IMPL_DATA_POOL_DISKS
+declare -gA _LAYOUT_IMPL_DATA_POOL_TOPO
+declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT
+declare -gA _LAYOUT_IMPL_DATA_POOL_ASHIFT
+declare -gA _LAYOUT_IMPL_DATA_POOL_PARTS
 
 # =============================================================================
 # OS TOPOLOGY SUGGESTIONS
@@ -238,6 +253,42 @@ resolve_storage_topologies() {
 }
 
 # =============================================================================
+# STANDALONE DATA POOL RESOLUTION (ADR 0027)
+# =============================================================================
+
+resolve_data_pools() {
+  # Reads declarative data_pools[] into the internal data-pool structure
+  # consumed by partition_data_pools / create_data_pools. Interactive
+  # leftover-as-own-pool synthesis appends to the same structure (a later
+  # slice); declarative and interactive pools share one creation path.
+  local n
+  n="$(install_config_data_pools_count)"
+  ((n > 0)) || return 0
+  section "Resolving Standalone Data Pools"
+
+  local i
+  for ((i = 0; i < n; i++)); do
+    local name topo mount ashift
+    name="$(install_config_data_pool_name "$i")"
+    topo="$(install_config_data_pool_topology "$i")"
+    mount="$(install_config_data_pool_mount "$i")"
+    ashift="$(install_config_data_pool_ashift "$i")"
+
+    local disks=()
+    while IFS= read -r d; do
+      [[ -n "$d" ]] && disks+=("$d")
+    done < <(install_config_data_pool_disks "$i")
+
+    _LAYOUT_IMPL_DATA_POOL_NAMES+=("$name")
+    _LAYOUT_IMPL_DATA_POOL_DISKS["$name"]="${disks[*]}"
+    _LAYOUT_IMPL_DATA_POOL_TOPO["$name"]="$topo"
+    _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
+    _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
+    info "Data pool '${name}': ${topo}  [${disks[*]}] → ${mount}"
+  done
+}
+
+# =============================================================================
 # PARTITIONING
 # =============================================================================
 
@@ -321,6 +372,31 @@ partition_storage_disks_multi() {
 
   sleep 2
   info "Storage partitioning complete."
+}
+
+partition_data_pools() {
+  ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)) || return 0
+  section "Partitioning Standalone Data Pool Disk(s)"
+
+  local name
+  for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    local disks=()
+    read -ra disks <<<"${_LAYOUT_IMPL_DATA_POOL_DISKS[$name]}"
+    local parts=()
+    local disk
+    for disk in "${disks[@]}"; do
+      info "Partitioning data-pool disk: $disk  (pool: ${name})"
+      wipefs -af "$disk"
+      sgdisk --zap-all "$disk"
+      sgdisk -n1:0:0 -t1:bf00 -c1:"ZFS ${name}" "$disk"
+      partprobe "$disk"
+      parts+=("$(part_name "$disk" 1)")
+    done
+    _LAYOUT_IMPL_DATA_POOL_PARTS["$name"]="${parts[*]}"
+  done
+
+  sleep 2
+  info "Standalone data pool partitioning complete."
 }
 
 # =============================================================================
@@ -455,6 +531,38 @@ create_multi_dpool() {
   info "dpool created."
 }
 
+create_data_pools() {
+  ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)) || return 0
+  section "Creating Standalone Data Pool(s)"
+  build_enc_opts
+
+  local name
+  for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    local topo="${_LAYOUT_IMPL_DATA_POOL_TOPO[$name]:-stripe}"
+    local mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$name]}"
+    local ashift="${_LAYOUT_IMPL_DATA_POOL_ASHIFT[$name]:-12}"
+    local parts=()
+    read -ra parts <<<"${_LAYOUT_IMPL_DATA_POOL_PARTS[$name]}"
+
+    local vdev_spec
+    vdev_spec="$(build_vdev_spec "$topo" "${parts[@]}")"
+    info "Data pool: ${name}  topology: ${topo}"
+    info "vdev: ${vdev_spec}"
+
+    # SC2086 (intentional): vdev_spec must be word-split into multiple args
+    # for _zpool_create. Built from controlled inputs in build_vdev_spec.
+    # shellcheck disable=SC2086
+    _zpool_create "${name}" "${ashift}" $vdev_spec
+
+    # Data lives in one child dataset; the pool root stays unmounted
+    # (canmount=off from _zpool_create) — house style (ADR 0027).
+    zfs create -o mountpoint="${mount}" "${name}/data"
+    info "  ${name}/data → ${mount}"
+  done
+
+  info "Standalone data pool(s) created."
+}
+
 # =============================================================================
 # ESP MOUNTING
 # =============================================================================
@@ -518,17 +626,23 @@ layout_plan() {
   _layout_enter_phase plan
   resolve_os_topology
   resolve_storage_topologies
+  resolve_data_pools
   # Publish layout state record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(cfg '.os_pool.pool_name')"
-  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_DATA_POOL_NAME=""
+  # LAYOUT_DATA_POOL_NAMES: the Combined Data Pool (when storage groups or
+  # folded leftovers exist) plus every Standalone Data Pool.
+  # shellcheck disable=SC2034 # consumed by finalize.sh
+  LAYOUT_DATA_POOL_NAMES=()
   local _sg_count
   _sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   if ((_sg_count > 0)) || ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
-    # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-    LAYOUT_DATA_POOL_NAME="dpool"
+    LAYOUT_DATA_POOL_NAMES+=("dpool")
   fi
+  local _dp
+  for _dp in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    LAYOUT_DATA_POOL_NAMES+=("$_dp")
+  done
   _layout_verify_plan_contract
   _layout_exit_phase plan
 }
@@ -536,6 +650,7 @@ layout_partition() {
   _layout_enter_phase partition
   partition_os_disks_multi
   partition_storage_disks_multi
+  partition_data_pools
   _layout_verify_partition_contract
   _layout_exit_phase partition
 }
@@ -543,6 +658,7 @@ layout_create_pools() {
   _layout_enter_phase pools
   create_multi_rpool
   create_multi_dpool
+  create_data_pools
   _layout_exit_phase pools
 }
 layout_mount_esp() {

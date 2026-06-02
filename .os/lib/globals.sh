@@ -17,7 +17,9 @@
 #                          Length ≥ 1 after layout_partition() has run.
 #   LAYOUT_OS_POOL_NAME    Resolved OS pool name (e.g. "rpool").
 #                          Safe to read after layout_plan() returns.
-#   LAYOUT_DATA_POOL_NAME  Resolved data pool name, or "" when no data pool.
+#   LAYOUT_DATA_POOL_NAMES[] Resolved data pool names to export — the
+#                          Combined Data Pool (when present) plus every
+#                          Standalone Data Pool. Empty when no data pools.
 # =============================================================================
 
 # shellcheck disable=SC2034  # all vars consumed by other sourced modules
@@ -28,4 +30,4 @@ PICK_RESULT=""           # last result from pick_option() in common.sh
 
 LAYOUT_ESP_PARTS=()      # populated by layout_plan() — see contract above
 LAYOUT_OS_POOL_NAME=""   # populated by layout_plan()
-LAYOUT_DATA_POOL_NAME="" # populated by layout_plan(); "" = no data pool
+LAYOUT_DATA_POOL_NAMES=() # populated by layout_plan(); data pools to export
