@@ -5,6 +5,11 @@
 //
 // packages.repo is categorized (kebab-case → string[]). Flattened at
 // install time. Categories are cosmetic.
+//
+// Only host-specific packages live here. The shared base every host
+// receives is the Base Package List (lib/packages.sh); the Hyprland packages
+// come from its Desktop Environment Adapter; apparmor from a User Program.
+// None of those are re-declared here.
 
 {
   "users": ["aquastias"],
@@ -12,21 +17,13 @@
   "packages": {
     "repo": {
       "system": [
-        "amd-ucode",
-        "base",
-        "base-devel",
-        "cronie",
-        "efibootmgr",
         "fwupd",
-        "linux-firmware",
         "lsb-release",
-        "man-db",
         "reflector",
         "sbctl",
         "smartmontools",
         "sof-firmware",
         "stow",
-        "timeshift",
         "uwsm",
         "zram-generator"
       ],
@@ -37,7 +34,6 @@
       "network": [
         "iwd",
         "network-manager-applet",
-        "networkmanager",
         "nftables",
         "wget",
         "wireless_tools"
@@ -48,12 +44,11 @@
         "eza",
         "htop",
         "inxi",
-        "jq",
         "kitty",
         "less",
         "lynx",
         "nano",
-        "vim",
+        "parallel",
         "yazi",
         "zoxide"
       ],
@@ -64,25 +59,11 @@
         "ccache",
         "docker",
         "docker-compose",
-        "git",
         "nvm"
       ],
-      "qt-and-kde": [
-        "extra-cmake-modules",
-        "kimageformats5",
-        "qt5-wayland"
-      ],
-      "hyprland": [
-        "dunst",
-        "grim",
-        "hyprland",
-        "nwg-look",
-        "slurp",
-        "wofi",
-        "xdg-desktop-portal-gtk",
-        "xdg-desktop-portal-hyprland",
-        "xdg-utils",
-        "xorg-xinit"
+      "desktop": [
+        "qt5-wayland",
+        "xdg-utils"
       ],
       "browsers": [
         "firefox"
@@ -106,11 +87,6 @@
       ],
       "virt": [
         "virt-manager"
-      ],
-      "security": [
-        "age",
-        "apparmor",
-        "sops"
       ],
       "archive": [
         "7zip",
@@ -148,9 +124,7 @@
       "catppuccin-sddm-theme-macchiato",
       "catppuccin-sddm-theme-mocha",
       "ckb-next-git",
-      "clamav-unofficial-sigs",
       "papirus-folders-catppuccin-git",
-      "paru",
       "plymouth-theme-catppuccin-mocha-git",
       "qt6ct-kde",
       "ttf-ms-fonts",
