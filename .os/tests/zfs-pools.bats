@@ -125,6 +125,47 @@ write_config() {
   [[ "$output" == *"unknown topology"* ]]
 }
 
+# ── _zfs_valid_pool_name (pure, ADR 0027) ────────────────────────────────────
+
+@test "_zfs_valid_pool_name: reserved word mirror is rejected" {
+  run _zfs_valid_pool_name mirror
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"reserved"* ]]
+}
+
+@test "_zfs_valid_pool_name: tank0 is valid" {
+  run _zfs_valid_pool_name tank0
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "_zfs_valid_pool_name: tank-photos is valid" {
+  run _zfs_valid_pool_name tank-photos
+  [ "$status" -eq 0 ]
+}
+
+@test "_zfs_valid_pool_name: leading digit is rejected" {
+  run _zfs_valid_pool_name 0tank
+  [ "$status" -ne 0 ]
+}
+
+@test "_zfs_valid_pool_name: illegal character is rejected" {
+  run _zfs_valid_pool_name tank.0
+  [ "$status" -ne 0 ]
+}
+
+@test "_zfs_valid_pool_name: reserved word raidz1 is rejected" {
+  run _zfs_valid_pool_name raidz1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"reserved"* ]]
+}
+
+@test "_zfs_valid_pool_name: cN prefix is rejected" {
+  run _zfs_valid_pool_name c0t0
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cN"* ]]
+}
+
 # ── build_enc_opts ────────────────────────────────────────────────────────────
 
 @test "build_enc_opts: encryption false → ENC_OPTS is empty" {

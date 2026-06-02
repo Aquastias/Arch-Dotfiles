@@ -144,6 +144,38 @@ JSONC
   [[ "$output" == *"out of order"* ]]
 }
 
+# ── _mount_is_reserved (pure, issue 03) ──────────────────────────────────────
+
+@test "_mount_is_reserved: /home is reserved" {
+  run _mount_is_reserved /home
+  [ "$status" -eq 0 ]
+}
+
+@test "_mount_is_reserved: / is reserved" {
+  run _mount_is_reserved /
+  [ "$status" -eq 0 ]
+}
+
+@test "_mount_is_reserved: /var/log subtree is reserved" {
+  run _mount_is_reserved /var/log
+  [ "$status" -eq 0 ]
+}
+
+@test "_mount_is_reserved: /boot/efi subtree is reserved" {
+  run _mount_is_reserved /boot/efi
+  [ "$status" -eq 0 ]
+}
+
+@test "_mount_is_reserved: /data is not reserved" {
+  run _mount_is_reserved /data
+  [ "$status" -ne 0 ]
+}
+
+@test "_mount_is_reserved: /variable is not reserved (subtree, not prefix)" {
+  run _mount_is_reserved /variable
+  [ "$status" -ne 0 ]
+}
+
 # ── layout_validate (ADR 0014) ──────────────────────────────────────────────
 
 write_multi_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
@@ -293,6 +325,127 @@ _find_block_device() {
       {\"name\":\"mir\",\"topology\":\"mirror\",
        \"disks\":[\"/dev/x1\",\"/dev/x2\"]},
       {\"name\":\"solo\",\"disks\":[\"/dev/x3\"]}
+    ]
+  }"
+  run layout_validate
+  [ "$status" -eq 0 ]
+}
+
+# ── layout_validate: data_pools[] name/uniqueness/mount (issue 03) ───────────
+
+_os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
+
+@test "layout_validate: invalid data pool name aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"raidz1\",\"disks\":[\"/dev/x1\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"raidz1"* ]]
+  [[ "$output" == *"reserved"* ]]
+}
+
+@test "layout_validate: duplicate data pool name aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[
+      {\"name\":\"tank\",\"disks\":[\"/dev/x1\"]},
+      {\"name\":\"tank\",\"disks\":[\"/dev/x2\"]}
+    ]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tank"* ]]
+}
+
+@test "layout_validate: data pool name colliding with rpool aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"rpool\",\"disks\":[\"/dev/x1\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"rpool"* ]]
+}
+
+@test "layout_validate: disk reused between OS pool and data pool aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"disks\":[\"${osd}\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"${osd}"* ]]
+}
+
+@test "layout_validate: disk reused across two data pools aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[
+      {\"name\":\"a\",\"disks\":[\"/dev/x1\"]},
+      {\"name\":\"b\",\"disks\":[\"/dev/x1\"]}
+    ]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"/dev/x1"* ]]
+}
+
+@test "layout_validate: data pool mount on reserved path aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"mount\":\"/home\",
+                     \"disks\":[\"/dev/x1\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"/home"* ]]
+}
+
+@test "layout_validate: two pools sharing a mountpoint aborts" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[
+      {\"name\":\"a\",\"mount\":\"/data/shared\",\"disks\":[\"/dev/x1\"]},
+      {\"name\":\"b\",\"mount\":\"/data/shared\",\"disks\":[\"/dev/x2\"]}
+    ]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"/data/shared"* ]]
+}
+
+@test "layout_validate: nested data pool mounts are allowed" {
+  _LAYOUT_PHASE=0
+  local osd; osd="$(_os_disk_or_skip)"
+  write_multi_config "{
+    \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[
+      {\"name\":\"a\",\"mount\":\"/data\",\"disks\":[\"/dev/x1\"]},
+      {\"name\":\"b\",\"mount\":\"/data/tank0\",\"disks\":[\"/dev/x2\"]}
     ]
   }"
   run layout_validate

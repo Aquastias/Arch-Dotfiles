@@ -365,3 +365,28 @@ _zfs_validate_pool_topology() {
   fi
   return 0
 }
+
+_zfs_valid_pool_name() {
+  # Pure check for a Standalone Data Pool name (the literal zpool name).
+  # Silent + returns 0 when valid; prints a reason + returns 1 when not.
+  # Rejects what `zpool create` would choke on: bad characters / leading
+  # digit, a 'cN' prefix (looks like a Solaris device), and reserved ZFS
+  # vdev words. (Not retrofitted onto os_pool_name/storage_pool_name.)
+  local name="$1"
+  if [[ ! "$name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
+    printf '%s' "name '${name}' must match ^[A-Za-z][A-Za-z0-9_-]*\$"
+    return 1
+  fi
+  if [[ "$name" =~ ^c[0-9] ]]; then
+    printf '%s' "name '${name}' cannot start with cN (looks like a device)"
+    return 1
+  fi
+  case "$name" in
+  mirror | raidz | raidz1 | raidz2 | raidz3 | draid | draid[0-9]* \
+    | spare | log | cache | special | dedup)
+    printf '%s' "name '${name}' is a reserved ZFS word"
+    return 1
+    ;;
+  esac
+  return 0
+}
