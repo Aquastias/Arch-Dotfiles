@@ -70,6 +70,38 @@ _seed_generator_firstboot_block() {
 BLOCK
 }
 
+# Render the MULTI-disk first-boot verify block (issue 06 / ADR 0027). Re-import
+# the freshly installed root pool at an altroot, install the unit-tested pool
+# verifier (lib/vm-pool-verify.sh) plus an env file baking the expected pools +
+# mounts into the target, drop a self-disabling oneshot that runs the verifier
+# and echoes the boot sentinel ONLY when it passes, then export. A failed verify
+# emits no marker, so the host boot-verify times out and the test fails loudly.
+# Args: <pools-space-list> <mounts-space-list>. Test-only — never production.
+_seed_generator_multi_firstboot_block() {
+  local pools="$1" mounts="$2"
+  local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  local lib="/usr/local/lib/vm-pool-verify.sh"
+  local env="/usr/local/lib/vm-pool-verify.env"
+  # Runs on the booted installed system: load expectations + verifier, emit the
+  # sentinel only on success (stderr → serial for debugging), always self-disable.
+  local exec=". ${env}; . ${lib};"
+  exec+=" if vm_pool_verify 2>/dev/ttyS0; then echo ${m} > /dev/ttyS0; fi;"
+  exec+=" systemctl disable firstboot-ok.service"
+  cat <<BLOCK
+    if [ "\$rc" -eq 0 ]; then
+      zpool import -f -R /mnt rpool || true
+      zfs mount rpool/ROOT/arch || true
+      install -Dm644 /root/dotfiles/.os/lib/vm-pool-verify.sh "/mnt${lib}"
+      printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})' > "/mnt${env}"
+      mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
+      printf '%s\n' '[Unit]' 'Description=pool-verify sentinel (test-only)' 'After=zfs.target zfs-mount.service' 'Wants=zfs.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
+      zfs umount -a || true
+      zpool export rpool || true
+    fi
+BLOCK
+}
+
 _seed_generator_render_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"

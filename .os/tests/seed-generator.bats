@@ -132,6 +132,35 @@ teardown() {
   [ "$SEED_GENERATOR_FIRSTBOOT_MARKER" = "===FIRSTBOOT-OK===" ]
 }
 
+# ── multi-disk first-boot pool verifier injection (issue 06 / ADR 0027) ──────
+
+@test "multi firstboot block: ships the verifier and bakes the expectations" {
+  run _seed_generator_multi_firstboot_block "rpool tank0 tank1" \
+    "tank0/data:/data/tank0 tank1/data:/data/tank1"
+  [ "$status" -eq 0 ]
+  # the unit-tested verifier is installed into the booted system
+  [[ "$output" =~ "vm-pool-verify.sh" ]]
+  # expected pools + mounts are baked in for the booted check
+  [[ "$output" =~ "VM_VERIFY_POOLS=(rpool tank0 tank1)" ]]
+  [[ "$output" =~ "VM_VERIFY_MOUNTS=(tank0/data:/data/tank0 tank1/data:/data/tank1)" ]]
+}
+
+@test "multi firstboot block: emits the marker only via the verifier" {
+  run _seed_generator_multi_firstboot_block "rpool" ""
+  [ "$status" -eq 0 ]
+  # the sentinel is gated on vm_pool_verify, not echoed unconditionally
+  [[ "$output" =~ "vm_pool_verify" ]]
+  [[ "$output" =~ "$SEED_GENERATOR_FIRSTBOOT_MARKER" ]]
+  [[ "$output" =~ "firstboot-ok.service" ]]
+}
+
+@test "multi firstboot block: re-imports and exports rpool around injection" {
+  run _seed_generator_multi_firstboot_block "rpool" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "zpool import -f -R /mnt rpool" ]]
+  [[ "$output" =~ "zpool export rpool" ]]
+}
+
 # ── missing cloud-localds is a clear failure (no install attempt) ────────────
 
 @test "missing cloud-localds: returns non-zero with a clear message" {

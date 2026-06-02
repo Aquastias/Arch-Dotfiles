@@ -1,6 +1,6 @@
 # PRD: Standalone Data Pools
 
-Status: ready-for-agent
+Status: done
 
 See ADR 0027 (`docs/adr/0027-standalone-data-pools.md`) and the
 glossary entries **Standalone Data Pool**, **Storage Group**,

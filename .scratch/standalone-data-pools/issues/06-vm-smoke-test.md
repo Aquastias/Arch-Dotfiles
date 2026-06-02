@@ -1,6 +1,6 @@
 # 06 — VM smoke test: multi data pools
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
