@@ -1,6 +1,6 @@
 # Hyprland Desktop Environment Adapter absorbs DE packages
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -26,17 +26,28 @@ in here (`xdg-utils`, `papirus-icon-theme` stay in Host Configs);
 
 ## Acceptance criteria
 
-- [ ] Adapter core installs `wl-clipboard` and `xdg-desktop-portal-gtk`.
-- [ ] `install-hyprland.jsonc` exposes `screenshot`, `gtk-look`, and
+- [x] Adapter core installs `wl-clipboard` and `xdg-desktop-portal-gtk`.
+- [x] `install-hyprland.jsonc` exposes `screenshot`, `gtk-look`, and
       `wofi` toggles, defaulting on.
-- [ ] `screenshot=true` resolves `grim` + `slurp`; `gtk-look=true`
+- [x] `screenshot=true` resolves `grim` + `slurp`; `gtk-look=true`
       resolves `nwg-look`; `wofi=true` resolves `wofi`; each toggle
       contributes nothing when false.
-- [ ] No DE-agnostic packages (`xdg-utils`, `papirus-icon-theme`) and no
+- [x] No DE-agnostic packages (`xdg-utils`, `papirus-icon-theme`) and no
       `xorg-xinit` are added to the adapter.
-- [ ] `hyprland-adapter.bats` covers the new core packages and the three
+- [x] `hyprland-adapter.bats` covers the new core packages and the three
       toggles on/off.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- Done (TDD). Adapter core line gains `xdg-desktop-portal-gtk` +
+  `wl-clipboard`; three on-by-default toggles added to
+  `install-hyprland.jsonc` and resolved by `_companion`
+  (`screenshot`→`grim slurp`, `gtk-look`→`nwg-look`, `wofi`→`wofi`).
+- `_companion` refactored to varargs (multi-pkg toggles) + hyphen-safe key
+  lookup (`jq '.[$k]'` — `.gtk-look` would parse as subtraction).
+- Tests: +1 core-packages case, +6 toggle on/off cases in
+  `hyprland-adapter.bats` (13/13 green). Shellcheck clean.
