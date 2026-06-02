@@ -519,3 +519,70 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
   run layout_validate
   [ "$status" -eq 0 ]
 }
+
+# ── issue 05: interactive leftover fold-vs-own-pool ──────────────────────────
+# Drives the real plan→partition→pools seam chain with stubbed prompts and
+# zpool/zfs, then asserts on the create-path call log — interactively
+# synthesized pools must go through the SAME path as declarative data_pools[].
+
+setup_leftover_fixture() {
+  CALLS="$TEST_DIR/calls.log"
+  export CALLS MOUNT_ROOT="$TEST_DIR/mnt"
+  mkdir -p "$MOUNT_ROOT"
+
+  # shellcheck source=../lib/install-config.sh
+  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+
+  info()    { :; }
+  warn()    { :; }
+  section() { :; }
+  confirm() { :; }
+  lsblk()   { echo "?"; }
+  sleep()   { :; }
+  part_name() { printf '%s%s' "$1" "$2"; }
+
+  wipefs()    { :; }
+  sgdisk()    { :; }
+  partprobe() { :; }
+  mkfs.fat()  { :; }
+  mount()     { :; }
+
+  build_enc_opts()      { :; }
+  _zpool_create()       { printf '_zpool_create %s\n'       "$*" >>"$CALLS"; }
+  _create_os_datasets() { printf '_create_os_datasets %s\n' "$*" >>"$CALLS"; }
+  zfs()                 { printf 'zfs %s\n'                 "$*" >>"$CALLS"; }
+  zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
+
+  # Empty line input → accept the default pool name.
+  _read_tty() { printf ''; }
+
+  # pick_option mimic (first word of a chosen option): choose own-pool (2nd
+  # option) for any per-disk leftover prompt; option 1 (the OS disk) elsewhere.
+  pick_option() {
+    local q="$1"; shift
+    local idx=0
+    [[ "$q" == *"Leftover disk"* ]] && idx=1
+    PICK_RESULT="$(echo "${@:$((idx + 1)):1}" | awk '{print $1}')"
+  }
+}
+
+@test "leftover own-pool: creates a single-disk stripe pool at /data/dataN" {
+  setup_leftover_fixture
+  _LAYOUT_PHASE=1
+  cat >"$CONFIG_FILE" <<'JSONC'
+{
+  "os_pool": { "pool_name": "rpool", "topology": "none",
+               "disks": ["/dev/osd1", "/dev/osd2"] },
+  "storage_groups": []
+}
+JSONC
+
+  layout_plan
+  layout_partition
+  layout_create_pools
+
+  # A standalone stripe pool 'data1' over the leftover disk's partition…
+  grep -q '^_zpool_create data1 12 /dev/osd21$' "$CALLS"
+  # …with its data in a child dataset mounted at /data/data1.
+  grep -q 'create -o mountpoint=/data/data1 data1/data' "$CALLS"
+}
