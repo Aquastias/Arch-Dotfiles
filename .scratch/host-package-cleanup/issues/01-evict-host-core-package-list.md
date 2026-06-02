@@ -1,6 +1,6 @@
 # Evict Host Package List from Host Core + fix System Program contract
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -24,14 +24,25 @@ core and is picked up by the host-config cleanup slice.
 
 ## Acceptance criteria
 
-- [ ] `hosts/core/config.jsonc` has no `packages` object.
-- [ ] `system_programs` is exactly `["cups"]`.
-- [ ] `sysctl` (vm.swappiness) is retained; `users` retained.
-- [ ] Program preflight passes for a host built on core (no
-      contract-violation abort).
-- [ ] `configs.bats` covers Host Core merging with a host config when
+- [x] `hosts/core/config.jsonc` has no `packages` object.
+- [x] `system_programs` is exactly `["cups"]`.
+- [x] `sysctl` (vm.swappiness) is retained; `users` retained.
+- [x] Program preflight passes for a host built on core (no
+      contract-violation abort). `cups` is `system: true`.
+- [x] `configs.bats` covers Host Core merging with a host config when
       core carries no `packages` object, and stays green.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- Done (TDD). `hosts/core/config.jsonc` reduced to `users`,
+  `system_programs: ["cups"]`, and `sysctl`; the entire `packages` object
+  (and the bloated `system_programs`) removed; header note added pointing
+  packages to host configs / the Base Package List (ADR 0007).
+- Tests: +2 `configs.bats` real-core shape guards (no `packages`,
+  `system_programs == ["cups"]`) + 1 merge guard (core sans packages
+  preserves host packages). Verified `cups` resolves `system: true`, so
+  preflight passes.
