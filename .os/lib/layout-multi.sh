@@ -14,12 +14,13 @@
 #   create_multi_rpool           — creates rpool with resolved topology
 #   create_multi_dpool           — creates dpool with all storage groups
 #   resolve_data_pools           — reads data_pools[] into internal state
+#   resolve_leftover_disks       — per-disk fold-vs-own-pool for topology=none
 #   partition_data_pools         — partitions Standalone Data Pool disk(s)
 #   create_data_pools            — creates each Standalone Data Pool + dataset
 #   mount_multi_esps             — mounts primary + secondary ESPs
 #   layout_validate  — seam: validates os_pool + storage_groups inputs
-#   layout_plan      — seam: wraps resolve_os_topology;
-#                     resolve_storage_topologies
+#   layout_plan      — seam: wraps resolve_os_topology; resolve_data_pools;
+#                     resolve_storage_topologies; resolve_leftover_disks
 #   layout_partition — seam: wraps partition_os_disks_multi;
 #                     partition_storage_disks_multi
 #   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
@@ -59,6 +60,9 @@ declare -gA _LAYOUT_IMPL_DATA_POOL_TOPO
 declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT
 declare -gA _LAYOUT_IMPL_DATA_POOL_ASHIFT
 declare -gA _LAYOUT_IMPL_DATA_POOL_PARTS
+
+# Out-param for _prompt_pool_name (mirrors PICK_RESULT house style).
+POOL_NAME_RESULT=""
 
 # =============================================================================
 # OS TOPOLOGY SUGGESTIONS
@@ -233,23 +237,8 @@ resolve_storage_topologies() {
       info "Group '${name}': topology '${PICK_RESULT}' (selected)"
     fi
   done
-
-  # ── Leftover OS disks (when topology=none and 2+ OS disks listed) ─────────
-  if ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
-    local lc="${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]}"
-    local opts=()
-    while IFS= read -r line; do opts+=("$line"); done \
-      < <(suggest_storage_topologies "$lc")
-    echo -e "\n  ${BOLD}Leftover OS disks → dpool (${lc} disk(s)):${NC}"
-    for d in "${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}"; do
-      local s
-      s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-      printf "    %s  (%s)\n" "$d" "$s"
-    done
-    pick_option "Choose topology for leftover OS disks in dpool:" "${opts[@]}"
-    _LAYOUT_IMPL_TOPOLOGIES["_leftover"]="$PICK_RESULT"
-    info "Leftover disks topology: ${PICK_RESULT}"
-  fi
+  # Leftover OS disks (topology=none) are handled per-disk in
+  # resolve_leftover_disks (ADR 0027, issue 05), not as one group here.
 }
 
 # =============================================================================
@@ -279,11 +268,7 @@ resolve_data_pools() {
       [[ -n "$d" ]] && disks+=("$d")
     done < <(install_config_data_pool_disks "$i")
 
-    _LAYOUT_IMPL_DATA_POOL_NAMES+=("$name")
-    _LAYOUT_IMPL_DATA_POOL_DISKS["$name"]="${disks[*]}"
-    _LAYOUT_IMPL_DATA_POOL_TOPO["$name"]="$topo"
-    _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
-    _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
+    _add_data_pool "$name" "$topo" "$mount" "$ashift" "${disks[@]}"
     info "Data pool '${name}': ${topo}  [${disks[*]}] → ${mount}"
 
     # Non-fatal heads-up: a redundant pool over unequal disks caps usable
@@ -306,6 +291,136 @@ resolve_data_pools() {
       done
     fi
   done
+}
+
+# =============================================================================
+# INTERACTIVE LEFTOVER DISKS (ADR 0027, issue 05)
+# =============================================================================
+
+_add_data_pool() {
+  # Appends one pool to the internal data-pool structure consumed by
+  # partition_data_pools / create_data_pools. Shared by the declarative and
+  # interactive paths so both go through one creation path.
+  # Usage: _add_data_pool <name> <topology> <mount> <ashift> <disk...>
+  local name="$1" topo="$2" mount="$3" ashift="$4"
+  shift 4
+  _LAYOUT_IMPL_DATA_POOL_NAMES+=("$name")
+  _LAYOUT_IMPL_DATA_POOL_DISKS["$name"]="$*"
+  _LAYOUT_IMPL_DATA_POOL_TOPO["$name"]="$topo"
+  _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
+  _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
+}
+
+_next_default_pool_name() {
+  # Lowest unused dataN name (data1, data2, …), skipping names already in the
+  # data-pool structure (declarative entries + earlier interactive choices).
+  local k=1 cand n taken
+  while true; do
+    cand="data${k}"
+    taken=false
+    for n in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+      [[ "$n" == "$cand" ]] && { taken=true; break; }
+    done
+    $taken || { printf '%s' "$cand"; return; }
+    ((k++))
+  done
+}
+
+_read_tty() {
+  # Overridable single-line reader (stubbed in tests). Prompt goes to the
+  # terminal; the entered value is echoed to stdout.
+  local __ans
+  read -rp "$1" __ans </dev/tty
+  printf '%s' "$__ans"
+}
+
+_prompt_pool_name() {
+  # Prompts for a Standalone Data Pool name, looping until it passes
+  # _zfs_valid_pool_name and is not already taken; empty input accepts the
+  # default. Sets POOL_NAME_RESULT. Honors INSTALL_UNATTENDED (uses default).
+  # Usage: _prompt_pool_name <default> [taken_name...]
+  local def="$1"
+  shift
+  local taken=("$@")
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    POOL_NAME_RESULT="$def"
+    info "Auto pool name (unattended): ${def}"
+    return
+  fi
+  local name reason n clash
+  while true; do
+    name="$(_read_tty "  Pool name [${def}]: ")"
+    [[ -z "$name" ]] && name="$def"
+    if ! reason="$(_zfs_valid_pool_name "$name")"; then
+      warn "Invalid pool name: ${reason}"
+      continue
+    fi
+    clash=false
+    for n in "${taken[@]}"; do
+      [[ "$n" == "$name" ]] && { clash=true; break; }
+    done
+    if $clash; then
+      warn "Pool name '${name}' is already taken — choose another."
+      continue
+    fi
+    POOL_NAME_RESULT="$name"
+    return
+  done
+}
+
+resolve_leftover_disks() {
+  # Per-disk fold-vs-own-pool choice for leftover OS disks (topology=none with
+  # 2+ OS disks). Fold → the Combined Data Pool 'dpool' (today's behaviour).
+  # Own-pool → a single-disk stripe Standalone Data Pool synthesized into the
+  # same structure declarative data_pools[] use. Folded disks then keep the
+  # group-wide topology prompt. (ADR 0027, issue 05.)
+  ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)) || return 0
+  section "Resolving Leftover Disks"
+
+  local rpool_name
+  rpool_name="$(cfg '.os_pool.pool_name')"
+
+  local all=("${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}")
+  local folded=()
+  local d
+  for d in "${all[@]}"; do
+    local s
+    s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
+    pick_option "Leftover disk ${d} (${s}):" \
+      "fold  (into the Combined Data Pool 'dpool')" \
+      "own   (its own Standalone Data Pool, single-disk stripe)"
+    if [[ "$PICK_RESULT" == "own" ]]; then
+      local def
+      def="$(_next_default_pool_name)"
+      _prompt_pool_name "$def" "$rpool_name" dpool \
+        "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"
+      local nm="$POOL_NAME_RESULT"
+      _add_data_pool "$nm" stripe "/data/${nm}" 12 "$d"
+      info "Leftover ${d} → standalone pool '${nm}' (stripe → /data/${nm})"
+    else
+      folded+=("$d")
+      info "Leftover ${d} → Combined Data Pool 'dpool'"
+    fi
+  done
+
+  # Only the folded disks remain as dpool leftovers; keep today's group-wide
+  # topology choice for them (partition/create consume _LAYOUT_IMPL_LEFTOVER_*).
+  _LAYOUT_IMPL_LEFTOVER_DISKS=("${folded[@]}")
+  ((${#folded[@]} > 0)) || return 0
+
+  local lc="${#folded[@]}"
+  local opts=()
+  while IFS= read -r line; do opts+=("$line"); done \
+    < <(suggest_storage_topologies "$lc")
+  echo -e "\n  ${BOLD}Folded leftover disks → dpool (${lc} disk(s)):${NC}"
+  for d in "${folded[@]}"; do
+    local s
+    s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
+    printf "    %s  (%s)\n" "$d" "$s"
+  done
+  pick_option "Choose topology for folded leftover disks in dpool:" "${opts[@]}"
+  _LAYOUT_IMPL_TOPOLOGIES["_leftover"]="$PICK_RESULT"
+  info "Folded leftover topology: ${PICK_RESULT}"
 }
 
 # =============================================================================
@@ -737,8 +852,11 @@ layout_validate() {
 layout_plan() {
   _layout_enter_phase plan
   resolve_os_topology
-  resolve_storage_topologies
+  # Declarative data_pools[] first, so interactive leftover naming can reject
+  # collisions against them (uniqueness + default dataN numbering).
   resolve_data_pools
+  resolve_storage_topologies
+  resolve_leftover_disks
   # Publish layout state record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(cfg '.os_pool.pool_name')"

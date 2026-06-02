@@ -1,6 +1,6 @@
 # 05 — Interactive leftover per-disk own-pool
 
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
