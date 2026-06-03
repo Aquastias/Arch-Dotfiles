@@ -30,35 +30,35 @@ picker_enum_hosts() {
 }
 
 # picker_validate_layout <mode> <disk_count>
-#   Pure rule check. Slice 1 supports only `single`, which requires exactly
-#   one disk. Returns 0 with empty output on ok; non-zero with a
-#   human-readable error on stderr+stdout otherwise.
+#   Pure rule check on a mode/topology and the picked disk count. Accepts
+#   both the prompt tokens (`single`, `mirror`, `raidz`) and the config
+#   topologies a pinned template passes through (`stripe`, `raidz1`,
+#   `raidz2`, `none`) — `raidz` is an alias for `raidz1`. Min-disk table
+#   per ADR 0029. Returns 0 with empty output on ok; non-zero with a
+#   human-readable error on stderr otherwise.
 picker_validate_layout() {
-  local mode="$1" count="$2"
+  local mode="$1" count="$2" min
   case "$mode" in
     single)
       if (( count != 1 )); then
         echo "single mode requires exactly 1 disk (got $count)" >&2
         return 1
       fi
+      return 0
       ;;
-    mirror)
-      if (( count < 2 )); then
-        echo "mirror mode requires at least 2 disks (got $count)" >&2
-        return 1
-      fi
-      ;;
-    raidz)
-      if (( count < 3 )); then
-        echo "raidz mode requires at least 3 disks (got $count)" >&2
-        return 1
-      fi
-      ;;
+    mirror | stripe | none) min=2 ;;
+    raidz | raidz1) min=3 ;;
+    raidz2) min=4 ;;
     *)
-      echo "unknown mode '$mode' (expected: single, mirror, raidz)" >&2
+      echo "unknown mode '$mode' (expected: single, mirror, stripe," \
+           "raidz, raidz1, raidz2, none)" >&2
       return 1
       ;;
   esac
+  if (( count < min )); then
+    echo "$mode mode requires at least $min disks (got $count)" >&2
+    return 1
+  fi
 }
 
 # picker_load_template <hosts_dir> <host>
@@ -116,17 +116,53 @@ picker_enum_disks() {
   done | sort
 }
 
+# picker_pin_from_template <template_json>
+#   Reads an optional layout pin from a merged Install Template (ADR 0029).
+#   Pin trigger is `.mode`:
+#     absent/null  → unpinned: empty stdout, return 0 (picker prompts).
+#     "single"     → prints `single`, return 0.
+#     "multi"      → requires `.os_pool.topology`; prints
+#                    `multi<TAB><topology>`, return 0. Missing topology is
+#                    a template error: message on stderr, return non-zero.
+#     anything else → error on stderr, return non-zero.
+#   Pure: reads the JSON arg only, never disks (those are always picked).
+picker_pin_from_template() {
+  local template="$1" mode topology
+  mode="$(jq -r '.mode // ""' <<<"$template")" || return 1
+  [[ -z "$mode" || "$mode" == "null" ]] && return 0
+  case "$mode" in
+    single)
+      printf '%s\n' single
+      ;;
+    multi)
+      topology="$(jq -r '.os_pool.topology // ""' <<<"$template")"
+      if [[ -z "$topology" || "$topology" == "null" ]]; then
+        echo "pinned mode=multi requires os_pool.topology in the" \
+             "template (ADR 0029)" >&2
+        return 1
+      fi
+      printf '%s\t%s\n' multi "$topology"
+      ;;
+    *)
+      echo "unknown pinned mode '$mode' (expected single or multi)" >&2
+      return 1
+      ;;
+  esac
+}
+
 # picker_assemble_config <template_json> <profile> <mode> <disk> [<disk>...]
 #   Returns full install.jsonc text on stdout. The template provides every
 #   per-machine field. The <profile> arg is the chosen host directory name
 #   (the Host Profile). Hostname resolution: template's .system.hostname
 #   wins when set, else falls back to <profile>. Always writes
 #   .host_profile = <profile>. Layout fields are written fresh per <mode>:
-#     single  → .mode="single", .disk=<disk>
-#     mirror  → .mode="multi",  .os_pool.topology="mirror",
-#               .os_pool.disks=[<disks>...]
-#     raidz   → .mode="multi",  .os_pool.topology="raidz1",
-#               .os_pool.disks=[<disks>...]
+#     single                       → .mode="single", .disk=<disk>
+#     mirror | stripe | raidz1     → .mode="multi", os_pool.topology=<mode>,
+#     | raidz2 | none                 os_pool.disks=[<disks>...]
+#     raidz (prompt token)         → alias for raidz1
+#   The expanded topology vocabulary (stripe/raidz2/none) lets a pinned
+#   template pass its os_pool.topology straight through (ADR 0029); the
+#   unpinned prompt still only supplies single/mirror/raidz.
 picker_assemble_config() {
   local template="$1" profile="$2" mode="$3"
   shift 3
@@ -147,9 +183,9 @@ picker_assemble_config() {
         | .disk = $disk
       '
       ;;
-    mirror|raidz)
+    mirror | stripe | raidz | raidz1 | raidz2 | none)
       local topology
-      [[ "$mode" == raidz ]] && topology="raidz1" || topology="mirror"
+      [[ "$mode" == raidz ]] && topology="raidz1" || topology="$mode"
       jq -n --argjson tpl "$template" \
             --arg profile "$profile" \
             --arg topology "$topology" \

@@ -7,10 +7,9 @@
 // 2-disk mirror, headless).
 
 {
-  // Layout pin (ADR 0029): mode + os_pool.topology express this host's
-  // fixed 2-disk mirror. Disks are always operator-picked, never in the
-  // template. Until the picker honors pins it still prompts for mode and
-  // overrides these — they are inert today, meaningful once it lands.
+  // Layout pin (ADR 0029): mode + os_pool.topology pin this host's fixed
+  // 2-disk mirror, so the picker skips its mode prompt. Disks are always
+  // operator-picked, never in the template.
   "mode": "multi",
 
   "os_pool": {
