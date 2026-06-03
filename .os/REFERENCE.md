@@ -238,10 +238,11 @@ A template is the **same shape as `install.jsonc`** except:
   (multi-mode) are **never** in the template — supplied by the
   operator's interactive disk pick.
 
-> **Planned (ADR 0029):** a template may *pin* OS-pool layout via
-> `mode` + `os_pool.topology`; the picker then skips its mode prompt
-> and honors that topology (disks still picked). Today the picker
-> prompts for mode and overrides any layout fields in the template.
+> **Layout pinning (ADR 0029):** a template may *pin* OS-pool layout
+> via `mode` (+ `os_pool.topology` for `multi`); the picker then skips
+> its mode prompt and honors that topology — disks are still picked.
+> `mode: "multi"` without `os_pool.topology` is a template error. Min
+> disks per topology: mirror/stripe ≥2, raidz1 ≥3, raidz2 ≥4, none ≥2.
 
 Every other field documented in § `install.jsonc Reference`
 applies unchanged, at its canonical (nested) path: `mode`,

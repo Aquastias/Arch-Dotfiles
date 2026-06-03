@@ -1,6 +1,6 @@
 # 01 — Honor template-pinned os_pool layout in the picker
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 `.scratch/picker-template-pinned-layout/PRD.md` (ADR 0029).

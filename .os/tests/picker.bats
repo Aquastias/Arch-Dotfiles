@@ -55,9 +55,9 @@ zeta"
 }
 
 @test "picker_validate_layout: unknown mode → error" {
-  run picker_validate_layout stripe 2
+  run picker_validate_layout bogus 2
   [ "$status" -ne 0 ]
-  [[ "$output" == *mode* ]] || [[ "$output" == *stripe* ]]
+  [[ "$output" == *mode* ]] || [[ "$output" == *bogus* ]]
 }
 
 # ── picker_load_template ──────────────────────────────────────────────────────
@@ -491,4 +491,104 @@ nvme0n1 931.5G
   echo "$jsonc" > "$TEST_DIR/old.jsonc"
   run picker_render_review "$jsonc" "$TEST_DIR/old.jsonc"
   [ "$status" -eq 0 ]
+}
+
+# ── picker_validate_layout: pinned topologies (ADR 0029) ─────────────────────
+
+@test "picker_validate_layout: stripe + 2 disks → ok" {
+  run picker_validate_layout stripe 2
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_validate_layout: stripe + 1 disk → error" {
+  run picker_validate_layout stripe 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *stripe* ]]
+}
+
+@test "picker_validate_layout: raidz1 + 3 disks → ok; + 2 → error" {
+  run picker_validate_layout raidz1 3
+  [ "$status" -eq 0 ]
+  run picker_validate_layout raidz1 2
+  [ "$status" -ne 0 ]
+  [[ "$output" == *raidz1* ]]
+}
+
+@test "picker_validate_layout: raidz2 + 4 disks → ok; + 3 → error" {
+  run picker_validate_layout raidz2 4
+  [ "$status" -eq 0 ]
+  run picker_validate_layout raidz2 3
+  [ "$status" -ne 0 ]
+  [[ "$output" == *raidz2* ]]
+  [[ "$output" == *4* ]]
+}
+
+@test "picker_validate_layout: none + 2 disks → ok; + 1 → error" {
+  run picker_validate_layout none 2
+  [ "$status" -eq 0 ]
+  run picker_validate_layout none 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *none* ]]
+}
+
+# ── picker_pin_from_template (ADR 0029) ──────────────────────────────────────
+
+@test "picker_pin_from_template: no .mode → unpinned (empty, status 0)" {
+  run picker_pin_from_template '{ "environment": { "desktop": "kde" } }'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "picker_pin_from_template: mode=single → prints single" {
+  run picker_pin_from_template '{ "mode": "single" }'
+  [ "$status" -eq 0 ]
+  [ "$output" = "single" ]
+}
+
+@test "picker_pin_from_template: mode=multi + topology → multi<TAB>topology" {
+  run picker_pin_from_template \
+    '{ "mode": "multi", "os_pool": { "topology": "mirror" } }'
+  [ "$status" -eq 0 ]
+  [ "$output" = "$(printf 'multi\tmirror')" ]
+}
+
+@test "picker_pin_from_template: mode=multi without topology → error" {
+  run picker_pin_from_template '{ "mode": "multi" }'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *topology* ]]
+}
+
+@test "picker_pin_from_template: unknown mode → error" {
+  run picker_pin_from_template '{ "mode": "weird" }'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *weird* ]] || [[ "$output" == *mode* ]]
+}
+
+# ── picker_assemble_config: pinned passthrough topologies (ADR 0029) ─────────
+
+@test "picker_assemble_config: stripe → os_pool.topology=stripe" {
+  template='{ "system": { "timezone": "UTC" } }'
+  run picker_assemble_config "$template" h stripe /dev/d1 /dev/d2
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "stripe" ]
+  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/d1","/dev/d2"]' ]
+  [ "$(echo "$output" | jq -r '.disk')" = "null" ]
+}
+
+@test "picker_assemble_config: raidz2 → os_pool.topology=raidz2" {
+  template='{ "system": { "timezone": "UTC" } }'
+  run picker_assemble_config "$template" h raidz2 \
+    /dev/d1 /dev/d2 /dev/d3 /dev/d4
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "raidz2" ]
+}
+
+@test "picker_assemble_config: none → os_pool.topology=none" {
+  template='{ "system": { "timezone": "UTC" } }'
+  run picker_assemble_config "$template" h none /dev/d1 /dev/d2
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
+  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "none" ]
 }

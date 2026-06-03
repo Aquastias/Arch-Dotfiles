@@ -3,13 +3,16 @@
 #
 # Generates .os/install.jsonc from a chosen host's Install Template plus
 # operator-picked mode and target disks, then runs the review/confirm loop.
-# See ADR-0010, CONTEXT.md → Pre-Install Picker.
+# When the template pins layout (`.mode`, +`os_pool.topology` for multi),
+# the mode prompt is skipped and the pinned topology is honored — disks are
+# still always picked (ADR-0029). See ADR-0010, CONTEXT.md → Pre-Install
+# Picker.
 #
 # Four-way prompt keys (after the review block):
 #   [i]nstall    — write .os/install.jsonc, then exec install.sh
 #   [w]rite only — write .os/install.jsonc and exit 0
-#   [e]dit       — re-enter at mode → disks (host kept; abort+rerun to
-#                  change host)
+#   [e]dit       — re-enter at mode → disks (or disks only when the
+#                  template pins mode; host kept; abort+rerun to change host)
 #   [a]bort      — exit non-zero, no file written
 #
 # Deep modules (lib/picker.sh) are pure and bats-tested. The pieces here —
@@ -91,7 +94,8 @@ prompt_disks() {
 }
 
 # Re-prompt mode + disks until layout validates. Returns via globals
-# MODE and DISKS (array). Used both on first entry and on [e]dit re-entry.
+# MODE and DISKS (array). Used on the unpinned path (first entry and
+# [e]dit re-entry).
 collect_mode_and_disks() {
   while :; do
     MODE="$(prompt_mode)"
@@ -107,6 +111,24 @@ collect_mode_and_disks() {
   done
 }
 
+# Pinned path: mode is fixed by the template; prompt disks only, until the
+# count satisfies the pinned mode/topology. Returns via globals MODE (the
+# assemble-mode arg) and DISKS. Used on first entry and [e]dit re-entry.
+collect_disks_for_mode() {
+  local mode="$1" desc="$2" picked
+  echo "layout pinned by template → ${desc}; pick target disks" >&2
+  while :; do
+    picked="$(prompt_disks)" || { echo "no disks selected" >&2; exit 1; }
+    [[ -n "$picked" ]] || { echo "no disks selected" >&2; exit 1; }
+    mapfile -t DISKS <<< "$picked"
+    if picker_validate_layout "$mode" "${#DISKS[@]}"; then
+      MODE="$mode"
+      return 0
+    fi
+    echo "re-pick disks..." >&2
+  done
+}
+
 main() {
   ensure_deps
 
@@ -116,9 +138,30 @@ main() {
 
   template="$(picker_load_template "$HOSTS_DIR" "$host")"
 
+  # Optional layout pin (ADR 0029). On a template error (e.g. multi without
+  # os_pool.topology) the message is already on stderr — just abort.
+  local pin
+  pin="$(picker_pin_from_template "$template")" \
+    || { echo "pick.sh: invalid layout pin in template" >&2; exit 1; }
+
   MODE=""
   DISKS=()
-  collect_mode_and_disks
+  PINNED=0
+  PIN_MODE=""
+  PIN_DESC=""
+  if [[ -n "$pin" ]]; then
+    PINNED=1
+    local f1 f2
+    IFS=$'\t' read -r f1 f2 <<< "$pin"
+    if [[ "$f1" == single ]]; then
+      PIN_MODE="single"; PIN_DESC="single"
+    else
+      PIN_MODE="$f2"; PIN_DESC="multi / $f2"
+    fi
+    collect_disks_for_mode "$PIN_MODE" "$PIN_DESC"
+  else
+    collect_mode_and_disks
+  fi
 
   while :; do
     config="$(picker_assemble_config "$template" "$host" "$MODE" "${DISKS[@]}")"
@@ -153,7 +196,11 @@ main() {
         exit 0
         ;;
       edit)
-        collect_mode_and_disks
+        if (( PINNED )); then
+          collect_disks_for_mode "$PIN_MODE" "$PIN_DESC"
+        else
+          collect_mode_and_disks
+        fi
         continue
         ;;
       abort)

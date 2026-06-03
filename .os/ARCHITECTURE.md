@@ -104,8 +104,9 @@ flowchart TD
   M13-->O1
 ```
 
-> Planned (ADR 0029): a template may pin `mode`, skipping the mode
-> prompt in the picker branch above (disks still picked).
+> A template may pin `mode` (+ `os_pool.topology` for multi), skipping
+> the mode prompt in the picker branch above — disks still picked
+> (ADR 0029).
 
 ---
 
