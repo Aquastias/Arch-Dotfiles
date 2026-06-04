@@ -406,6 +406,41 @@ _find_block_device() {
   [ "$status" -eq 0 ]
 }
 
+@test "layout_validate: data pool @group with no members aborts" {
+  _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }
+  _layout_declared_users() { echo "alice" ; }
+  _layout_group_map() { printf '' ; }     # no group has any members
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"stripe\",
+                     \"disks\":[\"/dev/x1\"],\"owners\":[\"@ghosts\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ghosts"* ]]
+}
+
+@test "layout_validate: data pool @group with members passes" {
+  _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }
+  _layout_declared_users() { echo "alice bob" ; }
+  _layout_group_map() { printf 'family:alice,bob' ; }
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"stripe\",
+                     \"disks\":[\"/dev/x1\"],\"owners\":[\"@family\"]}]
+  }"
+  run layout_validate
+  [ "$status" -eq 0 ]
+}
+
 @test "layout_validate: storage group owner not a declared user aborts" {
   _LAYOUT_PHASE=0
   _layout_disk_exists() { return 0; }

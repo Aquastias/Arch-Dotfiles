@@ -27,7 +27,14 @@ pool_owners_mode() {
     [[ -n "$users" ]] && printf 'chown' || printf 'root'
     return
   fi
-  printf 'chown'
+  # More than one principal, or any @group, can't be expressed with chown +
+  # one group-owner — that needs POSIX ACLs (ADR 0031).
+  local n=0 tok has_group=0
+  for tok in $owners; do
+    ((n++))
+    [[ "$tok" == @* ]] && has_group=1
+  done
+  if ((n > 1)) || ((has_group)); then printf 'acl'; else printf 'chown'; fi
 }
 
 # Base user-owner of the mountpoint (the human shown by `ls -l`). Omitted
@@ -50,16 +57,57 @@ pool_owners_base() {
 # symlink. Omitted owners grant access to just the Primary User; a userless
 # host grants access to no one.
 pool_owners_access_users() {
-  local owners="$1" users="$2"
+  local owners="$1" users="$2" groupmap="$3"
   if [[ -z "$owners" ]]; then
     [[ -n "$users" ]] && printf '%s\n' "${users%% *}"
     return 0
   fi
-  # Listed users get access. (@group members are folded in for ACL pools.)
-  local tok
+  # Union of listed users and the members of listed @groups, in order, deduped.
+  local out=() tok m
   for tok in $owners; do
-    [[ "$tok" == @* ]] || printf '%s\n' "$tok"
+    if [[ "$tok" == @* ]]; then
+      for m in $(_pool_owners_group_members "${tok#@}" "$groupmap"); do
+        _pool_owners_in_list "$m" "${out[*]}" || out+=("$m")
+      done
+    else
+      _pool_owners_in_list "$tok" "${out[*]}" || out+=("$tok")
+    fi
   done
+  ((${#out[@]})) && printf '%s\n' "${out[@]}"
+  return 0
+}
+
+# Space-separated members of <group> from the "group:m1,m2 group2:m3" <map>.
+_pool_owners_group_members() {
+  local g="$1" map="$2" pair
+  for pair in $map; do
+    [[ "$pair" == "${g}:"* ]] && { printf '%s' "${pair#*:}" | tr ',' ' '
+      return; }
+  done
+}
+
+# setfacl entries for an ACL pool — one per line. Each listed user gets
+# u:<user>:rwx, each @group g:<group>:rwx, every entry mirrored as a default
+# ACL (d:...) so newly created files inherit the grant, plus the ACL mask set
+# to rwx (m::rwx + d:m::rwx) so the named grants are effective (ADR 0031).
+pool_owners_acl_entries() {
+  local owners="$1" tok
+  for tok in $owners; do
+    if [[ "$tok" == @* ]]; then
+      printf 'g:%s:rwx\n' "${tok#@}"
+    else
+      printf 'u:%s:rwx\n' "$tok"
+    fi
+  done
+  for tok in $owners; do
+    if [[ "$tok" == @* ]]; then
+      printf 'd:g:%s:rwx\n' "${tok#@}"
+    else
+      printf 'd:u:%s:rwx\n' "$tok"
+    fi
+  done
+  printf 'm::rwx\n'
+  printf 'd:m::rwx\n'
 }
 
 # Pure validation: silent + 0 when the `owners` declaration is usable; prints a
@@ -69,11 +117,16 @@ pool_owners_access_users() {
 # Omitted owners is always valid (it defaults to the Primary User, or is left
 # root-owned with a warning on a userless host).
 pool_owners_validate() {
-  local owners="$1" users="$2"
+  local owners="$1" users="$2" groupmap="$3" tok members
   [[ -n "$owners" ]] || return 0
-  local tok
   for tok in $owners; do
-    if [[ "$tok" != @* ]]; then
+    if [[ "$tok" == @* ]]; then
+      members="$(_pool_owners_group_members "${tok#@}" "$groupmap")"
+      [[ -n "${members// }" ]] || {
+        printf '%s' "group '${tok#@}' has no declared members"
+        return 1
+      }
+    else
       _pool_owners_in_list "$tok" "$users" || {
         printf '%s' "owner '${tok}' is not a declared user"
         return 1
@@ -122,6 +175,15 @@ pool_owners_apply_mount() {
   if [[ "$mode" == "chown" ]]; then
     chown "${base}:${base}" "$target"
     chmod 0755 "$target"
+  elif [[ "$mode" == "acl" ]]; then
+    # Nominal user-owner is the first listed user (so `ls -l` shows a human);
+    # the named ACL grants are what actually share the pool.
+    [[ -n "$base" ]] && chown "${base}:${base}" "$target"
+    chmod 0755 "$target"
+    local e
+    while IFS= read -r e; do
+      [[ -n "$e" ]] && setfacl -m "$e" "$target"
+    done < <(pool_owners_acl_entries "$owners")
   fi
 
   # ~/Disks/<label> → the runtime mountpoint, for every user with access.
@@ -148,6 +210,27 @@ _pool_owners_declared_users() {
   printf '%s' "${arr[*]}"
 }
 
+# Group→members map as "group:m1,m2 ..." for @group resolution/validation. A
+# declared user is a member of every group in their effective group set
+# (resolve_user_groups — includes wheel for sudo users), sourced from User
+# Config so membership stays dynamic (ADR 0031). Empty when nothing is
+# declared. Glue around the configs loader; covered by the VM smoke test.
+_pool_owners_group_map() {
+  local users u uj g out=()
+  declare -A members=()
+  users="$(_pool_owners_declared_users)"
+  for u in $users; do
+    uj="$(load_user_config "$u" 2>/dev/null)" || continue
+    for g in $(resolve_user_groups "$uj" 2>/dev/null | tr ',' ' '); do
+      [[ -n "$g" ]] || continue
+      if [[ -n "${members[$g]:-}" ]]; then members[$g]+=",$u"
+      else members[$g]="$u"; fi
+    done
+  done
+  for g in "${!members[@]}"; do out+=("${g}:${members[$g]}"); done
+  printf '%s' "${out[*]}"
+}
+
 # Orchestrator: make every data-pool mountpoint usable by its owner(s) and
 # create the ~/Disks/<pool> symlinks. Runs install-time inside the new root
 # (after the Runner created users/groups, while pools are mounted under the
@@ -156,7 +239,7 @@ _pool_owners_declared_users() {
 pool_owners_apply() {
   section "Applying Data-Pool Ownership"
   local users; users="$(_pool_owners_declared_users)"
-  local groupmap=""  # populated for @group ACLs (slice 04)
+  local groupmap; groupmap="$(_pool_owners_group_map)"
 
   local sg i name mount owners target
   sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"

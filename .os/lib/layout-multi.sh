@@ -752,8 +752,8 @@ _layout_validate_owners() {
 
 _layout_group_map() {
   # Seam: "group:member1,member2" pairs for @group owners validation. Built
-  # from User Configs; overridable in tests. Empty until issue 04 populates it.
-  printf ''
+  # from User Configs; overridable in unit tests.
+  _pool_owners_group_map
 }
 
 _mount_is_reserved() {
