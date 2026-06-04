@@ -467,6 +467,13 @@ run_harness() {
   _vm_boot_for_run
 
   section "Capturing installer log → ${LOG_FILE}"
+  # Wait for libvirt to allocate the serial PTY before attaching, exactly as the
+  # boot-verify path does. Capturing first races the PTY allocation: `virsh
+  # console` dies with "PTY device is not yet assigned", the wrapper exits
+  # immediately, and the whole install goes unobserved (empty log → false
+  # timeout). This is what made automated runs unwatchable from a non-TTY
+  # caller.
+  _wait_for_serial_pty
   _start_console_capture
 
   section "Waiting for installer (timeout: ${TIMEOUT_SEC}s)"
