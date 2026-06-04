@@ -112,6 +112,50 @@ OUT
   [[ "$output" == *"UNSTABLE VDEV"* ]]
 }
 
+@test "vm_pool_verify: passes when a mount is owned and writable by its user" {
+  _healthy_stubs
+  stat() { echo alice; }                       # `stat -c %U <mp>` → owner
+  su() { return 0; }                            # `su - alice -c 'test -w <mp>'`
+  VM_VERIFY_POOLS=(tank0)
+  VM_VERIFY_MOUNTS=(tank0/data:/data/tank0)
+  VM_VERIFY_OWNED=(/data/tank0:alice)
+  run vm_pool_verify
+  [ "$status" -eq 0 ]
+}
+
+@test "vm_pool_verify: fails loudly when a mount is owned by the wrong user" {
+  _healthy_stubs
+  stat() { echo root; }                         # left root-owned
+  su() { return 0; }
+  VM_VERIFY_POOLS=(tank0)
+  VM_VERIFY_MOUNTS=(tank0/data:/data/tank0)
+  VM_VERIFY_OWNED=(/data/tank0:alice)
+  run vm_pool_verify
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"NOT OWNED: /data/tank0"* ]]
+}
+
+@test "vm_pool_verify: fails loudly when the owner cannot write the mount" {
+  _healthy_stubs
+  stat() { echo alice; }                        # owned, but...
+  su() { return 1; }                            # test -w fails
+  VM_VERIFY_POOLS=(tank0)
+  VM_VERIFY_MOUNTS=(tank0/data:/data/tank0)
+  VM_VERIFY_OWNED=(/data/tank0:alice)
+  run vm_pool_verify
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"NOT WRITABLE: /data/tank0"* ]]
+}
+
+@test "vm_pool_verify: owned check is off by default (legacy callers)" {
+  _healthy_stubs
+  VM_VERIFY_POOLS=(rpool)
+  VM_VERIFY_MOUNTS=()
+  unset VM_VERIFY_OWNED
+  run vm_pool_verify
+  [ "$status" -eq 0 ]
+}
+
 @test "vm_pool_verify: fails when a dataset is mounted at the wrong path" {
   _healthy_stubs
   zfs() {                                    # tank0/data mounted at /mnt/wrong

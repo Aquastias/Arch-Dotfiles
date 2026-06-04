@@ -7,11 +7,12 @@
 # multi-data-pools VM smoke test (issue 06 / ADR 0027); never part of a
 # production install.
 #
-# Behaviour is driven by two arrays the caller sets before invoking
-# vm_pool_verify:
+# Behaviour is driven by arrays the caller sets before invoking vm_pool_verify:
 #   VM_VERIFY_POOLS[]   — pool names that must be imported (e.g. rpool tank0)
 #   VM_VERIFY_MOUNTS[]  — "<dataset>:<mountpoint>" pairs that must be mounted
 #                         there (e.g. tank0/data:/data/tank0)
+#   VM_VERIFY_OWNED[]   — "<mountpoint>:<user>" pairs that must be owned by, and
+#                         writable by, <user> (pool-owners, ADR 0031)
 #
 # The system is queried through `zpool` / `zfs` so unit tests can stub them.
 # Returns 0 only when every check passes; prints each failure to stderr.
@@ -20,6 +21,19 @@
 # 0 if the pool is imported (visible to `zpool list`).
 vm_pool_imported() {
   zpool list -H -o name "$1" >/dev/null 2>&1
+}
+
+# 0 if the directory at <mountpoint> is owned by <user>.
+vm_dir_owned_by() {
+  local mp="$1" user="$2"
+  [[ "$(stat -c '%U' "$mp" 2>/dev/null)" == "$user" ]]
+}
+
+# 0 if <user> can write to <mountpoint> (the point of pool ownership — being
+# able to save files without sudo). Tested as the user so ACL grants count.
+vm_dir_writable_by() {
+  local mp="$1" user="$2"
+  su - "$user" -c "test -w '$mp'" >/dev/null 2>&1
 }
 
 # 0 if <dataset> is currently mounted at <mountpoint>.
@@ -67,6 +81,18 @@ vm_pool_verify() {
     mp="${entry#*:}"
     if ! vm_dataset_mounted_at "$ds" "$mp"; then
       echo "NOT MOUNTED: $ds at $mp" >&2
+      rc=1
+    fi
+  done
+  for entry in "${VM_VERIFY_OWNED[@]:-}"; do
+    [[ -n "$entry" ]] || continue
+    mp="${entry%:*}"
+    local user="${entry##*:}"
+    if ! vm_dir_owned_by "$mp" "$user"; then
+      echo "NOT OWNED: $mp by $user" >&2
+      rc=1
+    elif ! vm_dir_writable_by "$mp" "$user"; then
+      echo "NOT WRITABLE: $mp by $user" >&2
       rc=1
     fi
   done

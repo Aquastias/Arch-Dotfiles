@@ -28,6 +28,10 @@ VM_VERIFY_MOUNTS=(tank0/data:/data/tank0 tank1/data:/data/tank1)
 # Assert every leaf vdev resolves via /dev/disk/by-id — guards the disk-reorder
 # bug where a pool recorded as /dev/sdX fails to import after reboot (ADR 0028).
 VM_VERIFY_BYID=true
+# Assert each data pool is owned by, and writable by, the Primary User — the
+# point of pool-owners (ADR 0031). host_profile=arch-data declares vm-test, so
+# the installer's pool-owners step gives the /data pools to that user.
+VM_VERIFY_OWNED=(/data/tank0:vm-test /data/tank1:vm-test)
 
 INSTALL_CONFIG_CONTENT='{
   "system": {
@@ -50,6 +54,7 @@ INSTALL_CONFIG_CONTENT='{
     "security": false,
     "desktop": { "kde": false }
   },
+  "host_profile": "arch-data",
   "mode": "multi",
   "os_pool": {
     "pool_name": "rpool",

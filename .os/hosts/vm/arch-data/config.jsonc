@@ -1,0 +1,12 @@
+// Host Config for vm/arch-data — VM smoke-test host for the multi data-pools
+// ownership check (pool-owners, ADR 0031).
+//
+// Merged on top of `.os/hosts/core/config.jsonc`. Declares one user so the
+// installer's pool-owners step has a Primary User to own the /data pools;
+// ships no secrets and no system programs to keep the install light and
+// focused on data-pool ownership.
+
+{
+  "users": ["vm-test"],
+  "system_programs": []
+}
