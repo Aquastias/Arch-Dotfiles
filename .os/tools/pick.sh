@@ -34,6 +34,8 @@ OS_DIR="$(dirname "$SCRIPT_DIR")"
 
 # shellcheck source=../lib/picker.sh
 source "$OS_DIR/lib/picker.sh"
+# shellcheck source=../lib/live-medium.sh
+source "$OS_DIR/lib/live-medium.sh"
 
 HOSTS_DIR="$OS_DIR/hosts"
 OUT_FILE="$OS_DIR/install.jsonc"
@@ -48,20 +50,6 @@ ensure_deps() {
     echo "pick.sh: pacman -Sy ${need[*]} failed — live CD needs network" >&2
     exit 1
   fi
-}
-
-resolve_live_dev() {
-  local part_dev part_base disk_base
-  if [[ -d /run/archiso/bootmnt ]]; then
-    part_dev="$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)"
-  fi
-  if [[ -z "${part_dev:-}" ]]; then
-    part_dev="$(blkid -L ARCH_* 2>/dev/null | head -n1 || true)"
-  fi
-  [[ -z "${part_dev:-}" ]] && return 0
-  part_base="$(basename "$part_dev")"
-  disk_base="$(lsblk -no PKNAME "/dev/$part_base" 2>/dev/null | head -n1)"
-  [[ -n "$disk_base" ]] && echo "/dev/$disk_base"
 }
 
 prompt_host() {
@@ -80,9 +68,12 @@ prompt_mode() {
 }
 
 prompt_disks() {
-  local live_dev disks=()
-  live_dev="$(resolve_live_dev)"
-  mapfile -t disks < <(picker_enum_disks "$live_dev")
+  local live_set disks=()
+  # Live medium excluded via the multi-signal Live-Medium Detector
+  # (lib/live-medium.sh) — boot-mount parent disk, iso9660, ARCH_* label —
+  # robust on label/uuid sources and copytoram boots. Shared with 02-wipe.sh.
+  live_set="$(live_medium_disks)"
+  mapfile -t disks < <(picker_enum_disks "$live_set")
   if (( ${#disks[@]} == 0 )); then
     echo "no /dev/disk/by-id/* candidates found" >&2
     exit 1

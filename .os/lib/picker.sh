@@ -91,27 +91,38 @@ picker_load_template() {
   '
 }
 
-# picker_enum_disks <live_dev>
+# picker_enum_disks <live_set>
 #   Emits, one per line, sorted /dev/disk/by-id/* paths excluding the live
-#   medium whole-disk and its partitions. <live_dev> is a whole-disk path
-#   such as `/dev/sdz` (empty string = no exclusion).
-#   PICKER_BY_ID_DIR overrides /dev/disk/by-id for tests.
+#   medium whole-disk(s) and their partitions. <live_set> is the Live-Medium
+#   Detector's output: zero or more whole-disk paths such as `/dev/sdz`, one
+#   per line (empty = no exclusion). PICKER_BY_ID_DIR overrides /dev/disk/by-id
+#   for tests.
 picker_enum_disks() {
-  local live_dev="$1"
+  local live_set="$1"
   local by_id="${PICKER_BY_ID_DIR:-/dev/disk/by-id}"
   [[ -d "$by_id" ]] || return 0
 
-  local live_base=""
-  [[ -n "$live_dev" ]] && live_base="$(basename "$live_dev")"
+  # Whole-disk kernel bases to exclude (e.g. sdz), one per live-medium disk.
+  local live_bases=() d
+  while IFS= read -r d; do
+    [[ -n "$d" ]] && live_bases+=("$(basename "$d")")
+  done <<<"$live_set"
 
-  local link target_base
+  local link target_base lb skip
   for link in "$by_id"/*; do
     [[ -L "$link" ]] || continue
     target_base="$(basename "$(readlink -f "$link")")"
-    if [[ -n "$live_base" ]]; then
-      [[ "$target_base" == "$live_base" ]] && continue
-      [[ "$target_base" =~ ^${live_base}p?[0-9]+$ ]] && continue
+    skip=""
+    if ((${#live_bases[@]})); then
+      for lb in "${live_bases[@]}"; do
+        if [[ "$target_base" == "$lb" \
+              || "$target_base" =~ ^${lb}p?[0-9]+$ ]]; then
+          skip=1
+          break
+        fi
+      done
     fi
+    [[ -n "$skip" ]] && continue
     printf '%s\n' "$link"
   done | sort
 }
