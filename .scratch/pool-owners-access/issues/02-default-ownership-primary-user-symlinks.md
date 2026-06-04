@@ -1,6 +1,6 @@
 # Default data-pool ownership → Primary User + ~/Disks symlinks
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

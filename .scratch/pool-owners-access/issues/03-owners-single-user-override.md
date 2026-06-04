@@ -1,6 +1,6 @@
 # `owners` single-user override (schema + validation)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
