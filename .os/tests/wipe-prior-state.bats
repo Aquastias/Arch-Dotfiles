@@ -66,3 +66,25 @@ setup() {
   grep -qx dpool <<<"$output"
   ! grep -qx tank <<<"$output"
 }
+
+# Regression (live-boot-disk pollution): detect_disks's stdout is captured
+# verbatim as the wipe list (`mapfile -t all_disks < <(detect_disks)`). When
+# find_live_disk succeeds (e.g. booting from /dev/sr0), the "excluded" info line
+# must NOT leak onto stdout, or it becomes a bogus disk that wipe_one_disk fails
+# on. Captures stdout only — exactly as the real caller does.
+@test "detect_disks: stdout is device paths only; diagnostics go to stderr" {
+  find_live_disk() { echo /dev/sr0; }          # triggers the 'excluded' line
+  info() { echo "[INFO] $*"; }                 # real-style: writes to stdout
+  warn() { echo "[WARN] $*"; }
+  lsblk() {
+    case "$*" in
+      *"-dno NAME,TYPE,RO"*) printf 'sda disk 0\nsdb disk 0\n' ;;
+      *) : ;;                                   # no partitions for any disk
+    esac
+  }
+  local out; out="$(detect_disks 2>/dev/null)"  # stdout only, as the caller sees
+  [[ "$out" != *"[INFO]"* ]]
+  [[ "$out" != *"Live boot"* ]]
+  [[ "$out" == *"/dev/sda"* ]]
+  [[ "$out" == *"/dev/sdb"* ]]
+}
