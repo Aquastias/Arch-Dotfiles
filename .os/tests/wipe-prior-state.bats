@@ -10,17 +10,16 @@
 # override the two injectable seams to simulate state without touching the host.
 
 setup() {
-  # 02-wipe.sh sources lib/common.sh for these — but define no-ops first in
-  # case that path changes; harmless if overridden by the real ones.
-  info() { :; }; warn() { :; }; section() { :; }; error() { echo "ERR: $*" >&2; }
-
   # shellcheck source=../02-wipe.sh
   source "$BATS_TEST_DIRNAME/../02-wipe.sh"
 
-  # 02-wipe.sh enables `set -Eeuo pipefail` and an ERR trap at source time;
-  # relax both so assertion non-zero exits don't abort the test.
-  set +eEuo pipefail
-  trap - ERR
+  # KEEP 02-wipe's `set -Eeuo pipefail` + ERR trap: its _on_error (exit 1) is
+  # what makes a broken assertion actually fail the test. `trap - ERR` here
+  # would blind bats' failure detection and make every assertion vacuous. The
+  # functions under test are invoked via `run` (which masks their exit), so the
+  # trap only fires on a failing assertion. Silence the cosmetic helpers only —
+  # the real `error` stays.
+  info() { :; }; warn() { :; }; section() { :; }
 }
 
 @test "present: a partition mounted under /mnt (the ESP case)" {
@@ -67,24 +66,5 @@ setup() {
   ! grep -qx tank <<<"$output"
 }
 
-# Regression (live-boot-disk pollution): detect_disks's stdout is captured
-# verbatim as the wipe list (`mapfile -t all_disks < <(detect_disks)`). When
-# find_live_disk succeeds (e.g. booting from /dev/sr0), the "excluded" info line
-# must NOT leak onto stdout, or it becomes a bogus disk that wipe_one_disk fails
-# on. Captures stdout only — exactly as the real caller does.
-@test "detect_disks: stdout is device paths only; diagnostics go to stderr" {
-  find_live_disk() { echo /dev/sr0; }          # triggers the 'excluded' line
-  info() { echo "[INFO] $*"; }                 # real-style: writes to stdout
-  warn() { echo "[WARN] $*"; }
-  lsblk() {
-    case "$*" in
-      *"-dno NAME,TYPE,RO"*) printf 'sda disk 0\nsdb disk 0\n' ;;
-      *) : ;;                                   # no partitions for any disk
-    esac
-  }
-  local out; out="$(detect_disks 2>/dev/null)"  # stdout only, as the caller sees
-  [[ "$out" != *"[INFO]"* ]]
-  [[ "$out" != *"Live boot"* ]]
-  [[ "$out" == *"/dev/sda"* ]]
-  [[ "$out" == *"/dev/sdb"* ]]
-}
+# The detect_disks live-medium exclusion + stdout-cleanliness regression moved
+# to wipe-live-medium.bats (enforcing setup), alongside the hard-guard tests.
