@@ -21,6 +21,9 @@ install_state_load "$STATE"
 # shellcheck source=./base-services.sh
 source "$_LIB_DIR/base-services.sh"
 
+# shellcheck source=./udisks.sh
+source "$_LIB_DIR/udisks.sh"
+
 bash /root/lib-chroot/identity.sh
 bash /root/lib-chroot/initcpio.sh
 bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
@@ -65,6 +68,12 @@ mkdir -p /etc/tmpfiles.d
 cat > /etc/tmpfiles.d/resolv.conf.conf << 'EOF'
 L /etc/resolv.conf - - - - /run/systemd/resolve/stub-resolv.conf
 EOF
+
+# ── udisks: hide ZFS pool members from file managers ──────────────────────────
+# Without this a udisks2-backed file manager lists ZFS members as removable
+# drives, prompts for a password, then fails to mount (ADR 0031). Written
+# unconditionally — a harmless no-op when udisks2 isn't installed (servers).
+udisks_write_zfs_ignore_rule
 
 # ── ZFS services ─────────────────────────────────────────────────────────────
 # Import order: zfs-import-cache (fast) → zfs-import-scan (fallback)
