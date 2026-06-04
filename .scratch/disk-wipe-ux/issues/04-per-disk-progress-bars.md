@@ -1,6 +1,6 @@
 # Per-disk progress bars (Progress Renderer)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -17,12 +17,12 @@ line to the block.
 
 ## Acceptance criteria
 
-- [ ] HDD wipes show a per-disk bar with percent/rate/ETA that advances
+- [x] HDD wipes show a per-disk bar with percent/rate/ETA that advances
       to completion.
-- [ ] SSD/NVMe wipes show instant completion.
-- [ ] Multiple disks display as a stable multi-line block while wiping in
+- [x] SSD/NVMe wipes show instant completion.
+- [x] Multiple disks display as a stable multi-line block while wiping in
       parallel.
-- [ ] The Progress Renderer is unit-tested (bytes + size → bar; clamps at
+- [x] The Progress Renderer is unit-tested (bytes + size → bar; clamps at
       100%).
 
 ## Blocked by
