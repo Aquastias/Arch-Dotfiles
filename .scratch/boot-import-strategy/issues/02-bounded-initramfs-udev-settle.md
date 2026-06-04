@@ -22,11 +22,28 @@ the by-id scan with the archzfs hook's own import retry.
       chosen timeout.
 - [ ] Boot still completes and the root pool imports (verified by the
       existing boot-verify VM smoke test).
-- [ ] A pure emitter produces the hook-override content; a unit test
+- [x] A pure emitter produces the hook-override content; a unit test
       asserts the bounded settle is present.
-- [ ] The override keeps the stock trigger behavior (no device-discovery
+- [x] The override keeps the stock trigger behavior (no device-discovery
       regression).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- Implemented (TDD): `lib/chroot/initcpio.sh` — pure emitter
+  `_initcpio_udev_override` prints an `/etc/initcpio/hooks/udev` that
+  shadows the stock hook: same `udevd` start + `udevadm trigger`
+  subsystems/devices pair, then `udevadm settle --timeout=30` (fixed
+  bound, not a config field). Thin writer `_initcpio_write_udev_override
+  <root>` installs it under `etc/initcpio/hooks/udev`; called before
+  `mkinitcpio -P` so the override is baked into the image.
+- 3 new `chroot-initcpio.bats` cases (settle capped at 30s, trigger pair
+  preserved, writer shadows the stock hook). Full bats green,
+  `shellcheck -x -P SCRIPTDIR` clean.
+- Unit ACs done. Remaining (boxes 1-2): a VM run to confirm the installed
+  initramfs caps the settle and boot still completes — covered by the
+  existing boot-verify VM smoke test; no libvirt on this dev host. Status
+  stays `ready-for-agent` for a host that can run it.
