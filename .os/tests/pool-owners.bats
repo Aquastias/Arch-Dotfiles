@@ -32,6 +32,12 @@ setup() {
   [ "$output" = "carol" ]
 }
 
+@test "pool_owners_base: first listed user wins even after a @group" {
+  run pool_owners_base "@family bob alice" "alice bob"
+  [ "$status" -eq 0 ]
+  [ "$output" = "bob" ]
+}
+
 # ── pool_owners_mode ─────────────────────────────────────────────────────────
 
 @test "pool_owners_mode: omitted owners with a Primary User is a chown" {
@@ -50,6 +56,18 @@ setup() {
   run pool_owners_mode "carol" "alice bob carol"
   [ "$status" -eq 0 ]
   [ "$output" = "chown" ]
+}
+
+@test "pool_owners_mode: more than one user needs ACLs" {
+  run pool_owners_mode "alice bob" "alice bob"
+  [ "$status" -eq 0 ]
+  [ "$output" = "acl" ]
+}
+
+@test "pool_owners_mode: any @group needs ACLs" {
+  run pool_owners_mode "alice @family" "alice" "family:alice,bob"
+  [ "$status" -eq 0 ]
+  [ "$output" = "acl" ]
 }
 
 # ── pool_owners_access_users (drives ~/Disks/<pool> symlinks) ─────────────────
@@ -72,6 +90,47 @@ setup() {
   [ "$output" = "carol" ]
 }
 
+@test "pool_owners_access_users: union of listed users and @group members" {
+  run pool_owners_access_users "alice @family" "alice bob carol" \
+    "family:bob,carol"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "alice" ]
+  [[ "$output" == *bob* ]]
+  [[ "$output" == *carol* ]]
+  [ "${#lines[@]}" -eq 3 ]
+}
+
+@test "pool_owners_access_users: a user in both list and @group appears once" {
+  run pool_owners_access_users "alice @family" "alice bob" "family:alice,bob"
+  [ "$status" -eq 0 ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+# ── pool_owners_acl_entries (the setfacl plan for ACL pools) ─────────────────
+
+@test "pool_owners_acl_entries: user gets an rwx entry + default mirror" {
+  run pool_owners_acl_entries "alice bob"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"u:alice:rwx"* ]]
+  [[ "$output" == *"u:bob:rwx"* ]]
+  [[ "$output" == *"d:u:alice:rwx"* ]]
+  [[ "$output" == *"d:u:bob:rwx"* ]]
+}
+
+@test "pool_owners_acl_entries: @group gets a group rwx entry + default mirror" {
+  run pool_owners_acl_entries "@family"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"g:family:rwx"* ]]
+  [[ "$output" == *"d:g:family:rwx"* ]]
+}
+
+@test "pool_owners_acl_entries: sets the ACL mask to rwx (incl. default)" {
+  run pool_owners_acl_entries "alice @family"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"m::rwx"* ]]
+  [[ "$output" == *"d:m::rwx"* ]]
+}
+
 # ── pool_owners_validate (drives layout_validate, ADR 0031) ──────────────────
 
 @test "pool_owners_validate: omitted owners is always valid" {
@@ -90,6 +149,18 @@ setup() {
   run pool_owners_validate "carol" "alice bob" ""
   [ "$status" -ne 0 ]
   [[ "$output" == *"carol"* ]]
+}
+
+@test "pool_owners_validate: a @group with members is valid" {
+  run pool_owners_validate "alice @family" "alice bob" "family:alice,bob"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "pool_owners_validate: a @group with no members fails with a reason" {
+  run pool_owners_validate "@family" "alice bob" ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"family"* ]]
 }
 
 # ── pool_owners_apply_mount (thin I/O) ───────────────────────────────────────
@@ -127,4 +198,28 @@ _apply_env() {
   pool_owners_apply_mount tank0 /data/tank0 "" "" ""
   [ ! -s "$CHOWN_LOG" ]
   [ ! -e "${MOUNT_ROOT}/home/alice/Disks/tank0" ]
+}
+
+@test "pool_owners_apply_mount: acl path setfacls entries + links each user" {
+  _apply_env
+  mkdir -p "${MOUNT_ROOT}/home/bob"
+  SETFACL_LOG="$BATS_TEST_TMPDIR/setfacl.log"; : > "$SETFACL_LOG"
+  setfacl() { printf '%s\n' "$*" >> "$SETFACL_LOG"; }
+  pool_owners_apply_mount tank0 /data/tank0 "alice bob" "alice bob" ""
+  grep -q "alice:alice ${MOUNT_ROOT}/data/tank0" "$CHOWN_LOG"  # base owner
+  grep -q "u:alice:rwx" "$SETFACL_LOG"
+  grep -q "u:bob:rwx" "$SETFACL_LOG"
+  grep -q "m::rwx" "$SETFACL_LOG"
+  [ -L "${MOUNT_ROOT}/home/alice/Disks/tank0" ]
+  [ -L "${MOUNT_ROOT}/home/bob/Disks/tank0" ]
+}
+
+@test "pool_owners_apply_mount: @group members each get a symlink" {
+  _apply_env
+  mkdir -p "${MOUNT_ROOT}/home/bob" "${MOUNT_ROOT}/home/carol"
+  setfacl() { :; }
+  pool_owners_apply_mount tank0 /data/tank0 "alice @family" \
+    "alice bob carol" "family:bob,carol"
+  [ -L "${MOUNT_ROOT}/home/bob/Disks/tank0" ]
+  [ -L "${MOUNT_ROOT}/home/carol/Disks/tank0" ]
 }
