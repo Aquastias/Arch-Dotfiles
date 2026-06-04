@@ -14,8 +14,10 @@
 #   3. Stops any MD-RAID arrays that include partitions on that disk
 #   4. wipefs -af           — clears all filesystem/partition signatures
 #   5. sgdisk --zap-all     — destroys GPT + MBR partition tables
-#   6. dd if=/dev/zero ...  — full zero-fill of the entire disk (every sector)
-#   7. Second wipefs pass   — catches anything dd may have re-written
+#   6. device-aware clear   — blkdiscard (SSD/NVMe) or a dd zero-pass (HDD),
+#                             routed by the Wipe-Method Selector; discard
+#                             falls back to a zero-pass if unsupported
+#   7. Second wipefs pass   — catches anything the clear may have re-written
 #   8. blockdev --rereadpt  — tells the kernel to re-read the empty table
 #
 # DISK DETECTION:
@@ -36,9 +38,11 @@
 #     2. Type WIPE (all caps) at the point of no return.
 #
 # WIPE DEPTH:
-#   Full zero-fill (dd). All disks are wiped IN PARALLEL to minimise total
-#   wall-clock time. Progress is logged to /tmp/wipe-<diskname>.log.
-#   Expect: SSDs/NVMe = minutes, HDDs = hours (at ~130 MB/s, 1TB ≈ 2h).
+#   Make-blank, not secure-erase (shred is never used). SSD/NVMe are cleared
+#   with an instant blkdiscard; HDDs get a single dd zero-pass. All disks are
+#   wiped IN PARALLEL to minimise total wall-clock time. Progress is logged to
+#   /tmp/wipe-<diskname>.log.
+#   Expect: SSDs/NVMe = seconds (discard), HDDs = hours (~130 MB/s, 1TB ≈ 2h).
 #
 # RUN ORDER:
 #   1. 01-bootstrap-zfs.sh
@@ -68,6 +72,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/live-medium.sh
 source "${SCRIPT_DIR}/lib/live-medium.sh"
+# shellcheck source=lib/wipe-method.sh
+source "${SCRIPT_DIR}/lib/wipe-method.sh"
 
 # Final list of disks to wipe — populated interactively
 DISKS_TO_WIPE=()
@@ -496,10 +502,25 @@ wipe_one_disk() {
     # Destroy GPT and MBR partition tables
     sgdisk --zap-all "$disk"
 
-    # Full zero-fill — dd exits non-zero when it hits end-of-disk ("no space
-    # left"), which is expected and normal. We use `|| true` to suppress that.
-    echo "[$(date '+%T')] Zero-filling $disk (this takes a while)..."
-    dd if=/dev/zero of="$disk" bs=4M conv=fsync status=none 2>/dev/null || true
+    # Device-aware clear (Wipe-Method Selector): blkdiscard for SSD/NVMe,
+    # a single dd zero-pass for HDD. dd exits non-zero at end-of-disk ("no
+    # space left"), which is expected — `|| true` suppresses it.
+    local rota method
+    rota="$(lsblk -dno ROTA "$disk" 2>/dev/null | head -n1 | xargs || true)"
+    method="$(wipe_method "$rota")"
+    if [[ "$method" == "blkdiscard" ]]; then
+      echo "[$(date '+%T')] Discarding $disk (SSD/NVMe)..."
+      if ! blkdiscard -f "$disk" 2>/dev/null; then
+        # USB bridges / drives that reject discard: fall back to a zero-pass
+        # so the disk still ends up blank.
+        echo "[$(date '+%T')] blkdiscard unsupported — zero-filling $disk..."
+        dd if=/dev/zero of="$disk" bs=4M conv=fsync status=none 2>/dev/null \
+          || true
+      fi
+    else
+      echo "[$(date '+%T')] Zero-filling $disk (this takes a while)..."
+      dd if=/dev/zero of="$disk" bs=4M conv=fsync status=none 2>/dev/null || true
+    fi
 
     # Second wipefs pass — catches any leftover signatures at end-of-disk
     wipefs -af "$disk" 2>/dev/null || true
@@ -644,7 +665,7 @@ main() {
 
   [[ $EUID -eq 0 ]] || error "Run as root."
   local cmd
-  for cmd in lsblk wipefs sgdisk dd blockdev partprobe; do
+  for cmd in lsblk wipefs sgdisk dd blockdev partprobe blkdiscard; do
     command -v "$cmd" &>/dev/null || error "Required tool not found: $cmd"
   done
 
