@@ -74,6 +74,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/live-medium.sh"
 # shellcheck source=lib/wipe-method.sh
 source "${SCRIPT_DIR}/lib/wipe-method.sh"
+# shellcheck source=lib/progress.sh
+source "${SCRIPT_DIR}/lib/progress.sh"
 
 # Final list of disks to wipe — populated interactively
 DISKS_TO_WIPE=()
@@ -487,8 +489,10 @@ reset_prior_install_state() {
 
 wipe_one_disk() {
   local disk="$1"
-  local log
-  log="/tmp/wipe-$(basename "$disk").log"
+  local log prog base
+  base="$(basename "$disk")"
+  log="/tmp/wipe-${base}.log"
+  prog="/tmp/wipe-${base}.progress"
   {
     echo "[$(date '+%T')] Starting: $disk"
 
@@ -514,12 +518,13 @@ wipe_one_disk() {
         # USB bridges / drives that reject discard: fall back to a zero-pass
         # so the disk still ends up blank.
         echo "[$(date '+%T')] blkdiscard unsupported — zero-filling $disk..."
-        dd if=/dev/zero of="$disk" bs=4M conv=fsync status=none 2>/dev/null \
-          || true
+        dd if=/dev/zero of="$disk" bs=4M conv=fsync status=progress \
+          2>"$prog" || true
       fi
     else
       echo "[$(date '+%T')] Zero-filling $disk (this takes a while)..."
-      dd if=/dev/zero of="$disk" bs=4M conv=fsync status=none 2>/dev/null || true
+      dd if=/dev/zero of="$disk" bs=4M conv=fsync status=progress \
+        2>"$prog" || true
     fi
 
     # Second wipefs pass — catches any leftover signatures at end-of-disk
@@ -539,9 +544,16 @@ wipe_one_disk() {
 run_parallel_wipe() {
   section "Wiping Disks (parallel)"
 
-  declare -a pids disk_map
+  declare -a pids disk_map size_map method_map
   local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
+    # Capture size + method up front so the live display can draw a bar (HDD)
+    # or show instant completion (blkdiscard) without re-querying each tick.
+    local rota
+    rota="$(lsblk -dno ROTA "$disk" 2>/dev/null | head -n1 | xargs || true)"
+    size_map+=("$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)")
+    method_map+=("$(wipe_method "$rota")")
+    rm -f "/tmp/wipe-$(basename "$disk").progress"
     info "Spawning wipe job: $disk"
     wipe_one_disk "$disk" &
     pids+=($!)
@@ -553,37 +565,52 @@ run_parallel_wipe() {
   info "Logs: /tmp/wipe-<diskname>.log"
   echo ""
 
-  # Live status ticker — updates every 5 seconds
-  local all_done=false
+  # Live per-disk display — a stable multi-line block redrawn ~1 s in place.
+  # HDD dd jobs show a real bar (bytes from their .progress file against the
+  # disk size); blkdiscard jobs show near-instant completion. ANSI cursor-up
+  # anchors the block. Non-tty output (logs/CI) still works — the escapes are
+  # harmless and the lines simply scroll.
+  local n=${#pids[@]} start=$SECONDS first=1 all_done=false
   while ! $all_done; do
     all_done=true
-    local line=""
-    local i
+    local elapsed=$((SECONDS - start))
+    local lines=() i
     for i in "${!pids[@]}"; do
-      local pid="${pids[$i]}"
-      local disk_i="${disk_map[$i]}"
-      if kill -0 "$pid" 2>/dev/null; then
+      local disk_i base size method bytes
+      disk_i="${disk_map[$i]}"; base="$(basename "$disk_i")"
+      size="${size_map[$i]}"; method="${method_map[$i]}"
+      if kill -0 "${pids[$i]}" 2>/dev/null; then
         all_done=false
-        line+="  ${YELLOW}●${NC} $(basename "$disk_i") running  "
-      else
-        # SC2015 fix: use explicit if/else instead of A && B || C, so the
-        # branch chosen does not depend on whether B itself succeeded.
-        if wait "$pid" 2>/dev/null; then
-          line+="  ${GREEN}✔${NC} $(basename "$disk_i") done  "
+        bytes="$(progress_parse_bytes \
+          "$(cat "/tmp/wipe-${base}.progress" 2>/dev/null || true)")"
+        if [[ -n "$bytes" ]]; then
+          lines+=("  ${YELLOW}●${NC} $(progress_line "$base" "$bytes" \
+            "$size" "$elapsed")")
+        elif [[ "$method" == "blkdiscard" ]]; then
+          lines+=("  ${YELLOW}●${NC} ${base} discarding (SSD/NVMe)…")
         else
-          line+="  ${YELLOW}!${NC} $(basename "$disk_i") check log  "
+          lines+=("  ${YELLOW}●${NC} ${base} starting…")
         fi
+      elif grep -q "Done:" "/tmp/wipe-${base}.log" 2>/dev/null; then
+        lines+=("  ${GREEN}✔${NC} ${base} $(progress_bar "$size" "$size" 20)\
+ done")
+      else
+        lines+=("  ${YELLOW}!${NC} ${base} check log")
       fi
     done
-    printf "\r%b" "$line"
-    sleep 5
+    # Redraw the block in place: after the first paint, jump the cursor back up
+    # over the N lines, clearing and reprinting each.
+    if ((first)); then first=0; else printf '\033[%dA' "$n"; fi
+    for i in "${lines[@]}"; do printf '\033[2K%b\n' "$i"; done
+    $all_done || sleep 1
   done
-  echo ""
 
-  # Collect results. The pids were already reaped by the ticker's `wait`, so a
-  # second `wait` here would return non-zero (not a child) regardless of the
-  # real outcome. The authoritative success signal is the "Done:" line written
-  # at the end of each disk's log.
+  # Reap the finished jobs (the display loop detected completion via kill -0,
+  # not wait). Status is ignored — the authoritative success signal is the
+  # "Done:" line in each disk's log, collected below.
+  for i in "${!pids[@]}"; do wait "${pids[$i]}" 2>/dev/null || true; done
+
+  # Collect results from the "Done:" line written at the end of each disk's log.
   local any_failed=false
   local i
   for i in "${!pids[@]}"; do
