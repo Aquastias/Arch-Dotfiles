@@ -1,6 +1,6 @@
 # Live-medium exclusion — multi-signal Detector + hard guard
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -20,13 +20,13 @@ system inputs through injectable seams so it is testable.
 
 ## Acceptance criteria
 
-- [ ] The live USB never appears in the wipe's disk list and cannot be
+- [x] The live USB never appears in the wipe's disk list and cannot be
       selected.
-- [ ] Wiping aborts if a live-medium disk is targeted (belt-and-
+- [x] Wiping aborts if a live-medium disk is targeted (belt-and-
       suspenders guard).
-- [ ] Exclusion works when the boot source is a label/uuid path and when
+- [x] Exclusion works when the boot source is a label/uuid path and when
       the USB is unmounted (copytoram).
-- [ ] The Detector is unit-tested across each signal: boot-mount parent
+- [x] The Detector is unit-tested across each signal: boot-mount parent
       disk, `iso9660`, `ARCH_*` label, and the unmounted case.
 
 ## Blocked by

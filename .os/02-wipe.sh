@@ -66,6 +66,8 @@ _on_error() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/live-medium.sh
+source "${SCRIPT_DIR}/lib/live-medium.sh"
 
 # Final list of disks to wipe — populated interactively
 DISKS_TO_WIPE=()
@@ -74,55 +76,27 @@ DISKS_TO_WIPE=()
 # DISK DETECTION
 # =============================================================================
 
-# Strips the partition suffix from a device path to return the raw disk.
-#   nvme0n1p1  →  nvme0n1   (NVMe / eMMC use 'p' separator)
-#   sda1       →  sda       (SATA/SCSI use trailing digit)
-#   sr0        →  sr0       (optical drives ARE the disk — no suffix to strip)
-_strip_partition() {
-  local src="$1"
-  if [[ "$src" =~ nvme|mmcblk ]]; then
-    echo "${src%p[0-9]*}"
-  elif [[ "$src" =~ /dev/sr ]]; then
-    echo "$src"
-  else
-    echo "${src%[0-9]*}"
-  fi
-}
-
-find_live_disk() {
-  # Returns the raw disk device (e.g. /dev/sda) that the live ISO is running
-  # from, so we can exclude it from the wipe list.
-  local src
-  src="$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || true)"
-  if [[ -n "$src" ]]; then
-    _strip_partition "$src"
-    return
-  fi
-  # Fallback: the device mounted at / (works on non-archiso live envs)
-  src="$(findmnt -n -o SOURCE / 2>/dev/null || true)"
-  if [[ -n "$src" && "$src" != "overlay" && "$src" != "airootfs" ]]; then
-    _strip_partition "$src"
-    return
-  fi
-  echo ""
-}
-
 detect_disks() {
   # Diagnostics go to stderr: this function's stdout is captured verbatim as the
   # disk list (`mapfile -t all_disks < <(detect_disks)`), so any info/warn line
   # on stdout would be mistaken for a disk to wipe (and wipe_one_disk fails on
   # it). Only device paths may reach stdout here.
-  local live_disk
-  live_disk="$(find_live_disk)"
-  [[ -n "$live_disk" ]] \
-    && info "Live boot disk detected (will be excluded): ${live_disk}" >&2
+  #
+  # The live medium is excluded via the multi-signal Live-Medium Detector
+  # (lib/live-medium.sh) — boot-mount parent disk, iso9660, ARCH_* label —
+  # resolved once here and matched by whole-disk path. Robust on label/uuid
+  # boot sources and on copytoram boots where the USB is unmounted.
+  local live_set
+  live_set="$(live_medium_disks)"
+  [[ -n "$live_set" ]] \
+    && info "Live medium detected (excluded): $(echo "$live_set" | xargs)" >&2
 
   local disks=()
   while IFS= read -r dev; do
     local path="/dev/${dev}"
 
-    # Skip live disk
-    [[ -n "$live_disk" && "$path" == "$live_disk" ]] && continue
+    # Skip the live medium.
+    grep -qxF "$path" <<<"$live_set" && continue
 
     # Skip if any partition of this disk is currently mounted
     local mounted=false
@@ -282,6 +256,22 @@ skip_zeroed_disks() {
     fi
   done
   DISKS_TO_WIPE=("${kept[@]}")
+}
+
+# =============================================================================
+# LIVE-MEDIUM HARD GUARD
+# =============================================================================
+
+# Belt-and-suspenders over the Live-Medium Detector: even if a live-medium disk
+# somehow reaches DISKS_TO_WIPE (e.g. a future caller passing targets in), abort
+# before any teardown so the boot stick can never be erased.
+assert_no_live_medium_targets() {
+  local disk
+  for disk in "${DISKS_TO_WIPE[@]}"; do
+    if is_live_medium "$disk"; then
+      error "Refusing to wipe ${disk}: it is the live install medium."
+    fi
+  done
 }
 
 # =============================================================================
@@ -688,6 +678,9 @@ main() {
   echo ""
   info "Disks selected for wiping (${#DISKS_TO_WIPE[@]}):"
   disk_info_table "${DISKS_TO_WIPE[@]}"
+
+  # Hard guard: never wipe the live medium, even if it reached the target set.
+  assert_no_live_medium_targets
 
   confirm_wipe_intent
   final_confirm
