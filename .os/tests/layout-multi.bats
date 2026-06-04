@@ -11,6 +11,10 @@ setup() {
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
   # shellcheck source=../lib/zfs-pools.sh
   source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
+  # shellcheck source=../lib/install-config.sh
+  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/pool-owners.sh
+  source "$BATS_TEST_DIRNAME/../lib/pool-owners.sh"
   # shellcheck source=../lib/layout-multi.sh
   source "$BATS_TEST_DIRNAME/../lib/layout-multi.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run
@@ -364,6 +368,59 @@ _find_block_device() {
   run layout_validate
   [ "$status" -ne 0 ]
   [[ "$output" == *"independent"* ]]
+}
+
+# ── layout_validate: owners validation (pool-owners, ADR 0031) ───────────────
+
+@test "layout_validate: data pool owner not a declared user aborts" {
+  _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }
+  _layout_declared_users() { echo "alice bob"; }
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"stripe\",
+                     \"disks\":[\"/dev/x1\"],\"owners\":[\"carol\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Data pool 'tank'"* ]]
+  [[ "$output" == *"carol"* ]]
+}
+
+@test "layout_validate: data pool owner that is a declared user passes" {
+  _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }
+  _layout_declared_users() { echo "alice bob"; }
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[],
+    \"data_pools\":[{\"name\":\"tank\",\"topology\":\"stripe\",
+                     \"disks\":[\"/dev/x1\"],\"owners\":[\"bob\"]}]
+  }"
+  run layout_validate
+  [ "$status" -eq 0 ]
+}
+
+@test "layout_validate: storage group owner not a declared user aborts" {
+  _LAYOUT_PHASE=0
+  _layout_disk_exists() { return 0; }
+  _layout_declared_users() { echo "alice" ; }
+  local osd
+  osd="$(_find_block_device)" || skip "no usable block device available"
+  write_multi_config "{
+    \"os_pool\":{\"disks\":[\"${osd}\"]},
+    \"storage_groups\":[{\"name\":\"media\",\"disks\":[\"/dev/x1\"],
+                         \"mount\":\"/data/media\",\"owners\":[\"dave\"]}]
+  }"
+  run layout_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Storage group 'media'"* ]]
+  [[ "$output" == *"dave"* ]]
 }
 
 @test "layout_validate: valid data pools pass (mirror x2, stripe x1)" {

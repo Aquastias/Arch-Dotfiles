@@ -279,6 +279,40 @@ set_path_cfg() {
   [ "${#lines[@]}" -eq 2 ]
 }
 
+# ── owners accessors (pool-owners, ADR 0031) ─────────────────────────────────
+
+@test "data_pool_owners: one owner token per line" {
+  write_cfg '{"data_pools":[{"name":"t","owners":["alice","@family"]}]}'
+  run install_config_data_pool_owners 0
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "alice" ]
+  [ "${lines[1]}" = "@family" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "data_pool_owners: empty when owners absent" {
+  write_cfg '{"data_pools":[{"name":"t"}]}'
+  run install_config_data_pool_owners 0
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "storage_group_owners: one owner token per line" {
+  write_cfg '{"storage_groups":[{"name":"g","owners":["bob","@team"]}]}'
+  run install_config_storage_group_owners 0
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "bob" ]
+  [ "${lines[1]}" = "@team" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "storage_group_owners: empty when owners absent" {
+  write_cfg '{"storage_groups":[{"name":"g"}]}'
+  run install_config_storage_group_owners 0
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 # ── Special: Kernel Selection (string|array list + primary bridge) ──────────
 
 @test "kernels: absent defaults to lts" {

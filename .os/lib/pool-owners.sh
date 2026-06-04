@@ -27,6 +27,7 @@ pool_owners_mode() {
     [[ -n "$users" ]] && printf 'chown' || printf 'root'
     return
   fi
+  printf 'chown'
 }
 
 # Base user-owner of the mountpoint (the human shown by `ls -l`). Omitted
@@ -38,6 +39,11 @@ pool_owners_base() {
     printf '%s' "${users%% *}"
     return
   fi
+  # The nominal owner is the first listed *user* (a @group can't own a dir).
+  local tok
+  for tok in $owners; do
+    [[ "$tok" == @* ]] || { printf '%s' "$tok"; return; }
+  done
 }
 
 # Users with access to the pool — one per line. Each gets a ~/Disks/<pool>
@@ -49,6 +55,41 @@ pool_owners_access_users() {
     [[ -n "$users" ]] && printf '%s\n' "${users%% *}"
     return 0
   fi
+  # Listed users get access. (@group members are folded in for ACL pools.)
+  local tok
+  for tok in $owners; do
+    [[ "$tok" == @* ]] || printf '%s\n' "$tok"
+  done
+}
+
+# Pure validation: silent + 0 when the `owners` declaration is usable; prints a
+# reason + returns 1 when not. Mirrors zfs-pools.sh's validation idiom so
+# layout_validate can fail the install before any disk is touched. Rules: a
+# bare name must be a declared user; an @group must have ≥1 declared member.
+# Omitted owners is always valid (it defaults to the Primary User, or is left
+# root-owned with a warning on a userless host).
+pool_owners_validate() {
+  local owners="$1" users="$2"
+  [[ -n "$owners" ]] || return 0
+  local tok
+  for tok in $owners; do
+    if [[ "$tok" != @* ]]; then
+      _pool_owners_in_list "$tok" "$users" || {
+        printf '%s' "owner '${tok}' is not a declared user"
+        return 1
+      }
+    fi
+  done
+  return 0
+}
+
+# 0 when <needle> appears in the space-separated <haystack>.
+_pool_owners_in_list() {
+  local needle="$1" hay="$2" w
+  for w in $hay; do
+    [[ "$w" == "$needle" ]] && return 0
+  done
+  return 1
 }
 
 # =============================================================================
@@ -117,13 +158,12 @@ pool_owners_apply() {
   local users; users="$(_pool_owners_declared_users)"
   local groupmap=""  # populated for @group ACLs (slice 04)
 
-  # owners is always omitted in this slice (the `owners` field arrives with the
-  # schema in issue 03); every pool defaults to the Primary User.
-  local sg i name mount owners="" target
+  local sg i name mount owners target
   sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   for ((i = 0; i < sg; i++)); do
     name="$(cfg ".storage_groups[$i].name")"
     mount="$(cfg ".storage_groups[$i].mount")"
+    owners="$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
     target="${MOUNT_ROOT}${mount}"
     [[ -d "$target" ]] || { info "Skip group '${name}': ${mount} not mounted."
       continue; }
@@ -134,6 +174,7 @@ pool_owners_apply() {
   for ((i = 0; i < dp; i++)); do
     name="$(install_config_data_pool_name "$i")"
     mount="$(install_config_data_pool_mount "$i")"
+    owners="$(install_config_data_pool_owners "$i" | tr '\n' ' ')"
     target="${MOUNT_ROOT}${mount}"
     [[ -d "$target" ]] || { info "Skip pool '${name}': ${mount} not mounted."
       continue; }
