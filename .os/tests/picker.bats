@@ -167,6 +167,18 @@ $BY_ID/nvme-WD_Black_SN850_X2-part1"
   [ "$count" -eq 7 ]
 }
 
+# The Live-Medium Detector emits a SET (newline-separated whole disks); every
+# disk in it — and its partitions — must be excluded, not just the first.
+@test "picker_enum_disks: excludes every disk in the live-medium set" {
+  setup_disk_fixture
+  run picker_enum_disks "$(printf '/dev/sdz\n/dev/sdb\n')"
+  [ "$status" -eq 0 ]
+  expected="$BY_ID/ata-Samsung_SSD_980_PRO_S1
+$BY_ID/ata-Samsung_SSD_980_PRO_S1-part1
+$BY_ID/ata-Samsung_SSD_980_PRO_S1-part2"
+  [ "$output" = "$expected" ]
+}
+
 # ── picker_assemble_config ────────────────────────────────────────────────────
 
 @test "picker_assemble_config: hostname falls back to profile name when template omits it" {
