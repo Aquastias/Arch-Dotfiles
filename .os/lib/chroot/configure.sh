@@ -24,6 +24,9 @@ source "$_LIB_DIR/base-services.sh"
 # shellcheck source=./udisks.sh
 source "$_LIB_DIR/udisks.sh"
 
+# shellcheck source=./zfs-import.sh
+source "$_LIB_DIR/zfs-import.sh"
+
 bash /root/lib-chroot/identity.sh
 bash /root/lib-chroot/initcpio.sh
 bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
@@ -84,6 +87,11 @@ systemctl enable zfs-import.target
 systemctl enable zfs-mount
 systemctl enable zfs-zed
 systemctl enable zfs.target
+
+# Decouple the post-boot import services from the deprecated
+# systemd-udev-settle so a slow/stalled settle can't fail pool imports or
+# stall boot. The initramfs stays the authoritative importer (ADR 0030).
+zfs_import_write_settle_dropins ""
 
 # Enable per-pool key-load service for any encrypted pools (dpool etc.).
 # The initramfs ZFS hook handles the root pool — this covers datasets that
