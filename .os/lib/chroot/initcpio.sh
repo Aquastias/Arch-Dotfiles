@@ -31,6 +31,34 @@ _initcpio_hooks_line() {
     "$modconf" "$tail"
 }
 
+# Pure helper: emit the override for the initramfs `udev` runtime hook. It
+# shadows /usr/lib/initcpio/hooks/udev so the settle is bounded (a slow device
+# can't stall boot past the cap) while keeping the stock trigger pair. The
+# bound is a fixed value, not a config field (ADR 0030).
+_initcpio_udev_override() {
+  cat <<'HOOK'
+#!/usr/bin/ash
+run_hook() {
+    msg ":: Triggering uevents..."
+    udevd_running=1
+    /usr/lib/systemd/systemd-udevd --daemon --resolve-names=never
+    udevadm trigger --action=add --type=subsystems
+    udevadm trigger --action=add --type=devices
+    udevadm settle --timeout=30
+}
+HOOK
+}
+
+# Thin I/O: install the override at <root>/etc/initcpio/hooks/udev. <root>
+# defaults to "" (i.e. /) for the chroot; tests pass a temp root. Must run
+# before mkinitcpio builds the image.
+_initcpio_write_udev_override() {
+  local root="${1:-}"
+  local dir="${root}/etc/initcpio/hooks"
+  mkdir -p "$dir"
+  _initcpio_udev_override > "${dir}/udev"
+}
+
 # Lib-only sourcing for tests: skip all side effects below.
 [[ "${INITCPIO_LIB_ONLY:-0}" == "1" ]] && return 0
 
@@ -84,5 +112,10 @@ else
     echo "Warning: preset file not found at ${PRESET_FILE} —" \
          "mkinitcpio -P will use defaults."
 fi
+
+# Bound the initramfs udev settle so a slow device can't stall boot past the
+# cap. Written before the image is built so mkinitcpio bakes in the override
+# (ADR 0030).
+_initcpio_write_udev_override ""
 
 mkinitcpio -P
