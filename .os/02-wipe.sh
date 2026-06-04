@@ -108,10 +108,14 @@ find_live_disk() {
 }
 
 detect_disks() {
+  # Diagnostics go to stderr: this function's stdout is captured verbatim as the
+  # disk list (`mapfile -t all_disks < <(detect_disks)`), so any info/warn line
+  # on stdout would be mistaken for a disk to wipe (and wipe_one_disk fails on
+  # it). Only device paths may reach stdout here.
   local live_disk
   live_disk="$(find_live_disk)"
   [[ -n "$live_disk" ]] \
-    && info "Live boot disk detected (will be excluded): ${live_disk}"
+    && info "Live boot disk detected (will be excluded): ${live_disk}" >&2
 
   local disks=()
   while IFS= read -r dev; do
@@ -129,7 +133,7 @@ detect_disks() {
       fi
     done < <(lsblk -ln -o NAME "$path" 2>/dev/null | tail -n +2)
     if $mounted; then
-      warn "Skipping $path — has mounted partitions."
+      warn "Skipping $path — has mounted partitions." >&2
       continue
     fi
 
