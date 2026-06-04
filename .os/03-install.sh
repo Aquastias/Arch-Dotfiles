@@ -128,6 +128,7 @@ source_module "${SCRIPT_DIR}/lib/config.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/configs.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
+source_module "${SCRIPT_DIR}/lib/pool-owners.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
@@ -208,6 +209,11 @@ main() {
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────
   run_profiles
+
+  # ── Data-pool ownership (after users/groups exist, pools still mounted) ───
+  # Makes /data pools writable by their owners + adds ~/Disks/<pool> symlinks
+  # (ADR 0031). Runs before impermanence so the symlinks land in /home.
+  pool_owners_apply
 
   # ── Impermanence (after users + programs, before unmount) ────────────────
   apply_impermanence

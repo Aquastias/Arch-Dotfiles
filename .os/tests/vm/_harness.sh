@@ -260,7 +260,7 @@ _render_user_data_multi() {
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
     boot_block="$(_seed_generator_multi_firstboot_block \
       "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
-      "${VM_VERIFY_BYID:-false}")"
+      "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}")"
   fi
 
   cat <<EOF

@@ -161,6 +161,20 @@ teardown() {
   [[ "$output" != *"VM_VERIFY_BYID"* ]]
 }
 
+@test "multi firstboot block: owned arg bakes VM_VERIFY_OWNED into the env" {
+  run _seed_generator_multi_firstboot_block "rpool tank0" \
+    "tank0/data:/data/tank0" false "/data/tank0:vm-test"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "VM_VERIFY_OWNED=(/data/tank0:vm-test)" ]]
+}
+
+@test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {
+  run _seed_generator_multi_firstboot_block "rpool tank0" \
+    "tank0/data:/data/tank0"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"VM_VERIFY_OWNED"* ]]
+}
+
 @test "multi firstboot block: emits the marker only via the verifier" {
   run _seed_generator_multi_firstboot_block "rpool" ""
   [ "$status" -eq 0 ]

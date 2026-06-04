@@ -111,9 +111,10 @@ BLOCK
 # mounts into the target, drop a self-disabling oneshot that runs the verifier
 # and echoes the boot sentinel ONLY when it passes, then export. A failed verify
 # emits no marker, so the host boot-verify times out and the test fails loudly.
-# Args: <pools-space-list> <mounts-space-list>. Test-only — never production.
+# Args: <pools-space-list> <mounts-space-list> [byid] [owned-space-list].
+# Test-only — never production.
 _seed_generator_multi_firstboot_block() {
-  local pools="$1" mounts="$2" byid="${3:-false}"
+  local pools="$1" mounts="$2" byid="${3:-false}" owned="${4:-}"
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
   local lib="/usr/local/lib/vm-pool-verify.sh"
   local env="/usr/local/lib/vm-pool-verify.env"
@@ -127,13 +128,17 @@ _seed_generator_multi_firstboot_block() {
   # (ADR 0028). Emitted only when requested so legacy fixtures are untouched.
   local byid_line=""
   [[ "$byid" == "true" ]] && byid_line=" 'VM_VERIFY_BYID=true'"
+  # VM_VERIFY_OWNED bakes "<mount>:<user>" pairs the verifier asserts are owned
+  # by, and writable by, <user> (pool-owners, ADR 0031). Emitted only when set.
+  local owned_line=""
+  [[ -n "$owned" ]] && owned_line=" 'VM_VERIFY_OWNED=(${owned})'"
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
 $(_seed_generator_esp_serial_lines)
       install -Dm644 /root/dotfiles/.os/lib/vm-pool-verify.sh "/mnt${lib}"
-      printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})'${byid_line} > "/mnt${env}"
+      printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})'${byid_line}${owned_line} > "/mnt${env}"
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=pool-verify sentinel (test-only)' 'After=zfs.target zfs-mount.service' 'Wants=zfs.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
