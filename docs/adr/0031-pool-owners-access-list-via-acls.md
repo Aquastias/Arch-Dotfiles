@@ -46,9 +46,15 @@ Validation (fail the install rather than half-break access): a bare name
 must be a declared user; a `@name` must be a group with ≥1 declared
 member.
 
-The chown/ACL/symlink step runs install-time inside the chroot **after
-`run_profiles`** (users and groups exist, pools are mounted under the
-altroot), so it can't be defeated by a first-boot import hiccup.
+The chown/ACL/symlink step runs install-time **after `run_profiles`**
+(users and groups exist, pools are mounted under the altroot), so it
+can't be defeated by a first-boot import hiccup. It runs on the host
+against the altroot-mounted paths (`${MOUNT_ROOT}/data/...`,
+`${MOUNT_ROOT}/home/...`), **resolving each owner to a numeric UID/GID
+read from the installed system's `/etc/passwd` + `/etc/group`** — the
+live ISO has no knowledge of the chroot's users, so a name-based `chown`
+on the host would fail. ACL group grants are written as `g:<gid>:rwx`,
+which still references the group, so membership stays dynamic.
 
 ## Considered alternatives
 - **`chown` + one shared group + setgid.** Handles a single group only;

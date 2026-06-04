@@ -163,26 +163,58 @@ setup() {
   [[ "$output" == *"family"* ]]
 }
 
-# ── pool_owners_apply_mount (thin I/O) ───────────────────────────────────────
-# chown/chmod are stubbed (they need root); ln/mkdir run for real in a temp
-# tree so the ~/Disks symlink behaviour is observable.
+# ── _pool_owners_group_mounts (independent → per-disk child mounts) ───────────
+
+@test "_pool_owners_group_mounts: non-independent is the single mountpoint" {
+  run _pool_owners_group_mounts /data/media mirror 2
+  [ "$status" -eq 0 ]
+  [ "$output" = "/data/media" ]
+}
+
+@test "_pool_owners_group_mounts: independent expands to per-disk children" {
+  run _pool_owners_group_mounts /data/media independent 3
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "/data/media/disk1" ]
+  [ "${lines[1]}" = "/data/media/disk2" ]
+  [ "${lines[2]}" = "/data/media/disk3" ]
+  [ "${#lines[@]}" -eq 3 ]
+}
+
+# ── pool_owners_apply_mount (thin I/O, host-side numeric translation) ─────────
+# The applier runs on the live ISO against the altroot-mounted system, so it
+# must resolve each owner to a numeric UID/GID from the INSTALLED passwd/group
+# (the ISO has no knowledge of the chroot's users). chown/chmod/setfacl are
+# stubbed (they need root); ln/mkdir run for real so the ~/Disks symlink is
+# observable. alice's gid (9000) differs from her uid (1000) to prove the
+# applier uses the primary GID (passwd field 4), not the uid.
 
 _apply_env() {
   MOUNT_ROOT="$BATS_TEST_TMPDIR/mnt"
   POOL_OWNERS_HOME_BASE="/home"
-  CHOWN_LOG="$BATS_TEST_TMPDIR/chown.log"
-  : > "$CHOWN_LOG"
-  mkdir -p "${MOUNT_ROOT}/data/tank0" "${MOUNT_ROOT}/home/alice"
+  CHOWN_LOG="$BATS_TEST_TMPDIR/chown.log"; : > "$CHOWN_LOG"
+  mkdir -p "${MOUNT_ROOT}/data/tank0" "${MOUNT_ROOT}/etc"
+  cat > "${MOUNT_ROOT}/etc/passwd" <<'PW'
+root:x:0:0::/root:/bin/bash
+alice:x:1000:9000::/home/alice:/bin/bash
+bob:x:1001:1001::/home/bob:/bin/bash
+carol:x:1002:1002::/home/carol:/bin/bash
+PW
+  cat > "${MOUNT_ROOT}/etc/group" <<'GR'
+root:x:0:
+alice:x:9000:
+family:x:1500:bob,carol
+GR
   chown() { printf '%s\n' "$*" >> "$CHOWN_LOG"; }
   chmod() { :; }
+  setfacl() { :; }
   warn()  { :; }
   info()  { :; }
 }
 
-@test "pool_owners_apply_mount: chown path owns the mount by the base user" {
+@test "pool_owners_apply_mount: chown path owns the mount by numeric uid:gid" {
   _apply_env
   pool_owners_apply_mount tank0 /data/tank0 "" "alice" ""
-  grep -q "alice:alice ${MOUNT_ROOT}/data/tank0" "$CHOWN_LOG"
+  grep -q "1000:9000 ${MOUNT_ROOT}/data/tank0" "$CHOWN_LOG"
 }
 
 @test "pool_owners_apply_mount: chown path links ~/Disks/<pool> to the mount" {
@@ -191,6 +223,7 @@ _apply_env() {
   local link="${MOUNT_ROOT}/home/alice/Disks/tank0"
   [ -L "$link" ]
   [ "$(readlink "$link")" = "/data/tank0" ]
+  grep -q "1000:9000 ${link}" "$CHOWN_LOG"   # symlink owned by numeric ids
 }
 
 @test "pool_owners_apply_mount: userless host leaves the mount root-owned" {
@@ -200,24 +233,37 @@ _apply_env() {
   [ ! -e "${MOUNT_ROOT}/home/alice/Disks/tank0" ]
 }
 
-@test "pool_owners_apply_mount: acl path setfacls entries + links each user" {
+@test "pool_owners_apply_mount: a declared user absent from the installed passwd is skipped" {
   _apply_env
-  mkdir -p "${MOUNT_ROOT}/home/bob"
+  pool_owners_apply_mount tank0 /data/tank0 "" "zara" ""
+  [ ! -s "$CHOWN_LOG" ]
+  [ ! -e "${MOUNT_ROOT}/home/zara/Disks/tank0" ]
+}
+
+@test "pool_owners_apply_mount: acl path setfacls numeric entries + links users" {
+  _apply_env
   SETFACL_LOG="$BATS_TEST_TMPDIR/setfacl.log"; : > "$SETFACL_LOG"
   setfacl() { printf '%s\n' "$*" >> "$SETFACL_LOG"; }
   pool_owners_apply_mount tank0 /data/tank0 "alice bob" "alice bob" ""
-  grep -q "alice:alice ${MOUNT_ROOT}/data/tank0" "$CHOWN_LOG"  # base owner
-  grep -q "u:alice:rwx" "$SETFACL_LOG"
-  grep -q "u:bob:rwx" "$SETFACL_LOG"
+  grep -q "1000:9000 ${MOUNT_ROOT}/data/tank0" "$CHOWN_LOG"  # base owner
+  grep -q "u:1000:rwx" "$SETFACL_LOG"
+  grep -q "u:1001:rwx" "$SETFACL_LOG"
   grep -q "m::rwx" "$SETFACL_LOG"
   [ -L "${MOUNT_ROOT}/home/alice/Disks/tank0" ]
   [ -L "${MOUNT_ROOT}/home/bob/Disks/tank0" ]
 }
 
+@test "pool_owners_apply_mount: acl @group becomes a numeric g:<gid> grant" {
+  _apply_env
+  SETFACL_LOG="$BATS_TEST_TMPDIR/setfacl.log"; : > "$SETFACL_LOG"
+  setfacl() { printf '%s\n' "$*" >> "$SETFACL_LOG"; }
+  pool_owners_apply_mount tank0 /data/tank0 "alice @family" \
+    "alice bob carol" "family:bob,carol"
+  grep -q "g:1500:rwx" "$SETFACL_LOG"
+}
+
 @test "pool_owners_apply_mount: @group members each get a symlink" {
   _apply_env
-  mkdir -p "${MOUNT_ROOT}/home/bob" "${MOUNT_ROOT}/home/carol"
-  setfacl() { :; }
   pool_owners_apply_mount tank0 /data/tank0 "alice @family" \
     "alice bob carol" "family:bob,carol"
   [ -L "${MOUNT_ROOT}/home/bob/Disks/tank0" ]
