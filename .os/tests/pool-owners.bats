@@ -26,6 +26,12 @@ setup() {
   [ "$output" = "alice" ]
 }
 
+@test "pool_owners_base: a single named user owns the pool" {
+  run pool_owners_base "carol" "alice bob carol"
+  [ "$status" -eq 0 ]
+  [ "$output" = "carol" ]
+}
+
 # ── pool_owners_mode ─────────────────────────────────────────────────────────
 
 @test "pool_owners_mode: omitted owners with a Primary User is a chown" {
@@ -40,6 +46,12 @@ setup() {
   [ "$output" = "root" ]
 }
 
+@test "pool_owners_mode: a single named user is a chown (no ACL)" {
+  run pool_owners_mode "carol" "alice bob carol"
+  [ "$status" -eq 0 ]
+  [ "$output" = "chown" ]
+}
+
 # ── pool_owners_access_users (drives ~/Disks/<pool> symlinks) ─────────────────
 
 @test "pool_owners_access_users: omitted owners is just the Primary User" {
@@ -52,6 +64,32 @@ setup() {
   run pool_owners_access_users "" ""
   [ "$status" -eq 0 ]
   [ -z "$output" ]
+}
+
+@test "pool_owners_access_users: a single named user gets the only symlink" {
+  run pool_owners_access_users "carol" "alice bob carol"
+  [ "$status" -eq 0 ]
+  [ "$output" = "carol" ]
+}
+
+# ── pool_owners_validate (drives layout_validate, ADR 0031) ──────────────────
+
+@test "pool_owners_validate: omitted owners is always valid" {
+  run pool_owners_validate "" "alice bob" ""
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "pool_owners_validate: a declared user is valid" {
+  run pool_owners_validate "alice" "alice bob" ""
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "pool_owners_validate: an undeclared user fails with a reason" {
+  run pool_owners_validate "carol" "alice bob" ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"carol"* ]]
 }
 
 # ── pool_owners_apply_mount (thin I/O) ───────────────────────────────────────

@@ -730,6 +730,32 @@ _layout_disk_exists() {
   [[ -b "$1" ]]
 }
 
+_layout_declared_users() {
+  # Seam: declared usernames (space-separated, Primary User first) used to
+  # validate `owners` lists. Reads the resolved host config; overridable in
+  # unit tests so the owners checks don't need a real host config on disk.
+  _pool_owners_declared_users
+}
+
+_layout_validate_owners() {
+  # Aborts the install when <owners> is invalid (pool-owners, ADR 0031): a
+  # bare name must be a declared user; an @group must have ≥1 declared member.
+  # No-op when owners is omitted — that case defaults to the Primary User, or
+  # is left root-owned with a warning on a host with no declared users.
+  local label="$1" owners="$2"
+  [[ -n "${owners// }" ]] || return 0
+  local reason
+  reason="$(pool_owners_validate "$owners" "$(_layout_declared_users)" \
+    "$(_layout_group_map)")" \
+    || error "${label} ${reason}"
+}
+
+_layout_group_map() {
+  # Seam: "group:member1,member2" pairs for @group owners validation. Built
+  # from User Configs; overridable in tests. Empty until issue 04 populates it.
+  printf ''
+}
+
 _mount_is_reserved() {
   # Returns 0 when the mountpoint shadows an OS/reserved dataset, so a data
   # pool can't break boot. Subtree semantics (not bare prefix): /var and
@@ -775,6 +801,8 @@ layout_validate() {
     while IFS= read -r d; do
       _layout_disk_exists "$d" || error "Group '${gname}' disk not found: $d"
     done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
+    _layout_validate_owners "Storage group '${gname}'" \
+      "$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
   done
 
   # Standalone Data Pools (ADR 0027): topology must match the disk count and
@@ -793,6 +821,8 @@ layout_validate() {
     if ! reason="$(_zfs_validate_pool_topology "$dtopo" "$ddc")"; then
       error "Data pool '${dname}': ${reason}"
     fi
+    _layout_validate_owners "Data pool '${dname}'" \
+      "$(install_config_data_pool_owners "$i" | tr '\n' ' ')"
   done
 
   # Cross-cutting data-pool guards (only when data_pools are declared, so

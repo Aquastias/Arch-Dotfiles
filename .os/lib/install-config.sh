@@ -140,6 +140,17 @@ install_config_storage_group_ashift() {
   printf '%s\n' "${v:-12}"
 }
 
+# Owners access list (pool-owners, ADR 0031) — one token per line, in order; a
+# bare token is a user, an @-prefixed token a group. Empty when absent. Defined
+# for both pool kinds; the Owners Resolver decides chown vs ACL from the tokens.
+install_config_storage_group_owners() {
+  jsonc_read "$CONFIG_FILE" ".storage_groups[$1].owners[]?"
+}
+
+install_config_data_pool_owners() {
+  jsonc_read "$CONFIG_FILE" ".data_pools[$1].owners[]?"
+}
+
 # =============================================================================
 # Standalone Data Pools — data_pools[] accessors (ADR 0027)
 # =============================================================================
