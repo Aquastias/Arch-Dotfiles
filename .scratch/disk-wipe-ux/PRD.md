@@ -1,6 +1,6 @@
 # Disk wipe: safe selection, live-medium protection, progress bars
 
-Status: ready-for-agent
+Status: done
 
 Glossary: Disk Wipe, Single Entry Point, Install Config, Standalone Data
 Pool, Storage Group.
