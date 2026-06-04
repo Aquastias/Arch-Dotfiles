@@ -29,9 +29,9 @@ VM_VERIFY_MOUNTS=(tank0/data:/data/tank0 tank1/data:/data/tank1)
 # bug where a pool recorded as /dev/sdX fails to import after reboot (ADR 0028).
 VM_VERIFY_BYID=true
 # Assert each data pool is owned by, and writable by, the Primary User — the
-# point of pool-owners (ADR 0031). host_profile=arch-data declares vm-test, so
+# point of pool-owners (ADR 0031). host_profile=arch-data declares vm-data, so
 # the installer's pool-owners step gives the /data pools to that user.
-VM_VERIFY_OWNED=(/data/tank0:vm-test /data/tank1:vm-test)
+VM_VERIFY_OWNED=(/data/tank0:vm-data /data/tank1:vm-data)
 
 INSTALL_CONFIG_CONTENT='{
   "system": {
