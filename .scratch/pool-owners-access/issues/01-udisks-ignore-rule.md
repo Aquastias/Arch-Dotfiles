@@ -1,6 +1,6 @@
 # udisks-ignore rule for ZFS members
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

@@ -1,6 +1,6 @@
 # Multi-principal / `@group` ACL ownership
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

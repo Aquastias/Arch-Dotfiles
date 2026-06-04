@@ -1,6 +1,6 @@
 # Pool owners: user/group access for data pools
 
-Status: ready-for-agent
+Status: done
 
 See ADR 0031 (Pool `owners` access list via POSIX ACLs), ADR 0027
 (Standalone Data Pools), ADR 0028 (stable device paths). Glossary:
