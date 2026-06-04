@@ -3,10 +3,19 @@
 # 02-wipe.sh
 # =============================================================================
 # PURPOSE:
-#   Completely wipes all detected physical disks so they appear brand new —
+#   Make-blank wipe of the disk(s) you opt into so they appear brand new —
 #   no partition tables, no filesystem signatures, no ZFS labels, no LVM
-#   metadata, no RAID superblocks. After this script every disk is a blank
+#   metadata, no RAID superblocks. After this script each wiped disk is a blank
 #   slate ready for the installer to partition from scratch.
+#
+# SELECTION MODEL (include-based, nothing wiped by default):
+#   - Explicit targets: any positional DISK args are the exact disks to wipe;
+#     detection + selection are skipped. install.sh resolves the install's
+#     target disks (single .disk, or os_pool/storage_groups/data_pools) and
+#     passes them here, so the wipe only ever touches disks the install uses.
+#   - Standalone (no targets), attended: detected disks are listed and you
+#     pick which to wipe by index (or `all`); Enter cancels (wipe nothing).
+#   - Standalone (no targets), unattended (-y): nothing to wipe (safe no-op).
 #
 # WHAT IT DOES PER DISK (in order):
 #   1. Tears down any ZFS pools using that disk (import → destroy)
@@ -20,12 +29,14 @@
 #   7. Second wipefs pass   — catches anything the clear may have re-written
 #   8. blockdev --rereadpt  — tells the kernel to re-read the empty table
 #
-# DISK DETECTION:
-#   Auto-detects all block devices of type "disk" via lsblk.
-#   Automatically SKIPS:
+# DISK DETECTION (standalone path only):
+#   Auto-detects all block devices of type "disk" via lsblk for the selection
+#   table. Automatically SKIPS:
 #     - The live USB/CD the system booted from
 #     - Any disk with currently mounted partitions
 #     - Loop devices, optical drives, RAM disks
+#   The live-medium hard guard also refuses any explicitly-passed target that
+#   is the install medium, so the boot stick can never be erased.
 #
 # ALREADY-ZEROED DISKS:
 #   Before wiping, each selected disk is checked: if it carries no signatures,
@@ -51,9 +62,10 @@
 #
 # USAGE:
 #   chmod +x 02-wipe.sh
-#   ./02-wipe.sh                    # interactive
-#   ./02-wipe.sh -y     # unattended (no exclusions, skip prompts)
-#   ./02-wipe.sh --unattended
+#   ./02-wipe.sh                      # interactive include-based selection
+#   ./02-wipe.sh /dev/sda /dev/sdb    # wipe exactly these disks
+#   ./02-wipe.sh -y /dev/sda          # unattended, explicit target, no prompts
+#   ./02-wipe.sh -y                   # unattended, no target → nothing to wipe
 #
 # Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag, so
 # it works whether invoked directly or via install.sh.
@@ -77,8 +89,14 @@ source "${SCRIPT_DIR}/lib/wipe-method.sh"
 # shellcheck source=lib/progress.sh
 source "${SCRIPT_DIR}/lib/progress.sh"
 
-# Final list of disks to wipe — populated interactively
+# Final list of disks to wipe — populated from explicit targets or selection.
 DISKS_TO_WIPE=()
+
+# Explicit target disks passed as positional args (e.g. by install.sh, which
+# resolves the install's target disks from the config). When non-empty, these
+# are the exact disks to wipe and disk detection + interactive selection are
+# skipped — the wipe stays config-agnostic, touching only what it was handed.
+TARGETS=()
 
 # =============================================================================
 # DISK DETECTION
@@ -165,45 +183,47 @@ disk_info_table() {
 # INTERACTIVE DISK SELECTION
 # =============================================================================
 
+# parse_disk_selection INPUT DISK... — pure include-based selection.
+# Emits the included device paths (one per line). Empty INPUT selects nothing
+# (the default-cancel: wipe nothing). Other rules are added per test below.
+parse_disk_selection() {
+  local input="$1"; shift
+  [[ -z "${input//[[:space:]]/}" ]] && return 0  # cancel → wipe nothing
+  if [[ "${input,,}" == "all" ]]; then
+    printf '%s\n' "$@"
+    return 0
+  fi
+  # 1-based indices into the disk list. Non-numeric / out-of-range tokens are
+  # skipped (never wipe a disk you didn't name); a repeated index is emitted
+  # once (preserve first-seen order) so a disk can't be wiped twice.
+  local all=("$@") tok seen=() out=() s dup
+  for tok in $input; do
+    [[ "$tok" =~ ^[0-9]+$ ]] || continue
+    (( tok >= 1 && tok <= ${#all[@]} )) || continue
+    dup=false
+    for s in "${seen[@]}"; do [[ "$s" == "$tok" ]] && { dup=true; break; }; done
+    $dup && continue
+    seen+=("$tok")
+    out+=("${all[$((tok - 1))]}")
+  done
+  ((${#out[@]})) && printf '%s\n' "${out[@]}" || true
+}
+
+# Interactive include-based selection. Only reached on a standalone, attended
+# run with no explicit targets — main() handles the install-driven (explicit
+# targets) and unattended (no-op) paths before this. The default is to wipe
+# NOTHING: Enter cancels.
 select_disks() {
   local all_disks=("$@")
-  DISKS_TO_WIPE=("${all_disks[@]}")
-
-  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    info "Unattended mode — all detected disks selected for wiping" \
-         "(no exclusions)."
-    return
-  fi
-
-  echo -e "  ${BOLD}All detected disks will be wiped by default.${NC}"
-  echo -e "  To ${YELLOW}EXCLUDE${NC} disks, enter their index" \
-          "numbers (space-separated)."
-  echo -e "  Press ${BOLD}Enter${NC} with no input to wipe" \
-          "everything listed above."
+  echo -e "  ${BOLD}Select the disk(s) to wipe.${NC}"
+  echo -e "  Enter the index number(s) to wipe (space-separated), or" \
+          "${BOLD}all${NC}."
+  echo -e "  Press ${BOLD}Enter${NC} with no input to" \
+          "${YELLOW}cancel${NC} — nothing is wiped by default."
   echo ""
-  read -rp "  Exclude disks by index (e.g. '1 3'), or Enter to wipe all: " excl
-
-  [[ -z "$excl" ]] && {
-    info "All disks selected for wiping."
-    return
-  }
-
-  local final=()
-  local excl_arr
-  read -ra excl_arr <<<"$excl"
-  local i ex
-  for i in "${!all_disks[@]}"; do
-    local skip=false
-    for ex in "${excl_arr[@]}"; do
-      [[ "$ex" == "$((i + 1))" ]] && skip=true && break
-    done
-    if $skip; then
-      warn "Excluding: ${all_disks[$i]}"
-    else
-      final+=("${all_disks[$i]}")
-    fi
-  done
-  DISKS_TO_WIPE=("${final[@]}")
+  local sel
+  read -rp "  Wipe which disk(s)? (e.g. '1 3', 'all', Enter to cancel): " sel
+  mapfile -t DISKS_TO_WIPE < <(parse_disk_selection "$sel" "${all_disks[@]}")
 }
 
 # =============================================================================
@@ -668,16 +688,25 @@ parse_args() {
         shift
         ;;
       -h | --help)
-        echo "Usage: $(basename "$0") [-y|--unattended] [-h|--help]"
+        echo "Usage: $(basename "$0") [-y|--unattended] [DISK...]"
         echo ""
-        echo "  -y, --unattended  Skip the disk-exclude prompt and both wipe"
-        echo "                    confirmations. Wipes every detected disk"
-        echo "                    that is not already zeroed."
+        echo "  DISK...           Explicit target disk(s) to wipe (e.g."
+        echo "                    /dev/sda). When given, disk detection and"
+        echo "                    interactive selection are skipped — only"
+        echo "                    these disks are wiped. install.sh passes the"
+        echo "                    install's target disks here."
+        echo "  -y, --unattended  Skip the selection prompt and both wipe"
+        echo "                    confirmations. With no DISK given there is"
+        echo "                    nothing to wipe (safe no-op)."
         echo "  -h, --help        Show this help and exit."
         exit 0
         ;;
-      *)
+      -*)
         error "Unknown argument: $1"
+        ;;
+      *)
+        TARGETS+=("$1")
+        shift
         ;;
     esac
   done
@@ -687,7 +716,7 @@ main() {
   parse_args "$@"
 
   echo -e "\n${CYAN}${BOLD}  Disk Wipe Utility${NC}"
-  echo -e "${DIM}  Full zero-fill wipe — all detected physical disks${NC}"
+  echo -e "${DIM}  Make-blank wipe — only the disk(s) you select or pass${NC}"
   echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"
 
   [[ $EUID -eq 0 ]] || error "Run as root."
@@ -700,21 +729,37 @@ main() {
   # isn't excluded by detect_disks() as "mounted". No-op when /mnt is clean.
   reset_prior_install_state
 
-  section "Detecting Disks"
-  mapfile -t all_disks < <(detect_disks)
-  ((${#all_disks[@]} > 0)) ||
-    error "No eligible disks detected." \
-          "Check connections and that no disk is mounted."
-
-  info "Found ${#all_disks[@]} disk(s):"
-  disk_info_table "${all_disks[@]}"
-
-  section "Select Disks to Wipe"
-  select_disks "${all_disks[@]}"
-  ((${#DISKS_TO_WIPE[@]} > 0)) || {
-    info "No disks selected. Nothing to do."
+  if ((${#TARGETS[@]} > 0)); then
+    # Install-driven: wipe exactly the disks we were handed (resolved by the
+    # Single Entry Point from the Install Config). No detection, no selection.
+    section "Target Disks (install-driven)"
+    DISKS_TO_WIPE=("${TARGETS[@]}")
+    info "Wiping ${#DISKS_TO_WIPE[@]} install target disk(s):"
+    disk_info_table "${DISKS_TO_WIPE[@]}"
+  elif [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    # Unattended with no explicit targets: nothing to wipe (safe no-op). The
+    # old "wipe every detected disk" default is intentionally gone.
+    info "No target disks given. Nothing to wipe."
     exit 0
-  }
+  else
+    # Standalone, attended: detect, show the table, include-select (Enter
+    # cancels — nothing is wiped by default).
+    section "Detecting Disks"
+    mapfile -t all_disks < <(detect_disks)
+    ((${#all_disks[@]} > 0)) ||
+      error "No eligible disks detected." \
+            "Check connections and that no disk is mounted."
+
+    info "Found ${#all_disks[@]} disk(s):"
+    disk_info_table "${all_disks[@]}"
+
+    section "Select Disks to Wipe"
+    select_disks "${all_disks[@]}"
+    ((${#DISKS_TO_WIPE[@]} > 0)) || {
+      info "No disks selected. Nothing to do."
+      exit 0
+    }
+  fi
 
   # Drop disks that are already blank — no point zero-filling them again.
   skip_zeroed_disks
