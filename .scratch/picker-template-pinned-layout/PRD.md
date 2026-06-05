@@ -1,5 +1,7 @@
 # Picker: template-pinned os_pool layout
 
+Status: done
+
 See ADR 0029. Lets an Install Template pin OS-pool layout so the
 Pre-Install Picker skips its mode prompt and honors the pinned
 topology, while disks stay operator-picked.
