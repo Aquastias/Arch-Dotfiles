@@ -20,7 +20,7 @@ the by-id scan with the archzfs hook's own import retry.
 
 - [ ] The installed system's initramfs caps the udev settle at the
       chosen timeout.
-- [ ] Boot still completes and the root pool imports (verified by the
+- [x] Boot still completes and the root pool imports (verified by the
       existing boot-verify VM smoke test).
 - [x] A pure emitter produces the hook-override content; a unit test
       asserts the bounded settle is present.
@@ -47,3 +47,11 @@ None - can start immediately.
   initramfs caps the settle and boot still completes — covered by the
   existing boot-verify VM smoke test; no libvirt on this dev host. Status
   stays `ready-for-agent` for a host that can run it.
+- 2026-06-06: ran boot-verify on real KVM at HEAD. Boot reaches
+  `FIRSTBOOT-OK`; initramfs `udev` hook runs ("Triggering uevents") with
+  no device-discovery regression and rpool imports. Box 2 ticked (boot
+  completes + root pool imports). Box 1 ("caps settle at 30s") left open:
+  a clean boot can't distinguish a bounded from an unbounded settle, so
+  the cap value needs an in-guest read of the installed
+  `/etc/initcpio/hooks/udev` (or a test-only serial diagnostic dump) —
+  not runnable offline here (no zpool/sudo).
