@@ -130,6 +130,17 @@ teardown() {
   [[ "$output" =~ "zpool export rpool" ]]
 }
 
+@test "verify-boot on: export has a forced fallback (clean export even if busy)" {
+  # Regression for zfs-boot-verify/02: a plain `zpool export rpool || true`
+  # swallowed a failed export, leaving the pool stamped "in use by archiso"
+  # (foreign hostid). The installed initramfs then refused the import without
+  # -f and PID 1 panicked. A forced-export fallback always clears the active
+  # flag so the installed system imports root cleanly.
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE" false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "zpool export -f rpool" ]]
+}
+
 @test "verify-boot marker matches the shared constant contract" {
   [ "$SEED_GENERATOR_FIRSTBOOT_MARKER" = "===FIRSTBOOT-OK===" ]
 }
@@ -166,6 +177,14 @@ teardown() {
     "tank0/data:/data/tank0" false "/data/tank0:vm-test"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "VM_VERIFY_OWNED=(/data/tank0:vm-test)" ]]
+}
+
+@test "multi firstboot block: export has a forced fallback (clean even if busy)" {
+  # Same zfs-boot-verify/02 regression as the single-disk block: never leave
+  # the pool stamped "in use" after the injection or the next boot panics.
+  run _seed_generator_multi_firstboot_block "rpool tank0" "tank0/data:/data/tank0"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "zpool export -f rpool" ]]
 }
 
 @test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {

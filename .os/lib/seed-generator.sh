@@ -100,7 +100,7 @@ $(_seed_generator_esp_serial_lines)
       printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "echo ${m} > /dev/ttyS0"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       zfs umount -a || true
-      zpool export rpool || true
+      zpool export rpool || zpool export -f rpool || true
     fi
 BLOCK
 }
@@ -143,7 +143,7 @@ $(_seed_generator_esp_serial_lines)
       printf '%s\n' '[Unit]' 'Description=pool-verify sentinel (test-only)' 'After=zfs.target zfs-mount.service' 'Wants=zfs.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       zfs umount -a || true
-      zpool export rpool || true
+      zpool export rpool || zpool export -f rpool || true
     fi
 BLOCK
 }
