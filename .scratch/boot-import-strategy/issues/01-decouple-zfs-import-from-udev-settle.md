@@ -21,7 +21,7 @@ fallback for a pool that is not yet in the cache.
 
 - [ ] On a booted install, the ZFS import services no longer require
       `systemd-udev-settle`.
-- [ ] Pools still import at boot (via the initramfs), and the post-boot
+- [x] Pools still import at boot (via the initramfs), and the post-boot
       services run without a failed dependency.
 - [x] A pure emitter produces the drop-in content; a unit test asserts
       the settle dependency is removed.
@@ -48,3 +48,13 @@ None - can start immediately.
   confirm the services no longer require settle and pools still import —
   covered by the existing boot-verify VM smoke test, no libvirt on this
   dev host. Status stays `ready-for-agent` for a host that can run it.
+- 2026-06-06: ran boot-verify on real KVM at HEAD (dirty-cache fixture,
+  pinned 2026.05.01 ISO). `INSTALLER-EXIT-0` → `FIRSTBOOT-OK`. Boot log:
+  initramfs imports rpool (`:: hook [udev]` → `[zfs]` → "Importing pool
+  rpool"); post-boot "Import ZFS pools by cache file" Finished + "ZFS
+  pool import target" Reached, NO failed dependency, NO settle stall.
+  Box 2 ticked (pools import + post-boot services clean). Box 1 ("no
+  longer require settle") left open: indirect evidence strong (a Requires=
+  on the deprecated unit would fail the dep — it didn't), but the direct
+  proof is in-guest `systemctl show zfs-import-cache.service -p Requires`,
+  which this host can't run (no zpool/sudo; ZFS only inside guests).

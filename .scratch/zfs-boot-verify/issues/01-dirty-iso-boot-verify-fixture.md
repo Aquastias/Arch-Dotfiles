@@ -131,3 +131,15 @@ power-cycles to the installed disk and confirms it boots.
     preserved for that diagnosis.
 - AC items 2 and 6 (real boot to FIRSTBOOT-OK + negative control) remain
   unverified, now blocked on `02`. Status stays `ready-for-agent`.
+- 2026-06-06: AC 2 re-confirmed on real KVM at HEAD (after the `02`
+  force-export fix landed). Dirty-cache fixture, pinned 2026.05.01 ISO,
+  8 vCPU/8 GB: `INSTALLER-EXIT-0` → `FIRSTBOOT-OK`, `FIXTURE_EXIT=0`.
+- AC 6 (negative control) still open, and its premise needs a correction:
+  the two guards are INDEPENDENT and REDUNDANT, so reverting EITHER alone
+  does NOT brick. Per-pool seeding (`_chroot_seed_zpool_cache`,
+  `lib/chroot.sh`) bakes a VALID cache; `zfs_import_dir=/dev/disk/by-id`
+  (`lib/chroot/bootloader-systemd-boot.sh`) makes the initramfs ZFS hook
+  ignore the cache entirely (its own comment: "cannot brick boot
+  regardless"). To reproduce the original brick the negative control must
+  revert BOTH (restore the stale-cache `cp` fallback AND drop
+  `zfs_import_dir`), then confirm the fixture fails to reach FIRSTBOOT-OK.
