@@ -477,12 +477,13 @@ _find_block_device() {
 }
 
 # ── layout_validate: data_pools[] name/uniqueness/mount (issue 03) ───────────
-
-_os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
+# NB: skip on a missing block device must run in the test body — `skip` inside
+# a `$(...)` command substitution only exits the subshell, so the test would
+# proceed with an empty osd and fail. Use `osd="$(_find_block_device)" || skip`.
 
 @test "layout_validate: invalid data pool name aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -496,7 +497,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: duplicate data pool name aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -512,7 +513,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: data pool name colliding with rpool aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -525,7 +526,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: disk reused between OS pool and data pool aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -538,7 +539,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: disk reused across two data pools aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -554,7 +555,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: data pool mount on reserved path aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -568,7 +569,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: two pools sharing a mountpoint aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -584,7 +585,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 
 @test "layout_validate: data pool disk that does not exist aborts" {
   _LAYOUT_PHASE=0
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
@@ -599,7 +600,7 @@ _os_disk_or_skip() { _find_block_device || skip "no usable block device"; }
 @test "layout_validate: nested data pool mounts are allowed" {
   _LAYOUT_PHASE=0
   _layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
-  local osd; osd="$(_os_disk_or_skip)"
+  local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
     \"storage_groups\":[],
