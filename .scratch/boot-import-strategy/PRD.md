@@ -1,6 +1,6 @@
 # Boot-time ZFS import: stop uevent settle from hanging boot
 
-Status: ready-for-agent
+Status: done
 
 See ADR 0030 (Boot-time ZFS import strategy), ADR 0028 (stable device
 paths). Glossary: Chroot Configuration Module, Single Entry Point.

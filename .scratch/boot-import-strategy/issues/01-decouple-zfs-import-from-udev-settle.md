@@ -1,6 +1,6 @@
 # Decouple zfs-import services from systemd-udev-settle
 
-Status: needs-info
+Status: done
 
 ## Parent
 
@@ -19,8 +19,9 @@ fallback for a pool that is not yet in the cache.
 
 ## Acceptance criteria
 
-- [ ] On a booted install, the ZFS import services no longer require
-      `systemd-udev-settle`.
+- [x] On a booted install, the ZFS import services no longer require
+      `systemd-udev-settle`. (Achieved via full /etc replacement units, not
+      a reset drop-in — see comments; runtime-verified 2026-06-06.)
 - [x] Pools still import at boot (via the initramfs), and the post-boot
       services run without a failed dependency.
 - [x] A pure emitter produces the drop-in content; a unit test asserts
@@ -76,3 +77,19 @@ None - can start immediately.
   `/usr/lib` unit wholesale, omitting the settle Requires/After), or
   another mechanism, then re-verify with this same diagnostic. AC #1 stays
   unchecked; reopening. Status → `needs-info` (decide rework approach).
+- 2026-06-06: FIXED + runtime-verified. Reworked `lib/chroot/zfs-import.sh`
+  (TDD, 7 bats): replaced the dead reset drop-in with a pure filter
+  `zfs_import_strip_settle` (removes the `systemd-udev-settle.service`
+  token from `Requires=`/`After=`, dropping emptied directives, preserving
+  the rest) + writer `zfs_import_write_settle_overrides <root>` that derives
+  a FULL replacement unit from the package's own
+  `/usr/lib/systemd/system/zfs-import-{cache,scan}.service` and installs it
+  at `/etc/systemd/system/…` (complete shadow, no merge → settle absent;
+  tracks upstream since it's derived, not hardcoded). `configure.sh` now
+  calls the writer (was `…_write_settle_dropins`).
+- Booted-install diagnostic (dirty-cache fixture, real KVM, fix served via
+  git daemon): both services now `Requires=system.slice` and `After=… NO
+  systemd-udev-settle`, `cryptsetup.target` ordering kept; `INSTALLER-EXIT-0`
+  → `FIRSTBOOT-OK`, `FIXTURE_EXIT=0`. Box 1 met. All 4 ACs done — issue done.
+  Fix commit `e102fe9`. NOTE: ADR 0030 + this issue's "What to build" say
+  "drop-ins"; the working mechanism is full units (ADR updated).
