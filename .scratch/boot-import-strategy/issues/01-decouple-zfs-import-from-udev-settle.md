@@ -1,6 +1,6 @@
 # Decouple zfs-import services from systemd-udev-settle
 
-Status: ready-for-agent
+Status: needs-info
 
 ## Parent
 
@@ -53,8 +53,26 @@ None - can start immediately.
   initramfs imports rpool (`:: hook [udev]` → `[zfs]` → "Importing pool
   rpool"); post-boot "Import ZFS pools by cache file" Finished + "ZFS
   pool import target" Reached, NO failed dependency, NO settle stall.
-  Box 2 ticked (pools import + post-boot services clean). Box 1 ("no
-  longer require settle") left open: indirect evidence strong (a Requires=
-  on the deprecated unit would fail the dep — it didn't), but the direct
-  proof is in-guest `systemctl show zfs-import-cache.service -p Requires`,
-  which this host can't run (no zpool/sudo; ZFS only inside guests).
+  Box 2 ticked (pools import + post-boot services clean).
+- 2026-06-06: Box 1 DISPROVEN. Added a test-only serial diagnostic dump to
+  the boot-verify first-boot unit (seed-generator) running
+  `systemctl show zfs-import-cache.service zfs-import-scan.service -p
+  Requires -p After` on the BOOTED installed system. Result:
+    Requires=system.slice systemd-udev-settle.service
+    After=...cryptsetup.target...systemd-udev-settle.service
+  BOTH services STILL require + order after `systemd-udev-settle.service`.
+  The drop-in is loaded but ineffective.
+- ROOT CAUSE (reproduced on this host, systemd 260, no VM): an empty
+  `Requires=` / `After=` reset in a drop-in does NOT remove a dependency
+  declared in the unit's main file. A probe unit `Requires=
+  systemd-udev-settle.service dbus.service` + a `[Unit]\nRequires=` drop-in
+  (confirmed loaded via `systemctl cat`) still showed BOTH deps after
+  `daemon-reload`. So `zfs_import_settle_dropin`'s reset approach cannot
+  decouple the services; its unit test only asserts the emitted TEXT, not
+  the runtime effect — a shape-vs-behavior gap.
+- FIX NEEDED (rework, not done here): drop-in reset is a dead end on
+  systemd 260. Ship a FULL replacement unit at
+  `/etc/systemd/system/zfs-import-{cache,scan}.service` (overrides the
+  `/usr/lib` unit wholesale, omitting the settle Requires/After), or
+  another mechanism, then re-verify with this same diagnostic. AC #1 stays
+  unchecked; reopening. Status → `needs-info` (decide rework approach).
