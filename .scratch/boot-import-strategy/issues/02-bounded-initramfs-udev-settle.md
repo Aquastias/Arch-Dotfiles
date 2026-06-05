@@ -1,6 +1,6 @@
 # Bounded initramfs udev settle
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -18,7 +18,7 @@ the by-id scan with the archzfs hook's own import retry.
 
 ## Acceptance criteria
 
-- [ ] The installed system's initramfs caps the udev settle at the
+- [x] The installed system's initramfs caps the udev settle at the
       chosen timeout.
 - [x] Boot still completes and the root pool imports (verified by the
       existing boot-verify VM smoke test).
@@ -50,8 +50,9 @@ None - can start immediately.
 - 2026-06-06: ran boot-verify on real KVM at HEAD. Boot reaches
   `FIRSTBOOT-OK`; initramfs `udev` hook runs ("Triggering uevents") with
   no device-discovery regression and rpool imports. Box 2 ticked (boot
-  completes + root pool imports). Box 1 ("caps settle at 30s") left open:
-  a clean boot can't distinguish a bounded from an unbounded settle, so
-  the cap value needs an in-guest read of the installed
-  `/etc/initcpio/hooks/udev` (or a test-only serial diagnostic dump) —
-  not runnable offline here (no zpool/sudo).
+  completes + root pool imports).
+- 2026-06-06: Box 1 CONFIRMED via a test-only serial diagnostic dump added
+  to the boot-verify first-boot unit (seed-generator). The booted system's
+  installed `/etc/initcpio/hooks/udev` shows `udevadm settle --timeout=30`
+  on serial — the bound is baked into the installed initramfs hook. All
+  ACs now met; issue done.
