@@ -145,6 +145,29 @@ teardown() {
   [ "$SEED_GENERATOR_FIRSTBOOT_MARKER" = "===FIRSTBOOT-OK===" ]
 }
 
+@test "verify-boot on: first-boot unit dumps zfs-import service deps to serial" {
+  # AC #1 (boot-import-strategy/01): prove the booted system's zfs-import
+  # services no longer require systemd-udev-settle. The sentinel dumps their
+  # resolved Requires/After to serial before the marker so the boot log
+  # carries the structural proof, not just a clean boot.
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE" false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===DIAG-ZFS-IMPORT-DEPS===" ]]
+  [[ "$output" =~ "systemctl show zfs-import-cache.service zfs-import-scan.service" ]]
+  [[ "$output" =~ "-p Requires" ]]
+}
+
+@test "verify-boot on: first-boot unit dumps the installed udev settle line" {
+  # AC #1 (boot-import-strategy/02): prove the installed initramfs udev hook
+  # carries the bounded settle. The sentinel greps the settle line out of the
+  # installed override hook and prints it to serial before the marker.
+  run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE" false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===DIAG-UDEV-SETTLE===" ]]
+  [[ "$output" =~ "/etc/initcpio/hooks/udev" ]]
+  [[ "$output" =~ "settle" ]]
+}
+
 # ── multi-disk first-boot pool verifier injection (issue 06 / ADR 0027) ──────
 
 @test "multi firstboot block: ships the verifier and bakes the expectations" {
