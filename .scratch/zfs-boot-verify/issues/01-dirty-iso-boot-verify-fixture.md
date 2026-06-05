@@ -53,10 +53,13 @@ power-cycles to the installed disk and confirms it boots.
 
 - [x] Fixture pre-seeds a garbage `/etc/zfs/zpool.cache` on the live
       ISO before install (renderer `DIRTY_CACHE`, unit-tested).
-- [ ] After a successful install, the harness power-cycles to the
+- [x] After a successful install, the harness power-cycles to the
       installed disk (cdroms ejected) and the installed system
       reaches `===FIRSTBOOT-OK===` on serial within the boot timeout.
-      (Implemented; needs a real libvirt run to verify.)
+      Verified end-to-end on libvirt/KVM (`FIXTURE_EXIT=0`) — see
+      `02-installed-system-silent-on-boot-verify.md` (required the
+      forced-export fix; run with `VM_VCPUS=8` so the DKMS source build
+      fits the install timeout).
 - [x] The first-boot sentinel unit self-disables and is injected
       test-only — a normal (non-fixture) install never contains it
       (renderer `VERIFY_BOOT`, unit-tested incl. default-off).

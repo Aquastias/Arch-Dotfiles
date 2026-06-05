@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Boot-verify: installed system silent after kernel handoff
 
@@ -89,13 +89,12 @@ ordering → fix the unit, re-test).
 ## Acceptance criteria
 
 - [x] Root cause of the silent boot identified from serial output.
-- [ ] Either: fixture reaches `===FIRSTBOOT-OK===` with the shipped
-      fix in place; or: documented why the dirty-cache fixture can't
-      assert real boot under QEMU and what it guards instead.
-      (Fix applied + unit-tested; needs one fixture reinstall VM run to
-      confirm FIRSTBOOT-OK.)
-- [ ] Unblocks `01`'s remaining ACs (real-boot + negative control).
-      (Pending the same reinstall run.)
+- [x] Fixture reaches `===FIRSTBOOT-OK===` with the shipped fix in place.
+      Verified end-to-end on this host (libvirt/KVM): fresh dirty-cache
+      install → `===INSTALLER-EXIT-0===` → power-cycle → installed system
+      imports root cleanly and emits `===FIRSTBOOT-OK===` (`FIXTURE_EXIT=0`).
+- [x] Unblocks `01`'s real-boot AC (positive control verified; the
+      revert/negative control is left to `01`).
 
 ## Root cause (from serial)
 
@@ -141,13 +140,24 @@ clearing the active flag so the installed system imports root without
 forced fallback). Full bats green (910; the 7 `layout_validate` failures
 are pre-existing — real block devices). shellcheck clean.
 
-## Remaining
+## Verified (end-to-end)
 
-End-to-end confirmation: re-run the dirty-cache fixture
-(`tests/vm/testing-single-disk-dirty-cache.sh --verify-boot`) with the
-fix so a fresh install reaches `===FIRSTBOOT-OK===`, and the negative
-control still fails. Heavy/network path (full Arch + archzfs install;
-ISO↔archzfs kernel pinning per earlier comment). The preserved
-`arch-zfs-test-single-dirty` disk still has the dirty pool (and now a
-`console=ttyS0` diagnostic line in its loader entry) — re-running the
-fixture overwrites it.
+Re-ran `testing-single-disk-dirty-cache.sh --recreate` on libvirt/KVM
+with the fix in place. Result: `Applying Data-Pool Ownership → applied`,
+`zpool export rpool`, `===INSTALLER-EXIT-0===`; the power-cycled install
+imports root **cleanly** (boot serial: `Import ZFS pools by cache file
+[OK] … Reached target ZFS startup target`) and emits `===FIRSTBOOT-OK===`
+— `FIXTURE_EXIT=0`. The earlier `Attempted to kill init` panic is gone.
+
+Notes for future runs on this host:
+- The 2026.06+ ISOs ship archzfs as **DKMS only**, so the installer
+  builds ZFS from source for both the live and target kernels. On 2 vCPU
+  that exceeds the 1800s install budget — run with `VM_VCPUS=8`
+  (`TIMEOUT_SEC` headroom) or it times out (`FIXTURE_EXIT=124`).
+- Two unrelated blockers were fixed to get here: the harness aborts under
+  `set -e` when reusing a VM whose CDROMs were ejected
+  (`_vm_install_iso_path` empty → use `--recreate`), and a single-mode
+  `pool-owners.sh` unbound-variable crash (separate commit `fix(install):
+  Guard leftover pool check when storage array undeclared`).
+- The negative control (revert the seeding fix / `zfs_import_dir` and
+  confirm the fixture fails) is left to `01`.
