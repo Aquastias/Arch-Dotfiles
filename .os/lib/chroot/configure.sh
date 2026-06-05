@@ -90,8 +90,10 @@ systemctl enable zfs.target
 
 # Decouple the post-boot import services from the deprecated
 # systemd-udev-settle so a slow/stalled settle can't fail pool imports or
-# stall boot. The initramfs stays the authoritative importer (ADR 0030).
-zfs_import_write_settle_dropins ""
+# stall boot. Ships full /etc replacement units (a reset drop-in does not
+# remove the dep on systemd 260). The initramfs stays the authoritative
+# importer (ADR 0030).
+zfs_import_write_settle_overrides ""
 
 # Enable per-pool key-load service for any encrypted pools (dpool etc.).
 # The initramfs ZFS hook handles the root pool — this covers datasets that
