@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Dirty-ISO boot-verify VM fixture
 
@@ -69,10 +69,11 @@ power-cycles to the installed disk and confirms it boots.
 - [x] The boot phase is opt-in (`--verify-boot`); the default VM
       suite's runtime/behaviour is unchanged for other fixtures
       (full bats suite still green; knobs default off).
-- [ ] With the shipped fix in place the fixture passes; reverting
-      either the per-pool seeding loop or `zfs_import_dir` makes it
-      fail (proves it guards the real bug class).
-      (Needs a real libvirt run to verify.)
+- [x] With the shipped fix in place the fixture passes; reverting BOTH
+      the per-pool seeding loop AND `zfs_import_dir` makes it fail
+      (proves it guards the real bug class). Wording corrected: the two
+      guards are redundant, so reverting EITHER alone still boots —
+      reverting BOTH is required to repro the brick.
 
 ## Notes
 
@@ -143,3 +144,14 @@ power-cycles to the installed disk and confirms it boots.
   regardless"). To reproduce the original brick the negative control must
   revert BOTH (restore the stale-cache `cp` fallback AND drop
   `zfs_import_dir`), then confirm the fixture fails to reach FIRSTBOOT-OK.
+- 2026-06-06: AC 6 DONE. Negative control run on real KVM. Built a
+  throwaway local clone with BOTH guards reverted (`cp` stale-cache
+  fallback restored + `zfs_import_dir` dropped from both boot entries),
+  served it to the VM via `git daemon` on the libvirt bridge (REPO_URL
+  override), and ran the dirty-cache fixture. Result: install still
+  `INSTALLER-EXIT-0`, but the power-cycle boot BRICKED — never reached
+  `FIRSTBOOT-OK`, boot log ends in `Kernel panic - not syncing: Attempted
+  to kill init!` (initramfs couldn't import rpool: corrupt cache baked +
+  no by-id fallback). `FIXTURE_EXIT=125`. Confirms the fixture guards the
+  real bug class. Clone + daemon torn down; real tree/GitHub untouched.
+  All 6 ACs now met — issue done.
