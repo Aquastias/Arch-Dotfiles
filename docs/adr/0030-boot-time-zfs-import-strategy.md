@@ -31,11 +31,16 @@ Treat the **initramfs as the authoritative importer** (root + every
 cached pool, by stable by-id paths per ADR 0028), and make the post-boot
 services a non-blocking safety net:
 
-1. **Decouple the import services from `systemd-udev-settle`.** Ship
-   drop-ins for `zfs-import-cache.service` and `zfs-import-scan.service`
-   that remove the `Requires=`/`After=systemd-udev-settle.service`
-   relationship — matching OpenZFS upstream's own removal. They remain
-   `oneshot`, best-effort, and never gate boot.
+1. **Decouple the import services from `systemd-udev-settle`.** Ship FULL
+   replacement units for `zfs-import-cache.service` and
+   `zfs-import-scan.service` at `/etc/systemd/system/`, derived from the
+   package's own `/usr/lib` units with the
+   `Requires=`/`After=systemd-udev-settle.service` token filtered out —
+   matching OpenZFS upstream's own removal. They remain `oneshot`,
+   best-effort, and never gate boot. (A `Requires=` *reset drop-in* was
+   tried first but does NOT remove a main-file dependency on systemd 260 —
+   verified on a booted install; a full `/etc` unit wholly shadows the
+   `/usr/lib` one with no merge, so the settle dep is simply absent.)
 2. **Bound the initramfs settle.** Override `/etc/initcpio/hooks/udev`
    (which takes precedence over `/usr/lib/initcpio/hooks/udev`) so the
    hook runs the same `udevadm trigger` pair followed by
