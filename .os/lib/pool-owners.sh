@@ -331,6 +331,17 @@ _pool_owners_data_pool_owners_by_name() {
   done
 }
 
+# 0 if an interactively-folded leftover OS-disk pool exists in layout state,
+# 1 otherwise. _LAYOUT_IMPL_STORAGE_PARTS is a layout-MULTI global; in
+# single-disk mode it is never declared, so a bare `[[ -v arr[_leftover] ]]`
+# would arithmetic-evaluate the subscript and abort the install under `set -u`
+# ("_leftover: unbound variable"). The `declare -p` guard short-circuits before
+# the subscript is touched, so the check is safe when the array is absent.
+_pool_owners_has_leftover() {
+  declare -p _LAYOUT_IMPL_STORAGE_PARTS &>/dev/null || return 1
+  [[ -v _LAYOUT_IMPL_STORAGE_PARTS[_leftover] ]]
+}
+
 # Orchestrator: make every data-pool mountpoint usable by its owner(s) and
 # create the ~/Disks/<pool> symlinks. Runs install-time after the Runner
 # created users/groups, on the host against the altroot-mounted pools (ADR
@@ -372,7 +383,7 @@ pool_owners_apply() {
   # ── Folded leftover OS disks → dpool/DATA/extra (interactive, no config
   # entry) — default to the Primary User. Topology mirrors create_multi_dpool's
   # leftover default (independent).
-  if [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]]; then
+  if _pool_owners_has_leftover; then
     local lparts ltopo ldc
     lparts="${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
     ltopo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
