@@ -269,3 +269,36 @@ GR
   [ -L "${MOUNT_ROOT}/home/bob/Disks/tank0" ]
   [ -L "${MOUNT_ROOT}/home/carol/Disks/tank0" ]
 }
+
+# ── leftover-pool predicate (regression: single-mode unbound variable) ───────
+# pool_owners_apply checks for an interactively-folded leftover OS-disk pool via
+# the layout-MULTI associative arrays. In single-disk mode those arrays are
+# never declared, so a bare `[[ -v arr[_leftover] ]]` arithmetic-evaluated the
+# subscript and crashed the whole install under `set -u`
+# ("_leftover: unbound variable"). The predicate must be safe when absent.
+
+@test "leftover predicate: defined and safe in single mode (undeclared arrays)" {
+  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+    declare -F _pool_owners_has_leftover >/dev/null || { echo NO_FN; exit 3; }
+    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"NOLEFT"* ]]
+  [[ "$output" != *"unbound variable"* ]]
+  [[ "$output" != *"NO_FN"* ]]
+}
+
+@test "leftover predicate: true when a _leftover storage part exists" {
+  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+    declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([_leftover]='/dev/sdb1')
+    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"HASLEFT"* ]]
+}
+
+@test "leftover predicate: false when the array lacks a _leftover key" {
+  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+    declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([tank0]='/dev/sdc1')
+    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"NOLEFT"* ]]
+}
