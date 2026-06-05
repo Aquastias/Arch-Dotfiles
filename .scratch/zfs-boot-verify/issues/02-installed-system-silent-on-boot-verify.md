@@ -88,8 +88,66 @@ ordering → fix the unit, re-test).
 
 ## Acceptance criteria
 
-- [ ] Root cause of the silent boot identified from serial output.
+- [x] Root cause of the silent boot identified from serial output.
 - [ ] Either: fixture reaches `===FIRSTBOOT-OK===` with the shipped
       fix in place; or: documented why the dirty-cache fixture can't
       assert real boot under QEMU and what it guards instead.
+      (Fix applied + unit-tested; needs one fixture reinstall VM run to
+      confirm FIRSTBOOT-OK.)
 - [ ] Unblocks `01`'s remaining ACs (real-boot + negative control).
+      (Pending the same reinstall run.)
+
+## Root cause (from serial)
+
+Booted the preserved `arch-zfs-test-single-dirty` disk with
+`console=ttyS0` added to the loader entry (offline guestfish edit) and
+captured serial. It is **neither hypothesis** — boot dies in the
+initramfs, ~2 s in:
+
+```
+:: running hook [zfs]
+ZFS: Importing pool rpool.
+cannot import 'rpool': pool was previously in use from another system.
+Last accessed by archiso (hostid=7325101c) at Mon Jun  1 19:31:51 2026
+The pool can be imported, use 'zpool import -f' to import the pool.
+ERROR: ZFS: Unable to import pool rpool.
+Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+```
+
+The root pool is stamped **active / "in use by archiso"** (foreign
+hostid). The installed initramfs ZFS hook imports without `-f` (correct),
+so the import is refused, root can't mount, PID 1 (`/init`) exits 1 →
+kernel panic. No `console=` on the stock cmdline is why this was
+invisible (the hook's messages go to `/dev/console`).
+
+This is a **fixture bug, not a production bug** (matches the
+"works on real hardware" note). Production `finalize.sh` unmounts the
+ESP → `zfs umount -a` → `zpool export rpool`, and `/etc/hostid` is copied
+into the target (`chroot.sh`), so real installs export cleanly. The
+test-only first-boot injection (`_seed_generator_firstboot_block`)
+re-imports the pool **on archiso** to drop the sentinel unit, then ran
+`zpool export rpool || true` — the `|| true` swallowed a failed export,
+leaving the pool active+archiso-stamped. (The seam already warned about
+exactly this in its own comment.)
+
+## Fix (TDD)
+
+`lib/seed-generator.sh` — both first-boot blocks now export with a forced
+fallback: `zpool export rpool || zpool export -f rpool || true`
+(mirrors `02-wipe.sh:495` and finalize's intent). `zpool export -f`
+forcibly unmounts any busy dataset and still writes a clean export,
+clearing the active flag so the installed system imports root without
+`-f`. 2 new `seed-generator.bats` cases (single + multi block assert the
+forced fallback). Full bats green (910; the 7 `layout_validate` failures
+are pre-existing — real block devices). shellcheck clean.
+
+## Remaining
+
+End-to-end confirmation: re-run the dirty-cache fixture
+(`tests/vm/testing-single-disk-dirty-cache.sh --verify-boot`) with the
+fix so a fresh install reaches `===FIRSTBOOT-OK===`, and the negative
+control still fails. Heavy/network path (full Arch + archzfs install;
+ISO↔archzfs kernel pinning per earlier comment). The preserved
+`arch-zfs-test-single-dirty` disk still has the dirty pool (and now a
+`console=ttyS0` diagnostic line in its loader entry) — re-running the
+fixture overwrites it.
