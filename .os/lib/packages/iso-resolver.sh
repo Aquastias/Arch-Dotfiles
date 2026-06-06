@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/iso-resolver.sh — Arch ISO resolver (latest, or archzfs-compatible)
+# lib/packages/iso-resolver.sh — Arch ISO resolver (latest, or archzfs-compatible)
 # =============================================================================
 # Public:
 #

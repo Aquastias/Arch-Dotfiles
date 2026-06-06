@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/packages.sh — Package collection and base system installation
+# lib/packages/list.sh — Package collection and base system installation
 # =============================================================================
 # Sourced by 03-install.sh.
 # Requires: lib/common.sh already sourced.
@@ -40,7 +40,7 @@ collect_packages() {
 
   # ── Kernel selection ──────────────────────────────────────────────────────
   # Every selected flavour token (Kernel Selection) is installed with its
-  # matching headers, mapped through the single token table in lib/kernel.sh.
+  # matching headers, mapped through the single token table in lib/packages/kernel.sh.
   # zfs-dkms builds ZFS against whichever headers are present, so one zfs-dkms
   # covers all installed kernels (added once below, regardless of count).
   local kernel_pkgs=() tok

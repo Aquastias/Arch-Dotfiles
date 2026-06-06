@@ -66,8 +66,8 @@ _HTTP_PID=""
 # =============================================================================
 # shellcheck source=../lib/common.sh
 source "${LIB_DIR}/common.sh"
-# shellcheck source=../lib/iso-resolver.sh
-source "${LIB_DIR}/iso-resolver.sh"
+# shellcheck source=../lib/packages/iso-resolver.sh
+source "${LIB_DIR}/packages/iso-resolver.sh"
 
 # =============================================================================
 # CLI

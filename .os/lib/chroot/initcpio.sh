@@ -16,7 +16,7 @@ install_state_load "$STATE"
 # Kernel Selection token table — maps the Primary Kernel token to its package
 # base (= initramfs preset name). Staged next to install-state.sh.
 _KERNEL_SH="$_LIB_DIR/kernel.sh"
-[[ -f "$_KERNEL_SH" ]] || _KERNEL_SH="$_LIB_DIR/../kernel.sh"
+[[ -f "$_KERNEL_SH" ]] || _KERNEL_SH="$_LIB_DIR/../packages/kernel.sh"
 # shellcheck disable=SC1090
 source "$_KERNEL_SH"
 

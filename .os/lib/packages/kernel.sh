@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/kernel.sh — Kernel Selection token table (single source of truth)
+# lib/packages/kernel.sh — Kernel Selection token table (single source of truth)
 # =============================================================================
 # Maps Kernel Selection flavour tokens to their kernel package + headers. The
-# one table here drives package install (host-side, lib/packages.sh), the
+# one table here drives package install (host-side, lib/packages/list.sh), the
 # initramfs preset, and the bootloader default entry (chroot-side). Staged into
 # the chroot alongside install-state.sh so both sides share one mapping.
 # Adding a flavour is a one-line change. See ADR 0024.

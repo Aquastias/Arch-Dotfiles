@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Package modules → lib/packages/
 
@@ -36,3 +36,21 @@ move only.
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. `packages.sh`→`lib/packages/list.sh`, `kernel.sh`→
+`lib/packages/kernel.sh`, `iso-resolver.sh`→`lib/packages/iso-resolver.sh`.
+Refs updated: `03-install.sh`, `audit.sh`, `tools/fetch-iso.sh`.
+
+Cross-folder kernel sources fixed (kernel left `lib/`): `config/
+accessors.sh` (`../packages/kernel.sh`) and the `$_LIB_DIR/../kernel.sh`
+test/repo fallback in `chroot/bootloader-systemd-boot.sh` +
+`chroot/initcpio.sh` (their flat `$_LIB_DIR/kernel.sh` chroot-staged
+primary path stays; chroot cp dest stays `/root/lib-chroot/kernel.sh`).
+Also fixed both VM harnesses' `${LIB_DIR}/iso-resolver.sh` — a
+variable-prefixed source the literal `lib/` rename missed.
+`${_STDLIB_DIR}/packages.sh` (= `lib/shell/packages.sh`) left untouched.
+
+3 tests relocated to `tests/packages/`. Verified: bats **917/0**,
+`audit.sh` **82/82**, `shellcheck.sh` clean.

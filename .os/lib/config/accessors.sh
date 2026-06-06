@@ -18,9 +18,9 @@
 [[ "$(type -t cfgo)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
-# shellcheck source=../kernel.sh
+# shellcheck source=../packages/kernel.sh
 [[ "$(type -t kernel_is_valid_token)" == "function" ]] \
-  || source "${BASH_SOURCE[0]%/*}/../kernel.sh"
+  || source "${BASH_SOURCE[0]%/*}/../packages/kernel.sh"
 
 # Schema rows: name|jq_path|type|default
 # Type ∈ {scalar, bool, array}. Empty default = emit empty when absent.

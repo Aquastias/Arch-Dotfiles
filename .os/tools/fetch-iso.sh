@@ -14,8 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OS_DIR="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
 source "${OS_DIR}/lib/common.sh"
-# shellcheck source=../lib/iso-resolver.sh
-source "${OS_DIR}/lib/iso-resolver.sh"
+# shellcheck source=../lib/packages/iso-resolver.sh
+source "${OS_DIR}/lib/packages/iso-resolver.sh"
 
 # Resolve + create the output directory: positional arg, else ~/Downloads.
 fetch_iso_out_dir() {
