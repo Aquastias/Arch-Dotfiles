@@ -5,8 +5,8 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   LOG="$TEST_DIR/installer.log"
 
-  # shellcheck source=../lib/sentinel-watcher.sh
-  source "$BATS_TEST_DIRNAME/../lib/sentinel-watcher.sh"
+  # shellcheck source=vm/lib/sentinel-watcher.sh
+  source "$BATS_TEST_DIRNAME/vm/lib/sentinel-watcher.sh"
 }
 
 teardown() {

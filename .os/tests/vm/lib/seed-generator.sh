@@ -137,7 +137,7 @@ _seed_generator_multi_firstboot_block() {
       zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
 $(_seed_generator_esp_serial_lines)
-      install -Dm644 /root/dotfiles/.os/lib/vm-pool-verify.sh "/mnt${lib}"
+      install -Dm644 /root/dotfiles/.os/tests/vm/lib/vm-pool-verify.sh "/mnt${lib}"
       printf '%s\n' 'VM_VERIFY_POOLS=(${pools})' 'VM_VERIFY_MOUNTS=(${mounts})'${byid_line}${owned_line} > "/mnt${env}"
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=pool-verify sentinel (test-only)' 'After=zfs.target zfs-mount.service' 'Wants=zfs.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service

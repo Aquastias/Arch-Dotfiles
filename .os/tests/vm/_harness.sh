@@ -67,10 +67,10 @@ LIB_DIR="${HARNESS_DIR}/../../lib"
 source "${LIB_DIR}/common.sh"
 # shellcheck source=../../lib/packages/iso-resolver.sh
 source "${LIB_DIR}/packages/iso-resolver.sh"
-# shellcheck source=../../lib/sentinel-watcher.sh
-source "${LIB_DIR}/sentinel-watcher.sh"
-# shellcheck source=../../lib/seed-generator.sh
-source "${LIB_DIR}/seed-generator.sh"
+# shellcheck source=lib/sentinel-watcher.sh
+source "${HARNESS_DIR}/lib/sentinel-watcher.sh"
+# shellcheck source=lib/seed-generator.sh
+source "${HARNESS_DIR}/lib/seed-generator.sh"
 
 # =============================================================================
 # CLI

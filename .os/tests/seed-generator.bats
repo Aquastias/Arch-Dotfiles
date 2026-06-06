@@ -17,8 +17,8 @@ setup() {
   REPO_URL="https://github.com/example/dotfiles.git"
   HOSTNAME_FIXTURE="vm-test-host"
 
-  # shellcheck source=../lib/seed-generator.sh
-  source "$BATS_TEST_DIRNAME/../lib/seed-generator.sh"
+  # shellcheck source=vm/lib/seed-generator.sh
+  source "$BATS_TEST_DIRNAME/vm/lib/seed-generator.sh"
 }
 
 teardown() {
