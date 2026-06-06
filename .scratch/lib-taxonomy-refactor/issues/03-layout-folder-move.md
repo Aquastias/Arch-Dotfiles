@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Layout Module → lib/layout/ (move only)
 
@@ -41,3 +41,18 @@ validation (ADR 0014) are preserved — only the paths change.
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. `layout-common/single/multi.sh` → `lib/layout/{common,
+single,multi}.sh`. The **dynamic** source at `03-install.sh:174` updated
+to `lib/layout/${INSTALL_MODE}.sh`. `single.sh`/`multi.sh` source
+`common.sh` as a same-dir sibling (path rename `layout-common.sh`→
+`common.sh`, still `./`). `<mode>` placeholder comments in `globals.sh`,
+`03-install.sh`, `config/lifecycle.sh` updated to `lib/layout/<mode>.sh`.
+`audit.sh` manifest updated. Public function names unchanged; phase
+lifecycle (ADR 0016) and adapter-owns-validation (ADR 0014) preserved.
+
+3 layout tests relocated to `tests/layout/` with `../`→`../../` bump.
+Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
+no stale `lib/layout-` refs.

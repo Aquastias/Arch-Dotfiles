@@ -13,7 +13,7 @@
 #
 # Adding a new mode:
 #   1. add an entry to _CONFIG_MODE_SIG below (mode → defining JSON path),
-#   2. drop a lib/layout-<mode>.sh implementing the layout interface.
+#   2. drop a lib/layout/<mode>.sh implementing the layout interface.
 # =============================================================================
 
 # shellcheck source=./environment.sh

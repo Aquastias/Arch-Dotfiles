@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout-single.sh — Single-disk install layout
+# lib/layout/single.sh — Single-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=single.
 # Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
@@ -26,8 +26,8 @@
 #   _LAYOUT_IMPL_OS_SECTORS — size of the OS partition in 512-byte sectors
 # =============================================================================
 
-# shellcheck source=./layout-common.sh
-source "${BASH_SOURCE[0]%/*}/layout-common.sh"
+# shellcheck source=./common.sh
+source "${BASH_SOURCE[0]%/*}/common.sh"
 
 _LAYOUT_IMPL_DISK=""
 _LAYOUT_IMPL_ESP_PART=""

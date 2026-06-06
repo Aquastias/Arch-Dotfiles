@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout-multi.sh — pure topology suggestion functions.
+# Tests for .os/lib/layout/multi.sh — pure topology suggestion functions.
 # suggest_os_topologies and suggest_storage_topologies have no system calls.
 
 setup() {
@@ -7,16 +7,16 @@ setup() {
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
   printf '{}' > "$CONFIG_FILE"
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/zfs-pools.sh
-  source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
-  # shellcheck source=../lib/pool-owners.sh
-  source "$BATS_TEST_DIRNAME/../lib/pool-owners.sh"
-  # shellcheck source=../lib/layout-multi.sh
-  source "$BATS_TEST_DIRNAME/../lib/layout-multi.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/zfs-pools.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs-pools.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/pool-owners.sh
+  source "$BATS_TEST_DIRNAME/../../lib/pool-owners.sh"
+  # shellcheck source=../../lib/layout/multi.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/multi.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run
 }
 
@@ -107,8 +107,8 @@ setup_phase_smoke_fixture() {
 }
 JSONC
 
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
 
   info()    { :; }
   warn()    { :; }
@@ -153,8 +153,8 @@ JSONC
 # warn() that echoes to stdout, then asserts on the captured $output.
 
 setup_data_pool_size_fixture() {
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
   section() { :; }
   info()    { :; }
   warn()    { echo "WARN: $*"; }
@@ -623,8 +623,8 @@ setup_leftover_fixture() {
   export CALLS MOUNT_ROOT="$TEST_DIR/mnt"
   mkdir -p "$MOUNT_ROOT"
 
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
 
   info()    { :; }
   warn()    { :; }
