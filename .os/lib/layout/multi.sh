@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout-multi.sh — Multi-disk install layout
+# lib/layout/multi.sh — Multi-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=multi.
 # Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
@@ -44,8 +44,8 @@
 #   _LAYOUT_IMPL_DATA_POOL_PARTS[]  — associative: pool name → "part1 ..."
 # =============================================================================
 
-# shellcheck source=./layout-common.sh
-source "${BASH_SOURCE[0]%/*}/layout-common.sh"
+# shellcheck source=./common.sh
+source "${BASH_SOURCE[0]%/*}/common.sh"
 
 _LAYOUT_IMPL_ESP_PARTS=()
 _LAYOUT_IMPL_ZFS_PARTS=()

@@ -78,7 +78,7 @@ for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
           lib/config/lifecycle.sh lib/config/layers.sh \
           lib/config/environment.sh lib/config/validation.sh \
           lib/packages.sh lib/chroot.sh lib/profiles.sh lib/finalize.sh \
-          lib/zfs-pools.sh lib/layout-single.sh lib/layout-multi.sh; do
+          lib/zfs-pools.sh lib/layout/single.sh lib/layout/multi.sh; do
   _file "${OS}/${f}" "${f}"
 done
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout-single.sh — single-disk Layout Module seams.
+# Tests for .os/lib/layout/single.sh — single-disk Layout Module seams.
 #
 # Strategy: stub external commands (blockdev/wipefs/sgdisk/...) and the
 # zfs-pools.sh seam (_zpool_create / _create_os_datasets / build_enc_opts)
@@ -16,14 +16,14 @@ setup() {
 
   printf '{"disk":"/dev/sdz"}' >"$CONFIG_FILE"
 
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
-  # shellcheck source=../lib/zfs-pools.sh
-  source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
-  # shellcheck source=../lib/layout-single.sh
-  source "$BATS_TEST_DIRNAME/../lib/layout-single.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/zfs-pools.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs-pools.sh"
+  # shellcheck source=../../lib/layout/single.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/single.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run
 
 
@@ -94,8 +94,8 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
 @test "calculate_single_disk_layout: errors when .disk is not a block dev" {
   write_config '{"disk":"/tmp/not-a-real-disk-xyz"}'
   unset -f calculate_single_disk_layout
-  # shellcheck source=../lib/layout-single.sh
-  source "$BATS_TEST_DIRNAME/../lib/layout-single.sh"
+  # shellcheck source=../../lib/layout/single.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/single.sh"
   run calculate_single_disk_layout
   [ "$status" -ne 0 ]
   [[ "$output" == *"Disk not found"* ]]

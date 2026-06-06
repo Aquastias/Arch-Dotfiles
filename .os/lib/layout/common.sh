@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout-common.sh — shared Layout Module helpers
+# lib/layout/common.sh — shared Layout Module helpers
 # =============================================================================
 # Sourced by layout-single.sh and layout-multi.sh.
 # Requires: lib/common.sh already sourced (provides cfgo, error).
