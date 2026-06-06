@@ -84,10 +84,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/live-medium.sh
 source "${SCRIPT_DIR}/lib/live-medium.sh"
-# shellcheck source=lib/wipe-method.sh
-source "${SCRIPT_DIR}/lib/wipe-method.sh"
-# shellcheck source=lib/progress.sh
-source "${SCRIPT_DIR}/lib/progress.sh"
+# shellcheck source=lib/wipe/method.sh
+source "${SCRIPT_DIR}/lib/wipe/method.sh"
+# shellcheck source=lib/wipe/progress.sh
+source "${SCRIPT_DIR}/lib/wipe/progress.sh"
 
 # Final list of disks to wipe — populated from explicit targets or selection.
 DISKS_TO_WIPE=()

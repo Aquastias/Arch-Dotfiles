@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/progress.sh — the Progress Renderer
+# lib/wipe/progress.sh — the Progress Renderer
 # =============================================================================
 # Pure helpers that turn a disk's bytes-written and size into a per-disk
 # progress display: percent, bar, rate, and ETA. No terminal control and no

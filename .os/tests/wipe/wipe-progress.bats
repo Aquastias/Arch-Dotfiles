@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Unit tests for lib/progress.sh — the Progress Renderer.
+# Unit tests for lib/wipe/progress.sh — the Progress Renderer.
 # Pure: bytes + size → percent/bar/rate/ETA. No terminal or real disk involved.
 
 setup() {
-  # shellcheck source=../lib/progress.sh
-  source "$BATS_TEST_DIRNAME/../lib/progress.sh"
+  # shellcheck source=../../lib/wipe/progress.sh
+  source "$BATS_TEST_DIRNAME/../../lib/wipe/progress.sh"
 }
 
 @test "progress_pct: bytes/size as an integer percent" {

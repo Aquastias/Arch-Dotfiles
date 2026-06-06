@@ -36,8 +36,8 @@ trap '_install_on_err "$LINENO"' ERR
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Target Resolver — used to scope the wipe to the install's target disks.
-# shellcheck source=lib/wipe-targets.sh
-source "${SCRIPT_DIR}/lib/wipe-targets.sh"
+# shellcheck source=lib/wipe/targets.sh
+source "${SCRIPT_DIR}/lib/wipe/targets.sh"
 
 usage() {
   cat <<'EOF'
