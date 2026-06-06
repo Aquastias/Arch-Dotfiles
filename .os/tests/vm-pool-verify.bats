@@ -6,8 +6,8 @@
 # real pools are touched. Assertions read the return code + stderr messages.
 
 setup() {
-  # shellcheck source=../lib/vm-pool-verify.sh
-  source "$BATS_TEST_DIRNAME/../lib/vm-pool-verify.sh"
+  # shellcheck source=vm/lib/vm-pool-verify.sh
+  source "$BATS_TEST_DIRNAME/vm/lib/vm-pool-verify.sh"
 }
 
 # Healthy-system stubs: every pool imported; every <pool>/data dataset mounted
