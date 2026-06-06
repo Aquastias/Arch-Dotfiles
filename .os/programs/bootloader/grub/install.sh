@@ -2,7 +2,7 @@
 # =============================================================================
 # programs/bootloader/grub/install.sh
 # =============================================================================
-# Invoked by lib/profiles.sh inside arch-chroot, as root, via run-program.sh
+# Invoked by lib/profiles/runner.sh inside arch-chroot, as root, via run-program.sh
 # (which sources Shell Stdlib first, providing print_status).
 #
 # Thin entry point over the shared GRUB installer (lib/grub-common.sh, staged

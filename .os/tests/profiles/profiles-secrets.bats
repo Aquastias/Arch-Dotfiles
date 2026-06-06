@@ -15,8 +15,8 @@ setup() {
   error() { echo "[error] $*" >&2; exit 1; }
   export -f info warn error
 
-  # shellcheck source=../lib/profiles.sh
-  source "$BATS_TEST_DIRNAME/../lib/profiles.sh"
+  # shellcheck source=../../lib/profiles/runner.sh
+  source "$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

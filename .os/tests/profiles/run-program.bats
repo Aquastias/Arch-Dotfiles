@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/run-program.sh — staging guard + Shell Stdlib sourcing.
+# Tests for .os/lib/profiles/program-runner.sh — staging guard + Shell Stdlib sourcing.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  RUN_PROGRAM="$BATS_TEST_DIRNAME/../lib/run-program.sh"
+  RUN_PROGRAM="$BATS_TEST_DIRNAME/../../lib/profiles/program-runner.sh"
   mkdir -p "$TEST_DIR/lib"
   printf '#!/usr/bin/env bash\nstdlib_marker() { echo from-stdlib; }\n' \
     > "$TEST_DIR/lib/shell-stdlib.sh"

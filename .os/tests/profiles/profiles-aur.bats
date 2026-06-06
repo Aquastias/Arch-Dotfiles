@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the Runner AUR merge — _profiles_resolve_aur in lib/profiles.sh.
+# Tests for the Runner AUR merge — _profiles_resolve_aur in lib/profiles/runner.sh.
 #
 # Pure resolver: unions host packages.aur (categorized string mode) with each
 # desktop adapter's `aur` field (categorized bool mode), read from
@@ -11,12 +11,12 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   export OS_DIR="$TEST_DIR/os"
 
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/config/categorized-list.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/categorized-list.sh"
-  # shellcheck source=../lib/profiles.sh
-  source "$BATS_TEST_DIRNAME/../lib/profiles.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/categorized-list.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
+  # shellcheck source=../../lib/profiles/runner.sh
+  source "$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -81,7 +81,7 @@ _adapter() {
 # ── shipped adapter aur fields ──────────────────────────────────────────────
 
 @test "shipped install-hyprland.jsonc declares qt6ct-kde under aur" {
-  local f="$BATS_TEST_DIRNAME/../extras/desktop/hyprland/install-hyprland.jsonc"
+  local f="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/install-hyprland.jsonc"
   local aur_json
   aur_json="$(jsonc_strip "$f" | jq -c '.aur // empty')"
   [ -n "$aur_json" ]
@@ -91,14 +91,14 @@ _adapter() {
 }
 
 @test "shipped install-kde.jsonc has an aur field" {
-  local f="$BATS_TEST_DIRNAME/../extras/desktop/kde/install-kde.jsonc"
+  local f="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
 }
 
 # ── octopi is KDE-adapter-owned, not host-declared (PRD story 21) ───────────
 
 @test "octopi resolves under kde via the real adapter" {
-  OS_DIR="$BATS_TEST_DIRNAME/.."   # resolve against the shipped adapters
+  OS_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
   run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   grep -qx "octopi" <<< "$output"
@@ -107,12 +107,12 @@ _adapter() {
 @test "octopi is no longer declared in any host packages.aur" {
   local h
   for h in desktop laptop; do
-    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
   done
 }
 
 @test "octopi does not resolve under hyprland-only" {
-  OS_DIR="$BATS_TEST_DIRNAME/.."
+  OS_DIR="$BATS_TEST_DIRNAME/../.."
   run _profiles_resolve_aur '{}' hyprland
   [ "$status" -eq 0 ]
   ! grep -qx "octopi" <<< "$output"
@@ -127,13 +127,13 @@ _adapter() {
   local h
   for h in desktop laptop; do
     ! grep -q '"steam-native-runtime"' \
-      "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+      "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
   done
 }
 
 @test "each host still declares repo steam in packages.repo" {
   local h
   for h in desktop laptop; do
-    grep -q '"steam"' "$BATS_TEST_DIRNAME/../hosts/$h/config.jsonc"
+    grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
   done
 }

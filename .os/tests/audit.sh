@@ -77,7 +77,7 @@ _section "1. Host-side lib modules"
 for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
           lib/config/lifecycle.sh lib/config/layers.sh \
           lib/config/environment.sh lib/config/validation.sh \
-          lib/packages/list.sh lib/chroot.sh lib/profiles.sh lib/finalize.sh \
+          lib/packages/list.sh lib/chroot.sh lib/profiles/runner.sh lib/finalize.sh \
           lib/zfs/pools.sh lib/layout/single.sh lib/layout/multi.sh; do
   _file "${OS}/${f}" "${f}"
 done
@@ -208,7 +208,7 @@ _section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.os-runtime/)"
 while IFS= read -r entry; do
   _file "${OS}/${entry}" "_STAGED_RUNTIME_FILES: ${entry}"
 done < <(
-  sed -n '/_STAGED_RUNTIME_FILES=(/,/^)/p' "${OS}/lib/profiles.sh" \
+  sed -n '/_STAGED_RUNTIME_FILES=(/,/^)/p' "${OS}/lib/profiles/runner.sh" \
     | grep '"' | sed 's|.*"\([^"]*\)".*|\1|'
 )
 

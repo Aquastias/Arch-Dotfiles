@@ -18,7 +18,7 @@
 source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 # Single source of truth for the legacy stow package list. Both the Runner
-# (lib/profiles.sh) and cg_detect_conflicts call this so the two cannot drift.
+# (lib/profiles/runner.sh) and cg_detect_conflicts call this so the two cannot drift.
 # Excludes repo metadata that must never be stowed.
 cg_legacy_packages() {
   local root="$1"

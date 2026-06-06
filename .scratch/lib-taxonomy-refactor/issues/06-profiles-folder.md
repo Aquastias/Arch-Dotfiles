@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Profile runners → lib/profiles/
 
@@ -31,3 +31,25 @@ run-program.sh -> profiles/program-runner.sh
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. `profiles.sh`→`lib/profiles/runner.sh`, `run-program.sh`→
+`lib/profiles/program-runner.sh`. The runtime-staging references in
+`runner.sh` (`_STAGED_RUNTIME_FILES` entry, `chmod`, both chroot-exec
+paths in the system + user-program paths) all carried the
+`lib/run-program.sh` literal, so the rename caught them; added a
+per-file `mkdir -p "$(dirname …)"` in the staging loop so the nested
+`lib/profiles/` staged path is created. `program-runner.sh` sources via
+`$SHELL_COMMONS` (env), no relative-path breakage. Program install.sh
+doc-comments updated. `audit.sh` §7 reads the manifest from the new
+path — still 82/82.
+
+Found+fixed 2 false-pass tests in `profiles-aur.bats`: a bare
+`OS_DIR="$BATS_TEST_DIRNAME/.."` (no trailing slash) wasn't caught by
+the depth-bump regex, so it resolved to `.os/tests` not `.os` — the
+"octopi via real adapter" test genuinely failed; its sibling passed
+vacuously (KDE-owned pkg absent either way). Both now `../..`.
+
+3 tests relocated to `tests/profiles/`. Verified: bats **917/0**,
+`audit.sh` **82/82**, `shellcheck.sh` clean.

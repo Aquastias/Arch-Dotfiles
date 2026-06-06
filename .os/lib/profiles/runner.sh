@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/profiles.sh — Host/user profile runner
+# lib/profiles/runner.sh — Host/user profile runner
 # =============================================================================
 # Sourced by 03-install.sh after configure_system().
 # Requires: lib/common.sh and lib/config/layers.sh already sourced.
@@ -20,7 +20,7 @@
 #     validate_staging before any program runs).
 #
 # Program execution:
-#   Every Program Install Script is invoked via lib/run-program.sh, which
+#   Every Program Install Script is invoked via lib/profiles/program-runner.sh, which
 #   sources Shell Stdlib once and sources the install.sh in the same shell.
 #   Programs do not need to source stdlib themselves.
 #
@@ -37,7 +37,7 @@ readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 readonly -a _STAGED_RUNTIME_FILES=(
   "lib/shell-stdlib.sh"
   "lib/shell"
-  "lib/run-program.sh"
+  "lib/profiles/program-runner.sh"
   "lib/grub-common.sh"
 )
 
@@ -58,9 +58,10 @@ _profiles_stage_runtime() {
   fi
   local f
   for f in "${_STAGED_RUNTIME_FILES[@]}"; do
+    mkdir -p "$(dirname "$target/${f}")"
     cp -r "${OS_DIR}/${f}" "$target/${f}"
   done
-  chmod +x "$target/lib/run-program.sh"
+  chmod +x "$target/lib/profiles/program-runner.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
 }
 
@@ -210,7 +211,7 @@ _profiles_install_system_program() {
     OS_DIR="${_PROFILES_RUNTIME_DIR}" \
     PROGRAMS="${_PROFILES_RUNTIME_DIR}/programs" \
     SHELL_COMMONS="${_PROFILES_RUNTIME_DIR}/lib" \
-    /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/lib/run-program.sh" \
+    /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/lib/profiles/program-runner.sh" \
     "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh"
 }
 
@@ -311,7 +312,7 @@ su - "$USER_NAME" -c "
   export OS_DIR='${OS_DIR_IN}'
   export PROGRAMS='${OS_DIR_IN}/programs'
   export SHELL_COMMONS='${OS_DIR_IN}/lib'
-  bash '${OS_DIR_IN}/lib/run-program.sh' '${INSTALL_SH}'
+  bash '${OS_DIR_IN}/lib/profiles/program-runner.sh' '${INSTALL_SH}'
 "
 CHROOT_USERPROG
 }
