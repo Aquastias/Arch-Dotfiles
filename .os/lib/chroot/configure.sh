@@ -128,7 +128,7 @@ fi
 
 bash /root/lib-chroot/password.sh
 
-# Users are created by the Runner (lib/profiles.sh) after configure_system()
+# Users are created by the Runner (lib/profiles/runner.sh) after configure_system()
 # returns — see ADRs 0001 and 0004.
 
 bash /root/lib-chroot/extras.sh

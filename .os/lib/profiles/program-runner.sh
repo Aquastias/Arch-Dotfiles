@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/run-program.sh — Program Install Script runner
+# lib/profiles/program-runner.sh — Program Install Script runner
 # =============================================================================
 # Wrapper that the Runner invokes inside arch-chroot for every Program Install
 # Script. Owns the contract between the Runner and a program's install.sh:
