@@ -1,17 +1,17 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/zfs-pools.sh — ZFS pool primitives.
+# Tests for .os/lib/zfs/pools.sh — ZFS pool primitives.
 # Covers: build_vdev_spec (pure), build_enc_opts (config-driven), ram_gib.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/zfs-pools.sh
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
-  source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/zfs/pools.sh
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
 }
 
 teardown() {

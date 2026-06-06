@@ -38,8 +38,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 # Shared ZFS module install/load — the SAME code 03-install.sh's fallback uses.
-# shellcheck source=lib/zfs-module.sh
-source "${SCRIPT_DIR}/lib/zfs-module.sh"
+# shellcheck source=lib/zfs/module.sh
+source "${SCRIPT_DIR}/lib/zfs/module.sh"
 
 # =============================================================================
 # PRE-FLIGHT CHECKS
@@ -226,7 +226,7 @@ sync_clock() {
 # ZFS MODULE INSTALLATION
 # =============================================================================
 #
-# The archzfs repo setup and the DKMS build/load live in lib/zfs-module.sh so
+# The archzfs repo setup and the DKMS build/load live in lib/zfs/module.sh so
 # that BOTH this bootstrap and 03-install.sh's fallback share one proven copy
 # (zfs_add_archzfs_repo / zfs_install_dkms / zfs_load_module). See ADR 0023.
 #

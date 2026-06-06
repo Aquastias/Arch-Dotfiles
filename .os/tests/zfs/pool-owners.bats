@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/pool-owners.sh — the Owners Resolver (pure, ADR 0031).
+# Tests for .os/lib/zfs/pool-owners.sh — the Owners Resolver (pure, ADR 0031).
 #
 # The resolver decides, for one pool, how its mountpoint becomes usable by a
 # human: who owns it (chown), whether POSIX ACLs are needed, which users get a
@@ -14,8 +14,8 @@
 #   $3 groupmap  space-separated "group:member1,member2" pairs ("" when none)
 
 setup() {
-  # shellcheck source=../lib/pool-owners.sh
-  source "$BATS_TEST_DIRNAME/../lib/pool-owners.sh"
+  # shellcheck source=../../lib/zfs/pool-owners.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh"
 }
 
 # ── pool_owners_base ─────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ GR
 # ("_leftover: unbound variable"). The predicate must be safe when absent.
 
 @test "leftover predicate: defined and safe in single mode (undeclared arrays)" {
-  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+  run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -F _pool_owners_has_leftover >/dev/null || { echo NO_FN; exit 3; }
     if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]
@@ -288,7 +288,7 @@ GR
 }
 
 @test "leftover predicate: true when a _leftover storage part exists" {
-  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+  run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([_leftover]='/dev/sdb1')
     if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]
@@ -296,7 +296,7 @@ GR
 }
 
 @test "leftover predicate: false when the array lacks a _leftover key" {
-  run bash -uc "source '$BATS_TEST_DIRNAME/../lib/pool-owners.sh'
+  run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([tank0]='/dev/sdc1')
     if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]

@@ -9,12 +9,12 @@ setup() {
   printf '{}' > "$CONFIG_FILE"
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  # shellcheck source=../../lib/zfs-pools.sh
-  source "$BATS_TEST_DIRNAME/../../lib/zfs-pools.sh"
+  # shellcheck source=../../lib/zfs/pools.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/pool-owners.sh
-  source "$BATS_TEST_DIRNAME/../../lib/pool-owners.sh"
+  # shellcheck source=../../lib/zfs/pool-owners.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh"
   # shellcheck source=../../lib/layout/multi.sh
   source "$BATS_TEST_DIRNAME/../../lib/layout/multi.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run

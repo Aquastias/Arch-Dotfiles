@@ -3,7 +3,7 @@
 # lib/layout/single.sh — Single-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=single.
-# Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
+# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for _zpool_create,
 #           _create_os_datasets, ram_gib) already sourced.
 #
 # Provides:

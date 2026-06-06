@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/zfs-module.sh — shared ZFS kernel-module install/load for the live ISO
+# lib/zfs/module.sh — shared ZFS kernel-module install/load for the live ISO
 # =============================================================================
 # Single source of truth for getting a working ZFS module on the running
 # live-ISO kernel. Sourced by BOTH 01-bootstrap-zfs.sh (the normal path) and
-# 03-install.sh (the fallback in lib/zfs-pools.sh, when bootstrap was skipped
+# 03-install.sh (the fallback in lib/zfs/pools.sh, when bootstrap was skipped
 # or its module is no longer loaded).
 #
 # Before this module existed the fallback carried its own, subtly-wrong copy:

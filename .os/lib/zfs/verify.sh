@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/zfs-verify.sh — fail-fast ZFS Module Guard for the installed system
+# lib/zfs/verify.sh — fail-fast ZFS Module Guard for the installed system
 # =============================================================================
 # Sourced by 03-install.sh. Requires: lib/common.sh already sourced.
 #
@@ -10,7 +10,7 @@
 # opaque mid-`mkinitcpio -P` "module not found: zfs" crash that motivated ADR
 # 0024.
 #
-# This is distinct from lib/zfs-module.sh, which builds ZFS for the *live ISO*
+# This is distinct from lib/zfs/module.sh, which builds ZFS for the *live ISO*
 # kernel (ADR 0023). This guard inspects the *target system's* kernels.
 #
 # Provides:
