@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/wipe-method.sh — the Wipe-Method Selector
+# lib/wipe/method.sh — the Wipe-Method Selector
 # =============================================================================
 # Pure routing from a disk's rotational flag to a make-blank method:
 #   non-rotational (SSD/NVMe) → blkdiscard   (instant, no flash wear)

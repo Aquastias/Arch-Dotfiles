@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/wipe-targets.sh — the Target Resolver.
+# Tests for .os/lib/wipe/targets.sh — the Target Resolver.
 #
 # The Single Entry Point resolves the install's target disks from the Install
 # Config and passes them to the wipe as an explicit list, so the wipe touches
@@ -12,8 +12,8 @@
 setup() {
   TEST_DIR="$(mktemp -d)"
   CFG="$TEST_DIR/install.jsonc"
-  # shellcheck source=../lib/wipe-targets.sh
-  source "$BATS_TEST_DIRNAME/../lib/wipe-targets.sh"
+  # shellcheck source=../../lib/wipe/targets.sh
+  source "$BATS_TEST_DIRNAME/../../lib/wipe/targets.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

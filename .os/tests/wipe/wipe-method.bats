@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Unit tests for lib/wipe-method.sh — the Wipe-Method Selector.
+# Unit tests for lib/wipe/method.sh — the Wipe-Method Selector.
 # Pure rota→method routing; no real device is touched.
 
 setup() {
-  # shellcheck source=../lib/wipe-method.sh
-  source "$BATS_TEST_DIRNAME/../lib/wipe-method.sh"
+  # shellcheck source=../../lib/wipe/method.sh
+  source "$BATS_TEST_DIRNAME/../../lib/wipe/method.sh"
 }
 
 @test "wipe_method: non-rotational (SSD/NVMe) selects blkdiscard" {

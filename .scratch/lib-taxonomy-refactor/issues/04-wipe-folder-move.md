@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Disk Wipe modules → lib/wipe/ (move only)
 
@@ -33,3 +33,18 @@ progress.sh     -> wipe/progress.sh
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. `wipe-method/wipe-targets/progress.sh` →
+`lib/wipe/{method,targets,progress}.sh`. Source paths updated:
+`02-wipe.sh` (method + progress), `install.sh` (targets).
+`wipe/targets.sh` root-sibling source repointed
+`${BASH_SOURCE[0]%/*}/../jsonc.sh`. No `audit.sh` change (wipe not in
+its manifest). Public function names unchanged.
+
+3 wipe tests relocated to `tests/wipe/` with `../`→`../../` bump.
+Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
+no stale `lib/wipe-*`/`lib/progress` refs.
+
+Unblocks issue 08 (thin Disk Wipe).
