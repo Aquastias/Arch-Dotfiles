@@ -16,7 +16,7 @@ DE_TAG=KDE
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 # shellcheck source=/dev/null
-source "${SCRIPT_DIR}/../../../lib/categorized-list.sh"
+source "${SCRIPT_DIR}/../../../lib/config/categorized-list.sh"
 
 [[ -f "$KDE_JSON" ]] || {
   echo "[KDE] ERROR: install-kde.jsonc not found at ${KDE_JSON}"

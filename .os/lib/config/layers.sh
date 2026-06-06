@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/configs.sh — Host/user config loader, merger, and validator
+# lib/config/layers.sh — Host/user config loader, merger, and validator
 # =============================================================================
 # Loads a host or user config by name and emits the merged result of core +
 # specific to stdout as JSON. Pure: no side effects beyond reading files and
@@ -28,8 +28,8 @@
 # or users. The directory name `core` is reserved.
 # =============================================================================
 
-# shellcheck source=./jsonc.sh
-source "${BASH_SOURCE[0]%/*}/jsonc.sh"
+# shellcheck source=../jsonc.sh
+source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 readonly _CONFIGS_RESERVED_CORE="core"
 

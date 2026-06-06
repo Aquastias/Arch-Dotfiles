@@ -8,8 +8,8 @@ setup() {
   export CONFIG_FILE
   # shellcheck source=../lib/common.sh
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
   # shellcheck source=../lib/layout-common.sh
   source "$BATS_TEST_DIRNAME/../lib/layout-common.sh"
 }

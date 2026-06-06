@@ -24,7 +24,7 @@
 # MODULE LOAD ORDER (each module declares its own functions and globals):
 #   lib/common.sh        — colours, output helpers, cfg/cfgo, part_name,
 #                          shared globals
-#   lib/config.sh        — template generation, load/validate config, mode
+#   lib/config/lifecycle.sh        — template generation, load/validate config, mode
 #                          detection, installation summary
 #   lib/zfs-pools.sh     — ZFS tool fallback, ram_gib, encryption opts, pool
 #                          creation helper, OS dataset creation, vdev spec
@@ -36,11 +36,11 @@
 #   lib/packages.sh      — package collection, pacstrap
 #   lib/zfs-verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
-#   lib/configs.sh       — host/user config loader+merger (host/user core)
+#   lib/config/layers.sh       — host/user config loader+merger (host/user core)
 #   lib/profiles.sh      — runs after configure_system: creates users,
 #                          installs system + user programs from host/user
 #                          configs
-#   lib/validation.sh    — single seam for all config contract checks
+#   lib/config/validation.sh    — single seam for all config contract checks
 #   lib/finalize.sh      — unmount, pool export, completion summary
 # =============================================================================
 
@@ -121,19 +121,19 @@ source_module() {
 source_module "${SCRIPT_DIR}/lib/common.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-module.sh"
 source_module "${SCRIPT_DIR}/lib/kernel.sh"
-source_module "${SCRIPT_DIR}/lib/categorized-list.sh"
-source_module "${SCRIPT_DIR}/lib/install-config.sh"
+source_module "${SCRIPT_DIR}/lib/config/categorized-list.sh"
+source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"
-source_module "${SCRIPT_DIR}/lib/config.sh"
+source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
-source_module "${SCRIPT_DIR}/lib/configs.sh"
+source_module "${SCRIPT_DIR}/lib/config/layers.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
 source_module "${SCRIPT_DIR}/lib/pool-owners.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
 source_module "${SCRIPT_DIR}/lib/zfs-verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles.sh"
-source_module "${SCRIPT_DIR}/lib/validation.sh"
+source_module "${SCRIPT_DIR}/lib/config/validation.sh"
 source_module "${SCRIPT_DIR}/lib/finalize.sh"
 
 # =============================================================================

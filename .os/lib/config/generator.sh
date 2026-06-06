@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/configs-generator.sh — Per-program Config Generator
+# lib/config/generator.sh — Per-program Config Generator
 # =============================================================================
 # Public API:
 #   cg_validate_manifest <manifest-path>
@@ -14,8 +14,8 @@
 # See .scratch/per-program-config-tree/PRD.md and ADR 0012.
 # =============================================================================
 
-# shellcheck source=./jsonc.sh
-source "${BASH_SOURCE[0]%/*}/jsonc.sh"
+# shellcheck source=../jsonc.sh
+source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 # Single source of truth for the legacy stow package list. Both the Runner
 # (lib/profiles.sh) and cg_detect_conflicts call this so the two cannot drift.

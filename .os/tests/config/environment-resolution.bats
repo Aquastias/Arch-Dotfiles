@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for resolve_environment() in lib/environment.sh — the single public
+# Tests for resolve_environment() in lib/config/environment.sh — the single public
 # seam. Drives the module end-to-end with a fixture install.jsonc and asserts
 # the five resolved globals populate. Stubs lspci so GPU "auto" is hermetic.
 
@@ -16,8 +16,8 @@ setup() {
   warn()    { echo "WARN: $*" >&2; }
   confirm() { :; }
 
-  # shellcheck source=../lib/environment.sh
-  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
+  # shellcheck source=../../lib/config/environment.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
 
 teardown() {

@@ -6,8 +6,8 @@ setup() {
   STATE="$TEST_DIR/install-state.json"
   # shellcheck source=../lib/install-state.sh
   source "$BATS_TEST_DIRNAME/../lib/install-state.sh"
-  # shellcheck source=../lib/configs.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs.sh"
+  # shellcheck source=../lib/config/layers.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/layers.sh"
   FIXTURES="$BATS_TEST_DIRNAME/fixtures"
 }
 

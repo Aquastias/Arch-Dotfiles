@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lib/configs-generator.sh — Conflict Detector.
+# Tests for lib/config/generator.sh — Conflict Detector.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -7,8 +7,8 @@ setup() {
   STOW="$TEST_DIR/stow"
   export HOME="$TEST_DIR/home"
   mkdir -p "$LEGACY" "$STOW" "$HOME"
-  # shellcheck source=../lib/configs-generator.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs-generator.sh"
+  # shellcheck source=../../lib/config/generator.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/generator.sh"
 }
 
 teardown() {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _resolve_env_validate() in lib/config.sh.
+# Tests for _resolve_env_validate() in lib/config/lifecycle.sh.
 #
 # Strategy: stub common.sh helpers (cfgo, jsonc, error, info, section, warn)
 # so the module can be sourced without a live system. Happy-path tests call
@@ -20,8 +20,8 @@ setup() {
   warn()    { :; }
   confirm() { :; }
 
-  # shellcheck source=../lib/environment.sh
-  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
+  # shellcheck source=../../lib/config/environment.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
 
 teardown() {

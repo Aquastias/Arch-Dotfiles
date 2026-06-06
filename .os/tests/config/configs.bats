@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/configs.sh — host/user config loader/merger.
+# Tests for .os/lib/config/layers.sh — host/user config loader/merger.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   export OS_DIR="$TEST_DIR"
-  # shellcheck source=../lib/configs.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs.sh"
+  # shellcheck source=../../lib/config/layers.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
 }
 
 teardown() {
@@ -35,12 +35,12 @@ write_config() {
 # ── real Host Core conforms to ADR 0007 (no Host Package List in core) ────────
 
 @test "real host core declares no packages object (ADR 0007)" {
-  local core="$BATS_TEST_DIRNAME/../hosts/core/config.jsonc"
+  local core="$BATS_TEST_DIRNAME/../../hosts/core/config.jsonc"
   jsonc_strip "$core" | jq -e '.packages == null'
 }
 
 @test "real host core system_programs is exactly [cups]" {
-  local core="$BATS_TEST_DIRNAME/../hosts/core/config.jsonc"
+  local core="$BATS_TEST_DIRNAME/../../hosts/core/config.jsonc"
   jsonc_strip "$core" | jq -e '.system_programs == ["cups"]'
 }
 
@@ -62,8 +62,8 @@ write_config() {
 # bootstrap, or a User Program already installs must NOT be re-declared in a
 # Host Config. These guards read the real desktop/laptop configs.
 
-DESKTOP_CFG="$BATS_TEST_DIRNAME/../hosts/desktop/config.jsonc"
-LAPTOP_CFG="$BATS_TEST_DIRNAME/../hosts/laptop/config.jsonc"
+DESKTOP_CFG="$BATS_TEST_DIRNAME/../../hosts/desktop/config.jsonc"
+LAPTOP_CFG="$BATS_TEST_DIRNAME/../../hosts/laptop/config.jsonc"
 
 _repo_pkgs() { jsonc_strip "$1" | jq -r '.packages.repo | to_entries[].value[]'; }
 _repo_cats() { jsonc_strip "$1" | jq -r '.packages.repo | keys[]'; }
@@ -146,8 +146,8 @@ _assert_no_duplicates() {
 }
 
 @test "real desktop+laptop packages.repo parse as Categorized Lists" {
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  source "$BATS_TEST_DIRNAME/../lib/categorized-list.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
   local f
   for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
     local repo; repo="$(jsonc_strip "$f" | jq -c '.packages.repo')"

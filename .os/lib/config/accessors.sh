@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/install-config.sh — Install Config Reader (typed accessors)
+# lib/config/accessors.sh — Install Config Reader (typed accessors)
 # =============================================================================
 # Sole owner of Install Config schema defaults. The schema below is the
 # canonical declaration of every regular Install Config field: jq path, type
@@ -14,13 +14,13 @@
 # Sourced by 03-install.sh after lib/common.sh (which provides cfgo).
 # =============================================================================
 
-# shellcheck source=./common.sh
+# shellcheck source=../common.sh
 [[ "$(type -t cfgo)" == "function" ]] \
-  || source "${BASH_SOURCE[0]%/*}/common.sh"
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
-# shellcheck source=./kernel.sh
+# shellcheck source=../kernel.sh
 [[ "$(type -t kernel_is_valid_token)" == "function" ]] \
-  || source "${BASH_SOURCE[0]%/*}/kernel.sh"
+  || source "${BASH_SOURCE[0]%/*}/../kernel.sh"
 
 # Schema rows: name|jq_path|type|default
 # Type ∈ {scalar, bool, array}. Empty default = emit empty when absent.

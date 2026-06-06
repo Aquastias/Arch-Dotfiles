@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/validation.sh — Single validation seam for all config contracts
+# lib/config/validation.sh — Single validation seam for all config contracts
 # =============================================================================
 # Sourced by 03-install.sh after common.sh, config.sh, and configs.sh.
 # Requires: common.sh, environment.sh (via config.sh),
@@ -21,8 +21,8 @@
 # owned here. Callers get one seam and one error-signaling convention.
 # =============================================================================
 
-# shellcheck source=./impermanence-common.sh
-source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
+# shellcheck source=../impermanence-common.sh
+source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
 
 # =============================================================================
 # SYSTEM FIELDS

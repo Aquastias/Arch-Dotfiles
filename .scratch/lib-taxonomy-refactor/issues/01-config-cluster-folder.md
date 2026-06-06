@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Config cluster → lib/config/ (rename+move)
 
@@ -53,3 +53,23 @@ numbers continue from 0032.
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. 7 config files moved+renamed into `lib/config/`
+(lifecycle, accessors, layers, generator, categorized-list, validation,
+environment). All `source`/path refs updated repo-wide — `03-install.sh`,
+`profiles.sh` heredoc, `tools/generate-configs.sh`, `tools/pick.sh`,
+`jsonc.sh` comment, the chroot cp (now staged to `/root/lib/config/`
+with a new `mkdir -p`), and `kde.sh`. Intra-`lib/` sibling sources
+repointed up one level (`../common.sh`, `../kernel.sh`, `../jsonc.sh`,
+`../impermanence-common.sh`); `lifecycle.sh`→`environment.sh` stays a
+same-dir sibling. Public function names unchanged.
+
+13 config-owned tests relocated to `tests/config/` with `../`→`../../`
+depth bump; `run.sh` now discovers `*.bats` recursively (via `find`,
+excluding the vendored bats-core). `audit.sh` lib manifest switched to
+full relative paths. ADR 0032 records the taxonomy + ≥2-file rule.
+
+Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
+no stale old-path refs.

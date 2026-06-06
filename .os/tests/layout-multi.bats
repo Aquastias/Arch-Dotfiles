@@ -11,8 +11,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
   # shellcheck source=../lib/zfs-pools.sh
   source "$BATS_TEST_DIRNAME/../lib/zfs-pools.sh"
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
   # shellcheck source=../lib/pool-owners.sh
   source "$BATS_TEST_DIRNAME/../lib/pool-owners.sh"
   # shellcheck source=../lib/layout-multi.sh
@@ -107,8 +107,8 @@ setup_phase_smoke_fixture() {
 }
 JSONC
 
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
 
   info()    { :; }
   warn()    { :; }
@@ -153,8 +153,8 @@ JSONC
 # warn() that echoes to stdout, then asserts on the captured $output.
 
 setup_data_pool_size_fixture() {
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
   section() { :; }
   info()    { :; }
   warn()    { echo "WARN: $*"; }
@@ -623,8 +623,8 @@ setup_leftover_fixture() {
   export CALLS MOUNT_ROOT="$TEST_DIR/mnt"
   mkdir -p "$MOUNT_ROOT"
 
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
 
   info()    { :; }
   warn()    { :; }

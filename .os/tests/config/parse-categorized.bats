@@ -1,15 +1,15 @@
 #!/usr/bin/env bats
-# Tests for lib/categorized-list.sh — Categorized List Parser.
+# Tests for lib/config/categorized-list.sh — Categorized List Parser.
 #
 # Pure function. Input: JSON string + leaf type. Output: sorted, deduped
 # flat list on stdout. Fails via lib/common.sh::error on shape, leaf-type,
 # or category-name violations.
 
 setup() {
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/categorized-list.sh
-  source "$BATS_TEST_DIRNAME/../lib/categorized-list.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/categorized-list.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
 }
 
 @test "string mode: valid 2-level object yields sorted-unique flat list" {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run all bats tests under .os/tests/. Vendors bats-core on first run.
+# Run all bats tests under .os/tests/ (recursively, so folder-mirrored
+# subdirs like config/ are discovered). Vendors bats-core on first run.
 
 set -euo pipefail
 
@@ -16,4 +17,7 @@ if ! command -v parallel >/dev/null 2>&1; then
   exit 1
 fi
 
-"$BATS_DIR/bin/bats" --jobs "$(nproc)" "$HERE"/*.bats
+# Collect every .bats under tests/ (incl. folder-mirrored subdirs like
+# config/) but never the vendored bats-core checkout in $BATS_DIR.
+mapfile -t TEST_FILES < <(find "$HERE" -name '*.bats' -not -path "$BATS_DIR/*" | sort)
+"$BATS_DIR/bin/bats" --jobs "$(nproc)" "${TEST_FILES[@]}"

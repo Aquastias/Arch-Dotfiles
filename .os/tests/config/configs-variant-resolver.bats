@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for lib/configs-generator.sh — Variant Resolver.
+# Tests for lib/config/generator.sh — Variant Resolver.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  # shellcheck source=../lib/configs-generator.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs-generator.sh"
+  # shellcheck source=../../lib/config/generator.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/generator.sh"
 }
 
 teardown() {
@@ -101,8 +101,8 @@ write_manifest() {
 }
 
 @test "resolver: house defaults override per-key via load_user_config" {
-  # shellcheck source=../lib/configs.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs.sh"
+  # shellcheck source=../../lib/config/layers.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
   export OS_DIR="$TEST_DIR"
 
   mkdir -p "$TEST_DIR/users/core" "$TEST_DIR/users/alex"

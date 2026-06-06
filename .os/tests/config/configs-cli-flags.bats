@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for .os/tools/generate-configs.sh — CLI flag matrix.
 
-CLI="$BATS_TEST_DIRNAME/../tools/generate-configs.sh"
+CLI="$BATS_TEST_DIRNAME/../../tools/generate-configs.sh"
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -25,7 +25,7 @@ JSONC
   cat > "$OS_DIR/hosts/core/config.jsonc" <<'JSONC'
 { "system_programs": [] }
 JSONC
-  ln -s "$BATS_TEST_DIRNAME/../lib" "$OS_DIR/lib"
+  ln -s "$BATS_TEST_DIRNAME/../../lib" "$OS_DIR/lib"
 }
 
 teardown() {

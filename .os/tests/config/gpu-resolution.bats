@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _resolve_env_gpu() in lib/config.sh.
+# Tests for _resolve_env_gpu() in lib/config/lifecycle.sh.
 #
 # Strategy: override _gpu_lspci_output() as an injectable seam so tests
 # control lspci output without real hardware. Set ENVIRONMENT_GPU directly
@@ -19,8 +19,8 @@ setup() {
   warn()    { echo "WARN: $*" >&2; }
   confirm() { :; }
 
-  # shellcheck source=../lib/environment.sh
-  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
+  # shellcheck source=../../lib/config/environment.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
 
 teardown() {
