@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/pool-owners.sh — Owners Resolver (pure) + Owners Applier (thin I/O)
+# lib/zfs/pool-owners.sh — Owners Resolver (pure) + Owners Applier (thin I/O)
 # =============================================================================
 # The Owners Resolver decides how a data pool's mountpoint becomes usable by a
 # human (ADR 0031): the base user-owner, whether POSIX ACLs are needed, which

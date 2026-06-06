@@ -20,8 +20,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/zfs-pools.sh
-  source "$BATS_TEST_DIRNAME/../../lib/zfs-pools.sh"
+  # shellcheck source=../../lib/zfs/pools.sh
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/pools.sh"
   # shellcheck source=../../lib/layout/single.sh
   source "$BATS_TEST_DIRNAME/../../lib/layout/single.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run

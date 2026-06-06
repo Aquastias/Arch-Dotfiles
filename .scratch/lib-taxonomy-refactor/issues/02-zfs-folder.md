@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # ZFS modules → lib/zfs/
 
@@ -35,3 +35,15 @@ are preserved — files move only.
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+Implemented. `zfs-module/zfs-pools/zfs-verify/pool-owners.sh` →
+`lib/zfs/{module,pools,verify,pool-owners}.sh`. Refs updated:
+`03-install.sh`, `01-bootstrap-zfs.sh` (zfs-module), `audit.sh` manifest
+(zfs-pools), and the `tests/layout/` tests that source zfs-pools +
+pool-owners. No internal sibling sources. Public function names
+unchanged; ADR 0028/0031 preserved.
+
+4 zfs tests relocated to `tests/zfs/` with `../`→`../../` bump.
+Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean.

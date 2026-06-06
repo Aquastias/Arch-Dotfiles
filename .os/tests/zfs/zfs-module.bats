@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/zfs-module.sh — shared ZFS DKMS build/load.
+# Tests for .os/lib/zfs/module.sh — shared ZFS DKMS build/load.
 #
 # Regression guard for the 2026-05-31 install failure: the old 03-install.sh
 # fallback ran `pacman -S linux-headers` UNPINNED (pulling a newer kernel's
@@ -20,8 +20,8 @@ setup() {
   export ZFS_SRC_DIR="$TEST_DIR/src"
   mkdir -p "$ZFS_SRC_DIR/zfs-2.4.2"        # what zfs-dkms would install
 
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  source "$BATS_TEST_DIRNAME/../lib/zfs-module.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/zfs/module.sh"
 
   # Stub externals — record argv, succeed by default.
   pacman()  { echo "pacman $*"  >> "$CALLS"; return 0; }

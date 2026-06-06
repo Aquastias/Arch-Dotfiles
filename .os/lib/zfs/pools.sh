@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/zfs-pools.sh — ZFS pool and dataset primitives
+# lib/zfs/pools.sh — ZFS pool and dataset primitives
 # =============================================================================
 # Sourced by 03-install.sh.
 # Requires: lib/common.sh already sourced.
@@ -24,7 +24,7 @@ ENC_OPTS=() # populated by build_enc_opts(); consumed by _zpool_create()
 # =============================================================================
 # Runs only if the ZFS kernel module is not currently loaded — e.g. because
 # 01-bootstrap-zfs.sh was skipped, or its build did not leave a loaded module.
-# We recover here using the SAME shared logic bootstrap uses (lib/zfs-module.sh),
+# We recover here using the SAME shared logic bootstrap uses (lib/zfs/module.sh),
 # so this path can never drift into the old bug where it pulled the wrong
 # kernel's headers and DKMS built a module modprobe could not find (ADR 0023).
 

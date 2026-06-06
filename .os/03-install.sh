@@ -26,7 +26,7 @@
 #                          shared globals
 #   lib/config/lifecycle.sh        — template generation, load/validate config, mode
 #                          detection, installation summary
-#   lib/zfs-pools.sh     — ZFS tool fallback, ram_gib, encryption opts, pool
+#   lib/zfs/pools.sh     — ZFS tool fallback, ram_gib, encryption opts, pool
 #                          creation helper, OS dataset creation, vdev spec
 #                          builder
 #   lib/layout/<mode>.sh — sourced after detect_mode(), before validation;
@@ -34,7 +34,7 @@
 #                          layout_plan, layout_partition, layout_create_pools,
 #                          layout_mount_esp
 #   lib/packages.sh      — package collection, pacstrap
-#   lib/zfs-verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
+#   lib/zfs/verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
 #   lib/config/layers.sh       — host/user config loader+merger (host/user core)
 #   lib/profiles.sh      — runs after configure_system: creates users,
@@ -119,7 +119,7 @@ source_module() {
 }
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
-source_module "${SCRIPT_DIR}/lib/zfs-module.sh"
+source_module "${SCRIPT_DIR}/lib/zfs/module.sh"
 source_module "${SCRIPT_DIR}/lib/kernel.sh"
 source_module "${SCRIPT_DIR}/lib/config/categorized-list.sh"
 source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
@@ -127,10 +127,10 @@ source_module "${SCRIPT_DIR}/lib/install-state.sh"
 source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/config/layers.sh"
-source_module "${SCRIPT_DIR}/lib/zfs-pools.sh"
-source_module "${SCRIPT_DIR}/lib/pool-owners.sh"
+source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
+source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"
 source_module "${SCRIPT_DIR}/lib/packages.sh"
-source_module "${SCRIPT_DIR}/lib/zfs-verify.sh"
+source_module "${SCRIPT_DIR}/lib/zfs/verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles.sh"
 source_module "${SCRIPT_DIR}/lib/config/validation.sh"

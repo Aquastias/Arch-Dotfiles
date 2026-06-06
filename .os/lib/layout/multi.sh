@@ -3,7 +3,7 @@
 # lib/layout/multi.sh — Multi-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=multi.
-# Requires: lib/common.sh (for part_name), lib/zfs-pools.sh (for _zpool_create,
+# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for _zpool_create,
 #           build_vdev_spec, ram_gib) already sourced.
 #
 # Provides:
