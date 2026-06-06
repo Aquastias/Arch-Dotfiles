@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Relocate test-only modules → tests/vm/lib/ + dedup harness
 
@@ -54,4 +54,6 @@ builds persistent usable VMs; sources common + iso-resolver) and
 `tests/vm/_harness.sh` (507 lines, automated testing; also sources
 seed-generator + sentinel). Consolidating them is a real ~500-line
 merge, and the VM harness is **not runnable in this sandbox** (no
-libvirt/QEMU) so it can't be verified here. Deferred pending direction.
+libvirt/QEMU) so it can't be verified here. **Split out to issue 10**
+(`10-dedup-vm-harness.md`, `ready-for-human` — needs VM verification).
+Issue 07 is closed on the relocation; the dedup is tracked separately.
