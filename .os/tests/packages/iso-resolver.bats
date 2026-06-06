@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/iso-resolver.sh — latest-Arch-ISO resolver.
+# Tests for .os/lib/packages/iso-resolver.sh — latest-Arch-ISO resolver.
 #
 # Test strategy: override the two internal seams
 # (_iso_resolver_resolve_url, _iso_resolver_download) to simulate HEAD
@@ -10,8 +10,8 @@ setup() {
   DOWNLOADS_DIR="$TEST_DIR/dl"
   mkdir -p "$DOWNLOADS_DIR"
 
-  # shellcheck source=../lib/iso-resolver.sh
-  source "$BATS_TEST_DIRNAME/../lib/iso-resolver.sh"
+  # shellcheck source=../../lib/packages/iso-resolver.sh
+  source "$BATS_TEST_DIRNAME/../../lib/packages/iso-resolver.sh"
 
   FAKE_FILENAME="archlinux-2099.01.01-x86_64.iso"
   FAKE_URL="https://mirror.example.com/iso/2099.01.01/${FAKE_FILENAME}"

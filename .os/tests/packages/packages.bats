@@ -1,19 +1,19 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/packages.sh — collect_packages() logic.
+# Tests for .os/lib/packages/list.sh — collect_packages() logic.
 # install_base() is system-bound (pacstrap/reflector) and is not tested here.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/config/accessors.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/accessors.sh"
-  # shellcheck source=../lib/packages.sh
-  source "$BATS_TEST_DIRNAME/../lib/packages.sh"
-  # shellcheck source=../lib/config/environment.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/environment.sh"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/packages/list.sh
+  source "$BATS_TEST_DIRNAME/../../lib/packages/list.sh"
+  # shellcheck source=../../lib/config/environment.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
 
 teardown() {

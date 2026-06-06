@@ -239,7 +239,7 @@ sync_clock() {
 #   will almost never match the live ISO's kernel exactly. Attempting them leads
 #   to version magic mismatches that cannot be worked around.
 #
-#   The installed system uses zfs-dkms too (configured in lib/packages.sh),
+#   The installed system uses zfs-dkms too (configured in lib/packages/list.sh),
 #   which compiles against whatever linux-lts kernel is installed
 #   at pacstrap time.
 

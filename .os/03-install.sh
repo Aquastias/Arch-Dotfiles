@@ -33,7 +33,7 @@
 #                          implements the layout interface: layout_validate,
 #                          layout_plan, layout_partition, layout_create_pools,
 #                          layout_mount_esp
-#   lib/packages.sh      — package collection, pacstrap
+#   lib/packages/list.sh      — package collection, pacstrap
 #   lib/zfs/verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
 #   lib/config/layers.sh       — host/user config loader+merger (host/user core)
@@ -120,7 +120,7 @@ source_module() {
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/module.sh"
-source_module "${SCRIPT_DIR}/lib/kernel.sh"
+source_module "${SCRIPT_DIR}/lib/packages/kernel.sh"
 source_module "${SCRIPT_DIR}/lib/config/categorized-list.sh"
 source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"
@@ -129,7 +129,7 @@ source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/config/layers.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"
-source_module "${SCRIPT_DIR}/lib/packages.sh"
+source_module "${SCRIPT_DIR}/lib/packages/list.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles.sh"
