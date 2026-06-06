@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/install-config.sh — schema-driven Install Config reader.
+# Tests for .os/lib/config/accessors.sh — schema-driven Install Config reader.
 #
 # Structure (ADR 0015):
 #   1. Parameterised loop over _INSTALL_CONFIG_SCHEMA — default-on-absent
@@ -20,8 +20,8 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

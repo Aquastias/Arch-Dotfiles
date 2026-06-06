@@ -3,7 +3,7 @@
 # lib/profiles.sh — Host/user profile runner
 # =============================================================================
 # Sourced by 03-install.sh after configure_system().
-# Requires: lib/common.sh and lib/configs.sh already sourced.
+# Requires: lib/common.sh and lib/config/layers.sh already sourced.
 #
 # Public API:
 #   run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
@@ -15,7 +15,7 @@
 #   - Specific host config missing    → warn and return (graceful).
 #   - User dir referenced but missing → hard error.
 #   - Program not found / system flag mismatch → hard error
-#     (validation lives in lib/configs.sh and runs before any side effects).
+#     (validation lives in lib/config/layers.sh and runs before any side effects).
 #   - Staged runtime missing pieces   → hard error (caught by
 #     validate_staging before any program runs).
 #
@@ -406,7 +406,7 @@ fi
 git clone "${REPO}" "\$DOTFILES"
 cd "\$DOTFILES"
 "\$DOTFILES/.os/tools/generate-configs.sh" --user "${USER_NAME}"
-source "\$DOTFILES/.os/lib/configs-generator.sh"
+source "\$DOTFILES/.os/lib/config/generator.sh"
 mapfile -t _pkgs < <(cg_legacy_packages ".")
 stow --no-folding "\${_pkgs[@]}"
 stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .

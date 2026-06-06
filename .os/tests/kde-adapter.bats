@@ -101,8 +101,8 @@ JSON
 @test "shipped apps_list parses (bool) to the full prior 24-app set" {
   # shellcheck source=../lib/common.sh
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/categorized-list.sh
-  source "$BATS_TEST_DIRNAME/../lib/categorized-list.sh"
+  # shellcheck source=../lib/config/categorized-list.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/categorized-list.sh"
   local real="$BATS_TEST_DIRNAME/../extras/desktop/kde/install-kde.jsonc"
   local apps_json
   apps_json="$(jsonc "$real" | jq -c '.apps_list')"

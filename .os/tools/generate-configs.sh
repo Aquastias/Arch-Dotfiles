@@ -19,12 +19,12 @@ export OS_DIR
 
 # shellcheck source=../lib/shell-stdlib.sh
 source "$OS_DIR/lib/shell-stdlib.sh"
-# shellcheck source=../lib/configs-generator.sh
-source "$OS_DIR/lib/configs-generator.sh"
+# shellcheck source=../lib/config/generator.sh
+source "$OS_DIR/lib/config/generator.sh"
 # shellcheck source=../lib/jsonc.sh
 source "$OS_DIR/lib/jsonc.sh"
-# shellcheck source=../lib/configs.sh
-source "$OS_DIR/lib/configs.sh"
+# shellcheck source=../lib/config/layers.sh
+source "$OS_DIR/lib/config/layers.sh"
 
 # Resolve the Host Profile for this machine. Prefers .host_profile in
 # install.jsonc; falls back to the live hostname (legacy behaviour).

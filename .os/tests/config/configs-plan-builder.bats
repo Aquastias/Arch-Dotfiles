@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for lib/configs-generator.sh — Plan Builder.
+# Tests for lib/config/generator.sh — Plan Builder.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  # shellcheck source=../lib/configs-generator.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs-generator.sh"
+  # shellcheck source=../../lib/config/generator.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/generator.sh"
 }
 
 teardown() {

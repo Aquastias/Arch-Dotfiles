@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/categorized-list.sh — Categorized List Parser
+# lib/config/categorized-list.sh — Categorized List Parser
 # =============================================================================
 # Pure function over JSON. No I/O, no state.
 #

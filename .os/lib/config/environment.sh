@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/environment.sh — Environment validation and hardware resolution
+# lib/config/environment.sh — Environment validation and hardware resolution
 # =============================================================================
-# Sourced by lib/config.sh.
+# Sourced by lib/config/lifecycle.sh.
 # Requires: lib/common.sh already sourced (provides error, warn, jsonc_strip,
 #           and CONFIG_FILE global).
 #

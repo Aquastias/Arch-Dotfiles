@@ -24,7 +24,7 @@
 # mode/disk-count pair before assembly. There is no further config-shape
 # check before write — a malformed Install Template can still fail at install
 # time. Tightening this would require running `validate_install_context` from
-# `lib/validation.sh`, which pulls in environment/GPU/persist checks that
+# `lib/config/validation.sh`, which pulls in environment/GPU/persist checks that
 # would legitimately fail at picker time on the live CD.
 
 set -euo pipefail

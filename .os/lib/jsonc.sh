@@ -3,7 +3,7 @@
 # lib/jsonc.sh — JSONC parsing primitives
 # =============================================================================
 # Pure — no dependencies, no error() calls.
-# Sourced by lib/common.sh and lib/configs.sh.
+# Sourced by lib/common.sh and lib/config/layers.sh.
 # =============================================================================
 
 # jsonc_strip FILE → strips // line-comments, emits plain JSON on stdout.

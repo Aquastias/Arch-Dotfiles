@@ -13,8 +13,8 @@ setup() {
 
   # shellcheck source=../lib/common.sh
   source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/categorized-list.sh
-  source "$BATS_TEST_DIRNAME/../lib/categorized-list.sh"
+  # shellcheck source=../lib/config/categorized-list.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/categorized-list.sh"
   # shellcheck source=../lib/profiles.sh
   source "$BATS_TEST_DIRNAME/../lib/profiles.sh"
 }

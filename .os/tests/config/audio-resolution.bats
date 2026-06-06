@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _resolve_env_audio() in lib/config.sh.
+# Tests for _resolve_env_audio() in lib/config/lifecycle.sh.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -14,8 +14,8 @@ setup() {
   warn()    { :; }
   confirm() { :; }
 
-  # shellcheck source=../lib/environment.sh
-  source "$BATS_TEST_DIRNAME/../lib/environment.sh"
+  # shellcheck source=../../lib/config/environment.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
 
 teardown() {

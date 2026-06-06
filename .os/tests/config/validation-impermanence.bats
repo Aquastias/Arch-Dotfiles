@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _validation_impermanence() in lib/validation.sh.
+# Tests for _validation_impermanence() in lib/config/validation.sh.
 # Strategy: stub common.sh helpers; assert that the persist dataset lives on
 # the same pool as RPOOL when impermanence is enabled.
 
@@ -18,10 +18,10 @@ setup() {
 
   export RPOOL=rpool
 
-  # shellcheck source=../lib/install-config.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-config.sh"
-  # shellcheck source=../lib/validation.sh
-  source "$BATS_TEST_DIRNAME/../lib/validation.sh"
+  # shellcheck source=../../lib/config/accessors.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
+  # shellcheck source=../../lib/config/validation.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/validation.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

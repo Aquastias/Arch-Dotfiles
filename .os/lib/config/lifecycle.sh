@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config.sh — Configuration management
+# lib/config/lifecycle.sh — Configuration management
 # =============================================================================
 # Sourced by 03-install.sh.
 # Requires: lib/common.sh already sourced.

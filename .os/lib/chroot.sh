@@ -246,8 +246,9 @@ configure_system() {
     cp "${SCRIPT_DIR}/lib/common.sh"   "${MOUNT_ROOT}/root/lib/common.sh"
     cp "${SCRIPT_DIR}/lib/jsonc.sh"    "${MOUNT_ROOT}/root/lib/jsonc.sh"
     cp "${SCRIPT_DIR}/lib/globals.sh"  "${MOUNT_ROOT}/root/lib/globals.sh"
-    cp "${SCRIPT_DIR}/lib/categorized-list.sh" \
-       "${MOUNT_ROOT}/root/lib/categorized-list.sh"
+    mkdir -p "${MOUNT_ROOT}/root/lib/config"
+    cp "${SCRIPT_DIR}/lib/config/categorized-list.sh" \
+       "${MOUNT_ROOT}/root/lib/config/categorized-list.sh"
     mkdir -p "${MOUNT_ROOT}/root/lib/chroot"
     cp "${SCRIPT_DIR}/lib/chroot/extras-common.sh" \
        "${MOUNT_ROOT}/root/lib/chroot/extras-common.sh"

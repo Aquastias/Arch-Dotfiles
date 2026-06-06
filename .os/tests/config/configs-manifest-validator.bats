@@ -1,13 +1,13 @@
 #!/usr/bin/env bats
-# Tests for lib/configs-generator.sh — Manifest Validator.
+# Tests for lib/config/generator.sh — Manifest Validator.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
   MAN="$TEST_DIR/configs/manifest.jsonc"
   mkdir -p "$TEST_DIR/configs"
   printf 'placeholder\n' > "$TEST_DIR/configs/greeting"
-  # shellcheck source=../lib/configs-generator.sh
-  source "$BATS_TEST_DIRNAME/../lib/configs-generator.sh"
+  # shellcheck source=../../lib/config/generator.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/generator.sh"
 }
 
 teardown() {
