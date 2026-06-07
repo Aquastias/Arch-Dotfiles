@@ -1,4 +1,4 @@
-Status: ready-for-human
+Status: done
 
 # PRD: Foldered lib/ Taxonomy and Pure-Function Deepening
 
