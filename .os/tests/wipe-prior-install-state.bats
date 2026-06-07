@@ -1,5 +1,8 @@
 #!/usr/bin/env bats
-# Tests for the prior-install-state detection in 02-wipe.sh.
+# Tests for the prior-INSTALL-state detection in 02-wipe.sh — the leftover /mnt
+# install environment. Distinct from the prior-DISK-state decision (already
+# blank vs. carries signatures) in lib/wipe/prior-state.sh, tested under
+# tests/wipe/wipe-prior-state.bats.
 #
 # A failed 03-install.sh leaves the target's ZFS pools imported (altroot=/mnt)
 # and the ESP + datasets mounted under /mnt. detect_disks() then skips the disk
