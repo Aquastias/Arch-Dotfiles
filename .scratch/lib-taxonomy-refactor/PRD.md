@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 # PRD: Foldered lib/ Taxonomy and Pure-Function Deepening
 
