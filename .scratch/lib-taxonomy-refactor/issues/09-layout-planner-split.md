@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Layout planner/executor split: pure layout/plan + leftover-disk seam
 

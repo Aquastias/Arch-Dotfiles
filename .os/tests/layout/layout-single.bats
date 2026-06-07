@@ -89,6 +89,12 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   [ "${LAYOUT_DATA_POOL_NAMES[0]}" = "vault" ]
 }
 
+@test "layout_plan: emits LAYOUT_ESP_PARTS (primary at index 0) before partition" {
+  layout_plan
+  [ "${#LAYOUT_ESP_PARTS[@]}" -eq 1 ]
+  [ "${LAYOUT_ESP_PARTS[0]}" = "/dev/sdz1" ]
+}
+
 # ── calculate_single_disk_layout: input validation ──────────────────────────
 
 @test "calculate_single_disk_layout: errors when .disk is not a block dev" {
