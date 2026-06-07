@@ -250,27 +250,34 @@ _wipe_probe_disk() {
 
   is_live_medium "$disk" && is_live=1
 
-  # Presence only — wipefs output is multi-line, so collapse it to a token.
-  [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && sig=present
+  # Only probe a real block device. An install's resolved target set may name a
+  # disk absent on this machine (e.g. the config's os_pool lists another host's
+  # disks); such a target is reported blank (nothing to wipe) rather than run
+  # through lsblk/dd — which would fail under `set -o pipefail` and trip the ERR
+  # trap. A non-existent disk can't be wiped anyway.
+  if [[ -b "$disk" ]]; then
+    # Presence only — wipefs output is multi-line, so collapse it to a token.
+    [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && sig=present
 
-  nparts="$(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2 | wc -l)"
+    nparts="$(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2 | wc -l)"
 
-  local size
-  size="$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)"
-  if ((size > 0)); then
-    # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
-    # Any non-zero byte in any window means the disk still holds data.
-    local chunk=$((4 * 1024 * 1024))
-    local windows=32
-    local step=$((size > chunk ? (size - chunk) / windows : 0))
-    local i off nz
-    for ((i = 0; i <= windows; i++)); do
-      off=$((i * step))
-      ((off > size - chunk)) && off=$((size > chunk ? size - chunk : 0))
-      nz="$(dd if="$disk" bs="$chunk" count=1 skip="$off" \
-        iflag=skip_bytes status=none 2>/dev/null | tr -d '\0' | wc -c)"
-      ((nz > 0)) && { nonzero=1; break; }
-    done
+    local size
+    size="$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)"
+    if ((size > 0)); then
+      # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
+      # Any non-zero byte in any window means the disk still holds data.
+      local chunk=$((4 * 1024 * 1024))
+      local windows=32
+      local step=$((size > chunk ? (size - chunk) / windows : 0))
+      local i off nz
+      for ((i = 0; i <= windows; i++)); do
+        off=$((i * step))
+        ((off > size - chunk)) && off=$((size > chunk ? size - chunk : 0))
+        nz="$(dd if="$disk" bs="$chunk" count=1 skip="$off" \
+          iflag=skip_bytes status=none 2>/dev/null | tr -d '\0' | wc -c)"
+        ((nz > 0)) && { nonzero=1; break; }
+      done
+    fi
   fi
 
   printf '%s|%s|%s|%s|%s\n' "$disk" "$is_live" "$sig" "$nparts" "$nonzero"
