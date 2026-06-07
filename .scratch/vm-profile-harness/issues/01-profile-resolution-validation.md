@@ -1,6 +1,6 @@
 # Profile resolution + validation + vm.sh dry-run
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
