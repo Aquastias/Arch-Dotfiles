@@ -1,4 +1,4 @@
-Status: ready-for-human
+Status: done
 
 # Dedup the two VM harnesses into a shared core
 
@@ -61,9 +61,29 @@ Agent-side dedup implemented. Shared core extracted to
   (`--verify-boot`), `_vm_boot` log wording, console capture / installer
   launch, boot-verify, `run_harness` flow.
 
-Static gates: bats 929/0, `audit.sh` 82/82, `shellcheck.sh` clean.
+Static gates: bats 931/0, `audit.sh` 82/82, `shellcheck.sh` clean.
 Source-smoke confirms both harnesses resolve every function via the core.
 
-Still `ready-for-human`: the two end-to-end VM runs (one `vm-*.sh`, one
-`testing-*.sh`) on a libvirt/QEMU host remain — the sandbox has no
-libvirt.
+### Human VM verification — DONE
+
+Ran both paths end-to-end on a real libvirt/KVM host, serving the local
+commits to the VMs via `git daemon` (changes weren't pushed):
+
+- **Test harness** `testing-single-disk.sh --recreate` → `INSTALLER-EXIT-0`,
+  harness exit 0.
+- **Persistent harness** `vm-kde.sh` (run under throwaway name
+  `arch-kde-verify` to avoid touching the real `arch-kde`) → installed
+  KDE, rebooted, installed system stayed up. Exit 0. Confirms the
+  persistent-specific path (HTTP server + `virsh send-key`).
+
+Both exercise the shared core. The runs also re-validated issues 08/09 in
+a real install (layout plan + ESP + pools correct).
+
+Regression found + fixed during verification (commit
+`fix(wipe): Tolerate a non-existent target disk in the prior-state
+probe`): the install's resolved target set can name a disk absent on the
+machine (the committed config's `os_pool.disks` lists another host's
+NVMe disks); `_wipe_probe_disk` ran `lsblk`/`dd` on them and tripped the
+ERR trap under `pipefail` (the pre-refactor `is_disk_zeroed` masked this
+by being called inside an `if`). Now guarded with `[[ -b "$disk" ]]` so a
+non-existent target is reported blank. Re-run confirmed 0 wipe errors.
