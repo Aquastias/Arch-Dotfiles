@@ -1,0 +1,9 @@
+// Persistent VM: single-disk KDE + Hyprland side-by-side (SDDM; Hyprland
+// appears as a session). References host arch-kde-hyprland
+// (desktop=["kde","hyprland"], gpu=auto, ashift=13).
+{
+  "name": "arch-kde-hyprland",
+  "hardware": { "disks": [80], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-kde-hyprland",
+  "layout": { "mode": "single" }
+}

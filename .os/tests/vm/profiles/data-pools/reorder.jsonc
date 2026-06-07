@@ -1,0 +1,51 @@
+// VM test: data pools survive a disk-enumeration reorder across reboot
+// (ADR 0028). Same pools as data-pools/plain but over 4 DIFFERENT-size disks;
+// verify.reorder_boot_disks permutes the data-disk backing files between
+// install and first boot so the kernel assigns /dev/sdX in a new order. The
+// sentinel fires only when every pool imports and every leaf vdev resolves via
+// by-id — bare /dev/sdX-recorded pools fail to import on unfixed code.
+{
+  "name": "arch-zfs-test-multi-data-pools-reorder",
+  "hardware": { "disks": [20, 30, 25, 25], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-multi-data-pools-reorder",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto",
+      "esp_size":    "512M"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "topology": "stripe", "disks": ["/dev/sdb"] },
+      { "name": "tank1", "topology": "mirror", "disks": ["/dev/sdc", "/dev/sdd"] }
+    ]
+  },
+  "verify": {
+    "boot":               true,
+    "by_id":              true,
+    "reorder_boot_disks": true,
+    "pools":              ["rpool", "tank0", "tank1"],
+    "mounts":             ["tank0/data:/data/tank0", "tank1/data:/data/tank1"]
+  }
+}

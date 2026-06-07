@@ -1,0 +1,8 @@
+// VM test: single-disk install with KDE + Hyprland (SDDM; Hyprland as a
+// session), boot-verifying the real host profile arch-kde-hyprland.
+{
+  "name": "arch-zfs-test-env-kde-hyprland",
+  "hardware": { "disks": [60], "ram_mb": 4096, "vcpus": 2 },
+  "host_profile": "arch-kde-hyprland",
+  "layout": { "mode": "single" }
+}

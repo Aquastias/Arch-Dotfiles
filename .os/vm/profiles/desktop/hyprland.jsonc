@@ -1,0 +1,8 @@
+// Persistent VM: single-disk Hyprland (greetd + tuigreet).
+// References host arch-hyprland (desktop=hyprland, gpu=auto, ashift=13).
+{
+  "name": "arch-hyprland",
+  "hardware": { "disks": [40], "ram_mb": 6144, "vcpus": 4 },
+  "host_profile": "arch-hyprland",
+  "layout": { "mode": "single" }
+}

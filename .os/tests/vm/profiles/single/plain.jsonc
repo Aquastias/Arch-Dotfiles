@@ -1,0 +1,8 @@
+// VM test: single-disk install of the committed install.jsonc as-is
+// (mode=single, disk=/dev/sda), hostname patched from name. Smoke-tests that
+// the shipped default installs.
+{
+  "name": "arch-zfs-test-single",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": "repo"
+}

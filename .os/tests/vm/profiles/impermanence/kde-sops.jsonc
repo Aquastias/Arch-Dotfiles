@@ -1,0 +1,42 @@
+// VM test: impermanence + KDE + SOPS, single disk. Canary for the SOPS +
+// age-key derivation pipeline under impermanence. Operator supplies the SOPS
+// inputs before a real run: set dotfiles_repo to a repo with SOPS-encrypted
+// secrets and age_key_url to a passphrase-encrypted age key (.age).
+{
+  "name": "arch-zfs-test-single-impermanent-kde-sops",
+  "hardware": { "disks": [40], "ram_mb": 6144, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-imp-kde-sops",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "dotfiles_repo": "",
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto",
+      "esp_size":    "512M",
+      "age_key_url": "",
+      "impermanence": {
+        "enabled": true,
+        "dataset": "rpool/persist",
+        "mount":   "/persist"
+      }
+    },
+    "packages": { "extra": [], "groups": {} },
+    "environment": { "desktop": "kde", "gpu": "auto" },
+    "post_install": { "backup": false, "security": false },
+    "mode":              "single",
+    "disk":              "/dev/sda",
+    "ashift":            12,
+    "os_size":           "32G",
+    "os_pool_name":      "rpool",
+    "storage_pool_name": "dpool",
+    "storage_mount":     "/data",
+    "storage_groups":    []
+  }
+}

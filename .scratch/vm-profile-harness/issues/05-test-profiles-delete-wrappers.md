@@ -1,6 +1,6 @@
 # Author test profiles + delete test wrappers
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -49,3 +49,20 @@ Delete the 14 `tests/vm/testing-*.sh` wrappers. Rewrite the VM section of
 ## Blocked by
 
 - `.scratch/vm-profile-harness/issues/03-test-flow-helper-relocation.md`
+
+## Comments
+
+Done together with 02/03/04 (one atomic change): deleting the _harness
+files makes the 18 wrappers' `source=` dangle (SC1091 → shellcheck fails),
+so wrapper deletion (04/05) had to land in the same commit as the harness
+build (02/03). All 15 profiles validate + resolve via `vm.sh --print-config`
+(19/19). Faithful-to-wrapper deviations from the issue narrative, kept to
+reproduce each script's prior expectations:
+- `env/*` carry no `verify` block (the testing-env-*.sh wrappers only
+  installed; no VERIFY_BOOT). PRD story 26 wanted boot-verify — add
+  `"verify": {"boot": true}` later if desired.
+- `data-pools/reorder` has no `verify.owned` and no inline `host_profile`
+  (the reorder wrapper set neither; only the plain one did).
+- `impermanence/kde-sops` ships empty `dotfiles_repo`/`age_key_url` (these
+  were env-supplied at runtime; operator fills them for a real run).
+Gates: shellcheck clean, run.sh 963 ok / 0 fail.

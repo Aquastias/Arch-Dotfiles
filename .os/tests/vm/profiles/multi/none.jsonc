@@ -1,0 +1,36 @@
+// VM test: multi-disk, no OS RAID. topology=none + 2 disks → unattended
+// auto-picks /dev/sda for OS (rpool single disk); /dev/sdb folds into storage.
+{
+  "name": "arch-zfs-test-multi-none",
+  "hardware": { "disks": [40, 40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-multi-none",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto",
+      "esp_size":    "512M"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda", "/dev/sdb"]
+    },
+    "storage_groups": []
+  }
+}
