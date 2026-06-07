@@ -67,6 +67,9 @@ LIB_DIR="${HARNESS_DIR}/../../lib"
 source "${LIB_DIR}/common.sh"
 # shellcheck source=../../lib/packages/iso-resolver.sh
 source "${LIB_DIR}/packages/iso-resolver.sh"
+# Shared libvirt host-side core (both harnesses source it).
+# shellcheck source=../../vm/_harness-core.sh
+source "${HARNESS_DIR}/../../vm/_harness-core.sh"
 # shellcheck source=lib/sentinel-watcher.sh
 source "${HARNESS_DIR}/lib/sentinel-watcher.sh"
 # shellcheck source=lib/seed-generator.sh
@@ -111,52 +114,17 @@ _parse_args() {
 # =============================================================================
 # DEPENDENCY / ENVIRONMENT CHECKS
 # =============================================================================
-_ensure_deps() {
-  local missing=()
-  command -v virt-install  >/dev/null 2>&1 || missing+=(virt-install)
-  command -v virsh         >/dev/null 2>&1 || missing+=(libvirt)
-  command -v cloud-localds >/dev/null 2>&1 || missing+=(cloud-image-utils)
-  command -v script        >/dev/null 2>&1 || missing+=(util-linux)
-  command -v jq            >/dev/null 2>&1 || missing+=(jq)
-  if ((${#missing[@]} > 0)); then
-    info "Installing missing host dependencies: ${missing[*]}"
-    sudo pacman -S --needed --noconfirm "${missing[@]}"
-  fi
-}
+# Common libvirt deps live in the core; the test harness adds script(1) for the
+# pseudo-TTY console capture.
+_ensure_deps() { _harness_ensure_deps script:util-linux; }
 
-_ensure_libvirt_group() {
-  if ! id -nG "$USER" | tr ' ' '\n' | grep -qx libvirt; then
-    error "User '$USER' is not in the 'libvirt' group.
-  Run:  sudo usermod -aG libvirt $USER
-  Then log out and back in (or run: newgrp libvirt) before retrying."
-  fi
-}
-
-_ensure_libvirtd() {
-  if ! systemctl is-active --quiet libvirtd; then
-    info "libvirtd is inactive — starting it now (sudo)."
-    sudo systemctl enable --now libvirtd
-  fi
-}
+# _ensure_libvirt_group, _ensure_libvirtd, _vm_exists, _vm_running and
+# _vm_install_iso_path live in vm/_harness-core.sh (shared with the persistent
+# harness).
 
 # =============================================================================
 # VM LIFECYCLE
 # =============================================================================
-_vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
-_vm_running() {
-  [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]
-}
-
-# Returns the source file path of the first cdrom attached to the domain, or
-# empty string if none. Used to detect stale ISO references.
-_vm_install_iso_path() {
-  virsh dumpxml "$VM_NAME" 2>/dev/null |
-    sed -n "/device='cdrom'/,/<\/disk>/p" |
-    grep -oE "source file='[^']+\.iso'" |
-    head -1 |
-    sed -E "s/^source file='(.*)'\$/\1/"
-}
-
 _vm_destroy_undefine() {
   if _vm_exists; then
     _vm_running && {
@@ -220,22 +188,8 @@ _vm_boot_for_run() {
   virsh start "$VM_NAME" >/dev/null
 }
 
-# =============================================================================
-# ISO RESOLVER (pinned override)
-# =============================================================================
-_resolve_pinned_iso() {
-  local url="$1" downloads_dir="$2"
-  local filename="${url##*/}"
-  local target="${downloads_dir%/}/${filename}"
-  if [[ -f "$target" ]]; then printf '%s\n' "$target"; return 0; fi
-  local tmp="${target}.partial"
-  curl -fSL --retry 2 -o "$tmp" "$url" >&2 || {
-    rm -f "$tmp"
-    error "Pinned ISO download failed: $url"
-  }
-  mv -f "$tmp" "$target"
-  printf '%s\n' "$target"
-}
+# _resolve_pinned_iso lives in vm/_harness-core.sh (shared with the persistent
+# harness).
 
 # =============================================================================
 # SEED GENERATION

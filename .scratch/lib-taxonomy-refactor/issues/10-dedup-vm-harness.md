@@ -43,3 +43,27 @@ Behaviour-preserving for both.
 Note: full verification needs a libvirt/QEMU host. The agent sandbox has
 no libvirt, so an agent can only gate bats + shellcheck; a human must run
 the two VM paths to confirm. Hence `ready-for-human`.
+
+## Comments
+
+Agent-side dedup implemented. Shared core extracted to
+`.os/vm/_harness-core.sh`, sourced by both `vm/_harness.sh` and
+`tests/vm/_harness.sh`:
+
+- Identical functions moved to the core: `_ensure_libvirt_group`,
+  `_ensure_libvirtd`, `_vm_exists`, `_vm_running`, `_vm_install_iso_path`,
+  `_resolve_pinned_iso`.
+- `_ensure_deps` parametrized as `_harness_ensure_deps "cmd:pkg"…` (common
+  libvirt deps in the core; persistent adds `nc`+`python3`, test adds
+  `script`).
+- Divergent behaviour kept per-harness: seed generation, `_vm_create`
+  flags, `_vm_destroy_undefine` strategy, `usage`/`_parse_args`
+  (`--verify-boot`), `_vm_boot` log wording, console capture / installer
+  launch, boot-verify, `run_harness` flow.
+
+Static gates: bats 929/0, `audit.sh` 82/82, `shellcheck.sh` clean.
+Source-smoke confirms both harnesses resolve every function via the core.
+
+Still `ready-for-human`: the two end-to-end VM runs (one `vm-*.sh`, one
+`testing-*.sh`) on a libvirt/QEMU host remain — the sandbox has no
+libvirt.
