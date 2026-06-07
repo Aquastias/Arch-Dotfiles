@@ -13,7 +13,9 @@
 #   create_single_pools           — creates rpool (OS) and dpool (storage)
 #   mount_single_esp              — mounts the ESP into MOUNT_ROOT
 #   layout_validate       — seam: validates single-disk config inputs
-#   layout_plan           — seam: wraps calculate_single_disk_layout
+#   _layout_plan_mode     — plan hook (for layout_plan in plan.sh): wraps
+#                           calculate_single_disk_layout + publishes pool names
+#   _layout_os_disks      — plan hook: the single OS disk (for ESP resolution)
 #   layout_partition      — seam: wraps partition_single_disk
 #   layout_create_pools   — seam: wraps create_single_pools
 #   layout_mount_esp      — seam: wraps mount_single_esp
@@ -209,10 +211,8 @@ partition_single_disk() {
   _LAYOUT_IMPL_OS_PART="$(part_name "$_LAYOUT_IMPL_DISK" 2)"
   _LAYOUT_IMPL_STOR_PART="$(part_name "$_LAYOUT_IMPL_DISK" 3)"
 
-  # ── Publish layout state record ───────────────────────────────────────────
-  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_ESP_PARTS=("$_LAYOUT_IMPL_ESP_PART")
-
+  # LAYOUT_ESP_PARTS is published by layout_plan (ADR 0034); partitioning just
+  # creates and formats the partitions whose paths the plan already resolved.
   mkfs.fat -F32 -n EFI "$_LAYOUT_IMPL_ESP_PART"
   info "Partitioned:"
   info "  ESP     → $_LAYOUT_IMPL_ESP_PART"
@@ -267,10 +267,11 @@ layout_validate() {
   _layout_exit_phase validate
 }
 
-layout_plan() {
-  _layout_enter_phase plan
+# Mode hooks for the unified layout_plan (plan.sh). Phase bracketing, ESP
+# resolution and the plan contract are handled there.
+_layout_plan_mode() {
   calculate_single_disk_layout
-  # Publish layout state record (consumed by chroot.sh, finalize.sh).
+  # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(cfgo .os_pool_name)"
   LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
@@ -278,9 +279,11 @@ layout_plan() {
   _dp="$(cfgo .storage_pool_name)"
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=("${_dp:-dpool}")
-  _layout_verify_plan_contract
-  _layout_exit_phase plan
 }
+
+# The single OS disk that receives the ESP. calculate_single_disk_layout (run by
+# _layout_plan_mode) has already set _LAYOUT_IMPL_DISK by the time plan.sh asks.
+_layout_os_disks() { printf '%s\n' "$_LAYOUT_IMPL_DISK"; }
 layout_partition() {
   _layout_enter_phase partition
   partition_single_disk

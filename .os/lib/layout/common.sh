@@ -24,11 +24,15 @@ parse_size_to_gib() {
   esac
 }
 
-# Asserts layout_plan() set the OS pool name.
-# Call at end of every layout_plan().
+# Asserts layout_plan() published the normalized record: the OS pool name and at
+# least one ESP partition (ESP paths are now resolved at plan time, ADR 0034).
+# Call at end of layout_plan().
 _layout_verify_plan_contract() {
   [[ -n "$LAYOUT_OS_POOL_NAME" ]] ||
     error "Layout contract: LAYOUT_OS_POOL_NAME must be non-empty" \
+          "after layout_plan()"
+  ((${#LAYOUT_ESP_PARTS[@]} >= 1)) ||
+    error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element" \
           "after layout_plan()"
 }
 
@@ -75,3 +79,9 @@ _layout_exit_phase() {
   ord="$(_layout_phase_ordinal "$name")"
   _LAYOUT_PHASE="$ord"
 }
+
+# The unified layout_plan verb + ESP resolution + leftover-disk adapter live in
+# plan.sh; the mode adapters (single/multi) supply _layout_plan_mode and
+# _layout_os_disks. Sourced last so the contract/phase helpers above are defined.
+# shellcheck source=./plan.sh
+source "${BASH_SOURCE[0]%/*}/plan.sh"

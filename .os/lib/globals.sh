@@ -7,14 +7,16 @@
 #
 # LAYOUT CONTRACT
 # ───────────────
-# layout_plan() in the active lib/layout/<mode>.sh MUST populate the three
-# LAYOUT_* variables before returning. Consumers (chroot.sh, finalize.sh) read
-# these and never reference layout-private variables (_LAYOUT_IMPL_*),
-# so they work with either mode without changes.
+# layout_plan() (unified in lib/layout/plan.sh, dispatching to the active mode
+# adapter) MUST populate the three LAYOUT_* variables before returning.
+# Consumers (chroot.sh, finalize.sh) read these and never reference
+# layout-private variables (_LAYOUT_IMPL_*), so they work with either mode
+# without changes.
 #
 #   LAYOUT_ESP_PARTS[]     Resolved ESP partition device paths.
 #                          Index 0 = primary (/boot/efi).
-#                          Length ≥ 1 after layout_partition() has run.
+#                          Length ≥ 1 after layout_plan() returns — ESP paths
+#                          are decided at plan time via part_name (ADR 0034).
 #   LAYOUT_OS_POOL_NAME    Resolved OS pool name (e.g. "rpool").
 #                          Safe to read after layout_plan() returns.
 #   LAYOUT_DATA_POOL_NAMES[] Resolved data pool names to export — the

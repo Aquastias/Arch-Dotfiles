@@ -148,6 +148,28 @@ JSONC
   [[ "$output" == *"out of order"* ]]
 }
 
+# ── layout_plan: normalized record (pure, no partitioning) ───────────────────
+
+@test "layout_plan: emits ESP per OS disk, primary at index 0 (mirror)" {
+  setup_phase_smoke_fixture
+  layout_plan
+  [ "${#LAYOUT_ESP_PARTS[@]}" -eq 2 ]
+  [ "${LAYOUT_ESP_PARTS[0]}" = "/dev/sdx1" ]
+  [ "${LAYOUT_ESP_PARTS[1]}" = "/dev/sdy1" ]
+}
+
+@test "layout_plan: publishes LAYOUT_OS_POOL_NAME from os_pool.pool_name" {
+  setup_phase_smoke_fixture
+  layout_plan
+  [ "$LAYOUT_OS_POOL_NAME" = "rpool" ]
+}
+
+@test "layout_plan: LAYOUT_DATA_POOL_NAMES empty with no storage/data pools" {
+  setup_phase_smoke_fixture
+  layout_plan
+  [ "${#LAYOUT_DATA_POOL_NAMES[@]}" -eq 0 ]
+}
+
 # ── resolve_data_pools size warning (issue 04) ───────────────────────────────
 # Drives the plan step with a stubbed lsblk (so no real disks needed) and a
 # warn() that echoes to stdout, then asserts on the captured $output.
@@ -678,4 +700,31 @@ JSONC
   grep -q '^_zpool_create data1 12 /dev/osd21$' "$CALLS"
   # …with its data in a child dataset mounted at /data/data1.
   grep -q 'create -o mountpoint=/data/data1 data1/data' "$CALLS"
+}
+
+# ── Leftover-Disk Adapter seam (ADR 0034) ────────────────────────────────────
+# A non-interactive adapter substitutes for the install-time prompt: the planner
+# produces a plan without a TTY and the adapter's choice flows into the record.
+
+@test "leftover seam: non-interactive adapter choice flows into the plan, no TTY" {
+  setup_leftover_fixture
+  _LAYOUT_PHASE=1
+  # Substitute the named Leftover-Disk Adapter (plan.sh) with a non-interactive
+  # one: every leftover becomes its own pool with a fixed name.
+  layout_leftover_choice()    { LAYOUT_LEFTOVER_CHOICE=own; }
+  layout_leftover_pool_name() { LAYOUT_LEFTOVER_POOL_NAME=seamdata; }
+  # Prove the planner never falls back to a TTY read for the leftover.
+  _read_tty() { echo "TTY READ ATTEMPTED" >&2; return 1; }
+  cat >"$CONFIG_FILE" <<'JSONC'
+{
+  "os_pool": { "pool_name": "rpool", "topology": "none",
+               "disks": ["/dev/osd1", "/dev/osd2"] },
+  "storage_groups": []
+}
+JSONC
+
+  layout_plan   # plan only — no partitioning, no destructive ops
+
+  # The adapter's choice (own → 'seamdata') is in the published record.
+  printf '%s\n' "${LAYOUT_DATA_POOL_NAMES[@]}" | grep -qx seamdata
 }

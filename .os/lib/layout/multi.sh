@@ -19,8 +19,10 @@
 #   create_data_pools            — creates each Standalone Data Pool + dataset
 #   mount_multi_esps             — mounts primary + secondary ESPs
 #   layout_validate  — seam: validates os_pool + storage_groups inputs
-#   layout_plan      — seam: wraps resolve_os_topology; resolve_data_pools;
+#   _layout_plan_mode — plan hook (for layout_plan in plan.sh): wraps
+#                     resolve_os_topology; resolve_data_pools;
 #                     resolve_storage_topologies; resolve_leftover_disks
+#   _layout_os_disks  — plan hook: ordered OS disks (for ESP resolution)
 #   layout_partition — seam: wraps partition_os_disks_multi;
 #                     partition_storage_disks_multi
 #   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
@@ -386,15 +388,15 @@ resolve_leftover_disks() {
   for d in "${all[@]}"; do
     local s
     s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-    pick_option "Leftover disk ${d} (${s}):" \
-      "fold  (into the Combined Data Pool 'dpool')" \
-      "own   (its own Standalone Data Pool, single-disk stripe)"
-    if [[ "$PICK_RESULT" == "own" ]]; then
+    # Ask the Leftover-Disk Adapter (plan.sh) rather than prompting directly, so
+    # the planner stays pure and tests can substitute a non-interactive adapter.
+    layout_leftover_choice "$d" "$s"
+    if [[ "$LAYOUT_LEFTOVER_CHOICE" == "own" ]]; then
       local def
       def="$(_next_default_pool_name)"
-      _prompt_pool_name "$def" "$rpool_name" dpool \
+      layout_leftover_pool_name "$def" "$rpool_name" dpool \
         "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"
-      local nm="$POOL_NAME_RESULT"
+      local nm="$LAYOUT_LEFTOVER_POOL_NAME"
       _add_data_pool "$nm" stripe "/data/${nm}" 12 "$d"
       info "Leftover ${d} → standalone pool '${nm}' (stripe → /data/${nm})"
     else
@@ -463,9 +465,8 @@ partition_os_disks_multi() {
     mkfs.fat -F32 -n "EFI$((i + 1))" "${_LAYOUT_IMPL_ESP_PARTS[$i]}"
     info "Formatted ESP $((i + 1)): ${_LAYOUT_IMPL_ESP_PARTS[$i]}"
   done
-  # Publish layout state record (consumed by chroot.sh, finalize.sh).
-  # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_ESP_PARTS=("${_LAYOUT_IMPL_ESP_PARTS[@]}")
+  # LAYOUT_ESP_PARTS is published by layout_plan (ADR 0034); partitioning just
+  # creates and formats the partitions whose paths the plan already resolved.
 }
 
 partition_storage_disks_multi() {
@@ -879,15 +880,16 @@ layout_validate() {
   _layout_exit_phase validate
 }
 
-layout_plan() {
-  _layout_enter_phase plan
+# Mode hooks for the unified layout_plan (plan.sh). Phase bracketing, ESP
+# resolution and the plan contract are handled there.
+_layout_plan_mode() {
   resolve_os_topology
   # Declarative data_pools[] first, so interactive leftover naming can reject
   # collisions against them (uniqueness + default dataN numbering).
   resolve_data_pools
   resolve_storage_topologies
   resolve_leftover_disks
-  # Publish layout state record (consumed by chroot.sh, finalize.sh).
+  # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(cfg '.os_pool.pool_name')"
   # LAYOUT_DATA_POOL_NAMES: the Combined Data Pool (when storage groups or
@@ -903,8 +905,18 @@ layout_plan() {
   for _dp in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
     LAYOUT_DATA_POOL_NAMES+=("$_dp")
   done
-  _layout_verify_plan_contract
-  _layout_exit_phase plan
+}
+
+# Ordered OS disks that receive an ESP — primary first. topology=none installs
+# onto the one chosen disk; otherwise every os_pool disk is mirrored/striped and
+# each gets an ESP. resolve_os_topology (run by _layout_plan_mode) has set the
+# topology + chosen disk by the time plan.sh asks.
+_layout_os_disks() {
+  if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
+    printf '%s\n' "$_LAYOUT_IMPL_OS_DISK"
+  else
+    jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]'
+  fi
 }
 layout_partition() {
   _layout_enter_phase partition
