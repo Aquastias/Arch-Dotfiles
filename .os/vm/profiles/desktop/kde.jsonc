@@ -1,0 +1,9 @@
+// Persistent VM: single-disk KDE Plasma 6 + SDDM.
+// References host arch-kde, so the VM exercises the real host's Install
+// Template (desktop=kde, gpu=auto, ashift=13) — one source of truth.
+{
+  "name": "arch-kde",
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-kde",
+  "layout": { "mode": "single" }
+}

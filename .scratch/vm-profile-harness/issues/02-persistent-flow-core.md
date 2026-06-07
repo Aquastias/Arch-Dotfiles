@@ -1,6 +1,6 @@
 # Persistent flow + shared core
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

@@ -1,0 +1,11 @@
+// VM test: dirty-ISO boot verify. Regression guard for the ZFS root boot bug
+// — a stale/corrupt zpool.cache on the live ISO must NOT brick the installed
+// system. verify.dirty_cache corrupts /etc/zfs/zpool.cache before install;
+// verify.boot power-cycles to the installed disk and confirms the first-boot
+// sentinel. Heavy (~doubles runtime) — run on demand.
+{
+  "name": "arch-zfs-test-single-dirty",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": "repo",
+  "verify": { "boot": true, "dirty_cache": true }
+}

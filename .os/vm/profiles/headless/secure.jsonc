@@ -1,0 +1,21 @@
+// Persistent VM: SOPS + impermanence + ZFS encryption, 2-disk mirror,
+// headless. References host arch-secure, whose Install Template pins the
+// 2-disk mirror and carries encryption + impermanence + age_key_url — so no
+// layout.mode is needed here (the pin supplies mode=multi/mirror).
+//
+// Test Age Key: vm/fixtures/key.age, passphrase "test". fixtures stages it
+// into the cache dir; the flow's HTTP server serves it at
+// http://192.168.122.1:9876/key.age; the Secrets Module fetches it during
+// install and `age --decrypt` prompts on /dev/tty — type `test` when asked.
+//
+// Manual post-reboot checklist (log in as vm-test / vmtest):
+//   - zfs list -t snapshot rpool | grep @blank — 5 datasets with @blank
+//   - mount | grep /persist — Persist Dataset mounted
+//   - systemctl status sops-runtime.service — green, decrypted on boot
+//   - ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub — identical across reboot
+{
+  "name": "arch-secure",
+  "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
+  "host_profile": "arch-secure",
+  "fixtures": ["fixtures/key.age"]
+}

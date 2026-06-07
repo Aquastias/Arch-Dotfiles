@@ -494,8 +494,6 @@ every boot without the USB.
 │   ├── run-program.sh      # Program-install wrapper
 │   ├── finalize.sh         # Unmount + pool export
 │   ├── iso-resolver.sh     # Arch ISO version selection
-│   ├── seed-generator.sh   # Cloud-init seed for VM tests
-│   ├── sentinel-watcher.sh # Log sentinel for VM tests
 │   ├── shell-stdlib.sh     # Shared helpers for program scripts
 │   ├── shell/              # Stdlib submodules
 │   └── impermanence-common.sh  # Shared by chroot module +
@@ -538,13 +536,13 @@ every boot without the USB.
 │   ├── audit.sh
 │   ├── *.bats              # Unit + chroot test files
 │   ├── bats/               # Bundled BATS sources
-│   └── vm/                 # Disposable VM tests
+│   └── vm/                 # Test VM Profiles + harness unit tests
 │
-├── vm/                     # Persistent reusable VMs
-│   ├── _harness.sh
-│   ├── vm-kde.sh           # KDE Plasma + SDDM
-│   ├── vm-hyprland.sh      # Hyprland + greetd
-│   └── vm-kde-hyprland.sh  # KDE + Hyprland (SDDM)
+├── vm/                     # Profile-driven VMs (vm.sh --profile)
+│   ├── vm.sh               # Single entry point (+ --testing)
+│   ├── lib/                # core.sh + flow-persistent/flow-test
+│   ├── profiles/           # Persistent VM Profiles (desktop/, headless/)
+│   └── fixtures/           # Staged install fixtures (e.g. key.age)
 │
 ├── README.md               # This file
 └── REFERENCE.md            # Full config + VM testing
@@ -665,42 +663,53 @@ absent (the default), the toggles are no-ops.
 
 ## 8. VM Testing
 
-The `tests/vm/` directory contains a disposable integration
-test harness built on `libvirt` + cloud-init. Each test script
-spins up a throwaway VM, runs the installer unattended, and
-exits with the installer's exit code.
+The same `vm.sh` entry point runs disposable integration tests
+with `--testing`: it boots a throwaway VM headless, runs the
+installer unattended from a **VM Profile**, and exits with the
+installer's exit code (0 ok / 124 timeout / 125 boot-fail).
+Test profiles live under `tests/vm/profiles/<category>/`.
 
-> For **persistent, reusable VMs** (manual testing / dev), see
-> [`vm/`](vm/).
+> For **persistent, reusable VMs** (manual testing / dev), drop
+> `--testing`; see [`vm/`](vm/). A test profile run without
+> `--testing` builds a persistent VM of that exact case — the
+> supported way to debug a failing test interactively.
 
 **Prerequisites:** `virt-install`, `virsh`, `cloud-localds`,
 `jq`, `libvirtd` running, user in `libvirt` group.
 
 ```bash
-# Single-disk smoke
-bash tests/vm/testing-single-disk.sh
-bash tests/vm/testing-single-disk-impermanent.sh
-bash tests/vm/testing-single-disk-impermanent-kde-encrypted.sh
-bash tests/vm/testing-single-disk-impermanent-kde-sops.sh
+# Single-disk smoke (the committed install.jsonc)
+bash vm/vm.sh --testing --profile single/plain
+bash vm/vm.sh --testing --profile single/dirty-cache
 
 # Multi-disk topologies
-bash tests/vm/testing-multi-os-mirror.sh
-bash tests/vm/testing-multi-os-mirror-storage.sh
-bash tests/vm/testing-multi-os-mirror-impermanent.sh
-bash tests/vm/testing-multi-os-none.sh
-bash tests/vm/testing-multi-os-stripe.sh
+bash vm/vm.sh --testing --profile multi/mirror
+bash vm/vm.sh --testing --profile multi/stripe
+bash vm/vm.sh --testing --profile multi/none
+bash vm/vm.sh --testing --profile multi/mirror-storage
 
-# Desktop environments
-bash tests/vm/testing-env-kde.sh
-bash tests/vm/testing-env-hyprland.sh
-bash tests/vm/testing-env-kde-hyprland.sh
+# Impermanence / encryption / SOPS
+bash vm/vm.sh --testing --profile impermanence/single
+bash vm/vm.sh --testing --profile impermanence/mirror
+bash vm/vm.sh --testing --profile impermanence/kde-encrypted
+bash vm/vm.sh --testing --profile impermanence/kde-sops
+
+# Standalone data pools (boot-verify with --verify-boot)
+bash vm/vm.sh --testing --verify-boot --profile data-pools/plain
+bash vm/vm.sh --testing --verify-boot --profile data-pools/reorder
+
+# Desktop environments (real host profiles)
+bash vm/vm.sh --testing --profile env/kde
+bash vm/vm.sh --testing --profile env/hyprland
+bash vm/vm.sh --testing --profile env/kde-hyprland
 ```
 
-Each script writes a timestamped log to
-`tests/vm/<vm-name>.log`. The harness watches for an
-`===INSTALLER-EXIT-N===` sentinel line (written by cloud-init)
-and propagates the installer's exit code. Timeout defaults to
-1800 s (`VM_TEST_TIMEOUT` env var overrides).
+Each run writes a timestamped log to `tests/vm/<vm-name>.log`.
+The harness watches for an `===INSTALLER-EXIT-N===` sentinel
+line and propagates the installer's exit code. `--verify-boot`
+(or a profile's `verify` block) power-cycles to the installed
+disk and waits for the first-boot sentinel. Timeout defaults to
+1800 s (`TIMEOUT_SEC` env var overrides).
 
 The ISO is auto-resolved to the newest archzfs-compatible Arch
 release (cached in `tests/vm/.vm-test/`).

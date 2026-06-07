@@ -1,6 +1,6 @@
 # Author persistent profiles + delete prod wrappers
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

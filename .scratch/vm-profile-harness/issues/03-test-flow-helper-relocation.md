@@ -1,6 +1,6 @@
 # Test flow + helper relocation
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
