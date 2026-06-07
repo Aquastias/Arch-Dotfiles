@@ -41,7 +41,8 @@
 # ALREADY-ZEROED DISKS:
 #   Before wiping, each selected disk is checked: if it carries no signatures,
 #   no partition table, and samples clean of non-zero data, it is reported as
-#   already blank and SKIPPED (no redundant zero-fill). See is_disk_zeroed().
+#   already blank and SKIPPED (no redundant zero-fill). See _wipe_probe_disk()
+#   + the pure decider in lib/wipe/prior-state.sh.
 #
 # CONFIRMATION:
 #   Two gates protect the wipe (both skipped under unattended mode):
@@ -84,10 +85,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 # shellcheck source=lib/live-medium.sh
 source "${SCRIPT_DIR}/lib/live-medium.sh"
-# shellcheck source=lib/wipe/method.sh
-source "${SCRIPT_DIR}/lib/wipe/method.sh"
-# shellcheck source=lib/wipe/progress.sh
-source "${SCRIPT_DIR}/lib/wipe/progress.sh"
+# shellcheck source=lib/wipe/prior-state.sh
+source "${SCRIPT_DIR}/lib/wipe/prior-state.sh"
+# execute.sh guard-sources method.sh + progress.sh.
+# shellcheck source=lib/wipe/execute.sh
+source "${SCRIPT_DIR}/lib/wipe/execute.sh"
 
 # Final list of disks to wipe — populated from explicit targets or selection.
 DISKS_TO_WIPE=()
@@ -230,58 +232,66 @@ select_disks() {
 # ALREADY-ZEROED DETECTION
 # =============================================================================
 
-# Returns 0 if the disk appears already blank/zeroed, 1 otherwise.
-#   1. Any filesystem/partition signature (wipefs)  → not zeroed (return 1)
-#   2. Any child partitions (lsblk)                 → not zeroed
+# _wipe_probe_disk DISK — block-device I/O that produces one prior-state fact
+# line for the pure decider in lib/wipe/prior-state.sh:
+#   <disk>|<is_live>|<sig>|<nparts>|<nonzero>
+#   1. Any filesystem/partition signature (wipefs)  → sig non-empty
+#   2. Any child partitions (lsblk)                 → nparts > 0
 #   3. Sample 4 MiB windows at 33 evenly-spaced
-#      offsets; any non-zero byte                   → not zeroed
+#      offsets; any non-zero byte                   → nonzero=1
 # Steps 1-2 catch all *structured* data (filesystems, partition tables,
 # LVM/MD/ZFS labels). Step 3 catches gross leftover data but is heuristic —
 # not an exhaustive every-sector scan, since a full read of a multi-TB disk
-# would cost as much as the zero-fill it is meant to skip. A disk that passes
-# all three is safe to install onto as-is, so skipping its zero-fill is sound
-# even in the rare case unstructured data hides between the sample windows.
-is_disk_zeroed() {
-  local disk="$1"
+# would cost as much as the zero-fill it is meant to skip. A disk reported
+# blank by the decider is safe to install onto as-is, so skipping its
+# zero-fill is sound even if unstructured data hides between sample windows.
+_wipe_probe_disk() {
+  local disk="$1" is_live=0 sig="" nparts=0 nonzero=0
 
-  # Any filesystem/partition signature → definitely not blank.
-  [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && return 1
+  is_live_medium "$disk" && is_live=1
 
-  # Any child partitions → not blank.
-  local nparts
+  # Presence only — wipefs output is multi-line, so collapse it to a token.
+  [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && sig=present
+
   nparts="$(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2 | wc -l)"
-  ((nparts > 0)) && return 1
 
   local size
   size="$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)"
-  ((size > 0)) || return 1
+  if ((size > 0)); then
+    # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
+    # Any non-zero byte in any window means the disk still holds data.
+    local chunk=$((4 * 1024 * 1024))
+    local windows=32
+    local step=$((size > chunk ? (size - chunk) / windows : 0))
+    local i off nz
+    for ((i = 0; i <= windows; i++)); do
+      off=$((i * step))
+      ((off > size - chunk)) && off=$((size > chunk ? size - chunk : 0))
+      nz="$(dd if="$disk" bs="$chunk" count=1 skip="$off" \
+        iflag=skip_bytes status=none 2>/dev/null | tr -d '\0' | wc -c)"
+      ((nz > 0)) && { nonzero=1; break; }
+    done
+  fi
 
-  # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
-  # Any non-zero byte in any window means the disk still holds data.
-  local chunk=$((4 * 1024 * 1024))
-  local windows=32
-  local step=$((size > chunk ? (size - chunk) / windows : 0))
-  local i off nz
-  for ((i = 0; i <= windows; i++)); do
-    off=$((i * step))
-    ((off > size - chunk)) && off=$((size > chunk ? size - chunk : 0))
-    nz="$(dd if="$disk" bs="$chunk" count=1 skip="$off" \
-      iflag=skip_bytes status=none 2>/dev/null | tr -d '\0' | wc -c)"
-    ((nz > 0)) && return 1
-  done
-  return 0
+  printf '%s|%s|%s|%s|%s\n' "$disk" "$is_live" "$sig" "$nparts" "$nonzero"
 }
 
-# Drops already-zeroed disks from DISKS_TO_WIPE, reporting each skip.
+# Drops already-zeroed disks from DISKS_TO_WIPE, reporting each skip. Probes
+# each target (I/O), then lets the pure decider pick the set to wipe.
 skip_zeroed_disks() {
   section "Checking for Already-Zeroed Disks"
-  local kept=() disk
+  local disk kept=()
+  mapfile -t kept < <(
+    for disk in "${DISKS_TO_WIPE[@]}"; do _wipe_probe_disk "$disk"; done \
+      | wipe_select_to_wipe
+  )
+  # Report each disk the decider dropped as already blank. (Live-medium disks
+  # are aborted by the hard guard before this point, so a drop here is blank.)
+  local k in_kept
   for disk in "${DISKS_TO_WIPE[@]}"; do
-    if is_disk_zeroed "$disk"; then
-      info "Skipping $disk — already blank/zeroed (no wipe needed)."
-    else
-      kept+=("$disk")
-    fi
+    in_kept=false
+    for k in "${kept[@]}"; do [[ "$k" == "$disk" ]] && { in_kept=true; break; }; done
+    $in_kept || info "Skipping $disk — already blank/zeroed (no wipe needed)."
   done
   DISKS_TO_WIPE=("${kept[@]}")
 }
@@ -354,69 +364,6 @@ final_confirm() {
   read -rp "  > " _confirm
   [[ "$_confirm" == "WIPE" ]] ||
     error "Confirmation not received. No disks were modified."
-}
-
-# =============================================================================
-# PRE-WIPE TEARDOWN (ZFS / LVM / MD-RAID)
-# =============================================================================
-
-teardown_zfs() {
-  local disk="$1"
-  command -v zpool &>/dev/null || return 0
-
-  # Destroy any already-imported pools using this disk.
-  # Pool names cannot contain whitespace, so word-splitting is safe.
-  local pool
-  while IFS= read -r pool; do
-    [[ -z "$pool" ]] && continue
-    if zpool status "$pool" 2>/dev/null | grep -q "$(basename "$disk")"; then
-      warn "Destroying imported ZFS pool '${pool}' on ${disk}"
-      zpool destroy -f "$pool" 2>/dev/null || true
-    fi
-  done < <(zpool list -H -o name 2>/dev/null || true)
-
-  # Try to import and then destroy any un-imported pools on this disk.
-  # Limit the device scan to /dev to avoid hanging on network devices.
-  local pools
-  pools="$(zpool import -d /dev 2>/dev/null | awk '/pool:/{print $2}' || true)"
-  for pool in $pools; do
-    zpool import -N -d /dev "$pool" 2>/dev/null || continue
-    if zpool status "$pool" 2>/dev/null | grep -q "$(basename "$disk")"; then
-      warn "Destroying ZFS pool '${pool}' on ${disk}"
-      zpool destroy -f "$pool" 2>/dev/null || true
-    else
-      zpool export "$pool" 2>/dev/null || true
-    fi
-  done
-}
-
-teardown_lvm() {
-  local disk="$1"
-  command -v pvs &>/dev/null || return 0
-  while IFS= read -r pv; do
-    local vg
-    vg="$(pvs --noheadings -o vg_name "$pv" 2>/dev/null | xargs || true)"
-    if [[ -n "$vg" ]]; then
-      warn "Removing LVM VG '${vg}' on ${pv}"
-      vgremove -f "$vg" 2>/dev/null || true
-    fi
-    pvremove -f "$pv" 2>/dev/null || true
-  done < <(pvs --noheadings -o pv_name 2>/dev/null \
-    | grep "^[[:space:]]*${disk}" || true)
-}
-
-teardown_mdraid() {
-  local disk="$1"
-  command -v mdadm &>/dev/null || return 0
-  while IFS= read -r part; do
-    local md
-    md="$(mdadm --query "/dev/${part}" 2>/dev/null |
-      awk '/is a member of/{print $NF}' || true)"
-    if [[ -n "$md" && -b "$md" ]]; then
-      warn "Stopping MD array ${md} (contains /dev/${part})"
-      mdadm --stop "$md" 2>/dev/null || true
-    fi
-  done < <(lsblk -ln -o NAME "$disk" 2>/dev/null | tail -n +2)
 }
 
 # =============================================================================
@@ -501,154 +448,6 @@ reset_prior_install_state() {
   else
     info "Previous install env cleared — disk is now wipeable."
   fi
-}
-
-# =============================================================================
-# SINGLE DISK WIPE (runs in background per disk)
-# =============================================================================
-
-wipe_one_disk() {
-  local disk="$1"
-  local log prog base
-  base="$(basename "$disk")"
-  log="/tmp/wipe-${base}.log"
-  prog="/tmp/wipe-${base}.progress"
-  {
-    echo "[$(date '+%T')] Starting: $disk"
-
-    teardown_zfs "$disk"
-    teardown_lvm "$disk"
-    teardown_mdraid "$disk"
-
-    # Clear all filesystem/partition signatures
-    wipefs -af "$disk"
-
-    # Destroy GPT and MBR partition tables
-    sgdisk --zap-all "$disk"
-
-    # Device-aware clear (Wipe-Method Selector): blkdiscard for SSD/NVMe,
-    # a single dd zero-pass for HDD. dd exits non-zero at end-of-disk ("no
-    # space left"), which is expected — `|| true` suppresses it.
-    local rota method
-    rota="$(lsblk -dno ROTA "$disk" 2>/dev/null | head -n1 | xargs || true)"
-    method="$(wipe_method "$rota")"
-    if [[ "$method" == "blkdiscard" ]]; then
-      echo "[$(date '+%T')] Discarding $disk (SSD/NVMe)..."
-      if ! blkdiscard -f "$disk" 2>/dev/null; then
-        # USB bridges / drives that reject discard: fall back to a zero-pass
-        # so the disk still ends up blank.
-        echo "[$(date '+%T')] blkdiscard unsupported — zero-filling $disk..."
-        dd if=/dev/zero of="$disk" bs=4M conv=fsync status=progress \
-          2>"$prog" || true
-      fi
-    else
-      echo "[$(date '+%T')] Zero-filling $disk (this takes a while)..."
-      dd if=/dev/zero of="$disk" bs=4M conv=fsync status=progress \
-        2>"$prog" || true
-    fi
-
-    # Second wipefs pass — catches any leftover signatures at end-of-disk
-    wipefs -af "$disk" 2>/dev/null || true
-
-    # Ask kernel to re-read the (now empty) partition table
-    blockdev --rereadpt "$disk" 2>/dev/null || true
-
-    echo "[$(date '+%T')] Done: $disk"
-  } >"$log" 2>&1
-}
-
-# =============================================================================
-# PARALLEL WIPE ORCHESTRATION
-# =============================================================================
-
-run_parallel_wipe() {
-  section "Wiping Disks (parallel)"
-
-  declare -a pids disk_map size_map method_map
-  local disk
-  for disk in "${DISKS_TO_WIPE[@]}"; do
-    # Capture size + method up front so the live display can draw a bar (HDD)
-    # or show instant completion (blkdiscard) without re-querying each tick.
-    local rota
-    rota="$(lsblk -dno ROTA "$disk" 2>/dev/null | head -n1 | xargs || true)"
-    size_map+=("$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)")
-    method_map+=("$(wipe_method "$rota")")
-    rm -f "/tmp/wipe-$(basename "$disk").progress"
-    info "Spawning wipe job: $disk"
-    wipe_one_disk "$disk" &
-    pids+=($!)
-    disk_map+=("$disk")
-  done
-
-  echo ""
-  info "${#DISKS_TO_WIPE[@]} disk(s) wiping in parallel."
-  info "Logs: /tmp/wipe-<diskname>.log"
-  echo ""
-
-  # Live per-disk display — a stable multi-line block redrawn ~1 s in place.
-  # HDD dd jobs show a real bar (bytes from their .progress file against the
-  # disk size); blkdiscard jobs show near-instant completion. ANSI cursor-up
-  # anchors the block. Non-tty output (logs/CI) still works — the escapes are
-  # harmless and the lines simply scroll.
-  local n=${#pids[@]} start=$SECONDS first=1 all_done=false
-  while ! $all_done; do
-    all_done=true
-    local elapsed=$((SECONDS - start))
-    local lines=() i
-    for i in "${!pids[@]}"; do
-      local disk_i base size method bytes
-      disk_i="${disk_map[$i]}"; base="$(basename "$disk_i")"
-      size="${size_map[$i]}"; method="${method_map[$i]}"
-      if kill -0 "${pids[$i]}" 2>/dev/null; then
-        all_done=false
-        bytes="$(progress_parse_bytes \
-          "$(cat "/tmp/wipe-${base}.progress" 2>/dev/null || true)")"
-        if [[ -n "$bytes" ]]; then
-          lines+=("  ${YELLOW}●${NC} $(progress_line "$base" "$bytes" \
-            "$size" "$elapsed")")
-        elif [[ "$method" == "blkdiscard" ]]; then
-          lines+=("  ${YELLOW}●${NC} ${base} discarding (SSD/NVMe)…")
-        else
-          lines+=("  ${YELLOW}●${NC} ${base} starting…")
-        fi
-      elif grep -q "Done:" "/tmp/wipe-${base}.log" 2>/dev/null; then
-        lines+=("  ${GREEN}✔${NC} ${base} $(progress_bar "$size" "$size" 20)\
- done")
-      else
-        lines+=("  ${YELLOW}!${NC} ${base} check log")
-      fi
-    done
-    # Redraw the block in place: after the first paint, jump the cursor back up
-    # over the N lines, clearing and reprinting each.
-    if ((first)); then first=0; else printf '\033[%dA' "$n"; fi
-    for i in "${lines[@]}"; do printf '\033[2K%b\n' "$i"; done
-    $all_done || sleep 1
-  done
-
-  # Reap the finished jobs (the display loop detected completion via kill -0,
-  # not wait). Status is ignored — the authoritative success signal is the
-  # "Done:" line in each disk's log, collected below.
-  for i in "${!pids[@]}"; do wait "${pids[$i]}" 2>/dev/null || true; done
-
-  # Collect results from the "Done:" line written at the end of each disk's log.
-  local any_failed=false
-  local i
-  for i in "${!pids[@]}"; do
-    local log
-    log="/tmp/wipe-$(basename "${disk_map[$i]}").log"
-    if ! grep -q "Done:" "$log" 2>/dev/null; then
-      warn "Wipe may have failed for ${disk_map[$i]} — check $log"
-      any_failed=true
-    fi
-  done
-
-  # NOTE: must not let this be the function's final command as a bare
-  # `$any_failed && warn ...`; under `set -e` that returns 1 when any_failed is
-  # false (the normal success case) and trips the ERR trap at the call site.
-  if $any_failed; then
-    warn "One or more wipes may need attention. Check logs above."
-  fi
-  return 0
 }
 
 # =============================================================================
@@ -761,6 +560,11 @@ main() {
     }
   fi
 
+  # Hard guard first: never wipe the live medium, even if it reached the target
+  # set — abort loudly before any probing. (The pure prior-state decider also
+  # drops it as belt-and-suspenders, but the loud abort must win here.)
+  assert_no_live_medium_targets
+
   # Drop disks that are already blank — no point zero-filling them again.
   skip_zeroed_disks
   ((${#DISKS_TO_WIPE[@]} > 0)) || {
@@ -771,9 +575,6 @@ main() {
   echo ""
   info "Disks selected for wiping (${#DISKS_TO_WIPE[@]}):"
   disk_info_table "${DISKS_TO_WIPE[@]}"
-
-  # Hard guard: never wipe the live medium, even if it reached the target set.
-  assert_no_live_medium_targets
 
   confirm_wipe_intent
   final_confirm

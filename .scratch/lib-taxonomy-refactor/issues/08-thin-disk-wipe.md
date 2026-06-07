@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Thin the Disk Wipe: extract pure prior-state, orchestrator 02-wipe.sh
 
