@@ -30,7 +30,7 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 _run_create_user() {
-  bash "$BATS_TEST_DIRNAME/../lib/chroot/create-user.sh" "$@"
+  bash "$BATS_TEST_DIRNAME/../../lib/chroot/create-user.sh" "$@"
 }
 
 # ── #02: password from secrets ────────────────────────────────────────────────

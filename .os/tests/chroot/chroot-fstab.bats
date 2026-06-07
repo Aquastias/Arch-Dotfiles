@@ -11,8 +11,8 @@ setup() {
   warn()    { :; }
   section() { :; }
 
-  # shellcheck source=../lib/chroot.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot.sh"
+  # shellcheck source=../../lib/chroot.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot.sh"
 
   UUID1="aaaaaaaa-0000-0000-0000-000000000001"
   UUID2="bbbbbbbb-0000-0000-0000-000000000002"

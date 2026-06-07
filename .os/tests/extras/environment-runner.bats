@@ -13,7 +13,7 @@ setup() {
   EXTRAS_DIR="$TEST_DIR/extras"
   STATE_FILE="$TEST_DIR/state.json"
   STUB_LOG="$TEST_DIR/invocations.log"
-  RUNNER="$BATS_TEST_DIRNAME/../lib/chroot/extras.sh"
+  RUNNER="$BATS_TEST_DIRNAME/../../lib/chroot/extras.sh"
 
   mkdir -p "$EXTRAS_DIR"
   export EXTRAS_DIR STATE_FILE STUB_LOG

@@ -7,8 +7,8 @@ setup() {
   mkdir -p "$STUB_BIN"
   export TEST_DIR STUB_BIN
 
-  # shellcheck source=../lib/shell/packages.sh
-  source "$BATS_TEST_DIRNAME/../lib/shell/packages.sh"
+  # shellcheck source=../../lib/shell/packages.sh
+  source "$BATS_TEST_DIRNAME/../../lib/shell/packages.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

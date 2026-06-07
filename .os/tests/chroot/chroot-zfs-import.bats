@@ -11,8 +11,8 @@
 # is pure; the writer is the thin I/O step the Chroot Configuration Module runs.
 
 setup() {
-  # shellcheck source=../lib/chroot/zfs-import.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot/zfs-import.sh"
+  # shellcheck source=../../lib/chroot/zfs-import.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot/zfs-import.sh"
 }
 
 # A representative shipped zfs-import-cache.service (archzfs). settle appears as

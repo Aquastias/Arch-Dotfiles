@@ -3,8 +3,8 @@
 # of install-state.json from a merged host config JSON.
 
 setup() {
-  # shellcheck source=../lib/install-state.sh
-  source "$BATS_TEST_DIRNAME/../lib/install-state.sh"
+  # shellcheck source=../../lib/install-state.sh
+  source "$BATS_TEST_DIRNAME/../../lib/install-state.sh"
 }
 
 @test "persist-state: empty dirs/files when host has no persist" {

@@ -15,7 +15,7 @@ setup() {
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
   GREETD_CONF_DIR="$TEST_DIR/greetd"
   HYPR_JSON="$TEST_DIR/install-hyprland.jsonc"
-  ADAPTER="$BATS_TEST_DIRNAME/../extras/desktop/hyprland/hyprland.sh"
+  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
 
   export PACMAN_LOG SYSTEMCTL_LOG GREETD_CONF_DIR HYPR_JSON
 

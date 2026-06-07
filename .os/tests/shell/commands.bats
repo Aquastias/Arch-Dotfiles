@@ -2,8 +2,8 @@
 # Tests for .os/lib/shell/commands.sh — command_exists helper.
 
 setup() {
-  # shellcheck source=../lib/shell/commands.sh
-  source "$BATS_TEST_DIRNAME/../lib/shell/commands.sh"
+  # shellcheck source=../../lib/shell/commands.sh
+  source "$BATS_TEST_DIRNAME/../../lib/shell/commands.sh"
 }
 
 @test "command_exists: returns 0 for a known-present command (bash)" {

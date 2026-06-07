@@ -35,8 +35,8 @@ setup() {
   PERSIST_FILES=()
   export PERSIST_DIRECTORIES PERSIST_FILES
 
-  # shellcheck source=../lib/chroot/impermanence.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot/impermanence.sh"
+  # shellcheck source=../../lib/chroot/impermanence.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot/impermanence.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
