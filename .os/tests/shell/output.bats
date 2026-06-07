@@ -2,8 +2,8 @@
 # Tests for .os/lib/shell/output.sh — print_status helper.
 
 setup() {
-  # shellcheck source=../lib/shell/output.sh
-  source "$BATS_TEST_DIRNAME/../lib/shell/output.sh"
+  # shellcheck source=../../lib/shell/output.sh
+  source "$BATS_TEST_DIRNAME/../../lib/shell/output.sh"
 }
 
 @test "print_status info: prefix [INFO] + message in stdout" {

@@ -15,7 +15,7 @@ setup() {
 JSON
   # Source initcpio.sh in lib-only mode so its side-effect block doesn't run.
   INITCPIO_LIB_ONLY=1 source \
-    "$BATS_TEST_DIRNAME/../lib/chroot/initcpio.sh"
+    "$BATS_TEST_DIRNAME/../../lib/chroot/initcpio.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

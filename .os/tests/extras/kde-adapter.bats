@@ -16,7 +16,7 @@ setup() {
   PACMAN_LOG="$TEST_DIR/pacman.log"
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
   KDE_JSON="$TEST_DIR/install-kde.jsonc"
-  ADAPTER="$BATS_TEST_DIRNAME/../extras/desktop/kde/kde.sh"
+  ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/kde/kde.sh"
 
   export PACMAN_LOG SYSTEMCTL_LOG KDE_JSON
 
@@ -99,11 +99,11 @@ JSON
 # ── shipped install-kde.jsonc regression lock ───────────────────────────────
 
 @test "shipped apps_list parses (bool) to the full prior 24-app set" {
-  # shellcheck source=../lib/common.sh
-  source "$BATS_TEST_DIRNAME/../lib/common.sh"
-  # shellcheck source=../lib/config/categorized-list.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/categorized-list.sh"
-  local real="$BATS_TEST_DIRNAME/../extras/desktop/kde/install-kde.jsonc"
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  # shellcheck source=../../lib/config/categorized-list.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   local apps_json
   apps_json="$(jsonc "$real" | jq -c '.apps_list')"
 

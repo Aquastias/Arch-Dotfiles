@@ -13,8 +13,8 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  # shellcheck source=../lib/chroot.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot.sh"
+  # shellcheck source=../../lib/chroot.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -97,8 +97,8 @@ _load_base_services() {
   SYSCTL_LOG="$TEST_DIR/systemctl.log"
   : > "$SYSCTL_LOG"
   systemctl() { echo "systemctl $*" >> "$SYSCTL_LOG"; }
-  # shellcheck source=../lib/chroot/base-services.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot/base-services.sh"
+  # shellcheck source=../../lib/chroot/base-services.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot/base-services.sh"
 }
 
 @test "enable_base_services enables NetworkManager, resolved, and timesyncd" {

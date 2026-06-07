@@ -8,8 +8,8 @@ setup() {
   mkdir -p "$STUB_BIN"
   export TEST_DIR STUB_BIN CAPTURE
 
-  # shellcheck source=../lib/shell/notifications.sh
-  source "$BATS_TEST_DIRNAME/../lib/shell/notifications.sh"
+  # shellcheck source=../../lib/shell/notifications.sh
+  source "$BATS_TEST_DIRNAME/../../lib/shell/notifications.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

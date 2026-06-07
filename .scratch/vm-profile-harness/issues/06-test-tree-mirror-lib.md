@@ -1,6 +1,6 @@
 # Test-tree mirror lib/ (non-vm)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -31,18 +31,38 @@ Rewire every moved file's `source=` / `BASH_SOURCE`-relative path and
 
 ## Acceptance criteria
 
-- [ ] `tests/wipe/` holds all wipe bats; no stale top-level `wipe-*.bats`
-      remain; the prior-state duplicate is resolved to a single file.
-- [ ] `chroot-*.bats` are under `tests/chroot/`.
-- [ ] `commons-{commands,notifications,output,packages,permissions}.bats`
+- [~] `tests/wipe/` holds the `lib/wipe/` module bats. The flat
+      `wipe-*.bats` were NOT removed: they test live functions in flat
+      `02-wipe.sh` and are not duplicated by `tests/wipe/`. Kept flat per
+      the issue's own "flat vs folder by what it sources" rule. See Comments.
+- [x] `chroot-*.bats` are under `tests/chroot/`.
+- [x] `commons-{commands,notifications,output,packages,permissions}.bats`
       are under `tests/shell/` renamed to match their `lib/shell/` module;
       `commons-part-name.bats` stays flat.
-- [ ] Adapter/runner bats are under `tests/extras/`.
-- [ ] Every moved file's source paths and shellcheck directives are
+- [x] Adapter/runner bats are under `tests/extras/`.
+- [x] Every moved file's source paths and shellcheck directives are
       rewired.
-- [ ] `tests/run.sh` (recursive discovery) and `tests/shellcheck.sh` are
+- [x] `tests/run.sh` (recursive discovery) and `tests/shellcheck.sh` are
       green with no change to the runner.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+Wipe deviation (human-decided: keep flat). Investigation found the four
+flat `wipe-*.bats` (`wipe-live-medium`, `wipe-probe`, `wipe-select`,
+`wipe-prior-install-state`) are LIVE coverage of functions still defined
+and called in flat `02-wipe.sh`: `detect_disks`, `select_disks`,
+`parse_disk_selection`, `parse_args`, `_wipe_probe_disk`,
+`skip_zeroed_disks`, `_wipe_mounts_under_mnt`, `_wipe_pools_altroot_mnt`.
+The foldered `tests/wipe/*.bats` cover DIFFERENT `lib/wipe/` functions
+(`wipe_method`, `wipe_disk_dirty`, `wipe_select_to_wipe`,
+`wipe_resolve_targets`, `progress_*`). "prior-install-state" (mounts at
+/mnt, altroot pools) != "prior-state" (disk dirtiness) — not a duplicate.
+The PRD's "drop the stale four / dedupe prior-state" rested on a false
+premise; deleting would drop real 02-wipe.sh coverage. Per the issue's own
+rule (a test of a flat root script stays flat) they remain flat. No wipe
+files changed. Full suite 963 ok / 0 fail (unchanged total → no coverage
+lost). Revisit if 02-wipe.sh is later thinned onto lib/wipe.

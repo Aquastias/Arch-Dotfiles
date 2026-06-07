@@ -8,8 +8,8 @@
 # the thin I/O step the Chroot Configuration Module runs on every install.
 
 setup() {
-  # shellcheck source=../lib/chroot/udisks.sh
-  source "$BATS_TEST_DIRNAME/../lib/chroot/udisks.sh"
+  # shellcheck source=../../lib/chroot/udisks.sh
+  source "$BATS_TEST_DIRNAME/../../lib/chroot/udisks.sh"
 }
 
 # ── udisks_zfs_ignore_rule (pure emitter) ────────────────────────────────────
