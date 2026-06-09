@@ -13,3 +13,12 @@ enable_base_services() {
   systemctl enable systemd-timesyncd
   systemctl enable cronie
 }
+
+# Optional daemons toggled by config. sshd is enabled only when
+# options.ssh.enabled=true (SSH_ENABLED in install-state); openssh is already
+# pacstrapped via the Base Package List, so this only flips the service.
+enable_optional_services() {
+  if [[ "${SSH_ENABLED:-false}" == "true" ]]; then
+    systemctl enable sshd.service
+  fi
+}

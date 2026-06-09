@@ -59,6 +59,8 @@ fi
 # ── Network, time & cron services ─────────────────────────────────────────────
 # Always-on base daemons (incl. cronie, ADR 0026) — see base-services.sh.
 enable_base_services
+# Optional daemons (sshd when options.ssh.enabled) — see base-services.sh.
+enable_optional_services
 
 # /etc/resolv.conf is bind-mounted in the chroot — can't symlink it here.
 # Drop-in + tmpfiles rule create the stub symlink on first real boot.

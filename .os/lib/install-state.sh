@@ -24,6 +24,7 @@ _INSTALL_STATE_SCHEMA=(
   "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
   "RPOOL|.rpool|scalar"
+  "SSH_ENABLED|.ssh.enabled|bool"
   "SWAP|.swap|bool"
   "ESP_COUNT|.esp_count|number"
   "EXTRAS_BACKUP|.extras.backup|bool"
@@ -93,6 +94,7 @@ install_state_write() {
     --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
     --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
+    --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
     --argjson swap        "$(install_config_swap_enabled)"           \
     --argjson esp_count   "${#LAYOUT_ESP_PARTS[@]}"                  \
     --argjson backup      "$(install_config_extras_backup)"          \
@@ -107,6 +109,7 @@ install_state_write() {
       keymap:$keymap, keymaps:$keymaps,
       kernel:$kernel, kernels:$kernels,
       bootloader:$bootloader,
+      ssh:          { enabled:$ssh_enabled },
       rpool:$rpool, swap:$swap, esp_count:$esp_count,
       extras:       { backup:$backup, security:$security },
       impermanence: { enabled:$imp_enabled, dataset:$imp_dataset,
