@@ -220,6 +220,95 @@ picker_assemble_config() {
   esac
 }
 
+# picker_assign_disks <profile_json> <assignment_json>
+#   Maps operator-picked disks onto the pool skeleton declared in a unified
+#   Host Profile (os_pool + storage_groups + data_pools, with
+#   topology/ashift/owners but NO device fields), producing the effective
+#   install config on stdout. Per-group assignment: each declared group gets
+#   its own disks, validated against the min-disk table (picker_validate_
+#   layout) before any field is written. Pure: reads its JSON args only,
+#   never disks.
+#
+#   Assignment shape:
+#     single → {"mode":"single","disk":"/dev/x"}        (exactly one device)
+#     multi  → {"mode":"multi",
+#               "os_pool":["/dev/a","/dev/b"],
+#               "storage_groups":[["/dev/c","/dev/d","/dev/e"]],
+#               "data_pools":[["/dev/f"]]}
+#   Returns non-zero with a human-readable error on stderr on any
+#   under-populated group.
+picker_assign_disks() {
+  local profile="$1" assignment="$2" mode
+  mode="$(jq -r '.mode // "multi"' <<<"$assignment")"
+
+  case "$mode" in
+    single)
+      local -a disks
+      mapfile -t disks < <(jq -r '
+        if .disk then .disk elif .os_pool then .os_pool[]? else empty end
+      ' <<<"$assignment")
+      picker_validate_layout single "${#disks[@]}" || return 1
+      jq -n --argjson p "$profile" --arg disk "${disks[0]}" '
+        $p | .mode = "single" | .disk = $disk
+      '
+      ;;
+    multi)
+      # Validate every declared group's picked-disk count up front (fail fast,
+      # naming the offending group), then merge devices into the skeleton.
+      local topo i count
+      topo="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile")"
+      count="$(jq '(.os_pool // []) | length' <<<"$assignment")"
+      _picker_validate_group os_pool "$topo" "$count" || return 1
+
+      local n
+      n="$(jq '(.storage_groups // []) | length' <<<"$profile")"
+      for ((i = 0; i < n; i++)); do
+        topo="$(jq -r ".storage_groups[$i].topology // \"stripe\"" \
+          <<<"$profile")"
+        count="$(jq "(.storage_groups[$i] // []) | length" <<<"$assignment")"
+        _picker_validate_group "storage_groups[$i]" "$topo" "$count" \
+          || return 1
+      done
+
+      n="$(jq '(.data_pools // []) | length' <<<"$profile")"
+      for ((i = 0; i < n; i++)); do
+        topo="$(jq -r ".data_pools[$i].topology // \"stripe\"" <<<"$profile")"
+        count="$(jq "(.data_pools[$i] // []) | length" <<<"$assignment")"
+        _picker_validate_group "data_pools[$i]" "$topo" "$count" || return 1
+      done
+
+      # All groups valid — write each group's disks into the skeleton by index.
+      jq -n --argjson p "$profile" --argjson a "$assignment" '
+        def assign($key):
+          if (.[$key] | type) == "array"
+          then .[$key] = [ .[$key] | to_entries[]
+                           | .value + { disks: ($a[$key][.key] // []) } ]
+          else . end;
+        $p
+        | .mode = "multi"
+        | .os_pool = (.os_pool // {}) + { disks: ($a.os_pool // []) }
+        | assign("storage_groups")
+        | assign("data_pools")
+      '
+      ;;
+    *)
+      echo "picker_assign_disks: unknown mode '$mode'" >&2
+      return 1
+      ;;
+  esac
+}
+
+# _picker_validate_group <label> <topology> <count>
+#   Validate one group's disk count against the min-disk table, prefixing the
+#   group label so an under-populated group is named in the error.
+_picker_validate_group() {
+  local label="$1" topo="$2" count="$3" msg
+  if ! msg="$(picker_validate_layout "$topo" "$count" 2>&1)"; then
+    echo "${label}: ${msg}" >&2
+    return 1
+  fi
+}
+
 # picker_format_disk_preview <by_id_path>
 #   Returns a multi-line preview block for the given /dev/disk/by-id/* path,
 #   intended for fzf --preview in the disk picker. Sections:

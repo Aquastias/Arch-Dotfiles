@@ -1,6 +1,6 @@
 # Picker disk→group assignment
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -22,19 +22,37 @@ message.
 
 ## Acceptance criteria
 
-- [ ] The schema accepts a profile pool skeleton (`os_pool` +
+- [x] The schema accepts a profile pool skeleton (`os_pool` +
       `storage_groups` + `data_pools`) with names/topology/mount/ashift/
       owners and NO device fields.
-- [ ] The picker prompts for the profile, then the disks, then assigns
-      picked disks onto the declared groups.
-- [ ] Assignment is validated against the min-disk table (mirror/stripe
+- [x] The picker assigns picked disks onto the declared groups
+      (`picker_assign_disks`, per-group model). *Interactive prompting
+      for profile/disks → issue 03 (scope: pure module only).*
+- [x] Assignment is validated against the min-disk table (mirror/stripe
       ≥2, raidz1 ≥3, raidz2 ≥4); an under-populated group fails with a
-      clear message.
-- [ ] Single mode resolves exactly one OS device.
-- [ ] The effective config (skeleton + assigned devices) is produced in
-      tmpfs.
-- [ ] bats: Picker disk→group (assignment + min-disk validation), no
+      clear message that names the group.
+- [x] Single mode resolves exactly one OS device.
+- [x] The effective config (skeleton + assigned devices) is produced (to
+      stdout). *Writing it into tmpfs is the caller's job → issue 03.*
+- [x] bats: Picker disk→group (assignment + min-disk validation), no
       libvirt.
+
+## Comments
+
+Implemented the libvirt-free deep module `picker_assign_disks
+<profile_json> <assignment_json>` in `.os/lib/picker.sh` (per-group
+assignment model, agreed with operator): single mode resolves exactly one
+OS device; multi mode validates every declared group's picked-disk count
+against the min-disk table (`picker_validate_layout`) before merging
+devices into the skeleton, naming the offending group on failure.
+
+Scope was pure-module-only by decision; interactive per-group prompting +
+tmpfs production land in issue 03 (`install-profile-frontend`). Cross-check
+in `profile-loader.bats`: a device-less skeleton and a picker-assigned
+effective config both validate against the issue-01 closed schema.
+
+Tests: `.os/tests/picker-assign.bats` (8) + 2 cross-checks in
+`profile-loader.bats`. Full suite green (998).
 
 ## Blocked by
 
