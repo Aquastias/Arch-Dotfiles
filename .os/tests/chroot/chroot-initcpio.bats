@@ -9,7 +9,8 @@ setup() {
   cat > "$STATE" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
  "keymap":"us","keymaps":["us"],
- "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot","rpool":"rpool","swap":true,
+ "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
+ "ssh":{"enabled":false},"rpool":"rpool","swap":true,
  "esp_count":1,"extras":{"backup":false,"security":false},
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
  "persist":{"directories":[],"files":[]}}

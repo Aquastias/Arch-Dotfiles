@@ -22,6 +22,7 @@ valid_state() {
   "keymap": "us", "keymaps": ["us"],
   "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
+  "ssh": { "enabled": false },
   "rpool": "rpool", "swap": true, "esp_count": 1,
   "extras":       { "backup": false, "security": false },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
@@ -122,6 +123,28 @@ set_field() {
   [ "$(jq -r '.keymaps[0]'     "$STATE")" = "us" ]
 }
 
+# ── options.ssh.enabled (issue 05) ───────────────────────────────────────────
+
+@test "install_state_load: SSH_ENABLED from .ssh.enabled" {
+  valid_state
+  set_field '.ssh.enabled' 'true'
+  install_state_load "$STATE"
+  [ "$SSH_ENABLED" = "true" ]
+}
+
+@test "install_state_load: SSH_ENABLED=false preserved" {
+  valid_state
+  install_state_load "$STATE"
+  [ "$SSH_ENABLED" = "false" ]
+}
+
+@test "install_state_write: emits .ssh.enabled as a boolean" {
+  setup_writer_globals
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.ssh.enabled | type' "$STATE")" = "boolean" ]
+  [ "$(jq -r '.ssh.enabled'        "$STATE")" = "false" ]
+}
+
 # ── install_state_load: missing field is an error ────────────────────────────
 
 @test "install_state_load: returns 1 + names field when scalar missing" {
@@ -168,6 +191,7 @@ setup_writer_globals() {
   install_config_keymaps()              { echo "us"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
+  install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
   install_config_extras_backup()        { echo "false"; }
   install_config_extras_security()      { echo "false"; }

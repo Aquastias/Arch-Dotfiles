@@ -428,6 +428,22 @@ set_path_cfg() {
   [ "$output" = "de" ]
 }
 
+# ── options.ssh.enabled (issue 05): bool toggle, default false ──────────────
+
+@test "ssh_enabled: defaults false when absent" {
+  write_cfg '{}'
+  run install_config_ssh_enabled
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
+@test "ssh_enabled: true when options.ssh.enabled=true" {
+  write_cfg '{"options":{"ssh":{"enabled":true}}}'
+  run install_config_ssh_enabled
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
 # ── install_config_get: unknown name errors ─────────────────────────────────
 
 @test "install_config_get: unknown name exits non-zero" {

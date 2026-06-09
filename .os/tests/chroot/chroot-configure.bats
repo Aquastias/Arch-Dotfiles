@@ -114,3 +114,24 @@ _load_base_services() {
   enable_base_services
   grep -qx "systemctl enable cronie" "$SYSCTL_LOG"
 }
+
+# ── enable_optional_services: sshd toggle (issue 05) ─────────────────────────
+# options.ssh.enabled flips sshd.service; openssh is already pacstrapped.
+
+@test "enable_optional_services enables sshd when SSH_ENABLED=true" {
+  _load_base_services
+  SSH_ENABLED=true enable_optional_services
+  grep -qx "systemctl enable sshd.service" "$SYSCTL_LOG"
+}
+
+@test "enable_optional_services does not enable sshd when SSH_ENABLED=false" {
+  _load_base_services
+  SSH_ENABLED=false enable_optional_services
+  ! grep -q "sshd" "$SYSCTL_LOG"
+}
+
+@test "enable_optional_services does not enable sshd when SSH_ENABLED unset" {
+  _load_base_services
+  enable_optional_services
+  ! grep -q "sshd" "$SYSCTL_LOG"
+}
