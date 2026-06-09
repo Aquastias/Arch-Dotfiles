@@ -310,3 +310,34 @@ write_jsonc() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"options.encrytion"* ]]
 }
+
+# ── pool skeleton (no devices) ⇄ picker assignment (unified-host-profile/02) ─
+# The profile carries the full pool skeleton minus devices; it must validate,
+# and the effective config the picker assembles from it must validate too.
+
+@test "validate: a pool skeleton with no device fields validates clean" {
+  run validate_config_schema host '{
+    "os_pool":{"pool_name":"rpool","topology":"mirror","ashift":13},
+    "storage_groups":[{"name":"bulk","topology":"raidz1","mount":"/data",
+                       "ashift":12,"owners":["a","@t"]}],
+    "data_pools":[{"name":"scratch","topology":"stripe","mount":"/scratch",
+                   "owners":["b"]}]
+  }'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "integration: a picker-assigned effective config validates clean" {
+  # picker_assign_disks comes from lib/picker.sh (sourced by profile.sh).
+  local eff
+  eff="$(picker_assign_disks \
+    '{"os_pool":{"pool_name":"rpool","topology":"mirror"},
+      "storage_groups":[{"name":"bulk","topology":"raidz1"}],
+      "data_pools":[{"name":"scratch","topology":"stripe"}]}' \
+    '{"mode":"multi","os_pool":["/dev/a","/dev/b"],
+      "storage_groups":[["/dev/c","/dev/d","/dev/e"]],
+      "data_pools":[["/dev/f","/dev/g"]]}')" \
+    || { echo "assign failed"; return 1; }
+  run validate_config_schema host "$eff"
+  [ "$status" -eq 0 ] || { echo "$output"; return 1; }
+}
