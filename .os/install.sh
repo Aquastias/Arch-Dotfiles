@@ -49,6 +49,11 @@ Single entry point for the Arch Linux ZFS installer. Runs, in order:
   3. 03-install.sh [CONFIG_FILE]
 
 Options:
+  --profile <name>   Host Profile to install (hosts/<name>/). With
+                     --print-config, the only profile action wired today.
+  --print-config     Validate the --profile against the closed schema,
+                     assemble the effective config, print it to stdout, and
+                     exit. No disk phase runs (01/02/03 never start).
   -y, --unattended   Bypass every interactive confirmation prompt (disk
                      selection, "WIPE" confirmation, final "Proceed?").
                      Hostname must be set in install.jsonc beforehand.
@@ -58,11 +63,25 @@ EOF
 
 forward_args=()
 positional_args=()
+profile_name=""
+print_config=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -y | --unattended)
       export INSTALL_UNATTENDED=1
       forward_args+=(--unattended)
+      shift
+      ;;
+    --profile)
+      profile_name="${2:?--profile requires a name}"
+      shift 2
+      ;;
+    --profile=*)
+      profile_name="${1#*=}"
+      shift
+      ;;
+    --print-config)
+      print_config=1
       shift
       ;;
     -h | --help)
@@ -87,6 +106,37 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# --print-config: validate the named Host Profile against the closed schema,
+# assemble the effective config, and emit it to stdout — then exit. Runs
+# before any disk-touching phase (01/02/03 never start), so a typo'd key
+# aborts with its path before a disk is touched (ADR 0036). No libvirt, no
+# writes. OS_DIR honours an existing value (tests) and defaults to this dir.
+if [[ -n "$print_config" ]]; then
+  if [[ -z "$profile_name" ]]; then
+    echo "[install.sh] --print-config requires --profile <name>" >&2
+    exit 2
+  fi
+  export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
+  # shellcheck source=lib/common.sh
+  source "${SCRIPT_DIR}/lib/common.sh"
+  # shellcheck source=lib/config/profile.sh
+  source "${SCRIPT_DIR}/lib/config/profile.sh"
+  validate_profile "$profile_name"
+  load_profile "$profile_name"
+  exit 0
+fi
+
+# Interactive --profile (picker resolves disks → effective config) lands in a
+# later slice (unified-host-profile/03). Until then, only --print-config
+# consumes a profile; the unattended seam still takes a positional config.
+if [[ -n "$profile_name" ]]; then
+  echo "[install.sh] interactive --profile is not wired yet" \
+       "(unified-host-profile/03)." >&2
+  echo "             Use --print-config to emit the effective config," \
+       "or pass a config file." >&2
+  exit 2
+fi
 
 # Resolve the install's target disks from the config (single .disk, or multi
 # os_pool/storage_groups/data_pools) so the wipe only ever touches disks this

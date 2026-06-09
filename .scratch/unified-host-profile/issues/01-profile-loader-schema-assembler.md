@@ -1,6 +1,6 @@
 # Profile Loader + closed schema + transient assembler
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -33,23 +33,44 @@ validate + assemble + emit the effective config to stdout.
 
 ## Acceptance criteria
 
-- [ ] `load_profile <name>` merges host profile + host core (and user
+- [x] `load_profile <name>` merges host profile + host core (and user
       profile + user core) into an effective config from a real
       `profile.jsonc` when present.
-- [ ] With no `profile.jsonc`, it synthesizes the same effective config
+- [x] With no `profile.jsonc`, it synthesizes the same effective config
       from legacy `install.template.jsonc` + `config.jsonc` via the
       existing assembler.
-- [ ] The schema enumerates every currently-valid key (the union of
+- [x] The schema enumerates every currently-valid key (the union of
       legacy `install.jsonc` + host/user `config.jsonc`), driving reads +
       defaults.
-- [ ] Unknown keys at any depth (nested + arrays-of-objects) in host
+- [x] Unknown keys at any depth (nested + arrays-of-objects) in host
       profile+core, user profile+core, and program `config.jsonc` abort
       with the offending path, before any disk write.
-- [ ] A typo'd program `system` key is caught.
-- [ ] `install.sh --profile <name> --print-config` validates, assembles,
+- [x] A typo'd program `system` key is caught.
+- [x] `install.sh --profile <name> --print-config` validates, assembles,
       and emits the effective config to stdout (no libvirt, no writes).
-- [ ] bats: Profile Loader + schema (merge, defaults, recursive
+- [x] bats: Profile Loader + schema (merge, defaults, recursive
       rejection) green; existing suites stay green.
+
+## Comments
+
+Implemented via TDD (10 vertical slices). New deep module
+`.os/lib/config/profile.sh`: `load_profile` / `load_user_profile` (real
+`profile.jsonc` + core merge, else transient synthesis from legacy
+template+config), `validate_config_schema {host,user,program}` (jq-based
+recursive closed-schema rejection reporting the shortest offending path),
+and `validate_profile` (validate-at-load aggregator over host + referenced
+users + referenced program configs). `install.sh` gains `--profile` +
+`--print-config` (short-circuits before any disk phase).
+
+Schema/reads single-source kept honest by a drift-guard test asserting
+every `_INSTALL_CONFIG_SCHEMA` read-path is a valid key; completeness
+forced by tests that validate every real host/user/program config clean.
+
+Tests: `.os/tests/config/profile-loader.bats` (22) +
+`install-print-config.bats` (3). Full suite green (988).
+
+Note: locale/keymap stay scalar here; the array form + interactive
+`--profile` (picker→disks) land in the later slices (04 / 03).
 
 ## Blocked by
 
