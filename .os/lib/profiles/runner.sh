@@ -388,6 +388,55 @@ CHROOT_USERSVC
   done
 }
 
+# _profiles_resolve_user_unit <svc> <search_dir...>
+# Echo the path to <svc>.service found in the given roots, or return 1 (no
+# output) when absent. Pure: searches the given dirs only.
+_profiles_resolve_user_unit() {
+  local svc="$1"; shift
+  local f
+  f="$(find "$@" -name "${svc}.service" 2>/dev/null | head -1)"
+  [[ -n "$f" ]] || return 1
+  printf '%s\n' "$f"
+}
+
+# _profiles_enable_profile_user_services <user> <user_json>
+# Enable a user profile's user_services[] — the offline equivalent of
+# `systemctl --user enable`: a symlink into the user's
+# default.target.wants. Runs after the user's programs + dotfiles are placed.
+# A listed unit that isn't installed aborts with an actionable message (the
+# per-program list, by contrast, skips a missing unit).
+_profiles_enable_profile_user_services() {
+  local user="$1" json="$2"
+  local -a svcs=()
+  mapfile -t svcs < <(printf '%s' "$json" | jq -r '.user_services[]?')
+  ((${#svcs[@]} > 0)) || return 0
+  local svc
+  for svc in "${svcs[@]}"; do
+    if ! _profiles_resolve_user_unit "$svc" \
+         "${MOUNT_ROOT}/usr/lib/systemd/user" \
+         "${MOUNT_ROOT}/usr/local/lib/systemd/user" \
+         "${MOUNT_ROOT}/etc/systemd/user" >/dev/null; then
+      error "User '${user}' lists user_service '${svc}', but no" \
+            "${svc}.service unit is installed. Declare the program that" \
+            "provides it before this entry, or fix the name."
+      return 1
+    fi
+    info "Enabling user service: ${svc}  (user=${user})"
+    arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+      "$user" "$svc" <<'CHROOT_PROFILE_USERSVC'
+set -e
+USER_NAME="$1"; SVC="$2"
+HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+SVC_DIR="${HOME_DIR}/.config/systemd/user/default.target.wants"
+mkdir -p "$SVC_DIR"
+SVC_FILE="$(find /usr/lib/systemd/user /usr/local/lib/systemd/user \
+  /etc/systemd/user -name "${SVC}.service" 2>/dev/null | head -1)"
+ln -sf "$SVC_FILE" "${SVC_DIR}/${SVC}.service"
+chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.config/systemd"
+CHROOT_PROFILE_USERSVC
+  done
+}
+
 _profiles_clone_dotfiles() {
   local user="$1" repo="$2"
   [[ -n "$repo" ]] || return 0
@@ -564,8 +613,23 @@ run_profiles() {
       fi
     fi
     for prog in "${uprogs[@]}"; do
-      _profiles_install_user_program "$u" "$prog"
-      _profiles_enable_user_services "$u" "$prog"
+      # Reconcile the reference (ADR 0036): a system:false program installs
+      # at user level; a system program the host already installs is a no-op;
+      # a system program no host installs aborts (reconcile prints why).
+      local _action
+      _action="$(reconcile_user_program "$prog" \
+        "${sys_progs[@]+"${sys_progs[@]}"}")" \
+        || error "User '${u}': cannot reconcile program '${prog}'."
+      case "$_action" in
+      user)
+        _profiles_install_user_program "$u" "$prog"
+        _profiles_enable_user_services "$u" "$prog"
+        ;;
+      noop)
+        info "User '${u}': '${prog}' already installed by the host" \
+             "— skipping user-level install."
+        ;;
+      esac
     done
     _profiles_revoke_temp_sudo
   done
@@ -575,6 +639,9 @@ run_profiles() {
   for u in "${users[@]}"; do
     _profiles_apply_user_groups "$u" "${USER_JSONS[$u]}"
     _profiles_clone_dotfiles "$u" "$dotfiles_repo"
+    # user_services run last — after the user's programs + dotfiles placed
+    # the providing units, so a missing unit is a real error.
+    _profiles_enable_profile_user_services "$u" "${USER_JSONS[$u]}"
   done
 
   _profiles_cleanup

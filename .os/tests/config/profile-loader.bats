@@ -199,6 +199,13 @@ write_jsonc() {
   [ -z "$output" ]
 }
 
+@test "validate: a user profile accepts user_services[] (issue 06)" {
+  run validate_config_schema user \
+    '{"programs":["neovim"],"user_services":["podman.socket","syncthing"]}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "validate: a representative valid user profile passes" {
   run validate_config_schema user '{
     "shell":"/bin/zsh","sudo":true,"groups":["audio","video"],

@@ -188,6 +188,43 @@ validate_program() {
   return 0
 }
 
+# reconcile_user_program <name> <host_system_program...>
+# Classify a user's program reference (ADR 0036, refines ADR 0002). Echoes:
+#   user  — program is system:false → install at user level (may shadow a
+#           host program of the same role)
+#   noop  — program is system:true AND a host already installs it → skip
+# Returns 1 with an actionable stderr message when the program is system:true
+# but no host installs it (a user must not trigger a root-level install), or
+# when the program is not found. The system flag stays host-owned: this never
+# changes a program spec. Pure (no exit).
+reconcile_user_program() {
+  local name="$1"; shift
+  local rel
+  if ! rel="$(resolve_program "$name")"; then
+    echo "configs: user program '${name}' not found under" \
+         "${OS_DIR}/programs/<cat>/${name}/" >&2
+    return 1
+  fi
+  local is_sys
+  is_sys="$(_configs_parse "${OS_DIR}/programs/${rel}/config.jsonc" \
+    | jq -r '.system')"
+  if [[ "$is_sys" != "true" ]]; then
+    printf 'user\n'
+    return 0
+  fi
+  local h
+  for h in "$@"; do
+    if [[ "$h" == "$name" ]]; then
+      printf 'noop\n'
+      return 0
+    fi
+  done
+  echo "configs: user references system program '${name}', but no host" \
+       "installs it. Declare '${name}' in a host's system_programs, or" \
+       "remove it from the user." >&2
+  return 1
+}
+
 # Validate a list of programs. Returns 0 if all pass, 1 if any fail.
 # All failures are reported to stderr (no early exit).
 validate_programs() {
