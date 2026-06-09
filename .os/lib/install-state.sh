@@ -17,7 +17,9 @@ _INSTALL_STATE_SCHEMA=(
   "HOSTNAME|.hostname|scalar"
   "TIMEZONE|.timezone|scalar"
   "LOCALE|.locale|scalar"
+  "LOCALES|.locales|array"
   "KEYMAP|.keymap|scalar"
+  "KEYMAPS|.keymaps|array"
   "KERNEL|.kernel|scalar"
   "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
@@ -75,11 +77,18 @@ install_state_write() {
   persist="$(_install_state_persist_obj "$host_json")"
   # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.
   kernels="$(install_config_kernels | jq -R . | jq -sc .)"
+  # Locale/Keymap Selection as arrays (element 0 = default); the scalar
+  # locale/keymap stay the primaries for back-compat consumers.
+  local locales keymaps
+  locales="$(install_config_locales | jq -R . | jq -sc .)"
+  keymaps="$(install_config_keymaps | jq -R . | jq -sc .)"
   jq -n \
     --arg     hostname    "$(install_config_hostname)"               \
     --arg     timezone    "$(install_config_timezone)"               \
     --arg     locale      "$(install_config_locale)"                 \
+    --argjson locales     "$locales"                                 \
     --arg     keymap      "$(install_config_keymap)"                 \
+    --argjson keymaps     "$keymaps"                                 \
     --arg     kernel      "$(install_config_kernel)"                 \
     --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
@@ -93,8 +102,10 @@ install_state_write() {
     --arg     imp_mount   "$(install_config_impermanence_mount)"     \
     --argjson persist     "$persist"                                 \
     '{
-      hostname:$hostname, timezone:$timezone, locale:$locale,
-      keymap:$keymap, kernel:$kernel, kernels:$kernels,
+      hostname:$hostname, timezone:$timezone,
+      locale:$locale, locales:$locales,
+      keymap:$keymap, keymaps:$keymaps,
+      kernel:$kernel, kernels:$kernels,
       bootloader:$bootloader,
       rpool:$rpool, swap:$swap, esp_count:$esp_count,
       extras:       { backup:$backup, security:$security },

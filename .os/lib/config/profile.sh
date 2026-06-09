@@ -136,8 +136,8 @@ _load_profile_synthesize() {
 # every _INSTALL_CONFIG_SCHEMA read-path is covered here.
 
 _PROFILE_SCHEMA_host=(
-  # — system identity —
-  "system.hostname" "system.locale" "system.timezone" "system.keymap"
+  # — system identity (locale/keymap are scalar|array unions — ADR 0036) —
+  "system.hostname" "system.locale[]" "system.timezone" "system.keymap[]"
   "host_profile" "dotfiles_repo"
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"

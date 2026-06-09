@@ -29,7 +29,8 @@ teardown() {
 _state() {
   local override="${1:-.}"
   jq -c "$override" <<'JSON'
-{"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","keymap":"us",
+{"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
+ "keymap":"us","keymaps":["us"],
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot","rpool":"rpool","swap":true,
  "esp_count":1,"extras":{"backup":false,"security":false},
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},

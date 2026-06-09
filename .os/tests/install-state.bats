@@ -17,8 +17,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 valid_state() {
   cat <<'JSON' > "$STATE"
 {
-  "hostname": "h", "timezone": "UTC", "locale": "en_US.UTF-8",
-  "keymap": "us", "kernel": "lts", "kernels": ["lts"],
+  "hostname": "h", "timezone": "UTC",
+  "locale": "en_US.UTF-8", "locales": ["en_US.UTF-8"],
+  "keymap": "us", "keymaps": ["us"],
+  "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
   "rpool": "rpool", "swap": true, "esp_count": 1,
   "extras":       { "backup": false, "security": false },
@@ -81,6 +83,45 @@ set_field() {
   [ "${#PERSIST_DIRECTORIES[@]}" -eq 0 ]
 }
 
+# ── locale/keymap arrays (issue 04) ──────────────────────────────────────────
+# Element 0 is the default; the rest are extra generated locales / available
+# keyboard layouts. Carried as arrays alongside the scalar primaries.
+
+@test "install_state_load: LOCALES from .locales array" {
+  valid_state
+  set_field '.locales' '["en_US.UTF-8","de_DE.UTF-8"]'
+  install_state_load "$STATE"
+  [ "${#LOCALES[@]}" -eq 2 ]
+  [ "${LOCALES[0]}" = "en_US.UTF-8" ]
+  [ "${LOCALES[1]}" = "de_DE.UTF-8" ]
+}
+
+@test "install_state_load: KEYMAPS from .keymaps array" {
+  valid_state
+  set_field '.keymaps' '["us","de"]'
+  install_state_load "$STATE"
+  [ "${#KEYMAPS[@]}" -eq 2 ]
+  [ "${KEYMAPS[0]}" = "us" ]
+  [ "${KEYMAPS[1]}" = "de" ]
+}
+
+@test "install_state_load: returns 1 when .locales missing" {
+  valid_state
+  drop_field '.locales'
+  run install_state_load "$STATE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *".locales"* ]]
+}
+
+@test "install_state_write: emits .locales and .keymaps arrays" {
+  setup_writer_globals
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.locales | type' "$STATE")" = "array" ]
+  [ "$(jq -r '.locales[0]'     "$STATE")" = "en_US.UTF-8" ]
+  [ "$(jq -r '.keymaps | type' "$STATE")" = "array" ]
+  [ "$(jq -r '.keymaps[0]'     "$STATE")" = "us" ]
+}
+
 # ── install_state_load: missing field is an error ────────────────────────────
 
 @test "install_state_load: returns 1 + names field when scalar missing" {
@@ -122,7 +163,9 @@ setup_writer_globals() {
   install_config_hostname()             { echo "${MOCK_HOSTNAME:-host-a}"; }
   install_config_timezone()             { echo "UTC"; }
   install_config_locale()               { echo "en_US.UTF-8"; }
+  install_config_locales()              { echo "en_US.UTF-8"; }
   install_config_keymap()               { echo "us"; }
+  install_config_keymaps()              { echo "us"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
   install_config_swap_enabled()         { echo "true"; }
