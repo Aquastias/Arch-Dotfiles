@@ -110,9 +110,14 @@ _validation_preflight_programs() {
        any_fail=1; continue ;;
     esac
     mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
-    if ((${#uprogs[@]} > 0)); then
-      validate_programs "false" "${uprogs[@]}" || any_fail=1
-    fi
+    # Reconcile each user program reference (ADR 0036): system:false installs
+    # at user level; a host-installed system program is a no-op; a system
+    # program no host installs aborts (reconcile prints the actionable why).
+    local _up
+    for _up in "${uprogs[@]}"; do
+      reconcile_user_program "$_up" "${sys_progs[@]+"${sys_progs[@]}"}" \
+        >/dev/null || any_fail=1
+    done
   done
 
   ((any_fail == 0)) || \

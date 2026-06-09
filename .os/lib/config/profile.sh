@@ -171,7 +171,7 @@ _PROFILE_SCHEMA_host=(
 
 _PROFILE_SCHEMA_user=(
   "shell" "sudo" "groups[]" "programs[]" "ssh_authorized_keys[]"
-  "git.name" "git.email"
+  "user_services[]" "git.name" "git.email"
 )
 
 _PROFILE_SCHEMA_program=( "name" "system" "description" )

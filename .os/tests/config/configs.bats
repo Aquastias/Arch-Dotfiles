@@ -408,3 +408,39 @@ write_program() {
   [ "$status" -eq 1 ]
   [[ "$output" =~ "not found" ]]
 }
+
+# ── reconcile_user_program (issue 06) ────────────────────────────────────────
+# Softens the old always-abort rule for a user's program reference:
+#   system:false              → "user" (install at user level / shadow)
+#   system:true, host installs → "noop" (already installed system-wide)
+#   system:true, no host       → abort (a user can't trigger a root install)
+#   unknown                    → abort
+# The system flag stays host-owned (program specs unchanged).
+
+@test "reconcile_user_program: a system:false program installs at user level" {
+  write_program "editors" "neovim" "false"
+  run reconcile_user_program neovim grub
+  [ "$status" -eq 0 ]
+  [ "$output" = "user" ]
+}
+
+@test "reconcile_user_program: a system program the host installs is a no-op" {
+  write_program "bootloader" "grub" "true"
+  run reconcile_user_program grub grub firewalld
+  [ "$status" -eq 0 ]
+  [ "$output" = "noop" ]
+}
+
+@test "reconcile_user_program: a system program no host installs aborts" {
+  write_program "bootloader" "grub" "true"
+  run reconcile_user_program grub firewalld
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"grub"* ]]
+  [[ "$output" == *"no host"* ]]
+}
+
+@test "reconcile_user_program: an unknown program aborts" {
+  run reconcile_user_program nope grub
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not found"* ]]
+}
