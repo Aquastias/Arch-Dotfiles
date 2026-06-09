@@ -364,6 +364,70 @@ set_path_cfg() {
   [ "$status" -ne 0 ]
 }
 
+# ── locale/keymap arrays (issue 04): list + primary, scalar|array union ─────
+# Mirrors Kernel Selection: install_config_locales/keymaps emit one token per
+# line (primary first); install_config_locale/keymap return the primary
+# (element 0). A scalar normalizes to a single-element list.
+
+@test "locales: absent defaults to en_US.UTF-8" {
+  write_cfg '{}'
+  run install_config_locales
+  [ "$status" -eq 0 ]
+  [ "$output" = "en_US.UTF-8" ]
+}
+
+@test "locales: scalar yields a single-element list" {
+  write_cfg '{"system":{"locale":"de_DE.UTF-8"}}'
+  run install_config_locales
+  [ "$status" -eq 0 ]
+  [ "$output" = "de_DE.UTF-8" ]
+}
+
+@test "locales: array yields one per line, order preserved" {
+  write_cfg '{"system":{"locale":["en_US.UTF-8","de_DE.UTF-8"]}}'
+  run install_config_locales
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "en_US.UTF-8" ]
+  [ "${lines[1]}" = "de_DE.UTF-8" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "locale: primary is the first element of an array selection" {
+  write_cfg '{"system":{"locale":["en_US.UTF-8","de_DE.UTF-8"]}}'
+  run install_config_locale
+  [ "$status" -eq 0 ]
+  [ "$output" = "en_US.UTF-8" ]
+}
+
+@test "locale: scalar passes through as primary" {
+  write_cfg '{"system":{"locale":"fr_FR.UTF-8"}}'
+  run install_config_locale
+  [ "$status" -eq 0 ]
+  [ "$output" = "fr_FR.UTF-8" ]
+}
+
+@test "keymaps: absent defaults to us" {
+  write_cfg '{}'
+  run install_config_keymaps
+  [ "$status" -eq 0 ]
+  [ "$output" = "us" ]
+}
+
+@test "keymaps: array yields one per line, order preserved" {
+  write_cfg '{"system":{"keymap":["de","us","fr"]}}'
+  run install_config_keymaps
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "de" ]
+  [ "${#lines[@]}" -eq 3 ]
+}
+
+@test "keymap: primary is the first element" {
+  write_cfg '{"system":{"keymap":["de","us"]}}'
+  run install_config_keymap
+  [ "$status" -eq 0 ]
+  [ "$output" = "de" ]
+}
+
 # ── install_config_get: unknown name errors ─────────────────────────────────
 
 @test "install_config_get: unknown name exits non-zero" {

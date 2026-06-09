@@ -164,6 +164,20 @@ write_jsonc() {
 
 # ── positive: representative valid configs pass clean ──────────────────────
 
+@test "validate: system.locale and system.keymap accept arrays (issue 04)" {
+  run validate_config_schema host \
+    '{"system":{"locale":["en_US.UTF-8","de_DE.UTF-8"],"keymap":["us","de"]}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "validate: a legacy scalar system.locale/keymap still validates" {
+  run validate_config_schema host \
+    '{"system":{"locale":"en_US.UTF-8","keymap":"us"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "validate: a representative valid host profile passes" {
   run validate_config_schema host '{
     "system":{"hostname":"eterniox","locale":"en_US.UTF-8","keymap":"us"},

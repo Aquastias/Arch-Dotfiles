@@ -34,9 +34,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
   "host_profile|.host_profile|scalar|"
-  "locale|.system.locale|scalar|en_US.UTF-8"
   "timezone|.system.timezone|scalar|UTC"
-  "keymap|.system.keymap|scalar|us"
   "desktop|.environment.desktop|array|"
   "extras_backup|.post_install.backup|bool|false"
   "extras_security|.post_install.security|bool|false"
@@ -99,6 +97,24 @@ install_config_gpu() {
   local out; out="$(_install_config_array '.environment.gpu')"
   printf '%s\n' "${out:-auto}"
 }
+
+# Locale / Keymap Selection (ADR 0036) — scalar|array union. Element 0 is the
+# default (LANG / console KEYMAP); the rest are generated locales / available
+# desktop layouts. *s accessors emit one token per line (primary first); the
+# singular accessors return the primary, the back-compat scalar consumers use.
+install_config_locales() {
+  local out; out="$(_install_config_array '.system.locale')"
+  printf '%s\n' "${out:-en_US.UTF-8}"
+}
+
+install_config_locale() { install_config_locales | head -n1; }
+
+install_config_keymaps() {
+  local out; out="$(_install_config_array '.system.keymap')"
+  printf '%s\n' "${out:-us}"
+}
+
+install_config_keymap() { install_config_keymaps | head -n1; }
 
 # Kernel Selection — accepts a single flavour token (string) or a list. Emits
 # one token per line, ordered, primary (first selected) first. Defaults to
