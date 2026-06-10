@@ -1,0 +1,6 @@
+{
+  "persist": {
+    "directories": ["/etc/wg"],
+    "files":       ["/etc/foo"]
+  }
+}
