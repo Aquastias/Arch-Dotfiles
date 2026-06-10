@@ -55,3 +55,17 @@ AC5 (VM e2e) deferred to the human gate: it needs a migrated
 synthesized via the scaffold). The disk→group picker fully
 exercises once `arch-data` is migrated (issue 08). Hence
 `ready-for-human`.
+
+### Agent verification (Claude) — 2026-06-10
+
+AC5 substantially met for single-pool hosts. VM runs of `single/plain`
+(`install:"repo"` → the default host profile) and `desktop/kde`
+(`host_profile: arch-kde`) both assemble the effective config through
+`load_profile` → `assemble_profile_config` and install to exit 0 / boot
+into KDE. The unattended positional seam is what the VM seed injects, so
+the back-end is exercised end-to-end. The interactive `--profile` fzf
+picker can't run unattended in a VM, and its **multi-pool** disk→group
+assignment is unbuilt (gap #5, see issue 08) — so a multi-data-pool host
+(arch-data) is not yet installable via `--profile`. Fixed en route: the
+`install:"repo"`→default regression and the Profiles Runner reading the
+legacy `config.jsonc` instead of the assembled effective config.

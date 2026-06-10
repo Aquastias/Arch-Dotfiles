@@ -54,3 +54,34 @@ emits the correct skeleton.
 AC3 (actual install) is the VM gate: arch-data's data pools need
 per-group disk assignment, which the interactive picker defers to the
 VM harness rewire (issue 07). Hence `ready-for-human`.
+
+### Agent verification (Claude) — 2026-06-10
+
+AC3 is **still blocked**, but I fixed one real bug and pinned a second
+gap that must be closed before arch-data can install via `--profile`.
+
+**Bug fixed — Runner/pool-owners read the legacy `config.jsonc`.** The
+front-end (issue 03) assembles a correct effective config (arch-data →
+`users:["vm-data"]`, tank0/tank1), but the **Profiles Runner**
+(`lib/profiles/runner.sh`) and **pool-owners** (`lib/zfs/pool-owners.sh`)
+re-read `load_host_config $RESOLVED_HOST_PROFILE` (legacy `config.jsonc`).
+arch-data has no `config.jsonc` (removed here) → `load_host_config` returns
+`rc=1` → the Runner *skips entirely* (no `vm-data`, pools left root-owned),
+and pool-owners trips the ERR trap (the spurious "failed at line 290"). It
+only "works" for other hosts because their `config.jsonc` still exists
+(issue 10 would break them all). Fix: both now read the effective
+`$CONFIG_FILE` (the single source of truth). bats green (1048). This is a
+prerequisite for issue 10's "remove legacy readers".
+
+**Gap #5 (still open) — per-group data-pool disk assignment.** Neither the
+interactive picker (`_install_pick_assignment`) nor the VM harness
+(`_profile_resolve_host`) distributes picked disks across `os_pool` +
+`storage_groups` + `data_pools`; they fill only `os_pool`. So
+`host_profile: arch-data` can't assemble (tank0/tank1 get 0 disks). Worse,
+`picker_assign_disks` validates via `picker_validate_layout`
+(`none`/`stripe` ≥2), which **conflicts** with `layout_validate`
+(`none`=1, `stripe`=1) that arch-data relies on — reconciling them risks
+the interactive picker's own tests. This is issue 03's explicitly-deferred
+follow-up and warrants its own issue, not an inline hack. Until then,
+arch-data installs only via an **inline** install config (the data-pools
+VM tests prove the topology end-to-end).

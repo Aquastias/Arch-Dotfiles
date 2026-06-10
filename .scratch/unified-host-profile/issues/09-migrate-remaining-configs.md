@@ -63,3 +63,16 @@ desktop 2×NVMe rpool mirror + 3×SSD dpool raidz1; ashift 12 uniform. Suite
 **Human check before issue 10:** a real/VM install of `--profile desktop`
 (or a vm smoke) to confirm the authored disk skeleton + DE are right, since
 issue 10 deletes the legacy files + equivalence guard.
+
+### Agent verification (Claude) — 2026-06-10
+
+Human check done via the `desktop/kde` VM (`host_profile: arch-kde`, the
+slim single-disk proxy — the literal `desktop` profile's 25-AUR set is
+impractical in a VM): install completes and boots into the KDE/SDDM Plasma
+login (confirmed by `virsh screenshot`). This exercises the migrated
+`profile.jsonc` → `load_profile` → install path end-to-end and the DE
+adapter (KDE). Fixed a stale comment in `hosts/desktop/profile.jsonc`
+(header said NVMe `ashift 13`; authored value + the recorded decision are
+`12`). Note: issue 10 must NOT just delete the legacy `config.jsonc` — the
+Profiles Runner was reading it; that read is now repointed at the effective
+config (see issue 08), which is a prerequisite for issue 10.

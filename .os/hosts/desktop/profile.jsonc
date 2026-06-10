@@ -4,7 +4,7 @@
 // Folds the former install.template.jsonc (hostname) + the core machine
 // defaults + config.jsonc (users/system_programs/packages) into one file,
 // and declares the full pool skeleton — devices excluded, picked at install:
-//   os_pool  rpool  mirror (2x NVMe, ashift 13)
+//   os_pool  rpool  mirror (2x NVMe, ashift 12)
 //   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
 {
   "system": {

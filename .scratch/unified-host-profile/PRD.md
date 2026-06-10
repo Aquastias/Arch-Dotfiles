@@ -179,7 +179,9 @@ every commit stays green.
   VM Profile's `host_profile` resolves through the picker to the unified
   `profile.jsonc`; the template-existence check is dropped. `install:
   "repo"` resolves to the profile named by one harness constant
-  (`VM_DEFAULT_HOST_PROFILE`, default `desktop`).
+  (`VM_DEFAULT_HOST_PROFILE`, default `arch-kde` — the repo smoke forces
+  single-disk, so the default must be a single-pinned, slim host; the
+  multi-disk `desktop` would demand ≥2 disks and a heavy AUR build).
 - **Data + docs**. 11 host files + 4 user configs become `profile.jsonc`;
   `config.jsonc` / `install.template.jsonc` are removed (programs keep
   `config.jsonc`). Root `install.jsonc` is deleted; its single / multi /
