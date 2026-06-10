@@ -1,0 +1,225 @@
+// Host Profile for `desktop` (eterniox) — the unified, self-contained
+// profile (ADR 0036). Merged under hosts/core/profile.jsonc.
+//
+// Folds the former install.template.jsonc (hostname) + the core machine
+// defaults + config.jsonc (users/system_programs/packages) into one file,
+// and declares the full pool skeleton — devices excluded, picked at install:
+//   os_pool  rpool  mirror (2x NVMe, ashift 13)
+//   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
+{
+  "system": {
+    "hostname": "eterniox",
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto",
+    "esp_size":   "512M"
+  },
+
+  "environment": {
+    "desktop": ["kde", "hyprland"],
+    "gpu":     "auto"
+  },
+
+  "users": ["aquastias"],
+  "system_programs": ["grub"],
+
+  "packages": {
+    "repo": {
+      "system": [
+        "fwupd",
+        "logrotate",
+        "lsb-release",
+        "reflector",
+        "sbctl",
+        "smartmontools",
+        "sof-firmware",
+        "stow",
+        "stress",
+        "stress-ng",
+        "tectonic",
+        "uwsm",
+        "zram-generator"
+      ],
+      "filesystems": [
+        "bcachefs-tools",
+        "btrfs-progs",
+        "exfatprogs",
+        "f2fs-tools",
+        "fatresize",
+        "jfsutils",
+        "lvm2",
+        "nilfs-utils",
+        "udftools",
+        "xfsprogs"
+      ],
+      "network": [
+        "dnsmasq",
+        "iptables",
+        "iwd",
+        "network-manager-applet",
+        "nftables",
+        "openbsd-netcat",
+        "wget",
+        "wireless_tools"
+      ],
+      "shell": [
+        "bc",
+        "btop",
+        "eza",
+        "fd",
+        "fzf",
+        "htop",
+        "inxi",
+        "kitty",
+        "lazygit",
+        "less",
+        "lynx",
+        "nano",
+        "parallel",
+        "yazi",
+        "zoxide",
+        "zsh"
+      ],
+      "editors": [
+        "neovide",
+        "neovim",
+        "zed"
+      ],
+      "dev": [
+        "biome",
+        "ccache",
+        "docker",
+        "docker-compose",
+        "go",
+        "mermaid-cli",
+        "nvm",
+        "python-pip",
+        "python-pipx",
+        "tree-sitter-cli"
+      ],
+      "desktop": [
+        "papirus-icon-theme",
+        "qt5-wayland",
+        "qt6-wayland",
+        "xdg-utils"
+      ],
+      "browsers": [
+        "firefox"
+      ],
+      "media": [
+        "flatpak",
+        "gimp",
+        "gst-plugin-pipewire",
+        "imagemagick",
+        "libavif",
+        "libpulse",
+        "pavucontrol",
+        "pipewire-jack",
+        "qbittorrent",
+        "speech-dispatcher",
+        "vlc",
+        "vlc-plugin-freetype",
+        "vlc-plugin-notify",
+        "vlc-plugin-srt"
+      ],
+      "communication": [
+        "discord",
+        "teamspeak3"
+      ],
+      "gaming": [
+        "gamemode",
+        "lact",
+        "lib32-gamemode",
+        "lutris",
+        "steam",
+        "wine",
+        "wine-gecko",
+        "wine-mono"
+      ],
+      "virt": [
+        "libguestfs",
+        "qemu-base",
+        "qemu-full",
+        "vde2",
+        "virt-manager",
+        "virt-viewer"
+      ],
+      "archive": [
+        "7zip",
+        "arj",
+        "cpio",
+        "lhasa",
+        "unace",
+        "unarj",
+        "unrar",
+        "unzip",
+        "zip"
+      ],
+      "fonts": [
+        "noto-fonts-cjk",
+        "noto-fonts-extra",
+        "ttf-fira-code",
+        "ttf-sazanami"
+      ]
+    },
+    "aur": {
+      "misc": [
+      "ani-cli-git",
+      "bolt-launcher",
+      "brave-bin",
+      "bridge-utils",
+      "btop-theme-catppuccin",
+      "catppuccin-cursors-frappe",
+      "catppuccin-cursors-latte",
+      "catppuccin-cursors-macchiato",
+      "catppuccin-cursors-mocha",
+      "catppuccin-gtk-theme-frappe",
+      "catppuccin-gtk-theme-latte",
+      "catppuccin-gtk-theme-macchiato",
+      "catppuccin-gtk-theme-mocha",
+      "catppuccin-konsole-colorscheme-mocha-git",
+      "catppuccin-plasma-colorscheme-mocha",
+      "catppuccin-sddm-theme-frappe",
+      "catppuccin-sddm-theme-latte",
+      "catppuccin-sddm-theme-macchiato",
+      "catppuccin-sddm-theme-mocha",
+      "ckb-next-git",
+      "grayjay-bin",
+      "lua-format",
+      "papirus-folders-catppuccin-git",
+      "plymouth-theme-catppuccin-mocha-git",
+      "qt6ct-kde",
+      "runelite",
+      "ttf-ms-fonts",
+      "vscodium-bin",
+      "vscodium-marketplace",
+      "zen-browser-bin",
+      "zinit"
+      ]
+    }
+  },
+
+  "mode": "multi",
+  "os_pool": {
+    "pool_name": "rpool",
+    "topology":  "mirror",
+    "ashift":    12
+  },
+  "storage_groups": [
+    {
+      "name":     "data",
+      "topology": "raidz1",
+      "ashift":   12,
+      "mount":    "/data"
+    }
+  ],
+  "data_pools": []
+}
