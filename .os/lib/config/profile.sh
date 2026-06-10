@@ -123,6 +123,26 @@ _load_profile_synthesize() {
   _configs_merge "$template_json" "$config_json"
 }
 
+# assemble_profile_config <name> <assignment_json> — the install-time effective
+# config for `install.sh --profile <name>`. Loads the named profile, maps the
+# operator-picked disks onto it (picker_assign_disks), and applies the
+# dirname-is-identity hostname fallback (ADR 0036): when the profile omits
+# system.hostname, the profile name is used. No host_profile field is emitted.
+# Pure: reads files + the JSON arg only, never disks. Exit codes propagate from
+# load_profile / picker_assign_disks (min-disk validation aborts here).
+assemble_profile_config() {
+  local name="$1" assignment="$2" profile_json effective
+
+  profile_json="$(load_profile "$name")" || return $?
+  effective="$(picker_assign_disks "$profile_json" "$assignment")" || return $?
+
+  jq --arg name "$name" '
+    .system = (.system // {})
+    | .system.hostname =
+        (if (.system.hostname // "") == "" then $name else .system.hostname end)
+  ' <<<"$effective"
+}
+
 # =============================================================================
 # CLOSED-SCHEMA VALIDATION (ADR 0036, amends ADR 0015)
 # =============================================================================
@@ -138,7 +158,7 @@ _load_profile_synthesize() {
 _PROFILE_SCHEMA_host=(
   # — system identity (locale/keymap are scalar|array unions — ADR 0036) —
   "system.hostname" "system.locale[]" "system.timezone" "system.keymap[]"
-  "host_profile" "dotfiles_repo"
+  "dotfiles_repo"
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"
   "options.swap" "options.swap_size" "options.esp_size" "options.age_key_url"

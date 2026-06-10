@@ -186,17 +186,22 @@ $BY_ID/ata-Samsung_SSD_980_PRO_S1-part2"
   run picker_assemble_config "$template" myhost single /dev/disk/by-id/foo
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
-  [ "$(echo "$output" | jq -r '.host_profile')" = "myhost" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/disk/by-id/foo" ]
 }
 
-@test "picker_assemble_config: template hostname wins; host_profile records dirname" {
+@test "picker_assemble_config: template hostname wins over profile name" {
   template='{ "system": { "hostname": "eterniox" } }'
   run picker_assemble_config "$template" desktop single /dev/sda
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "eterniox" ]
-  [ "$(echo "$output" | jq -r '.host_profile')" = "desktop" ]
+}
+
+@test "picker_assemble_config: emits no host_profile (dropped, ADR 0036)" {
+  template='{ "system": { "hostname": "eterniox" } }'
+  run picker_assemble_config "$template" desktop single /dev/sda
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
 }
 
 @test "picker_assemble_config: template fields pass through unchanged" {
