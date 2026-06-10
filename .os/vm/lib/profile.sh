@@ -20,7 +20,10 @@ source "${BASH_SOURCE[0]%/*}/../../lib/config/profile.sh"
 
 # The host profile install:"repo" resolves to — the designated default. One
 # knob, env-overridable, so the shipped-default smoke survives install.jsonc.
-VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-desktop}"
+# A slim, single-disk host (arch-kde): the repo smoke forces single-disk
+# layout, so the default must be a single-pinned profile (a multi host like
+# desktop would demand ≥2 disks) and stay light enough for a fast smoke.
+VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-arch-kde}"
 
 # profile_resolve_config <profile_json>
 #   Emits the resolved install.jsonc on stdout. Assumes the profile already
