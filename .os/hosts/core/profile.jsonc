@@ -1,0 +1,15 @@
+// Host Core profile — base layer merged under every host profile.jsonc
+// (ADR 0036). Mirrors the software base of hosts/core/config.jsonc: users,
+// System Programs, and Sysctl Defaults (per ADR 0007 — never a package
+// list). Lists concat+dedupe with the host profile; scalars host-wins.
+//
+// Coexists with the legacy core config.jsonc / install.template.jsonc during
+// the migration: un-migrated hosts still synthesize from those, migrated
+// hosts merge under this file. Both produce the same software base.
+{
+  "users": [],
+  "system_programs": ["cups"],
+  "sysctl": {
+    "vm.swappiness": 10
+  }
+}
