@@ -83,15 +83,26 @@ JSONC
   [[ "$output" == *source* ]]
 }
 
-@test "profile_validate: template-less host_profile reference → reject" {
-  # no template shipped for 'ghost'
+@test "profile_validate: nonexistent host_profile reference → reject" {
+  # no host directory at all for 'ghost'
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "ghost" }'
   run profile_validate "$profile" "$HOSTS_DIR"
   [ "$status" -ne 0 ]
   [[ "$output" == *ghost* ]]
-  [[ "$output" == *template* ]]
+}
+
+@test "profile_validate: host_profile with only profile.jsonc → accepted" {
+  # A migrated, template-less host (arch-data shape) is a real host directory.
+  mkdir -p "$HOSTS_DIR/arch-data"
+  : > "$HOSTS_DIR/arch-data/profile.jsonc"
+  profile='{ "name": "x",
+             "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+             "host_profile": "arch-data" }'
+  run profile_validate "$profile" "$HOSTS_DIR"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "profile_validate: host_profile shipping a template → accepted" {
