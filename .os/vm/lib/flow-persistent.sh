@@ -63,6 +63,10 @@ rm -rf /root/dotfiles
 git clone ${repo_url} /root/dotfiles
 printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.os/install.jsonc
 cd /root/dotfiles/.os
+# Test-only preset passphrases so an encrypted/SOPS profile installs unattended
+# (no-ops on profiles without encryption or secrets). Disposable VMs only.
+export INSTALL_ENC_PASSPHRASE='testtest'
+export SECRETS_AGE_PASSPHRASE='test'
 ./install.sh --unattended
 sync
 poweroff
@@ -208,6 +212,9 @@ flow_run() {
   _stop_http_server
 
   section "Starting installed system"
+  # Eject the install ISO + seed so the reboot lands on the installed disk's
+  # systemd-boot entry, not the live ISO (the domain boots --boot cdrom,hd).
+  _vm_eject_cdroms
   _vm_boot
 
   section "Done"
