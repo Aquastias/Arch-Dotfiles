@@ -1,0 +1,41 @@
+// Host Profile for vm/arch-data — VM smoke-test host for the multi
+// data-pools ownership check (pool-owners, ADR 0031). First host migrated to
+// the unified profile.jsonc (ADR 0036, migration tracer).
+//
+// Merged under hosts/core/profile.jsonc. Declares one user (vm-data — a
+// secrets-free user, so secrets_load is a no-op) to own the /data pools, and
+// the full pool skeleton: one OS pool (single-disk, topology none) plus two
+// standalone data pools (tank0 stripe, tank1 mirror). Devices are excluded —
+// the operator/harness picks disks at install time and the picker maps them
+// onto these groups. owners are omitted, so each /data pool defaults to the
+// Primary User (vm-data).
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto",
+    "esp_size":   "512M"
+  },
+
+  "users": ["vm-data"],
+
+  "mode": "multi",
+  "os_pool": {
+    "pool_name": "rpool",
+    "topology":  "none",
+    "ashift":    12
+  },
+  "storage_groups": [],
+  "data_pools": [
+    { "name": "tank0", "topology": "stripe" },
+    { "name": "tank1", "topology": "mirror" }
+  ]
+}

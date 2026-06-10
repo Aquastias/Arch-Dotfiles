@@ -52,6 +52,18 @@ write_jsonc() {
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
+@test "load_profile: finds a VM host profile.jsonc under hosts/vm/<name>" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  write_jsonc "$OS_DIR/hosts/vm/arch-data/profile.jsonc" \
+    '{"users":["vm-data"],"mode":"multi"}'
+
+  run load_profile arch-data
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.users == ["vm-data"]'
+  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.mode == "multi"'
+}
+
 # ── transient scaffold: synthesize from legacy template + config ───────────
 # When no profile.jsonc exists yet, the same effective config is rebuilt
 # from the legacy install.template.jsonc (machine props) + config.jsonc
@@ -328,6 +340,35 @@ write_jsonc() {
     run validate_config_schema program "$j"
     [ "$status" -eq 0 ] || { echo "program $f: $output"; return 1; }
   done < <(find "$os_dir/programs" -name config.jsonc)
+}
+
+# ── migration tracer: arch-data is the first host on profile.jsonc ──────────
+# Equivalence guard (ADR 0036): the migrated profile.jsonc must preserve every
+# field the pre-migration (template-less) synthesis produced — captured below
+# as software-only { sysctl, system_programs:[cups], users:[vm-data] } — while
+# adding the machine skeleton (disks excluded; picked at install). No
+# host_profile; validates against the closed schema.
+
+@test "migration: arch-data profile.jsonc preserves legacy software + machine skeleton" {
+  export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  local j; j="$(load_profile arch-data)"
+
+  # software preserved from the legacy synthesis (core + arch-data)
+  echo "$j" | jq -e '.users == ["vm-data"]'
+  echo "$j" | jq -e '.system_programs == ["cups"]'
+  echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
+
+  # machine skeleton present; devices excluded (operator-picked)
+  echo "$j" | jq -e '.mode == "multi"'
+  echo "$j" | jq -e '.os_pool.topology == "none"'
+  echo "$j" | jq -e '([.data_pools[].name] | sort) == ["tank0","tank1"]'
+  echo "$j" | jq -e '(.os_pool | has("disks")) | not'
+  echo "$j" | jq -e '([.data_pools[] | has("disks")] | any) | not'
+
+  # ADR 0036: no host_profile; whole thing validates closed-schema
+  echo "$j" | jq -e 'has("host_profile") | not'
+  run validate_config_schema host "$j"
+  [ "$status" -eq 0 ]
 }
 
 # ── validate_profile: validate host + referenced users + program configs ───

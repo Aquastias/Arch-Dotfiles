@@ -45,7 +45,8 @@ load_profile() {
     return 3
   fi
 
-  if [[ -f "${OS_DIR}/hosts/${name}/profile.jsonc" ]]; then
+  if [[ -f "${OS_DIR}/hosts/${name}/profile.jsonc" \
+     || -f "${OS_DIR}/hosts/vm/${name}/profile.jsonc" ]]; then
     _profile_real_merge hosts "$name"
   else
     _load_profile_synthesize "$name"
@@ -58,6 +59,8 @@ _profile_real_merge() {
   local kind="$1" name="$2"
   local core_file="${OS_DIR}/${kind}/core/profile.jsonc"
   local spec_file="${OS_DIR}/${kind}/${name}/profile.jsonc"
+  # VM hosts live under hosts/vm/<name>/ (mirrors _configs_load's fallback).
+  [[ -f "$spec_file" ]] || spec_file="${OS_DIR}/${kind}/vm/${name}/profile.jsonc"
 
   local core_json spec_json
   core_json="$(_configs_parse "$core_file" 2>/dev/null)" || core_json='{}'
