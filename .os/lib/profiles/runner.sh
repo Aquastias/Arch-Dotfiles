@@ -108,7 +108,11 @@ _profiles_sops_selection() {
     done
     ((has)) || progs+=("sops")
   fi
-  ((${#progs[@]})) && printf '%s\n' "${progs[@]}"
+  # `|| return 0`, not `&& printf`: with no programs the arithmetic is false
+  # (exit 1), which would trip the install's ERR trap when this feeds a
+  # `mapfile < <(...)` — a host with zero system_programs is valid (empty list).
+  ((${#progs[@]})) || return 0
+  printf '%s\n' "${progs[@]}"
 }
 
 # Pure resolver for the Runner AUR pass. Unions host packages.aur (categorized
