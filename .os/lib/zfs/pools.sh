@@ -81,6 +81,16 @@ collect_enc_passphrase() {
   local enc; enc="$(install_config_encryption_enabled)"
   [[ "$enc" == "true" ]] || return 0
 
+  # Non-interactive seam (VM/test harness only): a preset passphrase skips the
+  # /dev/tty prompt so an encrypted install runs unattended. Operator installs
+  # leave INSTALL_ENC_PASSPHRASE unset and are prompted as before. ZFS itself
+  # still enforces the ≥8-char rule at pool creation.
+  if [[ -n "${INSTALL_ENC_PASSPHRASE:-}" ]]; then
+    ZFS_PASSPHRASE="$INSTALL_ENC_PASSPHRASE"
+    info "ZFS encryption passphrase taken from INSTALL_ENC_PASSPHRASE (preset)."
+    return 0
+  fi
+
   section "ZFS Encryption Passphrase"
   warn "Encryption is enabled. ALL data on the pools will be encrypted."
   warn "This passphrase is required at EVERY boot." \

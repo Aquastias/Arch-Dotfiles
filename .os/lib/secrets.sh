@@ -87,7 +87,18 @@ secrets_load() {
   mount -t tmpfs -o size=10m,mode=700 tmpfs "$_SECRETS_TMPFS"
 
   local age_key="${_SECRETS_TMPFS}/keys.txt"
-  if ! age --decrypt -o "$age_key" "$age_enc"; then
+  local _age_rc=0
+  if [[ -n "${SECRETS_AGE_PASSPHRASE:-}" ]]; then
+    # Non-interactive seam (VM/test harness only): age reads the passphrase from
+    # the tty, not stdin, so feed it through a pty via util-linux `script`
+    # (mirrors vm/fixtures/regenerate.sh). Operator installs leave
+    # SECRETS_AGE_PASSPHRASE unset and are prompted by age as before.
+    script -qc "age -d -o '$age_key' '$age_enc'" /dev/null \
+      <<< "${SECRETS_AGE_PASSPHRASE}"$'\n' >/dev/null 2>&1 || _age_rc=$?
+  else
+    age --decrypt -o "$age_key" "$age_enc" || _age_rc=$?
+  fi
+  if (( _age_rc != 0 )); then
     echo "[secrets] age --decrypt failed —" \
          "wrong passphrase, corrupt key, or missing 'age' binary" >&2
     rm -f "$_url_tmp"
