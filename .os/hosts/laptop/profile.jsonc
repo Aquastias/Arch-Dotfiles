@@ -1,0 +1,155 @@
+// Host Profile for `laptop` (chronos) — the unified, self-contained profile
+// (ADR 0036). Merged under hosts/core/profile.jsonc. Folds the former
+// install.template.jsonc (hostname) + core machine defaults + config.jsonc
+// (users/packages) into one file, declares the kde+hyprland desktop, and a
+// single-disk skeleton (one operator-picked disk → ESP + rpool + dpool).
+{
+  "system": {
+    "hostname": "chronos",
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto",
+    "esp_size":   "512M"
+  },
+
+  "environment": {
+    "desktop": ["kde", "hyprland"],
+    "gpu":     "auto"
+  },
+
+  "users": ["aquastias"],
+  "system_programs": [],
+
+  "packages": {
+    "repo": {
+      "system": [
+        "fwupd",
+        "lsb-release",
+        "reflector",
+        "sbctl",
+        "smartmontools",
+        "sof-firmware",
+        "stow",
+        "uwsm",
+        "zram-generator"
+      ],
+      "filesystems": [
+        "btrfs-progs",
+        "lvm2"
+      ],
+      "network": [
+        "iwd",
+        "network-manager-applet",
+        "nftables",
+        "wget",
+        "wireless_tools"
+      ],
+      "shell": [
+        "bc",
+        "btop",
+        "eza",
+        "htop",
+        "inxi",
+        "kitty",
+        "less",
+        "lynx",
+        "nano",
+        "parallel",
+        "yazi",
+        "zoxide"
+      ],
+      "editors": [
+        "neovide"
+      ],
+      "dev": [
+        "ccache",
+        "docker",
+        "docker-compose",
+        "nvm"
+      ],
+      "desktop": [
+        "qt5-wayland",
+        "xdg-utils"
+      ],
+      "browsers": [
+        "firefox"
+      ],
+      "media": [
+        "flatpak",
+        "gimp",
+        "gst-plugin-pipewire",
+        "libpulse",
+        "pipewire-jack",
+        "speech-dispatcher",
+        "vlc"
+      ],
+      "communication": [
+        "discord"
+      ],
+      "gaming": [
+        "gamemode",
+        "lib32-gamemode",
+        "steam"
+      ],
+      "virt": [
+        "virt-manager"
+      ],
+      "archive": [
+        "7zip",
+        "arj",
+        "cpio",
+        "lhasa",
+        "unace",
+        "unarj",
+        "unrar",
+        "unzip"
+      ],
+      "fonts": [
+        "noto-fonts-cjk",
+        "noto-fonts-extra",
+        "ttf-fira-code",
+        "ttf-sazanami"
+      ]
+    },
+    "aur": {
+      "misc": [
+      "ani-cli-git",
+      "btop-theme-catppuccin",
+      "catppuccin-cursors-frappe",
+      "catppuccin-cursors-latte",
+      "catppuccin-cursors-macchiato",
+      "catppuccin-cursors-mocha",
+      "catppuccin-gtk-theme-frappe",
+      "catppuccin-gtk-theme-latte",
+      "catppuccin-gtk-theme-macchiato",
+      "catppuccin-gtk-theme-mocha",
+      "catppuccin-konsole-colorscheme-mocha-git",
+      "catppuccin-plasma-colorscheme-mocha",
+      "catppuccin-sddm-theme-frappe",
+      "catppuccin-sddm-theme-latte",
+      "catppuccin-sddm-theme-macchiato",
+      "catppuccin-sddm-theme-mocha",
+      "ckb-next-git",
+      "papirus-folders-catppuccin-git",
+      "plymouth-theme-catppuccin-mocha-git",
+      "qt6ct-kde",
+      "ttf-ms-fonts",
+      "vscodium-bin",
+      "vscodium-marketplace",
+      "zen-browser-bin",
+      "zinit"
+      ]
+    }
+  },
+
+  "mode":   "single",
+  "ashift": 12
+}

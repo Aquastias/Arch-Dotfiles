@@ -1,0 +1,10 @@
+// User Profile for vm-test (ADR 0036) — throwaway user for the vm-secure
+// smoke test. Merged under users/core/profile.jsonc. No user programs: the
+// smoke test exercises the system install path, not user program install.
+{
+  "shell": "/bin/bash",
+  "sudo":  true,
+  "groups": [],
+  "programs": [],
+  "ssh_authorized_keys": []
+}

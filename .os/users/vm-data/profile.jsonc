@@ -1,0 +1,11 @@
+// User Profile for vm-data (ADR 0036) — throwaway user for the multi
+// data-pools ownership smoke test (pool-owners, ADR 0031). Merged under
+// users/core/profile.jsonc. Ships no secrets.json (secrets_load is a no-op)
+// and no programs, to keep the install focused on data-pool ownership.
+{
+  "shell": "/bin/bash",
+  "sudo":  true,
+  "groups": [],
+  "programs": [],
+  "ssh_authorized_keys": []
+}

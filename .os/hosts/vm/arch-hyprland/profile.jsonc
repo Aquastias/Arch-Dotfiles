@@ -1,0 +1,31 @@
+// Host Profile for vm/arch-hyprland — Hyprland VM smoke-test host (ADR 0036).
+// Merged under hosts/core/profile.jsonc. Self-contained: core machine
+// defaults + Hyprland environment + the single-disk skeleton (one
+// operator-picked disk auto-partitioned into ESP + rpool + dpool).
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto",
+    "esp_size":   "512M"
+  },
+
+  "environment": {
+    "desktop": "hyprland",
+    "gpu":     "auto"
+  },
+
+  "users": ["aquastias"],
+  "system_programs": [],
+
+  "mode":   "single",
+  "ashift": 13
+}
