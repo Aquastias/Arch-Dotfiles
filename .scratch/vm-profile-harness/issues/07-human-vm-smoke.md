@@ -66,12 +66,32 @@ Ran the gates on the local libvirt host (KVM). Results + fixes:
       with `--boot cdrom,hd`, so the reboot landed on the live ISO. Added a
       shared `_vm_eject_cdroms` (`vm/lib/core.sh`) and call it before the
       final boot in `flow-persistent.sh` (the test flow already ejected).
-- [~] **`headless/secure`**: per the operator, the install passphrases are
-      now hardcoded for the disposable VM (test-only) — `INSTALL_ENC_PASSPHRASE`
+- [x] **`headless/secure`**: per the operator, the install passphrases are
+      hardcoded for the disposable VM (test-only) — `INSTALL_ENC_PASSPHRASE`
       (`lib/zfs/pools.sh`) + `SECRETS_AGE_PASSPHRASE` (`lib/secrets.sh`)
       seams, supplied by both VM flows. The install runs unattended; the
-      encrypted root still prompts for the ZFS passphrase once at boot
-      (`testtest`) — unavoidable, enter it via virt-manager for the checklist.
+      encrypted root prompts for the ZFS passphrase once at boot (`testtest`)
+      — unavoidable, enter it via virt-manager for the deeper checklist.
+
+### Re-run after pushing the install-logic fixes — all four pass
+
+The VM clones `origin` (github), so the `lib/` fixes were committed + pushed
+to `main`, then the gates re-run against that:
+
+- `single/plain` → `INSTALLER-EXIT-0`.
+- `data-pools/reorder` → `INSTALLER-EXIT-0` + `FIRSTBOOT-OK` (by-id boot-verify
+  under permuted disks); the spurious `line 290` is gone (pool-owners now reads
+  the effective config). The Runner *proceeding* (it used to wrongly skip)
+  exposed one more cosmetic ERR-trap, `_profiles_sops_selection` returning
+  non-zero on an empty program list — fixed (`|| return 0`).
+- `desktop/kde` → boots KDE/SDDM (ISO-eject fix; confirmed by screenshot).
+- `headless/secure` → installs **fully unattended** (both passphrase seams
+  work — pacstrap completed past the prompts), reboots into the encrypted root,
+  and `testtest` unlocks `rpool` → `archlinux login:` (screenshots). The deeper
+  SOPS/impermanence checklist is left for an operator spot-check (VM is up,
+  `root`/`12345`).
+
+All four representative gates pass. bats green (1048) throughout.
 
 All bats green throughout (1048). Fixes also touched the Profiles Runner
 (see issue 08).
