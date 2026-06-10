@@ -210,6 +210,19 @@ _vm_boot() {
   virsh start "$VM_NAME" >/dev/null
 }
 
+# Eject every cdrom (install ISO + seed) from the domain so a subsequent boot
+# falls through to the installed disk's systemd-boot entry instead of the live
+# ISO (the domain is created --boot cdrom,hd). Shared by both flows; operates on
+# the persistent config so it survives the next start. Best-effort, never fatal.
+_vm_eject_cdroms() {
+  local tgt
+  while read -r tgt; do
+    [[ -n "$tgt" ]] || continue
+    virsh change-media "$VM_NAME" "$tgt" --eject --config >/dev/null 2>&1 || true
+  done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
+            | awk '$2 == "cdrom" { print $3 }')
+}
+
 # =============================================================================
 # FIXTURE STAGING (VM_FIXTURE_FILES → CACHE_DIR)
 # =============================================================================

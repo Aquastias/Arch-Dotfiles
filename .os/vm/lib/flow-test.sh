@@ -86,6 +86,8 @@ runcmd:
         && printf '%s' '${config_b64}' | base64 -d \
   > /root/dotfiles/.os/install.jsonc \\
         && cd /root/dotfiles/.os \\
+        && export INSTALL_ENC_PASSPHRASE='testtest' \\
+        && export SECRETS_AGE_PASSPHRASE='test' \\
         && ${dirty_step}./install.sh --unattended
     }
     rc=\$?
@@ -145,15 +147,6 @@ _wait_for_serial_pty() {
 # =============================================================================
 # BOOT VERIFY (opt-in)
 # =============================================================================
-_eject_cdroms() {
-  local tgt
-  while read -r tgt; do
-    [[ -n "$tgt" ]] || continue
-    virsh change-media "$VM_NAME" "$tgt" --eject --config >/dev/null 2>&1 || true
-  done < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
-            | awk '$2 == "cdrom" { print $3 }')
-}
-
 # Permute data-disk backing files on the (shut-off) domain so the installed
 # system boots with a different /dev/sdX order than it installed under. The OS
 # disk stays put. reorder-disks.py is pure + unit-tested (vm-reorder-disks.bats).
@@ -174,7 +167,7 @@ _reorder_boot_disks() {
 # otherwise (distinct from installer exit codes and the 124 timeout).
 _run_boot_verify() {
   section "Verifying installed system boots (timeout: ${BOOT_TIMEOUT_SEC}s)"
-  _eject_cdroms
+  _vm_eject_cdroms
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
   if [[ "${VM_REORDER_BOOT_DISKS}" == "true" ]]; then
     _reorder_boot_disks \
