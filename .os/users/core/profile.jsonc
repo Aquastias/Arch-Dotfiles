@@ -1,0 +1,11 @@
+// User Core profile — base layer merged under every user profile.jsonc
+// (ADR 0036). Mirrors users/core/config.jsonc: lists concat+dedupe with the
+// user profile, scalars user-wins. Coexists with the legacy core config.jsonc
+// during the migration; both produce the same effective user base.
+{
+  "shell": "/bin/bash",
+  "sudo": false,
+  "groups": ["audio", "video", "storage", "optical", "network"],
+  "programs": [],
+  "ssh_authorized_keys": []
+}

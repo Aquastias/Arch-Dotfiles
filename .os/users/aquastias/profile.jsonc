@@ -1,0 +1,24 @@
+// User Profile for `aquastias` (ADR 0036). Merged under
+// users/core/profile.jsonc. Renamed from config.jsonc in step with the host
+// profiles — profile = a user, config = a program spec.
+{
+  "shell": "/bin/bash",
+  "sudo": true,
+  "groups": ["docker", "libvirt", "kvm"],
+  "programs": [
+    "firewalld",
+    "apparmor",
+    "clamav",
+    "rkhunter",
+    "docker",
+    "virt-manager",
+    "teamspeak3",
+    "podman",
+    "searxng"
+  ],
+  "ssh_authorized_keys": [],
+  "git": {
+    "name": "Mlakar Alexandru Laurian",
+    "email": "alexandrumlakar@gmail.com"
+  }
+}
