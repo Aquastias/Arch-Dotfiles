@@ -286,13 +286,13 @@ pool_owners_apply_mount() {
 }
 
 # Declared usernames (Primary User first), space-separated, read from the
-# resolved host config. Empty on a host that declares no users.
+# assembled effective config (ADR 0036 — the same source the Runner consumes,
+# not the legacy per-host config.jsonc). Empty on a host that declares no users.
 _pool_owners_declared_users() {
   local arr=() u
   while IFS= read -r u; do
     [[ -n "$u" ]] && arr+=("$u")
-  done < <(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null \
-    | jq -r '.users[]?' 2>/dev/null)
+  done < <(jsonc_read "$CONFIG_FILE" '.users[]?' 2>/dev/null)
   printf '%s' "${arr[*]}"
 }
 

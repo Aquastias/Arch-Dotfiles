@@ -508,22 +508,19 @@ run_profiles() {
     return 0
   fi
 
-  local host_json rc=0
-  host_json="$(load_host_config "$profile" 2>/dev/null)" || rc=$?
-  case "$rc" in
-  0) info "Loaded host config: ${profile}" ;;
-  1)
-    warn "No host config at ${OS_DIR}/hosts/${profile}/" \
+  # ADR 0036: read the host's software (users / system_programs / sysctl /
+  # packages) from the assembled effective config — the single source of truth
+  # the front-end produced (install.sh --profile or the VM seed) — not the
+  # legacy per-host config.jsonc, which migrated hosts (profile.jsonc) no longer
+  # ship. CONFIG_FILE is set by 03-install.sh.
+  local host_json
+  if ! host_json="$(jsonc_read "$CONFIG_FILE" '.' 2>/dev/null)" \
+     || [[ -z "$host_json" || "$host_json" == "null" ]]; then
+    warn "Runner: cannot read effective config at ${CONFIG_FILE}" \
          "— skipping profiles runner."
     return 0
-    ;;
-  2)
-    warn "Hosts core config could not be loaded — skipping profiles runner."
-    return 0
-    ;;
-  3) error "Reserved profile name 'core' cannot be installed." ;;
-  *) error "Unexpected return code ${rc} from load_host_config." ;;
-  esac
+  fi
+  info "Loaded effective config for: ${profile}"
 
   _profiles_apply_sysctl "$host_json"
 
