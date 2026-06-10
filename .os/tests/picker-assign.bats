@@ -26,6 +26,8 @@ setup() {
   echo "$output" | jq -e '.disk == "/dev/d0"'
   echo "$output" | jq -e '.system.hostname == "h"'
   echo "$output" | jq -e '.os_pool.pool_name == "rpool"'
+  # No host_profile field — the directory name is the identity (ADR 0036).
+  echo "$output" | jq -e 'has("host_profile") | not'
 }
 
 @test "picker_assign_disks: single mode with two disks fails with a clear message" {

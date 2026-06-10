@@ -71,7 +71,9 @@ teardown() { rm -rf "$OS_FIX"; }
 @test "vm.sh --print-config: host_profile profile merges the Install Template" {
   run env OS_DIR="$OS_FIX" "$VM_SH" --profile desktop/myhost --print-config
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.host_profile')" = "myhost" ]
+  # The resolved install config no longer carries host_profile (ADR 0036) — the
+  # template merge is proven by the machine fields below.
+  [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
   [ "$(echo "$output" | jq -r '.environment.desktop')" = "kde" ]

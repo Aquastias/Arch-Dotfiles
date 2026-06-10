@@ -28,11 +28,11 @@ source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
 # SYSTEM FIELDS
 # =============================================================================
 # Sets RESOLVED_HOSTNAME and RESOLVED_HOST_PROFILE; requires CONFIG_FILE set.
-# host_profile defaults to the resolved hostname when unset in install.jsonc
-# (preserves pre-ADR-0020 "dirname == hostname" behaviour).
+# host_profile is dropped as a field (ADR 0036) — the --profile arg / host
+# directory name is the identity, and it equals the resolved hostname.
 
 _validation_system_fields() {
-  local hostname profile
+  local hostname
   hostname="$(install_config_hostname)"
   if [[ -z "$hostname" ]]; then
     while true; do
@@ -50,11 +50,9 @@ _validation_system_fields() {
   # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
 
-  profile="$(install_config_host_profile)"
-  [[ -n "$profile" ]] || profile="$hostname"
   # shellcheck disable=SC2034 # consumed by callers passing it to
   # load_host_config and secrets_load.
-  RESOLVED_HOST_PROFILE="$profile"
+  RESOLVED_HOST_PROFILE="$hostname"
 
   cfg '.system.locale' 'system.locale'
   cfg '.system.timezone' 'system.timezone'

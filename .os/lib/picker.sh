@@ -165,8 +165,9 @@ picker_pin_from_template() {
 #   Returns full install.jsonc text on stdout. The template provides every
 #   per-machine field. The <profile> arg is the chosen host directory name
 #   (the Host Profile). Hostname resolution: template's .system.hostname
-#   wins when set, else falls back to <profile>. Always writes
-#   .host_profile = <profile>. Layout fields are written fresh per <mode>:
+#   wins when set, else falls back to <profile>. No host_profile field is
+#   written — the directory name is the identity (ADR 0036). Layout fields
+#   are written fresh per <mode>:
 #     single                       → .mode="single", .disk=<disk>
 #     mirror | stripe | raidz1     → .mode="multi", os_pool.topology=<mode>,
 #     | raidz2 | none                 os_pool.disks=[<disks>...]
@@ -189,7 +190,6 @@ picker_assemble_config() {
         | .system.hostname =
             (if (.system.hostname // "") == ""
              then $profile else .system.hostname end)
-        | .host_profile = $profile
         | .mode = "single"
         | .disk = $disk
       '
@@ -206,7 +206,6 @@ picker_assemble_config() {
         | .system.hostname =
             (if (.system.hostname // "") == ""
              then $profile else .system.hostname end)
-        | .host_profile = $profile
         | .mode = "multi"
         | .os_pool = (.os_pool // {})
                      + { topology: $topology, disks: $disks }

@@ -118,6 +118,45 @@ write_jsonc() {
   echo "$output" | jq -e '.programs == ["neovim"]'
 }
 
+# ── assemble_profile_config: the --profile effective-config seam ────────────
+# Composes load_profile + picker_assign_disks + the dirname-is-identity
+# hostname fallback (ADR 0036) into the transient effective config the
+# install back-end consumes. Pure: no disks, no TTY.
+
+@test "assemble_profile_config: hostname falls back to the profile name" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$OS_DIR/hosts/arch-kde/profile.jsonc" \
+    '{"environment":{"desktop":["kde"]}}'
+
+  run assemble_profile_config arch-kde '{"mode":"single","disk":"/dev/sda"}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system.hostname == "arch-kde"'
+  echo "$output" | jq -e '.mode == "single"'
+  echo "$output" | jq -e '.disk == "/dev/sda"'
+  echo "$output" | jq -e 'has("host_profile") | not'
+}
+
+@test "assemble_profile_config: a profile-set hostname wins over the name" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+    '{"system":{"hostname":"eterniox"}}'
+
+  run assemble_profile_config desktop '{"mode":"single","disk":"/dev/sda"}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system.hostname == "eterniox"'
+}
+
+@test "assemble_profile_config: under-populated raidz1 aborts (min-disk)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$OS_DIR/hosts/srv/profile.jsonc" \
+    '{"os_pool":{"topology":"raidz1"}}'
+
+  run assemble_profile_config srv \
+    '{"mode":"multi","os_pool":["/dev/sda","/dev/sdb"]}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"raidz1"* ]]
+}
+
 # ── closed-schema validation: reject unknown keys at any depth ──────────────
 # Any key the schema does not enumerate aborts with the offending path,
 # before any disk-touching phase (ADR 0036, amends ADR 0015).
@@ -140,6 +179,14 @@ write_jsonc() {
     '{"storage_groups":[{"name":"g","bogus":1}]}'
   [ "$status" -ne 0 ]
   [[ "$output" == *"storage_groups[].bogus"* ]]
+}
+
+@test "validate: host_profile is dropped — the dirname is the identity" {
+  # ADR 0036: host_profile is no longer a config field; --profile / the
+  # host directory name is the identity. A leftover host_profile now aborts.
+  run validate_config_schema host '{"host_profile":"desktop"}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"host_profile"* ]]
 }
 
 @test "validate: unknown key in a user profile aborts" {

@@ -34,7 +34,6 @@ _INSTALL_CONFIG_SCHEMA=(
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
-  "host_profile|.host_profile|scalar|"
   "timezone|.system.timezone|scalar|UTC"
   "desktop|.environment.desktop|array|"
   "extras_backup|.post_install.backup|bool|false"
