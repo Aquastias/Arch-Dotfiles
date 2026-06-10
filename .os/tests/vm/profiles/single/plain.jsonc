@@ -1,8 +1,10 @@
-// VM test: single-disk install of the committed install.jsonc as-is
-// (mode=single, disk=/dev/sda), hostname patched from name. Smoke-tests that
-// the shipped default installs.
+// VM test: single-disk install of install:"repo" — the designated default
+// host profile (VM_DEFAULT_HOST_PROFILE), forced to mode=single on /dev/sda,
+// hostname patched from name. Smoke-tests that the shipped default installs.
+// 8 GiB RAM: the default profile's primary user pulls AUR programs, so the
+// install bootstraps paru (rustc LTO) — 4 GiB OOM-kills that compile.
 {
   "name": "arch-zfs-test-single",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "install": "repo"
 }
