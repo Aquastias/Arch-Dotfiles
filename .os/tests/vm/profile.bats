@@ -7,7 +7,15 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   HOSTS_DIR="$TEST_DIR/hosts"
   mkdir -p "$HOSTS_DIR"
-  export TEST_DIR HOSTS_DIR
+  # load_profile/assemble_profile_config resolve hosts under $OS_DIR/hosts.
+  export TEST_DIR HOSTS_DIR OS_DIR="$TEST_DIR"
+
+  # The config stack (layers.sh/jsonc.sh) emits through these — stub to quiet.
+  info()    { :; }
+  warn()    { :; }
+  error()   { echo "[error] $*" >&2; return 1; }
+  section() { :; }
+  export -f info warn error section
 
   # shellcheck source=../../vm/lib/profile.sh
   source "$BATS_TEST_DIRNAME/../../vm/lib/profile.sh"
@@ -27,7 +35,7 @@ teardown() { rm -rf "$TEST_DIR"; }
       "disk": "/dev/sda"
     }
   }'
-  run profile_resolve_config "$profile" "$HOSTS_DIR" /dev/null
+  run profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "inline-host" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
@@ -36,96 +44,110 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # ── "repo" install source ────────────────────────────────────────────────────
 
-@test "profile_resolve_config: repo emits committed config, only hostname patched" {
-  cat > "$TEST_DIR/install.jsonc" <<'JSONC'
-// committed default
-{
-  "system": { "hostname": "", "locale": "en_US.UTF-8", "timezone": "UTC" },
-  "mode": "single",
-  "disk": "/dev/sda",
-  "ashift": 12
-}
+@test "profile_resolve_config: repo resolves as the default host_profile, single" {
+  # install:"repo" ≡ host_profile: $VM_DEFAULT_HOST_PROFILE at single — the
+  # shipped-default smoke survives the loss of the committed install.jsonc.
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "system_programs": ["cups"] }
 JSONC
-  profile='{
-    "name": "single-plain",
+  cat > "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE/profile.jsonc" <<'JSONC'
+{ "environment": { "desktop": ["kde"] } }
+JSONC
+  repo='{
+    "name": "smoke",
     "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
     "install": "repo"
   }'
-  run profile_resolve_config "$profile" "$HOSTS_DIR" "$TEST_DIR/install.jsonc"
+  via_host='{
+    "name": "smoke",
+    "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+    "host_profile": "'"$VM_DEFAULT_HOST_PROFILE"'",
+    "layout": { "mode": "single" }
+  }'
+  run profile_resolve_config "$repo"
   [ "$status" -eq 0 ]
-  # only hostname changes
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "single-plain" ]
-  # everything else preserved verbatim
-  [ "$(echo "$output" | jq -r '.system.locale')" = "en_US.UTF-8" ]
+  # identical to resolving the default host directly, single-disk
+  expected="$(profile_resolve_config "$via_host")"
+  [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
+  [ "$(echo "$output" | jq -c '.system_programs')" = '["cups"]' ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
-  [ "$(echo "$output" | jq -r '.ashift')" = "12" ]
 }
 
-# ── host_profile install source ──────────────────────────────────────────────
+# ── host_profile resolves the unified profile.jsonc (load_profile) ───────────
 
-# Build a core + host template pair under $HOSTS_DIR. $1=host name, rest piped
-# from heredoc into the host template body.
-mk_host_template() {
-  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/$1"
-  cat > "$HOSTS_DIR/core/install.template.jsonc" <<'JSONC'
-{ "system": { "locale": "en_US.UTF-8", "timezone": "UTC" }, "ashift": 12 }
+@test "profile_resolve_config: host_profile single resolves via load_profile" {
+  # A real profile.jsonc-backed host (no install.template.jsonc) — proves the
+  # resolver reads the unified profile (merged over core) via load_profile,
+  # not a copied Install Template.
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "system_programs": ["cups"] }
 JSONC
-  cat > "$HOSTS_DIR/$1/install.template.jsonc"
-}
-
-@test "profile_resolve_config: host_profile single matches picker_assemble_config" {
-  mk_host_template myhost <<'JSONC'
-{ "environment": { "desktop": "kde" }, "ashift": 13 }
+  cat > "$HOSTS_DIR/myhost/profile.jsonc" <<'JSONC'
+{ "environment": { "desktop": ["kde"] } }
 JSONC
   profile='{
-    "name": "myhost",
+    "name": "vm-myhost",
     "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
     "host_profile": "myhost",
     "layout": { "mode": "single" }
   }'
-  run profile_resolve_config "$profile" "$HOSTS_DIR" /dev/null
+  run profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
-
-  tpl="$(picker_load_template "$HOSTS_DIR" myhost)"
-  expected="$(picker_assemble_config "$tpl" myhost single /dev/sda)"
-  [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
+  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
+  [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  # hostname falls back to the host-dir name (ADR 0036: dir ≡ hostname)
+  [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
+  # software arrives via load_profile's core merge — impossible on the old
+  # template-only path
+  [ "$(echo "$output" | jq -c '.system_programs')" = '["cups"]' ]
+  [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]
 }
 
-@test "profile_resolve_config: unpinned multi derives /dev/sdX from disk count" {
-  mk_host_template myhost <<'JSONC'
-{ "environment": { "desktop": "kde" } }
+@test "profile_resolve_config: host_profile pinned multi uses the profile topology" {
+  # A multi host pins mode + os_pool.topology in its profile (ADR 0029); the VM
+  # ships no layout.mode. All picked disks land in the OS pool at that topology.
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/securehost"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "os_pool": { "pool_name": "rpool" } }
+JSONC
+  cat > "$HOSTS_DIR/securehost/profile.jsonc" <<'JSONC'
+{ "mode": "multi", "os_pool": { "topology": "mirror" } }
 JSONC
   profile='{
-    "name": "myhost",
-    "hardware": { "disks": [40, 40], "ram_mb": 8192, "vcpus": 4 },
-    "host_profile": "myhost",
-    "layout": { "mode": "mirror" }
+    "name": "vm-secure",
+    "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
+    "host_profile": "securehost"
   }'
-  run profile_resolve_config "$profile" "$HOSTS_DIR" /dev/null
+  run profile_resolve_config "$profile"
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
   [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
   [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda","/dev/sdb"]' ]
+  [ "$(echo "$output" | jq -r '.system.hostname')" = "securehost" ]
 }
 
-@test "profile_resolve_config: pinned multi template wins over layout.mode" {
-  # template pins mode=multi + raidz1; layout.mode is bogus and must be ignored
-  mk_host_template pinned <<'JSONC'
-{ "mode": "multi", "os_pool": { "topology": "raidz1" } }
+@test "profile_resolve_config: unpinned host with a multi layout.mode is rejected" {
+  # Decision X: multi topology comes only from the profile's os_pool pin. An
+  # unpinned host can't conjure a topology from layout.mode — it must pin.
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/plainhost"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "os_pool": { "pool_name": "rpool" } }
+JSONC
+  cat > "$HOSTS_DIR/plainhost/profile.jsonc" <<'JSONC'
+{ "environment": { "desktop": ["kde"] } }
 JSONC
   profile='{
-    "name": "pinned",
-    "hardware": { "disks": [20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
-    "host_profile": "pinned",
-    "layout": { "mode": "single" }
+    "name": "vm-plain",
+    "hardware": { "disks": [40, 40], "ram_mb": 4096, "vcpus": 2 },
+    "host_profile": "plainhost",
+    "layout": { "mode": "mirror" }
   }'
-  run profile_resolve_config "$profile" "$HOSTS_DIR" /dev/null
-  [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
-  [ "$(echo "$output" | jq -r '.os_pool.topology')" = "raidz1" ]
-  [ "$(echo "$output" | jq -c '.os_pool.disks')" \
-      = '["/dev/sda","/dev/sdb","/dev/sdc"]' ]
+  run profile_resolve_config "$profile"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *os_pool* ]]
 }
 
 # ── new desktop templates are picker-enumerable ──────────────────────────────

@@ -77,12 +77,15 @@ profile_validate() {
     return 1
   fi
 
+  # A host_profile names a real host directory (the loader reads its
+  # profile.jsonc, or synthesizes from legacy files during migration). We no
+  # longer require an install.template.jsonc — only that the host exists, so a
+  # typo'd reference still fails fast before any VM is provisioned (ADR 0036).
   local hp
   hp="$(jq -r '.host_profile // empty' <<<"$profile")"
   if [[ -n "$hp" ]] \
-     && [[ ! -f "$hosts_dir/$hp/install.template.jsonc" \
-        && ! -f "$hosts_dir/vm/$hp/install.template.jsonc" ]]; then
-    echo "profile: host_profile '$hp' ships no install.template.jsonc" >&2
+     && [[ ! -d "$hosts_dir/$hp" && ! -d "$hosts_dir/vm/$hp" ]]; then
+    echo "profile: host_profile '$hp' is not a host under $hosts_dir" >&2
     return 1
   fi
 

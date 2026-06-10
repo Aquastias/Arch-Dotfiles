@@ -10,9 +10,9 @@
 # the resolved install.jsonc to stdout (no libvirt). The persistent and test
 # provisioning flows land in later slices.
 #
-# OS_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/,
-# install.jsonc) is overridable for tests; the lib modules are always sourced
-# from this script's own directory.
+# OS_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/) is
+# overridable for tests; the lib modules are always sourced from this script's
+# own directory.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -73,7 +73,7 @@ main() {
   local profile_file="$base/$profile_ref.jsonc"
   [[ -f "$profile_file" ]] || die "profile not found: $profile_file"
 
-  local hosts_dir="$OS_DIR/hosts" repo_config="$OS_DIR/install.jsonc"
+  local hosts_dir="$OS_DIR/hosts"
   local profile_json
   profile_json="$(jsonc_strip "$profile_file" | jq '.')" \
     || die "profile is not valid JSONC: $profile_file"
@@ -81,7 +81,7 @@ main() {
   profile_validate "$profile_json" "$hosts_dir" || exit 1
 
   if ((print_config)); then
-    profile_resolve_config "$profile_json" "$hosts_dir" "$repo_config"
+    profile_resolve_config "$profile_json"
     return 0
   fi
 
@@ -91,8 +91,7 @@ main() {
   mapfile -t VM_DISK_SIZES < <(jq -r '.hardware.disks[]' <<<"$profile_json")
   VM_RAM_MB="${VM_RAM_MB:-$(jq -r '.hardware.ram_mb' <<<"$profile_json")}"
   VM_VCPUS="${VM_VCPUS:-$(jq -r '.hardware.vcpus' <<<"$profile_json")}"
-  INSTALL_CONFIG_CONTENT="$(profile_resolve_config \
-    "$profile_json" "$hosts_dir" "$repo_config")"
+  INSTALL_CONFIG_CONTENT="$(profile_resolve_config "$profile_json")"
 
   # shellcheck disable=SC2034 # both consumed by core.sh _stage_fixture_files
   mapfile -t VM_FIXTURE_FILES < <(jq -r '.fixtures[]?' <<<"$profile_json")

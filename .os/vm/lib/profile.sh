@@ -12,18 +12,26 @@
 # Sourced by vm/vm.sh and tests/vm/profile.bats.
 # =============================================================================
 
-# shellcheck source=../../lib/picker.sh
-source "${BASH_SOURCE[0]%/*}/../../lib/picker.sh"
+# shellcheck source=../../lib/config/profile.sh
+# Brings load_profile + assemble_profile_config (and, transitively, picker.sh +
+# layers.sh) — the same loader/assembler the real install front-end uses, so a
+# VM resolves the unified profile.jsonc rather than a copied Install Template.
+source "${BASH_SOURCE[0]%/*}/../../lib/config/profile.sh"
 
-# profile_resolve_config <profile_json> <hosts_dir> <repo_jsonc_path>
+# The host profile install:"repo" resolves to — the designated default. One
+# knob, env-overridable, so the shipped-default smoke survives install.jsonc.
+VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-desktop}"
+
+# profile_resolve_config <profile_json>
 #   Emits the resolved install.jsonc on stdout. Assumes the profile already
-#   passed profile_validate (exactly one install source).
+#   passed profile_validate (exactly one install source). Hosts resolve through
+#   the unified loader/assembler under OS_DIR.
 profile_resolve_config() {
-  local profile="$1" hosts_dir="$2" repo_jsonc="$3"
+  local profile="$1"
   local host_profile install_type install_str
   host_profile="$(jq -r '.host_profile // empty' <<<"$profile")"
   if [[ -n "$host_profile" ]]; then
-    _profile_resolve_host "$profile" "$hosts_dir" "$host_profile"
+    _profile_resolve_host "$profile" "$host_profile"
     return
   fi
   install_type="$(jq -r '.install | type' <<<"$profile")"
@@ -32,7 +40,7 @@ profile_resolve_config() {
   elif [[ "$install_type" == "string" ]]; then
     install_str="$(jq -r '.install' <<<"$profile")"
     if [[ "$install_str" == "repo" ]]; then
-      _profile_resolve_repo "$profile" "$repo_jsonc"
+      _profile_resolve_repo "$profile"
     else
       echo "profile: unknown install string '$install_str' (expected \"repo\")" >&2
       return 1
@@ -49,37 +57,56 @@ profile_disk_devices() {
   done
 }
 
-# _profile_resolve_host <profile_json> <hosts_dir> <host>
-#   Resolves a host_profile reference: merge the Install Template, derive the
-#   OS mode (template pin, else profile layout.mode), map disk count to
-#   /dev/sdX, and hand off to picker_assemble_config — the single source of
-#   truth the Pre-Install Picker uses.
+# _profile_resolve_host <profile_json> <host>
+#   Resolves a host_profile reference through the unified loader/assembler:
+#   load_profile reads the host's profile.jsonc (merged over core), the VM's
+#   disk count maps to /dev/sdX, and assemble_profile_config assigns them onto
+#   the profile's pool skeleton — the exact effective config the real
+#   `install.sh --profile <host>` produces. hostname falls back to the
+#   host-dir name (ADR 0036: dir ≡ hostname).
 _profile_resolve_host() {
-  local profile="$1" hosts_dir="$2" host="$3"
-  local template pin mode count
-  template="$(picker_load_template "$hosts_dir" "$host")" || return 1
-  pin="$(picker_pin_from_template "$template")" || return 1
-  if [[ -z "$pin" ]]; then
-    mode="$(jq -r '.layout.mode // empty' <<<"$profile")"
-    [[ -n "$mode" ]] \
-      || { echo "profile: host '$host' is unpinned — layout.mode required" >&2
-           return 1; }
-  elif [[ "$pin" == single ]]; then
-    mode=single
-  else
-    mode="${pin#*$'\t'}"   # multi<TAB>topology → topology
-  fi
+  local profile="$1" host="$2"
+  local loaded pin mode count
+  loaded="$(load_profile "$host")" || return $?
+  # A multi host pins mode in its profile (its os_pool.topology then drives the
+  # assignment). An unpinned host takes the VM's layout.mode, defaulting to
+  # single; a multi topology there is rejected — pin os_pool in the profile.
+  pin="$(jq -r '.mode // empty' <<<"$loaded")"
+  case "$pin" in
+    single | multi) mode="$pin" ;;
+    *)              mode="$(jq -r '.layout.mode // "single"' <<<"$profile")" ;;
+  esac
+
   count="$(jq -r '.hardware.disks | length' <<<"$profile")"
-  local disks; mapfile -t disks < <(profile_disk_devices "$count")
-  picker_assemble_config "$template" "$host" "$mode" "${disks[@]}"
+  local -a disks; mapfile -t disks < <(profile_disk_devices "$count")
+
+  local assignment
+  case "$mode" in
+    single)
+      assignment="$(jq -n --arg d "${disks[0]}" '{ mode: "single", disk: $d }')"
+      ;;
+    multi)
+      local disks_json
+      disks_json="$(printf '%s\n' "${disks[@]}" | jq -R . | jq -s .)"
+      assignment="$(jq -n --argjson d "$disks_json" \
+        '{ mode: "multi", os_pool: $d }')"
+      ;;
+    *)
+      echo "profile: host '$host' is unpinned — pin os_pool in the profile" \
+           "to use multi (layout.mode '$mode' selects no topology)" >&2
+      return 1
+      ;;
+  esac
+  assemble_profile_config "$host" "$assignment"
 }
 
-# _profile_resolve_repo <profile_json> <repo_jsonc_path>
-#   Emits the committed install.jsonc with only system.hostname patched to the
-#   profile name.
+# _profile_resolve_repo <profile_json>
+#   install:"repo" means "the designated default host profile" — resolve it
+#   exactly as host_profile: $VM_DEFAULT_HOST_PROFILE at single (the shipped
+#   default has always been single-disk).
 _profile_resolve_repo() {
-  local profile="$1" repo_jsonc="$2" name
-  name="$(jq -r '.name' <<<"$profile")"
-  jsonc_strip "$repo_jsonc" \
-    | jq --arg h "$name" '.system = (.system // {}) | .system.hostname = $h'
+  local profile="$1" synth
+  synth="$(jq '.layout = (.layout // {}) | .layout.mode = "single"' \
+    <<<"$profile")"
+  _profile_resolve_host "$synth" "$VM_DEFAULT_HOST_PROFILE"
 }

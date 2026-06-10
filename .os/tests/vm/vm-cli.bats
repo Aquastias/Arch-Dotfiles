@@ -17,12 +17,6 @@ JSONC
 { "environment": { "desktop": "kde" }, "ashift": 13 }
 JSONC
 
-  # Committed repo config (the "repo" source).
-  cat > "$OS_FIX/install.jsonc" <<'JSONC'
-// committed
-{ "system": { "hostname": "" }, "mode": "single", "disk": "/dev/sda" }
-JSONC
-
   # Persistent profiles.
   mkdir -p "$OS_FIX/vm/profiles/cat" "$OS_FIX/vm/profiles/desktop"
   cat > "$OS_FIX/vm/profiles/cat/inline.jsonc" <<'JSONC'
@@ -80,11 +74,18 @@ teardown() { rm -rf "$OS_FIX"; }
   [ "$(echo "$output" | jq -r '.ashift')" = "13" ]
 }
 
-@test "vm.sh --print-config: repo profile patches only the hostname" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --profile cat/repo --print-config
+@test "vm.sh --print-config: repo resolves to VM_DEFAULT_HOST_PROFILE, single" {
+  run env OS_DIR="$OS_FIX" VM_DEFAULT_HOST_PROFILE=myhost \
+    "$VM_SH" --profile cat/repo --print-config
   [ "$status" -eq 0 ]
-  [ "$(echo "$output" | jq -r '.system.hostname')" = "repo-case" ]
+  # install:"repo" resolves as host_profile: myhost (the designated default) at
+  # single — proven by myhost's machine fields; hostname falls back to the
+  # host-dir name (ADR 0036), not the VM profile's name.
+  [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
+  [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
+  [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
+  [ "$(echo "$output" | jq -r '.environment.desktop')" = "kde" ]
 }
 
 @test "vm.sh --testing: flips profile resolution to the tests/vm tree" {
