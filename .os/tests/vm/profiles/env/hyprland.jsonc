@@ -2,7 +2,7 @@
 // verifying the real host profile arch-hyprland end-to-end.
 {
   "name": "arch-zfs-test-env-hyprland",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "host_profile": "arch-hyprland",
   "layout": { "mode": "single" },
   "verify": { "boot": true }

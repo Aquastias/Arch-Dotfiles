@@ -2,7 +2,7 @@
 // session), boot-verifying the real host profile arch-kde-hyprland.
 {
   "name": "arch-zfs-test-env-kde-hyprland",
-  "hardware": { "disks": [60], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 2 },
   "host_profile": "arch-kde-hyprland",
   "layout": { "mode": "single" },
   "verify": { "boot": true }
