@@ -40,18 +40,18 @@ Two coupled problems:
 
 ## Acceptance criteria
 
-- [ ] `install.sh --profile <multi-data-pool-host>` maps picked disks onto
+- [x] `install.sh --profile <multi-data-pool-host>` maps picked disks onto
       every declared group (os_pool + storage_groups + data_pools),
       validated against the layout's real min-disk rules.
-- [ ] `vm/lib/profile.sh:_profile_resolve_host` does the same for a VM disk
+- [x] `vm/lib/profile.sh:_profile_resolve_host` does the same for a VM disk
       list, so `host_profile: arch-data` assembles + installs.
-- [ ] `none` (1-disk OS pool) and `stripe`/independent (1-disk data pool)
+- [x] `none` (1-disk OS pool) and `stripe`/independent (1-disk data pool)
       are accepted on the assignment path; `mirror`>=2 / `raidz1`>=3 /
       `raidz2`>=4 still enforced and named per group on failure.
-- [ ] Interactive-picker min-disk behaviour + its bats suite stay green
+- [x] Interactive-picker min-disk behaviour + its bats suite stay green
       (no regression from the reconciliation).
-- [ ] `arch-data` installs end-to-end via `--profile` (or a host_profile
-      VM run) with `vm-data` owning `tank0`/`tank1` — closes issue 08 AC3.
+- [x] `arch-data` installs end-to-end via a `host_profile` VM run with
+      `vm-data` owning `tank0`/`tank1` — closes issue 08 AC3.
 
 ## Design (resolved — ADR 0037)
 
@@ -177,8 +177,19 @@ issue AC (`raidz1`≥3 / `raidz2`≥4), which DIVERGES from
 `layout_validate` for data pools). Stricter at the producing side = safe;
 reconciling the two validators is a possible later cleanup.
 
-**AC5 / issue 08 AC3 (the real prize) NOT yet run here** — the live
-`vm.sh --testing --verify-boot --profile data-pools/from-profile` needs
-libvirt/KVM/root (sandbox has neither; `.vm-test/*.qcow2` are perm-denied).
-Resolution path is proven pure end-to-end; left as a manual VM run for the
-operator to flip issue 08 AC3.
+**AC5 / issue 08 AC3 — VERIFIED on the live VM (2026-06-11).**
+`vm.sh --testing --verify-boot --recreate --profile data-pools/from-profile`
+ran green end-to-end on the eterniox libvirt host:
+- Producer: the install log shows the slicer's exact per-group mapping —
+  `rpool` (none) → `/dev/sda2`, `tank0` (stripe) → `/dev/sdb1`,
+  `tank1` (mirror) → `mirror /dev/sdc1 /dev/sdd1`.
+- Installer reached `===INSTALLER-EXIT-0===`; `vm-data` created.
+- Boot-verify booted the installed disk and the pool verifier emitted
+  `===FIRSTBOOT-OK===` (emitted ONLY when every check passes,
+  `vm-pool-verify.sh`): rpool/tank0/tank1 imported, `tank0/data`→
+  `/data/tank0` + `tank1/data`→`/data/tank1` mounted, both /data pools
+  owned + writable by `vm-data`, every leaf vdev a stable by-id path.
+
+(Note: the run was interrupted once by a host reboot; on restart libvirtd
+hit the known eterniox fTPM systemd-CREDENTIALS failure — unrelated to this
+work — and was repaired before the clean `--recreate` re-run above.)
