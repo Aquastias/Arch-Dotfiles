@@ -2,7 +2,7 @@
 // profile arch-kde end-to-end (gpu=auto resolves to mesa in the VM).
 {
   "name": "arch-zfs-test-env-kde",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "host_profile": "arch-kde",
   "layout": { "mode": "single" },
   "verify": { "boot": true }

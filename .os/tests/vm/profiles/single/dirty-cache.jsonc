@@ -5,7 +5,7 @@
 // sentinel. Heavy (~doubles runtime) — run on demand.
 {
   "name": "arch-zfs-test-single-dirty",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "install": "repo",
   "verify": { "boot": true, "dirty_cache": true }
 }
