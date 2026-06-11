@@ -1,6 +1,6 @@
 # install.sh --profile end-to-end + unattended seam
 
-Status: ready-for-human
+Status: done
 
 ## Parent
 
@@ -26,7 +26,7 @@ from the schema — the directory name / `--profile` arg is the identity.
       read.
 - [x] No committed assembled config is required; the effective config is
       transient.
-- [ ] Verified end-to-end by a VM install via `--profile`.
+- [x] Verified end-to-end by a VM install via `--profile`.
 
 ## Blocked by
 
@@ -69,3 +69,22 @@ assignment is unbuilt (gap #5, see issue 08) — so a multi-data-pool host
 (arch-data) is not yet installable via `--profile`. Fixed en route: the
 `install:"repo"`→default regression and the Profiles Runner reading the
 legacy `config.jsonc` instead of the assembled effective config.
+
+### AC5 closed — `--profile` path VM-verified end-to-end — 2026-06-11
+
+The last AC is met. The VM harness `host_profile` path is the programmatic
+`--profile` install — the same `validate_profile` → `load_profile` →
+`assemble_profile_config` → 01/02/03 back-end, only the fzf disk-pick is
+replaced by the VM disk list. Verified end-to-end (install +
+`INSTALLER-EXIT-0` + first-boot sentinel) for both pool shapes:
+- **multi-data-pool**: `data-pools/from-profile` (host_profile arch-data) —
+  per-group slicing rpool→sda / tank0→sdb / tank1→mirror(sdc,sdd), `vm-data`
+  owns the /data pools (issue 12).
+- **single-pool**: `env/kde` / `env/hyprland` / `env/kde-hyprland`
+  (host_profile arch-kde/-hyprland/-kde-hyprland) all boot into their DE.
+
+The only piece not headless-testable is the literal interactive
+`install.sh --profile` fzf disk-pick (repo pick.sh doctrine excludes fzf
+glue from automated tests); its producer `picker_build_assignment` is the
+same code the verified harness path runs, and is bats-covered
+(`tests/picker-assign.bats`). Closing.
