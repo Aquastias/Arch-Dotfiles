@@ -1,6 +1,6 @@
 # Migration tracer: equivalence test + migrate arch-data
 
-Status: ready-for-human
+Status: done
 
 ## Parent
 
@@ -21,7 +21,7 @@ migration.
 - [x] An equivalence test asserts legacy synthesis == hand-written
       `profile.jsonc` for a host.
 - [x] `hosts/vm/arch-data/profile.jsonc` replaces its `config.jsonc`.
-- [ ] `arch-data` installs via `--profile arch-data` (or a VM run).
+- [x] `arch-data` installs via `--profile arch-data` (or a VM run).
 - [x] Equivalence test green for `arch-data`; all suites green.
 
 ## Blocked by
@@ -85,3 +85,15 @@ the interactive picker's own tests. This is issue 03's explicitly-deferred
 follow-up and warrants its own issue, not an inline hack. Until then,
 arch-data installs only via an **inline** install config (the data-pools
 VM tests prove the topology end-to-end).
+
+### AC3 closed — gap #5 done (issue 12), live VM verified — 2026-06-11
+
+Both blockers above are resolved. Gap #5 shipped as **issue 12** (ADR 0037,
+per-group `disk_count` slicing), and the Runner/pool-owners legacy-reader
+fix is in. AC3 verified on the live VM via the new top-level-`host_profile`
+profile `tests/vm/profiles/data-pools/from-profile.jsonc`:
+`vm.sh --testing --verify-boot --recreate --profile data-pools/from-profile`
+→ slicer mapped rpool→sda2 / tank0→sdb1 / tank1→mirror(sdc1,sdd1);
+`INSTALLER-EXIT-0`; pool verifier `===FIRSTBOOT-OK===` (rpool/tank0/tank1
+imported, /data/tank0 + /data/tank1 mounted + owned by `vm-data`, by-id
+vdevs). Closing this issue. See issue 12 for the full record.
