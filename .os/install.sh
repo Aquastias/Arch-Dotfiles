@@ -64,16 +64,36 @@ Options:
 EOF
 }
 
+# _install_render_assignment <profile_json> <assignment_json>
+# Prints the per-group disk mapping (operator-readable) so a multi assignment is
+# never implicit (ADR 0037). Caller sends this to stderr — stdout is the JSON.
+_install_render_assignment() {
+  jq -rn --argjson p "$1" --argjson a "$2" '
+    "Disk assignment (per ADR 0037):",
+    "  os_pool (\($p.os_pool.pool_name // "rpool"), " +
+      "\($p.os_pool.topology // "stripe")): " +
+      "\(($a.os_pool // []) | join(" "))",
+    ( ($p.storage_groups // []) | to_entries[]
+      | "  storage_groups[\(.key)] (\(.value.name), " +
+        "\(.value.topology // "stripe")): " +
+        "\(($a.storage_groups[.key] // []) | join(" "))" ),
+    ( ($p.data_pools // []) | to_entries[]
+      | "  data_pools[\(.key)] (\(.value.name), " +
+        "\(.value.topology // "stripe")): " +
+        "\(($a.data_pools[.key] // []) | join(" "))" )
+  '
+}
+
 # _install_pick_assignment <profile_json>
 # Interactive disk resolution for `--profile`: the profile declares the layout
-# (single via .mode/.disk, multi via .os_pool.topology) and the operator picks
-# only the disks (ADR 0036). Emits the assignment JSON consumed by
-# assemble_profile_config. A profile that declares no layout yet (un-migrated,
-# synthesized) aborts with guidance to use the positional config seam meanwhile.
-# Only os_pool is resolved here — per-group storage_groups/data_pools picking is
-# a follow-up; the single-pool hosts migrated first need only this.
+# (single via .mode/.disk, multi via the pool skeleton + per-group disk_count)
+# and the operator picks only the disks (ADR 0036/0037). Emits the assignment
+# JSON consumed by assemble_profile_config. A profile that declares no layout
+# yet (un-migrated, synthesized) aborts with guidance to use the positional
+# config seam meanwhile. Multi: the picked disks are sliced onto every declared
+# group by disk_count, in declared order, and the mapping is rendered to stderr.
 _install_pick_assignment() {
-  local profile_json="$1" mode topology picked live_set
+  local profile_json="$1" mode picked live_set
   local -a candidates disks
 
   mode="$(jq -r '
@@ -106,10 +126,14 @@ _install_pick_assignment() {
     picker_validate_layout single "${#disks[@]}" || return 1
     jq -n --arg d "${disks[0]}" '{mode:"single", disk:$d}'
   else
-    topology="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile_json")"
-    picker_validate_layout "$topology" "${#disks[@]}" || return 1
-    jq -n --argjson ds "$(printf '%s\n' "${disks[@]}" | jq -R . | jq -s .)" \
-      '{mode:"multi", os_pool:$ds}'
+    # Slice the picked disks onto every declared group by disk_count, in
+    # declared order (ADR 0037); the per-group min-disk check runs downstream
+    # in picker_assign_disks. Render the mapping to stderr so it is explicit.
+    local assignment
+    assignment="$(picker_build_assignment "$profile_json" "${disks[@]}")" \
+      || return 1
+    _install_render_assignment "$profile_json" "$assignment" >&2
+    printf '%s\n' "$assignment"
   fi
 }
 

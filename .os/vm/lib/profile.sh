@@ -89,10 +89,12 @@ _profile_resolve_host() {
       assignment="$(jq -n --arg d "${disks[0]}" '{ mode: "single", disk: $d }')"
       ;;
     multi)
-      local disks_json
-      disks_json="$(printf '%s\n' "${disks[@]}" | jq -R . | jq -s .)"
-      assignment="$(jq -n --argjson d "$disks_json" \
-        '{ mode: "multi", os_pool: $d }')"
+      # Slice the VM's /dev/sdX list onto every declared group by disk_count,
+      # in declared order (ADR 0037) — the same producer install.sh uses, so a
+      # multi-data-pool host (arch-data) assembles identically. Aborts when the
+      # VM disk count != sum(disk_count).
+      assignment="$(picker_build_assignment "$loaded" "${disks[@]}")" \
+        || return $?
       ;;
     *)
       echo "profile: host '$host' is unpinned — pin os_pool in the profile" \

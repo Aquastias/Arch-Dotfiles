@@ -442,6 +442,16 @@ write_jsonc() {
   [ -z "$output" ]
 }
 
+@test "validate: per-group disk_count keys validate clean (ADR 0037)" {
+  run validate_config_schema host '{
+    "os_pool":{"pool_name":"rpool","topology":"none","disk_count":1},
+    "storage_groups":[{"name":"data","topology":"raidz1","disk_count":3}],
+    "data_pools":[{"name":"tank","topology":"mirror","disk_count":2}]
+  }'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "integration: a picker-assigned effective config validates clean" {
   # picker_assign_disks comes from lib/picker.sh (sourced by profile.sh).
   local eff

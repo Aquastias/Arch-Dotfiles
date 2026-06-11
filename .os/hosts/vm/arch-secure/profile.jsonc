@@ -44,9 +44,10 @@
 
   "mode": "multi",
   "os_pool": {
-    "pool_name": "rpool",
-    "topology":  "mirror",
-    "ashift":    12
+    "pool_name":  "rpool",
+    "topology":   "mirror",
+    "ashift":     12,
+    "disk_count": 2
   },
   "storage_groups": [],
   "data_pools": []
