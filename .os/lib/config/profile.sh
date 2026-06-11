@@ -173,15 +173,19 @@ _PROFILE_SCHEMA_host=(
   # — layout scalars —
   "ashift" "os_size" "os_pool_name" "storage_pool_name" "storage_mount"
   "mode" "disk"
-  # — os_pool object (skeleton; disks resolved at install time) —
+  # — os_pool object (skeleton; disks resolved at install time, disk_count
+  #   declares how many the picker/harness assign — ADR 0037) —
   "os_pool.pool_name" "os_pool.ashift" "os_pool.topology" "os_pool.disks[]"
+  "os_pool.disk_count"
   # — storage_groups[] —
   "storage_groups[].name" "storage_groups[].topology"
   "storage_groups[].mount" "storage_groups[].ashift"
   "storage_groups[].owners[]" "storage_groups[].disks[]"
+  "storage_groups[].disk_count"
   # — data_pools[] —
   "data_pools[].name" "data_pools[].topology" "data_pools[].mount"
   "data_pools[].ashift" "data_pools[].owners[]" "data_pools[].disks[]"
+  "data_pools[].disk_count"
   # — post-install toggles —
   "post_install.backup" "post_install.security"
   # — packages (open category objects) —

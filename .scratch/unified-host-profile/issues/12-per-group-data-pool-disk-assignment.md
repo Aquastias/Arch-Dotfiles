@@ -1,6 +1,6 @@
 # Per-group data-pool disk assignment (picker + VM harness)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -139,3 +139,46 @@ real profile with `vm-data` owning `tank0`/`tank1` — closing issue 08 AC3.
 **Coordinate with issue 11:** the `disk_count` field belongs in the
 CONTEXT.md rewrite (Storage Group / Standalone Data Pool / os_pool terms).
 Left for issue 11 to avoid touching the stale legacy glossary piecemeal.
+
+### Agent resolution (Claude) — 2026-06-11
+
+Implemented per ADR 0037, TDD (RED→GREEN per slice). Non-VM suite green
+(252 ok across the affected + adjacent suites; 0 fail). `shellcheck -x`
+clean on the touched `.sh` (only benign SC1091 source-following info).
+
+**Shipped:**
+- `lib/picker.sh` — new `_picker_group_min` (assignment-path min table:
+  `stripe`/`independent`≥1, `mirror`≥2, `raidz1`≥3, `raidz2`≥4,
+  `none`/`single`=1); `_picker_validate_group` repointed at it
+  (`picker_validate_layout` left untouched). New pure slicer
+  `picker_build_assignment <profile> <disk...>` (+ `_picker_slice_json`):
+  slices per `disk_count` in declared order, wrong-total aborts naming the
+  expected count, `os_pool none`/`single` defaults to 1.
+- `lib/config/profile.sh` — schema gains `os_pool.disk_count`,
+  `storage_groups[].disk_count`, `data_pools[].disk_count`. No accessors
+  (slicer reads the profile JSON directly; drift guard is one-directional).
+- `install.sh` — `_install_pick_assignment` multi branch now slices via
+  `picker_build_assignment` + renders the per-group mapping to stderr
+  (`_install_render_assignment`); single branch unchanged.
+- `vm/lib/profile.sh` — `_profile_resolve_host` multi branch slices the
+  VM's `/dev/sdX` list via the same producer; aborts on count mismatch.
+- Data: `disk_count` added to `arch-data` (os_pool 1, tank0 1, tank1 2),
+  `desktop` (os_pool 2, `data` 3), `arch-secure` (os_pool 2). The one
+  `host_profile`-multi VM profile (`vm/profiles/headless/secure.jsonc`)
+  already has 2 disks = arch-secure sum ✓.
+- New `tests/vm/profiles/data-pools/from-profile.jsonc` —
+  top-level `host_profile: arch-data`, 4 disks. `profile_resolve_config`
+  produces sda→rpool, sdb→tank0, sdc+sdd→tank1, owned by vm-data
+  (verified pure, matches the hand-written inline `plain.jsonc`).
+
+**Decision (operator-confirmed):** assignment-path raidz mins follow the
+issue AC (`raidz1`≥3 / `raidz2`≥4), which DIVERGES from
+`_zfs_validate_pool_topology` (`raidz1`≥2 / `raidz2`≥3, used by
+`layout_validate` for data pools). Stricter at the producing side = safe;
+reconciling the two validators is a possible later cleanup.
+
+**AC5 / issue 08 AC3 (the real prize) NOT yet run here** — the live
+`vm.sh --testing --verify-boot --profile data-pools/from-profile` needs
+libvirt/KVM/root (sandbox has neither; `.vm-test/*.qcow2` are perm-denied).
+Resolution path is proven pure end-to-end; left as a manual VM run for the
+operator to flip issue 08 AC3.

@@ -114,7 +114,7 @@ JSONC
 { "os_pool": { "pool_name": "rpool" } }
 JSONC
   cat > "$HOSTS_DIR/securehost/profile.jsonc" <<'JSONC'
-{ "mode": "multi", "os_pool": { "topology": "mirror" } }
+{ "mode": "multi", "os_pool": { "topology": "mirror", "disk_count": 2 } }
 JSONC
   profile='{
     "name": "vm-secure",
@@ -127,6 +127,60 @@ JSONC
   [ "$(echo "$output" | jq -r '.os_pool.topology')" = "mirror" ]
   [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda","/dev/sdb"]' ]
   [ "$(echo "$output" | jq -r '.system.hostname')" = "securehost" ]
+}
+
+@test "profile_resolve_config: host_profile multi slices disks per disk_count" {
+  # ADR 0037: a multi host declares disk_count per group; the VM's /dev/sdX
+  # list is sliced onto os_pool → storage_groups[] → data_pools[] in declared
+  # order, so a multi-data-pool host (arch-data-shaped) assembles.
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/datahost"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "os_pool": { "pool_name": "rpool" } }
+JSONC
+  cat > "$HOSTS_DIR/datahost/profile.jsonc" <<'JSONC'
+{
+  "mode": "multi",
+  "os_pool": { "topology": "none", "disk_count": 1 },
+  "data_pools": [
+    { "name": "tank0", "topology": "stripe", "disk_count": 1 },
+    { "name": "tank1", "topology": "mirror", "disk_count": 2 }
+  ]
+}
+JSONC
+  profile='{
+    "name": "vm-data",
+    "hardware": { "disks": [20, 20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
+    "host_profile": "datahost"
+  }'
+  run profile_resolve_config "$profile"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq -r '.mode')" = "multi" ]
+  [ "$(echo "$output" | jq -c '.os_pool.disks')" = '["/dev/sda"]' ]
+  [ "$(echo "$output" | jq -c '.data_pools[0].disks')" = '["/dev/sdb"]' ]
+  [ "$(echo "$output" | jq -c '.data_pools[1].disks')" \
+      = '["/dev/sdc","/dev/sdd"]' ]
+}
+
+@test "profile_resolve_config: VM disk count != sum(disk_count) aborts" {
+  mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/datahost"
+  cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
+{ "os_pool": { "pool_name": "rpool" } }
+JSONC
+  cat > "$HOSTS_DIR/datahost/profile.jsonc" <<'JSONC'
+{
+  "mode": "multi",
+  "os_pool": { "topology": "none", "disk_count": 1 },
+  "data_pools": [ { "name": "tank1", "topology": "mirror", "disk_count": 2 } ]
+}
+JSONC
+  profile='{
+    "name": "vm-data",
+    "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
+    "host_profile": "datahost"
+  }'
+  run profile_resolve_config "$profile"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"expected 3"* ]]
 }
 
 @test "profile_resolve_config: unpinned host with a multi layout.mode is rejected" {

@@ -29,13 +29,14 @@
 
   "mode": "multi",
   "os_pool": {
-    "pool_name": "rpool",
-    "topology":  "none",
-    "ashift":    12
+    "pool_name":  "rpool",
+    "topology":   "none",
+    "ashift":     12,
+    "disk_count": 1
   },
   "storage_groups": [],
   "data_pools": [
-    { "name": "tank0", "topology": "stripe" },
-    { "name": "tank1", "topology": "mirror" }
+    { "name": "tank0", "topology": "stripe", "disk_count": 1 },
+    { "name": "tank1", "topology": "mirror", "disk_count": 2 }
   ]
 }
