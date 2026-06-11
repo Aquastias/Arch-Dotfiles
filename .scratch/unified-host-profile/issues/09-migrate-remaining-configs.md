@@ -1,6 +1,6 @@
 # Migrate remaining hosts + all users to profile.jsonc
 
-Status: ready-for-human
+Status: done
 
 ## Parent
 
@@ -76,3 +76,24 @@ adapter (KDE). Fixed a stale comment in `hosts/desktop/profile.jsonc`
 `12`). Note: issue 10 must NOT just delete the legacy `config.jsonc` — the
 Profiles Runner was reading it; that read is now repointed at the effective
 config (see issue 08), which is a prerequisite for issue 10.
+
+### Human check complete — migrated hosts boot via profile.jsonc — 2026-06-11
+
+The pre-issue-10 human check is satisfied across the migrated VM host
+inventory — each installed + first-boot-verified through the unified
+`profile.jsonc` → `load_profile` → install path:
+- **arch-kde** (`env/kde`, `single/plain`, `single/dirty-cache`),
+  **arch-hyprland** (`env/hyprland`), **arch-kde-hyprland**
+  (`env/kde-hyprland`) — all reach `INSTALLER-EXIT-0` + `FIRSTBOOT-OK`,
+  booting into their DE (the migrated single-disk hosts).
+- **arch-secure** (`headless/secure`, issue 07) — sops + impermanence +
+  encrypted mirror, unattended.
+- **arch-data** (`data-pools/from-profile`, issue 12) — multi-data-pool,
+  `vm-data` owns tank0/tank1.
+
+(Found + fixed en route: `env/*` + `single/dirty-cache` were authored at
+4 GiB and OOM-killed the `paru` rustc-LTO build — bumped to 8 GiB, matching
+the `single/plain` precedent.) The literal `desktop` host's 5-disk/25-AUR
+set stays VM-impractical; its single-disk DE proxy (arch-kde) + multi-pool
+slicing (arch-data) cover its shape. Closing — issue 10 may now remove the
+legacy files + the equivalence guard.
