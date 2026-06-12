@@ -117,13 +117,23 @@ _impermanence_apply_extensions() {
 _impermanence_write_bootstrap() {
   local dir="${ROOT:-}/usr/lib/tmpfiles.d"
   local f="$dir/impermanence-bootstrap.conf"
-  local p
+  local p bsrc bdst
   mkdir -p "$dir"
   : > "$f"
   for p in /etc/systemd/system /etc/tmpfiles.d; do
     printf "d %s 0755 root root - -\n" "$p" >> "$f"
     imp_write_mount_unit "$p"
     imp_link_wants "$p"
+    # Stage the live content onto the Persist Dataset so the bind EXPOSES the
+    # install-time service enablements (sops-runtime, sshd, … live as symlinks
+    # in /etc/systemd/system/*.target.wants/). Without this the bind covers
+    # /etc/systemd/system with an EMPTY /persist dir and every enabled service
+    # vanishes at boot. COPY (not move) so @blank keeps them as a fallback.
+    bsrc="${ROOT:-}$p"; bdst="${ROOT:-}${IMPERMANENCE_MOUNT}$p"
+    if [[ -d "$bsrc" ]]; then
+      mkdir -p "$bdst"
+      cp -a "$bsrc/." "$bdst/"
+    fi
   done
 }
 
