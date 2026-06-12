@@ -15,6 +15,15 @@ setup() {
 printf 'systemctl %s\n' "$*" >> "$CALLS"
 STUB
   chmod +x "$BIN_STUBS/systemctl"
+
+  cat > "$BIN_STUBS/zfs" <<'STUB'
+#!/usr/bin/env bash
+printf 'zfs %s\n' "$*" >> "$CALLS"
+[[ "$1" == list ]] && exit 1   # default: dataset absent → create runs
+exit 0
+STUB
+  chmod +x "$BIN_STUBS/zfs"
+
   PATH="$BIN_STUBS:$PATH"
   export PATH
 
@@ -50,6 +59,37 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [[ "$output" != *"bad unit file setting"* ]]
   [[ "$output" != *"doesn't match unit name"* ]]
+}
+
+# ── imp_create_rollback_datasets: early creation, canmount=on ───────────────
+# Created in the layout phase (before pacstrap) so the OS install populates
+# them + they land in the zfs-list.cache → mounted at boot. canmount=noauto
+# (the previous behaviour) is skipped by `zfs mount -a` → never mounts → the
+# @blank rollback is a no-op on /etc. Regression guard for that.
+
+@test "imp_create_rollback_datasets: creates each dataset at its mountpoint" {
+  : > "$CALLS"
+  imp_create_rollback_datasets rpool
+  local entry ds mp
+  for entry in etc:/etc root:/root opt:/opt srv:/srv usrlocal:/usr/local; do
+    ds="rpool/ROOT/${entry%%:*}"; mp="${entry#*:}"
+    grep -qE "^zfs create .*mountpoint=$mp .*$ds\$" "$CALLS" \
+      || { echo "missing create for $ds at $mp"; cat "$CALLS"; return 1; }
+  done
+}
+
+@test "imp_create_rollback_datasets: uses canmount=on, never noauto" {
+  : > "$CALLS"
+  imp_create_rollback_datasets rpool
+  grep -qE "^zfs create .*canmount=on" "$CALLS"
+  ! grep -qE "canmount=noauto" "$CALLS"
+}
+
+@test "imp_create_rollback_datasets: idempotent — skips existing datasets" {
+  : > "$CALLS"
+  zfs() { printf 'zfs %s\n' "$*" >> "$CALLS"; return 0; }  # list → exists
+  imp_create_rollback_datasets rpool
+  ! grep -qE "^zfs create " "$CALLS"
 }
 
 # ── persist_apply ───────────────────────────────────────────────────────────

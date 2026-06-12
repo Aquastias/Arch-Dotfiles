@@ -78,40 +78,14 @@ run_enabled() {
   grep -qE "^zfs create .*-o canmount=on.* rpool/persist$" "$CALLS"
 }
 
-# ── cycle 3: enabled creates 5 Rollback Datasets ────────────────────────────
+# ── cycle 3: Rollback Datasets are NOT created here ─────────────────────────
+# They are created EARLY (before pacstrap) by imp_create_rollback_datasets in
+# the layout phase — see tests/impermanence-common.bats. The Chroot Module must
+# not create them (it would be too late: noauto + uncached → never mounted).
 
-@test "enabled: creates rpool/ROOT/etc at /etc" {
+@test "enabled: does NOT create the Rollback Datasets (done early in layout)" {
   run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/etc .*rpool/ROOT/etc$" "$CALLS"
-}
-
-@test "enabled: creates rpool/ROOT/root at /root" {
-  run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/root .*rpool/ROOT/root$" "$CALLS"
-}
-
-@test "enabled: creates rpool/ROOT/opt at /opt" {
-  run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/opt .*rpool/ROOT/opt$" "$CALLS"
-}
-
-@test "enabled: creates rpool/ROOT/srv at /srv" {
-  run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/srv .*rpool/ROOT/srv$" "$CALLS"
-}
-
-@test "enabled: creates rpool/ROOT/usrlocal at /usr/local" {
-  run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/usr/local .*rpool/ROOT/usrlocal$" \
-    "$CALLS"
-}
-
-@test "enabled: Rollback Datasets created with canmount=noauto" {
-  run_enabled
-  for ds in etc root opt srv usrlocal; do
-    grep -qE "^zfs create .*-o canmount=noauto.* rpool/ROOT/$ds\$" "$CALLS" \
-      || { echo "missing canmount=noauto for $ds"; return 1; }
-  done
+  ! grep -qE "^zfs create .* rpool/ROOT/(etc|opt|root|srv|usrlocal)\$" "$CALLS"
 }
 
 # ── cycle 4: sorted defaults.manifest ────────────────────────────────────────
@@ -376,25 +350,6 @@ seed_curated() {
     cat "$CALLS"
     return 1
   fi
-}
-
-@test "enabled: skip zfs create when a Rollback Dataset already exists" {
-  zfs() {
-    printf 'zfs %s\n' "$*" >> "$CALLS"
-    if [[ "$1" == "list" ]]; then
-      [[ "${@: -1}" == "rpool/ROOT/etc" ]] && return 0
-      return 1
-    fi
-    return 0
-  }
-  export -f zfs
-  run_enabled
-  if grep -qE "^zfs create .*rpool/ROOT/etc\$" "$CALLS"; then
-    echo "FAIL: created rpool/ROOT/etc that already exists"
-    cat "$CALLS"
-    return 1
-  fi
-  grep -qE "^zfs create .*rpool/ROOT/opt\$" "$CALLS"
 }
 
 @test "enabled: idempotent — second apply on existing datasets is no-op" {
