@@ -34,22 +34,12 @@ _impermanence_create_persist_dataset() {
     "$IMPERMANENCE_DATASET"
 }
 
-_impermanence_create_rollback_datasets() {
-  local entry suffix mp ds
-  for entry in "${ROLLBACK_DATASETS[@]}"; do
-    suffix="${entry%%:*}"
-    mp="${entry#*:}"
-    ds="$RPOOL/ROOT/$suffix"
-    if _impermanence_dataset_exists "$ds"; then
-      info "impermanence: $ds already exists, skipping create"
-      continue
-    fi
-    zfs create \
-      -o mountpoint="$mp" \
-      -o canmount=noauto \
-      "$ds"
-  done
-}
+# The Rollback Datasets (rpool/ROOT/{etc,opt,root,srv,usrlocal}) are created
+# EARLY, during pool/dataset creation, by imp_create_rollback_datasets (see
+# lib/impermanence-common.sh). They must exist + be populated by pacstrap and be
+# canmount=on so they mount at boot; creating them here (post-install) is too
+# late. This module only consumes them (stage curated dirs, snapshot @blank,
+# write the rollback hook).
 
 _impermanence_write_manifest() {
   local dir="${ROOT:-}/usr/lib/impermanence"
@@ -240,7 +230,6 @@ impermanence_apply() {
   local step
   for step in \
     _impermanence_create_persist_dataset \
-    _impermanence_create_rollback_datasets \
     _impermanence_write_manifest \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \

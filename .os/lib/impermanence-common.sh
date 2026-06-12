@@ -36,6 +36,27 @@ ROLLBACK_DATASETS=(
   "usrlocal:/usr/local"
 )
 
+# Create the Rollback Datasets EARLY — during pool/dataset creation, before the
+# OS is installed — so pacstrap writes /etc, /root, /opt, /srv, /usr/local onto
+# them AND they land in the zfs-list.cache (built later in chroot configure),
+# letting zfs-mount-generator mount them at boot. canmount=on is REQUIRED:
+# `zfs mount -a` and the generator's auto-mount both SKIP canmount=noauto, so a
+# noauto dataset never mounts, /etc stays on the root dataset, and the @blank
+# rollback becomes a no-op. Creating them late (post-pacstrap) is not an option
+# — an empty dataset would mount over the already-populated path. Idempotent:
+# pre-existing datasets are left untouched.
+imp_create_rollback_datasets() {
+  local rpool="$1"
+  local entry suffix mp ds
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    mp="${entry#*:}"
+    ds="$rpool/ROOT/$suffix"
+    zfs list -H -o name "$ds" >/dev/null 2>&1 && continue
+    zfs create -o mountpoint="$mp" -o canmount=on "$ds"
+  done
+}
+
 # Write a bind-mount .mount unit at $units/<esc>.mount. systemd requires a
 # .mount unit be named after its Where= (the escaped mount-point path); any
 # other name loads as bad-setting and never mounts, so the unit MUST be

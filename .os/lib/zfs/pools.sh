@@ -19,6 +19,13 @@
 
 ENC_OPTS=() # populated by build_enc_opts(); consumed by _zpool_create()
 
+# Rollback Dataset list + early-create helper (impermanence). Guard-source so
+# re-sourcing (validation.sh also pulls it in) is a harmless no-op.
+if ! declare -p ROLLBACK_DATASETS >/dev/null 2>&1; then
+  # shellcheck source=../impermanence-common.sh
+  source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
+fi
+
 # =============================================================================
 # FALLBACK ZFS INSTALL
 # =============================================================================
@@ -349,6 +356,16 @@ _create_os_datasets() {
     -o exec=off \
     "${pool_name}/tmp"
   chmod 1777 "${MOUNT_ROOT}/tmp"
+
+  # Impermanence: create the Rollback Datasets now — before pacstrap — so the OS
+  # install writes /etc, /root, … onto them (canmount=on → auto-mounted under
+  # MOUNT_ROOT) and they land in the zfs-list.cache built during chroot config.
+  # Creating them later (in the chroot module) leaves them noauto + uncached, so
+  # they never mount and the @blank rollback is a no-op. No-op when disabled.
+  if [[ "$(install_config_impermanence_enabled)" == "true" ]]; then
+    info "Impermanence enabled — creating Rollback Datasets on ${pool_name}."
+    imp_create_rollback_datasets "${pool_name}"
+  fi
 
   if [[ "$swap_on" == "true" ]]; then
     info "Creating swap zvol: ${swap_arg}"
