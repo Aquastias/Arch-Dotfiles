@@ -237,6 +237,18 @@ run_enabled() {
   grep -qE "^Where=/etc/tmpfiles\.d$" "$u"
 }
 
+@test "enabled: bootstrap STAGES /etc/systemd/system content onto /persist" {
+  # The bind would otherwise cover /etc/systemd/system with an empty dir,
+  # hiding install-time enablements (e.g. a sops-runtime symlink) at boot.
+  mkdir -p "$FAKEROOT/etc/systemd/system/sysinit.target.wants"
+  ln -s /usr/lib/systemd/system/sops-runtime.service \
+    "$FAKEROOT/etc/systemd/system/sysinit.target.wants/sops-runtime.service"
+  run_enabled
+  [ -L "$FAKEROOT/persist/etc/systemd/system/sysinit.target.wants/sops-runtime.service" ]
+  # COPY, not move — @blank keeps a fallback copy.
+  [ -L "$FAKEROOT/etc/systemd/system/sysinit.target.wants/sops-runtime.service" ]
+}
+
 @test "enabled: bootstrap units have .wants symlinks" {
   run_enabled
   local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
