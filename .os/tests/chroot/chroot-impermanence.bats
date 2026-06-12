@@ -156,8 +156,12 @@ run_enabled() {
   for p in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
     esc="$(systemd-escape --path "$p")"
     unit="$u/$esc.mount"
-    grep -qE "^After=systemd-tmpfiles-setup\.service$" "$unit" \
-      || { echo "$p missing After"; return 1; }
+    # After=zfs-mount.service (NOT tmpfiles-setup, which is After=local-fs.target
+    # → would form an ordering cycle with our Before=local-fs.target).
+    grep -qE "^After=zfs-mount\.service$" "$unit" \
+      || { echo "$p missing After=zfs-mount.service"; return 1; }
+    ! grep -qE "^After=systemd-tmpfiles-setup" "$unit" \
+      || { echo "$p must NOT order After=tmpfiles (cycle)"; return 1; }
     grep -qE "^Before=local-fs\.target$" "$unit" \
       || { echo "$p missing Before"; return 1; }
     grep -qE "^RequiredBy=local-fs\.target$" "$unit" \
