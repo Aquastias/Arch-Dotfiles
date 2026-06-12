@@ -36,7 +36,10 @@ ROLLBACK_DATASETS=(
   "usrlocal:/usr/local"
 )
 
-# Write a bind-mount .mount unit at $units/persist-<esc>.mount.
+# Write a bind-mount .mount unit at $units/<esc>.mount. systemd requires a
+# .mount unit be named after its Where= (the escaped mount-point path); any
+# other name loads as bad-setting and never mounts, so the unit MUST be
+# <esc>.mount, not persist-<esc>.mount.
 # $units defaults to the curated location under ${ROOT:-}/usr/lib/systemd/system.
 # Caller must export IMPERMANENCE_MOUNT.
 imp_write_mount_unit() {
@@ -44,7 +47,7 @@ imp_write_mount_unit() {
   local units="${2:-${ROOT:-}/usr/lib/systemd/system}"
   local esc unit
   esc="$(systemd-escape --path "$target")"
-  unit="$units/persist-$esc.mount"
+  unit="$units/$esc.mount"
   mkdir -p "$units"
   cat > "$unit" <<UNIT
 [Unit]
@@ -63,7 +66,7 @@ RequiredBy=local-fs.target
 UNIT
 }
 
-# Symlink persist-<esc>.mount under $wants/. $wants defaults to the curated
+# Symlink <esc>.mount under $wants/. $wants defaults to the curated
 # local-fs.target.wants alongside the curated unit dir.
 imp_link_wants() {
   local target="$1"
@@ -71,7 +74,7 @@ imp_link_wants() {
   local esc
   esc="$(systemd-escape --path "$target")"
   mkdir -p "$wants"
-  ln -sf "../persist-$esc.mount" "$wants/persist-$esc.mount"
+  ln -sf "../$esc.mount" "$wants/$esc.mount"
 }
 
 # ── Persist Mount verbs (orchestrators) ─────────────────────────────────────
@@ -101,7 +104,7 @@ persist_activate() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
   systemctl daemon-reload
-  systemctl start "persist-$esc.mount"
+  systemctl start "$esc.mount"
 }
 
 # ── Persist data-staging helpers ────────────────────────────────────────────
@@ -124,9 +127,9 @@ persist_stage_in_copy() {
 persist_unapply() {
   local target="$1" esc unit conf tmp
   esc="$(systemd-escape --path "$target")"
-  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
   if [[ -f "$unit" ]]; then
-    systemctl stop "persist-$esc.mount"
+    systemctl stop "$esc.mount"
     rm -f "$unit"
     systemctl daemon-reload
   fi

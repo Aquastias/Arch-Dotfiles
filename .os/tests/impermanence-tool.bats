@@ -19,6 +19,7 @@ setup() {
   mkdir -p "$MOCK_STATE"
   : > "$MOCK_STATE/list-units"
   : > "$MOCK_STATE/fragment-paths"
+  : > "$MOCK_STATE/what-paths"
   # All Rollback Datasets @blank present by default.
   cat > "$MOCK_STATE/zfs-snapshots" <<EOF
 rpool/ROOT/etc@blank
@@ -58,9 +59,12 @@ printf 'systemctl %s\n' "$*" >> "$CALLS"
 case "$1" in
   list-units) cat "$MOCK_STATE/list-units" ;;
   show)
-    # systemctl show -p FragmentPath --value <unit>
+    # systemctl show -p <Prop> --value <unit>
     unit="${@: -1}"
-    grep "^$unit " "$MOCK_STATE/fragment-paths" | awk '{print $2}'
+    case "$3" in
+      What) grep "^$unit " "$MOCK_STATE/what-paths" 2>/dev/null | awk '{print $2}' ;;
+      *)    grep "^$unit " "$MOCK_STATE/fragment-paths" | awk '{print $2}' ;;
+    esac
     ;;
 esac
 STUB
@@ -208,14 +212,14 @@ seed_live_dir() {
   run "$TOOL" add /etc/foo.conf
   [ "$status" -eq 0 ]
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount" ]
+  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount" ]
 }
 
 @test "add file: mount unit binds /persist<path> over <path>" {
   seed_live_file /etc/foo.conf
   "$TOOL" add /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
   grep -qE "^What=$IMPERMANENCE_MOUNT/etc/foo.conf$" "$unit"
   grep -qE "^Where=/etc/foo.conf$" "$unit"
 }
@@ -265,11 +269,11 @@ seed_live_dir() {
   grep -qE "^systemctl daemon-reload$" "$CALLS"
 }
 
-@test "add: invokes systemctl start on the persist-<slug>.mount" {
+@test "add: invokes systemctl start on the <slug>.mount" {
   seed_live_file /etc/foo.conf
   "$TOOL" add /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  grep -qE "^systemctl start persist-$esc.mount$" "$CALLS"
+  grep -qE "^systemctl start $esc.mount$" "$CALLS"
 }
 
 @test "add idempotent: re-running on persisted path is a no-op notice" {
@@ -329,7 +333,7 @@ seed_persisted_file() {
   seed_persisted_file /etc/foo.conf
   "$TOOL" remove /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  grep -qE "^systemctl stop persist-$esc.mount$" "$CALLS"
+  grep -qE "^systemctl stop $esc.mount$" "$CALLS"
 }
 
 @test "remove: invokes systemctl daemon-reload" {
@@ -341,7 +345,7 @@ seed_persisted_file() {
 @test "remove: deletes the persist mount unit file" {
   seed_persisted_file /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
   [ -f "$unit" ]
   "$TOOL" remove /etc/foo.conf
   [ ! -f "$unit" ]
@@ -407,42 +411,68 @@ seed_persisted_file() {
   [[ "$output" == *"impermanence not enabled"* ]]
 }
 
-# ── slice 5 cycle 2: status enumerates persist-*.mount units ────────────────
+# ── slice 5 cycle 2: status enumerates *.mount units ────────────────
 
-@test "status: prints each active persist-*.mount unit" {
+@test "status: prints each active *.mount unit" {
   cat > "$MOCK_STATE/list-units" <<EOF
-persist-etc-ssh.mount loaded active mounted /etc/ssh
-persist-etc-foo.conf.mount loaded active mounted /etc/foo.conf
+etc-ssh.mount loaded active mounted /etc/ssh
+etc-foo.conf.mount loaded active mounted /etc/foo.conf
+EOF
+  cat > "$MOCK_STATE/what-paths" <<EOF
+etc-ssh.mount $IMPERMANENCE_MOUNT/etc/ssh
+etc-foo.conf.mount $IMPERMANENCE_MOUNT/etc/foo.conf
 EOF
   run "$TOOL" status
-  [[ "$output" == *"persist-etc-ssh.mount"* ]]
-  [[ "$output" == *"persist-etc-foo.conf.mount"* ]]
+  [[ "$output" == *"etc-ssh.mount"* ]]
+  [[ "$output" == *"etc-foo.conf.mount"* ]]
+}
+
+# A real system mount (What= not under the Persist Dataset) is not a Persist
+# Mount — status must ignore it now that there is no name prefix to glob.
+@test "status: ignores non-persist mount units" {
+  cat > "$MOCK_STATE/list-units" <<EOF
+etc-ssh.mount loaded active mounted /etc/ssh
+tmp.mount loaded active mounted /tmp
+EOF
+  cat > "$MOCK_STATE/what-paths" <<EOF
+etc-ssh.mount $IMPERMANENCE_MOUNT/etc/ssh
+tmp.mount tmpfs
+EOF
+  run "$TOOL" status
+  [[ "$output" == *"etc-ssh.mount"* ]]
+  [[ "$output" != *"tmp.mount"* ]]
 }
 
 # ── slice 5 cycle 3: status labels curated vs extension ─────────────────────
 
 @test "status: labels curated unit (FragmentPath under /usr/lib/)" {
   cat > "$MOCK_STATE/list-units" <<EOF
-persist-etc-ssh.mount loaded active mounted /etc/ssh
+etc-ssh.mount loaded active mounted /etc/ssh
+EOF
+  cat > "$MOCK_STATE/what-paths" <<EOF
+etc-ssh.mount $IMPERMANENCE_MOUNT/etc/ssh
 EOF
   cat > "$MOCK_STATE/fragment-paths" <<EOF
-persist-etc-ssh.mount /usr/lib/systemd/system/persist-etc-ssh.mount
+etc-ssh.mount /usr/lib/systemd/system/etc-ssh.mount
 EOF
   run "$TOOL" status
-  [[ "$output" == *"curated"*"persist-etc-ssh.mount"* ]] \
-    || [[ "$output" == *"persist-etc-ssh.mount"*"curated"* ]]
+  [[ "$output" == *"curated"*"etc-ssh.mount"* ]] \
+    || [[ "$output" == *"etc-ssh.mount"*"curated"* ]]
 }
 
-@test "status: labels extension unit (FragmentPath under /persist/)" {
+@test "status: labels extension unit (FragmentPath under Persist Dataset)" {
   cat > "$MOCK_STATE/list-units" <<EOF
-persist-etc-foo.conf.mount loaded active mounted /etc/foo.conf
+etc-foo.conf.mount loaded active mounted /etc/foo.conf
+EOF
+  cat > "$MOCK_STATE/what-paths" <<EOF
+etc-foo.conf.mount $IMPERMANENCE_MOUNT/etc/foo.conf
 EOF
   cat > "$MOCK_STATE/fragment-paths" <<EOF
-persist-etc-foo.conf.mount /persist/etc/systemd/system/persist-etc-foo.conf.mount
+etc-foo.conf.mount $IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount
 EOF
   run "$TOOL" status
-  [[ "$output" == *"extension"*"persist-etc-foo.conf.mount"* ]] \
-    || [[ "$output" == *"persist-etc-foo.conf.mount"*"extension"* ]]
+  [[ "$output" == *"extension"*"etc-foo.conf.mount"* ]] \
+    || [[ "$output" == *"etc-foo.conf.mount"*"extension"* ]]
 }
 
 # ── slice 5 cycle 4: status drift count per Rollback Dataset ────────────────
@@ -504,7 +534,7 @@ seed_all_curated_live() {
   seed_all_curated_live
   "$TOOL" apply-defaults
   local esc; esc="$(systemd-escape --path /etc/machine-id)"
-  [ -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/persist-$esc.mount" ]
+  [ -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount" ]
 }
 
 @test "apply-defaults: writes wants symlink for new curated path" {
@@ -513,7 +543,7 @@ seed_all_curated_live() {
   "$TOOL" apply-defaults
   local esc; esc="$(systemd-escape --path /etc/ssh)"
   local w="$IMPERMANENCE_ROOT/usr/lib/systemd/system/local-fs.target.wants"
-  [ -L "$w/persist-$esc.mount" ]
+  [ -L "$w/$esc.mount" ]
 }
 
 @test "apply-defaults: writes curated tmpfiles entry for new path" {
@@ -542,21 +572,21 @@ seed_all_curated_live() {
   local esc; esc="$(systemd-escape --path /etc/legacy)"
   local unit_dir="$IMPERMANENCE_ROOT/usr/lib/systemd/system"
   mkdir -p "$unit_dir/local-fs.target.wants"
-  : > "$unit_dir/persist-$esc.mount"
-  ln -sf "../persist-$esc.mount" \
-    "$unit_dir/local-fs.target.wants/persist-$esc.mount"
+  : > "$unit_dir/$esc.mount"
+  ln -sf "../$esc.mount" \
+    "$unit_dir/local-fs.target.wants/$esc.mount"
   "$TOOL" apply-defaults
-  [ ! -f "$unit_dir/persist-$esc.mount" ]
-  [ ! -L "$unit_dir/local-fs.target.wants/persist-$esc.mount" ]
+  [ ! -f "$unit_dir/$esc.mount" ]
+  [ ! -L "$unit_dir/local-fs.target.wants/$esc.mount" ]
 }
 
 @test "apply-defaults: stops orphan unit via systemctl" {
   echo "/etc/legacy" > "$IMPERMANENCE_MANIFEST"
   local esc; esc="$(systemd-escape --path /etc/legacy)"
   mkdir -p "$IMPERMANENCE_ROOT/usr/lib/systemd/system"
-  : > "$IMPERMANENCE_ROOT/usr/lib/systemd/system/persist-$esc.mount"
+  : > "$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount"
   "$TOOL" apply-defaults
-  grep -qE "^systemctl stop persist-$esc.mount$" "$CALLS"
+  grep -qE "^systemctl stop $esc.mount$" "$CALLS"
 }
 
 @test "apply-defaults: prints orphan data notice with /persist path" {
@@ -624,11 +654,11 @@ seed_all_curated_live() {
 @test "apply-defaults: does not touch extension units under /persist/" {
   local ext_dir="$IMPERMANENCE_MOUNT/etc/systemd/system"
   mkdir -p "$ext_dir"
-  echo "EXT-CONTENT" > "$ext_dir/persist-etc-foo.conf.mount"
+  echo "EXT-CONTENT" > "$ext_dir/etc-foo.conf.mount"
   seed_all_curated_live
   "$TOOL" apply-defaults
-  [ -f "$ext_dir/persist-etc-foo.conf.mount" ]
-  grep -qx "EXT-CONTENT" "$ext_dir/persist-etc-foo.conf.mount"
+  [ -f "$ext_dir/etc-foo.conf.mount" ]
+  grep -qx "EXT-CONTENT" "$ext_dir/etc-foo.conf.mount"
 }
 
 @test "apply-defaults: does not touch extension tmpfiles under /persist/" {
@@ -645,7 +675,7 @@ seed_all_curated_live() {
   : > "$IMPERMANENCE_MANIFEST"
   seed_all_curated_live
   local ext_dir="$IMPERMANENCE_MOUNT/etc/systemd/system"
-  local ext_unit="$ext_dir/persist-etc-ssh.mount"
+  local ext_unit="$ext_dir/etc-ssh.mount"
   mkdir -p "$ext_dir"
   echo "STALE-EXT" > "$ext_unit"
   "$TOOL" apply-defaults
@@ -723,7 +753,7 @@ STUB
   run "$TOOL" add /var/lib/foo
   [ "$status" -ne 0 ]
   local esc; esc="$(systemd-escape --path /var/lib/foo)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
   local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
   [ ! -f "$unit" ]
   [ ! -e "$IMPERMANENCE_MOUNT/var/lib/foo" ]

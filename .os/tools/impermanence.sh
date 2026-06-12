@@ -90,7 +90,7 @@ path_kind() {
 unit_path() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
-  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
+  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
 }
 
 # The host's unified profile.jsonc — persist paths live under .persist.*
@@ -176,18 +176,24 @@ cmd_remove() {
 
 cmd_status() {
   require_enabled
-  local line unit fp label
+  local line unit what fp label
+  # Persist Mounts are named <esc>.mount (systemd's .mount naming contract), so
+  # they share no name prefix to glob. Identify them by their intrinsic marker:
+  # a bind whose source (What=) lives under the Persist Dataset mount.
   while read -r line; do
     [[ -z "$line" ]] && continue
     unit="${line%% *}"
+    [[ "$unit" == *.mount ]] || continue
+    what="$(systemctl show -p What --value "$unit")"
+    [[ "$what" == "$IMPERMANENCE_MOUNT"/* ]] || continue
     fp="$(systemctl show -p FragmentPath --value "$unit")"
     case "$fp" in
-      /usr/lib/*) label="curated" ;;
-      /persist/*) label="extension" ;;
-      *)          label="unknown" ;;
+      /usr/lib/*)              label="curated" ;;
+      "$IMPERMANENCE_MOUNT"/*) label="extension" ;;
+      *)                       label="unknown" ;;
     esac
     echo "[$label] $unit"
-  done < <(systemctl list-units --type=mount --no-legend 'persist-*.mount')
+  done < <(systemctl list-units --type=mount --no-legend --all)
 
   local entry suffix ds count missing=0
   for entry in "${ROLLBACK_DATASETS[@]}"; do
@@ -249,9 +255,9 @@ apply_defaults_remove_one() {
   local target="$1"
   local esc; esc="$(systemd-escape --path "$target")"
   local unit_dir="${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
-  local unit="$unit_dir/persist-$esc.mount"
-  local wants="$unit_dir/local-fs.target.wants/persist-$esc.mount"
-  systemctl stop "persist-$esc.mount" 2>/dev/null || true
+  local unit="$unit_dir/$esc.mount"
+  local wants="$unit_dir/local-fs.target.wants/$esc.mount"
+  systemctl stop "$esc.mount" 2>/dev/null || true
   rm -f "$unit" "$wants"
   local dst="$IMPERMANENCE_MOUNT$target"
   if [[ -e "$dst" ]]; then
