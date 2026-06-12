@@ -41,7 +41,10 @@ _impermanence_apply_curated() {
   local conf="${ROOT:-}/usr/lib/tmpfiles.d/impermanence-curated.conf"
   mkdir -p "$(dirname "$conf")"
   : > "$conf"
-  local target
+  local target fsrc fdst
+  # Curated DIRS hold mutable state — MOVE them onto the Persist Dataset so the
+  # @blank snapshot is genuinely blank of them; a bind restores them at
+  # local-fs.target.
   for target in "${CURATED_DIRS[@]}"; do
     persist_apply "$target" d "$units" "$conf"
     imp_link_wants "$target" "$wants"
@@ -51,15 +54,35 @@ _impermanence_apply_curated() {
       info "impermanence: skip missing curated source $target"
     fi
   done
+  # Curated FILES (machine-id, hostname, locale.conf, vconsole.conf, fstab,
+  # adjtime) are read by PID 1 / generators BEFORE any .mount unit, so a
+  # /persist bind restores them too late — an empty /etc/machine-id after the
+  # @blank rollback makes systemd treat every boot as the first boot
+  # (systemd-firstboot + dbus thrash) and an empty /etc/fstab loses early
+  # mounts. COPY them (keep the source) so they stay in /etc and @blank captures
+  # real, frozen-at-install values. The bind unit is still written — a harmless
+  # redundant overlay of the identical value.
   for target in "${CURATED_FILES[@]}"; do
     persist_apply "$target" f "$units" "$conf"
     imp_link_wants "$target" "$wants"
-    if [[ -e "${ROOT:-}$target" ]]; then
-      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+    fsrc="${ROOT:-}$target"; fdst="${ROOT:-}${IMPERMANENCE_MOUNT}$target"
+    if [[ -e "$fsrc" ]]; then
+      mkdir -p "$(dirname "$fdst")"
+      cp -a "$fsrc" "$fdst"
     else
       info "impermanence: skip missing curated source $target"
     fi
   done
+}
+
+# Initialise /etc/machine-id with a real value BEFORE @blank. A chroot install
+# leaves it empty (systemd defers it to first boot); if @blank captured an empty
+# machine-id the rollback would re-empty it every boot. machine-id is read by
+# PID 1 before any .mount unit, so it must live populated in the rolled-back
+# dataset's @blank, not be restored from /persist.
+_impermanence_init_machine_id() {
+  systemd-machine-id-setup --root="${ROOT:-/}" >/dev/null 2>&1 \
+    || info "impermanence: systemd-machine-id-setup failed"
 }
 
 _impermanence_apply_extensions() {
@@ -217,6 +240,7 @@ impermanence_apply() {
   local step
   for step in \
     _impermanence_write_manifest \
+    _impermanence_init_machine_id \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \
     _impermanence_apply_extensions \
