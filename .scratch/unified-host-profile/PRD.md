@@ -1,6 +1,6 @@
 # Unified profile-driven host config
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: ADR 0036 (supersedes the split in 0001, narrows
 0002, amends 0015 + 0035).
