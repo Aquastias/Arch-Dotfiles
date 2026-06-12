@@ -12,8 +12,9 @@ Term definitions: `../CONTEXT.md`. Decisions: `../docs/adr/`.
 - **Diagram 2** — config → phase/module → result. Left nodes colored by
   concern; middle = the module that consumes the key (same phase names
   as Diagram 1); right = on-disk/runtime result. Dashed = cross-cutting.
-- **Diagram 3** — merge/layering. `core + specific → effective`, plus
-  how the final pacstrap/paru package sets are composed.
+- **Diagram 3** — merge/layering. Host/user `profile.jsonc` `core +
+  specific → effective`; the picker folds operator-picked disks into the
+  effective config; plus how the final pacstrap/paru sets are composed.
 - **Diagram 4** — per-user config-tree authoring & generation. The
   machinery collapsed in Diagram 3: how program config trees + variants
   become `$HOME` symlinks via the Config Generator + two stow passes.
@@ -28,8 +29,9 @@ packages/sysctl = green, secrets = red.
 
 Everything you set up to reach an install, and the one required
 post-install step. Secrets, encryption, impermanence, and disk mode are
-the gates. Picker vs hand-author is the only authoring fork on the
-live-CD (ADR 0010).
+the gates. The live-CD fork is interactive `install.sh --profile` (the
+picker resolves disks) vs the unattended `install.sh <config-file>` seam
+(ADR 0036, superseding the separate picker of ADR 0010).
 
 ```mermaid
 flowchart TD
@@ -46,7 +48,7 @@ flowchart TD
     Pk["age-keygen + age -p<br/>USB or age_key_url"]:::opt
     Psy[".sops.yaml<br/>personal pubkey"]:::opt
     Pss["sops host + user<br/>secrets.json"]:::opt
-    Pc["author + commit configs:<br/>host, user, opt template"]:::cfg
+    Pc["author + commit profiles:<br/>hosts/&lt;n&gt; + users/&lt;n&gt;<br/>profile.jsonc"]:::cfg
     P1-->P2-->Psec
     Psec-->|yes|Pk-->Psy-->Pss-->Pc
     Psec-->|no|Pc
@@ -55,13 +57,13 @@ flowchart TD
   subgraph LIVECD["LIVE-CD — boot target (UEFI)"]
     direction TB
     L0["boot ISO"]:::act
-    Lp{"picker or hand?"}:::dec
-    Lpk["tools/pick.sh<br/>host -> mode -> disks"]:::act
-    Lh["vim install.jsonc"]:::cfg
-    Lj["install.jsonc ready"]:::cfg
-    L0-->Lp
-    Lp-->|picker|Lpk-->Lj
-    Lp-->|hand|Lh-->Lj
+    Lf{"interactive or<br/>unattended?"}:::dec
+    Lp["install.sh --profile &lt;name&gt;<br/>picker: pick disk(s) -><br/>assign to declared groups"]:::act
+    Lu["install.sh &lt;config-file&gt;<br/>(pre-assembled, VM seed)"]:::cfg
+    Le["effective config (tmpfs)"]:::cfg
+    L0-->Lf
+    Lf-->|interactive|Lp-->Le
+    Lf-->|unattended|Lu-->Le
   end
 
   subgraph INSTALL["INSTALL — ./install.sh"]
@@ -100,13 +102,13 @@ flowchart TD
   end
 
   Pc-->L0
-  Lj-->I1
+  Le-->I1
   M13-->O1
 ```
 
-> A template may pin `mode` (+ `os_pool.topology` for multi), skipping
-> the mode prompt in the picker branch above — disks still picked
-> (ADR 0029).
+> The Host Profile declares `mode` (+ `os_pool` / `storage_groups[]` /
+> `data_pools[]` with per-group `disk_count`); the picker only maps
+> operator-picked disks onto those groups (ADR 0036/0037).
 
 ---
 
@@ -144,8 +146,8 @@ flowchart LR
   d_g["environment.gpu"]:::cDesk
   d_im["options.impermanence.*"]:::cImp
   d_pe["host persist.{dirs,files}"]:::cImp
-  d_id["locale/timezone/keymap<br/>hostname/host_profile"]:::cProf
-  d_up["host users +<br/>system_programs; user cfg"]:::cProf
+  d_id["system: locale[] / keymap[]<br/>timezone / hostname"]:::cProf
+  d_up["host users +<br/>system_programs; user profile"]:::cProf
   d_pk["host packages.repo/.aur"]:::cProf
   d_sy["host sysctl"]:::cProf
   d_se["secrets.json + age key<br/>USB / age_key_url"]:::cSec
@@ -211,8 +213,11 @@ flowchart LR
 
 Where each effective value comes from. Same merge rule everywhere
 (arrays concat+dedupe, objects deep-merge, scalars: specific wins).
-Secrets are never merged. Config variants / House Defaults collapsed
-here — expanded in Diagram 4.
+Host and user inputs are each one `profile.jsonc` (+ core); the picker
+folds operator-picked disks into the ephemeral effective config — no
+template, no committed `install.jsonc` (ADR 0036). Secrets are never
+merged. Config variants / House Defaults collapsed here — expanded in
+Diagram 4.
 
 ```mermaid
 flowchart TD
@@ -223,25 +228,22 @@ flowchart TD
 
   R["arrays/objects: dedupe+deep-merge<br/>scalars: specific wins"]:::core
 
-  HC["hosts/core/config.jsonc"]:::core
-  HS["hosts/&lt;p&gt;/config.jsonc"]:::spec
-  HE["effective host:<br/>users, programs, pkgs,<br/>sysctl, persist"]:::eff
+  HC["hosts/core/profile.jsonc"]:::core
+  HS["hosts/&lt;p&gt;/profile.jsonc"]:::spec
+  HE["effective host profile:<br/>system, options, environment,<br/>users, programs, packages,<br/>pools, sysctl, persist"]:::eff
   HC-->|merge|HE
   HS-->|merge|HE
 
-  UC["users/core/config.jsonc"]:::core
-  US["users/&lt;u&gt;/config.jsonc"]:::spec
-  UE["effective user:<br/>shell, sudo, groups,<br/>programs, git, ssh"]:::eff
+  DISKS["operator-picked disks<br/>install.sh --profile"]:::spec
+  EC["effective config (tmpfs):<br/>host profile + device paths"]:::eff
+  HE-->EC
+  DISKS-->|assign to groups|EC
+
+  UC["users/core/profile.jsonc"]:::core
+  US["users/&lt;u&gt;/profile.jsonc"]:::spec
+  UE["effective user:<br/>shell, sudo, groups,<br/>programs, git, ssh, services"]:::eff
   UC-->|merge|UE
   US-->|merge|UE
-
-  TC["hosts/core/install.template.jsonc"]:::core
-  TS["hosts/&lt;p&gt;/install.template.jsonc"]:::spec
-  TP["pick.sh"]:::spec
-  TE["install.jsonc"]:::eff
-  TC-->|merge|TP
-  TS-->|merge|TP
-  TP-->TE
 
   BASE["Base Package List<br/>hardcoded lib/packages.sh"]:::set
   GPU["resolved gpu group"]:::set
@@ -270,7 +272,7 @@ become `$HOME` symlinks (ADR 0012). Authored as Program Config Trees
 (default `configs/` + `configs@<variant>/` alternates). The Config
 Generator (`tools/generate-configs.sh`, per user, in chroot between
 dotfiles clone and stow) resolves a variant per program (House Defaults
-from User Core, overridden per-key by User Config), validates manifests,
+from User Core, overridden per-key by the User Profile), validates manifests,
 builds a plan, materializes the Generated Stow Tree. Two stow passes
 apply it — legacy tree first, generated second. A planned dst already
 owned by the legacy tree aborts generation.
@@ -287,7 +289,7 @@ flowchart TD
     T0["programs/&lt;c&gt;/&lt;n&gt;/<br/>configs/manifest.jsonc"]:::src
     TV["configs@&lt;v&gt;/manifest.jsonc<br/>(variant trees)"]:::src
     UCv["User Core variants<br/>(House Defaults)"]:::sel
-    USv["User Config variants<br/>(per-key override)"]:::sel
+    USv["User Profile variants<br/>(per-key override)"]:::sel
     DECL["declared set:<br/>user U system programs"]:::sel
   end
 
@@ -325,9 +327,11 @@ flowchart TD
 
 | Concept | Term (`../CONTEXT.md`) | ADR |
 |---|---|---|
-| Picker as separate tool | Pre-Install Picker | 0010 |
+| Picker as install.sh front-end | Pre-Install Picker | 0036, 0010 |
+| Unified profile + effective config | Host Profile / Effective Config | 0036 |
 | Layout modes/validation | Layout Module | 0014, 0016 |
 | Standalone data pools | Standalone Data Pool | 0027 |
+| Per-group disk-count assignment | Storage Group / data_pools | 0037 |
 | Stable device paths | — | 0028 |
 | Env resolution | Environment Config / GPU | 0017 |
 | DE owns its packages | Desktop Environment Adapter | 0021 |

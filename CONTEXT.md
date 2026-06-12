@@ -2,213 +2,683 @@
 
 ## Glossary
 
-### Install Config (`install.jsonc`)
-Declarative JSONC file at `.os/install.jsonc`. Covers live-CD-time concerns: disk layout, ZFS pool topology, partitioning, bootloader, locale, timezone, keymap, `system.hostname` (machine identity), `host_profile` (which Host Profile to apply — defaults to `system.hostname` when omitted), and base package groups (kernel, bootloader packages, extras). Does not define users. Authored by hand or generated on the live CD by the Pre-Install Picker from an Install Template.
+### Host Profile (`profile.jsonc`)
+The single, self-contained file describing one machine —
+`.os/hosts/<name>/profile.jsonc`, merged under `.os/hosts/core/profile.jsonc`
+(Host Core). Its directory basename is the profile name, the identity passed as
+`install.sh --profile <name>`; there is no `host_profile` field. Collapses the
+previous schema's three files (`install.jsonc` + `install.template.jsonc` + host
+`config.jsonc`) into one (ADR 0036), so "the profile" is finally the whole
+machine. Declares everything about the machine **except its disks**: `system`
+(hostname, locale, timezone, keymap — `locale`/`keymap` accept a string or an
+array whose element 0 is the default), `options` (kernel, bootloader,
+encryption, swap, `ssh.enabled`, `impermanence.*`, optional `age_key_url`),
+`environment` (desktop, gpu), `users` (names; `users[0]` is the Primary User),
+`system_programs`, `packages` (`repo` + `aur`, both Categorized Lists), and the
+full pool skeleton — `mode` plus `os_pool` / `storage_groups[]` / `data_pools[]`
+carrying names, topology, mount, ashift, and `disk_count`, but **no device
+paths**. Disks are machine-physical and operator-picked at install time; the
+Pre-Install Picker maps them onto the declared groups to build the Effective
+Config. Validated against a closed schema at load — any unknown key at any depth
+aborts with its path (ADR 0036, amending ADR 0015). Independent of the machine's
+hostname (ADR 0020): a profile may pin one via `system.hostname`, or let the
+profile name serve as the default. Optionally ships Host Secrets alongside.
 
-### Pre-Install Picker (`tools/pick.sh`)
-Live-CD config builder that generates `.os/install.jsonc` from a fzf-driven wizard. Prompts the operator for two things only: which Host Profile to install (1-of-N from `.os/hosts/<name>/`) and which disk(s) to install onto. The picker writes the chosen profile name to `host_profile`, and writes `system.hostname` from the template's `system.hostname` when set, else falls back to the profile name. Hosts without an Install Template are silently omitted from the picker list. Every other field (bootloader, locale, timezone, keymap, kernel, ZFS pool/dataset names, `environment.desktop`, `environment.gpu`, `options.encryption`, `options.impermanence.*`, `options.age_key_url`) is loaded from the chosen template and copied through unchanged — never re-prompted, since those are properties of the machine, not of the install. Self-installs `fzf` and `jq` via `pacman -Sy` at start. Disk picker uses `/dev/disk/by-id/*` with a `lsblk`/`smartctl` preview pane and filters out the live medium via the shared multi-signal Live-Medium Detector (`lib/live-medium.sh`, same one the Disk Wipe uses — boot-mount parent disk, `iso9660`/`ARCH_*` label, not string-matching); ZFS layout is mode-then-disks (pick `INSTALL_MODE` first — single / mirror / raidz — then multi-select disks against that mode), unless the template pins layout — then the mode prompt is skipped and the pinned `mode` (+ `os_pool.topology` for multi) is honored, disks still always picked (ADR 0029, resolved by `picker_pin_from_template`; the pinned topology passes through verbatim and is validated against a min-disk table: mirror/stripe ≥2, raidz1 ≥3, raidz2 ≥4, none ≥2). Always shows a final review screen (diff vs. any existing `install.jsonc`) and offers four actions — write-and-install, write-only, edit, abort. Write-and-install hands off to `install.sh` in the same shell after writing; write-only stops so the operator can review/commit `install.jsonc` before invoking the installer. The operator-visible single-key bindings are picker-internal and documented in `tools/pick.sh`. Validates the operator-driven layout via `picker_validate_layout` (mode-vs-disk-count) before assembly; no further config-shape validation runs at picker time, so a malformed template can still fail at install time. Not part of the install flow — parallel to `tools/save-pkglist.sh` and `tools/impermanence.sh`.
+### Effective Config
+The ephemeral, fully-resolved install config the installer back-end consumes —
+never a committed file. `assemble_profile_config` builds it from a Host Profile
+(merged with Host Core) plus the operator's disk assignment, adding the device
+paths the profile deliberately omits. Written to tmpfs by `install.sh
+--profile`, or injected by the VM seed on the unattended `install.sh
+<config-file>` path. Carries exactly the shape `03-install.sh` read from the
+retired `install.jsonc`, so the back-end never changed. The committed audit
+artifact is the Host Profile (disks excluded); this assembled artifact is
+transient by design (ADR 0036).
 
-### Install Template
-Declarative JSONC file at `.os/hosts/<profile>/install.template.jsonc`. Holds every per-host field consumed by the Pre-Install Picker: locale, timezone, keymap, kernel, ZFS pool/dataset names, `ashift`, `os_size`, `bootloader`, `environment.desktop`, `environment.gpu`, `options.encryption`, `options.impermanence.*`, optionally `options.age_key_url`, and optionally `system.hostname` (pins the machine hostname for this profile; when omitted, the picker falls back to the profile name). May also pin OS-pool layout via `mode` (+ `os_pool.topology` for `multi`), which the picker honors instead of prompting (ADR 0029); `disks` are never in the template — always operator-picked. Merged with `.os/hosts/core/install.template.jsonc` following the same merge rules as Host Config / Host Core. Only consumed by the picker — `install.sh` reads `.os/install.jsonc`, not the template. Absent in repos that don't use the picker; absent templates also make the profile invisible to `pick.sh`.
-
-### Host Profile
-The bundle defined by `.os/hosts/<name>/` — Host Config, Install Template, and optional Host Secrets. The directory's basename is the profile name. Selected at install time via `host_profile` in `install.jsonc` (or by `pick.sh`). Independent of the machine's hostname: a profile may pin a hostname via its Install Template's `system.hostname`, or leave it open and let the profile name serve as the default hostname.
-
-### Host Config
-Declarative JSONC file at `.os/hosts/<profile>/config.jsonc`. Declares which users are created on the host and which system-level programs are installed. References users and programs by name. The `host_profile` in `install.jsonc` (defaulting to `system.hostname`) selects the matching directory under `.os/hosts/`. Applied on top of Host Core.
+### Pre-Install Picker
+The interactive disk-resolution front-end of `install.sh --profile <name>`
+(`lib/picker.sh`) — no longer a separate `tools/pick.sh`. Because the Host
+Profile already carries every machine property, the picker prompts only for what
+it cannot: which disk(s) to install onto. It validates the named profile against
+the closed schema, enumerates `/dev/disk/by-id/*` candidates with a
+`lsblk`/`smartctl` fzf preview pane, and filters out the live medium via the
+shared multi-signal Live-Medium Detector (`lib/live-medium.sh`, same one the
+Disk Wipe uses — boot-mount parent disk, `iso9660`/`ARCH_*` label, not
+string-matching). Single mode resolves one device; multi slices the picked set
+across the profile's declared `os_pool` / `storage_groups[]` / `data_pools[]`
+groups by each group's `disk_count`, in declared order, rendering the per-group
+mapping to stderr so a multi assignment is never implicit (ADR 0037). The
+assignment is validated against the min-disk table (mirror/stripe ≥2, raidz1 ≥3,
+raidz2 ≥4, none ≥2) and assembled into the Effective Config in tmpfs — `mode`
+and topology come from the profile, never re-prompted. `install.sh
+<config-file>` is the parallel unattended seam (the VM seed's path): it consumes
+a pre-assembled Effective Config directly and skips the picker.
 
 ### Host Core
-Declarative JSONC file at `.os/hosts/core/config.jsonc`. Declares the base set of users and system programs shared across all hosts. Every host config is merged with core — core is applied first, then the host config adds on top.
+Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
+of users, system programs, and Sysctl Defaults shared across all hosts (never a
+package list — ADR 0007). Every Host Profile is merged with core — core is
+applied first, then the host profile adds on top.
 
-### User Config
-Declarative JSONC file at `.os/users/<username>/config.jsonc`. Declares a user's shell, sudo access, groups, and which user-level programs are installed. Optional fields: git identity, SSH authorized keys. `git` must be declared explicitly as a user program — it is not installed by default. Passwords are not stored in config — hardcoded as `12345` by default. A user config that references a program marked `system: true` is a validation error and aborts the install. Applied on top of User Core.
+### User Profile
+Declarative JSONC file at `.os/users/<username>/profile.jsonc` (renamed from
+`config.jsonc` in step with the host side — profile = a host/user, config = a
+program spec; ADR 0036). Declares a user's shell, sudo access, groups, which
+user-level programs are installed, and an optional `user_services` list enabled
+via `systemctl --user enable` after the user's programs and dotfiles are placed
+(a unit missing at enable time aborts with an actionable message). Optional
+fields: git identity, SSH authorized keys. `git` must be declared explicitly as
+a user program — it is not installed by default. Passwords are not stored in the
+profile — hardcoded as `12345` by default unless User Secrets override. User ↔
+system-program references (refining the old always-abort rule, ADR 0036): a
+user-level program may shadow a host program; referencing a System Program the
+host already installs is a no-op; referencing one no host installs aborts with
+an actionable message — the `system` flag stays host-owned (ADR 0002). Applied
+on top of User Core.
 
 ### User Core
-Declarative JSONC file at `.os/users/core/config.jsonc`. Declares the base set of programs, shell defaults, and groups shared across all users. Every user config is merged with core — core is applied first, then the user config adds on top.
+Declarative JSONC file at `.os/users/core/profile.jsonc`. Declares the base set
+of programs, shell defaults, groups, and House Defaults shared across all users.
+Every User Profile is merged with core — core is applied first, then the user
+profile adds on top.
 
 ### Primary User
-The first entry in a host's `users` array (`users[0]` in `.os/hosts/<profile>/config.jsonc`, merged with Host Core) — the same user the Runner uses for the shared AUR/paru pass (`profiles.sh` gates host + GPU AUR installs on `users[0]`). Purely positional: there is no `primary: true` flag, so ordering the `users` array chooses it. A host that declares no users has no Primary User. The conventional default owner for host-wide, user-facing resources: it is the AUR/paru user, and the default owner of a data pool whose `owners` field is omitted (see Pool Owners). Exactly one per host; distinct from root.
+The first entry in a host's `users` array (`users[0]` in
+`.os/hosts/<profile>/profile.jsonc`, merged with Host Core) — the same user the
+Runner uses for the shared AUR/paru pass (`profiles.sh` gates host + GPU AUR
+installs on `users[0]`). Purely positional: there is no `primary: true` flag, so
+ordering the `users` array chooses it. A host that declares no users has no
+Primary User. The conventional default owner for host-wide, user-facing
+resources: it is the AUR/paru user, and the default owner of a data pool whose
+`owners` field is omitted (see Pool Owners). Exactly one per host; distinct from
+root.
 
 ### Program Config
-Declarative JSONC file at `.os/programs/<category>/<name>/config.jsonc`. Contains orchestration metadata only: display name, `system` flag, and optional description. The adjacent `install.sh` is the source of truth for installation logic.
+Declarative JSONC file at `.os/programs/<category>/<name>/config.jsonc`.
+Contains orchestration metadata only: display name, `system` flag, and optional
+description. The adjacent `install.sh` is the source of truth for installation
+logic.
 
 ### System Program
-A program that requires root and is installed via pacman during the chroot phase. Declared in host config or host core. Marked `"system": true` in its program config. Only official repo packages (no AUR) should be system programs. One documented exception to the "declared" rule: the sops Program is secrets-activated, not declared — the Runner selects it implicitly when install-state records secrets (see SOPS Runtime Service, ADR 0025).
+A program that requires root and is installed via pacman during the chroot
+phase. Declared in a Host Profile or Host Core. Marked `"system": true` in its
+program config. Only official repo packages (no AUR) should be system programs.
+One documented exception to the "declared" rule: the sops Program is
+secrets-activated, not declared — the Runner selects it implicitly when
+install-state records secrets (see SOPS Runtime Service, ADR 0025).
 
 ### User Program
-A program installed for a specific user via paru inside the chroot. Declared in user config or user core. Marked `"system": false` in its program config. Paru is bootstrapped per user before any user programs are installed. `base-devel` is hardcoded into pacstrap and always available in the chroot.
+A program installed for a specific user via paru inside the chroot. Declared in
+a User Profile or User Core. Marked `"system": false` in its program config.
+Paru is bootstrapped per user before any user programs are installed.
+`base-devel` is hardcoded into pacstrap and always available in the chroot.
 
 ### Runner
-`.os/lib/profiles.sh`. Reads host core + host config (merged), validates program references (aborts if a user config references a system program), installs system programs via `arch-chroot`, then for each user merges user core + user config and installs programs via `arch-chroot /mnt su - <username>`. Called by `03-install.sh` after `configure_system()`.
+`.os/lib/profiles.sh`. Reads host core + host profile (merged), validates
+program references (a user referencing a System Program no host installs aborts;
+one the host already installs is a no-op — ADR 0036), installs system programs
+via `arch-chroot`, then for each user merges user core + user profile and
+installs programs via `arch-chroot /mnt su - <username>`. Called by
+`03-install.sh` after `configure_system()`.
 
 ### Single Entry Point
-`.os/install.sh`. The one script a user runs from the Arch live CD after cloning the repo and providing configs. Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system config → system programs → user programs → cleanup and pool export.
+`.os/install.sh`. The one script a user runs from the Arch live CD after cloning
+the repo. Two front-ends over one back-end (ADR 0036): `install.sh --profile
+<name>` (interactive — the Pre-Install Picker resolves disks and assembles the
+Effective Config in tmpfs; the user-facing path) and `install.sh <config-file>`
+(the unattended seam consuming a pre-assembled Effective Config; the VM seed's
+path). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
+config → system programs → user programs → cleanup and pool export.
 
 ### Disk Wipe
-`.os/02-wipe.sh`, the install flow's **make-blank** step — not a secure-erase. It clears partition tables, filesystem signatures, and ZFS/LVM/MD labels so a target disk looks pristine to the partitioner. Method is device-aware: `blkdiscard` on SSD/NVMe (instant), a single zero-pass on HDDs (the slow case, shown as a per-disk progress bar; disks wiped in parallel). Multi-pass/forensic erase (`shred`, ATA secure-erase) is deliberately out of scope. Two safety invariants hold: the **live medium is never listed, selectable, or wipeable** (detected by multiple signals — boot-mount parent disk, `iso9660`/`ARCH_*` label — not string-matching), and an **install-driven wipe touches only the install's target disks** (`os_pool` + `storage_groups` + `data_pools` disks resolved from the Install Config and passed in explicitly), never an unrelated disk that holds data. Run standalone it wipes only an explicitly selected target set, defaulting to nothing.
+`.os/02-wipe.sh`, the install flow's **make-blank** step — not a secure-erase.
+It clears partition tables, filesystem signatures, and ZFS/LVM/MD labels so a
+target disk looks pristine to the partitioner. Method is device-aware:
+`blkdiscard` on SSD/NVMe (instant), a single zero-pass on HDDs (the slow case,
+shown as a per-disk progress bar; disks wiped in parallel). Multi-pass/forensic
+erase (`shred`, ATA secure-erase) is deliberately out of scope. Two safety
+invariants hold: the **live medium is never listed, selectable, or wipeable**
+(detected by multiple signals — boot-mount parent disk, `iso9660`/`ARCH_*` label
+— not string-matching), and an **install-driven wipe touches only the install's
+target disks** (`os_pool` + `storage_groups` + `data_pools` disks resolved from
+the Effective Config and passed in explicitly), never an unrelated disk that
+holds data. Run standalone it wipes only an explicitly selected target set,
+defaulting to nothing.
 
 ### Shell Stdlib
-`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by the Program Runner (not by the install.sh itself), so program scripts get its helpers without their own source line.
+`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by
+the Program Runner (not by the install.sh itself), so program scripts get its
+helpers without their own source line.
 
 ### Program Install Script
-`install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for all installation logic: package install, file copying, service enabling. Invoked by the Program Runner via `lib/run-program.sh`, which validates staging, sources Shell Stdlib, then sources the install.sh in the same shell. Receives env vars `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced by name only across all categories (names are unique).
+`install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for
+all installation logic: package install, file copying, service enabling. Invoked
+by the Program Runner via `lib/run-program.sh`, which validates staging, sources
+Shell Stdlib, then sources the install.sh in the same shell. Receives env vars
+`$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced
+by name only across all categories (names are unique).
 
 ### Layout Module
-`.os/lib/layout-<mode>.sh` (`layout-single.sh`, `layout-multi.sh`). Each implements the layout interface (`layout_validate`, `layout_plan`, `layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]` (resolved ESP device paths, primary at index 0), `LAYOUT_OS_POOL_NAME`, `LAYOUT_DATA_POOL_NAME` (empty when no data pool). `layout_validate` is a pure check (no state writes) — called by `validate_install_context` to gate disk paths and mode-specific topology before any work begins; exits via `error` on first failure. The active module is selected by `INSTALL_MODE` and sourced from `03-install.sh` **before** `validate_install_context` runs, so the dispatcher can call `layout_validate` on the active adapter. The seam wrappers enforce phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in `layout-common.sh` (phases: validate→plan→partition→pools→esp); a verb called out of order aborts via `error` before any destructive operation. Mode-private globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`, `RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
+`.os/lib/layout-<mode>.sh` (`layout-single.sh`, `layout-multi.sh`). Each
+implements the layout interface (`layout_validate`, `layout_plan`,
+`layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a
+normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]`
+(resolved ESP device paths, primary at index 0), `LAYOUT_OS_POOL_NAME`,
+`LAYOUT_DATA_POOL_NAME` (empty when no data pool). `layout_validate` is a pure
+check (no state writes) — called by `validate_install_context` to gate disk
+paths and mode-specific topology before any work begins; exits via `error` on
+first failure. The active module is selected by `INSTALL_MODE` and sourced from
+`03-install.sh` **before** `validate_install_context` runs, so the dispatcher
+can call `layout_validate` on the active adapter. The seam wrappers enforce
+phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in
+`layout-common.sh` (phases: validate→plan→partition→pools→esp); a verb called
+out of order aborts via `error` before any destructive operation. Mode-private
+globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,
+`RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
 
 ### Storage Group
-A vdev (or set of per-disk vdevs) folded into the single Combined Data Pool in multi-disk mode. Declared in `storage_groups[]` in the Install Config (`name`, `disks`, `mount`, optional `topology`/`ashift`/`owners`). Each group surfaces as datasets under `dpool/DATA/<name>`; all groups share one pool and therefore one failure domain. Use a Storage Group when you want several disks pooled together (with redundancy) under one name. Contrast Standalone Data Pool.
+A vdev (or set of per-disk vdevs) folded into the single Combined Data Pool in
+multi-disk mode. Declared in `storage_groups[]` in the Host Profile (`name`,
+`disk_count`, `mount`, optional `topology`/`ashift`/`owners`) — devices are
+operator-picked and assigned to the group by the Pre-Install Picker, never
+committed. Each group surfaces as datasets under `dpool/DATA/<name>`; all groups
+share one pool and therefore one failure domain. Use a Storage Group when you
+want several disks pooled together (with redundancy) under one name. Contrast
+Standalone Data Pool.
 
 ### Combined Data Pool
-The single `dpool` assembled from every Storage Group (and any leftover OS disks folded in when OS topology is `none`) in multi-disk mode. One pool, one failure domain. Optional — absent when there are no Storage Groups and no folded leftovers. Contrast Standalone Data Pool.
+The single `dpool` assembled from every Storage Group (and any leftover OS disks
+folded in when OS topology is `none`) in multi-disk mode. One pool, one failure
+domain. Optional — absent when there are no Storage Groups and no folded
+leftovers. Contrast Standalone Data Pool.
 
 ### Standalone Data Pool
-A ZFS pool that owns its disk(s) outright rather than folding into the Combined Data Pool — its own name, mountpoint, topology, and **failure domain**, so one pool losing a disk never affects another. Declared per-entry in `data_pools[]` in the Install Config (`name` = the zpool name and `disks` required; optional `topology`/`mount`/`ashift`/`owners`). Topology is limited to `stripe`/`mirror`/`raidz1`/`raidz2`; `none` and `independent` are rejected — "each disk separate" is expressed as multiple entries, and "all disks, no redundancy" is `stripe`. Encryption inherits the global `options.encryption`. Multi-disk only. Also producible interactively: when OS topology is `none`, each leftover disk may be chosen per-disk as its own Standalone Data Pool (named at the prompt) instead of folding into the Combined Data Pool. Contrast Storage Group.
+A ZFS pool that owns its disk(s) outright rather than folding into the Combined
+Data Pool — its own name, mountpoint, topology, and **failure domain**, so one
+pool losing a disk never affects another. Declared per-entry in `data_pools[]`
+in the Host Profile (`name` = the zpool name and `disk_count` required; optional
+`topology`/`mount`/`ashift`/`owners`); operator-picked devices are assigned by
+the Pre-Install Picker. Topology is limited to
+`stripe`/`mirror`/`raidz1`/`raidz2`; `none` and `independent` are rejected —
+"each disk separate" is expressed as multiple entries, and "all disks, no
+redundancy" is `stripe`. Encryption inherits the global `options.encryption`.
+Multi-disk only. Also producible interactively: when OS topology is `none`, each
+leftover disk may be chosen per-disk as its own Standalone Data Pool (named at
+the prompt) instead of folding into the Combined Data Pool. Contrast Storage
+Group.
 
 ### Pool Owners
-The optional `owners` field on a `data_pools[]` or `storage_groups[]` entry — the principals granted read/write to that pool's mountpoint, so a human (not just `root`) can use it. Each element is a username or a `@group` (the `@` distinguishes the two namespaces; groups come from User Config's `groups`). Omitted → the Primary User. A single bare user → a plain `chown` (mode `0755`). More than one principal, or any `@group` → POSIX ACLs (`acltype=posixacl`): the first listed user is the nominal owner, and every user / `@group` gets an `rwx` entry plus a default-ACL so new files inherit it; group grants stay dynamic (membership lives in User Config, not a snapshot). Every user with access — listed users plus members of listed groups — gets a `~/Disks/<pool>` symlink so any file manager (GUI or TUI) reaches it without per-app bookmarks. Validated at install: a bare name must be a declared user, a `@group` must have ≥1 declared member. Applied install-time after the Runner creates users + groups, on the host against the altroot-mounted paths, resolving each owner to a numeric UID/GID from the installed `/etc/passwd` + `/etc/group` (the live ISO has no knowledge of the chroot's users); ACL group grants use `g:<gid>:rwx` so membership stays dynamic. (ADR 0031.)
+The optional `owners` field on a `data_pools[]` or `storage_groups[]` entry —
+the principals granted read/write to that pool's mountpoint, so a human (not
+just `root`) can use it. Each element is a username or a `@group` (the `@`
+distinguishes the two namespaces; groups come from a User Profile's `groups`).
+Omitted → the Primary User. A single bare user → a plain `chown` (mode `0755`).
+More than one principal, or any `@group` → POSIX ACLs (`acltype=posixacl`): the
+first listed user is the nominal owner, and every user / `@group` gets an `rwx`
+entry plus a default-ACL so new files inherit it; group grants stay dynamic
+(membership lives in a User Profile, not a snapshot). Every user with access —
+listed users plus members of listed groups — gets a `~/Disks/<pool>` symlink so
+any file manager (GUI or TUI) reaches it without per-app bookmarks. Validated at
+install: a bare name must be a declared user, a `@group` must have ≥1 declared
+member. Applied install-time after the Runner creates users + groups, on the
+host against the altroot-mounted paths, resolving each owner to a numeric
+UID/GID from the installed `/etc/passwd` + `/etc/group` (the live ISO has no
+knowledge of the chroot's users); ACL group grants use `g:<gid>:rwx` so
+membership stays dynamic. (ADR 0031.)
 
 ### Program Runner
-`.os/lib/run-program.sh`. Wrapper invoked by the Runner inside arch-chroot for every Program Install Script. Verifies the chroot-side staged tree (Shell Stdlib readable, install.sh readable) and exits 99 with a clear message on mismatch. Sources Shell Stdlib once and sources the install.sh in the same shell, so install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a per-script source line.
+`.os/lib/run-program.sh`. Wrapper invoked by the Runner inside arch-chroot for
+every Program Install Script. Verifies the chroot-side staged tree (Shell Stdlib
+readable, install.sh readable) and exits 99 with a clear message on mismatch.
+Sources Shell Stdlib once and sources the install.sh in the same shell, so
+install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a
+per-script source line.
 
 ### Chroot Configuration Module
-`.os/lib/chroot/`. Set of shell scripts copied into `/mnt/root/lib-chroot/` before `arch-chroot` and orchestrated by `configure.sh` inside the chroot. Each sub-script owns one concern: identity (locale/timezone/keymap/hostname), pacman config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner (KDE/backup/security), plus a Bootloader Adapter. `lib/chroot.sh` shrinks to live-ISO concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and the single `arch-chroot` invocation that stages and runs `configure.sh`.
+`.os/lib/chroot/`. Set of shell scripts copied into `/mnt/root/lib-chroot/`
+before `arch-chroot` and orchestrated by `configure.sh` inside the chroot. Each
+sub-script owns one concern: identity (locale/timezone/keymap/hostname), pacman
+config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner
+(KDE/backup/security), plus a Bootloader Adapter. `lib/chroot.sh` shrinks to
+live-ISO concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and
+the single `arch-chroot` invocation that stages and runs `configure.sh`.
 
 ### Bootloader Module
-The seam selecting between Bootloader Adapters. The active adapter is chosen by `options.bootloader` in the Install Config (`systemd-boot` or `grub`). The chroot orchestrator invokes `bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding a new bootloader means dropping in a new Bootloader Adapter — no `if/elif` branches grow.
+The seam selecting between Bootloader Adapters. The active adapter is chosen by
+`options.bootloader` in the Host Profile (`systemd-boot` or `grub`). The chroot
+orchestrator invokes `bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding
+a new bootloader means dropping in a new Bootloader Adapter — no `if/elif`
+branches grow.
 
 ### Bootloader Adapter
-`.os/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation: package install, config file generation, kernel-image entry registration. Two adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP info, etc.) and is interchangeable from the orchestrator's view.
+`.os/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation:
+package install, config file generation, kernel-image entry registration. Two
+adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter
+reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP
+info, etc.) and is interchangeable from the orchestrator's view.
 
 ### Environment Config
-The `"environment"` key in `install.jsonc`. Declares desktop environment selection and GPU driver selection. Audio is not declared — it is auto-derived (PipeWire when any desktop is selected, omitted for server installs). Processed at config-load time; populates `packages.groups.gpu` and `packages.groups.audio` before pacstrap. Valid desktop values: `"kde"`, `"hyprland"`, or `["kde", "hyprland"]`. Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd", "nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous schema.
+The `"environment"` key in the Host Profile. Declares desktop environment
+selection and GPU driver selection. Audio is not declared — it is auto-derived
+(PipeWire when any desktop is selected, omitted for server installs). Processed
+at config-load time; populates `packages.groups.gpu` and `packages.groups.audio`
+before pacstrap. Valid desktop values: `"kde"`, `"hyprland"`, or `["kde",
+"hyprland"]`. Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
+"nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous
+schema.
 
 ### Desktop Environment Adapter
-Script at `extras/desktop/<name>/<name>.sh` with a companion `install-<name>.jsonc` for per-component toggles. Invoked dynamically by the Environment Runner based on `environment.desktop`. Each adapter owns every DE-tied package (apps, Qt plugins, AUR theming bridges): it installs its repo packages via pacman, writes its display manager config, and enables its services. AUR dependencies are not installed by the adapter — they are declared in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level Categorized List `{ category: { pkg: bool } }` shape as `apps_list`, validated in bool mode; absent field contributes nothing) and installed by the Profiles Runner's paru pass. Adding a new DE requires only a new `extras/desktop/<name>/` directory — no runner code changes.
+Script at `extras/desktop/<name>/<name>.sh` with a companion
+`install-<name>.jsonc` for per-component toggles. Invoked dynamically by the
+Environment Runner based on `environment.desktop`. Each adapter owns every
+DE-tied package (apps, Qt plugins, AUR theming bridges): it installs its repo
+packages via pacman, writes its display manager config, and enables its
+services. AUR dependencies are not installed by the adapter — they are declared
+in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level
+Categorized List `{ category: { pkg: bool } }` shape as `apps_list`, validated
+in bool mode; absent field contributes nothing) and installed by the Profiles
+Runner's paru pass. Adding a new DE requires only a new `extras/desktop/<name>/`
+directory — no runner code changes.
 
 ### Environment Runner
-The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved `environment.desktop` array and invokes each Desktop Environment Adapter by directory convention (`extras/desktop/<de>/<de>.sh`). No DE names are hardcoded in the runner — dispatch is purely by convention. Also runs `post_install.backup` and `post_install.security` extras. AUR discovery for the selected DEs lives alongside this: for each desktop in the resolved array the installer reads that adapter's `aur` list and unions it (deduped) with the host's `packages.aur` into the Profiles Runner's single paru invocation, so DE-tied AUR packages land only when their DE is selected.
+The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
+`environment.desktop` array and invokes each Desktop Environment Adapter by
+directory convention (`extras/desktop/<de>/<de>.sh`). No DE names are hardcoded
+in the runner — dispatch is purely by convention. Also runs
+`post_install.backup` and `post_install.security` extras. AUR discovery for the
+selected DEs lives alongside this: for each desktop in the resolved array the
+installer reads that adapter's `aur` list and unions it (deduped) with the
+host's `packages.aur` into the Profiles Runner's single paru invocation, so
+DE-tied AUR packages land only when their DE is selected.
 
 ### GPU Resolution
-Translation of `environment.gpu` into driver packages at config-load time. `"auto"` uses `lspci` on the live ISO to detect all GPU vendors and resolves to a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor drivers plus `envycontrol`. Resolved packages populate `packages.groups.gpu` before pacstrap.
+Translation of `environment.gpu` into driver packages at config-load time.
+`"auto"` uses `lspci` on the live ISO to detect all GPU vendors and resolves to
+a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor
+drivers plus `envycontrol`. Resolved packages populate `packages.groups.gpu`
+before pacstrap.
 
 Vendor → package mapping:
 - `"amd"` → `vulkan-radeon xf86-video-amdgpu mesa libva-mesa-driver`
-- `"nvidia"` → `nvidia-open-dkms nvidia-utils lib32-nvidia-utils libva-nvidia-driver egl-wayland` (open kernel module only; requires Turing+/RTX 20xx+; DKMS used so it builds against both `linux` and `linux-lts`)
-- `"intel"` → `intel-media-driver` (Broadwell/5th-gen+) or `libva-intel-driver` (pre-Broadwell), auto-selected by parsing `lspci` device ID
-- VM GPU (VMware/VirtualBox/virtio-gpu) → `mesa` only (software rendering); detection logs a notice and continues without aborting
+- `"nvidia"` → `nvidia-open-dkms nvidia-utils lib32-nvidia-utils
+  libva-nvidia-driver egl-wayland` (open kernel module only; requires
+  Turing+/RTX 20xx+; DKMS used so it builds against both `linux` and
+  `linux-lts`)
+- `"intel"` → `intel-media-driver` (Broadwell/5th-gen+) or `libva-intel-driver`
+  (pre-Broadwell), auto-selected by parsing `lspci` device ID
+- VM GPU (VMware/VirtualBox/virtio-gpu) → `mesa` only (software rendering);
+  detection logs a notice and continues without aborting
 
 ### Display Manager
-Auto-selected by each Desktop Environment Adapter based on the full resolved desktop array — not a config key. KDE-only or KDE+Hyprland → SDDM (enabled by the KDE adapter). Hyprland-only → greetd + greetd-tuigreet (enabled by the Hyprland adapter, config written to `/etc/greetd/config.toml`).
+Auto-selected by each Desktop Environment Adapter based on the full resolved
+desktop array — not a config key. KDE-only or KDE+Hyprland → SDDM (enabled by
+the KDE adapter). Hyprland-only → greetd + greetd-tuigreet (enabled by the
+Hyprland adapter, config written to `/etc/greetd/config.toml`).
 
 ### User Secrets
-SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains sensitive per-user data: `password`, `ssh_identity_private_key`, and `ssh_identity_key_type` (`ed25519` | `rsa` | `ecdsa`; defaults to `ed25519`). Values are encrypted (keys remain plaintext). Optional — if absent, user password defaults to `12345` and no SSH identity is deployed. Parallel to User Config; read by the Secrets Module at install time and consumed by user creation and SSH provisioning. Not merged with User Core — secrets are always user-specific.
+SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains
+sensitive per-user data: `password`, `ssh_identity_private_key`, and
+`ssh_identity_key_type` (`ed25519` | `rsa` | `ecdsa`; defaults to `ed25519`).
+Values are encrypted (keys remain plaintext). Optional — if absent, user
+password defaults to `12345` and no SSH identity is deployed. Parallel to the
+User Profile; read by the Secrets Module at install time and consumed by user
+creation and SSH provisioning. Not merged with User Core — secrets are always
+user-specific.
 
 ### Host Secrets
-SOPS-encrypted JSON file at `.os/hosts/<profile>/secrets.json`. Contains `root_password` for the host. Parallel to Host Config; read by the Secrets Module at install time and consumed by root password provisioning. Optional — if absent, root password falls back to interactive prompt.
+SOPS-encrypted JSON file at `.os/hosts/<profile>/secrets.json`. Contains
+`root_password` for the host. Parallel to the Host Profile; read by the Secrets
+Module at install time and consumed by root password provisioning. Optional — if
+absent, root password falls back to interactive prompt.
 
 ### Secrets Module
-`lib/secrets.sh`. Runs immediately after config load in `03-install.sh`. Locates the passphrase-encrypted Operator Age Key via two sources in priority order: (1) a removable USB device scanned for `/age/key.age`; (2) an HTTPS download from `options.age_key_url` in `install.jsonc` (live-CD fallback when no USB is present). Prompts for the passphrase, decrypts all User Secrets and Host Secrets to a tmpfs, and writes the tmpfs paths into `install-state.json` for consumption by chroot scripts. Clears the tmpfs after the chroot phase completes.
+`lib/secrets.sh`. Runs immediately after config load in `03-install.sh`. Locates
+the passphrase-encrypted Operator Age Key via two sources in priority order: (1)
+a removable USB device scanned for `/age/key.age`; (2) an HTTPS download from
+`options.age_key_url` in the Host Profile (live-CD fallback when no USB is
+present). Prompts for the passphrase, decrypts all User Secrets and Host Secrets
+to a tmpfs, and writes the tmpfs paths into `install-state.json` for consumption
+by chroot scripts. Clears the tmpfs after the chroot phase completes.
 
 ### Machine Age Key
-Age private key stored at `/etc/secrets/age/keys.txt` on the installed system. Derived at install time from the machine's `ssh_host_ed25519_key` via `ssh-to-age`. Used exclusively by the SOPS Runtime Service for boot-time decryption. Must be added as a recipient in `.sops.yaml` and secrets re-encrypted via `sops updatekeys` after first install.
+Age private key stored at `/etc/secrets/age/keys.txt` on the installed system.
+Derived at install time from the machine's `ssh_host_ed25519_key` via
+`ssh-to-age`. Used exclusively by the SOPS Runtime Service for boot-time
+decryption. Must be added as a recipient in `.sops.yaml` and secrets
+re-encrypted via `sops updatekeys` after first install.
 
 ### SOPS Runtime Service
-Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all SOPS-encrypted secret files using the Machine Age Key, and sets declared ownership and permissions. Programs that need runtime secrets reference `/run/secrets/<name>` paths. The sops Program is secrets-activated: the Runner installs it (deriving the Machine Age Key and building `ssh-to-age` via `go`) only when the host or one of its declared users ships a `secrets.json` — consistent with secrets being optional. It is therefore not a member of any host's declared System Programs, including Host Core; a host with no secrets gets neither the service nor `go`.
+Systemd service installed by `.os/programs/security/sops/install.sh`. Runs early
+in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all
+SOPS-encrypted secret files using the Machine Age Key, and sets declared
+ownership and permissions. Programs that need runtime secrets reference
+`/run/secrets/<name>` paths. The sops Program is secrets-activated: the Runner
+installs it (deriving the Machine Age Key and building `ssh-to-age` via `go`)
+only when the host or one of its declared users ships a `secrets.json` —
+consistent with secrets being optional. It is therefore not a member of any
+host's declared System Programs, including Host Core; a host with no secrets
+gets neither the service nor `go`.
 
 ### Base Package List
-The hardcoded set pacstrapped onto every host regardless of config, defined in `lib/packages.sh:collect_packages` (e.g. `base`, `base-devel`, the selected kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`, `zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`, `vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `man-db`, `cronie`). The **only** cross-host package base — Host Core carries no package list. A Host Package List is deduplicated against it at install time. Universal infrastructure daemons whose package lives here (NetworkManager, cron) are enabled by the Chroot Configuration Module, not by a Program (ADR 0026).
+The hardcoded set pacstrapped onto every host regardless of config, defined in
+`lib/packages.sh:collect_packages` (e.g. `base`, `base-devel`, the selected
+kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`,
+`zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`,
+`vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `man-db`, `cronie`). The
+**only** cross-host package base — Host Core carries no package list. A Host
+Package List is deduplicated against it at install time. Universal
+infrastructure daemons whose package lives here (NetworkManager, cron) are
+enabled by the Chroot Configuration Module, not by a Program (ADR 0026).
 
 ### Host Package List
-`packages` object in a Host Config with two fields: `repo` (official-repo packages installed via pacstrap) and `aur` (AUR packages installed via paru for the primary user). `repo` is a 2-level categorized object — kebab-case category keys mapped to string arrays — flattened to a sorted-unique list by the Categorized List Parser at install time. Categories are cosmetic; renaming `media` to `multimedia` does not change what installs. Shape, leaf-type, or category-name violations abort at config-load with the offending path. `aur` is still a flat string array (categorized shape arrives in a later slice). Declared in the host-specific config — not in Host Core — because the list differs per machine. Deduplicated against base packages by the installer. AUR packages are installed once for the system via the first declared user's paru instance before any user programs run.
+`packages` object in a Host Profile with two fields: `repo` (official-repo
+packages installed via pacstrap) and `aur` (AUR packages installed via paru for
+the primary user). `repo` is a 2-level categorized object — kebab-case category
+keys mapped to string arrays — flattened to a sorted-unique list by the
+Categorized List Parser at install time. Categories are cosmetic; renaming
+`media` to `multimedia` does not change what installs. Shape, leaf-type, or
+category-name violations abort at config-load with the offending path. `aur` is
+likewise a Categorized List (the categorized shape landed — e.g. `{ "misc":
+[...] }`). Declared in the host-specific Host Profile — not in Host Core —
+because the list differs per machine. Deduplicated against base packages by the
+installer. AUR packages are installed once for the system via the first declared
+user's paru instance before any user programs run.
 
 ### Sysctl Defaults
-`sysctl` object in Host Core (or a host-specific config), containing key-value pairs written verbatim to `/etc/sysctl.d/99-os.conf` during the profiles phase. Applied to every host via Host Core. A host-specific config can add keys (they deep-merge per the core merge rules) but cannot remove keys declared in core.
+`sysctl` object in Host Core (or a host-specific Host Profile), containing
+key-value pairs written verbatim to `/etc/sysctl.d/99-os.conf` during the
+profiles phase. Applied to every host via Host Core. A host-specific config can
+add keys (they deep-merge per the core merge rules) but cannot remove keys
+declared in core.
 
 ### Tools
-`.os/tools/`. Utility scripts for managing a running system or preparing an install — not part of the install flow itself. Currently: `pick.sh` (see Pre-Install Picker; live-CD config builder), `save-pkglist.sh` (writes current packages to `hosts/<hostname>/pkglist-repo.txt` and `pkglist-aur.txt`), `install-pkglist.sh` (installs packages from those files), `impermanence.sh` (see Impermanence Tool), and `fetch-iso.sh` (downloads + sha256-verifies the archzfs-Compatible ISO for USB prep). The pkglist tools default to `$(hostname)` but accept a hostname argument.
+`.os/tools/`. Utility scripts for managing a running system or preparing an
+install — not part of the install flow itself. Currently: `save-pkglist.sh`
+(writes current packages to `hosts/<hostname>/pkglist-repo.txt` and
+`pkglist-aur.txt`), `install-pkglist.sh` (installs packages from those files),
+`impermanence.sh` (see Impermanence Tool), and `fetch-iso.sh` (downloads +
+sha256-verifies the archzfs-Compatible ISO for USB prep). The pkglist tools
+default to `$(hostname)` but accept a hostname argument.
 
 ### archzfs-Compatible ISO
-Newest archived Arch ISO (from `archive.archlinux.org`) whose kernel major.minor matches a kernel `archzfs` ships a prebuilt `zfs-linux` for. The prebuilt-kernel list is used as a proxy for "the current ZFS source is known to compile against this kernel" — even though the installer always builds ZFS via DKMS, not the prebuilt. Resolved by `iso_resolver_get_zfs_compatible` in `lib/iso-resolver.sh`. The installer cannot use the latest Arch ISO when its kernel is newer than `archzfs` tracks: DKMS then fails to build the ZFS module against that kernel.
+Newest archived Arch ISO (from `archive.archlinux.org`) whose kernel major.minor
+matches a kernel `archzfs` ships a prebuilt `zfs-linux` for. The prebuilt-kernel
+list is used as a proxy for "the current ZFS source is known to compile against
+this kernel" — even though the installer always builds ZFS via DKMS, not the
+prebuilt. Resolved by `iso_resolver_get_zfs_compatible` in
+`lib/iso-resolver.sh`. The installer cannot use the latest Arch ISO when its
+kernel is newer than `archzfs` tracks: DKMS then fails to build the ZFS module
+against that kernel.
 
 ### Kernel Selection
-`options.kernel` in the Install Config: one or more kernel flavour tokens naming which kernels the installed system gets. Accepts a single token (string) or a list. Tokens map to a kernel package plus its matching headers: `lts`→`linux-lts`, `default`→`linux`, `zen`→`linux-zen`, `hardened`→`linux-hardened`. Every selected kernel is installed, and `zfs-dkms` builds the ZFS module against each. `lts` is the only token `archzfs` is guaranteed to track; any other (notably `default`, the rolling kernel) may temporarily outrun `archzfs` and is caught by the ZFS Module Guard. Defaults to `lts`.
+`options.kernel` in the Host Profile: one or more kernel flavour tokens naming
+which kernels the installed system gets. Accepts a single token (string) or a
+list. Tokens map to a kernel package plus its matching headers:
+`lts`→`linux-lts`, `default`→`linux`, `zen`→`linux-zen`,
+`hardened`→`linux-hardened`. Every selected kernel is installed, and `zfs-dkms`
+builds the ZFS module against each. `lts` is the only token `archzfs` is
+guaranteed to track; any other (notably `default`, the rolling kernel) may
+temporarily outrun `archzfs` and is caught by the ZFS Module Guard. Defaults to
+`lts`.
 
 ### Primary Kernel
-The first token in the Kernel Selection. Drives the bootloader default boot entry and the initramfs preset/fallback logic — exposed to chroot modules as the scalar `KERNEL` (the full list is `KERNELS`). When more than one kernel is selected, the others are still installed and `mkinitcpio -P` builds their presets, but the bootloader default and the custom fallback-preset injection track only the Primary Kernel until full multi-kernel preset wiring lands.
+The first token in the Kernel Selection. Drives the bootloader default boot
+entry and the initramfs preset/fallback logic — exposed to chroot modules as the
+scalar `KERNEL` (the full list is `KERNELS`). When more than one kernel is
+selected, the others are still installed and `mkinitcpio -P` builds their
+presets, but the bootloader default and the custom fallback-preset injection
+track only the Primary Kernel until full multi-kernel preset wiring lands.
 
 ### ZFS Module Guard
-Post-pacstrap check, host-side, run before chroot configuration begins. Verifies a loadable `zfs` module exists for every kernel installed into the target, aborting the install with archzfs-support guidance if any kernel lacks one. Turns the otherwise opaque mid-`mkinitcpio` "module not found" failure into an early, explicit error naming the unsupported kernel. Necessary because Kernel Selection may include kernels newer than `archzfs` tracks (see archzfs-Compatible ISO).
+Post-pacstrap check, host-side, run before chroot configuration begins. Verifies
+a loadable `zfs` module exists for every kernel installed into the target,
+aborting the install with archzfs-support guidance if any kernel lacks one.
+Turns the otherwise opaque mid-`mkinitcpio` "module not found" failure into an
+early, explicit error naming the unsupported kernel. Necessary because Kernel
+Selection may include kernels newer than `archzfs` tracks (see
+archzfs-Compatible ISO).
 
 ### Impermanence
-Optional install-time feature that resets selected system directories to a clean state on every boot via ZFS dataset rollback. Enabled by `options.impermanence` in Install Config. When enabled, the installer creates a Persist Dataset, splits a set of Rollback Datasets out of the OS pool, takes a Blank Snapshot of each, and installs a Rollback Hook in initramfs. Inspired by NixOS impermanence; deliberately narrower in scope — Arch lacks a `/nix/store`-equivalent, so rolling back all of `/` would erase every pacman update, hence Impermanence targets `/etc`, `/root`, `/opt`, `/srv`, `/usr/local` only.
+Optional install-time feature that resets selected system directories to a clean
+state on every boot via ZFS dataset rollback. Enabled by `options.impermanence`
+in the Host Profile. When enabled, the installer creates a Persist Dataset,
+splits a set of Rollback Datasets out of the OS pool, takes a Blank Snapshot of
+each, and installs a Rollback Hook in initramfs. Inspired by NixOS impermanence;
+deliberately narrower in scope — Arch lacks a `/nix/store`-equivalent, so
+rolling back all of `/` would erase every pacman update, hence Impermanence
+targets `/etc`, `/root`, `/opt`, `/srv`, `/usr/local` only.
 
 ### Persist Dataset
-ZFS dataset (default `rpool/persist`, mounted at `/persist`) that holds all state surviving across reboots when Impermanence is enabled. Name and mountpoint configurable via `options.impermanence.dataset` and `options.impermanence.mount` in Install Config. Must live on the same pool as `rpool/ROOT/arch` so the early-boot bind-mounts complete before `local-fs.target`. Holds the Persist Payload (operator-editable `.mount` units + tmpfiles snippets) plus the actual data of every persisted path.
+ZFS dataset (default `rpool/persist`, mounted at `/persist`) that holds all
+state surviving across reboots when Impermanence is enabled. Name and mountpoint
+configurable via `options.impermanence.dataset` and `options.impermanence.mount`
+in the Host Profile. Must live on the same pool as `rpool/ROOT/arch` so the
+early-boot bind-mounts complete before `local-fs.target`. Holds the Persist
+Payload (operator-editable `.mount` units + tmpfiles snippets) plus the actual
+data of every persisted path.
 
 ### Rollback Datasets
-The set of ZFS datasets reverted to their Blank Snapshot on every boot when Impermanence is enabled: `rpool/ROOT/etc` (`/etc`), `rpool/ROOT/root` (`/root`), `rpool/ROOT/opt` (`/opt`), `rpool/ROOT/srv` (`/srv`), `rpool/ROOT/usrlocal` (`/usr/local`). Deliberately excludes `rpool/ROOT/arch` (so pacman writes to `/usr` survive reboots without re-snapshot), `rpool/home`, `rpool/var`, `rpool/var/log`, `rpool/var/cache`, `rpool/tmp` (already separate datasets, naturally persistent except `/tmp` which is intended ephemeral). Created by the installer when Impermanence is enabled; absent otherwise.
+The set of ZFS datasets reverted to their Blank Snapshot on every boot when
+Impermanence is enabled: `rpool/ROOT/etc` (`/etc`), `rpool/ROOT/root` (`/root`),
+`rpool/ROOT/opt` (`/opt`), `rpool/ROOT/srv` (`/srv`), `rpool/ROOT/usrlocal`
+(`/usr/local`). Deliberately excludes `rpool/ROOT/arch` (so pacman writes to
+`/usr` survive reboots without re-snapshot), `rpool/home`, `rpool/var`,
+`rpool/var/log`, `rpool/var/cache`, `rpool/tmp` (already separate datasets,
+naturally persistent except `/tmp` which is intended ephemeral). Created by the
+installer when Impermanence is enabled; absent otherwise.
 
 ### Blank Snapshot
-ZFS snapshot named `@blank` on each Rollback Dataset, taken at the end of the chroot phase after Curated Persist Defaults have been moved off the dataset onto the Persist Dataset. The Rollback Hook reverts each Rollback Dataset to its Blank Snapshot at every boot. Re-created by the Pacman Resnapshot Hook after every successful pacman transaction so that pacman's writes to `/etc/<pkg>/` etc. survive across reboots. If `@blank` is missing on any Rollback Dataset, the Rollback Hook drops to emergency shell — fail-closed.
+ZFS snapshot named `@blank` on each Rollback Dataset, taken at the end of the
+chroot phase after Curated Persist Defaults have been moved off the dataset onto
+the Persist Dataset. The Rollback Hook reverts each Rollback Dataset to its
+Blank Snapshot at every boot. Re-created by the Pacman Resnapshot Hook after
+every successful pacman transaction so that pacman's writes to `/etc/<pkg>/`
+etc. survive across reboots. If `@blank` is missing on any Rollback Dataset, the
+Rollback Hook drops to emergency shell — fail-closed.
 
 ### Rollback Hook
-mkinitcpio hook pair installed under `/etc/initcpio/hooks/` and `/etc/initcpio/install/` and added to `HOOKS=` in `mkinitcpio.conf` between the `zfs` and `filesystems` hooks. Runs in initramfs after the ZFS module loads and pool is imported (and decrypted, if `options.encryption=true`), and before `zfs-mount-generator` mounts the Rollback Datasets. Hardcoded at install time with the list of Rollback Datasets to revert. Fails closed if any Blank Snapshot is missing — drops to emergency shell rather than continuing with stale state.
+mkinitcpio hook pair installed under `/etc/initcpio/hooks/` and
+`/etc/initcpio/install/` and added to `HOOKS=` in `mkinitcpio.conf` between the
+`zfs` and `filesystems` hooks. Runs in initramfs after the ZFS module loads and
+pool is imported (and decrypted, if `options.encryption=true`), and before
+`zfs-mount-generator` mounts the Rollback Datasets. Hardcoded at install time
+with the list of Rollback Datasets to revert. Fails closed if any Blank Snapshot
+is missing — drops to emergency shell rather than continuing with stale state.
 
 ### Bootstrap Mount
-Pair of files baked into `/usr/lib` at install time that bridge the Persist Dataset into systemd's standard discovery paths. `/usr/lib/tmpfiles.d/impermanence-bootstrap.conf` creates `/etc/systemd/system/` and `/etc/tmpfiles.d/` as empty directories at early boot. `/usr/lib/systemd/system/persist-etc-systemd-system.mount` and `persist-etc-tmpfiles-d.mount` bind `/persist/etc/systemd/system` and `/persist/etc/tmpfiles.d` over those placeholders. Lives on `rpool/ROOT/arch` (non-rolled-back) so it persists across reboots without snapshot manipulation.
+Pair of files baked into `/usr/lib` at install time that bridge the Persist
+Dataset into systemd's standard discovery paths.
+`/usr/lib/tmpfiles.d/impermanence-bootstrap.conf` creates `/etc/systemd/system/`
+and `/etc/tmpfiles.d/` as empty directories at early boot.
+`/usr/lib/systemd/system/persist-etc-systemd-system.mount` and
+`persist-etc-tmpfiles-d.mount` bind `/persist/etc/systemd/system` and
+`/persist/etc/tmpfiles.d` over those placeholders. Lives on `rpool/ROOT/arch`
+(non-rolled-back) so it persists across reboots without snapshot manipulation.
 
 ### Persist Mount
-`.mount` unit named `persist-<slug>.mount`, one per persisted path. Each unit bind-mounts `/persist/<path>` over `<path>` early in boot. Ordered `After=systemd-tmpfiles-setup.service` and `Before=local-fs.target` with `RequiredBy=local-fs.target` so a failed bind cascades to emergency. Curated Persist Defaults ship as units under `/usr/lib/systemd/system/` (vendor-owned, snapshot-immune); host-declared Persist Extensions ship as units under `/persist/etc/systemd/system/` (operator-editable). Live data is staged onto the Persist Dataset before the unit activates — moved at install time (the live path will be reset on next boot), copied at runtime (the bind mount activates immediately and covers the original).
+`.mount` unit named `persist-<slug>.mount`, one per persisted path. Each unit
+bind-mounts `/persist/<path>` over `<path>` early in boot. Ordered
+`After=systemd-tmpfiles-setup.service` and `Before=local-fs.target` with
+`RequiredBy=local-fs.target` so a failed bind cascades to emergency. Curated
+Persist Defaults ship as units under `/usr/lib/systemd/system/` (vendor-owned,
+snapshot-immune); host-declared Persist Extensions ship as units under
+`/persist/etc/systemd/system/` (operator-editable). Live data is staged onto the
+Persist Dataset before the unit activates — moved at install time (the live path
+will be reset on next boot), copied at runtime (the bind mount activates
+immediately and covers the original).
 
 ### Curated Persist Defaults
-Fixed list of system-identity paths the installer always persists when Impermanence is enabled. Files: `/etc/machine-id`, `/etc/hostname`, `/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`. Directories: `/etc/ssh`, `/etc/secrets`, `/etc/NetworkManager/system-connections`, `/etc/sudoers.d`, `/etc/pacman.d`, `/root`. Loss of any of these breaks first reboot — host keys, Machine Age Key, hostname, network connections, fstab. Shipped as Persist Mount units under `/usr/lib/systemd/system/` so they're stable across operator edits.
+Fixed list of system-identity paths the installer always persists when
+Impermanence is enabled. Files: `/etc/machine-id`, `/etc/hostname`,
+`/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`.
+Directories: `/etc/ssh`, `/etc/secrets`,
+`/etc/NetworkManager/system-connections`, `/etc/sudoers.d`, `/etc/pacman.d`,
+`/root`. Loss of any of these breaks first reboot — host keys, Machine Age Key,
+hostname, network connections, fstab. Shipped as Persist Mount units under
+`/usr/lib/systemd/system/` so they're stable across operator edits.
 
 ### Persist Extensions
-`persist` object in a Host Config or Host Core with two arrays: `directories` and `files`. Each entry is an absolute path. Deep-merged across Host Core and the specific Host Config per the standard merge rules. Translated by the installer into Persist Mount units under `/persist/etc/systemd/system/` and tmpfiles entries placed under `/persist/etc/tmpfiles.d/`. Only meaningful when `options.impermanence.enabled=true`. Validation warns on paths already covered by an always-persistent dataset (`/home`, `/var`, `/var/log`, `/var/cache`, `/tmp`) or by a Curated Persist Default.
+`persist` object in a Host Profile or Host Core with two arrays: `directories`
+and `files`. Each entry is an absolute path. Deep-merged across Host Core and
+the specific Host Profile per the standard merge rules. Translated by the
+installer into Persist Mount units under `/persist/etc/systemd/system/` and
+tmpfiles entries placed under `/persist/etc/tmpfiles.d/`. Only meaningful when
+`options.impermanence.enabled=true`. Validation warns on paths already covered
+by an always-persistent dataset (`/home`, `/var`, `/var/log`, `/var/cache`,
+`/tmp`) or by a Curated Persist Default.
 
 ### Pacman Resnapshot Hook
-Pacman post-transaction hook at `/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook` (or shipped under `/usr/share/libalpm/hooks/`) that destroys and re-takes the Blank Snapshot on every Rollback Dataset after a successful pacman transaction. Necessary because pacman writes config defaults under `/etc/<pkg>/` etc.; without this hook those writes would vanish on next reboot. Known v1 limitation: user edits to non-persisted paths under a Rollback Dataset made *before* a pacman transaction get baked into the new Blank Snapshot and survive one additional reboot. A future opt-in pre-transaction drift check (`zfs diff` fails loudly if dirty) closes this leak.
+Pacman post-transaction hook at
+`/etc/pacman.d/hooks/zz-impermanence-resnapshot.hook` (or shipped under
+`/usr/share/libalpm/hooks/`) that destroys and re-takes the Blank Snapshot on
+every Rollback Dataset after a successful pacman transaction. Necessary because
+pacman writes config defaults under `/etc/<pkg>/` etc.; without this hook those
+writes would vanish on next reboot. Known v1 limitation: user edits to
+non-persisted paths under a Rollback Dataset made *before* a pacman transaction
+get baked into the new Blank Snapshot and survive one additional reboot. A
+future opt-in pre-transaction drift check (`zfs diff` fails loudly if dirty)
+closes this leak.
 
 ### Impermanence Tool
-`.os/tools/impermanence.sh`. Runtime utility for managing Persist Extensions on a system where Impermanence is enabled. Verbs: `add <path>` (writes the path into the host's `persist.directories` or `persist.files` in `hosts/<hostname>/config.jsonc`, copies current data onto the Persist Dataset, generates the Persist Mount, daemon-reloads); `remove <path>` (reverses); `status` (lists active Persist Mounts and runs `zfs diff` against `@blank` for each Rollback Dataset); `apply-defaults` (regenerates Curated Persist Defaults' unit files under `/usr/lib/systemd/system/` from the installer's current curated list, used after pulling an updated dotfiles repo). Does not edit Curated Persist Defaults directly — those are vendor-shipped.
+`.os/tools/impermanence.sh`. Runtime utility for managing Persist Extensions on
+a system where Impermanence is enabled. Verbs: `add <path>` (writes the path
+into the host's `persist.directories` or `persist.files` in
+`hosts/<hostname>/profile.jsonc`, copies current data onto the Persist Dataset,
+generates the Persist Mount, daemon-reloads); `remove <path>` (reverses);
+`status` (lists active Persist Mounts and runs `zfs diff` against `@blank` for
+each Rollback Dataset); `apply-defaults` (regenerates Curated Persist Defaults'
+unit files under `/usr/lib/systemd/system/` from the installer's current curated
+list, used after pulling an updated dotfiles repo). Does not edit Curated
+Persist Defaults directly — those are vendor-shipped.
 
 ### Stow Tree
-Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step. Layout groups files by destination path, not by program. Legacy as of ADR 0012 — being migrated program-by-program into Program Config Trees, but remains supported indefinitely. Path collisions with the Generated Stow Tree abort the Config Generator.
+Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose
+home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each
+user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
+Layout groups files by destination path, not by program. Legacy as of ADR 0012 —
+being migrated program-by-program into Program Config Trees, but remains
+supported indefinitely. Path collisions with the Generated Stow Tree abort the
+Config Generator.
 
 ### Program Config Tree
-Per-program user-side config files under `.os/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is the default; sibling `configs@<variant>/` directories hold alternates (Config Variants). Optional — programs without user-side config omit the dir entirely. Manifest scope is user paths only; system paths stay in the program's `install.sh`. Authoring location only — never directly symlinked or copied; the Config Generator materializes the Generated Stow Tree from these.
+Per-program user-side config files under
+`.os/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is the
+default; sibling `configs@<variant>/` directories hold alternates (Config
+Variants). Optional — programs without user-side config omit the dir entirely.
+Manifest scope is user paths only; system paths stay in the program's
+`install.sh`. Authoring location only — never directly symlinked or copied; the
+Config Generator materializes the Generated Stow Tree from these.
 
 ### Config Variant
-An alternate version of a program's Program Config Tree, named by the suffix on `configs@<variant>/`. Variant names match `[a-z0-9-]+`; `default` is reserved and refers to the unsuffixed `configs/`. Selected per-user via a `variants` object in User Config (with House Defaults inheritable from User Core, overridden per-key by User Config). Unselected variants fall back to `configs/`; programs with only `configs@*/` and no `configs/` require an explicit selection or the generator aborts.
+An alternate version of a program's Program Config Tree, named by the suffix on
+`configs@<variant>/`. Variant names match `[a-z0-9-]+`; `default` is reserved
+and refers to the unsuffixed `configs/`. Selected per-user via a `variants`
+object in a User Profile (with House Defaults inheritable from User Core,
+overridden per-key by the User Profile). Unselected variants fall back to
+`configs/`; programs with only `configs@*/` and no `configs/` require an
+explicit selection or the generator aborts.
 
 ### Config Manifest
-`manifest.jsonc` inside each `configs[@variant]/` directory. Declares file placement only — `files` is an array of `{ src, dst, mode? }` entries. `src` is relative to the manifest's directory; `dst` is a `~/`-rooted user path. No templating, no conditionals, no hooks, no system paths, no encrypted entries. Constraints exist so that complexity is forced into the Config Variant axis instead of into per-file metadata.
+`manifest.jsonc` inside each `configs[@variant]/` directory. Declares file
+placement only — `files` is an array of `{ src, dst, mode? }` entries. `src` is
+relative to the manifest's directory; `dst` is a `~/`-rooted user path. No
+templating, no conditionals, no hooks, no system paths, no encrypted entries.
+Constraints exist so that complexity is forced into the Config Variant axis
+instead of into per-file metadata.
 
 ### Generated Stow Tree
-Per-user materialized tree at `~/.dotfiles/.stow/<user>/` produced by the Config Generator on the target machine. Mirrors destination paths (`.config/<...>`, `.local/<...>`, home-relative files at root). Gitignored — never committed, always regenerable from the repo + User Config + Config Variants. Consumed by `stow -d ~/.dotfiles/.stow/<user> --no-folding .`, which runs after the legacy Stow Tree pass.
+Per-user materialized tree at `~/.dotfiles/.stow/<user>/` produced by the Config
+Generator on the target machine. Mirrors destination paths (`.config/<...>`,
+`.local/<...>`, home-relative files at root). Gitignored — never committed,
+always regenerable from the repo + User Profile + Config Variants. Consumed by
+`stow -d ~/.dotfiles/.stow/<user> --no-folding .`, which runs after the legacy
+Stow Tree pass.
 
 ### Config Generator
-`.os/tools/generate-configs.sh`. Reads the merged User Core + User Config for a target user and the merged Host Core + Host Config for the machine (hostname looked up at runtime). Resolves each program's Config Variant via the Variant Resolver, validates all relevant Config Manifests, builds a per-user plan via the Plan Builder, and materializes the Generated Stow Tree. Invoked by the Runner inside `arch-chroot` per user between the dotfiles clone and the stow invocation. Also runnable standalone after install (`--user <name>`) to re-render after variant edits. Flags `--validate-only` and `--dry-run` are supported. Aborts if a planned destination is already owned by the legacy Stow Tree.
+`.os/tools/generate-configs.sh`. Reads the merged User Core + User Profile for a
+target user and the merged Host Core + Host Profile for the machine (hostname
+looked up at runtime). Resolves each program's Config Variant via the Variant
+Resolver, validates all relevant Config Manifests, builds a per-user plan via
+the Plan Builder, and materializes the Generated Stow Tree. Invoked by the
+Runner inside `arch-chroot` per user between the dotfiles clone and the stow
+invocation. Also runnable standalone after install (`--user <name>`) to
+re-render after variant edits. Flags `--validate-only` and `--dry-run` are
+supported. Aborts if a planned destination is already owned by the legacy Stow
+Tree.
 
 ### Plan Builder
-Pure function inside the Config Generator. Inputs: the resolved Config Variant map, the per-user `~/.dotfiles/.stow/<user>/` stow root, and the declared program set (User Programs from User Core + User Config, unioned with System Programs from Host Core + Host Config). Output: a deterministically-ordered flat list of `{ src_abs, dst_in_stow_tree, mode? }` entries. No writes. Programs with a Program Config Tree on disk but not in the declared set are silently omitted — mid-migration is a normal state.
+Pure function inside the Config Generator. Inputs: the resolved Config Variant
+map, the per-user `~/.dotfiles/.stow/<user>/` stow root, and the declared
+program set (User Programs from User Core + User Profile, unioned with System
+Programs from Host Core + Host Profile). Output: a deterministically-ordered
+flat list of `{ src_abs, dst_in_stow_tree, mode? }` entries. No writes. Programs
+with a Program Config Tree on disk but not in the declared set are silently
+omitted — mid-migration is a normal state.
 
 ### House Defaults
-Variants declared in User Core's `variants` object, applied to every user unless overridden per-key in their own User Config. Same merge semantics as the rest of the User Core / User Config relationship — core first, user adds on top, individual keys can be replaced without replacing the whole object.
+Variants declared in User Core's `variants` object, applied to every user unless
+overridden per-key in their own User Profile. Same merge semantics as the rest
+of the User Core / User Profile relationship — core first, user adds on top,
+individual keys can be replaced without replacing the whole object.
 
 ### VM Profile
-A JSON file describing one virtual machine to provision for install testing or dev use, consumed by the VM Harness — never installed onto real hardware (distinct from Host Profile and Install Template). Carries a `hardware` block (disk sizes, RAM, vCPUs) and names the machine's install config via exactly one of three sources: a `host_profile` reference (resolved through the same template-merge the Pre-Install Picker uses, keeping one source of truth), an inline `install` block (a full Install Config, for test-only install permutations that have no real Host Profile), or `"install": "repo"` (use the repo's committed `install.jsonc` as-is, hostname patched — the smoke test that the shipped default installs). Profiles for persistent/usable VMs live under `.os/vm/profiles/<category>/`; test profiles live under `.os/tests/vm/profiles/<category>/` and additionally carry verification expectations (pools, mounts, owners, boot checks). Grouped into Profile Categories (subdirectories).
+A JSON file describing one virtual machine to provision for install testing or
+dev use, consumed by the VM Harness — never installed onto real hardware
+(distinct from a Host Profile). Carries a `hardware` block (disk sizes, RAM,
+vCPUs) and names the machine's install source via exactly one of two top-level
+keys (`host_profile` xor `install`): a `host_profile` reference names a real
+host directory, resolved through the unified Profile Loader — the picker
+assembles its Effective Config against the VM's virtual disks, keeping one
+source of truth; or an `install` block, either an inline Effective Config (a
+full assembled config, for test-only permutations with no real Host Profile) or
+the string `"repo"`, meaning the repo's designated default Host Profile named by
+the single harness constant `VM_DEFAULT_HOST_PROFILE` (default `arch-kde`),
+hostname patched — the smoke test that the shipped default installs (ADR 0036,
+amending ADR 0035). Profiles for persistent/usable VMs live under
+`.os/vm/profiles/<category>/`; test profiles live under
+`.os/tests/vm/profiles/<category>/` and additionally carry verification
+expectations (pools, mounts, owners, boot checks). Grouped into Profile
+Categories (subdirectories).
 
 ### VM Harness
-`.os/vm/vm.sh`. The single profile-driven entry point that provisions a libvirt VM from a VM Profile and runs `install.sh --unattended` inside it. Default flow builds a persistent, reusable VM (spice graphics, reboots into the installed system for interactive use via virt-manager). `--testing` selects the disposable test flow (headless, serial-console capture, sentinel watcher, installer exit-code propagation, opt-in boot-verify). Validates the profile up front (schema, exactly one install source, any referenced Install Template exists) before doing any work, mirroring the repo's fail-fast config validation. Shared host-side core (dependency checks, ISO resolution, install-config assembly, libvirt domain create/boot) and the two divergent flows live in `vm/lib/`. A test profile run **without** `--testing` yields a persistent VM of that exact config — the supported way to interactively debug a failing test case.
+`.os/vm/vm.sh`. The single profile-driven entry point that provisions a libvirt
+VM from a VM Profile and runs `install.sh --unattended` inside it. Default flow
+builds a persistent, reusable VM (spice graphics, reboots into the installed
+system for interactive use via virt-manager). `--testing` selects the disposable
+test flow (headless, serial-console capture, sentinel watcher, installer
+exit-code propagation, opt-in boot-verify). Validates the profile up front
+(schema, exactly one install source, and that any referenced `host_profile`
+names a real host directory) before doing any work, mirroring the repo's
+fail-fast config validation. Shared host-side core (dependency checks, ISO
+resolution, Effective Config assembly, libvirt domain create/boot) and the two
+divergent flows live in `vm/lib/`. A test profile run **without** `--testing`
+yields a persistent VM of that exact config — the supported way to interactively
+debug a failing test case.
 
 ### Profile Category
-The subdirectory grouping VM Profiles within a `profiles/` tree. The axis differs per tree: persistent profiles (`.os/vm/profiles/`) are categorized by desktop/use (`desktop/`, `headless/`); test profiles (`.os/tests/vm/profiles/`) are categorized by the install path they exercise (`single/`, `multi/`, `data-pools/`, `impermanence/`, `env/`). Each profile lives in exactly one category; when a feature category fits (e.g. `impermanence/`, `env/`) it wins over the bare layout-mode category.
+The subdirectory grouping VM Profiles within a `profiles/` tree. The axis
+differs per tree: persistent profiles (`.os/vm/profiles/`) are categorized by
+desktop/use (`desktop/`, `headless/`); test profiles (`.os/tests/vm/profiles/`)
+are categorized by the install path they exercise (`single/`, `multi/`,
+`data-pools/`, `impermanence/`, `env/`). Each profile lives in exactly one
+category; when a feature category fits (e.g. `impermanence/`, `env/`) it wins
+over the bare layout-mode category.
 
 ## Flagged ambiguities
 
-- "base packages" vs "core packages" — resolved: the **Base Package List** (hardcoded in `lib/packages.sh`) is the only shared package base. **Host Core** carries **no** `packages` object — only `system_programs` and `sysctl`; package lists live per-host (ADR 0007). The ADR 0021 clause placing `extra-cmake-modules` in Host Core is withdrawn (see ADR 0021 amendment); ECM is dropped entirely since paru resolves makedepends at build time.
-- DE packages in host configs — resolved: every package derivable from `environment.desktop` belongs to its **Desktop Environment Adapter**, not a Host Config (ADR 0021). Applies to Hyprland as of the 0021 amendment, not only KDE.
-- `host_profile` is used at two layers — resolved: a **VM Profile**'s top-level `host_profile` triggers an **Install Template** merge (requires the host to ship `install.template.jsonc`), whereas the `host_profile` field *inside* an **Install Config** only selects the **Host Config** (`config.jsonc`) for users/programs. The VM-level reference resolves to both (the assembled config carries the same `host_profile` field through); the inline-`install` path uses only the config-field meaning, so a host referenced inline (e.g. `arch-data`) needs no template.
-- Unified Host Profile (pending, ADR 0036) — the three machine files (`install.jsonc`, `install.template.jsonc`, host `config.jsonc`) are being collapsed into one `hosts/<name>/profile.jsonc`; install becomes `install.sh --profile`, disks stay operator-picked and the effective config is ephemeral. The glossary entries **Install Config**, **Install Template**, **Pre-Install Picker**, **Host Profile**, **Single Entry Point**, **User Config**, and **VM Profile** will be rewritten when the redesign lands; until then they describe the current (pre-0036) code.
+- "base packages" vs "core packages" — resolved: the **Base Package List**
+  (hardcoded in `lib/packages.sh`) is the only shared package base. **Host
+  Core** carries **no** `packages` object — only `system_programs` and `sysctl`;
+  package lists live per-host (ADR 0007). The ADR 0021 clause placing
+  `extra-cmake-modules` in Host Core is withdrawn (see ADR 0021 amendment); ECM
+  is dropped entirely since paru resolves makedepends at build time.
+- DE packages in host configs — resolved: every package derivable from
+  `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
+  Host Profile (ADR 0021). Applies to Hyprland as of the 0021 amendment, not
+  only KDE.
+- `host_profile` now lives at one layer only (ADR 0036): it is a **VM Profile**
+  key naming a real host directory, which the unified Profile Loader resolves to
+  that machine's **Host Profile** (the picker assembles the **Effective Config**
+  against the VM's virtual disks). The former install-config `host_profile`
+  *field* is gone — a machine's identity is its profile directory name, i.e. the
+  `install.sh --profile <name>` argument.
