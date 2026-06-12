@@ -86,7 +86,13 @@ imp_write_mount_unit() {
   cat > "$unit" <<UNIT
 [Unit]
 Description=Bind-mount persist over $target
-After=systemd-tmpfiles-setup.service
+# Order AFTER the ZFS datasets are mounted (zfs-mount.service = \`zfs mount -a\`):
+# the source is on the Persist Dataset, the target on a Rollback Dataset. Do NOT
+# order After=systemd-tmpfiles-setup.service — that service is itself
+# After=local-fs.target, so with our Before=local-fs.target it forms an ordering
+# cycle that systemd breaks by DROPPING this unit (it never mounts at boot). The
+# mount auto-creates its own target directory, so tmpfiles is not needed here.
+After=zfs-mount.service
 Before=local-fs.target
 
 [Mount]
