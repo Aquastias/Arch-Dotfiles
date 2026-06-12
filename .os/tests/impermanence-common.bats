@@ -28,11 +28,35 @@ STUB
 
 teardown() { rm -rf "$TEST_DIR"; }
 
+# ── imp_write_mount_unit: systemd .mount naming contract ────────────────────
+# systemd refuses a .mount unit whose filename != the escaped Where= path
+# (Loaded: bad-setting). A wrong name silently breaks every Persist Mount on
+# boot — curated dirs (/etc/ssh host keys, /etc/secrets age key, …) never get
+# bound over the @blank-rolled-back /etc. Regression guard for that class.
+
+@test "imp_write_mount_unit: names the unit after Where= (systemd .mount contract)" {
+  local units="$TEST_DIR/units"
+  imp_write_mount_unit /etc/ssh "$units"
+  local expected; expected="$(systemd-escape -p --suffix=mount /etc/ssh)"
+  [ -f "$units/$expected" ]
+}
+
+@test "imp_write_mount_unit: systemd-analyze accepts the generated unit" {
+  command -v systemd-analyze >/dev/null 2>&1 || skip "systemd-analyze absent"
+  local units="$TEST_DIR/units"
+  imp_write_mount_unit /etc/ssh "$units"
+  local expected; expected="$(systemd-escape -p --suffix=mount /etc/ssh)"
+  run systemd-analyze verify "$units/$expected"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"bad unit file setting"* ]]
+  [[ "$output" != *"doesn't match unit name"* ]]
+}
+
 # ── persist_apply ───────────────────────────────────────────────────────────
 
 @test "persist_apply: writes mount unit under \$IMPERMANENCE_MOUNT/etc/systemd/system" {
   persist_apply /etc/foo.conf f
-  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-etc-foo.conf.mount" ]
+  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount" ]
 }
 
 @test "persist_apply file: appends 'f 0644' tmpfiles entry under \$IMPERMANENCE_MOUNT/etc/tmpfiles.d" {
@@ -68,7 +92,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   : > "$CALLS"
   persist_activate /etc/foo.conf
   grep -qxF "systemctl daemon-reload" "$CALLS"
-  grep -qxF "systemctl start persist-etc-foo.conf.mount" "$CALLS"
+  grep -qxF "systemctl start etc-foo.conf.mount" "$CALLS"
 }
 
 # ── persist_stage_in_copy ───────────────────────────────────────────────────
@@ -96,13 +120,13 @@ teardown() { rm -rf "$TEST_DIR"; }
   persist_apply /etc/foo.conf f
   : > "$CALLS"
   persist_unapply /etc/foo.conf
-  grep -qxF "systemctl stop persist-etc-foo.conf.mount" "$CALLS"
+  grep -qxF "systemctl stop etc-foo.conf.mount" "$CALLS"
   grep -qxF "systemctl daemon-reload" "$CALLS"
 }
 
 @test "persist_unapply: removes the mount unit file" {
   persist_apply /etc/foo.conf f
-  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/persist-etc-foo.conf.mount"
+  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount"
   [ -f "$unit" ]
   persist_unapply /etc/foo.conf
   [ ! -f "$unit" ]
@@ -185,8 +209,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "persist_apply: optional unit_dir overrides default location" {
   local alt="$TEST_DIR/alt-units"
   persist_apply /etc/foo.conf f "$alt"
-  [ -f "$alt/persist-etc-foo.conf.mount" ]
-  [ ! -f "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-etc-foo.conf.mount" ]
+  [ -f "$alt/etc-foo.conf.mount" ]
+  [ ! -f "$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount" ]
 }
 
 @test "persist_apply: optional tmpfiles_file overrides default location" {
