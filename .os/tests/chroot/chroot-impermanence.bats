@@ -24,7 +24,8 @@ setup() {
     return 0
   }
   zpool()   { printf 'zpool %s\n'   "$*" >> "$CALLS"; }
-  export -f zfs zpool
+  systemd-machine-id-setup() { printf 'machine-id-setup %s\n' "$*" >> "$CALLS"; }
+  export -f zfs zpool systemd-machine-id-setup
 
   export IMPERMANENCE_ENABLED=false
   export IMPERMANENCE_DATASET=rpool/persist
@@ -253,12 +254,26 @@ seed_curated() {
   fi
 }
 
-@test "enabled: moves curated file content; source absent, dest present" {
+@test "enabled: COPIES curated file content; source KEPT (frozen in @blank)" {
+  # Early-read files (machine-id, …) must stay in /etc so @blank captures real
+  # values — they can't be bind-restored before PID 1 reads them.
   seed_curated /etc/machine-id "abc123"
   run_enabled
-  [ ! -e "$FAKEROOT/etc/machine-id" ]
+  [ -f "$FAKEROOT/etc/machine-id" ]
+  [ "$(cat "$FAKEROOT/etc/machine-id")" = "abc123" ]
   [ -f "$FAKEROOT/persist/etc/machine-id" ]
   [ "$(cat "$FAKEROOT/persist/etc/machine-id")" = "abc123" ]
+}
+
+@test "enabled: initialises a real machine-id before @blank" {
+  : > "$CALLS"
+  run_enabled
+  # machine-id setup must run, and must precede the @blank snapshots
+  grep -qE "^machine-id-setup " "$CALLS"
+  local mid_line snap_line
+  mid_line="$(grep -nE "^machine-id-setup " "$CALLS" | head -1 | cut -d: -f1)"
+  snap_line="$(grep -nE "^zfs snapshot .*@blank" "$CALLS" | head -1 | cut -d: -f1)"
+  [ "$mid_line" -lt "$snap_line" ]
 }
 
 @test "enabled: moves curated dir content; source absent, dest present" {
@@ -310,11 +325,14 @@ seed_curated() {
 
 # ── R2: rigorous post-move snapshot ordering ─────────────────────────────────
 
-@test "enabled: every mv occurs before every zfs snapshot in call log" {
+@test "enabled: dir staging (mv) occurs before every @blank snapshot" {
+  # Curated DIRS are moved onto the Persist Dataset; that must finish before the
+  # @blank snapshots so the snapshot is blank of them. (Curated FILES are copied,
+  # not moved — see the machine-id tests.)
   mv() { printf 'mv %s\n' "$*" >> "$CALLS"; command mv "$@"; }
   export -f mv
-  seed_curated /etc/machine-id "x"
-  seed_curated /etc/hostname    "x"
+  mkdir -p "$FAKEROOT/etc/ssh"
+  printf 'k' > "$FAKEROOT/etc/ssh/key"
   run_enabled
   local last_mv first_snap
   last_mv="$(grep -n "^mv " "$CALLS" | tail -1 | cut -d: -f1)"
