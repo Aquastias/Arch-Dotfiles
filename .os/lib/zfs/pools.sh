@@ -363,7 +363,9 @@ _create_os_datasets() {
   # Creating them later (in the chroot module) leaves them noauto + uncached, so
   # they never mount and the @blank rollback is a no-op. No-op when disabled.
   if [[ "$(install_config_impermanence_enabled)" == "true" ]]; then
-    info "Impermanence enabled — creating Rollback Datasets on ${pool_name}."
+    info "Impermanence enabled — creating Persist + Rollback Datasets on ${pool_name}."
+    imp_create_persist_dataset "$(install_config_impermanence_dataset)" \
+                               "$(install_config_impermanence_mount)"
     imp_create_rollback_datasets "${pool_name}"
   fi
 

@@ -61,27 +61,18 @@ run_enabled() {
   [ ! -s "$CALLS" ]
 }
 
-# ── cycle 2: enabled creates Persist Dataset ─────────────────────────────────
+# ── cycle 2+3: datasets are NOT created here — done EARLY in the layout phase ─
+# Both the Persist Dataset and the Rollback Datasets are created before pacstrap
+# by imp_create_persist_dataset + imp_create_rollback_datasets (see
+# tests/impermanence-common.bats). Creating them in the Chroot Module is too
+# late: rollback datasets would miss pacstrap's content + the zfs-list.cache,
+# and the Persist Dataset would mount too late for the curated binds to restore
+# /etc state before dbus.
 
-@test "enabled: zfs create called for the Persist Dataset" {
+@test "enabled: does NOT create the Persist Dataset (done early in layout)" {
   run_enabled
-  grep -qE "^zfs create .* rpool/persist$" "$CALLS"
+  ! grep -qE "^zfs create .* rpool/persist\$" "$CALLS"
 }
-
-@test "enabled: Persist Dataset created with mountpoint=/persist" {
-  run_enabled
-  grep -qE "^zfs create .*-o mountpoint=/persist.* rpool/persist$" "$CALLS"
-}
-
-@test "enabled: Persist Dataset created with canmount=on" {
-  run_enabled
-  grep -qE "^zfs create .*-o canmount=on.* rpool/persist$" "$CALLS"
-}
-
-# ── cycle 3: Rollback Datasets are NOT created here ─────────────────────────
-# They are created EARLY (before pacstrap) by imp_create_rollback_datasets in
-# the layout phase — see tests/impermanence-common.bats. The Chroot Module must
-# not create them (it would be too late: noauto + uncached → never mounted).
 
 @test "enabled: does NOT create the Rollback Datasets (done early in layout)" {
   run_enabled
@@ -333,24 +324,6 @@ seed_curated() {
 }
 
 # ── R3: idempotent dataset creation ──────────────────────────────────────────
-
-@test "enabled: skip zfs create when Persist Dataset already exists" {
-  zfs() {
-    printf 'zfs %s\n' "$*" >> "$CALLS"
-    if [[ "$1" == "list" ]]; then
-      [[ "${@: -1}" == "rpool/persist" ]] && return 0
-      return 1
-    fi
-    return 0
-  }
-  export -f zfs
-  run_enabled
-  if grep -qE "^zfs create .* rpool/persist$" "$CALLS"; then
-    echo "FAIL: created persist dataset that already exists"
-    cat "$CALLS"
-    return 1
-  fi
-}
 
 @test "enabled: idempotent — second apply on existing datasets is no-op" {
   zfs() {
