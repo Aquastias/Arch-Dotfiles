@@ -187,6 +187,11 @@ persist_restore_data() {
 # the rolled-back dataset will lose any live copy on next boot anyway, so
 # the move is safe and avoids leaving a duplicate. Missing source is a
 # no-op (curated lists include paths not present on every host).
+#
+# When $target is itself a mountpoint (e.g. /root, which is both a Rollback
+# Dataset and a Curated Persist Default), the mountpoint directory can't be
+# mv'd (EBUSY "Device or resource busy"). Move its CONTENTS instead and leave
+# the now-empty mountpoint for the @blank snapshot + bind mount to cover.
 persist_stage_in_move() {
   local target="$1"
   local live_root="${2:-${IMPERMANENCE_ROOT:-}}"
@@ -194,6 +199,15 @@ persist_stage_in_move() {
   local src="$live_root$target"
   local dst="$persist_root$target"
   [[ -e "$src" ]] || return 0
-  mkdir -p "$(dirname "$dst")"
-  mv "$src" "$dst"
+  if mountpoint -q "$src" 2>/dev/null; then
+    mkdir -p "$dst"
+    (
+      shopt -s dotglob nullglob
+      local entries=("$src"/*)
+      ((${#entries[@]})) && mv -- "${entries[@]}" "$dst"/
+    )
+  else
+    mkdir -p "$(dirname "$dst")"
+    mv "$src" "$dst"
+  fi
 }

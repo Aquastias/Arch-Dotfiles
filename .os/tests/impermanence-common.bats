@@ -244,6 +244,20 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
 }
 
+@test "persist_stage_in_move: mountpoint source moves CONTENTS, leaves dir" {
+  # /root is both a Rollback Dataset (mountpoint) and a curated dir; the
+  # mountpoint itself can't be mv'd, so its contents move and the dir stays.
+  mountpoint() { [[ "$2" == "$IMPERMANENCE_ROOT/root" ]]; }
+  mkdir -p "$IMPERMANENCE_ROOT/root/.config"
+  printf 'x\n' > "$IMPERMANENCE_ROOT/root/.bashrc"
+  printf 'y\n' > "$IMPERMANENCE_ROOT/root/.config/f"
+  persist_stage_in_move /root
+  [ -f "$IMPERMANENCE_MOUNT/root/.bashrc" ]
+  [ -f "$IMPERMANENCE_MOUNT/root/.config/f" ]
+  [ -d "$IMPERMANENCE_ROOT/root" ]
+  [ -z "$(ls -A "$IMPERMANENCE_ROOT/root")" ]
+}
+
 # ── persist_apply: install-time path overrides ──────────────────────────────
 
 @test "persist_apply: optional unit_dir overrides default location" {
