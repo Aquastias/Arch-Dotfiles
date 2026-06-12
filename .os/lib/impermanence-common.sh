@@ -36,6 +36,19 @@ ROLLBACK_DATASETS=(
   "usrlocal:/usr/local"
 )
 
+# Create the Persist Dataset EARLY (with the Rollback Datasets, before the OS is
+# installed) so it lands in the zfs-list.cache and mounts at boot BEFORE
+# local-fs.target. The curated Persist Mounts (RequiredBy=local-fs.target) then
+# restore /etc/machine-id, host keys, the SOPS age key, etc. over the
+# @blank-rolled-back /etc before early services run — dbus-broker hard-fails
+# (restart-loops) on an empty /etc/machine-id, so this ordering is load-bearing.
+# Idempotent.
+imp_create_persist_dataset() {
+  local dataset="$1" mount="$2"
+  zfs list -H -o name "$dataset" >/dev/null 2>&1 && return 0
+  zfs create -o mountpoint="$mount" -o canmount=on "$dataset"
+}
+
 # Create the Rollback Datasets EARLY — during pool/dataset creation, before the
 # OS is installed — so pacstrap writes /etc, /root, /opt, /srv, /usr/local onto
 # them AND they land in the zfs-list.cache (built later in chroot configure),

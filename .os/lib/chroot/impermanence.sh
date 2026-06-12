@@ -19,27 +19,14 @@ source "$_IMP_COMMON"
 # `info` shadows by texinfo's /usr/bin/info, which fails under set -e.
 info() { printf '[impermanence] %s\n' "$*" >&2; }
 
-_impermanence_dataset_exists() {
-  zfs list -H -o name "$1" >/dev/null 2>&1
-}
-
-_impermanence_create_persist_dataset() {
-  if _impermanence_dataset_exists "$IMPERMANENCE_DATASET"; then
-    info "impermanence: $IMPERMANENCE_DATASET already exists, skipping create"
-    return 0
-  fi
-  zfs create \
-    -o mountpoint="$IMPERMANENCE_MOUNT" \
-    -o canmount=on \
-    "$IMPERMANENCE_DATASET"
-}
-
-# The Rollback Datasets (rpool/ROOT/{etc,opt,root,srv,usrlocal}) are created
-# EARLY, during pool/dataset creation, by imp_create_rollback_datasets (see
-# lib/impermanence-common.sh). They must exist + be populated by pacstrap and be
-# canmount=on so they mount at boot; creating them here (post-install) is too
-# late. This module only consumes them (stage curated dirs, snapshot @blank,
-# write the rollback hook).
+# The Persist Dataset (rpool/persist) AND the Rollback Datasets
+# (rpool/ROOT/{etc,opt,root,srv,usrlocal}) are created EARLY, during
+# pool/dataset creation, by imp_create_persist_dataset +
+# imp_create_rollback_datasets (see lib/impermanence-common.sh). They must exist
+# before pacstrap (so the OS populates the rollback datasets) and land in the
+# zfs-list.cache (so they mount at boot — the Persist Dataset early enough that
+# the curated Persist Mounts restore /etc state before dbus). This module only
+# consumes them (stage curated dirs, snapshot @blank, write the rollback hook).
 
 _impermanence_write_manifest() {
   local dir="${ROOT:-}/usr/lib/impermanence"
@@ -229,7 +216,6 @@ impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
   local step
   for step in \
-    _impermanence_create_persist_dataset \
     _impermanence_write_manifest \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \

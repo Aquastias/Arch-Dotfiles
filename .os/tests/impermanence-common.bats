@@ -92,6 +92,20 @@ teardown() { rm -rf "$TEST_DIR"; }
   ! grep -qE "^zfs create " "$CALLS"
 }
 
+@test "imp_create_persist_dataset: creates it canmount=on at its mountpoint" {
+  : > "$CALLS"
+  imp_create_persist_dataset rpool/persist /persist
+  grep -qE "^zfs create .*mountpoint=/persist .*canmount=on .*rpool/persist\$" \
+    "$CALLS"
+}
+
+@test "imp_create_persist_dataset: idempotent — skips when it exists" {
+  : > "$CALLS"
+  zfs() { printf 'zfs %s\n' "$*" >> "$CALLS"; return 0; }  # list → exists
+  imp_create_persist_dataset rpool/persist /persist
+  ! grep -qE "^zfs create " "$CALLS"
+}
+
 # ── persist_apply ───────────────────────────────────────────────────────────
 
 @test "persist_apply: writes mount unit under \$IMPERMANENCE_MOUNT/etc/systemd/system" {
