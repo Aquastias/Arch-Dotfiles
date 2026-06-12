@@ -19,10 +19,10 @@ JSONC
   # programs without contaminating from the real .os/ tree.
   export OS_DIR="$TEST_DIR/osdir"
   mkdir -p "$OS_DIR/users/core" "$OS_DIR/hosts/core"
-  cat > "$OS_DIR/users/core/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/users/core/profile.jsonc" <<'JSONC'
 { "programs": ["hello", "alpha", "beta"] }
 JSONC
-  cat > "$OS_DIR/hosts/core/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSONC'
 { "system_programs": [] }
 JSONC
   ln -s "$BATS_TEST_DIRNAME/../../lib" "$OS_DIR/lib"
@@ -109,11 +109,11 @@ JSONC
            "$OS_DIR/programs/_fixture/bravo/configs" \
            "$OS_DIR/programs/_fixture/bravo/configs@minimal"
 
-  cat > "$OS_DIR/users/core/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/users/core/profile.jsonc" <<'JSONC'
 { "programs": ["alpha", "bravo"],
   "variants": { "alpha": "gaudy", "bravo": "minimal" } }
 JSONC
-  cat > "$OS_DIR/users/alex/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/users/alex/profile.jsonc" <<'JSONC'
 { "variants": { "alpha": "minimal" } }
 JSONC
 
@@ -179,7 +179,7 @@ JSONC
 
 @test "cli: --validate-only --user fails on missing variant directory" {
   mkdir -p "$OS_DIR/users/alex"
-  cat > "$OS_DIR/users/alex/config.jsonc" <<'JSONC'
+  cat > "$OS_DIR/users/alex/profile.jsonc" <<'JSONC'
 { "variants": { "hello": "ghost" } }
 JSONC
 

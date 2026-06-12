@@ -2,32 +2,16 @@
 # =============================================================================
 # lib/picker.sh — Pre-Install Picker deep modules
 # =============================================================================
-# Pure functions consumed by tools/pick.sh. No TTY, no fzf, no side effects
-# beyond reading files and writing to stdout/stderr.
+# Pure disk-resolution functions for the `install.sh --profile` front-end and
+# the VM harness. No TTY, no fzf, no side effects beyond reading files and
+# writing to stdout/stderr.
 #
-# Sourced by tools/pick.sh and tests/picker.bats.
+# Sourced by lib/config/profile.sh, install.sh, vm/lib/profile.sh, and
+# tests/picker.bats.
 # =============================================================================
 
 # shellcheck source=./jsonc.sh
 source "${BASH_SOURCE[0]%/*}/jsonc.sh"
-
-# picker_enum_hosts <hosts_dir>
-#   Emits, one per line, the names of <hosts_dir>/<name>/ directories that
-#   ship an install.template.jsonc. The reserved name `core` is excluded.
-#   Output is sorted; missing dir yields empty output.
-picker_enum_hosts() {
-  local hosts_dir="$1" name entry
-  [[ -d "$hosts_dir" ]] || return 0
-  {
-    for entry in "$hosts_dir"/*/ "$hosts_dir"/vm/*/; do
-      [[ -d "$entry" ]] || continue
-      name="$(basename "$entry")"
-      [[ "$name" == "core" || "$name" == "vm" ]] && continue
-      [[ -f "$entry/install.template.jsonc" ]] || continue
-      printf '%s\n' "$name"
-    done
-  } | sort -u
-}
 
 # picker_validate_layout <mode> <disk_count>
 #   Pure rule check on a mode/topology and the picked disk count. Accepts
@@ -59,36 +43,6 @@ picker_validate_layout() {
     echo "$mode mode requires at least $min disks (got $count)" >&2
     return 1
   fi
-}
-
-# picker_load_template <hosts_dir> <host>
-#   Reads <hosts_dir>/core/install.template.jsonc and <hosts_dir>/<host>/
-#   install.template.jsonc, returns the merged JSON on stdout. Merge rules
-#   match Host Config / Host Core: arrays concat+dedupe, objects deep merge,
-#   scalars host-wins.
-picker_load_template() {
-  local hosts_dir="$1" host="$2"
-  local core_file="$hosts_dir/core/install.template.jsonc"
-  local host_file="$hosts_dir/$host/install.template.jsonc"
-  [[ -f "$host_file" ]] || host_file="$hosts_dir/vm/$host/install.template.jsonc"
-  local core_json host_json
-  core_json="$(jsonc_strip "$core_file" | jq '.')" || return 1
-  host_json="$(jsonc_strip "$host_file" | jq '.')" || return 1
-  jq -n --argjson a "$core_json" --argjson b "$host_json" '
-    def dedup_keep_first:
-      reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end);
-    def merge(x; y):
-      if   (x == null) then y
-      elif (y == null) then x
-      elif (x | type) == "array"  and (y | type) == "array"
-        then ((x + y) | dedup_keep_first)
-      elif (x | type) == "object" and (y | type) == "object"
-        then reduce ((x + y) | keys_unsorted | unique[]) as $k
-          ({}; .[$k] = merge(x[$k]; y[$k]))
-      else y
-      end;
-    merge($a; $b)
-  '
 }
 
 # picker_enum_disks <live_set>
@@ -125,98 +79,6 @@ picker_enum_disks() {
     [[ -n "$skip" ]] && continue
     printf '%s\n' "$link"
   done | sort
-}
-
-# picker_pin_from_template <template_json>
-#   Reads an optional layout pin from a merged Install Template (ADR 0029).
-#   Pin trigger is `.mode`:
-#     absent/null  → unpinned: empty stdout, return 0 (picker prompts).
-#     "single"     → prints `single`, return 0.
-#     "multi"      → requires `.os_pool.topology`; prints
-#                    `multi<TAB><topology>`, return 0. Missing topology is
-#                    a template error: message on stderr, return non-zero.
-#     anything else → error on stderr, return non-zero.
-#   Pure: reads the JSON arg only, never disks (those are always picked).
-picker_pin_from_template() {
-  local template="$1" mode topology
-  mode="$(jq -r '.mode // ""' <<<"$template")" || return 1
-  [[ -z "$mode" || "$mode" == "null" ]] && return 0
-  case "$mode" in
-    single)
-      printf '%s\n' single
-      ;;
-    multi)
-      topology="$(jq -r '.os_pool.topology // ""' <<<"$template")"
-      if [[ -z "$topology" || "$topology" == "null" ]]; then
-        echo "pinned mode=multi requires os_pool.topology in the" \
-             "template (ADR 0029)" >&2
-        return 1
-      fi
-      printf '%s\t%s\n' multi "$topology"
-      ;;
-    *)
-      echo "unknown pinned mode '$mode' (expected single or multi)" >&2
-      return 1
-      ;;
-  esac
-}
-
-# picker_assemble_config <template_json> <profile> <mode> <disk> [<disk>...]
-#   Returns full install.jsonc text on stdout. The template provides every
-#   per-machine field. The <profile> arg is the chosen host directory name
-#   (the Host Profile). Hostname resolution: template's .system.hostname
-#   wins when set, else falls back to <profile>. No host_profile field is
-#   written — the directory name is the identity (ADR 0036). Layout fields
-#   are written fresh per <mode>:
-#     single                       → .mode="single", .disk=<disk>
-#     mirror | stripe | raidz1     → .mode="multi", os_pool.topology=<mode>,
-#     | raidz2 | none                 os_pool.disks=[<disks>...]
-#     raidz (prompt token)         → alias for raidz1
-#   The expanded topology vocabulary (stripe/raidz2/none) lets a pinned
-#   template pass its os_pool.topology straight through (ADR 0029); the
-#   unpinned prompt still only supplies single/mirror/raidz.
-picker_assemble_config() {
-  local template="$1" profile="$2" mode="$3"
-  shift 3
-  local disks_json
-  disks_json="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
-  case "$mode" in
-    single)
-      jq -n --argjson tpl "$template" \
-            --arg profile "$profile" \
-            --arg disk "$1" '
-        $tpl
-        | .system = (.system // {})
-        | .system.hostname =
-            (if (.system.hostname // "") == ""
-             then $profile else .system.hostname end)
-        | .mode = "single"
-        | .disk = $disk
-      '
-      ;;
-    mirror | stripe | raidz | raidz1 | raidz2 | none)
-      local topology
-      [[ "$mode" == raidz ]] && topology="raidz1" || topology="$mode"
-      jq -n --argjson tpl "$template" \
-            --arg profile "$profile" \
-            --arg topology "$topology" \
-            --argjson disks "$disks_json" '
-        $tpl
-        | .system = (.system // {})
-        | .system.hostname =
-            (if (.system.hostname // "") == ""
-             then $profile else .system.hostname end)
-        | .mode = "multi"
-        | .os_pool = (.os_pool // {})
-                     + { topology: $topology, disks: $disks }
-        | del(.disk)
-      '
-      ;;
-    *)
-      echo "picker_assemble_config: unknown mode '$mode'" >&2
-      return 1
-      ;;
-  esac
 }
 
 # picker_assign_disks <profile_json> <assignment_json>
@@ -461,31 +323,3 @@ picker_format_disk_preview() {
 }
 
 
-# picker_parse_choice <char>
-#   Maps the four-way review-screen keypress to an action keyword on stdout.
-#   Unrecognised input → non-zero, no stdout.
-#     i → write_install   w → write_only   e → edit   a → abort
-picker_parse_choice() {
-  case "$1" in
-    i) echo write_install ;;
-    w) echo write_only ;;
-    e) echo edit ;;
-    a) echo abort ;;
-    *) return 1 ;;
-  esac
-}
-
-# picker_render_review <jsonc_text> <existing_path>
-#   Renders the review block printed before the four-way prompt.
-#   When <existing_path> is non-empty and the file exists, prints a unified
-#   diff against it (operator-readable, not pretty). Otherwise prints the
-#   JSONC text verbatim. Always returns 0 — `diff` exit 1 (differences
-#   present) is a successful render, not a failure.
-picker_render_review() {
-  local jsonc="$1" existing="$2"
-  if [[ -n "$existing" && -f "$existing" ]]; then
-    diff -u "$existing" <(printf '%s\n' "$jsonc") || true
-  else
-    printf '%s' "$jsonc"
-  fi
-}

@@ -8,12 +8,12 @@ setup() {
   OS_FIX="$(mktemp -d)"
   export OS_FIX
 
-  # Hosts: core + a referenceable host with an Install Template.
+  # Hosts: core + a referenceable host, each a unified profile.jsonc.
   mkdir -p "$OS_FIX/hosts/core" "$OS_FIX/hosts/myhost"
-  cat > "$OS_FIX/hosts/core/install.template.jsonc" <<'JSONC'
+  cat > "$OS_FIX/hosts/core/profile.jsonc" <<'JSONC'
 { "system": { "locale": "en_US.UTF-8", "timezone": "UTC" }, "ashift": 12 }
 JSONC
-  cat > "$OS_FIX/hosts/myhost/install.template.jsonc" <<'JSONC'
+  cat > "$OS_FIX/hosts/myhost/profile.jsonc" <<'JSONC'
 { "environment": { "desktop": "kde" }, "ashift": 13 }
 JSONC
 
@@ -62,11 +62,11 @@ teardown() { rm -rf "$OS_FIX"; }
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
 }
 
-@test "vm.sh --print-config: host_profile profile merges the Install Template" {
+@test "vm.sh --print-config: host_profile profile merges the host core profile" {
   run env OS_DIR="$OS_FIX" "$VM_SH" --profile desktop/myhost --print-config
   [ "$status" -eq 0 ]
   # The resolved install config no longer carries host_profile (ADR 0036) — the
-  # template merge is proven by the machine fields below.
+  # core+host profile merge is proven by the machine fields below.
   [ "$(echo "$output" | jq -r 'has("host_profile")')" = "false" ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]

@@ -23,21 +23,14 @@ source "$OS_DIR/lib/shell-stdlib.sh"
 source "$OS_DIR/lib/config/generator.sh"
 # shellcheck source=../lib/jsonc.sh
 source "$OS_DIR/lib/jsonc.sh"
-# shellcheck source=../lib/config/layers.sh
-source "$OS_DIR/lib/config/layers.sh"
+# Brings load_profile + load_user_profile (transitively sources layers.sh for
+# program resolution).
+# shellcheck source=../lib/config/profile.sh
+source "$OS_DIR/lib/config/profile.sh"
 
-# Resolve the Host Profile for this machine. Prefers .host_profile in
-# install.jsonc; falls back to the live hostname (legacy behaviour).
+# Resolve the Host Profile for this machine — the live hostname (the host
+# directory name is the identity, ADR 0036).
 _gc_resolve_host_profile() {
-  local inst="${OS_DIR}/install.jsonc" hp=""
-  if [[ -f "$inst" ]]; then
-    hp="$(jsonc_strip "$inst" 2>/dev/null \
-        | jq -r '.host_profile // empty' 2>/dev/null || true)"
-  fi
-  if [[ -n "$hp" ]]; then
-    printf '%s' "$hp"
-    return
-  fi
   hostname 2>/dev/null || printf '%s' "${HOSTNAME:-}"
 }
 
@@ -92,13 +85,13 @@ STOW_ROOT="${STOW_ROOT:-$HOME/.dotfiles/.stow/$USER_NAME}"
 LEGACY_ROOT="${LEGACY_ROOT:-$HOME/.dotfiles}"
 
 # Merge users/core + users/<USER_NAME>. Extract variants and declared user
-# programs. load_user_config returns 0 (both exist), 1 (core only, fine for
+# programs. load_user_profile returns 0 (both exist), 1 (core only, fine for
 # variants={} and programs=[]), >=2 on hard error.
 user_progs_json='[]'
 variants='{}'
-if [[ -f "$OS_DIR/users/core/config.jsonc" ]]; then
+if [[ -f "$OS_DIR/users/core/profile.jsonc" ]]; then
   urc=0
-  user_merged="$(load_user_config "$USER_NAME")" || urc=$?
+  user_merged="$(load_user_profile "$USER_NAME")" || urc=$?
   if (( urc >= 2 )); then
     exit 1
   fi
@@ -109,10 +102,10 @@ fi
 # Merge hosts/core + hosts/<profile>. Extract system_programs declared for
 # this machine. Missing hosts/core is tolerated (no system programs).
 sys_progs_json='[]'
-if [[ -f "$OS_DIR/hosts/core/config.jsonc" ]]; then
+if [[ -f "$OS_DIR/hosts/core/profile.jsonc" ]]; then
   profile="$(_gc_resolve_host_profile)"
   hrc=0
-  host_merged="$(load_host_config "$profile")" || hrc=$?
+  host_merged="$(load_profile "$profile")" || hrc=$?
   if (( hrc >= 2 )); then
     exit 1
   fi

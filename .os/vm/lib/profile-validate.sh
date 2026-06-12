@@ -77,10 +77,10 @@ profile_validate() {
     return 1
   fi
 
-  # A host_profile names a real host directory (the loader reads its
-  # profile.jsonc, or synthesizes from legacy files during migration). We no
-  # longer require an install.template.jsonc — only that the host exists, so a
-  # typo'd reference still fails fast before any VM is provisioned (ADR 0036).
+  # A host_profile names a real host directory (the loader reads its unified
+  # profile.jsonc, merged over core). We require only that the host directory
+  # exists, so a typo'd reference still fails fast before any VM is
+  # provisioned (ADR 0036).
   local hp
   hp="$(jq -r '.host_profile // empty' <<<"$profile")"
   if [[ -n "$hp" ]] \

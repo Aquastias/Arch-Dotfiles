@@ -1,20 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/profile.sh — Profile Loader, closed-schema validator, transient
-#                         migration assembler (ADR 0036)
+# lib/config/profile.sh — Profile Loader, closed-schema validator, install-time
+#                         disk assembler (ADR 0036)
 # =============================================================================
 # The pure spine of the unified-profile redesign: read a unified Host (or
 # User) Profile and turn it into an effective config, with up-front
 # closed-schema validation — no libvirt, no disk writes.
 #
-# `load_profile <name>` returns the effective config on stdout:
-#   - When hosts/<name>/profile.jsonc exists, merges it over
-#     hosts/core/profile.jsonc (merge rules per layers.sh).
-#   - Otherwise (transient migration scaffold) it synthesizes the same
-#     effective config from the legacy install.template.jsonc + config.jsonc
-#     through the existing picker assembler, so callers read "a profile"
-#     before the files are migrated. Removed with the legacy readers at the
-#     end of the migration.
+# `load_profile <name>` merges hosts/<name>/profile.jsonc over
+# hosts/core/profile.jsonc (merge rules per layers.sh) and emits the effective
+# config on stdout. profile.jsonc is the *only* host input — there is no
+# legacy config.jsonc / install.template.jsonc fallback (issue 10).
 #
 # Pure: no side effects beyond reading files and writing stdout/stderr.
 # Requires OS_DIR set.
@@ -25,16 +21,21 @@
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
 
 # shellcheck source=../picker.sh
-[[ "$(type -t picker_load_template)" == "function" ]] \
+[[ "$(type -t picker_assign_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
 # load_profile <name> — effective host config on stdout.
-# Prefers a real hosts/<name>/profile.jsonc (merged over core); when absent,
-# falls back to the transient scaffold that synthesizes the same shape from
-# the legacy template + config.
-# Exit codes mirror load_host_config: 0 ok | 2 hard error | 3 reserved name.
-load_profile() {
-  local name="$1"
+# load_user_profile <name> — effective user config on stdout (symmetric).
+# Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
+# Exit codes: 0 ok | 1 specific missing (core only) | 2 hard error |
+#             3 reserved name.
+load_profile()      { _profile_load hosts "$1"; }
+load_user_profile() { _profile_load users "$1"; }
+
+# Shared loader — merge <kind>/core/profile.jsonc with <kind>/<name>/
+# profile.jsonc. VM hosts/users live under <kind>/vm/<name>/ (fallback).
+_profile_load() {
+  local kind="$1" name="$2"
 
   if [[ -z "${OS_DIR:-}" ]]; then
     echo "profile: OS_DIR is not set" >&2
@@ -45,85 +46,33 @@ load_profile() {
     return 3
   fi
 
-  if [[ -f "${OS_DIR}/hosts/${name}/profile.jsonc" \
-     || -f "${OS_DIR}/hosts/vm/${name}/profile.jsonc" ]]; then
-    _profile_real_merge hosts "$name"
-  else
-    _load_profile_synthesize "$name"
-  fi
-}
-
-# Real path — merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc
-# (merge rules per layers.sh). <kind> is `hosts` or `users`.
-_profile_real_merge() {
-  local kind="$1" name="$2"
   local core_file="${OS_DIR}/${kind}/core/profile.jsonc"
   local spec_file="${OS_DIR}/${kind}/${name}/profile.jsonc"
-  # VM hosts live under hosts/vm/<name>/ (mirrors _configs_load's fallback).
   [[ -f "$spec_file" ]] || spec_file="${OS_DIR}/${kind}/vm/${name}/profile.jsonc"
 
-  local core_json spec_json
-  core_json="$(_configs_parse "$core_file" 2>/dev/null)" || core_json='{}'
+  if [[ ! -f "$core_file" ]]; then
+    echo "profile: missing ${kind%s} core profile: ${core_file}" >&2
+    return 2
+  fi
+  local core_json
+  if ! core_json="$(_configs_parse "$core_file")"; then
+    echo "profile: failed to parse ${kind%s} core profile: ${core_file}" >&2
+    return 2
+  fi
+
+  if [[ ! -f "$spec_file" ]]; then
+    # Graceful: emit core only, signal via exit code (mirrors the old loader).
+    printf '%s\n' "$core_json"
+    return 1
+  fi
+
+  local spec_json
   if ! spec_json="$(_configs_parse "$spec_file")"; then
     echo "profile: failed to parse ${kind%s} profile: ${spec_file}" >&2
     return 2
   fi
 
   _configs_merge "$core_json" "$spec_json"
-}
-
-# load_user_profile <name> — effective user config on stdout. Symmetric with
-# load_profile; the user side has no install template, so the transient
-# scaffold synthesizes from the legacy user config.jsonc alone.
-load_user_profile() {
-  local name="$1"
-
-  if [[ -z "${OS_DIR:-}" ]]; then
-    echo "profile: OS_DIR is not set" >&2
-    return 2
-  fi
-  if [[ "$name" == "core" ]]; then
-    echo "profile: 'core' is a reserved name and cannot be loaded" >&2
-    return 3
-  fi
-
-  if [[ -f "${OS_DIR}/users/${name}/profile.jsonc" ]]; then
-    _profile_real_merge users "$name"
-  else
-    local config_json rc=0
-    config_json="$(load_user_config "$name" 2>/dev/null)" || rc=$?
-    case "$rc" in
-    0 | 1) printf '%s\n' "$config_json" ;;
-    *) echo "profile: cannot load user '${name}'" >&2; return 2 ;;
-    esac
-  fi
-}
-
-# Transient scaffold (removed at end of migration) — synthesize the same
-# effective config from the legacy install.template.jsonc (machine props,
-# core+specific) deep-merged with config.jsonc (software, core+specific).
-# A template-less host (e.g. arch-data) synthesizes from its config alone.
-_load_profile_synthesize() {
-  local name="$1" rc=0
-  local hosts_dir="${OS_DIR}/hosts"
-
-  local template_json='{}'
-  if [[ -f "${hosts_dir}/core/install.template.jsonc" ]] \
-     && { [[ -f "${hosts_dir}/${name}/install.template.jsonc" ]] \
-          || [[ -f "${hosts_dir}/vm/${name}/install.template.jsonc" ]]; }; then
-    template_json="$(picker_load_template "$hosts_dir" "$name")" \
-      || template_json='{}'
-  fi
-
-  local config_json
-  config_json="$(load_host_config "$name" 2>/dev/null)" || rc=$?
-  case "$rc" in
-  0 | 1) ;;             # 1 = specific missing, core-only is fine
-  *) config_json='{}' ;;
-  esac
-  [[ -n "$config_json" ]] || config_json='{}'
-
-  _configs_merge "$template_json" "$config_json"
 }
 
 # assemble_profile_config <name> <assignment_json> — the install-time effective
@@ -153,10 +102,10 @@ assemble_profile_config() {
 # unknown key at any depth aborts with its path, before any disk write. The
 # schema is expressed as path patterns; a pattern segment is a literal key,
 # `*` (any object key — open subtree), or a trailing `[]` (array). The union
-# below enumerates every currently-valid key across the legacy install.jsonc
-# and host/user config.jsonc (their union); reads (accessors.sh) and these
-# patterns must stay in lockstep — a drift guard in the bats suite asserts
-# every _INSTALL_CONFIG_SCHEMA read-path is covered here.
+# below enumerates every currently-valid key across the host and user
+# profile.jsonc; reads (accessors.sh) and these patterns must stay in
+# lockstep — a drift guard in the bats suite asserts every
+# _INSTALL_CONFIG_SCHEMA read-path is covered here.
 
 _PROFILE_SCHEMA_host=(
   # — system identity (locale/keymap are scalar|array unions — ADR 0036) —

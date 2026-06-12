@@ -1,9 +1,12 @@
 # ADR 0036: Unified profile-driven host config
 
 ## Status
-Accepted (not yet implemented). Supersedes the file split in ADR 0001;
-narrows ADR 0002's reach; amends ADR 0015 (open -> closed schema) and
-ADR 0035 (VM `install: "repo"` redefined).
+Accepted (implemented across `.scratch/unified-host-profile/` issues
+01-10 + 12, VM-verified; doc rewrite issue 11 pending). Supersedes the
+file split in ADR 0001 and ADR 0010 (the Pre-Install Picker is now the
+`install.sh --profile` front-end, not a separate `tools/pick.sh`); narrows
+ADR 0002's reach; amends ADR 0015 (open -> closed schema) and ADR 0035
+(VM `install: "repo"` redefined).
 
 ## Context
 A machine is currently described by three files: `install.jsonc`

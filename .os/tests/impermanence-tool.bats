@@ -78,7 +78,7 @@ STUB
            "$(dirname "$IMPERMANENCE_MANIFEST")" \
            "$IMPERMANENCE_HOSTS_DIR/testhost"
   : > "$IMPERMANENCE_MANIFEST"
-  cat > "$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc" <<'JSONC'
+  cat > "$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc" <<'JSONC'
 {
   "persist": {
     "directories": [],
@@ -283,17 +283,17 @@ seed_live_dir() {
   [ ! -s "$CALLS" ]
 }
 
-@test "add file: appends path to persist.files in host config" {
+@test "add file: appends path to persist.files in host profile" {
   seed_live_file /etc/foo.conf
   "$TOOL" add /etc/foo.conf
-  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc"
+  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc"
   grep -qE '"/etc/foo.conf"' "$cfg"
 }
 
-@test "add dir: appends path to persist.directories in host config" {
+@test "add dir: appends path to persist.directories in host profile" {
   seed_live_dir /etc/wireguard
   "$TOOL" add /etc/wireguard
-  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc"
+  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc"
   grep -qE '"/etc/wireguard"' "$cfg"
 }
 
@@ -303,7 +303,7 @@ seed_live_dir() {
   run "$TOOL" add /var/lib/foo
   chmod 755 "$IMPERMANENCE_MOUNT"
   [ "$status" -ne 0 ]
-  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc"
+  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc"
   run grep -F "/var/lib/foo" "$cfg"
   [ "$status" -ne 0 ]
 }
@@ -358,10 +358,10 @@ seed_persisted_file() {
   grep -qE "^f /etc/bar.conf " "$conf"
 }
 
-@test "remove: removes path from persist.files in host config" {
+@test "remove: removes path from persist.files in host profile" {
   seed_persisted_file /etc/foo.conf
   "$TOOL" remove /etc/foo.conf
-  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/config.jsonc"
+  local cfg="$IMPERMANENCE_HOSTS_DIR/testhost/profile.jsonc"
   ! grep -qE '"/etc/foo.conf"' "$cfg"
 }
 

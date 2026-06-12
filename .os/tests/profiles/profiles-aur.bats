@@ -107,7 +107,7 @@ _adapter() {
 @test "octopi is no longer declared in any host packages.aur" {
   local h
   for h in desktop laptop; do
-    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
   done
 }
 
@@ -127,13 +127,13 @@ _adapter() {
   local h
   for h in desktop laptop; do
     ! grep -q '"steam-native-runtime"' \
-      "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
+      "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
   done
 }
 
 @test "each host still declares repo steam in packages.repo" {
   local h
   for h in desktop laptop; do
-    grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/config.jsonc"
+    grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
   done
 }

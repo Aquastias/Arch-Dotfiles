@@ -51,7 +51,7 @@ _validation_system_fields() {
   RESOLVED_HOSTNAME="$hostname"
 
   # shellcheck disable=SC2034 # consumed by callers passing it to
-  # load_host_config and secrets_load.
+  # load_profile and secrets_load.
   RESOLVED_HOST_PROFILE="$hostname"
 
   cfg '.system.locale' 'system.locale'
@@ -63,20 +63,20 @@ _validation_system_fields() {
 # =============================================================================
 # Validates all program contracts for <profile> and its users.
 # Requires OS_DIR set and configs_build_registry already called.
-# Returns immediately (no-op) if no core configs are present — profiles will
+# Returns immediately (no-op) if no core profiles are present — profiles will
 # be skipped at runtime and there is nothing to validate.
-# Exits via error() on any validation failure or corrupt core config.
+# Exits via error() on any validation failure or corrupt core profile.
 
 _validation_preflight_programs() {
   local profile="$1"
-  [[ -f "${OS_DIR}/hosts/core/config.jsonc" ]] || return 0
-  [[ -f "${OS_DIR}/users/core/config.jsonc" ]] || return 0
+  [[ -f "${OS_DIR}/hosts/core/profile.jsonc" ]] || return 0
+  [[ -f "${OS_DIR}/users/core/profile.jsonc" ]] || return 0
 
   local host_json rc=0
-  host_json="$(load_host_config "$profile" 2>/dev/null)" || rc=$?
+  host_json="$(load_profile "$profile" 2>/dev/null)" || rc=$?
   case "$rc" in
   1) return 0 ;;
-  2) error "validation: cannot load host core config." ;;
+  2) error "validation: cannot load host core profile." ;;
   3) error "validation: host profile '${profile}' is reserved." ;;
   esac
 
@@ -101,10 +101,10 @@ _validation_preflight_programs() {
   local -a uprogs
   for u in "${users[@]}"; do
     urc=0
-    uj="$(load_user_config "$u" 2>/dev/null)" || urc=$?
+    uj="$(load_user_profile "$u" 2>/dev/null)" || urc=$?
     case "$urc" in
     0 | 1) ;;
-    *) echo "validation: cannot load user config '${u}'" >&2
+    *) echo "validation: cannot load user profile '${u}'" >&2
        any_fail=1; continue ;;
     esac
     mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
@@ -247,7 +247,7 @@ validate_install_context() {
   _validation_preflight_programs "$RESOLVED_HOST_PROFILE"
 
   local _host_json
-  _host_json="$(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null || \
+  _host_json="$(load_profile "$RESOLVED_HOST_PROFILE" 2>/dev/null || \
     printf '{}')"
   _validation_persist "$_host_json"
 

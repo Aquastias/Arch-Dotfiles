@@ -63,17 +63,17 @@ install_state_load() {
 
 # install_state_write <path> <profile>
 # <profile> is the Host Profile (directory key under hosts/), used only for
-# load_host_config to assemble the persist payload. The .hostname field
+# load_profile to assemble the persist payload. The .hostname field
 # written into install-state.json comes from install_config_hostname,
 # which is the machine identity — not the profile name.
 install_state_write() {
   local path="$1" profile="$2" host_json persist kernels
-  # load_host_config prints core-only JSON *and* returns 1 when no host-specific
-  # config exists (its graceful path). Capture stdout and ignore the exit
+  # load_profile prints core-only JSON *and* returns 1 when no host-specific
+  # profile exists (its graceful path). Capture stdout and ignore the exit
   # status; fall back to {} only when nothing was printed (a hard load
   # failure). A `|| printf '{}'` here would append a second JSON value onto
   # valid output, corrupting the --argjson persist payload below.
-  host_json="$(load_host_config "$profile" 2>/dev/null)" || true
+  host_json="$(load_profile "$profile" 2>/dev/null)" || true
   [[ -n "$host_json" ]] || host_json='{}'
   persist="$(_install_state_persist_obj "$host_json")"
   # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.

@@ -12,7 +12,7 @@ impermanence (rollback-to-blank on every boot).
 
 1. [Architecture](#1-architecture)
 2. [Quick Start](#2-quick-start)
-3. [Pre-Install Picker](#3-pre-install-picker)
+3. [Resolving disks (`install.sh --profile`)](#3-resolving-disks-installsh---profile)
 4. [Secrets Management (SOPS)](#4-secrets-management-sops)
 5. [File Layout](#5-file-layout)
 6. [Common Configurations](#6-common-configurations)
@@ -37,9 +37,9 @@ install.sh                  Entry point. Runs phases in order.
 ├─ 02-wipe.sh               Tear down LVM/RAID/ZFS, zero disks.
 └─ 03-install.sh            Thin orchestrator. Sources lib/.
     │
-    ├─ lib/config.sh        Load install.jsonc, validate, detect
-    │                       mode (single | multi).
-    ├─ lib/install-config.sh  Schema, defaults, template gen.
+    ├─ lib/config/profile.sh  Load the profile, closed-schema
+    │                         validate, assemble the effective config.
+    ├─ lib/config/layers.sh   JSONC merge + program resolution.
     ├─ lib/environment.sh   Resolve environment.desktop / .gpu
     │                       into package groups.
     ├─ lib/secrets.sh       Locate operator age key (USB or
@@ -154,51 +154,43 @@ tar -xzf dotfiles.tar.gz
 cd dotfiles/.os
 ```
 
-### 2.5 Build `install.jsonc`
+### 2.5 Pick or author the host profile
 
-The recommended path is the **Pre-Install Picker** — an fzf-driven
-config builder that fills in `install.jsonc` from the chosen host's
-committed `install.template.jsonc` plus an interactive disk pick.
-See [§3](#3-pre-install-picker).
-
-```bash
-./tools/pick.sh
-```
-
-Fallback (host has no `install.template.jsonc`, or you want to
-hand-author): edit the configs directly.
+A machine is described by one file — `hosts/<name>/profile.jsonc`,
+merged over `hosts/core/profile.jsonc`. It carries everything: the
+pool skeleton (devices excluded), ZFS/locale/bootloader/encryption/
+impermanence options, packages, environment, users, and system
+programs. The one field that can't be committed — the physical disks
+— is resolved at install time (§3).
 
 ```bash
-vim install.jsonc                     # disk, ZFS, locale,
-                                      # environment, packages
-vim hosts/<hostname>/config.jsonc     # users + system programs
-vim users/<username>/config.jsonc     # shell, sudo, programs
+vim hosts/<name>/profile.jsonc        # the whole machine
+vim users/<name>/profile.jsonc        # shell, sudo, groups, programs
 ```
 
-`install.jsonc` covers live-CD concerns (disks, ZFS, locale,
-bootloader, encryption, impermanence, packages, environment).
-Host configs declare which users exist and which system programs
-are installed; user configs declare per-user shell, sudo, groups,
-and user-level programs. See `REFERENCE.md` for the full schema.
+Every authored profile is validated against a single closed schema
+at load: an unknown key at any depth aborts with its path before any
+disk is touched. See `REFERENCE.md` for the full schema.
 
 ### 2.6 Install
 
 ```bash
 chmod +x install.sh
-./install.sh                          # interactive
-./install.sh -y                       # unattended
-./install.sh /path/to/cfg.jsonc       # alternate config
+./install.sh --profile <name>                  # interactive (picks disks)
+./install.sh --profile <name> -y               # unattended (hostname preset)
+./install.sh /path/to/effective.jsonc          # positional config seam
+./install.sh --profile <name> --print-config   # validate + print, no install
 ```
 
-`install.sh` runs the three numbered scripts in order —
-bootstrap, wipe, then install — confirming destructive steps as
-it goes. `-y` / `--unattended` bypasses every confirmation
-prompt (the hostname must already be set in the config). Each
-numbered script remains individually runnable for debugging.
-
-> If you ran `./tools/pick.sh` and chose `[i]nstall` at the
-> review screen, this step is already running — the picker
-> exec's `install.sh` in the same shell.
+`install.sh --profile <name>` validates the named Host Profile,
+resolves the disks interactively (§3), assembles the effective
+config in tmpfs (never committed — ADR 0036), then runs the three
+numbered scripts in order — bootstrap, wipe, install — confirming
+destructive steps as it goes. `-y` / `--unattended` bypasses every
+confirmation prompt (the hostname must already be set in the
+profile). The positional `<config-file>` form is the unattended seam
+the VM seed injects. Each numbered script remains individually
+runnable for debugging.
 
 ### 2.7 Reboot
 
@@ -210,112 +202,49 @@ Remove the installation media when prompted.
 
 ---
 
-## 3. Pre-Install Picker
+## 3. Resolving disks (`install.sh --profile`)
 
-`tools/pick.sh` is the live-CD config builder. It generates
-`.os/install.jsonc` from a host's committed Install Template
-(`hosts/<hostname>/install.template.jsonc`) plus an interactive
-disk pick. `install.sh` itself stays a pure config-applier — the
-picker is a parallel tool, not part of the install flow. See
-[ADR-0010](../docs/adr/0010-pre-install-picker-as-separate-tool.md)
-for the rationale.
+The profile declares the pool *skeleton* — `os_pool` plus optional
+`storage_groups[]` / `data_pools[]` with topology, ashift, owners,
+and a per-group `disk_count` — but no devices. `install.sh --profile
+<name>` resolves the physical disks at install time and never commits
+them, so a profile is portable across machines of the same shape.
 
 ### 3.1 Run it
 
-Prerequisites: live CD with network (the picker self-installs
-`fzf` and `jq` via `pacman -Sy`), and at least one host with an
-`install.template.jsonc` checked into the repo.
+Prerequisites: a live CD with network (`fzf` and `jq` self-install
+via `pacman -Sy`) and a committed `hosts/<name>/profile.jsonc`.
 
 ```bash
-./tools/pick.sh
+./install.sh --profile <name>
 ```
 
-You'll be prompted for three things, in order:
+The front-end:
 
-1. **Host** — fzf list of hosts that ship an
-   `install.template.jsonc`. The basename becomes `hostname` in
-   the generated config; there is no override. Hosts without a
-   template are silently omitted.
-2. **Install mode** — `single`, `mirror`, or `raidz`.
-3. **Target disk(s)** — fzf multi-select over
-   `/dev/disk/by-id/*` with an `lsblk`/`smartctl` preview pane.
-   The live medium is filtered out automatically. The number of
-   disks is checked against the chosen mode.
+1. **Validates** the profile (plus its users and referenced program
+   configs) against the closed schema — a typo'd key aborts with its
+   path before any disk write.
+2. **Picks disks** — fzf multi-select over `/dev/disk/by-id/*` with an
+   `lsblk`/`smartctl` preview pane; the live medium is filtered out.
+3. **Assigns** the picked disks onto the declared groups by
+   `disk_count`, in declared order (`os_pool` → `storage_groups[]` →
+   `data_pools[]`), validated against the min-disk table (mirror /
+   stripe ≥2, raidz1 ≥3, raidz2 ≥4). Single mode resolves one device.
+4. **Assembles** the effective config in tmpfs and hands it to the
+   back-end. The hostname falls back to the profile directory name
+   when `system.hostname` is unset (ADR 0036).
 
-The picker then shows a **review screen** with the diff against
-any existing `install.jsonc` and a four-way action prompt:
+Everything else — bootloader, locale, timezone, keymap, kernel,
+environment, encryption, impermanence, pool/dataset names, ashift —
+comes from the committed profile. They are properties of the machine,
+not of the install: change them by editing `profile.jsonc`, not at
+the prompt.
 
-| Key | Action                                                 |
-|-----|--------------------------------------------------------|
-| `i` | Write `install.jsonc`, then `exec install.sh` in place |
-| `w` | Write `install.jsonc` and exit 0 (review and commit)   |
-| `e` | Re-pick mode → disks (host kept; abort+rerun to swap)  |
-| `a` | Abort, write nothing, exit non-zero                    |
+To preview the resolved config without installing:
 
-> **What the picker won't re-ask.** `bootloader`, `locale`,
-> `timezone`, `keymap`, `kernel`, `environment.desktop`,
-> `environment.gpu`, `options.encryption`,
-> `options.impermanence.*`, ZFS pool/dataset names, and `ashift`
-> all come from the host's Install Template and are copied
-> through unchanged. They are properties of the machine, not of
-> the install — changing them means editing the template, not
-> re-running the picker.
-
-### 3.2 Authoring a host template
-
-To make a host pickable, drop an `install.template.jsonc` next
-to its config:
-
+```bash
+./install.sh --profile <name> --print-config
 ```
-hosts/<hostname>/
-├── config.jsonc            # users + system programs
-└── install.template.jsonc  # everything else (picker reads this)
-```
-
-The template is merged with `hosts/core/install.template.jsonc`
-using the same rules as Host Config / Host Core (arrays
-concat+dedupe, objects deep-merge, scalars from the host config
-win).
-
-Example — single-disk laptop, KDE, impermanence, USB-delivered
-age key:
-
-```jsonc
-// hosts/laptop/install.template.jsonc
-// Same nested shape as install.jsonc. Merged on top of
-// hosts/core/install.template.jsonc. The picker fills "mode" and
-// the disk(s) — omit them here.
-{
-  "system": {
-    "hostname": "chronos",
-    "locale":   "en_US.UTF-8",
-    "timezone": "Europe/Berlin",
-    "keymap":   "us"
-  },
-
-  "options": {
-    "kernel":     "lts",
-    "bootloader": "systemd-boot",
-    "encryption": false,
-    "impermanence": {
-      "enabled": true,
-      "dataset": "rpool/persist",
-      "mount":   "/persist"
-    }
-  },
-
-  "environment": {
-    "desktop": "kde",
-    "gpu":     "auto"
-  },
-
-  "ashift":  13,
-  "os_size": "auto"
-}
-```
-
-See `REFERENCE.md` § `install.template.jsonc Reference` for the
-full field list.
 
 ---
 
@@ -360,7 +289,7 @@ cp age-key.age /mnt/usb/age/key.age
 ```
 
 As a live-CD fallback (no USB available) you can also set
-`options.age_key_url` in `install.jsonc` to an HTTPS URL serving
+`options.age_key_url` in the host profile to an HTTPS URL serving
 the same passphrase-encrypted `.age` file.
 
 ### 4.4 Configure `.sops.yaml`
@@ -459,7 +388,6 @@ every boot without the USB.
 ├── 01-bootstrap-zfs.sh     # ZFS DKMS on the live ISO
 ├── 02-wipe.sh              # Wipe disks (dd + wipefs + sgdisk)
 ├── 03-install.sh           # Partition, pacstrap, configure
-├── install.jsonc           # Primary config
 │
 ├── lib/                    # Installer modules
 │   ├── common.sh           # Colors, output, JSON helpers
@@ -489,7 +417,7 @@ every boot without the USB.
 │   │   ├── impermanence.sh
 │   │   ├── extras-common.sh
 │   │   └── extras.sh
-│   ├── picker.sh           # Pre-Install Picker deep modules
+│   ├── picker.sh           # Disk enumeration + group assignment
 │   ├── profiles.sh         # Users + program installation
 │   ├── run-program.sh      # Program-install wrapper
 │   ├── finalize.sh         # Unmount + pool export
@@ -525,7 +453,6 @@ every boot without the USB.
 │       └── hyprland/hyprland.sh  # Hyprland + greetd
 │
 ├── tools/                  # Operator utilities (runtime)
-│   ├── pick.sh             # Pre-Install Picker (see §3)
 │   ├── save-pkglist.sh     # Snapshot current packages
 │   ├── install-pkglist.sh  # Restore packages from txt
 │   └── impermanence.sh     # add/remove/status/apply-defaults
@@ -603,7 +530,7 @@ is automatically added to `dpool`.
 
 ### Desktop environment
 
-Set under `environment` in `install.jsonc`:
+Set under `environment` in the host profile:
 
 ```json
 "environment": {
@@ -621,7 +548,7 @@ greetd for Hyprland-only).
 
 ### Impermanence
 
-Set under `options` in `install.jsonc`:
+Set under `options` in the host profile:
 
 ```json
 "options": {
@@ -643,10 +570,10 @@ etc.) are bind-mounted from the Persist Dataset. See
 ### Backup / security programs
 
 Backups and security hardening are now declared as system
-programs in your host config, not as `extras/` scripts:
+programs in your host profile, not as `extras/` scripts:
 
 ```jsonc
-// .os/hosts/<hostname>/config.jsonc
+// .os/hosts/<name>/profile.jsonc
 "system_programs": [
   "zfs-auto-snapshot", "borg",   // backups
   "ufw", "clamav", "apparmor",   // security
@@ -655,7 +582,7 @@ programs in your host config, not as `extras/` scripts:
 ```
 
 The `post_install.backup` and `post_install.security` toggles in
-`install.jsonc` remain as gates for any operator-supplied
+the profile remain as gates for any operator-supplied
 `extras/backup.sh` / `extras/security.sh`; if those files are
 absent (the default), the toggles are no-ops.
 
@@ -678,7 +605,7 @@ Test profiles live under `tests/vm/profiles/<category>/`.
 `jq`, `libvirtd` running, user in `libvirt` group.
 
 ```bash
-# Single-disk smoke (the committed install.jsonc)
+# Single-disk smoke (install:"repo" → the default host profile)
 bash vm/vm.sh --testing --profile single/plain
 bash vm/vm.sh --testing --profile single/dirty-cache
 

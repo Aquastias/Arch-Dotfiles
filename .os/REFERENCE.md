@@ -7,9 +7,9 @@ Complete configuration reference, concept explanations, and VM testing guide.
 ## Table of Contents
 
 1. [Concepts](#concepts)
-2. [install.jsonc Reference](#installjsonc-reference)
-3. [install.template.jsonc Reference](#installtemplatejsonc-reference)
-4. [Disk Layout Modes](#disk-layout-modes)
+2. [Host Profile Reference](#host-profile-reference)
+3. [Disk Layout Modes](#disk-layout-modes)
+4. [Profile Layout Examples](#profile-layout-examples)
 5. [Topology Options](#topology-options)
 6. [OS Partition Sizing (single-disk)](#os-partition-sizing-single-disk)
 7. [Custom Packages](#custom-packages)
@@ -75,7 +75,15 @@ fails.
 
 ---
 
-## install.jsonc Reference
+## Host Profile Reference
+
+A machine is one file — `hosts/<name>/profile.jsonc`, merged over
+`hosts/core/profile.jsonc`. It is validated against a closed schema at
+load: an unknown key at any depth aborts with its path before any disk
+write. The physical disks are the one field never committed — they are
+resolved at install time (`install.sh --profile`, see README § 3). The
+fields below are the schema; the install-time effective config the
+installer consumes has the same shape with devices filled in.
 
 ### Top-level fields
 
@@ -85,7 +93,8 @@ fails.
 
 The disk-layout fields (`mode`, `disk`, `ashift`, `os_size`,
 `os_pool_name`, `storage_pool_name`, `storage_mount`, `os_pool`,
-`storage_groups`) also live at top level — see § Disk Layout Modes.
+`storage_groups`, `data_pools`) also live at top level — see § Disk
+Layout Modes and § Profile Layout Examples.
 
 ### `system`
 
@@ -96,9 +105,8 @@ The disk-layout fields (`mode`, `disk`, `ashift`, `os_size`,
 | `timezone` | string | `"UTC"` | Timezone path under `/usr/share/zoneinfo/` |
 | `keymap` | string | `"us"` | Console keymap (see `localectl list-keymaps`) |
 
-Users are not declared here — they live in
-`hosts/<hostname>/config.jsonc` (`users` array) with one
-`users/<username>/config.jsonc` each.
+Users are declared in the host profile's `users` array, with one
+`users/<name>/profile.jsonc` each.
 
 ### `options`
 
@@ -202,7 +210,7 @@ Array of storage group objects. Each group becomes a vdev in `dpool`:
 
 All lists are merged and deduplicated at install time. Use exact
 pacman package names. Host-specific package lists (incl. AUR)
-live under `hosts/<hostname>/config.jsonc` `packages.repo` /
+live under `hosts/<name>/profile.jsonc` `packages.repo` /
 `packages.aur` — see CONTEXT.md.
 
 ### `post_install`
@@ -217,62 +225,6 @@ live under `hosts/<hostname>/config.jsonc` `packages.repo` /
 > `borg`, `zfs-auto-snapshot`, `ufw`/`firewalld`, `clamav`,
 > `apparmor`, `rkhunter`, `sops`. See § Post-Install
 > Components.
-
----
-
-## install.template.jsonc Reference
-
-Read by the **Pre-Install Picker** (`tools/pick.sh`) — see
-README § 3. Defines every per-host field the picker copies into
-the generated `install.jsonc`. Authored once per host and
-committed alongside `hosts/<hostname>/config.jsonc`.
-
-### Schema
-
-A template is the **same shape as `install.jsonc`** except:
-
-- `hostname` is **never** in the template — derived from the
-  hosts/ directory basename when the picker writes
-  `install.jsonc`.
-- `disks` (single-mode) and `os_pool.disks` / `storage_groups[].disks`
-  (multi-mode) are **never** in the template — supplied by the
-  operator's interactive disk pick.
-
-> **Layout pinning (ADR 0029):** a template may *pin* OS-pool layout
-> via `mode` (+ `os_pool.topology` for `multi`); the picker then skips
-> its mode prompt and honors that topology — disks are still picked.
-> `mode: "multi"` without `os_pool.topology` is a template error. Min
-> disks per topology: mirror/stripe ≥2, raidz1 ≥3, raidz2 ≥4, none ≥2.
-
-Every other field documented in § `install.jsonc Reference`
-applies unchanged, at its canonical (nested) path: `mode`,
-`ashift`, `os_size`, `options.kernel`, `system.locale`,
-`system.timezone`, `system.keymap`, `environment.desktop`,
-`environment.gpu`, `options.bootloader`, `options.encryption`,
-`options.impermanence.*`, `options.age_key_url`, ZFS pool/dataset
-names, `packages.*`, `post_install.*`.
-
-### Merge with `hosts/core/install.template.jsonc`
-
-The template is merged with `hosts/core/install.template.jsonc`
-using the same rules as Host Config / Host Core:
-
-- arrays — concat + dedupe
-- objects — deep merge
-- scalars — host template wins over core
-
-Put cross-host defaults (e.g. `system.locale`, `system.timezone`,
-`system.keymap`, `options.kernel`) in core; put machine-specific
-fields (e.g. disk topology `mode`, `environment.desktop`,
-`options.impermanence.enabled`) in the host template.
-
-### Validation
-
-The picker validates the operator-driven layout
-(`picker_validate_layout`) — mode vs disk count — before assembly.
-**No further config-shape check** runs at picker time: a malformed
-template can still fail at `install.sh` time. Run a VM test
-(README § 8) to catch this early.
 
 ---
 
@@ -314,6 +266,73 @@ template can still fail at `install.sh` time. Run a VM test
                ├── ROOT/arch                                    dpool  │
                ├── home                              ├── DATA/extra/disk1
                └── swap                                         └── DATA/ssd
+```
+
+---
+
+## Profile Layout Examples
+
+Worked `profile.jsonc` skeletons for the three common shapes. Devices
+are never committed — each group declares a `disk_count`, and
+`install.sh --profile` slices the operator-picked disks onto the groups
+in declared order (`os_pool` → `storage_groups[]` → `data_pools[]`).
+
+### Single disk
+
+One disk, auto-partitioned ESP + rpool + dpool.
+
+```jsonc
+{
+  "mode":              "single",
+  "ashift":            12,        // 12 = 4K (SSD/HDD). 13 = 8K (NVMe).
+  "os_size":           "auto",    // or fixed: "80G", "120G"
+  "os_pool_name":      "rpool",
+  "storage_pool_name": "dpool",
+  "storage_mount":     "/data"
+}
+```
+
+### Multi-disk — OS mirror + raidz1 storage group
+
+2 disks mirrored for the OS, 3 disks as a shared raidz1 `dpool`.
+
+```jsonc
+{
+  "mode": "multi",
+  "os_pool": {
+    "pool_name":  "rpool",
+    "topology":   "mirror",   // mirror | stripe | none
+    "ashift":     13,
+    "disk_count": 2
+  },
+  "storage_groups": [
+    {
+      "name":       "ssd",
+      "mount":      "/data/ssd",
+      "ashift":     12,
+      "topology":   "raidz1", // mirror | stripe | raidz1 | raidz2
+      "owners":     ["aquastias"],
+      "disk_count": 3
+    }
+  ]
+}
+```
+
+### Standalone data pools
+
+Different-size disks, each its **own** pool (own failure domain) —
+contrast `storage_groups`, which fold into one shared `dpool`. Multi
+mode only. See ADR 0027.
+
+```jsonc
+{
+  "mode": "multi",
+  "os_pool": { "pool_name": "rpool", "topology": "none", "disk_count": 1 },
+  "data_pools": [
+    { "name": "tank0", "topology": "stripe", "disk_count": 1 },
+    { "name": "tank1", "topology": "mirror", "disk_count": 2 }
+  ]
+}
 ```
 
 ---
@@ -409,9 +428,8 @@ All packages must be valid pacman package names. Use
 | GUI browsers | `firefox` `chromium` |
 | Media | `vlc` `mpv` `ffmpeg` |
 
-For machine-specific lists (incl. AUR), prefer the host config
-`packages.repo` / `packages.aur` over `install.jsonc` — see
-CONTEXT.md § Host Package List.
+For machine-specific lists (incl. AUR), prefer the host profile's
+`packages.repo` / `packages.aur` — see CONTEXT.md § Host Package List.
 
 ---
 
@@ -454,7 +472,7 @@ adapters; the KDE adapter wins on display manager (SDDM).
 Declared as system programs in your host config:
 
 ```jsonc
-// .os/hosts/<hostname>/config.jsonc
+// .os/hosts/<name>/profile.jsonc
 "system_programs": ["zfs-auto-snapshot", "borg"]
 ```
 
@@ -475,7 +493,7 @@ borg init --encryption=repokey-blake2 /mnt/backup/borg
 borgmatic --verbosity 1
 ```
 
-The `post_install.backup` flag in `install.jsonc` is a gate for
+The `post_install.backup` flag in the host profile is a gate for
 an operator-supplied `extras/backup.sh` (not shipped with this
 repo). Leave it `false` and use the programs above for the
 maintained path.
@@ -501,7 +519,7 @@ Declared as system programs in your host config:
   Key. Required by any other program that reads
   `/run/secrets/<name>`.
 
-The `post_install.security` flag in `install.jsonc` is a gate
+The `post_install.security` flag in the host profile is a gate
 for an operator-supplied `extras/security.sh` (not shipped with
 this repo). Leave it `false` and use the programs above for the
 maintained path.
@@ -522,7 +540,7 @@ for the design rationale and
 
 ### Enable
 
-In `install.jsonc`:
+In the host profile:
 
 ```jsonc
 "options": {
@@ -539,9 +557,9 @@ re-install.
 
 ### Persist Extensions
 
-Declare additional paths in `hosts/<hostname>/config.jsonc` (or
-`hosts/core/config.jsonc` for shared paths). Deep-merged across
-Host Core and Host Config.
+Declare additional paths in `hosts/<name>/profile.jsonc` (or
+`hosts/core/profile.jsonc` for shared paths). Deep-merged across
+Host Core and the host profile.
 
 ```jsonc
 "persist": {
@@ -665,14 +683,18 @@ sudo usermod -aG libvirt $USER
 | SATA | `/dev/sda`, `/dev/sdb`, ... | Tests the SATA path in scripts |
 | NVMe | `/dev/nvme0n1`, `/dev/nvme1n1`, ... | Add via "NVMe" bus type |
 
-Update `install.jsonc` with the correct device names for your VM.
+The modern path is `install.sh --profile <name>` (the picker resolves
+disks interactively) or the harness `vm/vm.sh --profile` (README § 8).
+The hand-driven scenarios below instead author a full **effective
+config** with devices and pass it positionally: `./install.sh cfg.jsonc`
+— use the device names above in that file.
 
 ### Test scenario: single-disk (no RAID)
 
 1. Create one VM with one 40 GiB VirtIO disk (`/dev/vda`)
 2. Boot the Arch ISO
 3. Inside the VM, copy the scripts (e.g. via shared folder or download)
-4. Set `install.jsonc`:
+4. Write `cfg.jsonc`:
 
    ```json
    "mode": "single",
@@ -680,13 +702,13 @@ Update `install.jsonc` with the correct device names for your VM.
    "ashift": 12
    ```
 
-5. Run `./install.sh` (bootstrap → wipe → install)
+5. Run `./install.sh cfg.jsonc` (bootstrap → wipe → install)
 6. Reboot and verify the system boots
 
 ### Test scenario: multi-disk with mirror (RAID-1)
 
 1. Create a VM with **two 20 GiB** VirtIO disks (`/dev/vda`, `/dev/vdb`)
-2. Set `install.jsonc`:
+2. Write `cfg.jsonc`:
 
    ```json
    "mode": "multi",
@@ -718,7 +740,7 @@ zpool status rpool        # should show DEGRADED, vdb2 OFFLINE
 ### Test scenario: multi-disk with storage groups
 
 1. Create a VM with **5 disks**: 2 × 10 GiB (OS) + 3 × 8 GiB (storage)
-2. Set `install.jsonc`:
+2. Write `cfg.jsonc`:
 
    ```json
    "mode": "multi",
@@ -738,7 +760,7 @@ zpool status rpool        # should show DEGRADED, vdb2 OFFLINE
 ### Test scenario: topology=none (no OS RAID, leftovers to storage)
 
 1. Create a VM with **2 OS disks** + **1 storage disk**
-2. Set `install.jsonc` with `"topology": "none"` in `os_pool`
+2. Write `cfg.jsonc` with `"topology": "none"` in `os_pool`
 3. During install, select `/dev/vda` as the OS disk
 4. Verify `/dev/vdb` is added to dpool as `extra`
 

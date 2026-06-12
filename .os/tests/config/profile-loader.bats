@@ -6,9 +6,9 @@
 # Behaviour under test (external only — the effective config a loader
 # produces, the errors a validator emits), never internal structure:
 #   1. load_profile merges a real host profile.jsonc with core.
-#   2. With no profile.jsonc, load_profile synthesizes the effective
-#      config from the legacy install.template.jsonc + config.jsonc via
-#      the existing picker assembler (transient scaffold).
+#   2. The loader reads ONLY profile.jsonc — a sibling legacy config.jsonc
+#      is ignored, and a missing host profile.jsonc yields core-only (rc 1),
+#      never a synthesized config (the transient scaffold is gone, issue 10).
 #   3. The user path merges user profile.jsonc + user core.
 #   4. Closed-schema validation rejects unknown keys at any depth (top
 #      level, nested objects, arrays-of-objects), in host profile + core,
@@ -64,42 +64,33 @@ write_jsonc() {
   echo "$output" | jq -e '.mode == "multi"'
 }
 
-# ── transient scaffold: synthesize from legacy template + config ───────────
-# When no profile.jsonc exists yet, the same effective config is rebuilt
-# from the legacy install.template.jsonc (machine props) + config.jsonc
-# (users/programs/packages), each already core+specific merged.
+# ── no dual-read: the loader reads ONLY profile.jsonc (issue 10) ───────────
+# The transient scaffold is gone: a sibling legacy config.jsonc is ignored,
+# and a host with no profile.jsonc yields core-only (rc 1), never a config
+# synthesized from the legacy files.
 
-@test "load_profile: synthesizes from legacy template + config when no profile.jsonc" {
-  write_jsonc "$OS_DIR/hosts/core/install.template.jsonc" \
-    '{"system":{"locale":"en_US.UTF-8"},"options":{"bootloader":"systemd-boot"}}'
-  write_jsonc "$OS_DIR/hosts/desktop/install.template.jsonc" \
-    '{"system":{"hostname":"eterniox"}}'
-  write_jsonc "$OS_DIR/hosts/core/config.jsonc" \
-    '{"users":[],"system_programs":["cups"]}'
+@test "load_profile: ignores a sibling legacy config.jsonc (reads only profile)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["bob"]}'
+  # a leftover legacy config.jsonc with conflicting content must not be read
   write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" \
-    '{"users":["aquastias"],"system_programs":["grub"]}'
+    '{"users":["LEGACY"],"system_programs":["LEGACY"]}'
 
   run load_profile desktop
   [ "$status" -eq 0 ]
-  # machine properties come from the template
-  echo "$output" | jq -e '.system.hostname == "eterniox"'
-  echo "$output" | jq -e '.system.locale == "en_US.UTF-8"'
-  echo "$output" | jq -e '.options.bootloader == "systemd-boot"'
-  # software comes from the config
-  echo "$output" | jq -e '.users == ["aquastias"]'
-  echo "$output" | jq -e '.system_programs == ["cups","grub"]'
+  echo "$output" | jq -e '.users == ["bob"]'
+  echo "$output" | jq -e '.system_programs == ["cups"]'
 }
 
-@test "load_profile: synthesizes a template-less host from config alone" {
-  write_jsonc "$OS_DIR/hosts/core/config.jsonc" \
-    '{"users":[],"system_programs":["cups"]}'
-  write_jsonc "$OS_DIR/hosts/arch-data/config.jsonc" \
-    '{"users":["vm-data"]}'
+@test "load_profile: missing host profile.jsonc → core only, rc 1 (no synth)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  # a legacy config.jsonc exists but must NOT be synthesized in
+  write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" '{"users":["LEGACY"]}'
 
-  run load_profile arch-data
-  [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.users == ["vm-data"]'
+  run load_profile desktop
+  [ "$status" -eq 1 ]
   echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '(.users // []) == []'
 }
 
 # ── user path: profile.jsonc + user core (symmetric with the host path) ─────
@@ -117,17 +108,68 @@ write_jsonc() {
   echo "$output" | jq -e '.groups == ["audio","video"]'
 }
 
-@test "load_user_profile: synthesizes from legacy user config.jsonc when no profile.jsonc" {
-  write_jsonc "$OS_DIR/users/core/config.jsonc" \
-    '{"shell":"/bin/bash","programs":[]}'
-  write_jsonc "$OS_DIR/users/aquastias/config.jsonc" \
-    '{"sudo":true,"programs":["neovim"]}'
+@test "load_user_profile: missing user profile.jsonc → core only, rc 1 (no synth)" {
+  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
+  # a legacy user config.jsonc exists but must NOT be synthesized in
+  write_jsonc "$OS_DIR/users/aquastias/config.jsonc" '{"sudo":true}'
 
   run load_user_profile aquastias
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 1 ]
   echo "$output" | jq -e '.shell == "/bin/bash"'
-  echo "$output" | jq -e '.sudo == true'
-  echo "$output" | jq -e '.programs == ["neovim"]'
+  echo "$output" | jq -e '(.sudo // false) == false'
+}
+
+# ── loader contract: exit codes, merge rules, JSONC (moved from configs.bats) ─
+
+@test "load_profile: missing core profile.jsonc is a hard error (exit 2)" {
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["alice"]}'
+
+  run load_profile desktop
+  [ "$status" -eq 2 ]
+  [[ "$output" =~ "missing host core profile" ]]
+}
+
+@test "load_profile: 'core' as host name is rejected (exit 3)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":["alice"]}'
+
+  run load_profile core
+  [ "$status" -eq 3 ]
+  [[ "$output" =~ "reserved name" ]]
+}
+
+@test "load_user_profile: 'core' as user name is rejected (exit 3)" {
+  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
+
+  run load_user_profile core
+  [ "$status" -eq 3 ]
+  [[ "$output" =~ "reserved name" ]]
+}
+
+@test "load_profile: arrays concat+dedupe, objects deep-merge, scalars win" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+    '{"users":["alice","shared"],"system":{"timezone":"UTC"}}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+    '{"users":["shared","bob"],"system":{"hostname":"eterniox"}}'
+
+  run load_profile desktop
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.users == ["alice","shared","bob"]'
+  echo "$output" | jq -e '.system.timezone == "UTC"'
+  echo "$output" | jq -e '.system.hostname == "eterniox"'
+}
+
+@test "load_profile: JSONC // comments are stripped before parsing" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{
+  // comment on its own line
+  "users": ["alice"], // trailing comment
+  "system_programs": ["cups"]
+}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{}'
+
+  run load_profile desktop
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.users == ["alice"]'
+  echo "$output" | jq -e '.system_programs == ["cups"]'
 }
 
 # ── assemble_profile_config: the --profile effective-config seam ────────────

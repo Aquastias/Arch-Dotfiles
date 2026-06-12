@@ -6,8 +6,8 @@ setup() {
   STATE="$TEST_DIR/install-state.json"
   # shellcheck source=../lib/install-state.sh
   source "$BATS_TEST_DIRNAME/../lib/install-state.sh"
-  # shellcheck source=../lib/config/layers.sh
-  source "$BATS_TEST_DIRNAME/../lib/config/layers.sh"
+  # shellcheck source=../lib/config/profile.sh
+  source "$BATS_TEST_DIRNAME/../lib/config/profile.sh"
   FIXTURES="$BATS_TEST_DIRNAME/fixtures"
 }
 
@@ -252,8 +252,8 @@ setup_writer_globals() {
 }
 
 @test "install_state_write: core-only host (graceful) writes valid single JSON" {
-  # Real-install condition: hosts/core/config.jsonc EXISTS but the
-  # host-specific dir does NOT, so load_host_config prints core JSON *and*
+  # Real-install condition: hosts/core/profile.jsonc EXISTS but the
+  # host-specific dir does NOT, so load_profile prints core JSON *and*
   # returns 1. A `|| printf '{}'` fallback then concatenates a second JSON
   # value, corrupting the --argjson persist payload. The state file must
   # remain a single valid JSON document with an empty persist.
