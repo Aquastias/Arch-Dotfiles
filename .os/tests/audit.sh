@@ -251,7 +251,7 @@ while IFS= read -r cfg; do
   while IFS= read -r prog; do
     _check_program "$prog" "true" "host:${host}"
   done < <(_strip "$cfg" | jq -r '.system_programs[]?' 2>/dev/null)
-done < <(find "${OS}/hosts" -name "config.jsonc")
+done < <(find "${OS}/hosts" -name "profile.jsonc")
 
 # User configs → programs must have system:false
 while IFS= read -r cfg; do
@@ -260,7 +260,7 @@ while IFS= read -r cfg; do
   while IFS= read -r prog; do
     _check_program "$prog" "false" "user:${user}"
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
-done < <(find "${OS}/users" -name "config.jsonc")
+done < <(find "${OS}/users" -name "profile.jsonc")
 
 # =============================================================================
 _section "9. Extras JSON files"
@@ -287,7 +287,7 @@ while IFS= read -r cfg; do
       _fail "host:${host} → user '${user}' not found in users/"
     fi
   done < <(_strip "$cfg" | jq -r '.users[]?' 2>/dev/null)
-done < <(find "${OS}/hosts" -name "config.jsonc")
+done < <(find "${OS}/hosts" -name "profile.jsonc")
 
 # =============================================================================
 _section "11. User config cross-refs  (referenced programs consistent)"
@@ -302,7 +302,7 @@ while IFS= read -r cfg; do
       _fail "user:${user} → program '${prog}' not found in programs/"
     fi
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
-done < <(find "${OS}/users" -name "config.jsonc")
+done < <(find "${OS}/users" -name "profile.jsonc")
 
 # =============================================================================
 _section "12. Program install scripts must not redefine commons helpers"
@@ -364,13 +364,13 @@ _repo_pkgs="$(
   while IFS= read -r cfg; do
     _strip "$cfg" | jq -r '(.packages.repo // {}) | [.. | strings] | .[]' \
       2>/dev/null
-  done < <(find "${OS}/hosts" "${OS}/users" -name config.jsonc) | sort -u
+  done < <(find "${OS}/hosts" "${OS}/users" -name profile.jsonc) | sort -u
 )"
 _aur_pkgs="$(
   while IFS= read -r cfg; do
     _strip "$cfg" | jq -r '(.packages.aur // {}) | [.. | strings] | .[]' \
       2>/dev/null
-  done < <(find "${OS}/hosts" "${OS}/users" -name config.jsonc) | sort -u
+  done < <(find "${OS}/hosts" "${OS}/users" -name profile.jsonc) | sort -u
 )"
 
 # Resolve AUR membership once (used by both checks). Empty if curl/net absent.

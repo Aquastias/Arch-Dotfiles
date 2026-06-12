@@ -103,7 +103,7 @@ _write_sops_stub() {
 # ── correct key: user secrets ─────────────────────────────────────────────────
 
 @test "writes secrets.users.<name> path to install-state.json (user)" {
-  load_host_config() { printf '%s' '{"users":["alice"]}'; }
+  load_profile() { printf '%s' '{"users":["alice"]}'; }
   mkdir -p "$OS_DIR/users/alice"
   printf '{"password":"s3cr3t"}\n' > "$OS_DIR/users/alice/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
@@ -275,7 +275,7 @@ _write_curl_stub() {
 # ── host-scoped user secrets ────────────────────────────────────────────────
 
 @test "user secrets scoped to host: foreign user is excluded" {
-  load_host_config() { printf '%s' '{"users":["alice"]}'; }
+  load_profile() { printf '%s' '{"users":["alice"]}'; }
   mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/vm-test"
   printf '{"password":"a"}\n'  > "$OS_DIR/users/alice/secrets.json"
   printf '{"password":"x"}\n'  > "$OS_DIR/users/vm-test/secrets.json"
@@ -292,7 +292,7 @@ _write_curl_stub() {
 }
 
 @test "host with no declared secrets skips even if other users have secrets" {
-  load_host_config() { printf '%s' '{"users":[]}'; }
+  load_profile() { printf '%s' '{"users":[]}'; }
   mkdir -p "$OS_DIR/users/vm-test"
   printf '{"password":"x"}\n' > "$OS_DIR/users/vm-test/secrets.json"
   _write_lsblk_stub

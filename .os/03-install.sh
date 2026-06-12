@@ -36,10 +36,11 @@
 #   lib/packages/list.sh      — package collection, pacstrap
 #   lib/zfs/verify.sh    — fail-fast ZFS Module Guard (post-pacstrap, ADR 0024)
 #   lib/chroot.sh        — fstab, ESP mirror hook, arch-chroot configuration
-#   lib/config/layers.sh       — host/user config loader+merger (host/user core)
+#   lib/config/layers.sh       — JSONC merge + program resolution/validation
+#   lib/config/profile.sh      — Profile Loader (load_profile/load_user_profile)
 #   lib/profiles/runner.sh      — runs after configure_system: creates users,
 #                          installs system + user programs from host/user
-#                          configs
+#                          profiles
 #   lib/config/validation.sh    — single seam for all config contract checks
 #   lib/finalize.sh      — unmount, pool export, completion summary
 # =============================================================================
@@ -127,6 +128,7 @@ source_module "${SCRIPT_DIR}/lib/install-state.sh"
 source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/config/layers.sh"
+source_module "${SCRIPT_DIR}/lib/config/profile.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"
 source_module "${SCRIPT_DIR}/lib/packages/list.sh"

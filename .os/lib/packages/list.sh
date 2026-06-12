@@ -26,9 +26,9 @@ collect_packages() {
   #                  supported by archzfs, moves slowly)
   #      'default' → linux + linux-headers           (latest rolling kernel,
   #                  may temporarily be unsupported by archzfs)
-  #   3. Bootloader packages — selected by options.bootloader in config
-  #   4. packages.extra[] — flat list from install.jsonc
-  #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from install.jsonc
+  #   3. Bootloader packages — selected by options.bootloader in the profile
+  #   4. packages.extra[] — flat list from the host profile
+  #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from the profile
   #      (keys starting with "_" are comment fields and are filtered out)
   #   6. Host packages.repo[] — repo packages from the merged host
   #                            config
@@ -119,12 +119,12 @@ collect_packages() {
   done < <(install_config_packages_groups)
 
   # ── Host repo packages ─────────────────────────────────────────────────────
-  # packages.repo[] from the merged host config (host core + host-specific).
+  # packages.repo[] from the merged host profile (host core + host-specific).
   # AUR packages (packages.aur[]) are handled separately in profiles.sh
   # via paru.
   if [[ -n "${RESOLVED_HOST_PROFILE:-}" ]]; then
     local host_json host_rc=0
-    host_json="$(load_host_config "$RESOLVED_HOST_PROFILE" 2>/dev/null)" \
+    host_json="$(load_profile "$RESOLVED_HOST_PROFILE" 2>/dev/null)" \
       || host_rc=$?
     if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
       local repo_json

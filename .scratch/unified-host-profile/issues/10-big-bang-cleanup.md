@@ -1,6 +1,6 @@
 # Big-bang cleanup
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -18,13 +18,13 @@ single / multi / data_pools example blocks to the schema reference
 
 ## Acceptance criteria
 
-- [ ] Legacy host `config.jsonc` + `install.template.jsonc` removed;
+- [x] Legacy host `config.jsonc` + `install.template.jsonc` removed;
       programs keep `config.jsonc`.
-- [ ] Root `install.jsonc` deleted; its example blocks relocated to the
+- [x] Root `install.jsonc` deleted; its example blocks relocated to the
       schema reference.
-- [ ] Transient assembler + legacy readers + equivalence test removed;
+- [x] Transient assembler + legacy readers + equivalence test removed;
       `load_profile` reads only `profile.jsonc`.
-- [ ] No dual-read remains; all suites green.
+- [x] No dual-read remains; all suites green.
 
 ## Blocked by
 
@@ -55,3 +55,50 @@ assembled effective `$CONFIG_FILE` (done while verifying issue 08), so the
 - Gap #5 (per-group data-pool disk assignment + picker/layout min-disk
   reconciliation, see issue 08) is independent but blocks arch-data's
   `--profile` install.
+
+### Agent note (Claude) — 2026-06-12 — DONE
+
+No-shim end state reached. TDD slices, all suites green throughout.
+
+**Loader.** `profile.sh`: dropped `_load_profile_synthesize` + the user
+fallback; `load_profile`/`load_user_profile` now share `_profile_load`
+reading only `profile.jsonc` with the same `0/1/2/3` contract the old
+readers had — so consumers migrated by a name-swap.
+
+**Consumers migrated** (`load_host_config`→`load_profile`,
+`load_user_config`→`load_user_profile`, `config.jsonc`→`profile.jsonc`
+guards): `install-state`, `secrets`, `runner` (+core guards & user
+load), `validation` (preflight guards + 3 loaders), `packages/list`,
+`pool-owners._pool_owners_group_map`, `tools/generate-configs`,
+`tools/impermanence` (persist writers → `profile.jsonc`). `03-install.sh`
+now sources `profile.sh`. `generate-configs` dropped its `install.jsonc`
+host-profile read (dir≡hostname).
+
+**Legacy readers removed** from `layers.sh` (`_configs_load`/
+`load_host_config`/`load_user_config`); parse/merge/registry/program
+helpers stay.
+
+**Files deleted.** 11 host `config.jsonc` + 7 `install.template.jsonc`,
+root `install.jsonc`, 4 user `config.jsonc`, 3 fixture `config.jsonc`.
+Programs keep `config.jsonc`.
+
+**pick.sh retired** (operator decision): deleted `tools/pick.sh` +
+`picker_enum_hosts`/`load_template`/`pin_from_template`/`assemble_config`/
+`parse_choice`/`render_review`; trimmed `picker.bats`; `install.sh
+--profile` is the only interactive path. README install flow rewritten.
+
+**Tests.** Deleted equivalence test `profile-migration.bats`; rewrote
+`configs.bats` (real-profile invariants + program resolution; loader
+contract moved to `profile-loader.bats`); migrated vm/impermanence/aur
+fixtures to `profile.jsonc`. Fixed an audit vacuous-pass: checks 8/10/11/
+14 read host/user `config.jsonc` → now `profile.jsonc` (56→82 real
+checks).
+
+**Docs.** `install.jsonc` single/multi/data_pools examples relocated to
+`REFERENCE.md` § Profile Layout Examples (device-free skeletons, ADR
+0037); dead `install.template.jsonc Reference` section removed; schema
+header → Host Profile Reference. ARCHITECTURE.md diagrams + CONTEXT.md
+glossary stay issue 11.
+
+**Verify.** 1007 bats pass (0 fail); `audit.sh` 82 checks pass;
+shellcheck clean (one pre-existing `CONFIG_FILE` SC2153 info).

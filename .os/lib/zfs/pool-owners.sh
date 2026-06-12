@@ -298,15 +298,15 @@ _pool_owners_declared_users() {
 
 # Group→members map as "group:m1,m2 ..." for @group resolution/validation. A
 # declared user is a member of every group in their effective group set
-# (resolve_user_groups — includes wheel for sudo users), sourced from User
-# Config so membership stays dynamic (ADR 0031). Empty when nothing is
-# declared. Glue around the configs loader; covered by the VM smoke test.
+# (resolve_user_groups — includes wheel for sudo users), sourced from the
+# User Profile so membership stays dynamic (ADR 0031). Empty when nothing is
+# declared. Glue around the profile loader; covered by the VM smoke test.
 _pool_owners_group_map() {
   local users u uj g out=()
   declare -A members=()
   users="$(_pool_owners_declared_users)"
   for u in $users; do
-    uj="$(load_user_config "$u" 2>/dev/null)" || continue
+    uj="$(load_user_profile "$u" 2>/dev/null)" || continue
     for g in $(resolve_user_groups "$uj" 2>/dev/null | tr ',' ' '); do
       [[ -n "$g" ]] || continue
       if [[ -n "${members[$g]:-}" ]]; then members[$g]+=",$u"

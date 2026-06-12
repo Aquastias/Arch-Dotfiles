@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for .os/vm/lib/profile.sh — VM Profile resolution (deep, pure).
-# Prior art: tests/picker.bats (drives picker_assemble_config),
-# tests/config/install-config.bats.
+# Prior art: tests/config/profile-loader.bats (load_profile +
+# assemble_profile_config), tests/config/install-config.bats.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -202,13 +202,4 @@ JSONC
   run profile_resolve_config "$profile"
   [ "$status" -ne 0 ]
   [[ "$output" == *os_pool* ]]
-}
-
-# ── new desktop templates are picker-enumerable ──────────────────────────────
-
-@test "new arch-hyprland/arch-kde-hyprland templates appear in picker enum" {
-  run picker_enum_hosts "$BATS_TEST_DIRNAME/../../hosts"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *arch-hyprland* ]]
-  [[ "$output" == *arch-kde-hyprland* ]]
 }

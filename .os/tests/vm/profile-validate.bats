@@ -15,10 +15,11 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# A host with an Install Template, for the host_profile reference rules.
-mk_template_host() {
+# A real host directory (unified profile.jsonc), for the host_profile
+# reference rules — the validator only checks the host directory exists.
+mk_host() {
   mkdir -p "$HOSTS_DIR/$1"
-  : > "$HOSTS_DIR/$1/install.template.jsonc"
+  : > "$HOSTS_DIR/$1/profile.jsonc"
 }
 
 # A minimal profile that passes every rule (inline install source).
@@ -65,7 +66,7 @@ JSONC
 }
 
 @test "profile_validate: two install sources (host_profile + install) → reject" {
-  mk_template_host arch-kde
+  mk_host arch-kde
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "arch-kde",
@@ -105,8 +106,8 @@ JSONC
   [ -z "$output" ]
 }
 
-@test "profile_validate: host_profile shipping a template → accepted" {
-  mk_template_host arch-kde
+@test "profile_validate: host_profile referencing an existing host → accepted" {
+  mk_host arch-kde
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "arch-kde" }'
@@ -117,7 +118,7 @@ JSONC
 
 @test "profile_validate: host_profile under hosts/vm/<name> → accepted" {
   mkdir -p "$HOSTS_DIR/vm/arch-data"
-  : > "$HOSTS_DIR/vm/arch-data/install.template.jsonc"
+  : > "$HOSTS_DIR/vm/arch-data/profile.jsonc"
   profile='{ "name": "x",
              "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
              "host_profile": "arch-data" }'

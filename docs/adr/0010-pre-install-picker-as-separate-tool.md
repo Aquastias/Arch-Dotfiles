@@ -1,7 +1,35 @@
 # ADR 0010: Pre-Install Picker as a separate tool, not a flag on install.sh
 
 ## Status
-Accepted. Superseded in part by ADR-0020 (Host Profile decoupled from hostname).
+Superseded by ADR-0036 (2026-06-12). Previously: Accepted; superseded in
+part by ADR-0020 (Host Profile decoupled from hostname) and amended by
+ADR-0029 (template-pinned layout).
+
+## Superseded by ADR-0036
+
+ADR-0036 collapsed the three host inputs into one `profile.jsonc` and made
+`install.sh --profile <name>` the interactive front-end — the very "flag on
+`install.sh`" alternative this ADR rejected below. The separate-tool picker
+(`tools/pick.sh`) and `install.template.jsonc` were retired in issue
+`unified-host-profile/10`; `install.sh --profile` now resolves disks itself
+(validate against the closed schema → fzf disk pick → assign onto the
+profile's pool skeleton → assemble the effective config in tmpfs).
+
+Why the original objections no longer hold:
+
+- *"Mixes config-build with config-apply in one script."* The build step is
+  now a small, pure seam (`assemble_profile_config` + `picker_assign_disks`,
+  no TTY) that VM tests and the unattended positional-`<config-file>` path
+  bypass entirely — so the applier stays trivially testable, which was the
+  real concern.
+- *"Auto-fallback flips into interactive in CI."* Still rejected, and there
+  is no fallback: `--profile` is explicit-and-interactive, the positional
+  `<config-file>` seam is explicit-and-unattended. Neither is implicit.
+- *"Pickable hosts gated on `install.template.jsonc`."* Gone — every host is
+  a `profile.jsonc`, validated against the closed schema at load.
+
+The Context/Decision/alternatives below are retained as the historical
+record of why the picker was once a separate tool.
 
 ## Context
 `install.sh` is a declarative config-applier: every input lives in

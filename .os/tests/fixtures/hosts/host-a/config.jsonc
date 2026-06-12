@@ -1,6 +1,0 @@
-{
-  "persist": {
-    "directories": ["/etc/wireguard"],
-    "files":       ["/etc/foo"]
-  }
-}

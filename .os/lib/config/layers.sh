@@ -1,37 +1,32 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/config/layers.sh — Host/user config loader, merger, and validator
+# lib/config/layers.sh — JSONC parse/merge primitives + program resolution
 # =============================================================================
-# Loads a host or user config by name and emits the merged result of core +
-# specific to stdout as JSON. Pure: no side effects beyond reading files and
-# writing to stdout/stderr.
+# The shared spine under the Profile Loader (lib/config/profile.sh): JSONC
+# parsing, the core+specific merge, and the program registry / contract
+# validation. Pure: no side effects beyond reading files and writing to
+# stdout/stderr.
 #
 # Public API:
-#   load_host_config <profile>
-#       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
-#   load_user_config <username>
-#       → 0 ok | 1 specific missing | 2 hard error | 3 reserved name
+#   _configs_parse <file>     → strip JSONC + jq '.'  (returns 1 if absent)
+#   _configs_merge <a> <b>    → merge two JSON values per the rules below
 #   configs_build_registry
 #       → build in-memory program index from $OS_DIR/programs/
 #   resolve_program <name>
 #       → echoes "<cat>/<name>"; uses registry if built; 1 if not found
 #   validate_program <expected> <name>       → 0 ok | 1 with stderr message
 #   validate_programs <expected> <name...>   → 0 if all ok | 1 if any failed
+#   reconcile_user_program <name> <host_sys_prog...>          (ADR 0036)
 #
 # Merge rules:
 #   - Arrays on both sides:  concatenate + dedupe (order preserving)
 #   - Objects on both sides: deep merge (recursively)
 #   - Scalars on both sides: specific wins
 #   - One side null/missing: other side wins
-#
-# Inputs come from $OS_DIR/<kind>/<name>/config.jsonc, where <kind> is hosts
-# or users. The directory name `core` is reserved.
 # =============================================================================
 
 # shellcheck source=../jsonc.sh
 source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
-
-readonly _CONFIGS_RESERVED_CORE="core"
 
 _configs_parse() {
   local file="$1"
@@ -57,55 +52,6 @@ _configs_merge() {
     merge($a; $b)
   '
 }
-
-# Shared loader. $1 = "hosts" or "users", $2 = name.
-_configs_load() {
-  local kind="$1" name="$2"
-
-  if [[ -z "${OS_DIR:-}" ]]; then
-    echo "configs: OS_DIR is not set" >&2
-    return 2
-  fi
-
-  if [[ "$name" == "$_CONFIGS_RESERVED_CORE" ]]; then
-    echo "configs: '${_CONFIGS_RESERVED_CORE}' is a reserved name" \
-         "and cannot be loaded as a real ${kind%s}" >&2
-    return 3
-  fi
-
-  local base="${OS_DIR}/${kind}"
-  local core_file="${base}/${_CONFIGS_RESERVED_CORE}/config.jsonc"
-  local specific_file="${base}/${name}/config.jsonc"
-  [[ -f "$specific_file" ]] || specific_file="${base}/vm/${name}/config.jsonc"
-
-  if [[ ! -f "$core_file" ]]; then
-    echo "configs: missing ${kind} core config: ${core_file}" >&2
-    return 2
-  fi
-
-  local core_json
-  if ! core_json="$(_configs_parse "$core_file")"; then
-    echo "configs: failed to parse ${kind} core config: ${core_file}" >&2
-    return 2
-  fi
-
-  if [[ ! -f "$specific_file" ]]; then
-    # Graceful: emit core only, signal via exit code.
-    echo "$core_json"
-    return 1
-  fi
-
-  local spec_json
-  if ! spec_json="$(_configs_parse "$specific_file")"; then
-    echo "configs: failed to parse ${kind} config: ${specific_file}" >&2
-    return 2
-  fi
-
-  _configs_merge "$core_json" "$spec_json"
-}
-
-load_host_config() { _configs_load hosts "$1"; }
-load_user_config() { _configs_load users "$1"; }
 
 # =============================================================================
 # PROGRAM RESOLUTION & VALIDATION

@@ -93,21 +93,23 @@ unit_path() {
   echo "$IMPERMANENCE_MOUNT/etc/systemd/system/persist-$esc.mount"
 }
 
-host_config() {
-  echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/config.jsonc"
+# The host's unified profile.jsonc — persist paths live under .persist.*
+# (the same schema the legacy config.jsonc carried, ADR 0036).
+host_profile_file() {
+  echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/profile.jsonc"
 }
 
-declare_in_host_config() {
+declare_in_host_profile() {
   local target="$1" kind="$2" cfg sel
-  cfg="$(host_config)"
+  cfg="$(host_profile_file)"
   [[ -f "$cfg" ]] || return 0
   [[ "$kind" == d ]] && sel='.persist.directories' || sel='.persist.files'
   jsonc_append_to_array "$cfg" "$sel" "$target"
 }
 
-undeclare_in_host_config() {
+undeclare_in_host_profile() {
   local target="$1" cfg
-  cfg="$(host_config)"
+  cfg="$(host_profile_file)"
   [[ -f "$cfg" ]] || return 0
   jsonc_remove_from_array "$cfg" '.persist.files' "$target"
   jsonc_remove_from_array "$cfg" '.persist.directories' "$target"
@@ -131,7 +133,7 @@ cmd_add() {
     return 0
   fi
   kind="$(path_kind "$target")"
-  declare_in_host_config "$target" "$kind"
+  declare_in_host_profile "$target" "$kind"
   if ! (
     persist_stage_in_copy "$target" &&
     persist_apply "$target" "$kind" &&
@@ -139,7 +141,7 @@ cmd_add() {
   ); then
     persist_unapply "$target"
     rm -rf "$IMPERMANENCE_MOUNT$target"
-    undeclare_in_host_config "$target"
+    undeclare_in_host_profile "$target"
     return 1
   fi
 }
@@ -166,7 +168,7 @@ cmd_remove() {
     return 0
   fi
   persist_unapply "$target"
-  undeclare_in_host_config "$target"
+  undeclare_in_host_profile "$target"
   if (( move_back )); then
     persist_restore_data "$target"
   fi

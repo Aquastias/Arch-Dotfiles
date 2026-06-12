@@ -100,16 +100,16 @@ write_manifest() {
   [ "$status" -ne 0 ]
 }
 
-@test "resolver: house defaults override per-key via load_user_config" {
-  # shellcheck source=../../lib/config/layers.sh
-  source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
+@test "resolver: house defaults override per-key via load_user_profile" {
+  # shellcheck source=../../lib/config/profile.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
   export OS_DIR="$TEST_DIR"
 
   mkdir -p "$TEST_DIR/users/core" "$TEST_DIR/users/alex"
-  cat > "$TEST_DIR/users/core/config.jsonc" <<'JSONC'
+  cat > "$TEST_DIR/users/core/profile.jsonc" <<'JSONC'
 { "variants": { "kitty": "minimal", "zsh": "minimal" } }
 JSONC
-  cat > "$TEST_DIR/users/alex/config.jsonc" <<'JSONC'
+  cat > "$TEST_DIR/users/alex/profile.jsonc" <<'JSONC'
 { "variants": { "zsh": "gaudy" } }
 JSONC
 
@@ -120,7 +120,7 @@ JSONC
   write_manifest "$TEST_DIR/programs/term/zsh/configs@gaudy/manifest.jsonc"
 
   local merged variants
-  merged="$(load_user_config alex)"
+  merged="$(load_user_profile alex)"
   variants="$(jq -c '.variants' <<<"$merged")"
 
   run cg_resolve_variants "$TEST_DIR/programs" "$variants"

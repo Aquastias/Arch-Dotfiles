@@ -501,22 +501,21 @@ run_profiles() {
   # scripts can locate the staged runtime tree.
   export OS_DIR="${SCRIPT_DIR}"
 
-  if [[ ! -f "${OS_DIR}/hosts/core/config.jsonc" ]]; then
-    warn "Hosts core config not found at" \
-         "${OS_DIR}/hosts/core/config.jsonc — skipping profiles runner."
+  if [[ ! -f "${OS_DIR}/hosts/core/profile.jsonc" ]]; then
+    warn "Hosts core profile not found at" \
+         "${OS_DIR}/hosts/core/profile.jsonc — skipping profiles runner."
     return 0
   fi
-  if [[ ! -f "${OS_DIR}/users/core/config.jsonc" ]]; then
-    warn "Users core config not found at" \
-         "${OS_DIR}/users/core/config.jsonc — skipping profiles runner."
+  if [[ ! -f "${OS_DIR}/users/core/profile.jsonc" ]]; then
+    warn "Users core profile not found at" \
+         "${OS_DIR}/users/core/profile.jsonc — skipping profiles runner."
     return 0
   fi
 
   # ADR 0036: read the host's software (users / system_programs / sysctl /
   # packages) from the assembled effective config — the single source of truth
-  # the front-end produced (install.sh --profile or the VM seed) — not the
-  # legacy per-host config.jsonc, which migrated hosts (profile.jsonc) no longer
-  # ship. CONFIG_FILE is set by 03-install.sh.
+  # the front-end produced (install.sh --profile or the VM seed). CONFIG_FILE
+  # is set by 03-install.sh.
   local host_json
   if ! host_json="$(jsonc_read "$CONFIG_FILE" '.' 2>/dev/null)" \
      || [[ -z "$host_json" || "$host_json" == "null" ]]; then
@@ -543,19 +542,19 @@ run_profiles() {
   mapfile -t sys_progs < <(_profiles_sops_selection "$_sec_active" \
     "${sys_progs[@]+"${sys_progs[@]}"}")
 
-  # Pre-load user configs for install execution.
+  # Pre-load user profiles for install execution.
   # Program contract validation was done by validate_install_context.
   declare -A USER_JSONS=()
   local u
   for u in "${users[@]}"; do
     local uj urc=0
-    uj="$(load_user_config "$u" 2>/dev/null)" || urc=$?
+    uj="$(load_user_profile "$u" 2>/dev/null)" || urc=$?
     case "$urc" in
     0 | 1) USER_JSONS["$u"]="$uj" ;;
-    2) error "Users core config could not be loaded." ;;
+    2) error "Users core profile could not be loaded." ;;
     3) error "User '${u}' is named 'core' (reserved)." ;;
     *) error "Unexpected return code ${urc} from" \
-             "load_user_config for '${u}'." ;;
+             "load_user_profile for '${u}'." ;;
     esac
   done
 
