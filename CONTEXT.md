@@ -257,6 +257,26 @@ adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter
 reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP
 info, etc.) and is interchangeable from the orchestrator's view.
 
+### ESP Kernel Sync
+The systemd-boot-only pacman hook (`94-esp-kernel-sync.hook` →
+`/usr/local/lib/archzfs/esp-kernel-sync.sh`, installed from the shared
+`lib/boot/esp-kernel-sync.sh`) that copies the kernel image, microcode, and
+initramfs from the ZFS `/boot` onto the FAT32 ESP after every kernel
+transaction — required because systemd-boot cannot read ZFS. The files mirrored
+are driven by the loader entries: only files an entry references (its
+`linux`/`initrd` lines) that exist in `/boot` are copied, so a Stray Kernel —
+having no entry — is never mirrored, and a missing file is never referenced.
+Numbered `94` so it runs before the ESP Mirror Hook. Distinct from it (ADR
+0038).
+
+### ESP Mirror Hook
+The pacman hook (`95-esp-mirror.hook` → `/usr/local/sbin/esp-mirror`) installed
+only on multi-disk OS layouts (≥2 ESPs); it rsyncs the primary ESP
+(`/boot/efi`) onto every secondary ESP (`/boot/efi1`, …) so each OS disk stays
+independently bootable. Bootloader-agnostic. Runs after the ESP Kernel Sync
+(`94` < `95`) so secondaries receive freshly-synced images. Distinct from the
+ESP Kernel Sync.
+
 ### Environment Config
 The `"environment"` key in the Host Profile. Declares desktop environment
 selection and GPU driver selection. Audio is not declared — it is auto-derived
