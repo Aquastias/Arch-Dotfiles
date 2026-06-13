@@ -44,6 +44,7 @@ FLOW_GRAPHICS_ARGS=(--graphics none)
 : "${DIRTY_CACHE:=false}"
 : "${VM_REORDER_BOOT_DISKS:=false}"
 : "${VM_VERIFY_BYID:=false}"
+: "${VM_VERIFY_RESILIENCE:=false}"
 
 # =============================================================================
 # SEED — cloud-init runcmd, install.jsonc injected base64 (all profile types)
@@ -62,7 +63,9 @@ _flow_render_user_data() {
 
   local boot_block=""
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
-    if [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
+    if [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
+      boot_block="$(_seed_generator_esp_resilience_firstboot_block)"
+    elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
       boot_block="$(_seed_generator_multi_firstboot_block \
         "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
         "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}")"
