@@ -19,6 +19,13 @@ _KERNEL_SH="$_LIB_DIR/kernel.sh"
 # shellcheck disable=SC1090
 source "$_KERNEL_SH"
 
+# Microcode resolution — staged next to kernel.sh; renders entry initrd lines
+# from the *-ucode.img actually present in /boot (ADR 0038).
+_MICROCODE_SH="$_LIB_DIR/microcode.sh"
+[[ -f "$_MICROCODE_SH" ]] || _MICROCODE_SH="$_LIB_DIR/../packages/microcode.sh"
+# shellcheck disable=SC1090
+source "$_MICROCODE_SH"
+
 # Boot entry tracks the Primary Kernel's package base (interim primary-only
 # bridge; secondary kernels still get default presets via mkinitcpio -P).
 KBASE="$(kernel_pkg "$KERNEL")"
@@ -49,11 +56,14 @@ EOF
 # zfs_import_dir=/dev/disk/by-id makes the initramfs ZFS hook import by scanning
 # stable by-id paths instead of /etc/zfs/zpool.cache. A stale/corrupt cache then
 # cannot brick boot (the hook ignores it when zfs_import_dir is set).
+# Render microcode initrd lines from the *-ucode.img present in /boot, so an
+# entry never references a missing initrd (ADR 0038).
+MICROCODE_INITRDS="$(microcode_present_initrds /boot)"
+
 cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
 title   ${ENTRY_TITLE}
 linux   /${VMLINUZ}
-initrd  /intel-ucode.img
-initrd  /amd-ucode.img
+${MICROCODE_INITRDS}
 initrd  /${INITRAMFS}
 options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
 EOF
@@ -61,8 +71,7 @@ EOF
 cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
 title   Arch Linux (ZFS — fallback)
 linux   /${VMLINUZ}
-initrd  /intel-ucode.img
-initrd  /amd-ucode.img
+${MICROCODE_INITRDS}
 initrd  /${INITRAMFS_FB}
 options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
 EOF

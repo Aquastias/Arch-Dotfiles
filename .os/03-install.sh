@@ -122,6 +122,7 @@ source_module() {
 source_module "${SCRIPT_DIR}/lib/common.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/module.sh"
 source_module "${SCRIPT_DIR}/lib/packages/kernel.sh"
+source_module "${SCRIPT_DIR}/lib/packages/microcode.sh"
 source_module "${SCRIPT_DIR}/lib/config/categorized-list.sh"
 source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"

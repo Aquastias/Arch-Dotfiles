@@ -279,6 +279,8 @@ configure_system() {
      "${MOUNT_ROOT}/root/lib-chroot/install-state.sh"
   cp "${SCRIPT_DIR}/lib/packages/kernel.sh" \
      "${MOUNT_ROOT}/root/lib-chroot/kernel.sh"
+  cp "${SCRIPT_DIR}/lib/packages/microcode.sh" \
+     "${MOUNT_ROOT}/root/lib-chroot/microcode.sh"
   cp "${SCRIPT_DIR}/lib/impermanence-common.sh" \
      "${MOUNT_ROOT}/root/lib-chroot/impermanence-common.sh"
   cp "${SCRIPT_DIR}/lib/grub-common.sh" \
