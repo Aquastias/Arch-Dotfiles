@@ -1,0 +1,17 @@
+// VM test: the FULL secure stack with desktops — SOPS + impermanence + ZFS
+// native encryption on a 2-disk OS mirror, PLUS KDE + Hyprland. Boot-verifies
+// the host arch-secure-kde-hyprland, which carries the same committed SOPS
+// fixtures as arch-secure (the vm-test user secrets, decrypted via the test age
+// key the flow serves). The host pins mode=multi/mirror, so no layout is needed.
+//
+// Test Age Key: vm/fixtures/key.age, passphrase "test". The flow's HTTP server
+// serves it at http://192.168.122.1:9876/key.age; `age --decrypt` prompts on
+// /dev/tty during install — type `test` when asked. Heavy install: KDE +
+// Hyprland on an encrypted mirror, so 8 GiB RAM / 4 vCPUs.
+{
+  "name": "arch-zfs-test-secure-kde-hyprland",
+  "hardware": { "disks": [60, 60], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-secure-kde-hyprland",
+  "fixtures": ["fixtures/key.age"],
+  "verify": { "boot": true }
+}

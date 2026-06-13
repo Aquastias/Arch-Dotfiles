@@ -1,0 +1,52 @@
+// Host Profile for vm/arch-secure-kde-hyprland — the full secure stack with a
+// desktop: SOPS (age_key_url) + impermanence + ZFS native encryption on a
+// 2-disk OS mirror, PLUS KDE + Hyprland (ADR 0036). Same secure base as
+// arch-secure (same vm-test user + committed SOPS fixtures), with the headless
+// `desktop: []` swapped for both desktop environments. Merged under
+// hosts/core/profile.jsonc; disks operator-picked at install.
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": true,
+    "swap":       true,
+    "swap_size":  "auto",
+
+    "impermanence": {
+      "enabled": true,
+      "dataset": "rpool/persist",
+      "mount":   "/persist"
+    },
+
+    "age_key_url": "http://192.168.122.1:9876/key.age"
+  },
+
+  "environment": {
+    "desktop": ["kde", "hyprland"],
+    "gpu":     "auto"
+  },
+
+  "post_install": {
+    "backup":   false,
+    "security": false
+  },
+
+  "users": ["vm-test"],
+  "system_programs": [],
+
+  "mode": "multi",
+  "os_pool": {
+    "pool_name":  "rpool",
+    "topology":   "mirror",
+    "ashift":     12,
+    "disk_count": 2
+  },
+  "storage_groups": [],
+  "data_pools": []
+}
