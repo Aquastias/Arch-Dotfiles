@@ -19,7 +19,6 @@
       "encryption":  false,
       "swap":        true,
       "swap_size":   "auto",
-      "esp_size":    "512M",
       "age_key_url": "",
       "impermanence": {
         "enabled": true,

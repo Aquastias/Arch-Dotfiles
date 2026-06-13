@@ -17,7 +17,6 @@
       "encryption":  false,
       "swap":        true,
       "swap_size":   "auto",
-      "esp_size":    "512M",
       "impermanence": {
         "enabled": true,
         "dataset": "rpool/persist",

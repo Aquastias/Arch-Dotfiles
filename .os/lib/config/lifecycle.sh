@@ -76,8 +76,8 @@ generate_template() {
     "swap":        true,
     "swap_size":   "auto",
     "_swap_size":  "'auto' = RAM×2. Or fixed: '8G', '16G', '32G'.",
-    "esp_size":    "512M",
-    "_esp_size":   "EFI partition per OS disk. 512M is enough for systemd-boot."
+    "esp_size":    "2G",
+    "_esp_size":   "EFI partition per OS disk. Default 2G; 1G floor (ADR 0038)."
   },
 
   "packages": {

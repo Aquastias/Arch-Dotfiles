@@ -27,7 +27,7 @@
 _INSTALL_CONFIG_SCHEMA=(
   "bootloader|.options.bootloader|scalar|systemd-boot"
   "swap_enabled|.options.swap|bool|true"
-  "esp_size|.options.esp_size|scalar|512M"
+  "esp_size|.options.esp_size|scalar|2G"
   "ssh_enabled|.options.ssh.enabled|bool|false"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"
   "impermanence_dataset|.options.impermanence.dataset|scalar|rpool/persist"

@@ -21,8 +21,7 @@
     "bootloader": "systemd-boot",
     "encryption": false,
     "swap":       true,
-    "swap_size":  "auto",
-    "esp_size":   "512M"
+    "swap_size":  "auto"
   },
 
   "users": ["vm-data"],

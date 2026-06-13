@@ -77,6 +77,28 @@ write_config() {
   [ "$status" -ne 0 ]
 }
 
+# ── parse_size_to_mib ─────────────────────────────────────────────────────────
+# MiB precision (no rounding) — the ESP floor needs to tell 512M from 1G, which
+# parse_size_to_gib cannot (it rounds 512M up to 1 GiB).
+
+@test "parse_size_to_mib: 512M → 512" {
+  run parse_size_to_mib 512M
+  [ "$status" -eq 0 ]
+  [ "$output" -eq 512 ]
+}
+
+@test "parse_size_to_mib: 1G → 1024" {
+  run parse_size_to_mib 1G
+  [ "$status" -eq 0 ]
+  [ "$output" -eq 1024 ]
+}
+
+@test "parse_size_to_mib: 2G → 2048" {
+  run parse_size_to_mib 2G
+  [ "$status" -eq 0 ]
+  [ "$output" -eq 2048 ]
+}
+
 # ── layout_resolve_esp_size ───────────────────────────────────────────────────
 
 @test "layout_resolve_esp_size: returns configured esp_size" {
@@ -86,11 +108,38 @@ write_config() {
   [ "$output" = "1G" ]
 }
 
-@test "layout_resolve_esp_size: defaults to 512M when not configured" {
+@test "layout_resolve_esp_size: defaults to 2G when not configured" {
   write_config '{}'
   run layout_resolve_esp_size
   [ "$status" -eq 0 ]
-  [ "$output" = "512M" ]
+  [ "$output" = "2G" ]
+}
+
+# ── layout_validate_esp_size (1G floor) ───────────────────────────────────────
+
+@test "layout_validate_esp_size: passes for the 2G default" {
+  write_config '{"options": {"esp_size": "2G"}}'
+  run layout_validate_esp_size
+  [ "$status" -eq 0 ]
+}
+
+@test "layout_validate_esp_size: passes at the 1G floor" {
+  write_config '{"options": {"esp_size": "1G"}}'
+  run layout_validate_esp_size
+  [ "$status" -eq 0 ]
+}
+
+@test "layout_validate_esp_size: errors below 1G (512M), naming the field" {
+  write_config '{"options": {"esp_size": "512M"}}'
+  run layout_validate_esp_size
+  [ "$status" -ne 0 ]
+  [[ "$output" == *esp_size* ]]
+}
+
+@test "layout_validate_esp_size: errors below 1G (800M)" {
+  write_config '{"options": {"esp_size": "800M"}}'
+  run layout_validate_esp_size
+  [ "$status" -ne 0 ]
 }
 
 # ── phase lifecycle helpers ───────────────────────────────────────────────────
