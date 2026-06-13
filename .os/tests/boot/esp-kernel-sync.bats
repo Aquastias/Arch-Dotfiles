@@ -76,3 +76,71 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   [ "$(grep -cxF vmlinuz-linux-lts <<<"$output")" -eq 1 ]
   in_output initramfs-linux-lts-fallback.img
 }
+
+# ── critical vs optional classification (by *fallback* filename) ──────────
+
+@test "critical files = entry-referenced non-fallback files" {
+  _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
+  _entry arch-zfs-fallback vmlinuz-linux-lts intel-ucode.img \
+    initramfs-linux-lts-fallback.img
+  : >"$BOOT/vmlinuz-linux-lts"
+  : >"$BOOT/intel-ucode.img"
+  : >"$BOOT/initramfs-linux-lts.img"
+  : >"$BOOT/initramfs-linux-lts-fallback.img"
+
+  run esp_sync_critical_files "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  in_output vmlinuz-linux-lts
+  in_output intel-ucode.img
+  in_output initramfs-linux-lts.img
+  ! in_output initramfs-linux-lts-fallback.img
+}
+
+@test "optional files = entry-referenced fallback files only" {
+  _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
+  _entry arch-zfs-fallback vmlinuz-linux-lts intel-ucode.img \
+    initramfs-linux-lts-fallback.img
+  : >"$BOOT/vmlinuz-linux-lts"
+  : >"$BOOT/intel-ucode.img"
+  : >"$BOOT/initramfs-linux-lts.img"
+  : >"$BOOT/initramfs-linux-lts-fallback.img"
+
+  run esp_sync_optional_files "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  in_output initramfs-linux-lts-fallback.img
+  ! in_output vmlinuz-linux-lts
+  ! in_output initramfs-linux-lts.img
+}
+
+# ── install_critical: temp+rename + cmp; preserve old image on failure ────
+
+@test "install_critical success: dst byte-equals src, returns 0, no .new" {
+  printf 'NEWIMG' >"$BOOT/src.img"
+  printf 'OLDIMG' >"$ESP/dst.img"
+  run esp_sync_install_critical "$BOOT/src.img" "$ESP/dst.img"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$ESP/dst.img")" = "NEWIMG" ]
+  cmp -s "$BOOT/src.img" "$ESP/dst.img"
+  [ ! -e "$ESP/dst.img.new" ]
+}
+
+@test "install_critical failure preserves old dst, non-zero, no .new" {
+  printf 'OLDIMG' >"$ESP/dst.img"
+  run esp_sync_install_critical "$BOOT/missing.img" "$ESP/dst.img"
+  [ "$status" -ne 0 ]
+  [ "$(cat "$ESP/dst.img")" = "OLDIMG" ] # prior good image intact
+  [ ! -e "$ESP/dst.img.new" ]
+}
+
+# ── orphan_temps: list .new temps for the sweep ───────────────────────────
+
+@test "orphan_temps lists .new temp files, not real files" {
+  : >"$ESP/.vmlinuz-linux-lts.new"
+  : >"$ESP/.initramfs-linux-lts.img.new"
+  : >"$ESP/vmlinuz-linux-lts"
+  run esp_sync_orphan_temps "$ESP"
+  [ "$status" -eq 0 ]
+  in_output "$ESP/.vmlinuz-linux-lts.new"
+  in_output "$ESP/.initramfs-linux-lts.img.new"
+  ! in_output "$ESP/vmlinuz-linux-lts"
+}
