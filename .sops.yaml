@@ -1,5 +1,5 @@
 creation_rules:
-  - path_regex: ^\.os/(hosts/vm/arch-secure|users/vm-test)/secrets\.json$
+  - path_regex: ^\.os/(hosts/vm/arch-secure(-kde-hyprland)?|users/vm-test)/secrets\.json$
     age: >-
       age1duq6992lzxcqzxd0j56f8dvc4a03wwct4rpag9k9t2r9xa9jhsyqhg5800
   - path_regex: (users|hosts)/[^/]+/secrets\.json$
