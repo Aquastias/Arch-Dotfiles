@@ -148,6 +148,33 @@ $(_seed_generator_esp_serial_lines)
 BLOCK
 }
 
+# Render the boot-resilience first-boot verify block (ADR 0038). Installs the
+# unit-tested esp-resilience verifier and drops a self-disabling oneshot that
+# composes the real hardened modules; it emits the sentinel ONLY when every
+# guard fires (a critical ESP copy fails loud + preserves the prior image, and a
+# planted Stray Kernel is detected). A regression emits no marker, so the host
+# boot-verify times out and the test fails. Test-only — never production.
+_seed_generator_esp_resilience_firstboot_block() {
+  local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  local lib="/usr/local/lib/esp-resilience-verify.sh"
+  local exec=". ${lib};"
+  exec+=" if esp_resilience_verify 2>/dev/ttyS0; then echo ${m} > /dev/ttyS0; fi;"
+  exec+=" systemctl disable firstboot-ok.service"
+  cat <<BLOCK
+    if [ "\$rc" -eq 0 ]; then
+      zpool import -f -N -R /mnt rpool || true
+      zfs mount rpool/ROOT/arch || true
+$(_seed_generator_esp_serial_lines)
+      install -Dm644 /root/dotfiles/.os/vm/lib/esp-resilience-verify.sh "/mnt${lib}"
+      mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
+      printf '%s\n' '[Unit]' 'Description=boot-resilience verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
+      zfs umount -a || true
+      zpool export rpool || zpool export -f rpool || true
+    fi
+BLOCK
+}
+
 _seed_generator_render_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"

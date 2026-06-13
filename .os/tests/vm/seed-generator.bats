@@ -263,3 +263,11 @@ teardown() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "output directory does not exist" ]]
 }
+
+@test "esp-resilience firstboot block: ships verifier + sentinel on pass" {
+  run _seed_generator_esp_resilience_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "esp-resilience-verify.sh" ]]
+  [[ "$output" =~ "esp_resilience_verify" ]]
+  [[ "$output" =~ "$SEED_GENERATOR_FIRSTBOOT_MARKER" ]]
+}
