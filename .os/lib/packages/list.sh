@@ -70,9 +70,8 @@ collect_packages() {
     "${kernel_pkgs[@]}" # kernel(s) + headers; headers needed by zfs-dkms
     linux-firmware
 
-    # ── CPU microcode (both; unused one is harmlessly ignored at boot) ────
-    intel-ucode
-    amd-ucode
+    # ── CPU microcode ─────────────────────────────────────────────────────
+    # Resolved per CPU vendor below (ADR 0038), not hardcoded to both.
 
     # ── ZFS ───────────────────────────────────────────────────────────────
     # zfs-dkms: compiles ZFS against the installed kernel headers.
@@ -139,6 +138,12 @@ collect_packages() {
   # GPU and audio packages resolved during validate_install_context
   pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
   pkgs+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")
+
+  # CPU microcode — only the running CPU's vendor's package (ADR 0038); empty
+  # on a VM / unknown CPU, which then installs no microcode.
+  local _ucode
+  _ucode="$(microcode_vendor_package "$(microcode_detect_vendor)")"
+  [[ -n "$_ucode" ]] && pkgs+=("$_ucode")
 
   # Sort and deduplicate — pacstrap handles duplicates gracefully but this
   # keeps the output clean and avoids confusion in the install log.
