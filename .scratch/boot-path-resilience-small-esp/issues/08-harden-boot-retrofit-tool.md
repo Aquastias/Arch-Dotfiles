@@ -1,6 +1,6 @@
 # tools/harden-boot.sh retrofit tool
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

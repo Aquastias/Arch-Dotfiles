@@ -1,6 +1,6 @@
 # First-boot sentinel brick-precondition test
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

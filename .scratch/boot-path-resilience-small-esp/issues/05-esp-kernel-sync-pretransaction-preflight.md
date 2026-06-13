@@ -1,6 +1,6 @@
 # ESP Kernel Sync PreTransaction preflight
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
