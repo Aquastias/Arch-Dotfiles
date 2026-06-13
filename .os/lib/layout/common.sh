@@ -6,9 +6,22 @@
 # Requires: lib/common.sh already sourced (provides cfgo, error).
 # =============================================================================
 
-# Reads .options.esp_size from Install Config. Returns "512M" when unset.
+# Reads .options.esp_size from Install Config. Returns "2G" when unset.
 layout_resolve_esp_size() {
   install_config_esp_size
+}
+
+# Fail-fast guard: the resolved ESP size must meet the 1 GiB floor. systemd-boot
+# copies the kernel + initramfs (and a fallback) onto the FAT ESP, so a too-small
+# ESP can run out of space mid-upgrade and truncate the boot image (ADR 0038).
+# Errors naming the field and the floor; succeeds silently otherwise.
+layout_validate_esp_size() {
+  local size mib
+  size="$(layout_resolve_esp_size)"
+  mib="$(parse_size_to_mib "$size")"
+  ((mib >= 1024)) || error \
+    "esp_size '${size}' is below the 1G floor for a resilient boot path" \
+    "(ADR 0038). Set options.esp_size to at least 1G (default 2G)."
 }
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.
@@ -20,6 +33,21 @@ parse_size_to_gib() {
   M | MIB) echo $(((num + 1023) / 1024)) ;;
   G | GIB) echo "$num" ;;
   T | TIB) echo $((num * 1024)) ;;
+  *) error "Cannot parse size string: '$1'" ;;
+  esac
+}
+
+# Converts a size string ("512M", "2G", "1T") to integer MiB with no rounding
+# loss. Unlike parse_size_to_gib, this keeps sub-GiB precision so the ESP floor
+# can distinguish 512M from 1G.
+parse_size_to_mib() {
+  local raw="${1^^}"
+  local num="${raw//[^0-9]/}"
+  local unit="${raw//[0-9]/}"
+  case "$unit" in
+  M | MIB) echo "$num" ;;
+  G | GIB) echo $((num * 1024)) ;;
+  T | TIB) echo $((num * 1024 * 1024)) ;;
   *) error "Cannot parse size string: '$1'" ;;
   esac
 }

@@ -261,6 +261,7 @@ mount_single_esp() {
 
 layout_validate() {
   _layout_enter_phase validate
+  layout_validate_esp_size
   local d
   d="$(cfg '.disk' 'disk')"
   [[ -b "$d" ]] || error "Single disk not found: $d"

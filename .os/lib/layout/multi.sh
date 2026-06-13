@@ -774,6 +774,7 @@ _mount_is_reserved() {
 
 layout_validate() {
   _layout_enter_phase validate
+  layout_validate_esp_size
   local topo
   topo="$(cfgo '.os_pool.topology')"
   if [[ -n "$topo" ]]; then
