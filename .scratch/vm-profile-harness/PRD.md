@@ -1,6 +1,6 @@
 # VM provisioning: one profile-driven harness + test-folder reorg
 
-Status: ready-for-agent
+Status: done
 
 Glossary: VM Profile, VM Harness, Profile Category, Host Profile, Install
 Template, Install Config, Pre-Install Picker, Host Config, Disk Wipe,
