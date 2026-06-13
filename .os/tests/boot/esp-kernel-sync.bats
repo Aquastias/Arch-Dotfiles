@@ -144,3 +144,26 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   in_output "$ESP/.initramfs-linux-lts.img.new"
   ! in_output "$ESP/vmlinuz-linux-lts"
 }
+
+# ── space proxy (needed_bytes / space_ok) ─────────────────────────────────
+
+@test "needed_bytes = sum of planned file sizes plus the largest (headroom)" {
+  _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
+  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
+  head -c 50 /dev/zero >"$BOOT/intel-ucode.img"
+  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  run esp_sync_needed_bytes "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  [ "$output" -eq 550 ] # 100 + 50 + 200, plus 200 (largest) for temp+rename
+}
+
+@test "space_ok: ample free passes, tight free fails" {
+  _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
+  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
+  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  # needed = 100 + 200 + 200 (largest) = 500
+  run esp_sync_space_ok "$ESP" "$BOOT" 1000
+  [ "$status" -eq 0 ]
+  run esp_sync_space_ok "$ESP" "$BOOT" 400
+  [ "$status" -ne 0 ]
+}

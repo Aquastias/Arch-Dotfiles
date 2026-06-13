@@ -107,6 +107,24 @@ install -Dm755 "$_LIB_DIR/esp-kernel-sync.sh" \
 # Numbered 94 so the ESP Kernel Sync runs BEFORE the ESP Mirror Hook
 # (95-esp-mirror), which then rsyncs the freshly-synced primary ESP onto any
 # secondary ESPs (ADR 0038).
+
+# 93 (PreTransaction): preflight that aborts the upgrade BEFORE it applies when
+# an ESP lacks room for the new boot images, so the system never half-applies
+# into a degraded state. AbortOnFail propagates the non-zero exit to pacman.
+cat > /etc/pacman.d/hooks/93-esp-kernel-sync-preflight.hook << 'HOOK'
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/vmlinuz
+
+[Action]
+Description = Checking ESP free space for new boot images...
+When = PreTransaction
+Exec = /usr/local/lib/archzfs/esp-kernel-sync.sh preflight
+AbortOnFail
+HOOK
+
 cat > /etc/pacman.d/hooks/94-esp-kernel-sync.hook << 'HOOK'
 [Trigger]
 Type = Path

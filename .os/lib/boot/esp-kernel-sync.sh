@@ -62,6 +62,28 @@ esp_sync_install_critical() {
   cmp -s "$src" "$dst"
 }
 
+# Estimated bytes the planned files need on an ESP: the sum of their sizes plus
+# the largest file again, since temp+rename transiently holds both the old and
+# the new copy of the file being written (ADR 0038).
+esp_sync_needed_bytes() {
+  local esp_dir="$1" boot_dir="$2" f sz total=0 max=0
+  while IFS= read -r f; do
+    sz=$(stat -c%s "$boot_dir/$f" 2>/dev/null || echo 0)
+    total=$((total + sz))
+    ((sz > max)) && max=$sz
+  done < <(esp_sync_planned_files "$esp_dir" "$boot_dir")
+  echo $((total + max))
+}
+
+# True when an ESP with <free_bytes> available can hold the planned files. One
+# shared proxy for both the PreTransaction preflight and the PostTransaction
+# guard.
+esp_sync_space_ok() {
+  local esp_dir="$1" boot_dir="$2" free="$3" needed
+  needed="$(esp_sync_needed_bytes "$esp_dir" "$boot_dir")"
+  ((free >= needed))
+}
+
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]] && return 0
 
@@ -112,4 +134,24 @@ _esp_kernel_sync_run() {
   done
 }
 
-_esp_kernel_sync_run
+# Preflight (PreTransaction): abort the upgrade early if any ESP cannot hold the
+# new boot images, so the transaction never half-applies. Uses current image
+# sizes as the proxy (the new ones are not built until PostTransaction).
+_esp_kernel_sync_preflight() {
+  local d free
+  for d in /boot/efi*/; do
+    free=$(df -B1 --output=avail "$d" 2>/dev/null | tail -1)
+    free=${free//[^0-9]/}
+    esp_sync_space_ok /boot/efi /boot "${free:-0}" || {
+      echo "esp-kernel-sync: PRE-TRANSACTION ABORT: ESP $d lacks room for the" \
+           "new boot images. Free space and retry (ADR 0038)." >&2
+      df -h "$d" >&2
+      exit 1
+    }
+  done
+}
+
+case "${1:-sync}" in
+preflight) _esp_kernel_sync_preflight ;;
+*)         _esp_kernel_sync_run ;;
+esac
