@@ -1,6 +1,6 @@
 # Extract ESP Kernel Sync + drive from Kernel Selection
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

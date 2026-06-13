@@ -1,6 +1,6 @@
 # GRUB default-pin to Primary Kernel
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

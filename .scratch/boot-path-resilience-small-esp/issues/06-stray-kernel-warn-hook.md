@@ -1,6 +1,6 @@
 # Stray Kernel warn hook
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

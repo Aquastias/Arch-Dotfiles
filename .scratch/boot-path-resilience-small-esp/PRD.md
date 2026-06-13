@@ -1,6 +1,6 @@
 # PRD: Boot-path resilience on a small FAT ESP
 
-Status: ready-for-agent
+Status: done
 
 References: ADR 0038 (this feature), ADR 0024 (Kernel Selection /
 Primary Kernel / ZFS Module Guard), ADR 0023 (single-source ZFS

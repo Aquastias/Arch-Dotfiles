@@ -1,6 +1,6 @@
 # Per-vendor microcode
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

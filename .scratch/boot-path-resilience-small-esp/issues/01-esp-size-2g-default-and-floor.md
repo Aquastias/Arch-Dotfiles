@@ -1,6 +1,6 @@
 # ESP size: 2G default + 1G floor
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
