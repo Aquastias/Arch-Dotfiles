@@ -95,25 +95,19 @@ fi
 [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img /boot/efi/ || true
 [[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   /boot/efi/ || true
 
-# Pacman hook: keep ESP copies in sync on every kernel upgrade.
-# Exec= in a pacman hook goes directly to execv — no shell syntax allowed.
-# Write a helper script and call that.
-mkdir -p /etc/pacman.d/hooks /usr/local/lib/archzfs
+# Pacman hook: keep ESP copies in sync on every kernel transaction. Exec= in a
+# pacman hook goes straight to execv (no shell), so it calls a helper script —
+# the shared ESP Kernel Sync (lib/boot/esp-kernel-sync.sh), staged into the
+# chroot. It mirrors only what the loader entries reference, so a Stray Kernel
+# is never copied (ADR 0038).
+mkdir -p /etc/pacman.d/hooks
+install -Dm755 "$_LIB_DIR/esp-kernel-sync.sh" \
+  /usr/local/lib/archzfs/esp-kernel-sync.sh
 
-cat > /usr/local/lib/archzfs/esp-kernel-sync.sh << 'SCRIPT'
-#!/usr/bin/env bash
-for f in /boot/vmlinuz-linux* /boot/initramfs-linux*.img \
-          /boot/intel-ucode.img /boot/amd-ucode.img; do
-    [[ -f "$f" ]] || continue
-    cp "$f" /boot/efi/
-    for d in /boot/efi*/; do
-        [[ "$d" != "/boot/efi/" ]] && cp "$f" "$d"
-    done
-done
-SCRIPT
-chmod +x /usr/local/lib/archzfs/esp-kernel-sync.sh
-
-cat > /etc/pacman.d/hooks/96-esp-kernel-sync.hook << 'HOOK'
+# Numbered 94 so the ESP Kernel Sync runs BEFORE the ESP Mirror Hook
+# (95-esp-mirror), which then rsyncs the freshly-synced primary ESP onto any
+# secondary ESPs (ADR 0038).
+cat > /etc/pacman.d/hooks/94-esp-kernel-sync.hook << 'HOOK'
 [Trigger]
 Type = Path
 Operation = Install
