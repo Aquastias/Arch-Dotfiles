@@ -283,6 +283,10 @@ configure_system() {
      "${MOUNT_ROOT}/root/lib-chroot/microcode.sh"
   cp "${SCRIPT_DIR}/lib/boot/esp-kernel-sync.sh" \
      "${MOUNT_ROOT}/root/lib-chroot/esp-kernel-sync.sh"
+  cp "${SCRIPT_DIR}/lib/boot/stray-kernel.sh" \
+     "${MOUNT_ROOT}/root/lib-chroot/stray-kernel.sh"
+  cp "${SCRIPT_DIR}/lib/zfs/verify.sh" \
+     "${MOUNT_ROOT}/root/lib-chroot/verify.sh"
   cp "${SCRIPT_DIR}/lib/impermanence-common.sh" \
      "${MOUNT_ROOT}/root/lib-chroot/impermanence-common.sh"
   cp "${SCRIPT_DIR}/lib/grub-common.sh" \

@@ -458,6 +458,16 @@ early, explicit error naming the unsupported kernel. Necessary because Kernel
 Selection may include kernels newer than `archzfs` tracks (see
 archzfs-Compatible ISO).
 
+### Stray Kernel
+A kernel installed on a host but **not** in its Kernel Selection — e.g. a
+rolling `linux` pulled in out-of-band on an lts-only host. Boot-harmless under
+the hardened path: the ESP Kernel Sync mirrors only entry-referenced kernels, so
+a stray never reaches the ESP and systemd-boot entries name only the Primary
+Kernel. It still wastes ZFS `/boot` space and, lacking a buildable `zfs.ko`,
+would be a trap if booted. Surfaced — warned, never removed — by a non-blocking
+PostTransaction hook (`97-stray-kernel-warn.hook`) that reuses the ZFS Module
+Guard's `zfs.ko`-presence check (ADR 0038).
+
 ### Impermanence
 Optional install-time feature that resets selected system directories to a clean
 state on every boot via ZFS dataset rollback. Enabled by `options.impermanence`

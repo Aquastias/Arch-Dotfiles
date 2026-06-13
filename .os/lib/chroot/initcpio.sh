@@ -119,3 +119,29 @@ fi
 _initcpio_write_udev_override ""
 
 mkinitcpio -P
+
+# ── Stray Kernel warn hook (ADR 0038) ─────────────────────────────────────────
+# Persist the selected kernel package bases and install a non-blocking
+# PostTransaction hook that warns about any kernel installed but not selected,
+# or any kernel missing zfs.ko. Bootloader-agnostic, so it lives here (runs for
+# both systemd-boot and grub) rather than in a Bootloader Adapter.
+mkdir -p /usr/local/lib/archzfs /etc/pacman.d/hooks
+install -Dm755 "$_LIB_DIR/stray-kernel.sh" /usr/local/lib/archzfs/stray-kernel.sh
+install -Dm644 "$_LIB_DIR/verify.sh" /usr/local/lib/archzfs/verify.sh
+
+for _tok in "${KERNELS[@]}"; do
+  kernel_pkg "$_tok"
+done | sort -u >/usr/local/lib/archzfs/selected-kernels
+
+cat >/etc/pacman.d/hooks/97-stray-kernel-warn.hook <<'HOOK'
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/modules/*/vmlinuz
+
+[Action]
+Description = Checking for stray / zfs.ko-less kernels...
+When = PostTransaction
+Exec = /usr/local/lib/archzfs/stray-kernel.sh warn
+HOOK
