@@ -44,7 +44,12 @@ install -o root -g root -m 644 \
   "$SOPS_SERVICES/sops-runtime.service" \
   /usr/lib/systemd/system/sops-runtime.service
 
-print_status info "Enabling sops-runtime.service..."
-systemctl enable sops-runtime.service
+print_status info "Enabling sops-runtime.service (vendor wants-symlink)..."
+# Enable under /usr/lib, NOT via `systemctl enable` (which writes /etc): the
+# /etc symlink is rolled back to @blank + bind-covered under impermanence, so
+# this early sysinit unit never auto-starts. See enable-runtime.sh.
+# shellcheck source=scripts/enable-runtime.sh
+source "$SOPS_SCRIPTS/enable-runtime.sh"
+sops_enable_runtime
 
 print_status success "SOPS runtime staged."

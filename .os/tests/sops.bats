@@ -5,6 +5,8 @@ SOPS_SERVICE="$BATS_TEST_DIRNAME/../programs/security/sops/services"
 SOPS_SERVICE="$SOPS_SERVICE/sops-runtime.service"
 SOPS_SCRIPT="$BATS_TEST_DIRNAME/../programs/security/sops/scripts"
 SOPS_SCRIPT="$SOPS_SCRIPT/sops-runtime.sh"
+SOPS_ENABLE="$BATS_TEST_DIRNAME/../programs/security/sops/scripts"
+SOPS_ENABLE="$SOPS_ENABLE/enable-runtime.sh"
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -24,6 +26,33 @@ teardown() {
     "$SOPS_SERVICE" > "$tmp_unit"
   run systemd-analyze verify "$tmp_unit"
   [ "$status" -eq 0 ]
+}
+
+# ── enablement (impermanence-safe vendor symlink) ─────────────────────────────
+
+@test "sops_enable_runtime enables via /usr/lib vendor wants-symlink" {
+  source "$SOPS_ENABLE"
+  sops_enable_runtime "$TEST_DIR"
+  local link
+  link="$TEST_DIR/usr/lib/systemd/system/sysinit.target.wants/sops-runtime.service"
+  [ -L "$link" ]
+  [ "$(readlink "$link")" = "../sops-runtime.service" ]
+}
+
+@test "sops_enable_runtime does NOT enable under /etc (rolled back by @blank)" {
+  source "$SOPS_ENABLE"
+  sops_enable_runtime "$TEST_DIR"
+  # An /etc symlink would be lost to the impermanence rollback + bind, so the
+  # unit must NOT be enabled there.
+  [ ! -e "$TEST_DIR/etc/systemd/system/sysinit.target.wants/sops-runtime.service" ]
+}
+
+@test "sops_enable_runtime is idempotent" {
+  source "$SOPS_ENABLE"
+  sops_enable_runtime "$TEST_DIR"
+  run sops_enable_runtime "$TEST_DIR"
+  [ "$status" -eq 0 ]
+  [ -L "$TEST_DIR/usr/lib/systemd/system/sysinit.target.wants/sops-runtime.service" ]
 }
 
 # ── ssh-to-age ────────────────────────────────────────────────────────────────
