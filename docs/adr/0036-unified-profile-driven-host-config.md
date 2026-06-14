@@ -2,7 +2,7 @@
 
 ## Status
 Accepted (implemented across `.scratch/unified-host-profile/` issues
-01-10 + 12, VM-verified; doc rewrite issue 11 pending). Supersedes the
+01-12, VM-verified; docs rewritten in issue 11). Supersedes the
 file split in ADR 0001 and ADR 0010 (the Pre-Install Picker is now the
 `install.sh --profile` front-end, not a separate `tools/pick.sh`); narrows
 ADR 0002's reach; amends ADR 0015 (open -> closed schema) and ADR 0035

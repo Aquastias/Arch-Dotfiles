@@ -3,7 +3,9 @@
 ## Status
 Accepted. Supersedes the "basename becomes hostname … no override"
 clause of ADR-0010 and the "which host config to apply (sets
-hostname)" framing of the same.
+hostname)" framing of the same. Mechanism amended by ADR-0036: the
+hostname now lives in `profile.jsonc` (dirname-is-identity fallback),
+not the retired `install.template.jsonc` this ADR's body describes.
 
 ## Context
 ADR-0010 fused two roles into one identifier: the `hosts/<name>/`

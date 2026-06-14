@@ -1,9 +1,9 @@
 // Host Profile for `desktop` (eterniox) — the unified, self-contained
 // profile (ADR 0036). Merged under hosts/core/profile.jsonc.
 //
-// Folds the former install.template.jsonc (hostname) + the core machine
-// defaults + config.jsonc (users/system_programs/packages) into one file,
-// and declares the full pool skeleton — devices excluded, picked at install:
+// One file carries the hostname, core machine defaults, users,
+// system_programs, and packages, and declares the full pool skeleton —
+// devices excluded, picked at install:
 //   os_pool  rpool  mirror (2x NVMe, ashift 12)
 //   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
 {
