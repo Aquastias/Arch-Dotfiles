@@ -1,8 +1,8 @@
 // Host Profile for `laptop` (chronos) — the unified, self-contained profile
-// (ADR 0036). Merged under hosts/core/profile.jsonc. Folds the former
-// install.template.jsonc (hostname) + core machine defaults + config.jsonc
-// (users/packages) into one file, declares the kde+hyprland desktop, and a
-// single-disk skeleton (one operator-picked disk → ESP + rpool + dpool).
+// (ADR 0036). Merged under hosts/core/profile.jsonc. One file carries the
+// hostname, core machine defaults, users, and packages, declares the
+// kde+hyprland desktop, and a single-disk skeleton (one operator-picked
+// disk → ESP + rpool + dpool).
 {
   "system": {
     "hostname": "chronos",

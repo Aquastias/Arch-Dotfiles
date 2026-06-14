@@ -78,9 +78,8 @@ JSONC
 # ── host_profile resolves the unified profile.jsonc (load_profile) ───────────
 
 @test "profile_resolve_config: host_profile single resolves via load_profile" {
-  # A real profile.jsonc-backed host (no install.template.jsonc) — proves the
-  # resolver reads the unified profile (merged over core) via load_profile,
-  # not a copied Install Template.
+  # A real profile.jsonc-backed host — proves the resolver reads the unified
+  # profile (merged over core) via load_profile.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
 { "system_programs": ["cups"] }

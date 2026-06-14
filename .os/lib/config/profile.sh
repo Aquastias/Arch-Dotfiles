@@ -10,7 +10,7 @@
 # `load_profile <name>` merges hosts/<name>/profile.jsonc over
 # hosts/core/profile.jsonc (merge rules per layers.sh) and emits the effective
 # config on stdout. profile.jsonc is the *only* host input — there is no
-# legacy config.jsonc / install.template.jsonc fallback (issue 10).
+# legacy fallback (issue 10).
 #
 # Pure: no side effects beyond reading files and writing stdout/stderr.
 # Requires OS_DIR set.
