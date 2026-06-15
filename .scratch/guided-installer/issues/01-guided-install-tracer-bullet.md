@@ -31,25 +31,50 @@ The pure core ships at the scope this slice exercises: **Config State**
 for the covered fields), **Emitter** (state → Effective Config) — all
 JSON-in/JSON-out, no TTY. The fzf shell is the thin impure layer.
 
+The fzf shell (`lib/guided.sh`) holds **no logic** — it renders
+`menu_rows`, dispatches to Config State, resolves disks via the picker,
+assembles via the Emitter, and runs the terminal action. Its **only**
+selection primitives are `guided_select` / `guided_prompt`: fzf (and a
+typed prompt for free-text) interactively, but under `--guided <answers>`
+they replay scripted answers from a file — the seam that lets a headless
+harness drive the menu. `--guided` is the replay flag only; an operator
+launches the menu with bare `install.sh`. The seam ships here; the
+headless VM driver that uses it is `01b`.
+
+Consent is a **single** gate: the review screen's typed `INSTALL` (read
+through `guided_prompt`, so the replay file supplies it too). Proceed then
+runs `01 → 02 → 03` **`--unattended`** so the back-end's own gates (02's
+`WIPE`, 03's `Proceed?`, the root-password prompt) don't re-ask. Root
+defaults to `12345` for this slice (the documented throwaway convention),
+forward-compatible with issue 07's TUI passwords.
+
 ## Acceptance criteria
 
 - [ ] Bare `install.sh` launches the guided fzf menu; `--profile` and
-      positional `<config-file>` seams behave exactly as before.
+      positional `<config-file>` seams behave exactly as before. The shell
+      selects only through `guided_select` / `guided_prompt`; `--guided
+      <answers>` replays them from a file (no inline fzf calls).
 - [ ] Menu shows the Host / Users split; System ▸ hostname is editable;
       Disks ▸ filesystem = ZFS ▸ single-disk resolves a disk via the
       Pre-Install Picker with its preview pane.
-- [ ] Proceed assembles a tmpfs Effective Config merged over Host Core
-      and runs `01 → 02 → 03`; the review screen lists target + WIPE
-      disks and requires a typed `INSTALL`.
+- [ ] Proceed assembles a tmpfs Effective Config merged over Host Core;
+      the review screen lists target + WIPE disks and requires a typed
+      `INSTALL` (the sole consent gate), then runs `01 → 02 → 03`
+      **`--unattended`** so the back-end gates don't re-prompt (root
+      defaults to `12345`).
 - [ ] `generate_template` and the bare-default `install.jsonc` are
       removed; missing config on the non-guided path fails with an
       actionable message.
-- [ ] The VM seed passes its Effective Config positionally; the existing
-      VM suite and bats suite are green.
-- [ ] bats cover Config State (get/set/unset + emit), Menu model (rows
+- [ ] The VM seed passes its Effective Config positionally
+      (`flow-test`, `flow-persistent`, `seed-generator` + its bats
+      assertion); the existing VM suite and bats suite are green.
+- [x] bats cover Config State (get/set/unset + emit), Menu model (rows
       for the covered fields), and Emitter (state → Effective Config),
       asserting JSON output, never internal structure.
-- [ ] VM smoke: a guided single-disk ZFS install boots.
+      (`tests/config/guided-state.bats`, `guided-emit.bats`,
+      `guided-menu.bats` — 11 tests.)
+- [ ] VM smoke: a guided single-disk ZFS install boots — a **manual**
+      console run for this slice (the automated headless driver is `01b`).
 
 ## Blocked by
 
