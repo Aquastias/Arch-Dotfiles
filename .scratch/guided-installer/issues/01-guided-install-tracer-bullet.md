@@ -50,22 +50,22 @@ forward-compatible with issue 07's TUI passwords.
 
 ## Acceptance criteria
 
-- [ ] Bare `install.sh` launches the guided fzf menu; `--profile` and
+- [x] Bare `install.sh` launches the guided fzf menu; `--profile` and
       positional `<config-file>` seams behave exactly as before. The shell
       selects only through `guided_select` / `guided_prompt`; `--guided
       <answers>` replays them from a file (no inline fzf calls).
 - [ ] Menu shows the Host / Users split; System ▸ hostname is editable;
       Disks ▸ filesystem = ZFS ▸ single-disk resolves a disk via the
       Pre-Install Picker with its preview pane.
-- [ ] Proceed assembles a tmpfs Effective Config merged over Host Core;
+- [x] Proceed assembles a tmpfs Effective Config merged over Host Core;
       the review screen lists target + WIPE disks and requires a typed
       `INSTALL` (the sole consent gate), then runs `01 → 02 → 03`
       **`--unattended`** so the back-end gates don't re-prompt (root
       defaults to `12345`).
-- [ ] `generate_template` and the bare-default `install.jsonc` are
+- [x] `generate_template` and the bare-default `install.jsonc` are
       removed; missing config on the non-guided path fails with an
       actionable message.
-- [ ] The VM seed passes its Effective Config positionally
+- [x] The VM seed passes its Effective Config positionally
       (`flow-test`, `flow-persistent`, `seed-generator` + its bats
       assertion); the existing VM suite and bats suite are green.
 - [x] bats cover Config State (get/set/unset + emit), Menu model (rows
@@ -75,6 +75,20 @@ forward-compatible with issue 07's TUI passwords.
       `guided-menu.bats` — 11 tests.)
 - [ ] VM smoke: a guided single-disk ZFS install boots — a **manual**
       console run for this slice (the automated headless driver is `01b`).
+
+## Progress
+
+Pure cores + the impure shell/entry are built and committed; the full
+bats + VM suites are green (1065 tests). What remains:
+
+- **Interactive menu is linear, not the re-entrant split menu.**
+  `guided_build` drives a straight-line flow (hostname → single-disk pick
+  → review → `INSTALL`) and assembles the correct Effective Config. The
+  Host / Users split *model* exists (`menu_rows`), but the shell does not
+  yet render a navigable split menu — that nav is the remaining 01 work
+  (and dovetails with issue 02's non-destructive navigation).
+- **VM smoke is unrun.** Needs one manual console boot of bare
+  `install.sh` on a VM (the automated equivalent is `01b`).
 
 ## Blocked by
 
