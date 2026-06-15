@@ -215,7 +215,7 @@ runcmd:
         && sed -i \
   's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' \
   install.jsonc \\
-        && ${dirty_step}./install.sh --unattended
+        && ${dirty_step}./install.sh --unattended install.jsonc
     }
     rc=\$?
 ${boot_block}

@@ -67,7 +67,7 @@ cd /root/dotfiles/.os
 # (no-ops on profiles without encryption or secrets). Disposable VMs only.
 export INSTALL_ENC_PASSPHRASE='testtest'
 export SECRETS_AGE_PASSPHRASE='test'
-./install.sh --unattended
+./install.sh --unattended install.jsonc
 sync
 poweroff
 EOF

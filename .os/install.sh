@@ -51,15 +51,20 @@ Single entry point for the Arch Linux ZFS installer. Runs, in order:
   2. 02-wipe.sh
   3. 03-install.sh [CONFIG_FILE]
 
+With no --profile and no CONFIG_FILE, launches the Guided Installer (an
+fzf menu that builds the install interactively).
+
 Options:
   --profile <name>   Host Profile to install (hosts/<name>/). With
                      --print-config, the only profile action wired today.
   --print-config     Validate the --profile against the closed schema,
                      assemble the effective config, print it to stdout, and
                      exit. No disk phase runs (01/02/03 never start).
+  --guided <file>    Run the Guided Installer headlessly, replaying menu
+                     answers from a key=value file (no fzf, no tty).
   -y, --unattended   Bypass every interactive confirmation prompt (disk
                      selection, "WIPE" confirmation, final "Proceed?").
-                     Hostname must be set in install.jsonc beforehand.
+                     Hostname must be set in the config beforehand.
   -h, --help         Show this help and exit.
 EOF
 }
@@ -141,6 +146,7 @@ forward_args=()
 positional_args=()
 profile_name=""
 print_config=""
+guided_replay=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -y | --unattended)
@@ -158,6 +164,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --print-config)
       print_config=1
+      shift
+      ;;
+    --guided)
+      guided_replay="${2:?--guided requires an answers file}"
+      shift 2
+      ;;
+    --guided=*)
+      guided_replay="${1#*=}"
       shift
       ;;
     -h | --help)
@@ -225,6 +239,31 @@ if [[ -n "$profile_name" ]]; then
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
   assemble_profile_config "$profile_name" "$assignment" > "$effective_config"
   positional_args=("$effective_config")
+fi
+
+# Guided front-end (ADR 0039): bare install.sh — or `--guided <answers>` for a
+# headless replay — launches the interactive menu, which assembles a tmpfs
+# Effective Config and hands it to the back-end positionally. The typed INSTALL
+# in the review screen is the sole consent gate, so the back-end runs
+# --unattended (02's WIPE / 03's Proceed don't re-ask; root defaults to 12345 —
+# change on first boot; TUI passwords are issue 07).
+if [[ -z "$profile_name" && -z "$print_config" ]] \
+  && { [[ -n "$guided_replay" ]] || ((${#positional_args[@]} == 0)); }; then
+  export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
+  # shellcheck source=lib/common.sh
+  source "${SCRIPT_DIR}/lib/common.sh"
+  # shellcheck source=lib/guided.sh
+  source "${SCRIPT_DIR}/lib/guided.sh"
+
+  [[ -n "$guided_replay" ]] && guided_load_replay "$guided_replay"
+
+  effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
+  guided_build >"$effective_config" || exit "$?"
+  positional_args=("$effective_config")
+
+  export INSTALL_UNATTENDED=1
+  [[ " ${forward_args[*]} " == *" --unattended "* ]] \
+    || forward_args+=(--unattended)
 fi
 
 # Resolve the install's target disks from the config (single .disk, or multi

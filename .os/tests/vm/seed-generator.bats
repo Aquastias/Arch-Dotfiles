@@ -59,10 +59,12 @@ teardown() {
   [[ "$output" =~ "output:" ]]
 }
 
-@test "user-data: runs install.sh --unattended" {
+@test "user-data: runs install.sh --unattended with a positional config" {
   run _seed_generator_render_user_data "$REPO_URL" "$HOSTNAME_FIXTURE"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "./install.sh --unattended" ]]
+  # Positional config (ADR 0039): bare install.sh now launches the Guided
+  # Installer, so the seed must pass its config explicitly.
+  [[ "$output" =~ "./install.sh --unattended install.jsonc" ]]
 }
 
 @test "user-data: emits the sentinel line in the documented format" {

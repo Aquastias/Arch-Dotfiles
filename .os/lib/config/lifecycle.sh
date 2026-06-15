@@ -6,7 +6,6 @@
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   generate_template  — writes a documented install.json template and exits
 #   load_config        — validates the config file exists and is valid JSON
 #   detect_mode        — sets INSTALL_MODE from config or auto-detects
 #   print_summary      — prints the installation plan and asks for confirmation
@@ -43,153 +42,16 @@ declare -gA _CONFIG_MODE_SIG=(
 )
 
 # =============================================================================
-# TEMPLATE GENERATOR
-# =============================================================================
-# Called when install.json is missing. Writes a fully commented template to
-# the given path, then exits so the user can edit before re-running.
-
-generate_template() {
-  local target="$1"
-  cat >"$target" <<'TEMPLATE'
-{
-  "_readme": "Arch ZFS Installer config. Edit ACTIVE CONFIG, run 03-install.",
-
-  "_MODE_HELP": {
-    "single": "One disk — auto-partitioned: ESP + rpool + dpool.",
-    "multi":  "Multiple disks — rpool + optional storage groups (dpool).",
-    "auto":   "Omit 'mode' to auto-detect from 'disk' or 'os_pool.disks'."
-  },
-
-  "system": {
-    "hostname": "",
-    "_hostname": "Machine hostname. Leave empty to be prompted during install.",
-    "locale":   "en_US.UTF-8",
-    "timezone": "UTC",
-    "keymap":   "us"
-  },
-
-  "_software_help": "Users + programs in hosts/ and users/. See PRD.md.",
-
-  "options": {
-    "encryption":  false,
-    "_encryption": "ZFS AES-256-GCM. Passphrase at install + boot.",
-    "swap":        true,
-    "swap_size":   "auto",
-    "_swap_size":  "'auto' = RAM×2. Or fixed: '8G', '16G', '32G'.",
-    "esp_size":    "2G",
-    "_esp_size":   "EFI partition per OS disk. Default 2G; 1G floor (ADR 0038)."
-  },
-
-  "packages": {
-    "_help":  "All pkgs installed via pacstrap. Use exact pacman names.",
-    "extra":  [],
-    "_extra": "Flat list. Example: ['htop', 'firefox', 'vlc', 'neofetch']",
-    "groups": {
-      "cli":   [],
-      "_cli":  "CLI tools. Example: ['tmux', 'bat', 'ripgrep', 'fzf', 'zsh']",
-      "dev":   [],
-      "_dev":  "Dev tools. Example: ['python', 'nodejs', 'docker', 'go']",
-      "gui":   [],
-      "_gui":  "GUI apps (with post_install.kde). Example: ['firefox', 'vlc']"
-    }
-  },
-
-  "post_install": {
-    "_help":      "Set true to run the matching extras/ script at install end.",
-    "desktop": {
-      "kde": false,
-      "_kde":       "extras/kde.sh — KDE 6, SDDM, PipeWire, Bluetooth, Avahi.",
-    "backup":     false,
-    "_backup":    "extras/backup.sh — zfs-auto-snapshot + Borg/Vorta backups.",
-    "security":   false,
-    "_security":  "extras/security.sh — UFW (deny-all-in) + ClamAV weekly scan."
-  },
-
-  "_SINGLE_DISK_EXAMPLE": {
-    "_info":             "Laptop or single-disk desktop. Auto-split.",
-    "mode":              "single",
-    "disk":              "/dev/sda",
-    "ashift":            12,
-    "_ashift":           "12 = 4K sectors (SSD/HDD). 13 = 8K (NVMe).",
-    "os_size":           "auto",
-    "_os_size":          "'auto' = max(20% disk, RAM×2+30GiB, 40GiB).",
-    "os_pool_name":      "rpool",
-    "storage_pool_name": "dpool",
-    "storage_mount":     "/data"
-  },
-
-  "_MULTI_MIRROR_EXAMPLE": {
-    "_info":   "2 NVMes mirrored for OS. 3 SSDs as raidz1 storage.",
-    "mode":    "multi",
-    "os_pool": {
-      "pool_name": "rpool",
-      "topology":  "mirror",
-      "_topology": "mirror | stripe | none | (omit → prompted at runtime)",
-      "ashift":    13,
-      "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
-    },
-    "storage_groups": [
-      {
-        "name":      "ssd",
-        "mount":     "/data/ssd",
-        "ashift":    12,
-        "topology":  "raidz1",
-        "_topology": "mirror|stripe|raidz1|raidz2|independent|(omit→prompted)",
-        "disks":     ["/dev/sda", "/dev/sdb", "/dev/sdc"]
-      }
-    ]
-  },
-
-  "_MULTI_NO_RAID_EXAMPLE": {
-    "_info":   "2 NVMes; topology=none → pick one for OS, other joins dpool.",
-    "mode":    "multi",
-    "os_pool": {
-      "pool_name": "rpool",
-      "topology":  "none",
-      "ashift":    13,
-      "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
-    },
-    "storage_groups": [
-      { "name": "ssd", "mount": "/data/ssd", "ashift": 12,
-        "disks": ["/dev/sda", "/dev/sdb", "/dev/sdc"] }
-    ]
-  },
-
-  "=== ACTIVE CONFIG — edit below, leave examples above as reference ===": "",
-
-  "mode":  "single",
-  "disk":  "/dev/sda",
-  "ashift": 12,
-  "os_size": "auto",
-  "os_pool_name":      "rpool",
-  "storage_pool_name": "dpool",
-  "storage_mount":     "/data",
-
-  "os_pool": {
-    "pool_name": "rpool",
-    "ashift":    13,
-    "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
-  },
-
-  "storage_groups": []
-}
-TEMPLATE
-  info "Template written to: ${target}"
-}
-
-# =============================================================================
 # CONFIG LOADING
 # =============================================================================
 
 load_config() {
   section "Loading Configuration"
   if [[ ! -f "$CONFIG_FILE" ]]; then
-    warn "Config not found: $CONFIG_FILE"
-    generate_template "$CONFIG_FILE"
-    echo -e "\n  Edit the config, then re-run:\n" \
-      "   ${DIM}vim ${CONFIG_FILE}${NC}\n" \
-      "   ${DIM}./03-install.sh${NC}\n"
-    exit 0
+    error "Config not found: $CONFIG_FILE" \
+      "Run bare ./install.sh for the Guided Installer, or pass a config" \
+      "file (./install.sh <config>) or a profile (./install.sh --profile" \
+      "<name>)."
   fi
   command -v jq &>/dev/null ||
     error "'jq' not found. Run 01-bootstrap-zfs.sh first."
