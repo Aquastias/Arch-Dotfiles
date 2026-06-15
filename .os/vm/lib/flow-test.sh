@@ -91,7 +91,7 @@ runcmd:
         && cd /root/dotfiles/.os \\
         && export INSTALL_ENC_PASSPHRASE='testtest' \\
         && export SECRETS_AGE_PASSPHRASE='test' \\
-        && ${dirty_step}./install.sh --unattended
+        && ${dirty_step}./install.sh --unattended install.jsonc
     }
     rc=\$?
 ${boot_block}
