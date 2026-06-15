@@ -54,6 +54,38 @@ and topology come from the profile, never re-prompted. `install.sh
 <config-file>` is the parallel unattended seam (the VM seed's path): it consumes
 a pre-assembled Effective Config directly and skips the picker.
 
+### Guided Installer
+The interactive, menu-driven front-end of the Single Entry Point that builds an
+Effective Config through a TUI instead of from a committed Host Profile — the
+on-ramp for ad-hoc installs (archinstall's role). Merges operator choices over
+Host Core (so the shared base — `cups`, swappiness, base users — still applies)
+and covers the full host schema. Unlike the Pre-Install Picker, which only
+resolves disks against an already-authored profile, the Guided Installer also
+authors the pool skeleton and every other machine property interactively.
+Navigation is non-destructive: a single in-session **Config State** holds only
+the operator's overrides over the computed defaults, so every screen is
+re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
+between sections, and validation is deferred to the terminal actions. fzf is the
+uniform selection/navigation surface — every menu and value list is an fzf list,
+and multi-select re-entry pre-marks prior picks; only free-text fields with
+nothing to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs,
+persist paths) drop to a typed prompt. A typed `packages.extra` entry that
+resolves to a `programs/<category>/<name>/` is promoted to a System Program
+(installed via the Program Runner — pacman + config + services) rather than
+pacstrapped raw; non-matching names stay plain repo packages, and on an
+ambiguous name the program wins. Mistakes
+are recoverable three ways — re-edit, **Reset** (field / section / all, the last
+itself undoable), and **Undo/Redo** over a snapshot stack. Ends in one of three
+terminal actions: **Proceed** (assemble the Effective Config in
+tmpfs from the choices plus the picked disks, then install now), **Save Profile**
+(write `hosts/<name>/profile.jsonc` — the committed, device-less audit artifact,
+replayed via `--profile`), or **Export Effective Config** (write the
+device-baked artifact to an operator-chosen path *outside* the repo's `hosts/`
+tree, replayed via `install.sh <config-file>`). The committed save strips disks;
+only the export carries them — preserving 0036's invariant that device paths are
+never committed as repo source of truth. The third front-end over the one
+back-end.
+
 ### Host Core
 Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
 of users, system programs, and Sysctl Defaults shared across all hosts (never a
@@ -123,11 +155,12 @@ installs programs via `arch-chroot /mnt su - <username>`. Called by
 
 ### Single Entry Point
 `.os/install.sh`. The one script a user runs from the Arch live CD after cloning
-the repo. Two front-ends over one back-end (ADR 0036): `install.sh --profile
+the repo. Three front-ends over one back-end (ADR 0036): `install.sh --profile
 <name>` (interactive — the Pre-Install Picker resolves disks and assembles the
-Effective Config in tmpfs; the user-facing path) and `install.sh <config-file>`
+Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
 (the unattended seam consuming a pre-assembled Effective Config; the VM seed's
-path). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
+path), and the **Guided Installer** (a from-scratch menu that builds an
+Effective Config interactively when no profile exists yet). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
 config → system programs → user programs → cleanup and pool export.
 
 ### Disk Wipe
@@ -175,6 +208,24 @@ phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in
 out of order aborts via `error` before any destructive operation. Mode-private
 globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,
 `RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
+Reframed as the ZFS **Filesystem Adapter** once the filesystem axis lands: the
+mode-keyed split *is* ZFS today (ADR 0040).
+
+### Filesystem Adapter
+The reserved seam that selects the on-disk filesystem, keyed on a top-level
+`filesystem` discriminator (default `zfs`; reserved `btrfs`, `ext4`, `xfs`).
+Generalizes the current mode-keyed Layout Module — today `lib/layout/<mode>.sh`
+(single/multi) *is* the ZFS adapter, and ZFS is the only implemented filesystem.
+Each adapter owns its volume model (ZFS pools + datasets; btrfs subvolumes;
+ext4/xfs bare partitions ± mdadm/LVM), its RAID story (ZFS/btrfs native;
+ext4/xfs via mdadm/LVM), and how the encryption method is realized — ZFS native
+AES-256-GCM vs dm-crypt/LUKS *under* the filesystem. Impermanence (ZFS dataset
+rollback) and the Bootloader Adapter's `root=` become filesystem-conditional;
+non-snapshotting filesystems (ext4/xfs) offer no Impermanence. Only the ZFS
+adapter exists today — the discriminator, the additive `options.encryption_method`
+(`native` | `luks`, default derived from `filesystem`), and the fs-keyed dispatch
+are landed up front so a future filesystem is an additive adapter, never a schema
+migration (ADR 0040).
 
 ### Storage Group
 A vdev (or set of per-disk vdevs) folded into the single Combined Data Pool in
