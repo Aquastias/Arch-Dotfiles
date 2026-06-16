@@ -1,0 +1,33 @@
+// VM smoke (issue 01b): Guided Installer single-disk ZFS. Run with
+//   vm.sh --guided --profile single/guided --verify-boot
+// The guest drives install.sh --guided headlessly — resolving the disk in-guest
+// and replaying hostname/INSTALL — so the menu->artifact->boot path is exercised
+// end-to-end. Hardware + hostname come from here; the guided run builds the
+// config itself (mode=single over Host Core, no desktop/AUR — fast).
+{
+  "name": "arch-zfs-test-guided",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "single",
+    "disk": "/dev/sda"
+  }
+}
