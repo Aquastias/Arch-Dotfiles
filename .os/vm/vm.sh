@@ -37,6 +37,9 @@ Options:
                           capture, sentinel/exit-code, boot-verify); resolve
                           the profile under tests/vm/profiles/ instead of
                           vm/profiles/. Default is the persistent flow.
+  --guided                Like --testing, but drive the Guided Installer
+                          headlessly (install.sh --guided): the guest resolves
+                          the disk in-guest and replays the menu answers.
   --recreate              Destroy and undefine the existing VM first.
   --verify-boot           After a clean test install, power-cycle to the
                           installed disk and wait for the first-boot sentinel.
@@ -51,12 +54,13 @@ USAGE
 }
 
 main() {
-  local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0
+  local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0 guided=0
   while (($#)); do
     case "$1" in
       --profile)      profile_ref="${2:-}"; shift 2 ;;
       --profile=*)    profile_ref="${1#*=}"; shift ;;
       --testing)      testing=1; shift ;;
+      --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
       --verify-boot)  verify_boot=1; shift ;;
       --print-config) print_config=1; shift ;;
@@ -67,8 +71,10 @@ main() {
 
   [[ -n "$profile_ref" ]] || { usage >&2; die "--profile is required"; }
 
+  # --guided is a disposable test flow (like --testing) that drives the Guided
+  # Installer headlessly; it resolves profiles under tests/vm/profiles/ too.
   local base
-  if ((testing)); then base="$OS_DIR/tests/vm/profiles"; else
+  if ((testing || guided)); then base="$OS_DIR/tests/vm/profiles"; else
     base="$OS_DIR/vm/profiles"; fi
   local profile_file="$base/$profile_ref.jsonc"
   [[ -f "$profile_file" ]] || die "profile not found: $profile_file"
@@ -118,7 +124,10 @@ main() {
   RECREATE=$( ((recreate)) && echo true || echo false )
 
   # ── Dispatch to the selected flow (each guard-sources core.sh) ──────────────
-  if ((testing)); then
+  if ((guided)); then
+    # shellcheck source=lib/flow-guided.sh
+    source "$SELF_DIR/lib/flow-guided.sh"
+  elif ((testing)); then
     # shellcheck source=lib/flow-test.sh
     source "$SELF_DIR/lib/flow-test.sh"
   else
