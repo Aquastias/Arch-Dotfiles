@@ -73,10 +73,10 @@ forward-compatible with issue 07's TUI passwords.
       asserting JSON output, never internal structure.
       (`tests/config/guided-state.bats`, `guided-emit.bats`,
       `guided-menu.bats` — 11 tests.)
-- [~] VM smoke: a guided single-disk ZFS install boots — the **artifact**
-      (minimal single-disk, positional path) installed + booted in a KVM VM
-      (`INSTALLER-EXIT-0` → `FIRSTBOOT-OK`); the **menu-driven** in-VM run
-      is `01b`.
+- [x] VM smoke: a guided single-disk ZFS install boots — the **menu-driven**
+      path (`vm.sh --guided`, via `01b`) installed + booted on real KVM
+      (`INSTALLER-EXIT-0` → `FIRSTBOOT-OK`), exercising the replay seam →
+      `guided_build` → Effective Config → `01→02→03`.
 
 ## Progress
 
@@ -89,15 +89,12 @@ bats + VM suites are green (1065 tests). What remains:
   Host / Users split *model* exists (`menu_rows`), but the shell does not
   yet render a navigable split menu — that nav is the remaining 01 work
   (and dovetails with issue 02's non-destructive navigation).
-- **VM smoke: artifact confirmed, guided-driven run pending.** A minimal
-  single-disk ZFS install (the guided artifact's shape, built from pushed
-  code via the *positional* path — i.e. exercising the retired-template +
-  positional-seed changes) **installed and booted** clean in a libvirt/KVM
-  VM (`===INSTALLER-EXIT-0===` → ZFS root import → `===FIRSTBOOT-OK===`).
-  Since `guided_build` emits that same artifact (bats-proven) and the
-  `--guided` glue is trivial, the guided path boots by construction — but a
-  *menu-driven* in-VM run is still `01b` (and would also formalise the
-  fast minimal single-disk profile used here).
+- **VM smoke: DONE (menu-driven, via 01b).** `vm.sh --guided --profile
+  single/guided --verify-boot` drove the guided menu headlessly on real KVM
+  to `===INSTALLER-EXIT-0===` → ZFS root import → `===FIRSTBOOT-OK===`. The
+  run flushed out two bugs bats had missed (review→stdout config corruption;
+  missing required `system.locale`/`timezone`), both fixed with faithful
+  regression guards. See `01b`.
 
 ## Blocked by
 

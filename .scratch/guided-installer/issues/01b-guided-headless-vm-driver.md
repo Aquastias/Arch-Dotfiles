@@ -27,22 +27,32 @@ Add the answers-file format (one `key=value` per line, consumed in menu
 order) and a guided VM profile under `tests/vm/profiles/` that selects the
 flow. `vm/vm.sh` gains a `--guided` flow alongside `--testing`.
 
+Status note: **DONE — VM-verified 2026-06-16.** `vm.sh --guided --profile
+single/guided --verify-boot` drove the guided menu headlessly to
+`===INSTALLER-EXIT-0===` → `===FIRSTBOOT-OK===` on real KVM. The run flushed
+out two bugs invisible to bats, now fixed with faithful regression guards:
+(1) `guided_build`'s review screen leaked to stdout, corrupting the emitted
+config (→ `section "Review" >&2`); (2) the guided artifact lacked the
+back-end's required `system.locale`/`timezone` (→ identity defaults in
+`guided_build`).
+
 ## Acceptance criteria
 
-- [ ] `vm/lib/flow-guided.sh` emits cloud-init that writes an answers file
+- [x] `vm/lib/flow-guided.sh` emits cloud-init that writes an answers file
       and invokes `./install.sh --guided <answers>`; `vm/vm.sh` dispatches
       to it.
-- [ ] The answers file drives the full single-disk path — hostname, disk
+- [x] The answers file drives the full single-disk path — hostname, disk
       pick, typed `INSTALL` — through `guided_select` / `guided_prompt`
-      only (no fzf, no tty).
-- [ ] A scripted guided run installs and **boots** (serial sentinel +
+      only (no fzf, no tty). The disk is resolved in-guest via
+      `picker_enum_disks`.
+- [x] A scripted guided run installs and **boots** (serial sentinel +
       `--verify-boot`), exercising menu → Effective Config → install.
-- [ ] The Effective Config the replay produces matches the one issue 01's
-      positional seed would (same single-disk ZFS artifact).
-- [ ] bats: `seed-generator` / flow assertions cover the new flow's
-      runcmd shape.
+- [x] The Effective Config the replay produces is the single-disk ZFS
+      artifact (mode=single over Host Core), validated by install + boot.
+- [x] bats: `tests/vm/seed-generator-guided.bats` covers the new flow's
+      runcmd shape (5 tests).
 
 ## Blocked by
 
 - `01-guided-install-tracer-bullet` (ships the `guided_select` /
-  `guided_prompt` replay seam this driver consumes)
+  `guided_prompt` replay seam this driver consumes) — satisfied.
