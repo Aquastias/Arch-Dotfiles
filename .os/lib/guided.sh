@@ -119,6 +119,13 @@ guided_build() {
   [[ -n "$hostname" ]] && state="$(cfgstate_set "$state" system.hostname \
     "$(jq -n --arg v "$hostname" '$v')")"
 
+  # Identity defaults so the tracer config satisfies the back-end's required
+  # fields (validation.sh: system.locale + system.timezone). Issue 05 turns
+  # these into live-system-picked menu rows that override the defaults.
+  state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
+  state="$(cfgstate_set "$state" system.timezone '"UTC"')"
+  state="$(cfgstate_set "$state" system.keymap '"us"')"
+
   # Single-disk ZFS preset — the filesystem axis is reserved (zfs only) here.
   state="$(cfgstate_set "$state" mode '"single"')"
   disk="$(guided_pick_disk disk)"
