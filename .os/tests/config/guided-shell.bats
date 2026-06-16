@@ -12,10 +12,14 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   export OS_DIR="$TEST_DIR"
 
-  info()    { :; }
-  warn()    { :; }
+  # Mirror common.sh faithfully: info/warn/section echo to STDOUT, error to
+  # stderr. guided_build's only stdout MUST be the Effective Config — any human
+  # output (the review screen) has to be redirected, so these stdout stubs are
+  # the guard that catches stdout pollution.
+  info()    { echo "[info] $*"; }
+  warn()    { echo "[warn] $*"; }
   error()   { echo "[error] $*" >&2; return 1; }
-  section() { :; }
+  section() { echo "== $* =="; }
   export -f info warn error section
 
   mkdir -p "$OS_DIR/hosts/core"
