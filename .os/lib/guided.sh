@@ -127,8 +127,9 @@ guided_build() {
   assignment="$(jq -n --arg d "$disk" '{mode:"single", disk:$d}')"
   effective="$(emit_effective "$state" "$assignment")" || return 1
 
-  # Review + the single consent gate.
-  section "Review"
+  # Review + the single consent gate. Everything here is human-facing and MUST
+  # go to stderr — stdout carries only the Effective Config the caller captures.
+  section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
   printf '  WILL ERASE:  %s\n' "$disk" >&2
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
