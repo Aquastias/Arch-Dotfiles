@@ -35,6 +35,9 @@
 # shellcheck source=lib/config/menu.sh
 [[ "$(type -t menu_rows)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
+# shellcheck source=lib/config/history.sh
+[[ "$(type -t hist_new)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/history.sh"
 # shellcheck source=lib/picker.sh
 [[ "$(type -t picker_enum_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/picker.sh"
@@ -112,6 +115,11 @@ guided_pick_disk() {
 # and the headless replay path so both exercise the same Config-State writes.
 _GUIDED_STATE=""
 _GUIDED_DISK=""
+# The Undo/Redo snapshot stack over the Config State (issue 02). Its present is
+# kept in lockstep with _GUIDED_STATE: every interactive mutation commits, and
+# undo/redo restore _GUIDED_STATE from the stack — so leaving and re-entering,
+# or stepping back and forth, never loses a value.
+_GUIDED_HIST=""
 
 # _guided_set_identity — seed the required identity defaults + the single-disk
 # ZFS preset. validation.sh requires system.locale + system.timezone; issue 05
@@ -142,23 +150,111 @@ _guided_menu_lines() {
           + (if .overridden then "  ●" else "" end)'
 }
 
+# _guided_footer_lines <history> — the action footer below the menu rows: Undo
+# and Redo are offered only when the snapshot stack has a target (so the footer
+# surfaces the next undo/redo), and Reset-all is always present. Pure: history
+# JSON → lines.
+_guided_footer_lines() {
+  local h="$1"
+  hist_can_undo "$h" && printf '%s\n' "Undo ◂ last change"
+  hist_can_redo "$h" && printf '%s\n' "Redo ▸ undone change"
+  printf '%s\n' "Reset all ▸ discard every change"
+}
+
+# _guided_commit — snapshot the current Config State onto the Undo/Redo stack.
+# Called after every interactive mutation so one edit = one undo step.
+_guided_commit() { _GUIDED_HIST="$(hist_commit "$_GUIDED_HIST" "$_GUIDED_STATE")"; }
+
+# _guided_restore — point _GUIDED_STATE back at the stack's present (after an
+# undo or redo shuttled it).
+_guided_restore() { _GUIDED_STATE="$(hist_present "$_GUIDED_HIST")"; }
+
+# _guided_reset_section <state> <section> — clear every overridden field in the
+# named menu section (Host / Users), leaving other sections and the seeded
+# identity (locale/timezone/keymap — not menu rows) untouched. Returns one
+# resulting state, so the caller commits it as a single undo step. Pure:
+# menu_rows JSON → state JSON.
+_guided_reset_section() {
+  local state="$1" section="$2" path
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && state="$(cfgstate_unset "$state" "$path")"
+  done < <(menu_rows "$state" \
+    | jq -r --arg s "$section" \
+        '.[] | select(.section == $s and .overridden) | .field')
+  printf '%s\n' "$state"
+}
+
+# _guided_reset_lines <state> — the granular reset actions, surfaced only when
+# the state carries at least one override to clear: a pick-a-field and a
+# pick-a-section entry. Pure: menu_rows JSON → lines.
+_guided_reset_lines() {
+  menu_rows "$1" | jq -e 'any(.[]; .overridden)' >/dev/null || return 0
+  printf '%s\n' "Reset field ▸ clear one field" \
+    "Reset section ▸ clear one section"
+}
+
+# _guided_reset_field_action — pick one currently-overridden field and clear it
+# (one undoable step). No-op when nothing is overridden or the pick is cancelled.
+_guided_reset_field_action() {
+  local -a fields
+  mapfile -t fields < <(menu_rows "$_GUIDED_STATE" \
+    | jq -r '.[] | select(.overridden) | .field')
+  ((${#fields[@]})) || return 0
+  local path
+  path="$(guided_select reset_field "Reset which field?" "${fields[@]}")"
+  [[ -n "$path" ]] || return 0
+  _GUIDED_STATE="$(cfgstate_unset "$_GUIDED_STATE" "$path")"
+  _guided_commit
+}
+
+# _guided_reset_section_action — pick a section that has overrides and clear all
+# of them (one undoable step). No-op when nothing is overridden or cancelled.
+_guided_reset_section_action() {
+  local -a sections
+  mapfile -t sections < <(menu_rows "$_GUIDED_STATE" \
+    | jq -r '.[] | select(.overridden) | .section' | sort -u)
+  ((${#sections[@]})) || return 0
+  local section
+  section="$(guided_select reset_section "Reset which section?" "${sections[@]}")"
+  [[ -n "$section" ]] || return 0
+  _GUIDED_STATE="$(_guided_reset_section "$_GUIDED_STATE" "$section")"
+  _guided_commit
+}
+
 # _guided_menu_loop — the re-entrant Host / Users split menu (interactive only,
-# fzf, smoke-only). Renders the rows, lets the operator edit the hostname and
-# pick the install disk, and returns 0 on Proceed (a disk is picked), non-zero
-# on cancel (Esc). Edits commit to the Config State, so leaving and re-entering
-# never loses a value.
+# fzf, smoke-only). Renders the rows + the Undo/Redo/Reset-all footer, lets the
+# operator edit the hostname and pick the install disk, and navigate the
+# snapshot stack. Returns 0 on Proceed (a disk is picked), non-zero on cancel
+# (Esc). Edits commit to the Config State, so leaving and re-entering — or
+# stepping back through Undo — never loses a value.
 _guided_menu_loop() {
-  local choice
+  local choice confirm
   local -a lines
+  # Seed the snapshot stack from the launch state; reset-all returns here.
+  _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
   while true; do
     mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE")
     lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
     lines+=("Proceed ▸ review & install")
+    mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
+    mapfile -O "${#lines[@]}" -t lines < <(_guided_reset_lines "$_GUIDED_STATE")
     choice="$(printf '%s\n' "${lines[@]}" \
       | fzf --reverse --prompt='guided> ')" || return 1
     case "$choice" in
-    *hostname*) _guided_edit_hostname ;;
-    Disks* | *filesystem*) _guided_edit_disk ;;
+    Undo*) _GUIDED_HIST="$(hist_undo "$_GUIDED_HIST")"; _guided_restore ;;
+    Redo*) _GUIDED_HIST="$(hist_redo "$_GUIDED_HIST")"; _guided_restore ;;
+    "Reset field"*) _guided_reset_field_action ;;
+    "Reset section"*) _guided_reset_section_action ;;
+    "Reset all"*)
+      confirm="$(guided_prompt reset_all "Type RESET to discard all changes")"
+      if [[ "$confirm" == "RESET" ]]; then
+        _GUIDED_STATE="$(cfgstate_new)"
+        _guided_set_identity
+        _guided_commit # Reset-all is one undoable step
+      fi
+      ;;
+    *hostname*) _guided_edit_hostname && _guided_commit ;;
+    Disks* | *filesystem*) _guided_edit_disk ;; # disk lives outside Config State
     Proceed*)
       [[ -n "$_GUIDED_DISK" ]] && return 0
       printf '  Pick an install disk first.\n' >&2

@@ -64,3 +64,37 @@ setup() {
   run cfgstate_is_overridden "$state" mode
   [ "$status" -ne 0 ]
 }
+
+# ── reset granularities (issue 02): field / section / all, all via the sparse
+#    map. Field = unset a leaf, section = unset a path prefix (drops the whole
+#    subtree), all = a fresh state. Each leaves no trace of what it cleared.
+
+@test "reset(field): unset a leaf clears just that field, siblings remain" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  state="$(cfgstate_set "$state" system.locale '"de_DE.UTF-8"')"
+
+  run cfgstate_unset "$state" system.hostname
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system | has("hostname") | not'
+  echo "$output" | jq -e '.system.locale == "de_DE.UTF-8"'
+}
+
+@test "reset(section): unset a prefix drops the whole subtree, others remain" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  state="$(cfgstate_set "$state" system.locale '"de_DE.UTF-8"')"
+  state="$(cfgstate_set "$state" filesystem '"zfs"')"
+
+  run cfgstate_unset "$state" system
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'has("system") | not'      # whole section gone
+  echo "$output" | jq -e '.filesystem == "zfs"'      # sibling section intact
+}
+
+@test "reset(all): a fresh state carries none of the overrides" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  state="$(cfgstate_set "$state" filesystem '"zfs"')"
+
+  run cfgstate_emit "$(cfgstate_new)"        # reset-all == a fresh state
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '. == {}'
+}
