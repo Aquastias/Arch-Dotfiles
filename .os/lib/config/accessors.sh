@@ -46,6 +46,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "ashift|.ashift|scalar|12"
   "os_pool_ashift|.os_pool.ashift|scalar|13"
   "encryption_enabled|.options.encryption|bool|false"
+  "filesystem|.filesystem|scalar|zfs"
 )
 
 # install_config_get <name> — schema dispatcher for the generated wrappers.
@@ -96,6 +97,21 @@ _install_config_array() {
 install_config_gpu() {
   local out; out="$(_install_config_array '.environment.gpu')"
   printf '%s\n' "${out:-auto}"
+}
+
+# Encryption method (ADR 0040) — scalar with a filesystem-derived default. The
+# enablement bool (install_config_encryption_enabled) is untouched; this only
+# names the cipher seam: ZFS uses native AES, every other filesystem uses LUKS.
+# An explicit options.encryption_method wins.
+install_config_encryption_method() {
+  local v; v="$(cfgo '.options.encryption_method')"
+  if [[ -n "$v" ]]; then
+    printf '%s\n' "$v"
+  elif [[ "$(install_config_filesystem)" == "zfs" ]]; then
+    printf '%s\n' "native"
+  else
+    printf '%s\n' "luks"
+  fi
 }
 
 # Locale / Keymap Selection (ADR 0036) — scalar|array union. Element 0 is the

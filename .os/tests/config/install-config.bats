@@ -444,6 +444,45 @@ set_path_cfg() {
   [ "$output" = "true" ]
 }
 
+# ── filesystem discriminator (ADR 0040): default zfs ────────────────────────
+
+@test "filesystem: defaults to zfs when absent" {
+  write_cfg '{}'
+  run install_config_filesystem
+  [ "$status" -eq 0 ]
+  [ "$output" = "zfs" ]
+}
+
+@test "filesystem: an explicit value passes through" {
+  write_cfg '{"filesystem":"btrfs"}'
+  run install_config_filesystem
+  [ "$status" -eq 0 ]
+  [ "$output" = "btrfs" ]
+}
+
+# ── options.encryption_method (ADR 0040): default derived from filesystem ────
+
+@test "encryption_method: defaults to native for zfs" {
+  write_cfg '{}'                      # filesystem defaults to zfs
+  run install_config_encryption_method
+  [ "$status" -eq 0 ]
+  [ "$output" = "native" ]
+}
+
+@test "encryption_method: defaults to luks for a non-zfs filesystem" {
+  write_cfg '{"filesystem":"btrfs"}'
+  run install_config_encryption_method
+  [ "$status" -eq 0 ]
+  [ "$output" = "luks" ]
+}
+
+@test "encryption_method: an explicit method overrides the derived default" {
+  write_cfg '{"filesystem":"zfs","options":{"encryption_method":"luks"}}'
+  run install_config_encryption_method
+  [ "$status" -eq 0 ]
+  [ "$output" = "luks" ]
+}
+
 # ── install_config_get: unknown name errors ─────────────────────────────────
 
 @test "install_config_get: unknown name exits non-zero" {
