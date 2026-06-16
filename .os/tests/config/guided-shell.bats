@@ -82,6 +82,48 @@ write_answers() {
   echo "$effective" | jq -e '.system.keymap'
 }
 
+# ── the interactive menu renders the Host/Users split with values + ● ───────
+# _guided_menu_lines is the pure core the fzf loop displays; the fzf navigation
+# itself is smoke-only.
+
+@test "_guided_menu_lines: renders the Host/Users split, values, override flag" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+
+  run _guided_menu_lines "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "hostname: eterniox"   # edited value shown
+  echo "$output" | grep -q "●"                     # overridden row flagged
+  echo "$output" | grep -q "filesystem: zfs"       # Disks-first, zfs default
+  echo "$output" | grep -q "Users"                 # the Host/Users split
+}
+
+# ── the re-entrant loop: select a field, edit it, return, Proceed ───────────
+# fzf is stubbed (its selection driven by current state) so the loop's dispatch
+# — render → select → edit → re-enter → Proceed — is exercised deterministically.
+
+@test "_guided_menu_loop: edits hostname then Proceeds (fzf stubbed)" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"   # disk already picked
+
+  # First pass (no hostname yet) → pick the hostname row; next pass → Proceed.
+  fzf() {
+    cat >/dev/null
+    if [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]; then
+      echo "Host · hostname: (none)"
+    else
+      echo "Proceed ▸ review & install"
+    fi
+  }
+  guided_prompt() { printf '%s' "newhost"; }
+  export -f fzf guided_prompt
+
+  _guided_menu_loop
+  local rc=$?
+  [ "$rc" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "newhost" ]
+}
+
 # ── the typed INSTALL is the sole consent gate ─────────────────────────────
 
 @test "guided_build: aborts with no config when INSTALL is not typed" {

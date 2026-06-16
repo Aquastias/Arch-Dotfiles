@@ -107,38 +107,95 @@ guided_pick_disk() {
 # =============================================================================
 # ASSEMBLY
 # =============================================================================
+# In-flight session state for one guided run — the Config State plus the picked
+# disk. Mutated by the edit helpers, which are shared by the interactive menu
+# and the headless replay path so both exercise the same Config-State writes.
+_GUIDED_STATE=""
+_GUIDED_DISK=""
 
-# guided_build — drive the (single-disk ZFS) menu and emit the device-baked
-# Effective Config on stdout. The typed INSTALL is the sole consent gate;
-# returns non-zero (no output) if it is not given.
+# _guided_set_identity — seed the required identity defaults + the single-disk
+# ZFS preset. validation.sh requires system.locale + system.timezone; issue 05
+# turns locale/timezone/keymap into live-system-picked rows over these.
+_guided_set_identity() {
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.locale '"en_US.UTF-8"')"
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.timezone '"UTC"')"
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.keymap '"us"')"
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" mode '"single"')"
+}
+
+# _guided_edit_hostname — read the hostname (seam key 'hostname') and commit it.
+_guided_edit_hostname() {
+  local v
+  v="$(guided_prompt hostname "Hostname")"
+  [[ -n "$v" ]] && _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
+    system.hostname "$(jq -n --arg x "$v" '$x')")"
+}
+
+# _guided_edit_disk — resolve the single install disk (Disks ▸ ZFS ▸ single).
+_guided_edit_disk() { _GUIDED_DISK="$(guided_pick_disk disk)"; }
+
+# _guided_menu_lines <state> — the menu's display lines: one per menu row
+# (Section · label: value, ● when overridden). Pure: menu_rows JSON → lines.
+_guided_menu_lines() {
+  menu_rows "$1" | jq -r '
+    .[] | "\(.section) · \(.label): \(.value // "")"
+          + (if .overridden then "  ●" else "" end)'
+}
+
+# _guided_menu_loop — the re-entrant Host / Users split menu (interactive only,
+# fzf, smoke-only). Renders the rows, lets the operator edit the hostname and
+# pick the install disk, and returns 0 on Proceed (a disk is picked), non-zero
+# on cancel (Esc). Edits commit to the Config State, so leaving and re-entering
+# never loses a value.
+_guided_menu_loop() {
+  local choice
+  local -a lines
+  while true; do
+    mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE")
+    lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
+    lines+=("Proceed ▸ review & install")
+    choice="$(printf '%s\n' "${lines[@]}" \
+      | fzf --reverse --prompt='guided> ')" || return 1
+    case "$choice" in
+    *hostname*) _guided_edit_hostname ;;
+    Disks* | *filesystem*) _guided_edit_disk ;;
+    Proceed*)
+      [[ -n "$_GUIDED_DISK" ]] && return 0
+      printf '  Pick an install disk first.\n' >&2
+      ;;
+    *) : ;; # Users + non-editable rows: no-op in the tracer (issue 07)
+    esac
+  done
+}
+
+# guided_build — drive the guided menu and emit the device-baked Effective
+# Config on stdout. Interactive: the re-entrant Host / Users split menu.
+# Headless (--guided replay): a linear keyed collection through the SAME edit
+# helpers. The typed INSTALL is the sole consent gate; non-zero (no output) if
+# it is withheld.
 guided_build() {
-  local state hostname disk confirm assignment effective
-  state="$(cfgstate_new)"
+  local assignment effective confirm hostname
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK=""
+  _guided_set_identity
 
-  hostname="$(guided_prompt hostname "Hostname")"
-  [[ -n "$hostname" ]] && state="$(cfgstate_set "$state" system.hostname \
-    "$(jq -n --arg v "$hostname" '$v')")"
+  if ((_GUIDED_REPLAY)); then
+    _guided_edit_hostname
+    _guided_edit_disk
+  else
+    _guided_menu_loop || { error "guided: cancelled"; return 1; }
+  fi
 
-  # Identity defaults so the tracer config satisfies the back-end's required
-  # fields (validation.sh: system.locale + system.timezone). Issue 05 turns
-  # these into live-system-picked menu rows that override the defaults.
-  state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
-  state="$(cfgstate_set "$state" system.timezone '"UTC"')"
-  state="$(cfgstate_set "$state" system.keymap '"us"')"
+  [[ -n "$_GUIDED_DISK" ]] || { error "guided: no disk selected"; return 1; }
+  assignment="$(jq -n --arg d "$_GUIDED_DISK" '{mode:"single", disk:$d}')"
+  effective="$(emit_effective "$_GUIDED_STATE" "$assignment")" || return 1
 
-  # Single-disk ZFS preset — the filesystem axis is reserved (zfs only) here.
-  state="$(cfgstate_set "$state" mode '"single"')"
-  disk="$(guided_pick_disk disk)"
-  [[ -n "$disk" ]] || { error "guided: no disk selected"; return 1; }
-
-  assignment="$(jq -n --arg d "$disk" '{mode:"single", disk:$d}')"
-  effective="$(emit_effective "$state" "$assignment")" || return 1
-
-  # Review + the single consent gate. Everything here is human-facing and MUST
-  # go to stderr — stdout carries only the Effective Config the caller captures.
+  # Review + the single consent gate. Human-facing → stderr; stdout carries only
+  # the Effective Config the caller captures.
+  hostname="$(cfgstate_get "$_GUIDED_STATE" system.hostname)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
-  printf '  WILL ERASE:  %s\n' "$disk" >&2
+  printf '  WILL ERASE:  %s\n' "$_GUIDED_DISK" >&2
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
   [[ "$confirm" == "INSTALL" ]] \
     || { error "guided: aborted — INSTALL not typed"; return 1; }
