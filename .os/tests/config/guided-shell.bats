@@ -67,6 +67,21 @@ write_answers() {
   echo "$effective" | jq -e '.system_programs == ["cups"]'
 }
 
+# ── the config must carry the back-end's required identity fields ───────────
+# (validation.sh requires system.locale + system.timezone; the tracer defaults
+#  them — issue 05 turns these into live-system-picked menu rows.)
+
+@test "guided_build: the config carries the required identity defaults" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  echo "$effective" | jq -e '.system.locale and .system.timezone'
+  echo "$effective" | jq -e '.system.keymap'
+}
+
 # ── the typed INSTALL is the sole consent gate ─────────────────────────────
 
 @test "guided_build: aborts with no config when INSTALL is not typed" {
