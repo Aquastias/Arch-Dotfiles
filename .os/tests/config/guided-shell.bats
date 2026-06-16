@@ -84,6 +84,26 @@ fzf_queue() {
   echo "$effective" | jq -e '.system_programs == ["cups"]'
 }
 
+# ── a replayed session carries the Disks choices into the Effective Config ──
+
+@test "guided_build: a replayed session emits filesystem/encryption/impermanence/persist" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'filesystem=zfs' \
+    'encryption=true' \
+    'impermanence=true' \
+    'persist_dir=/etc/wireguard' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.filesystem == "zfs"'
+  echo "$effective" | jq -e '.options.encryption == true'
+  echo "$effective" | jq -e '.options.impermanence.enabled == true'
+  echo "$effective" | jq -e '.persist.directories == ["/etc/wireguard"]'
+}
+
 # ── the config must carry the back-end's required identity fields ───────────
 # (validation.sh requires system.locale + system.timezone; the tracer defaults
 #  them — issue 05 turns these into live-system-picked menu rows.)
@@ -252,18 +272,18 @@ fzf_queue() {
 @test "_guided_menu_loop: Reset section clears the picked section's overrides" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" filesystem '"zfs"')"
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" filesystem '"zfs"')"  # Disks
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
   queue "Reset section ▸ clear one section" "Proceed ▸ review & install"
-  guided_select() { printf '%s' "Host"; }              # pick the section
+  guided_select() { printf '%s' "Disks"; }             # pick the Disks section
   export -f guided_select
 
   _guided_menu_loop
   [ "$?" -eq 0 ]
-  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]
-  [ -z "$(cfgstate_get "$_GUIDED_STATE" filesystem)" ]
+  [ -z "$(cfgstate_get "$_GUIDED_STATE" filesystem)" ]                # Disks cleared
+  [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "eterniox" ] # Host kept
 }
 
 # ── granular reset: a menu section's overrides clear, the rest survives ─────
@@ -278,7 +298,7 @@ fzf_queue() {
   run _guided_reset_section "$state" Host
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system | has("hostname") | not'   # Host row cleared
-  echo "$output" | jq -e 'has("filesystem") | not'           # Host row cleared
+  echo "$output" | jq -e '.filesystem == "zfs"'              # Disks row preserved
   echo "$output" | jq -e '.system.locale == "de_DE.UTF-8"'   # non-row preserved
 }
 
@@ -294,6 +314,130 @@ fzf_queue() {
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "Reset field"
   echo "$output" | grep -q "Reset section"
+}
+
+# ── filesystem-first Disks: zfs is active, btrfs/ext4/xfs reserved (ADR 0040)
+
+@test "_guided_filesystem_options: zfs is active, the others are reserved" {
+  run _guided_filesystem_options
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "zfs"
+  echo "$output" | grep -q "btrfs (reserved)"
+  echo "$output" | grep -q "ext4 (reserved)"
+  echo "$output" | grep -q "xfs (reserved)"
+}
+
+@test "_guided_edit_filesystem: picking zfs commits the filesystem" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "zfs"; }
+  export -f guided_select
+
+  _guided_edit_filesystem
+  [ "$(cfgstate_get "$_GUIDED_STATE" filesystem)" = "zfs" ]
+}
+
+@test "_guided_edit_filesystem: a reserved filesystem is refused, no commit" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "btrfs (reserved)"; }
+  export -f guided_select
+
+  run _guided_edit_filesystem
+  [ "$status" -ne 0 ]
+  [ -z "$(cfgstate_get "$_GUIDED_STATE" filesystem)" ]
+}
+
+# ── the loop dispatches the Disks rows to their edits (label-keyed) ─────────
+
+@test "_guided_menu_loop: editing the encryption row enables it" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Disks · encryption: false" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "true"; }   # the bool pick
+  export -f guided_select
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" options.encryption)" = "true" ]
+}
+
+@test "_guided_menu_loop: with impermanence on, Add persist appends a dir" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" \
+    options.impermanence.enabled 'true')"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Add persist directory ▸ extend the curated defaults" \
+        "Proceed ▸ review & install"
+  guided_prompt() { printf '%s' "/etc/wireguard"; }
+  export -f guided_prompt
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.persist.directories == ["/etc/wireguard"]'
+}
+
+# ── encryption / impermanence are bool toggles through the seam ─────────────
+
+@test "_guided_edit_encryption: selecting true enables encryption" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "true"; }
+  export -f guided_select
+
+  _guided_edit_encryption
+  echo "$_GUIDED_STATE" | jq -e '.options.encryption == true'
+}
+
+@test "_guided_edit_impermanence: selecting true enables impermanence" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "true"; }
+  export -f guided_select
+
+  _guided_edit_impermanence
+  echo "$_GUIDED_STATE" | jq -e '.options.impermanence.enabled == true'
+}
+
+# ── persist extensions: free-text directories appended for impermanence ─────
+
+@test "_guided_add_persist: appends a directory to persist.directories" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "/etc/wireguard"; }
+  export -f guided_prompt
+
+  _guided_add_persist
+  echo "$_GUIDED_STATE" | jq -e '.persist.directories == ["/etc/wireguard"]'
+}
+
+@test "_guided_add_persist: empty input adds nothing" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' ""; }
+  export -f guided_prompt
+
+  run _guided_add_persist
+  [ "$status" -ne 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.persist == null'
+}
+
+# ── the persist-extension action surfaces only when impermanence is enabled ─
+
+@test "_guided_persist_lines: offered only when impermanence is enabled" {
+  run _guided_persist_lines "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+
+  state="$(cfgstate_set "$(cfgstate_new)" options.impermanence.enabled 'true')"
+  run _guided_persist_lines "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "persist"
 }
 
 # ── the typed INSTALL is the sole consent gate ─────────────────────────────
