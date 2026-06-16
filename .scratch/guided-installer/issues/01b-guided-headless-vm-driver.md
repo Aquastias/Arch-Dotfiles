@@ -1,6 +1,6 @@
 # Headless guided VM driver — automate the fzf-launch smoke
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

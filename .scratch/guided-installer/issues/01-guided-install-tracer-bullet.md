@@ -1,6 +1,6 @@
 # Tracer bullet: bare `install.sh` → guided single-disk ZFS install
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -54,9 +54,11 @@ forward-compatible with issue 07's TUI passwords.
       positional `<config-file>` seams behave exactly as before. The shell
       selects only through `guided_select` / `guided_prompt`; `--guided
       <answers>` replays them from a file (no inline fzf calls).
-- [ ] Menu shows the Host / Users split; System ▸ hostname is editable;
+- [x] Menu shows the Host / Users split; System ▸ hostname is editable;
       Disks ▸ filesystem = ZFS ▸ single-disk resolves a disk via the
-      Pre-Install Picker with its preview pane.
+      Pre-Install Picker with its preview pane. Re-entrant `_guided_menu_loop`
+      (interactive); the pure `_guided_menu_lines` render + the loop dispatch
+      are bats-covered (stubbed fzf), the live fzf draw is smoke-only.
 - [x] Proceed assembles a tmpfs Effective Config merged over Host Core;
       the review screen lists target + WIPE disks and requires a typed
       `INSTALL` (the sole consent gate), then runs `01 → 02 → 03`
@@ -80,15 +82,16 @@ forward-compatible with issue 07's TUI passwords.
 
 ## Progress
 
-Pure cores + the impure shell/entry are built and committed; the full
-bats + VM suites are green (1065 tests). What remains:
+**DONE.** Pure cores + the impure shell/entry + the re-entrant menu are
+built and committed; full bats + VM suites green (1073 tests).
 
-- **Interactive menu is linear, not the re-entrant split menu.**
-  `guided_build` drives a straight-line flow (hostname → single-disk pick
-  → review → `INSTALL`) and assembles the correct Effective Config. The
-  Host / Users split *model* exists (`menu_rows`), but the shell does not
-  yet render a navigable split menu — that nav is the remaining 01 work
-  (and dovetails with issue 02's non-destructive navigation).
+- **Interactive menu: done.** `_guided_menu_loop` renders the Host / Users
+  split (`_guided_menu_lines` over `menu_rows`), edits the hostname and
+  picks the disk, and Proceeds — re-entrant, edits commit to the Config
+  State. Replay (`--guided`) and interactive share the same edit helpers,
+  so the headless path stays bats + VM verified; the render + loop dispatch
+  are bats-covered (stubbed fzf); only the live fzf draw is smoke-only.
+  Richer non-destructive nav (reset / undo / redo) is issue 02.
 - **VM smoke: DONE (menu-driven, via 01b).** `vm.sh --guided --profile
   single/guided --verify-boot` drove the guided menu headlessly on real KVM
   to `===INSTALLER-EXIT-0===` → ZFS root import → `===FIRSTBOOT-OK===`. The
