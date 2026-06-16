@@ -142,6 +142,85 @@ _guided_edit_hostname() {
 # _guided_edit_disk — resolve the single install disk (Disks ▸ ZFS ▸ single).
 _guided_edit_disk() { _GUIDED_DISK="$(guided_pick_disk disk)"; }
 
+# Filesystem Adapter axis (ADR 0040): ZFS is the only built adapter; the rest
+# are reserved menu entries so the Disks section is filesystem-first without
+# pretending the others work.
+_GUIDED_FS_ACTIVE=(zfs)
+_GUIDED_FS_RESERVED=(btrfs ext4 xfs)
+
+# _guided_filesystem_options — the filesystem picker lines: active filesystems
+# first, then the reserved ones flagged "(reserved)". Pure: emits lines.
+_guided_filesystem_options() {
+  printf '%s\n' "${_GUIDED_FS_ACTIVE[@]}"
+  local f
+  for f in "${_GUIDED_FS_RESERVED[@]}"; do printf '%s (reserved)\n' "$f"; done
+}
+
+# _guided_edit_filesystem — pick the filesystem; commit only an active one. A
+# reserved pick is refused (rc 1, no commit) so the loop never offers an
+# unbuilt adapter. The token is the first word of the picked line.
+_guided_edit_filesystem() {
+  local -a opts
+  mapfile -t opts < <(_guided_filesystem_options)
+  local pick token f
+  pick="$(guided_select filesystem "Filesystem" "${opts[@]}")"
+  [[ -n "$pick" ]] || return 0
+  token="${pick%% *}"
+  for f in "${_GUIDED_FS_ACTIVE[@]}"; do
+    if [[ "$token" == "$f" ]]; then
+      _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" filesystem \
+        "$(jq -n --arg x "$token" '$x')")"
+      return 0
+    fi
+  done
+  printf "  Filesystem '%s' is reserved (ADR 0040); only zfs is built.\n" \
+    "$token" >&2
+  return 1
+}
+
+# _guided_edit_bool <key> <prompt> <path> — a true/false toggle through the
+# seam (replay-friendly: the answer is the literal "true"/"false"). Sets <path>
+# to the JSON bool. rc 1 (no commit) when the pick is neither — e.g. an absent
+# replay answer — so a no-op edit never snapshots.
+_guided_edit_bool() {
+  local key="$1" prompt="$2" path="$3" v
+  v="$(guided_select "$key" "$prompt" true false)"
+  [[ "$v" == "true" || "$v" == "false" ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" "$path" "$v")"
+}
+
+# _guided_edit_encryption / _guided_edit_impermanence — the two Disks bools.
+# Encryption enablement is the bool; the cipher is the filesystem-derived
+# encryption_method (ADR 0040). Impermanence-on lets the back-end apply the
+# Curated Persist Defaults and surfaces the persist-extension action below.
+_guided_edit_encryption() {
+  _guided_edit_bool encryption "Encryption (true/false)" options.encryption
+}
+_guided_edit_impermanence() {
+  _guided_edit_bool impermanence "Impermanence (true/false)" \
+    options.impermanence.enabled
+}
+
+# _guided_add_persist — append one operator-typed absolute directory to
+# persist.directories (a Persist Extension over the Curated Persist Defaults).
+# rc 1 (no commit) on empty input.
+_guided_add_persist() {
+  local dir
+  dir="$(guided_prompt persist_dir "Persist directory (absolute path)")"
+  [[ -n "$dir" ]] || return 1
+  _GUIDED_STATE="$(jq --arg p "$dir" \
+    '.persist.directories = ((.persist.directories // []) + [$p])' \
+    <<<"$_GUIDED_STATE")"
+}
+
+# _guided_persist_lines <state> — the persist-extension action, surfaced only
+# when impermanence is enabled (the curated defaults apply automatically; this
+# adds extensions on top). Pure: state JSON → lines.
+_guided_persist_lines() {
+  [[ "$(cfgstate_get "$1" options.impermanence.enabled)" == "true" ]] || return 0
+  printf '%s\n' "Add persist directory ▸ extend the curated defaults"
+}
+
 # _guided_menu_lines <state> — the menu's display lines: one per menu row
 # (Section · label: value, ● when overridden). Pure: menu_rows JSON → lines.
 _guided_menu_lines() {
@@ -238,8 +317,12 @@ _guided_menu_loop() {
     lines+=("Proceed ▸ review & install")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_reset_lines "$_GUIDED_STATE")
+    mapfile -O "${#lines[@]}" -t lines < <(_guided_persist_lines "$_GUIDED_STATE")
     choice="$(printf '%s\n' "${lines[@]}" \
       | fzf --reverse --prompt='guided> ')" || return 1
+    # Rows render as "Section · label: value"; dispatch keys on the label so the
+    # Disks rows (filesystem / encryption / impermanence / install disk) route
+    # to their own edits rather than a single Disks-wide handler.
     case "$choice" in
     Undo*) _GUIDED_HIST="$(hist_undo "$_GUIDED_HIST")"; _guided_restore ;;
     Redo*) _GUIDED_HIST="$(hist_redo "$_GUIDED_HIST")"; _guided_restore ;;
@@ -253,8 +336,12 @@ _guided_menu_loop() {
         _guided_commit # Reset-all is one undoable step
       fi
       ;;
-    *hostname*) _guided_edit_hostname && _guided_commit ;;
-    Disks* | *filesystem*) _guided_edit_disk ;; # disk lives outside Config State
+    "Add persist"*) _guided_add_persist && _guided_commit ;;
+    *"install disk:"*) _guided_edit_disk ;; # disk lives outside Config State
+    *"hostname:"*) _guided_edit_hostname && _guided_commit ;;
+    *"filesystem:"*) _guided_edit_filesystem && _guided_commit ;;
+    *"encryption:"*) _guided_edit_encryption && _guided_commit ;;
+    *"impermanence:"*) _guided_edit_impermanence && _guided_commit ;;
     Proceed*)
       [[ -n "$_GUIDED_DISK" ]] && return 0
       printf '  Pick an install disk first.\n' >&2
@@ -276,7 +363,13 @@ guided_build() {
   _guided_set_identity
 
   if ((_GUIDED_REPLAY)); then
+    # Each edit reads its own seam key; an absent answer is a no-op, so the
+    # replay file declares only the fields it wants (the rest keep defaults).
     _guided_edit_hostname
+    _guided_edit_filesystem
+    _guided_edit_encryption
+    _guided_edit_impermanence
+    _guided_add_persist
     _guided_edit_disk
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }

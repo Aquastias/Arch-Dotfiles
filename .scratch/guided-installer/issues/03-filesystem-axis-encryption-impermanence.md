@@ -1,6 +1,6 @@
 # Filesystem axis + Disks-owned encryption & impermanence
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -38,13 +38,13 @@ the operator add Persist Extensions.
 - [x] Contract checks accept valid combinations and reject invalid ones
       (fields↔filesystem, method↔filesystem, impermanence↔filesystem)
       with the offending path.
-- [ ] Disks menu is filesystem-first with btrfs/ext4/xfs disabled;
+- [x] Disks menu is filesystem-first with btrfs/ext4/xfs disabled;
       Encryption + Impermanence sit under Disks; Impermanence hidden for
-      ext4/xfs. (L4 — guided menu, follow-up.)
-- [ ] Enabling Impermanence applies Curated Persist Defaults and supports
-      adding Persist Extensions. (L4 — guided menu, follow-up.)
-- [x] bats: contract checks + emit. (Contract checks done; guided emit of
-      filesystem/encryption/impermanence lands with L4.)
+      ext4/xfs.
+- [x] Enabling Impermanence applies Curated Persist Defaults (back-end,
+      keyed on enablement) and supports adding Persist Extensions
+      (operator-typed persist.directories).
+- [x] bats: contract checks + emit.
 
 ## Blocked by
 
@@ -75,3 +75,22 @@ filesystem #2 per ADR 0040), non-zfs errors. Wired at `03-install.sh`
 
 Tests: install-config(+5), profile-loader(+1), validation-filesystem(10),
 layout/dispatch(3). Full suite **1111 bats**, shellcheck clean.
+
+**L4 done via /tdd (2026-06-17) — issue CLOSED.** Guided menu now
+filesystem-first. menu.sh: new **Disks** section — `filesystem` moved
+Host→Disks, `options.encryption` + `options.impermanence.enabled` bool rows
+added; the impermanence row is hidden when filesystem is ext4/xfs (menu_rows
+reads the effective filesystem). guided.sh: `_guided_filesystem_options`
+(zfs active, btrfs/ext4/xfs "(reserved)") + `_guided_edit_filesystem`
+(commits only an active fs; reserved picks refused); `_guided_edit_bool`
+→ encryption/impermanence toggles through the seam; `_guided_add_persist`
+(operator-typed dir → persist.directories) surfaced by `_guided_persist_lines`
+only when impermanence is on. Loop dispatch re-keyed on the row **label**
+(`*"filesystem:"*` / `*"encryption:"*` / `*"impermanence:"*` /
+`*"install disk:"*`) so each Disks row routes to its own edit. guided_build's
+replay branch drives the new edits (no-op when the answer key is absent), so a
+`--guided` answers file emits filesystem/encryption/impermanence/persist into
+the Effective Config. Two issue-02 section-reset tests updated for the
+filesystem Host→Disks move. Tests: guided-menu(+5), guided-shell(+11). Full
+suite **1127 bats**, shellcheck clean. **Not yet VM-smoke-verified** (needs a
+push first — guest clones the public remote).

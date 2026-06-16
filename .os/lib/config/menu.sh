@@ -23,7 +23,9 @@
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
   "Host|system.hostname|hostname|"
-  "Host|filesystem|filesystem|zfs"
+  "Disks|filesystem|filesystem|zfs"
+  "Disks|options.encryption|encryption|false"
+  "Disks|options.impermanence.enabled|impermanence|false"
   "Users|users|users|"
 )
 
@@ -31,8 +33,16 @@ _MENU_FIELDS=(
 menu_rows() {
   local state="$1" spec section path label default value overridden
   local rows=()
+  # Effective filesystem governs which Disks rows surface: Impermanence needs
+  # native snapshots, so it is hidden for ext4 / xfs (ADR 0040).
+  local fs; fs="$(cfgstate_get "$state" filesystem)"
+  [[ -n "$fs" ]] || fs="zfs"
   for spec in "${_MENU_FIELDS[@]}"; do
     IFS='|' read -r section path label default <<<"$spec"
+    if [[ "$path" == "options.impermanence.enabled" \
+          && ( "$fs" == "ext4" || "$fs" == "xfs" ) ]]; then
+      continue
+    fi
     value="$(cfgstate_get "$state" "$path")"
     [[ -n "$value" ]] || value="$default"
     if cfgstate_is_overridden "$state" "$path"; then
