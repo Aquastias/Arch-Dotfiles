@@ -28,22 +28,50 @@ the operator add Persist Extensions.
 
 ## Acceptance criteria
 
-- [ ] Config carries `filesystem` (default `zfs`); existing ZFS profiles
-      and VM seeds validate and install unchanged.
-- [ ] `options.encryption_method` present (`native` | `luks`), default
+- [x] Config carries `filesystem` (default `zfs`); existing ZFS profiles
+      and VM seeds validate and install unchanged. (bats-green; not yet
+      VM-smoke-verified.)
+- [x] `options.encryption_method` present (`native` | `luks`), default
       derived from `filesystem`; enablement still via the bool.
-- [ ] Layout dispatch is filesystem-keyed; the ZFS path is unchanged in
+- [x] Layout dispatch is filesystem-keyed; the ZFS path is unchanged in
       behaviour.
-- [ ] Contract checks accept valid combinations and reject invalid ones
+- [x] Contract checks accept valid combinations and reject invalid ones
       (fields↔filesystem, method↔filesystem, impermanence↔filesystem)
       with the offending path.
 - [ ] Disks menu is filesystem-first with btrfs/ext4/xfs disabled;
       Encryption + Impermanence sit under Disks; Impermanence hidden for
-      ext4/xfs.
+      ext4/xfs. (L4 — guided menu, follow-up.)
 - [ ] Enabling Impermanence applies Curated Persist Defaults and supports
-      adding Persist Extensions.
-- [ ] bats: contract checks + emit.
+      adding Persist Extensions. (L4 — guided menu, follow-up.)
+- [x] bats: contract checks + emit. (Contract checks done; guided emit of
+      filesystem/encryption/impermanence lands with L4.)
 
 ## Blocked by
 
 - `01-guided-install-tracer-bullet`
+
+## Comments
+
+**L1–L3 done via /tdd (2026-06-16); L4 (guided menu) deferred to a
+follow-up — user-approved scope split.**
+
+L1 schema+accessors: `install_config_filesystem` (default `zfs`, schema
+row) + `install_config_encryption_method` (derived special: zfs→native,
+else→luks; explicit wins). Closed schema (`profile.sh`) gains `filesystem`
++ `options.encryption_method`; the `_INSTALL_CONFIG_SCHEMA`↔closed-schema
+drift guard forced the lockstep.
+
+L2 contracts (`validation.sh:_validation_filesystem`, wired into
+`validate_install_context` before disk work): known-filesystem,
+method↔filesystem (zfs+luks / non-zfs+native rejected, names the path),
+impermanence↔filesystem (ext4/xfs rejected). Whether a *known* filesystem
+is actually built is L3's job, so the contracts stay correct as adapters
+land. New `tests/config/validation-filesystem.bats` (10).
+
+L3 dispatch: `lib/layout/dispatch.sh:layout_adapter_source <dir> <fs>
+<mode>` — zfs→flat `lib/layout/<mode>.sh` (zfs/ relocation deferred to
+filesystem #2 per ADR 0040), non-zfs errors. Wired at `03-install.sh`
+`main()` (was the mode-keyed source line). ZFS behaviour unchanged.
+
+Tests: install-config(+5), profile-loader(+1), validation-filesystem(10),
+layout/dispatch(3). Full suite **1111 bats**, shellcheck clean.

@@ -122,6 +122,8 @@ _PROFILE_SCHEMA_host=(
   # — layout scalars —
   "ashift" "os_size" "os_pool_name" "storage_pool_name" "storage_mount"
   "mode" "disk"
+  # — Filesystem Adapter axis (ADR 0040): discriminator + encryption method —
+  "filesystem" "options.encryption_method"
   # — os_pool object (skeleton; disks resolved at install time, disk_count
   #   declares how many the picker/harness assign — ADR 0037) —
   "os_pool.pool_name" "os_pool.ashift" "os_pool.topology" "os_pool.disks[]"

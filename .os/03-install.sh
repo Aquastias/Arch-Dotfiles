@@ -130,6 +130,7 @@ source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
 source_module "${SCRIPT_DIR}/lib/config/layers.sh"
 source_module "${SCRIPT_DIR}/lib/config/profile.sh"
+source_module "${SCRIPT_DIR}/lib/layout/dispatch.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"
 source_module "${SCRIPT_DIR}/lib/packages/list.sh"
@@ -174,7 +175,13 @@ main() {
   load_config
   detect_mode
   export OS_DIR="${SCRIPT_DIR}"
-  source_module "${SCRIPT_DIR}/lib/layout/${INSTALL_MODE}.sh"
+  # Filesystem-keyed layout dispatch (ADR 0040): the adapter is chosen by the
+  # filesystem discriminator + mode. ZFS is the only built adapter today.
+  local _layout_adapter
+  _layout_adapter="$(layout_adapter_source \
+    "${SCRIPT_DIR}" "$(install_config_filesystem)" "${INSTALL_MODE}")" \
+    || error "Cannot select a layout adapter for the configured filesystem."
+  source_module "${_layout_adapter}"
   validate_install_context
 
   # ── Planning (topology resolution / size calculation) ─────────────────────

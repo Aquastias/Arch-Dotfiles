@@ -149,6 +149,43 @@ _validation_impermanence() {
 }
 
 
+# =============================================================================
+# FILESYSTEM ADAPTER CONTRACT (ADR 0040)
+# =============================================================================
+# Config-sanity rules over the `filesystem` discriminator, independent of which
+# adapter is actually built (the layout-dispatch seam owns "only ZFS is
+# implemented"). Each rule names the offending path and aborts via error().
+
+_VALIDATION_KNOWN_FILESYSTEMS=(zfs btrfs ext4 xfs)
+
+_validation_filesystem() {
+  local fs; fs="$(install_config_filesystem)"
+
+  local known=0 f
+  for f in "${_VALIDATION_KNOWN_FILESYSTEMS[@]}"; do
+    [[ "$fs" == "$f" ]] && { known=1; break; }
+  done
+  ((known)) || error "Unknown filesystem '${fs}'." \
+    "Valid: ${_VALIDATION_KNOWN_FILESYSTEMS[*]}."
+
+  # Method must match the filesystem: ZFS uses native AES, every other
+  # filesystem uses LUKS. The accessor derives the right default, so only an
+  # explicit mismatch trips this.
+  local method want
+  method="$(install_config_encryption_method)"
+  [[ "$fs" == "zfs" ]] && want="native" || want="luks"
+  [[ "$method" == "$want" ]] || error \
+    "options.encryption_method '${method}' is invalid for filesystem" \
+    "'${fs}' (expected '${want}')."
+
+  # Impermanence needs native snapshots, so it is offered only on ZFS / btrfs.
+  if [[ "$(install_config_impermanence_enabled)" == "true" ]] \
+     && [[ "$fs" != "zfs" && "$fs" != "btrfs" ]]; then
+    error "options.impermanence.enabled requires a snapshotting filesystem" \
+      "(zfs or btrfs), not '${fs}'."
+  fi
+}
+
 # Validate persist paths from a merged host config JSON.
 # Errors abort via error(); warnings are printed via warn().
 _validation_persist() {
@@ -236,6 +273,8 @@ validate_install_context() {
   section "Validating Install Context"
 
   _validation_system_fields
+
+  _validation_filesystem
 
   layout_validate
 
