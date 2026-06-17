@@ -1,0 +1,40 @@
+// VM smoke (issue 03 L4): Guided Installer single-disk ZFS, filesystem-first
+// Disks with ENCRYPTION + IMPERMANENCE driven through the guided menu replay.
+//   vm.sh --guided --profile single/guided-secure --verify-boot
+// flow-guided.sh translates options.encryption / options.impermanence.enabled
+// below into guided answers (encryption=true / impermanence=true) and presets
+// INSTALL_ENC_PASSPHRASE, so the guided run assembles an encrypted, impermanent
+// Effective Config itself (mode=single over Host Core, no desktop — fast). The
+// guided menu builds the config; these options express the intent to drive.
+{
+  "name": "arch-zfs-test-guided-secure",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-secure",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": true,
+      "swap":       true,
+      "swap_size":  "auto",
+      "impermanence": {
+        "enabled": true,
+        "dataset": "rpool/persist",
+        "mount":   "/persist"
+      }
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "single",
+    "disk": "/dev/sda"
+  }
+}
