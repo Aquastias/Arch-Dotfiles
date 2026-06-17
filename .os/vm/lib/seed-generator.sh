@@ -234,16 +234,33 @@ EOF
 # through guided_select/guided_prompt — no fzf, no tty — and assembles the same
 # single-disk Effective Config. The firstboot block + sentinel + poweroff are
 # shared with the non-guided renderer. Test-only — never production.
-# Args: <repo_url> <hostname> [dirty_cache] [verify_boot].
+# Args: <repo_url> <hostname> [dirty_cache] [verify_boot] [encryption]
+#       [impermanence]. encryption/impermanence "true" append the matching guided
+# answer (so the replayed menu sets them); encryption also presets
+# INSTALL_ENC_PASSPHRASE — the back-end's non-interactive passphrase seam — so
+# the ZFS native-encrypted pool is created without a tty prompt (test-only).
 _seed_generator_render_guided_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"
+  local encryption="${5:-false}" impermanence="${6:-false}"
 
   local dirty_step=""
   [[ "$dirty_cache" == "true" ]] && \
     dirty_step='mkdir -p /etc/zfs && printf %s garbage-not-an-nvlist'
   [[ -n "$dirty_step" ]] && \
     dirty_step="${dirty_step} > /etc/zfs/zpool.cache && "
+
+  # Extra guided answers replayed before INSTALL, plus the passphrase preset the
+  # encrypted-pool path needs (mirrors the non-guided test flow).
+  # Single backslash: these are substituted into the heredoc as-is (heredoc
+  # backslash processing applies only to its literal text), so the guest's
+  # printf sees `\n` and writes one answer per line.
+  local extra_answers="" enc_export=""
+  [[ "$encryption" == "true" ]] && {
+    extra_answers+='encryption=true\n'
+    enc_export="export INSTALL_ENC_PASSPHRASE='testtest' && "
+  }
+  [[ "$impermanence" == "true" ]] && extra_answers+='impermanence=true\n'
 
   local boot_block=""
   [[ "$verify_boot" == "true" ]] && \
@@ -266,9 +283,9 @@ runcmd:
         && git clone ${repo_url} /root/dotfiles \\
         && cd /root/dotfiles/.os \\
         && GUIDED_DISK="\$(source lib/picker.sh; source lib/live-medium.sh; set +e; picker_enum_disks "\$(live_medium_disks)" | head -1)" \\
-        && printf 'hostname=%s\\ndisk=%s\\nconfirm=INSTALL\\n' '${hostname}' "\$GUIDED_DISK" > /root/guided-answers \\
+        && printf 'hostname=%s\\ndisk=%s\\n${extra_answers}confirm=INSTALL\\n' '${hostname}' "\$GUIDED_DISK" > /root/guided-answers \\
         && cat /root/guided-answers \\
-        && ${dirty_step}./install.sh --guided /root/guided-answers
+        && ${dirty_step}${enc_export}./install.sh --guided /root/guided-answers
     }
     rc=\$?
 ${boot_block}

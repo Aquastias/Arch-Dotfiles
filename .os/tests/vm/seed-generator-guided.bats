@@ -57,3 +57,33 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [ "$status" -eq 0 ]
   [[ ! "$output" =~ "===FIRSTBOOT-OK===" ]]
 }
+
+# ── encryption (arg 5): the runcmd presets the passphrase + replays the answer
+
+@test "guided user-data: encryption exports the passphrase and replays the answer" {
+  run render false false true false   # dirty / verify / encryption / impermanence
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "INSTALL_ENC_PASSPHRASE" ]]
+  [[ "$output" =~ "encryption=true" ]]
+}
+
+@test "guided user-data: no encryption omits the passphrase and answer" {
+  run render
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "INSTALL_ENC_PASSPHRASE" ]]
+  [[ ! "$output" =~ "encryption=true" ]]
+}
+
+# ── impermanence (arg 6): replays the impermanence answer ───────────────────
+
+@test "guided user-data: impermanence replays the impermanence answer" {
+  run render false false false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "impermanence=true" ]]
+}
+
+@test "guided user-data: no impermanence omits the impermanence answer" {
+  run render
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "impermanence=true" ]]
+}

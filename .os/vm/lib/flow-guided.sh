@@ -22,11 +22,19 @@ FLOW_GUIDED_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 
 # Override the test flow's renderer: drive the Guided Installer rather than the
 # positional path. The hostname is taken from the resolved config; the disk is
-# picked in-guest. DIRTY_CACHE / VERIFY_BOOT carry through unchanged.
+# picked in-guest. DIRTY_CACHE / VERIFY_BOOT carry through unchanged. The seed's
+# options.encryption / options.impermanence.enabled are translated into guided
+# answers so the replayed menu exercises the filesystem-first Disks section
+# (issue 03 L4) end-to-end.
 _flow_render_user_data() {
-  local repo_url="$1" hostname
+  local repo_url="$1" hostname encryption impermanence
   hostname="$(jq -r '.system.hostname // "arch-guided"' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
+  encryption="$(jq -r '.options.encryption // false' \
+    <<<"${INSTALL_CONFIG_CONTENT}")"
+  impermanence="$(jq -r '.options.impermanence.enabled // false' \
+    <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
-    "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}"
+    "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
+    "$encryption" "$impermanence"
 }
