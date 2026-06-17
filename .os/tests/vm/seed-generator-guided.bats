@@ -87,3 +87,23 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [ "$status" -eq 0 ]
   [[ ! "$output" =~ "impermanence=true" ]]
 }
+
+# ── multi layout (args 7/8): replays layout + a whitespace disk list, resolves
+#    N disks in-guest, gates on ACCEPT; single keeps the one-disk answer ───────
+
+@test "guided user-data: a multi layout replays layout/disks/accept + resolves N" {
+  run render false true false false os-mirror-raidz1 5
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "layout=os-mirror-raidz1" ]]
+  [[ "$output" =~ "accept_layout=ACCEPT" ]]
+  [[ "$output" =~ "disks=%s" ]]
+  [[ "$output" =~ "head -5" ]]
+}
+
+@test "guided user-data: single (no layout) keeps the single-disk answer" {
+  run render
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "disk=%s" ]]
+  [[ ! "$output" =~ "accept_layout" ]]
+  [[ "$output" =~ "head -1" ]]
+}
