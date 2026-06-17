@@ -1,0 +1,34 @@
+// VM smoke (issue 04): Guided Installer MULTI-disk ZFS — OS mirror + raidz1
+// storage — driven through the guided menu replay.
+//   vm.sh --guided --profile single/guided-multi --verify-boot
+// `guided_layout` names the preset the guided menu replays; flow-guided.sh
+// computes Σ disk_count (2 OS + 3 storage = 5) and the guest resolves that many
+// disks in-guest, replays layout + the disk list + ACCEPT, and installs. The
+// guided menu builds the os_pool/storage_groups skeleton itself — the install
+// block here is only the hostname/options/layout hint (the guest ignores it
+// otherwise). Unencrypted, so the installed system boot-verifies headlessly.
+{
+  "name": "arch-zfs-test-guided-multi",
+  "hardware": { "disks": [40, 40, 40, 40, 40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-multi",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "guided_layout": "os-mirror-raidz1"
+  }
+}

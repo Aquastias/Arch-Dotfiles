@@ -27,14 +27,22 @@ FLOW_GUIDED_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # answers so the replayed menu exercises the filesystem-first Disks section
 # (issue 03 L4) end-to-end.
 _flow_render_user_data() {
-  local repo_url="$1" hostname encryption impermanence
+  local repo_url="$1" hostname encryption impermanence layout n_disks=1
   hostname="$(jq -r '.system.hostname // "arch-guided"' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
   encryption="$(jq -r '.options.encryption // false' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
   impermanence="$(jq -r '.options.impermanence.enabled // false' \
     <<<"${INSTALL_CONFIG_CONTENT}")"
+  # guided_layout (issue 04) names a multi-disk ZFS preset for the guided menu to
+  # replay; the guest then resolves Σ disk_count disks in-guest. Default single.
+  layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"
+  if [[ "$layout" != "single" ]]; then
+    [[ "$(type -t skeleton_total_disks)" == function ]] \
+      || source "$OS_DIR/lib/config/skeleton.sh"
+    n_disks="$(skeleton_total_disks "$(skeleton_preset "$layout")")"
+  fi
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
-    "$encryption" "$impermanence"
+    "$encryption" "$impermanence" "$layout" "$n_disks"
 }

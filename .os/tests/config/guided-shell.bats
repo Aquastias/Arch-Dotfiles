@@ -104,6 +104,36 @@ fzf_queue() {
   echo "$effective" | jq -e '.persist.directories == ["/etc/wireguard"]'
 }
 
+# ── a replayed MULTI-disk session bakes the preset skeleton's disks (issue 04)
+
+@test "guided_build: a replayed os-mirror session bakes the 2-disk OS mirror" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'layout=os-mirror' \
+    'disks=/dev/disk/by-id/wwn-A /dev/disk/by-id/wwn-B' \
+    'accept_layout=ACCEPT' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.mode == "multi"'
+  echo "$effective" | jq -e '.os_pool.topology == "mirror"'
+  echo "$effective" | jq -e \
+    '.os_pool.disks == ["/dev/disk/by-id/wwn-A","/dev/disk/by-id/wwn-B"]'
+}
+
+@test "guided_build: a multi session with the wrong disk count aborts" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'layout=os-mirror' \
+    'disks=/dev/disk/by-id/wwn-A' \
+    'accept_layout=ACCEPT' \
+    'confirm=INSTALL')"
+
+  run guided_build
+  [ "$status" -ne 0 ]
+}
+
 # ── the config must carry the back-end's required identity fields ───────────
 # (validation.sh requires system.locale + system.timezone; the tracer defaults
 #  them — issue 05 turns these into live-system-picked menu rows.)
@@ -346,6 +376,25 @@ fzf_queue() {
   run _guided_edit_filesystem
   [ "$status" -ne 0 ]
   [ -z "$(cfgstate_get "$_GUIDED_STATE" filesystem)" ]
+}
+
+# ── a multi-disk layout lets Proceed succeed without a single install disk ──
+
+@test "_guided_menu_loop: choosing a multi layout enables Proceed (no single disk)" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _guided_set_identity          # mode starts single
+  _GUIDED_DISK=""               # and no single install disk picked
+
+  fzf_queue
+  queue "Disk layout ▸ choose preset" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "os-mirror"; }
+  export -f guided_select
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" mode)" = "multi" ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" os_pool.topology)" = "mirror" ]
 }
 
 # ── the loop dispatches the Disks rows to their edits (label-keyed) ─────────

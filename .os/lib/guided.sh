@@ -38,6 +38,9 @@
 # shellcheck source=lib/config/history.sh
 [[ "$(type -t hist_new)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
+# shellcheck source=lib/config/skeleton.sh
+[[ "$(type -t skeleton_preset)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
 # shellcheck source=lib/picker.sh
 [[ "$(type -t picker_enum_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/picker.sh"
@@ -141,6 +144,45 @@ _guided_edit_hostname() {
 
 # _guided_edit_disk — resolve the single install disk (Disks ▸ ZFS ▸ single).
 _guided_edit_disk() { _GUIDED_DISK="$(guided_pick_disk disk)"; }
+
+# Disk layout presets (issue 04): the named ZFS shapes the operator picks before
+# disks are resolved. single keeps the one-disk path; the rest author a
+# device-less pool skeleton (skeleton_preset) merged into the Config State, then
+# baked at Proceed by collecting Σ disk_count disks.
+_GUIDED_LAYOUTS=(single os-mirror os-mirror-raidz1 data-pools)
+
+# _guided_edit_layout — pick a disk-layout preset and merge its skeleton into the
+# Config State, replacing any prior skeleton. rc 1 (no change) when the pick is
+# empty (e.g. an absent replay answer keeps the default single path).
+_guided_edit_layout() {
+  local pick skel
+  pick="$(guided_select layout "Disk layout" "${_GUIDED_LAYOUTS[@]}")"
+  [[ -n "$pick" ]] || return 1
+  skel="$(skeleton_preset "$pick")" || return 1
+  # Drop any previous skeleton keys, then merge the new one (switching presets
+  # never leaves a stale storage group behind).
+  _GUIDED_STATE="$(jq --argjson sk "$skel" \
+    'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$_GUIDED_STATE")"
+}
+
+# guided_pick_disks <key> <n> — resolve <n> install disks (multi-disk layouts).
+# Replay: the scripted answer is a whitespace-separated device list. Interactive:
+# an fzf multi-select over the picker candidates. Emits one device per line.
+guided_pick_disks() {
+  local key="$1" n="$2" live
+  if ((_GUIDED_REPLAY)); then
+    # shellcheck disable=SC2086 # the answer is a whitespace-separated disk list
+    printf '%s\n' ${_GUIDED_ANSWERS[$key]-}
+    return
+  fi
+  live="$(live_medium_disks)"
+  local -a cands
+  mapfile -t cands < <(picker_enum_disks "$live")
+  ((${#cands[@]} >= n)) || { error "guided: need $n disks, only ${#cands[@]} found"; \
+    return 1; }
+  printf '%s\n' "${cands[@]}" | fzf --reverse --multi \
+    --prompt="pick ${n} disks (TAB to mark)> "
+}
 
 # Filesystem Adapter axis (ADR 0040): ZFS is the only built adapter; the rest
 # are reserved menu entries so the Disks section is filesystem-first without
@@ -313,6 +355,7 @@ _guided_menu_loop() {
   _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
   while true; do
     mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE")
+    lines+=("Disk layout ▸ choose preset")
     lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
     lines+=("Proceed ▸ review & install")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
@@ -337,12 +380,15 @@ _guided_menu_loop() {
       fi
       ;;
     "Add persist"*) _guided_add_persist && _guided_commit ;;
+    "Disk layout"*) _guided_edit_layout && _guided_commit ;;
     *"install disk:"*) _guided_edit_disk ;; # disk lives outside Config State
     *"hostname:"*) _guided_edit_hostname && _guided_commit ;;
     *"filesystem:"*) _guided_edit_filesystem && _guided_commit ;;
     *"encryption:"*) _guided_edit_encryption && _guided_commit ;;
     *"impermanence:"*) _guided_edit_impermanence && _guided_commit ;;
     Proceed*)
+      # multi resolves its disks at accept; single needs one picked here.
+      [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] && return 0
       [[ -n "$_GUIDED_DISK" ]] && return 0
       printf '  Pick an install disk first.\n' >&2
       ;;
@@ -356,8 +402,37 @@ _guided_menu_loop() {
 # Headless (--guided replay): a linear keyed collection through the SAME edit
 # helpers. The typed INSTALL is the sole consent gate; non-zero (no output) if
 # it is withheld.
+# _guided_resolve_assignment — the picked disks → per-group assignment JSON for
+# emit_effective, branching on the chosen mode. single bakes the one picked
+# disk; multi collects Σ disk_count disks, slices them per group
+# (picker_build_assignment), renders the per-group summary, and gates on a typed
+# ACCEPT before the layout is accepted (issue 04). Emits the assignment on
+# stdout; non-zero on any failure.
+_guided_resolve_assignment() {
+  local mode; mode="$(cfgstate_get "$_GUIDED_STATE" mode)"
+  if [[ "$mode" == "multi" ]]; then
+    local n; n="$(skeleton_total_disks "$_GUIDED_STATE")"
+    local -a disks
+    mapfile -t disks < <(guided_pick_disks disks "$n")
+    ((${#disks[@]} == n)) \
+      || { error "guided: layout needs ${n} disks, got ${#disks[@]}"; return 1; }
+    local assignment
+    assignment="$(picker_build_assignment "$_GUIDED_STATE" "${disks[@]}")" \
+      || return 1
+    section "Disk layout" >&2
+    skeleton_assignment_summary "$_GUIDED_STATE" "$assignment" >&2
+    local ok; ok="$(guided_prompt accept_layout "Type ACCEPT to use this layout")"
+    [[ "$ok" == "ACCEPT" ]] \
+      || { error "guided: disk layout not accepted"; return 1; }
+    printf '%s\n' "$assignment"
+  else
+    [[ -n "$_GUIDED_DISK" ]] || { error "guided: no disk selected"; return 1; }
+    jq -n --arg d "$_GUIDED_DISK" '{mode: "single", disk: $d}'
+  fi
+}
+
 guided_build() {
-  local assignment effective confirm hostname
+  local assignment effective confirm hostname mode
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK=""
   _guided_set_identity
@@ -366,25 +441,31 @@ guided_build() {
     # Each edit reads its own seam key; an absent answer is a no-op, so the
     # replay file declares only the fields it wants (the rest keep defaults).
     _guided_edit_hostname
+    _guided_edit_layout
     _guided_edit_filesystem
     _guided_edit_encryption
     _guided_edit_impermanence
     _guided_add_persist
-    _guided_edit_disk
+    # The single path resolves its one disk here; multi collects N at accept.
+    [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] || _guided_edit_disk
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
 
-  [[ -n "$_GUIDED_DISK" ]] || { error "guided: no disk selected"; return 1; }
-  assignment="$(jq -n --arg d "$_GUIDED_DISK" '{mode:"single", disk:$d}')"
+  assignment="$(_guided_resolve_assignment)" || return 1
   effective="$(emit_effective "$_GUIDED_STATE" "$assignment")" || return 1
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
+  mode="$(cfgstate_get "$_GUIDED_STATE" mode)"
   hostname="$(cfgstate_get "$_GUIDED_STATE" system.hostname)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
-  printf '  WILL ERASE:  %s\n' "$_GUIDED_DISK" >&2
+  if [[ "$mode" == "multi" ]]; then
+    printf '  WILL ERASE:  the disks in the layout above\n' >&2
+  else
+    printf '  WILL ERASE:  %s\n' "$_GUIDED_DISK" >&2
+  fi
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
   [[ "$confirm" == "INSTALL" ]] \
     || { error "guided: aborted — INSTALL not typed"; return 1; }
