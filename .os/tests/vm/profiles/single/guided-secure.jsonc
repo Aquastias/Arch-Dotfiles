@@ -1,6 +1,10 @@
 // VM smoke (issue 03 L4): Guided Installer single-disk ZFS, filesystem-first
 // Disks with ENCRYPTION + IMPERMANENCE driven through the guided menu replay.
-//   vm.sh --guided --profile single/guided-secure --verify-boot
+//   vm.sh --guided --profile single/guided-secure        (install-only)
+// Install-only — NOT --verify-boot: a ZFS native-encrypted root prompts for the
+// passphrase at boot (keylocation=prompt) and the headless boot-verify cannot
+// type it, so encrypted profiles (cf. impermanence/kde-encrypted) verify at
+// INSTALLER-EXIT-0, not first boot.
 // flow-guided.sh translates options.encryption / options.impermanence.enabled
 // below into guided answers (encryption=true / impermanence=true) and presets
 // INSTALL_ENC_PASSPHRASE, so the guided run assembles an encrypted, impermanent
