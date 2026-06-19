@@ -57,6 +57,49 @@ skeleton_preset() {
   esac
 }
 
+# ── Composable builders (Advanced authoring) ────────────────────────────────
+# The freeform door builds a skeleton group by group rather than from a preset.
+# Each returns the new skeleton JSON; skeleton_validate guards the result.
+
+# skeleton_new_multi <os_topology> <os_disk_count> — start a multi skeleton with
+# just the OS pool. storage_groups / data_pools are added below.
+skeleton_new_multi() {
+  jq -n --arg t "$1" --argjson dc "$2" \
+    '{mode: "multi", os_pool: {pool_name: "rpool", topology: $t, disk_count: $dc}}'
+}
+
+# _skeleton_group <name> <topology> <disk_count> [owners] — one pool group
+# object. owners is a whitespace-separated list (a bare token is a user, an
+# @-token a group); omitted when empty. ashift is left to the back-end default.
+_skeleton_group() {
+  local name="$1" topo="$2" dc="$3" owners="${4:-}"
+  local owners_json="[]"
+  # shellcheck disable=SC2086 # owners is a whitespace-separated token list
+  [[ -n "$owners" ]] && owners_json="$(printf '%s\n' $owners | jq -R . | jq -s .)"
+  jq -n --arg n "$name" --arg t "$topo" --argjson dc "$dc" \
+    --argjson o "$owners_json" \
+    '{name: $n, topology: $t, disk_count: $dc}
+     + (if ($o | length) > 0 then {owners: $o} else {} end)'
+}
+
+# skeleton_add_storage <skeleton> <name> <topology> <disk_count> [owners] —
+# append a storage group (mounted at /<name>) to storage_groups[], in order.
+skeleton_add_storage() {
+  local skel="$1"; shift
+  local group; group="$(_skeleton_group "$@")"
+  group="$(jq --arg m "/$1" '. + {mount: $m}' <<<"$group")"
+  jq --argjson g "$group" '.storage_groups = ((.storage_groups // []) + [$g])' \
+    <<<"$skel"
+}
+
+# skeleton_add_data_pool <skeleton> <name> <topology> <disk_count> [owners] —
+# append a standalone data pool to data_pools[], in order.
+skeleton_add_data_pool() {
+  local skel="$1"; shift
+  local pool; pool="$(_skeleton_group "$@")"
+  jq --argjson p "$pool" '.data_pools = ((.data_pools // []) + [$p])' <<<"$skel"
+}
+
 # skeleton_total_disks <skeleton> — the flat number of disks the operator must
 # pick: Σ disk_count over os_pool + every storage_groups[] + data_pools[].
 # single is one disk; os_pool defaults to disk_count 1 when omitted.

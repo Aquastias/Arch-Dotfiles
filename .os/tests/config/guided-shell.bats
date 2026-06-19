@@ -104,6 +104,43 @@ fzf_queue() {
   echo "$effective" | jq -e '.persist.directories == ["/etc/wireguard"]'
 }
 
+# ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
+
+@test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
+  guided_load_replay "$(write_answers \
+    'adv_os_topology=mirror' 'adv_os_disk_count=2' \
+    'adv_storage_count=1' 'adv_storage_0_name=data' \
+    'adv_storage_0_topology=raidz1' 'adv_storage_0_disk_count=3' \
+    'adv_data_count=0')"
+  _GUIDED_STATE="$(cfgstate_new)"
+
+  _guided_author_skeleton
+  echo "$_GUIDED_STATE" | jq -e '.mode == "multi"'
+  echo "$_GUIDED_STATE" | jq -e '.os_pool.topology == "mirror"'
+  echo "$_GUIDED_STATE" | jq -e '.storage_groups[0].name == "data"'
+  echo "$_GUIDED_STATE" | jq -e '.storage_groups[0].disk_count == 3'
+}
+
+@test "guided_build: a replayed Advanced session bakes the authored skeleton" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'layout=advanced' \
+    'adv_os_topology=mirror' 'adv_os_disk_count=2' \
+    'adv_storage_count=1' 'adv_storage_0_name=data' \
+    'adv_storage_0_topology=raidz1' 'adv_storage_0_disk_count=3' \
+    'adv_data_count=0' \
+    'disks=/dev/disk/by-id/A /dev/disk/by-id/B /dev/disk/by-id/C /dev/disk/by-id/D /dev/disk/by-id/E' \
+    'accept_layout=ACCEPT' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.os_pool.topology == "mirror"'
+  echo "$effective" | jq -e '(.os_pool.disks | length) == 2'
+  echo "$effective" | jq -e '.storage_groups[0].topology == "raidz1"'
+  echo "$effective" | jq -e '(.storage_groups[0].disks | length) == 3'
+}
+
 # ── a replayed MULTI-disk session bakes the preset skeleton's disks (issue 04)
 
 @test "guided_build: a replayed os-mirror session bakes the 2-disk OS mirror" {
