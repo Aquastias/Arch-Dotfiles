@@ -120,16 +120,32 @@ CONSOLE_WRAP_PID=""
 _start_console_capture() {
   local log="${1:-$LOG_FILE}"
   : > "$log"
-  script -qfc "virsh console --force \"$VM_NAME\"" "$log" >/dev/null 2>&1 &
+  _console_capture_loop "$log" &
   CONSOLE_WRAP_PID=$!
   info "Console capture running — \`tail -F ${log}\` to watch live."
 }
 
+# Re-attach `virsh console` until the domain halts, appending to <log>. A serial
+# PTY can drop mid-boot — notably on the slower multi-disk boot, when the kernel
+# and then serial-getty re-grab the console — and a single non-looping attach
+# would then miss the first-boot marker printed afterwards (the VM boots fine but
+# the capture dies and the log stays empty). Re-attaching until poweroff makes
+# boot-verify robust for multi-disk installs. Stops as soon as the domain is no
+# longer running — nothing more will be written.
+_console_capture_loop() {
+  local log="$1"
+  while :; do
+    script -qafc "virsh console --force \"$VM_NAME\"" "$log" >/dev/null 2>&1
+    _vm_running || break
+    sleep 0.3
+  done
+}
+
 _stop_console_capture() {
   [[ -n "$CONSOLE_WRAP_PID" ]] || return 0
-  pkill -P "$CONSOLE_WRAP_PID" 2>/dev/null || true
-  kill  "$CONSOLE_WRAP_PID" 2>/dev/null || true
-  wait  "$CONSOLE_WRAP_PID" 2>/dev/null || true
+  kill     "$CONSOLE_WRAP_PID" 2>/dev/null || true  # stop the re-attach loop
+  pkill -P "$CONSOLE_WRAP_PID" 2>/dev/null || true  # and its live script/virsh
+  wait     "$CONSOLE_WRAP_PID" 2>/dev/null || true
   CONSOLE_WRAP_PID=""
 }
 
