@@ -1,9 +1,6 @@
 # Disks: multi-disk presets + Advanced skeleton authoring
 
-Status: ready-for-agent
-
-<!-- Presets + multi VM: DONE (2026-06-17). Advanced authoring: follow-up. -->
-<!-- See ## Comments. -->
+Status: done
 
 
 ## Parent
@@ -28,8 +25,7 @@ confirmation before accept.
 ## Acceptance criteria
 
 - [x] Presets pre-fill valid skeletons; Advanced authors arbitrary
-      `os_pool` / `storage_groups` / `data_pools`. (Presets done; **Advanced
-      authoring deferred to a follow-up** — user-approved scope.)
+      `os_pool` / `storage_groups` / `data_pools`.
 - [x] The skeleton builder agrees with `picker_validate_layout` and the
       min-disk table; an under-populated group is named in the error.
 - [x] Picked disks are sliced per-group by `disk_count` in declared
@@ -37,9 +33,8 @@ confirmation before accept.
       accept.
 - [x] bats: skeleton-from-choices + validation reuse.
 - [x] VM smoke: a multi-disk guided install (mirror OS + raidz1 storage)
-      boots. (Install INSTALLER-EXIT-0; boots to ===FIRSTBOOT-OK=== —
-      confirmed via manual disk boot; automated --verify-boot is flaky for
-      multi, a harness gap, see Comments.)
+      boots. (`--verify-boot`: INSTALLER-EXIT-0 → ===FIRSTBOOT-OK===, after
+      the multi-disk console-capture harness fix; see Comments.)
 
 ## Blocked by
 
@@ -72,8 +67,20 @@ data raidz1 3 disks) → **rpool mirror + dpool raidz1 created → INSTALLER-EXI
 the installed system **boots to ===FIRSTBOOT-OK===** (verified by booting the
 disk manually). Full suite **1149 bats**, shellcheck clean.
 
-**Harness gap (not a guided bug):** automated `--verify-boot` flaked for the
-multi VM (empty serial log + ~67s poweroff — the first post-install boot
-appears to re-enter the install ISO). Every existing `multi/` profile has
-`verify.boot` unset, so multi boot-verify was never exercised; worth a
-separate harness fix (CDROM eject / boot-order on first post-install boot).
+**Advanced authoring (follow-up, now DONE):** composable builders
+`skeleton_new_multi` / `skeleton_add_storage` / `skeleton_add_data_pool`
+(owners → array) in `skeleton.sh`; `_guided_author_skeleton` (guided.sh) walks
+OS pool → N storage groups → N data pools through the seam (replay-driven keyed
+answers `adv_*`), guards with `skeleton_validate`, applies via
+`_guided_apply_skeleton`; wired as the `advanced` layout choice. +7 bats.
+
+**Multi boot-verify harness fix (follow-up, now DONE):** the automated
+`--verify-boot` failure was NOT ISO re-entry — the boot-verify **console
+capture died mid-boot** (the serial PTY drops on the slower multi-disk boot,
+when the kernel then serial-getty re-grab the console), so the first-boot
+marker printed afterwards was lost (VM booted fine; log stayed empty).
+`flow-test.sh` now **re-attaches `virsh console` (append) until the domain
+halts** (`_console_capture_loop`), making boot-verify robust for multi-disk.
+Re-run of `single/guided-multi --verify-boot`: **INSTALLER-EXIT-0 →
+===FIRSTBOOT-OK===** (automated). +2 bats (`tests/vm/console-capture.bats`).
+Full suite **1158 bats**, shellcheck clean.
