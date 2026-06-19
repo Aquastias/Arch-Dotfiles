@@ -1,11 +1,10 @@
 // VM smoke (issue 04): Guided Installer MULTI-disk ZFS — OS mirror + raidz1
 // storage — driven through the guided menu replay.
-//   vm.sh --guided --profile single/guided-multi        (install-verified)
-// Install reaches INSTALLER-EXIT-0 and the installed system boots to
-// ===FIRSTBOOT-OK=== (confirmed by booting the disk manually). The automated
-// --verify-boot is flaky for multi-disk (untested path — every multi/ profile
-// has verify.boot unset; the first post-install boot can re-enter the install
-// ISO), so this seed is verified install + manual boot, not --verify-boot.
+//   vm.sh --guided --profile single/guided-multi --verify-boot
+// Reaches INSTALLER-EXIT-0 and the installed system boots to ===FIRSTBOOT-OK===.
+// (Multi-disk boot-verify needs the re-attaching console capture in flow-test.sh
+// — the serial PTY drops mid-boot on a multi-disk install; a single attach would
+// miss the marker.)
 // `guided_layout` names the preset the guided menu replays; flow-guided.sh
 // computes Σ disk_count (2 OS + 3 storage = 5) and the guest resolves that many
 // disks in-guest, replays layout + the disk list + ACCEPT, and installs. The
