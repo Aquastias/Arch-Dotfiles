@@ -104,6 +104,36 @@ fzf_queue() {
   echo "$effective" | jq -e '.persist.directories == ["/etc/wireguard"]'
 }
 
+# ── a replayed session carries the Options + Environment choices (issue 05) ─
+
+@test "guided_build: a replayed session emits Options + Environment fields" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'kernel=zen lts' \
+    'bootloader=grub' \
+    'swap=false' \
+    'swap_size=8G' \
+    'esp_size=4G' \
+    'ssh=true' \
+    'age_key_url=https://example.test/key.age' \
+    'desktop=kde hyprland' \
+    'gpu=amd nvidia' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.options.kernel == ["zen","lts"]'
+  echo "$effective" | jq -e '.options.bootloader == "grub"'
+  echo "$effective" | jq -e '.options.swap == false'
+  echo "$effective" | jq -e '.options.swap_size == "8G"'
+  echo "$effective" | jq -e '.options.esp_size == "4G"'
+  echo "$effective" | jq -e '.options.ssh.enabled == true'
+  echo "$effective" | jq -e '.options.age_key_url == "https://example.test/key.age"'
+  echo "$effective" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$effective" | jq -e '.environment.gpu == ["amd","nvidia"]'
+}
+
 # ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
 
 @test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
@@ -451,6 +481,36 @@ fzf_queue() {
   [ "$(cfgstate_get "$_GUIDED_STATE" options.encryption)" = "true" ]
 }
 
+@test "_guided_menu_loop: editing the bootloader row commits the pick" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Options · bootloader: systemd-boot" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "grub"; }
+  export -f guided_select
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" options.bootloader)" = "grub" ]
+}
+
+@test "_guided_menu_loop: editing the gpu row commits vendors (Environment)" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Environment · gpu: auto" "Proceed ▸ review & install"
+  guided_multi() { printf '%s\n' "amd"; }
+  export -f guided_multi
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd"]'
+}
+
 @test "_guided_menu_loop: with impermanence on, Add persist appends a dir" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" \
@@ -524,6 +584,114 @@ fzf_queue() {
   run _guided_persist_lines "$state"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "persist"
+}
+
+# ── the multi-select seam: a replayed answer is the whitespace-separated list
+
+@test "guided_multi: a replayed answer yields one option per line, in order" {
+  guided_load_replay "$(write_answers 'kernel=zen lts')"
+  run guided_multi kernel "Kernels" lts default hardened zen
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | sed -n 1p)" = "zen" ]
+  [ "$(echo "$output" | sed -n 2p)" = "lts" ]
+}
+
+# ── Options edits: kernel is a token list, primary (first picked) first ─────
+
+@test "_guided_edit_kernel: multi-select stores the token array, primary first" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { printf '%s\n' "zen" "lts"; }
+  export -f guided_multi
+
+  _guided_edit_kernel
+  echo "$_GUIDED_STATE" | jq -e '.options.kernel == ["zen","lts"]'
+}
+
+@test "_guided_edit_kernel: no pick leaves the kernel untouched" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { :; }
+  export -f guided_multi
+
+  run _guided_edit_kernel
+  [ "$status" -ne 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.options.kernel == null'
+}
+
+# ── bootloader / swap-size / ssh: simple scalar + bool edits ───────────────
+
+@test "_guided_edit_bootloader: picking grub commits the bootloader" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "grub"; }
+  export -f guided_select
+
+  _guided_edit_bootloader
+  echo "$_GUIDED_STATE" | jq -e '.options.bootloader == "grub"'
+}
+
+@test "_guided_edit_swap_size: a typed size commits options.swap_size" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "8G"; }
+  export -f guided_prompt
+
+  _guided_edit_swap_size
+  echo "$_GUIDED_STATE" | jq -e '.options.swap_size == "8G"'
+}
+
+@test "_guided_edit_swap_size: empty input commits nothing" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' ""; }
+  export -f guided_prompt
+
+  run _guided_edit_swap_size
+  [ "$status" -ne 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.options.swap_size == null'
+}
+
+@test "_guided_edit_ssh: selecting true enables ssh" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "true"; }
+  export -f guided_select
+
+  _guided_edit_ssh
+  echo "$_GUIDED_STATE" | jq -e '.options.ssh.enabled == true'
+}
+
+# ── Environment: desktop is a multi, gpu auto clears vendors ────────────────
+
+@test "_guided_edit_desktop: multi-select stores the desktop array" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { printf '%s\n' "kde" "hyprland"; }
+  export -f guided_multi
+
+  _guided_edit_desktop
+  echo "$_GUIDED_STATE" | jq -e '.environment.desktop == ["kde","hyprland"]'
+}
+
+@test "_guided_edit_gpu: vendors store an array" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { printf '%s\n' "amd" "nvidia"; }
+  export -f guided_multi
+
+  _guided_edit_gpu
+  echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd","nvidia"]'
+}
+
+@test "_guided_edit_gpu: auto stores the scalar and clears any vendors" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { printf '%s\n' "auto" "amd"; }   # auto wins, vendors dropped
+  export -f guided_multi
+
+  _guided_edit_gpu
+  echo "$_GUIDED_STATE" | jq -e '.environment.gpu == "auto"'
 }
 
 # ── the typed INSTALL is the sole consent gate ─────────────────────────────

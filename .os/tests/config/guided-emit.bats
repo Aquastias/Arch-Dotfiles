@@ -49,6 +49,36 @@ teardown() { rm -rf "$TEST_DIR"; }
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
+# ── Options + Environment overrides ride through to the Effective Config ────
+
+@test "emit_effective: Options + Environment overrides bake in, schema-clean" {
+  state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" options.kernel '["zen","lts"]')"
+  state="$(cfgstate_set "$state" options.bootloader '"grub"')"
+  state="$(cfgstate_set "$state" options.swap 'false')"
+  state="$(cfgstate_set "$state" options.swap_size '"8G"')"
+  state="$(cfgstate_set "$state" options.esp_size '"4G"')"
+  state="$(cfgstate_set "$state" options.ssh.enabled 'true')"
+  state="$(cfgstate_set "$state" options.age_key_url '"https://x.test/k.age"')"
+  state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
+  state="$(cfgstate_set "$state" environment.gpu '["amd","nvidia"]')"
+  assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+
+  run emit_effective "$state" "$assignment"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.options.kernel == ["zen","lts"]'
+  echo "$output" | jq -e '.options.bootloader == "grub"'
+  echo "$output" | jq -e '.options.swap == false'
+  echo "$output" | jq -e '.options.swap_size == "8G"'
+  echo "$output" | jq -e '.options.ssh.enabled == true'
+  echo "$output" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$output" | jq -e '.environment.gpu == ["amd","nvidia"]'
+
+  # the guided output stays as schema-clean as a hand-authored profile.
+  run validate_config_schema host "$(emit_effective "$state" "$assignment")"
+  [ "$status" -eq 0 ]
+}
+
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─
 
 @test "emit_effective: the produced config passes closed-schema validation" {
