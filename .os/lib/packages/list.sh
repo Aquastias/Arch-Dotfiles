@@ -155,6 +155,13 @@ collect_packages() {
 # =============================================================================
 
 enable_multilib() {
+  # Operator opt-out (issue 06): options.multilib=false leaves [multilib]
+  # commented out (the live-ISO default), so the installed system has no
+  # multilib. Gate first — before any pacman.conf touch. Defaults to true.
+  if [[ "$(install_config_multilib)" != "true" ]]; then
+    info "[multilib] disabled by config — skipping."
+    return 0
+  fi
   # The Arch live ISO ships [multilib] commented out, but lib32-* packages
   # (steam, lib32-nvidia-utils, lib32-gamemode) live there. pacstrap reads the
   # HOST /etc/pacman.conf, so multilib must be enabled here or those targets
@@ -191,12 +198,25 @@ disable_checkspace() {
   fi
 }
 
+# reflector_country_args — the `--country <comma-list>` args for reflector,
+# built from the Mirror Countries selection (issue 06). Emits one arg per line
+# so install_base can mapfile them into an array. Pure: reads config only.
+reflector_country_args() {
+  local -a countries
+  mapfile -t countries < <(install_config_mirror_countries)
+  local joined; printf -v joined '%s,' "${countries[@]}"
+  printf '%s\n' "--country" "${joined%,}"
+}
+
 install_base() {
   section "Installing Base System (pacstrap)"
 
-  # Refresh mirrorlist with the fastest mirrors (non-fatal if reflector fails)
+  # Refresh mirrorlist with the fastest mirrors near the operator (Mirror
+  # Countries) — non-fatal if reflector fails (e.g. offline).
   info "Updating mirror list..."
-  reflector --latest 10 --sort rate \
+  local -a _country_args
+  mapfile -t _country_args < <(reflector_country_args)
+  reflector "${_country_args[@]}" --latest 10 --sort rate \
     --save /etc/pacman.d/mirrorlist 2>/dev/null ||
     warn "reflector failed — using existing mirrorlist."
 

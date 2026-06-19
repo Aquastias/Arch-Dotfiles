@@ -101,6 +101,37 @@ write_config() {
   ! echo "$output" | grep -q "^grub$"
 }
 
+# ── multilib gate (issue 06): options.multilib=false skips enabling ─────────
+# The enable path is system-bound (greps the host /etc/pacman.conf); only the
+# new config gate is unit-tested — it must short-circuit before any file touch.
+
+@test "enable_multilib: options.multilib=false skips enabling" {
+  write_config '{"options":{"multilib":false}}'
+  run enable_multilib
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qi "multilib.*disabled"
+}
+
+# ── reflector country args (issue 06): mirror_countries → --country ─────────
+# A pure helper so install_base (system-bound) stays untested while the arg
+# construction is covered. reflector takes a comma-separated --country value.
+
+@test "reflector_country_args: default five become one --country list" {
+  write_config '{}'
+  run reflector_country_args
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "--country" ]
+  [ "${lines[1]}" = "Germany,Switzerland,Sweden,France,Romania" ]
+}
+
+@test "reflector_country_args: an explicit list is joined in order" {
+  write_config '{"options":{"mirror_countries":["Japan","Australia"]}}'
+  run reflector_country_args
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "--country" ]
+  [ "${lines[1]}" = "Japan,Australia" ]
+}
+
 # ── extra + group packages ────────────────────────────────────────────────────
 
 @test "collect_packages: extra packages appear in output" {

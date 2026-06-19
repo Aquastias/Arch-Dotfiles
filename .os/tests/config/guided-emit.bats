@@ -79,6 +79,25 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
 }
 
+# ── the emitter promotes a typed extra program into system_programs (issue 06)
+
+@test "emit_effective: promotes a packages.extra program into system_programs" {
+  mkdir -p "$OS_DIR/programs/security/wireguard"
+  printf '{"name":"wireguard","system":true}\n' \
+    > "$OS_DIR/programs/security/wireguard/config.jsonc"
+  : > "$OS_DIR/programs/security/wireguard/install.sh"
+
+  state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" packages.extra '["wireguard","htop"]')"
+  assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+
+  run emit_effective "$state" "$assignment"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs | index("wireguard")'  # promoted
+  echo "$output" | jq -e '.system_programs | index("cups")'       # core kept
+  echo "$output" | jq -e '.packages.extra == ["htop"]'            # non-match stays
+}
+
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─
 
 @test "emit_effective: the produced config passes closed-schema validation" {

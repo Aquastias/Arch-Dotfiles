@@ -47,6 +47,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "os_pool_ashift|.os_pool.ashift|scalar|13"
   "encryption_enabled|.options.encryption|bool|false"
   "filesystem|.filesystem|scalar|zfs"
+  "multilib|.options.multilib|bool|true"
 )
 
 # install_config_get <name> — schema dispatcher for the generated wrappers.
@@ -131,6 +132,19 @@ install_config_keymaps() {
 }
 
 install_config_keymap() { install_config_keymaps | head -n1; }
+
+# Mirror Countries (issue 06) — accepts a single country (string) or a list.
+# Emits one country per line, order preserved, feeding `reflector --country`.
+# Defaults to the operator's near-DE set when absent or null. Scalar|array
+# union like the locale/keymap specials.
+install_config_mirror_countries() {
+  local out; out="$(_install_config_array '.options.mirror_countries')"
+  if [[ -z "$out" ]]; then
+    printf '%s\n' Germany Switzerland Sweden France Romania
+  else
+    printf '%s\n' "$out"
+  fi
+}
 
 # Kernel Selection — accepts a single flavour token (string) or a list. Emits
 # one token per line, ordered, primary (first selected) first. Defaults to
