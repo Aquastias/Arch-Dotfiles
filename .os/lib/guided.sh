@@ -149,20 +149,64 @@ _guided_edit_disk() { _GUIDED_DISK="$(guided_pick_disk disk)"; }
 # disks are resolved. single keeps the one-disk path; the rest author a
 # device-less pool skeleton (skeleton_preset) merged into the Config State, then
 # baked at Proceed by collecting Σ disk_count disks.
-_GUIDED_LAYOUTS=(single os-mirror os-mirror-raidz1 data-pools)
+_GUIDED_LAYOUTS=(single os-mirror os-mirror-raidz1 data-pools advanced)
 
-# _guided_edit_layout — pick a disk-layout preset and merge its skeleton into the
-# Config State, replacing any prior skeleton. rc 1 (no change) when the pick is
-# empty (e.g. an absent replay answer keeps the default single path).
+# _guided_apply_skeleton <skeleton> — drop any previous skeleton keys, then
+# merge the new one into the Config State (switching layouts never leaves a
+# stale group behind).
+_guided_apply_skeleton() {
+  _GUIDED_STATE="$(jq --argjson sk "$1" \
+    'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$_GUIDED_STATE")"
+}
+
+# _guided_edit_layout — pick a disk-layout preset (or Advanced authoring) and
+# merge the resulting skeleton into the Config State. rc 1 (no change) when the
+# pick is empty (e.g. an absent replay answer keeps the default single path).
 _guided_edit_layout() {
   local pick skel
   pick="$(guided_select layout "Disk layout" "${_GUIDED_LAYOUTS[@]}")"
   [[ -n "$pick" ]] || return 1
+  [[ "$pick" == "advanced" ]] && { _guided_author_skeleton; return; }
   skel="$(skeleton_preset "$pick")" || return 1
-  # Drop any previous skeleton keys, then merge the new one (switching presets
-  # never leaves a stale storage group behind).
-  _GUIDED_STATE="$(jq --argjson sk "$skel" \
-    'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$_GUIDED_STATE")"
+  _guided_apply_skeleton "$skel"
+}
+
+# _guided_author_skeleton — the Advanced door: author an arbitrary pool skeleton
+# group by group (OS pool, then N storage groups, then N data pools), each via
+# the seam so a replay file (and the interactive menu) drive the same builders.
+# skeleton_validate gates the result against the min-disk table before it is
+# applied. rc 1 (no change) on a cancelled pick or an un-installable skeleton.
+_guided_author_skeleton() {
+  local os_topo os_dc skel n i name topo dc owners
+  os_topo="$(guided_select adv_os_topology "OS pool topology" \
+    mirror stripe raidz1 raidz2 none)"
+  [[ -n "$os_topo" ]] || return 1
+  os_dc="$(guided_prompt adv_os_disk_count "OS pool disk count")"
+  [[ -n "$os_dc" ]] || return 1
+  skel="$(skeleton_new_multi "$os_topo" "$os_dc")"
+
+  n="$(guided_prompt adv_storage_count "Number of storage groups")"
+  for ((i = 0; i < ${n:-0}; i++)); do
+    name="$(guided_prompt "adv_storage_${i}_name" "storage[$i] name")"
+    topo="$(guided_select "adv_storage_${i}_topology" "storage[$i] topology" \
+      mirror stripe raidz1 raidz2)"
+    dc="$(guided_prompt "adv_storage_${i}_disk_count" "storage[$i] disk count")"
+    owners="$(guided_prompt "adv_storage_${i}_owners" "storage[$i] owners")"
+    skel="$(skeleton_add_storage "$skel" "$name" "$topo" "$dc" "$owners")"
+  done
+
+  n="$(guided_prompt adv_data_count "Number of data pools")"
+  for ((i = 0; i < ${n:-0}; i++)); do
+    name="$(guided_prompt "adv_data_${i}_name" "data[$i] name")"
+    topo="$(guided_select "adv_data_${i}_topology" "data[$i] topology" \
+      stripe mirror raidz1 raidz2)"
+    dc="$(guided_prompt "adv_data_${i}_disk_count" "data[$i] disk count")"
+    owners="$(guided_prompt "adv_data_${i}_owners" "data[$i] owners")"
+    skel="$(skeleton_add_data_pool "$skel" "$name" "$topo" "$dc" "$owners")"
+  done
+
+  skeleton_validate "$skel" || return 1
+  _guided_apply_skeleton "$skel"
 }
 
 # guided_pick_disks <key> <n> — resolve <n> install disks (multi-disk layouts).
