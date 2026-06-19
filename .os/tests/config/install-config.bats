@@ -428,6 +428,38 @@ set_path_cfg() {
   [ "$output" = "de" ]
 }
 
+# ── options.mirror_countries (issue 06): array special, default-5 ──────────
+# Mirrors the Kernel/locale specials: one country per line, order preserved.
+# Feeds `reflector --country`; the default is the operator's near-DE set.
+
+@test "mirror_countries: absent yields the default five, in order" {
+  write_cfg '{}'
+  run install_config_mirror_countries
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "Germany" ]
+  [ "${lines[1]}" = "Switzerland" ]
+  [ "${lines[2]}" = "Sweden" ]
+  [ "${lines[3]}" = "France" ]
+  [ "${lines[4]}" = "Romania" ]
+  [ "${#lines[@]}" -eq 5 ]
+}
+
+@test "mirror_countries: an explicit array overrides, order preserved" {
+  write_cfg '{"options":{"mirror_countries":["Japan","Australia"]}}'
+  run install_config_mirror_countries
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "Japan" ]
+  [ "${lines[1]}" = "Australia" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "mirror_countries: a scalar string passes through as one element" {
+  write_cfg '{"options":{"mirror_countries":"Romania"}}'
+  run install_config_mirror_countries
+  [ "$status" -eq 0 ]
+  [ "$output" = "Romania" ]
+}
+
 # ── options.ssh.enabled (issue 05): bool toggle, default false ──────────────
 
 @test "ssh_enabled: defaults false when absent" {
