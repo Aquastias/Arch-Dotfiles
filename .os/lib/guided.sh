@@ -91,6 +91,23 @@ guided_select() {
   printf '%s\n' "$@" | fzf --reverse --prompt="${prompt}> "
 }
 
+# guided_multi <key> <prompt> <option...> — pick zero or more of the enumerated
+# values. Interactive: an fzf multi-select (TAB to mark). Replay: the scripted
+# answer is a whitespace-separated list. Emits one picked option per line; the
+# first line is the primary (kernel/desktop ordering). The replay/interactive
+# parity mirrors guided_pick_disks.
+guided_multi() {
+  local key="$1" prompt="$2"
+  shift 2
+  if ((_GUIDED_REPLAY)); then
+    # shellcheck disable=SC2086 # the answer is a whitespace-separated token list
+    printf '%s\n' ${_GUIDED_ANSWERS[$key]-}
+    return
+  fi
+  printf '%s\n' "$@" | fzf --reverse --multi \
+    --prompt="${prompt} (TAB to mark)> "
+}
+
 # guided_pick_disk [<key>] — resolve one disk via the Pre-Install Picker
 # (lsblk/SMART preview), or the scripted answer under replay.
 guided_pick_disk() {
@@ -299,6 +316,107 @@ _guided_add_persist() {
     <<<"$_GUIDED_STATE")"
 }
 
+# =============================================================================
+# OPTIONS + ENVIRONMENT (issue 05) — the FS-agnostic host knobs
+# =============================================================================
+# Each edit routes a value through the selection seam into the Config State, so
+# the interactive menu and a replay file drive the same writes. Multi-select
+# fields (kernel / desktop / gpu) store a JSON array, primary/first token first.
+
+# _guided_collect_multi <key> <prompt> <opt...> — the multi-select picks with
+# empty lines dropped, one per line (pick order preserved). The shared collector
+# behind every multi field; the caller mapfiles it so an empty result (absent
+# replay answer) is an empty array, never a phantom [""] token.
+_guided_collect_multi() {
+  guided_multi "$@" | grep -v '^[[:space:]]*$' || true
+}
+
+# _guided_multi_array <key> <prompt> <opt...> — collect a multi-select into a
+# JSON string array (pick order preserved). rc 1 + no output when nothing was
+# picked, so an absent replay answer no-ops the edit.
+_guided_multi_array() {
+  local -a picks=()
+  mapfile -t picks < <(_guided_collect_multi "$@")
+  ((${#picks[@]})) || return 1
+  printf '%s\n' "${picks[@]}" | jq -R . | jq -s -c .
+}
+
+# _guided_edit_scalar <key> <prompt> <path> — a typed free-text value committed
+# at <path> as a JSON string. rc 1 (no commit) on empty input.
+_guided_edit_scalar() {
+  local key="$1" prompt="$2" path="$3" v
+  v="$(guided_prompt "$key" "$prompt")"
+  [[ -n "$v" ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" "$path" \
+    "$(jq -n --arg x "$v" '$x')")"
+}
+
+# _guided_edit_kernel — Kernel Selection: a multi-select over the flavour tokens
+# (first = Primary Kernel). All tokens are offered even on ZFS; the ZFS Module
+# Guard is the install-time backstop for a flavour archzfs can't build (ADR 0024).
+_guided_edit_kernel() {
+  local arr
+  arr="$(_guided_multi_array kernel "Kernels (first = primary)" \
+    lts default hardened zen)" || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.kernel "$arr")"
+}
+
+# _guided_edit_bootloader — pick the bootloader (grub | systemd-boot).
+_guided_edit_bootloader() {
+  local v
+  v="$(guided_select bootloader "Bootloader" systemd-boot grub)"
+  [[ -n "$v" ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.bootloader \
+    "$(jq -n --arg x "$v" '$x')")"
+}
+
+# _guided_edit_swap / _guided_edit_ssh — the two FS-agnostic bool toggles.
+_guided_edit_swap() {
+  _guided_edit_bool swap "Swap (true/false)" options.swap
+}
+_guided_edit_ssh() {
+  _guided_edit_bool ssh "SSH (true/false)" options.ssh.enabled
+}
+
+# Free-text Options: swap size, ESP size, and the age-key URL.
+_guided_edit_swap_size() {
+  _guided_edit_scalar swap_size "Swap size (e.g. 8G)" options.swap_size
+}
+_guided_edit_esp_size() {
+  _guided_edit_scalar esp_size "ESP size (e.g. 2G)" options.esp_size
+}
+_guided_edit_age_key_url() {
+  _guided_edit_scalar age_key_url "Age key URL" options.age_key_url
+}
+
+# _guided_edit_desktop — Environment desktop: a multi-select over kde / hyprland
+# (one, both, or none → a server install). Stored as a JSON array.
+_guided_edit_desktop() {
+  local arr
+  arr="$(_guided_multi_array desktop "Desktop" kde hyprland)" || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.desktop "$arr")"
+}
+
+# _guided_edit_gpu — Environment gpu: auto, or a multi-select of vendors. auto is
+# mutually exclusive — choosing it clears explicit vendors and stores the scalar
+# "auto" (the accessor default shape); vendors store a JSON array (ADR: GPU
+# Resolution).
+_guided_edit_gpu() {
+  local -a picks=()
+  mapfile -t picks < <(_guided_collect_multi gpu "GPU (auto clears vendors)" \
+    auto amd nvidia intel)
+  ((${#picks[@]})) || return 1
+  local p
+  for p in "${picks[@]}"; do
+    if [[ "$p" == "auto" ]]; then
+      _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.gpu '"auto"')"
+      return 0
+    fi
+  done
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.gpu \
+    "$(printf '%s\n' "${picks[@]}" | jq -R . | jq -s -c .)")"
+}
+
 # _guided_persist_lines <state> — the persist-extension action, surfaced only
 # when impermanence is enabled (the curated defaults apply automatically; this
 # adds extensions on top). Pure: state JSON → lines.
@@ -430,6 +548,17 @@ _guided_menu_loop() {
     *"filesystem:"*) _guided_edit_filesystem && _guided_commit ;;
     *"encryption:"*) _guided_edit_encryption && _guided_commit ;;
     *"impermanence:"*) _guided_edit_impermanence && _guided_commit ;;
+    # Options + Environment (issue 05). "swap size:" is matched before "swap:"
+    # so the typed-size row never routes to the bool toggle.
+    *"kernel:"*) _guided_edit_kernel && _guided_commit ;;
+    *"bootloader:"*) _guided_edit_bootloader && _guided_commit ;;
+    *"swap size:"*) _guided_edit_swap_size && _guided_commit ;;
+    *"swap:"*) _guided_edit_swap && _guided_commit ;;
+    *"esp size:"*) _guided_edit_esp_size && _guided_commit ;;
+    *"ssh:"*) _guided_edit_ssh && _guided_commit ;;
+    *"age key url:"*) _guided_edit_age_key_url && _guided_commit ;;
+    *"desktop:"*) _guided_edit_desktop && _guided_commit ;;
+    *"gpu:"*) _guided_edit_gpu && _guided_commit ;;
     Proceed*)
       # multi resolves its disks at accept; single needs one picked here.
       [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] && return 0
@@ -490,6 +619,15 @@ guided_build() {
     _guided_edit_encryption
     _guided_edit_impermanence
     _guided_add_persist
+    _guided_edit_kernel
+    _guided_edit_bootloader
+    _guided_edit_swap
+    _guided_edit_swap_size
+    _guided_edit_esp_size
+    _guided_edit_ssh
+    _guided_edit_age_key_url
+    _guided_edit_desktop
+    _guided_edit_gpu
     # The single path resolves its one disk here; multi collects N at accept.
     [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] || _guided_edit_disk
   else

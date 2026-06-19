@@ -26,6 +26,15 @@ _MENU_FIELDS=(
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
+  "Options|options.kernel|kernel|lts"
+  "Options|options.bootloader|bootloader|systemd-boot"
+  "Options|options.swap|swap|true"
+  "Options|options.swap_size|swap size|auto"
+  "Options|options.esp_size|esp size|2G"
+  "Options|options.ssh.enabled|ssh|false"
+  "Options|options.age_key_url|age key url|"
+  "Environment|environment.desktop|desktop|"
+  "Environment|environment.gpu|gpu|auto"
   "Users|users|users|"
 )
 
@@ -43,7 +52,13 @@ menu_rows() {
           && ( "$fs" == "ext4" || "$fs" == "xfs" ) ]]; then
       continue
     fi
-    value="$(cfgstate_get "$state" "$path")"
+    # Multi-select fields (kernel / desktop / gpu) store a JSON array; render it
+    # comma-joined so the row stays one scalar line, primary/first token first.
+    value="$(jq -r --arg p "$path" '
+      getpath($p | split(".")) as $v
+      | if   $v == null         then empty
+        elif ($v | type) == "array" then ($v | join(", "))
+        else ($v | tostring) end' <<<"$state")"
     [[ -n "$value" ]] || value="$default"
     if cfgstate_is_overridden "$state" "$path"; then
       overridden=true

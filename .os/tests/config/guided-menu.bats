@@ -93,6 +93,67 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled")'
 }
 
+# ── Options section: FS-agnostic host knobs (issue 05) ─────────────────────
+
+@test "menu_rows: the bootloader row sits under Options, defaults systemd-boot" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.bootloader | jq -e '.section == "Options"'
+  echo "$output" | row options.bootloader | jq -e '.value == "systemd-boot"'
+  echo "$output" | row options.bootloader | jq -e '.overridden == false'
+}
+
+# ── kernel is a token list: defaults lts, renders multi-select comma-joined ─
+
+@test "menu_rows: the kernel row sits under Options, defaults lts" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.kernel | jq -e '.section == "Options"'
+  echo "$output" | row options.kernel | jq -e '.value == "lts"'
+}
+
+@test "menu_rows: a multi-kernel selection renders comma-joined, primary first" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.kernel '["zen","lts"]')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.kernel | jq -e '.value == "zen, lts"'
+  echo "$output" | row options.kernel | jq -e '.overridden == true'
+}
+
+# ── the rest of the FS-agnostic Options surface as rows with their defaults ─
+
+@test "menu_rows: swap / swap_size / esp_size / ssh / age_key_url under Options" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.swap         | jq -e '.section == "Options"'
+  echo "$output" | row options.swap         | jq -e '.value == "true"'
+  echo "$output" | row options.swap_size    | jq -e '.section == "Options"'
+  # swap_size has no static default — the back-end derives it (RAM×2, capped),
+  # and treats empty ≡ "auto"; the row shows "auto" so unset reads legibly.
+  echo "$output" | row options.swap_size    | jq -e '.value == "auto"'
+  echo "$output" | row options.esp_size     | jq -e '.value == "2G"'
+  echo "$output" | row options.ssh.enabled  | jq -e '.value == "false"'
+  echo "$output" | row options.age_key_url  | jq -e '.section == "Options"'
+}
+
+# ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
+
+@test "menu_rows: the gpu row sits under Environment, defaults auto" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row environment.gpu | jq -e '.section == "Environment"'
+  echo "$output" | row environment.gpu | jq -e '.value == "auto"'
+}
+
+@test "menu_rows: a multi-desktop selection renders comma-joined under Environment" {
+  state="$(cfgstate_set "$(cfgstate_new)" environment.desktop '["kde","hyprland"]')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row environment.desktop | jq -e '.section == "Environment"'
+  echo "$output" | row environment.desktop | jq -e '.value == "kde, hyprland"'
+  echo "$output" | row environment.desktop | jq -e '.overridden == true'
+}
+
 # ── the menu is split Host / Users (mirrors the saved artifacts) ───────────
 
 @test "menu_rows: the menu carries both a Host and a Users section" {
