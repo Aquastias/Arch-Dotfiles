@@ -1,0 +1,42 @@
+// VM smoke (issue 07): Guided Installer single-disk ZFS with an AD-HOC USER +
+// set passwords driven through the guided menu replay.
+//   vm.sh --guided --profile single/guided-user --verify-boot
+// flow-guided.sh reads `guided_user` below and appends the create-user form keys
+// (new_user_name / shell / sudo / password) + root_password to the guided replay
+// answers, so the guided menu authors users/carol/profile.jsonc and the no-SOPS
+// injector sets both passwords (.guided_passwords.* in install-state — no SOPS).
+// Unencrypted, so the installed system boot-verifies headlessly; the boot-verify
+// sentinel additionally emits ===USER-OK=== when `carol` exists with a usable
+// password hash (passwd -S … P) — the "the user can log in" proxy.
+{
+  "name": "arch-zfs-test-guided-user",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-user",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "guided_user": {
+      "name":          "carol",
+      "shell":         "/bin/bash",
+      "sudo":          true,
+      "password":      "hunter2",
+      "root_password": "r00tr00t"
+    }
+  }
+}

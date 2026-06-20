@@ -107,3 +107,30 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [[ ! "$output" =~ "accept_layout" ]]
   [[ "$output" =~ "head -1" ]]
 }
+
+# ── guided_user (arg 9): ad-hoc user + root-password answers (issue 07) ──────
+
+@test "guided user-data: a guided_user appends the ad-hoc + root password answers" {
+  run render false false false false single 1 \
+    '{"name":"carol","password":"hunter2","sudo":true,"shell":"/bin/zsh","root_password":"r00t"}'
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "new_user_name=carol" ]]
+  [[ "$output" =~ "new_user_password=hunter2" ]]
+  [[ "$output" =~ "new_user_sudo=true" ]]
+  [[ "$output" =~ "new_user_shell=/bin/zsh" ]]
+  [[ "$output" =~ "root_password=r00t" ]]
+}
+
+@test "guided user-data: no guided_user omits the user answers" {
+  run render
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "new_user_name=" ]]
+}
+
+@test "guided user-data: guided_user + verify_boot injects a USER-OK check naming the user" {
+  run render false true false false single 1 \
+    '{"name":"carol","password":"hunter2"}'
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===USER-OK===" ]]
+  [[ "$output" =~ "carol" ]]
+}
