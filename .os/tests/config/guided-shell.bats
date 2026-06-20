@@ -134,6 +134,32 @@ fzf_queue() {
   echo "$effective" | jq -e '.environment.gpu == ["amd","nvidia"]'
 }
 
+# ── a replayed session carries Pacman + Packages + Advanced (issue 06 Pass B)
+
+@test "guided_build: a replayed session emits Pacman/Packages/Advanced fields" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'mirror_countries=Japan Australia' \
+    'multilib=false' \
+    'package=htop tmux' \
+    'sysctl=vm.swappiness=20' \
+    'dotfiles_repo=https://github.com/me/dots' \
+    'backup=true' \
+    'security=true' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
+  echo "$effective" | jq -e '.options.multilib == false'
+  echo "$effective" | jq -e '.packages.extra == ["htop","tmux"]'
+  echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
+  echo "$effective" | jq -e '.dotfiles_repo == "https://github.com/me/dots"'
+  echo "$effective" | jq -e '.post_install.backup == true'
+  echo "$effective" | jq -e '.post_install.security == true'
+}
+
 # ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
 
 @test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
@@ -511,6 +537,36 @@ fzf_queue() {
   echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd"]'
 }
 
+@test "_guided_menu_loop: editing the multilib row commits the toggle" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Pacman · multilib: true" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "false"; }
+  export -f guided_select
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" options.multilib)" = "false" ]
+}
+
+@test "_guided_menu_loop: the Add-sysctl action commits a literal sysctl key" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Add sysctl ▸ key=value" "Proceed ▸ review & install"
+  guided_prompt() { printf '%s' "kernel.sysrq=1"; }
+  export -f guided_prompt
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.sysctl["kernel.sysrq"] == 1'
+}
+
 @test "_guided_menu_loop: with impermanence on, Add persist appends a dir" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" \
@@ -584,6 +640,105 @@ fzf_queue() {
   run _guided_persist_lines "$state"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "persist"
+}
+
+# ── Pacman + Advanced edits (issue 06 Pass B): reuse the issue-05 helpers ───
+
+@test "_guided_edit_mirror_countries: multi-select stores the country array" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_multi() { printf '%s\n' "Japan" "Australia"; }
+  export -f guided_multi
+
+  _guided_edit_mirror_countries
+  echo "$_GUIDED_STATE" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
+}
+
+@test "_guided_edit_multilib: selecting false disables multilib" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "false"; }
+  export -f guided_select
+
+  _guided_edit_multilib
+  echo "$_GUIDED_STATE" | jq -e '.options.multilib == false'
+}
+
+@test "_guided_edit_dotfiles_repo: a typed URL commits dotfiles_repo" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "https://github.com/me/dots"; }
+  export -f guided_prompt
+
+  _guided_edit_dotfiles_repo
+  echo "$_GUIDED_STATE" | jq -e '.dotfiles_repo == "https://github.com/me/dots"'
+}
+
+@test "_guided_edit_backup: selecting true enables the backup extra" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "true"; }
+  export -f guided_select
+
+  _guided_edit_backup
+  echo "$_GUIDED_STATE" | jq -e '.post_install.backup == true'
+}
+
+# ── list builders: packages.extra / system_programs / sysctl ────────────────
+
+@test "_guided_add_package: typed names (whitespace-split) append to extra" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "htop tmux"; }
+  export -f guided_prompt
+
+  _guided_add_package
+  echo "$_GUIDED_STATE" | jq -e '.packages.extra == ["htop","tmux"]'
+}
+
+@test "_guided_add_package: empty input adds nothing" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' ""; }
+  export -f guided_prompt
+
+  run _guided_add_package
+  [ "$status" -ne 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.packages == null'
+}
+
+@test "_guided_add_system_program: picked names append, deduped" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system_programs '["cups"]')"
+  guided_multi() { printf '%s\n' "docker" "cups"; }   # cups already present
+  export -f guided_multi
+
+  _guided_add_system_program
+  echo "$_GUIDED_STATE" | jq -e '.system_programs | index("docker")'
+  echo "$_GUIDED_STATE" \
+    | jq -e '([.system_programs[] | select(. == "cups")] | length) == 1'
+}
+
+@test "_guided_add_sysctl: a key=value sets a literal (dotted) sysctl key" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "vm.swappiness=10"; }
+  export -f guided_prompt
+
+  _guided_add_sysctl
+  # the dotted key is a literal object key, value stored as a number
+  echo "$_GUIDED_STATE" | jq -e '.sysctl["vm.swappiness"] == 10'
+}
+
+@test "_guided_add_sysctl: a malformed entry (no =) commits nothing" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "not-a-pair"; }
+  export -f guided_prompt
+
+  run _guided_add_sysctl
+  [ "$status" -ne 0 ]
+  echo "$_GUIDED_STATE" | jq -e '.sysctl == null'
 }
 
 # ── the multi-select seam: a replayed answer is the whitespace-separated list

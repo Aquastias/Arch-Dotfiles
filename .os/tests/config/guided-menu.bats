@@ -154,6 +154,35 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row environment.desktop | jq -e '.overridden == true'
 }
 
+# ── Pacman / Packages / Advanced rows (issue 06 Pass B) ────────────────────
+
+@test "menu_rows: Pacman carries mirror_countries (default 5) + multilib" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.mirror_countries | jq -e '.section == "Pacman"'
+  echo "$output" | row options.mirror_countries \
+    | jq -e '.value == "Germany, Switzerland, Sweden, France, Romania"'
+  echo "$output" | row options.multilib | jq -e '.section == "Pacman"'
+  echo "$output" | row options.multilib | jq -e '.value == "true"'
+}
+
+@test "menu_rows: Packages carries the typed extra-packages row" {
+  state="$(cfgstate_set "$(cfgstate_new)" packages.extra '["htop","tmux"]')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row packages.extra | jq -e '.section == "Packages"'
+  echo "$output" | row packages.extra | jq -e '.value == "htop, tmux"'
+}
+
+@test "menu_rows: Advanced carries system_programs / dotfiles_repo / post_install" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row system_programs       | jq -e '.section == "Advanced"'
+  echo "$output" | row dotfiles_repo          | jq -e '.section == "Advanced"'
+  echo "$output" | row post_install.backup    | jq -e '.value == "false"'
+  echo "$output" | row post_install.security  | jq -e '.section == "Advanced"'
+}
+
 # ── the menu is split Host / Users (mirrors the saved artifacts) ───────────
 
 @test "menu_rows: the menu carries both a Host and a Users section" {

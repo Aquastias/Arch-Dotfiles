@@ -30,9 +30,13 @@ cfgstate_set() {
 }
 
 # cfgstate_get <state> <path> — the raw value at <path>, empty when unset.
+# Only a missing key (null) is empty: a stored `false` is a real value and must
+# round-trip ("false"), so this is an explicit null check, not `// empty` (jq's
+# // treats false as empty and would swallow a false bool).
 cfgstate_get() {
   local state="$1" path="$2"
-  jq -r --arg p "$path" 'getpath($p | split(".")) // empty' <<<"$state"
+  jq -r --arg p "$path" \
+    'getpath($p | split(".")) | if . == null then empty else . end' <<<"$state"
 }
 
 # cfgstate_unset <state> <path> — drop the override at <path>. Ancestor
