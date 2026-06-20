@@ -1,6 +1,6 @@
 # Users — pick committed + ad-hoc + passwords
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -32,8 +32,8 @@ install-state — the same downstream contract the Secrets Module produces,
       existing lifecycle.
 - [x] No password appears in a Saved profile or an Exported config.
 - [x] bats: users-delta emit + the password tmpfs contract.
-- [ ] VM smoke: a guided install with an ad-hoc user + set password boots
-      and the user can log in. (Pending — needs a push + KVM run.)
+- [x] VM smoke: a guided install with an ad-hoc user + set password boots
+      and the user can log in. (PASSED on KVM — see Comments.)
 
 ## Blocked by
 
@@ -75,5 +75,24 @@ after `run_profiles`. Passwords never enter the Effective Config (integration
 test asserts no leak).
 
 Tests: +15 → full suite **1222 bats**, shellcheck clean (incl. install.sh /
-03-install.sh). VM smoke (ad-hoc user + set password → boot + login) is the only
-open box.
+03-install.sh).
+
+**VM smoke PASSED — issue CLOSED (2026-06-21).** Harness: `seed-generator.sh`
+gained a 9th arg `guided_user` (→ `new_user_*` + `root_password` replay answers)
+and a `===USER-OK===` boot-verify check (`id <u> && passwd -S <u> | grep -qw P`
+— the "can log in" proxy, written into the firstboot sentinel); `flow-guided.sh`
+reads `.guided_user`; `tests/vm/profiles/single/guided-user.jsonc` (carol,
+sudo=true, password hunter2, root r00tr00t). +3 render bats → **1225**. Commits
+`bd625d5` (core) + `2cce7fe` (harness).
+
+`vm.sh --guided --profile single/guided-user --verify-boot` on KVM:
+**INSTALLER-EXIT-0** → reboot → **USER-OK** (carol exists, shell /bin/bash,
+groups …,wheel, usable password hash) → **FIRSTBOOT-OK** (USER-FAIL:0). The
+install log shows **zero SOPS activation** — the `.guided_passwords.*` seam set
+root + carol passwords without pulling in the SOPS runtime program. End-to-end:
+guided menu → ad-hoc user materialized → no-SOPS password injection → boot +
+login proxy.
+
+VM note: the guest clones `REPO_URL` (default public GitHub) so this run needed
+the issue-07 commits pushed first; a host-side `git daemon --export-all` +
+`REPO_URL=git://<host>/<repo>` removes the push dependency next time.
