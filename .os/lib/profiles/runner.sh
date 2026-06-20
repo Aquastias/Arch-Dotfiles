@@ -154,8 +154,11 @@ _profiles_resolve_user_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
   local raw_path
+  # SOPS-decrypted user secrets (.secrets.users) or the Guided Installer's
+  # no-SOPS passwords (.guided_passwords.users, issue 07) — same file shape; the
+  # guided key does not gate SOPS-program activation (ADR 0025).
   raw_path="$(jq -r --arg n "$name" \
-    '.secrets.users[$n] // empty' "$host_state")"
+    '.secrets.users[$n] // .guided_passwords.users[$n] // empty' "$host_state")"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
   local chroot_dir="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets"
   mkdir -p "$chroot_dir"

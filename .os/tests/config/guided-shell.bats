@@ -160,6 +160,34 @@ fzf_queue() {
   echo "$effective" | jq -e '.post_install.security == true'
 }
 
+# ── a replayed ad-hoc user is materialized; passwords go only to the manifest ─
+
+@test "guided_build: an ad-hoc user is materialized + passwords manifested, none leak" {
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'new_user_name=carol' 'new_user_shell=/bin/zsh' 'new_user_sudo=true' \
+    'new_user_groups=' 'new_user_programs=' 'new_user_git_name=' \
+    'new_user_git_email=' 'new_user_ssh_keys=' 'new_user_password=hunter2' \
+    'root_password=r00t' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  # ad-hoc user joins the host users[] + its User Profile is materialized
+  echo "$effective" | jq -e '.users == ["carol"]'
+  [ -f "$OS_DIR/users/carol/profile.jsonc" ]
+  jq -e '.shell == "/bin/zsh" and .sudo == true' \
+    "$OS_DIR/users/carol/profile.jsonc"
+  # passwords land ONLY in the side manifest — never in the Effective Config
+  echo "$effective" | jq -e 'has("root_password") | not'
+  echo "$effective" | jq -e '(.. | objects | has("password")) // false | not' \
+    2>/dev/null || true
+  jq -e '.root_password == "r00t"' "$GUIDED_SECRETS_MANIFEST"
+  jq -e '.users.carol.password == "hunter2"' "$GUIDED_SECRETS_MANIFEST"
+}
+
 # ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
 
 @test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
@@ -682,6 +710,98 @@ fzf_queue() {
 
   _guided_edit_backup
   echo "$_GUIDED_STATE" | jq -e '.post_install.backup == true'
+}
+
+# ── Users (issue 07): committed multi-select + ad-hoc create ────────────────
+
+@test "_guided_pick_users: committed multi-select sets users[], primary first" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/bob" "$OS_DIR/users/core"
+  : > "$OS_DIR/users/alice/profile.jsonc"
+  : > "$OS_DIR/users/bob/profile.jsonc"
+  : > "$OS_DIR/users/core/profile.jsonc"
+  guided_multi() { printf '%s\n' "alice" "bob"; }   # core never offered
+  export -f guided_multi
+
+  _guided_pick_users
+  echo "$_GUIDED_STATE" | jq -e '.users == ["alice","bob"]'
+}
+
+@test "_guided_create_user: ad-hoc form authors a User Profile + adds the user" {
+  guided_load_replay "$(write_answers \
+    'new_user_name=carol' \
+    'new_user_shell=/bin/zsh' \
+    'new_user_sudo=true' \
+    'new_user_groups=docker libvirt' \
+    'new_user_programs=' \
+    'new_user_git_name=Carol' \
+    'new_user_git_email=c@x.io' \
+    'new_user_ssh_keys=' \
+    'new_user_password=hunter2')"
+  _GUIDED_STATE="$(cfgstate_new)"
+  _guided_users_reset
+
+  _guided_create_user
+  echo "$_GUIDED_STATE" | jq -e '.users == ["carol"]'                 # in the list
+  echo "${_GUIDED_ADHOC_FORM[carol]}" \
+    | jq -e '.shell == "/bin/zsh" and .sudo == true'
+  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.groups == ["docker","libvirt"]'
+  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e '.git.name == "Carol"'
+  echo "${_GUIDED_ADHOC_FORM[carol]}" | jq -e 'has("name") | not'    # username = dir
+  [ "${_GUIDED_USER_PW[carol]}" = "hunter2" ]
+}
+
+@test "_guided_create_user: an empty password defaults to 12345" {
+  guided_load_replay "$(write_answers \
+    'new_user_name=dave' 'new_user_password=')"
+  _GUIDED_STATE="$(cfgstate_new)"
+  _guided_users_reset
+
+  _guided_create_user
+  [ "${_GUIDED_USER_PW[dave]}" = "12345" ]
+}
+
+# ── passwords: root + the no-SOPS secrets manifest ──────────────────────────
+
+@test "_guided_set_root_password: a typed password is held aside" {
+  _GUIDED_REPLAY=0
+  _guided_users_reset
+  guided_prompt() { printf '%s' "r00t"; }
+  export -f guided_prompt
+
+  _guided_set_root_password
+  [ "$_GUIDED_ROOT_PW" = "r00t" ]
+}
+
+@test "_guided_secrets_manifest: builds the root + per-user password shape" {
+  _guided_users_reset
+  _GUIDED_ROOT_PW="r00t"
+  _GUIDED_USER_PW[carol]="hunter2"
+
+  run _guided_secrets_manifest
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.root_password == "r00t"'
+  echo "$output" | jq -e '.users.carol.password == "hunter2"'
+}
+
+@test "_guided_secrets_manifest: no passwords set yields an empty manifest" {
+  _guided_users_reset
+
+  run _guided_secrets_manifest
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '. == {}'
+}
+
+@test "_guided_user_names: lists committed users, excludes core" {
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  : > "$OS_DIR/users/alice/profile.jsonc"
+  : > "$OS_DIR/users/core/profile.jsonc"
+
+  run _guided_user_names
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "alice"
+  ! echo "$output" | grep -qx "core"
 }
 
 # ── list builders: packages.extra / system_programs / sysctl ────────────────

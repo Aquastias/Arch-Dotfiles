@@ -43,6 +43,22 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -z "$output" ]
 }
 
+# ── no-SOPS guided seam: .guided_passwords.users is read too (issue 07) ──────
+
+@test "stages user secrets from .guided_passwords.users (no SOPS)" {
+  local usr_sec="$TEST_DIR/alice-secrets.json"
+  printf '{"password":"12345"}\n' > "$usr_sec"
+  printf '{"guided_passwords":{"users":{"alice":"%s"}}}\n' "$usr_sec" \
+    > "$MOUNT_ROOT/install-state.json"
+
+  run _profiles_resolve_user_secrets "alice"
+  [ "$status" -eq 0 ]
+  [ "$output" = "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" ]
+  [ "$(jq -r '.password' \
+      "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json")" \
+    = "12345" ]
+}
+
 @test "returns empty when secrets entry points to missing file" {
   printf '{"secrets":{"users":{"alice":"/nonexistent/alice-secrets.json"}}}\n' \
     > "$MOUNT_ROOT/install-state.json"

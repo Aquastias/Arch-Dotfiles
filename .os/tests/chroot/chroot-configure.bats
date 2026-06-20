@@ -41,6 +41,21 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -z "$output" ]
 }
 
+# ── no-SOPS guided seam: .guided_passwords.host is read too (issue 07) ───────
+
+@test "stages the host secrets from .guided_passwords.host (no SOPS)" {
+  local host_sec="$TEST_DIR/host-secrets.json"
+  printf '{"root_password":"guided"}\n' > "$host_sec"
+  printf '{"guided_passwords":{"host":"%s"}}\n' "$host_sec" \
+    > "$MOUNT_ROOT/install-state.json"
+
+  run _chroot_resolve_host_secrets
+  [ "$status" -eq 0 ]
+  [ "$output" = "/root/lib-chroot/host-secrets.json" ]
+  [ "$(jq -r '.root_password' \
+      "$MOUNT_ROOT/root/lib-chroot/host-secrets.json")" = "guided" ]
+}
+
 @test "returns empty when install-state.json absent" {
   run _chroot_resolve_host_secrets
   [ "$status" -eq 0 ]

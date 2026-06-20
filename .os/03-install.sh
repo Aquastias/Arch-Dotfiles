@@ -210,6 +210,17 @@ main() {
   # ── Persist secrets state now that /mnt is mounted ────────────────────────
   secrets_persist_state
 
+  # Guided no-SOPS passwords (issue 07): the Guided Installer staged a decrypted
+  # password manifest; persist it into install-state under .guided_passwords.*
+  # (a key that, unlike .secrets.*, does NOT activate the SOPS runtime program).
+  # The chroot host-secrets resolver + the Runner user-secrets resolver read it.
+  if [[ -n "${GUIDED_SECRETS_MANIFEST:-}" && -s "${GUIDED_SECRETS_MANIFEST}" ]]; then
+    GUIDED_SECRETS_DIR="$(mktemp -d /run/guided-secrets.XXXXXX)"
+    source "${OS_DIR}/lib/guided-secrets.sh"
+    guided_write_passwords "$(cat "${GUIDED_SECRETS_MANIFEST}")" \
+      "${GUIDED_SECRETS_DIR}" "${INSTALL_STATE:-/mnt/install-state.json}"
+  fi
+
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
   # Fail-fast before chroot config: every installed kernel must have a ZFS
@@ -219,6 +230,10 @@ main() {
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────
   run_profiles
+
+  # Wipe the staged plaintext guided passwords once the Runner has consumed them
+  # (the live ISO's /run is RAM, but clear it eagerly all the same).
+  [[ -n "${GUIDED_SECRETS_DIR:-}" ]] && rm -rf "${GUIDED_SECRETS_DIR}"
 
   # ── Data-pool ownership (after users/groups exist, pools still mounted) ───
   # Makes /data pools writable by their owners + adds ~/Disks/<pool> symlinks

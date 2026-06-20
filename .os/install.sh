@@ -257,6 +257,13 @@ if [[ -z "$profile_name" && -z "$print_config" ]] \
 
   [[ -n "$guided_replay" ]] && guided_load_replay "$guided_replay"
 
+  # Stage the no-SOPS password manifest (issue 07): guided_build writes root +
+  # per-user passwords here at Proceed; 03-install.sh persists it into
+  # install-state under .guided_passwords.*. Exported so the 03 subprocess sees
+  # it. Passwords never enter the Effective Config.
+  export GUIDED_SECRETS_MANIFEST
+  GUIDED_SECRETS_MANIFEST="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
+
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
   guided_build >"$effective_config" || exit "$?"
   positional_args=("$effective_config")

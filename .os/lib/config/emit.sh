@@ -25,6 +25,20 @@
 [[ "$(type -t picker_assign_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
+# guided_user_profile <form> — author a User Profile delta (issue 07) from an
+# ad-hoc user form. Drops the `name` key (the directory basename is the username,
+# ADR 0036) and prunes empty values (empty string, empty array, `false`, null)
+# so the result is a sparse delta over User Core — only what the operator set,
+# closed-schema-valid. Pure: form JSON in → profile JSON out.
+guided_user_profile() {
+  jq -c '
+    del(.name)
+    | with_entries(select(
+        (.value != null) and (.value != "") and (.value != false)
+        and (.value != []) and (.value != {})))
+  ' <<<"$1"
+}
+
 # emit_promote_programs <config> — the program-promotion split (issue 06).
 # A typed packages.extra name that resolves to a programs/<cat>/<name>/ with
 # system:true is moved into system_programs (installed via the Program Runner);
