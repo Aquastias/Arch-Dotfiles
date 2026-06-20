@@ -35,6 +35,13 @@ _MENU_FIELDS=(
   "Options|options.age_key_url|age key url|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.gpu|gpu|auto"
+  "Pacman|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
+  "Pacman|options.multilib|multilib|true"
+  "Packages|packages.extra|extra packages|"
+  "Advanced|system_programs|system programs|"
+  "Advanced|dotfiles_repo|dotfiles repo|"
+  "Advanced|post_install.backup|backup extra|false"
+  "Advanced|post_install.security|security extra|false"
   "Users|users|users|"
 )
 

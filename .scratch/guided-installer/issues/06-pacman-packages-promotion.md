@@ -1,6 +1,6 @@
 # Host breadth II — Pacman + Packages + program promotion
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -27,18 +27,18 @@ Host ▸ Advanced: `system_programs` (fzf-multi over `programs/*/*/`),
 
 ## Acceptance criteria
 
-- [~] `options.mirror_countries` (default 5) is emitted and drives
+- [x] `options.mirror_countries` (default 5) is emitted and drives
       `reflector --country`; offline, the picker falls back to the
       default list plus free-text. (Pass A: accessor + closed-schema +
-      `reflector_country_args` wired into `install_base`. The fzf country
-      picker + offline free-text fallback are Pass B.)
+      `reflector_country_args` → `install_base`. Pass B: the fzf country
+      multi-select offers a curated static list — offline-safe by
+      construction since it needs no `reflector --list-countries`.)
 - [x] `options.multilib` (default true) gates `enable_multilib`.
 - [x] A typed `packages.extra` name matching a program is promoted to
       `system_programs`; a non-match stays a package; an ambiguous name
       resolves as the program.
-- [ ] Host ▸ Advanced edits `system_programs`, `sysctl` (swappiness 10
+- [x] Host ▸ Advanced edits `system_programs`, `sysctl` (swappiness 10
       default), Persist Extensions, `post_install`, `dotfiles_repo`.
-      (Pass B.)
 - [x] bats: emitter promotion split + the new accessors.
 
 ## Blocked by
@@ -74,9 +74,31 @@ Tests: install-config (+3 mirror_countries), packages (+3 multilib gate +
 reflector args), guided-promote (6), guided-emit (+1 promotion integration)
 = +13. Full suite **1191 bats**, shellcheck clean.
 
-**Pass B (remaining):** Guided menu rows + edits — Pacman section
-(mirror_countries multi, multilib bool), Packages (`packages.extra` typed
-inline → promotion at emit), Host ▸ Advanced subgroup (`system_programs`
-multi, `sysctl` key=value, Persist Extensions [already built], `post_install`
-toggles, `dotfiles_repo`), loop label-dispatch + replay integration. fzf
-shell stays smoke-only; menu-model rows are bats-tested.
+**Pass B DONE via /tdd (2026-06-20) — issue CLOSED.** The Guided menu surface.
+
+menu.sh: 7 new `_MENU_FIELDS` rows — `Pacman` (mirror_countries array,
+multilib bool), `Packages` (packages.extra array), `Advanced` (system_programs,
+dotfiles_repo, post_install.backup, post_install.security).
+
+guided.sh: scalar/bool/multi edits reuse the issue-05 helpers
+(`_guided_edit_mirror_countries` multi, `_guided_edit_multilib`/`_backup`/
+`_security` bool, `_guided_edit_dotfiles_repo` scalar). List builders append
+through the seam like `_guided_add_persist`: `_guided_add_package`
+(whitespace-split → packages.extra), `_guided_add_system_program`
+(multi over `_guided_program_names` → system_programs, deduped),
+`_guided_add_sysctl` (typed `key=value`; the key is a literal object key so a
+dotted `vm.swappiness` is NOT a nested path; numeric values stored as numbers).
+Loop label-dispatch routes each row + the always-present `Add sysctl` action;
+`guided_build`'s replay branch drives them all. Country picker offers a curated
+static list (offline-safe; no `reflector --list-countries`).
+
+**Latent bug fixed (exposed by the multilib=false loop test):** `cfgstate_get`
+used `getpath(...) // empty`, and jq's `//` treats `false` as empty — so a
+stored `false` bool read back as "" (couldn't be told from unset). Changed to an
+explicit null check. Emit was always correct (it serialises the whole map); only
+the read accessor was wrong. Regression test in guided-state.bats. No caller
+relied on the old behaviour (all compare against strings).
+
+Tests: guided-menu (+3), guided-shell (+12), guided-state (+1) = +16. Full
+suite **1207 bats**, shellcheck clean. fzf shell smoke-only; menu-model rows +
+edit funcs are bats-tested.

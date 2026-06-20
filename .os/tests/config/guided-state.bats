@@ -40,6 +40,19 @@ setup() {
   [ -z "$output" ]
 }
 
+# ── a stored `false` is a value, not "unset" — distinguish it from null ─────
+# Regression: `getpath // empty` swallowed `false` (jq's // treats false as
+# empty), so a false bool read back as "". A bool field set to false must
+# round-trip as "false", or the menu and edits can't tell off from unset.
+
+@test "cfgstate_get: a stored false round-trips as \"false\", not empty" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.multilib 'false')"
+
+  run cfgstate_get "$state" options.multilib
+  [ "$status" -eq 0 ]
+  [ "$output" = "false" ]
+}
+
 # ── unset: drop one override, leave the rest ───────────────────────────────
 
 @test "cfgstate_unset: clears one override and keeps the others" {

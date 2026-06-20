@@ -417,6 +417,90 @@ _guided_edit_gpu() {
     "$(printf '%s\n' "${picks[@]}" | jq -R . | jq -s -c .)")"
 }
 
+# =============================================================================
+# PACMAN + PACKAGES + HOST ▸ ADVANCED (issue 06 Pass B)
+# =============================================================================
+# The rarely-touched host knobs. Pacman/Advanced scalar+bool+multi fields reuse
+# the issue-05 helpers; the list builders (packages.extra, system_programs,
+# sysctl) append through the seam like _guided_add_persist.
+
+# Mirror Countries (Pacman): a multi-select feeding reflector --country. The
+# enumerated set is curated (reflector --list-countries needs network); a replay
+# answer drives any value. Stored as a JSON array.
+_guided_edit_mirror_countries() {
+  local arr
+  arr="$(_guided_multi_array mirror_countries "Mirror countries" \
+    Germany Switzerland Sweden France Romania Austria Netherlands \
+    "United Kingdom" "United States" Japan Australia)" || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_countries "$arr")"
+}
+
+# multilib (Pacman) + the two post_install extras (Advanced) — bool toggles.
+_guided_edit_multilib() {
+  _guided_edit_bool multilib "Multilib (true/false)" options.multilib
+}
+_guided_edit_backup() {
+  _guided_edit_bool backup "Backup extra (true/false)" post_install.backup
+}
+_guided_edit_security() {
+  _guided_edit_bool security "Security extra (true/false)" post_install.security
+}
+
+# dotfiles_repo (Advanced) — a typed repo URL.
+_guided_edit_dotfiles_repo() {
+  _guided_edit_scalar dotfiles_repo "Dotfiles repo URL" dotfiles_repo
+}
+
+# _guided_add_package — append typed repo package name(s) (whitespace-split) to
+# packages.extra. The emitter promotes any that resolve to a System Program at
+# build time (emit_promote_programs); the rest stay plain repo packages. rc 1
+# (no commit) on empty input.
+_guided_add_package() {
+  local raw; raw="$(guided_prompt package "Extra package(s)")"
+  [[ -n "$raw" ]] || return 1
+  _GUIDED_STATE="$(jq --arg s "$raw" \
+    '.packages.extra = ((.packages.extra // []) + ($s | split(" ") | map(select(length > 0))))' \
+    <<<"$_GUIDED_STATE")"
+}
+
+# _guided_program_names — the resolvable System Program names (programs/*/*/),
+# one per line. The enumerable source for the system_programs multi-select.
+_guided_program_names() {
+  local d
+  for d in "${OS_DIR}/programs"/*/*; do
+    [[ -d "$d" ]] && basename "$d"
+  done
+}
+
+# _guided_add_system_program — append host System Program name(s) chosen from
+# the resolvable set (multi-select; replay = whitespace list) to system_programs.
+# rc 1 (no commit) when nothing is picked.
+_guided_add_system_program() {
+  local -a names
+  mapfile -t names < <(_guided_program_names)
+  local -a picks=()
+  mapfile -t picks < <(_guided_collect_multi system_program "System programs" \
+    "${names[@]}")
+  ((${#picks[@]})) || return 1
+  _GUIDED_STATE="$(jq \
+    --argjson add "$(printf '%s\n' "${picks[@]}" | jq -R . | jq -s .)" \
+    '.system_programs = ((.system_programs // []) + $add | unique)' \
+    <<<"$_GUIDED_STATE")"
+}
+
+# _guided_add_sysctl — set/override one sysctl pair from a typed "key=value"
+# (numeric values stored as numbers, matching Host Core's swappiness=10). The
+# key may itself contain dots (vm.swappiness), so it is set as a literal object
+# key, never a dotted path. rc 1 (no commit) on a malformed entry.
+_guided_add_sysctl() {
+  local raw; raw="$(guided_prompt sysctl "sysctl key=value")"
+  [[ "$raw" == *=* ]] || return 1
+  local k="${raw%%=*}" v="${raw#*=}"
+  [[ -n "$k" ]] || return 1
+  _GUIDED_STATE="$(jq --arg k "$k" --arg v "$v" \
+    '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$_GUIDED_STATE")"
+}
+
 # _guided_persist_lines <state> — the persist-extension action, surfaced only
 # when impermanence is enabled (the curated defaults apply automatically; this
 # adds extensions on top). Pure: state JSON → lines.
@@ -519,6 +603,7 @@ _guided_menu_loop() {
     mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE")
     lines+=("Disk layout ▸ choose preset")
     lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
+    lines+=("Add sysctl ▸ key=value")
     lines+=("Proceed ▸ review & install")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_reset_lines "$_GUIDED_STATE")
@@ -559,6 +644,15 @@ _guided_menu_loop() {
     *"age key url:"*) _guided_edit_age_key_url && _guided_commit ;;
     *"desktop:"*) _guided_edit_desktop && _guided_commit ;;
     *"gpu:"*) _guided_edit_gpu && _guided_commit ;;
+    # Pacman + Packages + Host ▸ Advanced (issue 06 Pass B).
+    *"mirror countries:"*) _guided_edit_mirror_countries && _guided_commit ;;
+    *"multilib:"*) _guided_edit_multilib && _guided_commit ;;
+    *"extra packages:"*) _guided_add_package && _guided_commit ;;
+    *"system programs:"*) _guided_add_system_program && _guided_commit ;;
+    *"dotfiles repo:"*) _guided_edit_dotfiles_repo && _guided_commit ;;
+    *"backup extra:"*) _guided_edit_backup && _guided_commit ;;
+    *"security extra:"*) _guided_edit_security && _guided_commit ;;
+    "Add sysctl"*) _guided_add_sysctl && _guided_commit ;;
     Proceed*)
       # multi resolves its disks at accept; single needs one picked here.
       [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] && return 0
@@ -628,6 +722,14 @@ guided_build() {
     _guided_edit_age_key_url
     _guided_edit_desktop
     _guided_edit_gpu
+    _guided_edit_mirror_countries
+    _guided_edit_multilib
+    _guided_add_package
+    _guided_add_system_program
+    _guided_add_sysctl
+    _guided_edit_dotfiles_repo
+    _guided_edit_backup
+    _guided_edit_security
     # The single path resolves its one disk here; multi collects N at accept.
     [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] || _guided_edit_disk
   else
