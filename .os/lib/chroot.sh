@@ -186,7 +186,11 @@ _chroot_resolve_host_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
   local raw_path
-  raw_path="$(jq -r '.secrets.host // empty' "$host_state")"
+  # SOPS-decrypted secrets (.secrets.host) or the Guided Installer's no-SOPS
+  # passwords (.guided_passwords.host, issue 07) — same file shape, but the
+  # guided key does not gate SOPS-program activation (ADR 0025).
+  raw_path="$(jq -r \
+    '.secrets.host // .guided_passwords.host // empty' "$host_state")"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
   cp "$raw_path" "${MOUNT_ROOT}/root/lib-chroot/host-secrets.json"
   printf '%s' "/root/lib-chroot/host-secrets.json"

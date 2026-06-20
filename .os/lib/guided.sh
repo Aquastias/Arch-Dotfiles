@@ -47,6 +47,9 @@
 # shellcheck source=lib/live-medium.sh
 [[ "$(type -t live_medium_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/live-medium.sh"
+# shellcheck source=lib/guided-secrets.sh
+[[ "$(type -t guided_write_passwords)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-secrets.sh"
 
 # =============================================================================
 # SELECTION SEAM
@@ -501,6 +504,156 @@ _guided_add_sysctl() {
     '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$_GUIDED_STATE")"
 }
 
+# =============================================================================
+# USERS + PASSWORDS (issue 07)
+# =============================================================================
+# The host's user list is the ordered union of committed picks (users/*/) and
+# ad-hoc creations, committed first, deduped — users[0] is the Primary User
+# (positional, ADR 0036). Ad-hoc forms are held aside and materialized into
+# users/<name>/profile.jsonc at Proceed; passwords (root + per-user) are held
+# aside too and injected via the no-SOPS seam (guided-secrets.sh) — they never
+# enter the Config State, so Save/Export never carry them.
+_GUIDED_USERS_COMMITTED=()
+_GUIDED_ADHOC_ORDER=()
+declare -gA _GUIDED_ADHOC_FORM=()
+declare -gA _GUIDED_USER_PW=()
+_GUIDED_ROOT_PW=""
+
+# _guided_users_reset — clear the per-session Users/password side state.
+_guided_users_reset() {
+  _GUIDED_USERS_COMMITTED=()
+  _GUIDED_ADHOC_ORDER=()
+  declare -gA _GUIDED_ADHOC_FORM=()
+  declare -gA _GUIDED_USER_PW=()
+  _GUIDED_ROOT_PW=""
+}
+
+# _guided_user_names — committed user names (users/*/ with a profile.jsonc),
+# excluding the User Core layer. The enumerable source for the picker.
+_guided_user_names() {
+  local d n
+  for d in "${OS_DIR}/users"/*/; do
+    [[ -d "$d" ]] || continue
+    n="$(basename "$d")"
+    [[ "$n" == "core" ]] && continue
+    [[ -f "${d}profile.jsonc" ]] && printf '%s\n' "$n"
+  done
+}
+
+# _guided_sync_users — rebuild Config State .users from committed + ad-hoc
+# (committed first, order-preserving dedup). Drops the key when no user is set.
+_guided_sync_users() {
+  local -a all=()
+  ((${#_GUIDED_USERS_COMMITTED[@]})) \
+    && all+=("${_GUIDED_USERS_COMMITTED[@]}")
+  ((${#_GUIDED_ADHOC_ORDER[@]})) && all+=("${_GUIDED_ADHOC_ORDER[@]}")
+  if ((${#all[@]} == 0)); then
+    _GUIDED_STATE="$(cfgstate_unset "$_GUIDED_STATE" users)"
+    return 0
+  fi
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" users "$(printf '%s\n' \
+    "${all[@]}" | jq -R . | jq -s -c \
+    'reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)')")"
+}
+
+# _guided_pick_users — multi-select committed users into the user list. The
+# committed selection replaces any prior committed picks; ad-hoc users survive.
+_guided_pick_users() {
+  local -a names; mapfile -t names < <(_guided_user_names)
+  local -a picks=()
+  mapfile -t picks < <(_guided_collect_multi users "Users" "${names[@]}")
+  ((${#picks[@]})) || return 1
+  _GUIDED_USERS_COMMITTED=("${picks[@]}")
+  _guided_sync_users
+}
+
+# _guided_create_user — the ad-hoc create form: collect a User Profile's fields
+# through the seam, author the delta (guided_user_profile prunes empties + drops
+# the name), and register the user + its password aside. Password defaults to
+# 12345 (the house default) when left blank. rc 1 (no user) on an empty name.
+_guided_create_user() {
+  local name shell sudo gn ge pw
+  name="$(guided_prompt new_user_name "New user name")"
+  [[ -n "$name" ]] || return 1
+  shell="$(guided_select new_user_shell "Shell" /bin/bash /bin/zsh /bin/fish)"
+  sudo="$(guided_select new_user_sudo "Sudo (→ wheel)" false true)"
+  local -a groups_a programs_a keys_a
+  mapfile -t groups_a < <(_guided_collect_multi new_user_groups "Groups" \
+    wheel docker libvirt kvm)
+  local -a prog_names; mapfile -t prog_names < <(_guided_program_names)
+  mapfile -t programs_a < <(_guided_collect_multi new_user_programs "Programs" \
+    "${prog_names[@]}")
+  gn="$(guided_prompt new_user_git_name "Git name")"
+  ge="$(guided_prompt new_user_git_email "Git email")"
+  mapfile -t keys_a < <(_guided_collect_multi new_user_ssh_keys \
+    "SSH authorized keys")
+  pw="$(guided_prompt new_user_password "Password (default 12345)")"
+  [[ -n "$pw" ]] || pw="12345"
+
+  local form
+  form="$(jq -n \
+    --arg shell "$shell" \
+    --argjson sudo "$([[ "$sudo" == "true" ]] && echo true || echo false)" \
+    --argjson groups "$(_emit_json_array "${groups_a[@]}")" \
+    --argjson programs "$(_emit_json_array "${programs_a[@]}")" \
+    --arg gn "$gn" --arg ge "$ge" \
+    --argjson keys "$(_emit_json_array "${keys_a[@]}")" \
+    '{shell:$shell, sudo:$sudo, groups:$groups, programs:$programs,
+      git: ({name:$gn, email:$ge} | with_entries(select(.value != ""))),
+      ssh_authorized_keys:$keys}')"
+  _GUIDED_ADHOC_FORM["$name"]="$(guided_user_profile "$form")"
+  _GUIDED_ADHOC_ORDER+=("$name")
+  _GUIDED_USER_PW["$name"]="$pw"
+  _guided_sync_users
+}
+
+# _guided_materialize_users — write each ad-hoc User Profile delta to
+# users/<name>/profile.jsonc so the back-end Runner can load it. At Proceed this
+# is a transient write to the live clone; Save (issue 08) commits the same file.
+_guided_materialize_users() {
+  local name dir
+  for name in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
+    dir="${OS_DIR}/users/${name}"
+    mkdir -p "$dir"
+    printf '%s\n' "${_GUIDED_ADHOC_FORM[$name]}" > "${dir}/profile.jsonc"
+  done
+}
+
+# _guided_finalize_users — Proceed-time user side effects: materialize ad-hoc
+# profiles and, when the install flow set GUIDED_SECRETS_MANIFEST, write the
+# no-SOPS password manifest there for 03-install.sh to persist into install-state
+# (the file the chroot/Runner resolve via .guided_passwords.*). Passwords thus
+# reach the back-end without ever touching the Effective Config.
+_guided_finalize_users() {
+  _guided_materialize_users
+  [[ -n "${GUIDED_SECRETS_MANIFEST:-}" ]] \
+    && _guided_secrets_manifest >"$GUIDED_SECRETS_MANIFEST"
+  return 0
+}
+
+# _guided_set_root_password — hold the root password aside (never the Config
+# State, so Save/Export never carry it). rc 1 (unchanged) on empty input.
+_guided_set_root_password() {
+  local pw; pw="$(guided_prompt root_password "Root password")"
+  [[ -n "$pw" ]] || return 1
+  _GUIDED_ROOT_PW="$pw"
+}
+
+# _guided_secrets_manifest — the no-SOPS password manifest guided_write_passwords
+# consumes: { root_password?, users?: { <name>: { password } } }. Built from the
+# held-aside root + per-user passwords; empty {} when nothing is set. Pure: reads
+# the side state, emits JSON.
+_guided_secrets_manifest() {
+  local manifest='{}' name
+  [[ -n "$_GUIDED_ROOT_PW" ]] && manifest="$(jq --arg pw "$_GUIDED_ROOT_PW" \
+    '.root_password = $pw' <<<"$manifest")"
+  for name in "${!_GUIDED_USER_PW[@]}"; do
+    manifest="$(jq --arg n "$name" --arg pw "${_GUIDED_USER_PW[$name]}" \
+      '.users[$n] = {password: $pw}' <<<"$manifest")"
+  done
+  printf '%s\n' "$manifest"
+}
+
 # _guided_persist_lines <state> — the persist-extension action, surfaced only
 # when impermanence is enabled (the curated defaults apply automatically; this
 # adds extensions on top). Pure: state JSON → lines.
@@ -703,6 +856,7 @@ guided_build() {
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK=""
   _guided_set_identity
+  _guided_users_reset
 
   if ((_GUIDED_REPLAY)); then
     # Each edit reads its own seam key; an absent answer is a no-op, so the
@@ -730,6 +884,9 @@ guided_build() {
     _guided_edit_dotfiles_repo
     _guided_edit_backup
     _guided_edit_security
+    _guided_pick_users
+    _guided_create_user
+    _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
     [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] || _guided_edit_disk
   else
@@ -753,6 +910,10 @@ guided_build() {
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
   [[ "$confirm" == "INSTALL" ]] \
     || { error "guided: aborted — INSTALL not typed"; return 1; }
+
+  # Past consent: materialize ad-hoc User Profiles + stage the no-SOPS password
+  # manifest (issue 07). Passwords never enter $effective, only the side file.
+  _guided_finalize_users
 
   printf '%s\n' "$effective"
 }
