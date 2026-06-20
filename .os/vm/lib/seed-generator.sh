@@ -89,15 +89,22 @@ LINES
 # with the live ISO's hostid, and the next boot panics in the initramfs ZFS
 # hook ("pool was previously in use from another system"). -N keeps the export
 # clean so the installed system imports root without -f. Do not drop it.
+# Args: [verify_user]. When <verify_user> is set, the boot-verify sentinel also
+# checks that the named user exists on the installed system with a usable
+# password hash (passwd -S … P) and emits ===USER-OK=== (or ===USER-FAIL===)
+# before the boot marker — the issue-07 "the user can log in" proxy. The check
+# uses no single quotes (the ExecStart line is a single-quoted printf arg).
 _seed_generator_firstboot_block() {
-  local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  local m="$SEED_GENERATOR_FIRSTBOOT_MARKER" verify_user="${1:-}"
+  local user_check=""
+  [[ -n "$verify_user" ]] && user_check="if id ${verify_user} > /dev/null 2>&1 && passwd -S ${verify_user} 2>/dev/null | grep -qw P; then echo ===USER-OK===; else echo ===USER-FAIL===; fi; "
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
-      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${user_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       zfs umount -a || true
       zpool export rpool || zpool export -f rpool || true
@@ -243,7 +250,7 @@ _seed_generator_render_guided_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"
   local encryption="${5:-false}" impermanence="${6:-false}"
-  local layout="${7:-single}" n_disks="${8:-1}"
+  local layout="${7:-single}" n_disks="${8:-1}" guided_user="${9:-}"
 
   local dirty_step=""
   [[ "$dirty_cache" == "true" ]] && \
@@ -262,6 +269,26 @@ _seed_generator_render_guided_user_data() {
     enc_export="export INSTALL_ENC_PASSPHRASE='testtest' && "
   }
   [[ "$impermanence" == "true" ]] && extra_answers+='impermanence=true\n'
+
+  # Ad-hoc user + passwords (issue 07): when the profile names a guided_user,
+  # replay the create-user form keys + the root password so the guided menu
+  # authors the user and the no-SOPS injector sets both passwords. verify_user
+  # drives the USER-OK boot check below.
+  local verify_user=""
+  if [[ -n "$guided_user" && "$guided_user" != "null" ]]; then
+    local u_name u_pw u_sudo u_shell r_pw
+    u_name="$(jq -r '.name // empty' <<<"$guided_user")"
+    u_pw="$(jq -r '.password // "12345"' <<<"$guided_user")"
+    u_sudo="$(jq -r '.sudo // false' <<<"$guided_user")"
+    u_shell="$(jq -r '.shell // "/bin/bash"' <<<"$guided_user")"
+    r_pw="$(jq -r '.root_password // empty' <<<"$guided_user")"
+    extra_answers+="new_user_name=${u_name}\\n"
+    extra_answers+="new_user_shell=${u_shell}\\n"
+    extra_answers+="new_user_sudo=${u_sudo}\\n"
+    extra_answers+="new_user_password=${u_pw}\\n"
+    [[ -n "$r_pw" ]] && extra_answers+="root_password=${r_pw}\\n"
+    verify_user="$u_name"
+  fi
 
   # The disk-resolution + answers-file step differs by layout. Built in its own
   # heredoc so the \$ / \\n / \\ escapes are processed identically to the outer
@@ -286,7 +313,7 @@ EOF
 
   local boot_block=""
   [[ "$verify_boot" == "true" ]] && \
-    boot_block="$(_seed_generator_firstboot_block)"
+    boot_block="$(_seed_generator_firstboot_block "$verify_user")"
 
   cat <<EOF
 #cloud-config

@@ -42,7 +42,11 @@ _flow_render_user_data() {
       || source "$OS_DIR/lib/config/skeleton.sh"
     n_disks="$(skeleton_total_disks "$(skeleton_preset "$layout")")"
   fi
+  # guided_user (issue 07) names an ad-hoc user + passwords the replay authors;
+  # the seed appends the create-user form keys + the USER-OK boot check.
+  local guided_user
+  guided_user="$(jq -c '.guided_user // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
-    "$encryption" "$impermanence" "$layout" "$n_disks"
+    "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user"
 }
