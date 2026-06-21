@@ -483,11 +483,38 @@ _guided_edit_mirror_countries() {
 _guided_edit_multilib() {
   _guided_edit_bool multilib "Multilib (true/false)" options.multilib
 }
-_guided_edit_backup() {
-  _guided_edit_bool backup "Backup extra (true/false)" post_install.backup
+# Security & Backup Extras editors (ADR 0041). The firewall is a single-choice
+# radiolist (firewalld | ufw | none) — picking one IS the mutual exclusion; the
+# rest are bool toggles over the structured post_install object. Each commits a
+# leaf under post_install.{security,backup}.*; the resolver maps the object to
+# the installed program list.
+_guided_edit_firewall() {
+  local v; v="$(guided_select firewall "Firewall" firewalld ufw none)"
+  case "$v" in
+  firewalld | ufw | none) ;;
+  *) return 1 ;;
+  esac
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
+    post_install.security.firewall "\"$v\"")"
 }
-_guided_edit_security() {
-  _guided_edit_bool security "Security extra (true/false)" post_install.security
+_guided_edit_antivirus() {
+  _guided_edit_bool antivirus "Antivirus / clamav (true/false)" \
+    post_install.security.antivirus
+}
+_guided_edit_rootkit() {
+  _guided_edit_bool rootkit "Rootkit scanner / rkhunter (true/false)" \
+    post_install.security.rootkit
+}
+_guided_edit_apparmor() {
+  _guided_edit_bool apparmor "AppArmor (true/false)" \
+    post_install.security.apparmor
+}
+_guided_edit_zfs_snapshot() {
+  _guided_edit_bool zfs_snapshot "ZFS auto-snapshot (true/false)" \
+    post_install.backup.zfs_auto_snapshot
+}
+_guided_edit_borg() {
+  _guided_edit_bool borg "Borg backup (true/false)" post_install.backup.borg
 }
 
 # _guided_add_package — append typed repo package name(s) (whitespace-split) to
@@ -927,11 +954,29 @@ _guided_category_loop() {
     *"extra packages:"*) _guided_add_package && _guided_commit ;;
     *"system programs:"*) _guided_add_system_program && _guided_commit ;;
     *"sysctl:"*) _guided_add_sysctl && _guided_commit ;;
-    *"backup extra:"*) _guided_edit_backup && _guided_commit ;;
-    *"security extra:"*) _guided_edit_security && _guided_commit ;;
+    *"firewall:"*) _guided_edit_firewall && _guided_commit ;;
+    *"antivirus:"*) _guided_edit_antivirus && _guided_commit ;;
+    *"rootkit:"*) _guided_edit_rootkit && _guided_commit ;;
+    *"apparmor:"*) _guided_edit_apparmor && _guided_commit ;;
+    *"zfs snapshots:"*) _guided_edit_zfs_snapshot && _guided_commit ;;
+    *"borg:"*) _guided_edit_borg && _guided_commit ;;
     *) : ;; # Users + non-editable rows: no-op (issue 07)
     esac
   done
+}
+
+# _guided_guard_post_install — the terminal-action no-user guard (M5, ADR 0041).
+# The Security & Backup Extras install via the Primary User's paru pass, so a
+# non-empty selection on a userless host can never run. Reads the effective
+# post_install object + the effective user count and defers to the pure guard;
+# returns non-zero (with the actionable error) when extras are selected but no
+# user exists. Run before every terminal action (Proceed / Save / Export).
+_guided_guard_post_install() {
+  local eff pi count
+  eff="$(_guided_effective)"
+  pi="$(jq -c '.post_install // {}' <<<"$eff")"
+  count="$(jq '(.users // []) | length' <<<"$eff")"
+  post_install_guard_users "$pi" "$count"
 }
 
 # guided_build — drive the guided menu and emit the device-baked Effective
@@ -1002,8 +1047,12 @@ guided_build() {
     _guided_add_package
     _guided_add_system_program
     _guided_add_sysctl
-    _guided_edit_backup
-    _guided_edit_security
+    _guided_edit_firewall
+    _guided_edit_antivirus
+    _guided_edit_rootkit
+    _guided_edit_apparmor
+    _guided_edit_zfs_snapshot
+    _guided_edit_borg
     _guided_pick_users
     _guided_create_user
     _guided_set_root_password
@@ -1024,6 +1073,12 @@ guided_build() {
     action="${_GUIDED_ACTION:-proceed}"
   fi
   [[ -n "$action" ]] || action="proceed"
+
+  # No-user guard (M5): Proceed / Save / Export all abort when the Security &
+  # Backup Extras resolve to programs but the host has no Primary User to run
+  # the paru pass. Checked once here, ahead of every terminal action.
+  _guided_guard_post_install || return 1
+
   hostname="$(cfgstate_get "$(_guided_effective)" system.hostname)"
 
   # Save is device-less — no disks, no install. Write the committed profile +

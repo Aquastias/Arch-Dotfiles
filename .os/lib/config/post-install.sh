@@ -89,3 +89,20 @@ post_install_validate() {
     return 1
   fi
 }
+
+# post_install_guard_users <post_install_json> <user_count> — the terminal-action
+# guard (M5, ADR 0041). The Security & Backup Extras install via the Primary
+# User's paru pass, so a non-empty selection on a userless host can never run.
+# Returns 0 when the selection is empty OR there is at least one user; otherwise
+# calls error() with an actionable message and returns 1.
+post_install_guard_users() {
+  local pi_json="${1:-{\}}" count="${2:-0}"
+  local -a progs=()
+  local _ex; _ex="$(post_install_programs "$pi_json")" || return 1
+  [[ -n "$_ex" ]] && mapfile -t progs <<< "$_ex"
+  if ((${#progs[@]} > 0)) && (("$count" == 0)); then
+    error "Security/Backup Extras install via paru and need a primary user —" \
+          "add a user or clear the selections."
+    return 1
+  fi
+}

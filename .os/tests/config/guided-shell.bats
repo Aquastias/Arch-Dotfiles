@@ -203,8 +203,9 @@ fzf_queue() {
     'multilib=false' \
     'package=htop tmux' \
     'sysctl=vm.swappiness=20' \
-    'backup=true' \
-    'security=true' \
+    'firewall=ufw' \
+    'antivirus=false' \
+    'borg=false' \
     'disk=/dev/disk/by-id/wwn-0xDEAD' \
     'confirm=INSTALL')"
 
@@ -214,8 +215,12 @@ fzf_queue() {
   echo "$effective" | jq -e '.options.multilib == false'
   echo "$effective" | jq -e '.packages.extra == ["htop","tmux"]'
   echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
-  echo "$effective" | jq -e '.post_install.backup == true'
-  echo "$effective" | jq -e '.post_install.security == true'
+  # Structured Security/Backup object: overrides merge over the secure baseline.
+  echo "$effective" | jq -e '.post_install.security.firewall == "ufw"'
+  echo "$effective" | jq -e '.post_install.security.antivirus == false'
+  echo "$effective" | jq -e '.post_install.security.rootkit == true'
+  echo "$effective" | jq -e '.post_install.backup.borg == false'
+  echo "$effective" | jq -e '.post_install.backup.zfs_auto_snapshot == true'
   # dotfiles_repo is removed entirely — never emitted
   echo "$effective" | jq -e 'has("dotfiles_repo") | not'
 }
@@ -952,14 +957,71 @@ fzf_queue() {
   echo "$_GUIDED_STATE" | jq -e '.options.multilib == false'
 }
 
-@test "_guided_edit_backup: selecting true enables the backup extra" {
+@test "_guided_edit_firewall: picking ufw sets the firewall to ufw" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
-  guided_select() { printf '%s' "true"; }
+  guided_select() { printf '%s' "ufw"; }
   export -f guided_select
 
-  _guided_edit_backup
-  echo "$_GUIDED_STATE" | jq -e '.post_install.backup == true'
+  _guided_edit_firewall
+  echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "ufw"'
+}
+
+@test "_guided_edit_firewall: picking none disables the firewall" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "none"; }
+  export -f guided_select
+
+  _guided_edit_firewall
+  echo "$_GUIDED_STATE" | jq -e '.post_install.security.firewall == "none"'
+}
+
+@test "_guided_edit_antivirus: selecting false drops clamav from the selection" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "false"; }
+  export -f guided_select
+
+  _guided_edit_antivirus
+  echo "$_GUIDED_STATE" | jq -e '.post_install.security.antivirus == false'
+}
+
+@test "_guided_edit_borg: selecting false drops borg from the selection" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_select() { printf '%s' "false"; }
+  export -f guided_select
+
+  _guided_edit_borg
+  echo "$_GUIDED_STATE" | jq -e '.post_install.backup.borg == false'
+}
+
+# ── no-user guard (M5): the terminal actions need a Primary User when extras
+# are selected (the tools install via that user's paru pass) ────────────────
+
+@test "_guided_guard_post_install: passes with selections and a seeded user" {
+  _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
+    '{users:["aquastias"], post_install:$pi}')"
+  _GUIDED_STATE="$(cfgstate_new)"
+  run _guided_guard_post_install
+  [ "$status" -eq 0 ]
+}
+
+@test "_guided_guard_post_install: aborts with selections but zero users" {
+  _GUIDED_BASELINE="$(jq -nc --argjson pi "$(post_install_default)" \
+    '{post_install:$pi}')"
+  _GUIDED_STATE="$(cfgstate_new)"
+  run _guided_guard_post_install
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"user"* ]]
+}
+
+@test "_guided_guard_post_install: passes userless when nothing is selected" {
+  _GUIDED_BASELINE="$(cfgstate_new)"
+  _GUIDED_STATE="$(cfgstate_new)"
+  run _guided_guard_post_install
+  [ "$status" -eq 0 ]
 }
 
 # ── Users (issue 07): committed multi-select + ad-hoc create ────────────────

@@ -51,3 +51,16 @@ setup() {
   echo "$output" | jq -e '.system.timezone == "Europe/Bucharest"'
   echo "$output" | jq -e '.system.keymap == "us"'
 }
+
+# ── the secure baseline is pre-ticked: firewalld + all tools on (ADR 0041) ──
+
+@test "cfgstate_seed_defaults: seeds the secure Security/Backup baseline" {
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.post_install.security.firewall == "firewalld"'
+  echo "$output" | jq -e '.post_install.security.antivirus == true'
+  echo "$output" | jq -e '.post_install.security.rootkit == true'
+  echo "$output" | jq -e '.post_install.security.apparmor == true'
+  echo "$output" | jq -e '.post_install.backup.zfs_auto_snapshot == true'
+  echo "$output" | jq -e '.post_install.backup.borg == true'
+}

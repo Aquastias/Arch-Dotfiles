@@ -98,3 +98,21 @@ setup() {
   run post_install_validate '{}'
   [ "$status" -eq 0 ]
 }
+
+# ── no-user guard (M5): a non-empty selection needs a Primary User ──────────
+
+@test "post_install_guard_users: passes with a selection and a user" {
+  run post_install_guard_users "$(post_install_default)" 1
+  [ "$status" -eq 0 ]
+}
+
+@test "post_install_guard_users: aborts with a selection but zero users" {
+  run post_install_guard_users "$(post_install_default)" 0
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"user"* ]]
+}
+
+@test "post_install_guard_users: passes with zero users when nothing is selected" {
+  run post_install_guard_users '{}' 0
+  [ "$status" -eq 0 ]
+}
