@@ -49,8 +49,12 @@ _MENU_FIELDS=(
   "Options|options.multilib|multilib|true"
   "Packages|packages.extra|extra packages|"
   "Packages|system_programs|system programs|"
-  "Security|post_install.security|security extra|false"
-  "Backup|post_install.backup|backup extra|false"
+  "Security|post_install.security.firewall|firewall|firewalld"
+  "Security|post_install.security.antivirus|antivirus|true"
+  "Security|post_install.security.rootkit|rootkit|true"
+  "Security|post_install.security.apparmor|apparmor|true"
+  "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|true"
+  "Backup|post_install.backup.borg|borg|true"
   "Users|users|users|"
 )
 

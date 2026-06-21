@@ -15,6 +15,10 @@
 [[ "$(type -t cfgstate_set)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 
+# shellcheck source=./post-install.sh
+[[ "$(type -t post_install_default)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/post-install.sh"
+
 # cfgstate_seed_defaults <state> — overlay the launch defaults onto <state>.
 cfgstate_seed_defaults() {
   local state="$1"
@@ -24,5 +28,9 @@ cfgstate_seed_defaults() {
   state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
   state="$(cfgstate_set "$state" system.timezone '"Europe/Bucharest"')"
   state="$(cfgstate_set "$state" system.keymap '"us"')"
+  # Security & Backup Extras (ADR 0041): pre-tick the secure baseline (firewalld
+  # + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg). It rides the
+  # baseline layer, so a fresh run shows it with no ● and Save writes it whole.
+  state="$(cfgstate_set "$state" post_install "$(post_install_default)")"
   printf '%s\n' "$state"
 }

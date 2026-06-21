@@ -180,10 +180,10 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 @test "menu_rows: system programs sits under Packages; post_install split out" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row system_programs       | jq -e '.section == "Packages"'
-  echo "$output" | row post_install.backup    | jq -e '.section == "Backup"'
-  echo "$output" | row post_install.backup    | jq -e '.value == "false"'
-  echo "$output" | row post_install.security  | jq -e '.section == "Security"'
+  echo "$output" | row system_programs                | jq -e '.section == "Packages"'
+  echo "$output" | row post_install.backup.borg       | jq -e '.section == "Backup"'
+  echo "$output" | row post_install.security.firewall | jq -e '.section == "Security"'
+  echo "$output" | row post_install.security.firewall | jq -e '.value == "firewalld"'
 }
 
 # ── baseline layer: a seeded value shows without ●; an override flips it ────
@@ -332,13 +332,17 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'any(.[]; .field == "system_programs")'
 }
 
-@test "menu_category_rows: Security + Backup carry the post_install rows" {
+@test "menu_category_rows: Security + Backup carry the structured tool rows" {
   run menu_category_rows Security "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.security")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.firewall")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.antivirus")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.rootkit")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.security.apparmor")'
   run menu_category_rows Backup "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "post_install.backup")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.zfs_auto_snapshot")'
+  echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.borg")'
 }
 
 @test "menu_categories: the Advanced section is gone" {
