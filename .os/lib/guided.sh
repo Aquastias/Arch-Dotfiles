@@ -1022,8 +1022,14 @@ guided_build() {
   _guided_seed_primary_user
 
   if ((_GUIDED_REPLAY)); then
-    # Each edit reads its own seam key; an absent answer is a no-op, so the
-    # replay file declares only the fields it wants (the rest keep defaults).
+    # Each edit reads its own seam key; an absent answer is a no-op (the edit
+    # returns non-zero "no commit"). The replay file declares only the fields it
+    # wants. install.sh drives guided_build under `set -e`, where a no-op edit's
+    # non-zero return would abort the whole run — so errexit is suspended across
+    # this best-effort sequence and restored after (the disk / assignment / emit
+    # / consent steps below stay guarded).
+    local _had_errexit=0; [[ $- == *e* ]] && _had_errexit=1
+    set +e
     _guided_edit_hostname
     _guided_edit_locale
     _guided_edit_timezone
@@ -1058,6 +1064,7 @@ guided_build() {
     _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
     [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] || _guided_edit_disk
+    ((_had_errexit)) && set -e
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
