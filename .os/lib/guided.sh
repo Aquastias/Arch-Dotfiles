@@ -1027,9 +1027,13 @@ guided_build() {
     # wants. install.sh drives guided_build under `set -e`, where a no-op edit's
     # non-zero return would abort the whole run — so errexit is suspended across
     # this best-effort sequence and restored after (the disk / assignment / emit
-    # / consent steps below stay guarded).
+    # / consent steps below stay guarded). The caller's ERR trap is suspended
+    # too — `set -E` inherits it here, and it fires on each no-op edit's non-zero
+    # return even under set +e, spamming the log with bogus "aborted" lines.
     local _had_errexit=0; [[ $- == *e* ]] && _had_errexit=1
+    local _err_trap; _err_trap="$(trap -p ERR)"
     set +e
+    trap - ERR
     _guided_edit_hostname
     _guided_edit_locale
     _guided_edit_timezone
@@ -1065,6 +1069,7 @@ guided_build() {
     # The single path resolves its one disk here; multi collects N at accept.
     [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] || _guided_edit_disk
     ((_had_errexit)) && set -e
+    eval "${_err_trap:-:}"
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
