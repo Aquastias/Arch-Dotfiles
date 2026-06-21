@@ -1,6 +1,6 @@
 # Guided defaults seeding
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -21,16 +21,64 @@ keymap as editable Host rows over these seeds.
 
 ## Acceptance criteria
 
-- [ ] An untouched guided run (replay with no answers) emits an Effective
+- [x] An untouched guided run (replay with no answers) emits an Effective
       Config with hostname `eterniox`, `users` = `["aquastias"]`, single
       layout, locale `en_US.UTF-8`, timezone `Europe/Bucharest`, keymap `us`.
-- [ ] `aquastias` appears in the emitted/saved config explicitly — Save of an
+- [x] `aquastias` appears in the emitted/saved config explicitly — Save of an
       untouched run yields a Host Profile with a Primary User.
-- [ ] locale / timezone / keymap are editable Host rows; editing one
+- [x] locale / timezone / keymap are editable Host rows; editing one
       overrides the seed and emits the new value.
-- [ ] bats over the seeded state (prior art `tests/config/guided-state.bats`).
-- [ ] Existing guided replay + full bats suite stay green.
+- [x] bats over the seeded state (prior art `tests/config/guided-state.bats`).
+- [x] Existing guided replay + full bats suite stay green.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+**DONE via /tdd (2026-06-21).** M3 guided-defaults seeder + editable Host
+identity rows, on a **baseline + override** Config-State layering (grilled).
+
+New pure core `lib/config/seed.sh` — `cfgstate_seed_defaults <state>` returns the
+launch defaults (hostname `eterniox`, `users=["aquastias"]`, `mode=single`,
+locale `en_US.UTF-8` / timezone `Europe/Bucharest` / keymap `us`). Tested in new
+`tests/config/guided-seed.bats` (+4).
+
+Baseline/override split (the key design): the seed is a **default layer**, not an
+override. `_GUIDED_BASELINE` (session constant) holds the seed; `_GUIDED_STATE`
+stays the operator's sparse OVERRIDE map (empty at launch). So a fresh run carries
+**no ●** (is_overridden = key in override only), yet still emits — `_guided_
+effective` merges `BASELINE * STATE` (jq `*`, override REPLACES baseline arrays so
+a seeded user can be dropped) and feeds emit / Save / the hostname+mode reads.
+Reset just drops the override → the baseline still supplies locale/timezone, so
+Reset can no longer strip the back-end-required identity (the dissolved footgun).
+
+guided.sh: `_guided_set_identity` seeds the baseline; `_guided_effective` helper;
+emit/Save/hostname/mode reads routed through it; `_guided_seed_primary_user`
+pre-selects `aquastias` as the committed Primary User (build + reset-all) so an
+ad-hoc add keeps aquastias first (drop it by re-picking committed users without
+it). New `_guided_edit_{locale,timezone,keymap}` reuse `_guided_edit_scalar`;
+loop label-dispatch + the replay branch route them.
+
+menu.sh: `menu_rows <override> [<baseline>]` — value is `baseline*override`, ● is
+override-only; three new `Host` rows (locale/timezone/keymap). state.sh / emit.sh
+/ history.sh / guided-save.sh unchanged. Saved profiles stay self-contained
+(emit/Save bake the baseline), and every seeded path is in the closed host schema
+(the untouched-Save test asserts it validates).
+
+Adjusted existing tests to the layered model: Reset-all now asserts the override
+clears and the effective hostname falls back to the seed; the ad-hoc materialize
+test expects `["aquastias","carol"]`. Added: menu baseline (no-●) test, a
+freshly-seeded `_guided_menu_lines` no-● test, and a reset-falls-back-to-seed
+regression test.
+
+VM smoke deferred to issues 04/05 (per grill): this sandbox has no `/dev/kvm`,
+and seeding `aquastias` makes a guided install pull its AUR set — heavier than the
+old "fast, no-AUR" guided smoke; issue 04 prunes aquastias and carries the
+secure-baseline boot-verify. Guided VM fixtures' `timezone` updated UTC →
+Europe/Bucharest for consistency with the new seed.
+
+Tests: guided-seed (+4), guided-menu (+2), guided-shell (+8). Full non-VM suite
+**1122 bats**, shellcheck clean. fzf draw stays smoke-only; replay exercises the
+assembly deterministically.

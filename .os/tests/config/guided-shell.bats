@@ -84,6 +84,48 @@ fzf_queue() {
   echo "$effective" | jq -e '.system_programs == ["cups"]'
 }
 
+# ── an untouched run is ready to install on the seeded defaults (issue 01) ──
+
+@test "guided_build: an untouched run emits the seeded defaults" {
+  guided_load_replay "$(write_answers \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.system.hostname == "eterniox"'
+  echo "$effective" | jq -e '.users == ["aquastias"]'
+  echo "$effective" | jq -e '.mode == "single"'
+  echo "$effective" | jq -e '.system.locale == "en_US.UTF-8"'
+  echo "$effective" | jq -e '.system.timezone == "Europe/Bucharest"'
+  echo "$effective" | jq -e '.system.keymap == "us"'
+}
+
+# ── Save of an untouched run records the Primary User explicitly (issue 01) ──
+
+@test "guided_build: an untouched Save writes a profile with the Primary User" {
+  guided_load_replay "$(write_answers \
+    'terminal=save' 'save_name=eterniox')"
+
+  run guided_build
+  [ "$status" -eq 64 ]
+  jq -e '.users == ["aquastias"]' "$OS_DIR/hosts/eterniox/profile.jsonc"
+  jq -e '.system.hostname == "eterniox"' "$OS_DIR/hosts/eterniox/profile.jsonc"
+}
+
+# ── editing a Host identity row overrides the seed in the emitted config ─────
+
+@test "guided_build: editing locale overrides the seed in the emitted config" {
+  guided_load_replay "$(write_answers \
+    'locale=de_DE.UTF-8' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.system.locale == "de_DE.UTF-8"'
+}
+
 # ── a replayed session carries the Disks choices into the Effective Config ──
 
 @test "guided_build: a replayed session emits filesystem/encryption/impermanence/persist" {
@@ -220,8 +262,9 @@ fzf_queue() {
 
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
-  # ad-hoc user joins the host users[] + its User Profile is materialized
-  echo "$effective" | jq -e '.users == ["carol"]'
+  # ad-hoc user joins the host users[] after the seeded Primary User (aquastias
+  # stays first); its User Profile is materialized.
+  echo "$effective" | jq -e '.users == ["aquastias","carol"]'
   [ -f "$OS_DIR/users/carol/profile.jsonc" ]
   jq -e '.shell == "/bin/zsh" and .sudo == true' \
     "$OS_DIR/users/carol/profile.jsonc"
@@ -383,7 +426,7 @@ fzf_queue() {
 
 @test "_guided_menu_loop: Reset-all (confirmed) discards the overrides" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
@@ -393,12 +436,15 @@ fzf_queue() {
 
   _guided_menu_loop
   [ "$?" -eq 0 ]
-  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]   # override gone
+  # the operator override (myhost) is discarded → the override map is empty and
+  # the effective hostname falls back to the seeded baseline default (eterniox).
+  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]
+  [ "$(cfgstate_get "$(_guided_effective)" system.hostname)" = "eterniox" ]
 }
 
 @test "_guided_menu_loop: Reset-all (declined) keeps the overrides" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
@@ -408,7 +454,7 @@ fzf_queue() {
 
   _guided_menu_loop
   [ "$?" -eq 0 ]
-  [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "eterniox" ]  # kept
+  [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "myhost" ]  # kept
 }
 
 # ── the footer surfaces undo/redo only when available, Reset-all always ─────
@@ -484,18 +530,18 @@ fzf_queue() {
 
 # ── granular reset: a menu section's overrides clear, the rest survives ─────
 # _guided_reset_section is pure (menu_rows + cfgstate_unset); it clears only the
-# section's *menu* fields, so the seeded identity (not a row) is preserved.
+# section's *menu* fields, so a seeded non-row (mode) is preserved.
 
 @test "_guided_reset_section: clears a section's overrides, keeps the rest" {
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   state="$(cfgstate_set "$state" filesystem '"zfs"')"
-  state="$(cfgstate_set "$state" system.locale '"de_DE.UTF-8"')"  # seeded, no row
+  state="$(cfgstate_set "$state" mode '"single"')"           # seeded, not a row
 
   run _guided_reset_section "$state" Host
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system | has("hostname") | not'   # Host row cleared
   echo "$output" | jq -e '.filesystem == "zfs"'              # Disks row preserved
-  echo "$output" | jq -e '.system.locale == "de_DE.UTF-8"'   # non-row preserved
+  echo "$output" | jq -e '.mode == "single"'                 # non-row preserved
 }
 
 # ── the granular reset actions appear only when there is something to clear ──
@@ -739,6 +785,67 @@ fzf_queue() {
   run _guided_persist_lines "$state"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "persist"
+}
+
+# ── Host identity edits (issue 01): locale / timezone / keymap over the seeds ─
+# The seed is the BASELINE; an edit writes the OVERRIDE map (so the row flips ●)
+# and wins effectively over the seed.
+
+@test "_guided_menu_lines: a freshly seeded run shows seeded values with no ●" {
+  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  _GUIDED_STATE="$(cfgstate_new)"            # no operator override yet
+
+  run _guided_menu_lines "$_GUIDED_STATE" "$_GUIDED_BASELINE"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "hostname: eterniox"
+  echo "$output" | grep -q "locale: en_US.UTF-8"
+  echo "$output" | grep -q "timezone: Europe/Bucharest"
+  ! echo "$output" | grep -q "●"             # seeded ≠ overridden
+}
+
+@test "_guided_edit_locale: a typed value writes an override over the seed" {
+  _GUIDED_REPLAY=0
+  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() { printf '%s' "de_DE.UTF-8"; }
+  export -f guided_prompt
+
+  _guided_edit_locale
+  echo "$_GUIDED_STATE" | jq -e '.system.locale == "de_DE.UTF-8"'   # in override
+  cfgstate_is_overridden "$_GUIDED_STATE" system.locale             # flips ●
+  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+}
+
+@test "_guided_edit_timezone / _guided_edit_keymap: typed values override the seeds" {
+  _GUIDED_REPLAY=0
+  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_prompt() {
+    case "$1" in
+    timezone) printf '%s' "America/New_York" ;;
+    keymap)   printf '%s' "de" ;;
+    esac
+  }
+  export -f guided_prompt
+
+  _guided_edit_timezone
+  _guided_edit_keymap
+  echo "$_GUIDED_STATE" | jq -e '.system.timezone == "America/New_York"'
+  echo "$_GUIDED_STATE" | jq -e '.system.keymap == "de"'
+}
+
+# ── resetting an overridden identity field falls back to the seed, never empty ─
+# The baseline layer is why Reset can't strip the back-end-required identity:
+# reset drops the OVERRIDE, and the seeded baseline still supplies the value.
+
+@test "reset of an overridden locale falls back to the seeded baseline" {
+  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.locale '"de_DE.UTF-8"')"
+  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "de_DE.UTF-8" ]
+
+  _GUIDED_STATE="$(cfgstate_unset "$_GUIDED_STATE" system.locale)"   # reset field
+  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.locale)" ]           # override gone
+  [ "$(cfgstate_get "$(_guided_effective)" system.locale)" = "en_US.UTF-8" ]
 }
 
 # ── Pacman + Advanced edits (issue 06 Pass B): reuse the issue-05 helpers ───
