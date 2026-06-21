@@ -243,6 +243,20 @@ fzf_queue() {
   echo "$effective" | jq -e '.post_install.security.firewall == "firewalld"'
 }
 
+@test "guided_build: a partial replay does not spuriously fire install.sh's ERR trap" {
+  # install.sh installs an ERR trap (set -E inherits it into guided_build). A
+  # no-op replay edit must not fire it — else the install log fills with bogus
+  # "aborted at line N" noise that masks a real abort.
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+  errs="$( (set -Eeuo pipefail; trap 'echo SPURIOUS-ERR-TRAP >&2' ERR; \
+    guided_build >/dev/null) 2>&1 )"
+  [[ "$errs" != *SPURIOUS-ERR-TRAP* ]]
+}
+
 # ── terminal actions (issue 08): Save profile + Export config ───────────────
 
 @test "guided_build: a replayed Save writes a device-less profile, no install" {
