@@ -265,7 +265,13 @@ if [[ -z "$profile_name" && -z "$print_config" ]] \
   GUIDED_SECRETS_MANIFEST="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
 
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
-  guided_build >"$effective_config" || exit "$?"
+  guided_build >"$effective_config"
+  guided_rc=$?
+  # Exit 64 = a terminal action that is NOT install (Save profile / Export
+  # config, issue 08): the artifact is written, nothing to install — stop here.
+  # Any other non-zero is a cancel/error.
+  [[ "$guided_rc" -eq 64 ]] && exit 0
+  [[ "$guided_rc" -eq 0 ]] || exit "$guided_rc"
   positional_args=("$effective_config")
 
   export INSTALL_UNATTENDED=1

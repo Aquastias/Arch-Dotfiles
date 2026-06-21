@@ -160,6 +160,51 @@ fzf_queue() {
   echo "$effective" | jq -e '.post_install.security == true'
 }
 
+# ── terminal actions (issue 08): Save profile + Export config ───────────────
+
+@test "guided_build: a replayed Save writes a device-less profile, no install" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'bootloader=grub' \
+    'terminal=save' \
+    'save_name=eterniox')"
+
+  run guided_build
+  [ "$status" -eq 64 ]                       # action done — no back-end install
+  [ -f "$OS_DIR/hosts/eterniox/profile.jsonc" ]
+  jq -e 'has("disk") | not' "$OS_DIR/hosts/eterniox/profile.jsonc"   # device-less
+  jq -e '.options.bootloader == "grub"' "$OS_DIR/hosts/eterniox/profile.jsonc"
+}
+
+@test "guided_build: a replayed Save refuses an ad-hoc user that already exists" {
+  mkdir -p "$OS_DIR/users/carol"
+  printf 'KEEP\n' > "$OS_DIR/users/carol/profile.jsonc"
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'new_user_name=carol' 'new_user_password=x' \
+    'terminal=save' 'save_name=eterniox')"
+
+  run guided_build
+  [ "$status" -ne 0 ]
+  [ "$status" -ne 64 ]
+  [ "$(cat "$OS_DIR/users/carol/profile.jsonc")" = "KEEP" ]   # untouched
+  [ ! -f "$OS_DIR/hosts/eterniox/profile.jsonc" ]             # host not committed
+}
+
+@test "guided_build: a replayed Export writes the device-baked config to a path" {
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'terminal=export' \
+    "export_path=$TEST_DIR/out/eterniox.effective.jsonc")"
+
+  run guided_build
+  [ "$status" -eq 64 ]
+  [ -f "$TEST_DIR/out/eterniox.effective.jsonc" ]
+  jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"' \
+    "$TEST_DIR/out/eterniox.effective.jsonc"   # device-baked
+}
+
 # ── a replayed ad-hoc user is materialized; passwords go only to the manifest ─
 
 @test "guided_build: an ad-hoc user is materialized + passwords manifested, none leak" {
@@ -563,6 +608,32 @@ fzf_queue() {
   _guided_menu_loop
   [ "$?" -eq 0 ]
   echo "$_GUIDED_STATE" | jq -e '.environment.gpu == ["amd"]'
+}
+
+@test "_guided_menu_loop: choosing Save sets the save action (no disk needed)" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK=""                  # Save is device-less — no install disk
+  _GUIDED_ACTION=""
+
+  fzf_queue
+  queue "Save profile ▸ write a device-less profile"
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$_GUIDED_ACTION" = "save" ]
+}
+
+@test "_guided_menu_loop: choosing Export needs a disk, then sets the export action" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+  _GUIDED_ACTION=""
+
+  fzf_queue
+  queue "Export config ▸ write a device-baked config"
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$_GUIDED_ACTION" = "export" ]
 }
 
 @test "_guided_menu_loop: editing the multilib row commits the toggle" {
