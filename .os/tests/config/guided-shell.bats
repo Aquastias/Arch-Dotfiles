@@ -225,6 +225,24 @@ fzf_queue() {
   echo "$effective" | jq -e 'has("dotfiles_repo") | not'
 }
 
+# ── set -e safety: install.sh runs the guided front-end under `set -Eeuo
+# pipefail`. A replay file declares only a few fields; every other edit no-ops
+# (returns non-zero "no commit"). Those no-ops must NOT abort the run. ─────────
+
+@test "guided_build: a partial replay survives install.sh's set -e" {
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  guided_load_replay "$(write_answers \
+    'hostname=eterniox' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+  # The $( ) subshell contains set -e exactly like install.sh:268 calling
+  # guided_build under `set -Eeuo pipefail`. An abort empties effective.
+  effective="$(set -Eeuo pipefail; guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.system.hostname == "eterniox"'
+  echo "$effective" | jq -e '.post_install.security.firewall == "firewalld"'
+}
+
 # ── terminal actions (issue 08): Save profile + Export config ───────────────
 
 @test "guided_build: a replayed Save writes a device-less profile, no install" {
