@@ -25,6 +25,20 @@
 [[ "$(type -t picker_assign_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
+# guided_profile_delta <config> — the device-less Host Profile a Save writes
+# (issue 08). Strips every device path — the single `.disk` and the per-pool
+# `.disks[]` arrays — keeping the mode/topology/disk_count skeleton, so the
+# committed artifact never carries operator-picked devices (ADR 0036's invariant)
+# yet still re-installs via `install.sh --profile <name>`. Pure: JSON in/out.
+guided_profile_delta() {
+  jq -c '
+    del(.disk)
+    | if .os_pool then .os_pool |= del(.disks) else . end
+    | if .storage_groups then .storage_groups |= map(del(.disks)) else . end
+    | if .data_pools then .data_pools |= map(del(.disks)) else . end
+  ' <<<"$1"
+}
+
 # guided_user_profile <form> — author a User Profile delta (issue 07) from an
 # ad-hoc user form. Drops the `name` key (the directory basename is the username,
 # ADR 0036) and prunes empty values (empty string, empty array, `false`, null)

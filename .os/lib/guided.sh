@@ -50,6 +50,9 @@
 # shellcheck source=lib/guided-secrets.sh
 [[ "$(type -t guided_write_passwords)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-secrets.sh"
+# shellcheck source=lib/guided-save.sh
+[[ "$(type -t guided_save_host_profile)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-save.sh"
 
 # =============================================================================
 # SELECTION SEAM
@@ -138,6 +141,11 @@ guided_pick_disk() {
 # and the headless replay path so both exercise the same Config-State writes.
 _GUIDED_STATE=""
 _GUIDED_DISK=""
+# Terminal action (issue 08): "proceed" | "save" | "export" — set by the menu
+# loop (interactive) or the `terminal` replay key. Save/Export return
+# _GUIDED_ACTION_DONE so install.sh skips the back-end (the action is terminal).
+_GUIDED_ACTION=""
+readonly _GUIDED_ACTION_DONE=64
 # The Undo/Redo snapshot stack over the Config State (issue 02). Its present is
 # kept in lockstep with _GUIDED_STATE: every interactive mutation commits, and
 # undo/redo restore _GUIDED_STATE from the stack — so leaving and re-entering,
@@ -750,6 +758,7 @@ _guided_reset_section_action() {
 _guided_menu_loop() {
   local choice confirm
   local -a lines
+  _GUIDED_ACTION=""
   # Seed the snapshot stack from the launch state; reset-all returns here.
   _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
   while true; do
@@ -758,6 +767,8 @@ _guided_menu_loop() {
     lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
     lines+=("Add sysctl ▸ key=value")
     lines+=("Proceed ▸ review & install")
+    lines+=("Save profile ▸ write a device-less profile")
+    lines+=("Export config ▸ write a device-baked config")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_reset_lines "$_GUIDED_STATE")
     mapfile -O "${#lines[@]}" -t lines < <(_guided_persist_lines "$_GUIDED_STATE")
@@ -808,8 +819,18 @@ _guided_menu_loop() {
     "Add sysctl"*) _guided_add_sysctl && _guided_commit ;;
     Proceed*)
       # multi resolves its disks at accept; single needs one picked here.
+      _GUIDED_ACTION="proceed"
       [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] && return 0
       [[ -n "$_GUIDED_DISK" ]] && return 0
+      printf '  Pick an install disk first.\n' >&2
+      ;;
+    # Terminal actions (issue 08). Save is device-less (no disk needed); Export
+    # bakes disks like Proceed, so it has the same pick-a-disk gate.
+    "Save profile"*) _GUIDED_ACTION="save"; return 0 ;;
+    "Export config"*)
+      [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] \
+        && { _GUIDED_ACTION="export"; return 0; }
+      [[ -n "$_GUIDED_DISK" ]] && { _GUIDED_ACTION="export"; return 0; }
       printf '  Pick an install disk first.\n' >&2
       ;;
     *) : ;; # Users + non-editable rows: no-op in the tracer (issue 07)
@@ -893,13 +914,58 @@ guided_build() {
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
 
+  # Terminal action (issue 08): Proceed (install now), Save (device-less profile),
+  # or Export (device-baked config). Replay drives it via the `terminal` key;
+  # interactively the menu loop set _GUIDED_ACTION. Save + Export return
+  # _GUIDED_ACTION_DONE (64) so the caller does NOT run the back-end install.
+  local action
+  if ((_GUIDED_REPLAY)); then
+    action="${_GUIDED_ANSWERS[terminal]-proceed}"
+  else
+    action="${_GUIDED_ACTION:-proceed}"
+  fi
+  [[ -n "$action" ]] || action="proceed"
+  hostname="$(cfgstate_get "$_GUIDED_STATE" system.hostname)"
+
+  # Save is device-less — no disks, no install. Write the committed profile +
+  # materialize ad-hoc User Profiles, then stop.
+  if [[ "$action" == "save" ]]; then
+    local name; name="$(guided_prompt save_name "Save as hosts/<name>")"
+    # Refuse ANY collision before writing anything (Save never overwrites): an
+    # ad-hoc user whose users/<n>/ already exists aborts before the host profile
+    # is committed, so a failed Save leaves no half-written artifacts.
+    local clash
+    for clash in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
+      [[ -e "${OS_DIR}/users/${clash}/profile.jsonc" ]] && {
+        error "guided: users/${clash}/ already exists — choose a new user name."
+        return 1
+      }
+    done
+    guided_save_host_profile "$_GUIDED_STATE" "$name" || return 1
+    _guided_materialize_users
+    info "Saved hosts/${name}/profile.jsonc — install via --profile ${name}." >&2
+    return "$_GUIDED_ACTION_DONE"
+  fi
+
+  # Proceed + Export both bake the picked disks onto the layout.
   assignment="$(_guided_resolve_assignment)" || return 1
   effective="$(emit_effective "$_GUIDED_STATE" "$assignment")" || return 1
+
+  # Export writes the device-baked config to an operator path (default /root,
+  # which is RAM on the live ISO), never under hosts/. No install.
+  if [[ "$action" == "export" ]]; then
+    local path; path="$(guided_prompt export_path \
+      "Export path (default /root/${hostname:-host}.effective.jsonc)")"
+    [[ -n "$path" ]] || path="/root/${hostname:-host}.effective.jsonc"
+    warn "/root is RAM on the live ISO — point at a USB to keep the export." >&2
+    guided_export_config "$effective" "$path" || return 1
+    info "Exported ${path} — install via install.sh ${path}." >&2
+    return "$_GUIDED_ACTION_DONE"
+  fi
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
   mode="$(cfgstate_get "$_GUIDED_STATE" mode)"
-  hostname="$(cfgstate_get "$_GUIDED_STATE" system.hostname)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
   if [[ "$mode" == "multi" ]]; then

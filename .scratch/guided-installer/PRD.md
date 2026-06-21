@@ -1,6 +1,6 @@
 # Guided Installer
 
-Status: ready-for-agent
+Status: done (all issues 01–08 closed, 2026-06-21)
 
 Decision of record: ADR 0039 (Guided Installer as a third,
 profile-optional front-end) + ADR 0040 (Filesystem Adapter axis).
