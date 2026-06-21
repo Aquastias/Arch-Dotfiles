@@ -147,6 +147,26 @@ teardown() {
   [ "$SEED_GENERATOR_FIRSTBOOT_MARKER" = "===FIRSTBOOT-OK===" ]
 }
 
+# ── Security & Backup Extras boot check (issue 04/05 VM smoke) ───────────────
+# When the firstboot block is given a unit list, it emits ===EXTRAS-OK=== iff
+# every named unit is enabled on the booted system, else ===EXTRAS-FAIL=== — a
+# diagnostic prefix like USER-OK, grepped from the -boot.log.
+
+@test "firstboot block: a verify_extras list injects an EXTRAS is-enabled check" {
+  run _seed_generator_firstboot_block "" "firewalld.service apparmor.service"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===EXTRAS-OK===" ]]
+  [[ "$output" =~ "===EXTRAS-FAIL===" ]]
+  # One is-enabled call over every unit (exits 0 only when all are enabled).
+  [[ "$output" =~ "is-enabled firewalld.service apparmor.service" ]]
+}
+
+@test "firstboot block: no verify_extras omits the EXTRAS check" {
+  run _seed_generator_firstboot_block ""
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "===EXTRAS-OK===" ]]
+}
+
 @test "verify-boot on: first-boot unit dumps zfs-import service deps to serial" {
   # AC #1 (boot-import-strategy/01): prove the booted system's zfs-import
   # services no longer require systemd-udev-settle. The sentinel dumps their

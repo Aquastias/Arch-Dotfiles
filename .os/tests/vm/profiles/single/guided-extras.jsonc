@@ -1,0 +1,52 @@
+// VM smoke (issues 04 + 05): Guided Installer single-disk ZFS driving the
+// Security & Backup categories, then asserting the selected daemons are ENABLED
+// in the booted system.
+//   vm.sh --guided --profile single/guided-extras --verify-boot
+//
+// Unencrypted single-disk so the installed system boot-verifies headlessly. The
+// guided seed pre-ticks the secure baseline (firewalld + clamav + rkhunter +
+// apparmor and zfs-auto-snapshot + borg); guided_extras drives the categories:
+//   - users=vm-test re-picks a MINIMAL committed user as users[0] (no user
+//     programs), so only the host Security/Backup Extras install via that user's
+//     paru pass — not aquastias's full program set (ADR 0041, issue 04 M4).
+//   - answers toggle the Backup category OFF (borg=false, zfs_snapshot=false) —
+//     exercises the toggles AND skips the heavy borg/Vorta build; the 4 security
+//     daemons (the AC) remain pre-ticked.
+//   - verify[] names the units the firstboot block must find `is-enabled`; it
+//     emits ===EXTRAS-OK=== (else ===EXTRAS-FAIL===) into the -boot.log.
+// flow-guided.sh reads guided_extras and threads it through the guided replay +
+// the daemons-enabled boot check.
+{
+  "name": "arch-zfs-test-guided-extras",
+  "hardware": { "disks": [40], "ram_mb": 6144, "vcpus": 4 },
+  "timeouts": { "install": 3600, "boot": 600 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-extras",
+      "locale":   "en_US.UTF-8",
+      "timezone": "Europe/Bucharest",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "guided_extras": {
+      "users": "vm-test",
+      "answers": { "borg": "false", "zfs_snapshot": "false" },
+      "verify": [
+        "firewalld.service",
+        "clamav-daemon.service",
+        "rkhunter-scan.timer",
+        "apparmor.service"
+      ]
+    },
+    "mode": "single",
+    "disk": "/dev/sda"
+  },
+  "verify": { "boot": true }
+}
