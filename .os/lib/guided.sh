@@ -490,11 +490,6 @@ _guided_edit_security() {
   _guided_edit_bool security "Security extra (true/false)" post_install.security
 }
 
-# dotfiles_repo (Advanced) — a typed repo URL.
-_guided_edit_dotfiles_repo() {
-  _guided_edit_scalar dotfiles_repo "Dotfiles repo URL" dotfiles_repo
-}
-
 # _guided_add_package — append typed repo package name(s) (whitespace-split) to
 # packages.extra. The emitter promotes any that resolve to a System Program at
 # build time (emit_promote_programs); the rest stay plain repo packages. rc 1
@@ -709,25 +704,37 @@ _guided_persist_lines() {
   printf '%s\n' "Add persist directory ▸ extend the curated defaults"
 }
 
-# _guided_menu_lines <override> [<baseline>] — the menu's display lines: one per
-# menu row (Section · label: value, ● when overridden). The baseline supplies a
-# seeded value so the row reads legibly while ● stays operator-only. Pure:
-# menu_rows JSON → lines.
-_guided_menu_lines() {
-  menu_rows "$1" "${2:-{\}}" | jq -r '
-    .[] | "\(.section) · \(.label): \(.value // "")"
-          + (if .overridden then "  ●" else "" end)'
+# _guided_category_top_lines <override> [<baseline>] — the top-level menu lines:
+# one per Configuration Category ("Name — summary", ● when any field inside is
+# overridden). A section name never repeats per row — the category IS the row.
+# Pure: menu_categories JSON → lines.
+_guided_category_top_lines() {
+  menu_categories "$1" "${2:-{\}}" | jq -r '
+    .[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)'
 }
 
-# _guided_footer_lines <history> — the action footer below the menu rows: Undo
-# and Redo are offered only when the snapshot stack has a target (so the footer
-# surfaces the next undo/redo), and Reset-all is always present. Pure: history
-# JSON → lines.
-_guided_footer_lines() {
-  local h="$1"
-  hist_can_undo "$h" && printf '%s\n' "Undo ◂ last change"
-  hist_can_redo "$h" && printf '%s\n' "Redo ▸ undone change"
-  printf '%s\n' "Reset all ▸ discard every change"
+# _guided_category_lines <category> <override> [<baseline>] — the drill-in lines
+# for one category: "label: value" (● when overridden), no section prefix (the
+# category is already the screen). Pure: menu_category_rows JSON → lines.
+_guided_category_lines() {
+  menu_category_rows "$1" "$2" "${3:-{\}}" | jq -r '
+    .[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
+}
+
+# The rule that separates the configuration surface (categories) from the
+# terminal actions (Proceed / Save / Export) in the top menu (issue 03).
+_GUIDED_DIVIDER="──────────────────────────"
+
+# _guided_top_menu_lines <override> [<baseline>] — the full top-level line list:
+# the eight Configuration Categories, a divider rule, then the terminal-action
+# rows. The edit-history operations are NOT rows here — they are keybinds
+# (^Z / ^Y / ^R) the loop surfaces via fzf --expect. Pure: state JSON → lines.
+_guided_top_menu_lines() {
+  _guided_category_top_lines "$1" "${2:-{\}}"
+  printf '%s\n' "$_GUIDED_DIVIDER" \
+    "Proceed ▸ review & install" \
+    "Save profile ▸ write a device-less profile" \
+    "Export config ▸ write a device-baked config"
 }
 
 # _guided_commit — snapshot the current Config State onto the Undo/Redo stack.
@@ -750,15 +757,6 @@ _guided_reset_section() {
     | jq -r --arg s "$section" \
         '.[] | select(.section == $s and .overridden) | .field')
   printf '%s\n' "$state"
-}
-
-# _guided_reset_lines <state> — the granular reset actions, surfaced only when
-# the state carries at least one override to clear: a pick-a-field and a
-# pick-a-section entry. Pure: menu_rows JSON → lines.
-_guided_reset_lines() {
-  menu_rows "$1" | jq -e 'any(.[]; .overridden)' >/dev/null || return 0
-  printf '%s\n' "Reset field ▸ clear one field" \
-    "Reset section ▸ clear one section"
 }
 
 # _guided_reset_field_action — pick one currently-overridden field and clear it
@@ -789,51 +787,125 @@ _guided_reset_section_action() {
   _guided_commit
 }
 
+# _guided_reset_all_action — discard every override (back to the seeded launch
+# state), gated on a typed RESET. One undoable step.
+_guided_reset_all_action() {
+  local confirm
+  confirm="$(guided_prompt reset_all "Type RESET to discard all changes")"
+  [[ "$confirm" == "RESET" ]] || return 0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _guided_set_identity
+  _guided_seed_primary_user
+  _guided_commit
+}
+
+# _guided_reset_action — the ^R reset keybind: pick a scope (field / section /
+# all) and route to its action. No-op if the pick is cancelled.
+_guided_reset_action() {
+  local scope
+  scope="$(guided_select reset_scope "Reset what?" field section all)"
+  case "$scope" in
+  field)   _guided_reset_field_action ;;
+  section) _guided_reset_section_action ;;
+  all)     _guided_reset_all_action ;;
+  esac
+}
+
 # _guided_menu_loop — the re-entrant Host / Users split menu (interactive only,
 # fzf, smoke-only). Renders the rows + the Undo/Redo/Reset-all footer, lets the
 # operator edit the hostname and pick the install disk, and navigate the
 # snapshot stack. Returns 0 on Proceed (a disk is picked), non-zero on cancel
 # (Esc). Edits commit to the Config State, so leaving and re-entering — or
 # stepping back through Undo — never loses a value.
+# The keybinds advertised in the top-menu header and surfaced via fzf --expect.
+_GUIDED_TOP_HEADER="^Z undo · ^Y redo · ^R reset · Enter select · Esc cancel"
+
 _guided_menu_loop() {
-  local choice confirm
+  local out key choice cat
   local -a lines
   _GUIDED_ACTION=""
   # Seed the snapshot stack from the launch state; reset-all returns here.
   _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
   while true; do
-    mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE" "$_GUIDED_BASELINE")
-    lines+=("Disk layout ▸ choose preset")
-    lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
-    lines+=("Add sysctl ▸ key=value")
-    lines+=("Proceed ▸ review & install")
-    lines+=("Save profile ▸ write a device-less profile")
-    lines+=("Export config ▸ write a device-baked config")
-    mapfile -O "${#lines[@]}" -t lines < <(_guided_footer_lines "$_GUIDED_HIST")
-    mapfile -O "${#lines[@]}" -t lines < <(_guided_reset_lines "$_GUIDED_STATE")
-    mapfile -O "${#lines[@]}" -t lines < <(_guided_persist_lines "$_GUIDED_STATE")
-    choice="$(printf '%s\n' "${lines[@]}" \
-      | fzf --reverse --prompt='guided> ')" || return 1
-    # Rows render as "Section · label: value"; dispatch keys on the label so the
-    # Disks rows (filesystem / encryption / impermanence / install disk) route
-    # to their own edits rather than a single Disks-wide handler.
-    case "$choice" in
-    Undo*) _GUIDED_HIST="$(hist_undo "$_GUIDED_HIST")"; _guided_restore ;;
-    Redo*) _GUIDED_HIST="$(hist_redo "$_GUIDED_HIST")"; _guided_restore ;;
-    "Reset field"*) _guided_reset_field_action ;;
-    "Reset section"*) _guided_reset_section_action ;;
-    "Reset all"*)
-      confirm="$(guided_prompt reset_all "Type RESET to discard all changes")"
-      if [[ "$confirm" == "RESET" ]]; then
-        _GUIDED_STATE="$(cfgstate_new)"
-        _guided_set_identity
-        _guided_seed_primary_user
-        _guided_commit # Reset-all is one undoable step
-      fi
+    # Top level: the eight Configuration Categories, a divider, then the
+    # terminal actions. Undo/Redo/Reset are header keybinds, not rows (issue 03).
+    mapfile -t lines < <(_guided_top_menu_lines "$_GUIDED_STATE" \
+      "$_GUIDED_BASELINE")
+    # --expect surfaces the toolbar keybinds: fzf prints the pressed key on the
+    # first output line (empty for Enter), then the selected row on the second.
+    out="$(printf '%s\n' "${lines[@]}" \
+      | fzf --reverse --prompt='guided> ' \
+            --header="$_GUIDED_TOP_HEADER" \
+            --expect=ctrl-z,ctrl-y,ctrl-r)" || return 1
+    key="$(sed -n 1p <<<"$out")"
+    choice="$(sed -n 2p <<<"$out")"
+    case "$key" in
+    ctrl-z) _GUIDED_HIST="$(hist_undo "$_GUIDED_HIST")"; _guided_restore ;;
+    ctrl-y) _GUIDED_HIST="$(hist_redo "$_GUIDED_HIST")"; _guided_restore ;;
+    ctrl-r) _guided_reset_action ;;
+    "")
+      # Enter — dispatch on the selected row.
+      case "$choice" in
+      "$_GUIDED_DIVIDER") : ;; # the rule is inert
+      Proceed*)
+        # multi resolves its disks at accept; single needs one picked here.
+        _GUIDED_ACTION="proceed"
+        [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] && return 0
+        [[ -n "$_GUIDED_DISK" ]] && return 0
+        printf '  Pick an install disk first.\n' >&2
+        ;;
+      # Terminal actions (issue 08). Save is device-less (no disk needed); Export
+      # bakes disks like Proceed, so it has the same pick-a-disk gate.
+      "Save profile"*) _GUIDED_ACTION="save"; return 0 ;;
+      "Export config"*)
+        [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] \
+          && { _GUIDED_ACTION="export"; return 0; }
+        [[ -n "$_GUIDED_DISK" ]] && { _GUIDED_ACTION="export"; return 0; }
+        printf '  Pick an install disk first.\n' >&2
+        ;;
+      *)
+        # A category row renders "Name — summary"; the first token is the section.
+        cat="${choice%% *}"
+        case "$cat" in
+        Host|Disks|Options|Environment|Packages|Security|Backup|Users)
+          _guided_category_loop "$cat" ;;
+        esac
+        ;;
+      esac
       ;;
-    "Add persist"*) _guided_add_persist && _guided_commit ;;
+    esac
+  done
+}
+
+# _guided_category_loop <category> — the drill-in sub-menu for one Configuration
+# Category (interactive only, fzf, smoke-only). Renders that category's field
+# rows (label-only, no section prefix) plus its category-local actions (Disks
+# carries the disk-layout / install-disk / persist actions), and dispatches each
+# row to its edit. Esc (fzf non-zero) returns to the category list with no
+# commit; edits commit on confirm. Returns 0 (the loop above keeps running).
+_guided_category_loop() {
+  local category="$1" choice
+  local -a lines
+  while true; do
+    mapfile -t lines < <(_guided_category_lines "$category" "$_GUIDED_STATE" \
+      "$_GUIDED_BASELINE")
+    # Category-local actions live with their fields, not at the top level.
+    case "$category" in
+    Disks)
+      lines+=("Disk layout ▸ choose preset")
+      lines+=("install disk: ${_GUIDED_DISK:-(none — pick one)}")
+      mapfile -O "${#lines[@]}" -t lines < <(_guided_persist_lines "$_GUIDED_STATE")
+      ;;
+    esac
+    # Esc backs out to the category list (no commit).
+    choice="$(printf '%s\n' "${lines[@]}" \
+      | fzf --reverse --prompt="${category}> ")" || return 0
+    # Dispatch keys on the label. "swap size:" is matched before "swap:" so the
+    # typed-size row never routes to the bool toggle.
+    case "$choice" in
     "Disk layout"*) _guided_edit_layout && _guided_commit ;;
     *"install disk:"*) _guided_edit_disk ;; # disk lives outside Config State
+    "Add persist"*) _guided_add_persist && _guided_commit ;;
     *"hostname:"*) _guided_edit_hostname && _guided_commit ;;
     *"locale:"*) _guided_edit_locale && _guided_commit ;;
     *"timezone:"*) _guided_edit_timezone && _guided_commit ;;
@@ -841,8 +913,6 @@ _guided_menu_loop() {
     *"filesystem:"*) _guided_edit_filesystem && _guided_commit ;;
     *"encryption:"*) _guided_edit_encryption && _guided_commit ;;
     *"impermanence:"*) _guided_edit_impermanence && _guided_commit ;;
-    # Options + Environment (issue 05). "swap size:" is matched before "swap:"
-    # so the typed-size row never routes to the bool toggle.
     *"kernel:"*) _guided_edit_kernel && _guided_commit ;;
     *"bootloader:"*) _guided_edit_bootloader && _guided_commit ;;
     *"swap size:"*) _guided_edit_swap_size && _guided_commit ;;
@@ -852,32 +922,14 @@ _guided_menu_loop() {
     *"age key url:"*) _guided_edit_age_key_url && _guided_commit ;;
     *"desktop:"*) _guided_edit_desktop && _guided_commit ;;
     *"gpu:"*) _guided_edit_gpu && _guided_commit ;;
-    # Pacman + Packages + Host ▸ Advanced (issue 06 Pass B).
     *"mirror countries:"*) _guided_edit_mirror_countries && _guided_commit ;;
     *"multilib:"*) _guided_edit_multilib && _guided_commit ;;
     *"extra packages:"*) _guided_add_package && _guided_commit ;;
     *"system programs:"*) _guided_add_system_program && _guided_commit ;;
-    *"dotfiles repo:"*) _guided_edit_dotfiles_repo && _guided_commit ;;
+    *"sysctl:"*) _guided_add_sysctl && _guided_commit ;;
     *"backup extra:"*) _guided_edit_backup && _guided_commit ;;
     *"security extra:"*) _guided_edit_security && _guided_commit ;;
-    "Add sysctl"*) _guided_add_sysctl && _guided_commit ;;
-    Proceed*)
-      # multi resolves its disks at accept; single needs one picked here.
-      _GUIDED_ACTION="proceed"
-      [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] && return 0
-      [[ -n "$_GUIDED_DISK" ]] && return 0
-      printf '  Pick an install disk first.\n' >&2
-      ;;
-    # Terminal actions (issue 08). Save is device-less (no disk needed); Export
-    # bakes disks like Proceed, so it has the same pick-a-disk gate.
-    "Save profile"*) _GUIDED_ACTION="save"; return 0 ;;
-    "Export config"*)
-      [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] \
-        && { _GUIDED_ACTION="export"; return 0; }
-      [[ -n "$_GUIDED_DISK" ]] && { _GUIDED_ACTION="export"; return 0; }
-      printf '  Pick an install disk first.\n' >&2
-      ;;
-    *) : ;; # Users + non-editable rows: no-op in the tracer (issue 07)
+    *) : ;; # Users + non-editable rows: no-op (issue 07)
     esac
   done
 }
@@ -950,7 +1002,6 @@ guided_build() {
     _guided_add_package
     _guided_add_system_program
     _guided_add_sysctl
-    _guided_edit_dotfiles_repo
     _guided_edit_backup
     _guided_edit_security
     _guided_pick_users

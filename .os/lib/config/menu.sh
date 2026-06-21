@@ -35,24 +35,59 @@ _MENU_FIELDS=(
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
+  "Disks|options.swap|swap|true"
+  "Disks|options.swap_size|swap size|auto"
+  "Disks|options.esp_size|esp size|2G"
   "Options|options.kernel|kernel|lts"
   "Options|options.bootloader|bootloader|systemd-boot"
-  "Options|options.swap|swap|true"
-  "Options|options.swap_size|swap size|auto"
-  "Options|options.esp_size|esp size|2G"
   "Options|options.ssh.enabled|ssh|false"
   "Options|options.age_key_url|age key url|"
+  "Options|sysctl|sysctl|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.gpu|gpu|auto"
-  "Pacman|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
-  "Pacman|options.multilib|multilib|true"
+  "Options|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
+  "Options|options.multilib|multilib|true"
   "Packages|packages.extra|extra packages|"
-  "Advanced|system_programs|system programs|"
-  "Advanced|dotfiles_repo|dotfiles repo|"
-  "Advanced|post_install.backup|backup extra|false"
-  "Advanced|post_install.security|security extra|false"
+  "Packages|system_programs|system programs|"
+  "Security|post_install.security|security extra|false"
+  "Backup|post_install.backup|backup extra|false"
   "Users|users|users|"
 )
+
+# Configuration Categories — the eight top-level drill-in groups, in canonical
+# order, each with a one-line summary. The category NAME matches a row's
+# `section`, so a category aggregates its rows; the summary is display-only.
+_MENU_CATEGORIES=(
+  "Host|hostname, locale, timezone, keymap"
+  "Disks|filesystem, encryption, swap, ESP"
+  "Options|kernel, bootloader, ssh, mirrors, sysctl"
+  "Environment|desktop, gpu"
+  "Packages|extra packages, system programs"
+  "Security|firewall, antivirus, rootkit, apparmor"
+  "Backup|snapshots, encrypted backup"
+  "Users|primary user, extra accounts"
+)
+
+# menu_categories <override> [<baseline>] — the top-level category rows (JSON
+# array of {name, summary, overridden}), in canonical order. `overridden` is the
+# fold of the category's field rows: true iff any descendant field is an
+# override. No new state — it reads menu_rows's per-field ● flag.
+menu_categories() {
+  local rows; rows="$(menu_rows "$1" "${2:-{\}}")"
+  local spec name summary overridden cats=()
+  for spec in "${_MENU_CATEGORIES[@]}"; do
+    IFS='|' read -r name summary <<<"$spec"
+    if jq -e --arg s "$name" 'any(.[]; .section == $s and .overridden)' \
+        <<<"$rows" >/dev/null; then
+      overridden=true
+    else
+      overridden=false
+    fi
+    cats+=("$(jq -n --arg n "$name" --arg s "$summary" --argjson o "$overridden" \
+      '{name:$n, summary:$s, overridden:$o}')")
+  done
+  printf '%s\n' "${cats[@]}" | jq -s '.'
+}
 
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
 menu_rows() {
@@ -73,11 +108,14 @@ menu_rows() {
       continue
     fi
     # Multi-select fields (kernel / desktop / gpu) store a JSON array; render it
-    # comma-joined so the row stays one scalar line, primary/first token first.
+    # comma-joined so the row stays one scalar line, primary/first token first. A
+    # map field (sysctl) renders as comma-joined key=value pairs.
     value="$(jq -r --arg p "$path" '
       getpath($p | split(".")) as $v
       | if   $v == null         then empty
-        elif ($v | type) == "array" then ($v | join(", "))
+        elif ($v | type) == "array"  then ($v | join(", "))
+        elif ($v | type) == "object" then
+          ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
         else ($v | tostring) end' <<<"$merged")"
     [[ -n "$value" ]] || value="$default"
     if cfgstate_is_overridden "$state" "$path"; then
@@ -91,4 +129,12 @@ menu_rows() {
       '{section:$s, field:$f, label:$l, value:$v, overridden:$o}')")
   done
   printf '%s\n' "${rows[@]}" | jq -s '.'
+}
+
+# menu_category_rows <category> <override> [<baseline>] — the field rows for one
+# Configuration Category (the drill-in sub-menu), filtered from menu_rows by
+# `section`. Same per-row shape as menu_rows.
+menu_category_rows() {
+  local category="$1"
+  menu_rows "$2" "${3:-{\}}" | jq --arg c "$category" '[.[] | select(.section == $c)]'
 }
