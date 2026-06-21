@@ -58,11 +58,28 @@ queue() { printf '%s\n' "$@" > "$TEST_DIR/queue"; }
 fzf_queue() {
   fzf() {
     cat >/dev/null
+    # Record the invocation args so header/keybind assertions can inspect them.
+    printf '%s\n' "$*" >> "$TEST_DIR/fzf_args"
+    local expect=0 a
+    for a in "$@"; do [[ "$a" == --expect=* ]] && expect=1; done
     local q="$TEST_DIR/queue" line
     [ -s "$q" ] || return 1
     line="$(head -n1 "$q")"
     sed -i '1d' "$q"
-    printf '%s\n' "$line"
+    # "<ESC>" scripts an Esc: fzf returns non-zero so a menu backs out (the
+    # two-level nav, issue 02; or cancels the top loop).
+    [ "$line" = "<ESC>" ] && return 1
+    if ((expect)); then
+      # Emulate fzf --expect: line 1 = pressed key (empty for Enter), line 2 =
+      # the selection. A queued "ctrl-*" entry scripts that keybind press.
+      if [[ "$line" == ctrl-* ]]; then
+        printf '%s\n\n' "$line"
+      else
+        printf '\n%s\n' "$line"
+      fi
+    else
+      printf '%s\n' "$line"
+    fi
   }
   export -f fzf
 }
@@ -176,16 +193,16 @@ fzf_queue() {
   echo "$effective" | jq -e '.environment.gpu == ["amd","nvidia"]'
 }
 
-# ── a replayed session carries Pacman + Packages + Advanced (issue 06 Pass B)
+# ── a replayed session carries the Options / Packages / Security / Backup fields
+# (the old Pacman + Advanced answers; dotfiles_repo is gone — issue 02)
 
-@test "guided_build: a replayed session emits Pacman/Packages/Advanced fields" {
+@test "guided_build: a replayed session emits Options/Packages/post_install" {
   guided_load_replay "$(write_answers \
     'hostname=eterniox' \
     'mirror_countries=Japan Australia' \
     'multilib=false' \
     'package=htop tmux' \
     'sysctl=vm.swappiness=20' \
-    'dotfiles_repo=https://github.com/me/dots' \
     'backup=true' \
     'security=true' \
     'disk=/dev/disk/by-id/wwn-0xDEAD' \
@@ -197,9 +214,10 @@ fzf_queue() {
   echo "$effective" | jq -e '.options.multilib == false'
   echo "$effective" | jq -e '.packages.extra == ["htop","tmux"]'
   echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
-  echo "$effective" | jq -e '.dotfiles_repo == "https://github.com/me/dots"'
   echo "$effective" | jq -e '.post_install.backup == true'
   echo "$effective" | jq -e '.post_install.security == true'
+  # dotfiles_repo is removed entirely — never emitted
+  echo "$effective" | jq -e 'has("dotfiles_repo") | not'
 }
 
 # ── terminal actions (issue 08): Save profile + Export config ───────────────
@@ -358,61 +376,126 @@ fzf_queue() {
   echo "$effective" | jq -e '.system.keymap'
 }
 
-# ── the interactive menu renders the Host/Users split with values + ● ───────
-# _guided_menu_lines is the pure core the fzf loop displays; the fzf navigation
-# itself is smoke-only.
+# ── the two-level surface: a top category list, then per-category field rows ─
+# The top level lists the eight categories ("Name — summary"), never a per-row
+# section prefix; drilling in shows that category's rows ("label: value").
 
-@test "_guided_menu_lines: renders the Host/Users split, values, override flag" {
+@test "_guided_category_top_lines: lists categories, no per-row section prefix" {
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
 
-  run _guided_menu_lines "$state"
+  run _guided_category_top_lines "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "hostname: eterniox"   # edited value shown
-  echo "$output" | grep -q "●"                     # overridden row flagged
-  echo "$output" | grep -q "filesystem: zfs"       # Disks-first, zfs default
-  echo "$output" | grep -q "Users"                 # the Host/Users split
+  echo "$output" | grep -q "Host — "                  # category + summary
+  echo "$output" | grep -q "●"                        # Host carries the ● fold
+  ! echo "$output" | grep -q "hostname:"              # no field rows at the top
+  ! echo "$output" | grep -q "·"                       # no "Section · " prefix
 }
 
-# ── the re-entrant loop: select a field, edit it, return, Proceed ───────────
-# fzf is stubbed (its selection driven by current state) so the loop's dispatch
-# — render → select → edit → re-enter → Proceed — is exercised deterministically.
+@test "_guided_category_lines: one category's rows, label-only (no prefix)" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
 
-@test "_guided_menu_loop: edits hostname then Proceeds (fzf stubbed)" {
+  run _guided_category_lines Host "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "hostname: eterniox"       # the edited value
+  echo "$output" | grep -q "●"                         # overridden row flagged
+  ! echo "$output" | grep -q "Host ·"                  # no section prefix
+  ! echo "$output" | grep -q "filesystem"              # only this category's rows
+}
+
+# ── toolbar separation (issue 03): the terminal rows sit under a divider, and
+# the edit-history rows are gone (they are keybinds now) ─────────────────────
+
+@test "_guided_top_menu_lines: terminal rows under a divider, no history rows" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+
+  run _guided_top_menu_lines "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "Host — "                   # the categories
+  echo "$output" | grep -qE '─{3,}'                     # a divider rule
+  echo "$output" | grep -q "Proceed ▸"                  # terminal rows kept
+  echo "$output" | grep -q "Save profile ▸"
+  echo "$output" | grep -q "Export config ▸"
+  # the old selectable history rows are gone (now ^Z / ^Y / ^R)
+  ! echo "$output" | grep -q "Undo"
+  ! echo "$output" | grep -q "Redo"
+  ! echo "$output" | grep -q "Reset"
+}
+
+# the divider separates: categories come before it, terminal rows after
+@test "_guided_top_menu_lines: divider sits between categories and terminals" {
+  run _guided_top_menu_lines "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  local div cat proc
+  div="$(echo "$output" | grep -nE '─{3,}' | head -n1 | cut -d: -f1)"
+  cat="$(echo "$output" | grep -n "Host — "   | head -n1 | cut -d: -f1)"
+  proc="$(echo "$output" | grep -n "Proceed ▸" | head -n1 | cut -d: -f1)"
+  [ "$cat" -lt "$div" ]    # categories above the divider
+  [ "$div" -lt "$proc" ]   # terminals below it
+}
+
+# ── the re-entrant loop: drill into a category, edit a field, Esc, Proceed ───
+# fzf is stubbed via the queue so the two-level dispatch — top select → drill →
+# edit → Esc back → top → Proceed — is exercised deterministically.
+
+@test "_guided_menu_loop: drills into Host, edits hostname, then Proceeds" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"   # disk already picked
 
-  # First pass (no hostname yet) → pick the hostname row; next pass → Proceed.
-  fzf() {
-    cat >/dev/null
-    if [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]; then
-      echo "Host · hostname: (none)"
-    else
-      echo "Proceed ▸ review & install"
-    fi
-  }
+  fzf_queue
+  queue "Host — identity" "hostname: (none)" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_prompt() { printf '%s' "newhost"; }
-  export -f fzf guided_prompt
+  export -f guided_prompt
 
   _guided_menu_loop
-  local rc=$?
-  [ "$rc" -eq 0 ]
+  [ "$?" -eq 0 ]
   [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "newhost" ]
 }
 
-# ── Undo in the loop reverts an edit without losing the rest (non-destructive)
-# fzf is stubbed to replay a scripted sequence of menu choices; the loop drives
-# its dispatch deterministically (render → select → edit/undo → Proceed).
+# ── Esc out of a category sub-menu makes no commit (edits commit on confirm) ─
 
-@test "_guided_menu_loop: editing then Undo reverts the edit, then Proceeds" {
+@test "_guided_menu_loop: Esc out of a category commits nothing" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
-  # Pick the hostname row, then Undo, then Proceed.
+  # Drill into Host, immediately Esc back, then Proceed — no field touched.
   fzf_queue
-  queue "Host · hostname: (none)" "Undo ◂ last change" \
-        "Proceed ▸ review & install"
+  queue "Host — identity" "<ESC>" "Proceed ▸ review & install"
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  echo "$_GUIDED_STATE" | jq -e '. == {}'   # the override map is still empty
+}
+
+# ── toolbar keybinds (issue 03): ^Z / ^Y / ^R drive the snapshot stack and the
+# reset verbs; the header advertises them. Stubbed via the queue's "ctrl-*"
+# sentinel (the fzf --expect key line). ─────────────────────────────────────
+
+@test "_guided_menu_loop: the top menu requests --expect + advertises keybinds" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "Proceed ▸ review & install"
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  grep -q -- "--expect=ctrl-z,ctrl-y,ctrl-r" "$TEST_DIR/fzf_args"
+  grep -qi "undo"  "$TEST_DIR/fzf_args"   # the header names the keybinds
+  grep -qi "redo"  "$TEST_DIR/fzf_args"
+  grep -qi "reset" "$TEST_DIR/fzf_args"
+}
+
+@test "_guided_menu_loop: ^Z undoes the last edit, then Proceeds" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  # Drill into Host, edit hostname, Esc back, ^Z at the top, then Proceed.
+  fzf_queue
+  queue "Host — identity" "hostname: (none)" "<ESC>" \
+        "ctrl-z" "Proceed ▸ review & install"
   guided_prompt() { printf '%s' "newhost"; }
   export -f guided_prompt
 
@@ -422,17 +505,47 @@ fzf_queue() {
   [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]
 }
 
-# ── Reset-all confirms first, then discards every override ──────────────────
+@test "_guided_menu_loop: ^Y redoes an undone edit" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
-@test "_guided_menu_loop: Reset-all (confirmed) discards the overrides" {
+  # Edit, Esc, ^Z (undo), ^Y (redo), Proceed → the edit is back.
+  fzf_queue
+  queue "Host — identity" "hostname: (none)" "<ESC>" \
+        "ctrl-z" "ctrl-y" "Proceed ▸ review & install"
+  guided_prompt() { printf '%s' "newhost"; }
+  export -f guided_prompt
+
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "newhost" ]
+}
+
+@test "_guided_menu_loop: ^Z is inert when there is nothing to undo" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"        # fresh launch — empty snapshot stack
+  _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
+
+  fzf_queue
+  queue "ctrl-z" "Proceed ▸ review & install"
+  _guided_menu_loop
+  [ "$?" -eq 0 ]
+  echo "$_GUIDED_STATE" | jq -e '. == {}'   # no crash, no change
+}
+
+# ── ^R offers a scope (field / section / all) and routes to its reset ───────
+
+@test "_guided_menu_loop: ^R → all (confirmed) discards every override" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Reset all ▸ discard every change" "Proceed ▸ review & install"
+  queue "ctrl-r" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "all"; }     # the reset scope
   guided_prompt() { printf '%s' "RESET"; }   # confirm the wipe
-  export -f guided_prompt
+  export -f guided_select guided_prompt
 
   _guided_menu_loop
   [ "$?" -eq 0 ]
@@ -442,66 +555,36 @@ fzf_queue() {
   [ "$(cfgstate_get "$(_guided_effective)" system.hostname)" = "eterniox" ]
 }
 
-@test "_guided_menu_loop: Reset-all (declined) keeps the overrides" {
+@test "_guided_menu_loop: ^R → all (declined) keeps the overrides" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Reset all ▸ discard every change" "Proceed ▸ review & install"
+  queue "ctrl-r" "Proceed ▸ review & install"
+  guided_select() { printf '%s' "all"; }
   guided_prompt() { printf '%s' "no"; }      # decline the wipe
-  export -f guided_prompt
+  export -f guided_select guided_prompt
 
   _guided_menu_loop
   [ "$?" -eq 0 ]
   [ "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" = "myhost" ]  # kept
 }
 
-# ── the footer surfaces undo/redo only when available, Reset-all always ─────
-# _guided_footer_lines is the pure core the loop appends below the rows; the
-# fzf draw is smoke-only.
-
-@test "_guided_footer_lines: a fresh history offers only Reset-all" {
-  h="$(hist_new "$(cfgstate_new)")"
-
-  run _guided_footer_lines "$h"
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -q "Reset all"
-  ! echo "$output" | grep -q "Undo"
-  ! echo "$output" | grep -q "Redo"
-}
-
-@test "_guided_footer_lines: a committed change offers Undo (not Redo)" {
-  h="$(hist_new "$(cfgstate_new)")"
-  h="$(hist_commit "$h" "$(cfgstate_set "$(cfgstate_new)" mode '"single"')")"
-
-  run _guided_footer_lines "$h"
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -q "Undo"
-  echo "$output" | grep -q "Reset all"
-  ! echo "$output" | grep -q "Redo"
-}
-
-@test "_guided_footer_lines: after an undo, Redo is offered" {
-  h="$(hist_new "$(cfgstate_new)")"
-  h="$(hist_commit "$h" "$(cfgstate_set "$(cfgstate_new)" mode '"single"')")"
-  h="$(hist_undo "$h")"
-
-  run _guided_footer_lines "$h"
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -q "Redo"
-}
-
-# ── Reset field in the loop: pick one overridden field and clear it (undoable)
-
-@test "_guided_menu_loop: Reset field clears the picked override" {
+@test "_guided_menu_loop: ^R → field clears the picked override" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
+  # First select resolves the scope (field), the second the field to clear.
   fzf_queue
-  queue "Reset field ▸ clear one field" "Proceed ▸ review & install"
-  guided_select() { printf '%s' "system.hostname"; }   # pick the field to clear
+  queue "ctrl-r" "Proceed ▸ review & install"
+  guided_select() {
+    case "$1" in
+    reset_scope) printf '%s' "field" ;;
+    reset_field) printf '%s' "system.hostname" ;;
+    esac
+  }
   export -f guided_select
 
   _guided_menu_loop
@@ -509,17 +592,20 @@ fzf_queue() {
   [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]
 }
 
-# ── Reset section in the loop: clear every override in the picked section ────
-
-@test "_guided_menu_loop: Reset section clears the picked section's overrides" {
+@test "_guided_menu_loop: ^R → section clears the picked section's overrides" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" filesystem '"zfs"')"  # Disks
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Reset section ▸ clear one section" "Proceed ▸ review & install"
-  guided_select() { printf '%s' "Disks"; }             # pick the Disks section
+  queue "ctrl-r" "Proceed ▸ review & install"
+  guided_select() {
+    case "$1" in
+    reset_scope)   printf '%s' "section" ;;
+    reset_section) printf '%s' "Disks" ;;
+    esac
+  }
   export -f guided_select
 
   _guided_menu_loop
@@ -542,20 +628,6 @@ fzf_queue() {
   echo "$output" | jq -e '.system | has("hostname") | not'   # Host row cleared
   echo "$output" | jq -e '.filesystem == "zfs"'              # Disks row preserved
   echo "$output" | jq -e '.mode == "single"'                 # non-row preserved
-}
-
-# ── the granular reset actions appear only when there is something to clear ──
-
-@test "_guided_reset_lines: offered only when the state carries overrides" {
-  run _guided_reset_lines "$(cfgstate_new)"
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-
-  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
-  run _guided_reset_lines "$state"
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -q "Reset field"
-  echo "$output" | grep -q "Reset section"
 }
 
 # ── filesystem-first Disks: zfs is active, btrfs/ext4/xfs reserved (ADR 0040)
@@ -598,8 +670,10 @@ fzf_queue() {
   _guided_set_identity          # mode starts single
   _GUIDED_DISK=""               # and no single install disk picked
 
+  # Disk layout lives in the Disks sub-menu now (issue 02).
   fzf_queue
-  queue "Disk layout ▸ choose preset" "Proceed ▸ review & install"
+  queue "Disks — storage" "Disk layout ▸ choose preset" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_select() { printf '%s' "os-mirror"; }
   export -f guided_select
 
@@ -617,7 +691,8 @@ fzf_queue() {
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Disks · encryption: false" "Proceed ▸ review & install"
+  queue "Disks — storage" "encryption: false" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_select() { printf '%s' "true"; }   # the bool pick
   export -f guided_select
 
@@ -632,7 +707,8 @@ fzf_queue() {
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Options · bootloader: systemd-boot" "Proceed ▸ review & install"
+  queue "Options — system" "bootloader: systemd-boot" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_select() { printf '%s' "grub"; }
   export -f guided_select
 
@@ -647,7 +723,8 @@ fzf_queue() {
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
   fzf_queue
-  queue "Environment · gpu: auto" "Proceed ▸ review & install"
+  queue "Environment — desktop" "gpu: auto" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_multi() { printf '%s\n' "amd"; }
   export -f guided_multi
 
@@ -687,8 +764,10 @@ fzf_queue() {
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
+  # multilib folded into Options (issue 02).
   fzf_queue
-  queue "Pacman · multilib: true" "Proceed ▸ review & install"
+  queue "Options — system" "multilib: true" "<ESC>" \
+        "Proceed ▸ review & install"
   guided_select() { printf '%s' "false"; }
   export -f guided_select
 
@@ -697,13 +776,14 @@ fzf_queue() {
   [ "$(cfgstate_get "$_GUIDED_STATE" options.multilib)" = "false" ]
 }
 
-@test "_guided_menu_loop: the Add-sysctl action commits a literal sysctl key" {
+@test "_guided_menu_loop: the Options sysctl row commits a literal sysctl key" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
+  # sysctl is an Options row now (issue 02); selecting it adds one pair.
   fzf_queue
-  queue "Add sysctl ▸ key=value" "Proceed ▸ review & install"
+  queue "Options — system" "sysctl: " "<ESC>" "Proceed ▸ review & install"
   guided_prompt() { printf '%s' "kernel.sysrq=1"; }
   export -f guided_prompt
 
@@ -718,8 +798,10 @@ fzf_queue() {
     options.impermanence.enabled 'true')"
   _GUIDED_DISK="/dev/disk/by-id/wwn-0xDEAD"
 
+  # Add persist lives in the Disks sub-menu now (issue 02).
   fzf_queue
-  queue "Add persist directory ▸ extend the curated defaults" \
+  queue "Disks — storage" \
+        "Add persist directory ▸ extend the curated defaults" "<ESC>" \
         "Proceed ▸ review & install"
   guided_prompt() { printf '%s' "/etc/wireguard"; }
   export -f guided_prompt
@@ -791,11 +873,11 @@ fzf_queue() {
 # The seed is the BASELINE; an edit writes the OVERRIDE map (so the row flips ●)
 # and wins effectively over the seed.
 
-@test "_guided_menu_lines: a freshly seeded run shows seeded values with no ●" {
+@test "_guided_category_lines: a freshly seeded Host shows values with no ●" {
   _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
   _GUIDED_STATE="$(cfgstate_new)"            # no operator override yet
 
-  run _guided_menu_lines "$_GUIDED_STATE" "$_GUIDED_BASELINE"
+  run _guided_category_lines Host "$_GUIDED_STATE" "$_GUIDED_BASELINE"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "hostname: eterniox"
   echo "$output" | grep -q "locale: en_US.UTF-8"
@@ -868,16 +950,6 @@ fzf_queue() {
 
   _guided_edit_multilib
   echo "$_GUIDED_STATE" | jq -e '.options.multilib == false'
-}
-
-@test "_guided_edit_dotfiles_repo: a typed URL commits dotfiles_repo" {
-  _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_new)"
-  guided_prompt() { printf '%s' "https://github.com/me/dots"; }
-  export -f guided_prompt
-
-  _guided_edit_dotfiles_repo
-  echo "$_GUIDED_STATE" | jq -e '.dotfiles_repo == "https://github.com/me/dots"'
 }
 
 @test "_guided_edit_backup: selecting true enables the backup extra" {
