@@ -33,8 +33,13 @@
   },
 
   "post_install": {
-    "backup":   false,
-    "security": false
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
   },
 
   "users": ["vm-test"],

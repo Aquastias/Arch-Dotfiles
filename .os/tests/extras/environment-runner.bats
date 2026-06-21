@@ -33,7 +33,7 @@ _state() {
  "keymap":"us","keymaps":["us"],
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
  "ssh":{"enabled":false},"rpool":"rpool","swap":true,
- "esp_count":1,"extras":{"backup":false,"security":false},
+ "esp_count":1,
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
  "persist":{"directories":[],"files":[]}}
 JSON
@@ -80,24 +80,6 @@ make_de_stub() {
   [[ "$output" =~ "gnome" ]]
 }
 
-@test "backup script invoked when backup=true in state" {
-  _state '.extras.backup = true' > "$STATE_FILE"
-  printf '#!/usr/bin/env bash\necho "backup" >> "$STUB_LOG"\n' \
-    > "$EXTRAS_DIR/backup.sh"
-  chmod +x "$EXTRAS_DIR/backup.sh"
-  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" \
-    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
-  [ "$status" -eq 0 ]
-  grep -qx "backup" "$STUB_LOG"
-}
-
-@test "security script invoked when security=true in state" {
-  _state '.extras.security = true' > "$STATE_FILE"
-  printf '#!/usr/bin/env bash\necho "security" >> "$STUB_LOG"\n' \
-    > "$EXTRAS_DIR/security.sh"
-  chmod +x "$EXTRAS_DIR/security.sh"
-  run env ENVIRONMENT_DESKTOP="" STATE="$STATE_FILE" \
-    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
-  [ "$status" -eq 0 ]
-  grep -qx "security" "$STUB_LOG"
-}
+# Security & Backup Extras are no longer dispatched here — they install via the
+# Primary User's paru pass in the Profiles Runner (ADR 0041). The old
+# backup.sh / security.sh dispatch is gone (its tests with it).

@@ -28,6 +28,10 @@
 #   OS_DIR, PROGRAMS, SHELL_COMMONS
 # =============================================================================
 
+# shellcheck source=../config/post-install.sh
+[[ "$(type -t post_install_programs)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
+
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
@@ -113,6 +117,32 @@ _profiles_sops_selection() {
   # `mapfile < <(...)` — a host with zero system_programs is valid (empty list).
   ((${#progs[@]})) || return 0
   printf '%s\n' "${progs[@]}"
+}
+
+# Pure list-shaper for the Security & Backup Extras (M4, ADR 0041). Resolves the
+# host post_install.{security,backup} object to its Program names and unions
+# them into the Primary User's install list: the user's own programs first (in
+# declared order), then the resolved extras not already present (resolver
+# canonical order), so a tool declared in both installs once. One per line; the
+# whole list empty (no output) is valid. Args: <post_install_json> [uprog...].
+_profiles_resolve_post_install() {
+  local pi_json="$1"; shift
+  local -a out=("$@")
+  local -a extras=()
+  local _ex
+  _ex="$(post_install_programs "$pi_json")" || return 1
+  [[ -n "$_ex" ]] && mapfile -t extras <<< "$_ex"
+
+  local e p has
+  for e in "${extras[@]+"${extras[@]}"}"; do
+    has=0
+    for p in "${out[@]+"${out[@]}"}"; do
+      [[ "$p" == "$e" ]] && { has=1; break; }
+    done
+    ((has)) || out+=("$e")
+  done
+  ((${#out[@]})) || return 0
+  printf '%s\n' "${out[@]}"
 }
 
 # Pure resolver for the Runner AUR pass. Unions host packages.aur (categorized
@@ -588,10 +618,23 @@ run_profiles() {
     "${ENVIRONMENT_DESKTOP[@]+"${ENVIRONMENT_DESKTOP[@]}"}")"
   [[ -n "$_aur_out" ]] && mapfile -t host_aur <<< "$_aur_out"
 
+  # Security & Backup Extras (M4, ADR 0041): the host's structured
+  # post_install.{security,backup} selection installs via the Primary User's
+  # paru pass, deduped against that user's own programs.
+  local _pi_json
+  _pi_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
+
   for u in "${users[@]}"; do
     local -a uprogs=()
     mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" \
       | jq -r '.programs[]?')
+
+    # The Primary User also installs the host Security & Backup Extras; a tool
+    # declared in both their programs and the selection installs once.
+    if [[ "${u}" == "${users[0]}" ]]; then
+      mapfile -t uprogs < <(_profiles_resolve_post_install "$_pi_json" \
+        "${uprogs[@]+"${uprogs[@]}"}")
+    fi
 
     # Bootstrap paru for this user if they have programs, or if they are the
     # primary user and there are host/GPU AUR packages to install.

@@ -36,8 +36,6 @@ _INSTALL_CONFIG_SCHEMA=(
   "hostname|.system.hostname|scalar|"
   "timezone|.system.timezone|scalar|UTC"
   "desktop|.environment.desktop|array|"
-  "extras_backup|.post_install.backup|bool|false"
-  "extras_security|.post_install.security|bool|false"
   "packages_extra|.packages.extra|array|"
   "dotfiles_repo|.dotfiles_repo|scalar|"
   "os_pool_name|.os_pool_name|scalar|rpool"
