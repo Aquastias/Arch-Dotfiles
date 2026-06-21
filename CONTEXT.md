@@ -65,11 +65,18 @@ authors the pool skeleton and every other machine property interactively.
 Navigation is non-destructive: a single in-session **Config State** holds only
 the operator's overrides over the computed defaults, so every screen is
 re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
-between sections, and validation is deferred to the terminal actions. fzf is the
-uniform selection/navigation surface — every menu and value list is an fzf list,
-and multi-select re-entry pre-marks prior picks; only free-text fields with
-nothing to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs,
-persist paths) drop to a typed prompt. A typed `packages.extra` entry that
+between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
+list of **Configuration Categories** (Host, Disks, Options, Environment,
+Packages, Security, Backup, Users), each opening a submenu of its fields, so a
+section name never repeats per row. Every value list is an fzf list, and
+multi-select re-entry pre-marks prior picks; only free-text fields with nothing
+to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs, persist
+paths) drop to a typed prompt. Terminal actions (Proceed / Save / Export) are
+selectable rows under a divider; the edit-history toolbar (Undo / Redo / Reset
+field|section|all) is bound to footer keybindings, not rows. Computed defaults
+seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
+User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
+`Europe/Bucharest` / keymap `us`. A typed `packages.extra` entry that
 resolves to a `programs/<category>/<name>/` is promoted to a System Program
 (installed via the Program Runner — pacman + config + services) rather than
 pacstrapped raw; non-matching names stay plain repo packages, and on an
@@ -290,7 +297,7 @@ per-script source line.
 before `arch-chroot` and orchestrated by `configure.sh` inside the chroot. Each
 sub-script owns one concern: identity (locale/timezone/keymap/hostname), pacman
 config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner
-(KDE/backup/security), plus a Bootloader Adapter. `lib/chroot.sh` shrinks to
+(KDE desktop adapters), plus a Bootloader Adapter. `lib/chroot.sh` shrinks to
 live-ISO concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and
 the single `arch-chroot` invocation that stages and runs `configure.sh`.
 
@@ -355,8 +362,9 @@ directory — no runner code changes.
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by
 directory convention (`extras/desktop/<de>/<de>.sh`). No DE names are hardcoded
-in the runner — dispatch is purely by convention. Also runs
-`post_install.backup` and `post_install.security` extras. AUR discovery for the
+in the runner — dispatch is purely by convention. Security & Backup Extras are
+no longer dispatched here — they install via the Profile Runner's Primary-User
+paru pass (see Security & Backup Extras). AUR discovery for the
 selected DEs lives alongside this: for each desktop in the resolved array the
 installer reads that adapter's `aur` list and unions it (deduped) with the
 host's `packages.aur` into the Profiles Runner's single paru invocation, so
@@ -461,6 +469,21 @@ key-value pairs written verbatim to `/etc/sysctl.d/99-os.conf` during the
 profiles phase. Applied to every host via Host Core. A host-specific config can
 add keys (they deep-merge per the core merge rules) but cannot remove keys
 declared in core.
+
+### Security & Backup Extras
+The `post_install.security` and `post_install.backup` objects in a Host
+Profile — the host's hardening and backup tool selection, authored by hand or by
+the Guided Installer's Security / Backup categories. `security` picks one
+firewall (`firewalld` | `ufw` | none; the two are mutually exclusive) plus
+`clamav` (antivirus), `rkhunter` (rootkit scanner), and `apparmor` (MAC);
+`backup` picks `zfs-auto-snapshot` and/or `borg`. The selected tools are
+paru-based User Programs (`system:false`; paru refuses root), so they are
+**not** installed as System Programs — the Runner unions the resolved program
+names into the **Primary User's** paru pass (the seam host AUR packages already
+use), and each tool's existing Program Install Script runs unchanged. Supersedes
+the former boolean `post_install.*` extras, which dispatched to never-shipped
+`extras/security.sh` / `extras/backup.sh` (ADR 0041). A host with no users
+cannot carry these — the Guided Installer aborts at the terminal action.
 
 ### Tools
 `.os/tools/`. Utility scripts for managing a running system or preparing an
