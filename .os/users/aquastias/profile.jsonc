@@ -5,11 +5,10 @@
   "shell": "/bin/bash",
   "sudo": true,
   "groups": ["docker", "libvirt", "kvm"],
+  // Security & Backup Extras (firewalld / apparmor / clamav / rkhunter) are no
+  // longer hard-pinned here — they are host-owned post_install selections
+  // installed via this user's paru pass (ADR 0041).
   "programs": [
-    "firewalld",
-    "apparmor",
-    "clamav",
-    "rkhunter",
     "docker",
     "virt-manager",
     "teamspeak3",

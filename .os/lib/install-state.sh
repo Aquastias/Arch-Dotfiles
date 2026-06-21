@@ -27,8 +27,6 @@ _INSTALL_STATE_SCHEMA=(
   "SSH_ENABLED|.ssh.enabled|bool"
   "SWAP|.swap|bool"
   "ESP_COUNT|.esp_count|number"
-  "EXTRAS_BACKUP|.extras.backup|bool"
-  "EXTRAS_SECURITY|.extras.security|bool"
   "IMPERMANENCE_ENABLED|.impermanence.enabled|bool"
   "IMPERMANENCE_DATASET|.impermanence.dataset|scalar"
   "IMPERMANENCE_MOUNT|.impermanence.mount|scalar"
@@ -97,8 +95,6 @@ install_state_write() {
     --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
     --argjson swap        "$(install_config_swap_enabled)"           \
     --argjson esp_count   "${#LAYOUT_ESP_PARTS[@]}"                  \
-    --argjson backup      "$(install_config_extras_backup)"          \
-    --argjson security    "$(install_config_extras_security)"        \
     --argjson imp_enabled "$(install_config_impermanence_enabled)"   \
     --arg     imp_dataset "$(install_config_impermanence_dataset)"   \
     --arg     imp_mount   "$(install_config_impermanence_mount)"     \
@@ -111,7 +107,6 @@ install_state_write() {
       bootloader:$bootloader,
       ssh:          { enabled:$ssh_enabled },
       rpool:$rpool, swap:$swap, esp_count:$esp_count,
-      extras:       { backup:$backup, security:$security },
       impermanence: { enabled:$imp_enabled, dataset:$imp_dataset,
         mount:$imp_mount },
       persist:$persist

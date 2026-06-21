@@ -440,6 +440,28 @@ write_jsonc() {
   [ "$status" -eq 0 ]
 }
 
+@test "validate: object-form post_install validates clean (ADR 0041)" {
+  run validate_config_schema host '{
+    "post_install":{
+      "security":{"firewall":"firewalld","antivirus":true,"rootkit":true,
+                  "apparmor":true},
+      "backup":{"zfs_auto_snapshot":true,"borg":true}
+    }
+  }'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "validate_profile: rejects the old bool post_install form (ADR 0041)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+    '{"users":[],"system_programs":[]}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+    '{"users":[],"system_programs":[],"post_install":{"security":false}}'
+
+  run validate_profile desktop
+  [ "$status" -ne 0 ]
+}
+
 @test "validate_profile: a typo'd key in a referenced program config aborts" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
     '{"users":[],"system_programs":[]}'

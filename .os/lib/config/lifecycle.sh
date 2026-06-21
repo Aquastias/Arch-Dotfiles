@@ -18,6 +18,10 @@
 # shellcheck source=./environment.sh
 source "${BASH_SOURCE[0]%/*}/environment.sh"
 
+# shellcheck source=./post-install.sh
+[[ "$(type -t post_install_programs)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/post-install.sh"
+
 # =============================================================================
 # RESOLVED GLOBALS — set during validate_install_context,
 # consumed by configure_system
@@ -221,15 +225,14 @@ print_summary() {
   echo -e "  ${BOLD}Environment:${NC}"
   print_environment_summary
 
-  # Post-install
-  local backup
-  backup="$(install_config_extras_backup)"
-  local security
-  security="$(install_config_extras_security)"
+  # Security & Backup Extras (ADR 0041) — the resolved program list installed
+  # via the Primary User's paru pass. Empty when nothing is selected.
+  local _pi _extras
+  _pi="$(jsonc_strip "$CONFIG_FILE" | jq -c '.post_install // {}')"
+  _extras="$(post_install_programs "$_pi" | paste -sd ', ')"
   echo ""
-  echo -e "  ${BOLD}Post-install scripts:${NC}"
-  printf "    %-12s %s\n" "backup:" "$backup"
-  printf "    %-12s %s\n" "security:" "$security"
+  echo -e "  ${BOLD}Security & Backup Extras:${NC}"
+  printf "    %-12s %s\n" "install:" "${_extras:-(none)}"
 
   echo ""
   local enc; enc="$(install_config_encryption_enabled)"

@@ -24,7 +24,6 @@ valid_state() {
   "bootloader": "systemd-boot",
   "ssh": { "enabled": false },
   "rpool": "rpool", "swap": true, "esp_count": 1,
-  "extras":       { "backup": false, "security": false },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
                     "mount": "/persist" },
   "persist":      { "directories": [], "files": [] }
@@ -50,21 +49,6 @@ set_field() {
   valid_state
   install_state_load "$STATE"
   [ "$HOSTNAME" = "h" ]
-}
-
-# ── install_state_load: nested bool ──────────────────────────────────────────
-
-@test "install_state_load: sets EXTRAS_BACKUP from nested bool" {
-  valid_state
-  set_field '.extras.backup' 'true'
-  install_state_load "$STATE"
-  [ "$EXTRAS_BACKUP" = "true" ]
-}
-
-@test "install_state_load: EXTRAS_BACKUP=false preserved" {
-  valid_state
-  install_state_load "$STATE"
-  [ "$EXTRAS_BACKUP" = "false" ]
 }
 
 # ── install_state_load: array ────────────────────────────────────────────────
@@ -157,10 +141,10 @@ set_field() {
 
 @test "install_state_load: returns 1 when nested bool missing" {
   valid_state
-  drop_field '.extras.backup'
+  drop_field '.ssh.enabled'
   run install_state_load "$STATE"
   [ "$status" -eq 1 ]
-  [[ "$output" == *".extras.backup"* ]]
+  [[ "$output" == *".ssh.enabled"* ]]
 }
 
 @test "install_state_load: returns 1 when array missing" {
@@ -193,8 +177,6 @@ setup_writer_globals() {
   install_config_bootloader()           { echo "systemd-boot"; }
   install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
-  install_config_extras_backup()        { echo "false"; }
-  install_config_extras_security()      { echo "false"; }
   install_config_impermanence_enabled() { echo "false"; }
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }
@@ -224,8 +206,6 @@ setup_writer_globals() {
   [ "$(jq -r .rpool        "$STATE")" = "rpool" ]
   [ "$(jq -r .swap         "$STATE")" = "true" ]
   [ "$(jq -r .esp_count    "$STATE")" = "2" ]
-  [ "$(jq -r '.extras.backup'        "$STATE")" = "false" ]
-  [ "$(jq -r '.extras.security'      "$STATE")" = "false" ]
   [ "$(jq -r '.impermanence.enabled' "$STATE")" = "false" ]
   [ "$(jq -r '.impermanence.dataset' "$STATE")" = "rpool/persist" ]
   [ "$(jq -r '.impermanence.mount'   "$STATE")" = "/persist" ]
@@ -237,7 +217,7 @@ setup_writer_globals() {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
   [ "$(jq -r '.swap | type'                 "$STATE")" = "boolean" ]
-  [ "$(jq -r '.extras.backup | type'        "$STATE")" = "boolean" ]
+  [ "$(jq -r '.ssh.enabled | type'          "$STATE")" = "boolean" ]
   [ "$(jq -r '.impermanence.enabled | type' "$STATE")" = "boolean" ]
   [ "$(jq -r '.esp_count | type'            "$STATE")" = "number" ]
   [ "$(jq -r '.persist.directories | type'  "$STATE")" = "array" ]
@@ -284,8 +264,6 @@ setup_writer_globals() {
   [ "$RPOOL"                = "rpool" ]
   [ "$SWAP"                 = "true" ]
   [ "$ESP_COUNT"            = "2" ]
-  [ "$EXTRAS_BACKUP"        = "false" ]
-  [ "$EXTRAS_SECURITY"      = "false" ]
   [ "$IMPERMANENCE_ENABLED" = "false" ]
   [ "$IMPERMANENCE_DATASET" = "rpool/persist" ]
   [ "$IMPERMANENCE_MOUNT"   = "/persist" ]
@@ -320,5 +298,5 @@ setup_writer_globals() {
   install_state_update "$STATE" '.secrets.host' '"/x"'
   [ "$(jq -r .hostname     "$STATE")" = "h" ]
   [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
-  [ "$(jq -r '.extras.backup' "$STATE")" = "false" ]
+  [ "$(jq -r '.ssh.enabled' "$STATE")" = "false" ]
 }

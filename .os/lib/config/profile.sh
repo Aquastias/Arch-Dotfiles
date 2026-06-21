@@ -24,6 +24,10 @@
 [[ "$(type -t picker_assign_disks)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
+# shellcheck source=./post-install.sh
+[[ "$(type -t post_install_validate)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/post-install.sh"
+
 # load_profile <name> — effective host config on stdout.
 # load_user_profile <name> — effective user config on stdout (symmetric).
 # Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
@@ -137,8 +141,10 @@ _PROFILE_SCHEMA_host=(
   "data_pools[].name" "data_pools[].topology" "data_pools[].mount"
   "data_pools[].ashift" "data_pools[].owners[]" "data_pools[].disks[]"
   "data_pools[].disk_count"
-  # — post-install toggles —
-  "post_install.backup" "post_install.security"
+  # — Security & Backup Extras (ADR 0041): structured objects, not bools —
+  "post_install.security.firewall" "post_install.security.antivirus"
+  "post_install.security.rootkit" "post_install.security.apparmor"
+  "post_install.backup.zfs_auto_snapshot" "post_install.backup.borg"
   # — packages (open category objects) —
   "packages.extra[]" "packages.groups.*[]"
   "packages.repo.*[]" "packages.aur.*[]"
@@ -221,6 +227,13 @@ validate_profile() {
     || { error "validate_profile: cannot load host profile '${name}'"; \
          return 1; }
   validate_config_schema host "$host_json" || return 1
+
+  # Security & Backup Extras shape (ADR 0041): reject the old bool form and
+  # malformed objects (bad firewall enum, non-bool toggles) — the closed schema
+  # only guards key names, not the object/bool distinction at post_install.*.
+  local pi_json
+  pi_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
+  post_install_validate "$pi_json" || return 1
 
   local -a users
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
