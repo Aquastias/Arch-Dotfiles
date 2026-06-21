@@ -46,7 +46,12 @@ _flow_render_user_data() {
   # the seed appends the create-user form keys + the USER-OK boot check.
   local guided_user
   guided_user="$(jq -c '.guided_user // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
+  # guided_extras (issue 04/05) drives the Security & Backup categories: re-pick a
+  # minimal committed user, toggle overrides, and the daemons-enabled boot check.
+  local guided_extras
+  guided_extras="$(jq -c '.guided_extras // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
-    "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user"
+    "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user" \
+    "$guided_extras"
 }

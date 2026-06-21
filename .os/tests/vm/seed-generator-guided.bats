@@ -127,6 +127,27 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [[ ! "$output" =~ "new_user_name=" ]]
 }
 
+# ── guided_extras (arg 10): Security & Backup smoke driving (issue 04/05) ────
+# Re-picks a minimal committed user, replays toggle overrides, and injects the
+# daemons-enabled boot check.
+
+@test "guided user-data: guided_extras re-picks the user + replays toggle answers" {
+  run render false false false false single 1 "" \
+    '{"users":"vm-test","answers":{"borg":"false","zfs_snapshot":"false"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "users=vm-test" ]]
+  [[ "$output" =~ "borg=false" ]]
+  [[ "$output" =~ "zfs_snapshot=false" ]]
+}
+
+@test "guided user-data: guided_extras verify + verify_boot injects the EXTRAS check" {
+  run render false true false false single 1 "" \
+    '{"users":"vm-test","verify":["firewalld.service","apparmor.service"]}'
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===EXTRAS-OK===" ]]
+  [[ "$output" =~ "is-enabled firewalld.service apparmor.service" ]]
+}
+
 @test "guided user-data: guided_user + verify_boot injects a USER-OK check naming the user" {
   run render false true false false single 1 \
     '{"name":"carol","password":"hunter2"}'

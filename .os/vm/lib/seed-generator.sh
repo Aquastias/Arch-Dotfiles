@@ -96,15 +96,22 @@ LINES
 # uses no single quotes (the ExecStart line is a single-quoted printf arg).
 _seed_generator_firstboot_block() {
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER" verify_user="${1:-}"
+  local verify_extras="${2:-}"
   local user_check=""
   [[ -n "$verify_user" ]] && user_check="if id ${verify_user} > /dev/null 2>&1 && passwd -S ${verify_user} 2>/dev/null | grep -qw P; then echo ===USER-OK===; else echo ===USER-FAIL===; fi; "
+  # Security & Backup Extras check (issue 04/05): every named unit must be
+  # is-enabled on the booted system. A single `systemctl is-enabled u1 u2 …`
+  # exits 0 only when ALL are enabled — so one call, no loop, no single quotes
+  # (the ExecStart is a single-quoted printf arg), like user_check above.
+  local extras_check=""
+  [[ -n "$verify_extras" ]] && extras_check="if systemctl is-enabled ${verify_extras} > /dev/null 2>&1; then echo ===EXTRAS-OK===; else echo ===EXTRAS-FAIL===; fi; "
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       zpool import -f -N -R /mnt rpool || true
       zfs mount rpool/ROOT/arch || true
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
-      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${user_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       zfs umount -a || true
       zpool export rpool || zpool export -f rpool || true
@@ -251,6 +258,7 @@ _seed_generator_render_guided_user_data() {
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"
   local encryption="${5:-false}" impermanence="${6:-false}"
   local layout="${7:-single}" n_disks="${8:-1}" guided_user="${9:-}"
+  local guided_extras="${10:-}"
 
   local dirty_step=""
   [[ "$dirty_cache" == "true" ]] && \
@@ -290,6 +298,23 @@ _seed_generator_render_guided_user_data() {
     verify_user="$u_name"
   fi
 
+  # Security & Backup Extras smoke (issue 04/05): guided_extras re-picks a
+  # minimal committed user (users=…, so users[0] is light, not aquastias's full
+  # set), replays toggle overrides (answers: e.g. borg=false), and names the
+  # daemons the boot-verify must find enabled (verify[] → EXTRAS-OK/FAIL).
+  local verify_extras=""
+  if [[ -n "$guided_extras" && "$guided_extras" != "null" ]]; then
+    local gx_users gx_verify
+    gx_users="$(jq -r '.users // empty' <<<"$guided_extras")"
+    [[ -n "$gx_users" ]] && extra_answers+="users=${gx_users}\\n"
+    while IFS= read -r _kv; do
+      [[ -n "$_kv" ]] && extra_answers+="${_kv}\\n"
+    done < <(jq -r '(.answers // {}) | to_entries[] | "\(.key)=\(.value)"' \
+      <<<"$guided_extras")
+    gx_verify="$(jq -r '(.verify // []) | join(" ")' <<<"$guided_extras")"
+    verify_extras="$gx_verify"
+  fi
+
   # The disk-resolution + answers-file step differs by layout. Built in its own
   # heredoc so the \$ / \\n / \\ escapes are processed identically to the outer
   # one, then embedded verbatim. single resolves one disk (disk=); a multi
@@ -313,7 +338,7 @@ EOF
 
   local boot_block=""
   [[ "$verify_boot" == "true" ]] && \
-    boot_block="$(_seed_generator_firstboot_block "$verify_user")"
+    boot_block="$(_seed_generator_firstboot_block "$verify_user" "$verify_extras")"
 
   cat <<EOF
 #cloud-config
