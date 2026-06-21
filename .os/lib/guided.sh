@@ -29,6 +29,9 @@
 # shellcheck source=lib/config/state.sh
 [[ "$(type -t cfgstate_new)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
+# shellcheck source=lib/config/seed.sh
+[[ "$(type -t cfgstate_seed_defaults)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 # shellcheck source=lib/config/emit.sh
 [[ "$(type -t emit_effective)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
@@ -136,9 +139,15 @@ guided_pick_disk() {
 # =============================================================================
 # ASSEMBLY
 # =============================================================================
-# In-flight session state for one guided run — the Config State plus the picked
-# disk. Mutated by the edit helpers, which are shared by the interactive menu
-# and the headless replay path so both exercise the same Config-State writes.
+# In-flight session state for one guided run. Two layers (issue 01):
+#   _GUIDED_BASELINE — the seeded launch defaults, set once and held constant for
+#     the session. Not snapshotted (it never changes), not an "override".
+#   _GUIDED_STATE — the operator's sparse OVERRIDE map (empty at launch). Every
+#     edit writes here, so the ● flag / is_overridden reflect operator intent
+#     only. The effective config the back-end consumes is BASELINE * STATE.
+# The edit helpers (shared by the interactive menu + headless replay) write the
+# override; value/mode/hostname reads go through _guided_effective.
+_GUIDED_BASELINE=""
 _GUIDED_STATE=""
 _GUIDED_DISK=""
 # Terminal action (issue 08): "proceed" | "save" | "export" — set by the menu
@@ -152,14 +161,23 @@ readonly _GUIDED_ACTION_DONE=64
 # or stepping back and forth, never loses a value.
 _GUIDED_HIST=""
 
-# _guided_set_identity — seed the required identity defaults + the single-disk
-# ZFS preset. validation.sh requires system.locale + system.timezone; issue 05
-# turns locale/timezone/keymap into live-system-picked rows over these.
+# _guided_set_identity — seed this operator's launch defaults into the BASELINE
+# layer (hostname, Primary User, single-disk layout, locale/timezone/keymap) via
+# the pure seeder. The seed is a default, not an override: it lives in the
+# baseline so a fresh run carries no ●, yet still emits — validation.sh requires
+# system.locale + system.timezone and the host must never be userless.
+# locale/timezone/keymap surface as editable Host rows over these seeds.
 _guided_set_identity() {
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.locale '"en_US.UTF-8"')"
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.timezone '"UTC"')"
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" system.keymap '"us"')"
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" mode '"single"')"
+  _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+}
+
+# _guided_effective — the effective override map the back-end consumes: the
+# operator's overrides merged over the seeded baseline (jq `*`, so an override
+# REPLACES a baseline array/scalar — letting the operator drop a seeded user —
+# and deep-merges objects). Emit, Save and the seeded-value reads use this.
+_guided_effective() {
+  jq -n --argjson b "${_GUIDED_BASELINE:-{\}}" \
+    --argjson o "${_GUIDED_STATE:-{\}}" '$b * $o'
 }
 
 # _guided_edit_hostname — read the hostname (seam key 'hostname') and commit it.
@@ -168,6 +186,21 @@ _guided_edit_hostname() {
   v="$(guided_prompt hostname "Hostname")"
   [[ -n "$v" ]] && _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
     system.hostname "$(jq -n --arg x "$v" '$x')")"
+}
+
+# _guided_edit_locale / _guided_edit_timezone / _guided_edit_keymap — the three
+# editable Host identity rows over the seeded defaults. Each is a free-text
+# scalar through the seam (empty input no-ops, keeping the seed). _guided_edit_
+# scalar lives in the Options block below; these reuse it for the Host section.
+_guided_edit_locale() {
+  _guided_edit_scalar locale "Locale (e.g. en_US.UTF-8)" system.locale
+}
+_guided_edit_timezone() {
+  _guided_edit_scalar timezone "Timezone (e.g. Europe/Bucharest)" \
+    system.timezone
+}
+_guided_edit_keymap() {
+  _guided_edit_scalar keymap "Keymap (e.g. us)" system.keymap
 }
 
 # _guided_edit_disk — resolve the single install disk (Disks ▸ ZFS ▸ single).
@@ -536,6 +569,12 @@ _guided_users_reset() {
   _GUIDED_ROOT_PW=""
 }
 
+# _guided_seed_primary_user — pre-select aquastias as the default committed
+# Primary User so the launch state has a user (matching the seeded users[0]) and
+# adding an ad-hoc user keeps aquastias first. The operator drops aquastias by
+# re-picking the committed users without it. Run after _guided_users_reset.
+_guided_seed_primary_user() { _GUIDED_USERS_COMMITTED=("aquastias"); }
+
 # _guided_user_names — committed user names (users/*/ with a profile.jsonc),
 # excluding the User Core layer. The enumerable source for the picker.
 _guided_user_names() {
@@ -670,10 +709,12 @@ _guided_persist_lines() {
   printf '%s\n' "Add persist directory ▸ extend the curated defaults"
 }
 
-# _guided_menu_lines <state> — the menu's display lines: one per menu row
-# (Section · label: value, ● when overridden). Pure: menu_rows JSON → lines.
+# _guided_menu_lines <override> [<baseline>] — the menu's display lines: one per
+# menu row (Section · label: value, ● when overridden). The baseline supplies a
+# seeded value so the row reads legibly while ● stays operator-only. Pure:
+# menu_rows JSON → lines.
 _guided_menu_lines() {
-  menu_rows "$1" | jq -r '
+  menu_rows "$1" "${2:-{\}}" | jq -r '
     .[] | "\(.section) · \(.label): \(.value // "")"
           + (if .overridden then "  ●" else "" end)'
 }
@@ -698,10 +739,9 @@ _guided_commit() { _GUIDED_HIST="$(hist_commit "$_GUIDED_HIST" "$_GUIDED_STATE")
 _guided_restore() { _GUIDED_STATE="$(hist_present "$_GUIDED_HIST")"; }
 
 # _guided_reset_section <state> <section> — clear every overridden field in the
-# named menu section (Host / Users), leaving other sections and the seeded
-# identity (locale/timezone/keymap — not menu rows) untouched. Returns one
-# resulting state, so the caller commits it as a single undo step. Pure:
-# menu_rows JSON → state JSON.
+# named menu section (Host / Users), leaving other sections and any seeded
+# non-row state (e.g. mode) untouched. Returns one resulting state, so the
+# caller commits it as a single undo step. Pure: menu_rows JSON → state JSON.
 _guided_reset_section() {
   local state="$1" section="$2" path
   while IFS= read -r path; do
@@ -762,7 +802,7 @@ _guided_menu_loop() {
   # Seed the snapshot stack from the launch state; reset-all returns here.
   _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
   while true; do
-    mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE")
+    mapfile -t lines < <(_guided_menu_lines "$_GUIDED_STATE" "$_GUIDED_BASELINE")
     lines+=("Disk layout ▸ choose preset")
     lines+=("Disks · install disk: ${_GUIDED_DISK:-(none — pick one)}")
     lines+=("Add sysctl ▸ key=value")
@@ -787,6 +827,7 @@ _guided_menu_loop() {
       if [[ "$confirm" == "RESET" ]]; then
         _GUIDED_STATE="$(cfgstate_new)"
         _guided_set_identity
+        _guided_seed_primary_user
         _guided_commit # Reset-all is one undoable step
       fi
       ;;
@@ -794,6 +835,9 @@ _guided_menu_loop() {
     "Disk layout"*) _guided_edit_layout && _guided_commit ;;
     *"install disk:"*) _guided_edit_disk ;; # disk lives outside Config State
     *"hostname:"*) _guided_edit_hostname && _guided_commit ;;
+    *"locale:"*) _guided_edit_locale && _guided_commit ;;
+    *"timezone:"*) _guided_edit_timezone && _guided_commit ;;
+    *"keymap:"*) _guided_edit_keymap && _guided_commit ;;
     *"filesystem:"*) _guided_edit_filesystem && _guided_commit ;;
     *"encryption:"*) _guided_edit_encryption && _guided_commit ;;
     *"impermanence:"*) _guided_edit_impermanence && _guided_commit ;;
@@ -820,7 +864,7 @@ _guided_menu_loop() {
     Proceed*)
       # multi resolves its disks at accept; single needs one picked here.
       _GUIDED_ACTION="proceed"
-      [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] && return 0
+      [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] && return 0
       [[ -n "$_GUIDED_DISK" ]] && return 0
       printf '  Pick an install disk first.\n' >&2
       ;;
@@ -828,7 +872,7 @@ _guided_menu_loop() {
     # bakes disks like Proceed, so it has the same pick-a-disk gate.
     "Save profile"*) _GUIDED_ACTION="save"; return 0 ;;
     "Export config"*)
-      [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] \
+      [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] \
         && { _GUIDED_ACTION="export"; return 0; }
       [[ -n "$_GUIDED_DISK" ]] && { _GUIDED_ACTION="export"; return 0; }
       printf '  Pick an install disk first.\n' >&2
@@ -850,7 +894,7 @@ _guided_menu_loop() {
 # ACCEPT before the layout is accepted (issue 04). Emits the assignment on
 # stdout; non-zero on any failure.
 _guided_resolve_assignment() {
-  local mode; mode="$(cfgstate_get "$_GUIDED_STATE" mode)"
+  local mode; mode="$(cfgstate_get "$(_guided_effective)" mode)"
   if [[ "$mode" == "multi" ]]; then
     local n; n="$(skeleton_total_disks "$_GUIDED_STATE")"
     local -a disks
@@ -878,11 +922,15 @@ guided_build() {
   _GUIDED_DISK=""
   _guided_set_identity
   _guided_users_reset
+  _guided_seed_primary_user
 
   if ((_GUIDED_REPLAY)); then
     # Each edit reads its own seam key; an absent answer is a no-op, so the
     # replay file declares only the fields it wants (the rest keep defaults).
     _guided_edit_hostname
+    _guided_edit_locale
+    _guided_edit_timezone
+    _guided_edit_keymap
     _guided_edit_layout
     _guided_edit_filesystem
     _guided_edit_encryption
@@ -909,7 +957,7 @@ guided_build() {
     _guided_create_user
     _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
-    [[ "$(cfgstate_get "$_GUIDED_STATE" mode)" == "multi" ]] || _guided_edit_disk
+    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] || _guided_edit_disk
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
@@ -925,7 +973,7 @@ guided_build() {
     action="${_GUIDED_ACTION:-proceed}"
   fi
   [[ -n "$action" ]] || action="proceed"
-  hostname="$(cfgstate_get "$_GUIDED_STATE" system.hostname)"
+  hostname="$(cfgstate_get "$(_guided_effective)" system.hostname)"
 
   # Save is device-less — no disks, no install. Write the committed profile +
   # materialize ad-hoc User Profiles, then stop.
@@ -941,7 +989,7 @@ guided_build() {
         return 1
       }
     done
-    guided_save_host_profile "$_GUIDED_STATE" "$name" || return 1
+    guided_save_host_profile "$(_guided_effective)" "$name" || return 1
     _guided_materialize_users
     info "Saved hosts/${name}/profile.jsonc — install via --profile ${name}." >&2
     return "$_GUIDED_ACTION_DONE"
@@ -949,7 +997,7 @@ guided_build() {
 
   # Proceed + Export both bake the picked disks onto the layout.
   assignment="$(_guided_resolve_assignment)" || return 1
-  effective="$(emit_effective "$_GUIDED_STATE" "$assignment")" || return 1
+  effective="$(emit_effective "$(_guided_effective)" "$assignment")" || return 1
 
   # Export writes the device-baked config to an operator path (default /root,
   # which is RAM on the live ISO), never under hosts/. No install.
@@ -965,7 +1013,7 @@ guided_build() {
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
-  mode="$(cfgstate_get "$_GUIDED_STATE" mode)"
+  mode="$(cfgstate_get "$(_guided_effective)" mode)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
   if [[ "$mode" == "multi" ]]; then

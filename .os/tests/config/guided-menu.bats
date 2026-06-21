@@ -183,6 +183,36 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row post_install.security  | jq -e '.section == "Advanced"'
 }
 
+# ── baseline layer: a seeded value shows without ●; an override flips it ────
+# (issue 01) menu_rows takes an optional baseline (the seed); the row VALUE is
+# baseline*override (override wins), but ● reflects the override map only — so a
+# fresh, seeded run shows the value with no ● until the operator edits it.
+
+@test "menu_rows: a baseline value shows without ●; an override flips ●" {
+  baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+
+  run menu_rows "$(cfgstate_new)" "$baseline"        # seed only, no override
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.hostname | jq -e '.value == "eterniox"'
+  echo "$output" | row system.hostname | jq -e '.overridden == false'
+
+  override="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
+  run menu_rows "$override" "$baseline"              # operator override wins
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.hostname | jq -e '.value == "myhost"'
+  echo "$output" | row system.hostname | jq -e '.overridden == true'
+}
+
+# ── locale / timezone / keymap are editable Host rows (issue 01) ───────────
+
+@test "menu_rows: locale / timezone / keymap surface as Host rows" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.locale   | jq -e '.section == "Host"'
+  echo "$output" | row system.timezone | jq -e '.section == "Host"'
+  echo "$output" | row system.keymap   | jq -e '.section == "Host"'
+}
+
 # ── the menu is split Host / Users (mirrors the saved artifacts) ───────────
 
 @test "menu_rows: the menu carries both a Host and a Users section" {

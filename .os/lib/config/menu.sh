@@ -11,8 +11,14 @@
 # Pure: JSON-in/JSON-out, no TTY.
 #
 # Public API:
-#   menu_rows <state>  → JSON array of rows [{section,field,label,value,
-#                        overridden}]
+#   menu_rows <override> [<baseline>]  → JSON array of rows [{section,field,
+#                        label,value,overridden}]
+#
+# <override> is the operator's sparse override map; <baseline> (optional, the
+# seeded defaults) supplies a row's displayed value when the operator hasn't
+# overridden it. The row VALUE is baseline*override (override wins, jq `*`), but
+# `overridden` reflects the OVERRIDE map only — so a seeded-but-untouched field
+# shows its value with no ● until the operator edits it.
 # =============================================================================
 
 # shellcheck source=./state.sh
@@ -23,6 +29,9 @@
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
   "Host|system.hostname|hostname|"
+  "Host|system.locale|locale|en_US.UTF-8"
+  "Host|system.timezone|timezone|Europe/Bucharest"
+  "Host|system.keymap|keymap|us"
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
@@ -45,13 +54,17 @@ _MENU_FIELDS=(
   "Users|users|users|"
 )
 
-# menu_rows <state> — the menu rows for <state> on stdout (JSON array).
+# menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
 menu_rows() {
-  local state="$1" spec section path label default value overridden
+  local state="$1" baseline="${2:-{\}}"
+  local spec section path label default value overridden
   local rows=()
+  # The displayed value is baseline*override (override wins); ● is override-only.
+  local merged; merged="$(jq -n --argjson b "$baseline" --argjson o "$state" \
+    '$b * $o')"
   # Effective filesystem governs which Disks rows surface: Impermanence needs
   # native snapshots, so it is hidden for ext4 / xfs (ADR 0040).
-  local fs; fs="$(cfgstate_get "$state" filesystem)"
+  local fs; fs="$(cfgstate_get "$merged" filesystem)"
   [[ -n "$fs" ]] || fs="zfs"
   for spec in "${_MENU_FIELDS[@]}"; do
     IFS='|' read -r section path label default <<<"$spec"
@@ -65,7 +78,7 @@ menu_rows() {
       getpath($p | split(".")) as $v
       | if   $v == null         then empty
         elif ($v | type) == "array" then ($v | join(", "))
-        else ($v | tostring) end' <<<"$state")"
+        else ($v | tostring) end' <<<"$merged")"
     [[ -n "$value" ]] || value="$default"
     if cfgstate_is_overridden "$state" "$path"; then
       overridden=true

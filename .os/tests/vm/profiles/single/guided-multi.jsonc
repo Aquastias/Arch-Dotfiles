@@ -18,7 +18,7 @@
     "system": {
       "hostname": "vm-guided-multi",
       "locale":   "en_US.UTF-8",
-      "timezone": "UTC",
+      "timezone": "Europe/Bucharest",
       "keymap":   "us"
     },
     "options": {
