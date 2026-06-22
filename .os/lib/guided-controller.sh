@@ -198,3 +198,23 @@ guided_ctl_back() {
   if [[ "$(nav_screen "$nav")" == "top" ]]; then echo abort; return; fi
   _ctl_write_nav "$(nav_back "$nav")"; echo render
 }
+
+# _guided_directive_to_action <directive> <entry> — map a controller directive
+# to the fzf action string a `transform` bind executes. <entry> is the absolute
+# path of the bind entry script. Pure (string → string); a terminal action
+# writes the chosen verb to $GUIDED_RESULT_FILE then accepts (fzf exits), an
+# edit-oneshot hands the tty to the existing one-shot helper then re-lists, and
+# render re-lists in place (no new fzf, no flash).
+_guided_directive_to_action() {
+  local d="$1" entry="$2"
+  case "$d" in
+  render)           printf 'reload(bash %q list)' "$entry" ;;
+  abort)            printf 'abort' ;;
+  noop)             printf 'ignore' ;;
+  "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
+                      "${d#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
+  "edit-oneshot "*) printf 'execute(bash %q oneshot %q)+reload(bash %q list)' \
+                      "$entry" "${d#edit-oneshot }" "$entry" ;;
+  *)                printf 'ignore' ;;
+  esac
+}

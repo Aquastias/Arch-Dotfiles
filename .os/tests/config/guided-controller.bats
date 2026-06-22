@@ -155,3 +155,29 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
+
+# ── directive → fzf action translation (pure) ────────────────────────────────
+
+@test "directive→action: render re-lists in place via reload" {
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+}
+
+@test "directive→action: abort and noop map to fzf primitives" {
+  [ "$(_guided_directive_to_action abort /x/entry.sh)" = "abort" ]
+  [ "$(_guided_directive_to_action noop /x/entry.sh)" = "ignore" ]
+}
+
+@test "directive→action: terminal writes the verb to the result file + accepts" {
+  export GUIDED_RESULT_FILE="$TEST_DIR/result"
+  run _guided_directive_to_action "terminal proceed" /x/entry.sh
+  echo "$output" | grep -q "proceed"
+  echo "$output" | grep -q "$TEST_DIR/result"
+  echo "$output" | grep -q "+accept"
+}
+
+@test "directive→action: edit-oneshot hands off then re-lists" {
+  run _guided_directive_to_action "edit-oneshot system.hostname" /x/entry.sh
+  echo "$output" | grep -q "execute(bash /x/entry.sh oneshot system.hostname)"
+  echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+}
