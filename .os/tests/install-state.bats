@@ -300,3 +300,87 @@ setup_writer_globals() {
   [ "$(jq -r .timezone     "$STATE")" = "UTC" ]
   [ "$(jq -r '.ssh.enabled' "$STATE")" = "false" ]
 }
+
+# ── credential resolution (.secrets / .guided_passwords) ─────────────────────
+
+@test "credential host: returns .secrets.host when set" {
+  echo '{"secrets":{"host":"/s/host.json"}}' > "$STATE"
+  run install_state_credential_path "$STATE" host
+  [ "$status" -eq 0 ]
+  [ "$output" = "/s/host.json" ]
+}
+
+@test "credential host: falls back to .guided_passwords.host" {
+  echo '{"guided_passwords":{"host":"/g/host.json"}}' > "$STATE"
+  run install_state_credential_path "$STATE" host
+  [ "$output" = "/g/host.json" ]
+}
+
+@test "credential host: .secrets wins over .guided_passwords" {
+  echo '{"secrets":{"host":"/s/h"},"guided_passwords":{"host":"/g/h"}}' \
+    > "$STATE"
+  run install_state_credential_path "$STATE" host
+  [ "$output" = "/s/h" ]
+}
+
+@test "credential user: returns .secrets.users[name]" {
+  echo '{"secrets":{"users":{"alice":"/s/a.json"}}}' > "$STATE"
+  run install_state_credential_path "$STATE" user alice
+  [ "$output" = "/s/a.json" ]
+}
+
+@test "credential user: falls back to .guided_passwords.users[name]" {
+  echo '{"guided_passwords":{"users":{"alice":"/g/a.json"}}}' > "$STATE"
+  run install_state_credential_path "$STATE" user alice
+  [ "$output" = "/g/a.json" ]
+}
+
+@test "credential: empty output when neither key is set" {
+  echo '{}' > "$STATE"
+  run install_state_credential_path "$STATE" host
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "credential: empty output when state file is missing" {
+  run install_state_credential_path "$TEST_DIR/nope.json" host
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "credential: bad role returns non-zero" {
+  echo '{}' > "$STATE"
+  run install_state_credential_path "$STATE" bogus
+  [ "$status" -ne 0 ]
+}
+
+# ── SOPS activation gate (only .secrets.*, never .guided_passwords.*) ─────────
+
+@test "activates_sops: true when .secrets.host set" {
+  echo '{"secrets":{"host":"/s/h"}}' > "$STATE"
+  run install_state_activates_sops "$STATE"
+  [ "$status" -eq 0 ]
+}
+
+@test "activates_sops: true when .secrets.users non-empty" {
+  echo '{"secrets":{"users":{"alice":"/s/a"}}}' > "$STATE"
+  run install_state_activates_sops "$STATE"
+  [ "$status" -eq 0 ]
+}
+
+@test "activates_sops: false for guided_passwords only (no SOPS)" {
+  echo '{"guided_passwords":{"host":"/g/h","users":{"a":"/g/a"}}}' > "$STATE"
+  run install_state_activates_sops "$STATE"
+  [ "$status" -ne 0 ]
+}
+
+@test "activates_sops: false for empty .secrets.users map" {
+  echo '{"secrets":{"users":{}}}' > "$STATE"
+  run install_state_activates_sops "$STATE"
+  [ "$status" -ne 0 ]
+}
+
+@test "activates_sops: false when state file is missing" {
+  run install_state_activates_sops "$TEST_DIR/nope.json"
+  [ "$status" -ne 0 ]
+}

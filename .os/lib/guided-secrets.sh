@@ -55,3 +55,33 @@ guided_write_passwords() {
     install_state_update "$state" ".guided_passwords.users[\"${name}\"]" "$enc"
   done < <(jq -r '(.users // {}) | keys[]' <<<"$secrets")
 }
+
+# tmpfs dir owned by this module, holding the decrypted guided password files
+# for the life of the install (the chroot + Runner copy from it). Cleared by
+# guided_secrets_cleanup.
+_GUIDED_SECRETS_DIR=""
+
+# guided_persist_passwords <state-file>
+# Symmetric with secrets_persist_state: when the Guided Installer staged a
+# password manifest (GUIDED_SECRETS_MANIFEST), materialize it into a tmpfs dir
+# this module owns and record the paths under .guided_passwords.* in
+# <state-file>. No-op when no manifest. Pair with guided_secrets_cleanup.
+# Must run after /mnt is mounted (the state file lives under /mnt).
+guided_persist_passwords() {
+  local state="$1"
+  [[ -n "${GUIDED_SECRETS_MANIFEST:-}" && -s "${GUIDED_SECRETS_MANIFEST}" ]] \
+    || return 0
+  _GUIDED_SECRETS_DIR="$(mktemp -d /run/guided-secrets.XXXXXX)"
+  guided_write_passwords "$(cat "${GUIDED_SECRETS_MANIFEST}")" \
+    "${_GUIDED_SECRETS_DIR}" "${state}"
+}
+
+# guided_secrets_cleanup
+# Removes the staged plaintext guided passwords once the chroot + Runner have
+# consumed them. No-op when nothing was staged. (Live-ISO /run is RAM, but
+# clear it eagerly all the same.)
+guided_secrets_cleanup() {
+  [[ -n "${_GUIDED_SECRETS_DIR:-}" ]] || return 0
+  rm -rf "${_GUIDED_SECRETS_DIR}"
+  _GUIDED_SECRETS_DIR=""
+}

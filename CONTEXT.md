@@ -301,6 +301,32 @@ config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner
 live-ISO concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and
 the single `arch-chroot` invocation that stages and runs `configure.sh`.
 
+### Chroot Staging Manifest
+The declared set of `lib/` files the chroot phase copies into the new root,
+held as data in `lib/chroot.sh` (`_CHROOT_STAGE_LIBCHROOT` flat siblings of
+`lib/chroot/*` under `/root/lib-chroot`; `_CHROOT_STAGE_EXTRAS_LIB` helpers
+under `/root/lib`) and materialized by one `_chroot_stage` copy verb — instead
+of a run of imperative `cp` lines. Because the dependency set is explicit, a
+bats check (`tests/chroot/chroot-staging.bats`) asserts every manifest source
+still exists and that every `$_LIB_DIR/<name>.sh` sibling a chroot script
+sources is staged. Makes the lib-foldering lockstep fail at bats time, not in
+the VM: a renamed/moved `lib/` file breaks the manifest's source path and the
+check catches it.
+
+### Install State
+`lib/install-state.sh`. Sole owner of the `install-state.json` wire format that
+carries config from the host phase into `arch-chroot` (`install_state_write`
+host-side, `install_state_load` chroot-side; a schema list keeps the two in
+sync). Also owns the credential keys `.secrets.*` (SOPS-backed) and
+`.guided_passwords.*` (the Guided no-SOPS injector): `install_state_credential_path`
+resolves a host/user role to its decrypted-file path with the precedence
+`.secrets` then `.guided_passwords`, and `install_state_activates_sops` is the
+`.secrets`-only gate that triggers the SOPS Runtime Service (ADR 0025) — the
+Guided key deliberately never does. Consumers (the Chroot Configuration
+Module's host-secrets resolver, the Runner's user-secrets resolver) call these
+rather than re-encoding the jq, so the precedence and the SOPS-gate invariant
+live in one place.
+
 ### Bootloader Module
 The seam selecting between Bootloader Adapters. The active adapter is chosen by
 `options.bootloader` in the Host Profile (`systemd-boot` or `grub`). The chroot

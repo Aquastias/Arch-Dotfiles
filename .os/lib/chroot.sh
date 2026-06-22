@@ -16,6 +16,61 @@
 # via env var, then runs /root/lib-chroot/configure.sh.
 # =============================================================================
 
+# Install State owns the credential-key resolution + SOPS gate. Source it if a
+# standalone unit test pulled chroot.sh in without the installer's load order.
+# shellcheck source=./install-state.sh
+[[ "$(type -t install_state_credential_path)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/install-state.sh"
+# Shared confirmed-secret reader used by collect_passwords.
+# shellcheck source=./prompt.sh
+[[ "$(type -t prompt_secret)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/prompt.sh"
+
+# =============================================================================
+# CHROOT STAGING MANIFEST
+# =============================================================================
+# The lib/ files the chroot phase needs are declared here as data, so the
+# dependency set is explicit and lockstep-checkable (tests/chroot/chroot-
+# staging.bats) instead of buried in a run of cp lines. Each entry is
+# "<src-rel-to-SCRIPT_DIR>|<dst-rel-to-stage-root>". A renamed or moved lib
+# file then fails the bats check, not the VM — the lib-foldering lockstep made
+# visible. Keep in step with the `source` lines in lib/chroot/*.
+
+# Staged flat into /root/lib-chroot, as siblings of the lib/chroot/* tree the
+# chroot scripts source by bare name.
+_CHROOT_STAGE_LIBCHROOT=(
+  "lib/install-state.sh|install-state.sh"
+  "lib/packages/kernel.sh|kernel.sh"
+  "lib/packages/microcode.sh|microcode.sh"
+  "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
+  "lib/boot/stray-kernel.sh|stray-kernel.sh"
+  "lib/zfs/verify.sh|verify.sh"
+  "lib/impermanence-common.sh|impermanence-common.sh"
+  "lib/grub-common.sh|grub-common.sh"
+)
+
+# Staged into /root/lib so extras/ scripts can source them (structure kept).
+_CHROOT_STAGE_EXTRAS_LIB=(
+  "lib/common.sh|common.sh"
+  "lib/jsonc.sh|jsonc.sh"
+  "lib/globals.sh|globals.sh"
+  "lib/config/categorized-list.sh|config/categorized-list.sh"
+  "lib/chroot/extras-common.sh|chroot/extras-common.sh"
+)
+
+# _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"
+# Materializes manifest entries: copies each src (relative to SCRIPT_DIR) to
+# dst-root/dst-rel, creating parent dirs. The single copy path for staging.
+_chroot_stage() {
+  local dst_root="$1"; shift
+  local entry src dst
+  for entry in "$@"; do
+    IFS='|' read -r src dst <<< "$entry"
+    mkdir -p "${dst_root}/$(dirname "$dst")"
+    cp "${SCRIPT_DIR}/${src}" "${dst_root}/${dst}"
+  done
+}
+
 # =============================================================================
 # FSTAB WRITERS
 # =============================================================================
@@ -140,27 +195,6 @@ collect_passwords() {
   # User passwords are handled by the profiles runner with a default password.
   local result='{}'
 
-  _prompt_password() {
-    local label="$1"
-    local pw1 pw2
-    while true; do
-      read -rsp "  Password for ${label}: " pw1 </dev/tty
-      echo >&2
-      read -rsp "  Confirm for ${label}: " pw2 </dev/tty
-      echo >&2
-      if [[ -z "$pw1" ]]; then
-        echo "  Cannot be empty — try again." >&2
-        continue
-      fi
-      if [[ "$pw1" != "$pw2" ]]; then
-        echo "  Passwords do not match — try again." >&2
-        continue
-      fi
-      printf '%s' "$pw1"
-      return
-    done
-  }
-
   if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
     # Default per CONTEXT.md: user passwords are hardcoded to "12345".
     # Root follows the same convention in unattended mode so the test
@@ -176,8 +210,9 @@ collect_passwords() {
   echo "━━━  Set root password  ━━━" >&2
   echo "" >&2
 
+  # Shared confirmed-secret reader (lib/prompt.sh).
   local root_pw
-  root_pw="$(_prompt_password "root")"
+  prompt_secret root_pw "Password for root"
   result="$(printf '%s' "$result" | jq --arg pw "$root_pw" '. + {root: $pw}')"
   printf '%s' "$result"
 }
@@ -186,11 +221,10 @@ _chroot_resolve_host_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
   local raw_path
-  # SOPS-decrypted secrets (.secrets.host) or the Guided Installer's no-SOPS
-  # passwords (.guided_passwords.host, issue 07) — same file shape, but the
-  # guided key does not gate SOPS-program activation (ADR 0025).
-  raw_path="$(jq -r \
-    '.secrets.host // .guided_passwords.host // empty' "$host_state")"
+  # The .secrets / .guided_passwords precedence lives in the Install State
+  # module — the schema's owner — not re-encoded here (ADR 0025 gate stays
+  # there too).
+  raw_path="$(install_state_credential_path "$host_state" host)"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
   cp "$raw_path" "${MOUNT_ROOT}/root/lib-chroot/host-secrets.json"
   printf '%s' "/root/lib-chroot/host-secrets.json"
@@ -246,16 +280,7 @@ configure_system() {
     rm -rf "${MOUNT_ROOT}/root/extras"
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.
-    mkdir -p "${MOUNT_ROOT}/root/lib"
-    cp "${SCRIPT_DIR}/lib/common.sh"   "${MOUNT_ROOT}/root/lib/common.sh"
-    cp "${SCRIPT_DIR}/lib/jsonc.sh"    "${MOUNT_ROOT}/root/lib/jsonc.sh"
-    cp "${SCRIPT_DIR}/lib/globals.sh"  "${MOUNT_ROOT}/root/lib/globals.sh"
-    mkdir -p "${MOUNT_ROOT}/root/lib/config"
-    cp "${SCRIPT_DIR}/lib/config/categorized-list.sh" \
-       "${MOUNT_ROOT}/root/lib/config/categorized-list.sh"
-    mkdir -p "${MOUNT_ROOT}/root/lib/chroot"
-    cp "${SCRIPT_DIR}/lib/chroot/extras-common.sh" \
-       "${MOUNT_ROOT}/root/lib/chroot/extras-common.sh"
+    _chroot_stage "${MOUNT_ROOT}/root/lib" "${_CHROOT_STAGE_EXTRAS_LIB[@]}"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
     info "Copied extras/ → /root/extras/"
   else
@@ -277,24 +302,10 @@ configure_system() {
   root_pw="$(printf '%s' "$passwords_json" | jq -r '.root')"
 
   # ── Stage Chroot Configuration Module ───────────────────────────────────
+  # lib/chroot/ as a tree, plus the flat siblings declared in the manifest.
   rm -rf "${MOUNT_ROOT}/root/lib-chroot"
   cp -r "${SCRIPT_DIR}/lib/chroot" "${MOUNT_ROOT}/root/lib-chroot"
-  cp "${SCRIPT_DIR}/lib/install-state.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/install-state.sh"
-  cp "${SCRIPT_DIR}/lib/packages/kernel.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/kernel.sh"
-  cp "${SCRIPT_DIR}/lib/packages/microcode.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/microcode.sh"
-  cp "${SCRIPT_DIR}/lib/boot/esp-kernel-sync.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/esp-kernel-sync.sh"
-  cp "${SCRIPT_DIR}/lib/boot/stray-kernel.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/stray-kernel.sh"
-  cp "${SCRIPT_DIR}/lib/zfs/verify.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/verify.sh"
-  cp "${SCRIPT_DIR}/lib/impermanence-common.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/impermanence-common.sh"
-  cp "${SCRIPT_DIR}/lib/grub-common.sh" \
-     "${MOUNT_ROOT}/root/lib-chroot/grub-common.sh"
+  _chroot_stage "${MOUNT_ROOT}/root/lib-chroot" "${_CHROOT_STAGE_LIBCHROOT[@]}"
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
   # ── Write install-state.json via the Install State module ────────────────

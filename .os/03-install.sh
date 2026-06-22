@@ -120,6 +120,7 @@ source_module() {
 }
 
 source_module "${SCRIPT_DIR}/lib/common.sh"
+source_module "${SCRIPT_DIR}/lib/prompt.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/module.sh"
 source_module "${SCRIPT_DIR}/lib/packages/kernel.sh"
 source_module "${SCRIPT_DIR}/lib/packages/microcode.sh"
@@ -129,6 +130,7 @@ source_module "${SCRIPT_DIR}/lib/config/accessors.sh"
 source_module "${SCRIPT_DIR}/lib/install-state.sh"
 source_module "${SCRIPT_DIR}/lib/config/lifecycle.sh"
 source_module "${SCRIPT_DIR}/lib/secrets.sh"
+source_module "${SCRIPT_DIR}/lib/guided-secrets.sh"
 source_module "${SCRIPT_DIR}/lib/config/layers.sh"
 source_module "${SCRIPT_DIR}/lib/config/profile.sh"
 source_module "${SCRIPT_DIR}/lib/layout/dispatch.sh"
@@ -211,16 +213,11 @@ main() {
   # ── Persist secrets state now that /mnt is mounted ────────────────────────
   secrets_persist_state
 
-  # Guided no-SOPS passwords (issue 07): the Guided Installer staged a decrypted
-  # password manifest; persist it into install-state under .guided_passwords.*
-  # (a key that, unlike .secrets.*, does NOT activate the SOPS runtime program).
-  # The chroot host-secrets resolver + the Runner user-secrets resolver read it.
-  if [[ -n "${GUIDED_SECRETS_MANIFEST:-}" && -s "${GUIDED_SECRETS_MANIFEST}" ]]; then
-    GUIDED_SECRETS_DIR="$(mktemp -d /run/guided-secrets.XXXXXX)"
-    source "${OS_DIR}/lib/guided-secrets.sh"
-    guided_write_passwords "$(cat "${GUIDED_SECRETS_MANIFEST}")" \
-      "${GUIDED_SECRETS_DIR}" "${INSTALL_STATE:-/mnt/install-state.json}"
-  fi
+  # Guided no-SOPS passwords (issue 07): persist the staged password manifest
+  # into install-state under .guided_passwords.* (a key that, unlike .secrets.*,
+  # does NOT activate the SOPS runtime program). Symmetric with
+  # secrets_persist_state; the chroot + Runner credential resolvers read it.
+  guided_persist_passwords "${INSTALL_STATE:-/mnt/install-state.json}"
 
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
@@ -232,9 +229,8 @@ main() {
   # ── Profiles runner (host/user configs) ───────────────────────────────────
   run_profiles
 
-  # Wipe the staged plaintext guided passwords once the Runner has consumed them
-  # (the live ISO's /run is RAM, but clear it eagerly all the same).
-  [[ -n "${GUIDED_SECRETS_DIR:-}" ]] && rm -rf "${GUIDED_SECRETS_DIR}"
+  # Wipe the staged plaintext guided passwords now the Runner has consumed them.
+  guided_secrets_cleanup
 
   # ── Data-pool ownership (after users/groups exist, pools still mounted) ───
   # Makes /data pools writable by their owners + adds ~/Disks/<pool> symlinks

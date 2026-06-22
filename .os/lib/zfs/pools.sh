@@ -26,6 +26,11 @@ if ! declare -p ROLLBACK_DATASETS >/dev/null 2>&1; then
   source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
 fi
 
+# Shared confirmed-secret reader used by collect_enc_passphrase.
+# shellcheck source=../prompt.sh
+[[ "$(type -t prompt_secret)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../prompt.sh"
+
 # =============================================================================
 # FALLBACK ZFS INSTALL
 # =============================================================================
@@ -104,28 +109,9 @@ collect_enc_passphrase() {
        "Losing it means losing all data."
   echo ""
 
-  local pw1 pw2
-  while true; do
-    read -rsp "  ZFS passphrase        : " pw1 </dev/tty
-    echo >&2
-    read -rsp "  Confirm passphrase    : " pw2 </dev/tty
-    echo >&2
-    if [[ -z "$pw1" ]]; then
-      warn "Passphrase cannot be empty."
-      continue
-    fi
-    if [[ "${#pw1}" -lt 8 ]]; then
-      warn "Passphrase must be at least 8 characters."
-      continue
-    fi
-    if [[ "$pw1" != "$pw2" ]]; then
-      warn "Passphrases do not match — try again."
-      continue
-    fi
-    break
-  done
-
-  ZFS_PASSPHRASE="$pw1"
+  # Shared confirmed-secret reader (lib/prompt.sh). ZFS enforces ≥8 at pool
+  # creation; we pre-check here for a friendlier retry.
+  prompt_secret ZFS_PASSPHRASE "ZFS passphrase" 8
   info "Passphrase set. It will be applied to all encrypted pools."
 }
 

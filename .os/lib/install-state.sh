@@ -123,6 +123,50 @@ install_state_update() {
   mv "$tmp" "$path"
 }
 
+# =============================================================================
+# Credential resolution — the .secrets / .guided_passwords keys
+# =============================================================================
+# These keys carry filesystem paths to *decrypted* secret files staged in
+# tmpfs during install. Two producers write them: the Secrets Module
+# (.secrets.*, SOPS-backed) and the Guided Installer's no-SOPS injector
+# (.guided_passwords.*). Both belong to this wire format, so their read
+# precedence and the SOPS-activation gate live here — the schema's owner —
+# instead of being re-encoded as raw jq at every consumer (chroot.sh,
+# profiles/runner.sh).
+
+# install_state_credential_path <state> host
+# install_state_credential_path <state> user <name>
+# Echoes the decrypted-secret file path for a credential role, applying the
+# precedence: SOPS .secrets.* first, then the Guided no-SOPS
+# .guided_passwords.*. Empty output when neither key is set or <state> is
+# absent. Pure: reads <state> only — existence + copy are the caller's job.
+install_state_credential_path() {
+  local state="$1" role="$2" name="${3:-}"
+  [[ -f "$state" ]] || return 0
+  case "$role" in
+    host)
+      jq -r '.secrets.host // .guided_passwords.host // empty' "$state" ;;
+    user)
+      jq -r --arg n "$name" \
+        '.secrets.users[$n] // .guided_passwords.users[$n] // empty' \
+        "$state" ;;
+    *)
+      echo "[install-state] bad credential role: $role" >&2; return 2 ;;
+  esac
+}
+
+# install_state_activates_sops <state>
+# True (0) iff the install records a SOPS secret — .secrets.host set or
+# .secrets.users non-empty. The Guided no-SOPS .guided_passwords.* key
+# deliberately does NOT activate the SOPS Runtime Service (ADR 0025).
+# Reads only; false (1) on a missing file.
+install_state_activates_sops() {
+  local state="$1"
+  [[ -f "$state" ]] || return 1
+  jq -e '(.secrets.host // "") != ""
+    or ((.secrets.users // {}) | length > 0)' "$state" >/dev/null 2>&1
+}
+
 # Builds the .persist sub-object from a merged host config JSON string.
 _install_state_persist_obj() {
   printf '%s' "${1:-{\}}" | jq '{
