@@ -38,6 +38,11 @@ FLOW_GRAPHICS_ARGS=(--graphics none)
 : "${BOOT_LOG_FILE:=${TEST_VM_DIR}/${VM_NAME}-boot.log}"
 : "${TIMEOUT_SEC:=1800}"
 : "${BOOT_TIMEOUT_SEC:=600}"
+# Fixture HTTP server (the secure profile's Test Age Key is fetched by the
+# Secrets Module at http://<gateway>:<port>/key.age during install). Ported from
+# the persistent flow; only stood up when a profile declares fixtures.
+: "${HTTP_PORT:=9876}"
+_HTTP_PID=""
 
 # Verify-block knobs (default off so a plain install profile behaves vanilla).
 : "${VERIFY_BOOT:=false}"
@@ -149,8 +154,31 @@ _stop_console_capture() {
   CONSOLE_WRAP_PID=""
 }
 
+# Stage declared fixtures into CACHE_DIR and serve it over HTTP on the libvirt
+# gateway, so the in-guest Secrets Module can fetch the Test Age Key
+# (http://<gateway>:<port>/key.age) during a secure install. No-op when the
+# profile declares no fixtures. Smoke-only (live python http.server).
+_start_fixture_http_server() {
+  _fixture_http_should_serve || return 0
+  _stage_fixture_files
+  python3 -m http.server "${HTTP_PORT}" \
+    --directory "${CACHE_DIR}" \
+    --bind "${LIBVIRT_GATEWAY}" \
+    >/dev/null 2>&1 &
+  _HTTP_PID=$!
+  info "Serving fixtures at http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/ (pid ${_HTTP_PID})."
+}
+
 # shellcheck disable=SC2329
-_on_signal() { _stop_console_capture; exit "$((128 + ${1:-2}))"; }
+_stop_fixture_http_server() {
+  [[ -n "${_HTTP_PID}" ]] || return 0
+  kill "${_HTTP_PID}" 2>/dev/null || true
+  _HTTP_PID=""
+}
+
+# shellcheck disable=SC2329
+_on_signal() { _stop_console_capture; _stop_fixture_http_server; \
+  exit "$((128 + ${1:-2}))"; }
 
 # Poll virsh ttyconsole until the serial PTY is assigned, so console capture
 # attaches to a live pty instead of dying on "PTY device is not yet assigned".
@@ -218,7 +246,7 @@ _run_boot_verify() {
 flow_test_deps() { _harness_ensure_deps script:util-linux; }
 
 flow_run() {
-  trap '_stop_console_capture' EXIT
+  trap '_stop_console_capture; _stop_fixture_http_server' EXIT
   trap '_on_signal 2'  INT
   trap '_on_signal 15' TERM
 
@@ -226,6 +254,10 @@ flow_run() {
   _ensure_libvirt_group
   _ensure_libvirtd
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
+
+  # Secure profiles fetch the Test Age Key over HTTP during install; stand the
+  # server up before the VM boots (no-op when no fixtures are declared).
+  _start_fixture_http_server
 
   section "Resolving Arch ISO"
   local iso; iso="$(core_resolve_iso "$ISO_DIR")"

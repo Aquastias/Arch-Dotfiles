@@ -1,0 +1,25 @@
+// VM smoke (issue 04): the host arch-secure profile — SOPS + impermanence + ZFS
+// native encryption on a 2-disk mirror — installed headlessly through the test
+// flow, exercising the object-form post_install.{security,backup} (ADR 0041).
+//   vm.sh --testing --profile headless/secure        (install-only)
+//
+// Install-only — NOT --verify-boot: a ZFS native-encrypted root prompts for the
+// passphrase at boot (keylocation=prompt) and the headless boot-verify cannot
+// type it (cf. single/guided-secure, impermanence/kde-encrypted). The smoke
+// asserts the secure stack assembles + installs to ===INSTALLER-EXIT-0===; the
+// daemons-enabled assertion is covered headlessly by single/guided-extras (same
+// resolver → Runner paru pass).
+//
+// host_profile arch-secure carries the object-form Security & Backup Extras
+// (firewalld + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg), which
+// install via the Primary User's (vm-test) paru pass. The test flow exports
+// INSTALL_ENC_PASSPHRASE='testtest' + SECRETS_AGE_PASSPHRASE='test'; the fixture
+// HTTP server serves the Test Age Key the Secrets Module fetches at
+// http://192.168.122.1:9876/key.age.
+{
+  "name": "arch-zfs-test-secure",
+  "hardware": { "disks": [40, 40], "ram_mb": 6144, "vcpus": 4 },
+  "timeouts": { "install": 4200 },
+  "host_profile": "arch-secure",
+  "fixtures": ["fixtures/key.age"]
+}

@@ -230,6 +230,16 @@ _vm_eject_cdroms() {
 # serve it (e.g. the secure profile's Test Age Key). Relative entries resolve
 # against VM_SCRIPT_DIR. Basenames must be unique and must not collide with the
 # installer 'run' script. Unset/empty array is a no-op.
+# _fixture_http_should_serve — true (0) iff any fixture is declared, so a flow
+# only stands up the fixture HTTP server when something needs serving. Same
+# unset/empty guard as _stage_fixture_files; pure (reads VM_FIXTURE_FILES only).
+_fixture_http_should_serve() {
+  local entries=("${VM_FIXTURE_FILES[@]:-}")
+  ((${#entries[@]} == 0)) && return 1
+  [[ -z "${entries[0]:-}" && ${#entries[@]} -eq 1 ]] && return 1
+  return 0
+}
+
 _stage_fixture_files() {
   local entries=("${VM_FIXTURE_FILES[@]:-}")
   ((${#entries[@]} == 0)) && return 0
