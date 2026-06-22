@@ -59,6 +59,9 @@
 # shellcheck source=lib/guided-save.sh
 [[ "$(type -t guided_save_host_profile)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-save.sh"
+# shellcheck source=lib/guided-controller.sh
+[[ "$(type -t guided_ctl_list)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-controller.sh"
 
 # =============================================================================
 # SELECTION SEAM
@@ -953,6 +956,80 @@ _guided_category_loop() {
   done
 }
 
+# =============================================================================
+# PERSISTENT-FZF FRONT-END (ADR 0042) — opt-in via GUIDED_PERSISTENT=1
+# =============================================================================
+# The single-long-lived-fzf path. Until the slice-01 VM/HITL gate validates the
+# live draw, the proven _guided_menu_loop above stays the default; setting
+# GUIDED_PERSISTENT=1 routes guided_build through guided_run_persistent instead.
+# The two functions below are the live glue — UNVERIFIED by bats (they need fzf
+# + a tty); the LOGIC they lean on (controller, setters, nav, translation) is
+# unit-tested in tests/config/guided-*.bats.
+
+# _guided_oneshot_edit <field> — the slice-01 bridge: load the Config State from
+# $GUIDED_STATE_FILE into _GUIDED_STATE, run the EXISTING one-shot edit helper
+# for <field> (interactive guided_prompt/guided_select), write the result back.
+# Invoked by guided-fzf-entry.sh under fzf's execute() for the text + multi
+# fields and the Disks layout/persist actions (slices 02/03 make these native).
+_guided_oneshot_edit() {
+  local field="$1"
+  _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
+  case "$field" in
+  system.hostname)          _guided_edit_hostname ;;
+  system.locale)            _guided_edit_locale ;;
+  system.timezone)          _guided_edit_timezone ;;
+  system.keymap)            _guided_edit_keymap ;;
+  options.swap_size)        _guided_edit_swap_size ;;
+  options.esp_size)         _guided_edit_esp_size ;;
+  options.age_key_url)      _guided_edit_age_key_url ;;
+  sysctl)                   _guided_add_sysctl ;;
+  packages.extra)           _guided_add_package ;;
+  options.kernel)           _guided_edit_kernel ;;
+  environment.desktop)      _guided_edit_desktop ;;
+  environment.gpu)          _guided_edit_gpu ;;
+  options.mirror_countries) _guided_edit_mirror_countries ;;
+  system_programs)          _guided_add_system_program ;;
+  users)                    _guided_pick_users ;;
+  __layout__)               _guided_edit_layout ;;
+  __persist__)              _guided_add_persist ;;
+  *) : ;;
+  esac
+  printf '%s\n' "$_GUIDED_STATE" >"$GUIDED_STATE_FILE"
+}
+
+# guided_run_persistent — the ADR-0042 single-fzf front-end. Sets up the tmpfs
+# state files (mktemp under ${TMPDIR:-/tmp}, cleaned on RETURN), launches ONE
+# fzf whose enter/esc binds call lib/guided-fzf-entry.sh, then picks up the
+# operator's edits + chosen terminal action. Returns 0 on a terminal action
+# (sets _GUIDED_ACTION), 1 on abort. Single + multi disks resolve post-menu in
+# _guided_resolve_assignment, so the menu carries no disk screen.
+guided_run_persistent() {
+  export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE GUIDED_RESULT_FILE
+  GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
+  GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
+  GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
+  GUIDED_RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-result.XXXXXX")"
+  # shellcheck disable=SC2064
+  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE'" RETURN
+
+  printf '%s\n' "$_GUIDED_BASELINE" >"$GUIDED_BASELINE_FILE"
+  printf '%s\n' "$_GUIDED_STATE"    >"$GUIDED_STATE_FILE"
+  nav_new >"$GUIDED_NAV_FILE"
+  : >"$GUIDED_RESULT_FILE"
+
+  local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
+  guided_ctl_list | fzf --reverse --prompt='guided> ' \
+    --header="$_GUIDED_TOP_HEADER" \
+    --bind "enter:transform(bash $entry dispatch enter {})" \
+    --bind "esc:transform(bash $entry dispatch back {})" \
+    >/dev/null || true
+
+  _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
+  local action; action="$(<"$GUIDED_RESULT_FILE")"
+  [[ -n "$action" ]] || return 1
+  _GUIDED_ACTION="$action"
+}
+
 # _guided_guard_post_install — the terminal-action no-user guard (M5, ADR 0041).
 # The Security & Backup Extras install via the Primary User's paru pass, so a
 # non-empty selection on a userless host can never run. Reads the effective
@@ -996,6 +1073,10 @@ _guided_resolve_assignment() {
       || { error "guided: disk layout not accepted"; return 1; }
     printf '%s\n' "$assignment"
   else
+    # All disk resolution is post-menu (ADR 0042): the persistent front-end
+    # carries no install-disk row, so resolve the single disk here if the menu
+    # loop didn't already (the legacy loop sets it via the Disks row).
+    [[ -n "$_GUIDED_DISK" ]] || _guided_edit_disk
     [[ -n "$_GUIDED_DISK" ]] || { error "guided: no disk selected"; return 1; }
     jq -n --arg d "$_GUIDED_DISK" '{mode: "single", disk: $d}'
   fi
@@ -1058,6 +1139,8 @@ guided_build() {
     [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] || _guided_edit_disk
     ((_had_errexit)) && set -e
     eval "${_err_trap:-:}"
+  elif [[ "${GUIDED_PERSISTENT:-0}" == "1" ]]; then
+    guided_run_persistent || { error "guided: cancelled"; return 1; }
   else
     _guided_menu_loop || { error "guided: cancelled"; return 1; }
   fi
