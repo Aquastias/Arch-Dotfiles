@@ -77,10 +77,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.encryption" ]
 }
 
-@test "enter(category): a text field routes to edit-oneshot" {
+@test "enter(category): a text field opens the native query-line editor" {
   set_nav "$(nav_to_category Host)"
   run guided_ctl_enter "hostname: "
-  [ "$output" = "edit-oneshot system.hostname" ]
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.hostname" ]
 }
 
 @test "enter(category): a multi field routes to edit-oneshot" {
@@ -89,10 +91,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$output" = "edit-oneshot options.kernel" ]
 }
 
-@test "enter(category): Disk layout routes to edit-oneshot __layout__" {
+@test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_enter "Disk layout ▸ choose preset"
-  [ "$output" = "edit-oneshot __layout__" ]
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__layout__" ]
 }
 
 @test "enter(category): Back returns to the top screen" {
@@ -142,6 +146,48 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
+# ── disk-layout preset picker (native — no terminal drop, no disk-count) ──────
+
+@test "list(values __layout__): lists the disk-layout presets + Back" {
+  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  run guided_ctl_list
+  echo "$output" | grep -q "single"
+  echo "$output" | grep -q "os-mirror"
+  echo "$output" | grep -q "data-pools"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "enter(values __layout__): picking a preset applies the skeleton" {
+  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  run guided_ctl_enter "os-mirror"
+  [ "$output" = "render" ]
+  [ "$(jq -c '. != {}' "$GUIDED_STATE_FILE")" = "true" ]   # a skeleton landed
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+# ── text screen: typed INTO fzf's query line, never leaves the window ─────────
+
+@test "enter(text): a typed query commits the scalar + returns to the category" {
+  set_nav "$(nav_to_text Host system.hostname hostname)"
+  run guided_ctl_enter "current: (unset)" "myhost"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.system.hostname' "$GUIDED_STATE_FILE")" = "myhost" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "enter(text): an empty query leaves the value unchanged" {
+  set_nav "$(nav_to_text Host system.hostname hostname)"
+  run guided_ctl_enter "current: (unset)" ""
+  [ "$output" = "render" ]
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "enter(text): sysctl parses key=value from the query" {
+  set_nav "$(nav_to_text Options sysctl sysctl)"
+  run guided_ctl_enter "current: (unset)" "vm.swappiness=20"
+  [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
+}
+
 # ── back / abort ─────────────────────────────────────────────────────────────
 
 @test "back: at the top screen, aborts the whole menu" {
@@ -161,6 +207,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "directive→action: render re-lists in place via reload" {
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+}
+
+@test "directive→action: render also re-headers + re-prompts the screen" {
+  set_nav "$(nav_to_category Disks)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+  echo "$output" | grep -q "change-header(Enter edit"
+  echo "$output" | grep -q "change-prompt(Disks> )"
 }
 
 @test "directive→action: abort and noop map to fzf primitives" {
