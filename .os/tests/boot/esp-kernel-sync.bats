@@ -161,9 +161,72 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
   head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
   head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
-  # needed = 100 + 200 + 200 (largest) = 500
+  # needed = 100 + 200 + 200 (largest) = 500; ESP empty -> present = 0
   run esp_sync_space_ok "$ESP" "$BOOT" 1000
   [ "$status" -eq 0 ]
   run esp_sync_space_ok "$ESP" "$BOOT" 400
+  [ "$status" -ne 0 ]
+}
+
+@test "present_bytes = sizes of planned files already on the ESP" {
+  _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
+  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
+  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  # only the initramfs already exists on the ESP (the vmlinuz is new)
+  head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
+  run esp_sync_present_bytes "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  [ "$output" -eq 200 ]
+}
+
+@test "space_ok: a populated ESP does not false-abort a re-sync" {
+  _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
+  head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
+  head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
+  # steady state: the same images are already on the ESP (present = 300)
+  head -c 100 /dev/zero >"$ESP/vmlinuz-linux-lts"
+  head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
+  # needed = 500; free + present >= needed  =>  free >= 200.
+  # 250 used to fail the old free-only check (250 < 500); now it passes.
+  run esp_sync_space_ok "$ESP" "$BOOT" 250
+  [ "$status" -eq 0 ]
+  # a genuinely-too-small ESP still fails: 150 + 300 = 450 < 500.
+  run esp_sync_space_ok "$ESP" "$BOOT" 150
+  [ "$status" -ne 0 ]
+}
+
+# ── preflight guards: mountpoint + script exec-ability ────────────────────
+
+@test "is_mountpoint: true only when the dir is a mount target" {
+  printf '%s\n' \
+    "rpool/ROOT/arch / zfs rw 0 0" \
+    "/dev/sda1 /boot/efi vfat rw 0 0" >"$BOOT/mounts"
+  run esp_sync_is_mountpoint /boot/efi "$BOOT/mounts"
+  [ "$status" -eq 0 ]
+  # the runtime passes the glob form with a trailing slash — still matches
+  run esp_sync_is_mountpoint /boot/efi/ "$BOOT/mounts"
+  [ "$status" -eq 0 ]
+  # a directory that is NOT mounted (ESP absent) fails
+  run esp_sync_is_mountpoint /boot/efi1 "$BOOT/mounts"
+  [ "$status" -ne 0 ]
+}
+
+@test "script_ok: requires a #! shebang and the executable bit" {
+  local s="$BOOT/sync.sh"
+  printf '#!/usr/bin/env bash\necho hi\n' >"$s"
+  chmod +x "$s"
+  run esp_sync_script_ok "$s"
+  [ "$status" -eq 0 ]
+
+  # no shebang -> would ENOEXEC under execv -> rejected
+  printf '# not a shebang\necho hi\n' >"$s"
+  chmod +x "$s"
+  run esp_sync_script_ok "$s"
+  [ "$status" -ne 0 ]
+
+  # shebang present but not executable -> rejected
+  printf '#!/usr/bin/env bash\n' >"$s"
+  chmod -x "$s"
+  run esp_sync_script_ok "$s"
   [ "$status" -ne 0 ]
 }
