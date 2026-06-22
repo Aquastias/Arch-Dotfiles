@@ -75,13 +75,53 @@ esp_sync_needed_bytes() {
   echo $((total + max))
 }
 
+# Bytes the planned files ALREADY occupy on the ESP. A re-sync overwrites these
+# in place, so they are not fresh demand on free space — only the transient .new
+# of the largest file is. On a populated ESP the prior copies are counted both
+# as "used" (hence absent from free) and as "needed"; subtracting them here is
+# what stops the preflight false-aborting a re-sync on a small ESP (ADR 0038).
+esp_sync_present_bytes() {
+  local esp_dir="$1" boot_dir="$2" f sz total=0
+  while IFS= read -r f; do
+    sz=$(stat -c%s "$esp_dir/$f" 2>/dev/null || echo 0)
+    total=$((total + sz))
+  done < <(esp_sync_planned_files "$esp_dir" "$boot_dir")
+  echo "$total"
+}
+
 # True when an ESP with <free_bytes> available can hold the planned files. One
 # shared proxy for both the PreTransaction preflight and the PostTransaction
-# guard.
+# guard. The prior copies of the planned files (present_bytes) are freed as they
+# are overwritten, so they count toward the budget alongside free space.
 esp_sync_space_ok() {
-  local esp_dir="$1" boot_dir="$2" free="$3" needed
+  local esp_dir="$1" boot_dir="$2" free="$3" needed present
   needed="$(esp_sync_needed_bytes "$esp_dir" "$boot_dir")"
-  ((free >= needed))
+  present="$(esp_sync_present_bytes "$esp_dir" "$boot_dir")"
+  ((free + present >= needed))
+}
+
+# True when <dir> is a mount target listed in <mounts_file> (default the live
+# /proc/self/mounts). If the ESP is NOT mounted, the sync would copy kernels
+# into the ZFS /boot/efi DIRECTORY, leaving the real ESP stale and bricking the
+# next boot — the preflight asserts this before any package is touched. Pure +
+# testable: tests pass a fixture mounts file (ADR 0038).
+esp_sync_is_mountpoint() {
+  local dir="${1%/}" mounts="${2:-/proc/self/mounts}"
+  [[ -n "$dir" && -r "$mounts" ]] || return 1
+  awk -v d="$dir" '$2 == d { f = 1 } END { exit f ? 0 : 1 }' "$mounts"
+}
+
+# True when <script> is a well-formed executable: it exists, is executable, and
+# begins with a #! shebang. A pacman Exec= runs straight through execv with no
+# shell, so a script with no shebang fails ENOEXEC ("Exec format error"); as a
+# PostTransaction hook that silently leaves the ESP stale. The preflight
+# self-checks this so a malformed sync script aborts the upgrade up front (via
+# AbortOnFail) instead of bricking on the next boot (ADR 0038).
+esp_sync_script_ok() {
+  local script="$1" first
+  [[ -f "$script" && -x "$script" ]] || return 1
+  IFS= read -r first <"$script" || return 1
+  [[ "$first" == '#!'* ]]
 }
 
 # Lib-only sourcing for tests: skip the runtime below.
@@ -91,6 +131,18 @@ esp_sync_space_ok() {
 # The primary ESP (/boot/efi) holds the loader entries that drive the plan.
 _esp_kernel_sync_run() {
   local f d t e ref
+
+  # Refuse to run if any ESP is not mounted: writing into the ZFS /boot/efi
+  # DIRECTORY would leave the real ESP stale and brick the next boot. The
+  # preflight already asserts this; this is defence-in-depth for a direct or
+  # un-preflighted invocation (ADR 0038).
+  for d in /boot/efi*/; do
+    esp_sync_is_mountpoint "$d" || {
+      echo "esp-kernel-sync: FATAL: $d is not a mountpoint — refusing to write" \
+           "boot images into the ZFS directory instead of the ESP." >&2
+      exit 1
+    }
+  done
 
   # Sweep orphaned temp files from a prior interrupted run.
   for d in /boot/efi*/; do
@@ -134,12 +186,34 @@ _esp_kernel_sync_run() {
   done
 }
 
-# Preflight (PreTransaction): abort the upgrade early if any ESP cannot hold the
-# new boot images, so the transaction never half-applies. Uses current image
-# sizes as the proxy (the new ones are not built until PostTransaction).
+# Preflight (PreTransaction): abort the upgrade early — before any package is
+# touched — when the ESP cannot reliably receive the new boot images, so the
+# transaction never half-applies into a stale-ESP brick. Three fail-closed
+# guards (ADR 0038):
+#   1. the shared sync script is a well-formed executable (else execv ENOEXECs
+#      at PostTransaction and silently skips the sync);
+#   2. every /boot/efi* is actually a mountpoint (else the sync writes into the
+#      ZFS directory, not the real ESP);
+#   3. every ESP has room for the new images (current sizes as the proxy — the
+#      new ones are not built until PostTransaction).
+# AbortOnFail propagates any exit 1 here to pacman, which aborts the upgrade.
 _esp_kernel_sync_preflight() {
   local d free
+
+  esp_sync_script_ok "$0" || {
+    echo "esp-kernel-sync: PRE-TRANSACTION ABORT: sync script '$0' is not a" \
+         "well-formed executable (missing #! shebang?). Fix it before" \
+         "upgrading, or the ESP would be left stale (ADR 0038)." >&2
+    exit 1
+  }
+
   for d in /boot/efi*/; do
+    esp_sync_is_mountpoint "$d" || {
+      echo "esp-kernel-sync: PRE-TRANSACTION ABORT: $d is not a mountpoint —" \
+           "the ESP is not mounted. Mount it before upgrading, or the new" \
+           "kernel would not reach the ESP (ADR 0038)." >&2
+      exit 1
+    }
     free=$(df -B1 --output=avail "$d" 2>/dev/null | tail -1)
     free=${free//[^0-9]/}
     esp_sync_space_ok /boot/efi /boot "${free:-0}" || {

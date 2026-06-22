@@ -86,3 +86,49 @@ guards the ESP at upgrade time — the install-time ZFS Module Guard
   the old `95`/`96` numbering that ran them backwards).
 - Depends on ADR 0024 for the selected-kernel set and the reused
   module check, and on ADR 0023 for the single-source artifact pattern.
+
+## Amendment (2026-06-23): preflight correctness + exec/mount guards
+
+A real 512M box bricked on its first kernel `-Syu` and exposed two gaps
+the original decision missed.
+
+1. **Preflight false-abort on a populated ESP.** `esp_sync_needed_bytes`
+   returns `total + max` (the temp+rename peak) and the preflight checked
+   it against *free* space. But on any ESP that already holds the prior
+   kernel set, `total` is already *on* the ESP — counted as used (so
+   absent from free) and again as needed. The check demanded
+   `free ≥ total + max` when a re-sync only needs the transient `.new` of
+   the largest file. On a 512M ESP with a 181M initramfs this aborted
+   every kernel upgrade (fail-safe, but a hard block). Fix: subtract the
+   planned files already present (`esp_sync_present_bytes`); the budget
+   is now `free + present ≥ total + max` — identical on a first/empty
+   write, correct on a re-sync, and still aborting a genuinely-too-small
+   ESP.
+
+2. **The bricking foot-gun was a non-space failure the preflight never
+   covered.** The installed sync script lacked a valid `#!` shebang
+   (a WIP build), so the PostTransaction hook's `Exec=` — which pacman
+   sends straight to `execv` with no shell — failed `ENOEXEC` ("Exec
+   format error"). pacman logged it and moved on; the new kernel never
+   reached the ESP; the next boot ran the stale image whose modules the
+   same upgrade had deleted (`vfat` then could not load, so `/boot/efi`
+   itself would not mount). The same silent-stale-ESP result follows if
+   `/boot/efi` is simply not mounted at upgrade time (the sync writes
+   into the ZFS directory).
+
+   The structural fix is that the **PreTransaction `AbortOnFail`
+   preflight** turns *any* hook failure — including the script's own
+   `ENOEXEC` — into an aborted upgrade *before* the kernel is swapped, so
+   the system can never reach the bricked state. On top of that the
+   preflight now self-asserts, fail-closed, before space:
+   `esp_sync_script_ok "$0"` (the shared 93/94 script is an executable
+   with a `#!`) and `esp_sync_is_mountpoint` for every `/boot/efi*`. The
+   runtime sync also refuses to run when an ESP is unmounted, rather than
+   silently mirroring into the ZFS directory. The mountpoint guard is
+   also the precondition that makes a future `nofail` ESP mount safe.
+
+All three helpers are pure and lib-only-testable. Existing 512M installs
+adopt the corrected preflight + guards by re-running
+`tools/harden-boot.sh` (which overwrites the script with the current
+single-source version); a stale legacy `96-esp-kernel-sync.hook` from a
+pre-renumber build must be removed by hand.
