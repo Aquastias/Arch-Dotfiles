@@ -22,7 +22,11 @@ pacman -S --noconfirm --needed sops
 # ssh-to-age has no Arch package; build from upstream via go.
 print_status info "Building ssh-to-age from source..."
 pacman -S --noconfirm --needed go
-GOBIN=/usr/local/bin go install \
+# The runner invokes this inside arch-chroot as root with no HOME, so go cannot
+# derive GOPATH/GOMODCACHE/GOCACHE and aborts ("module cache not found: neither
+# GOMODCACHE nor GOPATH is set"). Pin them explicitly under /root.
+HOME=/root GOPATH=/root/go GOCACHE=/root/.cache/go-build \
+  GOBIN=/usr/local/bin go install \
   github.com/Mic92/ssh-to-age/cmd/...@latest
 
 print_status info "Ensuring SSH host key exists..."
