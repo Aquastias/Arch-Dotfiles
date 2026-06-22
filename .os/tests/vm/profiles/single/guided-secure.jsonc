@@ -12,7 +12,7 @@
 // guided menu builds the config; these options express the intent to drive.
 {
   "name": "arch-zfs-test-guided-secure",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "install": {
     "system": {
       "hostname": "vm-guided-secure",
