@@ -14,7 +14,9 @@ set -Eeuo pipefail
 trap 'echo "[borg] error on line $LINENO" >&2' ERR
 
 print_status info "Installing borgbackup, vorta, and borgmatic..."
-paru -S --noconfirm --needed borgbackup vorta python-borgmatic
+# borgmatic was renamed from python-borgmatic in the Arch repos; the old name no
+# longer resolves ("could not find all required packages").
+paru -S --noconfirm --needed borgbackup vorta borgmatic
 
 FIRST_USER="$(awk -F: '$3>=1000 && $3<65534{print $1; exit}' \
   /etc/passwd || true)"
