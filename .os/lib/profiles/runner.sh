@@ -32,6 +32,12 @@
 [[ "$(type -t post_install_programs)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
 
+# Install State owns the credential-key resolution + SOPS gate; source it if a
+# standalone unit test pulled runner.sh in without the installer's load order.
+# shellcheck source=../install-state.sh
+[[ "$(type -t install_state_credential_path)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
+
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
@@ -87,15 +93,11 @@ resolve_user_groups() {
   '
 }
 
-# Pure predicate: true (0) iff install-state at <path> records any secret —
-# `.secrets.host` set or `.secrets.users` non-empty. False (1) otherwise,
-# including a missing file. Reads only; no side effects. Drives implicit
-# sops activation in run_profiles (ADR 0025).
+# True (0) iff install-state at <path> records a SOPS secret. Thin delegator
+# to the Install State gate (the .secrets-only rule + ADR 0025 invariant live
+# there, beside the keys they read). Drives implicit sops activation below.
 _profiles_host_uses_secrets() {
-  local state="$1"
-  [[ -f "$state" ]] || return 1
-  jq -e '(.secrets.host // "") != ""
-    or ((.secrets.users // {}) | length > 0)' "$state" >/dev/null 2>&1
+  install_state_activates_sops "$1"
 }
 
 # Pure list-shaper: echoes the system-program list (one per line) with
@@ -184,11 +186,9 @@ _profiles_resolve_user_secrets() {
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
   local raw_path
-  # SOPS-decrypted user secrets (.secrets.users) or the Guided Installer's
-  # no-SOPS passwords (.guided_passwords.users, issue 07) — same file shape; the
-  # guided key does not gate SOPS-program activation (ADR 0025).
-  raw_path="$(jq -r --arg n "$name" \
-    '.secrets.users[$n] // .guided_passwords.users[$n] // empty' "$host_state")"
+  # The .secrets / .guided_passwords precedence lives in the Install State
+  # module — the schema's owner — not re-encoded here.
+  raw_path="$(install_state_credential_path "$host_state" user "$name")"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
   local chroot_dir="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets"
   mkdir -p "$chroot_dir"
