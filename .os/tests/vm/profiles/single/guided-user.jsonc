@@ -10,7 +10,7 @@
 // password hash (passwd -S … P) — the "the user can log in" proxy.
 {
   "name": "arch-zfs-test-guided-user",
-  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "install": {
     "system": {
       "hostname": "vm-guided-user",
