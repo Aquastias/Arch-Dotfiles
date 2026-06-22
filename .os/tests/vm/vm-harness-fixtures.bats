@@ -114,3 +114,31 @@ _stage() {
   [ "$status" -eq 0 ]
   diff -q "$VM_SCRIPT_DIR/rel-fix.txt" "$CACHE_DIR/rel-fix.txt"
 }
+
+# ── _fixture_http_should_serve — gate the fixture HTTP server ────────────────
+# The test flow serves staged fixtures (e.g. the secure profile's Test Age Key)
+# over HTTP only when fixtures are declared. Same guard shape as staging.
+
+_should_serve() {
+  run bash -c "
+    set +e
+    source '$HARNESS' >/dev/null 2>&1
+    $1
+    _fixture_http_should_serve
+  "
+}
+
+@test "should-serve: true when a fixture is declared" {
+  _should_serve "declare -a VM_FIXTURE_FILES=('fixtures/key.age')"
+  [ "$status" -eq 0 ]
+}
+
+@test "should-serve: false when VM_FIXTURE_FILES is empty" {
+  _should_serve "declare -a VM_FIXTURE_FILES=()"
+  [ "$status" -ne 0 ]
+}
+
+@test "should-serve: false when VM_FIXTURE_FILES is unset" {
+  _should_serve "unset VM_FIXTURE_FILES"
+  [ "$status" -ne 0 ]
+}
