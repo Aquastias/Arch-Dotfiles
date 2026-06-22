@@ -505,6 +505,43 @@ fzf_queue() {
   echo "$_GUIDED_STATE" | jq -e '. == {}'   # the override map is still empty
 }
 
+# ── stopgap (ADR 0042): the category subloop carries the same toolbar — it
+# requests --expect and advertises the keybinds, so ^Z/^Y/^R work past depth 1.
+# The persistent-fzf rewrite folds this subloop away; these guard until then. ──
+
+@test "_guided_category_loop: subloop requests --expect + keybind header" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
+
+  fzf_queue
+  queue "<ESC>"                      # drop straight back out of the category
+  _guided_category_loop Host
+  grep -q -- "--expect=ctrl-z,ctrl-y,ctrl-r" "$TEST_DIR/fzf_args"
+  grep -qi "undo"  "$TEST_DIR/fzf_args"   # the header names the keybinds
+  grep -qi "redo"  "$TEST_DIR/fzf_args"
+  grep -qi "reset" "$TEST_DIR/fzf_args"
+}
+
+@test "_guided_category_loop: ^Z inside a category undoes the edit" {
+  _GUIDED_REPLAY=0
+  _GUIDED_STATE="$(cfgstate_new)"
+  _GUIDED_HIST="$(hist_new "$_GUIDED_STATE")"
+
+  # Edit hostname inside Host, then ^Z without leaving the category, then Esc.
+  # With the old subloop (no --expect) a ctrl-z was read as a plain choice →
+  # no-op, so the edit would stand; the fix dispatches it. Under real fzf a
+  # ctrl press also carries the highlighted row and the loop's `continue` skips
+  # dispatching it — that skip is exercised by the VM smoke, not the stub.
+  fzf_queue
+  queue "hostname: (none)" "ctrl-z" "<ESC>"
+  guided_prompt() { printf '%s' "newhost"; }
+  export -f guided_prompt
+
+  _guided_category_loop Host
+  [ -z "$(cfgstate_get "$_GUIDED_STATE" system.hostname)" ]
+}
+
 # ── toolbar keybinds (issue 03): ^Z / ^Y / ^R drive the snapshot stack and the
 # reset verbs; the header advertises them. Stubbed via the queue's "ctrl-*"
 # sentinel (the fzf --expect key line). ─────────────────────────────────────
