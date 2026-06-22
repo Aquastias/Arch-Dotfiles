@@ -846,6 +846,10 @@ _guided_reset_action() {
 # stepping back through Undo — never loses a value.
 # The keybinds advertised in the top-menu header and surfaced via fzf --expect.
 _GUIDED_TOP_HEADER="^Z undo · ^Y redo · ^R reset · Enter select · Esc cancel"
+# Same toolbar one level deep (stopgap): the category subloop advertises the
+# keybinds too, and here Esc means "back". The persistent-fzf rewrite folds
+# this subloop into the single instance, retiring this constant.
+_GUIDED_CAT_HEADER="^Z undo · ^Y redo · ^R reset · Enter edit · Esc back"
 
 _guided_menu_loop() {
   local out key choice cat
@@ -911,7 +915,7 @@ _guided_menu_loop() {
 # row to its edit. Esc (fzf non-zero) returns to the category list with no
 # commit; edits commit on confirm. Returns 0 (the loop above keeps running).
 _guided_category_loop() {
-  local category="$1" choice
+  local category="$1" out key choice
   local -a lines
   while true; do
     mapfile -t lines < <(_guided_category_lines "$category" "$_GUIDED_STATE" \
@@ -924,9 +928,22 @@ _guided_category_loop() {
       mapfile -O "${#lines[@]}" -t lines < <(_guided_persist_lines "$_GUIDED_STATE")
       ;;
     esac
-    # Esc backs out to the category list (no commit).
-    choice="$(printf '%s\n' "${lines[@]}" \
-      | fzf --reverse --prompt="${category}> ")" || return 0
+    # Esc backs out to the category list (no commit). The toolbar keybinds work
+    # at this depth too (stopgap): --expect surfaces ^Z/^Y/^R like the top loop,
+    # and a ctrl press `continue`s so it never also edits the highlighted row.
+    out="$(printf '%s\n' "${lines[@]}" \
+      | fzf --reverse --prompt="${category}> " \
+            --header="$_GUIDED_CAT_HEADER" \
+            --expect=ctrl-z,ctrl-y,ctrl-r)" || return 0
+    key="$(sed -n 1p <<<"$out")"
+    choice="$(sed -n 2p <<<"$out")"
+    case "$key" in
+    ctrl-z)
+      _GUIDED_HIST="$(hist_undo "$_GUIDED_HIST")"; _guided_restore; continue ;;
+    ctrl-y)
+      _GUIDED_HIST="$(hist_redo "$_GUIDED_HIST")"; _guided_restore; continue ;;
+    ctrl-r) _guided_reset_action; continue ;;
+    esac
     # Dispatch keys on the label. "swap size:" is matched before "swap:" so the
     # typed-size row never routes to the bool toggle.
     case "$choice" in
