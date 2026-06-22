@@ -38,9 +38,9 @@ user — add a user or clear the selections").
       pass.
 - [x] bats for the no-user guard (prior art `tests/config/validation-*.bats`)
       and stubbed-fzf bats for the Security / Backup editors.
-- [ ] VM smoke (guided replay): driving the Security / Backup categories
-      installs the selected daemons in the booted system. **(deferred — no VM
-      in this session)**
+- [x] VM smoke (guided replay): driving the Security / Backup categories
+      installs the selected daemons in the booted system. **DONE 2026-06-22 —
+      see Comments.**
 
 ## Blocked by
 
@@ -85,5 +85,25 @@ user present → pass; empty selection → pass) plus the pure fn.
 Tests: guided-seed(+1), guided-menu (2 rewritten to structured rows), guided-
 shell (editor + guard + replay tests; the old backup-editor test replaced),
 post-install.bats (+3 guard). Full suite **1288 bats, 0 failures; shellcheck
-clean** (--severity=warning). VM smoke is the only remaining AC. **The redesign
-v2's open issues (02-05) are now all done.**
+clean** (--severity=warning).
+
+**VM smoke DONE (2026-06-22) — AC6 satisfied.** `vm.sh --guided --profile
+single/guided-extras --verify-boot`: the guided replay drove the Security &
+Backup categories (re-picked `vm-test` as the minimal `users[0]`; toggled the
+Backup category off — borg/zfs_snapshot=false), installed **EXIT-0**, and the
+first-boot sentinel emitted **`EXTRAS-OK`** — firewalld + clamav + rkhunter +
+apparmor all `systemctl is-enabled` on the booted system — then `FIRSTBOOT-OK`.
+This exercises the issue-05 seed pre-tick + structured-object emit AND the
+issue-04 resolver→Runner paru pass end-to-end. (The fully-on object profile,
+incl. borg + SOPS + encryption, also installs to EXIT-0 — see issue 04's
+`headless/secure` smoke.) Harness: new `verify_extras`/`guided_extras` seed-
+generator seams + the `single/guided-extras` profile.
+
+**The VM smoke flushed a latent guided-installer bug (fixed):** the redesign's
+replay path (`guided_build`) `return 1`'d on an absent answer, which aborted
+under install.sh's `set -Eeuo pipefail` — so *every* headless guided install was
+broken (bats never caught it: no `set -e`, and no guided VM smoke had run since
+the redesign). Fixed by suspending errexit + the inherited ERR trap across the
+best-effort replay edits, with a regression test. Commits `32b4967` + `099e89b`.
+
+**The redesign v2 issues (02-05) are all done, VM-verified.**

@@ -49,9 +49,9 @@ remove the dead `extras/security.sh` / `extras/backup.sh` dispatch.
       `arch-secure*` profiles validate under the object schema.
 - [x] bats for the resolver and the Runner union+dedup function (prior art
       `tests/config/guided-emit.bats`, `tests/profiles/*`).
-- [ ] VM smoke: an `arch-secure*` profile installs and the selected daemons
+- [x] VM smoke: an `arch-secure*` profile installs and the selected daemons
       (firewalld, clamav, rkhunter, apparmor) are enabled in the booted
-      system. **(deferred — no VM in this session; smoke-only, like 02/03)**
+      system. **DONE 2026-06-22 — see Comments (two KVM smokes).**
 
 ## Blocked by
 
@@ -111,3 +111,27 @@ Full suite **1278 bats, 0 failures; shellcheck clean** (`--severity=warning`).
 Menu field table + the guided Security/Backup editors are **issue 05** (the
 two bool menu rows stay inert until 05 wires the radiolist/toggles). Unblocks
 issue 05.
+
+**VM smoke DONE (2026-06-22, two KVM runs) — AC6 satisfied.** Both via
+`git daemon` serving a bare mirror + `REPO_URL` override (no push); both with
+`vm-test` as `users[0]` (no user programs, so only the host Extras install via
+its paru pass — the M4 union end-to-end).
+- `single/guided-extras --verify-boot` (issue 05's harness, unencrypted, so it
+  boot-verifies): install `EXIT-0` → **`EXTRAS-OK`** (firewalld + clamav +
+  rkhunter + apparmor all `systemctl is-enabled` on the booted system) →
+  `FIRSTBOOT-OK`. Backup toggled off in the replay (skips the heavy borg/Vorta).
+- `headless/secure` (this issue's `arch-secure` host profile, object-form
+  post_install, SOPS + ZFS-encrypted + impermanent 2-disk mirror; install-only
+  — an encrypted root can't headless-boot-verify): install **`EXIT-0`**, the
+  Runner installed **all six** Extras (firewalld/clamav/rkhunter/apparmor/
+  zfs-auto-snapshot/borg) via `vm-test`'s paru pass; `Borg staged`, `SOPS
+  runtime staged`, `Profiles runner complete`.
+The secure run flushed **two pre-existing, unrelated program-install bugs**
+(both fixed, separate commits): `sops/install.sh` built ssh-to-age with no
+`HOME`/`GOPATH` in the chroot (`go: module cache not found`); `borg/install.sh`
+pinned `python-borgmatic`, which the Arch repos renamed to `borgmatic`. Neither
+is issue-04 code — the Extras resolver/Runner drove every tool's install
+correctly. Harness additions (committed): `single/guided-extras` profile +
+seed-generator `verify_extras`/`guided_extras` seams; the fixture HTTP server
+(Test Age Key) ported into the test flow (`_fixture_http_should_serve` +
+`_start_fixture_http_server`); `tests/vm/profiles/headless/secure.jsonc`.
