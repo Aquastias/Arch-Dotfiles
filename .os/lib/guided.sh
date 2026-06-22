@@ -32,6 +32,9 @@
 # shellcheck source=lib/config/seed.sh
 [[ "$(type -t cfgstate_seed_defaults)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
+# shellcheck source=lib/config/edits.sh
+[[ "$(type -t edit_set_scalar)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
 # shellcheck source=lib/config/emit.sh
 [[ "$(type -t emit_effective)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
@@ -184,8 +187,7 @@ _guided_effective() {
 _guided_edit_hostname() {
   local v
   v="$(guided_prompt hostname "Hostname")"
-  [[ -n "$v" ]] && _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
-    system.hostname "$(jq -n --arg x "$v" '$x')")"
+  _GUIDED_STATE="$(edit_set_scalar "$_GUIDED_STATE" system.hostname "$v")"
 }
 
 # _guided_edit_locale / _guided_edit_timezone / _guided_edit_keymap — the three
@@ -216,8 +218,7 @@ _GUIDED_LAYOUTS=(single os-mirror os-mirror-raidz1 data-pools advanced)
 # merge the new one into the Config State (switching layouts never leaves a
 # stale group behind).
 _guided_apply_skeleton() {
-  _GUIDED_STATE="$(jq --argjson sk "$1" \
-    'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$_GUIDED_STATE")"
+  _GUIDED_STATE="$(edit_apply_skeleton "$_GUIDED_STATE" "$1")"
 }
 
 # _guided_edit_layout — pick a disk-layout preset (or Advanced authoring) and
@@ -332,8 +333,7 @@ _guided_edit_filesystem() {
 _guided_edit_bool() {
   local key="$1" prompt="$2" path="$3" v
   v="$(guided_select "$key" "$prompt" true false)"
-  [[ "$v" == "true" || "$v" == "false" ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" "$path" "$v")"
+  _GUIDED_STATE="$(edit_set_bool "$_GUIDED_STATE" "$path" "$v")"
 }
 
 # _guided_edit_encryption / _guided_edit_impermanence — the two Disks bools.
@@ -354,10 +354,7 @@ _guided_edit_impermanence() {
 _guided_add_persist() {
   local dir
   dir="$(guided_prompt persist_dir "Persist directory (absolute path)")"
-  [[ -n "$dir" ]] || return 1
-  _GUIDED_STATE="$(jq --arg p "$dir" \
-    '.persist.directories = ((.persist.directories // []) + [$p])' \
-    <<<"$_GUIDED_STATE")"
+  _GUIDED_STATE="$(edit_append_persist "$_GUIDED_STATE" "$dir")"
 }
 
 # =============================================================================
@@ -390,9 +387,7 @@ _guided_multi_array() {
 _guided_edit_scalar() {
   local key="$1" prompt="$2" path="$3" v
   v="$(guided_prompt "$key" "$prompt")"
-  [[ -n "$v" ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" "$path" \
-    "$(jq -n --arg x "$v" '$x')")"
+  _GUIDED_STATE="$(edit_set_scalar "$_GUIDED_STATE" "$path" "$v")"
 }
 
 # _guided_edit_kernel — Kernel Selection: a multi-select over the flavour tokens
@@ -449,16 +444,7 @@ _guided_edit_gpu() {
   local -a picks=()
   mapfile -t picks < <(_guided_collect_multi gpu "GPU (auto clears vendors)" \
     auto amd nvidia intel)
-  ((${#picks[@]})) || return 1
-  local p
-  for p in "${picks[@]}"; do
-    if [[ "$p" == "auto" ]]; then
-      _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.gpu '"auto"')"
-      return 0
-    fi
-  done
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.gpu \
-    "$(printf '%s\n' "${picks[@]}" | jq -R . | jq -s -c .)")"
+  _GUIDED_STATE="$(edit_set_gpu "$_GUIDED_STATE" ${picks[@]+"${picks[@]}"})"
 }
 
 # =============================================================================
@@ -523,10 +509,7 @@ _guided_edit_borg() {
 # (no commit) on empty input.
 _guided_add_package() {
   local raw; raw="$(guided_prompt package "Extra package(s)")"
-  [[ -n "$raw" ]] || return 1
-  _GUIDED_STATE="$(jq --arg s "$raw" \
-    '.packages.extra = ((.packages.extra // []) + ($s | split(" ") | map(select(length > 0))))' \
-    <<<"$_GUIDED_STATE")"
+  _GUIDED_STATE="$(edit_append_packages "$_GUIDED_STATE" "$raw")"
 }
 
 # _guided_program_names — the resolvable System Program names (programs/*/*/),
@@ -547,11 +530,8 @@ _guided_add_system_program() {
   local -a picks=()
   mapfile -t picks < <(_guided_collect_multi system_program "System programs" \
     "${names[@]}")
-  ((${#picks[@]})) || return 1
-  _GUIDED_STATE="$(jq \
-    --argjson add "$(printf '%s\n' "${picks[@]}" | jq -R . | jq -s .)" \
-    '.system_programs = ((.system_programs // []) + $add | unique)' \
-    <<<"$_GUIDED_STATE")"
+  _GUIDED_STATE="$(edit_append_system_programs "$_GUIDED_STATE" \
+    ${picks[@]+"${picks[@]}"})"
 }
 
 # _guided_add_sysctl — set/override one sysctl pair from a typed "key=value"
@@ -561,10 +541,7 @@ _guided_add_system_program() {
 _guided_add_sysctl() {
   local raw; raw="$(guided_prompt sysctl "sysctl key=value")"
   [[ "$raw" == *=* ]] || return 1
-  local k="${raw%%=*}" v="${raw#*=}"
-  [[ -n "$k" ]] || return 1
-  _GUIDED_STATE="$(jq --arg k "$k" --arg v "$v" \
-    '.sysctl[$k] = ($v | (tonumber? // .))' <<<"$_GUIDED_STATE")"
+  _GUIDED_STATE="$(edit_set_sysctl "$_GUIDED_STATE" "${raw%%=*}" "${raw#*=}")"
 }
 
 # =============================================================================
@@ -616,13 +593,7 @@ _guided_sync_users() {
   ((${#_GUIDED_USERS_COMMITTED[@]})) \
     && all+=("${_GUIDED_USERS_COMMITTED[@]}")
   ((${#_GUIDED_ADHOC_ORDER[@]})) && all+=("${_GUIDED_ADHOC_ORDER[@]}")
-  if ((${#all[@]} == 0)); then
-    _GUIDED_STATE="$(cfgstate_unset "$_GUIDED_STATE" users)"
-    return 0
-  fi
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" users "$(printf '%s\n' \
-    "${all[@]}" | jq -R . | jq -s -c \
-    'reduce .[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end)')")"
+  _GUIDED_STATE="$(edit_set_users "$_GUIDED_STATE" ${all[@]+"${all[@]}"})"
 }
 
 # _guided_pick_users — multi-select committed users into the user list. The
