@@ -62,6 +62,9 @@
 # shellcheck source=lib/guided-controller.sh
 [[ "$(type -t guided_ctl_list)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-controller.sh"
+# shellcheck source=lib/prompt.sh
+[[ "$(type -t prompt_secret)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/prompt.sh"
 
 # =============================================================================
 # SELECTION SEAM
@@ -662,6 +665,29 @@ _guided_materialize_users() {
   done
 }
 
+# _guided_collect_passwords — interactive post-menu credential entry (ADR 0042):
+# prompt (hidden, read-twice, confirmed) for the root password and each effective
+# user's password not already supplied, storing into the held-aside vars
+# _guided_finalize_users reads (never the Config State, so Save/Export never
+# carry them). INTERACTIVE-only — replay supplies these via keyed answers, so it
+# returns early there. Because prompt_secret reads -s from /dev/tty, nothing is
+# echoed: this is where the old guided_prompt plaintext-echo of passwords is
+# fixed. Run on the Proceed path only (Save/Export never install).
+_guided_collect_passwords() {
+  ((_GUIDED_REPLAY)) && return 0
+  local eff name pw=""
+  local -a names
+  eff="$(_guided_effective)"
+  section "Credentials" >&2
+  [[ -n "$_GUIDED_ROOT_PW" ]] || prompt_secret _GUIDED_ROOT_PW "Root password"
+  mapfile -t names < <(jq -r '(.users // [])[]' <<<"$eff")
+  for name in "${names[@]+"${names[@]}"}"; do
+    [[ -n "${_GUIDED_USER_PW[$name]:-}" ]] && continue
+    prompt_secret pw "Password for ${name}"
+    _GUIDED_USER_PW["$name"]="$pw"
+  done
+}
+
 # _guided_finalize_users — Proceed-time user side effects: materialize ad-hoc
 # profiles and, when the install flow set GUIDED_SECRETS_MANIFEST, write the
 # no-SOPS password manifest there for 03-install.sh to persist into install-state
@@ -1199,6 +1225,10 @@ guided_build() {
     info "Exported ${path} — install via install.sh ${path}." >&2
     return "$_GUIDED_ACTION_DONE"
   fi
+
+  # Interactive credential entry (ADR 0042): hidden + confirmed, at the commit
+  # step, just before the review. No-op under replay (keyed answers already held).
+  _guided_collect_passwords
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
