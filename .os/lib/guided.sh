@@ -1043,10 +1043,14 @@ guided_run_persistent() {
   nav_new >"$GUIDED_NAV_FILE"
   : >"$GUIDED_RESULT_FILE"
 
+  # The header + prompt are updated per screen by the controller's `render`
+  # directive (change-header/change-prompt), so they always say how to go back.
+  # enter passes BOTH the selection {} and the typed query {q} (text fields read
+  # {q} from fzf's own input line); esc maps to a back/abort transform.
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
-    --header="$_GUIDED_TOP_HEADER" \
-    --bind "enter:transform(bash $entry dispatch enter {})" \
+    --header='Enter open   Esc quit' \
+    --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     >/dev/null || true
 

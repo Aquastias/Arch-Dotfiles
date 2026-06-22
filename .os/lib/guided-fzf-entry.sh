@@ -29,9 +29,9 @@ list)
   guided_ctl_list
   ;;
 dispatch)
-  _verb="${2:-}"; _line="${3:-}"; _d="noop"
+  _verb="${2:-}"; _line="${3:-}"; _query="${4:-}"; _d="noop"
   case "$_verb" in
-  enter) _d="$(guided_ctl_enter "$_line")" ;;
+  enter) _d="$(guided_ctl_enter "$_line" "$_query")" ;;
   back)  _d="$(guided_ctl_back)" ;;
   esac
   _guided_directive_to_action "$_d" "$_entry_self"
