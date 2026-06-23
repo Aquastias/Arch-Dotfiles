@@ -1030,28 +1030,35 @@ _guided_oneshot_edit() {
 # (sets _GUIDED_ACTION), 1 on abort. Single + multi disks resolve post-menu in
 # _guided_resolve_assignment, so the menu carries no disk screen.
 guided_run_persistent() {
-  export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE GUIDED_RESULT_FILE
+  export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
+    GUIDED_RESULT_FILE GUIDED_HIST_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
   GUIDED_RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-result.XXXXXX")"
+  GUIDED_HIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-hist.XXXXXX.json")"
   # shellcheck disable=SC2064
-  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE'" RETURN
+  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE'" RETURN
 
   printf '%s\n' "$_GUIDED_BASELINE" >"$GUIDED_BASELINE_FILE"
   printf '%s\n' "$_GUIDED_STATE"    >"$GUIDED_STATE_FILE"
   nav_new >"$GUIDED_NAV_FILE"
   : >"$GUIDED_RESULT_FILE"
+  hist_new "$_GUIDED_STATE" >"$GUIDED_HIST_FILE"   # undo/redo seed
 
   # The header + prompt are updated per screen by the controller's `render`
   # directive (change-header/change-prompt), so they always say how to go back.
   # enter passes BOTH the selection {} and the typed query {q} (text fields read
-  # {q} from fzf's own input line); esc maps to a back/abort transform.
+  # {q} from fzf's own input line); esc maps to a back/abort transform; the
+  # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
-    --header='Enter open   Esc quit' \
+    --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
+    --bind "ctrl-z:transform(bash $entry key ctrl-z)" \
+    --bind "ctrl-y:transform(bash $entry key ctrl-y)" \
+    --bind "ctrl-r:transform(bash $entry key ctrl-r)" \
     >/dev/null || true
 
   _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
