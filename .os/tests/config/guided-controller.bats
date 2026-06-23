@@ -65,8 +65,18 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_ctl_list
   echo "$output" | grep -q "filesystem: zfs"
   echo "$output" | grep -q "encryption: false"
-  echo "$output" | grep -q "Disk layout ▸"
+  echo "$output" | grep -q "Disk layout: single"   # reflects the default
   echo "$output" | grep -q "← Back"
+}
+
+@test "list(category Disks): the Disk layout row reflects the chosen preset" {
+  printf '%s\n' "$(nav_to_values Disks __layout__ "Disk layout")" \
+    > "$GUIDED_NAV_FILE"
+  guided_ctl_enter "os-mirror" >/dev/null    # apply the preset
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "Disk layout: os mirror ×2"
+  echo "$output" | grep -q "●"               # overridden marker
 }
 
 @test "enter(category): an enum field opens the value picker" {
@@ -93,7 +103,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "Disk layout ▸ choose preset"
+  run guided_ctl_enter "Disk layout: single"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__layout__" ]
