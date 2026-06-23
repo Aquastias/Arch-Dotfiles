@@ -65,17 +65,17 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run guided_ctl_list
   echo "$output" | grep -q "filesystem: zfs"
   echo "$output" | grep -q "encryption: false"
-  echo "$output" | grep -q "Disk layout: single"   # reflects the default
+  echo "$output" | grep -q "layout: single"   # reflects the default
   echo "$output" | grep -q "← Back"
 }
 
 @test "list(category Disks): the Disk layout row reflects the chosen preset" {
-  printf '%s\n' "$(nav_to_values Disks __layout__ "Disk layout")" \
+  printf '%s\n' "$(nav_to_values Disks __layout__ "layout")" \
     > "$GUIDED_NAV_FILE"
   guided_ctl_enter "os-mirror" >/dev/null    # apply the preset
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "Disk layout: OS: 2 disks (mirror)"
+  echo "$output" | grep -q "layout: OS: 2 disks (mirror)"
   echo "$output" | grep -q "●"               # overridden marker
 }
 
@@ -101,6 +101,19 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
+}
+
+@test "list(category Packages): empty list fields render as [] not blank" {
+  set_nav "$(nav_to_category Packages)"
+  run guided_ctl_list
+  echo "$output" | grep -q "extra packages: \[\]"
+  echo "$output" | grep -q "system programs: \[\]"
+}
+
+@test "list(text esp size): current shows the default 2G, not (unset)" {
+  set_nav "$(nav_to_text Disks options.esp_size "esp size")"
+  run guided_ctl_list
+  echo "$output" | grep -q "current: 2G"
 }
 
 # ── multi-select toggle screens (native — never leaves fzf) ──────────────────
@@ -206,7 +219,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "Disk layout: single"
+  run guided_ctl_enter "layout: single"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__layout__" ]
@@ -262,7 +275,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── disk-layout preset picker (native — no terminal drop, no disk-count) ──────
 
 @test "list(values __layout__): lists the disk-layout presets + Back" {
-  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_list
   echo "$output" | grep -q "single"
   echo "$output" | grep -q "os-mirror"
@@ -271,7 +284,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(values __layout__): picking a preset applies the skeleton" {
-  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_enter "os-mirror"
   [ "$output" = "render" ]
   [ "$(jq -c '. != {}' "$GUIDED_STATE_FILE")" = "true" ]   # a skeleton landed
@@ -296,13 +309,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_preview "os-mirror"
   [ -z "$output" ]                                   # off-screen → nothing
-  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_preview "os-mirror"
   echo "$output" | grep -q "mirror"
 }
 
 @test "directive→action(render): layout shows the preview, others hide it" {
-  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
   echo "$output" | grep -q "change-preview-window(right,45%)"
