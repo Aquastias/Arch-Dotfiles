@@ -10,11 +10,12 @@
 # guided_ctl_back). No fzf is needed to drive it — state files in, files + a
 # directive out — so the dispatch is unit-testable without a tty.
 #
-# Screens (nav.sh): top, category, values (enum picks AND multi-select toggles),
-# text (free-text typed INTO fzf's own query line — never leaves the window).
-# Enum picks, multi-select toggles, the Disk-layout preset picker, Add-persist,
-# and every free-text field commit in place; only `users` still hands off via
-# `edit-oneshot` (its ad-hoc create form is a follow-up). ^Z/^Y/^R drive
+# Screens (nav.sh): top, category, values (enum picks, multi-select toggles, the
+# sysctl + users list editors, the Disk-layout preset picker), text (free-text
+# typed INTO fzf's own query line). EVERYTHING commits in place now — enum picks,
+# toggles, layout presets, sysctl pairs, user toggle + create, Add-persist, and
+# every free-text field — so the menu never leaves fzf. (The `edit-oneshot`
+# directive remains only as an unused fallback seam.) ^Z/^Y/^R drive
 # undo/redo/reset over a snapshot history.
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
@@ -76,7 +77,7 @@ _ctl_field_kind() {
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
   options.mirror_countries | system_programs) echo toggle ;;
-  users) echo multi ;;   # ad-hoc create form → one-shot (follow-up)
+  users) echo users ;;   # toggle existing users + in-fzf create
   *) echo enum ;;
   esac
 }
@@ -114,6 +115,14 @@ _ctl_apply_text() {
   local state="$1" path="$2" val="$3"
   case "$path" in
   __persist__)    edit_append_persist "$state" "$val" ;;
+  __newuser__)
+    # create: add the typed name to the user list (dedup); a default profile is
+    # materialized at Proceed/Save for any name without a committed profile.
+    [[ -n "$val" ]] || { printf '%s' "$state"; return 1; }
+    local _cur; _cur="$(jq -c '.users // []' \
+      <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
+    cfgstate_set "$state" users "$(jq -cn --argjson a "$_cur" --arg v "$val" \
+      'if any($a[]; . == $v) then $a else ($a + [$v]) end')" ;;
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
@@ -205,6 +214,44 @@ _ctl_sysctl_lines() {
     <<<"$(_ctl_effective "$1" "$2")"
 }
 
+# _ctl_user_names → committed user names (users/<name>/profile.jsonc, minus core).
+_ctl_user_names() {
+  local d n
+  for d in "${OS_DIR:-.}"/users/*/; do
+    [[ -d "$d" ]] || continue
+    n="$(basename "$d")"
+    [[ "$n" == "core" ]] && continue
+    [[ -f "${d}profile.jsonc" ]] && printf '%s\n' "$n"
+  done
+}
+
+# _ctl_user_marked <state> <base> — the user toggle list: every committed user
+# UNION the currently-selected names (so a just-created name shows), each marked
+# [x]/[ ] by membership in the effective .users.
+_ctl_user_marked() {
+  local sel opt; sel="$(jq -c '.users // []' <<<"$(_ctl_effective "$1" "$2")")"
+  { _ctl_user_names; jq -r '.[]' <<<"$sel"; } | awk '!seen[$0]++' \
+  | while IFS= read -r opt; do
+      if jq -ne --argjson s "$sel" --arg o "$opt" 'any($s[]; . == $o)' \
+          >/dev/null 2>&1; then
+        printf '[x] %s\n' "$opt"
+      else
+        printf '[ ] %s\n' "$opt"
+      fi
+    done
+}
+
+# _ctl_toggle_users <state> <base> <name> — flip <name> in the effective .users,
+# written as the FULL override array (replacing the seeded baseline) — and never
+# unset, so toggling the last user off truly yields an empty user list.
+_ctl_toggle_users() {
+  local state="$1" base="$2" name="$3" cur new
+  cur="$(jq -c '.users // []' <<<"$(_ctl_effective "$state" "$base")")"
+  new="$(jq -cn --argjson a "$cur" --arg v "$name" \
+    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
+  cfgstate_set "$state" users "$new"
+}
+
 # _ctl_field_for_label <category> <label> → the dotted path of the row whose
 # label matches (reverse lookup through the pure Menu model).
 _ctl_field_for_label() {
@@ -289,6 +336,9 @@ guided_ctl_list() {
     if [[ "$vf" == "sysctl" ]]; then
       _ctl_sysctl_lines "$state" "$base"
       printf '%s\n' "+ Add sysctl (key=value)"
+    elif [[ "$vf" == "users" ]]; then
+      _ctl_user_marked "$state" "$base"
+      printf '%s\n' "+ Create user (name)"
     elif [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
       _ctl_marked_options "$vf" "$state" "$base"
     else
@@ -352,12 +402,12 @@ _ctl_enter_category() {
   path="$(_ctl_field_for_label "$cat" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
   case "$(_ctl_field_kind "$path")" in
-  enum | toggle | list)
+  enum | toggle | list | users)
     _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
   text)
     _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
   *)
-    echo "edit-oneshot $path" ;;   # users → one-shot (ad-hoc form; follow-up)
+    echo "edit-oneshot $path" ;;   # fallback seam — no field reaches it now
   esac
 }
 
@@ -383,6 +433,16 @@ _ctl_enter_values() {
     fi
     echo refresh; return   # an existing pair is display-only (re-list in place)
   fi
+  if [[ "$path" == "users" ]]; then
+    if [[ "$line" == "+ Create"* ]]; then
+      _ctl_write_nav \
+        "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
+      echo render; return
+    fi
+    _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" \
+      "${line:4}")"
+    echo refresh; return
+  fi
   if [[ "$path" == "__layout__" ]]; then
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
       _ctl_write_state "$(edit_apply_skeleton "$(_ctl_state)" "$sk")"
@@ -401,13 +461,13 @@ _ctl_enter_text() {
   cat="$(nav_get "$nav" category)"
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")"
-  # sysctl was reached from its list screen — return there so the new pair shows
-  # and more can be added; every other text field backs out to the category.
-  if [[ "$path" == "sysctl" ]]; then
-    _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)"
-  else
-    _ctl_write_nav "$(nav_back "$nav")"
-  fi
+  # sysctl / create-user were reached from a list screen — return there so the
+  # new entry shows and more can be added; every other text field backs out.
+  case "$path" in
+  sysctl)      _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
+  __newuser__) _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
+  *)           _ctl_write_nav "$(nav_back "$nav")" ;;
+  esac
   echo render
 }
 
