@@ -324,6 +324,75 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "change-preview-window(hidden)"
 }
 
+# ── data-pools editor: multiple pools (tank0/tank1), topology, disk count ─────
+
+@test "list(category Disks): shows the data pools row" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "data pools: none"
+}
+
+@test "enter(category): data pools opens the editor" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "data pools: none"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+}
+
+@test "enter(datapools): + Add appends tank0 (mirror ×2) and forces multi" {
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_enter "+ Add data pool"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "2" ]
+  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
+  [ -n "$(jq -r '.os_pool.pool_name' "$GUIDED_STATE_FILE")" ]
+}
+
+@test "enter(datapools): a second Add auto-names it tank1" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_enter "+ Add data pool"
+  [ "$(jq -r '.data_pools[1].name' "$GUIDED_STATE_FILE")" = "tank1" ]
+}
+
+@test "list(datapools): lists each pool as name: topology ×n" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "tank0: raidz1 ×3"
+  echo "$output" | grep -q "+ Add data pool"
+}
+
+@test "enter(datapools): selecting a pool opens its editor by index" {
+  printf '%s\n' '{"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2},{"name":"tank1","topology":"stripe","disk_count":1}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_enter "tank1: stripe ×1"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" index)" = "1" ]
+}
+
+@test "enter(pooledit): topology cycles off stripe, disks cycle, remove deletes" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","topology":"stripe","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "topology: stripe   (Enter cycles)"
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  run guided_ctl_enter "disks: 2   (Enter cycles 1-8)"
+  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]
+  run guided_ctl_enter "✗ remove this pool"
+  [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+}
+
 # ── keymap / locale / timezone: big filterable lists + a "selected" side panel ─
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
