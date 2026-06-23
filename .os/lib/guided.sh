@@ -671,7 +671,8 @@ _guided_materialize_users() {
     dir="${OS_DIR}/users/${name}"
     [[ -f "${dir}/profile.jsonc" ]] && continue
     mkdir -p "$dir"
-    guided_user_profile '{"shell":"/bin/bash","sudo":true,"groups":["wheel"]}' \
+    guided_user_profile \
+      '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],"programs":["searxng"]}' \
       > "${dir}/profile.jsonc"
   done < <(jq -r '(.users // [])[]' <<<"$(_guided_effective)")
 }
