@@ -26,7 +26,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "entry dispatch enter: drills into a category + emits a reload action" {
-  run bash "$ENTRY" dispatch enter "Disks — filesystem, encryption, swap, ESP"
+  run bash "$ENTRY" dispatch enter "Disks — layout, data pools, filesystem, encryption, swap"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "reload(bash"
   [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "category" ]

@@ -39,7 +39,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(top): a category drills in (render + nav)" {
-  run guided_ctl_enter "Disks — filesystem, encryption, swap, ESP"
+  run guided_ctl_enter "Disks — layout, data pools, filesystem, encryption, swap"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]

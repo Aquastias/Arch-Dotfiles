@@ -63,7 +63,7 @@ _MENU_FIELDS=(
 # `section`, so a category aggregates its rows; the summary is display-only.
 _MENU_CATEGORIES=(
   "Host|hostname, locale, timezone, keymap"
-  "Disks|filesystem, encryption, swap, ESP"
+  "Disks|layout, data pools, filesystem, encryption, swap"
   "Options|kernel, bootloader, ssh, mirrors, sysctl"
   "Environment|desktop, gpu"
   "Packages|extra packages, system programs"
