@@ -39,6 +39,9 @@
 # shellcheck source=lib/config/skeleton.sh
 [[ "$(type -t skeleton_preset)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
+# shellcheck source=lib/config/history.sh
+[[ "$(type -t hist_new)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/history.sh"
 
 # The rule separating the categories from the terminal-action rows on the top
 # screen (kept in lockstep with lib/guided.sh's _GUIDED_DIVIDER).
@@ -201,18 +204,20 @@ _ctl_field_for_label() {
 
 # ── per-screen header + prompt (so every screen says how to go back) ─────────
 _ctl_nav_header() {
+  local b
   case "$(nav_screen "$1")" in
-  top)      printf 'Enter open   Esc quit' ;;
-  category) printf 'Enter edit   Esc back' ;;
+  top)      b='Enter open   Esc quit' ;;
+  category) b='Enter edit   Esc back' ;;
   values)
     if [[ "$(_ctl_field_kind "$(nav_get "$1" field)")" == "toggle" ]]; then
-      printf 'Enter toggle ✓   Esc done'
+      b='Enter toggle ✓   Esc done'
     else
-      printf 'Enter choose   Esc back'
+      b='Enter choose   Esc back'
     fi ;;
-  text)     printf 'Type a value, Enter save   Esc back' ;;
-  *)        printf 'Esc back' ;;
+  text)     b='Type a value, Enter save   Esc back' ;;
+  *)        b='Esc back' ;;
   esac
+  printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
 }
 _ctl_nav_prompt() {
   case "$(nav_screen "$1")" in
@@ -242,6 +247,7 @@ _ctl_layout_label() {
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_ctl_list — the current screen's item list on stdout.
 guided_ctl_list() {
+  _ctl_autocommit   # snapshot any edit for undo/redo (single choke point)
   local nav state base screen
   nav="$(_ctl_nav)"; state="$(_ctl_state)"; base="$(_ctl_baseline)"
   screen="$(nav_screen "$nav")"
@@ -379,6 +385,41 @@ guided_ctl_back() {
   local nav; nav="$(_ctl_nav)"
   if [[ "$(nav_screen "$nav")" == "top" ]]; then echo abort; return; fi
   _ctl_write_nav "$(nav_back "$nav")"; echo render
+}
+
+# ── undo / redo / reset history (slice 03) ───────────────────────────────────
+# Snapshots live in $GUIDED_HIST_FILE; _ctl_autocommit pushes one whenever the
+# Config State changed since the last snapshot. It runs from guided_ctl_list —
+# the single choke point every edit funnels through on its render — so toggles,
+# value picks, text, and even one-shot edits are all captured as one undo step
+# without sprinkling commits across the dispatch.
+_ctl_autocommit() {
+  [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || return 0
+  local hist now prev
+  hist="$(<"$GUIDED_HIST_FILE")"
+  now="$(_ctl_state | jq -cS .)"
+  prev="$(hist_present "$hist" | jq -cS .)"
+  [[ "$now" == "$prev" ]] && return 0
+  hist_commit "$hist" "$(_ctl_state)" >"$GUIDED_HIST_FILE"
+}
+
+# guided_ctl_key <ctrl-z|ctrl-y|ctrl-r> — the global toolbar keys. ^Z undoes /
+# ^Y redoes over the snapshot stack; ^R resets every override back to the seeded
+# launch state (itself undoable — ^Z brings it back, so no confirm is needed).
+# Each restores the Config State from the stack and re-renders in place.
+guided_ctl_key() {
+  local k="$1" hist
+  [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || { echo noop; return; }
+  hist="$(<"$GUIDED_HIST_FILE")"
+  case "$k" in
+  ctrl-z) hist="$(hist_undo "$hist")" ;;
+  ctrl-y) hist="$(hist_redo "$hist")" ;;
+  ctrl-r) hist="$(hist_commit "$hist" '{}')" ;;
+  *)      echo noop; return ;;
+  esac
+  printf '%s\n' "$hist" >"$GUIDED_HIST_FILE"
+  _ctl_write_state "$(hist_present "$hist")"
+  echo render
 }
 
 # _guided_directive_to_action <directive> <entry> — map a controller directive

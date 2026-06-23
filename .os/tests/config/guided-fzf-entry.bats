@@ -53,3 +53,12 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [ "$output" = "abort" ]
 }
+
+@test "entry key: ctrl-z emits a render action over the history file" {
+  bash -c '. "'"$BATS_TEST_DIRNAME"'/../../lib/config/history.sh"; hist_new "{}"' \
+    > "$TEST_DIR/hist"
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  run bash "$ENTRY" key ctrl-z
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "clear-query+reload(bash"
+}

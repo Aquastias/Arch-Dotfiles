@@ -155,6 +155,56 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["nvidia"]' ]
 }
 
+# ── undo / redo / reset (slice 03) ───────────────────────────────────────────
+
+@test "autocommit: guided_ctl_list snapshots a changed state for undo" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  hist_new '{}' > "$GUIDED_HIST_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  guided_ctl_list >/dev/null     # the single choke point commits the change
+  [ "$(hist_present "$(<"$GUIDED_HIST_FILE")" | jq -c '.options.encryption')" \
+    = "true" ]
+}
+
+@test "key ctrl-z: undoes the last edit, restoring the prior state" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  hist_new '{}' > "$GUIDED_HIST_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null     # autocommit the change
+  run guided_ctl_key ctrl-z
+  [ "$output" = "render" ]
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "key ctrl-y: redoes an undone edit" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  hist_new '{}' > "$GUIDED_HIST_FILE"
+  printf '%s\n' '{"a":1}' > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null
+  guided_ctl_key ctrl-z >/dev/null
+  run guided_ctl_key ctrl-y
+  [ "$output" = "render" ]
+  [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
+}
+
+@test "key ctrl-r: resets every override, and is itself undoable" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  printf '%s\n' '{"a":1}' > "$GUIDED_STATE_FILE"
+  hist_new '{"a":1}' > "$GUIDED_HIST_FILE"
+  run guided_ctl_key ctrl-r
+  [ "$output" = "render" ]
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  guided_ctl_key ctrl-z >/dev/null              # undo the reset
+  [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
+}
+
+@test "key: a no-op without a history file" {
+  unset GUIDED_HIST_FILE
+  run guided_ctl_key ctrl-z
+  [ "$output" = "noop" ]
+}
+
 @test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_enter "Disk layout: single"

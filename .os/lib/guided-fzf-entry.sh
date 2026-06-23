@@ -36,6 +36,10 @@ dispatch)
   esac
   _guided_directive_to_action "$_d" "$_entry_self"
   ;;
+key)
+  # ^Z/^Y/^R — undo/redo/reset over the snapshot stack.
+  _guided_directive_to_action "$(guided_ctl_key "${2:-}")" "$_entry_self"
+  ;;
 oneshot)
   # shellcheck source=lib/guided.sh
   source "${_entry_dir}/guided.sh"
