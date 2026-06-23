@@ -141,6 +141,22 @@ _ctl_nav_prompt() {
   esac
 }
 
+# _ctl_layout_label <effective-json> → a one-line description of the current disk
+# layout, so the Disks "Disk layout" row reflects the chosen preset instead of a
+# static "choose preset". single → "single"; multi → "os <topo> ×<n>" plus any
+# storage / data pool counts.
+_ctl_layout_label() {
+  jq -r '
+    if (.mode // "single") != "multi" then "single"
+    else
+      "os \(.os_pool.topology // "?") ×\(.os_pool.disk_count // "?")"
+      + (if ((.storage_groups // []) | length) > 0
+           then " +\(.storage_groups | length) storage" else "" end)
+      + (if ((.data_pools // []) | length) > 0
+           then " +\(.data_pools | length) data" else "" end)
+    end' <<<"$1"
+}
+
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_ctl_list — the current screen's item list on stdout.
 guided_ctl_list() {
@@ -160,7 +176,11 @@ guided_ctl_list() {
     menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
     if [[ "$cat" == "Disks" ]]; then
-      printf '%s\n' "Disk layout ▸ choose preset"
+      local _ov=""
+      jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
+        <<<"$state" >/dev/null 2>&1 && _ov="  ●"
+      printf 'Disk layout: %s%s\n' \
+        "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
       [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
         options.impermanence.enabled)" == "true" ]] \
         && printf '%s\n' "Add persist directory ▸ extend the curated defaults"
