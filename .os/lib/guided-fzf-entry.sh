@@ -40,6 +40,10 @@ key)
   # ^Z/^Y/^R — undo/redo/reset over the snapshot stack.
   _guided_directive_to_action "$(guided_ctl_key "${2:-}")" "$_entry_self"
   ;;
+preview)
+  # fzf preview body — the ASCII layout graph (only on the Disk-layout screen).
+  guided_ctl_preview "${2:-}"
+  ;;
 oneshot)
   # shellcheck source=lib/guided.sh
   source "${_entry_dir}/guided.sh"

@@ -301,6 +301,41 @@ _ctl_layout_label() {
     end' <<<"$1"
 }
 
+# _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the preview
+# pane (a pool per line + its topology / disk count).
+_ctl_layout_graph() {
+  jq -r '
+    def pool(name; role; topo; n):
+      "  ▸ \(name)  (\(role))\n      └─ "
+      + (if topo == null or topo == "none" then "\(n) disk(s)"
+         else "\(topo) · \(n) disk(s)" end);
+    if (.mode // "single") != "multi" then
+      "Single-disk ZFS\n\n" + pool("rpool"; "OS root"; null; 1)
+    else
+      "Multi-disk ZFS\n\n"
+      + pool(.os_pool.pool_name // "rpool"; "OS root";
+             .os_pool.topology; .os_pool.disk_count)
+      + ((.storage_groups // [])
+         | map("\n" + pool(.name; "storage → \(.mount)"; .topology; .disk_count))
+         | join(""))
+      + ((.data_pools // [])
+         | map("\n" + pool(.name; "data pool"; .topology; .disk_count))
+         | join(""))
+    end' <<<"$1"
+}
+
+# guided_ctl_preview <line> — the fzf preview body: the layout graph for the
+# highlighted preset, but ONLY on the Disk-layout screen (empty elsewhere, so the
+# preview is a no-op on every other screen).
+guided_ctl_preview() {
+  local line="$1" nav
+  nav="$(_ctl_nav)"
+  [[ "$(nav_screen "$nav")" == "values" \
+     && "$(nav_get "$nav" field)" == "__layout__" ]] || return 0
+  local sk; sk="$(skeleton_preset "$line" 2>/dev/null)" || return 0
+  _ctl_layout_graph "$sk"
+}
+
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_ctl_list — the current screen's item list on stdout.
 guided_ctl_list() {
@@ -526,9 +561,20 @@ _guided_directive_to_action() {
     # clear-query first: fzf keeps the filter text across reload, so a leftover
     # filter would hide the next screen's items (e.g. typing "disk" then opening
     # the preset picker would hide every preset). Each screen starts unfiltered.
+    # The Disk-layout screen turns on a preview (the ASCII layout graph); every
+    # other screen swaps the preview to a cheap no-op and hides the pane, so the
+    # graph command only runs where it's shown.
     nav="$(_ctl_nav)"
-    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)' \
-      "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" ;;
+    local pv
+    if [[ "$(nav_screen "$nav")" == "values" \
+          && "$(nav_get "$nav" field)" == "__layout__" ]]; then
+      pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
+        "$entry")"
+    else
+      pv='+change-preview(echo)+change-preview-window(hidden)'
+    fi
+    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)%s' \
+      "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" "$pv" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).

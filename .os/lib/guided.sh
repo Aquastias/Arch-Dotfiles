@@ -1063,9 +1063,12 @@ guided_run_persistent() {
   # {q} from fzf's own input line); esc maps to a back/abort transform; the
   # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
+  # The preview pane starts hidden with a no-op body; the Disk-layout screen's
+  # render swaps in the ASCII layout graph and shows it (change-preview[-window]).
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
     --header-border=bottom \
+    --preview='echo' --preview-window=hidden \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-z:transform(bash $entry key ctrl-z)" \
