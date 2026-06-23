@@ -278,6 +278,39 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
+# ── disk-layout graph preview ────────────────────────────────────────────────
+
+@test "layout graph: single shows one OS pool" {
+  run _ctl_layout_graph "$(skeleton_preset single)"
+  echo "$output" | grep -q "rpool"
+  echo "$output" | grep -qi "single"
+}
+
+@test "layout graph: os-mirror-raidz1 shows OS mirror + data raidz1" {
+  run _ctl_layout_graph "$(skeleton_preset os-mirror-raidz1)"
+  echo "$output" | grep -q "mirror · 2 disk"
+  echo "$output" | grep -q "raidz1 · 3 disk"
+}
+
+@test "preview: renders only on the Disk-layout screen" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_preview "os-mirror"
+  [ -z "$output" ]                                   # off-screen → nothing
+  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  run guided_ctl_preview "os-mirror"
+  echo "$output" | grep -q "mirror"
+}
+
+@test "directive→action(render): layout shows the preview, others hide it" {
+  set_nav "$(nav_to_values Disks __layout__ "Disk layout")"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
+  echo "$output" | grep -q "change-preview-window(right,45%)"
+  set_nav "$(nav_to_category Disks)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview-window(hidden)"
+}
+
 # ── text screen: typed INTO fzf's query line, never leaves the window ─────────
 
 @test "enter(text): a typed query commits the scalar + returns to the category" {
