@@ -314,6 +314,8 @@ _ctl_nav_header() {
       b='Enter choose   Esc back'
     fi ;;
   text)     b='Type a value, Enter save   Esc back' ;;
+  datapools) b='Enter open/add   Esc back' ;;
+  pooledit)  b='Enter cycle/remove   Esc back' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -323,6 +325,8 @@ _ctl_nav_prompt() {
   top)         printf 'guided> ' ;;
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
+  datapools)   printf 'data pools> ' ;;
+  pooledit)    printf 'pool> ' ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -364,6 +368,13 @@ _ctl_layout_graph() {
          | map("\n" + pool(.name; "data pool"; .topology; .disk_count))
          | join(""))
     end' <<<"$1"
+}
+
+# _ctl_datapools_summary <effective> → "none" or "N (tank0, tank1)".
+_ctl_datapools_summary() {
+  jq -r '(.data_pools // [])
+    | if length == 0 then "none"
+      else "\(length) (" + (map(.name) | join(", ")) + ")" end' <<<"$1"
 }
 
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
@@ -417,6 +428,8 @@ guided_ctl_list() {
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
       printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
+      printf 'data pools: %s\n' \
+        "$(_ctl_datapools_summary "$(_ctl_effective "$state" "$base")")"
     fi
     menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
@@ -450,6 +463,19 @@ guided_ctl_list() {
     cur="$(_ctl_field_display "$path" "$state" "$base")"
     printf 'current: %s\n' "${cur:-(unset)}"
     printf '%s\n' "(type above, Enter saves · Esc cancels)" ;;
+  datapools)
+    jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
+      <<<"$(_ctl_effective "$state" "$base")"
+    printf '%s\n' "+ Add data pool" "← Back" ;;
+  pooledit)
+    local i p
+    i="$(nav_get "$nav" index)"
+    p="$(jq -c --argjson i "$i" '.data_pools[$i] // {}' \
+      <<<"$(_ctl_effective "$state" "$base")")"
+    printf 'name: %s\n' "$(jq -r '.name // "?"' <<<"$p")"
+    printf 'topology: %s   (Enter cycles)\n' "$(jq -r '.topology // "?"' <<<"$p")"
+    printf 'disks: %s   (Enter cycles 1-8)\n' "$(jq -r '.disk_count // "?"' <<<"$p")"
+    printf '%s\n' "✗ remove this pool" "← Back" ;;
   esac
 }
 
@@ -459,11 +485,13 @@ guided_ctl_list() {
 guided_ctl_enter() {
   local line="$1" query="${2:-}" screen; screen="$(nav_screen "$(_ctl_nav)")"
   case "$screen" in
-  top)      _ctl_enter_top "$line" ;;
-  category) _ctl_enter_category "$line" ;;
-  values)   _ctl_enter_values "$line" ;;
-  text)     _ctl_enter_text "$query" ;;
-  *)        echo noop ;;
+  top)       _ctl_enter_top "$line" ;;
+  category)  _ctl_enter_category "$line" ;;
+  values)    _ctl_enter_values "$line" ;;
+  text)      _ctl_enter_text "$query" ;;
+  datapools) _ctl_enter_datapools "$line" ;;
+  pooledit)  _ctl_enter_pooledit "$line" ;;
+  *)         echo noop ;;
   esac
 }
 
@@ -493,6 +521,8 @@ _ctl_enter_category() {
   "layout:"*)
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
+  "data pools:"*)
+    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -573,6 +603,61 @@ _ctl_enter_text() {
   *)           _ctl_write_nav "$(nav_back "$nav")" ;;
   esac
   echo render
+}
+
+# _ctl_enter_datapools <line> — the data-pools list editor: add a tank<N> pool
+# (auto-named, default mirror ×2; forces multi + a default OS pool), or open a
+# pool by name. STAYS on the list after an add (refresh).
+_ctl_enter_datapools() {
+  local line="$1" nav cat name idx
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  case "$line" in
+  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "+ Add"*)
+    _ctl_write_state "$(jq '
+      (.data_pools // []) as $dp
+      | .data_pools = ($dp + [{name:("tank" + (($dp | length) | tostring)),
+                               topology:"mirror", disk_count:2}])
+      | .mode = "multi"
+      | (if .os_pool then . else
+          .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
+      ' <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  esac
+  name="${line%%:*}"
+  idx="$(jq -r --arg n "$name" \
+    '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$(_ctl_state)")"
+  if [[ "$idx" =~ ^[0-9]+$ ]]; then
+    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx")"; echo render; return
+  fi
+  echo refresh
+}
+
+# _ctl_enter_pooledit <line> — edit data_pools[index]: cycle topology
+# (stripe→mirror→raidz1→raidz2), cycle the disk count (1-8), or remove the pool.
+_ctl_enter_pooledit() {
+  local line="$1" nav cat i
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"; i="$(nav_get "$nav" index)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
+  "✗ remove"*)
+    _ctl_write_state "$(jq --argjson i "$i" 'del(.data_pools[$i])' \
+      <<<"$(_ctl_state)")"
+    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
+  "topology:"*)
+    _ctl_write_state "$(jq --argjson i "$i" '
+      .data_pools[$i].topology |=
+        ({"stripe":"mirror","mirror":"raidz1","raidz1":"raidz2",
+          "raidz2":"stripe"}[.] // "mirror")' <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  "disks:"*)
+    _ctl_write_state "$(jq --argjson i "$i" \
+      '.data_pools[$i].disk_count |= (if . >= 8 then 1 else . + 1 end)' \
+      <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  esac
+  echo refresh
 }
 
 # guided_ctl_back — Esc: back one screen, or abort the whole menu at the top.

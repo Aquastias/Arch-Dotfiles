@@ -52,3 +52,16 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"; }
 @test "nav_back: top stays top" {
   [ "$(nav_screen "$(nav_back "$(nav_new)")")" = "top" ]
 }
+
+@test "nav_to_datapools: enters the data-pools editor, back → category" {
+  local n; n="$(nav_to_datapools Disks)"
+  [ "$(nav_screen "$n")" = "datapools" ]
+  [ "$(nav_screen "$(nav_back "$n")")" = "category" ]
+}
+
+@test "nav_to_pooledit: carries the index, back → datapools" {
+  local p; p="$(nav_to_pooledit Disks 1)"
+  [ "$(nav_screen "$p")" = "pooledit" ]
+  [ "$(nav_get "$p" index)" = "1" ]
+  [ "$(nav_screen "$(nav_back "$p")")" = "datapools" ]
+}

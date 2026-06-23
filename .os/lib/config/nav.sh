@@ -40,11 +40,22 @@ nav_to_text() {
     '{screen:"text", category:$c, field:$f, label:$l}'
 }
 
+# nav_to_datapools <category> — the data-pools list editor.
+nav_to_datapools() { jq -nc --arg c "$1" '{screen:"datapools", category:$c}'; }
+
+# nav_to_pooledit <category> <index> — edit data_pools[<index>].
+nav_to_pooledit() {
+  jq -nc --arg c "$1" --argjson i "$2" \
+    '{screen:"pooledit", category:$c, index:$i}'
+}
+
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
     if   .screen == "values" or .screen == "text"
          then {screen:"category", category:.category}
+    elif .screen == "datapools" then {screen:"category", category:.category}
+    elif .screen == "pooledit"  then {screen:"datapools", category:.category}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
