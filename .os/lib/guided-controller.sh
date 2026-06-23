@@ -259,6 +259,14 @@ _ctl_field_for_label() {
     | jq -r --arg l "$2" 'first(.[] | select(.label == $l) | .field) // empty'
 }
 
+# _ctl_field_display <path> <state> <base> → the field's menu-displayed value
+# (effective value, else its menu default), so the text screen's "current:" hint
+# reflects a defaulted field (e.g. 2G) instead of "(unset)".
+_ctl_field_display() {
+  menu_rows "$2" "$3" \
+    | jq -r --arg p "$1" 'first(.[] | select(.field == $p) | .value) // ""'
+}
+
 # ── per-screen header + prompt (so every screen says how to go back) ─────────
 _ctl_nav_header() {
   local b
@@ -359,7 +367,7 @@ guided_ctl_list() {
       local _ov=""
       jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
-      printf 'Disk layout: %s%s\n' \
+      printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
       [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
         options.impermanence.enabled)" == "true" ]] \
@@ -383,7 +391,9 @@ guided_ctl_list() {
   text)
     local path cur
     path="$(nav_get "$nav" field)"
-    cur="$(cfgstate_get "$(_ctl_effective "$state" "$base")" "$path")"
+    # the menu-displayed value (effective, else the field default) so a defaulted
+    # field shows e.g. "current: 2G" rather than "current: (unset)".
+    cur="$(_ctl_field_display "$path" "$state" "$base")"
     printf 'current: %s\n' "${cur:-(unset)}"
     printf '%s\n' "(type above, Enter saves · Esc cancels)" ;;
   esac
@@ -426,8 +436,8 @@ _ctl_enter_category() {
   case "$line" in
   "← Back")
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
-  "Disk layout"*)
-    _ctl_write_nav "$(nav_to_values "$cat" __layout__ "Disk layout")"
+  "layout:"*)
+    _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
