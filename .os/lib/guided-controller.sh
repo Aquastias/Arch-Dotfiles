@@ -392,14 +392,17 @@ guided_ctl_list() {
       "Export config ▸ write a device-baked config" ;;
   category)
     local cat; cat="$(nav_get "$nav" category)"
-    menu_category_rows "$cat" "$state" "$base" | jq -r \
-      '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
+    # Disks leads with the layout row (the headline storage choice), then fields.
     if [[ "$cat" == "Disks" ]]; then
       local _ov=""
       jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
       printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
+    fi
+    menu_category_rows "$cat" "$state" "$base" | jq -r \
+      '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
+    if [[ "$cat" == "Disks" ]]; then
       [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
         options.impermanence.enabled)" == "true" ]] \
         && printf '%s\n' "Add persist directory ▸ extend the curated defaults"
