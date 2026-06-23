@@ -103,12 +103,6 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
 }
 
-@test "enter(category): the users field still routes to edit-oneshot" {
-  set_nav "$(nav_to_category Users)"
-  run guided_ctl_enter "users: "
-  [ "$output" = "edit-oneshot users" ]
-}
-
 # ── multi-select toggle screens (native — never leaves fzf) ──────────────────
 
 @test "list(values toggle): options are marked [x]/[ ] by selection" {
@@ -354,6 +348,63 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.sysctl["vm.dirty_ratio"]' "$GUIDED_STATE_FILE")" = "20" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
+}
+
+# ── users as a native screen: toggle existing + in-fzf create (no terminal) ──
+
+@test "enter(category): users opens its native screen" {
+  set_nav "$(nav_to_category Users)"
+  run guided_ctl_enter "users: "
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+}
+
+@test "list(values users): existing users marked + Create + Back, core excluded" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/bob" "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/bob/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -q "\[x\] alice"
+  echo "$output" | grep -q "\[ \] bob"
+  ! echo "$output" | grep -q "core"
+  echo "$output" | grep -q "+ Create user"
+}
+
+@test "enter(values users): toggling a user flips membership (full override)" {
+  printf '%s\n' '{"users":["alice","bob"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "[x] bob"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]
+}
+
+@test "enter(values users): toggling the last user off yields an empty list" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "[x] alice"
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]   # set [], not unset
+}
+
+@test "enter(values users): + Create opens the new-user text editor" {
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "+ Create user (name)"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__newuser__" ]
+}
+
+@test "enter(text __newuser__): a typed name is added + returns to the user list" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_text Users __newuser__ "new user")"
+  run guided_ctl_enter "+ Create user (name)" "carol"
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","carol"]' ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
 }
 
 # ── back / abort ─────────────────────────────────────────────────────────────

@@ -1401,3 +1401,15 @@ fzf_queue() {
   [ "${_GUIDED_USER_PW[aquastias]}" = "kept" ]   # untouched
   [ "$_GUIDED_ROOT_PW" = "rootpw" ]
 }
+
+# ── a persistent-path created user (name only) gets a default profile ─────────
+
+@test "_guided_materialize_users: a created user without a profile gets a default" {
+  _GUIDED_BASELINE='{}'
+  _GUIDED_STATE='{"users":["newbie"]}'
+  _GUIDED_ADHOC_ORDER=()
+  _guided_materialize_users
+  [ -f "$OS_DIR/users/newbie/profile.jsonc" ]
+  jq -e '.sudo == true and (.groups | index("wheel"))' \
+    "$OS_DIR/users/newbie/profile.jsonc"
+}

@@ -663,6 +663,17 @@ _guided_materialize_users() {
     mkdir -p "$dir"
     printf '%s\n' "${_GUIDED_ADHOC_FORM[$name]}" > "${dir}/profile.jsonc"
   done
+  # Persistent-path created users carry only a name in the Config State; give any
+  # effective user lacking a committed profile a sensible default (bash + wheel
+  # sudo). Committed/legacy-ad-hoc users already have one and are skipped.
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    dir="${OS_DIR}/users/${name}"
+    [[ -f "${dir}/profile.jsonc" ]] && continue
+    mkdir -p "$dir"
+    guided_user_profile '{"shell":"/bin/bash","sudo":true,"groups":["wheel"]}' \
+      > "${dir}/profile.jsonc"
+  done < <(jq -r '(.users // [])[]' <<<"$(_guided_effective)")
 }
 
 # _guided_collect_passwords — interactive post-menu credential entry (ADR 0042):
