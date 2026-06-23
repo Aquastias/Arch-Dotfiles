@@ -10,11 +10,12 @@
 # guided_ctl_back). No fzf is needed to drive it — state files in, files + a
 # directive out — so the dispatch is unit-testable without a tty.
 #
-# Screens (nav.sh): top, category, values (enum pick), text (free-text typed
-# INTO fzf's own query line — never leaves the window). Enter on a `values`/enum
-# field and on `Disk layout` (native preset picker) commits in place; only the
-# remaining MULTI fields (kernel/desktop/gpu/mirror_countries/system_programs/
-# users) still emit `edit-oneshot` (slice 03 makes them a native toggle screen).
+# Screens (nav.sh): top, category, values (enum picks AND multi-select toggles),
+# text (free-text typed INTO fzf's own query line — never leaves the window).
+# Enum picks, multi-select toggles, the Disk-layout preset picker, Add-persist,
+# and every free-text field commit in place; only `users` still hands off via
+# `edit-oneshot` (its ad-hoc create form is a follow-up). ^Z/^Y/^R drive
+# undo/redo/reset over a snapshot history.
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
 #   render             re-list + re-prompt + re-header the current screen
@@ -111,6 +112,7 @@ _ctl_apply_enum() {
 _ctl_apply_text() {
   local state="$1" path="$2" val="$3"
   case "$path" in
+  __persist__)    edit_append_persist "$state" "$val" ;;
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
@@ -332,7 +334,8 @@ _ctl_enter_category() {
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "Disk layout")"
     echo render; return ;;
   "Add persist"*)
-    echo "edit-oneshot __persist__"; return ;;
+    _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
+    echo render; return ;;
   esac
   label="${line%%:*}"
   path="$(_ctl_field_for_label "$cat" "$label")"

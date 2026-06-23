@@ -302,6 +302,20 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
 }
 
+@test "enter(category): Add persist opens a native text editor (no terminal)" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "Add persist directory ▸ extend the curated defaults"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__persist__" ]
+}
+
+@test "enter(text __persist__): a typed path appends to persist.directories" {
+  set_nav "$(nav_to_text Disks __persist__ "persist dir")"
+  run guided_ctl_enter "current: (unset)" "/var/lib/foo"
+  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/var/lib/foo"]' ]
+}
+
 # ── back / abort ─────────────────────────────────────────────────────────────
 
 @test "back: at the top screen, aborts the whole menu" {
