@@ -274,14 +274,18 @@ _guided_directive_to_action() {
   local d="$1" entry="$2" nav
   case "$d" in
   render)
+    # clear-query first: fzf keeps the filter text across reload, so a leftover
+    # filter would hide the next screen's items (e.g. typing "disk" then opening
+    # the preset picker would hide every preset). Each screen starts unfiltered.
     nav="$(_ctl_nav)"
-    printf 'reload(bash %q list)+change-header(%s)+change-prompt(%s)' \
+    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)' \
       "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
                       "${d#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
-  "edit-oneshot "*) printf 'execute(bash %q oneshot %q)+reload(bash %q list)' \
+  "edit-oneshot "*) printf \
+                      'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
                       "$entry" "${d#edit-oneshot }" "$entry" ;;
   *)                printf 'ignore' ;;
   esac
