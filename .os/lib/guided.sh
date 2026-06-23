@@ -1054,6 +1054,7 @@ guided_run_persistent() {
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
+    --header-border=bottom \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-z:transform(bash $entry key ctrl-z)" \

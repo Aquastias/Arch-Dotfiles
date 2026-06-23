@@ -236,13 +236,13 @@ _ctl_nav_prompt() {
 # storage / data pool counts.
 _ctl_layout_label() {
   jq -r '
-    if (.mode // "single") != "multi" then "single"
+    if (.mode // "single") != "multi" then "single disk"
     else
-      "os \(.os_pool.topology // "?") ×\(.os_pool.disk_count // "?")"
-      + (if ((.storage_groups // []) | length) > 0
-           then " +\(.storage_groups | length) storage" else "" end)
-      + (if ((.data_pools // []) | length) > 0
-           then " +\(.data_pools | length) data" else "" end)
+      "OS: \(.os_pool.disk_count // "?") disks (\(.os_pool.topology // "?"))"
+      + ((.storage_groups // [])
+         | map(" + \(.name): \(.disk_count) disks (\(.topology))") | join(""))
+      + ((.data_pools // [])
+         | map(" + \(.name): \(.disk_count) disks (\(.topology))") | join(""))
     end' <<<"$1"
 }
 
@@ -358,10 +358,12 @@ _ctl_enter_values() {
   fi
   if [[ "$(_ctl_field_kind "$path")" == "toggle" ]]; then
     # strip the "[x] "/"[ ] " mark, flip membership, and STAY on the screen so
-    # the operator can toggle several (Esc / ← Back returns to the category).
+    # the operator can toggle several. `refresh` (reload-sync, query/header kept)
+    # re-marks the list in place without the flicker — and crucially without
+    # clearing a filter the operator typed on a long list (e.g. mirror countries).
     _ctl_write_state "$(_ctl_toggle_multi "$(_ctl_state)" "$(_ctl_baseline)" \
       "$path" "${line:4}")"
-    echo render; return
+    echo refresh; return
   fi
   if [[ "$path" == "__layout__" ]]; then
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
@@ -441,6 +443,10 @@ _guided_directive_to_action() {
     nav="$(_ctl_nav)"
     printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)' \
       "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" ;;
+  refresh)
+    # same screen, just re-mark the list: reload-sync avoids the flicker a plain
+    # reload shows, and keeps the query + header (no clear-query/change-*).
+    printf 'reload-sync(bash %q list)' "$entry" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
