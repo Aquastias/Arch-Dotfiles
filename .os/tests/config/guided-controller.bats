@@ -217,6 +217,17 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "change-prompt(Disks> )"
 }
 
+@test "directive→action: render clears the stale filter query first" {
+  run _guided_directive_to_action render /x/entry.sh
+  # clear-query must precede reload so a leftover filter can't hide the screen
+  [[ "$output" == clear-query+reload* ]]
+}
+
+@test "directive→action: edit-oneshot clears the query before re-listing" {
+  run _guided_directive_to_action "edit-oneshot options.kernel" /x/entry.sh
+  echo "$output" | grep -q "clear-query+reload(bash /x/entry.sh list)"
+}
+
 @test "directive→action: abort and noop map to fzf primitives" {
   [ "$(_guided_directive_to_action abort /x/entry.sh)" = "abort" ]
   [ "$(_guided_directive_to_action noop /x/entry.sh)" = "ignore" ]
