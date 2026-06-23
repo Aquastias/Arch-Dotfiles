@@ -1410,6 +1410,7 @@ fzf_queue() {
   _GUIDED_ADHOC_ORDER=()
   _guided_materialize_users
   [ -f "$OS_DIR/users/newbie/profile.jsonc" ]
-  jq -e '.sudo == true and (.groups | index("wheel"))' \
+  jq -e '.sudo == true and (.groups | index("wheel"))
+    and (.programs | index("searxng"))' \
     "$OS_DIR/users/newbie/profile.jsonc"
 }
