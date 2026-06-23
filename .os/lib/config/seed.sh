@@ -28,6 +28,10 @@ cfgstate_seed_defaults() {
   state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
   state="$(cfgstate_set "$state" system.timezone '"Europe/Bucharest"')"
   state="$(cfgstate_set "$state" system.keymap '"us"')"
+  # Sysctl Defaults: surface vm.swappiness=10 (the Host Core default) so the
+  # guided sysctl screen lists it as the baseline; operator additions ride the
+  # override on top. Idempotent with Host Core's own swappiness=10.
+  state="$(cfgstate_set "$state" sysctl '{"vm.swappiness":10}')"
   # Security & Backup Extras (ADR 0041): pre-tick the secure baseline (firewalld
   # + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg). It rides the
   # baseline layer, so a fresh run shows it with no ● and Save writes it whole.
