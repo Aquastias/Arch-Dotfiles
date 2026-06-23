@@ -95,10 +95,64 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.hostname" ]
 }
 
-@test "enter(category): a multi field routes to edit-oneshot" {
+@test "enter(category): a toggle field opens the multi-select picker" {
   set_nav "$(nav_to_category Options)"
   run guided_ctl_enter "kernel: lts"
-  [ "$output" = "edit-oneshot options.kernel" ]
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
+}
+
+@test "enter(category): the users field still routes to edit-oneshot" {
+  set_nav "$(nav_to_category Users)"
+  run guided_ctl_enter "users: "
+  [ "$output" = "edit-oneshot users" ]
+}
+
+# ── multi-select toggle screens (native — never leaves fzf) ──────────────────
+
+@test "list(values toggle): options are marked [x]/[ ] by selection" {
+  printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Options options.kernel kernel)"
+  run guided_ctl_list
+  echo "$output" | grep -q "\[x\] lts"
+  echo "$output" | grep -q "\[ \] zen"
+}
+
+@test "enter(values toggle): toggling on adds the option and STAYS on the screen" {
+  set_nav "$(nav_to_values Options options.kernel kernel)"
+  run guided_ctl_enter "[ ] lts"
+  [ "$output" = "render" ]
+  [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+}
+
+@test "enter(values toggle): toggling an already-selected option removes it" {
+  printf '%s\n' '{"options":{"kernel":["lts","zen"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Options options.kernel kernel)"
+  run guided_ctl_enter "[x] zen"
+  [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
+}
+
+@test "enter(values toggle): the last option toggled off unsets the override" {
+  printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Options options.kernel kernel)"
+  run guided_ctl_enter "[x] lts"
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "enter(values toggle gpu): auto is mutually exclusive → scalar auto" {
+  printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Environment environment.gpu gpu)"
+  run guided_ctl_enter "[ ] auto"
+  [ "$(jq -r '.environment.gpu' "$GUIDED_STATE_FILE")" = "auto" ]
+}
+
+@test "enter(values toggle gpu): picking a vendor clears auto" {
+  printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Environment environment.gpu gpu)"
+  run guided_ctl_enter "[ ] nvidia"
+  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["nvidia"]' ]
 }
 
 @test "enter(category): Disk layout opens the native preset picker" {

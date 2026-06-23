@@ -69,8 +69,9 @@ _ctl_field_kind() {
   system.hostname | system.locale | system.timezone | system.keymap) echo text ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   sysctl | packages.extra) echo text ;;
-  options.kernel | environment.desktop | environment.gpu) echo multi ;;
-  options.mirror_countries | system_programs | users) echo multi ;;
+  options.kernel | environment.desktop | environment.gpu) echo toggle ;;
+  options.mirror_countries | system_programs) echo toggle ;;
+  users) echo multi ;;   # ad-hoc create form → one-shot (follow-up)
   *) echo enum ;;
   esac
 }
@@ -115,6 +116,82 @@ _ctl_apply_text() {
   esac
 }
 
+# _ctl_program_names — resolvable System Program names (programs/<cat>/<name>),
+# one per line; the toggle option set for system_programs.
+_ctl_program_names() {
+  local d
+  for d in "${OS_DIR:-.}"/programs/*/*; do
+    [[ -d "$d" ]] && basename "$d"
+  done
+}
+
+# _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
+_ctl_toggle_options() {
+  case "$1" in
+  options.kernel)      printf '%s\n' lts default hardened zen ;;
+  environment.desktop) printf '%s\n' kde hyprland ;;
+  environment.gpu)     printf '%s\n' auto amd nvidia intel ;;
+  options.mirror_countries)
+    printf '%s\n' Germany Switzerland Sweden France Romania Austria \
+      Netherlands "United Kingdom" "United States" Japan Australia ;;
+  system_programs)     _ctl_program_names ;;
+  esac
+}
+
+# _ctl_marked_options <field> <state> <base> — each option prefixed [x]/[ ] by
+# whether it is currently selected (gpu's scalar "auto" counts as an array).
+_ctl_marked_options() {
+  local field="$1" state="$2" base="$3" sel opt
+  sel="$(jq -c --arg p "$field" \
+    'getpath($p | split(".")) // [] | if type == "array" then . else [.] end' \
+    <<<"$(_ctl_effective "$state" "$base")")"
+  while IFS= read -r opt; do
+    # jq -n (null input) so it does NOT consume the loop's stdin (the option list)
+    if jq -ne --argjson s "$sel" --arg o "$opt" 'any($s[]; . == $o)' \
+        >/dev/null 2>&1; then
+      printf '[x] %s\n' "$opt"
+    else
+      printf '[ ] %s\n' "$opt"
+    fi
+  done < <(_ctl_toggle_options "$field")
+}
+
+# _ctl_toggle_multi <state> <base> <field> <value> → flip <value>'s membership in
+# the field's array (computed against the EFFECTIVE value so a seeded baseline is
+# honoured), written back as an override; an empty result unsets the override.
+# gpu is mutually-exclusive with "auto" and normalizes to scalar "auto" / a
+# vendor array / unset.
+_ctl_toggle_multi() {
+  local state="$1" base="$2" field="$3" val="$4" eff cur new
+  eff="$(_ctl_effective "$state" "$base")"
+  if [[ "$field" == "environment.gpu" ]]; then
+    cur="$(jq -c '.environment.gpu // [] | if type == "array" then . else [.] end' \
+      <<<"$eff")"
+    new="$(jq -cn --argjson a "$cur" --arg v "$val" '
+      if $v == "auto"
+        then (if any($a[]; . == "auto") then [] else ["auto"] end)
+        else (($a - ["auto"]) as $c
+              | if any($c[]; . == $v) then ($c - [$v]) else ($c + [$v]) end)
+      end')"
+    case "$new" in
+    '["auto"]') cfgstate_set   "$state" environment.gpu '"auto"' ;;
+    '[]')       cfgstate_unset "$state" environment.gpu ;;
+    *)          cfgstate_set   "$state" environment.gpu "$new" ;;
+    esac
+    return
+  fi
+  cur="$(jq -c --arg p "$field" \
+    'getpath($p | split(".")) // [] | if type == "array" then . else [.] end' \
+    <<<"$eff")"
+  new="$(jq -cn --argjson a "$cur" --arg v "$val" \
+    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
+  if [[ "$new" == '[]' ]]; then
+    cfgstate_unset "$state" "$field"
+  else
+    cfgstate_set "$state" "$field" "$new"
+  fi
+}
+
 # _ctl_field_for_label <category> <label> → the dotted path of the row whose
 # label matches (reverse lookup through the pure Menu model).
 _ctl_field_for_label() {
@@ -127,7 +204,12 @@ _ctl_nav_header() {
   case "$(nav_screen "$1")" in
   top)      printf 'Enter open   Esc quit' ;;
   category) printf 'Enter edit   Esc back' ;;
-  values)   printf 'Enter choose   Esc back' ;;
+  values)
+    if [[ "$(_ctl_field_kind "$(nav_get "$1" field)")" == "toggle" ]]; then
+      printf 'Enter toggle ✓   Esc done'
+    else
+      printf 'Enter choose   Esc back'
+    fi ;;
   text)     printf 'Type a value, Enter save   Esc back' ;;
   *)        printf 'Esc back' ;;
   esac
@@ -187,7 +269,12 @@ guided_ctl_list() {
     fi
     printf '%s\n' "← Back" ;;
   values)
-    _ctl_enum_options "$(nav_get "$nav" field)"
+    local vf; vf="$(nav_get "$nav" field)"
+    if [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
+      _ctl_marked_options "$vf" "$state" "$base"
+    else
+      _ctl_enum_options "$vf"
+    fi
     printf '%s\n' "← Back" ;;
   text)
     local path cur
@@ -245,9 +332,12 @@ _ctl_enter_category() {
   path="$(_ctl_field_for_label "$cat" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
   case "$(_ctl_field_kind "$path")" in
-  enum) _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
-  text) _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
-  *)    echo "edit-oneshot $path" ;;   # multi → one-shot (slice 03)
+  enum | toggle)
+    _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
+  text)
+    _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
+  *)
+    echo "edit-oneshot $path" ;;   # users → one-shot (ad-hoc form; follow-up)
   esac
 }
 
@@ -256,6 +346,13 @@ _ctl_enter_values() {
   nav="$(_ctl_nav)"; path="$(nav_get "$nav" field)"
   if [[ "$line" == "← Back" ]]; then
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+  fi
+  if [[ "$(_ctl_field_kind "$path")" == "toggle" ]]; then
+    # strip the "[x] "/"[ ] " mark, flip membership, and STAY on the screen so
+    # the operator can toggle several (Esc / ← Back returns to the category).
+    _ctl_write_state "$(_ctl_toggle_multi "$(_ctl_state)" "$(_ctl_baseline)" \
+      "$path" "${line:4}")"
+    echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
