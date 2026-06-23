@@ -32,6 +32,15 @@ cfgstate_seed_defaults() {
   # guided sysctl screen lists it as the baseline; operator additions ride the
   # override on top. Idempotent with Host Core's own swappiness=10.
   state="$(cfgstate_set "$state" sysctl '{"vm.swappiness":10}')"
+  # Selection defaults so no field opens empty and the toggle screens start with
+  # a sensible pick: kernel lts, gpu auto, BOTH desktops (this operator's setup),
+  # and the default mirror countries. These match the menu display / back-end
+  # defaults (kernel/gpu/mirrors are idempotent); desktop is the real choice.
+  state="$(cfgstate_set "$state" options.kernel '["lts"]')"
+  state="$(cfgstate_set "$state" environment.gpu '"auto"')"
+  state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
+  state="$(cfgstate_set "$state" options.mirror_countries \
+    '["Germany","Switzerland","Sweden","France","Romania"]')"
   # Security & Backup Extras (ADR 0041): pre-tick the secure baseline (firewalld
   # + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg). It rides the
   # baseline layer, so a fresh run shows it with no ● and Save writes it whole.

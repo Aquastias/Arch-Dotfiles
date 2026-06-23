@@ -60,6 +60,15 @@ setup() {
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
+@test "cfgstate_seed_defaults: seeds selection defaults (no field opens empty)" {
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.options.kernel == ["lts"]'
+  echo "$output" | jq -e '.environment.gpu == "auto"'
+  echo "$output" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$output" | jq -e '(.options.mirror_countries | length) == 5'
+}
+
 @test "cfgstate_seed_defaults: seeds the secure Security/Backup baseline" {
   run cfgstate_seed_defaults "$(cfgstate_new)"
   [ "$status" -eq 0 ]
