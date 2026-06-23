@@ -71,7 +71,8 @@ _ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
 # text/multi is an enum (filesystem, bootloader, firewall, and every bool).
 _ctl_field_kind() {
   case "$1" in
-  system.hostname | system.locale | system.timezone | system.keymap) echo text ;;
+  system.hostname) echo text ;;
+  system.locale | system.timezone | system.keymap) echo biglist ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   packages.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
@@ -93,6 +94,28 @@ _ctl_enum_options() {
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   *) printf '%s\n' true false ;;
   esac
+}
+
+# _ctl_biglist_options <path> → the big, filterable option set for a system
+# identity field, from the live system (localectl/timedatectl) with a filesystem
+# fallback (the install host is the Arch live ISO; the fallback also covers a dev
+# box where the systemd commands return nothing).
+_ctl_biglist_options() {
+  local out
+  case "$1" in
+  system.keymap)
+    out="$(localectl list-keymaps 2>/dev/null)"
+    [[ -n "$out" ]] || out="$(find /usr/share/kbd/keymaps -name '*.map.gz' \
+      -printf '%f\n' 2>/dev/null | sed 's/\.map\.gz$//' | sort -u)" ;;
+  system.timezone)
+    out="$(timedatectl list-timezones 2>/dev/null)"
+    [[ -n "$out" ]] || out="$(find /usr/share/zoneinfo -type f -printf '%P\n' \
+      2>/dev/null | grep -E '^[A-Z][A-Za-z_]+/' | sort)" ;;
+  system.locale)
+    out="$(awk '{print $1}' /usr/share/i18n/SUPPORTED 2>/dev/null | sort -u)"
+    [[ -n "$out" ]] || out="$(localectl list-locales 2>/dev/null)" ;;
+  esac
+  [[ -n "$out" ]] && printf '%s\n' "$out"
 }
 
 # _ctl_apply_enum <state> <path> <value> → new state. Reserved filesystems are a
@@ -336,12 +359,20 @@ _ctl_layout_graph() {
 # highlighted preset, but ONLY on the Disk-layout screen (empty elsewhere, so the
 # preview is a no-op on every other screen).
 guided_ctl_preview() {
-  local line="$1" nav
+  local line="$1" nav field
   nav="$(_ctl_nav)"
-  [[ "$(nav_screen "$nav")" == "values" \
-     && "$(nav_get "$nav" field)" == "__layout__" ]] || return 0
-  local sk; sk="$(skeleton_preset "$line" 2>/dev/null)" || return 0
-  _ctl_layout_graph "$sk"
+  [[ "$(nav_screen "$nav")" == "values" ]] || return 0
+  field="$(nav_get "$nav" field)"
+  if [[ "$field" == "__layout__" ]]; then
+    local sk; sk="$(skeleton_preset "$line" 2>/dev/null)" || return 0
+    _ctl_layout_graph "$sk"; return 0
+  fi
+  if [[ "$(_ctl_field_kind "$field")" == "biglist" ]]; then
+    # the side panel: what's currently selected (+ the highlighted candidate)
+    local cur; cur="$(_ctl_field_display "$field" "$(_ctl_state)" "$(_ctl_baseline)")"
+    printf 'Selected %s:\n  %s\n\nHighlighted:\n  %s\n' \
+      "$(nav_get "$nav" label)" "${cur:-(none)}" "$line"
+  fi
 }
 
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
@@ -382,6 +413,8 @@ guided_ctl_list() {
     elif [[ "$vf" == "users" ]]; then
       _ctl_user_marked "$state" "$base"
       printf '%s\n' "+ Create user (name)"
+    elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
+      _ctl_biglist_options "$vf"
     elif [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
       _ctl_marked_options "$vf" "$state" "$base"
     else
@@ -447,7 +480,7 @@ _ctl_enter_category() {
   path="$(_ctl_field_for_label "$cat" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
   case "$(_ctl_field_kind "$path")" in
-  enum | toggle | list | users)
+  enum | toggle | list | users | biglist)
     _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
   text)
     _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
@@ -487,6 +520,11 @@ _ctl_enter_values() {
     _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" \
       "${line:4}")"
     echo refresh; return
+  fi
+  if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
+    # a big filterable list → set the picked value as a scalar, then back
+    _ctl_write_state "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")"
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
@@ -575,9 +613,13 @@ _guided_directive_to_action() {
     # other screen swaps the preview to a cheap no-op and hides the pane, so the
     # graph command only runs where it's shown.
     nav="$(_ctl_nav)"
-    local pv
-    if [[ "$(nav_screen "$nav")" == "values" \
-          && "$(nav_get "$nav" field)" == "__layout__" ]]; then
+    local pv _f _showpv=0
+    if [[ "$(nav_screen "$nav")" == "values" ]]; then
+      _f="$(nav_get "$nav" field)"
+      [[ "$_f" == "__layout__" || "$(_ctl_field_kind "$_f")" == "biglist" ]] \
+        && _showpv=1
+    fi
+    if ((_showpv)); then
       pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
         "$entry")"
     else

@@ -324,6 +324,58 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "change-preview-window(hidden)"
 }
 
+# ── keymap / locale / timezone: big filterable lists + a "selected" side panel ─
+
+@test "enter(category): keymap opens a big filterable list (values screen)" {
+  set_nav "$(nav_to_category Host)"
+  run guided_ctl_enter "keymap: us"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.keymap" ]
+}
+
+@test "list(values keymap): a long list that includes 'us'" {
+  set_nav "$(nav_to_values Host system.keymap keymap)"
+  run guided_ctl_list
+  [ "${#lines[@]}" -gt 10 ]
+  echo "$output" | grep -qx "us"
+}
+
+@test "list(values timezone): includes region/city entries" {
+  set_nav "$(nav_to_values Host system.timezone timezone)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^[A-Z][A-Za-z_]+/'
+}
+
+@test "list(values locale): includes en_US.UTF-8" {
+  set_nav "$(nav_to_values Host system.locale locale)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "en_US.UTF-8"
+}
+
+@test "enter(values biglist): picking a value sets the scalar + returns" {
+  set_nav "$(nav_to_values Host system.keymap keymap)"
+  run guided_ctl_enter "de"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.system.keymap' "$GUIDED_STATE_FILE")" = "de" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "preview(biglist): the side panel shows the current selection" {
+  printf '%s\n' '{"system":{"keymap":"us"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Host system.keymap keymap)"
+  run guided_ctl_preview "de"
+  echo "$output" | grep -q "Selected keymap"
+  echo "$output" | grep -q "us"      # current selection
+  echo "$output" | grep -q "de"      # highlighted candidate
+}
+
+@test "directive→action(render): a biglist screen shows the preview pane" {
+  set_nav "$(nav_to_values Host system.keymap keymap)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview-window(right,45%)"
+}
+
 # ── text screen: typed INTO fzf's query line, never leaves the window ─────────
 
 @test "enter(text): a typed query commits the scalar + returns to the category" {
