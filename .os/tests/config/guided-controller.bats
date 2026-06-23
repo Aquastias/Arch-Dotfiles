@@ -321,6 +321,41 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/var/lib/foo"]' ]
 }
 
+# ── sysctl as a list screen (default vm.swappiness=10) ───────────────────────
+
+@test "enter(category): sysctl opens its list screen" {
+  set_nav "$(nav_to_category Options)"
+  run guided_ctl_enter "sysctl: "
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
+}
+
+@test "list(values sysctl): lists current pairs + an Add action + Back" {
+  printf '%s\n' '{"sysctl":{"vm.swappiness":10}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Options sysctl sysctl)"
+  run guided_ctl_list
+  echo "$output" | grep -q "vm.swappiness=10"
+  echo "$output" | grep -q "+ Add sysctl"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "enter(values sysctl): + Add opens the key=value text editor" {
+  set_nav "$(nav_to_values Options sysctl sysctl)"
+  run guided_ctl_enter "+ Add sysctl (key=value)"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
+}
+
+@test "enter(text sysctl): adding a pair returns to the sysctl list screen" {
+  set_nav "$(nav_to_text Options sysctl sysctl)"
+  run guided_ctl_enter "+ Add sysctl (key=value)" "vm.dirty_ratio=20"
+  [ "$(jq -c '.sysctl["vm.dirty_ratio"]' "$GUIDED_STATE_FILE")" = "20" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
+}
+
 # ── back / abort ─────────────────────────────────────────────────────────────
 
 @test "back: at the top screen, aborts the whole menu" {

@@ -72,7 +72,8 @@ _ctl_field_kind() {
   case "$1" in
   system.hostname | system.locale | system.timezone | system.keymap) echo text ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
-  sysctl | packages.extra) echo text ;;
+  packages.extra) echo text ;;
+  sysctl) echo list ;;   # a list of key=value pairs + an Add action
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
   options.mirror_countries | system_programs) echo toggle ;;
   users) echo multi ;;   # ad-hoc create form → one-shot (follow-up)
@@ -197,6 +198,13 @@ _ctl_toggle_multi() {
   fi
 }
 
+# _ctl_sysctl_lines <state> <base> → the current sysctl pairs ("key=value"), one
+# per line, from the effective view (so the seeded vm.swappiness=10 shows up).
+_ctl_sysctl_lines() {
+  jq -r '(.sysctl // {}) | to_entries[] | "\(.key)=\(.value)"' \
+    <<<"$(_ctl_effective "$1" "$2")"
+}
+
 # _ctl_field_for_label <category> <label> → the dotted path of the row whose
 # label matches (reverse lookup through the pure Menu model).
 _ctl_field_for_label() {
@@ -278,7 +286,10 @@ guided_ctl_list() {
     printf '%s\n' "← Back" ;;
   values)
     local vf; vf="$(nav_get "$nav" field)"
-    if [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
+    if [[ "$vf" == "sysctl" ]]; then
+      _ctl_sysctl_lines "$state" "$base"
+      printf '%s\n' "+ Add sysctl (key=value)"
+    elif [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
       _ctl_marked_options "$vf" "$state" "$base"
     else
       _ctl_enum_options "$vf"
@@ -341,7 +352,7 @@ _ctl_enter_category() {
   path="$(_ctl_field_for_label "$cat" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
   case "$(_ctl_field_kind "$path")" in
-  enum | toggle)
+  enum | toggle | list)
     _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;
   text)
     _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
@@ -365,6 +376,13 @@ _ctl_enter_values() {
       "$path" "${line:4}")"
     echo refresh; return
   fi
+  if [[ "$path" == "sysctl" ]]; then
+    if [[ "$line" == "+ Add"* ]]; then
+      _ctl_write_nav "$(nav_to_text "$(nav_get "$nav" category)" sysctl sysctl)"
+      echo render; return
+    fi
+    echo refresh; return   # an existing pair is display-only (re-list in place)
+  fi
   if [[ "$path" == "__layout__" ]]; then
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
       _ctl_write_state "$(edit_apply_skeleton "$(_ctl_state)" "$sk")"
@@ -378,11 +396,19 @@ _ctl_enter_values() {
 # _ctl_enter_text <query> — commit the typed query into the field, then back.
 # Empty query (Esc-less cancel via Enter) just returns without a change.
 _ctl_enter_text() {
-  local query="$1" nav path
+  local query="$1" nav path cat
   nav="$(_ctl_nav)"; path="$(nav_get "$nav" field)"
+  cat="$(nav_get "$nav" category)"
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")"
-  _ctl_write_nav "$(nav_back "$nav")"; echo render
+  # sysctl was reached from its list screen — return there so the new pair shows
+  # and more can be added; every other text field backs out to the category.
+  if [[ "$path" == "sysctl" ]]; then
+    _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)"
+  else
+    _ctl_write_nav "$(nav_back "$nav")"
+  fi
+  echo render
 }
 
 # guided_ctl_back — Esc: back one screen, or abort the whole menu at the top.

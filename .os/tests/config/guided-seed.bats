@@ -54,6 +54,12 @@ setup() {
 
 # ── the secure baseline is pre-ticked: firewalld + all tools on (ADR 0041) ──
 
+@test "cfgstate_seed_defaults: seeds vm.swappiness=10 (Host Core default)" {
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
+}
+
 @test "cfgstate_seed_defaults: seeds the secure Security/Backup baseline" {
   run cfgstate_seed_defaults "$(cfgstate_new)"
   [ "$status" -eq 0 ]
