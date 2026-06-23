@@ -230,3 +230,32 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   run esp_sync_script_ok "$s"
   [ "$status" -ne 0 ]
 }
+
+# ── prune_dead_fallback_entries: dead entry removed; status never leaks ────
+
+@test "prune drops a fallback entry whose image is absent, keeps the default" {
+  _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
+  _entry arch-zfs-fallback vmlinuz-linux-lts initramfs-linux-lts-fallback.img
+  # the fallback IMAGE is NOT on the ESP -> its entry must be pruned
+  run esp_sync_prune_dead_fallback_entries "$ESP"
+  [ "$status" -eq 0 ]
+  [ -f "$ESP/loader/entries/arch-zfs.conf" ]
+  [ ! -f "$ESP/loader/entries/arch-zfs-fallback.conf" ]
+}
+
+@test "prune keeps a fallback entry whose image is present, returns 0" {
+  _entry arch-zfs-fallback vmlinuz-linux-lts initramfs-linux-lts-fallback.img
+  : >"$ESP/initramfs-linux-lts-fallback.img" # present -> keep the entry
+  run esp_sync_prune_dead_fallback_entries "$ESP"
+  [ "$status" -eq 0 ]
+  [ -f "$ESP/loader/entries/arch-zfs-fallback.conf" ]
+}
+
+@test "prune returns 0 on a normal run with no fallback entry to drop" {
+  # the regression: the trailing *fallback* test used to leak status 1 here,
+  # which became the sync hook's exit code ("command failed to execute").
+  _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
+  run esp_sync_prune_dead_fallback_entries "$ESP"
+  [ "$status" -eq 0 ]
+  [ -f "$ESP/loader/entries/arch-zfs.conf" ]
+}

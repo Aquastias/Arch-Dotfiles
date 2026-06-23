@@ -124,13 +124,33 @@ esp_sync_script_ok() {
   [[ "$first" == '#!'* ]]
 }
 
+# Drop any loader entry on <esp_dir> that references a *fallback* initramfs not
+# present on that ESP, so an entry never dead-ends on a missing initrd. Always
+# returns 0: it is the final action of the sync, and its trailing test must not
+# leak as the hook's exit code (a normal run with no dead entry would otherwise
+# report failure to pacman). Pure: touches only <esp_dir>; fixture-testable.
+esp_sync_prune_dead_fallback_entries() {
+  local esp_dir="${1%/}" e ref
+  for e in "$esp_dir"/loader/entries/*.conf; do
+    [[ -f "$e" ]] || continue
+    while IFS= read -r ref; do
+      ref="${ref#/}"
+      if [[ "$ref" == *fallback* && ! -f "$esp_dir/$ref" ]]; then
+        rm -f "$e"
+        break
+      fi
+    done < <(awk '$1 == "initrd" { print $2 }' "$e")
+  done
+  return 0
+}
+
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]] && return 0
 
 # Runtime: mirror /boot onto every mounted ESP, fail-closed on a critical copy.
 # The primary ESP (/boot/efi) holds the loader entries that drive the plan.
 _esp_kernel_sync_run() {
-  local f d t e ref
+  local f d t
 
   # Refuse to run if any ESP is not mounted: writing into the ZFS /boot/efi
   # DIRECTORY would leave the real ESP stale and brick the next boot. The
@@ -138,8 +158,8 @@ _esp_kernel_sync_run() {
   # un-preflighted invocation (ADR 0038).
   for d in /boot/efi*/; do
     esp_sync_is_mountpoint "$d" || {
-      echo "esp-kernel-sync: FATAL: $d is not a mountpoint — refusing to write" \
-           "boot images into the ZFS directory instead of the ESP." >&2
+      echo "esp-kernel-sync: FATAL: $d is not a mountpoint — refusing to" \
+           "write boot images into the ZFS directory, not the ESP." >&2
       exit 1
     }
   done
@@ -172,18 +192,15 @@ _esp_kernel_sync_run() {
     done
   done < <(esp_sync_optional_files /boot/efi /boot)
 
-  # Keep fallback boot entries consistent with the fallback image's presence:
-  # drop any entry referencing a *fallback* image absent from that ESP, so the
-  # entry never dead-ends on a missing initrd.
+  # Keep fallback boot entries consistent with the fallback image's presence, so
+  # an entry never dead-ends on a missing initrd.
   for d in /boot/efi*/; do
-    for e in "${d%/}"/loader/entries/*.conf; do
-      [[ -f "$e" ]] || continue
-      while IFS= read -r ref; do
-        ref="${ref#/}"
-        [[ "$ref" == *fallback* && ! -f "${d%/}/$ref" ]] && { rm -f "$e"; break; }
-      done < <(awk '$1 == "initrd" { print $2 }' "$e")
-    done
+    esp_sync_prune_dead_fallback_entries "$d"
   done
+
+  # Explicit success: the pruning helper's trailing test must not become the
+  # hook's exit status — a normal run with nothing to prune is not a failure.
+  return 0
 }
 
 # Preflight (PreTransaction): abort the upgrade early — before any package is
