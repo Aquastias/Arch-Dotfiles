@@ -334,11 +334,19 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.keymap" ]
 }
 
-@test "list(values keymap): a long list that includes 'us'" {
+@test "list(values keymap): a long MARKED list (multi) that includes us" {
   set_nav "$(nav_to_values Host system.keymap keymap)"
   run guided_ctl_list
   [ "${#lines[@]}" -gt 10 ]
-  echo "$output" | grep -qx "us"
+  echo "$output" | grep -qE '\] us$'   # marked toggle row "[x]/[ ] us"
+}
+
+@test "enter(values keymap): toggling adds a keymap to the array (multi)" {
+  printf '%s\n' '{"system":{"keymap":["us"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Host system.keymap keymap)"
+  run guided_ctl_enter "[ ] de"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.system.keymap' "$GUIDED_STATE_FILE")" = '["us","de"]' ]
 }
 
 @test "list(values timezone): includes region/city entries" {
@@ -354,23 +362,23 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(values biglist): picking a value sets the scalar + returns" {
-  set_nav "$(nav_to_values Host system.keymap keymap)"
-  run guided_ctl_enter "de"
+  set_nav "$(nav_to_values Host system.locale locale)"
+  run guided_ctl_enter "de_DE.UTF-8"
   [ "$output" = "render" ]
-  [ "$(jq -r '.system.keymap' "$GUIDED_STATE_FILE")" = "de" ]
+  [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.UTF-8" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
-@test "preview(biglist): the side panel shows the current selection" {
-  printf '%s\n' '{"system":{"keymap":"us"}}' > "$GUIDED_STATE_FILE"
+@test "preview(keymap): the side panel lists the selected keymaps" {
+  printf '%s\n' '{"system":{"keymap":["us","de"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Host system.keymap keymap)"
-  run guided_ctl_preview "de"
-  echo "$output" | grep -q "Selected keymap"
-  echo "$output" | grep -q "us"      # current selection
-  echo "$output" | grep -q "de"      # highlighted candidate
+  run guided_ctl_preview "[ ] fr"
+  echo "$output" | grep -q "Selected keymaps"
+  echo "$output" | grep -q "us"      # a current selection
+  echo "$output" | grep -q "fr"      # highlighted candidate (mark stripped)
 }
 
-@test "directive→action(render): a biglist screen shows the preview pane" {
+@test "directive→action(render): a keymap screen shows the preview pane" {
   set_nav "$(nav_to_values Host system.keymap keymap)"
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"

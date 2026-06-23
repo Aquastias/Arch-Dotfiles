@@ -72,7 +72,8 @@ _ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
 _ctl_field_kind() {
   case "$1" in
   system.hostname) echo text ;;
-  system.locale | system.timezone | system.keymap) echo biglist ;;
+  system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
+  system.locale | system.timezone) echo biglist ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   packages.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
@@ -173,6 +174,16 @@ _ctl_toggle_options() {
     printf '%s\n' Germany Switzerland Sweden France Romania Austria \
       Netherlands "United Kingdom" "United States" Japan Australia ;;
   system_programs)     _ctl_program_names ;;
+  system.keymap)       _ctl_biglist_options system.keymap ;;
+  esac
+}
+
+# _ctl_field_has_preview <field> → rc 0 if this values screen shows a side panel
+# (the layout graph, or the selection panel for the big keymap/locale/timezone).
+_ctl_field_has_preview() {
+  case "$1" in
+  __layout__ | system.keymap | system.locale | system.timezone) return 0 ;;
+  *) return 1 ;;
   esac
 }
 
@@ -363,16 +374,23 @@ guided_ctl_preview() {
   nav="$(_ctl_nav)"
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
-  if [[ "$field" == "__layout__" ]]; then
+  case "$field" in
+  __layout__)
     local sk; sk="$(skeleton_preset "$line" 2>/dev/null)" || return 0
-    _ctl_layout_graph "$sk"; return 0
-  fi
-  if [[ "$(_ctl_field_kind "$field")" == "biglist" ]]; then
-    # the side panel: what's currently selected (+ the highlighted candidate)
+    _ctl_layout_graph "$sk" ;;
+  system.keymap)
+    # multi: the selected keymap array (+ the highlighted candidate, mark stripped)
+    local sel; sel="$(jq -r \
+      '.system.keymap // [] | if type == "array" then . else [.] end | .[]' \
+      <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+    printf 'Selected keymaps:\n'
+    if [[ -n "$sel" ]]; then sed 's/^/  /' <<<"$sel"; else printf '  (none)\n'; fi
+    printf '\nHighlighted:\n  %s\n' "${line:4}" ;;
+  system.locale | system.timezone)
     local cur; cur="$(_ctl_field_display "$field" "$(_ctl_state)" "$(_ctl_baseline)")"
     printf 'Selected %s:\n  %s\n\nHighlighted:\n  %s\n' \
-      "$(nav_get "$nav" label)" "${cur:-(none)}" "$line"
-  fi
+      "$(nav_get "$nav" label)" "${cur:-(none)}" "$line" ;;
+  esac
 }
 
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
@@ -616,11 +634,9 @@ _guided_directive_to_action() {
     # other screen swaps the preview to a cheap no-op and hides the pane, so the
     # graph command only runs where it's shown.
     nav="$(_ctl_nav)"
-    local pv _f _showpv=0
+    local pv _showpv=0
     if [[ "$(nav_screen "$nav")" == "values" ]]; then
-      _f="$(nav_get "$nav" field)"
-      [[ "$_f" == "__layout__" || "$(_ctl_field_kind "$_f")" == "biglist" ]] \
-        && _showpv=1
+      _ctl_field_has_preview "$(nav_get "$nav" field)" && _showpv=1
     fi
     if ((_showpv)); then
       pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
