@@ -75,7 +75,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_ctl_enter "os-mirror" >/dev/null    # apply the preset
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "Disk layout: os mirror ×2"
+  echo "$output" | grep -q "Disk layout: OS: 2 disks (mirror)"
   echo "$output" | grep -q "●"               # overridden marker
 }
 
@@ -122,9 +122,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "enter(values toggle): toggling on adds the option and STAYS on the screen" {
   set_nav "$(nav_to_values Options options.kernel kernel)"
   run guided_ctl_enter "[ ] lts"
-  [ "$output" = "render" ]
+  [ "$output" = "refresh" ]   # reload-sync in place (no flicker, query kept)
   [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+}
+
+@test "directive→action: refresh re-lists in place via reload-sync" {
+  run _guided_directive_to_action refresh /x/entry.sh
+  [ "$output" = "reload-sync(bash /x/entry.sh list)" ]
 }
 
 @test "enter(values toggle): toggling an already-selected option removes it" {
