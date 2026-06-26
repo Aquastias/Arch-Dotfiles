@@ -46,7 +46,7 @@
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
 
 # The rule separating the categories from the terminal-action rows on the top
-# screen (kept in lockstep with lib/guided.sh's _GUIDED_DIVIDER).
+# screen.
 _CTL_DIVIDER="──────────────────────────"
 
 # ── state-file accessors ─────────────────────────────────────────────────────
