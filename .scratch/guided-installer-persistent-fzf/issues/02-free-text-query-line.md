@@ -1,6 +1,6 @@
 # Free-text entry via the fzf query line
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -32,3 +32,11 @@ window.
 ## Blocked by
 
 - `.scratch/guided-installer-persistent-fzf/issues/01-spine-persistent-fzf-install.md`
+
+## Comments
+
+**DONE `35ac66c`.** Text fields type into fzf's own query line (an `enter`
+transform passes `{q}`, captured by `_ctl_apply_text`) — no `execute()`, no
+terminal drop. Per-screen `change-header`/`change-prompt` so every screen says
+how to go back. Verified by `guided-controller.bats` + a headless walk through
+the real entry script.

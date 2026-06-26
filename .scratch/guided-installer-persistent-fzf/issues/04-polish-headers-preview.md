@@ -1,6 +1,6 @@
 # Polish: per-screen headers + disk-pick preview
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -28,3 +28,13 @@ fields, or defaults.
 
 - `.scratch/guided-installer-persistent-fzf/issues/01-spine-persistent-fzf-install.md`
   (benefits from slices 02 and 03)
+
+## Comments
+
+**DONE.** Per-screen headers/prompts + in-fzf Add-persist (`824ec4a`), then the
+HITL polish rounds: flicker-free toggles (reload-sync) + rounded installer
+border + verbose layout label (`fa06e04`); ASCII layout-graph **preview** pane
+(`ef8a8bf`); filterable keymap/locale/timezone big lists with a selection
+side-panel (`a490fda`); the data-pools editor (`153c57b`) reached under the
+layout option (`614e574`). Grew well past the original "headers + preview" scope
+via direct operator feedback. On main, full suite green.
