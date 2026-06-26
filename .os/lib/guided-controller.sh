@@ -370,11 +370,18 @@ _ctl_layout_graph() {
     end' <<<"$1"
 }
 
-# _ctl_datapools_summary <effective> → "none" or "N (tank0, tank1)".
-_ctl_datapools_summary() {
-  jq -r '(.data_pools // [])
-    | if length == 0 then "none"
-      else "\(length) (" + (map(.name) | join(", ")) + ")" end' <<<"$1"
+# _ctl_add_data_pool <state> → state with one more data pool appended (auto-named
+# tank<N>, default mirror ×2), forcing multi mode + a default OS pool. Shared by
+# the data-pools editor's "+ Add" and by picking "data-pools" in the layout.
+_ctl_add_data_pool() {
+  jq '
+    (.data_pools // []) as $dp
+    | .data_pools = ($dp + [{name:("tank" + (($dp | length) | tostring)),
+                             topology:"mirror", disk_count:2}])
+    | .mode = "multi"
+    | (if .os_pool then . else
+        .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
+    ' <<<"$1"
 }
 
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
@@ -428,8 +435,6 @@ guided_ctl_list() {
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
       printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
-      printf 'data pools: %s\n' \
-        "$(_ctl_datapools_summary "$(_ctl_effective "$state" "$base")")"
     fi
     menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
@@ -521,8 +526,6 @@ _ctl_enter_category() {
   "layout:"*)
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
-  "data pools:"*)
-    _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -578,10 +581,20 @@ _ctl_enter_values() {
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
+    if [[ "$line" == "data-pools" ]]; then
+      # "data-pools" is the door to the editor (the pools live under layout, not a
+      # separate row): seed one pool if there are none yet, then open the editor.
+      [[ "$(jq '(.data_pools // []) | length' <<<"$(_ctl_state)")" == "0" ]] \
+        && _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
+      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+      echo render; return
+    fi
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
       _ctl_write_state "$(edit_apply_skeleton "$(_ctl_state)" "$sk")"
     fi
-  elif new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$line")"; then
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+  fi
+  if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$line")"; then
     _ctl_write_state "$new"
   fi
   _ctl_write_nav "$(nav_back "$nav")"; echo render
@@ -614,14 +627,7 @@ _ctl_enter_datapools() {
   case "$line" in
   "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
   "+ Add"*)
-    _ctl_write_state "$(jq '
-      (.data_pools // []) as $dp
-      | .data_pools = ($dp + [{name:("tank" + (($dp | length) | tostring)),
-                               topology:"mirror", disk_count:2}])
-      | .mode = "multi"
-      | (if .os_pool then . else
-          .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
-      ' <<<"$(_ctl_state)")"
+    _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
     echo refresh; return ;;
   esac
   name="${line%%:*}"
