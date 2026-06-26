@@ -1,6 +1,7 @@
 # Guided Installer — persistent single-fzf controller (no flash)
 
-Status: ready-for-agent
+Status: done — all 4 slices built + merged to main + cutover complete (ddc1602);
+full suite green. Only the live fzf render + a VM spine smoke remain HITL/VM-gated.
 
 Decision of record: **ADR 0042** (Guided Installer renders through one
 persistent fzf, not one fzf per pick). Builds on ADR 0039 (Guided

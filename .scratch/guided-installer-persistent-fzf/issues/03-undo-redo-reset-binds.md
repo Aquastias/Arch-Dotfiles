@@ -1,6 +1,6 @@
 # Undo / redo / reset as global fzf binds
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -31,3 +31,11 @@ core and the reset verbs; the header advertises them.
 ## Blocked by
 
 - `.scratch/guided-installer-persistent-fzf/issues/01-spine-persistent-fzf-install.md`
+
+## Comments
+
+**DONE `3d1ff23`.** `^Z`/`^Y`/`^R` wired as global fzf binds over a snapshot
+history (`$GUIDED_HIST_FILE`; `_ctl_autocommit` pushes one snapshot per change
+from the single `guided_ctl_list` choke point, so toggles/text/one-shots are all
+captured). `^R` = reset-all, itself undoable (no confirm needed). Covered by
+`guided-controller.bats` + a headless walk.
