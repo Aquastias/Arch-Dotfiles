@@ -326,17 +326,28 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── data-pools editor: multiple pools (tank0/tank1), topology, disk count ─────
 
-@test "list(category Disks): shows the data pools row" {
+@test "list(category Disks): no separate data pools row (it lives under layout)" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "data pools: none"
+  ! echo "$output" | grep -q "data pools:"
 }
 
-@test "enter(category): data pools opens the editor" {
-  set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "data pools: none"
+@test "enter(values __layout__): data-pools opens the editor with a starter pool" {
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
+  run guided_ctl_enter "data-pools"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+  [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
+  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
+}
+
+@test "enter(values __layout__): re-entering data-pools adds no second pool" {
+  printf '%s\n' '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
+  run guided_ctl_enter "data-pools"
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+  [ "$(jq '.data_pools | length' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
 @test "enter(datapools): + Add appends tank0 (mirror ×2) and forces multi" {
