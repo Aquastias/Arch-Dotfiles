@@ -1,6 +1,6 @@
 # 02 — Filesystem-keyed dispatch split + relocate ZFS into lib/layout/zfs/
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -23,14 +23,24 @@ when folding files into the subdirectory.
 
 ## Acceptance criteria
 
-- [ ] `root_adapter_source` / `data_formatter_source` return the ZFS adapter
-      paths; an unbuilt filesystem errors (referencing ADR 0043).
-- [ ] ZFS layout files live under `lib/layout/zfs/`; all relative sourcing +
-      chroot staging still resolves (no broken BASH_SOURCE paths).
-- [ ] The existing ZFS VM smoke install path behaves identically (single + multi
-      mode) — pure refactor.
-- [ ] Existing layout/dispatch bats pass; dispatch tests extended for the two
-      new seam functions and the unbuilt-fs error.
+- [x] `root_adapter_source` / `data_formatter_source` return the ZFS adapter
+      paths (`lib/layout/zfs/<mode>.sh`, `lib/layout/zfs/multi.sh`); an unbuilt
+      filesystem errors (ADR 0043). `data_formatter_source zfs` points at
+      `multi.sh` where `create_data_pools` lives (no premature extraction).
+- [x] ZFS layout files (single/multi/common/plan) live under `lib/layout/zfs/`
+      via `git mv`; internal BASH_SOURCE-relative sources move together and still
+      resolve. Layout files are not chroot-staged, so no flat-copy lockstep.
+- [~] The existing ZFS install path behaves identically (single + multi) — proven
+      by the full bats gate (935, 0 fail incl. layout/zfs/profiles/chroot);
+      live-VM smoke still unverified (no tty/fzf) but no install-path logic
+      changed (pure relocation + `root_adapter_source` rename in 03-install.sh).
+- [x] dispatch.bats rewritten for both seams + the unbuilt-fs error; all
+      layout/dispatch bats pass; audit.sh updated to the zfs/ paths (PASS).
+
+Status: done — dispatch.bats (6 tests) RED→GREEN; `git mv` relocation;
+03-install.sh calls `root_adapter_source`; full gate 935/0. The one audit FAIL
+(`extras.sh`) is pre-existing (fails identically on HEAD). VM smoke is the only
+remaining unverified item.
 
 ## Blocked by
 

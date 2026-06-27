@@ -1,27 +1,40 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout/dispatch.sh — filesystem-keyed layout adapter seam (ADR 0040)
+# lib/layout/dispatch.sh — filesystem-keyed layout dispatch (ADR 0040, 0043)
 # =============================================================================
-# Resolves which Layout Module to source for the active filesystem + mode. The
-# installer's layout dispatch was mode-keyed (lib/layout/<mode>.sh); ADR 0040
-# generalizes it to a filesystem-keyed seam so btrfs/ext4/xfs adapters can land
-# later without a schema migration. ZFS is the only implemented adapter and
-# keeps the flat lib/layout/<mode>.sh path — relocating those files into a
-# zfs/ subdir is the BASH_SOURCE foldering hazard, deferred to filesystem #2.
+# Resolves which layout module to source for the active filesystem. ADR 0043
+# splits the seam in two:
+#   - root_adapter_source <os-dir> <fs> <mode>  → the Root Layout Adapter that
+#     owns the OS disk (partition / format / boot). Keyed by filesystem × mode.
+#   - data_formatter_source <os-dir> <fs>       → the Data Group Formatter that
+#     formats one data group with its filesystem. Keyed by filesystem only.
 #
-# Pure: a string transform on <os-dir>/<filesystem>/<mode>, no disk access.
+# The ZFS adapter was relocated from the flat lib/layout/<mode>.sh into
+# lib/layout/zfs/ when filesystem #2 landed (ADR 0043). ZFS is the only built
+# adapter; every other filesystem errors here.
+#
+# Pure: string transforms on <os-dir>/<filesystem>/<mode>, no disk access.
 # Uses error() from common.sh, available at call time.
-#
-# Public API:
-#   layout_adapter_source <os-dir> <filesystem> <mode>
-#     → the adapter file to source on stdout; errors for an unbuilt filesystem.
 # =============================================================================
 
-layout_adapter_source() {
+# Root Layout Adapter for <fs> × <mode>. The OS-disk owner.
+root_adapter_source() {
   local dir="$1" fs="$2" mode="$3"
   case "$fs" in
-  zfs) printf '%s\n' "${dir}/lib/layout/${mode}.sh" ;;
-  *) error "No layout adapter for filesystem '${fs}'" \
-       "(ADR 0040 reserves it; only zfs is implemented)." ;;
+  zfs) printf '%s\n' "${dir}/lib/layout/zfs/${mode}.sh" ;;
+  *) error "No root layout adapter for filesystem '${fs}'" \
+       "(ADR 0043 reserves it; only zfs is implemented)." ;;
+  esac
+}
+
+# Data Group Formatter for <fs>. Formats one data group; mode-independent. For
+# ZFS the Standalone Data Pool creation (create_data_pools) lives in the multi
+# module.
+data_formatter_source() {
+  local dir="$1" fs="$2"
+  case "$fs" in
+  zfs) printf '%s\n' "${dir}/lib/layout/zfs/multi.sh" ;;
+  *) error "No data group formatter for filesystem '${fs}'" \
+       "(ADR 0043 reserves it; only zfs is implemented)." ;;
   esac
 }

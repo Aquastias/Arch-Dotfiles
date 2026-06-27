@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout/plan.sh — the Layout Planner (pure: no destructive ops, no TTY)
+# lib/layout/zfs/plan.sh — the Layout Planner (pure: no destructive ops, no TTY)
 # =============================================================================
 # The single `layout_plan` seam verb. It brackets the plan phase (ADR 0016),
 # dispatches to the active mode adapter's planning hook (`_layout_plan_mode`,
@@ -17,7 +17,7 @@
 # prompt) goes through the Leftover-Disk Adapter below, so the planner itself is
 # TTY-free and tests can substitute a non-interactive adapter.
 #
-# Sourced by lib/layout/common.sh. Requires: lib/common.sh (part_name) and the
+# Sourced by lib/layout/zfs/common.sh. Requires: lib/common.sh (part_name) and the
 # phase-lifecycle + contract helpers in common.sh, available at call time.
 # =============================================================================
 

@@ -7,7 +7,7 @@
 #
 # LAYOUT CONTRACT
 # ───────────────
-# layout_plan() (unified in lib/layout/plan.sh, dispatching to the active mode
+# layout_plan() (unified in lib/layout/zfs/plan.sh, dispatching to the active mode
 # adapter) MUST populate the three LAYOUT_* variables before returning.
 # Consumers (chroot.sh, finalize.sh) read these and never reference
 # layout-private variables (_LAYOUT_IMPL_*), so they work with either mode
