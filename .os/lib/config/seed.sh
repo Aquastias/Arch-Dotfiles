@@ -41,6 +41,12 @@ cfgstate_seed_defaults() {
   state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"
+  # zswap Defaults: on by default (zstd, 20% max pool). Rides the baseline so a
+  # fresh run shows it with no ● and Save writes it whole, matching the boot
+  # layer's accessor defaults. zswap only acts when swap is on (the default).
+  state="$(cfgstate_set "$state" options.zswap.enabled 'true')"
+  state="$(cfgstate_set "$state" options.zswap.compressor '"zstd"')"
+  state="$(cfgstate_set "$state" options.zswap.max_pool_percent '20')"
   # Security & Backup Extras (ADR 0041): pre-tick the secure baseline (firewalld
   # + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg). It rides the
   # baseline layer, so a fresh run shows it with no ● and Save writes it whole.

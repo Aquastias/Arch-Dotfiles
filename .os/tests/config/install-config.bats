@@ -102,6 +102,20 @@ set_path_cfg() {
   [ "$output" = "true" ]
 }
 
+@test "zswap: defaults on / zstd / 20 when absent" {
+  write_cfg '{}'
+  run install_config_zswap_enabled;          [ "$output" = "true" ]
+  run install_config_zswap_compressor;       [ "$output" = "zstd" ]
+  run install_config_zswap_max_pool_percent; [ "$output" = "20" ]
+}
+
+@test "zswap: explicit overrides win (false / lz4 / 40)" {
+  write_cfg '{"options":{"zswap":{"enabled":false,"compressor":"lz4","max_pool_percent":40}}}'
+  run install_config_zswap_enabled;          [ "$output" = "false" ]
+  run install_config_zswap_compressor;       [ "$output" = "lz4" ]
+  run install_config_zswap_max_pool_percent; [ "$output" = "40" ]
+}
+
 # ── Array union/null (string|array form, null, absent) ──────────────────────
 
 @test "array: desktop string yields one line" {

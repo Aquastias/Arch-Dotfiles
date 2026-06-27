@@ -11,6 +11,7 @@ setup() {
  "keymap":"us","keymaps":["us"],
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
  "ssh":{"enabled":false},"rpool":"rpool","swap":true,
+ "zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20},
  "esp_count":1,
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
  "persist":{"directories":[],"files":[]}}

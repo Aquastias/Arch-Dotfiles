@@ -24,6 +24,7 @@ valid_state() {
   "bootloader": "systemd-boot",
   "ssh": { "enabled": false },
   "rpool": "rpool", "swap": true, "esp_count": 1,
+  "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
                     "mount": "/persist" },
   "persist":      { "directories": [], "files": [] }
@@ -177,6 +178,9 @@ setup_writer_globals() {
   install_config_bootloader()           { echo "systemd-boot"; }
   install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
+  install_config_zswap_enabled()        { echo "true"; }
+  install_config_zswap_compressor()     { echo "zstd"; }
+  install_config_zswap_max_pool_percent() { echo "20"; }
   install_config_impermanence_enabled() { echo "false"; }
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }
@@ -211,6 +215,16 @@ setup_writer_globals() {
   [ "$(jq -r '.impermanence.mount'   "$STATE")" = "/persist" ]
   [ "$(jq -r '.persist.directories[0]' "$STATE")" = "/etc/wireguard" ]
   [ "$(jq -r '.persist.files[0]'       "$STATE")" = "/etc/foo" ]
+  [ "$(jq -r '.zswap.enabled'          "$STATE")" = "true" ]
+  [ "$(jq -r '.zswap.compressor'       "$STATE")" = "zstd" ]
+  [ "$(jq -r '.zswap.max_pool_percent' "$STATE")" = "20" ]
+}
+
+@test "install_state_write: zswap types — enabled bool, percent number" {
+  setup_writer_globals
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.zswap.enabled | type'          "$STATE")" = "boolean" ]
+  [ "$(jq -r '.zswap.max_pool_percent | type' "$STATE")" = "number" ]
 }
 
 @test "install_state_write: types — swap/extras/impermanence are booleans" {

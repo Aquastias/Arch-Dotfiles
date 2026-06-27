@@ -17,13 +17,15 @@
 # higher-versioned Stray Kernel cannot become the default boot entry (ADR 0038);
 # the stray stays a selectable entry. An empty <primary_vmlinuz> omits the pin.
 _grub_default_config() {
-  local pool_root="$1" primary_vmlinuz="$2"
+  # <extra_default> is appended to GRUB_CMDLINE_LINUX_DEFAULT (e.g. the zswap
+  # fragment); empty leaves the default cmdline as just "quiet".
+  local pool_root="$1" primary_vmlinuz="$2" extra_default="${3:-}"
   echo "GRUB_DEFAULT=0"
   [[ -n "$primary_vmlinuz" ]] && echo "GRUB_TOP_LEVEL=\"${primary_vmlinuz}\""
   cat << EOF
 GRUB_TIMEOUT=4
 GRUB_DISTRIBUTOR="Arch Linux (ZFS)"
-GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet${extra_default:+ ${extra_default}}"
 GRUB_CMDLINE_LINUX="root=ZFS=${pool_root} zfs_import_dir=/dev/disk/by-id"
 GRUB_PRELOAD_MODULES="zfs"
 GRUB_DISABLE_OS_PROBER=false
@@ -35,8 +37,9 @@ EOF
 # pipefail`. The root dataset is read from the live mount. Optional arg: the
 # Primary Kernel package base (e.g. linux-lts) to pin as the default boot entry;
 # omitted → no pin (preserves the previous highest-version-wins behavior).
+# Optional 2nd arg: extra GRUB_CMDLINE_LINUX_DEFAULT params (the zswap fragment).
 grub_install_and_configure() {
-  local primary_base="${1:-}"
+  local primary_base="${1:-}" extra_default="${2:-}"
   local pool_root primary_vmlinuz=""
   pool_root="$(findmnt -n -o SOURCE /)" # ZFS root dataset, e.g. rpool/ROOT/arch
   [[ -n "$pool_root" ]] || {
@@ -59,7 +62,8 @@ grub_install_and_configure() {
     --recheck \
     --removable
 
-  _grub_default_config "$pool_root" "$primary_vmlinuz" > /etc/default/grub
+  _grub_default_config "$pool_root" "$primary_vmlinuz" "$extra_default" \
+    > /etc/default/grub
 
   # ZPOOL_VDEV_NAME_PATH=YES lets grub-probe resolve ZFS-root vdevs by /dev path
   # so grub-mkconfig succeeds on ZFS without grub-libzfs (OpenZFS-documented).

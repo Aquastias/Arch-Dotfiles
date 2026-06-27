@@ -26,6 +26,13 @@ _MICROCODE_SH="$_LIB_DIR/microcode.sh"
 # shellcheck disable=SC1090
 source "$_MICROCODE_SH"
 
+# zswap cmdline fragment (empty unless swap + zswap are both enabled).
+_ZSWAP_SH="$_LIB_DIR/zswap.sh"
+[[ -f "$_ZSWAP_SH" ]] || _ZSWAP_SH="$_LIB_DIR/../boot/zswap.sh"
+# shellcheck disable=SC1090
+source "$_ZSWAP_SH"
+ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
+
 # Boot entry tracks the Primary Kernel's package base (interim primary-only
 # bridge; secondary kernels still get default presets via mkinitcpio -P).
 KBASE="$(kernel_pkg "$KERNEL")"
@@ -65,7 +72,7 @@ title   ${ENTRY_TITLE}
 linux   /${VMLINUZ}
 ${MICROCODE_INITRDS}
 initrd  /${INITRAMFS}
-options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
+options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
 EOF
 
 cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
@@ -73,7 +80,7 @@ title   Arch Linux (ZFS — fallback)
 linux   /${VMLINUZ}
 ${MICROCODE_INITRDS}
 initrd  /${INITRAMFS_FB}
-options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw
+options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
 EOF
 
 cp "/boot/${VMLINUZ}"   /boot/efi/
