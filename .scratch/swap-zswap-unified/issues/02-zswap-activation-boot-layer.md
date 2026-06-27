@@ -1,6 +1,6 @@
 # zswap activation (default on) at the boot layer
 
-Status: ready-for-agent
+Status: done (094f277) — zswap default-on via cmdline; both bootloaders; 1440 bats
 
 ## Parent
 

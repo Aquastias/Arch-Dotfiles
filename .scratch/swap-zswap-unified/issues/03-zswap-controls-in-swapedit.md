@@ -1,6 +1,6 @@
 # zswap controls in swapedit + summary suffix
 
-Status: ready-for-agent
+Status: done (3c5ec75) — zswap toggle + compressor/% cycles + summary; 1447 bats
 
 ## Parent
 
