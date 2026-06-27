@@ -21,6 +21,24 @@ unchanged. Derive "any group is zfs" and gate zfs userland / boot-time import /
 ZFS Module Guard / archzfs ISO requirement on it — a pure-ext4 install needs none
 of them.
 
+## Progress
+
+Pure cores landed + bats-green (TDD), VM-gated wiring still to do:
+- [x] **Non-ZFS partition planner** (`lib/layout/nonzfs/plan.sh`) — ESP+swap+root
+      remainder math + floor validation (`tests/layout/nonzfs-plan.bats`).
+- [x] **ext4 `ROOT_CMDLINE` + `HOOKS` emitters** (`lib/layout/ext4/boot.sh`) —
+      `root=UUID=…`; HOOKS with block→filesystems, no zfs/encrypt
+      (`tests/layout/ext4-boot.bats`).
+- [x] **zfs-presence predicate** (`install_config_any_zfs`) — gates zfs
+      userland/import/guard/ISO (`tests/config/zfs-presence.bats`).
+- [ ] ext4 Root Adapter (`lib/layout/ext4/single.sh`) implementing the seam
+      contract + publishing `LAYOUT_*`/`ROOT_CMDLINE`/`HOOKS` (VM-gated).
+- [ ] install-state schema gains `root_cmdline` + `hooks`; ZFS adapter emits its
+      equivalents (behavior-preserving) (VM-gated).
+- [ ] FS-agnostic `bootloader-systemd-boot.sh` (consume `ROOT_CMDLINE`) +
+      `initcpio.sh` (consume `HOOKS`) (VM-gated).
+- [ ] swap partition (mkswap + fstab) + zfs-presence gating wired (VM-gated).
+
 ## Acceptance criteria
 
 - [ ] A pure ext4 install (root + swap, no ZFS anywhere) boots headless in a VM.

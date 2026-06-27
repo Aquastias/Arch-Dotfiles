@@ -279,3 +279,24 @@ install_config_data_pool_encryption() {
   local v; v="$(jsonc_read "$CONFIG_FILE" ".data_pools[$1].encryption")"
   [[ "$v" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
+
+# Any-ZFS predicate (ADR 0043) — `true` when the root OR any data pool / storage
+# group resolves to zfs. Gates zfs userland, boot-time import, the ZFS Module
+# Guard, and the archzfs-compatible ISO: a machine with no zfs group anywhere
+# needs none of them; an ext4 root + zfs data pool still does. Each per-group
+# accessor inherits the root filesystem when the group omits its own.
+install_config_any_zfs() {
+  [[ "$(install_config_filesystem)" == "zfs" ]] && { printf 'true\n'; return; }
+  local n i
+  n="$(install_config_data_pools_count)"
+  for ((i = 0; i < n; i++)); do
+    [[ "$(install_config_data_pool_filesystem "$i")" == "zfs" ]] \
+      && { printf 'true\n'; return; }
+  done
+  n="$(install_config_storage_groups_count)"
+  for ((i = 0; i < n; i++)); do
+    [[ "$(install_config_storage_group_filesystem "$i")" == "zfs" ]] \
+      && { printf 'true\n'; return; }
+  done
+  printf 'false\n'
+}
