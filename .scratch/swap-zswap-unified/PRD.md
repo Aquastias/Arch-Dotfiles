@@ -1,7 +1,12 @@
 # Unified swap control + zswap (default on)
 
 Status: done — all 3 slices built + committed (cc22d3f, 094f277, 3c5ec75);
-1447 bats green. Live fzf render + on-target /proc/cmdline remain VM/HITL-gated.
+1447 bats green. VM smoke PASSED (single/plain, 2026-06-27): unattended install
+of MY code → summary "Swap: true (auto = RAM × 2) · zswap (zstd)", systemd-boot
+entries written with the zswap fragment, installed disk booted to the first-boot
+sentinel (a broken cmdline would block boot). Literal /proc/cmdline unread (disk
+root-owned 0600, installed cmdline has no console=ttyS0) — covered by slice-2
+unit tests on the exact fragment.
 
 Builds on **ADR 0039** (Guided Installer), **ADR 0042** (persistent single-fzf
 controller), **ADR 0040** (Filesystem Adapter axis). Touches the Bootloader
