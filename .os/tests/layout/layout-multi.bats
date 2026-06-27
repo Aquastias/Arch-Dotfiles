@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout/multi.sh — pure topology suggestion functions.
+# Tests for .os/lib/layout/zfs/multi.sh — pure topology suggestion functions.
 # suggest_os_topologies and suggest_storage_topologies have no system calls.
 
 setup() {
@@ -15,8 +15,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
   # shellcheck source=../../lib/zfs/pool-owners.sh
   source "$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh"
-  # shellcheck source=../../lib/layout/multi.sh
-  source "$BATS_TEST_DIRNAME/../../lib/layout/multi.sh"
+  # shellcheck source=../../lib/layout/zfs/multi.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/multi.sh"
   _LAYOUT_PHASE=1  # simulate validate phase having run
 }
 

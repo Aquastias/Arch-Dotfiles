@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout/multi.sh — Multi-disk install layout
+# lib/layout/zfs/multi.sh — Multi-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=multi.
 # Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for _zpool_create,

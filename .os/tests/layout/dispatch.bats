@@ -1,9 +1,10 @@
 #!/usr/bin/env bats
-# Tests for lib/layout/dispatch.sh — the filesystem-keyed layout adapter seam
-# (ADR 0040). layout_adapter_source maps (filesystem, mode) → the adapter file
-# to source. ZFS is the only implemented adapter and keeps the flat
-# lib/layout/<mode>.sh path (the zfs/ relocation is deferred to filesystem #2);
-# any other filesystem errors. Pure: a string transform, no disk access.
+# Tests for lib/layout/dispatch.sh — the filesystem-keyed layout dispatch
+# (ADR 0040, split by ADR 0043). Two seams: root_adapter_source maps
+# (filesystem, mode) → the Root Layout Adapter to source; data_formatter_source
+# maps (filesystem) → the Data Group Formatter. ZFS is the only built adapter and
+# now lives under lib/layout/zfs/; any other filesystem errors. Pure: string
+# transforms, no disk access.
 
 setup() {
   error() { echo "ERROR: $*" >&2; return 1; }
@@ -13,22 +14,36 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/layout/dispatch.sh"
 }
 
-# ── tracer: zfs resolves to the flat single-mode adapter ────────────────────
+# ── root_adapter_source: filesystem × mode → the relocated zfs/ adapter ──────
 
-@test "layout_adapter_source: zfs single resolves to lib/layout/single.sh" {
-  run layout_adapter_source /os zfs single
+@test "root_adapter_source: zfs single resolves to lib/layout/zfs/single.sh" {
+  run root_adapter_source /os zfs single
   [ "$status" -eq 0 ]
-  [ "$output" = "/os/lib/layout/single.sh" ]
+  [ "$output" = "/os/lib/layout/zfs/single.sh" ]
 }
 
-@test "layout_adapter_source: the mode keys the adapter file (multi)" {
-  run layout_adapter_source /os zfs multi
+@test "root_adapter_source: the mode keys the adapter file (multi)" {
+  run root_adapter_source /os zfs multi
   [ "$status" -eq 0 ]
-  [ "$output" = "/os/lib/layout/multi.sh" ]
+  [ "$output" = "/os/lib/layout/zfs/multi.sh" ]
 }
 
-@test "layout_adapter_source: an unbuilt filesystem errors, naming it" {
-  run layout_adapter_source /os btrfs single
+@test "root_adapter_source: an unbuilt filesystem errors, naming it" {
+  run root_adapter_source /os btrfs single
   [ "$status" -ne 0 ]
   [[ "$output" =~ "btrfs" ]]
+}
+
+# ── data_formatter_source: filesystem → the Data Group Formatter (no mode) ───
+
+@test "data_formatter_source: zfs resolves to the zfs data-pool module" {
+  run data_formatter_source /os zfs
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/zfs/multi.sh" ]
+}
+
+@test "data_formatter_source: an unbuilt filesystem errors, naming it" {
+  run data_formatter_source /os ext4
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "ext4" ]]
 }

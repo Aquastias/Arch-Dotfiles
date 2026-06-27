@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout/common.sh — parse_size_to_gib and
+# Tests for .os/lib/layout/zfs/common.sh — parse_size_to_gib and
 # layout_resolve_esp_size.
 
 setup() {
@@ -10,8 +10,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/layout/common.sh
-  source "$BATS_TEST_DIRNAME/../../lib/layout/common.sh"
+  # shellcheck source=../../lib/layout/zfs/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/common.sh"
 }
 
 teardown() {
