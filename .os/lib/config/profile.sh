@@ -134,15 +134,17 @@ _PROFILE_SCHEMA_host=(
   #   declares how many the picker/harness assign — ADR 0037) —
   "os_pool.pool_name" "os_pool.ashift" "os_pool.topology" "os_pool.disks[]"
   "os_pool.disk_count"
-  # — storage_groups[] —
+  # — storage_groups[] (per-group filesystem/encryption — ADR 0043) —
   "storage_groups[].name" "storage_groups[].topology"
   "storage_groups[].mount" "storage_groups[].ashift"
   "storage_groups[].owners[]" "storage_groups[].disks[]"
   "storage_groups[].disk_count"
-  # — data_pools[] —
+  "storage_groups[].filesystem" "storage_groups[].encryption"
+  # — data_pools[] (per-group filesystem/encryption — ADR 0043) —
   "data_pools[].name" "data_pools[].topology" "data_pools[].mount"
   "data_pools[].ashift" "data_pools[].owners[]" "data_pools[].disks[]"
   "data_pools[].disk_count"
+  "data_pools[].filesystem" "data_pools[].encryption"
   # — Security & Backup Extras (ADR 0041): structured objects, not bools —
   "post_install.security.firewall" "post_install.security.antivirus"
   "post_install.security.rootkit" "post_install.security.apparmor"

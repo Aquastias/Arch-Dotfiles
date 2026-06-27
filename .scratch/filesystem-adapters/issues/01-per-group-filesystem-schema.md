@@ -1,6 +1,6 @@
 # 01 — Per-group filesystem/encryption schema + validation contract
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -21,23 +21,35 @@ validator must accept these new optional keys and reject unknown ones as before.
 Extend the validation contract so it enforces the filesystem rules from ADR
 0043: topology is filesystem-conditional, and ext4/xfs are single-disk only.
 
+Scope note: applies to **both** `data_pools[]` (Standalone Data Pools) and
+`storage_groups[]`. The semantics of a *non-ZFS* storage group vs the single
+Combined Data Pool is deferred to the layout slices (05/07) — this slice is
+schema/accessor/validation only.
+
 ## Acceptance criteria
 
-- [ ] An existing ZFS Host Profile (no per-group `filesystem`/`encryption`)
+- [x] An existing ZFS Host Profile (no per-group `filesystem`/`encryption`)
       validates and assembles into an identical Effective Config — no behavior
-      change.
-- [ ] A data group with `filesystem: ext4` (or `xfs`) and `disk_count > 1` is
+      change. (full config + layout/profiles/zfs/chroot suites green)
+- [x] A data group with `filesystem: ext4` (or `xfs`) and `disk_count > 1` is
       rejected by validation, naming the offending path.
-- [ ] A data group with `filesystem: btrfs` accepts `single`/`raid0`/`raid1`/
-      `raid10` topology; ZFS accepts `mirror`/`raidz1`/`raidz2`/`stripe`.
-- [ ] A group with no `filesystem` resolves to the root filesystem via the
-      accessor.
-- [ ] Per-group `encryption` round-trips a stored `false` correctly (explicit
+- [x] A group with `filesystem: btrfs` accepts `raid0`/`raid1`/`raid10`; ZFS
+      accepts `mirror`/`stripe`/`independent`/`raidz`/`raidz1`/`raidz2`/`none`;
+      ext4/xfs accept `single` only.
+- [x] A group with no `filesystem` resolves to the root filesystem via the
+      accessor (data_pool + storage_group).
+- [x] Per-group `encryption` round-trips a stored `false` correctly (explicit
       null check, not `// default`).
-- [ ] Impermanence remains rejected unless root `filesystem ∈ {zfs, btrfs}`.
-- [ ] bats covers the validation contract (topology-per-fs, single-disk
-      constraint, encryption-bool round-trip, accessor default-inheritance),
-      mirroring existing `config/validation` tests.
+- [x] Impermanence remains rejected unless root `filesystem ∈ {zfs, btrfs}`
+      (unchanged `_validation_filesystem`; regression-covered).
+- [x] bats covers the validation contract (topology-per-fs, single-disk
+      constraint, encryption-bool round-trip, accessor default-inheritance) +
+      closed-schema acceptance of the new keys.
+
+Status: done — `tests/config/validation-group-filesystem.bats` (23 tests) +
+closed-schema test in `profile-loader.bats`; wired into
+`validate_install_context`. Full suite green (config 584, layout/profiles/zfs/
+chroot 349, 0 fail).
 
 ## Blocked by
 

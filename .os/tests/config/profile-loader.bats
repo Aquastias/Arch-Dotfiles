@@ -304,6 +304,15 @@ write_jsonc() {
   [ -z "$output" ]
 }
 
+@test "validate: per-group filesystem/encryption are accepted (ADR 0043)" {
+  run validate_config_schema host '{
+    "data_pools":[{"name":"tank0","filesystem":"ext4","encryption":true}],
+    "storage_groups":[{"name":"bulk","filesystem":"btrfs","encryption":false}]
+  }'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "validate: a representative valid host profile passes" {
   run validate_config_schema host '{
     "system":{"hostname":"eterniox","locale":"en_US.UTF-8","keymap":"us"},
