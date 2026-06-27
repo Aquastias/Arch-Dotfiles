@@ -219,20 +219,40 @@ Reframed as the ZFS **Filesystem Adapter** once the filesystem axis lands: the
 mode-keyed split *is* ZFS today (ADR 0040).
 
 ### Filesystem Adapter
-The reserved seam that selects the on-disk filesystem, keyed on a top-level
-`filesystem` discriminator (default `zfs`; reserved `btrfs`, `ext4`, `xfs`).
-Generalizes the current mode-keyed Layout Module — today `lib/layout/<mode>.sh`
-(single/multi) *is* the ZFS adapter, and ZFS is the only implemented filesystem.
-Each adapter owns its volume model (ZFS pools + datasets; btrfs subvolumes;
-ext4/xfs bare partitions ± mdadm/LVM), its RAID story (ZFS/btrfs native;
-ext4/xfs via mdadm/LVM), and how the encryption method is realized — ZFS native
-AES-256-GCM vs dm-crypt/LUKS *under* the filesystem. Impermanence (ZFS dataset
-rollback) and the Bootloader Adapter's `root=` become filesystem-conditional;
-non-snapshotting filesystems (ext4/xfs) offer no Impermanence. Only the ZFS
-adapter exists today — the discriminator, the additive `options.encryption_method`
-(`native` | `luks`, default derived from `filesystem`), and the fs-keyed dispatch
-are landed up front so a future filesystem is an additive adapter, never a schema
-migration (ADR 0040).
+The seam that selects the on-disk filesystem. The top-level `filesystem`
+discriminator (default `zfs`; `btrfs`, `ext4`, `xfs`) names the **OS/root**
+filesystem; data groups may each carry an *optional* per-group `filesystem` that
+defaults to the root value, so one machine can mix filesystems by group (e.g.
+ZFS root + an ext4 data disk). Each adapter owns its volume model (ZFS pools +
+datasets; btrfs subvolumes; ext4/xfs bare partitions) and its multi-disk story:
+ZFS and btrfs have **native** topology (mirror/raidz; raid0/1/10), while ext4 and
+xfs are **single-disk only** (no mdadm/LVM — a group set to ext4/xfs rejects
+`disk_count > 1`; use ZFS or btrfs for redundancy). Encryption is
+filesystem-conditional: ZFS native AES-256-GCM (`native`) vs dm-crypt/LUKS
+*under* the filesystem (`luks`) — one shared passphrase seam, only the consumer
+differs. Impermanence and the Bootloader Adapter's `root=` are also
+filesystem-conditional: Impermanence is offered on the snapshotting filesystems
+ZFS and btrfs only (never ext4/xfs). The additive `options.encryption_method`
+(`native` | `luks`, default derived from `filesystem`) and the fs-keyed dispatch
+mean a new filesystem is an additive adapter, never a schema migration (ADR 0040,
+extended by ADR 0043). See [[Root Layout Adapter]] and [[Data Group Formatter]]
+for the dispatch split.
+
+### Root Layout Adapter
+The filesystem-and-mode-keyed half of the layout dispatch that owns the **OS
+disk**: partitions it (`ESP + [swap] + root`), formats/creates the root volume,
+and hands the Bootloader Adapter the right `root=` (ZFS → `root=ZFS=<pool>/ROOT`;
+ext4/xfs → `root=/dev/mapper/cryptroot` or `root=UUID=…`; btrfs adds
+`rootflags=subvol=…`). Selected by `root_adapter_source <fs> <mode>`. The ZFS
+single/multi Layout Modules become the ZFS Root Layout Adapter, relocated under
+`lib/layout/zfs/` (ADR 0043).
+
+### Data Group Formatter
+The filesystem-keyed (mode-independent) half of the layout dispatch that formats
+**one** data group with *its* chosen filesystem — a group is just disks +
+topology + fs, with no single/multi notion. The multi-disk data-pool loop
+dispatches each group via `data_formatter_source <fs>`; ZFS's existing data-pool
+creation becomes the ZFS Data Group Formatter (ADR 0043).
 
 ### Storage Group
 A vdev (or set of per-disk vdevs) folded into the single Combined Data Pool in
