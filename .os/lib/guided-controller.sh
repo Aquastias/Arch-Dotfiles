@@ -314,6 +314,7 @@ _ctl_nav_header() {
       b='Enter choose   Esc back'
     fi ;;
   text)     b='Type a value, Enter save   Esc back' ;;
+  swapedit)  b='Enter edit/toggle   Esc back' ;;
   datapools) b='Enter open/add   Esc back' ;;
   pooledit)  b='Enter cycle/remove   Esc back' ;;
   *)        b='Esc back' ;;
@@ -325,6 +326,7 @@ _ctl_nav_prompt() {
   top)         printf 'guided> ' ;;
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
+  swapedit)    printf 'swap> ' ;;
   datapools)   printf 'data pools> ' ;;
   pooledit)    printf 'pool> ' ;;
   *)           printf 'guided> ' ;;
@@ -345,6 +347,25 @@ _ctl_layout_label() {
       + ((.data_pools // [])
          | map(" + \(.name): \(.disk_count) disks (\(.topology))") | join(""))
     end' <<<"$1"
+}
+
+# _ctl_swap_on <effective-json> → "true"/"false": is swap enabled (default true)?
+# has("swap") so an explicit `swap:false` is not swallowed by jq's `//` (which
+# treats false like null) — see [[dotfiles_jq_alternative_false]].
+_ctl_swap_on() {
+  jq -r '(.options // {}) as $o
+    | if ($o | has("swap")) then $o.swap else true end' <<<"$1"
+}
+
+# _ctl_swap_label <effective-json> → the one-line swap summary for the Disks swap
+# row: "off" when swap is disabled, else the size (default "auto"). The zswap
+# suffix is appended by a later slice. NOTE: a stored `swap:false` must survive —
+# jq's `//` treats false like null, so test membership explicitly (has("swap")).
+_ctl_swap_label() {
+  jq -r '
+    (.options // {}) as $o
+    | (if ($o | has("swap")) then $o.swap else true end) as $on
+    | if $on == false then "off" else ($o.swap_size // "auto") end' <<<"$1"
 }
 
 # _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the preview
@@ -451,6 +472,11 @@ guided_ctl_list() {
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
       printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
+      local _sov=""
+      jq -e '.options.swap != null or .options.swap_size != null' \
+        <<<"$state" >/dev/null 2>&1 && _sov="  ●"
+      printf 'swap: %s%s\n' \
+        "$(_ctl_swap_label "$(_ctl_effective "$state" "$base")")" "$_sov"
     fi
     menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
@@ -484,6 +510,15 @@ guided_ctl_list() {
     cur="$(_ctl_field_display "$path" "$state" "$base")"
     printf 'current: %s\n' "${cur:-(unset)}"
     printf '%s\n' "(type above, Enter saves · Esc cancels)" ;;
+  swapedit)
+    local _eff; _eff="$(_ctl_effective "$state" "$base")"
+    if [[ "$(_ctl_swap_on "$_eff")" == "false" ]]; then
+      printf 'enabled: off\n'
+    else
+      printf 'enabled: on\n'
+      printf 'size: %s\n' "$(jq -r '.options.swap_size // "auto"' <<<"$_eff")"
+    fi
+    printf '%s\n' "← Back" ;;
   datapools)
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
       <<<"$(_ctl_effective "$state" "$base")"
@@ -510,6 +545,7 @@ guided_ctl_enter() {
   category)  _ctl_enter_category "$line" ;;
   values)    _ctl_enter_values "$line" ;;
   text)      _ctl_enter_text "$query" ;;
+  swapedit)  _ctl_enter_swapedit "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
   *)         echo noop ;;
@@ -542,6 +578,8 @@ _ctl_enter_category() {
   "layout:"*)
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
+  "swap:"*)
+    _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -627,11 +665,35 @@ _ctl_enter_text() {
   # sysctl / create-user were reached from a list screen — return there so the
   # new entry shows and more can be added; every other text field backs out.
   case "$path" in
-  sysctl)      _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
-  __newuser__) _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
-  *)           _ctl_write_nav "$(nav_back "$nav")" ;;
+  sysctl)            _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
+  __newuser__)       _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
+  options.swap_size) _ctl_write_nav "$(nav_to_swapedit "$cat")" ;;
+  *)                 _ctl_write_nav "$(nav_back "$nav")" ;;
   esac
   echo render
+}
+
+# _ctl_enter_swapedit <line> — the swap sub-editor: toggle swap on/off, or open
+# the free-text size editor. Toggling STAYS on the screen (refresh); size opens
+# the text screen (which returns here — see _ctl_enter_text). The zswap rows are
+# added by a later slice.
+_ctl_enter_swapedit() {
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "enabled:"*)
+    # flip options.swap; has("swap") keeps an explicit false from being read as
+    # the default true (jq `//` false-swallow gotcha).
+    _ctl_write_state "$(jq '
+      (if (.options // {} | has("swap")) then .options.swap else true end) as $c
+      | .options.swap = ($c | not)' <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  "size:"*)
+    _ctl_write_nav "$(nav_to_text "$cat" options.swap_size "swap size")"
+    echo render; return ;;
+  esac
+  echo refresh
 }
 
 # _ctl_enter_datapools <line> — the data-pools list editor: add a tank<N> pool

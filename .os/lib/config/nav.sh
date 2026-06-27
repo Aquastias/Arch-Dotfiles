@@ -40,6 +40,9 @@ nav_to_text() {
     '{screen:"text", category:$c, field:$f, label:$l}'
 }
 
+# nav_to_swapedit <category> — the swap sub-editor (enabled / size / zswap).
+nav_to_swapedit() { jq -nc --arg c "$1" '{screen:"swapedit", category:$c}'; }
+
 # nav_to_datapools <category> — the data-pools list editor.
 nav_to_datapools() { jq -nc --arg c "$1" '{screen:"datapools", category:$c}'; }
 
@@ -54,6 +57,7 @@ nav_back() {
   jq -c '
     if   .screen == "values" or .screen == "text"
          then {screen:"category", category:.category}
+    elif .screen == "swapedit"  then {screen:"category", category:.category}
     elif .screen == "datapools" then {screen:"category", category:.category}
     elif .screen == "pooledit"  then {screen:"datapools", category:.category}
     elif .screen == "category" then {screen:"top"}

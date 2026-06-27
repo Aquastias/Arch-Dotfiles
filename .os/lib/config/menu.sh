@@ -35,8 +35,6 @@ _MENU_FIELDS=(
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
-  "Disks|options.swap|swap|true"
-  "Disks|options.swap_size|swap size|auto"
   "Disks|options.esp_size|esp size|2G"
   "Options|options.kernel|kernel|lts"
   "Options|options.bootloader|bootloader|systemd-boot"
