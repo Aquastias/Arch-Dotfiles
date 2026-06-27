@@ -1,6 +1,7 @@
 # Unified swap control + zswap (default on)
 
-Status: ready-for-agent
+Status: done — all 3 slices built + committed (cc22d3f, 094f277, 3c5ec75);
+1447 bats green. Live fzf render + on-target /proc/cmdline remain VM/HITL-gated.
 
 Builds on **ADR 0039** (Guided Installer), **ADR 0042** (persistent single-fzf
 controller), **ADR 0040** (Filesystem Adapter axis). Touches the Bootloader
