@@ -390,12 +390,28 @@ _ctl_add_data_pool() {
 guided_ctl_preview() {
   local line="$1" nav field
   nav="$(_ctl_nav)"
+  # The data-pools editor screens graph the LIVE state (not a preset line) so the
+  # tree reflects pools/disks as you add and cycle them.
+  case "$(nav_screen "$nav")" in
+  datapools | pooledit)
+    _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
+    return 0 ;;
+  esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
   case "$field" in
   __layout__)
-    local sk; sk="$(skeleton_preset "$line" 2>/dev/null)" || return 0
-    _ctl_layout_graph "$sk" ;;
+    # A destructive preset row previews THAT preset ("what you'd get"). The
+    # data-pools row is additive (it opens the editor, keeping your pools) and
+    # ← Back is no choice at all — both graph the LIVE state so edits stay visible.
+    local sk
+    if [[ "$line" == "data-pools" || "$line" == "← Back" ]]; then
+      _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
+    elif sk="$(skeleton_preset "$line" 2>/dev/null)"; then
+      _ctl_layout_graph "$sk"
+    else
+      _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
+    fi ;;
   system.keymap)
     # multi: the selected keymap array (+ the highlighted candidate, mark stripped)
     local sel; sel="$(jq -r \
@@ -726,9 +742,11 @@ _guided_directive_to_action() {
     # graph command only runs where it's shown.
     nav="$(_ctl_nav)"
     local pv _showpv=0
-    if [[ "$(nav_screen "$nav")" == "values" ]]; then
-      _ctl_field_has_preview "$(nav_get "$nav" field)" && _showpv=1
-    fi
+    case "$(nav_screen "$nav")" in
+    values)
+      _ctl_field_has_preview "$(nav_get "$nav" field)" && _showpv=1 ;;
+    datapools | pooledit) _showpv=1 ;;   # the live layout graph
+    esac
     if ((_showpv)); then
       pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
         "$entry")"
@@ -740,7 +758,9 @@ _guided_directive_to_action() {
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).
-    printf 'reload-sync(bash %q list)' "$entry" ;;
+    # refresh-preview re-renders the live layout graph after a pool/disk edit;
+    # a no-op where the preview pane is hidden.
+    printf 'reload-sync(bash %q list)+refresh-preview' "$entry" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \

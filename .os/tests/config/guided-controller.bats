@@ -136,7 +136,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "directive→action: refresh re-lists in place via reload-sync" {
   run _guided_directive_to_action refresh /x/entry.sh
-  [ "$output" = "reload-sync(bash /x/entry.sh list)" ]
+  [ "$output" = "reload-sync(bash /x/entry.sh list)+refresh-preview" ]
 }
 
 @test "enter(values toggle): toggling an already-selected option removes it" {
@@ -314,6 +314,16 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "mirror"
 }
 
+@test "preview(__layout__): a non-preset row graphs the LIVE edited state" {
+  printf '%s\n' \
+    '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"raidz2","disk_count":6}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Disks __layout__ "layout")"
+  run guided_ctl_preview "data-pools"          # not a preset → live state
+  echo "$output" | grep -q "tank0"
+  echo "$output" | grep -q "raidz2 · 6 disk"
+}
+
 @test "directive→action(render): layout shows the preview, others hide it" {
   set_nav "$(nav_to_values Disks __layout__ "layout")"
   run _guided_directive_to_action render /x/entry.sh
@@ -322,6 +332,39 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Disks)"
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(hidden)"
+}
+
+# ── data-pools editor: the live layout-graph preview tracks pool/disk edits ──
+
+@test "preview(pooledit): graphs the LIVE state, reflecting the disk count" {
+  printf '%s\n' \
+    '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_preview "disks: 3   (Enter cycles 1-8)"
+  echo "$output" | grep -q "tank0"
+  echo "$output" | grep -q "raidz1 · 3 disk"
+}
+
+@test "preview(datapools): graphs the LIVE state with every pool" {
+  printf '%s\n' \
+    '{"mode":"multi","os_pool":{"topology":"none","disk_count":1},"data_pools":[{"name":"tank0","topology":"mirror","disk_count":2},{"name":"tank1","topology":"stripe","disk_count":4}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_preview "+ Add data pool"
+  echo "$output" | grep -q "tank0"
+  echo "$output" | grep -q "tank1"
+  echo "$output" | grep -q "4 disk"
+}
+
+@test "directive→action(render): the data-pool editor shows the preview pane" {
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
+  echo "$output" | grep -q "change-preview-window(right,45%)"
+  set_nav "$(nav_to_datapools Disks)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview-window(right,45%)"
 }
 
 # ── data-pools editor: multiple pools (tank0/tank1), topology, disk count ─────
