@@ -186,6 +186,74 @@ _validation_filesystem() {
   fi
 }
 
+# Per-group filesystem contract (ADR 0043) — over each Standalone Data Pool
+# (data_pools[]) and Storage Group (storage_groups[]). A group may pick its own
+# filesystem (default inherits the root); the value must be known, its topology
+# valid for that filesystem, and ext4/xfs single-disk only. Names the offending
+# group. Config-sanity only, like _validation_filesystem.
+_validation_group_filesystems() {
+  local i count
+  count="$(install_config_data_pools_count)"
+  for ((i = 0; i < count; i++)); do
+    _validation_one_group "data pool" \
+      "$(install_config_data_pool_name "$i")" \
+      "$(install_config_data_pool_filesystem "$i")" \
+      "$(cfgo ".data_pools[$i].disk_count")" \
+      "$(cfgo ".data_pools[$i].topology")"
+  done
+  count="$(install_config_storage_groups_count)"
+  for ((i = 0; i < count; i++)); do
+    _validation_one_group "storage group" \
+      "$(install_config_storage_group_name "$i")" \
+      "$(install_config_storage_group_filesystem "$i")" \
+      "$(cfgo ".storage_groups[$i].disk_count")" \
+      "$(cfgo ".storage_groups[$i].topology")"
+  done
+}
+
+# Validate one group's filesystem/topology/disk-count. $kind is a human label
+# ("data pool" / "storage group") used in error messages.
+_validation_one_group() {
+  local kind="$1" name="$2" fs="$3" dc="$4" topo="$5" known=0 f
+  for f in "${_VALIDATION_KNOWN_FILESYSTEMS[@]}"; do
+    [[ "$fs" == "$f" ]] && { known=1; break; }
+  done
+  ((known)) || error "Unknown filesystem '${fs}' on ${kind} '${name}'." \
+    "Valid: ${_VALIDATION_KNOWN_FILESYSTEMS[*]}."
+
+  # ext4/xfs have no multi-disk story (no mdadm/LVM) — single-disk only.
+  if [[ "$fs" == "ext4" || "$fs" == "xfs" ]]; then
+    if [[ -n "$dc" ]] && ((dc > 1)); then
+      error "${kind^} '${name}' is ${fs} (single-disk only) but declares" \
+        "disk_count ${dc}. Use zfs or btrfs for a multi-disk group."
+    fi
+  fi
+
+  # Topology must be valid for the filesystem; an absent topology (raw, not the
+  # accessor's 'stripe' default) is unconstrained.
+  _validation_topology_for_fs "$name" "$fs" "$topo"
+}
+
+# Valid topologies per filesystem (ADR 0043): zfs native vdev types; btrfs
+# native profiles; ext4/xfs single only. An empty topology is unconstrained
+# (the layout adapter applies the filesystem's default). Names the offending
+# pool on a mismatch.
+_validation_topology_for_fs() {
+  local name="$1" fs="$2" topo="$3" valid t
+  [[ -z "$topo" ]] && return 0
+  case "$fs" in
+  zfs) valid="mirror stripe independent raidz raidz1 raidz2 none" ;;
+  btrfs) valid="single raid0 raid1 raid10" ;;
+  ext4 | xfs) valid="single" ;;
+  *) return 0 ;;
+  esac
+  for t in $valid; do
+    [[ "$topo" == "$t" ]] && return 0
+  done
+  error "Data pool '${name}' (${fs}) has invalid topology '${topo}'." \
+    "Valid for ${fs}: ${valid}."
+}
+
 # Validate persist paths from a merged host config JSON.
 # Errors abort via error(); warnings are printed via warn().
 _validation_persist() {
@@ -275,6 +343,8 @@ validate_install_context() {
   _validation_system_fields
 
   _validation_filesystem
+
+  _validation_group_filesystems
 
   layout_validate
 

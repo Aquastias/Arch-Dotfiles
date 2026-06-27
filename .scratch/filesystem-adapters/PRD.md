@@ -250,3 +250,10 @@ current ZFS path):
 - Watch the `lib/layout/zfs/` relocation for the BASH_SOURCE root-sibling
   sourcing + chroot flat-copy / kde.sh lockstep hazard recorded in the
   lib-foldering gotcha.
+- **Open question (layout slices 05/07):** per-group `filesystem` is accepted on
+  **both** `data_pools[]` and `storage_groups[]` (operator's call). But a
+  Storage Group folds into the single **Combined Data Pool** (one zpool) — a
+  non-ZFS storage group can't fold into a ZFS pool. The layout slices must decide
+  what a non-ZFS storage group *means* (promote it to a standalone pool? reject
+  the combination?). The schema/validation slice (01) deliberately allows it; the
+  formatter slices resolve the semantics.

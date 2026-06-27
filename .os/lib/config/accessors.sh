@@ -187,6 +187,30 @@ install_config_storage_group_ashift() {
   printf '%s\n' "${v:-12}"
 }
 
+# Number of declared storage_groups[] entries (0 when absent).
+install_config_storage_groups_count() {
+  jsonc_read "$CONFIG_FILE" '(.storage_groups // []) | length'
+}
+
+# Storage Group name at index — emitted raw.
+install_config_storage_group_name() {
+  cfgo ".storage_groups[$1].name"
+}
+
+# Per-group filesystem (ADR 0043) — like the data_pool reader; absent inherits
+# the root `filesystem`.
+install_config_storage_group_filesystem() {
+  local v; v="$(cfgo ".storage_groups[$1].filesystem")"
+  printf '%s\n' "${v:-$(install_config_filesystem)}"
+}
+
+# Per-group encryption (ADR 0043) — independent bool, default false; explicit
+# null check so a stored `false` round-trips (jq gotcha).
+install_config_storage_group_encryption() {
+  local v; v="$(jsonc_read "$CONFIG_FILE" ".storage_groups[$1].encryption")"
+  [[ "$v" == "true" ]] && printf 'true\n' || printf 'false\n'
+}
+
 # Owners access list (pool-owners, ADR 0031) — one token per line, in order; a
 # bare token is a user, an @-prefixed token a group. Empty when absent. Defined
 # for both pool kinds; the Owners Resolver decides chown vs ACL from the tokens.
@@ -239,4 +263,19 @@ install_config_data_pool_ashift() {
 # Disks at index — one device path per line.
 install_config_data_pool_disks() {
   jsonc_read "$CONFIG_FILE" ".data_pools[$1].disks[]?"
+}
+
+# Per-group filesystem (ADR 0043) — a Standalone Data Pool may pick its own
+# filesystem; absent inherits the root `filesystem`. An explicit value wins.
+install_config_data_pool_filesystem() {
+  local v; v="$(cfgo ".data_pools[$1].filesystem")"
+  printf '%s\n' "${v:-$(install_config_filesystem)}"
+}
+
+# Per-group encryption (ADR 0043) — an independent bool, default false. Read raw
+# with an explicit null check so a stored `false` round-trips (a `// false`
+# default cannot distinguish absent from an explicit false — jq gotcha).
+install_config_data_pool_encryption() {
+  local v; v="$(jsonc_read "$CONFIG_FILE" ".data_pools[$1].encryption")"
+  [[ "$v" == "true" ]] && printf 'true\n' || printf 'false\n'
 }
