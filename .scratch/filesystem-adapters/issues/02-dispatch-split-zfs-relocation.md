@@ -30,10 +30,16 @@ when folding files into the subdirectory.
 - [x] ZFS layout files (single/multi/common/plan) live under `lib/layout/zfs/`
       via `git mv`; internal BASH_SOURCE-relative sources move together and still
       resolve. Layout files are not chroot-staged, so no flat-copy lockstep.
-- [~] The existing ZFS install path behaves identically (single + multi) — proven
-      by the full bats gate (935, 0 fail incl. layout/zfs/profiles/chroot);
-      live-VM smoke still unverified (no tty/fzf) but no install-path logic
-      changed (pure relocation + `root_adapter_source` rename in 03-install.sh).
+- [x] The existing ZFS install path behaves identically (single) — **VM-verified
+      2026-06-27**: served local main via `git daemon` + `REPO_URL` override, ran
+      `single/plain` (single-disk ZFS, install:repo) headless. Install reached
+      `===INSTALLER-EXIT-0===` (partitioning via the relocated `zfs/single.sh`
+      through `root_adapter_source` → pacstrap → bootloader → AUR all succeeded);
+      power-cycle booted the installed system (ZFS startup target, Multi-User +
+      Graphical, `arch-kde login:`, kernel 6.18.37-lts). Also full bats gate
+      (935, 0 fail). Harness `--testing` flow itself is flaky here (guest
+      powers off pre-DHCP under the harness's console handling; a clean manual
+      boot installs + boots fine) — env quirk, not code.
 - [x] dispatch.bats rewritten for both seams + the unbuilt-fs error; all
       layout/dispatch bats pass; audit.sh updated to the zfs/ paths (PASS).
 
