@@ -456,10 +456,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   ! echo "$output" | grep -qE '^swap size:'
 }
 
-@test "list(category Disks): swap row defaults to the size (auto), no dot" {
+@test "list(category Disks): swap row defaults to size + zswap, no dot" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -qE '^swap: auto$'        # default on → shows size
+  echo "$output" | grep -qE '^swap: auto · zswap zstd$'   # default on + zswap
 }
 
 @test "enter(category): swap opens the swapedit sub-editor" {
@@ -518,13 +518,17 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
-@test "swap label: off when disabled, the size when enabled" {
+@test "swap label: off / size · zswap <comp> / size · no zswap" {
   run _ctl_swap_label '{"options":{"swap":false}}'
   [ "$output" = "off" ]
-  run _ctl_swap_label '{"options":{"swap_size":"8G"}}'
-  [ "$output" = "8G" ]
+  run _ctl_swap_label '{"options":{"swap_size":"8G"}}'        # zswap default on
+  [ "$output" = "8G · zswap zstd" ]
   run _ctl_swap_label '{}'
-  [ "$output" = "auto" ]
+  [ "$output" = "auto · zswap zstd" ]
+  run _ctl_swap_label '{"options":{"zswap":{"enabled":false}}}'
+  [ "$output" = "auto · no zswap" ]
+  run _ctl_swap_label '{"options":{"zswap":{"compressor":"lz4"}}}'
+  [ "$output" = "auto · zswap lz4" ]
 }
 
 @test "list(category Disks): swap row shows a dot once overridden" {
@@ -532,6 +536,67 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
   echo "$output" | grep -qE '^swap: off  ●$'
+}
+
+# ── swapedit: zswap toggle + compressor / max-pool-% cycles (default on) ──────
+
+@test "list(swapedit): default shows the zswap rows (on, zstd, 20)" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^zswap: on$'
+  echo "$output" | grep -qE '^compressor: zstd'
+  echo "$output" | grep -qE '^max pool %: 20'
+}
+
+@test "list(swapedit): zswap off hides compressor + max pool %" {
+  printf '%s\n' '{"options":{"zswap":{"enabled":false}}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^zswap: off$'
+  ! echo "$output" | grep -qE '^compressor:'
+  ! echo "$output" | grep -qE '^max pool %:'
+}
+
+@test "list(swapedit): swap off hides every zswap row" {
+  printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_list
+  ! echo "$output" | grep -qE '^zswap:'
+  ! echo "$output" | grep -qE '^compressor:'
+}
+
+@test "enter(swapedit): toggling zswap flips options.zswap.enabled (refresh)" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "zswap: on"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "false" ]
+}
+
+@test "enter(swapedit): an explicit zswap:false toggles back to true (jq guard)" {
+  printf '%s\n' '{"options":{"zswap":{"enabled":false}}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "zswap: off"
+  [ "$(jq -c '.options.zswap.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "enter(swapedit): compressor cycles zstd → lz4 → lzo → zstd" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "compressor: zstd   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lz4" ]
+  run guided_ctl_enter "compressor: lz4   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "lzo" ]
+  run guided_ctl_enter "compressor: lzo   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.compressor' "$GUIDED_STATE_FILE")" = "zstd" ]
+}
+
+@test "enter(swapedit): max pool % cycles 20 → 40 → 60 → 5" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "max pool %: 20   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "40" ]
+  run guided_ctl_enter "max pool %: 40   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "60" ]
+  run guided_ctl_enter "max pool %: 60   (Enter cycles)"
+  [ "$(jq -r '.options.zswap.max_pool_percent' "$GUIDED_STATE_FILE")" = "5" ]
 }
 
 # ── keymap / locale / timezone: big filterable lists + a "selected" side panel ─

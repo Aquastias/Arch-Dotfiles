@@ -357,15 +357,30 @@ _ctl_swap_on() {
     | if ($o | has("swap")) then $o.swap else true end' <<<"$1"
 }
 
+# _ctl_zswap_on <effective-json> → "true"/"false": is zswap enabled (default
+# true)? has("enabled") so an explicit false is honoured, not read as default.
+_ctl_zswap_on() {
+  jq -r '(.options.zswap // {}) as $z
+    | if ($z | has("enabled")) then $z.enabled else true end' <<<"$1"
+}
+
 # _ctl_swap_label <effective-json> → the one-line swap summary for the Disks swap
-# row: "off" when swap is disabled, else the size (default "auto"). The zswap
-# suffix is appended by a later slice. NOTE: a stored `swap:false` must survive —
-# jq's `//` treats false like null, so test membership explicitly (has("swap")).
+# row: "off" when swap is disabled, else the size (default "auto") plus a zswap
+# suffix — "· zswap <compressor>" when zswap is on, "· no zswap" when off (so a
+# deviation from the zswap-on default is visible). NOTE: a stored false must
+# survive — jq's `//` treats false like null, so test membership with has().
 _ctl_swap_label() {
   jq -r '
     (.options // {}) as $o
     | (if ($o | has("swap")) then $o.swap else true end) as $on
-    | if $on == false then "off" else ($o.swap_size // "auto") end' <<<"$1"
+    | if $on == false then "off"
+      else
+        ($o.swap_size // "auto") as $sz
+        | ($o.zswap // {}) as $z
+        | (if ($z | has("enabled")) then $z.enabled else true end) as $zon
+        | if $zon == false then "\($sz) · no zswap"
+          else "\($sz) · zswap \($z.compressor // "zstd")" end
+      end' <<<"$1"
 }
 
 # _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the preview
@@ -517,6 +532,15 @@ guided_ctl_list() {
     else
       printf 'enabled: on\n'
       printf 'size: %s\n' "$(jq -r '.options.swap_size // "auto"' <<<"$_eff")"
+      if [[ "$(_ctl_zswap_on "$_eff")" == "false" ]]; then
+        printf 'zswap: off\n'
+      else
+        printf 'zswap: on\n'
+        printf 'compressor: %s   (Enter cycles)\n' \
+          "$(jq -r '.options.zswap.compressor // "zstd"' <<<"$_eff")"
+        printf 'max pool %%: %s   (Enter cycles)\n' \
+          "$(jq -r '.options.zswap.max_pool_percent // 20' <<<"$_eff")"
+      fi
     fi
     printf '%s\n' "← Back" ;;
   datapools)
@@ -673,10 +697,10 @@ _ctl_enter_text() {
   echo render
 }
 
-# _ctl_enter_swapedit <line> — the swap sub-editor: toggle swap on/off, or open
-# the free-text size editor. Toggling STAYS on the screen (refresh); size opens
-# the text screen (which returns here — see _ctl_enter_text). The zswap rows are
-# added by a later slice.
+# _ctl_enter_swapedit <line> — the swap sub-editor: toggle swap on/off, toggle
+# zswap, cycle the zswap compressor (zstd→lz4→lzo) and max pool % (5→…→60), or
+# open the free-text size editor. Toggles/cycles STAY on the screen (refresh);
+# size opens the text screen (which returns here — see _ctl_enter_text).
 _ctl_enter_swapedit() {
   local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
   case "$line" in
@@ -692,6 +716,26 @@ _ctl_enter_swapedit() {
   "size:"*)
     _ctl_write_nav "$(nav_to_text "$cat" options.swap_size "swap size")"
     echo render; return ;;
+  "zswap:"*)
+    _ctl_write_state "$(jq '
+      (if (.options.zswap // {} | has("enabled")) then .options.zswap.enabled
+       else true end) as $c
+      | .options.zswap.enabled = ($c | not)' <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  "compressor:"*)
+    _ctl_write_state "$(jq '
+      (.options.zswap.compressor // "zstd") as $c
+      | .options.zswap.compressor =
+          ({"zstd":"lz4","lz4":"lzo","lzo":"zstd"}[$c] // "zstd")' \
+      <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  "max pool %:"*)
+    _ctl_write_state "$(jq '
+      (.options.zswap.max_pool_percent // 20) as $p
+      | .options.zswap.max_pool_percent =
+          ({"5":10,"10":20,"20":40,"40":60,"60":5}[($p | tostring)] // 20)' \
+      <<<"$(_ctl_state)")"
+    echo refresh; return ;;
   esac
   echo refresh
 }
