@@ -1,6 +1,6 @@
 # Unified swap row + swapedit sub-editor (enabled + size)
 
-Status: ready-for-agent
+Status: done (cc22d3f) — one swap row → swapedit (enabled+size); 1429 bats green
 
 ## Parent
 
