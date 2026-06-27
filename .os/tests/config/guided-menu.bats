@@ -126,12 +126,10 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 @test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Options" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.swap         | jq -e '.section == "Disks"'
-  echo "$output" | row options.swap         | jq -e '.value == "true"'
-  echo "$output" | row options.swap_size    | jq -e '.section == "Disks"'
-  # swap_size has no static default — the back-end derives it (RAM×2, capped),
-  # and treats empty ≡ "auto"; the row shows "auto" so unset reads legibly.
-  echo "$output" | row options.swap_size    | jq -e '.value == "auto"'
+  # swap / swap_size are no longer menu_rows fields — like layout, they surface
+  # as a synthetic controller row (the swap sub-editor) under Disks.
+  echo "$output" | jq -e 'all(.[]; .field != "options.swap")'
+  echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
   echo "$output" | row options.esp_size     | jq -e '.section == "Disks"'
   echo "$output" | row options.esp_size     | jq -e '.value == "2G"'
   echo "$output" | row options.ssh.enabled  | jq -e '.section == "Options"'
@@ -287,12 +285,13 @@ cat_at() { jq -e ".[$1]"; }
 # storage sizing) while their Config State path stays options.* — the display
 # section is independent of the path.
 
-@test "menu_category_rows: swap / swap size / esp size surface under Disks" {
+@test "menu_category_rows: esp size surfaces under Disks (swap is synthetic)" {
   run menu_category_rows Disks "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "options.swap")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.swap_size")'
   echo "$output" | jq -e 'any(.[]; .field == "options.esp_size")'
+  # swap / swap_size moved to the controller's synthetic swap row (sub-editor).
+  echo "$output" | jq -e 'all(.[]; .field != "options.swap")'
+  echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
 }
 
 # the old Pacman section folds into Options (issue 02)

@@ -447,6 +447,93 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
+# ── swap: one Disks row → swapedit sub-editor (enabled + free-text size) ──────
+
+@test "list(category Disks): one swap row, no separate swap size row" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  [ "$(echo "$output" | grep -cE '^swap:')" = "1" ]
+  ! echo "$output" | grep -qE '^swap size:'
+}
+
+@test "list(category Disks): swap row defaults to the size (auto), no dot" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^swap: auto$'        # default on → shows size
+}
+
+@test "enter(category): swap opens the swapedit sub-editor" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "swap: auto"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
+}
+
+@test "list(swapedit): default shows enabled on + size auto + Back" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^enabled: on$'
+  echo "$output" | grep -qE '^size: auto$'
+  echo "$output" | grep -q "← Back"
+}
+
+@test "enter(swapedit): toggling enabled flips options.swap and STAYS (refresh)" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "enabled: on"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "false" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
+}
+
+@test "enter(swapedit): an explicit swap:false toggles back to true (jq // guard)" {
+  printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "enabled: off"
+  [ "$(jq -c '.options.swap' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "list(swapedit): swap off hides the size row" {
+  printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^enabled: off$'
+  ! echo "$output" | grep -qE '^size:'
+}
+
+@test "enter(swapedit): size opens the text editor; saving returns to swapedit" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "size: auto"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.swap_size" ]
+  run guided_ctl_enter "" "8G"                 # text screen: query is the value
+  [ "$(jq -r '.options.swap_size' "$GUIDED_STATE_FILE")" = "8G" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
+}
+
+@test "enter(swapedit): Back returns to the Disks category" {
+  set_nav "$(nav_to_swapedit Disks)"
+  run guided_ctl_enter "← Back"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "swap label: off when disabled, the size when enabled" {
+  run _ctl_swap_label '{"options":{"swap":false}}'
+  [ "$output" = "off" ]
+  run _ctl_swap_label '{"options":{"swap_size":"8G"}}'
+  [ "$output" = "8G" ]
+  run _ctl_swap_label '{}'
+  [ "$output" = "auto" ]
+}
+
+@test "list(category Disks): swap row shows a dot once overridden" {
+  printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^swap: off  ●$'
+}
+
 # ── keymap / locale / timezone: big filterable lists + a "selected" side panel ─
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
