@@ -228,6 +228,18 @@ write_jsonc() {
   [[ "$output" == *"options.impermanence.enabld"* ]]
 }
 
+@test "validate: the options.zswap.* keys are accepted (closed schema)" {
+  run validate_config_schema host \
+    '{"options":{"zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20}}}'
+  [ "$status" -eq 0 ]
+}
+
+@test "validate: a typo under options.zswap aborts with its path" {
+  run validate_config_schema host '{"options":{"zswap":{"enabld":true}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"options.zswap.enabld"* ]]
+}
+
 @test "validate: unknown key in storage_groups[] aborts with its path" {
   run validate_config_schema host \
     '{"storage_groups":[{"name":"g","bogus":1}]}'

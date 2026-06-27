@@ -44,6 +44,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/packages/microcode.sh|microcode.sh"
   "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
   "lib/boot/stray-kernel.sh|stray-kernel.sh"
+  "lib/boot/zswap.sh|zswap.sh"
   "lib/zfs/verify.sh|verify.sh"
   "lib/impermanence-common.sh|impermanence-common.sh"
   "lib/grub-common.sh|grub-common.sh"

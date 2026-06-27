@@ -118,6 +118,8 @@ _PROFILE_SCHEMA_host=(
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"
   "options.swap" "options.swap_size" "options.esp_size" "options.age_key_url"
+  "options.zswap.enabled" "options.zswap.compressor"
+  "options.zswap.max_pool_percent"
   "options.ssh.enabled" "options.multilib" "options.mirror_countries[]"
   "options.impermanence.enabled" "options.impermanence.dataset"
   "options.impermanence.mount"

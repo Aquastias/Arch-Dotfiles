@@ -236,15 +236,20 @@ print_summary() {
 
   echo ""
   local enc; enc="$(install_config_encryption_enabled)"
-  local swap
+  local swap _zswap
   swap="$(install_config_swap_enabled)"
+  if [[ "$swap" == "true" && "$(install_config_zswap_enabled)" == "true" ]]; then
+    _zswap="  ·  zswap ($(install_config_zswap_compressor))"
+  else
+    _zswap=""
+  fi
   local _hn
   _hn="$(install_config_hostname)"
   _hn="${_hn:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$_hn"
   printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
   printf "  %-16s %s\n" "Encryption:" "$enc"
-  printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)"
+  printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)$_zswap"
   local _dr
   _dr="$(install_config_dotfiles_repo)"
   [[ -n "$_dr" ]] && printf "  %-16s %s\n" "Dotfiles:" "$_dr"
