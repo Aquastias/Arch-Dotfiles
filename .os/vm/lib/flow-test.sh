@@ -73,7 +73,8 @@ _flow_render_user_data() {
     elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
       boot_block="$(_seed_generator_multi_firstboot_block \
         "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
-        "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}")"
+        "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}" \
+        "${VM_VERIFY_FS_MOUNTS[*]:-}")"
     else
       boot_block="$(_seed_generator_firstboot_block)"
     fi
