@@ -63,3 +63,35 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   run install_config_any_zfs
   [ "$output" = "true" ]
 }
+
+# ── install_config_any_nonzfs_luks — gates cryptsetup + the boot crypttab ────
+# True when the root OR any data pool is a non-zfs ENCRYPTED group (zfs uses
+# native crypto, not LUKS). A zfs root with an encrypted ext4 data disk still
+# needs cryptsetup on the target even though the root itself is unencrypted.
+
+@test "any_luks: zfs root + encrypted ext4 data pool is true" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"ext4",
+    "encryption":true}]}'
+  run install_config_any_nonzfs_luks
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "any_luks: plaintext non-zfs groups are false" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"ext4"}]}'
+  run install_config_any_nonzfs_luks
+  [ "$output" = "false" ]
+}
+
+@test "any_luks: an encrypted zfs data pool is false (native crypto)" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"zfs",
+    "encryption":true}]}'
+  run install_config_any_nonzfs_luks
+  [ "$output" = "false" ]
+}
+
+@test "any_luks: an encrypted ext4 root is true" {
+  write_config '{"filesystem":"ext4","options":{"encryption":true}}'
+  run install_config_any_nonzfs_luks
+  [ "$output" = "true" ]
+}
