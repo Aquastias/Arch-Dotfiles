@@ -199,6 +199,16 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   [[ "$output" =~ "bulk" ]]
 }
 
+# A Storage Group folds into the single Combined Data Pool (one zpool); a
+# non-zfs group can't be a vdev of a zpool. Reject it, pointing at data_pools[].
+@test "contract: a single-disk ext4 storage_group is rejected (can't fold)" {
+  write_config '{"storage_groups":[{"name":"bulk","filesystem":"ext4"}]}'
+  run _validation_group_filesystems
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "bulk" ]]
+  [[ "$output" =~ "data_pools" ]]
+}
+
 @test "storage_group encryption: explicit false round-trips as false" {
   write_config '{"storage_groups":[{"name":"bulk","encryption":false}]}'
   run install_config_storage_group_encryption 0
