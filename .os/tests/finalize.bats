@@ -66,3 +66,33 @@ teardown() { rm -rf "$TEST_DIR"; }
   [[ "$output" == *"zpool import -f tank0"* ]]
   [[ "$output" == *"zpool import -f tank1"* ]]
 }
+
+# ── _finalize_nonzfs_mounts (pure: which mounts to drop before export) ────────
+# A non-zfs data-group mount (ext4/xfs/btrfs) under ${MOUNT_ROOT} holds it busy,
+# so `zpool export` fails and the pool stays active → the initramfs import
+# panics next boot ("previously in use from another system"). finalize must
+# unmount these NON-zfs mounts first, deepest-path-first. Input is
+# `findmnt -rno TARGET,FSTYPE`.
+
+@test "nonzfs_mounts: returns the non-zfs data mount, drops zfs ones" {
+  run _finalize_nonzfs_mounts <<<"/mnt zfs
+/mnt/home zfs
+/mnt/data/tank0 xfs"
+  [ "$status" -eq 0 ]
+  [ "$output" = "/mnt/data/tank0" ]
+}
+
+@test "nonzfs_mounts: all-zfs tree yields nothing" {
+  run _finalize_nonzfs_mounts <<<"/mnt zfs
+/mnt/home zfs"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "nonzfs_mounts: deepest path first (nested unmount order)" {
+  run _finalize_nonzfs_mounts <<<"/mnt zfs
+/mnt/data ext4
+/mnt/data/sub btrfs"
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | head -1)" = "/mnt/data/sub" ]
+}
