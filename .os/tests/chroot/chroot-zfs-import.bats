@@ -103,3 +103,25 @@ UNIT
   [ "$status" -eq 0 ]
   [ ! -e "$root/etc/systemd/system/zfs-import-cache.service" ]
 }
+
+# ── zfs_write_load_key_template (encrypted DATA pool boot key-load, ADR 0043) ─
+# Upstream OpenZFS ships no zfs-load-key@.service; configure.sh enables it per
+# file-keyed encrypted data pool so the pool auto-loads its key from the keyfile
+# on the already-mounted root BEFORE zfs-mount.service mounts the datasets (no
+# second prompt). The root pool is unlocked by the initramfs, not this unit.
+
+@test "load_key_template: writes the zfs-load-key@ template under /etc" {
+  local root="$BATS_TEST_TMPDIR/root"
+  run zfs_write_load_key_template "$root"
+  [ "$status" -eq 0 ]
+  [ -f "$root/etc/systemd/system/zfs-load-key@.service" ]
+}
+
+@test "load_key_template: loads the instance key before zfs-mount.service" {
+  local root="$BATS_TEST_TMPDIR/root"
+  zfs_write_load_key_template "$root"
+  local u="$root/etc/systemd/system/zfs-load-key@.service"
+  grep -q '^ExecStart=/usr/bin/zfs load-key %i' "$u"
+  grep -q '^Before=zfs-mount.service' "$u"
+  grep -q '^WantedBy=zfs-mount.service' "$u"
+}

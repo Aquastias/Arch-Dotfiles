@@ -48,6 +48,9 @@
 
 # shellcheck source=./common.sh
 source "${BASH_SOURCE[0]%/*}/common.sh"
+# Per-pool key-load selector for encrypted Standalone Data Pools (ADR 0043).
+# shellcheck source=./datakey.sh
+source "${BASH_SOURCE[0]%/*}/datakey.sh"
 
 _LAYOUT_IMPL_ESP_PARTS=()
 _LAYOUT_IMPL_ZFS_PARTS=()
@@ -687,10 +690,21 @@ create_multi_dpool() {
   info "dpool created."
 }
 
+# Write a Standalone Data Pool's 32-byte raw key to BOTH the install-tree path
+# (which persists into the booted system and survives impermanence rollback via
+# the curated /etc/cryptsetup-keys.d dir) AND the live path. `zpool create` then
+# reads the same key whether it resolves keylocation=file://… against the altroot
+# (-R MOUNT_ROOT) or the live filesystem; the live copy is ephemeral tmpfs.
+_zfs_gen_data_keyfile() {
+  local install_abs="$1" live_abs="$2"
+  install -Dm600 /dev/null "$install_abs"
+  head -c32 /dev/urandom >"$install_abs"
+  install -Dm600 "$install_abs" "$live_abs"
+}
+
 create_data_pools() {
   ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)) || return 0
   section "Creating Standalone Data Pool(s)"
-  build_enc_opts
 
   local name
   for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
@@ -712,6 +726,24 @@ create_data_pools() {
       data_group_create "$fs" "$name" "$enc" "$mount" "$topo" "${parts[@]}"
       continue
     fi
+
+    # Per-pool encryption (ADR 0043): an encrypted Standalone Data Pool is
+    # independent of the root — it auto-loads its key POST-boot from a keyfile on
+    # the already-unlocked root, so the operator never types a second secret. The
+    # selector yields this pool's own create opts (keyformat=raw + keylocation=
+    # file://…) or none for a plaintext pool; _zpool_create then pipes no
+    # passphrase because the opts ask for a file, not a prompt.
+    local sel keyfile opts
+    sel="$(zfs_data_pool_enc_opts "$enc" "$name")"
+    keyfile="$(printf '%s\n' "$sel" | grep -E '^keyfile=' | cut -d= -f2-)"
+    opts="$(printf '%s\n' "$sel" | grep -E '^opts=' | cut -d= -f2-)"
+    # ENC_OPTS is consumed by _zpool_create (the global it word-splits into the
+    # zpool create command); read -ra splits the controlled -O token string.
+    local ENC_OPTS=()
+    # shellcheck disable=SC2034
+    read -ra ENC_OPTS <<<"$opts"
+    [[ -n "$keyfile" ]] \
+      && _zfs_gen_data_keyfile "${MOUNT_ROOT}${keyfile}" "${keyfile}"
 
     local vdev_spec
     vdev_spec="$(build_vdev_spec "$topo" "${parts[@]}")"
