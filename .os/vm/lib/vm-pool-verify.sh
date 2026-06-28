@@ -44,6 +44,13 @@ vm_dataset_mounted_at() {
   [[ "$got_mounted" == "yes" && "$got_mp" == "$mp" ]]
 }
 
+# 0 if something is currently mounted at <mountpoint>. Non-ZFS data groups
+# (ADR 0043: ext4/xfs/btrfs disks) have no zpool/dataset to query — their mount
+# is confirmed via findmnt.
+vm_fs_mounted_at() {
+  findmnt -rno TARGET "$1" >/dev/null 2>&1
+}
+
 # 0 if every leaf vdev of every pool in VM_VERIFY_POOLS[] resolves via
 # /dev/disk/by-id (stable). Flags bare kernel names (/dev/sdX, /dev/nvme…,
 # /dev/vd…) — pools recorded that way fail to import after disk-enumeration
@@ -81,6 +88,13 @@ vm_pool_verify() {
     mp="${entry#*:}"
     if ! vm_dataset_mounted_at "$ds" "$mp"; then
       echo "NOT MOUNTED: $ds at $mp" >&2
+      rc=1
+    fi
+  done
+  for entry in "${VM_VERIFY_FS_MOUNTS[@]:-}"; do
+    [[ -n "$entry" ]] || continue
+    if ! vm_fs_mounted_at "$entry"; then
+      echo "NOT MOUNTED (fs): $entry" >&2
       rc=1
     fi
   done
