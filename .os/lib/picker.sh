@@ -180,9 +180,15 @@ _picker_group_min() {
     mirror)               min=2 ;;
     raidz | raidz1)       min=3 ;;
     raidz2)               min=4 ;;
+    # btrfs native profiles (ADR 0043) — a non-zfs data pool's topology;
+    # validation.sh gates which filesystem may use which. raid0/raid1 ≥2,
+    # raid10 ≥4 (btrfs single rides the single=1 case above).
+    raid0 | raid1)        min=2 ;;
+    raid10)               min=4 ;;
     *)
       echo "unknown topology '$topo' (expected: single, none, stripe," \
-           "independent, mirror, raidz, raidz1, raidz2)" >&2
+           "independent, mirror, raidz, raidz1, raidz2, raid0, raid1," \
+           "raid10)" >&2
       return 1
       ;;
   esac

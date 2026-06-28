@@ -304,3 +304,31 @@ nvme0n1 931.5G
   [[ "$output" == *none* ]]
 }
 
+# ── _picker_group_min: btrfs native topologies (ADR 0043) ────────────────────
+# A non-zfs data pool may pick a btrfs profile (raid0/raid1/raid10); the
+# assignment-path min-disk check must accept it (validation.sh already gates
+# per-fs validity). raid0/raid1 need ≥2 disks, raid10 needs ≥4.
+
+@test "group_min: btrfs raid1 + 2 disks ok, + 1 disk errors" {
+  run _picker_group_min raid1 2
+  [ "$status" -eq 0 ]
+  run _picker_group_min raid1 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *raid1* ]]
+}
+
+@test "group_min: btrfs raid0 needs ≥2 disks" {
+  run _picker_group_min raid0 2
+  [ "$status" -eq 0 ]
+  run _picker_group_min raid0 1
+  [ "$status" -ne 0 ]
+}
+
+@test "group_min: btrfs raid10 needs ≥4 disks" {
+  run _picker_group_min raid10 4
+  [ "$status" -eq 0 ]
+  run _picker_group_min raid10 3
+  [ "$status" -ne 0 ]
+  [[ "$output" == *4* ]]
+}
+
