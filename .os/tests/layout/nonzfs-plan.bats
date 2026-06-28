@@ -35,6 +35,24 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
   [ "$(printf '%s\n' "$output" | plan_field root_mib)" = "40446" ]
 }
 
+# ── slots: the plan is the single authority for partition numbering ─────────
+
+@test "plan: with swap, slots are ESP=1, swap=2, root=3" {
+  run nonzfs_partition_plan 40960 512 8192
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | plan_field esp_part_num)"  = "1" ]
+  [ "$(printf '%s\n' "$output" | plan_field swap_part_num)" = "2" ]
+  [ "$(printf '%s\n' "$output" | plan_field root_part_num)" = "3" ]
+}
+
+@test "plan: without swap, swap slot is empty and root moves to 2" {
+  run nonzfs_partition_plan 40960 512 0
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | plan_field esp_part_num)"  = "1" ]
+  [ "$(printf '%s\n' "$output" | plan_field swap_part_num)" = "" ]
+  [ "$(printf '%s\n' "$output" | plan_field root_part_num)" = "2" ]
+}
+
 @test "plan: a root below the floor is rejected, naming the shortfall" {
   # 9 GiB disk, 512 ESP, 4096 swap → root ~4546 MiB < 8192 floor.
   run nonzfs_partition_plan 9216 512 4096
