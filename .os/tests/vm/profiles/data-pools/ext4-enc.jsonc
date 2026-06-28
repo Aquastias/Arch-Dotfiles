@@ -1,0 +1,48 @@
+// VM test: per-group ENCRYPTED ext4 data group (LUKS keyfile-on-root).
+//   /dev/sda → rpool (OS, zfs, topology=none, single disk)
+//   /dev/sdb → tank0 (Standalone Data Pool, filesystem=ext4, /data/tank0)
+// The headline "ZFS root + ext4 data disk" story: the ext4 disk is dispatched
+// to the ext4 Data Group Formatter (mkfs.ext4 + fstab), NOT a zpool. verify
+// asserts the zfs root imported AND the ext4 data disk is mounted at boot
+// (findmnt — it has no dataset to query).
+{
+  "name": "arch-zfs-test-data-pools-ext4-enc",
+  "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-data-pools-ext4-enc",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "ext4", "encryption": true, "disks": ["/dev/sdb"] }
+    ]
+  },
+  "verify": {
+    "boot":      true,
+    "pools":     ["rpool"],
+    "fs_mounts": ["/data/tank0"]
+  }
+}
