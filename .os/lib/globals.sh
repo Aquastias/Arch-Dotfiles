@@ -39,3 +39,5 @@ LAYOUT_ROOT_CMDLINE=""   # root= cmdline (zfs: root=ZFS=…; ext4: root=UUID=…
 LAYOUT_HOOKS=""          # mkinitcpio HOOKS list (space-separated hook names)
 LAYOUT_FSTAB_EXTRA=""    # adapter's fstab tail appended by write_fstab
                          # (zfs: auto-mount note; ext4: root + swap lines)
+LAYOUT_CRYPTTAB=""       # adapter's /etc/crypttab body (encrypted non-ZFS roots;
+                         # empty otherwise) written by write_crypttab

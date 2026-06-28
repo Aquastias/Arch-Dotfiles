@@ -44,9 +44,19 @@ _LAYOUT_IMPL_SWAP_PART=""
 _LAYOUT_IMPL_ROOT_PART=""
 _LAYOUT_IMPL_ROOT_DEV=""
 _LAYOUT_IMPL_SWAP_DEV=""
+# LUKS container UUID of the root *partition* (encrypted only) — the cmdline's
+# cryptdevice=UUID=…; distinct from the ext4 fs UUID inside the mapper.
+_LAYOUT_IMPL_LUKS_ROOT_UUID=""
 
 # Read one key=value field from a `key=value` plan/device text on stdin.
 _ext4_field() { grep -E "^$1=" | cut -d= -f2-; }
+
+# "encrypted" when the root filesystem is encrypted (LUKS), else "plain". Drives
+# device resolution, the boot emitters, and swap handling.
+_ext4_enc_mode() {
+  [[ "$(install_config_encryption_enabled)" == "true" ]] \
+    && echo encrypted || echo plain
+}
 
 # Resolve the swap *partition* size in MiB (0 = no swap). auto = RAM×2, capped
 # at 25% of the disk so the root still fits; an explicit size is honored.
@@ -107,11 +117,32 @@ _layout_plan_mode() {
 # The single OS disk that receives the ESP (resolved by core's ESP step).
 _layout_os_disks() { printf '%s\n' "$_LAYOUT_IMPL_DISK"; }
 
-# Publish the boot record. HOOKS are knowable now; the root cmdline + fstab tail
-# need the post-mkfs UUID, so they are set in layout_create_pools.
+# Publish the boot record. HOOKS are knowable now (the `encrypt` hook is added
+# for an encrypted root); the root cmdline + fstab tail need the post-mkfs /
+# post-LUKS UUID, so they are set in layout_create_pools.
 _layout_publish_boot() {
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_HOOKS="$(ext4_hooks)"
+  if [[ "$(_ext4_enc_mode)" == "encrypted" ]]; then
+    LAYOUT_HOOKS="$(ext4_hooks encrypted)"
+  else
+    LAYOUT_HOOKS="$(ext4_hooks)"
+  fi
+}
+
+# LUKS-format + open the root partition with the shared passphrase (collected by
+# collect_enc_passphrase into ZFS_PASSPHRASE before any disk write — the same
+# seam the ZFS path uses). The opened mapper is /dev/mapper/cryptroot, which is
+# what nonzfs_root_devices resolved as root_dev.
+_ext4_luks_open_root() {
+  section "Encrypting ext4 Root (LUKS)"
+  [[ -n "${ZFS_PASSPHRASE:-}" ]] \
+    || error "Encrypted root but no passphrase collected (collect_enc_passphrase)."
+  printf '%s' "$ZFS_PASSPHRASE" \
+    | cryptsetup luksFormat --type luks2 --batch-mode "$_LAYOUT_IMPL_ROOT_PART" -
+  printf '%s' "$ZFS_PASSPHRASE" \
+    | cryptsetup open "$_LAYOUT_IMPL_ROOT_PART" cryptroot -
+  _LAYOUT_IMPL_LUKS_ROOT_UUID="$(blkid -s UUID -o value "$_LAYOUT_IMPL_ROOT_PART")"
+  info "LUKS root opened → /dev/mapper/cryptroot"
 }
 
 layout_partition() {
@@ -141,9 +172,11 @@ layout_partition() {
   partprobe "$_LAYOUT_IMPL_DISK"
   sleep 2
 
-  # Resolve the device paths from the plan (plaintext: bare partitions).
-  local devs
-  devs="$(nonzfs_root_devices "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN" plain)"
+  # Resolve the device paths from the plan. Encrypted → root_dev/swap_dev are the
+  # /dev/mapper/crypt* the resolver names; plaintext → the bare partitions.
+  local enc devs
+  enc="$(_ext4_enc_mode)"
+  devs="$(nonzfs_root_devices "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN" "$enc")"
   _LAYOUT_IMPL_ESP_PART="$(printf '%s\n' "$devs" | _ext4_field esp_part)"
   _LAYOUT_IMPL_SWAP_PART="$(printf '%s\n' "$devs" | _ext4_field swap_part)"
   _LAYOUT_IMPL_ROOT_PART="$(printf '%s\n' "$devs" | _ext4_field root_part)"
@@ -151,6 +184,9 @@ layout_partition() {
   _LAYOUT_IMPL_SWAP_DEV="$(printf '%s\n' "$devs" | _ext4_field swap_dev)"
 
   mkfs.fat -F32 -n EFI "$_LAYOUT_IMPL_ESP_PART"
+  # Open the root LUKS container so root_dev (/dev/mapper/cryptroot) exists for
+  # mkfs. Swap stays raw — crypttab random-keys it at boot (see create verb).
+  [[ "$enc" == "encrypted" ]] && _ext4_luks_open_root
   info "Partitioned: ESP $_LAYOUT_IMPL_ESP_PART," \
        "root $_LAYOUT_IMPL_ROOT_DEV${_LAYOUT_IMPL_SWAP_DEV:+, swap $_LAYOUT_IMPL_SWAP_DEV}"
   _layout_verify_partition_contract
@@ -166,20 +202,42 @@ layout_create_pools() {
   mkfs.ext4 -F "$_LAYOUT_IMPL_ROOT_DEV"
   mount "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
 
-  local root_uuid extra
-  root_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_ROOT_DEV")"
-  # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_ROOT_CMDLINE="$(ext4_root_cmdline "$root_uuid")"
-  extra="# root"$'\n'"UUID=${root_uuid}  /  ext4  rw,relatime  0 1"
-
-  if [[ -n "$_LAYOUT_IMPL_SWAP_DEV" ]]; then
-    mkswap "$_LAYOUT_IMPL_SWAP_DEV"
-    local swap_uuid
-    swap_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_SWAP_DEV")"
-    extra+=$'\n\n'"# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"
+  local enc extra crypttab=""
+  enc="$(_ext4_enc_mode)"
+  if [[ "$enc" == "encrypted" ]]; then
+    # Boot by the LUKS container UUID; the root fs lives inside the mapper, so
+    # fstab references the mapper (the encrypt hook opens it before mount).
+    # shellcheck disable=SC2034 # consumed by install_state_write
+    LAYOUT_ROOT_CMDLINE="$(ext4_root_cmdline "$_LAYOUT_IMPL_LUKS_ROOT_UUID" encrypted)"
+    extra="# root"$'\n'"/dev/mapper/cryptroot  /  ext4  rw,relatime  0 1"
+    if [[ -n "$_LAYOUT_IMPL_SWAP_PART" ]]; then
+      # Encrypted swap: random-key dm-crypt, re-keyed each boot (hibernate is out
+      # of scope). The raw partition is left unformatted — crypttab's `swap`
+      # option formats it at boot. PARTUUID is stable across the re-key.
+      local swap_partuuid
+      swap_partuuid="$(blkid -s PARTUUID -o value "$_LAYOUT_IMPL_SWAP_PART")"
+      crypttab="cryptswap  PARTUUID=${swap_partuuid}  /dev/urandom"
+      crypttab+="  swap,cipher=aes-xts-plain64,size=256"
+      extra+=$'\n\n'"# swap (encrypted, random key)"
+      extra+=$'\n'"/dev/mapper/cryptswap  none  swap  defaults  0 0"
+    fi
+  else
+    local root_uuid
+    root_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_ROOT_DEV")"
+    # shellcheck disable=SC2034 # consumed by install_state_write
+    LAYOUT_ROOT_CMDLINE="$(ext4_root_cmdline "$root_uuid")"
+    extra="# root"$'\n'"UUID=${root_uuid}  /  ext4  rw,relatime  0 1"
+    if [[ -n "$_LAYOUT_IMPL_SWAP_DEV" ]]; then
+      mkswap "$_LAYOUT_IMPL_SWAP_DEV"
+      local swap_uuid
+      swap_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_SWAP_DEV")"
+      extra+=$'\n\n'"# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"
+    fi
   fi
   # shellcheck disable=SC2034 # consumed by write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
+  # shellcheck disable=SC2034 # consumed by write_crypttab (chroot.sh)
+  LAYOUT_CRYPTTAB="$crypttab"
   info "ext4 root formatted + mounted at $MOUNT_ROOT"
   _layout_exit_phase pools
 }

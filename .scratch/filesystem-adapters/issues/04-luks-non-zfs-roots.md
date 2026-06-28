@@ -1,6 +1,6 @@
 # 04 — LUKS encryption for non-ZFS roots
 
-Status: ready-for-agent
+Status: done (install VM-verified; encrypted boot is HITL)
 Type: AFK
 
 ## Parent
@@ -32,23 +32,41 @@ Pure cores landed + bats-green (TDD), VM-gated wiring still to do:
       `/dev/mapper/cryptroot` + `cryptswap` and a `luks_containers`
       `<part>:<mapper>` list; plaintext → bare partitions
       (`tests/layout/nonzfs-devices.bats`).
-- [ ] ext4 Root Adapter consumes the passphrase seam → `cryptsetup
-      luksFormat`/`luksOpen` each `luks_containers` entry; mkfs/mkswap the
-      resolved devices (VM-gated).
-- [ ] swap partition LUKS-wrapped when root encrypted, plaintext otherwise,
-      wired into fstab/crypttab (VM-gated).
+- [x] **ext4 Root Adapter LUKS path** (`lib/layout/ext4/single.sh`,
+      `_ext4_luks_open_root`) — pipes `ZFS_PASSPHRASE` (the shared seam) to
+      `cryptsetup luksFormat`/`open` for the root; mkfs.ext4 on
+      `/dev/mapper/cryptroot`; encrypted cmdline/HOOKS selected by
+      `_ext4_enc_mode`. cryptsetup added to the package list for a non-ZFS
+      encrypted root (`lib/packages/list.sh`).
+- [x] **Encrypted swap** — random-key dm-crypt via `/etc/crypttab` (re-keyed each
+      boot; hibernate out of scope) written by `write_crypttab`
+      (`lib/chroot.sh`, `LAYOUT_CRYPTTAB`); fstab points at `/dev/mapper/
+      cryptswap`. (Deviation from a LUKS+keyfile swap — random-key avoids
+      keyfile-before-pacstrap ordering and matches the no-hibernate scope.)
+
+VM-verified 2026-06-28: encrypted ext4 **install** reaches `INSTALLER-EXIT-0`
+(LUKS root format/open, cryptsetup, `[encrypt]` hook, crypttab written,
+`cryptdevice=…` boot entry). Commit slice 3 `569ec09`. Also fixed a gating gap
+the bootstrap-skip exposed: the ZFS hostid/zpool.cache/pacman.conf seed +
+finalize export are now gated on `command -v zpool` (`lib/chroot.sh`,
+`lib/finalize.sh`) — a non-ZFS root has none of them. New profile
+`tests/vm/profiles/single/ext4-encrypted.jsonc`.
 
 ## Acceptance criteria
 
-- [ ] An encrypted ext4 root prompts once for the passphrase in initramfs and
-      boots (live/HITL verify acceptable — encrypted roots can't headless
-      boot-verify).
-- [ ] The same passphrase seam is used as ZFS; the VM preset seam still works.
-- [ ] `ROOT_CMDLINE` emits `cryptdevice=…:cryptroot` + `root=/dev/mapper/
-      cryptroot`; `HOOKS` include `encrypt` before `filesystems`.
-- [ ] Swap is LUKS-wrapped when the root is encrypted; plaintext when not.
-- [ ] bats covers the encrypted-variant `ROOT_CMDLINE`/`HOOKS` emitters and the
-      partition/LUKS planner with the encrypt flag set.
+- [~] An encrypted ext4 root prompts once for the passphrase in initramfs and
+      boots — **install VM-verified; the boot passphrase test is HITL** (boot the
+      installed disk, type `testtest`). Encrypted roots can't headless
+      boot-verify.
+- [x] The same passphrase seam is used as ZFS (`ZFS_PASSPHRASE` /
+      `collect_enc_passphrase`); the `INSTALL_ENC_PASSPHRASE` VM preset works.
+- [x] `ROOT_CMDLINE` emits `cryptdevice=…:cryptroot` + `root=/dev/mapper/
+      cryptroot`; `HOOKS` include `encrypt` before `filesystems` (`[encrypt]`
+      build hook observed in the VM).
+- [x] Swap is encrypted when the root is encrypted (random-key crypttab),
+      plaintext partition when not.
+- [x] bats covers the encrypted-variant `ROOT_CMDLINE`/`HOOKS` emitters and the
+      partition/LUKS device resolver with the encrypt flag set.
 
 ## Blocked by
 

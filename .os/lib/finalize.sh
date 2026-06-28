@@ -24,19 +24,22 @@ finalize() {
   done
   ((esp_count >= 1)) && umount "${MOUNT_ROOT}/boot/efi" 2>/dev/null || true
 
-  # ── Unmount all ZFS datasets ──────────────────────────────────────────────
-  # zfs umount -a unmounts everything mounted under MOUNT_ROOT's alt-root.
-  zfs umount -a 2>/dev/null || true
-
-  # ── Export pools ──────────────────────────────────────────────────────────
-  # Exporting writes a clean "last_txg" and clears the active flag so the
-  # pools are importable on the installed system without -f (force).
-  local rp="${LAYOUT_OS_POOL_NAME}"
-  zpool export "${rp}" 2>/dev/null || warn "Could not export ${rp} cleanly."
-  local dp
-  for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
-    zpool export "${dp}" 2>/dev/null || true
-  done
+  # ── Unmount the installed root ────────────────────────────────────────────
+  if command -v zpool >/dev/null 2>&1; then
+    # ZFS: unmount datasets (alt-root) then export pools — exporting writes a
+    # clean last_txg and clears the active flag so they import without -f.
+    zfs umount -a 2>/dev/null || true
+    local rp="${LAYOUT_OS_POOL_NAME}"
+    zpool export "${rp}" 2>/dev/null || warn "Could not export ${rp} cleanly."
+    local dp
+    for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
+      zpool export "${dp}" 2>/dev/null || true
+    done
+  else
+    # Non-ZFS root (ext4/xfs/btrfs): recursively unmount everything under
+    # MOUNT_ROOT before reboot (ADR 0043).
+    umount -R "${MOUNT_ROOT}" 2>/dev/null || true
+  fi
 
   # ── Completion message ────────────────────────────────────────────────────
   echo ""
@@ -50,14 +53,17 @@ finalize() {
   echo -e "  ${GREEN}✔${NC}  03-install.sh"
   echo ""
 
-  # ── Pool import recovery hint ─────────────────────────────────────────────
+  # ── Pool import recovery hint (ZFS only) ──────────────────────────────────
   # Shown in case zfs-import-cache doesn't find the pools on first boot
   # (e.g. if /etc/zfs/zpool.cache was missing or the hostid changed).
-  warn "If ZFS pools fail to import on first boot, boot the live ISO and run:"
-  echo "    zpool import -f ${rp}"
-  for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
-    echo "    zpool import -f ${dp}"
-  done
+  if command -v zpool >/dev/null 2>&1; then
+    warn "If ZFS pools fail to import on first boot, boot the live ISO and run:"
+    echo "    zpool import -f ${LAYOUT_OS_POOL_NAME}"
+    local dp2
+    for dp2 in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
+      echo "    zpool import -f ${dp2}"
+    done
+  fi
 
   echo ""
   echo -e "  ${DIM}ZFS encryption passphrase is required at every boot" \
