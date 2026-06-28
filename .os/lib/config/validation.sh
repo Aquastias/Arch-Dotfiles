@@ -221,6 +221,14 @@ _validation_one_group() {
   ((known)) || error "Unknown filesystem '${fs}' on ${kind} '${name}'." \
     "Valid: ${_VALIDATION_KNOWN_FILESYSTEMS[*]}."
 
+  # A Storage Group folds into the single Combined Data Pool (one zpool), so it
+  # can only be zfs — a non-zfs group can't be a vdev of a zpool. A mixed-
+  # filesystem data disk belongs in data_pools[] (its own Standalone Data Pool).
+  if [[ "$kind" == "storage group" && "$fs" != "zfs" ]]; then
+    error "Storage group '${name}' is ${fs}, but a storage group folds into" \
+      "the zfs Combined Data Pool. Put a non-zfs disk in data_pools[] instead."
+  fi
+
   # ext4/xfs have no multi-disk story (no mdadm/LVM) — single-disk only.
   if [[ "$fs" == "ext4" || "$fs" == "xfs" ]]; then
     if [[ -n "$dc" ]] && ((dc > 1)); then
