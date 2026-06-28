@@ -24,6 +24,8 @@ _INSTALL_STATE_SCHEMA=(
   "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
   "RPOOL|.rpool|scalar"
+  "ROOT_CMDLINE|.root_cmdline|scalar"
+  "HOOKS|.hooks|scalar"
   "SSH_ENABLED|.ssh.enabled|bool"
   "SWAP|.swap|bool"
   "ZSWAP_ENABLED|.zswap.enabled|bool"
@@ -95,6 +97,8 @@ install_state_write() {
     --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
     --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
+    --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                    \
+    --arg     hooks       "$LAYOUT_HOOKS"                            \
     --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
     --argjson swap        "$(install_config_swap_enabled)"           \
     --argjson zswap_on    "$(install_config_zswap_enabled)"          \
@@ -112,7 +116,8 @@ install_state_write() {
       kernel:$kernel, kernels:$kernels,
       bootloader:$bootloader,
       ssh:          { enabled:$ssh_enabled },
-      rpool:$rpool, swap:$swap,
+      rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
+      swap:$swap,
       zswap: { enabled:$zswap_on, compressor:$zswap_comp,
         max_pool_percent:$zswap_pct },
       esp_count:$esp_count,

@@ -23,7 +23,10 @@ valid_state() {
   "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
   "ssh": { "enabled": false },
-  "rpool": "rpool", "swap": true, "esp_count": 1,
+  "rpool": "rpool",
+  "root_cmdline": "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
+  "hooks": "base udev autodetect modconf block keyboard zfs filesystems",
+  "swap": true, "esp_count": 1,
   "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
                     "mount": "/persist" },
@@ -185,6 +188,8 @@ setup_writer_globals() {
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }
   LAYOUT_OS_POOL_NAME="rpool"
+  LAYOUT_ROOT_CMDLINE="root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id"
+  LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
   export OS_DIR="$FIXTURES"
 }
@@ -208,6 +213,10 @@ setup_writer_globals() {
   [ "$(jq -r .kernel       "$STATE")" = "lts" ]
   [ "$(jq -r .bootloader   "$STATE")" = "systemd-boot" ]
   [ "$(jq -r .rpool        "$STATE")" = "rpool" ]
+  [ "$(jq -r .root_cmdline "$STATE")" = \
+    "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id" ]
+  [ "$(jq -r .hooks        "$STATE")" = \
+    "base udev autodetect modconf block keyboard zfs filesystems" ]
   [ "$(jq -r .swap         "$STATE")" = "true" ]
   [ "$(jq -r .esp_count    "$STATE")" = "2" ]
   [ "$(jq -r '.impermanence.enabled' "$STATE")" = "false" ]
@@ -276,6 +285,10 @@ setup_writer_globals() {
   [ "$KERNEL"               = "lts" ]
   [ "$BOOTLOADER"           = "systemd-boot" ]
   [ "$RPOOL"                = "rpool" ]
+  [ "$ROOT_CMDLINE"         = \
+    "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id" ]
+  [ "$HOOKS"                = \
+    "base udev autodetect modconf block keyboard zfs filesystems" ]
   [ "$SWAP"                 = "true" ]
   [ "$ESP_COUNT"            = "2" ]
   [ "$IMPERMANENCE_ENABLED" = "false" ]

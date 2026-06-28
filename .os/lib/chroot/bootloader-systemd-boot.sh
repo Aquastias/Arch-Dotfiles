@@ -39,8 +39,10 @@ KBASE="$(kernel_pkg "$KERNEL")"
 VMLINUZ="vmlinuz-${KBASE}"
 INITRAMFS="initramfs-${KBASE}.img"
 INITRAMFS_FB="initramfs-${KBASE}-fallback.img"
-ENTRY_TITLE="Arch Linux (ZFS — ${KBASE})"
-POOL_ROOT="$RPOOL/ROOT/arch"
+# The root= cmdline + initramfs HOOKS come from install-state's filesystem-blind
+# boot record (ROOT_CMDLINE/HOOKS, ADR 0043); the Root Layout Adapter decided
+# them at plan/format time, so this Bootloader Adapter never names a filesystem.
+ENTRY_TITLE="Arch Linux (${KBASE})"
 
 # systemd-boot cannot read ZFS — kernel and initramfs must live
 # on the FAT32 ESP.
@@ -72,7 +74,7 @@ title   ${ENTRY_TITLE}
 linux   /${VMLINUZ}
 ${MICROCODE_INITRDS}
 initrd  /${INITRAMFS}
-options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
+options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
 EOF
 
 cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
@@ -80,7 +82,7 @@ title   Arch Linux (ZFS — fallback)
 linux   /${VMLINUZ}
 ${MICROCODE_INITRDS}
 initrd  /${INITRAMFS_FB}
-options root=ZFS=${POOL_ROOT} zfs_import_dir=/dev/disk/by-id rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
+options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
 EOF
 
 cp "/boot/${VMLINUZ}"   /boot/efi/
