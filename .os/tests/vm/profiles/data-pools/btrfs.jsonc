@@ -1,0 +1,49 @@
+// VM test: per-group btrfs Standalone Data Pool with native raid1 topology
+// (ADR 0043). 3 × 20 GiB —
+//   /dev/sda       → rpool (OS, zfs, topology=none, single disk)
+//   /dev/sdb,/sdc  → tank0 (Standalone Data Pool, filesystem=btrfs, raid1)
+// The two btrfs disks are dispatched to the btrfs Data Group Formatter, which
+// runs `mkfs.btrfs -d raid1 -m raid1` across both partitions (native topology,
+// no mdadm/LVM), then mounts at /data/tank0. verify asserts the zfs root
+// imported AND the btrfs raid1 volume is mounted at boot (findmnt).
+{
+  "name": "arch-zfs-test-data-pools-btrfs",
+  "hardware": { "disks": [20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-data-pools-btrfs",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "btrfs", "topology": "raid1", "disks": ["/dev/sdb", "/dev/sdc"] }
+    ]
+  },
+  "verify": {
+    "boot":      true,
+    "pools":     ["rpool"],
+    "fs_mounts": ["/data/tank0"]
+  }
+}

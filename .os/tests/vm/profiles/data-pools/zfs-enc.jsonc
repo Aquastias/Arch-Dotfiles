@@ -1,0 +1,51 @@
+// VM test: per-group ENCRYPTED zfs Standalone Data Pool (keyfile-on-root
+// auto-load, ADR 0043). 2 × 20 GiB —
+//   /dev/sda → rpool (OS, zfs, topology=none, PLAINTEXT — boots headless)
+//   /dev/sdb → tank0 (zfs data pool, encryption=true, /data/tank0)
+// The encrypted data pool is created with keyformat=raw + keylocation=file://
+// pointing at /etc/cryptsetup-keys.d/tank0.key on the (plaintext) root — NOT
+// keylocation=prompt. verify asserts tank0 imported AND tank0/data mounted at
+// boot: the only way the dataset mounts headlessly is the key auto-loading from
+// the keyfile, proving the no-second-prompt path. The root is plaintext so the
+// whole run is headless (an encrypted ROOT would need an interactive prompt).
+{
+  "name": "arch-zfs-test-data-pools-zfs-enc",
+  "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-data-pools-zfs-enc",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "zfs", "topology": "stripe", "encryption": true, "disks": ["/dev/sdb"] }
+    ]
+  },
+  "verify": {
+    "boot":   true,
+    "pools":  ["rpool", "tank0"],
+    "mounts": ["tank0/data:/data/tank0"]
+  }
+}
