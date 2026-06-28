@@ -11,6 +11,17 @@
 #   finalize  — unmounts ESPs and ZFS datasets, exports pools, prints summary
 # =============================================================================
 
+# Given `findmnt -rno TARGET,FSTYPE` lines on stdin, print the NON-zfs mount
+# targets deepest-path-first. finalize unmounts these (data-group disks:
+# ext4/xfs/btrfs, possibly via a LUKS mapper) BEFORE exporting the zfs pools: a
+# stale non-zfs mount under ${MOUNT_ROOT} holds it busy, so `zpool export` fails
+# and the pool stays active → the initramfs import panics next boot ("pool was
+# previously in use from another system", ADR 0043). Pure: a string transform.
+_finalize_nonzfs_mounts() {
+  awk '$2 != "zfs" && $1 != "" { print length($1), $1 }' \
+    | sort -rn | awk '{ print $2 }'
+}
+
 finalize() {
   section "Finalizing"
 
@@ -26,6 +37,18 @@ finalize() {
 
   # ── Unmount the installed root ────────────────────────────────────────────
   if command -v zpool >/dev/null 2>&1; then
+    # Drop any NON-zfs data-group mounts under the install root first (ext4/xfs/
+    # btrfs, ADR 0043) — they hold ${MOUNT_ROOT} busy, which would fail the
+    # export below and leave the pool active (initramfs panic next boot).
+    if command -v findmnt >/dev/null 2>&1; then
+      local _mp
+      while IFS= read -r _mp; do
+        [[ -n "$_mp" ]] || continue
+        umount "$_mp" 2>/dev/null || umount -l "$_mp" 2>/dev/null || true
+      done < <(findmnt -rno TARGET,FSTYPE -R "${MOUNT_ROOT}" 2>/dev/null \
+                | _finalize_nonzfs_mounts)
+    fi
+
     # ZFS: unmount datasets (alt-root) then export pools — exporting writes a
     # clean last_txg and clears the active flag so they import without -f.
     zfs umount -a 2>/dev/null || true
