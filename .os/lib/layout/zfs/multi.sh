@@ -62,6 +62,12 @@ declare -gA _LAYOUT_IMPL_DATA_POOL_TOPO
 declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT
 declare -gA _LAYOUT_IMPL_DATA_POOL_ASHIFT
 declare -gA _LAYOUT_IMPL_DATA_POOL_PARTS
+# Per-group filesystem + encryption (ADR 0043): a Standalone Data Pool may pick
+# its own filesystem (default the root's) and opt into encryption independently.
+# zfs groups take the native path below; ext4/xfs/btrfs dispatch to the non-ZFS
+# Data Group Formatter (lib/layout/<fs>/data.sh).
+declare -gA _LAYOUT_IMPL_DATA_POOL_FS
+declare -gA _LAYOUT_IMPL_DATA_POOL_ENC
 
 # Out-param for _prompt_pool_name (mirrors PICK_RESULT house style).
 POOL_NAME_RESULT=""
@@ -259,19 +265,21 @@ resolve_data_pools() {
 
   local i
   for ((i = 0; i < n; i++)); do
-    local name topo mount ashift
+    local name topo mount ashift fs enc
     name="$(install_config_data_pool_name "$i")"
     topo="$(install_config_data_pool_topology "$i")"
     mount="$(install_config_data_pool_mount "$i")"
     ashift="$(install_config_data_pool_ashift "$i")"
+    fs="$(install_config_data_pool_filesystem "$i")"
+    enc="$(install_config_data_pool_encryption "$i")"
 
     local disks=()
     while IFS= read -r d; do
       [[ -n "$d" ]] && disks+=("$d")
     done < <(install_config_data_pool_disks "$i")
 
-    _add_data_pool "$name" "$topo" "$mount" "$ashift" "${disks[@]}"
-    info "Data pool '${name}': ${topo}  [${disks[*]}] → ${mount}"
+    _add_data_pool "$name" "$topo" "$mount" "$ashift" "$fs" "$enc" "${disks[@]}"
+    info "Data pool '${name}': ${fs} ${topo}  [${disks[*]}] → ${mount}"
 
     # Non-fatal heads-up: a redundant pool over unequal disks caps usable
     # space to its smallest member (ADR 0027). Sizes from real disks here;
@@ -303,14 +311,16 @@ _add_data_pool() {
   # Appends one pool to the internal data-pool structure consumed by
   # partition_data_pools / create_data_pools. Shared by the declarative and
   # interactive paths so both go through one creation path.
-  # Usage: _add_data_pool <name> <topology> <mount> <ashift> <disk...>
-  local name="$1" topo="$2" mount="$3" ashift="$4"
-  shift 4
+  # Usage: _add_data_pool <name> <topology> <mount> <ashift> <fs> <enc> <disk...>
+  local name="$1" topo="$2" mount="$3" ashift="$4" fs="$5" enc="$6"
+  shift 6
   _LAYOUT_IMPL_DATA_POOL_NAMES+=("$name")
   _LAYOUT_IMPL_DATA_POOL_DISKS["$name"]="$*"
   _LAYOUT_IMPL_DATA_POOL_TOPO["$name"]="$topo"
   _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
   _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
+  _LAYOUT_IMPL_DATA_POOL_FS["$name"]="$fs"
+  _LAYOUT_IMPL_DATA_POOL_ENC["$name"]="$enc"
 }
 
 _next_default_pool_name() {
@@ -397,7 +407,9 @@ resolve_leftover_disks() {
       layout_leftover_pool_name "$def" "$rpool_name" dpool \
         "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"
       local nm="$LAYOUT_LEFTOVER_POOL_NAME"
-      _add_data_pool "$nm" stripe "/data/${nm}" 12 "$d"
+      # A folded leftover disk becomes its own zfs pool (it shares the OS disk's
+      # ZFS-ness; non-zfs leftovers are not synthesised here).
+      _add_data_pool "$nm" stripe "/data/${nm}" 12 zfs false "$d"
       info "Leftover ${d} → standalone pool '${nm}' (stripe → /data/${nm})"
     else
       folded+=("$d")
@@ -518,13 +530,21 @@ partition_data_pools() {
   for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
     local disks=()
     read -ra disks <<<"${_LAYOUT_IMPL_DATA_POOL_DISKS[$name]}"
+    # GPT type by filesystem: bf00 (Solaris/ZFS) for a zfs pool, 8300 (Linux
+    # filesystem) for ext4/xfs/btrfs — LUKS lives inside an 8300 partition too.
+    local fs="${_LAYOUT_IMPL_DATA_POOL_FS[$name]:-zfs}" ptype label
+    if [[ "$fs" == "zfs" ]]; then
+      ptype=bf00 label="ZFS ${name}"
+    else
+      ptype=8300 label="${fs} ${name}"
+    fi
     local parts=()
     local disk
     for disk in "${disks[@]}"; do
-      info "Partitioning data-pool disk: $disk  (pool: ${name})"
+      info "Partitioning data-pool disk: $disk  (pool: ${name}, ${fs})"
       wipefs -af "$disk"
       sgdisk --zap-all "$disk"
-      sgdisk -n1:0:0 -t1:bf00 -c1:"ZFS ${name}" "$disk"
+      sgdisk -n1:0:0 -t1:"$ptype" -c1:"$label" "$disk"
       partprobe "$disk"
       parts+=("$(part_name "$disk" 1)")
     done
@@ -674,11 +694,24 @@ create_data_pools() {
 
   local name
   for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    local fs="${_LAYOUT_IMPL_DATA_POOL_FS[$name]:-zfs}"
     local topo="${_LAYOUT_IMPL_DATA_POOL_TOPO[$name]:-stripe}"
     local mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$name]}"
     local ashift="${_LAYOUT_IMPL_DATA_POOL_ASHIFT[$name]:-12}"
+    local enc="${_LAYOUT_IMPL_DATA_POOL_ENC[$name]:-false}"
     local parts=()
     read -ra parts <<<"${_LAYOUT_IMPL_DATA_POOL_PARTS[$name]}"
+
+    # Per-group filesystem dispatch (ADR 0043): a non-zfs group goes to its Data
+    # Group Formatter (mkfs + optional LUKS + mount + fstab/crypttab); zfs groups
+    # keep the native path below unchanged. The topology arg only matters to
+    # btrfs (ext4/xfs are single-disk).
+    if [[ "$fs" != "zfs" ]]; then
+      # shellcheck source=/dev/null
+      source "$(data_formatter_source "$OS_DIR" "$fs")"
+      data_group_create "$fs" "$name" "$enc" "$mount" "$topo" "${parts[@]}"
+      continue
+    fi
 
     local vdev_spec
     vdev_spec="$(build_vdev_spec "$topo" "${parts[@]}")"
