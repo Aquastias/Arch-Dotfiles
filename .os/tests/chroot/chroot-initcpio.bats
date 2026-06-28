@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 # Tests for _initcpio_hooks_line() in lib/chroot/initcpio.sh.
-# Pure function: takes modconf hook name + impermanence-enabled flag, emits
-# the HOOKS=(...) line for /etc/mkinitcpio.conf.
+# Pure function: takes the Root Layout Adapter's HOOKS list (from install-state)
+# + whether the modern `kmod` hook is present, emits the HOOKS=(...) line for
+# /etc/mkinitcpio.conf, resolving the `modconf` placeholder to `kmod`. The
+# adapter owns the hook content; this module is filesystem-blind (ADR 0043).
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -10,7 +12,10 @@ setup() {
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
  "keymap":"us","keymaps":["us"],
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
- "ssh":{"enabled":false},"rpool":"rpool","swap":true,
+ "ssh":{"enabled":false},"rpool":"rpool",
+ "root_cmdline":"root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
+ "hooks":"base udev autodetect modconf block keyboard zfs filesystems",
+ "swap":true,
  "zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20},
  "esp_count":1,
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},
@@ -23,29 +28,36 @@ JSON
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── disabled: HOOKS line unchanged ───────────────────────────────────────────
+# ── kmod present: the modconf placeholder resolves to kmod ───────────────────
 
-@test "impermanence disabled: HOOKS ends with 'zfs filesystems'" {
-  run _initcpio_hooks_line kmod false
+@test "hooks line: kmod present swaps the modconf placeholder to kmod" {
+  run _initcpio_hooks_line \
+    "base udev autodetect modconf block keyboard zfs filesystems" true
   [ "$status" -eq 0 ]
   [ "$output" = \
     "HOOKS=(base udev autodetect kmod block keyboard zfs filesystems)" ]
 }
 
-# ── enabled: zfs-rollback inserted between zfs and filesystems ───────────────
+# ── kmod absent (older mkinitcpio): modconf is kept verbatim ─────────────────
 
-@test "impermanence enabled: zfs-rollback between zfs and filesystems" {
-  run _initcpio_hooks_line kmod true
+@test "hooks line: kmod absent keeps modconf" {
+  run _initcpio_hooks_line \
+    "base udev autodetect modconf block keyboard zfs filesystems" false
+  [ "$status" -eq 0 ]
+  [ "$output" = \
+    "HOOKS=(base udev autodetect modconf block keyboard zfs filesystems)" ]
+}
+
+# ── the adapter's list is wrapped verbatim (zfs-rollback preserved) ──────────
+
+@test "hooks line: wraps the adapter list, preserving zfs-rollback" {
+  run _initcpio_hooks_line \
+    "base udev autodetect modconf block keyboard zfs zfs-rollback filesystems" \
+    true
   [ "$status" -eq 0 ]
   [ "$output" = \
 "HOOKS=(base udev autodetect kmod block keyboard zfs zfs-rollback filesystems)"\
   ]
-}
-
-@test "impermanence enabled with modconf (older mkinitcpio)" {
-  run _initcpio_hooks_line modconf true
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"modconf block keyboard zfs zfs-rollback filesystems"* ]]
 }
 
 # ── _initcpio_udev_override (pure emitter) ───────────────────────────────────

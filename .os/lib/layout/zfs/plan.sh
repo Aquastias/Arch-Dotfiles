@@ -86,10 +86,28 @@ layout_leftover_pool_name() {
 
 # ── The unified plan verb ────────────────────────────────────────────────────
 
+# Publishes the filesystem-agnostic boot record (ADR 0043) for a ZFS root: the
+# `root=ZFS=…` cmdline + the zfs initramfs HOOKS, so the bootloader and initcpio
+# read these from install-state instead of hardcoding ZFS. `modconf` is a
+# placeholder token — initcpio.sh swaps it for `kmod` at chroot time when the
+# newer hook name is present. `zfs-rollback` is inserted before `filesystems`
+# under impermanence (rollback after pool import, before any dataset mounts).
+_layout_publish_boot() {
+  # shellcheck disable=SC2034 # consumed by install_state_write
+  LAYOUT_ROOT_CMDLINE="root=ZFS=${LAYOUT_OS_POOL_NAME}/ROOT/arch"
+  LAYOUT_ROOT_CMDLINE+=" zfs_import_dir=/dev/disk/by-id"
+  local tail="zfs filesystems"
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] &&
+    tail="zfs zfs-rollback filesystems"
+  # shellcheck disable=SC2034 # consumed by install_state_write
+  LAYOUT_HOOKS="base udev autodetect modconf block keyboard ${tail}"
+}
+
 layout_plan() {
   _layout_enter_phase plan
   _layout_plan_mode
   _layout_resolve_esp_parts
+  _layout_publish_boot
   _layout_verify_plan_contract
   _layout_exit_phase plan
 }

@@ -33,3 +33,7 @@ PICK_RESULT=""           # last result from pick_option() in common.sh
 LAYOUT_ESP_PARTS=()      # populated by layout_plan() — see contract above
 LAYOUT_OS_POOL_NAME=""   # populated by layout_plan()
 LAYOUT_DATA_POOL_NAMES=() # populated by layout_plan(); data pools to export
+# Filesystem-agnostic boot record (ADR 0043): the Root Layout Adapter publishes
+# these before install_state_write so the bootloader + initcpio stay FS-blind.
+LAYOUT_ROOT_CMDLINE=""   # root= cmdline (zfs: root=ZFS=…; ext4: root=UUID=…)
+LAYOUT_HOOKS=""          # mkinitcpio HOOKS list (space-separated hook names)

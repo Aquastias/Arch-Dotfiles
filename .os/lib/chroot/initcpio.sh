@@ -20,15 +20,17 @@ _KERNEL_SH="$_LIB_DIR/kernel.sh"
 # shellcheck disable=SC1090
 source "$_KERNEL_SH"
 
-# Pure helper: emit the HOOKS=(...) line. When impermanence is enabled the
-# zfs-rollback hook is inserted between zfs and filesystems so rollback runs
-# after the pool import and before any dataset is mounted.
+# Pure helper: emit the HOOKS=(...) line for /etc/mkinitcpio.conf from the
+# filesystem-blind hooks list the active Root Layout Adapter published into
+# install-state (ADR 0043). The adapter owns the hook *content* (which
+# filesystem hooks, and the zfs-rollback insertion under impermanence); this
+# only resolves the `modconf` placeholder token to `kmod` on modern mkinitcpio
+# (>= 0.16, Arch 2023+ renamed the hook), which is a runtime fact knowable only
+# in the chroot.
 _initcpio_hooks_line() {
-  local modconf="$1" imp_enabled="$2"
-  local tail="zfs filesystems"
-  [[ "$imp_enabled" == "true" ]] && tail="zfs zfs-rollback filesystems"
-  printf 'HOOKS=(base udev autodetect %s block keyboard %s)\n' \
-    "$modconf" "$tail"
+  local hooks="$1" kmod_present="$2"
+  [[ "$kmod_present" == "true" ]] && hooks="${hooks//modconf/kmod}"
+  printf 'HOOKS=(%s)\n' "$hooks"
 }
 
 # Pure helper: emit the override for the initramfs `udev` runtime hook. It
@@ -69,16 +71,18 @@ PRESET_NAME="$(kernel_pkg "$KERNEL")"
 INITRAMFS_FB="initramfs-${PRESET_NAME}-fallback.img"
 PRESET_FILE="/etc/mkinitcpio.d/${PRESET_NAME}.preset"
 
-# ── ZFS hook ──────────────────────────────────────────────────────────────────
-# Hook order: block devices visible → zfs imports pool → filesystems mount.
-# mkinitcpio >= 0.16 (Arch 2023+) renamed 'modconf' → 'kmod'.
+# ── HOOKS ─────────────────────────────────────────────────────────────────────
+# The active Root Layout Adapter published the full HOOKS list into
+# install-state ($HOOKS, ADR 0043); this module is filesystem-blind and only
+# resolves the `modconf` placeholder to `kmod` on modern mkinitcpio (>= 0.16,
+# Arch 2023+ renamed the hook) — a runtime fact knowable only here in the chroot.
 if [[ -e /usr/lib/initcpio/hooks/kmod ]]; then
-    MODCONF_HOOK="kmod"
+    KMOD_PRESENT="true"
 else
-    MODCONF_HOOK="modconf"
+    KMOD_PRESENT="false"
 fi
-_hooks_line="$(_initcpio_hooks_line "$MODCONF_HOOK" \
-  "$IMPERMANENCE_ENABLED")"
+# shellcheck disable=SC2153 # HOOKS is exported by install_state_load, not a typo
+_hooks_line="$(_initcpio_hooks_line "$HOOKS" "$KMOD_PRESENT")"
 sed -i "s|^HOOKS=.*|${_hooks_line}|" /etc/mkinitcpio.conf
 unset _hooks_line
 
