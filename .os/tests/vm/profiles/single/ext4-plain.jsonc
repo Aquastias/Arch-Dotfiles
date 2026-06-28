@@ -1,0 +1,36 @@
+// VM test (ADR 0043, issue 03/slice 2): a pure ext4 root — no ZFS anywhere.
+// Plaintext, single disk, swap partition, no desktop (a fast boot-verify).
+// Exercises the non-ZFS-root tracer end to end: the ext4 Root Adapter
+// (ESP + swap + root, mkfs.ext4), the FS-agnostic bootloader/initcpio
+// (root=UUID, HOOKS without zfs), and the zfs-presence gating (no zfs userland,
+// no module guard, no zfs services in the chroot).
+{
+  "name": "arch-zfs-test-single-ext4",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "ext4",
+    "system": {
+      "hostname": "vm-test-ext4",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}

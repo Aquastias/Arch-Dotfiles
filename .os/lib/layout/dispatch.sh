@@ -22,8 +22,11 @@ root_adapter_source() {
   local dir="$1" fs="$2" mode="$3"
   case "$fs" in
   zfs) printf '%s\n' "${dir}/lib/layout/zfs/${mode}.sh" ;;
+  # ext4 is single-disk only (the validation contract rejects disk_count > 1),
+  # so its one adapter owns the OS disk regardless of mode.
+  ext4) printf '%s\n' "${dir}/lib/layout/ext4/single.sh" ;;
   *) error "No root layout adapter for filesystem '${fs}'" \
-       "(ADR 0043 reserves it; only zfs is implemented)." ;;
+       "(ADR 0043 reserves it; zfs + ext4 are implemented)." ;;
   esac
 }
 

@@ -74,12 +74,8 @@ collect_packages() {
     # Resolved per CPU vendor below (ADR 0038), not hardcoded to both.
 
     # ── ZFS ───────────────────────────────────────────────────────────────
-    # zfs-dkms: compiles ZFS against the installed kernel headers.
-    #   For linux-lts this is very reliable — the LTS kernel rarely outpaces
-    #   archzfs, unlike the rolling linux kernel which often does.
-    # zfs-utils: provides zpool, zfs, and all ZFS userspace commands.
-    zfs-dkms
-    zfs-utils
+    # zfs-dkms / zfs-utils are appended below only when some group is ZFS
+    # (ADR 0043); a pure non-ZFS install must not pull ZFS userland.
 
     # ── Network ───────────────────────────────────────────────────────────
     networkmanager # handles wired + wireless; enabled in chroot
@@ -133,6 +129,13 @@ collect_packages() {
         [[ -n "$p" ]] && pkgs+=("$p")
       done < <(categorized_list_parse "$repo_json" string "packages.repo")
     fi
+  fi
+
+  # ZFS userland — only when some group is ZFS (root or a data pool). A pure
+  # non-ZFS install installs no ZFS packages (ADR 0043). zfs-dkms compiles ZFS
+  # against the installed kernel headers; zfs-utils provides zpool/zfs.
+  if [[ "$(install_config_any_zfs)" == "true" ]]; then
+    pkgs+=(zfs-dkms zfs-utils)
   fi
 
   # GPU and audio packages resolved during validate_install_context
