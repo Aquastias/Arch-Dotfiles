@@ -146,6 +146,13 @@ collect_packages() {
     pkgs+=(cryptsetup)
   fi
 
+  # Per-filesystem userland for any non-zfs group that uses it (ADR 0043):
+  # xfsprogs (fsck.xfs/mkfs.xfs) for xfs, btrfs-progs (fsck.btrfs/mkfs.btrfs) for
+  # btrfs — so the data group fscks + mounts at boot. ext4 rides e2fsprogs in
+  # base; zfs has no mkfs. Independent of encryption.
+  [[ "$(install_config_uses_filesystem xfs)" == "true" ]]   && pkgs+=(xfsprogs)
+  [[ "$(install_config_uses_filesystem btrfs)" == "true" ]] && pkgs+=(btrfs-progs)
+
   # GPU and audio packages resolved during validate_install_context
   pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
   pkgs+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")

@@ -60,6 +60,11 @@ data_group_create() {
   local nl=$'\n'
   section "Formatting Data Group '${name}' (${fs})"
 
+  # The live ISO ships the mkfs tools but may not have the fs kernel module
+  # loaded, so the freshly-formatted fs can't be mounted here without it (ext4
+  # is built-in; xfs/btrfs are modules). Load it; harmless if built-in/loaded.
+  modprobe "$fs" 2>/dev/null || true
+
   local target src
   if [[ "$encrypted" == "true" ]]; then
     ((${#parts[@]} == 1)) ||
