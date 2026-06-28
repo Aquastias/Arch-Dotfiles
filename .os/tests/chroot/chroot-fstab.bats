@@ -55,9 +55,12 @@ setup() {
   [[ ! "$output" =~ "secondary" ]]
 }
 
-@test "1 ESP: ends with ZFS auto-mount comment" {
+# The generator is filesystem-agnostic (ADR 0043): it emits only ESP entries.
+# Filesystem-specific lines (the ZFS auto-mount note, or ext4 root/swap entries)
+# are appended by write_fstab from the adapter's LAYOUT_FSTAB_EXTRA.
+@test "1 ESP: emits no filesystem-specific tail (ESP-only)" {
   run _chroot_fstab_generate "$UUID1"
-  [[ "$output" =~ "zfs-mount-generator" ]]
+  [[ ! "$output" =~ "zfs-mount-generator" ]]
 }
 
 # ── 2-ESP branch ─────────────────────────────────────────────────────────────
@@ -82,9 +85,9 @@ setup() {
   [[ "$output" =~ "secondary 1" ]]
 }
 
-@test "2 ESPs: ends with ZFS auto-mount comment" {
+@test "2 ESPs: emits no filesystem-specific tail (ESP-only)" {
   run _chroot_fstab_generate "$UUID1" "$UUID2"
-  [[ "$output" =~ "zfs-mount-generator" ]]
+  [[ ! "$output" =~ "zfs-mount-generator" ]]
 }
 
 # ── 3-ESP branch ─────────────────────────────────────────────────────────────

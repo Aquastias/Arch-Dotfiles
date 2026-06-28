@@ -207,7 +207,9 @@ main() {
 
   # ── Disk operations ───────────────────────────────────────────────────────
   layout_partition
-  install_zfs_tools_if_needed
+  # ZFS userland on the live ISO is only needed when some group is ZFS (root or
+  # a data pool). A pure non-ZFS install skips it entirely (ADR 0043).
+  [[ "$(install_config_any_zfs)" == "true" ]] && install_zfs_tools_if_needed
   layout_create_pools
   layout_mount_esp
 
@@ -223,8 +225,10 @@ main() {
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
   # Fail-fast before chroot config: every installed kernel must have a ZFS
-  # module, else the install would crash later in mkinitcpio (ADR 0024).
-  zfs_verify_target_modules
+  # module, else the install would crash later in mkinitcpio (ADR 0024). Only
+  # meaningful when some group is ZFS; a pure non-ZFS install has no module to
+  # verify (ADR 0043).
+  [[ "$(install_config_any_zfs)" == "true" ]] && zfs_verify_target_modules
   configure_system
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────

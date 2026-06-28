@@ -99,8 +99,6 @@ _chroot_fstab_generate() {
       echo "UUID=${uuids[$i]}  /boot/efi${i}  vfat  umask=0077  0 2"
     done
   fi
-  echo ""
-  echo "# ZFS datasets are auto-mounted by zfs-mount-generator"
 }
 
 # Resolves UUIDs from LAYOUT_ESP_PARTS via blkid, delegates to
@@ -115,6 +113,11 @@ write_fstab() {
     uuids+=("$(blkid -s UUID -o value "$part")")
   done
   _chroot_fstab_generate "${uuids[@]}" >"${MOUNT_ROOT}/etc/fstab"
+  # The active Root Layout Adapter appends its filesystem-specific entries
+  # (ADR 0043): ZFS → the auto-mount note; ext4/xfs/btrfs → root + swap lines
+  # resolved from their post-format UUIDs. Empty for none.
+  [[ -n "${LAYOUT_FSTAB_EXTRA:-}" ]] &&
+    printf '\n%s\n' "$LAYOUT_FSTAB_EXTRA" >>"${MOUNT_ROOT}/etc/fstab"
   info "fstab written (${count} ESP(s))."
 }
 

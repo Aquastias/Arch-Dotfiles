@@ -1,60 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/layout/zfs/common.sh — shared Layout Module helpers
+# lib/layout/zfs/common.sh — ZFS Layout Module helpers
 # =============================================================================
-# Sourced by layout-single.sh and layout-multi.sh.
-# Requires: lib/common.sh already sourced (provides cfgo, error).
+# Sourced by layout-single.sh and layout-multi.sh. The filesystem-agnostic
+# spine (phase lifecycle, size parsers, ESP helpers, the layout_plan verb +
+# seam hooks, partition contract) was extracted to lib/layout/core.sh (ADR
+# 0043); this file keeps only the ZFS-specific plan contract and sources the
+# ZFS leftover-disk adapter + boot-record publisher in plan.sh.
+# Requires: lib/common.sh already sourced (provides cfgo, error, part_name).
 # =============================================================================
 
-# Reads .options.esp_size from Install Config. Returns "2G" when unset.
-layout_resolve_esp_size() {
-  install_config_esp_size
-}
+# shellcheck source=../core.sh
+source "${BASH_SOURCE[0]%/*}/../core.sh"
 
-# Fail-fast guard: the resolved ESP size must meet the 1 GiB floor. systemd-boot
-# copies the kernel + initramfs (and a fallback) onto the FAT ESP, so a too-small
-# ESP can run out of space mid-upgrade and truncate the boot image (ADR 0038).
-# Errors naming the field and the floor; succeeds silently otherwise.
-layout_validate_esp_size() {
-  local size mib
-  size="$(layout_resolve_esp_size)"
-  mib="$(parse_size_to_mib "$size")"
-  ((mib >= 1024)) || error \
-    "esp_size '${size}' is below the 1G floor for a resilient boot path" \
-    "(ADR 0038). Set options.esp_size to at least 1G (default 2G)."
-}
-
-# Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.
-parse_size_to_gib() {
-  local raw="${1^^}"
-  local num="${raw//[^0-9]/}"
-  local unit="${raw//[0-9]/}"
-  case "$unit" in
-  M | MIB) echo $(((num + 1023) / 1024)) ;;
-  G | GIB) echo "$num" ;;
-  T | TIB) echo $((num * 1024)) ;;
-  *) error "Cannot parse size string: '$1'" ;;
-  esac
-}
-
-# Converts a size string ("512M", "2G", "1T") to integer MiB with no rounding
-# loss. Unlike parse_size_to_gib, this keeps sub-GiB precision so the ESP floor
-# can distinguish 512M from 1G.
-parse_size_to_mib() {
-  local raw="${1^^}"
-  local num="${raw//[^0-9]/}"
-  local unit="${raw//[0-9]/}"
-  case "$unit" in
-  M | MIB) echo "$num" ;;
-  G | GIB) echo $((num * 1024)) ;;
-  T | TIB) echo $((num * 1024 * 1024)) ;;
-  *) error "Cannot parse size string: '$1'" ;;
-  esac
-}
-
-# Asserts layout_plan() published the normalized record: the OS pool name and at
-# least one ESP partition (ESP paths are now resolved at plan time, ADR 0034).
-# Call at end of layout_plan().
+# ZFS plan contract: beyond the shared ESP check (core), the OS pool name must
+# be resolved. Overrides core's ESP-only default. Call at end of layout_plan().
 _layout_verify_plan_contract() {
   [[ -n "$LAYOUT_OS_POOL_NAME" ]] ||
     error "Layout contract: LAYOUT_OS_POOL_NAME must be non-empty" \
@@ -64,52 +24,8 @@ _layout_verify_plan_contract() {
           "after layout_plan()"
 }
 
-# Asserts layout_partition() populated LAYOUT_ESP_PARTS.
-# Call at end of every layout_partition().
-_layout_verify_partition_contract() {
-  ((${#LAYOUT_ESP_PARTS[@]} >= 1)) ||
-    error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element" \
-          "after layout_partition()"
-}
-
-# =============================================================================
-# Layout phase lifecycle (ADR 0016)
-# =============================================================================
-# Single ordinal counter + two guards enforce seam-verb ordering. Adapters
-# bracket each verb with _layout_enter_phase / _layout_exit_phase. Out-of-order
-# calls abort via error before any destructive operation runs.
-#
-# Phase map (private): validate=1, plan=2, partition=3, pools=4, esp=5.
-# Seeded to 0 — the first callable phase is `validate` (ADR 0014).
-_LAYOUT_PHASE=0
-
-_layout_phase_ordinal() {
-  case "$1" in
-  validate)  echo 1 ;;
-  plan)      echo 2 ;;
-  partition) echo 3 ;;
-  pools)     echo 4 ;;
-  esp)       echo 5 ;;
-  *) error "Unknown layout phase name: '$1'" ;;
-  esac
-}
-
-_layout_enter_phase() {
-  local name="$1" ord
-  ord="$(_layout_phase_ordinal "$name")"
-  (( _LAYOUT_PHASE == ord - 1 )) ||
-    error "Layout phase '$name' out of order:" \
-          "_LAYOUT_PHASE=$_LAYOUT_PHASE, expected $((ord - 1))"
-}
-
-_layout_exit_phase() {
-  local name="$1" ord
-  ord="$(_layout_phase_ordinal "$name")"
-  _LAYOUT_PHASE="$ord"
-}
-
-# The unified layout_plan verb + ESP resolution + leftover-disk adapter live in
-# plan.sh; the mode adapters (single/multi) supply _layout_plan_mode and
-# _layout_os_disks. Sourced last so the contract/phase helpers above are defined.
+# The ZFS leftover-disk adapter + the ZFS boot-record publisher (the
+# _layout_publish_boot override) live in plan.sh. Sourced last so core's
+# defaults are already defined and these override them.
 # shellcheck source=./plan.sh
 source "${BASH_SOURCE[0]%/*}/plan.sh"

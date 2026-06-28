@@ -74,54 +74,62 @@ cat > /etc/tmpfiles.d/resolv.conf.conf << 'EOF'
 L /etc/resolv.conf - - - - /run/systemd/resolve/stub-resolv.conf
 EOF
 
-# ── udisks: hide ZFS pool members from file managers ──────────────────────────
-# Without this a udisks2-backed file manager lists ZFS members as removable
-# drives, prompts for a password, then fails to mount (ADR 0031). Written
-# unconditionally — a harmless no-op when udisks2 isn't installed (servers).
-udisks_write_zfs_ignore_rule
+# ── ZFS services + post-boot import ──────────────────────────────────────────
+# Only when ZFS userland is present. A pure non-ZFS install has no zfs packages,
+# so none of this applies (ADR 0043); an ext4 root with a ZFS data pool still has
+# zpool here, so the import/mount services it needs are still enabled.
+if command -v zpool >/dev/null 2>&1; then
+    # udisks: hide ZFS pool members from file managers — without this a
+    # udisks2-backed file manager lists ZFS members as removable drives, prompts
+    # for a password, then fails to mount (ADR 0031). Harmless no-op without
+    # udisks2 (servers).
+    udisks_write_zfs_ignore_rule
 
-# ── ZFS services ─────────────────────────────────────────────────────────────
-# Import order: zfs-import-cache (fast) → zfs-import-scan (fallback)
-#   → zfs-import.target → zfs-mount → zfs-zed → zfs.target
-systemctl enable zfs-import-cache
-systemctl enable zfs-import-scan
-systemctl enable zfs-import.target
-systemctl enable zfs-mount
-systemctl enable zfs-zed
-systemctl enable zfs.target
+    # Import order: zfs-import-cache (fast) → zfs-import-scan (fallback)
+    #   → zfs-import.target → zfs-mount → zfs-zed → zfs.target
+    systemctl enable zfs-import-cache
+    systemctl enable zfs-import-scan
+    systemctl enable zfs-import.target
+    systemctl enable zfs-mount
+    systemctl enable zfs-zed
+    systemctl enable zfs.target
 
-# Decouple the post-boot import services from the deprecated
-# systemd-udev-settle so a slow/stalled settle can't fail pool imports or
-# stall boot. Ships full /etc replacement units (a reset drop-in does not
-# remove the dep on systemd 260). The initramfs stays the authoritative
-# importer (ADR 0030).
-zfs_import_write_settle_overrides ""
+    # Decouple the post-boot import services from the deprecated
+    # systemd-udev-settle so a slow/stalled settle can't fail pool imports or
+    # stall boot. Ships full /etc replacement units (a reset drop-in does not
+    # remove the dep on systemd 260). The initramfs stays the authoritative
+    # importer (ADR 0030).
+    zfs_import_write_settle_overrides ""
 
-# Enable per-pool key-load service for any encrypted pools (dpool etc.).
-# The initramfs ZFS hook handles the root pool — this covers datasets that
-# mount after boot.
-if zpool list -H -o name 2>/dev/null | grep -q .; then
+    # Enable per-pool key-load service for any encrypted pools (dpool etc.).
+    # The initramfs ZFS hook handles the root pool — this covers datasets that
+    # mount after boot.
+    if zpool list -H -o name 2>/dev/null | grep -q .; then
+        for _pool in $(zpool list -H -o name 2>/dev/null); do
+            _enc="$(zfs get -H -o value encryption "${_pool}" 2>/dev/null)"
+            if [[ "$_enc" != "off" && "$_enc" != "-" ]]; then
+                systemctl enable "zfs-load-key@${_pool}.service" 2>/dev/null || true
+            fi
+        done
+        unset _enc
+    fi
+
+    # Populate zfs-mount-generator cache so datasets mount at boot without scan.
+    mkdir -p /etc/zfs/zfs-list.cache
     for _pool in $(zpool list -H -o name 2>/dev/null); do
-        _enc="$(zfs get -H -o value encryption "${_pool}" 2>/dev/null)"
-        if [[ "$_enc" != "off" && "$_enc" != "-" ]]; then
-            systemctl enable "zfs-load-key@${_pool}.service" 2>/dev/null || true
-        fi
+        zfs list -H -t filesystem \
+            -o name,mountpoint,canmount,atime,relatime,readonly,xattr,dnodesize \
+            "$_pool" 2>/dev/null \
+            > "/etc/zfs/zfs-list.cache/${_pool}" || true
     done
-    unset _enc
+    unset _pool
 fi
 
-# Populate zfs-mount-generator cache so datasets mount at boot without scanning.
-mkdir -p /etc/zfs/zfs-list.cache
-for _pool in $(zpool list -H -o name 2>/dev/null); do
-    zfs list -H -t filesystem \
-        -o name,mountpoint,canmount,atime,relatime,readonly,xattr,dnodesize \
-        "$_pool" 2>/dev/null \
-        > "/etc/zfs/zfs-list.cache/${_pool}" || true
-done
-unset _pool
-
 # ── Swap ─────────────────────────────────────────────────────────────────────
-if [[ "$SWAP" == "true" ]]; then
+# A ZFS root puts swap on a zvol enabled here; a non-ZFS root already has its
+# swap *partition* in /etc/fstab (write_fstab wrote the adapter's
+# LAYOUT_FSTAB_EXTRA), so there is nothing to enable.
+if [[ "$SWAP" == "true" && -n "$RPOOL" ]]; then
     SWAP_UNIT="$(systemd-escape --path "/dev/zvol/$RPOOL/swap").swap"
     systemctl enable "$SWAP_UNIT" 2>/dev/null || {
         echo "/dev/zvol/$RPOOL/swap  none  swap  defaults  0 0" >> /etc/fstab

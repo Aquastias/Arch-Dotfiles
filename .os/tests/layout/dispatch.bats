@@ -28,6 +28,18 @@ setup() {
   [ "$output" = "/os/lib/layout/zfs/multi.sh" ]
 }
 
+@test "root_adapter_source: ext4 resolves to the single ext4 adapter" {
+  run root_adapter_source /os ext4 single
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/ext4/single.sh" ]
+}
+
+@test "root_adapter_source: ext4 ignores mode (single-disk only)" {
+  run root_adapter_source /os ext4 multi
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/ext4/single.sh" ]
+}
+
 @test "root_adapter_source: an unbuilt filesystem errors, naming it" {
   run root_adapter_source /os btrfs single
   [ "$status" -ne 0 ]

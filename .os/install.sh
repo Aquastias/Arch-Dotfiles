@@ -289,6 +289,8 @@ if [[ -f "$CONFIG_FILE" ]]; then
   mapfile -t wipe_targets < <(wipe_resolve_targets "$CONFIG_FILE")
 fi
 
-bash "${SCRIPT_DIR}/01-bootstrap-zfs.sh"
+# Pass the config so the bootstrap can skip itself for a pure non-ZFS install
+# (ADR 0043): no archzfs repo / zfs module is needed on the live ISO then.
+bash "${SCRIPT_DIR}/01-bootstrap-zfs.sh" "$CONFIG_FILE"
 bash "${SCRIPT_DIR}/02-wipe.sh" "${forward_args[@]}" "${wipe_targets[@]}"
 bash "${SCRIPT_DIR}/03-install.sh" "${forward_args[@]}" "${positional_args[@]}"

@@ -40,6 +40,9 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # Shared ZFS module install/load — the SAME code 03-install.sh's fallback uses.
 # shellcheck source=lib/zfs/module.sh
 source "${SCRIPT_DIR}/lib/zfs/module.sh"
+# Config accessors — for the any-ZFS gate below (install_config_any_zfs).
+# shellcheck source=lib/config/accessors.sh
+source "${SCRIPT_DIR}/lib/config/accessors.sh"
 
 # =============================================================================
 # PRE-FLIGHT CHECKS
@@ -309,6 +312,19 @@ print_summary() {
 # =============================================================================
 
 main() {
+  # Skip the whole ZFS bootstrap for a pure non-ZFS install (ADR 0043): the live
+  # ISO needs no archzfs repo, no zfs userland, and no zfs module when no group
+  # is ZFS. The generic root/UEFI/internet pre-flight is re-run by 03-install.sh,
+  # so nothing is lost. <config> is passed by install.sh.
+  local cfg="${1:-}"
+  if [[ -n "$cfg" && -f "$cfg" ]]; then
+    export CONFIG_FILE="$cfg"
+    if [[ "$(install_config_any_zfs)" != "true" ]]; then
+      info "No ZFS group in the config — skipping ZFS bootstrap (ADR 0043)."
+      return 0
+    fi
+  fi
+
   echo -e "\n${CYAN}${BOLD}  ZFS Bootstrap — Arch Linux Live ISO${NC}"
   echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"
 

@@ -107,14 +107,24 @@ _seed_generator_firstboot_block() {
   [[ -n "$verify_extras" ]] && extras_check="if systemctl is-enabled ${verify_extras} > /dev/null 2>&1; then echo ===EXTRAS-OK===; else echo ===EXTRAS-FAIL===; fi; "
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
-      zpool import -f -N -R /mnt rpool || true
-      zfs mount rpool/ROOT/arch || true
+      # Mount the freshly installed root to inject the sentinel: a ZFS root via
+      # pool import, a non-ZFS (ext4/xfs/btrfs) root via its GPT partlabel 'root'
+      # the Root Layout Adapter set (ADR 0043).
+      if zpool import -f -N -R /mnt rpool 2>/dev/null; then
+        zfs mount rpool/ROOT/arch || true; _vroot=zfs
+      else
+        mount /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
+      fi
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
-      zfs umount -a || true
-      zpool export rpool || zpool export -f rpool || true
+      if [ "\$_vroot" = zfs ]; then
+        zfs umount -a || true
+        zpool export rpool || zpool export -f rpool || true
+      else
+        umount -R /mnt || true
+      fi
     fi
 BLOCK
 }

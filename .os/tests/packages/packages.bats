@@ -85,6 +85,14 @@ write_config() {
   [ "$(echo "$output" | grep -cx "zfs-dkms")" -eq 1 ]
 }
 
+@test "collect_packages: a pure ext4 root pulls no ZFS userland (ADR 0043)" {
+  write_config '{"filesystem":"ext4","options":{"kernel":"lts"}}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -qx "zfs-dkms"
+  ! echo "$output" | grep -qx "zfs-utils"
+}
+
 # ── bootloader selection ──────────────────────────────────────────────────────
 
 @test "collect_packages: grub bootloader includes grub" {
