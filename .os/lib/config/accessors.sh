@@ -319,3 +319,25 @@ install_config_any_nonzfs_luks() {
   done
   printf 'false\n'
 }
+
+# Filesystem-use predicate (ADR 0043) — `true` when the root OR any data pool /
+# storage group resolves to <fs>. Gates the per-filesystem mkfs/fsck userland on
+# the target (xfsprogs for xfs, btrfs-progs for btrfs): a machine that uses the
+# filesystem anywhere needs its tools so the group fscks/mounts at boot. Each
+# per-group accessor inherits the root filesystem when the group omits its own.
+install_config_uses_filesystem() {
+  local fs="$1"
+  [[ "$(install_config_filesystem)" == "$fs" ]] && { printf 'true\n'; return; }
+  local n i
+  n="$(install_config_data_pools_count)"
+  for ((i = 0; i < n; i++)); do
+    [[ "$(install_config_data_pool_filesystem "$i")" == "$fs" ]] \
+      && { printf 'true\n'; return; }
+  done
+  n="$(install_config_storage_groups_count)"
+  for ((i = 0; i < n; i++)); do
+    [[ "$(install_config_storage_group_filesystem "$i")" == "$fs" ]] \
+      && { printf 'true\n'; return; }
+  done
+  printf 'false\n'
+}

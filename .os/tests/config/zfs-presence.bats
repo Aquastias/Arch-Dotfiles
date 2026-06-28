@@ -95,3 +95,34 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   run install_config_any_nonzfs_luks
   [ "$output" = "true" ]
 }
+
+# ── install_config_uses_filesystem (ADR 0043) ────────────────────────────────
+# True when the root OR any data pool / storage group resolves to <fs>. Gates the
+# per-filesystem mkfs/fsck userland on the target (xfsprogs/btrfs-progs) the same
+# way any_zfs gates zfs userland: a machine that uses xfs anywhere needs xfsprogs
+# so the data group fscks/mounts at boot.
+
+@test "uses_filesystem: zfs root + xfs data pool uses xfs" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"xfs"}]}'
+  run install_config_uses_filesystem xfs
+  [ "$status" -eq 0 ]
+  [ "$output" = "true" ]
+}
+
+@test "uses_filesystem: all-zfs machine does not use xfs" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"zfs"}]}'
+  run install_config_uses_filesystem xfs
+  [ "$output" = "false" ]
+}
+
+@test "uses_filesystem: a btrfs data pool uses btrfs" {
+  write_config '{"data_pools":[{"name":"tank0","filesystem":"btrfs"}]}'
+  run install_config_uses_filesystem btrfs
+  [ "$output" = "true" ]
+}
+
+@test "uses_filesystem: an xfs root uses xfs" {
+  write_config '{"filesystem":"xfs"}'
+  run install_config_uses_filesystem xfs
+  [ "$output" = "true" ]
+}
