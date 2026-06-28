@@ -17,6 +17,27 @@ Adapter's `ROOT_CMDLINE` becomes `root=/dev/mapper/cryptroot` with
 `cryptdevice=UUID=…:cryptroot`, and its `HOOKS` gain `encrypt` before
 `filesystems`. The swap partition is LUKS-wrapped when the root is encrypted.
 
+## Progress
+
+Pure cores landed + bats-green (TDD), VM-gated wiring still to do:
+- [x] **Encrypted ext4 `ROOT_CMDLINE`/`HOOKS`** — `ext4_root_cmdline <uuid>
+      encrypted` → `cryptdevice=UUID=…:cryptroot root=/dev/mapper/cryptroot`;
+      `ext4_hooks encrypted` inserts `encrypt` between `block` and `filesystems`
+      (`tests/layout/ext4-boot.bats`).
+- [x] **Plan owns partition slots** — `nonzfs_partition_plan` emits
+      `esp/swap/root_part_num` (swap empty + root→2 when no swap); the planner is
+      the single numbering authority (`tests/layout/nonzfs-plan.bats`).
+- [x] **Non-ZFS LUKS device resolver** (`lib/layout/nonzfs/devices.sh`) — reads
+      the plan's slots (no re-derivation) and maps them to devices; encrypted →
+      `/dev/mapper/cryptroot` + `cryptswap` and a `luks_containers`
+      `<part>:<mapper>` list; plaintext → bare partitions
+      (`tests/layout/nonzfs-devices.bats`).
+- [ ] ext4 Root Adapter consumes the passphrase seam → `cryptsetup
+      luksFormat`/`luksOpen` each `luks_containers` entry; mkfs/mkswap the
+      resolved devices (VM-gated).
+- [ ] swap partition LUKS-wrapped when root encrypted, plaintext otherwise,
+      wired into fstab/crypttab (VM-gated).
+
 ## Acceptance criteria
 
 - [ ] An encrypted ext4 root prompts once for the passphrase in initramfs and
