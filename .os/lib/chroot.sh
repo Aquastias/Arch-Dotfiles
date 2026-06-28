@@ -121,6 +121,16 @@ write_fstab() {
   info "fstab written (${count} ESP(s))."
 }
 
+# Writes /etc/crypttab from the active Root Layout Adapter's LAYOUT_CRYPTTAB
+# (ADR 0043) — the auto-opened non-root LUKS volumes (e.g. random-key swap on an
+# encrypted non-ZFS root). No-op when empty (plaintext, or ZFS native crypto).
+# Runs after pacstrap (so /etc exists), alongside write_fstab.
+write_crypttab() {
+  [[ -n "${LAYOUT_CRYPTTAB:-}" ]] || return 0
+  printf '%s\n' "$LAYOUT_CRYPTTAB" >"${MOUNT_ROOT}/etc/crypttab"
+  info "crypttab written."
+}
+
 # =============================================================================
 # ESP MIRROR PACMAN HOOK
 # =============================================================================
@@ -265,16 +275,18 @@ _chroot_seed_zpool_cache() {
 configure_system() {
   section "Configuring System (arch-chroot)"
 
-  # ── Seed ZFS state into the new root ──────────────────────────────────────
-  # The pool cache and hostid must exist in the new system before the
-  # initramfs is built, otherwise the ZFS hook cannot import the pool at boot.
-  local _pools=()
-  mapfile -t _pools < <(zpool list -H -o name)
-  _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
-  cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
-
-  # Copy archzfs repo config so the new system can update ZFS packages
-  cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
+  # ── Seed ZFS state into the new root (ZFS only) ───────────────────────────
+  # The pool cache and hostid must exist in the new system before the initramfs
+  # is built, otherwise the ZFS hook cannot import the pool at boot. The archzfs
+  # repo config is copied so the new system can update ZFS packages. A pure
+  # non-ZFS install has no zpool / hostid / archzfs repo to seed (ADR 0043).
+  if command -v zpool >/dev/null 2>&1; then
+    local _pools=()
+    mapfile -t _pools < <(zpool list -H -o name)
+    _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
+    cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
+    cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
+  fi
 
   # ── Copy extras/ scripts for execution inside chroot ──────────────────────
   if [[ -d "${SCRIPT_DIR}/extras" ]]; then
@@ -293,6 +305,7 @@ configure_system() {
   fi
 
   write_fstab
+  write_crypttab
   write_esp_mirror_hook "${#LAYOUT_ESP_PARTS[@]}"
 
   # ── Collect passwords interactively HERE, before entering the chroot ─────

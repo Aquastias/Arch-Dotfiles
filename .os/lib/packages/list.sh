@@ -138,6 +138,14 @@ collect_packages() {
     pkgs+=(zfs-dkms zfs-utils)
   fi
 
+  # LUKS userland for a non-ZFS encrypted root: the mkinitcpio `encrypt` hook and
+  # the boot-time crypttab need cryptsetup; ZFS uses its own native crypto so it
+  # needs none of this (ADR 0043).
+  if [[ "$(install_config_encryption_enabled)" == "true" \
+        && "$(install_config_filesystem)" != "zfs" ]]; then
+    pkgs+=(cryptsetup)
+  fi
+
   # GPU and audio packages resolved during validate_install_context
   pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
   pkgs+=("${AUDIO_PACKAGES[@]+"${AUDIO_PACKAGES[@]}"}")
