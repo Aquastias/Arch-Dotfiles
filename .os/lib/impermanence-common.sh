@@ -18,7 +18,8 @@ CURATED_FILES=(
 # tools/impermanence.sh
 CURATED_DIRS=(
   /etc/ssh
-  /etc/secrets    # sops age key lives here
+  /etc/secrets             # sops age key lives here
+  /etc/cryptsetup-keys.d   # data-group LUKS/zfs keyfiles (ADR 0043)
   /etc/NetworkManager/system-connections
   /etc/sudoers.d
   /etc/pacman.d
