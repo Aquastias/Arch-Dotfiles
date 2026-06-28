@@ -300,3 +300,22 @@ install_config_any_zfs() {
   done
   printf 'false\n'
 }
+
+# Any-LUKS predicate (ADR 0043) — `true` when the root OR any data pool is a
+# non-zfs ENCRYPTED group (zfs uses native crypto, never LUKS). Gates cryptsetup
+# userland + the boot-time crypttab: a zfs root with an encrypted ext4 data disk
+# still needs them even though the root is unencrypted. (Storage groups are
+# zfs-only by validation, so they never contribute LUKS.)
+install_config_any_nonzfs_luks() {
+  [[ "$(install_config_filesystem)" != "zfs" \
+     && "$(install_config_encryption_enabled)" == "true" ]] \
+    && { printf 'true\n'; return; }
+  local n i
+  n="$(install_config_data_pools_count)"
+  for ((i = 0; i < n; i++)); do
+    [[ "$(install_config_data_pool_filesystem "$i")" != "zfs" \
+       && "$(install_config_data_pool_encryption "$i")" == "true" ]] \
+      && { printf 'true\n'; return; }
+  done
+  printf 'false\n'
+}

@@ -138,11 +138,11 @@ collect_packages() {
     pkgs+=(zfs-dkms zfs-utils)
   fi
 
-  # LUKS userland for a non-ZFS encrypted root: the mkinitcpio `encrypt` hook and
-  # the boot-time crypttab need cryptsetup; ZFS uses its own native crypto so it
-  # needs none of this (ADR 0043).
-  if [[ "$(install_config_encryption_enabled)" == "true" \
-        && "$(install_config_filesystem)" != "zfs" ]]; then
+  # LUKS userland for any non-ZFS encrypted group — a non-zfs encrypted root
+  # (mkinitcpio `encrypt` hook) OR an encrypted ext4/xfs/btrfs data disk
+  # (boot-time crypttab). ZFS uses its own native crypto so it needs none of
+  # this (ADR 0043).
+  if [[ "$(install_config_any_nonzfs_luks)" == "true" ]]; then
     pkgs+=(cryptsetup)
   fi
 
