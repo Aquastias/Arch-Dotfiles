@@ -56,3 +56,33 @@ zfs_import_write_settle_overrides() {
     zfs_import_strip_settle < "$src" > "$dst"
   done
 }
+
+# Ship a zfs-load-key@.service TEMPLATE so an encrypted DATA pool auto-loads its
+# key POST-boot from its keylocation (a keyfile on the already-mounted root,
+# ADR 0043), ordered BEFORE zfs-mount.service mounts the datasets — so the
+# operator types no second secret. Upstream OpenZFS ships no such template, so
+# configure.sh's `systemctl enable zfs-load-key@<pool>` needs this file. The
+# root pool is unlocked by the initramfs (keylocation=prompt) and must NOT use
+# this unit. <root> defaults to "" (the chroot's /); tests pass a temp root.
+zfs_write_load_key_template() {
+  local root="${1:-}"
+  local dst="${root}/etc/systemd/system/zfs-load-key@.service"
+  mkdir -p "$(dirname "$dst")"
+  cat > "$dst" <<'UNIT'
+[Unit]
+Description=Load ZFS encryption key for %i
+Documentation=man:zfs-load-key(8)
+DefaultDependencies=no
+After=zfs-import.target
+Before=zfs-mount.service
+Wants=zfs-import.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/zfs load-key %i
+
+[Install]
+WantedBy=zfs-mount.service
+UNIT
+}

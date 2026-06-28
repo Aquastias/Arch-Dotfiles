@@ -101,28 +101,37 @@ if command -v zpool >/dev/null 2>&1; then
     # importer (ADR 0030).
     zfs_import_write_settle_overrides ""
 
-    # Enable per-pool key-load service for any encrypted pools (dpool etc.).
-    # The initramfs ZFS hook handles the root pool — this covers datasets that
-    # mount after boot.
+    # Auto-load keys for encrypted DATA pools post-boot (ADR 0043). A data pool's
+    # keylocation is a keyfile on the already-mounted root (file://…), so it can
+    # load non-interactively; the ROOT pool is keylocation=prompt and is unlocked
+    # by the initramfs ZFS hook — it must NOT get a load-key unit (it would
+    # re-prompt and hang). Ship the template (upstream ships none) and enable it
+    # per file-keyed pool, ordered before zfs-mount.service.
     if zpool list -H -o name 2>/dev/null | grep -q .; then
+        zfs_write_load_key_template ""
         for _pool in $(zpool list -H -o name 2>/dev/null); do
-            _enc="$(zfs get -H -o value encryption "${_pool}" 2>/dev/null)"
-            if [[ "$_enc" != "off" && "$_enc" != "-" ]]; then
+            _kl="$(zfs get -H -o value keylocation "${_pool}" 2>/dev/null)"
+            if [[ "$_kl" == file://* ]]; then
                 systemctl enable "zfs-load-key@${_pool}.service" 2>/dev/null || true
             fi
         done
-        unset _enc
+        unset _kl
     fi
 
     # Populate zfs-mount-generator cache so datasets mount at boot without scan.
+    # Skip file-keyed encrypted DATA pools: their key isn't loaded when the
+    # generator runs, so it would choke on the encrypted dataset — zfs-load-key@
+    # loads the key and zfs-mount.service (`zfs mount -a`) mounts them instead.
     mkdir -p /etc/zfs/zfs-list.cache
     for _pool in $(zpool list -H -o name 2>/dev/null); do
+        _kl="$(zfs get -H -o value keylocation "${_pool}" 2>/dev/null)"
+        [[ "$_kl" == file://* ]] && continue
         zfs list -H -t filesystem \
             -o name,mountpoint,canmount,atime,relatime,readonly,xattr,dnodesize \
             "$_pool" 2>/dev/null \
             > "/etc/zfs/zfs-list.cache/${_pool}" || true
     done
-    unset _pool
+    unset _pool _kl
 fi
 
 # ── Swap ─────────────────────────────────────────────────────────────────────

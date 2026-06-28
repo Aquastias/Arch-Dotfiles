@@ -296,6 +296,29 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   [ "${#ENC_OPTS[@]}" -eq 0 ]
 }
 
+# ── _enc_opts_prompt ──────────────────────────────────────────────────────────
+# The predicate _zpool_create keys its stdin-passphrase pipe on: it pipes the
+# boot passphrase ONLY when the active opts ask for it (keylocation=prompt). The
+# root pool (prompt) still gets the passphrase; a keyfile-on-root data pool
+# (keylocation=file://…) does not, so there is no second prompt.
+
+@test "_enc_opts_prompt: prompt opts → true (passphrase piped)" {
+  run _enc_opts_prompt -O encryption=aes-256-gcm -O keyformat=passphrase \
+    -O keylocation=prompt
+  [ "$status" -eq 0 ]
+}
+
+@test "_enc_opts_prompt: keyfile file:// opts → false (no passphrase)" {
+  run _enc_opts_prompt -O encryption=aes-256-gcm -O keyformat=raw \
+    -O keylocation=file:///etc/cryptsetup-keys.d/tank0.key
+  [ "$status" -ne 0 ]
+}
+
+@test "_enc_opts_prompt: empty opts (plaintext pool) → false" {
+  run _enc_opts_prompt
+  [ "$status" -ne 0 ]
+}
+
 # ── ram_gib ───────────────────────────────────────────────────────────────────
 
 @test "ram_gib: returns a positive integer" {

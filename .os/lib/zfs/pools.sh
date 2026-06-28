@@ -202,6 +202,15 @@ _zpool_translate_vdev() {
 # POOL CREATION HELPER
 # =============================================================================
 
+# True when the given encryption opts read the key from an interactive prompt
+# (keylocation=prompt). _zpool_create pipes the boot passphrase via stdin ONLY
+# then — the root pool (prompt) gets it; a keyfile-on-root data pool
+# (keylocation=file://…, ADR 0043) does not, so there is no second prompt. Empty
+# opts (a plaintext pool) are not a prompt. Pure: scans its arguments.
+_enc_opts_prompt() {
+  [[ " $* " == *" keylocation=prompt "* ]]
+}
+
 _zpool_create() {
   # Creates a ZFS pool with standard Arch Linux settings.
   #
@@ -243,9 +252,11 @@ _zpool_create() {
   # (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args to zpool create). It is built
   # by build_vdev_spec() from controlled inputs (topology + partition paths)
   # so word-splitting is the desired behaviour here.
-  if [[ -n "$ZFS_PASSPHRASE" ]]; then
+  if _enc_opts_prompt "${ENC_OPTS[@]}"; then
     # Pipe the passphrase via stdin — zpool create reads it once when
-    # keylocation=prompt is set. printf ensures no trailing newline issues.
+    # keylocation=prompt is set. printf ensures no trailing newline issues. A
+    # keyfile-on-root data pool (keylocation=file://…) is NOT piped — it loads
+    # its key from the file, so the operator never types a second secret.
     # shellcheck disable=SC2086
     printf '%s\n' "$ZFS_PASSPHRASE" | zpool create -f \
       -o ashift="${ashift}" \
