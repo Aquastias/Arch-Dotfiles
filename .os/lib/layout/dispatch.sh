@@ -10,8 +10,9 @@
 #     formats one data group with its filesystem. Keyed by filesystem only.
 #
 # The ZFS adapter was relocated from the flat lib/layout/<mode>.sh into
-# lib/layout/zfs/ when filesystem #2 landed (ADR 0043). ZFS is the only built
-# adapter; every other filesystem errors here.
+# lib/layout/zfs/ when filesystem #2 landed (ADR 0043). Root adapters: zfs +
+# ext4 are built. Data formatters: zfs/ext4/xfs/btrfs are built; an unbuilt
+# filesystem errors here.
 #
 # Pure: string transforms on <os-dir>/<filesystem>/<mode>, no disk access.
 # Uses error() from common.sh, available at call time.
@@ -37,7 +38,10 @@ data_formatter_source() {
   local dir="$1" fs="$2"
   case "$fs" in
   zfs) printf '%s\n' "${dir}/lib/layout/zfs/multi.sh" ;;
+  ext4) printf '%s\n' "${dir}/lib/layout/ext4/data.sh" ;;
+  xfs) printf '%s\n' "${dir}/lib/layout/xfs/data.sh" ;;
+  btrfs) printf '%s\n' "${dir}/lib/layout/btrfs/data.sh" ;;
   *) error "No data group formatter for filesystem '${fs}'" \
-       "(ADR 0043 reserves it; only zfs is implemented)." ;;
+       "(zfs/ext4/xfs/btrfs are implemented)." ;;
   esac
 }

@@ -54,8 +54,26 @@ setup() {
   [ "$output" = "/os/lib/layout/zfs/multi.sh" ]
 }
 
-@test "data_formatter_source: an unbuilt filesystem errors, naming it" {
+@test "data_formatter_source: ext4 resolves to the ext4 data formatter" {
   run data_formatter_source /os ext4
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/ext4/data.sh" ]
+}
+
+@test "data_formatter_source: xfs resolves to the xfs data formatter" {
+  run data_formatter_source /os xfs
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/xfs/data.sh" ]
+}
+
+@test "data_formatter_source: btrfs resolves to the btrfs data formatter" {
+  run data_formatter_source /os btrfs
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/btrfs/data.sh" ]
+}
+
+@test "data_formatter_source: an unbuilt filesystem errors, naming it" {
+  run data_formatter_source /os reiserfs
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "ext4" ]]
+  [[ "$output" =~ "reiserfs" ]]
 }
