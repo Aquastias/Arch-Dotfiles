@@ -196,6 +196,30 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   [[ "$output" == *"unknown topology"* ]]
 }
 
+# ── _data_pool_topology_ok (filesystem-aware dispatch, ADR 0043) ──────────────
+# Per-pool topology validation that dispatches on the data pool's filesystem: a
+# zfs pool runs the native vdev validator; a non-zfs pool (btrfs/ext4/xfs) had
+# its topology validity already gated by validation.sh, so it passes here — the
+# zfs validator must NOT reject a btrfs profile like raid1 as "unknown topology".
+
+@test "_data_pool_topology_ok: btrfs raid1 passes (not a zfs unknown topology)" {
+  run _data_pool_topology_ok btrfs raid1 2
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "_data_pool_topology_ok: zfs mirror with one disk still aborts" {
+  run _data_pool_topology_ok zfs mirror 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"at least 2"* ]]
+}
+
+@test "_data_pool_topology_ok: zfs unknown topology still rejected" {
+  run _data_pool_topology_ok zfs raidz3 4
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown topology"* ]]
+}
+
 # ── _zfs_valid_pool_name (pure, ADR 0027) ────────────────────────────────────
 
 @test "_zfs_valid_pool_name: reserved word mirror is rejected" {

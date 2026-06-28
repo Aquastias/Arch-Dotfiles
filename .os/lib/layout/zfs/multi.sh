@@ -885,7 +885,12 @@ layout_validate() {
       | jq -r ".data_pools[$i].topology // \"stripe\"")"
     ddc="$(jsonc_strip "$CONFIG_FILE" \
       | jq "(.data_pools[$i].disks // []) | length")"
-    if ! reason="$(_zfs_validate_pool_topology "$dtopo" "$ddc")"; then
+    # Filesystem-aware: a non-zfs pool carries a native topology (e.g. btrfs
+    # raid1) the zfs vdev validator doesn't know; its validity is gated by
+    # validation.sh, so the dispatch passes it through here (ADR 0043).
+    local dfs
+    dfs="$(install_config_data_pool_filesystem "$i")"
+    if ! reason="$(_data_pool_topology_ok "$dfs" "$dtopo" "$ddc")"; then
       error "Data pool '${dname}': ${reason}"
     fi
     _layout_validate_owners "Data pool '${dname}'" \
