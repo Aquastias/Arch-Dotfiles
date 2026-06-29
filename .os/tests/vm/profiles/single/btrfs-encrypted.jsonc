@@ -1,0 +1,41 @@
+// VM test (ADR 0043, issue 07): an encrypted btrfs root (LUKS). Same subvolume
+// layout as the plaintext btrfs root; the LUKS root container is opened as
+// cryptroot and the @ subvol mounts inside the mapper. The non-guided harness
+// presets INSTALL_ENC_PASSPHRASE='testtest', so the install runs unattended;
+// the *boot* passphrase prompt is HITL (encrypted roots can't headless
+// boot-verify) — run install-only (no --verify-boot) to confirm
+// INSTALLER-EXIT-0, then boot the disk by hand and type `testtest`. Exercises:
+// luksFormat/open the root, encrypted ROOT_CMDLINE
+// (cryptdevice=…:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@) +
+// HOOKS (encrypt), random-key swap via crypttab, the subvolume layout on the
+// mapper, and the FS-agnostic boot path.
+{
+  "name": "arch-zfs-test-single-btrfs-enc",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs-enc",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": true,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}
