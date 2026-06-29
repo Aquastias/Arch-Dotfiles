@@ -73,24 +73,29 @@ and the break-control deletes the `@etc@blank` subvol (subvolid=5 at /mnt), so t
 automated two-boot `verify.rollback` test + its hook-fault negative control work on
 btrfs. 1598 bats 0 fail.
 
-Profile ADDED: `tests/vm/profiles/impermanence/btrfs.jsonc` (single-disk btrfs,
-plaintext, `verify.rollback:true`). `vm.sh` auto-derives `VM_ROLLBACK_FS` from
-`install.filesystem`, so the baseline run needs no env override. Profile resolves
-to a config passing `_validation_{filesystem,group_filesystems,impermanence}`.
+Profiles ADDED (all resolve to configs passing `_validation_{filesystem,
+group_filesystems,impermanence}`):
+- `tests/vm/profiles/impermanence/btrfs.jsonc` — single, plaintext, verify.rollback.
+- `tests/vm/profiles/impermanence/btrfs-raid1.jsonc` — 2-disk raid1, plaintext,
+  verify.rollback. Harness `btrfs device scan`s before the live-ISO seed mount so
+  the raid assembles.
+- `tests/vm/profiles/impermanence/btrfs-encrypted.jsonc` — single, LUKS,
+  INSTALL-ONLY (encrypted roots can't headless boot-verify — rollback HITL).
+`vm.sh` auto-derives `VM_ROLLBACK_FS` from `install.filesystem` (no env override).
 
 REMAINING (HITL — only open AC): run the live two-boot reboot test:
 - baseline: `vm.sh -t tests/vm/profiles/impermanence/btrfs.jsonc --recreate`
   → boot2 emits `===FIRSTBOOT-OK===` (rollback reverted /root probe, /persist flag
-  survived).
+  survived). Same for `btrfs-raid1.jsonc`.
 - assertion control: same + `VM_ROLLBACK_PROBE_DIR=/persist` → probe survives →
   no marker → host RED (proves non-vacuous).
 - hook-fault control: same + `VM_ROLLBACK_BREAK_BLANK=true` → boot1 deletes
   `@etc@blank` → boot2 hook fails closed (emergency shell) → RED.
-Then a raid variant (mirror the `single/btrfs-raid1.jsonc` layout into an
-impermanence profile) + encrypted-single (HITL, passphrase like the other enc
-profiles; enc-multi blocked, issue 07). Mirrors the ZFS 4-VM validation
-(`87b08f6`). Agent env can't `git push` (~/.ssh denied) — USER pushes; VMs via
-`git daemon` + `REPO_URL=git://192.168.122.1/.dotfiles`.
+- encrypted-single (`btrfs-encrypted.jsonc`): install-only → INSTALLER-EXIT-0,
+  then boot by hand (`testtest`), manually do the two-boot probe/persist check.
+Mirrors the ZFS 4-VM validation (`87b08f6`); enc-multi blocked (issue 07). Agent
+env can't `git push` (~/.ssh denied) — USER pushes; VMs via `git daemon` +
+`REPO_URL=git://192.168.122.1/.dotfiles`.
 
 ## Blocked by
 
