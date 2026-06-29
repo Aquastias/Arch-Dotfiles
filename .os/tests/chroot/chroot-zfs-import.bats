@@ -125,3 +125,34 @@ UNIT
   grep -q '^Before=zfs-mount.service' "$u"
   grep -q '^WantedBy=zfs-mount.service' "$u"
 }
+
+# ── zfs_write_list_cache (zfs-mount-generator cache, correct columns) ─────────
+# The generator parses each cache line positionally with the OpenZFS cacher's
+# exact -o property set. The repo's old 8-column set was MISALIGNED (`readonly`
+# where the generator expects `devices`), so the generator bailed (exit 1). The
+# writer must emit the canonical 20-column order (12 real props + 8
+# org.openzfs.systemd:* user-props).
+
+CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encroot,keylocation,org.openzfs.systemd:requires,org.openzfs.systemd:requires-mounts-for,org.openzfs.systemd:before,org.openzfs.systemd:after,org.openzfs.systemd:wanted-by,org.openzfs.systemd:required-by,org.openzfs.systemd:nofail,org.openzfs.systemd:ignore'
+
+@test "list_cache: passes zfs the canonical 20-column -o property set" {
+  local dir="$BATS_TEST_TMPDIR/cache"
+  # Stub zfs: record the -o argument, emit a fake cache line to stdout.
+  zfs() {
+    local prev=""
+    for a in "$@"; do
+      [[ "$prev" == "-o" ]] && printf '%s' "$a" > "$BATS_TEST_TMPDIR/cols"
+      prev="$a"
+    done
+    printf 'rpool\t/\toff\n'
+  }
+  zfs_write_list_cache rpool "$dir"
+  [ "$(cat "$BATS_TEST_TMPDIR/cols")" = "$CANON_COLS" ]
+}
+
+@test "list_cache: writes the cache file named for the pool" {
+  local dir="$BATS_TEST_TMPDIR/cache"
+  zfs() { printf 'rpool\t/\toff\n'; }
+  zfs_write_list_cache rpool "$dir"
+  [ -f "$dir/rpool" ]
+}
