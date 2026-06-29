@@ -68,7 +68,13 @@ _flow_render_user_data() {
 
   local boot_block=""
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
-    if [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
+    if [[ "${VM_VERIFY_ROLLBACK:-false}" == "true" ]]; then
+      # Impermanence rollback proof (ADR 0044): a stateful two-boot sentinel.
+      # VM_ROLLBACK_PROBE_DIR overrides the probe path for the negative control
+      # (/persist = a survivor, so the probe persists → host RED).
+      boot_block="$(_seed_generator_rollback_firstboot_block \
+        "${VM_ROLLBACK_PROBE_DIR:-/root}")"
+    elif [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
       boot_block="$(_seed_generator_esp_resilience_firstboot_block)"
     elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then
       boot_block="$(_seed_generator_multi_firstboot_block \
