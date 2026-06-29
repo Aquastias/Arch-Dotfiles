@@ -22,6 +22,7 @@ valid_state() {
   "keymap": "us", "keymaps": ["us"],
   "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
+  "filesystem": "zfs",
   "ssh": { "enabled": false },
   "rpool": "rpool",
   "root_cmdline": "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
@@ -53,6 +54,17 @@ set_field() {
   valid_state
   install_state_load "$STATE"
   [ "$HOSTNAME" = "h" ]
+}
+
+# ── root filesystem (issue 08) ───────────────────────────────────────────────
+# The Chroot Configuration Modules are filesystem-blind; the only discriminator
+# they get is .filesystem, which impermanence dispatches on (zfs vs btrfs).
+
+@test "install_state_load: sets FILESYSTEM from .filesystem" {
+  valid_state
+  set_field '.filesystem' '"btrfs"'
+  install_state_load "$STATE"
+  [ "$FILESYSTEM" = "btrfs" ]
 }
 
 # ── install_state_load: array ────────────────────────────────────────────────
@@ -126,6 +138,13 @@ set_field() {
   [ "$SSH_ENABLED" = "false" ]
 }
 
+@test "install_state_write: emits .filesystem from install_config_filesystem" {
+  setup_writer_globals
+  MOCK_FILESYSTEM="btrfs"
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r .filesystem "$STATE")" = "btrfs" ]
+}
+
 @test "install_state_write: emits .ssh.enabled as a boolean" {
   setup_writer_globals
   install_state_write "$STATE" "host-a"
@@ -179,6 +198,7 @@ setup_writer_globals() {
   install_config_keymaps()              { echo "us"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
+  install_config_filesystem()           { echo "${MOCK_FILESYSTEM:-zfs}"; }
   install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
   install_config_zswap_enabled()        { echo "true"; }
@@ -284,6 +304,7 @@ setup_writer_globals() {
   [ "$KEYMAP"               = "us" ]
   [ "$KERNEL"               = "lts" ]
   [ "$BOOTLOADER"           = "systemd-boot" ]
+  [ "$FILESYSTEM"           = "zfs" ]
   [ "$RPOOL"                = "rpool" ]
   [ "$ROOT_CMDLINE"         = \
     "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id" ]

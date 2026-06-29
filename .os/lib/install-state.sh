@@ -23,6 +23,7 @@ _INSTALL_STATE_SCHEMA=(
   "KERNEL|.kernel|scalar"
   "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
+  "FILESYSTEM|.filesystem|scalar"
   "RPOOL|.rpool|scalar"
   "ROOT_CMDLINE|.root_cmdline|scalar"
   "HOOKS|.hooks|scalar"
@@ -96,6 +97,7 @@ install_state_write() {
     --arg     kernel      "$(install_config_kernel)"                 \
     --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
+    --arg     filesystem  "$(install_config_filesystem)"             \
     --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
     --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                    \
     --arg     hooks       "$LAYOUT_HOOKS"                            \
@@ -115,6 +117,7 @@ install_state_write() {
       keymap:$keymap, keymaps:$keymaps,
       kernel:$kernel, kernels:$kernels,
       bootloader:$bootloader,
+      filesystem:$filesystem,
       ssh:          { enabled:$ssh_enabled },
       rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
       swap:$swap,
