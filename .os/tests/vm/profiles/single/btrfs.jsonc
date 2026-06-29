@@ -1,0 +1,41 @@
+// VM test (ADR 0043, issue 07): a pure btrfs root — no ZFS anywhere. Plaintext,
+// single disk, swap partition, no desktop (a fast boot-verify). The btrfs Root
+// Adapter reuses the shared non-ZFS root spine (ESP + swap + root, optional
+// LUKS) but lays out subvolumes (@/@home/@log/@pkg/@snapshots) and boots @ via
+// root=UUID + rootflags=subvol=@. verify.fs_mounts asserts the nested subvols
+// actually mount on the installed system (findmnt: /home, /var/log,
+// /.snapshots are separate btrfs subvolumes). Impermanence is issue 08 — not here.
+{
+  "name": "arch-zfs-test-single-btrfs",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  },
+  "verify": {
+    "boot":      true,
+    "fs_mounts": ["/home", "/var/log", "/.snapshots"]
+  }
+}

@@ -201,6 +201,36 @@ layout_partition() {
   _layout_exit_phase partition
 }
 
+# Resolve the swap fstab tail + crypttab for the already-resolved swap device.
+# Sets two globals (NOT returned via $() — command substitution would trap them
+# in a subshell): _NZROOT_SWAP_FSTAB (the `\n\n# swap…` tail, "" when no swap)
+# and LAYOUT_CRYPTTAB (the cryptswap line, "" unless encrypted swap). Shared by
+# the ext4/xfs spine and the btrfs override. Disk-touching (mkswap/blkid).
+# Encrypted swap is a random-key dm-crypt re-keyed each boot (hibernate out of
+# scope); the raw partition stays unformatted (crypttab's `swap` option formats
+# it at boot, PARTUUID stable across re-key). Plaintext swap is mkswap'd + by-UUID.
+_nzroot_swap_tail() {
+  local enc="$1"
+  _NZROOT_SWAP_FSTAB=""
+  # shellcheck disable=SC2034 # consumed by write_crypttab (chroot.sh)
+  LAYOUT_CRYPTTAB=""
+  if [[ "$enc" == "encrypted" ]]; then
+    [[ -n "$_LAYOUT_IMPL_SWAP_PART" ]] || return 0
+    local swap_partuuid
+    swap_partuuid="$(blkid -s PARTUUID -o value "$_LAYOUT_IMPL_SWAP_PART")"
+    LAYOUT_CRYPTTAB="cryptswap  PARTUUID=${swap_partuuid}  /dev/urandom"
+    LAYOUT_CRYPTTAB+="  swap,cipher=aes-xts-plain64,size=256"
+    _NZROOT_SWAP_FSTAB=$'\n\n'"# swap (encrypted, random key)"
+    _NZROOT_SWAP_FSTAB+=$'\n'"/dev/mapper/cryptswap  none  swap  defaults  0 0"
+  else
+    [[ -n "$_LAYOUT_IMPL_SWAP_DEV" ]] || return 0
+    mkswap "$_LAYOUT_IMPL_SWAP_DEV"
+    local swap_uuid
+    swap_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_SWAP_DEV")"
+    _NZROOT_SWAP_FSTAB=$'\n\n'"# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"
+  fi
+}
+
 # The "create" seam verb: format the root with the leaf's mkfs, make swap, mount
 # the root at MOUNT_ROOT (so pacstrap installs into it), and — now the UUIDs
 # exist — publish the root cmdline + the fstab root/swap lines.
@@ -215,7 +245,7 @@ layout_create_pools() {
   modprobe "$fstype" 2>/dev/null || true
   mount "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
 
-  local enc extra crypttab=""
+  local enc extra
   enc="$(_nzroot_enc_mode)"
   if [[ "$enc" == "encrypted" ]]; then
     # Boot by the LUKS container UUID; the root fs lives inside the mapper, so
@@ -223,34 +253,19 @@ layout_create_pools() {
     # shellcheck disable=SC2034 # consumed by install_state_write
     LAYOUT_ROOT_CMDLINE="$(nonzfs_root_cmdline "$_LAYOUT_IMPL_LUKS_ROOT_UUID" encrypted)"
     extra="# root"$'\n'"/dev/mapper/cryptroot  /  ${fstype}  rw,relatime  0 1"
-    if [[ -n "$_LAYOUT_IMPL_SWAP_PART" ]]; then
-      # Encrypted swap: random-key dm-crypt, re-keyed each boot (hibernate is out
-      # of scope). The raw partition is left unformatted — crypttab's `swap`
-      # option formats it at boot. PARTUUID is stable across the re-key.
-      local swap_partuuid
-      swap_partuuid="$(blkid -s PARTUUID -o value "$_LAYOUT_IMPL_SWAP_PART")"
-      crypttab="cryptswap  PARTUUID=${swap_partuuid}  /dev/urandom"
-      crypttab+="  swap,cipher=aes-xts-plain64,size=256"
-      extra+=$'\n\n'"# swap (encrypted, random key)"
-      extra+=$'\n'"/dev/mapper/cryptswap  none  swap  defaults  0 0"
-    fi
   else
     local root_uuid
     root_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_ROOT_DEV")"
     # shellcheck disable=SC2034 # consumed by install_state_write
     LAYOUT_ROOT_CMDLINE="$(nonzfs_root_cmdline "$root_uuid")"
     extra="# root"$'\n'"UUID=${root_uuid}  /  ${fstype}  rw,relatime  0 1"
-    if [[ -n "$_LAYOUT_IMPL_SWAP_DEV" ]]; then
-      mkswap "$_LAYOUT_IMPL_SWAP_DEV"
-      local swap_uuid
-      swap_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_SWAP_DEV")"
-      extra+=$'\n\n'"# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"
-    fi
   fi
+  # Append the swap fstab tail + set LAYOUT_CRYPTTAB (shared with the btrfs
+  # override; sets globals so command substitution can't trap them in a subshell).
+  _nzroot_swap_tail "$enc"
+  extra+="$_NZROOT_SWAP_FSTAB"
   # shellcheck disable=SC2034 # consumed by write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
-  # shellcheck disable=SC2034 # consumed by write_crypttab (chroot.sh)
-  LAYOUT_CRYPTTAB="$crypttab"
   info "${fstype} root formatted + mounted at $MOUNT_ROOT"
   _layout_exit_phase pools
 }

@@ -52,10 +52,16 @@ setup() {
   [ "$output" = "/os/lib/layout/xfs/single.sh" ]
 }
 
-@test "root_adapter_source: an unbuilt filesystem errors, naming it" {
+@test "root_adapter_source: btrfs single resolves to lib/layout/btrfs/single.sh" {
   run root_adapter_source /os btrfs single
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/btrfs/single.sh" ]
+}
+
+@test "root_adapter_source: an unbuilt filesystem errors, naming it" {
+  run root_adapter_source /os reiserfs single
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "btrfs" ]]
+  [[ "$output" =~ "reiserfs" ]]
 }
 
 # ── data_formatter_source: filesystem → the Data Group Formatter (no mode) ───
