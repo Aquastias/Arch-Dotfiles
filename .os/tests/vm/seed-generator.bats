@@ -167,6 +167,20 @@ teardown() {
   [[ ! "$output" =~ "===EXTRAS-OK===" ]]
 }
 
+@test "firstboot block: a btrfs root mounts subvol=@ to inject the sentinel" {
+  # A btrfs root keeps the OS in subvol @ (ADR 0043, issue 07). The injector
+  # must mount @ — mounting the top-level subvol by partlabel would write the
+  # sentinel unit where /etc doesn't exist, so it never fires and boot-verify
+  # times out. The rendered runcmd detects btrfs at guest runtime (blkid) and
+  # adds subvol=@; ext4/xfs (no subvol) keep the bare partlabel mount.
+  run _seed_generator_firstboot_block ""
+  [ "$status" -eq 0 ]
+  # runtime btrfs detection (blkid) gates the subvol=@ mount of the partlabel
+  [[ "$output" =~ "blkid" ]]
+  [[ "$output" =~ "= btrfs" ]]
+  [[ "$output" =~ "mount -o subvol=@ /dev/disk/by-partlabel/root /mnt" ]]
+}
+
 @test "verify-boot on: first-boot unit dumps zfs-import service deps to serial" {
   # AC #1 (boot-import-strategy/01): prove the booted system's zfs-import
   # services no longer require systemd-udev-settle. The sentinel dumps their

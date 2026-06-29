@@ -112,6 +112,10 @@ _seed_generator_firstboot_block() {
       # the Root Layout Adapter set (ADR 0043).
       if zpool import -f -N -R /mnt rpool 2>/dev/null; then
         zfs mount rpool/ROOT/arch || true; _vroot=zfs
+      elif [ "\$(blkid -o value -s TYPE /dev/disk/by-partlabel/root)" = btrfs ]; then
+        # A btrfs root keeps the OS in subvol @ (ADR 0043); mount that, not the
+        # top-level subvol, or the sentinel unit lands where /etc doesn't exist.
+        mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
       else
         mount /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
       fi
