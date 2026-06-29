@@ -1,0 +1,51 @@
+// VM test (issue 08, ADR 0044): btrfs root impermanence — single disk, plaintext.
+// The curated rollback SUBVOLS (@etc/@root/@opt/@srv/@usrlocal) revert to their
+// @blank on every boot via the btrfs-rollback initramfs hook; /persist (a plain
+// dir on the never-rolled-back @) holds curated state. verify.rollback drives the
+// stateful two-boot sentinel (boot1 writes a probe to /root + a phase flag to
+// /persist, reboots; boot2 asserts the probe is GONE and the flag SURVIVED). The
+// harness auto-selects btrfs rollback mechanics from install.filesystem, so the
+// break-control deletes @etc@blank (no env override needed). No desktop = fast.
+//
+// Negative controls (run the same profile with an env override):
+//   VM_ROLLBACK_PROBE_DIR=/persist  → probe survives → no marker → host RED
+//   VM_ROLLBACK_BREAK_BLANK=true    → boot1 deletes @etc@blank → boot2 hook fails
+//                                     closed (emergency shell) → no marker → RED
+{
+  "name": "arch-zfs-test-btrfs-impermanent",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs-imp",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G",
+      "impermanence": {
+        "enabled": true,
+        "mount":   "/persist"
+      }
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  },
+  "verify": {
+    "boot":     true,
+    "rollback": true
+  }
+}
