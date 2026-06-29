@@ -222,18 +222,30 @@ BLOCK
 # not vacuous. The unit + its wants symlink live under /usr/lib/systemd/system
 # (the root dataset, never rolled back — [[impermanence-service-enable]]) so they
 # survive BOTH boots; phase 2 self-disables. Test-only — never production.
-# Args: [probe_dir] (default /root) [break_blank] (default false). With
-# break_blank=true, boot1 also destroys a @blank snapshot so boot2's initramfs
-# rollback hook fails closed (missing @blank → emergency shell) → no marker →
-# host RED: the hook-level fault control proving a REAL broken rollback can't
-# false-PASS. Paths carry no spaces (no quoting needed in the single-quoted
-# ExecStart printf arg).
+# Args: [probe_dir] (default /root) [break_blank] (default false) [filesystem]
+# (default zfs). With break_blank=true, boot1 also destroys the @blank for the
+# /etc rollback container so boot2's initramfs rollback hook fails closed (missing
+# @blank → emergency shell) → no marker → host RED: the hook-level fault control
+# proving a REAL broken rollback can't false-PASS. On btrfs the container is a
+# subvolume, so the break deletes the top-level @etc@blank subvol (mounted
+# subvolid=5 at /mnt) instead of `zfs destroy`. The seed step that drops the
+# sentinel unit also goes FS-conditional: zfs imports rpool, btrfs mounts subvol=@
+# from the GPT partlabel 'root' (plaintext rollback VMs only). Paths carry no
+# spaces (no quoting needed in the single-quoted ExecStart printf arg).
 _seed_generator_rollback_firstboot_block() {
-  local probe_dir="${1:-/root}" break_blank="${2:-false}"
+  local probe_dir="${1:-/root}" break_blank="${2:-false}" filesystem="${3:-zfs}"
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
   local break_step=""
-  [[ "$break_blank" == "true" ]] \
-    && break_step=" zfs destroy rpool/ROOT/etc@blank;"
+  if [[ "$break_blank" == "true" ]]; then
+    if [[ "$filesystem" == "btrfs" ]]; then
+      # /mnt is free on the booted system; mount the btrfs top-level there to
+      # reach @etc@blank, delete it, unmount.
+      break_step=" mount -o subvolid=5 /dev/disk/by-partlabel/root /mnt;"
+      break_step+=" btrfs subvolume delete /mnt/@etc@blank; umount /mnt;"
+    else
+      break_step=" zfs destroy rpool/ROOT/etc@blank;"
+    fi
+  fi
   local exec="if [ ! -e /persist/.rollback-phase ]; then"
   exec+=" mkdir -p ${probe_dir} /persist;"
   exec+=" : > ${probe_dir}/.rollback-probe; : > /persist/.rollback-phase; sync;"
@@ -244,16 +256,26 @@ _seed_generator_rollback_firstboot_block() {
   exec+=" then echo ${m} > /dev/ttyS0; fi;"
   exec+=" systemctl disable firstboot-ok.service;"
   exec+=" fi"
+  # The seed step mounts the installed root to drop the sentinel unit under
+  # /usr/lib (the never-rolled-back root subvol/dataset, survives both boots).
+  local mount_step unmount_step
+  if [[ "$filesystem" == "btrfs" ]]; then
+    mount_step="mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true"
+    unmount_step="umount -R /mnt || true"
+  else
+    mount_step="zpool import -f -N -R /mnt rpool || true
+      zfs mount rpool/ROOT/arch || true"
+    unmount_step="zfs umount -a || true
+      zpool export rpool || zpool export -f rpool || true"
+  fi
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
-      zpool import -f -N -R /mnt rpool || true
-      zfs mount rpool/ROOT/arch || true
+      ${mount_step}
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/usr/lib/systemd/system/multi-user.target.wants
       printf '%s\n' '[Unit]' 'Description=rollback-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/usr/lib/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/usr/lib/systemd/system/multi-user.target.wants/firstboot-ok.service
-      zfs umount -a || true
-      zpool export rpool || zpool export -f rpool || true
+      ${unmount_step}
     fi
 BLOCK
 }

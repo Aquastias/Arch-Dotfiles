@@ -301,6 +301,38 @@ teardown() {
   [[ "$output" != *"zfs destroy"* ]]
 }
 
+# btrfs FS variant (issue 08): the rollback containers are subvolumes, so the
+# fault control deletes a top-level @<name>@blank subvol instead of `zfs destroy`,
+# and the seed step mounts subvol=@ (no zpool import) to drop the sentinel unit.
+
+@test "rollback block: btrfs break deletes the @etc@blank subvol (not zfs)" {
+  run _seed_generator_rollback_firstboot_block /root true btrfs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"btrfs subvolume delete /mnt/@etc@blank"* ]]
+  [[ "$output" != *"zfs destroy"* ]]
+}
+
+@test "rollback block: btrfs default does NOT delete any @blank subvol" {
+  run _seed_generator_rollback_firstboot_block /root false btrfs
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"btrfs subvolume delete"* ]]
+}
+
+@test "rollback block: btrfs seeds the unit via subvol=@ mount, no zpool import" {
+  run _seed_generator_rollback_firstboot_block /root false btrfs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"subvol=@ /dev/disk/by-partlabel/root /mnt"* ]]
+  [[ "$output" == *"/usr/lib/systemd/system/firstboot-ok.service"* ]]
+  [[ "$output" != *"zpool import"* ]]
+}
+
+@test "rollback block: zfs (default fs) still mounts via zpool import" {
+  run _seed_generator_rollback_firstboot_block /root false
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"zpool import -f -N -R /mnt rpool"* ]]
+  [[ "$output" != *"btrfs subvolume delete"* ]]
+}
+
 @test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {
   run _seed_generator_multi_firstboot_block "rpool tank0" \
     "tank0/data:/data/tank0"
