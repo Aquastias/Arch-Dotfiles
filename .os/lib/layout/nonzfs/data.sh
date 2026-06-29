@@ -36,6 +36,20 @@ data_group_fstab_line() {
 # Pull one key=value field out of a datacrypt plan on stdin.
 _data_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
 
+# The dm-crypt mapper name for device <index> of a <total>-device encrypted data
+# group. A single-disk group keeps the bare crypt<name> (matching datacrypt's
+# single mapper — the verified path); a multi-disk group (only btrfs reaches >1,
+# the others are single-disk by validation) suffixes the index so its raid
+# assembles over distinct mappers crypt<name>0, crypt<name>1, …. Pure.
+data_group_mapper_name() {
+  local name="$1" index="$2" total="$3"
+  if ((total > 1)); then
+    printf 'crypt%s%s\n' "$name" "$index"
+  else
+    printf 'crypt%s\n' "$name"
+  fi
+}
+
 # Generate the group's 32-byte random keyfile at $abs (under the install root)
 # with 0600 perms. One primitive for every filesystem: LUKS takes it as a
 # keyslot, zfs as keyformat=raw.
@@ -66,10 +80,9 @@ data_group_create() {
   modprobe "$fs" 2>/dev/null || true
 
   local target src
-  if [[ "$encrypted" == "true" ]]; then
-    ((${#parts[@]} == 1)) ||
-      error "Encrypted ${fs} data group '${name}' must be single-disk" \
-            "(encrypted multi-disk is out of scope for this slice)."
+  local mkfs_inputs=()
+  if [[ "$encrypted" == "true" && ${#parts[@]} -eq 1 ]]; then
+    # ── single-disk encrypted (ext4/xfs/btrfs) — the verified path ──
     # keyfile path + mapper name are UUID-independent — read them up front so we
     # can format/open before the LUKS container UUID exists.
     local plan keyfile mapper
@@ -84,27 +97,51 @@ data_group_create() {
       --key-file "${MOUNT_ROOT}${keyfile}"
     target="/dev/mapper/${mapper}"
     src="$target"
+    mkfs_inputs=("$target")
 
     local uuid crypttab
     uuid="$(blkid -s UUID -o value "${parts[0]}")" # LUKS container UUID
     crypttab="$(data_group_crypto true "$fs" "$name" "$uuid" \
       | _data_plan_field crypttab)"
     LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${nl}}${crypttab}"
+  elif [[ "$encrypted" == "true" ]]; then
+    # ── multi-disk encrypted (btrfs raid over per-device LUKS mappers) ──
+    # ext4/xfs are single-disk by validation, so only a btrfs group lands here.
+    # One keyfile-on-root opens every device; each is wrapped as crypt<name><i>
+    # and the raid is built over the mappers. crypttab auto-opens each at boot.
+    [[ "$fs" == "btrfs" ]] \
+      || error "Encrypted multi-disk data group '${name}' needs btrfs (got ${fs})."
+    local keyfile i part mapper uuid crypttab
+    keyfile="$(data_group_crypto true "$fs" "$name" PENDING \
+      | _data_plan_field keyfile)"
+    _data_gen_keyfile "${MOUNT_ROOT}${keyfile}"
+    for i in "${!parts[@]}"; do
+      part="${parts[$i]}"
+      mapper="$(data_group_mapper_name "$name" "$i" "${#parts[@]}")"
+      cryptsetup luksFormat --type luks2 --batch-mode \
+        "$part" "${MOUNT_ROOT}${keyfile}"
+      cryptsetup open "$part" "$mapper" --key-file "${MOUNT_ROOT}${keyfile}"
+      mkfs_inputs+=("/dev/mapper/${mapper}")
+      uuid="$(blkid -s UUID -o value "$part")" # LUKS container UUID
+      crypttab="${mapper}  UUID=${uuid}  ${keyfile}  luks"
+      LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${nl}}${crypttab}"
+    done
+    target="${mkfs_inputs[0]}"
   else
+    # ── plaintext (single or multi-disk) ──
     target="${parts[0]}"
+    mkfs_inputs=("${parts[@]}")
   fi
 
   _DATA_TOPOLOGY="$topology"
-  if [[ "$encrypted" == "true" ]]; then
-    _data_mkfs "$target"
-  else
-    _data_mkfs "${parts[@]}"
-  fi
+  _data_mkfs "${mkfs_inputs[@]}"
 
   mkdir -p "${MOUNT_ROOT}${mount}"
   mount "$target" "${MOUNT_ROOT}${mount}"
 
-  if [[ "$encrypted" != "true" ]]; then
+  # A multi-disk btrfs (plaintext or encrypted) mounts by its single fs UUID;
+  # single-disk encrypted keeps its mapper src (set above, verified).
+  if [[ -z "${src:-}" ]]; then
     src="UUID=$(blkid -s UUID -o value "$target")"
   fi
   local fstab
