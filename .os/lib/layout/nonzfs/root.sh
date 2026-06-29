@@ -209,6 +209,10 @@ layout_create_pools() {
   local fstype; fstype="$(_root_fstype)"
   section "Formatting ${fstype} Root"
   _root_mkfs "$_LAYOUT_IMPL_ROOT_DEV"
+  # The live ISO ships the mkfs tools but may not have the fs kernel module
+  # loaded, so the freshly-formatted root can't be mounted here without it (ext4
+  # is built-in; xfs/btrfs are modules). Load it; harmless if built-in/loaded.
+  modprobe "$fstype" 2>/dev/null || true
   mount "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
 
   local enc extra crypttab=""
