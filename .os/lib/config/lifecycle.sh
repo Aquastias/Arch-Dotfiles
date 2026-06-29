@@ -150,6 +150,22 @@ print_summary() {
     local op
     op="$(cfg '.os_pool.pool_name')"
     echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
+
+    # The detailed multi summary below reads the ZFS multi adapter's internal
+    # state (topology / storage groups / standalone pools). A non-ZFS (btrfs)
+    # multi root has none of that — print a simple topology + disk list instead.
+    if [[ "$(install_config_filesystem)" != "zfs" ]]; then
+      local _nztopo
+      _nztopo="$(cfgo '.os_pool.topology')"
+      [[ -z "$_nztopo" ]] && _nztopo=single
+      echo -e "  ${BOLD}Root: $(install_config_filesystem) (${_nztopo})${NC}"
+      local d
+      while IFS= read -r d; do
+        local s
+        s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
+        printf "    %s  (%s)\n" "$d" "$s"
+      done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+    else
     echo -e "  ${BOLD}OS pool: ${op}${NC}" \
             " topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
 
@@ -198,6 +214,7 @@ print_summary() {
           "${_LAYOUT_IMPL_DATA_POOL_TOPO[$dpn]}"
       done
     fi
+    fi # zfs vs non-zfs multi summary
   fi
 
   # Packages
