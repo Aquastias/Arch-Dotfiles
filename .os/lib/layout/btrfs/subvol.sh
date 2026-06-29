@@ -30,3 +30,34 @@ btrfs_subvol_fstab_line() {
   local src="$1" mount="$2" subvol="$3"
   printf '%s  %s  btrfs  rw,relatime,subvol=%s  0 0\n' "$src" "$mount" "$subvol"
 }
+
+# The full fstab block for the root subvolume layout: one line per subvol off the
+# shared mount <src> (`UUID=…` plaintext / `/dev/mapper/cryptroot` encrypted),
+# @ → / first. Shared by the single- and multi-disk btrfs adapters so both emit
+# identical fstab from the one layout. Pure.
+btrfs_root_fstab() {
+  local src="$1" subvol mnt out=""
+  while read -r subvol mnt; do
+    out+="${out:+$'\n'}$(btrfs_subvol_fstab_line "$src" "$mnt" "$subvol")"
+  done < <(btrfs_root_subvols)
+  printf '%s\n' "$out"
+}
+
+# Disk-touching: create the root subvolume layout on the formatted btrfs <root_dev>
+# (single device or an assembled raid), then mount @ as the install root with the
+# nested subvols at their mountpoints underneath. Shared by the single- and
+# multi-disk btrfs adapters. Requires MOUNT_ROOT + btrfs-progs; VM-gated.
+_btrfs_create_and_mount_subvols() {
+  local root_dev="$1" subvol mnt
+  mount "$root_dev" "$MOUNT_ROOT"
+  while read -r subvol mnt; do
+    btrfs subvolume create "${MOUNT_ROOT}/${subvol}"
+  done < <(btrfs_root_subvols)
+  umount "$MOUNT_ROOT"
+  mount -o subvol=@ "$root_dev" "$MOUNT_ROOT"
+  while read -r subvol mnt; do
+    [[ "$subvol" == "@" ]] && continue
+    mkdir -p "${MOUNT_ROOT}${mnt}"
+    mount -o "subvol=${subvol}" "$root_dev" "${MOUNT_ROOT}${mnt}"
+  done < <(btrfs_root_subvols)
+}

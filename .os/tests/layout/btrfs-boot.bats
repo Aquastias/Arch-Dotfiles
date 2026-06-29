@@ -29,3 +29,28 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "cryptdevice=UUID=1234-ABCD:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@" ]
 }
+
+# ── HOOKS: single-disk btrfs needs no btrfs scan hook (shared nonzfs hooks) ───
+
+@test "btrfs_hooks: single-disk omits the btrfs scan hook" {
+  run btrfs_hooks
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "filesystems" ]]
+  [[ ! "$output" =~ "btrfs" ]]
+}
+
+# ── HOOKS: multi-disk btrfs adds the `btrfs` scan hook before `filesystems` ───
+# A multi-device btrfs root must run `btrfs device scan` in the initramfs so the
+# raid assembles before the root is mounted.
+
+@test "btrfs_hooks: multi-disk inserts btrfs before filesystems" {
+  run btrfs_hooks "" multi
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^(.*)block(.*)btrfs(.*)filesystems(.*)$ ]]
+}
+
+@test "btrfs_hooks: encrypted multi keeps encrypt then btrfs then filesystems" {
+  run btrfs_hooks encrypted multi
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^(.*)encrypt(.*)btrfs(.*)filesystems(.*)$ ]]
+}

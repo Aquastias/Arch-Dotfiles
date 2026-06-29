@@ -58,6 +58,12 @@ setup() {
   [ "$output" = "/os/lib/layout/btrfs/single.sh" ]
 }
 
+@test "root_adapter_source: btrfs multi resolves to lib/layout/btrfs/multi.sh" {
+  run root_adapter_source /os btrfs multi
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/btrfs/multi.sh" ]
+}
+
 @test "root_adapter_source: an unbuilt filesystem errors, naming it" {
   run root_adapter_source /os reiserfs single
   [ "$status" -ne 0 ]

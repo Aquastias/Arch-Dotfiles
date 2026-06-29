@@ -22,3 +22,15 @@ btrfs_root_cmdline() {
   printf '%s rootflags=subvol=%s\n' \
     "$(nonzfs_root_cmdline "$uuid" "$encrypted")" "$subvol"
 }
+
+# mkinitcpio HOOKS for a btrfs root. A single-disk btrfs root mounts with the
+# shared fs-blind hooks (no scan needed). A multi-disk (raid) root must run
+# `btrfs device scan` in the initramfs so every member is registered before the
+# root mounts, so the `btrfs` hook is inserted just before `filesystems` (after
+# `encrypt` when the root is also LUKS). No btrfs-rollback hook yet (issue 08).
+btrfs_hooks() {
+  local encrypted="${1:-}" multi="${2:-}" hooks
+  hooks="$(nonzfs_hooks "$encrypted")"
+  [[ "$multi" == "multi" ]] && hooks="${hooks/ filesystems/ btrfs filesystems}"
+  printf '%s\n' "$hooks"
+}

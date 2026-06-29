@@ -45,3 +45,17 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "/dev/mapper/cryptroot  /home  btrfs  rw,relatime,subvol=@home  0 0" ]
 }
+
+# ── the whole fstab block: one line per subvol off the shared mount source ────
+# Shared by the single- and multi-disk btrfs adapters so they emit identical
+# fstab from the one subvol layout. All lines carry the same <src> (the subvols
+# share the one btrfs filesystem); @ → / leads.
+
+@test "btrfs_root_fstab: one line per subvol, @ → / first, shared src" {
+  run btrfs_root_fstab "UUID=DEAD-BEEF"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "UUID=DEAD-BEEF  /  btrfs  rw,relatime,subvol=@  0 0" ]
+  [ "${#lines[@]}" -eq 5 ]
+  [[ "$output" =~ "UUID=DEAD-BEEF  /var/log  btrfs  rw,relatime,subvol=@log  0 0" ]]
+  [[ "$output" =~ "UUID=DEAD-BEEF  /.snapshots  btrfs  rw,relatime,subvol=@snapshots  0 0" ]]
+}
