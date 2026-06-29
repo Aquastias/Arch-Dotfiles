@@ -1,6 +1,6 @@
 # 06 — xfs root
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
