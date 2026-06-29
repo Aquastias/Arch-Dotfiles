@@ -1,6 +1,6 @@
 # 07 — btrfs root boots (no impermanence yet)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
