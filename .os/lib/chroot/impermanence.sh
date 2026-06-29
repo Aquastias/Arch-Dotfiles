@@ -137,7 +137,16 @@ _impermanence_write_bootstrap() {
   done
 }
 
-_impermanence_snapshot_blank() {
+# Resolve the device backing the btrfs root (/), stripping findmnt's
+# `[/subvol]` suffix. Handles plaintext (the bare partition by UUID) and
+# encrypted (/dev/mapper/cryptroot) uniformly. Used by the btrfs FS-layer to
+# reach the top-level for subvolume snapshot/rollback.
+_imp_btrfs_root_dev() {
+  findmnt -nro SOURCE --target "${ROOT:-/}" | sed 's/\[[^]]*\]$//'
+}
+
+# ZFS @blank: a namespace snapshot per Rollback Dataset, no mount needed.
+_impermanence_snapshot_blank_zfs() {
   local entry suffix
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
@@ -145,7 +154,45 @@ _impermanence_snapshot_blank() {
   done
 }
 
+# btrfs @blank: mount the top-level (subvolid=5) and take a read-only snapshot
+# of each rollback subvol to a sibling `@<name>@blank` (ADR 0044). The boot
+# rollback hook recreates @<name> from this. A subvolume snapshot needs both
+# paths on a mounted btrfs, so the top-level mount is unavoidable here.
+_impermanence_snapshot_blank_btrfs() {
+  local top dev entry suffix
+  dev="$(_imp_btrfs_root_dev)"
+  top="$(mktemp -d)"
+  mount -o subvolid=5 "$dev" "$top"
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    btrfs subvolume snapshot -r "$top/@$suffix" "$top/@$suffix@blank"
+  done
+  umount "$top"
+  rmdir "$top"
+}
+
+# FS-conditional @blank (ADR 0044): swap the snapshot primitive, nothing else.
+_impermanence_snapshot_blank() {
+  if [[ "${FILESYSTEM:-zfs}" == "btrfs" ]]; then
+    _impermanence_snapshot_blank_btrfs
+  else
+    _impermanence_snapshot_blank_zfs
+  fi
+}
+
+# FS-conditional rollback hook (ADR 0044): write the zfs-rollback or the
+# btrfs-rollback initramfs hook. Both honour the same contract — roll every
+# curated path back to its @blank on boot, failing closed to an emergency shell
+# on a missing @blank. The HOOKS list (the Root Adapter) names the matching hook.
 _impermanence_write_rollback_hook() {
+  if [[ "${FILESYSTEM:-zfs}" == "btrfs" ]]; then
+    _impermanence_write_rollback_hook_btrfs
+  else
+    _impermanence_write_rollback_hook_zfs
+  fi
+}
+
+_impermanence_write_rollback_hook_zfs() {
   local idir="${ROOT:-}/usr/lib/initcpio/install"
   local hdir="${ROOT:-}/usr/lib/initcpio/hooks"
   mkdir -p "$idir" "$hdir"
@@ -190,7 +237,75 @@ run_latehook() {
 HOOK
 }
 
+_impermanence_write_rollback_hook_btrfs() {
+  local idir="${ROOT:-}/usr/lib/initcpio/install"
+  local hdir="${ROOT:-}/usr/lib/initcpio/hooks"
+  mkdir -p "$idir" "$hdir"
+
+  cat > "$idir/btrfs-rollback" <<'INSTALL'
+#!/bin/bash
+build() {
+  add_runscript
+}
+help() {
+  cat <<HELP
+Rolls back curated btrfs subvolumes to their @blank on every boot. Fails
+closed to an emergency shell if any @blank snapshot is missing.
+HELP
+}
+INSTALL
+
+  # Bake the rollback subvol list into the runtime hook.
+  local entry suffix sv_list=""
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    sv_list+="@$suffix "
+  done
+  sv_list="${sv_list% }"
+
+  # run_hook (not latehook): reset the subvols on the btrfs top-level before
+  # `filesystems` pivots into the root. The kernel root= device is resolved with
+  # the stock initcpio resolve_device/getarg helpers (handles UUID= plaintext and
+  # the /dev/mapper/cryptroot the encrypt hook already opened). A read-only
+  # @<name>@blank snapshotted back to @<name> yields a fresh writable subvol.
+  cat > "$hdir/btrfs-rollback" <<HOOK
+#!/usr/bin/ash
+run_hook() {
+  local subvols="$sv_list"
+  local dev top sv
+  dev="\$(resolve_device "\$(getarg root)")"
+  top="/btrfs-rollback-top"
+  mkdir -p "\$top"
+  if ! mount -t btrfs -o subvolid=5 "\$dev" "\$top"; then
+    err "impermanence: cannot mount btrfs top-level \$dev"
+    launch_interactive_shell
+  fi
+  for sv in \$subvols; do
+    if [ ! -e "\$top/\${sv}@blank" ]; then
+      err "impermanence: @blank snapshot missing for \${sv}"
+      launch_interactive_shell
+    fi
+    btrfs subvolume delete "\$top/\$sv"
+    btrfs subvolume snapshot "\$top/\${sv}@blank" "\$top/\$sv"
+  done
+  umount "\$top"
+}
+HOOK
+}
+
+# FS-conditional PostTransaction resnapshot helper (ADR 0044). The pacman .hook
+# is reused verbatim; only the script it execs differs — zfs destroys+snapshots
+# each dataset @blank, btrfs deletes+re-snapshots each subvol @blank over the
+# top-level mount.
 _impermanence_write_resnapshot_helper() {
+  if [[ "${FILESYSTEM:-zfs}" == "btrfs" ]]; then
+    _impermanence_write_resnapshot_helper_btrfs
+  else
+    _impermanence_write_resnapshot_helper_zfs
+  fi
+}
+
+_impermanence_write_resnapshot_helper_zfs() {
   local dir="${ROOT:-}/usr/lib/impermanence"
   local f="$dir/resnapshot.sh"
   local entry suffix ds_list=""
@@ -223,6 +338,51 @@ for ds in \$datasets; do
     logger -t impermanence "FAILED snapshot \${ds}@blank"
   fi
 done
+HELPER
+  chmod 0755 "$f"
+}
+
+_impermanence_write_resnapshot_helper_btrfs() {
+  local dir="${ROOT:-}/usr/lib/impermanence"
+  local f="$dir/resnapshot.sh"
+  local entry suffix sv_list=""
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    sv_list+="@$suffix "
+  done
+  sv_list="${sv_list% }"
+  mkdir -p "$dir"
+  cat > "$f" <<HELPER
+#!/usr/bin/env bash
+# Re-snapshot @blank on every rollback subvol after a pacman transaction.
+# Idempotent: a missing @blank (delete error) is ignored; the snapshot then
+# creates it fresh. Errors are logged but never abort — pacman has already
+# succeeded by the time this hook fires. Operates over the btrfs top-level
+# (subvolid=5), so it resolves the live root device and mounts it transiently.
+#
+# v1 leak: this script runs PostTransaction only. User edits to non-persisted
+# paths made before a pacman run get baked into the new @blank and survive one
+# extra reboot. The fix is a pre-transaction strict-mode hook with
+# 'os impermanence diff/accept-drift/revert-drift' verbs, deferred to v2.
+subvols="$sv_list"
+dev="\$(findmnt -nro SOURCE --target / | sed 's/\[[^]]*\]\$//')"
+top="\$(mktemp -d)"
+if ! mount -o subvolid=5 "\$dev" "\$top"; then
+  logger -t impermanence "FAILED to mount btrfs top-level \$dev"
+  exit 0
+fi
+for sv in \$subvols; do
+  if btrfs subvolume delete "\$top/\${sv}@blank" 2>/dev/null; then
+    logger -t impermanence "deleted \${sv}@blank"
+  fi
+  if btrfs subvolume snapshot -r "\$top/\$sv" "\$top/\${sv}@blank"; then
+    logger -t impermanence "snapshotted \${sv}@blank"
+  else
+    logger -t impermanence "FAILED snapshot \${sv}@blank"
+  fi
+done
+umount "\$top"
+rmdir "\$top" 2>/dev/null || true
 HELPER
   chmod 0755 "$f"
 }

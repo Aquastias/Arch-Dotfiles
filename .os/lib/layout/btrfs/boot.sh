@@ -27,10 +27,20 @@ btrfs_root_cmdline() {
 # shared fs-blind hooks (no scan needed). A multi-disk (raid) root must run
 # `btrfs device scan` in the initramfs so every member is registered before the
 # root mounts, so the `btrfs` hook is inserted just before `filesystems` (after
-# `encrypt` when the root is also LUKS). No btrfs-rollback hook yet (issue 08).
+# `encrypt` when the root is also LUKS). When impermanence is enabled (ADR 0044)
+# the `btrfs-rollback` hook is inserted right before `filesystems` to reset the
+# curated subvols to @blank on boot; its run_hook needs the btrfs binary, so the
+# `btrfs` hook is also pulled in (a harmless scan on a single device, never
+# duplicated when multi-disk already added it).
 btrfs_hooks() {
-  local encrypted="${1:-}" multi="${2:-}" hooks
+  local encrypted="${1:-}" multi="${2:-}" impermanence="${3:-}" hooks
+  local ins=()
   hooks="$(nonzfs_hooks "$encrypted")"
-  [[ "$multi" == "multi" ]] && hooks="${hooks/ filesystems/ btrfs filesystems}"
+  [[ "$multi" == "multi" ]] && ins+=("btrfs")
+  if [[ "$impermanence" == "impermanence" ]]; then
+    [[ "$multi" == "multi" ]] || ins+=("btrfs")
+    ins+=("btrfs-rollback")
+  fi
+  ((${#ins[@]})) && hooks="${hooks/ filesystems/ ${ins[*]} filesystems}"
   printf '%s\n' "$hooks"
 }

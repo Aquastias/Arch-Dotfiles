@@ -11,8 +11,10 @@
 # boot.sh). Single-disk only this pass; native multi-disk raid lands in a later
 # pass. Impermanence (the @blank rollback) is issue 08 — not here.
 #
-# HOOKS are unchanged from the spine (single-disk btrfs needs no btrfs scan hook
-# and no rollback hook yet), so `_layout_publish_boot` is reused as-is.
+# HOOKS override the spine's: a plaintext single-disk btrfs needs no scan hook,
+# but under impermanence (ADR 0044) the `btrfs-rollback` hook (+ the `btrfs` hook
+# that supplies its binary) must precede `filesystems`, so this adapter publishes
+# via `btrfs_hooks` with the encryption + impermanence flags.
 # =============================================================================
 
 # shellcheck source=../nonzfs/root.sh
@@ -21,6 +23,17 @@ source "${BASH_SOURCE[0]%/*}/../nonzfs/root.sh"
 source "${BASH_SOURCE[0]%/*}/boot.sh"
 # shellcheck source=./subvol.sh
 source "${BASH_SOURCE[0]%/*}/subvol.sh"
+
+# Publish HOOKS via btrfs_hooks (not the spine's nonzfs_hooks): single-disk, but
+# carrying the encrypt hook when LUKS and the btrfs-rollback hook under
+# impermanence. The root cmdline + fstab still come from layout_create_pools.
+_layout_publish_boot() {
+  local enc="" imp=""
+  [[ "$(_nzroot_enc_mode)" == "encrypted" ]] && enc=encrypted
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] && imp=impermanence
+  # shellcheck disable=SC2034 # consumed by install_state_write
+  LAYOUT_HOOKS="$(btrfs_hooks "$enc" "" "$imp")"
+}
 
 # Format the root device btrfs. -f: overwrite an existing signature (the spine
 # already wiped + repartitioned).

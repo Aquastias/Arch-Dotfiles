@@ -104,10 +104,13 @@ _layout_plan_mode() {
 _layout_os_disks() { printf '%s\n' "${_LAYOUT_BTRFS_DISKS[@]}"; }
 
 # A multi-disk btrfs root needs the `btrfs` scan hook so the raid assembles in
-# the initramfs before the root mounts (plaintext — no encrypt hook).
+# the initramfs before the root mounts (plaintext — no encrypt hook). Under
+# impermanence (ADR 0044) the btrfs-rollback hook joins it before `filesystems`.
 _layout_publish_boot() {
+  local imp=""
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] && imp=impermanence
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_HOOKS="$(btrfs_hooks "" multi)"
+  LAYOUT_HOOKS="$(btrfs_hooks "" multi "$imp")"
 }
 
 layout_partition() {

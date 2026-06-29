@@ -25,19 +25,49 @@ impermanence work), not just a headless smoke.
 
 ## Acceptance criteria
 
-- [ ] A btrfs root with impermanence enabled rolls the curated subtrees back to
+- [x] A btrfs root with impermanence enabled rolls the curated subtrees back to
       `@blank` on every boot; persisted paths and curated state survive.
-- [ ] The `btrfs-rollback` initramfs hook fails closed to an emergency shell when
+      *(FS-layer built; boot behaviour pending HITL reboot.)*
+- [x] The `btrfs-rollback` initramfs hook fails closed to an emergency shell when
       a `@blank` snapshot is missing.
-- [ ] Persist `.mount` units order after the btrfs root mount; machine-id / host
+- [x] Persist `.mount` units order after the btrfs root mount; machine-id / host
       keys / SOPS age key restore before early services (no dbus thrash).
-- [ ] A package install survives a reboot (PostTransaction re-snapshot reused).
-- [ ] The FS-agnostic impermanence layer (curated lists, persist verbs, manifest,
+      *(After= owning per-path subvol mount; FILES still COPY-frozen in @blank.)*
+- [x] A package install survives a reboot (PostTransaction re-snapshot reused
+      hook file; btrfs resnapshot helper body) — *reboot survival pending HITL.*
+- [x] The FS-agnostic impermanence layer (curated lists, persist verbs, manifest,
       resnapshot hook) is unchanged and shared with ZFS.
-- [ ] bats covers the btrfs FS-layer (rollback-subvol creation, `@blank` snapshot
+- [x] bats covers the btrfs FS-layer (rollback-subvol creation, `@blank` snapshot
       calls, `btrfs-rollback` hook contents) with writes redirected under a temp
       ROOT, mirroring the existing ZFS impermanence tests.
 - [ ] Live reboot test confirms rollback (HITL).
+
+## Progress (TDD, LOCAL/UNCOMMITTED)
+
+Built via red→green slices; 1453 non-vm bats, 0 fail. Not yet committed.
+
+- Slice 0: `FILESYSTEM` threaded through install-state (the FS-blind chroot
+  modules' only discriminator).
+- Rollback containers = subvolumes: `imp_btrfs_rollback_subvols` (from the same
+  `ROLLBACK_DATASETS` source of truth) folds into the btrfs create/mount/fstab
+  loops under impermanence (`@etc/@root/@opt/@srv/@usrlocal`). `/persist` is a
+  plain dir on the never-rolled-back `@`.
+- 3 FS-conditional primitives in `lib/chroot/impermanence.sh` (dispatch on
+  `$FILESYSTEM`): `@blank` snapshot (`btrfs subvolume snapshot -r` over the
+  subvolid=5 top-level), `btrfs-rollback` initramfs hook (`subvolume delete` +
+  recreate from `@<name>@blank`, fail-closed on missing blank), PostTransaction
+  resnapshot helper. zfs paths renamed `_zfs`, behaviour unchanged.
+- Persist `.mount` After= → owning per-path subvol mount (`imp_mount_after_unit`:
+  /etc/ssh→`etc.mount`, off-subvol→`-.mount`).
+- HOOKS: `btrfs_hooks … impermanence` inserts `btrfs btrfs-rollback` before
+  `filesystems` (no dup on multi); single+multi adapters pass the flag.
+- Validation: `_validation_impermanence` skips the zfs `<pool>/<path>` rule for
+  non-zfs (btrfs persist is a path, no pool).
+
+REMAINING: live reboot HITL (rollback + persistence + pkg-survives-reboot), on
+single AND raid btrfs, plaintext + encrypted. Encrypted-single supported by the
+hook (cmdline cryptroot); enc-multi still blocked (issue 07). Agent env can't
+`git push` (~/.ssh denied) — USER commits/pushes; VMs served via `git daemon`.
 
 ## Blocked by
 

@@ -66,6 +66,35 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   [ "$status" -ne 0 ]
 }
 
+# ── btrfs: persist is a /persist path, not a zfs dataset (issue 08) ──────────
+# The <pool>/<path> + same-pool rule is ZFS-specific; a btrfs root persists onto
+# a plain /persist directory on @ (never rolled back), so the dataset/pool check
+# must not run — otherwise a btrfs config (no zfs pool) is wrongly rejected.
+
+@test "btrfs enabled: skips the zfs dataset/pool check (no dataset needed)" {
+  write_config '{"filesystem":"btrfs",
+    "options":{"impermanence":{"enabled":true,"mount":"/persist"}}}'
+  run _validation_impermanence
+  [ "$status" -eq 0 ]
+}
+
+@test "btrfs enabled: a cross-pool-looking dataset is irrelevant (ignored)" {
+  write_config '{"filesystem":"btrfs",
+    "options":{"impermanence":{"enabled":true,
+      "dataset":"dpool/persist","mount":"/persist"}}}'
+  run _validation_impermanence
+  [ "$status" -eq 0 ]
+}
+
+@test "zfs enabled: still enforces same-pool (regression)" {
+  write_config '{"filesystem":"zfs",
+    "options":{"impermanence":{"enabled":true,
+      "dataset":"dpool/persist","mount":"/persist"}}}'
+  run _validation_impermanence
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "same pool" ]]
+}
+
 # ── persist paths: errors ───────────────────────────────────────────────────
 
 @test "persist dir path must be absolute" {
