@@ -102,6 +102,22 @@ gaps the bats cores couldn't — each fixed test-first:
 
 Results: `zfs-enc` (encrypted zfs data, keyfile auto-load, no prompt), `xfs`,
 `btrfs raid1` (2-disk native topology) — all INSTALLER-EXIT-0 + FIRSTBOOT-OK.
-1529 bats, 0 fail; shellcheck no new warnings. Benign: a pre-existing
-`zfs-mount-generator exit 1` line for rpool (cosmetic — all datasets still mount
-via zfs-mount.service; present on earlier verified runs too).
+1529 bats, 0 fail; shellcheck no new warnings.
+
+### Follow-on (same day) — encrypted btrfs multi-disk + generator fix
+
+- **btrfs encrypted MULTI-disk** (the last deferred 05 item) — DONE+VM-verified
+  (`data-pools/btrfs-enc`, 3-disk: zfs root + encrypted btrfs raid1 over
+  per-device LUKS). `data_group_create` gained a multi-disk encrypted branch:
+  one keyfile-on-root LUKS-wraps each device as `crypt<name><i>`
+  (`data_group_mapper_name`), `mkfs.btrfs` raid over the mappers, a crypttab line
+  per device. Boot: crypttab opens `crypttank00`/`01` from the keyfile (headless,
+  no prompt), btrfs assembles → `/data/tank0` mounted, FIRSTBOOT-OK. The
+  single-disk encrypted path is unchanged.
+- **`zfs-mount-generator exit 1` ROOT-CAUSED + FIXED** (the "benign" line above
+  was a real misaligned-cache bug): `configure.sh` wrote 8 columns the generator
+  parses positionally as the wrong fields. New `zfs_write_list_cache` writes the
+  canonical OpenZFS-2.4.2 20-column `-o` set → generator parses cleanly (exit-1
+  gone). Re-verified impermanence (the generator re-activates for rpool) via a
+  new **automated rollback test** (`verify.rollback` two-boot sentinel; baseline
+  + negative-control + post-fix VM-validated). 1538 bats, 0 fail.
