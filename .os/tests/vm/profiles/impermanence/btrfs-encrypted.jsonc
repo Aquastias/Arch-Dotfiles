@@ -1,0 +1,47 @@
+// VM test (issue 08, ADR 0044): an ENCRYPTED btrfs root with impermanence —
+// single disk, LUKS. Same curated rollback subvols + btrfs-rollback hook as the
+// plaintext profile; the root container is opened as cryptroot and @ mounts
+// inside the mapper. The btrfs-rollback initramfs hook resolves the device from
+// the cmdline (root=/dev/mapper/cryptroot), so the rollback works after the
+// encrypt hook opens the container.
+//
+// INSTALL-ONLY (no verify block): the non-guided harness presets
+// INSTALL_ENC_PASSPHRASE='testtest' so the install runs unattended, but an
+// encrypted root cannot headless boot-verify (the boot passphrase prompt is
+// HITL). Run install-only to confirm INSTALLER-EXIT-0, then boot the disk by
+// hand: type `testtest`, write a probe under /root + a flag to /persist, reboot,
+// type `testtest` again, and confirm the probe is GONE and the flag SURVIVED.
+{
+  "name": "arch-zfs-test-btrfs-enc-impermanent",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs-enc-imp",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": true,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G",
+      "impermanence": {
+        "enabled": true,
+        "mount":   "/persist"
+      }
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}

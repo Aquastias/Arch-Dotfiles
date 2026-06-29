@@ -1,0 +1,56 @@
+// VM test (issue 08, ADR 0044): btrfs raid1 root impermanence — 2 disks,
+// plaintext. The multi btrfs Root Adapter mkfs.btrfs -d raid1 -m raid1 over both
+// root partitions and boots @ via the `btrfs` initramfs scan hook; impermanence
+// adds the curated rollback subvols (@etc/@root/@opt/@srv/@usrlocal) + the
+// btrfs-rollback hook on top. verify.rollback drives the two-boot sentinel; the
+// harness `btrfs device scan`s before the seed mount so the raid assembles in the
+// live ISO. Multi-disk btrfs is plaintext only (the classic encrypt hook opens
+// one device — enc-multi is out of scope, issue 07).
+//
+// Negative controls (same profile + env override):
+//   VM_ROLLBACK_PROBE_DIR=/persist  → probe survives → no marker → host RED
+//   VM_ROLLBACK_BREAK_BLANK=true    → boot1 deletes @etc@blank → boot2 hook fails
+//                                     closed (emergency shell) → no marker → RED
+{
+  "name": "arch-zfs-test-btrfs-raid1-impermanent",
+  "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs-raid1-imp",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G",
+      "impermanence": {
+        "enabled": true,
+        "mount":   "/persist"
+      }
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "raid1",
+      "disks":     ["/dev/sda", "/dev/sdb"]
+    },
+    "storage_groups": [],
+    "data_pools": []
+  },
+  "verify": {
+    "boot":     true,
+    "rollback": true
+  }
+}

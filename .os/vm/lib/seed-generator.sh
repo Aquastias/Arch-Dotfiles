@@ -260,7 +260,11 @@ _seed_generator_rollback_firstboot_block() {
   # /usr/lib (the never-rolled-back root subvol/dataset, survives both boots).
   local mount_step unmount_step
   if [[ "$filesystem" == "btrfs" ]]; then
-    mount_step="mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true"
+    # Scan first so a multi-device raid root assembles before the subvol=@ mount
+    # (no-op on a single disk). The partlabel resolves to any one member; btrfs
+    # mounts the whole assembled fs from it.
+    mount_step="btrfs device scan || true
+      mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true"
     unmount_step="umount -R /mnt || true"
   else
     mount_step="zpool import -f -N -R /mnt rpool || true
