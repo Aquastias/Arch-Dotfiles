@@ -12,6 +12,7 @@ setup() {
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
  "keymap":"us","keymaps":["us"],
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
+ "filesystem":"zfs",
  "ssh":{"enabled":false},"rpool":"rpool",
  "root_cmdline":"root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
  "hooks":"base udev autodetect modconf block keyboard zfs filesystems",
