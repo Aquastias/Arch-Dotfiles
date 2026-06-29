@@ -271,6 +271,22 @@ teardown() {
   [[ "$output" =~ "zpool export -f rpool" ]]
 }
 
+# Hook-level fault control: break the rollback by destroying a @blank snapshot on
+# boot1 so boot2's initramfs hook fails closed (missing @blank → emergency shell)
+# → no marker → host RED. Proves a REAL broken rollback can't false-PASS.
+
+@test "rollback block: break_blank destroys a @blank snapshot on boot1" {
+  run _seed_generator_rollback_firstboot_block /root true
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"zfs destroy rpool/ROOT/etc@blank"* ]]
+}
+
+@test "rollback block: default does NOT destroy any @blank snapshot" {
+  run _seed_generator_rollback_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"zfs destroy"* ]]
+}
+
 @test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {
   run _seed_generator_multi_firstboot_block "rpool tank0" \
     "tank0/data:/data/tank0"

@@ -70,10 +70,12 @@ _flow_render_user_data() {
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
     if [[ "${VM_VERIFY_ROLLBACK:-false}" == "true" ]]; then
       # Impermanence rollback proof (ADR 0044): a stateful two-boot sentinel.
-      # VM_ROLLBACK_PROBE_DIR overrides the probe path for the negative control
-      # (/persist = a survivor, so the probe persists → host RED).
+      # VM_ROLLBACK_PROBE_DIR overrides the probe path for the assertion negative
+      # control (/persist = a survivor → probe persists → host RED).
+      # VM_ROLLBACK_BREAK_BLANK=true is the hook-level fault control: boot1
+      # destroys a @blank so boot2's hook fails closed → emergency shell → RED.
       boot_block="$(_seed_generator_rollback_firstboot_block \
-        "${VM_ROLLBACK_PROBE_DIR:-/root}")"
+        "${VM_ROLLBACK_PROBE_DIR:-/root}" "${VM_ROLLBACK_BREAK_BLANK:-false}")"
     elif [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
       boot_block="$(_seed_generator_esp_resilience_firstboot_block)"
     elif [[ -n "${VM_VERIFY_POOLS[*]:-}" ]]; then

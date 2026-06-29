@@ -218,14 +218,22 @@ BLOCK
 # not vacuous. The unit + its wants symlink live under /usr/lib/systemd/system
 # (the root dataset, never rolled back — [[impermanence-service-enable]]) so they
 # survive BOTH boots; phase 2 self-disables. Test-only — never production.
-# Args: [probe_dir] (default /root). Paths carry no spaces (no quoting needed in
-# the single-quoted ExecStart printf arg).
+# Args: [probe_dir] (default /root) [break_blank] (default false). With
+# break_blank=true, boot1 also destroys a @blank snapshot so boot2's initramfs
+# rollback hook fails closed (missing @blank → emergency shell) → no marker →
+# host RED: the hook-level fault control proving a REAL broken rollback can't
+# false-PASS. Paths carry no spaces (no quoting needed in the single-quoted
+# ExecStart printf arg).
 _seed_generator_rollback_firstboot_block() {
-  local probe_dir="${1:-/root}"
+  local probe_dir="${1:-/root}" break_blank="${2:-false}"
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  local break_step=""
+  [[ "$break_blank" == "true" ]] \
+    && break_step=" zfs destroy rpool/ROOT/etc@blank;"
   local exec="if [ ! -e /persist/.rollback-phase ]; then"
   exec+=" mkdir -p ${probe_dir} /persist;"
   exec+=" : > ${probe_dir}/.rollback-probe; : > /persist/.rollback-phase; sync;"
+  exec+="${break_step}"
   exec+=" systemctl --no-block reboot;"
   exec+=" else"
   exec+=" if [ ! -e ${probe_dir}/.rollback-probe ] && [ -e /persist/.rollback-phase ];"
