@@ -11,7 +11,7 @@
 #
 # The ZFS adapter was relocated from the flat lib/layout/<mode>.sh into
 # lib/layout/zfs/ when filesystem #2 landed (ADR 0043). Root adapters: zfs +
-# ext4 are built. Data formatters: zfs/ext4/xfs/btrfs are built; an unbuilt
+# ext4 + xfs are built. Data formatters: zfs/ext4/xfs/btrfs are built; an unbuilt
 # filesystem errors here.
 #
 # Pure: string transforms on <os-dir>/<filesystem>/<mode>, no disk access.
@@ -26,8 +26,11 @@ root_adapter_source() {
   # ext4 is single-disk only (the validation contract rejects disk_count > 1),
   # so its one adapter owns the OS disk regardless of mode.
   ext4) printf '%s\n' "${dir}/lib/layout/ext4/single.sh" ;;
+  # xfs is the same single-disk shape as ext4 (validation rejects disk_count > 1),
+  # so its one adapter owns the OS disk regardless of mode.
+  xfs) printf '%s\n' "${dir}/lib/layout/xfs/single.sh" ;;
   *) error "No root layout adapter for filesystem '${fs}'" \
-       "(ADR 0043 reserves it; zfs + ext4 are implemented)." ;;
+       "(ADR 0043 reserves it; zfs + ext4 + xfs are implemented)." ;;
   esac
 }
 

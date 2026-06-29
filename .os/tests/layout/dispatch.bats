@@ -40,6 +40,18 @@ setup() {
   [ "$output" = "/os/lib/layout/ext4/single.sh" ]
 }
 
+@test "root_adapter_source: xfs resolves to the single xfs adapter" {
+  run root_adapter_source /os xfs single
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/xfs/single.sh" ]
+}
+
+@test "root_adapter_source: xfs ignores mode (single-disk only)" {
+  run root_adapter_source /os xfs multi
+  [ "$status" -eq 0 ]
+  [ "$output" = "/os/lib/layout/xfs/single.sh" ]
+}
+
 @test "root_adapter_source: an unbuilt filesystem errors, naming it" {
   run root_adapter_source /os btrfs single
   [ "$status" -ne 0 ]

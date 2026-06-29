@@ -1,0 +1,36 @@
+// VM test (ADR 0043, issue 06): a pure xfs root — no ZFS anywhere. Plaintext,
+// single disk, swap partition, no desktop (a fast boot-verify). The xfs Root
+// Adapter is a thin leaf over the shared non-ZFS root spine (the same path the
+// ext4 root exercises), differing only in mkfs.xfs + the fstab fs-type column.
+// Confirms an xfs root boots by root=UUID with FS-agnostic HOOKS (no zfs hook)
+// and the zfs-presence gating (no zfs userland, no module guard, no services).
+{
+  "name": "arch-zfs-test-single-xfs",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "xfs",
+    "system": {
+      "hostname": "vm-test-xfs",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}

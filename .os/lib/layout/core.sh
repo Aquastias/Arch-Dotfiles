@@ -9,7 +9,7 @@
 # `_layout_os_disks`, `_layout_publish_boot`) and, for ZFS, an extended
 # `_layout_verify_plan_contract`.
 #
-# Sourced by lib/layout/zfs/common.sh and lib/layout/ext4/single.sh.
+# Sourced by lib/layout/zfs/common.sh and lib/layout/nonzfs/root.sh.
 # Requires: lib/common.sh already sourced (provides cfgo, error, part_name).
 # =============================================================================
 
