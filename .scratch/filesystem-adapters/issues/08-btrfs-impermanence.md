@@ -64,10 +64,23 @@ Built via red→green slices; 1453 non-vm bats, 0 fail. Not yet committed.
 - Validation: `_validation_impermanence` skips the zfs `<pool>/<path>` rule for
   non-zfs (btrfs persist is a path, no pool).
 
-REMAINING: live reboot HITL (rollback + persistence + pkg-survives-reboot), on
-single AND raid btrfs, plaintext + encrypted. Encrypted-single supported by the
-hook (cmdline cryptroot); enc-multi still blocked (issue 07). Agent env can't
-`git push` (~/.ssh denied) — USER commits/pushes; VMs served via `git daemon`.
+Committed (local, UNPUSHED): `6f0b3fc` install-state FILESYSTEM, `629800b` btrfs
+impermanence feature, `9698719` harness btrfs break-control.
+
+Harness ready: `_seed_generator_rollback_firstboot_block` now takes a `filesystem`
+arg (env `VM_ROLLBACK_FS=btrfs`) — btrfs seeds the sentinel via `subvol=@` mount
+and the break-control deletes the `@etc@blank` subvol (subvolid=5 at /mnt), so the
+automated two-boot `verify.rollback` test + its hook-fault negative control work on
+btrfs. 1598 bats 0 fail.
+
+REMAINING (HITL — only open AC): run the live reboot test on single AND raid
+btrfs, plaintext + encrypted — rollback reverts curated subtrees, `/persist` + a
+package install survive. Suggested: a btrfs impermanence profile with
+`verify.rollback:true`, run baseline + `VM_ROLLBACK_FS=btrfs VM_ROLLBACK_PROBE_DIR=
+/persist` (assertion control) + `VM_ROLLBACK_FS=btrfs VM_ROLLBACK_BREAK_BLANK=true`
+(hook-fault control), mirroring the ZFS 4-VM validation (`87b08f6`). Encrypted-
+single supported by the hook (cmdline cryptroot); enc-multi blocked (issue 07).
+Agent env can't `git push` (~/.ssh denied) — USER pushes; VMs via `git daemon`.
 
 ## Blocked by
 
