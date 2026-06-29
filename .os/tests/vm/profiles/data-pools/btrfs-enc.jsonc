@@ -1,0 +1,50 @@
+// VM test: per-group ENCRYPTED btrfs Standalone Data Pool with native raid1
+// over per-device LUKS (ADR 0043, encrypted multi-disk). 3 × 20 GiB —
+//   /dev/sda       → rpool (OS, zfs, topology=none, PLAINTEXT — boots headless)
+//   /dev/sdb,/sdc  → tank0 (btrfs raid1, encryption=true, /data/tank0)
+// Each data device is LUKS-wrapped with one keyfile-on-root and opened as
+// crypttank00 / crypttank01; mkfs.btrfs -d raid1 -m raid1 spans the two mappers.
+// At boot the crypttab auto-opens both mappers from the keyfile (no second
+// prompt — the root is plaintext) and btrfs assembles the raid. verify asserts
+// the zfs root imported AND the btrfs raid1 volume is mounted at /data/tank0.
+{
+  "name": "arch-zfs-test-data-pools-btrfs-enc",
+  "hardware": { "disks": [20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-test-data-pools-btrfs-enc",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":      "lts",
+      "bootloader":  "systemd-boot",
+      "encryption":  false,
+      "swap":        true,
+      "swap_size":   "auto"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "none",
+      "ashift":    12,
+      "disks":     ["/dev/sda"]
+    },
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "btrfs", "topology": "raid1", "encryption": true, "disks": ["/dev/sdb", "/dev/sdc"] }
+    ]
+  },
+  "verify": {
+    "boot":      true,
+    "pools":     ["rpool"],
+    "fs_mounts": ["/data/tank0"]
+  }
+}
