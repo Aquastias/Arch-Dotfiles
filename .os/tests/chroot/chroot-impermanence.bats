@@ -25,7 +25,13 @@ setup() {
   }
   zpool()   { printf 'zpool %s\n'   "$*" >> "$CALLS"; }
   systemd-machine-id-setup() { printf 'machine-id-setup %s\n' "$*" >> "$CALLS"; }
-  export -f zfs zpool systemd-machine-id-setup
+  # btrfs FS-layer stubs (issue 08): keep the btrfs @blank snapshot step off the
+  # real mount/btrfs binaries so a FILESYSTEM=btrfs full apply runs in the harness.
+  btrfs()   { printf 'btrfs %s\n'   "$*" >> "$CALLS"; }
+  mount()   { printf 'mount %s\n'   "$*" >> "$CALLS"; }
+  umount()  { printf 'umount %s\n'  "$*" >> "$CALLS"; }
+  findmnt() { echo /dev/sdX; }
+  export -f zfs zpool systemd-machine-id-setup btrfs mount umount findmnt
 
   export IMPERMANENCE_ENABLED=false
   export IMPERMANENCE_DATASET=rpool/persist
@@ -414,6 +420,103 @@ seed_curated() {
   grep -qE "zfs rollback -r" "$f"
 }
 
+# ── btrfs FS layer (issue 08, ADR 0044): snapshot_blank dispatches on $FILESYSTEM
+# On btrfs the rollback containers are subvolumes, not datasets; the @blank
+# snapshot is `btrfs subvolume snapshot -r @<name> @<name>@blank` taken over the
+# btrfs top-level (subvolid=5), mirroring the per-path ZFS @blank. The full
+# top-level mount mechanics are VM-verified; bats covers the snapshot calls.
+
+@test "btrfs: snapshot_blank takes a read-only @blank per rollback subvol" {
+  export FILESYSTEM=btrfs
+  : > "$CALLS"
+  btrfs()   { printf 'btrfs %s\n'  "$*" >> "$CALLS"; }
+  mount()   { printf 'mount %s\n'  "$*" >> "$CALLS"; }
+  umount()  { printf 'umount %s\n' "$*" >> "$CALLS"; }
+  findmnt() { echo /dev/sdX; }
+  export -f btrfs mount umount findmnt
+  _impermanence_snapshot_blank
+  local n
+  for n in etc root opt srv usrlocal; do
+    grep -qE "^btrfs subvolume snapshot -r .*/@$n .*/@$n@blank$" "$CALLS" \
+      || { echo "missing @blank for @$n"; cat "$CALLS"; return 1; }
+  done
+}
+
+@test "btrfs: snapshot_blank never calls zfs" {
+  export FILESYSTEM=btrfs
+  : > "$CALLS"
+  btrfs()   { printf 'btrfs %s\n'  "$*" >> "$CALLS"; }
+  mount()   { printf 'mount %s\n'  "$*" >> "$CALLS"; }
+  umount()  { printf 'umount %s\n' "$*" >> "$CALLS"; }
+  findmnt() { echo /dev/sdX; }
+  export -f btrfs mount umount findmnt
+  _impermanence_snapshot_blank
+  ! grep -qE "^zfs " "$CALLS"
+}
+
+@test "zfs: snapshot_blank still uses zfs snapshot (default FILESYSTEM)" {
+  unset FILESYSTEM
+  : > "$CALLS"
+  _impermanence_snapshot_blank
+  grep -qE "^zfs snapshot rpool/ROOT/etc@blank$" "$CALLS"
+}
+
+# ── btrfs FS layer: btrfs-rollback initramfs hook (issue 08, ADR 0044) ───────
+# Mirrors the zfs-rollback hook's contract: a boot-time per-path rollback that
+# fails closed to an emergency shell on a missing @blank. btrfs differs in
+# mechanics — it mounts the top-level (subvolid=5), `subvolume delete`s each
+# rollback subvol and recreates it from its read-only @<name>@blank.
+
+@test "btrfs: writes install hook /usr/lib/initcpio/install/btrfs-rollback" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  local f="$FAKEROOT/usr/lib/initcpio/install/btrfs-rollback"
+  [ -f "$f" ]
+  grep -qE "^build\\(\\)" "$f"
+  grep -qE "add_runscript" "$f"
+}
+
+@test "btrfs: does NOT write the zfs-rollback hook" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  [ ! -f "$FAKEROOT/usr/lib/initcpio/install/zfs-rollback" ]
+  [ ! -f "$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ]
+}
+
+@test "btrfs: runtime hook recreates each rollback subvol from @blank" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" n
+  [ -f "$f" ]
+  grep -qE "subvolume delete"   "$f"
+  grep -qE "subvolume snapshot" "$f"
+  for n in etc root opt srv usrlocal; do
+    grep -qE "@$n" "$f" || { echo "missing @$n in hook"; return 1; }
+  done
+}
+
+@test "btrfs: runtime hook fails closed on a missing @blank" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback"
+  grep -qE "launch_interactive_shell|emergency" "$f"
+  grep -qE "@blank" "$f"
+}
+
+@test "btrfs: runtime hook mounts the btrfs top-level (subvolid=5)" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback"
+  grep -qE "subvolid=5" "$f"
+}
+
+@test "zfs: still writes the zfs-rollback hook (default FILESYSTEM)" {
+  unset FILESYSTEM
+  _impermanence_write_rollback_hook
+  [ -f "$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ]
+  [ ! -f "$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" ]
+}
+
 # ── slice 2 cycle 1 (tracer): one extension dir → .mount under /persist ─────
 
 @test "extension dir: writes .mount unit under /persist/etc/systemd/system" {
@@ -683,6 +786,79 @@ source "$f"
 SUBSHELL
   # at least one logger invocation tagged impermanence
   grep -qE "^logger .*-t impermanence" "$log"
+}
+
+# ── btrfs FS layer: PostTransaction resnapshot helper (issue 08, ADR 0044) ───
+# The .hook file is reused verbatim (slice-agnostic); only the helper body it
+# execs goes FS-conditional. btrfs deletes + re-snapshots each @<name>@blank
+# from the live subvol over the top-level mount, mirroring the zfs destroy+
+# snapshot. Idempotent, errors logged not aborted.
+
+@test "btrfs resnapshot helper: written + executable + bash shebang" {
+  export FILESYSTEM=btrfs
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  [ -x "$f" ]
+  head -1 "$f" | grep -qE "^#!.*bash"
+}
+
+@test "btrfs resnapshot helper: btrfs delete + snapshot, never zfs" {
+  export FILESYSTEM=btrfs
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  grep -qE "subvolume delete"     "$f"
+  grep -qE "subvolume snapshot -r" "$f"
+  ! grep -qE "^[^#]*zfs " "$f"
+}
+
+@test "btrfs resnapshot helper: references all 5 rollback subvols" {
+  export FILESYSTEM=btrfs
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh" n
+  for n in etc root opt srv usrlocal; do
+    grep -qE "@$n" "$f" || { echo "missing @$n"; return 1; }
+  done
+}
+
+@test "btrfs resnapshot helper: end-to-end deletes+snapshots every @blank" {
+  export FILESYSTEM=btrfs
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"; : > "$log"
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+btrfs()   { printf 'btrfs %s\n' "\$*" >> "$log"; }
+mount()   { :; }
+umount()  { :; }
+findmnt() { echo /dev/sdX; }
+logger()  { :; }
+source "$f"
+SUBSHELL
+  local n
+  for n in etc root opt srv usrlocal; do
+    grep -qE "btrfs subvolume snapshot -r .*/@$n .*/@$n@blank" "$log" \
+      || { echo "no snapshot for @$n"; cat "$log"; return 1; }
+  done
+}
+
+@test "btrfs resnapshot helper: idempotent when delete fails (no @blank)" {
+  export FILESYSTEM=btrfs
+  run_enabled
+  local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh"
+  local log="$TEST_DIR/helper-calls.log"; : > "$log"
+  HELPER_LOG="$log" bash <<SUBSHELL
+unset -f zfs logger 2>/dev/null
+btrfs() {
+  printf 'btrfs %s\n' "\$*" >> "$log"
+  [[ "\$1 \$2" == "subvolume delete" ]] && return 1
+  return 0
+}
+mount(){ :; }; umount(){ :; }; findmnt(){ echo /dev/sdX; }; logger(){ :; }
+source "$f"
+echo "exit=\$?" >> "$log"
+SUBSHELL
+  grep -qE "exit=0$" "$log"
+  grep -qE "btrfs subvolume snapshot -r .*/@usrlocal@blank" "$log"
 }
 
 @test "resnapshot helper: documents v1 leak in comments" {

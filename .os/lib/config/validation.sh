@@ -137,6 +137,10 @@ _validation_impermanence() {
   local enabled dataset pool os_pool
   enabled="$(install_config_impermanence_enabled)"
   [[ "$enabled" == "true" ]] || return 0
+  # The <pool>/<path> + same-pool rule is ZFS-specific. A btrfs root persists
+  # onto a plain /persist directory on @ (the never-rolled-back root subvol),
+  # so there is no dataset/pool to validate — skip it for non-zfs (ADR 0044).
+  [[ "$(install_config_filesystem)" == "zfs" ]] || return 0
   dataset="$(install_config_impermanence_dataset)"
   [[ "$dataset" == */* ]] || \
     error "Invalid options.impermanence.dataset '${dataset}':" \

@@ -37,6 +37,21 @@ ROLLBACK_DATASETS=(
   "usrlocal:/usr/local"
 )
 
+# The btrfs mirror of the Rollback Datasets (ADR 0044). Same curated path list
+# (ROLLBACK_DATASETS, the single source of truth), emitted as `@<suffix>
+# <mountpoint>` so the btrfs subvol layout can't drift from the zfs one on which
+# paths roll back. The btrfs adapter folds these into its create/mount/fstab
+# loops when impermanence is enabled; the `@blank` snapshot + boot rollback hook
+# operate on the same names. Pure: string emitter, no disk access.
+imp_btrfs_rollback_subvols() {
+  local entry suffix mp
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    suffix="${entry%%:*}"
+    mp="${entry#*:}"
+    printf '@%s %s\n' "$suffix" "$mp"
+  done
+}
+
 # Create the Persist Dataset EARLY (with the Rollback Datasets, before the OS is
 # installed) so it lands in the zfs-list.cache and mounts at boot BEFORE
 # local-fs.target. The curated Persist Mounts (RequiredBy=local-fs.target) then
@@ -71,6 +86,31 @@ imp_create_rollback_datasets() {
   done
 }
 
+# The systemd unit a Persist Mount over $target must order After=, so the bind's
+# source/target are mounted first (ADR 0044). zfs: the single zfs-mount.service
+# (`zfs mount -a`). btrfs: each rollback subvol mounts via fstab as its own
+# <esc>.mount, so order After= the owning subvol's mount unit (longest rollback
+# mountpoint that is a path-prefix of $target); a path on no rollback subvol
+# lives on @ (root) → the root mount unit `-.mount`.
+imp_mount_after_unit() {
+  local target="$1"
+  if [[ "${FILESYSTEM:-zfs}" != "btrfs" ]]; then
+    printf 'zfs-mount.service\n'; return 0
+  fi
+  local entry mp best=""
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    mp="${entry#*:}"
+    if [[ "$target" == "$mp" || "$target" == "$mp"/* ]]; then
+      [[ ${#mp} -gt ${#best} ]] && best="$mp"
+    fi
+  done
+  if [[ -z "$best" ]]; then
+    printf -- '-.mount\n'
+  else
+    printf '%s.mount\n' "$(systemd-escape --path "$best")"
+  fi
+}
+
 # Write a bind-mount .mount unit at $units/<esc>.mount. systemd requires a
 # .mount unit be named after its Where= (the escaped mount-point path); any
 # other name loads as bad-setting and never mounts, so the unit MUST be
@@ -80,20 +120,22 @@ imp_create_rollback_datasets() {
 imp_write_mount_unit() {
   local target="$1"
   local units="${2:-${ROOT:-}/usr/lib/systemd/system}"
-  local esc unit
+  local esc unit after
   esc="$(systemd-escape --path "$target")"
   unit="$units/$esc.mount"
+  after="$(imp_mount_after_unit "$target")"
   mkdir -p "$units"
   cat > "$unit" <<UNIT
 [Unit]
 Description=Bind-mount persist over $target
-# Order AFTER the ZFS datasets are mounted (zfs-mount.service = \`zfs mount -a\`):
-# the source is on the Persist Dataset, the target on a Rollback Dataset. Do NOT
-# order After=systemd-tmpfiles-setup.service — that service is itself
+# Order AFTER the rollback container is mounted (zfs: zfs-mount.service =
+# \`zfs mount -a\`; btrfs: the owning subvol's fstab <esc>.mount): the source is
+# on the Persist storage, the target on a rollback container. Do NOT order
+# After=systemd-tmpfiles-setup.service — that service is itself
 # After=local-fs.target, so with our Before=local-fs.target it forms an ordering
 # cycle that systemd breaks by DROPPING this unit (it never mounts at boot). The
 # mount auto-creates its own target directory, so tmpfiles is not needed here.
-After=zfs-mount.service
+After=$after
 Before=local-fs.target
 
 [Mount]

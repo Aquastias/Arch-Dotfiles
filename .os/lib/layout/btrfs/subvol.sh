@@ -11,8 +11,15 @@
 # curated rollback subvols issue 08 adds per ADR 0044). Pure: no disk access.
 # =============================================================================
 
+# The curated rollback subvol list (imp_btrfs_rollback_subvols) lives in the
+# FS-agnostic impermanence lib; fold it in here under impermanence. Sourced only
+# (defines functions + the ROLLBACK_DATASETS source of truth, no side effects).
+# shellcheck source=../../impermanence-common.sh
+source "${BASH_SOURCE[0]%/*}/../../impermanence-common.sh"
+
 # Emit `<subvol> <mountpoint>` per line — @ (root) first so the adapter mounts
-# it before the nested subvols whose mountpoints live underneath it.
+# it before the nested subvols whose mountpoints live underneath it. The base OS
+# layout; impermanence's rollback subvols are appended by _btrfs_root_subvols_all.
 btrfs_root_subvols() {
   printf '%s\n' \
     "@ /" \
@@ -20,6 +27,24 @@ btrfs_root_subvols() {
     "@log /var/log" \
     "@pkg /var/cache/pacman/pkg" \
     "@snapshots /.snapshots"
+}
+
+# True when impermanence is enabled for this install. Guarded so the pure base
+# layout (unit tests that source only this file, no config accessors) reads as
+# disabled instead of erroring; the real layout phase always has the accessor.
+_btrfs_impermanence_on() {
+  declare -F install_config_impermanence_enabled >/dev/null 2>&1 \
+    && [[ "$(install_config_impermanence_enabled)" == "true" ]]
+}
+
+# The full subvol layout the create/mount loop + fstab iterate: the base OS
+# subvols, plus the curated rollback subvols (@etc/@root/@opt/@srv/@usrlocal)
+# when impermanence is on so they are created+mounted before pacstrap AND land
+# in fstab (the impermanence bind units order After= these subvol mounts).
+_btrfs_root_subvols_all() {
+  btrfs_root_subvols
+  _btrfs_impermanence_on && imp_btrfs_rollback_subvols
+  return 0
 }
 
 # The /etc/fstab line one subvolume contributes. <src> is the shared mount
@@ -39,7 +64,7 @@ btrfs_root_fstab() {
   local src="$1" subvol mnt out=""
   while read -r subvol mnt; do
     out+="${out:+$'\n'}$(btrfs_subvol_fstab_line "$src" "$mnt" "$subvol")"
-  done < <(btrfs_root_subvols)
+  done < <(_btrfs_root_subvols_all)
   printf '%s\n' "$out"
 }
 
@@ -52,12 +77,12 @@ _btrfs_create_and_mount_subvols() {
   mount "$root_dev" "$MOUNT_ROOT"
   while read -r subvol mnt; do
     btrfs subvolume create "${MOUNT_ROOT}/${subvol}"
-  done < <(btrfs_root_subvols)
+  done < <(_btrfs_root_subvols_all)
   umount "$MOUNT_ROOT"
   mount -o subvol=@ "$root_dev" "$MOUNT_ROOT"
   while read -r subvol mnt; do
     [[ "$subvol" == "@" ]] && continue
     mkdir -p "${MOUNT_ROOT}${mnt}"
     mount -o "subvol=${subvol}" "$root_dev" "${MOUNT_ROOT}${mnt}"
-  done < <(btrfs_root_subvols)
+  done < <(_btrfs_root_subvols_all)
 }

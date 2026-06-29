@@ -54,3 +54,34 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^(.*)encrypt(.*)btrfs(.*)filesystems(.*)$ ]]
 }
+
+# ── HOOKS: impermanence inserts btrfs-rollback before filesystems (issue 08) ──
+# The boot-time rollback hook must run before `filesystems` pivots into root.
+# Its run_hook needs the btrfs binary in the image, so impermanence also pulls in
+# the `btrfs` hook (harmless as a scan on a single device) — never duplicated on
+# multi-disk where `btrfs` is already present.
+
+@test "btrfs_hooks: single + impermanence → btrfs btrfs-rollback before filesystems" {
+  run btrfs_hooks "" "" impermanence
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^(.*)btrfs\ btrfs-rollback\ filesystems(.*)$ ]]
+}
+
+@test "btrfs_hooks: multi + impermanence → single btrfs then btrfs-rollback" {
+  run btrfs_hooks "" multi impermanence
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^(.*)block(.*)btrfs\ btrfs-rollback\ filesystems(.*)$ ]]
+  # btrfs must not be duplicated
+  [ "$(grep -oc 'btrfs ' <<<"$output")" -eq 1 ]
+}
+
+@test "btrfs_hooks: encrypted single + impermanence keeps encrypt first" {
+  run btrfs_hooks encrypted "" impermanence
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ ^(.*)encrypt(.*)btrfs\ btrfs-rollback\ filesystems(.*)$ ]]
+}
+
+@test "btrfs_hooks: no impermanence → no btrfs-rollback hook" {
+  run btrfs_hooks "" multi
+  [[ ! "$output" =~ "btrfs-rollback" ]]
+}

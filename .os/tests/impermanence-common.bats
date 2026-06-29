@@ -50,6 +50,50 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ -f "$units/$expected" ]
 }
 
+# ── imp_write_mount_unit: FS-conditional ordering (issue 08, ADR 0044) ───────
+# zfs binds order After=zfs-mount.service (datasets mounted by `zfs mount -a`).
+# btrfs has no such service — each rollback subvol mounts via fstab as its own
+# <esc>.mount, so a bind orders After= the owning subvol's mount unit (the bind
+# source/target both live on it). A path outside every rollback subvol sits on @
+# (root), so it falls back to the root mount unit (-.mount).
+
+@test "imp_write_mount_unit: zfs orders After=zfs-mount.service (default)" {
+  unset FILESYSTEM
+  local units="$TEST_DIR/units"
+  imp_write_mount_unit /etc/ssh "$units"
+  local u; u="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
+  grep -qE "^After=zfs-mount\.service$" "$u"
+}
+
+@test "imp_write_mount_unit: btrfs orders /etc/ssh After=etc.mount" {
+  export FILESYSTEM=btrfs
+  local units="$TEST_DIR/units"
+  imp_write_mount_unit /etc/ssh "$units"
+  local u; u="$units/$(systemd-escape -p --suffix=mount /etc/ssh)"
+  grep -qE "^After=etc\.mount$" "$u"
+  ! grep -qE "^After=zfs-mount\.service$" "$u"
+}
+
+@test "imp_write_mount_unit: btrfs orders /usr/local After=usr-local.mount" {
+  export FILESYSTEM=btrfs
+  local units="$TEST_DIR/units"
+  imp_write_mount_unit /usr/local/bin "$units"
+  local u; u="$units/$(systemd-escape -p --suffix=mount /usr/local/bin)"
+  grep -qE "^After=usr-local\.mount$" "$u"
+}
+
+@test "imp_mount_after_unit: btrfs /root maps to root.mount (own subvol)" {
+  export FILESYSTEM=btrfs
+  run imp_mount_after_unit /root
+  [ "$output" = "root.mount" ]
+}
+
+@test "imp_mount_after_unit: btrfs path off every rollback subvol → root mount" {
+  export FILESYSTEM=btrfs
+  run imp_mount_after_unit /var/lib/myapp
+  [ "$output" = "-.mount" ]
+}
+
 @test "imp_write_mount_unit: systemd-analyze accepts the generated unit" {
   command -v systemd-analyze >/dev/null 2>&1 || skip "systemd-analyze absent"
   local units="$TEST_DIR/units"
@@ -90,6 +134,26 @@ teardown() { rm -rf "$TEST_DIR"; }
   zfs() { printf 'zfs %s\n' "$*" >> "$CALLS"; return 0; }  # list → exists
   imp_create_rollback_datasets rpool
   ! grep -qE "^zfs create " "$CALLS"
+}
+
+# ── imp_btrfs_rollback_subvols: btrfs rollback subvol layout (issue 08) ──────
+# The btrfs mirror of the Rollback Datasets: one `@<suffix> <mountpoint>` line
+# per curated rollback path, derived from the same ROLLBACK_DATASETS source of
+# truth so zfs + btrfs can't drift on which paths roll back. Pure emitter.
+
+@test "imp_btrfs_rollback_subvols: one @<name> <mount> line per rollback path" {
+  run imp_btrfs_rollback_subvols
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "@etc /etc" ]]
+  [[ "$output" =~ "@root /root" ]]
+  [[ "$output" =~ "@opt /opt" ]]
+  [[ "$output" =~ "@srv /srv" ]]
+  [[ "$output" =~ "@usrlocal /usr/local" ]]
+}
+
+@test "imp_btrfs_rollback_subvols: exactly one line per ROLLBACK_DATASETS entry" {
+  run imp_btrfs_rollback_subvols
+  [ "${#lines[@]}" -eq "${#ROLLBACK_DATASETS[@]}" ]
 }
 
 @test "imp_create_persist_dataset: creates it canmount=on at its mountpoint" {
