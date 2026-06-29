@@ -333,6 +333,19 @@ teardown() {
   [[ "$output" != *"btrfs subvolume delete"* ]]
 }
 
+@test "rollback block: btrfs seed scans devices before mounting (raid assembly)" {
+  # On a multi-device btrfs raid the live ISO must register every member before
+  # the subvol=@ mount; a `btrfs device scan` is a no-op on single disk.
+  run _seed_generator_rollback_firstboot_block /root false btrfs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"btrfs device scan"* ]]
+  # scan precedes the seed mount
+  local scan_pos mount_pos
+  scan_pos="$(awk '/btrfs device scan/{print NR; exit}' <<<"$output")"
+  mount_pos="$(awk '/subvol=@ \/dev\/disk\/by-partlabel\/root \/mnt/{print NR; exit}' <<<"$output")"
+  [ -n "$scan_pos" ] && [ -n "$mount_pos" ] && [ "$scan_pos" -lt "$mount_pos" ]
+}
+
 @test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {
   run _seed_generator_multi_firstboot_block "rpool tank0" \
     "tank0/data:/data/tank0"
