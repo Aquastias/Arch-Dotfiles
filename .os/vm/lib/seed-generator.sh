@@ -205,6 +205,47 @@ $(_seed_generator_esp_serial_lines)
 BLOCK
 }
 
+# Render the IMPERMANENCE ROLLBACK first-boot verify block (ADR 0044). A
+# stateful two-phase sentinel that proves the boot-time @blank rollback works:
+#   boot1 — write a probe to <probe_dir> (a Rollback Dataset path; default /root)
+#           AND a phase flag to /persist (the never-rolled-back Persist Dataset),
+#           then reboot.
+#   boot2 — the initramfs zfs-rollback hook reverts <probe_dir> to @blank; the
+#           unit asserts the probe is GONE and the /persist flag SURVIVED, and
+#           ONLY then emits the boot marker.
+# The probe SURVIVING (e.g. <probe_dir>=/persist — the negative control) yields
+# no marker, so the host boot-verify times out = RED, proving the assertion is
+# not vacuous. The unit + its wants symlink live under /usr/lib/systemd/system
+# (the root dataset, never rolled back — [[impermanence-service-enable]]) so they
+# survive BOTH boots; phase 2 self-disables. Test-only — never production.
+# Args: [probe_dir] (default /root). Paths carry no spaces (no quoting needed in
+# the single-quoted ExecStart printf arg).
+_seed_generator_rollback_firstboot_block() {
+  local probe_dir="${1:-/root}"
+  local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  local exec="if [ ! -e /persist/.rollback-phase ]; then"
+  exec+=" mkdir -p ${probe_dir} /persist;"
+  exec+=" : > ${probe_dir}/.rollback-probe; : > /persist/.rollback-phase; sync;"
+  exec+=" systemctl --no-block reboot;"
+  exec+=" else"
+  exec+=" if [ ! -e ${probe_dir}/.rollback-probe ] && [ -e /persist/.rollback-phase ];"
+  exec+=" then echo ${m} > /dev/ttyS0; fi;"
+  exec+=" systemctl disable firstboot-ok.service;"
+  exec+=" fi"
+  cat <<BLOCK
+    if [ "\$rc" -eq 0 ]; then
+      zpool import -f -N -R /mnt rpool || true
+      zfs mount rpool/ROOT/arch || true
+$(_seed_generator_esp_serial_lines)
+      mkdir -p /mnt/usr/lib/systemd/system/multi-user.target.wants
+      printf '%s\n' '[Unit]' 'Description=rollback-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "${exec}"' '[Install]' 'WantedBy=multi-user.target' > /mnt/usr/lib/systemd/system/firstboot-ok.service
+      ln -sf ../firstboot-ok.service /mnt/usr/lib/systemd/system/multi-user.target.wants/firstboot-ok.service
+      zfs umount -a || true
+      zpool export rpool || zpool export -f rpool || true
+    fi
+BLOCK
+}
+
 _seed_generator_render_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"

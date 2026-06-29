@@ -32,5 +32,9 @@
     "storage_pool_name": "dpool",
     "storage_mount":     "/data",
     "storage_groups":    []
+  },
+  "verify": {
+    "boot":     true,
+    "rollback": true
   }
 }

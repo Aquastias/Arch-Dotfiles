@@ -232,6 +232,45 @@ teardown() {
   [[ "$output" =~ "zpool export -f rpool" ]]
 }
 
+# ── rollback firstboot block (impermanence rollback proof, ADR 0044) ──────────
+
+@test "rollback block: boot1 writes probe to /root + phase to /persist, reboots" {
+  run _seed_generator_rollback_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" == *": > /root/.rollback-probe"* ]]
+  [[ "$output" == *": > /persist/.rollback-phase"* ]]
+  [[ "$output" == *"systemctl --no-block reboot"* ]]
+}
+
+@test "rollback block: boot2 emits the marker only when probe gone + phase survives" {
+  run _seed_generator_rollback_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[ ! -e /root/.rollback-probe ] && [ -e /persist/.rollback-phase ]"* ]]
+  [[ "$output" == *"===FIRSTBOOT-OK==="* ]]
+}
+
+@test "rollback block: unit lives under /usr/lib (survives the @blank rollback)" {
+  # /etc rolls back; the stateful unit must run on BOTH boots, so it goes in the
+  # never-rolled-back root dataset (/usr/lib), not /etc.
+  run _seed_generator_rollback_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"/usr/lib/systemd/system/firstboot-ok.service"* ]]
+  [[ "$output" != *"/etc/systemd/system/firstboot-ok.service"* ]]
+}
+
+@test "rollback block: probe_dir override (negative control) writes to /persist" {
+  run _seed_generator_rollback_firstboot_block /persist
+  [ "$status" -eq 0 ]
+  [[ "$output" == *": > /persist/.rollback-probe"* ]]
+  [[ "$output" == *"[ ! -e /persist/.rollback-probe ]"* ]]
+}
+
+@test "rollback block: export has a forced fallback (no 'in use' panic)" {
+  run _seed_generator_rollback_firstboot_block
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "zpool export -f rpool" ]]
+}
+
 @test "multi firstboot block: owned defaults off (no VM_VERIFY_OWNED line)" {
   run _seed_generator_multi_firstboot_block "rpool tank0" \
     "tank0/data:/data/tank0"
