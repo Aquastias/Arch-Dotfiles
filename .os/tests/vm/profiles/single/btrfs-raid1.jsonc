@@ -1,0 +1,47 @@
+// VM test (ADR 0043, issue 07 Pass 2): a native multi-disk btrfs raid1 root —
+// no ZFS anywhere. Plaintext, 2 disks, swap on the primary, no desktop. The
+// btrfs multi Root Adapter partitions each disk (ESP + root; primary also swap),
+// mkfs.btrfs -d raid1 -m raid1 over both root partitions, lays out the
+// subvolumes, and boots @ via root=UUID + rootflags=subvol=@ with the `btrfs`
+// initramfs scan hook so the raid assembles before mount. verify.fs_mounts
+// asserts the nested subvols mount on the installed raid (findmnt). Multi-disk
+// btrfs roots are plaintext only (the classic encrypt hook opens one device).
+{
+  "name": "arch-zfs-test-single-btrfs-raid1",
+  "hardware": { "disks": [20, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "btrfs",
+    "system": {
+      "hostname": "vm-test-btrfs-raid1",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode": "multi",
+    "os_pool": {
+      "pool_name": "rpool",
+      "topology":  "raid1",
+      "disks":     ["/dev/sda", "/dev/sdb"]
+    },
+    "storage_groups": [],
+    "data_pools": []
+  },
+  "verify": {
+    "boot":      true,
+    "fs_mounts": ["/home", "/var/log", "/.snapshots"]
+  }
+}

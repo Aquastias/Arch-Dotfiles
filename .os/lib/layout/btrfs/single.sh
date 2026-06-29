@@ -40,21 +40,8 @@ layout_create_pools() {
   # btrfs is a kernel module (not built-in) — load it before mounting the fresh
   # fs on the live ISO (same hazard the ext4 spine modprobes for).
   modprobe btrfs 2>/dev/null || true
-
-  # Create the subvolumes on the top-level (subvolid=5), then remount @ as root
-  # with the nested subvols at their mountpoints underneath.
-  local subvol mnt
-  mount "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
-  while read -r subvol mnt; do
-    btrfs subvolume create "${MOUNT_ROOT}/${subvol}"
-  done < <(btrfs_root_subvols)
-  umount "$MOUNT_ROOT"
-  mount -o subvol=@ "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
-  while read -r subvol mnt; do
-    [[ "$subvol" == "@" ]] && continue
-    mkdir -p "${MOUNT_ROOT}${mnt}"
-    mount -o "subvol=${subvol}" "$_LAYOUT_IMPL_ROOT_DEV" "${MOUNT_ROOT}${mnt}"
-  done < <(btrfs_root_subvols)
+  # Lay out @/@home/@log/@pkg/@snapshots + mount @ as root (shared with multi).
+  _btrfs_create_and_mount_subvols "$_LAYOUT_IMPL_ROOT_DEV"
 
   # Resolve the root= UUID + the fstab mount source. Encrypted: the cmdline boots
   # the LUKS container UUID (opened as cryptroot), fstab references the mapper.
@@ -72,16 +59,10 @@ layout_create_pools() {
   # shellcheck disable=SC2034 # consumed by install_state_write
   LAYOUT_ROOT_CMDLINE="$(btrfs_root_cmdline "$uuid" @ "$encflag")"
 
-  # fstab: one line per subvol (all share the one fs, differing by subvol=), then
-  # the shared swap tail (which also sets LAYOUT_CRYPTTAB).
-  local extra="# root + btrfs subvolumes"
-  while read -r subvol mnt; do
-    extra+=$'\n'"$(btrfs_subvol_fstab_line "$src" "$mnt" "$subvol")"
-  done < <(btrfs_root_subvols)
+  # fstab: the subvol block + the shared swap tail (also sets LAYOUT_CRYPTTAB).
   _nzroot_swap_tail "$enc"
-  extra+="$_NZROOT_SWAP_FSTAB"
   # shellcheck disable=SC2034 # consumed by write_fstab
-  LAYOUT_FSTAB_EXTRA="$extra"
+  LAYOUT_FSTAB_EXTRA="$(btrfs_root_fstab "$src")${_NZROOT_SWAP_FSTAB}"
   info "btrfs root + subvolumes formatted, mounted at $MOUNT_ROOT"
   _layout_exit_phase pools
 }
