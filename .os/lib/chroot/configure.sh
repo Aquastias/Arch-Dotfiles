@@ -118,18 +118,15 @@ if command -v zpool >/dev/null 2>&1; then
         unset _kl
     fi
 
-    # Populate zfs-mount-generator cache so datasets mount at boot without scan.
-    # Skip file-keyed encrypted DATA pools: their key isn't loaded when the
-    # generator runs, so it would choke on the encrypted dataset — zfs-load-key@
-    # loads the key and zfs-mount.service (`zfs mount -a`) mounts them instead.
-    mkdir -p /etc/zfs/zfs-list.cache
+    # Populate the zfs-mount-generator cache (canonical column order, so the
+    # generator parses it instead of bailing with exit 1) so datasets mount at
+    # boot without a scan. Skip file-keyed encrypted DATA pools: their key isn't
+    # loaded when the generator runs, so it would choke on the encrypted dataset
+    # — zfs-load-key@ loads the key and zfs-mount.service mounts them instead.
     for _pool in $(zpool list -H -o name 2>/dev/null); do
         _kl="$(zfs get -H -o value keylocation "${_pool}" 2>/dev/null)"
         [[ "$_kl" == file://* ]] && continue
-        zfs list -H -t filesystem \
-            -o name,mountpoint,canmount,atime,relatime,readonly,xattr,dnodesize \
-            "$_pool" 2>/dev/null \
-            > "/etc/zfs/zfs-list.cache/${_pool}" || true
+        zfs_write_list_cache "$_pool"
     done
     unset _pool _kl
 fi

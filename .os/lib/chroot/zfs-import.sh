@@ -86,3 +86,21 @@ ExecStart=/usr/bin/zfs load-key %i
 WantedBy=zfs-mount.service
 UNIT
 }
+
+# Write the zfs-mount-generator cache for <pool> with the EXACT property set +
+# order the generator parses — the OpenZFS cacher's canonical `zfs list -o` list:
+# the 12 real props (name…keylocation) plus the 8 `org.openzfs.systemd:*`
+# user-props (emitted as `-` when unset). The repo's older 8-column set was
+# MISALIGNED (`readonly` sat where the generator expects `devices`), so the
+# generator bailed with exit 1 and produced no units — zfs-mount.service was the
+# real mounter. Matching the canonical order makes the generator parse cleanly.
+# <dir> defaults to the live /etc/zfs/zfs-list.cache; tests pass a temp dir.
+# Best-effort (|| true): a pool that can't be listed leaves no cache file
+# (zfs-mount.service still mounts it).
+zfs_write_list_cache() {
+  local pool="$1" dir="${2:-/etc/zfs/zfs-list.cache}"
+  mkdir -p "$dir"
+  zfs list -H -t filesystem -o \
+name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encroot,keylocation,org.openzfs.systemd:requires,org.openzfs.systemd:requires-mounts-for,org.openzfs.systemd:before,org.openzfs.systemd:after,org.openzfs.systemd:wanted-by,org.openzfs.systemd:required-by,org.openzfs.systemd:nofail,org.openzfs.systemd:ignore \
+    "$pool" 2>/dev/null > "${dir}/${pool}" || true
+}
