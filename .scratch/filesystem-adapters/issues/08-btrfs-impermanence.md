@@ -73,14 +73,24 @@ and the break-control deletes the `@etc@blank` subvol (subvolid=5 at /mnt), so t
 automated two-boot `verify.rollback` test + its hook-fault negative control work on
 btrfs. 1598 bats 0 fail.
 
-REMAINING (HITL — only open AC): run the live reboot test on single AND raid
-btrfs, plaintext + encrypted — rollback reverts curated subtrees, `/persist` + a
-package install survive. Suggested: a btrfs impermanence profile with
-`verify.rollback:true`, run baseline + `VM_ROLLBACK_FS=btrfs VM_ROLLBACK_PROBE_DIR=
-/persist` (assertion control) + `VM_ROLLBACK_FS=btrfs VM_ROLLBACK_BREAK_BLANK=true`
-(hook-fault control), mirroring the ZFS 4-VM validation (`87b08f6`). Encrypted-
-single supported by the hook (cmdline cryptroot); enc-multi blocked (issue 07).
-Agent env can't `git push` (~/.ssh denied) — USER pushes; VMs via `git daemon`.
+Profile ADDED: `tests/vm/profiles/impermanence/btrfs.jsonc` (single-disk btrfs,
+plaintext, `verify.rollback:true`). `vm.sh` auto-derives `VM_ROLLBACK_FS` from
+`install.filesystem`, so the baseline run needs no env override. Profile resolves
+to a config passing `_validation_{filesystem,group_filesystems,impermanence}`.
+
+REMAINING (HITL — only open AC): run the live two-boot reboot test:
+- baseline: `vm.sh -t tests/vm/profiles/impermanence/btrfs.jsonc --recreate`
+  → boot2 emits `===FIRSTBOOT-OK===` (rollback reverted /root probe, /persist flag
+  survived).
+- assertion control: same + `VM_ROLLBACK_PROBE_DIR=/persist` → probe survives →
+  no marker → host RED (proves non-vacuous).
+- hook-fault control: same + `VM_ROLLBACK_BREAK_BLANK=true` → boot1 deletes
+  `@etc@blank` → boot2 hook fails closed (emergency shell) → RED.
+Then a raid variant (mirror the `single/btrfs-raid1.jsonc` layout into an
+impermanence profile) + encrypted-single (HITL, passphrase like the other enc
+profiles; enc-multi blocked, issue 07). Mirrors the ZFS 4-VM validation
+(`87b08f6`). Agent env can't `git push` (~/.ssh denied) — USER pushes; VMs via
+`git daemon` + `REPO_URL=git://192.168.122.1/.dotfiles`.
 
 ## Blocked by
 
