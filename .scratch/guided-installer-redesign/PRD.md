@@ -1,6 +1,6 @@
 # Guided Installer — UX redesign (two-level menu + host Security/Backup)
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: **ADR 0041** (host security/backup tooling installed
 via the Primary User's paru pass). Builds on ADR 0039 (Guided Installer,
