@@ -486,6 +486,57 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
 }
 
+# issue 09: the pool editor authors a per-group filesystem + encryption.
+@test "enter(pooledit): the filesystem row cycles the pool's filesystem" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"zfs","topology":"mirror","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "filesystem: zfs   (Enter cycles)"
+  [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+}
+
+@test "enter(pooledit): cycling a group to ext4 pins it single-disk" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"raid1","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "filesystem: btrfs   (Enter cycles)"
+  [ "$(jq -r '.data_pools[0].filesystem' "$GUIDED_STATE_FILE")" = "ext4" ]
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
+  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+}
+
+@test "enter(pooledit): the encryption row toggles the pool's encryption" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"zfs","topology":"mirror","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "encryption: false   (Enter toggles)"
+  [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  run guided_ctl_enter "encryption: true   (Enter toggles)"
+  [ "$(jq -r '.data_pools[0].encryption' "$GUIDED_STATE_FILE")" = "false" ]
+}
+
+@test "enter(pooledit): an ext4 pool's disk count stays pinned at 1" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"ext4","topology":"single","disk_count":1}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "disks: 1   (Enter cycles 1-8)"
+  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
+}
+
+@test "list(pooledit): shows the filesystem and encryption rows" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"raid1","disk_count":2,"encryption":true}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_list
+  echo "$output" | grep -q "filesystem: btrfs"
+  echo "$output" | grep -q "encryption: true"
+}
+
 # ── swap: one Disks row → swapedit sub-editor (enabled + free-text size) ──────
 
 @test "list(category Disks): one swap row, no separate swap size row" {

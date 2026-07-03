@@ -104,18 +104,45 @@ _ctl_topologies_for_fs() {
   esac
 }
 
+# _ctl_cycle_next <current> <item...> → the item after <current> (wrapping); the
+# first item when <current> is absent. The shared cycle primitive behind the pool
+# editor's topology and filesystem rows.
+_ctl_cycle_next() {
+  local cur="$1"; shift; local -a list=("$@"); local i
+  for i in "${!list[@]}"; do
+    [[ "${list[$i]}" == "$cur" ]] \
+      && { printf '%s\n' "${list[$(( (i + 1) % ${#list[@]} ))]}"; return 0; }
+  done
+  printf '%s\n' "${list[0]}"
+}
+
 # _ctl_cycle_topology <fs> <current> → the next topology in <fs>'s cycle after
 # <current>, wrapping; the first entry when <current> is not in the set (e.g.
 # after the group's filesystem changed and left a stale topology).
 _ctl_cycle_topology() {
-  local fs="$1" cur="$2" i; local -a list
-  mapfile -t list < <(_ctl_topologies_for_fs "$fs")
-  for i in "${!list[@]}"; do
-    if [[ "${list[$i]}" == "$cur" ]]; then
-      printf '%s\n' "${list[$(( (i + 1) % ${#list[@]} ))]}"; return 0
-    fi
-  done
-  printf '%s\n' "${list[0]}"
+  # shellcheck disable=SC2046 # deliberately word-split the topology list to args
+  _ctl_cycle_next "$2" $(_ctl_topologies_for_fs "$1")
+}
+
+# _ctl_pool_normalise_fs <state> <index> <fs> → state with data_pools[index]'s
+# filesystem set to <fs> and the group made consistent for it (issue 09, ADR
+# 0043): ext4/xfs are single-disk (topology single, disk_count 1); otherwise a
+# topology no longer valid for <fs> resets to that fs's first (a still-valid one
+# is kept). Keeps the editor from authoring a group validation would reject.
+_ctl_pool_normalise_fs() {
+  local state="$1" i="$2" fs="$3" valid first
+  valid="$(_ctl_topologies_for_fs "$fs" | tr '\n' ' ')"
+  first="$(_ctl_topologies_for_fs "$fs" | head -1)"
+  jq --argjson i "$i" --arg fs "$fs" --arg valid "$valid" --arg first "$first" '
+    ($valid | split(" ") | map(select(length > 0))) as $v
+    | (.data_pools[$i].topology) as $topo
+    | .data_pools[$i].filesystem = $fs
+    | if ($fs == "ext4" or $fs == "xfs")
+      then .data_pools[$i].topology = "single" | .data_pools[$i].disk_count = 1
+      elif ($v | index($topo)) == null
+      then .data_pools[$i].topology = $first
+      else . end
+  ' <<<"$state"
 }
 
 # _ctl_enum_options <path> → the value-picker lines for an enum field (or the
@@ -584,13 +611,19 @@ guided_ctl_list() {
       <<<"$(_ctl_effective "$state" "$base")"
     printf '%s\n' "+ Add data pool" "← Back" ;;
   pooledit)
-    local i p
+    local i p _eff _rootfs
     i="$(nav_get "$nav" index)"
-    p="$(jq -c --argjson i "$i" '.data_pools[$i] // {}' \
-      <<<"$(_ctl_effective "$state" "$base")")"
+    _eff="$(_ctl_effective "$state" "$base")"
+    p="$(jq -c --argjson i "$i" '.data_pools[$i] // {}' <<<"$_eff")"
+    # A group with no explicit filesystem inherits the root's (ADR 0043), so the
+    # displayed value matches what the topology/disks cycles use.
+    _rootfs="$(jq -r '.filesystem // "zfs"' <<<"$_eff")"
     printf 'name: %s\n' "$(jq -r '.name // "?"' <<<"$p")"
+    printf 'filesystem: %s   (Enter cycles)\n' \
+      "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
     printf 'topology: %s   (Enter cycles)\n' "$(jq -r '.topology // "?"' <<<"$p")"
     printf 'disks: %s   (Enter cycles 1-8)\n' "$(jq -r '.disk_count // "?"' <<<"$p")"
+    printf 'encryption: %s   (Enter toggles)\n' "$(jq -r '.encryption // false' <<<"$p")"
     printf '%s\n' "✗ remove this pool" "← Back" ;;
   esac
 }
@@ -822,9 +855,30 @@ _ctl_enter_pooledit() {
     _ctl_write_state "$(jq --argjson i "$i" --arg t "$_next" \
       '.data_pools[$i].topology = $t' <<<"$(_ctl_state)")"
     echo refresh; return ;;
-  "disks:"*)
+  "filesystem:"*)
+    # Cycle the group's filesystem through the built adapters, then normalise the
+    # group for its new filesystem (ext4/xfs → single-disk; a topology invalid for
+    # the new fs resets to that fs's first) via _ctl_pool_normalise_fs.
+    local _cur _next
+    _cur="$(jq -r --argjson i "$i" '.data_pools[$i].filesystem // "zfs"' \
+      <<<"$(_ctl_state)")"
+    # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
+    _next="$(_ctl_cycle_next "$_cur" $(_ctl_built_root_filesystems))"
+    _ctl_write_state "$(_ctl_pool_normalise_fs "$(_ctl_state)" "$i" "$_next")"
+    echo refresh; return ;;
+  "encryption:"*)
     _ctl_write_state "$(jq --argjson i "$i" \
-      '.data_pools[$i].disk_count |= (if . >= 8 then 1 else . + 1 end)' \
+      '.data_pools[$i].encryption = ((.data_pools[$i].encryption // false) | not)' \
+      <<<"$(_ctl_state)")"
+    echo refresh; return ;;
+  "disks:"*)
+    # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
+    # so the cycle is a no-op there; other filesystems cycle 1-8.
+    _ctl_write_state "$(jq --argjson i "$i" '
+      (.data_pools[$i].filesystem // .filesystem // "zfs") as $fs
+      | if ($fs == "ext4" or $fs == "xfs")
+        then .data_pools[$i].disk_count = 1
+        else .data_pools[$i].disk_count |= (if . >= 8 then 1 else . + 1 end) end' \
       <<<"$(_ctl_state)")"
     echo refresh; return ;;
   esac
