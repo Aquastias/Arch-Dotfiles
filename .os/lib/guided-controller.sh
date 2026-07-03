@@ -84,13 +84,18 @@ _ctl_field_kind() {
   esac
 }
 
+# _ctl_built_root_filesystems — the root filesystems whose Root Layout Adapter is
+# BUILT, one per line (issue 09). Kept in lockstep with lib/layout/dispatch.sh's
+# root_adapter_source (the dispatch is the source of truth for what's built);
+# the guided layer lists a value only when the operator can actually install it.
+_ctl_built_root_filesystems() { printf '%s\n' zfs btrfs ext4 xfs; }
+
 # _ctl_enum_options <path> → the value-picker lines for an enum field (or the
 # synthetic __layout__ disk-layout preset list).
 _ctl_enum_options() {
   case "$1" in
   __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools ;;
-  filesystem) printf '%s\n' zfs 'btrfs (reserved)' 'ext4 (reserved)' \
-    'xfs (reserved)' ;;
+  filesystem) _ctl_built_root_filesystems ;;
   options.bootloader) printf '%s\n' systemd-boot grub ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   *) printf '%s\n' true false ;;
@@ -125,8 +130,11 @@ _ctl_apply_enum() {
   local state="$1" path="$2" val="$3"
   case "$path" in
   filesystem)
-    [[ "$val" == "zfs" ]] || { printf '%s' "$state"; return 1; }
-    edit_set_scalar "$state" filesystem zfs ;;
+    # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value is
+    # a no-op (rc 1, unchanged) so the picker can never author an uninstallable fs.
+    _ctl_built_root_filesystems | grep -qxF "$val" \
+      || { printf '%s' "$state"; return 1; }
+    edit_set_scalar "$state" filesystem "$val" ;;
   options.bootloader | post_install.security.firewall)
     edit_set_scalar "$state" "$path" "$val" ;;
   *) edit_set_bool "$state" "$path" "$val" ;;

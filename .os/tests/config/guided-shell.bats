@@ -67,6 +67,17 @@ write_answers() {
   echo "$effective" | jq -e '.system_programs == ["cups"]'
 }
 
+# ── issue 09: a built non-zfs root filesystem is selectable in replay ───────
+
+@test "guided_build: a replayed btrfs root filesystem commits (built adapter)" {
+  guided_load_replay "$(write_answers \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'filesystem=btrfs' \
+    'confirm=INSTALL')"
+  effective="$(guided_build 2>/dev/null)"
+  echo "$effective" | jq -e '.filesystem == "btrfs"'
+}
+
 # ── an untouched run is ready to install on the seeded defaults (issue 01) ──
 
 @test "guided_build: an untouched run emits the seeded defaults" {
