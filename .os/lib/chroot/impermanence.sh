@@ -255,19 +255,32 @@ HELP
 }
 INSTALL
 
-  # Bake the rollback subvol list into the runtime hook.
-  local entry suffix sv_list=""
+  # Bake the rollback subvol list (and the subvol→mountpoint pairs the latehook
+  # needs) into the runtime hook.
+  local entry suffix mp sv_list="" mp_pairs=""
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
+    mp="${entry#*:}"
     sv_list+="@$suffix "
+    mp_pairs+="@$suffix:$mp "
   done
   sv_list="${sv_list% }"
+  mp_pairs="${mp_pairs% }"
 
   # run_hook (not latehook): reset the subvols on the btrfs top-level before
   # `filesystems` pivots into the root. The kernel root= device is resolved with
   # the stock initcpio resolve_device/getarg helpers (handles UUID= plaintext and
   # the /dev/mapper/cryptroot the encrypt hook already opened). A read-only
   # @<name>@blank snapshotted back to @<name> yields a fresh writable subvol.
+  #
+  # run_latehook: `filesystems` has now mounted @ at /new_root, but the rollback
+  # subvols are NOT mounted (only @ is — the nested subvols would otherwise mount
+  # via fstab at local-fs.target, LONG after PID1 starts). Mount each recreated
+  # subvol under /new_root here, before switch_root, so PID1 reads a populated
+  # /etc (machine-id/hostname/localtime); otherwise every boot sees the empty
+  # @/etc mountpoint, systemd-firstboot Initial Setup runs, and boot hangs on the
+  # console prompt. This mirrors the archzfs hook mounting the dataset hierarchy
+  # in the initramfs. systemd later adopts these already-mounted paths from fstab.
   cat > "$hdir/btrfs-rollback" <<HOOK
 #!/usr/bin/ash
 run_hook() {
@@ -289,6 +302,20 @@ run_hook() {
     btrfs subvolume snapshot "\$top/\${sv}@blank" "\$top/\$sv"
   done
   umount "\$top"
+}
+run_latehook() {
+  local pairs="$mp_pairs"
+  local dev pair sv mp
+  dev="\$(resolve_device "\$(getarg root)")"
+  for pair in \$pairs; do
+    sv="\${pair%%:*}"
+    mp="\${pair#*:}"
+    mkdir -p "/new_root\$mp"
+    if ! mount -t btrfs -o "subvol=\$sv" "\$dev" "/new_root\$mp"; then
+      err "impermanence: cannot mount \$sv at /new_root\$mp"
+      launch_interactive_shell
+    fi
+  done
 }
 HOOK
 }
