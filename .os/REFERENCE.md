@@ -1,6 +1,10 @@
-# Arch Linux ZFS Installer — Reference
+# Arch Linux Installer — Reference
 
 Complete configuration reference, concept explanations, and VM testing guide.
+ZFS is the default root filesystem; `btrfs`, `ext4`, and `xfs` are
+selectable via the top-level `filesystem` discriminator and a
+filesystem-keyed adapter axis (ADR 0040/0043). Sections below assume the
+ZFS default unless noted.
 
 ---
 
@@ -22,10 +26,14 @@ Complete configuration reference, concept explanations, and VM testing guide.
 
 ## Concepts
 
-### Why ZFS?
+### Why ZFS (the default)?
 
-ZFS is a combined filesystem and volume manager with features not
-available in ext4/btrfs:
+ZFS is the default root filesystem. Pick another with `"filesystem":
+"btrfs" | "ext4" | "xfs"` at the top level of the profile (or a
+per-group `filesystem` on a data group — ADR 0043). ZFS and btrfs are
+the snapshotting filesystems (native multi-disk topology + impermanence);
+ext4 and xfs are single-disk only. ZFS is a combined filesystem and
+volume manager with features not available in ext4/xfs:
 
 - **Copy-on-write** — data is never overwritten in place;
   consistent state on power loss
@@ -89,39 +97,56 @@ installer consumes has the same shape with devices filled in.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
+| `filesystem` | string | `"zfs"` | Root filesystem: `zfs`/`btrfs`/`ext4`/`xfs` |
 | `dotfiles_repo` | string | `""` | Cloned to `~/.dotfiles`, stowed |
 
-The disk-layout fields (`mode`, `disk`, `ashift`, `os_size`,
-`os_pool_name`, `storage_pool_name`, `storage_mount`, `os_pool`,
-`storage_groups`, `data_pools`) also live at top level — see § Disk
-Layout Modes and § Profile Layout Examples.
+The disk-layout fields (`mode`, `ashift`, `os_pool_name`,
+`storage_pool_name`, `storage_mount`, `os_pool`, `storage_groups`,
+`data_pools`) also live at top level — see § Disk Layout Modes and §
+Profile Layout Examples. Device paths are never committed: each group
+declares a `disk_count`, resolved to disks at install time.
 
 ### `system`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `hostname` | string | `""` | Machine hostname. `""` = prompted |
-| `locale` | string | `"en_US.UTF-8"` | System locale |
+| `hostname` | string | `""` | Machine hostname. `""` = profile dir name |
+| `locale` | string \| array | `"en_US.UTF-8"` | Locale(s); element 0 = LANG default |
 | `timezone` | string | `"UTC"` | Timezone path under `/usr/share/zoneinfo/` |
-| `keymap` | string | `"us"` | Console keymap (see `localectl list-keymaps`) |
+| `keymap` | string \| array | `"us"` | Console keymap(s); element 0 = default |
 
-Users are declared in the host profile's `users` array, with one
-`users/<name>/profile.jsonc` each.
+`locale` and `keymap` accept a single string or an array whose first
+element is the default (extra entries are generated locales / available
+layouts — ADR 0036). Users are declared in the host profile's `users`
+array, with one `users/<name>/profile.jsonc` each.
 
 ### `options`
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `kernel` | string | `"lts"` | `"lts"` (linux-lts) or `"default"` (linux) |
+| `kernel` | string \| array | `"lts"` | Flavour token(s): `lts`/`default`/`zen`/`hardened` |
 | `bootloader` | string | `"systemd-boot"` | `"systemd-boot"` or `"grub"` |
-| `encryption` | bool | `false` | ZFS AES-256-GCM on all pools |
-| `swap` | bool | `true` | Create a swap zvol on rpool |
+| `encryption` | bool | `false` | Encrypt OS volume (+ pools) |
+| `encryption_method` | string | *(fs-derived)* | `native` (ZFS AES) or `luks` (dm-crypt) |
+| `swap` | bool | `true` | Create swap (zvol on ZFS) |
 | `swap_size` | string | `"auto"` | `"auto"` = RAM×2. Or `"8G"`, `"16G"` |
-| `esp_size` | string | `"512M"` | EFI partition size per OS disk |
+| `zswap.enabled` | bool | `true` | Compressed-page swap cache |
+| `zswap.compressor` | string | `"zstd"` | zswap compressor |
+| `zswap.max_pool_percent` | int | `20` | zswap RAM budget (%) |
+| `esp_size` | string | `"2G"` | EFI partition size per OS disk |
+| `ssh.enabled` | bool | `false` | Enable + start sshd on the installed system |
+| `multilib` | bool | `true` | Enable the `[multilib]` repo |
+| `mirror_countries` | string \| array | *(near-DE set)* | `reflector --country` list |
 | `age_key_url` | string | `""` | HTTPS URL for `.age` key (live-CD fallback) |
-| `impermanence.enabled` | bool | `false` | Rollback to `@blank` on every boot |
+| `impermanence.enabled` | bool | `false` | Rollback to `@blank` on every boot (ZFS/btrfs) |
 | `impermanence.dataset` | string | `"rpool/persist"` | Persist dataset name |
 | `impermanence.mount` | string | `"/persist"` | Persist mountpoint |
+
+`encryption_method` defaults to `native` for ZFS and `luks` for every
+other filesystem; an explicit value wins (ADR 0040). Every selected
+kernel is installed and ZFS-DKMS builds against each; the first token is
+the Primary Kernel (bootloader default). See § Kernel Selection in
+CONTEXT.md.
 
 ### `environment`
 
@@ -154,12 +179,16 @@ Used when `mode = "single"`:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `disk` | string | — | Target disk device path, e.g. `"/dev/nvme0n1"` |
 | `ashift` | int | `12` | Sector size exponent (12=4K, 13=8K) |
 | `os_size` | string | `"auto"` | OS partition. `"auto"` or fixed `"80G"` |
 | `os_pool_name` | string | `"rpool"` | Name for the OS ZFS pool |
 | `storage_pool_name` | string | `"dpool"` | Name for the storage ZFS pool |
 | `storage_mount` | string | `"/data"` | Mount point for the storage pool |
+
+> `disk` is **not** committed in a profile — the operator picks the
+> single target disk at install (`install.sh --profile`). Only the
+> positional effective-config seam (`install.sh <config-file>`, VM seed)
+> carries a `disk` device path.
 
 ### `os_pool` (multi-disk)
 
@@ -168,12 +197,11 @@ Used when `mode = "single"`:
 | `pool_name` | string | — | Name for the OS pool |
 | `topology` | str | *(prompted)* | `mirror`, `stripe`, `none` — or prompted |
 | `ashift` | int | `13` | Sector size exponent |
-| `disks` | array | — | List of disk device paths |
+| `disk_count` | int | — | Number of disks the picker assigns to this group |
 
-**topology = `"none"`**: The script will ask which disk to install
-the OS on. All other disks from this list are automatically added
-to `dpool` as the `extra` storage group, with their own topology
-prompt.
+**topology = `"none"`**: The operator picks which assigned disk is the
+OS disk; each leftover folds into `dpool` as the `extra` storage group
+(or becomes its own Standalone Data Pool interactively).
 
 ### `storage_groups` (multi-disk)
 
@@ -185,46 +213,73 @@ Array of storage group objects. Each group becomes a vdev in `dpool`:
 | `mount` | string | — | Mount point, e.g. `"/data/ssd"` |
 | `ashift` | int | `12` | Sector size exponent |
 | `topology` | str | *(prompted)* | Storage topology. Auto if omitted |
-| `disks` | array | — | List of disk device paths in this group |
+| `disk_count` | int | — | Number of disks assigned to this group |
+| `owners` | array | *(Primary User)* | Users / `@groups` granted access (ADR 0031) |
+| `filesystem` | string | *(inherits root)* | Per-group fs (ADR 0043); ext4/xfs = 1 disk |
+| `encryption` | bool | `false` | Per-group encryption, independent of root |
+
+Storage groups are ZFS-only today (they fold into one `dpool`); a
+non-ZFS data disk is expressed as its own `data_pools[]` entry.
+`data_pools[]` entries carry the same `filesystem` / `encryption` /
+`owners` fields.
 
 ### `packages`
 
+Two fields, both **Categorized Lists** (`{ category: [pkgs] }` — the
+category keys are cosmetic, flattened to a sorted-unique set at install;
+ADR 0022):
+
 | Field | Type | Description |
 |---|---|---|
-| `extra`           | array | Flat list, e.g. `["htop", "firefox"]` |
-| `groups.system`    | array | System management and hardware tools |
-| `groups.network`  | array | Network utils (networkmanager included) |
-| `groups.security`  | array | Security hardening tools |
-| `groups.fs`       | array | Filesystem utils (btrfs-progs, xfsprogs, …) |
-| `groups.archive`   | array | Archive support (7zip, unrar, zip, ...) |
-| `groups.wayland`   | array | Wayland compositor and tools |
-| `groups.audio`    | array | Audio (auto-derived from `environment.desktop`) |
-| `groups.gpu`      | array | GPU drivers (auto from `environment.gpu`) |
-| `groups.fonts`     | array | Fonts and icon themes |
-| `groups.terminal`  | array | Terminal emulators and CLI tools |
-| `groups.dev`       | array | Development tools and runtimes |
-| `groups.media`     | array | Media players, browsers, communication |
-| `groups.gaming`    | array | Gaming (steam, lutris, wine) |
-| `groups.virt`      | array | Virtualisation (qemu, virt-manager) |
-| `groups.misc`      | array | Anything else |
+| `repo` | object | Official-repo packages, pacstrapped (`{ category: [pkgs] }`) |
+| `aur`  | object | AUR packages, installed via the Primary User's paru pass |
 
-All lists are merged and deduplicated at install time. Use exact
-pacman package names. Host-specific package lists (incl. AUR)
-live under `hosts/<name>/profile.jsonc` `packages.repo` /
-`packages.aur` — see CONTEXT.md.
+```jsonc
+"packages": {
+  "repo": {
+    "shell":       ["btop", "eza", "fzf", "zsh"],
+    "filesystems": ["btrfs-progs", "xfsprogs", "lvm2"],
+    "media":       ["vlc", "gimp"]
+  },
+  "aur": { "misc": ["brave-bin", "zen-browser-bin"] }
+}
+```
+
+Both are deduplicated against the hardcoded Base Package List
+(`lib/packages/list.sh`) and the resolved `gpu`/`audio` groups (derived
+from `environment` — never authored by hand). Renaming a category does
+not change what installs; a shape or leaf-type violation aborts at
+config-load with the offending path. The Guided Installer also accepts a
+flat `packages.extra` array for ad-hoc names. Use exact pacman package
+names (`pacman -Ss <keyword>` on a running system to find them).
 
 ### `post_install`
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `backup`   | bool | `false` | Run `extras/backup.sh` if present (operator) |
-| `security` | bool | `false` | Run `extras/security.sh` if present (operator) |
+**Security & Backup Extras** (ADR 0041) — structured objects, not
+booleans. The selected tools are paru-based user programs the Runner
+unions into the **Primary User's** paru pass (paru refuses root):
 
-> For production backups and hardening, declare the relevant
-> programs under `system_programs` in your host config —
-> `borg`, `zfs-auto-snapshot`, `ufw`/`firewalld`, `clamav`,
-> `apparmor`, `rkhunter`, `sops`. See § Post-Install
-> Components.
+| Field | Type | Description |
+|---|---|---|
+| `security.firewall` | string \| null | `"firewalld"` or `"ufw"` (mutually exclusive) |
+| `security.clamav`   | bool | Antivirus daemon + scheduled scan |
+| `security.rkhunter` | bool | Rootkit scanner |
+| `security.apparmor` | bool | Mandatory access control |
+| `backup.zfs-auto-snapshot` | bool | Periodic ZFS snapshot timers |
+| `backup.borg`       | bool | borgbackup + starter borgmatic config |
+
+```jsonc
+"post_install": {
+  "security": { "firewall": "firewalld", "clamav": true,
+                "rkhunter": true, "apparmor": true },
+  "backup":   { "zfs-auto-snapshot": true, "borg": true }
+}
+```
+
+A host with **no users** cannot carry these (nothing to run paru as) —
+the Guided Installer aborts at the terminal action. `sops` is *not*
+listed here: it is secrets-activated (installed only when a
+`secrets.json` ships — ADR 0025).
 
 ---
 
@@ -397,21 +452,24 @@ Override with a fixed value to take full control: `"os_size": "80G"`.
 
 ## Custom Packages
 
-Packages are collected from three sources and deduplicated before pacstrap:
+Machine packages are declared as `packages.repo` (pacstrapped) and
+`packages.aur` (Primary User's paru pass), both **Categorized Lists**.
+They are flattened, then deduplicated against the Base Package List and
+the auto-derived `gpu`/`audio` groups before pacstrap:
 
-```json
+```jsonc
 "packages": {
-  "extra":  ["htop", "neofetch", "rsync", "wget"],
-  "groups": {
+  "repo": {
     "system":   ["smartmontools", "lm_sensors"],
-    "terminal": ["tmux", "bat", "ripgrep", "fzf", "zsh"],
+    "shell":    ["tmux", "bat", "ripgrep", "fzf", "zsh"],
     "dev":      ["python", "nodejs", "npm", "go"],
     "media":    ["firefox", "vlc", "gimp"]
-  }
+  },
+  "aur": { "misc": ["brave-bin"] }
 }
 ```
 
-All packages must be valid pacman package names. Use
+All packages must be valid pacman (or AUR) package names. Use
 `pacman -Ss <keyword>` on a running Arch system to find package names.
 
 **Useful package suggestions:**
@@ -428,8 +486,7 @@ All packages must be valid pacman package names. Use
 | GUI browsers | `firefox` `chromium` |
 | Media | `vlc` `mpv` `ffmpeg` |
 
-For machine-specific lists (incl. AUR), prefer the host profile's
-`packages.repo` / `packages.aur` — see CONTEXT.md § Host Package List.
+See CONTEXT.md § Host Package List for the full model.
 
 ---
 
@@ -469,11 +526,12 @@ adapters; the KDE adapter wins on display manager (SDDM).
 
 ### Backup — `programs/backup/`
 
-Declared as system programs in your host config:
+Declared as **Security & Backup Extras** — a `post_install.backup`
+object (ADR 0041), installed via the Primary User's paru pass:
 
 ```jsonc
 // .os/hosts/<name>/profile.jsonc
-"system_programs": ["zfs-auto-snapshot", "borg"]
+"post_install": { "backup": { "zfs-auto-snapshot": true, "borg": true } }
 ```
 
 **`zfs-auto-snapshot`** — hourly / daily / weekly / monthly ZFS
@@ -493,19 +551,17 @@ borg init --encryption=repokey-blake2 /mnt/backup/borg
 borgmatic --verbosity 1
 ```
 
-The `post_install.backup` flag in the host profile is a gate for
-an operator-supplied `extras/backup.sh` (not shipped with this
-repo). Leave it `false` and use the programs above for the
-maintained path.
-
 ### Security — `programs/security/`
 
-Declared as system programs in your host config:
+Declared as **Security & Backup Extras** — a `post_install.security`
+object (ADR 0041), installed via the Primary User's paru pass. `sops` is
+separate: it is secrets-activated (§ Secrets), not selected here.
 
 ```jsonc
-"system_programs": [
-  "ufw", "firewalld", "clamav", "apparmor", "rkhunter", "sops"
-]
+"post_install": {
+  "security": { "firewall": "firewalld", "clamav": true,
+                "rkhunter": true, "apparmor": true }
+}
 ```
 
 - **`ufw`** — uncomplicated firewall (default deny incoming).
@@ -517,21 +573,19 @@ Declared as system programs in your host config:
 - **`sops`** — SOPS Runtime Service: decrypts secrets to a
   tmpfs at `/run/secrets/` on every boot using the Machine Age
   Key. Required by any other program that reads
-  `/run/secrets/<name>`.
-
-The `post_install.security` flag in the host profile is a gate
-for an operator-supplied `extras/security.sh` (not shipped with
-this repo). Leave it `false` and use the programs above for the
-maintained path.
+  `/run/secrets/<name>`. Secrets-activated (installed only when a
+  `secrets.json` ships — ADR 0025), never listed in `post_install`.
 
 ---
 
 ## Impermanence
 
-ZFS dataset rollback to a Blank Snapshot on every boot. When
-enabled, `/etc`, `/root`, `/opt`, `/srv`, and `/usr/local` revert
-to `@blank` at every boot; anything not on the Persist Dataset
-disappears. Curated system-identity files (machine-id, SSH host
+Rollback to a Blank Snapshot on every boot, on the snapshotting
+filesystems **ZFS and btrfs** (ext4/xfs cannot — ADR 0040/0044). On ZFS
+it rolls back datasets; on btrfs it mirrors the same path list as
+per-subvolume rollback (ADR 0044). When enabled, `/etc`, `/root`,
+`/opt`, `/srv`, and `/usr/local` revert to `@blank` at every boot;
+anything not on the Persist Dataset disappears. Curated system-identity files (machine-id, SSH host
 keys, Machine Age Key, NetworkManager connections, ...) survive
 by virtue of bind mounts from `/persist`. See
 [ADR-0008](../docs/adr/0008-impermanence-via-zfs-dataset-rollback.md)
@@ -606,13 +660,13 @@ sudo bash tools/impermanence.sh apply-defaults
 
 ### Curated Persist Defaults
 
-A fixed list of system-identity paths persisted automatically:
-`/etc/machine-id`, `/etc/ssh`, `/etc/secrets`, `/etc/hostname`,
-`/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`,
-`/etc/NetworkManager/system-connections`, `/etc/pacman.d`,
-`/var/lib/systemd`, plus the bootstrap pair. The complete list
-lives in `lib/impermanence-common.sh` as `CURATED_DIRS` and
-`CURATED_FILES`.
+A fixed list of system-identity paths persisted automatically.
+Files: `/etc/machine-id`, `/etc/hostname`, `/etc/locale.conf`,
+`/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`. Directories:
+`/etc/ssh`, `/etc/secrets`, `/etc/cryptsetup-keys.d`,
+`/etc/NetworkManager/system-connections`, `/etc/sudoers.d`,
+`/etc/pacman.d`, `/root`. The complete list lives in
+`lib/impermanence-common.sh` as `CURATED_FILES` and `CURATED_DIRS`.
 
 The runtime tool refuses to `add` or `remove` curated paths —
 they would silently break system identity. To pick up new

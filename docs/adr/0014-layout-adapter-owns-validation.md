@@ -1,7 +1,11 @@
 # ADR 0014: Layout Adapter owns mode-specific validation
 
 ## Status
-Accepted
+Accepted. The adapter-owns-validation decision still holds, but the
+Layout Module is now filesystem-keyed (ADR 0040/0043): the paths below
+(`lib/validation.sh`, `lib/layout-<mode>.sh`) have moved to
+`lib/config/validation.sh` and `lib/layout/<fs>/<mode>.sh`, and
+`layout_validate` dispatches per filesystem × mode.
 
 ## Context
 `validate_install_context` (`lib/validation.sh`) dispatched per-mode

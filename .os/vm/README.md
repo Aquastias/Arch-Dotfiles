@@ -40,7 +40,7 @@ Once it finishes, open virt-manager and connect to the VM.
 Default credentials: `aquastias / 12345` (or `root / 12345`).
 
 `--print-config` is a dry run: it validates the profile and prints the
-resolved `install.jsonc` to stdout without touching libvirt.
+resolved effective config to stdout without touching libvirt.
 
 ---
 
@@ -54,8 +54,9 @@ resolved `install.jsonc` to stdout without touching libvirt.
 | `headless/secure` | `arch-secure` | 2 × 40 GiB (mirror) | 6 GiB | none (headless) |
 
 Each profile names its install config via one source: a `host_profile`
-reference (resolved through the picker's Install Template merge — one
-source of truth), an inline `install` block, or `"install": "repo"`.
+reference (resolved through the unified Profile Loader — one source of
+truth), an inline `install` block, or `"install": "repo"` (the repo's
+default host profile, `VM_DEFAULT_HOST_PROFILE`).
 
 ---
 
@@ -88,7 +89,7 @@ INSTALL_TIMEOUT_SEC=7200   bash vm/vm.sh --profile desktop/kde   # longer instal
 ## How it works
 
 1. Validates the profile and resolves its install config to a full
-   `install.jsonc`.
+   effective config.
 2. Resolves the newest archzfs-compatible Arch ISO (cached in
    `vm/.vm-cache/`).
 3. Builds a minimal cloud-init seed CDROM (NoCloud datasource only; no

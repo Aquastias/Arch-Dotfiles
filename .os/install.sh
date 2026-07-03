@@ -12,14 +12,28 @@
 # positional argument is forwarded to 03-install.sh as an alternate config path.
 # Recognised flags are stripped here and re-emitted to the numbered scripts.
 #
+# Three front-ends over one back-end (ADR 0036/0039), all producing a tmpfs
+# Effective Config:
+#   ./install.sh --profile <name>          # pick disks against a committed
+#                                          # Host Profile, then install
+#   ./install.sh /path/to/effective.jsonc  # unattended pre-assembled config
+#                                          # (the VM seed's seam)
+#   ./install.sh                           # Guided Installer (fzf TUI) when
+#                                          # no --profile and no config file
+#
 # USAGE:
-#   ./install.sh                           # uses install.jsonc next to this
-#                                          # file
-#   ./install.sh /path/to/install.jsonc    # alternate config
-#   ./install.sh -y                        # unattended (no prompts)
-#   ./install.sh --unattended /path/cfg    # unattended + alternate config
+#   ./install.sh --profile <name>          # interactive (picks disks)
+#   ./install.sh --profile <name> -y       # unattended (hostname preset)
+#   ./install.sh --profile <name> --print-config   # validate + print, no install
+#   ./install.sh /path/to/effective.jsonc  # positional config seam
+#   ./install.sh                           # Guided Installer
+#   ./install.sh --guided answers.txt      # headless guided replay
 #
 # OPTIONS:
+#   --profile <name>   Host Profile under hosts/<name>/ to install.
+#   --print-config     Validate --profile + assemble the Effective Config,
+#                      print it, and exit (no disk phase runs).
+#   --guided <file>    Run the Guided Installer headlessly from an answers file.
 #   -y, --unattended   Bypass every interactive confirmation prompt — disk
 #                      selection, the WIPE confirmation, and the final
 #                      "Proceed?" summary. Hostname must be set in the config
@@ -55,8 +69,8 @@ With no --profile and no CONFIG_FILE, launches the Guided Installer (an
 fzf menu that builds the install interactively).
 
 Options:
-  --profile <name>   Host Profile to install (hosts/<name>/). With
-                     --print-config, the only profile action wired today.
+  --profile <name>   Host Profile to install (hosts/<name>/): validate it,
+                     pick disks, assemble the effective config, then install.
   --print-config     Validate the --profile against the closed schema,
                      assemble the effective config, print it to stdout, and
                      exit. No disk phase runs (01/02/03 never start).

@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted. Extended by ADR-0044 (2026-07-03): btrfs roots reuse this same
+per-path rollback model (curated subtree set + Persist overlay +
+PostTransaction re-snapshot), mirrored as per-subvolume rollback rather
+than ZFS dataset rollback. The decision below is unchanged for ZFS.
 
 ## Context
 
