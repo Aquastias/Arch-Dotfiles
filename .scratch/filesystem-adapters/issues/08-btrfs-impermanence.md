@@ -139,9 +139,9 @@ the rollback hook runs), `===INSTALLER-EXIT-0===`. Profile stays **install-only*
 the two-boot rollback proof stays **by-hand** (`testtest`, write /root probe +
 /persist flag, reboot, confirm probe GONE + flag SURVIVED).
 
-**Headless-encrypted-verify ATTEMPT (2026-07-03) — reverted; finding recorded.**
-I built a harness path to headless-verify an encrypted root: add `console=ttyS0`
-via a verify block + `vm/lib/serial-driver.py` (one process owns the serial PTY,
+**Headless-encrypted-verify ATTEMPT (2026-07-03) — prototyped, not landed.**
+I prototyped a harness path to headless-verify an encrypted root: add `console=ttyS0`
+via a verify block + a serial-console driver (one process owns the serial PTY and
 types the LUKS passphrase at the cryptsetup prompt). The passphrase-answering WORKS
 — boot1 unlocked `/dev/mapper/cryptroot`, reached multi-user with the REAL hostname
 and NO firstboot hang (the `f1d1d84` early-mount fix works under LUKS), and the
@@ -152,10 +152,10 @@ Transient machine-id to Disk`, abrupt firmware resets right after each getty. Th
 loop persists with a single-boot (non-rollback) sentinel too, so it is NOT the
 rollback `/persist`-flag logic — it is a serial-console/getty/impermanence-under-LUKS
 interaction needing live hands-on debugging (credentials + journal), out of reach of
-the headless agent. Reverted the automation (5 commits) to keep the suite clean; the
-approach + serial-driver design are recorded here for a future follow-up. The
-rollback MECHANISM is proven on encrypted (hook runs, clean boot); the AC's live
-rollback proof is satisfied by the plaintext single+raid1 two-boot runs + controls.
+the headless agent. The prototype was discarded (not landed) to keep the suite
+clean; the approach is recorded here for a future follow-up. The rollback MECHANISM
+is proven on encrypted (hook runs, clean boot); the AC's live rollback proof is
+satisfied by the plaintext single+raid1 two-boot runs + controls.
 enc-multi still blocked by issue 07. `f1d1d84` PUSHED.
 
 **Follow-up (deferred):** debug the encrypted btrfs-impermanence serial-console
