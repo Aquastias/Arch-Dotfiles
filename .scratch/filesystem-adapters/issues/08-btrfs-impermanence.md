@@ -132,12 +132,18 @@ full suite 1600 green, shellcheck clean.
   `ERROR: impermanence: @blank snapshot missing for @etc` → emergency shell, NO
   marker → host RED (exit 125). Proves fail-closed.
 
-**Residual (manual, not automatable):** `btrfs-encrypted.jsonc` is install-only —
-encrypted roots can't headless boot-verify (LUKS passphrase). The fix is
-FS-mechanism, encryption-agnostic (the hook `resolve_device`s `/dev/mapper/cryptroot`
-already), and is proven on plaintext single+raid1; the enc-single rollback boot
-remains a by-hand check (`testtest`), same posture as ZFS encrypted. enc-multi
-still blocked by issue 07. Fix commit `f1d1d84` is LOCAL/UNPUSHED — USER must push.
+**enc-single (`btrfs-encrypted.jsonc`) — INSTALL VM-verified 2026-07-03 with the
+fix:** LUKS root opened → `/dev/mapper/cryptroot`, initramfs built with the hooks
+in the right order (`encrypt → btrfs → btrfs-rollback`, so cryptroot opens before
+the rollback hook runs), `===INSTALLER-EXIT-0===`. The **rollback BOOT stays HITL
+by hand** — empirically confirmed not headless-observable in the agent env: the
+install-only profile's installed cmdline carries no `console=ttyS0` (that append is
+part of the verify-run sentinel seed), the VM has no graphical console, and the
+root-owned qcow2 blocks an offline ESP patch (no sudo). So the two-boot probe
+(`testtest`, write /root probe + /persist flag, reboot, confirm probe GONE + flag
+SURVIVED) is a human-at-console step. The fix is FS-mechanism / encryption-agnostic
+(same `resolve_device`/`run_latehook` path proven on plaintext single+raid1), so
+confidence is high. enc-multi still blocked by issue 07. Fix `f1d1d84` PUSHED.
 
 ## Blocked by
 
