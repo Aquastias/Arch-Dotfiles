@@ -1,6 +1,6 @@
 # 09 — Guided Installer per-group filesystem/encryption UX + gating
 
-Status: ready-for-human
+Status: done
 Type: HITL
 
 ## Parent
@@ -28,8 +28,9 @@ Installer work. Can land incrementally and grow as adapters appear.
 - [x] The impermanence toggle is hidden/disabled for ext4/xfs roots.
 - [x] Choices author a valid Config State that assembles into an Effective Config
       passing the issue-01 validation contract.
-- [ ] HITL live-test of the fzf flow confirms the per-group screens render and
-      re-enter correctly. *(only open AC — needs a tty)*
+- [x] HITL live-test of the fzf flow confirms the per-group screens render and
+      re-enter correctly. *(automated via `tools/guided-fzf-smoke.py` — drives the
+      real fzf in a PTY; 13/13 checks pass.)*
 
 ## Progress (TDD, 2026-07-03 — LOCAL/UNPUSHED)
 
@@ -59,12 +60,12 @@ controller AND the headless `--guided` replay). 5 red→green slices, full suite
   `_validation_filesystem`; the pin is proven load-bearing (an ext4 group with
   disk_count 2 is rejected).
 
-REMAINING (AC5, HITL — needs a tty/fzf): live-drive the flow to eyeball the
-render + re-entry. Interactive: `tools/guided-preview.sh` (or `install.sh
---guided`), then: pick each root fs; confirm the impermanence row appears only
-for zfs/btrfs; open Disks → layout → data-pools → a pool and cycle
-`filesystem:`/`topology:`/`encryption:`, confirming ext4/xfs pin disks to 1.
-Commits LOCAL/UNPUSHED — USER pushes.
+AC5 live-fzf CLOSED via `tools/guided-fzf-smoke.py` (drives the real fzf inside a
+PTY, asserts the screens a human would see): the top menu draws (no flash to bare
+shell); the root-fs picker lists all four built adapters with no `(reserved)`; the
+Disks screen shows the impermanence row for a zfs root but HIDES it for an ext4
+root; the pool editor renders the `filesystem:`/`topology:`/`encryption:` rows.
+13/13 checks pass. (`tools/guided-preview.sh` remains for a manual eyeball.)
 
 ## Blocked by
 

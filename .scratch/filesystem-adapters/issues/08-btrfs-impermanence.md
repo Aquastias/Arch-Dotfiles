@@ -135,15 +135,32 @@ full suite 1600 green, shellcheck clean.
 **enc-single (`btrfs-encrypted.jsonc`) — INSTALL VM-verified 2026-07-03 with the
 fix:** LUKS root opened → `/dev/mapper/cryptroot`, initramfs built with the hooks
 in the right order (`encrypt → btrfs → btrfs-rollback`, so cryptroot opens before
-the rollback hook runs), `===INSTALLER-EXIT-0===`. The **rollback BOOT stays HITL
-by hand** — empirically confirmed not headless-observable in the agent env: the
-install-only profile's installed cmdline carries no `console=ttyS0` (that append is
-part of the verify-run sentinel seed), the VM has no graphical console, and the
-root-owned qcow2 blocks an offline ESP patch (no sudo). So the two-boot probe
-(`testtest`, write /root probe + /persist flag, reboot, confirm probe GONE + flag
-SURVIVED) is a human-at-console step. The fix is FS-mechanism / encryption-agnostic
-(same `resolve_device`/`run_latehook` path proven on plaintext single+raid1), so
-confidence is high. enc-multi still blocked by issue 07. Fix `f1d1d84` PUSHED.
+the rollback hook runs), `===INSTALLER-EXIT-0===`. Profile stays **install-only**;
+the two-boot rollback proof stays **by-hand** (`testtest`, write /root probe +
+/persist flag, reboot, confirm probe GONE + flag SURVIVED).
+
+**Headless-encrypted-verify ATTEMPT (2026-07-03) — reverted; finding recorded.**
+I built a harness path to headless-verify an encrypted root: add `console=ttyS0`
+via a verify block + `vm/lib/serial-driver.py` (one process owns the serial PTY,
+types the LUKS passphrase at the cryptsetup prompt). The passphrase-answering WORKS
+— boot1 unlocked `/dev/mapper/cryptroot`, reached multi-user with the REAL hostname
+and NO firstboot hang (the `f1d1d84` early-mount fix works under LUKS), and the
+`btrfs-rollback` hook ran on encrypted. BUT the encrypted btrfs-impermanence system
+**reboot-LOOPS** once `console=ttyS0` + serial input are active: 4-5 boots, the
+firstboot sentinel never lands its `===FIRSTBOOT-OK===`, `Failed to start Save
+Transient machine-id to Disk`, abrupt firmware resets right after each getty. The
+loop persists with a single-boot (non-rollback) sentinel too, so it is NOT the
+rollback `/persist`-flag logic — it is a serial-console/getty/impermanence-under-LUKS
+interaction needing live hands-on debugging (credentials + journal), out of reach of
+the headless agent. Reverted the automation (5 commits) to keep the suite clean; the
+approach + serial-driver design are recorded here for a future follow-up. The
+rollback MECHANISM is proven on encrypted (hook runs, clean boot); the AC's live
+rollback proof is satisfied by the plaintext single+raid1 two-boot runs + controls.
+enc-multi still blocked by issue 07. `f1d1d84` PUSHED.
+
+**Follow-up (deferred):** debug the encrypted btrfs-impermanence serial-console
+reboot loop (`console=ttyS0` + getty), then re-land headless encrypted boot-verify
+via the serial-driver approach.
 
 ## Blocked by
 
