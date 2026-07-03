@@ -90,6 +90,34 @@ _ctl_field_kind() {
 # the guided layer lists a value only when the operator can actually install it.
 _ctl_built_root_filesystems() { printf '%s\n' zfs btrfs ext4 xfs; }
 
+# _ctl_topologies_for_fs <fs> → the ordered topology cycle for a group of that
+# filesystem (issue 09), matching the validation contract in
+# lib/config/validation.sh::_validation_topology_for_fs. zfs keeps
+# mirror/raidz/stripe; btrfs offers native raid; ext4/xfs are single-disk only.
+# The order is the cycle order — the zfs list ends in `stripe` so the historical
+# stripe→mirror wrap is preserved.
+_ctl_topologies_for_fs() {
+  case "$1" in
+  btrfs)      printf '%s\n' single raid0 raid1 raid10 ;;
+  ext4 | xfs) printf '%s\n' single ;;
+  *)          printf '%s\n' mirror raidz1 raidz2 stripe ;;
+  esac
+}
+
+# _ctl_cycle_topology <fs> <current> → the next topology in <fs>'s cycle after
+# <current>, wrapping; the first entry when <current> is not in the set (e.g.
+# after the group's filesystem changed and left a stale topology).
+_ctl_cycle_topology() {
+  local fs="$1" cur="$2" i; local -a list
+  mapfile -t list < <(_ctl_topologies_for_fs "$fs")
+  for i in "${!list[@]}"; do
+    if [[ "${list[$i]}" == "$cur" ]]; then
+      printf '%s\n' "${list[$(( (i + 1) % ${#list[@]} ))]}"; return 0
+    fi
+  done
+  printf '%s\n' "${list[0]}"
+}
+
 # _ctl_enum_options <path> → the value-picker lines for an enum field (or the
 # synthetic __layout__ disk-layout preset list).
 _ctl_enum_options() {
@@ -782,10 +810,17 @@ _ctl_enter_pooledit() {
       <<<"$(_ctl_state)")"
     _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "topology:"*)
-    _ctl_write_state "$(jq --argjson i "$i" '
-      .data_pools[$i].topology |=
-        ({"stripe":"mirror","mirror":"raidz1","raidz1":"raidz2",
-          "raidz2":"stripe"}[.] // "mirror")' <<<"$(_ctl_state)")"
+    # The cycle follows the group's own filesystem (pool value, else the root
+    # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
+    # pinned to single (issue 09, ADR 0043).
+    local _fs _cur _next
+    _fs="$(jq -r --argjson i "$i" \
+      '.data_pools[$i].filesystem // .filesystem // "zfs"' <<<"$(_ctl_state)")"
+    _cur="$(jq -r --argjson i "$i" '.data_pools[$i].topology // ""' \
+      <<<"$(_ctl_state)")"
+    _next="$(_ctl_cycle_topology "$_fs" "$_cur")"
+    _ctl_write_state "$(jq --argjson i "$i" --arg t "$_next" \
+      '.data_pools[$i].topology = $t' <<<"$(_ctl_state)")"
     echo refresh; return ;;
   "disks:"*)
     _ctl_write_state "$(jq --argjson i "$i" \
