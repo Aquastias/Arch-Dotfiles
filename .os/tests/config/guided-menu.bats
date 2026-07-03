@@ -86,8 +86,22 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled") | not'
 }
 
+@test "menu_rows: the impermanence row is hidden when filesystem is xfs" {
+  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"xfs"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled") | not'
+}
+
 @test "menu_rows: the impermanence row is shown for btrfs" {
   state="$(cfgstate_set "$(cfgstate_new)" filesystem '"btrfs"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled")'
+}
+
+@test "menu_rows: the impermanence row is shown for zfs (default)" {
+  state="$(cfgstate_set "$(cfgstate_new)" filesystem '"zfs"')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.impermanence.enabled")'
