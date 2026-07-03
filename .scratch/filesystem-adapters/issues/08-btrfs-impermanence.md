@@ -1,6 +1,6 @@
 # 08 — btrfs impermanence (per-path rollback, ADR 0044)
 
-Status: ready-for-agent
+Status: done
 Type: HITL
 
 ## Parent
@@ -40,7 +40,8 @@ impermanence work), not just a headless smoke.
 - [x] bats covers the btrfs FS-layer (rollback-subvol creation, `@blank` snapshot
       calls, `btrfs-rollback` hook contents) with writes redirected under a temp
       ROOT, mirroring the existing ZFS impermanence tests.
-- [ ] Live reboot test confirms rollback (HITL).
+- [x] Live reboot test confirms rollback (HITL). *(single + raid1 baselines GREEN;
+      both negative controls RED for the right reason — see HITL results below.)*
 
 ## Progress (TDD, LOCAL/UNCOMMITTED)
 
@@ -96,6 +97,47 @@ REMAINING (HITL — only open AC): run the live two-boot reboot test:
 Mirrors the ZFS 4-VM validation (`87b08f6`); enc-multi blocked (issue 07). Agent
 env can't `git push` (~/.ssh denied) — USER pushes; VMs via `git daemon` +
 `REPO_URL=git://192.168.122.1/.dotfiles`.
+
+## HITL results (2026-07-03) — CLOSED
+
+Live two-boot reboot HITL run from the agent env (git daemon serving local main,
+`REPO_URL=git://192.168.122.1/.dotfiles`, `VM_RAM_MB=8192`).
+
+**Bug the live reboot caught (invisible to bats — it mocks systemd/mount).** The
+first baseline HUNG: boot1 came up in `systemd-firstboot` "Initial Setup" (console
+stuck on the timezone prompt, `hostname=archlinux` fallback, a machine-id freshly
+generated that boot). Root cause: the btrfs initramfs mounts only the `@` root
+subvol; the rollback subvols (`@etc` …) were left to fstab, mounting at
+`local-fs.target` — long AFTER PID1 reads `/etc/machine-id`/`/etc/hostname`. So
+PID1 saw the empty `@/etc` mountpoint → `ConditionFirstBoot=yes` → firstboot ran
+and blocked `multi-user.target`, so the rollback sentinel never fired → 600s
+timeout. ZFS never hit this because the archzfs initramfs hook mounts the whole
+dataset hierarchy (incl. `/etc`) under root before pivot.
+
+**Fix (`f1d1d84`):** added a `run_latehook` to the `btrfs-rollback` hook that
+mounts each recreated rollback subvol under `/new_root` (subvol→mountpoint pairs
+baked from `ROLLBACK_DATASETS`) before `switch_root`, mirroring ZFS. systemd
+later adopts them from fstab. RED→GREEN bats test added
+(`chroot-impermanence.bats`: "mounts rollback subvols under /new_root (latehook)");
+full suite 1600 green, shellcheck clean.
+
+**4-VM validation (all as predicted):**
+- `btrfs.jsonc` (single, plaintext) — INSTALLER-EXIT-0, boot2 `===FIRSTBOOT-OK===`,
+  zero firstboot/Initial-Setup lines. GREEN.
+- `btrfs-raid1.jsonc` (2-disk raid1) — raid assembled, INSTALLER-EXIT-0, boot2
+  `===FIRSTBOOT-OK===`, no hang. GREEN.
+- `+ VM_ROLLBACK_PROBE_DIR=/persist` — system boots cleanly (login reached), probe
+  survives on `/persist`, NO marker → host RED (exit 125). Proves non-vacuous.
+- `+ VM_ROLLBACK_BREAK_BLANK=true` — boot2 logs
+  `ERROR: impermanence: @blank snapshot missing for @etc` → emergency shell, NO
+  marker → host RED (exit 125). Proves fail-closed.
+
+**Residual (manual, not automatable):** `btrfs-encrypted.jsonc` is install-only —
+encrypted roots can't headless boot-verify (LUKS passphrase). The fix is
+FS-mechanism, encryption-agnostic (the hook `resolve_device`s `/dev/mapper/cryptroot`
+already), and is proven on plaintext single+raid1; the enc-single rollback boot
+remains a by-hand check (`testtest`), same posture as ZFS encrypted. enc-multi
+still blocked by issue 07. Fix commit `f1d1d84` is LOCAL/UNPUSHED — USER must push.
 
 ## Blocked by
 
