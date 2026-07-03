@@ -8,7 +8,7 @@ compliant `config.jsonc` and `install.sh` for a new program.
 ## Invocation context
 
 Every `install.sh` is sourced (not executed as a subprocess) by
-`lib/run-program.sh` inside **arch-chroot**. The shell stdlib is already
+`lib/profiles/program-runner.sh` inside **arch-chroot**. The shell stdlib is already
 sourced before `install.sh` runs — do not re-source it.
 
 Two execution modes, selected by `"system"` in `config.jsonc`:
@@ -123,7 +123,7 @@ Rules:
 # =============================================================================
 # programs/<category>/<name>/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles.sh inside arch-chroot, <as the owning user with
+# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, <as the owning user with
 # temp NOPASSWD sudo | as root>, with OS_DIR, PROGRAMS, SHELL_COMMONS
 # pre-exported.
 #

@@ -1,5 +1,12 @@
 # Filesystem Adapter axis — generalize the installer beyond ZFS
 
+> **Extended by ADR-0043 (2026-07-03).** The "only ZFS implemented now"
+> caveat below is historical: btrfs/ext4/xfs adapters have since landed
+> under `lib/layout/<fs>/`, `filesystem` became per-group, and the seam
+> split into a Root Layout Adapter + Data Group Formatter. This ADR
+> records the reserved-seam decision; 0043 records the real
+> implementation.
+
 The installer reserves a **Filesystem Adapter** seam so it can later support
 btrfs, ext4, and xfs alongside ZFS *without a schema migration*. A top-level
 `filesystem` discriminator (default `zfs`) selects the adapter; the current

@@ -1,7 +1,10 @@
 # ADR 0016: Layout Module enforces phase ordering at the seam
 
 ## Status
-Accepted
+Accepted. Still in force; the phase-ordering seam wrappers
+(`_layout_enter_phase` / `_layout_exit_phase`) moved from
+`layout-common.sh` to `lib/layout/core.sh` when the Layout Module became
+filesystem-keyed (ADR 0040/0043).
 
 ## Context
 The Layout Module's verbs (`layout_validate`, `layout_plan`,

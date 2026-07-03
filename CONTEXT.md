@@ -153,7 +153,7 @@ Paru is bootstrapped per user before any user programs are installed.
 `base-devel` is hardcoded into pacstrap and always available in the chroot.
 
 ### Runner
-`.os/lib/profiles.sh`. Reads host core + host profile (merged), validates
+`.os/lib/profiles/runner.sh`. Reads host core + host profile (merged), validates
 program references (a user referencing a System Program no host installs aborts;
 one the host already installs is a no-op — ADR 0036), installs system programs
 via `arch-chroot`, then for each user merges user core + user profile and
@@ -193,13 +193,13 @@ helpers without their own source line.
 ### Program Install Script
 `install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for
 all installation logic: package install, file copying, service enabling. Invoked
-by the Program Runner via `lib/run-program.sh`, which validates staging, sources
+by the Program Runner via `lib/profiles/program-runner.sh`, which validates staging, sources
 Shell Stdlib, then sources the install.sh in the same shell. Receives env vars
 `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced
 by name only across all categories (names are unique).
 
 ### Layout Module
-`.os/lib/layout-<mode>.sh` (`layout-single.sh`, `layout-multi.sh`). Each
+`.os/lib/layout/zfs/<mode>.sh` (`zfs/single.sh`, `zfs/multi.sh`; ADR 0043). Each
 implements the layout interface (`layout_validate`, `layout_plan`,
 `layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a
 normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]`
@@ -211,7 +211,7 @@ first failure. The active module is selected by `INSTALL_MODE` and sourced from
 `03-install.sh` **before** `validate_install_context` runs, so the dispatcher
 can call `layout_validate` on the active adapter. The seam wrappers enforce
 phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in
-`layout-common.sh` (phases: validate→plan→partition→pools→esp); a verb called
+`lib/layout/core.sh` (phases: validate→plan→partition→pools→esp); a verb called
 out of order aborts via `error` before any destructive operation. Mode-private
 globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,
 `RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
@@ -305,7 +305,7 @@ knowledge of the chroot's users); ACL group grants use `g:<gid>:rwx` so
 membership stays dynamic. (ADR 0031.)
 
 ### Program Runner
-`.os/lib/run-program.sh`. Wrapper invoked by the Runner inside arch-chroot for
+`.os/lib/profiles/program-runner.sh`. Wrapper invoked by the Runner inside arch-chroot for
 every Program Install Script. Verifies the chroot-side staged tree (Shell Stdlib
 readable, install.sh readable) and exits 99 with a clear message on mismatch.
 Sources Shell Stdlib once and sources the install.sh in the same shell, so
@@ -486,7 +486,7 @@ gets neither the service nor `go`.
 
 ### Base Package List
 The hardcoded set pacstrapped onto every host regardless of config, defined in
-`lib/packages.sh:collect_packages` (e.g. `base`, `base-devel`, the selected
+`lib/packages/list.sh:collect_packages` (e.g. `base`, `base-devel`, the selected
 kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`,
 `zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`,
 `vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `man-db`, `cronie`). The
@@ -546,7 +546,7 @@ matches a kernel `archzfs` ships a prebuilt `zfs-linux` for. The prebuilt-kernel
 list is used as a proxy for "the current ZFS source is known to compile against
 this kernel" — even though the installer always builds ZFS via DKMS, not the
 prebuilt. Resolved by `iso_resolver_get_zfs_compatible` in
-`lib/iso-resolver.sh`. The installer cannot use the latest Arch ISO when its
+`lib/packages/iso-resolver.sh`. The installer cannot use the latest Arch ISO when its
 kernel is newer than `archzfs` tracks: DKMS then fails to build the ZFS module
 against that kernel.
 
@@ -663,7 +663,8 @@ immediately and covers the original).
 Fixed list of system-identity paths the installer always persists when
 Impermanence is enabled. Files: `/etc/machine-id`, `/etc/hostname`,
 `/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`.
-Directories: `/etc/ssh`, `/etc/secrets`,
+Directories: `/etc/ssh`, `/etc/secrets`, `/etc/cryptsetup-keys.d`
+(data-group LUKS/zfs keyfiles, ADR 0043),
 `/etc/NetworkManager/system-connections`, `/etc/sudoers.d`, `/etc/pacman.d`,
 `/root`. Loss of any of these breaks first reboot — host keys, Machine Age Key,
 hostname, network connections, fstab. Shipped as Persist Mount units under
@@ -812,14 +813,15 @@ The subdirectory grouping VM Profiles within a `profiles/` tree. The axis
 differs per tree: persistent profiles (`.os/vm/profiles/`) are categorized by
 desktop/use (`desktop/`, `headless/`); test profiles (`.os/tests/vm/profiles/`)
 are categorized by the install path they exercise (`single/`, `multi/`,
-`data-pools/`, `impermanence/`, `env/`). Each profile lives in exactly one
+`data-pools/`, `impermanence/`, `env/`, `boot/`, `headless/`). Each profile
+lives in exactly one
 category; when a feature category fits (e.g. `impermanence/`, `env/`) it wins
 over the bare layout-mode category.
 
 ## Flagged ambiguities
 
 - "base packages" vs "core packages" — resolved: the **Base Package List**
-  (hardcoded in `lib/packages.sh`) is the only shared package base. **Host
+  (hardcoded in `lib/packages/list.sh`) is the only shared package base. **Host
   Core** carries **no** `packages` object — only `system_programs` and `sysctl`;
   package lists live per-host (ADR 0007). The ADR 0021 clause placing
   `extra-cmake-modules` in Host Core is withdrawn (see ADR 0021 amendment); ECM

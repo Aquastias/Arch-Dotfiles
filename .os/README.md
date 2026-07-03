@@ -1,10 +1,19 @@
-# Arch Linux ZFS Installer
+# Arch Linux Installer
 
-A fully scripted, config-driven Arch Linux installer with ZFS as the
-root filesystem. Supports single-disk laptops, multi-disk RAID
-desktops, optional encryption, declarative host/user profiles, KDE
-or Hyprland desktops, SOPS-encrypted secrets, and optional ZFS
-impermanence (rollback-to-blank on every boot).
+A fully scripted, config-driven Arch Linux installer. ZFS is the
+default root filesystem, with `btrfs`, `ext4`, and `xfs` selectable
+per install via a filesystem-keyed adapter axis (ADR 0040/0043).
+Supports single-disk laptops, multi-disk RAID desktops, optional
+encryption (ZFS-native AES or dm-crypt/LUKS), declarative host/user
+profiles, KDE or Hyprland desktops, SOPS-encrypted secrets, and
+optional impermanence (rollback-to-blank on every boot, on the
+snapshotting filesystems ZFS and btrfs).
+
+Three front-ends drive one back-end (ADR 0036/0039): `install.sh
+--profile <name>` (author a profile, pick disks at install time),
+`install.sh <config-file>` (unattended, pre-assembled config), and a
+bare `install.sh` **Guided Installer** (an fzf TUI that builds an
+install from scratch).
 
 ---
 
@@ -29,57 +38,68 @@ impermanence (rollback-to-blank on every boot).
 > below is the module-altitude view.
 
 ```
-install.sh                  Entry point. Runs phases in order.
-│                           Forwards -y/--unattended and an
-│                           optional config path.
+install.sh                  Entry point. Front-ends (--profile /
+│                           --guided / config-file) → back-end.
+│                           Forwards -y/--unattended + a config path.
 │
 ├─ 01-bootstrap-zfs.sh      Add archzfs repo, install ZFS DKMS.
-├─ 02-wipe.sh               Tear down LVM/RAID/ZFS, zero disks.
+│                           Skipped for a pure non-ZFS install.
+├─ 02-wipe.sh               Wipe only the install's target disks.
 └─ 03-install.sh            Thin orchestrator. Sources lib/.
     │
-    ├─ lib/config/profile.sh  Load the profile, closed-schema
-    │                         validate, assemble the effective config.
-    ├─ lib/config/layers.sh   JSONC merge + program resolution.
-    ├─ lib/environment.sh   Resolve environment.desktop / .gpu
-    │                       into package groups.
+    ├─ lib/config/          Config core (schema, load, merge, guided)
+    │   ├─ profile.sh       Load profile, closed-schema validate,
+    │   │                   assemble the effective config.
+    │   ├─ accessors.sh     Schema-driven typed field readers.
+    │   ├─ layers.sh        JSONC core+specific merge + program refs.
+    │   ├─ validation.sh    Config-contract checks (fs, impermanence,
+    │   │                   programs, owners …).
+    │   ├─ environment.sh   Resolve environment.desktop / .gpu.
+    │   ├─ post-install.sh  Security & Backup Extras resolution.
+    │   └─ state.sh…menu.sh Guided Installer Config-State + fzf nav.
     ├─ lib/secrets.sh       Locate operator age key (USB or
-    │                       options.age_key_url), decrypt
-    │                       host/user secrets to tmpfs.
-    ├─ lib/layout-single.sh ESP + rpool + optional dpool.
-    ├─ lib/layout-multi.sh  ESP per disk, rpool topology,
-    │                       storage_groups (mirror/stripe/raidz).
-    ├─ lib/packages.sh      Collect packages, pacstrap base.
-    ├─ lib/chroot.sh        Write fstab, ESP-mirror hook, stage
-    │                       scripts, run arch-chroot.
-    │   └─ lib/chroot/      Runs inside chroot (see below).
-    ├─ lib/configs.sh       Merge host/user core + specific
-    │                       configs; validate program refs.
-    ├─ lib/profiles.sh      Install system programs, create
-    │                       users, bootstrap paru, install user
-    │                       programs.
-    ├─ lib/validation.sh    Single seam for config-contract
-    │                       checks (impermanence, programs, …).
+    │                       options.age_key_url), decrypt secrets.
+    ├─ lib/layout/          Filesystem/mode-keyed layout dispatch
+    │   ├─ dispatch.sh      root_adapter_source / data_formatter_source
+    │   ├─ core.sh          Phase-ordering seam wrappers.
+    │   ├─ zfs/{single,multi,common,plan,datakey}.sh
+    │   ├─ btrfs/{single,multi,data,boot,subvol}.sh
+    │   ├─ ext4|xfs/{single,data}.sh
+    │   └─ nonzfs/{root,boot,data,plan,devices,datacrypt}.sh
+    ├─ lib/zfs/             pools.sh, module.sh, verify.sh,
+    │                       pool-owners.sh
+    ├─ lib/packages/        list.sh (collect+pacstrap), kernel.sh,
+    │                       microcode.sh, iso-resolver.sh
+    ├─ lib/boot/            esp-kernel-sync.sh, stray-kernel.sh,
+    │                       zswap.sh
+    ├─ lib/wipe/            targets.sh, method.sh, execute.sh, …
+    ├─ lib/chroot.sh        Write fstab, stage scripts, run
+    │   └─ lib/chroot/      arch-chroot. Runs inside chroot (below).
+    ├─ lib/profiles/        runner.sh (users + programs + DE),
+    │                       program-runner.sh (per-program wrapper)
     └─ lib/finalize.sh      Unmount ESPs, zpool export.
 ```
 
-Scripts inside `lib/chroot/`:
+Scripts inside `lib/chroot/` (staged into the new root and run by
+`configure.sh`):
 
 - `configure.sh`        — sub-script orchestrator
-- `identity.sh`         — locale, timezone, hostname,
+- `identity.sh`         — locale, timezone, keymap, hostname,
                           mkinitcpio.conf
-- `initcpio.sh`         — ZFS hooks, `mkinitcpio -P`
+- `initcpio.sh`         — ZFS/encryption hooks, `mkinitcpio -P`
+- `base-services.sh`    — NetworkManager, cron, ssh, etc.
+- `zfs-import.sh`       — boot-time ZFS import wiring
+- `udisks.sh`           — udisks/mount policy
 - `bootloader-systemd-boot.sh` — selected by `options.bootloader`
 - `bootloader-grub.sh`  — selected by `options.bootloader`
-- `password.sh`         — root password (uses host secrets if
-                          present, else prompts)
+- `password.sh`         — root password (host secrets or prompt)
 - `create-user.sh`      — per-user creation (shell, groups,
                           sudo, password, SSH identity)
-- `impermanence.sh`     — rollback datasets, `@blank` snapshots,
+- `impermanence.sh`     — rollback datasets/subvols, `@blank`,
                           persist mounts, initramfs hook
 - `extras-common.sh`    — shared helpers for the extras stage
 - `extras.sh`           — Environment Runner: dispatches to
-                          `extras/desktop/<de>/<de>.sh` plus
-                          `post_install` toggles
+                          `extras/desktop/<de>/<de>.sh`
 
 ### Multi-disk ESP mirroring
 
@@ -176,11 +196,17 @@ disk is touched. See `REFERENCE.md` for the full schema.
 
 ```bash
 chmod +x install.sh
+./install.sh                                   # Guided Installer (fzf TUI)
 ./install.sh --profile <name>                  # interactive (picks disks)
 ./install.sh --profile <name> -y               # unattended (hostname preset)
 ./install.sh /path/to/effective.jsonc          # positional config seam
 ./install.sh --profile <name> --print-config   # validate + print, no install
 ```
+
+A bare `./install.sh` (no `--profile`, no config file) launches the
+**Guided Installer** — an fzf menu that authors the whole machine
+interactively and assembles the effective config from your choices
+(ADR 0039). Use it for ad-hoc installs when no profile exists yet.
 
 `install.sh --profile <name>` validates the named Host Profile,
 resolves the disks interactively (§3), assembles the effective
@@ -392,46 +418,35 @@ every boot without the USB.
 ├── lib/                    # Installer modules
 │   ├── common.sh           # Colors, output, JSON helpers
 │   ├── globals.sh          # Shared runtime globals
-│   ├── config.sh           # Top-level config load + summary
-│   ├── install-config.sh   # Schema, defaults, template gen
-│   ├── install-state.sh    # install-state.json read/write
 │   ├── jsonc.sh            # JSONC parser
-│   ├── configs.sh          # Host/user config merging
-│   ├── validation.sh       # Config-contract checks
-│   ├── environment.sh      # Desktop + GPU resolution
+│   ├── install-state.sh    # install-state.json read/write
 │   ├── secrets.sh          # Age key + SOPS decryption
-│   ├── zfs-pools.sh        # Pool/dataset primitives
-│   ├── layout-common.sh    # Shared layout helpers
-│   ├── layout-single.sh    # Single-disk layout
-│   ├── layout-multi.sh     # Multi-disk layout
-│   ├── packages.sh         # Package collection + pacstrap
+│   ├── picker.sh           # Disk enumeration + group assignment
+│   ├── live-medium.sh      # Live-medium detector (shared)
+│   ├── prompt.sh           # Interactive prompt helpers
+│   ├── finalize.sh         # Unmount + pool export
+│   ├── guided*.sh          # Guided Installer entry/controller/save
+│   ├── config/             # Schema, load, merge, validation, guided
+│   ├── layout/             # fs/mode-keyed dispatch (zfs/btrfs/ext4/
+│   │                       #   xfs/nonzfs) + core.sh + dispatch.sh
+│   ├── zfs/                # pools, module guard, verify, pool-owners
+│   ├── packages/           # list (collect+pacstrap), kernel,
+│   │                       #   microcode, iso-resolver
+│   ├── boot/               # esp-kernel-sync, stray-kernel, zswap
+│   ├── wipe/               # targets, method, execute, progress
+│   ├── profiles/           # runner + program-runner
 │   ├── chroot.sh           # Stage scripts, run arch-chroot
 │   ├── chroot/             # Scripts run inside the chroot
-│   │   ├── configure.sh
-│   │   ├── identity.sh
-│   │   ├── initcpio.sh
-│   │   ├── bootloader-systemd-boot.sh
-│   │   ├── bootloader-grub.sh
-│   │   ├── password.sh
-│   │   ├── create-user.sh
-│   │   ├── impermanence.sh
-│   │   ├── extras-common.sh
-│   │   └── extras.sh
-│   ├── picker.sh           # Disk enumeration + group assignment
-│   ├── profiles.sh         # Users + program installation
-│   ├── run-program.sh      # Program-install wrapper
-│   ├── finalize.sh         # Unmount + pool export
-│   ├── iso-resolver.sh     # Arch ISO version selection
-│   ├── shell-stdlib.sh     # Shared helpers for program scripts
+│   ├── shell-stdlib.sh     # Facade over lib/shell/*
 │   ├── shell/              # Stdlib submodules
 │   └── impermanence-common.sh  # Shared by chroot module +
 │                               # runtime tool
 │
-├── hosts/                  # Per-hostname config
+├── hosts/                  # Per-machine profiles
 │   ├── core/               # Shared base for all hosts
-│   ├── desktop/
+│   ├── desktop/            # eterniox
 │   ├── laptop/
-│   └── vm/
+│   └── vm/                 # arch-kde, arch-hyprland, arch-secure, …
 │
 ├── users/                  # Per-user config
 │   ├── core/               # Shared base for all users
@@ -442,6 +457,7 @@ every boot without the USB.
 │   ├── backup/             # borg, zfs-auto-snapshot
 │   ├── bootloader/         # grub
 │   ├── communication/      # teamspeak3
+│   ├── office/
 │   ├── privacy/            # searxng
 │   ├── security/           # apparmor, clamav, firewalld,
 │   │                       # rkhunter, sops, ufw
@@ -455,7 +471,11 @@ every boot without the USB.
 ├── tools/                  # Operator utilities (runtime)
 │   ├── save-pkglist.sh     # Snapshot current packages
 │   ├── install-pkglist.sh  # Restore packages from txt
-│   └── impermanence.sh     # add/remove/status/apply-defaults
+│   ├── impermanence.sh     # add/remove/status/apply-defaults
+│   ├── fetch-iso.sh        # Download + verify archzfs ISO
+│   ├── generate-configs.sh # Materialize per-user stow tree
+│   ├── harden-boot.sh      # Boot-path hardening
+│   └── guided-preview.sh   # Live-fzf render harness
 │
 ├── tests/                  # BATS + VM integration tests
 │   ├── run.sh              # BATS runner
@@ -479,50 +499,45 @@ every boot without the USB.
 
 ## 6. Common Configurations
 
+Profiles declare the pool **skeleton** — each group's `disk_count`,
+never device paths. `install.sh --profile` slices operator-picked
+disks onto the groups in declared order (ADR 0036/0037). See
+`REFERENCE.md` § Profile Layout Examples for the full skeletons.
+
 ### 6.1 Laptop (single disk)
 
-```json
-"mode":    "single",
-"disk":    "/dev/nvme0n1",
-"ashift":  13,
-"os_size": "auto"
+```jsonc
+"mode":   "single",
+"ashift": 13
+// filesystem defaults to "zfs"; add "filesystem": "btrfs" etc. to switch
 ```
 
 ### 6.2 Desktop (2 NVMes mirrored + 3 SSDs storage)
 
-```json
+```jsonc
 "mode": "multi",
 "os_pool": {
-  "pool_name": "rpool",
-  "topology":  "mirror",
-  "ashift":    13,
-  "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
+  "pool_name":  "rpool",
+  "topology":   "mirror",
+  "ashift":     13,
+  "disk_count": 2
 },
 "storage_groups": [
-  {
-    "name": "ssd",
-    "mount": "/data/ssd",
-    "ashift": 12,
-    "topology": "raidz1",
-    "disks": ["/dev/sda", "/dev/sdb", "/dev/sdc"]
-  }
+  { "name": "ssd", "mount": "/data/ssd", "ashift": 12,
+    "topology": "raidz1", "disk_count": 3 }
 ]
 ```
 
 ### 6.3 Desktop (2 NVMes, pick one for OS)
 
-```json
+```jsonc
 "mode": "multi",
-"os_pool": {
-  "pool_name": "rpool",
-  "topology":  "none",
-  "ashift":    13,
-  "disks":     ["/dev/nvme0n1", "/dev/nvme1n1"]
-}
+"os_pool": { "pool_name": "rpool", "topology": "none", "disk_count": 2 }
 ```
 
-At runtime you'll be asked which NVMe to install on. The other
-is automatically added to `dpool`.
+With OS topology `none` you're asked at install which picked disk is
+the OS disk; each leftover folds into `dpool` (or becomes its own
+Standalone Data Pool — see REFERENCE.md).
 
 ---
 
@@ -569,22 +584,33 @@ etc.) are bind-mounted from the Persist Dataset. See
 
 ### Backup / security programs
 
-Backups and security hardening are now declared as system
-programs in your host profile, not as `extras/` scripts:
+Hardening and backup tools are declared as **Security & Backup
+Extras** — structured `post_install` objects in the host profile
+(ADR 0041), not booleans and not `extras/` scripts. They are
+paru-based user programs (paru refuses root), so the Runner unions
+them into the **Primary User's** paru pass:
 
 ```jsonc
 // .os/hosts/<name>/profile.jsonc
-"system_programs": [
-  "zfs-auto-snapshot", "borg",   // backups
-  "ufw", "clamav", "apparmor",   // security
-  "firewalld", "rkhunter", "sops"
-]
+"post_install": {
+  "security": {
+    "firewall": "firewalld",   // "firewalld" | "ufw" | null (pick one)
+    "clamav":   true,          // antivirus
+    "rkhunter": true,          // rootkit scanner
+    "apparmor": true           // mandatory access control
+  },
+  "backup": {
+    "zfs-auto-snapshot": true,
+    "borg":              true
+  }
+}
 ```
 
-The `post_install.backup` and `post_install.security` toggles in
-the profile remain as gates for any operator-supplied
-`extras/backup.sh` / `extras/security.sh`; if those files are
-absent (the default), the toggles are no-ops.
+Each tool's existing Program Install Script runs unchanged. A host
+with no users cannot carry these — the Guided Installer aborts at
+the terminal action. (`sops` is separate — it is *secrets-activated*,
+not declared: the Runner installs it only when a `secrets.json`
+ships. See ADR 0025.)
 
 ---
 
@@ -615,11 +641,22 @@ bash vm/vm.sh --testing --profile multi/stripe
 bash vm/vm.sh --testing --profile multi/none
 bash vm/vm.sh --testing --profile multi/mirror-storage
 
-# Impermanence / encryption / SOPS
+# Filesystems (btrfs / ext4 / xfs roots, plain + encrypted)
+bash vm/vm.sh --testing --profile single/btrfs
+bash vm/vm.sh --testing --profile single/btrfs-raid1
+bash vm/vm.sh --testing --profile single/ext4-plain
+bash vm/vm.sh --testing --profile single/xfs
+
+# Impermanence / encryption / SOPS (ZFS + btrfs)
 bash vm/vm.sh --testing --profile impermanence/single
 bash vm/vm.sh --testing --profile impermanence/mirror
+bash vm/vm.sh --testing --profile impermanence/btrfs
 bash vm/vm.sh --testing --profile impermanence/kde-encrypted
 bash vm/vm.sh --testing --profile impermanence/kde-sops
+
+# Guided Installer (headless replay)
+bash vm/vm.sh --testing --profile single/guided
+bash vm/vm.sh --testing --profile single/guided-multi
 
 # Standalone data pools (boot-verify with --verify-boot)
 bash vm/vm.sh --testing --verify-boot --profile data-pools/plain

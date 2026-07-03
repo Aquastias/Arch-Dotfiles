@@ -26,7 +26,11 @@ pacman -S git
 pacman -S stow
 ```
 
-Also you can have as a reference the packages mentioned in installed_packages.txt
+> To provision a whole machine (partitioning, filesystem, desktop, users,
+> secrets) rather than just symlink dotfiles, use the installer in
+> [`.os/`](.os/) — see [`.os/README.md`](.os/README.md). The package
+> manifests it manages live under `.os/hosts/<name>/` (`pkglist-repo.txt`
+> / `pkglist-aur.txt`, written by `.os/tools/save-pkglist.sh`).
 
 ## Installation
 
