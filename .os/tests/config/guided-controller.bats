@@ -466,6 +466,26 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
+# issue 09: the topology cycle follows the pool's own filesystem — a btrfs group
+# cycles single/raid0/raid1/raid10, never the zfs mirror/raidz set.
+@test "enter(pooledit): a btrfs pool cycles the btrfs topology set" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"btrfs","topology":"single","disk_count":2}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "topology: single   (Enter cycles)"
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "raid0" ]
+}
+
+@test "enter(pooledit): an ext4 pool topology stays single (single-disk only)" {
+  printf '%s\n' \
+    '{"data_pools":[{"name":"tank0","filesystem":"ext4","topology":"single","disk_count":1}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0)"
+  run guided_ctl_enter "topology: single   (Enter cycles)"
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "single" ]
+}
+
 # ── swap: one Disks row → swapedit sub-editor (enabled + free-text size) ──────
 
 @test "list(category Disks): one swap row, no separate swap size row" {
