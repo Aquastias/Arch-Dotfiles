@@ -510,6 +510,23 @@ seed_curated() {
   grep -qE "subvolid=5" "$f"
 }
 
+# After the rollback recreates @etc from @blank, the subvols must be mounted
+# under the real root (/new_root) in a run_latehook — BEFORE switch_root — so
+# PID1 reads a populated /etc (machine-id/hostname/localtime). Left to fstab,
+# @etc mounts only at local-fs.target, after PID1 already read the empty @/etc
+# mountpoint → systemd-firstboot Initial Setup runs and blocks boot. Mirrors
+# the archzfs hook mounting the dataset hierarchy in the initramfs.
+@test "btrfs: runtime hook mounts rollback subvols under /new_root (latehook)" {
+  export FILESYSTEM=btrfs
+  _impermanence_write_rollback_hook
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" pair
+  grep -qE "^run_latehook\(\)" "$f"
+  grep -q "/new_root" "$f"
+  for pair in @etc:/etc @root:/root @opt:/opt @srv:/srv @usrlocal:/usr/local; do
+    grep -qF "$pair" "$f" || { echo "missing early-mount pair $pair"; return 1; }
+  done
+}
+
 @test "zfs: still writes the zfs-rollback hook (default FILESYSTEM)" {
   unset FILESYSTEM
   _impermanence_write_rollback_hook
