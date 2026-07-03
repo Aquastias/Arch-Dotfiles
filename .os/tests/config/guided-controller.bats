@@ -251,18 +251,37 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }
 
-@test "enter(values): a reserved filesystem is a no-op but still returns" {
-  set_nav "$(nav_to_values Disks filesystem filesystem)"
-  run guided_ctl_enter "btrfs (reserved)"
-  [ "$output" = "render" ]
-  [ "$(jq -c '.filesystem // "unset"' "$GUIDED_STATE_FILE")" = '"unset"' ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
-}
-
 @test "enter(values): zfs commits the filesystem" {
   set_nav "$(nav_to_values Disks filesystem filesystem)"
   run guided_ctl_enter "zfs"
   [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "zfs" ]
+}
+
+# ── issue 09: filesystem axis in the Guided Installer ─────────────────────────
+# The root-fs picker offers only filesystems whose adapter is BUILT (all four
+# now: zfs/btrfs/ext4/xfs). No "(reserved)" placeholder — each is selectable.
+@test "list(values): filesystem picker offers the built adapters, none reserved" {
+  set_nav "$(nav_to_values Disks filesystem filesystem)"
+  run guided_ctl_list
+  local fs
+  for fs in zfs btrfs ext4 xfs; do
+    echo "$output" | grep -qx "$fs" || { echo "missing built fs: $fs"; false; }
+  done
+  ! echo "$output" | grep -qi reserved
+}
+
+@test "enter(values): a built non-zfs filesystem (btrfs) commits" {
+  set_nav "$(nav_to_values Disks filesystem filesystem)"
+  run guided_ctl_enter "btrfs"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+}
+
+@test "enter(values): an unbuilt filesystem is a no-op (defensive)" {
+  set_nav "$(nav_to_values Disks filesystem filesystem)"
+  run guided_ctl_enter "bcachefs"
+  [ "$output" = "render" ]
+  [ "$(jq -c '.filesystem // "unset"' "$GUIDED_STATE_FILE")" = '"unset"' ]
 }
 
 @test "enter(values): Back leaves the value unchanged" {

@@ -296,11 +296,12 @@ guided_pick_disks() {
     --prompt="pick ${n} disks (TAB to mark)> "
 }
 
-# Filesystem Adapter axis (ADR 0040): ZFS is the only built adapter; the rest
-# are reserved menu entries so the Disks section is filesystem-first without
-# pretending the others work.
-_GUIDED_FS_ACTIVE=(zfs)
-_GUIDED_FS_RESERVED=(btrfs ext4 xfs)
+# Filesystem Adapter axis (ADR 0040/0043): the Root Layout Adapters that are
+# BUILT (issue 09). All four now ship (zfs/btrfs/ext4/xfs); _GUIDED_FS_RESERVED
+# stays as the seam for any future adapter that lands unbuilt. Kept in lockstep
+# with lib/layout/dispatch.sh's root_adapter_source (the source of truth).
+_GUIDED_FS_ACTIVE=(zfs btrfs ext4 xfs)
+_GUIDED_FS_RESERVED=()
 
 # _guided_filesystem_options — the filesystem picker lines: active filesystems
 # first, then the reserved ones flagged "(reserved)". Pure: emits lines.
