@@ -22,11 +22,21 @@
   || source "${BASH_SOURCE[0]%/*}/profile.sh"
 
 # matrix_run [<cell-id>] — emit the cell's profile and run it through the VM
-# Harness with boot verification. Defaults to the tracer cell.
+# Harness. The oracle decides boot verification: plain/impermanent cells
+# power-cycle (--verify-boot); encrypted and gpu≠auto cells run install-only
+# (INSTALLER-EXIT-0 is the whole oracle). Defaults to the tracer cell.
 matrix_run() {
   local id="${1:-zfs-single-plain}"
-  local profile
+  local cell profile bootv
+  cell="$(matrix_all_cells "${MATRIX_SEED:-0}" \
+    | jq -c --arg id "$id" 'select(.id == $id)')"
+  [[ -n "$cell" ]] || { echo "matrix: unknown cell-id '$id'" >&2; return 1; }
+  bootv="$(matrix_cell_boot_verify "$cell")"
+
   profile="$(matrix_emit "$id")" || return $?
-  echo "[matrix] cell '$id' → profile $profile" >&2
-  "$OS_DIR/vm/vm.sh" --testing --verify-boot --profile "$profile"
+  echo "[matrix] cell '$id' → profile $profile (boot-verify=$bootv)" >&2
+
+  local -a args=(--testing --profile "$profile")
+  [[ "$bootv" == true ]] && args=(--testing --verify-boot --profile "$profile")
+  "$OS_DIR/vm/vm.sh" "${args[@]}"
 }

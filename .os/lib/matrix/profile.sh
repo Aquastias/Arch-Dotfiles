@@ -22,21 +22,13 @@
 # shellcheck source=./generator.sh
 [[ "$(type -t matrix_all_cells)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
-# shellcheck source=./assemble.sh
-[[ "$(type -t matrix_cell_assemble)" == "function" ]] \
-  || source "${BASH_SOURCE[0]%/*}/assemble.sh"
+# shellcheck source=./synth.sh
+[[ "$(type -t matrix_cell_synthesize)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/synth.sh"
 
-# matrix_cell_profile <cell> — the VM Profile JSON for the cell.
-matrix_cell_profile() {
-  local cell="$1" name eff
-  name="matrix-$(jq -r '.id' <<<"$cell")"
-  eff="$(matrix_cell_assemble "$cell")"
-  jq -n --arg name "$name" --argjson install "$eff" '{
-    name: $name,
-    hardware: { disks: [40], ram_mb: 8192, vcpus: 2 },
-    install: $install
-  }'
-}
+# matrix_cell_profile <cell> — the VM Profile JSON for the cell (the synthesizer
+# derives disks / verify / timeout; the assembler bakes the install config).
+matrix_cell_profile() { matrix_cell_synthesize "$1"; }
 
 # matrix_emit <cell-id> — write the cell's VM Profile to tmpfs; print the path.
 matrix_emit() {
