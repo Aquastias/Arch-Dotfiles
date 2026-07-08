@@ -328,7 +328,7 @@ _guided_edit_filesystem() {
       return 0
     fi
   done
-  printf "  Filesystem '%s' is reserved (ADR 0040); only zfs is built.\n" \
+  printf "  Filesystem '%s' is reserved (ADR 0040); its adapter is not built.\n" \
     "$token" >&2
   return 1
 }

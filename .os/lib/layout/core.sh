@@ -33,6 +33,13 @@ layout_validate_esp_size() {
     "(ADR 0038). Set options.esp_size to at least 1G (default 2G)."
 }
 
+# _layout_disk_exists <path> — 0 iff <path> is a present block device. The single
+# seam behind every adapter's disk-existence probe (single/multi/nonzfs/btrfs),
+# so the check is overridable in unit tests that use fake disk paths and by the
+# no-VM Tier-1 assembly oracle (Combination Matrix, ADR 0046), which runs
+# validate_install_context without real disks. Production behaviour is `-b`.
+_layout_disk_exists() { [[ -b "$1" ]]; }
+
 # ── Size parsers ─────────────────────────────────────────────────────────────
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.

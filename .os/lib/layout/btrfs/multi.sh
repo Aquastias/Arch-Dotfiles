@@ -53,7 +53,7 @@ layout_validate() {
   ((${#_LAYOUT_BTRFS_DISKS[@]} >= 1)) || error "btrfs multi: no os_pool.disks."
   local d
   for d in "${_LAYOUT_BTRFS_DISKS[@]}"; do
-    [[ -b "$d" ]] || error "btrfs multi: disk not found: $d"
+    _layout_disk_exists "$d" || error "btrfs multi: disk not found: $d"
   done
   _LAYOUT_BTRFS_TOPOLOGY="$(cfgo '.os_pool.topology')"
   [[ -z "$_LAYOUT_BTRFS_TOPOLOGY" ]] && _LAYOUT_BTRFS_TOPOLOGY=single
