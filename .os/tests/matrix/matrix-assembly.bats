@@ -82,3 +82,15 @@ _matrix_validate_cell() {
   run _matrix_validate_cell "$(_matrix_tier1_cell xfs-single-plain)"
   [ "$status" -eq 0 ]
 }
+
+# ── the new assembler paths (impermanence, multi os_pool) validate too ──────
+
+@test "tier-1: an impermanent zfs single cell validates" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell zfs-single-plain-imp)"
+  [ "$status" -eq 0 ]
+}
+
+@test "tier-1: a multi-disk zfs mirror cell validates" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell zfs-mirror-plain)"
+  [ "$status" -eq 0 ]
+}

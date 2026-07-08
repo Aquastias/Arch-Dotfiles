@@ -10,6 +10,15 @@ The menu-derived, CI-enforced sync contract lands in slice 08. This file grows
 with it; for now it records the environment gotchas that bite a live Tier-2
 run.
 
+## Per-disk size: 40 GiB, not the PRD's 20
+
+The synthesizer provisions **40 GiB** per disk (`MATRIX_DISK_GIB`), not the 20
+GiB the PRD estimated. A real zfs root doesn't fit in 20 GiB: with the default
+~5 GiB swap zvol (refreserved) + the OS + impermanence datasets, a ~16 GiB rpool
+fails with `cannot create rpool/swap: out of space` (VM-observed on the
+impermanent cell). qcow2 is sparse, so the larger virtual size costs nothing on
+disk. Shrink swap or raise the size if you revisit this.
+
 ## Tier-2 VM runs from an agent environment
 
 Tier-2 (`matrix.sh run`) installs + boot-verifies a cell in a real VM via the
