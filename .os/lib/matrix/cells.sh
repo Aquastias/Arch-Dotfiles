@@ -1,42 +1,33 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/matrix/cells.sh — Combination Matrix Cell Generator (ADR 0046)
+# lib/matrix/cells.sh — Combination Matrix `gen` entry (ADR 0046)
 # =============================================================================
-# Emits the matrix's cells as JSON lines — one cell per line, each a stable
-# cell-id plus its axis assignment. A cell is the menu-reachable combination of
-# storage/install axes the two tiers check. Axes are (will be) derived from the
-# menu's own option functions so the manifest can't drift from what the menu
-# offers.
+# `matrix.sh gen` emits the committed Tier-2 Matrix Manifest — the pairwise
+# cover ∪ pinned historical-bug seeds, one JSON cell per line — after asserting
+# the Axis Registry classifies _MENU_FIELDS exactly. The exhaustive Tier-1 set
+# is regenerated live in bats (matrix_tier1_cells), not printed here (ADR 0046:
+# only the expensive Tier-2 set is committed/reviewable).
 #
-# Tracer-bullet slice (combination-matrix/01): the generator emits the single
-# simplest cell — zfs root, single disk, unencrypted, no desktop. Axis fan-out,
-# the pairwise cover, and seeds arrive in later slices; this establishes the
-# JSON-lines contract every later slice extends.
+# The registry gate runs first, so an unclassified new menu field (or a stale
+# entry) aborts the generator before any cell is emitted — the matrix can't
+# silently drift from what the menu offers.
 #
-# Pure: JSON on stdout, no TTY, no disk writes.
+# Pure: JSON on stdout, no TTY, no disk writes. Requires OS_DIR (menu functions).
 #
 # Public API:
-#   matrix_gen_cells   → the matrix manifest, one JSON cell per line
+#   matrix_gen_cells   → the Tier-2 Matrix Manifest, one JSON cell per line
 # =============================================================================
 
 # shellcheck source=./registry.sh
 [[ "$(type -t matrix_registry_assert)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/registry.sh"
+# shellcheck source=./generator.sh
+[[ "$(type -t matrix_tier2_cells)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/generator.sh"
 
-# matrix_gen_cells — the matrix manifest on stdout (one JSON cell per line).
-# The Axis Registry must classify _MENU_FIELDS exactly before any cell is
-# emitted: an unclassified new menu field (or a stale entry) aborts here, so the
-# matrix can't silently drift from what the menu offers (ADR 0046).
+# matrix_gen_cells — the Tier-2 Matrix Manifest on stdout (JSON cell per line).
+# MATRIX_SEED pins the pairwise draw (default 0) for reproducibility.
 matrix_gen_cells() {
   matrix_registry_assert || return 1
-  jq -c -n '{
-    id: "zfs-single-plain",
-    axes: {
-      filesystem:   "zfs",
-      topology:     "single",
-      encryption:   false,
-      impermanence: false,
-      desktop:      []
-    }
-  }'
+  matrix_tier2_cells "${MATRIX_SEED:-0}"
 }

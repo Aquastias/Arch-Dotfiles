@@ -1,33 +1,41 @@
 #!/usr/bin/env bats
-# Tests for `tools/matrix.sh gen` — the Combination Matrix generator
-# (combination-matrix/01, ADR 0046). Tracer-bullet slice: `gen` emits the
-# manifest of matrix cells as JSON lines, one cell per line, each carrying a
-# stable cell-id plus its axis assignment. For this slice the manifest is the
-# single simplest cell (zfs root, single disk, unencrypted, no desktop) — no
-# axis fan-out yet. Behaviour under test is the emitted manifest, never how the
-# generator builds it.
+# Tests for `tools/matrix.sh gen` — the Combination Matrix generator entry
+# (combination-matrix, ADR 0046). `gen` emits the committed Tier-2 Matrix
+# Manifest (pairwise cover ∪ pinned seeds) as JSON lines, after the Axis
+# Registry gate. Behaviour under test is the emitted manifest's shape +
+# reproducibility; the registry abort-on-gap is covered in matrix-registry.bats,
+# and the cell-set properties in matrix-generator.bats.
 
 setup() {
   MATRIX_SH="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)/tools/matrix.sh"
   export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 }
 
-# ── tracer: gen emits exactly one cell line, well-formed JSON ────────────────
+# ── gen emits a non-trivial manifest of well-formed cells ───────────────────
 
-@test "gen: emits one JSON-lines cell with an id and an axes object" {
+@test "gen: emits many JSON-lines cells, each with an id and axes object" {
   run bash "$MATRIX_SH" gen
   [ "$status" -eq 0 ]
-  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 1 ]
-  echo "$output" | jq -e '.id and (.axes | type == "object")'
+  [ "$(printf '%s\n' "$output" | grep -c .)" -gt 1 ]
+  while IFS= read -r c; do
+    echo "$c" | jq -e '.id and (.axes | type == "object")'
+  done <<<"$output"
 }
 
-# ── the tracer cell is the simplest storage cell ────────────────────────────
+# ── the manifest carries the pinned historical-bug seeds ────────────────────
 
-@test "gen: the tracer cell is zfs / single / unencrypted / no desktop" {
+@test "gen: the manifest includes the pinned seeds" {
   run bash "$MATRIX_SH" gen
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.axes.filesystem == "zfs"'
-  echo "$output" | jq -e '.axes.topology == "single"'
-  echo "$output" | jq -e '.axes.encryption == false'
-  echo "$output" | jq -e '(.axes.desktop | length) == 0'
+  echo "$output" | jq -e 'select(.id == "seed-xfs-root")' >/dev/null
+  echo "$output" | jq -e 'select(.id == "seed-zfs-root-btrfs-pool")' >/dev/null
+}
+
+# ── gen is reproducible for a fixed seed ────────────────────────────────────
+
+@test "gen: identical MATRIX_SEED yields byte-identical output" {
+  local a b
+  a="$(MATRIX_SEED=3 bash "$MATRIX_SH" gen)"
+  b="$(MATRIX_SEED=3 bash "$MATRIX_SH" gen)"
+  [ "$a" = "$b" ]
 }

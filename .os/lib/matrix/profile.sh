@@ -19,9 +19,9 @@
 #   matrix_emit         <cell-id>  → write the profile to tmpfs, print its path
 # =============================================================================
 
-# shellcheck source=./cells.sh
-[[ "$(type -t matrix_gen_cells)" == "function" ]] \
-  || source "${BASH_SOURCE[0]%/*}/cells.sh"
+# shellcheck source=./generator.sh
+[[ "$(type -t matrix_all_cells)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/generator.sh"
 # shellcheck source=./assemble.sh
 [[ "$(type -t matrix_cell_assemble)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/assemble.sh"
@@ -43,7 +43,8 @@ matrix_emit() {
   local id="${1:-}"
   [[ -n "$id" ]] || { echo "matrix: emit requires a <cell-id>" >&2; return 2; }
   local cell
-  cell="$(matrix_gen_cells | jq -c --arg id "$id" 'select(.id == $id)')"
+  cell="$(matrix_all_cells "${MATRIX_SEED:-0}" \
+    | jq -c --arg id "$id" 'select(.id == $id)')"
   [[ -n "$cell" ]] || { echo "matrix: unknown cell-id '$id'" >&2; return 1; }
   local out
   out="$(mktemp "${TMPDIR:-/tmp}/matrix-profile.${id}.XXXXXX.jsonc")"

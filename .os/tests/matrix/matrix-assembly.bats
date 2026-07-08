@@ -16,9 +16,17 @@ setup() {
   export SCRIPT_DIR="$OS_DIR"
   MATRIX_SH="$OS_DIR/tools/matrix.sh"
 
-  # The cell → Effective Config adapter (Tier-1 input).
+  # The cell → Effective Config adapter (Tier-1 input) + the generator that
+  # produces the Tier-1 cells this oracle validates.
   # shellcheck source=../../lib/matrix/assemble.sh
   source "$OS_DIR/lib/matrix/assemble.sh"
+  # shellcheck source=../../lib/matrix/generator.sh
+  source "$OS_DIR/lib/matrix/generator.sh"
+}
+
+# _matrix_tier1_cell <id> — the generated Tier-1 cell with the given id.
+_matrix_tier1_cell() {
+  matrix_tier1_cells | jq -c --arg id "$1" 'select(.id == $id)'
 }
 
 # _matrix_validate_cell <cell-json> — assemble the cell to a CONFIG_FILE and run
@@ -53,10 +61,24 @@ _matrix_validate_cell() {
   validate_install_context
 }
 
-# ── tracer: the generated cell validates clean via validate_install_context ──
+# ── each single-disk plaintext root cell validates via validate_install_context
 
-@test "tier-1: the generated tracer cell passes validate_install_context" {
-  local cell; cell="$(bash "$MATRIX_SH" gen)"
-  run _matrix_validate_cell "$cell"
+@test "tier-1: zfs-single-plain passes validate_install_context" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell zfs-single-plain)"
+  [ "$status" -eq 0 ]
+}
+
+@test "tier-1: btrfs-single-plain passes validate_install_context" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell btrfs-single-plain)"
+  [ "$status" -eq 0 ]
+}
+
+@test "tier-1: ext4-single-plain passes validate_install_context" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell ext4-single-plain)"
+  [ "$status" -eq 0 ]
+}
+
+@test "tier-1: xfs-single-plain passes validate_install_context" {
+  run _matrix_validate_cell "$(_matrix_tier1_cell xfs-single-plain)"
   [ "$status" -eq 0 ]
 }

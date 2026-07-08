@@ -1,6 +1,6 @@
 # 04 — Cell generator + constraint model + mixed-fs + pinned seeds
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -32,18 +32,50 @@ structurally excluded. Independent scalars are swept once (each value appears in
 
 ## Acceptance criteria
 
-- [ ] No emitted cell violates `_validation_topology_for_fs` or the min-disk
+- [x] No emitted cell violates `_validation_topology_for_fs` or the min-disk
       rules (cross-checked in tests).
-- [ ] Every pinned seed tuple is present in the Tier-2 set; `nvidia × kernel`
+- [x] Every pinned seed tuple is present in the Tier-2 set; `nvidia × kernel`
       co-occurs in ≥1 cell.
-- [ ] Mixed-fs cells and per-group-encryption cells are present in Tier-1.
-- [ ] The Tier-1 set equals the exhaustive storage-cluster cross-product under
+- [x] Mixed-fs cells and per-group-encryption cells are present in Tier-1.
+- [x] The Tier-1 set equals the exhaustive storage-cluster cross-product under
       the exclusions (asserted by construction/count).
-- [ ] Every independent scalar value (each kernel/bootloader/desktop/gpu, …)
+- [x] Every independent scalar value (each kernel/bootloader/desktop/gpu, …)
       appears in at least one cell.
-- [ ] Output is deterministic for a fixed seed.
+- [x] Output is deterministic for a fixed seed.
 
 ## Blocked by
 
 - `.scratch/combination-matrix/issues/02-axis-registry-completeness.md`
 - `.scratch/combination-matrix/issues/03-pairwise-reducer.md`
+
+## Comments
+
+**Done 2026-07-08 (TDD, LOCAL/UNPUSHED).** `lib/matrix/generator.sh` derives
+axes from the menu's own functions (`_ctl_built_root_filesystems`,
+`_ctl_topologies_for_fs`) — no drift.
+
+- **Tier-1** `matrix_tier1_cells` — exhaustive cross-product: root fs × mode ×
+  topology × enc × impermanence × a per-group data pool (fs/enc), under the menu
+  exclusions. 360 cells; count asserted == the independently-recomputed product.
+  Mixed-fs (zfs-root+btrfs-pool, ext4-root+zfs-pool, …) + per-group-enc (root
+  enc/pool plain and inverse) present. AC1 cross-checked against the REAL
+  `_validation_topology_for_fs` (distinct root-multi + data-pool topologies) +
+  ext4/xfs single-disk. zfs single-disk pool topology = `none` (not `single`,
+  which zfs rejects).
+- **Tier-2** `matrix_tier2_cells [seed]` — pairwise cover (reducer, issue 03)
+  over fs/topology/enc/imperm/kernel/bootloader/desktop/gpu/swap with
+  menu-derived fs↔topology + ext4/xfs-imperm exclusions, ∪ 7 pinned seeds
+  (zfs+btrfs-pool, ext4+zfs-pool, btrfs-raid1-enc-multi, xfs-root,
+  zfs-keyfile-root+enc-pool, nvidia×{lts,zen}). 47 cells, deterministic
+  (`unique_by(.id)`), every scalar value present, nvidia×kernel co-occurs.
+
+**Graduation of slice-01 wiring:** `matrix.sh gen` now emits the committed
+Tier-2 manifest (was the 1-cell tracer); `emit`/`run` resolve ids against
+`matrix_all_cells` (tier1∪tier2); the assembler takes mode from the cell + makes
+desktop optional (string→array). Tier-1 assembly bats now validates ALL FOUR
+single-disk root filesystems via the real `validate_install_context`. Matrix
+suite 29/29, shellcheck clean.
+
+**Deferred to slice 05:** multi-disk + data-pool DISK ASSIGNMENT in the
+assembler/synthesizer (emit/run bake single-disk today), and iterating the full
+360-cell Tier-1 set through validate_install_context (needs the multi assembler).

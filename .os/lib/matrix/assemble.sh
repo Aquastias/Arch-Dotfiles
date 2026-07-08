@@ -41,18 +41,30 @@ _matrix_mode_for_topology() {
 # matrix_cell_state <cell> — the Config State the assembler consumes: the
 # menu-derived launch defaults with the cell's axes laid over as overrides.
 matrix_cell_state() {
-  local cell="$1" fs topo enc desktop mode state
+  local cell="$1" fs enc mode state desktop
   fs="$(jq -r '.axes.filesystem' <<<"$cell")"
-  topo="$(jq -r '.axes.topology' <<<"$cell")"
   enc="$(jq -r '.axes.encryption' <<<"$cell")"
-  desktop="$(jq -c '.axes.desktop' <<<"$cell")"
-  mode="$(_matrix_mode_for_topology "$topo")"
+  # mode: the cell's own mode (generator cells carry it) else derived from
+  # topology (the slice-01 tracer cell shape).
+  mode="$(jq -r '.axes.mode // empty' <<<"$cell")"
+  [[ -n "$mode" ]] || mode="$(_matrix_mode_for_topology \
+    "$(jq -r '.axes.topology' <<<"$cell")")"
 
   state="$(cfgstate_seed_defaults "$(cfgstate_new)")"
   state="$(cfgstate_set "$state" filesystem "$(jq -n --arg f "$fs" '$f')")"
   state="$(cfgstate_set "$state" mode "$(jq -n --arg m "$mode" '$m')")"
   state="$(cfgstate_set "$state" options.encryption "$enc")"
-  state="$(cfgstate_set "$state" environment.desktop "$desktop")"
+
+  # desktop: only when the cell carries the axis. A Tier-2 scalar ("kde"/"none")
+  # maps onto the config's desktop array ([] for "none"); a Tier-1 storage cell
+  # has no desktop axis, so the seeded default stands untouched.
+  desktop="$(jq -c '.axes.desktop // empty' <<<"$cell")"
+  if [[ -n "$desktop" ]]; then
+    state="$(cfgstate_set "$state" environment.desktop \
+      "$(jq -c 'if type=="array" then .
+                elif . == "none" then []
+                else [.] end' <<<"$desktop")")"
+  fi
   printf '%s\n' "$state"
 }
 
@@ -60,12 +72,9 @@ matrix_cell_state() {
 # Single-disk cells bake onto /dev/sda; multi-disk topology assignment lands in
 # a later slice.
 matrix_cell_assemble() {
-  local cell="$1" state topo assignment
+  local cell="$1" state
   state="$(matrix_cell_state "$cell")"
-  topo="$(jq -r '.axes.topology' <<<"$cell")"
-  case "$(_matrix_mode_for_topology "$topo")" in
-  single) assignment='{"mode":"single","disk":"/dev/sda"}' ;;
-  *)      assignment='{"mode":"single","disk":"/dev/sda"}' ;;  # TODO: multi
-  esac
-  emit_effective "$state" "$assignment"
+  # Single-disk baking (the emit/run path exercises single cells); the multi-disk
+  # and data-pool disk assignment is the profile synthesizer's job (slice 05).
+  emit_effective "$state" '{"mode":"single","disk":"/dev/sda"}'
 }
