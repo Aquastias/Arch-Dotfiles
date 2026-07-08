@@ -25,6 +25,8 @@ source "$OS_DIR/lib/matrix/cells.sh"
 source "$OS_DIR/lib/matrix/profile.sh"
 # shellcheck source=../lib/matrix/run.sh
 source "$OS_DIR/lib/matrix/run.sh"
+# shellcheck source=../lib/matrix/driver.sh
+source "$OS_DIR/lib/matrix/driver.sh"
 
 usage() {
   cat <<'EOF'
@@ -34,7 +36,11 @@ Commands:
   gen               Emit the cell manifest (one JSON cell per line).
   emit <cell-id>    Materialize one cell to a VM Profile in tmpfs (path on
                     stdout).
-  run               Install the cell(s) in a VM via the config seam.
+  run [--smoke|--full]
+                    Run the Tier-2 set in guarded parallel VMs and print a
+                    summary (--smoke = pinned seeds only, default; --full =
+                    whole pairwise cover). Exits non-zero on any FAIL.
+  run <cell-id>     Install + boot-verify a single cell in a VM.
 EOF
 }
 
@@ -45,7 +51,11 @@ main() {
   case "$cmd" in
     gen)  matrix_gen_cells ;;
     emit) matrix_emit "$@" ;;
-    run)  matrix_run "$@" ;;
+    run)
+      case "${1:-}" in
+        ""|--smoke|--full) matrix_run_all "$@" ;;
+        *)                 matrix_run "$@" ;;
+      esac ;;
     --help | -h) usage ;;
     *) usage >&2; exit 2 ;;
   esac
