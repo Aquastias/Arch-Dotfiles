@@ -808,6 +808,19 @@ divergent flows live in `vm/lib/`. A test profile run **without** `--testing`
 yields a persistent VM of that exact config — the supported way to interactively
 debug a failing test case.
 
+### Console Answerer
+The Combination-Matrix harness component that makes encrypted cells
+boot-verify headlessly instead of stopping at install. It watches the serial
+log (the same one the sentinel watcher tails — the test-only `console=ttyS0`
+cmdline injection already routes emergency/passphrase prompts there) for a
+disk-unlock prompt, matches it against the known prompt patterns (mkinitcpio
+`encrypt` hook, `systemd-cryptsetup`, zfs-native `load-key`), and writes the
+known test passphrase **to the serial char device** — not via `virsh
+send-key`, because with `console=ttyS0` the prompt reads from `/dev/console`,
+not the emulated keyboard. Bounded retries fail into `ENCRYPTED-BOOT-FAIL`
+rather than a hang. Drives the real passphrase-unlock path (ADR 0046), so an
+encrypted cell verifies as close to reality as a human at the prompt.
+
 ### Profile Category
 The subdirectory grouping VM Profiles within a `profiles/` tree. The axis
 differs per tree: persistent profiles (`.os/vm/profiles/`) are categorized by
@@ -817,6 +830,23 @@ are categorized by the install path they exercise (`single/`, `multi/`,
 lives in exactly one
 category; when a feature category fits (e.g. `impermanence/`, `env/`) it wins
 over the bare layout-mode category.
+
+### Combination Matrix
+The generated space of menu-reachable install combinations under test, so that
+"no error for any menu choice" is a checked property rather than a hope. A cell
+is one axis assignment (root filesystem, encryption, impermanence, topology,
+disk-mode, per-group data-pool filesystem/encryption, kernel, bootloader,
+desktop, gpu, swap). Cells, their allowed values, and the exclusions between
+them are **derived from the menu's own option functions** (`_ctl_topologies_
+for_fs`, `menu_rows`, picker/validation), never a hand-kept duplicate, so an
+unreachable combination is one the menu never emits (ADR 0046). Covered in two
+tiers: **Tier 1** assembles + `validate_install_context`-checks the *exhaustive*
+storage cluster with no VM (always-on in bats); **Tier 2** installs a
+**pairwise** (2-wise) subset plus a pinned seed list of historically-broken
+tuples through a real VM (`vm.sh --testing`), reusing Tier 1's assembler to feed
+the Effective Config via the config seam. The covered set is recorded as a
+committed **Matrix Manifest** (one line per cell); VM Profiles are materialized
+on demand, never committed.
 
 ## Flagged ambiguities
 
