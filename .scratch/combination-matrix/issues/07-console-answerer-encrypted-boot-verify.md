@@ -1,7 +1,32 @@
 # 07 — Console Answerer + GRUB serial parity + encrypted boot-verify
 
-Status: ready-for-agent
+Status: ready-for-human
 Type: AFK
+
+## Implementation (code-complete; live encrypted boot = HITL)
+
+- `vm/lib/console-answerer.sh` — pure prompt-matcher `console_answerer_variant`
+  (encrypt-hook / systemd-cryptsetup / zfs-native), `_passphrase`, `_reply`, and
+  the IO watcher `console_answerer_watch` (tails the serial log, writes the test
+  passphrase to the char device once per prompt; handles multi-disk + no-newline
+  cryptsetup prompts). Passphrase = `CONSOLE_ANSWERER_PASSPHRASE` (default
+  `testtest` from `INSTALL_ENC_PASSPHRASE`).
+- `vm/lib/flow-test.sh` — boot-verify now starts the Answerer against
+  `virsh ttyconsole` and stops it in teardown + traps (harmless on plaintext).
+- `vm/lib/seed-generator.sh` — GRUB serial parity: the test-only serial
+  injection also appends `console=ttyS0` to `grub.cfg` linux lines.
+- `lib/matrix/synth.sh` — oracle flip: encrypted cells boot-verify (no longer
+  install-only); only gpu≠auto stays install-only.
+- Tests: `tests/vm/console-answerer.bats` (9, incl. the watcher driven against a
+  temp file as the char device), `tests/matrix/matrix-synth.bats` (flip).
+
+## Remaining (HITL — needs a kvm host; agent env has no /dev/kvm)
+
+- AC2/AC3/AC4/AC5: live encrypted single-disk + GRUB + impermanent cells boot
+  unattended via the Answerer; wrong/absent passphrase → `ENCRYPTED-BOOT-FAIL`
+  within the bounded timeout (the boot-verify 125/124 path already bounds it).
+  Live risk to confirm: writing to the `virsh ttyconsole` pty while
+  `virsh console` reads it, and the exact per-variant prompt strings.
 
 ## Parent
 
@@ -33,7 +58,7 @@ automation verifies itself — no HITL.
 
 ## Acceptance criteria
 
-- [ ] The prompt-matcher returns detected + correct passphrase for each variant
+- [x] The prompt-matcher returns detected + correct passphrase for each variant
       (encrypt hook / systemd-cryptsetup / zfs-native) and detected=false on
       non-prompt serial noise (unit-tested against captured serial text).
 - [ ] An encrypted single-disk cell boots unattended: the Answerer supplies the

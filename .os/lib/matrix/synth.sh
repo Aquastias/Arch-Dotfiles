@@ -10,9 +10,9 @@
 #   hardware.disks    Σ disk_count across the root pool + a data pool, each
 #                     DISK_GIB (default 20).
 #   verify            the oracle table: plain → first-boot sentinel; impermanent
-#                     → +rollback (two-boot proof); encrypted or gpu≠auto →
-#                     install-only (no boot verify — encrypted unlock is issue
-#                     07; a virtual GPU can't exercise a real driver).
+#                     → +rollback (two-boot proof); encrypted boot-verifies via
+#                     the Console Answerer (issue 07); only gpu≠auto is
+#                     install-only (a virtual GPU can't exercise a real driver).
 #   timeouts.install  the light/heavy band — heavy (any desktop or nvidia) gets
 #                     the long budget so a real DE/driver install can't false-fail.
 #
@@ -64,18 +64,19 @@ matrix_cell_timeout() {
 }
 
 # matrix_cell_boot_verify <cell> — "true" iff the cell boot-verifies. Encrypted
-# cells (no Console Answerer until issue 07) and gpu≠auto cells are install-only.
+# cells now boot-verify too: the Console Answerer (issue 07) supplies the
+# passphrase over serial. Only gpu≠auto stays install-only — a virtual GPU can't
+# exercise a real driver.
 matrix_cell_boot_verify() {
-  jq -r 'if (.axes.encryption == true)
-            or ((.axes.gpu // "auto") != "auto") then false
+  jq -r 'if ((.axes.gpu // "auto") != "auto") then false
          else true end' <<<"$1"
 }
 
 # matrix_cell_verify <cell> — the profile's verify block per the oracle table,
-# or "null" for install-only cells.
+# or "null" for install-only cells. Encryption no longer forces install-only
+# (the Answerer drives the unlock); gpu≠auto still does.
 matrix_cell_verify() {
-  jq -c 'if (.axes.encryption == true)
-            or ((.axes.gpu // "auto") != "auto") then null      # install-only
+  jq -c 'if ((.axes.gpu // "auto") != "auto") then null         # install-only
          elif (.axes.impermanence == true)
             then {boot:true, rollback:true}                     # two-boot proof
          else {boot:true} end' <<<"$1"                          # first-boot

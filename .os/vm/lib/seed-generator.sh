@@ -54,12 +54,15 @@ SEED_GENERATOR_FIRSTBOOT_MARKER='===FIRSTBOOT-OK==='
 # boot-verify phase can observe the boot. The product cmdline carries no
 # console=ttyS0 (systemd-boot itself prints to serial, but once the kernel
 # starts the serial goes dark), so the host sees only the boot menu then 600 s
-# of silence — even the first-boot sentinel write was invisible. Mount the ESP
-# holding systemd-boot's loader entries and add console=ttyS0 last so /dev/console
-# (kernel logs, systemd, emergency prompts, and the sentinel) lands on serial.
-# Emitted as 6-space-indented runcmd lines; runs on the live ISO with the
-# installed root already mounted at /mnt. Single-quoted heredoc: the inner $/$()
-# are literal, evaluated on the VM, not at render time.
+# of silence — even the first-boot sentinel write was invisible. Add
+# console=ttyS0 to BOTH bootloaders so /dev/console (kernel logs, systemd,
+# emergency prompts, the LUKS/zfs unlock prompt, and the sentinel) lands on
+# serial: systemd-boot's loader entries on the ESP, and GRUB's grub.cfg linux
+# lines (GRUB serial parity, combination-matrix/07 — encrypted GRUB cells must
+# route their unlock prompt to serial for the Console Answerer). Emitted as
+# 6-space-indented runcmd lines; runs on the live ISO with the installed root
+# already mounted at /mnt. Single-quoted heredoc: the inner $/$() are literal,
+# evaluated on the VM, not at render time.
 _seed_generator_esp_serial_lines() {
   cat <<'LINES'
       mkdir -p /mnt/boot/efi
@@ -73,6 +76,11 @@ _seed_generator_esp_serial_lines() {
           umount /mnt/boot/efi; break
         fi
         umount /mnt/boot/efi
+      done
+      for _g in /mnt/boot/grub/grub.cfg /mnt/boot/efi/EFI/*/grub.cfg; do
+        [ -f "$_g" ] || continue
+        grep -q console=ttyS0 "$_g" \
+          || sed -i '/^[[:space:]]*linux/s/$/ console=ttyS0,115200/' "$_g"
       done
 LINES
 }

@@ -42,9 +42,20 @@ _cell() { printf '{"id":"c","tier":1,"axes":%s}' "$1"; }
   echo "$v" | jq -e '.boot == true and .rollback == true'
 }
 
-@test "verify: encrypted cell → install-only (no verify block, no boot-verify)" {
-  [ "$(matrix_cell_verify "$(_cell '{"encryption":true}')")" = null ]
-  [ "$(matrix_cell_boot_verify "$(_cell '{"encryption":true}')")" = false ]
+@test "verify: encrypted cell boot-verifies (issue 07 oracle flip)" {
+  # The Console Answerer supplies the passphrase over serial, so encrypted is
+  # no longer install-only — it gets the first-boot sentinel like its peer.
+  local c='{"encryption":true,"impermanence":false}'
+  echo "$(matrix_cell_verify "$(_cell "$c")")" \
+    | jq -e '.boot == true and (has("rollback") | not)'
+  [ "$(matrix_cell_boot_verify "$(_cell "$c")")" = true ]
+}
+
+@test "verify: encrypted impermanent → boot + rollback (two-boot proof)" {
+  local c='{"encryption":true,"impermanence":true}'
+  echo "$(matrix_cell_verify "$(_cell "$c")")" \
+    | jq -e '.boot == true and .rollback == true'
+  [ "$(matrix_cell_boot_verify "$(_cell "$c")")" = true ]
 }
 
 @test "verify: gpu≠auto cell → install-only (driver install, no boot-verify)" {
