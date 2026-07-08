@@ -1,6 +1,6 @@
 # 03 — Pairwise reducer (pure covering array)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -20,15 +20,37 @@ returns rows.
 
 ## Acceptance criteria
 
-- [ ] Every valid value-pair from the input axes appears in at least one emitted
+- [x] Every valid value-pair from the input axes appears in at least one emitted
       row.
-- [ ] No constraint-excluded pair appears in any row.
-- [ ] Identical input + seed produces byte-identical output (determinism).
-- [ ] Handles single-value axes and heavily-constrained axes without emitting
+- [x] No constraint-excluded pair appears in any row.
+- [x] Identical input + seed produces byte-identical output (determinism).
+- [x] Handles single-value axes and heavily-constrained axes without emitting
       impossible rows.
-- [ ] Unit tests assert pair-coverage, exclusion-respect, and determinism
+- [x] Unit tests assert pair-coverage, exclusion-respect, and determinism
       (minimality is NOT asserted — implementation detail).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+**Done 2026-07-08 (TDD, LOCAL/UNPUSHED).** `lib/matrix/pairwise.sh` —
+`matrix_pairwise <axes_json> <constraints_json> [seed]` → JSON-lines rows, keys
+in axis order. Menu-agnostic, pure bash after a jq parse.
+
+**Algorithm:** greedy pair coverage. Enumerate valid pairs (a pair is excluded
+iff a constraint whose keys ⊆ the pair's two axes matches — so 1-key constraints
+forbid a value outright, 2-key forbid a combo). Loop: seed a row from the
+deterministically-first uncovered pair (`sort -t,` numeric), complete it by a
+coverage-maximising forward pass; if constraints block the forward pass, fall
+back to a backtracking search — so a completable pair is never dropped and a
+genuinely impossible pair emits no row (just leaves the cover). Determinism: seed
+rotates each axis's value try-order; sorted pair pick + axis-order row emit ⇒
+byte-identical output for identical input+seed. Minimality intentionally NOT
+pursued (AC excludes it).
+
+5 bats (2-axis full, 3-axis coverage, exclusion-respect, determinism,
+single-value+heavy-constraint no-impossible-rows). Matrix suite 17/17,
+shellcheck clean. Constraint input format `[{"fs":"ext4","topology":"mirror"}]`
+is what the slice-04 generator will feed from the menu's fs↔topology rules.
