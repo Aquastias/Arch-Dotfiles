@@ -27,6 +27,8 @@ FLOW_TEST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 source "${FLOW_TEST_DIR}/seed-generator.sh"
 # shellcheck source=./sentinel-watcher.sh
 source "${FLOW_TEST_DIR}/sentinel-watcher.sh"
+# shellcheck source=./console-answerer.sh
+source "${FLOW_TEST_DIR}/console-answerer.sh"
 
 # Per-flow virt-install graphics (headless).
 FLOW_GRAPHICS_ARGS=(--graphics none)
@@ -166,6 +168,29 @@ _stop_console_capture() {
   CONSOLE_WRAP_PID=""
 }
 
+# CONSOLE ANSWERER — supply the disk-unlock passphrase over serial so encrypted
+# roots boot-verify unattended. The prompt reads /dev/console (console=ttyS0 is
+# injected), so we write to the serial char device (virsh ttyconsole), not
+# send-key. Harmless on plaintext boots: the matcher fires only on unlock
+# prompts. The pure matcher lives in console-answerer.sh (unit-tested).
+CONSOLE_ANSWERER_PID=""
+
+_start_console_answerer() {
+  local dev; dev="$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" || return 0
+  [[ -n "$dev" ]] || return 0
+  console_answerer_watch "$BOOT_LOG_FILE" "$dev" &
+  CONSOLE_ANSWERER_PID=$!
+  info "Console Answerer watching for unlock prompts → ${dev}."
+}
+
+# shellcheck disable=SC2329
+_stop_console_answerer() {
+  [[ -n "$CONSOLE_ANSWERER_PID" ]] || return 0
+  kill "$CONSOLE_ANSWERER_PID" 2>/dev/null || true
+  wait "$CONSOLE_ANSWERER_PID" 2>/dev/null || true
+  CONSOLE_ANSWERER_PID=""
+}
+
 # Stage declared fixtures into CACHE_DIR and serve it over HTTP on the libvirt
 # gateway, so the in-guest Secrets Module can fetch the Test Age Key
 # (http://<gateway>:<port>/key.age) during a secure install. No-op when the
@@ -189,8 +214,8 @@ _stop_fixture_http_server() {
 }
 
 # shellcheck disable=SC2329
-_on_signal() { _stop_console_capture; _stop_fixture_http_server; \
-  exit "$((128 + ${1:-2}))"; }
+_on_signal() { _stop_console_answerer; _stop_console_capture; \
+  _stop_fixture_http_server; exit "$((128 + ${1:-2}))"; }
 
 # Poll virsh ttyconsole until the serial PTY is assigned, so console capture
 # attaches to a live pty instead of dying on "PTY device is not yet assigned".
@@ -237,6 +262,7 @@ _run_boot_verify() {
   virsh start "$VM_NAME" >/dev/null
   _wait_for_serial_pty
   _start_console_capture "$BOOT_LOG_FILE"
+  _start_console_answerer
 
   local brc=0
   set +e
@@ -245,6 +271,7 @@ _run_boot_verify() {
   brc=$?
   set -e
 
+  _stop_console_answerer
   _stop_console_capture
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
 
@@ -258,7 +285,8 @@ _run_boot_verify() {
 flow_test_deps() { _harness_ensure_deps script:util-linux; }
 
 flow_run() {
-  trap '_stop_console_capture; _stop_fixture_http_server' EXIT
+  trap '_stop_console_answerer; _stop_console_capture; \
+    _stop_fixture_http_server' EXIT
   trap '_on_signal 2'  INT
   trap '_on_signal 15' TERM
 
