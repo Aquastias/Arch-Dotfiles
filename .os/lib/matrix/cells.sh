@@ -19,8 +19,16 @@
 #   matrix_gen_cells   → the matrix manifest, one JSON cell per line
 # =============================================================================
 
+# shellcheck source=./registry.sh
+[[ "$(type -t matrix_registry_assert)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/registry.sh"
+
 # matrix_gen_cells — the matrix manifest on stdout (one JSON cell per line).
+# The Axis Registry must classify _MENU_FIELDS exactly before any cell is
+# emitted: an unclassified new menu field (or a stale entry) aborts here, so the
+# matrix can't silently drift from what the menu offers (ADR 0046).
 matrix_gen_cells() {
+  matrix_registry_assert || return 1
   jq -c -n '{
     id: "zfs-single-plain",
     axes: {
