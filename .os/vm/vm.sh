@@ -73,10 +73,18 @@ main() {
 
   # --guided is a disposable test flow (like --testing) that drives the Guided
   # Installer headlessly; it resolves profiles under tests/vm/profiles/ too.
-  local base
-  if ((testing || guided)); then base="$OS_DIR/tests/vm/profiles"; else
-    base="$OS_DIR/vm/profiles"; fi
-  local profile_file="$base/$profile_ref.jsonc"
+  # An absolute path to an existing profile file is used verbatim — the seam the
+  # Combination Matrix uses to run an ephemeral, tmpfs-materialized cell profile
+  # (matrix.sh emit) without staging it under the profiles tree (ADR 0046).
+  local profile_file
+  if [[ "$profile_ref" == /* && -f "$profile_ref" ]]; then
+    profile_file="$profile_ref"
+  else
+    local base
+    if ((testing || guided)); then base="$OS_DIR/tests/vm/profiles"; else
+      base="$OS_DIR/vm/profiles"; fi
+    profile_file="$base/$profile_ref.jsonc"
+  fi
   [[ -f "$profile_file" ]] || die "profile not found: $profile_file"
 
   local hosts_dir="$OS_DIR/hosts"

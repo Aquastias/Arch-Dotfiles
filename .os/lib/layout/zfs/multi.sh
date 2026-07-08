@@ -789,12 +789,8 @@ mount_multi_esps() {
 # VALIDATION HELPERS (issue 03/04)
 # =============================================================================
 
-_layout_disk_exists() {
-  # Seam over the block-device test so layout_validate's existence checks are
-  # overridable in unit tests (which use fake disk paths). Returns 0 when the
-  # path is a block device.
-  [[ -b "$1" ]]
-}
+# _layout_disk_exists is the shared disk-existence seam from lib/layout/core.sh
+# (sourced via zfs/common.sh); multi's existence checks call it directly.
 
 _layout_declared_users() {
   # Seam: declared usernames (space-separated, Primary User first) used to

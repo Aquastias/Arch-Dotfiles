@@ -91,7 +91,8 @@ layout_validate() {
   layout_validate_esp_size
   local d
   d="$(cfg '.disk' 'disk')"
-  [[ -b "$d" ]] || error "$(_root_fstype) single disk not found: $d"
+  _layout_disk_exists "$d" \
+    || error "$(_root_fstype) single disk not found: $d"
   _layout_exit_phase validate
 }
 
@@ -101,7 +102,8 @@ _layout_plan_mode() {
   local fstype; fstype="$(_root_fstype)"
   section "Calculating ${fstype} Single-Disk Layout"
   _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
-  [[ -b "$_LAYOUT_IMPL_DISK" ]] || error "Disk not found: $_LAYOUT_IMPL_DISK"
+  _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
+    || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
   local total_bytes total_mib esp_mib swap_mib
   total_bytes="$(blockdev --getsize64 "$_LAYOUT_IMPL_DISK")"

@@ -55,7 +55,8 @@ calculate_single_disk_layout() {
   section "Calculating Single-Disk Layout"
 
   _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
-  [[ -b "$_LAYOUT_IMPL_DISK" ]] || error "Disk not found: $_LAYOUT_IMPL_DISK"
+  _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
+    || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
   # Use blockdev --getsize64 (bytes) for precision — avoids the truncation
   # error from sector-based math on disks that are not exact GiB multiples.
@@ -264,7 +265,7 @@ layout_validate() {
   layout_validate_esp_size
   local d
   d="$(cfg '.disk' 'disk')"
-  [[ -b "$d" ]] || error "Single disk not found: $d"
+  _layout_disk_exists "$d" || error "Single disk not found: $d"
   _layout_exit_phase validate
 }
 

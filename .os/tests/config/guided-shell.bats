@@ -390,15 +390,17 @@ write_answers() {
   echo "$effective" | jq -e '.system.keymap'
 }
 
-# ── filesystem-first Disks: zfs is active, btrfs/ext4/xfs reserved (ADR 0040)
+# ── filesystem-first Disks: all four adapters ship, none reserved (issue 09) ─
 
-@test "_guided_filesystem_options: zfs is active, the others are reserved" {
+@test "_guided_filesystem_options: all four built filesystems are active" {
   run _guided_filesystem_options
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "zfs"
-  echo "$output" | grep -q "btrfs (reserved)"
-  echo "$output" | grep -q "ext4 (reserved)"
-  echo "$output" | grep -q "xfs (reserved)"
+  echo "$output" | grep -qx "btrfs"
+  echo "$output" | grep -qx "ext4"
+  echo "$output" | grep -qx "xfs"
+  # Every adapter is built now, so nothing is flagged reserved.
+  ! echo "$output" | grep -q "reserved"
 }
 
 @test "_guided_edit_filesystem: picking zfs commits the filesystem" {
@@ -414,7 +416,10 @@ write_answers() {
 @test "_guided_edit_filesystem: a reserved filesystem is refused, no commit" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
-  guided_select() { printf '%s' "btrfs (reserved)"; }
+  # All four adapters ship today, so exercise the reserved seam (kept for a
+  # future unbuilt adapter) with an injected reserved filesystem.
+  _GUIDED_FS_RESERVED=(reiserfs)
+  guided_select() { printf '%s' "reiserfs (reserved)"; }
   export -f guided_select
 
   run _guided_edit_filesystem
