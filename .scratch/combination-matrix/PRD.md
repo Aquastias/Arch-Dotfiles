@@ -1,6 +1,6 @@
 # Combination Matrix — two-tier install-combination testing
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: **ADR 0046** (combination-matrix two-tier install testing),
 building on ADR 0035 (profile-driven VM Harness), 0036 (unified profile /
