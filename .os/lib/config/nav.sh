@@ -46,10 +46,12 @@ nav_to_swapedit() { jq -nc --arg c "$1" '{screen:"swapedit", category:$c}'; }
 # nav_to_datapools <category> — the data-pools list editor.
 nav_to_datapools() { jq -nc --arg c "$1" '{screen:"datapools", category:$c}'; }
 
-# nav_to_pooledit <category> <index> — edit data_pools[<index>].
+# nav_to_pooledit <category> <index> [kind] — edit one pool group. <kind> is the
+# group reference (os | storage | data), defaulting to data for back-compat; the
+# controller resolves the group through (kind, index) — see _ctl_pool_get.
 nav_to_pooledit() {
-  jq -nc --arg c "$1" --argjson i "$2" \
-    '{screen:"pooledit", category:$c, index:$i}'
+  jq -nc --arg c "$1" --argjson i "$2" --arg k "${3:-data}" \
+    '{screen:"pooledit", category:$c, index:$i, kind:$k}'
 }
 
 # nav_back <nav> — values/text → their category; category → top; top stays top.
