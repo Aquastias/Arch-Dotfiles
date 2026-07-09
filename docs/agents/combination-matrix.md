@@ -6,8 +6,34 @@ two-tier "no menu-reachable install combination errors" testing. Entry point:
 logic in `.os/lib/matrix/*.sh`; Tier-1 assembly bats under
 `.os/tests/matrix/`.
 
-The menu-derived, CI-enforced sync contract lands in slice 08. This file grows
-with it; for now it records the environment gotchas that bite a live Tier-2
+## The sync contract: menu-derived, CI-enforced
+
+The matrix axes, values, and exclusions are **derived from the menu's own
+option functions** (`_ctl_built_root_filesystems`, `_ctl_topologies_for_fs`,
+the pickers/validation) — never a hand-kept spec — so the matrix cannot drift
+from what the installer menu offers. Two guards keep it honest:
+
+1. **Axis Registry completeness** (issue 02) — `matrix.sh gen` aborts if a menu
+   field (`_MENU_FIELDS`) is unclassified or a registry entry is stale.
+2. **Committed records + drift guard** (issue 08) — two files are checked in:
+   - `.os/tests/vm/matrix-manifest.jsonl` — the Tier-2 set (one cell/line): the
+     expensive, selective cells worth pinning/reproducing.
+   - `.os/tests/vm/matrix-coverage.txt` — a diffable snapshot of resolved axes →
+     values → exclusions + per-tier cell counts. A silent constraint shrink
+     (fewer valid cells — which Tier-1 bats still passes) shows here as a
+     one-line change + a count delta, not a wall of vanished rows.
+
+   `tests/matrix/matrix-records.bats` regenerates both and diffs them against
+   the committed copies, so a menu change that isn't followed by a regen fails
+   the suite. Tier-1's exhaustive list stays regenerated-live (not committed);
+   VM Profiles are never committed (materialized via `emit`).
+
+**Wrap-up step (do this after any menu / constraint / axis change, and in the
+`/improve-codebase-architecture` flow):** run `./.os/tools/matrix.sh gen` and
+commit the updated `matrix-manifest.jsonl` + `matrix-coverage.txt`. The suite
+will otherwise go red on the drift guard.
+
+The rest of this file records the environment gotchas that bite a live Tier-2
 run.
 
 ## Per-disk size: 40 GiB, not the PRD's 20

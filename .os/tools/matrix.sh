@@ -27,13 +27,18 @@ source "$OS_DIR/lib/matrix/profile.sh"
 source "$OS_DIR/lib/matrix/run.sh"
 # shellcheck source=../lib/matrix/driver.sh
 source "$OS_DIR/lib/matrix/driver.sh"
+# shellcheck source=../lib/matrix/records.sh
+source "$OS_DIR/lib/matrix/records.sh"
 
 usage() {
   cat <<'EOF'
 Usage: matrix.sh <command> [args]
 
 Commands:
-  gen               Emit the cell manifest (one JSON cell per line).
+  gen               Regenerate the committed matrix records: the Tier-2
+                    manifest (tests/vm/matrix-manifest.jsonl) + the coverage
+                    summary (tests/vm/matrix-coverage.txt). Run at wrap-up
+                    after any menu/constraint change.
   emit <cell-id>    Materialize one cell to a VM Profile in tmpfs (path on
                     stdout).
   run [--smoke|--full]
@@ -49,7 +54,7 @@ main() {
   [[ -n "$cmd" ]] || { usage >&2; exit 2; }
   shift
   case "$cmd" in
-    gen)  matrix_gen_cells ;;
+    gen)  matrix_records_write ;;
     emit) matrix_emit "$@" ;;
     run)
       case "${1:-}" in
