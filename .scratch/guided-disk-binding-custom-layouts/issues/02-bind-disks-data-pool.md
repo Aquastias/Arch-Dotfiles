@@ -1,6 +1,6 @@
 # 02 — Bind real disks to a data pool (device-mode tracer)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -35,19 +35,19 @@ storage groups, single-disk root, install/flatten, or chrome.
 
 ## Acceptance criteria
 
-- [ ] With a faked by-id dir (`PICKER_BY_ID_DIR`) holding disks, launch enters
+- [x] With a faked by-id dir (`PICKER_BY_ID_DIR`) holding disks, launch enters
       device-mode; with none, count-mode — asserted at the pure seam.
-- [ ] Binding a disk adds its by-id path to the pool's `devices[]`; unbinding
+- [x] Binding a disk adds its by-id path to the pool's `devices[]`; unbinding
       removes it; `disk_count` equals the number bound (pure seam).
-- [ ] The Free Set excludes the live medium and any disk already bound to another
+- [x] The Free Set excludes the live medium and any disk already bound to another
       group; a bound disk never appears as free for a second pool.
-- [ ] The disk sub-screen renders bound disks marked + free disks unmarked with
+- [x] The disk sub-screen renders bound disks marked + free disks unmarked with
       `<size> <model> · <tail>` labels, and Enter emits the toggle reload-sync
       action (fzf-entry seam), with the nav file entering/leaving the sub-screen.
-- [ ] Cycling the pool to ext4/xfs leaves exactly the first bound disk and frees
+- [x] Cycling the pool to ext4/xfs leaves exactly the first bound disk and frees
       the rest (pure seam).
-- [ ] Off-target, the data-pool `disks:` row still shows the 1–8 count cycle.
-- [ ] Full existing bats suite stays green.
+- [x] Off-target, the data-pool `disks:` row still shows the 1–8 count cycle.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 
