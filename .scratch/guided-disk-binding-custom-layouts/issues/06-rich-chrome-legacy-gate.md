@@ -1,6 +1,6 @@
 # 06 — Rich chrome + legacy gate
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent

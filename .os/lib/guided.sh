@@ -802,6 +802,12 @@ guided_run_persistent() {
   GUIDED_LIVE_SET="$(live_medium_disks 2>/dev/null || true)"
   GUIDED_DEVICE_MODE="$(_ctl_detect_device_mode)"
 
+  # Rich chrome (ADR 0047): decide ONCE whether the installed fzf (≥ 0.62)
+  # supports the footer/breadcrumb chrome; a lagging ISO's older fzf degrades to
+  # the legacy action-rows layout. Cached so every fzf-entry subprocess agrees.
+  export GUIDED_RICH_CHROME
+  GUIDED_RICH_CHROME="$(_ctl_detect_rich_chrome)"
+
   printf '%s\n' "$_GUIDED_BASELINE" >"$GUIDED_BASELINE_FILE"
   printf '%s\n' "$_GUIDED_STATE"    >"$GUIDED_STATE_FILE"
   nav_new >"$GUIDED_NAV_FILE"
@@ -814,6 +820,15 @@ guided_run_persistent() {
   # {q} from fzf's own input line); esc maps to a back/abort transform; the
   # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
+  # Rich chrome flags (fzf ≥ 0.62 only): a bottom footer + a rounded list border
+  # for the breadcrumb. Passed only when supported so an older fzf never chokes
+  # on an unknown flag; the ^A/^X binds are harmless on either fzf (they just map
+  # to context actions the controller already gates).
+  local -a rich_flags=()
+  if [[ "$GUIDED_RICH_CHROME" == "1" ]]; then
+    rich_flags=(--footer=' ' --footer-border=top \
+      --list-border=rounded --list-label-pos=center)
+  fi
   # The preview pane starts hidden with a no-op body; the Disk-layout screen's
   # render swaps in the ASCII layout graph and shows it (change-preview[-window]).
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
@@ -821,9 +836,12 @@ guided_run_persistent() {
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
     --header-border=bottom \
+    "${rich_flags[@]}" \
     --preview='echo' --preview-window=hidden \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
+    --bind "ctrl-a:transform(bash $entry key ctrl-a)" \
+    --bind "ctrl-x:transform(bash $entry key ctrl-x)" \
     --bind "ctrl-z:transform(bash $entry key ctrl-z)" \
     --bind "ctrl-y:transform(bash $entry key ctrl-y)" \
     --bind "ctrl-r:transform(bash $entry key ctrl-r)" \

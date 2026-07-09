@@ -37,8 +37,13 @@ dispatch)
   _guided_directive_to_action "$_d" "$_entry_self"
   ;;
 key)
-  # ^Z/^Y/^R — undo/redo/reset over the snapshot stack.
-  _guided_directive_to_action "$(guided_ctl_key "${2:-}")" "$_entry_self"
+  # ^A/^X — context add/remove (rich chrome); ^Z/^Y/^R — undo/redo/reset.
+  case "${2:-}" in
+  ctrl-a) _dk="$(guided_ctl_action add)" ;;
+  ctrl-x) _dk="$(guided_ctl_action remove)" ;;
+  *)      _dk="$(guided_ctl_key "${2:-}")" ;;
+  esac
+  _guided_directive_to_action "$_dk" "$_entry_self"
   ;;
 preview)
   # fzf preview body — the ASCII layout graph (only on the Disk-layout screen).
