@@ -1,6 +1,6 @@
 # Filesystem Adapters — btrfs/ext4/xfs roots + per-group filesystem selection
 
-Status: ready-for-agent
+Status: done
 
 Decisions of record: **ADR 0043** (per-group filesystem & layout-adapter split)
 and **ADR 0044** (btrfs impermanence via per-path rollback), both extending
