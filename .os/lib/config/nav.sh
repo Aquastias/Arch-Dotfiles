@@ -61,6 +61,10 @@ nav_to_pooldisks() {
     '{screen:"pooldisks", category:$c, index:$i, kind:$k}'
 }
 
+# nav_to_rootdisk <category> — the single-disk-root picker (single-select one
+# /dev/disk/by-id/* device for a single-disk install).
+nav_to_rootdisk() { jq -nc --arg c "$1" '{screen:"rootdisk", category:$c}'; }
+
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
@@ -72,6 +76,7 @@ nav_back() {
     elif .screen == "pooldisks"
          then {screen:"pooledit", category:.category,
                index:.index, kind:.kind}
+    elif .screen == "rootdisk" then {screen:"category", category:.category}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
