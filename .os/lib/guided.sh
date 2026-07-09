@@ -863,14 +863,37 @@ _guided_guard_post_install() {
 _guided_resolve_assignment() {
   local mode; mode="$(cfgstate_get "$(_guided_effective)" mode)"
   if [[ "$mode" == "multi" ]]; then
-    local n; n="$(skeleton_total_disks "$_GUIDED_STATE")"
-    local -a disks
-    mapfile -t disks < <(guided_pick_disks disks "$n")
-    ((${#disks[@]} == n)) \
-      || { error "guided: layout needs ${n} disks, got ${#disks[@]}"; return 1; }
     local assignment
-    assignment="$(picker_build_assignment "$_GUIDED_STATE" "${disks[@]}")" \
-      || return 1
+    # In-Menu Disk Binding (ADR 0047): when any group is device-bound, the disks
+    # were chosen in the menu — build the assignment from devices[], with no
+    # post-menu pick and no ACCEPT. A fully-bound layout picks nothing; a mixed
+    # one still flat-picks only the counted groups' disks (then ACCEPTs).
+    if skeleton_any_bound "$_GUIDED_STATE"; then
+      local nc; nc="$(skeleton_counted_disks "$_GUIDED_STATE")"
+      if [[ "$nc" == "0" ]]; then
+        skeleton_build_assignment "$_GUIDED_STATE"; return
+      fi
+      # Mixed layout: flat-pick only the counted remainder. NOTE: this pick does
+      # not yet exclude in-menu-bound disks (a follow-up guard); a fully-bound
+      # on-target layout never reaches here, so it is edge-only for now.
+      local -a disks
+      mapfile -t disks < <(guided_pick_disks disks "$nc")
+      ((${#disks[@]} == nc)) \
+        || { error "guided: layout needs ${nc} more disk(s), got ${#disks[@]}"
+             return 1; }
+      assignment="$(skeleton_build_assignment "$_GUIDED_STATE" "${disks[@]}")" \
+        || return 1
+    else
+      # Device-less (replay / off-target-authored): flat-pick the whole layout.
+      local n; n="$(skeleton_total_disks "$_GUIDED_STATE")"
+      local -a disks
+      mapfile -t disks < <(guided_pick_disks disks "$n")
+      ((${#disks[@]} == n)) \
+        || { error "guided: layout needs ${n} disks, got ${#disks[@]}"
+             return 1; }
+      assignment="$(picker_build_assignment "$_GUIDED_STATE" "${disks[@]}")" \
+        || return 1
+    fi
     section "Disk layout" >&2
     skeleton_assignment_summary "$_GUIDED_STATE" "$assignment" >&2
     local ok; ok="$(guided_prompt accept_layout "Type ACCEPT to use this layout")"
@@ -878,12 +901,16 @@ _guided_resolve_assignment() {
       || { error "guided: disk layout not accepted"; return 1; }
     printf '%s\n' "$assignment"
   else
-    # All disk resolution is post-menu (ADR 0042): the persistent front-end
-    # carries no install-disk row, so resolve the single disk here (replay sets
-    # _GUIDED_DISK via _guided_edit_disk in its sequence; interactive does not).
-    [[ -n "$_GUIDED_DISK" ]] || _guided_edit_disk
-    [[ -n "$_GUIDED_DISK" ]] || { error "guided: no disk selected"; return 1; }
-    jq -n --arg d "$_GUIDED_DISK" '{mode: "single", disk: $d}'
+    # Single disk: prefer the in-menu root disk pick (device-mode, ADR 0047),
+    # else the post-menu / replay _GUIDED_DISK path (the persistent menu has no
+    # install-disk row; replay sets _GUIDED_DISK via _guided_edit_disk).
+    local d; d="$(jq -r '.root_disk // ""' <<<"$_GUIDED_STATE")"
+    if [[ -z "$d" ]]; then
+      [[ -n "$_GUIDED_DISK" ]] || _guided_edit_disk
+      d="$_GUIDED_DISK"
+    fi
+    [[ -n "$d" ]] || { error "guided: no disk selected"; return 1; }
+    jq -n --arg d "$d" '{mode: "single", disk: $d}'
   fi
 }
 
@@ -981,15 +1008,24 @@ guided_build() {
         return 1
       }
     done
-    guided_save_host_profile "$(_guided_effective)" "$name" || return 1
+    # Flatten In-Menu Disk Binding back to counts so the committed profile stays
+    # device-less (ADR 0036/0047) — bound devices become disk_count, root_disk
+    # is dropped.
+    guided_save_host_profile \
+      "$(skeleton_flatten_devices "$(_guided_effective)")" "$name" || return 1
     _guided_materialize_users
     info "Saved hosts/${name}/profile.jsonc — install via --profile ${name}." >&2
     return "$_GUIDED_ACTION_DONE"
   fi
 
-  # Proceed + Export both bake the picked disks onto the layout.
+  # Proceed + Export both bake the picked disks onto the layout. The assignment
+  # carries the devices (bound in-menu and/or flat-picked); the skeleton handed
+  # to emit is flattened device-less so devices[] never leaks into the Effective
+  # Config — picker_assign_disks re-adds them from the assignment.
   assignment="$(_guided_resolve_assignment)" || return 1
-  effective="$(emit_effective "$(_guided_effective)" "$assignment")" || return 1
+  effective="$(emit_effective \
+    "$(skeleton_flatten_devices "$(_guided_effective)")" "$assignment")" \
+    || return 1
 
   # Export writes the device-baked config to an operator path (default /root,
   # which is RAM on the live ISO), never under hosts/. No install.

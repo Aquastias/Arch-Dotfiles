@@ -159,3 +159,89 @@ skeleton_assignment_summary() {
     | .[]
   '
 }
+
+# ── In-Menu Disk Binding: flatten + device-aware assignment (ADR 0047) ───────
+# The Guided menu leaves per-group devices[] (and a single-disk root_disk) in
+# the in-session skeleton. These lift it into the install assignment or flatten
+# it back to a device-less profile — devices[] never reaches a validated form.
+
+# skeleton_flatten_devices <skeleton> — the device-less form: every group's
+# disk_count is set to the number of disks bound (when a devices[] is present)
+# and the devices[] dropped; the single-disk root_disk is dropped too. Save
+# writes this, preserving the device-less profile invariant (ADR 0036).
+skeleton_flatten_devices() {
+  jq '
+    def flat: if has("devices")
+              then (.disk_count = (.devices | length)) | del(.devices)
+              else . end;
+    (if .os_pool then .os_pool |= flat else . end)
+    | (if .storage_groups then .storage_groups |= map(flat) else . end)
+    | (if .data_pools then .data_pools |= map(flat) else . end)
+    | del(.root_disk)
+  ' <<<"$1"
+}
+
+# skeleton_any_bound <skeleton> — rc 0 when any group carries a devices[] key
+# (In-Menu Disk Binding happened), else non-zero (a device-less / counted skel).
+skeleton_any_bound() {
+  jq -e '[ .os_pool.devices,
+           ((.storage_groups // [])[].devices),
+           ((.data_pools // [])[].devices) ]
+         | any(. != null)' <<<"$1" >/dev/null 2>&1
+}
+
+# skeleton_counted_disks <skeleton> — Σ disk_count over the still-counted
+# (device-less) groups only; a bound group contributes nothing (its disks are
+# already chosen). Drives how many disks a mixed layout must still flat-pick.
+skeleton_counted_disks() {
+  jq '
+    def counted: select(has("devices") | not);
+    [ (.os_pool | select(. != null) | counted | .disk_count // 1),
+      ((.storage_groups // [])[] | counted | .disk_count // 0),
+      ((.data_pools // [])[] | counted | .disk_count // 0) ]
+    | add // 0
+  ' <<<"$1"
+}
+
+# skeleton_build_assignment <skeleton> <disk...> — the per-group assignment JSON
+# (the shape picker_assign_disks consumes). A group with a bound devices[] uses
+# it; a device-less group slices disk_count disks from the flat <disk...> list,
+# in declared order. Fully bound → call with no disks; fully counted → equals
+# picker_build_assignment. Aborts if the disks don't cover the counted groups.
+skeleton_build_assignment() {
+  local skel="$1"; shift
+  local -a disks=("$@")
+  local off=0 os_json sg_json="[]" dp_json="[]" dev c i n
+
+  dev="$(jq -c '.os_pool.devices // empty' <<<"$skel")"
+  if [[ -n "$dev" ]]; then os_json="$dev"
+  else
+    c="$(jq -r '.os_pool.disk_count // 1' <<<"$skel")"
+    os_json="$(_picker_slice_json "${disks[@]:off:c}")"; off=$((off + c))
+  fi
+
+  n="$(jq '(.storage_groups // []) | length' <<<"$skel")"
+  for ((i = 0; i < n; i++)); do
+    dev="$(jq -c ".storage_groups[$i].devices // empty" <<<"$skel")"
+    [[ -n "$dev" ]] || { c="$(jq -r ".storage_groups[$i].disk_count // 0" \
+      <<<"$skel")"; dev="$(_picker_slice_json "${disks[@]:off:c}")"
+      off=$((off + c)); }
+    sg_json="$(jq --argjson s "$dev" '. + [$s]' <<<"$sg_json")"
+  done
+
+  n="$(jq '(.data_pools // []) | length' <<<"$skel")"
+  for ((i = 0; i < n; i++)); do
+    dev="$(jq -c ".data_pools[$i].devices // empty" <<<"$skel")"
+    [[ -n "$dev" ]] || { c="$(jq -r ".data_pools[$i].disk_count // 0" \
+      <<<"$skel")"; dev="$(_picker_slice_json "${disks[@]:off:c}")"
+      off=$((off + c)); }
+    dp_json="$(jq --argjson s "$dev" '. + [$s]' <<<"$dp_json")"
+  done
+
+  (( off == ${#disks[@]} )) || {
+    echo "skeleton_build_assignment: counted groups need $off disk(s), got" \
+         "${#disks[@]}" >&2; return 1; }
+  jq -n --argjson os "$os_json" --argjson sg "$sg_json" \
+    --argjson dp "$dp_json" \
+    '{ mode: "multi", os_pool: $os, storage_groups: $sg, data_pools: $dp }'
+}

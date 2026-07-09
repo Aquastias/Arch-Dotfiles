@@ -931,3 +931,26 @@ write_answers() {
     and (.programs | index("searxng"))' \
     "$OS_DIR/users/newbie/profile.jsonc"
 }
+
+# ── issue 04: In-Menu Disk Binding resolves without a post-menu pick ──────────
+
+@test "_guided_resolve_assignment: a fully-bound layout picks no disks" {
+  _GUIDED_BASELINE='{}'
+  _GUIDED_STATE='{"mode":"multi","os_pool":{"topology":"mirror",
+    "devices":["/dev/disk/by-id/a","/dev/disk/by-id/b"]}}'
+  # would fail loudly if the bound path ever reached the flat picker
+  guided_pick_disks() { echo CALLED; return 1; }
+  run _guided_resolve_assignment
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -q CALLED
+  echo "$output" | jq -e '.os_pool == ["/dev/disk/by-id/a","/dev/disk/by-id/b"]'
+}
+
+@test "_guided_resolve_assignment: single mode uses the in-menu root disk" {
+  _GUIDED_BASELINE='{}'
+  _GUIDED_STATE='{"mode":"single","root_disk":"/dev/disk/by-id/root"}'
+  _GUIDED_DISK=""
+  run _guided_resolve_assignment
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.mode == "single" and .disk == "/dev/disk/by-id/root"'
+}
