@@ -1,6 +1,6 @@
 # 04 — Flatten + assignment build (a bound layout installs)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -30,17 +30,17 @@ stays portable.
 
 ## Acceptance criteria
 
-- [ ] Save on a bound layout writes a profile with `disk_count` per group and no
+- [x] Save on a bound layout writes a profile with `disk_count` per group and no
       `devices` key (pure seam).
-- [ ] Proceed/Export build a per-group assignment JSON from `devices[]` and emit a
+- [x] Proceed/Export build a per-group assignment JSON from `devices[]` and emit a
       valid Effective Config through the existing emitter (pure seam).
-- [ ] The `devices[]`-built assignment equals `picker_build_assignment`'s output
+- [x] The `devices[]`-built assignment equals `picker_build_assignment`'s output
       for the same disks — equivalence pinned by a test (pure seam).
-- [ ] A fully-bound layout runs no post-menu flat pick and no ACCEPT prompt; a
+- [x] A fully-bound layout runs no post-menu flat pick and no ACCEPT prompt; a
       partially-counted layout flat-picks only the counted groups.
-- [ ] An under-populated bound pool (e.g. mirror with one disk) is rejected by
+- [x] An under-populated bound pool (e.g. mirror with one disk) is rejected by
       the existing skeleton validation naming the group.
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 
