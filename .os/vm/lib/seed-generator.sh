@@ -119,6 +119,12 @@ _seed_generator_firstboot_block() {
       # pool import, a non-ZFS (ext4/xfs/btrfs) root via its GPT partlabel 'root'
       # the Root Layout Adapter set (ADR 0043).
       if zpool import -f -N -R /mnt rpool 2>/dev/null; then
+        # An encrypted root's key is NOT loaded by a bare import, so the root
+        # dataset can't mount and the sentinel would land on an empty /mnt →
+        # no first-boot marker at real boot (combination-matrix/07). Feed the
+        # known test passphrase; a no-op on a plaintext pool.
+        printf '%s' "\$INSTALL_ENC_PASSPHRASE" | zfs load-key -a 2>/dev/null \\
+          || true
         zfs mount rpool/ROOT/arch || true; _vroot=zfs
       elif [ "\$(blkid -o value -s TYPE /dev/disk/by-partlabel/root)" = btrfs ]; then
         # A btrfs root keeps the OS in subvol @ (ADR 0043); mount that, not the
