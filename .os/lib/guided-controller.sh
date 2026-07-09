@@ -556,6 +556,41 @@ _ctl_detect_device_mode() {
 # _ctl_device_mode — rc 0 when In-Menu Disk Binding is active (the cached flag).
 _ctl_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 
+# ── Rich chrome version gate (ADR 0047) ──────────────────────────────────────
+# The rich chrome (footer + breadcrumb + rounded borders, actions on keys) needs
+# fzf ≥ 0.62; a lagging install ISO (ADR 0023) may ship an older fzf, where the
+# menu degrades to today's action-rows layout. The mode is decided ONCE at guided
+# launch (guided.sh caches it in GUIDED_RICH_CHROME) — never a network/pacman
+# step, so offline Save/Export authoring is never gated.
+
+# _ctl_fzf_rich_for_version <version-string> — rc 0 when the parsed "MAJOR.MINOR"
+# is ≥ 0.62 (any major > 0 qualifies). Pure: the first token's first two dotted
+# fields, base-10 to dodge a leading-zero octal read.
+_ctl_fzf_rich_for_version() {
+  local v="${1%% *}" major minor
+  major="${v%%.*}"; v="${v#*.}"; minor="${v%%.*}"
+  [[ "$major" =~ ^[0-9]+$ ]] || major=0
+  [[ "$minor" =~ ^[0-9]+$ ]] || minor=0
+  (( 10#$major > 0 || 10#$minor >= 62 ))
+}
+
+# _ctl_detect_rich_chrome — "1" when the installed fzf supports rich chrome, else
+# "0" (also 0 when fzf is absent — legacy is the safe floor). guided.sh calls this
+# once at launch; the pure result drives the cached flag.
+_ctl_detect_rich_chrome() {
+  local ver; ver="$(fzf --version 2>/dev/null)"
+  [[ -n "$ver" ]] && _ctl_fzf_rich_for_version "$ver" && echo 1 || echo 0
+}
+
+# _ctl_rich_chrome — rc 0 when the rich chrome is active (the cached flag). Unset
+# defaults to legacy, so every non-interactive seam renders action rows.
+_ctl_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
+
+# _ctl_action_row <line...> — emit action rows (Back/Add/remove/create) ONLY in
+# legacy chrome; in rich mode they live on keybindings (^A/^X/Esc) + the footer,
+# so the lists hold only data.
+_ctl_action_row() { _ctl_rich_chrome || printf '%s\n' "$@"; }
+
 # _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
 # storage + data pools, plus the single-disk root), one per line, so a disk
 # lives in exactly one place ("disappears everywhere" — ADR 0047).
@@ -706,17 +741,17 @@ guided_ctl_list() {
     if [[ "$cat" == "Disks" ]]; then
       [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
         options.impermanence.enabled)" == "true" ]] \
-        && printf '%s\n' "Add persist directory ▸ extend the curated defaults"
+        && _ctl_action_row "Add persist directory ▸ extend the curated defaults"
     fi
-    printf '%s\n' "← Back" ;;
+    _ctl_action_row "← Back" ;;
   values)
     local vf; vf="$(nav_get "$nav" field)"
     if [[ "$vf" == "sysctl" ]]; then
       _ctl_sysctl_lines "$state" "$base"
-      printf '%s\n' "+ Add sysctl (key=value)"
+      _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
       _ctl_user_marked "$state" "$base"
-      printf '%s\n' "+ Create user (name)"
+      _ctl_action_row "+ Create user (name)"
     elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
       _ctl_biglist_options "$vf"
     elif [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
@@ -724,7 +759,7 @@ guided_ctl_list() {
     else
       _ctl_enum_options "$vf"
     fi
-    printf '%s\n' "← Back" ;;
+    _ctl_action_row "← Back" ;;
   text)
     local path cur
     path="$(nav_get "$nav" field)"
@@ -750,7 +785,7 @@ guided_ctl_list() {
           "$(jq -r '.options.zswap.max_pool_percent // 20' <<<"$_eff")"
       fi
     fi
-    printf '%s\n' "← Back" ;;
+    _ctl_action_row "← Back" ;;
   datapools)
     # Unified layout editor (ADR 0047): OS pool + storage groups + data pools,
     # each row opening its per-kind editor. Distinct prefixes keep the enter
@@ -764,7 +799,7 @@ guided_ctl_list() {
              | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$_eff"
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
       <<<"$_eff"
-    printf '%s\n' "+ Add data pool" "← Back" ;;
+    _ctl_action_row "+ Add data pool" "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
     i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
@@ -781,14 +816,14 @@ guided_ctl_list() {
       printf 'topology: %s   (Enter cycles)\n' \
         "$(jq -r '.topology // "?"' <<<"$p")"
       _ctl_disks_row "$p" 1
-      printf '%s\n' "← Back" ;;
+      _ctl_action_row "← Back" ;;
     storage)
       # Storage group: binding-only. Everything but disks is preset-fixed and
       # shown without an "(Enter cycles)" hint, so Enter on it is a no-op.
       printf 'mount: %s\n' "$(jq -r '.mount // "?"' <<<"$p")"
       printf 'topology: %s\n' "$(jq -r '.topology // "?"' <<<"$p")"
       _ctl_disks_row "$p" 0
-      printf '%s\n' "← Back" ;;
+      _ctl_action_row "← Back" ;;
     *)
       printf 'filesystem: %s   (Enter cycles)\n' \
         "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
@@ -800,7 +835,7 @@ guided_ctl_list() {
       # mount defaults to /<name> (blank keeps the default); editable free-text.
       printf 'mount: %s   (Enter to edit)\n' \
         "$(jq -r '.mount // ("/" + (.name // "pool"))' <<<"$p")"
-      printf '%s\n' "✗ remove this pool" "← Back" ;;
+      _ctl_action_row "✗ remove this pool" "← Back" ;;
     esac ;;
   pooldisks)
     local i kind p _eff d
@@ -815,7 +850,7 @@ guided_ctl_list() {
     while IFS= read -r d; do
       [[ -n "$d" ]] && printf '[ ] %s\n' "$(_ctl_disk_label "$d")"
     done < <(_ctl_free_disks "$state")
-    printf '%s\n' "← Back" ;;
+    _ctl_action_row "← Back" ;;
   rootdisk)
     # Single-select radio: the current root_disk marked (*) first (it is bound, so
     # the Free Set excludes it — add it back), then every free candidate ( ).
@@ -826,7 +861,7 @@ guided_ctl_list() {
     while IFS= read -r d; do
       [[ -n "$d" ]] && printf '( ) %s\n' "$(_ctl_disk_label "$d")"
     done < <(_ctl_free_disks "$state")
-    printf '%s\n' "← Back" ;;
+    _ctl_action_row "← Back" ;;
   esac
 }
 
@@ -1198,6 +1233,115 @@ guided_ctl_back() {
   _ctl_write_nav "$(nav_back "$nav")"; echo render
 }
 
+# ── ^A / ^X context actions (ADR 0047 rich chrome) ───────────────────────────
+# The add/create/remove affordances that legacy chrome puts in the list ride on
+# keybindings in rich mode. guided_ctl_action <add|remove> runs the current
+# screen's context action and returns a directive (like the enter handlers), so
+# ^A/^X work identically to the legacy action rows. A screen with no matching
+# action returns `noop`.
+guided_ctl_action() {
+  local kind="$1" nav screen cat; nav="$(_ctl_nav)"
+  screen="$(nav_screen "$nav")"; cat="$(nav_get "$nav" category)"
+  case "$kind" in
+  add)
+    case "$screen" in
+    datapools)
+      _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"; echo refresh ;;
+    values)
+      case "$(nav_get "$nav" field)" in
+      sysctl) _ctl_write_nav "$(nav_to_text "$cat" sysctl sysctl)"; echo render ;;
+      users)  _ctl_write_nav "$(nav_to_text "$cat" __newuser__ "new user")"
+              echo render ;;
+      *)      echo noop ;;
+      esac ;;
+    category)
+      # Add persist — only offered under Disks with impermanence on (else noop).
+      if [[ "$cat" == "Disks" && "$(cfgstate_get \
+        "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+        options.impermanence.enabled)" == "true" ]]; then
+        _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
+        echo render
+      else echo noop; fi ;;
+    *) echo noop ;;
+    esac ;;
+  remove)
+    case "$screen" in
+    pooledit)
+      # Only a standalone data pool is removable (the OS pool is structural, a
+      # storage group is preset-fixed).
+      local i k; i="$(nav_get "$nav" index)"; k="$(_ctl_pool_kind "$nav")"
+      [[ "$k" == "data" ]] || { echo noop; return; }
+      _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"
+      _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render ;;
+    *) echo noop ;;
+    esac ;;
+  *) echo noop ;;
+  esac
+}
+
+# ── rich-chrome footer + breadcrumb (ADR 0047) ───────────────────────────────
+# _ctl_breadcrumb <nav> — the location breadcrumb for the list border-label
+# (`--list-label`): Guided ▸ Category ▸ … . Pure: reads the nav (+ the pool name
+# from state for the pool screens).
+_ctl_breadcrumb() {
+  local nav="$1" cat pool; cat="$(nav_get "$nav" category)"
+  case "$(nav_screen "$nav")" in
+  top)         printf ' Guided ' ;;
+  category)    printf ' Guided ▸ %s ' "$cat" ;;
+  values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" "$(nav_get "$nav" label)" ;;
+  swapedit)    printf ' Guided ▸ %s ▸ swap ' "$cat" ;;
+  datapools)   printf ' Guided ▸ %s ▸ layout ' "$cat" ;;
+  rootdisk)    printf ' Guided ▸ %s ▸ root disk ' "$cat" ;;
+  pooledit | pooldisks)
+    pool="$(jq -r '.name // .pool_name // "pool"' <<<"$(_ctl_pool_get \
+      "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+      "$(_ctl_pool_kind "$nav")" "$(nav_get "$nav" index)")")"
+    printf ' Guided ▸ %s ▸ layout ▸ %s ' "$cat" "$pool" ;;
+  *) printf ' Guided ' ;;
+  esac
+}
+
+# _ctl_footer_summary <nav> — the live one-line summary for the footer. On a pool
+# screen it describes THAT pool ("tank0 · mirror · 2 bound"); elsewhere it is the
+# whole-layout label. Pure: reads state.
+_ctl_footer_summary() {
+  local nav="$1" eff
+  eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
+  case "$(nav_screen "$nav")" in
+  pooledit | pooldisks)
+    jq -r --arg k "$(_ctl_pool_kind "$nav")" \
+      '. as $g | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
+       + (if ($g.devices // null) != null
+          then "\($g.devices | length) bound"
+          else "\($g.disk_count // "?") disks" end)' \
+      <<<"$(_ctl_pool_get "$eff" "$(_ctl_pool_kind "$nav")" \
+            "$(nav_get "$nav" index)")" ;;
+  *) _ctl_layout_label "$eff" ;;
+  esac
+}
+
+# _ctl_footer <nav> — the rich-chrome footer: this screen's context actions and
+# a live summary, separated by a bar. Pure: reads the nav + state.
+_ctl_footer() {
+  local nav="$1" acts
+  case "$(nav_screen "$nav")" in
+  datapools) acts='^A add pool · Esc back' ;;
+  pooledit)
+    [[ "$(_ctl_pool_kind "$nav")" == "data" ]] \
+      && acts='^X remove pool · Esc back' || acts='Esc back' ;;
+  pooldisks) acts='Enter bind/unbind · Esc back' ;;
+  rootdisk)  acts='Enter pick · Esc back' ;;
+  values)
+    case "$(nav_get "$nav" field)" in
+    sysctl | users) acts='^A add · Esc back' ;;
+    *)              acts='Enter choose · Esc back' ;;
+    esac ;;
+  category)  acts='Enter edit · Esc back' ;;
+  *)         acts='Esc back' ;;
+  esac
+  printf '%s   │   %s' "$acts" "$(_ctl_footer_summary "$nav")"
+}
+
 # ── undo / redo / reset history (slice 03) ───────────────────────────────────
 # Snapshots live in $GUIDED_HIST_FILE; _ctl_autocommit pushes one whenever the
 # Config State changed since the last snapshot. It runs from guided_ctl_list —
@@ -1262,8 +1406,17 @@ _guided_directive_to_action() {
     else
       pv='+change-preview(echo)+change-preview-window(hidden)'
     fi
-    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)%s' \
-      "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" "$pv" ;;
+    # Rich chrome (fzf ≥ 0.62): a live footer (context actions + summary) and a
+    # breadcrumb on the list-label. Legacy fzf gets neither (actions stay in the
+    # list, header carries the keys) — the features are identical either way.
+    local chrome=''
+    if _ctl_rich_chrome; then
+      chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
+        "$(_ctl_footer "$nav")" "$(_ctl_breadcrumb "$nav")")"
+    fi
+    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)%s%s' \
+      "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" "$pv" \
+      "$chrome" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).
