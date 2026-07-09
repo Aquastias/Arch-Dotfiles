@@ -154,7 +154,7 @@ _ctl_pool_normalise_fs() {
 # synthetic __layout__ disk-layout preset list).
 _ctl_enum_options() {
   case "$1" in
-  __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools ;;
+  __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "Custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
   options.bootloader) printf '%s\n' systemd-boot grub ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
@@ -752,8 +752,18 @@ guided_ctl_list() {
     fi
     printf '%s\n' "← Back" ;;
   datapools)
+    # Unified layout editor (ADR 0047): OS pool + storage groups + data pools,
+    # each row opening its per-kind editor. Distinct prefixes keep the enter
+    # dispatch unambiguous: "OS pool:" (singleton), "<name> (storage):", and the
+    # bare "<name>:" data-pool rows.
+    local _eff; _eff="$(_ctl_effective "$state" "$base")"
+    jq -e '.os_pool' <<<"$_eff" >/dev/null 2>&1 \
+      && jq -r '"OS pool: \(.os_pool.topology // "?") ×\(.os_pool.disk_count // "?")"' \
+        <<<"$_eff"
+    jq -r '(.storage_groups // [])[]
+             | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$_eff"
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
-      <<<"$(_ctl_effective "$state" "$base")"
+      <<<"$_eff"
     printf '%s\n' "+ Add data pool" "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
@@ -787,6 +797,9 @@ guided_ctl_list() {
       _ctl_disks_row "$p" 1
       printf 'encryption: %s   (Enter toggles)\n' \
         "$(jq -r '.encryption // false' <<<"$p")"
+      # mount defaults to /<name> (blank keeps the default); editable free-text.
+      printf 'mount: %s   (Enter to edit)\n' \
+        "$(jq -r '.mount // ("/" + (.name // "pool"))' <<<"$p")"
       printf '%s\n' "✗ remove this pool" "← Back" ;;
     esac ;;
   pooldisks)
@@ -929,10 +942,24 @@ _ctl_enter_values() {
       _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
       echo render; return
     fi
+    if [[ "$line" == "Custom…" ]]; then
+      # blank-canvas seed → straight into the unified editor (ADR 0047).
+      _ctl_write_state \
+        "$(edit_apply_skeleton "$(_ctl_state)" "$(skeleton_custom_seed)")"
+      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+      echo render; return
+    fi
     if sk="$(skeleton_preset "$line" 2>/dev/null)"; then
       _ctl_write_state "$(edit_apply_skeleton "$(_ctl_state)" "$sk")"
     fi
-    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+    # A multi preset drops into the unified editor to bind disks / tweak pools;
+    # single applies and backs out to the category (ADR 0047).
+    if [[ "$(jq -r '.mode // "single"' <<<"$(_ctl_state)")" == "multi" ]]; then
+      _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
+    else
+      _ctl_write_nav "$(nav_back "$nav")"
+    fi
+    echo render; return
   fi
   if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$line")"; then
     _ctl_write_state "$new"
@@ -946,6 +973,15 @@ _ctl_enter_text() {
   local query="$1" nav path cat
   nav="$(_ctl_nav)"; path="$(nav_get "$nav" field)"
   cat="$(nav_get "$nav" category)"
+  # Pool mount is scoped to a data pool by the nav's index (ADR 0047): a typed
+  # value commits to .data_pools[index].mount; a blank input keeps the /<name>
+  # default (no key written). Either way return to that pool's editor.
+  if [[ "$path" == "__poolmount__" ]]; then
+    local idx; idx="$(nav_get "$nav" index)"
+    [[ -n "$query" ]] && _ctl_write_state "$(jq --argjson i "$idx" --arg m "$query" \
+      '.data_pools[$i].mount = $m' <<<"$(_ctl_state)")"
+    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
+  fi
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")"
   # sysctl / create-user were reached from a list screen — return there so the
@@ -1013,12 +1049,25 @@ _ctl_enter_datapools() {
   "+ Add"*)
     _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
     echo refresh; return ;;
+  "OS pool:"*)
+    # the singleton OS pool editor (topology + disks, ADR 0047).
+    _ctl_write_nav "$(nav_to_pooledit "$cat" 0 os)"; echo render; return ;;
+  *" (storage):"*)
+    # a preset storage group (binding-only): parse its name, resolve its index.
+    name="${line%% (storage):*}"
+    idx="$(jq -r --arg n "$name" \
+      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' <<<"$(_ctl_state)")"
+    if [[ "$idx" =~ ^[0-9]+$ ]]; then
+      _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" storage)"
+      echo render; return
+    fi
+    echo refresh; return ;;
   esac
   name="${line%%:*}"
   idx="$(jq -r --arg n "$name" \
     '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$(_ctl_state)")"
   if [[ "$idx" =~ ^[0-9]+$ ]]; then
-    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx")"; echo render; return
+    _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
   fi
   echo refresh
 }
@@ -1068,6 +1117,11 @@ _ctl_enter_pooledit() {
     _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
       "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$p")")"
     echo refresh; return ;;
+  "mount:"*)
+    # Only a data pool's mount is editable; a storage group's is preset-fixed
+    # (display-only row, so Enter on it is a no-op).
+    [[ "$kind" == "data" ]] || { echo refresh; return; }
+    _ctl_write_nav "$(nav_to_poolmount "$cat" "$i")"; echo render; return ;;
   "disks:"*)
     # Device-mode: the disks row opens the bind sub-screen instead of cycling.
     if _ctl_device_mode; then

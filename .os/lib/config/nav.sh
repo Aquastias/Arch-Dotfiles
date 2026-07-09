@@ -65,6 +65,14 @@ nav_to_pooldisks() {
 # /dev/disk/by-id/* device for a single-disk install).
 nav_to_rootdisk() { jq -nc --arg c "$1" '{screen:"rootdisk", category:$c}'; }
 
+# nav_to_poolmount <category> <index> — the free-text editor for data_pools[index]'s
+# mount point (ADR 0047). A text screen that carries the pool index so the commit
+# is scoped back to the right pool, then returns to that pool's editor.
+nav_to_poolmount() {
+  jq -nc --arg c "$1" --argjson i "$2" \
+    '{screen:"text", category:$c, field:"__poolmount__", label:"mount", index:$i}'
+}
+
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '

@@ -302,12 +302,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "← Back"
 }
 
-@test "enter(values __layout__): picking a preset applies the skeleton" {
+@test "enter(values __layout__): picking a multi preset opens the editor" {
   set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_enter "os-mirror"
   [ "$output" = "render" ]
   [ "$(jq -c '. != {}' "$GUIDED_STATE_FILE")" = "true" ]   # a skeleton landed
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+  # ADR 0047: a multi preset now drops into the unified editor, not back-out.
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
 # ── disk-layout graph preview ────────────────────────────────────────────────
