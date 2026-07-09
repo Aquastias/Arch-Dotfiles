@@ -1421,8 +1421,13 @@ _guided_directive_to_action() {
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).
     # refresh-preview re-renders the live layout graph after a pool/disk edit;
-    # a no-op where the preview pane is hidden.
-    printf 'reload-sync(bash %q list)+refresh-preview' "$entry" ;;
+    # a no-op where the preview pane is hidden. Rich chrome ALSO re-emits the
+    # footer so its live summary (e.g. "2 bound") tracks a bind/add without a full
+    # render — change-footer leaves the typed query untouched.
+    local rfoot=''
+    _ctl_rich_chrome && rfoot="$(printf '+change-footer(%s)' \
+      "$(_ctl_footer "$(_ctl_nav)")")"
+    printf 'reload-sync(bash %q list)+refresh-preview%s' "$entry" "$rfoot" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \

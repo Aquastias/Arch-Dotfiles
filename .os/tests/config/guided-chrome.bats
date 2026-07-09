@@ -152,6 +152,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "change-header("   # header stays in both modes
 }
 
+@test "directive→action(refresh) rich: re-emits the live footer summary" {
+  printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0 data)"
+  GUIDED_RICH_CHROME=1 run _guided_directive_to_action refresh /x/entry.sh
+  echo "$output" | grep -q "reload-sync(bash"
+  echo "$output" | grep -q "change-footer("
+}
+
+@test "directive→action(refresh) legacy: no footer emitted" {
+  set_nav "$(nav_to_datapools Disks)"
+  run _guided_directive_to_action refresh /x/entry.sh
+  echo "$output" | grep -q "reload-sync(bash"
+  ! echo "$output" | grep -q "change-footer("
+}
+
 # ── breadcrumb + footer builders (pure) ──────────────────────────────────────
 
 @test "_ctl_breadcrumb: pooledit names category ▸ layout ▸ pool" {
