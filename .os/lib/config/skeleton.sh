@@ -68,6 +68,11 @@ skeleton_new_multi() {
     '{mode: "multi", os_pool: {pool_name: "rpool", topology: $t, disk_count: $dc}}'
 }
 
+# skeleton_custom_seed — the blank-canvas seed the guided `Custom…` layout picks
+# (ADR 0047): a multi skeleton with a single-disk, topology-none OS pool and no
+# storage/data groups, so the unified editor opens ready to author from scratch.
+skeleton_custom_seed() { skeleton_new_multi none 1; }
+
 # _skeleton_group <name> <topology> <disk_count> [owners] — one pool group
 # object. owners is a whitespace-separated list (a bare token is a user, an
 # @-token a group); omitted when empty. ashift is left to the back-end default.
