@@ -181,6 +181,19 @@ teardown() {
   [[ "$output" =~ "mount -o subvol=@ /dev/disk/by-partlabel/root /mnt" ]]
 }
 
+@test "firstboot block: an encrypted (LUKS) root opens the container first" {
+  # An encrypted ext4/xfs/btrfs root exposes a LUKS *container* at the 'root'
+  # partlabel — mounting it raw fails, so the sentinel lands nowhere and
+  # boot-verify times out (combination-matrix/07). The injector detects
+  # crypto_LUKS at runtime, opens it with the test passphrase, and mounts the
+  # resulting mapper (subvol=@ for btrfs). Plaintext roots skip this branch.
+  run _seed_generator_firstboot_block ""
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "= crypto_LUKS" ]]
+  [[ "$output" =~ "cryptsetup open" ]]
+  [[ "$output" =~ "/dev/mapper/cryptroot" ]]
+}
+
 @test "verify-boot on: first-boot unit dumps zfs-import service deps to serial" {
   # AC #1 (boot-import-strategy/01): prove the booted system's zfs-import
   # services no longer require systemd-udev-settle. The sentinel dumps their

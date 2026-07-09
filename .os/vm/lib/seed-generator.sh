@@ -126,12 +126,28 @@ _seed_generator_firstboot_block() {
         printf '%s' "\$INSTALL_ENC_PASSPHRASE" | zfs load-key -a 2>/dev/null \\
           || true
         zfs mount rpool/ROOT/arch || true; _vroot=zfs
-      elif [ "\$(blkid -o value -s TYPE /dev/disk/by-partlabel/root)" = btrfs ]; then
-        # A btrfs root keeps the OS in subvol @ (ADR 0043); mount that, not the
-        # top-level subvol, or the sentinel unit lands where /etc doesn't exist.
-        mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
       else
-        mount /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
+        _rt="\$(blkid -o value -s TYPE /dev/disk/by-partlabel/root)"
+        if [ "\$_rt" = crypto_LUKS ]; then
+          # An encrypted (LUKS) ext4/xfs/btrfs root exposes a container at the
+          # 'root' partlabel — open it with the test passphrase before mounting,
+          # else the sentinel lands nowhere (combination-matrix/07).
+          printf '%s' "\$INSTALL_ENC_PASSPHRASE" \\
+            | cryptsetup open /dev/disk/by-partlabel/root cryptroot \\
+                2>/dev/null || true
+          _mt="\$(blkid -o value -s TYPE /dev/mapper/cryptroot)"
+          if [ "\$_mt" = btrfs ]; then
+            mount -o subvol=@ /dev/mapper/cryptroot /mnt || true; _vroot=plain
+          else
+            mount /dev/mapper/cryptroot /mnt || true; _vroot=plain
+          fi
+        elif [ "\$_rt" = btrfs ]; then
+          # A btrfs root keeps the OS in subvol @ (ADR 0043); mount that, not
+          # the top-level subvol, or the sentinel lands where /etc doesn't exist.
+          mount -o subvol=@ /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
+        else
+          mount /dev/disk/by-partlabel/root /mnt || true; _vroot=plain
+        fi
       fi
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
