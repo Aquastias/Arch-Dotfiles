@@ -1,6 +1,6 @@
 # 07 — VM seam: bound install boots
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -39,3 +39,14 @@ tests.
 ## Blocked by
 
 - 04 — Flatten + assignment build (a bound layout installs).
+
+## Comments
+
+- AC1/AC2 DONE + bats-verified: `_guided_edit_bound_devices` replay form
+  (os_pool/storage_<N>/data_<N>_devices keys) injects `devices[]` into the
+  Config State; a replayed bound layout resolves via the slice-04 assignment
+  path (no flat pick, no ACCEPT). Tests: `guided-replay-bind.bats` (5).
+- AC3 mechanism wired: seed-generator `bind_devices` arg emits a bound
+  os_pool_devices answers file (no `disks=`/`accept_layout`), asserted at the
+  seed seam (`seed-generator-guided.bats`). The live VM boot run itself needs a
+  KVM host (HITL) — not executed in the agent env.

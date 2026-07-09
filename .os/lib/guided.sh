@@ -277,6 +277,48 @@ _guided_author_skeleton() {
   _guided_apply_skeleton "$skel"
 }
 
+# _guided_inject_devices <kind> <index> <space-list> — set the group's devices[]
+# to the by-id list (word-split) and derive its disk_count, mirroring the in-menu
+# bind (ADR 0047). kind is os_pool (singleton) | storage | data. Mutates
+# _GUIDED_STATE. Shared by the headless replay device-binding form.
+_guided_inject_devices() {
+  local kind="$1" idx="$2" list="$3" arr
+  # shellcheck disable=SC2086 # the list is a whitespace-separated by-id set
+  arr="$(printf '%s\n' $list | jq -R . | jq -s -c 'map(select(length > 0))')"
+  case "$kind" in
+  os_pool) _GUIDED_STATE="$(jq -c --argjson d "$arr" \
+    '.os_pool.devices = $d | .os_pool.disk_count = ($d | length)' \
+    <<<"$_GUIDED_STATE")" ;;
+  storage) _GUIDED_STATE="$(jq -c --argjson i "$idx" --argjson d "$arr" \
+    '.storage_groups[$i].devices = $d | .storage_groups[$i].disk_count = ($d | length)' \
+    <<<"$_GUIDED_STATE")" ;;
+  data)    _GUIDED_STATE="$(jq -c --argjson i "$idx" --argjson d "$arr" \
+    '.data_pools[$i].devices = $d | .data_pools[$i].disk_count = ($d | length)' \
+    <<<"$_GUIDED_STATE")" ;;
+  esac
+}
+
+# _guided_edit_bound_devices — the headless-replay In-Menu Disk Binding form
+# (ADR 0047). In-menu binding is interactive-only; this lets a `--guided` answers
+# file inject each pool's bound disks so the bound assignment path (issue 04)
+# runs without a tty. Answer keys: os_pool_devices, storage_<N>_devices,
+# data_<N>_devices — each a whitespace-separated /dev/disk/by-id/* list. A group
+# with no key stays device-less (falls back to the counted flat pick). No-op when
+# not replaying (the persistent menu binds disks itself).
+_guided_edit_bound_devices() {
+  ((_GUIDED_REPLAY)) || return 0
+  [[ -n "${_GUIDED_ANSWERS[os_pool_devices]-}" ]] \
+    && _guided_inject_devices os_pool 0 "${_GUIDED_ANSWERS[os_pool_devices]}"
+  local k
+  for k in "${!_GUIDED_ANSWERS[@]}"; do
+    if [[ "$k" =~ ^storage_([0-9]+)_devices$ ]]; then
+      _guided_inject_devices storage "${BASH_REMATCH[1]}" "${_GUIDED_ANSWERS[$k]}"
+    elif [[ "$k" =~ ^data_([0-9]+)_devices$ ]]; then
+      _guided_inject_devices data "${BASH_REMATCH[1]}" "${_GUIDED_ANSWERS[$k]}"
+    fi
+  done
+}
+
 # guided_pick_disks <key> <n> — resolve <n> install disks (multi-disk layouts).
 # Replay: the scripted answer is a whitespace-separated device list. Interactive:
 # an fzf multi-select over the picker candidates. Emits one device per line.
@@ -958,6 +1000,7 @@ guided_build() {
     _guided_edit_timezone
     _guided_edit_keymap
     _guided_edit_layout
+    _guided_edit_bound_devices
     _guided_edit_filesystem
     _guided_edit_encryption
     _guided_edit_impermanence
