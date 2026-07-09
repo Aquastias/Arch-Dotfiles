@@ -93,6 +93,36 @@ only the export carries them — preserving 0036's invariant that device paths a
 never committed as repo source of truth. The third front-end over the one
 back-end.
 
+### In-Menu Disk Binding
+The Guided Installer's device-aware mode for authoring a multi-disk layout
+*inside* the menu (as opposed to the device-less post-menu resolution the
+Pre-Install Picker path uses). Selected automatically by hardware presence
+(evaluated once at launch), never a manual switch: when real disks are enumerable
+the pool editor binds actual `/dev/disk/by-id/*` devices per group (device-mode);
+when authoring off-target with no disks it falls back to the abstract `disk_count`
+cycle (count-mode). On-target it is *bind-all* — OS pool, preset storage groups
+(disks only; topology/existence stay preset-fixed), data pools, and the
+single-disk root (a `root disk:` row) all bind in the menu, so a fully-bound
+layout runs no post-menu pick. A bound pool carries an additive `devices[]` list
+and its `disk_count` is *derived* as the number bound; a counted pool carries only
+`disk_count`. `devices[]` is transient — it never reaches a validated artifact:
+Save Profile flattens it back to counts (`disk_count` = number bound, `devices`
+dropped), preserving the device-less profile invariant (ADR 0036); Proceed/Export
+lift it into the per-group assignment instead. Presets contribute a group's
+topology and name but never auto-bind
+disks — binding which physical disk goes to which pool is always the operator's,
+one at a time.
+
+### Free Set
+The pool of physical disks still available to bind during In-Menu Disk Binding:
+every enumerated `/dev/disk/by-id/*` candidate, minus the live medium, minus
+every device already bound to *any* group (OS pool, storage groups, data pools
+share one set — a disk lives in exactly one pool). A pool's `＋ add disk` action
+offers only the Free Set and disappears when it is empty (the "noop when
+exhausted" rule). Exhausting the set can leave a pool below its topology minimum;
+that is not prevented at selection time but caught by the existing skeleton
+validation before Proceed, naming the under-populated group.
+
 ### Host Core
 Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
 of users, system programs, and Sysctl Defaults shared across all hosts (never a
