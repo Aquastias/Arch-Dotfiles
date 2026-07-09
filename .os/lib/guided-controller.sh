@@ -386,6 +386,7 @@ _ctl_nav_header() {
   datapools) b='Enter open/add   Esc back' ;;
   pooledit)  b='Enter cycle/remove   Esc back' ;;
   pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
+  rootdisk)  b='Enter pick   Esc back' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -399,6 +400,7 @@ _ctl_nav_prompt() {
   datapools)   printf 'data pools> ' ;;
   pooledit)    printf 'pool> ' ;;
   pooldisks)   printf 'disks> ' ;;
+  rootdisk)    printf 'root disk> ' ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -555,11 +557,13 @@ _ctl_detect_device_mode() {
 _ctl_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 
 # _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
-# storage + data), one per line, so a disk lives in exactly one pool.
+# storage + data pools, plus the single-disk root), one per line, so a disk
+# lives in exactly one place ("disappears everywhere" — ADR 0047).
 _ctl_bound_disks() {
   jq -r '[ (.os_pool.devices // [])[],
            ((.storage_groups // [])[].devices // [])[],
-           ((.data_pools // [])[].devices // [])[] ] | .[]' <<<"$1"
+           ((.data_pools // [])[].devices // [])[],
+           (.root_disk // empty) ] | .[]' <<<"$1"
 }
 
 # _ctl_free_disks <state> — the Free Set: enumerated candidates (live medium
@@ -595,6 +599,23 @@ _ctl_pool_toggle_disk() {
     | (if any($cur[]; . == $d) then ($cur - [$d])
        else ($cur + [$d]) end) as $new
     | .devices = $new | .disk_count = ($new | length)' <<<"$1"
+}
+
+# _ctl_disks_row <group-json> <count-editable 0|1> — the pooledit "disks:" row.
+# Device-mode shows the bound count and opens the sub-screen; count-mode shows
+# the 1-8 cycle when editable (OS pool, data pool) or a plain count when not
+# (a storage group, whose disk count is preset-fixed).
+_ctl_disks_row() {
+  local p="$1" editable="$2"
+  if _ctl_device_mode; then
+    printf 'disks: %s bound   (Enter to edit)\n' \
+      "$(jq -r '(.devices // []) | length' <<<"$p")"
+  elif [[ "$editable" == "1" ]]; then
+    printf 'disks: %s   (Enter cycles 1-8)\n' \
+      "$(jq -r '.disk_count // "?"' <<<"$p")"
+  else
+    printf 'disks: %s\n' "$(jq -r '.disk_count // "?"' <<<"$p")"
+  fi
 }
 
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
@@ -664,6 +685,16 @@ guided_ctl_list() {
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
       printf 'layout: %s%s\n' \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
+      # Single-disk root binds in-menu on-target: a device-mode single-disk
+      # layout gets a root disk row (ADR 0047). Multi layouts bind per pool;
+      # off-target (count-mode) the single disk is resolved post-menu as before.
+      local _deff; _deff="$(_ctl_effective "$state" "$base")"
+      if _ctl_device_mode \
+        && [[ "$(jq -r '.mode // "single"' <<<"$_deff")" != "multi" ]]; then
+        local _rd; _rd="$(jq -r '.root_disk // ""' <<<"$_deff")"
+        printf 'root disk: %s   (Enter to pick)\n' \
+          "$([[ -n "$_rd" ]] && _ctl_disk_label "$_rd" || echo "(none)")"
+      fi
       local _sov=""
       jq -e '.options.swap != null or .options.swap_size != null' \
         <<<"$state" >/dev/null 2>&1 && _sov="  ●"
@@ -732,21 +763,32 @@ guided_ctl_list() {
     # A group with no explicit filesystem inherits the root's (ADR 0043), so the
     # displayed value matches what the topology/disks cycles use.
     _rootfs="$(jq -r '.filesystem // "zfs"' <<<"$_eff")"
-    printf 'name: %s\n' "$(jq -r '.name // "?"' <<<"$p")"
-    printf 'filesystem: %s   (Enter cycles)\n' \
-      "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
-    printf 'topology: %s   (Enter cycles)\n' "$(jq -r '.topology // "?"' <<<"$p")"
-    # Device-mode binds real disks (row shows the bound count, Enter opens the
-    # sub-screen); count-mode keeps the abstract 1-8 cycle.
-    if _ctl_device_mode; then
-      printf 'disks: %s bound   (Enter to edit)\n' \
-        "$(jq -r '(.devices // []) | length' <<<"$p")"
-    else
-      printf 'disks: %s   (Enter cycles 1-8)\n' \
-        "$(jq -r '.disk_count // "?"' <<<"$p")"
-    fi
-    printf 'encryption: %s   (Enter toggles)\n' "$(jq -r '.encryption // false' <<<"$p")"
-    printf '%s\n' "✗ remove this pool" "← Back" ;;
+    printf 'name: %s\n' "$(jq -r '.name // .pool_name // "?"' <<<"$p")"
+    case "$kind" in
+    os)
+      # OS pool: topology + disks only. Root filesystem/encryption live at their
+      # top-level rows (ADR 0047), never duplicated here.
+      printf 'topology: %s   (Enter cycles)\n' \
+        "$(jq -r '.topology // "?"' <<<"$p")"
+      _ctl_disks_row "$p" 1
+      printf '%s\n' "← Back" ;;
+    storage)
+      # Storage group: binding-only. Everything but disks is preset-fixed and
+      # shown without an "(Enter cycles)" hint, so Enter on it is a no-op.
+      printf 'mount: %s\n' "$(jq -r '.mount // "?"' <<<"$p")"
+      printf 'topology: %s\n' "$(jq -r '.topology // "?"' <<<"$p")"
+      _ctl_disks_row "$p" 0
+      printf '%s\n' "← Back" ;;
+    *)
+      printf 'filesystem: %s   (Enter cycles)\n' \
+        "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
+      printf 'topology: %s   (Enter cycles)\n' \
+        "$(jq -r '.topology // "?"' <<<"$p")"
+      _ctl_disks_row "$p" 1
+      printf 'encryption: %s   (Enter toggles)\n' \
+        "$(jq -r '.encryption // false' <<<"$p")"
+      printf '%s\n' "✗ remove this pool" "← Back" ;;
+    esac ;;
   pooldisks)
     local i kind p _eff d
     i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
@@ -759,6 +801,17 @@ guided_ctl_list() {
     done < <(jq -r '(.devices // [])[]' <<<"$p")
     while IFS= read -r d; do
       [[ -n "$d" ]] && printf '[ ] %s\n' "$(_ctl_disk_label "$d")"
+    done < <(_ctl_free_disks "$state")
+    printf '%s\n' "← Back" ;;
+  rootdisk)
+    # Single-select radio: the current root_disk marked (*) first (it is bound, so
+    # the Free Set excludes it — add it back), then every free candidate ( ).
+    # Picking one replaces the prior choice.
+    local _rd d
+    _rd="$(jq -r '.root_disk // ""' <<<"$(_ctl_effective "$state" "$base")")"
+    [[ -n "$_rd" ]] && printf '(*) %s\n' "$(_ctl_disk_label "$_rd")"
+    while IFS= read -r d; do
+      [[ -n "$d" ]] && printf '( ) %s\n' "$(_ctl_disk_label "$d")"
     done < <(_ctl_free_disks "$state")
     printf '%s\n' "← Back" ;;
   esac
@@ -778,6 +831,7 @@ guided_ctl_enter() {
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
   pooldisks) _ctl_enter_pooldisks "$line" ;;
+  rootdisk)  _ctl_enter_rootdisk "$line" ;;
   *)         echo noop ;;
   esac
 }
@@ -810,6 +864,8 @@ _ctl_enter_category() {
     echo render; return ;;
   "swap:"*)
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
+  "root disk:"*)
+    _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -982,6 +1038,8 @@ _ctl_enter_pooledit() {
     _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$kind" "$i")"
     _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "topology:"*)
+    # A storage group's topology is preset-fixed (display-only) — no cycle.
+    [[ "$kind" == "storage" ]] && { echo refresh; return; }
     # The cycle follows the group's own filesystem (pool value, else the root
     # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
     # pinned to single (issue 09, ADR 0043).
@@ -1016,6 +1074,8 @@ _ctl_enter_pooledit() {
       _ctl_write_nav "$(nav_to_pooldisks "$cat" "$i" "$kind")"
       echo render; return
     fi
+    # Count-mode: a storage group's disk count is preset-fixed (display-only).
+    [[ "$kind" == "storage" ]] && { echo refresh; return; }
     # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
     # so the cycle is a no-op there; other filesystems cycle 1-8.
     p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
@@ -1037,24 +1097,43 @@ _ctl_pooldisks_resolve() {
     { n = $0; sub(/.*\//, "", n); if (n == t) { print; exit } }'
 }
 
+# _ctl_line_to_disk <line> — the full by-id path a picked disk row resolves to:
+# strip the 4-char mark ("[x] "/"[ ] "/"(*) "/"( ) "), take the by-id tail (the
+# segment after the last " · "), and resolve it. Empty when it doesn't resolve.
+_ctl_line_to_disk() {
+  local tail="${1:4}"; tail="${tail##* · }"
+  _ctl_pooldisks_resolve "$tail"
+}
+
 # _ctl_enter_pooldisks <line> — the disk sub-screen: Enter toggles one disk's
 # binding (STAY, refresh re-marks in place); ← Back returns to the pool editor.
 _ctl_enter_pooldisks() {
-  local line="$1" nav cat i kind tail path p
+  local line="$1" nav cat i kind path p
   nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
   i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
   if [[ "$line" == "← Back" ]]; then
     _ctl_write_nav "$(nav_to_pooledit "$cat" "$i" "$kind")"
     echo render; return
   fi
-  # Strip the "[x] "/"[ ] " mark, take the by-id tail (the segment after the
-  # last " · "), resolve it to a full path, and flip its binding.
-  tail="${line:4}"; tail="${tail##* · }"
-  path="$(_ctl_pooldisks_resolve "$tail")"
+  path="$(_ctl_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
   p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
   _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
     "$(_ctl_pool_toggle_disk "$p" "$path")")"
+  echo refresh
+}
+
+# _ctl_enter_rootdisk <line> — the single-disk-root picker: Enter sets root_disk
+# to the picked disk (single-select — replaces any prior); ← Back → category.
+_ctl_enter_rootdisk() {
+  local line="$1" nav cat path
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  if [[ "$line" == "← Back" ]]; then
+    _ctl_write_nav "$(nav_to_category "$cat")"; echo render; return
+  fi
+  path="$(_ctl_line_to_disk "$line")"
+  [[ -n "$path" ]] || { echo refresh; return; }
+  _ctl_write_state "$(cfgstate_set "$(_ctl_state)" root_disk "\"$path\"")"
   echo refresh
 }
 
