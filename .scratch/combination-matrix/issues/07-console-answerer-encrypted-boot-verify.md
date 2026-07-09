@@ -20,13 +20,29 @@ Type: AFK
 - Tests: `tests/vm/console-answerer.bats` (9, incl. the watcher driven against a
   temp file as the char device), `tests/matrix/matrix-synth.bats` (flip).
 
-## Remaining (HITL — needs a kvm host; agent env has no /dev/kvm)
+## Remaining (live VM run — unattended, but not runnable inside the agent harness)
 
-- AC2/AC3/AC4/AC5: live encrypted single-disk + GRUB + impermanent cells boot
-  unattended via the Answerer; wrong/absent passphrase → `ENCRYPTED-BOOT-FAIL`
-  within the bounded timeout (the boot-verify 125/124 path already bounds it).
-  Live risk to confirm: writing to the `virsh ttyconsole` pty while
-  `virsh console` reads it, and the exact per-variant prompt strings.
+Fully automated (the Answerer types the passphrase over serial — no human at the
+VM). NOT blocked by kvm (present) or human interaction. The blocker is the agent
+execution harness: it kills any sandbox-disabled command that leaves a long-lived
+background child (verified: `sleep &` → 0, `git daemon &` → 144), and the VM flow
+backgrounds `script … virsh console` for console capture. So run it in a normal
+host terminal:
+
+    cd ~/.dotfiles
+    ISO_URL_OVERRIDE="file:///home/aquastias/Downloads/archlinux-2026.07.01-x86_64.iso" \
+    VM_RAM_MB=8192 MATRIX_DISK_GIB=40 \
+    ./.os/tools/matrix.sh run zfs-single-enc     # zfs-native 'rpool' prompt
+    #                          ext4-single-enc   # LUKS encrypt-hook prompt
+
+Default REPO_URL = public GitHub HTTPS (has the encrypted installer; diff vs
+cached origin/main is empty for .os/lib/layout|chroot + install.sh).
+
+- AC2/AC3/AC4/AC5: live encrypted single-disk + GRUB + impermanent cells reach
+  `===FIRSTBOOT-OK===` unattended; wrong/absent passphrase → boot-fail within the
+  bounded timeout (the 125/124 path already bounds it). Live risk to confirm:
+  writing the `virsh ttyconsole` pty while `virsh console` reads it, and the exact
+  per-variant prompt strings.
 
 ## Parent
 
