@@ -1,7 +1,23 @@
 # 08 — Coverage summary + manifest + CI diff + docs
 
-Status: ready-for-agent
+Status: done
 Type: AFK
+
+## Implementation
+
+- `lib/matrix/records.sh` — `matrix_manifest` (Tier-2 set, byte-sorted),
+  `matrix_coverage_summary` ([axes]/[exclusions]/[counts], deterministic),
+  `matrix_records_write` (registry gate → writes both, env-overridable paths).
+- `matrix.sh gen` now writes the two committed records (was: print cells).
+- Committed: `.os/tests/vm/matrix-manifest.jsonl` (47 cells) +
+  `.os/tests/vm/matrix-coverage.txt` (tier1: 360, tier2: 40+7).
+- CI drift guard = `tests/matrix/matrix-records.bats`: regenerates + diffs vs
+  the committed files (fails on un-regenerated menu change); a deliberate
+  axis-value drop is shown to be detected. Pairs with issue-02's completeness
+  assertion.
+- Docs: `docs/agents/combination-matrix.md` records the menu-derived, CI-enforced
+  sync contract + the `matrix.sh gen` wrap-up step.
+- 7 records + 3 gen bats (gen tests updated to read the written manifest).
 
 ## Parent
 
@@ -31,15 +47,15 @@ never committed (materialized via `emit`).
 
 ## Acceptance criteria
 
-- [ ] `matrix.sh gen` writes the Tier-2 manifest and the coverage summary
+- [x] `matrix.sh gen` writes the Tier-2 manifest and the coverage summary
       deterministically.
-- [ ] Coverage-summary counts match the generated sets; output is byte-stable
+- [x] Coverage-summary counts match the generated sets; output is byte-stable
       across runs for identical inputs.
-- [ ] A CI check regenerates both records and fails on any diff vs the committed
+- [x] A CI check regenerates both records and fails on any diff vs the committed
       snapshots (demonstrated by a deliberate axis-value change).
-- [ ] Dropping a topology value (e.g. raidz2) shows as a one-line summary change
+- [x] Dropping a topology value (e.g. raidz2) shows as a one-line summary change
       + count delta, not a wall of vanished rows.
-- [ ] `docs/agents/` documents the sync contract and the `matrix.sh gen`
+- [x] `docs/agents/` documents the sync contract and the `matrix.sh gen`
       wrap-up step.
 
 ## Blocked by
