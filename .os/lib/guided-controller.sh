@@ -41,6 +41,9 @@
 # shellcheck source=lib/config/skeleton.sh
 [[ "$(type -t skeleton_preset)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
+# shellcheck source=lib/picker.sh
+[[ "$(type -t picker_enum_disks)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/picker.sh"
 # shellcheck source=lib/config/history.sh
 [[ "$(type -t hist_new)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
@@ -139,6 +142,8 @@ _ctl_pool_normalise_fs() {
     | .data_pools[$i].filesystem = $fs
     | if ($fs == "ext4" or $fs == "xfs")
       then .data_pools[$i].topology = "single" | .data_pools[$i].disk_count = 1
+           | (if (.data_pools[$i] | has("devices"))
+              then .data_pools[$i].devices |= .[0:1] else . end)
       elif ($v | index($topo)) == null
       then .data_pools[$i].topology = $first
       else . end
@@ -380,6 +385,7 @@ _ctl_nav_header() {
   swapedit)  b='Enter edit/toggle   Esc back' ;;
   datapools) b='Enter open/add   Esc back' ;;
   pooledit)  b='Enter cycle/remove   Esc back' ;;
+  pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -392,6 +398,7 @@ _ctl_nav_prompt() {
   swapedit)    printf 'swap> ' ;;
   datapools)   printf 'data pools> ' ;;
   pooledit)    printf 'pool> ' ;;
+  pooldisks)   printf 'disks> ' ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -525,6 +532,69 @@ _ctl_pool_del() {
   storage) jq -c --argjson i "$3" 'del(.storage_groups[$i])' <<<"$1" ;;
   *)       jq -c --argjson i "$3" 'del(.data_pools[$i])' <<<"$1" ;;
   esac
+}
+
+# ── In-Menu Disk Binding: device-mode, Free Set, bind toggle (ADR 0047) ──────
+# On a machine with real disks the pool editor binds actual /dev/disk/by-id/*
+# devices (device-mode); off-target it keeps the abstract disk_count cycle
+# (count-mode). The mode is decided once at guided launch (guided.sh caches it
+# in GUIDED_DEVICE_MODE) and read here; GUIDED_LIVE_SET carries the live-medium
+# disks to exclude, so the controller never probes hardware itself.
+
+# _ctl_live_set — the newline-separated live-medium whole-disk set to exclude
+# from enumeration (empty when unset — no exclusion).
+_ctl_live_set() { printf '%s' "${GUIDED_LIVE_SET-}"; }
+
+# _ctl_detect_device_mode — "1" when any install disk is enumerable, else "0".
+# guided.sh calls this once at launch; the pure result drives the cached flag.
+_ctl_detect_device_mode() {
+  [[ -n "$(picker_enum_disks "$(_ctl_live_set)")" ]] && echo 1 || echo 0
+}
+
+# _ctl_device_mode — rc 0 when In-Menu Disk Binding is active (the cached flag).
+_ctl_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
+
+# _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
+# storage + data), one per line, so a disk lives in exactly one pool.
+_ctl_bound_disks() {
+  jq -r '[ (.os_pool.devices // [])[],
+           ((.storage_groups // [])[].devices // [])[],
+           ((.data_pools // [])[].devices // [])[] ] | .[]' <<<"$1"
+}
+
+# _ctl_free_disks <state> — the Free Set: enumerated candidates (live medium
+# excluded) minus every already-bound disk, one per line.
+_ctl_free_disks() {
+  local bound; bound="$(_ctl_bound_disks "$1")"
+  picker_enum_disks "$(_ctl_live_set)" | awk -v b="$bound" '
+    BEGIN { n = split(b, a, "\n"); for (i = 1; i <= n; i++)
+              if (a[i] != "") seen[a[i]] = 1 }
+    !seen[$0]'
+}
+
+# _ctl_disk_label <by-id-path> — a compact one-line label: "<size> <model> ·
+# <tail>" when lsblk can read the disk, else just the by-id tail (the stable key
+# the toggle parses back — always the segment after the last " · ").
+_ctl_disk_label() {
+  local p="$1" tail dev sm
+  tail="${p##*/}"
+  if dev="$(readlink -f "$p" 2>/dev/null)" \
+     && sm="$(lsblk -dno SIZE,MODEL "$dev" 2>/dev/null | head -1)" \
+     && [[ -n "${sm//[[:space:]]/}" ]]; then
+    printf '%s · %s' "$(echo "$sm" | tr -s ' ')" "$tail"
+  else
+    printf '%s' "$tail"
+  fi
+}
+
+# _ctl_pool_toggle_disk <group> <by-id-path> — flip the disk's membership in the
+# group's devices[], then re-derive disk_count as the number bound.
+_ctl_pool_toggle_disk() {
+  jq -c --arg d "$2" '
+    (.devices // []) as $cur
+    | (if any($cur[]; . == $d) then ($cur - [$d])
+       else ($cur + [$d]) end) as $new
+    | .devices = $new | .disk_count = ($new | length)' <<<"$1"
 }
 
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
@@ -666,9 +736,31 @@ guided_ctl_list() {
     printf 'filesystem: %s   (Enter cycles)\n' \
       "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
     printf 'topology: %s   (Enter cycles)\n' "$(jq -r '.topology // "?"' <<<"$p")"
-    printf 'disks: %s   (Enter cycles 1-8)\n' "$(jq -r '.disk_count // "?"' <<<"$p")"
+    # Device-mode binds real disks (row shows the bound count, Enter opens the
+    # sub-screen); count-mode keeps the abstract 1-8 cycle.
+    if _ctl_device_mode; then
+      printf 'disks: %s bound   (Enter to edit)\n' \
+        "$(jq -r '(.devices // []) | length' <<<"$p")"
+    else
+      printf 'disks: %s   (Enter cycles 1-8)\n' \
+        "$(jq -r '.disk_count // "?"' <<<"$p")"
+    fi
     printf 'encryption: %s   (Enter toggles)\n' "$(jq -r '.encryption // false' <<<"$p")"
     printf '%s\n' "✗ remove this pool" "← Back" ;;
+  pooldisks)
+    local i kind p _eff d
+    i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+    _eff="$(_ctl_effective "$state" "$base")"
+    p="$(_ctl_pool_get "$_eff" "$kind" "$i")"
+    # Bound disks first (marked), then the still-free ones (unmarked) — an
+    # Enter-toggle multi-select; an exhausted Free Set simply shows no [ ] rows.
+    while IFS= read -r d; do
+      [[ -n "$d" ]] && printf '[x] %s\n' "$(_ctl_disk_label "$d")"
+    done < <(jq -r '(.devices // [])[]' <<<"$p")
+    while IFS= read -r d; do
+      [[ -n "$d" ]] && printf '[ ] %s\n' "$(_ctl_disk_label "$d")"
+    done < <(_ctl_free_disks "$state")
+    printf '%s\n' "← Back" ;;
   esac
 }
 
@@ -685,6 +777,7 @@ guided_ctl_enter() {
   swapedit)  _ctl_enter_swapedit "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
+  pooldisks) _ctl_enter_pooldisks "$line" ;;
   *)         echo noop ;;
   esac
 }
@@ -918,6 +1011,11 @@ _ctl_enter_pooledit() {
       "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$p")")"
     echo refresh; return ;;
   "disks:"*)
+    # Device-mode: the disks row opens the bind sub-screen instead of cycling.
+    if _ctl_device_mode; then
+      _ctl_write_nav "$(nav_to_pooldisks "$cat" "$i" "$kind")"
+      echo render; return
+    fi
     # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
     # so the cycle is a no-op there; other filesystems cycle 1-8.
     p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
@@ -928,6 +1026,35 @@ _ctl_enter_pooledit() {
           else .disk_count |= (if . >= 8 then 1 else . + 1 end) end' <<<"$p")")"
     echo refresh; return ;;
   esac
+  echo refresh
+}
+
+# _ctl_pooldisks_resolve <tail> — the full by-id path whose basename matches the
+# label tail (enumeration includes bound disks — they are still physically
+# present — so this resolves both a bind and an unbind).
+_ctl_pooldisks_resolve() {
+  picker_enum_disks "$(_ctl_live_set)" | awk -v t="$1" '
+    { n = $0; sub(/.*\//, "", n); if (n == t) { print; exit } }'
+}
+
+# _ctl_enter_pooldisks <line> — the disk sub-screen: Enter toggles one disk's
+# binding (STAY, refresh re-marks in place); ← Back returns to the pool editor.
+_ctl_enter_pooldisks() {
+  local line="$1" nav cat i kind tail path p
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+  if [[ "$line" == "← Back" ]]; then
+    _ctl_write_nav "$(nav_to_pooledit "$cat" "$i" "$kind")"
+    echo render; return
+  fi
+  # Strip the "[x] "/"[ ] " mark, take the by-id tail (the segment after the
+  # last " · "), resolve it to a full path, and flip its binding.
+  tail="${line:4}"; tail="${tail##* · }"
+  path="$(_ctl_pooldisks_resolve "$tail")"
+  [[ -n "$path" ]] || { echo refresh; return; }
+  p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
+  _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
+    "$(_ctl_pool_toggle_disk "$p" "$path")")"
   echo refresh
 }
 
