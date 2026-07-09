@@ -793,6 +793,15 @@ guided_run_persistent() {
   # shellcheck disable=SC2064
   trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE'" RETURN
 
+  # In-Menu Disk Binding (ADR 0047): resolve the live medium + whether any
+  # install disk is enumerable ONCE, and export both so the fzf-entry
+  # subprocesses bind real /dev/disk/by-id/* devices (device-mode) or keep the
+  # abstract count cycle (count-mode). Off-target (no disks) stays device-less —
+  # Save/Export still work with nothing attached.
+  export GUIDED_LIVE_SET GUIDED_DEVICE_MODE
+  GUIDED_LIVE_SET="$(live_medium_disks 2>/dev/null || true)"
+  GUIDED_DEVICE_MODE="$(_ctl_detect_device_mode)"
+
   printf '%s\n' "$_GUIDED_BASELINE" >"$GUIDED_BASELINE_FILE"
   printf '%s\n' "$_GUIDED_STATE"    >"$GUIDED_STATE_FILE"
   nav_new >"$GUIDED_NAV_FILE"

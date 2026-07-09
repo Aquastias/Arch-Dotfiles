@@ -54,6 +54,13 @@ nav_to_pooledit() {
     '{screen:"pooledit", category:$c, index:$i, kind:$k}'
 }
 
+# nav_to_pooldisks <category> <index> <kind> — the In-Menu Disk Binding
+# sub-screen for one pool group: toggle its bound /dev/disk/by-id/* devices.
+nav_to_pooldisks() {
+  jq -nc --arg c "$1" --argjson i "$2" --arg k "${3:-data}" \
+    '{screen:"pooldisks", category:$c, index:$i, kind:$k}'
+}
+
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
@@ -62,6 +69,9 @@ nav_back() {
     elif .screen == "swapedit"  then {screen:"category", category:.category}
     elif .screen == "datapools" then {screen:"category", category:.category}
     elif .screen == "pooledit"  then {screen:"datapools", category:.category}
+    elif .screen == "pooldisks"
+         then {screen:"pooledit", category:.category,
+               index:.index, kind:.kind}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
