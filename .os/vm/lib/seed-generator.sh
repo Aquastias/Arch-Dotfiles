@@ -383,7 +383,7 @@ _seed_generator_render_guided_user_data() {
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"
   local encryption="${5:-false}" impermanence="${6:-false}"
   local layout="${7:-single}" n_disks="${8:-1}" guided_user="${9:-}"
-  local guided_extras="${10:-}"
+  local guided_extras="${10:-}" bind_devices="${11:-false}"
 
   local dirty_step=""
   [[ "$dirty_cache" == "true" ]] && \
@@ -447,7 +447,17 @@ _seed_generator_render_guided_user_data() {
   # list (disks=), and gates on a typed ACCEPT.
   local picker='source lib/picker.sh; source lib/live-medium.sh; set +e'
   local disk_step
-  if [[ "$layout" != "single" ]]; then
+  if [[ "$layout" != "single" && "$bind_devices" == "true" ]]; then
+    # In-Menu Disk Binding replay (ADR 0047, issue 07): bind ALL resolved disks
+    # to the OS pool via os_pool_devices — the bound assignment path (issue 04)
+    # runs with no summed flat pick and no ACCEPT. Representative bound cell:
+    # os-mirror (both disks in the OS pool).
+    disk_step="$(cat <<EOF
+&& GUIDED_DISKS="\$(${picker}; picker_enum_disks "\$(live_medium_disks)" | head -${n_disks} | tr '\\n' ' ')" \\
+        && printf 'hostname=%s\\nlayout=${layout}\\nos_pool_devices=%s\\n${extra_answers}confirm=INSTALL\\n' '${hostname}' "\$GUIDED_DISKS" > /root/guided-answers
+EOF
+)"
+  elif [[ "$layout" != "single" ]]; then
     disk_step="$(cat <<EOF
 && GUIDED_DISKS="\$(${picker}; picker_enum_disks "\$(live_medium_disks)" | head -${n_disks} | tr '\\n' ' ')" \\
         && printf 'hostname=%s\\nlayout=${layout}\\ndisks=%s\\naccept_layout=ACCEPT\\n${extra_answers}confirm=INSTALL\\n' '${hostname}' "\$GUIDED_DISKS" > /root/guided-answers

@@ -108,6 +108,20 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [[ "$output" =~ "head -1" ]]
 }
 
+# ── bound layout (arg 11): In-Menu Disk Binding replay — issue 07 ────────────
+# The resolved disks are bound to the OS pool (os_pool_devices), so the bound
+# assignment path runs with no summed flat pick and no ACCEPT gate.
+
+@test "guided user-data: a bound layout replays os_pool_devices, no flat pick" {
+  run render false true false false os-mirror 2 "" "" true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "layout=os-mirror" ]]
+  [[ "$output" =~ "os_pool_devices=%s" ]]
+  [[ ! "$output" =~ "disks=%s" ]]
+  [[ ! "$output" =~ "accept_layout" ]]
+  [[ "$output" =~ "head -2" ]]
+}
+
 # ── guided_user (arg 9): ad-hoc user + root-password answers (issue 07) ──────
 
 @test "guided user-data: a guided_user appends the ad-hoc + root password answers" {
