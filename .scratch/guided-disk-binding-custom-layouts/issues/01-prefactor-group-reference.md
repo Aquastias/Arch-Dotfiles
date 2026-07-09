@@ -1,6 +1,6 @@
 # 01 — Prefactor: address pool groups by (kind, index)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -24,15 +24,15 @@ on screen and every test stays green.
 
 ## Acceptance criteria
 
-- [ ] The pool-editor nav state carries a group reference of `(kind, index)`;
+- [x] The pool-editor nav state carries a group reference of `(kind, index)`;
       `data` behaves identically to today's index-only addressing.
-- [ ] Enter dispatch on the pool editor resolves the group through the reference,
+- [x] Enter dispatch on the pool editor resolves the group through the reference,
       not a bare `data_pools[$i]` lookup.
-- [ ] No change to any rendered list, header, prompt, or mutation for the
+- [x] No change to any rendered list, header, prompt, or mutation for the
       existing data-pools flow (pure refactor).
-- [ ] `os` and `storage` reference kinds resolve to the right skeleton object
+- [x] `os` and `storage` reference kinds resolve to the right skeleton object
       (unit-tested), even though no UI reaches them yet.
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 
