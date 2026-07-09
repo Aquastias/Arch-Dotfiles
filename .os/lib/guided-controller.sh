@@ -483,6 +483,50 @@ _ctl_add_data_pool() {
     ' <<<"$1"
 }
 
+# ── pool-group reference (kind, index) ───────────────────────────────────────
+# The pool editor addresses any group through one uniform reference so a later
+# slice can bind/edit the OS pool and storage groups, not just data_pools. kind
+# is os (singleton) | storage | data; index selects within the array kinds. Pure
+# resolvers: state + kind + index in, group JSON / new state out.
+
+# _ctl_pool_kind <nav> — the group kind carried by a pooledit nav, defaulting to
+# data (so a nav authored before this reference existed still resolves).
+_ctl_pool_kind() {
+  local k; k="$(nav_get "$1" kind)"; printf '%s' "${k:-data}"
+}
+
+# _ctl_pool_get <state> <kind> <index> — the group object at (kind, index), or
+# {} when absent.
+_ctl_pool_get() {
+  case "$2" in
+  os)      jq -c '.os_pool // {}' <<<"$1" ;;
+  storage) jq -c --argjson i "$3" '.storage_groups[$i] // {}' <<<"$1" ;;
+  *)       jq -c --argjson i "$3" '.data_pools[$i] // {}' <<<"$1" ;;
+  esac
+}
+
+# _ctl_pool_set <state> <kind> <index> <group> — state with the group at
+# (kind, index) replaced by <group>.
+_ctl_pool_set() {
+  case "$2" in
+  os)      jq -c --argjson g "$4" '.os_pool = $g' <<<"$1" ;;
+  storage) jq -c --argjson i "$3" --argjson g "$4" \
+             '.storage_groups[$i] = $g' <<<"$1" ;;
+  *)       jq -c --argjson i "$3" --argjson g "$4" \
+             '.data_pools[$i] = $g' <<<"$1" ;;
+  esac
+}
+
+# _ctl_pool_del <state> <kind> <index> — state with the group at (kind, index)
+# removed. The OS pool is structural, not removable — a del on os is a no-op.
+_ctl_pool_del() {
+  case "$2" in
+  os)      jq -c '.' <<<"$1" ;;
+  storage) jq -c --argjson i "$3" 'del(.storage_groups[$i])' <<<"$1" ;;
+  *)       jq -c --argjson i "$3" 'del(.data_pools[$i])' <<<"$1" ;;
+  esac
+}
+
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
 # highlighted preset, but ONLY on the Disk-layout screen (empty elsewhere, so the
 # preview is a no-op on every other screen).
@@ -611,10 +655,10 @@ guided_ctl_list() {
       <<<"$(_ctl_effective "$state" "$base")"
     printf '%s\n' "+ Add data pool" "← Back" ;;
   pooledit)
-    local i p _eff _rootfs
-    i="$(nav_get "$nav" index)"
+    local i kind p _eff _rootfs
+    i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
     _eff="$(_ctl_effective "$state" "$base")"
-    p="$(jq -c --argjson i "$i" '.data_pools[$i] // {}' <<<"$_eff")"
+    p="$(_ctl_pool_get "$_eff" "$kind" "$i")"
     # A group with no explicit filesystem inherits the root's (ADR 0043), so the
     # displayed value matches what the topology/disks cycles use.
     _rootfs="$(jq -r '.filesystem // "zfs"' <<<"$_eff")"
@@ -833,53 +877,55 @@ _ctl_enter_datapools() {
 # _ctl_enter_pooledit <line> — edit data_pools[index]: cycle topology
 # (stripe→mirror→raidz1→raidz2), cycle the disk count (1-8), or remove the pool.
 _ctl_enter_pooledit() {
-  local line="$1" nav cat i
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"; i="$(nav_get "$nav" index)"
+  local line="$1" nav cat i kind _rfs p
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
+  # The root filesystem a group inherits when it declares none (ADR 0043).
+  _rfs="$(jq -r '.filesystem // "zfs"' <<<"$(_ctl_state)")"
   case "$line" in
   "← Back")
     _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "✗ remove"*)
-    _ctl_write_state "$(jq --argjson i "$i" 'del(.data_pools[$i])' \
-      <<<"$(_ctl_state)")"
+    _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$kind" "$i")"
     _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "topology:"*)
     # The cycle follows the group's own filesystem (pool value, else the root
     # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
     # pinned to single (issue 09, ADR 0043).
     local _fs _cur _next
-    _fs="$(jq -r --argjson i "$i" \
-      '.data_pools[$i].filesystem // .filesystem // "zfs"' <<<"$(_ctl_state)")"
-    _cur="$(jq -r --argjson i "$i" '.data_pools[$i].topology // ""' \
-      <<<"$(_ctl_state)")"
+    p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
+    _fs="$(jq -r --arg r "$_rfs" '.filesystem // $r' <<<"$p")"
+    _cur="$(jq -r '.topology // ""' <<<"$p")"
     _next="$(_ctl_cycle_topology "$_fs" "$_cur")"
-    _ctl_write_state "$(jq --argjson i "$i" --arg t "$_next" \
-      '.data_pools[$i].topology = $t' <<<"$(_ctl_state)")"
+    _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
+      "$(jq -c --arg t "$_next" '.topology = $t' <<<"$p")")"
     echo refresh; return ;;
   "filesystem:"*)
     # Cycle the group's filesystem through the built adapters, then normalise the
     # group for its new filesystem (ext4/xfs → single-disk; a topology invalid for
-    # the new fs resets to that fs's first) via _ctl_pool_normalise_fs.
+    # the new fs resets to that fs's first) via _ctl_pool_normalise_fs. Only
+    # data pools expose a filesystem row, so this stays index-scoped to data.
     local _cur _next
-    _cur="$(jq -r --argjson i "$i" '.data_pools[$i].filesystem // "zfs"' \
-      <<<"$(_ctl_state)")"
+    _cur="$(jq -r '.filesystem // "zfs"' \
+      <<<"$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")")"
     # shellcheck disable=SC2046 # word-split the built-fs list into cycle args
     _next="$(_ctl_cycle_next "$_cur" $(_ctl_built_root_filesystems))"
     _ctl_write_state "$(_ctl_pool_normalise_fs "$(_ctl_state)" "$i" "$_next")"
     echo refresh; return ;;
   "encryption:"*)
-    _ctl_write_state "$(jq --argjson i "$i" \
-      '.data_pools[$i].encryption = ((.data_pools[$i].encryption // false) | not)' \
-      <<<"$(_ctl_state)")"
+    p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
+    _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
+      "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$p")")"
     echo refresh; return ;;
   "disks:"*)
     # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
     # so the cycle is a no-op there; other filesystems cycle 1-8.
-    _ctl_write_state "$(jq --argjson i "$i" '
-      (.data_pools[$i].filesystem // .filesystem // "zfs") as $fs
-      | if ($fs == "ext4" or $fs == "xfs")
-        then .data_pools[$i].disk_count = 1
-        else .data_pools[$i].disk_count |= (if . >= 8 then 1 else . + 1 end) end' \
-      <<<"$(_ctl_state)")"
+    p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
+    _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
+      "$(jq -c --arg r "$_rfs" '
+        (.filesystem // $r) as $fs
+        | if ($fs == "ext4" or $fs == "xfs") then .disk_count = 1
+          else .disk_count |= (if . >= 8 then 1 else . + 1 end) end' <<<"$p")")"
     echo refresh; return ;;
   esac
   echo refresh
