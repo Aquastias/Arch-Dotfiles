@@ -1,6 +1,6 @@
 # 03 — Bind-all: OS pool, storage groups, single-disk root
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -28,16 +28,16 @@ disappears everywhere.
 
 ## Acceptance criteria
 
-- [ ] The OS pool is reachable in the editor and exposes topology + disks rows;
+- [x] The OS pool is reachable in the editor and exposes topology + disks rows;
       binding its disks writes `os_pool.devices[]` with derived count (pure +
       fzf-entry seams).
-- [ ] A preset storage group shows a disks row that binds from the Free Set;
+- [x] A preset storage group shows a disks row that binds from the Free Set;
       topology/mount/name are display-only (no cycle emitted).
-- [ ] On-target single mode shows a `root disk:` row that single-selects one disk;
+- [x] On-target single mode shows a `root disk:` row that single-selects one disk;
       off-target/replay single mode is unchanged.
-- [ ] Binding a disk to the OS pool removes it from the Free Set offered to data
+- [x] Binding a disk to the OS pool removes it from the Free Set offered to data
       pools and storage groups, and vice versa (pure seam).
-- [ ] Full existing bats suite stays green.
+- [x] Full existing bats suite stays green.
 
 ## Blocked by
 
