@@ -13,6 +13,12 @@
 # Requires: lib/common.sh already sourced (provides cfgo, error, part_name).
 # =============================================================================
 
+# The root-fs-agnostic Standalone Data Pool orchestrator — every root adapter's
+# seam verbs call resolve/partition/create_data_pools from here (ADR 0027/0043).
+# shellcheck source=./data-pools.sh
+[[ "$(type -t create_data_pools)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/data-pools.sh"
+
 # ── ESP size (config) ────────────────────────────────────────────────────────
 
 # Reads .options.esp_size from Install Config. Returns "2G" when unset.
