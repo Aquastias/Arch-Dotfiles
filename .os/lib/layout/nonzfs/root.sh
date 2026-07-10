@@ -161,31 +161,40 @@ _nzroot_luks_open_root() {
   info "LUKS root opened → /dev/mapper/cryptroot"
 }
 
+# Partition ONE disk as ESP (ef00) + optional swap (8200) + root/member (8300),
+# with the part numbers + sizes the non-ZFS planner emitted (nonzfs_partition_plan).
+# The shared per-disk GPT ritual for the single ext4/xfs root spine AND the btrfs
+# multi adapter (one call per raid member) — formerly two byte-identical copies.
+# Wipes + zaps first; partprobes after. The caller mkfs.fat's the ESP.
+_nonzfs_partition_one_disk() {
+  local disk="$1" plan="$2"
+  local esp_num swap_num root_num esp_mib swap_mib
+  esp_num="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_part_num)"
+  swap_num="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_part_num)"
+  root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
+  esp_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_mib)"
+  swap_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_mib)"
+
+  wipefs -af "$disk"
+  sgdisk --zap-all "$disk"
+  # GPT: ESP (ef00) + optional Linux swap (8200) + Linux filesystem (8300, rest).
+  sgdisk -n"${esp_num}":0:+"${esp_mib}"M -t"${esp_num}":ef00 \
+    -c"${esp_num}":"EFI System" "$disk"
+  if [[ -n "$swap_num" ]]; then
+    sgdisk -n"${swap_num}":0:+"${swap_mib}"M -t"${swap_num}":8200 \
+      -c"${swap_num}":"swap" "$disk"
+  fi
+  sgdisk -n"${root_num}":0:0 -t"${root_num}":8300 -c"${root_num}":"root" "$disk"
+  partprobe "$disk"
+}
+
 layout_partition() {
   _layout_enter_phase partition
   section "Partitioning Single Disk ($(_root_fstype))"
   warn "ALL DATA ON $_LAYOUT_IMPL_DISK WILL BE DESTROYED."
   confirm "Confirm partitioning?"
 
-  local esp_num swap_num root_num esp_mib swap_mib
-  esp_num="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field esp_part_num)"
-  swap_num="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field swap_part_num)"
-  root_num="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field root_part_num)"
-  esp_mib="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field esp_mib)"
-  swap_mib="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field swap_mib)"
-
-  wipefs -af "$_LAYOUT_IMPL_DISK"
-  sgdisk --zap-all "$_LAYOUT_IMPL_DISK"
-  # GPT: ESP (ef00) + optional Linux swap (8200) + Linux filesystem (8300, rest).
-  sgdisk -n"${esp_num}":0:+"${esp_mib}"M -t"${esp_num}":ef00 \
-    -c"${esp_num}":"EFI System" "$_LAYOUT_IMPL_DISK"
-  if [[ -n "$swap_num" ]]; then
-    sgdisk -n"${swap_num}":0:+"${swap_mib}"M -t"${swap_num}":8200 \
-      -c"${swap_num}":"swap" "$_LAYOUT_IMPL_DISK"
-  fi
-  sgdisk -n"${root_num}":0:0 -t"${root_num}":8300 \
-    -c"${root_num}":"root" "$_LAYOUT_IMPL_DISK"
-  partprobe "$_LAYOUT_IMPL_DISK"
+  _nonzfs_partition_one_disk "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN"
   sleep 2
 
   # Resolve the device paths from the plan. Encrypted → root_dev/swap_dev are the
