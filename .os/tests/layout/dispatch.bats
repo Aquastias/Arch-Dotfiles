@@ -72,10 +72,10 @@ setup() {
 
 # ── data_formatter_source: filesystem → the Data Group Formatter (no mode) ───
 
-@test "data_formatter_source: zfs resolves to the zfs data-pool module" {
+@test "data_formatter_source: zfs resolves to the zfs data formatter leaf" {
   run data_formatter_source /os zfs
   [ "$status" -eq 0 ]
-  [ "$output" = "/os/lib/layout/zfs/multi.sh" ]
+  [ "$output" = "/os/lib/layout/zfs/data.sh" ]
 }
 
 @test "data_formatter_source: ext4 resolves to the ext4 data formatter" {

@@ -48,9 +48,9 @@
 
 # shellcheck source=./common.sh
 source "${BASH_SOURCE[0]%/*}/common.sh"
-# Per-pool key-load selector for encrypted Standalone Data Pools (ADR 0043).
-# shellcheck source=./datakey.sh
-source "${BASH_SOURCE[0]%/*}/datakey.sh"
+# create_data_pools dispatches each group through the Data Group Formatter seam.
+[[ "$(type -t data_formatter_source)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../dispatch.sh"
 
 _LAYOUT_IMPL_ESP_PARTS=()
 _LAYOUT_IMPL_ZFS_PARTS=()
@@ -690,18 +690,6 @@ create_multi_dpool() {
   info "dpool created."
 }
 
-# Write a Standalone Data Pool's 32-byte raw key to BOTH the install-tree path
-# (which persists into the booted system and survives impermanence rollback via
-# the curated /etc/cryptsetup-keys.d dir) AND the live path. `zpool create` then
-# reads the same key whether it resolves keylocation=file://… against the altroot
-# (-R MOUNT_ROOT) or the live filesystem; the live copy is ephemeral tmpfs.
-_zfs_gen_data_keyfile() {
-  local install_abs="$1" live_abs="$2"
-  install -Dm600 /dev/null "$install_abs"
-  head -c32 /dev/urandom >"$install_abs"
-  install -Dm600 "$install_abs" "$live_abs"
-}
-
 create_data_pools() {
   ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)) || return 0
   section "Creating Standalone Data Pool(s)"
@@ -711,54 +699,18 @@ create_data_pools() {
     local fs="${_LAYOUT_IMPL_DATA_POOL_FS[$name]:-zfs}"
     local topo="${_LAYOUT_IMPL_DATA_POOL_TOPO[$name]:-stripe}"
     local mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$name]}"
-    local ashift="${_LAYOUT_IMPL_DATA_POOL_ASHIFT[$name]:-12}"
     local enc="${_LAYOUT_IMPL_DATA_POOL_ENC[$name]:-false}"
     local parts=()
     read -ra parts <<<"${_LAYOUT_IMPL_DATA_POOL_PARTS[$name]}"
 
-    # Per-group filesystem dispatch (ADR 0043): a non-zfs group goes to its Data
-    # Group Formatter (mkfs + optional LUKS + mount + fstab/crypttab); zfs groups
-    # keep the native path below unchanged. The topology arg only matters to
-    # btrfs (ext4/xfs are single-disk).
-    if [[ "$fs" != "zfs" ]]; then
-      # shellcheck source=/dev/null
-      source "$(data_formatter_source "$OS_DIR" "$fs")"
-      data_group_create "$fs" "$name" "$enc" "$mount" "$topo" "${parts[@]}"
-      continue
-    fi
-
-    # Per-pool encryption (ADR 0043): an encrypted Standalone Data Pool is
-    # independent of the root — it auto-loads its key POST-boot from a keyfile on
-    # the already-unlocked root, so the operator never types a second secret. The
-    # selector yields this pool's own create opts (keyformat=raw + keylocation=
-    # file://…) or none for a plaintext pool; _zpool_create then pipes no
-    # passphrase because the opts ask for a file, not a prompt.
-    local sel keyfile opts
-    sel="$(zfs_data_pool_enc_opts "$enc" "$name")"
-    keyfile="$(printf '%s\n' "$sel" | grep -E '^keyfile=' | cut -d= -f2-)"
-    opts="$(printf '%s\n' "$sel" | grep -E '^opts=' | cut -d= -f2-)"
-    # ENC_OPTS is consumed by _zpool_create (the global it word-splits into the
-    # zpool create command); read -ra splits the controlled -O token string.
-    local ENC_OPTS=()
-    # shellcheck disable=SC2034
-    read -ra ENC_OPTS <<<"$opts"
-    [[ -n "$keyfile" ]] \
-      && _zfs_gen_data_keyfile "${MOUNT_ROOT}${keyfile}" "${keyfile}"
-
-    local vdev_spec
-    vdev_spec="$(build_vdev_spec "$topo" "${parts[@]}")"
-    info "Data pool: ${name}  topology: ${topo}"
-    info "vdev: ${vdev_spec}"
-
-    # SC2086 (intentional): vdev_spec must be word-split into multiple args
-    # for _zpool_create. Built from controlled inputs in build_vdev_spec.
-    # shellcheck disable=SC2086
-    _zpool_create "${name}" "${ashift}" $vdev_spec
-
-    # Data lives in one child dataset; the pool root stays unmounted
-    # (canmount=off from _zpool_create) — house style (ADR 0027).
-    zfs create -o mountpoint="${mount}" "${name}/data"
-    info "  ${name}/data → ${mount}"
+    # Uniform per-group dispatch (ADR 0043): every group — zfs or not — goes to
+    # its Data Group Formatter leaf (data_formatter_source <fs> → <fs>/data.sh)
+    # via the shared data_group_create seam. The ZFS leaf creates a zpool (reading
+    # ashift from the record); ext4/xfs/btrfs mkfs a partition. The topology arg
+    # matters to zfs + btrfs (ext4/xfs are single-disk).
+    # shellcheck source=/dev/null
+    source "$(data_formatter_source "$OS_DIR" "$fs")"
+    data_group_create "$fs" "$name" "$enc" "$mount" "$topo" "${parts[@]}"
   done
 
   info "Standalone data pool(s) created."

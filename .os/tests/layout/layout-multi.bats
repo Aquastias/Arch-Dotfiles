@@ -645,6 +645,12 @@ setup_leftover_fixture() {
   export CALLS MOUNT_ROOT="$TEST_DIR/mnt"
   mkdir -p "$MOUNT_ROOT"
 
+  # create_data_pools now dispatches every group (zfs included) through the Data
+  # Group Formatter seam (data_formatter_source "$OS_DIR" <fs>), so the leaf must
+  # be resolvable; the mocked _zpool_create/zfs/etc below survive its guarded
+  # sources (they only load pools.sh when the primitive is not already a function).
+  export OS_DIR; OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
 

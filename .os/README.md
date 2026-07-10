@@ -62,7 +62,7 @@ install.sh                  Entry point. Front-ends (--profile /
     ├─ lib/layout/          Filesystem/mode-keyed layout dispatch
     │   ├─ dispatch.sh      root_adapter_source / data_formatter_source
     │   ├─ core.sh          Phase-ordering seam wrappers.
-    │   ├─ zfs/{single,multi,common,plan,datakey}.sh
+    │   ├─ zfs/{single,multi,common,plan,data}.sh
     │   ├─ btrfs/{single,multi,data,boot,subvol}.sh
     │   ├─ ext4|xfs/{single,data}.sh
     │   └─ nonzfs/{root,boot,data,plan,devices,datacrypt}.sh
