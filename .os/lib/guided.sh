@@ -443,16 +443,18 @@ _guided_edit_scalar() {
 # (first = Primary Kernel). All tokens are offered even on ZFS; the ZFS Module
 # Guard is the install-time backstop for a flavour archzfs can't build (ADR 0024).
 _guided_edit_kernel() {
+  local -a opts; mapfile -t opts < <(menu_enum_options options.kernel)
   local arr
   arr="$(_guided_multi_array kernel "Kernels (first = primary)" \
-    lts default hardened zen)" || return 1
+    "${opts[@]}")" || return 1
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.kernel "$arr")"
 }
 
 # _guided_edit_bootloader — pick the bootloader (grub | systemd-boot).
 _guided_edit_bootloader() {
+  local -a opts; mapfile -t opts < <(menu_enum_options options.bootloader)
   local v
-  v="$(guided_select bootloader "Bootloader" systemd-boot grub)"
+  v="$(guided_select bootloader "Bootloader" "${opts[@]}")"
   [[ -n "$v" ]] || return 1
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.bootloader \
     "$(jq -n --arg x "$v" '$x')")"
@@ -480,8 +482,9 @@ _guided_edit_age_key_url() {
 # _guided_edit_desktop — Environment desktop: a multi-select over kde / hyprland
 # (one, both, or none → a server install). Stored as a JSON array.
 _guided_edit_desktop() {
+  local -a opts; mapfile -t opts < <(menu_enum_options environment.desktop)
   local arr
-  arr="$(_guided_multi_array desktop "Desktop" kde hyprland)" || return 1
+  arr="$(_guided_multi_array desktop "Desktop" "${opts[@]}")" || return 1
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.desktop "$arr")"
 }
 
@@ -490,9 +493,10 @@ _guided_edit_desktop() {
 # "auto" (the accessor default shape); vendors store a JSON array (ADR: GPU
 # Resolution).
 _guided_edit_gpu() {
+  local -a opts; mapfile -t opts < <(menu_enum_options environment.gpu)
   local -a picks=()
   mapfile -t picks < <(_guided_collect_multi gpu "GPU (auto clears vendors)" \
-    auto amd nvidia intel)
+    "${opts[@]}")
   _GUIDED_STATE="$(edit_set_gpu "$_GUIDED_STATE" ${picks[@]+"${picks[@]}"})"
 }
 
@@ -507,10 +511,10 @@ _guided_edit_gpu() {
 # enumerated set is curated (reflector --list-countries needs network); a replay
 # answer drives any value. Stored as a JSON array.
 _guided_edit_mirror_countries() {
+  local -a opts; mapfile -t opts < <(menu_enum_options options.mirror_countries)
   local arr
   arr="$(_guided_multi_array mirror_countries "Mirror countries" \
-    Germany Switzerland Sweden France Romania Austria Netherlands \
-    "United Kingdom" "United States" Japan Australia)" || return 1
+    "${opts[@]}")" || return 1
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_countries "$arr")"
 }
 
@@ -524,7 +528,8 @@ _guided_edit_multilib() {
 # leaf under post_install.{security,backup}.*; the resolver maps the object to
 # the installed program list.
 _guided_edit_firewall() {
-  local v; v="$(guided_select firewall "Firewall" firewalld ufw none)"
+  local -a opts; mapfile -t opts < <(menu_enum_options post_install.security.firewall)
+  local v; v="$(guided_select firewall "Firewall" "${opts[@]}")"
   case "$v" in
   firewalld | ufw | none) ;;
   *) return 1 ;;

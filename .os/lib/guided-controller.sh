@@ -156,8 +156,7 @@ _ctl_enum_options() {
   case "$1" in
   __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "Custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
-  options.bootloader) printf '%s\n' systemd-boot grub ;;
-  post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
+  options.bootloader | post_install.security.firewall) menu_enum_options "$1" ;;
   *) printf '%s\n' true false ;;
   esac
 }
@@ -235,12 +234,8 @@ _ctl_program_names() {
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
 _ctl_toggle_options() {
   case "$1" in
-  options.kernel)      printf '%s\n' lts default hardened zen ;;
-  environment.desktop) printf '%s\n' kde hyprland ;;
-  environment.gpu)     printf '%s\n' auto amd nvidia intel ;;
-  options.mirror_countries)
-    printf '%s\n' Germany Switzerland Sweden France Romania Austria \
-      Netherlands "United Kingdom" "United States" Japan Australia ;;
+  options.kernel | environment.desktop | environment.gpu \
+    | options.mirror_countries) menu_enum_options "$1" ;;
   system_programs)     _ctl_program_names ;;
   system.keymap)       _ctl_biglist_options system.keymap ;;
   esac
