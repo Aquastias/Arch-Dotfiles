@@ -120,25 +120,12 @@ layout_partition() {
   warn "ALL DATA ON ${_LAYOUT_BTRFS_DISKS[*]} WILL BE DESTROYED."
   confirm "Confirm partitioning?"
 
-  local i disk plan esp_num swap_num root_num esp_mib swap_mib
+  # Each btrfs raid member gets the shared ESP + [swap] + root(8300) GPT ritual
+  # (the non-ZFS spine's per-disk helper); btrfs formats one fs over the members.
+  local i disk
   for i in "${!_LAYOUT_BTRFS_DISKS[@]}"; do
     disk="${_LAYOUT_BTRFS_DISKS[$i]}"
-    plan="${_LAYOUT_BTRFS_PLANS[$i]}"
-    esp_num="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_part_num)"
-    swap_num="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_part_num)"
-    root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
-    esp_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_mib)"
-    swap_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_mib)"
-    wipefs -af "$disk"
-    sgdisk --zap-all "$disk"
-    sgdisk -n"${esp_num}":0:+"${esp_mib}"M -t"${esp_num}":ef00 \
-      -c"${esp_num}":"EFI System" "$disk"
-    if [[ -n "$swap_num" ]]; then
-      sgdisk -n"${swap_num}":0:+"${swap_mib}"M -t"${swap_num}":8200 \
-        -c"${swap_num}":"swap" "$disk"
-    fi
-    sgdisk -n"${root_num}":0:0 -t"${root_num}":8300 -c"${root_num}":"root" "$disk"
-    partprobe "$disk"
+    _nonzfs_partition_one_disk "$disk" "${_LAYOUT_BTRFS_PLANS[$i]}"
   done
   sleep 2
 
