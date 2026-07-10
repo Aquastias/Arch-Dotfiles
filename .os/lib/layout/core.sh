@@ -70,6 +70,14 @@ parse_size_to_mib() {
   esac
 }
 
+# ── Plan text protocol (shared) ──────────────────────────────────────────────
+
+# Read one field out of a `key=value` plan text on stdin (the non-ZFS root
+# partition plan, the device plan, and the per-group datacrypt plan all share
+# this line format). The single reader for all three — root.sh, devices.sh, and
+# data.sh used to each carry a byte-identical copy. Pure: grep + cut, no deps.
+nonzfs_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
+
 # ── Plan / partition contract (ESP — shared) ─────────────────────────────────
 
 # Asserts layout_plan() resolved at least one ESP partition (ESP paths are
