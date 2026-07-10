@@ -2,8 +2,8 @@
 //   /dev/sda → rpool (OS, topology=none, single disk)
 //   /dev/sdb → tank0 (single-disk stripe)
 //   /dev/sdc + /dev/sdd → tank1 (2-disk mirror)
-// host_profile=arch-data (inside install) declares vm-data, so pool-owners
-// gives the /data pools to that user. verify.boot runs the pool verifier; the
+// users:[vm-data] makes vm-data the Primary User, so pool-owners (owners
+// omitted) gives the /data pools to that user. verify.boot runs the pool verifier; the
 // sentinel fires only when every pool imported, every data dataset mounted,
 // every leaf vdev resolves via by-id, and each pool is owned by vm-data.
 {
@@ -29,7 +29,7 @@
       "security": false,
       "desktop": { "kde": false }
     },
-    "host_profile": "arch-data",
+    "users": ["vm-data"],
     "mode": "multi",
     "os_pool": {
       "pool_name": "rpool",
