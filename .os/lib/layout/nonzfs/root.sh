@@ -114,11 +114,20 @@ _layout_plan_mode() {
   info "Disk $_LAYOUT_IMPL_DISK: ESP ${esp_mib}M, swap ${swap_mib}M," \
        "root ${root_mib}M (${fstype})"
 
-  # A non-ZFS root has no pools; publish the empty record the contract expects.
+  # A non-ZFS ROOT has no OS pool; publish the empty OS-pool record the contract
+  # expects. Standalone Data Pools, however, are root-fs-agnostic (ADR 0027/0043)
+  # — resolve them here so an ext4/xfs root can still host data_pools[].
   # shellcheck disable=SC2034 # consumed by install_state_write / finalize.sh
   LAYOUT_OS_POOL_NAME=""
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=()
+  resolve_data_pools
+  # Publish any Standalone Data Pool names to export (finalize's ZFS branch
+  # exports the zfs ones cleanly; non-zfs names are tolerated no-op exports).
+  local _dp
+  for _dp in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    LAYOUT_DATA_POOL_NAMES+=("$_dp")
+  done
 }
 
 # The single OS disk that receives the ESP (resolved by core's ESP step).
@@ -196,6 +205,8 @@ layout_partition() {
   [[ "$enc" == "encrypted" ]] && _nzroot_luks_open_root
   info "Partitioned: ESP $_LAYOUT_IMPL_ESP_PART," \
        "root $_LAYOUT_IMPL_ROOT_DEV${_LAYOUT_IMPL_SWAP_DEV:+, swap $_LAYOUT_IMPL_SWAP_DEV}"
+  # Standalone Data Pool disks (root-fs-agnostic, ADR 0027/0043).
+  partition_data_pools
   _layout_verify_partition_contract
   _layout_exit_phase partition
 }
@@ -266,6 +277,9 @@ layout_create_pools() {
   # shellcheck disable=SC2034 # consumed by write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
   info "${fstype} root formatted + mounted at $MOUNT_ROOT"
+  # Standalone Data Pools — each formatted by its own Data Group Formatter leaf
+  # (zfs/ext4/xfs/btrfs) via the shared seam; a non-ZFS root can host any of them.
+  create_data_pools
   _layout_exit_phase pools
 }
 

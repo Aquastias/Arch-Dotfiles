@@ -1,0 +1,45 @@
+// VM test (candidate 3 / ADR 0027/0043): a NON-ZFS root that hosts a Standalone
+// Data Pool. 2 disks — /dev/sda = ext4 OS root (single), /dev/sdb = an ext4
+// Standalone Data Pool at /data/tank0. Proves data_pools[] work under a non-ZFS
+// root: the root-fs-agnostic orchestrator (lib/layout/data-pools.sh) resolves /
+// partitions / formats the pool via the ext4 Data Group Formatter, and the ext4
+// disk mounts at boot (findmnt — no dataset). users:[vm-data] owns the pool.
+{
+  "name": "arch-zfs-test-ext4-root-datapool",
+  "hardware": { "disks": [40, 20], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "ext4",
+    "system": {
+      "hostname": "vm-test-ext4-root-datapool",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "1G"
+    },
+    "packages": { "extra": [], "groups": {} },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": [],
+    "data_pools": [
+      { "name": "tank0", "filesystem": "ext4", "topology": "single",
+        "disks": ["/dev/sdb"] }
+    ],
+    "users": ["vm-data"]
+  },
+  "verify": {
+    "boot":      true,
+    "fs_mounts": ["/data/tank0"]
+  }
+}
