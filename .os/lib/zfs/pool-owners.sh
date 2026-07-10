@@ -17,6 +17,11 @@
 # Sourced by 03-install.sh.
 # =============================================================================
 
+# The resolved multi-disk layout is read through the layout_* record accessors
+# (lib/globals.sh) — never by naming the adapter-private _LAYOUT_IMPL_* here.
+[[ "$(type -t layout_has_leftover)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../globals.sh"
+
 # Ownership mode for the pool:
 #   chown — plain `chown <base>:` (the common single-human case)
 #   acl   — POSIX ACLs (more than one principal, or any @group)
@@ -331,17 +336,6 @@ _pool_owners_data_pool_owners_by_name() {
   done
 }
 
-# 0 if an interactively-folded leftover OS-disk pool exists in layout state,
-# 1 otherwise. _LAYOUT_IMPL_STORAGE_PARTS is a layout-MULTI global; in
-# single-disk mode it is never declared, so a bare `[[ -v arr[_leftover] ]]`
-# would arithmetic-evaluate the subscript and abort the install under `set -u`
-# ("_leftover: unbound variable"). The `declare -p` guard short-circuits before
-# the subscript is touched, so the check is safe when the array is absent.
-_pool_owners_has_leftover() {
-  declare -p _LAYOUT_IMPL_STORAGE_PARTS &>/dev/null || return 1
-  [[ -v _LAYOUT_IMPL_STORAGE_PARTS[_leftover] ]]
-}
-
 # Orchestrator: make every data-pool mountpoint usable by its owner(s) and
 # create the ~/Disks/<pool> symlinks. Runs install-time after the Runner
 # created users/groups, on the host against the altroot-mounted pools (ADR
@@ -357,12 +351,12 @@ pool_owners_apply() {
   # A standalone pool is always a single <name>/data mountpoint (ADR 0027
   # rejects independent/none for standalone).
   local nm mount owners
-  for nm in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]:-}"; do
+  while IFS= read -r nm; do
     [[ -n "$nm" ]] || continue
-    mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$nm]}"
+    mount="$(layout_data_pool_mount "$nm")"
     owners="$(_pool_owners_data_pool_owners_by_name "$nm")"
     _pool_owners_apply_pool "$nm" "$mount" stripe 1 "$owners" "$users" "$groupmap"
-  done
+  done < <(layout_data_pool_names)
 
   # ── Combined Data Pool — one dataset per declared Storage Group. Topology is
   # the resolved runtime choice (covers interactive selection); independent
@@ -373,7 +367,8 @@ pool_owners_apply() {
     name="$(cfg ".storage_groups[$i].name")"
     mount="$(cfg ".storage_groups[$i].mount")"
     owners="$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
-    topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-$(cfgo ".storage_groups[$i].topology")}"
+    topo="$(layout_group_topology "$name")"
+    topo="${topo:-$(cfgo ".storage_groups[$i].topology")}"
     topo="${topo:-stripe}"
     dc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
     _pool_owners_apply_pool "$name" "$mount" "$topo" "$dc" \
@@ -383,10 +378,11 @@ pool_owners_apply() {
   # ── Folded leftover OS disks → dpool/DATA/extra (interactive, no config
   # entry) — default to the Primary User. Topology mirrors create_multi_dpool's
   # leftover default (independent).
-  if _pool_owners_has_leftover; then
+  if layout_has_leftover; then
     local lparts ltopo ldc
-    lparts="${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
-    ltopo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
+    lparts="$(layout_leftover_parts)"
+    ltopo="$(layout_group_topology _leftover)"
+    ltopo="${ltopo:-independent}"
     ldc="$(wc -w <<< "$lparts")"
     _pool_owners_apply_pool extra /data/extra "$ltopo" "$ldc" \
       "" "$users" "$groupmap"

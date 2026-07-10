@@ -166,15 +166,20 @@ print_summary() {
         printf "    %s  (%s)\n" "$d" "$s"
       done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
     else
+    local _ostopo _osdisk
+    _ostopo="$(layout_os_topology)"
+    _osdisk="$(layout_os_disk)"
     echo -e "  ${BOLD}OS pool: ${op}${NC}" \
-            " topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
+            " topology: ${_ostopo}"
 
-    if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
+    if [[ "$_ostopo" == "none" ]]; then
       local s
-      s="$(lsblk -dno SIZE "$_LAYOUT_IMPL_OS_DISK" 2>/dev/null || echo '?')"
-      printf "    OS disk  : %s  (%s)\n" "$_LAYOUT_IMPL_OS_DISK" "$s"
-      ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)) &&
-        printf "    → dpool  : %s\n" "${_LAYOUT_IMPL_LEFTOVER_DISKS[*]}"
+      s="$(lsblk -dno SIZE "$_osdisk" 2>/dev/null || echo '?')"
+      printf "    OS disk  : %s  (%s)\n" "$_osdisk" "$s"
+      local _left
+      _left="$(layout_leftover_disks | paste -sd' ' -)"
+      [[ -n "$_left" ]] &&
+        printf "    → dpool  : %s\n" "$_left"
     else
       while IFS= read -r d; do
         local s
@@ -186,7 +191,7 @@ print_summary() {
     local sg
     sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
     local has_left=false
-    [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]] && has_left=true
+    layout_has_leftover && has_left=true
 
     if ((sg > 0)) || $has_left; then
       echo -e "\n  ${BOLD}Data pool: dpool${NC}"
@@ -195,24 +200,27 @@ print_summary() {
         gn="$(cfg ".storage_groups[$i].name")"
         local gm
         gm="$(cfg ".storage_groups[$i].mount")"
-        local gt="${_LAYOUT_IMPL_TOPOLOGIES[$gn]:-?}"
+        local gt; gt="$(layout_group_topology "$gn")"; gt="${gt:-?}"
         printf "    '%-12s  → %-20s  topology: %s\n" "${gn}'" "$gm" "$gt"
       done
       if $has_left; then
+        local lt; lt="$(layout_group_topology _leftover)"
         printf "    '%-12s  → %-20s  topology: %s\n" \
           "extra (auto)'" "/data/extra" \
-          "${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
+          "${lt:-independent}"
       fi
     fi
 
-    if ((${#_LAYOUT_IMPL_DATA_POOL_NAMES[@]} > 0)); then
+    local _dpn_all
+    _dpn_all="$(layout_data_pool_names)"
+    if [[ -n "$_dpn_all" ]]; then
       echo -e "\n  ${BOLD}Standalone data pools:${NC}"
       local dpn
-      for dpn in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+      while IFS= read -r dpn; do
         printf "    '%-12s  → %-20s  topology: %s\n" \
-          "${dpn}'" "${_LAYOUT_IMPL_DATA_POOL_MOUNT[$dpn]}" \
-          "${_LAYOUT_IMPL_DATA_POOL_TOPO[$dpn]}"
-      done
+          "${dpn}'" "$(layout_data_pool_mount "$dpn")" \
+          "$(layout_data_pool_topo "$dpn")"
+      done <<<"$_dpn_all"
     fi
     fi # zfs vs non-zfs multi summary
   fi

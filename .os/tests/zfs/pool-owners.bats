@@ -277,10 +277,13 @@ GR
 # subscript and crashed the whole install under `set -u`
 # ("_leftover: unbound variable"). The predicate must be safe when absent.
 
+# The predicate now lives in the layout record interface (layout_has_leftover,
+# lib/globals.sh); pool-owners.sh sources it transitively. The record backing is
+# still _LAYOUT_IMPL_STORAGE_PARTS, so these fixtures drive the accessor.
 @test "leftover predicate: defined and safe in single mode (undeclared arrays)" {
   run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
-    declare -F _pool_owners_has_leftover >/dev/null || { echo NO_FN; exit 3; }
-    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+    declare -F layout_has_leftover >/dev/null || { echo NO_FN; exit 3; }
+    if layout_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]
   [[ "$output" == *"NOLEFT"* ]]
   [[ "$output" != *"unbound variable"* ]]
@@ -290,7 +293,7 @@ GR
 @test "leftover predicate: true when a _leftover storage part exists" {
   run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([_leftover]='/dev/sdb1')
-    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+    if layout_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]
   [[ "$output" == *"HASLEFT"* ]]
 }
@@ -298,7 +301,7 @@ GR
 @test "leftover predicate: false when the array lacks a _leftover key" {
   run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([tank0]='/dev/sdc1')
-    if _pool_owners_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
+    if layout_has_leftover; then echo HASLEFT; else echo NOLEFT; fi"
   [ "$status" -eq 0 ]
   [[ "$output" == *"NOLEFT"* ]]
 }
