@@ -6,7 +6,7 @@
 # in os_pool.disks). Reuses the shared non-ZFS root spine (lib/layout/nonzfs/
 # root.sh) for its pure helpers — the per-disk partition planner
 # (nonzfs_partition_plan), the swap tail (_nzroot_swap_tail), the plan-field
-# reader (_nzroot_field) — and the btrfs subvolume layout + boot emitters
+# reader (nonzfs_plan_field) — and the btrfs subvolume layout + boot emitters
 # (btrfs/subvol.sh, btrfs/boot.sh), but OVERRIDES the whole layout seam because a
 # raid root spans many disks: each disk gets `ESP + root` (the primary also gets
 # a dedicated swap partition), then mkfs.btrfs assembles the raid over every root
@@ -88,7 +88,7 @@ _layout_plan_mode() {
     ((i == 0)) && swap_mib="$(_nzroot_swap_mib "$total_mib")"
     plan="$(nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
     _LAYOUT_BTRFS_PLANS+=("$plan")
-    root_num="$(printf '%s\n' "$plan" | _nzroot_field root_part_num)"
+    root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
     _LAYOUT_BTRFS_ROOT_PARTS+=("$(part_name "$disk" "$root_num")")
     _LAYOUT_BTRFS_ESP_PARTS+=("$(part_name "$disk" 1)")
   done
@@ -124,11 +124,11 @@ layout_partition() {
   for i in "${!_LAYOUT_BTRFS_DISKS[@]}"; do
     disk="${_LAYOUT_BTRFS_DISKS[$i]}"
     plan="${_LAYOUT_BTRFS_PLANS[$i]}"
-    esp_num="$(printf '%s\n' "$plan" | _nzroot_field esp_part_num)"
-    swap_num="$(printf '%s\n' "$plan" | _nzroot_field swap_part_num)"
-    root_num="$(printf '%s\n' "$plan" | _nzroot_field root_part_num)"
-    esp_mib="$(printf '%s\n' "$plan" | _nzroot_field esp_mib)"
-    swap_mib="$(printf '%s\n' "$plan" | _nzroot_field swap_mib)"
+    esp_num="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_part_num)"
+    swap_num="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_part_num)"
+    root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
+    esp_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_mib)"
+    swap_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_mib)"
     wipefs -af "$disk"
     sgdisk --zap-all "$disk"
     sgdisk -n"${esp_num}":0:+"${esp_mib}"M -t"${esp_num}":ef00 \
@@ -149,7 +149,7 @@ layout_partition() {
 
   # Swap (primary disk only) → reuse the spine's swap tail via its state vars.
   local pswap_num
-  pswap_num="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" | _nzroot_field swap_part_num)"
+  pswap_num="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" | nonzfs_plan_field swap_part_num)"
   if [[ -n "$pswap_num" ]]; then
     _LAYOUT_IMPL_SWAP_PART="$(part_name "${_LAYOUT_BTRFS_DISKS[0]}" "$pswap_num")"
     _LAYOUT_IMPL_SWAP_DEV="$_LAYOUT_IMPL_SWAP_PART"

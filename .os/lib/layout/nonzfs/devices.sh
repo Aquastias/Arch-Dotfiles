@@ -26,16 +26,18 @@
 #       luks_containers (space-separated `<part>:<mapper>`, empty when plain).
 # =============================================================================
 
-# Pull a single key=value field out of the planner's emitted plan text.
-_nonzfs_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
+# The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
+# layout core; guard-source it so this resolver stands alone in its unit test.
+[[ "$(type -t nonzfs_plan_field)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 nonzfs_root_devices() {
   local disk="$1" plan="$2" enc="$3"
 
   local esp_num swap_num root_num
-  esp_num="$(_nonzfs_plan_field esp_part_num   <<<"$plan")"
-  swap_num="$(_nonzfs_plan_field swap_part_num <<<"$plan")"
-  root_num="$(_nonzfs_plan_field root_part_num <<<"$plan")"
+  esp_num="$(nonzfs_plan_field esp_part_num   <<<"$plan")"
+  swap_num="$(nonzfs_plan_field swap_part_num <<<"$plan")"
+  root_num="$(nonzfs_plan_field root_part_num <<<"$plan")"
 
   local esp_part swap_part root_part
   esp_part="$(part_name "$disk" "$esp_num")"

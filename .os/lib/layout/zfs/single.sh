@@ -70,21 +70,12 @@ calculate_single_disk_layout() {
   info "Disk: $_LAYOUT_IMPL_DISK —" \
        "${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
-  # ESP size in MiB (parsed from config, default 512M)
-  local esp_sz
+  # ESP size in MiB (parsed from config, default 512M). parse_size_to_mib (core)
+  # keeps sub-GiB precision — the shared helper the non-ZFS spine already uses,
+  # instead of a private re-implementation of the M/G case.
+  local esp_sz esp_mib
   esp_sz="$(layout_resolve_esp_size)"
-  local esp_mib
-  # parse_size_to_gib rounds to whole GiB; handle sub-GiB ESP directly
-  local esp_upper esp_digits
-  esp_upper="${esp_sz^^}"
-  esp_digits="${esp_upper//[^0-9]/}"
-  case "$esp_upper" in
-  *M | *MIB)
-    esp_mib="$esp_digits"
-    ;;
-  *G | *GIB) esp_mib=$((esp_digits * 1024)) ;;
-  *)         esp_mib=$(( $(parse_size_to_gib "$esp_sz") * 1024 )) ;;
-  esac
+  esp_mib="$(parse_size_to_mib "$esp_sz")"
 
   # Usable MiB after ESP and 1 MiB alignment gaps (GPT header, partition gaps)
   local align_mib=2 # 1 MiB at start + 1 MiB guard at end

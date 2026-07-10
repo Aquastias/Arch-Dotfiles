@@ -23,6 +23,10 @@
 # The per-group encryption plan emitter (keyfile/mapper/crypttab) — sibling.
 # shellcheck source=./datacrypt.sh
 source "${BASH_SOURCE[0]%/*}/datacrypt.sh"
+# The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
+# layout core; guard-source it so this formatter stands alone in its unit test.
+[[ "$(type -t nonzfs_plan_field)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 # The /etc/fstab line a formatted data group contributes. <src> is the mount
 # source: `UUID=<fs-uuid>` for a plaintext group, or `/dev/mapper/crypt<name>`
@@ -33,8 +37,6 @@ data_group_fstab_line() {
   printf '%s  %s  %s  defaults  0 2\n' "$src" "$mount" "$fs"
 }
 
-# Pull one key=value field out of a datacrypt plan on stdin.
-_data_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
 
 # The dm-crypt mapper name for device <index> of a <total>-device encrypted data
 # group. A single-disk group keeps the bare crypt<name> (matching datacrypt's
@@ -87,8 +89,8 @@ data_group_create() {
     # can format/open before the LUKS container UUID exists.
     local plan keyfile mapper
     plan="$(data_group_crypto true "$fs" "$name" PENDING)"
-    keyfile="$(printf '%s\n' "$plan" | _data_plan_field keyfile)"
-    mapper="$(printf '%s\n' "$plan" | _data_plan_field mapper)"
+    keyfile="$(printf '%s\n' "$plan" | nonzfs_plan_field keyfile)"
+    mapper="$(printf '%s\n' "$plan" | nonzfs_plan_field mapper)"
 
     _data_gen_keyfile "${MOUNT_ROOT}${keyfile}"
     cryptsetup luksFormat --type luks2 --batch-mode \
@@ -102,7 +104,7 @@ data_group_create() {
     local uuid crypttab
     uuid="$(blkid -s UUID -o value "${parts[0]}")" # LUKS container UUID
     crypttab="$(data_group_crypto true "$fs" "$name" "$uuid" \
-      | _data_plan_field crypttab)"
+      | nonzfs_plan_field crypttab)"
     LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${nl}}${crypttab}"
   elif [[ "$encrypted" == "true" ]]; then
     # ── multi-disk encrypted (btrfs raid over per-device LUKS mappers) ──
@@ -113,7 +115,7 @@ data_group_create() {
       || error "Encrypted multi-disk data group '${name}' needs btrfs (got ${fs})."
     local keyfile i part mapper uuid crypttab
     keyfile="$(data_group_crypto true "$fs" "$name" PENDING \
-      | _data_plan_field keyfile)"
+      | nonzfs_plan_field keyfile)"
     _data_gen_keyfile "${MOUNT_ROOT}${keyfile}"
     for i in "${!parts[@]}"; do
       part="${parts[$i]}"
