@@ -48,5 +48,12 @@ tests.
   path (no flat pick, no ACCEPT). Tests: `guided-replay-bind.bats` (5).
 - AC3 mechanism wired: seed-generator `bind_devices` arg emits a bound
   os_pool_devices answers file (no `disks=`/`accept_layout`), asserted at the
-  seed seam (`seed-generator-guided.bats`). The live VM boot run itself needs a
-  KVM host (HITL) — not executed in the agent env.
+  seed seam (`seed-generator-guided.bats`).
+- **AC3 LIVE-VERIFIED 2026-07-10**: `vm.sh --guided --testing --verify-boot
+  --profile single/guided-bound` (via `flow-guided.sh` `guided_bind`).
+  Guest answers file was the bound path (`os_pool_devices=…QM00001 …QM00003`, no
+  `disks=`, no ACCEPT); installer created `rpool` MIRROR over the two bound
+  disks → `===INSTALLER-EXIT-0===` → installed system booted to
+  `===FIRSTBOOT-OK===`. Pinned ISO 2026.07.01 (kernel 7.0.14 = host; archzfs
+  experimental resolver wanted 7.1 and rejected all archived ISOs — pin
+  bypasses). ALL 3 ACs now met.

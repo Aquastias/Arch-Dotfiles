@@ -50,8 +50,13 @@ _flow_render_user_data() {
   # minimal committed user, toggle overrides, and the daemons-enabled boot check.
   local guided_extras
   guided_extras="$(jq -c '.guided_extras // empty' <<<"${INSTALL_CONFIG_CONTENT}")"
+  # guided_bind (issue 07): drive the In-Menu Disk Binding replay — the resolved
+  # disks are bound to the OS pool (os_pool_devices) so the bound assignment path
+  # runs with no summed flat pick and no ACCEPT. Default false (flat-pick path).
+  local bind_devices
+  bind_devices="$(jq -r '.guided_bind // false' <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
     "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user" \
-    "$guided_extras"
+    "$guided_extras" "$bind_devices"
 }
