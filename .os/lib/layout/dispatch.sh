@@ -37,13 +37,14 @@ root_adapter_source() {
   esac
 }
 
-# Data Group Formatter for <fs>. Formats one data group; mode-independent. For
-# ZFS the Standalone Data Pool creation (create_data_pools) lives in the multi
-# module.
+# Data Group Formatter for <fs>. Formats one data group; mode-independent. Every
+# filesystem — zfs included — is a peer leaf providing data_group_create (the ZFS
+# leaf creates a zpool; the others mkfs a partition). The ZFS multi Root Adapter's
+# create_data_pools loop dispatches each group here.
 data_formatter_source() {
   local dir="$1" fs="$2"
   case "$fs" in
-  zfs) printf '%s\n' "${dir}/lib/layout/zfs/multi.sh" ;;
+  zfs) printf '%s\n' "${dir}/lib/layout/zfs/data.sh" ;;
   ext4) printf '%s\n' "${dir}/lib/layout/ext4/data.sh" ;;
   xfs) printf '%s\n' "${dir}/lib/layout/xfs/data.sh" ;;
   btrfs) printf '%s\n' "${dir}/lib/layout/btrfs/data.sh" ;;
