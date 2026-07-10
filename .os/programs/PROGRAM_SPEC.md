@@ -48,8 +48,8 @@ check_root                       # → exits 1 if not running as root
 send_user_notification "user" "title" "body"  # → notify-send as $user
 ```
 
-Domains under `lib/shell/` (`strings.sh`, `arrays.sh`, `directories.sh`,
-`environments.sh`) are reserved for future helpers — currently empty.
+Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
+`packages.sh`, `notifications.sh`), sourced via the `shell-stdlib.sh` facade.
 
 ---
 
