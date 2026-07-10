@@ -56,6 +56,25 @@ _MENU_FIELDS=(
   "Users|users|users|"
 )
 
+# menu_enum_options <field> — the canonical option set for an enumerable field,
+# one per line. The single source of truth shared by the interactive controller
+# (_ctl_enum_options / _ctl_toggle_options) and the replay editors
+# (_guided_edit_*), so the two guided front-ends can never drift on what a field
+# offers. Free-text / unknown fields emit nothing. Multi-word entries stay whole
+# (one per line) — callers mapfile into an array before passing them on.
+menu_enum_options() {
+  case "$1" in
+  options.kernel)                 printf '%s\n' lts default hardened zen ;;
+  options.bootloader)             printf '%s\n' systemd-boot grub ;;
+  environment.desktop)            printf '%s\n' kde hyprland ;;
+  environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
+  post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
+  options.mirror_countries)
+    printf '%s\n' Germany Switzerland Sweden France Romania Austria \
+      Netherlands "United Kingdom" "United States" Japan Australia ;;
+  esac
+}
+
 # Configuration Categories — the eight top-level drill-in groups, in canonical
 # order, each with a one-line summary. The category NAME matches a row's
 # `section`, so a category aggregates its rows; the summary is display-only.
