@@ -231,17 +231,22 @@ collect_passwords() {
   printf '%s' "$result"
 }
 
-_chroot_resolve_host_secrets() {
-  local host_state="${MOUNT_ROOT}/install-state.json"
-  [[ -f "$host_state" ]] || return 0
-  local raw_path
-  # The .secrets / .guided_passwords precedence lives in the Install State
-  # module — the schema's owner — not re-encoded here (ADR 0025 gate stays
-  # there too).
-  raw_path="$(install_state_credential_path "$host_state" host)"
-  [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
-  cp "$raw_path" "${MOUNT_ROOT}/root/lib-chroot/host-secrets.json"
-  printf '%s' "/root/lib-chroot/host-secrets.json"
+# The FINAL root password, resolved HERE on the host so exactly one value
+# crosses into the chroot (password.sh just applies ROOT_PW). A Host Secret's
+# `.root_password` overrides the interactively-collected / default value; the
+# .secrets / .guided_passwords precedence (and the ADR 0025 gate) stays in the
+# Install State module — the schema's owner — not re-encoded here. Resolving
+# host-side also means the decrypted secret is never copied into the new root.
+#   _resolve_root_password <collected-pw> <secrets-install-state.json>
+_resolve_root_password() {
+  local collected="$1" state="$2"
+  local sec_path sec_pw
+  sec_path="$(install_state_credential_path "$state" host)"
+  if [[ -n "$sec_path" && -f "$sec_path" ]]; then
+    sec_pw="$(jq -r '.root_password // empty' "$sec_path")"
+    [[ -n "$sec_pw" ]] && { printf '%s' "$sec_pw"; return; }
+  fi
+  printf '%s' "$collected"
 }
 
 # Seed a valid zpool.cache into the new root's /etc/zfs so the initramfs ZFS
@@ -317,6 +322,12 @@ configure_system() {
 
   local root_pw
   root_pw="$(printf '%s' "$passwords_json" | jq -r '.root')"
+  # A Host Secret's .root_password overrides the collected/default value — one
+  # value, resolved host-side, crosses into the chroot (no decrypted secret is
+  # copied into the new root). The secrets-bearing state is /mnt/install-state
+  # .json (written by the Secrets Module / guided seam), distinct from the chroot
+  # config state under /root/lib-chroot.
+  root_pw="$(_resolve_root_password "$root_pw" "${MOUNT_ROOT}/install-state.json")"
 
   # ── Stage Chroot Configuration Module ───────────────────────────────────
   # lib/chroot/ as a tree, plus the flat siblings declared in the manifest.
@@ -331,10 +342,7 @@ configure_system() {
     "$RESOLVED_HOST_PROFILE"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
-  local _host_sec_path
-  _host_sec_path="$(_chroot_resolve_host_secrets)"
   ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" ROOT_PW="$root_pw" \
-    HOST_SECRETS_FILE="$_host_sec_path" \
     arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
 

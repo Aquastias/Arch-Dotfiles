@@ -19,56 +19,56 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── _chroot_resolve_host_secrets ──────────────────────────────────────────────
+# ── _resolve_root_password ────────────────────────────────────────────────────
+# The single host-side owner of the final root password: a Host Secret's
+# .root_password overrides the collected/default value; the .secrets /
+# .guided_passwords precedence is delegated to install_state_credential_path.
+# STATE is the secrets-bearing /mnt/install-state.json.
+STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
 
-@test "returns chroot path and stages file when host secrets present" {
+@test "uses .root_password from the SOPS host secret (.secrets.host)" {
   local host_sec="$TEST_DIR/host-secrets.json"
-  printf '{"root_password":"r00t"}\n' > "$host_sec"
-  printf '{"secrets":{"host":"%s"}}\n' "$host_sec" \
-    > "$MOUNT_ROOT/install-state.json"
+  printf '{"root_password":"s3cr3t"}\n' > "$host_sec"
+  printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
 
-  run _chroot_resolve_host_secrets
+  run _resolve_root_password "collected" "$(STATE)"
   [ "$status" -eq 0 ]
-  [ "$output" = "/root/lib-chroot/host-secrets.json" ]
-  [ -f "$MOUNT_ROOT/root/lib-chroot/host-secrets.json" ]
+  [ "$output" = "s3cr3t" ]
 }
 
-@test "returns empty when no secrets.host entry" {
-  printf '{"secrets":{}}\n' > "$MOUNT_ROOT/install-state.json"
-
-  run _chroot_resolve_host_secrets
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-}
-
-# ── no-SOPS guided seam: .guided_passwords.host is read too (issue 07) ───────
-
-@test "stages the host secrets from .guided_passwords.host (no SOPS)" {
+@test "uses .root_password from the no-SOPS guided seam (.guided_passwords.host)" {
   local host_sec="$TEST_DIR/host-secrets.json"
   printf '{"root_password":"guided"}\n' > "$host_sec"
-  printf '{"guided_passwords":{"host":"%s"}}\n' "$host_sec" \
-    > "$MOUNT_ROOT/install-state.json"
+  printf '{"guided_passwords":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
 
-  run _chroot_resolve_host_secrets
-  [ "$status" -eq 0 ]
-  [ "$output" = "/root/lib-chroot/host-secrets.json" ]
-  [ "$(jq -r '.root_password' \
-      "$MOUNT_ROOT/root/lib-chroot/host-secrets.json")" = "guided" ]
+  run _resolve_root_password "collected" "$(STATE)"
+  [ "$output" = "guided" ]
 }
 
-@test "returns empty when install-state.json absent" {
-  run _chroot_resolve_host_secrets
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
+@test "falls back to the collected value when the secret lacks root_password" {
+  local host_sec="$TEST_DIR/host-secrets.json"
+  printf '{"other_field":"value"}\n' > "$host_sec"
+  printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
+
+  run _resolve_root_password "collected" "$(STATE)"
+  [ "$output" = "collected" ]
 }
 
-@test "returns empty when secrets.host points to missing file" {
-  printf '{"secrets":{"host":"/nonexistent/host-secrets.json"}}\n' \
-    > "$MOUNT_ROOT/install-state.json"
+@test "falls back to the collected value when there is no secrets.host entry" {
+  printf '{"secrets":{}}\n' > "$(STATE)"
+  run _resolve_root_password "collected" "$(STATE)"
+  [ "$output" = "collected" ]
+}
 
-  run _chroot_resolve_host_secrets
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
+@test "falls back to the collected value when the state file is absent" {
+  run _resolve_root_password "collected" "$(STATE)"
+  [ "$output" = "collected" ]
+}
+
+@test "falls back to the collected value when secrets.host points to a missing file" {
+  printf '{"secrets":{"host":"/nonexistent/host-secrets.json"}}\n' > "$(STATE)"
+  run _resolve_root_password "collected" "$(STATE)"
+  [ "$output" = "collected" ]
 }
 
 # ── _chroot_seed_zpool_cache ──────────────────────────────────────────────────
