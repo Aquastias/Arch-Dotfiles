@@ -1,6 +1,6 @@
 # 04 — LUKS encryption for non-ZFS roots
 
-Status: done (install VM-verified; encrypted boot is HITL)
+Status: done
 Type: AFK
 
 ## Parent
