@@ -182,15 +182,12 @@ partition_single_disk() {
   local esp_sz
   esp_sz="$(layout_resolve_esp_size)"
 
-  # Wipe all existing signatures and partition tables
-  wipefs -af "$_LAYOUT_IMPL_DISK"
-  sgdisk --zap-all "$_LAYOUT_IMPL_DISK"
+  # Wipe + zap + create the ESP (partition 1) — shared with the multi ritual.
+  _zfs_partition_esp_start "$_LAYOUT_IMPL_DISK" "$esp_sz"
 
-  # GPT partition layout:
-  #   1  EFI System Partition  (type ef00 = EFI, FAT32)
+  # GPT partition layout adds the two ZFS pool members:
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
   #   3  ZFS storage pool      (type bf00)
-  sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$_LAYOUT_IMPL_DISK"
   sgdisk -n2:0:+"${_LAYOUT_IMPL_OS_SECTORS}s" -t2:bf00 \
     -c2:"ZFS rpool" "$_LAYOUT_IMPL_DISK"
   sgdisk -n3:0:0 -t3:bf00 -c3:"ZFS dpool" "$_LAYOUT_IMPL_DISK"
