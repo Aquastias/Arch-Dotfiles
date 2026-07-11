@@ -132,8 +132,12 @@ main() {
   VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(jq -r '.verify.rollback // false' <<<"$profile_json")}"
   # The rollback proof's mechanics follow the root filesystem (zfs datasets vs
   # btrfs subvols, ADR 0044); derive it from the config so a btrfs impermanence
-  # profile needs no env override.
-  VM_ROLLBACK_FS="${VM_ROLLBACK_FS:-$(jq -r '.install.filesystem // "zfs"' <<<"$profile_json")}"
+  # profile needs no env override. `install` may be the string "repo" (install the
+  # repo default host profile) rather than an inline object, so guard the index —
+  # indexing a string aborts jq (exit 5) and, under set -e, the whole harness.
+  VM_ROLLBACK_FS="${VM_ROLLBACK_FS:-$(jq -r '
+    if (.install | type) == "object" then (.install.filesystem // "zfs")
+    else "zfs" end' <<<"$profile_json")}"
 
   RECREATE=$( ((recreate)) && echo true || echo false )
 
