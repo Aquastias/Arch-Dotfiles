@@ -392,10 +392,8 @@ partition_os_disks_multi() {
   local disk
   for disk in "${rpool_disks[@]}"; do
     info "Partitioning OS disk: $disk"
-    wipefs -af "$disk"
-    sgdisk --zap-all "$disk"
-    # p1 — EFI System Partition
-    sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$disk"
+    # Wipe + zap + create the ESP (partition 1) — shared with the single ritual.
+    _zfs_partition_esp_start "$disk" "$esp_sz"
     # p2 — ZFS rpool (rest of disk)
     sgdisk -n2:0:0 -t2:bf00 -c2:"ZFS rpool" "$disk"
     partprobe "$disk"

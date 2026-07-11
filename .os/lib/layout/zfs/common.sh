@@ -24,6 +24,18 @@ _layout_verify_plan_contract() {
           "after layout_plan()"
 }
 
+# Start a fresh GPT on one ZFS OS disk: wipe existing signatures + tables, then
+# create partition 1 as the ESP (ef00, sized). The shared head of both the
+# single-disk (partition_single_disk) and multi-disk (partition_os_disks_multi)
+# rituals — the caller adds the bf00 pool member partition(s) and mkfs.fat's the
+# ESP. `esp_sz` is a raw sgdisk size (e.g. "512M"/"2G") from layout_resolve_esp_size.
+_zfs_partition_esp_start() {
+  local disk="$1" esp_sz="$2"
+  wipefs -af "$disk"
+  sgdisk --zap-all "$disk"
+  sgdisk -n1:0:+"${esp_sz}" -t1:ef00 -c1:"EFI System" "$disk"
+}
+
 # The ZFS leftover-disk adapter + the ZFS boot-record publisher (the
 # _layout_publish_boot override) live in plan.sh. Sourced last so core's
 # defaults are already defined and these override them.
