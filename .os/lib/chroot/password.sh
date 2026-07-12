@@ -5,7 +5,9 @@
 # collected/default value — is resolved host-side in configure_system
 # (_resolve_root_password), so exactly one value reaches here.
 set -Eeuo pipefail
-trap 'echo "[chroot:password] failed at line $LINENO" >&2' ERR
+# shellcheck source=./chroot-common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/chroot-common.sh"
+chroot_err_trap "password"
 
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 

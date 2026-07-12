@@ -2,11 +2,13 @@
 # lib/chroot/bootloader-systemd.sh — Bootloader Adapter: systemd-boot
 # Runs inside arch-chroot. Reads install-state.json via install-state.sh.
 set -Eeuo pipefail
-trap 'echo "[chroot:bootloader-systemd] failed at line $LINENO" >&2' ERR
+_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# shellcheck source=./chroot-common.sh
+source "$_LIB_DIR/chroot-common.sh"
+chroot_err_trap "bootloader-systemd"
 
 # shellcheck source=./install-state.sh
 STATE="${STATE:-/root/lib-chroot/install-state.json}"
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
 _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
 [[ -f "$_INSTALL_STATE_SH" ]] || _INSTALL_STATE_SH="$_LIB_DIR/../install-state.sh"
 # shellcheck disable=SC1090

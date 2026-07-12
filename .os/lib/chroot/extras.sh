@@ -11,7 +11,9 @@
 # chroot scripts. The old backup.sh / security.sh dispatch (which pointed at
 # scripts that were never shipped) is gone.
 set -Eeuo pipefail
-trap 'echo "[chroot:extras] failed at line $LINENO" >&2' ERR
+# shellcheck source=./chroot-common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/chroot-common.sh"
+chroot_err_trap "extras"
 
 EXTRAS_DIR="${EXTRAS_DIR:-/root/extras}"
 
