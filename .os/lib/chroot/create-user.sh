@@ -3,7 +3,9 @@
 # Args: NAME LOGIN_SHELL GROUPS_CSV PASSWORD [SECRETS_FILE]
 # Run inside arch-chroot by profiles.sh::_profiles_create_user().
 set -Eeuo pipefail
-trap 'echo "[chroot:create-user] failed at line $LINENO" >&2' ERR
+# shellcheck source=./chroot-common.sh
+source "$(dirname "${BASH_SOURCE[0]}")/chroot-common.sh"
+chroot_err_trap "create-user"
 
 NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
 SECRETS_FILE="${5:-}"

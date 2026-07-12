@@ -4,9 +4,10 @@
 # Thin entry point over the shared installer (lib/grub-common.sh, staged here as
 # /root/lib-chroot/grub-common.sh by configure_system).
 set -Eeuo pipefail
-trap 'echo "[chroot:bootloader-grub] failed at line $LINENO" >&2' ERR
-
 _LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# shellcheck source=./chroot-common.sh
+source "$_LIB_DIR/chroot-common.sh"
+chroot_err_trap "bootloader-grub"
 
 # Load install-state (KERNEL) + the kernel token table (kernel_pkg) so the
 # Primary Kernel can be pinned as GRUB's default boot entry (ADR 0038).

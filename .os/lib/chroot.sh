@@ -220,9 +220,9 @@ collect_passwords() {
     return
   fi
 
-  echo "" >&2
-  echo "━━━  Set root password  ━━━" >&2
-  echo "" >&2
+  # section() writes to stdout; redirect to stderr so the JSON return value
+  # (printed on stdout below) stays clean — same pattern as the info line above.
+  section "Set root password" >&2
 
   # Shared confirmed-secret reader (lib/prompt.sh).
   local root_pw
