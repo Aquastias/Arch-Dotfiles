@@ -222,6 +222,26 @@ _ctl_apply_text() {
   esac
 }
 
+# _ctl_normalise_default <state> <path> → <state> with the override at <path>
+# dropped when it renders identically to the seeded baseline default. The whole
+# "strict delta" contract: an apply that lands the operator back on the shown
+# default leaves NO override, so the map stays a true delta and ● (override-only)
+# never lights for an unchanged value. Rendered compare (menu_render_value) so it
+# judges "same as the default" the way the value displays — surviving the
+# scalar/array shape gaps (keymap "us" vs ["us"], gpu "auto"). Pure.
+_ctl_normalise_default() {
+  local state="$1" path="$2"
+  cfgstate_is_overridden "$state" "$path" || { printf '%s' "$state"; return 0; }
+  local ov dv
+  ov="$(menu_render_value "$state" "$path")"
+  dv="$(menu_render_value "$(_ctl_baseline)" "$path")"
+  if [[ "$ov" == "$dv" ]]; then
+    cfgstate_unset "$state" "$path"
+  else
+    printf '%s' "$state"
+  fi
+}
+
 # _ctl_program_names — resolvable System Program names (programs/<cat>/<name>),
 # one per line; the toggle option set for system_programs.
 _ctl_program_names() {
@@ -937,8 +957,8 @@ _ctl_enter_values() {
     # the operator can toggle several. `refresh` (reload-sync, query/header kept)
     # re-marks the list in place without the flicker — and crucially without
     # clearing a filter the operator typed on a long list (e.g. mirror countries).
-    _ctl_write_state "$(_ctl_toggle_multi "$(_ctl_state)" "$(_ctl_baseline)" \
-      "$path" "${line:4}")"
+    _ctl_write_state "$(_ctl_normalise_default "$(_ctl_toggle_multi \
+      "$(_ctl_state)" "$(_ctl_baseline)" "$path" "${line:4}")" "$path")"
     echo refresh; return
   fi
   if [[ "$path" == "sysctl" ]]; then
@@ -954,13 +974,17 @@ _ctl_enter_values() {
         "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
       echo render; return
     fi
+    # NOT normalised: users keeps an explicit empty list ([] ≠ unset — no users is
+    # a real choice distinct from "fall back to the seeded default"), so it owns
+    # its own membership semantics rather than the strict-delta normalise.
     _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" \
       "${line:4}")"
     echo refresh; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
     # a big filterable list → set the picked value as a scalar, then back
-    _ctl_write_state "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")"
+    _ctl_write_state "$(_ctl_normalise_default \
+      "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")"
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
@@ -992,7 +1016,7 @@ _ctl_enter_values() {
     echo render; return
   fi
   if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$line")"; then
-    _ctl_write_state "$new"
+    _ctl_write_state "$(_ctl_normalise_default "$new" "$path")"
   fi
   _ctl_write_nav "$(nav_back "$nav")"; echo render
 }
@@ -1013,7 +1037,8 @@ _ctl_enter_text() {
     _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
   fi
   [[ -n "$query" ]] \
-    && _ctl_write_state "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")"
+    && _ctl_write_state "$(_ctl_normalise_default \
+         "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")" "$path")"
   # sysctl / create-user were reached from a list screen — return there so the
   # new entry shows and more can be added; every other text field backs out.
   case "$path" in

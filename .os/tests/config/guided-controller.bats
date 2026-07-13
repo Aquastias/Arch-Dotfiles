@@ -291,6 +291,46 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
+# ── strict-delta ●: re-picking the seeded default drops the override ──────────
+# The baseline seeds every menu default (seed.sh); the apply-time normalise drops
+# an override that lands back on that default, so ● (override-only) never lights
+# for an unchanged value. Regression for the "select zfs → marked modified" bug.
+
+_seed_baseline() {
+  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
+  cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"
+}
+
+@test "enter(values): re-picking the default filesystem (zfs) leaves no override" {
+  _seed_baseline
+  set_nav "$(nav_to_values Disks filesystem filesystem)"
+  run guided_ctl_enter "zfs"
+  [ "$status" -eq 0 ]
+  # zfs == the seeded default → normalised away → no override key, no ●
+  [ "$(jq -c 'has("filesystem")' "$GUIDED_STATE_FILE")" = "false" ]
+  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
+}
+
+@test "enter(values): a non-default filesystem (btrfs) keeps the override" {
+  _seed_baseline
+  set_nav "$(nav_to_values Disks filesystem filesystem)"
+  run guided_ctl_enter "btrfs"
+  [ "$(jq -r '.filesystem' "$GUIDED_STATE_FILE")" = "btrfs" ]
+  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" filesystem
+}
+
+@test "enter(values): a bool toggled on then back to its default drops the ●" {
+  _seed_baseline
+  set_nav "$(nav_to_values Disks options.encryption encryption)"
+  guided_ctl_enter "true"  >/dev/null   # away from default false → override kept
+  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
+  set_nav "$(nav_to_values Disks options.encryption encryption)"
+  guided_ctl_enter "false" >/dev/null   # back to default false → normalised away
+  [ "$(jq -c 'getpath(["options","encryption"]) == null' \
+      "$GUIDED_STATE_FILE")" = "true" ]
+  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.encryption
+}
+
 # ── disk-layout preset picker (native — no terminal drop, no disk-count) ──────
 
 @test "list(values __layout__): lists the disk-layout presets + Back" {

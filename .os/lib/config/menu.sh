@@ -110,6 +110,23 @@ menu_categories() {
   printf '%s\n' "${cats[@]}" | jq -s '.'
 }
 
+# menu_render_value <config> <path> — the one-line rendering of <path>'s value in
+# <config> (empty when unset). The single source of truth for how a field's value
+# displays: multi-select arrays (kernel / desktop / gpu) render comma-joined,
+# primary/first token first; a map (sysctl) renders comma-joined key=value pairs;
+# scalars stringify. Shared by menu_rows (display) and the guided controller's
+# apply-time normalise (so "matches the default" is judged the way it displays).
+menu_render_value() {
+  # shellcheck disable=SC2016 # $p/$v are jq vars, must not expand in the shell
+  jq -r --arg p "$2" '
+    getpath($p | split(".")) as $v
+    | if   $v == null         then empty
+      elif ($v | type) == "array"  then ($v | join(", "))
+      elif ($v | type) == "object" then
+        ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
+      else ($v | tostring) end' <<<"$1"
+}
+
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
@@ -128,17 +145,11 @@ menu_rows() {
           && ( "$fs" == "ext4" || "$fs" == "xfs" ) ]]; then
       continue
     fi
-    # Multi-select fields (kernel / desktop / gpu) store a JSON array; render it
-    # comma-joined so the row stays one scalar line, primary/first token first. A
-    # map field (sysctl) renders as comma-joined key=value pairs.
-    value="$(jq -r --arg p "$path" '
-      getpath($p | split(".")) as $v
-      | if   $v == null         then empty
-        elif ($v | type) == "array"  then ($v | join(", "))
-        elif ($v | type) == "object" then
-          ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
-        else ($v | tostring) end' <<<"$merged")"
+    value="$(menu_render_value "$merged" "$path")"
     [[ -n "$value" ]] || value="$default"
+    # ● is override-only: the apply-time normalise drops any override equal to the
+    # baseline default, so the override map is a true delta and its presence is
+    # exactly "the operator changed this away from the default".
     if cfgstate_is_overridden "$state" "$path"; then
       overridden=true
     else
