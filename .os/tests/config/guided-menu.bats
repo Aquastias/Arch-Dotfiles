@@ -218,6 +218,29 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row system.hostname | jq -e '.overridden == true'
 }
 
+# ── drift guard: the seeded baseline and the _MENU_FIELDS spec agree ──────────
+# seed.sh (the baseline) and the _MENU_FIELDS spec-default column are two hand-
+# maintained tables. If a default changes in one only, the apply-time normalise
+# silently stops clearing ● for that field (the exact bug this fix closes).
+# Assert every non-empty, non-list spec default renders equal to its seeded
+# baseline value. List/append fields (packages.extra, system_programs → "[]") and
+# empty defaults are unseeded by design and skipped.
+
+@test "drift: each seeded menu default matches its _MENU_FIELDS spec default" {
+  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
+  local baseline; baseline="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  local spec section path label default rendered
+  for spec in "${_MENU_FIELDS[@]}"; do
+    IFS='|' read -r section path label default <<<"$spec"
+    [[ -n "$default" && "$default" != "[]" ]] || continue
+    rendered="$(menu_render_value "$baseline" "$path")"
+    [ -n "$rendered" ] \
+      || { echo "field $path: spec default '$default' but no baseline seed"; false; }
+    [ "$rendered" = "$default" ] \
+      || { echo "drift at $path: baseline '$rendered' != spec '$default'"; false; }
+  done
+}
+
 # ── locale / timezone / keymap are editable Host rows (issue 01) ───────────
 
 @test "menu_rows: locale / timezone / keymap surface as Host rows" {

@@ -41,6 +41,18 @@ cfgstate_seed_defaults() {
   state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"
+  # Disk / Options scalar defaults (the _MENU_FIELDS spec column): seeding them
+  # into the baseline makes it the single default reference the apply-time
+  # normalise compares against, so re-picking any shown default clears its ●.
+  # All idempotent with Host Core / the accessors (filesystem→zfs, multilib→on,
+  # esp→2G, bootloader→systemd-boot; encryption/impermanence/ssh default off).
+  state="$(cfgstate_set "$state" filesystem '"zfs"')"
+  state="$(cfgstate_set "$state" options.esp_size '"2G"')"
+  state="$(cfgstate_set "$state" options.bootloader '"systemd-boot"')"
+  state="$(cfgstate_set "$state" options.multilib 'true')"
+  state="$(cfgstate_set "$state" options.encryption 'false')"
+  state="$(cfgstate_set "$state" options.impermanence.enabled 'false')"
+  state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
   # zswap Defaults: on by default (zstd, 20% max pool). Rides the baseline so a
   # fresh run shows it with no ● and Save writes it whole, matching the boot
   # layer's accessor defaults. zswap only acts when swap is on (the default).
