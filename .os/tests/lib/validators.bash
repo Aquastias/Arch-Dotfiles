@@ -38,3 +38,23 @@ validators_verify_unit() {
   rm -rf "$iso"
   return "$status"
 }
+
+# mkinitcpio can only build a HOOKS list whose install scripts all exist on the
+# host (a non-archzfs host has no `zfs` hook, etc.). Skip when any hook in a
+# HOOKS=(...) list — or a bare hook string — is unavailable, so the slice stays
+# green everywhere and runs for real where the hooks are present.
+validators_skip_unless_hooks_installable() {
+  local hooks="${1//HOOKS=(/}"; hooks="${hooks//)/}"
+  local h
+  for h in $hooks; do
+    [[ -f "/usr/lib/initcpio/install/$h" ]] \
+      || skip "initcpio hook '$h' not installed on host"
+  done
+}
+
+# Build the given mkinitcpio.conf to /dev/null (no image kept, no post hooks).
+# Prints combined output; returns mkinitcpio's exit status. The caller must
+# have skipped when mkinitcpio or a referenced hook is absent.
+validators_mkinitcpio_build() {
+  mkinitcpio -c "$1" -g /dev/null --nopost 2>&1
+}
