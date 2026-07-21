@@ -5,9 +5,10 @@
 # Turns the generated Tier-2 set into a scheduled, guarded, self-summarizing
 # run. The pure cores — cell selection (smoke vs full), per-cell status
 # classification, the summary table, and the aggregate exit code — are separated
-# from the IO orchestrator (matrix_run_all) so the run-all policy is unit-
-# testable. The per-cell VM launch goes through the _matrix_run_cell seam, which
-# bats overrides to inject PASS/FAIL/SKIP without a real VM.
+# from the IO orchestrator (_matrix_orchestrate, shared by matrix_run_all and
+# matrix_smoke) so the run policy is unit-testable. The per-cell VM launch goes
+# through the _matrix_run_cell seam, which bats overrides to inject
+# PASS/FAIL/SKIP without a real VM.
 #
 # Requires OS_DIR (menu functions, for the generator).
 #
@@ -17,6 +18,8 @@
 #   matrix_run_exit_code                → 1 iff any result line's status is FAIL
 #   matrix_summary_format               → the run summary table (stdin → stdout)
 #   matrix_run_all [--smoke|--full]     → guard, schedule, run-all, summarize
+#   matrix_smoke_cells [seed]           → the curated boot set (issue 06)
+#   matrix_smoke                        → guard, schedule, run the curated set
 # =============================================================================
 
 # shellcheck source=./generator.sh
@@ -53,9 +56,11 @@ matrix_run_select() {
 
 # matrix_run_classify <boot_verify> <encryption> <exit_code> — cell status.
 # A nonzero VM exit (installer error, timeout, boot-fail) is always FAIL. On a
-# clean install: a boot-verified cell PASSes; an install-only gpu cell PASSes
-# (INSTALLER-EXIT-0 is its whole oracle); an encrypted cell SKIPs, because its
-# real oracle is boot-verify, deferred to issue 07 (a flip to PASS then).
+# clean install: a boot-verified cell PASSes — encrypted cells included, since
+# the Console Answerer unlocks them over serial (matrix issue 07, no
+# install-only carve-out); a non-boot-verified plain cell (gpu≠auto,
+# install-only) PASSes; a non-boot-verified encrypted cell SKIPs (boot-verify
+# would be its only oracle).
 matrix_run_classify() {
   local boot_verify="$1" encryption="$2" exit_code="$3"
   (( exit_code != 0 )) && { echo FAIL; return; }
@@ -157,17 +162,12 @@ _matrix_run_one() {
     --arg status "$status" '{id:$id,axes:$axes,oracle:$oracle,status:$status}'
 }
 
-# matrix_run_all [--smoke|--full] — the Tier-2 orchestrator: preflight the host,
-# schedule the selected cells up to the parallel cap (gated on free RAM), run
-# each through the VM seam, then print the summary. One failing cell never
-# aborts the others; exits non-zero iff any cell FAILed. Default: --smoke.
-matrix_run_all() {
-  local mode=smoke
-  case "${1:-}" in
-    --smoke) mode=smoke ;; --full) mode=full ;;
-    "" ) : ;; *) echo "matrix: unknown run flag '$1'" >&2; return 2 ;;
-  esac
-
+# _matrix_orchestrate — read JSON cells on stdin, preflight the host, then
+# schedule them up to the parallel cap (gated on free RAM), run each through the
+# VM seam, and print the summary. One failing cell never aborts the others;
+# returns non-zero iff any cell FAILed. Shared by matrix_run_all and
+# matrix_smoke so both get identical guard/scheduling/summary behaviour.
+_matrix_orchestrate() {
   _matrix_preflight || return $?
 
   local work n=0 cell
@@ -177,11 +177,59 @@ matrix_run_all() {
     _matrix_guard_gate
     ( _matrix_run_one "$cell" >"$work/$(printf '%06d' "$n").json" ) &
     n=$((n+1))
-  done < <(matrix_run_select "$mode" "${MATRIX_SEED:-0}")
+  done
   wait
 
   local recs; recs="$(cat "$work"/*.json 2>/dev/null)"
   rm -rf "$work"
   printf '%s\n' "$recs" | matrix_summary_format
   printf '%s\n' "$recs" | matrix_run_exit_code
+}
+
+# matrix_run_all [--smoke|--full] — the Tier-2 orchestrator: run the pinned
+# seeds (--smoke, default) or the whole pairwise cover (--full) through the
+# guarded scheduler. Exits non-zero iff any cell FAILed.
+matrix_run_all() {
+  local mode=smoke
+  case "${1:-}" in
+    --smoke) mode=smoke ;; --full) mode=full ;;
+    "" ) : ;; *) echo "matrix: unknown run flag '$1'" >&2; return 2 ;;
+  esac
+  _matrix_orchestrate < <(matrix_run_select "$mode" "${MATRIX_SEED:-0}")
+}
+
+# The curated on-demand boot set (ADR 0048, issue 06): a representative plain
+# single, a mirror, impermanence, and an encrypted single. Distinct from
+# --smoke's historical-bug seeds — this proves a basic install of each core
+# shape still boots. Encrypted boot-verify runs through the Console Answerer via
+# the VM Harness, exactly as its plain peer.
+MATRIX_SMOKE_IDS=(
+  zfs-single-plain       # a basic single-disk zfs install
+  zfs-mirror-plain       # multi-disk mirror
+  zfs-single-plain-imp   # impermanence (verify.rollback)
+  zfs-single-enc         # encrypted single (Console Answerer unlock)
+)
+
+# matrix_smoke_cells [seed] — the curated smoke cells as JSON (one per line),
+# drawn from the real generator by id so their axes/oracle stay menu-derived.
+# Fails loud (rather than silently under-selecting) if a curated id no longer
+# exists in the generator — e.g. after a cell-id rename.
+matrix_smoke_cells() {
+  local seed="${1:-0}" ids out n
+  ids="$(printf '%s\n' "${MATRIX_SMOKE_IDS[@]}" | jq -R . | jq -sc .)"
+  out="$(matrix_all_cells "$seed" \
+    | jq -c --argjson ids "$ids" 'select(.id as $i | $ids | index($i))')"
+  n="$(grep -c . <<<"$out")"
+  if (( n != ${#MATRIX_SMOKE_IDS[@]} )); then
+    echo "matrix: smoke selected $n cells, expected ${#MATRIX_SMOKE_IDS[@]}" \
+         "(a curated cell id no longer exists in the generator?)" >&2
+    return 1
+  fi
+  printf '%s\n' "$out"
+}
+
+# matrix_smoke — run the curated boot set through the shared guarded scheduler.
+# On-demand only (needs libvirt+KVM); exits non-zero iff any cell FAILed.
+matrix_smoke() {
+  _matrix_orchestrate < <(matrix_smoke_cells "${MATRIX_SEED:-0}")
 }

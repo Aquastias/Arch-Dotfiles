@@ -46,6 +46,11 @@ Commands:
                     summary (--smoke = pinned seeds only, default; --full =
                     whole pairwise cover). Exits non-zero on any FAIL.
   run <cell-id>     Install + boot-verify a single cell in a VM.
+  smoke             Run the curated on-demand boot set (a plain single, a
+                    mirror, impermanence, and an encrypted single) in guarded
+                    parallel VMs. A basic-install boot smoke, distinct from
+                    run --smoke's historical-bug seeds. Exits non-zero on any
+                    FAIL.
 EOF
 }
 
@@ -61,6 +66,7 @@ main() {
         ""|--smoke|--full) matrix_run_all "$@" ;;
         *)                 matrix_run "$@" ;;
       esac ;;
+    smoke) matrix_smoke ;;
     --help | -h) usage ;;
     *) usage >&2; exit 2 ;;
   esac
