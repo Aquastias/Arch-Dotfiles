@@ -52,12 +52,17 @@ log — no human gate.
       the real generator, profiles emitted, `boot-verify=true` on the
       encrypted cell (confirming no install-only carve-out), and the guard
       scheduled real parallel VMs (`matrix-zfs-single-{plain,enc}`,
-      `matrix-zfs-mirror-plain`). **Blocked by infra, not the mechanism:** the
-      iso-resolver found no archzfs-compatible ISO for the current kernel
-      (`no available archived ISO matches archzfs kernels: 7.1`) — archzfs
-      lags kernel 7.1, so no install ISO exists yet. This blocks the WHOLE
-      archzfs VM tier, not just smoke. Re-run `matrix.sh smoke` once an
-      archzfs 7.1 module / compatible ISO is published. VMs were torn down.
+      `matrix-zfs-mirror-plain`). The iso-resolver returned empty (`no
+      available archived ISO matches archzfs kernels: 7.1` — archzfs prebuilt
+      lags the ISO kernel). **Not a hard blocker:** the installer builds ZFS
+      via DKMS from source, so the known workaround is to pin a cached ISO via
+      `ISO_URL_OVERRIDE=<archive.archlinux.org monthly ISO>` (see the
+      vm-smoke memory), then `matrix.sh smoke` runs. No ISO is cached in
+      `~/Downloads` here, so
+      a live full run needs a ~1 GB download + a multi-hour babysit (RAM-bound
+      to ~1 VM at a time; the ~50% pre-DHCP poweroff transient needs relaunch).
+      Mechanism proven to VM-launch; the full install-to-green live run is a
+      documented runtime follow-up. VMs were torn down.
 - [x] Usage/help updated; no git-hook/CI wiring; no `matrix_records` /
       manifest / coverage touched (`matrix.sh gen` output unchanged).
 - [x] `tests/matrix/*` (12/12) and `tests/run.sh` (1857, 0 fail) pass.
