@@ -1447,12 +1447,38 @@ _ctl_autocommit() {
   hist_commit "$hist" "$(_ctl_state)" >"$GUIDED_HIST_FILE"
 }
 
+# _ctl_nav_reconcile <nav> <state> → a nav still valid for <state>. A history op
+# (reset/undo/redo) can delete the pool a pooledit/pooldisks nav addresses, which
+# would then render "?" for the gone group (reset from inside a pool editor was
+# the reported case). When the addressed pool is absent this backs the nav out to
+# its category; any other nav is returned unchanged.
+_ctl_nav_reconcile() {
+  local nav="$1" state="$2" screen kind i exists
+  screen="$(nav_screen "$nav")"
+  case "$screen" in
+  pooledit | pooldisks) ;;
+  *) printf '%s' "$nav"; return ;;
+  esac
+  kind="$(_ctl_pool_kind "$nav")"; i="$(nav_get "$nav" index)"; i="${i:-0}"
+  case "$kind" in
+  os)      exists="$(jq -r 'if .os_pool then 1 else 0 end' <<<"$state")" ;;
+  storage) exists="$(jq -r --argjson i "$i" \
+             'if (.storage_groups[$i] // null) then 1 else 0 end' <<<"$state")" ;;
+  *)       exists="$(jq -r --argjson i "$i" \
+             'if (.data_pools[$i] // null) then 1 else 0 end' <<<"$state")" ;;
+  esac
+  if [[ "$exists" == "1" ]]; then printf '%s' "$nav"
+  else nav_to_category "$(nav_get "$nav" category)"; fi
+}
+
 # guided_ctl_key <ctrl-z|ctrl-y|ctrl-r> — the global toolbar keys. ^Z undoes /
 # ^Y redoes over the snapshot stack; ^R resets every override back to the seeded
 # launch state (itself undoable — ^Z brings it back, so no confirm is needed).
-# Each restores the Config State from the stack and re-renders in place.
+# Each restores the Config State from the stack and re-renders in place; the nav
+# is reconciled so a pool editor left pointing at a now-deleted pool backs out to
+# its category instead of rendering "?" everywhere.
 guided_ctl_key() {
-  local k="$1" hist
+  local k="$1" hist state
   [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || { echo noop; return; }
   hist="$(<"$GUIDED_HIST_FILE")"
   case "$k" in
@@ -1462,7 +1488,9 @@ guided_ctl_key() {
   *)      echo noop; return ;;
   esac
   printf '%s\n' "$hist" >"$GUIDED_HIST_FILE"
-  _ctl_write_state "$(hist_present "$hist")"
+  state="$(hist_present "$hist")"
+  _ctl_write_state "$state"
+  _ctl_write_nav "$(_ctl_nav_reconcile "$(_ctl_nav)" "$state")"
   echo render
 }
 

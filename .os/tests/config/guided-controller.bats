@@ -211,6 +211,45 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.a' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
+@test "key ctrl-r: from inside a pool editor backs out to the category (no ?)" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  printf '%s\n' \
+    '{"mode":"multi","os_pool":{"pool_name":"rpool","topology":"mirror","disk_count":2},"data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}' \
+    > "$GUIDED_STATE_FILE"
+  hist_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
+  set_nav "$(nav_to_pooledit Disks 0 data)"
+  run guided_ctl_key ctrl-r
+  [ "$output" = "render" ]
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+  run guided_ctl_list
+  ! echo "$output" | grep -q '?'
+}
+
+@test "key ctrl-z: undoing a pool's creation exits its now-dangling editor" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  hist_new '{}' > "$GUIDED_HIST_FILE"
+  printf '%s\n' \
+    '{"mode":"multi","data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}' \
+    > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null          # autocommit the creation
+  set_nav "$(nav_to_pooledit Disks 0 data)"
+  run guided_ctl_key ctrl-z
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "key ctrl-z: a still-valid pool keeps you in its editor" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  local base='{"mode":"multi","data_pools":[{"name":"tank0","topology":"stripe","disk_count":1}]}'
+  printf '%s\n' "$base" > "$GUIDED_STATE_FILE"
+  hist_new "$base" > "$GUIDED_HIST_FILE"
+  printf '%s\n' "$(jq -c '.data_pools[0].disk_count=2' <<<"$base")" > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null          # autocommit the count change
+  set_nav "$(nav_to_pooledit Disks 0 data)"
+  run guided_ctl_key ctrl-z           # undo the change; the pool still exists
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pooledit" ]
+}
+
 @test "key: a no-op without a history file" {
   unset GUIDED_HIST_FILE
   run guided_ctl_key ctrl-z
