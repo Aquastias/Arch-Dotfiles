@@ -47,9 +47,17 @@ log — no human gate.
 - [x] Driver exits non-zero iff any cell FAILs; per-cell PASS/FAIL/SKIP
       summary + re-run hint printed (shared `matrix_summary_format` /
       `matrix_run_exit_code`; asserted in `matrix-smoke.bats`).
-- [~] Live KVM run via detached `systemd-run` — LAUNCHED (see the commit's
-      follow-up); the mechanism is fully seam-tested. Result recorded below
-      once the background run completes.
+- [~] Live KVM run — LAUNCHED and proven end-to-end up to VM boot:
+      preflight passed (kvm + libvirtd), all four curated cells selected from
+      the real generator, profiles emitted, `boot-verify=true` on the
+      encrypted cell (confirming no install-only carve-out), and the guard
+      scheduled real parallel VMs (`matrix-zfs-single-{plain,enc}`,
+      `matrix-zfs-mirror-plain`). **Blocked by infra, not the mechanism:** the
+      iso-resolver found no archzfs-compatible ISO for the current kernel
+      (`no available archived ISO matches archzfs kernels: 7.1`) — archzfs
+      lags kernel 7.1, so no install ISO exists yet. This blocks the WHOLE
+      archzfs VM tier, not just smoke. Re-run `matrix.sh smoke` once an
+      archzfs 7.1 module / compatible ISO is published. VMs were torn down.
 - [x] Usage/help updated; no git-hook/CI wiring; no `matrix_records` /
       manifest / coverage touched (`matrix.sh gen` output unchanged).
 - [x] `tests/matrix/*` (12/12) and `tests/run.sh` (1857, 0 fail) pass.
