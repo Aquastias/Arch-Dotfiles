@@ -70,12 +70,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── rich mode: lists hold only data (AC1) ────────────────────────────────────
 
-@test "list(datapools) rich: no action rows, data rows stay" {
+@test "list(datapools) rich: add row stays visible, other action rows drop" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_datapools Disks)"
   GUIDED_RICH_CHROME=1 run guided_ctl_list
   echo "$output" | grep -q "tank0: mirror ×2"
-  ! echo "$output" | grep -q "+ Add data pool"
+  # "+ Add data pool" is the exception: it is the primary way to build the pool
+  # list, so it stays visible even in rich chrome (footer-only ^A undiscoverable).
+  echo "$output" | grep -q "+ Add data pool"
   ! echo "$output" | grep -q "← Back"
 }
 

@@ -803,7 +803,12 @@ guided_ctl_list() {
              | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$_eff"
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
       <<<"$_eff"
-    _ctl_action_row "+ Add data pool" "← Back" ;;
+    # The "+ Add data pool" row stays visible in BOTH chromes: building the pool
+    # list is this screen's primary action, and a footer-only ^A hint proved
+    # undiscoverable (users saw tank0 and no way to add tank1). ← Back is legacy-
+    # only (rich chrome backs out with Esc).
+    printf '%s\n' "+ Add data pool"
+    _ctl_action_row "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
     i="$(nav_get "$nav" index)"; kind="$(_ctl_pool_kind "$nav")"
