@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # fstab syntax/field lint validator
 
@@ -20,13 +20,28 @@ keep the UUID/branch-specific logic tests.
 
 ## Acceptance criteria
 
-- [ ] A bats file lints real fstab output across the filesystem adapters
-      (zfs, ext4, xfs, btrfs single + multi)
-- [ ] A malformed-fstab regression (wrong field count / duplicate
-      mountpoint) fails the lint
-- [ ] Overlapping raw-string assertions removed from the fstab tests; net
-      stub count down
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] A bats file (`tests/chroot/fstab-lint.bats`) lints the REAL fstab
+      generators via `validators_fstab_lint`: `_chroot_fstab_generate`
+      (1/2/3 ESPs), `btrfs_root_fstab` (UUID src single + `/dev/mapper`
+      src for encrypted/multi — same generator), `data_group_fstab_line`,
+      and an ASSEMBLED ESP+btrfs fstab (write_fstab's real shape — the
+      duplicate-mountpoint check nothing did before).
+- [~] **Adapter coverage caveat.** ext4/xfs **root** fstab lines are built
+      inline inside the disk-touching `_root_format_and_mount`
+      (`nonzfs/root.sh`), which has no pure emitter to call unprivileged, so
+      they are validated in the VM tier, not here. The zfs "tail" is a bare
+      comment (`# ZFS datasets are auto-mounted…`) — nothing to lint. ESP +
+      btrfs (single/multi/enc) + data-group lines are covered for real.
+- [x] Regressions with teeth: a duplicate mountpoint and a 5-field
+      (malformed) line both fail the lint.
+- [x] **No trim applies (correction to the AC).** The lint checks structure
+      (fields, mountpoint plausibility, dump/pass, duplicates); the existing
+      `chroot-fstab.bats` asserts business values (which UUID mounts where,
+      umask). The lint does not subsume those, so nothing can be deleted
+      without losing coverage. This slice is purely additive.
+- [x] `tests/run.sh` passes (0 fail). `tests/shellcheck.sh` unaffected
+      (globs `*.sh`; `.bash`/`.bats` out of scope; harness `shellcheck -x`
+      clean).
 
 ## Blocked by
 
