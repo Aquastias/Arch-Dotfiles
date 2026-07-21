@@ -69,24 +69,24 @@ setup_disk_fixture() {
   mk_by_id "usb-Kingston_DT_Live-part1"     sdz1
 }
 
-@test "picker_enum_disks: excludes live medium and its partitions, sorted" {
+# One canonical row per whole disk: partition aliases dropped, live medium
+# excluded. sda and sdb each appear once (by their sole by-id name here).
+@test "picker_enum_disks: one whole-disk row each, no partitions, sorted" {
   setup_disk_fixture
   run picker_enum_disks /dev/sdz
   [ "$status" -eq 0 ]
   expected="$BY_ID/ata-Samsung_SSD_980_PRO_S1
-$BY_ID/ata-Samsung_SSD_980_PRO_S1-part1
-$BY_ID/ata-Samsung_SSD_980_PRO_S1-part2
-$BY_ID/nvme-WD_Black_SN850_X2
-$BY_ID/nvme-WD_Black_SN850_X2-part1"
+$BY_ID/nvme-WD_Black_SN850_X2"
   [ "$output" = "$expected" ]
 }
 
-@test "picker_enum_disks: empty live arg → all disks listed" {
+@test "picker_enum_disks: empty live arg → every whole disk listed once" {
   setup_disk_fixture
   run picker_enum_disks ""
   [ "$status" -eq 0 ]
   count="$(echo "$output" | wc -l)"
-  [ "$count" -eq 7 ]
+  # sda, sdb, sdz — three whole disks, no partitions.
+  [ "$count" -eq 3 ]
 }
 
 # The Live-Medium Detector emits a SET (newline-separated whole disks); every
@@ -95,10 +95,51 @@ $BY_ID/nvme-WD_Black_SN850_X2-part1"
   setup_disk_fixture
   run picker_enum_disks "$(printf '/dev/sdz\n/dev/sdb\n')"
   [ "$status" -eq 0 ]
-  expected="$BY_ID/ata-Samsung_SSD_980_PRO_S1
-$BY_ID/ata-Samsung_SSD_980_PRO_S1-part1
-$BY_ID/ata-Samsung_SSD_980_PRO_S1-part2"
+  expected="$BY_ID/ata-Samsung_SSD_980_PRO_S1"
   [ "$output" = "$expected" ]
+}
+
+# Several by-id aliases of one physical disk collapse to a single row, and the
+# readable model+serial name wins over the opaque wwn-/nvme-eui. ids.
+@test "picker_enum_disks: dedupes aliases to the readable name" {
+  DEV_ROOT="$TEST_DIR/dev"
+  BY_ID="$DEV_ROOT/disk/by-id"
+  mkdir -p "$BY_ID"
+  export DEV_ROOT BY_ID PICKER_BY_ID_DIR="$BY_ID"
+  mk_dev sda; mk_dev sda1
+  mk_dev nvme0n1; mk_dev nvme0n1p1
+  mk_by_id "ata-Samsung_SSD_980_PRO_S1"       sda
+  mk_by_id "wwn-0x5002538e00000001"           sda
+  mk_by_id "ata-Samsung_SSD_980_PRO_S1-part1" sda1
+  mk_by_id "nvme-WD_Black_SN850_X2"           nvme0n1
+  mk_by_id "nvme-eui.0123456789abcdef"        nvme0n1
+  mk_by_id "nvme-WD_Black_SN850_X2-part1"     nvme0n1p1
+
+  run picker_enum_disks ""
+  [ "$status" -eq 0 ]
+  expected="$BY_ID/ata-Samsung_SSD_980_PRO_S1
+$BY_ID/nvme-WD_Black_SN850_X2"
+  [ "$output" = "$expected" ]
+}
+
+# ── _picker_is_partition ──────────────────────────────────────────────────────
+
+@test "_picker_is_partition: partitions yes, whole disks no" {
+  run _picker_is_partition sda1;      [ "$status" -eq 0 ]
+  run _picker_is_partition nvme0n1p2; [ "$status" -eq 0 ]
+  run _picker_is_partition mmcblk0p1; [ "$status" -eq 0 ]
+  run _picker_is_partition sda;       [ "$status" -ne 0 ]
+  run _picker_is_partition nvme0n1;   [ "$status" -ne 0 ]
+  run _picker_is_partition mmcblk0;   [ "$status" -ne 0 ]
+}
+
+# ── _picker_alias_rank ────────────────────────────────────────────────────────
+
+@test "_picker_alias_rank: readable model+serial beats wwn/eui" {
+  [ "$(_picker_alias_rank ata-Foo_S1)"  -lt "$(_picker_alias_rank wwn-0x1)" ]
+  [ "$(_picker_alias_rank nvme-Foo_S1)" -lt \
+    "$(_picker_alias_rank nvme-eui.0)" ]
+  [ "$(_picker_alias_rank wwn-0x1)" -lt "$(_picker_alias_rank nvme-eui.0)" ]
 }
 
 # ── picker_format_disk_preview ────────────────────────────────────────────────

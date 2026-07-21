@@ -112,7 +112,7 @@ _install_render_assignment() {
 # config seam meanwhile. Multi: the picked disks are sliced onto every declared
 # group by disk_count, in declared order, and the mapping is rendered to stderr.
 _install_pick_assignment() {
-  local profile_json="$1" mode picked live_set
+  local profile_json="$1" mode picked live_set p
   local -a candidates disks
 
   mode="$(jq -r '
@@ -132,14 +132,21 @@ _install_pick_assignment() {
     || { echo "[install.sh] no /dev/disk/by-id/* candidates found" >&2; \
          return 1; }
 
-  picked="$(printf '%s\n' "${candidates[@]}" | fzf --multi --reverse \
-    --prompt='disks (TAB=multi, ENTER=confirm)> ' \
-    --preview="bash -c 'source \"$OS_DIR/lib/picker.sh\"; \
-      picker_format_disk_preview {}'" \
-    --preview-window=right,60%)" \
+  # Readable "/dev/sda <size> <model> …" label (field 1) over the by-id path
+  # (hidden field 2 — the value kept and previewed via {2}).
+  picked="$(
+    for p in "${candidates[@]}"; do
+      printf '%s\t%s\n' "$(picker_disk_label "$p")" "$p"
+    done | fzf --multi --reverse \
+      --prompt='disks (TAB=multi, ENTER=confirm)> ' \
+      --delimiter='\t' --with-nth=1 \
+      --preview="bash -c 'source \"$OS_DIR/lib/picker.sh\"; \
+        picker_format_disk_preview {2}'" \
+      --preview-window=right,60%)" \
     || { echo "[install.sh] no disks selected" >&2; return 1; }
   [[ -n "$picked" ]] || { echo "[install.sh] no disks selected" >&2; return 1; }
-  mapfile -t disks <<< "$picked"
+  mapfile -t disks < <(printf '%s\n' "$picked" \
+    | while IFS=$'\t' read -r _label path; do printf '%s\n' "$path"; done)
 
   if [[ "$mode" == single ]]; then
     picker_validate_layout single "${#disks[@]}" || return 1

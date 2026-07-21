@@ -165,11 +165,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "← Back"
 }
 
-@test "enter(rootdisk): picking a disk sets root_disk (single-select)" {
+@test "enter(rootdisk): picking a disk sets root_disk + returns to category" {
   set_nav "$(nav_to_rootdisk Disks)"
   run guided_ctl_enter "( ) nvme-Disk_Two"
-  [ "$output" = "refresh" ]
+  [ "$output" = "render" ]
   [ "$(jq -r '.root_disk' "$GUIDED_STATE_FILE")" = "$BY_ID/nvme-Disk_Two" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
 
 @test "enter(rootdisk): a second pick replaces the first" {

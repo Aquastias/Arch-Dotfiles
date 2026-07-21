@@ -139,10 +139,18 @@ guided_pick_disk() {
   mapfile -t cands < <(picker_enum_disks "$live")
   ((${#cands[@]})) || { error "guided: no /dev/disk/by-id/* candidates found"; \
     return 1; }
-  printf '%s\n' "${cands[@]}" | fzf --reverse --prompt='disk> ' \
-    --preview="bash -c 'source \"${OS_DIR}/lib/picker.sh\"; \
-      picker_format_disk_preview {}'" \
-    --preview-window=right,60%
+  # Show a readable "/dev/sda <size> <model> …" label (field 1); the by-id path
+  # rides along as hidden field 2 — the value returned and previewed ({2}).
+  local pick p
+  pick="$(
+    for p in "${cands[@]}"; do
+      printf '%s\t%s\n' "$(picker_disk_label "$p")" "$p"
+    done | fzf --reverse --prompt='disk> ' --delimiter='\t' --with-nth=1 \
+      --preview="bash -c 'source \"${OS_DIR}/lib/picker.sh\"; \
+        picker_format_disk_preview {2}'" \
+      --preview-window=right,60%
+  )"
+  [[ -n "$pick" ]] && printf '%s' "${pick#*$'\t'}"
 }
 
 # =============================================================================
@@ -334,8 +342,14 @@ guided_pick_disks() {
   mapfile -t cands < <(picker_enum_disks "$live")
   ((${#cands[@]} >= n)) || { error "guided: need $n disks, only ${#cands[@]} found"; \
     return 1; }
-  printf '%s\n' "${cands[@]}" | fzf --reverse --multi \
-    --prompt="pick ${n} disks (TAB to mark)> "
+  # Readable labels (field 1) over the by-id paths (hidden field 2); emit the
+  # picked paths, one per line.
+  local p
+  for p in "${cands[@]}"; do
+    printf '%s\t%s\n' "$(picker_disk_label "$p")" "$p"
+  done | fzf --reverse --multi --prompt="pick ${n} disks (TAB to mark)> " \
+    --delimiter='\t' --with-nth=1 \
+    | while IFS=$'\t' read -r _label path; do printf '%s\n' "$path"; done
 }
 
 # Filesystem Adapter axis (ADR 0040/0043): the Root Layout Adapters that are
