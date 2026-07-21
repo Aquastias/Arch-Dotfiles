@@ -626,20 +626,9 @@ _ctl_free_disks() {
     !seen[$0]'
 }
 
-# _ctl_disk_label <by-id-path> — a compact one-line label: "<size> <model> ·
-# <tail>" when lsblk can read the disk, else just the by-id tail (the stable key
-# the toggle parses back — always the segment after the last " · ").
-_ctl_disk_label() {
-  local p="$1" tail dev sm
-  tail="${p##*/}"
-  if dev="$(readlink -f "$p" 2>/dev/null)" \
-     && sm="$(lsblk -dno SIZE,MODEL "$dev" 2>/dev/null | head -1)" \
-     && [[ -n "${sm//[[:space:]]/}" ]]; then
-    printf '%s · %s' "$(echo "$sm" | tr -s ' ')" "$tail"
-  else
-    printf '%s' "$tail"
-  fi
-}
+# _ctl_disk_label <by-id-path> — the disk row label; delegates to the shared
+# picker_disk_label ("/dev/sda <size> <model> · <tail>", tail parseable back out).
+_ctl_disk_label() { picker_disk_label "$1"; }
 
 # _ctl_pool_toggle_disk <group> <by-id-path> — flip the disk's membership in the
 # group's devices[], then re-derive disk_count as the number bound.
@@ -1233,7 +1222,8 @@ _ctl_enter_pooldisks() {
 }
 
 # _ctl_enter_rootdisk <line> — the single-disk-root picker: Enter sets root_disk
-# to the picked disk (single-select — replaces any prior); ← Back → category.
+# to the picked disk (single-select — replaces any prior) and returns to the
+# category, since one pick is the whole job; ← Back → category.
 _ctl_enter_rootdisk() {
   local line="$1" nav cat path
   nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
@@ -1243,7 +1233,8 @@ _ctl_enter_rootdisk() {
   path="$(_ctl_line_to_disk "$line")"
   [[ -n "$path" ]] || { echo refresh; return; }
   _ctl_write_state "$(cfgstate_set "$(_ctl_state)" root_disk "\"$path\"")"
-  echo refresh
+  _ctl_write_nav "$(nav_to_category "$cat")"
+  echo render
 }
 
 # guided_ctl_back — Esc: back one screen, or abort the whole menu at the top.

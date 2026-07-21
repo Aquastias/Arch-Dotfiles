@@ -97,6 +97,22 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(_ctl_disk_label "$BY_ID/nvme-Disk_One")" = "nvme-Disk_One" ]
 }
 
+# When the by-id link resolves to a real /dev/ kernel node the label LEADS with
+# it, so the operator recognises "/dev/sda …" — the by-id tail stays last (the
+# parse-back key). A stubbed lsblk supplies size+model.
+@test "_ctl_disk_label: leads with the /dev kernel name" {
+  mkdir -p "$TEST_DIR/bin"
+  cat > "$TEST_DIR/bin/lsblk" <<'STUB'
+#!/usr/bin/env bash
+echo "931.5G Samsung_SSD_980_PRO"
+STUB
+  chmod +x "$TEST_DIR/bin/lsblk"
+  ln -sf /dev/null "$BY_ID/ata-Kernel_Named"
+  export PATH="$TEST_DIR/bin:$PATH"
+  run _ctl_disk_label "$BY_ID/ata-Kernel_Named"
+  [ "$output" = "/dev/null 931.5G Samsung_SSD_980_PRO · ata-Kernel_Named" ]
+}
+
 # ── disk sub-screen render + toggle (AC4) ────────────────────────────────────
 
 @test "list(pooldisks): bound disks marked, free disks unmarked, + Back" {

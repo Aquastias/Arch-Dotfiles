@@ -45,12 +45,38 @@ picker_validate_layout() {
   fi
 }
 
+# _picker_is_partition <kernel-base>
+#   rc 0 when the kernel node is a partition (sda1, vdb2, nvme0n1p1, mmcblk0p1,
+#   loop0p1) rather than a whole disk — partitions are never install targets.
+_picker_is_partition() {
+  local n="$1"
+  [[ "$n" =~ ^(sd|vd|hd|xvd)[a-z]+[0-9]+$ ]] && return 0
+  [[ "$n" =~ ^(nvme[0-9]+n[0-9]+|mmcblk[0-9]+|loop[0-9]+)p[0-9]+$ ]] && return 0
+  return 1
+}
+
+# _picker_alias_rank <by-id-name>
+#   Preference for the canonical alias when one physical disk carries several
+#   by-id names; lower wins. A readable model+serial name (ata-/nvme-/scsi-/
+#   mmc-/usb-) beats the opaque globally-unique ids (wwn-/nvme-eui.). The
+#   nvme-eui. case is listed before nvme- so it isn't caught by the readable arm.
+_picker_alias_rank() {
+  case "$1" in
+    nvme-eui.*)                      echo 3 ;;
+    wwn-*)                           echo 2 ;;
+    ata-*|nvme-*|scsi-*|mmc-*|usb-*) echo 0 ;;
+    *)                               echo 1 ;;
+  esac
+}
+
 # picker_enum_disks <live_set>
-#   Emits, one per line, sorted /dev/disk/by-id/* paths excluding the live
-#   medium whole-disk(s) and their partitions. <live_set> is the Live-Medium
-#   Detector's output: zero or more whole-disk paths such as `/dev/sdz`, one
-#   per line (empty = no exclusion). PICKER_BY_ID_DIR overrides /dev/disk/by-id
-#   for tests.
+#   Emits, one per line, sorted /dev/disk/by-id/* paths — ONE canonical link per
+#   physical disk. Partition links (…-partN) and partition kernel nodes are
+#   dropped, and the many by-id aliases of a single disk (ata-/wwn-/nvme-eui.)
+#   collapse to the most readable one, so the operator sees each disk exactly
+#   once. <live_set> is the Live-Medium Detector's output: zero or more
+#   whole-disk paths such as `/dev/sdz`, one per line (empty = no exclusion).
+#   PICKER_BY_ID_DIR overrides /dev/disk/by-id for tests.
 picker_enum_disks() {
   local live_set="$1"
   local by_id="${PICKER_BY_ID_DIR:-/dev/disk/by-id}"
@@ -62,23 +88,58 @@ picker_enum_disks() {
     [[ -n "$d" ]] && live_bases+=("$(basename "$d")")
   done <<<"$live_set"
 
-  local link target_base lb skip
+  # Keep the best (lowest-rank) alias per resolved kernel base; ties break on the
+  # lexically smaller name so the choice is deterministic.
+  local link name target_base lb skip rank
+  local -A best=() best_rank=()
   for link in "$by_id"/*; do
     [[ -L "$link" ]] || continue
+    name="${link##*/}"
+    # Partition aliases carry a -partN suffix (udev convention) — never a disk.
+    [[ "$name" =~ -part[0-9]+$ ]] && continue
     target_base="$(basename "$(readlink -f "$link")")"
+    _picker_is_partition "$target_base" && continue
+
     skip=""
-    if ((${#live_bases[@]})); then
-      for lb in "${live_bases[@]}"; do
-        if [[ "$target_base" == "$lb" \
-              || "$target_base" =~ ^${lb}p?[0-9]+$ ]]; then
-          skip=1
-          break
-        fi
-      done
-    fi
+    for lb in "${live_bases[@]}"; do
+      [[ "$target_base" == "$lb" ]] && { skip=1; break; }
+    done
     [[ -n "$skip" ]] && continue
-    printf '%s\n' "$link"
-  done | sort
+
+    rank="$(_picker_alias_rank "$name")"
+    if [[ -z "${best[$target_base]:-}" ]] \
+       || (( rank < best_rank[$target_base] )) \
+       || { (( rank == best_rank[$target_base] )) \
+            && [[ "$name" < "${best[$target_base]##*/}" ]]; }; then
+      best[$target_base]="$link"
+      best_rank[$target_base]="$rank"
+    fi
+  done
+
+  local k
+  for k in "${!best[@]}"; do printf '%s\n' "${best[$k]}"; done | sort
+}
+
+# picker_disk_label <by-id-path>
+#   A compact one-line label led by the kernel name the operator recognises:
+#   "/dev/sda <size> <model> · <tail>" when lsblk can read the disk,
+#   "/dev/sda · <tail>" when only the kernel node resolves, else just the by-id
+#   <tail>. The by-id tail is always the segment after the last " · " so callers
+#   can parse the stable key back out of the label.
+picker_disk_label() {
+  local p="$1" tail dev sm
+  tail="${p##*/}"
+  dev="$(readlink -f "$p" 2>/dev/null)"
+  [[ "$dev" == /dev/* ]] || dev=""
+  if [[ -n "$dev" ]] \
+     && sm="$(lsblk -dno SIZE,MODEL "$dev" 2>/dev/null | head -1)" \
+     && [[ -n "${sm//[[:space:]]/}" ]]; then
+    printf '%s %s · %s' "$dev" "$(echo "$sm" | tr -s ' ')" "$tail"
+  elif [[ -n "$dev" ]]; then
+    printf '%s · %s' "$dev" "$tail"
+  else
+    printf '%s' "$tail"
+  fi
 }
 
 # picker_assign_disks <profile_json> <assignment_json>
