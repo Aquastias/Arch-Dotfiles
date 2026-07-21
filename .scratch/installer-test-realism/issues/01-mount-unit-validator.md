@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Mount-unit validator + shared `validators.bash` harness
 
@@ -31,17 +31,20 @@ it does not exercise.
 
 ## Acceptance criteria
 
-- [ ] `tests/lib/validators.bash` exists: generator-into-tmpdir + validator
+- [x] `tests/lib/validators.bash` exists: generator-into-tmpdir + validator
       invocation + SKIP-when-binary-absent
-- [ ] Harness has its own bats: SKIP-on-absent-binary, PASS on a valid
+- [x] Harness has its own bats: SKIP-on-absent-binary, PASS on a valid
       artifact, FAIL on a broken one
-- [ ] A bats file runs real `imp_write_mount_unit` output through
+- [x] A bats file runs real `imp_write_mount_unit` output through
       `systemd-analyze verify`
-- [ ] A regression asserts the escaped unit name matches `Where=` — fails
+- [x] A regression asserts the escaped unit name matches `Where=` — fails
       on the historical `persist-<esc>.mount` bug, passes on its fix
-- [ ] Overlapping `$CALLS`/raw mount-unit assertions removed from the
+- [x] Overlapping `$CALLS`/raw mount-unit assertions removed from the
       impermanence tests; net stub count down
-- [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
+- [x] `tests/run.sh` passes (1837 tests, 0 fail). `tests/shellcheck.sh`
+      unaffected: it globs only `*.sh`, so the `.bash`/`.bats` files added
+      here are outside its scope (harness verified clean via `shellcheck
+      -x`). Its pre-existing rc=1 is unrelated `lib/*.sh` infos.
 
 ## Blocked by
 
