@@ -902,7 +902,8 @@ guided_run_persistent() {
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-a:transform(bash $entry key ctrl-a)" \
-    --bind "ctrl-x:transform(bash $entry key ctrl-x)" \
+    --bind "ctrl-s:transform(bash $entry key ctrl-s)" \
+    --bind "ctrl-x:transform(bash $entry key ctrl-x {})" \
     --bind "ctrl-z:transform(bash $entry key ctrl-z)" \
     --bind "ctrl-y:transform(bash $entry key ctrl-y)" \
     --bind "ctrl-r:transform(bash $entry key ctrl-r)" \

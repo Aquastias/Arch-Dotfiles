@@ -119,6 +119,42 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
+@test "action add-storage: on datapools appends a storage group (^S)" {
+  printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_action add-storage
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
+  [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
+}
+
+@test "action remove: ^X on a highlighted data pool row deletes it in place" {
+  printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_action remove "tank0: mirror ×2"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.data_pools' "$GUIDED_STATE_FILE")" = "[]" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+}
+
+@test "action remove: ^X on a highlighted storage row deletes it in place" {
+  printf '%s\n' \
+    '{"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_action remove "data (storage): raidz1 ×3"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.storage_groups' "$GUIDED_STATE_FILE")" = "[]" ]
+}
+
+@test "action remove: ^X on the OS pool row is a noop" {
+  printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_action remove "OS pool: none ×1"
+  [ "$output" = "noop" ]
+  [ "$(jq -r '.os_pool.topology' "$GUIDED_STATE_FILE")" = "none" ]
+}
+
 @test "action add: on the sysctl list opens the add-text screen" {
   set_nav "$(nav_to_values Options sysctl sysctl)"
   run guided_ctl_action add
