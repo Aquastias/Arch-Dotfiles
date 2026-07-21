@@ -154,7 +154,7 @@ _ctl_pool_normalise_fs() {
 # synthetic __layout__ disk-layout preset list).
 _ctl_enum_options() {
   case "$1" in
-  __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "Custom…" ;;
+  __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
   options.bootloader | post_install.security.firewall) menu_enum_options "$1" ;;
   *) printf '%s\n' true false ;;
@@ -1025,7 +1025,7 @@ _ctl_enter_values() {
       _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
       echo render; return
     fi
-    if [[ "$line" == "Custom…" ]]; then
+    if [[ "$line" == "custom…" ]]; then
       # blank-canvas seed → straight into the unified editor (ADR 0047).
       _ctl_write_state \
         "$(edit_apply_skeleton "$(_ctl_state)" "$(skeleton_custom_seed)")"
@@ -1448,14 +1448,24 @@ _ctl_autocommit() {
 }
 
 # _ctl_nav_reconcile <nav> <state> → a nav still valid for <state>. A history op
-# (reset/undo/redo) can delete the pool a pooledit/pooldisks nav addresses, which
-# would then render "?" for the gone group (reset from inside a pool editor was
-# the reported case). When the addressed pool is absent this backs the nav out to
-# its category; any other nav is returned unchanged.
+# (reset/undo/redo) can invalidate the screen the nav sits on: it can delete the
+# pool a pooledit/pooldisks nav addresses (rendering "?" for the gone group), or
+# drop the layout back to single-disk while the multi-only datapools editor is
+# open (the OS pool row vanishes). Reset from inside the custom editor was the
+# reported case. When the current screen no longer fits the state, this backs the
+# nav out to its category; any other nav is returned unchanged.
 _ctl_nav_reconcile() {
   local nav="$1" state="$2" screen kind i exists
   screen="$(nav_screen "$nav")"
   case "$screen" in
+  datapools)
+    # The unified layout editor only makes sense for a multi layout; after a
+    # reset to the single-disk default it would show only the add rows, so back
+    # out to the category (which shows the default "layout: single disk").
+    if [[ "$(jq -r '.mode // "single"' <<<"$state")" == "multi" ]]; then
+      printf '%s' "$nav"
+    else nav_to_category "$(nav_get "$nav" category)"; fi
+    return ;;
   pooledit | pooldisks) ;;
   *) printf '%s' "$nav"; return ;;
   esac

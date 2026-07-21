@@ -197,15 +197,15 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── Custom… + preset entry flow (AC3, AC4) ───────────────────────────────────
 
-@test "list(values __layout__): Custom… appears in the preset picker" {
+@test "list(values __layout__): custom… appears in the preset picker" {
   set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_list
-  echo "$output" | grep -q "Custom…"
+  echo "$output" | grep -q "custom…"
 }
 
-@test "enter(values __layout__): Custom… seeds a blank multi + opens the editor" {
+@test "enter(values __layout__): custom… seeds a blank multi + opens the editor" {
   set_nav "$(nav_to_values Disks __layout__ "layout")"
-  run guided_ctl_enter "Custom…"
+  run guided_ctl_enter "custom…"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
   [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
