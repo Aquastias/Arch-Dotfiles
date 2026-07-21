@@ -1,10 +1,31 @@
-Status: ready-for-agent
+Status: wontfix
 
 # Config-test speed: source-once via `setup_file` + `export -f`
 
 ## Parent
 
 `.scratch/installer-test-realism/PRD.md`
+
+## Resolution (measured, de-scoped 2026-07-21)
+
+De-scoped after measurement — the tests-only lever is both blocked and
+low-value:
+
+- `export -f` moves functions but **bash cannot export array constants**
+  (`_MENU_FIELDS`, `_MENU_CATEGORIES`, `_CTL_DIVIDER`) across the process
+  boundary, so a naive `setup_file` broke 10 guided-controller tests.
+  Doing it correctly needs `declare -p` array-rehydration machinery shared
+  across ~43 config files — far more than "source-once".
+- `tests/run.sh` already passes `--jobs`, and bats parallelises
+  **within-file** (guided-controller alone: 16s serial → 3.3s at
+  `--jobs 24`). The per-file serial cost is already hidden in the full
+  run; the only gain is reduced CPU ≈ **1-2s off the ~151s wall**, even
+  done perfectly. The single-file dev-loop win (16s→9s) is real but
+  narrow.
+- The ~110-120s target is **not reachable tests-only**. It lives in the
+  deferred lib `jq`-batching in `lib/config/{state,nav,edits,menu}.sh`
+  (which also speeds the live guided TUI). Track that separately if the
+  wall-time is ever a real pain.
 
 ## What to build
 
