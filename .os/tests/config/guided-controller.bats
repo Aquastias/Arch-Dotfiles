@@ -226,6 +226,30 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   ! echo "$output" | grep -q '?'
 }
 
+@test "key ctrl-r: from the custom (datapools) editor backs out to the category" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  printf '%s\n' \
+    '{"mode":"multi","os_pool":{"pool_name":"rpool","topology":"none","disk_count":1}}' \
+    > "$GUIDED_STATE_FILE"
+  hist_new "$(<"$GUIDED_STATE_FILE")" > "$GUIDED_HIST_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_key ctrl-r
+  [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "key ctrl-z: a still-multi layout keeps you in the datapools editor" {
+  export GUIDED_HIST_FILE="$TEST_DIR/hist"
+  local base='{"mode":"multi","os_pool":{"pool_name":"rpool","topology":"none","disk_count":1}}'
+  printf '%s\n' "$base" > "$GUIDED_STATE_FILE"
+  hist_new "$base" > "$GUIDED_HIST_FILE"
+  printf '%s\n' "$(_ctl_add_data_pool "$base")" > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null          # autocommit the added pool
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_key ctrl-z           # undo the add; layout is still multi
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
+}
+
 @test "key ctrl-z: undoing a pool's creation exits its now-dangling editor" {
   export GUIDED_HIST_FILE="$TEST_DIR/hist"
   hist_new '{}' > "$GUIDED_HIST_FILE"
