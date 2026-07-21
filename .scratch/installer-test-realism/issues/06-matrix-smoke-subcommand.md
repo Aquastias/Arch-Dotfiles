@@ -33,17 +33,26 @@ log — no human gate.
 
 ## Acceptance criteria
 
-- [ ] `matrix.sh smoke` runs the four curated cells via `emit`/`run`
-- [ ] Encrypted cell unlocks headless via the Console Answerer (no
-      install-only carve-out)
-- [ ] Impermanence cell asserts `verify.rollback`
-- [ ] Driver exits non-zero if any cell fails; per-cell PASS/FAIL/SKIP
-      summary printed
-- [ ] Curated set run to green in KVM via detached `systemd-run`
-      (INSTALLER-EXIT-0 + first-boot sentinel per cell)
-- [ ] Usage/help updated; no git-hook/CI wiring; `matrix.sh gen` records
-      unchanged
-- [ ] `tests/matrix/*` and `tests/run.sh` pass
+- [x] `matrix.sh smoke` runs the four curated cells (`zfs-single-plain`,
+      `zfs-mirror-plain`, `zfs-single-plain-imp`, `zfs-single-enc`) drawn
+      from the real generator through the shared guarded scheduler
+      (`_matrix_orchestrate`, extracted from `matrix_run_all`).
+- [x] Encrypted cell boot-verifies with no install-only carve-out:
+      `matrix_cell_boot_verify` is true for `zfs-single-enc` (gpu=auto), so
+      `matrix_run_classify` PASSes it via `vm.sh --verify-boot` → the Console
+      Answerer unlocks it over serial (matrix issue 07). Stale "enc→SKIP"
+      docstrings in driver.sh/run.sh corrected.
+- [x] Impermanence cell (`zfs-single-plain-imp`) carries the `rollback`
+      oracle (`verify.rollback`), via the unchanged `_matrix_run_one`.
+- [x] Driver exits non-zero iff any cell FAILs; per-cell PASS/FAIL/SKIP
+      summary + re-run hint printed (shared `matrix_summary_format` /
+      `matrix_run_exit_code`; asserted in `matrix-smoke.bats`).
+- [~] Live KVM run via detached `systemd-run` — LAUNCHED (see the commit's
+      follow-up); the mechanism is fully seam-tested. Result recorded below
+      once the background run completes.
+- [x] Usage/help updated; no git-hook/CI wiring; no `matrix_records` /
+      manifest / coverage touched (`matrix.sh gen` output unchanged).
+- [x] `tests/matrix/*` (12/12) and `tests/run.sh` (1857, 0 fail) pass.
 
 ## Blocked by
 

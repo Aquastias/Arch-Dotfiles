@@ -22,8 +22,9 @@
   || source "${BASH_SOURCE[0]%/*}/profile.sh"
 
 # matrix_run [<cell-id>] — emit the cell's profile and run it through the VM
-# Harness. The oracle decides boot verification: plain/impermanent cells
-# power-cycle (--verify-boot); encrypted and gpu≠auto cells run install-only
+# Harness. The oracle decides boot verification: plain/impermanent AND encrypted
+# cells power-cycle (--verify-boot) — the Console Answerer unlocks encrypted
+# roots over serial (matrix issue 07); only gpu≠auto cells run install-only
 # (INSTALLER-EXIT-0 is the whole oracle). Defaults to the tracer cell.
 matrix_run() {
   local id="${1:-zfs-single-plain}"
