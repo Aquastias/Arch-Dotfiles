@@ -58,6 +58,56 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "← Back"
 }
 
+@test "list(datapools): offers both + Add data pool and + Add storage group" {
+  printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "+ Add data pool"
+  echo "$output" | grep -q "+ Add storage group"
+}
+
+@test "enter(datapools): + Add storage group appends data at /data (mirror ×2)" {
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_enter "+ Add storage group"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.storage_groups[0].name' "$GUIDED_STATE_FILE")" = "data" ]
+  [ "$(jq -r '.storage_groups[0].mount' "$GUIDED_STATE_FILE")" = "/data" ]
+  [ "$(jq -r '.storage_groups[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
+  [ "$(jq -r '.storage_groups[0].disk_count' "$GUIDED_STATE_FILE")" = "2" ]
+  [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
+}
+
+@test "enter(datapools): a second + Add storage group auto-names it data1" {
+  printf '%s\n' \
+    '{"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_datapools Disks)"
+  run guided_ctl_enter "+ Add storage group"
+  [ "$(jq -r '.storage_groups[1].name' "$GUIDED_STATE_FILE")" = "data1" ]
+  [ "$(jq -r '.storage_groups[1].mount' "$GUIDED_STATE_FILE")" = "/data1" ]
+}
+
+# End-to-end: Custom seed → OS mirror ×2 + a raidz1 ×3 storage group is byte-
+# identical to the os-mirror-raidz1 preset (AC3: reconstruct every preset).
+@test "custom authoring reconstructs the os-mirror-raidz1 preset exactly" {
+  _ctl_write_state "$(edit_apply_skeleton '{}' "$(skeleton_custom_seed)")"
+  # OS pool → mirror ×2
+  set_nav "$(nav_to_pooledit Disks 0 os)"
+  guided_ctl_enter "topology: none   (Enter cycles)" >/dev/null
+  guided_ctl_enter "disks: 1   (Enter cycles 1-8)" >/dev/null
+  # + storage group → raidz1 ×3
+  set_nav "$(nav_to_datapools Disks)"
+  guided_ctl_enter "+ Add storage group" >/dev/null
+  set_nav "$(nav_to_pooledit Disks 0 storage)"
+  guided_ctl_enter "topology: mirror   (Enter cycles)" >/dev/null
+  guided_ctl_enter "disks: 2   (Enter cycles 1-8)" >/dev/null
+
+  local authored preset
+  authored="$(jq -S '{mode,os_pool,storage_groups}' "$GUIDED_STATE_FILE")"
+  preset="$(skeleton_preset os-mirror-raidz1 | jq -S '{mode,os_pool,storage_groups}')"
+  [ "$authored" = "$preset" ]
+}
+
 @test "enter(datapools): the OS pool row opens the os pool editor" {
   printf '%s\n' "$ALL" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_datapools Disks)"

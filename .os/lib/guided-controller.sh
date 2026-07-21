@@ -494,13 +494,35 @@ _ctl_layout_graph() {
 }
 
 # _ctl_add_data_pool <state> → state with one more data pool appended (auto-named
-# tank<N>, default mirror ×2), forcing multi mode + a default OS pool. Shared by
-# the data-pools editor's "+ Add" and by picking "data-pools" in the layout.
+# tank<N>, default single-disk stripe ×1), forcing multi mode + a default OS pool.
+# A 1-disk stripe is the friendliest default: it is the smallest installable pool
+# (so adding several tanks never balloons the disk requirement), matches the
+# data-pools preset, and the user cycles up to mirror/raidz for redundancy. Shared
+# by the data-pools editor's "+ Add" and by picking "data-pools" in the layout.
 _ctl_add_data_pool() {
   jq '
     (.data_pools // []) as $dp
     | .data_pools = ($dp + [{name:("tank" + (($dp | length) | tostring)),
-                             topology:"mirror", disk_count:2}])
+                             topology:"stripe", disk_count:1}])
+    | .mode = "multi"
+    | (if .os_pool then . else
+        .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
+    ' <<<"$1"
+}
+
+# _ctl_add_storage_group <state> → state with one more storage group appended,
+# forcing multi mode + a default OS pool. Storage groups fold into the shared
+# `dpool` (each a redundant data area at /<name>), so a new one defaults to
+# mirror ×2; the user cycles to raidz1 ×3 to rebuild the os-mirror-raidz1 preset.
+# The first group is auto-named "data" at /data (preset parity), then data1, …
+# Shared by the data-pools editor's "+ Add storage group".
+_ctl_add_storage_group() {
+  jq '
+    (.storage_groups // []) as $sg
+    | ($sg | length) as $n
+    | (if $n == 0 then "data" else "data" + ($n | tostring) end) as $nm
+    | .storage_groups = ($sg + [{name:$nm, mount:("/" + $nm),
+                                 topology:"mirror", disk_count:2}])
     | .mode = "multi"
     | (if .os_pool then . else
         .os_pool = {pool_name:"rpool", topology:"none", disk_count:1} end)
@@ -642,8 +664,8 @@ _ctl_pool_toggle_disk() {
 
 # _ctl_disks_row <group-json> <count-editable 0|1> — the pooledit "disks:" row.
 # Device-mode shows the bound count and opens the sub-screen; count-mode shows
-# the 1-8 cycle when editable (OS pool, data pool) or a plain count when not
-# (a storage group, whose disk count is preset-fixed).
+# the 1-8 cycle when editable (OS pool, data pool, storage group) or a plain
+# count when not.
 _ctl_disks_row() {
   local p="$1" editable="$2"
   if _ctl_device_mode; then
@@ -803,11 +825,13 @@ guided_ctl_list() {
              | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$_eff"
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
       <<<"$_eff"
-    # The "+ Add data pool" row stays visible in BOTH chromes: building the pool
-    # list is this screen's primary action, and a footer-only ^A hint proved
-    # undiscoverable (users saw tank0 and no way to add tank1). ← Back is legacy-
-    # only (rich chrome backs out with Esc).
-    printf '%s\n' "+ Add data pool"
+    # The "+ Add …" rows stay visible in BOTH chromes: building the layout is this
+    # screen's primary action, and a footer-only ^A hint proved undiscoverable
+    # (users saw tank0 and no way to add more). A data pool is an independent zpool
+    # (own fs/encryption); a storage group folds into the shared `dpool` — offering
+    # both lets Custom reconstruct every preset (incl. os-mirror-raidz1). ← Back is
+    # legacy-only (rich chrome backs out with Esc).
+    printf '%s\n' "+ Add data pool" "+ Add storage group"
     _ctl_action_row "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
@@ -827,12 +851,15 @@ guided_ctl_list() {
       _ctl_disks_row "$p" 1
       _ctl_action_row "← Back" ;;
     storage)
-      # Storage group: binding-only. Everything but disks is preset-fixed and
-      # shown without an "(Enter cycles)" hint, so Enter on it is a no-op.
-      printf 'mount: %s\n' "$(jq -r '.mount // "?"' <<<"$p")"
-      printf 'topology: %s\n' "$(jq -r '.topology // "?"' <<<"$p")"
-      _ctl_disks_row "$p" 0
-      _ctl_action_row "← Back" ;;
+      # Storage group: a redundant data area folded into the shared `dpool`. Its
+      # topology + disk count are editable (so Custom can rebuild os-mirror-raidz1);
+      # the mount is display-only (defaults to /<name>). It inherits the root
+      # filesystem — no per-group fs/encryption rows (that is the data-pool path).
+      printf 'topology: %s   (Enter cycles)\n' \
+        "$(jq -r '.topology // "?"' <<<"$p")"
+      _ctl_disks_row "$p" 1
+      printf 'mount: %s\n' "$(jq -r '.mount // ("/" + (.name // "data"))' <<<"$p")"
+      _ctl_action_row "✗ remove this group" "← Back" ;;
     *)
       printf 'filesystem: %s   (Enter cycles)\n' \
         "$(jq -r --arg r "$_rootfs" '.filesystem // $r' <<<"$p")"
@@ -1095,6 +1122,9 @@ _ctl_enter_datapools() {
   nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
   case "$line" in
   "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "+ Add storage"*)
+    _ctl_write_state "$(_ctl_add_storage_group "$(_ctl_state)")"
+    echo refresh; return ;;
   "+ Add"*)
     _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
     echo refresh; return ;;
@@ -1136,8 +1166,6 @@ _ctl_enter_pooledit() {
     _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$kind" "$i")"
     _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render; return ;;
   "topology:"*)
-    # A storage group's topology is preset-fixed (display-only) — no cycle.
-    [[ "$kind" == "storage" ]] && { echo refresh; return; }
     # The cycle follows the group's own filesystem (pool value, else the root
     # filesystem, else zfs) so btrfs groups get raid0/1/10 and ext4/xfs stay
     # pinned to single (issue 09, ADR 0043).
@@ -1177,8 +1205,6 @@ _ctl_enter_pooledit() {
       _ctl_write_nav "$(nav_to_pooldisks "$cat" "$i" "$kind")"
       echo render; return
     fi
-    # Count-mode: a storage group's disk count is preset-fixed (display-only).
-    [[ "$kind" == "storage" ]] && { echo refresh; return; }
     # ext4/xfs are single-disk only (ADR 0043): their disk count is pinned at 1,
     # so the cycle is a no-op there; other filesystems cycle 1-8.
     p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
@@ -1283,10 +1309,9 @@ guided_ctl_action() {
   remove)
     case "$screen" in
     pooledit)
-      # Only a standalone data pool is removable (the OS pool is structural, a
-      # storage group is preset-fixed).
+      # Data pools and storage groups are removable; the OS pool is structural.
       local i k; i="$(nav_get "$nav" index)"; k="$(_ctl_pool_kind "$nav")"
-      [[ "$k" == "data" ]] || { echo noop; return; }
+      [[ "$k" == "data" || "$k" == "storage" ]] || { echo noop; return; }
       _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"
       _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render ;;
     *) echo noop ;;
@@ -1343,8 +1368,11 @@ _ctl_footer() {
   case "$(nav_screen "$nav")" in
   datapools) acts='^A add pool · Esc back' ;;
   pooledit)
-    [[ "$(_ctl_pool_kind "$nav")" == "data" ]] \
-      && acts='^X remove pool · Esc back' || acts='Esc back' ;;
+    case "$(_ctl_pool_kind "$nav")" in
+    data)    acts='^X remove pool · Esc back' ;;
+    storage) acts='^X remove group · Esc back' ;;
+    *)       acts='Esc back' ;;
+    esac ;;
   pooldisks) acts='Enter bind/unbind · Esc back' ;;
   rootdisk)  acts='Enter pick · Esc back' ;;
   values)

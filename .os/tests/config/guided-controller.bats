@@ -453,13 +453,13 @@ _seed_baseline() {
   [ "$(jq '.data_pools | length' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
-@test "enter(datapools): + Add appends tank0 (mirror ×2) and forces multi" {
+@test "enter(datapools): + Add appends tank0 (single-disk stripe ×1) and forces multi" {
   set_nav "$(nav_to_datapools Disks)"
   run guided_ctl_enter "+ Add data pool"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.data_pools[0].name' "$GUIDED_STATE_FILE")" = "tank0" ]
-  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "mirror" ]
-  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "2" ]
+  [ "$(jq -r '.data_pools[0].topology' "$GUIDED_STATE_FILE")" = "stripe" ]
+  [ "$(jq -r '.data_pools[0].disk_count' "$GUIDED_STATE_FILE")" = "1" ]
   [ "$(jq -r '.mode' "$GUIDED_STATE_FILE")" = "multi" ]
   [ -n "$(jq -r '.os_pool.pool_name' "$GUIDED_STATE_FILE")" ]
 }

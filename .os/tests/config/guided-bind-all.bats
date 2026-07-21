@@ -83,28 +83,30 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -r '.os_pool.disk_count' "$GUIDED_STATE_FILE")" = "1" ]
 }
 
-# ── Storage group editor: binding-only (AC2) ─────────────────────────────────
+# ── Storage group editor: topology/disks editable, mount fixed (AC2) ─────────
+# Storage groups are authorable in Custom (rebuild os-mirror-raidz1): topology +
+# disk count cycle and the group is removable; mount stays display-only and there
+# are no per-group fs/encryption rows (a storage group inherits the root fs).
 
-@test "list(pooledit storage): disks bindable, rest display-only" {
+@test "list(pooledit storage): topology/disks editable, mount fixed, removable" {
   GUIDED_DEVICE_MODE=1
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_pooledit Disks 0 storage)"
   run guided_ctl_list
   echo "$output" | grep -q "name: data"
   echo "$output" | grep -q "mount: /data"
-  echo "$output" | grep -q "topology: raidz1"
-  ! echo "$output" | grep -q "topology: raidz1   (Enter cycles)"
+  ! echo "$output" | grep -q "mount: /data   (Enter to edit)"
+  echo "$output" | grep -q "topology: raidz1   (Enter cycles)"
   echo "$output" | grep -q "disks: 0 bound   (Enter to edit)"
   ! echo "$output" | grep -q "filesystem:"
-  ! echo "$output" | grep -q "remove"
+  echo "$output" | grep -q "remove"
 }
 
-@test "enter(pooledit storage): topology is display-only (noop)" {
+@test "enter(pooledit storage): topology cycles (raidz1 → raidz2)" {
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_pooledit Disks 0 storage)"
-  run guided_ctl_enter "topology: raidz1"
-  [ "$output" = "refresh" ]
-  [ "$(jq -r '.storage_groups[0].topology' "$GUIDED_STATE_FILE")" = "raidz1" ]
+  run guided_ctl_enter "topology: raidz1   (Enter cycles)"
+  [ "$(jq -r '.storage_groups[0].topology' "$GUIDED_STATE_FILE")" = "raidz2" ]
 }
 
 @test "enter(pooledit storage): device-mode disks opens the sub-screen" {
@@ -117,13 +119,20 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" kind)" = "storage" ]
 }
 
-@test "enter(pooledit storage): count-mode disks is display-only (noop)" {
+@test "enter(pooledit storage): count-mode disks cycles (3 → 4)" {
   GUIDED_DEVICE_MODE=0
   printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_pooledit Disks 0 storage)"
-  run guided_ctl_enter "disks: 3"
-  [ "$output" = "refresh" ]
-  [ "$(jq -r '.storage_groups[0].disk_count' "$GUIDED_STATE_FILE")" = "3" ]
+  run guided_ctl_enter "disks: 3   (Enter cycles 1-8)"
+  [ "$(jq -r '.storage_groups[0].disk_count' "$GUIDED_STATE_FILE")" = "4" ]
+}
+
+@test "enter(pooledit storage): remove deletes the group, returns to the list" {
+  printf '%s\n' "$SG" > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0 storage)"
+  run guided_ctl_enter "✗ remove this group"
+  [ "$(jq -c '.storage_groups' "$GUIDED_STATE_FILE")" = "[]" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
 # ── single-disk root row + picker (AC3) ──────────────────────────────────────

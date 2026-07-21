@@ -42,7 +42,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # IS the Effective Config, so we validate it directly.
 @test "AC4: a guided-authored zfs-root + encrypted ext4 data group validates" {
   set_nav "$(nav_to_datapools Disks)"
-  guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs mirror ×2
+  guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
   set_nav "$(nav_to_pooledit Disks 0)"
   guided_ctl_enter "filesystem: zfs   (Enter cycles)"   >/dev/null  # → btrfs
   guided_ctl_enter "filesystem: btrfs   (Enter cycles)" >/dev/null  # → ext4 (pins)
@@ -65,7 +65,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # A btrfs group authored with native raid also validates (raid1 is legal btrfs).
 @test "AC4: a guided-authored btrfs raid1 data group validates" {
   set_nav "$(nav_to_datapools Disks)"
-  guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs mirror ×2
+  guided_ctl_enter "+ Add data pool" >/dev/null      # tank0: zfs stripe ×1
   set_nav "$(nav_to_pooledit Disks 0)"
   guided_ctl_enter "filesystem: zfs   (Enter cycles)" >/dev/null    # → btrfs (topo→single)
   guided_ctl_enter "topology: single   (Enter cycles)" >/dev/null   # → raid0
