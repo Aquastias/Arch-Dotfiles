@@ -827,11 +827,14 @@ guided_ctl_list() {
       <<<"$_eff"
     # The "+ Add …" rows stay visible in BOTH chromes: building the layout is this
     # screen's primary action, and a footer-only ^A hint proved undiscoverable
-    # (users saw tank0 and no way to add more). A data pool is an independent zpool
-    # (own fs/encryption); a storage group folds into the shared `dpool` — offering
-    # both lets Custom reconstruct every preset (incl. os-mirror-raidz1). ← Back is
-    # legacy-only (rich chrome backs out with Esc).
-    printf '%s\n' "+ Add data pool" "+ Add storage group"
+    # (users saw tank0 and no way to add more). The parentheticals spell out the
+    # distinction so the choice is obvious at author time: a data pool is an
+    # independent zpool (own filesystem + own key); a storage group folds into the
+    # shared `dpool` (zfs, disk-wide key). Offering both lets Custom reconstruct
+    # every preset (incl. os-mirror-raidz1). ← Back is legacy-only (Esc in rich).
+    printf '%s\n' \
+      "+ Add data pool  (standalone pool · any filesystem · own key)" \
+      "+ Add storage group  (shared dpool · zfs · disk-wide key)"
     _ctl_action_row "← Back" ;;
   pooledit)
     local i kind p _eff _rootfs
@@ -859,6 +862,11 @@ guided_ctl_list() {
         "$(jq -r '.topology // "?"' <<<"$p")"
       _ctl_disks_row "$p" 1
       printf 'mount: %s\n' "$(jq -r '.mount // ("/" + (.name // "data"))' <<<"$p")"
+      # Storage groups share dpool's encryption (the disk-wide setting) — shown
+      # read-only, since they have no independent key (that is the data-pool path).
+      printf 'encryption: %s   (disk-wide, shared)\n' \
+        "$([[ "$(jq -r '.options.encryption // false' <<<"$_eff")" == "true" ]] \
+           && echo on || echo off)"
       _ctl_action_row "✗ remove this group" "← Back" ;;
     *)
       printf 'filesystem: %s   (Enter cycles)\n' \
@@ -1190,6 +1198,8 @@ _ctl_enter_pooledit() {
     _ctl_write_state "$(_ctl_pool_normalise_fs "$(_ctl_state)" "$i" "$_next")"
     echo refresh; return ;;
   "encryption:"*)
+    # Storage groups inherit dpool's disk-wide encryption — no per-group toggle.
+    [[ "$kind" == "storage" ]] && { echo refresh; return; }
     p="$(_ctl_pool_get "$(_ctl_state)" "$kind" "$i")"
     _ctl_write_state "$(_ctl_pool_set "$(_ctl_state)" "$kind" "$i" \
       "$(jq -c '.encryption = ((.encryption // false) | not)' <<<"$p")")"
@@ -1276,13 +1286,34 @@ guided_ctl_back() {
 }
 
 # ── ^A / ^X context actions (ADR 0047 rich chrome) ───────────────────────────
+# _ctl_datapools_line_ref <line> — the "<kind> <index>" of the pool a highlighted
+# datapools list row addresses, or empty for a non-pool row (OS pool / + Add / ←
+# Back). Shared by ^X-on-list removal. Pure: reads state to resolve name→index.
+_ctl_datapools_line_ref() {
+  local line="$1" name idx state; state="$(_ctl_state)"
+  case "$line" in
+  "OS pool:"* | "+ Add"* | "← Back") return 0 ;;
+  *" (storage):"*)
+    name="${line%% (storage):*}"
+    idx="$(jq -r --arg n "$name" \
+      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' <<<"$state")"
+    [[ "$idx" =~ ^[0-9]+$ ]] && printf 'storage %s' "$idx" ;;
+  *)
+    name="${line%%:*}"
+    idx="$(jq -r --arg n "$name" \
+      '[(.data_pools // [])[] | .name] | (index($n) // -1)' <<<"$state")"
+    [[ "$idx" =~ ^[0-9]+$ ]] && printf 'data %s' "$idx" ;;
+  esac
+}
+
 # The add/create/remove affordances that legacy chrome puts in the list ride on
-# keybindings in rich mode. guided_ctl_action <add|remove> runs the current
-# screen's context action and returns a directive (like the enter handlers), so
-# ^A/^X work identically to the legacy action rows. A screen with no matching
-# action returns `noop`.
+# keybindings in rich mode. guided_ctl_action <add|add-storage|remove> [<line>]
+# runs the current screen's context action and returns a directive (like the
+# enter handlers), so ^A/^S/^X work identically to the legacy action rows. <line>
+# is the highlighted row (used by ^X on the datapools list). A screen with no
+# matching action returns `noop`.
 guided_ctl_action() {
-  local kind="$1" nav screen cat; nav="$(_ctl_nav)"
+  local kind="$1" line="${2:-}" nav screen cat; nav="$(_ctl_nav)"
   screen="$(nav_screen "$nav")"; cat="$(nav_get "$nav" category)"
   case "$kind" in
   add)
@@ -1306,6 +1337,13 @@ guided_ctl_action() {
       else echo noop; fi ;;
     *) echo noop ;;
     esac ;;
+  add-storage)
+    # ^S — add a storage group (only meaningful on the datapools editor).
+    case "$screen" in
+    datapools)
+      _ctl_write_state "$(_ctl_add_storage_group "$(_ctl_state)")"; echo refresh ;;
+    *) echo noop ;;
+    esac ;;
   remove)
     case "$screen" in
     pooledit)
@@ -1314,6 +1352,13 @@ guided_ctl_action() {
       [[ "$k" == "data" || "$k" == "storage" ]] || { echo noop; return; }
       _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"
       _ctl_write_nav "$(nav_to_datapools "$cat")"; echo render ;;
+    datapools)
+      # ^X on a highlighted pool row removes it in place (stay on the list). A
+      # non-pool row (OS pool / + Add / ← Back) resolves to nothing → noop.
+      local ref k i; ref="$(_ctl_datapools_line_ref "$line")"
+      [[ -n "$ref" ]] || { echo noop; return; }
+      k="${ref%% *}"; i="${ref##* }"
+      _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"; echo refresh ;;
     *) echo noop ;;
     esac ;;
   *) echo noop ;;
@@ -1366,7 +1411,7 @@ _ctl_footer_summary() {
 _ctl_footer() {
   local nav="$1" acts
   case "$(nav_screen "$nav")" in
-  datapools) acts='^A add pool · Esc back' ;;
+  datapools) acts='^A data pool · ^S storage group · ^X remove · Esc back' ;;
   pooledit)
     case "$(_ctl_pool_kind "$nav")" in
     data)    acts='^X remove pool · Esc back' ;;

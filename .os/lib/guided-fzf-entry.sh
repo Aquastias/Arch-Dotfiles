@@ -37,10 +37,13 @@ dispatch)
   _guided_directive_to_action "$_d" "$_entry_self"
   ;;
 key)
-  # ^A/^X — context add/remove (rich chrome); ^Z/^Y/^R — undo/redo/reset.
+  # ^A add / ^S add storage / ^X remove — context actions (rich chrome); ^Z/^Y/^R
+  # — undo/redo/reset. ^X carries the highlighted line ({}) so it can remove the
+  # pool under the cursor on the datapools list.
   case "${2:-}" in
   ctrl-a) _dk="$(guided_ctl_action add)" ;;
-  ctrl-x) _dk="$(guided_ctl_action remove)" ;;
+  ctrl-s) _dk="$(guided_ctl_action add-storage)" ;;
+  ctrl-x) _dk="$(guided_ctl_action remove "${3:-}")" ;;
   *)      _dk="$(guided_ctl_key "${2:-}")" ;;
   esac
   _guided_directive_to_action "$_dk" "$_entry_self"

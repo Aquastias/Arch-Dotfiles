@@ -135,6 +135,27 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "datapools" ]
 }
 
+# Storage groups share dpool's encryption (the disk-wide setting) — shown read-
+# only, so Enter is a no-op (no independent per-group key; that is the data path).
+@test "list(pooledit storage): encryption line reflects the disk-wide setting" {
+  printf '%s\n' \
+    '{"mode":"multi","options":{"encryption":true},"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0 storage)"
+  run guided_ctl_list
+  echo "$output" | grep -q "encryption: on   (disk-wide, shared)"
+}
+
+@test "enter(pooledit storage): encryption row is read-only (noop)" {
+  printf '%s\n' \
+    '{"options":{"encryption":true},"storage_groups":[{"name":"data","mount":"/data","topology":"raidz1","disk_count":3}]}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_pooledit Disks 0 storage)"
+  run guided_ctl_enter "encryption: on   (disk-wide, shared)"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.storage_groups[0] | has("encryption")' "$GUIDED_STATE_FILE")" = "false" ]
+}
+
 # ── single-disk root row + picker (AC3) ──────────────────────────────────────
 
 @test "list(category Disks): device-mode single shows the root disk row" {
