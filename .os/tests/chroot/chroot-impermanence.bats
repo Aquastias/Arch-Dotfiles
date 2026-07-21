@@ -115,11 +115,9 @@ run_enabled() {
   grep -qE "^What=/persist/etc/machine-id$" "$u"
 }
 
-@test "enabled: file .mount has Where=/etc/machine-id" {
-  run_enabled
-  local u="$FAKEROOT/usr/lib/systemd/system/etc-machine\\x2did.mount"
-  grep -qE "^Where=/etc/machine-id$" "$u"
-}
+# Where= ↔ escaped-name correctness (the persist-<esc>.mount class) is now
+# asserted for real, across every curated entry, by tests/chroot/
+# mount-unit-validate.bats via `systemd-analyze verify` — no raw grep here.
 
 @test "enabled: file .mount has Type=none and Options=bind" {
   run_enabled
@@ -144,7 +142,7 @@ run_enabled() {
   local u="$FAKEROOT/usr/lib/systemd/system/etc-ssh.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/ssh$" "$u"
-  grep -qE "^Where=/etc/ssh$" "$u"
+  # Where= correctness now validated for real (mount-unit-validate.bats).
 }
 
 @test "enabled: a .mount unit exists for every CURATED_DIRS entry" {
