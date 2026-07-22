@@ -429,12 +429,15 @@ every boot without the USB.
 │   ├── config/             # Schema, load, merge, validation, guided
 │   ├── layout/             # fs/mode-keyed dispatch (zfs/btrfs/ext4/
 │   │                       #   xfs/nonzfs) + core.sh + dispatch.sh
+│   │                       #   + data-pools.sh (standalone pools)
 │   ├── zfs/                # pools, module guard, verify, pool-owners
 │   ├── packages/           # list (collect+pacstrap), kernel,
 │   │                       #   microcode, iso-resolver
 │   ├── boot/               # esp-kernel-sync, stray-kernel, zswap
 │   ├── wipe/               # targets, method, execute, progress
 │   ├── profiles/           # runner + program-runner
+│   ├── matrix/             # Combination Matrix test harness
+│   │                       #   (assemble/cells/pairwise/synth/run)
 │   ├── chroot.sh           # Stage scripts, run arch-chroot
 │   ├── chroot/             # Scripts run inside the chroot
 │   ├── shell-stdlib.sh     # Facade over lib/shell/*
@@ -475,7 +478,9 @@ every boot without the USB.
 │   ├── fetch-iso.sh        # Download + verify archzfs ISO
 │   ├── generate-configs.sh # Materialize per-user stow tree
 │   ├── harden-boot.sh      # Boot-path hardening
-│   └── guided-preview.sh   # Live-fzf render harness
+│   ├── guided-preview.sh   # Live-fzf render harness
+│   ├── guided-fzf-smoke.py # Headless fzf-render smoke helper
+│   └── matrix.sh           # Combination Matrix runner (ADR 0046)
 │
 ├── tests/                  # BATS + VM integration tests
 │   ├── run.sh              # BATS runner
@@ -487,7 +492,8 @@ every boot without the USB.
 │
 ├── vm/                     # Profile-driven VMs (vm.sh --profile)
 │   ├── vm.sh               # Single entry point (+ --testing)
-│   ├── lib/                # core.sh + flow-persistent/flow-test
+│   ├── lib/                # core.sh + flow-{persistent,test,guided}
+│   │                       #   + seed/sentinel/console + verifiers
 │   ├── profiles/           # Persistent VM Profiles (desktop/, headless/)
 │   └── fixtures/           # Staged install fixtures (e.g. key.age)
 │
@@ -677,6 +683,25 @@ disk and waits for the first-boot sentinel. Timeout defaults to
 
 The ISO is auto-resolved to the newest archzfs-compatible Arch
 release (cached in `tests/vm/.vm-test/`).
+
+### Combination Matrix (`tools/matrix.sh`)
+
+Two-tier "no menu combo errors on install" testing over the config
+axes derived from the menu (ADR 0046). Tier-1 is a no-VM exhaustive
+storage sweep (assemble + validate, always-on bats); Tier-2 runs a
+pairwise-reduced + pinned set of cells as real VM installs through the
+positional config seam. `matrix.sh` mirrors `vm.sh` with three
+subcommands over a generated cell manifest:
+
+```bash
+bash tools/matrix.sh gen              # emit the cell manifest
+bash tools/matrix.sh emit <cell-id>   # materialize one cell → VM Profile
+bash tools/matrix.sh run              # install cell(s) in a VM
+```
+
+Generator/adapter logic lives in `lib/matrix/` so it is unit-testable
+without the driver. Re-run `matrix.sh gen` and commit after any menu
+change (a drift-guard bats fails otherwise).
 
 ---
 

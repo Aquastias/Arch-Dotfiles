@@ -326,7 +326,7 @@ flowchart TD
 | Concept | Term (`../CONTEXT.md`) | ADR |
 |---|---|---|
 | Picker as install.sh front-end | Pre-Install Picker | 0036, 0010 |
-| Guided Installer (fzf TUI front-end) | Guided Installer | 0039, 0041, 0042 |
+| Guided Installer (fzf TUI front-end) | Guided Installer | 0039, 0041, 0042, 0047 |
 | Unified profile + effective config | Host Profile / Effective Config | 0036 |
 | Layout modes/validation | Layout Module | 0014, 0016 |
 | Filesystem adapter axis (zfs/btrfs/ext4/xfs) | Filesystem Adapter | 0040, 0043 |

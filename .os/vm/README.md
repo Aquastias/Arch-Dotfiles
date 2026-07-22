@@ -104,5 +104,11 @@ INSTALL_TIMEOUT_SEC=7200   bash vm/vm.sh --profile desktop/kde   # longer instal
 8. Waits for poweroff, then restarts — OVMF finds the systemd-boot EFI
    entry written during install and boots the installed system.
 
-All harness code lives under `vm/lib/` (`core.sh`, `flow-persistent.sh`,
-`flow-test.sh`); the entry point never depends on a `tests/` path.
+All harness code lives under `vm/lib/`: shared host-side core
+(`core.sh`), the three flows (`flow-persistent.sh`, `flow-test.sh`,
+`flow-guided.sh`), profile resolution/validation (`profile.sh`,
+`profile-validate.sh`), the seed/sentinel/console plumbing
+(`seed-generator.sh`, `sentinel-watcher.sh`, `console-answerer.sh`),
+and the booted-system verifiers (`vm-pool-verify.sh`,
+`esp-resilience-verify.sh`). The entry point never depends on a
+`tests/` path.
