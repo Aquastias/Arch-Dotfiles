@@ -1,6 +1,6 @@
 # Guided In-Menu Disk Binding + Freeform Custom Layouts
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: **ADR 0047** (guided in-menu disk binding + freeform custom
 layouts), building on ADR 0036 (device-less Host Profile / Effective Config),
