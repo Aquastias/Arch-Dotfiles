@@ -129,9 +129,16 @@ _resolve_env_gpu() {
 # renders to a display the panel can't show → black screen (KDE/KWin negotiates
 # this itself; Hyprland does not). AQ_DRM_DEVICES=<igpu>:<dgpu> makes Hyprland use
 # the panel's GPU first. Emitted to /etc/environment so PAM applies it to EVERY
-# session (no uwsm needed; KDE ignores AQ_DRM_DEVICES); written before the
-# impermanence @blank snapshot so it survives the /etc rollback. Stable PCI
-# by-path nodes — /dev/dri/cardN numbers are not stable across boots.
+# session (no uwsm needed); written before the impermanence @blank snapshot so it
+# survives the /etc rollback. Stable PCI by-path nodes — /dev/dri/cardN numbers
+# are not stable across boots.
+#
+# ONLY AQ_DRM_DEVICES is written: it is Hyprland/aquamarine-specific and inert to
+# every other client. Do NOT add global LIBVA_DRIVER_NAME / __GLX_VENDOR_LIBRARY
+# _NAME / NVD_BACKEND here — those force the offload (nvidia) driver on EVERY GL/
+# VA client, including the SDDM greeter and KDE, which run on the iGPU-driven
+# panel → the greeter renders a blank grey screen (regression, fixed here). Per-
+# app nvidia offload is a runtime concern (prime-run), not a global default.
 
 # Wraps `lspci -D -nn` (domain-qualified). Override in tests.
 _gpu_lspci_output_d() { lspci -D -nn 2>/dev/null; }
@@ -173,9 +180,6 @@ gpu_write_session_env() {
   {
     echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see environment.sh)'
     echo "AQ_DRM_DEVICES=$_devs"
-    echo 'LIBVA_DRIVER_NAME=nvidia'
-    echo '__GLX_VENDOR_LIBRARY_NAME=nvidia'
-    echo 'NVD_BACKEND=direct'
     echo '# <<< arch-dotfiles gpu'
   } >> "$_env"
 }

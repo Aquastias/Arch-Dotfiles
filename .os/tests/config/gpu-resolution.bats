@@ -172,15 +172,23 @@ _fake_lspci_d_hybrid() {
   [ "$output" = "/dev/dri/by-path/pci-0000:00:02.0-card:/dev/dri/by-path/pci-0000:01:00.0-card" ]
 }
 
-@test "gpu_write_session_env writes the env block under <root>/etc/environment" {
+@test "gpu_write_session_env writes AQ_DRM_DEVICES under <root>/etc/environment" {
   ENVIRONMENT_GPU=("amd" "nvidia")
   _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
   local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
   gpu_write_session_env "$root"
   grep -qF 'AQ_DRM_DEVICES=/dev/dri/by-path/pci-0000:34:00.0-card:/dev/dri/by-path/pci-0000:01:00.0-card' "$root/etc/environment"
-  grep -qxF 'LIBVA_DRIVER_NAME=nvidia' "$root/etc/environment"
-  grep -qxF '__GLX_VENDOR_LIBRARY_NAME=nvidia' "$root/etc/environment"
-  grep -qxF 'NVD_BACKEND=direct' "$root/etc/environment"
+}
+
+@test "gpu_write_session_env does NOT set global GLX/VA vars (greeter regression)" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
+  gpu_write_session_env "$root"
+  # forcing nvidia GLX/VA globally blanks the SDDM greeter on the iGPU panel
+  ! grep -q 'LIBVA_DRIVER_NAME' "$root/etc/environment"
+  ! grep -q '__GLX_VENDOR_LIBRARY_NAME' "$root/etc/environment"
+  ! grep -q 'NVD_BACKEND' "$root/etc/environment"
 }
 
 @test "gpu_write_session_env is a no-op for non-hybrid GPUs" {
