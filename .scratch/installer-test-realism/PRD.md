@@ -1,9 +1,36 @@
 # PRD: Installer test realism + speed
 
-Status: ready-for-agent
+Status: done
 Category: enhancement
 
 ADR: `docs/adr/0048-installer-test-realism-tiers.md`
+
+## Closeout (2026-07-22)
+
+The realism goal is delivered and live-verified. The unprivileged validator
+tier runs the REAL generators through REAL validators — mount units +
+resolved user units → `systemd-analyze verify`, initcpio HOOKS → real
+`mkinitcpio` build, fstab → structural lint — each SKIP-aware and each
+trimming/keeping assertions honestly (issues 01/03/04/05, all done). The
+curated VM boot smoke (`matrix.sh smoke`, issue 06) ran GREEN in KVM: all four
+cells `INSTALLER-EXIT-0`+`FIRSTBOOT-OK`, including the encrypted cell
+boot-verified headless via the Console Answerer; it also surfaced + fixed a
+pre-existing driver bug (VM stdout polluting the result summary).
+
+Two documented scope changes from the original spec:
+
+- **Config-speed track de-scoped (issue 02, wontfix).** Measured: the
+  tests-only `setup_file` lever is blocked by non-exportable bash array
+  constants and, since `run.sh` already parallelises within-file, buys only
+  ~1-2 s off the wall. The real lever is the deferred lib `jq`-batching
+  (also speeds the live TUI) — tracked separately, not this PRD.
+- **systemd-boot loader-entry validation deferred to the VM tier (issue
+  05).** The emitter is a chroot script writing hardcoded `/boot/efi` paths
+  with no unprivileged seam; its output is exercised by the VM smoke, not the
+  validator tier. Recorded, not faked.
+
+Full suite: 1858 passing, 0 fails. Commits `a0227f1`→`1e2177d` on `main`
+(test-only; unpushed).
 
 ## Problem Statement
 

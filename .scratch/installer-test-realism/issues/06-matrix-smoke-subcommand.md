@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # `matrix.sh smoke` curated boot set (on-demand)
 
