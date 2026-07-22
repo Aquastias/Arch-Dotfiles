@@ -124,11 +124,15 @@ _resolve_env_gpu() {
 # HYBRID GPU SESSION ENV (nvidia PRIME laptops)
 # =============================================================================
 # nvidia PRIME laptops wire the internal panel to the integrated GPU (amd/intel);
-# the nvidia dGPU only renders (offload). A Wayland compositor that scans out on
-# the nvidia node — Hyprland/aquamarine picks the first DRM device, often nvidia —
-# renders to a display the panel can't show → black screen (KDE/KWin negotiates
-# this itself; Hyprland does not). Setting AQ_DRM_DEVICES=<igpu>:<dgpu> makes
-# Hyprland scan out on the panel's GPU first.
+# the nvidia dGPU is powered OFF on-demand and only used for per-app offload
+# (prime-run/gamemode). The Wayland compositor must therefore scan out on the
+# iGPU — Hyprland/aquamarine otherwise picks the first DRM device (often nvidia)
+# and renders to a display the panel can't show, OR tries to open the powered-off
+# dGPU and crashes → black screen / bounce to the DM (KDE/KWin negotiates this
+# itself; Hyprland does not). AQ_DRM_DEVICES=<igpu> pins the compositor to the
+# panel's GPU. It lists the iGPU ONLY: including the dGPU makes aquamarine open
+# the powered-off nvidia node and fail; nvidia offload is per-app (DRI_PRIME /
+# prime-run), independent of the compositor's device list.
 #
 # TWO traps this avoids (both hit during bring-up):
 #  1. AQ_DRM_DEVICES is COLON-separated, and PCI `by-path` node names contain
@@ -136,12 +140,11 @@ _resolve_env_gpu() {
 #     reports "Found no gpus to use". `/dev/dri/cardN` has no colon but the number
 #     is not stable across boots. So we ship a udev rule that creates colon-free,
 #     vendor-stable symlinks (/dev/dri/aq-igpu, /dev/dri/aq-dgpu) and point
-#     AQ_DRM_DEVICES at those.
+#     AQ_DRM_DEVICES at the iGPU one.
 #  2. ONLY AQ_DRM_DEVICES is written (Hyprland/aquamarine-specific, inert to
 #     everything else). Do NOT set global LIBVA_DRIVER_NAME / __GLX_VENDOR_LIBRARY
 #     _NAME / NVD_BACKEND — those force the offload (nvidia) driver on EVERY GL/VA
 #     client incl. the SDDM greeter + KDE on the iGPU panel → blank grey greeter.
-#     Per-app nvidia offload is a runtime concern (prime-run), not a global env.
 #
 # The udev rule lands in /usr/lib (never a Rollback Dataset) and AQ_DRM_DEVICES in
 # /etc/environment before the @blank snapshot, so both survive impermanence.
@@ -186,7 +189,9 @@ gpu_write_session_env() {
     && sed -i '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$_env"
   {
     echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see environment.sh)'
-    echo 'AQ_DRM_DEVICES=/dev/dri/aq-igpu:/dev/dri/aq-dgpu'
+    echo '# Compositor on the iGPU only — the dGPU is off/on-demand; per-app'
+    echo '# nvidia offload is via prime-run, not this list.'
+    echo 'AQ_DRM_DEVICES=/dev/dri/aq-igpu'
     echo '# <<< arch-dotfiles gpu'
   } >> "$_env"
 }

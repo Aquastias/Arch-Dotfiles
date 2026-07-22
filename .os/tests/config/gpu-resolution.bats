@@ -171,11 +171,13 @@ teardown() {
   grep -q 'SYMLINK+="dri/aq-igpu"' "$root/usr/lib/udev/rules.d/60-aq-drm-devices.rules"
 }
 
-@test "write_session_env sets AQ_DRM_DEVICES to the colon-free symlinks, iGPU first" {
+@test "write_session_env pins AQ_DRM_DEVICES to the iGPU only (dGPU is off)" {
   ENVIRONMENT_GPU=("amd" "nvidia")
   local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
   gpu_write_session_env "$root"
-  grep -qxF 'AQ_DRM_DEVICES=/dev/dri/aq-igpu:/dev/dri/aq-dgpu' "$root/etc/environment"
+  grep -qxF 'AQ_DRM_DEVICES=/dev/dri/aq-igpu' "$root/etc/environment"
+  # the powered-off dGPU must NOT be in the compositor device list
+  ! grep -q 'aq-dgpu' <(grep '^AQ_DRM_DEVICES=' "$root/etc/environment")
 }
 
 @test "write_session_env does NOT set global GLX/VA vars (greeter regression)" {
