@@ -47,22 +47,24 @@ log — no human gate.
 - [x] Driver exits non-zero iff any cell FAILs; per-cell PASS/FAIL/SKIP
       summary + re-run hint printed (shared `matrix_summary_format` /
       `matrix_run_exit_code`; asserted in `matrix-smoke.bats`).
-- [~] Live KVM run — LAUNCHED and proven end-to-end up to VM boot:
-      preflight passed (kvm + libvirtd), all four curated cells selected from
-      the real generator, profiles emitted, `boot-verify=true` on the
-      encrypted cell (confirming no install-only carve-out), and the guard
-      scheduled real parallel VMs (`matrix-zfs-single-{plain,enc}`,
-      `matrix-zfs-mirror-plain`). The iso-resolver returned empty (`no
-      available archived ISO matches archzfs kernels: 7.1` — archzfs prebuilt
-      lags the ISO kernel). **Not a hard blocker:** the installer builds ZFS
-      via DKMS from source, so the known workaround is to pin a cached ISO via
-      `ISO_URL_OVERRIDE=<archive.archlinux.org monthly ISO>` (see the
-      vm-smoke memory), then `matrix.sh smoke` runs. No ISO is cached in
-      `~/Downloads` here, so
-      a live full run needs a ~1 GB download + a multi-hour babysit (RAM-bound
-      to ~1 VM at a time; the ~50% pre-DHCP poweroff transient needs relaunch).
-      Mechanism proven to VM-launch; the full install-to-green live run is a
-      documented runtime follow-up. VMs were torn down.
+- [x] **Live KVM run GREEN — all four cells install + boot-verify.** Ran
+      `ISO_URL_OVERRIDE=<2026.07.01 archive ISO> MATRIX_MAX_PARALLEL=1
+      matrix.sh smoke` (~1h38m serial). Console sentinels per cell —
+      `zfs-single-plain`, `zfs-mirror-plain`, `zfs-single-plain-imp`,
+      `zfs-single-enc` → each `INSTALLER-EXIT-0` + `FIRSTBOOT-OK`. The
+      **encrypted cell boot-verified headless** via the Console Answerer (no
+      `ENCRYPTED-BOOT-FAIL`, no install-only carve-out). Two environment
+      gotchas: (1) the iso-resolver returns empty on kernel 7.1 (archzfs
+      prebuilt lag) — pin a cached archive ISO; the installer builds ZFS via
+      DKMS from source. (2) the RAM guard oversubscribed (3×8 GB VMs on 15 GB
+      free — its MemAvailable check races QEMU's lazy allocation); force
+      `MATRIX_MAX_PARALLEL=1` on a RAM-tight host.
+- [x] **Fixed a pre-existing driver bug the live run surfaced:** in
+      `_matrix_run_one` the VM launch's verbose stdout leaked into the per-cell
+      result JSON, so the summary `jq` choked (`Invalid numeric literal`) and
+      the run exited 5 despite every cell passing — affects `matrix_run_all`
+      too. Redirected the launch's stdout to stderr; added a regression
+      (`smoke: VM stdout does not pollute the result summary`).
 - [x] Usage/help updated; no git-hook/CI wiring; no `matrix_records` /
       manifest / coverage touched (`matrix.sh gen` output unchanged).
 - [x] `tests/matrix/*` (12/12) and `tests/run.sh` (1857, 0 fail) pass.

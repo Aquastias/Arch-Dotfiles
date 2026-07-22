@@ -143,13 +143,16 @@ _matrix_run_cell() {
 
 # _matrix_run_one <cell> — run one cell and emit its result record JSON
 # ({id,axes,oracle,status}) on stdout. Classifies the VM exit per the oracle.
+# ONLY the JSON record may reach stdout (the orchestrator captures it as the
+# cell's result file), so the VM launch's own verbose output is sent to stderr —
+# otherwise it pollutes the record and the summary jq chokes.
 _matrix_run_one() {
   local cell="$1" id bv enc imp rc oracle axes status
   id="$(jq -r '.id' <<<"$cell")"
   bv="$(matrix_cell_boot_verify "$cell")"
   enc="$(jq -r '.axes.encryption // false' <<<"$cell")"
   imp="$(jq -r '.axes.impermanence // false' <<<"$cell")"
-  _matrix_run_cell "$cell"; rc=$?
+  _matrix_run_cell "$cell" >&2; rc=$?
   status="$(matrix_run_classify "$bv" "$enc" "$rc")"
   if [[ "$bv" == true ]]; then
     [[ "$imp" == true ]] && oracle=rollback || oracle=firstboot

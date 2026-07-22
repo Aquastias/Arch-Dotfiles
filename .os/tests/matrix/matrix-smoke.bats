@@ -32,6 +32,28 @@ setup() {
 
 # ── orchestration: reuses the guarded run-all machinery via a shared core ─────
 
+# Regression: a real VM launch (_matrix_run_cell → vm.sh) prints verbose output
+# to stdout. That must NOT leak into the per-cell result JSON, or the summary jq
+# chokes ("Invalid numeric literal") and the run exits nonzero despite every
+# cell passing — the exact failure a live serialized smoke run hit.
+@test "smoke: VM stdout does not pollute the result summary" {
+  matrix_smoke_cells() {
+    jq -c -n '{id:"zfs-single-plain", axes:{filesystem:"zfs",
+      topology:"single", encryption:false, impermanence:false}}'
+  }
+  _matrix_preflight()  { return 0; }
+  _matrix_guard_gate() { return 0; }
+  # a VM launch that is noisy on stdout (like vm.sh) but succeeds.
+  _matrix_run_cell() {
+    echo "[INFO] ISO (pinned): /x.iso"; echo "noise"; return 0
+  }
+  run matrix_smoke
+  [ "$status" -eq 0 ]                             # a passing cell → clean exit
+  [[ "$output" == *"PASS"* ]]
+  [[ "$output" == *zfs-single-plain* ]]
+  [[ "$output" != *"parse error"* ]]             # summary jq never choked
+}
+
 @test "smoke: runs every curated cell; a failure doesn't abort; nonzero exit" {
   local tmp="$BATS_TEST_TMPDIR"
   _pcell() {
