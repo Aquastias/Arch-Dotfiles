@@ -432,12 +432,56 @@ Exec = /usr/lib/impermanence/resnapshot.sh
 HOOK
 }
 
+# Mirror install-time `systemctl enable` results onto the never-rolled-back
+# /usr/lib tree. `systemctl enable` writes wants-symlinks into
+# /etc/systemd/system/<target>.wants/ and the display-manager.service alias into
+# /etc/systemd/system/. Under impermanence /etc rolls back to @blank and the
+# persist bind lands only at local-fs.target — too late for PID1's INITIAL boot
+# transaction — so those /etc enablements are invisible when systemd decides what
+# to start, and the services silently never autostart (NetworkManager, sddm, …).
+# The test harness's own boot sentinel already relies on this asymmetry
+# ([[impermanence-service-enable]]): a wants-symlink under
+# /usr/lib/systemd/system/<target>.wants/ IS honoured (that tree lives on the
+# root dataset, never a Rollback Dataset, present from PID1 start), while the
+# /etc one is not. So mirror every install-time enablement onto /usr/lib. COPY
+# (leave the /etc symlinks in place) — the persist bind still exposes them
+# post-boot; the /usr copy is what the boot transaction actually honours. Only
+# mirror units that ship a real file under /usr/lib/systemd/system (skips
+# impermanence's own local-fs.target.wants/*.mount, whose units live on the
+# Persist Dataset, and any operator unit that exists only under /etc).
+_impermanence_relocate_enablements() {
+  local sys="${ROOT:-}/usr/lib/systemd/system"
+  local etc="${ROOT:-}/etc/systemd/system"
+  [[ -d "$etc" ]] || return 0
+  local wants target link unit
+  for wants in "$etc"/*.target.wants; do
+    [[ -d "$wants" ]] || continue
+    target="$(basename "$wants")"
+    for link in "$wants"/*; do
+      [[ -e "$link" || -L "$link" ]] || continue
+      unit="$(basename "$link")"
+      [[ -e "$sys/$unit" ]] || continue     # packaged units only
+      mkdir -p "$sys/$target"
+      ln -sf "../$unit" "$sys/$target/$unit"
+    done
+  done
+  # The display-manager.service alias (created by `systemctl enable <dm>`):
+  # graphical.target ships Wants=display-manager.service, but the alias symlink
+  # lives in /etc and won't resolve at boot. Mirror it onto /usr/lib so the DM
+  # (sddm) autostarts. readlink yields the absolute DM unit path.
+  if [[ -L "$etc/display-manager.service" ]]; then
+    local dm; dm="$(readlink "$etc/display-manager.service")"
+    ln -sf "$dm" "$sys/display-manager.service"
+  fi
+}
+
 impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
   local step
   for step in \
     _impermanence_write_manifest \
     _impermanence_init_machine_id \
+    _impermanence_relocate_enablements \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \
     _impermanence_apply_extensions \

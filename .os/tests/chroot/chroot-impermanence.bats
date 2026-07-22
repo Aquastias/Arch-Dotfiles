@@ -883,3 +883,69 @@ SUBSHELL
   # wipe exists (the documented v1 leak).
   grep -qE "v1 leak|pre-transaction|leak" "$f"
 }
+
+# ── _impermanence_relocate_enablements ──────────────────────────────────────
+# Services enabled via `systemctl enable` land in /etc/systemd/system/*.wants;
+# under impermanence /etc rolls back and the persist bind is too late for PID1's
+# boot transaction, so they never autostart. The step mirrors them onto the
+# never-rolled-back /usr/lib tree ([[impermanence-service-enable]]).
+_seed_enablements() {
+  local sys="$FAKEROOT/usr/lib/systemd/system"
+  local etc="$FAKEROOT/etc/systemd/system"
+  mkdir -p "$sys" "$etc/multi-user.target.wants" "$etc/graphical.target.wants"
+  : > "$sys/NetworkManager.service"      # packaged units the enables point at
+  : > "$sys/sshd.service"
+  : > "$sys/sddm.service"
+  ln -sf /usr/lib/systemd/system/NetworkManager.service \
+    "$etc/multi-user.target.wants/NetworkManager.service"
+  ln -sf /usr/lib/systemd/system/sshd.service \
+    "$etc/multi-user.target.wants/sshd.service"
+  ln -sf /usr/lib/systemd/system/sddm.service "$etc/display-manager.service"
+  # operator unit that lives ONLY under /etc — must be skipped (would dangle)
+  : > "$etc/custom.service"
+  ln -sf /etc/systemd/system/custom.service \
+    "$etc/multi-user.target.wants/custom.service"
+}
+
+@test "relocate: mirrors /etc enablements onto /usr/lib <target>.wants" {
+  _seed_enablements
+  _impermanence_relocate_enablements
+  [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service" ]
+  [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/sshd.service" ]
+}
+
+@test "relocate: mirrored wants symlink is relative (../<unit>)" {
+  _seed_enablements
+  _impermanence_relocate_enablements
+  local l
+  l="$(readlink "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service")"
+  [ "$l" = "../NetworkManager.service" ]
+}
+
+@test "relocate: mirrors the display-manager.service alias onto /usr/lib" {
+  _seed_enablements
+  _impermanence_relocate_enablements
+  [ -L "$FAKEROOT/usr/lib/systemd/system/display-manager.service" ]
+  local l
+  l="$(readlink "$FAKEROOT/usr/lib/systemd/system/display-manager.service")"
+  [ "$l" = "/usr/lib/systemd/system/sddm.service" ]
+}
+
+@test "relocate: skips units that exist only under /etc (no dangling symlink)" {
+  _seed_enablements
+  _impermanence_relocate_enablements
+  [ ! -e "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/custom.service" ]
+  [ ! -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/custom.service" ]
+}
+
+@test "relocate: leaves the original /etc symlinks in place (copy, not move)" {
+  _seed_enablements
+  _impermanence_relocate_enablements
+  [ -L "$FAKEROOT/etc/systemd/system/multi-user.target.wants/NetworkManager.service" ]
+}
+
+@test "relocate: runs as an impermanence_apply step" {
+  _seed_enablements
+  run_enabled
+  [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service" ]
+}
