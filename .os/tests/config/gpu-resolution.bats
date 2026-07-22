@@ -129,3 +129,82 @@ teardown() {
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" mesa "* ]]
   [ "${#GPU_PACMAN_PACKAGES[@]}" -eq 1 ]
 }
+
+# ── Hybrid GPU session env (Bug: Hyprland black screen on nvidia+iGPU) ───────
+# gpu_hybrid_aq_drm_devices emits AQ_DRM_DEVICES with the integrated GPU first so
+# a Wayland compositor scans out on the panel's GPU. _gpu_lspci_output_d is the
+# injectable seam (domain-qualified lspci).
+_fake_lspci_d_hybrid() {
+  echo '0000:34:00.0 VGA compatible controller [0300]: AMD Rembrandt [1002:1681] (rev cc)'
+  echo '0000:01:00.0 VGA compatible controller [0300]: NVIDIA GA106M [GeForce RTX 3060 Mobile] [10de:2560] (rev a1)'
+  echo '0000:01:00.1 Audio device [0403]: NVIDIA GA106 HD Audio [10de:228e] (rev a1)'
+}
+
+@test "hybrid: AQ_DRM_DEVICES lists integrated GPU first, nvidia second" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  run gpu_hybrid_aq_drm_devices
+  [ "$status" -eq 0 ]
+  [ "$output" = "/dev/dri/by-path/pci-0000:34:00.0-card:/dev/dri/by-path/pci-0000:01:00.0-card" ]
+}
+
+@test "hybrid: single-vendor nvidia GPU emits nothing" {
+  ENVIRONMENT_GPU=("nvidia")
+  _gpu_lspci_output_d() { echo '0000:01:00.0 VGA compatible controller [0300]: NVIDIA [10de:2560]'; }
+  run gpu_hybrid_aq_drm_devices
+  [ -z "$output" ]
+}
+
+@test "hybrid: amd-only (no nvidia) emits nothing" {
+  ENVIRONMENT_GPU=("amd")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  run gpu_hybrid_aq_drm_devices
+  [ -z "$output" ]
+}
+
+@test "hybrid: intel+nvidia uses the intel iGPU first" {
+  ENVIRONMENT_GPU=("intel" "nvidia")
+  _gpu_lspci_output_d() {
+    echo '0000:00:02.0 VGA compatible controller [0300]: Intel [8086:9a49]'
+    echo '0000:01:00.0 3D controller [0302]: NVIDIA [10de:2560]'
+  }
+  run gpu_hybrid_aq_drm_devices
+  [ "$output" = "/dev/dri/by-path/pci-0000:00:02.0-card:/dev/dri/by-path/pci-0000:01:00.0-card" ]
+}
+
+@test "gpu_write_session_env writes the env block under <root>/etc/environment" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
+  gpu_write_session_env "$root"
+  grep -qF 'AQ_DRM_DEVICES=/dev/dri/by-path/pci-0000:34:00.0-card:/dev/dri/by-path/pci-0000:01:00.0-card' "$root/etc/environment"
+  grep -qxF 'LIBVA_DRIVER_NAME=nvidia' "$root/etc/environment"
+  grep -qxF '__GLX_VENDOR_LIBRARY_NAME=nvidia' "$root/etc/environment"
+  grep -qxF 'NVD_BACKEND=direct' "$root/etc/environment"
+}
+
+@test "gpu_write_session_env is a no-op for non-hybrid GPUs" {
+  ENVIRONMENT_GPU=("amd")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
+  gpu_write_session_env "$root"
+  [ ! -f "$root/etc/environment" ]
+}
+
+@test "gpu_write_session_env is idempotent (single AQ_DRM_DEVICES line)" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
+  gpu_write_session_env "$root"
+  gpu_write_session_env "$root"
+  [ "$(grep -c '^AQ_DRM_DEVICES=' "$root/etc/environment")" -eq 1 ]
+}
+
+@test "gpu_write_session_env preserves pre-existing /etc/environment lines" {
+  ENVIRONMENT_GPU=("amd" "nvidia")
+  _gpu_lspci_output_d() { _fake_lspci_d_hybrid; }
+  local root="$TEST_DIR/mnt"; mkdir -p "$root/etc"
+  echo 'EXISTING=1' > "$root/etc/environment"
+  gpu_write_session_env "$root"
+  grep -qxF 'EXISTING=1' "$root/etc/environment"
+}

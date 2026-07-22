@@ -120,6 +120,66 @@ _resolve_env_gpu() {
     && GPU_PARU_PACKAGES+=( envycontrol ) || true
 }
 
+# =============================================================================
+# HYBRID GPU SESSION ENV (nvidia PRIME laptops)
+# =============================================================================
+# nvidia PRIME laptops wire the internal panel to the integrated GPU (amd/intel);
+# the nvidia dGPU only renders (offload). A Wayland compositor that scans out on
+# the nvidia node — Hyprland/aquamarine picks the first DRM device, often nvidia —
+# renders to a display the panel can't show → black screen (KDE/KWin negotiates
+# this itself; Hyprland does not). AQ_DRM_DEVICES=<igpu>:<dgpu> makes Hyprland use
+# the panel's GPU first. Emitted to /etc/environment so PAM applies it to EVERY
+# session (no uwsm needed; KDE ignores AQ_DRM_DEVICES); written before the
+# impermanence @blank snapshot so it survives the /etc rollback. Stable PCI
+# by-path nodes — /dev/dri/cardN numbers are not stable across boots.
+
+# Wraps `lspci -D -nn` (domain-qualified). Override in tests.
+_gpu_lspci_output_d() { lspci -D -nn 2>/dev/null; }
+
+# PCI address (e.g. 0000:34:00.0) of the first VGA/3D/Display device for a PCI
+# vendor id (1002 amd, 8086 intel, 10de nvidia). Empty when absent.
+_gpu_pci_addr_for_vendor() {
+  local vid="$1"
+  _gpu_lspci_output_d \
+    | grep -iE 'VGA compatible|3D controller|Display controller' \
+    | grep -iF "[${vid}:" | head -1 | awk '{print $1}'
+}
+
+# Emit the AQ_DRM_DEVICES by-path pair (integrated GPU first) when the resolved
+# GPU set is an nvidia + integrated hybrid; empty otherwise. Pure (reads lspci).
+gpu_hybrid_aq_drm_devices() {
+  local _has_nv=false _v
+  for _v in "${ENVIRONMENT_GPU[@]:-}"; do [[ "$_v" == nvidia ]] && _has_nv=true; done
+  [[ "$_has_nv" == true ]] || return 0
+  local _igpu _nv
+  _igpu="$(_gpu_pci_addr_for_vendor 1002)"
+  [[ -n "$_igpu" ]] || _igpu="$(_gpu_pci_addr_for_vendor 8086)"
+  _nv="$(_gpu_pci_addr_for_vendor 10de)"
+  [[ -n "$_igpu" && -n "$_nv" ]] || return 0
+  printf '/dev/dri/by-path/pci-%s-card:/dev/dri/by-path/pci-%s-card\n' "$_igpu" "$_nv"
+}
+
+# Write the hybrid session env into <root>/etc/environment (idempotent; a prior
+# arch-dotfiles block is replaced). No-op on non-hybrid GPUs. Call after the OS
+# is installed but before the impermanence @blank snapshot.
+gpu_write_session_env() {
+  local _root="${1:-${MOUNT_ROOT:-/mnt}}"
+  local _devs; _devs="$(gpu_hybrid_aq_drm_devices)"
+  [[ -n "$_devs" ]] || return 0
+  local _env="$_root/etc/environment"
+  mkdir -p "$(dirname "$_env")"
+  [[ -f "$_env" ]] \
+    && sed -i '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$_env"
+  {
+    echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see environment.sh)'
+    echo "AQ_DRM_DEVICES=$_devs"
+    echo 'LIBVA_DRIVER_NAME=nvidia'
+    echo '__GLX_VENDOR_LIBRARY_NAME=nvidia'
+    echo 'NVD_BACKEND=direct'
+    echo '# <<< arch-dotfiles gpu'
+  } >> "$_env"
+}
+
 # Derive audio packages from the resolved desktop array. PipeWire is installed
 # whenever any desktop is selected.
 # Sets AUDIO_PACKAGES (bash array) — idempotent, deduplicates on repeat calls.
