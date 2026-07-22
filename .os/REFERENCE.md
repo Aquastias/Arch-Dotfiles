@@ -686,6 +686,9 @@ For automated CI-style runs, see the disposable test harness
 under `tests/vm/` (cloud-init driven). The instructions below
 cover manual virt-manager runs; the reusable VMs under `vm/`
 (see `vm/README.md`) automate the same setup for repeated use.
+For exhaustive combination coverage across the menu axes, see the
+Combination Matrix (`tools/matrix.sh` + `lib/matrix/`, ADR 0046) —
+README § 8.
 
 ### Prerequisites
 
