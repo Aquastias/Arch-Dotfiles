@@ -127,59 +127,66 @@ _resolve_env_gpu() {
 # the nvidia dGPU only renders (offload). A Wayland compositor that scans out on
 # the nvidia node — Hyprland/aquamarine picks the first DRM device, often nvidia —
 # renders to a display the panel can't show → black screen (KDE/KWin negotiates
-# this itself; Hyprland does not). AQ_DRM_DEVICES=<igpu>:<dgpu> makes Hyprland use
-# the panel's GPU first. Emitted to /etc/environment so PAM applies it to EVERY
-# session (no uwsm needed); written before the impermanence @blank snapshot so it
-# survives the /etc rollback. Stable PCI by-path nodes — /dev/dri/cardN numbers
-# are not stable across boots.
+# this itself; Hyprland does not). Setting AQ_DRM_DEVICES=<igpu>:<dgpu> makes
+# Hyprland scan out on the panel's GPU first.
 #
-# ONLY AQ_DRM_DEVICES is written: it is Hyprland/aquamarine-specific and inert to
-# every other client. Do NOT add global LIBVA_DRIVER_NAME / __GLX_VENDOR_LIBRARY
-# _NAME / NVD_BACKEND here — those force the offload (nvidia) driver on EVERY GL/
-# VA client, including the SDDM greeter and KDE, which run on the iGPU-driven
-# panel → the greeter renders a blank grey screen (regression, fixed here). Per-
-# app nvidia offload is a runtime concern (prime-run), not a global default.
+# TWO traps this avoids (both hit during bring-up):
+#  1. AQ_DRM_DEVICES is COLON-separated, and PCI `by-path` node names contain
+#     colons (…/pci-0000:34:00.0-card) → aquamarine splits them into garbage and
+#     reports "Found no gpus to use". `/dev/dri/cardN` has no colon but the number
+#     is not stable across boots. So we ship a udev rule that creates colon-free,
+#     vendor-stable symlinks (/dev/dri/aq-igpu, /dev/dri/aq-dgpu) and point
+#     AQ_DRM_DEVICES at those.
+#  2. ONLY AQ_DRM_DEVICES is written (Hyprland/aquamarine-specific, inert to
+#     everything else). Do NOT set global LIBVA_DRIVER_NAME / __GLX_VENDOR_LIBRARY
+#     _NAME / NVD_BACKEND — those force the offload (nvidia) driver on EVERY GL/VA
+#     client incl. the SDDM greeter + KDE on the iGPU panel → blank grey greeter.
+#     Per-app nvidia offload is a runtime concern (prime-run), not a global env.
+#
+# The udev rule lands in /usr/lib (never a Rollback Dataset) and AQ_DRM_DEVICES in
+# /etc/environment before the @blank snapshot, so both survive impermanence.
 
-# Wraps `lspci -D -nn` (domain-qualified). Override in tests.
-_gpu_lspci_output_d() { lspci -D -nn 2>/dev/null; }
-
-# PCI address (e.g. 0000:34:00.0) of the first VGA/3D/Display device for a PCI
-# vendor id (1002 amd, 8086 intel, 10de nvidia). Empty when absent.
-_gpu_pci_addr_for_vendor() {
-  local vid="$1"
-  _gpu_lspci_output_d \
-    | grep -iE 'VGA compatible|3D controller|Display controller' \
-    | grep -iF "[${vid}:" | head -1 | awk '{print $1}'
+# True when the resolved GPU set is an nvidia + integrated (amd/intel) hybrid.
+gpu_is_nvidia_hybrid() {
+  local _has_nv=false _has_igpu=false _v
+  for _v in "${ENVIRONMENT_GPU[@]:-}"; do
+    [[ "$_v" == nvidia ]]              && _has_nv=true
+    [[ "$_v" == amd || "$_v" == intel ]] && _has_igpu=true
+  done
+  [[ "$_has_nv" == true && "$_has_igpu" == true ]]
 }
 
-# Emit the AQ_DRM_DEVICES by-path pair (integrated GPU first) when the resolved
-# GPU set is an nvidia + integrated hybrid; empty otherwise. Pure (reads lspci).
-gpu_hybrid_aq_drm_devices() {
-  local _has_nv=false _v
-  for _v in "${ENVIRONMENT_GPU[@]:-}"; do [[ "$_v" == nvidia ]] && _has_nv=true; done
-  [[ "$_has_nv" == true ]] || return 0
-  local _igpu _nv
-  _igpu="$(_gpu_pci_addr_for_vendor 1002)"
-  [[ -n "$_igpu" ]] || _igpu="$(_gpu_pci_addr_for_vendor 8086)"
-  _nv="$(_gpu_pci_addr_for_vendor 10de)"
-  [[ -n "$_igpu" && -n "$_nv" ]] || return 0
-  printf '/dev/dri/by-path/pci-%s-card:/dev/dri/by-path/pci-%s-card\n' "$_igpu" "$_nv"
+# Emit the udev rule that maps each GPU (by PCI vendor) to a stable, colon-free
+# DRM card symlink. 0x1002 amd, 0x8086 intel, 0x10de nvidia. Pure string.
+gpu_aq_udev_rule() {
+  cat <<'RULES'
+# Stable, colon-free DRM card symlinks for AQ_DRM_DEVICES (Hyprland/aquamarine).
+# AQ_DRM_DEVICES splits on ':'; PCI by-path names contain ':' and cardN numbers
+# aren't stable across boots — resolve by PCI vendor instead. Managed by the Arch
+# installer (lib/config/environment.sh).
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x1002", SYMLINK+="dri/aq-igpu"
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", SYMLINK+="dri/aq-igpu"
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x10de", SYMLINK+="dri/aq-dgpu"
+RULES
 }
 
-# Write the hybrid session env into <root>/etc/environment (idempotent; a prior
-# arch-dotfiles block is replaced). No-op on non-hybrid GPUs. Call after the OS
-# is installed but before the impermanence @blank snapshot.
+# Write the udev rule (/usr/lib) + AQ_DRM_DEVICES (/etc/environment) under <root>
+# when the GPU is an nvidia+integrated hybrid. Idempotent (a prior arch-dotfiles
+# block is replaced). No-op otherwise. Call after the OS is installed but before
+# the impermanence @blank snapshot.
 gpu_write_session_env() {
   local _root="${1:-${MOUNT_ROOT:-/mnt}}"
-  local _devs; _devs="$(gpu_hybrid_aq_drm_devices)"
-  [[ -n "$_devs" ]] || return 0
+  gpu_is_nvidia_hybrid || return 0
+  local _rule="$_root/usr/lib/udev/rules.d/60-aq-drm-devices.rules"
+  mkdir -p "$(dirname "$_rule")"
+  gpu_aq_udev_rule > "$_rule"
   local _env="$_root/etc/environment"
   mkdir -p "$(dirname "$_env")"
   [[ -f "$_env" ]] \
     && sed -i '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$_env"
   {
     echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see environment.sh)'
-    echo "AQ_DRM_DEVICES=$_devs"
+    echo 'AQ_DRM_DEVICES=/dev/dri/aq-igpu:/dev/dri/aq-dgpu'
     echo '# <<< arch-dotfiles gpu'
   } >> "$_env"
 }
