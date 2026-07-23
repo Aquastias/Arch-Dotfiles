@@ -38,8 +38,22 @@ if [[ "$do_shell" == "true" ]]; then
     sddm \
     print-manager
 
-  systemctl enable sddm
-  info "Plasma shell installed. SDDM enabled."
+  # greetd owns the DM role when Hyprland is co-installed (see hyprland.sh):
+  # SDDM's greeter→session DRM-master handoff fails on hybrid-GPU laptops here
+  # (black panel). Enable SDDM only for a KDE-without-Hyprland install; greetd's
+  # tuigreet session picker still launches Plasma when both are present.
+  read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
+  _has_hypr=false
+  for _de in "${_desktops[@]}"; do
+    [[ "$_de" == "hyprland" ]] && { _has_hypr=true; break; }
+  done
+  if $_has_hypr; then
+    info "Plasma shell installed. Hyprland present — greetd is the DM," \
+         "SDDM left disabled."
+  else
+    systemctl enable sddm
+    info "Plasma shell installed. SDDM enabled."
+  fi
 fi
 
 # =============================================================================
@@ -78,7 +92,7 @@ if ! paccache -rk0 --noconfirm 2>/dev/null; then
 fi
 
 section "KDE Installation Complete"
-if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi
+if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell"; fi
 if [[ "$do_apps" == "true" ]]; then
   info "  ✔  KDE Applications (${#kde_apps[@]} apps)"
 fi

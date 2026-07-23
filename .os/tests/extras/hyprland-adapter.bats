@@ -14,10 +14,11 @@ setup() {
   PACMAN_LOG="$TEST_DIR/pacman.log"
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
   GREETD_CONF_DIR="$TEST_DIR/greetd"
+  WAYLAND_SESSIONS_DIR="$TEST_DIR/wayland-sessions"
   HYPR_JSON="$TEST_DIR/install-hyprland.jsonc"
   ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
 
-  export PACMAN_LOG SYSTEMCTL_LOG GREETD_CONF_DIR HYPR_JSON
+  export PACMAN_LOG SYSTEMCTL_LOG GREETD_CONF_DIR WAYLAND_SESSIONS_DIR HYPR_JSON
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
@@ -72,10 +73,26 @@ teardown() {
   grep -q "tuigreet" "${GREETD_CONF_DIR}/config.toml"
 }
 
-@test "greetd not installed when kde also in ENVIRONMENT_DESKTOP" {
+@test "greetd installed and enabled even when kde is co-installed" {
   run env ENVIRONMENT_DESKTOP="kde hyprland" bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -q "greetd" "$PACMAN_LOG"
+  grep -q "greetd" "$PACMAN_LOG"
+  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
+}
+
+# ── session launcher (direct Hyprland, not start-hyprland) ────────────────
+
+@test "ships a wayland-session override that launches Hyprland directly" {
+  run env ENVIRONMENT_DESKTOP="kde hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ -f "${WAYLAND_SESSIONS_DIR}/hyprland.desktop" ]
+  grep -q '^Exec=Hyprland$' "${WAYLAND_SESSIONS_DIR}/hyprland.desktop"
+}
+
+@test "session override Exec never points at start-hyprland" {
+  run env ENVIRONMENT_DESKTOP="hyprland" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -qE '^Exec=.*start-hyprland' "${WAYLAND_SESSIONS_DIR}/hyprland.desktop"
 }
 
 # ── companion toggles ─────────────────────────────────────────────────────
