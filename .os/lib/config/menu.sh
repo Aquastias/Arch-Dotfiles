@@ -97,7 +97,8 @@ _MENU_CATEGORIES=(
 # cached (ticket 04), so menu_categories folds the override flags in one jq.
 _MENU_CATEGORIES_JSON=""
 _menu_categories_json() {
-  [[ -n "$_MENU_CATEGORIES_JSON" ]] && { printf '%s' "$_MENU_CATEGORIES_JSON"; return; }
+  [[ -n "$_MENU_CATEGORIES_JSON" ]] \
+    && { printf '%s' "$_MENU_CATEGORIES_JSON"; return; }
   _MENU_CATEGORIES_JSON="$(printf '%s\n' "${_MENU_CATEGORIES[@]}" | jq -Rn \
     '[inputs | split("|") | {name:.[0], summary:.[1]}]')"
   printf '%s' "$_MENU_CATEGORIES_JSON"

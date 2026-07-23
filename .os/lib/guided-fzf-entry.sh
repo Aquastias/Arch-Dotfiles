@@ -69,7 +69,8 @@ secret)
   root) prompt_secret _spw "Root password"
         guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$_spw" ;;
   user) prompt_secret _spw "Password for ${3:-user}"
-        guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
+        guided_secretsfile_set_user \
+          "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
   esac
   ;;
 esac

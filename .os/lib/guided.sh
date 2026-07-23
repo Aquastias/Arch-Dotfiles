@@ -842,8 +842,12 @@ guided_run_persistent() {
   # bash that re-sources the controller. fzf runs binds sequentially, so one
   # reused file is race-free.
   GUIDED_LIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-list.XXXXXX")"
-  # shellcheck disable=SC2064
-  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE' '$GUIDED_SECRETS_FILE' '$GUIDED_LIST_FILE'" RETURN
+  local -a _guided_tmpfiles=(
+    "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
+    "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
+    "$GUIDED_LIST_FILE"
+  )
+  trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 
   # In-Menu Disk Binding (ADR 0047): resolve the live medium + whether any
   # install disk is enumerable ONCE, and export both so the fzf-entry

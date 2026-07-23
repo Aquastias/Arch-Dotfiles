@@ -152,7 +152,9 @@ immediate.
   else first-letter-uppercase fallback; technical/free-text tokens
   (containing `/`, `=`, `:`, `.`, whitespace-path, leading non-alpha, or a
   device/by-id path) pass through unchanged. Proposed curated set:
-  `KDE GPU SSH ZFS UFW LTS URL ESP AMD NVIDIA` plus literal `systemd-boot`;
+  `KDE GPU SSH ZFS UFW LTS URL ESP AMD NVIDIA` plus literal `systemd-boot` and
+  the filesystem labels `Ext4`/`Xfs`/`Btrfs` (approved in the grilling
+  preview; `ext4` also needs a curated entry to beat the digit-passthrough);
   `Intel`/`Auto`/`Hyprland`/`Zen` take normal case.
 - Applied at the render boundary to row labels, pick-screen option values,
   inline current values, and the pre-install review summary — display only,
