@@ -65,7 +65,7 @@ _display_word() {
 # display_label <token> → the Display Label for <token>. See file header.
 display_label() {
   local token="$1" c
-  # Whole-token curated first (covers hyphenated proper names like systemd-boot).
+  # Whole-token curated first (covers hyphenated names like systemd-boot).
   if c="$(_display_curated "$token")"; then printf '%s\n' "$c"; return; fi
   if _display_passthrough "$token"; then printf '%s\n' "$token"; return; fi
 
@@ -92,7 +92,8 @@ display_label() {
 display_reverse() {
   local want="$1" r; shift
   for r in "$@"; do
-    [[ "$(display_label "$r")" == "$want" ]] && { printf '%s\n' "$r"; return 0; }
+    [[ "$(display_label "$r")" == "$want" ]] \
+      && { printf '%s\n' "$r"; return 0; }
   done
   return 1
 }

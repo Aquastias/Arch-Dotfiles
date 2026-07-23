@@ -89,7 +89,8 @@ _ctl_display_values() {
 # and re-joined; single values are one token.
 _ctl_display_value_str() {
   local field="$1" val="$2"
-  { _ctl_display_values "$field" && [[ -n "$val" ]]; } || { printf '%s' "$val"; return; }
+  { _ctl_display_values "$field" && [[ -n "$val" ]]; } \
+    || { printf '%s' "$val"; return; }
   local out="" part
   while [[ "$val" == *", "* ]]; do
     part="${val%%, *}"; val="${val#*, }"
@@ -426,7 +427,8 @@ _ctl_field_for_label() {
   # formatted label back to a field by formatting each candidate and comparing.
   local cat="$1" want="$2" field label
   while IFS=$'\t' read -r field label; do
-    [[ "$(display_label "$label")" == "$want" ]] && { printf '%s' "$field"; return; }
+    [[ "$(display_label "$label")" == "$want" ]] \
+      && { printf '%s' "$field"; return; }
   done < <(menu_category_rows "$cat" "$(_ctl_state)" "$(_ctl_baseline)" \
     | jq -r '.[] | [.field, .label] | @tsv')
 }
@@ -1707,12 +1709,12 @@ _guided_directive_to_action() {
   "edit-oneshot "*) printf \
                       'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
                       "$entry" "${d#edit-oneshot }" "$entry" ;;
-  "secret-root")    printf \
-                      'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
-                      "$entry" "$entry" ;;
-  "secret-user "*)  printf \
-                      'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
-                      "$entry" "${d#secret-user }" "$entry" ;;
+  "secret-root")
+    printf 'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
+      "$entry" "$entry" ;;
+  "secret-user "*)
+    printf 'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
+      "$entry" "${d#secret-user }" "$entry" ;;
   "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
   *)                printf 'ignore' ;;
   esac
