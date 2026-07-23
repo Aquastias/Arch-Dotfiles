@@ -24,6 +24,10 @@ _lm_boot_part() {
   src="$(findmnt -no SOURCE / 2>/dev/null || true)"
   [[ -n "$src" && "$src" != "overlay" && "$src" != "airootfs" ]] \
     && echo "$src"
+  # Found-nothing is normal (copytoram / airootfs boot). Return success so the
+  # caller's `boot="$(_lm_boot_part)"` under `set -Eeuo pipefail` doesn't inherit
+  # the trailing test's non-zero status and trip the ERR trap.
+  return 0
 }
 
 # Whole disk that owns DEV, via the kernel parent (PKNAME). When DEV is already

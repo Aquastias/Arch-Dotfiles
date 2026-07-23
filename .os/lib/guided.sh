@@ -1147,7 +1147,11 @@ guided_build() {
   if [[ "$mode" == "multi" ]]; then
     printf '  WILL ERASE:  the disks in the layout above\n' >&2
   else
-    printf '  WILL ERASE:  %s\n' "$_GUIDED_DISK" >&2
+    # Read the resolved disk from the assignment, not $_GUIDED_DISK: the in-menu
+    # disk binding (ADR 0047) stores the pick as root_disk and leaves
+    # _GUIDED_DISK empty, so the old var showed a blank WILL ERASE line.
+    printf '  WILL ERASE:  %s\n' \
+      "$(jq -r '.disk // ""' <<<"$assignment")" >&2
   fi
   confirm="$(guided_prompt confirm "Type INSTALL to continue")"
   [[ "$confirm" == "INSTALL" ]] \
