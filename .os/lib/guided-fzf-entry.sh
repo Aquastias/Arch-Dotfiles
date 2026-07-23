@@ -57,4 +57,19 @@ oneshot)
   source "${_entry_dir}/guided.sh"
   _guided_oneshot_edit "${2:-}"
   ;;
+secret)
+  # In-menu credential capture (ticket 03): a masked, confirmed prompt on the
+  # tty, written to the handoff file. Runs under fzf execute() (has a tty).
+  # shellcheck source=lib/prompt.sh
+  source "${_entry_dir}/prompt.sh"
+  # shellcheck source=lib/guided-secrets-file.sh
+  source "${_entry_dir}/guided-secrets-file.sh"
+  _spw=""
+  case "${2:-}" in
+  root) prompt_secret _spw "Root password"
+        guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$_spw" ;;
+  user) prompt_secret _spw "Password for ${3:-user}"
+        guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
+  esac
+  ;;
 esac

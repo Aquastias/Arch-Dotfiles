@@ -739,28 +739,9 @@ _guided_materialize_users() {
   done < <(jq -r '(.users // [])[]' <<<"$(_guided_effective)")
 }
 
-# _guided_collect_passwords — interactive post-menu credential entry (ADR 0042):
-# prompt (hidden, read-twice, confirmed) for the root password and each effective
-# user's password not already supplied, storing into the held-aside vars
-# _guided_finalize_users reads (never the Config State, so Save/Export never
-# carry them). INTERACTIVE-only — replay supplies these via keyed answers, so it
-# returns early there. Because prompt_secret reads -s from /dev/tty, nothing is
-# echoed: this is where the old guided_prompt plaintext-echo of passwords is
-# fixed. Run on the Proceed path only (Save/Export never install).
-_guided_collect_passwords() {
-  ((_GUIDED_REPLAY)) && return 0
-  local eff name pw=""
-  local -a names
-  eff="$(_guided_effective)"
-  section "Credentials" >&2
-  [[ -n "$_GUIDED_ROOT_PW" ]] || prompt_secret _GUIDED_ROOT_PW "Root password"
-  mapfile -t names < <(jq -r '(.users // [])[]' <<<"$eff")
-  for name in "${names[@]+"${names[@]}"}"; do
-    [[ -n "${_GUIDED_USER_PW[$name]:-}" ]] && continue
-    prompt_secret pw "Password for ${name}"
-    _GUIDED_USER_PW["$name"]="$pw"
-  done
-}
+# Credentials are captured in the menu (ticket 03) — the persistent-fzf front-end
+# writes GUIDED_SECRETS_FILE and guided_run_persistent loads it into the
+# held-aside vars via _guided_load_secrets_file. There is no post-menu prompt.
 
 # _guided_finalize_users — Proceed-time user side effects: materialize ad-hoc
 # profiles and, when the install flow set GUIDED_SECRETS_MANIFEST, write the
@@ -845,14 +826,19 @@ _guided_oneshot_edit() {
 # _guided_resolve_assignment, so the menu carries no disk screen.
 guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
-    GUIDED_RESULT_FILE GUIDED_HIST_FILE
+    GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
   GUIDED_RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-result.XXXXXX")"
   GUIDED_HIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-hist.XXXXXX.json")"
+  # In-menu credential handoff (ticket 03): the masked prompt runs in an
+  # execute() subprocess and writes here; the parent loads it into the held-aside
+  # vars below. Cleaned on RETURN with the others — never in the Config State.
+  GUIDED_SECRETS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
+  printf '{}\n' >"$GUIDED_SECRETS_FILE"
   # shellcheck disable=SC2064
-  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE'" RETURN
+  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE' '$GUIDED_SECRETS_FILE'" RETURN
 
   # In-Menu Disk Binding (ADR 0047): resolve the live medium + whether any
   # install disk is enumerable ONCE, and export both so the fzf-entry
@@ -910,9 +896,28 @@ guided_run_persistent() {
     >/dev/null || true
 
   _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
+  # Load the in-menu credentials captured via execute() into the held-aside vars
+  # so the existing manifest path (_guided_secrets_manifest) is unchanged. The
+  # Proceed gate guaranteed root + every enabled user is set before accept.
+  _guided_load_secrets_file "$GUIDED_SECRETS_FILE"
   local action; action="$(<"$GUIDED_RESULT_FILE")"
   [[ -n "$action" ]] || return 1
   _GUIDED_ACTION="$action"
+}
+
+# _guided_load_secrets_file <file> — copy the captured passwords from the in-menu
+# handoff file into the held-aside vars (_GUIDED_ROOT_PW / _GUIDED_USER_PW). No-op
+# on a missing/empty file. The vars, not the file, feed _guided_secrets_manifest.
+_guided_load_secrets_file() {
+  local f="$1" rp n pw
+  [[ -s "$f" ]] || return 0
+  rp="$(jq -r '.root_password // ""' "$f")"
+  [[ -n "$rp" ]] && _GUIDED_ROOT_PW="$rp"
+  while IFS= read -r n; do
+    [[ -n "$n" ]] || continue
+    pw="$(jq -r --arg n "$n" '.users[$n].password // ""' "$f")"
+    [[ -n "$pw" ]] && _GUIDED_USER_PW["$n"]="$pw"
+  done < <(jq -r '(.users // {}) | keys[]' "$f")
 }
 
 # _guided_guard_post_install — the terminal-action no-user guard (M5, ADR 0041).
@@ -1120,9 +1125,10 @@ guided_build() {
     return "$_GUIDED_ACTION_DONE"
   fi
 
-  # Interactive credential entry (ADR 0042): hidden + confirmed, at the commit
-  # step, just before the review. No-op under replay (keyed answers already held).
-  _guided_collect_passwords
+  # Credentials are captured IN the menu now (ticket 03): the persistent-fzf
+  # front-end writes them to GUIDED_SECRETS_FILE and guided_run_persistent loads
+  # them into the held-aside vars, gated so Proceed can't fire while any is unset.
+  # Replay supplies them via keyed answers. So there is no post-menu prompt here.
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.

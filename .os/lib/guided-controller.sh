@@ -50,6 +50,24 @@
 # shellcheck source=lib/config/display.sh
 [[ "$(type -t display_label)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/display.sh"
+# shellcheck source=lib/guided-secrets-file.sh
+[[ "$(type -t guided_secretsfile_has_root)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-secrets-file.sh"
+
+# _ctl_secret_state <root|user> [name] → "(set)" / "(not set)" for the in-menu
+# credential rows, read from GUIDED_SECRETS_FILE. Never emits the value. When no
+# secrets file is wired (non-persistent contexts) everything reads "(not set)".
+_ctl_secret_state() {
+  local f="${GUIDED_SECRETS_FILE:-}"
+  if [[ -n "$f" ]]; then
+    if [[ "$1" == root ]]; then
+      guided_secretsfile_has_root "$f" && { echo "(set)"; return; }
+    else
+      guided_secretsfile_has_user "$f" "$2" && { echo "(set)"; return; }
+    fi
+  fi
+  echo "(not set)"
+}
 
 # _ctl_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
 # words that should render through the Display Label formatter (desktop, gpu,
@@ -822,7 +840,19 @@ guided_ctl_list() {
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
-      _ctl_user_marked "$state" "$base"
+      # In-menu credentials (ticket 03): a root-password row, then each enabled
+      # user's toggle row with an indented password row beneath it. State only —
+      # "(set)" / "(not set)", never the value.
+      printf 'root password: %s\n' "$(_ctl_secret_state root)"
+      local _um _un
+      while IFS= read -r _um; do
+        printf '%s\n' "$_um"
+        if [[ "$_um" == "[x] "* ]]; then
+          _un="${_um:4}"
+          printf '      password (%s): %s\n' "$_un" \
+            "$(_ctl_secret_state user "$_un")"
+        fi
+      done < <(_ctl_user_marked "$state" "$base")
       _ctl_action_row "+ Create user (name)"
     elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
       _ctl_biglist_options "$vf"
@@ -985,11 +1015,30 @@ guided_ctl_enter() {
   esac
 }
 
+# _ctl_proceed_directive — the in-menu Proceed gate (ticket 03): install only
+# once root + every enabled user has a password. Missing → a `notice` that keeps
+# the operator in the menu (header warning + bell, no accept). With no secrets
+# file wired (non-persistent contexts) the gate is inert. Save/Export are never
+# gated (they never install).
+_ctl_proceed_directive() {
+  local f="${GUIDED_SECRETS_FILE:-}"
+  [[ -n "$f" ]] || { echo "terminal proceed"; return; }
+  local users missing
+  users="$(jq -c '.users // []' \
+    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+  missing="$(guided_secretsfile_missing "$f" "$users" | paste -sd',' -)"
+  if [[ -n "$missing" ]]; then
+    echo "notice ⚠ Set password first (Users screen): ${missing//,/, }"
+  else
+    echo "terminal proceed"
+  fi
+}
+
 _ctl_enter_top() {
   local line="$1" cat
   case "$line" in
   "$_CTL_DIVIDER")  echo noop ;;
-  "Proceed"*)       echo "terminal proceed" ;;
+  "Proceed"*)       _ctl_proceed_directive ;;
   "Save profile"*)  echo "terminal save" ;;
   "Export config"*) echo "terminal export" ;;
   *)
@@ -1062,6 +1111,15 @@ _ctl_enter_values() {
     echo refresh; return   # an existing pair is display-only (re-list in place)
   fi
   if [[ "$path" == "users" ]]; then
+    # Credential rows (ticket 03) drop to a masked prompt via execute(); handle
+    # them before the toggle logic (their lines are not "[x]/[ ] name").
+    if [[ "$line" == "root password:"* ]]; then
+      echo "secret-root"; return
+    fi
+    if [[ "$line" == *"password ("* ]]; then
+      local _sn="${line#*password (}"; _sn="${_sn%%)*}"
+      echo "secret-user $_sn"; return
+    fi
     if [[ "$line" == "+ Create"* ]]; then
       _ctl_write_nav \
         "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
@@ -1633,6 +1691,13 @@ _guided_directive_to_action() {
   "edit-oneshot "*) printf \
                       'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
                       "$entry" "${d#edit-oneshot }" "$entry" ;;
+  "secret-root")    printf \
+                      'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
+                      "$entry" "$entry" ;;
+  "secret-user "*)  printf \
+                      'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
+                      "$entry" "${d#secret-user }" "$entry" ;;
+  "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
   *)                printf 'ignore' ;;
   esac
 }
