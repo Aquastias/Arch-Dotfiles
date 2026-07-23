@@ -177,6 +177,17 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["nvidia"]' ]
 }
 
+@test "enter(values toggle gpu): AMD + NVIDIA select together (hybrid Legion)" {
+  # the Legion 5 hybrid case, driven through the DISPLAYED labels (AMD/NVIDIA),
+  # so it also exercises the Display Label reverse lookup for gpu.
+  printf '%s\n' '{"environment":{"gpu":"auto"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Environment environment.gpu gpu)"
+  guided_ctl_enter "[ ] AMD" >/dev/null       # clears auto, adds amd
+  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd"]' ]
+  guided_ctl_enter "[ ] NVIDIA" >/dev/null    # adds the second vendor
+  [ "$(jq -c '.environment.gpu' "$GUIDED_STATE_FILE")" = '["amd","nvidia"]' ]
+}
+
 # ── undo / redo / reset (slice 03) ───────────────────────────────────────────
 
 @test "autocommit: guided_ctl_list snapshots a changed state for undo" {
