@@ -113,6 +113,15 @@ topology and name but never auto-bind
 disks — binding which physical disk goes to which pool is always the operator's,
 one at a time.
 
+### Display Label
+The human-facing name of a menu item in the Guided Installer, as distinct from
+its stored Config State value. Acronyms and proper names read correctly (KDE,
+NVIDIA, ZFS, SSH, LTS, ESP), field labels and value choices are cased
+consistently, and technical or free-text tokens (a device path, a locale, a
+`key=value` pair, a typed hostname) are shown verbatim. A Display Label is a
+rendering concern only: it never changes what is stored, and selecting a
+re-cased row still resolves to the same underlying value.
+
 ### Free Set
 The pool of physical disks still available to bind during In-Menu Disk Binding:
 every enumerated `/dev/disk/by-id/*` candidate, minus the live medium, minus

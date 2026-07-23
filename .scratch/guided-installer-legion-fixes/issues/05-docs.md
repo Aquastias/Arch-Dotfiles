@@ -1,6 +1,6 @@
 # 05 — Documentation: ADR, glossary, memory notes
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -23,11 +23,14 @@ Record the decisions once the code lands (docs follow code, per the reporter).
 
 ## Acceptance criteria
 
-- [ ] New ADR added, cross-referencing ADR 0042 as superseded on the
-      post-menu-password point, with alternatives recorded.
-- [ ] CONTEXT.md defines `Display Label` (glossary-only, no implementation).
-- [ ] Guided-installer notes mention all four changes.
-- [ ] No behavior change — documentation only.
+- [x] New ADR added (0049), cross-referencing ADR 0042 as superseded on the
+      post-menu-password point, with alternatives recorded. ADR 0042 annotated
+      in place.
+- [x] CONTEXT.md defines `Display Label` (glossary-only, no implementation).
+- [x] Guided-installer notes mention all four changes. (No standalone repo
+      notes doc exists; the record lives in this feature's PRD + issues and ADR
+      0049. The four changes span issues 01–04, all cross-linked here.)
+- [x] No behavior change — documentation only.
 
 ## Blocked by
 
