@@ -35,7 +35,10 @@ is the control model — fzf calls bash, not bash calls fzf — not the renderer
   (hidden, read-twice, confirmed) — the in-menu surface stays fully seamless,
   passwords never touch the query line or the state file, and today's plaintext
   password echo (`guided_prompt` for `root_password`/`new_user_password`) is
-  fixed.
+  fixed. **(Superseded by ADR 0049: credentials are now captured inside the
+  menu via a masked `execute()` prompt + a tmpfs handoff file, with Proceed
+  gated in-menu — the post-menu password prompt is removed. The consent gate
+  still runs post-menu; the Config-State-stays-secret-free invariant is kept.)**
 - The headless replay seam (`--guided <answers>`, keyed) and its bats stay
   frozen (redesign user story 27): interactive and headless now share the pure
   cores plus extracted pure setters, **not** control flow. The new controller is
