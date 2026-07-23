@@ -994,6 +994,79 @@ _seed_baseline() {
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__newuser__" ]
 }
 
+# ── in-menu credentials (ticket 03) ──────────────────────────────────────────
+
+@test "list(values users): a root-password row + per-enabled-user password row" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "root password: (not set)"
+  echo "$output" | grep -q "\[x\] aquastias"
+  echo "$output" | grep -qE '^ +password \(aquastias\): \(not set\)$'
+}
+
+@test "list(values users): rows read (set) once the secret file has them" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r","users":{"aquastias":{"password":"a"}}}' \
+    > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "root password: (set)"
+  echo "$output" | grep -qE '^ +password \(aquastias\): \(set\)$'
+}
+
+@test "enter(values users): the root-password row drops to a masked capture" {
+  set_nav "$(nav_to_values Users users users)"
+  [ "$(guided_ctl_enter "root password: (not set)")" = "secret-root" ]
+}
+
+@test "enter(values users): a per-user password row captures for that user" {
+  set_nav "$(nav_to_values Users users users)"
+  [ "$(guided_ctl_enter "      password (aquastias): (not set)")" \
+    = "secret-user aquastias" ]
+}
+
+@test "proceed gate: blocked (notice) while a required password is unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  run guided_ctl_enter "Proceed ▸ review & install"
+  [[ "$output" == notice* ]]
+  [[ "$output" == *root* ]]
+  [[ "$output" == *aquastias* ]]
+}
+
+@test "proceed gate: allowed (terminal proceed) once all are set" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r","users":{"aquastias":{"password":"a"}}}' \
+    > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+}
+
+@test "proceed gate: inert (proceed) when no secrets file is wired" {
+  unset GUIDED_SECRETS_FILE
+  set_nav '{"screen":"top"}'
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+}
+
+@test "directive→action: secret rows execute the masked capture verb" {
+  local a; a="$(_guided_directive_to_action secret-root /e)"
+  [[ "$a" == *"secret root"* ]]
+  a="$(_guided_directive_to_action "secret-user alex" /e)"
+  [[ "$a" == *"secret user alex"* ]]
+}
+
+@test "directive→action: a notice warns in the header without accepting" {
+  local a; a="$(_guided_directive_to_action "notice ⚠ set it" /e)"
+  [[ "$a" == *"change-header("* ]]
+  [[ "$a" == *"bell"* ]]
+  [[ "$a" != *accept* ]]
+}
+
 @test "enter(text __newuser__): a typed name is added + returns to the user list" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_text Users __newuser__ "new user")"

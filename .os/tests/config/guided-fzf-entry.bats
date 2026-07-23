@@ -48,6 +48,15 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$(jq -r '.field' "$GUIDED_NAV_FILE")" = "options.encryption" ]
 }
 
+@test "entry dispatch enter: a credential row executes the masked capture" {
+  printf '{"screen":"values","category":"Users","field":"users"}\n' \
+    > "$GUIDED_NAV_FILE"
+  run bash "$ENTRY" dispatch enter "root password: (not set)"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "execute(bash"
+  echo "$output" | grep -q "secret root"
+}
+
 @test "entry dispatch back: at the top screen, aborts" {
   run bash "$ENTRY" dispatch back ""
   [ "$status" -eq 0 ]

@@ -882,41 +882,36 @@ write_answers() {
   refute_json "$(guided_build 2>/dev/null)"
 }
 
-# ── post-menu credential entry (ADR 0042): hidden + confirmed, interactive-only ─
+# ── in-menu credentials (ticket 03): load the handoff file into held-aside vars ─
 
-@test "_guided_collect_passwords: replay is a no-op (keyed answers held)" {
-  _GUIDED_REPLAY=1
-  _GUIDED_ROOT_PW=""
-  _guided_collect_passwords
-  [ -z "$_GUIDED_ROOT_PW" ]   # never prompted under replay
-}
-
-@test "_guided_collect_passwords: interactive collects root + each effective user" {
-  _GUIDED_REPLAY=0
+@test "_guided_load_secrets_file: populates root + user passwords from the file" {
   _GUIDED_ROOT_PW=""
   _GUIDED_USER_PW=()
-  _GUIDED_BASELINE='{"users":["aquastias","bob"]}'
-  _GUIDED_STATE='{}'
-  # stub the tty reader: set the named var so nothing touches /dev/tty
-  prompt_secret() { printf -v "$1" '%s' "pw:$2"; }
-
-  _guided_collect_passwords
-  [ -n "$_GUIDED_ROOT_PW" ]
-  [ -n "${_GUIDED_USER_PW[aquastias]}" ]
-  [ -n "${_GUIDED_USER_PW[bob]}" ]
+  local f; f="$(mktemp)"
+  printf '%s\n' \
+    '{"root_password":"r00t","users":{"aquastias":{"password":"aq"}}}' > "$f"
+  _guided_load_secrets_file "$f"
+  rm -f "$f"
+  [ "$_GUIDED_ROOT_PW" = "r00t" ]
+  [ "${_GUIDED_USER_PW[aquastias]}" = "aq" ]
 }
 
-@test "_guided_collect_passwords: a pre-supplied user password is not re-prompted" {
-  _GUIDED_REPLAY=0
-  _GUIDED_ROOT_PW="rootpw"
-  _GUIDED_USER_PW=([aquastias]="kept")
-  _GUIDED_BASELINE='{"users":["aquastias"]}'
-  _GUIDED_STATE='{}'
-  prompt_secret() { printf -v "$1" '%s' "SHOULD-NOT-RUN"; }
+@test "_guided_load_secrets_file: an empty/missing file is a no-op" {
+  _GUIDED_ROOT_PW="kept"
+  _GUIDED_USER_PW=()
+  _guided_load_secrets_file "/nonexistent/secrets.json"
+  [ "$_GUIDED_ROOT_PW" = "kept" ]
+}
 
-  _guided_collect_passwords
-  [ "${_GUIDED_USER_PW[aquastias]}" = "kept" ]   # untouched
-  [ "$_GUIDED_ROOT_PW" = "rootpw" ]
+@test "in-menu secrets feed the no-SOPS manifest (never the Config State)" {
+  _GUIDED_ROOT_PW=""
+  _GUIDED_USER_PW=()
+  local f; f="$(mktemp)"
+  printf '%s\n' '{"root_password":"r","users":{"alex":{"password":"a"}}}' > "$f"
+  _guided_load_secrets_file "$f"; rm -f "$f"
+  run _guided_secrets_manifest
+  [ "$(jq -r '.root_password' <<<"$output")" = "r" ]
+  [ "$(jq -r '.users.alex.password' <<<"$output")" = "a" ]
 }
 
 # ── a persistent-path created user (name only) gets a default profile ─────────

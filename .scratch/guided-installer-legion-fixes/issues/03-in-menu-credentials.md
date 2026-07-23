@@ -1,6 +1,6 @@
 # 03 — In-menu credential entry (replaces post-menu prompt)
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -39,22 +39,24 @@ Behavior:
 
 ## Acceptance criteria
 
-- [ ] Users screen shows a `root password` row and an indented `password` row
+- [x] Users screen shows a `root password` row and an indented `password` row
       under each enabled user; selecting one opens a masked, confirmed prompt
       and returns to the menu.
-- [ ] Captured passwords land in `GUIDED_SECRETS_FILE` in the documented shape
+- [x] Captured passwords land in `GUIDED_SECRETS_FILE` in the documented shape
       and are read at Proceed to build the no-SOPS manifest.
-- [ ] Config emit, Save, and Export never contain any password;
+- [x] Config emit, Save, and Export never contain any password;
       `.secrets.*` is untouched.
-- [ ] Rows show only `(set)` / `(not set)`.
-- [ ] Proceed refuses in-menu (header notice + bell, no exit) while root or any
+- [x] Rows show only `(set)` / `(not set)`.
+- [x] Proceed refuses in-menu (header notice + bell, no exit) while root or any
       enabled user password is unset, and proceeds once all are set;
       Save/Export are never gated.
-- [ ] The post-menu password prompt is gone; replay still supplies passwords
+- [x] The post-menu password prompt is gone; replay still supplies passwords
       via keyed answers.
-- [ ] bats covers the manifest read/write shape, the completeness predicate
+- [x] bats covers the manifest read/write shape, the completeness predicate
       (missing vs complete), and the emit/Save/Export secret-free assertion.
 - [ ] Live masked prompt + in-fzf gate verified at the HITL/VM gate.
+      (HITL-pending — needs a real tty/fzf; logic is bats-covered and the
+      render/gate were exercised through the controller end-to-end.)
 
 ## Blocked by
 
