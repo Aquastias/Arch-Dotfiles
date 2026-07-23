@@ -1,6 +1,6 @@
 # Guided Installer — in-menu credentials, hybrid GPU, latency, casing
 
-Status: ready-for-agent
+Status: done — all 5 issues implemented + committed on main; full 1909-test suite green. Live masked prompt + felt latency remain HITL/VM on the Legion.
 
 Decision of record: builds on **ADR 0042** (Guided Installer renders through
 one persistent fzf) and **supersedes** its "passwords are collected post-menu
