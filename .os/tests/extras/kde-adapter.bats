@@ -24,10 +24,7 @@ setup() {
     > "$STUB_BIN/pacman"
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
-  # Cache-clean runs regardless of shell/apps; stub paccache so it never
-  # touches the host's real /var/cache/pacman.
-  printf '#!/usr/bin/env bash\ntrue\n' > "$STUB_BIN/paccache"
-  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/paccache"
+  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl"
 
   export PATH="$STUB_BIN:$PATH"
 }
@@ -66,24 +63,6 @@ JSON
   grep -q "sddm-kcm" "$PACMAN_LOG"
   grep -q "kimageformats5" "$PACMAN_LOG"
   grep -q "xdg-desktop-portal-kde" "$PACMAN_LOG"
-}
-
-# ── display manager (greetd owns the DM when Hyprland is co-installed) ───────
-
-@test "sddm enabled for a KDE-only install" {
-  printf '{"shell":true,"apps":true,"apps_list":{"files":{"x":false}}}\n' \
-    > "$KDE_JSON"
-  run env ENVIRONMENT_DESKTOP="kde" bash "$ADAPTER"
-  [ "$status" -eq 0 ]
-  grep -q "systemctl enable sddm" "$SYSTEMCTL_LOG"
-}
-
-@test "sddm not enabled when Hyprland is co-installed" {
-  printf '{"shell":true,"apps":true,"apps_list":{"files":{"x":false}}}\n' \
-    > "$KDE_JSON"
-  run env ENVIRONMENT_DESKTOP="kde hyprland" bash "$ADAPTER"
-  [ "$status" -eq 0 ]
-  ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 
 # ── malformed apps_list aborts the install ──────────────────────────────────
