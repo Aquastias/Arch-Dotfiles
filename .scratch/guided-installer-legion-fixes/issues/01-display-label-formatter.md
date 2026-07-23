@@ -1,6 +1,6 @@
 # 01 — Display Label formatter across all menu surfaces
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -38,19 +38,33 @@ field after re-casing.
 
 ## Acceptance criteria
 
-- [ ] A pure formatter maps tokens to Display Labels: curated hits
+- [x] A pure formatter maps tokens to Display Labels: curated hits
       (`kde`→`KDE`, `nvidia`→`NVIDIA`, `esp size`→`ESP size`, `ssh`→`SSH`),
       first-letter fallback for unknown tokens, and passthrough for
       `/dev/sda`, `en_US.UTF-8`, `key=value`, and typed hostnames.
-- [ ] Row labels, pick-screen values, inline values, and the pre-install
+- [x] Row labels, pick-screen values, inline values, and the pre-install
       review summary all render through the formatter.
-- [ ] Selecting a re-cased row still dispatches to the correct field (reverse
+- [x] Selecting a re-cased row still dispatches to the correct field (reverse
       lookup is format-aware).
-- [ ] Stored Config State / emitted config values are unchanged (formatting is
+- [x] Stored Config State / emitted config values are unchanged (formatting is
       display-only).
-- [ ] bats covers curated hits, fallback, technical passthrough, and reverse
+- [x] bats covers curated hits, fallback, technical passthrough, and reverse
       lookup (e.g. `GPU` → `environment.gpu`).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Notes
+
+Value-formatting is gated to human-word fields (`_ctl_display_values`):
+desktop, gpu, kernel, filesystem, bootloader, firewall. Labels are always
+formatted. Left raw (technical / free-text / boolean / structural): keymap
+codes, locale, timezone, mirror countries, program & package names, hostnames,
+sysctl pairs, usernames, booleans, layout preset keys, action rows, and the
+sub-editor structural rows (swap/datapools/pooledit/rootdisk internals). The
+review-summary scope is `print_environment_summary` (Desktop + GPU); backend
+install-plan details (pools, disks, sizes) stay raw. Reverse lookup is
+format-aware in three seams: `_ctl_field_for_label`, the Disks special-row
+prefixes, and `_ctl_enter_values`. Fixed an empty-value column-shift bug
+(whitespace-IFS collapse) by switching the row encoding to a unit-separator.

@@ -287,9 +287,23 @@ resolve_environment() {
 # SUMMARY
 # =============================================================================
 
+# _env_summary_labels <token>... → the tokens rendered as ", "-joined Display
+# Labels (KDE, AMD, NVIDIA, …), so the review reads consistently with the menu.
+# Display only — never touches the ENVIRONMENT_* values used to select packages.
+_env_summary_labels() {
+  [[ "$(type -t display_label)" == "function" ]] \
+    || source "${BASH_SOURCE[0]%/*}/display.sh"
+  local out="" t
+  for t in "$@"; do out+="${out:+, }$(display_label "$t")"; done
+  printf '%s' "$out"
+}
+
 print_environment_summary() {
-  local _desktop="${ENVIRONMENT_DESKTOP[*]:-none}"
-  local _gpu="${ENVIRONMENT_GPU[*]:-none}"
+  local _desktop _gpu
+  _desktop="$([[ ${#ENVIRONMENT_DESKTOP[@]} -gt 0 ]] \
+    && _env_summary_labels "${ENVIRONMENT_DESKTOP[@]}" || echo none)"
+  _gpu="$([[ ${#ENVIRONMENT_GPU[@]} -gt 0 ]] \
+    && _env_summary_labels "${ENVIRONMENT_GPU[@]}" || echo none)"
   local _audio="none"
   [[ ${#ENVIRONMENT_DESKTOP[@]} -gt 0 ]] && _audio="pipewire"
   printf "    %-16s %s\n" "Desktop:" "$_desktop"

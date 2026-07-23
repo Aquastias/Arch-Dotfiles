@@ -47,6 +47,38 @@
 # shellcheck source=lib/config/history.sh
 [[ "$(type -t hist_new)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
+# shellcheck source=lib/config/display.sh
+[[ "$(type -t display_label)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/display.sh"
+
+# _ctl_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
+# words that should render through the Display Label formatter (desktop, gpu,
+# kernel, filesystem, bootloader, firewall). Every other field's values are
+# technical (keymap codes, mirror countries, program names), free-text, or
+# booleans and are shown verbatim. Labels are always formatted; only VALUES are
+# gated by this allowlist.
+_ctl_display_values() {
+  case "$1" in
+  environment.desktop | environment.gpu | options.kernel | filesystem \
+    | options.bootloader | post_install.security.firewall) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+# _ctl_display_value_str <field> <value-string> → the value formatted for
+# display when <field> is value-formattable, else verbatim. Multi-value fields
+# render as ", "-joined tokens (menu_render_value), so each token is formatted
+# and re-joined; single values are one token.
+_ctl_display_value_str() {
+  local field="$1" val="$2"
+  { _ctl_display_values "$field" && [[ -n "$val" ]]; } || { printf '%s' "$val"; return; }
+  local out="" part
+  while [[ "$val" == *", "* ]]; do
+    part="${val%%, *}"; val="${val#*, }"
+    out+="${out:+, }$(display_label "$part")"
+  done
+  printf '%s' "${out:+$out, }$(display_label "$val")"
+}
 
 # The rule separating the categories from the terminal-action rows on the top
 # screen.
@@ -372,8 +404,13 @@ _ctl_toggle_users() {
 # _ctl_field_for_label <category> <label> → the dotted path of the row whose
 # label matches (reverse lookup through the pure Menu model).
 _ctl_field_for_label() {
-  menu_category_rows "$1" "$(_ctl_state)" "$(_ctl_baseline)" \
-    | jq -r --arg l "$2" 'first(.[] | select(.label == $l) | .field) // empty'
+  # Labels render through the Display Label formatter, so reverse-map the
+  # formatted label back to a field by formatting each candidate and comparing.
+  local cat="$1" want="$2" field label
+  while IFS=$'\t' read -r field label; do
+    [[ "$(display_label "$label")" == "$want" ]] && { printf '%s' "$field"; return; }
+  done < <(menu_category_rows "$cat" "$(_ctl_state)" "$(_ctl_baseline)" \
+    | jq -r '.[] | [.field, .label] | @tsv')
 }
 
 # _ctl_field_display <path> <state> <base> → the field's menu-displayed value
@@ -744,7 +781,7 @@ guided_ctl_list() {
       local _ov=""
       jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
-      printf 'layout: %s%s\n' \
+      printf '%s: %s%s\n' "$(display_label layout)" \
         "$(_ctl_layout_label "$(_ctl_effective "$state" "$base")")" "$_ov"
       # Single-disk root binds in-menu on-target: a device-mode single-disk
       # layout gets a root disk row (ADR 0047). Multi layouts bind per pool;
@@ -753,17 +790,26 @@ guided_ctl_list() {
       if _ctl_device_mode \
         && [[ "$(jq -r '.mode // "single"' <<<"$_deff")" != "multi" ]]; then
         local _rd; _rd="$(jq -r '.root_disk // ""' <<<"$_deff")"
-        printf 'root disk: %s   (Enter to pick)\n' \
+        printf '%s: %s   (Enter to pick)\n' "$(display_label "root disk")" \
           "$([[ -n "$_rd" ]] && _ctl_disk_label "$_rd" || echo "(none)")"
       fi
       local _sov=""
       jq -e '.options.swap != null or .options.swap_size != null' \
         <<<"$state" >/dev/null 2>&1 && _sov="  ●"
-      printf 'swap: %s%s\n' \
+      printf '%s: %s%s\n' "$(display_label swap)" \
         "$(_ctl_swap_label "$(_ctl_effective "$state" "$base")")" "$_sov"
     fi
-    menu_category_rows "$cat" "$state" "$base" | jq -r \
-      '.[] | "\(.label): \(.value // "")" + (if .overridden then "  ●" else "" end)'
+    # Unit-separator (\x1f), not @tsv: a tab IFS is whitespace, so read collapses
+    # the double delimiter of an EMPTY value field and shifts the columns. \x1f
+    # is non-whitespace, so empty fields are preserved.
+    local _ffield _flabel _fval _fov
+    while IFS=$'\x1f' read -r _ffield _flabel _fval _fov; do
+      printf '%s: %s%s\n' "$(display_label "$_flabel")" \
+        "$(_ctl_display_value_str "$_ffield" "$_fval")" \
+        "$([[ "$_fov" == "true" ]] && printf '  ●')"
+    done < <(menu_category_rows "$cat" "$state" "$base" | jq -r \
+      '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring)]
+             | join("\u001f")')
     if [[ "$cat" == "Disks" ]]; then
       [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
         options.impermanence.enabled)" == "true" ]] \
@@ -781,9 +827,20 @@ guided_ctl_list() {
     elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
       _ctl_biglist_options "$vf"
     elif [[ "$(_ctl_field_kind "$vf")" == "toggle" ]]; then
-      _ctl_marked_options "$vf" "$state" "$base"
+      if _ctl_display_values "$vf"; then
+        local _ml; while IFS= read -r _ml; do
+          printf '%s %s\n' "${_ml:0:3}" "$(display_label "${_ml:4}")"
+        done < <(_ctl_marked_options "$vf" "$state" "$base")
+      else
+        _ctl_marked_options "$vf" "$state" "$base"
+      fi
     else
-      _ctl_enum_options "$vf"
+      if _ctl_display_values "$vf"; then
+        local _el; while IFS= read -r _el; do display_label "$_el"; done \
+          < <(_ctl_enum_options "$vf")
+      else
+        _ctl_enum_options "$vf"
+      fi
     fi
     _ctl_action_row "← Back" ;;
   text)
@@ -951,12 +1008,12 @@ _ctl_enter_category() {
   case "$line" in
   "← Back")
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
-  "layout:"*)
+  "Layout:"*)   # display_label "layout"
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
-  "swap:"*)
+  "Swap:"*)     # display_label "swap"
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
-  "root disk:"*)
+  "Root disk:"*)   # display_label "root disk"
     _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
@@ -986,8 +1043,15 @@ _ctl_enter_values() {
     # the operator can toggle several. `refresh` (reload-sync, query/header kept)
     # re-marks the list in place without the flicker — and crucially without
     # clearing a filter the operator typed on a long list (e.g. mirror countries).
+    local _tval="${line:4}"   # strip the "[x] "/"[ ] " mark
+    # Value-formattable toggles render options through the formatter, so map the
+    # displayed option back to its stored (lower-case) value before flipping.
+    if _ctl_display_values "$path"; then
+      local -a _opts; mapfile -t _opts < <(_ctl_toggle_options "$path")
+      _tval="$(display_reverse "$_tval" "${_opts[@]}")" || _tval="${line:4}"
+    fi
     _ctl_write_state "$(_ctl_normalise_default "$(_ctl_toggle_multi \
-      "$(_ctl_state)" "$(_ctl_baseline)" "$path" "${line:4}")" "$path")"
+      "$(_ctl_state)" "$(_ctl_baseline)" "$path" "$_tval")" "$path")"
     echo refresh; return
   fi
   if [[ "$path" == "sysctl" ]]; then
@@ -1044,7 +1108,14 @@ _ctl_enter_values() {
     fi
     echo render; return
   fi
-  if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$line")"; then
+  local _eval="$line"
+  # Value-formattable enums render options through the formatter; reverse-map
+  # the picked display string back to its stored value.
+  if _ctl_display_values "$path"; then
+    local -a _eopts; mapfile -t _eopts < <(_ctl_enum_options "$path")
+    _eval="$(display_reverse "$line" "${_eopts[@]}")" || _eval="$line"
+  fi
+  if new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$_eval")"; then
     _ctl_write_state "$(_ctl_normalise_default "$new" "$path")"
   fi
   _ctl_write_nav "$(nav_back "$nav")"; echo render
