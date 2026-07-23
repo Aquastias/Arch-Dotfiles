@@ -86,6 +86,26 @@ setup() {
   [ "$output" = "/dev/sdb" ]                     # one line, not duplicated
 }
 
+# ── Regression: airootfs/copytoram boot must not trip the ERR trap ──────────
+# The other tests stub _lm_boot_part, so the real function's exit status was
+# never exercised. On an airootfs/copytoram boot (bootmnt unmounted, / is
+# "airootfs") its trailing `[[ ]] && echo` test is false; it must still exit 0
+# so `boot="$(_lm_boot_part)"` under `set -e` doesn't fire the wipe ERR trap
+# ("Wipe script failed at line 59").
+@test "airootfs boot: _lm_boot_part exits 0 under set -e (no line-59 failure)" {
+  run bash -c '
+    set -Eeuo pipefail
+    trap "exit 42" ERR
+    source "'"$BATS_TEST_DIRNAME"'/../lib/live-medium.sh"
+    findmnt() { case "${!#}" in
+      /run/archiso/bootmnt) return 1 ;; /) echo airootfs ;; *) return 1 ;;
+    esac; }
+    export -f findmnt
+    live_medium_disks
+  '
+  [ "$status" -eq 0 ]
+}
+
 # ── Predicate: is_live_medium ───────────────────────────────────────────────
 
 @test "is_live_medium: true for the live disk, false for a data disk" {
