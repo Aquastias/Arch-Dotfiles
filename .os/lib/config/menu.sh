@@ -93,21 +93,24 @@ _MENU_CATEGORIES=(
 # array of {name, summary, overridden}), in canonical order. `overridden` is the
 # fold of the category's field rows: true iff any descendant field is an
 # override. No new state — it reads menu_rows's per-field ● flag.
+# _MENU_CATEGORIES_JSON — the category table as a JSON array, built once and
+# cached (ticket 04), so menu_categories folds the override flags in one jq.
+_MENU_CATEGORIES_JSON=""
+_menu_categories_json() {
+  [[ -n "$_MENU_CATEGORIES_JSON" ]] && { printf '%s' "$_MENU_CATEGORIES_JSON"; return; }
+  _MENU_CATEGORIES_JSON="$(printf '%s\n' "${_MENU_CATEGORIES[@]}" | jq -Rn \
+    '[inputs | split("|") | {name:.[0], summary:.[1]}]')"
+  printf '%s' "$_MENU_CATEGORIES_JSON"
+}
+
 menu_categories() {
   local rows; rows="$(menu_rows "$1" "${2:-{\}}")"
-  local spec name summary overridden cats=()
-  for spec in "${_MENU_CATEGORIES[@]}"; do
-    IFS='|' read -r name summary <<<"$spec"
-    if jq -e --arg s "$name" 'any(.[]; .section == $s and .overridden)' \
-        <<<"$rows" >/dev/null; then
-      overridden=true
-    else
-      overridden=false
-    fi
-    cats+=("$(jq -n --arg n "$name" --arg s "$summary" --argjson o "$overridden" \
-      '{name:$n, summary:$s, overridden:$o}')")
-  done
-  printf '%s\n' "${cats[@]}" | jq -s '.'
+  # One jq: fold "any field in this category is overridden" per category row.
+  jq -n --argjson rows "$rows" --argjson cats "$(_menu_categories_json)" '
+    [ $cats[]
+      | .name as $n
+      | { name: $n, summary: .summary,
+          overridden: ($rows | any(.[]; .section == $n and .overridden)) } ]'
 }
 
 # menu_render_value <config> <path> — the one-line rendering of <path>'s value in
@@ -127,40 +130,50 @@ menu_render_value() {
       else ($v | tostring) end' <<<"$1"
 }
 
+# _MENU_FIELDS_JSON — the field table (_MENU_FIELDS) as a JSON array, built once
+# and cached. Lets menu_rows compute every row in a single jq call instead of a
+# ~3-jq-per-field fan-out (ticket 04 latency).
+_MENU_FIELDS_JSON=""
+_menu_fields_json() {
+  [[ -n "$_MENU_FIELDS_JSON" ]] && { printf '%s' "$_MENU_FIELDS_JSON"; return; }
+  _MENU_FIELDS_JSON="$(printf '%s\n' "${_MENU_FIELDS[@]}" | jq -Rn \
+    '[inputs | split("|")
+      | {section:.[0], path:.[1], label:.[2], default:(.[3] // "")}]')"
+  printf '%s' "$_MENU_FIELDS_JSON"
+}
+
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
+# One jq call: it merges baseline*override, derives the effective filesystem
+# (Impermanence is hidden for ext4/xfs — ADR 0040), and for each field renders
+# the value (array→", "-join, object→"k=v", scalar→string, empty→default) and
+# the override-only ● flag (getpath on the override map != null). Behaviour is
+# identical to the old per-field loop — the render logic mirrors
+# menu_render_value / cfgstate_is_overridden.
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
-  local spec section path label default value overridden
-  local rows=()
-  # The displayed value is baseline*override (override wins); ● is override-only.
-  local merged; merged="$(jq -n --argjson b "$baseline" --argjson o "$state" \
-    '$b * $o')"
-  # Effective filesystem governs which Disks rows surface: Impermanence needs
-  # native snapshots, so it is hidden for ext4 / xfs (ADR 0040).
-  local fs; fs="$(cfgstate_get "$merged" filesystem)"
-  [[ -n "$fs" ]] || fs="zfs"
-  for spec in "${_MENU_FIELDS[@]}"; do
-    IFS='|' read -r section path label default <<<"$spec"
-    if [[ "$path" == "options.impermanence.enabled" \
-          && ( "$fs" == "ext4" || "$fs" == "xfs" ) ]]; then
-      continue
-    fi
-    value="$(menu_render_value "$merged" "$path")"
-    [[ -n "$value" ]] || value="$default"
-    # ● is override-only: the apply-time normalise drops any override equal to the
-    # baseline default, so the override map is a true delta and its presence is
-    # exactly "the operator changed this away from the default".
-    if cfgstate_is_overridden "$state" "$path"; then
-      overridden=true
-    else
-      overridden=false
-    fi
-    rows+=("$(jq -n \
-      --arg s "$section" --arg f "$path" --arg l "$label" \
-      --arg v "$value" --argjson o "$overridden" \
-      '{section:$s, field:$f, label:$l, value:$v, overridden:$o}')")
-  done
-  printf '%s\n' "${rows[@]}" | jq -s '.'
+  jq -n \
+    --argjson fields "$(_menu_fields_json)" \
+    --argjson override "$state" \
+    --argjson baseline "$baseline" '
+    def render($v; $d):
+      (if   $v == null            then null
+       elif ($v | type) == "array"  then ($v | join(", "))
+       elif ($v | type) == "object" then
+         ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
+       else ($v | tostring) end) as $r
+      | if ($r == null or $r == "") then $d else $r end;
+    ($baseline * $override) as $m
+    | (if (($m.filesystem // "zfs")) == "" then "zfs"
+       else ($m.filesystem // "zfs") end) as $fs
+    | [ $fields[]
+        | select(.path != "options.impermanence.enabled"
+                 or ($fs != "ext4" and $fs != "xfs"))
+        | (.path | split(".")) as $pp
+        | { section: .section,
+            field:   .path,
+            label:   .label,
+            value:   render($m | getpath($pp); .default),
+            overridden: (($override | getpath($pp)) != null) } ]'
 }
 
 # menu_category_rows <category> <override> [<baseline>] — the field rows for one

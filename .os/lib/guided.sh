@@ -826,7 +826,7 @@ _guided_oneshot_edit() {
 # _guided_resolve_assignment, so the menu carries no disk screen.
 guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
-    GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE
+    GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -837,8 +837,13 @@ guided_run_persistent() {
   # vars below. Cleaned on RETURN with the others — never in the Config State.
   GUIDED_SECRETS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
   printf '{}\n' >"$GUIDED_SECRETS_FILE"
+  # Latency fast-path (ticket 04): a nav dispatch precomputes the next screen's
+  # list here so fzf can reload(cat …) it — one cheap fork instead of a second
+  # bash that re-sources the controller. fzf runs binds sequentially, so one
+  # reused file is race-free.
+  GUIDED_LIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-list.XXXXXX")"
   # shellcheck disable=SC2064
-  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE' '$GUIDED_SECRETS_FILE'" RETURN
+  trap "rm -f '$GUIDED_STATE_FILE' '$GUIDED_NAV_FILE' '$GUIDED_BASELINE_FILE' '$GUIDED_RESULT_FILE' '$GUIDED_HIST_FILE' '$GUIDED_SECRETS_FILE' '$GUIDED_LIST_FILE'" RETURN
 
   # In-Menu Disk Binding (ADR 0047): resolve the live medium + whether any
   # install disk is enumerable ONCE, and export both so the fzf-entry

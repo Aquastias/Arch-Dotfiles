@@ -1134,3 +1134,34 @@ _seed_baseline() {
   echo "$output" | grep -q "execute(bash /x/entry.sh oneshot system.hostname)"
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
 }
+
+# ── latency fast-path (ticket 04): reload(cat FILE) instead of a second fork ──
+
+@test "fast-path: render reloads via cat of the precomputed list file" {
+  export GUIDED_LIST_FILE="$TEST_DIR/list"
+  set_nav "$(nav_to_category Disks)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "reload(cat "
+  ! echo "$output" | grep -q "reload(bash"
+}
+
+@test "fast-path: the precomputed file equals guided_ctl_list (output-equiv)" {
+  export GUIDED_LIST_FILE="$TEST_DIR/list"
+  set_nav "$(nav_to_category Disks)"
+  local direct; direct="$(guided_ctl_list)"
+  _guided_directive_to_action render /x/entry.sh >/dev/null
+  [ "$(cat "$GUIDED_LIST_FILE")" = "$direct" ]
+}
+
+@test "fast-path: refresh also cats the precomputed list file" {
+  export GUIDED_LIST_FILE="$TEST_DIR/list"
+  set_nav "$(nav_to_values Options options.kernel kernel)"
+  run _guided_directive_to_action refresh /x/entry.sh
+  echo "$output" | grep -q "reload-sync(cat "
+}
+
+@test "fast-path: falls back to bash re-render with no list file wired" {
+  unset GUIDED_LIST_FILE
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+}
