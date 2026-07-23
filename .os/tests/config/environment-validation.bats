@@ -115,9 +115,9 @@ write_config() {
   run print_environment_summary
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Desktop:" ]]
-  [[ "$output" =~ "kde" ]]
+  [[ "$output" =~ "KDE" ]]
   [[ "$output" =~ "GPU:" ]]
-  [[ "$output" =~ "amd" ]]
+  [[ "$output" =~ "AMD" ]]
   [[ "$output" =~ "Audio:" ]]
   [[ "$output" =~ "pipewire" ]]
 }

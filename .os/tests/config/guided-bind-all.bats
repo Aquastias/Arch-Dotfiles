@@ -162,14 +162,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   GUIDED_DEVICE_MODE=1
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "root disk:"
+  echo "$output" | grep -q "Root disk:"
 }
 
 @test "list(category Disks): count-mode has no root disk row" {
   GUIDED_DEVICE_MODE=0
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  ! echo "$output" | grep -q "root disk:"
+  ! echo "$output" | grep -q "Root disk:"
 }
 
 @test "list(category Disks): device-mode multi has no root disk row" {
@@ -177,13 +177,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' "$OS" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  ! echo "$output" | grep -q "root disk:"
+  ! echo "$output" | grep -q "Root disk:"
 }
 
 @test "enter(category root disk): opens the rootdisk picker" {
   GUIDED_DEVICE_MODE=1
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "root disk: (none)   (Enter to pick)"
+  run guided_ctl_enter "Root disk: (none)   (Enter to pick)"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "rootdisk" ]
 }

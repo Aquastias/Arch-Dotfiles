@@ -42,7 +42,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "entry dispatch enter: an enum field opens the value picker" {
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
-  run bash "$ENTRY" dispatch enter "encryption: false"
+  run bash "$ENTRY" dispatch enter "Encryption: false"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "values" ]
   [ "$(jq -r '.field' "$GUIDED_NAV_FILE")" = "options.encryption" ]

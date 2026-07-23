@@ -63,9 +63,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(category Disks): field rows + Disk layout action + Back" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "filesystem: zfs"
-  echo "$output" | grep -q "encryption: false"
-  echo "$output" | grep -q "layout: single"   # reflects the default
+  echo "$output" | grep -q "Filesystem: ZFS"
+  echo "$output" | grep -q "Encryption: false"
+  echo "$output" | grep -q "Layout: single"   # reflects the default
   echo "$output" | grep -q "← Back"
 }
 
@@ -75,13 +75,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   guided_ctl_enter "os-mirror" >/dev/null    # apply the preset
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "layout: OS: 2 disks (mirror)"
+  echo "$output" | grep -q "Layout: OS: 2 disks (mirror)"
   echo "$output" | grep -q "●"               # overridden marker
 }
 
 @test "enter(category): an enum field opens the value picker" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "encryption: false"
+  run guided_ctl_enter "Encryption: false"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.encryption" ]
@@ -89,7 +89,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): a text field opens the native query-line editor" {
   set_nav "$(nav_to_category Host)"
-  run guided_ctl_enter "hostname: "
+  run guided_ctl_enter "Hostname: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.hostname" ]
@@ -97,7 +97,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): a toggle field opens the multi-select picker" {
   set_nav "$(nav_to_category Options)"
-  run guided_ctl_enter "kernel: lts"
+  run guided_ctl_enter "Kernel: LTS"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
@@ -106,8 +106,18 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(category Packages): empty list fields render as [] not blank" {
   set_nav "$(nav_to_category Packages)"
   run guided_ctl_list
-  echo "$output" | grep -q "extra packages: \[\]"
-  echo "$output" | grep -q "system programs: \[\]"
+  echo "$output" | grep -q "Extra packages: \[\]"
+  echo "$output" | grep -q "System programs: \[\]"
+}
+
+@test "list(category): an empty VALUE keeps its column (no dot-shift)" {
+  # regression: a tab-IFS read collapses an empty value field and shifts the
+  # overridden flag into it — an empty hostname must render "Hostname: " not
+  # "Hostname: false"/"…True".
+  set_nav "$(nav_to_category Host)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^Hostname: *$'
+  ! echo "$output" | grep -qiE '^Hostname: (true|false)'
 }
 
 @test "list(text esp size): current shows the default 2G, not (unset)" {
@@ -122,8 +132,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Options options.kernel kernel)"
   run guided_ctl_list
-  echo "$output" | grep -q "\[x\] lts"
-  echo "$output" | grep -q "\[ \] zen"
+  echo "$output" | grep -q "\[x\] LTS"
+  echo "$output" | grep -q "\[ \] Zen"
 }
 
 @test "enter(values toggle): toggling on adds the option and STAYS on the screen" {
@@ -282,7 +292,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): Disk layout opens the native preset picker" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "layout: single"
+  run guided_ctl_enter "Layout: single"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__layout__" ]
@@ -301,7 +311,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_values Options options.bootloader bootloader)"
   run guided_ctl_list
   echo "$output" | grep -q "systemd-boot"
-  echo "$output" | grep -q "grub"
+  echo "$output" | grep -q "Grub"
   echo "$output" | grep -q "← Back"
 }
 
@@ -327,7 +337,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_values Disks filesystem filesystem)"
   run guided_ctl_list
   local fs
-  for fs in zfs btrfs ext4 xfs; do
+  for fs in ZFS Btrfs Ext4 Xfs; do
     echo "$output" | grep -qx "$fs" || { echo "missing built fs: $fs"; false; }
   done
   ! echo "$output" | grep -qi reserved
@@ -646,19 +656,19 @@ _seed_baseline() {
 @test "list(category Disks): one swap row, no separate swap size row" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  [ "$(echo "$output" | grep -cE '^swap:')" = "1" ]
-  ! echo "$output" | grep -qE '^swap size:'
+  [ "$(echo "$output" | grep -cE '^Swap:')" = "1" ]
+  ! echo "$output" | grep -qE '^Swap size:'
 }
 
 @test "list(category Disks): swap row defaults to size + zswap, no dot" {
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -qE '^swap: auto · zswap zstd$'   # default on + zswap
+  echo "$output" | grep -qE '^Swap: auto · zswap zstd$'   # default on + zswap
 }
 
 @test "enter(category): swap opens the swapedit sub-editor" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "swap: auto"
+  run guided_ctl_enter "Swap: auto"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "swapedit" ]
 }
@@ -729,7 +739,7 @@ _seed_baseline() {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -qE '^swap: off  ●$'
+  echo "$output" | grep -qE '^Swap: off  ●$'
 }
 
 # ── swapedit: zswap toggle + compressor / max-pool-% cycles (default on) ──────
@@ -797,7 +807,7 @@ _seed_baseline() {
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
   set_nav "$(nav_to_category Host)"
-  run guided_ctl_enter "keymap: us"
+  run guided_ctl_enter "Keymap: us"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.keymap" ]
@@ -894,7 +904,7 @@ _seed_baseline() {
 
 @test "enter(category): sysctl opens its list screen" {
   set_nav "$(nav_to_category Options)"
-  run guided_ctl_enter "sysctl: "
+  run guided_ctl_enter "Sysctl: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "sysctl" ]
@@ -929,7 +939,7 @@ _seed_baseline() {
 
 @test "enter(category): users opens its native screen" {
   set_nav "$(nav_to_category Users)"
-  run guided_ctl_enter "users: "
+  run guided_ctl_enter "Users: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
