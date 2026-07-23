@@ -218,6 +218,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Minimal preflight: jq parses jsonc on every path (Target Resolver, profile
+# load, guided menu), so ensure it before anything else — including the
+# --print-config validation below, which is jq-only and touches no disk. The
+# Arch ISO ships no jq; install it on the live medium (mirrors lib/secrets.sh's
+# age/sops install). The full toolchain check happens further down, only on the
+# paths that actually install.
+# shellcheck source=lib/preflight.sh
+source "${SCRIPT_DIR}/lib/preflight.sh"
+preflight_ensure_host_tools jq || exit 1
+
 # --print-config: validate the named Host Profile against the closed schema,
 # assemble the effective config, and emit it to stdout — then exit. Runs
 # before any disk-touching phase (01/02/03 never start), so a typo'd key
@@ -237,6 +247,21 @@ if [[ -n "$print_config" ]]; then
   load_profile "$profile_name"
   exit 0
 fi
+
+# Full-toolchain preflight: only the paths that actually install reach here
+# (--print-config has already exited). The numbered phases shell out to the whole
+# partition/format/pacstrap toolchain, and a run wipes disks — so verify every
+# host tool now and pacman-install any missing piece before a disk is touched,
+# never mid-wipe. fzf is added only when an interactive picker will run: the
+# --profile disk picker or the bare guided TUI — not a --guided replay or a
+# positional-config install, which drive no menu.
+if [[ -n "$profile_name" ]] \
+  || { [[ -z "$guided_replay" ]] && ((${#positional_args[@]} == 0)); }; then
+  mapfile -t preflight_tools < <(preflight_installer_tools --interactive)
+else
+  mapfile -t preflight_tools < <(preflight_installer_tools)
+fi
+preflight_ensure_host_tools "${preflight_tools[@]}" || exit 1
 
 # Interactive --profile front-end: validate the named Host Profile against the
 # closed schema, let the operator pick disks, assemble the effective config in
