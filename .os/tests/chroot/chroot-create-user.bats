@@ -21,6 +21,9 @@ setup() {
   # chown: capture calls for assertion
   printf '#!/usr/bin/env bash\necho "$@" >> "%s/chown_calls"\n' "$TEST_DIR" \
     > "$TEST_DIR/bin/chown"
+  # pacman: capture calls for the login-shell-install assertion
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/pacman_calls"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/pacman"
 
   chmod +x "$TEST_DIR/bin"/*
   export PATH="$TEST_DIR/bin:$PATH"
@@ -56,6 +59,26 @@ _run_create_user() {
     "$TEST_DIR/user-secrets.json"
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_DIR/chpasswd_input")" = "alice:s3cr3tpw" ]
+}
+
+# ── login shell is installed when its binary is absent ───────────────────────
+
+@test "installs zsh package when the zsh login shell binary is absent" {
+  run _run_create_user "alice" "$TEST_DIR/absent/zsh" "" "pw"
+  [ "$status" -eq 0 ]
+  grep -q '^.*zsh' "$TEST_DIR/pacman_calls"
+}
+
+@test "installs fish package when the fish login shell binary is absent" {
+  run _run_create_user "alice" "$TEST_DIR/absent/fish" "" "pw"
+  [ "$status" -eq 0 ]
+  grep -q '^.*fish' "$TEST_DIR/pacman_calls"
+}
+
+@test "does not install any package for a bash login shell" {
+  run _run_create_user "alice" "$TEST_DIR/absent/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_DIR/pacman_calls" ]
 }
 
 # ── #03: SSH identity deployment ──────────────────────────────────────────────
