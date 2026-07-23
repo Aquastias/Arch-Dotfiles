@@ -1639,6 +1639,21 @@ guided_ctl_key() {
 # the (post-mutation) screen so the toolbar always reflects "how to go back";
 # a terminal action writes the verb to $GUIDED_RESULT_FILE then accepts; an
 # edit-oneshot hands the tty to the existing helper then re-lists.
+# _ctl_reload_cmd <entry> — the reload command for a re-render. Fast path
+# (ticket 04): precompute the current screen's list into GUIDED_LIST_FILE and
+# `cat` it — one cheap fork instead of a second bash that re-sources the whole
+# controller. Falls back to the bash re-render when no list file is wired (bats
+# / non-persistent contexts), so behaviour is identical either way.
+_ctl_reload_cmd() {
+  local entry="$1"
+  if [[ -n "${GUIDED_LIST_FILE:-}" ]]; then
+    guided_ctl_list >"$GUIDED_LIST_FILE" 2>/dev/null
+    printf 'cat %q' "$GUIDED_LIST_FILE"
+  else
+    printf 'bash %q list' "$entry"
+  fi
+}
+
 _guided_directive_to_action() {
   local d="$1" entry="$2" nav
   case "$d" in
@@ -1670,9 +1685,9 @@ _guided_directive_to_action() {
       chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
         "$(_ctl_footer "$nav")" "$(_ctl_breadcrumb "$nav")")"
     fi
-    printf 'clear-query+reload(bash %q list)+change-header(%s)+change-prompt(%s)%s%s' \
-      "$entry" "$(_ctl_nav_header "$nav")" "$(_ctl_nav_prompt "$nav")" "$pv" \
-      "$chrome" ;;
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s' \
+      "$(_ctl_reload_cmd "$entry")" "$(_ctl_nav_header "$nav")" \
+      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).
@@ -1683,7 +1698,8 @@ _guided_directive_to_action() {
     local rfoot=''
     _ctl_rich_chrome && rfoot="$(printf '+change-footer(%s)' \
       "$(_ctl_footer "$(_ctl_nav)")")"
-    printf 'reload-sync(bash %q list)+refresh-preview%s' "$entry" "$rfoot" ;;
+    printf 'reload-sync(%s)+refresh-preview%s' "$(_ctl_reload_cmd "$entry")" \
+      "$rfoot" ;;
   abort)            printf 'abort' ;;
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \

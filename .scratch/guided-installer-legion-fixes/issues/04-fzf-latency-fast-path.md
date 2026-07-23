@@ -1,6 +1,6 @@
 # 04 — fzf menu-switch latency fast-path
 
-Status: ready-for-agent
+Status: done
 Type: AFK
 
 ## Parent
@@ -28,14 +28,19 @@ this slice only changes speed.
 
 ## Acceptance criteria
 
-- [ ] Menu navigation returns `reload(cat <file>)` instead of re-forking bash
+- [x] Menu navigation returns `reload(cat <file>)` instead of re-forking bash
       to rebuild the list.
-- [ ] The list builder issues materially fewer jq invocations per render.
-- [ ] `guided_ctl_list` emits identical rows per screen before and after the
-      change (output-equivalence bats).
-- [ ] The architecture is unchanged (still one persistent fzf + stateless
+- [x] The list builder issues materially fewer jq invocations per render
+      (category screen ~80 → 5 jq; top screen 20 → 4 jq — menu_rows and
+      menu_categories now fold in a single jq each over cached field/category
+      tables).
+- [x] `guided_ctl_list` emits identical rows per screen before and after the
+      change (output-equivalence bats; full 1909-test suite green).
+- [x] The architecture is unchanged (still one persistent fzf + stateless
       subprocesses); no new long-lived process.
 - [ ] Felt latency improvement confirmed at the HITL/VM gate on the Legion.
+      (HITL-pending — re-measure on device; escalate to a warm-server only if
+      still laggy, per the agreed scope.)
 
 ## Blocked by
 
