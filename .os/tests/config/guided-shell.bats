@@ -949,3 +949,25 @@ write_answers() {
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.mode == "single" and .disk == "/dev/disk/by-id/root"'
 }
+
+# ── slice 02: install-scoped User Editor deltas merged onto the clone ─────────
+
+@test "_guided_apply_userforms: merges a shell delta, keeps the committed delta" {
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  # committed delta carries groups; the edit only changes shell
+  printf '{"groups":["docker"],"shell":"/bin/bash"}' \
+    > "$OS_DIR/users/alice/profile.jsonc"
+  _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
+  _guided_apply_userforms
+  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/alice/profile.jsonc"
+  jq -e '.groups == ["docker"]' "$OS_DIR/users/alice/profile.jsonc"  # delta kept
+}
+
+@test "_guided_apply_userforms: no-op when no deltas were held aside" {
+  mkdir -p "$OS_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  _GUIDED_USERFORMS_JSON=''
+  _guided_apply_userforms
+  jq -e '.shell == "/bin/bash"' "$OS_DIR/users/alice/profile.jsonc"   # untouched
+}

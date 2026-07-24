@@ -65,6 +65,14 @@ nav_to_pooldisks() {
 # /dev/disk/by-id/* device for a single-disk install).
 nav_to_rootdisk() { jq -nc --arg c "$1" '{screen:"rootdisk", category:$c}'; }
 
+# nav_to_useredit <category> <name> — the per-user User Editor (ADR 0051): edit
+# one user's profile fields (shell, …). Carries the user name so every edit is
+# scoped back to that user; nav_back returns to the flattened Users list.
+nav_to_useredit() {
+  jq -nc --arg c "$1" --arg u "$2" \
+    '{screen:"useredit", category:$c, user:$u}'
+}
+
 # nav_to_poolmount <category> <index> — the free-text editor for data_pools[index]'s
 # mount point (ADR 0047). A text screen that carries the pool index so the commit
 # is scoped back to the right pool, then returns to that pool's editor.
@@ -87,6 +95,8 @@ nav_back() {
          then {screen:"pooledit", category:.category,
                index:.index, kind:.kind}
     elif .screen == "rootdisk" then {screen:"category", category:.category}
+    elif .screen == "useredit"
+         then {screen:"values", category:.category, field:"users", label:"users"}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }

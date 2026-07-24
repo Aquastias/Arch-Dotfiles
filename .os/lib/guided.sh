@@ -626,6 +626,11 @@ _GUIDED_ADHOC_ORDER=()
 declare -gA _GUIDED_ADHOC_FORM=()
 declare -gA _GUIDED_USER_PW=()
 _GUIDED_ROOT_PW=""
+# Install-scoped per-user profile deltas from the User Editor (ADR 0051), loaded
+# from GUIDED_USERFORMS_FILE before the persistent menu's tmpfiles are reaped.
+# Merged onto each user's profile on the install clone at Proceed; never written
+# to a committed repo file, never in the Config State. Empty under replay.
+_GUIDED_USERFORMS_JSON=""
 
 # _guided_users_reset — clear the per-session Users/password side state.
 _guided_users_reset() {
@@ -634,6 +639,7 @@ _guided_users_reset() {
   declare -gA _GUIDED_ADHOC_FORM=()
   declare -gA _GUIDED_USER_PW=()
   _GUIDED_ROOT_PW=""
+  _GUIDED_USERFORMS_JSON=""
 }
 
 # _guided_seed_primary_user — pre-select aquastias as the default committed
@@ -737,6 +743,31 @@ _guided_materialize_users() {
       '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],"programs":["searxng"]}' \
       > "${dir}/profile.jsonc"
   done < <(jq -r '(.users // [])[]' <<<"$(_guided_effective)")
+
+  # Install-scoped User Editor deltas (ADR 0051): merge each held-aside per-user
+  # delta onto that user's profile ON THE CLONE — the committed source in the repo
+  # is only touched here because OS_DIR is the transient install clone at Proceed.
+  # A committed user's profile stays a delta over User Core (its existing delta
+  # `*` the edit); an ad-hoc user's just-written profile gets the edit on top.
+  _guided_apply_userforms
+}
+
+# _guided_apply_userforms — merge _GUIDED_USERFORMS_JSON deltas onto each named
+# user's profile.jsonc (the clone). No-op when empty (replay / no edits). Reads
+# the existing profile via _configs_parse (JSONC→JSON) so committed comments are
+# tolerated; writes plain JSON (comments are not needed on the clone).
+_guided_apply_userforms() {
+  [[ -n "${_GUIDED_USERFORMS_JSON:-}" ]] || return 0
+  local name delta dir f base
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    delta="$(jq -c --arg n "$name" '.[$n] // {}' <<<"$_GUIDED_USERFORMS_JSON")"
+    [[ "$delta" == "{}" || -z "$delta" ]] && continue
+    dir="${OS_DIR}/users/${name}"; f="${dir}/profile.jsonc"
+    mkdir -p "$dir"
+    if [[ -f "$f" ]]; then base="$(_configs_parse "$f")"; else base='{}'; fi
+    jq -n --argjson b "$base" --argjson d "$delta" '$b * $d' > "$f"
+  done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
 
 # Credentials are captured in the menu (ticket 03) — the persistent-fzf front-end
@@ -826,7 +857,8 @@ _guided_oneshot_edit() {
 # _guided_resolve_assignment, so the menu carries no disk screen.
 guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
-    GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE
+    GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE \
+    GUIDED_USERFORMS_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -842,10 +874,15 @@ guided_run_persistent() {
   # bash that re-sources the controller. fzf runs binds sequentially, so one
   # reused file is race-free.
   GUIDED_LIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-list.XXXXXX")"
+  # Install-scoped User Editor deltas (ADR 0051): the editor writes per-user
+  # profile deltas here; loaded into _GUIDED_USERFORMS_JSON before this file is
+  # reaped, then merged onto the clone at Proceed. Never the Config State.
+  GUIDED_USERFORMS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-userforms.XXXXXX.json")"
+  printf '{}\n' >"$GUIDED_USERFORMS_FILE"
   local -a _guided_tmpfiles=(
     "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
-    "$GUIDED_LIST_FILE"
+    "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE"
   )
   trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 
@@ -909,6 +946,10 @@ guided_run_persistent() {
   # so the existing manifest path (_guided_secrets_manifest) is unchanged. The
   # Proceed gate guaranteed root + every enabled user is set before accept.
   _guided_load_secrets_file "$GUIDED_SECRETS_FILE"
+  # Hold the User Editor deltas aside before the tmpfiles are reaped on RETURN, so
+  # Proceed's materialize (which runs after this function) can merge them.
+  [[ -s "$GUIDED_USERFORMS_FILE" ]] \
+    && _GUIDED_USERFORMS_JSON="$(<"$GUIDED_USERFORMS_FILE")"
   local action; action="$(<"$GUIDED_RESULT_FILE")"
   [[ -n "$action" ]] || return 1
   _GUIDED_ACTION="$action"

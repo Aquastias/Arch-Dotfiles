@@ -971,19 +971,13 @@ _seed_baseline() {
   echo "$output" | grep -q "+ Create user"
 }
 
-@test "enter(values users): toggling a user flips membership (full override)" {
+@test "enter(values users): a user row opens its User Editor (slice 02)" {
   printf '%s\n' '{"users":["alice","bob"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_enter "bob — bash · pw ⚠"
-  [ "$output" = "refresh" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]
-}
-
-@test "enter(values users): toggling the last user off yields an empty list" {
-  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "alice — bash · pw ⚠"
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]   # set [], not unset
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
 }
 
 @test "enter(values users): + Create opens the new-user text editor" {
@@ -1099,12 +1093,100 @@ _seed_baseline() {
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
-@test "enter(values users): toggling a disabled user on adds it" {
+@test "enter(values users): a disabled user row also opens its editor" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_enter "bob — disabled"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
+}
+
+# ── slice 02: the per-user User Editor ───────────────────────────────────────
+
+@test "back(useredit): returns to the flattened Users list" {
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_back
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+}
+
+@test "list(useredit committed): enabled + shell (from profile) + Back" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{"shell":"/bin/zsh"}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_list
+  echo "$output" | grep -q "enabled: on"
+  echo "$output" | grep -q "shell: zsh"
+  echo "$output" | grep -q "← Back"
+  ! echo "$output" | grep -q "remove user"     # committed → no remove
+}
+
+@test "list(useredit ad-hoc): remove + shell, no enabled row" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/core"; printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users dave)"
+  run guided_ctl_list
+  ! echo "$output" | grep -q "enabled:"        # ad-hoc → no enabled
+  echo "$output" | grep -q "shell: bash"       # default
+  echo "$output" | grep -q "✗ remove user"
+}
+
+@test "enter(useredit): enabled toggles the user out of the install" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_enter "enabled: on   (Enter toggles)"
   [ "$output" = "refresh" ]
-  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","bob"]' ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
+}
+
+@test "enter(useredit): shell cycles into an install-scoped override" {
+  export OS_DIR="$TEST_DIR"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_enter "shell: bash   (Enter cycles)"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.alice.shell' "$GUIDED_USERFORMS_FILE")" = "/bin/zsh" ]
+  run guided_ctl_list
+  echo "$output" | grep -q "shell: zsh"        # display reflects the override
+}
+
+@test "enter(useredit): cycling back to the committed shell drops the override" {
+  export OS_DIR="$TEST_DIR"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{"alice":{"shell":"/bin/fish"}}\n' > "$GUIDED_USERFORMS_FILE"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
+  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # strict delta: override gone
+}
+
+@test "enter(useredit): remove drops an ad-hoc user + returns to the list" {
+  export OS_DIR="$TEST_DIR"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{"dave":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users dave)"
+  run guided_ctl_enter "✗ remove user"
+  [ "$output" = "render" ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]
+  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]     # its form cleared too
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
 }
 
 @test "directive→action: secret rows execute the masked capture verb" {
