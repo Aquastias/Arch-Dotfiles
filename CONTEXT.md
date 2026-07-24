@@ -154,6 +154,19 @@ host already installs is a no-op; referencing one no host installs aborts with
 an actionable message — the `system` flag stays host-owned (ADR 0002). Applied
 on top of User Core.
 
+### User Editor
+The Guided Installer sub-screen opened by Enter on a user in the flattened Users
+screen (root password, users shown `name — shell · pw` with a `⚠` when unset,
+`＋ Create user`). Exposes the full User Profile — enabled/remove, shell,
+password, sudo, groups, git identity, SSH keys, programs. Edits are
+install-scoped: they bake into Proceed and Export but never rewrite a committed
+`users/<name>/profile.jsonc` (ADR 0051). A committed user's editor shows its
+effective (core-merged) values while storing only a delta. A committed user can
+be *disabled* (excluded from the install) but not removed; only a session-created
+user is removable. Distinct from the
+User Profile, which is the committed file; the User Editor is the transient,
+per-install override surface over it.
+
 ### User Core
 Declarative JSONC file at `.os/users/core/profile.jsonc`. Declares the base set
 of programs, shell defaults, groups, and House Defaults shared across all users.
