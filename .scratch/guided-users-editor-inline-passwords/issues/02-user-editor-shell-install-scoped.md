@@ -1,6 +1,6 @@
 # User Editor screen: shell + enabled/remove, install-scoped
 
-Status: ready-for-agent
+Status: done (66bffea)
 Type: AFK
 
 ## Parent

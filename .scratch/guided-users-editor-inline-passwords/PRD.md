@@ -1,6 +1,6 @@
 # Guided Installer: Users redesign + inline masked passwords
 
-Status: ready-for-agent
+Status: done (slices 283188e, 66bffea, afd97de, caf8cc4, 4d3edee)
 
 Amends ADR 0049; specified in ADR 0051. Builds on ADR 0042 (persistent-fzf
 controller), ADR 0047 (in-menu binding + rich-chrome version gate), ADR 0036

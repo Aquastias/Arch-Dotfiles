@@ -1,7 +1,7 @@
 # Guided Installer: inline-masked credentials + per-user editor
 
 ---
-Status: proposed
+Status: accepted
 ---
 
 The Guided Installer captures passwords by typing **inline in the fzf query

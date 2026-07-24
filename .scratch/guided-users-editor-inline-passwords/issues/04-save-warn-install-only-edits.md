@@ -1,6 +1,6 @@
 # Save warns on install-only committed-user edits
 
-Status: ready-for-agent
+Status: done (caf8cc4)
 Type: AFK
 
 ## Parent

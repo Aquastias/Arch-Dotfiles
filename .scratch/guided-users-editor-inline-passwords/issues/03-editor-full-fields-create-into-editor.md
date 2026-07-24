@@ -1,6 +1,6 @@
 # User Editor: full profile fields + create-into-editor with defaults
 
-Status: ready-for-agent
+Status: done (afd97de)
 Type: AFK
 
 ## Parent

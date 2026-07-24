@@ -1,6 +1,6 @@
 # Inline masked password entry in fzf (root + user)
 
-Status: ready-for-agent
+Status: done (4d3edee)
 Type: AFK
 
 ## Parent
