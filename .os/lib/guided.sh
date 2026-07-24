@@ -690,7 +690,9 @@ _guided_create_user() {
   name="$(guided_prompt new_user_name "New user name")"
   [[ -n "$name" ]] || return 1
   shell="$(guided_select new_user_shell "Shell" /bin/bash /bin/zsh /bin/fish)"
-  sudo="$(guided_select new_user_sudo "Sudo (→ wheel)" false true)"
+  # Default sudo ON (→ wheel), unifying with the persistent-menu create + the
+  # materialize fallback (ADR 0051): the first option is the default under replay.
+  sudo="$(guided_select new_user_sudo "Sudo (→ wheel)" true false)"
   local -a groups_a programs_a keys_a
   mapfile -t groups_a < <(_guided_collect_multi new_user_groups "Groups" \
     wheel docker libvirt kvm)

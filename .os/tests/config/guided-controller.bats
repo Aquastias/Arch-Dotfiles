@@ -1203,13 +1203,27 @@ _seed_baseline() {
   [[ "$a" != *accept* ]]
 }
 
-@test "enter(text __newuser__): a typed name is added + returns to the user list" {
+@test "enter(text __newuser__): a typed name is added + drops into the editor" {
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_text Users __newuser__ "new user")"
   run guided_ctl_enter "+ Create user (name)" "carol"
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","carol"]' ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "carol" ]
+  # seeded with the create defaults: bash / sudo on / wheel
+  [ "$(jq -c '.carol' "$GUIDED_USERFORMS_FILE")" \
+    = '{"shell":"/bin/bash","sudo":true,"groups":["wheel"]}' ]
+}
+
+@test "enter(text __newuser__): a duplicate name is refused with a notice" {
+  export OS_DIR="$TEST_DIR"; mkdir -p "$OS_DIR/users/alice"
+  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_text Users __newuser__ "new user")"
+  run guided_ctl_enter "+ Create user (name)" "alice"
+  [[ "$output" == notice* ]]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
 }
 
 # ── back / abort ─────────────────────────────────────────────────────────────
@@ -1300,4 +1314,104 @@ _seed_baseline() {
   unset GUIDED_LIST_FILE
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "reload(bash /x/entry.sh list)"
+}
+
+# ── slice 03: full-profile User Editor fields (userfield sub-editors) ─────────
+
+adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/core"; printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+}
+
+@test "list(useredit): shows the full profile rows" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_useredit Users dave)"
+  run guided_ctl_list
+  echo "$output" | grep -q "sudo: off"
+  echo "$output" | grep -q "groups: (none)"
+  echo "$output" | grep -q "git name: (unset)"
+  echo "$output" | grep -q "git email: (unset)"
+  echo "$output" | grep -q "ssh keys: 0"
+  echo "$output" | grep -q "programs: (none)"
+}
+
+@test "enter(useredit): sudo toggles into the override" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_useredit Users dave)"
+  run guided_ctl_enter "sudo: off   (Enter toggles)"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.dave.sudo' "$GUIDED_USERFORMS_FILE")" = "true" ]
+}
+
+@test "enter(useredit): groups opens a userfield multi-select" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_useredit Users dave)"
+  run guided_ctl_enter "groups: (none)   (Enter edits)"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "userfield" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "groups" ]
+}
+
+@test "list+enter(userfield groups): mark options + toggle into the override" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_userfield Users dave groups groups)"
+  run guided_ctl_list
+  echo "$output" | grep -q "\[ \] docker"
+  run guided_ctl_enter "[ ] docker"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.dave.groups' "$GUIDED_USERFORMS_FILE")" = '["docker"]' ]
+}
+
+@test "enter(userfield git.name): a typed value commits + backs to the editor" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_userfield Users dave git.name "git name")"
+  run guided_ctl_enter "" "Dave D"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.dave.git.name' "$GUIDED_USERFORMS_FILE")" = "Dave D" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+}
+
+@test "userfield ssh: add opens a text screen, then appends the key" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_userfield Users dave ssh "ssh keys")"
+  run guided_ctl_enter "+ Add SSH key"
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh.add" ]
+  run guided_ctl_enter "" "ssh-ed25519 AAAA"
+  [ "$(jq -c '.dave.ssh_authorized_keys' "$GUIDED_USERFORMS_FILE")" \
+    = '["ssh-ed25519 AAAA"]' ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "ssh" ]   # back to the key list
+}
+
+@test "userfield programs: toggle marks against resolvable program names" {
+  adhoc_editor_setup
+  # a couple of resolvable programs under OS_DIR/programs/<cat>/<name>
+  mkdir -p "$OS_DIR/programs/dev/git" "$OS_DIR/programs/dev/htop"
+  set_nav "$(nav_to_userfield Users dave programs programs)"
+  run guided_ctl_enter "[ ] git"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
+}
+
+@test "back(userfield): returns to the user's editor" {
+  adhoc_editor_setup
+  set_nav "$(nav_to_userfield Users dave groups groups)"
+  run guided_ctl_back
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "dave" ]
+}
+
+@test "userfield groups (committed): dropping back to committed clears override" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '{"groups":["docker"]}' > "$OS_DIR/users/alice/profile.jsonc"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_userfield Users alice groups groups)"
+  # committed has docker; toggling it off then on again lands back on committed
+  guided_ctl_enter "[x] docker" >/dev/null    # remove → override []
+  run guided_ctl_enter "[ ] docker"           # add back → equals committed
+  [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]   # strict delta: no override
 }
