@@ -56,6 +56,9 @@
 # shellcheck source=lib/config/profile.sh
 [[ "$(type -t load_user_profile)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
+# shellcheck source=lib/guided-userforms.sh
+[[ "$(type -t guided_userform_get)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
 
 # _ctl_secret_state <root|user> [name] → "(set)" / "(not set)" for the in-menu
 # credential rows, read from GUIDED_SECRETS_FILE. Never emits the value. When no
@@ -408,17 +411,30 @@ _ctl_user_names() {
   done
 }
 
-# _ctl_user_shell <name> — the short login shell (basename) for display on the
-# flattened Users list: the committed User Profile's shell merged over User Core,
-# defaulting to bash when the user has no committed profile (e.g. a just-created
-# ad-hoc name) or cannot be loaded.
-_ctl_user_shell() {
+# _ctl_user_shell_full <name> — the effective login shell PATH: the User Editor's
+# install-scoped override (userforms file) if set, else the committed User
+# Profile's shell merged over User Core, else /bin/bash (an ad-hoc name with no
+# committed profile). The single source of truth the list display, the editor
+# row, and the shell cycle all read.
+_ctl_user_shell_full() {
   local n="$1" s=""
-  if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+    && s="$(guided_userform_field "$GUIDED_USERFORMS_FILE" "$n" shell)"
+  if [[ -z "$s" && -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
     s="$(load_user_profile "$n" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
   fi
   [[ -n "$s" ]] || s="/bin/bash"
-  printf '%s' "${s##*/}"
+  printf '%s' "$s"
+}
+
+# _ctl_user_shell <name> — the short login shell (basename) for the list row.
+_ctl_user_shell() { local s; s="$(_ctl_user_shell_full "$1")"; printf '%s' "${s##*/}"; }
+
+# _ctl_user_is_committed <name> — rc 0 when the user has a committed profile
+# (users/<name>/profile.jsonc under OS_DIR): the editor shows `enabled` for those
+# and `✗ remove user` for a session-created (ad-hoc) name instead.
+_ctl_user_is_committed() {
+  [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${1}/profile.jsonc" ]]
 }
 
 # _ctl_user_marked <state> <base> — the user toggle list: every committed user
@@ -489,6 +505,7 @@ _ctl_nav_header() {
   pooledit)  b='Enter cycle/remove   Esc back' ;;
   pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
   rootdisk)  b='Enter pick   Esc back' ;;
+  useredit)  b='Enter edit/toggle   Esc back' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -503,6 +520,7 @@ _ctl_nav_prompt() {
   pooledit)    printf 'pool> ' ;;
   pooldisks)   printf 'disks> ' ;;
   rootdisk)    printf 'root disk> ' ;;
+  useredit)    printf '%s> ' "$(nav_get "$1" user)" ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -1045,6 +1063,20 @@ guided_ctl_list() {
       [[ -n "$d" ]] && printf '( ) %s\n' "$(_ctl_disk_label "$d")"
     done < <(_ctl_free_disks "$state")
     _ctl_action_row "← Back" ;;
+  useredit)
+    # Per-user User Editor (ADR 0051, slice 02): a committed user shows an
+    # `enabled` toggle (in/out of the install), an ad-hoc user a `✗ remove user`
+    # row; both show the `shell` cycle. Slice 03 adds sudo/groups/git/ssh/programs.
+    local un; un="$(nav_get "$nav" user)"
+    if _ctl_user_is_committed "$un"; then
+      local _en; _en="$(jq -r --arg u "$un" \
+        'if ((.users // []) | any(. == $u)) then "on" else "off" end' \
+        <<<"$(_ctl_effective "$state" "$base")")"
+      printf 'enabled: %s   (Enter toggles)\n' "$_en"
+    fi
+    printf 'shell: %s   (Enter cycles)\n' "$(_ctl_user_shell "$un")"
+    _ctl_user_is_committed "$un" || printf '%s\n' "✗ remove user"
+    _ctl_action_row "← Back" ;;
   esac
 }
 
@@ -1063,8 +1095,57 @@ guided_ctl_enter() {
   pooledit)  _ctl_enter_pooledit "$line" ;;
   pooldisks) _ctl_enter_pooldisks "$line" ;;
   rootdisk)  _ctl_enter_rootdisk "$line" ;;
+  useredit)  _ctl_enter_useredit "$line" ;;
   *)         echo noop ;;
   esac
+}
+
+# _ctl_user_committed_shell <name> — the committed User Profile's effective shell
+# (merged over User Core), or /bin/bash. The strict-delta baseline the editor
+# compares an override against.
+_ctl_user_committed_shell() {
+  local s=""
+  _ctl_user_is_committed "$1" \
+    && s="$(load_user_profile "$1" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
+  printf '%s' "${s:-/bin/bash}"
+}
+
+# _ctl_enter_useredit <line> — the User Editor dispatch (ADR 0051): toggle a
+# committed user in/out of the install (enabled), cycle its shell into an
+# install-scoped override (dropped when it lands on the committed shell — strict
+# delta), or remove a session-created user. Shell/remove write the userforms file;
+# enable/disable writes the Config State users list.
+_ctl_enter_useredit() {
+  local line="$1" nav cat un cur next
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"; un="$(nav_get "$nav" user)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "enabled:"*)
+    _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" "$un")"
+    echo refresh; return ;;
+  "shell:"*)
+    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
+    cur="$(_ctl_user_shell_full "$un")"
+    next="$(_ctl_cycle_next "$cur" /bin/bash /bin/zsh /bin/fish)"
+    if [[ "$next" == "$(_ctl_user_committed_shell "$un")" ]]; then
+      guided_userform_unset "$GUIDED_USERFORMS_FILE" "$un" shell
+    else
+      guided_userform_set "$GUIDED_USERFORMS_FILE" "$un" shell \
+        "$(jq -n --arg x "$next" '$x')"
+    fi
+    echo refresh; return ;;
+  "✗ remove user")
+    # Session-created user: drop it from the install list and its held-aside form,
+    # then return to the Users list.
+    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+      "$(jq -c --arg u "$un" '(.users // []) - [$u]' \
+        <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")")"
+    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+      && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$un"
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  esac
+  echo refresh
 }
 
 # _ctl_proceed_directive — the in-menu Proceed gate (ticket 03): install only
@@ -1181,15 +1262,13 @@ _ctl_enter_values() {
         "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
       echo render; return
     fi
-    # NOT normalised: users keeps an explicit empty list ([] ≠ unset — no users is
-    # a real choice distinct from "fall back to the seeded default"), so it owns
-    # its own membership semantics rather than the strict-delta normalise. The row
-    # is now "name — shell · pw …" (enabled) or "name — disabled", so the name is
-    # the text before the " — " separator.
+    # A user row opens its User Editor (ADR 0051): enable/disable + shell (and the
+    # richer fields in slice 03) live there, not on the list. The row is
+    # "name — shell · pw …" (enabled) or "name — disabled", so the name is the
+    # text before the " — " separator.
     local _uname="${line%% — *}"
-    _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" \
-      "$_uname")"
-    echo refresh; return
+    _ctl_write_nav "$(nav_to_useredit "$(nav_get "$nav" category)" "$_uname")"
+    echo render; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
     # a big filterable list → set the picked value as a scalar, then back
