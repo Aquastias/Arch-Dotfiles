@@ -13,7 +13,7 @@
 set -Eeuo pipefail
 trap 'echo "[podman] error on line $LINENO" >&2' ERR
 
-paru -S --noconfirm --needed podman fuse-overlayfs slirp4netns
+${AUR_HELPER} -S --noconfirm --needed podman fuse-overlayfs slirp4netns
 
 grep -q "^${USER}:" /etc/subuid \
   || sudo usermod --add-subuids 100000-165535 "$USER"

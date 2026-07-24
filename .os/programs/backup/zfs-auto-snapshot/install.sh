@@ -14,7 +14,7 @@ set -Eeuo pipefail
 trap 'echo "[zfs-auto-snapshot] error on line $LINENO" >&2' ERR
 
 print_status info "Installing zfs-auto-snapshot..."
-paru -S --noconfirm --needed zfs-auto-snapshot
+${AUR_HELPER} -S --noconfirm --needed zfs-auto-snapshot
 
 print_status info "Enabling snapshot timers..."
 for unit in \

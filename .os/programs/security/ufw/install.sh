@@ -5,7 +5,7 @@
 # Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
 # OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
 #
-# Installs ufw via paru and seeds default policies + host-level rules +
+# Installs ufw via the AUR Helper and seeds default policies + host-level rules +
 # libvirt bridge rules + NAT masquerading. Aborts if firewalld is installed
 # (mutually exclusive).
 # =============================================================================
@@ -19,7 +19,7 @@ if command_exists "firewall-cmd" || package_installed "firewalld"; then
 fi
 
 print_status info "Installing UFW..."
-paru -S --noconfirm --needed ufw
+${AUR_HELPER} -S --noconfirm --needed ufw
 
 print_status info "Resetting UFW to defaults..."
 sudo ufw --force reset

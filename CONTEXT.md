@@ -199,10 +199,27 @@ secrets-activated, not declared — the Runner selects it implicitly when
 install-state records secrets (see SOPS Runtime Service, ADR 0025).
 
 ### User Program
-A program installed for a specific user via paru inside the chroot. Declared in
-a User Profile or User Core. Marked `"system": false` in its program config.
-Paru is bootstrapped per user before any user programs are installed.
-`base-devel` is hardcoded into pacstrap and always available in the chroot.
+A program installed for a specific user via the AUR Helper inside the chroot.
+Declared in a User Profile or User Core. Marked `"system": false` in its program
+config. The AUR Helper is bootstrapped per user before any user programs are
+installed. `base-devel` is hardcoded into pacstrap and always available in the
+chroot.
+
+### AUR Helper
+The AUR helper the Runner bootstraps per user and installs AUR packages with —
+`paru` by default, `yay` the fallback. Bootstrap is a **resilience ladder** (ADR
+0052): `paru` from source, then `paru-bin`, then `yay-bin`, each retried shallow
+(2 retries, 3s/10s backoff) before dropping to the next rung; the `-bin` rungs
+pull a checksum-pinned prebuilt binary from GitHub Releases, a different
+endpoint than the source-tarball codeload, so a transient codeload outage no
+longer aborts the install. The landed helper's name is the **`$AUR_HELPER`**
+value: the Runner exports it (per user) into each User Program's `install.sh`
+alongside `OS_DIR` / `PROGRAMS` / `SHELL_COMMONS`, resolving it once at
+bootstrap. The "paru preferred, yay fallback" rule lives in one place —
+`_profiles_detect_helper` (`lib/aur-helper.sh`), shared with the standalone
+`tools/install-pkglist.sh`. Only exhausting all three rungs aborts, cleanly.
+Resolution is per user — a transient blip leaving one user on `paru` and
+another on `yay` is harmless.
 
 ### Runner
 `.os/lib/profiles/runner.sh`. Reads host core + host profile (merged), validates

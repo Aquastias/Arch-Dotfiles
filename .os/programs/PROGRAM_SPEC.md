@@ -125,7 +125,8 @@ Rules:
 # =============================================================================
 # Invoked by .os/lib/profiles/runner.sh inside arch-chroot, <as the owning user with
 # temp NOPASSWD sudo | as root>, with OS_DIR, PROGRAMS, SHELL_COMMONS
-# pre-exported.
+# pre-exported (plus AUR_HELPER on the user path — the resolved AUR Helper,
+# paru or yay; install via ${AUR_HELPER} -S, never literal paru).
 #
 # <What the script does, in one to three sentences. Name every distinct action:
 #  packages installed, files written, services enabled, groups created, etc.
@@ -145,7 +146,7 @@ print_status success "<Name> staged."
 For `system: false`:
 
 ```bash
-paru -S --noconfirm --needed <pkg1> <pkg2>
+${AUR_HELPER} -S --noconfirm --needed <pkg1> <pkg2>
 ```
 
 For `system: true`:
