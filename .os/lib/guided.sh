@@ -721,11 +721,20 @@ _guided_create_user() {
   _guided_sync_users
 }
 
-# _guided_materialize_users — write each ad-hoc User Profile delta to
+# The committed user names snapshotted at the start of materialize (before any
+# ad-hoc/default profile is written), so the userform merge can tell a repo user
+# from a session-created one. Space-padded for word-boundary membership tests.
+_GUIDED_COMMITTED_AT_START=""
+
+# _guided_materialize_users [mode] — write each ad-hoc User Profile delta to
 # users/<name>/profile.jsonc so the back-end Runner can load it. At Proceed this
 # is a transient write to the live clone; Save (issue 08) commits the same file.
+# mode is "proceed" (default) or "save": under Save the install-scoped User Editor
+# deltas are NOT merged onto a committed profile (that would rewrite committed
+# source — ADR 0051); the caller warns about the dropped edits instead.
 _guided_materialize_users() {
-  local name dir
+  local mode="${1:-proceed}" name dir
+  _GUIDED_COMMITTED_AT_START=" $(_guided_user_names | tr '\n' ' ')"
   for name in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
     dir="${OS_DIR}/users/${name}"
     mkdir -p "$dir"
@@ -749,24 +758,44 @@ _guided_materialize_users() {
   # is only touched here because OS_DIR is the transient install clone at Proceed.
   # A committed user's profile stays a delta over User Core (its existing delta
   # `*` the edit); an ad-hoc user's just-written profile gets the edit on top.
-  _guided_apply_userforms
+  _guided_apply_userforms "$mode"
 }
 
-# _guided_apply_userforms — merge _GUIDED_USERFORMS_JSON deltas onto each named
-# user's profile.jsonc (the clone). No-op when empty (replay / no edits). Reads
-# the existing profile via _configs_parse (JSONC→JSON) so committed comments are
-# tolerated; writes plain JSON (comments are not needed on the clone).
+# _guided_apply_userforms [mode] — merge _GUIDED_USERFORMS_JSON deltas onto each
+# named user's profile.jsonc (the clone). No-op when empty (replay / no edits).
+# Reads the existing profile via _configs_parse (JSONC→JSON) so committed comments
+# are tolerated; writes plain JSON (comments are not needed on the clone). Under
+# mode "save" a user that was committed at the start of materialize is SKIPPED —
+# Save never rewrites committed source (ADR 0051).
 _guided_apply_userforms() {
+  local mode="${1:-proceed}" name delta dir f base
   [[ -n "${_GUIDED_USERFORMS_JSON:-}" ]] || return 0
-  local name delta dir f base
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
+    if [[ "$mode" == "save" \
+       && "$_GUIDED_COMMITTED_AT_START" == *" $name "* ]]; then
+      continue
+    fi
     delta="$(jq -c --arg n "$name" '.[$n] // {}' <<<"$_GUIDED_USERFORMS_JSON")"
     [[ "$delta" == "{}" || -z "$delta" ]] && continue
     dir="${OS_DIR}/users/${name}"; f="${dir}/profile.jsonc"
     mkdir -p "$dir"
     if [[ -f "$f" ]]; then base="$(_configs_parse "$f")"; else base='{}'; fi
     jq -n --argjson b "$base" --argjson d "$delta" '$b * $d' > "$f"
+  done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
+}
+
+# _guided_committed_userform_edits — the committed users carrying an install-only
+# User Editor delta (ADR 0051 Save-warn), one per line. "Committed" = has a repo
+# users/<name>/profile.jsonc; run BEFORE materialize (which writes ad-hoc
+# profiles), so an ad-hoc name has no file yet and is not reported. Pure: reads
+# the held-aside deltas + the filesystem.
+_guided_committed_userform_edits() {
+  [[ -n "${_GUIDED_USERFORMS_JSON:-}" ]] || return 0
+  local n
+  while IFS= read -r n; do
+    [[ -n "$n" ]] || continue
+    [[ -f "${OS_DIR}/users/${n}/profile.jsonc" ]] && printf '%s\n' "$n"
   done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
 
@@ -1147,9 +1176,18 @@ guided_build() {
     # Flatten In-Menu Disk Binding back to counts so the committed profile stays
     # device-less (ADR 0036/0047) — bound devices become disk_count, root_disk
     # is dropped.
+    # Save-warn (ADR 0051): a committed user's in-menu profile edits are
+    # install-only — they are NOT written to the saved profile (users are
+    # names-only) nor back to the committed users/<name>/profile.jsonc. Name them
+    # so the drop is never silent. Computed before materialize (which writes
+    # ad-hoc profiles) so only genuinely-committed users are reported.
+    local _edited
+    _edited="$(_guided_committed_userform_edits | paste -sd', ' -)"
     guided_save_host_profile \
       "$(skeleton_flatten_devices "$(_guided_effective)")" "$name" || return 1
-    _guided_materialize_users
+    _guided_materialize_users save
+    [[ -n "$_edited" ]] && warn "guided: install-only edits NOT saved for:" \
+      "${_edited} — edit users/<name>/profile.jsonc to persist them." >&2
     info "Saved hosts/${name}/profile.jsonc — install via --profile ${name}." >&2
     return "$_GUIDED_ACTION_DONE"
   fi
