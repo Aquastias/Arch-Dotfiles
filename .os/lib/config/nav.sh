@@ -76,7 +76,9 @@ nav_to_poolmount() {
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
-    if   .screen == "values" or .screen == "text"
+    if   .screen == "values" and .field == "users"
+         then {screen:"top"}
+    elif .screen == "values" or .screen == "text"
          then {screen:"category", category:.category}
     elif .screen == "swapedit"  then {screen:"category", category:.category}
     elif .screen == "datapools" then {screen:"category", category:.category}

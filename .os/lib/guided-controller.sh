@@ -53,6 +53,9 @@
 # shellcheck source=lib/guided-secrets-file.sh
 [[ "$(type -t guided_secretsfile_has_root)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-secrets-file.sh"
+# shellcheck source=lib/config/profile.sh
+[[ "$(type -t load_user_profile)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
 
 # _ctl_secret_state <root|user> [name] → "(set)" / "(not set)" for the in-menu
 # credential rows, read from GUIDED_SECRETS_FILE. Never emits the value. When no
@@ -67,6 +70,18 @@ _ctl_secret_state() {
     fi
   fi
   echo "(not set)"
+}
+
+# _ctl_pw_missing — count of required-but-unset passwords (root + each enabled
+# user), from GUIDED_SECRETS_FILE over the effective user list. 0 when no secrets
+# file is wired (non-persistent contexts), so the top screen stays undecorated.
+_ctl_pw_missing() {
+  local f="${GUIDED_SECRETS_FILE:-}"
+  [[ -n "$f" ]] || { printf '0'; return; }
+  local users
+  users="$(jq -c '.users // []' \
+    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+  guided_secretsfile_missing "$f" "$users" | grep -c .
 }
 
 # _ctl_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
@@ -393,6 +408,19 @@ _ctl_user_names() {
   done
 }
 
+# _ctl_user_shell <name> — the short login shell (basename) for display on the
+# flattened Users list: the committed User Profile's shell merged over User Core,
+# defaulting to bash when the user has no committed profile (e.g. a just-created
+# ad-hoc name) or cannot be loaded.
+_ctl_user_shell() {
+  local n="$1" s=""
+  if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
+    s="$(load_user_profile "$n" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
+  fi
+  [[ -n "$s" ]] || s="/bin/bash"
+  printf '%s' "${s##*/}"
+}
+
 # _ctl_user_marked <state> <base> — the user toggle list: every committed user
 # UNION the currently-selected names (so a just-created name shows), each marked
 # [x]/[ ] by membership in the effective .users.
@@ -448,7 +476,9 @@ _ctl_nav_header() {
   top)      b='Enter open   Esc quit' ;;
   category) b='Enter edit   Esc back' ;;
   values)
-    if [[ "$(_ctl_field_kind "$(nav_get "$1" field)")" == "toggle" ]]; then
+    if [[ "$(nav_get "$1" field)" == "users" ]]; then
+      b='Enter toggle / set pw   Esc back'
+    elif [[ "$(_ctl_field_kind "$(nav_get "$1" field)")" == "toggle" ]]; then
       b='Enter toggle ✓   Esc done'
     else
       b='Enter choose   Esc back'
@@ -788,10 +818,24 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
-    menu_categories "$state" "$base" | jq -r \
-      '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)'
-    printf '%s\n' "$_CTL_DIVIDER" \
-      "Proceed ▸ review & install" \
+    # Fold the required-but-unset password count onto the Users row and mark
+    # Proceed blocked (slice 01): the requirement is visible before drilling in.
+    local _pm; _pm="$(_ctl_pw_missing)"
+    if ((_pm > 0)); then
+      menu_categories "$state" "$base" | jq -r \
+        '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)' \
+        | awk -v n="$_pm" '/^Users — /{ $0 = $0 "  ⚠ " n " pw needed" } { print }'
+    else
+      menu_categories "$state" "$base" | jq -r \
+        '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)'
+    fi
+    printf '%s\n' "$_CTL_DIVIDER"
+    if ((_pm > 0)); then
+      printf '%s\n' "Proceed ▸ set passwords first ⚠"
+    else
+      printf '%s\n' "Proceed ▸ review & install"
+    fi
+    printf '%s\n' \
       "Save profile ▸ write a device-less profile" \
       "Export config ▸ write a device-baked config" ;;
   category)
@@ -842,17 +886,23 @@ guided_ctl_list() {
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
-      # In-menu credentials (ticket 03): a root-password row, then each enabled
-      # user's toggle row with an indented password row beneath it. State only —
-      # "(set)" / "(not set)", never the value.
+      # Flattened Users screen (slice 01): a root-password row, then one row per
+      # user — enabled as "name — shell · pw <ok|⚠>" with an indented password row
+      # beneath it, disabled as "name — disabled" (no checkbox). Password state is
+      # "(set)"/"(not set)" only, never the value. The indented password row is
+      # the actionable element until the User Editor lands (slice 02).
       printf 'root password: %s\n' "$(_ctl_secret_state root)"
-      local _um _un
+      local _um _un _ushell _upw
       while IFS= read -r _um; do
-        printf '%s\n' "$_um"
-        if [[ "$_um" == "[x] "* ]]; then
-          _un="${_um:4}"
-          printf '      password (%s): %s\n' "$_un" \
-            "$(_ctl_secret_state user "$_un")"
+        _un="${_um:4}"
+        if [[ "${_um:0:3}" == "[x]" ]]; then
+          _ushell="$(_ctl_user_shell "$_un")"
+          _upw="$(_ctl_secret_state user "$_un")"
+          printf '%s — %s · pw %s\n' "$_un" "$_ushell" \
+            "$([[ "$_upw" == "(set)" ]] && printf 'ok' || printf '⚠')"
+          printf '      password (%s): %s\n' "$_un" "$_upw"
+        else
+          printf '%s — disabled\n' "$_un"
         fi
       done < <(_ctl_user_marked "$state" "$base")
       _ctl_action_row "+ Create user (name)"
@@ -1046,7 +1096,11 @@ _ctl_enter_top() {
   *)
     cat="${line%% *}"
     case "$cat" in
-    Host | Disks | Options | Environment | Packages | Security | Backup | Users)
+    Users)
+      # Flatten (slice 01): Users opens its list directly, skipping the
+      # single-row category screen. nav_back from here returns to top.
+      _ctl_write_nav "$(nav_to_values Users users users)"; echo render ;;
+    Host | Disks | Options | Environment | Packages | Security | Backup)
       _ctl_write_nav "$(nav_to_category "$cat")"; echo render ;;
     *) echo noop ;;
     esac ;;
@@ -1129,9 +1183,12 @@ _ctl_enter_values() {
     fi
     # NOT normalised: users keeps an explicit empty list ([] ≠ unset — no users is
     # a real choice distinct from "fall back to the seeded default"), so it owns
-    # its own membership semantics rather than the strict-delta normalise.
+    # its own membership semantics rather than the strict-delta normalise. The row
+    # is now "name — shell · pw …" (enabled) or "name — disabled", so the name is
+    # the text before the " — " separator.
+    local _uname="${line%% — *}"
     _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" \
-      "${line:4}")"
+      "$_uname")"
     echo refresh; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
