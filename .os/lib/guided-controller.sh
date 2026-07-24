@@ -59,6 +59,9 @@
 # shellcheck source=lib/guided-userforms.sh
 [[ "$(type -t guided_userform_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
+# shellcheck source=lib/guided-mask.sh
+[[ "$(type -t guided_mask_apply)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
 
 # _ctl_secret_state <root|user> [name] → "(set)" / "(not set)" for the in-menu
 # credential rows, read from GUIDED_SECRETS_FILE. Never emits the value. When no
@@ -603,6 +606,7 @@ _ctl_nav_header() {
     text)  b='Type a value, Enter save   Esc back' ;;
     list)  b='Enter add   Esc back' ;;
     esac ;;
+  secret)    b='Type the password, Enter continues   Esc cancels' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -619,6 +623,7 @@ _ctl_nav_prompt() {
   rootdisk)    printf 'root disk> ' ;;
   useredit)    printf '%s> ' "$(nav_get "$1" user)" ;;
   userfield)   printf '%s> ' "$(nav_get "$1" label)" ;;
+  secret)      printf 'password> ' ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -1218,6 +1223,20 @@ guided_ctl_list() {
         < <(jq -r '(.ssh_authorized_keys // [])[]' <<<"$(_ctl_user_effective "$un")")
       _ctl_action_row "+ Add SSH key" ;;
     esac ;;
+  secret)
+    # Inline masked password entry (ADR 0051): the operator types into the fzf
+    # query line (masked to bullets by the change bind); this body is just the
+    # hint for the current target + phase. The value is read from the buffer file
+    # on Enter, never shown here.
+    local _tgt _ph _who
+    _tgt="$(nav_get "$nav" target)"; _ph="$(nav_get "$nav" phase)"
+    [[ "$_tgt" == user ]] && _who="$(nav_get "$nav" user)" || _who="root"
+    if [[ "$_ph" == "confirm" ]]; then
+      printf 'confirm %s password — type it again, Enter saves\n' "$_who"
+    else
+      printf 'set %s password — type it, Enter continues\n' "$_who"
+    fi
+    printf '%s\n' "(masked · backspace to fix · Esc cancels)" ;;
   esac
 }
 
@@ -1238,8 +1257,55 @@ guided_ctl_enter() {
   rootdisk)  _ctl_enter_rootdisk "$line" ;;
   useredit)  _ctl_enter_useredit "$line" ;;
   userfield) _ctl_enter_userfield "$line" "$query" ;;
+  secret)    _ctl_enter_secret ;;
   *)         echo noop ;;
   esac
+}
+
+# _ctl_open_secret <root|user> [name] — start inline masked entry: clear the typed
+# buffer + any pending first entry, then render the secret screen (phase entry).
+# The render directive turns masking on (rebind change, unbind cursor). Writes the
+# directive to stdout like the other enter handlers.
+_ctl_open_secret() {
+  : > "${GUIDED_PWBUF_FILE:-/dev/null}"
+  : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+  local cat; cat="$(nav_get "$(_ctl_nav)" category)"
+  _ctl_write_nav "$(nav_to_secret "$cat" "$1" "${2:-}")"
+  echo render
+}
+
+# _ctl_enter_secret — Enter on the masked screen: the typed value lives in the
+# buffer file. Phase entry stashes it as pending and switches to confirm; phase
+# confirm compares — a match writes the password to GUIDED_SECRETS_FILE and backs
+# to the Users list, a mismatch notices and restarts entry. An empty first entry
+# is refused (stay). Never echoes the value.
+_ctl_enter_secret() {
+  local nav cat tgt user phase buf pending
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  tgt="$(nav_get "$nav" target)"; user="$(nav_get "$nav" user)"
+  phase="$(nav_get "$nav" phase)"
+  buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
+  if [[ "$phase" != "confirm" ]]; then
+    [[ -n "$buf" ]] || { echo "notice ⚠ password cannot be empty"; return; }
+    printf '%s' "$buf" > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+    : > "${GUIDED_PWBUF_FILE:-/dev/null}"
+    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" confirm)"
+    echo render; return
+  fi
+  pending="$(cat "${GUIDED_PWPENDING_FILE:-/dev/null}" 2>/dev/null)"
+  if [[ "$buf" != "$pending" ]]; then
+    : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry)"
+    echo "secret-mismatch"; return
+  fi
+  if [[ "$tgt" == "user" ]]; then
+    guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "$user" "$buf"
+  else
+    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf"
+  fi
+  : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+  _ctl_write_nav "$(nav_to_values "$cat" users users)"
+  echo render
 }
 
 # _ctl_user_committed_shell <name> — the committed User Profile's effective shell
@@ -1446,14 +1512,19 @@ _ctl_enter_values() {
     echo refresh; return   # an existing pair is display-only (re-list in place)
   fi
   if [[ "$path" == "users" ]]; then
-    # Credential rows (ticket 03) drop to a masked prompt via execute(); handle
-    # them before the toggle logic (their lines are not "[x]/[ ] name").
+    # Credential rows: on a capable fzf (rich chrome ≥ 0.62) enter the inline
+    # masked screen (ADR 0051); on an older fzf fall back to the execute() masked
+    # prompt (ADR 0049). Handle them before the toggle logic (their lines are not
+    # "[x]/[ ] name").
     if [[ "$line" == "root password:"* ]]; then
-      echo "secret-root"; return
+      if _ctl_rich_chrome; then _ctl_open_secret root; else echo "secret-root"; fi
+      return
     fi
     if [[ "$line" == *"password ("* ]]; then
       local _sn="${line#*password (}"; _sn="${_sn%%)*}"
-      echo "secret-user $_sn"; return
+      if _ctl_rich_chrome; then _ctl_open_secret user "$_sn"
+      else echo "secret-user $_sn"; fi
+      return
     fi
     if [[ "$line" == "+ Create"* ]]; then
       _ctl_write_nav \
@@ -2045,9 +2116,19 @@ _guided_directive_to_action() {
       chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
         "$(_ctl_footer "$nav")" "$(_ctl_breadcrumb "$nav")")"
     fi
-    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s' \
+    # Inline masking (ADR 0051): the password screen turns the change→mask bind on
+    # and disables query-cursor movement so the buffer diff can never desync; every
+    # other screen turns masking off and restores the cursor keys. rebind/unbind of
+    # an already-(un)bound key/event is harmless, so this is safe on all renders.
+    local mask
+    if [[ "$(nav_screen "$nav")" == "secret" ]]; then
+      mask='+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)'
+    else
+      mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
+    fi
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \
       "$(_ctl_reload_cmd "$entry")" "$(_ctl_nav_header "$nav")" \
-      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" ;;
+      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" "$mask" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).
@@ -2074,6 +2155,13 @@ _guided_directive_to_action() {
     printf 'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
       "$entry" "${d#secret-user }" "$entry" ;;
   "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
+  "secret-mismatch")
+    # Re-render the (now entry-phase) masked screen with a warning header, query
+    # cleared, masking + cursor-lock kept on. Distinct from `render` only in the
+    # header text and the bell.
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(password> )+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)+bell' \
+      "$(_ctl_reload_cmd "$entry")" \
+      '⚠ passwords did not match — type it again   ·   Esc cancels' ;;
   *)                printf 'ignore' ;;
   esac
 }

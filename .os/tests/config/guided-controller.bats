@@ -1415,3 +1415,93 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   run guided_ctl_enter "[ ] docker"           # add back → equals committed
   [ "$(jq -c '.' "$GUIDED_USERFORMS_FILE")" = '{}' ]   # strict delta: no override
 }
+
+# ── slice 05: inline masked password entry (secret screen) ───────────────────
+
+secret_setup() {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  export GUIDED_PWBUF_FILE="$TEST_DIR/pwbuf"; : > "$GUIDED_PWBUF_FILE"
+  export GUIDED_PWPENDING_FILE="$TEST_DIR/pwpending"; : > "$GUIDED_PWPENDING_FILE"
+}
+
+@test "enter(values users): root pw opens the inline screen under rich chrome" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "root password: (not set)"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "root" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
+}
+
+@test "enter(values users): root pw falls back to execute() without rich chrome" {
+  secret_setup; unset GUIDED_RICH_CHROME
+  set_nav "$(nav_to_values Users users users)"
+  [ "$(guided_ctl_enter "root password: (not set)")" = "secret-root" ]
+}
+
+@test "enter(secret entry): stashes the buffer as pending + moves to confirm" {
+  secret_setup
+  printf 'hunter2' > "$GUIDED_PWBUF_FILE"
+  set_nav "$(nav_to_secret Users root "" entry)"
+  run guided_ctl_enter ""
+  [ "$output" = "render" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "confirm" ]
+  [ "$(cat "$GUIDED_PWPENDING_FILE")" = "hunter2" ]
+  [ -z "$(cat "$GUIDED_PWBUF_FILE")" ]            # buffer cleared for the retype
+}
+
+@test "enter(secret confirm): a match writes the root password + backs out" {
+  secret_setup
+  printf 'hunter2' > "$GUIDED_PWPENDING_FILE"
+  printf 'hunter2' > "$GUIDED_PWBUF_FILE"
+  set_nav "$(nav_to_secret Users root "" confirm)"
+  run guided_ctl_enter ""
+  [ "$output" = "render" ]
+  [ "$(jq -r '.root_password' "$GUIDED_SECRETS_FILE")" = "hunter2" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ -z "$(cat "$GUIDED_PWBUF_FILE")" ]
+}
+
+@test "enter(secret confirm): a mismatch re-prompts and writes nothing" {
+  secret_setup
+  printf 'hunter2' > "$GUIDED_PWPENDING_FILE"
+  printf 'huntor2' > "$GUIDED_PWBUF_FILE"
+  set_nav "$(nav_to_secret Users root "" confirm)"
+  run guided_ctl_enter ""
+  [ "$output" = "secret-mismatch" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
+  [ "$(jq -r '.root_password // "unset"' "$GUIDED_SECRETS_FILE")" = "unset" ]
+}
+
+@test "enter(secret entry): an empty password is refused" {
+  secret_setup
+  : > "$GUIDED_PWBUF_FILE"
+  set_nav "$(nav_to_secret Users root "" entry)"
+  run guided_ctl_enter ""
+  [[ "$output" == notice* ]]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
+}
+
+@test "secret flow (user): a confirmed match writes that user's password" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "      password (dave): (not set)"
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "user" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "dave" ]
+  printf 'davepw' > "$GUIDED_PWBUF_FILE"
+  guided_ctl_enter "" >/dev/null                 # entry → confirm
+  printf 'davepw' > "$GUIDED_PWBUF_FILE"
+  guided_ctl_enter "" >/dev/null                 # confirm → save
+  [ "$(jq -r '.users.dave.password' "$GUIDED_SECRETS_FILE")" = "davepw" ]
+}
+
+@test "mask entry: the fzf mask subcommand masks + captures the buffer" {
+  export GUIDED_PWBUF_FILE="$TEST_DIR/pwbuf2"; printf 'ab' > "$GUIDED_PWBUF_FILE"
+  # query is 2 bullets + a newly typed 'c'
+  run bash "$BATS_TEST_DIRNAME/../../lib/guided-fzf-entry.sh" mask "••c"
+  [ "$output" = "•••" ]                           # display: 3 bullets
+  [ "$(cat "$GUIDED_PWBUF_FILE")" = "abc" ]       # buffer captured the real char
+}

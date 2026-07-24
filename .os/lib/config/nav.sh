@@ -73,6 +73,15 @@ nav_to_useredit() {
     '{screen:"useredit", category:$c, user:$u}'
 }
 
+# nav_to_secret <category> <target> [user] [phase] — the inline masked password
+# screen (ADR 0051). target is root | user; user names the account for a user
+# password; phase is entry | confirm (type-twice). Carries no secret — the typed
+# value lives in the tmpfs buffer file, never the nav.
+nav_to_secret() {
+  jq -nc --arg c "$1" --arg t "$2" --arg u "${3:-}" --arg p "${4:-entry}" \
+    '{screen:"secret", category:$c, target:$t, user:$u, phase:$p}'
+}
+
 # nav_to_userfield <category> <user> <field> <label> — a user-scoped sub-editor
 # (ADR 0051): the multi (groups/programs), text (git.name/git.email) or list
 # (ssh) field of one user. Carries the user so the commit writes that user's
@@ -108,6 +117,8 @@ nav_back() {
          then {screen:"values", category:.category, field:"users", label:"users"}
     elif .screen == "userfield"
          then {screen:"useredit", category:.category, user:.user}
+    elif .screen == "secret"
+         then {screen:"values", category:.category, field:"users", label:"users"}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }

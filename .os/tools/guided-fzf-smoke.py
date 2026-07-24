@@ -121,6 +121,22 @@ check("ext4 root: Disks shows 'filesystem: ext4'", "ext4" in disks)
 check("ext4 root: the impermanence row is hidden", "impermanence" not in disks)
 s.quit()
 
+# ── Users: inline masked password entry renders bullets, not plaintext ───────
+# (ADR 0051) Navigate top → Users (flattened) → the root-password row, type a
+# secret, and assert the query renders as bullets with the plaintext never shown.
+s = Session()
+s.pump(3.0); s.clear()
+s.enter("Users"); s.pump(2.0); s.clear()
+s.enter("root"); s.pump(2.0)          # open the inline masked secret screen
+s.clear()
+s.send("s3cret!"); s.pump(1.2)
+sec = s.screen()
+check("inline pw: the masked screen is reached (password prompt)",
+      "password>" in sec)
+check("inline pw: the query renders as bullets, not plaintext",
+      ("•" * 7) in sec and "s3cret!" not in sec)
+s.quit()
+
 ok = all(results)
 print(f"\n{sum(results)}/{len(results)} checks passed —",
       "ALL PASS" if ok else "FAILURES PRESENT")

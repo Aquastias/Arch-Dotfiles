@@ -21,6 +21,19 @@ _entry_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _entry_self="${_entry_dir}/guided-fzf-entry.sh"
 export OS_DIR="${OS_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
 
+# The masking bind fires per keystroke on the password screen; source only the
+# tiny pure core (not the whole controller) so it stays cheap.
+if [[ "${1:-}" == "mask" ]]; then
+  # shellcheck source=lib/guided-mask.sh
+  source "${_entry_dir}/guided-mask.sh"
+  _q="${2:-}"
+  _buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
+  _res="$(guided_mask_apply "$_buf" "$_q")"
+  printf '%s' "${_res%%$'\n'*}" > "${GUIDED_PWBUF_FILE:-/dev/null}"
+  printf '%s' "${_res##*$'\n'}"     # the bullet display → transform-query sets it
+  exit 0
+fi
+
 # shellcheck source=lib/guided-controller.sh
 source "${_entry_dir}/guided-controller.sh"
 
