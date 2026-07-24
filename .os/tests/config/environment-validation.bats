@@ -41,19 +41,20 @@ write_config() {
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
 
-@test "desktop 'hyprland' passes validation" {
-  write_config '{"environment": {"desktop": "hyprland", "gpu": "auto"}}'
+@test "desktop array ['kde'] passes and sets a one-element array" {
+  write_config \
+    '{"environment": {"desktop": ["kde"], "gpu": "auto"}}'
   _resolve_env_validate
-  [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
 
-@test "desktop array ['kde','hyprland'] passes and sets two-element array" {
+@test "desktop array with an unknown value fails validation" {
   write_config \
     '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
-  _resolve_env_validate
-  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
-  [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
-  [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
+  run _resolve_env_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "hyprland" ]]
 }
 
 @test "desktop null passes validation and gives empty array" {
@@ -73,7 +74,6 @@ write_config() {
   run _resolve_env_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "kde" ]]
-  [[ "$output" =~ "hyprland" ]]
 }
 
 @test "gpu 'auto' passes validation" {

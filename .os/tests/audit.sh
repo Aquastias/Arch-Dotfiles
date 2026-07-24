@@ -120,7 +120,7 @@ _section "3. Chroot source chain  (extras scripts running at /root/)"
 # common.sh sources jsonc.sh and globals.sh relative to itself →
 # /root/lib/{jsonc,globals}.sh
 
-for de in kde hyprland; do
+for de in kde; do
   script="${OS}/extras/desktop/${de}/${de}.sh"
   if [[ ! -f "$script" ]]; then
     _fail "extras/desktop/${de}/${de}.sh  (missing)"
@@ -265,7 +265,7 @@ done < <(find "${OS}/users" -name "profile.jsonc")
 # =============================================================================
 _section "9. Extras JSON files"
 # =============================================================================
-for de in kde hyprland; do
+for de in kde; do
   json="${OS}/extras/desktop/${de}/install-${de}.jsonc"
   if [[ -f "$json" ]]; then
     _jsonc_valid "$json" "extras/desktop/${de}/install-${de}.jsonc"

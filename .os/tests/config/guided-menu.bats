@@ -160,13 +160,13 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row environment.gpu | jq -e '.value == "auto"'
 }
 
-@test "menu_rows: a multi-desktop selection renders comma-joined under Environment" {
-  state="$(cfgstate_set "$(cfgstate_new)" environment.desktop '["kde","hyprland"]')"
+@test "menu_rows: a multi-gpu selection renders comma-joined under Environment" {
+  state="$(cfgstate_set "$(cfgstate_new)" environment.gpu '["amd","nvidia"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row environment.desktop | jq -e '.section == "Environment"'
-  echo "$output" | row environment.desktop | jq -e '.value == "kde, hyprland"'
-  echo "$output" | row environment.desktop | jq -e '.overridden == true'
+  echo "$output" | row environment.gpu | jq -e '.section == "Environment"'
+  echo "$output" | row environment.gpu | jq -e '.value == "amd, nvidia"'
+  echo "$output" | row environment.gpu | jq -e '.overridden == true'
 }
 
 # ── Options (mirrors) / Packages rows (folded in by issue 02) ──────────────

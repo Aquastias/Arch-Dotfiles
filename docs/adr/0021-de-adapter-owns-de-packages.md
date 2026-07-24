@@ -93,3 +93,11 @@ changes are pending a later implementation pass.
   `nwg-look` as companion toggles). General, non-DE packages stay in
   host configs (`xdg-utils`, `papirus-icon-theme`); `xorg-xinit` is
   dropped (pure-Wayland session, no `.xinitrc`).
+
+## Amendment (2026-07-24)
+
+Hyprland is removed from the project (ADR 0050). The Hyprland clause
+above is historical: `extras/desktop/hyprland/` no longer exists and
+KDE is the only Desktop Environment Adapter. The ownership rule
+("would selecting this DE imply the package?") is unchanged and now
+applies to KDE alone.

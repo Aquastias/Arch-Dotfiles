@@ -52,9 +52,9 @@
       "ktorrent": true // BitTorrent client
     }
   },
-  // AUR dependencies for this DE, same Categorized List shape as the
-  // Hyprland adapter. Declared here (not installed by this adapter) — the
-  // Runner merges them into its single paru pass.
+  // AUR dependencies for this DE, in the adapter's Categorized List shape.
+  // Declared here (not installed by this adapter) — the Runner merges them
+  // into its single paru pass.
   "aur": {
     "system": {
       "octopi": true // Qt/pacman package manager GUI

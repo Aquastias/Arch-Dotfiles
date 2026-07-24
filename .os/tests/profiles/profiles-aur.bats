@@ -29,9 +29,9 @@ _adapter() {
 }
 
 @test "adapter-declared AUR package appears in the resolved set" {
-  _adapter hyprland '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
+  _adapter kde '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
 
-  run _profiles_resolve_aur '{}' hyprland
+  run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   grep -qx "qt6ct-kde" <<< "$output"
 }
@@ -46,11 +46,11 @@ _adapter() {
 }
 
 @test "host + multiple adapters union and dedupe overlaps" {
-  _adapter kde      '{"aur":{"kde":{"kde-pkg":true}}}'
-  _adapter hyprland '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
+  _adapter kde     '{"aur":{"kde":{"kde-pkg":true}}}'
+  _adapter stub-de '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
   local host='{"packages":{"aur":{"misc":["brave-bin","qt6ct-kde"]}}}'
 
-  run _profiles_resolve_aur "$host" kde hyprland
+  run _profiles_resolve_aur "$host" kde stub-de
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'brave-bin\nkde-pkg\nqt6ct-kde')" ]
 }
@@ -80,16 +80,6 @@ _adapter() {
 
 # ── shipped adapter aur fields ──────────────────────────────────────────────
 
-@test "shipped install-hyprland.jsonc declares qt6ct-kde under aur" {
-  local f="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/install-hyprland.jsonc"
-  local aur_json
-  aur_json="$(jsonc_strip "$f" | jq -c '.aur // empty')"
-  [ -n "$aur_json" ]
-  run categorized_list_parse "$aur_json" bool aur
-  [ "$status" -eq 0 ]
-  grep -qx "qt6ct-kde" <<< "$output"
-}
-
 @test "shipped install-kde.jsonc has an aur field" {
   local f="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
@@ -111,9 +101,9 @@ _adapter() {
   done
 }
 
-@test "octopi does not resolve under hyprland-only" {
+@test "octopi does not resolve under a non-kde DE" {
   OS_DIR="$BATS_TEST_DIRNAME/../.."
-  run _profiles_resolve_aur '{}' hyprland
+  run _profiles_resolve_aur '{}' nonexistent-de
   [ "$status" -eq 0 ]
   ! grep -qx "octopi" <<< "$output"
 }

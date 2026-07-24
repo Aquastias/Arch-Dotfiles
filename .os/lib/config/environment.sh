@@ -30,7 +30,7 @@ GPU_PARU_PACKAGES=()
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
-_VALID_DESKTOP=(kde hyprland)
+_VALID_DESKTOP=(kde)
 _VALID_GPU=(amd nvidia intel auto)
 
 # =============================================================================
@@ -118,82 +118,6 @@ _resolve_env_gpu() {
   done
   [[ "$_has_amd" == "true" && "$_has_nvidia" == "true" ]] \
     && GPU_PARU_PACKAGES+=( envycontrol ) || true
-}
-
-# =============================================================================
-# HYBRID GPU SESSION ENV (nvidia PRIME laptops)
-# =============================================================================
-# nvidia PRIME laptops wire the internal panel to the integrated GPU (amd/intel);
-# the nvidia dGPU is powered OFF on-demand and only used for per-app offload
-# (prime-run/gamemode). The Wayland compositor must therefore scan out on the
-# iGPU — Hyprland/aquamarine otherwise picks the first DRM device (often nvidia)
-# and renders to a display the panel can't show, OR tries to open the powered-off
-# dGPU and crashes → black screen / bounce to the DM (KDE/KWin negotiates this
-# itself; Hyprland does not). AQ_DRM_DEVICES=<igpu> pins the compositor to the
-# panel's GPU. It lists the iGPU ONLY: including the dGPU makes aquamarine open
-# the powered-off nvidia node and fail; nvidia offload is per-app (DRI_PRIME /
-# prime-run), independent of the compositor's device list.
-#
-# TWO traps this avoids (both hit during bring-up):
-#  1. AQ_DRM_DEVICES is COLON-separated, and PCI `by-path` node names contain
-#     colons (…/pci-0000:34:00.0-card) → aquamarine splits them into garbage and
-#     reports "Found no gpus to use". `/dev/dri/cardN` has no colon but the number
-#     is not stable across boots. So we ship a udev rule that creates colon-free,
-#     vendor-stable symlinks (/dev/dri/aq-igpu, /dev/dri/aq-dgpu) and point
-#     AQ_DRM_DEVICES at the iGPU one.
-#  2. ONLY AQ_DRM_DEVICES is written (Hyprland/aquamarine-specific, inert to
-#     everything else). Do NOT set global LIBVA_DRIVER_NAME / __GLX_VENDOR_LIBRARY
-#     _NAME / NVD_BACKEND — those force the offload (nvidia) driver on EVERY GL/VA
-#     client incl. the SDDM greeter + KDE on the iGPU panel → blank grey greeter.
-#
-# The udev rule lands in /usr/lib (never a Rollback Dataset) and AQ_DRM_DEVICES in
-# /etc/environment before the @blank snapshot, so both survive impermanence.
-
-# True when the resolved GPU set is an nvidia + integrated (amd/intel) hybrid.
-gpu_is_nvidia_hybrid() {
-  local _has_nv=false _has_igpu=false _v
-  for _v in "${ENVIRONMENT_GPU[@]:-}"; do
-    [[ "$_v" == nvidia ]]              && _has_nv=true
-    [[ "$_v" == amd || "$_v" == intel ]] && _has_igpu=true
-  done
-  [[ "$_has_nv" == true && "$_has_igpu" == true ]]
-}
-
-# Emit the udev rule that maps each GPU (by PCI vendor) to a stable, colon-free
-# DRM card symlink. 0x1002 amd, 0x8086 intel, 0x10de nvidia. Pure string.
-gpu_aq_udev_rule() {
-  cat <<'RULES'
-# Stable, colon-free DRM card symlinks for AQ_DRM_DEVICES (Hyprland/aquamarine).
-# AQ_DRM_DEVICES splits on ':'; PCI by-path names contain ':' and cardN numbers
-# aren't stable across boots — resolve by PCI vendor instead. Managed by the Arch
-# installer (lib/config/environment.sh).
-KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x1002", SYMLINK+="dri/aq-igpu"
-KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x8086", SYMLINK+="dri/aq-igpu"
-KERNEL=="card[0-9]*", SUBSYSTEM=="drm", SUBSYSTEMS=="pci", ATTRS{vendor}=="0x10de", SYMLINK+="dri/aq-dgpu"
-RULES
-}
-
-# Write the udev rule (/usr/lib) + AQ_DRM_DEVICES (/etc/environment) under <root>
-# when the GPU is an nvidia+integrated hybrid. Idempotent (a prior arch-dotfiles
-# block is replaced). No-op otherwise. Call after the OS is installed but before
-# the impermanence @blank snapshot.
-gpu_write_session_env() {
-  local _root="${1:-${MOUNT_ROOT:-/mnt}}"
-  gpu_is_nvidia_hybrid || return 0
-  local _rule="$_root/usr/lib/udev/rules.d/60-aq-drm-devices.rules"
-  mkdir -p "$(dirname "$_rule")"
-  gpu_aq_udev_rule > "$_rule"
-  local _env="$_root/etc/environment"
-  mkdir -p "$(dirname "$_env")"
-  [[ -f "$_env" ]] \
-    && sed -i '/# >>> arch-dotfiles gpu/,/# <<< arch-dotfiles gpu/d' "$_env"
-  {
-    echo '# >>> arch-dotfiles gpu (nvidia PRIME hybrid; see environment.sh)'
-    echo '# Compositor on the iGPU only — the dGPU is off/on-demand; per-app'
-    echo '# nvidia offload is via prime-run, not this list.'
-    echo 'AQ_DRM_DEVICES=/dev/dri/aq-igpu'
-    echo '# <<< arch-dotfiles gpu'
-  } >> "$_env"
 }
 
 # Derive audio packages from the resolved desktop array. PipeWire is installed

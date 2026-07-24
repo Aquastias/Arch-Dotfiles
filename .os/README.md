@@ -5,7 +5,7 @@ default root filesystem, with `btrfs`, `ext4`, and `xfs` selectable
 per install via a filesystem-keyed adapter axis (ADR 0040/0043).
 Supports single-disk laptops, multi-disk RAID desktops, optional
 encryption (ZFS-native AES or dm-crypt/LUKS), declarative host/user
-profiles, KDE or Hyprland desktops, SOPS-encrypted secrets, and
+profiles, a KDE desktop, SOPS-encrypted secrets, and
 optional impermanence (rollback-to-blank on every boot, on the
 snapshotting filesystems ZFS and btrfs).
 
@@ -449,7 +449,7 @@ every boot without the USB.
 │   ├── core/               # Shared base for all hosts
 │   ├── desktop/            # eterniox
 │   ├── laptop/
-│   └── vm/                 # arch-kde, arch-hyprland, arch-secure, …
+│   └── vm/                 # arch-kde, arch-secure, …
 │
 ├── users/                  # Per-user config
 │   ├── core/               # Shared base for all users
@@ -468,8 +468,7 @@ every boot without the USB.
 │
 ├── extras/                 # In-chroot extras (DE adapters)
 │   └── desktop/
-│       ├── kde/kde.sh      # KDE Plasma 6 + SDDM
-│       └── hyprland/hyprland.sh  # Hyprland + greetd
+│       └── kde/kde.sh      # KDE Plasma 6 + SDDM
 │
 ├── tools/                  # Operator utilities (runtime)
 │   ├── save-pkglist.sh     # Snapshot current packages
@@ -555,8 +554,7 @@ Set under `environment` in the host profile:
 
 ```json
 "environment": {
-  "desktop": "kde",          // or "hyprland",
-                             // or ["kde","hyprland"], or null
+  "desktop": "kde",          // or ["kde"], or null
   "gpu":     "auto"          // or "amd"/"nvidia"/"intel"/array
 }
 ```
@@ -564,8 +562,7 @@ Set under `environment` in the host profile:
 Each desktop dispatches dynamically to `extras/desktop/<de>/
 <de>.sh`. Audio (PipeWire) is auto-derived when any desktop is
 selected; GPU drivers are auto-detected with `"auto"`. Display
-manager is chosen per the adapter (SDDM for KDE / KDE+Hyprland;
-greetd for Hyprland-only).
+manager is chosen per the adapter (SDDM for KDE).
 
 ### Impermanence
 
@@ -670,8 +667,6 @@ bash vm/vm.sh --testing --verify-boot --profile data-pools/reorder
 
 # Desktop environments (real host profiles)
 bash vm/vm.sh --testing --profile env/kde
-bash vm/vm.sh --testing --profile env/hyprland
-bash vm/vm.sh --testing --profile env/kde-hyprland
 ```
 
 Each run writes a timestamped log to `tests/vm/<vm-name>.log`.

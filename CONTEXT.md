@@ -425,8 +425,9 @@ The `"environment"` key in the Host Profile. Declares desktop environment
 selection and GPU driver selection. Audio is not declared — it is auto-derived
 (PipeWire when any desktop is selected, omitted for server installs). Processed
 at config-load time; populates `packages.groups.gpu` and `packages.groups.audio`
-before pacstrap. Valid desktop values: `"kde"`, `"hyprland"`, or `["kde",
-"hyprland"]`. Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
+before pacstrap. Valid desktop values: `"kde"` (the sole supported desktop —
+still array-shaped so a future DE stays zero-runner-change, ADR 0005/0050).
+Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
 "nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous
 schema.
 
@@ -475,9 +476,9 @@ Vendor → package mapping:
 
 ### Display Manager
 Auto-selected by each Desktop Environment Adapter based on the full resolved
-desktop array — not a config key. KDE-only or KDE+Hyprland → SDDM (enabled by
-the KDE adapter). Hyprland-only → greetd + greetd-tuigreet (enabled by the
-Hyprland adapter, config written to `/etc/greetd/config.toml`).
+desktop array — not a config key. With KDE the sole desktop, SDDM is the only
+display manager, enabled by the KDE adapter. (greetd/greetd-tuigreet left the
+project with Hyprland, ADR 0050.)
 
 ### User Secrets
 SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains
@@ -897,8 +898,8 @@ on demand, never committed.
   is dropped entirely since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
-  Host Profile (ADR 0021). Applies to Hyprland as of the 0021 amendment, not
-  only KDE.
+  Host Profile (ADR 0021). KDE is the only such adapter (Hyprland removed,
+  ADR 0050).
 - `host_profile` now lives at one layer only (ADR 0036): it is a **VM Profile**
   key naming a real host directory, which the unified Profile Loader resolves to
   that machine's **Host Profile** (the picker assembles the **Effective Config**

@@ -130,7 +130,7 @@ setup() {
     'select(.axes[$a] == $v)' >/dev/null; }
   _has kernel '"lts"';    _has kernel '"zen"'
   _has bootloader '"systemd-boot"'; _has bootloader '"grub"'
-  _has desktop '"none"';  _has desktop '"kde"'; _has desktop '"hyprland"'
+  _has desktop '"none"';  _has desktop '"kde"'
   _has gpu '"auto"'; _has gpu '"amd"'; _has gpu '"nvidia"'; _has gpu '"intel"'
   _has swap true;    _has swap false
 }

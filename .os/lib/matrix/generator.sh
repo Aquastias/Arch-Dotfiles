@@ -161,7 +161,7 @@ _matrix_tier2_axes() {
     impermanence: [false, true],
     kernel:       ["lts", "zen"],
     bootloader:   ["systemd-boot", "grub"],
-    desktop:      ["none", "kde", "hyprland"],
+    desktop:      ["none", "kde"],
     gpu:          ["auto", "amd", "nvidia", "intel"],
     swap:         [true, false]
   }'

@@ -37,9 +37,8 @@ echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 
 # ── Desktop keyboard layout (X11) ─────────────────────────────────────────────
 # When a desktop is selected, write the shared X11 keyboard config from the
-# full keymap[] list (covers Xorg + XWayland; KDE reads it). Hyprland ignores
-# xorg.conf.d and writes its own kb_layout. ENVIRONMENT_DESKTOP is the
-# space-separated DE list passed into the chroot.
+# full keymap[] list (covers Xorg + XWayland; KDE reads it).
+# ENVIRONMENT_DESKTOP is the space-separated DE list passed into the chroot.
 if [[ -n "${ENVIRONMENT_DESKTOP:-}" ]]; then
     _xkb_layout="$(IFS=,; printf '%s' "${KEYMAPS[*]}")"
     mkdir -p /etc/X11/xorg.conf.d

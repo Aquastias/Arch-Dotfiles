@@ -242,12 +242,6 @@ main() {
   # (ADR 0031). Runs before impermanence so the symlinks land in /home.
   pool_owners_apply
 
-  # ── GPU session env (nvidia PRIME hybrid) ────────────────────────────────
-  # Write AQ_DRM_DEVICES so a Wayland session (Hyprland) scans out on the panel's
-  # integrated GPU, not the nvidia dGPU. No-op on non-hybrid GPUs. Runs before
-  # impermanence so /etc/environment is captured in @blank and survives rollback.
-  gpu_write_session_env
-
   # ── Impermanence (after users + programs, before unmount) ────────────────
   apply_impermanence
 
