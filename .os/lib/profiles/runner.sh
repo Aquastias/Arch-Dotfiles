@@ -26,6 +26,8 @@
 #
 # Exports inside arch-chroot for each program install.sh:
 #   OS_DIR, PROGRAMS, SHELL_COMMONS
+#   AUR_HELPER (user-program path only) — the resolved AUR Helper (ADR 0052),
+#     paru or yay, for scripts that install via `${AUR_HELPER} -S`.
 # =============================================================================
 
 # shellcheck source=../config/post-install.sh
@@ -37,6 +39,12 @@
 # shellcheck source=../install-state.sh
 [[ "$(type -t install_state_credential_path)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
+
+# AUR Helper resolution rule (_profiles_detect_helper), shared with
+# tools/install-pkglist.sh so it has a single definition (ADR 0052).
+# shellcheck source=../aur-helper.sh
+[[ "$(type -t _profiles_detect_helper)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../aur-helper.sh"
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
@@ -54,6 +62,29 @@ readonly -a _STAGED_RUNTIME_FILES=(
 # =============================================================================
 # INTERNAL HELPERS
 # =============================================================================
+
+# Generic retry-with-backoff (ADR 0052). Runs the command; on failure sleeps the
+# next backoff value and retries, up to <attempts> total tries. Returns the
+# command's last exit status. `attempts` counts *total* tries, so the number of
+# sleeps is attempts-1; backoff is a CSV of per-gap seconds (missing → 0). The
+# bootstrap ladder calls `_retry 3 "3,10"` — one initial try plus two retries,
+# sleeping 3s then 10s (~13s worst case per rung).
+#   _retry <attempts> <backoff-csv> -- cmd [args...]
+_retry() {
+  local attempts="$1" backoff_csv="$2"; shift 2
+  [[ "${1:-}" == "--" ]] && shift
+  local -a backoff=()
+  IFS=',' read -ra backoff <<< "$backoff_csv"
+  local n=0 rc=0
+  while :; do
+    n=$((n + 1))
+    # `&& return 0 || rc=$?` captures the command's own status (an `if` around
+    # it would swallow it) while staying set -e-safe.
+    "$@" && return 0 || rc=$?
+    (( n >= attempts )) && return "$rc"
+    sleep "${backoff[n-1]:-0}"
+  done
+}
 
 # Stage program tree + Shell Stdlib + program runner inside the chroot so
 # install.sh scripts can run via arch-chroot with stable, predictable paths.
@@ -265,60 +296,106 @@ _profiles_revoke_temp_sudo() {
   rm -f "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
 }
 
-# Bootstrap paru as <user> via AUR + makepkg, inside the chroot.
-# Skips if paru is already on PATH for the user.
-_profiles_bootstrap_paru() {
+# Probe the AUR Helper already installed for <user> inside the chroot. Prints
+# `paru`/`yay` (paru preferred) and returns 0 when one exists; non-zero and no
+# output when neither does. The in-chroot mirror of _profiles_detect_helper.
+_profiles_detect_user_helper() {
   local user="$1"
-  info "Bootstrapping paru for user: ${user}"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" <<'CHROOT_PARU'
+  # shellcheck disable=SC2016  # $h is expanded by the chroot's shell, not here.
+  arch-chroot "$MOUNT_ROOT" su - "$user" -c '
+    for h in paru yay; do
+      if command -v "$h" >/dev/null 2>&1; then echo "$h"; exit 0; fi
+    done
+    exit 1'
+}
+
+# One rung of the bootstrap ladder: build+install <aur-pkg> as <user> in the
+# chroot via git clone + makepkg. Returns the rung's status. Wrapped in _retry
+# by the ladder and stubbed in unit tests.
+_profiles_bootstrap_rung() {
+  local user="$1" pkg="$2"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" <<'CHROOT_RUNG'
 set -e
-USER_NAME="$1"
-if su - "$USER_NAME" -c 'command -v paru >/dev/null 2>&1'; then
-  echo "  paru already installed for ${USER_NAME}"
-  exit 0
-fi
+USER_NAME="$1"; PKG="$2"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
-BUILD="${HOME_DIR}/.paru-bootstrap"
+BUILD="${HOME_DIR}/.aur-helper-bootstrap"
 rm -rf "$BUILD"
 su - "$USER_NAME" -c "
   set -e
-  git clone --depth 1 https://aur.archlinux.org/paru.git '${BUILD}'
+  git clone --depth 1 https://aur.archlinux.org/${PKG}.git '${BUILD}'
   cd '${BUILD}'
   makepkg -si --noconfirm
 "
 rm -rf "$BUILD"
-CHROOT_PARU
+CHROOT_RUNG
 }
 
-# Resolve + install an AUR set for a user. A print-only pre-flight pass runs
-# first in the real installed environment, so a provider/conflict failure — a
-# virtual dep (e.g. libjpeg6) whose default provider conflicts with an already
-# installed package — aborts *before* any download, with an actionable hint,
-# instead of the bare ERR-trap line number. The real install then streams live.
+# Bootstrap an AUR Helper for <user> via the resilience ladder (ADR 0052):
+# `paru` source → `paru-bin` → `yay-bin`, each shallow-retried before dropping
+# to the next (different) endpoint. Prints the landed helper's name (`paru`/`yay`)
+# on stdout; logs go to stderr so the name is cleanly capturable. Skips when the
+# user already has a helper. Aborts the install only if every rung fails.
+_profiles_bootstrap_helper() {
+  local user="$1"
+  local existing
+  if existing="$(_profiles_detect_user_helper "$user")"; then
+    info "AUR helper already present for ${user}: ${existing}" >&2
+    printf '%s\n' "$existing"
+    return 0
+  fi
+  info "Bootstrapping AUR helper for user: ${user}" >&2
+  local pkg landed
+  for pkg in paru paru-bin yay-bin; do
+    if _retry 3 "3,10" -- _profiles_bootstrap_rung "$user" "$pkg"; then
+      case "$pkg" in
+        yay-bin) landed=yay ;;
+        *)       landed=paru ;;
+      esac
+      info "AUR helper bootstrapped via ${pkg} (${landed}) for ${user}" >&2
+      printf '%s\n' "$landed"
+      return 0
+    fi
+    warn "AUR-helper rung '${pkg}' failed for ${user}; trying next rung." >&2
+  done
+  error "All AUR-helper bootstrap rungs failed for ${user}" \
+        "(paru, paru-bin, yay-bin) — upstream AUR/GitHub may be unavailable."
+}
+
+# Resolve + install an AUR set for a user with their <helper> (paru|yay). Under
+# paru, a print-only pre-flight pass runs first in the real installed
+# environment, so a provider/conflict failure — a virtual dep (e.g. libjpeg6)
+# whose default provider conflicts with an already installed package — aborts
+# *before* any download, with an actionable hint, instead of the bare ERR-trap
+# line number. The pre-flight is paru-only: its -Sp/conflict phrasing is what
+# _profiles_aur_conflict_report parses, so under yay (ADR 0052) it is skipped
+# and a conflict surfaces via the real install's ERR trap. The real install
+# streams live either way.
 _profiles_aur_install() {
-  local user="$1"; shift
+  local user="$1" helper="$2"; shift 2
   local -a pkgs=("$@")
   ((${#pkgs[@]} > 0)) || return 0
 
-  info "Pre-flight resolving AUR set for ${user}..."
-  local out rc=0
-  out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-    "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
-  if ((rc != 0)); then
-    if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
-      _profiles_aur_conflict_report "$out"
-      error "AUR pre-flight found an unresolvable conflict for ${user}." \
-            "Pin a non-conflicting provider, then re-run."
+  if [[ "$helper" == paru ]]; then
+    info "Pre-flight resolving AUR set for ${user}..."
+    local out rc=0
+    out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+      "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
+    if ((rc != 0)); then
+      if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
+        _profiles_aur_conflict_report "$out"
+        error "AUR pre-flight found an unresolvable conflict for ${user}." \
+              "Pin a non-conflicting provider, then re-run."
+      fi
+      # Non-conflict failure (e.g. transient resolver hiccup): warn, let the
+      # real pass surface it through the normal ERR trap.
+      warn "AUR pre-flight returned non-zero with no conflict signature;" \
+           "proceeding to install."
+      printf '%s\n' "$out" >&2
     fi
-    # Non-conflict failure (e.g. transient resolver hiccup): warn, let the real
-    # pass surface it through the normal ERR trap.
-    warn "AUR pre-flight returned non-zero with no conflict signature;" \
-         "proceeding to install."
-    printf '%s\n' "$out" >&2
   fi
 
   arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-    "paru -S --noconfirm --needed ${pkgs[*]}"
+    "${helper} -S --noconfirm --needed ${pkgs[*]}"
 }
 
 # Surface a provider conflict from captured paru resolution output. The output
@@ -335,20 +412,25 @@ _profiles_aur_conflict_report() {
 }
 
 _profiles_install_user_program() {
-  local user="$1" prog="$2"
+  local user="$1" prog="$2" helper="$3"
   local rel
   rel="$(resolve_program "$prog")"
   info "Installing user program: ${prog}  (user=${user}, .os/programs/${rel})"
+  # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
+  # in from run_profiles rather than re-detected here; program install.sh
+  # scripts install via ${AUR_HELPER} -S.
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
     "$user" \
     "${_PROFILES_RUNTIME_DIR}" \
-    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" <<'CHROOT_USERPROG'
+    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" \
+    "$helper" <<'CHROOT_USERPROG'
 set -e
-USER_NAME="$1"; OS_DIR_IN="$2"; INSTALL_SH="$3"
+USER_NAME="$1"; OS_DIR_IN="$2"; INSTALL_SH="$3"; AUR_HELPER_IN="$4"
 su - "$USER_NAME" -c "
   export OS_DIR='${OS_DIR_IN}'
   export PROGRAMS='${OS_DIR_IN}/programs'
   export SHELL_COMMONS='${OS_DIR_IN}/lib'
+  export AUR_HELPER='${AUR_HELPER_IN}'
   bash '${OS_DIR_IN}/lib/profiles/program-runner.sh' '${INSTALL_SH}'
 "
 CHROOT_USERPROG
@@ -646,7 +728,8 @@ run_profiles() {
     ((needs_paru)) || continue
 
     _profiles_grant_temp_sudo "$u"
-    _profiles_bootstrap_paru "$u"
+    local _helper
+    _helper="$(_profiles_bootstrap_helper "$u")"
     # Install host AUR packages and GPU AUR packages for the primary user.
     if [[ "${u}" == "${users[0]}" ]]; then
       local -a primary_aur=(
@@ -655,7 +738,7 @@ run_profiles() {
       )
       if ((${#primary_aur[@]} > 0)); then
         info "Installing AUR packages for ${u}: ${#primary_aur[@]} packages"
-        _profiles_aur_install "$u" "${primary_aur[@]}"
+        _profiles_aur_install "$u" "$_helper" "${primary_aur[@]}"
       fi
     fi
     for prog in "${uprogs[@]}"; do
@@ -668,7 +751,7 @@ run_profiles() {
         || error "User '${u}': cannot reconcile program '${prog}'."
       case "$_action" in
       user)
-        _profiles_install_user_program "$u" "$prog"
+        _profiles_install_user_program "$u" "$prog" "$_helper"
         _profiles_enable_user_services "$u" "$prog"
         ;;
       noop)

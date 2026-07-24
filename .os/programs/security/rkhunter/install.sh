@@ -21,7 +21,7 @@ RKHUNTER_SCRIPTS="${PROGRAMS}/security/rkhunter/scripts"
 RKHUNTER_SERVICES="${PROGRAMS}/security/rkhunter/services"
 
 print_status info "Installing rkhunter and required tools..."
-paru -S --noconfirm --needed rkhunter unhide
+${AUR_HELPER} -S --noconfirm --needed rkhunter unhide
 
 print_status info "Updating rkhunter malware database..."
 sudo rkhunter --update || true

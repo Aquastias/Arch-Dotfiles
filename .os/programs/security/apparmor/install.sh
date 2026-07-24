@@ -18,7 +18,7 @@ GRUB_BOOT_CFG="/boot/grub/grub.cfg"
 SBOOT_ENTRIES_DIR="/boot/efi/loader/entries"
 
 print_status info "Installing AppArmor..."
-paru -S --noconfirm --needed apparmor
+${AUR_HELPER} -S --noconfirm --needed apparmor
 
 PARAMS_TO_ADD=(
   "apparmor=1"
