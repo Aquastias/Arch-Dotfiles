@@ -971,3 +971,42 @@ write_answers() {
   _guided_apply_userforms
   jq -e '.shell == "/bin/bash"' "$OS_DIR/users/alice/profile.jsonc"   # untouched
 }
+
+# ── slice 04: Save-warn — committed profiles never rewritten ─────────────────
+
+@test "_guided_committed_userform_edits: reports committed users, not ad-hoc" {
+  mkdir -p "$OS_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  # dave has NO committed profile → session-created, must not be reported
+  _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"},"dave":{"shell":"/bin/fish"}}'
+  run _guided_committed_userform_edits
+  echo "$output" | grep -qx alice
+  ! echo "$output" | grep -qx dave
+}
+
+@test "_guided_apply_userforms save: does NOT rewrite a committed profile" {
+  mkdir -p "$OS_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  _GUIDED_COMMITTED_AT_START=" alice "
+  _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
+  _guided_apply_userforms save
+  jq -e '.shell == "/bin/bash"' "$OS_DIR/users/alice/profile.jsonc"   # untouched
+}
+
+@test "_guided_apply_userforms save: still applies to a session-created user" {
+  mkdir -p "$OS_DIR/users/dave"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/dave/profile.jsonc"
+  _GUIDED_COMMITTED_AT_START=" "     # dave was not committed at start
+  _GUIDED_USERFORMS_JSON='{"dave":{"shell":"/bin/zsh"}}'
+  _guided_apply_userforms save
+  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/dave/profile.jsonc"
+}
+
+@test "_guided_apply_userforms proceed: DOES apply to a committed profile" {
+  mkdir -p "$OS_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  _GUIDED_COMMITTED_AT_START=" alice "
+  _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
+  _guided_apply_userforms proceed
+  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/alice/profile.jsonc"
+}
