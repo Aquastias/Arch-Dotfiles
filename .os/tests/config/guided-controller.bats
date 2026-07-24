@@ -965,8 +965,8 @@ _seed_baseline() {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -q "\[x\] alice"
-  echo "$output" | grep -q "\[ \] bob"
+  echo "$output" | grep -q "^alice — "          # enabled: name — shell · pw …
+  echo "$output" | grep -q "^bob — disabled$"   # disabled: no checkbox
   ! echo "$output" | grep -q "core"
   echo "$output" | grep -q "+ Create user"
 }
@@ -974,7 +974,7 @@ _seed_baseline() {
 @test "enter(values users): toggling a user flips membership (full override)" {
   printf '%s\n' '{"users":["alice","bob"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "[x] bob"
+  run guided_ctl_enter "bob — bash · pw ⚠"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]
 }
@@ -982,7 +982,7 @@ _seed_baseline() {
 @test "enter(values users): toggling the last user off yields an empty list" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "[x] alice"
+  run guided_ctl_enter "alice — bash · pw ⚠"
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '[]' ]   # set [], not unset
 }
 
@@ -1002,7 +1002,7 @@ _seed_baseline() {
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
   echo "$output" | grep -qx "root password: (not set)"
-  echo "$output" | grep -q "\[x\] aquastias"
+  echo "$output" | grep -q "^aquastias — bash · pw ⚠"
   echo "$output" | grep -qE '^ +password \(aquastias\): \(not set\)$'
 }
 
@@ -1051,6 +1051,60 @@ _seed_baseline() {
   unset GUIDED_SECRETS_FILE
   set_nav '{"screen":"top"}'
   [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+}
+
+# ── slice 01: flatten Users + top-level password warning ─────────────────────
+
+@test "enter(top): Users flattens straight to the users screen (no category)" {
+  set_nav '{"screen":"top"}'
+  run guided_ctl_enter "Users — primary user, extra accounts"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+}
+
+@test "back(values users): returns to top, not the category screen" {
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_back
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
+}
+
+@test "list(top): Users row shows ⚠ N + Proceed reads blocked when pw unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  run guided_ctl_list
+  echo "$output" | grep -qE '^Users — .*⚠ 2 pw needed'   # root + aquastias
+  echo "$output" | grep -q "Proceed ▸ set passwords first ⚠"
+  ! echo "$output" | grep -q "Proceed ▸ review & install"
+}
+
+@test "list(top): no ⚠, normal Proceed once every password is set" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r","users":{"aquastias":{"password":"a"}}}' \
+    > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  run guided_ctl_list
+  ! echo "$output" | grep -q "pw needed"
+  echo "$output" | grep -q "Proceed ▸ review & install"
+}
+
+@test "list(top): undecorated when no secrets file is wired" {
+  unset GUIDED_SECRETS_FILE
+  set_nav '{"screen":"top"}'
+  run guided_ctl_list
+  ! echo "$output" | grep -q "pw needed"
+  echo "$output" | grep -q "Proceed ▸ review & install"
+}
+
+@test "enter(values users): toggling a disabled user on adds it" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "bob — disabled"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","bob"]' ]
 }
 
 @test "directive→action: secret rows execute the masked capture verb" {
