@@ -889,7 +889,7 @@ _guided_oneshot_edit() {
 guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
     GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE \
-    GUIDED_USERFORMS_FILE
+    GUIDED_USERFORMS_FILE GUIDED_PWBUF_FILE GUIDED_PWPENDING_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -910,10 +910,17 @@ guided_run_persistent() {
   # reaped, then merged onto the clone at Proceed. Never the Config State.
   GUIDED_USERFORMS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-userforms.XXXXXX.json")"
   printf '{}\n' >"$GUIDED_USERFORMS_FILE"
+  # Inline masked password entry (ADR 0051): the real characters typed on the
+  # secret screen live in the buffer file; the first entry of a type-twice pair
+  # waits in the pending file. Both tmpfs, reaped on RETURN — never the Config
+  # State, never a committed file.
+  GUIDED_PWBUF_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pwbuf.XXXXXX")"
+  GUIDED_PWPENDING_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pwpending.XXXXXX")"
   local -a _guided_tmpfiles=(
     "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
-    "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE"
+    "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
+    "$GUIDED_PWPENDING_FILE"
   )
   trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 
@@ -962,6 +969,8 @@ guided_run_persistent() {
     --header-border=bottom \
     "${rich_flags[@]}" \
     --preview='echo' --preview-window=hidden \
+    --bind "change:transform-query(bash $entry mask {q})" \
+    --bind "start:unbind(change)" \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-a:transform(bash $entry key ctrl-a)" \
