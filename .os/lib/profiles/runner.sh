@@ -346,7 +346,10 @@ _profiles_bootstrap_helper() {
   info "Bootstrapping AUR helper for user: ${user}" >&2
   local pkg landed
   for pkg in paru paru-bin yay-bin; do
-    if _retry 3 "3,10" -- _profiles_bootstrap_rung "$user" "$pkg"; then
+    # Rung stdout (git clone + makepkg build log) → stderr, so it stays visible
+    # on the terminal but never contaminates this function's stdout, which
+    # carries only the resolved helper name for the caller's capture.
+    if _retry 3 "3,10" -- _profiles_bootstrap_rung "$user" "$pkg" >&2; then
       case "$pkg" in
         yay-bin) landed=yay ;;
         *)       landed=paru ;;

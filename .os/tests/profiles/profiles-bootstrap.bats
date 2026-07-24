@@ -43,6 +43,23 @@ teardown() { rm -rf "$T"; }
   [ "$h" = paru ]
 }
 
+@test "ladder: chatty rung build output never leaks into the helper name" {
+  # Regression: a real rung streams makepkg/cargo output (incl. lines with
+  # parens like 'Compiling paru (…/src)' / 'target(s)'). That must not land on
+  # the function's stdout, or the captured helper name becomes a multi-line
+  # blob that corrupts the downstream `su -c "${helper} -S …"` command.
+  _profiles_detect_user_helper() { return 1; }
+  _profiles_bootstrap_rung() {
+    printf 'Compiling paru v2.1.0 (/home/x/.aur-helper-bootstrap/src/paru)\n'
+    printf "   Finished \`release\` profile [optimized] target(s) in 2m\n"
+    [[ "$2" == paru ]]
+  }
+  local h st
+  h="$(_profiles_bootstrap_helper alice 2>/dev/null)"; st=$?
+  [ "$st" -eq 0 ]
+  [ "$h" = paru ]        # exactly the name, no build chatter
+}
+
 @test "ladder: only yay-bin succeeds → resolves yay" {
   _profiles_detect_user_helper() { return 1; }
   _profiles_bootstrap_rung() { [[ "$2" == yay-bin ]]; }
