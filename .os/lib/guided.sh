@@ -493,7 +493,7 @@ _guided_edit_age_key_url() {
   _guided_edit_scalar age_key_url "Age key URL" options.age_key_url
 }
 
-# _guided_edit_desktop — Environment desktop: a multi-select over kde / hyprland
+# _guided_edit_desktop — Environment desktop: a multi-select over kde
 # (one, both, or none → a server install). Stored as a JSON array.
 _guided_edit_desktop() {
   local -a opts; mapfile -t opts < <(menu_enum_options environment.desktop)

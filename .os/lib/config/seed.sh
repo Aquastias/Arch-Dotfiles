@@ -33,12 +33,12 @@ cfgstate_seed_defaults() {
   # override on top. Idempotent with Host Core's own swappiness=10.
   state="$(cfgstate_set "$state" sysctl '{"vm.swappiness":10}')"
   # Selection defaults so no field opens empty and the toggle screens start with
-  # a sensible pick: kernel lts, gpu auto, BOTH desktops (this operator's setup),
-  # and the default mirror countries. These match the menu display / back-end
-  # defaults (kernel/gpu/mirrors are idempotent); desktop is the real choice.
+  # a sensible pick: kernel lts, gpu auto, KDE desktop (the sole DE), and the
+  # default mirror countries. These match the menu display / back-end defaults
+  # (kernel/gpu/mirrors are idempotent); desktop is the real choice.
   state="$(cfgstate_set "$state" options.kernel '["lts"]')"
   state="$(cfgstate_set "$state" environment.gpu '"auto"')"
-  state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
+  state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"
   # Disk / Options scalar defaults (the _MENU_FIELDS spec column): seeding them

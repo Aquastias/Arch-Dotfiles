@@ -152,14 +152,13 @@ CONTEXT.md.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `desktop` | varies | `null` | `"kde"`, `"hyprland"`, both, or `null` |
+| `desktop` | varies | `null` | `"kde"` or `null` |
 | `gpu` | varies | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
 when any desktop is selected. Display manager is chosen per
-adapter: KDE-only or KDE+Hyprland → SDDM; Hyprland-only →
-greetd + greetd-tuigreet. GPU `"auto"` resolves all detected
+adapter: KDE → SDDM. GPU `"auto"` resolves all detected
 vendors and installs the right driver set (`vulkan-radeon`,
 `nvidia-open-dkms` + `envycontrol` for hybrids, `intel-media-
 driver` / `libva-intel-driver` by device generation, `mesa`
@@ -511,18 +510,7 @@ Enables: `sddm.service`, `bluetooth.service`, `cups.service`.
 Per-component toggles live in
 `extras/desktop/kde/install-kde.jsonc`.
 
-**Hyprland — `extras/desktop/hyprland/hyprland.sh`**
-
-- `hyprland` — Wayland compositor
-- `greetd` + `greetd-tuigreet` — text-mode login
-- Default config under `/etc/greetd/config.toml`
-- PipeWire audio stack
-
-Enables: `greetd.service`. Per-component toggles in
-`extras/desktop/hyprland/install-hyprland.jsonc`.
-
-Selecting both (`"desktop": ["kde","hyprland"]`) installs both
-adapters; the KDE adapter wins on display manager (SDDM).
+KDE is the only Desktop Environment Adapter (ADR 0050).
 
 ### Backup — `programs/backup/`
 

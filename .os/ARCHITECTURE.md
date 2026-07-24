@@ -186,7 +186,7 @@ flowchart LR
   r_g["abort if unsupported"]:::rs
   r_b["systemd-boot | grub"]:::rs
   r_au["audio group (PipeWire)"]:::rs
-  r_de["DE pkgs + display mgr<br/>(SDDM/greetd) + svcs"]:::rs
+  r_de["DE pkgs + display mgr<br/>(SDDM) + svcs"]:::rs
   r_da["DE aur -> paru"]:::rs
   r_gp["gpu group<br/>(+envycontrol hybrid)"]:::rs
   r_im["rollback DS + @blank +<br/>persist + boot hooks"]:::rs

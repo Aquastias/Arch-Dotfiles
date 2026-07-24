@@ -32,7 +32,7 @@ teardown() {
 }
 
 @test "two-desktop array still produces PipeWire stack (no duplicates)" {
-  ENVIRONMENT_DESKTOP=("kde" "hyprland")
+  ENVIRONMENT_DESKTOP=("kde")
   _resolve_env_audio
   local count
   count=$(echo "${AUDIO_PACKAGES[*]}" | tr ' ' '\n' | grep -c "^pipewire$")

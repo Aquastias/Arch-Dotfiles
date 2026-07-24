@@ -3,7 +3,7 @@
 
 [axes]
 bootloader: grub systemd-boot
-desktop: hyprland kde none
+desktop: kde none
 encryption: false true
 filesystem: btrfs ext4 xfs zfs
 gpu: amd auto intel nvidia

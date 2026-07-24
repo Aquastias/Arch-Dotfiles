@@ -152,7 +152,7 @@ write_answers() {
     'esp_size=4G' \
     'ssh=true' \
     'age_key_url=https://example.test/key.age' \
-    'desktop=kde hyprland' \
+    'desktop=kde' \
     'gpu=amd nvidia' \
     'disk=/dev/disk/by-id/wwn-0xDEAD' \
     'confirm=INSTALL')"
@@ -166,7 +166,7 @@ write_answers() {
   echo "$effective" | jq -e '.options.esp_size == "4G"'
   echo "$effective" | jq -e '.options.ssh.enabled == true'
   echo "$effective" | jq -e '.options.age_key_url == "https://example.test/key.age"'
-  echo "$effective" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$effective" | jq -e '.environment.desktop == ["kde"]'
   echo "$effective" | jq -e '.environment.gpu == ["amd","nvidia"]'
 }
 
@@ -840,11 +840,11 @@ write_answers() {
 @test "_guided_edit_desktop: multi-select stores the desktop array" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
-  guided_multi() { printf '%s\n' "kde" "hyprland"; }
+  guided_multi() { printf '%s\n' "kde"; }
   export -f guided_multi
 
   _guided_edit_desktop
-  echo "$_GUIDED_STATE" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$_GUIDED_STATE" | jq -e '.environment.desktop == ["kde"]'
 }
 
 @test "_guided_edit_gpu: vendors store an array" {

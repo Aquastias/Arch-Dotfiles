@@ -66,11 +66,11 @@ make_de_stub() {
 
 @test "multiple DEs invoke all adapters in order" {
   make_de_stub kde
-  make_de_stub hyprland
-  run env ENVIRONMENT_DESKTOP="kde hyprland" STATE="$STATE_FILE" \
+  make_de_stub stub-de
+  run env ENVIRONMENT_DESKTOP="kde stub-de" STATE="$STATE_FILE" \
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -eq 0 ]
-  [ "$(cat "$STUB_LOG")" = "$(printf 'kde\nhyprland')" ]
+  [ "$(cat "$STUB_LOG")" = "$(printf 'kde\nstub-de')" ]
 }
 
 @test "unknown DE exits non-zero with clear error" {

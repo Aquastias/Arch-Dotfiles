@@ -19,12 +19,6 @@ dev work — they survive across reboots.
 # KDE Plasma (single disk, 60 GiB)
 bash vm/vm.sh --profile desktop/kde
 
-# Hyprland (single disk, 40 GiB)
-bash vm/vm.sh --profile desktop/hyprland
-
-# KDE + Hyprland side-by-side (single disk, 80 GiB)
-bash vm/vm.sh --profile desktop/kde-hyprland
-
 # Headless mirror with SOPS + impermanence + ZFS encryption
 # (2 × 40 GiB). Type `test` at the Age-key passphrase prompt
 # when the Secrets Module asks during install.
@@ -49,8 +43,6 @@ resolved effective config to stdout without touching libvirt.
 | Profile | VM name | Disk | RAM | Desktop |
 |---|---|---|---|---|
 | `desktop/kde` | `arch-kde` | 1 × 60 GiB | 8 GiB | KDE Plasma 6 + SDDM |
-| `desktop/hyprland` | `arch-hyprland` | 1 × 40 GiB | 6 GiB | Hyprland + greetd |
-| `desktop/kde-hyprland` | `arch-kde-hyprland` | 1 × 80 GiB | 8 GiB | KDE + Hyprland |
 | `headless/secure` | `arch-secure` | 2 × 40 GiB (mirror) | 6 GiB | none (headless) |
 
 Each profile names its install config via one source: a `host_profile`

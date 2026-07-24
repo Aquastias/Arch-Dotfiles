@@ -126,12 +126,11 @@ set_path_cfg() {
 }
 
 @test "array: desktop array yields one line per element" {
-  write_cfg '{"environment":{"desktop":["kde","hyprland"]}}'
+  write_cfg '{"environment":{"desktop":["kde"]}}'
   run install_config_desktop
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "kde" ]
-  [ "${lines[1]}" = "hyprland" ]
-  [ "${#lines[@]}" -eq 2 ]
+  [ "${#lines[@]}" -eq 1 ]
 }
 
 @test "array: desktop null yields empty (no default)" {

@@ -1,7 +1,9 @@
 # ADR 0005: Desktop Environment Adapter pattern for dynamic DE dispatch
 
 ## Status
-Accepted
+Accepted. Amended 2026-07-24 (ADR 0050): Hyprland removed — KDE is now
+the only adapter. The pattern is unchanged; the multi-DE example below
+is historical.
 
 ## Context
 The installer needed to support multiple desktop environments (KDE, Hyprland, or both) selectable via `environment.desktop` in `install.jsonc`. The naive approach would add an explicit `if/elif` branch in `lib/chroot/extras.sh` for each supported DE.

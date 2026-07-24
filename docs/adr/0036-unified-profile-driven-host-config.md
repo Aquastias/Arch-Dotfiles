@@ -128,3 +128,12 @@ final commit. 11 host files + 4 user configs become `profile.jsonc`;
 `config.jsonc`). The root `install.jsonc` is deleted; its single / multi
 / data_pools example blocks relocate to the schema reference, and the
 per-host profiles become the live examples.
+
+## Amendment (2026-07-24)
+
+The keymap clause above references "the Hyprland adapter writes its own
+`kb_layout`". Hyprland is removed (ADR 0050); that sentence is
+historical. KDE reads the shared `xorg.conf.d/00-keyboard.conf`, so
+`identity.sh`'s X11 keyboard config now covers the only desktop. The
+rest of the decision (locale/keymap arrays, element 0 as default) is
+unchanged.

@@ -89,7 +89,7 @@ unset _spec _name
 # Hand-written specials — kept verbatim because each breaks the schema mould.
 # =============================================================================
 
-# Array reader: accepts string ("kde"), array (["kde","hyprland"]), or
+# Array reader: accepts string ("kde"), array (["kde"]), or
 # null/absent. Emits one line per element; zero lines when absent/null.
 _install_config_array() {
   jsonc_read "$CONFIG_FILE" "$1 | if type == \"array\" then .[]

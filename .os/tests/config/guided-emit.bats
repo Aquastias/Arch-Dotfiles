@@ -60,7 +60,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   state="$(cfgstate_set "$state" options.esp_size '"4G"')"
   state="$(cfgstate_set "$state" options.ssh.enabled 'true')"
   state="$(cfgstate_set "$state" options.age_key_url '"https://x.test/k.age"')"
-  state="$(cfgstate_set "$state" environment.desktop '["kde","hyprland"]')"
+  state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
   state="$(cfgstate_set "$state" environment.gpu '["amd","nvidia"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
@@ -71,7 +71,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   echo "$output" | jq -e '.options.swap == false'
   echo "$output" | jq -e '.options.swap_size == "8G"'
   echo "$output" | jq -e '.options.ssh.enabled == true'
-  echo "$output" | jq -e '.environment.desktop == ["kde","hyprland"]'
+  echo "$output" | jq -e '.environment.desktop == ["kde"]'
   echo "$output" | jq -e '.environment.gpu == ["amd","nvidia"]'
 
   # the guided output stays as schema-clean as a hand-authored profile.

@@ -45,9 +45,7 @@ _assert_no_duplicates() {
   for p in base base-devel amd-ucode efibootmgr linux-firmware man-db \
            dosfstools networkmanager jq vim git cronie grub os-prober \
            timeshift kimageformats5 extra-cmake-modules apparmor clamav \
-           rkhunter unhide xorg-xinit hyprland wl-clipboard grim slurp \
-           nwg-look wofi dunst xdg-desktop-portal-hyprland \
-           xdg-desktop-portal-gtk; do
+           rkhunter unhide xorg-xinit; do
     if grep -qx "$p" <<< "$pkgs"; then
       echo "leftover duplicate package: $p"
       return 1
