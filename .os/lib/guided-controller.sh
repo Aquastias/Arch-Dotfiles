@@ -437,6 +437,97 @@ _ctl_user_is_committed() {
   [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${1}/profile.jsonc" ]]
 }
 
+# _ctl_user_committed <name> — the committed (core-merged) User Profile as JSON,
+# or {} for a session-created name. The strict-delta baseline the User Editor
+# compares an override against; also the display base before the override.
+_ctl_user_committed() {
+  local c='{}'
+  _ctl_user_is_committed "$1" \
+    && c="$(load_user_profile "$1" 2>/dev/null || printf '{}')"
+  printf '%s' "${c:-{\}}"
+}
+
+# _ctl_user_effective <name> — committed profile `*` the install-scoped override
+# (userforms file): what the installed user will actually get. Every User Editor
+# row displays from this.
+_ctl_user_effective() {
+  local n="$1" c f='{}'
+  c="$(_ctl_user_committed "$n")"
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+    && f="$(guided_userform_get "$GUIDED_USERFORMS_FILE" "$n")"
+  jq -n --argjson c "$c" --argjson f "$f" '$c * $f'
+}
+
+# _ctl_userfield_kind <field> — multi (groups/programs) | text (git.name/
+# git.email) | list (ssh). Drives the userfield screen's render + enter.
+_ctl_userfield_kind() {
+  case "$1" in
+  groups | programs)              echo multi ;;
+  git.name | git.email | ssh.add) echo text ;;
+  ssh)                            echo list ;;
+  esac
+}
+
+# _ctl_userfield_options <field> — the candidate lines for a multi userfield: a
+# curated group set (matching the create form) or the resolvable program names.
+_ctl_userfield_options() {
+  case "$1" in
+  groups)   printf '%s\n' wheel docker libvirt kvm ;;
+  programs) _ctl_program_names ;;
+  esac
+}
+
+# _ctl_userform_set_strict <user> <key> <new-json> <committed-json> — set the
+# per-user override at <key>, or DROP it when <new> equals the committed value
+# (strict delta: an edit that lands on the committed value leaves no override).
+# No-op when no userforms file is wired.
+_ctl_userform_set_strict() {
+  local u="$1" k="$2" new="$3" committed="$4"
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || return 0
+  if [[ "$(jq -cS . <<<"$new")" == "$(jq -cS . <<<"$committed")" ]]; then
+    guided_userform_unset "$GUIDED_USERFORMS_FILE" "$u" "$k"
+  else
+    guided_userform_set "$GUIDED_USERFORMS_FILE" "$u" "$k" "$new"
+  fi
+}
+
+# _ctl_userfield_toggle_multi <user> <field> <value> — flip <value> in the user's
+# effective array for a multi field, stored as the full override (strict delta vs
+# the committed array).
+_ctl_userfield_toggle_multi() {
+  local u="$1" field="$2" val="$3" eff cur new committed
+  eff="$(_ctl_user_effective "$u")"
+  cur="$(jq -c --arg f "$field" '.[$f] // []' <<<"$eff")"
+  new="$(jq -cn --argjson a "$cur" --arg v "$val" \
+    'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
+  committed="$(jq -c --arg f "$field" '.[$f] // []' <<<"$(_ctl_user_committed "$u")")"
+  _ctl_userform_set_strict "$u" "$field" "$new" "$committed"
+}
+
+# _ctl_userfield_set_git <user> <subkey> <value> — set git.name / git.email into
+# the user's override git object (strict delta vs the committed git). An empty
+# value drops that sub-key.
+_ctl_userfield_set_git() {
+  local u="$1" sub="$2" val="$3" cur committed new
+  cur="$(jq -c '.git // {}' <<<"$(_ctl_user_effective "$u")")"
+  committed="$(jq -c '.git // {}' <<<"$(_ctl_user_committed "$u")")"
+  new="$(jq -c --arg k "$sub" --arg v "$val" \
+    'if $v == "" then del(.[$k]) else .[$k] = $v end' <<<"$cur")"
+  _ctl_userform_set_strict "$u" git "$new" "$committed"
+}
+
+# _ctl_userfield_add_ssh <user> <key> — append one SSH authorized key to the
+# user's effective list, stored as the full override (strict delta vs committed).
+_ctl_userfield_add_ssh() {
+  local u="$1" key="$2" cur committed new
+  [[ -n "$key" ]] || return 0
+  cur="$(jq -c '.ssh_authorized_keys // []' <<<"$(_ctl_user_effective "$u")")"
+  new="$(jq -c --arg k "$key" '. + [$k]' <<<"$cur")"
+  committed="$(jq -c '.ssh_authorized_keys // []' \
+    <<<"$(_ctl_user_committed "$u")")"
+  _ctl_userform_set_strict "$u" ssh_authorized_keys "$new" "$committed"
+}
+
 # _ctl_user_marked <state> <base> — the user toggle list: every committed user
 # UNION the currently-selected names (so a just-created name shows), each marked
 # [x]/[ ] by membership in the effective .users.
@@ -506,6 +597,12 @@ _ctl_nav_header() {
   pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
   rootdisk)  b='Enter pick   Esc back' ;;
   useredit)  b='Enter edit/toggle   Esc back' ;;
+  userfield)
+    case "$(_ctl_userfield_kind "$(nav_get "$1" field)")" in
+    multi) b='Enter toggle ✓   Esc back' ;;
+    text)  b='Type a value, Enter save   Esc back' ;;
+    list)  b='Enter add   Esc back' ;;
+    esac ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -521,6 +618,7 @@ _ctl_nav_prompt() {
   pooldisks)   printf 'disks> ' ;;
   rootdisk)    printf 'root disk> ' ;;
   useredit)    printf '%s> ' "$(nav_get "$1" user)" ;;
+  userfield)   printf '%s> ' "$(nav_get "$1" label)" ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -1064,10 +1162,12 @@ guided_ctl_list() {
     done < <(_ctl_free_disks "$state")
     _ctl_action_row "← Back" ;;
   useredit)
-    # Per-user User Editor (ADR 0051, slice 02): a committed user shows an
-    # `enabled` toggle (in/out of the install), an ad-hoc user a `✗ remove user`
-    # row; both show the `shell` cycle. Slice 03 adds sudo/groups/git/ssh/programs.
-    local un; un="$(nav_get "$nav" user)"
+    # Per-user User Editor (ADR 0051): a committed user shows an `enabled` toggle
+    # (in/out of the install), an ad-hoc user a `✗ remove user` row; both show the
+    # full profile — shell, sudo, groups, git identity, ssh keys, programs — read
+    # from the effective (committed `*` install-scoped override) view.
+    local un ueff; un="$(nav_get "$nav" user)"
+    ueff="$(_ctl_user_effective "$un")"
     if _ctl_user_is_committed "$un"; then
       local _en; _en="$(jq -r --arg u "$un" \
         'if ((.users // []) | any(. == $u)) then "on" else "off" end' \
@@ -1075,8 +1175,49 @@ guided_ctl_list() {
       printf 'enabled: %s   (Enter toggles)\n' "$_en"
     fi
     printf 'shell: %s   (Enter cycles)\n' "$(_ctl_user_shell "$un")"
+    printf 'sudo: %s   (Enter toggles)\n' \
+      "$(jq -r 'if .sudo then "on" else "off" end' <<<"$ueff")"
+    printf 'groups: %s   (Enter edits)\n' \
+      "$(jq -r '(.groups // []) | join(", ") | if . == "" then "(none)" else . end' \
+        <<<"$ueff")"
+    printf 'git name: %s   (Enter edits)\n' "$(jq -r '.git.name // "(unset)"' <<<"$ueff")"
+    printf 'git email: %s   (Enter edits)\n' "$(jq -r '.git.email // "(unset)"' <<<"$ueff")"
+    printf 'ssh keys: %s   (Enter edits)\n' \
+      "$(jq -r '(.ssh_authorized_keys // []) | length' <<<"$ueff")"
+    printf 'programs: %s   (Enter edits)\n' \
+      "$(jq -r '(.programs // []) | join(", ") | if . == "" then "(none)" else . end' \
+        <<<"$ueff")"
     _ctl_user_is_committed "$un" || printf '%s\n' "✗ remove user"
     _ctl_action_row "← Back" ;;
+  userfield)
+    # A user-scoped sub-editor (ADR 0051): multi (groups/programs) marks options
+    # against the effective value; text (git.name/git.email) shows current + hint;
+    # list (ssh) shows the keys + an add action.
+    local un field; un="$(nav_get "$nav" user)"; field="$(nav_get "$nav" field)"
+    case "$(_ctl_userfield_kind "$field")" in
+    multi)
+      local _sel _opt
+      _sel="$(jq -c --arg f "$field" '.[$f] // []' <<<"$(_ctl_user_effective "$un")")"
+      while IFS= read -r _opt; do
+        if jq -ne --argjson s "$_sel" --arg o "$_opt" 'any($s[]; . == $o)' \
+            >/dev/null 2>&1; then printf '[x] %s\n' "$_opt"
+        else printf '[ ] %s\n' "$_opt"; fi
+      done < <(_ctl_userfield_options "$field")
+      _ctl_action_row "← Back" ;;
+    text)
+      local _cur
+      if [[ "$field" == git.* ]]; then
+        _cur="$(jq -r --arg k "${field#git.}" '.git[$k] // ""' \
+          <<<"$(_ctl_user_effective "$un")")"
+        printf 'current: %s\n' "${_cur:-(unset)}"
+      fi
+      printf '%s\n' "(type above, Enter saves · Esc cancels)" ;;
+    list)
+      local _k
+      while IFS= read -r _k; do [[ -n "$_k" ]] && printf '%s\n' "$_k"; done \
+        < <(jq -r '(.ssh_authorized_keys // [])[]' <<<"$(_ctl_user_effective "$un")")
+      _ctl_action_row "+ Add SSH key" ;;
+    esac ;;
   esac
 }
 
@@ -1096,6 +1237,7 @@ guided_ctl_enter() {
   pooldisks) _ctl_enter_pooldisks "$line" ;;
   rootdisk)  _ctl_enter_rootdisk "$line" ;;
   useredit)  _ctl_enter_useredit "$line" ;;
+  userfield) _ctl_enter_userfield "$line" "$query" ;;
   *)         echo noop ;;
   esac
 }
@@ -1124,6 +1266,29 @@ _ctl_enter_useredit() {
   "enabled:"*)
     _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" "$un")"
     echo refresh; return ;;
+  "sudo:"*)
+    [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
+    local _cs _ns _com
+    _cs="$(jq -r 'if .sudo then true else false end' <<<"$(_ctl_user_effective "$un")")"
+    _ns="$([[ "$_cs" == "true" ]] && echo false || echo true)"
+    _com="$(jq -c 'if .sudo then true else false end' <<<"$(_ctl_user_committed "$un")")"
+    _ctl_userform_set_strict "$un" sudo "$_ns" "$_com"
+    echo refresh; return ;;
+  "groups:"*)
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" groups groups)"
+    echo render; return ;;
+  "git name:"*)
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" git.name "git name")"
+    echo render; return ;;
+  "git email:"*)
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" git.email "git email")"
+    echo render; return ;;
+  "ssh keys:"*)
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh "ssh keys")"
+    echo render; return ;;
+  "programs:"*)
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" programs programs)"
+    echo render; return ;;
   "shell:"*)
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
     cur="$(_ctl_user_shell_full "$un")"
@@ -1144,6 +1309,39 @@ _ctl_enter_useredit() {
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
       && guided_userform_clear "$GUIDED_USERFORMS_FILE" "$un"
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  esac
+  echo refresh
+}
+
+# _ctl_enter_userfield <line> [<query>] — the user-scoped sub-editor dispatch
+# (ADR 0051): a multi field toggles membership (STAY), a git text commits the
+# typed query and backs to the editor, the ssh list opens an add-key text screen
+# and an add commits then re-lists so more keys can follow.
+_ctl_enter_userfield() {
+  local line="$1" query="${2:-}" nav cat un field
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  un="$(nav_get "$nav" user)"; field="$(nav_get "$nav" field)"
+  if [[ "$line" == "← Back" ]]; then
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+  fi
+  case "$(_ctl_userfield_kind "$field")" in
+  multi)
+    _ctl_userfield_toggle_multi "$un" "$field" "${line:4}"
+    echo refresh; return ;;
+  text)
+    if [[ "$field" == git.* ]]; then
+      [[ -n "$query" ]] && _ctl_userfield_set_git "$un" "${field#git.}" "$query"
+      _ctl_write_nav "$(nav_to_useredit "$cat" "$un")"; echo render; return
+    fi
+    # ssh.add: append the key, then return to the key list for more.
+    [[ -n "$query" ]] && _ctl_userfield_add_ssh "$un" "$query"
+    _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh "ssh keys")"
+    echo render; return ;;
+  list)
+    [[ "$line" == "+ Add"* ]] && {
+      _ctl_write_nav "$(nav_to_userfield "$cat" "$un" ssh.add "ssh key")"
+      echo render; return; }
+    echo refresh; return ;;   # an existing key row is display-only
   esac
   echo refresh
 }
@@ -1331,6 +1529,30 @@ _ctl_enter_text() {
     [[ -n "$query" ]] && _ctl_write_state "$(jq --argjson i "$idx" --arg m "$query" \
       '.data_pools[$i].mount = $m' <<<"$(_ctl_state)")"
     _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
+  fi
+  # Create user (ADR 0051): a typed name that isn't a duplicate is added to the
+  # user list, seeded with the create defaults (bash / sudo on / wheel) in its
+  # install-scoped form, and the operator is dropped INTO the editor to set the
+  # required password and anything else. A blank name backs out; a duplicate
+  # (committed or already listed) is refused with a notice.
+  if [[ "$path" == "__newuser__" ]]; then
+    [[ -n "$query" ]] || { _ctl_write_nav "$(nav_to_values "$cat" users users)"
+                           echo render; return; }
+    if _ctl_user_is_committed "$query" || jq -e --arg v "$query" \
+        '(.users // []) | any(. == $v)' \
+        <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" >/dev/null; then
+      echo "notice ⚠ user '${query}' already exists — pick another name"; return
+    fi
+    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+      "$(jq -cn --arg v "$query" --argjson a \
+        "$(jq -c '.users // []' \
+          <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")" '$a + [$v]')")"
+    if [[ -n "${GUIDED_USERFORMS_FILE:-}" ]]; then
+      guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" shell '"/bin/bash"'
+      guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" sudo 'true'
+      guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" groups '["wheel"]'
+    fi
+    _ctl_write_nav "$(nav_to_useredit "$cat" "$query")"; echo render; return
   fi
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_normalise_default \

@@ -73,6 +73,15 @@ nav_to_useredit() {
     '{screen:"useredit", category:$c, user:$u}'
 }
 
+# nav_to_userfield <category> <user> <field> <label> — a user-scoped sub-editor
+# (ADR 0051): the multi (groups/programs), text (git.name/git.email) or list
+# (ssh) field of one user. Carries the user so the commit writes that user's
+# install-scoped delta; nav_back returns to the user's editor.
+nav_to_userfield() {
+  jq -nc --arg c "$1" --arg u "$2" --arg f "$3" --arg l "$4" \
+    '{screen:"userfield", category:$c, user:$u, field:$f, label:$l}'
+}
+
 # nav_to_poolmount <category> <index> — the free-text editor for data_pools[index]'s
 # mount point (ADR 0047). A text screen that carries the pool index so the commit
 # is scoped back to the right pool, then returns to that pool's editor.
@@ -97,6 +106,8 @@ nav_back() {
     elif .screen == "rootdisk" then {screen:"category", category:.category}
     elif .screen == "useredit"
          then {screen:"values", category:.category, field:"users", label:"users"}
+    elif .screen == "userfield"
+         then {screen:"useredit", category:.category, user:.user}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
