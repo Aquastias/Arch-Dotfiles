@@ -31,9 +31,14 @@ do_apps="$(jsonc "$KDE_JSON" | jq -r '.apps  // true')"
 # =============================================================================
 if [[ "$do_shell" == "true" ]]; then
   section "KDE Plasma Shell"
+  # plasma-x11-session is only an *optional* dep of plasma-meta, so without it
+  # SDDM offers Wayland only. On GPUs where kwin_wayland can't take over the
+  # display (e.g. amdgpu atomic-commit regressions), that leaves a black screen
+  # at login with no fallback. Install it so an X11 session is always available.
   pacman -S --noconfirm --needed \
     plasma-meta \
     plasma-workspace \
+    plasma-x11-session \
     polkit-kde-agent \
     sddm \
     print-manager
