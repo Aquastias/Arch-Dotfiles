@@ -21,6 +21,10 @@ print_status info "Enabling Docker socket" \
   "(daemon starts on first connection)..."
 sudo systemctl enable docker.socket
 
+# On-demand only: keep docker.service off the boot path so it can't drag
+# network-online.target into startup. Package/preset may have enabled it.
+sudo systemctl disable docker.service 2>/dev/null || true
+
 # pacman creates the `docker` group as part of the docker package; this is a
 # safety net if the package shape ever changes.
 getent group docker >/dev/null || sudo groupadd docker

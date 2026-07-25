@@ -31,5 +31,16 @@ sudo mkdir -p /var/lib/systemd/linger
 sudo touch "/var/lib/systemd/linger/${USER}"
 print_status info "Linger enabled for ${USER}."
 
+# Podman's user generator injects podman-user-wait-network-online.service into
+# every rootless container unit, gating the whole user session on the system
+# network-online.target (~8s) and stalling the desktop right after login.
+# searxng only Wants it, so masking is safe: the container starts immediately
+# and its own Restart handles the brief pre-network window.
+mkdir -p "${HOME}/.config/systemd/user"
+ln -sf /dev/null \
+  "${HOME}/.config/systemd/user/podman-user-wait-network-online.service"
+print_status info "Masked podman-user-wait-network-online (boot no longer" \
+  "waits on network)."
+
 print_status success "SearXNG staged." \
   "Quadlet units start on first boot; containers pulled then."
