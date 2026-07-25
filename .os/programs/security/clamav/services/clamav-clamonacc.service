@@ -5,14 +5,17 @@
 Description=ClamAV On-Access Scanner
 Documentation=man:clamonacc(8) man:clamd.conf(5) https://docs.clamav.net/
 Requires=clamav-daemon.service
-After=clamav-daemon.service syslog.target network.target
+After=clamav-daemon.service syslog.target
 
 [Service]
 Type=simple
 User=root
-ExecStartPre=/bin/bash -c "while [ ! -S /run/clamav/clamd.ctl ]; do sleep 1; done"
+# Bounded wait for clamd's control socket: a slow daemon fails fast instead
+# of hanging the boot job forever. TimeoutStartSec is the hard backstop.
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do [ -S /run/clamav/clamd.ctl ] && exit 0; sleep 1; done; exit 1'
 ExecStart=/usr/sbin/clamonacc -F --fdpass --log=/var/log/clamav/clamonacc.log --move=/root/quarantine
 ExecStop=/bin/kill -SIGKILL $MAINPID
+TimeoutStartSec=45
 
 [Install]
 WantedBy=multi-user.target

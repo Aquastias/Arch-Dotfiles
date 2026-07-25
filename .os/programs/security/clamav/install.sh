@@ -87,6 +87,9 @@ else
   exit 1
 fi
 
+print_status info "Creating on-access quarantine directory..."
+sudo install -d -o root -g root -m 700 /root/quarantine
+
 print_status info "Enabling services (started on first boot)..."
 sudo systemctl enable clamav-daemon.service
 sudo systemctl enable clamav-freshclam.service
