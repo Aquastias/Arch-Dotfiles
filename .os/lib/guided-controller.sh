@@ -433,6 +433,25 @@ _ctl_user_shell_full() {
 # _ctl_user_shell <name> — the short login shell (basename) for the list row.
 _ctl_user_shell() { local s; s="$(_ctl_user_shell_full "$1")"; printf '%s' "${s##*/}"; }
 
+# _ctl_root_shell_full — root's effective login shell PATH (ADR 0054): the
+# Config State override (options.root_shell) merged over the baseline, else the
+# baseline's, else /bin/bash. The single source the Users row + the cycle read.
+_ctl_root_shell_full() {
+  local s
+  s="$(jq -r '.options.root_shell // "/bin/bash"' \
+    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+  printf '%s' "$s"
+}
+
+# _ctl_root_shell — root's short login shell (basename) for the Users row.
+_ctl_root_shell() { local s; s="$(_ctl_root_shell_full)"; printf '%s' "${s##*/}"; }
+
+# _ctl_root_shell_committed — the baseline (launch-state) root shell, or
+# /bin/bash. The strict-delta reference: cycling onto it drops the override.
+_ctl_root_shell_committed() {
+  jq -r '.options.root_shell // "/bin/bash"' <<<"$(_ctl_baseline)"
+}
+
 # _ctl_user_is_committed <name> — rc 0 when the user has a committed profile
 # (users/<name>/profile.jsonc under OS_DIR): the editor shows `enabled` for those
 # and `✗ remove user` for a session-created (ad-hoc) name instead.
@@ -1023,6 +1042,7 @@ guided_ctl_list() {
       # "(set)"/"(not set)" only, never the value. The indented password row is
       # the actionable element until the User Editor lands (slice 02).
       printf 'root password: %s\n' "$(_ctl_secret_state root)"
+      printf 'root shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
       local _um _un _ushell _upw
       while IFS= read -r _um; do
         _un="${_um:4}"
@@ -1549,6 +1569,20 @@ _ctl_enter_values() {
     if [[ "$line" == "root password:"* ]]; then
       if _ctl_rich_chrome; then _ctl_open_secret root; else echo "secret-root"; fi
       return
+    fi
+    if [[ "$line" == "root shell:"* ]]; then
+      # Cycle bash→zsh→fish into options.root_shell (ADR 0054), strict-delta:
+      # landing on the baseline shell drops the override (like the user cycle).
+      local _rc _rn
+      _rc="$(_ctl_root_shell_full)"
+      _rn="$(_ctl_cycle_next "$_rc" /bin/bash /bin/zsh /bin/fish)"
+      if [[ "$_rn" == "$(_ctl_root_shell_committed)" ]]; then
+        _ctl_write_state "$(cfgstate_unset "$(_ctl_state)" options.root_shell)"
+      else
+        _ctl_write_state \
+          "$(edit_set_scalar "$(_ctl_state)" options.root_shell "$_rn")"
+      fi
+      echo refresh; return
     fi
     if [[ "$line" == *"password ("* ]]; then
       local _sn="${line#*password (}"; _sn="${_sn%%)*}"

@@ -13,6 +13,12 @@ setup() {
   # chpasswd: capture stdin
   printf '#!/usr/bin/env bash\ncat > "%s/chpasswd_input"\n' "$TEST_DIR" \
     > "$TEST_DIR/bin/chpasswd"
+  # chsh: capture args (the root login shell under test, ADR 0054)
+  printf '#!/usr/bin/env bash\necho "$@" > "%s/chsh_args"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/chsh"
+  # pacman: capture args (the missing-shell package install guard)
+  printf '#!/usr/bin/env bash\necho "$@" > "%s/pacman_args"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/pacman"
 
   chmod +x "$TEST_DIR/bin"/*
   export PATH="$TEST_DIR/bin:$PATH"
@@ -27,4 +33,28 @@ teardown() { rm -rf "$TEST_DIR"; }
     bash "$BATS_TEST_DIRNAME/../../lib/chroot/password.sh"
   [ "$status" -eq 0 ]
   [ "$(cat "$TEST_DIR/chpasswd_input")" = "root:envpassword" ]
+}
+
+# ── root login shell (ADR 0054) ───────────────────────────────────────────────
+
+@test "defaults root shell to /bin/bash when ROOT_SHELL is unset" {
+  run env ROOT_PW="x" bash "$BATS_TEST_DIRNAME/../../lib/chroot/password.sh"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_DIR/chsh_args")" = "-s /bin/bash root" ]
+  [ ! -f "$TEST_DIR/pacman_args" ]           # bash ships with base — no install
+}
+
+@test "applies ROOT_SHELL to root via chsh" {
+  run env ROOT_PW="x" ROOT_SHELL="/bin/zsh" \
+    bash "$BATS_TEST_DIRNAME/../../lib/chroot/password.sh"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$TEST_DIR/chsh_args")" = "-s /bin/zsh root" ]
+}
+
+@test "installs a missing root shell's package before chsh" {
+  run env ROOT_PW="x" ROOT_SHELL="/opt/absent/fish" \
+    bash "$BATS_TEST_DIRNAME/../../lib/chroot/password.sh"
+  [ "$status" -eq 0 ]
+  grep -q "fish" "$TEST_DIR/pacman_args"
+  [ "$(cat "$TEST_DIR/chsh_args")" = "-s /opt/absent/fish root" ]
 }
