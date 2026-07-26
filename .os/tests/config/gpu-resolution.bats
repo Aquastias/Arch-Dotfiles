@@ -58,7 +58,8 @@ teardown() {
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
   # The hybrid switcher is gone — the chroot GPU Configuration Module owns the
   # deterministic hybrid config instead.
-  [[ " ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} " != *" envycontrol "* ]]
+  local paru=" ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} "
+  [[ "$paru" != *" envycontrol "* ]]
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 
@@ -109,7 +110,8 @@ teardown() {
   _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
-  [[ " ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} " != *" envycontrol "* ]]
+  local paru=" ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} "
+  [[ "$paru" != *" envycontrol "* ]]
 }
 
 @test "auto with VMware GPU resolves to mesa only; does not abort" {
