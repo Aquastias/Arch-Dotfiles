@@ -84,6 +84,25 @@ _ctl_secret_state() {
   echo "(not set)"
 }
 
+# _ctl_secret_tag <root|user|enc> [name] → the ADR-0055 source tag for a
+# credential on the Users override screen: `custom` (operator typed it into
+# GUIDED_SECRETS_FILE), else `from age` (a committed secret will decrypt via the
+# wired age key — .secrets.* wins over .guided_passwords.* in the resolver), else
+# `default 12345`. Never emits the value. Reads the secrets file + effective state.
+_ctl_secret_tag() {
+  local f="${GUIDED_SECRETS_FILE:-}" role="$1" name="${2:-}"
+  if [[ -n "$f" ]]; then
+    case "$role" in
+    root) guided_secretsfile_has_root "$f" && { echo "custom"; return; } ;;
+    enc)  guided_secretsfile_has_enc  "$f" && { echo "custom"; return; } ;;
+    *)    guided_secretsfile_has_user "$f" "$name" && { echo "custom"; return; } ;;
+    esac
+  fi
+  [[ -n "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+      options.age_key_url)" ]] && { echo "from age"; return; }
+  echo "default 12345"
+}
+
 # _ctl_pw_missing — count of required-but-unset passwords (root + each enabled
 # user), from GUIDED_SECRETS_FILE over the effective user list. 0 when no secrets
 # file is wired (non-persistent contexts), so the top screen stays undecorated.
@@ -1083,26 +1102,28 @@ guided_ctl_list() {
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
-      # Flattened Users screen (slice 01): a root-password row, then one row per
-      # user — enabled as "name — shell · pw <ok|⚠>" with an indented password row
-      # beneath it, disabled as "name — disabled" (no checkbox). Password state is
-      # "(set)"/"(not set)" only, never the value. The indented password row is
-      # the actionable element until the User Editor lands (slice 02).
-      printf 'root password: %s\n' "$(_ctl_secret_state root)"
+      # Flattened Users screen — the ADR-0055 secret override surface. A
+      # root-password row, one row per user, and a Disk-encryption row (when
+      # encryption is on), each tagged with its source: `default 12345` / `custom`
+      # / `from age`. Never the value. Enter on any row opens the inline override.
+      printf 'root password: %s\n' "$(_ctl_secret_tag root)"
       printf 'root shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
-      local _um _un _ushell _upw
+      local _um _un _ushell _utag
       while IFS= read -r _um; do
         _un="${_um:4}"
         if [[ "${_um:0:3}" == "[x]" ]]; then
           _ushell="$(_ctl_user_shell "$_un")"
-          _upw="$(_ctl_secret_state user "$_un")"
-          printf '%s — %s · pw %s\n' "$_un" "$_ushell" \
-            "$([[ "$_upw" == "(set)" ]] && printf 'ok' || printf '⚠')"
-          printf '      password (%s): %s\n' "$_un" "$_upw"
+          _utag="$(_ctl_secret_tag user "$_un")"
+          printf '%s — %s · pw %s\n' "$_un" "$_ushell" "$_utag"
+          printf '      password (%s): %s\n' "$_un" "$_utag"
         else
           printf '%s — disabled\n' "$_un"
         fi
       done < <(_ctl_user_marked "$state" "$base")
+      if [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
+          options.encryption)" == "true" ]]; then
+        printf 'disk encryption: %s\n' "$(_ctl_secret_tag enc)"
+      fi
       _ctl_action_row "+ Create user (name)"
     elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
       _ctl_biglist_options "$vf"
@@ -1392,8 +1413,10 @@ _ctl_enter_secret() {
   *)    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
   esac
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-  # enc returns to the Disks category (its home); passwords to the Users list.
-  if [[ "$tgt" == "enc" ]]; then
+  # Return to the screen the capture was opened from: the Disks category (the
+  # passphrase's ADR-0054 home) when enc came from there, else the Users list —
+  # which is also the ADR-0055 override home for enc (`Disk encryption` row).
+  if [[ "$tgt" == "enc" && "$cat" == "Disks" ]]; then
     _ctl_write_nav "$(nav_to_category "$cat")"
   else
     _ctl_write_nav "$(nav_to_values "$cat" users users)"
@@ -1648,6 +1671,12 @@ _ctl_enter_values() {
       local _sn="${line#*password (}"; _sn="${_sn%%)*}"
       if _ctl_rich_chrome; then _ctl_open_secret user "$_sn"
       else echo "secret-user $_sn"; fi
+      return
+    fi
+    if [[ "$line" == "disk encryption:"* ]]; then
+      # The Disk-encryption override (ADR 0055), same inline masked capture as the
+      # Disks-screen passphrase row; returns here to the Users list on confirm.
+      if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
       return
     fi
     if [[ "$line" == "+ Create"* ]]; then

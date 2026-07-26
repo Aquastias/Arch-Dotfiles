@@ -977,7 +977,7 @@ _seed_baseline() {
 @test "enter(values users): a user row opens its User Editor (slice 02)" {
   printf '%s\n' '{"users":["alice","bob"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "bob — bash · pw ⚠"
+  run guided_ctl_enter "bob — bash · pw default 12345"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
@@ -993,36 +993,94 @@ _seed_baseline() {
 
 # ── in-menu credentials (ticket 03) ──────────────────────────────────────────
 
-@test "list(values users): a root-password row + per-enabled-user password row" {
+@test "list(values users): rows tag unset secrets 'default 12345' (ADR 0055)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: (not set)"
-  echo "$output" | grep -q "^aquastias — bash · pw ⚠"
-  echo "$output" | grep -qE '^ +password \(aquastias\): \(not set\)$'
+  echo "$output" | grep -qx "root password: default 12345"
+  echo "$output" | grep -q "^aquastias — bash · pw default 12345"
+  echo "$output" | grep -qE '^ +password \(aquastias\): default 12345$'
 }
 
-@test "list(values users): rows read (set) once the secret file has them" {
+@test "list(values users): rows tag 'custom' once the secret file has them" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '%s\n' '{"root_password":"r","users":{"aquastias":{"password":"a"}}}' \
     > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: (set)"
-  echo "$output" | grep -qE '^ +password \(aquastias\): \(set\)$'
+  echo "$output" | grep -qx "root password: custom"
+  echo "$output" | grep -qE '^ +password \(aquastias\): custom$'
+}
+
+@test "list(values users): a wired age key tags unset secrets 'from age'" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"],"options":{"age_key_url":"https://k/age"}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "root password: from age"
+  echo "$output" | grep -qE '^ +password \(aquastias\): from age$'
+}
+
+@test "list(values users): an operator override beats a wired age key ('custom')" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"age_key_url":"https://k/age"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "root password: custom"
 }
 
 @test "enter(values users): the root-password row drops to a masked capture" {
   set_nav "$(nav_to_values Users users users)"
-  [ "$(guided_ctl_enter "root password: (not set)")" = "secret-root" ]
+  [ "$(guided_ctl_enter "root password: default 12345")" = "secret-root" ]
 }
 
 @test "enter(values users): a per-user password row captures for that user" {
   set_nav "$(nav_to_values Users users users)"
-  [ "$(guided_ctl_enter "      password (aquastias): (not set)")" \
+  [ "$(guided_ctl_enter "      password (aquastias): default 12345")" \
     = "secret-user aquastias" ]
+}
+
+# ── Disk encryption override row on the Users screen (ADR 0055) ──────────────
+
+@test "list(values users): a Disk-encryption row appears when encryption is on" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"],"options":{"encryption":true}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "disk encryption: default 12345"
+}
+
+@test "list(values users): no Disk-encryption row when encryption is off" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"users":["aquastias"],"options":{"encryption":false}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  ! echo "$output" | grep -q "disk encryption:"
+}
+
+@test "enter(values users): the Disk-encryption row drops to a masked capture" {
+  set_nav "$(nav_to_values Users users users)"
+  [ "$(guided_ctl_enter "disk encryption: default 12345")" = "secret-enc" ]
+}
+
+@test "secret(enc from Users): a confirmed passphrase returns to the Users list" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  export GUIDED_PWBUF_FILE="$TEST_DIR/buf"; export GUIDED_PWPENDING_FILE="$TEST_DIR/pend"
+  # opened from the Users screen → cat=Users; confirm phase with matching buffer
+  set_nav '{"screen":"secret","category":"Users","target":"enc","phase":"confirm"}'
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
+  printf 'corrhorse' > "$GUIDED_PWPENDING_FILE"
+  run guided_ctl_enter ""
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+  guided_secretsfile_has_enc "$GUIDED_SECRETS_FILE"
 }
 
 # ── root shell cycle (ADR 0054) ──────────────────────────────────────────────
