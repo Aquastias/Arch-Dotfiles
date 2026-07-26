@@ -626,6 +626,9 @@ _GUIDED_ADHOC_ORDER=()
 declare -gA _GUIDED_ADHOC_FORM=()
 declare -gA _GUIDED_USER_PW=()
 _GUIDED_ROOT_PW=""
+# The ZFS/LUKS encryption passphrase captured in the menu (ADR 0054). Held aside
+# like the passwords — never the Config State — and emitted into the manifest.
+_GUIDED_ENC_PASSPHRASE=""
 # Install-scoped per-user profile deltas from the User Editor (ADR 0051), loaded
 # from GUIDED_USERFORMS_FILE before the persistent menu's tmpfiles are reaped.
 # Merged onto each user's profile on the install clone at Proceed; never written
@@ -639,6 +642,7 @@ _guided_users_reset() {
   declare -gA _GUIDED_ADHOC_FORM=()
   declare -gA _GUIDED_USER_PW=()
   _GUIDED_ROOT_PW=""
+  _GUIDED_ENC_PASSPHRASE=""
   _GUIDED_USERFORMS_JSON=""
 }
 
@@ -826,13 +830,17 @@ _guided_set_root_password() {
 }
 
 # _guided_secrets_manifest — the no-SOPS password manifest guided_write_passwords
-# consumes: { root_password?, users?: { <name>: { password } } }. Built from the
-# held-aside root + per-user passwords; empty {} when nothing is set. Pure: reads
-# the side state, emits JSON.
+# consumes: { root_password?, enc_passphrase?, users?: { <name>:{password} } }.
+# Built from the held-aside root + per-user passwords + encryption passphrase;
+# empty {} when nothing is set. The passphrase is read pre-chroot by
+# collect_enc_passphrase (ADR 0054), the rest staged into install-state. Pure:
+# reads the side state, emits JSON.
 _guided_secrets_manifest() {
   local manifest='{}' name
   [[ -n "$_GUIDED_ROOT_PW" ]] && manifest="$(jq --arg pw "$_GUIDED_ROOT_PW" \
     '.root_password = $pw' <<<"$manifest")"
+  [[ -n "$_GUIDED_ENC_PASSPHRASE" ]] && manifest="$(jq \
+    --arg pw "$_GUIDED_ENC_PASSPHRASE" '.enc_passphrase = $pw' <<<"$manifest")"
   for name in "${!_GUIDED_USER_PW[@]}"; do
     manifest="$(jq --arg n "$name" --arg pw "${_GUIDED_USER_PW[$name]}" \
       '.users[$n] = {password: $pw}' <<<"$manifest")"
@@ -995,14 +1003,17 @@ guided_run_persistent() {
   _GUIDED_ACTION="$action"
 }
 
-# _guided_load_secrets_file <file> — copy the captured passwords from the in-menu
-# handoff file into the held-aside vars (_GUIDED_ROOT_PW / _GUIDED_USER_PW). No-op
-# on a missing/empty file. The vars, not the file, feed _guided_secrets_manifest.
+# _guided_load_secrets_file <file> — copy the captured secrets from the in-menu
+# handoff file into the held-aside vars (root pw, enc passphrase, user pws).
+# No-op on a missing/empty file. The vars, not the file, feed
+# _guided_secrets_manifest.
 _guided_load_secrets_file() {
-  local f="$1" rp n pw
+  local f="$1" rp ep n pw
   [[ -s "$f" ]] || return 0
   rp="$(jq -r '.root_password // ""' "$f")"
   [[ -n "$rp" ]] && _GUIDED_ROOT_PW="$rp"
+  ep="$(jq -r '.enc_passphrase // ""' "$f")"
+  [[ -n "$ep" ]] && _GUIDED_ENC_PASSPHRASE="$ep"
   while IFS= read -r n; do
     [[ -n "$n" ]] || continue
     pw="$(jq -r --arg n "$n" '.users[$n].password // ""' "$f")"

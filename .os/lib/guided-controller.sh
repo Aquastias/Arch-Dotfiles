@@ -63,17 +63,17 @@
 [[ "$(type -t guided_mask_apply)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
 
-# _ctl_secret_state <root|user> [name] → "(set)" / "(not set)" for the in-menu
-# credential rows, read from GUIDED_SECRETS_FILE. Never emits the value. When no
-# secrets file is wired (non-persistent contexts) everything reads "(not set)".
+# _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
+# in-menu credential rows, read from GUIDED_SECRETS_FILE. Never emits the value.
+# With no secrets file wired (non-persistent), everything reads "(not set)".
 _ctl_secret_state() {
   local f="${GUIDED_SECRETS_FILE:-}"
   if [[ -n "$f" ]]; then
-    if [[ "$1" == root ]]; then
-      guided_secretsfile_has_root "$f" && { echo "(set)"; return; }
-    else
-      guided_secretsfile_has_user "$f" "$2" && { echo "(set)"; return; }
-    fi
+    case "$1" in
+    root) guided_secretsfile_has_root "$f" && { echo "(set)"; return; } ;;
+    enc)  guided_secretsfile_has_enc  "$f" && { echo "(set)"; return; } ;;
+    *)    guided_secretsfile_has_user "$f" "$2" && { echo "(set)"; return; } ;;
+    esac
   fi
   echo "(not set)"
 }
@@ -992,6 +992,16 @@ guided_ctl_list() {
       printf '%s: %s%s\n' "$(display_label "$_flabel")" \
         "$(_ctl_display_value_str "$_ffield" "$_fval")" \
         "$([[ "$_fov" == "true" ]] && printf '  ●')"
+      # Encryption password row (ADR 0054): captured inline like the user
+      # passwords, shown only while encryption is on. "(set)"/"(not set)" state
+      # only — never the value; a ⚠ flags the required-but-unset case.
+      if [[ "$cat" == "Disks" && "$_ffield" == "options.encryption" ]] \
+        && [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
+          options.encryption)" == "true" ]]; then
+        local _encs; _encs="$(_ctl_secret_state enc)"
+        printf 'encryption password: %s%s\n' "$_encs" \
+          "$([[ "$_encs" == "(set)" ]] || printf '  ⚠')"
+      fi
     done < <(menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring)]
              | join("\u001f")')
@@ -1230,7 +1240,11 @@ guided_ctl_list() {
     # on Enter, never shown here.
     local _tgt _ph _who
     _tgt="$(nav_get "$nav" target)"; _ph="$(nav_get "$nav" phase)"
-    [[ "$_tgt" == user ]] && _who="$(nav_get "$nav" user)" || _who="root"
+    case "$_tgt" in
+    user) _who="$(nav_get "$nav" user)" ;;
+    enc)  _who="encryption" ;;
+    *)    _who="root" ;;
+    esac
     if [[ "$_ph" == "confirm" ]]; then
       printf 'confirm %s password — type it again, Enter saves\n' "$_who"
     else
@@ -1287,6 +1301,12 @@ _ctl_enter_secret() {
   buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$phase" != "confirm" ]]; then
     [[ -n "$buf" ]] || { echo "notice ⚠ password cannot be empty"; return; }
+    # The encryption passphrase must be ≥ 8 (ZFS keyformat=passphrase minimum,
+    # ADR 0054): reject a short first entry inline before it can fail at pool
+    # creation. Passwords keep the non-empty-only rule.
+    if [[ "$tgt" == "enc" && ${#buf} -lt 8 ]]; then
+      echo "notice ⚠ passphrase must be 8+ chars"; return
+    fi
     printf '%s' "$buf" > "${GUIDED_PWPENDING_FILE:-/dev/null}"
     : > "${GUIDED_PWBUF_FILE:-/dev/null}"
     _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" confirm)"
@@ -1298,13 +1318,18 @@ _ctl_enter_secret() {
     _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry)"
     echo "secret-mismatch"; return
   fi
-  if [[ "$tgt" == "user" ]]; then
-    guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "$user" "$buf"
-  else
-    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf"
-  fi
+  case "$tgt" in
+  user) guided_secretsfile_set_user "${GUIDED_SECRETS_FILE}" "$user" "$buf" ;;
+  enc)  guided_secretsfile_set_enc  "${GUIDED_SECRETS_FILE}" "$buf" ;;
+  *)    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
+  esac
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-  _ctl_write_nav "$(nav_to_values "$cat" users users)"
+  # enc returns to the Disks category (its home); passwords to the Users list.
+  if [[ "$tgt" == "enc" ]]; then
+    _ctl_write_nav "$(nav_to_category "$cat")"
+  else
+    _ctl_write_nav "$(nav_to_values "$cat" users users)"
+  fi
   echo render
 }
 
@@ -1465,6 +1490,11 @@ _ctl_enter_category() {
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
   "Root disk:"*)   # display_label "root disk"
     _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
+  "encryption password:"*)
+    # Inline masked capture (ADR 0054), same seam as the password rows: rich fzf
+    # enters the masked screen, older fzf falls back to the execute() prompt.
+    if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
+    return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -2154,6 +2184,9 @@ _guided_directive_to_action() {
   "secret-user "*)
     printf 'execute(bash %q secret user %q)+clear-query+reload(bash %q list)' \
       "$entry" "${d#secret-user }" "$entry" ;;
+  "secret-enc")
+    printf 'execute(bash %q secret enc)+clear-query+reload(bash %q list)' \
+      "$entry" "$entry" ;;
   "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
   "secret-mismatch")
     # Re-render the (now entry-phase) masked screen with a warning header, query

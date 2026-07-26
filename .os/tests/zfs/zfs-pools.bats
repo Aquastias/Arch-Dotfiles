@@ -343,6 +343,52 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   [ "$status" -ne 0 ]
 }
 
+# ── collect_enc_passphrase precedence (ADR 0054) ──────────────────────────────
+# INSTALL_ENC_PASSPHRASE (preset) → guided manifest → tty prompt. Only the two
+# non-interactive tiers + the disabled short-circuit are unit-testable (the
+# prompt reads /dev/tty).
+
+@test "collect_enc_passphrase: no-op when encryption off" {
+  write_config '{"options":{"encryption":false}}'
+  unset INSTALL_ENC_PASSPHRASE GUIDED_SECRETS_MANIFEST
+  ZFS_PASSPHRASE="sentinel"
+  run collect_enc_passphrase
+  [ "$status" -eq 0 ]
+  # runs in the same shell for the var check
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "sentinel" ]   # untouched — no collection attempted
+}
+
+@test "collect_enc_passphrase: INSTALL_ENC_PASSPHRASE preset wins" {
+  write_config '{"options":{"encryption":true}}'
+  export INSTALL_ENC_PASSPHRASE="presetpass"
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  printf '%s\n' '{"enc_passphrase":"guidedpass"}' > "$GUIDED_SECRETS_MANIFEST"
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "presetpass" ]
+}
+
+@test "collect_enc_passphrase: guided manifest used when no preset" {
+  write_config '{"options":{"encryption":true}}'
+  unset INSTALL_ENC_PASSPHRASE
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  printf '%s\n' '{"enc_passphrase":"guidedpass"}' > "$GUIDED_SECRETS_MANIFEST"
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "guidedpass" ]
+}
+
+@test "collect_enc_passphrase: absent manifest passphrase falls to prompt" {
+  write_config '{"options":{"encryption":true}}'
+  unset INSTALL_ENC_PASSPHRASE
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  printf '%s\n' '{"root_password":"r00t"}' > "$GUIDED_SECRETS_MANIFEST"
+  # stub the tty reader so the fall-through is observable without a terminal.
+  prompt_secret() { printf -v "$1" '%s' "prompted"; }
+  ZFS_PASSPHRASE=""
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "prompted" ]   # guided tier skipped, prompt reached
+}
+
 # ── ram_gib ───────────────────────────────────────────────────────────────────
 
 @test "ram_gib: returns a positive integer" {

@@ -103,6 +103,20 @@ collect_enc_passphrase() {
     return 0
   fi
 
+  # Guided seam (ADR 0054): the Guided Installer captures the passphrase inline
+  # and stages it in the no-SOPS manifest. Read it directly here — this runs
+  # before /mnt is mounted, so install-state's .guided_passwords is not yet
+  # written. A guided-captured passphrase skips the tty prompt.
+  local _man="${GUIDED_SECRETS_MANIFEST:-}" _gp
+  if [[ -n "$_man" && -s "$_man" ]]; then
+    _gp="$(jq -r '.enc_passphrase // ""' "$_man" 2>/dev/null)"
+    if [[ -n "$_gp" ]]; then
+      ZFS_PASSPHRASE="$_gp"
+      info "ZFS encryption passphrase taken from the Guided Installer."
+      return 0
+    fi
+  fi
+
   section "ZFS Encryption Passphrase"
   warn "Encryption is enabled. ALL data on the pools will be encrypted."
   warn "This passphrase is required at EVERY boot." \

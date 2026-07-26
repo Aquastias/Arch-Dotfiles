@@ -308,6 +308,25 @@ write_answers() {
   jq -e '.users.carol.password == "hunter2"' "$GUIDED_SECRETS_MANIFEST"
 }
 
+# ── the encryption passphrase round-trips handoff file → manifest (ADR 0054) ──
+
+@test "secrets: an enc passphrase in the handoff file lands in the manifest" {
+  _guided_users_reset
+  local f="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"enc_passphrase":"corrhorse","root_password":"r00t"}' > "$f"
+  _guided_load_secrets_file "$f"
+  [ "$_GUIDED_ENC_PASSPHRASE" = "corrhorse" ]
+  run _guided_secrets_manifest
+  echo "$output" | jq -e '.enc_passphrase == "corrhorse"'
+  echo "$output" | jq -e '.root_password == "r00t"'
+}
+
+@test "secrets: no enc_passphrase key when none was captured" {
+  _guided_users_reset
+  run _guided_secrets_manifest
+  echo "$output" | jq -e 'has("enc_passphrase") | not'
+}
+
 # ── Advanced freeform authoring: build an arbitrary skeleton group by group ─
 
 @test "_guided_author_skeleton: replay authors the OS pool + a storage group" {
