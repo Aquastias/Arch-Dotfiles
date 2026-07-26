@@ -22,6 +22,7 @@ valid_state() {
   "keymap": "us", "keymaps": ["us"],
   "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
+  "root_shell": "/bin/bash",
   "filesystem": "zfs",
   "ssh": { "enabled": false },
   "rpool": "rpool",
@@ -228,6 +229,7 @@ setup_writer_globals() {
   install_config_keymaps()              { echo "us"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
+  install_config_root_shell()           { echo "${MOCK_ROOT_SHELL:-/bin/bash}"; }
   install_config_filesystem()           { echo "${MOCK_FILESYSTEM:-zfs}"; }
   install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
@@ -280,6 +282,7 @@ setup_writer_globals() {
   [ "$(jq -r .keymap       "$STATE")" = "us" ]
   [ "$(jq -r .kernel       "$STATE")" = "lts" ]
   [ "$(jq -r .bootloader   "$STATE")" = "systemd-boot" ]
+  [ "$(jq -r .root_shell   "$STATE")" = "/bin/bash" ]
   [ "$(jq -r .rpool        "$STATE")" = "rpool" ]
   [ "$(jq -r .root_cmdline "$STATE")" = \
     "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id" ]

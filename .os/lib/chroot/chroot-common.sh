@@ -28,3 +28,24 @@ chroot_err_trap() {
   # shellcheck disable=SC2064
   trap "echo \"[chroot:${tag}] failed at line \$LINENO\" >&2" ERR
 }
+
+# ensure_login_shell_installed <shell>
+# A login shell whose binary is absent is unusable: display managers exec
+# `$SHELL --login` and bounce back to the greeter before the session ever runs
+# (SDDM's wayland-session wrapper does exactly this). The guided menu offers
+# zsh/fish for users AND root (ADR 0054), but neither is guaranteed by a
+# profile's package list — so install the chosen shell's package here.
+# bash/sh ship with base and are skipped. Shared by create-user.sh + password.sh.
+ensure_login_shell_installed() {
+  local shell="$1" bin pkg
+  [[ -x "$shell" ]] && return 0
+  bin="$(basename "$shell")"
+  case "$bin" in
+    bash|sh) return 0 ;;
+    zsh)     pkg=zsh ;;
+    fish)    pkg=fish ;;
+    *)       pkg="$bin" ;;
+  esac
+  echo "  [chroot] login shell '${shell}' missing — installing '${pkg}'" >&2
+  pacman -S --noconfirm --needed "$pkg"
+}

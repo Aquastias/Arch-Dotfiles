@@ -28,26 +28,8 @@ filter_existing_groups() {
   printf '%s' "${existing%,}"
 }
 
-# A login shell whose binary is absent is unusable: display managers exec
-# `$SHELL --login` and bounce back to the greeter before the session ever runs
-# (SDDM's wayland-session wrapper does exactly this). The guided menu offers
-# zsh/fish, but neither is guaranteed by a profile's package list — so install
-# the chosen shell's package here. bash/sh ship with base and are skipped.
-ensure_login_shell_installed() {
-  local shell="$1" bin pkg
-  [[ -x "$shell" ]] && return 0
-  bin="$(basename "$shell")"
-  case "$bin" in
-    bash|sh) return 0 ;;
-    zsh)     pkg=zsh ;;
-    fish)    pkg=fish ;;
-    *)       pkg="$bin" ;;
-  esac
-  echo "  [create-user] login shell '${shell}' missing —" \
-       "installing '${pkg}'" >&2
-  pacman -S --noconfirm --needed "$pkg"
-}
-
+# A login shell whose binary is absent is unusable — the shared guard installs
+# the chosen shell's package (chroot-common.sh); bash/sh ship with base.
 ensure_login_shell_installed "$LOGIN_SHELL"
 
 PRESENT="$(filter_existing_groups "$GROUPS_CSV")"

@@ -117,6 +117,7 @@ _PROFILE_SCHEMA_host=(
   "dotfiles_repo"
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"
+  "options.root_shell"
   "options.swap" "options.swap_size" "options.esp_size" "options.age_key_url"
   "options.zswap.enabled" "options.zswap.compressor"
   "options.zswap.max_pool_percent"

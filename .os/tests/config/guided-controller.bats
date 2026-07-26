@@ -1022,6 +1022,37 @@ _seed_baseline() {
     = "secret-user aquastias" ]
 }
 
+# ── root shell cycle (ADR 0054) ──────────────────────────────────────────────
+
+@test "list(users): shows the root shell row (default bash)" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_list
+  echo "$output" | grep -q "root shell: bash"
+}
+
+@test "enter(users): root shell cycles bash→zsh into options.root_shell" {
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_enter "root shell: bash   (Enter cycles)"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/zsh" ]
+}
+
+@test "enter(users): root shell cycles zsh→fish" {
+  printf '%s\n' '{"options":{"root_shell":"/bin/zsh"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  guided_ctl_enter "root shell: zsh   (Enter cycles)" >/dev/null
+  [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/fish" ]
+}
+
+@test "enter(users): cycling root shell to the default (bash) drops the override" {
+  printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  guided_ctl_enter "root shell: fish   (Enter cycles)" >/dev/null
+  [ "$(jq -r '.options.root_shell // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
+}
+
 @test "proceed gate: blocked (notice) while a required password is unset" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
