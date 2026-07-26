@@ -1124,6 +1124,50 @@ _seed_baseline() {
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
+# ── encryption passphrase gate (ADR 0054, ticket 02) ─────────────────────────
+
+@test "list(top): Disks row ⚠ + Proceed blocked when passphrase unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"   # only enc left
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  run guided_ctl_list
+  echo "$output" | grep -qE '^Disks — .*⚠ 1 pw needed'
+  echo "$output" | grep -q "Proceed ▸ set passwords first ⚠"
+}
+
+@test "proceed gate: blocked (notice names encryption) when passphrase unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  run guided_ctl_enter "Proceed ▸ review & install"
+  [[ "$output" == notice* ]]
+  [[ "$output" == *encryption* ]]
+}
+
+@test "proceed gate: allowed once the passphrase is set (encryption on)" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r","enc_passphrase":"corrhorse"}' \
+    > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+}
+
+@test "gate: encryption off does not block, and the passphrase is retained" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"root_password":"r","enc_passphrase":"corrhorse"}' \
+    > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":false}}' > "$GUIDED_STATE_FILE"
+  set_nav '{"screen":"top"}'
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
+  run guided_ctl_list
+  ! echo "$output" | grep -qE '^Disks — .*pw needed'   # no gate while off
+  # retain-silently: the stored passphrase survives the toggle-off
+  [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
+}
+
 @test "enter(values users): a disabled user row also opens its editor" {
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
