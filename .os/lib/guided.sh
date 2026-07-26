@@ -845,7 +845,15 @@ _guided_secrets_manifest() {
     manifest="$(jq --arg n "$name" --arg pw "${_GUIDED_USER_PW[$name]}" \
       '.users[$n] = {password: $pw}' <<<"$manifest")"
   done
-  printf '%s\n' "$manifest"
+  # Default posture (ADR 0055): fill any secret the operator left unset with
+  # 12345 — root, every effective user, and (when encryption is on) the
+  # passphrase — so Proceed never needed a password. Held-aside overrides above
+  # already won; this only backfills the gaps.
+  local eff users enc
+  eff="$(_guided_effective)"
+  users="$(jq -c '.users // []' <<<"$eff")"
+  [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]] && enc=true || enc=false
+  guided_default_missing_secrets "$manifest" "$users" "$enc"
 }
 
 # =============================================================================

@@ -69,3 +69,38 @@ teardown() { rm -rf "$TEST_DIR"; }
   jq -e '.guided_passwords == {}' "$state"
   jq -e '(.guided_passwords.users // {}) == {}' "$state"
 }
+
+# ── default-12345 posture (ADR 0055): fill any unset secret with 12345 ───────
+
+@test "guided_default_missing_secrets: unset root + users default to 12345" {
+  run guided_default_missing_secrets '{}' '["aquastias","bob"]' false
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.root_password == "12345"'
+  echo "$output" | jq -e '.users.aquastias.password == "12345"'
+  echo "$output" | jq -e '.users.bob.password == "12345"'
+}
+
+@test "guided_default_missing_secrets: a set secret is left untouched (override wins)" {
+  manifest='{"root_password":"real","users":{"aquastias":{"password":"mine"}}}'
+  run guided_default_missing_secrets "$manifest" '["aquastias","bob"]' false
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.root_password == "real"'          # override kept
+  echo "$output" | jq -e '.users.aquastias.password == "mine"'
+  echo "$output" | jq -e '.users.bob.password == "12345"'    # gap backfilled
+}
+
+@test "guided_default_missing_secrets: an empty-string secret counts as unset" {
+  run guided_default_missing_secrets '{"root_password":""}' '[]' false
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.root_password == "12345"'
+}
+
+@test "guided_default_missing_secrets: passphrase defaults only when encryption on" {
+  run guided_default_missing_secrets '{}' '[]' true
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.enc_passphrase == "12345"'
+
+  run guided_default_missing_secrets '{}' '[]' false
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'has("enc_passphrase") | not'
+}

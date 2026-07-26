@@ -702,12 +702,12 @@ write_answers() {
   echo "$output" | jq -e '.users.carol.password == "hunter2"'
 }
 
-@test "_guided_secrets_manifest: no passwords set yields an empty manifest" {
+@test "_guided_secrets_manifest: an unset root password defaults to 12345 (ADR 0055)" {
   _guided_users_reset
 
   run _guided_secrets_manifest
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '. == {}'
+  echo "$output" | jq -e '.root_password == "12345"'
 }
 
 @test "_guided_user_names: lists committed users, excludes core" {

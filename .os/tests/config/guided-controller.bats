@@ -1053,14 +1053,11 @@ _seed_baseline() {
   [ "$(jq -r '.options.root_shell // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
 }
 
-@test "proceed gate: blocked (notice) while a required password is unset" {
+@test "proceed gate: never blocked — installs with secrets unset (ADR 0055)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_enter "Proceed ▸ review & install"
-  [[ "$output" == notice* ]]
-  [[ "$output" == *root* ]]
-  [[ "$output" == *aquastias* ]]
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "proceed gate: allowed (terminal proceed) once all are set" {
@@ -1095,14 +1092,14 @@ _seed_baseline() {
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
 }
 
-@test "list(top): Users row shows ⚠ N + Proceed reads blocked when pw unset" {
+@test "list(top): no ⚠ block — Proceed reads review & install with pw unset (ADR 0055)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
   run guided_ctl_list
-  echo "$output" | grep -qE '^Users — .*⚠ 2 pw needed'   # root + aquastias
-  echo "$output" | grep -q "Proceed ▸ set passwords first ⚠"
-  ! echo "$output" | grep -q "Proceed ▸ review & install"
+  ! echo "$output" | grep -q "pw needed"
+  ! echo "$output" | grep -q "set passwords first"
+  echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
 @test "list(top): no ⚠, normal Proceed once every password is set" {
@@ -1124,27 +1121,24 @@ _seed_baseline() {
   echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
-# ── encryption passphrase gate (ADR 0054, ticket 02) ─────────────────────────
+# ── encryption passphrase: never a gate (ADR 0055, supersedes ADR 0054) ──────
 
-@test "list(top): Disks row ⚠ + Proceed blocked when passphrase unset" {
+@test "list(top): no Disks ⚠ block when passphrase unset (ADR 0055)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
-  # root pw set so only the passphrase is missing
   printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
   run guided_ctl_list
-  echo "$output" | grep -qE '^Disks — .*⚠ 1 pw needed'
-  echo "$output" | grep -q "Proceed ▸ set passwords first ⚠"
+  ! echo "$output" | grep -q "pw needed"
+  echo "$output" | grep -q "Proceed ▸ review & install"
 }
 
-@test "proceed gate: blocked (notice names encryption) when passphrase unset" {
+@test "proceed gate: installs even when encryption on + passphrase unset (ADR 0055)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_enter "Proceed ▸ review & install"
-  [[ "$output" == notice* ]]
-  [[ "$output" == *encryption* ]]
+  [ "$(guided_ctl_enter "Proceed ▸ review & install")" = "terminal proceed" ]
 }
 
 @test "proceed gate: allowed once the passphrase is set (encryption on)" {
