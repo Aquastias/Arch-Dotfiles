@@ -3,6 +3,9 @@
 // hostname, core machine defaults, users, and packages, declares the
 // kde desktop, and a single-disk skeleton (one operator-picked
 // disk → ESP + rpool + dpool).
+//
+// Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
+// + /var/lib/libvirt over the impermanence base set.
 {
   "system": {
     "hostname": "chronos",
@@ -11,12 +14,16 @@
     "keymap":   "us"
   },
 
+  "filesystem": "zfs",
+
   "options": {
-    "kernel":     "lts",
-    "bootloader": "systemd-boot",
-    "encryption": false,
-    "swap":       true,
-    "swap_size":  "auto"
+    "kernel":       "lts",
+    "bootloader":   "systemd-boot",
+    "encryption":   true,
+    "swap":         true,
+    "swap_size":    "auto",
+    "impermanence": { "enabled": true },
+    "ssh":          { "enabled": true }
   },
 
   "environment": {
@@ -150,5 +157,9 @@
   },
 
   "mode":   "single",
-  "ashift": 12
+  "ashift": 12,
+
+  "persist": {
+    "directories": ["/home", "/var/lib/docker", "/var/lib/libvirt"]
+  }
 }
