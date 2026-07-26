@@ -165,7 +165,33 @@ effective (core-merged) values while storing only a delta. A committed user can
 be *disabled* (excluded from the install) but not removed; only a session-created
 user is removable. Distinct from the
 User Profile, which is the committed file; the User Editor is the transient,
-per-install override surface over it.
+per-install override surface over it. The Users screen also carries a
+`root shell` row beneath `root password` (see [[Root Shell]]).
+
+### Encryption Password Row
+The Guided Installer row on the **Disks** screen, directly under the `encryption`
+toggle and shown only when encryption is on, that captures the ZFS/LUKS
+passphrase the same inline-masked, type-twice-confirm way as the root/user
+passwords (ADR 0051), storing it in the no-SOPS Secrets Manifest under
+`enc_passphrase` (never in Config State, never in Save/Export). Diverges from the
+password rows in one rule: first entry must be **≥ 8 chars** (the ZFS
+`keyformat=passphrase` minimum). It joins the Proceed gate — an unset passphrase
+while encryption is on blocks Proceed and flags the Disks top row `⚠ 1 pw
+needed`; toggling encryption off hides the row and drops the gate but retains any
+stored passphrase. The back end (`collect_enc_passphrase`) consumes it by
+precedence `INSTALL_ENC_PASSPHRASE` → guided manifest → interactive prompt, so
+profile/manual installs keep the tty prompt (ADR 0054, superseding ADR 0051's
+passphrase carve-out).
+
+### Root Shell
+The root login shell, chosen in the Guided Installer via the `root shell` row on
+the Users screen (Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish`, the same
+cycle the User Editor uses). Stored at Config State `options.root_shell` (default
+`/bin/bash`, normalised out when equal to the default), so it bakes into Export
+and a saved profile like any host option; not gated (it always has a valid
+default). Applied in the chroot by `lib/chroot/password.sh` (`chsh` root plus a
+missing-shell package install, mirroring `create-user.sh`), so root can never be
+left with an unusable login shell (ADR 0054).
 
 ### User Core
 Declarative JSONC file at `.os/users/core/profile.jsonc`. Declares the base set

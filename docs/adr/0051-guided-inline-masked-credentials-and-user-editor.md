@@ -47,6 +47,8 @@ manifest path, and the in-menu Proceed gate all stand; only the *masked-entry
 surface* changes (query-buffer primary, `execute()` fallback). Scope is the
 root + per-user passwords only — the ZFS encryption passphrase keeps its
 back-end prompt, and the INSTALL / ACCEPT gates stay typed tty confirmations.
+(The passphrase carve-out is **superseded by ADR 0054**: the passphrase is now
+captured inline in the Disks screen, with the back-end prompt kept as fallback.)
 
 ## Considered Options
 
