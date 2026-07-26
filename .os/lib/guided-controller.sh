@@ -973,24 +973,15 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
-    # Fold the required-but-unset credential signals onto their rows and mark
-    # Proceed blocked: the Users row carries the root/user password count, the
-    # Disks row the encryption passphrase (ADR 0054). Visible before drilling.
-    local _pm _encm=1; _pm="$(_ctl_pw_missing)"
-    _ctl_enc_missing && _encm=0     # 0 = passphrase required + unset
+    # Secrets are never a gate (ADR 0055): root, every user, and the encryption
+    # passphrase default to 12345, so Proceed always installs. The per-secret
+    # source is surfaced (default 12345 / custom / from age) on the Users screen,
+    # not as a top-row block. Save/Export are likewise never gated.
     menu_categories "$state" "$base" | jq -r \
       '.[] | "\(.name) — \(.summary)"
-             + (if .overridden then "  ●" else "" end)' \
-      | awk -v n="$_pm" -v encm="$_encm" '
-          /^Users — / && n>0    { $0 = $0 "  ⚠ " n " pw needed" }
-          /^Disks — / && encm==0 { $0 = $0 "  ⚠ 1 pw needed" }
-          { print }'
+             + (if .overridden then "  ●" else "" end)'
     printf '%s\n' "$_CTL_DIVIDER"
-    if ((_pm > 0)) || [[ "$_encm" == 0 ]]; then
-      printf '%s\n' "Proceed ▸ set passwords first ⚠"
-    else
-      printf '%s\n' "Proceed ▸ review & install"
-    fi
+    printf '%s\n' "Proceed ▸ review & install"
     printf '%s\n' \
       "Save profile ▸ write a device-less profile" \
       "Export config ▸ write a device-baked config" ;;
@@ -1473,30 +1464,13 @@ _ctl_enter_userfield() {
   echo refresh
 }
 
-# _ctl_proceed_directive — the in-menu Proceed gate (ticket 03): install only
-# once root + every enabled user has a password. Missing → a `notice` that keeps
-# the operator in the menu (header warning + bell, no accept). With no secrets
-# file wired (non-persistent contexts) the gate is inert. Save/Export are never
-# gated (they never install).
+# _ctl_proceed_directive — the in-menu Proceed action (ADR 0055). Proceed is
+# NEVER gated on a secret: root, every user, and the encryption passphrase
+# default to 12345 (filled by the manifest builder), so install always runs. The
+# always-on WILL ERASE / typed-INSTALL consent (back-end) remains the real guard.
+# Any unset secret is surfaced as `default 12345` on the Users screen, not here.
 _ctl_proceed_directive() {
-  local f="${GUIDED_SECRETS_FILE:-}"
-  [[ -n "$f" ]] || { echo "terminal proceed"; return; }
-  local users missing
-  users="$(jq -c '.users // []' \
-    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
-  missing="$(guided_secretsfile_missing "$f" "$users" | paste -sd',' -)"
-  # The gate aggregates two origins: Users (root + per-user passwords) and Disks
-  # (the encryption passphrase, ADR 0054). Either unset blocks Proceed.
-  local msg=""
-  [[ -n "$missing" ]] && msg="Users: ${missing//,/, }"
-  if _ctl_enc_missing; then
-    msg="${msg:+${msg}; }Disks: encryption password"
-  fi
-  if [[ -n "$msg" ]]; then
-    echo "notice ⚠ Set password first — ${msg}"
-  else
-    echo "terminal proceed"
-  fi
+  echo "terminal proceed"
 }
 
 _ctl_enter_top() {

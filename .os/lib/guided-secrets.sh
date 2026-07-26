@@ -56,6 +56,25 @@ guided_write_passwords() {
   done < <(jq -r '(.users // {}) | keys[]' <<<"$secrets")
 }
 
+# guided_default_missing_secrets <manifest> <users-json> <encryption-bool>
+# The ADR-0055 default posture: fill any UNSET secret with `12345` — root, every
+# effective user (from <users-json>, a JSON array of names), and, when
+# <encryption-bool> is "true", the encryption passphrase. An already-set,
+# non-empty value is left untouched, so an operator override (or an age-decrypted
+# secret merged in earlier) always wins over the default. Pure: JSON in, JSON out.
+guided_default_missing_secrets() {
+  local manifest="$1" users="${2:-[]}" enc="${3:-false}"
+  manifest="$(jq --argjson u "$users" '
+    def dflt: if (. // "") == "" then "12345" else . end;
+    .root_password = (.root_password | dflt)
+    | reduce $u[] as $n (.; .users[$n].password = (.users[$n].password | dflt))
+  ' <<<"$manifest")"
+  [[ "$enc" == "true" ]] && manifest="$(jq '
+    .enc_passphrase = (if (.enc_passphrase // "") == "" then "12345"
+                       else .enc_passphrase end)' <<<"$manifest")"
+  printf '%s\n' "$manifest"
+}
+
 # tmpfs dir owned by this module, holding the decrypted guided password files
 # for the life of the install (the chroot + Runner copy from it). Cleared by
 # guided_secrets_cleanup.
