@@ -1,6 +1,6 @@
 # GPU Configuration Module — pure gating + generators
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

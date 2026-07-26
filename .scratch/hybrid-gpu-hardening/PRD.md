@@ -1,6 +1,6 @@
 # Hybrid AMD+NVIDIA GPU hardening
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: **ADR 0053** (auto hybrid AMD+NVIDIA GPU hardening; drop
 envycontrol), building on the existing **GPU Resolution** (ADR 0017,
