@@ -10,6 +10,9 @@ setup() {
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
+  # Hermetic hosts/ root: no installable profiles here, so the top-screen
+  # Profiles row (ADR 0055) stays hidden unless a test wires its own tree.
+  export OS_DIR="$TEST_DIR"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"

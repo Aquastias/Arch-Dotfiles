@@ -27,6 +27,10 @@ nav_get() { jq -r --arg k "$2" '.[$k] // empty' <<<"$1"; }
 # nav_to_category <category> — drill into a category.
 nav_to_category() { jq -nc --arg c "$1" '{screen:"category", category:$c}'; }
 
+# nav_to_profiles — the Profiles picker screen (ADR 0055): a top-level drill
+# that lists the installable Host Profiles; picking one seeds the menu.
+nav_to_profiles() { printf '%s\n' '{"screen":"profiles"}'; }
+
 # nav_to_values <category> <field> <label> — open a field's value picker.
 nav_to_values() {
   jq -nc --arg c "$1" --arg f "$2" --arg l "$3" \
@@ -102,7 +106,9 @@ nav_to_poolmount() {
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
-    if   .screen == "values" and .field == "users"
+    if   .screen == "profiles"
+         then {screen:"top"}
+    elif .screen == "values" and .field == "users"
          then {screen:"top"}
     elif .screen == "values" or .screen == "text"
          then {screen:"category", category:.category}
