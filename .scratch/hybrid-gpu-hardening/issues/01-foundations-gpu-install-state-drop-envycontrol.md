@@ -1,6 +1,6 @@
 # Foundations: GPU vendors in install-state + drop envycontrol
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

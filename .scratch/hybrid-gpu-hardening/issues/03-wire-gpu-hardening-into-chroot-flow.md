@@ -1,6 +1,6 @@
 # Wire GPU Hardening into the chroot flow
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
