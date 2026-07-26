@@ -1,6 +1,9 @@
 // Host Profile for `desktop` (eterniox) — the unified, self-contained
 // profile (ADR 0036). Merged under hosts/core/profile.jsonc.
 //
+// Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
+// + /var/lib/libvirt over the impermanence base set.
+//
 // One file carries the hostname, core machine defaults, users,
 // system_programs, and packages, and declares the full pool skeleton —
 // devices excluded, picked at install:
@@ -14,12 +17,16 @@
     "keymap":   "us"
   },
 
+  "filesystem": "zfs",
+
   "options": {
-    "kernel":     "lts",
-    "bootloader": "systemd-boot",
-    "encryption": false,
-    "swap":       true,
-    "swap_size":  "auto"
+    "kernel":       "lts",
+    "bootloader":   "systemd-boot",
+    "encryption":   true,
+    "swap":         true,
+    "swap_size":    "auto",
+    "impermanence": { "enabled": true },
+    "ssh":          { "enabled": true }
   },
 
   "environment": {
@@ -222,5 +229,9 @@
       "disk_count": 3
     }
   ],
-  "data_pools": []
+  "data_pools": [],
+
+  "persist": {
+    "directories": ["/home", "/var/lib/docker", "/var/lib/libvirt"]
+  }
 }
