@@ -139,16 +139,18 @@ _gpu_apply_modules() {
   fi
 }
 
-# _gpu_enable_services — enable the NVIDIA suspend/resume/hibernate units so VRAM
-# is preserved across sleep. Real chroot only.
+# _gpu_enable_services — enable the NVIDIA suspend/resume/hibernate units so
+# VRAM is preserved across sleep. Real chroot only.
 _gpu_enable_services() {
   systemctl enable nvidia-suspend.service nvidia-resume.service \
     nvidia-hibernate.service
 }
 
-# _gpu_harden <root> <conf> <vendor>... — orchestrate the full set when the
-# vendor list gates in. Pure-ish: the IO seams above do the writing; this wires
-# them together so the side-effect block and tests share one entry point.
+# _gpu_harden <root> <conf> <vendor>... — write every on-disk artifact when the
+# vendor list gates in (returns non-zero, untouched, when it doesn't). The IO
+# seams above do the writing; the suspend/resume/hibernate services are enabled
+# separately in the side-effect block since systemctl isn't unit-testable. This
+# is the one entry point the side-effect block and the tests share.
 _gpu_harden() {
   local root="$1" conf="$2"; shift 2
   _gpu_should_harden "$@" || return 1

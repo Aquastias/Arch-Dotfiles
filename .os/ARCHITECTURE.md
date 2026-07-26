@@ -188,7 +188,7 @@ flowchart LR
   r_au["audio group (PipeWire)"]:::rs
   r_de["DE pkgs + display mgr<br/>(SDDM) + svcs"]:::rs
   r_da["DE aur -> paru"]:::rs
-  r_gp["gpu group<br/>(+envycontrol hybrid)"]:::rs
+  r_gp["gpu group<br/>(+chroot hybrid hardening)"]:::rs
   r_im["rollback DS + @blank +<br/>persist + boot hooks"]:::rs
   r_id["locale.conf, localtime,<br/>vconsole, hostname"]:::rs
   r_up["users + pacman/paru<br/>+ dotfiles/stow"]:::rs
