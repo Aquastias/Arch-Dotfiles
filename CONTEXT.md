@@ -56,10 +56,20 @@ a pre-assembled Effective Config directly and skips the picker.
 
 ### Guided Installer
 The interactive, menu-driven front-end of the Single Entry Point that builds an
-Effective Config through a TUI instead of from a committed Host Profile — the
-on-ramp for ad-hoc installs (archinstall's role). Merges operator choices over
-Host Core (so the shared base — `cups`, swappiness, base users — still applies)
-and covers the full host schema. Unlike the Pre-Install Picker, which only
+Effective Config through a TUI instead of *requiring* a committed Host Profile —
+the on-ramp for ad-hoc installs (archinstall's role). It may optionally **seed**
+from a Host Profile via the in-menu **Profiles** picker (a top-screen row above
+the category divider that drills to a list of installable profiles; picking one
+merges its delta over Host Core into the Config State, then the operator tweaks
+or Proceeds — disks stay operator-picked), so guided is "from scratch **or** from
+a profile" per run (ADR 0055, superseding ADR 0039's require-a-profile
+rejection). Merges operator choices over Host Core (so the shared base — `cups`,
+swappiness, base users — still applies) and covers the full host schema. Secrets
+(root + per-user passwords, encryption passphrase) **default to `12345`** and are
+never gated — the Users screen lists each (plus `Disk encryption`) for optional
+override, and a resolvable age key decrypts committed secrets in their place
+(ADR 0055, superseding the ADR 0051/0054 Proceed gate); the `12345` default is
+runtime-only and never enters Config State, Save, or Export. Unlike the Pre-Install Picker, which only
 resolves disks against an already-authored profile, the Guided Installer also
 authors the pool skeleton and every other machine property interactively.
 Navigation is non-destructive: a single in-session **Config State** holds only
