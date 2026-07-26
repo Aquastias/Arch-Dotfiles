@@ -27,6 +27,7 @@ valid_state() {
   "rpool": "rpool",
   "root_cmdline": "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
   "hooks": "base udev autodetect modconf block keyboard zfs filesystems",
+  "gpu": ["amd", "nvidia"],
   "swap": true, "esp_count": 1,
   "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
@@ -104,6 +105,35 @@ set_field() {
   [ "${#KEYMAPS[@]}" -eq 2 ]
   [ "${KEYMAPS[0]}" = "us" ]
   [ "${KEYMAPS[1]}" = "de" ]
+}
+
+# ── gpu array (ADR 0053) ─────────────────────────────────────────────────────
+# The resolved GPU vendor list (auto → detected vendors) is threaded to the
+# chroot so the GPU Configuration Module can decide whether to harden.
+
+@test "install_state_load: GPU from .gpu array" {
+  valid_state
+  set_field '.gpu' '["amd","nvidia"]'
+  install_state_load "$STATE"
+  [ "${#GPU[@]}" -eq 2 ]
+  [ "${GPU[0]}" = "amd" ]
+  [ "${GPU[1]}" = "nvidia" ]
+}
+
+@test "install_state_load: GPU single-vendor shape" {
+  valid_state
+  set_field '.gpu' '["nvidia"]'
+  install_state_load "$STATE"
+  [ "${#GPU[@]}" -eq 1 ]
+  [ "${GPU[0]}" = "nvidia" ]
+}
+
+@test "install_state_load: returns 1 when .gpu missing" {
+  valid_state
+  drop_field '.gpu'
+  run install_state_load "$STATE"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *".gpu"* ]]
 }
 
 @test "install_state_load: returns 1 when .locales missing" {
@@ -211,7 +241,25 @@ setup_writer_globals() {
   LAYOUT_ROOT_CMDLINE="root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id"
   LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
+  ENVIRONMENT_GPU=(amd nvidia)
   export OS_DIR="$FIXTURES"
+}
+
+@test "install_state_write: emits .gpu array from ENVIRONMENT_GPU" {
+  setup_writer_globals
+  ENVIRONMENT_GPU=(amd nvidia)
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.gpu | type' "$STATE")" = "array" ]
+  [ "$(jq -r '.gpu[0]'     "$STATE")" = "amd" ]
+  [ "$(jq -r '.gpu[1]'     "$STATE")" = "nvidia" ]
+}
+
+@test "install_state_write: emits empty .gpu when ENVIRONMENT_GPU unset" {
+  setup_writer_globals
+  unset ENVIRONMENT_GPU
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.gpu | type'   "$STATE")" = "array" ]
+  [ "$(jq -r '.gpu | length' "$STATE")" = "0" ]
 }
 
 @test "install_state_write: .hostname comes from install_config_hostname" {
@@ -319,6 +367,9 @@ setup_writer_globals() {
   [ "${PERSIST_DIRECTORIES[0]}"  = "/etc/wg" ]
   [ "${#PERSIST_FILES[@]}"       -eq 1 ]
   [ "${PERSIST_FILES[0]}"        = "/etc/foo" ]
+  [ "${#GPU[@]}"                 -eq 2 ]
+  [ "${GPU[0]}"                  = "amd" ]
+  [ "${GPU[1]}"                  = "nvidia" ]
 }
 
 # ── install_state_update ─────────────────────────────────────────────────────

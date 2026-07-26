@@ -490,7 +490,10 @@ DE-tied AUR packages land only when their DE is selected.
 Translation of `environment.gpu` into driver packages at config-load time.
 `"auto"` uses `lspci` on the live ISO to detect all GPU vendors and resolves to
 a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor
-drivers plus `envycontrol`. Resolved packages populate `packages.groups.gpu`
+drivers; they no longer add `envycontrol` — the deterministic hybrid config is
+owned by the chroot GPU Configuration Module (see GPU Hardening, ADR 0053). The
+resolved vendor list is also threaded into install-state (`.gpu`) so the chroot
+can decide whether to harden. Resolved packages populate `packages.groups.gpu`
 before pacstrap.
 
 Vendor → package mapping:

@@ -27,6 +27,7 @@ _INSTALL_STATE_SCHEMA=(
   "RPOOL|.rpool|scalar"
   "ROOT_CMDLINE|.root_cmdline|scalar"
   "HOOKS|.hooks|scalar"
+  "GPU|.gpu|array"
   "SSH_ENABLED|.ssh.enabled|bool"
   "SWAP|.swap|bool"
   "ZSWAP_ENABLED|.zswap.enabled|bool"
@@ -87,6 +88,13 @@ install_state_write() {
   local locales keymaps
   locales="$(install_config_locales | jq -R . | jq -sc .)"
   keymaps="$(install_config_keymaps | jq -R . | jq -sc .)"
+  # Resolved GPU vendor list (auto → detected vendors) threaded to the chroot,
+  # where the GPU Configuration Module decides whether to harden (ADR 0053).
+  # `${VAR+x}` guards the unset case under `set -u` (empty → []).
+  local gpu_json='[]'
+  if [[ ${ENVIRONMENT_GPU+x} && ${#ENVIRONMENT_GPU[@]} -gt 0 ]]; then
+    gpu_json="$(printf '%s\n' "${ENVIRONMENT_GPU[@]}" | jq -R . | jq -sc .)"
+  fi
   jq -n \
     --arg     hostname    "$(install_config_hostname)"               \
     --arg     timezone    "$(install_config_timezone)"               \
@@ -101,6 +109,7 @@ install_state_write() {
     --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
     --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                    \
     --arg     hooks       "$LAYOUT_HOOKS"                            \
+    --argjson gpu         "$gpu_json"                               \
     --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
     --argjson swap        "$(install_config_swap_enabled)"           \
     --argjson zswap_on    "$(install_config_zswap_enabled)"          \
@@ -120,6 +129,7 @@ install_state_write() {
       filesystem:$filesystem,
       ssh:          { enabled:$ssh_enabled },
       rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
+      gpu:$gpu,
       swap:$swap,
       zswap: { enabled:$zswap_on, compressor:$zswap_comp,
         max_pool_percent:$zswap_pct },

@@ -111,13 +111,10 @@ _resolve_env_gpu() {
     GPU_PACMAN_PACKAGES+=( $_pkgs )
   done
 
-  local _has_amd=false _has_nvidia=false
-  for _v in "${ENVIRONMENT_GPU[@]}"; do
-    [[ "$_v" == "amd" ]]    && _has_amd=true
-    [[ "$_v" == "nvidia" ]] && _has_nvidia=true
-  done
-  [[ "$_has_amd" == "true" && "$_has_nvidia" == "true" ]] \
-    && GPU_PARU_PACKAGES+=( envycontrol ) || true
+  # An amd+nvidia (hybrid) result no longer pulls envycontrol: the runtime
+  # switcher was installed but never invoked. The deterministic hybrid config
+  # is now owned by the chroot GPU Configuration Module (ADR 0053), so the
+  # resolved vendor list is threaded to the chroot via install-state instead.
 }
 
 # Derive audio packages from the resolved desktop array. PipeWire is installed
