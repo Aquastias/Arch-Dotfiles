@@ -1498,6 +1498,92 @@ secret_setup() {
   [ "$(jq -r '.users.dave.password' "$GUIDED_SECRETS_FILE")" = "davepw" ]
 }
 
+@test "list(Disks): no enc password row when encryption off" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "Encryption: false"
+  ! echo "$output" | grep -q "encryption password:"
+}
+
+@test "list(Disks): enc password row flags ⚠ when on + unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "encryption password: (not set)"
+  echo "$output" | grep -q "encryption password: (not set)  ⚠"
+}
+
+@test "list(Disks): enc password row reads (set) once captured" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
+  printf '%s\n' '{"enc_passphrase":"corrhorse"}' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "encryption password: (set)"
+  ! echo "$output" | grep -q "encryption password: (set)  ⚠"
+}
+
+@test "enter(Disks): enc password opens the inline screen (rich chrome)" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "encryption password: (not set)  ⚠"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
+}
+
+@test "enter(Disks): enc password falls back to execute() (legacy)" {
+  secret_setup; unset GUIDED_RICH_CHROME
+  set_nav "$(nav_to_category Disks)"
+  [ "$(guided_ctl_enter "encryption password: (not set)  ⚠")" = "secret-enc" ]
+}
+
+@test "enter(secret entry enc): a passphrase under 8 chars is refused" {
+  secret_setup
+  printf 'short7x' > "$GUIDED_PWBUF_FILE"        # 7 chars
+  set_nav "$(nav_to_secret Disks enc "" entry)"
+  run guided_ctl_enter ""
+  [[ "$output" == notice* ]]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
+  [ -z "$(cat "$GUIDED_PWPENDING_FILE")" ]        # nothing stashed
+}
+
+@test "enter(secret entry enc): 8+ chars advances to confirm" {
+  secret_setup
+  printf 'eightchr' > "$GUIDED_PWBUF_FILE"        # 8 chars
+  set_nav "$(nav_to_secret Disks enc "" entry)"
+  run guided_ctl_enter ""
+  [ "$output" = "render" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "confirm" ]
+  [ "$(cat "$GUIDED_PWPENDING_FILE")" = "eightchr" ]
+}
+
+@test "secret flow (enc): confirmed passphrase writes enc + backs to Disks" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "encryption password: (not set)  ⚠"
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
+  guided_ctl_enter "" >/dev/null                  # entry → confirm
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
+  guided_ctl_enter "" >/dev/null                  # confirm → save
+  [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
+}
+
+@test "directive→action: secret-enc executes the masked capture verb" {
+  local a; a="$(_guided_directive_to_action secret-enc /e)"
+  [[ "$a" == *"secret enc"* ]]
+}
+
 @test "mask entry: the fzf mask subcommand masks + captures the buffer" {
   export GUIDED_PWBUF_FILE="$TEST_DIR/pwbuf2"; printf 'ab' > "$GUIDED_PWBUF_FILE"
   # query is 2 bullets + a newly typed 'c'

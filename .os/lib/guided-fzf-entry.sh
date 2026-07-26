@@ -84,6 +84,8 @@ secret)
   user) prompt_secret _spw "Password for ${3:-user}"
         guided_secretsfile_set_user \
           "${GUIDED_SECRETS_FILE}" "${3:-user}" "$_spw" ;;
+  enc)  prompt_secret _spw "Encryption password" 8
+        guided_secretsfile_set_enc "${GUIDED_SECRETS_FILE}" "$_spw" ;;
   esac
   ;;
 esac

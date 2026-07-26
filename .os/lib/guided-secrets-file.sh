@@ -35,6 +35,16 @@ guided_secretsfile_set_user() {
     && printf '%s\n' "$tmp" > "$f"
 }
 
+# guided_secretsfile_set_enc <file> <passphrase> — the ZFS/LUKS encryption
+# passphrase (ADR 0054). Same handoff file as the passwords; consumed pre-chroot
+# from the manifest by collect_enc_passphrase, never staged to install-state.
+guided_secretsfile_set_enc() {
+  local f="$1" pw="$2" tmp
+  guided_secretsfile_init "$f"
+  tmp="$(jq --arg pw "$pw" '.enc_passphrase = $pw' "$f")" \
+    && printf '%s\n' "$tmp" > "$f"
+}
+
 # guided_secretsfile_has_root <file> → rc0 iff a non-empty root password is set.
 guided_secretsfile_has_root() {
   [[ -s "$1" ]] || return 1
@@ -46,6 +56,12 @@ guided_secretsfile_has_user() {
   [[ -s "$1" ]] || return 1
   [[ -n "$(jq -r --arg n "$2" \
     '.users[$n].password // "" | select(. != "")' "$1" 2>/dev/null)" ]]
+}
+
+# guided_secretsfile_has_enc <file> → rc0 iff a non-empty passphrase is set.
+guided_secretsfile_has_enc() {
+  [[ -s "$1" ]] || return 1
+  [[ -n "$(jq -r '.enc_passphrase // "" | select(. != "")' "$1" 2>/dev/null)" ]]
 }
 
 # guided_secretsfile_missing <file> <users-json> → the missing credentials, one

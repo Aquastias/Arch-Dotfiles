@@ -118,7 +118,10 @@ nav_back() {
     elif .screen == "userfield"
          then {screen:"useredit", category:.category, user:.user}
     elif .screen == "secret"
-         then {screen:"values", category:.category, field:"users", label:"users"}
+         then (if .target == "enc"
+               then {screen:"category", category:.category}
+               else {screen:"values", category:.category,
+                     field:"users", label:"users"} end)
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
