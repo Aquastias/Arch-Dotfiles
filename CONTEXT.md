@@ -507,6 +507,27 @@ Vendor → package mapping:
 - VM GPU (VMware/VirtualBox/virtio-gpu) → `mesa` only (software rendering);
   detection logs a notice and continues without aborting
 
+### GPU Hardening
+The deterministic AMD+NVIDIA hybrid configuration applied by the chroot **GPU
+Configuration Module** (`lib/chroot/gpu.sh`) when GPU Resolution detects **both**
+`amd` and `nvidia` (ADR 0053). Auto-gated on the resolved `.gpu` vendor list —
+no config field. Runs before initcpio so the single `mkinitcpio -P` bakes it in.
+The set: a `modprobe.d` NVIDIA config (`nvidia_drm modeset=1 fbdev=1`,
+`NVreg_PreserveVideoMemoryAllocations`, `NVreg_DynamicPowerManagement`, `blacklist
+nouveau`), **Early KMS** (the nvidia modules in `MODULES=`), an **RTD3** udev
+rule, the suspend/resume/hibernate services, and an initramfs-regen pacman hook.
+Replaces the never-invoked `envycontrol` switcher.
+
+- **Hybrid Graphics / PRIME Offload** — the runtime topology: the AMD iGPU drives
+  the internal panel and the KDE compositor; the NVIDIA dGPU stays idle until an
+  app is offloaded to it (`prime-run`). Matches the firmware's switchable-
+  graphics mode.
+- **Early KMS** — loading the nvidia kernel modules from the initramfs (via
+  `MODULES=`) so kernel modesetting is up before the display, closing the
+  half-initialised-dGPU race.
+- **RTD3** — fine-grained runtime power management that lets the idle dGPU reach
+  D3cold (powered off), the main battery win on the hybrid laptop.
+
 ### Display Manager
 Auto-selected by each Desktop Environment Adapter based on the full resolved
 desktop array — not a config key. With KDE the sole desktop, SDDM is the only

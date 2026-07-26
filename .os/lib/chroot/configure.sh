@@ -30,6 +30,10 @@ source "$_LIB_DIR/udisks.sh"
 source "$_LIB_DIR/zfs-import.sh"
 
 bash /root/lib-chroot/identity.sh
+# GPU hardening runs BEFORE initcpio so the single `mkinitcpio -P` bakes in the
+# Early-KMS MODULES + modprobe.d options on an amd+nvidia hybrid (ADR 0053).
+# No-op on any non-hybrid GPU.
+bash /root/lib-chroot/gpu.sh
 bash /root/lib-chroot/initcpio.sh
 bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
 
