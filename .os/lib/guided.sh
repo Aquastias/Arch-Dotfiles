@@ -1108,6 +1108,19 @@ _guided_resolve_assignment() {
   fi
 }
 
+# _guided_seed_from_profile — headless replay seed (ADR 0055): when the answers
+# declare `profile=<name>`, merge hosts/<name>/profile.jsonc over _GUIDED_STATE
+# (profiles_seed — profile wins, devices flattened) BEFORE the per-field edits,
+# so a replay can install a committed machine yet still override any field. A
+# missing/unreadable profile is a no-op; disks stay operator/replay-resolved.
+_guided_seed_from_profile() {
+  local name="${_GUIDED_ANSWERS[profile]-}" f profile
+  [[ -n "$name" ]] || return 0
+  f="${OS_DIR}/hosts/${name}/profile.jsonc"
+  profile="$(_configs_parse "$f" 2>/dev/null)" || return 0
+  _GUIDED_STATE="$(profiles_seed "$_GUIDED_STATE" "$profile")"
+}
+
 guided_build() {
   local assignment effective confirm hostname mode
   _GUIDED_STATE="$(cfgstate_new)"
@@ -1129,6 +1142,7 @@ guided_build() {
     local _err_trap; _err_trap="$(trap -p ERR)"
     set +e
     trap - ERR
+    _guided_seed_from_profile   # ADR 0055: `profile=<name>` seeds before edits
     _guided_edit_hostname
     _guided_edit_locale
     _guided_edit_timezone
