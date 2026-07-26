@@ -1029,3 +1029,78 @@ write_answers() {
   _guided_apply_userforms proceed
   jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/alice/profile.jsonc"
 }
+
+# ── headless replay: `profile=<name>` seeds the state (ADR 0055) ─────────────
+
+@test "_guided_seed_from_profile: replay 'profile=' seeds the state" {
+  mkdir -p "$OS_DIR/hosts/desktop"
+  cat > "$OS_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
+{ "system": { "hostname": "eterniox" },
+  "options": { "encryption": true }, "filesystem": "zfs" }
+JSONC
+  guided_load_replay "$(write_answers 'profile=desktop')"
+  _GUIDED_STATE="$(cfgstate_new)"
+  _guided_seed_from_profile
+  jq -e '.options.encryption == true' <<<"$_GUIDED_STATE"
+  jq -e '.filesystem == "zfs"' <<<"$_GUIDED_STATE"
+  jq -e '.system.hostname == "eterniox"' <<<"$_GUIDED_STATE"
+}
+
+@test "_guided_seed_from_profile: no 'profile=' key leaves the state untouched" {
+  guided_load_replay "$(write_answers 'hostname=x')"
+  _GUIDED_STATE='{"marker":1}'
+  _guided_seed_from_profile
+  jq -e '.marker == 1' <<<"$_GUIDED_STATE"
+}
+
+@test "_guided_seed_from_profile: an unknown profile is a no-op" {
+  guided_load_replay "$(write_answers 'profile=ghost')"
+  _GUIDED_STATE='{"marker":1}'
+  _guided_seed_from_profile
+  jq -e '.marker == 1' <<<"$_GUIDED_STATE"
+}
+
+# ── one-select install (ADR 0055): replay `profile=` assembles the machine ───
+# The same assembly path the VM drives via install.sh --guided. Proves a seeded
+# profile flows all the way to the Effective Config with no field answers and no
+# password answers (secrets default to 12345 via the manifest, tested separately).
+
+@test "guided_build: replay 'profile=' assembles the seeded machine end-to-end" {
+  mkdir -p "$OS_DIR/hosts/laptop"
+  cat > "$OS_DIR/hosts/laptop/profile.jsonc" <<'JSONC'
+{ "system": { "hostname": "chronos" },
+  "filesystem": "zfs", "mode": "single", "ashift": 12,
+  "options": { "encryption": true,
+               "impermanence": { "enabled": true },
+               "ssh": { "enabled": true } },
+  "persist": { "directories": ["/home"] } }
+JSONC
+  guided_load_replay "$(write_answers \
+    'profile=laptop' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  [ -n "$effective" ]
+  echo "$effective" | jq -e '.system.hostname == "chronos"'
+  echo "$effective" | jq -e '.filesystem == "zfs"'
+  echo "$effective" | jq -e '.options.encryption == true'
+  echo "$effective" | jq -e '.options.impermanence.enabled == true'
+  echo "$effective" | jq -e '.options.ssh.enabled == true'
+  echo "$effective" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
+  echo "$effective" | jq -e '.persist.directories == ["/home"]'
+}
+
+@test "guided_build: a field answer overrides the seeded profile value" {
+  mkdir -p "$OS_DIR/hosts/laptop"
+  printf '%s\n' '{"system":{"hostname":"chronos"},"mode":"single","ashift":12}' \
+    > "$OS_DIR/hosts/laptop/profile.jsonc"
+  guided_load_replay "$(write_answers \
+    'profile=laptop' \
+    'hostname=override' \
+    'disk=/dev/disk/by-id/wwn-0xDEAD' \
+    'confirm=INSTALL')"
+
+  effective="$(guided_build 2>/dev/null)"
+  echo "$effective" | jq -e '.system.hostname == "override"'   # answer wins
+}
