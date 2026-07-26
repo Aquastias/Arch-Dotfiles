@@ -1046,7 +1046,7 @@ _seed_baseline() {
   [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/fish" ]
 }
 
-@test "enter(users): cycling root shell to the default (bash) drops the override" {
+@test "enter(users): cycling root shell to default (bash) drops override" {
   printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   guided_ctl_enter "root shell: fish   (Enter cycles)" >/dev/null
@@ -1128,7 +1128,8 @@ _seed_baseline() {
 
 @test "list(top): Disks row ⚠ + Proceed blocked when passphrase unset" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
-  printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"   # only enc left
+  # root pw set so only the passphrase is missing
+  printf '%s\n' '{"root_password":"r"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
   run guided_ctl_list

@@ -457,7 +457,9 @@ _ctl_root_shell_full() {
 }
 
 # _ctl_root_shell — root's short login shell (basename) for the Users row.
-_ctl_root_shell() { local s; s="$(_ctl_root_shell_full)"; printf '%s' "${s##*/}"; }
+_ctl_root_shell() {
+  local s; s="$(_ctl_root_shell_full)"; printf '%s' "${s##*/}"
+}
 
 # _ctl_root_shell_committed — the baseline (launch-state) root shell, or
 # /bin/bash. The strict-delta reference: cycling onto it drops the override.
@@ -971,13 +973,14 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
-    # Fold the required-but-unset credential signals onto their category rows and
-    # mark Proceed blocked: the Users row carries the root/user password count,
-    # the Disks row the encryption passphrase (ADR 0054). Visible before drilling.
+    # Fold the required-but-unset credential signals onto their rows and mark
+    # Proceed blocked: the Users row carries the root/user password count, the
+    # Disks row the encryption passphrase (ADR 0054). Visible before drilling.
     local _pm _encm=1; _pm="$(_ctl_pw_missing)"
     _ctl_enc_missing && _encm=0     # 0 = passphrase required + unset
     menu_categories "$state" "$base" | jq -r \
-      '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)' \
+      '.[] | "\(.name) — \(.summary)"
+             + (if .overridden then "  ●" else "" end)' \
       | awk -v n="$_pm" -v encm="$_encm" '
           /^Users — / && n>0    { $0 = $0 "  ⚠ " n " pw needed" }
           /^Disks — / && encm==0 { $0 = $0 "  ⚠ 1 pw needed" }

@@ -35,7 +35,7 @@ chroot_err_trap() {
 # (SDDM's wayland-session wrapper does exactly this). The guided menu offers
 # zsh/fish for users AND root (ADR 0054), but neither is guaranteed by a
 # profile's package list — so install the chosen shell's package here.
-# bash/sh ship with base and are skipped. Shared by create-user.sh + password.sh.
+# bash/sh ship with base and are skipped. Shared by create-user + password.sh.
 ensure_login_shell_installed() {
   local shell="$1" bin pkg
   [[ -x "$shell" ]] && return 0
