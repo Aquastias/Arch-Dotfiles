@@ -137,6 +137,21 @@ check("inline pw: the query renders as bullets, not plaintext",
       ("•" * 7) in sec and "s3cret!" not in sec)
 s.quit()
 
+# ── Profiles picker: the top-screen row drills to the profile list (ADR 0055) ─
+# Navigate top → Profiles and assert the drill screen lists the committed
+# desktop/laptop profiles. guided-preview.sh points OS_DIR at the real repo, so
+# hosts/{desktop,laptop} are the profiles enumerated.
+s = Session()
+s.pump(3.0)
+top = s.screen()
+check("top menu shows the Profiles row", "Profiles" in top)
+s.clear()
+s.enter("Profiles"); s.pump(2.0)
+prof = s.screen()
+check("Profiles screen lists desktop + laptop",
+      "desktop" in prof and "laptop" in prof)
+s.quit()
+
 ok = all(results)
 print(f"\n{sum(results)}/{len(results)} checks passed —",
       "ALL PASS" if ok else "FAILURES PRESENT")

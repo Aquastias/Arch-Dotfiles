@@ -56,6 +56,12 @@
 # shellcheck source=lib/config/profile.sh
 [[ "$(type -t load_user_profile)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
+# shellcheck source=lib/config/profiles.sh
+[[ "$(type -t profiles_list)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
+# shellcheck source=lib/config/layers.sh
+[[ "$(type -t _configs_parse)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/layers.sh"
 # shellcheck source=lib/guided-userforms.sh
 [[ "$(type -t guided_userform_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
@@ -618,6 +624,7 @@ _ctl_nav_header() {
   local b
   case "$(nav_screen "$1")" in
   top)      b='Enter open   Esc quit' ;;
+  profiles) b='Enter seed from profile   Esc back' ;;
   category) b='Enter edit   Esc back' ;;
   values)
     if [[ "$(nav_get "$1" field)" == "users" ]]; then
@@ -648,6 +655,7 @@ _ctl_nav_header() {
 _ctl_nav_prompt() {
   case "$(nav_screen "$1")" in
   top)         printf 'guided> ' ;;
+  profiles)    printf 'profiles> ' ;;
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
@@ -933,6 +941,16 @@ guided_ctl_preview() {
   datapools | pooledit)
     _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     return 0 ;;
+  profiles)
+    # The focused profile's // header comment; a dim hint when it has none.
+    [[ "$line" == "← Back" || -z "$line" ]] && return 0
+    local hdr; hdr="$(profiles_header "$(_ctl_hosts_root)" "$line")"
+    if [[ -n "$hdr" ]]; then
+      printf '%s\n' "$hdr"
+    else
+      printf '\033[2m(no description — hosts/%s/profile.jsonc)\033[0m\n' "$line"
+    fi
+    return 0 ;;
   esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
@@ -964,6 +982,16 @@ guided_ctl_preview() {
   esac
 }
 
+# ── Profiles picker (ADR 0055) ───────────────────────────────────────────────
+# _ctl_hosts_root — the hosts/ tree the Profiles picker enumerates.
+_ctl_hosts_root() { printf '%s' "${OS_DIR:-.}/hosts"; }
+
+# _ctl_profiles_available — rc 0 when at least one installable Host Profile
+# exists (so the top-screen `Profiles ▸` row is shown), rc 1 otherwise.
+_ctl_profiles_available() {
+  [[ -n "$(profiles_list "$(_ctl_hosts_root)" 2>/dev/null)" ]]
+}
+
 # ── list rendering (for fzf reload) ──────────────────────────────────────────
 # guided_ctl_list — the current screen's item list on stdout.
 guided_ctl_list() {
@@ -973,6 +1001,13 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
+    # Profiles picker (ADR 0055): a `Profiles ▸` row leads the screen, set off by
+    # its own divider above the categories, when installable profiles exist.
+    # Picking one seeds the menu; a fresh repo with no profiles shows no row.
+    if _ctl_profiles_available; then
+      printf '%s\n' "Profiles ▸ start from a saved machine"
+      printf '%s\n' "$_CTL_DIVIDER"
+    fi
     # Secrets are never a gate (ADR 0055): root, every user, and the encryption
     # passphrase default to 12345, so Proceed always installs. The per-secret
     # source is surfaced (default 12345 / custom / from age) on the Users screen,
@@ -985,6 +1020,11 @@ guided_ctl_list() {
     printf '%s\n' \
       "Save profile ▸ write a device-less profile" \
       "Export config ▸ write a device-baked config" ;;
+  profiles)
+    # The installable Host Profiles (ADR 0055), one row each, then Back. The
+    # header comment previews in the pane; picking a row seeds the menu.
+    profiles_list "$(_ctl_hosts_root)"
+    _ctl_action_row "← Back" ;;
   category)
     local cat; cat="$(nav_get "$nav" category)"
     # Disks leads with the layout row (the headline storage choice), then fields.
@@ -1291,6 +1331,7 @@ guided_ctl_enter() {
   category)  _ctl_enter_category "$line" ;;
   values)    _ctl_enter_values "$line" ;;
   text)      _ctl_enter_text "$query" ;;
+  profiles)  _ctl_enter_profiles "$line" ;;
   swapedit)  _ctl_enter_swapedit "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
@@ -1477,6 +1518,7 @@ _ctl_enter_top() {
   local line="$1" cat
   case "$line" in
   "$_CTL_DIVIDER")  echo noop ;;
+  "Profiles ▸"*)    _ctl_write_nav "$(nav_to_profiles)"; echo render ;;
   "Proceed"*)       _ctl_proceed_directive ;;
   "Save profile"*)  echo "terminal save" ;;
   "Export config"*) echo "terminal export" ;;
@@ -1492,6 +1534,27 @@ _ctl_enter_top() {
     *) echo noop ;;
     esac ;;
   esac
+}
+
+# _ctl_enter_profiles <line> — Enter on the Profiles screen (ADR 0055). `← Back`
+# returns to the top screen unchanged. A profile row SEEDS the menu: the chosen
+# hosts/<name>/profile.jsonc is parsed and merged over the current Config State
+# (profiles_seed — profile wins, devices flattened), so every category reflects
+# it, then nav returns to the top screen for tweak-or-Proceed. A profile that
+# fails to parse leaves the state untouched and warns via a notice.
+_ctl_enter_profiles() {
+  local line="$1" nav f profile
+  nav="$(_ctl_nav)"
+  if [[ "$line" == "← Back" ]]; then
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return
+  fi
+  f="$(_ctl_hosts_root)/${line}/profile.jsonc"
+  if ! profile="$(_configs_parse "$f" 2>/dev/null)"; then
+    echo "notice ⚠ Could not read profile '${line}'"; return
+  fi
+  _ctl_write_state "$(profiles_seed "$(_ctl_state)" "$profile")"
+  _ctl_write_nav '{"screen":"top"}'
+  echo render
 }
 
 _ctl_enter_category() {
@@ -2162,6 +2225,7 @@ _guided_directive_to_action() {
     values)
       _ctl_field_has_preview "$(nav_get "$nav" field)" && _showpv=1 ;;
     datapools | pooledit) _showpv=1 ;;   # the live layout graph
+    profiles) _showpv=1 ;;               # the profile's header comment
     esac
     if ((_showpv)); then
       pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
