@@ -90,6 +90,19 @@ _ctl_pw_missing() {
   guided_secretsfile_missing "$f" "$users" | grep -c .
 }
 
+# _ctl_enc_missing — rc 0 when the encryption passphrase is required but unset
+# (ADR 0054): encryption is on AND no passphrase captured. Inert (rc 1) when no
+# secrets file is wired or encryption is off — so toggling encryption off drops
+# the requirement even though a stored passphrase is retained.
+_ctl_enc_missing() {
+  local f="${GUIDED_SECRETS_FILE:-}"
+  [[ -n "$f" ]] || return 1
+  [[ "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+    options.encryption)" == "true" ]] || return 1
+  guided_secretsfile_has_enc "$f" && return 1
+  return 0
+}
+
 # _ctl_display_values <field> → 0 when <field>'s enum/toggle VALUES are human
 # words that should render through the Display Label formatter (desktop, gpu,
 # kernel, filesystem, bootloader, firewall). Every other field's values are
@@ -958,19 +971,19 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
-    # Fold the required-but-unset password count onto the Users row and mark
-    # Proceed blocked (slice 01): the requirement is visible before drilling in.
-    local _pm; _pm="$(_ctl_pw_missing)"
-    if ((_pm > 0)); then
-      menu_categories "$state" "$base" | jq -r \
-        '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)' \
-        | awk -v n="$_pm" '/^Users — /{ $0 = $0 "  ⚠ " n " pw needed" } { print }'
-    else
-      menu_categories "$state" "$base" | jq -r \
-        '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)'
-    fi
+    # Fold the required-but-unset credential signals onto their category rows and
+    # mark Proceed blocked: the Users row carries the root/user password count,
+    # the Disks row the encryption passphrase (ADR 0054). Visible before drilling.
+    local _pm _encm=1; _pm="$(_ctl_pw_missing)"
+    _ctl_enc_missing && _encm=0     # 0 = passphrase required + unset
+    menu_categories "$state" "$base" | jq -r \
+      '.[] | "\(.name) — \(.summary)" + (if .overridden then "  ●" else "" end)' \
+      | awk -v n="$_pm" -v encm="$_encm" '
+          /^Users — / && n>0    { $0 = $0 "  ⚠ " n " pw needed" }
+          /^Disks — / && encm==0 { $0 = $0 "  ⚠ 1 pw needed" }
+          { print }'
     printf '%s\n' "$_CTL_DIVIDER"
-    if ((_pm > 0)); then
+    if ((_pm > 0)) || [[ "$_encm" == 0 ]]; then
       printf '%s\n' "Proceed ▸ set passwords first ⚠"
     else
       printf '%s\n' "Proceed ▸ review & install"
@@ -1469,8 +1482,15 @@ _ctl_proceed_directive() {
   users="$(jq -c '.users // []' \
     <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
   missing="$(guided_secretsfile_missing "$f" "$users" | paste -sd',' -)"
-  if [[ -n "$missing" ]]; then
-    echo "notice ⚠ Set password first (Users screen): ${missing//,/, }"
+  # The gate aggregates two origins: Users (root + per-user passwords) and Disks
+  # (the encryption passphrase, ADR 0054). Either unset blocks Proceed.
+  local msg=""
+  [[ -n "$missing" ]] && msg="Users: ${missing//,/, }"
+  if _ctl_enc_missing; then
+    msg="${msg:+${msg}; }Disks: encryption password"
+  fi
+  if [[ -n "$msg" ]]; then
+    echo "notice ⚠ Set password first — ${msg}"
   else
     echo "terminal proceed"
   fi
