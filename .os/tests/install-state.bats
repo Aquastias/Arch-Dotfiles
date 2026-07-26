@@ -229,7 +229,7 @@ setup_writer_globals() {
   install_config_keymaps()              { echo "us"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
-  install_config_root_shell()           { echo "${MOCK_ROOT_SHELL:-/bin/bash}"; }
+  install_config_root_shell()          { echo "${MOCK_ROOT_SHELL:-/bin/bash}"; }
   install_config_filesystem()           { echo "${MOCK_FILESYSTEM:-zfs}"; }
   install_config_ssh_enabled()          { echo "false"; }
   install_config_swap_enabled()         { echo "true"; }
