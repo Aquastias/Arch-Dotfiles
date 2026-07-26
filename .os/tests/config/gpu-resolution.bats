@@ -51,12 +51,15 @@ teardown() {
   [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 
-@test "gpu ['amd','nvidia'] populates both sets and adds envycontrol" {
+@test "gpu ['amd','nvidia'] populates both sets; no envycontrol (ADR 0053)" {
   ENVIRONMENT_GPU=("amd" "nvidia")
   _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
-  [[ " ${GPU_PARU_PACKAGES[*]} " == *" envycontrol "* ]]
+  # The hybrid switcher is gone — the chroot GPU Configuration Module owns the
+  # deterministic hybrid config instead.
+  [[ " ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} " != *" envycontrol "* ]]
+  [ "${#GPU_PARU_PACKAGES[@]}" -eq 0 ]
 }
 
 # ── intel generation detection ─────────────────────────────────────────────
@@ -95,7 +98,7 @@ teardown() {
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
 }
 
-@test "auto with hybrid AMD+NVIDIA lspci resolves both + envycontrol" {
+@test "auto with hybrid AMD+NVIDIA lspci resolves both; no envycontrol" {
   _gpu_lspci_output() {
     echo "00:00.0 VGA [0300]: Advanced Micro Devices" \
          "[AMD/ATI] Renoir [1002:1636]"
@@ -106,7 +109,7 @@ teardown() {
   _resolve_env_gpu
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" vulkan-radeon "* ]]
   [[ " ${GPU_PACMAN_PACKAGES[*]} " == *" nvidia-open-dkms "* ]]
-  [[ " ${GPU_PARU_PACKAGES[*]} " == *" envycontrol "* ]]
+  [[ " ${GPU_PARU_PACKAGES[*]+"${GPU_PARU_PACKAGES[*]}"} " != *" envycontrol "* ]]
 }
 
 @test "auto with VMware GPU resolves to mesa only; does not abort" {
