@@ -9,31 +9,34 @@
 {
   "system": {
     "hostname": "chronos",
-    "locale":   "en_US.UTF-8",
+    "locale": "en_US.UTF-8",
     "timezone": "UTC",
-    "keymap":   "us"
+    "keymap": "us"
   },
-
   "filesystem": "zfs",
-
   "options": {
-    "kernel":       "lts",
-    "bootloader":   "systemd-boot",
-    "encryption":   true,
-    "swap":         true,
-    "swap_size":    "auto",
-    "impermanence": { "enabled": true },
-    "ssh":          { "enabled": true }
+    "kernel": "lts",
+    "bootloader": "systemd-boot",
+    "encryption": true,
+    "swap": true,
+    "swap_size": "auto",
+    "impermanence": {
+      "enabled": true
+    },
+    "ssh": {
+      "enabled": true
+    }
   },
-
   "environment": {
-    "desktop": ["kde"],
-    "gpu":     "auto"
+    "desktop": [
+      "kde"
+    ],
+    "gpu": "auto"
   },
-
-  "users": ["aquastias"],
+  "users": [
+    "aquastias"
+  ],
   "system_programs": [],
-
   "packages": {
     "repo": {
       "system": [
@@ -81,10 +84,6 @@
         "docker-compose",
         "nvm"
       ],
-      "desktop": [
-        "qt5-wayland",
-        "xdg-utils"
-      ],
       "browsers": [
         "firefox"
       ],
@@ -92,7 +91,6 @@
         "flatpak",
         "gimp",
         "gst-plugin-pipewire",
-        "libpulse",
         "pipewire-jack",
         "speech-dispatcher",
         "vlc"
@@ -127,39 +125,25 @@
     },
     "aur": {
       "misc": [
-      "ani-cli-git",
-      "btop-theme-catppuccin",
-      "catppuccin-cursors-frappe",
-      "catppuccin-cursors-latte",
-      "catppuccin-cursors-macchiato",
-      "catppuccin-cursors-mocha",
-      "catppuccin-gtk-theme-frappe",
-      "catppuccin-gtk-theme-latte",
-      "catppuccin-gtk-theme-macchiato",
-      "catppuccin-gtk-theme-mocha",
-      "catppuccin-konsole-colorscheme-mocha-git",
-      "catppuccin-plasma-colorscheme-mocha",
-      "catppuccin-sddm-theme-frappe",
-      "catppuccin-sddm-theme-latte",
-      "catppuccin-sddm-theme-macchiato",
-      "catppuccin-sddm-theme-mocha",
-      "ckb-next-git",
-      "papirus-folders-catppuccin-git",
-      "plymouth-theme-catppuccin-mocha-git",
-      "qt6ct-kde",
-      "ttf-ms-fonts",
-      "vscodium-bin",
-      "vscodium-marketplace",
-      "zen-browser-bin",
-      "zinit"
+        "ani-cli-git",
+        "btop-theme-catppuccin",
+        "papirus-folders-catppuccin-git",
+        "qt6ct-kde",
+        "ttf-ms-fonts",
+        "vscodium-bin",
+        "vscodium-marketplace",
+        "zen-browser-bin",
+        "zinit"
       ]
     }
   },
-
-  "mode":   "single",
+  "mode": "single",
   "ashift": 12,
-
   "persist": {
-    "directories": ["/home", "/var/lib/docker", "/var/lib/libvirt"]
+    "directories": [
+      "/home",
+      "/var/lib/docker",
+      "/var/lib/libvirt"
+    ]
   }
 }
