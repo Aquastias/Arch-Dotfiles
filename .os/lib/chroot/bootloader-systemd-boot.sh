@@ -57,11 +57,17 @@ bootctl --esp-path=/boot/efi install 2>&1 \
 
 mkdir -p /boot/efi/loader/entries
 
+# loader.conf. editor=yes keeps the boot-time cmdline editor available (press
+# 'e' in the menu) so a broken graphical target is always recoverable — e.g.
+# append `systemd.unit=multi-user.target` to reach a text login without external
+# media. Trade-off: it is a physical-access root path (init=/bin/bash), but
+# systemd-boot force-disables the editor under Secure Boot regardless, so the
+# risk is bounded on an SB-enrolled machine.
 cat > /boot/efi/loader/loader.conf << 'EOF'
 default arch-zfs.conf
 timeout 4
 console-mode max
-editor no
+editor yes
 EOF
 
 # zfs_import_dir=/dev/disk/by-id makes the initramfs ZFS hook import by scanning
