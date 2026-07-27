@@ -80,9 +80,23 @@ _impermanence_apply_curated() {
 # machine-id the rollback would re-empty it every boot. machine-id is read by
 # PID 1 before any .mount unit, so it must live populated in the rolled-back
 # dataset's @blank, not be restored from /persist.
+#
+# systemd-machine-id-setup in a chroot often writes NOTHING or the literal
+# `uninitialized` marker (it defers real generation to first boot). That is fatal
+# here: PID 1 then mints a fresh TRANSIENT id every boot, and dbus-broker /
+# systemd --user / logind all key off the machine-id — an unstable id breaks the
+# graphical session (no XDG_RUNTIME_DIR → kwin_wayland "Could not create wayland
+# socket" → black screen). So verify a committed 32-hex id actually landed; if
+# not, mint one explicitly so @blank freezes a stable value.
 _impermanence_init_machine_id() {
-  systemd-machine-id-setup --root="${ROOT:-/}" >/dev/null 2>&1 \
-    || info "impermanence: systemd-machine-id-setup failed"
+  local mid="${ROOT:-}/etc/machine-id"
+  systemd-machine-id-setup --root="${ROOT:-/}" >/dev/null 2>&1 || true
+  if ! grep -qE '^[0-9a-f]{32}$' "$mid" 2>/dev/null; then
+    info "impermanence: /etc/machine-id empty/uninitialized — generating one"
+    { systemd-id128 new 2>/dev/null \
+        || tr -d '-' < /proc/sys/kernel/random/uuid; } > "$mid" \
+      || info "impermanence: failed to write /etc/machine-id"
+  fi
 }
 
 _impermanence_apply_extensions() {
@@ -475,6 +489,32 @@ _impermanence_relocate_enablements() {
   fi
 }
 
+# _impermanence_refresh_zfs_cache — regenerate the zfs-mount-generator cache into
+# /etc IMMEDIATELY before @blank, so the rolled-back /etc always ships a COMPLETE
+# cache. Without a full cache at early boot the generator emits no mount units and
+# /var, /var/log mount late (via zfs-mount.service, AFTER systemd-journald starts)
+# — which orphans the journal (journalctl shows nothing) and delays every early
+# service touching /var. Reuses zfs_write_list_cache (canonical column order) from
+# zfs-import.sh. zfs-only; a no-op on btrfs. Skips file-keyed encrypted DATA pools
+# (their key isn't loaded when the generator runs).
+_impermanence_refresh_zfs_cache() {
+  [[ "${FILESYSTEM:-zfs}" == "zfs" ]] || return 0
+  local zi="$_IMP_DIR/zfs-import.sh"
+  if [[ ! -f "$zi" ]]; then
+    info "impermanence: zfs-import.sh not found — skipping cache refresh"
+    return 0
+  fi
+  # shellcheck source=./zfs-import.sh
+  source "$zi"
+  local dir="${ROOT:-}/etc/zfs/zfs-list.cache" p kl
+  mkdir -p "$dir"
+  for p in $(zpool list -H -o name 2>/dev/null); do
+    kl="$(zfs get -H -o value keylocation "$p" 2>/dev/null)"
+    [[ "$kl" == file://* ]] && continue
+    zfs_write_list_cache "$p" "$dir"
+  done
+}
+
 impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
   local step
@@ -488,6 +528,7 @@ impermanence_apply() {
     _impermanence_write_rollback_hook \
     _impermanence_write_resnapshot_hook \
     _impermanence_write_resnapshot_helper \
+    _impermanence_refresh_zfs_cache \
     _impermanence_snapshot_blank
   do
     info "step: $step"

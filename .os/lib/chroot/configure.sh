@@ -135,6 +135,14 @@ if command -v zpool >/dev/null 2>&1; then
         zfs_write_list_cache "$_pool"
     done
     unset _pool _kl
+
+    # Persistent journald with /var/log on its own dataset: systemd-journald
+    # (Storage=auto) only keeps logs across reboots when /var/log/journal exists.
+    # Create it on the mounted /var/log dataset (the root dataset's /var/log stays
+    # empty, so at boot journald uses volatile /run until var-log.mount is up, then
+    # systemd-journal-flush copies into /var/log/journal). Without this the journal
+    # is volatile and vanishes on reboot. Harmless when /var/log is not separate.
+    mkdir -p /var/log/journal
 fi
 
 # ── Swap ─────────────────────────────────────────────────────────────────────
