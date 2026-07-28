@@ -35,15 +35,30 @@ _gpu_should_harden() {
 
 # _gpu_modprobe_conf — /etc/modprobe.d/nvidia.conf content. modeset=1 is
 # required for Wayland/PRIME offload; fbdev=1 gives the dGPU an fbdev console.
-# PreserveVideoMemoryAllocations keeps VRAM across suspend/resume;
+# PreserveVideoMemoryAllocations keeps VRAM across suspend/resume, and
+# TemporaryFilePath saves it under /var/tmp (disk) rather than the default /tmp,
+# which is tmpfs (RAM) — a RAM-backed save can fail on resume and black-screen.
 # DynamicPowerManagement=0x02 lets the idle dGPU reach D3cold (RTD3).
 _gpu_modprobe_conf() {
   cat <<'CONF'
 # Hybrid AMD+NVIDIA hardening (ADR 0053) — managed by the installer.
 options nvidia_drm modeset=1 fbdev=1
 options nvidia NVreg_PreserveVideoMemoryAllocations=1
+options nvidia NVreg_TemporaryFilePath=/var/tmp
 options nvidia NVreg_DynamicPowerManagement=0x02
 blacklist nouveau
+CONF
+}
+
+# _gpu_amdgpu_conf — /etc/modprobe.d/amdgpu.conf content. The AMD iGPU drives
+# the eDP panel; on Ryzen APUs Panel Self Refresh (PSR) often fails to relight
+# it after suspend → black screen on resume. dcdebugmask=0x10 disables PSR (the
+# DC_DISABLE_PSR bit), trading a little idle power for a reliable wake.
+_gpu_amdgpu_conf() {
+  cat <<'CONF'
+# Hybrid AMD+NVIDIA hardening (ADR 0053) — managed by the installer.
+# Disable Panel Self Refresh: it black-screens the eDP panel on resume.
+options amdgpu dcdebugmask=0x10
 CONF
 }
 
@@ -111,6 +126,13 @@ _gpu_write_modprobe() {
   _gpu_modprobe_conf > "${dir}/nvidia.conf"
 }
 
+# _gpu_write_amdgpu <root> — install the modprobe.d AMD config (PSR disable).
+_gpu_write_amdgpu() {
+  local dir="${1:-}/etc/modprobe.d"
+  mkdir -p "$dir"
+  _gpu_amdgpu_conf > "${dir}/amdgpu.conf"
+}
+
 # _gpu_write_udev_rule <root> — install the RTD3 udev rule.
 _gpu_write_udev_rule() {
   local dir="${1:-}/etc/udev/rules.d"
@@ -155,6 +177,7 @@ _gpu_harden() {
   local root="$1" conf="$2"; shift 2
   _gpu_should_harden "$@" || return 1
   _gpu_write_modprobe   "$root"
+  _gpu_write_amdgpu     "$root"
   _gpu_apply_modules    "$conf"
   _gpu_write_udev_rule  "$root"
   _gpu_write_pacman_hook "$root"

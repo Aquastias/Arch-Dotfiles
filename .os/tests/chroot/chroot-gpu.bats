@@ -64,9 +64,22 @@ setup() {
   [[ "$output" == *"NVreg_DynamicPowerManagement=0x02"* ]]
 }
 
+@test "modprobe: saves preserved VRAM to disk (not tmpfs) on suspend" {
+  run _gpu_modprobe_conf
+  [[ "$output" == *"NVreg_TemporaryFilePath=/var/tmp"* ]]
+}
+
 @test "modprobe: blacklists nouveau" {
   run _gpu_modprobe_conf
   [[ "$output" == *"blacklist nouveau"* ]]
+}
+
+# ── amdgpu PSR (eDP panel black-screens on resume otherwise) ─────────────────
+
+@test "amdgpu: disables Panel Self Refresh via dcdebugmask" {
+  run _gpu_amdgpu_conf
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"options amdgpu dcdebugmask=0x10"* ]]
 }
 
 # ── Early-KMS MODULES line ──────────────────────────────────────────────────
@@ -132,6 +145,12 @@ setup() {
   grep -q 'modeset=1' "$ROOT/etc/modprobe.d/nvidia.conf"
 }
 
+@test "io: _gpu_write_amdgpu installs /etc/modprobe.d/amdgpu.conf" {
+  _gpu_write_amdgpu "$ROOT"
+  [ -f "$ROOT/etc/modprobe.d/amdgpu.conf" ]
+  grep -q 'dcdebugmask=0x10' "$ROOT/etc/modprobe.d/amdgpu.conf"
+}
+
 @test "io: _gpu_write_udev_rule installs 80-nvidia-pm.rules" {
   _gpu_write_udev_rule "$ROOT"
   [ -f "$ROOT/etc/udev/rules.d/80-nvidia-pm.rules" ]
@@ -168,6 +187,7 @@ setup() {
   printf 'MODULES=()\n' > "$conf"
   _gpu_harden "$ROOT" "$conf" amd nvidia
   [ -f "$ROOT/etc/modprobe.d/nvidia.conf" ]
+  [ -f "$ROOT/etc/modprobe.d/amdgpu.conf" ]
   [ -f "$ROOT/etc/udev/rules.d/80-nvidia-pm.rules" ]
   [ -f "$ROOT/etc/pacman.d/hooks/95-nvidia-initramfs.hook" ]
   grep -q 'nvidia_drm' "$conf"
@@ -179,5 +199,6 @@ setup() {
   run _gpu_harden "$ROOT" "$conf" amd
   [ "$status" -ne 0 ]
   [ ! -e "$ROOT/etc/modprobe.d/nvidia.conf" ]
+  [ ! -e "$ROOT/etc/modprobe.d/amdgpu.conf" ]
   grep -q '^MODULES=()$' "$conf"
 }
