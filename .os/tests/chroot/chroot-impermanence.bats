@@ -956,35 +956,46 @@ _seed_enablements() {
   [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service" ]
 }
 
-# ── greetd swap (sddm's Wayland session launch races the rolled-back root) ────
+# ── tty autologin (the DM login can't register a logind session; `login` can) ─
 
-@test "greetd: no-op when sddm is not the installed DM" {
-  IMPERMANENCE_ENABLED=true
-  _impermanence_switch_to_greetd
-  [ ! -f "$FAKEROOT/etc/greetd/config.toml" ]
-  ! grep -qE "^pacman " "$CALLS" 2>/dev/null
+_seed_autologin_root() {
+  mkdir -p "$FAKEROOT/etc" "$FAKEROOT/usr/lib/systemd/system"
+  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
+  printf 'root:x:0:0::/root:/bin/bash\naquastias:x:1000:1000::/home/aquastias:/bin/zsh\n' \
+    > "$FAKEROOT/etc/passwd"
 }
 
-@test "greetd: swaps sddm -> greetd when sddm is installed" {
+@test "autologin: no-op when sddm is not the installed DM" {
   IMPERMANENCE_ENABLED=true
-  mkdir -p "$FAKEROOT/usr/lib/systemd/system"
-  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
-  _impermanence_switch_to_greetd
-  [ -f "$FAKEROOT/etc/greetd/config.toml" ]
-  grep -qF "tuigreet" "$FAKEROOT/etc/greetd/config.toml"
-  grep -qF -- "--remember" "$FAKEROOT/etc/greetd/config.toml"
-  grep -qF 'user = "greeter"' "$FAKEROOT/etc/greetd/config.toml"
-  grep -qE "^pacman .*greetd-tuigreet" "$CALLS"
+  mkdir -p "$FAKEROOT/etc"
+  printf 'aquastias:x:1000:1000::/home/aquastias:/bin/zsh\n' \
+    > "$FAKEROOT/etc/passwd"
+  _impermanence_setup_autologin
+  [ ! -f "$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf" ]
+}
+
+@test "autologin: disables sddm and writes getty@tty1 autologin + launcher" {
+  IMPERMANENCE_ENABLED=true
+  _seed_autologin_root
+  _impermanence_setup_autologin
+  local d="$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf"
+  [ -f "$d" ]
+  grep -qF -- "--autologin aquastias" "$d"
+  grep -qxF "ExecStart=" "$d"
   grep -qE "^systemctl disable sddm" "$CALLS"
-  grep -qE "^systemctl enable greetd" "$CALLS"
+  local l="$FAKEROOT/etc/profile.d/zz-autostart-plasma.sh"
+  [ -f "$l" ]
+  grep -qF "exec startplasma-wayland" "$l"
+  grep -qF "/dev/tty1" "$l"
+  # no display manager gets enabled anymore
+  ! grep -qE "^systemctl enable (greetd|sddm)" "$CALLS"
 }
 
-@test "greetd: runs as an impermanence_apply step (before relocate)" {
-  mkdir -p "$FAKEROOT/usr/lib/systemd/system"
-  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
+@test "autologin: runs as an impermanence_apply step" {
+  _seed_autologin_root
   run_enabled
-  [ -f "$FAKEROOT/etc/greetd/config.toml" ]
-  grep -qE "^systemctl enable greetd" "$CALLS"
+  [ -f "$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf" ]
+  grep -qE "^systemctl disable sddm" "$CALLS"
 }
 
 # ── boot user-linger service (login must not race a busy impermanent boot) ────
