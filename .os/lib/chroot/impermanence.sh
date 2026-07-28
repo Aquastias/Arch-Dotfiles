@@ -515,28 +515,73 @@ _impermanence_refresh_zfs_cache() {
   done
 }
 
+# _impermanence_switch_to_greetd — swap sddm → greetd for the graphical login.
+# sddm's Wayland session launch is the piece that breaks on a rolled-back root:
+# at graphical login logind/pam_systemd fail to register the session against the
+# freshly mounted ZFS datasets, so XDG_RUNTIME_DIR is never set and kwin_wayland
+# dies ("Could not create wayland socket") → black screen. A plain login PAM
+# path — what a TTY login uses, and what proved to work here — registers the
+# session fine, and greetd logs users in through exactly that path (the wider
+# consensus is likewise "other DMs work where sddm's Wayland doesn't").
+# So under impermanence, replace sddm with greetd + the tuigreet greeter
+# (extra/greetd-tuigreet). No-op unless sddm is the installed DM (headless /
+# other-DM installs are untouched). Runs BEFORE
+# _impermanence_relocate_enablements so the greetd enablement is mirrored onto
+# /usr (honoured by PID1's initial boot transaction), and before @blank so
+# /etc/greetd + the greeter user land in the snapshot.
+_impermanence_switch_to_greetd() {
+  local root="${ROOT:-}"
+  [[ -e "$root/usr/lib/systemd/system/sddm.service" ]] || return 0
+
+  pacman -S --noconfirm --needed greetd greetd-tuigreet
+
+  mkdir -p "$root/etc/greetd"
+  cat > "$root/etc/greetd/config.toml" <<'TOML'
+# greetd on VT1 with tuigreet, a stylish TUI greeter (extra/greetd-tuigreet). It
+# authenticates the user through greetd's PAM stack (pam_systemd registers the
+# logind session, so XDG_RUNTIME_DIR + /run/user/$uid + the user bus exist),
+# then launches the chosen session — the console login path proven to work here.
+# --remember / --remember-session recall the last user + session; sessions come
+# from /usr/share/wayland-sessions + /usr/share/xsessions, so "Plasma (Wayland)"
+# is the pick and Plasma (X11) stays available as a fallback.
+[terminal]
+vt = 1
+
+[default_session]
+command = "tuigreet --remember --remember-session --time"
+user = "greeter"
+TOML
+
+  # display-manager is single-instance: drop sddm, enable greetd. The alias /
+  # wants symlink lands in /etc, mirrored onto /usr by the next apply step.
+  systemctl disable sddm 2>/dev/null || true
+  systemctl enable greetd
+}
+
 # _impermanence_graphical_session_fix — make the graphical user session survive
-# impermanence. On a rolled-back root the display manager (sddm) logs a user in
+# impermanence. On a rolled-back root the display manager logs a user in
 # at boot BEFORE logind/pam_systemd can register the session against the freshly
 # mounted ZFS datasets: no session is created, so XDG_RUNTIME_DIR is unset,
 # /run/user/$uid + its D-Bus socket never appear, and kwin_wayland dies with
 # "Could not create wayland socket" → black screen. A later TTY login works
 # (system settled), which is the tell. A non-impermanent install never races, so
-# it logs in fine. Three load-bearing pieces, none needed without impermanence:
+# it logs in fine. greetd (see _impermanence_switch_to_greetd) is the primary
+# fix; these two are cheap belt-and-suspenders insurance, neither needed without
+# impermanence:
 #
 #   1. enable-linger per human user — logind starts user@$uid (runtime dir +
 #      user D-Bus + `systemd --user`) at BOOT, independent of the DM's pam path,
-#      so the session infra exists before sddm hands off. The marker lives on the
-#      persistent /var dataset (rpool/var, never rolled back), so it survives.
-#   2. Order systemd-logind After the /var mount (drop-in on /usr, which is never
-#      rolled back). /var is a separate dataset mounted at boot; logind reads the
-#      linger markers ONCE at startup, so it must not run before /var is mounted
-#      or every user reads as non-lingering and (1) is a silent no-op.
-#   3. An /etc/profile.d XDG_RUNTIME_DIR fallback — sddm's wayland-session wrapper
-#      runs `$SHELL --login` (chroot-common.sh), which sources /etc/profile.d, so
-#      this lands in the session env and points kwin at the lingering
-#      /run/user/$uid when pam_systemd didn't export it. Harmless when already
-#      set (TTY logins, non-racing boots). Written to /etc so @blank captures it.
+#      so the session infra exists before the DM hands off. The marker lives on
+#      the persistent /var dataset (rpool/var, never rolled back), so it survives.
+#      (Do NOT try to order systemd-logind After=var.mount to make this fire
+#      sooner: adding ordering to logind risks a boot ordering cycle that systemd
+#      breaks by dropping a unit, which can black out the greeter itself.)
+#   2. An /etc/profile.d XDG_RUNTIME_DIR fallback — if the DM runs the session
+#      through a login shell it sources /etc/profile.d, so this lands in the
+#      session env and points kwin at the lingering /run/user/$uid when
+#      pam_systemd didn't export it. Harmless when already set (the normal case
+#      with greetd / TTY logins) or when not sourced. Written to /etc so @blank
+#      captures it.
 _impermanence_graphical_session_fix() {
   local root="${ROOT:-}"
 
@@ -552,25 +597,14 @@ _impermanence_graphical_session_fix() {
     done < "$root/etc/passwd"
   fi
 
-  # (2) logind ordering drop-in on /usr (survives the @blank rollback).
-  local dd="$root/usr/lib/systemd/system/systemd-logind.service.d"
-  mkdir -p "$dd"
-  cat > "$dd/impermanence-var.conf" <<'CONF'
-# Impermanence: /var is a separate ZFS dataset mounted at boot. logind reads the
-# linger markers (/var/lib/systemd/linger) once at startup, so it must run only
-# after /var is mounted or the lingering user managers never start at boot.
-[Unit]
-After=var.mount local-fs.target
-CONF
-
-  # (3) XDG_RUNTIME_DIR fallback for DM-launched login shells.
+  # (2) XDG_RUNTIME_DIR fallback for DM sessions started via a login shell.
   local pd="$root/etc/profile.d"
   mkdir -p "$pd"
   cat > "$pd/10-impermanence-xdg-runtime.sh" <<'SH'
-# Impermanence: the display manager's wayland-session wrapper runs `$SHELL
-# --login`, but pam_systemd can fail to export XDG_RUNTIME_DIR at graphical
-# login (logind session race on the rolled-back root). Point it at the lingering
-# runtime dir so kwin_wayland can create its wayland socket. Harmless when set.
+# Impermanence: if the display manager starts the session through a login shell,
+# and pam_systemd failed to export XDG_RUNTIME_DIR at graphical login (logind
+# session race on the rolled-back root), point it at the lingering runtime dir so
+# kwin_wayland can create its wayland socket. Harmless when already set.
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
   _imp_uid="$(id -u 2>/dev/null || true)"
   if [ -n "$_imp_uid" ] && [ -d "/run/user/$_imp_uid" ]; then
@@ -587,6 +621,7 @@ impermanence_apply() {
   for step in \
     _impermanence_write_manifest \
     _impermanence_init_machine_id \
+    _impermanence_switch_to_greetd \
     _impermanence_relocate_enablements \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \
