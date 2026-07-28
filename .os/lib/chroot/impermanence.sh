@@ -566,36 +566,42 @@ TOML
 # "Could not create wayland socket" → black screen. A later TTY login works
 # (system settled), which is the tell. A non-impermanent install never races, so
 # it logs in fine. greetd (see _impermanence_switch_to_greetd) is the primary
-# fix; these two are cheap belt-and-suspenders insurance, neither needed without
+# fix; these three make the user session bullet-proof, none needed without
 # impermanence:
 #
-#   1. enable-linger per human user — logind starts user@$uid (runtime dir +
-#      user D-Bus + `systemd --user`) at BOOT, independent of the DM's pam path,
-#      so the session infra exists before the DM hands off. The marker lives on
-#      the persistent /var dataset (rpool/var, never rolled back), so it survives.
-#      (Do NOT try to order systemd-logind After=var.mount to make this fire
-#      sooner: adding ordering to logind risks a boot ordering cycle that systemd
-#      breaks by dropping a unit, which can black out the greeter itself.)
+#   1. enable-linger per human user — a marker on the persistent /var dataset
+#      (rpool/var, never rolled back) so logind keeps user@$uid around.
 #   2. An /etc/profile.d XDG_RUNTIME_DIR fallback — if the DM runs the session
 #      through a login shell it sources /etc/profile.d, so this lands in the
 #      session env and points kwin at the lingering /run/user/$uid when
-#      pam_systemd didn't export it. Harmless when already set (the normal case
-#      with greetd / TTY logins) or when not sourced. Written to /etc so @blank
-#      captures it.
+#      pam_systemd didn't export it. Harmless when already set / not sourced.
+#      Written to /etc so @blank captures it.
+#   3. A oneshot that explicitly starts user@$uid BEFORE the greeter. The (1)
+#      marker only fires if logind reads it after /var is mounted, but /var is a
+#      late ZFS mount so that read can miss it: user@ never starts, login then
+#      block-starts the manager, and pam_systemd times out on a busy boot (no
+#      XDG_RUNTIME_DIR, black screen). Ordered After=systemd-logind +
+#      local-fs.target (both up, /var mounted) and pulled into multi-user.target
+#      (before the greeter); it does NOT order logind itself (that risks an
+#      ordering cycle that blacks the greeter). Unit + wants-symlink live on
+#      /usr (never rolled back, honoured by PID1's initial boot transaction).
 _impermanence_graphical_session_fix() {
   local root="${ROOT:-}"
 
-  # (1) linger markers for every human user (uid 1000..65533).
-  local linger="$root/var/lib/systemd/linger"
-  mkdir -p "$linger"
-  local name uid
+  # Human users (uid 1000..65533), collected once.
+  local humans=() name uid
   if [[ -f "$root/etc/passwd" ]]; then
     while IFS=: read -r name _ uid _; do
       [[ "$uid" =~ ^[0-9]+$ ]] || continue
       (( uid >= 1000 && uid < 65534 )) || continue
-      touch "$linger/$name"
+      humans+=("$name")
     done < "$root/etc/passwd"
   fi
+
+  # (1) linger markers.
+  local linger="$root/var/lib/systemd/linger" u
+  mkdir -p "$linger"
+  for u in "${humans[@]+"${humans[@]}"}"; do touch "$linger/$u"; done
 
   # (2) XDG_RUNTIME_DIR fallback for DM sessions started via a login shell.
   local pd="$root/etc/profile.d"
@@ -603,8 +609,8 @@ _impermanence_graphical_session_fix() {
   cat > "$pd/10-impermanence-xdg-runtime.sh" <<'SH'
 # Impermanence: if the display manager starts the session through a login shell,
 # and pam_systemd failed to export XDG_RUNTIME_DIR at graphical login (logind
-# session race on the rolled-back root), point it at the lingering runtime dir so
-# kwin_wayland can create its wayland socket. Harmless when already set.
+# session race on the rolled-back root), point it at the lingering runtime dir
+# so kwin_wayland can create its wayland socket. Harmless when already set.
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
   _imp_uid="$(id -u 2>/dev/null || true)"
   if [ -n "$_imp_uid" ] && [ -d "/run/user/$_imp_uid" ]; then
@@ -613,6 +619,33 @@ if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
   unset _imp_uid
 fi
 SH
+
+  # (3) Boot oneshot that starts each human user's manager before the greeter.
+  if ((${#humans[@]})); then
+    local sysd="$root/usr/lib/systemd/system"
+    mkdir -p "$sysd/multi-user.target.wants"
+    cat > "$sysd/impermanence-user-linger.service" <<UNIT
+[Unit]
+Description=Start lingering user managers before the greeter (impermanence)
+# /var (the linger markers) must be mounted and logind up; do NOT order logind
+# itself After a mount (risks a boot ordering cycle that blacks the greeter).
+After=systemd-logind.service local-fs.target
+Wants=systemd-logind.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# enable-linger persists the marker and starts user@\$uid now (runtime dir +
+# user D-Bus + systemd --user), so the login just attaches instead of block-
+# starting the manager (which times out during a busy boot).
+ExecStart=/usr/bin/loginctl enable-linger ${humans[*]}
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    ln -sf ../impermanence-user-linger.service \
+      "$sysd/multi-user.target.wants/impermanence-user-linger.service"
+  fi
 }
 
 impermanence_apply() {

@@ -986,3 +986,18 @@ _seed_enablements() {
   [ -f "$FAKEROOT/etc/greetd/config.toml" ]
   grep -qE "^systemctl enable greetd" "$CALLS"
 }
+
+# ── boot user-linger service (login must not race a busy impermanent boot) ────
+
+@test "graphical-fix: writes user@ boot-linger service for human users" {
+  mkdir -p "$FAKEROOT/etc"
+  printf 'root:x:0:0::/root:/bin/bash\naquastias:x:1000:1000::/home/aquastias:/bin/zsh\nnobody:x:65534:65534::/:/usr/bin/nologin\n' \
+    > "$FAKEROOT/etc/passwd"
+  _impermanence_graphical_session_fix
+  local u="$FAKEROOT/usr/lib/systemd/system/impermanence-user-linger.service"
+  [ -f "$u" ]
+  grep -qF "loginctl enable-linger aquastias" "$u"
+  ! grep -qF "nobody" "$u"
+  [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/impermanence-user-linger.service" ]
+  [ -f "$FAKEROOT/var/lib/systemd/linger/aquastias" ]
+}

@@ -12,6 +12,18 @@ enable_base_services() {
   systemctl enable systemd-resolved
   systemctl enable systemd-timesyncd
   systemctl enable cronie
+
+  # Kill the network-online boot stall. On a NetworkManager laptop/desktop with
+  # no link up at boot (Wi-Fi not yet associated), the wait-online units block
+  # network-online.target for up to ~2 min; anything that pulls that target into
+  # the boot transaction (e.g. clamav-freshclam) then stalls the whole boot. That
+  # churn is what pushes pam_systemd's graphical-login session setup past its
+  # timeout on impermanence → no XDG_RUNTIME_DIR → black/failed Wayland session.
+  # systemd-networkd-wait-online is doubly wrong here (we use NetworkManager, not
+  # networkd). Masking both is the standard fix; NetworkManager still brings the
+  # link up asynchronously after boot.
+  systemctl mask systemd-networkd-wait-online.service
+  systemctl mask NetworkManager-wait-online.service
 }
 
 # Optional daemons toggled by config. sshd is enabled only when

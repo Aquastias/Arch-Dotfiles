@@ -150,3 +150,10 @@ _load_base_services() {
   enable_optional_services
   ! grep -q "sshd" "$SYSCTL_LOG"
 }
+
+@test "enable_base_services masks the network-online wait stall" {
+  _load_base_services
+  enable_base_services
+  grep -qx "systemctl mask systemd-networkd-wait-online.service" "$SYSCTL_LOG"
+  grep -qx "systemctl mask NetworkManager-wait-online.service" "$SYSCTL_LOG"
+}
