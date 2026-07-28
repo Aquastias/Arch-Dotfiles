@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
 # Tests for the committed personal Host Profiles hosts/{desktop,laptop} (ADR
-# 0055): each is an encrypted, impermanent, SSH-enabled ZFS machine that loads
-# and validates clean against the closed schema. Behaviour under test: the
+# 0055): both are encrypted, SSH-enabled ZFS machines (desktop impermanent;
+# laptop persistent-root) that load and validate clean against the closed
+# schema. Behaviour under test: the
 # effective config the loader produces + validate_profile's verdict — never how
 # the profile file is laid out. Prior art: profile-loader.bats.
 
@@ -39,16 +40,20 @@ persists() {  # <profile-name>
   flags_on desktop
 }
 
-@test "laptop: encrypted, impermanent, ssh-enabled zfs" {
-  flags_on laptop
+@test "laptop: encrypted, ssh-enabled zfs (impermanence disabled)" {
+  load_profile laptop | jq -e '
+    .filesystem == "zfs"
+    and .options.encryption == true
+    and (.options.impermanence.enabled // false) == false
+    and .options.ssh.enabled == true'
 }
 
 @test "desktop: persists /home + docker + libvirt" {
   persists desktop
 }
 
-@test "laptop: persists /home + docker + libvirt" {
-  persists laptop
+@test "laptop: has no impermanence persist block (persistent root)" {
+  load_profile laptop | jq -e '(.persist // null) == null'
 }
 
 # ── the layouts are unchanged (desktop multi mirror+raidz1, laptop single) ──

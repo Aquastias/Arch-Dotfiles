@@ -4,8 +4,7 @@
 // kde desktop, and a single-disk skeleton (one operator-picked
 // disk → ESP + rpool + dpool).
 //
-// Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
-// + /var/lib/libvirt over the impermanence base set.
+// Encrypted, SSH-enabled ZFS (persistent root — impermanence disabled).
 {
   "system": {
     "hostname": "chronos",
@@ -20,9 +19,6 @@
     "encryption": true,
     "swap": true,
     "swap_size": "auto",
-    "impermanence": {
-      "enabled": true
-    },
     "ssh": {
       "enabled": true
     }
@@ -138,12 +134,5 @@
     }
   },
   "mode": "single",
-  "ashift": 12,
-  "persist": {
-    "directories": [
-      "/home",
-      "/var/lib/docker",
-      "/var/lib/libvirt"
-    ]
-  }
+  "ashift": 12
 }
