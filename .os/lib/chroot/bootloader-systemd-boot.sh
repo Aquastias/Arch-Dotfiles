@@ -77,12 +77,20 @@ EOF
 # entry never references a missing initrd (ADR 0038).
 MICROCODE_INITRDS="$(microcode_present_initrds /boot)"
 
+# On a desktop install the greeter (tuigreet/sddm) runs on the boot VT, so
+# unquenched kernel + systemd status lines scribble over it ("A start job is
+# running for …" bleeding across the login screen). Quiet the primary entry; the
+# fallback entry below stays verbose so a broken boot is still diagnosable.
+QUIET_CMDLINE=""
+[[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
+  && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"
+
 cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
 title   ${ENTRY_TITLE}
 linux   /${VMLINUZ}
 ${MICROCODE_INITRDS}
 initrd  /${INITRAMFS}
-options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
+options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}
 EOF
 
 cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
