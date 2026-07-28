@@ -24,6 +24,8 @@ setup() {
     return 0
   }
   zpool()   { printf 'zpool %s\n'   "$*" >> "$CALLS"; }
+  pacman()  { printf 'pacman %s\n'  "$*" >> "$CALLS"; }
+  systemctl() { printf 'systemctl %s\n' "$*" >> "$CALLS"; }
   systemd-machine-id-setup() { printf 'machine-id-setup %s\n' "$*" >> "$CALLS"; }
   # btrfs FS-layer stubs (issue 08): keep the btrfs @blank snapshot step off the
   # real mount/btrfs binaries so a FILESYSTEM=btrfs full apply runs in the harness.
@@ -31,7 +33,8 @@ setup() {
   mount()   { printf 'mount %s\n'   "$*" >> "$CALLS"; }
   umount()  { printf 'umount %s\n'  "$*" >> "$CALLS"; }
   findmnt() { echo /dev/sdX; }
-  export -f zfs zpool systemd-machine-id-setup btrfs mount umount findmnt
+  export -f zfs zpool pacman systemctl systemd-machine-id-setup \
+    btrfs mount umount findmnt
 
   export IMPERMANENCE_ENABLED=false
   export IMPERMANENCE_DATASET=rpool/persist
@@ -951,4 +954,35 @@ _seed_enablements() {
   _seed_enablements
   run_enabled
   [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service" ]
+}
+
+# ── greetd swap (sddm's Wayland session launch races the rolled-back root) ────
+
+@test "greetd: no-op when sddm is not the installed DM" {
+  IMPERMANENCE_ENABLED=true
+  _impermanence_switch_to_greetd
+  [ ! -f "$FAKEROOT/etc/greetd/config.toml" ]
+  ! grep -qE "^pacman " "$CALLS" 2>/dev/null
+}
+
+@test "greetd: swaps sddm -> greetd when sddm is installed" {
+  IMPERMANENCE_ENABLED=true
+  mkdir -p "$FAKEROOT/usr/lib/systemd/system"
+  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
+  _impermanence_switch_to_greetd
+  [ -f "$FAKEROOT/etc/greetd/config.toml" ]
+  grep -qF "tuigreet" "$FAKEROOT/etc/greetd/config.toml"
+  grep -qF -- "--remember" "$FAKEROOT/etc/greetd/config.toml"
+  grep -qF 'user = "greeter"' "$FAKEROOT/etc/greetd/config.toml"
+  grep -qE "^pacman .*greetd-tuigreet" "$CALLS"
+  grep -qE "^systemctl disable sddm" "$CALLS"
+  grep -qE "^systemctl enable greetd" "$CALLS"
+}
+
+@test "greetd: runs as an impermanence_apply step (before relocate)" {
+  mkdir -p "$FAKEROOT/usr/lib/systemd/system"
+  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
+  run_enabled
+  [ -f "$FAKEROOT/etc/greetd/config.toml" ]
+  grep -qE "^systemctl enable greetd" "$CALLS"
 }
