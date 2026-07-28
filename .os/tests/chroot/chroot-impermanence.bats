@@ -277,12 +277,15 @@ seed_curated() {
 @test "enabled: COPIES curated file content; source KEPT (frozen in @blank)" {
   # Early-read files (machine-id, …) must stay in /etc so @blank captures real
   # values — they can't be bind-restored before PID 1 reads them.
-  seed_curated /etc/machine-id "abc123"
+  # A VALID 32-hex id must be kept verbatim (the validator only regenerates an
+  # empty/uninitialized one), then copied to /persist.
+  seed_curated /etc/machine-id "0123456789abcdef0123456789abcdef"
   run_enabled
   [ -f "$FAKEROOT/etc/machine-id" ]
-  [ "$(cat "$FAKEROOT/etc/machine-id")" = "abc123" ]
+  [ "$(cat "$FAKEROOT/etc/machine-id")" = "0123456789abcdef0123456789abcdef" ]
   [ -f "$FAKEROOT/persist/etc/machine-id" ]
-  [ "$(cat "$FAKEROOT/persist/etc/machine-id")" = "abc123" ]
+  [ "$(cat "$FAKEROOT/persist/etc/machine-id")" = \
+    "0123456789abcdef0123456789abcdef" ]
 }
 
 @test "enabled: initialises a real machine-id before @blank" {

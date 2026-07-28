@@ -515,6 +515,72 @@ _impermanence_refresh_zfs_cache() {
   done
 }
 
+# _impermanence_graphical_session_fix — make the graphical user session survive
+# impermanence. On a rolled-back root the display manager (sddm) logs a user in
+# at boot BEFORE logind/pam_systemd can register the session against the freshly
+# mounted ZFS datasets: no session is created, so XDG_RUNTIME_DIR is unset,
+# /run/user/$uid + its D-Bus socket never appear, and kwin_wayland dies with
+# "Could not create wayland socket" → black screen. A later TTY login works
+# (system settled), which is the tell. A non-impermanent install never races, so
+# it logs in fine. Three load-bearing pieces, none needed without impermanence:
+#
+#   1. enable-linger per human user — logind starts user@$uid (runtime dir +
+#      user D-Bus + `systemd --user`) at BOOT, independent of the DM's pam path,
+#      so the session infra exists before sddm hands off. The marker lives on the
+#      persistent /var dataset (rpool/var, never rolled back), so it survives.
+#   2. Order systemd-logind After the /var mount (drop-in on /usr, which is never
+#      rolled back). /var is a separate dataset mounted at boot; logind reads the
+#      linger markers ONCE at startup, so it must not run before /var is mounted
+#      or every user reads as non-lingering and (1) is a silent no-op.
+#   3. An /etc/profile.d XDG_RUNTIME_DIR fallback — sddm's wayland-session wrapper
+#      runs `$SHELL --login` (chroot-common.sh), which sources /etc/profile.d, so
+#      this lands in the session env and points kwin at the lingering
+#      /run/user/$uid when pam_systemd didn't export it. Harmless when already
+#      set (TTY logins, non-racing boots). Written to /etc so @blank captures it.
+_impermanence_graphical_session_fix() {
+  local root="${ROOT:-}"
+
+  # (1) linger markers for every human user (uid 1000..65533).
+  local linger="$root/var/lib/systemd/linger"
+  mkdir -p "$linger"
+  local name uid
+  if [[ -f "$root/etc/passwd" ]]; then
+    while IFS=: read -r name _ uid _; do
+      [[ "$uid" =~ ^[0-9]+$ ]] || continue
+      (( uid >= 1000 && uid < 65534 )) || continue
+      touch "$linger/$name"
+    done < "$root/etc/passwd"
+  fi
+
+  # (2) logind ordering drop-in on /usr (survives the @blank rollback).
+  local dd="$root/usr/lib/systemd/system/systemd-logind.service.d"
+  mkdir -p "$dd"
+  cat > "$dd/impermanence-var.conf" <<'CONF'
+# Impermanence: /var is a separate ZFS dataset mounted at boot. logind reads the
+# linger markers (/var/lib/systemd/linger) once at startup, so it must run only
+# after /var is mounted or the lingering user managers never start at boot.
+[Unit]
+After=var.mount local-fs.target
+CONF
+
+  # (3) XDG_RUNTIME_DIR fallback for DM-launched login shells.
+  local pd="$root/etc/profile.d"
+  mkdir -p "$pd"
+  cat > "$pd/10-impermanence-xdg-runtime.sh" <<'SH'
+# Impermanence: the display manager's wayland-session wrapper runs `$SHELL
+# --login`, but pam_systemd can fail to export XDG_RUNTIME_DIR at graphical
+# login (logind session race on the rolled-back root). Point it at the lingering
+# runtime dir so kwin_wayland can create its wayland socket. Harmless when set.
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+  _imp_uid="$(id -u 2>/dev/null || true)"
+  if [ -n "$_imp_uid" ] && [ -d "/run/user/$_imp_uid" ]; then
+    export XDG_RUNTIME_DIR="/run/user/$_imp_uid"
+  fi
+  unset _imp_uid
+fi
+SH
+}
+
 impermanence_apply() {
   [[ "${IMPERMANENCE_ENABLED:-false}" == "true" ]] || return 0
   local step
@@ -529,6 +595,7 @@ impermanence_apply() {
     _impermanence_write_resnapshot_hook \
     _impermanence_write_resnapshot_helper \
     _impermanence_refresh_zfs_cache \
+    _impermanence_graphical_session_fix \
     _impermanence_snapshot_blank
   do
     info "step: $step"
