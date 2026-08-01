@@ -83,7 +83,7 @@ _MENU_CATEGORIES=(
   "Disks|layout, data pools, filesystem, encryption, swap"
   "Options|kernel, bootloader, ssh, mirrors, sysctl"
   "Environment|desktop, gpu"
-  "Packages|extra packages, system programs"
+  "Packages|repo, aur, derived, system programs"
   "Security|firewall, antivirus, rootkit, apparmor"
   "Backup|snapshots, encrypted backup"
   "Users|primary user, extra accounts"

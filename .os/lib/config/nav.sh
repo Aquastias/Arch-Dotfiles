@@ -103,6 +103,36 @@ nav_to_poolmount() {
     '{screen:"text", category:$c, field:"__poolmount__", label:"mount", index:$i}'
 }
 
+# ── Packages screen (ADR 0058) ──────────────────────────────────────────────
+# Three drill levels mirroring the Categorized List shape the JSONC uses:
+#   pkgslot  — repo / aur / derived
+#   pkgcat   — the categories inside one slot, with counts
+#   pkgs     — the package toggles inside one category
+# plus the read-only derived pair (pkgderived → pkgderivedsrc).
+
+# nav_to_pkgslot <category> <slot> — the category list inside repo|aur.
+nav_to_pkgslot() {
+  jq -nc --arg c "$1" --arg s "$2" \
+    '{screen:"pkgcat", category:$c, slot:$s}'
+}
+
+# nav_to_pkgs <category> <slot> <pkgcat> — the package toggles in one category.
+nav_to_pkgs() {
+  jq -nc --arg c "$1" --arg s "$2" --arg k "$3" \
+    '{screen:"pkgs", category:$c, slot:$s, pkgcat:$k}'
+}
+
+# nav_to_pkgderived <category> — the read-only derived source list.
+nav_to_pkgderived() {
+  jq -nc --arg c "$1" '{screen:"pkgderived", category:$c}'
+}
+
+# nav_to_pkgderivedsrc <category> <source> — one derived source's package list.
+nav_to_pkgderivedsrc() {
+  jq -nc --arg c "$1" --arg s "$2" \
+    '{screen:"pkgderivedsrc", category:$c, source:$s}'
+}
+
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 nav_back() {
   jq -c '
@@ -128,6 +158,13 @@ nav_back() {
                then {screen:"category", category:.category}
                else {screen:"values", category:.category,
                      field:"users", label:"users"} end)
+    elif .screen == "pkgcat" then {screen:"category", category:.category}
+    elif .screen == "pkgs"
+         then {screen:"pkgcat", category:.category, slot:.slot}
+    elif .screen == "pkgderived"
+         then {screen:"category", category:.category}
+    elif .screen == "pkgderivedsrc"
+         then {screen:"pkgderived", category:.category}
     elif .screen == "category" then {screen:"top"}
     else {screen:"top"} end' <<<"$1"
 }
