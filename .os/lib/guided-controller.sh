@@ -327,9 +327,70 @@ _ctl_apply_text() {
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
-  packages.repo.extra) edit_append_packages "$state" "$val" ;;
+  packages.repo.extra) _ctl_route_package_entry "$state" "$val" ;;
   *) edit_set_scalar "$state" "$path" "$val" ;;
   esac
+}
+
+# _ctl_route_package_entry <state> <raw> — split the whitespace-separated names
+# typed into the extra-packages row by kind, at ENTRY time, and file each into
+# the slot it belongs in: a system Program → system_programs, a user Program →
+# the Primary User's programs, anything else → packages.repo.extra.
+#
+# This is the guided convenience the deleted promotion rule used to provide,
+# moved from the emit path to entry so it cannot cause front-end divergence:
+# what lands in Config State is already canonical, so Save, Export and Proceed
+# all agree, and the config-load exclusivity check has nothing to reject.
+# The notice naming what was rerouted is emitted on stderr (the controller's
+# out-of-band channel) so the operator learns where their name went.
+_ctl_route_package_entry() {
+  local state="$1" raw="$2"
+  [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
+
+  local -a pkgs=() sys=() usr=()
+  local name
+  for name in $raw; do
+    case "$(program_kind "$name")" in
+    system) sys+=("$name") ;;
+    user)   usr+=("$name") ;;
+    *)      pkgs+=("$name") ;;
+    esac
+  done
+
+  ((${#pkgs[@]})) && state="$(edit_append_packages "$state" "${pkgs[*]}")"
+  if ((${#sys[@]})); then
+    state="$(edit_append_system_programs "$state" "${sys[@]}")"
+    printf 'routed to system programs: %s\n' "${sys[*]}" >&2
+  fi
+  if ((${#usr[@]})); then
+    state="$(_ctl_append_primary_user_programs "$state" "${usr[@]}")"
+    printf 'routed to user programs: %s\n' "${usr[*]}" >&2
+  fi
+  printf '%s' "$state"
+}
+
+# _ctl_append_primary_user_programs <state> <name...> — dedup-append user
+# Program name(s) to the Primary User's (users[0]) programs override. With no
+# users declared there is nowhere host-independent to put them, so they fall
+# back to being plain repo packages rather than being silently dropped.
+_ctl_append_primary_user_programs() {
+  local state="$1"; shift
+  local primary
+  primary="$(jq -r '.users[0] // empty' \
+    <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
+  if [[ -z "$primary" || -z "${GUIDED_USERFORMS_FILE:-}" ]]; then
+    edit_append_packages "$state" "$*"
+    return 0
+  fi
+  local cur add
+  cur="$(guided_userform_get "$GUIDED_USERFORMS_FILE" "$primary" \
+    | jq -c '.programs // []')"
+  add="$(printf '%s\n' "$@" | jq -R . | jq -s -c .)"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$primary" programs \
+    "$(jq -cn --argjson a "$cur" --argjson b "$add" \
+      'reduce ($a + $b)[] as $x ([];
+         if any(.[]; . == $x) then . else . + [$x] end)')"
+  printf '%s' "$state"
 }
 
 # _ctl_normalise_default <state> <path> → <state> with the override at <path>

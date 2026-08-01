@@ -664,11 +664,26 @@ cannot carry these — the Guided Installer aborts at the terminal action.
 ### Tools
 `.os/tools/`. Utility scripts for managing a running system or preparing an
 install — not part of the install flow itself. Currently: `save-pkglist.sh`
-(writes current packages to `hosts/<hostname>/pkglist-repo.txt` and
-`pkglist-aur.txt`), `install-pkglist.sh` (installs packages from those files),
-`impermanence.sh` (see Impermanence Tool), and `fetch-iso.sh` (downloads +
-sha256-verifies the archzfs-Compatible ISO for USB prep). The pkglist tools
-default to `$(hostname)` but accept a hostname argument.
+(writes a Drift Snapshot of the running system to
+`hosts/<profile>/pkglist-repo.txt` and `pkglist-aur.txt`),
+`install-pkglist.sh` (installs packages from those files, skipping their
+header), `explain-packages.sh` (see Package Resolver), `impermanence.sh` (see
+Impermanence Tool), and `fetch-iso.sh` (downloads + sha256-verifies the
+archzfs-Compatible ISO for USB prep). The pkglist tools take a **profile**
+name (a `hosts/<name>/` directory), not a hostname — ADR 0020 decoupled the
+two, and deriving the directory from `$(hostname)` is what left
+`save-pkglist.sh` failing on every real machine. They fall back to
+`$SAVE_PKGLIST_PROFILE`, then `$(hostname)`, and name the available profiles
+when resolution fails.
+
+### Drift Snapshot
+The output of `save-pkglist.sh`: a flat `pacman -Qqen` / `-Qqem` dump of what
+is explicitly installed on a running machine, stamped with a `#` header naming
+the profile and warning against replay. It is a **diff** artifact, not a
+profile source — replaying it into a profile would collapse Host Core, the
+host delta and every derived set into one host's list, undoing the layering on
+first use. Compare it against `explain-packages.sh <profile>` to find drift. A
+profile-aware version emitting only the genuine host delta is separate work.
 
 ### archzfs-Compatible ISO
 Newest archived Arch ISO (from `archive.archlinux.org`) whose kernel major.minor

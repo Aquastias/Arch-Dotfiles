@@ -213,6 +213,97 @@ write_program() {
   ! echo "$output" | grep -qx sops
 }
 
+# ── exclusivity: a name is either a Program or a package, never both ─────────
+# Replaces the promotion rule, which ran only in the guided emit path and so
+# made the same file install differently per front-end.
+
+@test "exclusivity: a repo entry naming a system Program aborts" {
+  write_program "bootloader" "grub" "true"
+  configs_build_registry
+  run validate_package_program_exclusivity \
+    '{"packages":{"repo":{"boot":["grub"]}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"grub"* ]]
+}
+
+@test "exclusivity: a repo entry naming a user Program aborts" {
+  write_program "virtualization" "docker" "false"
+  configs_build_registry
+  run validate_package_program_exclusivity \
+    '{"packages":{"repo":{"dev":["docker"]}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"docker"* ]]
+}
+
+@test "exclusivity: an aur entry naming a Program aborts too" {
+  write_program "communication" "teamspeak3" "false"
+  configs_build_registry
+  run validate_package_program_exclusivity \
+    '{"packages":{"aur":{"misc":["teamspeak3"]}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"teamspeak3"* ]]
+}
+
+@test "exclusivity: the message names the path and the correct slot" {
+  write_program "bootloader" "grub" "true"
+  write_program "virtualization" "docker" "false"
+  configs_build_registry
+
+  run validate_package_program_exclusivity \
+    '{"packages":{"repo":{"boot":["grub"]}}}' "hosts/desktop/profile.jsonc"
+  [[ "$output" == *"hosts/desktop/profile.jsonc"* ]]
+  [[ "$output" == *"packages.repo.boot"* ]]
+  [[ "$output" == *"system_programs"* ]]
+
+  run validate_package_program_exclusivity \
+    '{"packages":{"repo":{"dev":["docker"]}}}' "hosts/desktop/profile.jsonc"
+  [[ "$output" == *"packages.repo.dev"* ]]
+  [[ "$output" == *"user profile"* ]]
+}
+
+@test "exclusivity: a plain package matching no program passes" {
+  write_program "bootloader" "grub" "true"
+  configs_build_registry
+  local c='{"packages":{"repo":{"shell":["htop","fzf"]},
+             "aur":{"misc":["brave-bin"]}}}'
+  run validate_package_program_exclusivity "$c"
+  [ "$status" -eq 0 ]
+}
+
+@test "exclusivity: an empty or absent package list passes" {
+  configs_build_registry
+  run validate_package_program_exclusivity '{}'
+  [ "$status" -eq 0 ]
+  run validate_package_program_exclusivity '{"packages":{}}'
+  [ "$status" -eq 0 ]
+  run validate_package_program_exclusivity '{"packages":{"repo":{"a":[]}}}'
+  [ "$status" -eq 0 ]
+}
+
+@test "exclusivity: every violation is reported, not just the first" {
+  write_program "bootloader" "grub" "true"
+  write_program "virtualization" "docker" "false"
+  configs_build_registry
+  run validate_package_program_exclusivity \
+    '{"packages":{"repo":{"boot":["grub"],"dev":["docker"]}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"grub"* ]]
+  [[ "$output" == *"docker"* ]]
+}
+
+# The committed profiles must satisfy it — this is what caught docker,
+# virt-manager and teamspeak3 being declared as raw packages AND as Programs.
+@test "exclusivity: the real desktop and laptop profiles are clean" {
+  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  configs_build_registry
+  local h
+  for h in desktop laptop core; do
+    run validate_package_program_exclusivity \
+      "$(jsonc_strip "$OS_DIR/hosts/$h/profile.jsonc")" "hosts/$h"
+    [ "$status" -eq 0 ]
+  done
+}
+
 # ── program validation ───────────────────────────────────────────────────────
 
 @test "validate_program: accepts system program from host config" {
