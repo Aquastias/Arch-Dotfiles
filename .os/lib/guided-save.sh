@@ -26,6 +26,9 @@
 # shellcheck source=./config/emit.sh
 [[ "$(type -t guided_profile_delta)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
+# shellcheck source=./config/seed.sh
+[[ "$(type -t cfgstate_host_core)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 # shellcheck source=./config/profile.sh
 [[ "$(type -t validate_config_schema)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
@@ -41,8 +44,14 @@ guided_save_host_profile() {
           "(Save never overwrites a committed profile)."
     return 1
   fi
+  # Two reductions, in order: strip device paths (the committed artifact is
+  # device-less, ADR 0036), then subtract Host Core so the saved profile is a
+  # DELTA and stays layered (ADR 0056). Without the second, every save would
+  # bake core's whole inherited package list into the new profile and decouple
+  # it from core on the next edit.
   local delta
   delta="$(guided_profile_delta "$(cfgstate_emit "$state")")"
+  delta="$(guided_core_delta "$delta" "$(cfgstate_host_core)")"
   validate_config_schema host "$delta" || return 1
   mkdir -p "$dir"
   printf '%s\n' "$delta" > "${dir}/profile.jsonc"

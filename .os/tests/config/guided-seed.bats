@@ -11,11 +11,25 @@ setup() {
   error() { echo "[error] $*" >&2; return 1; }
   export -f error
 
+  # The baseline is LOADED from Host Core now (ADR 0058), so the seeder needs
+  # an OS_DIR to read. A representative core: one System Program, a sysctl
+  # default, and a package list — the three things that used to be invisible
+  # in the menu because they were hand-copied or not copied at all.
+  TEST_DIR="$(mktemp -d)"
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/hosts/core"
+  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+{"users":[],"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+ "packages":{"repo":{"shell":["htop"]},"aur":{"misc":["brave-bin"]}}}
+JSON
+
   # shellcheck source=../../lib/config/state.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   # shellcheck source=../../lib/config/seed.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
 }
+
+teardown() { rm -rf "$TEST_DIR"; }
 
 # ── tracer: the seeded launch state carries the default hostname ────────────
 
@@ -54,10 +68,45 @@ setup() {
 
 # ── the secure baseline is pre-ticked: firewalld + all tools on (ADR 0041) ──
 
-@test "cfgstate_seed_defaults: seeds vm.swappiness=10 (Host Core default)" {
+# ── Host Core is loaded, not hand-copied (ADR 0058) ─────────────────────────
+# `cups` installs on every host and used to appear nowhere in the menu, because
+# the seeder hand-copied a few core values rather than loading core.
+
+@test "cfgstate_seed_defaults: seeds vm.swappiness=10 from Host Core" {
   run cfgstate_seed_defaults "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
+}
+
+@test "cfgstate_seed_defaults: Host Core's system programs surface" {
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["cups"]'
+}
+
+@test "cfgstate_seed_defaults: Host Core's packages surface" {
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.packages.repo.shell == ["htop"]'
+  echo "$output" | jq -e '.packages.aur.misc == ["brave-bin"]'
+}
+
+# The ordered selections still replace whatever core declared — the baseline
+# fold is the Layer Resolver, not a blanket concat.
+@test "cfgstate_seed_defaults: a core kernel does not concat with the default" {
+  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+{"options":{"kernel":["zen"]}}
+JSON
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.options.kernel == ["lts"]'
+}
+
+@test "cfgstate_seed_defaults: with no Host Core it still seeds the defaults" {
+  rm -rf "$OS_DIR/hosts"
+  run cfgstate_seed_defaults "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
 @test "cfgstate_seed_defaults: seeds selection defaults (no field opens empty)" {
