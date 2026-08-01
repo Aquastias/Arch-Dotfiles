@@ -1,6 +1,6 @@
 # Collapse the package slots
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

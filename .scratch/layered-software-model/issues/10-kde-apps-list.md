@@ -1,6 +1,6 @@
 # KDE apps_list holds only KDE applications
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
