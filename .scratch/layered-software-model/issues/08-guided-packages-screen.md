@@ -1,6 +1,6 @@
 # Guided Packages screen
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

@@ -1,6 +1,6 @@
 # Read-only derived section
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

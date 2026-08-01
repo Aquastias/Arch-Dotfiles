@@ -1,6 +1,6 @@
 # Exclusivity validation replaces promotion
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

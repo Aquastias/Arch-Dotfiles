@@ -1,6 +1,6 @@
 # PRD: Layered software model — simplify what lands on the system
 
-Status: `ready-for-agent`
+Status: done
 
 Data annex: [CURATION.md](./CURATION.md) — the per-package layer assignments
 (141 entries) and the 22 numbered findings (R1–R22) this PRD acts on.

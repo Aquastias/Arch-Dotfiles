@@ -1,6 +1,6 @@
 # save-pkglist takes a profile name
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

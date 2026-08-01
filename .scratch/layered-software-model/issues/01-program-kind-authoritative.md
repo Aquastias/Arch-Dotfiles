@@ -1,6 +1,6 @@
 # Program kind is authoritative
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

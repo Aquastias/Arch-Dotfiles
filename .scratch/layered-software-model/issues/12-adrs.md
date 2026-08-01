@@ -1,6 +1,6 @@
 # ADRs for the layered software model
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

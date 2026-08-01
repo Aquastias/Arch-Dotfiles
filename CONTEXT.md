@@ -86,11 +86,27 @@ selectable rows under a divider; the edit-history toolbar (Undo / Redo / Reset
 field|section|all) is bound to footer keybindings, not rows. Computed defaults
 seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
 User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
-`Europe/Bucharest` / keymap `us`. A typed `packages.extra` entry that
-resolves to a `programs/<category>/<name>/` is promoted to a System Program
-(installed via the Program Runner — pacman + config + services) rather than
-pacstrapped raw; non-matching names stay plain repo packages, and on an
-ambiguous name the program wins. Mistakes
+`Europe/Bucharest` / keymap `us`. The **baseline is loaded from Host Core**
+rather than hand-copying a few of its values (ADR 0058), so everything core
+installs surfaces as a seeded-but-unmarked row — `cups` used to install on every
+host and appear nowhere. Core therefore enters the pipeline exactly once; the
+emitter does not merge it again. The **Packages** category drills `repo` →
+category → package toggles (and `aur` likewise), with three-state provenance
+reusing the override dot: checked-without-dot means inherited from core,
+checked-with-dot means added here, unchecked-with-dot means excluded. Unchecking
+an inherited package writes a `packages.exclude` entry — the only way the
+exclusion mechanism is reachable from the menu. The toggle list can offer only
+the declared union across core and the profile, so a brand-new package stays a
+free-text entry. A read-only **`derived`** section lists what the current
+Environment, Security and Backup choices pull in, grouped by source and naming
+the category that drives each, via the same [[Package Resolver]] the CLI
+inspector calls. A typed extra-packages entry is **routed by kind at entry
+time** — a system Program name to `system_programs`, a user Program name to the
+Primary User's `programs`, anything else to `packages.repo` — so what reaches
+Config State is already canonical; the old emit-path promotion rule, which made
+the same file install differently per front-end, is deleted. Save Profile writes
+a **delta over Host Core**, so a saved profile stays layered rather than
+freezing a snapshot. Mistakes
 are recoverable three ways — re-edit, **Reset** (field / section / all, the last
 itself undoable), and **Undo/Redo** over a snapshot stack. Ends in one of three
 terminal actions: **Proceed** (assemble the Effective Config in
@@ -144,9 +160,54 @@ validation before Proceed, naming the under-populated group.
 
 ### Host Core
 Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
-of users, system programs, and Sysctl Defaults shared across all hosts (never a
-package list — ADR 0007). Every Host Profile is merged with core — core is
-applied first, then the host profile adds on top.
+of users, system programs, Sysctl Defaults, **and the Host Package List** shared
+across all hosts (ADR 0056, amending ADR 0007 — whose "the lists are
+machine-specific" premise failed: `laptop` is a strict subset of `desktop`, 57
+repo packages in both and zero unique to laptop). Holds the 61 packages both
+machines share, so each Host Profile is a **delta** and `hosts/laptop` carries
+no packages block at all. Every Host Profile is resolved over core by the
+[[Layer Resolver]] — core applies first, then the host profile per the ADR 0057
+per-key classification. A host drops something core declares via
+`packages.exclude[]` or `system_programs_exclude[]`; the three VM fixtures opt
+out of the inherited package set wholesale with `packages.inherit: false`
+(scoped to packages — they still inherit core's users and sysctl). Also the
+Guided Installer's menu baseline (ADR 0058), so everything core installs is
+visible and deselectable in the menu.
+
+### Layer Resolver
+`.os/lib/config/layer-resolver.sh`. The pure module answering "given Host Core
+and a host profile, what is the effective set?" — and the same for User Core and
+a user profile. Resolution is **per-key**, classified by unordered set versus
+ordered selection (ADR 0057): *additive* keys concat + dedupe and `exclude`
+subtracts (`packages.repo.*`, `packages.aur.*`, `system_programs`, `users`,
+`persist.*`, `sysctl`, and user-side `groups`/`programs`/`ssh_authorized_keys`);
+*replace* keys are overwritten wholesale by the later layer (`options.kernel`,
+`system.locale`/`keymap`, `environment.desktop`/`gpu`,
+`options.mirror_countries`, `storage_groups[]`, `data_pools[]`, every scalar).
+Anything not listed additive is replaced, so a new key cannot start
+concatenating by accident. Layers fold in order and the **last layer wins**, so
+a host may re-add something a lower layer excluded; exclusions apply from the
+upper layer only. `packages.inherit: false` is applied before the fold. The
+control keys are stripped from the output — they instruct the resolver and must
+never reach a consumer. Pure: JSON in, JSON out, no filesystem, no TTY, so the
+layering contract is testable without a VM. Replaces the two divergent merge
+rules that were in use (concatenation in config load, replacement in the guided
+view), **both** of which were load-bearing where they were.
+
+### Package Resolver
+`.os/lib/packages/resolver.sh`. The pure module answering "what actually lands
+on this machine?" — an Effective Config in, every package out, each tagged with
+its **source** and **layer** (`authored` or `derived`). Covers the authored
+slots, the [[Base Package List]], and every derived set: kernel and headers,
+bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
+shells, the Plasma shell, KDE applications, KDE AUR, Security & Backup Extras,
+and secrets-activated `sops`. Every input is declarative, so it makes **no
+pacman query and no network call** and stays deterministic and testable
+headless. Eighteen distinct paths put a package on the system and only five are
+authored — the answer is not fewer paths but a way to *query* the result.
+Consumed by `tools/explain-packages.sh`, the Guided Installer's read-only
+`derived` section, and the real-profile regression tests, so those three cannot
+drift. Excluded packages are reported separately by `pkgres_excluded`.
 
 ### User Profile
 Declarative JSONC file at `.os/users/<username>/profile.jsonc` (renamed from
@@ -206,8 +267,21 @@ left with an unusable login shell (ADR 0054).
 ### User Core
 Declarative JSONC file at `.os/users/core/profile.jsonc`. Declares the base set
 of programs, shell defaults, groups, and House Defaults shared across all users.
-Every User Profile is merged with core — core is applied first, then the user
-profile adds on top.
+Every User Profile is resolved over core by the [[Layer Resolver]] — core
+applies first, then the user profile per the ADR 0057 per-key classification
+(`groups`/`programs`/`ssh_authorized_keys` additive; `shell`/`sudo`/
+`user_services` replace). A user drops something core declares via
+`programs_exclude[]`; the two throwaway VM test users use it for `docker` and
+`virt-manager`.
+
+The default `shell` is **`/bin/zsh`**: the entire tracked shell payload is zsh
+(18 files under `.zsh/` plus `.zshrc`, `.zshenv`, `.zprofile`, `.zsh_aliases`,
+`.p10k.zsh`) while `.bashrc`/`.bash_profile`/`.profile` are untracked, so a bash
+default landed a fresh install in a shell whose stowed config never loaded. Root
+stays `/bin/bash` (see [[Root Shell]]). Neither `zsh` nor `zinit` is declared as
+a package: `ensure_login_shell_installed` pacman-installs a user's login shell
+when the binary is missing, and the zinit config git-clones itself on first
+interactive shell — which means the first login after install needs network.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in
@@ -230,9 +304,26 @@ logic.
 A program that requires root and is installed via pacman during the chroot
 phase. Declared in a Host Profile or Host Core. Marked `"system": true` in its
 program config. Only official repo packages (no AUR) should be system programs.
-One documented exception to the "declared" rule: the sops Program is
-secrets-activated, not declared — the Runner selects it implicitly when
-install-state records secrets (see SOPS Runtime Service, ADR 0025).
+Today exactly three qualify: `grub`, `cups`, `sops`. One documented exception to
+the "declared" rule: the sops Program is secrets-activated, not declared — the
+Runner selects it implicitly when install-state records secrets (see SOPS
+Runtime Service, ADR 0025).
+
+The `system` flag is carried by the [[Program Registry]] and is
+**authoritative** (ADR 0058): a program's name resolves to exactly one kind,
+and that kind decides which slot may declare it. The Guided Installer's host
+`system_programs` picker offers only `system: true` programs and the User
+Editor's `programs` picker only
+`system: false` ones — one unfiltered list used to feed both, so the host side
+could build a config that failed validation at Proceed.
+
+### Program Registry
+The in-memory index built once per run by `configs_build_registry`
+(`lib/config/layers.sh`), mapping each program name to its `category/name` path
+**and** its `system` flag. Exposes `program_kind <name>` → `system` | `user` |
+`none`, and `program_names_of_kind <kind>`. Backs the exclusivity validator,
+both Guided Installer program pickers, and the [[Package Resolver]], so a menu
+render never re-parses fifteen `config.jsonc` files.
 
 ### User Program
 A program installed for a specific user via the AUR Helper inside the chroot.
@@ -490,8 +581,12 @@ ESP Kernel Sync.
 The `"environment"` key in the Host Profile. Declares desktop environment
 selection and GPU driver selection. Audio is not declared — it is auto-derived
 (PipeWire when any desktop is selected, omitted for server installs). Processed
-at config-load time; populates `packages.groups.gpu` and `packages.groups.audio`
-before pacstrap. Valid desktop values: `"kde"` (the sole supported desktop —
+at config-load time; resolves into the derived `GPU_PACMAN_PACKAGES` and
+`AUDIO_PACKAGES` sets before pacstrap. These are internal, never authorable —
+they used to share the `packages.groups` namespace, which made a derived set
+look like something the operator declares; that key is gone and authoring it
+aborts at load (ADR 0056). Valid desktop values: `"kde"` (the sole supported
+desktop —
 still array-shaped so a future DE stays zero-runner-change, ADR 0005/0050).
 Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
 "nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous
@@ -529,8 +624,8 @@ a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor
 drivers; they no longer add `envycontrol` — the deterministic hybrid config is
 owned by the chroot GPU Configuration Module (see GPU Hardening, ADR 0053). The
 resolved vendor list is also threaded into install-state (`.gpu`) so the chroot
-can decide whether to harden. Resolved packages populate `packages.groups.gpu`
-before pacstrap.
+can decide whether to harden. Resolved packages populate the derived
+`GPU_PACMAN_PACKAGES` set before pacstrap.
 
 Vendor → package mapping:
 - `"amd"` → `vulkan-radeon xf86-video-amdgpu mesa libva-mesa-driver`
@@ -619,25 +714,51 @@ The hardcoded set pacstrapped onto every host regardless of config, defined in
 `lib/packages/list.sh:collect_packages` (e.g. `base`, `base-devel`, the selected
 kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`,
 `zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`,
-`vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `man-db`, `cronie`). The
-**only** cross-host package base — Host Core carries no package list. A Host
-Package List is deduplicated against it at install time. Universal
-infrastructure daemons whose package lives here (NetworkManager, cron) are
-enabled by the Chroot Configuration Module, not by a Program (ADR 0026).
+`vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `stow`, `man-db`,
+`cronie`). What the **installer itself** needs, as distinct from the [[Host
+Package List]] in Host Core, which is what this *fleet* wants — the two are
+different layers, not competing ones. A Host Package List is deduplicated
+against it at install time. `stow` belongs here because the Runner invokes it
+unconditionally for every user during the dotfiles step, yet no layer guaranteed
+it — only the two host profiles happened to declare it, so every VM fixture hit
+`stow: command not found`. Universal infrastructure daemons whose package lives
+here (NetworkManager, cron) are enabled by the Chroot Configuration Module, not
+by a Program (ADR 0026).
+
+`collect_packages` reads `packages.repo` from the **Effective Config**, not by
+re-loading a committed profile keyed on hostname: the guided and inline-config
+front-ends have no `hosts/<hostname>/` directory to re-read, so anything they
+authored was silently dropped.
 
 ### Host Package List
-`packages` object in a Host Profile with two fields: `repo` (official-repo
-packages installed via pacstrap) and `aur` (AUR packages installed via paru for
-the primary user). `repo` is a 2-level categorized object — kebab-case category
-keys mapped to string arrays — flattened to a sorted-unique list by the
-Categorized List Parser at install time. Categories are cosmetic; renaming
-`media` to `multimedia` does not change what installs. Shape, leaf-type, or
-category-name violations abort at config-load with the offending path. `aur` is
-likewise a Categorized List (the categorized shape landed — e.g. `{ "misc":
-[...] }`). Declared in the host-specific Host Profile — not in Host Core —
-because the list differs per machine. Deduplicated against base packages by the
-installer. AUR packages are installed once for the system via the first declared
-user's paru instance before any user programs run.
+`packages` object in Host Core or a Host Profile with two authored fields:
+`repo` (official-repo packages installed via pacstrap) and `aur` (AUR packages
+installed via paru for the Primary User). Both are 2-level categorized objects —
+kebab-case category keys mapped to string arrays — flattened to a sorted-unique
+list by the Categorized List Parser at install time. Categories are cosmetic;
+renaming `media` to `multimedia` does not change what installs. Shape,
+leaf-type, or category-name violations abort at config-load with the offending
+path. Declared in **Host Core** for what every machine shares and in a Host
+Profile for that machine's delta (ADR 0056). Deduplicated against base packages
+by the installer. AUR packages are installed once for the system via the first
+declared user's paru instance before any user programs run.
+
+`repo` and `aur` are the **only** authored repo/AUR slots. `packages.extra[]`
+(which was `repo` without a category) and `packages.groups.*[]` (used by no
+profile, and sharing a namespace with the internal GPU/audio buckets) were
+removed and now abort at load as unknown keys. The routing rule is mechanical:
+*does the name resolve to a Program directory?* — yes and `system: true` → host
+`system_programs`; yes and `system: false` → user `programs`; no →
+`packages.repo` or `packages.aur`. A name is **either a Program or a package,
+never both**: an overlap aborts at config load naming the path and the correct
+slot (ADR 0058),
+which replaced a promotion rule that ran only in the Guided Installer's emit
+path and so made the same file install differently per front-end.
+
+Three control keys accompany the authored slots, consumed by the [[Layer
+Resolver]] and stripped from the resolved output: `packages.exclude[]` and
+`system_programs_exclude[]` on a host profile, `programs_exclude[]` on a user
+profile, and `packages.inherit` (bool, default true) scoped to packages only.
 
 ### Sysctl Defaults
 `sysctl` object in Host Core (or a host-specific Host Profile), containing
@@ -995,12 +1116,17 @@ on demand, never committed.
 
 ## Flagged ambiguities
 
-- "base packages" vs "core packages" — resolved: the **Base Package List**
-  (hardcoded in `lib/packages/list.sh`) is the only shared package base. **Host
-  Core** carries **no** `packages` object — only `system_programs` and `sysctl`;
-  package lists live per-host (ADR 0007). The ADR 0021 clause placing
-  `extra-cmake-modules` in Host Core is withdrawn (see ADR 0021 amendment); ECM
-  is dropped entirely since paru resolves makedepends at build time.
+- "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now
+  two shared bases and they are different layers, not competitors. The **Base
+  Package List** (hardcoded in `lib/packages/list.sh`) is what the *installer*
+  needs on any host it builds. **Host Core**'s `packages` object is what this
+  *fleet* wants on every real machine. ADR 0007's rule that Host Core carries no
+  package list is **superseded**: its "the lists are machine-specific" premise
+  failed against the actual fleet (`laptop` is a strict subset of `desktop`).
+  A VM fixture takes the first and opts out of the second via
+  `packages.inherit: false`. The ADR 0021 clause placing `extra-cmake-modules`
+  in Host Core is withdrawn (see ADR 0021 amendment); ECM is dropped entirely
+  since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
   Host Profile (ADR 0021). KDE is the only such adapter (Hyprland removed,

@@ -1,6 +1,6 @@
 # Host Core carries packages; apply the curation
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
