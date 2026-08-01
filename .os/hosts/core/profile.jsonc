@@ -1,11 +1,118 @@
-// Host Core profile — base layer merged under every host profile.jsonc
-// (ADR 0036). Defines the shared software base: users, System Programs,
-// and Sysctl Defaults (per ADR 0007 — never a package list). Lists
-// concat+dedupe with the host profile; scalars host-wins.
+// Host Core profile — the base layer every host profile.jsonc is resolved
+// over (ADR 0036, ADR 0056). Declares the shared software base: users, System
+// Programs, Sysctl Defaults, AND the Host Package List both real machines
+// share.
+//
+// Carrying packages here amends ADR 0007, whose "the lists are
+// machine-specific" premise no longer holds: `laptop` is a strict subset of
+// `desktop` (57 repo packages in both, zero unique to laptop), so the shared
+// base is real. `hosts/laptop` consequently carries no packages block at all.
+//
+// The three VM fixtures opt out with `packages.inherit: false` (packages
+// only — they still inherit these users and sysctl), so core is free to hold
+// the full workstation userland without bloating a test install.
+//
+// Resolution is per-key (ADR 0057): packages/system_programs/users/sysctl are
+// additive, ordered selections (kernel, locale, desktop) are replaced. A host
+// drops something core declares via `packages.exclude` /
+// `system_programs_exclude`.
 {
   "users": [],
   "system_programs": ["cups"],
   "sysctl": {
     "vm.swappiness": 10
+  },
+  "packages": {
+    "repo": {
+      "system": [
+        "fwupd",
+        "logrotate",
+        "lsb-release",
+        "pacmanlogviewer",
+        "reflector",
+        "sbctl",
+        "smartmontools",
+        "sof-firmware"
+      ],
+      "filesystems": [
+        "exfatprogs",
+        "f2fs-tools",
+        "lvm2"
+      ],
+      "network": [
+        "iwd",
+        "network-manager-applet",
+        "openbsd-netcat",
+        "wget"
+      ],
+      "shell": [
+        "bc",
+        "btop",
+        "eza",
+        "fd",
+        "fzf",
+        "htop",
+        "inxi",
+        "kitty",
+        "lazygit",
+        "lynx",
+        "nano",
+        "parallel",
+        "yazi",
+        "zoxide"
+      ],
+      "editors": [
+        "neovide",
+        "neovim"
+      ],
+      "dev": [
+        "ccache",
+        "nvm"
+      ],
+      "browsers": [
+        "firefox"
+      ],
+      "media": [
+        "gimp",
+        "imagemagick",
+        "pavucontrol",
+        "speech-dispatcher",
+        "vlc"
+      ],
+      "communication": [
+        "discord"
+      ],
+      "gaming": [
+        "gamemode",
+        "lib32-gamemode",
+        "steam"
+      ],
+      "archive": [
+        "7zip",
+        "arj",
+        "lhasa",
+        "unace",
+        "unarj",
+        "unrar",
+        "unzip",
+        "zip"
+      ],
+      "fonts": [
+        "noto-fonts-cjk",
+        "noto-fonts-extra",
+        "ttf-fira-code",
+        "ttf-sazanami"
+      ]
+    },
+    "aur": {
+      "misc": [
+        "ani-cli-git",
+        "octopi",
+        "ttf-ms-fonts",
+        "vscodium-bin",
+        "vscodium-marketplace",
+        "zen-browser-bin"
+      ]
+    }
   }
 }

@@ -115,15 +115,18 @@ _adapter() {
 
 @test "steam-native-runtime is not declared in any host packages.aur" {
   local h
-  for h in desktop laptop; do
+  for h in core desktop laptop; do
     ! grep -q '"steam-native-runtime"' \
       "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
   done
 }
 
-@test "each host still declares repo steam in packages.repo" {
+# steam is shared by both machines, so it lives in Host Core now (ADR 0056);
+# the hosts inherit it rather than each declaring it.
+@test "repo steam is declared once, in Host Core" {
+  grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
   local h
   for h in desktop laptop; do
-    grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+    ! grep -q '"steam"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
   done
 }

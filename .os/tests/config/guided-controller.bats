@@ -999,7 +999,7 @@ _seed_baseline() {
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
   echo "$output" | grep -qx "root password: default 12345"
-  echo "$output" | grep -q "^aquastias — bash · pw default 12345"
+  echo "$output" | grep -q "^aquastias — zsh · pw default 12345"
   echo "$output" | grep -qE '^ +password \(aquastias\): default 12345$'
 }
 
@@ -1264,7 +1264,7 @@ _seed_baseline() {
   set_nav "$(nav_to_useredit Users dave)"
   run guided_ctl_list
   ! echo "$output" | grep -q "enabled:"        # ad-hoc → no enabled
-  echo "$output" | grep -q "shell: bash"       # default
+  echo "$output" | grep -q "shell: zsh"        # User Core default
   echo "$output" | grep -q "✗ remove user"
 }
 
@@ -1343,9 +1343,9 @@ _seed_baseline() {
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","carol"]' ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "carol" ]
-  # seeded with the create defaults: bash / sudo on / wheel
+  # seeded with the create defaults: User Core shell / sudo on / wheel
   [ "$(jq -c '.carol' "$GUIDED_USERFORMS_FILE")" \
-    = '{"shell":"/bin/bash","sudo":true,"groups":["wheel"]}' ]
+    = '{"shell":"/bin/zsh","sudo":true,"groups":["wheel"]}' ]
 }
 
 @test "enter(text __newuser__): a duplicate name is refused with a notice" {

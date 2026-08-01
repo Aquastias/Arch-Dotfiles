@@ -14,11 +14,15 @@ teardown() {
   rm -rf "$TEST_DIR"
 }
 
-# ── real Host Core conforms to ADR 0007 (no Host Package List in core) ────────
+# ── real Host Core carries the shared package base (ADR 0056) ───────────────
+# Amends ADR 0007, whose "the lists are machine-specific" premise no longer
+# holds. The end-to-end resolution of the committed profiles lives in
+# tests/config/layered-profiles.bats; these are the file-shape invariants.
 
-@test "real host core declares no packages object (ADR 0007)" {
+@test "real host core declares a packages object (ADR 0056)" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  jsonc_strip "$core" | jq -e '.packages == null'
+  jsonc_strip "$core" | jq -e '.packages.repo | type == "object"'
+  jsonc_strip "$core" | jq -e '.packages.aur  | type == "object"'
 }
 
 @test "real host core system_programs is exactly [cups]" {
@@ -26,101 +30,66 @@ teardown() {
   jsonc_strip "$core" | jq -e '.system_programs == ["cups"]'
 }
 
-# ── real Host Profiles are deduped vs Base/adapters/User Programs (issue 04) ──
-# Every package an essentials script, a Bootloader/DE Adapter, the paru
-# bootstrap, or a User Program already installs must NOT be re-declared in a
-# Host Profile. These guards read the real desktop/laptop profiles.
+# The confirmation that two layers fit this fleet: laptop is a strict subset
+# of desktop, so everything it wants is core and it declares nothing.
+@test "hosts/laptop carries no packages block at all" {
+  local lap="$BATS_TEST_DIRNAME/../../hosts/laptop/profile.jsonc"
+  jsonc_strip "$lap" | jq -e '.packages == null'
+}
 
-DESKTOP_CFG="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-LAPTOP_CFG="$BATS_TEST_DIRNAME/../../hosts/laptop/profile.jsonc"
+@test "desktop declares only a delta, not the full list" {
+  local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
+  local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
+  local n_desk n_core
+  n_desk="$(jsonc_strip "$desk" \
+    | jq '[.packages.repo, .packages.aur | to_entries[].value[]] | length')"
+  n_core="$(jsonc_strip "$core" \
+    | jq '[.packages.repo, .packages.aur | to_entries[].value[]] | length')"
+  [ "$n_desk" -lt "$n_core" ]
+}
 
-_repo_pkgs() { jsonc_strip "$1" | jq -r '.packages.repo | to_entries[].value[]'; }
-_repo_cats() { jsonc_strip "$1" | jq -r '.packages.repo | keys[]'; }
-_aur_pkgs()  { jsonc_strip "$1" | jq -r '.packages.aur  | to_entries[].value[]'; }
-
-# Packages owned elsewhere — none may appear in any Host Profile packages.repo.
-_assert_no_duplicates() {
-  local pkgs; pkgs="$(_repo_pkgs "$1")"
-  local p
-  for p in base base-devel amd-ucode efibootmgr linux-firmware man-db \
-           dosfstools networkmanager jq vim git cronie grub os-prober \
-           timeshift kimageformats5 extra-cmake-modules apparmor clamav \
-           rkhunter unhide xorg-xinit; do
-    if grep -qx "$p" <<< "$pkgs"; then
-      echo "leftover duplicate package: $p"
-      return 1
-    fi
+# The three VM fixtures opt out of core's packages wholesale rather than
+# maintaining an exclude list that would grow every time core does.
+@test "the three VM fixtures declare packages.inherit false" {
+  local h
+  for h in arch-data arch-kde arch-secure; do
+    jsonc_strip "$BATS_TEST_DIRNAME/../../hosts/vm/$h/profile.jsonc" \
+      | jq -e '.packages.inherit == false'
   done
 }
 
-@test "desktop repo declares no Base/adapter/User-Program duplicates" {
-  _assert_no_duplicates "$DESKTOP_CFG"
-}
-
-@test "laptop repo declares no Base/adapter/User-Program duplicates" {
-  _assert_no_duplicates "$LAPTOP_CFG"
-}
-
-@test "desktop repo adds parallel; keeps xdg-utils + qt-wayland + papirus" {
-  local pkgs; pkgs="$(_repo_pkgs "$DESKTOP_CFG")"
-  grep -qx "parallel"           <<< "$pkgs"
-  grep -qx "xdg-utils"          <<< "$pkgs"
-  grep -qx "qt5-wayland"        <<< "$pkgs"
-  grep -qx "qt6-wayland"        <<< "$pkgs"
-  grep -qx "papirus-icon-theme" <<< "$pkgs"
-}
-
-@test "laptop repo adds parallel; keeps xdg-utils + qt5-wayland" {
-  local pkgs; pkgs="$(_repo_pkgs "$LAPTOP_CFG")"
-  grep -qx "parallel"    <<< "$pkgs"
-  grep -qx "xdg-utils"   <<< "$pkgs"
-  grep -qx "qt5-wayland" <<< "$pkgs"
-}
-
-@test "desktop+laptop repo group residual generals under 'desktop' category" {
-  local f
-  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
-    local cats; cats="$(_repo_cats "$f")"
-    grep -qx "desktop"    <<< "$cats"
-    ! grep -qx "qt-and-kde" <<< "$cats"
-    ! grep -qx "hyprland"   <<< "$cats"
+@test "users/core declares its programs; the test users exclude them" {
+  local ucore="$BATS_TEST_DIRNAME/../../users/core/profile.jsonc"
+  jsonc_strip "$ucore" | jq -e '.programs == ["docker","virt-manager"]'
+  jsonc_strip "$ucore" | jq -e '.shell == "/bin/zsh"'
+  local u
+  for u in vm-test vm-data; do
+    jsonc_strip "$BATS_TEST_DIRNAME/../../users/$u/profile.jsonc" \
+      | jq -e '.programs_exclude == ["docker","virt-manager"]'
   done
 }
 
-@test "desktop+laptop repo declares no sops/age (ADR 0025 owns them)" {
-  local f
-  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
-    local pkgs; pkgs="$(_repo_pkgs "$f")"
-    ! grep -qx "sops" <<< "$pkgs"
-    ! grep -qx "age"  <<< "$pkgs"
-  done
-}
-
-@test "desktop+laptop aur drops bootstrapped paru and clamav companion" {
-  local f
-  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
-    local aur; aur="$(_aur_pkgs "$f")"
-    ! grep -qx "paru"                  <<< "$aur"
-    ! grep -qx "clamav-unofficial-sigs" <<< "$aur"
+@test "real desktop packages.repo/aur parse as Categorized Lists" {
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
+  local f slot
+  for f in "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc" \
+           "$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"; do
+    for slot in repo aur; do
+      local j; j="$(jsonc_strip "$f" | jq -c ".packages.$slot")"
+      run categorized_list_parse "$j" string "packages.$slot"
+      [ "$status" -eq 0 ]
+    done
   done
 }
 
 @test "desktop keeps system_programs [grub] with no grub/os-prober package" {
-  jsonc_strip "$DESKTOP_CFG" | jq -e '.system_programs == ["grub"]'
-  local pkgs; pkgs="$(_repo_pkgs "$DESKTOP_CFG")"
+  local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
+  jsonc_strip "$desk" | jq -e '.system_programs == ["grub"]'
+  local pkgs
+  pkgs="$(jsonc_strip "$desk" | jq -r '.packages.repo | to_entries[].value[]')"
   ! grep -qx "grub"      <<< "$pkgs"
   ! grep -qx "os-prober" <<< "$pkgs"
-}
-
-@test "real desktop+laptop packages.repo parse as Categorized Lists" {
-  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
-  local f
-  for f in "$DESKTOP_CFG" "$LAPTOP_CFG"; do
-    local repo; repo="$(jsonc_strip "$f" | jq -c '.packages.repo')"
-    run categorized_list_parse "$repo" string packages.repo
-    [ "$status" -eq 0 ]
-  done
 }
 
 # ── program resolution ───────────────────────────────────────────────────────

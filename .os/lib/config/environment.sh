@@ -123,7 +123,13 @@ _resolve_env_gpu() {
 _resolve_env_audio() {
   AUDIO_PACKAGES=()
   [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]] && return 0
-  local _pipewire=(pipewire pipewire-pulse pipewire-alsa wireplumber)
+  # The last three were declared by hand in the host profiles alongside the
+  # set the installer already derived — so they were not misplaced across
+  # layers so much as they should never have been declared at all (R11).
+  local _pipewire=(
+    pipewire pipewire-pulse pipewire-alsa wireplumber
+    gst-plugin-pipewire pipewire-jack libpulse
+  )
   AUDIO_PACKAGES=("${_pipewire[@]}")
 }
 

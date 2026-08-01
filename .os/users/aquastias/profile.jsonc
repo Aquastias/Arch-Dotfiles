@@ -1,16 +1,18 @@
-// User Profile for `aquastias` (ADR 0036). Merged under
+// User Profile for `aquastias` (ADR 0036). Resolved over
 // users/core/profile.jsonc. Renamed from config.jsonc in step with the host
 // profiles — profile = a user, config = a program spec.
+//
+// No `shell`: User Core's /bin/zsh is the default now that the tracked shell
+// payload is entirely zsh, so declaring bash here would land this user in a
+// shell whose stowed config never loads. `docker` and `virt-manager` are
+// likewise inherited from User Core rather than restated.
 {
-  "shell": "/bin/bash",
   "sudo": true,
   "groups": ["docker", "libvirt", "kvm"],
   // Security & Backup Extras (firewalld / apparmor / clamav / rkhunter) are no
   // longer hard-pinned here — they are host-owned post_install selections
   // installed via this user's paru pass (ADR 0041).
   "programs": [
-    "docker",
-    "virt-manager",
     "teamspeak3",
     "podman",
     "searxng"

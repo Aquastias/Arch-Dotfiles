@@ -1,11 +1,23 @@
-// User Core profile — base layer merged under every user profile.jsonc
-// (ADR 0036). Mirrors users/core/config.jsonc: lists concat+dedupe with the
-// user profile, scalars user-wins. Coexists with the legacy core config.jsonc
-// during the migration; both produce the same effective user base.
+// User Core profile — the base layer every user profile.jsonc is resolved
+// over (ADR 0036, ADR 0057). Lists concat+dedupe with the user profile;
+// scalars user-wins. A user drops something declared here via
+// `programs_exclude`.
+//
+// `shell` is /bin/zsh: the entire tracked shell payload is zsh (18 files under
+// .zsh/ plus .zshrc, .zshenv, .zprofile, .zsh_aliases, .p10k.zsh), while
+// .bashrc/.bash_profile/.profile are untracked — so a bash default landed a
+// fresh install in a shell whose stowed config never loaded. The zsh package
+// itself is NOT declared: ensure_login_shell_installed pacman-installs a
+// user's login shell when the binary is missing. Root stays /bin/bash
+// (ADR 0054, options.root_shell).
+//
+// `programs` is the standard tooling every real user gets. The two VM test
+// users exclude both — they exercise the system install path, not user
+// program installs.
 {
-  "shell": "/bin/bash",
+  "shell": "/bin/zsh",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network"],
-  "programs": [],
+  "programs": ["docker", "virt-manager"],
   "ssh_authorized_keys": []
 }

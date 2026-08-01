@@ -7,5 +7,10 @@
   "sudo":  true,
   "groups": [],
   "programs": [],
+  // User Core declares docker + virt-manager for every real user; this
+  // throwaway excludes both so the install stays focused on data-pool
+  // ownership,
+  // not user program installs (ADR 0057).
+  "programs_exclude": ["docker", "virt-manager"],
   "ssh_authorized_keys": []
 }
