@@ -85,27 +85,38 @@ _adapter() {
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
 }
 
-# ── octopi is KDE-adapter-owned, not host-declared (PRD story 21) ───────────
+# ── the adapter's aur list is DE-tied theming, not a pacman frontend (R21) ──
+# octopi went the other way: it is a third-party Qt pacman GUI, not KDE, so it
+# moved OUT of the adapter into Host Core. qt6ct-kde moved IN, off the host
+# profiles, because it is DE-tied and should not install on a non-KDE host.
 
-@test "octopi resolves under kde via the real adapter" {
+@test "qt6ct-kde resolves under kde via the real adapter" {
   OS_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
   run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
-  grep -qx "octopi" <<< "$output"
+  grep -qx "qt6ct-kde" <<< "$output"
 }
 
-@test "octopi is no longer declared in any host packages.aur" {
-  local h
-  for h in desktop laptop; do
-    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
-  done
-}
-
-@test "octopi does not resolve under a non-kde DE" {
+@test "qt6ct-kde does not resolve under a non-kde DE" {
   OS_DIR="$BATS_TEST_DIRNAME/../.."
   run _profiles_resolve_aur '{}' nonexistent-de
   [ "$status" -eq 0 ]
+  ! grep -qx "qt6ct-kde" <<< "$output"
+}
+
+@test "qt6ct-kde is no longer declared in any host packages.aur" {
+  local h
+  for h in core desktop laptop; do
+    ! grep -q '"qt6ct-kde"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+  done
+}
+
+@test "octopi is host-declared now, not adapter-owned" {
+  OS_DIR="$BATS_TEST_DIRNAME/../.."
+  run _profiles_resolve_aur '{}' kde
+  [ "$status" -eq 0 ]
   ! grep -qx "octopi" <<< "$output"
+  grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
 }
 
 # ── steam: repo package, not AUR steam-native-runtime (libjpeg6 conflict) ────

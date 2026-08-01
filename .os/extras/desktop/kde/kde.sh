@@ -35,13 +35,24 @@ if [[ "$do_shell" == "true" ]]; then
   # SDDM offers Wayland only. On GPUs where kwin_wayland can't take over the
   # display (e.g. amdgpu atomic-commit regressions), that leaves a black screen
   # at login with no fallback. Install it so an X11 session is always available.
+  #
+  # The trailing group is DE-tied but NOT applications, so it belongs here
+  # rather than in apps_list (ADR 0021, R10/R21): sddm-kcm is a config module
+  # and is not in plasma-meta; the wayland/portal/icon pieces were declared by
+  # hand in the host profiles, where they installed even on a host that never
+  # selected KDE.
   pacman -S --noconfirm --needed \
     plasma-meta \
     plasma-workspace \
     plasma-x11-session \
     polkit-kde-agent \
     sddm \
-    print-manager
+    sddm-kcm \
+    print-manager \
+    papirus-icon-theme \
+    qt5-wayland \
+    qt6-wayland \
+    xdg-utils
 
   systemctl enable sddm
   info "Plasma shell installed. SDDM enabled."
