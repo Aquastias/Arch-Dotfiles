@@ -1,6 +1,6 @@
 # Guided Encryption Editor + 8-char default disk passphrase
 
-Status: ready-for-agent
+Status: done
 
 ADR: docs/adr/0059-guided-encryption-editor.md
 
