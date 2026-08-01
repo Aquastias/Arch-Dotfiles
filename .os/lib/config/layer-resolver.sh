@@ -103,6 +103,70 @@ layer_resolve() {
 layer_resolve_host() { layer_resolve host "$1" "$2"; }
 layer_resolve_user() { layer_resolve user "$1" "$2"; }
 
+# layer_jq_prelude — the shared jq defs every fold and its inverse needs, so the
+# classification predicate has ONE implementation. `guided_core_delta` (the Save
+# path) is the inverse of _layer_fold_one and must classify keys identically;
+# duplicating `is_additive` there would let the two drift silently.
+# Expects an $additive binding in the caller's jq invocation.
+layer_jq_prelude() {
+  cat <<'JQ'
+    def odedup: reduce .[] as $x ([];
+      if any(.[]; . == $x) then . else . + [$x] end);
+
+    # Is <path> (an array of key strings) an additive key? A trailing "*" in a
+    # pattern matches exactly one further segment, so "packages.repo.*"
+    # matches ["packages","repo","<any category>"].
+    def is_additive($path):
+      ($path | join(".")) as $flat
+      | any($additive[];
+          . as $pat
+          | if ($pat | endswith(".*"))
+            then ($pat | rtrimstr(".*")) as $stem
+              | ($path | length) == (($stem | split(".")) | length) + 1
+                and ($flat | startswith($stem + "."))
+            else . == $flat
+            end);
+JQ
+}
+
+# layer_additive_json <host|user> — the classification table as a JSON array,
+# ready to pass as --argjson additive.
+layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
+
+# layer_apply_exclusions <config> — apply a config's OWN packages.exclude /
+# system_programs_exclude to itself, then strip the control keys.
+#
+# The Guided Installer's Effective Config needs this: its Config State carries
+# the exclude entries the Packages screen writes, but it never goes through a
+# layer fold (Host Core is already in the baseline), so without this an
+# unchecked package would be written to the config and installed anyway.
+layer_apply_exclusions() {
+  jq '
+    (.packages.exclude // []) as $pkg_excl
+    | (.system_programs_exclude // []) as $sys_excl
+    | (if (.packages.repo // null) != null
+       then .packages.repo |= with_entries(
+              .value |= (if type == "array"
+                         then map(select(. as $p | $pkg_excl | index($p) | not))
+                         else . end))
+       else . end)
+    | (if (.packages.aur // null) != null
+       then .packages.aur |= with_entries(
+              .value |= (if type == "array"
+                         then map(select(. as $p | $pkg_excl | index($p) | not))
+                         else . end))
+       else . end)
+    | (if (.system_programs // null) != null
+       then .system_programs |=
+              map(select(. as $p | $sys_excl | index($p) | not))
+       else . end)
+    | del(.packages.exclude)
+    | del(.packages.inherit)
+    | del(.system_programs_exclude)
+    | if (.packages // null) == {} then del(.packages) else . end
+  ' <<<"$1"
+}
+
 # _layer_fold_one <lower> <upper> <additive-paths-json> — one layer over one.
 #
 # Order of operations matters and is deliberate:
@@ -122,24 +186,7 @@ _layer_fold_one() {
   jq -n \
     --argjson lower "$lower" \
     --argjson upper "$upper" \
-    --argjson additive "$additive" '
-    def odedup: reduce .[] as $x ([];
-      if any(.[]; . == $x) then . else . + [$x] end);
-
-    # Is <path> (an array of key strings) an additive key? A trailing "*" in a
-    # pattern matches exactly one further segment, so "packages.repo.*"
-    # matches ["packages","repo","<any category>"].
-    def is_additive($path):
-      ($path | join(".")) as $flat
-      | any($additive[];
-          . as $pat
-          | if ($pat | endswith(".*"))
-            then ($pat | rtrimstr(".*")) as $stem
-              | ($path | length) == (($stem | split(".")) | length) + 1
-                and ($flat | startswith($stem + "."))
-            else . == $flat
-            end);
-
+    --argjson additive "$additive" "$(layer_jq_prelude)"'
     def merge($a; $b; $path):
       if   ($a == null) then $b
       elif ($b == null) then $a

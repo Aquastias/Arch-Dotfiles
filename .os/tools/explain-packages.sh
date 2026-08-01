@@ -53,7 +53,16 @@ if ! effective="$(load_profile "$profile" 2>/dev/null)"; then
 fi
 
 resolved="$(pkgres_resolve "$effective")"
-excluded="$(pkgres_excluded "$effective")"
+unresolved="$(pkgres_unresolved "$effective")"
+
+# Exclusions are read from the AUTHORED profile, not the resolved one: the
+# Layer Resolver applies packages.exclude and then strips the key, so by the
+# time a config is resolved there is nothing left to report. Reading the
+# committed file is what lets the operator confirm an exclusion took effect.
+authored="$(jsonc_strip "${OS_DIR}/hosts/${profile}/profile.jsonc" 2>/dev/null \
+  || jsonc_strip "${OS_DIR}/hosts/vm/${profile}/profile.jsonc" 2>/dev/null \
+  || printf '{}')"
+excluded="$(pkgres_excluded "$authored")"
 
 case "$mode" in
 --flat)
@@ -73,9 +82,11 @@ printf '  %s\n\n' "$(printf '─%.0s' {1..60})"
 # Group by source, in the resolver's declared order, so the report reads the
 # same way every time.
 while IFS= read -r src; do
-  pkgs="$(awk -F'\t' -v s="$src" '$1 == s { print $3 }' <<<"$resolved" | sort -u)"
+  pkgs="$(awk -F'\t' -v s="$src" '$1 == s { print $3 }' <<<"$resolved" \
+    | sort -u)"
   [[ -n "$pkgs" ]] || continue
-  layer="$(awk -F'\t' -v s="$src" '$1 == s { print $2; exit }' <<<"$resolved")"
+  layer="$(awk -F'\t' -v s="$src" '$1 == s { print $2 }' <<<"$resolved" \
+    | sort -u | paste -sd'+' -)"
   printf '  %s  (%s, %d)\n' "$src" "$layer" "$(wc -l <<<"$pkgs")"
   fmt -w 68 <<<"$pkgs" | tr '\n' ' ' | fold -s -w 68 \
     | sed 's/^/      /' | sed 's/[[:space:]]*$//'
@@ -89,5 +100,10 @@ printf '  Total: %d unique packages\n' "$total"
 if [[ -n "$excluded" ]]; then
   printf '\n  Excluded by this profile (%d):\n' "$(wc -l <<<"$excluded")"
   sed 's/^/      /' <<<"$excluded"
+fi
+
+if [[ -n "$unresolved" ]]; then
+  printf '\n  Resolved at install time (needs the target hardware):\n'
+  sed 's/^/      /' <<<"$unresolved"
 fi
 printf '\n'

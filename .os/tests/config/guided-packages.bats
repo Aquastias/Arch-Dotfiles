@@ -62,14 +62,14 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 }
 
 @test "aur drills the same way" {
-  set_nav "$(nav_to_pkgslot Packages aur)"
+  set_nav "$(nav_to_pkgcat Packages aur)"
   run guided_ctl_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "misc ▸ 1"
 }
 
 @test "Enter on a category drills to its package toggles" {
-  set_nav "$(nav_to_pkgslot Packages repo)"
+  set_nav "$(nav_to_pkgcat Packages repo)"
   run guided_ctl_enter "shell ▸ 2"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgs" ]
@@ -151,7 +151,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 }
 
 @test "a free-text entry adds a package not in the union" {
-  set_nav "$(nav_to_pkgslot Packages repo)"
+  set_nav "$(nav_to_pkgcat Packages repo)"
   run guided_ctl_enter "+ Add package ▸ type a name not in the list"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
@@ -162,7 +162,7 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 }
 
 @test "the aur free-text entry writes into packages.aur" {
-  set_nav "$(nav_to_pkgslot Packages aur)"
+  set_nav "$(nav_to_pkgcat Packages aur)"
   guided_ctl_enter "+ Add package ▸ type a name not in the list" >/dev/null
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "packages.aur.extra" ]
   run guided_ctl_enter "" "some-aur-pkg"

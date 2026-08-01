@@ -44,12 +44,35 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   done
 }
 
-@test "authored slots are tagged authored, derived sets derived" {
-  local cfg='{"users":[],"packages":{"repo":{"cli":["htop"]},
+# The layer column is provenance, not just authored-vs-derived: an authored
+# package Host Core also declares reads `core`, otherwise `host`, so the
+# report answers "do I edit Host Core or this host profile?" (PRD story 30).
+@test "authored slots carry core-vs-host provenance; derived reads derived" {
+  local t; t="$(mktemp -d)"
+  mkdir -p "$t/hosts/core"
+  printf '{"packages":{"repo":{"cli":["htop"]}}}\n' \
+    > "$t/hosts/core/profile.jsonc"
+  local cfg='{"users":[],"packages":{"repo":{"cli":["htop","ripgrep"]},
                                       "aur":{"misc":["brave-bin"]}}}'
-  pkgres_resolve "$cfg" | grep -qP '^repo\tauthored\thtop$'
-  pkgres_resolve "$cfg" | grep -qP '^aur\tauthored\tbrave-bin$'
-  pkgres_resolve "$cfg" | grep -qP '^base\tderived\tbase$'
+  OS_DIR="$t" run bash -c "
+    source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
+    pkgres_resolve '$cfg'"
+  echo "$output" | grep -qP '^repo\tcore\thtop$'      # core declares it
+  echo "$output" | grep -qP '^repo\thost\tripgrep$'   # this profile adds it
+  echo "$output" | grep -qP '^aur\thost\tbrave-bin$'
+  echo "$output" | grep -qP '^base\tderived\tbase$'
+  rm -rf "$t"
+}
+
+@test "with no Host Core to compare against, authored slots read authored" {
+  local t; t="$(mktemp -d)"
+  OS_DIR="$t" run bash -c "
+    source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
+    pkgres_resolve '{\"users\":[],\"packages\":{\"repo\":{\"c\":[\"htop\"]}}}'"
+  echo "$output" | grep -qP '^repo\tauthored\thtop$'
+  rm -rf "$t"
 }
 
 # ── each derived set tracks the setting that drives it ──────────────────────
