@@ -72,10 +72,10 @@ edit_set_sysctl() {
 # The former top-level packages.extra was packages.repo without a category, so
 # the row now writes into the one repo slot and stays canonical for Save/Export.
 edit_append_packages() {
-  local state="$1" raw="$2"
+  local state="$1" raw="$2" slot="${3:-repo}"
   [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
-  jq --arg s "$raw" \
-    '.packages.repo.extra = ((.packages.repo.extra // [])
+  jq --arg s "$raw" --arg slot "$slot" \
+    '.packages[$slot].extra = ((.packages[$slot].extra // [])
       + ($s | split(" ") | map(select(length > 0))))' <<<"$state"
 }
 

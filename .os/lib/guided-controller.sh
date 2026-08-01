@@ -68,6 +68,12 @@
 # shellcheck source=lib/guided-mask.sh
 [[ "$(type -t guided_mask_apply)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
+# shellcheck source=lib/packages/resolver.sh
+[[ "$(type -t pkgres_resolve)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/packages/resolver.sh"
+# shellcheck source=lib/config/seed.sh
+[[ "$(type -t cfgstate_host_core)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 
 # _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
 # in-menu credential rows, read from GUIDED_SECRETS_FILE. Never emits the value.
@@ -188,7 +194,7 @@ _ctl_field_kind() {
   system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
   system.locale | system.timezone) echo biglist ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
-  packages.repo.extra) echo text ;;
+  packages.repo.extra | packages.aur.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
   options.mirror_countries | system_programs) echo toggle ;;
@@ -327,7 +333,8 @@ _ctl_apply_text() {
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
-  packages.repo.extra) _ctl_route_package_entry "$state" "$val" ;;
+  packages.repo.extra) _ctl_route_package_entry "$state" "$val" repo ;;
+  packages.aur.extra)  _ctl_route_package_entry "$state" "$val" aur ;;
   *) edit_set_scalar "$state" "$path" "$val" ;;
   esac
 }
@@ -344,7 +351,7 @@ _ctl_apply_text() {
 # The notice naming what was rerouted is emitted on stderr (the controller's
 # out-of-band channel) so the operator learns where their name went.
 _ctl_route_package_entry() {
-  local state="$1" raw="$2"
+  local state="$1" raw="$2" slot="${3:-repo}"
   [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
 
   local -a pkgs=() sys=() usr=()
@@ -357,7 +364,8 @@ _ctl_route_package_entry() {
     esac
   done
 
-  ((${#pkgs[@]})) && state="$(edit_append_packages "$state" "${pkgs[*]}")"
+  ((${#pkgs[@]})) \
+    && state="$(edit_append_packages "$state" "${pkgs[*]}" "$slot")"
   if ((${#sys[@]})); then
     state="$(edit_append_system_programs "$state" "${sys[@]}")"
     printf 'routed to system programs: %s\n' "${sys[*]}" >&2
@@ -740,6 +748,10 @@ _ctl_nav_header() {
     list)  b='Enter add   Esc back' ;;
     esac ;;
   secret)    b='Type the password, Enter continues   Esc cancels' ;;
+  pkgcat)    b='Enter open / add   Esc back' ;;
+  pkgs)      b='Enter toggle ✓   Esc back' ;;
+  pkgderived)    b='Enter open (read-only)   Esc back' ;;
+  pkgderivedsrc) b='Read-only — change it in Environment/Security/Backup' ;;
   *)        b='Esc back' ;;
   esac
   printf '%s   ·   ^Z undo  ^Y redo  ^R reset' "$b"
@@ -758,6 +770,11 @@ _ctl_nav_prompt() {
   useredit)    printf '%s> ' "$(nav_get "$1" user)" ;;
   userfield)   printf '%s> ' "$(nav_get "$1" label)" ;;
   secret)      printf 'password> ' ;;
+  pkgcat)        printf '%s> ' "$(nav_get "$1" slot)" ;;
+  pkgs)          printf '%s/%s> ' "$(nav_get "$1" slot)" \
+                   "$(nav_get "$1" pkgcat)" ;;
+  pkgderived)    printf 'derived> ' ;;
+  pkgderivedsrc) printf 'derived/%s> ' "$(nav_get "$1" source)" ;;
   *)           printf 'guided> ' ;;
   esac
 }
@@ -970,6 +987,90 @@ _ctl_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
 # so the lists hold only data.
 _ctl_action_row() { _ctl_rich_chrome || printf '%s\n' "$@"; }
 
+# ── Packages screen helpers (ADR 0058) ───────────────────────────────────────
+# Provenance is three-state, reusing the existing override dot rather than
+# inventing glyphs:
+#   checked, no dot   — inherited from Host Core
+#   checked, with dot — added by this profile or session
+#   unchecked, with dot — excluded by this profile
+#
+# The toggle list can only offer the DECLARED UNION across Host Core and the
+# profile: the universe of Arch packages is not enumerable, so adding a
+# brand-new package stays a free-text entry (the `+ Add package` row).
+
+# _ctl_pkg_union <effective> <slot> <cat> — the package names offerable in one
+# category: everything the effective view carries plus everything Host Core
+# declares there plus anything currently excluded (so it can be re-checked).
+_ctl_pkg_union() {
+  local eff="$1" slot="$2" cat="$3" core
+  core="$(cfgstate_host_core)"
+  jq -rn --argjson e "$eff" --argjson c "$core" \
+     --arg s "$slot" --arg k "$cat" '
+    (($e.packages[$s][$k] // []) + ($c.packages[$s][$k] // [])
+     + [($e.packages.exclude // [])[]
+        | select(. as $x | ($c.packages[$s][$k] // []) | index($x))])
+    | unique | .[]'
+}
+
+# _ctl_pkg_categories <effective> <slot> — the categories to list, unioned
+# across the effective view and Host Core so a core-only category still shows.
+_ctl_pkg_categories() {
+  local eff="$1" slot="$2" core
+  core="$(cfgstate_host_core)"
+  jq -rn --argjson e "$eff" --argjson c "$core" --arg s "$slot" '
+    (($e.packages[$s] // {}) + ($c.packages[$s] // {}))
+    | keys_unsorted | sort | .[]'
+}
+
+# _ctl_pkg_slot_count <effective> <slot> — how many packages the slot resolves
+# to right now (post-exclusion), for the category row summary.
+_ctl_pkg_slot_count() {
+  jq -rn --argjson e "$1" --arg s "$2" \
+    '[($e.packages[$s] // {}) | to_entries[]
+      | select(.value | type == "array") | .value[]] | unique | length'
+}
+
+# _ctl_pkg_excluded <state> <pkg> — rc 0 when <pkg> is in packages.exclude.
+_ctl_pkg_excluded() {
+  jq -e --arg p "$2" '(.packages.exclude // []) | index($p)' \
+    <<<"$1" >/dev/null 2>&1
+}
+
+# _ctl_pkg_in_core <slot> <cat> <pkg> — rc 0 when Host Core declares it there.
+_ctl_pkg_in_core() {
+  jq -e --arg s "$1" --arg k "$2" --arg p "$3" \
+    '(.packages[$s][$k] // []) | index($p)' \
+    <<<"$(cfgstate_host_core)" >/dev/null 2>&1
+}
+
+# _ctl_pkg_derived <effective> — the Package Resolver's derived rows for this
+# config (TSV: source, layer, package). The SAME resolver the CLI inspector
+# calls, so the menu's derived section and `explain-packages` cannot drift.
+_ctl_pkg_derived() {
+  pkgres_resolve "$1" 2>/dev/null | awk -F'\t' '$2 == "derived"'
+}
+
+# _ctl_pkg_derived_total <effective> — unique derived package count.
+_ctl_pkg_derived_total() {
+  local n; n="$(_ctl_pkg_derived "$1" | cut -f3 | sort -u | grep -c .)"
+  printf '%s' "${n:-0}"
+}
+
+# _ctl_pkg_derived_origin <source> — the menu category that drives a derived
+# source, so the read-only section says where to go to change it.
+_ctl_pkg_derived_origin() {
+  case "$1" in
+  gpu | audio | kde-shell | kde-apps | kde-aur) printf 'Environment' ;;
+  security)                                    printf 'Security' ;;
+  backup)                                      printf 'Backup' ;;
+  kernel | bootloader)                         printf 'Options' ;;
+  filesystem-tools | zfs | luks)               printf 'Disks' ;;
+  login-shell)                                 printf 'Users' ;;
+  sops)                                        printf 'secrets on disk' ;;
+  *)                                           printf 'the installer' ;;
+  esac
+}
+
 # _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
 # storage + data pools, plus the single-disk root), one per line, so a disk
 # lives in exactly one place ("disappears everywhere" — ADR 0047).
@@ -1142,6 +1243,27 @@ guided_ctl_list() {
       printf '%s: %s%s\n' "$(display_label swap)" \
         "$(_ctl_swap_label "$(_ctl_effective "$state" "$base")")" "$_sov"
     fi
+    # Packages leads with the slot drill-downs (ADR 0058). packages.repo/aur had
+    # no menu representation at all: seeding a profile carried its whole package
+    # payload into Config State where the operator could neither see nor
+    # deselect it. `derived` is read-only — it reports what the Environment,
+    # Security and Backup choices pull in.
+    if [[ "$cat" == "Packages" ]]; then
+      local _eff_pkg; _eff_pkg="$(_ctl_effective "$state" "$base")"
+      local _slot _n _sov
+      for _slot in repo aur; do
+        _n="$(_ctl_pkg_slot_count "$_eff_pkg" "$_slot")"
+        _sov=""
+        jq -e --arg s "$_slot" \
+          '(.packages[$s] != null) or (.packages.exclude != null)' \
+          <<<"$state" >/dev/null 2>&1 && _sov="  ●"
+        printf '%s ▸ %s package%s%s\n' "$_slot" "$_n" \
+          "$([[ "$_n" == 1 ]] || echo s)" "$_sov"
+      done
+      printf 'derived ▸ %s package%s (read-only)\n' \
+        "$(_ctl_pkg_derived_total "$_eff_pkg")" \
+        "$([[ "$(_ctl_pkg_derived_total "$_eff_pkg")" == 1 ]] || echo s)"
+    fi
     # Unit-separator (\x1f), not @tsv: a tab IFS is whitespace, so read collapses
     # the double delimiter of an EMPTY value field and shifts the columns. \x1f
     # is non-whitespace, so empty fields are preserved.
@@ -1168,6 +1290,65 @@ guided_ctl_list() {
         options.impermanence.enabled)" == "true" ]] \
         && _ctl_action_row "Add persist directory ▸ extend the curated defaults"
     fi
+    _ctl_action_row "← Back" ;;
+  pkgcat)
+    # The categories inside one slot, each with its package count — mirroring
+    # the Categorized List shape so the screen matches the file.
+    local _pslot; _pslot="$(nav_get "$nav" slot)"
+    local _peff; _peff="$(_ctl_effective "$state" "$base")"
+    local _pk _pn
+    while IFS= read -r _pk; do
+      [[ -n "$_pk" ]] || continue
+      _pn="$(_ctl_pkg_union "$_peff" "$_pslot" "$_pk" | grep -c .)"
+      printf '%s ▸ %s\n' "$_pk" "$_pn"
+    done < <(_ctl_pkg_categories "$_peff" "$_pslot")
+    _ctl_action_row "+ Add package ▸ type a name not in the list"
+    _ctl_action_row "← Back" ;;
+  pkgs)
+    # Package toggles with three-state provenance. An inherited entry renders
+    # checked WITHOUT a dot; anything this profile or session touched carries
+    # one, whether it was added or excluded.
+    local _pslot _pcat _peff
+    _pslot="$(nav_get "$nav" slot)"; _pcat="$(nav_get "$nav" pkgcat)"
+    _peff="$(_ctl_effective "$state" "$base")"
+    local _pp _mark _dot
+    while IFS= read -r _pp; do
+      [[ -n "$_pp" ]] || continue
+      if _ctl_pkg_excluded "$_peff" "$_pp"; then
+        _mark="[ ]"; _dot="  ●"          # excluded by this profile
+      else
+        _mark="[x]"
+        if _ctl_pkg_in_core "$_pslot" "$_pcat" "$_pp"; then
+          _dot=""                        # inherited from Host Core
+        else
+          _dot="  ●"                     # added here
+        fi
+      fi
+      printf '%s %s%s\n' "$_mark" "$_pp" "$_dot"
+    done < <(_ctl_pkg_union "$_peff" "$_pslot" "$_pcat")
+    _ctl_action_row "← Back" ;;
+  pkgderived)
+    # Read-only (ADR 0021 keeps the DE adapter owning its own package set).
+    # Each row names the category that drives it, so the operator knows where
+    # to go to change it.
+    local _deff2; _deff2="$(_ctl_effective "$state" "$base")"
+    local _dsrc _dn
+    while IFS= read -r _dsrc; do
+      [[ -n "$_dsrc" ]] || continue
+      _dn="$(_ctl_pkg_derived "$_deff2" \
+        | awk -F'\t' -v s="$_dsrc" '$1 == s { print $3 }' \
+        | sort -u | grep -c .)"
+      [[ "$_dn" -gt 0 ]] || continue
+      printf '%s ▸ %s   (from %s)\n' "$_dsrc" "$_dn" \
+        "$(_ctl_pkg_derived_origin "$_dsrc")"
+    done < <(pkgres_sources 2>/dev/null)
+    _ctl_action_row "← Back" ;;
+  pkgderivedsrc)
+    # One derived source's package list. Not toggleable — these are
+    # consequences of choices made elsewhere in the menu.
+    local _dsrc2; _dsrc2="$(nav_get "$nav" source)"
+    _ctl_pkg_derived "$(_ctl_effective "$state" "$base")" \
+      | awk -F'\t' -v s="$_dsrc2" '$1 == s { print "    " $3 }' | sort -u
     _ctl_action_row "← Back" ;;
   values)
     local vf; vf="$(nav_get "$nav" field)"
@@ -1434,8 +1615,98 @@ guided_ctl_enter() {
   useredit)  _ctl_enter_useredit "$line" ;;
   userfield) _ctl_enter_userfield "$line" "$query" ;;
   secret)    _ctl_enter_secret ;;
+  pkgcat)    _ctl_enter_pkgcat "$line" "$query" ;;
+  pkgs)      _ctl_enter_pkgs "$line" ;;
+  pkgderived)    _ctl_enter_pkgderived "$line" ;;
+  pkgderivedsrc) _ctl_enter_pkgderivedsrc "$line" ;;
   *)         echo noop ;;
   esac
+}
+
+# _ctl_enter_pkgcat <line> [query] — drill into a category, or take a free-text
+# package name. The universe of Arch packages is not enumerable, so a name
+# outside the declared union arrives here rather than as a toggle.
+_ctl_enter_pkgcat() {
+  local line="$1" query="${2:-}" nav cat slot
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  slot="$(nav_get "$nav" slot)"
+  case "$line" in
+  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "+ Add package"*)
+    _ctl_write_nav "$(nav_to_text "$cat" "packages.${slot}.extra" \
+      "${slot} package")"
+    echo render; return ;;
+  esac
+  # A typed name that matched no row still adds — same free-text affordance.
+  if [[ -z "$line" && -n "$query" ]]; then
+    _ctl_write_state \
+      "$(_ctl_route_package_entry "$(_ctl_state)" "$query")"
+    echo refresh; return
+  fi
+  _ctl_write_nav "$(nav_to_pkgs "$cat" "$slot" "${line%% ▸*}")"
+  echo render
+}
+
+# _ctl_enter_pkgs <line> — toggle one package. Unchecking an INHERITED entry
+# writes a packages.exclude entry (that is what makes the exclusion mechanism
+# reachable from the menu at all); re-checking removes it. Unchecking a package
+# this session added just drops it from the override.
+_ctl_enter_pkgs() {
+  local line="$1" nav cat slot pcat pkg
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  slot="$(nav_get "$nav" slot)"; pcat="$(nav_get "$nav" pkgcat)"
+  [[ "$line" == "← Back" ]] && {
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+
+  # strip the "[x] " / "[ ] " mark and any trailing override dot
+  pkg="${line:4}"; pkg="${pkg%%  ●}"
+  [[ -n "$pkg" ]] || { echo noop; return; }
+
+  local state; state="$(_ctl_state)"
+  if [[ "${line:0:3}" == "[x]" ]]; then
+    # currently installed → remove it
+    if _ctl_pkg_in_core "$slot" "$pcat" "$pkg"; then
+      state="$(jq --arg p "$pkg" \
+        '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
+        <<<"$state")"
+    else
+      state="$(jq --arg s "$slot" --arg k "$pcat" --arg p "$pkg" \
+        'if .packages[$s][$k] then
+           .packages[$s][$k] |= map(select(. != $p)) else . end' <<<"$state")"
+    fi
+  else
+    # currently excluded or absent → put it back
+    state="$(jq --arg p "$pkg" \
+      'if .packages.exclude then
+         .packages.exclude |= map(select(. != $p)) else . end
+       | if (.packages.exclude // null) == [] then del(.packages.exclude)
+         else . end' <<<"$state")"
+    _ctl_pkg_in_core "$slot" "$pcat" "$pkg" || state="$(jq \
+      --arg s "$slot" --arg k "$pcat" --arg p "$pkg" \
+      '.packages[$s][$k] = (((.packages[$s][$k] // []) + [$p]) | unique)' \
+      <<<"$state")"
+  fi
+  _ctl_write_state "$state"
+  echo refresh
+}
+
+# _ctl_enter_pkgderived <line> — drill into one derived source. Nothing here is
+# toggleable: these are consequences of choices made in Environment, Security
+# and Backup, and ADR 0021 gives the DE adapter ownership of its own set.
+_ctl_enter_pkgderived() {
+  local line="$1" nav cat
+  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  [[ "$line" == "← Back" ]] && {
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+  _ctl_write_nav "$(nav_to_pkgderivedsrc "$cat" "${line%% ▸*}")"
+  echo render
+}
+
+# _ctl_enter_pkgderivedsrc <line> — Back only; every other row is read-only.
+_ctl_enter_pkgderivedsrc() {
+  [[ "$1" == "← Back" ]] && {
+    _ctl_write_nav "$(nav_back "$(_ctl_nav)")"; echo render; return; }
+  echo noop
 }
 
 # _ctl_open_secret <root|user> [name] — start inline masked entry: clear the typed
@@ -1674,6 +1945,11 @@ _ctl_enter_category() {
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
+  "repo ▸"* | "aur ▸"*)
+    _ctl_write_nav "$(nav_to_pkgslot "$cat" "${line%% *}")"
+    echo render; return ;;
+  "derived ▸"*)
+    _ctl_write_nav "$(nav_to_pkgderived "$cat")"; echo render; return ;;
   esac
   label="${line%%:*}"
   path="$(_ctl_field_for_label "$cat" "$label")"
