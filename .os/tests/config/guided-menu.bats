@@ -182,11 +182,12 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 }
 
 @test "menu_rows: Packages carries the typed extra-packages row" {
-  state="$(cfgstate_set "$(cfgstate_new)" packages.extra '["htop","tmux"]')"
+  state="$(cfgstate_set "$(cfgstate_new)" \
+    packages.repo.extra '["htop","tmux"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row packages.extra | jq -e '.section == "Packages"'
-  echo "$output" | row packages.extra | jq -e '.value == "htop, tmux"'
+  echo "$output" | row packages.repo.extra | jq -e '.section == "Packages"'
+  echo "$output" | row packages.repo.extra | jq -e '.value == "htop, tmux"'
 }
 
 @test "menu_rows: system programs sits under Packages; post_install split out" {
@@ -223,7 +224,8 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # maintained tables. If a default changes in one only, the apply-time normalise
 # silently stops clearing ● for that field (the exact bug this fix closes).
 # Assert every non-empty, non-list spec default renders equal to its seeded
-# baseline value. List/append fields (packages.extra, system_programs → "[]") and
+# baseline value. List/append fields (packages.repo.extra, system_programs
+# → "[]") and
 # empty defaults are unseeded by design and skipped.
 
 @test "drift: each seeded menu default matches its _MENU_FIELDS spec default" {
@@ -364,7 +366,7 @@ cat_at() { jq -e ".[$1]"; }
 @test "menu_category_rows: Packages carries extra packages + system programs" {
   run menu_category_rows Packages "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "packages.extra")'
+  echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
   echo "$output" | jq -e 'any(.[]; .field == "system_programs")'
 }
 

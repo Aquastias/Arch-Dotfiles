@@ -228,6 +228,38 @@ write_jsonc() {
   [[ "$output" == *"options.impermanence.enabld"* ]]
 }
 
+# ── the collapsed package slots (ticket 02) ─────────────────────────────────
+# packages.extra was packages.repo without a category; packages.groups was
+# authored by no profile and shared a namespace with the derived GPU/audio
+# buckets. Both left the schema, so naming either aborts with its path rather
+# than silently doing nothing.
+
+@test "validate: packages.extra aborts with its path" {
+  run validate_config_schema host '{"packages":{"extra":["htop"]}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"packages.extra"* ]]
+}
+
+@test "validate: packages.groups aborts with its path" {
+  run validate_config_schema host '{"packages":{"groups":{"cli":["htop"]}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"packages.groups"* ]]
+}
+
+@test "validate: authoring the derived gpu/audio bucket aborts" {
+  run validate_config_schema host '{"packages":{"groups":{"gpu":["mesa"]}}}'
+  [ "$status" -ne 0 ]
+  run validate_config_schema host \
+    '{"packages":{"groups":{"audio":["pipewire"]}}}'
+  [ "$status" -ne 0 ]
+}
+
+@test "validate: packages.repo categories still pass" {
+  run validate_config_schema host \
+    '{"packages":{"repo":{"extra":["htop"]},"aur":{"misc":["x"]}}}'
+  [ "$status" -eq 0 ]
+}
+
 @test "validate: the options.zswap.* keys are accepted (closed schema)" {
   run validate_config_schema host \
     '{"options":{"zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20}}}'
@@ -321,7 +353,7 @@ write_jsonc() {
     "storage_groups":[{"name":"g","topology":"mirror","owners":["a","@t"]}],
     "data_pools":[{"name":"tank","disks":["/dev/sdb"]}],
     "sysctl":{"vm.swappiness":10},
-    "packages":{"repo":{"shell":["zsh"]},"groups":{"dev":["git"]}},
+    "packages":{"repo":{"shell":["zsh"],"dev":["git"]}},
     "users":["aquastias"],"system_programs":["grub"]
   }'
   [ "$status" -eq 0 ]

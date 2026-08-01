@@ -140,13 +140,6 @@ set_path_cfg() {
   [ -z "$output" ]
 }
 
-@test "array: packages_extra empty array yields empty" {
-  write_cfg '{"packages":{"extra":[]}}'
-  run install_config_packages_extra
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
-}
-
 # ── Special: install_config_gpu (array w/ string default 'auto') ────────────
 
 @test "gpu: string yields one line" {
@@ -177,36 +170,6 @@ set_path_cfg() {
   run install_config_gpu
   [ "$status" -eq 0 ]
   [ "$output" = "auto" ]
-}
-
-# ── Special: install_config_packages_groups (custom jq filter) ──────────────
-
-@test "packages_groups: flattens all groups into one list" {
-  write_cfg '{"packages":{"groups":{"dev":["git","vim"],"media":["mpv"]}}}'
-  run install_config_packages_groups
-  [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 3 ]
-}
-
-@test "packages_groups: skips _-prefixed keys" {
-  write_cfg '{"packages":{"groups":{"_comment":["ignored"],"dev":["git"]}}}'
-  run install_config_packages_groups
-  [ "$status" -eq 0 ]
-  [ "$output" = "git" ]
-}
-
-@test "packages_groups: skips non-array values" {
-  write_cfg '{"packages":{"groups":{"bogus":"oops","dev":["git"]}}}'
-  run install_config_packages_groups
-  [ "$status" -eq 0 ]
-  [ "$output" = "git" ]
-}
-
-@test "packages_groups: absent yields empty" {
-  write_cfg '{"packages":{}}'
-  run install_config_packages_groups
-  [ "$status" -eq 0 ]
-  [ -z "$output" ]
 }
 
 # ── Special: install_config_storage_group_ashift (positional arg) ───────────

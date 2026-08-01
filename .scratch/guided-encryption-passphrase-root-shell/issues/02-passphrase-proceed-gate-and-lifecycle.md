@@ -1,6 +1,6 @@
 # Encryption passphrase: Proceed gate + Disks warning + toggle-off retention
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

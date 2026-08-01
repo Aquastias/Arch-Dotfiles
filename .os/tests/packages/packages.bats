@@ -140,31 +140,50 @@ write_config() {
   [ "${lines[1]}" = "Japan,Australia" ]
 }
 
-# ── extra + group packages ────────────────────────────────────────────────────
+# ── repo packages (the one authored repo slot) ────────────────────────────────
 
-@test "collect_packages: extra packages appear in output" {
-  write_config '{"packages": {"extra": ["htop", "tmux"]}}'
-  run collect_packages
-  [ "$status" -eq 0 ]
-  echo "$output" | grep -q "^htop$"
-  echo "$output" | grep -q "^tmux$"
-}
-
-@test "collect_packages: group packages appear in output" {
-  write_config '{"packages": {"groups": {"cli": ["ripgrep", "fd"]}}}'
+@test "collect_packages: repo category packages appear in output" {
+  write_config '{"packages": {"repo": {"cli": ["ripgrep", "fd"]}}}'
   run collect_packages
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^ripgrep$"
   echo "$output" | grep -q "^fd$"
 }
 
-@test "collect_packages: _ prefixed group keys are filtered out" {
+@test "collect_packages: every repo category is flattened in" {
   write_config \
-    '{"packages": {"groups": {"_comment": ["fake-pkg"], "cli": ["htop"]}}}'
+    '{"packages": {"repo": {"cli": ["htop"], "media": ["vlc"]}}}'
   run collect_packages
   [ "$status" -eq 0 ]
-  ! echo "$output" | grep -q "^fake-pkg$"
   echo "$output" | grep -q "^htop$"
+  echo "$output" | grep -q "^vlc$"
+}
+
+# The guided extra-packages row writes packages.repo.extra into the Effective
+# Config; collect_packages reads it from there, so a typed name installs on
+# every front-end (no hosts/<hostname>/ re-read required).
+@test "collect_packages: the guided extra-packages category installs" {
+  write_config '{"packages": {"repo": {"extra": ["htop", "tmux"]}}}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "^htop$"
+  echo "$output" | grep -q "^tmux$"
+}
+
+@test "collect_packages: absent packages block is fine" {
+  write_config '{}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "^base$"
+}
+
+# stow joined the Base Package List: the Runner stows dotfiles for every user
+# unconditionally, but no layer guaranteed the binary (R1).
+@test "collect_packages: stow is in the Base Package List" {
+  write_config '{}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "stow"
 }
 
 # ── GPU and audio packages ────────────────────────────────────────────────────

@@ -40,7 +40,6 @@ _INSTALL_CONFIG_SCHEMA=(
   "hostname|.system.hostname|scalar|"
   "timezone|.system.timezone|scalar|UTC"
   "desktop|.environment.desktop|array|"
-  "packages_extra|.packages.extra|array|"
   "dotfiles_repo|.dotfiles_repo|scalar|"
   "os_pool_name|.os_pool_name|scalar|rpool"
   "storage_pool_name|.storage_pool_name|scalar|dpool"
@@ -171,16 +170,6 @@ install_config_kernels() {
 # consumers (initramfs preset, bootloader default) that understand one kernel.
 install_config_kernel() {
   install_config_kernels | head -n1
-}
-
-install_config_packages_groups() {
-  jsonc_read "$CONFIG_FILE" '
-    .packages.groups // {}
-    | to_entries[]?
-    | select(.key | startswith("_") | not)
-    | select(.value | type == "array")
-    | .value[]?
-  '
 }
 
 install_config_storage_group_ashift() {

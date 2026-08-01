@@ -22,7 +22,6 @@
         "mount":   "/persist"
       }
     },
-    "packages": { "extra": [], "groups": {} },
     "post_install": { "backup": false, "security": false },
     "mode":              "single",
     "disk":              "/dev/sda",

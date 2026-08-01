@@ -1,6 +1,6 @@
 # End-to-end one-select install verification (VM)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

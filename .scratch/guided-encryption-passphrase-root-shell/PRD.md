@@ -1,6 +1,6 @@
 # Guided in-menu encryption passphrase + root shell
 
-Status: ready-for-agent
+Status: done
 
 Ref: ADR 0054 (supersedes the passphrase carve-out in ADR 0051)
 

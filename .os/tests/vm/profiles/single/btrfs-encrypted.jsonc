@@ -28,7 +28,6 @@
       "swap_size":  "auto",
       "esp_size":   "1G"
     },
-    "packages": { "extra": [], "groups": {} },
     "post_install": {
       "backup": false,
       "security": false,

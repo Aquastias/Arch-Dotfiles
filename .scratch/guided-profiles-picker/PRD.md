@@ -1,6 +1,6 @@
 # Guided in-menu Profiles picker + default-`12345` secret posture
 
-Status: ready-for-agent
+Status: done
 
 ADR: docs/adr/0055-guided-profiles-picker-and-default-secret-posture.md
 

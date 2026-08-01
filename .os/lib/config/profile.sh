@@ -150,8 +150,10 @@ _PROFILE_SCHEMA_host=(
   "post_install.security.firewall" "post_install.security.antivirus"
   "post_install.security.rootkit" "post_install.security.apparmor"
   "post_install.backup.zfs_auto_snapshot" "post_install.backup.borg"
-  # — packages (open category objects) —
-  "packages.extra[]" "packages.groups.*[]"
+  # — packages (open category objects). `extra` and `groups` were removed:
+  #   `extra` was `repo` without a category, `groups` was authored by no
+  #   profile and only ever written by the derived GPU/audio buckets, which
+  #   are bash arrays and never authorable. Both now abort as unknown keys. —
   "packages.repo.*[]" "packages.aur.*[]"
   # — host software (config.jsonc) —
   "users[]" "system_programs[]" "sysctl.*"

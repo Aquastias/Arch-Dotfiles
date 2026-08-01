@@ -1,6 +1,6 @@
 # Encryption passphrase: inline capture → manifest → back-end unlock
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

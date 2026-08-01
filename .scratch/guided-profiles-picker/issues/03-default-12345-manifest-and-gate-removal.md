@@ -1,6 +1,6 @@
 # Default-`12345` posture: manifest + Proceed-gate removal
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

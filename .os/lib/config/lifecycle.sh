@@ -225,25 +225,17 @@ print_summary() {
     fi # zfs vs non-zfs multi summary
   fi
 
-  # Packages
-  local extras
-  extras="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '(.packages.extra // []) | join(", ")')"
-  local cli
-  cli="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '(.packages.groups.cli // []) | join(", ")')"
-  local dev
-  dev="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '(.packages.groups.dev // []) | join(", ")')"
-  local gui
-  gui="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '(.packages.groups.gui // []) | join(", ")')"
+  # Packages — one line per packages.repo category (the sole authored repo
+  # slot now that extra/groups are gone).
   echo ""
   echo -e "  ${BOLD}Packages:${NC}"
-  [[ -n "$extras" ]] && printf "    extra: %s\n" "$extras"
-  [[ -n "$cli" ]] && printf "    cli:   %s\n" "$cli"
-  [[ -n "$dev" ]] && printf "    dev:   %s\n" "$dev"
-  [[ -n "$gui" ]] && printf "    gui:   %s\n" "$gui"
+  local _cat _names
+  while IFS=$'\t' read -r _cat _names; do
+    [[ -n "$_names" ]] && printf "    %s: %s\n" "$_cat" "$_names"
+  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
+    (.packages.repo // {}) | to_entries[]
+    | select(.value | type == "array")
+    | "\(.key)\t\(.value | join(", "))"')
 
   # Environment
   echo ""

@@ -518,7 +518,7 @@ _guided_edit_gpu() {
 # PACMAN + PACKAGES + HOST ▸ ADVANCED (issue 06 Pass B)
 # =============================================================================
 # The rarely-touched host knobs. Pacman/Advanced scalar+bool+multi fields reuse
-# the issue-05 helpers; the list builders (packages.extra, system_programs,
+# the issue-05 helpers; the list builders (packages.repo, system_programs,
 # sysctl) append through the seam like _guided_add_persist.
 
 # Mirror Countries (Pacman): a multi-select feeding reflector --country. The
@@ -882,7 +882,7 @@ _guided_oneshot_edit() {
   options.esp_size)         _guided_edit_esp_size ;;
   options.age_key_url)      _guided_edit_age_key_url ;;
   sysctl)                   _guided_add_sysctl ;;
-  packages.extra)           _guided_add_package ;;
+  packages.repo.extra)      _guided_add_package ;;
   options.kernel)           _guided_edit_kernel ;;
   environment.desktop)      _guided_edit_desktop ;;
   environment.gpu)          _guided_edit_gpu ;;

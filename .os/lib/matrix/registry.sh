@@ -53,7 +53,7 @@ _MATRIX_AXIS_REGISTRY=(
   "environment.gpu|pairwise-affecting|heavy"
   "options.mirror_countries|inert|light"
   "options.multilib|pairwise-affecting|light"
-  "packages.extra|inert|heavy"
+  "packages.repo.extra|inert|heavy"
   "system_programs|inert|heavy"
   "post_install.security.firewall|inert|light"
   "post_install.security.antivirus|inert|light"
