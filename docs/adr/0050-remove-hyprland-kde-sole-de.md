@@ -1,8 +1,8 @@
 # ADR 0050: Remove Hyprland; KDE is the sole desktop environment
 
 ## Status
-Accepted. Amends ADR 0005 (adapter pattern) and ADR 0021 (adapter owns
-DE packages).
+Superseded by ADR 0062 (Hyprland re-added 2026-08-02). Originally accepted;
+amended ADR 0005 (adapter pattern) and ADR 0021 (adapter owns DE packages).
 
 ## Context
 The installer shipped two Desktop Environment Adapters — KDE and
