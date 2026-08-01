@@ -22,6 +22,10 @@
 # shellcheck source=./install-state.sh
 [[ "$(type -t install_state_update)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
+# INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
+# shellcheck source=./globals.sh
+[[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
+  || source "${BASH_SOURCE[0]%/*}/globals.sh"
 
 # guided_write_passwords <secrets-json> <dir> <state-file>
 # <secrets-json>: { root_password?: str,
@@ -57,9 +61,11 @@ guided_write_passwords() {
 }
 
 # guided_default_missing_secrets <manifest> <users-json> <encryption-bool>
-# The ADR-0055 default posture: fill any UNSET secret with `12345` — root, every
-# effective user (from <users-json>, a JSON array of names), and, when
-# <encryption-bool> is "true", the encryption passphrase. An already-set,
+# The ADR-0055 default posture: fill any UNSET secret — root and every effective
+# user (from <users-json>, a JSON array of names) with the `12345` account
+# default, and, when <encryption-bool> is "true", the encryption passphrase with
+# the 8-char disk default (ADR 0059 — accounts have no length floor, the disk
+# passphrase does: ZFS rejects a 5-char one at pool creation). An already-set,
 # non-empty value is left untouched, so an operator override (or an age-decrypted
 # secret merged in earlier) always wins over the default. Pure: JSON in, JSON out.
 guided_default_missing_secrets() {
@@ -69,9 +75,11 @@ guided_default_missing_secrets() {
     .root_password = (.root_password | dflt)
     | reduce $u[] as $n (.; .users[$n].password = (.users[$n].password | dflt))
   ' <<<"$manifest")"
-  [[ "$enc" == "true" ]] && manifest="$(jq '
-    .enc_passphrase = (if (.enc_passphrase // "") == "" then "12345"
-                       else .enc_passphrase end)' <<<"$manifest")"
+  if [[ "$enc" == "true" ]]; then
+    manifest="$(jq --arg d "$INSTALL_DEFAULT_ENC_PASSPHRASE" '
+      .enc_passphrase = (if (.enc_passphrase // "") == "" then $d
+                         else .enc_passphrase end)' <<<"$manifest")"
+  fi
   printf '%s\n' "$manifest"
 }
 

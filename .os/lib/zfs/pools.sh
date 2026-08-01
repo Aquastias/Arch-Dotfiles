@@ -87,9 +87,11 @@ ram_gib() {
 ZFS_PASSPHRASE=""
 
 collect_enc_passphrase() {
-  # Prompts for the ZFS encryption passphrase with confirmation before any
-  # pool creation. Reads from /dev/tty so it works regardless of stdin state.
-  # Sets the global ZFS_PASSPHRASE used by _zpool_create via stdin pipe.
+  # Resolves the ZFS/LUKS encryption passphrase before any pool creation and
+  # sets the global ZFS_PASSPHRASE used by _zpool_create via stdin pipe.
+  # Precedence (ADR 0054, 0059): INSTALL_ENC_PASSPHRASE preset → guided manifest
+  # → unattended default → interactive /dev/tty prompt (works regardless of
+  # stdin state).
   local enc; enc="$(install_config_encryption_enabled)"
   [[ "$enc" == "true" ]] || return 0
 
@@ -115,6 +117,18 @@ collect_enc_passphrase() {
       info "ZFS encryption passphrase taken from the Guided Installer."
       return 0
     fi
+  fi
+
+  # Unattended seam (ADR 0059): a non-interactive run with no preset and no
+  # guided manifest — e.g. `install.sh --profile <encrypted> -y` — takes the
+  # default passphrase instead of blocking on the tty prompt below. Gated on
+  # INSTALL_UNATTENDED on purpose: an interactive run still prompts, so a disk
+  # is never silently encrypted with a default the operator never saw. Mirrors
+  # the root-password default chroot.sh already gates on the same flag.
+  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
+    ZFS_PASSPHRASE="$INSTALL_DEFAULT_ENC_PASSPHRASE"
+    info "ZFS encryption passphrase defaulted (unattended)."
+    return 0
   fi
 
   section "ZFS Encryption Passphrase"

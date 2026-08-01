@@ -96,11 +96,30 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "guided_default_missing_secrets: passphrase defaults only when encryption on" {
+  # The disk passphrase defaults to the 8-char constant (ADR 0059), NOT the
+  # 5-char account default — ZFS rejects a 5-char passphrase at pool creation.
   run guided_default_missing_secrets '{}' '[]' true
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.enc_passphrase == "12345"'
+  echo "$output" | jq -e '.enc_passphrase == "12345678"'
+  echo "$output" | jq -e '(.enc_passphrase | length) >= 8'
 
   run guided_default_missing_secrets '{}' '[]' false
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'has("enc_passphrase") | not'
+}
+
+@test "guided_default_missing_secrets: accounts keep 12345 while disk gets 12345678" {
+  # Guards the deliberate split: a later single-constant refactor that dragged
+  # the account default up to the disk default would trip here.
+  run guided_default_missing_secrets '{}' '["aquastias"]' true
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.root_password == "12345"'
+  echo "$output" | jq -e '.users.aquastias.password == "12345"'
+  echo "$output" | jq -e '.enc_passphrase == "12345678"'
+}
+
+@test "guided_default_missing_secrets: an operator passphrase override wins" {
+  run guided_default_missing_secrets '{"enc_passphrase":"correcthorse"}' '[]' true
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.enc_passphrase == "correcthorse"'
 }

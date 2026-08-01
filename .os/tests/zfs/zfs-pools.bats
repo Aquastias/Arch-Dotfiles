@@ -343,10 +343,10 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   [ "$status" -ne 0 ]
 }
 
-# ── collect_enc_passphrase precedence (ADR 0054) ──────────────────────────────
-# INSTALL_ENC_PASSPHRASE (preset) → guided manifest → tty prompt. Only the two
-# non-interactive tiers + the disabled short-circuit are unit-testable (the
-# prompt reads /dev/tty).
+# ── collect_enc_passphrase precedence (ADR 0054, 0059) ────────────────────────
+# INSTALL_ENC_PASSPHRASE (preset) → guided manifest → unattended default → tty
+# prompt. Every tier but the prompt is unit-testable; the prompt reads /dev/tty,
+# so it is stubbed where the fall-through must be observed.
 
 @test "collect_enc_passphrase: no-op when encryption off" {
   write_config '{"options":{"encryption":false}}'
@@ -379,7 +379,7 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
 
 @test "collect_enc_passphrase: absent manifest passphrase falls to prompt" {
   write_config '{"options":{"encryption":true}}'
-  unset INSTALL_ENC_PASSPHRASE
+  unset INSTALL_ENC_PASSPHRASE INSTALL_UNATTENDED
   export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
   printf '%s\n' '{"root_password":"r00t"}' > "$GUIDED_SECRETS_MANIFEST"
   # stub the tty reader so the fall-through is observable without a terminal.
@@ -387,6 +387,39 @@ $ZFS_BYID_DIR/ata-FAKE_DISK_C-part1" ]
   ZFS_PASSPHRASE=""
   collect_enc_passphrase
   [ "$ZFS_PASSPHRASE" = "prompted" ]   # guided tier skipped, prompt reached
+}
+
+# ── unattended default tier (ADR 0059) ────────────────────────────────────────
+# Below the manifest, above the prompt: an unattended run with nothing else set
+# takes the default constant, so `install.sh --profile <encrypted> -y` no longer
+# blocks on a tty prompt. Interactive runs (the test above) still prompt.
+
+@test "collect_enc_passphrase: unattended default used when no preset/manifest" {
+  write_config '{"options":{"encryption":true}}'
+  unset INSTALL_ENC_PASSPHRASE GUIDED_SECRETS_MANIFEST
+  export INSTALL_UNATTENDED=1
+  # a prompt here would mean the tier was skipped — stub it to a sentinel so a
+  # regression is visible rather than hanging on /dev/tty.
+  prompt_secret() { printf -v "$1" '%s' "SHOULD-NOT-PROMPT"; }
+  ZFS_PASSPHRASE=""
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "$INSTALL_DEFAULT_ENC_PASSPHRASE" ]
+  [ "$ZFS_PASSPHRASE" = "12345678" ]
+}
+
+@test "collect_enc_passphrase: manifest beats the unattended default" {
+  write_config '{"options":{"encryption":true}}'
+  unset INSTALL_ENC_PASSPHRASE
+  export INSTALL_UNATTENDED=1
+  export GUIDED_SECRETS_MANIFEST="$TEST_DIR/manifest.json"
+  printf '%s\n' '{"enc_passphrase":"guidedpass"}' > "$GUIDED_SECRETS_MANIFEST"
+  ZFS_PASSPHRASE=""
+  collect_enc_passphrase
+  [ "$ZFS_PASSPHRASE" = "guidedpass" ]
+}
+
+@test "default enc passphrase clears ZFS's 8-char keyformat floor" {
+  [ "${#INSTALL_DEFAULT_ENC_PASSPHRASE}" -ge 8 ]
 }
 
 # ── ram_gib ───────────────────────────────────────────────────────────────────

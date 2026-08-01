@@ -375,9 +375,10 @@ EOF
 # shared with the non-guided renderer. Test-only — never production.
 # Args: <repo_url> <hostname> [dirty_cache] [verify_boot] [encryption]
 #       [impermanence]. encryption/impermanence "true" append the matching guided
-# answer (so the replayed menu sets them); encryption also presets
-# INSTALL_ENC_PASSPHRASE — the back-end's non-interactive passphrase seam — so
-# the ZFS native-encrypted pool is created without a tty prompt (test-only).
+# answer (so the replayed menu sets them). Unlike the non-guided renderer, this
+# does NOT preset INSTALL_ENC_PASSPHRASE (ADR 0059): the guided menu authors the
+# Secrets Manifest itself, and presetting it would shadow that path and leave it
+# untested. The encrypted pool is created from the menu's own passphrase.
 _seed_generator_render_guided_user_data() {
   local repo_url="$1" hostname="$2"
   local dirty_cache="${3:-false}" verify_boot="${4:-false}"
@@ -391,16 +392,18 @@ _seed_generator_render_guided_user_data() {
   [[ -n "$dirty_step" ]] && \
     dirty_step="${dirty_step} > /etc/zfs/zpool.cache && "
 
-  # Extra guided answers replayed before INSTALL, plus the passphrase preset the
-  # encrypted-pool path needs (mirrors the non-guided test flow).
+  # Extra guided answers replayed before INSTALL. NB: unlike the non-guided
+  # flow, the guided run does NOT preset INSTALL_ENC_PASSPHRASE (ADR 0059). That
+  # preset is the highest precedence tier, so it would shadow the Secrets
+  # Manifest and leave the menu's own passphrase path (manifest →
+  # collect_enc_passphrase → zpool create) untested. The guided menu authors the
+  # manifest itself (unset → the 8-char default), so the encrypted pool is
+  # created from the value the menu produces — the point of a guided smoke run.
   # Single backslash: these are substituted into the heredoc as-is (heredoc
   # backslash processing applies only to its literal text), so the guest's
   # printf sees `\n` and writes one answer per line.
-  local extra_answers="" enc_export=""
-  [[ "$encryption" == "true" ]] && {
-    extra_answers+='encryption=true\n'
-    enc_export="export INSTALL_ENC_PASSPHRASE='testtest' && "
-  }
+  local extra_answers=""
+  [[ "$encryption" == "true" ]] && extra_answers+='encryption=true\n'
   [[ "$impermanence" == "true" ]] && extra_answers+='impermanence=true\n'
 
   # Ad-hoc user + passwords (issue 07): when the profile names a guided_user,
@@ -493,7 +496,7 @@ runcmd:
         && cd /root/dotfiles/.os \\
         ${disk_step} \\
         && cat /root/guided-answers \\
-        && ${dirty_step}${enc_export}./install.sh --guided /root/guided-answers
+        && ${dirty_step}./install.sh --guided /root/guided-answers
     }
     rc=\$?
 ${boot_block}

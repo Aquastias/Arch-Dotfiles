@@ -100,3 +100,23 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -ne 0 ]
   [ ! -f "$OS_DIR/hosts/sneaky.jsonc" ]
 }
+
+# ── neither Save nor Export leaks the disk passphrase default (ADR 0059) ─────
+# The 12345678 default is applied only in the runtime Secrets Manifest, never in
+# Config State — so with encryption ON but no override, neither artifact carries
+# a passphrase. Guards the "never enters Save/Export" claim of Seam 3.
+
+@test "Save/Export carry no disk passphrase, even with encryption on" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
+  state="$(cfgstate_set "$state" mode '"single"')"
+  state="$(cfgstate_set "$state" options.encryption 'true')"
+
+  guided_save_host_profile "$state" "eterniox"
+  saved="$OS_DIR/hosts/eterniox/profile.jsonc"
+  ! grep -qE "enc_passphrase|12345678" "$saved"
+
+  effective="$(cfgstate_set "$state" disk '"/dev/sda"')"
+  out="$TEST_DIR/usb/eterniox.effective.jsonc"
+  guided_export_config "$effective" "$out"
+  ! grep -qE "enc_passphrase|12345678" "$out"
+}
