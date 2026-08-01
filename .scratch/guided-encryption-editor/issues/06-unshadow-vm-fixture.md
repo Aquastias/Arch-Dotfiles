@@ -1,6 +1,6 @@
 # Un-shadow the guided encrypted VM fixture
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -33,15 +33,43 @@ it.
 
 ## Acceptance criteria
 
-- [ ] The guided user-data renderer no longer exports the passphrase preset
-- [ ] Non-guided renderers still export their preset unchanged
-- [ ] The guided encrypted fixture resolves its passphrase from the Secrets
+- [x] The guided user-data renderer no longer exports the passphrase preset
+- [x] Non-guided renderers still export their preset unchanged
+- [x] The guided encrypted fixture resolves its passphrase from the Secrets
       Manifest, not from the preset
-- [ ] No fixture profile file needs editing
-- [ ] Console Answerer behaviour is unchanged for boot-verifying fixtures
-- [ ] A VM smoke run of the guided encrypted fixture reaches installer exit 0
-      (deferred — verified whenever the smoke set is next run by a human)
+- [x] No fixture profile file needs editing (config fields untouched; only the
+      header comment was refreshed to match)
+- [x] Console Answerer behaviour is unchanged for boot-verifying fixtures
+- [~] A VM smoke run of the guided encrypted fixture reaches installer exit 0
+      — the live boot run stays HITL (ADR 0048); verified as far as the
+      environment allows (see Comments), power-on deferred to the next smoke set
 
 ## Blocked by
 
 - .scratch/guided-encryption-editor/issues/03-manifest-8char-default.md
+
+## Comments
+
+Closed at render level; the live boot run remains HITL by ADR 0048.
+
+**Verified without booting** — the actual guest user-data the harness renders
+for `single/guided-secure` (via `_seed_generator_render_guided_user_data`, not a
+mock) was checked: no `INSTALL_ENC_PASSPHRASE` preset, replays `encryption=true`
++ `impermanence=true`, and the install line is `./install.sh --guided
+/root/guided-answers` with no preset prefix — so the guided menu authors the
+Secrets Manifest (`enc_passphrase` → `12345678`) and `collect_enc_passphrase`
+reads it. The manifest → `zpool create` path this ticket exposes is now the one
+that runs. `--print-config` also validates the fixture (encryption on). Bats:
+`seed-generator-guided.bats` asserts the preset is gone; `zfs-pools.bats` covers
+the precedence ladder.
+
+**Why the power-on is deferred here** — four hard blockers in this environment,
+any one fatal: (1) privilege escalation blocked, so `libvirtd` can't start; (2)
+no `/dev/kvm`; (3) network egress restricted (ISO download + repo clone); (4)
+the harness clones the published remote (`REPO_URL`), so it would install
+committed `main`, not local unpushed work.
+
+**To complete the live run** — on a KVM-capable, privileged, networked host,
+once this branch is pushed: `OS_DIR=.os bash .os/vm/vm.sh --guided --profile
+single/guided-secure` (optionally `REPO_URL=<fork>`), expecting
+`===INSTALLER-EXIT-0===`.

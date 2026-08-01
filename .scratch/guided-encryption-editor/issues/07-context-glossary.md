@@ -1,6 +1,6 @@
 # CONTEXT.md glossary: Encryption Editor
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

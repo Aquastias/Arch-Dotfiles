@@ -1,6 +1,6 @@
 # Secrets Manifest defaults to the 8-char disk passphrase
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
