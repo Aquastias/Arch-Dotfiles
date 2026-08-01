@@ -125,10 +125,10 @@ The `disk encryption` row leaves the Users screen. One secret, one door.
     Export config, so that no secret reaches a committed file.
 29. As an operator, I want Proceed never blocked on the passphrase, so that the
     one-select install stays one select.
-30. As a maintainer, I want the passphrase precedence ladder as a pure function,
-    so that all four tiers are testable without a tty.
-31. As a maintainer, I want the collapsed row's text as a pure label helper, so
-    that its four states are testable without fzf.
+30. As a maintainer, I want the new precedence tier covered by the existing
+    precedence tests, so that the whole ladder stays proven at one seam.
+31. As a maintainer, I want the collapsed row's text behind the same kind of
+    label helper the swap row uses, so that its states are testable without fzf.
 32. As a maintainer, I want the default defined once as a named constant, so
     that the ZFS reason for its length lives beside its definition.
 33. As a maintainer, I want the guided VM fixture to stop presetting
@@ -155,13 +155,12 @@ exactly as the passphrase row already was. This keeps the row in its current
 slot beneath `filesystem` rather than promoting it to the hand-written block
 with layout, root disk and swap.
 
-### New pure module: passphrase precedence resolver
+### Precedence ladder gains a tier in place
 
-`collect_enc_passphrase` currently interleaves the precedence ladder with tty
-prompting and assignment to a global. The ladder is extracted into a pure
-resolver taking the preset, the manifest path, and the unattended flag, and
-returning the resolved value together with its source. The caller keeps the
-prompt and the global assignment. Tiers, in order:
+The passphrase ladder is **not** extracted. It is already driven end-to-end by
+an existing test block, including the fall-through to the tty prompt, so pulling
+a pure resolver out of it would duplicate coverage rather than create it. The
+ladder gains one tier where it stands:
 
 1. `INSTALL_ENC_PASSPHRASE` — test/VM preset
 2. Secrets Manifest (`enc_passphrase`)
@@ -172,11 +171,12 @@ Tier 3 is deliberately gated on unattended rather than unconditional. An
 interactive profile install must still prompt. This mirrors how the chroot layer
 already gates root's `12345` default on the same variable.
 
-### New pure module: collapsed row label
+### Collapsed row label helper
 
 A label helper takes the effective config and the secret source tag and returns
-the row's summary text, alongside the existing layout and swap label helpers.
-Four states: `off`, `on · default <value>`, `on · custom`, `on · from age`.
+the row's summary text, alongside the existing layout and swap label helpers —
+matching how the swap row is already structured and already tested. Four states:
+`off`, `on · default <value>`, `on · custom`, `on · from age`.
 
 ### Editor screen
 
@@ -196,7 +196,7 @@ and operator-override branches are unchanged.
 
 One shared constant holds `12345678`, guarded so that re-sourcing cannot abort
 on a readonly reassignment. It is consumed by the manifest fill, the tag helper
-and the resolver. The comment beside it records the ZFS `keyformat=passphrase`
+and the ladder. The comment beside it records the ZFS `keyformat=passphrase`
 minimum as the reason for its length.
 
 ### Glyph vocabulary
@@ -222,39 +222,70 @@ the Encryption Editor; then the documentation.
 
 A good test here asserts **rendered screen content and resolved values** — what
 the operator sees and what the installer would use — never internal call
-sequences or helper invocation counts. The prior art is the existing guided
-controller suite, which drives the controller's render and enter entry points
-and greps the emitted lines, and the guided secrets suites, which assert the
-manifest's contents after a fill.
+sequences or helper invocation counts. Package-style `$CALLS` assertions are
+explicitly not the tool for this feature: every claim worth making is about a
+string on screen or a variable after resolution.
 
-All four modules are tested.
+Four seams, three of them already in the codebase. No new seam kind is
+introduced.
 
-**Passphrase precedence ladder.** Each tier in isolation and each shadowing
-relationship: preset beats manifest, manifest beats the unattended default, the
-unattended default is the 8-character constant, and an interactive run with
-nothing set falls through to the prompt. One test asserts the default clears
-ZFS's ≥8 floor — this is the assertion whose absence let the original bug ship.
+### Seam 1 — the passphrase precedence ladder (existing)
 
-**Encryption Editor render.** Both collapse states; that `enabled` cycles in
-place without changing screen; that a stored passphrase survives an off→on
-round-trip and reads `custom` afterwards; and that setting a passphrase leaves
-the toggle false.
+Prior art: the existing precedence block in the ZFS pools suite, which already
+covers the disabled short-circuit, the preset tier, the manifest tier, and the
+fall-through to the prompt (stubbing the tty reader so the last case is
+observable without a terminal).
 
-**Collapsed Disks row label.** All four render states plus the override dot.
+Extend that block rather than starting a new one: the unattended tier resolves
+to the 8-character constant; the manifest still beats it; the preset still beats
+both; an interactive run with nothing set still reaches the prompt. One
+assertion pins the default against ZFS's ≥8 floor — the assertion whose absence
+let the original bug ship.
 
-**Users screen regression.** The `disk encryption` row is absent, and the root
-and per-user rows still report the unchanged account default — guarding the
-split-default decision against a careless single-constant refactor.
+### Seam 2 — the guided controller render/enter pair (existing)
 
-**VM.** The guided encrypted fixture exercises manifest → `zpool create` for
-real once the harness preset is removed. An install producing an unlockable pool
-now fails the smoke run rather than passing it. No new fixture is added; ADR
-0048 notes a curated subset that actually runs beats a fuller one that does not.
+Prior art: the guided controller suite, which drives the controller's render and
+enter entry points and asserts on the emitted lines. Everything the operator
+touches goes through here:
+
+- the Editor's two collapse states
+- `enabled` cycling in place without changing screen
+- a stored passphrase surviving an off→on round-trip and reading `custom`
+- setting a passphrase leaving the toggle false
+- the passphrase row routing to the masked capture, and returning to the Editor
+- the Users screen no longer rendering a `disk encryption` row, while root and
+  per-user rows still render and still report the account default
+
+That last assertion guards the deliberate split between the two defaults against
+a later single-constant refactor.
+
+### Seam 3 — the Secrets Manifest fill (existing)
+
+Prior art: the guided secrets suites, which assert the manifest's contents after
+a fill. Cover that an unset disk passphrase fills from the 8-character constant
+while unset accounts keep the account default, and that neither reaches Config
+State, Save or Export.
+
+### Seam 4 — the collapsed row label helper (new function, existing seam class)
+
+Prior art: the swap label helper, which is called directly from the controller
+suite with a JSON argument and asserted on its returned string. The encryption
+label helper is tested identically — four render states plus the override dot,
+with no fzf and no screen render involved.
+
+### VM
+
+The guided encrypted fixture exercises manifest → `zpool create` for real once
+the harness preset is removed. An install producing an unlockable pool then
+fails the smoke run rather than passing it. No new fixture is added; ADR 0048
+notes a curated subset that actually runs beats a fuller one that does not.
 
 ## Out of Scope
 
 - Changing the account password default. Root, per-user and the `--unattended`
   root default all keep `12345`.
+- Extracting a pure passphrase resolver. The existing seam already proves the
+  ladder; a new one would duplicate coverage.
 - Reworking the age-decrypted secret path or SOPS activation.
 - Per-group and data-pool encryption, which remain independent booleans on their
   own editors.

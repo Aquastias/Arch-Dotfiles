@@ -16,9 +16,10 @@ passphrase row beneath it — with a single `Encryption ▸` row that opens a ne
 ### The collapsed row
 
 Keep the row in its existing slot beneath the filesystem row; the filesystem is
-what derives the cipher. Its summary text comes from a **pure label helper**
-alongside the existing layout and swap label helpers — effective config and
-secret source tag in, one line of text out, testable without fzf:
+what derives the cipher. Its summary text comes from a label helper alongside
+the existing layout and swap label helpers — effective config and secret source
+tag in, one line of text out, called and asserted directly the way the swap
+label already is:
 
 ```
 Encryption ▸ on · default 12345678
@@ -38,7 +39,7 @@ special-cased, the same way the passphrase row already was.
 ### The Editor
 
 A new navigation screen with its own nav constructor, prompt and footer,
-modelled on the existing swap sub-editor — including its conditional collapse:
+modelled on the swap sub-editor — including its conditional collapse:
 
 ```
 enabled: false          enabled: true
@@ -55,8 +56,9 @@ enablement: the toggle stays the single source of truth for whether the disk is
 encrypted.
 
 The passphrase row opens the existing inline-masked, type-twice capture with its
-≥8-character entry rule, and confirming returns to the Editor rather than to the
-Disks category.
+≥8-character entry rule. Because the secret screen now carries its return
+target, opening it from here is a matter of passing this screen — no conditional
+in the back or confirm paths.
 
 Rendered output stays limited to narrow geometric unicode. Do not introduce
 emoji — they are double-width and break alignment in the persistent fzf.
@@ -66,7 +68,7 @@ emoji — they are double-width and break alignment in the persistent fzf.
 - [ ] Disks shows one `Encryption ▸` row in the slot beneath filesystem
 - [ ] The row's four summary states render correctly
 - [ ] The row shows the override dot when enablement differs from the baseline
-- [ ] The summary text comes from a pure helper testable without fzf
+- [ ] The label helper is called and asserted directly, without a screen render
 - [ ] The separate passphrase row no longer appears on the Disks screen
 - [ ] Enter on the row opens the Encryption Editor
 - [ ] The Editor shows only the enablement row and Back when encryption is off
@@ -75,6 +77,7 @@ emoji — they are double-width and break alignment in the persistent fzf.
 - [ ] Enter on the passphrase row opens the inline-masked capture
 - [ ] A passphrase under 8 characters is refused inline with a notice
 - [ ] Confirming a passphrase returns to the Encryption Editor
+- [ ] Cancelling a passphrase also returns to the Encryption Editor
 - [ ] Setting a passphrase leaves enablement unchanged
 - [ ] A stored passphrase survives an off→on round-trip and reads as custom
 - [ ] The Editor's footer and prompt match the other sub-editors
@@ -84,4 +87,5 @@ emoji — they are double-width and break alignment in the persistent fzf.
 
 ## Blocked by
 
-- .scratch/guided-encryption-editor/issues/02-manifest-8char-default.md
+- .scratch/guided-encryption-editor/issues/01-secret-return-target.md
+- .scratch/guided-encryption-editor/issues/03-manifest-8char-default.md

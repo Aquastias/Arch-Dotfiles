@@ -47,4 +47,4 @@ implementation detail — terms and their meanings only.
 
 ## Blocked by
 
-- .scratch/guided-encryption-editor/issues/04-remove-users-enc-row.md
+- .scratch/guided-encryption-editor/issues/05-remove-users-enc-row.md
