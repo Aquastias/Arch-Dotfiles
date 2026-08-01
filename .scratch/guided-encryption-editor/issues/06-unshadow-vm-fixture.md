@@ -15,7 +15,7 @@ The guided user-data renderer exports the `INSTALL_ENC_PASSPHRASE` preset for
 every encrypted guided run. That preset is the **highest** precedence tier, so
 it shadows the Secrets Manifest completely: no VM run has ever executed the
 passphrase path the guided menu actually produces. This is exactly why the
-five-character default shipped — the assertion that would have caught it ran
+five-character default shipped — the coverage that would have caught it ran
 against a value the harness supplied, not the one the menu generates.
 
 Remove the preset from the **guided** renderer only. The non-guided flows keep
@@ -44,4 +44,4 @@ it.
 
 ## Blocked by
 
-- .scratch/guided-encryption-editor/issues/02-manifest-8char-default.md
+- .scratch/guided-encryption-editor/issues/03-manifest-8char-default.md

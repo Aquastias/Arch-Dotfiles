@@ -1,4 +1,4 @@
-# Guided Secrets Manifest defaults to the 8-char passphrase
+# Secrets Manifest defaults to the 8-char disk passphrase
 
 Status: ready-for-agent
 
@@ -18,17 +18,17 @@ override the passphrase dies at pool creation, after the disk wipe has already
 been confirmed. Both committed personal Host Profiles are encrypted, so this is
 the one-select path failing.
 
-Change the fill so the **disk passphrase** defaults to the shared constant from
-slice 01 while **accounts keep their existing default**. The asymmetry is
-deliberate and must survive refactoring: only the disk passphrase has a length
-floor, and it exists because ZFS imposes it.
+Change the fill so the **disk passphrase** defaults to the shared constant while
+**accounts keep their existing default**. The asymmetry is deliberate and must
+survive refactoring: only the disk passphrase has a length floor, and it exists
+because ZFS imposes it.
 
 The secret source tag helper — which reports whether a secret is an operator
 override, an age-decrypted value, or a default — gains a role-dependent default
 branch so it names the right value per secret. Its override and age branches are
 unchanged.
 
-At this point the existing Disks and Users rows still work; this slice changes
+The existing Disks and Users rows still work at this point; this ticket changes
 only what an untouched passphrase resolves to. It is verifiable on its own: a
 guided encrypted install with no override now completes.
 
@@ -48,4 +48,4 @@ guided encrypted install with no override now completes.
 
 ## Blocked by
 
-- .scratch/guided-encryption-editor/issues/01-passphrase-constant-unattended.md
+- .scratch/guided-encryption-editor/issues/02-passphrase-constant-unattended.md
