@@ -76,8 +76,6 @@
       ],
       "dev": [
         "ccache",
-        "docker",
-        "docker-compose",
         "nvm"
       ],
       "browsers": [
@@ -98,9 +96,6 @@
         "gamemode",
         "lib32-gamemode",
         "steam"
-      ],
-      "virt": [
-        "virt-manager"
       ],
       "archive": [
         "7zip",

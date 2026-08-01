@@ -102,8 +102,6 @@
       "dev": [
         "biome",
         "ccache",
-        "docker",
-        "docker-compose",
         "go",
         "mermaid-cli",
         "nvm",
@@ -137,8 +135,7 @@
         "vlc-plugin-srt"
       ],
       "communication": [
-        "discord",
-        "teamspeak3"
+        "discord"
       ],
       "gaming": [
         "gamemode",
@@ -155,7 +152,6 @@
         "qemu-base",
         "qemu-full",
         "vde2",
-        "virt-manager",
         "virt-viewer"
       ],
       "archive": [

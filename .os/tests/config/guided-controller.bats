@@ -1526,6 +1526,46 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
 }
 
+# ── extra-packages row routes by kind at ENTRY time ─────────────────────────
+# The deleted promotion rule ran in the guided emit path only, so the same
+# file installed differently per front-end. Routing at entry keeps the
+# convenience while what reaches Config State stays canonical.
+
+@test "extra packages: a plain name stays a repo package" {
+  mixed_programs_setup
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  run guided_ctl_enter "" "htop"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+}
+
+@test "extra packages: a system Program name routes to system_programs" {
+  mixed_programs_setup
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  run guided_ctl_enter "" "cups"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.system_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
+  # and it is NOT left behind as a package
+  [ "$(jq -c '.packages.repo.extra // []' "$GUIDED_STATE_FILE")" = '[]' ]
+}
+
+@test "extra packages: a mixed entry splits by kind" {
+  mixed_programs_setup
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  run guided_ctl_enter "" "htop cups"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+  [ "$(jq -c '.system_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
+}
+
+@test "extra packages: routing reports where the name went" {
+  mixed_programs_setup
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  run guided_ctl_enter "" "cups"
+  [[ "$output" == *"routed to system programs"* ]]
+  [[ "$output" == *"cups"* ]]
+}
+
 # ── program picker option-set MEMBERSHIP (R22) ───────────────────────────────
 # The two pickers have opposite requirements and used to share one unfiltered
 # list. Assert *which options are offered*, not only the [x]/[ ] marking —

@@ -219,6 +219,50 @@ reconcile_user_program() {
   return 1
 }
 
+# =============================================================================
+# EXCLUSIVITY: A NAME IS EITHER A PROGRAM OR A PACKAGE, NEVER BOTH
+# =============================================================================
+# validate_package_program_exclusivity <config-json> [label]
+# Aborts config load when any packages.repo.* or packages.aur.* entry resolves
+# to a program directory, naming the offending path and the correct slot.
+#
+# This replaces the promotion rule, which rewrote such a name into
+# system_programs — but only in the Guided Installer's emit path, so a
+# hand-edited profile and a TUI-authored one installed differently. Rejecting
+# the overlap outright makes every front-end read the same file the same way.
+#
+# Returns 0 when clean; 1 with one stderr message per violation otherwise.
+# Pure: reads the JSON arg + the program registry, never disks.
+validate_package_program_exclusivity() {
+  local config="$1" label="${2:-config}"
+  [[ -n "${_CONFIGS_REGISTRY_BUILT:-}" ]] || configs_build_registry || return 1
+
+  local rc=0 slot cat name kind
+  while IFS=$'\t' read -r slot cat name; do
+    [[ -n "$name" ]] || continue
+    kind="$(program_kind "$name")"
+    [[ "$kind" == "none" ]] && continue
+    if [[ "$kind" == "system" ]]; then
+      echo "configs: ${label}: packages.${slot}.${cat} lists '${name}'," \
+           "but '${name}' is a System Program. Declare it in" \
+           "system_programs instead, or rename the package entry." >&2
+    else
+      echo "configs: ${label}: packages.${slot}.${cat} lists '${name}'," \
+           "but '${name}' is a User Program. Declare it in a user profile's" \
+           "programs instead, or rename the package entry." >&2
+    fi
+    rc=1
+  done < <(jq -r '
+    (["repo","aur"] | .[]) as $slot
+    | (.packages[$slot] // {}) | to_entries[]
+    | select(.value | type == "array")
+    | .key as $cat | .value[]
+    | select(type == "string")
+    | "\($slot)\t\($cat)\t\(.)"
+  ' <<<"$config" 2>/dev/null)
+  return "$rc"
+}
+
 # Validate a list of programs. Returns 0 if all pass, 1 if any fail.
 # All failures are reported to stderr (no early exit).
 validate_programs() {

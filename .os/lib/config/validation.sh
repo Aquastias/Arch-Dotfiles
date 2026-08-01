@@ -365,6 +365,15 @@ validate_install_context() {
   resolve_environment
 
   configs_build_registry
+
+  # A name is either a Program or a package, never both. Checked against the
+  # EFFECTIVE CONFIG so every front-end aborts identically, before any disk is
+  # touched. Replaces the guided-only promotion rule.
+  local _eff_json
+  _eff_json="$(jsonc_strip "$CONFIG_FILE")"
+  validate_package_program_exclusivity "$_eff_json" "$CONFIG_FILE" \
+    || error "Package/Program name collision — see above."
+
   _validation_preflight_programs "$RESOLVED_HOST_PROFILE"
 
   local _host_json

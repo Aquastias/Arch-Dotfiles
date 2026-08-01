@@ -79,23 +79,26 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
 }
 
-# ── the emitter promotes a typed extra program into system_programs (issue 06)
+# ── the emitter does NOT promote: a name is a Program or a package ──────────
+# Promotion used to run here and only here, so the guided path and the two
+# profile/config paths disagreed about the same file. The emitter now passes
+# packages through untouched; routing happens at entry, exclusivity at load.
 
-@test "emit_effective: promotes a packages.extra program into system_programs" {
+@test "emit_effective: a package name is passed through, never promoted" {
   mkdir -p "$OS_DIR/programs/security/wireguard"
   printf '{"name":"wireguard","system":true}\n' \
     > "$OS_DIR/programs/security/wireguard/config.jsonc"
   : > "$OS_DIR/programs/security/wireguard/install.sh"
 
   state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" packages.extra '["wireguard","htop"]')"
+  state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   run emit_effective "$state" "$assignment"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs | index("wireguard")'  # promoted
-  echo "$output" | jq -e '.system_programs | index("cups")'       # core kept
-  echo "$output" | jq -e '.packages.extra == ["htop"]'            # non-match stays
+  echo "$output" | jq -e '.packages.repo.extra == ["htop"]'
+  echo "$output" | jq -e '.system_programs | index("cups")'   # core kept
+  echo "$output" | jq -e '.system_programs | index("htop") | not'
 }
 
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─
