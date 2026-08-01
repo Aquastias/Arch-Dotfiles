@@ -32,6 +32,16 @@
 INSTALL_MODE=""
 PICK_RESULT=""           # last result from pick_option() in common.sh
 
+# The default disk-encryption passphrase (ADR 0059). Eight characters, NOT five
+# like the account default (`12345`): ZFS keyformat=passphrase rejects anything
+# shorter at pool creation, so a 5-char default could never install an encrypted
+# pool. Consumed by the guided Secrets Manifest fill, the guided source tag, and
+# collect_enc_passphrase's unattended tier. A runtime default only — never
+# written to Config State, Save, or Export. Default-assigned (not readonly) so
+# re-sourcing globals.sh — guided subprocesses source it standalone — is
+# idempotent and can never abort.
+: "${INSTALL_DEFAULT_ENC_PASSPHRASE:=12345678}"
+
 LAYOUT_ESP_PARTS=()      # populated by layout_plan() — see contract above
 LAYOUT_OS_POOL_NAME=""   # populated by layout_plan()
 LAYOUT_DATA_POOL_NAMES=() # populated by layout_plan(); data pools to export

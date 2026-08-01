@@ -47,6 +47,13 @@ nav_to_text() {
 # nav_to_swapedit <category> — the swap sub-editor (enabled / size / zswap).
 nav_to_swapedit() { jq -nc --arg c "$1" '{screen:"swapedit", category:$c}'; }
 
+# nav_to_encryption <category> — the Encryption Editor (ADR 0059): the toggle +
+# the disk passphrase, collapsed behind one Disks row. Modelled on the swap
+# sub-editor.
+nav_to_encryption() {
+  jq -nc --arg c "$1" '{screen:"encryption", category:$c}'
+}
+
 # nav_to_datapools <category> — the data-pools list editor.
 nav_to_datapools() { jq -nc --arg c "$1" '{screen:"datapools", category:$c}'; }
 
@@ -77,13 +84,38 @@ nav_to_useredit() {
     '{screen:"useredit", category:$c, user:$u}'
 }
 
-# nav_to_secret <category> <target> [user] [phase] — the inline masked password
-# screen (ADR 0051). target is root | user; user names the account for a user
-# password; phase is entry | confirm (type-twice). Carries no secret — the typed
-# value lives in the tmpfs buffer file, never the nav.
+# nav_to_secret <category> <target> [user] [phase] [origin-json] — the inline
+# masked password screen (ADR 0051). target is root | user | enc; user names the
+# account for a user password; phase is entry | confirm (type-twice). Carries no
+# secret — the typed value lives in the tmpfs buffer file, never the nav.
+#
+# origin-json (ADR 0059), when given, is the nav to return to on cancel or save.
+# Declaring it once at open time replaces re-deriving the return screen from the
+# target in two separate places (nav_back and the confirm path).
 nav_to_secret() {
-  jq -nc --arg c "$1" --arg t "$2" --arg u "${3:-}" --arg p "${4:-entry}" \
-    '{screen:"secret", category:$c, target:$t, user:$u, phase:$p}'
+  local c="$1" t="$2" u="${3:-}" p="${4:-entry}" o="${5:-}"
+  if [[ -n "$o" ]]; then
+    jq -nc --arg c "$c" --arg t "$t" --arg u "$u" --arg p "$p" \
+      --argjson o "$o" \
+      '{screen:"secret", category:$c, target:$t, user:$u, phase:$p, origin:$o}'
+  else
+    jq -nc --arg c "$c" --arg t "$t" --arg u "$u" --arg p "$p" \
+      '{screen:"secret", category:$c, target:$t, user:$u, phase:$p}'
+  fi
+}
+
+# nav_secret_return <secret-nav> — the screen a masked capture returns to on
+# cancel (Esc) or save (confirm); both land in the same place, so the return is
+# read from one carried `origin` field. Absent it (older hand-built navs), fall
+# back to the pre-0059 target+category derivation: the disk passphrase opened on
+# Disks returns to that category, every other secret to the Users list.
+nav_secret_return() {
+  jq -c '
+    if .origin then .origin
+    elif .target == "enc" and .category == "Disks"
+      then {screen:"category", category:.category}
+    else {screen:"values", category:.category, field:"users", label:"users"}
+    end' <<<"$1"
 }
 
 # nav_to_userfield <category> <user> <field> <label> — a user-scoped sub-editor
@@ -133,7 +165,12 @@ nav_to_pkgderivedsrc() {
 }
 
 # nav_back <nav> — values/text → their category; category → top; top stays top.
+# The secret screen routes through nav_secret_return so its cancel path reads
+# the same carried origin the save path does (ADR 0059).
 nav_back() {
+  if [[ "$(jq -r '.screen' <<<"$1")" == "secret" ]]; then
+    nav_secret_return "$1"; return
+  fi
   jq -c '
     if   .screen == "profiles"
          then {screen:"top"}
@@ -142,6 +179,7 @@ nav_back() {
     elif .screen == "values" or .screen == "text"
          then {screen:"category", category:.category}
     elif .screen == "swapedit"  then {screen:"category", category:.category}
+    elif .screen == "encryption" then {screen:"category", category:.category}
     elif .screen == "datapools" then {screen:"category", category:.category}
     elif .screen == "pooledit"  then {screen:"datapools", category:.category}
     elif .screen == "pooldisks"
@@ -152,11 +190,6 @@ nav_back() {
          then {screen:"values", category:.category, field:"users", label:"users"}
     elif .screen == "userfield"
          then {screen:"useredit", category:.category, user:.user}
-    elif .screen == "secret"
-         then (if .target == "enc"
-               then {screen:"category", category:.category}
-               else {screen:"values", category:.category,
-                     field:"users", label:"users"} end)
     elif .screen == "pkgcat" then {screen:"category", category:.category}
     elif .screen == "pkgs"
          then {screen:"pkgcat", category:.category, slot:.slot}

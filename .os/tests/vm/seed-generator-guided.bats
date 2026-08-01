@@ -58,16 +58,18 @@ render() { _seed_generator_render_guided_user_data "$REPO_URL" "$HOSTNAME_FIXTUR
   [[ ! "$output" =~ "===FIRSTBOOT-OK===" ]]
 }
 
-# ── encryption (arg 5): the runcmd presets the passphrase + replays the answer
+# ── encryption (arg 5): replays the answer, but does NOT preset the passphrase
+# (ADR 0059) — presetting it would shadow the Secrets Manifest and leave the
+# guided menu's own passphrase path untested. The menu authors the manifest.
 
-@test "guided user-data: encryption exports the passphrase and replays the answer" {
+@test "guided user-data: encryption replays the answer without presetting a passphrase" {
   run render false false true false   # dirty / verify / encryption / impermanence
   [ "$status" -eq 0 ]
-  [[ "$output" =~ "INSTALL_ENC_PASSPHRASE" ]]
   [[ "$output" =~ "encryption=true" ]]
+  [[ ! "$output" =~ "INSTALL_ENC_PASSPHRASE" ]]
 }
 
-@test "guided user-data: no encryption omits the passphrase and answer" {
+@test "guided user-data: no encryption omits the answer" {
   run render
   [ "$status" -eq 0 ]
   [[ ! "$output" =~ "INSTALL_ENC_PASSPHRASE" ]]

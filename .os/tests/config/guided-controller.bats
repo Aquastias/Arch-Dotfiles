@@ -67,7 +67,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
   echo "$output" | grep -q "Filesystem: ZFS"
-  echo "$output" | grep -q "Encryption: false"
+  echo "$output" | grep -qx "Encryption ▸ off"   # collapsed row (ADR 0059)
   echo "$output" | grep -q "Layout: single"   # reflects the default
   echo "$output" | grep -q "← Back"
 }
@@ -84,10 +84,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): an enum field opens the value picker" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "Encryption: false"
+  run guided_ctl_enter "Filesystem: ZFS"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.encryption" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "filesystem" ]
 }
 
 @test "enter(category): a text field opens the native query-line editor" {
@@ -749,6 +749,19 @@ _seed_baseline() {
   [ "$output" = "auto · zswap lz4" ]
 }
 
+@test "encryption label: off / on · <tag> (ADR 0059)" {
+  run _ctl_encryption_label '{"options":{"encryption":false}}' "default 12345678"
+  [ "$output" = "off" ]
+  run _ctl_encryption_label '{}' "default 12345678"        # default off
+  [ "$output" = "off" ]
+  run _ctl_encryption_label '{"options":{"encryption":true}}' "default 12345678"
+  [ "$output" = "on · default 12345678" ]
+  run _ctl_encryption_label '{"options":{"encryption":true}}' "custom"
+  [ "$output" = "on · custom" ]
+  run _ctl_encryption_label '{"options":{"encryption":true}}' "from age"
+  [ "$output" = "on · from age" ]
+}
+
 @test "list(category Disks): swap row shows a dot once overridden" {
   printf '%s\n' '{"options":{"swap":false}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_category Disks)"
@@ -1044,43 +1057,26 @@ _seed_baseline() {
     = "secret-user aquastias" ]
 }
 
-# ── Disk encryption override row on the Users screen (ADR 0055) ──────────────
+# ── Users screen: no disk-encryption row (ADR 0059) ──────────────────────────
+# The disk passphrase moved to the Disks Encryption Editor; the Users screen is
+# now strictly accounts. Its rows still report the ACCOUNT default (12345), not
+# the disk default — guarding the deliberate split against a single-constant
+# refactor.
 
-@test "list(values users): a Disk-encryption row appears when encryption is on" {
+@test "list(values users): no disk-encryption row, even with encryption on" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"users":["aquastias"],"options":{"encryption":true}}' \
     > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "disk encryption: default 12345"
-}
-
-@test "list(values users): no Disk-encryption row when encryption is off" {
-  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
-  printf '%s\n' '{"users":["aquastias"],"options":{"encryption":false}}' \
-    > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_list
   ! echo "$output" | grep -q "disk encryption:"
+  echo "$output" | grep -qx "root password: default 12345"   # account default
 }
 
-@test "enter(values users): the Disk-encryption row drops to a masked capture" {
+@test "enter(values users): no row routes to the passphrase capture" {
   set_nav "$(nav_to_values Users users users)"
-  [ "$(guided_ctl_enter "disk encryption: default 12345")" = "secret-enc" ]
-}
-
-@test "secret(enc from Users): a confirmed passphrase returns to the Users list" {
-  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
-  export GUIDED_PWBUF_FILE="$TEST_DIR/buf"; export GUIDED_PWPENDING_FILE="$TEST_DIR/pend"
-  # opened from the Users screen → cat=Users; confirm phase with matching buffer
-  set_nav '{"screen":"secret","category":"Users","target":"enc","phase":"confirm"}'
-  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
-  printf 'corrhorse' > "$GUIDED_PWPENDING_FILE"
-  run guided_ctl_enter ""
-  [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
-  guided_secretsfile_has_enc "$GUIDED_SECRETS_FILE"
+  # the old row line, were it still handled, would emit secret-enc; it must not.
+  [ "$(guided_ctl_enter "disk encryption: default 12345678")" != "secret-enc" ]
 }
 
 # ── root shell cycle (ADR 0054) ──────────────────────────────────────────────
@@ -1720,50 +1716,98 @@ secret_setup() {
   [ "$(jq -r '.users.dave.password' "$GUIDED_SECRETS_FILE")" = "davepw" ]
 }
 
-@test "list(Disks): no enc password row when encryption off" {
+# ── Encryption Editor + collapsed Disks row (ADR 0059) ───────────────────────
+
+@test "list(Disks): the Encryption row reads off + no legacy rows when off" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '{}\n' > "$GUIDED_SECRETS_FILE"
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "Encryption: false"
-  ! echo "$output" | grep -q "encryption password:"
+  echo "$output" | grep -qx "Encryption ▸ off"
+  ! echo "$output" | grep -qE "^Encryption: "        # no generic bool row
+  ! echo "$output" | grep -q "encryption password:"  # no old sub-row
 }
 
-@test "list(Disks): enc password row flags ⚠ when on + unset" {
-  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
-  printf '{}\n' > "$GUIDED_SECRETS_FILE"
+@test "list(Disks): the Encryption row shows on · default when on + unset" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "encryption password: (not set)"
-  echo "$output" | grep -q "encryption password: (not set)  ⚠"
+  echo "$output" | grep -q "Encryption ▸ on · default 12345678"
+  ! echo "$output" | grep -q "⚠"                     # no gate warning anymore
 }
 
-@test "list(Disks): enc password row reads (set) once captured" {
+@test "list(Disks): the Encryption row carries the override dot when on" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE "Encryption ▸ on · default 12345678  ●$"
+}
+
+@test "list(Disks): the Encryption row reads on · custom once captured" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '%s\n' '{"enc_passphrase":"corrhorse"}' > "$GUIDED_SECRETS_FILE"
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_category Disks)"
   run guided_ctl_list
-  echo "$output" | grep -q "encryption password: (set)"
-  ! echo "$output" | grep -q "encryption password: (set)  ⚠"
+  echo "$output" | grep -q "Encryption ▸ on · custom"
 }
 
-@test "enter(Disks): enc password opens the inline screen (rich chrome)" {
-  secret_setup; export GUIDED_RICH_CHROME=1
-  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+@test "enter(Disks): the Encryption row opens the Encryption Editor" {
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "encryption password: (not set)  ⚠"
+  run guided_ctl_enter "Encryption ▸ on · default 12345678"
   [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }
 
-@test "enter(Disks): enc password falls back to execute() (legacy)" {
+@test "list(encryption): off shows only the enabled row + Back" {
+  printf '%s\n' '{"options":{"encryption":false}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "enabled: off"
+  ! echo "$output" | grep -q "password:"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "list(encryption): on shows enabled + password + Back" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "enabled: on"
+  echo "$output" | grep -qx "password: default 12345678"
+}
+
+@test "enter(encryption): enabled toggles in place and stays on the editor" {
+  _seed_baseline                                 # so the strict-delta normalise
+  set_nav "$(nav_to_encryption Disks)"           # has the default to compare to
+  run guided_ctl_enter "enabled: off"
+  [ "$output" = "refresh" ]
+  [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
+  # toggling back to the baseline drops the override (strict delta)
+  run guided_ctl_enter "enabled: on"
+  [ "$output" = "refresh" ]
+  [ "$(jq 'getpath(["options","encryption"]) == null' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "enter(encryption): password opens the inline capture (rich chrome)" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  run guided_ctl_enter "password: default 12345678"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
+}
+
+@test "enter(encryption): password falls back to execute() (legacy)" {
   secret_setup; unset GUIDED_RICH_CHROME
-  set_nav "$(nav_to_category Disks)"
-  [ "$(guided_ctl_enter "encryption password: (not set)  ⚠")" = "secret-enc" ]
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  [ "$(guided_ctl_enter "password: default 12345678")" = "secret-enc" ]
 }
 
 @test "enter(secret entry enc): a passphrase under 8 chars is refused" {
@@ -1786,17 +1830,45 @@ secret_setup() {
   [ "$(cat "$GUIDED_PWPENDING_FILE")" = "eightchr" ]
 }
 
-@test "secret flow (enc): confirmed passphrase writes enc + backs to Disks" {
+@test "secret flow (enc): confirmed passphrase writes enc + returns to the Editor" {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "encryption password: (not set)  ⚠"
+  set_nav "$(nav_to_encryption Disks)"
+  run guided_ctl_enter "password: default 12345678"
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "enc" ]
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
   guided_ctl_enter "" >/dev/null                  # entry → confirm
   printf 'corrhorse' > "$GUIDED_PWBUF_FILE"
   guided_ctl_enter "" >/dev/null                  # confirm → save
   [ "$(jq -r '.enc_passphrase' "$GUIDED_SECRETS_FILE")" = "corrhorse" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "encryption" ]
+}
+
+@test "enter(encryption): setting a passphrase leaves enabled unchanged" {
+  secret_setup; export GUIDED_RICH_CHROME=1
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  guided_ctl_enter "password: default 12345678" >/dev/null
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_ctl_enter "" >/dev/null
+  printf 'corrhorse' > "$GUIDED_PWBUF_FILE"; guided_ctl_enter "" >/dev/null
+  [ "$(jq -r '.options.encryption' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "encryption editor: a stored passphrase survives an off→on toggle" {
+  secret_setup
+  printf '%s\n' '{"enc_passphrase":"corrhorse"}' > "$GUIDED_SECRETS_FILE"
+  printf '%s\n' '{"options":{"encryption":true}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_encryption Disks)"
+  guided_ctl_enter "enabled: on"  >/dev/null   # → off (baseline: override dropped)
+  guided_ctl_enter "enabled: off" >/dev/null   # → on again
+  run guided_ctl_list
+  echo "$output" | grep -qx "password: custom"    # retained, not cleared
+}
+
+@test "back(encryption): Esc returns to the Disks category" {
+  set_nav "$(nav_to_encryption Disks)"
+  run guided_ctl_back
+  [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" category)" = "Disks" ]
 }

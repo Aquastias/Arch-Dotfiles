@@ -26,6 +26,10 @@
 #   noop               do nothing
 # =============================================================================
 
+# INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
+# shellcheck source=lib/globals.sh
+[[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
+  || source "${BASH_SOURCE[0]%/*}/globals.sh"
 # shellcheck source=lib/config/state.sh
 [[ "$(type -t cfgstate_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
@@ -94,10 +98,12 @@ _ctl_secret_state() {
 }
 
 # _ctl_secret_tag <root|user|enc> [name] → the ADR-0055 source tag for a
-# credential on the Users override screen: `custom` (operator typed it into
-# GUIDED_SECRETS_FILE), else `from age` (a committed secret will decrypt via the
-# wired age key — .secrets.* wins over .guided_passwords.* in the resolver), else
-# `default 12345`. Never emits the value. Reads the secrets file + effective state.
+# credential: `custom` (operator typed it into GUIDED_SECRETS_FILE), else
+# `from age` (a committed secret will decrypt via the wired age key — .secrets.*
+# wins over .guided_passwords.* in the resolver), else the default tag. The
+# default is role-dependent (ADR 0059): the disk passphrase reports its 8-char
+# default, accounts their 5-char one. Never emits the value. Reads the secrets
+# file + effective state.
 _ctl_secret_tag() {
   local f="${GUIDED_SECRETS_FILE:-}" role="$1" name="${2:-}"
   if [[ -n "$f" ]]; then
@@ -109,7 +115,8 @@ _ctl_secret_tag() {
   fi
   [[ -n "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
       options.age_key_url)" ]] && { echo "from age"; return; }
-  echo "default 12345"
+  if [[ "$role" == "enc" ]]; then echo "default $INSTALL_DEFAULT_ENC_PASSPHRASE"
+  else echo "default 12345"; fi
 }
 
 # _ctl_pw_missing — count of required-but-unset passwords (root + each enabled
@@ -739,6 +746,7 @@ _ctl_nav_header() {
     fi ;;
   text)     b='Type a value, Enter save   Esc back' ;;
   swapedit)  b='Enter edit/toggle   Esc back' ;;
+  encryption) b='Enter edit/toggle   Esc back' ;;
   datapools) b='Enter open/add   Esc back' ;;
   pooledit)  b='Enter cycle/remove   Esc back' ;;
   pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
@@ -766,6 +774,7 @@ _ctl_nav_prompt() {
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
+  encryption)  printf 'encryption> ' ;;
   datapools)   printf 'data pools> ' ;;
   pooledit)    printf 'pool> ' ;;
   pooldisks)   printf 'disks> ' ;;
@@ -830,6 +839,21 @@ _ctl_swap_label() {
         | if $zon == false then "\($sz) · no zswap"
           else "\($sz) · zswap \($z.compressor // "zstd")" end
       end' <<<"$1"
+}
+
+# _ctl_encryption_label <effective-json> <tag> → the one-line summary for the
+# collapsed Disks Encryption row (ADR 0059): "off" when encryption is disabled,
+# else "on · <tag>" where <tag> is the source tag (default <value> / custom /
+# from age) computed by the caller. Pure: JSON + a string in, a string out — so
+# the row text is testable without fzf or the secrets file, the way _ctl_swap_
+# label is.
+_ctl_encryption_label() {
+  local eff="$1" tag="$2"
+  if [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]]; then
+    printf 'on · %s' "$tag"
+  else
+    printf 'off'
+  fi
 }
 
 # _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the preview
@@ -1261,19 +1285,20 @@ guided_ctl_list() {
     # is non-whitespace, so empty fields are preserved.
     local _ffield _flabel _fval _fov
     while IFS=$'\x1f' read -r _ffield _flabel _fval _fov; do
+      # Disks encryption collapses to ONE drill-down row (ADR 0059): the toggle
+      # + passphrase live in the Encryption Editor, not on a bool row plus a
+      # passphrase sub-row. The row still carries options.encryption's override
+      # dot (_fov) so it reads like every other field.
+      if [[ "$cat" == "Disks" && "$_ffield" == "options.encryption" ]]; then
+        printf 'Encryption ▸ %s%s\n' \
+          "$(_ctl_encryption_label "$(_ctl_effective "$state" "$base")" \
+            "$(_ctl_secret_tag enc)")" \
+          "$([[ "$_fov" == "true" ]] && printf '  ●')"
+        continue
+      fi
       printf '%s: %s%s\n' "$(display_label "$_flabel")" \
         "$(_ctl_display_value_str "$_ffield" "$_fval")" \
         "$([[ "$_fov" == "true" ]] && printf '  ●')"
-      # Encryption password row (ADR 0054): captured inline like the user
-      # passwords, shown only while encryption is on. "(set)"/"(not set)" state
-      # only — never the value; a ⚠ flags the required-but-unset case.
-      if [[ "$cat" == "Disks" && "$_ffield" == "options.encryption" ]] \
-        && [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
-          options.encryption)" == "true" ]]; then
-        local _encs; _encs="$(_ctl_secret_state enc)"
-        printf 'encryption password: %s%s\n' "$_encs" \
-          "$([[ "$_encs" == "(set)" ]] || printf '  ⚠')"
-      fi
     done < <(menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring)]
              | join("\u001f")')
@@ -1350,10 +1375,11 @@ guided_ctl_list() {
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
-      # Flattened Users screen — the ADR-0055 secret override surface. A
-      # root-password row, one row per user, and a Disk-encryption row (when
-      # encryption is on), each tagged with its source: `default 12345` / `custom`
-      # / `from age`. Never the value. Enter on any row opens the inline override.
+      # Flattened Users screen — the account override surface. A root-password
+      # row, root shell, and one row per user, each tagged with its source
+      # (`default 12345` / `custom` / `from age`). Never the value. Enter on any
+      # row opens the inline override. The disk passphrase lives on the Disks
+      # Encryption Editor, not here (ADR 0059 narrows this surface to accounts).
       printf 'root password: %s\n' "$(_ctl_secret_tag root)"
       printf 'root shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
       local _um _un _ushell _utag
@@ -1368,10 +1394,6 @@ guided_ctl_list() {
           printf '%s — disabled\n' "$_un"
         fi
       done < <(_ctl_user_marked "$state" "$base")
-      if [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
-          options.encryption)" == "true" ]]; then
-        printf 'disk encryption: %s\n' "$(_ctl_secret_tag enc)"
-      fi
       _ctl_action_row "+ Create user (name)"
     elif [[ "$(_ctl_field_kind "$vf")" == "biglist" ]]; then
       _ctl_biglist_options "$vf"
@@ -1416,6 +1438,19 @@ guided_ctl_list() {
         printf 'max pool %%: %s   (Enter cycles)\n' \
           "$(jq -r '.options.zswap.max_pool_percent // 20' <<<"$_eff")"
       fi
+    fi
+    _ctl_action_row "← Back" ;;
+  encryption)
+    # The Encryption Editor (ADR 0059), collapsing like the swap editor above:
+    # only the enablement row when off (a passphrase configures nothing then),
+    # the passphrase row too when on. The passphrase row shows its source tag,
+    # never the value.
+    local _eff; _eff="$(_ctl_effective "$state" "$base")"
+    if [[ "$(cfgstate_get "$_eff" options.encryption)" == "true" ]]; then
+      printf 'enabled: on\n'
+      printf 'password: %s\n' "$(_ctl_secret_tag enc)"
+    else
+      printf 'enabled: off\n'
     fi
     _ctl_action_row "← Back" ;;
   datapools)
@@ -1602,6 +1637,7 @@ guided_ctl_enter() {
   text)      _ctl_enter_text "$query" ;;
   profiles)  _ctl_enter_profiles "$line" ;;
   swapedit)  _ctl_enter_swapedit "$line" ;;
+  encryption) _ctl_enter_encryption "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
   pooldisks) _ctl_enter_pooldisks "$line" ;;
@@ -1710,8 +1746,13 @@ _ctl_enter_pkgderivedsrc() {
 _ctl_open_secret() {
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"
   : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-  local cat; cat="$(nav_get "$(_ctl_nav)" category)"
-  _ctl_write_nav "$(nav_to_secret "$cat" "$1" "${2:-}")"
+  # The screen we open from IS the screen the capture returns to (ADR 0059):
+  # carry the current nav as the secret's origin so both cancel and save land
+  # back here, whether that is the Disks category, the Users list, or the
+  # Encryption Editor — no per-target conditional.
+  local nav; nav="$(_ctl_nav)"
+  local cat; cat="$(nav_get "$nav" category)"
+  _ctl_write_nav "$(nav_to_secret "$cat" "$1" "${2:-}" entry "$nav")"
   echo render
 }
 
@@ -1721,10 +1762,13 @@ _ctl_open_secret() {
 # to the Users list, a mismatch notices and restarts entry. An empty first entry
 # is refused (stay). Never echoes the value.
 _ctl_enter_secret() {
-  local nav cat tgt user phase buf pending
+  local nav cat tgt user phase origin buf pending
   nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
   tgt="$(nav_get "$nav" target)"; user="$(nav_get "$nav" user)"
   phase="$(nav_get "$nav" phase)"
+  # The return screen carried since open (ADR 0059); propagated across the
+  # entry↔confirm phase rewrites so it survives to the save.
+  origin="$(jq -c '.origin // empty' <<<"$nav")"
   buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$phase" != "confirm" ]]; then
     [[ -n "$buf" ]] || { echo "notice ⚠ password cannot be empty"; return; }
@@ -1736,13 +1780,13 @@ _ctl_enter_secret() {
     fi
     printf '%s' "$buf" > "${GUIDED_PWPENDING_FILE:-/dev/null}"
     : > "${GUIDED_PWBUF_FILE:-/dev/null}"
-    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" confirm)"
+    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" confirm "$origin")"
     echo render; return
   fi
   pending="$(cat "${GUIDED_PWPENDING_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$buf" != "$pending" ]]; then
     : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry)"
+    _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry "$origin")"
     echo "secret-mismatch"; return
   fi
   case "$tgt" in
@@ -1751,14 +1795,9 @@ _ctl_enter_secret() {
   *)    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
   esac
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
-  # Return to the screen the capture was opened from: the Disks category (the
-  # passphrase's ADR-0054 home) when enc came from there, else the Users list —
-  # which is also the ADR-0055 override home for enc (`Disk encryption` row).
-  if [[ "$tgt" == "enc" && "$cat" == "Disks" ]]; then
-    _ctl_write_nav "$(nav_to_category "$cat")"
-  else
-    _ctl_write_nav "$(nav_to_values "$cat" users users)"
-  fi
+  # Return to the screen the capture was opened from — the same place Esc lands,
+  # read from the carried origin (ADR 0059).
+  _ctl_write_nav "$(nav_back "$nav")"
   echo render
 }
 
@@ -1938,11 +1977,8 @@ _ctl_enter_category() {
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
   "Root disk:"*)   # display_label "root disk"
     _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
-  "encryption password:"*)
-    # Inline masked capture (ADR 0054), same seam as the password rows: rich fzf
-    # enters the masked screen, older fzf falls back to the execute() prompt.
-    if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
-    return ;;
+  "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
+    _ctl_write_nav "$(nav_to_encryption "$cat")"; echo render; return ;;
   "Add persist"*)
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
@@ -2021,12 +2057,6 @@ _ctl_enter_values() {
       local _sn="${line#*password (}"; _sn="${_sn%%)*}"
       if _ctl_rich_chrome; then _ctl_open_secret user "$_sn"
       else echo "secret-user $_sn"; fi
-      return
-    fi
-    if [[ "$line" == "disk encryption:"* ]]; then
-      # The Disk-encryption override (ADR 0055), same inline masked capture as the
-      # Disks-screen passphrase row; returns here to the Users list on confirm.
-      if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
       return
     fi
     if [[ "$line" == "+ Create"* ]]; then
@@ -2147,6 +2177,35 @@ _ctl_enter_text() {
 # zswap, cycle the zswap compressor (zstd→lz4→lzo) and max pool % (5→…→60), or
 # open the free-text size editor. Toggles/cycles STAY on the screen (refresh);
 # size opens the text screen (which returns here — see _ctl_enter_text).
+# _ctl_enter_encryption <line> — the Encryption Editor (ADR 0059): flip the
+# enablement toggle in place (strict delta — landing back on the baseline drops
+# the override), or drop the passphrase row into the shared masked capture (rich
+# fzf enters the masked screen; older fzf falls back to the execute() prompt).
+# The capture carries this screen as its origin, so a confirmed passphrase
+# returns here. Setting a passphrase never touches the toggle.
+_ctl_enter_encryption() {
+  local line="$1" nav; nav="$(_ctl_nav)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "enabled:"*)
+    # flip options.encryption; has() keeps an explicit value from being read as
+    # the default (false). Normalise so toggling back to the baseline (off)
+    # leaves no override, exactly like the values-screen edit.
+    local _flipped
+    _flipped="$(jq '
+      (if (.options // {} | has("encryption")) then .options.encryption
+       else false end) as $c
+      | .options.encryption = ($c | not)' <<<"$(_ctl_state)")"
+    _ctl_write_state "$(_ctl_normalise_default "$_flipped" options.encryption)"
+    echo refresh; return ;;
+  "password:"*)
+    if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
+    return ;;
+  esac
+  echo refresh
+}
+
 _ctl_enter_swapedit() {
   local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
   case "$line" in

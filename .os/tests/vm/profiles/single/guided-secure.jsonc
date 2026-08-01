@@ -6,10 +6,12 @@
 // type it, so encrypted profiles (cf. impermanence/kde-encrypted) verify at
 // INSTALLER-EXIT-0, not first boot.
 // flow-guided.sh translates options.encryption / options.impermanence.enabled
-// below into guided answers (encryption=true / impermanence=true) and presets
-// INSTALL_ENC_PASSPHRASE, so the guided run assembles an encrypted, impermanent
-// Effective Config itself (mode=single over Host Core, no desktop — fast). The
-// guided menu builds the config; these options express the intent to drive.
+// below into guided answers (encryption=true / impermanence=true), so the guided
+// run assembles an encrypted, impermanent Effective Config itself (mode=single
+// over Host Core, no desktop — fast). The passphrase is NOT preset (ADR 0059):
+// the guided menu authors the Secrets Manifest (unset → the 8-char default) and
+// the pool is created from it, so this run actually exercises the menu's own
+// passphrase path. The guided menu builds the config; these options drive it.
 {
   "name": "arch-zfs-test-guided-secure",
   "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },

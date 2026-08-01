@@ -65,11 +65,14 @@ or Proceeds — disks stay operator-picked), so guided is "from scratch **or** f
 a profile" per run (ADR 0055, superseding ADR 0039's require-a-profile
 rejection). Merges operator choices over Host Core (so the shared base — `cups`,
 swappiness, base users — still applies) and covers the full host schema. Secrets
-(root + per-user passwords, encryption passphrase) **default to `12345`** and are
-never gated — the Users screen lists each (plus `Disk encryption`) for optional
-override, and a resolvable age key decrypts committed secrets in their place
-(ADR 0055, superseding the ADR 0051/0054 Proceed gate); the `12345` default is
-runtime-only and never enters Config State, Save, or Export. Unlike the Pre-Install Picker, which only
+**default** and are never gated — root + per-user passwords to `12345`, the disk
+encryption passphrase to `12345678` (8 chars, because ZFS `keyformat=passphrase`
+rejects a shorter one at pool creation; accounts have no such floor — ADR 0059).
+The Users screen lists the account secrets for optional override; the disk
+passphrase is overridden on the Disks [[Encryption Editor]]. A resolvable age
+key decrypts committed secrets in their place (ADR 0055, superseding the ADR
+0051/0054 Proceed gate); both defaults are runtime-only and never enter Config
+State, Save, or Export. Unlike the Pre-Install Picker, which only
 resolves disks against an already-authored profile, the Guided Installer also
 authors the pool skeleton and every other machine property interactively.
 Navigation is non-destructive: a single in-session **Config State** holds only
@@ -244,20 +247,28 @@ User Profile, which is the committed file; the User Editor is the transient,
 per-install override surface over it. The Users screen also carries a
 `root shell` row beneath `root password` (see [[Root Shell]]).
 
-### Encryption Password Row
-The Guided Installer row on the **Disks** screen, directly under the `encryption`
-toggle and shown only when encryption is on, that captures the ZFS/LUKS
-passphrase the same inline-masked, type-twice-confirm way as the root/user
-passwords (ADR 0051), storing it in the no-SOPS Secrets Manifest under
-`enc_passphrase` (never in Config State, never in Save/Export). Diverges from the
-password rows in one rule: first entry must be **≥ 8 chars** (the ZFS
-`keyformat=passphrase` minimum). It joins the Proceed gate — an unset passphrase
-while encryption is on blocks Proceed and flags the Disks top row `⚠ 1 pw
-needed`; toggling encryption off hides the row and drops the gate but retains any
-stored passphrase. The back end (`collect_enc_passphrase`) consumes it by
-precedence `INSTALL_ENC_PASSPHRASE` → guided manifest → interactive prompt, so
-profile/manual installs keep the tty prompt (ADR 0054, superseding ADR 0051's
-passphrase carve-out).
+### Encryption Editor
+The Guided Installer sub-editor reached from the single `Encryption ▸` row on
+the **Disks** screen (kept beneath the filesystem row, whose choice derives the
+cipher), which collapses the disk-encryption decision into one place: an
+enablement toggle plus the ZFS/LUKS passphrase (ADR 0059, superseding the
+separate `encryption` toggle + passphrase row of ADR 0054 and the Users-screen
+`Disk encryption` override of ADR 0055 — the Users screen is now accounts-only).
+The collapsed row summarises both facts — `on · <source>` (spelling the default,
+`on · custom`, `on · from age`) or `off`, plus the standard override dot.
+Modelled on the swap sub-editor, the Editor shows only `enabled` when off (a
+passphrase configures nothing then) and adds a `password` row when on; `enabled`
+cycles in place and setting a passphrase never flips it. The passphrase is
+captured the same inline-masked, type-twice-confirm way as the root/user
+passwords (ADR 0051) and stored in the no-SOPS Secrets Manifest under
+`enc_passphrase` (never in Config State, Save, or Export); its one divergence
+from the password rows is that first entry must be **≥ 8 chars** — the ZFS
+`keyformat=passphrase` minimum. It is never gated (an unset passphrase defaults
+to `12345678`); toggling encryption off hides the `password` row but retains any
+stored value. The back end (`collect_enc_passphrase`) consumes it by precedence
+`INSTALL_ENC_PASSPHRASE` → guided manifest → unattended default → interactive
+prompt, so an interactive profile/manual install keeps the tty prompt while
+`--unattended` takes the default (ADR 0059, extending ADR 0054).
 
 ### Root Shell
 The root login shell, chosen in the Guided Installer via the `root shell` row on
