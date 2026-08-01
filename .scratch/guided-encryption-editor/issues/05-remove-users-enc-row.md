@@ -1,6 +1,6 @@
 # Remove the `disk encryption` row from the Users screen
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

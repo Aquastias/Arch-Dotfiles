@@ -1,6 +1,6 @@
 # Collapsed `Encryption ▸` row + the Encryption Editor
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

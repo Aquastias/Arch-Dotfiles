@@ -1,6 +1,6 @@
 # Default disk passphrase constant + `--unattended` precedence tier
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
