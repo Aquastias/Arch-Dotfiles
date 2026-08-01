@@ -7,15 +7,20 @@
   "shell": true,
   // Install KDE applications (controlled individually in apps_list below).
   "apps": true,
-  // Individual KDE apps as a Categorized List: { category: { pkg: bool } }.
+  // KDE APPLICATIONS as a Categorized List: { category: { pkg: bool } }.
   // Categories are cosmetic (kebab-case); set any package to false to skip
   // it. Parsed in bool mode by the Categorized List Parser at install time.
+  //
+  // Membership rule, mechanical and verifiable: a package belongs here IFF its
+  // pacman `Groups` contains `kde-applications` (R21). `plasma` and `kf5`
+  // groups belong to the shell section in kde.sh; anything else is not KDE and
+  // belongs in a host profile. The former `plasma-extras` category held three
+  // non-applications and is gone: `sddm-kcm` is a KCM (moved to the shell
+  // section, since it is not in plasma-meta), `xdg-desktop-portal-kde` is
+  // already in plasma-meta's dependency tree, and `kimageformats5` is the KF5
+  // build of a package Plasma 6 gets as `kimageformats` via kscreen — it was
+  // installing a stale Qt5 parallel stack for nothing.
   "apps_list": {
-    "plasma-extras": {
-      "sddm-kcm": true, // KCM module for SDDM theming
-      "kimageformats5": true, // Qt5 image format plugins (HEIC, AVIF, …)
-      "xdg-desktop-portal-kde": true // Plasma portal integration
-    },
     "file-management": {
       "ark": true, // Archive manager
       "dolphin": true, // File manager
@@ -45,8 +50,7 @@
     },
     "system": {
       "konsole": true, // Terminal emulator
-      "partitionmanager": true, // Partition editor
-      "pacmanlogviewer": true // Pacman log viewer
+      "partitionmanager": true // Partition editor
     },
     "network": {
       "ktorrent": true // BitTorrent client
@@ -54,10 +58,16 @@
   },
   // AUR dependencies for this DE, in the adapter's Categorized List shape.
   // Declared here (not installed by this adapter) — the Runner merges them
-  // into its single paru pass.
+  // into its single paru pass, so they land only when KDE is selected.
+  //
+  // `octopi` left: a third-party Qt pacman frontend is not KDE, and selecting
+  // KDE should not install one. It moved to Host Core's packages.aur beside
+  // `pacmanlogviewer` (R21). `qt6ct-kde` arrives from the host profiles — it
+  // is the Qt6 config tool, DE-tied but not an application, so it belongs to
+  // the adapter rather than to a host that may never select KDE (R10).
   "aur": {
-    "system": {
-      "octopi": true // Qt/pacman package manager GUI
+    "theming": {
+      "qt6ct-kde": true // Qt6 configuration tool, KDE build
     }
   }
 }

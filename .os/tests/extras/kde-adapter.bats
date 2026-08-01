@@ -53,16 +53,21 @@ JSON
   ! grep -q "sentinel-drop" "$PACMAN_LOG"
 }
 
-@test "plasma-extras members are installed" {
+# The shell section owns the DE-tied non-applications: sddm-kcm (a KCM, and
+# not in plasma-meta) plus the wayland/portal/icon pieces relocated out of the
+# host profiles (ADR 0021, R10/R21).
+@test "shell section installs the DE-tied non-applications" {
   cat > "$KDE_JSON" <<'JSON'
-{"shell":false,"apps":true,"apps_list":{"plasma-extras":
-{"sddm-kcm":true,"kimageformats5":true,"xdg-desktop-portal-kde":true}}}
+{"shell":true,"apps":false,"apps_list":{}}
 JSON
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  grep -q "sddm-kcm" "$PACMAN_LOG"
-  grep -q "kimageformats5" "$PACMAN_LOG"
-  grep -q "xdg-desktop-portal-kde" "$PACMAN_LOG"
+  local p
+  for p in plasma-meta sddm sddm-kcm papirus-icon-theme \
+           qt5-wayland qt6-wayland xdg-utils; do
+    grep -q "$p" "$PACMAN_LOG" \
+      || { echo "shell section missing: $p"; return 1; }
+  done
 }
 
 # ── malformed apps_list aborts the install ──────────────────────────────────
@@ -98,7 +103,13 @@ JSON
 
 # ── shipped install-kde.jsonc regression lock ───────────────────────────────
 
-@test "shipped apps_list parses (bool) to the full prior 24-app set" {
+# apps_list is exactly the 20 kde-applications entries. The membership rule is
+# mechanical: a package belongs here iff its pacman Groups contains
+# `kde-applications` (R21). Five non-applications were removed — sddm-kcm to
+# the shell section, xdg-desktop-portal-kde and kimageformats5 as redundant
+# (already in plasma-meta's tree / a stale KF5 parallel stack), and
+# pacmanlogviewer + octopi to Host Core because they are not KDE at all.
+@test "shipped apps_list is exactly the 20 kde-applications entries" {
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/config/categorized-list.sh
@@ -109,9 +120,52 @@ JSON
 
   run categorized_list_parse "$apps_json" bool apps_list
   [ "$status" -eq 0 ]
+  [ "$(wc -l <<<"$output")" -eq 20 ]
   [ "$output" = "$(printf '%s\n' \
     ark calligra dolphin filelight gwenview kate kdiff3 keditbookmarks \
-    kimageformats5 kleopatra kompare konsole krename krita krusader \
-    ktorrent kwalletmanager okular pacmanlogviewer partitionmanager \
-    sddm-kcm skanlite skanpage xdg-desktop-portal-kde | sort)" ]
+    kleopatra kompare konsole krename krita krusader \
+    ktorrent kwalletmanager okular partitionmanager \
+    skanlite skanpage | sort)" ]
+}
+
+@test "the plasma-extras category is gone" {
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  # shellcheck source=../../lib/jsonc.sh
+  source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  jsonc_strip "$real" | jq -e '.apps_list | has("plasma-extras") | not'
+}
+
+@test "the removed non-applications appear nowhere in apps_list" {
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  local names
+  names="$(jsonc_strip "$real" \
+    | jq -r '.apps_list | to_entries[].value | keys[]')"
+  local p
+  for p in sddm-kcm xdg-desktop-portal-kde kimageformats5 pacmanlogviewer \
+           octopi; do
+    ! grep -qx "$p" <<<"$names" || { echo "still in apps_list: $p"; return 1; }
+  done
+}
+
+# Selecting KDE must not install a third-party pacman frontend.
+@test "selecting KDE installs no third-party pacman frontend" {
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  local all
+  all="$(jsonc_strip "$real" | jq -r '
+    [(.apps_list // {}), (.aur // {})] | .[] | to_entries[].value | keys[]')"
+  ! grep -qx "octopi" <<<"$all"
+  ! grep -qx "pacmanlogviewer" <<<"$all"
+}
+
+# pacmanlogviewer + octopi are not KDE — they belong to a host, and the
+# curation put them in Host Core so both machines still get them.
+@test "pacmanlogviewer and octopi are declared in Host Core" {
+  local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
+  source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  jsonc_strip "$core" | jq -e '[.packages.repo | to_entries[].value[]]
+    | index("pacmanlogviewer")'
+  jsonc_strip "$core" | jq -e '[.packages.aur | to_entries[].value[]]
+    | index("octopi")'
 }
