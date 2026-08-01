@@ -125,3 +125,57 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [[ "$output" == notice* ]]
   jq -e '.seed == "me"' "$GUIDED_STATE_FILE"                 # untouched
 }
+
+# ── seeding a profile must match what --profile installs (ADR 0058) ─────────
+# A committed profile is a DELTA over Host Core, and Config State is an
+# override map that REPLACES baseline values. Seeding the raw delta therefore
+# showed (and installed) only the delta, where `install.sh --profile <name>`
+# resolves core+delta. The picker resolves before seeding so one profile
+# produces one install through every front-end.
+
+@test "seeding resolves the profile over Host Core, not the raw delta" {
+  local d; d="$TEST_DIR/os2"
+  mkdir -p "$d/hosts"/{core,desktop}
+  cat > "$d/hosts/core/profile.jsonc" <<'JSON'
+{"system_programs":["cups"],
+ "packages":{"repo":{"shell":["htop"]}},"sysctl":{"vm.swappiness":10}}
+JSON
+  cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
+{"system_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
+JSON
+  export OS_DIR="$d"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+
+  set_nav "$(nav_to_profiles)"
+  run guided_ctl_enter "desktop"
+  [ "$status" -eq 0 ]
+
+  # the seeded state carries core's contribution as well as the delta
+  jq -e '.system_programs == ["cups","grub"]' "$GUIDED_STATE_FILE"
+  jq -e '.packages.repo.shell == ["htop"]'    "$GUIDED_STATE_FILE"
+  jq -e '.packages.repo.virt == ["qemu-full"]' "$GUIDED_STATE_FILE"
+  jq -e '.sysctl["vm.swappiness"] == 10'      "$GUIDED_STATE_FILE"
+}
+
+@test "a seeded profile matches load_profile exactly" {
+  local d; d="$TEST_DIR/os3"
+  mkdir -p "$d/hosts"/{core,desktop}
+  cat > "$d/hosts/core/profile.jsonc" <<'JSON'
+{"system_programs":["cups"],"packages":{"repo":{"shell":["htop"]}}}
+JSON
+  cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
+{"system_programs":["grub"],"options":{"kernel":["zen"]}}
+JSON
+  export OS_DIR="$d"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+
+  set_nav "$(nav_to_profiles)"
+  guided_ctl_enter "desktop" >/dev/null
+
+  source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
+  local seeded resolved
+  seeded="$(jq -cS '{system_programs, packages, options}' "$GUIDED_STATE_FILE")"
+  resolved="$(load_profile desktop \
+    | jq -cS '{system_programs, packages, options}')"
+  [ "$seeded" = "$resolved" ]
+}

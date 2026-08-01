@@ -15,17 +15,20 @@
 # Output is a TSV stream, one package per line:
 #     <source>\t<layer>\t<package>
 # where <source> names the mechanism (base, kernel, gpu, kde-apps, …) and
-# <layer> is `authored` or `derived`. Excluded packages are reported
-# separately by pkgres_excluded.
+# <layer> is provenance: `derived` for a computed set, or — for the authored
+# slots — `core` vs `host`, so the report answers "do I edit Host Core or this
+# host profile?". Excluded packages and the sets that cannot be resolved
+# without hardware are reported separately (pkgres_excluded, pkgres_unresolved).
 #
 # Consumed by the CLI inspector (tools/explain-packages.sh), the menu's
 # read-only derived section, and the real-profile regression tests — so those
 # three can never drift.
 #
 # Public API:
-#   pkgres_resolve  <effective-json>  → TSV of source, layer, package
-#   pkgres_excluded <effective-json>  → the excluded package names
-#   pkgres_sources                    → every source name the resolver emits
+#   pkgres_resolve    <effective-json>  → TSV of source, layer, package
+#   pkgres_excluded   <effective-json>  → the excluded package names
+#   pkgres_unresolved <effective-json>  → sets left open until install time
+#   pkgres_sources                      → every source name the resolver emits
 # =============================================================================
 
 # shellcheck source=../config/categorized-list.sh
@@ -38,16 +41,40 @@
 [[ "$(type -t post_install_programs)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
 
-# The source names, in report order. Kept as data so the CLI and the menu's
-# derived section can group without re-deriving the list.
+# The source names in report order, each paired with the menu category that
+# DRIVES it. One table, not two: the guided derived section needs the origin
+# and the CLI needs the order, and a source added to only one of them would
+# render with no origin and never be noticed.
 _PKGRES_SOURCES=(
-  base kernel bootloader filesystem-tools zfs luks
-  gpu audio login-shell
-  kde-shell kde-apps kde-aur
-  security backup sops
-  repo aur
+  "base|the installer"
+  "kernel|Options"
+  "bootloader|Options"
+  "filesystem-tools|Disks"
+  "zfs|Disks"
+  "luks|Disks"
+  "gpu|Environment"
+  "audio|Environment"
+  "login-shell|Users"
+  "kde-shell|Environment"
+  "kde-apps|Environment"
+  "kde-aur|Environment"
+  "security|Security"
+  "backup|Backup"
+  "sops|secrets on disk"
+  "repo|Packages"
+  "aur|Packages"
 )
-pkgres_sources() { printf '%s\n' "${_PKGRES_SOURCES[@]}"; }
+pkgres_sources() { printf '%s\n' "${_PKGRES_SOURCES[@]%%|*}"; }
+
+# pkgres_source_origin <source> — the menu category that drives it, so the
+# guided read-only section can say where to go to change it.
+pkgres_source_origin() {
+  local e
+  for e in "${_PKGRES_SOURCES[@]}"; do
+    [[ "${e%%|*}" == "$1" ]] && { printf '%s' "${e#*|}"; return 0; }
+  done
+  printf 'the installer'
+}
 
 # _pkgres_emit <source> <layer> <pkg...>
 _pkgres_emit() {
@@ -68,6 +95,25 @@ _pkgres_jq() { jq -r "$2" <<<"$1" 2>/dev/null; }
 # otherwise.
 pkgres_excluded() {
   _pkgres_jq "$1" '(.packages.exclude // [])[]' | sort -u
+}
+
+# pkgres_unresolved <effective-json> — the sets this config leaves open until
+# install time, one note per line. They are NOT packages, so they never enter
+# the resolved stream; reporting them separately is what keeps the stream
+# honest instead of carrying placeholder names.
+pkgres_unresolved() {
+  local cfg="$1"
+  _pkgres_jq "$cfg" '
+    (.environment.gpu // "auto")
+    | if type == "string" then [.] else . end | .[]' \
+    | while IFS= read -r v; do
+        case "$v" in
+        auto)  printf 'gpu: "auto" — vendor detected from lspci at install\n' ;;
+        intel) printf 'gpu: intel — intel-media-driver assumed;%s\n' \
+                 " pre-Broadwell resolves to libva-intel-driver" ;;
+        esac
+      done
+  printf 'microcode: the running CPU vendor package, detected at install\n'
 }
 
 # pkgres_resolve <effective-json> — every package that will be installed,
@@ -92,12 +138,13 @@ pkgres_resolve() {
     _pkgres_emit kernel derived \
       "$(kernel_pkg "$tok")" "$(kernel_headers_pkg "$tok")"
   done < <(_pkgres_jq "$cfg" '
-    (.options.kernel // ["lts"]) | if type == "string" then [.] else . end | .[]')
+    (.options.kernel // ["lts"])
+    | if type == "string" then [.] else . end | .[]')
 
   # ── bootloader ────────────────────────────────────────────────────────────
   # systemd-boot ships with systemd (already in base); only grub adds a package.
-  [[ "$(_pkgres_jq "$cfg" '.options.bootloader // "systemd-boot"')" == "grub" ]] \
-    && _pkgres_emit bootloader derived grub
+  local _bl; _bl="$(_pkgres_jq "$cfg" '.options.bootloader // "systemd-boot"')"
+  [[ "$_bl" == "grub" ]] && _pkgres_emit bootloader derived grub
 
   # ── filesystem userland ───────────────────────────────────────────────────
   # Per-filesystem tools for any group using them; ext4 rides e2fsprogs in base
@@ -108,7 +155,8 @@ pkgres_resolve() {
      ((.storage_groups // [])[] | .filesystem // empty),
      ((.data_pools    // [])[] | .filesystem // empty)] | unique | .[]')"
   grep -qx xfs   <<<"$fs_all" && _pkgres_emit filesystem-tools derived xfsprogs
-  grep -qx btrfs <<<"$fs_all" && _pkgres_emit filesystem-tools derived btrfs-progs
+  grep -qx btrfs <<<"$fs_all" \
+    && _pkgres_emit filesystem-tools derived btrfs-progs
   grep -qx zfs   <<<"$fs_all" && _pkgres_emit zfs derived zfs-dkms zfs-utils
 
   # LUKS userland for any non-zfs encrypted group.
@@ -118,8 +166,6 @@ pkgres_resolve() {
   fi
 
   # ── GPU drivers ───────────────────────────────────────────────────────────
-  # `auto` cannot be resolved without hardware, so it reports as such rather
-  # than lying — the resolver makes no lspci call.
   local vendor
   while IFS= read -r vendor; do
     [[ -n "$vendor" ]] || continue
@@ -127,17 +173,26 @@ pkgres_resolve() {
     amd)    _pkgres_emit gpu derived vulkan-radeon xf86-video-amdgpu mesa ;;
     nvidia) _pkgres_emit gpu derived nvidia-open-dkms nvidia-utils \
               lib32-nvidia-utils libva-nvidia-driver egl-wayland ;;
+    # Broadwell+ gets intel-media-driver, older gets libva-intel-driver; the
+    # split needs the lspci device id, which a pure resolver cannot read. The
+    # modern default is reported and the caveat surfaces via
+    # pkgres_unresolved rather than being silently wrong on old hardware.
     intel)  _pkgres_emit gpu derived intel-media-driver ;;
     vm)     _pkgres_emit gpu derived mesa ;;
-    auto)   _pkgres_emit gpu derived "(auto — resolved from lspci at install)" ;;
+    # `auto` resolves from lspci on the live ISO. The resolver is pure and
+    # makes no hardware call, so it emits NOTHING rather than a fake package
+    # name that would pollute a --flat listing. pkgres_unresolved reports it.
+    auto)   : ;;
     esac
   done < <(_pkgres_jq "$cfg" '
-    (.environment.gpu // "auto") | if type == "string" then [.] else . end | .[]')
+    (.environment.gpu // "auto")
+    | if type == "string" then [.] else . end | .[]')
 
   # ── desktop-driven sets ───────────────────────────────────────────────────
   local desktops
   desktops="$(_pkgres_jq "$cfg" '
-    (.environment.desktop // []) | if type == "string" then [.] else . end | .[]')"
+    (.environment.desktop // [])
+    | if type == "string" then [.] else . end | .[]')"
 
   # Audio is auto-derived: PipeWire whenever any desktop is selected.
   if [[ -n "$desktops" ]]; then
@@ -183,13 +238,32 @@ pkgres_resolve() {
   fi
 
   # ── authored slots ────────────────────────────────────────────────────────
-  local slot json p
+  # Layer provenance: an authored package Host Core also declares is tagged
+  # `core`, otherwise `host` — so the report answers "do I edit Host Core or
+  # this host profile?" rather than only "was this authored or derived?".
+  local core_json=""
+  if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/hosts/core/profile.jsonc" ]]; then
+    core_json="$(jsonc_strip "${OS_DIR}/hosts/core/profile.jsonc" 2>/dev/null)"
+  fi
+  local slot json p layer
   for slot in repo aur; do
     json="$(_pkgres_jq "$cfg" ".packages.${slot} // {} | tojson")"
     [[ -n "$json" && "$json" != "null" ]] || continue
     while IFS= read -r p; do
-      [[ -n "$p" ]] && _pkgres_emit "$slot" authored "$p"
-    done < <(categorized_list_parse "$json" string "packages.${slot}" 2>/dev/null)
+      [[ -n "$p" ]] || continue
+      layer=authored
+      if [[ -n "$core_json" ]]; then
+        if jq -e --arg s "$slot" --arg p "$p" \
+             '[(.packages[$s] // {}) | to_entries[].value[]] | index($p)' \
+             <<<"$core_json" >/dev/null 2>&1; then
+          layer=core
+        else
+          layer=host
+        fi
+      fi
+      _pkgres_emit "$slot" "$layer" "$p"
+    done < <(categorized_list_parse "$json" string \
+      "packages.${slot}" 2>/dev/null)
   done
 }
 
@@ -203,7 +277,8 @@ _pkgres_de_packages() {
 
   # The shell section is a fixed pacman list inside the adapter script, not
   # data — mirrored here so the report is complete.
-  if [[ "$(jq -r '.shell // true' <<<"$json")" == "true" && "$de" == "kde" ]]; then
+  local _sh; _sh="$(jq -r '.shell // true' <<<"$json")"
+  if [[ "$_sh" == "true" && "$de" == "kde" ]]; then
     _pkgres_emit kde-shell derived \
       plasma-meta plasma-workspace plasma-x11-session polkit-kde-agent \
       sddm sddm-kcm print-manager papirus-icon-theme \

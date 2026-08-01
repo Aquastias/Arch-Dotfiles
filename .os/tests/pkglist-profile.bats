@@ -19,12 +19,16 @@ setup() {
 
   # Fake pacman so the save path never touches the real system.
   BIN="$T/bin"; mkdir -p "$BIN"
-  printf '#!/bin/sh\ncase "$1" in -Qqen) echo ripgrep; echo fd;; -Qqem) echo brave-bin;; esac\n' \
-    > "$BIN/pacman"
+  printf '%s\n' '#!/bin/sh' \
+    'case "$1" in' \
+    '  -Qqen) echo ripgrep; echo fd;;' \
+    '  -Qqem) echo brave-bin;;' \
+    'esac' > "$BIN/pacman"
   chmod +x "$BIN/pacman"
   export PATH="$BIN:$PATH"
   # A hostname that is deliberately NOT a profile name — the ADR 0020 split.
-  printf '#!/bin/sh\necho eterniox\n' > "$BIN/hostname"; chmod +x "$BIN/hostname"
+  printf '#!/bin/sh\necho eterniox\n' > "$BIN/hostname"
+  chmod +x "$BIN/hostname"
 }
 
 teardown() { rm -rf "$T"; }
@@ -62,7 +66,7 @@ _install() { run bash "$T/os/tools/install-pkglist.sh" "$@"; }
 
 # The bug this fixes: the tool used to derive its directory from $(hostname),
 # so on a machine named `eterniox` running profile `desktop` it always failed.
-@test "save-pkglist: a hostname that is not a profile name fails, not silently" {
+@test "save-pkglist: a non-profile hostname fails, not silently" {
   _save
   [ "$status" -ne 0 ]
   [[ "$output" == *"no profile 'eterniox'"* ]]

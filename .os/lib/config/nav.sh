@@ -104,14 +104,13 @@ nav_to_poolmount() {
 }
 
 # ── Packages screen (ADR 0058) ──────────────────────────────────────────────
-# Three drill levels mirroring the Categorized List shape the JSONC uses:
-#   pkgslot  — repo / aur / derived
-#   pkgcat   — the categories inside one slot, with counts
-#   pkgs     — the package toggles inside one category
+# Two drill levels mirroring the Categorized List shape the JSONC uses:
+#   pkgcat — the categories inside one slot (repo|aur), with counts
+#   pkgs   — the package toggles inside one category
 # plus the read-only derived pair (pkgderived → pkgderivedsrc).
 
-# nav_to_pkgslot <category> <slot> — the category list inside repo|aur.
-nav_to_pkgslot() {
+# nav_to_pkgcat <category> <slot> — the category list inside repo/aur.
+nav_to_pkgcat() {
   jq -nc --arg c "$1" --arg s "$2" \
     '{screen:"pkgcat", category:$c, slot:$s}'
 }

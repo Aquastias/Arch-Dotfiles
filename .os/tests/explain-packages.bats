@@ -16,7 +16,7 @@ setup() {
   [[ "$output" == *"Resolved package set — profile: desktop"* ]]
   # grouped by source, with a layer + count per group
   [[ "$output" == *"base  (derived,"* ]]
-  [[ "$output" == *"repo  (authored,"* ]]
+  [[ "$output" == *"repo  (core+host,"* ]]
 }
 
 @test "explain-packages: reports a total count" {
@@ -84,13 +84,33 @@ JSON
   cp -r "$OS/lib/." "$t/lib/"
   cp "$OS/tools/explain-packages.sh" "$t/tools/"
 
+  # … and it is NAMED in an Excluded section, so the operator can confirm the
+  # exclusion took effect. The Layer Resolver strips packages.exclude from a
+  # resolved config, so the report reads the authored profile for this.
   run bash "$t/tools/explain-packages.sh" box
   [ "$status" -eq 0 ]
+  [[ "$output" == *"Excluded by this profile (1)"* ]]
+  [[ "$output" == *"fzf"* ]]
+
   # fzf is excluded, so it is not in the installed set …
   run bash "$t/tools/explain-packages.sh" box --flat
   ! echo "$output" | grep -qx "fzf"
   echo "$output" | grep -qx "htop"
   rm -rf "$t"
+}
+
+# `auto` and the CPU microcode need the target hardware, so they are reported
+# as unresolved rather than emitted as fake package names in --flat.
+@test "explain-packages: reports what is resolved at install time" {
+  run bash "$TOOL" desktop
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Resolved at install time"* ]]
+  [[ "$output" == *"lspci"* ]]
+  [[ "$output" == *"microcode"* ]]
+
+  run bash "$TOOL" desktop --flat
+  ! echo "$output" | grep -q "auto —"
+  ! echo "$output" | grep -q "("
 }
 
 @test "explain-packages: no argument prints usage and the profile list" {

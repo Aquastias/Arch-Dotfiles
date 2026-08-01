@@ -59,21 +59,10 @@ guided_profile_delta() {
 # Pure: JSON in, JSON out.
 guided_core_delta() {
   local effective="$1" core="$2" additive
-  additive="$(layer_additive_keys host | jq -R . | jq -s -c .)"
+  additive="$(layer_additive_json host)"
 
   jq -n --argjson eff "$effective" --argjson core "$core" \
-        --argjson additive "$additive" '
-    def is_additive($path):
-      ($path | join(".")) as $flat
-      | any($additive[];
-          . as $pat
-          | if ($pat | endswith(".*"))
-            then ($pat | rtrimstr(".*")) as $stem
-              | ($path | length) == (($stem | split(".")) | length) + 1
-                and ($flat | startswith($stem + "."))
-            else . == $flat
-            end);
-
+        --argjson additive "$additive" "$(layer_jq_prelude)"'
     def prune($e; $c; $path):
       if   ($c == null) then $e
       elif ($e == null) then null
@@ -142,6 +131,11 @@ _emit_json_array() {
 # config load by validate_package_program_exclusivity, and the guided
 # extra-packages row routes what the operator types at ENTRY time.
 emit_effective() {
-  local state="$1" assignment="$2"
-  picker_assign_disks "$(cfgstate_emit "$state")" "$assignment"
+  local state="$1" assignment="$2" view
+  # Apply the operator's own exclusions before baking disks. The Packages
+  # screen writes packages.exclude into Config State, but the guided path
+  # never goes through a layer fold (core is already in the baseline), so
+  # without this an unchecked package would be emitted and installed anyway.
+  view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
+  picker_assign_disks "$view" "$assignment"
 }

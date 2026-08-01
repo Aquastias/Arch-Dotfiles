@@ -74,6 +74,9 @@
 # shellcheck source=lib/config/seed.sh
 [[ "$(type -t cfgstate_host_core)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
+# shellcheck source=lib/config/layer-resolver.sh
+[[ "$(type -t layer_resolve)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
 
 # _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
 # in-menu credential rows, read from GUIDED_SECRETS_FILE. Never emits the value.
@@ -339,7 +342,7 @@ _ctl_apply_text() {
   esac
 }
 
-# _ctl_route_package_entry <state> <raw> — split the whitespace-separated names
+# _ctl_route_package_entry <state> <raw> [slot] — split the space-separated
 # typed into the extra-packages row by kind, at ENTRY time, and file each into
 # the slot it belongs in: a system Program → system_programs, a user Program →
 # the Primary User's programs, anything else → packages.repo.extra.
@@ -1056,20 +1059,9 @@ _ctl_pkg_derived_total() {
   printf '%s' "${n:-0}"
 }
 
-# _ctl_pkg_derived_origin <source> — the menu category that drives a derived
-# source, so the read-only section says where to go to change it.
-_ctl_pkg_derived_origin() {
-  case "$1" in
-  gpu | audio | kde-shell | kde-apps | kde-aur) printf 'Environment' ;;
-  security)                                    printf 'Security' ;;
-  backup)                                      printf 'Backup' ;;
-  kernel | bootloader)                         printf 'Options' ;;
-  filesystem-tools | zfs | luks)               printf 'Disks' ;;
-  login-shell)                                 printf 'Users' ;;
-  sops)                                        printf 'secrets on disk' ;;
-  *)                                           printf 'the installer' ;;
-  esac
-}
+# The source → driving-category mapping lives with the source table in
+# resolver.sh (pkgres_source_origin), so a new derived source cannot render
+# here with a missing origin.
 
 # _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
 # storage + data pools, plus the single-disk root), one per line, so a disk
@@ -1260,9 +1252,9 @@ guided_ctl_list() {
         printf '%s ▸ %s package%s%s\n' "$_slot" "$_n" \
           "$([[ "$_n" == 1 ]] || echo s)" "$_sov"
       done
+      local _dtot; _dtot="$(_ctl_pkg_derived_total "$_eff_pkg")"
       printf 'derived ▸ %s package%s (read-only)\n' \
-        "$(_ctl_pkg_derived_total "$_eff_pkg")" \
-        "$([[ "$(_ctl_pkg_derived_total "$_eff_pkg")" == 1 ]] || echo s)"
+        "$_dtot" "$([[ "$_dtot" == 1 ]] || echo s)"
     fi
     # Unit-separator (\x1f), not @tsv: a tab IFS is whitespace, so read collapses
     # the double delimiter of an EMPTY value field and shifts the columns. \x1f
@@ -1331,16 +1323,18 @@ guided_ctl_list() {
     # Read-only (ADR 0021 keeps the DE adapter owning its own package set).
     # Each row names the category that drives it, so the operator knows where
     # to go to change it.
-    local _deff2; _deff2="$(_ctl_effective "$state" "$base")"
+    # Resolve ONCE, then count per source — the resolver is the expensive part
+    # of this render and the loop used to re-run it for every source.
+    local _drows
+    _drows="$(_ctl_pkg_derived "$(_ctl_effective "$state" "$base")")"
     local _dsrc _dn
     while IFS= read -r _dsrc; do
       [[ -n "$_dsrc" ]] || continue
-      _dn="$(_ctl_pkg_derived "$_deff2" \
-        | awk -F'\t' -v s="$_dsrc" '$1 == s { print $3 }' \
+      _dn="$(awk -F'\t' -v s="$_dsrc" '$1 == s { print $3 }' <<<"$_drows" \
         | sort -u | grep -c .)"
       [[ "$_dn" -gt 0 ]] || continue
       printf '%s ▸ %s   (from %s)\n' "$_dsrc" "$_dn" \
-        "$(_ctl_pkg_derived_origin "$_dsrc")"
+        "$(pkgres_source_origin "$_dsrc")"
     done < <(pkgres_sources 2>/dev/null)
     _ctl_action_row "← Back" ;;
   pkgderivedsrc)
@@ -1919,6 +1913,13 @@ _ctl_enter_profiles() {
   if ! profile="$(_configs_parse "$f" 2>/dev/null)"; then
     echo "notice ⚠ Could not read profile '${line}'"; return
   fi
+  # Seed the RESOLVED profile, not the raw delta. A committed profile is a
+  # delta over Host Core, and the Config State is an override map that
+  # REPLACES baseline values — so seeding the delta verbatim would show (and
+  # install) `system_programs: ["grub"]` where `install.sh --profile desktop`
+  # installs `["cups","grub"]`. Resolving here means one profile produces one
+  # install through every front-end.
+  profile="$(layer_resolve host "$(cfgstate_host_core)" "$profile")"
   _ctl_write_state "$(profiles_seed "$(_ctl_state)" "$profile")"
   _ctl_write_nav '{"screen":"top"}'
   echo render
@@ -1946,7 +1947,7 @@ _ctl_enter_category() {
     _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
     echo render; return ;;
   "repo ▸"* | "aur ▸"*)
-    _ctl_write_nav "$(nav_to_pkgslot "$cat" "${line%% *}")"
+    _ctl_write_nav "$(nav_to_pkgcat "$cat" "${line%% *}")"
     echo render; return ;;
   "derived ▸"*)
     _ctl_write_nav "$(nav_to_pkgderived "$cat")"; echo render; return ;;

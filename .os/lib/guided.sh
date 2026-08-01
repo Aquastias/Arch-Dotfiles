@@ -32,6 +32,9 @@
 # shellcheck source=lib/config/seed.sh
 [[ "$(type -t cfgstate_seed_defaults)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
+# shellcheck source=lib/config/layer-resolver.sh
+[[ "$(type -t layer_resolve)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
 # shellcheck source=lib/config/edits.sh
 [[ "$(type -t edit_set_scalar)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
@@ -1118,6 +1121,9 @@ _guided_seed_from_profile() {
   [[ -n "$name" ]] || return 0
   f="${OS_DIR}/hosts/${name}/profile.jsonc"
   profile="$(_configs_parse "$f" 2>/dev/null)" || return 0
+  # Resolve over Host Core first — see _ctl_enter_profiles: seeding the raw
+  # delta would install a different set from `install.sh --profile <name>`.
+  profile="$(layer_resolve host "$(cfgstate_host_core)" "$profile")"
   _GUIDED_STATE="$(profiles_seed "$_GUIDED_STATE" "$profile")"
 }
 
