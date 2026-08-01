@@ -24,6 +24,12 @@
     "swap_size":  "auto"
   },
 
+  // Opt out of Host Core's Host Package List (ADR 0056). A test install
+  // wants the installer's own base, not the workstation userland — and
+  // `inherit: false` is scoped to packages, so this fixture still inherits
+  // core's users and sysctl. Cheaper than an exclude list that would need
+  // updating every time Host Core grows.
+  "packages": { "inherit": false },
   "users": ["vm-data"],
 
   "mode": "multi",

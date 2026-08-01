@@ -40,171 +40,56 @@
   "packages": {
     "repo": {
       "system": [
-        "fwupd",
-        "logrotate",
-        "lsb-release",
-        "reflector",
-        "sbctl",
-        "smartmontools",
-        "sof-firmware",
-        "stow",
         "stress",
         "stress-ng",
-        "tectonic",
-        "uwsm",
-        "zram-generator"
+        "tectonic"
       ],
       "filesystems": [
         "bcachefs-tools",
-        "btrfs-progs",
-        "exfatprogs",
-        "f2fs-tools",
         "fatresize",
         "jfsutils",
-        "lvm2",
         "nilfs-utils",
-        "udftools",
-        "xfsprogs"
+        "udftools"
       ],
       "network": [
-        "dnsmasq",
-        "iptables",
-        "iwd",
-        "network-manager-applet",
-        "nftables",
-        "openbsd-netcat",
-        "wget",
-        "wireless_tools"
-      ],
-      "shell": [
-        "bc",
-        "btop",
-        "eza",
-        "fd",
-        "fzf",
-        "htop",
-        "inxi",
-        "kitty",
-        "lazygit",
-        "less",
-        "lynx",
-        "nano",
-        "parallel",
-        "yazi",
-        "zoxide",
-        "zsh"
-      ],
-      "editors": [
-        "neovide",
-        "neovim",
-        "zed"
+        "dnsmasq"
       ],
       "dev": [
         "biome",
-        "ccache",
         "go",
         "mermaid-cli",
-        "nvm",
         "python-pip",
         "python-pipx",
         "tree-sitter-cli"
       ],
-      "desktop": [
-        "papirus-icon-theme",
-        "qt5-wayland",
-        "qt6-wayland",
-        "xdg-utils"
-      ],
-      "browsers": [
-        "firefox"
-      ],
       "media": [
-        "flatpak",
-        "gimp",
-        "gst-plugin-pipewire",
-        "imagemagick",
-        "libavif",
-        "libpulse",
-        "pavucontrol",
-        "pipewire-jack",
         "qbittorrent",
-        "speech-dispatcher",
-        "vlc",
         "vlc-plugin-freetype",
         "vlc-plugin-notify",
         "vlc-plugin-srt"
       ],
-      "communication": [
-        "discord"
-      ],
       "gaming": [
-        "gamemode",
         "lact",
-        "lib32-gamemode",
         "lutris",
-        "steam",
         "wine",
         "wine-gecko",
         "wine-mono"
       ],
       "virt": [
         "libguestfs",
-        "qemu-base",
         "qemu-full",
-        "vde2",
         "virt-viewer"
-      ],
-      "archive": [
-        "7zip",
-        "arj",
-        "cpio",
-        "lhasa",
-        "unace",
-        "unarj",
-        "unrar",
-        "unzip",
-        "zip"
-      ],
-      "fonts": [
-        "noto-fonts-cjk",
-        "noto-fonts-extra",
-        "ttf-fira-code",
-        "ttf-sazanami"
       ]
     },
     "aur": {
       "misc": [
-      "ani-cli-git",
-      "bolt-launcher",
-      "brave-bin",
-      "bridge-utils",
-      "btop-theme-catppuccin",
-      "catppuccin-cursors-frappe",
-      "catppuccin-cursors-latte",
-      "catppuccin-cursors-macchiato",
-      "catppuccin-cursors-mocha",
-      "catppuccin-gtk-theme-frappe",
-      "catppuccin-gtk-theme-latte",
-      "catppuccin-gtk-theme-macchiato",
-      "catppuccin-gtk-theme-mocha",
-      "catppuccin-konsole-colorscheme-mocha-git",
-      "catppuccin-plasma-colorscheme-mocha",
-      "catppuccin-sddm-theme-frappe",
-      "catppuccin-sddm-theme-latte",
-      "catppuccin-sddm-theme-macchiato",
-      "catppuccin-sddm-theme-mocha",
-      "ckb-next-git",
-      "grayjay-bin",
-      "lua-format",
-      "papirus-folders-catppuccin-git",
-      "plymouth-theme-catppuccin-mocha-git",
-      "qt6ct-kde",
-      "runelite",
-      "ttf-ms-fonts",
-      "vscodium-bin",
-      "vscodium-marketplace",
-      "zen-browser-bin",
-      "zinit"
+        "bolt-launcher",
+        "brave-bin",
+        "bridge-utils",
+        "ckb-next-git",
+        "grayjay-bin",
+        "lua-format",
+        "runelite"
       ]
     }
   },

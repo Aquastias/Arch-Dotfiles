@@ -6,5 +6,10 @@
   "sudo":  true,
   "groups": [],
   "programs": [],
+  // User Core declares docker + virt-manager for every real user; this
+  // throwaway excludes both so the smoke test exercises the system install
+  // path,
+  // not user program installs (ADR 0057).
+  "programs_exclude": ["docker", "virt-manager"],
   "ssh_authorized_keys": []
 }

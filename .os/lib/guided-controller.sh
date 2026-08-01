@@ -513,11 +513,23 @@ _ctl_user_names() {
   done
 }
 
+# _ctl_default_user_shell — the login shell an ad-hoc user gets: User Core's
+# declared shell, else /bin/zsh. Reading User Core rather than hardcoding keeps
+# the guided default in step with the committed base (ADR 0056 curation), so a
+# name typed into the menu lands in the same shell a declared user would.
+_ctl_default_user_shell() {
+  local s=""
+  [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/core/profile.jsonc" ]] \
+    && s="$(_configs_parse "${OS_DIR}/users/core/profile.jsonc" 2>/dev/null \
+          | jq -r '.shell // empty' 2>/dev/null)"
+  printf '%s' "${s:-/bin/zsh}"
+}
+
 # _ctl_user_shell_full <name> — the effective login shell PATH: the User Editor's
 # install-scoped override (userforms file) if set, else the committed User
-# Profile's shell merged over User Core, else /bin/bash (an ad-hoc name with no
-# committed profile). The single source of truth the list display, the editor
-# row, and the shell cycle all read.
+# Profile's shell merged over User Core, else the User Core default (an ad-hoc
+# name with no committed profile). The single source of truth the list display,
+# the editor row, and the shell cycle all read.
 _ctl_user_shell_full() {
   local n="$1" s=""
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
@@ -525,7 +537,7 @@ _ctl_user_shell_full() {
   if [[ -z "$s" && -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
     s="$(load_user_profile "$n" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
   fi
-  [[ -n "$s" ]] || s="/bin/bash"
+  [[ -n "$s" ]] || s="$(_ctl_default_user_shell)"
   printf '%s' "$s"
 }
 
@@ -1486,13 +1498,13 @@ _ctl_enter_secret() {
 }
 
 # _ctl_user_committed_shell <name> — the committed User Profile's effective shell
-# (merged over User Core), or /bin/bash. The strict-delta baseline the editor
-# compares an override against.
+# (merged over User Core), or the User Core default. The strict-delta baseline
+# the editor compares an override against.
 _ctl_user_committed_shell() {
   local s=""
   _ctl_user_is_committed "$1" \
     && s="$(load_user_profile "$1" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
-  printf '%s' "${s:-/bin/bash}"
+  printf '%s' "${s:-$(_ctl_default_user_shell)}"
 }
 
 # _ctl_enter_useredit <line> — the User Editor dispatch (ADR 0051): toggle a
@@ -1833,7 +1845,8 @@ _ctl_enter_text() {
         "$(jq -c '.users // []' \
           <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")" '$a + [$v]')")"
     if [[ -n "${GUIDED_USERFORMS_FILE:-}" ]]; then
-      guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" shell '"/bin/bash"'
+      guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" shell \
+        "$(jq -Rn --arg s "$(_ctl_default_user_shell)" '$s')"
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" sudo 'true'
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" groups '["wheel"]'
     fi
