@@ -18,6 +18,9 @@
 # shellcheck source=./state.sh
 [[ "$(type -t cfgstate_emit)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
+# shellcheck source=./layer-resolver.sh
+[[ "$(type -t layer_additive_keys)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./layers.sh
 [[ "$(type -t _configs_merge)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
@@ -37,6 +40,68 @@ guided_profile_delta() {
     | if .storage_groups then .storage_groups |= map(del(.disks)) else . end
     | if .data_pools then .data_pools |= map(del(.disks)) else . end
   ' <<<"$1"
+}
+
+# guided_core_delta <effective> — the effective config reduced to what it adds
+# OVER Host Core, so a saved profile stays layered rather than freezing a
+# snapshot (ADR 0056, PRD story 32).
+#
+# The menu baseline now loads Host Core, so the effective view legitimately
+# contains core's whole package list, system programs and sysctl. Writing that
+# verbatim would bake ~61 inherited packages into every saved profile and
+# silently decouple it from core on the next edit.
+#
+# The reduction is the inverse of the Layer Resolver's fold, key-class by
+# key-class, so `layer_resolve host <core> <delta>` reproduces <effective>:
+#   additive array → subtract core's members
+#   object         → drop keys whose value core already provides
+#   everything else→ drop when identical to core's value
+# Pure: JSON in, JSON out.
+guided_core_delta() {
+  local effective="$1" core="$2" additive
+  additive="$(layer_additive_keys host | jq -R . | jq -s -c .)"
+
+  jq -n --argjson eff "$effective" --argjson core "$core" \
+        --argjson additive "$additive" '
+    def is_additive($path):
+      ($path | join(".")) as $flat
+      | any($additive[];
+          . as $pat
+          | if ($pat | endswith(".*"))
+            then ($pat | rtrimstr(".*")) as $stem
+              | ($path | length) == (($stem | split(".")) | length) + 1
+                and ($flat | startswith($stem + "."))
+            else . == $flat
+            end);
+
+    def prune($e; $c; $path):
+      if   ($c == null) then $e
+      elif ($e == null) then null
+      elif ($e | type) == "object" and ($c | type) == "object"
+        then reduce ($e | keys_unsorted[]) as $k
+          ({}; . as $acc
+           | prune($e[$k]; $c[$k]; $path + [$k]) as $v
+           | if $v == null then $acc else $acc + {($k): $v} end)
+      elif ($e | type) == "array" and ($c | type) == "array"
+        then if is_additive($path)
+             # subtracting core leaving nothing means the layer adds nothing
+             then ([$e[] | select(. as $x | $c | index($x) | not)]
+                   | if length == 0 then null else . end)
+             # a replace key is dropped only when IDENTICAL to the core
+             # value; an empty array is a deliberate choice (e.g. no
+             # desktop) and must survive, not be read as "nothing to say".
+             else (if $e == $c then null else $e end)
+             end
+      else (if $e == $c then null else $e end)
+      end;
+
+    prune($eff; $core; [])
+    # an object that pruned empty carries no information — drop it
+    | walk(if type == "object"
+           then with_entries(select((.value | type != "object")
+                                    or (.value | length > 0)))
+           else . end)
+  '
 }
 
 # guided_user_profile <form> — author a User Profile delta (issue 07) from an
@@ -60,21 +125,23 @@ _emit_json_array() {
 }
 
 # emit_effective <state> <assignment> — Effective Config on stdout.
-# Merges the state's override map over Host Core, then bakes the assignment's
-# picked disks onto the layout skeleton (reusing the picker's assembler).
+# Bakes the assignment's picked disks onto the layout skeleton (reusing the
+# picker's assembler).
 #
-# There is no promotion step. It used to run HERE and only here, so a typed
-# package name resolving to a Program became a system_program in the guided
-# path while `install.sh --profile` and `install.sh <config-file>` left it a
-# raw package — the same file installing differently per front-end. A name is
-# now either a Program or a package, enforced at config load by
-# validate_package_program_exclusivity, and the guided extra-packages row
-# routes what the operator types at ENTRY time (see _ctl_route_package_entry),
-# so what reaches Config State is already canonical.
+# Host Core is NOT merged here. It enters once, into the menu's baseline
+# (cfgstate_seed_defaults), and the caller passes the effective view — the
+# operator's overrides over that baseline. Merging core a second time here is
+# precisely the bug where the menu displayed `system programs: grub` while the
+# install produced `["cups","grub"]`: display replaced arrays, emit
+# concatenated them. One entry point for core means the two cannot disagree.
+#
+# There is likewise no promotion step. It used to run HERE and only here, so a
+# typed package name resolving to a Program became a system_program in the
+# guided path while `install.sh --profile` and `install.sh <config-file>` left
+# it a raw package. A name is now either a Program or a package, enforced at
+# config load by validate_package_program_exclusivity, and the guided
+# extra-packages row routes what the operator types at ENTRY time.
 emit_effective() {
-  local state="$1" assignment="$2" overrides core merged
-  overrides="$(cfgstate_emit "$state")"
-  core="$(_configs_parse "$OS_DIR/hosts/core/profile.jsonc")" || core='{}'
-  merged="$(_configs_merge "$core" "$overrides")"
-  picker_assign_disks "$merged" "$assignment"
+  local state="$1" assignment="$2"
+  picker_assign_disks "$(cfgstate_emit "$state")" "$assignment"
 }

@@ -8,7 +8,9 @@
 # rewrite. Pure: a Config State in, the seeded Config State out, no TTY.
 #
 # Public API:
-#   cfgstate_seed_defaults <state>  → <state> with the launch defaults set
+#   cfgstate_seed_defaults <state>  → <state> with the launch defaults set,
+#                                     resolved over Host Core
+#   cfgstate_host_core              → Host Core as JSON
 # =============================================================================
 
 # shellcheck source=./state.sh
@@ -19,8 +21,43 @@
 [[ "$(type -t post_install_default)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
-# cfgstate_seed_defaults <state> — overlay the launch defaults onto <state>.
+# shellcheck source=./layer-resolver.sh
+[[ "$(type -t layer_resolve)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
+
+# shellcheck source=./layers.sh
+[[ "$(type -t _configs_parse)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/layers.sh"
+
+# cfgstate_host_core — Host Core as JSON ({} when absent/unreadable).
+# The menu's baseline is LOADED from Host Core rather than hand-copying a few
+# of its values (ADR 0058). Hand-copying is why `cups` installed on every host
+# and appeared nowhere in the menu, and why packages.repo/aur had no menu
+# representation at all.
+cfgstate_host_core() {
+  local f="${OS_DIR:-}/hosts/core/profile.jsonc"
+  [[ -n "${OS_DIR:-}" && -f "$f" ]] || { printf '{}\n'; return 0; }
+  _configs_parse "$f" 2>/dev/null || printf '{}\n'
+}
+
+# cfgstate_seed_defaults <state> — overlay the launch defaults onto <state>,
+# resolved OVER Host Core so everything core installs is visible in the menu.
+#
+# Host Core is the lower layer and the computed defaults the upper one, folded
+# through the Layer Resolver: core's additive contributions (system_programs,
+# packages, sysctl, users) survive into the baseline, while the ordered
+# selections below (kernel, locale, desktop, mirrors) replace whatever core
+# declared. Because these land in the BASELINE and not the override map, they
+# render with no ● until the operator actually edits them.
 cfgstate_seed_defaults() {
+  local state="$1"
+  state="$(_cfgstate_computed_defaults "$state")"
+  layer_resolve host "$(cfgstate_host_core)" "$state"
+}
+
+# _cfgstate_computed_defaults <state> — the guided launch defaults alone,
+# without Host Core. Split out so the fold above has a clean upper layer.
+_cfgstate_computed_defaults() {
   local state="$1"
   state="$(cfgstate_set "$state" system.hostname '"eterniox"')"
   state="$(cfgstate_set "$state" users '["aquastias"]')"
@@ -28,10 +65,9 @@ cfgstate_seed_defaults() {
   state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
   state="$(cfgstate_set "$state" system.timezone '"Europe/Bucharest"')"
   state="$(cfgstate_set "$state" system.keymap '"us"')"
-  # Sysctl Defaults: surface vm.swappiness=10 (the Host Core default) so the
-  # guided sysctl screen lists it as the baseline; operator additions ride the
-  # override on top. Idempotent with Host Core's own swappiness=10.
-  state="$(cfgstate_set "$state" sysctl '{"vm.swappiness":10}')"
+  # Sysctl is no longer hand-copied here — Host Core is loaded into the
+  # baseline, so its swappiness (and everything else it declares) surfaces on
+  # its own. Operator additions ride the override on top.
   # Selection defaults so no field opens empty and the toggle screens start with
   # a sensible pick: kernel lts, gpu auto, KDE desktop (the sole DE), and the
   # default mirror countries. These match the menu display / back-end defaults

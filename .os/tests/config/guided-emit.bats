@@ -1,7 +1,12 @@
 #!/usr/bin/env bats
 # Tests for .os/lib/config/emit.sh — the Guided Installer's Emitter (ADR 0039):
-# a Config State (+ optional disk assignment) → a device-baked Effective Config
-# merged over Host Core. Pure: JSON-in/JSON-out, no TTY, no disk writes.
+# an effective view (+ optional disk assignment) → a device-baked Effective
+# Config. Pure: JSON-in/JSON-out, no TTY, no disk writes.
+#
+# Host Core enters ONCE, via the menu baseline (cfgstate_seed_defaults), so
+# these build their state the way guided.sh does: overrides over a seeded
+# baseline. The emitter merging core a second time is exactly the bug where
+# the menu showed `grub` and the install produced `["cups","grub"]`.
 #
 # Behaviour under test (external only — the effective config the emitter
 # produces), never internal structure.
@@ -23,6 +28,8 @@ setup() {
 
   # shellcheck source=../../lib/config/state.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  # shellcheck source=../../lib/config/seed.sh
+  source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
   # shellcheck source=../../lib/config/emit.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
   # validate_config_schema — assert the guided output is schema-clean.
@@ -32,6 +39,13 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
+# effective <state> — overrides over the seeded (Host Core) baseline, the same
+# shape guided.sh passes to emit_effective.
+effective() {
+  jq -n --argjson b "$(cfgstate_seed_defaults "$(cfgstate_new)")" \
+        --argjson o "$1" '$b * $o'
+}
+
 # ── tracer: single-disk ZFS Effective Config over Host Core ─────────────────
 
 @test "emit_effective: bakes hostname + picked disk merged over Host Core" {
@@ -39,7 +53,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   state="$(cfgstate_set "$state" mode '"single"')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
-  run emit_effective "$state" "$assignment"
+  run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'
   echo "$output" | jq -e '.mode == "single"'
@@ -64,7 +78,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   state="$(cfgstate_set "$state" environment.gpu '["amd","nvidia"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
-  run emit_effective "$state" "$assignment"
+  run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.options.kernel == ["zen","lts"]'
   echo "$output" | jq -e '.options.bootloader == "grub"'
@@ -94,11 +108,138 @@ teardown() { rm -rf "$TEST_DIR"; }
   state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
-  run emit_effective "$state" "$assignment"
+  run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.packages.repo.extra == ["htop"]'
   echo "$output" | jq -e '.system_programs | index("cups")'   # core kept
   echo "$output" | jq -e '.system_programs | index("htop") | not'
+}
+
+# ── the menu and the installer produce the same set (ADR 0058) ──────────────
+# The original report was "profile system programs do not appear selected".
+# The root cause was the inverse: profile programs mark fine; CORE programs
+# were invisible, and the merge under-reported. Both halves are asserted here.
+
+@test "cups renders in the baseline as a selected System Program" {
+  local base; base="$(cfgstate_seed_defaults "$(cfgstate_new)")"
+  jq -e '.system_programs | index("cups")' <<<"$base"
+}
+
+@test "seeding a profile shows cups AND grub, matching what installs" {
+  # the operator seeds a profile whose delta adds grub
+  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" system_programs '["cups","grub"]')"
+  local view; view="$(effective "$state")"
+
+  # what the MENU displays
+  jq -e '.system_programs == ["cups","grub"]' <<<"$view"
+
+  # what INSTALLS
+  run emit_effective "$view" \
+    '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["cups","grub"]'
+}
+
+@test "menu view and installed set agree for the same config" {
+  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
+  local view; view="$(effective "$state")"
+
+  run emit_effective "$view" \
+    '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+  [ "$status" -eq 0 ]
+  # every key the menu shows survives the emit unchanged (disks aside)
+  local shown installed
+  shown="$(jq -cS '{system_programs, packages, sysctl}' <<<"$view")"
+  installed="$(jq -cS '{system_programs, packages, sysctl}' <<<"$output")"
+  [ "$shown" = "$installed" ]
+}
+
+# Deselecting a core-inherited entry must actually deselect it — the old emit
+# concatenated core back in, so unticking cups silently did nothing.
+@test "unticking a core system program removes it from the install" {
+  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" system_programs '["grub"]')"
+
+  run emit_effective "$(effective "$state")" \
+    '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["grub"]'
+}
+
+# ── Save writes a DELTA over Host Core, not a snapshot (ADR 0056) ───────────
+# The baseline now legitimately contains core's whole package list, so a save
+# that wrote the effective view verbatim would bake it in and decouple the new
+# profile from core on the next edit.
+
+@test "guided_core_delta: drops what Host Core already provides" {
+  local core='{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+               "packages":{"repo":{"shell":["htop","fzf"]}}}'
+  local eff='{"system_programs":["cups","grub"],
+              "sysctl":{"vm.swappiness":10},
+              "packages":{"repo":{"shell":["htop","fzf","btop"]}},
+              "system":{"hostname":"eterniox"}}'
+  run guided_core_delta "$eff" "$core"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["grub"]'
+  echo "$output" | jq -e '.packages.repo.shell == ["btop"]'
+  echo "$output" | jq -e 'has("sysctl") | not'
+  echo "$output" | jq -e '.system.hostname == "eterniox"'
+}
+
+@test "guided_core_delta: a replace key equal to core's is dropped" {
+  run guided_core_delta '{"options":{"kernel":["lts"],"bootloader":"grub"}}' \
+                        '{"options":{"kernel":["lts"]}}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '(.options | has("kernel")) | not'
+  echo "$output" | jq -e '.options.bootloader == "grub"'
+}
+
+@test "guided_core_delta: a replace key differing from core's is kept whole" {
+  run guided_core_delta '{"options":{"kernel":["zen"]}}' \
+                        '{"options":{"kernel":["lts"]}}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.options.kernel == ["zen"]'
+}
+
+# The contract that makes "stays layered" true: resolving the saved delta back
+# over Host Core must reproduce exactly what the operator saw.
+@test "guided_core_delta round-trips through the Layer Resolver" {
+  source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
+  local core='{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+               "packages":{"repo":{"shell":["htop","fzf"]}}}'
+  local eff='{"system_programs":["cups","grub"],
+              "sysctl":{"vm.swappiness":10},
+              "packages":{"repo":{"shell":["htop","fzf","btop"]}},
+              "options":{"kernel":["zen"]}}'
+  local delta round
+  delta="$(guided_core_delta "$eff" "$core")"
+  round="$(layer_resolve host "$core" "$delta")"
+  [ "$(jq -cS . <<<"$round")" = "$(jq -cS . <<<"$eff")" ]
+}
+
+@test "Save writes a delta: core's packages are not baked into the profile" {
+  # a richer core than the setup default, to make the snapshot obvious
+  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+ "packages":{"repo":{"shell":["htop","fzf","btop"]}}}
+JSON
+  source "$BATS_TEST_DIRNAME/../../lib/guided-save.sh"
+
+  local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  state="$(cfgstate_set "$state" system.hostname '"newbox"')"
+  run guided_save_host_profile "$(effective "$state")" newbox
+  [ "$status" -eq 0 ]
+
+  local saved; saved="$(cat "$OS_DIR/hosts/newbox/profile.jsonc")"
+  # core's inherited payload is absent from the committed delta …
+  jq -e '(.packages // {}) == {}'          <<<"$saved"
+  jq -e 'has("system_programs") | not'     <<<"$saved"
+  jq -e 'has("sysctl") | not'              <<<"$saved"
+  # … but the operator's own choices are there
+  jq -e '.system.hostname == "newbox"'     <<<"$saved"
+  jq -e '.mode == "single"'                <<<"$saved"
 }
 
 # ── safety: the guided output is as schema-clean as a hand-authored profile ─
