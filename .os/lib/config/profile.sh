@@ -16,6 +16,9 @@
 # Requires OS_DIR set.
 # =============================================================================
 
+# shellcheck source=./layer-resolver.sh
+[[ "$(type -t layer_resolve)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./layers.sh
 [[ "$(type -t _configs_merge)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
@@ -76,7 +79,12 @@ _profile_load() {
     return 2
   fi
 
-  _configs_merge "$core_json" "$spec_json"
+  # Resolve through the Layer Resolver (ADR 0057) rather than the blanket
+  # concat _configs_merge does: with Host Core carrying real content, a core
+  # options.kernel of ["lts"] plus a host wanting ["zen"] would otherwise
+  # install both. The menu resolves through the same module, so display and
+  # install cannot disagree.
+  layer_resolve "${kind%s}" "$core_json" "$spec_json"
 }
 
 # assemble_profile_config <name> <assignment_json> — the install-time effective
@@ -155,6 +163,11 @@ _PROFILE_SCHEMA_host=(
   #   profile and only ever written by the derived GPU/audio buckets, which
   #   are bash arrays and never authorable. Both now abort as unknown keys. —
   "packages.repo.*[]" "packages.aur.*[]"
+  # — Layer Resolver control keys (ADR 0056/0057). `exclude` drops something
+  #   Host Core declares; `inherit: false` opts out of core's packages ONLY,
+  #   so a fixture still inherits core's users and sysctl. —
+  "packages.exclude[]" "packages.inherit"
+  "system_programs_exclude[]"
   # — host software (config.jsonc) —
   "users[]" "system_programs[]" "sysctl.*"
   "persist.directories[]" "persist.files[]"
@@ -163,6 +176,8 @@ _PROFILE_SCHEMA_host=(
 _PROFILE_SCHEMA_user=(
   "shell" "sudo" "groups[]" "programs[]" "ssh_authorized_keys[]"
   "user_services[]" "git.name" "git.email"
+  # — Layer Resolver control key: drop a program User Core declares —
+  "programs_exclude[]"
 )
 
 _PROFILE_SCHEMA_program=( "name" "system" "description" )
