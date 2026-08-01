@@ -146,6 +146,73 @@ write_program() {
   [ "$status" -eq 1 ]
 }
 
+# ── program kind is authoritative (R22) ──────────────────────────────────────
+# The registry carries the system flag so a menu render never re-parses every
+# program's config.jsonc, and one lookup answers "what kind is this name?".
+
+@test "registry: carries each program's system flag alongside its category" {
+  write_program "bootloader" "grub" "true"
+  write_program "virtualization" "docker" "false"
+
+  configs_build_registry
+  [ "${_CONFIGS_REGISTRY[grub]}" = "bootloader/grub" ]
+  [ "${_CONFIGS_KIND[grub]}" = "system" ]
+  [ "${_CONFIGS_REGISTRY[docker]}" = "virtualization/docker" ]
+  [ "${_CONFIGS_KIND[docker]}" = "user" ]
+}
+
+@test "program_kind: system for the real system programs" {
+  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  configs_build_registry
+  for p in grub cups sops; do
+    [ "$(program_kind "$p")" = "system" ]
+  done
+}
+
+@test "program_kind: user for the real user programs" {
+  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  configs_build_registry
+  for p in docker podman borg firewalld; do
+    [ "$(program_kind "$p")" = "user" ]
+  done
+}
+
+@test "program_kind: none for a name with no program directory" {
+  configs_build_registry
+  [ "$(program_kind nope)" = "none" ]
+}
+
+@test "program_kind: resolves without a prebuilt registry" {
+  write_program "bootloader" "grub" "true"
+  write_program "virtualization" "docker" "false"
+  [ "$(program_kind grub)" = "system" ]
+  [ "$(program_kind docker)" = "user" ]
+  [ "$(program_kind nope)" = "none" ]
+}
+
+@test "registry: built once, not rebuilt per lookup" {
+  write_program "bootloader" "grub" "true"
+  configs_build_registry
+  # A program appearing after the build is not picked up by a lookup, proving
+  # the lookup reads the index rather than re-scanning the tree.
+  write_program "virtualization" "docker" "false"
+  [ "$(program_kind docker)" = "none" ]
+}
+
+@test "program_names_of_kind: partitions the real program set by flag" {
+  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  configs_build_registry
+  run program_names_of_kind system
+  [ "$output" = "$(printf 'cups\ngrub\nsops')" ]
+
+  run program_names_of_kind user
+  echo "$output" | grep -qx docker
+  echo "$output" | grep -qx firewalld
+  ! echo "$output" | grep -qx cups
+  ! echo "$output" | grep -qx grub
+  ! echo "$output" | grep -qx sops
+}
+
 # ── program validation ───────────────────────────────────────────────────────
 
 @test "validate_program: accepts system program from host config" {

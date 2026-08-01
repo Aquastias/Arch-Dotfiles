@@ -1,6 +1,6 @@
 # Pure core: profile enumeration + seed-merge
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

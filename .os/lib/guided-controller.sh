@@ -188,7 +188,7 @@ _ctl_field_kind() {
   system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
   system.locale | system.timezone) echo biglist ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
-  packages.extra) echo text ;;
+  packages.repo.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
   options.mirror_countries | system_programs) echo toggle ;;
@@ -311,7 +311,7 @@ _ctl_apply_enum() {
 }
 
 # _ctl_apply_text <state> <path> <value> → new state for a free-text field.
-# sysctl parses key=value; packages.extra appends; the rest are string scalars.
+# sysctl parses key=value; the extra-packages row appends; rest are scalars.
 _ctl_apply_text() {
   local state="$1" path="$2" val="$3"
   case "$path" in
@@ -327,7 +327,7 @@ _ctl_apply_text() {
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
-  packages.extra) edit_append_packages "$state" "$val" ;;
+  packages.repo.extra) edit_append_packages "$state" "$val" ;;
   *) edit_set_scalar "$state" "$path" "$val" ;;
   esac
 }
@@ -352,21 +352,21 @@ _ctl_normalise_default() {
   fi
 }
 
-# _ctl_program_names — resolvable System Program names (programs/<cat>/<name>),
-# one per line; the toggle option set for system_programs.
-_ctl_program_names() {
-  local d
-  for d in "${OS_DIR:-.}"/programs/*/*; do
-    [[ -d "$d" ]] && basename "$d"
-  done
-}
+# _ctl_system_program_names / _ctl_user_program_names — the option set for each
+# program picker, filtered on the registry's system flag (R22). The two screens
+# have opposite requirements: host system_programs needs system:true (else
+# validate_programs rejects the config at Proceed), the User Editor's programs
+# row needs system:false (else the reference silently no-ops or aborts). One
+# unfiltered list used to feed both.
+_ctl_system_program_names() { program_names_of_kind system; }
+_ctl_user_program_names()   { program_names_of_kind user; }
 
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
 _ctl_toggle_options() {
   case "$1" in
   options.kernel | environment.desktop | environment.gpu \
     | options.mirror_countries) menu_enum_options "$1" ;;
-  system_programs)     _ctl_program_names ;;
+  system_programs)     _ctl_system_program_names ;;
   system.keymap)       _ctl_biglist_options system.keymap ;;
   esac
 }
@@ -535,7 +535,7 @@ _ctl_userfield_kind() {
 _ctl_userfield_options() {
   case "$1" in
   groups)   printf '%s\n' wheel docker libvirt kvm ;;
-  programs) _ctl_program_names ;;
+  programs) _ctl_user_program_names ;;
   esac
 }
 

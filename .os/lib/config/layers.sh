@@ -14,6 +14,10 @@
 #       → build in-memory program index from $OS_DIR/programs/
 #   resolve_program <name>
 #       → echoes "<cat>/<name>"; uses registry if built; 1 if not found
+#   program_kind <name>
+#       → echoes "system" | "user" | "none"; uses registry if built
+#   program_names_of_kind <system|user>
+#       → echoes each program name of that kind, one per line, sorted
 #   validate_program <expected> <name>       → 0 ok | 1 with stderr message
 #   validate_programs <expected> <name...>   → 0 if all ok | 1 if any failed
 #   reconcile_user_program <name> <host_sys_prog...>          (ADR 0036)
@@ -61,25 +65,71 @@ _configs_merge() {
 # system-flag contract: programs referenced from a host config must have
 # system: true; from a user config, system: false.
 
-# Build an in-memory index: _CONFIGS_REGISTRY[name]="cat/name".
-# Call once after OS_DIR is set; resolve_program uses it automatically.
+# Build two in-memory indexes, both keyed by program name:
+#   _CONFIGS_REGISTRY[name]="cat/name"   — the path index
+#   _CONFIGS_KIND[name]="system"|"user"  — the config.jsonc system flag
+# Call once after OS_DIR is set; resolve_program and program_kind use them
+# automatically. Reading the flag here is what keeps a menu render from
+# re-parsing every program's config.jsonc (R22).
 configs_build_registry() {
   [[ -z "${OS_DIR:-}" ]] && { echo "configs: OS_DIR is not set" >&2; return 2; }
   declare -gA _CONFIGS_REGISTRY=()
-  local d name cat
+  declare -gA _CONFIGS_KIND=()
+  # Explicit sentinel: `[[ -v assoc ]]` tests index 0, so it is always false for
+  # an associative array — guarding on it left the fast paths below dead and
+  # every lookup re-scanning the tree.
+  declare -g _CONFIGS_REGISTRY_BUILT=1
+  local d name cat is_sys
   for d in "${OS_DIR}/programs"/*/*; do
     [[ -d "$d" ]] || continue
     name="$(basename "$d")"
     cat="$(basename "$(dirname "$d")")"
     _CONFIGS_REGISTRY["$name"]="${cat}/${name}"
+    is_sys=false
+    if [[ -f "$d/config.jsonc" ]]; then
+      is_sys="$(_configs_parse "$d/config.jsonc" | jq -r '.system // false')"
+    fi
+    [[ "$is_sys" == "true" ]] \
+      && _CONFIGS_KIND["$name"]=system \
+      || _CONFIGS_KIND["$name"]=user
   done
+}
+
+# program_kind <name> → "system" | "user" | "none".
+# Answers "what kind of program is this name?" for the exclusivity validator,
+# both guided pickers, and the Package Resolver. Uses the registry when built
+# (O(1), no re-parse); falls back to resolving + reading config.jsonc.
+program_kind() {
+  local name="$1"
+  if [[ -n "${_CONFIGS_REGISTRY_BUILT:-}" ]]; then
+    printf '%s\n' "${_CONFIGS_KIND[$name]:-none}"
+    return 0
+  fi
+  local rel
+  resolve_program "$name" >/dev/null 2>&1 || { printf 'none\n'; return 0; }
+  rel="$(resolve_program "$name")"
+  local cfg="${OS_DIR}/programs/${rel}/config.jsonc"
+  [[ -f "$cfg" ]] || { printf 'user\n'; return 0; }
+  local is_sys
+  is_sys="$(_configs_parse "$cfg" | jq -r '.system // false')"
+  [[ "$is_sys" == "true" ]] && printf 'system\n' || printf 'user\n'
+}
+
+# program_names_of_kind <system|user> → the program names of that kind, one
+# per line, sorted. The option set behind each of the two guided pickers.
+program_names_of_kind() {
+  local want="$1" name
+  [[ -n "${_CONFIGS_REGISTRY_BUILT:-}" ]] || configs_build_registry || return 1
+  for name in "${!_CONFIGS_KIND[@]}"; do
+    [[ "${_CONFIGS_KIND[$name]}" == "$want" ]] && printf '%s\n' "$name"
+  done | sort
 }
 
 # Echo "<category>/<name>" for a program name. Uses registry when built (O(1));
 # falls back to glob scan otherwise. Return 1 if not found.
 resolve_program() {
   local name="$1"
-  if [[ -v _CONFIGS_REGISTRY ]]; then
+  if [[ -n "${_CONFIGS_REGISTRY_BUILT:-}" ]]; then
     local rel="${_CONFIGS_REGISTRY[$name]:-}"
     if [[ -n "$rel" ]]; then
       printf '%s\n' "$rel"
@@ -118,7 +168,7 @@ validate_program() {
     return 1
   }
   local is_sys
-  is_sys="$(_configs_parse "$dir/config.jsonc" | jq -r '.system')"
+  [[ "$(program_kind "$name")" == "system" ]] && is_sys=true || is_sys=false
   if [[ "$is_sys" != "$expected" ]]; then
     if [[ "$expected" == "true" ]]; then
       echo "configs: program '${name}' is referenced from a host" \
@@ -145,15 +195,13 @@ validate_program() {
 # changes a program spec. Pure (no exit).
 reconcile_user_program() {
   local name="$1"; shift
-  local rel
-  if ! rel="$(resolve_program "$name")"; then
+  if ! resolve_program "$name" >/dev/null; then
     echo "configs: user program '${name}' not found under" \
          "${OS_DIR}/programs/<cat>/${name}/" >&2
     return 1
   fi
   local is_sys
-  is_sys="$(_configs_parse "${OS_DIR}/programs/${rel}/config.jsonc" \
-    | jq -r '.system')"
+  [[ "$(program_kind "$name")" == "system" ]] && is_sys=true || is_sys=false
   if [[ "$is_sys" != "true" ]]; then
     printf 'user\n'
     return 0

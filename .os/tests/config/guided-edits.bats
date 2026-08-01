@@ -86,10 +86,11 @@ setup() {
 
 # ── list appends ────────────────────────────────────────────────────────────
 
-@test "edit_append_packages: whitespace-split names append to packages.extra" {
-  run edit_append_packages '{"packages":{"extra":["vim"]}}' "htop  btop"
+@test "edit_append_packages: split names append to packages.repo.extra" {
+  local s='{"packages":{"repo":{"extra":["vim"]}}}'
+  run edit_append_packages "$s" "htop  btop"
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.packages.extra' <<<"$output")" = '["vim","htop","btop"]' ]
+  [ "$(jq -c '.packages.repo.extra' <<<"$output")" = '["vim","htop","btop"]' ]
 }
 
 @test "edit_append_packages: empty input is a no-op (rc1)" {

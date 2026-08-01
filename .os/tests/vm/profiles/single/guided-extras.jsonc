@@ -34,7 +34,6 @@
       "swap":       true,
       "swap_size":  "auto"
     },
-    "packages": { "extra": [], "groups": {} },
     "guided_extras": {
       "users": "vm-test",
       "answers": { "borg": "false", "zfs_snapshot": "false" },

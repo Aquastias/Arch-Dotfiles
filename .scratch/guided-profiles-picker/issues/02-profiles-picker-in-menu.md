@@ -1,6 +1,6 @@
 # Profiles picker in the guided menu
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

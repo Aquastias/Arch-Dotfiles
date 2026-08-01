@@ -22,7 +22,7 @@ teardown() {
   rm -rf "$TEST_DIR"
 }
 
-@test "non-empty desktop adds PipeWire stack to packages.groups.audio" {
+@test "non-empty desktop adds PipeWire stack to the derived AUDIO_PACKAGES" {
   ENVIRONMENT_DESKTOP=("kde")
   _resolve_env_audio
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]

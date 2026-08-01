@@ -190,7 +190,7 @@ write_answers() {
   [ -n "$effective" ]
   echo "$effective" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
   echo "$effective" | jq -e '.options.multilib == false'
-  echo "$effective" | jq -e '.packages.extra == ["htop","tmux"]'
+  echo "$effective" | jq -e '.packages.repo.extra == ["htop","tmux"]'
   echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
   # Structured Security/Backup object: overrides merge over the secure baseline.
   echo "$effective" | jq -e '.post_install.security.firewall == "ufw"'
@@ -721,7 +721,7 @@ write_answers() {
   ! echo "$output" | grep -qx "core"
 }
 
-# ── list builders: packages.extra / system_programs / sysctl ────────────────
+# ── list builders: packages.repo.extra / system_programs / sysctl ───────────
 
 @test "_guided_add_package: typed names (whitespace-split) append to extra" {
   _GUIDED_REPLAY=0
@@ -730,7 +730,7 @@ write_answers() {
   export -f guided_prompt
 
   _guided_add_package
-  echo "$_GUIDED_STATE" | jq -e '.packages.extra == ["htop","tmux"]'
+  echo "$_GUIDED_STATE" | jq -e '.packages.repo.extra == ["htop","tmux"]'
 }
 
 @test "_guided_add_package: empty input adds nothing" {

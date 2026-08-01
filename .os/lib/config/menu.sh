@@ -45,7 +45,7 @@ _MENU_FIELDS=(
   "Environment|environment.gpu|gpu|auto"
   "Options|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
   "Options|options.multilib|multilib|true"
-  "Packages|packages.extra|extra packages|[]"
+  "Packages|packages.repo.extra|extra packages|[]"
   "Packages|system_programs|system programs|[]"
   "Security|post_install.security.firewall|firewall|firewalld"
   "Security|post_install.security.antivirus|antivirus|true"

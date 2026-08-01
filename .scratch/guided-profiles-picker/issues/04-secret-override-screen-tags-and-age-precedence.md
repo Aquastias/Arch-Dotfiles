@@ -1,6 +1,6 @@
 # Secret override screen: tags + `Disk encryption` + age precedence
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

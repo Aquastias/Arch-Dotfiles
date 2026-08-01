@@ -24,7 +24,6 @@
         "mount":   "/persist"
       }
     },
-    "packages": { "extra": [], "groups": {} },
     "environment": { "desktop": "kde", "gpu": "auto" },
     "post_install": { "backup": false, "security": false },
     "mode":              "single",

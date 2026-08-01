@@ -1,6 +1,6 @@
 # Root shell: guided cycle row → options.root_shell → chroot chsh
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

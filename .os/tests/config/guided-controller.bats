@@ -1258,7 +1258,8 @@ _seed_baseline() {
 
 @test "list(useredit ad-hoc): remove + shell, no enabled row" {
   export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/core"; printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users dave)"
   run guided_ctl_list
@@ -1523,6 +1524,56 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   run guided_ctl_enter "[ ] git"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
+}
+
+# ── program picker option-set MEMBERSHIP (R22) ───────────────────────────────
+# The two pickers have opposite requirements and used to share one unfiltered
+# list. Assert *which options are offered*, not only the [x]/[ ] marking —
+# marking-only assertions are exactly what let the bad option sets through.
+
+# Two programs of each kind under a hermetic OS_DIR.
+mixed_programs_setup() {
+  export OS_DIR="$TEST_DIR"
+  local spec cat name sys
+  for spec in "bootloader/grub/true" "printing/cups/true" \
+              "virtualization/docker/false" "security/borg/false"; do
+    IFS=/ read -r cat name sys <<<"$spec"
+    mkdir -p "$OS_DIR/programs/$cat/$name"
+    printf '{"name":"%s","system":%s}\n' "$name" "$sys" \
+      > "$OS_DIR/programs/$cat/$name/config.jsonc"
+    printf '#!/bin/sh\n' > "$OS_DIR/programs/$cat/$name/install.sh"
+  done
+}
+
+@test "system_programs picker offers exactly the system:true programs" {
+  mixed_programs_setup
+  set_nav "$(nav_to_values Host system_programs "system programs")"
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "\[ \] cups"
+  echo "$output" | grep -qx "\[ \] grub"
+  # the system:false programs must not be offered at all
+  ! echo "$output" | grep -q "docker"
+  ! echo "$output" | grep -q "borg"
+  [ "$(echo "$output" | grep -c '^\[')" -eq 2 ]
+}
+
+@test "User Editor programs picker offers exactly the system:false programs" {
+  mixed_programs_setup
+  mkdir -p "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_userfield Users dave programs programs)"
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "\[ \] borg"
+  echo "$output" | grep -qx "\[ \] docker"
+  # the system:true programs must not be offered at all
+  ! echo "$output" | grep -q "cups"
+  ! echo "$output" | grep -q "grub"
+  [ "$(echo "$output" | grep -c '^\[')" -eq 2 ]
 }
 
 @test "back(userfield): returns to the user's editor" {

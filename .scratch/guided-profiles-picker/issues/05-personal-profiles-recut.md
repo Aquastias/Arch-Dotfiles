@@ -1,6 +1,6 @@
 # Personal profiles re-cut (desktop + laptop)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

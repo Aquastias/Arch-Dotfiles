@@ -68,12 +68,14 @@ edit_set_sysctl() {
 }
 
 # edit_append_packages <state> <raw> — whitespace-split package name(s) appended
-# to packages.extra. rc 1 (unchanged) on empty input.
+# to the `extra` category of packages.repo. rc 1 (unchanged) on empty input.
+# The former top-level packages.extra was packages.repo without a category, so
+# the row now writes into the one repo slot and stays canonical for Save/Export.
 edit_append_packages() {
   local state="$1" raw="$2"
   [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
   jq --arg s "$raw" \
-    '.packages.extra = ((.packages.extra // [])
+    '.packages.repo.extra = ((.packages.repo.extra // [])
       + ($s | split(" ") | map(select(length > 0))))' <<<"$state"
 }
 

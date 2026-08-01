@@ -6,11 +6,18 @@
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   collect_packages — merges base + config extra/groups into a
-#                      sorted unique list
+#   collect_packages — merges the Base Package List, the derived sets, and the
+#                      Effective Config's packages.repo into a sorted unique
+#                      list
 #   install_base — updates mirrorlist, runs pacstrap with
 #                  collected packages
 # =============================================================================
+
+# collect_packages parses packages.repo through the Categorized List Parser on
+# every call now, so the dependency is explicit rather than assumed of callers.
+# shellcheck source=../config/categorized-list.sh
+[[ "$(type -t categorized_list_parse)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
 
 # =============================================================================
 # PACKAGE COLLECTION
@@ -27,13 +34,10 @@ collect_packages() {
   #      'default' → linux + linux-headers           (latest rolling kernel,
   #                  may temporarily be unsupported by archzfs)
   #   3. Bootloader packages — selected by options.bootloader in the profile
-  #   4. packages.extra[] — flat list from the host profile
-  #   5. packages.groups.{cli,dev,gui,...}[] — grouped lists from the profile
-  #      (keys starting with "_" are comment fields and are filtered out)
-  #   6. Host packages.repo[] — repo packages from the merged host
+  #   4. Host packages.repo[] — repo packages from the merged host
   #                            config
-  #   7. GPU_PACMAN_PACKAGES — resolved by resolve_environment()
-  #   8. AUDIO_PACKAGES — resolved by resolve_environment()
+  #   5. GPU_PACMAN_PACKAGES — resolved by resolve_environment()
+  #   6. AUDIO_PACKAGES — resolved by resolve_environment()
   #
   # Output: one package name per line, sorted and deduplicated.
   resolve_environment
@@ -96,6 +100,7 @@ collect_packages() {
     rsync          # used by the ESP mirror pacman hook
     jq             # used by the installer; handy on the installed system
     pacman-contrib # provides paccache for package cache management
+    stow           # the Runner stows dotfiles for EVERY user, unconditionally
 
     # ── Documentation ─────────────────────────────────────────────────────
     man-db
@@ -103,33 +108,19 @@ collect_packages() {
     texinfo
   )
 
-  # ── User-defined flat extra list ──────────────────────────────────────────
-  while IFS= read -r p; do
-    [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(install_config_packages_extra)
-
-  # ── User-defined groups ───────────────────────────────────────────────────
-  while IFS= read -r p; do
-    [[ -n "$p" ]] && pkgs+=("$p")
-  done < <(install_config_packages_groups)
-
   # ── Host repo packages ─────────────────────────────────────────────────────
-  # packages.repo[] from the merged host profile (host core + host-specific).
-  # AUR packages (packages.aur[]) are handled separately in profiles.sh
+  # packages.repo from the EFFECTIVE CONFIG, which already carries the resolved
+  # core+profile merge. Reading it here rather than re-loading the committed
+  # profile by hostname is what makes all three front-ends agree: the guided
+  # and inline-config paths have no hosts/<hostname>/ directory to re-read, so
+  # anything they authored (including the extra-packages row) was silently
+  # dropped. AUR packages (packages.aur) are handled separately in profiles.sh
   # via paru.
-  if [[ -n "${RESOLVED_HOST_PROFILE:-}" ]]; then
-    local host_json host_rc=0
-    host_json="$(load_profile "$RESOLVED_HOST_PROFILE" 2>/dev/null)" \
-      || host_rc=$?
-    if [[ $host_rc -eq 0 || $host_rc -eq 1 ]]; then
-      local repo_json
-      repo_json="$(printf '%s' "$host_json" \
-        | jq -c '.packages.repo // {}')"
-      while IFS= read -r p; do
-        [[ -n "$p" ]] && pkgs+=("$p")
-      done < <(categorized_list_parse "$repo_json" string "packages.repo")
-    fi
-  fi
+  local repo_json
+  repo_json="$(jsonc_strip "$CONFIG_FILE" | jq -c '.packages.repo // {}')"
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && pkgs+=("$p")
+  done < <(categorized_list_parse "$repo_json" string "packages.repo")
 
   # ZFS userland — only when some group is ZFS (root or a data pool). A pure
   # non-ZFS install installs no ZFS packages (ADR 0043). zfs-dkms compiles ZFS
