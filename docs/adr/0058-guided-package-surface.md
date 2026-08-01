@@ -38,6 +38,18 @@ cause turned out to be the inverse of the symptom: profile programs **do** mark
 correctly; it is **core** programs that were invisible, and the merge that
 under-reported.
 
+Seeding from the Profiles picker resolves the chosen profile over Host Core
+**before** it enters Config State. A committed profile is a delta and Config
+State replaces baseline values, so seeding the raw delta would have shown — and
+installed — only the delta where `install.sh --profile <name>` installs
+core+delta. Resolving at the seam keeps one profile producing one install
+through every front-end.
+
+The Effective Config the guided path emits also applies its own
+`packages.exclude` before the disks are baked. The guided path never goes
+through a layer fold (core is already in the baseline), so without that step an
+unchecked package would have been written into the config and installed anyway.
+
 ## Packages screen
 
 Drills `repo` → category → package toggles, mirroring the Categorized List
