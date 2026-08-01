@@ -197,7 +197,9 @@ view), **both** of which were load-bearing where they were.
 ### Package Resolver
 `.os/lib/packages/resolver.sh`. The pure module answering "what actually lands
 on this machine?" — an Effective Config in, every package out, each tagged with
-its **source** and **layer** (`authored` or `derived`). Covers the authored
+its **source** and **layer**. The layer is provenance: `derived` for a computed
+set, or `core` vs `host` for an authored one, so the report answers "do I edit
+Host Core or this host profile?". Covers the authored
 slots, the [[Base Package List]], and every derived set: kernel and headers,
 bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
 shells, the Plasma shell, KDE applications, KDE AUR, Security & Backup Extras,
@@ -207,7 +209,10 @@ headless. Eighteen distinct paths put a package on the system and only five are
 authored — the answer is not fewer paths but a way to *query* the result.
 Consumed by `tools/explain-packages.sh`, the Guided Installer's read-only
 `derived` section, and the real-profile regression tests, so those three cannot
-drift. Excluded packages are reported separately by `pkgres_excluded`.
+drift. Excluded packages are reported separately by `pkgres_excluded` (read from
+the *authored* profile — the Layer Resolver strips the key once applied), and
+the sets that genuinely need the target hardware (GPU `auto`, CPU microcode) by
+`pkgres_unresolved`, so they are never faked as package names.
 
 ### User Profile
 Declarative JSONC file at `.os/users/<username>/profile.jsonc` (renamed from
