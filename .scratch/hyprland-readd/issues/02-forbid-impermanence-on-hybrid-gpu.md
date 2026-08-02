@@ -1,6 +1,6 @@
 # Forbid impermanence on hybrid GPU
 
-Status: ready-for-agent
+Status: done (847efdf)
 
 ## Parent
 

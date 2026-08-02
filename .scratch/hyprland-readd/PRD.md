@@ -1,6 +1,6 @@
 # Spec: Re-add Hyprland as an installer desktop option
 
-Status: ready-for-agent
+Status: done (847efdf)
 
 Relevant ADRs: 0062 (re-add Hyprland adapter), 0061 (impermanence uses a real
 display manager), 0060 (forbid impermanence on hybrid GPU), 0005 (DE adapter
