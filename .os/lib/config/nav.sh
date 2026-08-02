@@ -31,6 +31,16 @@ nav_to_category() { jq -nc --arg c "$1" '{screen:"category", category:$c}'; }
 # that lists the installable Host Profiles; picking one seeds the menu.
 nav_to_profiles() { printf '%s\n' '{"screen":"profiles"}'; }
 
+# nav_to_newhost — the `+ New host` confirm screen (ADR 0063): a full session
+# reset is destructive, so the picker drills here before resetting. Back returns
+# to the profiles picker.
+nav_to_newhost() { printf '%s\n' '{"screen":"newhost"}'; }
+
+# nav_to_rooteditor <category> — the Root Editor (ADR 0063): root's password +
+# shell behind one editor, symmetric with the per-user editor. Carries the
+# category so nav_back returns to the flattened Users list.
+nav_to_rooteditor() { jq -nc --arg c "$1" '{screen:"rooteditor",category:$c}'; }
+
 # nav_to_values <category> <field> <label> — open a field's value picker.
 nav_to_values() {
   jq -nc --arg c "$1" --arg f "$2" --arg l "$3" \
@@ -174,6 +184,10 @@ nav_back() {
   jq -c '
     if   .screen == "profiles"
          then {screen:"top"}
+    elif .screen == "newhost"
+         then {screen:"profiles"}
+    elif .screen == "rooteditor"
+         then {screen:"values",category:.category,field:"users",label:"users"}
     elif .screen == "values" and .field == "users"
          then {screen:"top"}
     elif .screen == "values" or .screen == "text"

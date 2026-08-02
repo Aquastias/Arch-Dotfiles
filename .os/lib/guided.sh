@@ -908,7 +908,8 @@ _guided_oneshot_edit() {
 guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
     GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE \
-    GUIDED_USERFORMS_FILE GUIDED_PWBUF_FILE GUIDED_PWPENDING_FILE
+    GUIDED_USERFORMS_FILE GUIDED_PWBUF_FILE GUIDED_PWPENDING_FILE \
+    GUIDED_SESSION_UNDO_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -935,11 +936,14 @@ guided_run_persistent() {
   # State, never a committed file.
   GUIDED_PWBUF_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pwbuf.XXXXXX")"
   GUIDED_PWPENDING_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pwpending.XXXXXX")"
+  # `+ New host` reset-undo stash (ADR 0063): the pre-reset userforms + secrets
+  # so a single undo restores the whole session. Absent until a reset fires.
+  GUIDED_SESSION_UNDO_FILE="${TMPDIR:-/tmp}/guided-session-undo.$$.json"
   local -a _guided_tmpfiles=(
     "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
     "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
-    "$GUIDED_PWPENDING_FILE"
+    "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE"
   )
   trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 

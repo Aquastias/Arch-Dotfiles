@@ -1011,7 +1011,7 @@ _seed_baseline() {
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: default 12345"
+  echo "$output" | grep -qx "root — bash · pw default 12345"
   echo "$output" | grep -q "^aquastias — zsh · pw default 12345"
   echo "$output" | grep -qE '^ +password \(aquastias\): default 12345$'
 }
@@ -1023,7 +1023,7 @@ _seed_baseline() {
   printf '%s\n' '{"users":["aquastias"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: custom"
+  echo "$output" | grep -qx "root — bash · pw custom"
   echo "$output" | grep -qE '^ +password \(aquastias\): custom$'
 }
 
@@ -1033,7 +1033,7 @@ _seed_baseline() {
     > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: from age"
+  echo "$output" | grep -qx "root — bash · pw from age"
   echo "$output" | grep -qE '^ +password \(aquastias\): from age$'
 }
 
@@ -1043,12 +1043,14 @@ _seed_baseline() {
   printf '%s\n' '{"options":{"age_key_url":"https://k/age"}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
-  echo "$output" | grep -qx "root password: custom"
+  echo "$output" | grep -qx "root — bash · pw custom"
 }
 
-@test "enter(values users): the root-password row drops to a masked capture" {
+@test "enter(values users): the merged root row opens the Root Editor (ADR 0063)" {
   set_nav "$(nav_to_values Users users users)"
-  [ "$(guided_ctl_enter "root password: default 12345")" = "secret-root" ]
+  run guided_ctl_enter "root — bash · pw default 12345"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "rooteditor" ]
 }
 
 @test "enter(values users): a per-user password row captures for that user" {
@@ -1070,7 +1072,7 @@ _seed_baseline() {
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
   ! echo "$output" | grep -q "disk encryption:"
-  echo "$output" | grep -qx "root password: default 12345"   # account default
+  echo "$output" | grep -qx "root — bash · pw default 12345"   # account default
 }
 
 @test "enter(values users): no row routes to the passphrase capture" {
@@ -1079,35 +1081,120 @@ _seed_baseline() {
   [ "$(guided_ctl_enter "disk encryption: default 12345678")" != "secret-enc" ]
 }
 
-# ── root shell cycle (ADR 0054) ──────────────────────────────────────────────
+# ── Root Editor: password + shell behind one editor (ADR 0063) ───────────────
+# The merged root row opens a Root Editor exposing exactly `password` and `shell`.
+# Storage is unchanged (options.root_shell + the no-SOPS root role); only the
+# surface moved off the Users list into this editor.
 
-@test "list(users): shows the root shell row (default bash)" {
+@test "list(rooteditor): shows a password row + a shell row (default bash)" {
   export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"
   printf '{}\n' > "$GUIDED_SECRETS_FILE"
-  set_nav "$(nav_to_values Users users users)"
+  set_nav "$(nav_to_rooteditor Users)"
   run guided_ctl_list
-  echo "$output" | grep -q "root shell: bash"
+  echo "$output" | grep -qx "password: default 12345"
+  echo "$output" | grep -q "shell: bash"
+  echo "$output" | grep -q "← Back"
 }
 
-@test "enter(users): root shell cycles bash→zsh into options.root_shell" {
-  set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "root shell: bash   (Enter cycles)"
+@test "enter(rooteditor): shell cycles bash→zsh into options.root_shell" {
+  set_nav "$(nav_to_rooteditor Users)"
+  run guided_ctl_enter "shell: bash   (Enter cycles)"
   [ "$output" = "refresh" ]
   [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/zsh" ]
 }
 
-@test "enter(users): root shell cycles zsh→fish" {
+@test "enter(rooteditor): shell cycles zsh→fish" {
   printf '%s\n' '{"options":{"root_shell":"/bin/zsh"}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Users users users)"
-  guided_ctl_enter "root shell: zsh   (Enter cycles)" >/dev/null
+  set_nav "$(nav_to_rooteditor Users)"
+  guided_ctl_enter "shell: zsh   (Enter cycles)" >/dev/null
   [ "$(jq -r '.options.root_shell' "$GUIDED_STATE_FILE")" = "/bin/fish" ]
 }
 
-@test "enter(users): cycling root shell to default (bash) drops override" {
+@test "enter(rooteditor): cycling shell to default (bash) drops the override" {
   printf '%s\n' '{"options":{"root_shell":"/bin/fish"}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Users users users)"
-  guided_ctl_enter "root shell: fish   (Enter cycles)" >/dev/null
+  set_nav "$(nav_to_rooteditor Users)"
+  guided_ctl_enter "shell: fish   (Enter cycles)" >/dev/null
   [ "$(jq -r '.options.root_shell // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
+}
+
+@test "enter(rooteditor): password falls back to execute() without rich chrome" {
+  unset GUIDED_RICH_CHROME
+  set_nav "$(nav_to_rooteditor Users)"
+  [ "$(guided_ctl_enter "password: default 12345")" = "secret-root" ]
+}
+
+@test "back(rooteditor): Esc returns to the Users list" {
+  set_nav "$(nav_to_rooteditor Users)"
+  run guided_ctl_enter "← Back"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "users" ]
+}
+
+# ── action rows visible in rich chrome (ADR 0063) ────────────────────────────
+
+@test "list(values users) rich: + Create user + Back render as visible rows" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  GUIDED_RICH_CHROME=1 run guided_ctl_list
+  echo "$output" | grep -q "+ Create user"
+  echo "$output" | grep -q "← Back"
+}
+
+# ── user detail preview (ADR 0063) ───────────────────────────────────────────
+# The Users screen joins the preview set; hovering a user row shows its effective
+# (core-merged, override-applied) profile. A session-created user reflects its
+# in-progress editor-form state (held in the userforms file).
+
+@test "preview(values users): the Users screen is registered for a preview" {
+  set_nav "$(nav_to_values Users users users)"
+  run _ctl_field_has_preview users
+  [ "$status" -eq 0 ]
+}
+
+@test "preview(values users): a session user shows its in-progress form state" {
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '%s\n' '{"alice":{"shell":"/bin/fish","sudo":true,
+    "groups":["wheel","docker"],"programs":["git"],
+    "ssh_authorized_keys":["k1","k2"],"git":{"name":"A","email":"a@x"}}}' \
+    > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_preview "alice — fish · pw default 12345"
+  echo "$output" | grep -q "/bin/fish"        # shell
+  echo "$output" | grep -q "sudo:.*on"
+  echo "$output" | grep -q "groups:.*wheel, docker"
+  echo "$output" | grep -q "programs:"
+  echo "$output" | grep -q "git:.*A <a@x>"
+  echo "$output" | grep -q "ssh keys:.*2"      # SSH-key count
+}
+
+@test "preview(values users): shows effective (core-merged) values" {
+  mkdir -p "$OS_DIR/users"/{core,bob}
+  printf '{}\n' > "$OS_DIR/users/core/profile.jsonc"
+  printf '{"shell":"/bin/bash","groups":["wheel"]}\n' \
+    > "$OS_DIR/users/bob/profile.jsonc"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{"bob":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
+  printf '%s\n' '{"users":["bob"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_preview "bob — zsh · pw default 12345"
+  echo "$output" | grep -q "/bin/zsh"          # override applied
+  echo "$output" | grep -q "wheel"             # committed group merged in
+}
+
+@test "preview(values users): the root row shows shell + password source" {
+  export GUIDED_SECRETS_FILE="$TEST_DIR/secrets.json"; printf '{}\n' > "$GUIDED_SECRETS_FILE"
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_preview "root — bash · pw default 12345"
+  echo "$output" | grep -q "shell:.*bash"
+  echo "$output" | grep -q "password:.*default 12345"
+}
+
+@test "preview(values users): + Create user previews nothing" {
+  set_nav "$(nav_to_values Users users users)"
+  run guided_ctl_preview "+ Create user (name)"
+  [ -z "$output" ]
 }
 
 @test "proceed gate: never blocked — installs with secrets unset (ADR 0055)" {
@@ -1642,21 +1729,21 @@ secret_setup() {
   export GUIDED_PWPENDING_FILE="$TEST_DIR/pwpending"; : > "$GUIDED_PWPENDING_FILE"
 }
 
-@test "enter(values users): root pw opens the inline screen under rich chrome" {
+@test "enter(rooteditor): root pw opens the inline screen under rich chrome" {
   secret_setup; export GUIDED_RICH_CHROME=1
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Users users users)"
-  run guided_ctl_enter "root password: (not set)"
+  set_nav "$(nav_to_rooteditor Users)"
+  run guided_ctl_enter "password: (not set)"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "secret" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" target)" = "root" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" phase)" = "entry" ]
 }
 
-@test "enter(values users): root pw falls back to execute() without rich chrome" {
+@test "enter(rooteditor): root pw falls back to execute() without rich chrome" {
   secret_setup; unset GUIDED_RICH_CHROME
-  set_nav "$(nav_to_values Users users users)"
-  [ "$(guided_ctl_enter "root password: (not set)")" = "secret-root" ]
+  set_nav "$(nav_to_rooteditor Users)"
+  [ "$(guided_ctl_enter "password: (not set)")" = "secret-root" ]
 }
 
 @test "enter(secret entry): stashes the buffer as pending + moves to confirm" {

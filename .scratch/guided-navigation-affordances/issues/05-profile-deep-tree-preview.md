@@ -1,6 +1,6 @@
 # Profile deep-tree preview
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

@@ -76,6 +76,11 @@ Options:
                      exit. No disk phase runs (01/02/03 never start).
   --guided <file>    Run the Guided Installer headlessly, replaying menu
                      answers from a key=value file (no fzf, no tty).
+  --debug            Inspect/author only: skip the install-toolchain preflight
+                     (ensure just the front-end tools jq + fzf) and WITHHOLD the
+                     install — the numbered phases never run, so no disk is
+                     touched. The menu, previews, --profile picker, and
+                     Save/Export still work. NOT verbose logging.
   -y, --unattended   Bypass every interactive confirmation prompt (disk
                      selection, "WIPE" confirmation, final "Proceed?").
                      Hostname must be set in the config beforehand.
@@ -168,6 +173,7 @@ positional_args=()
 profile_name=""
 print_config=""
 guided_replay=""
+debug_flag=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -y | --unattended)
@@ -193,6 +199,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --guided=*)
       guided_replay="${1#*=}"
+      shift
+      ;;
+    --debug)
+      # --debug means "inspect/author only", NOT "verbose logging": it skips the
+      # install-toolchain preflight (only the front-end tools are ensured, so
+      # the menu still opens) and WITHHOLDS the install — the numbered phases
+      # below never run, so no disk is touched. Global: honoured by the guided,
+      # --profile, and positional-config front-ends alike (ADR 0063).
+      debug_flag=1
       shift
       ;;
     -h | --help)
@@ -259,9 +274,22 @@ interactive_fzf=""
 if [[ -n "$profile_name" ]] \
   || { [[ -z "$guided_replay" ]] && ((${#positional_args[@]} == 0)); }; then
   interactive_fzf=1
-  mapfile -t preflight_tools < <(preflight_installer_tools --interactive)
+fi
+
+# --debug resolver (ADR 0063): decide the preflight tier and whether the
+# numbered phases run, purely from the flags — so the "front-end-tools-only,
+# never install" guarantee is unit-tested (tests/preflight.bats) without running
+# the installer. --debug → the front-end tier (jq, + fzf for an interactive
+# front-end) with the install withheld; without it, the full toolchain and a
+# real install, exactly as today.
+_debug_plan="$(preflight_resolve_plan "${debug_flag:-0}")"
+read -r preflight_tier run_install <<<"$_debug_plan"
+_pf_arg=()
+[[ -n "$interactive_fzf" ]] && _pf_arg=(--interactive)
+if [[ "$preflight_tier" == "frontend" ]]; then
+  mapfile -t preflight_tools < <(preflight_frontend_tools "${_pf_arg[@]}")
 else
-  mapfile -t preflight_tools < <(preflight_installer_tools)
+  mapfile -t preflight_tools < <(preflight_installer_tools "${_pf_arg[@]}")
 fi
 preflight_ensure_host_tools "${preflight_tools[@]}" || exit 1
 
@@ -351,6 +379,17 @@ CONFIG_FILE="${positional_args[0]:-${SCRIPT_DIR}/install.jsonc}"
 wipe_targets=()
 if [[ -f "$CONFIG_FILE" ]]; then
   mapfile -t wipe_targets < <(wipe_resolve_targets "$CONFIG_FILE")
+fi
+
+# --debug withholds the install (ADR 0063): the front-end above already ran (the
+# guided menu + previews, the --profile picker, Save/Export), but the numbered
+# bootstrap/wipe/install phases must never execute, so no disk is touched. This
+# is the sole install gate for every front-end — the model is the guided rc-64
+# "terminal action that is not install" early-exit above.
+if [[ "$run_install" != "yes" ]]; then
+  echo "[install.sh] --debug: inspection/authoring only —" \
+    "install withheld, no disk touched." >&2
+  exit 0
 fi
 
 # Pass the config so the bootstrap can skip itself for a pure non-ZFS install
