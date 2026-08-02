@@ -59,11 +59,19 @@ The interactive, menu-driven front-end of the Single Entry Point that builds an
 Effective Config through a TUI instead of *requiring* a committed Host Profile —
 the on-ramp for ad-hoc installs (archinstall's role). It may optionally **seed**
 from a Host Profile via the in-menu **Profiles** picker (a top-screen row above
-the category divider that drills to a list of installable profiles; picking one
+the category divider, shown **unconditionally** — even on a repo with no
+committed profiles — that drills to a list of installable profiles; picking one
 merges its delta over Host Core into the Config State, then the operator tweaks
 or Proceeds — disks stay operator-picked), so guided is "from scratch **or** from
 a profile" per run (ADR 0055, superseding ADR 0039's require-a-profile
-rejection). Merges operator choices over Host Core (so the shared base — `cups`,
+rejection). Each profile row previews a **deep tree** of that machine (hostname,
+users → shell·groups, options incl. encryption/impermanence, environment,
+security, backup, disks). A `＋ New host (start blank)` row leads the picker: it
+is a confirm-gated, undoable **full session reset** — clearing Config State,
+session-created users and their editor forms, password/secret overrides, and any
+in-menu disk bindings back to the bare Host Core baseline — broader than the
+edit-history `Reset all`, which resets Config State only. Merges operator
+choices over Host Core (so the shared base — `cups`,
 swappiness, base users — still applies) and covers the full host schema. Secrets
 **default** and are never gated — root + per-user passwords to `12345`, the disk
 encryption passphrase to `12345678` (8 chars, because ZFS `keyformat=passphrase`
@@ -86,7 +94,13 @@ multi-select re-entry pre-marks prior picks; only free-text fields with nothing
 to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs, persist
 paths) drop to a typed prompt. Terminal actions (Proceed / Save / Export) are
 selectable rows under a divider; the edit-history toolbar (Undo / Redo / Reset
-field|section|all) is bound to footer keybindings, not rows. Computed defaults
+field|section|all) is bound to footer keybindings, not rows. Every **action
+row** (`＋ Create/Add …`, `✗ remove …`, `← Back`) renders as a visible list row
+in rich chrome, not just on the `^A`/`^X`/`Esc` accelerators — amending ADR
+0047's actions-on-keybindings split, whose hidden `＋ Create user` was
+undiscoverable on modern fzf (ADR 0063). The Users-screen `name — shell · pw`
+rows preview a **full user panel** on hover (shell, sudo, groups, programs, git,
+SSH keys). Computed defaults
 seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
 User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
 `Europe/Bucharest` / keymap `us`. The **baseline is loaded from Host Core**
@@ -235,8 +249,9 @@ on top of User Core.
 
 ### User Editor
 The Guided Installer sub-screen opened by Enter on a user in the flattened Users
-screen (root password, users shown `name — shell · pw` with a `⚠` when unset,
-`＋ Create user`). Exposes the full User Profile — enabled/remove, shell,
+screen (a single `root — shell · pw` row opening the [[Root Editor]], users
+shown `name — shell · pw` with a `⚠` when unset, `＋ Create user`). Exposes the
+full User Profile — enabled/remove, shell,
 password, sudo, groups, git identity, SSH keys, programs. Edits are
 install-scoped: they bake into Proceed and Export but never rewrite a committed
 `users/<name>/profile.jsonc` (ADR 0051). A committed user's editor shows its
@@ -244,8 +259,19 @@ effective (core-merged) values while storing only a delta. A committed user can
 be *disabled* (excluded from the install) but not removed; only a session-created
 user is removable. Distinct from the
 User Profile, which is the committed file; the User Editor is the transient,
-per-install override surface over it. The Users screen also carries a
-`root shell` row beneath `root password` (see [[Root Shell]]).
+per-install override surface over it. Root's account is a single Users-screen
+row opening the [[Root Editor]] (see [[Root Shell]]).
+
+### Root Editor
+The Guided Installer sub-screen opened by Enter on the single `root — shell · pw`
+row of the flattened Users screen — the root counterpart of the [[User Editor]],
+symmetric with it so every account row opens its own editor. Collapses the two
+former Users-screen rows (`root password` + `root shell`) into one row and one
+editor exposing exactly `password` and `shell` (root has no groups/sudo/programs).
+The password is captured the inline-masked, type-twice-confirm way (ADR 0051) and
+stored in the no-SOPS manifest under the root role; `shell` cycles `/bin/bash` →
+`/bin/zsh` → `/bin/fish` (see [[Root Shell]]). Install-scoped like the User
+Editor: it bakes into Proceed/Export, never a committed file.
 
 ### Encryption Editor
 The Guided Installer sub-editor reached from the single `Encryption ▸` row on
@@ -271,8 +297,8 @@ prompt, so an interactive profile/manual install keeps the tty prompt while
 `--unattended` takes the default (ADR 0059, extending ADR 0054).
 
 ### Root Shell
-The root login shell, chosen in the Guided Installer via the `root shell` row on
-the Users screen (Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish`, the same
+The root login shell, chosen in the Guided Installer via the `shell` row of the
+[[Root Editor]] (Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish`, the same
 cycle the User Editor uses). Stored at Config State `options.root_shell` (default
 `/bin/bash`, normalised out when equal to the default), so it bakes into Export
 and a saved profile like any host option; not gated (it always has a valid
@@ -381,6 +407,17 @@ Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
 path), and the **Guided Installer** (a from-scratch menu that builds an
 Effective Config interactively when no profile exists yet). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
 config → system programs → user programs → cleanup and pool export.
+
+A global **`--debug`** modifier turns any front-end into inspect/author-only: it
+skips the full-toolchain preflight (only the front-end tools `jq`+`fzf` are
+ensured, so the menu still launches) and **blocks the install** — the numbered
+phases (01/02/03) never start, so no disk is touched. The interactive front-ends
+still run for inspection (the guided menu and previews, the `--profile` disk
+picker) and Save/Export still write their artifacts; only the install is
+withheld. It exists so the menu can be exercised on a non-target box (a daily
+driver) that has neither the install toolchain nor an intent to install; plain
+`install.sh` on the live CD stays fully guarded. Named `--debug` despite the
+"skip install" (not "verbose logging") meaning, documented at the flag site.
 
 ### Disk Wipe
 `.os/02-wipe.sh`, the install flow's **make-blank** step — not a secure-erase.
