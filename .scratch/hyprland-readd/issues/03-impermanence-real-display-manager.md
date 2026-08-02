@@ -1,6 +1,6 @@
 # Impermanence uses a real display manager; remove autologin
 
-Status: ready-for-agent
+Status: done (847efdf)
 
 ## Parent
 

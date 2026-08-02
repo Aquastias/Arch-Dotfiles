@@ -1,6 +1,6 @@
 # Glossary + matrix refresh
 
-Status: ready-for-agent
+Status: done (847efdf)
 
 ## Parent
 
