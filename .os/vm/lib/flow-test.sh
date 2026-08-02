@@ -89,7 +89,8 @@ _flow_render_user_data() {
         "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}" \
         "${VM_VERIFY_FS_MOUNTS[*]:-}")"
     else
-      boot_block="$(_seed_generator_firstboot_block)"
+      boot_block="$(_seed_generator_firstboot_block "" "" \
+        "${VM_VERIFY_DESKTOPS[*]:-}")"
     fi
   fi
 
@@ -275,8 +276,23 @@ _run_boot_verify() {
   _stop_console_capture
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
 
-  ((brc == 0)) && return 0
-  return 125
+  ((brc == 0)) || return 125
+
+  # Per-desktop assertion (ADR 0062): the first-boot sentinel echoed each
+  # requested desktop's OK/FAIL marker before FIRSTBOOT-OK. Require every one's
+  # OK marker on the captured console — a missing/FAIL marker fails boot-verify
+  # with a distinct code (126) so a desktop regression is never a silent pass.
+  local _de _ok
+  for _de in "${VM_VERIFY_DESKTOPS[@]:-}"; do
+    [[ -n "$_de" ]] || continue
+    _ok="$(_seed_generator_desktop_marker "$_de")"
+    if [[ -z "$_ok" ]] || ! grep -Fq -- "$_ok" "$BOOT_LOG_FILE"; then
+      warn "Desktop verify FAILED: '${_de}' (${_ok:-unknown marker}) absent."
+      return 126
+    fi
+    info "Desktop verify OK: '${_de}' (${_ok})."
+  done
+  return 0
 }
 
 # =============================================================================

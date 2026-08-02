@@ -57,6 +57,10 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   "lib/globals.sh|globals.sh"
   "lib/config/categorized-list.sh|config/categorized-list.sh"
   "lib/chroot/extras-common.sh|chroot/extras-common.sh"
+  # hyprland.sh sources this (GPU_LIB_ONLY=1) to reuse the amd+nvidia hybrid
+  # predicate for the aquamarine DRM pin (ADR 0053/0062). Must be staged here or
+  # the Hyprland adapter aborts with "gpu.sh: No such file or directory".
+  "lib/chroot/gpu.sh|chroot/gpu.sh"
 )
 
 # _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"

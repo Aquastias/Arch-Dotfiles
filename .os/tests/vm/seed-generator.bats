@@ -167,6 +167,41 @@ teardown() {
   [[ ! "$output" =~ "===EXTRAS-OK===" ]]
 }
 
+# ── per-desktop session verification (ADR 0062) ──────────────────────────────
+
+@test "desktop marker: kde/hyprland map to their OK sentinel tags" {
+  [ "$(_seed_generator_desktop_marker kde)" = "===KDE-OK===" ]
+  [ "$(_seed_generator_desktop_marker hyprland)" = "===HYPR-OK===" ]
+  [ -z "$(_seed_generator_desktop_marker gnome)" ]   # unknown → empty
+}
+
+@test "desktop check: kde+hyprland emit both OK/FAIL checks, no single quotes" {
+  run _seed_generator_desktop_check kde hyprland
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===KDE-OK===" ]]
+  [[ "$output" =~ "===KDE-FAIL===" ]]
+  [[ "$output" =~ "===HYPR-OK===" ]]
+  [[ "$output" =~ "===HYPR-FAIL===" ]]
+  [[ "$output" =~ "startplasma-wayland" ]]           # KDE session-launch probe
+  [[ "$output" =~ "wayland-sessions/hyprland.desktop" ]]  # Hyprland override
+  # The whole snippet rides a single-quoted printf ExecStart arg — no ' allowed.
+  [[ "$output" != *"'"* ]]
+}
+
+@test "firstboot block: a verify_desktops list folds the per-desktop checks in" {
+  run _seed_generator_firstboot_block "" "" "kde hyprland"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===KDE-OK===" ]]
+  [[ "$output" =~ "===HYPR-OK===" ]]
+}
+
+@test "firstboot block: no verify_desktops omits the per-desktop checks" {
+  run _seed_generator_firstboot_block ""
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "===KDE-OK===" ]]
+  [[ ! "$output" =~ "===HYPR-OK===" ]]
+}
+
 @test "firstboot block: a btrfs root mounts subvol=@ to inject the sentinel" {
   # A btrfs root keeps the OS in subvol @ (ADR 0043, issue 07). The injector
   # must mount @ — mounting the top-level subvol by partlabel would write the

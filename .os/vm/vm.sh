@@ -128,6 +128,9 @@ main() {
   mapfile -t VM_VERIFY_MOUNTS < <(jq -r '.verify.mounts[]?' <<<"$profile_json")
   mapfile -t VM_VERIFY_OWNED  < <(jq -r '.verify.owned[]?'  <<<"$profile_json")
   mapfile -t VM_VERIFY_FS_MOUNTS < <(jq -r '.verify.fs_mounts[]?' <<<"$profile_json")
+  # Per-desktop session verification (ADR 0062): each name here has its
+  # session-launch artifacts asserted on the booted system (===<TAG>-OK===).
+  mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' <<<"$profile_json")
   VM_VERIFY_RESILIENCE="${VM_VERIFY_RESILIENCE:-$(jq -r '.verify.resilience // false' <<<"$profile_json")}"
   VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(jq -r '.verify.rollback // false' <<<"$profile_json")}"
   # The rollback proof's mechanics follow the root filesystem (zfs datasets vs

@@ -50,6 +50,39 @@
 # in sync with vm/lib/flow-test.sh.
 SEED_GENERATOR_FIRSTBOOT_MARKER='===FIRSTBOOT-OK==='
 
+# _seed_generator_desktop_marker <de> — the OK sentinel tag for a desktop, the
+# single source of truth shared by the sentinel writer (the firstboot check) and
+# the host reader (flow-test.sh's per-desktop assertion). Empty for an unknown
+# desktop.
+_seed_generator_desktop_marker() {
+  case "$1" in
+  kde)      printf '===KDE-OK===' ;;
+  hyprland) printf '===HYPR-OK===' ;;
+  esac
+}
+
+# _seed_generator_desktop_check <de>... — a NO-single-quote shell snippet that,
+# for each desktop, echoes its OK marker when that desktop's session-launch
+# artifacts are present on the booted system, else ===<TAG>-FAIL===. Folded into
+# the first-boot sentinel line (like user_check/extras_check), so a KDE+Hyprland
+# install is proven to have produced a launchable session for EACH desktop —
+# incl. the Hyprland /usr/local session override the extras adapter writes. No
+# single quotes: the whole line is a single-quoted printf arg.
+_seed_generator_desktop_check() {
+  local de out="" ok tag
+  for de in "$@"; do
+    ok="$(_seed_generator_desktop_marker "$de")"; [[ -n "$ok" ]] || continue
+    tag="${ok#===}"; tag="${tag%-OK===}"
+    case "$de" in
+    kde)
+      out+="if command -v startplasma-wayland > /dev/null 2>&1 && [ -f /usr/share/wayland-sessions/plasma.desktop ] && systemctl is-enabled sddm > /dev/null 2>&1; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
+    hyprland)
+      out+="if command -v Hyprland > /dev/null 2>&1 && [ -f /usr/local/share/wayland-sessions/hyprland.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 # (test-only) Append a serial console to the installed kernel cmdline so the
 # boot-verify phase can observe the boot. The product cmdline carries no
 # console=ttyS0 (systemd-boot itself prints to serial, but once the kernel
@@ -104,9 +137,17 @@ LINES
 # uses no single quotes (the ExecStart line is a single-quoted printf arg).
 _seed_generator_firstboot_block() {
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER" verify_user="${1:-}"
-  local verify_extras="${2:-}"
+  local verify_extras="${2:-}" verify_desktops="${3:-}"
   local user_check=""
   [[ -n "$verify_user" ]] && user_check="if id ${verify_user} > /dev/null 2>&1 && passwd -S ${verify_user} 2>/dev/null | grep -qw P; then echo ===USER-OK===; else echo ===USER-FAIL===; fi; "
+  # Per-desktop session-artifact check (ADR 0062): each named desktop echoes its
+  # OK/FAIL marker before the boot sentinel, so the harness can assert a
+  # KDE+Hyprland install produced a launchable session for each.
+  local desktop_check=""
+  if [[ -n "$verify_desktops" ]]; then
+    local -a _des; read -ra _des <<< "$verify_desktops"
+    desktop_check="$(_seed_generator_desktop_check "${_des[@]}")"
+  fi
   # Security & Backup Extras check (issue 04/05): every named unit must be
   # is-enabled on the booted system. A single `systemctl is-enabled u1 u2 …`
   # exits 0 only when ALL are enabled — so one call, no loop, no single quotes
@@ -151,7 +192,7 @@ _seed_generator_firstboot_block() {
       fi
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
-      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}${desktop_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       if [ "\$_vroot" = zfs ]; then
         zfs umount -a || true
