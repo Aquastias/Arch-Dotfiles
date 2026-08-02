@@ -255,13 +255,31 @@ fi
 # never mid-wipe. fzf is added only when an interactive picker will run: the
 # --profile disk picker or the bare guided TUI — not a --guided replay or a
 # positional-config install, which drive no menu.
+interactive_fzf=""
 if [[ -n "$profile_name" ]] \
   || { [[ -z "$guided_replay" ]] && ((${#positional_args[@]} == 0)); }; then
+  interactive_fzf=1
   mapfile -t preflight_tools < <(preflight_installer_tools --interactive)
 else
   mapfile -t preflight_tools < <(preflight_installer_tools)
 fi
 preflight_ensure_host_tools "${preflight_tools[@]}" || exit 1
+
+# Quiet the console for the interactive TUI. On the stock Arch ISO the kernel
+# writes printk messages straight to the VT at the default console loglevel
+# (e.g. `ideapad_acpi ... unexpected charge_types`, a KERN_WARNING). fzf only
+# repaints on the next keystroke, so those lines land on top of the menu and it
+# looks corrupted. Lower console_loglevel to 1 (only KERN_EMERG breaks through)
+# for the life of this session and restore the prior value on exit. Gated on the
+# same interactive-fzf condition as the picker/menu above, plus a real terminal
+# ([[ -t 1 ]]) so --guided replays, positional installs, and bats runs (no tty)
+# never touch kernel.printk. The EXIT trap composes with the ERR trap above.
+if [[ -n "$interactive_fzf" && -t 1 ]] \
+  && _saved_printk="$(cat /proc/sys/kernel/printk 2>/dev/null)" \
+  && [[ -n "$_saved_printk" ]]; then
+  trap 'printf "%s\n" "$_saved_printk" >/proc/sys/kernel/printk 2>/dev/null || true' EXIT
+  dmesg -n 1 2>/dev/null || true
+fi
 
 # Interactive --profile front-end: validate the named Host Profile against the
 # closed schema, let the operator pick disks, assemble the effective config in
