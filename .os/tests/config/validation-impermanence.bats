@@ -95,6 +95,50 @@ write_config() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
   [[ "$output" =~ "same pool" ]]
 }
 
+# ── impermanence + hybrid GPU: forbidden (ADR 0060) ─────────────────────────
+# _validation_impermanence_gpu reads the resolved ENVIRONMENT_GPU array (set by
+# resolve_environment in the real pipeline); the tests set it directly.
+
+@test "impermanence + amd&nvidia hybrid: errors" {
+  write_config '{"options":{"impermanence":{"enabled":true,
+    "dataset":"rpool/persist"}}}'
+  ENVIRONMENT_GPU=(amd nvidia)
+  run _validation_impermanence_gpu
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "hybrid" ]]
+}
+
+@test "impermanence + amd&nvidia is order-independent" {
+  write_config '{"options":{"impermanence":{"enabled":true,
+    "dataset":"rpool/persist"}}}'
+  ENVIRONMENT_GPU=(nvidia amd)
+  run _validation_impermanence_gpu
+  [ "$status" -ne 0 ]
+}
+
+@test "impermanence + single-vendor GPU: passes" {
+  write_config '{"options":{"impermanence":{"enabled":true,
+    "dataset":"rpool/persist"}}}'
+  ENVIRONMENT_GPU=(nvidia)
+  run _validation_impermanence_gpu
+  [ "$status" -eq 0 ]
+}
+
+@test "impermanence disabled + hybrid GPU: passes (guardrail is about imperm)" {
+  write_config '{"options":{"impermanence":{"enabled":false}}}'
+  ENVIRONMENT_GPU=(amd nvidia)
+  run _validation_impermanence_gpu
+  [ "$status" -eq 0 ]
+}
+
+@test "impermanence + hybrid errors regardless of desktop" {
+  write_config '{"environment":{"desktop":["kde"]},
+    "options":{"impermanence":{"enabled":true,"dataset":"rpool/persist"}}}'
+  ENVIRONMENT_GPU=(amd nvidia)
+  run _validation_impermanence_gpu
+  [ "$status" -ne 0 ]
+}
+
 # ── persist paths: errors ───────────────────────────────────────────────────
 
 @test "persist dir path must be absolute" {

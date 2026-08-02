@@ -609,9 +609,11 @@ Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
 schema.
 
 ### Desktop Environment Adapter
-Script at `extras/desktop/<name>/<name>.sh` with a companion
-`install-<name>.jsonc` for per-component toggles. Invoked dynamically by the
-Environment Runner based on `environment.desktop`. Each adapter owns every
+Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
+`install-<name>.jsonc` for per-component toggles (KDE has one for its app list;
+the Hyprland adapter is core-only and ships none — ADR 0062). Invoked
+dynamically by the Environment Runner based on `environment.desktop`. KDE and
+Hyprland are the two adapters. Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges): it installs its repo
 packages via pacman, writes its display manager config, and enables its
 services. AUR dependencies are not installed by the adapter — they are declared
@@ -677,9 +679,14 @@ Replaces the never-invoked `envycontrol` switcher.
 
 ### Display Manager
 Auto-selected by each Desktop Environment Adapter based on the full resolved
-desktop array — not a config key. With KDE the sole desktop, SDDM is the only
-display manager, enabled by the KDE adapter. (greetd/greetd-tuigreet left the
-project with Hyprland, ADR 0050.)
+desktop array — not a config key. SDDM is enabled by the KDE adapter whenever
+KDE is selected (including a KDE+Hyprland co-install, where its greeter offers
+both sessions); greetd + greetd-tuigreet is owned by the Hyprland adapter only
+when Hyprland is the sole desktop (ADR 0062, restoring the rule ADR 0050 had
+removed). The choice reads the full desktop set, so it is independent of adapter
+execution order. Under impermanence the same display-manager login is used — no
+tty1 autologin — with the enablement mirrored onto the never-rolled-back
+`/usr/lib` tree so it survives the rolled-back root (ADR 0061).
 
 ### User Secrets
 SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains
@@ -1145,8 +1152,8 @@ on demand, never committed.
   since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
-  Host Profile (ADR 0021). KDE is the only such adapter (Hyprland removed,
-  ADR 0050).
+  Host Profile (ADR 0021). KDE and Hyprland are the adapters (Hyprland re-added,
+  ADR 0062, superseding the ADR 0050 removal).
 - `host_profile` now lives at one layer only (ADR 0036): it is a **VM Profile**
   key naming a real host directory, which the unified Profile Loader resolves to
   that machine's **Host Profile** (the picker assembles the **Effective Config**

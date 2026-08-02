@@ -24,7 +24,7 @@ setup() {
 
 @test "menu_enum_options: desktop" {
   run menu_enum_options environment.desktop
-  [ "$output" == "$(printf '%s\n' kde)" ]
+  [ "$output" == "$(printf '%s\n' kde hyprland)" ]
 }
 
 @test "menu_enum_options: gpu vendors (auto first)" {

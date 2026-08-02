@@ -515,65 +515,6 @@ _impermanence_refresh_zfs_cache() {
   done
 }
 
-# _impermanence_setup_autologin — replace the display manager with tty1 login.
-# On a rolled-back root NO display manager works: at graphical login pam_systemd
-# fails to register a logind session against the freshly mounted ZFS datasets,
-# so XDG_RUNTIME_DIR is never set (user@$uid stays inactive) and kwin_wayland
-# dies "Could not create wayland socket" → black. This reproduces on sddm AND
-# greetd — the fault is the DM-initiated login, not the DM. The ONLY login that
-# works is the plain `login` binary: a TTY login → startplasma-wayland is proven
-# to bring up KDE here. So drop the DM and autologin the primary user on tty1
-# via `agetty --autologin` (which execs `login`), then start the Plasma Wayland
-# session from the login shell. No-op unless sddm is the installed DM (headless
-# or other-DM installs untouched). The disk is already encrypted, so a password-
-# less console autologin adds no meaningful exposure. Runs BEFORE
-# _impermanence_relocate_enablements so the disabled-DM state is consistent, and
-# before @blank so the /etc/profile.d launcher lands in the snapshot.
-_impermanence_setup_autologin() {
-  local root="${ROOT:-}"
-  [[ -e "$root/usr/lib/systemd/system/sddm.service" ]] || return 0
-
-  # Primary user = first human uid (1000..65533).
-  local primary="" name uid
-  if [[ -f "$root/etc/passwd" ]]; then
-    while IFS=: read -r name _ uid _; do
-      [[ "$uid" =~ ^[0-9]+$ ]] || continue
-      (( uid >= 1000 && uid < 65534 )) || continue
-      primary="$name"; break
-    done < "$root/etc/passwd"
-  fi
-  [[ -n "$primary" ]] || return 0
-
-  systemctl disable sddm 2>/dev/null || true
-
-  # getty@tty1 autologin drop-in on /usr (never rolled back → honoured at boot).
-  # ExecStart= first clears the packaged line, then re-sets it with --autologin.
-  local dd="$root/usr/lib/systemd/system/getty@tty1.service.d"
-  mkdir -p "$dd"
-  cat > "$dd/autologin.conf" <<CONF
-[Service]
-ExecStart=
-ExecStart=-/usr/bin/agetty --autologin $primary --noclear %I \$TERM
-CONF
-
-  # Start Plasma Wayland on the tty1 autologin. /etc/profile is sourced by the
-  # login shell (bash --login; zsh via /etc/zprofile), which runs profile.d.
-  # Guard to the tty1 console with no display so it never fires on SSH or other
-  # VTs; exec so the session owns the VT and logout returns to a fresh login.
-  # Written to /etc so @blank captures it.
-  local pd="$root/etc/profile.d"
-  mkdir -p "$pd"
-  cat > "$pd/zz-autostart-plasma.sh" <<'SH'
-# Impermanence autologin: launch the Plasma Wayland session on the tty1 console
-# login. The display-manager path can't register a logind session on a rolled-
-# back root, but a plain `login` can — this is the path proven to work here.
-if [ "$(tty)" = "/dev/tty1" ] && [ -z "${WAYLAND_DISPLAY:-}" ] \
-   && [ -z "${DISPLAY:-}" ] && [ -z "${SSH_TTY:-}" ]; then
-  exec startplasma-wayland
-fi
-SH
-}
-
 # _impermanence_graphical_session_fix — make the graphical user session survive
 # impermanence. On a rolled-back root the display manager logs a user in
 # at boot BEFORE logind/pam_systemd can register the session against the freshly
@@ -581,9 +522,9 @@ SH
 # /run/user/$uid + its D-Bus socket never appear, and kwin_wayland dies with
 # "Could not create wayland socket" → black screen. A later TTY login works
 # (system settled), which is the tell. A non-impermanent install never races, so
-# it logs in fine. greetd (see _impermanence_switch_to_greetd) is the primary
-# fix; these three make the user session bullet-proof, none needed without
-# impermanence:
+# it logs in fine. The display manager is kept (a real login screen on every
+# host, ADR 0061); these three make the DM-initiated user session bullet-proof
+# on a rolled-back root, none needed without impermanence:
 #
 #   1. enable-linger per human user — a marker on the persistent /var dataset
 #      (rpool/var, never rolled back) so logind keeps user@$uid around.
@@ -670,7 +611,6 @@ impermanence_apply() {
   for step in \
     _impermanence_write_manifest \
     _impermanence_init_machine_id \
-    _impermanence_setup_autologin \
     _impermanence_relocate_enablements \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \

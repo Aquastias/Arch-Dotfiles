@@ -956,46 +956,37 @@ _seed_enablements() {
   [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/NetworkManager.service" ]
 }
 
-# ── tty autologin (the DM login can't register a logind session; `login` can) ─
+# ── DM login retained: no tty1 autologin, DM stays enabled (ADR 0061) ────────
+# The tty1 autologin was removed; impermanence hosts get a real display-manager
+# login. The relocate step (above) mirrors the DM enablement onto /usr/lib so it
+# survives the rolled-back root; apply must not disable the DM or auto-log-in.
 
-_seed_autologin_root() {
-  mkdir -p "$FAKEROOT/etc" "$FAKEROOT/usr/lib/systemd/system"
-  : > "$FAKEROOT/usr/lib/systemd/system/sddm.service"
-  printf 'root:x:0:0::/root:/bin/bash\naquastias:x:1000:1000::/home/aquastias:/bin/zsh\n' \
-    > "$FAKEROOT/etc/passwd"
+@test "no tty1 autologin function exists" {
+  ! declare -F _impermanence_setup_autologin
 }
 
-@test "autologin: no-op when sddm is not the installed DM" {
-  IMPERMANENCE_ENABLED=true
-  mkdir -p "$FAKEROOT/etc"
-  printf 'aquastias:x:1000:1000::/home/aquastias:/bin/zsh\n' \
-    > "$FAKEROOT/etc/passwd"
-  _impermanence_setup_autologin
+@test "apply: does not disable the display manager" {
+  _seed_enablements
+  run_enabled
+  ! grep -qE "disable sddm" "$CALLS"
+}
+
+@test "apply: writes no getty@tty1 autologin drop-in" {
+  _seed_enablements
+  run_enabled
   [ ! -f "$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf" ]
 }
 
-@test "autologin: disables sddm and writes getty@tty1 autologin + launcher" {
-  IMPERMANENCE_ENABLED=true
-  _seed_autologin_root
-  _impermanence_setup_autologin
-  local d="$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf"
-  [ -f "$d" ]
-  grep -qF -- "--autologin aquastias" "$d"
-  grep -qxF "ExecStart=" "$d"
-  grep -qE "^systemctl disable sddm" "$CALLS"
-  local l="$FAKEROOT/etc/profile.d/zz-autostart-plasma.sh"
-  [ -f "$l" ]
-  grep -qF "exec startplasma-wayland" "$l"
-  grep -qF "/dev/tty1" "$l"
-  # no display manager gets enabled anymore
-  ! grep -qE "^systemctl enable (greetd|sddm)" "$CALLS"
+@test "apply: writes no startplasma tty launcher" {
+  _seed_enablements
+  run_enabled
+  [ ! -f "$FAKEROOT/etc/profile.d/zz-autostart-plasma.sh" ]
 }
 
-@test "autologin: runs as an impermanence_apply step" {
-  _seed_autologin_root
+@test "apply: still mirrors the DM enablement onto /usr/lib (login survives)" {
+  _seed_enablements
   run_enabled
-  [ -f "$FAKEROOT/usr/lib/systemd/system/getty@tty1.service.d/autologin.conf" ]
-  grep -qE "^systemctl disable sddm" "$CALLS"
+  [ -L "$FAKEROOT/usr/lib/systemd/system/display-manager.service" ]
 }
 
 # ── boot user-linger service (login must not race a busy impermanent boot) ────

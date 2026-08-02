@@ -152,6 +152,28 @@ _validation_impermanence() {
           "same pool as ${os_pool}/ROOT/arch."
 }
 
+# Impermanence is forbidden on a hybrid AMD+NVIDIA GPU (ADR 0060). On a
+# rolled-back impermanent root the graphical login hits a logind-session race
+# that black-screens the compositor; it was only ever reproduced on the hybrid
+# laptop, so the ban targets that combination and leaves single-GPU impermanence
+# untouched. Runs AFTER resolve_environment (it reads the resolved
+# ENVIRONMENT_GPU array), so `gpu: "auto"` is judged on the hardware detected at
+# install time.
+# Desktop-independent by design — the fault is impermanence, not the desktop.
+_validation_impermanence_gpu() {
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] || return 0
+  local v has_amd=false has_nvidia=false
+  for v in "${ENVIRONMENT_GPU[@]:-}"; do
+    [[ "$v" == "amd" ]]    && has_amd=true
+    [[ "$v" == "nvidia" ]] && has_nvidia=true
+  done
+  [[ "$has_amd" == true && "$has_nvidia" == true ]] && error \
+    "options.impermanence.enabled is not allowed on a hybrid AMD+NVIDIA GPU" \
+    "(resolved GPU: ${ENVIRONMENT_GPU[*]:-none}). Disable impermanence or run" \
+    "on single-GPU hardware (ADR 0060)."
+  return 0
+}
+
 
 # =============================================================================
 # FILESYSTEM ADAPTER CONTRACT (ADR 0040)
@@ -363,6 +385,8 @@ validate_install_context() {
   _validation_impermanence
 
   resolve_environment
+
+  _validation_impermanence_gpu
 
   configs_build_registry
 

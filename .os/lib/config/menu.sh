@@ -66,7 +66,7 @@ menu_enum_options() {
   case "$1" in
   options.kernel)                 printf '%s\n' lts default hardened zen ;;
   options.bootloader)             printf '%s\n' systemd-boot grub ;;
-  environment.desktop)            printf '%s\n' kde ;;
+  environment.desktop)            printf '%s\n' kde hyprland ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   options.mirror_countries)

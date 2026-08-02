@@ -38,6 +38,20 @@ write_config() {
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
 }
 
+@test "resolve_environment accepts hyprland and derives audio" {
+  write_config '{"environment": {"desktop": "hyprland", "gpu": "amd"}}'
+  resolve_environment
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
+  [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
+}
+
+@test "resolve_environment accepts a kde+hyprland co-install" {
+  write_config '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
+  resolve_environment
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
+  [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
+}
+
 @test "resolve_environment is idempotent: second call produces identical state" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
   resolve_environment
