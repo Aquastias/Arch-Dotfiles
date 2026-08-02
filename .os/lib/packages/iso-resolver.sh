@@ -32,9 +32,9 @@
 #       Returns non-zero if archzfs lists no supported kernels (e.g. API
 #       outage), or if no available archived ISO matches.
 #
-#       No checksum verification — pacstrap will surface a corrupted ISO
-#       at use time, and the cost of GPG/sha256 plumbing is not worth the
-#       win.
+#       This resolver only downloads; sha256 is verified separately by
+#       iso_resolver_verify_sha256 (against the release's sha256sums.txt on
+#       the archive), which fetch-iso.sh calls after the download (ADR 0023).
 #
 # Dependencies: curl, jq, grep. Tests stub the network seams.
 #

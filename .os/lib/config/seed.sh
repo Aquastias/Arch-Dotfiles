@@ -69,7 +69,7 @@ _cfgstate_computed_defaults() {
   # baseline, so its swappiness (and everything else it declares) surfaces on
   # its own. Operator additions ride the override on top.
   # Selection defaults so no field opens empty and the toggle screens start with
-  # a sensible pick: kernel lts, gpu auto, KDE desktop (the sole DE), and the
+  # a sensible pick: kernel lts, gpu auto, KDE desktop (the default DE), and the
   # default mirror countries. These match the menu display / back-end defaults
   # (kernel/gpu/mirrors are idempotent); desktop is the real choice.
   state="$(cfgstate_set "$state" options.kernel '["lts"]')"
