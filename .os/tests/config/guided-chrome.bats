@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for rich chrome + the legacy version gate — issue 06 (ADR 0047). Actions
-# (Back/Add/remove/create) move off the lists onto keybindings (^A/^X/Esc); rich
-# chrome adds a change-footer (context + summary), a change-list-label breadcrumb,
-# and a change-header nav line, gated on fzf ≥ 0.62. Below that, legacy action
-# rows stay in the lists and no footer/breadcrumb is emitted. Controller +
-# directive seams, no fzf, no tty.
+# Tests for rich chrome + the legacy version gate — issue 06 (ADR 0047/0063).
+# Action rows (Back/Add/remove/create) render as visible list rows in BOTH chromes
+# now (ADR 0063 amends 0047); the ^A/^X/Esc keybindings stay as accelerators. Rich
+# chrome still adds a change-footer (context + summary), a change-list-label
+# breadcrumb, and a change-header nav line, gated on fzf ≥ 0.62; below that, no
+# footer/breadcrumb is emitted. Controller + directive seams, no fzf, no tty.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -68,26 +68,25 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run _ctl_rich_chrome; [ "$status" -ne 0 ]        # unset → legacy default
 }
 
-# ── rich mode: lists hold only data (AC1) ────────────────────────────────────
+# ── rich mode: action rows stay visible too (ADR 0063, AC1) ──────────────────
 
-@test "list(datapools) rich: add row stays visible, other action rows drop" {
+@test "list(datapools) rich: add + Back rows stay visible, data rows too" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_datapools Disks)"
   GUIDED_RICH_CHROME=1 run guided_ctl_list
   echo "$output" | grep -q "tank0: mirror ×2"
-  # "+ Add data pool" is the exception: it is the primary way to build the pool
-  # list, so it stays visible even in rich chrome (footer-only ^A undiscoverable).
   echo "$output" | grep -q "+ Add data pool"
-  ! echo "$output" | grep -q "← Back"
+  # ADR 0063: action rows render in rich chrome again (^A/^X/Esc stay too).
+  echo "$output" | grep -q "← Back"
 }
 
-@test "list(pooledit data) rich: no remove/back rows, data rows stay" {
+@test "list(pooledit data) rich: remove + Back rows visible, data rows stay" {
   printf '%s\n' "$DP" > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_pooledit Disks 0 data)"
   GUIDED_RICH_CHROME=1 run guided_ctl_list
   echo "$output" | grep -q "topology: mirror"
-  ! echo "$output" | grep -q "remove"
-  ! echo "$output" | grep -q "← Back"
+  echo "$output" | grep -q "remove"
+  echo "$output" | grep -q "← Back"
 }
 
 # ── legacy mode: action rows stay (AC4) ──────────────────────────────────────

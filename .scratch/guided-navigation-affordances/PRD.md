@@ -1,7 +1,7 @@
 # Spec: Guided Installer navigation affordances — debug run, visible
 # actions, host/user editing, and summary previews
 
-Status: ready-for-agent
+Status: done
 
 Relevant ADRs: 0063 (guided action rows stay visible — this spec, amends 0047),
 0047 (rich-chrome action-row placement + In-Menu Disk Binding), 0055 (Profiles

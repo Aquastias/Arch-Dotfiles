@@ -451,10 +451,12 @@ _ctl_toggle_options() {
 }
 
 # _ctl_field_has_preview <field> → rc 0 if this values screen shows a side panel
-# (the layout graph, or the selection panel for the big keymap/locale/timezone).
+# (the layout graph, the selection panel for the big keymap/locale/timezone, or
+# the per-user detail panel on the Users screen — ADR 0063).
 _ctl_field_has_preview() {
   case "$1" in
-  __layout__ | system.keymap | system.locale | system.timezone) return 0 ;;
+  __layout__ | system.keymap | system.locale | system.timezone | users)
+    return 0 ;;
   *) return 1 ;;
   esac
 }
@@ -735,6 +737,8 @@ _ctl_nav_header() {
   case "$(nav_screen "$1")" in
   top)      b='Enter open   Esc quit' ;;
   profiles) b='Enter seed from profile   Esc back' ;;
+  newhost)  b='Enter confirm reset   Esc cancel' ;;
+  rooteditor) b='Enter edit/cycle   Esc back' ;;
   category) b='Enter edit   Esc back' ;;
   values)
     if [[ "$(nav_get "$1" field)" == "users" ]]; then
@@ -771,6 +775,8 @@ _ctl_nav_prompt() {
   case "$(nav_screen "$1")" in
   top)         printf 'guided> ' ;;
   profiles)    printf 'profiles> ' ;;
+  newhost)     printf 'new host> ' ;;
+  rooteditor)  printf 'root> ' ;;
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
@@ -1009,10 +1015,13 @@ _ctl_detect_rich_chrome() {
 # defaults to legacy, so every non-interactive seam renders action rows.
 _ctl_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
 
-# _ctl_action_row <line...> — emit action rows (Back/Add/remove/create) ONLY in
-# legacy chrome; in rich mode they live on keybindings (^A/^X/Esc) + the footer,
-# so the lists hold only data.
-_ctl_action_row() { _ctl_rich_chrome || printf '%s\n' "$@"; }
+# _ctl_action_row <line...> — emit action rows (Back/Add/remove/create) as
+# visible list rows in BOTH chromes (ADR 0063, amends 0047). Rich fzf still
+# keeps the ^A/^X/Esc keybindings + footer as accelerators, but the rows render
+# too, so every action is discoverable at a glance (a footer-only ^A proved
+# invisible — the only way to add a user was an undocumented shortcut). Rich
+# chrome otherwise (footer, breadcrumb, borders) is untouched.
+_ctl_action_row() { printf '%s\n' "$@"; }
 
 # ── Packages screen helpers (ADR 0058) ───────────────────────────────────────
 # Provenance is three-state, reusing the existing override dot rather than
@@ -1138,6 +1147,82 @@ _ctl_disks_row() {
   fi
 }
 
+# _ctl_user_panel <name> — the hovered user's detail panel (ADR 0063): the
+# effective (committed-core-merged, session-override-applied) User Profile a
+# session-created user shows its in-progress editor-form state, since
+# _ctl_user_effective folds the userforms file. Pure over the effective view.
+_ctl_user_panel() {
+  local u="$1" eff gn ge
+  eff="$(_ctl_user_effective "$u")"
+  printf '%s\n' "$u"
+  printf '  shell:    %s\n' "$(jq -r '.shell // "/bin/zsh"' <<<"$eff")"
+  printf '  sudo:     %s\n' \
+    "$(jq -r 'if .sudo then "on" else "off" end' <<<"$eff")"
+  printf '  groups:   %s\n' "$(jq -r \
+    '(.groups // []) | join(", ") | if . == "" then "(none)" else . end' \
+    <<<"$eff")"
+  printf '  programs: %s\n' "$(jq -r \
+    '(.programs // []) | if length == 0 then "(none)"
+       else "\(length) · \(join(", "))" end' <<<"$eff")"
+  gn="$(jq -r '.git.name // ""' <<<"$eff")"
+  ge="$(jq -r '.git.email // ""' <<<"$eff")"
+  [[ -n "$gn" || -n "$ge" ]] && printf '  git:      %s <%s>\n' "$gn" "$ge"
+  printf '  ssh keys: %s\n' \
+    "$(jq -r '(.ssh_authorized_keys // []) | length' <<<"$eff")"
+}
+
+# _ctl_profile_tree <resolved-profile-json> — a deep ASCII tree of a machine for
+# the Profiles preview (ADR 0063): hostname; users expanded to shell·groups;
+# options (kernel, bootloader, encryption, impermanence, swap, ssh); environment
+# (desktop/gpu); security; backup; and the disk skeleton (reusing the layout
+# graph). Input is the RESOLVED profile (merged over Host Core) so it shows what
+# selecting it installs, not the raw on-disk delta. Uses the same ▸ / └─ tree
+# style as _ctl_layout_graph so previews feel consistent.
+_ctl_profile_tree() {
+  local prof="$1" u up sh grp
+  jq -r '.system.hostname // "(unnamed host)"' <<<"$prof"
+  printf '  ▸ users\n'
+  while IFS= read -r u; do
+    [[ -n "$u" ]] || continue
+    up="$(load_user_profile "$u" 2>/dev/null || printf '{}')"
+    [[ -n "$up" ]] || up='{}'
+    sh="$(jq -r '.shell // "/bin/zsh"' <<<"$up")"
+    grp="$(jq -r '(.groups // []) | join(", ")' <<<"$up")"
+    [[ -n "$grp" ]] || grp="-"
+    printf '      └─ %s  (%s · %s)\n' "$u" "$sh" "$grp"
+  done < <(jq -r '(.users // [])[]' <<<"$prof")
+  jq -r '
+    def onoff(v): if v == true then "on" else "off" end;
+    "  ▸ options",
+    "      └─ kernel: \((.options.kernel // ["lts"])
+       | if type == "array" then join(", ") else . end)",
+    "      └─ bootloader: \(.options.bootloader // "systemd-boot")",
+    "      └─ encryption: \(onoff(.options.encryption))",
+    "      └─ impermanence: \(onoff(.options.impermanence.enabled))",
+    "      └─ swap: \(if .options.swap == false then "off"
+       else (.options.swap_size // "auto") end)",
+    "      └─ ssh: \(onoff(.options.ssh.enabled))",
+    "  ▸ environment",
+    "      └─ desktop: \((.environment.desktop // [])
+       | if type == "array"
+         then (if length == 0 then "(none)" else join(", ") end)
+         else . end)",
+    "      └─ gpu: \(.environment.gpu // "auto"
+       | if type == "array" then join(", ") else . end)",
+    "  ▸ security",
+    "      └─ firewall: \(.post_install.security.firewall // "none")",
+    "      └─ antivirus: \(onoff(.post_install.security.antivirus))",
+    "      └─ rootkit: \(onoff(.post_install.security.rootkit))",
+    "      └─ apparmor: \(onoff(.post_install.security.apparmor))",
+    "  ▸ backup",
+    "      └─ snapshots: \(onoff(.post_install.backup.zfs_auto_snapshot))",
+    "      └─ borg: \(onoff(.post_install.backup.borg))"
+  ' <<<"$prof"
+  printf '  ▸ disks\n'
+  _ctl_layout_graph "$prof" \
+    | while IFS= read -r _l; do printf '      %s\n' "$_l"; done
+}
+
 # guided_ctl_preview <line> — the fzf preview body: the layout graph for the
 # highlighted preset, but ONLY on the Disk-layout screen (empty elsewhere, so the
 # preview is a no-op on every other screen).
@@ -1151,19 +1236,38 @@ guided_ctl_preview() {
     _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     return 0 ;;
   profiles)
-    # The focused profile's // header comment; a dim hint when it has none.
-    [[ "$line" == "← Back" || -z "$line" ]] && return 0
-    local hdr; hdr="$(profiles_header "$(_ctl_hosts_root)" "$line")"
-    if [[ -n "$hdr" ]]; then
-      printf '%s\n' "$hdr"
+    # A deep ASCII tree of the resolved (Host-Core-merged) profile (ADR 0063),
+    # down to its leaves — replacing the header-comment-only preview. The
+    # New host / Back rows preview nothing.
+    [[ "$line" == "← Back" || "$line" == "+ New host"* || -z "$line" ]] \
+      && return 0
+    local _pf _prof
+    _pf="$(_ctl_hosts_root)/${line}/profile.jsonc"
+    if _prof="$(_configs_parse "$_pf" 2>/dev/null)"; then
+      _ctl_profile_tree "$(layer_resolve host "$(cfgstate_host_core)" "$_prof")"
     else
-      printf '\033[2m(no description — hosts/%s/profile.jsonc)\033[0m\n' "$line"
+      printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
     fi
     return 0 ;;
   esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
   case "$field" in
+  users)
+    # The hovered account's detail panel (ADR 0063). The root row shows its
+    # shell + password source; a user row shows the effective (core-merged,
+    # override-applied) User Profile — shell, sudo, groups, programs, git, ssh.
+    [[ "$line" == "+ Create"* || "$line" == "← Back" || -z "$line" ]] \
+      && return 0
+    if [[ "$line" == "root — "* ]]; then
+      printf 'root\n'
+      printf '  shell:    %s\n' "$(_ctl_root_shell)"
+      printf '  password: %s\n' "$(_ctl_secret_tag root)"
+      return 0
+    fi
+    # "name — shell · pw tag" (enabled) or "name — disabled": name before " — ".
+    local _pu; _pu="${line%% — *}"
+    [[ -n "$_pu" ]] && _ctl_user_panel "$_pu" ;;
   __layout__)
     # A destructive preset row previews THAT preset ("what you'd get"). The
     # data-pools row is additive (it opens the editor, keeping your pools) and
@@ -1210,13 +1314,12 @@ guided_ctl_list() {
   screen="$(nav_screen "$nav")"
   case "$screen" in
   top)
-    # Profiles picker (ADR 0055): a `Profiles ▸` row leads the screen, set off by
-    # its own divider above the categories, when installable profiles exist.
-    # Picking one seeds the menu; a fresh repo with no profiles shows no row.
-    if _ctl_profiles_available; then
-      printf '%s\n' "Profiles ▸ start from a saved machine"
-      printf '%s\n' "$_CTL_DIVIDER"
-    fi
+    # Profiles picker (ADR 0055/0063): a `Profiles ▸` row leads the screen, set
+    # off by its own divider above the categories. Unconditional now — even a
+    # fresh repo with no committed profiles shows it, because the picker leads
+    # with `+ New host (start blank)`, so it is always a first-class entry.
+    printf '%s\n' "Profiles ▸ start from a saved machine"
+    printf '%s\n' "$_CTL_DIVIDER"
     # Secrets are never a gate (ADR 0055): root, every user, and the encryption
     # passphrase default to 12345, so Proceed always installs. The per-secret
     # source is surfaced (default 12345 / custom / from age) on the Users screen,
@@ -1230,9 +1333,19 @@ guided_ctl_list() {
       "Save profile ▸ write a device-less profile" \
       "Export config ▸ write a device-baked config" ;;
   profiles)
-    # The installable Host Profiles (ADR 0055), one row each, then Back. The
-    # header comment previews in the pane; picking a row seeds the menu.
+    # The picker leads with `+ New host` (a confirm-gated full session reset,
+    # ADR 0063), then the installable Host Profiles (ADR 0055) one row each,
+    # then Back. The deep profile tree previews in the pane; picking a profile
+    # seeds the menu. On a fresh repo only New host + Back show — a consistent
+    # entry point.
+    printf '%s\n' "+ New host (start blank)"
     profiles_list "$(_ctl_hosts_root)"
+    _ctl_action_row "← Back" ;;
+  newhost)
+    # The `+ New host` confirmation (ADR 0063): a full session reset discards
+    # ALL session work, so it is confirm-gated. Enter on the confirm row resets;
+    # Back cancels. Broader than Reset-all (which clears Config State only).
+    printf '%s\n' "Yes — discard session work and start blank"
     _ctl_action_row "← Back" ;;
   category)
     local cat; cat="$(nav_get "$nav" category)"
@@ -1375,13 +1488,14 @@ guided_ctl_list() {
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
     elif [[ "$vf" == "users" ]]; then
-      # Flattened Users screen — the account override surface. A root-password
-      # row, root shell, and one row per user, each tagged with its source
-      # (`default 12345` / `custom` / `from age`). Never the value. Enter on any
-      # row opens the inline override. The disk passphrase lives on the Disks
-      # Encryption Editor, not here (ADR 0059 narrows this surface to accounts).
-      printf 'root password: %s\n' "$(_ctl_secret_tag root)"
-      printf 'root shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
+      # Flattened Users screen — the account override surface. One merged root
+      # row (ADR 0063) symmetric with a user row, then one row per user, each
+      # tagged with its password source (default 12345 / custom / from age).
+      # Never the value. Enter on the root row opens the Root Editor (password +
+      # shell); Enter on a user row opens its User Editor. The disk passphrase
+      # lives on the Disks Encryption Editor, not here (ADR 0059).
+      local _rsh; _rsh="$(_ctl_root_shell)"
+      printf 'root — %s · pw %s\n' "$_rsh" "$(_ctl_secret_tag root)"
       local _um _un _ushell _utag
       while IFS= read -r _um; do
         _un="${_um:4}"
@@ -1547,6 +1661,15 @@ guided_ctl_list() {
       [[ -n "$d" ]] && printf '( ) %s\n' "$(_ctl_disk_label "$d")"
     done < <(_ctl_free_disks "$state")
     _ctl_action_row "← Back" ;;
+  rooteditor)
+    # Root Editor (ADR 0063): root's two settings behind one editor, symmetric
+    # with the per-user editor. Password uses the same masked capture + no-SOPS
+    # root role; shell cycles /bin/bash → /bin/zsh → /bin/fish. Storage is
+    # unchanged (options.root_shell + the root manifest role); only the surface
+    # differs.
+    printf 'password: %s\n' "$(_ctl_secret_tag root)"
+    printf 'shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
+    _ctl_action_row "← Back" ;;
   useredit)
     # Per-user User Editor (ADR 0051): a committed user shows an `enabled` toggle
     # (in/out of the install), an ad-hoc user a `✗ remove user` row; both show the
@@ -1636,6 +1759,8 @@ guided_ctl_enter() {
   values)    _ctl_enter_values "$line" ;;
   text)      _ctl_enter_text "$query" ;;
   profiles)  _ctl_enter_profiles "$line" ;;
+  newhost)   _ctl_enter_newhost "$line" ;;
+  rooteditor) _ctl_enter_rooteditor "$line" ;;
   swapedit)  _ctl_enter_swapedit "$line" ;;
   encryption) _ctl_enter_encryption "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
@@ -1948,6 +2073,11 @@ _ctl_enter_profiles() {
   if [[ "$line" == "← Back" ]]; then
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
+  # `+ New host (start blank)` (ADR 0063): a full session reset is destructive,
+  # so drill into a confirm screen rather than resetting on the spot.
+  if [[ "$line" == "+ New host"* ]]; then
+    _ctl_write_nav "$(nav_to_newhost)"; echo render; return
+  fi
   f="$(_ctl_hosts_root)/${line}/profile.jsonc"
   if ! profile="$(_configs_parse "$f" 2>/dev/null)"; then
     echo "notice ⚠ Could not read profile '${line}'"; return
@@ -1962,6 +2092,98 @@ _ctl_enter_profiles() {
   _ctl_write_state "$(profiles_seed "$(_ctl_state)" "$profile")"
   _ctl_write_nav '{"screen":"top"}'
   echo render
+}
+
+# _ctl_session_stash — snapshot the pre-reset session side-state (per-user
+# editor forms + the password/secret manifest) into GUIDED_SESSION_UNDO_FILE, so
+# a single undo after a `+ New host` reset can restore it. The Config State is
+# already undoable through the history stack; this covers only the two side
+# files the stack does not. No-op when no undo file is wired (non-persistent).
+_ctl_session_stash() {
+  [[ -n "${GUIDED_SESSION_UNDO_FILE:-}" ]] || return 0
+  local uf='{}' sf='{}'
+  [[ -s "${GUIDED_USERFORMS_FILE:-}" ]] && uf="$(<"$GUIDED_USERFORMS_FILE")"
+  [[ -s "${GUIDED_SECRETS_FILE:-}" ]] && sf="$(<"$GUIDED_SECRETS_FILE")"
+  jq -n --argjson u "$uf" --argjson s "$sf" '{userforms:$u, secrets:$s}' \
+    >"$GUIDED_SESSION_UNDO_FILE"
+}
+
+# _ctl_session_unstash — restore the userforms + secrets files from the stash
+# and drop it. Called by the first undo after a `+ New host` reset. No-op when
+# the stash is absent/empty (nothing to restore).
+_ctl_session_unstash() {
+  [[ -s "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}" ]] || return 0
+  local b; b="$(<"$GUIDED_SESSION_UNDO_FILE")"
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+    && jq -c '.userforms // {}' <<<"$b" >"$GUIDED_USERFORMS_FILE"
+  [[ -n "${GUIDED_SECRETS_FILE:-}" ]] \
+    && jq -c '.secrets // {}' <<<"$b" >"$GUIDED_SECRETS_FILE"
+  rm -f "$GUIDED_SESSION_UNDO_FILE"
+}
+
+# _ctl_newhost_reset — the `+ New host` full session reset (ADR 0063). Broader
+# than Reset-all (which clears Config State only): it returns Config State to
+# the Host Core baseline (a `{}` override map — like ^R, and recorded on the
+# undo stack) AND clears the session-created users' editor forms and the secret
+# / password manifest overrides (the in-menu disk bindings live in Config State,
+# so the `{}` reset drops them too). The side files are stashed first, so a
+# single undo restores the whole pre-reset session.
+_ctl_newhost_reset() {
+  _ctl_session_stash
+  if [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]]; then
+    local hist; hist="$(<"$GUIDED_HIST_FILE")"
+    hist="$(hist_commit "$hist" '{}')"
+    printf '%s\n' "$hist" >"$GUIDED_HIST_FILE"
+    _ctl_write_state "$(hist_present "$hist")"
+  else
+    _ctl_write_state '{}'
+  fi
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
+    && printf '{}\n' >"$GUIDED_USERFORMS_FILE"
+  [[ -n "${GUIDED_SECRETS_FILE:-}" ]] && printf '{}\n' >"$GUIDED_SECRETS_FILE"
+}
+
+# _ctl_enter_newhost <line> — the `+ New host` confirm screen (ADR 0063): the
+# confirm row runs the full session reset and returns to a blank top screen; any
+# other row (← Back) cancels back to the picker, session work intact.
+_ctl_enter_newhost() {
+  local line="$1" nav; nav="$(_ctl_nav)"
+  case "$line" in
+  "Yes"*)
+    _ctl_newhost_reset
+    _ctl_write_nav '{"screen":"top"}'
+    echo render ;;
+  *)
+    _ctl_write_nav "$(nav_back "$nav")"; echo render ;;
+  esac
+}
+
+# _ctl_enter_rooteditor <line> — the Root Editor dispatch (ADR 0063): open the
+# masked password capture (rich fzf) or its execute() fallback (older fzf), or
+# cycle root's login shell into options.root_shell (strict delta — landing on
+# the baseline shell drops the override, like the per-user cycle). Storage is
+# unchanged from the old root rows; only the surface moved behind this editor.
+_ctl_enter_rooteditor() {
+  local line="$1" nav; nav="$(_ctl_nav)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "password:"*)
+    if _ctl_rich_chrome; then _ctl_open_secret root; else echo "secret-root"; fi
+    return ;;
+  "shell:"*)
+    local _rc _rn
+    _rc="$(_ctl_root_shell_full)"
+    _rn="$(_ctl_cycle_next "$_rc" /bin/bash /bin/zsh /bin/fish)"
+    if [[ "$_rn" == "$(_ctl_root_shell_committed)" ]]; then
+      _ctl_write_state "$(cfgstate_unset "$(_ctl_state)" options.root_shell)"
+    else
+      _ctl_write_state \
+        "$(edit_set_scalar "$(_ctl_state)" options.root_shell "$_rn")"
+    fi
+    echo refresh; return ;;
+  esac
+  echo refresh
 }
 
 _ctl_enter_category() {
@@ -2031,28 +2253,16 @@ _ctl_enter_values() {
     echo refresh; return   # an existing pair is display-only (re-list in place)
   fi
   if [[ "$path" == "users" ]]; then
-    # Credential rows: on a capable fzf (rich chrome ≥ 0.62) enter the inline
-    # masked screen (ADR 0051); on an older fzf fall back to the execute() masked
-    # prompt (ADR 0049). Handle them before the toggle logic (their lines are not
-    # "[x]/[ ] name").
-    if [[ "$line" == "root password:"* ]]; then
-      if _ctl_rich_chrome; then _ctl_open_secret root; else echo "secret-root"; fi
-      return
+    # The merged root row (ADR 0063) opens the Root Editor (password + shell),
+    # symmetric with a user row opening its User Editor. Handle it before the
+    # toggle / user-row logic (its line is "root — <shell> · pw <tag>").
+    if [[ "$line" == "root — "* ]]; then
+      _ctl_write_nav "$(nav_to_rooteditor "$(nav_get "$nav" category)")"
+      echo render; return
     fi
-    if [[ "$line" == "root shell:"* ]]; then
-      # Cycle bash→zsh→fish into options.root_shell (ADR 0054), strict-delta:
-      # landing on the baseline shell drops the override (like the user cycle).
-      local _rc _rn
-      _rc="$(_ctl_root_shell_full)"
-      _rn="$(_ctl_cycle_next "$_rc" /bin/bash /bin/zsh /bin/fish)"
-      if [[ "$_rn" == "$(_ctl_root_shell_committed)" ]]; then
-        _ctl_write_state "$(cfgstate_unset "$(_ctl_state)" options.root_shell)"
-      else
-        _ctl_write_state \
-          "$(edit_set_scalar "$(_ctl_state)" options.root_shell "$_rn")"
-      fi
-      echo refresh; return
-    fi
+    # Per-user credential rows: on a capable fzf (rich chrome ≥ 0.62) enter the
+    # inline masked screen (ADR 0051); on an older fzf fall back to the
+    # execute() masked prompt (ADR 0049). Handle before the toggle logic.
     if [[ "$line" == *"password ("* ]]; then
       local _sn="${line#*password (}"; _sn="${_sn%%)*}"
       if _ctl_rich_chrome; then _ctl_open_secret user "$_sn"
@@ -2568,6 +2778,9 @@ _ctl_autocommit() {
   prev="$(hist_present "$hist" | jq -cS .)"
   [[ "$now" == "$prev" ]] && return 0
   hist_commit "$hist" "$(_ctl_state)" >"$GUIDED_HIST_FILE"
+  # A fresh edit voids the `+ New host` reset-undo stash: its side-state no
+  # longer matches the current session, so a later undo must not resurrect it.
+  rm -f "${GUIDED_SESSION_UNDO_FILE:-/nonexistent}"
 }
 
 # _ctl_nav_reconcile <nav> <state> → a nav still valid for <state>. A history op
@@ -2615,7 +2828,10 @@ guided_ctl_key() {
   [[ -f "${GUIDED_HIST_FILE:-/nonexistent}" ]] || { echo noop; return; }
   hist="$(<"$GUIDED_HIST_FILE")"
   case "$k" in
-  ctrl-z) hist="$(hist_undo "$hist")" ;;
+  ctrl-z) hist="$(hist_undo "$hist")"
+          # The first undo after a `+ New host` reset also restores the stashed
+          # userforms + secrets (the side-state the Config-State stack omits).
+          _ctl_session_unstash ;;
   ctrl-y) hist="$(hist_redo "$hist")" ;;
   ctrl-r) hist="$(hist_commit "$hist" '{}')" ;;
   *)      echo noop; return ;;

@@ -49,9 +49,10 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "entry dispatch enter: a credential row executes the masked capture" {
-  printf '{"screen":"values","category":"Users","field":"users"}\n' \
-    > "$GUIDED_NAV_FILE"
-  run bash "$ENTRY" dispatch enter "root password: (not set)"
+  # The root password lives behind the Root Editor now (ADR 0063); its password
+  # row drops to the masked capture (execute() fallback without rich chrome).
+  printf '{"screen":"rooteditor","category":"Users"}\n' > "$GUIDED_NAV_FILE"
+  run bash "$ENTRY" dispatch enter "password: (not set)"
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "execute(bash"
   echo "$output" | grep -q "secret root"

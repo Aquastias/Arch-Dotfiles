@@ -1,6 +1,6 @@
 # --debug inspect/author run
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

@@ -1,6 +1,6 @@
 # Action rows always visible (ADR 0063)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

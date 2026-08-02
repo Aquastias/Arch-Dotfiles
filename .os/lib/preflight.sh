@@ -61,6 +61,37 @@ preflight_installer_tools() {
   return 0
 }
 
+# preflight_frontend_tools [--interactive]
+# The front-end-only tier for a `--debug` run: jq (every front-end parses
+# jsonc), plus fzf when an interactive front-end (guided menu / --profile
+# picker) will run — and NONE of the install toolchain. This is what lets
+# `install.sh --debug` launch the menu on a daily-driver box without
+# pacman-installing pacstrap/mdadm/…
+preflight_frontend_tools() {
+  printf '%s\n' jq
+  [[ "${1:-}" == --interactive ]] && printf '%s\n' fzf
+  return 0
+}
+
+# preflight_resolve_plan <debug:0|1> — the pure --debug resolver (ADR 0063).
+# Maps the parsed flags to two decisions, as one line "<tier> <install>".
+#   --debug (1) → "frontend no"  — ensure only the front-end tools, WITHHOLD the
+#                                  install (the numbered bootstrap/wipe/install
+#                                  phases never run, so no disk is touched).
+#   normal  (0) → "full yes"     — ensure the whole install toolchain and run
+#                                  the install, exactly as on the live CD today.
+# Pure: no root, no network, no installer execution — so the "front-end-tools-
+# only, never install" guarantee is unit-testable. The caller expands the tier
+# to a token set via preflight_frontend_tools / preflight_installer_tools (the
+# --interactive fzf choice is orthogonal and stays with the caller).
+preflight_resolve_plan() {
+  if [[ "${1:-0}" == "1" ]]; then
+    printf 'frontend no\n'
+  else
+    printf 'full yes\n'
+  fi
+}
+
 # Seam: the one privileged, network-touching side effect. Overridden in tests.
 _preflight_pacman() {
   pacman -Sy --noconfirm --needed "$@" >&2

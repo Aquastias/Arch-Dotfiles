@@ -1,6 +1,6 @@
 # User detail preview
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

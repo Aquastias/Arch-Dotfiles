@@ -117,3 +117,39 @@ _install_pkg() {
   [[ "$output" == *"jq"* ]]
   [[ "$output" == *"fzf"* ]]
 }
+
+# ── the --debug resolver (ADR 0063), table-style + install-withheld ──────────
+# Asserts the tier/install DECISION without executing the installer — the "no
+# disk touched" guarantee is the resolver saying install is withheld.
+
+@test "preflight_resolve_plan: --debug → frontend tier, install withheld" {
+  run preflight_resolve_plan 1
+  [ "$status" -eq 0 ]
+  [ "$output" = "frontend no" ]
+}
+
+@test "preflight_resolve_plan: normal → full tier, install proceeds" {
+  run preflight_resolve_plan 0
+  [ "$status" -eq 0 ]
+  [ "$output" = "full yes" ]
+  run preflight_resolve_plan          # no flag defaults to normal
+  [ "$output" = "full yes" ]
+}
+
+@test "preflight_frontend_tools: jq only — no install toolchain, no fzf" {
+  run preflight_frontend_tools
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"jq"* ]]
+  [[ "$output" != *"fzf"* ]]
+  [[ "$output" != *"pacstrap"* ]]
+  [[ "$output" != *"mdadm"* ]]
+  [[ "$output" != *"cryptsetup"* ]]
+}
+
+@test "preflight_frontend_tools --interactive: adds fzf, still no toolchain" {
+  run preflight_frontend_tools --interactive
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"jq"* ]]
+  [[ "$output" == *"fzf"* ]]
+  [[ "$output" != *"pacstrap"* ]]
+}

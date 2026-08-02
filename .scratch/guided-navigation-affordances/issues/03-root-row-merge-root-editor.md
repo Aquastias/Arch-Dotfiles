@@ -1,6 +1,6 @@
 # Root row merge → Root Editor
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
