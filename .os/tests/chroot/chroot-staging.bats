@@ -89,3 +89,32 @@ _staged_basenames() {
       || { echo "sourced sibling not staged: $name"; false; }
   done <<< "$refs"
 }
+
+# ── lockstep: lib/ files sourced by extras/**/*.sh ⊆ the extras-lib manifest ──
+# Each extras adapter sources a staged lib helper via
+# "${SCRIPT_DIR}/../../../lib/<path>", which resolves to /root/lib/<path> inside
+# the chroot — but only if _CHROOT_STAGE_EXTRAS_LIB stages it there. A source
+# with no matching manifest entry aborts the install inside the chroot ("<file>:
+# No such file or directory"), a failure only the VM would catch. This is the
+# gap that let the re-added hyprland.sh source lib/chroot/gpu.sh unstaged.
+
+@test "every lib/ file sourced by extras/**/*.sh is in _CHROOT_STAGE_EXTRAS_LIB" {
+  local staged_dsts entry src dst
+  staged_dsts=""
+  for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
+    IFS='|' read -r src dst <<< "$entry"
+    staged_dsts+="${dst}"$'\n'
+  done
+
+  local refs path
+  refs="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$OS_DIR"/extras \
+    2>/dev/null | sed -E 's#.*\.\./\.\./\.\./lib/##' | sort -u)"
+
+  [ -n "$refs" ]  # sanity: the grep found extras→lib sources
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    grep -qxF "$path" <<< "$staged_dsts" \
+      || { echo "extras sources lib/$path — not in _CHROOT_STAGE_EXTRAS_LIB"; \
+           false; }
+  done <<< "$refs"
+}
