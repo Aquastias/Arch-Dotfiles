@@ -30,7 +30,7 @@ GPU_PARU_PACKAGES=()
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
-_VALID_DESKTOP=(kde)
+_VALID_DESKTOP=(kde hyprland)
 _VALID_GPU=(amd nvidia intel auto)
 
 # =============================================================================

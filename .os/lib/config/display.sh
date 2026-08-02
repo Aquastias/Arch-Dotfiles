@@ -24,6 +24,7 @@
 _display_curated() {
   case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
   kde)          echo KDE ;;
+  hyprland)     echo Hyprland ;;
   gpu)          echo GPU ;;
   ssh)          echo SSH ;;
   zfs)          echo ZFS ;;

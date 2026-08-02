@@ -49,12 +49,28 @@ write_config() {
   [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
 }
 
-@test "desktop array with an unknown value fails validation" {
+@test "desktop 'hyprland' passes validation and sets ENVIRONMENT_DESKTOP" {
+  write_config '{"environment": {"desktop": "hyprland", "gpu": "auto"}}'
+  _resolve_env_validate
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
+}
+
+@test "desktop array ['kde','hyprland'] passes and sets two elements" {
   write_config \
     '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
+  _resolve_env_validate
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 2 ]
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "kde" ]
+  [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
+}
+
+@test "desktop array with an unknown value fails validation" {
+  write_config \
+    '{"environment": {"desktop": ["kde", "sway"], "gpu": "auto"}}'
   run _resolve_env_validate
   [ "$status" -ne 0 ]
-  [[ "$output" =~ "hyprland" ]]
+  [[ "$output" =~ "sway" ]]
 }
 
 @test "desktop null passes validation and gives empty array" {
