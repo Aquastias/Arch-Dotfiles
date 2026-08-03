@@ -94,6 +94,16 @@ nav_to_useredit() {
     '{screen:"useredit", category:$c, user:$u}'
 }
 
+# nav_to_clone <category> <source> — the clone name-entry text screen (0064):
+# a __cloneuser__ text field carrying the SOURCE user, so the commit copies that
+# user's account-shape into the newly-named clone. Modelled on nav_to_text +
+# __newuser__, plus the carried source; nav_back returns to the Users category.
+nav_to_clone() {
+  jq -nc --arg c "$1" --arg u "$2" \
+    '{screen:"text", category:$c, field:"__cloneuser__",
+      label:("clone of " + $u), user:$u}'
+}
+
 # nav_to_secret <category> <target> [user] [phase] [origin-json] — the inline
 # masked password screen (ADR 0051). target is root | user | enc; user names the
 # account for a user password; phase is entry | confirm (type-twice). Carries no

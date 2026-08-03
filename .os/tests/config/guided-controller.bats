@@ -1441,6 +1441,82 @@ _seed_baseline() {
   [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
 }
 
+# ── clone user (ADR 0064) ────────────────────────────────────────────────────
+
+@test "list(useredit): offers the clone row for both committed + ad-hoc users" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{"shell":"/bin/zsh"}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice","dave"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"           # committed
+  run guided_ctl_list
+  echo "$output" | grep -q "⧉ Clone this user"
+  set_nav "$(nav_to_useredit Users dave)"            # ad-hoc
+  run guided_ctl_list
+  echo "$output" | grep -q "⧉ Clone this user"
+}
+
+@test "enter(useredit): clone drops to a name screen carrying the source" {
+  export OS_DIR="$TEST_DIR"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_useredit Users alice)"
+  run guided_ctl_enter "⧉ Clone this user"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__cloneuser__" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "alice" ]
+}
+
+@test "enter(text __cloneuser__): copies shape not identity into a clone" {
+  export OS_DIR="$TEST_DIR"
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; uf="$GUIDED_USERFORMS_FILE"
+  printf '{}\n' > "$uf"
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  printf '%s' '{"shell":"/bin/fish","sudo":true,
+    "groups":["wheel","docker"],"programs":["git"],
+    "git":{"name":"Alice"},"ssh_authorized_keys":["ssh-ed25519 AAAA"]}' \
+    > "$OS_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_clone Users alice)"
+  run guided_ctl_enter "clone" "bob"
+  [ "$output" = "render" ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice","bob"]' ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "useredit" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" user)" = "bob" ]
+  # account-shape copied from the source's effective view
+  [ "$(jq -r '.bob.shell' "$uf")" = "/bin/fish" ]
+  [ "$(jq -c '.bob.sudo' "$uf")" = "true" ]
+  [ "$(jq -c '.bob.groups' "$uf")" = '["wheel","docker"]' ]
+  [ "$(jq -c '.bob.programs' "$uf")" = '["git"]' ]
+  # identity fields are NOT carried across
+  [ "$(jq -r '.bob.git // "none"' "$uf")" = "none" ]
+  [ "$(jq -r '.bob.ssh_authorized_keys // "none"' "$uf")" = "none" ]
+}
+
+@test "enter(text __cloneuser__): a duplicate name is refused with a notice" {
+  export OS_DIR="$TEST_DIR"; mkdir -p "$OS_DIR/users/alice"
+  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_clone Users alice)"
+  run guided_ctl_enter "clone" "alice"
+  [[ "$output" == notice* ]]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
+}
+
+@test "enter(text __cloneuser__): a blank name backs out to the Users list" {
+  printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_clone Users alice)"
+  run guided_ctl_enter "clone" ""
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(jq -c '.users' "$GUIDED_STATE_FILE")" = '["alice"]' ]   # unchanged
+}
+
 # ── back / abort ─────────────────────────────────────────────────────────────
 
 @test "back: at the top screen, aborts the whole menu" {

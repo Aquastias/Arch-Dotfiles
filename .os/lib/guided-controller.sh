@@ -646,6 +646,28 @@ _ctl_userform_set_strict() {
   fi
 }
 
+# _ctl_clone_seed <source> <newname> — copy the source user's effective
+# account-shape (shell, sudo, groups, programs) into <newname>'s install-scoped
+# delta (ADR 0064). Personal fields (git identity, ssh keys) and the
+# password are NOT copied — a clone shares setup, not identity — so the clone
+# lands password-less (Proceed stays blocked until set). shell is materialised
+# from the resolved full path so a defaulted source shell still copies. No-op
+# without a userforms file (non-persistent contexts): the name is still created,
+# just without a delta.
+_ctl_clone_seed() {
+  local src="$1" new="$2" eff
+  [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || return 0
+  eff="$(_ctl_user_effective "$src")"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" shell \
+    "$(jq -Rn --arg s "$(_ctl_user_shell_full "$src")" '$s')"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" sudo \
+    "$(jq -c 'if .sudo then true else false end' <<<"$eff")"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" groups \
+    "$(jq -c '.groups // []' <<<"$eff")"
+  guided_userform_set "$GUIDED_USERFORMS_FILE" "$new" programs \
+    "$(jq -c '.programs // []' <<<"$eff")"
+}
+
 # _ctl_userfield_toggle_multi <user> <field> <value> — flip <value> in the user's
 # effective array for a multi field, stored as the full override (strict delta vs
 # the committed array).
@@ -1696,6 +1718,7 @@ guided_ctl_list() {
     printf 'programs: %s   (Enter edits)\n' \
       "$(jq -r '(.programs // []) | join(", ") | if . == "" then "(none)" else . end' \
         <<<"$ueff")"
+    printf '%s\n' "⧉ Clone this user"
     _ctl_user_is_committed "$un" || printf '%s\n' "✗ remove user"
     _ctl_action_row "← Back" ;;
   userfield)
@@ -1984,6 +2007,11 @@ _ctl_enter_useredit() {
         "$(jq -n --arg x "$next" '$x')"
     fi
     echo refresh; return ;;
+  "⧉ Clone this user")
+    # Clone (ADR 0064): drop to a name-entry text screen carrying THIS user
+    # as the source. A valid name copies the source's account-shape into a new
+    # ad-hoc user and lands in its editor.
+    _ctl_write_nav "$(nav_to_clone "$cat" "$un")"; echo render; return ;;
   "✗ remove user")
     # Session-created user: drop it from the install list and its held-aside form,
     # then return to the Users list.
@@ -2367,6 +2395,24 @@ _ctl_enter_text() {
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" sudo 'true'
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" groups '["wheel"]'
     fi
+    _ctl_write_nav "$(nav_to_useredit "$cat" "$query")"; echo render; return
+  fi
+  # Clone user (ADR 0064): like create, but the new name is seeded with the
+  # SOURCE user's account-shape (carried on the nav). Same blank-backs-out and
+  # duplicate-refused rules, then drop INTO the clone's editor to set the pw.
+  if [[ "$path" == "__cloneuser__" ]]; then
+    local _src _eff; _src="$(nav_get "$nav" user)"
+    _eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
+    [[ -n "$query" ]] || { _ctl_write_nav "$(nav_to_values "$cat" users users)"
+                           echo render; return; }
+    if _ctl_user_is_committed "$query" || jq -e --arg v "$query" \
+        '(.users // []) | any(. == $v)' <<<"$_eff" >/dev/null; then
+      echo "notice ⚠ user '${query}' already exists — pick another name"; return
+    fi
+    _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
+      "$(jq -cn --arg v "$query" --argjson a "$(jq -c '.users // []' \
+        <<<"$_eff")" '$a + [$v]')")"
+    _ctl_clone_seed "$_src" "$query"
     _ctl_write_nav "$(nav_to_useredit "$cat" "$query")"; echo render; return
   fi
   [[ -n "$query" ]] \
