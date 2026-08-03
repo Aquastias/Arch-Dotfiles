@@ -49,7 +49,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "list(top): the Profiles row shows even when the hosts tree has none" {
-  # ADR 0063: the picker is unconditional — it leads with `+ New host`, so it is
+  # ADR 0063: the picker is unconditional — it leads with the reset row, so it is
   # always a first-class entry point, even on a fresh repo with no profiles.
   rm -rf "$OS_DIR/hosts/desktop" "$OS_DIR/hosts/laptop"
   run guided_ctl_list
@@ -64,21 +64,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── profiles screen: lists the installable profiles + Back ──────────────────
 
-@test "list(profiles): New host leads, then desktop + laptop, then Back" {
+@test "list(profiles): Reset row leads, then desktop + laptop, then Back" {
   set_nav '{"screen":"profiles"}'
   run guided_ctl_list
-  [ "${lines[0]}" = "+ New host (start blank)" ]   # ADR 0063: leads the picker
+  [ "${lines[0]}" = "↺ Reset to blank" ]   # ADR 0063: leads the picker
   [ "${lines[1]}" = "desktop" ]
   [ "${lines[2]}" = "laptop" ]
   echo "$output" | grep -q "← Back"
   ! echo "$output" | grep -qx core
 }
 
-@test "list(profiles): a fresh repo shows only New host + Back" {
+@test "list(profiles): a fresh repo shows only the Reset row + Back" {
   rm -rf "$OS_DIR/hosts/desktop" "$OS_DIR/hosts/laptop"
   set_nav '{"screen":"profiles"}'
   run guided_ctl_list
-  [ "${lines[0]}" = "+ New host (start blank)" ]
+  [ "${lines[0]}" = "↺ Reset to blank" ]
   echo "$output" | grep -q "← Back"
 }
 
@@ -137,19 +137,19 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -qx "desktop"             # name only, no hostname hint
 }
 
-@test "preview(profiles): Back + New host preview nothing" {
+@test "preview(profiles): Back + Reset row preview nothing" {
   set_nav '{"screen":"profiles"}'
   run guided_ctl_preview "← Back"
   [ -z "$output" ]
-  run guided_ctl_preview "+ New host (start blank)"
+  run guided_ctl_preview "↺ Reset to blank"
   [ -z "$output" ]
 }
 
-# ── + New host: confirm-gated, undoable full session reset (ADR 0063) ────────
+# ── ↺ Reset to blank: confirm-gated, undoable full session reset (ADR 0063) ──
 
-@test "enter(profiles): New host drills to the confirm screen" {
+@test "enter(profiles): Reset row drills to the confirm screen" {
   set_nav '{"screen":"profiles"}'
-  run guided_ctl_enter "+ New host (start blank)"
+  run guided_ctl_enter "↺ Reset to blank"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "newhost" ]
 }

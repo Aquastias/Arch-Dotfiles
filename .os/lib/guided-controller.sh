@@ -775,7 +775,7 @@ _ctl_nav_prompt() {
   case "$(nav_screen "$1")" in
   top)         printf 'guided> ' ;;
   profiles)    printf 'profiles> ' ;;
-  newhost)     printf 'new host> ' ;;
+  newhost)     printf 'reset> ' ;;
   rooteditor)  printf 'root> ' ;;
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
@@ -1238,8 +1238,8 @@ guided_ctl_preview() {
   profiles)
     # A deep ASCII tree of the resolved (Host-Core-merged) profile (ADR 0063),
     # down to its leaves — replacing the header-comment-only preview. The
-    # New host / Back rows preview nothing.
-    [[ "$line" == "← Back" || "$line" == "+ New host"* || -z "$line" ]] \
+    # Reset-to-blank / Back rows preview nothing.
+    [[ "$line" == "← Back" || "$line" == "↺ Reset to blank"* || -z "$line" ]] \
       && return 0
     local _pf _prof
     _pf="$(_ctl_hosts_root)/${line}/profile.jsonc"
@@ -1333,12 +1333,12 @@ guided_ctl_list() {
       "Save profile ▸ write a device-less profile" \
       "Export config ▸ write a device-baked config" ;;
   profiles)
-    # The picker leads with `+ New host` (a confirm-gated full session reset,
-    # ADR 0063), then the installable Host Profiles (ADR 0055) one row each,
-    # then Back. The deep profile tree previews in the pane; picking a profile
-    # seeds the menu. On a fresh repo only New host + Back show — a consistent
-    # entry point.
-    printf '%s\n' "+ New host (start blank)"
+    # The picker leads with `↺ Reset to blank` (a confirm-gated full session
+    # reset, ADR 0063), then the installable Host Profiles (ADR 0055) one row
+    # each, then Back. The deep profile tree previews in the pane; picking a
+    # profile seeds the menu. On a fresh repo only the reset row + Back show — a
+    # consistent entry point.
+    printf '%s\n' "↺ Reset to blank"
     profiles_list "$(_ctl_hosts_root)"
     _ctl_action_row "← Back" ;;
   newhost)
@@ -2073,9 +2073,9 @@ _ctl_enter_profiles() {
   if [[ "$line" == "← Back" ]]; then
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
-  # `+ New host (start blank)` (ADR 0063): a full session reset is destructive,
+  # `↺ Reset to blank` (ADR 0063): a full session reset is destructive,
   # so drill into a confirm screen rather than resetting on the spot.
-  if [[ "$line" == "+ New host"* ]]; then
+  if [[ "$line" == "↺ Reset to blank"* ]]; then
     _ctl_write_nav "$(nav_to_newhost)"; echo render; return
   fi
   f="$(_ctl_hosts_root)/${line}/profile.jsonc"
