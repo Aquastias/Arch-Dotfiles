@@ -218,34 +218,61 @@ build() {
 }
 help() {
   cat <<HELP
-Rolls back curated ZFS datasets to @blank on every boot. Fails closed
-to an emergency shell if any @blank snapshot is missing.
+Rolls back curated ZFS datasets to @blank on every boot, then mounts them
+(plus /var and /var/log) under /new_root so PID1 boots on a populated /etc
+with the frozen machine-id. Fails closed to an emergency shell if any
+@blank snapshot is missing.
 HELP
 }
 INSTALL
 
-  # Bake the dataset list into the runtime hook (no kernel cmdline lookup).
-  local entry suffix ds_list=""
+  # Bake the dataset + mount lists into the runtime hook (no cmdline lookup).
+  local entry suffix mp ds_list="" mount_pairs=""
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
+    mp="${entry#*:}"
     ds_list+="$RPOOL/ROOT/$suffix "
+    mount_pairs+="$RPOOL/ROOT/$suffix=$mp "
   done
   ds_list="${ds_list% }"
+  # /var + /var/log are NOT rollback datasets, but they are separate datasets
+  # that otherwise mount post-pivot (via zfs-mount) AFTER PID1/journald start —
+  # too late: dbus's machine-id (/var/lib/dbus) and the journal (/var/log) then
+  # land on the wrong/empty tree. Mount them early too; /var before /var/log.
+  mount_pairs+="$RPOOL/var=/var $RPOOL/var/log=/var/log"
 
   # Must be run_latehook: the archzfs zfs hook only imports the pool in
   # its own run_latehook, so during run_hook the pool isn't available and
   # `zfs list` fails. HOOKS= order still applies (zfs latehook → ours).
+  #
+  # After rollback, MOUNT the datasets under /new_root before switch_root
+  # (parity with the btrfs hook, ADR 0044). They are SEPARATE datasets that
+  # otherwise mount post-pivot via zfs-mount — after PID1 and journald start.
+  # PID1 then reads an EMPTY /etc (bare mountpoint on the root dataset), mints a
+  # TRANSIENT machine-id, and dbus/logind/journald key off an unstable id → the
+  # graphical login can't seat a session (black screen) and journald orphans its
+  # journal onto the soon-shadowed /var/log. Mounting here gives PID1 the frozen
+  # machine-id + a populated /etc; systemd adopts the already-mounted paths.
   cat > "$hdir/zfs-rollback" <<HOOK
 #!/usr/bin/ash
 run_latehook() {
   local datasets="$ds_list"
-  local ds
+  local mounts="$mount_pairs"
+  local ds pair mp
   for ds in \$datasets; do
     if ! zfs list -t snapshot "\${ds}@blank" >/dev/null 2>&1; then
       err "impermanence: @blank snapshot missing for \${ds}"
       launch_interactive_shell
     fi
     zfs rollback -r "\${ds}@blank"
+  done
+  for pair in \$mounts; do
+    ds="\${pair%%=*}"
+    mp="\${pair#*=}"
+    zfs list -H -o name "\$ds" >/dev/null 2>&1 || continue
+    mkdir -p "/new_root\${mp}"
+    mount -t zfs -o zfsutil,rw "\$ds" "/new_root\${mp}" ||
+      err "impermanence: could not mount \$ds at /new_root\${mp}"
   done
 }
 HOOK
