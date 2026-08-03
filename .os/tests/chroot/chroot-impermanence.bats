@@ -424,6 +424,39 @@ seed_curated() {
   grep -qE "zfs rollback -r" "$f"
 }
 
+# After rollback, the datasets must be mounted under /new_root — BEFORE
+# switch_root — so PID1 reads a populated /etc with the frozen machine-id.
+# Left to the post-pivot zfs-mount, /etc is a bare mountpoint at PID1 start:
+# systemd mints a TRANSIENT machine-id and dbus/logind/journald key off an
+# unstable id → the graphical login can't seat a session (black screen) and
+# journald orphans its journal onto the soon-shadowed /var/log. Parity with the
+# btrfs hook's early-mount latehook (ADR 0044).
+@test "enabled: runtime hook early-mounts rollback datasets under /new_root" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" pair
+  grep -qE "mount -t zfs" "$f"
+  grep -q "/new_root" "$f"
+  for pair in rpool/ROOT/etc=/etc rpool/ROOT/root=/root \
+              rpool/ROOT/opt=/opt rpool/ROOT/srv=/srv \
+              rpool/ROOT/usrlocal=/usr/local; do
+    grep -qF "$pair" "$f" || { echo "missing early-mount pair $pair"; return 1; }
+  done
+}
+
+# /var + /var/log are separate datasets too — mount them early so dbus's
+# machine-id (/var/lib/dbus) and the journal (/var/log) don't land on the
+# wrong/empty tree; /var must precede /var/log (nested).
+@test "enabled: runtime hook early-mounts /var and /var/log (var first)" {
+  run_enabled
+  local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback"
+  grep -qF "rpool/var=/var" "$f"
+  grep -qF "rpool/var/log=/var/log" "$f"
+  local var_pos varlog_pos
+  var_pos="$(grep -boF "rpool/var=/var" "$f" | head -1 | cut -d: -f1)"
+  varlog_pos="$(grep -boF "rpool/var/log=/var/log" "$f" | head -1 | cut -d: -f1)"
+  [ "$var_pos" -lt "$varlog_pos" ]
+}
+
 # ── btrfs FS layer (issue 08, ADR 0044): snapshot_blank dispatches on $FILESYSTEM
 # On btrfs the rollback containers are subvolumes, not datasets; the @blank
 # snapshot is `btrfs subvolume snapshot -r @<name> @<name>@blank` taken over the
