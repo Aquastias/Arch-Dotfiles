@@ -110,6 +110,30 @@ setup() {
   [ "$(jq -c '.persist.directories' <<<"$output")" = '["/var/lib/foo"]' ]
 }
 
+@test "edit_remove_persist: removes a listed dir" {
+  run edit_remove_persist '{"persist":{"directories":["/a","/b"]}}' /a
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.persist.directories' <<<"$output")" = '["/b"]' ]
+}
+
+@test "edit_remove_persist: an absent dir is a no-op (rc 1, unchanged)" {
+  run edit_remove_persist '{"persist":{"directories":["/a"]}}' /x
+  [ "$status" -eq 1 ]
+  [ "$(jq -c '.persist.directories' <<<"$output")" = '["/a"]' ]
+}
+
+@test "edit_remove_persist: empty input is a no-op (rc 1)" {
+  run edit_remove_persist '{"persist":{"directories":["/a"]}}' ""
+  [ "$status" -eq 1 ]
+  [ "$(jq -c '.persist.directories' <<<"$output")" = '["/a"]' ]
+}
+
+@test "edit_remove_persist: removing the last entry leaves an empty list" {
+  run edit_remove_persist '{"persist":{"directories":["/a"]}}' /a
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.persist.directories' <<<"$output")" = '[]' ]
+}
+
 # ── skeleton / users ────────────────────────────────────────────────────────
 
 @test "edit_apply_skeleton: drops prior skeleton keys, merges the new one" {

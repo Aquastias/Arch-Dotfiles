@@ -2134,3 +2134,15 @@ secret_setup() {
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
+
+@test "enter(impermanence): Enter on a persist dir removes it and re-renders" {
+  printf '%s\n' \
+    '{"options":{"impermanence":{"enabled":true}},
+      "persist":{"directories":["/srv/a","/srv/b"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_enter "/srv/a"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/b"]' ]
+  # the enabled flag is left untouched
+  [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+}
