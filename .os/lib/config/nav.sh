@@ -64,6 +64,13 @@ nav_to_encryption() {
   jq -nc --arg c "$1" '{screen:"encryption", category:$c}'
 }
 
+# nav_to_impermanence <category> — the Impermanence Editor (ADR 0066): the
+# enablement toggle + persist-directory management collapsed behind one Disks
+# row, modelled on the swap / encryption sub-editors. nav_back → Disks category.
+nav_to_impermanence() {
+  jq -nc --arg c "$1" '{screen:"impermanence", category:$c}'
+}
+
 # nav_to_datapools <category> — the data-pools list editor.
 nav_to_datapools() { jq -nc --arg c "$1" '{screen:"datapools", category:$c}'; }
 
@@ -204,6 +211,7 @@ nav_back() {
          then {screen:"category", category:.category}
     elif .screen == "swapedit"  then {screen:"category", category:.category}
     elif .screen == "encryption" then {screen:"category", category:.category}
+    elif .screen == "impermanence" then {screen:"category", category:.category}
     elif .screen == "datapools" then {screen:"category", category:.category}
     elif .screen == "pooledit"  then {screen:"datapools", category:.category}
     elif .screen == "pooldisks"

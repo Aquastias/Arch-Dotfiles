@@ -913,14 +913,6 @@ _seed_baseline() {
   [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
 }
 
-@test "enter(category): Add persist opens a native text editor (no terminal)" {
-  set_nav "$(nav_to_category Disks)"
-  run guided_ctl_enter "Add persist directory ▸ extend the curated defaults"
-  [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__persist__" ]
-}
-
 @test "enter(text __persist__): a typed path appends to persist.directories" {
   set_nav "$(nav_to_text Disks __persist__ "persist dir")"
   run guided_ctl_enter "current: (unset)" "/var/lib/foo"
@@ -2047,4 +2039,98 @@ secret_setup() {
   run bash "$BATS_TEST_DIRNAME/../../lib/guided-fzf-entry.sh" mask "••c"
   [ "$output" = "•••" ]                           # display: 3 bullets
   [ "$(cat "$GUIDED_PWBUF_FILE")" = "abc" ]       # buffer captured the real char
+}
+
+# ── impermanence: one Disks row → impermanence editor (ADR 0066) ──────────────
+
+@test "list(category Disks): one Impermanence row, no plain toggle or add row" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  [ "$(echo "$output" | grep -cE '^Impermanence ▸ ')" = "1" ]
+  ! echo "$output" | grep -qiE '^impermanence:'
+  ! echo "$output" | grep -q "Add persist directory"
+}
+
+@test "list(category Disks): Impermanence row is off by default, dot when set" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^Impermanence ▸ off$'
+  printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
+    > "$GUIDED_STATE_FILE"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^Impermanence ▸ on  ●$'
+}
+
+@test "enter(category): Impermanence opens the impermanence editor" {
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_enter "Impermanence ▸ off"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
+}
+
+@test "list(impermanence): off shows only enabled off + Back" {
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^enabled: off$'
+  ! echo "$output" | grep -q "Add persist directory"
+  ! echo "$output" | grep -q "curated defaults"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "list(impermanence): on shows enabled, persist dirs, curated line, add" {
+  printf '%s\n' \
+    '{"options":{"impermanence":{"enabled":true}},
+      "persist":{"directories":["/var/lib/foo"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -qE '^enabled: on$'
+  echo "$output" | grep -qxF '/var/lib/foo'
+  echo "$output" | grep -qE '^curated defaults: [0-9]+ paths always persisted'
+  echo "$output" | grep -q "Add persist directory"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "enter(impermanence): toggling enabled flips it and stays (refresh)" {
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_enter "enabled: off"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
+}
+
+@test "enter(impermanence): toggling back to the baseline drops the override" {
+  cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"
+  printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_enter "enabled: on"
+  # strict delta: landing on the baseline (off) leaves no override
+  [ "$(jq -c '.options.impermanence.enabled // "gone"' \
+    "$GUIDED_STATE_FILE")" = '"gone"' ]
+}
+
+@test "enter(impermanence): Add persist opens the __persist__ text screen" {
+  printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_enter "Add persist directory ▸ extend the curated defaults"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "__persist__" ]
+}
+
+@test "enter(text __persist__): appends dir and returns to the editor" {
+  printf '%s\n' '{"options":{"impermanence":{"enabled":true}}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_text Disks __persist__ "persist dir")"
+  run guided_ctl_enter "" "/srv/x"
+  [ "$(jq -c '.persist.directories' "$GUIDED_STATE_FILE")" = '["/srv/x"]' ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "impermanence" ]
+}
+
+@test "enter(impermanence): Back returns to the Disks category" {
+  set_nav "$(nav_to_impermanence Disks)"
+  run guided_ctl_enter "← Back"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
 }
