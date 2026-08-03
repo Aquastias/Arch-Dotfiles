@@ -69,8 +69,9 @@
 # shellcheck source=lib/guided-userforms.sh
 [[ "$(type -t guided_userform_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
-# shellcheck source=lib/impermanence-common.sh — Curated Persist Defaults, for
-# the Impermanence Editor's read-only count line (ADR 0066).
+# Curated Persist Defaults, for the Impermanence Editor's read-only count line
+# (ADR 0066).
+# shellcheck source=lib/impermanence-common.sh
 [[ -n "${CURATED_FILES:-}" ]] \
   || source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
 # shellcheck source=lib/guided-mask.sh
@@ -2529,6 +2530,9 @@ _ctl_enter_impermanence() {
   "curated defaults:"*)
     echo refresh; return ;;   # read-only summary line
   esac
+  # Any other row is a user-added persist directory (ADR 0066): drop it. A stray
+  # line that isn't in the list is a harmless no-op (edit returns it unchanged).
+  _ctl_write_state "$(edit_remove_persist "$(_ctl_state)" "$line" || true)"
   echo refresh
 }
 

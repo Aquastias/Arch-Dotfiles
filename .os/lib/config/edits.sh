@@ -97,6 +97,18 @@ edit_append_persist() {
     '.persist.directories = ((.persist.directories // []) + [$p])' <<<"$state"
 }
 
+# edit_remove_persist <state> <dir> — drop one directory from
+# persist.directories (ADR 0066). rc 1 (unchanged) on empty input or a dir not
+# in the list; removing the last entry leaves an empty list.
+edit_remove_persist() {
+  local state="$1" dir="$2"
+  [[ -n "$dir" ]] || { printf '%s' "$state"; return 1; }
+  jq -e --arg p "$dir" '(.persist.directories // []) | index($p)' \
+    <<<"$state" >/dev/null || { printf '%s' "$state"; return 1; }
+  jq --arg p "$dir" \
+    '.persist.directories = ((.persist.directories // []) - [$p])' <<<"$state"
+}
+
 # edit_apply_skeleton <state> <skeleton-json> — drop any previous pool-skeleton
 # keys, then merge the new skeleton in (switching layouts never leaves a stale
 # group behind).
