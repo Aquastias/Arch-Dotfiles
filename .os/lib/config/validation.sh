@@ -97,6 +97,12 @@ _validation_preflight_programs() {
     validate_programs "true" "${sys_progs[@]}" || any_fail=1
   fi
 
+  # System-program JSON array for the requires-order check below (ADR 0065),
+  # built once — it is the same for every user. Drops the empty-list sentinel.
+  local _sys_json
+  _sys_json="$(printf '%s\n' "${sys_progs[@]+"${sys_progs[@]}"}" \
+    | jq -R . | jq -sc 'map(select(length > 0))')"
+
   local uj urc
   local -a uprogs
   for u in "${users[@]}"; do
@@ -116,10 +122,81 @@ _validation_preflight_programs() {
       reconcile_user_program "$_up" "${sys_progs[@]+"${sys_progs[@]}"}" \
         >/dev/null || any_fail=1
     done
+    # Dependency ordering (ADR 0065): each program's `requires` must be
+    # installed first — a host system program or an earlier entry in this list.
+    _validation_check_requires_order "$u" "$_sys_json" \
+      "$(printf '%s' "$uj" | jq -c '.programs // []')" || any_fail=1
   done
 
   ((any_fail == 0)) || \
     error "Program contracts failed. Fix the errors above and re-run."
+}
+
+# =============================================================================
+# PROGRAM DEPENDENCY ORDERING (ADR 0065)
+# =============================================================================
+# A Program may declare `requires: ["podman", ...]` — other Programs whose
+# install-time SETUP (package + side effects like podman's subuid/subgid) must
+# be in place before it runs. Because the Runner installs a user's programs
+# one-by-one in declared order, the dependency must already be installed when
+# the dependent runs. Enforced here, before any side effect, so a mis-ordered
+# or incomplete list aborts up front with an actionable message instead of a
+# hard failure part-way through the install (the class of bug that let a guided
+# selection put searxng before podman).
+
+# _validation_index_of <needle> <hay...> — 0-based index of the first <hay>
+# equal to <needle>, or empty when absent. Pure.
+_validation_index_of() {
+  local needle="$1"; shift
+  local i=0 x
+  for x in "$@"; do
+    [[ "$x" == "$needle" ]] && { printf '%s' "$i"; return 0; }
+    i=$((i + 1))
+  done
+}
+
+# _validation_program_requires <prog> — the program's declared `requires` list,
+# one per line (empty when none or the program has no config). Pure over OS_DIR.
+_validation_program_requires() {
+  local rel cf
+  rel="$(resolve_program "$1" 2>/dev/null)" || return 0
+  cf="${OS_DIR}/programs/${rel}/config.jsonc"
+  [[ -f "$cf" ]] || return 0
+  jsonc_strip "$cf" | jq -r '.requires[]?' 2>/dev/null
+}
+
+# _validation_check_requires_order <user> <sys_json> <uprogs_json> — enforce
+# every user program's `requires` for one user. A required program is satisfied
+# when it is a host system program (installed before all user programs) or
+# appears EARLIER in this user's own list. Prints an actionable line per
+# violation and returns 1 if any; 0 when clean. Pure over OS_DIR + the two JSON
+# array args (system_programs, the user's programs).
+_validation_check_requires_order() {
+  local user="$1" sys_json="$2" up_json="$3" fail=0
+  local -a up sys
+  mapfile -t up  < <(printf '%s' "$up_json"  | jq -r '.[]?')
+  mapfile -t sys < <(printf '%s' "$sys_json" | jq -r '.[]?')
+  local i p r ri
+  for i in "${!up[@]}"; do
+    p="${up[$i]}"
+    while IFS= read -r r; do
+      [[ -n "$r" ]] || continue
+      # A host system program is installed before every user program.
+      local _si; _si="$(_validation_index_of "$r" "${sys[@]+"${sys[@]}"}")"
+      [[ -n "$_si" ]] && continue
+      ri="$(_validation_index_of "$r" "${up[@]}")"
+      if [[ -z "$ri" ]]; then
+        echo "User '${user}': program '${p}' requires '${r}', which is not" \
+             "declared in ${user}'s programs. Add '${r}' before '${p}'." >&2
+        fail=1
+      elif ((ri >= i)); then
+        echo "User '${user}': program '${p}' requires '${r}' installed first," \
+             "but '${r}' is listed after it. Move '${r}' before '${p}'." >&2
+        fail=1
+      fi
+    done < <(_validation_program_requires "$p")
+  done
+  return "$fail"
 }
 
 # =============================================================================
