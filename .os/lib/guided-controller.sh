@@ -69,6 +69,10 @@
 # shellcheck source=lib/guided-userforms.sh
 [[ "$(type -t guided_userform_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
+# shellcheck source=lib/impermanence-common.sh — Curated Persist Defaults, for
+# the Impermanence Editor's read-only count line (ADR 0066).
+[[ -n "${CURATED_FILES:-}" ]] \
+  || source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
 # shellcheck source=lib/guided-mask.sh
 [[ "$(type -t guided_mask_apply)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
@@ -431,6 +435,14 @@ _ctl_normalise_default() {
   fi
 }
 
+# _ctl_curated_persist_count — the number of Curated Persist Defaults always
+# persisted under impermanence (files + dirs, ADR 0066), for the Impermanence
+# Editor's read-only summary line. Reads the single-source arrays sourced from
+# impermanence-common.sh at load.
+_ctl_curated_persist_count() {
+  printf '%s' "$(( ${#CURATED_FILES[@]} + ${#CURATED_DIRS[@]} ))"
+}
+
 # _ctl_system_program_names / _ctl_user_program_names — the option set for each
 # program picker, filtered on the registry's system flag (R22). The two screens
 # have opposite requirements: host system_programs needs system:true (else
@@ -773,6 +785,7 @@ _ctl_nav_header() {
   text)     b='Type a value, Enter save   Esc back' ;;
   swapedit)  b='Enter edit/toggle   Esc back' ;;
   encryption) b='Enter edit/toggle   Esc back' ;;
+  impermanence) b='Enter edit/toggle/remove   Esc back' ;;
   datapools) b='Enter open/add   Esc back' ;;
   pooledit)  b='Enter cycle/remove   Esc back' ;;
   pooldisks) b='Enter bind/unbind ✓   Esc back' ;;
@@ -803,6 +816,7 @@ _ctl_nav_prompt() {
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
   encryption)  printf 'encryption> ' ;;
+  impermanence) printf 'impermanence> ' ;;
   datapools)   printf 'data pools> ' ;;
   pooledit)    printf 'pool> ' ;;
   pooldisks)   printf 'disks> ' ;;
@@ -1431,17 +1445,24 @@ guided_ctl_list() {
           "$([[ "$_fov" == "true" ]] && printf '  ●')"
         continue
       fi
+      # Impermanence collapses to ONE drill-down row (ADR 0066): the toggle +
+      # persist-directory management live in the Impermanence Editor, not on a
+      # bool row plus a separate Add-persist action. Carries the override dot.
+      if [[ "$cat" == "Disks" \
+            && "$_ffield" == "options.impermanence.enabled" ]]; then
+        local _impon; _impon=off
+        [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
+          options.impermanence.enabled)" == "true" ]] && _impon=on
+        printf 'Impermanence ▸ %s%s\n' "$_impon" \
+          "$([[ "$_fov" == "true" ]] && printf '  ●')"
+        continue
+      fi
       printf '%s: %s%s\n' "$(display_label "$_flabel")" \
         "$(_ctl_display_value_str "$_ffield" "$_fval")" \
         "$([[ "$_fov" == "true" ]] && printf '  ●')"
     done < <(menu_category_rows "$cat" "$state" "$base" | jq -r \
       '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring)]
              | join("\u001f")')
-    if [[ "$cat" == "Disks" ]]; then
-      [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
-        options.impermanence.enabled)" == "true" ]] \
-        && _ctl_action_row "Add persist directory ▸ extend the curated defaults"
-    fi
     _ctl_action_row "← Back" ;;
   pkgcat)
     # The categories inside one slot, each with its package count — mirroring
@@ -1587,6 +1608,25 @@ guided_ctl_list() {
       printf 'password: %s\n' "$(_ctl_secret_tag enc)"
     else
       printf 'enabled: off\n'
+    fi
+    _ctl_action_row "← Back" ;;
+  impermanence)
+    # The Impermanence Editor (ADR 0066), collapsing like swap/encryption: only
+    # the enablement row when off; when on, the persist directories (each a
+    # removable row), a read-only curated-defaults count, and the Add action.
+    local _eff _impen; _eff="$(_ctl_effective "$state" "$base")"
+    _impen="$(cfgstate_get "$_eff" options.impermanence.enabled)"
+    if [[ "$_impen" != "true" ]]; then
+      printf 'enabled: off\n'
+    else
+      printf 'enabled: on\n'
+      local _pd
+      while IFS= read -r _pd; do
+        [[ -n "$_pd" ]] && printf '%s\n' "$_pd"
+      done < <(jq -r '(.persist.directories // [])[]' <<<"$_eff")
+      printf 'curated defaults: %s paths always persisted (read-only)\n' \
+        "$(_ctl_curated_persist_count)"
+      _ctl_action_row "Add persist directory ▸ extend the curated defaults"
     fi
     _ctl_action_row "← Back" ;;
   datapools)
@@ -1786,6 +1826,7 @@ guided_ctl_enter() {
   rooteditor) _ctl_enter_rooteditor "$line" ;;
   swapedit)  _ctl_enter_swapedit "$line" ;;
   encryption) _ctl_enter_encryption "$line" ;;
+  impermanence) _ctl_enter_impermanence "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
   pooledit)  _ctl_enter_pooledit "$line" ;;
   pooldisks) _ctl_enter_pooldisks "$line" ;;
@@ -2229,9 +2270,8 @@ _ctl_enter_category() {
     _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
   "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
     _ctl_write_nav "$(nav_to_encryption "$cat")"; echo render; return ;;
-  "Add persist"*)
-    _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
-    echo render; return ;;
+  "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
+    _ctl_write_nav "$(nav_to_impermanence "$cat")"; echo render; return ;;
   "repo ▸"* | "aur ▸"*)
     _ctl_write_nav "$(nav_to_pkgcat "$cat" "${line%% *}")"
     echo render; return ;;
@@ -2418,11 +2458,13 @@ _ctl_enter_text() {
   [[ -n "$query" ]] \
     && _ctl_write_state "$(_ctl_normalise_default \
          "$(_ctl_apply_text "$(_ctl_state)" "$path" "$query")" "$path")"
-  # sysctl / create-user were reached from a list screen — return there so the
-  # new entry shows and more can be added; every other text field backs out.
+  # sysctl / create-user / persist came from a list or sub-editor screen, so
+  # return there (the new entry shows, more can be added); every other text
+  # field backs out.
   case "$path" in
   sysctl)            _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
   __newuser__)       _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
+  __persist__)       _ctl_write_nav "$(nav_to_impermanence "$cat")" ;;
   options.swap_size) _ctl_write_nav "$(nav_to_swapedit "$cat")" ;;
   *)                 _ctl_write_nav "$(nav_back "$nav")" ;;
   esac
@@ -2458,6 +2500,34 @@ _ctl_enter_encryption() {
   "password:"*)
     if _ctl_rich_chrome; then _ctl_open_secret enc; else echo "secret-enc"; fi
     return ;;
+  esac
+  echo refresh
+}
+
+# _ctl_enter_impermanence <line> — the Impermanence Editor dispatch (ADR 0066):
+# flip options.impermanence.enabled in place (strict delta — landing on the
+# baseline drops the override, like the encryption toggle) or open the
+# __persist__ add-a-directory text screen. The read-only curated-defaults row
+# is inert. Modelled on the encryption sub-editor.
+_ctl_enter_impermanence() {
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  case "$line" in
+  "← Back")
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "enabled:"*)
+    local _flipped
+    _flipped="$(jq '
+      (if (.options.impermanence // {} | has("enabled"))
+       then .options.impermanence.enabled else false end) as $c
+      | .options.impermanence.enabled = ($c | not)' <<<"$(_ctl_state)")"
+    _ctl_write_state \
+      "$(_ctl_normalise_default "$_flipped" options.impermanence.enabled)"
+    echo refresh; return ;;
+  "Add persist"*)
+    _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
+    echo render; return ;;
+  "curated defaults:"*)
+    echo refresh; return ;;   # read-only summary line
   esac
   echo refresh
 }
@@ -2706,9 +2776,10 @@ guided_ctl_action() {
               echo render ;;
       *)      echo noop ;;
       esac ;;
-    category)
-      # Add persist — only offered under Disks with impermanence on (else noop).
-      if [[ "$cat" == "Disks" && "$(cfgstate_get \
+    impermanence)
+      # Add persist — the editor's ^A accelerator (ADR 0066). Only meaningful
+      # with impermanence on (the add row only renders then; else noop).
+      if [[ "$(cfgstate_get \
         "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
         options.impermanence.enabled)" == "true" ]]; then
         _ctl_write_nav "$(nav_to_text "$cat" __persist__ "persist dir")"
