@@ -1,0 +1,43 @@
+// VM test (ADR 0062): KDE + Hyprland co-installed on a ZFS-native-encrypted
+// single disk, then a real GRAPHICAL-LOGIN proof — not just "installed", but
+// "we can get into both". A virtio-gpu with virgl (headless, verify.sessions
+// implies it) gives the guest a DRM device + GL so the compositors can start.
+//
+// On boot the test prober (installed by the harness) uses SDDM Autologin to log
+// into ONE session, waits for its compositor to actually come up (wayland socket
+// + kwin_wayland / Hyprland running), emits ===<TAG>-SESSION-OK===, then reboots
+// into the next — ending on ===SESSION-VERIFY-DONE===. The Console Answerer
+// types the ZFS passphrase at every unlock. The host asserts KDE + HYPR both
+// logged in. Longer boot timeout: two full boots + two graphical logins.
+{
+  "name": "arch-zfs-test-env-kde-hyprland-sessions",
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 4 },
+  "timeouts": { "boot": 1200 },
+  "install": {
+    "system": {
+      "hostname": "vm-kde-hypr-sessions",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": true,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "environment": { "desktop": ["kde", "hyprland"], "gpu": "auto" },
+    "users":        ["aquastias"],
+    "post_install": { "backup": false, "security": false },
+    "mode":              "single",
+    "disk":              "/dev/sda",
+    "ashift":            12,
+    "os_size":           "32G",
+    "os_pool_name":      "rpool",
+    "storage_pool_name": "dpool",
+    "storage_mount":     "/data",
+    "storage_groups":    []
+  },
+  "verify": { "sessions": ["kde", "hyprland"] }
+}

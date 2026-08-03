@@ -1,0 +1,13 @@
+[Unit]
+Description=Desktop session login verify (TEST-ONLY, VM harness)
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/desktop-verify
+TimeoutStartSec=300
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target

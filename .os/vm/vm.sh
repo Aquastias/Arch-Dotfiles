@@ -131,6 +131,19 @@ main() {
   # Per-desktop session verification (ADR 0062): each name here has its
   # session-launch artifacts asserted on the booted system (===<TAG>-OK===).
   mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' <<<"$profile_json")
+  # Per-desktop LOGIN verification (ADR 0062): each name here is actually logged
+  # into (SDDM Autologin, one per boot) and its compositor confirmed up
+  # (===<TAG>-SESSION-OK===). Needs a GPU (below) and a login user.
+  mapfile -t VM_VERIFY_SESSIONS < <(jq -r '.verify.sessions[]?' <<<"$profile_json")
+  VM_SESSION_USER="${VM_SESSION_USER:-$(jq -r '
+    .verify.session_user // (.install.users[0]? // "aquastias")' <<<"$profile_json")}"
+  # A virtual GPU (virtio-gpu + virgl, headless) — required for a real Wayland
+  # session to start. Implied by verify.sessions, else the profile's hardware.gpu.
+  if ((${#VM_VERIFY_SESSIONS[@]})); then
+    VM_GPU=true
+  else
+    VM_GPU="${VM_GPU:-$(jq -r '.hardware.gpu // false' <<<"$profile_json")}"
+  fi
   VM_VERIFY_RESILIENCE="${VM_VERIFY_RESILIENCE:-$(jq -r '.verify.resilience // false' <<<"$profile_json")}"
   VM_VERIFY_ROLLBACK="${VM_VERIFY_ROLLBACK:-$(jq -r '.verify.rollback // false' <<<"$profile_json")}"
   # The rollback proof's mechanics follow the root filesystem (zfs datasets vs
