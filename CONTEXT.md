@@ -257,8 +257,10 @@ install-scoped: they bake into Proceed and Export but never rewrite a committed
 `users/<name>/profile.jsonc` (ADR 0051). A committed user's editor shows its
 effective (core-merged) values while storing only a delta. A committed user can
 be *disabled* (excluded from the install) but not removed; only a session-created
-user is removable. Distinct from the
-User Profile, which is the committed file; the User Editor is the transient,
+user is removable. A `⧉ Clone this user` row copies the source's effective
+account-shape (shell, sudo, groups, programs — never git identity, SSH keys, or
+password) into a new ad-hoc user and opens its editor (ADR 0064). Distinct from
+the User Profile, which is the committed file; the User Editor is the transient,
 per-install override surface over it. Root's account is a single Users-screen
 row opening the [[Root Editor]] (see [[Root Shell]]).
 
