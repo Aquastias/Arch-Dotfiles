@@ -3,7 +3,9 @@
 // system=false → installed by the profile runner inside the chroot as the
 // owning user via paru, with temp NOPASSWD sudo for /var/lib/systemd/linger
 // write.
-// Requires podman to be declared before searxng in the user programs list.
+// requires podman (ADR 0065): podman's package + subuid/subgid setup must be in
+// place first. The dependency is enforced at validate_install_context — a list
+// that omits podman or orders it after searxng aborts before any side effect.
 // Quadlet units (.container/.network) are stowed from dotfiles and picked up
 // by the user systemd generator at boot; container images are pulled on first
 // start.
@@ -11,5 +13,6 @@
 {
   "name": "searxng",
   "system": false,
-  "description": "Privacy metasearch via rootless podman, on 127.0.0.1:8080"
+  "description": "Privacy metasearch via rootless podman, on 127.0.0.1:8080",
+  "requires": ["podman"]
 }

@@ -340,9 +340,21 @@ root.
 
 ### Program Config
 Declarative JSONC file at `.os/programs/<category>/<name>/config.jsonc`.
-Contains orchestration metadata only: display name, `system` flag, and optional
-description. The adjacent `install.sh` is the source of truth for installation
-logic.
+Contains orchestration metadata only: display name, `system` flag, optional
+description, and optional [[Program Dependency]] (`requires`). The adjacent
+`install.sh` is the source of truth for installation logic.
+
+### Program Dependency (`requires`)
+A `requires: [name, …]` array in a [[Program Config]] naming other Programs
+whose install-time setup — package **and** side effects (e.g. podman's
+subuid/subgid + linger) — must be in place before this one runs (ADR 0065).
+Enforced at
+`validate_install_context` before any side effect: a required program must be a
+[[System Program]] (installed before all user programs) or appear earlier in the
+same user's `programs` list, since the [[Runner]] installs a user's programs in
+declared order. A missing or later-ordered dependency aborts up front with an
+actionable message rather than hard-failing mid-install. Today only `searxng`
+declares one (`["podman"]`).
 
 ### System Program
 A program that requires root and is installed via pacman during the chroot
