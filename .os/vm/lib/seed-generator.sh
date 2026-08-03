@@ -83,6 +83,80 @@ _seed_generator_desktop_check() {
   printf '%s' "$out"
 }
 
+# _seed_generator_session_tag <de> — the marker tag for a desktop's login proof
+# (kde → KDE, hyprland → HYPR). The single source of truth shared by the writer
+# (the state file the prober reads) and the host reader (the OK-marker assertion).
+_seed_generator_session_tag() {
+  case "$1" in
+  kde)      printf 'KDE' ;;
+  hyprland) printf 'HYPR' ;;
+  esac
+}
+
+# _seed_generator_session_file <de> — the SDDM Autologin Session= value (the
+# wayland-sessions .desktop file) each desktop logs into. Plasma's Wayland
+# session is plasma.desktop; the Hyprland adapter ships hyprland.desktop under
+# /usr/local (SDDM scans it too).
+_seed_generator_session_file() {
+  case "$1" in
+  kde)      printf 'plasma.desktop' ;;
+  hyprland) printf 'hyprland.desktop' ;;
+  esac
+}
+
+# _seed_generator_session_marker <de> — the OK sentinel the prober emits once a
+# desktop's compositor is up. The host boot-verify asserts each requested
+# desktop's marker on the serial console (login actually succeeded).
+_seed_generator_session_marker() {
+  local t; t="$(_seed_generator_session_tag "$1")"
+  [[ -n "$t" ]] && printf '===%s-SESSION-OK===' "$t"
+}
+
+# _seed_generator_session_firstboot_block <user> <de>... — the graphical-login
+# verify block (ADR 0062). Mounts the freshly installed (ZFS-native-encrypted)
+# root from the live ISO and stages the TEST-ONLY session prober: the shipped
+# desktop-verify script + its graphical.target oneshot, an SDDM Autologin config
+# pointed at the FIRST desktop's session, and the state files (order/tags/user)
+# the prober chains through. On the booted guest the prober logs into each
+# session in turn (self-rebooting between them) and emits ===<TAG>-SESSION-OK===,
+# ending on ===SESSION-VERIFY-DONE===. The host waits for DONE and asserts every
+# OK marker. ZFS-only (the KDE+Hyprland desktop profiles are ZFS).
+_seed_generator_session_firstboot_block() {
+  local user="${1:?session block needs a user}"; shift
+  local -a des=("$@") sessions=() tags=() de
+  for de in "${des[@]}"; do
+    sessions+=("$(_seed_generator_session_file "$de")")
+    tags+=("$(_seed_generator_session_tag "$de")")
+  done
+  local order="${sessions[*]}" tagline="${tags[*]}" first="${sessions[0]}"
+  local fx=/root/dotfiles/.os/vm/fixtures/desktop-verify
+  cat <<BLOCK
+    if [ "\$rc" -eq 0 ]; then
+      if zpool import -f -N -R /mnt rpool 2>/dev/null; then
+        printf '%s' "\$INSTALL_ENC_PASSPHRASE" | zfs load-key -a 2>/dev/null \\
+          || true
+        zfs mount rpool/ROOT/arch || true
+      fi
+$(_seed_generator_esp_serial_lines)
+      install -d /mnt/usr/local/bin /mnt/etc/sddm.conf.d \\
+        /mnt/var/lib/desktop-verify /mnt/etc/systemd/system/graphical.target.wants
+      install -Dm755 ${fx}/desktop-verify /mnt/usr/local/bin/desktop-verify
+      install -Dm644 ${fx}/desktop-verify.service \\
+        /mnt/etc/systemd/system/desktop-verify.service
+      ln -sf ../desktop-verify.service \\
+        /mnt/etc/systemd/system/graphical.target.wants/desktop-verify.service
+      printf '%s\n' '${order}'   > /mnt/var/lib/desktop-verify/order
+      printf '%s\n' '${tagline}' > /mnt/var/lib/desktop-verify/tags
+      printf '%s\n' '${user}'    > /mnt/var/lib/desktop-verify/user
+      printf '%s\n' '0'          > /mnt/var/lib/desktop-verify/idx
+      printf '%s\n' '[Autologin]' 'User=${user}' 'Session=${first}' \\
+        > /mnt/etc/sddm.conf.d/zz-desktop-verify.conf
+      zfs umount -a || true
+      zpool export rpool || zpool export -f rpool || true
+    fi
+BLOCK
+}
+
 # (test-only) Append a serial console to the installed kernel cmdline so the
 # boot-verify phase can observe the boot. The product cmdline carries no
 # console=ttyS0 (systemd-boot itself prints to serial, but once the kernel

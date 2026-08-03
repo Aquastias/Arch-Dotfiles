@@ -30,8 +30,20 @@ source "${FLOW_TEST_DIR}/sentinel-watcher.sh"
 # shellcheck source=./console-answerer.sh
 source "${FLOW_TEST_DIR}/console-answerer.sh"
 
-# Per-flow virt-install graphics (headless).
-FLOW_GRAPHICS_ARGS=(--graphics none)
+# Per-flow virt-install graphics. Headless by default (fast, no GPU). When the
+# profile needs a real Wayland session (VM_GPU — set by verify.sessions), attach
+# a virtio-gpu with virgl 3D rendered headlessly through the host's render node,
+# so kwin_wayland / Hyprland get a DRM device + GL and can actually start.
+if [[ "${VM_GPU:-false}" == "true" ]]; then
+  # shellcheck disable=SC2054  # commas are inside single virt-install args, not
+  # array-element separators.
+  FLOW_GRAPHICS_ARGS=(
+    --video model.type=virtio,model.acceleration.accel3d=on
+    --graphics type=egl-headless,gl.rendernode=/dev/dri/renderD128
+  )
+else
+  FLOW_GRAPHICS_ARGS=(--graphics none)
+fi
 
 # Flow defaults (env overrides win; timeouts also resolved env>profile>here).
 : "${TEST_VM_DIR:=${FLOW_TEST_DIR%/vm/lib}/tests/vm}"
@@ -88,6 +100,11 @@ _flow_render_user_data() {
         "${VM_VERIFY_POOLS[*]:-}" "${VM_VERIFY_MOUNTS[*]:-}" \
         "${VM_VERIFY_BYID:-false}" "${VM_VERIFY_OWNED[*]:-}" \
         "${VM_VERIFY_FS_MOUNTS[*]:-}")"
+    elif [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]]; then
+      # Graphical-login proof (ADR 0062): stage the session prober that logs into
+      # each desktop in turn and emits its OK marker.
+      boot_block="$(_seed_generator_session_firstboot_block \
+        "${VM_SESSION_USER:-aquastias}" "${VM_VERIFY_SESSIONS[@]}")"
     else
       boot_block="$(_seed_generator_firstboot_block "" "" \
         "${VM_VERIFY_DESKTOPS[*]:-}")"
@@ -265,10 +282,15 @@ _run_boot_verify() {
   _start_console_capture "$BOOT_LOG_FILE"
   _start_console_answerer
 
+  # Session-login profiles self-reboot through each desktop and finish on
+  # ===SESSION-VERIFY-DONE===; plain profiles finish on the first-boot sentinel.
+  local wait_marker="$SEED_GENERATOR_FIRSTBOOT_MARKER"
+  [[ -n "${VM_VERIFY_SESSIONS[*]:-}" ]] && wait_marker="===SESSION-VERIFY-DONE==="
+
   local brc=0
   set +e
   sentinel_watcher_wait_marker \
-    "$BOOT_LOG_FILE" "$SEED_GENERATOR_FIRSTBOOT_MARKER" "$BOOT_TIMEOUT_SEC"
+    "$BOOT_LOG_FILE" "$wait_marker" "$BOOT_TIMEOUT_SEC"
   brc=$?
   set -e
 
@@ -277,6 +299,20 @@ _run_boot_verify() {
   _vm_running && virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
 
   ((brc == 0)) || return 125
+
+  # Per-desktop LOGIN assertion (ADR 0062): the prober logged into each session
+  # and emitted its OK marker before DONE. A missing/FAIL marker means a desktop
+  # could not be logged into — fail with a distinct code (126).
+  local _sde _sok
+  for _sde in "${VM_VERIFY_SESSIONS[@]:-}"; do
+    [[ -n "$_sde" ]] || continue
+    _sok="$(_seed_generator_session_marker "$_sde")"
+    if [[ -z "$_sok" ]] || ! grep -Fq -- "$_sok" "$BOOT_LOG_FILE"; then
+      warn "Session login verify FAILED: '${_sde}' (${_sok:-?}) — did not log in."
+      return 126
+    fi
+    info "Session login verify OK: '${_sde}' (${_sok})."
+  done
 
   # Per-desktop assertion (ADR 0062): the first-boot sentinel echoed each
   # requested desktop's OK/FAIL marker before FIRSTBOOT-OK. Require every one's

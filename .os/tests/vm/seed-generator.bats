@@ -202,6 +202,40 @@ teardown() {
   [[ ! "$output" =~ "===HYPR-OK===" ]]
 }
 
+# ── per-desktop graphical-login verification (ADR 0062) ──────────────────────
+
+@test "session marker/tag/file: kde+hyprland map consistently" {
+  [ "$(_seed_generator_session_tag kde)" = "KDE" ]
+  [ "$(_seed_generator_session_tag hyprland)" = "HYPR" ]
+  [ "$(_seed_generator_session_file kde)" = "plasma.desktop" ]
+  [ "$(_seed_generator_session_file hyprland)" = "hyprland.desktop" ]
+  [ "$(_seed_generator_session_marker kde)" = "===KDE-SESSION-OK===" ]
+  [ "$(_seed_generator_session_marker hyprland)" = "===HYPR-SESSION-OK===" ]
+}
+
+@test "session block: stages the prober, autologin (first session), + state" {
+  run _seed_generator_session_firstboot_block aquastias kde hyprland
+  [ "$status" -eq 0 ]
+  # Prober + oneshot copied from the shipped fixtures, enabled at graphical.target
+  [[ "$output" =~ "fixtures/desktop-verify/desktop-verify /mnt/usr/local/bin" ]]
+  [[ "$output" =~ "graphical.target.wants/desktop-verify.service" ]]
+  # SDDM autologin points at the FIRST desktop's session, as the named user
+  [[ "$output" =~ "User=aquastias" ]]
+  [[ "$output" =~ "Session=plasma.desktop" ]]
+  # State the prober chains through: session order + tags, in request order
+  [[ "$output" =~ "plasma.desktop hyprland.desktop" ]]
+  [[ "$output" =~ "KDE HYPR" ]]
+  # Encrypted ZFS root is imported + key-loaded to stage into it
+  [[ "$output" =~ "zfs load-key -a" ]]
+}
+
+@test "session block: single desktop yields a one-entry order" {
+  run _seed_generator_session_firstboot_block bob hyprland
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Session=hyprland.desktop" ]]
+  [[ "$output" =~ "User=bob" ]]
+}
+
 @test "firstboot block: a btrfs root mounts subvol=@ to inject the sentinel" {
   # A btrfs root keeps the OS in subvol @ (ADR 0043, issue 07). The injector
   # must mount @ — mounting the top-level subvol by partlabel would write the

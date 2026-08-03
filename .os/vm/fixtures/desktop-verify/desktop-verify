@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# =============================================================================
+# vm/fixtures/desktop-verify/desktop-verify — (TEST-ONLY) desktop login prober
+# =============================================================================
+# Installed by the VM harness (a profile's verify.sessions) as a root systemd
+# oneshot at graphical.target. It proves the operator can actually LOG IN to each
+# Wayland session, not just that the packages are present:
+#
+#   Per boot it autologs (via SDDM Autologin, configured by the harness) into ONE
+#   session, waits for that session's compositor to actually come up — a wayland
+#   socket in the login user's runtime dir AND the expected compositor process —
+#   and echoes ===<TAG>-SESSION-OK=== (or -FAIL) to the serial console the host
+#   watches. Then it advances: rewrite SDDM Autologin to the next session +
+#   reboot, or — after the last — emit ===SESSION-VERIFY-DONE=== and power off.
+#
+# State (written by the harness) lives in /var/lib/desktop-verify:
+#   order  — space-separated SDDM session files, e.g. "plasma.desktop hyprland.desktop"
+#   tags   — space-separated marker tags,        e.g. "KDE HYPR"
+#   user   — the autologin user name
+#   idx    — the current session index (starts at 0)
+#
+# NEVER shipped to a real install — the VM harness copies it onto the test guest.
+# =============================================================================
+set +e
+
+S=/var/lib/desktop-verify
+TTY=/dev/ttyS0
+CONF=/etc/sddm.conf.d/zz-desktop-verify.conf
+POLL_SECONDS="${DESKTOP_VERIFY_POLL_SECONDS:-180}"
+
+read -r -a SESSIONS < "$S/order"
+read -r -a TAGS < "$S/tags"
+read -r USER_NAME < "$S/user"
+IDX=0
+[ -f "$S/idx" ] && read -r IDX < "$S/idx"
+
+session="${SESSIONS[$IDX]}"
+tag="${TAGS[$IDX]}"
+uid="$(id -u "$USER_NAME" 2>/dev/null)"
+
+# The compositor process each session must spawn — strong "it really started"
+# evidence beyond a bare wayland socket. Matched on the SDDM session file name.
+case "$session" in
+  plasma*)   proc=kwin_wayland ;;
+  hyprland*) proc=Hyprland ;;
+  *)         proc="" ;;
+esac
+
+ok=0
+i=0
+while [ "$i" -lt "$POLL_SECONDS" ]; do
+  if [ -n "$uid" ] && ls "/run/user/${uid}"/wayland-* >/dev/null 2>&1; then
+    if [ -z "$proc" ] || pgrep -x "$proc" >/dev/null 2>&1; then
+      ok=1
+      break
+    fi
+  fi
+  i=$((i + 1))
+  sleep 1
+done
+
+if [ "$ok" = 1 ]; then
+  printf '===%s-SESSION-OK===\n' "$tag" > "$TTY"
+else
+  printf '===%s-SESSION-FAIL===\n' "$tag" > "$TTY"
+fi
+
+next=$((IDX + 1))
+if [ "$next" -lt "${#SESSIONS[@]}" ]; then
+  printf '%s\n' "$next" > "$S/idx"
+  sed -i "s|^Session=.*|Session=${SESSIONS[$next]}|" "$CONF"
+  printf '===SESSION-SWITCH-%s===\n' "${TAGS[$next]}" > "$TTY"
+  sync
+  sleep 2
+  systemctl reboot
+else
+  printf '===SESSION-VERIFY-DONE===\n' > "$TTY"
+  sync
+  sleep 2
+  systemctl poweroff
+fi
