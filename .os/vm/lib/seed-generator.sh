@@ -139,16 +139,19 @@ _seed_generator_session_firstboot_block() {
       fi
 $(_seed_generator_esp_serial_lines)
       install -d /mnt/usr/local/bin /mnt/etc/sddm.conf.d \\
-        /mnt/var/lib/desktop-verify /mnt/etc/systemd/system/graphical.target.wants
+        /mnt/usr/local/lib/desktop-verify \\
+        /mnt/etc/systemd/system/graphical.target.wants
       install -Dm755 ${fx}/desktop-verify /mnt/usr/local/bin/desktop-verify
       install -Dm644 ${fx}/desktop-verify.service \\
         /mnt/etc/systemd/system/desktop-verify.service
       ln -sf ../desktop-verify.service \\
         /mnt/etc/systemd/system/graphical.target.wants/desktop-verify.service
-      printf '%s\n' '${order}'   > /mnt/var/lib/desktop-verify/order
-      printf '%s\n' '${tagline}' > /mnt/var/lib/desktop-verify/tags
-      printf '%s\n' '${user}'    > /mnt/var/lib/desktop-verify/user
-      printf '%s\n' '0'          > /mnt/var/lib/desktop-verify/idx
+      # State on the ROOT dataset (/usr/local), NOT /var — the ZFS single-disk
+      # layout puts /var on its own dataset that would mount over (hide) it.
+      printf '%s\n' '${order}'   > /mnt/usr/local/lib/desktop-verify/order
+      printf '%s\n' '${tagline}' > /mnt/usr/local/lib/desktop-verify/tags
+      printf '%s\n' '${user}'    > /mnt/usr/local/lib/desktop-verify/user
+      printf '%s\n' '0'          > /mnt/usr/local/lib/desktop-verify/idx
       printf '%s\n' '[Autologin]' 'User=${user}' 'Session=${first}' \\
         > /mnt/etc/sddm.conf.d/zz-desktop-verify.conf
       zfs umount -a || true
