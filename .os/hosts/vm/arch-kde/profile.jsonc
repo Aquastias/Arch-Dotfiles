@@ -22,6 +22,16 @@
     "gpu":     "auto"
   },
 
+  "post_install": {
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
+  },
+
   // Opt out of Host Core's Host Package List (ADR 0056). A test install
   // wants the installer's own base, not the workstation userland — and
   // `inherit: false` is scoped to packages, so this fixture still inherits

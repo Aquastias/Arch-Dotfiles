@@ -34,6 +34,16 @@
     "gpu":     "auto"
   },
 
+  "post_install": {
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
+  },
+
   "users": ["aquastias"],
   "system_programs": ["grub"],
 
