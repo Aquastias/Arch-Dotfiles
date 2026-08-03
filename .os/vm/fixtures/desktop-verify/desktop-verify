@@ -13,7 +13,9 @@
 #   watches. Then it advances: rewrite SDDM Autologin to the next session +
 #   reboot, or — after the last — emit ===SESSION-VERIFY-DONE=== and power off.
 #
-# State (written by the harness) lives in /var/lib/desktop-verify:
+# State (written by the harness) lives in /usr/local/lib/desktop-verify — on the
+# ROOT dataset, NOT /var (which the ZFS single-disk layout puts on its own
+# dataset; state under /var would be hidden when that dataset mounts at boot):
 #   order  — space-separated SDDM session files, e.g. "plasma.desktop hyprland.desktop"
 #   tags   — space-separated marker tags,        e.g. "KDE HYPR"
 #   user   — the autologin user name
@@ -23,7 +25,7 @@
 # =============================================================================
 set +e
 
-S=/var/lib/desktop-verify
+S=/usr/local/lib/desktop-verify
 TTY=/dev/ttyS0
 CONF=/etc/sddm.conf.d/zz-desktop-verify.conf
 POLL_SECONDS="${DESKTOP_VERIFY_POLL_SECONDS:-180}"
@@ -37,6 +39,10 @@ IDX=0
 session="${SESSIONS[$IDX]}"
 tag="${TAGS[$IDX]}"
 uid="$(id -u "$USER_NAME" 2>/dev/null)"
+
+# Diagnostic to the serial console the harness watches: what state this boot saw.
+printf '===SESSION-PROBE idx=%s count=%s session=%s user=%s uid=%s===\n' \
+  "$IDX" "${#SESSIONS[@]}" "$session" "$USER_NAME" "$uid" > "$TTY"
 
 # The compositor process each session must spawn — strong "it really started"
 # evidence beyond a bare wayland socket. Matched on the SDDM session file name.

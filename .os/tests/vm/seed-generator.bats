@@ -225,6 +225,10 @@ teardown() {
   # State the prober chains through: session order + tags, in request order
   [[ "$output" =~ "plasma.desktop hyprland.desktop" ]]
   [[ "$output" =~ "KDE HYPR" ]]
+  # State MUST live on the root dataset (/usr/local), never /var — the ZFS
+  # single-disk layout gives /var its own dataset that would hide it at boot.
+  [[ "$output" =~ "/usr/local/lib/desktop-verify/order" ]]
+  [[ ! "$output" =~ "/var/lib/desktop-verify" ]]
   # Encrypted ZFS root is imported + key-loaded to stage into it
   [[ "$output" =~ "zfs load-key -a" ]]
 }
