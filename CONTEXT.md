@@ -298,6 +298,22 @@ stored value. The back end (`collect_enc_passphrase`) consumes it by precedence
 prompt, so an interactive profile/manual install keeps the tty prompt while
 `--unattended` takes the default (ADR 0059, extending ADR 0054).
 
+### Impermanence Editor
+The Guided Installer sub-editor reached from the single `Impermanence ▸ on/off`
+row on the **Disks** screen (with the standard override dot), which merges the
+enablement toggle and persist-directory management into one section — replacing
+the former inline `impermanence:` toggle plus a separate `Add persist directory`
+action row (ADR 0066). Modelled on the [[Encryption Editor]] / swap sub-editor,
+it collapses when off (only `enabled: off`); when on it shows `enabled: on`
+(strict-delta), one removable row per user-added persist directory, a read-only
+`curated defaults: N paths always persisted` line, and an `Add persist
+directory` action appending to `persist.directories`. Scope is directories only
+(`persist.files` and the ZFS-only `dataset`/`mount` stay file-editable);
+directories already stored are retained, not purged, when impermanence is
+toggled off. Menu surface only — the stored shape, install-time validation, the
+hybrid-GPU ban (ADR 0060), and rollback mechanics (ADR 0008 / 0044) are
+unchanged.
+
 ### Root Shell
 The root login shell, chosen in the Guided Installer via the `shell` row of the
 [[Root Editor]] (Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish`, the same
