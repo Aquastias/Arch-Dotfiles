@@ -60,11 +60,13 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
 
 # ── session override (direct Hyprland, not start-hyprland) ───────────────────
 
-@test "ships a wayland-session override that launches Hyprland directly" {
+@test "ships a wayland-session override that launches Hyprland on DRM" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   [ -f "$SESSION" ]
-  grep -qx 'Exec=Hyprland' "$SESSION"
+  # Direct Hyprland (no start-hyprland) with WAYLAND_DISPLAY/DISPLAY unset so
+  # aquamarine uses the DRM backend, not its nested Wayland one (ADR 0067).
+  grep -qx 'Exec=env -u WAYLAND_DISPLAY -u DISPLAY Hyprland' "$SESSION"
 }
 
 @test "session override Exec never points at start-hyprland" {
@@ -74,9 +76,9 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   ! grep -qE '^Exec=.*start-hyprland' "$SESSION"
 }
 
-# ── display manager: greetd iff KDE is absent ────────────────────────────────
+# ── display manager: greetd whenever Hyprland is installed (ADR 0067) ────────
 
-@test "Hyprland-only: greetd installed, enabled, tuigreet configured" {
+@test "Hyprland-only: greetd installed, enabled, tuigreet --cmd Hyprland" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   grep -q "greetd" "$PACMAN_LOG"
@@ -84,18 +86,24 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   grep -q "tuigreet --cmd Hyprland" "$GREETD_CONF_DIR/config.toml"
 }
 
-@test "KDE co-installed: greetd is not installed or enabled" {
+@test "KDE co-installed: greetd owns the DM with a curated session picker" {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
-  ! grep -q "greetd" "$PACMAN_LOG"
-  ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
-  [ ! -f "$GREETD_CONF_DIR/config.toml" ]
+  grep -q "greetd" "$PACMAN_LOG"
+  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
+  # A session picker over the curated dir, NOT a fixed --cmd Hyprland.
+  grep -q -- "--sessions.*wayland-sessions" "$GREETD_CONF_DIR/config.toml"
+  ! grep -q -- "--cmd Hyprland" "$GREETD_CONF_DIR/config.toml"
+  # Plasma is symlinked into the curated dir so the picker offers it (and our
+  # Hyprland override) — never the packaged crashy start-hyprland session.
+  [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
 }
 
-@test "KDE co-installed is order-independent (hyprland listed first)" {
+@test "KDE co-installed: greetd is enabled regardless of DE order" {
   run_hypr "hyprland kde"
   [ "$status" -eq 0 ]
-  ! grep -q "greetd" "$PACMAN_LOG"
+  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
+  [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
 }
 
 # ── aquamarine DRM pinning: hybrid amd+nvidia only ───────────────────────────

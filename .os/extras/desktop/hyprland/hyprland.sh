@@ -46,59 +46,78 @@ pacman -S --noconfirm --needed \
   wl-clipboard
 
 # =============================================================================
-# SESSION LAUNCHER — direct Hyprland, not start-hyprland
+# SESSION LAUNCHER — direct Hyprland, DRM backend, not start-hyprland
 # =============================================================================
-# The packaged hyprland.desktop execs /usr/bin/start-hyprland, a supervisor that
-# aborts a few seconds into startup (`std::system_error: Resource deadlock
-# avoided`, core dump) — so a display manager bounces straight back to the
-# greeter while a bare `Hyprland` runs fine. This bites the SDDM path (KDE
-# co-installed); the greetd path below already launches `Hyprland` directly.
-# Ship a /usr/local session override so SDDM launches it the same way:
-# /usr/local wins over /usr/share in a DM's session scan and survives upgrades.
-section "Hyprland session launcher (direct)"
+# Two fixes are baked into the Exec:
+#  1. Direct `Hyprland`, not the packaged `start-hyprland` supervisor, which
+#     aborts a few seconds in (`std::system_error: Resource deadlock avoided`,
+#     core dump) and bounces a DM back to the greeter; a bare `Hyprland` runs.
+#  2. `env -u WAYLAND_DISPLAY -u DISPLAY` — if either is set (a prior Plasma
+#     Wayland session leaves them in the lingering user manager), aquamarine
+#     picks its NESTED backend and renders into an invisible parent window
+#     instead of driving the panel (black screen). Unsetting them forces the
+#     DRM/KMS backend. Shipped in /usr/local so it wins the greeter's session
+#     scan and survives package upgrades; the greetd picker points here.
+section "Hyprland session launcher (direct, DRM backend)"
 install -d "${ROOT}${WAYLAND_SESSIONS_DIR}"
 cat > "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland.desktop" <<'DESKTOP'
 [Desktop Entry]
 Name=Hyprland
-Comment=Hyprland compositor (direct launch; avoids start-hyprland crash)
-Exec=Hyprland
+Comment=Hyprland compositor (direct launch, DRM backend)
+Exec=env -u WAYLAND_DISPLAY -u DISPLAY Hyprland
 Type=Application
 DesktopNames=Hyprland
 Keywords=tiling;wayland;compositor;
 DESKTOP
 
 # =============================================================================
-# DISPLAY MANAGER — greetd when KDE is absent
+# DISPLAY MANAGER — greetd whenever Hyprland is installed
 # =============================================================================
-# SDDM (installed + enabled by the KDE adapter) owns the DM whenever KDE is
-# co-installed; its greeter offers both the Plasma and the Hyprland session via
-# the override above. Only when Hyprland is the sole desktop does this adapter
-# own the DM, through greetd + tuigreet launching the compositor directly. The
-# check reads the full resolved desktop set, so it is independent of adapter
-# execution order (ADR 0005, ADR 0062).
+# greetd/tuigreet launches the compositor directly on its VT, so aquamarine
+# takes DRM master. SDDM does NOT grant the aquamarine session master — the
+# atomic KMS commit fails "Permission denied" and Hyprland black-screens — even
+# though kwin survives the same SDDM handoff. So greetd owns the DM for BOTH a
+# sole-Hyprland install AND a KDE co-install, superseding ADR 0062's "SDDM owns
+# the DM when KDE is present" (that path never lit the panel for Hyprland).
+# KDE-only installs keep SDDM (kde.sh enables it only when Hyprland is absent).
+# The check reads the full resolved desktop set, so it is independent of adapter
+# execution order (ADR 0005, ADR 0067).
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
 _has_kde=false
 for _de in "${_desktops[@]}"; do
   [[ "$_de" == "kde" ]] && { _has_kde=true; break; }
 done
 
-if ! $_has_kde; then
-  section "Display Manager: greetd"
-  pacman -S --noconfirm --needed greetd greetd-tuigreet
-  mkdir -p "$GREETD_CONF_DIR"
-  cat > "${GREETD_CONF_DIR}/config.toml" <<'TOML'
+section "Display Manager: greetd"
+pacman -S --noconfirm --needed greetd greetd-tuigreet
+mkdir -p "$GREETD_CONF_DIR"
+if $_has_kde; then
+  # KDE co-installed: a session picker over EXACTLY the good sessions — this
+  # adapter's direct-launch Hyprland override plus Plasma (symlinked in) — from
+  # the one curated /usr/local dir, so the packaged (crashy) start-hyprland
+  # session and the uwsm variant in /usr/share never appear. tuigreet's default
+  # scan is /usr/share/*; --sessions repoints it (tuigreet(1)).
+  ln -sf /usr/share/wayland-sessions/plasma.desktop \
+    "${ROOT}${WAYLAND_SESSIONS_DIR}/plasma.desktop"
+  _greeter_cmd="tuigreet --remember --remember-session --sessions ${WAYLAND_SESSIONS_DIR}"
+  _greeter_desc="KDE + Hyprland session picker"
+else
+  # Sole Hyprland: launch it directly. greetd starts the session with a clean
+  # env (the greeter is a TUI, no compositor), so WAYLAND_DISPLAY is unset and
+  # aquamarine uses the DRM backend without the env -u guard the override adds.
+  _greeter_cmd="tuigreet --cmd Hyprland"
+  _greeter_desc="Hyprland"
+fi
+cat > "${GREETD_CONF_DIR}/config.toml" <<TOML
 [terminal]
 vt = 1
 
 [default_session]
-command = "tuigreet --cmd Hyprland"
+command = "${_greeter_cmd}"
 user = "greeter"
 TOML
-  systemctl enable greetd
-  info "Hyprland is the sole desktop — greetd + tuigreet enabled."
-else
-  info "KDE co-installed — SDDM owns the DM; the greeter offers Hyprland too."
-fi
+systemctl enable greetd
+info "greetd + tuigreet enabled (${_greeter_desc})."
 
 # =============================================================================
 # AQUAMARINE DRM PINNING — hybrid AMD+NVIDIA only

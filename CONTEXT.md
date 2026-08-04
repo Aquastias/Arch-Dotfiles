@@ -746,14 +746,22 @@ Replaces the never-invoked `envycontrol` switcher.
 
 ### Display Manager
 Auto-selected by each Desktop Environment Adapter based on the full resolved
-desktop array — not a config key. SDDM is enabled by the KDE adapter whenever
-KDE is selected (including a KDE+Hyprland co-install, where its greeter offers
-both sessions); greetd + greetd-tuigreet is owned by the Hyprland adapter only
-when Hyprland is the sole desktop (ADR 0062, restoring the rule ADR 0050 had
-removed). The choice reads the full desktop set, so it is independent of adapter
-execution order. Under impermanence the same display-manager login is used — no
-tty1 autologin — with the enablement mirrored onto the never-rolled-back
-`/usr/lib` tree so it survives the rolled-back root (ADR 0061).
+desktop array — not a config key. **greetd + greetd-tuigreet owns the DM
+whenever Hyprland is installed** — sole Hyprland *and* a KDE co-install —
+because greetd launches the compositor directly on its VT so Hyprland's
+aquamarine backend takes DRM master; SDDM does **not** grant the aquamarine
+session master (its atomic KMS commit fails `Permission denied`) and
+black-screens Hyprland, though kwin survives the same handoff (ADR 0067,
+superseding ADR 0062's "SDDM owns the DM when KDE is present"). SDDM is enabled
+by the KDE adapter only for a **KDE-only** install; `sddm` stays installed but
+disabled on a co-install. For a co-install the Hyprland adapter points tuigreet
+at a curated `/usr/local/share/wayland-sessions` (its direct-launch Hyprland
+override, `env -u WAYLAND_DISPLAY -u DISPLAY Hyprland`, plus Plasma symlinked
+in) so the packaged crashy `start-hyprland` session never appears. The choice
+reads the full desktop set, so it is independent of adapter execution order.
+Under impermanence the same display-manager login is used — no tty1 autologin —
+with the enablement mirrored onto the never-rolled-back `/usr/lib` tree so it
+survives the rolled-back root (ADR 0061).
 
 ### User Secrets
 SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains

@@ -54,8 +54,20 @@ if [[ "$do_shell" == "true" ]]; then
     qt6-wayland \
     xdg-utils
 
-  systemctl enable sddm
-  info "Plasma shell installed. SDDM enabled."
+  # greetd owns the DM when Hyprland is co-installed (it grants the aquamarine
+  # session DRM master; SDDM does not — ADR 0067). Enable SDDM only for a
+  # KDE-only install; sddm stays installed either way (harmless when disabled).
+  read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
+  _has_hypr=false
+  for _de in "${_desktops[@]}"; do
+    [[ "$_de" == "hyprland" ]] && { _has_hypr=true; break; }
+  done
+  if $_has_hypr; then
+    info "Hyprland co-installed — greetd owns the DM (hyprland.sh); SDDM disabled."
+  else
+    systemctl enable sddm
+    info "Plasma shell installed. SDDM enabled."
+  fi
 fi
 
 # =============================================================================
