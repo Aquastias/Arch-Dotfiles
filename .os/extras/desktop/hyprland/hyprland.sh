@@ -40,10 +40,23 @@ GPU_LIB_ONLY=1 source "${SCRIPT_DIR}/../../../lib/chroot/gpu.sh"
 section "Hyprland core"
 pacman -S --noconfirm --needed \
   hyprland \
+  seatd \
   xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk \
   polkit-kde-agent \
   wl-clipboard
+
+# SEAT MANAGER — seatd, not logind (ADR 0068).
+# aquamarine (Hyprland's backend) could not obtain DRM master via logind on
+# real hardware: every atomic KMS commit returned "Permission denied" and the
+# compositor retry-looped forever (black screen / "hotplug storm"), even though
+# the session showed Active on seat0 and nothing else held the card. aquamarine
+# PREFERS seatd anyway — its log tries /run/seatd.sock first, then falls back to
+# the failing logind path. seatd grants DRM master directly. Enable it; users
+# get the `seat` group from User Core (filtered out on hosts without seatd), so
+# both greetd sessions and manual launches acquire master. kwin is unaffected —
+# this is Hyprland/aquamarine-specific.
+systemctl enable seatd
 
 # =============================================================================
 # SESSION LAUNCHER — direct Hyprland, DRM backend, not start-hyprland

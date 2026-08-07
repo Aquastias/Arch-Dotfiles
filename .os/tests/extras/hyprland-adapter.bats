@@ -42,10 +42,25 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   local p
-  for p in hyprland xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
+  for p in hyprland seatd xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
            polkit-kde-agent wl-clipboard; do
     grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
   done
+}
+
+# aquamarine can't get DRM master via logind on some hardware (atomic KMS
+# commit → "Permission denied", compositor retry-loops → black screen); it uses
+# seatd instead, which must be enabled (ADR 0068).
+@test "enables seatd so aquamarine gets DRM master" {
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  grep -q "systemctl enable seatd" "$SYSTEMCTL_LOG"
+}
+
+@test "enables seatd on a KDE co-install too" {
+  run_hypr "kde hyprland"
+  [ "$status" -eq 0 ]
+  grep -q "systemctl enable seatd" "$SYSTEMCTL_LOG"
 }
 
 @test "installs no companion packages and no qt6ct" {
