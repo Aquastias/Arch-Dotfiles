@@ -17,7 +17,7 @@
 {
   "shell": "/bin/zsh",
   "sudo": false,
-  "groups": ["audio", "video", "storage", "optical", "network"],
+  "groups": ["audio", "video", "storage", "optical", "network", "seat"],
   "programs": ["docker", "virt-manager"],
   "ssh_authorized_keys": []
 }
