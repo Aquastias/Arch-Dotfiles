@@ -42,8 +42,8 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   local p
-  for p in hyprland seatd xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
-           polkit-kde-agent wl-clipboard; do
+  for p in hyprland seatd uwsm xdg-desktop-portal-hyprland \
+           xdg-desktop-portal-gtk polkit-kde-agent wl-clipboard; do
     grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
   done
 }
@@ -73,32 +73,35 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   done
 }
 
-# ── session override (direct Hyprland, not start-hyprland) ───────────────────
+# ── session override (start-hyprland, DRM backend) ───────────────────────────
 
-@test "ships a wayland-session override that launches Hyprland on DRM" {
+@test "ships a wayland-session override that launches start-hyprland on DRM" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   [ -f "$SESSION" ]
-  # Direct Hyprland (no start-hyprland) with WAYLAND_DISPLAY/DISPLAY unset so
-  # aquamarine uses the DRM backend, not its nested Wayland one (ADR 0067).
-  grep -qx 'Exec=env -u WAYLAND_DISPLAY -u DISPLAY Hyprland' "$SESSION"
+  # start-hyprland (Hyprland 0.53+ recommended, kills the red warning; the old
+  # crash was the DRM-master issue, fixed by seatd), WAYLAND_DISPLAY/DISPLAY
+  # unset so aquamarine uses the DRM backend not the nested one (ADR 0067/0068).
+  grep -qx 'Exec=env -u WAYLAND_DISPLAY -u DISPLAY start-hyprland' "$SESSION"
 }
 
-@test "session override Exec never points at start-hyprland" {
+@test "offers a uwsm-managed Hyprland session alongside it" {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
-  [ -f "$SESSION" ]
-  ! grep -qE '^Exec=.*start-hyprland' "$SESSION"
+  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
 }
 
 # ── display manager: greetd whenever Hyprland is installed (ADR 0067) ────────
 
-@test "Hyprland-only: greetd installed, enabled, tuigreet --cmd Hyprland" {
+@test "Hyprland-only: greetd enabled with a start-hyprland/uwsm picker" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   grep -q "greetd" "$PACMAN_LOG"
   grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
-  grep -q "tuigreet --cmd Hyprland" "$GREETD_CONF_DIR/config.toml"
+  # A picker over the curated dir (start-hyprland + uwsm), not a fixed --cmd.
+  grep -q -- "--sessions.*wayland-sessions" "$GREETD_CONF_DIR/config.toml"
+  ! grep -q -- "--cmd" "$GREETD_CONF_DIR/config.toml"
+  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
 }
 
 @test "KDE co-installed: greetd owns the DM with a curated session picker" {
@@ -106,12 +109,13 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   [ "$status" -eq 0 ]
   grep -q "greetd" "$PACMAN_LOG"
   grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
-  # A session picker over the curated dir, NOT a fixed --cmd Hyprland.
+  # A session picker over the curated dir, NOT a fixed --cmd.
   grep -q -- "--sessions.*wayland-sessions" "$GREETD_CONF_DIR/config.toml"
-  ! grep -q -- "--cmd Hyprland" "$GREETD_CONF_DIR/config.toml"
-  # Plasma is symlinked into the curated dir so the picker offers it (and our
-  # Hyprland override) — never the packaged crashy start-hyprland session.
+  ! grep -q -- "--cmd" "$GREETD_CONF_DIR/config.toml"
+  # Curated dir offers Plasma + both Hyprland launchers; the /usr/share
+  # duplicates never reach the picker.
   [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
+  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
 }
 
 @test "KDE co-installed: greetd is enabled regardless of DE order" {
