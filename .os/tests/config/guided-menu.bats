@@ -169,6 +169,23 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row environment.gpu | jq -e '.overridden == true'
 }
 
+@test "menu_rows: the display_manager row sits under Environment, defaults auto" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row environment.display_manager \
+    | jq -e '.section == "Environment"'
+  echo "$output" | row environment.display_manager | jq -e '.value == "auto"'
+  echo "$output" | row environment.display_manager | jq -e '.overridden == false'
+}
+
+@test "menu_rows: a chosen display_manager shows its value and is overridden" {
+  state="$(cfgstate_set "$(cfgstate_new)" environment.display_manager '"sddm"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row environment.display_manager | jq -e '.value == "sddm"'
+  echo "$output" | row environment.display_manager | jq -e '.overridden == true'
+}
+
 # ── Options (mirrors) / Packages rows (folded in by issue 02) ──────────────
 
 @test "menu_rows: Options carries mirror_countries (default 5) + multilib" {

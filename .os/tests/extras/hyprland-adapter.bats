@@ -3,10 +3,13 @@
 #
 # Strategy: run the adapter as a subprocess with pacman and systemctl stubbed as
 # executables in a temp bin dir prepended to PATH. Injectable seams:
-#   GREETD_CONF_DIR      — greetd config dir
 #   WAYLAND_SESSIONS_DIR — session-override dir (default; written under ROOT)
 #   ROOT                 — prefix for session override + aquamarine pin writes
 #   STATE                — install-state.json for the resolved .gpu array
+#
+# The display manager is no longer this adapter's concern (ADR 0069) — it only
+# writes the curated session files; a separate Display Manager Adapter owns the
+# greeter.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -15,13 +18,12 @@ setup() {
 
   PACMAN_LOG="$TEST_DIR/pacman.log"
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
-  GREETD_CONF_DIR="$TEST_DIR/greetd"
   ROOT="$TEST_DIR/root"
   STATE="$TEST_DIR/state.json"
   SESSION="$ROOT/usr/local/share/wayland-sessions/hyprland.desktop"
   ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
 
-  export PACMAN_LOG SYSTEMCTL_LOG GREETD_CONF_DIR ROOT STATE
+  export PACMAN_LOG SYSTEMCTL_LOG ROOT STATE
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
@@ -91,37 +93,31 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
 }
 
-# ── display manager: greetd whenever Hyprland is installed (ADR 0067) ────────
+# ── display manager relinquished to the DM adapter (ADR 0069) ────────────────
+# The Hyprland adapter no longer installs or enables any greeter; it only writes
+# the curated session files the selected Display Manager Adapter offers.
 
-@test "Hyprland-only: greetd enabled with a start-hyprland/uwsm picker" {
+@test "Hyprland adapter installs no greeter and enables no display manager" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  grep -q "greetd" "$PACMAN_LOG"
-  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
-  # A picker over the curated dir (start-hyprland + uwsm), not a fixed --cmd.
-  grep -q -- "--sessions.*wayland-sessions" "$GREETD_CONF_DIR/config.toml"
-  ! grep -q -- "--cmd" "$GREETD_CONF_DIR/config.toml"
-  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
+  ! grep -q "greetd" "$PACMAN_LOG"
+  ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
+  ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 
-@test "KDE co-installed: greetd owns the DM with a curated session picker" {
+@test "KDE co-installed: curated dir offers Plasma + both Hyprland launchers" {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
-  grep -q "greetd" "$PACMAN_LOG"
-  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
-  # A session picker over the curated dir, NOT a fixed --cmd.
-  grep -q -- "--sessions.*wayland-sessions" "$GREETD_CONF_DIR/config.toml"
-  ! grep -q -- "--cmd" "$GREETD_CONF_DIR/config.toml"
-  # Curated dir offers Plasma + both Hyprland launchers; the /usr/share
-  # duplicates never reach the picker.
+  # The /usr/share duplicates never reach the picker — the greeter is pointed
+  # at this curated dir (greetd via --sessions, sddm via pinned SessionDir).
   [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
   [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
+  [ -f "$SESSION" ]
 }
 
-@test "KDE co-installed: greetd is enabled regardless of DE order" {
+@test "KDE co-installed: Plasma session is curated regardless of DE order" {
   run_hypr "hyprland kde"
   [ "$status" -eq 0 ]
-  grep -q "systemctl enable greetd" "$SYSTEMCTL_LOG"
   [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
 }
 

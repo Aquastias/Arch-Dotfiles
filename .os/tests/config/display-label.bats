@@ -20,6 +20,8 @@ setup() {
   [ "$(display_label amd)" = "AMD" ]
   [ "$(display_label nvidia)" = "NVIDIA" ]
   [ "$(display_label hyprland)" = "Hyprland" ]
+  [ "$(display_label sddm)" = "SDDM" ]
+  [ "$(display_label greetd)" = "greetd" ]
 }
 
 @test "curated: systemd-boot keeps its literal lower-case proper name" {

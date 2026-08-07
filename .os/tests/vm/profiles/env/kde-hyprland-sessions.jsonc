@@ -9,6 +9,13 @@
 // into the next — ending on ===SESSION-VERIFY-DONE===. The Console Answerer
 // types the ZFS passphrase at every unlock. The host asserts KDE + HYPR both
 // logged in. Longer boot timeout: two full boots + two graphical logins.
+//
+// display_manager is pinned to sddm (ADR 0069): the prober drives SDDM
+// Autologin, so sddm must be the installed+enabled greeter (dm-sddm owns it) —
+// and this cell is exactly what proves SDDM-launched Hyprland works now that
+// seatd grants aquamarine DRM master independent of the greeter (ADR 0068).
+// A greetd cell proves the greetd path via the lighter verify.desktops DM-OK
+// assertion, not this session prober.
 {
   "name": "arch-zfs-test-env-kde-hyprland-sessions",
   "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 4 },
@@ -27,7 +34,9 @@
       "swap":       true,
       "swap_size":  "auto"
     },
-    "environment": { "desktop": ["kde", "hyprland"], "gpu": "auto" },
+    "environment": {
+      "desktop": ["kde", "hyprland"], "gpu": "auto", "display_manager": "sddm"
+    },
     "users":        ["aquastias"],
     "post_install": { "backup": false, "security": false },
     "mode":              "single",

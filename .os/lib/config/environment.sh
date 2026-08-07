@@ -21,6 +21,12 @@ ENVIRONMENT_DESKTOP=()
 # shellcheck disable=SC2034
 ENVIRONMENT_GPU=()
 
+# Set by _resolve_env_validate (raw authored value) then rewritten to the
+# concrete greeter by _resolve_env_display_manager; consumed by
+# install_state_write. Scalar: greetd | sddm | none (auto resolves away).
+# shellcheck disable=SC2034
+ENVIRONMENT_DISPLAY_MANAGER=""
+
 # Set by _resolve_env_gpu; consumed by collect_packages.
 # Declared here so collect_packages can detect unresolved state.
 GPU_PACMAN_PACKAGES=()
@@ -32,6 +38,7 @@ AUDIO_PACKAGES=()
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
 _VALID_DESKTOP=(kde hyprland)
 _VALID_GPU=(amd nvidia intel auto)
+_VALID_DISPLAY_MANAGER=(auto greetd sddm)
 
 # =============================================================================
 # GPU RESOLUTION
@@ -191,6 +198,43 @@ _resolve_env_validate() {
     done
     $_ok || error "Unknown GPU '${_gpu}'. Valid: ${_VALID_GPU[*]}."
   done
+
+  # ── display manager ────────────────────────────────────────────────────────
+  # Scalar discriminator; defaults to `auto`. The concrete greeter is derived
+  # from the desktop set later by _resolve_env_display_manager (ADR 0069).
+  ENVIRONMENT_DISPLAY_MANAGER="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.display_manager // "auto"')"
+  local _dm_ok=false
+  for _v in "${_VALID_DISPLAY_MANAGER[@]}"; do
+    [[ "$ENVIRONMENT_DISPLAY_MANAGER" == "$_v" ]] && _dm_ok=true && break
+  done
+  $_dm_ok || error "Unknown display_manager '${ENVIRONMENT_DISPLAY_MANAGER}'." \
+    "Valid: ${_VALID_DISPLAY_MANAGER[*]}."
+}
+
+# Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
+# greeter the chroot dispatches (ADR 0069). `auto` → `greetd` when Hyprland is
+# in the resolved desktop set, else `sddm`; `none` when no desktop is selected.
+# A concrete greeter with no desktop aborts — a greeter with no session to
+# launch. Explicit `greetd`/`sddm` pass through unchanged. Requires
+# ENVIRONMENT_DESKTOP already resolved by _resolve_env_validate.
+_resolve_env_display_manager() {
+  local authored="${ENVIRONMENT_DISPLAY_MANAGER:-auto}"
+  if [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]]; then
+    if [[ "$authored" == "auto" ]]; then
+      ENVIRONMENT_DISPLAY_MANAGER="none"
+      return 0
+    fi
+    error "display_manager '${authored}' selected but no desktop is set —" \
+      "a greeter has no session to launch."
+  fi
+  if [[ "$authored" == "auto" ]]; then
+    local _dm="sddm" _d
+    for _d in "${ENVIRONMENT_DESKTOP[@]}"; do
+      [[ "$_d" == "hyprland" ]] && { _dm="greetd"; break; }
+    done
+    ENVIRONMENT_DISPLAY_MANAGER="$_dm"
+  fi
 }
 
 # =============================================================================
@@ -202,10 +246,12 @@ _resolve_env_validate() {
 resolve_environment() {
   ENVIRONMENT_DESKTOP=()
   ENVIRONMENT_GPU=()
+  ENVIRONMENT_DISPLAY_MANAGER=""
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
   AUDIO_PACKAGES=()
   _resolve_env_validate
+  _resolve_env_display_manager
   _resolve_env_gpu
   _resolve_env_audio
 }

@@ -4,9 +4,11 @@
 // manifest did not copy — and aborted at [chroot:extras]. The install must now
 // run to completion, the encrypted ZFS system must boot (Console Answerer types
 // the test passphrase), and BOTH desktops' session-launch artifacts must be
-// present: KDE (startplasma-wayland + plasma.desktop + sddm enabled) and
-// Hyprland (Hyprland + the /usr/local wayland-sessions override the adapter
-// writes so SDDM offers it alongside Plasma).
+// present: KDE (startplasma-wayland + plasma.desktop) and Hyprland (Hyprland +
+// the /usr/local wayland-sessions override the adapter writes). The display
+// manager is a separate axis (ADR 0069): with `display_manager` unset it
+// resolves to `auto` → greetd (Hyprland is present), asserted on its own via
+// the DM-OK marker rather than folded into the KDE artifact check.
 {
   "name": "arch-zfs-test-env-kde-hyprland-enc",
   "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },

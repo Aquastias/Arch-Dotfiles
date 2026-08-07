@@ -47,6 +47,14 @@ make_de_stub() {
   chmod +x "$EXTRAS_DIR/desktop/$de/$de.sh"
 }
 
+make_dm_stub() {
+  local dm="$1"
+  mkdir -p "$EXTRAS_DIR/dm/$dm"
+  printf '#!/usr/bin/env bash\necho "dm:%s" >> "$STUB_LOG"\n' "$dm" \
+    > "$EXTRAS_DIR/dm/$dm/$dm.sh"
+  chmod +x "$EXTRAS_DIR/dm/$dm/$dm.sh"
+}
+
 # ── runner dispatch ───────────────────────────────────────────────────────
 
 @test "empty ENVIRONMENT_DESKTOP exits 0 and invokes no adapters" {
@@ -78,6 +86,53 @@ make_de_stub() {
     EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
   [ "$status" -ne 0 ]
   [[ "$output" =~ "gnome" ]]
+}
+
+# ── display manager dispatch (ADR 0069) ────────────────────────────────────
+
+@test "resolved DISPLAY_MANAGER dispatches its adapter" {
+  make_de_stub kde
+  make_dm_stub sddm
+  run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="sddm" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  [ "$status" -eq 0 ]
+  grep -qx "dm:sddm" "$STUB_LOG"
+}
+
+@test "the DM adapter runs after every desktop adapter" {
+  make_de_stub kde
+  make_de_stub hyprland
+  make_dm_stub greetd
+  run env ENVIRONMENT_DESKTOP="kde hyprland" DISPLAY_MANAGER="greetd" \
+    STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$STUB_LOG")" = "$(printf 'kde\nhyprland\ndm:greetd')" ]
+}
+
+@test "DISPLAY_MANAGER=none dispatches no DM adapter" {
+  make_de_stub kde
+  make_dm_stub sddm
+  run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="none" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  [ "$status" -eq 0 ]
+  ! grep -q "dm:" "$STUB_LOG"
+}
+
+@test "unset DISPLAY_MANAGER dispatches no DM adapter" {
+  make_de_stub kde
+  make_dm_stub sddm
+  run env ENVIRONMENT_DESKTOP="kde" STATE="$STATE_FILE" \
+    EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  [ "$status" -eq 0 ]
+  ! grep -q "dm:" "$STUB_LOG"
+}
+
+@test "unknown DISPLAY_MANAGER exits non-zero with a clear error" {
+  make_de_stub kde
+  run env ENVIRONMENT_DESKTOP="kde" DISPLAY_MANAGER="lightdm" \
+    STATE="$STATE_FILE" EXTRAS_DIR="$EXTRAS_DIR" bash "$RUNNER"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "lightdm" ]]
 }
 
 # Security & Backup Extras are no longer dispatched here — they install via the

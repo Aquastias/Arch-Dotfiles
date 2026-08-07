@@ -132,8 +132,9 @@ _PROFILE_SCHEMA_host=(
   "options.ssh.enabled" "options.multilib" "options.mirror_countries[]"
   "options.impermanence.enabled" "options.impermanence.dataset"
   "options.impermanence.mount"
-  # — environment (desktop/gpu are string|array unions) —
-  "environment.desktop[]" "environment.gpu[]"
+  # — environment (desktop/gpu are string|array unions; display_manager is a
+  #   scalar discriminator resolved against the desktop set — ADR 0069) —
+  "environment.desktop[]" "environment.gpu[]" "environment.display_manager"
   # — layout scalars —
   "ashift" "os_size" "os_pool_name" "storage_pool_name" "storage_mount"
   "mode" "disk"

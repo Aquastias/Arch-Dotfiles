@@ -54,6 +54,7 @@ _PKGRES_SOURCES=(
   "luks|Disks"
   "gpu|Environment"
   "audio|Environment"
+  "display-manager|Environment"
   "login-shell|Users"
   "kde-shell|Environment"
   "kde-apps|Environment"
@@ -207,6 +208,24 @@ pkgres_resolve() {
     _pkgres_de_packages "$de"
   done <<<"$desktops"
 
+  # ── display manager (ADR 0069) ────────────────────────────────────────────
+  # The greeter is its own derived set keyed on the resolved display_manager,
+  # not smuggled inside kde-shell. `auto` resolves the same way the installer
+  # does: greetd if Hyprland is selected, else sddm; none when no desktop.
+  local dm_raw dm
+  dm_raw="$(_pkgres_jq "$cfg" '.environment.display_manager // "auto"')"
+  if [[ -z "$desktops" ]]; then
+    dm="none"
+  elif [[ "$dm_raw" == "auto" ]]; then
+    if grep -qx "hyprland" <<<"$desktops"; then dm="greetd"; else dm="sddm"; fi
+  else
+    dm="$dm_raw"
+  fi
+  case "$dm" in
+    greetd) _pkgres_emit display-manager derived greetd greetd-tuigreet ;;
+    sddm)   _pkgres_emit display-manager derived sddm ;;
+  esac
+
   # ── login shells ──────────────────────────────────────────────────────────
   # The chroot installs a user's login shell package when the binary is
   # missing, so the shell is derived from the setting, never declared.
@@ -279,9 +298,11 @@ _pkgres_de_packages() {
   # data — mirrored here so the report is complete.
   local _sh; _sh="$(jq -r '.shell // true' <<<"$json")"
   if [[ "$_sh" == "true" && "$de" == "kde" ]]; then
+    # sddm the PACKAGE moved to the display-manager set (ADR 0069); sddm-kcm (a
+    # KDE config app) stays with the KDE shell.
     _pkgres_emit kde-shell derived \
       plasma-meta plasma-workspace plasma-x11-session polkit-kde-agent \
-      sddm sddm-kcm print-manager papirus-icon-theme \
+      sddm-kcm print-manager papirus-icon-theme \
       qt5-wayland qt6-wayland xdg-utils
   fi
 

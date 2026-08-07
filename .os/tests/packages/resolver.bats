@@ -110,6 +110,46 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "konsole"     <<<"$kde"
 }
 
+# ── display manager derived set (ADR 0069) ──────────────────────────────────
+
+@test "display-manager set: auto on a kde-only box resolves to sddm" {
+  local dm
+  dm="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' display-manager)"
+  grep -qx "sddm" <<<"$dm"
+  ! grep -qx "greetd" <<<"$dm"
+}
+
+@test "display-manager set: auto with hyprland resolves to greetd + tuigreet" {
+  local dm
+  dm="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["kde","hyprland"]}}' display-manager)"
+  grep -qx "greetd"          <<<"$dm"
+  grep -qx "greetd-tuigreet" <<<"$dm"
+  ! grep -qx "sddm" <<<"$dm"
+}
+
+@test "display-manager set: an explicit greetd on a kde box wins over auto" {
+  local dm
+  dm="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["kde"],"display_manager":"greetd"}}' \
+    display-manager)"
+  grep -qx "greetd" <<<"$dm"
+  ! grep -qx "sddm" <<<"$dm"
+}
+
+@test "display-manager set: empty when no desktop is selected" {
+  local dm
+  dm="$(pkgs_of '{"users":[],"environment":{"desktop":[]}}' display-manager)"
+  [ -z "$dm" ]
+}
+
+@test "sddm is no longer reported inside the kde-shell set" {
+  local kdeshell
+  kdeshell="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  grep -qx "sddm-kcm" <<<"$kdeshell"
+  ! grep -qx "sddm" <<<"$kdeshell"
+}
+
 @test "the derived audio set covers the formerly hand-declared packages" {
   local a; a="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' audio)"
   local p

@@ -123,6 +123,37 @@ write_config() {
   [[ "$output" =~ "nvidia" ]]
 }
 
+# ── display manager valid values ───────────────────────────────────────────
+
+@test "display_manager 'sddm' passes validation" {
+  write_config \
+    '{"environment": {"desktop": "kde", "display_manager": "sddm"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "display_manager 'greetd' passes validation" {
+  write_config \
+    '{"environment": {"desktop": "hyprland", "display_manager": "greetd"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager defaults to 'auto' when absent" {
+  write_config '{"environment": {"desktop": "kde"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "auto" ]
+}
+
+@test "display_manager unknown value fails validation naming valid options" {
+  write_config \
+    '{"environment": {"desktop": "kde", "display_manager": "lightdm"}}'
+  run _resolve_env_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "lightdm" ]]
+  [[ "$output" =~ "greetd" ]]
+}
+
 # ── install summary environment lines ─────────────────────────────────────
 
 @test "summary shows desktop, GPU and audio when desktop is selected" {

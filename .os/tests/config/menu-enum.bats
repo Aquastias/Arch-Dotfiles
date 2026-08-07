@@ -32,6 +32,11 @@ setup() {
   [ "$output" == "$(printf '%s\n' auto amd nvidia intel)" ]
 }
 
+@test "menu_enum_options: display manager (auto first)" {
+  run menu_enum_options environment.display_manager
+  [ "$output" == "$(printf '%s\n' auto greetd sddm)" ]
+}
+
 @test "menu_enum_options: firewall (mutually-exclusive radiolist)" {
   run menu_enum_options post_install.security.firewall
   [ "$output" == "$(printf '%s\n' firewalld ufw none)" ]
