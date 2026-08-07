@@ -41,6 +41,7 @@ section "Hyprland core"
 pacman -S --noconfirm --needed \
   hyprland \
   seatd \
+  uwsm \
   xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk \
   polkit-kde-agent \
@@ -59,25 +60,28 @@ pacman -S --noconfirm --needed \
 systemctl enable seatd
 
 # =============================================================================
-# SESSION LAUNCHER — direct Hyprland, DRM backend, not start-hyprland
+# SESSION LAUNCHER — start-hyprland, DRM backend
 # =============================================================================
-# Two fixes are baked into the Exec:
-#  1. Direct `Hyprland`, not the packaged `start-hyprland` supervisor, which
-#     aborts a few seconds in (`std::system_error: Resource deadlock avoided`,
-#     core dump) and bounces a DM back to the greeter; a bare `Hyprland` runs.
+# Two things are baked into the Exec:
+#  1. `start-hyprland`, Hyprland 0.53+'s recommended launcher (crash recovery +
+#     safe mode). The bare `Hyprland` binary runs but throws a red "launched
+#     without start-hyprland" warning. An earlier `start-hyprland` crash
+#     (`std::system_error: Resource deadlock avoided`) was a symptom of the
+#     DRM-master failure ADR 0068 fixed with seatd, so it runs clean now.
 #  2. `env -u WAYLAND_DISPLAY -u DISPLAY` — if either is set (a prior Plasma
 #     Wayland session leaves them in the lingering user manager), aquamarine
 #     picks its NESTED backend and renders into an invisible parent window
 #     instead of driving the panel (black screen). Unsetting them forces the
 #     DRM/KMS backend. Shipped in /usr/local so it wins the greeter's session
-#     scan and survives package upgrades; the greetd picker points here.
-section "Hyprland session launcher (direct, DRM backend)"
+#     scan and survives package upgrades; the greetd picker points here. A
+#     packaged uwsm-managed variant is offered alongside it (DM section below).
+section "Hyprland session launcher (start-hyprland, DRM backend)"
 install -d "${ROOT}${WAYLAND_SESSIONS_DIR}"
 cat > "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland.desktop" <<'DESKTOP'
 [Desktop Entry]
 Name=Hyprland
-Comment=Hyprland compositor (direct launch, DRM backend)
-Exec=env -u WAYLAND_DISPLAY -u DISPLAY Hyprland
+Comment=Hyprland compositor (start-hyprland, DRM backend)
+Exec=env -u WAYLAND_DISPLAY -u DISPLAY start-hyprland
 Type=Application
 DesktopNames=Hyprland
 Keywords=tiling;wayland;compositor;
@@ -104,23 +108,23 @@ done
 section "Display Manager: greetd"
 pacman -S --noconfirm --needed greetd greetd-tuigreet
 mkdir -p "$GREETD_CONF_DIR"
+# The greeter offers BOTH launch methods from the one curated /usr/local dir:
+# our start-hyprland session (hyprland.desktop, above) plus the packaged
+# uwsm-managed variant (symlinked in). Both reach the DRM/seatd path (ADR 0068);
+# start-hyprland adds crash recovery, uwsm adds systemd session/service
+# management. Pointing tuigreet at this curated dir keeps the /usr/share
+# duplicates out of the picker (tuigreet(1) --sessions).
+ln -sf /usr/share/wayland-sessions/hyprland-uwsm.desktop \
+  "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland-uwsm.desktop"
 if $_has_kde; then
-  # KDE co-installed: a session picker over EXACTLY the good sessions — this
-  # adapter's direct-launch Hyprland override plus Plasma (symlinked in) — from
-  # the one curated /usr/local dir, so the packaged (crashy) start-hyprland
-  # session and the uwsm variant in /usr/share never appear. tuigreet's default
-  # scan is /usr/share/*; --sessions repoints it (tuigreet(1)).
+  # KDE co-installed: also offer Plasma (symlinked into the curated dir).
   ln -sf /usr/share/wayland-sessions/plasma.desktop \
     "${ROOT}${WAYLAND_SESSIONS_DIR}/plasma.desktop"
-  _greeter_cmd="tuigreet --remember --remember-session --sessions ${WAYLAND_SESSIONS_DIR}"
-  _greeter_desc="KDE + Hyprland session picker"
+  _greeter_desc="KDE + Hyprland (start-hyprland/uwsm) picker"
 else
-  # Sole Hyprland: launch it directly. greetd starts the session with a clean
-  # env (the greeter is a TUI, no compositor), so WAYLAND_DISPLAY is unset and
-  # aquamarine uses the DRM backend without the env -u guard the override adds.
-  _greeter_cmd="tuigreet --cmd Hyprland"
-  _greeter_desc="Hyprland"
+  _greeter_desc="Hyprland (start-hyprland/uwsm) picker"
 fi
+_greeter_cmd="tuigreet --remember --remember-session --sessions ${WAYLAND_SESSIONS_DIR}"
 cat > "${GREETD_CONF_DIR}/config.toml" <<TOML
 [terminal]
 vt = 1
