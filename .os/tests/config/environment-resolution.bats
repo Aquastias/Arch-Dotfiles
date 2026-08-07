@@ -68,6 +68,47 @@ write_config() {
   [ "${AUDIO_PACKAGES[*]}" = "$a1" ]
 }
 
+@test "display_manager auto resolves to greetd when hyprland present" {
+  write_config \
+    '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager auto resolves to sddm for a kde-only install" {
+  write_config '{"environment": {"desktop": "kde", "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "display_manager auto resolves to none when no desktop is selected" {
+  write_config '{"environment": {"desktop": null, "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "none" ]
+}
+
+@test "explicit sddm passes through on a hyprland box" {
+  write_config \
+    '{"environment": {"desktop": "hyprland", "display_manager": "sddm"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "explicit greetd passes through on a kde-only box" {
+  write_config \
+    '{"environment": {"desktop": "kde", "display_manager": "greetd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "concrete display_manager with no desktop aborts" {
+  write_config \
+    '{"environment": {"desktop": null, "display_manager": "sddm"}}'
+  run resolve_environment
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "desktop" ]]
+}
+
 @test "resolve_environment with gpu='auto' mutates ENVIRONMENT_GPU to detected vendors" {
   write_config '{"environment": {"desktop": null, "gpu": "auto"}}'
   _gpu_lspci_output() {

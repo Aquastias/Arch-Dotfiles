@@ -40,13 +40,14 @@ if [[ "$do_shell" == "true" ]]; then
   # rather than in apps_list (ADR 0021, R10/R21): sddm-kcm is a config module
   # and is not in plasma-meta; the wayland/portal/icon pieces were declared by
   # hand in the host profiles, where they installed even on a host that never
-  # selected KDE.
+  # selected KDE. `sddm-kcm` stays here (a KDE config app); the sddm PACKAGE and
+  # its enablement moved to the SDDM Display Manager Adapter (ADR 0069) so the
+  # display manager is an operator choice, not KDE's to decide.
   pacman -S --noconfirm --needed \
     plasma-meta \
     plasma-workspace \
     plasma-x11-session \
     polkit-kde-agent \
-    sddm \
     sddm-kcm \
     print-manager \
     papirus-icon-theme \
@@ -54,20 +55,10 @@ if [[ "$do_shell" == "true" ]]; then
     qt6-wayland \
     xdg-utils
 
-  # greetd owns the DM when Hyprland is co-installed (it grants the aquamarine
-  # session DRM master; SDDM does not — ADR 0067). Enable SDDM only for a
-  # KDE-only install; sddm stays installed either way (harmless when disabled).
-  read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
-  _has_hypr=false
-  for _de in "${_desktops[@]}"; do
-    [[ "$_de" == "hyprland" ]] && { _has_hypr=true; break; }
-  done
-  if $_has_hypr; then
-    info "Hyprland co-installed — greetd owns the DM (hyprland.sh); SDDM disabled."
-  else
-    systemctl enable sddm
-    info "Plasma shell installed. SDDM enabled."
-  fi
+  # The display manager is no longer the KDE adapter's concern (ADR 0069): the
+  # resolved Display Manager Adapter owns package + enable. KDE only ships the
+  # Plasma sessions the greeter offers.
+  info "Plasma shell installed."
 fi
 
 # =============================================================================
@@ -106,7 +97,7 @@ if ! paccache -rk0 --noconfirm 2>/dev/null; then
 fi
 
 section "KDE Installation Complete"
-if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell + SDDM"; fi
+if [[ "$do_shell" == "true" ]]; then info "  ✔  Plasma Shell"; fi
 if [[ "$do_apps" == "true" ]]; then
   info "  ✔  KDE Applications (${#kde_apps[@]} apps)"
 fi

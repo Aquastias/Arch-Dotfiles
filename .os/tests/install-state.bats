@@ -29,6 +29,7 @@ valid_state() {
   "root_cmdline": "root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
   "hooks": "base udev autodetect modconf block keyboard zfs filesystems",
   "gpu": ["amd", "nvidia"],
+  "display_manager": "sddm",
   "swap": true, "esp_count": 1,
   "zswap": { "enabled": true, "compressor": "zstd", "max_pool_percent": 20 },
   "impermanence": { "enabled": false, "dataset": "rpool/persist",
@@ -244,7 +245,22 @@ setup_writer_globals() {
   LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
   ENVIRONMENT_GPU=(amd nvidia)
+  ENVIRONMENT_DISPLAY_MANAGER="sddm"
   export OS_DIR="$FIXTURES"
+}
+
+@test "install_state_write: emits .display_manager from ENVIRONMENT_DISPLAY_MANAGER" {
+  setup_writer_globals
+  ENVIRONMENT_DISPLAY_MANAGER="greetd"
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.display_manager' "$STATE")" = "greetd" ]
+}
+
+@test "install_state_write: .display_manager falls back to none when unset" {
+  setup_writer_globals
+  unset ENVIRONMENT_DISPLAY_MANAGER
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.display_manager' "$STATE")" = "none" ]
 }
 
 @test "install_state_write: emits .gpu array from ENVIRONMENT_GPU" {
@@ -373,6 +389,7 @@ setup_writer_globals() {
   [ "${#GPU[@]}"                 -eq 2 ]
   [ "${GPU[0]}"                  = "amd" ]
   [ "${GPU[1]}"                  = "nvidia" ]
+  [ "$DISPLAY_MANAGER"           = "sddm" ]
 }
 
 # ── install_state_update ─────────────────────────────────────────────────────

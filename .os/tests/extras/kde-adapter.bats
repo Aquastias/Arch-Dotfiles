@@ -63,35 +63,37 @@ JSON
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   local p
-  for p in plasma-meta sddm sddm-kcm papirus-icon-theme \
+  for p in plasma-meta sddm-kcm papirus-icon-theme \
            qt5-wayland qt6-wayland xdg-utils; do
     grep -q "$p" "$PACMAN_LOG" \
       || { echo "shell section missing: $p"; return 1; }
   done
 }
 
-# ── display manager: SDDM only when Hyprland is absent (ADR 0067) ────────────
-# greetd owns the DM for a KDE+Hyprland co-install (it grants the aquamarine
-# session DRM master; SDDM does not), so the KDE adapter enables SDDM only for
-# a KDE-only install. sddm the package stays installed either way.
+# ── display manager is no longer the KDE adapter's concern (ADR 0069) ─────────
+# The display manager is an operator choice owned by a separate Display Manager
+# Adapter. The KDE adapter installs sddm-kcm (a KDE config app) but neither the
+# sddm PACKAGE nor its enablement — those moved to dm-sddm.
 
-@test "KDE-only: SDDM is enabled" {
+@test "KDE adapter enables no display manager" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
   run env ENVIRONMENT_DESKTOP="kde" bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  grep -q "systemctl enable sddm" "$SYSTEMCTL_LOG"
+  ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
+  ! grep -q "enable greetd" "$SYSTEMCTL_LOG"
 }
 
-@test "KDE + Hyprland: SDDM is NOT enabled (greetd owns the DM)" {
+@test "KDE adapter installs sddm-kcm but not the sddm package" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
   run env ENVIRONMENT_DESKTOP="kde hyprland" bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
-  grep -q "sddm" "$PACMAN_LOG"   # package still installed, just not enabled
+  grep -q "sddm-kcm" "$PACMAN_LOG"
+  # the bare sddm package is not installed by KDE — dm-sddm owns it
+  ! grep -qE '(^|[[:space:]])sddm([[:space:]]|$)' "$PACMAN_LOG"
 }
 
 # ── malformed apps_list aborts the install ──────────────────────────────────

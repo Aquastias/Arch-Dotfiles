@@ -29,6 +29,7 @@ _INSTALL_STATE_SCHEMA=(
   "ROOT_CMDLINE|.root_cmdline|scalar"
   "HOOKS|.hooks|scalar"
   "GPU|.gpu|array"
+  "DISPLAY_MANAGER|.display_manager|scalar"
   "SSH_ENABLED|.ssh.enabled|bool"
   "SWAP|.swap|bool"
   "ZSWAP_ENABLED|.zswap.enabled|bool"
@@ -112,6 +113,7 @@ install_state_write() {
     --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                    \
     --arg     hooks       "$LAYOUT_HOOKS"                            \
     --argjson gpu         "$gpu_json"                               \
+    --arg     display_manager "${ENVIRONMENT_DISPLAY_MANAGER:-none}" \
     --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
     --argjson swap        "$(install_config_swap_enabled)"           \
     --argjson zswap_on    "$(install_config_zswap_enabled)"          \
@@ -133,6 +135,7 @@ install_state_write() {
       ssh:          { enabled:$ssh_enabled },
       rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
       gpu:$gpu,
+      display_manager:$display_manager,
       swap:$swap,
       zswap: { enabled:$zswap_on, compressor:$zswap_comp,
         max_pool_percent:$zswap_pct },

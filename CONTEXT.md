@@ -219,7 +219,9 @@ set, or `core` vs `host` for an authored one, so the report answers "do I edit
 Host Core or this host profile?". Covers the authored
 slots, the [[Base Package List]], and every derived set: kernel and headers,
 bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
-shells, the Plasma shell, KDE applications, KDE AUR, Security & Backup Extras,
+shells, the Plasma shell, KDE applications, KDE AUR, the display manager
+(`sddm` / `greetd` / `greetd-tuigreet`, keyed on the resolved `display_manager`;
+`sddm-kcm` stays with the KDE set — ADR 0069), Security & Backup Extras,
 and secrets-activated `sops`. Every input is declarative, so it makes **no
 pacman query and no network call** and stays deterministic and testable
 headless. Eighteen distinct paths put a package on the system and only five are
@@ -662,7 +664,7 @@ ESP Kernel Sync.
 
 ### Environment Config
 The `"environment"` key in the Host Profile. Declares desktop environment
-selection and GPU driver selection. Audio is not declared — it is auto-derived
+selection, display manager selection, and GPU driver selection. Audio is not declared — it is auto-derived
 (PipeWire when any desktop is selected, omitted for server installs). Processed
 at config-load time; resolves into the derived `GPU_PACMAN_PACKAGES` and
 `AUDIO_PACKAGES` sets before pacstrap. These are internal, never authorable —
@@ -672,8 +674,9 @@ aborts at load (ADR 0056). Valid desktop values: `"kde"` (the sole supported
 desktop —
 still array-shaped so a future DE stays zero-runner-change, ADR 0005/0050).
 Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
-"nvidia"]`, or `"auto"`. Replaces `post_install.desktop` from the previous
-schema.
+"nvidia"]`, or `"auto"`. Valid `display_manager` values: `"auto"` (default —
+`greetd` if Hyprland is selected, else `sddm`, `none` if no desktop), `"greetd"`,
+`"sddm"` (ADR 0069). Replaces `post_install.desktop` from the previous schema.
 
 ### Desktop Environment Adapter
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
@@ -682,8 +685,10 @@ the Hyprland adapter is core-only and ships none — ADR 0062). Invoked
 dynamically by the Environment Runner based on `environment.desktop`. KDE and
 Hyprland are the two adapters. Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges): it installs its repo
-packages via pacman, writes its display manager config, and enables its
-services. AUR dependencies are not installed by the adapter — they are declared
+packages via pacman, writes its session files (and, for Hyprland, enables
+seatd), and enables its services. The display manager is **not** its concern
+(ADR 0069) — a separate [[Display Manager Adapter]] owns package, config, and
+enable. AUR dependencies are not installed by the adapter — they are declared
 in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level
 Categorized List `{ category: { pkg: bool } }` shape as `apps_list`, validated
 in bool mode; absent field contributes nothing) and installed by the Profiles
@@ -693,8 +698,10 @@ directory — no runner code changes.
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by
-directory convention (`extras/desktop/<de>/<de>.sh`). No DE names are hardcoded
-in the runner — dispatch is purely by convention. Security & Backup Extras are
+directory convention (`extras/desktop/<de>/<de>.sh`), then invokes the resolved
+[[Display Manager Adapter]] (`extras/dm/<dm>/<dm>.sh`) — after the desktop loop,
+so every session file and seatd already exist (ADR 0069). No DE or DM names are
+hardcoded in the runner — dispatch is purely by convention. Security & Backup Extras are
 no longer dispatched here — they install via the Profile Runner's Primary-User
 paru pass (see Security & Backup Extras). AUR discovery for the
 selected DEs lives alongside this: for each desktop in the resolved array the
@@ -745,25 +752,45 @@ Replaces the never-invoked `envycontrol` switcher.
   D3cold (powered off), the main battery win on the hybrid laptop.
 
 ### Display Manager
-Auto-selected by each Desktop Environment Adapter based on the full resolved
-desktop array — not a config key. **greetd + greetd-tuigreet owns the DM
-whenever Hyprland is installed** — sole Hyprland *and* a KDE co-install —
-because greetd launches the compositor on its VT and aquamarine takes DRM
-master via **seatd** (ADR 0068) — the logind master handoff SDDM relies on
-failed on real hardware (atomic KMS commit `Permission denied`, retry-loop,
-black screen), though kwin survives it (ADR 0067, superseding ADR 0062's "SDDM
-owns the DM when KDE is present"). SDDM is enabled by the KDE adapter only for a
-**KDE-only** install; `sddm` stays installed but disabled on a co-install. The
-Hyprland adapter points tuigreet at a curated `/usr/local/share/wayland-sessions`
-so exactly the good sessions appear, never the `/usr/share` duplicates: its own
-`hyprland.desktop` (`env -u WAYLAND_DISPLAY -u DISPLAY start-hyprland` — the
-0.53+ recommended launcher, unset vars force aquamarine's DRM backend over its
-nested one), the packaged `hyprland-uwsm.desktop` (symlinked in), and — on a
-co-install — Plasma (symlinked in). The choice
-reads the full desktop set, so it is independent of adapter execution order.
-Under impermanence the same display-manager login is used — no tty1 autologin —
-with the enablement mirrored onto the never-rolled-back `/usr/lib` tree so it
-survives the rolled-back root (ADR 0061).
+Operator-selected via `environment.display_manager` — `auto` | `greetd` |
+`sddm`, default `auto` (ADR 0069, superseding ADR 0067's "greetd owns the DM
+whenever Hyprland is installed"). **Full symmetry**: any DM launches any DE —
+SDDM for Hyprland or KDE+Hyprland, greetd for KDE. This became a choice once
+**seatd** (ADR 0068) gave aquamarine DRM master independent of the DM; before
+that an SDDM-launched Hyprland session could not obtain master (atomic KMS
+commit `Permission denied`, retry-loop, black screen — kwin survived it, ADR
+0067), so greetd was *forced* whenever Hyprland was present. `auto` resolves at
+config-load: `greetd` if `hyprland` is in the desktop set, else `sddm`, and
+`none` when no desktop is selected — so every profile omitting the key behaves
+exactly as before. A **concrete** DM with an empty desktop set aborts at
+config-load (a greeter with no session). Dispatched as a [[Display Manager
+Adapter]] by the Environment Runner after the desktop loop, so the choice is
+independent of DE adapter execution order. The DM adapter owns its package +
+config + enable; the DE adapters own the session files and seatd and no longer
+touch any DM. The greeter still sees a curated
+`/usr/local/share/wayland-sessions` (written by the Hyprland adapter) holding
+exactly the good sessions — its own `hyprland.desktop` (`env -u WAYLAND_DISPLAY
+-u DISPLAY start-hyprland`, the 0.53+ launcher; unset vars force aquamarine's
+DRM backend over its nested one), the packaged `hyprland-uwsm.desktop`
+(symlinked in), and — on a KDE co-install — Plasma. Under impermanence the same
+display-manager login is used — no tty1 autologin — with the enablement
+mirrored onto the never-rolled-back `/usr/lib` tree via the DM-agnostic
+`display-manager.service` alias so it survives the rolled-back root (ADR 0061).
+
+### Display Manager Adapter
+Script at `extras/dm/<name>/<name>.sh`, invoked by the Environment Runner after
+the desktop loop based on the resolved `environment.display_manager` (ADR 0069).
+Mirrors the [[Desktop Environment Adapter]] and Bootloader Adapter
+convention-dispatch (no DM name is a literal in the runner). `dm-greetd` and
+`dm-sddm` are the two adapters. Each owns exactly its DM: **package install**,
+config, and `systemctl enable` — `dm-greetd` writes `config.toml` pointing
+`tuigreet --sessions` at the curated `/usr/local/share/wayland-sessions`;
+`dm-sddm` installs and enables sddm (so SDDM on a Hyprland-only host now has an
+owner — the KDE adapter no longer installs it) and writes a `Wayland.SessionDir`
+(+ X `SessionDir`) sddm.conf.d drop-in pinning that same curated dir ahead of
+`/usr/share`, so both DMs show one deduped session list. Adding a future DM is a new
+`extras/dm/<name>/` directory — no runner change. Runs after every DE adapter,
+so the session files and seatd it relies on already exist.
 
 ### User Secrets
 SOPS-encrypted JSON file at `.os/users/<username>/secrets.json`. Contains

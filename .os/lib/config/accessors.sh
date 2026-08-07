@@ -40,6 +40,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "hostname|.system.hostname|scalar|"
   "timezone|.system.timezone|scalar|UTC"
   "desktop|.environment.desktop|array|"
+  "display_manager|.environment.display_manager|scalar|auto"
   "dotfiles_repo|.dotfiles_repo|scalar|"
   "os_pool_name|.os_pool_name|scalar|rpool"
   "storage_pool_name|.storage_pool_name|scalar|dpool"

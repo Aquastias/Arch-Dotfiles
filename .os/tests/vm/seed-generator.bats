@@ -188,6 +188,38 @@ teardown() {
   [[ "$output" != *"'"* ]]
 }
 
+# The display manager is a separate axis (ADR 0069): the KDE session-artifact
+# check must NOT couple to whichever greeter is enabled, or a greetd co-install
+# falsely fails.
+@test "desktop check: KDE probe no longer couples to 'is-enabled sddm'" {
+  run _seed_generator_desktop_check kde hyprland
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "is-enabled sddm" ]]
+}
+
+# ── display manager enablement check (ADR 0069) ─────────────────────────────
+
+@test "firstboot block: a resolved DM injects a DM is-enabled check" {
+  run _seed_generator_firstboot_block "" "" "kde hyprland" "greetd"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "is-enabled greetd.service" ]]
+  [[ "$output" =~ "===DM-OK===" ]]
+  [[ "$output" =~ "===DM-FAIL===" ]]
+}
+
+@test "firstboot block: an sddm DM asserts sddm is enabled" {
+  run _seed_generator_firstboot_block "" "" "kde" "sddm"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "is-enabled sddm.service" ]]
+  [[ "$output" =~ "===DM-OK===" ]]
+}
+
+@test "firstboot block: no resolved DM omits the DM check" {
+  run _seed_generator_firstboot_block "" "" "kde hyprland"
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "===DM-OK===" ]]
+}
+
 @test "firstboot block: a verify_desktops list folds the per-desktop checks in" {
   run _seed_generator_firstboot_block "" "" "kde hyprland"
   [ "$status" -eq 0 ]

@@ -27,3 +27,20 @@ for _de in "${_desktops[@]}"; do
   fi
   bash "$_adapter"
 done
+
+# Display Manager Adapter (ADR 0069): dispatch the resolved greeter AFTER the
+# desktop loop, so every curated session file and seatd the DE adapters write
+# already exists. The concrete DM (greetd|sddm|none) is resolved at config load
+# and exported as DISPLAY_MANAGER by install_state_load in configure.sh. `none`
+# (headless, or auto with no desktop) dispatches nothing. No greeter name is
+# hardcoded here — dispatch is purely by directory convention.
+_dm="${DISPLAY_MANAGER:-none}"
+if [[ -n "$_dm" && "$_dm" != "none" ]]; then
+  _dm_adapter="${EXTRAS_DIR}/dm/${_dm}/${_dm}.sh"
+  if [[ ! -f "$_dm_adapter" ]]; then
+    echo "[ERROR] No adapter found for display manager '${_dm}':" \
+      "${_dm_adapter}" >&2
+    exit 1
+  fi
+  bash "$_dm_adapter"
+fi

@@ -75,7 +75,7 @@ _seed_generator_desktop_check() {
     tag="${ok#===}"; tag="${tag%-OK===}"
     case "$de" in
     kde)
-      out+="if command -v startplasma-wayland > /dev/null 2>&1 && [ -f /usr/share/wayland-sessions/plasma.desktop ] && systemctl is-enabled sddm > /dev/null 2>&1; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
+      out+="if command -v startplasma-wayland > /dev/null 2>&1 && [ -f /usr/share/wayland-sessions/plasma.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
     hyprland)
       out+="if command -v Hyprland > /dev/null 2>&1 && [ -f /usr/local/share/wayland-sessions/hyprland.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
     esac
@@ -214,7 +214,7 @@ LINES
 # uses no single quotes (the ExecStart line is a single-quoted printf arg).
 _seed_generator_firstboot_block() {
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER" verify_user="${1:-}"
-  local verify_extras="${2:-}" verify_desktops="${3:-}"
+  local verify_extras="${2:-}" verify_desktops="${3:-}" verify_dm="${4:-}"
   local user_check=""
   [[ -n "$verify_user" ]] && user_check="if id ${verify_user} > /dev/null 2>&1 && passwd -S ${verify_user} 2>/dev/null | grep -qw P; then echo ===USER-OK===; else echo ===USER-FAIL===; fi; "
   # Per-desktop session-artifact check (ADR 0062): each named desktop echoes its
@@ -231,6 +231,12 @@ _seed_generator_firstboot_block() {
   # (the ExecStart is a single-quoted printf arg), like user_check above.
   local extras_check=""
   [[ -n "$verify_extras" ]] && extras_check="if systemctl is-enabled ${verify_extras} > /dev/null 2>&1; then echo ===EXTRAS-OK===; else echo ===EXTRAS-FAIL===; fi; "
+  # Display Manager check (ADR 0069): the resolved greeter — greetd or sddm — is
+  # a separate axis from the desktop, so its enablement is proven on its own
+  # rather than folded into the per-desktop KDE check (which now proves session
+  # artifacts only). Same one-`is-enabled` shape as extras_check.
+  local dm_check=""
+  [[ -n "$verify_dm" ]] && dm_check="if systemctl is-enabled ${verify_dm}.service > /dev/null 2>&1; then echo ===DM-OK===; else echo ===DM-FAIL===; fi; "
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       # Mount the freshly installed root to inject the sentinel: a ZFS root via
@@ -269,7 +275,7 @@ _seed_generator_firstboot_block() {
       fi
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
-      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}${desktop_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}${desktop_check}${dm_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       if [ "\$_vroot" = zfs ]; then
         zfs umount -a || true

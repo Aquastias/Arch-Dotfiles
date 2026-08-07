@@ -9,7 +9,6 @@
 # own dotfiles.
 #
 # Injectable seams (tests):
-#   GREETD_CONF_DIR      — greetd config dir (default: /etc/greetd)
 #   WAYLAND_SESSIONS_DIR — session-override dir
 #                          (default: /usr/local/share/wayland-sessions)
 #   ROOT                 — prefix for the session override + aquamarine DRM pin
@@ -19,7 +18,6 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GREETD_CONF_DIR="${GREETD_CONF_DIR:-/etc/greetd}"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions
 WAYLAND_SESSIONS_DIR="${WAYLAND_SESSIONS_DIR:-$_WS_DIR_DEFAULT}"
 ROOT="${ROOT:-}"
@@ -88,53 +86,35 @@ Keywords=tiling;wayland;compositor;
 DESKTOP
 
 # =============================================================================
-# DISPLAY MANAGER — greetd whenever Hyprland is installed
+# CURATED SESSIONS — offered to whichever Display Manager is selected
 # =============================================================================
-# greetd/tuigreet launches the compositor directly on its VT, so aquamarine
-# takes DRM master. SDDM does NOT grant the aquamarine session master — the
-# atomic KMS commit fails "Permission denied" and Hyprland black-screens — even
-# though kwin survives the same SDDM handoff. So greetd owns the DM for BOTH a
-# sole-Hyprland install AND a KDE co-install, superseding ADR 0062's "SDDM owns
-# the DM when KDE is present" (that path never lit the panel for Hyprland).
-# KDE-only installs keep SDDM (kde.sh enables it only when Hyprland is absent).
-# The check reads the full resolved desktop set, so it is independent of adapter
-# execution order (ADR 0005, ADR 0067).
+# The DE adapter owns the session FILES; the display manager is a separate,
+# operator-selected Display Manager Adapter (ADR 0069, superseding ADR 0067's
+# "greetd owns the DM"). This curated /usr/local dir holds exactly the good
+# sessions so the greeter — greetd via `tuigreet --sessions`, or SDDM via its
+# pinned SessionDir — never shows the /usr/share duplicates: our start-hyprland
+# session (hyprland.desktop, above), the packaged uwsm-managed variant
+# (symlinked in), and — on a KDE co-install — Plasma. Both Hyprland launch
+# methods reach the DRM/seatd path (ADR 0068); start-hyprland adds crash
+# recovery, uwsm adds systemd session/service management. The check reads the
+# full resolved desktop set, so it is independent of adapter execution order.
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
 _has_kde=false
 for _de in "${_desktops[@]}"; do
   [[ "$_de" == "kde" ]] && { _has_kde=true; break; }
 done
 
-section "Display Manager: greetd"
-pacman -S --noconfirm --needed greetd greetd-tuigreet
-mkdir -p "$GREETD_CONF_DIR"
-# The greeter offers BOTH launch methods from the one curated /usr/local dir:
-# our start-hyprland session (hyprland.desktop, above) plus the packaged
-# uwsm-managed variant (symlinked in). Both reach the DRM/seatd path (ADR 0068);
-# start-hyprland adds crash recovery, uwsm adds systemd session/service
-# management. Pointing tuigreet at this curated dir keeps the /usr/share
-# duplicates out of the picker (tuigreet(1) --sessions).
+section "Hyprland curated sessions"
 ln -sf /usr/share/wayland-sessions/hyprland-uwsm.desktop \
   "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland-uwsm.desktop"
 if $_has_kde; then
   # KDE co-installed: also offer Plasma (symlinked into the curated dir).
   ln -sf /usr/share/wayland-sessions/plasma.desktop \
     "${ROOT}${WAYLAND_SESSIONS_DIR}/plasma.desktop"
-  _greeter_desc="KDE + Hyprland (start-hyprland/uwsm) picker"
+  info "Curated sessions: Hyprland (start-hyprland/uwsm) + Plasma."
 else
-  _greeter_desc="Hyprland (start-hyprland/uwsm) picker"
+  info "Curated sessions: Hyprland (start-hyprland/uwsm)."
 fi
-_greeter_cmd="tuigreet --remember --remember-session --sessions ${WAYLAND_SESSIONS_DIR}"
-cat > "${GREETD_CONF_DIR}/config.toml" <<TOML
-[terminal]
-vt = 1
-
-[default_session]
-command = "${_greeter_cmd}"
-user = "greeter"
-TOML
-systemctl enable greetd
-info "greetd + tuigreet enabled (${_greeter_desc})."
 
 # =============================================================================
 # AQUAMARINE DRM PINNING — hybrid AMD+NVIDIA only

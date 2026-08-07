@@ -42,6 +42,7 @@ _MENU_FIELDS=(
   "Options|options.age_key_url|age key url|"
   "Options|sysctl|sysctl|"
   "Environment|environment.desktop|desktop|"
+  "Environment|environment.display_manager|display manager|auto"
   "Environment|environment.gpu|gpu|auto"
   "Options|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
   "Options|options.multilib|multilib|true"
@@ -67,6 +68,7 @@ menu_enum_options() {
   options.kernel)                 printf '%s\n' lts default hardened zen ;;
   options.bootloader)             printf '%s\n' systemd-boot grub ;;
   environment.desktop)            printf '%s\n' kde hyprland ;;
+  environment.display_manager)    printf '%s\n' auto greetd sddm ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   options.mirror_countries)
@@ -82,7 +84,7 @@ _MENU_CATEGORIES=(
   "Host|hostname, locale, timezone, keymap"
   "Disks|layout, data pools, filesystem, encryption, swap"
   "Options|kernel, bootloader, ssh, mirrors, sysctl"
-  "Environment|desktop, gpu"
+  "Environment|desktop, display manager, gpu"
   "Packages|repo, aur, derived, system programs"
   "Security|firewall, antivirus, rootkit, apparmor"
   "Backup|snapshots, encrypted backup"

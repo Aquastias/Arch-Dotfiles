@@ -131,6 +131,19 @@ main() {
   # Per-desktop session verification (ADR 0062): each name here has its
   # session-launch artifacts asserted on the booted system (===<TAG>-OK===).
   mapfile -t VM_VERIFY_DESKTOPS < <(jq -r '.verify.desktops[]?' <<<"$profile_json")
+  # Display Manager (ADR 0069): resolve environment.display_manager the way the
+  # installer does so the boot-verify can assert the right greeter is enabled.
+  # `auto` → greetd when Hyprland is among the desktops, else sddm; `none` (no
+  # desktop) yields no DM check.
+  VM_VERIFY_DM="$(jq -r '
+    (.install.environment.display_manager // "auto") as $dm
+    | (.install.environment.desktop // []) as $d0
+    | (if ($d0 | type) == "string" then [$d0] else $d0 end) as $des
+    | if ($des | length) == 0 then "none"
+      elif $dm == "auto" then (if ($des | index("hyprland")) then "greetd"
+                               else "sddm" end)
+      else $dm end' <<<"$profile_json")"
+  [[ "$VM_VERIFY_DM" == "none" ]] && VM_VERIFY_DM=""
   # Per-desktop LOGIN verification (ADR 0062): each name here is actually logged
   # into (SDDM Autologin, one per boot) and its compositor confirmed up
   # (===<TAG>-SESSION-OK===). Needs a GPU (below) and a login user.

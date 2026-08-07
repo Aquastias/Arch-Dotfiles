@@ -107,7 +107,7 @@ _flow_render_user_data() {
         "${VM_SESSION_USER:-aquastias}" "${VM_VERIFY_SESSIONS[@]}")"
     else
       boot_block="$(_seed_generator_firstboot_block "" "" \
-        "${VM_VERIFY_DESKTOPS[*]:-}")"
+        "${VM_VERIFY_DESKTOPS[*]:-}" "${VM_VERIFY_DM:-}")"
     fi
   fi
 

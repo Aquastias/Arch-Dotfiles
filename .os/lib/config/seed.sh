@@ -74,6 +74,7 @@ _cfgstate_computed_defaults() {
   # (kernel/gpu/mirrors are idempotent); desktop is the real choice.
   state="$(cfgstate_set "$state" options.kernel '["lts"]')"
   state="$(cfgstate_set "$state" environment.gpu '"auto"')"
+  state="$(cfgstate_set "$state" environment.display_manager '"auto"')"
   state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"
