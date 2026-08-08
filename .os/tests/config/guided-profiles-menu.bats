@@ -44,7 +44,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "Profiles ▸ start from a saved machine" ]
   [ "${lines[1]}" = "──────────────────────────" ]
-  echo "$output" | grep -q "Host — "        # categories still follow
+  echo "$output" | grep -q "System — "      # categories still follow
   echo "$output" | grep -q "Proceed ▸"
 }
 

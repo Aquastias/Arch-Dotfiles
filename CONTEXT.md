@@ -87,9 +87,19 @@ Navigation is non-destructive: a single in-session **Config State** holds only
 the operator's overrides over the computed defaults, so every screen is
 re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
 between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
-list of **Configuration Categories** (Host, Disks, Options, Environment,
-Packages, Security, Backup, Users), each opening a submenu of its fields, so a
-section name never repeats per row. Every value list is an fzf list, and
+list of twelve **Configuration Categories** in archinstall reading order
+(Locales, Mirrors & Repositories, Disks, Bootloader, Kernels, System, Users,
+Environment, Packages, Security, Backup, Advanced — ADR 0071), each opening a
+submenu of its fields, so a section name never repeats per row. Presentation is
+**master-detail**: the fzf preview pane is an always-on **detail column** that,
+at every level, shows the highlighted item's live state — a parent column (the
+siblings, current marked, the rest dimmed) above the detail. A category previews
+its fields as `key: value` with the `●` override dots; a leaf field previews its
+current value and allowed options; the Disks layout leaf previews the ZFS pool
+tree and the Users category its account table (both reusing the existing
+previews). Navigation stays drill-down (Enter deeper, Esc up) with a breadcrumb
+— archinstall's own behaviour, its persistent-column *feel* supplied by the
+detail column rather than a literally frozen list. Every value list is an fzf list, and
 multi-select re-entry pre-marks prior picks; only free-text fields with nothing
 to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs, persist
 paths) drop to a typed prompt. Terminal actions (Proceed / Save / Export) are

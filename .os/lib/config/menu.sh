@@ -28,32 +28,32 @@
 # Field table — "section|path|label|default". The single source of truth for
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
-  "Host|system.hostname|hostname|"
-  "Host|system.locale|locale|en_US.UTF-8"
-  "Host|system.timezone|timezone|Europe/Bucharest"
-  "Host|system.keymap|keymap|us"
+  "Locales|system.locale|locale|en_US.UTF-8"
+  "Locales|system.keymap|keymap|us"
+  "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
+  "Mirrors & Repositories|options.multilib|multilib|true"
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
   "Disks|options.esp_size|esp size|2G"
-  "Options|options.kernel|kernel|lts"
-  "Options|options.bootloader|bootloader|systemd-boot"
-  "Options|options.ssh.enabled|ssh|false"
-  "Options|options.age_key_url|age key url|"
-  "Options|sysctl|sysctl|"
+  "Bootloader|options.bootloader|bootloader|systemd-boot"
+  "Kernels|options.kernel|kernel|lts"
+  "System|system.hostname|hostname|"
+  "System|system.timezone|timezone|Europe/Bucharest"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
   "Environment|environment.gpu|gpu|auto"
-  "Options|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
-  "Options|options.multilib|multilib|true"
   "Packages|packages.repo.extra|extra packages|[]"
   "Packages|system_programs|system programs|[]"
   "Security|post_install.security.firewall|firewall|firewalld"
   "Security|post_install.security.antivirus|antivirus|true"
   "Security|post_install.security.rootkit|rootkit|true"
   "Security|post_install.security.apparmor|apparmor|true"
+  "Security|sysctl|sysctl|"
   "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|true"
   "Backup|post_install.backup.borg|borg|true"
+  "Advanced|options.ssh.enabled|ssh|false"
+  "Advanced|options.age_key_url|age key url|"
   "Users|users|users|"
 )
 
@@ -77,18 +77,23 @@ menu_enum_options() {
   esac
 }
 
-# Configuration Categories — the eight top-level drill-in groups, in canonical
-# order, each with a one-line summary. The category NAME matches a row's
-# `section`, so a category aggregates its rows; the summary is display-only.
+# Configuration Categories — the twelve top-level drill-in groups, in canonical
+# order (archinstall reading order, ADR 0071), each with a one-line summary. The
+# category NAME matches a row's `section`, so a category aggregates its rows;
+# the summary is display-only.
 _MENU_CATEGORIES=(
-  "Host|hostname, locale, timezone, keymap"
+  "Locales|language, keymap"
+  "Mirrors & Repositories|countries, multilib"
   "Disks|layout, data pools, filesystem, encryption, swap"
-  "Options|kernel, bootloader, ssh, mirrors, sysctl"
+  "Bootloader|bootloader"
+  "Kernels|kernel"
+  "System|hostname, timezone"
+  "Users|primary user, extra accounts"
   "Environment|desktop, display manager, gpu"
   "Packages|repo, aur, derived, system programs"
-  "Security|firewall, antivirus, rootkit, apparmor"
+  "Security|firewall, antivirus, rootkit, apparmor, sysctl"
   "Backup|snapshots, encrypted backup"
-  "Users|primary user, extra accounts"
+  "Advanced|ssh, age key url"
 )
 
 # menu_categories <override> [<baseline>] — the top-level category rows (JSON
