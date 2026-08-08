@@ -30,10 +30,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # ── top screen ───────────────────────────────────────────────────────────────
 
-@test "list(top): the 8 categories, a divider, and the terminal rows" {
+@test "list(top): the categories, a divider, and the terminal rows" {
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "Host — "
+  echo "$output" | grep -q "System — "
   echo "$output" | grep -q "Users — "
   echo "$output" | grep -q "Proceed ▸"
   echo "$output" | grep -q "Save profile ▸"
@@ -91,7 +91,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(category): a text field opens the native query-line editor" {
-  set_nav "$(nav_to_category Host)"
+  set_nav "$(nav_to_category System)"
   run guided_ctl_enter "Hostname: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
@@ -99,7 +99,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(category): a toggle field opens the multi-select picker" {
-  set_nav "$(nav_to_category Options)"
+  set_nav "$(nav_to_category Kernels)"
   run guided_ctl_enter "Kernel: LTS"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -117,7 +117,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # regression: a tab-IFS read collapses an empty value field and shifts the
   # overridden flag into it — an empty hostname must render "Hostname: " not
   # "Hostname: false"/"…True".
-  set_nav "$(nav_to_category Host)"
+  set_nav "$(nav_to_category System)"
   run guided_ctl_list
   echo "$output" | grep -qE '^Hostname: *$'
   ! echo "$output" | grep -qiE '^Hostname: (true|false)'
@@ -133,14 +133,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "list(values toggle): options are marked [x]/[ ] by selection" {
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Options options.kernel kernel)"
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
   run guided_ctl_list
   echo "$output" | grep -q "\[x\] LTS"
   echo "$output" | grep -q "\[ \] Zen"
 }
 
 @test "enter(values toggle): toggling on adds the option and STAYS on the screen" {
-  set_nav "$(nav_to_values Options options.kernel kernel)"
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
   run guided_ctl_enter "[ ] lts"
   [ "$output" = "refresh" ]   # reload-sync in place (no flicker, query kept)
   [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
@@ -154,14 +154,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(values toggle): toggling an already-selected option removes it" {
   printf '%s\n' '{"options":{"kernel":["lts","zen"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Options options.kernel kernel)"
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
   run guided_ctl_enter "[x] zen"
   [ "$(jq -c '.options.kernel' "$GUIDED_STATE_FILE")" = '["lts"]' ]
 }
 
 @test "enter(values toggle): the last option toggled off unsets the override" {
   printf '%s\n' '{"options":{"kernel":["lts"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Options options.kernel kernel)"
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
   run guided_ctl_enter "[x] lts"
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
@@ -322,7 +322,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # ── values screen ────────────────────────────────────────────────────────────
 
 @test "list(values): the enum options + Back" {
-  set_nav "$(nav_to_values Options options.bootloader bootloader)"
+  set_nav "$(nav_to_values Bootloader options.bootloader bootloader)"
   run guided_ctl_list
   echo "$output" | grep -q "systemd-boot"
   echo "$output" | grep -q "Grub"
@@ -474,10 +474,13 @@ _seed_baseline() {
   echo "$output" | grep -q "raidz1 · 3 disk"
 }
 
-@test "preview: renders only on the Disk-layout screen" {
+@test "preview: category shows the always-on detail pane; layout graphs" {
+  # ADR 0071: the category screen now renders the master-detail pane (parent
+  # column of its fields), while the __layout__ values screen keeps its graph.
   set_nav "$(nav_to_category Disks)"
-  run guided_ctl_preview "os-mirror"
-  [ -z "$output" ]                                   # off-screen → nothing
+  run guided_ctl_preview "Filesystem: zfs"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "filesystem"              # its field column
   set_nav "$(nav_to_values Disks __layout__ "layout")"
   run guided_ctl_preview "os-mirror"
   echo "$output" | grep -q "mirror"
@@ -493,14 +496,19 @@ _seed_baseline() {
   echo "$output" | grep -q "raidz2 · 6 disk"
 }
 
-@test "directive→action(render): layout shows the preview, others hide it" {
+@test "directive→action(render): layout + category show the pane, plain values hide it" {
   set_nav "$(nav_to_values Disks __layout__ "layout")"
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview(bash /x/entry.sh preview {})"
   echo "$output" | grep -q "change-preview-window(right,45%)"
+  # ADR 0071: the category screen now shows the always-on detail pane too.
   set_nav "$(nav_to_category Disks)"
   run _guided_directive_to_action render /x/entry.sh
-  echo "$output" | grep -q "change-preview-window(hidden)"
+  echo "$output" | grep -q "change-preview-window(right,45%)"
+  # every field screen is populated now — even a plain enum values screen.
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
+  run _guided_directive_to_action render /x/entry.sh
+  echo "$output" | grep -q "change-preview-window(right,45%)"
 }
 
 # ── data-pools editor: the live layout-graph preview tracks pool/disk edits ──
@@ -855,7 +863,7 @@ _seed_baseline() {
 # ── keymap / locale / timezone: big filterable lists + a "selected" side panel ─
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
-  set_nav "$(nav_to_category Host)"
+  set_nav "$(nav_to_category Locales)"
   run guided_ctl_enter "Keymap: us"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -863,7 +871,7 @@ _seed_baseline() {
 }
 
 @test "list(values keymap): a long MARKED list (multi) that includes us" {
-  set_nav "$(nav_to_values Host system.keymap keymap)"
+  set_nav "$(nav_to_values Locales system.keymap keymap)"
   run guided_ctl_list
   [ "${#lines[@]}" -gt 10 ]
   echo "$output" | grep -qE '\] us$'   # marked toggle row "[x]/[ ] us"
@@ -871,26 +879,26 @@ _seed_baseline() {
 
 @test "enter(values keymap): toggling adds a keymap to the array (multi)" {
   printf '%s\n' '{"system":{"keymap":["us"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Host system.keymap keymap)"
+  set_nav "$(nav_to_values Locales system.keymap keymap)"
   run guided_ctl_enter "[ ] de"
   [ "$output" = "refresh" ]
   [ "$(jq -c '.system.keymap' "$GUIDED_STATE_FILE")" = '["us","de"]' ]
 }
 
 @test "list(values timezone): includes region/city entries" {
-  set_nav "$(nav_to_values Host system.timezone timezone)"
+  set_nav "$(nav_to_values System system.timezone timezone)"
   run guided_ctl_list
   echo "$output" | grep -qE '^[A-Z][A-Za-z_]+/'
 }
 
 @test "list(values locale): includes en_US.UTF-8" {
-  set_nav "$(nav_to_values Host system.locale locale)"
+  set_nav "$(nav_to_values Locales system.locale locale)"
   run guided_ctl_list
   echo "$output" | grep -qx "en_US.UTF-8"
 }
 
 @test "enter(values biglist): picking a value sets the scalar + returns" {
-  set_nav "$(nav_to_values Host system.locale locale)"
+  set_nav "$(nav_to_values Locales system.locale locale)"
   run guided_ctl_enter "de_DE.UTF-8"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.UTF-8" ]
@@ -899,7 +907,7 @@ _seed_baseline() {
 
 @test "preview(keymap): the side panel lists the selected keymaps" {
   printf '%s\n' '{"system":{"keymap":["us","de"]}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Host system.keymap keymap)"
+  set_nav "$(nav_to_values Locales system.keymap keymap)"
   run guided_ctl_preview "[ ] fr"
   echo "$output" | grep -q "Selected keymaps"
   echo "$output" | grep -q "us"      # a current selection
@@ -907,7 +915,7 @@ _seed_baseline() {
 }
 
 @test "directive→action(render): a keymap screen shows the preview pane" {
-  set_nav "$(nav_to_values Host system.keymap keymap)"
+  set_nav "$(nav_to_values Locales system.keymap keymap)"
   run _guided_directive_to_action render /x/entry.sh
   echo "$output" | grep -q "change-preview-window(right,45%)"
 }
@@ -915,7 +923,7 @@ _seed_baseline() {
 # ── text screen: typed INTO fzf's query line, never leaves the window ─────────
 
 @test "enter(text): a typed query commits the scalar + returns to the category" {
-  set_nav "$(nav_to_text Host system.hostname hostname)"
+  set_nav "$(nav_to_text System system.hostname hostname)"
   run guided_ctl_enter "current: (unset)" "myhost"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.hostname' "$GUIDED_STATE_FILE")" = "myhost" ]
@@ -923,14 +931,14 @@ _seed_baseline() {
 }
 
 @test "enter(text): an empty query leaves the value unchanged" {
-  set_nav "$(nav_to_text Host system.hostname hostname)"
+  set_nav "$(nav_to_text System system.hostname hostname)"
   run guided_ctl_enter "current: (unset)" ""
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]
 }
 
 @test "enter(text): sysctl parses key=value from the query" {
-  set_nav "$(nav_to_text Options sysctl sysctl)"
+  set_nav "$(nav_to_text Security sysctl sysctl)"
   run guided_ctl_enter "current: (unset)" "vm.swappiness=20"
   [ "$(jq -c '.sysctl["vm.swappiness"]' "$GUIDED_STATE_FILE")" = "20" ]
 }
@@ -944,7 +952,7 @@ _seed_baseline() {
 # ── sysctl as a list screen (default vm.swappiness=10) ───────────────────────
 
 @test "enter(category): sysctl opens its list screen" {
-  set_nav "$(nav_to_category Options)"
+  set_nav "$(nav_to_category Security)"
   run guided_ctl_enter "Sysctl: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -953,7 +961,7 @@ _seed_baseline() {
 
 @test "list(values sysctl): lists current pairs + an Add action + Back" {
   printf '%s\n' '{"sysctl":{"vm.swappiness":10}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_values Options sysctl sysctl)"
+  set_nav "$(nav_to_values Security sysctl sysctl)"
   run guided_ctl_list
   echo "$output" | grep -q "vm.swappiness=10"
   echo "$output" | grep -q "+ Add sysctl"
@@ -961,7 +969,7 @@ _seed_baseline() {
 }
 
 @test "enter(values sysctl): + Add opens the key=value text editor" {
-  set_nav "$(nav_to_values Options sysctl sysctl)"
+  set_nav "$(nav_to_values Security sysctl sysctl)"
   run guided_ctl_enter "+ Add sysctl (key=value)"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
@@ -969,7 +977,7 @@ _seed_baseline() {
 }
 
 @test "enter(text sysctl): adding a pair returns to the sysctl list screen" {
-  set_nav "$(nav_to_text Options sysctl sysctl)"
+  set_nav "$(nav_to_text Security sysctl sysctl)"
   run guided_ctl_enter "+ Add sysctl (key=value)" "vm.dirty_ratio=20"
   [ "$(jq -c '.sysctl["vm.dirty_ratio"]' "$GUIDED_STATE_FILE")" = "20" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
@@ -1539,7 +1547,7 @@ _seed_baseline() {
 }
 
 @test "back: from a category, returns to the top screen" {
-  set_nav "$(nav_to_category Options)"
+  set_nav "$(nav_to_category Kernels)"
   run guided_ctl_back
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "top" ]
@@ -1610,7 +1618,7 @@ _seed_baseline() {
 
 @test "fast-path: refresh also cats the precomputed list file" {
   export GUIDED_LIST_FILE="$TEST_DIR/list"
-  set_nav "$(nav_to_values Options options.kernel kernel)"
+  set_nav "$(nav_to_values Kernels options.kernel kernel)"
   run _guided_directive_to_action refresh /x/entry.sh
   echo "$output" | grep -q "reload-sync(cat "
 }
@@ -1760,7 +1768,7 @@ mixed_programs_setup() {
 
 @test "system_programs picker offers exactly the system:true programs" {
   mixed_programs_setup
-  set_nav "$(nav_to_values Host system_programs "system programs")"
+  set_nav "$(nav_to_values Packages system_programs "system programs")"
   run guided_ctl_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "\[ \] cups"

@@ -21,11 +21,11 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── tracer: fresh state lists the hostname row under Host, not overridden ───
 
-@test "menu_rows: a fresh state surfaces hostname under Host, not overridden" {
+@test "menu_rows: a fresh state surfaces hostname under System, not overridden" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .section == "Host" and .field == "system.hostname")'
+    | jq -e 'any(.[]; .section == "System" and .field == "system.hostname")'
   echo "$output" | row system.hostname | jq -e '.overridden == false'
 }
 
@@ -109,20 +109,20 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── Options section: FS-agnostic host knobs (issue 05) ─────────────────────
 
-@test "menu_rows: the bootloader row sits under Options, defaults systemd-boot" {
+@test "menu_rows: the bootloader row sits under Bootloader, defaults systemd-boot" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.bootloader | jq -e '.section == "Options"'
+  echo "$output" | row options.bootloader | jq -e '.section == "Bootloader"'
   echo "$output" | row options.bootloader | jq -e '.value == "systemd-boot"'
   echo "$output" | row options.bootloader | jq -e '.overridden == false'
 }
 
 # ── kernel is a token list: defaults lts, renders multi-select comma-joined ─
 
-@test "menu_rows: the kernel row sits under Options, defaults lts" {
+@test "menu_rows: the kernel row sits under Kernels, defaults lts" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.kernel | jq -e '.section == "Options"'
+  echo "$output" | row options.kernel | jq -e '.section == "Kernels"'
   echo "$output" | row options.kernel | jq -e '.value == "lts"'
 }
 
@@ -134,10 +134,11 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.kernel | jq -e '.overridden == true'
 }
 
-# ── the rest of the FS-agnostic Options surface as rows with their defaults ─
-# swap / swap_size / esp_size moved to Disks (issue 02); ssh / age_key_url stay.
+# ── the rest of the FS-agnostic knobs surface as rows with their defaults ───
+# swap / swap_size / esp_size moved to Disks (issue 02); ssh / age_key_url land
+# under Advanced (ADR 0071).
 
-@test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Options" {
+@test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Advanced" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   # swap / swap_size are no longer menu_rows fields — like layout, they surface
@@ -146,9 +147,9 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
   echo "$output" | row options.esp_size     | jq -e '.section == "Disks"'
   echo "$output" | row options.esp_size     | jq -e '.value == "2G"'
-  echo "$output" | row options.ssh.enabled  | jq -e '.section == "Options"'
+  echo "$output" | row options.ssh.enabled  | jq -e '.section == "Advanced"'
   echo "$output" | row options.ssh.enabled  | jq -e '.value == "false"'
-  echo "$output" | row options.age_key_url  | jq -e '.section == "Options"'
+  echo "$output" | row options.age_key_url  | jq -e '.section == "Advanced"'
 }
 
 # ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
@@ -188,13 +189,15 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── Options (mirrors) / Packages rows (folded in by issue 02) ──────────────
 
-@test "menu_rows: Options carries mirror_countries (default 5) + multilib" {
+@test "menu_rows: Mirrors & Repositories carries mirror_countries + multilib" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.mirror_countries | jq -e '.section == "Options"'
+  echo "$output" | row options.mirror_countries \
+    | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.mirror_countries \
     | jq -e '.value == "Germany, Switzerland, Sweden, France, Romania"'
-  echo "$output" | row options.multilib | jq -e '.section == "Options"'
+  echo "$output" | row options.multilib \
+    | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.multilib | jq -e '.value == "true"'
 }
 
@@ -260,38 +263,40 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   done
 }
 
-# ── locale / timezone / keymap are editable Host rows (issue 01) ───────────
+# ── locale / keymap are Locales rows; timezone is a System row (ADR 0071) ───
 
-@test "menu_rows: locale / timezone / keymap surface as Host rows" {
+@test "menu_rows: locale / keymap surface under Locales, timezone under System" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row system.locale   | jq -e '.section == "Host"'
-  echo "$output" | row system.timezone | jq -e '.section == "Host"'
-  echo "$output" | row system.keymap   | jq -e '.section == "Host"'
+  echo "$output" | row system.locale   | jq -e '.section == "Locales"'
+  echo "$output" | row system.keymap   | jq -e '.section == "Locales"'
+  echo "$output" | row system.timezone | jq -e '.section == "System"'
 }
 
-# ── the menu is split Host / Users (mirrors the saved artifacts) ───────────
+# ── the menu still carries a System and a Users section ────────────────────
 
-@test "menu_rows: the menu carries both a Host and a Users section" {
+@test "menu_rows: the menu carries both a System and a Users section" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .section == "Host")'
+  echo "$output" | jq -e 'any(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .section == "Users")'
 }
 
-# ── the two-level model: the eight Configuration Categories (issue 02) ──────
+# ── the two-level model: the twelve Configuration Categories (ADR 0071) ─────
 # menu_categories is the top-level contract: the ordered categories the operator
-# drills into. Each carries a summary and an aggregated ● (any descendant field
-# overridden). The category list is the same eight regardless of state.
+# drills into, in archinstall reading order. Each carries a summary and an
+# aggregated ● (any descendant field overridden). The list is the same twelve
+# regardless of state.
 
 cat_at() { jq -e ".[$1]"; }
 
-@test "menu_categories: returns the eight categories in canonical order" {
+@test "menu_categories: returns the twelve categories in canonical order" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 8'
-  echo "$output" | jq -e '[.[].name] == ["Host","Disks","Options",
-    "Environment","Packages","Security","Backup","Users"]'
+  echo "$output" | jq -e 'length == 12'
+  echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
+    "Disks","Bootloader","Kernels","System","Users","Environment","Packages",
+    "Security","Backup","Advanced"]'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
@@ -312,9 +317,9 @@ cat_at() { jq -e ".[$1]"; }
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "Host")    | .overridden == true'
+  echo "$output" | jq -e '.[] | select(.name == "System")  | .overridden == true'
   echo "$output" | jq -e '.[] | select(.name == "Disks")   | .overridden == false'
-  echo "$output" | jq -e '.[] | select(.name == "Options") | .overridden == false'
+  echo "$output" | jq -e '.[] | select(.name == "Kernels") | .overridden == false'
 }
 
 # the ● folds the override map only — a seeded-but-untouched value carries no ●
@@ -322,17 +327,17 @@ cat_at() { jq -e ".[$1]"; }
   baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   run menu_categories "$(cfgstate_new)" "$baseline"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "Host") | .overridden == false'
+  echo "$output" | jq -e '.[] | select(.name == "System") | .overridden == false'
 }
 
 # ── drill-in: menu_category_rows returns one category's field rows ──────────
 # The sub-menu contract: given a category name, the rows for that category only
 # (same per-row shape as menu_rows). The baseline still supplies seeded values.
 
-@test "menu_category_rows: Host returns only Host rows incl. hostname" {
-  run menu_category_rows Host "$(cfgstate_new)"
+@test "menu_category_rows: System returns only System rows incl. hostname" {
+  run menu_category_rows System "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "Host")'
+  echo "$output" | jq -e 'all(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
 }
 
@@ -350,9 +355,9 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
 }
 
-# the old Pacman section folds into Options (issue 02)
-@test "menu_category_rows: mirror countries + multilib fold into Options" {
-  run menu_category_rows Options "$(cfgstate_new)"
+# mirrors + multilib live under Mirrors & Repositories (ADR 0071)
+@test "menu_category_rows: mirror countries + multilib under Mirrors & Repositories" {
+  run menu_category_rows "Mirrors & Repositories" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.mirror_countries")'
   echo "$output" | jq -e 'any(.[]; .field == "options.multilib")'
@@ -361,10 +366,10 @@ cat_at() { jq -e ".[$1]"; }
     | jq -e 'all(.[]; .name != "Pacman")'
 }
 
-# sysctl moves off the top-level action list into an Options row; the map value
-# renders as comma-joined key=value pairs and flips the Options ● when set.
-@test "menu_category_rows: sysctl is an Options row, empty + unmarked when unset" {
-  run menu_category_rows Options "$(cfgstate_new)"
+# sysctl is kernel hardening, so it lives under Security (ADR 0071); the map
+# value renders as comma-joined key=value pairs and flips the Security ● when set.
+@test "menu_category_rows: sysctl is a Security row, empty + unmarked when unset" {
+  run menu_category_rows Security "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row sysctl | jq -e '.value == ""'
   echo "$output" | row sysctl | jq -e '.overridden == false'
@@ -400,10 +405,20 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.borg")'
 }
 
-@test "menu_categories: the Advanced section is gone" {
+# Advanced is now a real category (ADR 0071): the ssh + age-key-url remainder.
+@test "menu_category_rows: Advanced carries ssh + age key url" {
+  run menu_category_rows Advanced "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'any(.[]; .field == "options.ssh.enabled")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.age_key_url")'
+  echo "$output" | jq -e 'all(.[]; .section == "Advanced")'
+}
+
+# the old catch-all "Options" category is gone (its fields were redistributed)
+@test "menu_categories: the Options section is gone" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .name != "Advanced")'
+  echo "$output" | jq -e 'all(.[]; .name != "Options")'
 }
 
 # dotfiles_repo is removed entirely — no row in any category (issue 02)

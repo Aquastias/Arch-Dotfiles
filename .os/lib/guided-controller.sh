@@ -1263,12 +1263,145 @@ _ctl_profile_tree() {
     | while IFS= read -r _l; do printf '      %s\n' "$_l"; done
 }
 
-# guided_ctl_preview <line> — the fzf preview body: the layout graph for the
-# highlighted preset, but ONLY on the Disk-layout screen (empty elsewhere, so the
-# preview is a no-op on every other screen).
+# ── always-on master-detail pane (ADR 0071) ──────────────────────────────────
+# On the top + category screens the preview pane is a live detail column: a
+# parent column (the siblings, current item marked "▶", the rest dimmed) above
+# the highlighted item's detail. Pure: reads state + nav from files like
+# guided_ctl_list, so it is asserted headless (tests/config/guided-detail.bats).
+_CTL_DIM=$'\033[2m'; _CTL_BOLD=$'\033[1m'; _CTL_RST=$'\033[0m'
+
+# _ctl_detail_column <current> < "name\toverridden"-lines — the parent column:
+# each name a row, the one equal to <current> marked "▶", the rest dimmed, and a
+# "●" appended to any overridden sibling (user story 14).
+_ctl_detail_column() {
+  local current="$1" n ov dot
+  while IFS=$'\t' read -r n ov; do
+    dot=""; [[ "$ov" == true ]] && dot="  ●"
+    if [[ -n "$current" && "$n" == "$current" ]]; then
+      printf '  %s▶ %s%s%s\n' "$_CTL_BOLD" "$n" "$dot" "$_CTL_RST"
+    else
+      printf '%s    %s%s%s\n' "$_CTL_DIM" "$n" "$dot" "$_CTL_RST"
+    fi
+  done
+}
+
+# _ctl_detail_leaf <field> <state> <base> — one field's leaf detail, shared by
+# the category-screen field row and the field editor screens: its label, current
+# value (● when overridden), then either its option set (enumerable) or a
+# free-text hint (a text field). Pure.
+_ctl_detail_leaf() {
+  local field="$1" state="$2" base="$3" row label val ov dot opts
+  row="$(menu_rows "$state" "$base" \
+    | jq -c --arg p "$field" 'first(.[] | select(.field == $p)) // {}')"
+  label="$(jq -r '.label // ""' <<<"$row")"
+  val="$(jq -r '.value // ""' <<<"$row")"
+  ov="$(jq -r '.overridden // false' <<<"$row")"
+  dot=""; [[ "$ov" == true ]] && dot="  ●"
+  printf '%s%s%s\n  %s: %s%s\n' "$_CTL_BOLD" "$label" "$_CTL_RST" \
+    "$label" "${val:-(none)}" "$dot"
+  if [[ "$(_ctl_field_kind "$field")" == text ]]; then
+    printf '%s  (free text — type a value)%s\n' "$_CTL_DIM" "$_CTL_RST"
+    return 0
+  fi
+  opts="$(menu_enum_options "$field")"
+  [[ -n "$opts" ]] || return 0
+  printf '%sOptions:%s\n' "$_CTL_DIM" "$_CTL_RST"
+  sed 's/^/  /' <<<"$opts"
+}
+
+# _ctl_detail_reflector_note <category> — the reflector consumer line, shown
+# only under Mirrors & Repositories: the countries feed reflector's ranking.
+_ctl_detail_reflector_note() {
+  [[ "$1" == "Mirrors & Repositories" ]] || return 0
+  printf '%s  countries → reflector --country --latest 10 --sort rate%s\n' \
+    "$_CTL_DIM" "$_CTL_RST"
+}
+
+# _ctl_detail_user_table <state> <base> — the Users account table for the detail
+# pane (ticket 03): root's row plus each user's shell/sudo/groups panel, reusing
+# the existing _ctl_user_panel builder (no new render). Disabled users show as
+# such. Mirrors the flattened Users screen's rows.
+_ctl_detail_user_table() {
+  local state="$1" base="$2" um un
+  printf '\n%sAccounts%s\n' "$_CTL_BOLD" "$_CTL_RST"
+  printf 'root — %s · pw %s\n' "$(_ctl_root_shell)" "$(_ctl_secret_tag root)"
+  while IFS= read -r um; do
+    un="${um:4}"
+    [[ -n "$un" ]] || continue
+    if [[ "${um:0:3}" == "[x]" ]]; then _ctl_user_panel "$un"
+    else printf '%s — disabled\n' "$un"; fi
+  done < <(_ctl_user_marked "$state" "$base")
+}
+
+# _ctl_detail_top <line> <state> <base> — top-screen preview: the category
+# parent column, then the highlighted category's detail. Users shows its table
+# (ticket 03); every other category shows its fields as "label: value" (● on
+# overrides). A non-category row (Profiles/Proceed/…) shows only the column.
+_ctl_detail_top() {
+  local line="$1" state="$2" base="$3" cur rows
+  cur="${line%% — *}"
+  printf '%sCategories%s\n' "$_CTL_BOLD" "$_CTL_RST"
+  menu_categories "$state" "$base" \
+    | jq -r '.[] | "\(.name)\t\(.overridden)"' | _ctl_detail_column "$cur"
+  if [[ "$cur" == "Users" ]]; then
+    _ctl_detail_user_table "$state" "$base"; return 0
+  fi
+  rows="$(menu_category_rows "$cur" "$state" "$base" 2>/dev/null)"
+  [[ -n "$rows" && "$rows" != "[]" ]] || return 0
+  printf '\n%s%s%s\n' "$_CTL_BOLD" "$cur" "$_CTL_RST"
+  jq -r '.[] | "  \(.label): \(.value // "")"
+               + (if .overridden then "  ●" else "" end)' <<<"$rows"
+  _ctl_detail_reflector_note "$cur"
+}
+
+# _ctl_detail_category <line> <state> <base> <cat> — category-screen preview:
+# the sibling-field parent column + the highlighted leaf's value and options.
+_ctl_detail_category() {
+  local line="$1" state="$2" base="$3" cat="$4" label rows cur_field cur_label
+  label="${line%%:*}"; label="${label%% ▸*}"
+  cur_field="$(_ctl_field_for_label "$cat" "$label")"
+  rows="$(menu_category_rows "$cat" "$state" "$base")"
+  cur_label=""
+  [[ -n "$cur_field" ]] && cur_label="$(jq -r --arg p "$cur_field" \
+    'first(.[] | select(.field == $p) | .label) // ""' <<<"$rows")"
+  printf '%s%s%s\n' "$_CTL_BOLD" "$cat" "$_CTL_RST"
+  jq -r '.[] | "\(.label)\t\(.overridden)"' <<<"$rows" \
+    | _ctl_detail_column "$cur_label"
+  _ctl_detail_reflector_note "$cat"
+  # The Disks Layout row is a synthetic leaf: preview the live ZFS pool tree,
+  # reusing the layout-graph builder (ticket 03).
+  if [[ "$cat" == "Disks" && "$label" == "$(display_label layout)" ]]; then
+    printf '\n%sLayout%s\n' "$_CTL_BOLD" "$_CTL_RST"
+    _ctl_layout_graph "$(_ctl_effective "$state" "$base")"
+    return 0
+  fi
+  [[ -n "$cur_field" ]] || return 0
+  printf '\n'
+  _ctl_detail_leaf "$cur_field" "$state" "$base"
+}
+
+# _ctl_detail_pane <line> — the master-detail preview for the top / category
+# screens (ADR 0071); empty on any other screen (they keep their own preview).
+_ctl_detail_pane() {
+  local line="$1" nav state base
+  nav="$(_ctl_nav)"; state="$(_ctl_state)"; base="$(_ctl_baseline)"
+  case "$(nav_screen "$nav")" in
+  top)      _ctl_detail_top "$line" "$state" "$base" ;;
+  category) _ctl_detail_category "$line" "$state" "$base" \
+              "$(nav_get "$nav" category)" ;;
+  esac
+}
+
+# guided_ctl_preview <line> — the fzf preview body. On the top + category +
+# field screens it is the always-on master-detail pane (ADR 0071); on the
+# layout / profiles / users screens it is that screen's own rich preview (the
+# layout graph, profile tree, per-user panel); empty elsewhere.
 guided_ctl_preview() {
   local line="$1" nav field
   nav="$(_ctl_nav)"
+  case "$(nav_screen "$nav")" in
+  top | category) _ctl_detail_pane "$line"; return 0 ;;
+  esac
   # The data-pools editor screens graph the LIVE state (not a preset line) so the
   # tree reflects pools/disks as you add and cycle them.
   case "$(nav_screen "$nav")" in
@@ -1289,9 +1422,21 @@ guided_ctl_preview() {
       printf '\033[2m(no profile — hosts/%s/profile.jsonc)\033[0m\n' "$line"
     fi
     return 0 ;;
+  text)
+    # The free-text editor screen (hostname / URL / size / package name): the
+    # shared leaf detail so the pane is populated here too (ADR 0071).
+    _ctl_detail_leaf "$(nav_get "$nav" field)" \
+      "$(_ctl_state)" "$(_ctl_baseline)"
+    return 0 ;;
   esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
+  # A field with no dedicated selection panel (kernel, bootloader, gpu, a bool)
+  # gets the shared leaf detail, so every field screen shows a populated pane.
+  if ! _ctl_field_has_preview "$field"; then
+    _ctl_detail_leaf "$field" "$(_ctl_state)" "$(_ctl_baseline)"
+    return 0
+  fi
   case "$field" in
   users)
     # The hovered account's detail panel (ADR 0063). The root row shows its
@@ -2121,16 +2266,21 @@ _ctl_enter_top() {
   "Save profile"*)  echo "terminal save" ;;
   "Export config"*) echo "terminal export" ;;
   *)
-    cat="${line%% *}"
-    case "$cat" in
-    Users)
+    # The top row is "<name> — <summary>"; split on the em-dash so multi-word
+    # category names (e.g. "Mirrors & Repositories") survive whole (ADR 0071).
+    # Validity is read from menu_categories (the single source of truth), so a
+    # new category needs no edit here.
+    cat="${line%% — *}"
+    if [[ "$cat" == "Users" ]]; then
       # Flatten (slice 01): Users opens its list directly, skipping the
       # single-row category screen. nav_back from here returns to top.
-      _ctl_write_nav "$(nav_to_values Users users users)"; echo render ;;
-    Host | Disks | Options | Environment | Packages | Security | Backup)
-      _ctl_write_nav "$(nav_to_category "$cat")"; echo render ;;
-    *) echo noop ;;
-    esac ;;
+      _ctl_write_nav "$(nav_to_values Users users users)"; echo render
+    elif menu_categories "$(_ctl_state)" "$(_ctl_baseline)" \
+         | jq -e --arg c "$cat" 'any(.[]; .name == $c)' >/dev/null 2>&1; then
+      _ctl_write_nav "$(nav_to_category "$cat")"; echo render
+    else
+      echo noop
+    fi ;;
   esac
 }
 
@@ -3001,8 +3151,8 @@ _guided_directive_to_action() {
     nav="$(_ctl_nav)"
     local pv _showpv=0
     case "$(nav_screen "$nav")" in
-    values)
-      _ctl_field_has_preview "$(nav_get "$nav" field)" && _showpv=1 ;;
+    top | category | values | text)   # the always-on master-detail pane (0071)
+      _showpv=1 ;;
     datapools | pooledit) _showpv=1 ;;   # the live layout graph
     profiles) _showpv=1 ;;               # the profile's header comment
     esac
