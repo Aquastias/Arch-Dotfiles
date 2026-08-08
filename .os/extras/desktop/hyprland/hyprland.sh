@@ -39,7 +39,6 @@ section "Hyprland core"
 pacman -S --noconfirm --needed \
   hyprland \
   seatd \
-  uwsm \
   xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk \
   polkit-kde-agent \
@@ -71,8 +70,8 @@ systemctl enable seatd
 #     picks its NESTED backend and renders into an invisible parent window
 #     instead of driving the panel (black screen). Unsetting them forces the
 #     DRM/KMS backend. Shipped in /usr/local so it wins the greeter's session
-#     scan and survives package upgrades; the greetd picker points here. A
-#     packaged uwsm-managed variant is offered alongside it (DM section below).
+#     scan and survives package upgrades; the greeter (greetd or SDDM) points
+#     here. This is the SOLE Hyprland session offered (ADR 0070).
 section "Hyprland session launcher (start-hyprland, DRM backend)"
 install -d "${ROOT}${WAYLAND_SESSIONS_DIR}"
 cat > "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland.desktop" <<'DESKTOP'
@@ -93,11 +92,13 @@ DESKTOP
 # "greetd owns the DM"). This curated /usr/local dir holds exactly the good
 # sessions so the greeter — greetd via `tuigreet --sessions`, or SDDM via its
 # pinned SessionDir — never shows the /usr/share duplicates: our start-hyprland
-# session (hyprland.desktop, above), the packaged uwsm-managed variant
-# (symlinked in), and — on a KDE co-install — Plasma. Both Hyprland launch
-# methods reach the DRM/seatd path (ADR 0068); start-hyprland adds crash
-# recovery, uwsm adds systemd session/service management. The check reads the
-# full resolved desktop set, so it is independent of adapter execution order.
+# session (hyprland.desktop, above) and — on a KDE co-install — Plasma. The
+# packaged uwsm session is NOT symlinked in (ADR 0070): its systemd-user
+# graphical.target orchestration deadlocks on the first post-boot login under
+# impermanence (ADR 0061 pre-starts user@uid, which the target job can't clear),
+# black-screening only the uwsm session while start-hyprland and Plasma work.
+# start-hyprland is the sole Hyprland session. The check reads the full resolved
+# desktop set, so it is independent of adapter execution order.
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
 _has_kde=false
 for _de in "${_desktops[@]}"; do
@@ -105,15 +106,13 @@ for _de in "${_desktops[@]}"; do
 done
 
 section "Hyprland curated sessions"
-ln -sf /usr/share/wayland-sessions/hyprland-uwsm.desktop \
-  "${ROOT}${WAYLAND_SESSIONS_DIR}/hyprland-uwsm.desktop"
 if $_has_kde; then
   # KDE co-installed: also offer Plasma (symlinked into the curated dir).
   ln -sf /usr/share/wayland-sessions/plasma.desktop \
     "${ROOT}${WAYLAND_SESSIONS_DIR}/plasma.desktop"
-  info "Curated sessions: Hyprland (start-hyprland/uwsm) + Plasma."
+  info "Curated sessions: Hyprland (start-hyprland) + Plasma."
 else
-  info "Curated sessions: Hyprland (start-hyprland/uwsm)."
+  info "Curated sessions: Hyprland (start-hyprland)."
 fi
 
 # =============================================================================

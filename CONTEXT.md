@@ -771,8 +771,12 @@ touch any DM. The greeter still sees a curated
 `/usr/local/share/wayland-sessions` (written by the Hyprland adapter) holding
 exactly the good sessions — its own `hyprland.desktop` (`env -u WAYLAND_DISPLAY
 -u DISPLAY start-hyprland`, the 0.53+ launcher; unset vars force aquamarine's
-DRM backend over its nested one), the packaged `hyprland-uwsm.desktop`
-(symlinked in), and — on a KDE co-install — Plasma. Under impermanence the same
+DRM backend over its nested one), the **sole** Hyprland session, and — on a KDE
+co-install — Plasma. The packaged `hyprland-uwsm.desktop` is deliberately not
+curated and `uwsm` is not installed (ADR 0070): its systemd-user
+`graphical.target` orchestration deadlocks on the first post-boot login under
+impermanence (ADR 0061 pre-starts `user@uid`), black-screening only the uwsm
+session while start-hyprland and Plasma work. Under impermanence the same
 display-manager login is used — no tty1 autologin — with the enablement
 mirrored onto the never-rolled-back `/usr/lib` tree via the DM-agnostic
 `display-manager.service` alias so it survives the rolled-back root (ADR 0061).
