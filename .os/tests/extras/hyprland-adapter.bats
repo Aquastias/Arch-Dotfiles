@@ -44,10 +44,18 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   local p
-  for p in hyprland seatd uwsm xdg-desktop-portal-hyprland \
+  for p in hyprland seatd xdg-desktop-portal-hyprland \
            xdg-desktop-portal-gtk polkit-kde-agent wl-clipboard; do
     grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
   done
+}
+
+# uwsm is not installed (ADR 0070): its session deadlocks on first-boot login
+# under impermanence, so the uwsm session is dropped and the package with it.
+@test "does not install uwsm" {
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  ! grep -qw "uwsm" "$PACMAN_LOG"
 }
 
 # aquamarine can't get DRM master via logind on some hardware (atomic KMS
@@ -87,10 +95,10 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   grep -qx 'Exec=env -u WAYLAND_DISPLAY -u DISPLAY start-hyprland' "$SESSION"
 }
 
-@test "offers a uwsm-managed Hyprland session alongside it" {
+@test "does not offer a uwsm session (dropped, ADR 0070)" {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
-  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
+  [ ! -e "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
 }
 
 # ── display manager relinquished to the DM adapter (ADR 0069) ────────────────
@@ -105,13 +113,13 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 
-@test "KDE co-installed: curated dir offers Plasma + both Hyprland launchers" {
+@test "KDE co-installed: curated dir offers Plasma + start-hyprland" {
   run_hypr "kde hyprland"
   [ "$status" -eq 0 ]
   # The /usr/share duplicates never reach the picker — the greeter is pointed
   # at this curated dir (greetd via --sessions, sddm via pinned SessionDir).
   [ -L "$ROOT/usr/local/share/wayland-sessions/plasma.desktop" ]
-  [ -L "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
+  [ ! -e "$ROOT/usr/local/share/wayland-sessions/hyprland-uwsm.desktop" ]
   [ -f "$SESSION" ]
 }
 
