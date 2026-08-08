@@ -1,0 +1,265 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Guided Installer master-detail redesign (ADR 0071).
+  Question: "What should the archinstall-style master-detail TUI look like?"
+  3 structurally-different variants, switch via ?variant= or ← / → keys.
+  Navigate the list with ↑ / ↓ or the mouse. Double-click this file to run.
+  NOT production code — no build, no framework, no persistence.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guided Installer — master-detail prototype</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#0e141b; --fg:#c7d0da; --dim:#5b6b7a;
+    --sel:#1f6feb; --selfg:#ffffff; --line:#233240; --accent:#39d0d8;
+    --ov:#f0a020; --warn:#e05252; --ok:#4bbf73; --title:#1f6feb;
+  }
+  html,body{margin:0;height:100%;background:#05070a;color:var(--fg);
+    font:14px/1.5 "JetBrains Mono","SF Mono",Consolas,monospace}
+  #screen{max-width:1180px;margin:24px auto;background:var(--bg);
+    border:1px solid var(--line);border-radius:6px;overflow:hidden;
+    box-shadow:0 8px 40px #000a}
+  .titlebar{background:var(--title);color:#fff;text-align:center;
+    font-weight:700;letter-spacing:.5px;padding:4px}
+  .breadcrumb{padding:6px 12px;color:var(--dim);border-bottom:1px solid var(--line)}
+  .breadcrumb b{color:var(--accent);font-weight:600}
+  .body{display:flex;min-height:520px}
+  .col{padding:10px 0;overflow:auto}
+  .row{padding:3px 14px;white-space:nowrap;cursor:pointer;
+    display:flex;justify-content:space-between;gap:18px}
+  .row:hover{background:#12202e}
+  .row.sel{background:var(--sel);color:var(--selfg)}
+  .row.sel .muted{color:#cfe3ff}
+  .row .muted{color:var(--dim)}
+  .dot{color:var(--ov)}
+  .row.sel .dot{color:#ffd98a}
+  .vline{width:1px;background:var(--line)}
+  .detail{padding:14px 18px;flex:1;overflow:auto}
+  .detail h3{margin:0 0 10px;color:var(--accent);font-size:13px;
+    text-transform:uppercase;letter-spacing:1px}
+  .kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 22px}
+  .kv .k{color:var(--dim)} .kv .v{color:var(--fg)}
+  .note{margin-top:14px;color:var(--dim);font-style:italic;max-width:60ch}
+  .card{border:1px solid var(--line);border-radius:5px;padding:10px 12px;
+    margin-bottom:12px;background:var(--panel)}
+  .card .ttl{color:var(--accent);font-size:12px;text-transform:uppercase;
+    letter-spacing:1px;margin-bottom:6px}
+  .tree{white-space:pre;color:var(--fg)}
+  .footer{border-top:1px solid var(--line);color:var(--dim);padding:5px 12px;
+    display:flex;gap:20px;font-size:12px}
+  .footer b{color:var(--fg)}
+  .term{color:var(--ok)} .term.abort{color:var(--warn)}
+  .divider{border-top:1px dashed var(--line);margin:6px 14px}
+  /* variant C miller */
+  .miller{display:flex}
+  .miller .col{min-width:180px}
+  /* bottom switcher */
+  #bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#111a24;border:1px solid #2b3d4f;border-radius:999px;
+    padding:6px 8px;display:flex;align-items:center;gap:10px;
+    box-shadow:0 6px 24px #000b;z-index:50}
+  #bar button{background:#1f6feb;border:0;color:#fff;width:30px;height:30px;
+    border-radius:50%;cursor:pointer;font-size:16px}
+  #bar .lbl{min-width:260px;text-align:center;color:#cfe3ff}
+  #bar .lbl b{color:#fff}
+  .hint{position:fixed;right:14px;bottom:16px;color:#3d4c5a;font-size:11px}
+</style>
+</head>
+<body>
+<div id="screen"></div>
+<div id="bar">
+  <button id="prev" title="previous variant (←)">‹</button>
+  <div class="lbl" id="lbl"></div>
+  <button id="next" title="next variant (→)">›</button>
+</div>
+<div class="hint">← / → switch variant · ↑ / ↓ or click to navigate</div>
+
+<script>
+// ---- decided taxonomy (ADR 0071): 12 categories, archinstall reading order ----
+const CATS = [
+  {name:"Locales", sum:"language, keymap", fields:[
+    {l:"language", v:"en_US.UTF-8"}, {l:"keymap", v:"us"}]},
+  {name:"Mirrors & Repositories", sum:"countries, multilib", fields:[
+    {l:"mirror countries", v:"Germany, Switzerland, Sweden, France, Romania"},
+    {l:"multilib", v:"true"}],
+    note:"Countries drive reflector: reflector --country <list> --latest 10 "+
+         "--sort rate --save /etc/pacman.d/mirrorlist. (unchanged back-end)"},
+  {name:"Disks", sum:"zfs · single · unencrypted", fields:[
+    {l:"filesystem", v:"zfs"}, {l:"encryption", v:"off"},
+    {l:"impermanence", v:"off"}, {l:"esp size", v:"2G"},
+    {l:"swap", v:"zram"}, {l:"pools ▸", v:"single-disk ZFS", tree:true}]},
+  {name:"Bootloader", sum:"systemd-boot", fields:[
+    {l:"bootloader", v:"systemd-boot"}]},
+  {name:"Kernels", sum:"lts", fields:[{l:"kernel", v:"lts"}]},
+  {name:"System", sum:"eterniox · Europe/Bucharest", fields:[
+    {l:"hostname", v:"eterniox", ov:true}, {l:"timezone", v:"Europe/Bucharest"}]},
+  {name:"Users", sum:"aquastias (+0)", fields:[
+    {l:"primary user ▸", v:"aquastias", users:true},
+    {l:"＋ add account", v:""}]},
+  {name:"Environment", sum:"kde · auto · auto", fields:[
+    {l:"desktop", v:"kde", ov:true}, {l:"display manager", v:"auto"},
+    {l:"gpu", v:"auto"}]},
+  {name:"Packages", sum:"repo, aur, derived, system", fields:[
+    {l:"repo ▸", v:"61 inherited"}, {l:"aur ▸", v:"—"},
+    {l:"derived (read-only) ▸", v:"kde, zfs, audio…"},
+    {l:"system programs ▸", v:"cups"}, {l:"extra ▸", v:"[]"}]},
+  {name:"Security", sum:"firewalld · av · rkhunter · aa", fields:[
+    {l:"firewall", v:"firewalld"}, {l:"antivirus", v:"on"},
+    {l:"rootkit", v:"on"}, {l:"apparmor", v:"on"}, {l:"sysctl ▸", v:"hardening"}]},
+  {name:"Backup", sum:"snapshots · borg", fields:[
+    {l:"zfs snapshots", v:"on"}, {l:"borg", v:"on"}]},
+  {name:"Advanced", sum:"ssh, age key url", fields:[
+    {l:"ssh", v:"off"}, {l:"age key url", v:"(unset)"}]},
+];
+const TERMS = [{l:"Save configuration",k:"term"},{l:"Install",k:"term"},
+  {l:"Abort",k:"abort"}];
+
+function poolTree(){return (
+`rpool (single disk)
+├─ ROOT/arch      /
+├─ home           /home
+├─ var            /var
+└─ persist        /persist  (off)`);}
+function userTable(){return (
+`name        shell     sudo  groups
+aquastias   /bin/zsh  yes   wheel,users
+root        /bin/bash  —    —`);}
+
+// ---- state ----
+let variant = new URL(location).searchParams.get("variant") || "A";
+let ci = 0;      // category index
+let fi = 0;      // field index (variant C)
+const VNAMES = {A:"Classic archinstall (2-pane)",
+  B:"Detail-cards + chrome (2-pane)", C:"Miller columns (3-pane)"};
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+function dot(f){return f.ov?'<span class="dot">●</span> ':'';}
+
+function detailFor(cat, field){
+  // leaf-aware detail rendering, reused by every variant
+  if(field && field.tree)
+    return `<h3>${esc(cat.name)} · pools</h3><div class="tree">${poolTree()}</div>`;
+  if(field && field.users)
+    return `<h3>${esc(cat.name)} · accounts</h3><div class="tree">${userTable()}</div>`;
+  let kv = cat.fields.map(f=>
+    `<div class="k">${dot(f)}${esc(f.l)}</div><div class="v">${esc(f.v||"—")}</div>`
+  ).join("");
+  let note = cat.note?`<div class="note">${esc(cat.note)}</div>`:"";
+  return `<h3>${esc(cat.name)}</h3><div class="kv">${kv}</div>${note}`;
+}
+
+// ---------- VARIANT A : classic archinstall ----------
+function renderA(){
+  const cat = CATS[ci];
+  let list = CATS.map((c,i)=>
+    `<div class="row ${i==ci?'sel':''}" data-ci="${i}">
+       <span>${c.overridden?'':''}${esc(c.name)}</span>
+       <span class="muted">${c.fields.some(f=>f.ov)?'●':''}</span></div>`
+  ).join("");
+  list += `<div class="divider"></div>` + TERMS.map(t=>
+    `<div class="row"><span class="${t.k}">${esc(t.l)}</span></div>`).join("");
+  return `
+  <div class="titlebar">Archlinux</div>
+  <div class="body">
+    <div class="col" style="min-width:280px">${list}</div>
+    <div class="vline"></div>
+    <div class="detail">${detailFor(cat, cat.fields.find(f=>f.tree||f.users))}</div>
+  </div>`;
+}
+
+// ---------- VARIANT B : detail cards + strong chrome ----------
+function renderB(){
+  const cat = CATS[ci];
+  let list = CATS.map((c,i)=>
+    `<div class="row ${i==ci?'sel':''}" data-ci="${i}">
+       <span>${esc(c.name)}</span>
+       <span class="muted">${esc(c.sum)} ${c.fields.some(f=>f.ov)?'<span class="dot">●</span>':''}</span>
+     </div>`).join("");
+  // right side = stacked cards, one per field group + a leaf card
+  let cards = `<div class="card"><div class="ttl">${esc(cat.name)}</div>
+      <div class="kv">${cat.fields.map(f=>
+        `<div class="k">${dot(f)}${esc(f.l)}</div><div class="v">${esc(f.v||"—")}</div>`
+      ).join("")}</div></div>`;
+  let leaf = cat.fields.find(f=>f.tree||f.users);
+  if(leaf) cards += `<div class="card"><div class="ttl">${esc(leaf.l.replace(' ▸',''))}</div>
+      <div class="tree">${leaf.tree?poolTree():userTable()}</div></div>`;
+  if(cat.note) cards += `<div class="card"><div class="ttl">reflector</div>
+      <div class="note" style="margin:0">${esc(cat.note)}</div></div>`;
+  return `
+  <div class="titlebar">eterniox · Guided Installer</div>
+  <div class="breadcrumb">Home ▸ <b>${esc(cat.name)}</b></div>
+  <div class="body">
+    <div class="col" style="min-width:340px">${list}
+      <div class="divider"></div>${TERMS.map(t=>
+        `<div class="row"><span class="${t.k}">${esc(t.l)}</span></div>`).join("")}
+    </div>
+    <div class="vline"></div>
+    <div class="detail">${cards}</div>
+  </div>
+  <div class="footer"><span><b>↵</b> open</span><span><b>esc</b> back</span>
+    <span><b>^Z</b> undo</span><span><b>^R</b> redo</span>
+    <span><b>tab</b> multi-select</span></div>`;
+}
+
+// ---------- VARIANT C : Miller columns (parent stays visible) ----------
+function renderC(){
+  const cat = CATS[ci];
+  const field = cat.fields[fi] || cat.fields[0];
+  let c1 = CATS.map((c,i)=>
+    `<div class="row ${i==ci?'sel':''}" data-ci="${i}">
+       <span>${esc(c.name)}</span>
+       <span class="muted">${c.fields.some(f=>f.ov)?'●':'›'}</span></div>`).join("");
+  let c2 = cat.fields.map((f,i)=>
+    `<div class="row ${i==fi?'sel':''}" data-fi="${i}">
+       <span>${dot(f)}${esc(f.l)}</span>
+       <span class="muted">${esc((f.v||'').slice(0,14)||'')}</span></div>`).join("");
+  let c3 = detailFor(cat, field);
+  return `
+  <div class="titlebar">Archlinux · columns</div>
+  <div class="breadcrumb">Home ▸ <b>${esc(cat.name)}</b> ▸ ${esc((field.l||'').replace(' ▸',''))}</div>
+  <div class="body miller">
+    <div class="col" style="min-width:230px">${c1}</div>
+    <div class="vline"></div>
+    <div class="col" style="min-width:230px">${c2}</div>
+    <div class="vline"></div>
+    <div class="detail">${c3}</div>
+  </div>
+  <div class="footer"><span>parent column stays visible — closest to a "frozen left list"</span></div>`;
+}
+
+function render(){
+  const el = document.getElementById("screen");
+  el.innerHTML = variant=="A"?renderA():variant=="B"?renderB():renderC();
+  document.getElementById("lbl").innerHTML =
+    `<b>${variant}</b> — ${VNAMES[variant]}`;
+  el.querySelectorAll("[data-ci]").forEach(n=>n.onclick=()=>{
+    ci=+n.dataset.ci; fi=0; render();});
+  el.querySelectorAll("[data-fi]").forEach(n=>n.onclick=()=>{
+    fi=+n.dataset.fi; render();});
+}
+function setVariant(v){variant=v;fi=0;
+  const u=new URL(location);u.searchParams.set("variant",v);
+  history.replaceState({},"",u);render();}
+function cycle(d){const k=["A","B","C"];
+  setVariant(k[(k.indexOf(variant)+d+3)%3]);}
+
+document.getElementById("prev").onclick=()=>cycle(-1);
+document.getElementById("next").onclick=()=>cycle(1);
+addEventListener("keydown",e=>{
+  const t=e.target.tagName;
+  if(t=="INPUT"||t=="TEXTAREA")return;
+  if(e.key=="ArrowLeft")cycle(-1);
+  else if(e.key=="ArrowRight")cycle(1);
+  else if(e.key=="ArrowDown"){
+    if(variant=="C"){fi=(fi+1)%CATS[ci].fields.length;}else{ci=(ci+1)%CATS.length;}
+    render();e.preventDefault();}
+  else if(e.key=="ArrowUp"){
+    if(variant=="C"){fi=(fi-1+CATS[ci].fields.length)%CATS[ci].fields.length;}
+    else{ci=(ci-1+CATS.length)%CATS.length;} render();e.preventDefault();}
+});
+render();
+</script>
+</body>
+</html>
