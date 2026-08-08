@@ -477,6 +477,18 @@ _guided_edit_bootloader() {
     "$(jq -n --arg x "$v" '$x')")"
 }
 
+# _guided_edit_display_manager — pick the greeter (auto | greetd | sddm), a
+# single-select like the bootloader/firewall radiolists (ADR 0069).
+_guided_edit_display_manager() {
+  local -a opts; mapfile -t opts \
+    < <(menu_enum_options environment.display_manager)
+  local v
+  v="$(guided_select display_manager "Display manager" "${opts[@]}")"
+  [[ -n "$v" ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.display_manager \
+    "$(jq -n --arg x "$v" '$x')")"
+}
+
 # _guided_edit_swap / _guided_edit_ssh — the two FS-agnostic bool toggles.
 _guided_edit_swap() {
   _guided_edit_bool swap "Swap (true/false)" options.swap
@@ -888,6 +900,7 @@ _guided_oneshot_edit() {
   packages.repo.extra)      _guided_add_package ;;
   options.kernel)           _guided_edit_kernel ;;
   environment.desktop)      _guided_edit_desktop ;;
+  environment.display_manager) _guided_edit_display_manager ;;
   environment.gpu)          _guided_edit_gpu ;;
   options.mirror_countries) _guided_edit_mirror_countries ;;
   system_programs)          _guided_add_system_program ;;
@@ -1171,6 +1184,7 @@ guided_build() {
     _guided_edit_ssh
     _guided_edit_age_key_url
     _guided_edit_desktop
+    _guided_edit_display_manager
     _guided_edit_gpu
     _guided_edit_mirror_countries
     _guided_edit_multilib

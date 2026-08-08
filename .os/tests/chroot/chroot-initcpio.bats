@@ -18,6 +18,7 @@ setup() {
  "root_cmdline":"root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id",
  "hooks":"base udev autodetect modconf block keyboard zfs filesystems",
  "gpu":[],
+ "display_manager":"none",
  "swap":true,
  "zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20},
  "esp_count":1,

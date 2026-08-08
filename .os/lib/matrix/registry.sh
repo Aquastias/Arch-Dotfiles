@@ -50,6 +50,7 @@ _MATRIX_AXIS_REGISTRY=(
   "options.age_key_url|inert|light"
   "sysctl|inert|light"
   "environment.desktop|pairwise-affecting|heavy"
+  "environment.display_manager|pairwise-affecting|light"
   "environment.gpu|pairwise-affecting|heavy"
   "options.mirror_countries|inert|light"
   "options.multilib|pairwise-affecting|light"

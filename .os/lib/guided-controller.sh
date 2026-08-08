@@ -157,7 +157,8 @@ _ctl_enc_missing() {
 # gated by this allowlist.
 _ctl_display_values() {
   case "$1" in
-  environment.desktop | environment.gpu | options.kernel | filesystem \
+  environment.desktop | environment.gpu | environment.display_manager \
+    | options.kernel | filesystem \
     | options.bootloader | post_install.security.firewall) return 0 ;;
   *) return 1 ;;
   esac
@@ -287,7 +288,8 @@ _ctl_enum_options() {
   case "$1" in
   __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
-  options.bootloader | post_install.security.firewall) menu_enum_options "$1" ;;
+  options.bootloader | post_install.security.firewall \
+    | environment.display_manager) menu_enum_options "$1" ;;
   *) printf '%s\n' true false ;;
   esac
 }
@@ -325,7 +327,8 @@ _ctl_apply_enum() {
     _ctl_built_root_filesystems | grep -qxF "$val" \
       || { printf '%s' "$state"; return 1; }
     edit_set_scalar "$state" filesystem "$val" ;;
-  options.bootloader | post_install.security.firewall)
+  options.bootloader | post_install.security.firewall \
+    | environment.display_manager)
     edit_set_scalar "$state" "$path" "$val" ;;
   *) edit_set_bool "$state" "$path" "$val" ;;
   esac

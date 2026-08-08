@@ -30,6 +30,7 @@ setup() {
  "rpool":"rpool","root_cmdline":"root=ZFS=rpool/ROOT/arch",
  "hooks":"base udev autodetect modconf block keyboard zfs filesystems",
  "gpu":[],
+ "display_manager":"none",
  "swap":true,"zswap":{"enabled":true,"compressor":"zstd","max_pool_percent":20},
  "esp_count":1,
  "impermanence":{"enabled":false,"dataset":"rpool/persist","mount":"/persist"},

@@ -329,6 +329,28 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "← Back"
 }
 
+# Regression: environment.display_manager is a single-select enum, so its picker
+# must offer Auto/greetd/SDDM — not the true/false bool default (ADR 0069).
+@test "list(values): display_manager picker offers auto/greetd/sddm, not bools" {
+  set_nav \
+    "$(nav_to_values Environment environment.display_manager 'display manager')"
+  run guided_ctl_list
+  echo "$output" | grep -q "Auto"
+  echo "$output" | grep -q "greetd"
+  echo "$output" | grep -q "SDDM"
+  ! echo "$output" | grep -qx "true"
+  ! echo "$output" | grep -qx "false"
+}
+
+# fzf returns the Display Label "SDDM"; the enter handler reverse-maps it to the
+# stored value "sddm" and commits it as a scalar (not a bool).
+@test "enter(values): picking SDDM commits environment.display_manager=sddm" {
+  set_nav \
+    "$(nav_to_values Environment environment.display_manager 'display manager')"
+  run guided_ctl_enter "SDDM"
+  [ "$(jq -r '.environment.display_manager' "$GUIDED_STATE_FILE")" = "sddm" ]
+}
+
 @test "enter(values): picking a bool commits it and returns to the category" {
   set_nav "$(nav_to_values Disks options.encryption encryption)"
   run guided_ctl_enter "true"
