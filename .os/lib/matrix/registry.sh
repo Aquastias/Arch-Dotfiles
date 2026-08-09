@@ -40,6 +40,7 @@ _MATRIX_AXIS_REGISTRY=(
   "system.locale|inert|light"
   "system.timezone|inert|light"
   "system.keymap|inert|light"
+  "disk_config.kind|inert|light"
   "filesystem|storage-cluster|light"
   "options.encryption|storage-cluster|light"
   "options.impermanence.enabled|storage-cluster|light"
