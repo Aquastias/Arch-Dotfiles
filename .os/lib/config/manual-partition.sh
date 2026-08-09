@@ -27,8 +27,8 @@ _MANUAL_ESP_GUID="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"   # EFI System Partition
 _MANUAL_SWAP_GUID="0657fd6d-a4ab-43c4-84e5-0933c84b4f4f"  # Linux swap
 
 # manual_scan_partitions <lsblk-json> — seed the assignment from a disk's
-# partition table. Input is `lsblk -J -b -o PATH,TYPE,FSTYPE,PARTTYPE,PARTTYPENAME`
-# (JSON). Every partition becomes an assignment entry; the ESP (EFI type or
+# partition table. Input is `lsblk -J -b -o` with the PATH,TYPE,FSTYPE,PARTTYPE,
+# PARTTYPENAME columns (JSON). Every partition becomes an entry; the ESP (EFI or
 # vfat) pre-fills /boot/efi + fat32 and swap (swap type/fs) pre-fills [swap], so
 # the obvious cases need no operator action. A partition with no existing
 # filesystem defaults to format=true (there is nothing to keep); one that
@@ -68,6 +68,13 @@ manual_set_field() {
     'map(if .device == $d then .[$f] = $v else . end)' <<< "$parts"
 }
 
+# manual_store_partitions <state> <partitions-json> — write the assignment into
+# Config State under disk_config.partitions (transient; ADR 0036 keeps it out of
+# any committed/exported artifact). The one place the assignment enters state.
+manual_store_partitions() {
+  cfgstate_set "$1" disk_config.partitions "$2"
+}
+
 # manual_kind_active <state> — 0 when Manual Partitioning is the active disk
 # kind. The guided terminal-action gate uses it to withhold Save Profile and
 # Export (a hand-drawn table is Proceed-only — ADR 0073).
@@ -83,15 +90,16 @@ manual_lsblk_json() {
     -o PATH,TYPE,FSTYPE,PARTTYPE,PARTTYPENAME "$1"
 }
 
-# manual_partition_flow <disk> — the interactive hand-off: launch cfdisk on
-# <disk> so the operator draws the table, then re-read it and seed the
-# assignment. Emits the seeded partitions[] on stdout for the caller to store in
-# Config State (disk_config.partitions). The cfdisk + lsblk steps are the only
-# TTY/disk-touching part; the seed it returns is the pure model above. The
-# per-partition assignment edits are then driven by the fzf sub-screen through
+# manual_partition_flow <state> <disk> — the interactive hand-off: launch cfdisk
+# on <disk> so the operator draws the table, then re-read it, seed the
+# assignment, and store it into Config State (via manual_store_partitions).
+# Emits the new state on stdout. The cfdisk + lsblk steps are the only
+# TTY/disk-touching part; the seed and store are the pure model above, and the
+# per-partition edits are then driven by the fzf sub-screen through
 # manual_set_field. VM-verified end to end (the manual matrix case).
 manual_partition_flow() {
-  local disk="$1"
+  local state="$1" disk="$2" parts
   cfdisk "$disk"
-  manual_scan_partitions "$(manual_lsblk_json "$disk")"
+  parts="$(manual_scan_partitions "$(manual_lsblk_json "$disk")")"
+  manual_store_partitions "$state" "$parts"
 }

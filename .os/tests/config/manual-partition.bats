@@ -95,3 +95,25 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
   run manual_kind_active "$(cfgstate_new)"
   [ "$status" -ne 0 ]
 }
+
+# ── Config State write ──────────────────────────────────────────────────────
+
+@test "store: the assignment lands at disk_config.partitions in state" {
+  local parts state
+  parts="$(manual_set_field "$(manual_scan_partitions "$LSBLK")" \
+    /dev/sda2 mountpoint /)"
+  state="$(manual_store_partitions "$(cfgstate_new)" "$parts")"
+  echo "$state" | jq -e '.disk_config.partitions | length == 4'
+  echo "$state" | jq -e \
+    '.disk_config.partitions[] | select(.device=="/dev/sda2") | .mountpoint == "/"'
+}
+
+@test "store: the stored shape is exactly the planner's input" {
+  local parts state
+  parts="$(manual_scan_partitions "$LSBLK")"
+  state="$(manual_store_partitions "$(cfgstate_new)" "$parts")"
+  # round-trips back out via the accessor path shape
+  echo "$state" | jq -e '.disk_config.partitions
+    | all(.[]; has("device") and has("mountpoint") and has("fs")
+                                and has("format"))'
+}

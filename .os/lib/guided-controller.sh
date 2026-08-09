@@ -2478,15 +2478,21 @@ _ctl_enter_category() {
   "← Back")
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
   "Layout:"*)   # display_label "layout"
+    # Manual Partitioning locks the pool-dependent Disks sub-editors (ADR 0073):
+    # opening the layout editor is a no-op while it is on.
+    manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
   "Swap:"*)     # display_label "swap"
+    manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
   "Root disk:"*)   # display_label "root disk"
     _ctl_write_nav "$(nav_to_rootdisk "$cat")"; echo render; return ;;
   "Encryption ▸"*)   # the collapsed Disks encryption row (ADR 0059)
+    manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_encryption "$cat")"; echo render; return ;;
   "Impermanence ▸"*)   # the collapsed Disks impermanence row (ADR 0066)
+    manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_impermanence "$cat")"; echo render; return ;;
   "repo ▸"* | "aur ▸"*)
     _ctl_write_nav "$(nav_to_pkgcat "$cat" "${line%% *}")"

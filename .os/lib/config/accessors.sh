@@ -323,7 +323,8 @@ install_config_any_zfs() {
   # `filesystem` field is locked/ignored, so a manual install never needs the
   # ZFS userland, boot-time import, or module guard even though filesystem
   # still defaults to zfs.
-  [[ "$(install_config_disk_kind)" == "manual" ]] && { printf 'false\n'; return; }
+  [[ "$(install_config_disk_kind)" == "manual" ]] \
+    && { printf 'false\n'; return; }
   [[ "$(install_config_filesystem)" == "zfs" ]] && { printf 'true\n'; return; }
   local n i
   n="$(install_config_data_pools_count)"
@@ -350,15 +351,21 @@ install_config_partitions_count() {
   jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | length'
 }
 
-# Whole partitions[] array as compact JSON (the planner's input; [] when absent).
+# Whole partitions[] array as compact JSON (the planner input; [] when absent).
 install_config_partitions_json() {
   jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | tojson'
 }
 
 # Per-partition fields at index — emitted raw.
-install_config_partition_device()     { cfgo ".disk_config.partitions[$1].device"; }
-install_config_partition_mountpoint() { cfgo ".disk_config.partitions[$1].mountpoint"; }
-install_config_partition_fs()         { cfgo ".disk_config.partitions[$1].fs"; }
+install_config_partition_device() {
+  cfgo ".disk_config.partitions[$1].device"
+}
+install_config_partition_mountpoint() {
+  cfgo ".disk_config.partitions[$1].mountpoint"
+}
+install_config_partition_fs() {
+  cfgo ".disk_config.partitions[$1].fs"
+}
 
 # Format flag — true unless explicitly false (a kept/reused partition).
 install_config_partition_format() {

@@ -164,7 +164,7 @@ _PROFILE_SCHEMA_host=(
   # — Manual Partitioning (ADR 0073): the disk-config kind discriminator and
   #   the operator's flat partition assignment. `kind` absent ⇒ auto (today's
   #   pool skeleton above). The partitions[] list is transient (Guided-only,
-  #   never committed) but enumerated so an Export-shaped config still validates.
+  #   never committed) but enumerated so an assembled config still validates.
   "disk_config.kind"
   "disk_config.partitions[].device" "disk_config.partitions[].mountpoint"
   "disk_config.partitions[].fs" "disk_config.partitions[].format"
@@ -253,11 +253,6 @@ validate_config_schema() {
   fi
 }
 
-# validate_profile <name> — the validate-at-load entrypoint. Loads and
-# closed-schema-validates the host profile, every referenced user profile,
-# and every referenced program config.jsonc (host system_programs + each
-# user's programs). Aborts via error() with the offending path on the first
-# failure; runs before any disk-touching phase. Requires OS_DIR set.
 # _profile_reject_manual <host-json> [<name>] — abort when a committed profile
 # declares Manual Partitioning (ADR 0073). It is Guided-Installer-only and never
 # committed: a hand-drawn table cannot be replayed from a profile, and there is
@@ -272,6 +267,11 @@ _profile_reject_manual() {
   return 1
 }
 
+# validate_profile <name> — the validate-at-load entrypoint. Loads and
+# closed-schema-validates the host profile, every referenced user profile,
+# and every referenced program config.jsonc (host system_programs + each
+# user's programs). Aborts via error() with the offending path on the first
+# failure; runs before any disk-touching phase. Requires OS_DIR set.
 validate_profile() {
   local name="$1"
 
