@@ -185,6 +185,28 @@ exhausted" rule). Exhausting the set can leave a pool below its topology minimum
 that is not prevented at selection time but caught by the existing skeleton
 validation before Proceed, naming the under-populated group.
 
+### Manual Partitioning
+A Guided-Installer-only disk-config mode, toggled on/off from the **Disks**
+screen, that hands the whole partition table to the operator instead of the
+installer's predefined (auto) pool layouts. Turning it on fires a one-time
+confirm notice: manual is the deliberately feature-light escape hatch, so it
+disables everything that lives on the pool machinery — ZFS/pool layouts, disk
+encryption (Encryption Editor), impermanence (Impermanence Editor), multi-disk
+data pools / storage groups and pool owners, managed swap (the zswap default),
+and the ESP-size field — which stay **shown-but-locked** on the Disks screen so
+the operator sees what was given up. The operator partitions by hand (cfdisk,
+where swap is a partition they cut for themselves), then assigns each resulting
+partition a mountpoint (or `[swap]`) and a format-or-keep choice; a viable
+install requires exactly one ESP and one root. Reversible and non-destructive to Config
+State like every other guided choice — auto↔manual toggles without losing either
+side's overrides — and its partition assignment is **transient**, never reaching
+a committed or exported artifact, mirroring the device-less invariant (ADR 0036).
+Because a hand-drawn table cannot be replayed from a committed file, manual is
+**Proceed-only**: no Save Profile, no Export, and it never appears on the
+`--profile` Pre-Install Picker or the unattended `install.sh <config-file>` path.
+Distinct from the predefined (auto) layouts, whose pool skeleton is the
+installer's default.
+
 ### Host Core
 Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
 of users, system programs, Sysctl Defaults, **and the Host Package List** shared
