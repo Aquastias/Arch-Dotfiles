@@ -161,6 +161,13 @@ _PROFILE_SCHEMA_host=(
   "data_pools[].ashift" "data_pools[].owners[]" "data_pools[].disks[]"
   "data_pools[].disk_count"
   "data_pools[].filesystem" "data_pools[].encryption"
+  # — Manual Partitioning (ADR 0073): the disk-config kind discriminator and
+  #   the operator's flat partition assignment. `kind` absent ⇒ auto (today's
+  #   pool skeleton above). The partitions[] list is transient (Guided-only,
+  #   never committed) but enumerated so an Export-shaped config still validates.
+  "disk_config.kind"
+  "disk_config.partitions[].device" "disk_config.partitions[].mountpoint"
+  "disk_config.partitions[].fs" "disk_config.partitions[].format"
   # — Security & Backup Extras (ADR 0041): structured objects, not bools —
   "post_install.security.firewall" "post_install.security.antivirus"
   "post_install.security.rootkit" "post_install.security.apparmor"
