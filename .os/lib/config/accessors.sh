@@ -319,6 +319,11 @@ install_config_data_pool_encryption() {
 # needs none of them; an ext4 root + zfs data pool still does. Each per-group
 # accessor inherits the root filesystem when the group omits its own.
 install_config_any_zfs() {
+  # Manual Partitioning (ADR 0073) is always poolless plain partitions — the
+  # `filesystem` field is locked/ignored, so a manual install never needs the
+  # ZFS userland, boot-time import, or module guard even though filesystem
+  # still defaults to zfs.
+  [[ "$(install_config_disk_kind)" == "manual" ]] && { printf 'false\n'; return; }
   [[ "$(install_config_filesystem)" == "zfs" ]] && { printf 'true\n'; return; }
   local n i
   n="$(install_config_data_pools_count)"

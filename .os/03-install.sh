@@ -178,12 +178,13 @@ main() {
   load_config
   detect_mode
   export OS_DIR="${SCRIPT_DIR}"
-  # Filesystem-keyed layout dispatch (ADR 0040/0043): the Root Layout Adapter is
-  # chosen by the filesystem discriminator + mode. ZFS is the only built adapter
-  # today and lives under lib/layout/zfs/.
+  # Layout dispatch (ADR 0040/0043/0073): the disk-config kind wins first — a
+  # manual layout owns the disk regardless of filesystem — otherwise the Root
+  # Layout Adapter is chosen by the filesystem discriminator + mode.
   local _layout_adapter
-  _layout_adapter="$(root_adapter_source \
-    "${SCRIPT_DIR}" "$(install_config_filesystem)" "${INSTALL_MODE}")" \
+  _layout_adapter="$(root_adapter_for_kind "${SCRIPT_DIR}" \
+    "$(install_config_disk_kind)" "$(install_config_filesystem)" \
+    "${INSTALL_MODE}")" \
     || error "Cannot select a layout adapter for the configured filesystem."
   source_module "${_layout_adapter}"
   validate_install_context
