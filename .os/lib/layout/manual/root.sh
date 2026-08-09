@@ -21,7 +21,7 @@
 #   _MANUAL_PLAN         — manual_partition_plan output (records + summary)
 #   _MANUAL_ESP_DEV      — the ESP partition device (mounted at /boot/efi)
 #   _MANUAL_ROOT_DEV     — the root partition device (mounted at MOUNT_ROOT)
-#   _MANUAL_ESP_FORMAT   — "true" to mkfs the ESP, "false" to keep it (dual-boot)
+#   _MANUAL_ESP_FORMAT   — "true" to mkfs the ESP, "false" to keep it (dualboot)
 # =============================================================================
 
 # shellcheck source=../core.sh
@@ -69,7 +69,8 @@ layout_plan() {
   _layout_enter_phase plan
   section "Manual Partitioning Layout"
   _MANUAL_PLAN="$(manual_partition_plan "$(install_config_partitions_json)")"
-  _MANUAL_ESP_DEV="$(printf '%s\n' "$_MANUAL_PLAN" | nonzfs_plan_field esp_device)"
+  _MANUAL_ESP_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
+    | nonzfs_plan_field esp_device)"
   _MANUAL_ROOT_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
     | nonzfs_plan_field root_device)"
   _MANUAL_ESP_FORMAT="$(printf '%s\n' "$_MANUAL_PLAN" \
@@ -129,7 +130,7 @@ layout_create_pools() {
     fi
     uuid="$(blkid -s UUID -o value "$dev")"
     extra+="# ${mnt}"$'\n'"UUID=${uuid}  ${mnt}  ${fs}  ${opts}  0 ${fsck}"$'\n'
-    info "  ${dev} → ${mnt} (${fs}$([[ "$fmt" == true ]] && echo ", formatted"))"
+    info "  ${dev} → ${mnt} (${fs}$([[ "$fmt" == true ]] && echo ' fmt'))"
   done <<< "$_MANUAL_PLAN"
 
   # Boot by the root filesystem's UUID (stable across device reshuffles).
@@ -161,7 +162,8 @@ layout_create_pools() {
 layout_mount_esp() {
   _layout_enter_phase esp
   section "Mounting ESP"
-  [[ "$_MANUAL_ESP_FORMAT" == "true" ]] && mkfs.fat -F32 -n EFI "$_MANUAL_ESP_DEV"
+  [[ "$_MANUAL_ESP_FORMAT" == "true" ]] \
+    && mkfs.fat -F32 -n EFI "$_MANUAL_ESP_DEV"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
   mount "$_MANUAL_ESP_DEV" "${MOUNT_ROOT}/boot/efi"
   info "ESP: $_MANUAL_ESP_DEV → /boot/efi"

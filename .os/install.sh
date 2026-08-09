@@ -234,7 +234,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # The config file the operator passed on the CLI (the unattended pre-assembled
-# path), captured before the --profile / guided branches reassign positional_args
+# path), captured before the --profile / guided branches reassign the arg
 # to their tmpfs Effective Config. Used only to reject a committed manual layout
 # below — it must stay empty on every assembled path.
 cli_positional="${positional_args[0]:-}"
