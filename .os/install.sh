@@ -233,6 +233,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# The config file the operator passed on the CLI (the unattended pre-assembled
+# path), captured before the --profile / guided branches reassign positional_args
+# to their tmpfs Effective Config. Used only to reject a committed manual layout
+# below — it must stay empty on every assembled path.
+cli_positional="${positional_args[0]:-}"
+
 # Minimal preflight: jq parses jsonc on every path (Target Resolver, profile
 # load, guided menu), so ensure it before anything else — including the
 # --print-config validation below, which is jq-only and touches no disk. The
@@ -376,6 +382,21 @@ fi
 # install will use. Mirrors 03-install.sh's config-path default. A missing
 # config yields no targets — the wipe no-ops and 03 generates the template.
 CONFIG_FILE="${positional_args[0]:-${SCRIPT_DIR}/install.jsonc}"
+
+# Manual Partitioning is Guided-only (ADR 0073): a hand-drawn table is not
+# reproducible, so an unattended pre-assembled config (`install.sh <file>`) may
+# not carry it. The guided Proceed path assembles its own manual config and is
+# unaffected (cli_positional is empty there); only a file the operator passed on
+# the CLI is rejected.
+if [[ -n "$cli_positional" && -f "$cli_positional" \
+      && "$(jsonc_read "$cli_positional" '.disk_config.kind // "auto"')" \
+         == "manual" ]]; then
+  echo "[install.sh] $cli_positional sets disk_config.kind=manual, which is" \
+    "Guided-Installer-only (ADR 0073)." >&2
+  echo "             Run the guided installer for a manual layout." >&2
+  exit 1
+fi
+
 wipe_targets=()
 if [[ -f "$CONFIG_FILE" ]]; then
   mapfile -t wipe_targets < <(wipe_resolve_targets "$CONFIG_FILE")

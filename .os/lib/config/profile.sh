@@ -258,6 +258,20 @@ validate_config_schema() {
 # and every referenced program config.jsonc (host system_programs + each
 # user's programs). Aborts via error() with the offending path on the first
 # failure; runs before any disk-touching phase. Requires OS_DIR set.
+# _profile_reject_manual <host-json> [<name>] — abort when a committed profile
+# declares Manual Partitioning (ADR 0073). It is Guided-Installer-only and never
+# committed: a hand-drawn table cannot be replayed from a profile, and there is
+# no pool skeleton for the picker to resolve disks against. rc 0 otherwise.
+# Pure: reads its JSON argument only.
+_profile_reject_manual() {
+  local json="$1" name="${2:-<profile>}"
+  [[ "$(printf '%s' "$json" | jq -r '.disk_config.kind // "auto"')" \
+     != "manual" ]] && return 0
+  error "Profile '${name}' sets disk_config.kind=manual, which is" \
+    "Guided-Installer-only (ADR 0073). Remove it, or run the guided installer."
+  return 1
+}
+
 validate_profile() {
   local name="$1"
 
@@ -266,6 +280,7 @@ validate_profile() {
     || { error "validate_profile: cannot load host profile '${name}'"; \
          return 1; }
   validate_config_schema host "$host_json" || return 1
+  _profile_reject_manual "$host_json" "$name" || return 1
 
   # Security & Backup Extras shape (ADR 0041): reject the old bool form and
   # malformed objects (bad firewall enum, non-bool toggles) — the closed schema
