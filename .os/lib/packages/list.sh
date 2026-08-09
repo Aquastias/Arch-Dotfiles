@@ -163,30 +163,44 @@ collect_packages() {
 # BASE SYSTEM INSTALLATION
 # =============================================================================
 
-enable_multilib() {
-  # Operator opt-out (issue 06): options.multilib=false leaves [multilib]
-  # commented out (the live-ISO default), so the installed system has no
-  # multilib. Gate first — before any pacman.conf touch. Defaults to true.
-  if [[ "$(install_config_multilib)" != "true" ]]; then
-    info "[multilib] disabled by config — skipping."
+# _enable_pacman_repo <name> — enable one official optional repo in the host
+# /etc/pacman.conf. Uncomments the shipped `#[name]` + its `#Include` in place
+# (preserving Arch's testing-above-stable ordering); appends a standard section
+# only if the ISO's pacman.conf lacks it. Idempotent. chroot.sh copies this
+# pacman.conf into the target, so the installed system inherits the same repos.
+_enable_pacman_repo() {
+  local repo="$1"
+  grep -q "^\[${repo}\]" /etc/pacman.conf && return 0   # already enabled
+  if grep -q "^#\[${repo}\]" /etc/pacman.conf; then
+    # Range anchored on '#[repo]' (the ']' keeps [multilib] from catching
+    # [multilib-testing]) through its adjacent '#Include'.
+    sed -i "/^#\[${repo}\]/,/^#Include/ s/^#//" /etc/pacman.conf
+  else
+    printf '\n[%s]\nInclude = /etc/pacman.d/mirrorlist\n' "$repo" \
+      >> /etc/pacman.conf
+  fi
+  grep -q "^\[${repo}\]" /etc/pacman.conf \
+    || error "Failed to enable [${repo}] in /etc/pacman.conf."
+}
+
+enable_optional_repos() {
+  # The Optional Repositories the operator selected (ADR 0072): any of
+  # multilib / multilib-testing / core-testing / extra-testing. Defaults to
+  # `multilib` (the historical options.multilib=true). lib32-* packages
+  # (steam, lib32-nvidia-utils) live in [multilib], and pacstrap reads the HOST
+  # pacman.conf, so the repos must be enabled here — before pacstrap — or those
+  # targets error as "target not found".
+  local -a repos; mapfile -t repos < <(install_config_optional_repos)
+  if ((${#repos[@]} == 0)); then
+    info "[repos] no optional repositories selected — skipping."
     return 0
   fi
-  # The Arch live ISO ships [multilib] commented out, but lib32-* packages
-  # (steam, lib32-nvidia-utils, lib32-gamemode) live there. pacstrap reads the
-  # HOST /etc/pacman.conf, so multilib must be enabled here or those targets
-  # error as "target not found". configure_system (chroot.sh) later copies this
-  # pacman.conf into the new root, so the installed system inherits multilib for
-  # future lib32 updates. Idempotent.
-  if grep -q '^\[multilib\]' /etc/pacman.conf; then
-    info "[multilib] repo already enabled."
-    return 0
-  fi
-  info "Enabling [multilib] repository..."
-  # Uncomment the [multilib] header and its adjacent Include line. The range is
-  # anchored on '#[multilib]' (not '#[multilib-testing]', which lacks the ']').
-  sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
-  grep -q '^\[multilib\]' /etc/pacman.conf \
-    || error "Failed to enable [multilib] in /etc/pacman.conf."
+  local r
+  for r in "${repos[@]}"; do
+    [[ -n "$r" ]] || continue
+    info "Enabling [${r}] repository..."
+    _enable_pacman_repo "$r"
+  done
   pacman -Sy --noconfirm >/dev/null 2>&1 || true
 }
 
@@ -217,6 +231,47 @@ reflector_country_args() {
   printf '%s\n' "--country" "${joined%,}"
 }
 
+# prepend_custom_mirror_servers — write the operator's custom mirror Servers
+# (ADR 0072) ABOVE the reflector-ranked list, so they are tried first. Called
+# after reflector --save so they are not clobbered. No-op when none declared.
+prepend_custom_mirror_servers() {
+  local -a servers; mapfile -t servers < <(install_config_mirror_servers)
+  ((${#servers[@]})) || return 0
+  local ml=/etc/pacman.d/mirrorlist s tmp
+  tmp="$(mktemp)"
+  { printf '# Custom mirror servers (guided installer)\n'
+    for s in "${servers[@]}"; do
+      [[ -n "$s" ]] && printf 'Server = %s\n' "$s"
+    done
+    printf '\n'; cat "$ml" 2>/dev/null; } > "$tmp"
+  mv "$tmp" "$ml"
+  info "Prepended ${#servers[@]} custom mirror server(s)."
+}
+
+# _custom_repo_siglevel <sign_check> <sign_option> → the pacman SigLevel value.
+# Never → "Never" (no signing); else "<Optional|Required> <TrustAll|TrustedOnly>".
+_custom_repo_siglevel() {
+  local check="$1" opt="$2"
+  [[ "$check" == "Never" ]] && { printf 'Never'; return; }
+  printf '%s %s' "${check:-Required}" "${opt:-TrustedOnly}"
+}
+
+# add_custom_repositories — append the operator's archinstall-style custom repos
+# (ADR 0072) to the host /etc/pacman.conf, BEFORE pacstrap (so their targets
+# resolve) and inherited by the target via chroot.sh's pacman.conf copy. Each
+# repo is `name<TAB>url<TAB>sign_check<TAB>sign_option`. Idempotent per name.
+add_custom_repositories() {
+  local name url check opt sig
+  while IFS=$'\t' read -r name url check opt; do
+    [[ -n "$name" && -n "$url" ]] || continue
+    grep -q "^\[${name}\]" /etc/pacman.conf && continue
+    sig="$(_custom_repo_siglevel "$check" "$opt")"
+    info "Adding custom repository [${name}]..."
+    printf '\n[%s]\nSigLevel = %s\nServer = %s\n' "$name" "$sig" "$url" \
+      >> /etc/pacman.conf
+  done < <(install_config_custom_repositories)
+}
+
 install_base() {
   section "Installing Base System (pacstrap)"
 
@@ -228,9 +283,13 @@ install_base() {
   reflector "${_country_args[@]}" --latest 10 --sort rate \
     --save /etc/pacman.d/mirrorlist 2>/dev/null ||
     warn "reflector failed — using existing mirrorlist."
+  # Operator's custom mirror servers go above the ranked list (ADR 0072).
+  prepend_custom_mirror_servers
 
-  # lib32-* / steam packages need [multilib] enabled before pacstrap runs.
-  enable_multilib
+  # Enable the selected Optional Repositories (multilib + testing) and add any
+  # custom repositories before pacstrap runs (ADR 0072).
+  enable_optional_repos
+  add_custom_repositories
 
   # ZFS reports space in a way pacman's CheckSpace can't read — disable it so
   # pacstrap (and later upgrades) don't abort with a false "too full".

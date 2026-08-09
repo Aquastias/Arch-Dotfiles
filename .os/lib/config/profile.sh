@@ -129,7 +129,13 @@ _PROFILE_SCHEMA_host=(
   "options.swap" "options.swap_size" "options.esp_size" "options.age_key_url"
   "options.zswap.enabled" "options.zswap.compressor"
   "options.zswap.max_pool_percent"
-  "options.ssh.enabled" "options.multilib" "options.mirror_countries[]"
+  "options.ssh.enabled" "options.mirror_countries[]"
+  # — Mirrors & Repositories (ADR 0072): optional repos (multilib + testing),
+  #   custom mirror servers, and archinstall-style custom repositories —
+  "options.optional_repos[]" "options.mirror_servers[]"
+  "options.custom_repositories[].name" "options.custom_repositories[].url"
+  "options.custom_repositories[].sign_check"
+  "options.custom_repositories[].sign_option"
   "options.impermanence.enabled" "options.impermanence.dataset"
   "options.impermanence.mount"
   # — environment (desktop/gpu are string|array unions; display_manager is a

@@ -2176,3 +2176,70 @@ secret_setup() {
   # the enabled flag is left untouched
   [ "$(jq -c '.options.impermanence.enabled' "$GUIDED_STATE_FILE")" = "true" ]
 }
+
+# ── Mirrors & Repositories: optional repos + custom servers/repos (ADR 0072) ──
+
+@test "enter(category): the optional-repos row opens its multi-select" {
+  set_nav "$(nav_to_category "Mirrors & Repositories")"
+  run guided_ctl_enter "Optional repositories: multilib"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.optional_repos" ]
+}
+
+@test "list(values optional_repos): marks the selected repos" {
+  printf '%s\n' '{"options":{"optional_repos":["multilib","core-testing"]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values "Mirrors & Repositories" options.optional_repos \
+    "optional repositories")"
+  run guided_ctl_list
+  echo "$output" | grep -q "\[x\] multilib"
+  echo "$output" | grep -q "\[x\] core-testing"
+  echo "$output" | grep -q "\[ \] extra-testing"
+}
+
+@test "list(values mirror_servers): lists servers + an Add action + Back" {
+  printf '%s\n' '{"options":{"mirror_servers":["https://a/x"]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values "Mirrors & Repositories" options.mirror_servers \
+    "custom servers")"
+  run guided_ctl_list
+  echo "$output" | grep -q "https://a/x"
+  echo "$output" | grep -q "+ Add server"
+  echo "$output" | grep -q "← Back"
+}
+
+@test "enter(text mirror_servers): a URL appends and returns to the list" {
+  set_nav "$(nav_to_text "Mirrors & Repositories" options.mirror_servers \
+    "custom servers")"
+  run guided_ctl_enter "+ Add server" "https://mirror.example/repo"
+  [ "$(jq -r '.options.mirror_servers[0]' "$GUIDED_STATE_FILE")" \
+    = "https://mirror.example/repo" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+}
+
+@test "list(values custom_repositories): lists repos with their SigLevel + Add" {
+  printf '%s\n' \
+    '{"options":{"custom_repositories":[{"name":"cool","url":"https://x","sign_check":"Never"}]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values "Mirrors & Repositories" options.custom_repositories \
+    "custom repositories")"
+  run guided_ctl_list
+  echo "$output" | grep -q "cool — https://x · Never"
+  echo "$output" | grep -q "+ Add repository"
+}
+
+@test "enter(text custom_repositories): a repo line appends a full object" {
+  set_nav "$(nav_to_text "Mirrors & Repositories" options.custom_repositories \
+    "custom repositories")"
+  run guided_ctl_enter "+ Add repository" "myrepo https://r Optional TrustAll"
+  [ "$(jq -r '.options.custom_repositories[0].name' "$GUIDED_STATE_FILE")" \
+    = "myrepo" ]
+  [ "$(jq -r '.options.custom_repositories[0].url' "$GUIDED_STATE_FILE")" \
+    = "https://r" ]
+  [ "$(jq -r '.options.custom_repositories[0].sign_check' "$GUIDED_STATE_FILE")" \
+    = "Optional" ]
+  [ "$(jq -r '.options.custom_repositories[0].sign_option' "$GUIDED_STATE_FILE")" \
+    = "TrustAll" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
+}

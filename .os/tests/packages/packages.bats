@@ -113,11 +113,25 @@ write_config() {
 # The enable path is system-bound (greps the host /etc/pacman.conf); only the
 # new config gate is unit-tested — it must short-circuit before any file touch.
 
-@test "enable_multilib: options.multilib=false skips enabling" {
-  write_config '{"options":{"multilib":false}}'
-  run enable_multilib
+@test "enable_optional_repos: an empty set skips enabling" {
+  write_config '{"options":{"optional_repos":[]}}'
+  run enable_optional_repos
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qi "multilib.*disabled"
+  echo "$output" | grep -qi "no optional repositories"
+}
+
+@test "install_config_optional_repos: defaults to multilib when unset" {
+  write_config '{"options":{}}'
+  run install_config_optional_repos
+  [ "$status" -eq 0 ]
+  [ "$output" == "multilib" ]
+}
+
+@test "_custom_repo_siglevel: builds the pacman SigLevel value" {
+  [ "$(_custom_repo_siglevel Never TrustAll)" == "Never" ]
+  [ "$(_custom_repo_siglevel Optional TrustAll)" == "Optional TrustAll" ]
+  [ "$(_custom_repo_siglevel Required TrustedOnly)" == "Required TrustedOnly" ]
+  [ "$(_custom_repo_siglevel '' '')" == "Required TrustedOnly" ]
 }
 
 # ── reflector country args (issue 06): mirror_countries → --country ─────────

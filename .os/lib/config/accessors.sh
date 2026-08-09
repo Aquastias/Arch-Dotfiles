@@ -49,7 +49,6 @@ _INSTALL_CONFIG_SCHEMA=(
   "os_pool_ashift|.os_pool.ashift|scalar|13"
   "encryption_enabled|.options.encryption|bool|false"
   "filesystem|.filesystem|scalar|zfs"
-  "multilib|.options.multilib|bool|true"
 )
 
 # install_config_get <name> — schema dispatcher for the generated wrappers.
@@ -146,6 +145,46 @@ install_config_mirror_countries() {
   else
     printf '%s\n' "$out"
   fi
+}
+
+# Optional Repositories (ADR 0072) — the pacman repos enabled beyond core/extra:
+# any of `multilib`, `multilib-testing`, `core-testing`, `extra-testing`. Emits
+# one repo per line. Defaults to `multilib` when the key is absent, preserving
+# the historical `options.multilib=true` default; an explicit empty array (`[]`)
+# means "no optional repos" and is honoured (multilib off).
+install_config_optional_repos() {
+  local raw; raw="$(jsonc_read "$CONFIG_FILE" '.options.optional_repos')"
+  if [[ "$raw" == "null" ]]; then
+    printf '%s\n' multilib
+  else
+    _install_config_array '.options.optional_repos'
+  fi
+}
+
+# install_config_multilib — back-compat shim: "true" iff `multilib` is among the
+# Optional Repositories, so the historical bool read-site keeps working.
+install_config_multilib() {
+  install_config_optional_repos | grep -qx multilib && echo true || echo false
+}
+
+# Custom mirror servers (ADR 0072) — operator-supplied `Server = <url>` lines
+# prepended to the reflector-built mirrorlist. One URL per line, order preserved,
+# empty when unset.
+install_config_mirror_servers() {
+  _install_config_array '.options.mirror_servers'
+}
+
+# Custom repositories (ADR 0072) — archinstall-style extra pacman repos. Emits
+# one repo per line as TSV `name<TAB>url<TAB>sign_check<TAB>sign_option`
+# (sign_check ∈ Never|Optional|Required, sign_option ∈ TrustAll|TrustedOnly;
+# both default to the pacman-standard Required/TrustedOnly when omitted). Empty
+# when none are declared.
+install_config_custom_repositories() {
+  jsonc_read "$CONFIG_FILE" '.options.custom_repositories' 2>/dev/null \
+    | jq -r '(. // [])[]
+       | [ .name, .url,
+           (.sign_check // "Required"), (.sign_option // "TrustedOnly") ]
+       | @tsv' 2>/dev/null
 }
 
 # Kernel Selection — accepts a single flavour token (string) or a list. Emits

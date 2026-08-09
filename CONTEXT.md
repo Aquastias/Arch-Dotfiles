@@ -1255,6 +1255,29 @@ the Effective Config via the config seam. The covered set is recorded as a
 committed **Matrix Manifest** (one line per cell); VM Profiles are materialized
 on demand, never committed.
 
+### Optional Repositories
+`options.optional_repos[]` in a Host Profile — the pacman repos enabled beyond
+`core`/`extra`: any of `multilib`, `multilib-testing`, `core-testing`,
+`extra-testing` (ADR 0072). Replaces the former `options.multilib` bool: the
+same choice plus the testing repos as one multi-select. Defaults to
+`["multilib"]` (the historical `multilib=true`); an explicit `[]` means no
+optional repos. Applied before pacstrap by `enable_optional_repos`, which
+uncomments the shipped `#[repo]` + `#Include` in the host `/etc/pacman.conf` in
+place (preserving Arch's testing-above-stable ordering), inherited by the target
+via the pacman.conf copy. `install_config_multilib` remains a back-compat shim
+("true" iff `multilib` is in the set).
+
+### Custom Servers & Repositories
+Two operator-authored Mirrors & Repositories extras (ADR 0072).
+`options.mirror_servers[]` is a list of custom pacman `Server =` URLs, written
+**above** the reflector-ranked mirrorlist (after `reflector --save`) so they are
+tried first. `options.custom_repositories[]` is a list of archinstall-style extra
+repos, each `{name, url, sign_check, sign_option}` — `sign_check` ∈
+`Never`/`Optional`/`Required`, `sign_option` ∈ `TrustAll`/`TrustedOnly`,
+combined into the pacman `SigLevel` — appended as `[name]` blocks to
+`/etc/pacman.conf` before pacstrap. Both are surfaced in the Guided Installer as
+list screens (a listing plus a `＋ Add …` action).
+
 ## Flagged ambiguities
 
 - "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now

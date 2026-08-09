@@ -177,7 +177,7 @@ write_answers() {
   guided_load_replay "$(write_answers \
     'hostname=eterniox' \
     'mirror_countries=Japan Australia' \
-    'multilib=false' \
+    'optional_repos=core-testing' \
     'package=htop tmux' \
     'sysctl=vm.swappiness=20' \
     'firewall=ufw' \
@@ -189,7 +189,7 @@ write_answers() {
   effective="$(guided_build 2>/dev/null)"
   [ -n "$effective" ]
   echo "$effective" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
-  echo "$effective" | jq -e '.options.multilib == false'
+  echo "$effective" | jq -e '.options.optional_repos == ["core-testing"]'
   echo "$effective" | jq -e '.packages.repo.extra == ["htop","tmux"]'
   echo "$effective" | jq -e '.sysctl["vm.swappiness"] == 20'
   # Structured Security/Backup object: overrides merge over the secure baseline.
@@ -552,14 +552,23 @@ write_answers() {
   echo "$_GUIDED_STATE" | jq -e '.options.mirror_countries == ["Japan","Australia"]'
 }
 
-@test "_guided_edit_multilib: selecting false disables multilib" {
-  _GUIDED_REPLAY=0
+@test "_guided_edit_optional_repos: a replay set selects the optional repos" {
   _GUIDED_STATE="$(cfgstate_new)"
-  guided_select() { printf '%s' "false"; }
-  export -f guided_select
+  guided_load_replay "$(write_answers 'optional_repos=multilib core-testing')"
+  _guided_edit_optional_repos
+  echo "$_GUIDED_STATE" \
+    | jq -e '.options.optional_repos == ["multilib","core-testing"]'
+}
 
-  _guided_edit_multilib
-  echo "$_GUIDED_STATE" | jq -e '.options.multilib == false'
+@test "_guided_add_custom_repository: a replayed repo appends an object" {
+  _GUIDED_STATE="$(cfgstate_new)"
+  guided_load_replay "$(write_answers 'custom_repository=cool https://x Never')"
+  _guided_add_custom_repository
+  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].name == "cool"'
+  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].url == "https://x"'
+  echo "$_GUIDED_STATE" | jq -e '.options.custom_repositories[0].sign_check == "Never"'
+  echo "$_GUIDED_STATE" \
+    | jq -e '.options.custom_repositories[0].sign_option == "TrustedOnly"'
 }
 
 @test "_guided_edit_firewall: picking ufw sets the firewall to ufw" {
