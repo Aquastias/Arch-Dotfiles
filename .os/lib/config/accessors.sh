@@ -49,6 +49,9 @@ _INSTALL_CONFIG_SCHEMA=(
   "os_pool_ashift|.os_pool.ashift|scalar|13"
   "encryption_enabled|.options.encryption|bool|false"
   "filesystem|.filesystem|scalar|zfs"
+  # Manual Partitioning (ADR 0073): the disk-config kind discriminator. Absent
+  # ⇒ auto (today's pool skeleton); manual selects the flat partitions[] path.
+  "disk_kind|.disk_config.kind|scalar|auto"
 )
 
 # install_config_get <name> — schema dispatcher for the generated wrappers.
@@ -329,6 +332,34 @@ install_config_any_zfs() {
       && { printf 'true\n'; return; }
   done
   printf 'false\n'
+}
+
+# ── Manual Partitioning — disk_config.partitions[] accessors (ADR 0073) ──────
+# The flat, operator-authored partition assignment consumed by the manual Root
+# Layout Adapter when `disk_kind` is `manual`. Each entry carries the device,
+# the mountpoint (/, /boot/efi, /home, [swap], or empty=ignored), the filesystem
+# to mkfs, and whether to format (vs keep existing data).
+
+# Number of declared partitions[] entries (0 when absent).
+install_config_partitions_count() {
+  jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | length'
+}
+
+# Whole partitions[] array as compact JSON (the planner's input; [] when absent).
+install_config_partitions_json() {
+  jsonc_read "$CONFIG_FILE" '(.disk_config.partitions // []) | tojson'
+}
+
+# Per-partition fields at index — emitted raw.
+install_config_partition_device()     { cfgo ".disk_config.partitions[$1].device"; }
+install_config_partition_mountpoint() { cfgo ".disk_config.partitions[$1].mountpoint"; }
+install_config_partition_fs()         { cfgo ".disk_config.partitions[$1].fs"; }
+
+# Format flag — true unless explicitly false (a kept/reused partition).
+install_config_partition_format() {
+  local v; v="$(jsonc_read "$CONFIG_FILE" ".disk_config.partitions[$1].format")"
+  [[ "$v" == "false" ]] && { printf 'false\n'; return; }
+  printf 'true\n'
 }
 
 # Any-LUKS predicate (ADR 0043) — `true` when the root OR any data pool is a
