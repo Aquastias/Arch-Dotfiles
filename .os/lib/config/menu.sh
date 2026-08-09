@@ -34,6 +34,7 @@ _MENU_FIELDS=(
   "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
   "Mirrors & Repositories|options.custom_repositories|custom repositories|[]"
+  "Disks|disk_config.kind|manual partitioning|auto"
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
@@ -78,7 +79,36 @@ menu_enum_options() {
       Netherlands "United Kingdom" "United States" Japan Australia ;;
   options.optional_repos)
     printf '%s\n' multilib multilib-testing core-testing extra-testing ;;
+  disk_config.kind)               printf '%s\n' auto manual ;;
   esac
+}
+
+# Manual Partitioning (ADR 0073) — the Disks fields disabled while it is on:
+# pool-dependent choices with no meaning on a hand-drawn partition table. They
+# stay VISIBLE in the menu but locked (shown-but-locked), so the operator sees
+# what was traded away; the controller refuses to edit them. Shared by menu_rows
+# (to mark the rows) and the controller (to block edits) so the two never drift.
+_MENU_MANUAL_LOCKED=(
+  filesystem options.encryption options.impermanence.enabled options.esp_size
+)
+menu_manual_locked_paths() { printf '%s\n' "${_MENU_MANUAL_LOCKED[@]}"; }
+
+# menu_manual_notice — the one-time notice shown when Manual Partitioning is
+# turned on, enumerating exactly which installer features become unavailable.
+# The controller prints it on the auto→manual transition; kept here so the
+# wording lives beside the locked-paths list it mirrors.
+menu_manual_notice() {
+  cat <<'EOF'
+Manual partitioning hands you the whole partition table (cfdisk).
+While it is on, these installer features are unavailable:
+  • ZFS / pool layouts
+  • Disk encryption
+  • Impermanence
+  • Multi-disk data pools & storage groups
+  • Managed swap  (cut a swap partition in cfdisk instead)
+  • ESP size
+Turn it back off to restore them — your other choices are kept.
+EOF
 }
 
 # Configuration Categories — the twelve top-level drill-in groups, in canonical
@@ -165,10 +195,12 @@ _menu_fields_json() {
 # menu_render_value / cfgstate_is_overridden.
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
+  local lockpaths; lockpaths="$(menu_manual_locked_paths | jq -Rn '[inputs]')"
   jq -n \
     --argjson fields "$(_menu_fields_json)" \
     --argjson override "$state" \
-    --argjson baseline "$baseline" '
+    --argjson baseline "$baseline" \
+    --argjson lockpaths "$lockpaths" '
     def render($v; $d):
       (if   $v == null            then null
        elif ($v | type) == "array"  then
@@ -181,15 +213,19 @@ menu_rows() {
     ($baseline * $override) as $m
     | (if (($m.filesystem // "zfs")) == "" then "zfs"
        else ($m.filesystem // "zfs") end) as $fs
+    | ($m.disk_config.kind // "auto") as $kind
     | [ $fields[]
-        | select(.path != "options.impermanence.enabled"
+        | .path as $fp
+        | select($fp != "options.impermanence.enabled"
                  or ($fs != "ext4" and $fs != "xfs"))
-        | (.path | split(".")) as $pp
+        | ($fp | split(".")) as $pp
         | { section: .section,
-            field:   .path,
+            field:   $fp,
             label:   .label,
             value:   render($m | getpath($pp); .default),
-            overridden: (($override | getpath($pp)) != null) } ]'
+            overridden: (($override | getpath($pp)) != null),
+            locked:  ($kind == "manual"
+                      and ($lockpaths | index($fp)) != null) } ]'
 }
 
 # menu_category_rows <category> <override> [<baseline>] — the field rows for one

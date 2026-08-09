@@ -292,9 +292,17 @@ _ctl_enum_options() {
   __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
   options.bootloader | post_install.security.firewall \
-    | environment.display_manager) menu_enum_options "$1" ;;
+    | environment.display_manager | disk_config.kind) menu_enum_options "$1" ;;
   *) printf '%s\n' true false ;;
   esac
+}
+
+# _ctl_manual_locked <state> <path> → 0 (locked) when Manual Partitioning is on
+# and <path> is one of the pool-dependent Disks fields it disables (ADR 0073).
+# The one guard both apply paths call, so a locked field can never be edited.
+_ctl_manual_locked() {
+  [[ "$(cfgstate_get "$1" disk_config.kind)" == "manual" ]] \
+    && menu_manual_locked_paths | grep -qxF "$2"
 }
 
 # _ctl_biglist_options <path> → the big, filterable option set for a system
@@ -323,7 +331,17 @@ _ctl_biglist_options() {
 # no-op (rc 1, unchanged). Bools route to edit_set_bool; the rest are scalars.
 _ctl_apply_enum() {
   local state="$1" path="$2" val="$3"
+  # Manual Partitioning locks the pool-dependent Disks fields (ADR 0073): a
+  # locked field is a no-op (rc 1, unchanged).
+  _ctl_manual_locked "$state" "$path" && { printf '%s' "$state"; return 1; }
   case "$path" in
+  disk_config.kind)
+    case "$val" in auto | manual) ;; *) printf '%s' "$state"; return 1 ;; esac
+    # One-time notice on the auto→manual transition: name what is given up.
+    [[ "$val" == "manual" \
+       && "$(cfgstate_get "$state" disk_config.kind)" != "manual" ]] \
+      && menu_manual_notice >&2
+    edit_set_scalar "$state" disk_config.kind "$val" ;;
   filesystem)
     # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value is
     # a no-op (rc 1, unchanged) so the picker can never author an uninstallable fs.
@@ -341,6 +359,9 @@ _ctl_apply_enum() {
 # sysctl parses key=value; the extra-packages row appends; rest are scalars.
 _ctl_apply_text() {
   local state="$1" path="$2" val="$3"
+  # Manual Partitioning locks the pool-dependent Disks fields (ADR 0073), incl.
+  # the free-text esp size: a locked field is a no-op (rc 1, unchanged).
+  _ctl_manual_locked "$state" "$path" && { printf '%s' "$state"; return 1; }
   case "$path" in
   __persist__)    edit_append_persist "$state" "$val" ;;
   __newuser__)
