@@ -85,6 +85,9 @@ _cfgstate_computed_defaults() {
   # repos→[multilib],
   # esp→2G, bootloader→systemd-boot; encryption/impermanence/ssh default off).
   state="$(cfgstate_set "$state" filesystem '"zfs"')"
+  # Manual Partitioning kind (ADR 0073): auto = the predefined pool layouts, the
+  # untouched default; idempotent with the accessor (disk_config.kind→auto).
+  state="$(cfgstate_set "$state" disk_config.kind '"auto"')"
   state="$(cfgstate_set "$state" options.esp_size '"2G"')"
   state="$(cfgstate_set "$state" options.bootloader '"systemd-boot"')"
   state="$(cfgstate_set "$state" options.optional_repos '["multilib"]')"
