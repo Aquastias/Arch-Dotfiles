@@ -189,16 +189,30 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── Options (mirrors) / Packages rows (folded in by issue 02) ──────────────
 
-@test "menu_rows: Mirrors & Repositories carries mirror_countries + multilib" {
+@test "menu_rows: Mirrors & Repositories carries countries + optional repos + custom" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.mirror_countries \
     | jq -e '.section == "Mirrors & Repositories"'
   echo "$output" | row options.mirror_countries \
     | jq -e '.value == "Germany, Switzerland, Sweden, France, Romania"'
-  echo "$output" | row options.multilib \
+  echo "$output" | row options.optional_repos \
     | jq -e '.section == "Mirrors & Repositories"'
-  echo "$output" | row options.multilib | jq -e '.value == "true"'
+  echo "$output" | row options.optional_repos | jq -e '.value == "multilib"'
+  echo "$output" | row options.mirror_servers \
+    | jq -e '.section == "Mirrors & Repositories"'
+  echo "$output" | row options.custom_repositories \
+    | jq -e '.section == "Mirrors & Repositories"'
+}
+
+# custom_repositories holds objects — the row value must not error on join, it
+# renders the repo names (ADR 0072).
+@test "menu_rows: custom_repositories renders repo names, not a jq error" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.custom_repositories \
+    '[{"name":"cool","url":"https://x"},{"name":"neat","url":"https://y"}]')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.custom_repositories | jq -e '.value == "cool, neat"'
 }
 
 @test "menu_rows: Packages carries the typed extra-packages row" {
@@ -355,15 +369,24 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
 }
 
-# mirrors + multilib live under Mirrors & Repositories (ADR 0071)
-@test "menu_category_rows: mirror countries + multilib under Mirrors & Repositories" {
+# mirrors + optional repos + custom servers/repos live under Mirrors &
+# Repositories (ADR 0071/0072)
+@test "menu_category_rows: countries + optional/custom repos under Mirrors & Repositories" {
   run menu_category_rows "Mirrors & Repositories" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.mirror_countries")'
-  echo "$output" | jq -e 'any(.[]; .field == "options.multilib")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.optional_repos")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.mirror_servers")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.custom_repositories")'
   # the Pacman section no longer exists as a top-level category
   echo "$(menu_categories "$(cfgstate_new)")" \
     | jq -e 'all(.[]; .name != "Pacman")'
+}
+
+@test "menu_enum_options: optional repositories (multilib + testing)" {
+  run menu_enum_options options.optional_repos
+  [ "$status" -eq 0 ]
+  [ "$output" == "$(printf '%s\n' multilib multilib-testing core-testing extra-testing)" ]
 }
 
 # sysctl is kernel hardening, so it lives under Security (ADR 0071); the map

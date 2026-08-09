@@ -212,8 +212,11 @@ _ctl_field_kind() {
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   packages.repo.extra | packages.aur.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
+  options.mirror_servers) echo list ;;        # custom Server= URLs (0072)
+  options.custom_repositories) echo list ;;   # archinstall-style repos (0072)
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
-  options.mirror_countries | system_programs) echo toggle ;;
+  options.mirror_countries | system_programs \
+    | options.optional_repos) echo toggle ;;
   users) echo users ;;   # toggle existing users + in-fzf create
   *) echo enum ;;
   esac
@@ -351,6 +354,23 @@ _ctl_apply_text() {
   sysctl)
     [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
     edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
+  options.mirror_servers)
+    # A custom mirror Server= URL, appended (dedup) — ADR 0072.
+    [[ -n "$val" ]] || { printf '%s' "$state"; return 1; }
+    cfgstate_set "$state" options.mirror_servers "$(jq -cn \
+      --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
+      --arg v "$val" 'if any($a[]; . == $v) then $a else $a + [$v] end')" ;;
+  options.custom_repositories)
+    # "name url [sign_check] [sign_option]" → an object appended (dedup by name);
+    # sign_check/sign_option default to Required/TrustedOnly (ADR 0072).
+    local -a _rf; read -ra _rf <<<"$val"
+    [[ ${#_rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
+    cfgstate_set "$state" options.custom_repositories "$(jq -cn \
+      --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
+      --arg n "${_rf[0]}" --arg u "${_rf[1]}" \
+      --arg c "${_rf[2]:-Required}" --arg o "${_rf[3]:-TrustedOnly}" \
+      'if any($a[]; .name == $n) then $a
+       else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')" ;;
   packages.repo.extra) _ctl_route_package_entry "$state" "$val" repo ;;
   packages.aur.extra)  _ctl_route_package_entry "$state" "$val" aur ;;
   *) edit_set_scalar "$state" "$path" "$val" ;;
@@ -460,7 +480,8 @@ _ctl_user_program_names()   { program_names_of_kind user; }
 _ctl_toggle_options() {
   case "$1" in
   options.kernel | environment.desktop | environment.gpu \
-    | options.mirror_countries) menu_enum_options "$1" ;;
+    | options.mirror_countries | options.optional_repos)
+    menu_enum_options "$1" ;;
   system_programs)     _ctl_system_program_names ;;
   system.keymap)       _ctl_biglist_options system.keymap ;;
   esac
@@ -1679,6 +1700,18 @@ guided_ctl_list() {
     if [[ "$vf" == "sysctl" ]]; then
       _ctl_sysctl_lines "$state" "$base"
       _ctl_action_row "+ Add sysctl (key=value)"
+    elif [[ "$vf" == "options.mirror_servers" ]]; then
+      # Custom mirror Server= URLs (ADR 0072): one per line + an Add action.
+      jq -r '(.options.mirror_servers // [])[]' \
+        <<<"$(_ctl_effective "$state" "$base")"
+      _ctl_action_row "+ Add server (URL)"
+    elif [[ "$vf" == "options.custom_repositories" ]]; then
+      # Custom repositories (ADR 0072): "name — url · <SigLevel>" + an Add action.
+      jq -r '(.options.custom_repositories // [])[]
+        | "\(.name) — \(.url) · "
+          + "\(.sign_check // "Required") \(.sign_option // "TrustedOnly")"' \
+        <<<"$(_ctl_effective "$state" "$base")"
+      _ctl_action_row "+ Add repository (name url [check] [trust])"
     elif [[ "$vf" == "users" ]]; then
       # Flattened Users screen — the account override surface. One merged root
       # row (ADR 0063) symmetric with a user row, then one row per user, each
@@ -2474,6 +2507,17 @@ _ctl_enter_values() {
     fi
     echo refresh; return   # an existing pair is display-only (re-list in place)
   fi
+  # Custom mirror servers / custom repositories (ADR 0072): "+ Add" opens the
+  # text editor; an existing entry is display-only (re-list in place).
+  if [[ "$path" == "options.mirror_servers" \
+        || "$path" == "options.custom_repositories" ]]; then
+    if [[ "$line" == "+ Add"* ]]; then
+      _ctl_write_nav \
+        "$(nav_to_text "$(nav_get "$nav" category)" "$path" "$path")"
+      echo render; return
+    fi
+    echo refresh; return
+  fi
   if [[ "$path" == "users" ]]; then
     # The merged root row (ADR 0063) opens the Root Editor (password + shell),
     # symmetric with a user row opening its User Editor. Handle it before the
@@ -2617,6 +2661,12 @@ _ctl_enter_text() {
   # field backs out.
   case "$path" in
   sysctl)            _ctl_write_nav "$(nav_to_values "$cat" sysctl sysctl)" ;;
+  options.mirror_servers)
+    _ctl_write_nav "$(nav_to_values "$cat" options.mirror_servers \
+      "custom servers")" ;;
+  options.custom_repositories)
+    _ctl_write_nav "$(nav_to_values "$cat" options.custom_repositories \
+      "custom repositories")" ;;
   __newuser__)       _ctl_write_nav "$(nav_to_values "$cat" users users)" ;;
   __persist__)       _ctl_write_nav "$(nav_to_impermanence "$cat")" ;;
   options.swap_size) _ctl_write_nav "$(nav_to_swapedit "$cat")" ;;

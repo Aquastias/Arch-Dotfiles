@@ -547,9 +547,40 @@ _guided_edit_mirror_countries() {
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_countries "$arr")"
 }
 
-# multilib (Pacman) + the two post_install extras (Advanced) — bool toggles.
-_guided_edit_multilib() {
-  _guided_edit_bool multilib "Multilib (true/false)" options.multilib
+# Optional Repositories (ADR 0072): a multi-select over multilib + the testing
+# repos (replaces the old multilib bool). Stored as a JSON array; unset keeps the
+# accessor's `multilib` default.
+_guided_edit_optional_repos() {
+  local -a opts; mapfile -t opts < <(menu_enum_options options.optional_repos)
+  local arr
+  arr="$(_guided_multi_array optional_repos "Optional repositories" \
+    "${opts[@]}")" || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.optional_repos "$arr")"
+}
+
+# Custom mirror Server= URL, appended dedup (ADR 0072). rc 1 (no commit) on empty.
+_guided_add_mirror_server() {
+  local raw; raw="$(guided_prompt mirror_server "Custom mirror Server URL")"
+  [[ -n "$raw" ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_servers \
+    "$(jq -cn --argjson a "$(jq -c '.options.mirror_servers // []' \
+      <<<"$_GUIDED_STATE")" --arg v "$raw" \
+      'if any($a[]; . == $v) then $a else $a + [$v] end')")"
+}
+
+# Custom repository "name url [sign_check] [sign_option]" → object appended dedup
+# by name (ADR 0072). rc 1 on fewer than 2 tokens.
+_guided_add_custom_repository() {
+  local raw; raw="$(guided_prompt custom_repository \
+    "Custom repo: name url [Never|Optional|Required] [TrustAll|TrustedOnly]")"
+  local -a rf; read -ra rf <<<"$raw"
+  [[ ${#rf[@]} -ge 2 ]] || return 1
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.custom_repositories \
+    "$(jq -cn --argjson a "$(jq -c '.options.custom_repositories // []' \
+      <<<"$_GUIDED_STATE")" --arg n "${rf[0]}" --arg u "${rf[1]}" \
+      --arg c "${rf[2]:-Required}" --arg o "${rf[3]:-TrustedOnly}" \
+      'if any($a[]; .name == $n) then $a
+       else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')")"
 }
 # Security & Backup Extras editors (ADR 0041). The firewall is a single-choice
 # radiolist (firewalld | ufw | none) — picking one IS the mutual exclusion; the
@@ -1199,7 +1230,9 @@ guided_build() {
     _guided_edit_display_manager
     _guided_edit_gpu
     _guided_edit_mirror_countries
-    _guided_edit_multilib
+    _guided_edit_optional_repos
+    _guided_add_mirror_server
+    _guided_add_custom_repository
     _guided_add_package
     _guided_add_system_program
     _guided_add_sysctl

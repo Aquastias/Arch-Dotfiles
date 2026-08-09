@@ -31,7 +31,9 @@ _MENU_FIELDS=(
   "Locales|system.locale|locale|en_US.UTF-8"
   "Locales|system.keymap|keymap|us"
   "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
-  "Mirrors & Repositories|options.multilib|multilib|true"
+  "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
+  "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
+  "Mirrors & Repositories|options.custom_repositories|custom repositories|[]"
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
@@ -74,6 +76,8 @@ menu_enum_options() {
   options.mirror_countries)
     printf '%s\n' Germany Switzerland Sweden France Romania Austria \
       Netherlands "United Kingdom" "United States" Japan Australia ;;
+  options.optional_repos)
+    printf '%s\n' multilib multilib-testing core-testing extra-testing ;;
   esac
 }
 
@@ -83,7 +87,7 @@ menu_enum_options() {
 # the summary is display-only.
 _MENU_CATEGORIES=(
   "Locales|language, keymap"
-  "Mirrors & Repositories|countries, multilib"
+  "Mirrors & Repositories|countries, optional repos, custom servers/repos"
   "Disks|layout, data pools, filesystem, encryption, swap"
   "Bootloader|bootloader"
   "Kernels|kernel"
@@ -132,7 +136,9 @@ menu_render_value() {
   jq -r --arg p "$2" '
     getpath($p | split(".")) as $v
     | if   $v == null         then empty
-      elif ($v | type) == "array"  then ($v | join(", "))
+      elif ($v | type) == "array"  then
+        ($v | map(if type == "string" then . else (.name // tostring) end)
+            | join(", "))
       elif ($v | type) == "object" then
         ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
       else ($v | tostring) end' <<<"$1"
@@ -165,7 +171,9 @@ menu_rows() {
     --argjson baseline "$baseline" '
     def render($v; $d):
       (if   $v == null            then null
-       elif ($v | type) == "array"  then ($v | join(", "))
+       elif ($v | type) == "array"  then
+         ($v | map(if type == "string" then . else (.name // tostring) end)
+             | join(", "))
        elif ($v | type) == "object" then
          ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
        else ($v | tostring) end) as $r
