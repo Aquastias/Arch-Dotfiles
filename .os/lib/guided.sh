@@ -996,6 +996,15 @@ guided_run_persistent() {
     rich_flags=(--footer=' ' --footer-border=top \
       --list-border=rounded --list-label-pos=center)
   fi
+  # Fixed navy/blue palette (ADR 0071) so the installer looks the same on any
+  # box — not the operator's personal fzf theme (absent on the live ISO anyway).
+  # Mirrors the design prototype: near-black bg, bright-blue selection bar, cyan
+  # accents, amber override marker. Truecolor; degrades to 256 where unsupported.
+  local gc='bg:#0b0f14,bg+:#1f6feb,fg:#c7d0da,fg+:#ffffff,hl:#39d0d8'
+  gc+=',hl+:#ffffff,border:#233240,label:#39d0d8,preview-bg:#0b0f14'
+  gc+=',preview-fg:#c7d0da,prompt:#39d0d8,pointer:#ffffff,marker:#f0a020'
+  gc+=',header:#5b6b7a,info:#5b6b7a,gutter:#0b0f14,spinner:#39d0d8'
+  gc+=',query:#c7d0da'
   # The preview pane is the always-on master-detail column (ADR 0071): it is wired
   # to the entry's `preview` verb from the start and shown on the initial top
   # screen, so the pane is populated on first paint (not only after the first
@@ -1005,6 +1014,7 @@ guided_run_persistent() {
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
     --header-border=bottom \
+    --color="$gc" \
     "${rich_flags[@]}" \
     --preview="bash $entry preview {}" --preview-window='right,45%' \
     --bind "change:transform-query(bash $entry mask {q})" \

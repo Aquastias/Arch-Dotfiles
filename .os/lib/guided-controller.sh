@@ -2999,9 +2999,9 @@ _ctl_breadcrumb() {
 # whole-layout label. Pure: reads state.
 _ctl_footer_summary() {
   local nav="$1" eff
-  eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
   case "$(nav_screen "$nav")" in
   pooledit | pooldisks)
+    eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     jq -r --arg k "$(_ctl_pool_kind "$nav")" \
       '. as $g | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
        + (if ($g.devices // null) != null
@@ -3009,7 +3009,11 @@ _ctl_footer_summary() {
           else "\($g.disk_count // "?") disks" end)' \
       <<<"$(_ctl_pool_get "$eff" "$(_ctl_pool_kind "$nav")" \
             "$(nav_get "$nav" index)")" ;;
-  *) _ctl_layout_label "$eff" ;;
+  *)
+    # The OS layout label belongs to the Disks context only — printed on every
+    # screen's footer it read as a stray "single disk" on Locales/Kernels/etc.
+    [[ "$(nav_get "$nav" category)" == "Disks" ]] || return 0
+    _ctl_layout_label "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" ;;
   esac
 }
 
@@ -3035,7 +3039,9 @@ _ctl_footer() {
   category)  acts='Enter edit · Esc back' ;;
   *)         acts='Esc back' ;;
   esac
-  printf '%s   │   %s' "$acts" "$(_ctl_footer_summary "$nav")"
+  local sum; sum="$(_ctl_footer_summary "$nav")"
+  if [[ -n "$sum" ]]; then printf '%s   │   %s' "$acts" "$sum"
+  else printf '%s' "$acts"; fi
 }
 
 # ── undo / redo / reset history (slice 03) ───────────────────────────────────
