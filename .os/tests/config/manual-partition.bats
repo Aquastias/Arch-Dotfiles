@@ -1,0 +1,97 @@
+#!/usr/bin/env bats
+# Tests for the Manual Partitioning assignment model (ADR 0073): seeding the
+# assignment table from a disk's partition list (lsblk JSON), pre-filling the
+# ESP and swap from partition type, editing an entry, and the Proceed-only
+# terminal-action guard. Pure: JSON in, JSON out, no disk access. The cfdisk
+# launch + live lsblk re-read are VM-verified (the manual matrix case).
+
+setup() {
+  source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/manual-partition.sh"
+}
+
+# A canonical `lsblk -J -b -o PATH,TYPE,FSTYPE,PARTTYPE,PARTTYPENAME` payload:
+# a fresh ESP, a blank root, an existing (kept) /home, and a swap partition.
+LSBLK='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
+  {"path":"/dev/sda1","type":"part","fstype":"vfat",
+   "parttype":"c12a7328-f81f-11d2-ba4b-00a0c93ec93b","parttypename":"EFI System"},
+  {"path":"/dev/sda2","type":"part","fstype":null,
+   "parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4","parttypename":"Linux filesystem"},
+  {"path":"/dev/sda3","type":"part","fstype":"ext4",
+   "parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4","parttypename":"Linux filesystem"},
+  {"path":"/dev/sda4","type":"part","fstype":"swap",
+   "parttype":"0657fd6d-a4ab-43c4-84e5-0933c84b4f4f","parttypename":"Linux swap"}
+]}]}'
+
+by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
+
+# ── seed / pre-fill ─────────────────────────────────────────────────────────
+
+@test "scan: every partition becomes an assignment entry" {
+  run manual_scan_partitions "$LSBLK"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" = "4" ]
+}
+
+@test "scan: the ESP pre-fills /boot/efi + fat32" {
+  parts="$(manual_scan_partitions "$LSBLK")"
+  echo "$parts" | by_dev /dev/sda1 | jq -e '.mountpoint == "/boot/efi"'
+  echo "$parts" | by_dev /dev/sda1 | jq -e '.fs == "fat32"'
+}
+
+@test "scan: a swap partition pre-fills [swap]" {
+  manual_scan_partitions "$LSBLK" | by_dev /dev/sda4 \
+    | jq -e '.mountpoint == "[swap]"'
+}
+
+@test "scan: a blank partition starts unassigned and formats by default" {
+  parts="$(manual_scan_partitions "$LSBLK")"
+  echo "$parts" | by_dev /dev/sda2 | jq -e '.mountpoint == ""'
+  echo "$parts" | by_dev /dev/sda2 | jq -e '.format == true'
+}
+
+@test "scan: a partition with existing data defaults to keep (no format)" {
+  manual_scan_partitions "$LSBLK" | by_dev /dev/sda3 | jq -e '.format == false'
+}
+
+# ── edit ────────────────────────────────────────────────────────────────────
+
+@test "set_field: assign the blank partition as root" {
+  parts="$(manual_scan_partitions "$LSBLK")"
+  parts="$(manual_set_field "$parts" /dev/sda2 mountpoint /)"
+  echo "$parts" | by_dev /dev/sda2 | jq -e '.mountpoint == "/"'
+}
+
+@test "set_field: format is written as a JSON boolean, not a string" {
+  parts="$(manual_scan_partitions "$LSBLK")"
+  parts="$(manual_set_field "$parts" /dev/sda3 format true)"
+  echo "$parts" | by_dev /dev/sda3 | jq -e '.format == true'
+}
+
+@test "set_field: an unknown device leaves the table unchanged" {
+  parts="$(manual_scan_partitions "$LSBLK")"
+  run manual_set_field "$parts" /dev/nope mountpoint /
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" = "4" ]
+}
+
+@test "set_field output feeds straight into the layout planner shape" {
+  # Assign root so the array is a valid planner input; assert the shape.
+  parts="$(manual_scan_partitions "$LSBLK")"
+  parts="$(manual_set_field "$parts" /dev/sda2 mountpoint /)"
+  echo "$parts" | jq -e 'all(.[]; has("device") and has("mountpoint")
+                                   and has("fs") and has("format"))'
+}
+
+# ── Proceed-only guard ──────────────────────────────────────────────────────
+
+@test "kind_active: true when disk_config.kind is manual" {
+  local s; s="$(cfgstate_set "$(cfgstate_new)" disk_config.kind '"manual"')"
+  run manual_kind_active "$s"
+  [ "$status" -eq 0 ]
+}
+
+@test "kind_active: false on the default (auto) state" {
+  run manual_kind_active "$(cfgstate_new)"
+  [ "$status" -ne 0 ]
+}
