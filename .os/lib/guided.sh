@@ -996,15 +996,17 @@ guided_run_persistent() {
     rich_flags=(--footer=' ' --footer-border=top \
       --list-border=rounded --list-label-pos=center)
   fi
-  # The preview pane starts hidden with a no-op body; the Disk-layout screen's
-  # render swaps in the ASCII layout graph and shows it (change-preview[-window]).
+  # The preview pane is the always-on master-detail column (ADR 0071): it is wired
+  # to the entry's `preview` verb from the start and shown on the initial top
+  # screen, so the pane is populated on first paint (not only after the first
+  # drill fires a render). Per-screen renders hide it where a screen owns no pane.
   guided_ctl_list | fzf --reverse --prompt='guided> ' \
     --border=rounded --border-label=' Guided Installer ' \
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
     --header-border=bottom \
     "${rich_flags[@]}" \
-    --preview='echo' --preview-window=hidden \
+    --preview="bash $entry preview {}" --preview-window='right,45%' \
     --bind "change:transform-query(bash $entry mask {q})" \
     --bind "start:unbind(change)" \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
