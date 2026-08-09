@@ -89,3 +89,15 @@ MANUAL='{
   [ "$status" -eq 0 ]
   [ "$(printf '%s' "$output" | jq 'length')" = "3" ]
 }
+
+# ── any_zfs guard: a manual layout is always poolless ───────────────────────
+
+@test "any_zfs: a manual layout is false despite the zfs filesystem default" {
+  write_config "$MANUAL"
+  [ "$(install_config_any_zfs)" = "false" ]
+}
+
+@test "any_zfs: an auto layout on the default zfs filesystem is true" {
+  write_config '{}'
+  [ "$(install_config_any_zfs)" = "true" ]
+}

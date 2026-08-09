@@ -18,6 +18,20 @@
 # Uses error() from common.sh, available at call time.
 # =============================================================================
 
+# Root Layout Adapter selection including the disk-config kind (ADR 0073). When
+# the operator chose Manual Partitioning, the manual adapter owns the disk
+# regardless of filesystem/mode (it consumes a flat partitions[] assignment, not
+# the pool skeleton); otherwise fall through to the filesystem × mode table.
+# Pure: string transform on <os-dir>/<kind>/<fs>/<mode>, no disk access.
+root_adapter_for_kind() {
+  local dir="$1" kind="$2" fs="$3" mode="$4"
+  if [[ "$kind" == "manual" ]]; then
+    printf '%s\n' "${dir}/lib/layout/manual/root.sh"
+  else
+    root_adapter_source "$dir" "$fs" "$mode"
+  fi
+}
+
 # Root Layout Adapter for <fs> × <mode>. The OS-disk owner.
 root_adapter_source() {
   local dir="$1" fs="$2" mode="$3"
