@@ -42,6 +42,9 @@
 # shellcheck source=lib/config/menu.sh
 [[ "$(type -t menu_categories)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
+# shellcheck source=lib/config/manual-partition.sh
+[[ "$(type -t manual_kind_active)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/config/manual-partition.sh"
 # shellcheck source=lib/config/skeleton.sh
 [[ "$(type -t skeleton_preset)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
@@ -1556,9 +1559,14 @@ guided_ctl_list() {
              + (if .overridden then "  ●" else "" end)'
     printf '%s\n' "$_CTL_DIVIDER"
     printf '%s\n' "Proceed ▸ review & install"
-    printf '%s\n' \
-      "Save profile ▸ write a device-less profile" \
-      "Export config ▸ write a device-baked config" ;;
+    # Manual Partitioning is Proceed-only (ADR 0073): a hand-drawn partition
+    # table cannot be replayed from a committed file, so Save and Export are
+    # withheld while it is active.
+    if ! manual_kind_active "$state"; then
+      printf '%s\n' \
+        "Save profile ▸ write a device-less profile" \
+        "Export config ▸ write a device-baked config"
+    fi ;;
   profiles)
     # The picker leads with `↺ Reset to blank` (a confirm-gated full session
     # reset, ADR 0063), then the installable Host Profiles (ADR 0055) one row
