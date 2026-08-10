@@ -1645,10 +1645,16 @@ guided_ctl_list() {
       # passphrase sub-row. The row still carries options.encryption's override
       # dot (_fov) so it reads like every other field.
       if [[ "$cat" == "Disks" && "$_ffield" == "options.encryption" ]]; then
-        printf 'Encryption ▸ %s%s\n' \
-          "$(_ctl_encryption_label "$(_ctl_effective "$state" "$base")" \
-            "$(_ctl_secret_tag enc)")" \
-          "$([[ "$_fov" == "true" ]] && printf '  ●')"
+        # Manual Partitioning forces it off (ADR 0073); show that, not the
+        # retained-but-locked override the operator can no longer edit.
+        if manual_kind_active "$state"; then
+          printf 'Encryption ▸ off (manual)\n'
+        else
+          printf 'Encryption ▸ %s%s\n' \
+            "$(_ctl_encryption_label "$(_ctl_effective "$state" "$base")" \
+              "$(_ctl_secret_tag enc)")" \
+            "$([[ "$_fov" == "true" ]] && printf '  ●')"
+        fi
         continue
       fi
       # Impermanence collapses to ONE drill-down row (ADR 0066): the toggle +
@@ -1656,6 +1662,10 @@ guided_ctl_list() {
       # bool row plus a separate Add-persist action. Carries the override dot.
       if [[ "$cat" == "Disks" \
             && "$_ffield" == "options.impermanence.enabled" ]]; then
+        if manual_kind_active "$state"; then
+          printf 'Impermanence ▸ off (manual)\n'   # forced off (ADR 0073)
+          continue
+        fi
         local _impon; _impon=off
         [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
           options.impermanence.enabled)" == "true" ]] && _impon=on

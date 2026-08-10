@@ -101,3 +101,25 @@ MANUAL='{
   write_config '{}'
   [ "$(install_config_any_zfs)" = "true" ]
 }
+
+# ── manual neutralises the pool-dependent options (ADR 0073) ────────────────
+# The menu locks impermanence/encryption but keeps their value (non-destructive
+# toggle); the back-end must still see them OFF under manual, or it would run
+# impermanence setup / expect LUKS on a plain hand-partitioned root.
+
+@test "manual: impermanence reads false even when the override is on" {
+  write_config '{"disk_config":{"kind":"manual"},
+                "options":{"impermanence":{"enabled":true}}}'
+  [ "$(install_config_impermanence_enabled)" = "false" ]
+}
+
+@test "manual: encryption reads false even when the override is on" {
+  write_config '{"disk_config":{"kind":"manual"},"options":{"encryption":true}}'
+  [ "$(install_config_encryption_enabled)" = "false" ]
+}
+
+@test "auto: impermanence and encryption are honoured as authored" {
+  write_config '{"options":{"impermanence":{"enabled":true},"encryption":true}}'
+  [ "$(install_config_impermanence_enabled)" = "true" ]
+  [ "$(install_config_encryption_enabled)" = "true" ]
+}
