@@ -114,6 +114,41 @@ manual" ]
   echo "$output" | jq -e '.options.encryption == true'
 }
 
+@test "cfdisk trigger: the Partitions row emits the cfdisk directive" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
+  INSTALL_DEBUG=0 run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
+  [ "$status" -eq 0 ]
+  [ "$output" = "cfdisk" ]
+}
+
+@test "cfdisk trigger: --debug makes it inert (notice, no cfdisk)" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
+  INSTALL_DEBUG=1 run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
+  [ "$status" -eq 0 ]
+  [[ "$output" == notice* ]]
+  [[ "$output" == *"--debug"* ]]
+}
+
+@test "toggle: turning manual on emits the manual-on directive" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+  run _ctl_enter_category "Manual partitioning: off"
+  [ "$status" -eq 0 ]
+  [ "$output" = "manual-on" ]
+  jq -e '.disk_config.kind == "manual"' "$GUIDED_STATE_FILE"
+}
+
+@test "toggle: turning manual off emits a plain refresh" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
+  run _ctl_enter_category "Manual partitioning: on"
+  [ "$status" -eq 0 ]
+  [ "$output" = "refresh" ]
+  jq -e '.disk_config.kind == "auto"' "$GUIDED_STATE_FILE"
+}
+
 @test "toggle off is non-destructive: a prior override survives" {
   # An override set before manual persists through manual→auto (Config State
   # is non-destructive; the toggle only writes disk_config.kind).

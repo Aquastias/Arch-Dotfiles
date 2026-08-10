@@ -2504,6 +2504,11 @@ _ctl_enter_category() {
     [[ "$_mnew" == "manual" ]] && { echo manual-on; return; }
     echo refresh; return ;;
   "Partitions ▸"*)   # Manual Partitioning: launch cfdisk, re-scan (ADR 0073)
+    # --debug is inspect-only and touches no disk (ADR 0063): cfdisk needs root
+    # and opens the block device, so it goes inert with a notice instead.
+    [[ "${INSTALL_DEBUG:-0}" == "1" ]] \
+      && { echo 'notice cfdisk is disabled in --debug — no disk is touched'
+           return; }
     echo cfdisk; return ;;
   "Swap:"*)     # display_label "swap"
     manual_kind_active "$(_ctl_state)" && { echo render; return; }
