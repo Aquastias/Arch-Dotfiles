@@ -88,6 +88,23 @@ for _spec in "${_INSTALL_CONFIG_SCHEMA[@]}"; do
 done
 unset _spec _name
 
+# Manual Partitioning neutralises the pool-dependent options (ADR 0073). A plain
+# hand-partitioned layout has no ZFS dataset to roll back and no pool to
+# encrypt, so impermanence and encryption read false under kind=manual whatever
+# override the (shown-but-locked) menu row still carries — the back-end must
+# never act on a stale value the operator cannot edit. These OVERRIDE the
+# generated wrappers above (last definition wins), like install_config_any_zfs.
+install_config_impermanence_enabled() {
+  [[ "$(install_config_disk_kind)" == "manual" ]] \
+    && { printf 'false\n'; return; }
+  install_config_get impermanence_enabled
+}
+install_config_encryption_enabled() {
+  [[ "$(install_config_disk_kind)" == "manual" ]] \
+    && { printf 'false\n'; return; }
+  install_config_get encryption_enabled
+}
+
 # =============================================================================
 # Hand-written specials — kept verbatim because each breaks the schema mould.
 # =============================================================================

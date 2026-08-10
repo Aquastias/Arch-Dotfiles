@@ -211,6 +211,17 @@ part_nav() {
   [ "$output" = "terminal proceed" ]
 }
 
+@test "display: encryption/impermanence show off (manual), matching the install" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' \
+    '{"disk_config":{"kind":"manual"},"options":{"encryption":true,"impermanence":{"enabled":true}}}' \
+    > "$GUIDED_STATE_FILE"
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qF 'Encryption ▸ off (manual)'
+  echo "$output" | grep -qF 'Impermanence ▸ off (manual)'
+}
+
 @test "toggle off is non-destructive: a prior override survives" {
   # An override set before manual persists through manual→auto (Config State
   # is non-destructive; the toggle only writes disk_config.kind).
