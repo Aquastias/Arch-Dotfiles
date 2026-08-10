@@ -70,6 +70,17 @@ oneshot)
   source "${_entry_dir}/guided.sh"
   _guided_oneshot_edit "${2:-}"
   ;;
+cfdisk)
+  # Manual Partitioning (ADR 0073): runs under fzf execute() (has a tty). Launch
+  # cfdisk on the target disk, then scan the resulting table + store the
+  # assignment into the guided state. The controller (sourced above) already
+  # pulled in manual-partition.sh + picker.sh. VM/HITL-verified glue.
+  _mdisk="$(manual_target_disk)" || exit 0
+  _mcur="$(cat "$GUIDED_STATE_FILE")"
+  if _mnew="$(manual_partition_flow "$_mcur" "$_mdisk")"; then
+    printf '%s\n' "$_mnew" > "$GUIDED_STATE_FILE"
+  fi
+  ;;
 secret)
   # In-menu credential capture (ticket 03): a masked, confirmed prompt on the
   # tty, written to the handoff file. Runs under fzf execute() (has a tty).

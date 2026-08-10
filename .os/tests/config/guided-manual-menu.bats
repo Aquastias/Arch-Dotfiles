@@ -86,14 +86,12 @@ manual" ]
 
 # ── controller: apply, notice, lock enforcement, non-destructive off ────────
 
-@test "apply: toggling to manual sets the kind and prints the notice" {
-  # notice → stderr, new state → stdout; keep them separate.
-  local state notice
-  state="$(_ctl_apply_enum "$(cfgstate_new)" disk_config.kind manual \
-    2> "$TEST_DIR/notice")"
-  notice="$(cat "$TEST_DIR/notice")"
+@test "apply: toggling to manual sets the kind (notice is a directive)" {
+  # The notice now rides the manual-on fzf directive (header), not stderr, so
+  # apply stays a clean pure state transform.
+  local state
+  state="$(_ctl_apply_enum "$(cfgstate_new)" disk_config.kind manual)"
   echo "$state" | jq -e '.disk_config.kind == "manual"'
-  [[ "$notice" =~ [Mm]anual ]]
 }
 
 @test "apply: a locked field (encryption) is a no-op while manual" {
