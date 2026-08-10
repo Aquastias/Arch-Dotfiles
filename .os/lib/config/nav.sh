@@ -57,6 +57,17 @@ nav_to_text() {
 # nav_to_swapedit <category> — the swap sub-editor (enabled / size / zswap).
 nav_to_swapedit() { jq -nc --arg c "$1" '{screen:"swapedit", category:$c}'; }
 
+# nav_to_manualparts <category> — the Manual Partitioning assignment table (ADR
+# 0073): the cfdisk hand-off action + one row per partition. nav_to_partedit
+# <category> <device> — the per-partition editor (mountpoint / filesystem /
+# format) opened from a partition row.
+nav_to_manualparts() {
+  jq -nc --arg c "$1" '{screen:"manualparts", category:$c}'
+}
+nav_to_partedit() {
+  jq -nc --arg c "$1" --arg d "$2" '{screen:"partedit", category:$c, device:$d}'
+}
+
 # nav_to_encryption <category> — the Encryption Editor (ADR 0059): the toggle +
 # the disk passphrase, collapsed behind one Disks row. Modelled on the swap
 # sub-editor.

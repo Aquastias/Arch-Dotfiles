@@ -22,6 +22,11 @@
 # shellcheck source=./state.sh
 [[ "$(type -t cfgstate_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
+# The supported-filesystem / mountpoint source of truth + the validator live in
+# the back-end planner; the editor and its live problem notice read from there.
+# shellcheck source=../layout/manual/plan.sh
+[[ "$(type -t manual_partition_problems)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../layout/manual/plan.sh"
 
 _MANUAL_ESP_GUID="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"   # EFI System Partition
 _MANUAL_SWAP_GUID="0657fd6d-a4ab-43c4-84e5-0933c84b4f4f"  # Linux swap
@@ -49,7 +54,8 @@ manual_scan_partitions() {
           size: (.size // 0),
           mountpoint: (if $is_esp then "/boot/efi"
                        elif $is_swap then "[swap]" else "" end),
-          fs:     (if $is_esp then "fat32" else "" end),
+          fs:     (if $is_esp then "fat32"
+                   elif $fst != "" then $fst else "" end),
           format: ($fst == "") }
       )' <<< "$lsblk"
 }
@@ -113,6 +119,21 @@ manual_cycle_mountpoint() {
       && { printf '%s' "${_MANUAL_MOUNTPOINTS[$(((i + 1) % n))]}"; return; }
   done
   printf '%s' "${_MANUAL_MOUNTPOINTS[0]}"
+}
+
+# manual_cycle_fs <current> — the next data filesystem after <current> in the
+# supported cycle (ext4 → xfs → btrfs, wrapping); the first when <current> is
+# unknown. Only the filesystems the installer can build are offered, so the
+# editor can never author an unsupported one (manual_supported_data_fs is the
+# source of truth, from the planner). Pure.
+manual_cycle_fs() {
+  local cur="$1" first="" found="" f
+  while IFS= read -r f; do
+    [[ -z "$first" ]] && first="$f"
+    [[ -n "$found" ]] && { printf '%s' "$f"; return; }
+    [[ "$f" == "$cur" ]] && found=1
+  done < <(manual_supported_data_fs)
+  printf '%s' "$first"
 }
 
 # manual_row_label <partition-json> — the one-line assignment row for a

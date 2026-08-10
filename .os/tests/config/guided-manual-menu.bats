@@ -114,23 +114,6 @@ manual" ]
   echo "$output" | jq -e '.options.encryption == true'
 }
 
-@test "cfdisk trigger: the Partitions row emits the cfdisk directive" {
-  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
-  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
-  INSTALL_DEBUG=0 run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
-  [ "$status" -eq 0 ]
-  [ "$output" = "cfdisk" ]
-}
-
-@test "cfdisk trigger: --debug makes it inert (notice, no cfdisk)" {
-  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
-  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
-  INSTALL_DEBUG=1 run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
-  [ "$status" -eq 0 ]
-  [[ "$output" == notice* ]]
-  [[ "$output" == *"--debug"* ]]
-}
-
 @test "toggle: turning manual on emits the manual-on directive" {
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
@@ -147,6 +130,85 @@ manual" ]
   [ "$status" -eq 0 ]
   [ "$output" = "refresh" ]
   jq -e '.disk_config.kind == "auto"' "$GUIDED_STATE_FILE"
+}
+
+nav_disks() { printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"; }
+
+@test "editor: the Partitions row opens the assignment table" {
+  nav_disks
+  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
+  run _ctl_enter_category "Partitions ▸ 0 assigned (run cfdisk)"
+  [ "$status" -eq 0 ] && [ "$output" = "render" ]
+  jq -e '.screen == "manualparts"' "$GUIDED_NAV_FILE"
+}
+
+@test "editor: a partition row opens its per-partition editor" {
+  printf '%s\n' '{"screen":"manualparts","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+  run _ctl_enter_manualparts "/dev/sda3  →  (unassigned)  [format]"
+  [ "$status" -eq 0 ] && [ "$output" = "render" ]
+  jq -e '.screen == "partedit" and .device == "/dev/sda3"' "$GUIDED_NAV_FILE"
+}
+
+@test "editor: cfdisk action is gated in --debug, launches otherwise" {
+  printf '%s\n' '{"screen":"manualparts","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+  local row="⟳ Run cfdisk (edit the partition table)"
+  INSTALL_DEBUG=1 run _ctl_enter_manualparts "$row"
+  [[ "$output" == notice* ]]
+  INSTALL_DEBUG=0 run _ctl_enter_manualparts "$row"
+  [ "$output" = "cfdisk" ]
+}
+
+part_nav() {
+  printf '%s\n' \
+    '{"screen":"partedit","category":"Disks","device":"/dev/sda3"}' \
+    > "$GUIDED_NAV_FILE"
+}
+
+@test "partedit: Enter cycles the mountpoint" {
+  part_nav
+  printf '%s\n' \
+    '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"","fs":"","format":true}]}}' \
+    > "$GUIDED_STATE_FILE"
+  run _ctl_enter_partedit "mountpoint: (unassigned)   (Enter cycles)"
+  [ "$status" -eq 0 ]
+  jq -e '.disk_config.partitions[0].mountpoint == "/"' "$GUIDED_STATE_FILE"
+}
+
+@test "partedit: Enter cycles the filesystem through supported values only" {
+  part_nav
+  printf '%s\n' \
+    '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
+    > "$GUIDED_STATE_FILE"
+  run _ctl_enter_partedit "filesystem: ext4   (Enter cycles)"
+  jq -e '.disk_config.partitions[0].fs == "xfs"' "$GUIDED_STATE_FILE"
+}
+
+@test "partedit: Enter toggles format" {
+  part_nav
+  printf '%s\n' \
+    '{"disk_config":{"partitions":[{"device":"/dev/sda3","mountpoint":"/","fs":"ext4","format":true}]}}' \
+    > "$GUIDED_STATE_FILE"
+  run _ctl_enter_partedit "format: on   (Enter toggles)"
+  jq -e '.disk_config.partitions[0].format == false' "$GUIDED_STATE_FILE"
+}
+
+@test "proceed: blocked with a notice when the manual layout is invalid" {
+  printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' '{"disk_config":{"kind":"manual"}}' > "$GUIDED_STATE_FILE"
+  run _ctl_proceed_directive
+  [[ "$output" == notice* ]]
+  [[ "$output" == *"Partitions"* ]]
+}
+
+@test "proceed: allowed once the manual layout is valid" {
+  printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
+  printf '%s\n' \
+    '{"disk_config":{"kind":"manual","partitions":[{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"fat32","format":true},{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}]}}' \
+    > "$GUIDED_STATE_FILE"
+  run _ctl_proceed_directive
+  [ "$output" = "terminal proceed" ]
 }
 
 @test "toggle off is non-destructive: a prior override survives" {

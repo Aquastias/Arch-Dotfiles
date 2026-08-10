@@ -829,6 +829,8 @@ _ctl_nav_header() {
     fi ;;
   text)     b='Type a value, Enter save   Esc back' ;;
   swapedit)  b='Enter edit/toggle   Esc back' ;;
+  manualparts) b='Enter open / cfdisk   Esc back' ;;
+  partedit)  b='Enter cycle/toggle   Esc back' ;;
   encryption) b='Enter edit/toggle   Esc back' ;;
   impermanence) b='Enter edit/toggle/remove   Esc back' ;;
   datapools) b='Enter open/add   Esc back' ;;
@@ -860,6 +862,8 @@ _ctl_nav_prompt() {
   category)    printf '%s> ' "$(nav_get "$1" category)" ;;
   values|text) printf '%s> ' "$(nav_get "$1" label)" ;;
   swapedit)    printf 'swap> ' ;;
+  manualparts) printf 'partitions> ' ;;
+  partedit)    printf 'partition> ' ;;
   encryption)  printf 'encryption> ' ;;
   impermanence) printf 'impermanence> ' ;;
   datapools)   printf 'data pools> ' ;;
@@ -1820,6 +1824,37 @@ guided_ctl_list() {
       fi
     fi
     _ctl_action_row "← Back" ;;
+  manualparts)
+    # Manual Partitioning assignment table (ADR 0073): a validity line, the
+    # cfdisk hand-off, then one row per partition (device → mountpoint · fs).
+    local _pj _probs
+    _pj="$(cfgstate_get "$state" disk_config.partitions)"; _pj="${_pj:-[]}"
+    if _probs="$(manual_partition_problems "$_pj")"; then
+      printf '✓ layout is valid — ready to Proceed\n'
+    else
+      printf '⚠ not installable: %s\n' \
+        "$(printf '%s' "$_probs" | head -n1 | sed 's/^• //')"
+    fi
+    _ctl_action_row "⟳ Run cfdisk (edit the partition table)"
+    jq -c '.[]' <<< "$_pj" | while IFS= read -r _p; do
+      manual_row_label "$_p"; printf '\n'
+    done
+    _ctl_action_row "← Back" ;;
+  partedit)
+    # Per-partition editor: mountpoint / filesystem / format, each cycled by
+    # Enter. Only supported values are offered (ADR 0073).
+    local _dev _mp _fs _fmt
+    _dev="$(nav_get "$nav" device)"
+    _mp="$(_ctl_manual_field "$state" "$_dev" mountpoint)"
+    _fs="$(_ctl_manual_field "$state" "$_dev" fs)"
+    _fmt="$(_ctl_manual_field "$state" "$_dev" format)"
+    printf 'device: %s\n' "$_dev"
+    printf 'mountpoint: %s   (Enter cycles)\n' \
+      "${_mp:-(unassigned)}"
+    printf 'filesystem: %s   (Enter cycles)\n' "${_fs:-(none)}"
+    printf 'format: %s   (Enter toggles)\n' \
+      "$([[ "$_fmt" == "true" ]] && echo on || echo off)"
+    _ctl_action_row "← Back" ;;
   encryption)
     # The Encryption Editor (ADR 0059), collapsing like the swap editor above:
     # only the enablement row when off (a passphrase configures nothing then),
@@ -2048,6 +2083,8 @@ guided_ctl_enter() {
   newhost)   _ctl_enter_newhost "$line" ;;
   rooteditor) _ctl_enter_rooteditor "$line" ;;
   swapedit)  _ctl_enter_swapedit "$line" ;;
+  manualparts) _ctl_enter_manualparts "$line" ;;
+  partedit)  _ctl_enter_partedit "$line" ;;
   encryption) _ctl_enter_encryption "$line" ;;
   impermanence) _ctl_enter_impermanence "$line" ;;
   datapools) _ctl_enter_datapools "$line" ;;
@@ -2328,6 +2365,18 @@ _ctl_enter_userfield() {
 # always-on WILL ERASE / typed-INSTALL consent (back-end) remains the real guard.
 # Any unset secret is surfaced as `default 12345` on the Users screen, not here.
 _ctl_proceed_directive() {
+  local state; state="$(_ctl_state)"
+  # Manual Partitioning (ADR 0073): refuse to Proceed on an out-of-bounds layout
+  # (missing root/ESP, an unsupported filesystem or mountpoint). The full list
+  # of problems is shown live on the Partitions screen; this just blocks Proceed
+  # with a header notice. The back-end validator is the ultimate hard stop.
+  if manual_kind_active "$state"; then
+    local _p; _p="$(cfgstate_get "$state" disk_config.partitions)"
+    manual_partition_problems "${_p:-[]}" >/dev/null || {
+      echo "notice Manual layout not installable — fix it on Partitions ▸"
+      return
+    }
+  fi
   echo "terminal proceed"
 }
 
@@ -2443,6 +2492,72 @@ _ctl_newhost_reset() {
 # _ctl_enter_newhost <line> — the `+ New host` confirm screen (ADR 0063): the
 # confirm row runs the full session reset and returns to a blank top screen; any
 # other row (← Back) cancels back to the picker, session work intact.
+# _ctl_manual_set <state> <device> <field> <value> → state with one field of the
+# partition <device> changed (via the pure manual_set_field), re-stored under
+# disk_config.partitions. The single write path the assignment editor uses.
+_ctl_manual_set() {
+  local st="$1" dev="$2" field="$3" val="$4" parts
+  parts="$(cfgstate_get "$st" disk_config.partitions)"
+  manual_store_partitions "$st" \
+    "$(manual_set_field "${parts:-[]}" "$dev" "$field" "$val")"
+}
+
+# _ctl_manual_field <state> <device> <field> → the current value of <field> on
+# the partition <device> (empty when unset).
+_ctl_manual_field() {
+  jq -r --arg d "$2" --arg f "$3" '
+    (.disk_config.partitions // [])[]
+    | select(.device == $d) | (.[$f] // "")
+  ' <<< "$1"
+}
+
+# _ctl_enter_manualparts <line> — the assignment table: the cfdisk hand-off
+# action, then one row per partition (opens its editor). cfdisk is gated in
+# --debug (ADR 0063: inspect-only, no disk touched).
+_ctl_enter_manualparts() {
+  local line="$1" nav cat; nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"
+  case "$line" in
+  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "⟳ Run cfdisk"*)
+    [[ "${INSTALL_DEBUG:-0}" == "1" ]] \
+      && { echo 'notice cfdisk is disabled in --debug — no disk is touched'
+           return; }
+    echo cfdisk; return ;;
+  "/dev/"*)
+    local dev="${line%%  *}"
+    _ctl_write_nav "$(nav_to_partedit "$cat" "$dev")"; echo render; return ;;
+  *) echo noop ;;
+  esac
+}
+
+# _ctl_enter_partedit <line> — the per-partition editor: Enter cycles the
+# mountpoint / filesystem, or toggles format. Only supported filesystems and
+# mountpoints are offered, so the editor can never author an out-of-bounds value
+# (the validator is the ultimate guard for anything hand-crafted).
+_ctl_enter_partedit() {
+  local line="$1" nav dev st cur nxt
+  nav="$(_ctl_nav)"; dev="$(nav_get "$nav" device)"; st="$(_ctl_state)"
+  case "$line" in
+  "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
+  "mountpoint:"*)
+    cur="$(_ctl_manual_field "$st" "$dev" mountpoint)"
+    nxt="$(manual_cycle_mountpoint "$cur")"
+    _ctl_write_state "$(_ctl_manual_set "$st" "$dev" mountpoint "$nxt")"
+    echo refresh; return ;;
+  "filesystem:"*)
+    cur="$(_ctl_manual_field "$st" "$dev" fs)"
+    nxt="$(manual_cycle_fs "$cur")"
+    _ctl_write_state "$(_ctl_manual_set "$st" "$dev" fs "$nxt")"
+    echo refresh; return ;;
+  "format:"*)
+    cur="$(_ctl_manual_field "$st" "$dev" format)"
+    [[ "$cur" == "true" ]] && nxt=false || nxt=true
+    _ctl_write_state "$(_ctl_manual_set "$st" "$dev" format "$nxt")"
+    echo refresh; return ;;
+  *) echo noop ;;
+  esac
+}
+
 _ctl_enter_newhost() {
   local line="$1" nav; nav="$(_ctl_nav)"
   case "$line" in
@@ -2503,13 +2618,8 @@ _ctl_enter_category() {
     # Turning it on: reload + a header notice pointing at the Partitions row.
     [[ "$_mnew" == "manual" ]] && { echo manual-on; return; }
     echo refresh; return ;;
-  "Partitions ▸"*)   # Manual Partitioning: launch cfdisk, re-scan (ADR 0073)
-    # --debug is inspect-only and touches no disk (ADR 0063): cfdisk needs root
-    # and opens the block device, so it goes inert with a notice instead.
-    [[ "${INSTALL_DEBUG:-0}" == "1" ]] \
-      && { echo 'notice cfdisk is disabled in --debug — no disk is touched'
-           return; }
-    echo cfdisk; return ;;
+  "Partitions ▸"*)   # Manual Partitioning: open the assignment table (ADR 0073)
+    _ctl_write_nav "$(nav_to_manualparts "$cat")"; echo render; return ;;
   "Swap:"*)     # display_label "swap"
     manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
@@ -3095,6 +3205,8 @@ _ctl_breadcrumb() {
   category)    printf ' Guided ▸ %s ' "$cat" ;;
   values|text) printf ' Guided ▸ %s ▸ %s ' "$cat" "$(nav_get "$nav" label)" ;;
   swapedit)    printf ' Guided ▸ %s ▸ swap ' "$cat" ;;
+  manualparts) printf ' Guided ▸ %s ▸ partitions ' "$cat" ;;
+  partedit)    printf ' Guided ▸ %s ▸ partition ' "$cat" ;;
   datapools)   printf ' Guided ▸ %s ▸ layout ' "$cat" ;;
   rootdisk)    printf ' Guided ▸ %s ▸ root disk ' "$cat" ;;
   pooledit | pooldisks)
