@@ -290,6 +290,12 @@ fi
 # real install, exactly as today.
 _debug_plan="$(preflight_resolve_plan "${debug_flag:-0}")"
 read -r preflight_tier run_install <<<"$_debug_plan"
+# Signal inspect-only mode to the guided front-end's subprocesses (ADR 0063): a
+# --debug run must never touch a disk, so disk-touching menu actions (the Manual
+# Partitioning cfdisk hand-off) go inert. Exported so `bash guided-fzf-entry.sh`
+# binds see it.
+export INSTALL_DEBUG=0
+[[ "$run_install" == "yes" ]] || INSTALL_DEBUG=1
 _pf_arg=()
 [[ -n "$interactive_fzf" ]] && _pf_arg=(--interactive)
 if [[ "$preflight_tier" == "frontend" ]]; then
