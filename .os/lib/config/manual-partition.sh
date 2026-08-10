@@ -46,11 +46,43 @@ manual_scan_partitions() {
       | (($pt == $esp) or ($pn | test("efi")) or ($fst == "vfat")) as $is_esp
       | (($pt == $swap) or ($pn | test("swap")) or ($fst == "swap")) as $is_swap
       | { device: .path,
+          size: (.size // 0),
           mountpoint: (if $is_esp then "/boot/efi"
                        elif $is_swap then "[swap]" else "" end),
           fs:     (if $is_esp then "fat32" else "" end),
           format: ($fst == "") }
       )' <<< "$lsblk"
+}
+
+# manual_autoassign_root <partitions-json> — if nothing is mounted at "/", give
+# it to the largest still-unassigned, non-ESP/non-swap partition (root is almost
+# always the big one), defaulting its filesystem to ext4 when blank. Idempotent:
+# a table that already names a root is returned unchanged. This lets a plain
+# `ESP + root [+ swap]` cfdisk layout install with no further assignment; richer
+# layouts (kept /home, dual-boot) are edited partition-by-partition. Pure.
+manual_autoassign_root() {
+  jq -c '
+    if any(.[]; .mountpoint == "/") then .
+    else
+      ( [ to_entries[] | select(.value.mountpoint == "") ]
+        | sort_by(.value.size) | last ) as $pick
+      | if $pick == null then .
+        else .[$pick.key].mountpoint = "/"
+             | (if (.[$pick.key].fs // "") == "" then .[$pick.key].fs = "ext4"
+                else . end)
+             | .[$pick.key].format = true
+        end
+    end' <<< "$1"
+}
+
+# manual_target_disk — the disk cfdisk runs on: the first enumerable install
+# candidate minus the live medium (GUIDED_LIVE_SET), resolved to its kernel
+# node. rc 1 when none found. (A multi-disk target picker is a refinement.)
+manual_target_disk() {
+  local first
+  first="$(picker_enum_disks "${GUIDED_LIVE_SET:-}" 2>/dev/null | head -n1)"
+  [[ -n "$first" ]] || return 1
+  readlink -f "$first"
 }
 
 # manual_set_field <partitions-json> <device> <field> <value> — set one field
@@ -66,6 +98,32 @@ manual_set_field() {
   fi
   jq -c --arg d "$dev" --arg f "$field" --argjson v "$jval" \
     'map(if .device == $d then .[$f] = $v else . end)' <<< "$parts"
+}
+
+# The mountpoint cycle for the assignment sub-screen: Enter on a partition
+# advances it through these, wrapping. "" = unassigned (left on the disk).
+_MANUAL_MOUNTPOINTS=("" "/" "/boot/efi" "/home" "[swap]")
+
+# manual_cycle_mountpoint <current> — the next mountpoint after <current> in the
+# cycle (wrapping); the first entry when <current> is unknown. Pure.
+manual_cycle_mountpoint() {
+  local cur="$1" i n=${#_MANUAL_MOUNTPOINTS[@]}
+  for i in "${!_MANUAL_MOUNTPOINTS[@]}"; do
+    [[ "${_MANUAL_MOUNTPOINTS[$i]}" == "$cur" ]] \
+      && { printf '%s' "${_MANUAL_MOUNTPOINTS[$(((i + 1) % n))]}"; return; }
+  done
+  printf '%s' "${_MANUAL_MOUNTPOINTS[0]}"
+}
+
+# manual_row_label <partition-json> — the one-line assignment row for a
+# partition: "<device>  →  <mountpoint or '(unassigned)'>  <fs>  [keep|format]".
+# Pure: reads the object only.
+manual_row_label() {
+  jq -r '
+    (.mountpoint // "") as $m
+    | "\(.device)  →  \(if $m == "" then "(unassigned)" else $m end)"
+      + (if (.fs // "") != "" then "  \(.fs)" else "" end)
+      + (if .format then "  [format]" else "  [keep]" end)' <<< "$1"
 }
 
 # manual_store_partitions <state> <partitions-json> — write the assignment into
@@ -87,7 +145,7 @@ manual_kind_active() {
 # stays pure and testable. Overridable via MANUAL_LSBLK_CMD for the VM harness.
 manual_lsblk_json() {
   ${MANUAL_LSBLK_CMD:-lsblk} -J -b \
-    -o PATH,TYPE,FSTYPE,PARTTYPE,PARTTYPENAME "$1"
+    -o PATH,TYPE,SIZE,FSTYPE,PARTTYPE,PARTTYPENAME "$1"
 }
 
 # manual_partition_flow <state> <disk> — the interactive hand-off: launch cfdisk
@@ -101,5 +159,6 @@ manual_partition_flow() {
   local state="$1" disk="$2" parts
   cfdisk "$disk"
   parts="$(manual_scan_partitions "$(manual_lsblk_json "$disk")")"
+  parts="$(manual_autoassign_root "$parts")"
   manual_store_partitions "$state" "$parts"
 }

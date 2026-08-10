@@ -340,10 +340,6 @@ _ctl_apply_enum() {
   case "$path" in
   disk_config.kind)
     case "$val" in auto | manual) ;; *) printf '%s' "$state"; return 1 ;; esac
-    # One-time notice on the auto→manual transition: name what is given up.
-    [[ "$val" == "manual" \
-       && "$(cfgstate_get "$state" disk_config.kind)" != "manual" ]] \
-      && menu_manual_notice >&2
     edit_set_scalar "$state" disk_config.kind "$val" ;;
   filesystem)
     # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value is
@@ -1585,7 +1581,14 @@ guided_ctl_list() {
   category)
     local cat; cat="$(nav_get "$nav" category)"
     # Disks leads with the layout row (the headline storage choice), then fields.
-    if [[ "$cat" == "Disks" ]]; then
+    if [[ "$cat" == "Disks" ]] && manual_kind_active "$state"; then
+      # Manual Partitioning (ADR 0073): the pool layout / root-disk / swap rows
+      # are replaced by a single Partitions row that launches cfdisk and shows
+      # how many partitions the operator has assigned so far.
+      local _np
+      _np="$(jq '(.disk_config.partitions // []) | length' <<<"$state")"
+      printf 'Partitions ▸ %s assigned (run cfdisk)\n' "$_np"
+    elif [[ "$cat" == "Disks" ]]; then
       local _ov=""
       jq -e '.os_pool or .mode or .storage_groups or .data_pools' \
         <<<"$state" >/dev/null 2>&1 && _ov="  ●"
@@ -1653,6 +1656,15 @@ guided_ctl_list() {
         [[ "$(cfgstate_get "$(_ctl_effective "$state" "$base")" \
           options.impermanence.enabled)" == "true" ]] && _impon=on
         printf 'Impermanence ▸ %s%s\n' "$_impon" \
+          "$([[ "$_fov" == "true" ]] && printf '  ●')"
+        continue
+      fi
+      # Manual Partitioning is an on/off toggle (ADR 0073): the stored kind is
+      # auto/manual, but the operator sees on/off. Enter flips it in place.
+      if [[ "$cat" == "Disks" && "$_ffield" == "disk_config.kind" ]]; then
+        local _mp=off
+        [[ "$_fval" == "manual" ]] && _mp=on
+        printf 'Manual partitioning: %s%s\n' "$_mp" \
           "$([[ "$_fov" == "true" ]] && printf '  ●')"
         continue
       fi
@@ -2483,6 +2495,16 @@ _ctl_enter_category() {
     manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_values "$cat" __layout__ "layout")"
     echo render; return ;;
+  "Manual partitioning:"*)   # on/off toggle over disk_config.kind (ADR 0073)
+    local _mst _mcur _mnew
+    _mst="$(_ctl_state)"; _mcur="$(cfgstate_get "$_mst" disk_config.kind)"
+    [[ "$_mcur" == "manual" ]] && _mnew=auto || _mnew=manual
+    _ctl_write_state "$(_ctl_apply_enum "$_mst" disk_config.kind "$_mnew")"
+    # Turning it on: reload + a header notice pointing at the Partitions row.
+    [[ "$_mnew" == "manual" ]] && { echo manual-on; return; }
+    echo refresh; return ;;
+  "Partitions ▸"*)   # Manual Partitioning: launch cfdisk, re-scan (ADR 0073)
+    echo cfdisk; return ;;
   "Swap:"*)     # display_label "swap"
     manual_kind_active "$(_ctl_state)" && { echo render; return; }
     _ctl_write_nav "$(nav_to_swapedit "$cat")"; echo render; return ;;
@@ -3303,6 +3325,16 @@ _guided_directive_to_action() {
     printf 'execute(bash %q secret enc)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
   "notice "*)       printf 'change-header(%s)+bell' "${d#notice }" ;;
+  manual-on)
+    # Reload the Disks screen (locked fields greyed, Partitions row shown) and
+    # point the operator at the cfdisk hand-off (ADR 0073).
+    printf 'reload(%s)+change-header(%s)+bell' "$(_ctl_reload_cmd "$entry")" \
+      'Manual: pool features off — open Partitions ▸ to run cfdisk' ;;
+  cfdisk)
+    # Suspend fzf, run cfdisk on the target disk, scan + store the assignment,
+    # then reload so the Partitions row shows the new count (ADR 0073).
+    printf 'execute(bash %q cfdisk)+clear-query+reload(%s)' \
+      "$entry" "$(_ctl_reload_cmd "$entry")" ;;
   "secret-mismatch")
     # Re-render the (now entry-phase) masked screen with a warning header, query
     # cleared, masking + cursor-lock kept on. Distinct from `render` only in the

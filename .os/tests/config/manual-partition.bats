@@ -117,3 +117,63 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
     | all(.[]; has("device") and has("mountpoint") and has("fs")
                                 and has("format"))'
 }
+
+# ── auto-root: the largest unassigned partition becomes / ───────────────────
+
+LSBLK_SZ='{"blockdevices":[{"path":"/dev/sda","type":"disk","children":[
+  {"path":"/dev/sda1","type":"part","size":536870912,"fstype":"vfat",
+   "parttype":"c12a7328-f81f-11d2-ba4b-00a0c93ec93b","parttypename":"EFI System"},
+  {"path":"/dev/sda2","type":"part","size":2147483648,"fstype":null,
+   "parttype":"x","parttypename":"Linux filesystem"},
+  {"path":"/dev/sda3","type":"part","size":42949672960,"fstype":null,
+   "parttype":"x","parttypename":"Linux filesystem"}
+]}]}'
+
+@test "autoroot: assigns / to the largest unassigned partition, fs ext4" {
+  local parts
+  parts="$(manual_autoassign_root "$(manual_scan_partitions "$LSBLK_SZ")")"
+  echo "$parts" | by_dev /dev/sda3 | jq -e '.mountpoint == "/"'
+  echo "$parts" | by_dev /dev/sda3 | jq -e '.fs == "ext4"'
+  echo "$parts" | by_dev /dev/sda3 | jq -e '.format == true'
+  # the smaller blank partition stays unassigned
+  echo "$parts" | by_dev /dev/sda2 | jq -e '.mountpoint == ""'
+}
+
+@test "autoroot: a table that already names a root is unchanged" {
+  local parts
+  parts="$(manual_set_field "$(manual_scan_partitions "$LSBLK_SZ")" \
+    /dev/sda2 mountpoint /)"
+  run manual_autoassign_root "$parts"
+  [ "$status" -eq 0 ]
+  echo "$output" | by_dev /dev/sda2 | jq -e '.mountpoint == "/"'
+  echo "$output" | by_dev /dev/sda3 | jq -e '.mountpoint == ""'
+}
+
+# ── mountpoint cycle + row label (assignment editor primitives) ─────────────
+
+@test "cycle: mountpoint advances through the set and wraps" {
+  [ "$(manual_cycle_mountpoint '')"          = "/" ]
+  [ "$(manual_cycle_mountpoint '/')"         = "/boot/efi" ]
+  [ "$(manual_cycle_mountpoint '/boot/efi')" = "/home" ]
+  [ "$(manual_cycle_mountpoint '/home')"     = "[swap]" ]
+  [ "$(manual_cycle_mountpoint '[swap]')"    = "" ]
+  [ "$(manual_cycle_mountpoint 'bogus')"     = "" ]
+}
+
+@test "row_label: renders device, mountpoint, fs and keep/format" {
+  local r
+  r="$(manual_row_label \
+    '{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}')"
+  [[ "$r" == *"/dev/sda2"* ]]
+  [[ "$r" == *"/"* ]]
+  [[ "$r" == *"ext4"* ]]
+  [[ "$r" == *"[format]"* ]]
+}
+
+@test "row_label: an unassigned kept partition reads clearly" {
+  local r
+  r="$(manual_row_label \
+    '{"device":"/dev/sda9","mountpoint":"","fs":"","format":false}')"
+  [[ "$r" == *"(unassigned)"* ]]
+  [[ "$r" == *"[keep]"* ]]
+}
