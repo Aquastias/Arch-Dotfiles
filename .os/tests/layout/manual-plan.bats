@@ -97,10 +97,53 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
   local badesp='{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"ext4","format":true}'
   run manual_partition_plan "[$badesp,$ROOT]"
   [ "$status" -ne 0 ]
-  [[ "$output" =~ FAT32 ]]
+  [[ "$output" =~ fat32 ]]
 }
 
 @test "plan: an empty assignment is rejected (no root)" {
   run manual_partition_plan "[]"
   [ "$status" -ne 0 ]
+}
+
+# ── out of bounds: unsupported filesystem / mountpoint → hard stop + help ────
+
+@test "plan: an unsupported data filesystem is rejected, naming what's supported" {
+  local bad='{"device":"/dev/sda3","mountpoint":"/home","fs":"ntfs","format":false}'
+  run manual_partition_plan "[$ESP,$ROOT,$bad]"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ ntfs ]]           # names the offending fs
+  [[ "$output" =~ ext4 ]]           # and lists the supported ones
+  [[ "$output" =~ xfs ]]
+  [[ "$output" =~ btrfs ]]
+  [[ "$output" =~ cfdisk ]]         # and tells them to change cfdisk
+}
+
+@test "plan: an unsupported mountpoint is rejected" {
+  local bad='{"device":"/dev/sda3","mountpoint":"/var","fs":"ext4","format":true}'
+  run manual_partition_plan "[$ESP,$ROOT,$bad]"
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ /var ]]
+}
+
+# ── the non-fatal problems reporter (for the live menu) ─────────────────────
+
+@test "problems: a valid layout reports none (rc 0, empty)" {
+  run manual_partition_problems "[$ESP,$ROOT]"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "problems: lists every issue at once without aborting" {
+  local bad='{"device":"/dev/sda3","mountpoint":"/home","fs":"ntfs","format":false}'
+  run manual_partition_problems "[$ROOT,$bad]"   # missing ESP + bad fs
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ /boot/efi ]]
+  [[ "$output" =~ ntfs ]]
+}
+
+@test "supported: the data filesystems are exactly ext4/xfs/btrfs" {
+  run manual_supported_data_fs
+  [ "$output" = "ext4
+xfs
+btrfs" ]
 }

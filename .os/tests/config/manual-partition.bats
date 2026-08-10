@@ -54,6 +54,21 @@ by_dev() { jq -e --arg d "$1" '.[] | select(.device == $d)'; }
   manual_scan_partitions "$LSBLK" | by_dev /dev/sda3 | jq -e '.format == false'
 }
 
+@test "scan: a kept partition carries its existing filesystem" {
+  # so the validator can judge whether the installer can mount it
+  manual_scan_partitions "$LSBLK" | by_dev /dev/sda3 | jq -e '.fs == "ext4"'
+}
+
+# ── filesystem cycle (editor primitive; supported values only) ──────────────
+
+@test "cycle_fs: advances ext4 → xfs → btrfs and wraps" {
+  [ "$(manual_cycle_fs ext4)"  = "xfs" ]
+  [ "$(manual_cycle_fs xfs)"   = "btrfs" ]
+  [ "$(manual_cycle_fs btrfs)" = "ext4" ]
+  [ "$(manual_cycle_fs '')"    = "ext4" ]
+  [ "$(manual_cycle_fs ntfs)"  = "ext4" ]   # unknown → first supported
+}
+
 # ── edit ────────────────────────────────────────────────────────────────────
 
 @test "set_field: assign the blank partition as root" {
