@@ -397,7 +397,11 @@ _profiles_aur_install() {
     fi
   fi
 
-  arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+  # The real install hits aur.archlinux.org/rpc to resolve deps; a transient
+  # RPC/network blip there must not abort the whole install (ADR 0052). Retry
+  # with backoff — --needed keeps it idempotent, so a re-run skips what landed.
+  # A genuine build/conflict failure still aborts after the last try.
+  _retry 3 "5,15" -- arch-chroot "$MOUNT_ROOT" su - "$user" -c \
     "${helper} -S --noconfirm --needed ${pkgs[*]}"
 }
 
@@ -414,19 +418,14 @@ _profiles_aur_conflict_report() {
        "(e.g. 'libjpeg6-turbo' to satisfy a 'libjpeg6' dependency)."
 }
 
-_profiles_install_user_program() {
-  local user="$1" prog="$2" helper="$3"
-  local rel
-  rel="$(resolve_program "$prog")"
-  info "Installing user program: ${prog}  (user=${user}, .os/programs/${rel})"
-  # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
-  # in from run_profiles rather than re-detected here; program install.sh
-  # scripts install via ${AUR_HELPER} -S.
+# One chroot run of a user program's install.sh. Factored out of
+# _profiles_install_user_program so _retry can re-invoke it: the heredoc feeding
+# `bash -s` is consumed as stdin per call, so it must live in a function the
+# retry loop re-enters (a heredoc on the _retry line would EOF after try one).
+# Args: <user> <runtime-dir> <install-sh-path> <helper>.
+_profiles_userprog_chroot() {
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-    "$user" \
-    "${_PROFILES_RUNTIME_DIR}" \
-    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" \
-    "$helper" <<'CHROOT_USERPROG'
+    "$1" "$2" "$3" "$4" <<'CHROOT_USERPROG'
 set -e
 USER_NAME="$1"; OS_DIR_IN="$2"; INSTALL_SH="$3"; AUR_HELPER_IN="$4"
 su - "$USER_NAME" -c "
@@ -437,6 +436,24 @@ su - "$USER_NAME" -c "
   bash '${OS_DIR_IN}/lib/profiles/program-runner.sh' '${INSTALL_SH}'
 "
 CHROOT_USERPROG
+}
+
+_profiles_install_user_program() {
+  local user="$1" prog="$2" helper="$3"
+  local rel
+  rel="$(resolve_program "$prog")"
+  info "Installing user program: ${prog}  (user=${user}, .os/programs/${rel})"
+  # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
+  # in from run_profiles rather than re-detected here; program install.sh
+  # scripts install via ${AUR_HELPER} -S. Those scripts hit aur.archlinux.org/rpc
+  # too, so retry the whole run on a transient blip (ADR 0052) — the scripts are
+  # idempotent (`-S --needed`, config overwrite, `systemctl enable`), so a re-run
+  # after a partial pass is safe. A genuine failure still aborts after last try.
+  _retry 3 "5,15" -- _profiles_userprog_chroot \
+    "$user" \
+    "${_PROFILES_RUNTIME_DIR}" \
+    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" \
+    "$helper"
 }
 
 
