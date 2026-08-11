@@ -112,3 +112,45 @@ teardown() { rm -rf "$T"; }
   ! grep -q -- "-Sp" "$T/calls"                        # no pre-flight
   grep -q "yay -S --noconfirm --needed pkg1" "$T/calls"
 }
+
+@test "aur_install: a transient RPC failure retries the real install" {
+  # arch-chroot fails the first two real-install tries, then succeeds — the
+  # kind of aur.archlinux.org/rpc blip that used to abort the whole install.
+  echo 0 > "$T/n"
+  arch-chroot() {
+    [[ "$*" == *"-Sp"* ]] && return 0                  # pre-flight ok
+    local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
+    (( n >= 2 ))                                        # succeed on 3rd try
+  }
+  run _profiles_aur_install alice yay pkg1
+  [ "$status" -eq 0 ]
+  [ "$(< "$T/n")" -eq 3 ]                               # retried to success
+}
+
+# ── user-program install retry ──────────────────────────────────────────────
+
+@test "userprog: heredoc is re-fed on every retry (not EOF after try one)" {
+  # The heredoc-fed `bash -s` reads the program script from stdin; a naive
+  # heredoc on the _retry line would EOF after try one, so later tries would
+  # run an empty script and falsely pass. Fail every try and assert each of
+  # the 3 attempts saw the same non-empty script.
+  resolve_program() { echo "cat/prog"; }
+  arch-chroot() { wc -c >> "$T/sizes"; return 1; }     # consume stdin, fail
+  run _profiles_install_user_program alice prog yay
+  [ "$status" -ne 0 ]                                   # all tries failed
+  [ "$(wc -l < "$T/sizes")" -eq 3 ]                     # ran 3 times
+  [ "$(sort -u "$T/sizes" | wc -l)" -eq 1 ]             # every try identical...
+  [ "$(sort -u "$T/sizes" | tr -d ' ')" -gt 0 ]         # ...and non-empty
+}
+
+@test "userprog: install_user_program retries the chroot on a blip" {
+  resolve_program() { echo "cat/prog"; }
+  echo 0 > "$T/n"
+  arch-chroot() {
+    local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
+    (( n >= 2 ))                                        # succeed on 3rd try
+  }
+  run _profiles_install_user_program alice prog yay
+  [ "$status" -eq 0 ]
+  [ "$(< "$T/n")" -eq 3 ]                               # retried to success
+}
