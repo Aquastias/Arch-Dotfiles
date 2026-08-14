@@ -335,6 +335,24 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row __language__ | jq -e '.value == "fr_FR"'
 }
 
+# ── console font leaf (ADR 0076) ────────────────────────────────────────────
+
+@test "menu_rows: console font is a Locales row defaulting to default8x16" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.console_font | jq -e '.section == "Locales"'
+  echo "$output" | row system.console_font \
+    | jq -e '.value == "default8x16" and .overridden == false'
+}
+
+@test "menu_rows: overriding console font flips its ●" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.console_font '"ter-116n"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.console_font \
+    | jq -e '.value == "ter-116n" and .overridden == true'
+}
+
 # ── the menu still carries a General and a Users section ────────────────────
 
 @test "menu_rows: the menu carries both a General and a Users section" {

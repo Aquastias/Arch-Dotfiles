@@ -10,7 +10,7 @@ setup() {
   export STATE="$TEST_DIR/install-state.json"
   cat > "$STATE" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
- "keymap":"us","keymaps":["us"],
+ "keymap":"us","keymaps":["us"],"console_font":"default8x16",
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
  "root_shell":"/bin/bash",
  "filesystem":"zfs",

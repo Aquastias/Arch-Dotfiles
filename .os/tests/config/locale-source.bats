@@ -85,3 +85,24 @@ teardown() { rm -rf "$FIXROOT"; }
   run locale_list_encodings ja_JP
   [ "$output" == "EUC-JP" ]
 }
+
+# ── console fonts (ADR 0076) ───────────────────────────────────────────────
+
+@test "locale_list_console_fonts: names before the first dot, unique" {
+  mkdir -p "$FIXROOT/usr/share/kbd/consolefonts"
+  : > "$FIXROOT/usr/share/kbd/consolefonts/default8x16.psfu.gz"
+  : > "$FIXROOT/usr/share/kbd/consolefonts/ter-116n.psf.gz"
+  : > "$FIXROOT/usr/share/kbd/consolefonts/Lat2-Terminus16.psfu.gz"
+  run locale_list_console_fonts
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | wc -l)" -eq 3 ]
+  echo "$output" | grep -qx "default8x16"
+  echo "$output" | grep -qx "ter-116n"
+  echo "$output" | grep -qx "Lat2-Terminus16"
+}
+
+@test "locale_list_console_fonts: empty medium yields no output, rc 0" {
+  run locale_list_console_fonts
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

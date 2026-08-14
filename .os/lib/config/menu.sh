@@ -35,6 +35,7 @@ _MENU_FIELDS=(
   "Locales|system.keymap|keyboard|us"
   "Locales|__language__|language|en_US"
   "Locales|__encoding__|encoding|UTF-8"
+  "Locales|system.console_font|console font|default8x16"
   "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
   "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"

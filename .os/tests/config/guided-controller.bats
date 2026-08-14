@@ -978,6 +978,27 @@ _seed_baseline() {
     = '["de_DE.UTF-8","fr_FR.UTF-8"]' ]
 }
 
+@test "list(values console font): includes the always-present default8x16" {
+  set_nav "$(nav_to_values Locales system.console_font "console font")"
+  run guided_ctl_list
+  echo "$output" | grep -qx "default8x16"
+}
+
+@test "enter(values console font): an installed font sets system.console_font" {
+  set_nav "$(nav_to_values Locales system.console_font "console font")"
+  run guided_ctl_enter "default8x16"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.system.console_font' "$GUIDED_STATE_FILE")" = "default8x16" ]
+}
+
+@test "enter(values console font): an off-list font is rejected (no change)" {
+  printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Locales system.console_font "console font")"
+  run guided_ctl_enter "no-such-font-xyz"
+  [ "$output" = "noop" ]
+  [ "$(jq -r '.system.console_font // "unset"' "$GUIDED_STATE_FILE")" = "unset" ]
+}
+
 @test "preview(keymap): the side panel lists the selected keymaps" {
   printf '%s\n' '{"system":{"keymap":["us","de"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Locales system.keymap keymap)"

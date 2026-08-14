@@ -24,7 +24,7 @@ setup() {
   cat > "$STATE" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8",
  "locales":["en_US.UTF-8"],
- "keymap":"us","keymaps":["us"],"kernel":"lts","kernels":["lts"],
+ "keymap":"us","keymaps":["us"],"console_font":"default8x16","kernel":"lts","kernels":["lts"],
  "bootloader":"systemd-boot","root_shell":"/bin/bash",
  "filesystem":"zfs","ssh":{"enabled":false},
  "rpool":"rpool","root_cmdline":"root=ZFS=rpool/ROOT/arch",

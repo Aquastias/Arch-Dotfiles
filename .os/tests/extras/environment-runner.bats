@@ -30,7 +30,7 @@ _state() {
   local override="${1:-.}"
   jq -c "$override" <<'JSON'
 {"hostname":"h","timezone":"UTC","locale":"en_US.UTF-8","locales":["en_US.UTF-8"],
- "keymap":"us","keymaps":["us"],
+ "keymap":"us","keymaps":["us"],"console_font":"default8x16",
  "kernel":"lts", "kernels": ["lts"],"bootloader":"systemd-boot",
  "ssh":{"enabled":false},"rpool":"rpool","swap":true,
  "esp_count":1,

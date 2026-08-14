@@ -20,6 +20,7 @@ _INSTALL_STATE_SCHEMA=(
   "LOCALES|.locales|array"
   "KEYMAP|.keymap|scalar"
   "KEYMAPS|.keymaps|array"
+  "CONSOLE_FONT|.console_font|scalar"
   "KERNEL|.kernel|scalar"
   "KERNELS|.kernels|array"
   "BOOTLOADER|.bootloader|scalar"
@@ -104,6 +105,7 @@ install_state_write() {
     --argjson locales     "$locales"                                 \
     --arg     keymap      "$(install_config_keymap)"                 \
     --argjson keymaps     "$keymaps"                                 \
+    --arg     console_font "$(install_config_console_font)"          \
     --arg     kernel      "$(install_config_kernel)"                 \
     --argjson kernels     "$kernels"                                 \
     --arg     bootloader  "$(install_config_bootloader)"             \
@@ -128,6 +130,7 @@ install_state_write() {
       hostname:$hostname, timezone:$timezone,
       locale:$locale, locales:$locales,
       keymap:$keymap, keymaps:$keymaps,
+      console_font:$console_font,
       kernel:$kernel, kernels:$kernels,
       bootloader:$bootloader,
       root_shell:$root_shell,

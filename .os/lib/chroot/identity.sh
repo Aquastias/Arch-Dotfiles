@@ -39,7 +39,12 @@ for _loc in "${LOCALES[@]}"; do
 done
 locale-gen
 echo "LANG=${LOCALE}"   > /etc/locale.conf
-echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
+# vconsole: the console KEYMAP default plus the console FONT (ADR 0076). Both
+# come from install-state; CONSOLE_FONT is always present (default8x16).
+{
+    echo "KEYMAP=${KEYMAP}"
+    [[ -n "${CONSOLE_FONT:-}" ]] && echo "FONT=${CONSOLE_FONT}"
+} > /etc/vconsole.conf
 
 # ── Desktop keyboard layout (X11) ─────────────────────────────────────────────
 # When a desktop is selected, write the shared X11 keyboard config from the
