@@ -175,6 +175,23 @@ consistently, and technical or free-text tokens (a device path, a locale, a
 rendering concern only: it never changes what is stored, and selecting a
 re-cased row still resolves to the same underlying value.
 
+### Cycle Field
+A Guided-Installer leaf whose whole value set is `true`/`false` and which
+therefore **flips in place** on the category screen — Enter advances to the
+other value and stays put (`echo refresh`), never drilling into the values
+submenu (ADR 0075). A field is a Cycle Field structurally, by its option set
+being exactly `{true, false}` (`_ctl_is_cycle_field`), so a newly-added bare
+bool becomes one with no list to maintain. Scope is **bare bools only**: the
+five Pacman flags, the three Security and two Backup bools, and Advanced→SSH —
+eleven in all. A bool that owns a richer editor (encryption, impermanence — both
+`▸` editor rows) is **not** a Cycle Field; it keeps drilling. Mirrors the older
+Manual-Partitioning in-place flip, now generalized. Reuses the strict-delta
+apply (`_ctl_apply_enum` + `_ctl_normalise_default`), so flipping back to the
+default clears the override and the `●` dot; a Manual-Partitioning-locked field
+is a silent no-op. The detail pane lists both values with the current one marked
+so the choice stays discoverable without the submenu. _Avoid_: "toggle" — that
+term already means the multi-select (TAB-many) leaf kind in this installer.
+
 ### Free Set
 The pool of physical disks still available to bind during In-Menu Disk Binding:
 every enumerated `/dev/disk/by-id/*` candidate, minus the live medium, minus
