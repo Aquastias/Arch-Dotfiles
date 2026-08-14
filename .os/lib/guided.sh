@@ -507,6 +507,13 @@ _guided_edit_esp_size() {
 _guided_edit_age_key_url() {
   _guided_edit_scalar age_key_url "Age key URL" options.age_key_url
 }
+# Pacman ParallelDownloads (ADR 0074): the numeric [options] value. The five
+# pacman bool flags edit through the native true/false enum picker; only this
+# free-text value needs a replay editor.
+_guided_edit_parallel_downloads() {
+  _guided_edit_scalar parallel_downloads "Parallel downloads (e.g. 5)" \
+    options.pacman.parallel_downloads
+}
 
 # _guided_edit_desktop — Environment desktop: a multi-select over kde
 # (one, both, or none → a server install). Stored as a JSON array.
@@ -927,6 +934,7 @@ _guided_oneshot_edit() {
   options.swap_size)        _guided_edit_swap_size ;;
   options.esp_size)         _guided_edit_esp_size ;;
   options.age_key_url)      _guided_edit_age_key_url ;;
+  options.pacman.parallel_downloads) _guided_edit_parallel_downloads ;;
   sysctl)                   _guided_add_sysctl ;;
   packages.repo.extra)      _guided_add_package ;;
   options.kernel)           _guided_edit_kernel ;;

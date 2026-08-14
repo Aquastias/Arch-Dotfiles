@@ -34,6 +34,12 @@ _MENU_FIELDS=(
   "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
   "Mirrors & Repositories|options.custom_repositories|custom repositories|[]"
+  "Pacman|options.pacman.ilovecandy|ILoveCandy|true"
+  "Pacman|options.pacman.color|Color|true"
+  "Pacman|options.pacman.verbose_pkg_lists|VerbosePkgLists|true"
+  "Pacman|options.pacman.disable_download_timeout|DisableDownloadTimeout|false"
+  "Pacman|options.pacman.no_progress_bar|NoProgressBar|false"
+  "Pacman|options.pacman.parallel_downloads|ParallelDownloads|5"
   "Disks|disk_config.kind|manual partitioning|auto"
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
@@ -111,13 +117,15 @@ Turn it back off to restore them — your other choices are kept.
 EOF
 }
 
-# Configuration Categories — the twelve top-level drill-in groups, in canonical
-# order (archinstall reading order, ADR 0071), each with a one-line summary. The
+# Configuration Categories — the top-level drill-in groups, in canonical order
+# (archinstall reading order, ADR 0071; Pacman added by ADR 0074), each with a
+# one-line summary. The
 # category NAME matches a row's `section`, so a category aggregates its rows;
 # the summary is display-only.
 _MENU_CATEGORIES=(
   "Locales|language, keymap"
   "Mirrors & Repositories|countries, optional repos, custom servers/repos"
+  "Pacman|ilovecandy, color, parallel downloads, verbose lists"
   "Disks|layout, data pools, filesystem, encryption, swap"
   "Bootloader|bootloader"
   "Kernels|kernel"

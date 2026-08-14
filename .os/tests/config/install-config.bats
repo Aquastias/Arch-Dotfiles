@@ -498,3 +498,21 @@ set_path_cfg() {
   run install_config_get bogus_field
   [ "$status" -ne 0 ]
 }
+
+# ── Pacman Options (ADR 0074): defaults on absence, value when set ───────────
+
+@test "pacman options: defaults when the options.pacman.* keys are absent" {
+  write_cfg '{}'
+  [ "$(install_config_pacman_ilovecandy)" = "true" ]
+  [ "$(install_config_pacman_color)" = "true" ]
+  [ "$(install_config_pacman_verbose_pkg_lists)" = "true" ]
+  [ "$(install_config_pacman_disable_download_timeout)" = "false" ]
+  [ "$(install_config_pacman_no_progress_bar)" = "false" ]
+  [ "$(install_config_pacman_parallel_downloads)" = "5" ]
+}
+
+@test "pacman options: an explicit false stays false, a set number is read" {
+  write_cfg '{"options":{"pacman":{"ilovecandy":false,"parallel_downloads":10}}}'
+  [ "$(install_config_pacman_ilovecandy)" = "false" ]
+  [ "$(install_config_pacman_parallel_downloads)" = "10" ]
+}

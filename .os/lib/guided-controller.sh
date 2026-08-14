@@ -213,6 +213,7 @@ _ctl_field_kind() {
   system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
   system.locale | system.timezone) echo biglist ;;
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
+  options.pacman.parallel_downloads) echo text ;;  # numeric value (ADR 0074)
   packages.repo.extra | packages.aur.extra) echo text ;;
   sysctl) echo list ;;   # a list of key=value pairs + an Add action
   options.mirror_servers) echo list ;;        # custom Server= URLs (0072)

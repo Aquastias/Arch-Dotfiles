@@ -138,6 +138,11 @@ _PROFILE_SCHEMA_host=(
   "options.custom_repositories[].sign_option"
   "options.impermanence.enabled" "options.impermanence.dataset"
   "options.impermanence.mount"
+  # — Pacman Options (ADR 0074): the [options] block flags surfaced as the
+  #   Pacman Configuration Category, applied authoritatively to pacman.conf —
+  "options.pacman.ilovecandy" "options.pacman.color"
+  "options.pacman.verbose_pkg_lists" "options.pacman.disable_download_timeout"
+  "options.pacman.no_progress_bar" "options.pacman.parallel_downloads"
   # — environment (desktop/gpu are string|array unions; display_manager is a
   #   scalar discriminator resolved against the desktop set — ADR 0069) —
   "environment.desktop[]" "environment.gpu[]" "environment.display_manager"

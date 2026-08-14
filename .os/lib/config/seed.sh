@@ -94,6 +94,17 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.encryption 'false')"
   state="$(cfgstate_set "$state" options.impermanence.enabled 'false')"
   state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
+  # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.
+  # ILoveCandy / Color / VerbosePkgLists on out of the box; the two opt-ins off;
+  # ParallelDownloads 5. Rides the baseline (no ● until edited); idempotent with
+  # the accessor defaults.
+  state="$(cfgstate_set "$state" options.pacman.ilovecandy 'true')"
+  state="$(cfgstate_set "$state" options.pacman.color 'true')"
+  state="$(cfgstate_set "$state" options.pacman.verbose_pkg_lists 'true')"
+  state="$(cfgstate_set "$state" \
+    options.pacman.disable_download_timeout 'false')"
+  state="$(cfgstate_set "$state" options.pacman.no_progress_bar 'false')"
+  state="$(cfgstate_set "$state" options.pacman.parallel_downloads '5')"
   # zswap Defaults: on by default (zstd, 20% max pool). Rides the baseline so a
   # fresh run shows it with no ● and Save writes it whole, matching the boot
   # layer's accessor defaults. zswap only acts when swap is on (the default).

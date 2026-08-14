@@ -1300,6 +1300,20 @@ combined into the pacman `SigLevel` — appended as `[name]` blocks to
 `/etc/pacman.conf` before pacstrap. Both are surfaced in the Guided Installer as
 list screens (a listing plus a `＋ Add …` action).
 
+### Pacman Options
+The `options.pacman.*` object in a Host Profile — the pacman `[options]` block
+flags surfaced as a dedicated **Pacman** Configuration Category, sitting right
+after Mirrors & Repositories (both edit `pacman.conf`). Five bool toggles
+(`ilovecandy`, `color`, `verbose_pkg_lists` default on; `disable_download_timeout`,
+`no_progress_bar` default off) plus one int (`parallel_downloads`, default `5`),
+listed as toggle/text rows like every other section (ADR 0074). Applied
+**authoritatively** before pacstrap — each managed flag is uncommented/written
+when on and commented out when off, so the host `/etc/pacman.conf` always
+reflects the toggles regardless of what the ISO shipped; the target inherits it
+via the pacman.conf copy. Deliberately excludes `CheckSpace` (the ZFS path
+force-disables it via `disable_checkspace`) and `multilib` (owned by Optional
+Repositories). Untouched lines (`SigLevel`, includes) are left intact.
+
 ## Flagged ambiguities
 
 - "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now

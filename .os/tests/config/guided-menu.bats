@@ -304,13 +304,13 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 cat_at() { jq -e ".[$1]"; }
 
-@test "menu_categories: returns the twelve categories in canonical order" {
+@test "menu_categories: returns the categories in canonical order (Pacman after Mirrors)" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 12'
+  echo "$output" | jq -e 'length == 13'
   echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
-    "Disks","Bootloader","Kernels","System","Users","Environment","Packages",
-    "Security","Backup","Advanced"]'
+    "Pacman","Disks","Bootloader","Kernels","System","Users","Environment",
+    "Packages","Security","Backup","Advanced"]'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
@@ -378,9 +378,47 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'any(.[]; .field == "options.optional_repos")'
   echo "$output" | jq -e 'any(.[]; .field == "options.mirror_servers")'
   echo "$output" | jq -e 'any(.[]; .field == "options.custom_repositories")'
-  # the Pacman section no longer exists as a top-level category
-  echo "$(menu_categories "$(cfgstate_new)")" \
-    | jq -e 'all(.[]; .name != "Pacman")'
+}
+
+# ── Pacman category (ADR 0074): the [options] block flags as a section ───────
+
+@test "menu_categories: Pacman is a category, summary mentions ilovecandy" {
+  run menu_categories "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'any(.[]; .name == "Pacman")'
+  echo "$output" \
+    | jq -e '.[] | select(.name == "Pacman") | .summary | test("ilovecandy")'
+}
+
+@test "menu_category_rows: Pacman carries the six [options] flags with defaults" {
+  run menu_category_rows Pacman "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'all(.[]; .section == "Pacman")'
+  echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "true"'
+  echo "$output" | row options.pacman.color | jq -e '.value == "true"'
+  echo "$output" | row options.pacman.verbose_pkg_lists | jq -e '.value == "true"'
+  echo "$output" | row options.pacman.disable_download_timeout \
+    | jq -e '.value == "false"'
+  echo "$output" | row options.pacman.no_progress_bar | jq -e '.value == "false"'
+  echo "$output" | row options.pacman.parallel_downloads | jq -e '.value == "5"'
+  echo "$output" | jq -e 'all(.[]; .overridden == false)'
+}
+
+@test "menu_rows: toggling a Pacman flag flips its ● and value" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.pacman.ilovecandy 'false')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.pacman.ilovecandy | jq -e '.value == "false"'
+  echo "$output" | row options.pacman.ilovecandy | jq -e '.overridden == true'
+}
+
+@test "menu_categories: editing a Pacman flag flips only the Pacman ●" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.pacman.color 'false')"
+  run menu_categories "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.name == "Pacman") | .overridden == true'
+  echo "$output" \
+    | jq -e '.[] | select(.name == "Mirrors & Repositories") | .overridden == false'
 }
 
 @test "menu_enum_options: optional repositories (multilib + testing)" {
