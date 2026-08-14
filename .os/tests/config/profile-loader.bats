@@ -272,6 +272,20 @@ write_jsonc() {
   [[ "$output" == *"options.zswap.enabld"* ]]
 }
 
+@test "validate: the options.pacman.* keys are accepted (ADR 0074)" {
+  run validate_config_schema host \
+    '{"options":{"pacman":{"ilovecandy":true,"color":true,
+      "verbose_pkg_lists":true,"disable_download_timeout":false,
+      "no_progress_bar":false,"parallel_downloads":5}}}'
+  [ "$status" -eq 0 ]
+}
+
+@test "validate: a typo under options.pacman aborts with its path" {
+  run validate_config_schema host '{"options":{"pacman":{"ilovcandy":true}}}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"options.pacman.ilovcandy"* ]]
+}
+
 @test "validate: unknown key in storage_groups[] aborts with its path" {
   run validate_config_schema host \
     '{"storage_groups":[{"name":"g","bogus":1}]}'

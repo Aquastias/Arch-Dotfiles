@@ -221,6 +221,99 @@ disable_checkspace() {
   fi
 }
 
+# apply_pacman_options [<conf>] — write the Pacman Options (ADR 0074) into the
+# `[options]` block of <conf> (default the host /etc/pacman.conf, which pacstrap
+# reads and chroot.sh copies into the target, so the installed system inherits
+# them). AUTHORITATIVE over the managed set only: every managed flag reflects
+# its toggle no matter what the ISO shipped — ON uncomments/appends the flag,
+# OFF comments it out. ParallelDownloads is set to the chosen value.
+# ILoveCandy is not shipped in Arch's default pacman.conf, so ON appends it and
+# OFF drops it. Unrelated lines (SigLevel, Include, repo sections) are never
+# touched, and re-running converges to the same file (idempotent). CheckSpace is
+# out of scope by design — disable_checkspace owns it on the ZFS path.
+apply_pacman_options() {
+  local conf="${1:-/etc/pacman.conf}"
+  [[ -f "$conf" ]] || { warn "apply_pacman_options: ${conf} missing — skipping."
+    return 0; }
+
+  on_off() { [[ "$1" == "true" ]] && printf 'on' || printf 'off'; }
+
+  local tmp; tmp="$(mktemp)"
+  PAC_COLOR="$(on_off "$(install_config_pacman_color)")" \
+  PAC_VERBOSE="$(on_off "$(install_config_pacman_verbose_pkg_lists)")" \
+  PAC_TIMEOUT="$(on_off "$(install_config_pacman_disable_download_timeout)")" \
+  PAC_NOPROGRESS="$(on_off "$(install_config_pacman_no_progress_bar)")" \
+  PAC_CANDY="$(on_off "$(install_config_pacman_ilovecandy)")" \
+  PAC_PARALLEL="$(install_config_pacman_parallel_downloads)" \
+  awk '
+    BEGIN {
+      want["Color"]         = ENVIRON["PAC_COLOR"]
+      want["VerbosePkgLists"]        = ENVIRON["PAC_VERBOSE"]
+      want["DisableDownloadTimeout"] = ENVIRON["PAC_TIMEOUT"]
+      want["NoProgressBar"]          = ENVIRON["PAC_NOPROGRESS"]
+      want["ILoveCandy"]             = ENVIRON["PAC_CANDY"]
+      parallel = ENVIRON["PAC_PARALLEL"]
+      names = "Color VerbosePkgLists DisableDownloadTimeout"
+      names = names " NoProgressBar ILoveCandy"
+      n = split(names, order, " ")
+    }
+    # Which managed directive (if any) a line carries, comment or not.
+    function directive(line,   l, i) {
+      l = line
+      sub(/^[#[:space:]]+/, "", l)
+      for (i = 1; i <= n; i++)
+        if (l ~ ("^" order[i] "[[:space:]]*$")) return order[i]
+      if (l ~ /^ParallelDownloads([[:space:]]|=)/) return "ParallelDownloads"
+      return ""
+    }
+    # Emit the managed on-flags / ParallelDownloads not yet seen, at the end of
+    # the [options] block (called before the next section header or at EOF).
+    function flush(   i, nm) {
+      if (flushed) return
+      for (i = 1; i <= n; i++) {
+        nm = order[i]
+        if (!seen[nm] && want[nm] == "on") print nm
+      }
+      if (parallel != "" && !seen["ParallelDownloads"])
+        print "ParallelDownloads = " parallel
+      flushed = 1
+    }
+    /^[[:space:]]*\[/ {
+      if (in_options) flush()
+      in_options = ($0 ~ /^\[options\][[:space:]]*$/)
+      print; next
+    }
+    {
+      if (in_options) {
+        d = directive($0)
+        if (d != "") {
+          seen[d] = 1
+          if (d == "ParallelDownloads") {
+            if (parallel != "") print "ParallelDownloads = " parallel
+            else print
+            next
+          }
+          if (want[d] == "on") print d
+          else if ($0 ~ /^[[:space:]]*#/) print   # already off — keep verbatim
+          else print "#" d
+          next
+        }
+      }
+      print
+    }
+    END { if (in_options) flush() }
+  ' "$conf" > "$tmp"
+
+  if cmp -s "$conf" "$tmp"; then
+    info "Pacman options already applied to ${conf}."
+    rm -f "$tmp"
+  else
+    cat "$tmp" > "$conf"
+    rm -f "$tmp"
+    info "Applied Pacman options to ${conf}."
+  fi
+}
+
 # reflector_country_args — the `--country <comma-list>` args for reflector,
 # built from the Mirror Countries selection (issue 06). Emits one arg per line
 # so install_base can mapfile them into an array. Pure: reads config only.
@@ -290,6 +383,11 @@ install_base() {
   # custom repositories before pacstrap runs (ADR 0072).
   enable_optional_repos
   add_custom_repositories
+
+  # Apply the operator's Pacman Options (ADR 0074) to the host pacman.conf
+  # before pacstrap, so Color / ParallelDownloads / ILoveCandy act during base
+  # install too and the target inherits them via chroot.sh's pacman.conf copy.
+  apply_pacman_options
 
   # ZFS reports space in a way pacman's CheckSpace can't read — disable it so
   # pacstrap (and later upgrades) don't abort with a false "too full".

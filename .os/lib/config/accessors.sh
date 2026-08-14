@@ -52,6 +52,16 @@ _INSTALL_CONFIG_SCHEMA=(
   # Manual Partitioning (ADR 0073): the disk-config kind discriminator. Absent
   # ⇒ auto (today's pool skeleton); manual selects the flat partitions[] path.
   "disk_kind|.disk_config.kind|scalar|auto"
+  # Pacman Options (ADR 0074): the pacman [options] block flags the Pacman
+  # Configuration Category surfaces. Applied authoritatively to the host
+  # /etc/pacman.conf before pacstrap; CheckSpace is deliberately absent (the ZFS
+  # path force-disables it) and multilib stays under Optional Repositories.
+  "pacman_ilovecandy|.options.pacman.ilovecandy|bool|true"
+  "pacman_color|.options.pacman.color|bool|true"
+  "pacman_verbose_pkg_lists|.options.pacman.verbose_pkg_lists|bool|true"
+  "pacman_disable_download_timeout|.options.pacman.disable_download_timeout|bool|false"
+  "pacman_no_progress_bar|.options.pacman.no_progress_bar|bool|false"
+  "pacman_parallel_downloads|.options.pacman.parallel_downloads|scalar|5"
 )
 
 # install_config_get <name> — schema dispatcher for the generated wrappers.
