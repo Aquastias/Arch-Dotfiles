@@ -226,6 +226,25 @@ _ctl_field_kind() {
   esac
 }
 
+# _ctl_is_cycle_field <path> → rc 0 when <path> is a Cycle Field: an enum leaf
+# whose whole value set is {true,false}, so Enter flips it in place on the
+# category screen instead of drilling into the values submenu (ADR 0075).
+# Structural (not a path list) — any bare bool qualifies with nothing to keep in
+# sync; the editor-backed bools (encryption, impermanence) are ▸ rows that never
+# reach this, and the other enums (filesystem, bootloader, …) carry real option
+# lists, so only the bare bools match.
+_ctl_is_cycle_field() {
+  # The two editor-backed bools are ▸ rows with their own screens (Encryption /
+  # Impermanence editors) — bare-bool by shape but NOT Cycle Fields (Q8); the
+  # dispatch never routes them here, but the detail pane resolves them directly,
+  # so exclude them so they are never labelled a Cycle Field.
+  case "$1" in
+  options.encryption | options.impermanence.enabled) return 1 ;;
+  esac
+  [[ "$(_ctl_field_kind "$1")" == enum ]] || return 1
+  [[ "$(_ctl_enum_options "$1")" == $'true\nfalse' ]]
+}
+
 # _ctl_built_root_filesystems — the root filesystems whose Root Layout Adapter is
 # BUILT, one per line (issue 09). Kept in lockstep with lib/layout/dispatch.sh's
 # root_adapter_source (the dispatch is the source of truth for what's built);
@@ -819,7 +838,7 @@ _ctl_nav_header() {
   profiles) b='Enter seed from profile   Esc back' ;;
   newhost)  b='Enter confirm reset   Esc cancel' ;;
   rooteditor) b='Enter edit/cycle   Esc back' ;;
-  category) b='Enter edit   Esc back' ;;
+  category) b='Enter edit / cycle   Esc back' ;;
   values)
     if [[ "$(nav_get "$1" field)" == "users" ]]; then
       b='Enter toggle / set pw   Esc back'
@@ -1347,6 +1366,17 @@ _ctl_detail_leaf() {
     "$label" "${val:-(none)}" "$dot"
   if [[ "$(_ctl_field_kind "$field")" == text ]]; then
     printf '%s  (free text — type a value)%s\n' "$_CTL_DIM" "$_CTL_RST"
+    return 0
+  fi
+  # A Cycle Field has no menu_enum_options list; render its two values with the
+  # current one marked so Enter-flips-here stays discoverable (ADR 0075).
+  if _ctl_is_cycle_field "$field"; then
+    printf '%sCycle:%s\n' "$_CTL_DIM" "$_CTL_RST"
+    local o
+    for o in true false; do
+      if [[ "$o" == "$val" ]]; then printf '  ● %s\n' "$o"
+      else printf '    %s\n' "$o"; fi
+    done
     return 0
   fi
   opts="$(menu_enum_options "$field")"
@@ -2651,6 +2681,21 @@ _ctl_enter_category() {
   label="${line%%:*}"
   path="$(_ctl_field_for_label "$cat" "$label")"
   [[ -n "$path" ]] || { echo noop; return; }
+  # A Cycle Field (bare bool) flips in place and stays on the category screen —
+  # no values submenu (ADR 0075). Read the EFFECTIVE value (a default-true bool
+  # with no override must read true), flip it through the strict-delta apply so
+  # landing back on the default clears the override; a Manual-Partitioning-locked
+  # field is a silent no-op (the apply guard returns the state unchanged).
+  if _ctl_is_cycle_field "$path"; then
+    local _cur _next _new
+    _cur="$(menu_render_value \
+      "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" "$path")"
+    [[ "$_cur" == true ]] && _next=false || _next=true
+    if _new="$(_ctl_apply_enum "$(_ctl_state)" "$path" "$_next")"; then
+      _ctl_write_state "$(_ctl_normalise_default "$_new" "$path")"
+    fi
+    echo refresh; return
+  fi
   case "$(_ctl_field_kind "$path")" in
   enum | toggle | list | users | biglist)
     _ctl_write_nav "$(nav_to_values "$cat" "$path" "$label")"; echo render ;;

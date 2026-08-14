@@ -106,6 +106,52 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "options.kernel" ]
 }
 
+# ── Cycle Fields: bare bools flip in place, no submenu (ADR 0075) ────────────
+
+@test "is_cycle_field: bare bools yes; enums and editor-backed bools no" {
+  for f in options.ssh.enabled options.pacman.color \
+           post_install.security.antivirus post_install.backup.borg; do
+    _ctl_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
+  done
+  for f in filesystem options.bootloader options.kernel \
+           environment.display_manager options.encryption \
+           options.impermanence.enabled system.hostname; do
+    ! _ctl_is_cycle_field "$f" || { echo "unexpected cycle: $f"; false; }
+  done
+}
+
+@test "enter(category): a bare bool flips in place (refresh, no drill)" {
+  set_nav "$(nav_to_category Advanced)"
+  run guided_ctl_enter "SSH: false"
+  [ "$output" = "refresh" ]                                   # stays on category
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]   # no values submenu
+  [ "$(jq -c '.options.ssh.enabled' "$GUIDED_STATE_FILE")" = "true" ]
+}
+
+@test "enter(category): flipping a default-true bool reads it true and turns it off" {
+  _seed_baseline
+  set_nav "$(nav_to_category Pacman)"
+  run guided_ctl_enter "Color: true"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.options.pacman.color' "$GUIDED_STATE_FILE")" = "false" ]
+  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.pacman.color
+}
+
+@test "enter(category): flipping a bool back to its default clears the override" {
+  _seed_baseline
+  set_nav "$(nav_to_category Advanced)"
+  guided_ctl_enter "SSH: false" >/dev/null   # default false → true, override kept
+  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
+  set_nav "$(nav_to_category Advanced)"
+  guided_ctl_enter "SSH: true"  >/dev/null   # true → back to default false, drop
+  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
+}
+
+@test "header(category): the hint advertises cycle" {
+  run _ctl_nav_header "$(nav_to_category Advanced)"
+  echo "$output" | grep -q "Enter edit / cycle"
+}
+
 @test "list(category Packages): empty list fields render as [] not blank" {
   set_nav "$(nav_to_category Packages)"
   run guided_ctl_list
