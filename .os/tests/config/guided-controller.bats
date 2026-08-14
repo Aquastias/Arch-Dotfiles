@@ -910,7 +910,7 @@ _seed_baseline() {
 
 @test "enter(category): keymap opens a big filterable list (values screen)" {
   set_nav "$(nav_to_category Locales)"
-  run guided_ctl_enter "Keymap: us"
+  run guided_ctl_enter "Keyboard: us"
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "values" ]
   [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "system.keymap" ]

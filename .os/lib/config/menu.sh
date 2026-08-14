@@ -25,11 +25,15 @@
 [[ "$(type -t cfgstate_get)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 
+# shellcheck source=./locale-source.sh
+[[ "$(type -t locale_list_keymaps)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/locale-source.sh"
+
 # Field table — "section|path|label|default". The single source of truth for
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
   "Locales|system.locale|locale|en_US.UTF-8"
-  "Locales|system.keymap|keymap|us"
+  "Locales|system.keymap|keyboard|us"
   "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
   "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
