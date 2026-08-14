@@ -65,6 +65,7 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" system.locale '"en_US.UTF-8"')"
   state="$(cfgstate_set "$state" system.timezone '"Europe/Bucharest"')"
   state="$(cfgstate_set "$state" system.keymap '"us"')"
+  state="$(cfgstate_set "$state" system.console_font '"default8x16"')"
   # Sysctl is no longer hand-copied here — Host Core is loaded into the
   # baseline, so its swappiness (and everything else it declares) surfaces on
   # its own. Operator additions ride the override on top.

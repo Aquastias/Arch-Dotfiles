@@ -213,6 +213,7 @@ _ctl_field_kind() {
   system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
   system.timezone) echo biglist ;;
   __language__ | __encoding__) echo biglist ;;   # locale projections (ADR 0076)
+  system.console_font) echo biglist ;;           # console font (ADR 0076)
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   options.pacman.parallel_downloads) echo text ;;  # numeric value (ADR 0074)
   packages.repo.extra | packages.aur.extra) echo text ;;
@@ -347,6 +348,8 @@ _ctl_biglist_options() {
   __encoding__)
     # only the encodings valid for the currently-chosen language (ADR 0076).
     out="$(locale_list_encodings "$(locale_language "$(_ctl_locale_current)")")" ;;
+  system.console_font)
+    out="$(locale_list_console_fonts)" ;;
   esac
   [[ -n "$out" ]] && printf '%s\n' "$out"
 }
@@ -565,7 +568,7 @@ _ctl_toggle_options() {
 _ctl_field_has_preview() {
   case "$1" in
   __layout__ | system.keymap | system.timezone | users \
-    | __language__ | __encoding__)
+    | __language__ | __encoding__ | system.console_font)
     return 0 ;;
   *) return 1 ;;
   esac
@@ -2817,6 +2820,12 @@ _ctl_enter_values() {
     __language__ | __encoding__)
       _ctl_write_state "$(_ctl_normalise_default \
         "$(_ctl_apply_locale_part "$(_ctl_state)" "$path" "$line")" system.locale)" ;;
+    system.console_font)
+      # Reject a font not installed on the medium (ADR 0076): an off-list value is
+      # only ever a typo that breaks the console at boot. Stay on the screen.
+      locale_list_console_fonts | grep -qxF "$line" || { echo noop; return; }
+      _ctl_write_state "$(_ctl_normalise_default \
+        "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")" ;;
     *)
       _ctl_write_state "$(_ctl_normalise_default \
         "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")" ;;

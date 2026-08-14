@@ -20,6 +20,7 @@ valid_state() {
   "hostname": "h", "timezone": "UTC",
   "locale": "en_US.UTF-8", "locales": ["en_US.UTF-8"],
   "keymap": "us", "keymaps": ["us"],
+  "console_font": "default8x16",
   "kernel": "lts", "kernels": ["lts"],
   "bootloader": "systemd-boot",
   "root_shell": "/bin/bash",
@@ -228,6 +229,7 @@ setup_writer_globals() {
   install_config_locales()              { echo "en_US.UTF-8"; }
   install_config_keymap()               { echo "us"; }
   install_config_keymaps()              { echo "us"; }
+  install_config_console_font()         { echo "default8x16"; }
   install_config_kernel()               { echo "lts"; }
   install_config_bootloader()           { echo "systemd-boot"; }
   install_config_root_shell()          { echo "${MOCK_ROOT_SHELL:-/bin/bash}"; }
@@ -369,6 +371,7 @@ setup_writer_globals() {
   [ "$TIMEZONE"             = "UTC" ]
   [ "$LOCALE"               = "en_US.UTF-8" ]
   [ "$KEYMAP"               = "us" ]
+  [ "$CONSOLE_FONT"         = "default8x16" ]
   [ "$KERNEL"               = "lts" ]
   [ "$BOOTLOADER"           = "systemd-boot" ]
   [ "$FILESYSTEM"           = "zfs" ]

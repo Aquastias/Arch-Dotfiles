@@ -39,6 +39,9 @@ _INSTALL_CONFIG_SCHEMA=(
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
   "timezone|.system.timezone|scalar|UTC"
+  # Console font (ADR 0076) — the Locales console-font leaf, written as FONT= in
+  # /etc/vconsole.conf. default8x16 is always present (kbd ∈ base).
+  "console_font|.system.console_font|scalar|default8x16"
   "desktop|.environment.desktop|array|"
   "display_manager|.environment.display_manager|scalar|auto"
   "dotfiles_repo|.dotfiles_repo|scalar|"

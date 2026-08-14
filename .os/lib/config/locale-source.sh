@@ -79,3 +79,15 @@ locale_list_encodings() {
       if (name == lang && enc != "") print enc }' "$f" 2>/dev/null | sort -u
   return 0
 }
+
+# locale_list_console_fonts — every virtual-console font installed on the medium
+# (the kbd consolefonts, named as `setfont` wants — the basename before the first
+# '.'), sorted-unique. The ISO and target font sets are identical (kbd ∈ base),
+# so this is also the valid set for a committed system.console_font.
+locale_list_console_fonts() {
+  local root="${LOCALE_SRC_ROOT:-}" out
+  out="$(find "${root}/usr/share/kbd/consolefonts" -maxdepth 1 -name '*.gz' \
+    -printf '%f\n' 2>/dev/null | sed 's/\..*//' | sort -u)"
+  [[ -n "$out" ]] && printf '%s\n' "$out"
+  return 0
+}
