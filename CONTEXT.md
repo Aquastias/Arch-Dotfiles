@@ -1331,6 +1331,24 @@ via the pacman.conf copy. Deliberately excludes `CheckSpace` (the ZFS path
 force-disables it via `disable_checkspace`) and `multilib` (owned by Optional
 Repositories). Untouched lines (`SigLevel`, includes) are left intact.
 
+### Locales Category
+The Guided Installer Configuration Category for a machine's localization: four
+leaves — `keyboard`, `language`, `encoding`, `console font`. `language` and
+`encoding` are **projections** of one canonical locale string (`en_US.UTF-8`):
+language is the base before the charset suffix, encoding is the suffix, and
+editing either recomposes the single string exactly once — so an encoding can
+never be doubled onto the locale. `encoding` offers only charsets valid for the
+chosen `language`. `console font` sets the virtual-console font. Its option
+lists are enumerated live from the installer medium, never hardcoded. Timezone
+is deliberately excluded — it is a clock setting, not localization, and lives in
+the **General** Category (ADR 0076).
+
+### General Category
+The Guided Installer Configuration Category holding a machine's hostname and
+timezone; the former **System**, renamed once its localization fields moved to
+the **Locales Category** (ADR 0076).
+_Avoid_: System.
+
 ## Flagged ambiguities
 
 - "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now
