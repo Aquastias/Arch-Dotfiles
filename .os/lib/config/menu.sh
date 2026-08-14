@@ -32,8 +32,9 @@
 # Field table — "section|path|label|default". The single source of truth for
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
-  "Locales|system.locale|locale|en_US.UTF-8"
   "Locales|system.keymap|keyboard|us"
+  "Locales|__language__|language|en_US"
+  "Locales|__encoding__|encoding|UTF-8"
   "Mirrors & Repositories|options.mirror_countries|mirror countries|Germany, Switzerland, Sweden, France, Romania"
   "Mirrors & Repositories|options.optional_repos|optional repositories|multilib"
   "Mirrors & Repositories|options.mirror_servers|custom servers|[]"
@@ -127,7 +128,7 @@ EOF
 # category NAME matches a row's `section`, so a category aggregates its rows;
 # the summary is display-only.
 _MENU_CATEGORIES=(
-  "Locales|language, keymap"
+  "Locales|keyboard, language, encoding, console font"
   "Mirrors & Repositories|countries, optional repos, custom servers/repos"
   "Pacman|ilovecandy, color, parallel downloads, verbose lists"
   "Disks|layout, data pools, filesystem, encryption, swap"
@@ -222,20 +223,45 @@ menu_rows() {
          ([$v | to_entries[] | "\(.key)=\(.value)"] | join(", "))
        else ($v | tostring) end) as $r
       | if ($r == null or $r == "") then $d else $r end;
+    # Locale projection (ADR 0076): the canonical system.locale (element 0 when an
+    # array) split into its language identity (.CODESET dropped, @modifier kept)
+    # and its encoding (the CODESET). loc0 defaults to en_US.UTF-8 so the two
+    # leaves render their defaults on a fresh state.
+    def loc0($src): ($src.system.locale) as $l
+      | (if ($l | type) == "array" then ($l[0] // "") else ($l // "") end)
+      | if . == "" then "en_US.UTF-8" else . end;
+    def loc_lang($l): ($l | sub("\\.[^.@]+"; ""));
+    def loc_enc($l):
+      (if ($l | test("\\.[^.@]+")) then ($l | capture("\\.(?<e>[^.@]+)").e)
+       else "" end);
     ($baseline * $override) as $m
     | (if (($m.filesystem // "zfs")) == "" then "zfs"
        else ($m.filesystem // "zfs") end) as $fs
     | ($m.disk_config.kind // "auto") as $kind
+    | loc0($m) as $mloc
+    | loc0($baseline) as $bloc
+    | (($override | getpath(["system","locale"])) != null) as $loc_ov
     | [ $fields[]
         | .path as $fp
+        | .default as $def
         | select($fp != "options.impermanence.enabled"
                  or ($fs != "ext4" and $fs != "xfs"))
         | ($fp | split(".")) as $pp
         | { section: .section,
             field:   $fp,
             label:   .label,
-            value:   render($m | getpath($pp); .default),
-            overridden: (($override | getpath($pp)) != null),
+            value:
+              (if   $fp == "__language__"
+               then (loc_lang($mloc) | if . == "" then $def else . end)
+               elif $fp == "__encoding__"
+               then (loc_enc($mloc) | if . == "" then $def else . end)
+               else render($m | getpath($pp); $def) end),
+            overridden:
+              (if   $fp == "__language__"
+               then ($loc_ov and (loc_lang($mloc) != loc_lang($bloc)))
+               elif $fp == "__encoding__"
+               then ($loc_ov and (loc_enc($mloc) != loc_enc($bloc)))
+               else (($override | getpath($pp)) != null) end),
             locked:  ($kind == "manual"
                       and ($lockpaths | index($fp)) != null) } ]'
 }

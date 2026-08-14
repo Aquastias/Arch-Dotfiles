@@ -28,3 +28,54 @@ locale_list_keymaps() {
   [[ -n "$out" ]] && printf '%s\n' "$out"
   return 0
 }
+
+# ── locale compose / decompose (ADR 0076) ──────────────────────────────────
+# The canonical `system.locale` is one locale.gen name (e.g. en_US.UTF-8); the
+# `language` and `encoding` leaves are two views of it. These three pure helpers
+# are the sole owner of the split, so both Guided front-ends recompose the same
+# way and a doubled charset (en_US.UTF-8.UTF-8) can never be authored.
+
+# locale_language <locale> → the language identity: the name with its .CODESET
+# dropped, any @modifier kept. en_US.UTF-8→en_US, sr_RS.UTF-8@latin→sr_RS@latin.
+locale_language() { sed 's/\.[^.@]*//' <<<"$1"; }
+
+# locale_encoding <locale> → the CODESET (between . and any @), empty if none.
+locale_encoding() { sed -n 's/[^.]*\.\([^.@]*\).*/\1/p' <<<"$1"; }
+
+# locale_compose <language> <encoding> → the locale.gen name: <encoding> spliced
+# in before any @modifier. Empty <encoding> yields the bare language. Exactly one
+# codeset is ever present, so recomposing an already-composed value is a no-op.
+locale_compose() {
+  local lang="$1" enc="$2"
+  [[ -n "$enc" ]] || { printf '%s\n' "$lang"; return; }
+  if [[ "$lang" == *@* ]]; then
+    printf '%s.%s@%s\n' "${lang%%@*}" "$enc" "${lang#*@}"
+  else
+    printf '%s.%s\n' "$lang" "$enc"
+  fi
+}
+
+# locale_list_languages — every language identity the medium's SUPPORTED locales
+# offer (codeset stripped), sorted-unique. Falls back to `localectl list-locales`.
+locale_list_languages() {
+  local root="${LOCALE_SRC_ROOT:-}" f out
+  f="${root}/usr/share/i18n/SUPPORTED"
+  out="$(awk '{print $1}' "$f" 2>/dev/null | sed 's/\.[^.@]*//' | sort -u)"
+  [[ -z "$out" && -z "$root" ]] \
+    && out="$(localectl list-locales 2>/dev/null | sed 's/\.[^.@]*//' | sort -u)"
+  [[ -n "$out" ]] && printf '%s\n' "$out"
+  return 0
+}
+
+# locale_list_encodings <language> — the CODESETs SUPPORTED pairs with <language>
+# (the charset column of every entry whose codeset-stripped name is <language>),
+# sorted-unique. So the encoding leaf can only offer a charset that yields a
+# generatable locale for the chosen language.
+locale_list_encodings() {
+  local lang="$1" root="${LOCALE_SRC_ROOT:-}" f
+  f="${root}/usr/share/i18n/SUPPORTED"
+  awk -v lang="$lang" '
+    { name = $1; enc = $2; sub(/\.[^.@]*/, "", name)
+      if (name == lang && enc != "") print enc }' "$f" 2>/dev/null | sort -u
+  return 0
+}
