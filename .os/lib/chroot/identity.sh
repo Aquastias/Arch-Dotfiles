@@ -23,12 +23,18 @@ echo "Timezone set: $TIMEZONE"
 # ── Locale ────────────────────────────────────────────────────────────────────
 # Generate every locale in LOCALES[] (element 0 is the LANG default); KEYMAP
 # is the console default (keymap[0]). Both arrays come from install-state.
+# The locale.gen charset column is the locale's own CODESET (ADR 0076: the
+# encoding leaf), derived like locale_encoding() — the codeset between '.' and
+# any '@modifier' — defaulting to UTF-8 when the name carries none. A non-UTF-8
+# encoding is honoured instead of silently coerced to UTF-8.
 for _loc in "${LOCALES[@]}"; do
     [[ -n "$_loc" ]] || continue
-    if grep -q "^#${_loc} UTF-8" /etc/locale.gen; then
-        sed -i "s/^#${_loc} UTF-8/${_loc} UTF-8/" /etc/locale.gen
-    elif ! grep -q "^${_loc} UTF-8" /etc/locale.gen; then
-        echo "${_loc} UTF-8" >> /etc/locale.gen
+    _enc="$(sed -n 's/[^.]*\.\([^.@]*\).*/\1/p' <<<"$_loc")"
+    _enc="${_enc:-UTF-8}"
+    if grep -q "^#${_loc} ${_enc}" /etc/locale.gen; then
+        sed -i "s/^#${_loc} ${_enc}/${_loc} ${_enc}/" /etc/locale.gen
+    elif ! grep -q "^${_loc} ${_enc}" /etc/locale.gen; then
+        echo "${_loc} ${_enc}" >> /etc/locale.gen
     fi
 done
 locale-gen

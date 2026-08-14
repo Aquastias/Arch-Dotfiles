@@ -269,12 +269,19 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   for spec in "${_MENU_FIELDS[@]}"; do
     IFS='|' read -r section path label default <<<"$spec"
     [[ -n "$default" && "$default" != "[]" ]] || continue
+    # Synthetic projection fields (ADR 0076) have no direct seed path — their
+    # default agreement is asserted against the seeded system.locale below.
+    [[ "$path" == __*__ ]] && continue
     rendered="$(menu_render_value "$baseline" "$path")"
     [ -n "$rendered" ] \
       || { echo "field $path: spec default '$default' but no baseline seed"; false; }
     [ "$rendered" = "$default" ] \
       || { echo "drift at $path: baseline '$rendered' != spec '$default'"; false; }
   done
+  # the seeded system.locale must project to the language/encoding spec defaults
+  local rows; rows="$(menu_rows "$(cfgstate_new)" "$baseline")"
+  echo "$rows" | row __language__ | jq -e '.value == "en_US"'
+  echo "$rows" | row __encoding__ | jq -e '.value == "UTF-8"'
 }
 
 # ── keyboard / locale are Locales rows; timezone is a General row (ADR 0076) ─
@@ -291,6 +298,41 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row system.keymap | jq -e '.label == "keyboard"'
+}
+
+# ── locale projection: language + encoding are views of system.locale (0076) ─
+
+@test "menu_rows: fresh state shows language en_US, encoding UTF-8, no ●" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row __language__ | jq -e '.section == "Locales"'
+  echo "$output" | row __language__ | jq -e '.value == "en_US" and .overridden == false'
+  echo "$output" | row __encoding__ | jq -e '.value == "UTF-8" and .overridden == false'
+}
+
+@test "menu_rows: overriding system.locale projects into language + encoding" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.locale '"de_DE.UTF-8"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  # only the changed part carries ●: language flips, encoding stays UTF-8
+  echo "$output" | row __language__ | jq -e '.value == "de_DE" and .overridden == true'
+  echo "$output" | row __encoding__ | jq -e '.value == "UTF-8" and .overridden == false'
+}
+
+@test "menu_rows: a non-UTF-8 locale marks encoding, not language" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.locale '"en_US.ISO-8859-1"')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row __language__ | jq -e '.value == "en_US" and .overridden == false'
+  echo "$output" | row __encoding__ | jq -e '.value == "ISO-8859-1" and .overridden == true'
+}
+
+@test "menu_rows: an array locale projects element 0" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.locale \
+    '["fr_FR.UTF-8","en_US.UTF-8"]')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row __language__ | jq -e '.value == "fr_FR"'
 }
 
 # ── the menu still carries a General and a Users section ────────────────────

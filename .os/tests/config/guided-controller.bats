@@ -937,18 +937,45 @@ _seed_baseline() {
   echo "$output" | grep -qE '^[A-Z][A-Za-z_]+/'
 }
 
-@test "list(values locale): includes en_US.UTF-8" {
-  set_nav "$(nav_to_values Locales system.locale locale)"
+@test "list(values language): includes en_US (locale projection, ADR 0076)" {
+  set_nav "$(nav_to_values Locales __language__ language)"
   run guided_ctl_list
-  echo "$output" | grep -qx "en_US.UTF-8"
+  echo "$output" | grep -qx "en_US"
 }
 
-@test "enter(values biglist): picking a value sets the scalar + returns" {
-  set_nav "$(nav_to_values Locales system.locale locale)"
-  run guided_ctl_enter "de_DE.UTF-8"
+@test "enter(values language): picking recomposes system.locale, keeps encoding" {
+  printf '%s\n' '{"system":{"locale":"en_US.UTF-8"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Locales __language__ language)"
+  run guided_ctl_enter "de_DE"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.UTF-8" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "list(values encoding): filtered to the language's charsets (en_US)" {
+  printf '%s\n' '{"system":{"locale":"en_US.UTF-8"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Locales __encoding__ encoding)"
+  run guided_ctl_list
+  echo "$output" | grep -qx "UTF-8"
+  echo "$output" | grep -qx "ISO-8859-1"
+}
+
+@test "enter(values encoding): picking recomposes system.locale, keeps language" {
+  printf '%s\n' '{"system":{"locale":"de_DE.UTF-8"}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Locales __encoding__ encoding)"
+  run guided_ctl_enter "ISO-8859-1"
+  [ "$output" = "render" ]
+  [ "$(jq -r '.system.locale' "$GUIDED_STATE_FILE")" = "de_DE.ISO-8859-1" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]
+}
+
+@test "enter(values language): array locale keeps its tail (element 0 edited)" {
+  printf '%s\n' '{"system":{"locale":["en_US.UTF-8","fr_FR.UTF-8"]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_values Locales __language__ language)"
+  run guided_ctl_enter "de_DE"
+  [ "$(jq -c '.system.locale' "$GUIDED_STATE_FILE")" \
+    = '["de_DE.UTF-8","fr_FR.UTF-8"]' ]
 }
 
 @test "preview(keymap): the side panel lists the selected keymaps" {

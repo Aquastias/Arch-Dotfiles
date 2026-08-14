@@ -211,7 +211,8 @@ _ctl_field_kind() {
   case "$1" in
   system.hostname) echo text ;;
   system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
-  system.locale | system.timezone) echo biglist ;;
+  system.timezone) echo biglist ;;
+  __language__ | __encoding__) echo biglist ;;   # locale projections (ADR 0076)
   options.swap_size | options.esp_size | options.age_key_url) echo text ;;
   options.pacman.parallel_downloads) echo text ;;  # numeric value (ADR 0074)
   packages.repo.extra | packages.aur.extra) echo text ;;
@@ -341,11 +342,44 @@ _ctl_biglist_options() {
     out="$(timedatectl list-timezones 2>/dev/null)"
     [[ -n "$out" ]] || out="$(find /usr/share/zoneinfo -type f -printf '%P\n' \
       2>/dev/null | grep -E '^[A-Z][A-Za-z_]+/' | sort)" ;;
-  system.locale)
-    out="$(awk '{print $1}' /usr/share/i18n/SUPPORTED 2>/dev/null | sort -u)"
-    [[ -n "$out" ]] || out="$(localectl list-locales 2>/dev/null)" ;;
+  __language__)
+    out="$(locale_list_languages)" ;;
+  __encoding__)
+    # only the encodings valid for the currently-chosen language (ADR 0076).
+    out="$(locale_list_encodings "$(locale_language "$(_ctl_locale_current)")")" ;;
   esac
   [[ -n "$out" ]] && printf '%s\n' "$out"
+}
+
+# _ctl_locale_current → the effective default locale (system.locale element 0),
+# en_US.UTF-8 when unset. The basis the language/encoding projections read.
+_ctl_locale_current() {
+  local loc
+  loc="$(jq -r '(.system.locale) as $l
+    | if ($l | type) == "array" then ($l[0] // "") else ($l // "") end' \
+    <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
+  [[ -n "$loc" ]] || loc="en_US.UTF-8"
+  printf '%s\n' "$loc"
+}
+
+# _ctl_apply_locale_part <state> <__language__|__encoding__> <value> → new state
+# with system.locale recomposed from the edited part (ADR 0076). Reads the
+# effective locale, swaps the one part, recomposes exactly once, and preserves a
+# multi-locale array's tail (only element 0 — the default — is edited).
+_ctl_apply_locale_part() {
+  local state="$1" which="$2" val="$3" cur lang enc newloc locjson
+  cur="$(_ctl_locale_current)"
+  lang="$(locale_language "$cur")"; enc="$(locale_encoding "$cur")"
+  case "$which" in
+  __language__) lang="$val" ;;
+  __encoding__) enc="$val" ;;
+  esac
+  newloc="$(locale_compose "$lang" "$enc")"
+  locjson="$(jq -c --arg n "$newloc" '
+    (.system.locale) as $l
+    | if ($l | type) == "array" and ($l | length) > 1 then ([$n] + $l[1:])
+      else $n end' <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
+  cfgstate_set "$state" system.locale "$locjson"
 }
 
 # _ctl_apply_enum <state> <path> <value> → new state. Reserved filesystems are a
@@ -530,7 +564,8 @@ _ctl_toggle_options() {
 # the per-user detail panel on the Users screen — ADR 0063).
 _ctl_field_has_preview() {
   case "$1" in
-  __layout__ | system.keymap | system.locale | system.timezone | users)
+  __layout__ | system.keymap | system.timezone | users \
+    | __language__ | __encoding__)
     return 0 ;;
   *) return 1 ;;
   esac
@@ -2775,9 +2810,17 @@ _ctl_enter_values() {
     echo render; return
   fi
   if [[ "$(_ctl_field_kind "$path")" == "biglist" ]]; then
-    # a big filterable list → set the picked value as a scalar, then back
-    _ctl_write_state "$(_ctl_normalise_default \
-      "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")"
+    # a big filterable list → set the picked value, then back. The locale
+    # projections recompose the canonical system.locale (ADR 0076); every other
+    # biglist sets its own scalar path. Both normalise against their real path.
+    case "$path" in
+    __language__ | __encoding__)
+      _ctl_write_state "$(_ctl_normalise_default \
+        "$(_ctl_apply_locale_part "$(_ctl_state)" "$path" "$line")" system.locale)" ;;
+    *)
+      _ctl_write_state "$(_ctl_normalise_default \
+        "$(edit_set_scalar "$(_ctl_state)" "$path" "$line")" "$path")" ;;
+    esac
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return
   fi
   if [[ "$path" == "__layout__" ]]; then
