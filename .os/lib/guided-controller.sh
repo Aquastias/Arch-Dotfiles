@@ -336,9 +336,7 @@ _ctl_biglist_options() {
   local out
   case "$1" in
   system.keymap)
-    out="$(localectl list-keymaps 2>/dev/null)"
-    [[ -n "$out" ]] || out="$(find /usr/share/kbd/keymaps -name '*.map.gz' \
-      -printf '%f\n' 2>/dev/null | sed 's/\.map\.gz$//' | sort -u)" ;;
+    out="$(locale_list_keymaps)" ;;
   system.timezone)
     out="$(timedatectl list-timezones 2>/dev/null)"
     [[ -n "$out" ]] || out="$(find /usr/share/zoneinfo -type f -printf '%P\n' \

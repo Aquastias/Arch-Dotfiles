@@ -286,6 +286,13 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row system.timezone | jq -e '.section == "General"'
 }
 
+# the keymap field is labelled `keyboard` under Locales (ADR 0076)
+@test "menu_rows: the keymap field is labelled keyboard" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row system.keymap | jq -e '.label == "keyboard"'
+}
+
 # ── the menu still carries a General and a Users section ────────────────────
 
 @test "menu_rows: the menu carries both a General and a Users section" {
