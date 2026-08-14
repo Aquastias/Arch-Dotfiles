@@ -34,19 +34,19 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): the parent column lists every category, current marked" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone"
+  run guided_ctl_preview "General — hostname, timezone"
   [ "$status" -eq 0 ]
   # every sibling category appears in the parent column
   echo "$output" | plain | grep -q "Locales"
   echo "$output" | plain | grep -q "Mirrors & Repositories"
   echo "$output" | plain | grep -q "Security"
   # the highlighted category is marked with the current-item marker
-  echo "$output" | plain | grep -qE '▶ +System'
+  echo "$output" | plain | grep -qE '▶ +General'
 }
 
 @test "detail(top): a category previews its fields as key: value" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone"
+  run guided_ctl_preview "General — hostname, timezone"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'timezone: +Europe/Bucharest'
 }
@@ -54,7 +54,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 @test "detail(top): an overridden field carries a ● in the summary" {
   printf '%s\n' '{"system":{"hostname":"myhost"}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "System — hostname, timezone"
+  run guided_ctl_preview "General — hostname, timezone"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +myhost.*●'
 }
@@ -121,7 +121,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(text): a free-text field screen shows value + a free-text hint" {
   printf '%s\n' '{"system":{"hostname":"eterniox"}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_text System system.hostname hostname)"
+  set_nav "$(nav_to_text General system.hostname hostname)"
   run guided_ctl_preview "eterniox"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +eterniox'
@@ -135,7 +135,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
   run guided_ctl_preview "single"
   [ "$status" -eq 0 ]
   # no category parent-column header leaks onto the layout screen
-  ! echo "$output" | plain | grep -qE '▶ +(kernel|System)'
+  ! echo "$output" | plain | grep -qE '▶ +(kernel|General)'
 }
 
 # ── ticket 03: rich leaf detail — Users account table + Disks pool tree ──────

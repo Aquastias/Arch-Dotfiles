@@ -21,11 +21,11 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── tracer: fresh state lists the hostname row under Host, not overridden ───
 
-@test "menu_rows: a fresh state surfaces hostname under System, not overridden" {
+@test "menu_rows: a fresh state surfaces hostname under General, not overridden" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .section == "System" and .field == "system.hostname")'
+    | jq -e 'any(.[]; .section == "General" and .field == "system.hostname")'
   echo "$output" | row system.hostname | jq -e '.overridden == false'
 }
 
@@ -277,22 +277,21 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   done
 }
 
-# ── locale / keymap are Locales rows; timezone is a System row (ADR 0071) ───
+# ── keyboard / locale are Locales rows; timezone is a General row (ADR 0076) ─
 
-@test "menu_rows: locale / keymap surface under Locales, timezone under System" {
+@test "menu_rows: keyboard surfaces under Locales, timezone under General" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row system.locale   | jq -e '.section == "Locales"'
   echo "$output" | row system.keymap   | jq -e '.section == "Locales"'
-  echo "$output" | row system.timezone | jq -e '.section == "System"'
+  echo "$output" | row system.timezone | jq -e '.section == "General"'
 }
 
-# ── the menu still carries a System and a Users section ────────────────────
+# ── the menu still carries a General and a Users section ────────────────────
 
-@test "menu_rows: the menu carries both a System and a Users section" {
+@test "menu_rows: the menu carries both a General and a Users section" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .section == "System")'
+  echo "$output" | jq -e 'any(.[]; .section == "General")'
   echo "$output" | jq -e 'any(.[]; .section == "Users")'
 }
 
@@ -309,7 +308,7 @@ cat_at() { jq -e ".[$1]"; }
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'length == 13'
   echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
-    "Pacman","Disks","Bootloader","Kernels","System","Users","Environment",
+    "Pacman","Disks","Bootloader","Kernels","General","Users","Environment",
     "Packages","Security","Backup","Advanced"]'
 }
 
@@ -331,7 +330,7 @@ cat_at() { jq -e ".[$1]"; }
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "System")  | .overridden == true'
+  echo "$output" | jq -e '.[] | select(.name == "General") | .overridden == true'
   echo "$output" | jq -e '.[] | select(.name == "Disks")   | .overridden == false'
   echo "$output" | jq -e '.[] | select(.name == "Kernels") | .overridden == false'
 }
@@ -341,17 +340,17 @@ cat_at() { jq -e ".[$1]"; }
   baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   run menu_categories "$(cfgstate_new)" "$baseline"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "System") | .overridden == false'
+  echo "$output" | jq -e '.[] | select(.name == "General") | .overridden == false'
 }
 
 # ── drill-in: menu_category_rows returns one category's field rows ──────────
 # The sub-menu contract: given a category name, the rows for that category only
 # (same per-row shape as menu_rows). The baseline still supplies seeded values.
 
-@test "menu_category_rows: System returns only System rows incl. hostname" {
-  run menu_category_rows System "$(cfgstate_new)"
+@test "menu_category_rows: General returns only General rows incl. hostname" {
+  run menu_category_rows General "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "System")'
+  echo "$output" | jq -e 'all(.[]; .section == "General")'
   echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
 }
 
