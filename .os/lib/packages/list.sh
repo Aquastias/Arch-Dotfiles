@@ -18,6 +18,9 @@
 # shellcheck source=../config/categorized-list.sh
 [[ "$(type -t categorized_list_parse)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
+# shellcheck source=../boot/bootloaders.sh
+[[ "$(type -t bootloader_packages)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
 
 # =============================================================================
 # PACKAGE COLLECTION
@@ -54,18 +57,14 @@ collect_packages() {
   done < <(install_config_kernels)
 
   # ── Bootloader selection ──────────────────────────────────────────────────
+  # Extra package(s) come from the Bootloader Manifest (ADR 0077). Today:
+  # systemd-boot adds nothing, grub adds grub (it ships zfs.mod and boots ZFS
+  # pools natively — grub-mkconfig runs with ZPOOL_VDEV_NAME_PATH=YES in the
+  # adapter). efibootmgr (base) registers UEFI entries for both.
   local bootloader
   bootloader="$(install_config_bootloader)"
   local bootloader_pkgs=()
-  if [[ "$bootloader" == "grub" ]]; then
-    # grub ships the zfs.mod and boots ZFS pools natively — no extra repo pkg.
-    # (grub-zfs-config does NOT exist in any repo.) grub-mkconfig runs with
-    # ZPOOL_VDEV_NAME_PATH=YES in the bootloader adapter so grub-probe resolves
-    # the ZFS root without grub-libzfs — see lib/chroot/bootloader-grub.sh.
-    bootloader_pkgs=(grub)
-  fi
-  # systemd-boot ships with systemd (already in base); no extra package needed.
-  # efibootmgr is needed by both to register UEFI boot entries.
+  mapfile -t bootloader_pkgs < <(bootloader_packages "$bootloader")
 
   local pkgs=(
     # ── Core system ───────────────────────────────────────────────────────

@@ -29,6 +29,11 @@ source "$_LIB_DIR/udisks.sh"
 # shellcheck source=./zfs-import.sh
 source "$_LIB_DIR/zfs-import.sh"
 
+# Bootloader Manifest — staged flat into lib-chroot; supplies the secondary-ESP
+# UEFI loader path per loader instead of an if-chain (ADR 0077).
+# shellcheck source=../boot/bootloaders.sh
+source "$_LIB_DIR/bootloaders.sh"
+
 bash /root/lib-chroot/identity.sh
 # GPU hardening runs BEFORE initcpio so the single `mkinitcpio -P` bakes in the
 # Early-KMS MODULES + modprobe.d options on an amd+nvidia hybrid (ADR 0053).
@@ -40,11 +45,7 @@ bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
 # ── Secondary ESP mirroring ───────────────────────────────────────────────────
 # Rsync primary ESP to each secondary, then register each secondary as an
 # independent UEFI boot entry so any OS disk can boot if the primary fails.
-if [[ "$BOOTLOADER" == "grub" ]]; then
-    EFI_LOADER='\EFI\GRUB\grubx64.efi'
-else
-    EFI_LOADER='\EFI\systemd\systemd-bootx64.efi'
-fi
+EFI_LOADER="$(bootloader_efi_loader "$BOOTLOADER")"
 if [[ "$ESP_COUNT" -gt 1 ]]; then
     for i in $(seq 1 $(( ESP_COUNT - 1 ))); do
         rsync -a --delete /boot/efi/ "/boot/efi${i}/"
