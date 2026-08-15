@@ -160,7 +160,7 @@ _matrix_tier2_axes() {
     encryption:   [false, true],
     impermanence: [false, true],
     kernel:       ["lts", "zen"],
-    bootloader:   ["systemd-boot", "grub"],
+    bootloader:   ["systemd-boot", "grub", "efistub", "limine", "refind"],
     desktop:      ["none", "kde", "hyprland"],
     gpu:          ["auto", "amd", "nvidia", "intel"],
     swap:         [true, false]

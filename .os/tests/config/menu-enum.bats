@@ -17,9 +17,9 @@ setup() {
   [ "$output" == "$(printf '%s\n' lts default hardened zen)" ]
 }
 
-@test "menu_enum_options: bootloader" {
+@test "menu_enum_options: bootloader (five loaders, ADR 0077)" {
   run menu_enum_options options.bootloader
-  [ "$output" == "$(printf '%s\n' systemd-boot grub)" ]
+  [ "$output" == "$(printf '%s\n' systemd-boot grub efistub limine refind)" ]
 }
 
 @test "menu_enum_options: desktop" {

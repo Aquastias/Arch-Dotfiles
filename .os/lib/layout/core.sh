@@ -19,24 +19,48 @@
 [[ "$(type -t create_data_pools)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/data-pools.sh"
 
+# ESP budget model — kernel-aware sizing + the pre-install guard (ADR 0078).
+# shellcheck source=../boot/esp-budget.sh
+[[ "$(type -t esp_budget_auto_size)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../boot/esp-budget.sh"
+
 # ── ESP size (config) ────────────────────────────────────────────────────────
 
-# Reads .options.esp_size from Install Config. Returns "2G" when unset.
+# Number of selected kernels — the driver of the ESP budget.
+_layout_kernel_count() { install_config_kernels | grep -c .; }
+
+# Reads .options.esp_size. The default `auto` is resolved to a kernel-and-fs
+# aware size (upward-only from the 2G floor; grub takes a fixed small ESP) via
+# the ESP budget model (ADR 0078); an explicit numeric pin is returned as-is.
 layout_resolve_esp_size() {
-  install_config_esp_size
+  local raw; raw="$(install_config_esp_size)"
+  [[ "$raw" == auto ]] || { printf '%s\n' "$raw"; return 0; }
+  esp_budget_auto_size "$(_layout_kernel_count)" \
+    "$(install_config_filesystem)" "$(install_config_bootloader)"
 }
 
-# Fail-fast guard: the resolved ESP size must meet the 1 GiB floor. systemd-boot
-# copies the kernel + initramfs (and a fallback) onto the FAT ESP, so a too-small
-# ESP can run out of space mid-upgrade and truncate the boot image (ADR 0038).
-# Errors naming the field and the floor; succeeds silently otherwise.
+# Fail-fast guard: the resolved ESP size must meet the 1 GiB floor (ADR 0038)
+# AND, for an explicit pin on an ESP-mirroring loader, hold every selected
+# kernel's images (ADR 0078). `auto` is sufficient by construction, so only a
+# pin can fail. Errors name the field, the shortfall, and the `auto` escape.
 layout_validate_esp_size() {
-  local size mib
+  local raw size mib
+  raw="$(install_config_esp_size)"
   size="$(layout_resolve_esp_size)"
   mib="$(parse_size_to_mib "$size")"
   ((mib >= 1024)) || error \
     "esp_size '${size}' is below the 1G floor for a resilient boot path" \
     "(ADR 0038). Set options.esp_size to at least 1G (default 2G)."
+
+  [[ "$raw" == auto ]] && return 0
+  local n fs bl need
+  n="$(_layout_kernel_count)"
+  fs="$(install_config_filesystem)"
+  bl="$(install_config_bootloader)"
+  esp_budget_fits_mib "$mib" "$n" "$fs" "$bl" && return 0
+  need="$(esp_budget_auto_size "$n" "$fs" "$bl")"
+  error "esp_size '${size}' is too small for ${n} kernel(s) on ${bl}" \
+    "(ADR 0078). Use at least ${need}, or set options.esp_size to auto."
 }
 
 # _layout_disk_exists <path> — 0 iff <path> is a present block device. The single

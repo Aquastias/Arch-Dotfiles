@@ -174,10 +174,10 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   ! echo "$output" | grep -qiE '^Hostname: (true|false)'
 }
 
-@test "list(text esp size): current shows the default 2G, not (unset)" {
+@test "list(text esp size): current shows the default auto, not (unset)" {
   set_nav "$(nav_to_text Disks options.esp_size "esp size")"
   run guided_ctl_list
-  echo "$output" | grep -q "current: 2G"
+  echo "$output" | grep -q "current: auto"
 }
 
 # ── multi-select toggle screens (native — never leaves fzf) ──────────────────

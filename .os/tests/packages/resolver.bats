@@ -185,6 +185,19 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "grub"   <<<"$grub"
 }
 
+@test "new loaders resolve their manifest package (ADR 0077)" {
+  local limine refind efistub
+  limine="$(pkgs_of  '{"users":[],"options":{"bootloader":"limine"}}')"
+  refind="$(pkgs_of  '{"users":[],"options":{"bootloader":"refind"}}')"
+  efistub="$(pkgs_of '{"users":[],"options":{"bootloader":"efistub"}}')"
+  grep -qx "limine" <<<"$limine"
+  grep -qx "refind" <<<"$refind"
+  # efistub needs no extra package beyond efibootmgr (already in base)
+  ! grep -qx "grub"   <<<"$efistub"
+  ! grep -qx "limine" <<<"$efistub"
+  ! grep -qx "refind" <<<"$efistub"
+}
+
 @test "changing the kernel selection changes the kernel packages" {
   local lts zen multi
   lts="$(pkgs_of   '{"users":[],"options":{"kernel":["lts"]}}' kernel)"
