@@ -2,7 +2,7 @@
 # Menu-derived; do not edit — regenerate on any menu change.
 
 [axes]
-bootloader: grub systemd-boot
+bootloader: efistub grub limine refind systemd-boot
 desktop: hyprland kde none
 encryption: false true
 filesystem: btrfs ext4 xfs zfs
@@ -39,6 +39,6 @@ filesystem=zfs topology=raid10
 
 [counts]
 tier1: 360
-tier2-pairwise: 40
+tier2-pairwise: 48
 tier2-seeds: 7
-tier2-total: 47
+tier2-total: 55

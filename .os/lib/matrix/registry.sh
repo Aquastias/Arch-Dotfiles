@@ -37,9 +37,11 @@
 # _MENU_FIELDS — matrix_registry_assert fails the generator on any drift.
 _MATRIX_AXIS_REGISTRY=(
   "system.hostname|inert|light"
-  "system.locale|inert|light"
   "system.timezone|inert|light"
   "system.keymap|inert|light"
+  "__language__|inert|light"
+  "__encoding__|inert|light"
+  "system.console_font|inert|light"
   "disk_config.kind|inert|light"
   "filesystem|storage-cluster|light"
   "options.encryption|storage-cluster|light"
