@@ -135,13 +135,16 @@ the same file install differently per front-end, is deleted. Save Profile writes
 a **delta over Host Core**, so a saved profile stays layered rather than
 freezing a snapshot. Mistakes
 are recoverable three ways — re-edit, **Reset** (field / section / all, the last
-itself undoable), and **Undo/Redo** over a snapshot stack. Ends in one of three
+itself undoable), and **Undo/Redo** over a snapshot stack. Ends in one of four
 terminal actions: **Proceed** (assemble the Effective Config in
 tmpfs from the choices plus the picked disks, then install now), **Save Profile**
 (write `hosts/<name>/profile.jsonc` — the committed, device-less audit artifact,
-replayed via `--profile`), or **Export Effective Config** (write the
+replayed via `--profile`), **Export Effective Config** (write the
 device-baked artifact to an operator-chosen path *outside* the repo's `hosts/`
-tree, replayed via `install.sh <config-file>`). The committed save strips disks;
+tree, replayed via `install.sh <config-file>`), or **Abort** (an explicit
+action row, Esc-equivalent: quit the menu cleanly so `install.sh` skips the
+back-end — pre-destructive only, nothing on disk to undo; ADR 0077). The
+committed save strips disks;
 only the export carries them — preserving 0036's invariant that device paths are
 never committed as repo source of truth. The third front-end over the one
 back-end.
@@ -679,24 +682,51 @@ live in one place.
 
 ### Bootloader Module
 The seam selecting between Bootloader Adapters. The active adapter is chosen by
-`options.bootloader` in the Host Profile (`systemd-boot` or `grub`). The chroot
-orchestrator invokes `bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding
-a new bootloader means dropping in a new Bootloader Adapter — no `if/elif`
-branches grow.
+`options.bootloader` in the Host Profile — one of `systemd-boot`, `grub`,
+`efistub`, `limine`, `refind` (default `systemd-boot`), a **closed set**
+validated at profile load against `menu_enum_options options.bootloader`, so an
+unknown loader aborts with its path (ADR 0077). The chroot orchestrator invokes
+`bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding a new bootloader
+means dropping in a new Bootloader Adapter plus one Bootloader Manifest row — no
+`if/elif` branches grow.
 
 ### Bootloader Adapter
 `.os/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation:
-package install, config file generation, kernel-image entry registration. Two
-adapters today: `bootloader-systemd.sh` and `bootloader-grub.sh`. Each adapter
+package install, config file generation, kernel-image entry registration. Five
+adapters: `bootloader-systemd-boot.sh`, `bootloader-grub.sh`,
+`bootloader-efistub.sh`, `bootloader-limine.sh`, `bootloader-refind.sh`. Each
 reads the same env vars from the orchestrator (`KERNEL`, `ROOT_DATASET`, ESP
-info, etc.) and is interchangeable from the orchestrator's view.
+info, etc.) and is interchangeable from the orchestrator's view. Four of the
+five are ESP-mirroring loaders; `grub` is the native-ZFS special case (ADR
+0077).
+
+### ESP-mirroring loader
+The class of Bootloader Adapters — `systemd-boot`, `efistub`, `limine`,
+`refind` — that boot by reading the kernel, microcode, and initramfs the ESP
+Kernel Sync mirrors onto the FAT32 ESP, so they boot a ZFS root without reading
+ZFS. They differ only in **entry format** (systemd loader entry / `efibootmgr`
+load-options / `limine.conf` / `refind_linux.conf`) and loader-binary path,
+both carried by the Bootloader Manifest. `grub` is excluded — it reads ZFS
+natively and needs no ESP mirror to find its kernel. **efistub** is a
+direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
+loader binary; its manifest loader path is the kernel image itself (ADR 0077).
+
+### Bootloader Manifest
+`.os/lib/boot/bootloaders.sh`. The pure token table — sourced host-side by the
+package resolver / list and staged into the chroot for the orchestrator —
+keying each `options.bootloader` value to its EFI loader path, package set, and
+ESP-entry style. The single source of truth that replaced the per-loader
+`if grub/else systemd` chains in `configure.sh`, `resolver.sh`, and `list.sh`
+(ADR 0077).
 
 ### ESP Kernel Sync
-The systemd-boot-only pacman hook (`94-esp-kernel-sync.hook` →
+The pacman hook (`94-esp-kernel-sync.hook` →
 `/usr/local/lib/archzfs/esp-kernel-sync.sh`, installed from the shared
 `lib/boot/esp-kernel-sync.sh`) that copies the kernel image, microcode, and
 initramfs from the ZFS `/boot` onto the FAT32 ESP after every kernel
-transaction — required because systemd-boot cannot read ZFS. The files mirrored
+transaction — required because every ESP-mirroring loader (systemd-boot,
+efistub, limine, refind) reads its kernel from the ESP, not ZFS. Not installed
+under `grub`, which reads ZFS natively. The files mirrored
 are driven by the loader entries: only files an entry references (its
 `linux`/`initrd` lines) that exist in `/boot` are copied, so a Stray Kernel —
 having no entry — is never mirrored, and a missing file is never referenced.
