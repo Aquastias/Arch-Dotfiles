@@ -1,0 +1,33 @@
+// VM test (ADR 0077/0078): efistub loader on a plain xfs single-disk root — the
+// fastest clean boot-verify for a new ESP-mirroring loader. efistub registers a
+// per-kernel efibootmgr entry pointing at the ESP-mirrored kernel with initrd +
+// cmdline load-options; esp_size=auto exercises the kernel-aware budget.
+{
+  "name": "arch-zfs-test-single-efistub",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "xfs",
+    "system": {
+      "hostname": "vm-test-efistub",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "efistub",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "auto"
+    },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}
