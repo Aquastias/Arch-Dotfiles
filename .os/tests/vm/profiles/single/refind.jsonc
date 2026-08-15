@@ -1,0 +1,32 @@
+// VM test (ADR 0077/0078): refind loader on a plain xfs single-disk root — a
+// fast clean boot-verify for a new ESP-mirroring loader. Kernels are mirrored
+// onto the FAT ESP by ESP Kernel Sync; esp_size=auto exercises the budget.
+{
+  "name": "arch-zfs-test-single-refind",
+  "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
+  "install": {
+    "filesystem": "xfs",
+    "system": {
+      "hostname": "vm-test-refind",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "refind",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto",
+      "esp_size":   "auto"
+    },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "mode":           "single",
+    "disk":           "/dev/sda",
+    "storage_groups": []
+  }
+}
