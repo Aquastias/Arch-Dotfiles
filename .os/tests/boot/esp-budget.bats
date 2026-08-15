@@ -62,3 +62,23 @@ setup() {
 @test "esp_budget_fits_mib: grub is always exempt (tiny ESP passes)" {
   esp_budget_fits_mib 256 5 zfs grub
 }
+
+# ── fits by size string (the Guided live check) ──────────────────────────────
+
+@test "esp_budget_size_mib: parses G / M / bare" {
+  [ "$(esp_budget_size_mib 2G)"   -eq 2048 ]
+  [ "$(esp_budget_size_mib 512M)" -eq 512 ]
+  [ "$(esp_budget_size_mib 800)"  -eq 800 ]
+}
+
+@test "esp_budget_fits_size: auto always fits" {
+  esp_budget_fits_size auto 5 zfs systemd-boot
+}
+
+@test "esp_budget_fits_size: a 1G pin fails for 4 ZFS kernels" {
+  ! esp_budget_fits_size 1G 4 zfs systemd-boot
+}
+
+@test "esp_budget_fits_size: 2G pin holds 4 ZFS kernels" {
+  esp_budget_fits_size 2G 4 zfs systemd-boot
+}

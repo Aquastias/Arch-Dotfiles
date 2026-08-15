@@ -64,3 +64,23 @@ esp_budget_fits_mib() {
   local need; need="$(esp_budget_need_mib "$n" "$fs" "$loader")"
   (( have >= need ))
 }
+
+# esp_budget_size_mib <size> — parse an esp_size string ("2G"/"512M"/bare) to
+# MiB. Deliberately mirrors layout core's parse_size_to_mib so this budget lib
+# stays standalone (layout/core.sh sources THIS; a back-dependency would loop).
+esp_budget_size_mib() {
+  local s="${1^^}" num unit
+  num="${s//[^0-9]/}"; unit="${s//[0-9]/}"
+  case "$unit" in
+  G | GIB) printf '%s\n' "$(( num * 1024 ))" ;;
+  *)       printf '%s\n' "${num:-0}" ;;   # M / MiB / bare → MiB
+  esac
+}
+
+# esp_budget_fits_size <size> <kernel_count> <fs> <loader> — like
+# esp_budget_fits_mib but takes an esp_size string. `auto` always fits (it is
+# resolved upward by construction), so only a numeric pin can fail.
+esp_budget_fits_size() {
+  [[ "$1" == auto ]] && return 0
+  esp_budget_fits_mib "$(esp_budget_size_mib "$1")" "$2" "$3" "$4"
+}
