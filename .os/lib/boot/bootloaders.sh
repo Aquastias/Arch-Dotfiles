@@ -25,7 +25,7 @@
 
 # bootloader_all — every loader the manifest knows, one per line.
 bootloader_all() {
-  printf '%s\n' systemd-boot grub
+  printf '%s\n' systemd-boot grub efistub limine refind
 }
 
 # bootloader_is_valid <name> — rc 0 when the loader is known, rc 1 otherwise.
@@ -38,10 +38,16 @@ bootloader_is_valid() {
 
 # bootloader_efi_loader <name> — the ESP-relative loader path registered as the
 # UEFI boot entry (efibootmgr --loader), backslash-separated as firmware wants.
+# efistub has no loader binary — it registers a per-kernel efibootmgr entry
+# pointing at the kernel itself (esp_style=efistub), so it has no single path;
+# it emits nothing here and callers branch on esp_style instead.
 bootloader_efi_loader() {
   case "$1" in
   systemd-boot) printf '%s\n' '\EFI\systemd\systemd-bootx64.efi' ;;
   grub)         printf '%s\n' '\EFI\GRUB\grubx64.efi' ;;
+  limine)       printf '%s\n' '\EFI\limine\limine_x64.efi' ;;
+  refind)       printf '%s\n' '\EFI\refind\refind_x64.efi' ;;
+  efistub)      : ;;
   *) _bootloader_unknown efi_loader "$1"; return 1 ;;
   esac
 }
@@ -52,7 +58,10 @@ bootloader_efi_loader() {
 bootloader_packages() {
   case "$1" in
   systemd-boot) : ;;
+  efistub)      : ;;
   grub)         printf '%s\n' grub ;;
+  limine)       printf '%s\n' limine ;;
+  refind)       printf '%s\n' refind ;;
   *) _bootloader_unknown packages "$1"; return 1 ;;
   esac
 }
@@ -65,6 +74,9 @@ bootloader_esp_style() {
   case "$1" in
   systemd-boot) printf '%s\n' loader-binary ;;
   grub)         printf '%s\n' loader-binary ;;
+  limine)       printf '%s\n' loader-binary ;;
+  refind)       printf '%s\n' loader-binary ;;
+  efistub)      printf '%s\n' efistub ;;
   *) _bootloader_unknown esp_style "$1"; return 1 ;;
   esac
 }
@@ -75,6 +87,9 @@ bootloader_esp_style() {
 bootloader_esp_mirrors() {
   case "$1" in
   systemd-boot) printf '%s\n' yes ;;
+  efistub)      printf '%s\n' yes ;;
+  limine)       printf '%s\n' yes ;;
+  refind)       printf '%s\n' yes ;;
   grub)         printf '%s\n' no ;;
   *) _bootloader_unknown esp_mirrors "$1"; return 1 ;;
   esac

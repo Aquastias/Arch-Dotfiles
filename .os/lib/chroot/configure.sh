@@ -45,17 +45,33 @@ bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
 # ── Secondary ESP mirroring ───────────────────────────────────────────────────
 # Rsync primary ESP to each secondary, then register each secondary as an
 # independent UEFI boot entry so any OS disk can boot if the primary fails.
-EFI_LOADER="$(bootloader_efi_loader "$BOOTLOADER")"
+# The entry style comes from the Bootloader Manifest (ADR 0077): a loader-binary
+# loader (systemd-boot/grub/limine/refind) registers one --loader entry per
+# disk; efistub has no loader binary, so it re-emits its per-kernel entries per
+# disk via the shared blcommon_efistub_register (ADR 0078).
+ESP_STYLE="$(bootloader_esp_style "$BOOTLOADER")"
+if [[ "$ESP_STYLE" == efistub ]]; then
+    # shellcheck source=../boot/bootloader-common.sh
+    source "$_LIB_DIR/bootloader-common.sh"
+else
+    EFI_LOADER="$(bootloader_efi_loader "$BOOTLOADER")"
+fi
 if [[ "$ESP_COUNT" -gt 1 ]]; then
     for i in $(seq 1 $(( ESP_COUNT - 1 ))); do
         rsync -a --delete /boot/efi/ "/boot/efi${i}/"
         EFI_DEV="$(findmnt -n -o SOURCE "/boot/efi${i}" || true)"
-        if [[ -n "$EFI_DEV" ]]; then
-            [[ "$EFI_DEV" =~ nvme|mmcblk ]] \
-                && EFI_DISK="${EFI_DEV%p[0-9]*}" \
-                || EFI_DISK="${EFI_DEV%[0-9]*}"
+        [[ -n "$EFI_DEV" ]] || continue
+        if [[ "$EFI_DEV" =~ nvme|mmcblk ]]; then
+            EFI_DISK="${EFI_DEV%p[0-9]*}"; EFI_PART="${EFI_DEV##*p}"
+        else
+            EFI_DISK="${EFI_DEV%[0-9]*}"; EFI_PART="${EFI_DEV##*[a-z]}"
+        fi
+        if [[ "$ESP_STYLE" == efistub ]]; then
+            blcommon_efistub_register "$EFI_DISK" "$EFI_PART" \
+                "disk $((i+1))"
+        else
             efibootmgr --create \
-                --disk "$EFI_DISK" --part 1 \
+                --disk "$EFI_DISK" --part "$EFI_PART" \
                 --label "Arch Linux (fallback disk $((i+1)))" \
                 --loader "$EFI_LOADER" \
                 || true

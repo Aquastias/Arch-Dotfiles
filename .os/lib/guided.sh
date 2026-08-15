@@ -502,7 +502,7 @@ _guided_edit_swap_size() {
   _guided_edit_scalar swap_size "Swap size (e.g. 8G)" options.swap_size
 }
 _guided_edit_esp_size() {
-  _guided_edit_scalar esp_size "ESP size (e.g. 2G)" options.esp_size
+  _guided_edit_scalar esp_size "ESP size (auto, or e.g. 2G)" options.esp_size
 }
 _guided_edit_age_key_url() {
   _guided_edit_scalar age_key_url "Age key URL" options.age_key_url

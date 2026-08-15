@@ -51,6 +51,27 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   ! in_output initramfs-linux.img
 }
 
+@test "planner mirrors every kernel across multiple entries (ADR 0078)" {
+  # Two selected kernels → two entry files, each naming its own images; the
+  # planner must mirror all of them, while a stray rolling kernel stays out.
+  _entry arch-linux-lts vmlinuz-linux-lts amd-ucode.img initramfs-linux-lts.img
+  _entry arch-linux-zen vmlinuz-linux-zen amd-ucode.img initramfs-linux-zen.img
+  : >"$BOOT/vmlinuz-linux-lts"; : >"$BOOT/initramfs-linux-lts.img"
+  : >"$BOOT/vmlinuz-linux-zen"; : >"$BOOT/initramfs-linux-zen.img"
+  : >"$BOOT/amd-ucode.img"
+  : >"$BOOT/vmlinuz-linux"; : >"$BOOT/initramfs-linux.img"  # stray
+
+  run esp_sync_planned_files "$ESP" "$BOOT"
+  [ "$status" -eq 0 ]
+  in_output vmlinuz-linux-lts
+  in_output initramfs-linux-lts.img
+  in_output vmlinuz-linux-zen
+  in_output initramfs-linux-zen.img
+  in_output amd-ucode.img
+  ! in_output vmlinuz-linux
+  ! in_output initramfs-linux.img
+}
+
 @test "planner omits an entry-referenced file missing from /boot" {
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
   : >"$BOOT/vmlinuz-linux-lts" # only this one exists in /boot

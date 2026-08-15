@@ -30,7 +30,7 @@ _INSTALL_CONFIG_SCHEMA=(
   "zswap_enabled|.options.zswap.enabled|bool|true"
   "zswap_compressor|.options.zswap.compressor|scalar|zstd"
   "zswap_max_pool_percent|.options.zswap.max_pool_percent|scalar|20"
-  "esp_size|.options.esp_size|scalar|2G"
+  "esp_size|.options.esp_size|scalar|auto"
   "root_shell|.options.root_shell|scalar|/bin/bash"
   "ssh_enabled|.options.ssh.enabled|bool|false"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"

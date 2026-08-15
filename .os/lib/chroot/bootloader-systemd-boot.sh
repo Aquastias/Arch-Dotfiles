@@ -35,16 +35,17 @@ _ZSWAP_SH="$_LIB_DIR/zswap.sh"
 source "$_ZSWAP_SH"
 ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
 
-# Boot entry tracks the Primary Kernel's package base (interim primary-only
-# bridge; secondary kernels still get default presets via mkinitcpio -P).
-KBASE="$(kernel_pkg "$KERNEL")"
-VMLINUZ="vmlinuz-${KBASE}"
-INITRAMFS="initramfs-${KBASE}.img"
-INITRAMFS_FB="initramfs-${KBASE}-fallback.img"
-# The root= cmdline + initramfs HOOKS come from install-state's filesystem-blind
-# boot record (ROOT_CMDLINE/HOOKS, ADR 0043); the Root Layout Adapter decided
-# them at plan/format time, so this Bootloader Adapter never names a filesystem.
-ENTRY_TITLE="Arch Linux (${KBASE})"
+# Pure per-kernel entry renderer (staged flat into lib-chroot).
+_LE_SH="$_LIB_DIR/loader-entries.sh"
+[[ -f "$_LE_SH" ]] || _LE_SH="$_LIB_DIR/../boot/loader-entries.sh"
+# shellcheck disable=SC1090
+source "$_LE_SH"
+
+# Every selected kernel gets a default + fallback entry (ADR 0078); the Primary
+# Kernel (KERNELS[0] == KERNEL) is the loader default. The root= cmdline + HOOKS
+# come from install-state's filesystem-blind boot record (ROOT_CMDLINE/HOOKS,
+# ADR 0043), so this adapter never names a filesystem.
+PRIMARY_KBASE="$(kernel_pkg "$KERNEL")"
 
 # systemd-boot cannot read ZFS — kernel and initramfs must live
 # on the FAT32 ESP.
@@ -63,8 +64,8 @@ mkdir -p /boot/efi/loader/entries
 # media. Trade-off: it is a physical-access root path (init=/bin/bash), but
 # systemd-boot force-disables the editor under Secure Boot regardless, so the
 # risk is bounded on an SB-enrolled machine.
-cat > /boot/efi/loader/loader.conf << 'EOF'
-default arch-zfs.conf
+cat > /boot/efi/loader/loader.conf << EOF
+default arch-${PRIMARY_KBASE}.conf
 timeout 4
 console-mode max
 editor yes
@@ -85,38 +86,43 @@ QUIET_CMDLINE=""
 [[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
   && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"
 
-cat > /boot/efi/loader/entries/arch-zfs.conf << EOF
-title   ${ENTRY_TITLE}
-linux   /${VMLINUZ}
-${MICROCODE_INITRDS}
-initrd  /${INITRAMFS}
-options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}
-EOF
+DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}"
 
-cat > /boot/efi/loader/entries/arch-zfs-fallback.conf << EOF
-title   Arch Linux (ZFS — fallback)
-linux   /${VMLINUZ}
-${MICROCODE_INITRDS}
-initrd  /${INITRAMFS_FB}
-options ${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}
-EOF
+# One default + fallback entry per selected kernel, per-kbase filenames so the
+# images never collide on the ESP (ADR 0078). ESP Kernel Sync mirrors exactly
+# the files these entries reference.
+for _tok in "${KERNELS[@]}"; do
+  kbase="$(kernel_pkg "$_tok")"
+  initramfs="initramfs-${kbase}.img"
+  initramfs_fb="initramfs-${kbase}-fallback.img"
 
-cp "/boot/${VMLINUZ}"   /boot/efi/
-cp "/boot/${INITRAMFS}" /boot/efi/
+  # Default entry — quiet on a desktop so the greeter VT stays clean.
+  sdboot_entry "Arch Linux (${kbase})" "$kbase" "$MICROCODE_INITRDS" \
+    "$initramfs" "${DEFAULT_OPTS}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}" \
+    > "/boot/efi/loader/entries/arch-${kbase}.conf"
 
-if [[ ! -f "/boot/${INITRAMFS_FB}" ]]; then
-    echo "Fallback initramfs not found — generating now ..."
-    mkinitcpio -p "$KBASE" -S autodetect 2>/dev/null \
-        || mkinitcpio -g "/boot/${INITRAMFS_FB}" 2>/dev/null \
-        || true
-fi
-if [[ -f "/boot/${INITRAMFS_FB}" ]]; then
-    cp "/boot/${INITRAMFS_FB}" /boot/efi/
-else
-    rm -f /boot/efi/loader/entries/arch-zfs-fallback.conf
-    echo "Note: fallback initramfs not available — fallback boot entry removed."
-fi
+  cp "/boot/vmlinuz-${kbase}" /boot/efi/
+  cp "/boot/${initramfs}"     /boot/efi/
 
+  # Fallback entry stays verbose so a broken boot is diagnosable. Generate the
+  # fallback initramfs if the preset did not.
+  if [[ ! -f "/boot/${initramfs_fb}" ]]; then
+    echo "Fallback initramfs for ${kbase} missing — generating ..."
+    mkinitcpio -p "$kbase" -S autodetect 2>/dev/null \
+      || mkinitcpio -g "/boot/${initramfs_fb}" 2>/dev/null \
+      || true
+  fi
+  if [[ -f "/boot/${initramfs_fb}" ]]; then
+    sdboot_entry "Arch Linux (${kbase} — fallback)" "$kbase" \
+      "$MICROCODE_INITRDS" "$initramfs_fb" "$DEFAULT_OPTS" \
+      > "/boot/efi/loader/entries/arch-${kbase}-fallback.conf"
+    cp "/boot/${initramfs_fb}" /boot/efi/
+  else
+    echo "Note: no fallback for ${kbase} — fallback entry skipped."
+  fi
+done
+
+# CPU microcode (one vendor, ADR 0038) onto the ESP.
 [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img /boot/efi/ || true
 [[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   /boot/efi/ || true
 

@@ -20,6 +20,15 @@ setup() {
   [ "$(bootloader_efi_loader grub)" = '\EFI\GRUB\grubx64.efi' ]
 }
 
+@test "bootloader_efi_loader: limine and refind" {
+  [ "$(bootloader_efi_loader limine)" = '\EFI\limine\limine_x64.efi' ]
+  [ "$(bootloader_efi_loader refind)" = '\EFI\refind\refind_x64.efi' ]
+}
+
+@test "bootloader_efi_loader: efistub has no static loader path (empty)" {
+  [ -z "$(bootloader_efi_loader efistub)" ]
+}
+
 @test "bootloader_efi_loader: unknown loader aborts" {
   run bootloader_efi_loader frobnicate
   [ "$status" -ne 0 ]
@@ -33,6 +42,15 @@ setup() {
 
 @test "bootloader_packages: systemd-boot adds nothing (ships with systemd)" {
   [ -z "$(bootloader_packages systemd-boot)" ]
+}
+
+@test "bootloader_packages: limine and refind add their own package" {
+  [ "$(bootloader_packages limine)" = "limine" ]
+  [ "$(bootloader_packages refind)" = "refind" ]
+}
+
+@test "bootloader_packages: efistub adds nothing (efibootmgr is in base)" {
+  [ -z "$(bootloader_packages efistub)" ]
 }
 
 @test "bootloader_packages: unknown loader aborts" {
@@ -58,6 +76,16 @@ setup() {
 
 @test "bootloader_esp_mirrors: grub reads /boot natively (no ESP mirror)" {
   [ "$(bootloader_esp_mirrors grub)" = "no" ]
+}
+
+@test "bootloader_esp_style: efistub has no loader binary" {
+  [ "$(bootloader_esp_style efistub)" = "efistub" ]
+}
+
+@test "bootloader_esp_mirrors: efistub/limine/refind all mirror (ADR 0077)" {
+  [ "$(bootloader_esp_mirrors efistub)" = "yes" ]
+  [ "$(bootloader_esp_mirrors limine)" = "yes" ]
+  [ "$(bootloader_esp_mirrors refind)" = "yes" ]
 }
 
 # ── validity ─────────────────────────────────────────────────────────────────

@@ -84,12 +84,12 @@ _cfgstate_computed_defaults() {
   # normalise compares against, so re-picking any shown default clears its ●.
   # All idempotent with Host Core / the accessors (filesystem→zfs, optional
   # repos→[multilib],
-  # esp→2G, bootloader→systemd-boot; encryption/impermanence/ssh default off).
+  # esp→auto, bootloader→systemd-boot; encryption/impermanence/ssh off).
   state="$(cfgstate_set "$state" filesystem '"zfs"')"
   # Manual Partitioning kind (ADR 0073): auto = the predefined pool layouts, the
   # untouched default; idempotent with the accessor (disk_config.kind→auto).
   state="$(cfgstate_set "$state" disk_config.kind '"auto"')"
-  state="$(cfgstate_set "$state" options.esp_size '"2G"')"
+  state="$(cfgstate_set "$state" options.esp_size '"auto"')"
   state="$(cfgstate_set "$state" options.bootloader '"systemd-boot"')"
   state="$(cfgstate_set "$state" options.optional_repos '["multilib"]')"
   state="$(cfgstate_set "$state" options.encryption 'false')"

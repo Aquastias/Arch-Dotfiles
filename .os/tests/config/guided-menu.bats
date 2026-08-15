@@ -146,7 +146,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | jq -e 'all(.[]; .field != "options.swap")'
   echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
   echo "$output" | row options.esp_size     | jq -e '.section == "Disks"'
-  echo "$output" | row options.esp_size     | jq -e '.value == "2G"'
+  echo "$output" | row options.esp_size     | jq -e '.value == "auto"'
   echo "$output" | row options.ssh.enabled  | jq -e '.section == "Advanced"'
   echo "$output" | row options.ssh.enabled  | jq -e '.value == "false"'
   echo "$output" | row options.age_key_url  | jq -e '.section == "Advanced"'

@@ -50,7 +50,7 @@ _MENU_FIELDS=(
   "Disks|filesystem|filesystem|zfs"
   "Disks|options.encryption|encryption|false"
   "Disks|options.impermanence.enabled|impermanence|false"
-  "Disks|options.esp_size|esp size|2G"
+  "Disks|options.esp_size|esp size|auto"
   "Bootloader|options.bootloader|bootloader|systemd-boot"
   "Kernels|options.kernel|kernel|lts"
   "General|system.hostname|hostname|"
@@ -81,7 +81,8 @@ _MENU_FIELDS=(
 menu_enum_options() {
   case "$1" in
   options.kernel)                 printf '%s\n' lts default hardened zen ;;
-  options.bootloader)             printf '%s\n' systemd-boot grub ;;
+  options.bootloader)
+    printf '%s\n' systemd-boot grub efistub limine refind ;;
   environment.desktop)            printf '%s\n' kde hyprland ;;
   environment.display_manager)    printf '%s\n' auto greetd sddm ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
