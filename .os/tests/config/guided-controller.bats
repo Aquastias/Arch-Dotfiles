@@ -38,7 +38,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "Proceed ▸"
   echo "$output" | grep -q "Save profile ▸"
   echo "$output" | grep -q "Export config ▸"
+  echo "$output" | grep -q "Abort ▸"
   echo "$output" | grep -q "──────"
+}
+
+@test "enter(top): Abort emits the abort directive (Esc-equivalent, ADR 0077)" {
+  [ "$(guided_ctl_enter "Abort ▸ quit without installing")" = "abort" ]
 }
 
 @test "enter(top): a category drills in (render + nav)" {
