@@ -40,6 +40,7 @@
 # chroot scripts source by bare name.
 _CHROOT_STAGE_LIBCHROOT=(
   "lib/install-state.sh|install-state.sh"
+  "lib/config/locale-parts.sh|locale-parts.sh"
   "lib/packages/kernel.sh|kernel.sh"
   "lib/packages/microcode.sh|microcode.sh"
   "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
