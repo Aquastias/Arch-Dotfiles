@@ -37,6 +37,9 @@
 # shellcheck source=./kernel.sh
 [[ "$(type -t kernel_pkg)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/kernel.sh"
+# shellcheck source=../boot/bootloaders.sh
+[[ "$(type -t bootloader_packages)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
 # shellcheck source=../config/post-install.sh
 [[ "$(type -t post_install_programs)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
@@ -143,9 +146,13 @@ pkgres_resolve() {
     | if type == "string" then [.] else . end | .[]')
 
   # ── bootloader ────────────────────────────────────────────────────────────
-  # systemd-boot ships with systemd (already in base); only grub adds a package.
-  local _bl; _bl="$(_pkgres_jq "$cfg" '.options.bootloader // "systemd-boot"')"
-  [[ "$_bl" == "grub" ]] && _pkgres_emit bootloader derived grub
+  # Packages come from the Bootloader Manifest (ADR 0077); today systemd-boot
+  # adds nothing and grub adds grub.
+  local _bl _blp
+  _bl="$(_pkgres_jq "$cfg" '.options.bootloader // "systemd-boot"')"
+  while IFS= read -r _blp; do
+    [[ -n "$_blp" ]] && _pkgres_emit bootloader derived "$_blp"
+  done < <(bootloader_packages "$_bl")
 
   # ── filesystem userland ───────────────────────────────────────────────────
   # Per-filesystem tools for any group using them; ext4 rides e2fsprogs in base

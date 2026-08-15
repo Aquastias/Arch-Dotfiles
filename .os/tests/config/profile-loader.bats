@@ -570,6 +570,26 @@ write_jsonc() {
   [[ "$output" == *"options.encrytion"* ]]
 }
 
+@test "validate_profile: unknown bootloader aborts with its path (ADR 0077)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+    '{"options":{"bootloader":"lilo"}}'
+
+  run validate_profile desktop
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"options.bootloader"* ]]
+  [[ "$output" == *"lilo"* ]]
+}
+
+@test "validate_profile: a known bootloader validates clean (ADR 0077)" {
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+    '{"options":{"bootloader":"grub"}}'
+
+  run validate_profile desktop
+  [ "$status" -eq 0 ]
+}
+
 # ── pool skeleton (no devices) ⇄ picker assignment (unified-host-profile/02) ─
 # The profile carries the full pool skeleton minus devices; it must validate,
 # and the effective config the picker assembles from it must validate too.

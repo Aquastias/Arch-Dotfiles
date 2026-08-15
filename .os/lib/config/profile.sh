@@ -31,6 +31,10 @@
 [[ "$(type -t post_install_validate)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
+# shellcheck source=../boot/bootloaders.sh
+[[ "$(type -t bootloader_is_valid)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
+
 # load_profile <name> — effective host config on stdout.
 # load_user_profile <name> — effective user config on stdout (symmetric).
 # Both merge <kind>/<name>/profile.jsonc over <kind>/core/profile.jsonc.
@@ -274,6 +278,21 @@ _profile_reject_manual() {
   return 1
 }
 
+# _validate_bootloader <host-json> [<name>] — reject an options.bootloader value
+# outside the closed set (ADR 0077). The Bootloader Manifest's known loaders are
+# pinned to menu_enum_options options.bootloader by a drift-guard test, so this
+# rejects a typo with its path before any disk write. rc 0 when valid or absent.
+# Pure: reads its JSON argument only.
+_validate_bootloader() {
+  local json="$1" name="${2:-<profile>}" bl
+  bl="$(printf '%s' "$json" | jq -r '.options.bootloader // empty')"
+  [[ -z "$bl" ]] && return 0
+  bootloader_is_valid "$bl" && return 0
+  error "Profile '${name}' sets options.bootloader='${bl}', not one of:" \
+    "$(bootloader_all | paste -sd' ' -) (ADR 0077)."
+  return 1
+}
+
 # validate_profile <name> — the validate-at-load entrypoint. Loads and
 # closed-schema-validates the host profile, every referenced user profile,
 # and every referenced program config.jsonc (host system_programs + each
@@ -288,6 +307,7 @@ validate_profile() {
          return 1; }
   validate_config_schema host "$host_json" || return 1
   _profile_reject_manual "$host_json" "$name" || return 1
+  _validate_bootloader "$host_json" "$name" || return 1
 
   # Security & Backup Extras shape (ADR 0041): reject the old bool form and
   # malformed objects (bad firewall enum, non-bool toggles) — the closed schema
