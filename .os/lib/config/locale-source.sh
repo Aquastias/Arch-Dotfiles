@@ -17,6 +17,10 @@
 # Pure w.r.t. its inputs: reads the medium only, no TTY, no Config State.
 # =============================================================================
 
+# shellcheck source=./locale-parts.sh
+[[ "$(type -t locale_encoding)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/locale-parts.sh"
+
 # locale_list_keymaps — every console keymap the medium offers, one per line.
 # Prefers `localectl list-keymaps`; falls back to the kbd keymaps tree (also the
 # only source under a fixture root, where localectl is deliberately skipped).
@@ -29,31 +33,9 @@ locale_list_keymaps() {
   return 0
 }
 
-# ── locale compose / decompose (ADR 0076) ──────────────────────────────────
-# The canonical `system.locale` is one locale.gen name (e.g. en_US.UTF-8); the
-# `language` and `encoding` leaves are two views of it. These three pure helpers
-# are the sole owner of the split, so both Guided front-ends recompose the same
-# way and a doubled charset (en_US.UTF-8.UTF-8) can never be authored.
-
-# locale_language <locale> → the language identity: the name with its .CODESET
-# dropped, any @modifier kept. en_US.UTF-8→en_US, sr_RS.UTF-8@latin→sr_RS@latin.
-locale_language() { sed 's/\.[^.@]*//' <<<"$1"; }
-
-# locale_encoding <locale> → the CODESET (between . and any @), empty if none.
-locale_encoding() { sed -n 's/[^.]*\.\([^.@]*\).*/\1/p' <<<"$1"; }
-
-# locale_compose <language> <encoding> → the locale.gen name: <encoding> spliced
-# in before any @modifier. Empty <encoding> yields the bare language. Exactly one
-# codeset is ever present, so recomposing an already-composed value is a no-op.
-locale_compose() {
-  local lang="$1" enc="$2"
-  [[ -n "$enc" ]] || { printf '%s\n' "$lang"; return; }
-  if [[ "$lang" == *@* ]]; then
-    printf '%s.%s@%s\n' "${lang%%@*}" "$enc" "${lang#*@}"
-  else
-    printf '%s.%s\n' "$lang" "$enc"
-  fi
-}
+# The pure compose/decompose helpers (locale_language / locale_encoding /
+# locale_compose) live in locale-parts.sh, sourced above — the same rule the
+# in-chroot identity module uses to derive the locale.gen charset.
 
 # locale_list_languages — every language identity the medium's SUPPORTED locales
 # offer (codeset stripped), sorted-unique. Falls back to `localectl list-locales`.

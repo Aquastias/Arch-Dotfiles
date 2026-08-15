@@ -15,6 +15,13 @@ _INSTALL_STATE_SH="$_LIB_DIR/install-state.sh"
 source "$_INSTALL_STATE_SH"
 install_state_load "$STATE"
 
+# locale_encoding — the charset rule shared with the host Menu model (ADR 0076).
+# Staged flat into lib-chroot; ../config/ is the source-tree fallback.
+_LOCALE_PARTS_SH="$_LIB_DIR/locale-parts.sh"
+[[ -f "$_LOCALE_PARTS_SH" ]] || _LOCALE_PARTS_SH="$_LIB_DIR/../config/locale-parts.sh"
+# shellcheck disable=SC1090
+source "$_LOCALE_PARTS_SH"
+
 # ── Timezone ──────────────────────────────────────────────────────────────────
 ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
 hwclock --systohc
@@ -24,12 +31,12 @@ echo "Timezone set: $TIMEZONE"
 # Generate every locale in LOCALES[] (element 0 is the LANG default); KEYMAP
 # is the console default (keymap[0]). Both arrays come from install-state.
 # The locale.gen charset column is the locale's own CODESET (ADR 0076: the
-# encoding leaf), derived like locale_encoding() — the codeset between '.' and
+# encoding leaf), via the shared locale_encoding() — the codeset between '.' and
 # any '@modifier' — defaulting to UTF-8 when the name carries none. A non-UTF-8
 # encoding is honoured instead of silently coerced to UTF-8.
 for _loc in "${LOCALES[@]}"; do
     [[ -n "$_loc" ]] || continue
-    _enc="$(sed -n 's/[^.]*\.\([^.@]*\).*/\1/p' <<<"$_loc")"
+    _enc="$(locale_encoding "$_loc")"
     _enc="${_enc:-UTF-8}"
     if grep -q "^#${_loc} ${_enc}" /etc/locale.gen; then
         sed -i "s/^#${_loc} ${_enc}/${_loc} ${_enc}/" /etc/locale.gen
