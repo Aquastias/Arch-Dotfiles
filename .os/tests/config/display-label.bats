@@ -28,6 +28,19 @@ setup() {
   [ "$(display_label systemd-boot)" = "systemd-boot" ]
 }
 
+@test "curated: efistub / refind use their canonical stylings (ADR 0077)" {
+  [ "$(display_label efistub)" = "EFISTUB" ]
+  [ "$(display_label refind)" = "rEFInd" ]
+  # grub / limine keep the sentence-case convention
+  [ "$(display_label grub)" = "Grub" ]
+  [ "$(display_label limine)" = "Limine" ]
+}
+
+@test "reverse: curated loader labels resolve back to their tokens" {
+  [ "$(display_reverse EFISTUB efistub grub)" = "efistub" ]
+  [ "$(display_reverse rEFInd refind grub)" = "refind" ]
+}
+
 @test "curated: filesystems (curated wins over the digit passthrough)" {
   [ "$(display_label ext4)" = "Ext4" ]
   [ "$(display_label xfs)" = "Xfs" ]
