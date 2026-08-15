@@ -1633,7 +1633,11 @@ guided_ctl_list() {
       printf '%s\n' \
         "Save profile ▸ write a device-less profile" \
         "Export config ▸ write a device-baked config"
-    fi ;;
+    fi
+    # Abort is always available (Esc-equivalent): a pre-destructive clean exit
+    # so install.sh skips the back-end. Unconditional, unlike Save/Export which
+    # are withheld under Manual Partitioning (ADR 0077).
+    printf '%s\n' "Abort ▸ quit without installing" ;;
   profiles)
     # The picker leads with `↺ Reset to blank` (a confirm-gated full session
     # reset, ADR 0063), then the installable Host Profiles (ADR 0055) one row
@@ -2465,6 +2469,7 @@ _ctl_enter_top() {
   "Proceed"*)       _ctl_proceed_directive ;;
   "Save profile"*)  echo "terminal save" ;;
   "Export config"*) echo "terminal export" ;;
+  "Abort"*)         echo abort ;;
   *)
     # The top row is "<name> — <summary>"; split on the em-dash so multi-word
     # category names (e.g. "Mirrors & Repositories") survive whole (ADR 0071).
