@@ -42,6 +42,9 @@
 # shellcheck source=lib/config/menu.sh
 [[ "$(type -t menu_categories)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
+
+[[ "$(type -t esp_budget_fits_size)" == "function" ]] \
+  || source "${BASH_SOURCE[0]%/*}/boot/esp-budget.sh"
 # shellcheck source=lib/config/manual-partition.sh
 [[ "$(type -t manual_kind_active)" == "function" ]] \
   || source "${BASH_SOURCE[0]%/*}/config/manual-partition.sh"
@@ -938,6 +941,23 @@ _ctl_nav_prompt() {
   esac
 }
 
+# _ctl_esp_budget_warn <effective-json> → a one-line ⚠ when a PINNED esp_size is
+# too small for the selected kernels on an ESP-mirroring loader (ADR 0078), so
+# the conflict shows live on the Kernels / Disks screens, not only at Proceed.
+# Nothing when esp_size is auto, the loader is grub, or the pin fits.
+_ctl_esp_budget_warn() {
+  local eff="$1" size n fs bl
+  size="$(jq -r '.options.esp_size // "auto"' <<<"$eff")"
+  [[ "$size" == auto ]] && return 0
+  n="$(jq -r '(.options.kernel // ["lts"])
+              | if type == "string" then 1 else length end' <<<"$eff")"
+  fs="$(jq -r '.filesystem // "zfs"' <<<"$eff")"
+  bl="$(jq -r '.options.bootloader // "systemd-boot"' <<<"$eff")"
+  esp_budget_fits_size "$size" "$n" "$fs" "$bl" && return 0
+  printf '⚠ ESP too small: %s %s kernel(s) need ≥ %s (esp size is %s)\n' \
+    "$n" "$bl" "$(esp_budget_auto_size "$n" "$fs" "$bl")" "$size"
+}
+
 # _ctl_layout_label <effective-json> → a one-line description of the current disk
 # layout, so the Disks "Disk layout" row reflects the chosen preset instead of a
 # static "choose preset". single → "single"; multi → "os <topo> ×<n>" plus any
@@ -1655,6 +1675,11 @@ guided_ctl_list() {
     _ctl_action_row "← Back" ;;
   category)
     local cat; cat="$(nav_get "$nav" category)"
+    # Live ESP budget warning (ADR 0078): surfaced on the Kernels + Disks
+    # screens where kernels / esp_size are picked, not only at Proceed.
+    if [[ "$cat" == "Disks" || "$cat" == "Kernels" ]]; then
+      _ctl_esp_budget_warn "$(_ctl_effective "$state" "$base")"
+    fi
     # Disks leads with the layout row (the headline storage choice), then fields.
     if [[ "$cat" == "Disks" ]] && manual_kind_active "$state"; then
       # Manual Partitioning (ADR 0073): the pool layout / root-disk / swap rows

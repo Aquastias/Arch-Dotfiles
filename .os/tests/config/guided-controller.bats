@@ -77,6 +77,32 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "← Back"
 }
 
+@test "list(category Disks): pinned esp_size too small for kernels warns live" {
+  printf '%s\n' '{"filesystem":"zfs","options":{"esp_size":"1G",
+    "bootloader":"systemd-boot","kernel":["lts","default","hardened","zen"]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  echo "$output" | grep -q "⚠ ESP too small"
+}
+
+@test "list(category Kernels): the live ESP warning also shows here (ADR 0078)" {
+  printf '%s\n' '{"filesystem":"zfs","options":{"esp_size":"1G",
+    "bootloader":"systemd-boot","kernel":["lts","default","hardened","zen"]}}' \
+    > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Kernels)"
+  run guided_ctl_list
+  echo "$output" | grep -q "⚠ ESP too small"
+}
+
+@test "list(category Disks): esp_size auto never warns" {
+  printf '%s\n' '{"filesystem":"zfs","options":{"esp_size":"auto",
+    "kernel":["lts","default","hardened","zen"]}}' > "$GUIDED_STATE_FILE"
+  set_nav "$(nav_to_category Disks)"
+  run guided_ctl_list
+  ! echo "$output" | grep -q "ESP too small"
+}
+
 @test "list(category Disks): the Disk layout row reflects the chosen preset" {
   printf '%s\n' "$(nav_to_values Disks __layout__ "layout")" \
     > "$GUIDED_NAV_FILE"
