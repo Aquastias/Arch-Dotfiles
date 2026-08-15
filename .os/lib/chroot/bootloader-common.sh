@@ -70,6 +70,20 @@ blcommon_stage_kernel() {
   fi
 }
 
+# blcommon_esp_disk_part [<esp-mount>] — print "<disk> <part>" for the ESP's
+# backing device, for efibootmgr --disk/--part. nvme/mmc use a `p<N>` partition
+# suffix, sata does not. Shared so no adapter hardcodes the partition number.
+blcommon_esp_disk_part() {
+  local mnt="${1:-$ESP}" dev disk part
+  dev="$(findmnt -n -o SOURCE "$mnt")"
+  if [[ "$dev" =~ nvme|mmcblk ]]; then
+    disk="${dev%p[0-9]*}"; part="${dev##*p}"
+  else
+    disk="${dev%[0-9]*}"; part="${dev##*[a-z]}"
+  fi
+  printf '%s %s\n' "$disk" "$part"
+}
+
 # blcommon_stage_microcode — copy the present vendor microcode image(s) to ESP.
 blcommon_stage_microcode() {
   [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img "$ESP/" || true

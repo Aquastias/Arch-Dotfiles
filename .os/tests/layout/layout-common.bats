@@ -115,7 +115,7 @@ write_config() {
   [ "$output" = "2G" ]
 }
 
-@test "layout_resolve_esp_size: auto grows above 2G for five kernels (ADR 0078)" {
+@test "layout_resolve_esp_size: auto grows past 2G for five kernels (0078)" {
   write_config '{"options":{"esp_size":"auto",
     "kernel":["lts","default","hardened","zen","lts"]}}'
   run layout_resolve_esp_size

@@ -27,14 +27,9 @@ for _tok in "${KERNELS[@]}"; do
 done
 blcommon_stage_microcode
 
-# Resolve the primary ESP's disk + partition for efibootmgr, then register the
-# per-kernel entries. nvme/mmc use a `p<N>` partition suffix, sata does not.
-EFI_DEV="$(findmnt -n -o SOURCE "$ESP")"
-if [[ "$EFI_DEV" =~ nvme|mmcblk ]]; then
-  EFI_DISK="${EFI_DEV%p[0-9]*}"; EFI_PART="${EFI_DEV##*p}"
-else
-  EFI_DISK="${EFI_DEV%[0-9]*}"; EFI_PART="${EFI_DEV##*[a-z]}"
-fi
+# Resolve the primary ESP's disk + partition, then register the per-kernel
+# entries against it.
+read -r EFI_DISK EFI_PART < <(blcommon_esp_disk_part)
 blcommon_efistub_register "$EFI_DISK" "$EFI_PART" ""
 
 blcommon_install_esp_sync_hooks
