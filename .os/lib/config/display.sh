@@ -8,7 +8,7 @@
 #
 # Rules (see PRD guided-installer-legion-fixes):
 #   1. A curated table gives acronyms / proper names their exact casing
-#      (KDE, NVIDIA, ZFS, SSH, LTS, UFW, URL, ESP, AMD, GPU, systemd-boot).
+#      (KDE, NVIDIA, ZFS, SSH, ESP, systemd-boot, EFISTUB, rEFInd, …).
 #   2. Otherwise the string is sentence-cased: the first letter is upper-cased,
 #      any curated acronym WORD is upper-cased, remaining words are lower-cased
 #      (e.g. "esp size" → "ESP size", "age key url" → "Age key URL").
@@ -40,6 +40,8 @@ _display_curated() {
   xfs)          echo Xfs ;;
   btrfs)        echo Btrfs ;;
   systemd-boot) echo systemd-boot ;;
+  efistub)      echo EFISTUB ;;
+  refind)       echo rEFInd ;;
   *)            return 1 ;;
   esac
 }
