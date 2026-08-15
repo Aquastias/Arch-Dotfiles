@@ -50,7 +50,9 @@ setup() {
   [[ "$output" == *'protocol: linux'* ]]
   [[ "$output" == *'kernel_path: boot():/vmlinuz-linux-lts'* ]]
   # microcode module loads BEFORE the main initramfs
-  [[ "$output" == *'module_path: boot():/amd-ucode.img'*'module_path: boot():/initramfs-linux-lts.img'* ]]
+  local ucode='module_path: boot():/amd-ucode.img'
+  local initrd='module_path: boot():/initramfs-linux-lts.img'
+  [[ "$output" == *"$ucode"*"$initrd"* ]]
   [[ "$output" == *'cmdline: root=ZFS=rpool rw'* ]]
 }
 
@@ -75,11 +77,22 @@ setup() {
   run efistub_load_options initramfs-linux-lts.img "amd-ucode.img" \
     "root=ZFS=rpool rw"
   [ "$status" -eq 0 ]
-  [ "$output" = 'initrd=\amd-ucode.img initrd=\initramfs-linux-lts.img root=ZFS=rpool rw' ]
+  local want='initrd=\amd-ucode.img initrd=\initramfs-linux-lts.img'
+  want+=' root=ZFS=rpool rw'
+  [ "$output" = "$want" ]
 }
 
 @test "efistub_load_options: no microcode → just initramfs + cmdline" {
   run efistub_load_options initramfs-linux.img "" "root=x rw"
   [ "$status" -eq 0 ]
   [ "$output" = 'initrd=\initramfs-linux.img root=x rw' ]
+}
+
+@test "efistub_load_options: multiple microcode images each get an initrd=" {
+  run efistub_load_options initramfs-linux.img "intel-ucode.img amd-ucode.img" \
+    "root=x rw"
+  [ "$status" -eq 0 ]
+  local want='initrd=\intel-ucode.img initrd=\amd-ucode.img'
+  want+=' initrd=\initramfs-linux.img root=x rw'
+  [ "$output" = "$want" ]
 }

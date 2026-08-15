@@ -21,9 +21,8 @@ source "$_LIB_DIR/bootloader-common.sh"
 # Deploy the limine EFI binary onto the ESP and register its UEFI entry.
 mkdir -p "$ESP/EFI/limine"
 cp /usr/share/limine/BOOTX64.EFI "$ESP/EFI/limine/limine_x64.efi"
-_efi_dev="$(findmnt -n -o SOURCE "$ESP")"
-_efi_disk="${_efi_dev%p[0-9]*}"; _efi_disk="${_efi_disk%[0-9]*}"
-efibootmgr --create --disk "$_efi_disk" --part 1 --label "Limine" \
+read -r _efi_disk _efi_part < <(blcommon_esp_disk_part)
+efibootmgr --create --disk "$_efi_disk" --part "$_efi_part" --label "Limine" \
   --loader '\EFI\limine\limine_x64.efi' --unicode || true
 
 # Generate limine.conf: the Primary Kernel first (default), each kernel's
