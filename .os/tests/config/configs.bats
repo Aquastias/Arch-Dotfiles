@@ -25,9 +25,12 @@ teardown() {
   jsonc_strip "$core" | jq -e '.packages.aur  | type == "object"'
 }
 
-@test "real host core system_programs is exactly [cups]" {
+# cups left Host Core (ADR 0079): it is now a toggle-derived System Program
+# driven by options.printing.enabled and injected at Effective-Config assembly,
+# so core declares no system programs — the Printing service category owns cups.
+@test "real host core declares no system_programs (cups is toggle-derived)" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  jsonc_strip "$core" | jq -e '.system_programs == ["cups"]'
+  jsonc_strip "$core" | jq -e '.system_programs == []'
 }
 
 # The confirmation that two layers fit this fleet: laptop is a strict subset

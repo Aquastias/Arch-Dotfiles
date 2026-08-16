@@ -66,6 +66,9 @@ declare -F guided_secretsfile_has_root >/dev/null 2>&1 \
 # shellcheck source=lib/config/profile.sh
 declare -F load_user_profile >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
+# shellcheck source=lib/config/printing.sh
+declare -F printing_owned_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/printing.sh"
 # shellcheck source=lib/config/profiles.sh
 declare -F profiles_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
@@ -551,7 +554,14 @@ _ctl_curated_persist_count() {
 # validate_programs rejects the config at Proceed), the User Editor's programs
 # row needs system:false (else the reference silently no-ops or aborts). One
 # unfiltered list used to feed both.
-_ctl_system_program_names() { program_names_of_kind system; }
+#
+# Programs the Printing toggle owns (cups) are filtered out (ADR 0079): they are
+# derived from options.printing.enabled, so the Printing service category is
+# their sole home — offering cups here too would be the double representation
+# the toggle exists to remove. Keyed on printing_owned_programs, not a literal.
+_ctl_system_program_names() {
+  program_names_of_kind system | grep -vxF -f <(printing_owned_programs)
+}
 _ctl_user_program_names()   { program_names_of_kind user; }
 
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.

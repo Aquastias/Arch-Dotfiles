@@ -475,9 +475,11 @@ write_jsonc() {
   export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local j; j="$(load_profile arch-data)"
 
-  # software preserved from the legacy synthesis (core + arch-data)
+  # software preserved from the legacy synthesis (core + arch-data). cups left
+  # core (ADR 0079) — it is toggle-derived and injected at assembly, not present
+  # in the loaded (pre-assembly) profile — so system_programs is empty here.
   echo "$j" | jq -e '.users == ["vm-data"]'
-  echo "$j" | jq -e '.system_programs == ["cups"]'
+  echo "$j" | jq -e '.system_programs == []'
   echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
 
   # machine skeleton present; devices excluded (operator-picked)

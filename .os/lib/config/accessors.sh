@@ -33,6 +33,11 @@ _INSTALL_CONFIG_SCHEMA=(
   "esp_size|.options.esp_size|scalar|auto"
   "root_shell|.options.root_shell|scalar|/bin/bash"
   "ssh_enabled|.options.ssh.enabled|bool|false"
+  # Printing Service (ADR 0079): the toggle-derived print-daemon switch, default
+  # on. cups is injected into system_programs from this at assembly; this is the
+  # typed back-end reader (printing_enabled in printing.sh reads the raw config
+  # for the pure injector/resolver).
+  "printing_enabled|.options.printing.enabled|bool|true"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"
   "impermanence_dataset|.options.impermanence.dataset|scalar|rpool/persist"
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"

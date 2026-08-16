@@ -43,6 +43,9 @@ declare -F bootloader_packages >/dev/null 2>&1 \
 # shellcheck source=../config/post-install.sh
 declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
+# shellcheck source=../config/printing.sh
+declare -F printing_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/printing.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -64,6 +67,7 @@ _PKGRES_SOURCES=(
   "kde-aur|Environment"
   "security|Security"
   "backup|Backup"
+  "printing|Printing service"
   "sops|secrets on disk"
   "repo|Packages"
   "aur|Packages"
@@ -255,6 +259,17 @@ pkgres_resolve() {
       esac
     done < <(post_install_programs "$pi" 2>/dev/null)
   fi
+
+  # ── Printing Service (ADR 0079) ───────────────────────────────────────────
+  # cups is a toggle-derived System Program, not authored in Host Core: report
+  # it as source=printing so `explain-packages` and the guided derived section
+  # answer "why is cups here?" the way they answer the Security/Backup extras —
+  # via printing_programs, the single source of truth the injector also shares.
+  local pp
+  while IFS= read -r pp; do
+    [[ -n "$pp" ]] || continue
+    _pkgres_emit printing derived "$pp"
+  done < <(printing_programs "$cfg" 2>/dev/null)
 
   # ── secrets-activated sops (ADR 0025) ─────────────────────────────────────
   # Not declared anywhere: the Runner selects it when the host or one of its

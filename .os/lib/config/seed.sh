@@ -95,6 +95,11 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.encryption 'false')"
   state="$(cfgstate_set "$state" options.impermanence.enabled 'false')"
   state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
+  # Printing Service (ADR 0079): the print daemon is on out of the box, so the
+  # Printing category shows it enabled with no ● until the operator flips it.
+  # cups is derived from this toggle at emit, never a system_programs baseline
+  # entry — idempotent with the printing_enabled default (on).
+  state="$(cfgstate_set "$state" options.printing.enabled 'true')"
   # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.
   # ILoveCandy / Color / VerbosePkgLists on out of the box; the two opt-ins off;
   # ParallelDownloads 5. Rides the baseline (no ● until edited); idempotent with

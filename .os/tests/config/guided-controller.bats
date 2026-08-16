@@ -141,7 +141,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "is_cycle_field: bare bools yes; enums and editor-backed bools no" {
   for f in options.ssh.enabled options.pacman.color \
-           post_install.security.antivirus post_install.backup.borg; do
+           post_install.security.antivirus post_install.backup.borg \
+           options.printing.enabled; do
     _ctl_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
   done
   for f in filesystem options.bootloader options.kernel \
@@ -149,6 +150,28 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
            options.impermanence.enabled system.hostname; do
     ! _ctl_is_cycle_field "$f" || { echo "unexpected cycle: $f"; false; }
   done
+}
+
+# cups is filtered from the Packages system-programs picker (ADR 0079): the
+# Printing service toggle owns it, so offering it here too would be the double
+# representation the toggle removes. Other system programs stay offered.
+@test "system-programs picker omits the toggle-owned cups, keeps the rest" {
+  mkdir -p "$OS_DIR/programs/office/cups" \
+           "$OS_DIR/programs/bootloader/grub" \
+           "$OS_DIR/programs/security/sops"
+  printf '{"name":"cups","system":true}\n' \
+    > "$OS_DIR/programs/office/cups/config.jsonc"
+  printf '{"name":"grub","system":true}\n' \
+    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+  printf '{"name":"sops","system":true}\n' \
+    > "$OS_DIR/programs/security/sops/config.jsonc"
+  configs_build_registry
+
+  run _ctl_system_program_names
+  [ "$status" -eq 0 ]
+  ! grep -qx cups <<<"$output"        # toggle-owned, filtered out
+  grep -qx grub <<<"$output"          # other system programs stay
+  grep -qx sops <<<"$output"
 }
 
 @test "enter(category): a bare bool flips in place (refresh, no drill)" {
@@ -1891,17 +1914,19 @@ mixed_programs_setup() {
   done
 }
 
-@test "system_programs picker offers exactly the system:true programs" {
+@test "system_programs picker offers the system:true programs, minus cups" {
   mixed_programs_setup
   set_nav "$(nav_to_values Packages system_programs "system programs")"
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qx "\[ \] cups"
   echo "$output" | grep -qx "\[ \] grub"
+  # cups is toggle-owned (ADR 0079): filtered from this picker, its sole home is
+  # the Printing service category.
+  ! echo "$output" | grep -q "cups"
   # the system:false programs must not be offered at all
   ! echo "$output" | grep -q "docker"
   ! echo "$output" | grep -q "borg"
-  [ "$(echo "$output" | grep -c '^\[')" -eq 2 ]
+  [ "$(echo "$output" | grep -c '^\[')" -eq 1 ]
 }
 
 @test "User Editor programs picker offers exactly the system:false programs" {

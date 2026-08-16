@@ -73,6 +73,10 @@ _MATRIX_AXIS_REGISTRY=(
   "post_install.security.apparmor|inert|light"
   "post_install.backup.zfs_auto_snapshot|inert|light"
   "post_install.backup.borg|inert|light"
+  # Printing Service (ADR 0079): a derived service toggle like security/backup —
+  # it adds one repo package (cups) with no install-combination content, so it
+  # is inert for the pairwise cover, not a new axis.
+  "options.printing.enabled|inert|light"
   "users|inert|heavy"
 )
 
