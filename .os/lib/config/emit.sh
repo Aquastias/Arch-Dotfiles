@@ -27,6 +27,9 @@ declare -F _configs_merge >/dev/null 2>&1 \
 # shellcheck source=../picker.sh
 declare -F picker_assign_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
+# shellcheck source=./printing.sh
+declare -F printing_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/printing.sh"
 
 # guided_profile_delta <config> — the device-less Host Profile a Save writes
 # (issue 08). Strips every device path — the single `.disk` and the per-pool
@@ -137,5 +140,9 @@ emit_effective() {
   # never goes through a layer fold (core is already in the baseline), so
   # without this an unchecked package would be emitted and installed anyway.
   view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
-  picker_assign_disks "$view" "$assignment"
+  # Printing Service (ADR 0079): fold the toggle-derived cups into
+  # system_programs when printing is on. cups is no longer a Host Core system
+  # program or a Packages-pickable row — the Printing category owns it, so it is
+  # derived here at emit rather than shown as a system_programs baseline entry.
+  printing_inject "$(picker_assign_disks "$view" "$assignment")"
 }

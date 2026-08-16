@@ -31,6 +31,10 @@ declare -F picker_assign_disks >/dev/null 2>&1 \
 declare -F post_install_validate >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
+# shellcheck source=./printing.sh
+declare -F printing_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/printing.sh"
+
 # shellcheck source=../boot/bootloaders.sh
 declare -F bootloader_is_valid >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
@@ -104,11 +108,15 @@ assemble_profile_config() {
   profile_json="$(load_profile "$name")" || return $?
   effective="$(picker_assign_disks "$profile_json" "$assignment")" || return $?
 
-  jq --arg name "$name" '
+  # Printing Service (ADR 0079): fold the toggle-derived cups into
+  # system_programs when printing is on, so the Runner installs it exactly as an
+  # authored System Program. cups is no longer declared in Host Core.
+  effective="$(jq --arg name "$name" '
     .system = (.system // {})
     | .system.hostname =
         (if (.system.hostname // "") == "" then $name else .system.hostname end)
-  ' <<<"$effective"
+  ' <<<"$effective")"
+  printing_inject "$effective"
 }
 
 # =============================================================================
@@ -136,6 +144,9 @@ _PROFILE_SCHEMA_host=(
   "options.zswap.enabled" "options.zswap.compressor"
   "options.zswap.max_pool_percent"
   "options.ssh.enabled" "options.mirror_countries[]"
+  # — Printing Service (ADR 0079): the toggle-derived cups switch. Default on;
+  #   cups is injected into system_programs at assembly, not declared in core. —
+  "options.printing.enabled"
   # — Mirrors & Repositories (ADR 0072): optional repos (multilib + testing),
   #   custom mirror servers, and archinstall-style custom repositories —
   "options.optional_repos[]" "options.mirror_servers[]"

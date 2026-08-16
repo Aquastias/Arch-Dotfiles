@@ -21,9 +21,12 @@ setup() {
   section() { :; }
   export -f info warn error section
 
+  # Host Core declares a plain System Program (grub) — cups is no longer a core
+  # program but the toggle-derived one injected at emit (ADR 0079), so these
+  # exercise both: an authored core program AND the printing-derived cups.
   mkdir -p "$OS_DIR/hosts/core"
   printf '%s\n' \
-    '{"system_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
+    '{"system_programs":["grub"],"sysctl":{"vm.swappiness":10}}' \
     > "$OS_DIR/hosts/core/profile.jsonc"
 
   # shellcheck source=../../lib/config/state.sh
@@ -58,8 +61,9 @@ effective() {
   echo "$output" | jq -e '.system.hostname == "eterniox"'
   echo "$output" | jq -e '.mode == "single"'
   echo "$output" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
-  # Host Core still applies under the guided session.
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  # Host Core still applies under the guided session (grub authored), and the
+  # printing toggle (on by default) injects cups as a derived System Program.
+  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
@@ -111,7 +115,8 @@ effective() {
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.packages.repo.extra == ["htop"]'
-  echo "$output" | jq -e '.system_programs | index("cups")'   # core kept
+  echo "$output" | jq -e '.system_programs | index("grub")'   # core kept
+  echo "$output" | jq -e '.system_programs | index("cups")'   # printing-derived
   echo "$output" | jq -e '.system_programs | index("htop") | not'
 }
 
@@ -120,28 +125,32 @@ effective() {
 # The root cause was the inverse: profile programs mark fine; CORE programs
 # were invisible, and the merge under-reported. Both halves are asserted here.
 
-@test "cups renders in the baseline as a selected System Program" {
+# cups is toggle-derived (ADR 0079), so it is NOT a baseline system program —
+# the Printing toggle rides the baseline instead (on by default). cups is
+# materialised only at emit, mirroring GPU/audio/security derived sets.
+@test "the print daemon is toggle-derived, not a baseline System Program" {
   local base; base="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  jq -e '.system_programs | index("cups")' <<<"$base"
+  jq -e '.system_programs | index("cups") | not' <<<"$base"
+  jq -e '.options.printing.enabled == true' <<<"$base"
 }
 
-@test "seeding a profile shows cups AND grub, matching what installs" {
-  # the operator seeds a profile whose delta adds grub
+@test "printing on injects cups at emit; off omits it" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" system_programs '["cups","grub"]')"
-  local view; view="$(effective "$state")"
+  local asgn='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
-  # what the MENU displays
-  jq -e '.system_programs == ["cups","grub"]' <<<"$view"
-
-  # what INSTALLS
-  run emit_effective "$view" \
-    '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
+  # default on → cups injected alongside the authored core program
+  run emit_effective "$(effective "$state")" "$asgn"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["cups","grub"]'
+  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
+
+  # turned off → cups absent, the authored core program untouched
+  local off; off="$(cfgstate_set "$state" options.printing.enabled 'false')"
+  run emit_effective "$(effective "$off")" "$asgn"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.system_programs == ["grub"]'
 }
 
-@test "menu view and installed set agree for the same config" {
+@test "menu view and installed set agree, aside from the derived cups" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
   state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
   local view; view="$(effective "$state")"
@@ -149,23 +158,31 @@ effective() {
   run emit_effective "$view" \
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
-  # every key the menu shows survives the emit unchanged (disks aside)
+  # packages/sysctl survive the emit unchanged (disks aside); the only
+  # system_programs difference is the printing-derived cups the emit injects.
   local shown installed
-  shown="$(jq -cS '{system_programs, packages, sysctl}' <<<"$view")"
-  installed="$(jq -cS '{system_programs, packages, sysctl}' <<<"$output")"
+  shown="$(jq -cS '{packages, sysctl}' <<<"$view")"
+  installed="$(jq -cS '{packages, sysctl}' <<<"$output")"
   [ "$shown" = "$installed" ]
+  local shown_sp installed_sp
+  shown_sp="$(jq -cS '.system_programs' <<<"$view")"
+  installed_sp="$(jq -cS '(.system_programs - ["cups"])' <<<"$output")"
+  [ "$shown_sp" = "$installed_sp" ]
 }
 
 # Deselecting a core-inherited entry must actually deselect it — the old emit
-# concatenated core back in, so unticking cups silently did nothing.
+# concatenated core back in, so unticking silently did nothing. cups is exempt
+# (toggle-owned, injected regardless), so this untick uses the authored core
+# program grub: unticking it removes grub, while the derived cups still lands.
 @test "unticking a core system program removes it from the install" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
-  state="$(cfgstate_set "$state" system_programs '["grub"]')"
+  state="$(cfgstate_set "$state" system_programs '[]')"
 
   run emit_effective "$(effective "$state")" \
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["grub"]'
+  echo "$output" | jq -e '.system_programs | index("grub") | not'
+  echo "$output" | jq -e '.system_programs == ["cups"]'
 }
 
 # ── Save writes a DELTA over Host Core, not a snapshot (ADR 0056) ───────────

@@ -16,9 +16,14 @@
 // additive, ordered selections (kernel, locale, desktop) are replaced. A host
 // drops something core declares via `packages.exclude` /
 // `system_programs_exclude`.
+//
+// `cups` is deliberately NOT declared here (ADR 0079): the print daemon is a
+// toggle-derived System Program, driven by `options.printing.enabled` (default
+// on) and injected into system_programs at Effective-Config assembly, so it has
+// exactly one home — the Guided Installer's Printing service category.
 {
   "users": [],
-  "system_programs": ["cups"],
+  "system_programs": [],
   "sysctl": {
     "vm.swappiness": 10
   },

@@ -72,6 +72,33 @@ JSON
   rm -rf "$t"
 }
 
+# cups is a toggle-derived System Program (ADR 0079): on by default, reported
+# under the `printing` source; genuinely absent when the toggle is off.
+@test "explain-packages: cups is the printing-derived source, toggle-gated" {
+  local t; t="$(mktemp -d)"
+  mkdir -p "$t/hosts/core" "$t/hosts/on" "$t/hosts/off" "$t/users/core" \
+           "$t/tools" "$t/lib"
+  printf '{"users":[],"system_programs":[]}\n' > "$t/hosts/core/profile.jsonc"
+  printf '{"shell":"/bin/zsh"}\n' > "$t/users/core/profile.jsonc"
+  # `on` leaves the toggle at its default (absent ⇒ on); `off` sets it false.
+  printf '{"users":["alice"]}\n' > "$t/hosts/on/profile.jsonc"
+  printf '{"users":["alice"],"options":{"printing":{"enabled":false}}}\n' \
+    > "$t/hosts/off/profile.jsonc"
+  cp -r "$OS/lib/." "$t/lib/"
+  cp "$OS/tools/explain-packages.sh" "$t/tools/"
+
+  run bash "$t/tools/explain-packages.sh" on --sources
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qE '^ +printing +1$'
+  run bash "$t/tools/explain-packages.sh" on --flat
+  echo "$output" | grep -qx "cups"
+
+  run bash "$t/tools/explain-packages.sh" off --flat
+  [ "$status" -eq 0 ]
+  ! echo "$output" | grep -qx "cups"
+  rm -rf "$t"
+}
+
 @test "explain-packages: reports excluded entries separately" {
   local t; t="$(mktemp -d)"
   mkdir -p "$t/hosts/core" "$t/hosts/box" "$t/users/core" "$t/tools" "$t/lib"

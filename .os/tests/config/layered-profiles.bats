@@ -211,12 +211,15 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
 }
 
 # inherit is scoped to packages — the fixtures still get core's users/sysctl.
-@test "the VM fixtures still inherit Host Core's sysctl and system programs" {
+# cups is no longer among core's system programs (ADR 0079): it is
+# toggle-derived and injected at assembly, so the loaded profile inherits no
+# system programs from core here.
+@test "the VM fixtures still inherit Host Core's sysctl" {
   local h
   for h in arch-data arch-kde arch-secure; do
     run load_profile "$h"
     echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-    echo "$output" | jq -e '.system_programs | index("cups")'
+    echo "$output" | jq -e '.system_programs | index("cups") | not'
   done
 }
 

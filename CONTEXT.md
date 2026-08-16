@@ -87,9 +87,10 @@ Navigation is non-destructive: a single in-session **Config State** holds only
 the operator's overrides over the computed defaults, so every screen is
 re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
 between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
-list of twelve **Configuration Categories** in archinstall reading order
-(Locales, Mirrors & Repositories, Disks, Bootloader, Kernels, System, Users,
-Environment, Packages, Security, Backup, Advanced — ADR 0071), each opening a
+list of fourteen **Configuration Categories** in archinstall reading order
+(Locales, Mirrors & Repositories, Pacman, Disks, Bootloader, Kernels, General,
+Users, Environment, Packages, Security, Backup, Printing service, Advanced —
+ADR 0071; Pacman added ADR 0074, Printing service ADR 0079), each opening a
 submenu of its fields, so a section name never repeats per row. Presentation is
 **master-detail**: the fzf preview pane is an always-on **detail column** that,
 at every level, shows the highlighted item's live state — a parent column (the
@@ -442,6 +443,25 @@ and that kind decides which slot may declare it. The Guided Installer's host
 Editor's `programs` picker only
 `system: false` ones — one unfiltered list used to feed both, so the host side
 could build a config that failed validation at Proceed.
+
+### Printing Service (`options.printing.enabled`)
+The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —
+is installed and its `cups.service` enabled. A single bool [[Cycle Field]]
+(default `true`, normalised-out when true) in its own root-level **Printing
+service** Configuration Category, a service-enablement twin of Security/Backup
+rather than an identity field like General's hostname/timezone. `cups` is
+**not**
+declared in Host Core; when the toggle is on it is **injected into the Effective
+Config's `system_programs` at assembly time**, so the [[Runner]] installs it in
+the chroot exactly as an authored System Program would (its Program dir /
+`install.sh` are unchanged). The first **toggle-derived System Program** —
+`options.ssh.enabled` only enables a service on the always-present `openssh`,
+whereas this toggle gates the package install itself, so cups is genuinely
+absent when off. The Printing toggle is cups's **sole** menu home: it is
+filtered out of the Packages → system-programs picker, and surfaces in the
+read-only `derived` section / `explain-packages` as `source=printing` (layer
+`derived`) — the one place the resolver reports a System Program at all (ADR
+0079).
 
 ### Program Registry
 The in-memory index built once per run by `configs_build_registry`

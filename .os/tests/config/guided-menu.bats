@@ -152,6 +152,32 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.age_key_url  | jq -e '.section == "Advanced"'
 }
 
+# ── Printing service (ADR 0079): a root-level category, one bool leaf ───────
+
+@test "menu_rows: printing sits under Printing service, defaults true, no ●" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.printing.enabled \
+    | jq -e '.section == "Printing service"'
+  echo "$output" | row options.printing.enabled | jq -e '.value == "true"'
+  echo "$output" | row options.printing.enabled | jq -e '.overridden == false'
+}
+
+@test "menu_rows: turning printing off shows false and flips ●" {
+  state="$(cfgstate_set "$(cfgstate_new)" options.printing.enabled 'false')"
+  run menu_rows "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.printing.enabled | jq -e '.value == "false"'
+  echo "$output" | row options.printing.enabled | jq -e '.overridden == true'
+}
+
+@test "menu_category_rows: Printing service returns only its printing row" {
+  run menu_category_rows "Printing service" "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'all(.[]; .section == "Printing service")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.printing.enabled")'
+}
+
 # ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
 
 @test "menu_rows: the gpu row sits under Environment, defaults auto" {
@@ -373,10 +399,10 @@ cat_at() { jq -e ".[$1]"; }
 @test "menu_categories: returns the categories in canonical order (Pacman after Mirrors)" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 13'
+  echo "$output" | jq -e 'length == 14'
   echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
     "Pacman","Disks","Bootloader","Kernels","General","Users","Environment",
-    "Packages","Security","Backup","Advanced"]'
+    "Packages","Security","Backup","Printing service","Advanced"]'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
