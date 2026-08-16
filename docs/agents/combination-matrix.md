@@ -6,6 +6,21 @@ two-tier "no menu-reachable install combination errors" testing. Entry point:
 logic in `.os/lib/matrix/*.sh`; Tier-1 assembly bats under
 `.os/tests/matrix/`.
 
+## Test gates (ADR 0078)
+
+`.os/tests/run.sh` has three modes:
+
+- `--fast` — curated install-correctness subset (config + the validator
+  tier + layout + zfs + wipe), ~30 s wall. The pre-push gate.
+- `--full` (default) — every bats file, the always-on tier.
+- `--vm` — on-demand VM smoke (`matrix.sh run --smoke`); aborts cleanly
+  where `/dev/kvm` is absent.
+
+Enable the opt-in pre-push hook once: `git config core.hooksPath
+.githooks` (skip one push with `SKIP_FAST_TESTS=1 git push`). Judge speed
+by total CPU, not wall, on a loaded box. Coverage of past install breaks
+is tracked in [[test-regression-catalog]].
+
 ## The sync contract: menu-derived, CI-enforced
 
 The matrix axes, values, and exclusions are **derived from the menu's own
