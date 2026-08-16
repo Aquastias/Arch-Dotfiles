@@ -18,13 +18,13 @@
 # =============================================================================
 
 # shellcheck source=../config/state.sh
-[[ "$(type -t cfgstate_new)" == "function" ]] \
+declare -F cfgstate_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
 # shellcheck source=../config/seed.sh
-[[ "$(type -t cfgstate_seed_defaults)" == "function" ]] \
+declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
 # shellcheck source=../config/emit.sh
-[[ "$(type -t emit_effective)" == "function" ]] \
+declare -F emit_effective >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
 
 # _matrix_mode_for_topology <topology> — the install mode a topology installs

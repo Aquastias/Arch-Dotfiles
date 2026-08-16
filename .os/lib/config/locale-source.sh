@@ -18,7 +18,7 @@
 # =============================================================================
 
 # shellcheck source=./locale-parts.sh
-[[ "$(type -t locale_encoding)" == "function" ]] \
+declare -F locale_encoding >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-parts.sh"
 
 # locale_list_keymaps — every console keymap the medium offers, one per line.

@@ -19,7 +19,7 @@
 source "${BASH_SOURCE[0]%/*}/environment.sh"
 
 # shellcheck source=./post-install.sh
-[[ "$(type -t post_install_programs)" == "function" ]] \
+declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
 # =============================================================================

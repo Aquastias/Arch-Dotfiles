@@ -16,16 +16,16 @@
 # =============================================================================
 
 # shellcheck source=./state.sh
-[[ "$(type -t cfgstate_emit)" == "function" ]] \
+declare -F cfgstate_emit >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 # shellcheck source=./layer-resolver.sh
-[[ "$(type -t layer_additive_keys)" == "function" ]] \
+declare -F layer_additive_keys >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./layers.sh
-[[ "$(type -t _configs_merge)" == "function" ]] \
+declare -F _configs_merge >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
 # shellcheck source=../picker.sh
-[[ "$(type -t picker_assign_disks)" == "function" ]] \
+declare -F picker_assign_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
 # guided_profile_delta <config> — the device-less Host Profile a Save writes

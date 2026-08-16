@@ -22,11 +22,11 @@
 # =============================================================================
 
 # shellcheck source=./state.sh
-[[ "$(type -t cfgstate_get)" == "function" ]] \
+declare -F cfgstate_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 
 # shellcheck source=./locale-source.sh
-[[ "$(type -t locale_list_keymaps)" == "function" ]] \
+declare -F locale_list_keymaps >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-source.sh"
 
 # Field table — "section|path|label|default". The single source of truth for

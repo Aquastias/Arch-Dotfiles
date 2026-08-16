@@ -15,11 +15,11 @@
 # =============================================================================
 
 # shellcheck source=../common.sh
-[[ "$(type -t cfgo)" == "function" ]] \
+declare -F cfgo >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
 # shellcheck source=../packages/kernel.sh
-[[ "$(type -t kernel_is_valid_token)" == "function" ]] \
+declare -F kernel_is_valid_token >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../packages/kernel.sh"
 
 # Schema rows: name|jq_path|type|default

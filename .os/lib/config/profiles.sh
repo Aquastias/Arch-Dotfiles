@@ -22,7 +22,7 @@
 # =============================================================================
 
 # shellcheck source=./skeleton.sh
-[[ "$(type -t skeleton_flatten_devices)" == "function" ]] \
+declare -F skeleton_flatten_devices >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/skeleton.sh"
 
 # profiles_list <hosts-root> — the installable Host Profiles: immediate

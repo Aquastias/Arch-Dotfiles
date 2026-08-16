@@ -25,7 +25,7 @@
 source "${BASH_SOURCE[0]%/*}/datacrypt.sh"
 # The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
 # layout core; guard-source it so this formatter stands alone in its unit test.
-[[ "$(type -t nonzfs_plan_field)" == "function" ]] \
+declare -F nonzfs_plan_field >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 # The /etc/fstab line a formatted data group contributes. <src> is the mount

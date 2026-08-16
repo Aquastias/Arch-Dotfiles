@@ -19,11 +19,11 @@
 # Install State owns the credential-key resolution + SOPS gate. Source it if a
 # standalone unit test pulled chroot.sh in without the installer's load order.
 # shellcheck source=./install-state.sh
-[[ "$(type -t install_state_credential_path)" == "function" ]] \
+declare -F install_state_credential_path >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
 # Shared confirmed-secret reader used by collect_passwords.
 # shellcheck source=./prompt.sh
-[[ "$(type -t prompt_secret)" == "function" ]] \
+declare -F prompt_secret >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/prompt.sh"
 
 # =============================================================================

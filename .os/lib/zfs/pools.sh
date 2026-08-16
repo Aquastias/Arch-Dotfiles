@@ -28,7 +28,7 @@ fi
 
 # Shared confirmed-secret reader used by collect_enc_passphrase.
 # shellcheck source=../prompt.sh
-[[ "$(type -t prompt_secret)" == "function" ]] \
+declare -F prompt_secret >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../prompt.sh"
 
 # =============================================================================

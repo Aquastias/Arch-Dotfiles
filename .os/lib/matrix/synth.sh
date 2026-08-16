@@ -25,7 +25,7 @@
 # =============================================================================
 
 # shellcheck source=./assemble.sh
-[[ "$(type -t matrix_cell_assemble)" == "function" ]] \
+declare -F matrix_cell_assemble >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/assemble.sh"
 
 # the light/heavy install-timeout bands, in seconds (45 min / 90 min).

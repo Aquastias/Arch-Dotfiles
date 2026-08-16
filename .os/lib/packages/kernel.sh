@@ -14,7 +14,7 @@ _KERNEL_SH_SOURCED=1
 
 # Fallback error when common.sh isn't sourced (e.g. inside arch-chroot, where
 # the chroot consumers source only install-state.sh + this file).
-if [[ "$(type -t error)" != "function" ]]; then
+if ! declare -F error >/dev/null 2>&1; then
   error() { echo "[kernel] $*" >&2; exit 1; }
 fi
 

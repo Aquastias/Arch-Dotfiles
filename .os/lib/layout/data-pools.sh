@@ -23,9 +23,9 @@
 
 # The Data Group Formatter dispatch (data_formatter_source) + the redundant-size
 # warning helper. Guard-sourced so this module stands alone for any root fs.
-[[ "$(type -t data_formatter_source)" == "function" ]] \
+declare -F data_formatter_source >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/dispatch.sh"
-[[ "$(type -t _zfs_redundant_size_mismatch)" == "function" ]] \
+declare -F _zfs_redundant_size_mismatch >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../zfs/pools.sh"
 
 # ── The Standalone Data Pool record (populated by resolve + _add_data_pool) ───

@@ -20,10 +20,10 @@
 # =============================================================================
 
 # shellcheck source=./generator.sh
-[[ "$(type -t matrix_all_cells)" == "function" ]] \
+declare -F matrix_all_cells >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
 # shellcheck source=./synth.sh
-[[ "$(type -t matrix_cell_synthesize)" == "function" ]] \
+declare -F matrix_cell_synthesize >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/synth.sh"
 
 # matrix_cell_profile <cell> — the VM Profile JSON for the cell (the synthesizer
