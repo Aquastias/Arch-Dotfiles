@@ -19,7 +19,7 @@
 
 # The resolved multi-disk layout is read through the layout_* record accessors
 # (lib/globals.sh) — never by naming the adapter-private _LAYOUT_IMPL_* here.
-[[ "$(type -t layout_has_leftover)" == "function" ]] \
+declare -F layout_has_leftover >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../globals.sh"
 
 # Ownership mode for the pool:

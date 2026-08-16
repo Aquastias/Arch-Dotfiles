@@ -31,49 +31,49 @@
 [[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
   || source "${BASH_SOURCE[0]%/*}/globals.sh"
 # shellcheck source=lib/config/state.sh
-[[ "$(type -t cfgstate_get)" == "function" ]] \
+declare -F cfgstate_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
 # shellcheck source=lib/config/nav.sh
-[[ "$(type -t nav_new)" == "function" ]] \
+declare -F nav_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/nav.sh"
 # shellcheck source=lib/config/edits.sh
-[[ "$(type -t edit_set_bool)" == "function" ]] \
+declare -F edit_set_bool >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
 # shellcheck source=lib/config/menu.sh
-[[ "$(type -t menu_categories)" == "function" ]] \
+declare -F menu_categories >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
 
-[[ "$(type -t esp_budget_fits_size)" == "function" ]] \
+declare -F esp_budget_fits_size >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/boot/esp-budget.sh"
 # shellcheck source=lib/config/manual-partition.sh
-[[ "$(type -t manual_kind_active)" == "function" ]] \
+declare -F manual_kind_active >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/manual-partition.sh"
 # shellcheck source=lib/config/skeleton.sh
-[[ "$(type -t skeleton_preset)" == "function" ]] \
+declare -F skeleton_preset >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
 # shellcheck source=lib/picker.sh
-[[ "$(type -t picker_enum_disks)" == "function" ]] \
+declare -F picker_enum_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/picker.sh"
 # shellcheck source=lib/config/history.sh
-[[ "$(type -t hist_new)" == "function" ]] \
+declare -F hist_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
 # shellcheck source=lib/config/display.sh
-[[ "$(type -t display_label)" == "function" ]] \
+declare -F display_label >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/display.sh"
 # shellcheck source=lib/guided-secrets-file.sh
-[[ "$(type -t guided_secretsfile_has_root)" == "function" ]] \
+declare -F guided_secretsfile_has_root >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-secrets-file.sh"
 # shellcheck source=lib/config/profile.sh
-[[ "$(type -t load_user_profile)" == "function" ]] \
+declare -F load_user_profile >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
 # shellcheck source=lib/config/profiles.sh
-[[ "$(type -t profiles_list)" == "function" ]] \
+declare -F profiles_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
 # shellcheck source=lib/config/layers.sh
-[[ "$(type -t _configs_parse)" == "function" ]] \
+declare -F _configs_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/layers.sh"
 # shellcheck source=lib/guided-userforms.sh
-[[ "$(type -t guided_userform_get)" == "function" ]] \
+declare -F guided_userform_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
 # Curated Persist Defaults, for the Impermanence Editor's read-only count line
 # (ADR 0066).
@@ -81,16 +81,16 @@
 [[ -n "${CURATED_FILES:-}" ]] \
   || source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
 # shellcheck source=lib/guided-mask.sh
-[[ "$(type -t guided_mask_apply)" == "function" ]] \
+declare -F guided_mask_apply >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
 # shellcheck source=lib/packages/resolver.sh
-[[ "$(type -t pkgres_resolve)" == "function" ]] \
+declare -F pkgres_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/packages/resolver.sh"
 # shellcheck source=lib/config/seed.sh
-[[ "$(type -t cfgstate_host_core)" == "function" ]] \
+declare -F cfgstate_host_core >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 # shellcheck source=lib/config/layer-resolver.sh
-[[ "$(type -t layer_resolve)" == "function" ]] \
+declare -F layer_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
 
 # _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the

@@ -16,7 +16,7 @@
 # =============================================================================
 
 # shellcheck source=./state.sh
-[[ "$(type -t cfgstate_set)" == "function" ]] \
+declare -F cfgstate_set >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 
 # edit_set_scalar <state> <path> <str> — a string scalar at a dotted path.

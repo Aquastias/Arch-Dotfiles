@@ -23,16 +23,16 @@
 # =============================================================================
 
 # shellcheck source=./generator.sh
-[[ "$(type -t matrix_tier2_cells)" == "function" ]] \
+declare -F matrix_tier2_cells >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
 # shellcheck source=./guard.sh
-[[ "$(type -t matrix_guard_max_parallel)" == "function" ]] \
+declare -F matrix_guard_max_parallel >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guard.sh"
 # shellcheck source=./synth.sh
-[[ "$(type -t matrix_cell_boot_verify)" == "function" ]] \
+declare -F matrix_cell_boot_verify >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/synth.sh"
 # shellcheck source=./run.sh
-[[ "$(type -t matrix_run)" == "function" ]] \
+declare -F matrix_run >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/run.sh"
 
 # host-resource policy knobs (see ADR 0046 / issue 06); pure cores get these as

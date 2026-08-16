@@ -22,10 +22,10 @@
 # =============================================================================
 
 # _zpool_create / build_vdev_spec / ENC_OPTS — the ZFS pool primitives.
-[[ "$(type -t _zpool_create)" == "function" ]] \
+declare -F _zpool_create >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../../zfs/pools.sh"
 # The shared per-group crypto plan emitter (keyfile/mapper/crypttab) — sibling.
-[[ "$(type -t data_group_crypto)" == "function" ]] \
+declare -F data_group_crypto >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../nonzfs/datacrypt.sh"
 
 # Write a Standalone Data Pool's 32-byte raw key to BOTH the install-tree path

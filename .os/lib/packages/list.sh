@@ -16,10 +16,10 @@
 # collect_packages parses packages.repo through the Categorized List Parser on
 # every call now, so the dependency is explicit rather than assumed of callers.
 # shellcheck source=../config/categorized-list.sh
-[[ "$(type -t categorized_list_parse)" == "function" ]] \
+declare -F categorized_list_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
 # shellcheck source=../boot/bootloaders.sh
-[[ "$(type -t bootloader_packages)" == "function" ]] \
+declare -F bootloader_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
 
 # =============================================================================

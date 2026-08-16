@@ -49,7 +49,7 @@
 # shellcheck source=./common.sh
 source "${BASH_SOURCE[0]%/*}/common.sh"
 # create_data_pools dispatches each group through the Data Group Formatter seam.
-[[ "$(type -t data_formatter_source)" == "function" ]] \
+declare -F data_formatter_source >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../dispatch.sh"
 
 _LAYOUT_IMPL_ESP_PARTS=()

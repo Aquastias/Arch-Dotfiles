@@ -32,16 +32,16 @@
 # =============================================================================
 
 # shellcheck source=../config/categorized-list.sh
-[[ "$(type -t categorized_list_parse)" == "function" ]] \
+declare -F categorized_list_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
 # shellcheck source=./kernel.sh
-[[ "$(type -t kernel_pkg)" == "function" ]] \
+declare -F kernel_pkg >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/kernel.sh"
 # shellcheck source=../boot/bootloaders.sh
-[[ "$(type -t bootloader_packages)" == "function" ]] \
+declare -F bootloader_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
 # shellcheck source=../config/post-install.sh
-[[ "$(type -t post_install_programs)" == "function" ]] \
+declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
 
 # The source names in report order, each paired with the menu category that

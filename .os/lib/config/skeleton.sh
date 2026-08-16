@@ -22,7 +22,7 @@
 # =============================================================================
 
 # shellcheck source=../picker.sh
-[[ "$(type -t _picker_validate_group)" == "function" ]] \
+declare -F _picker_validate_group >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
 # skeleton_preset <name> — the device-less skeleton for a named ZFS shape.

@@ -17,22 +17,22 @@
 # =============================================================================
 
 # shellcheck source=./layer-resolver.sh
-[[ "$(type -t layer_resolve)" == "function" ]] \
+declare -F layer_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 # shellcheck source=./layers.sh
-[[ "$(type -t _configs_merge)" == "function" ]] \
+declare -F _configs_merge >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
 
 # shellcheck source=../picker.sh
-[[ "$(type -t picker_assign_disks)" == "function" ]] \
+declare -F picker_assign_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
 
 # shellcheck source=./post-install.sh
-[[ "$(type -t post_install_validate)" == "function" ]] \
+declare -F post_install_validate >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
 # shellcheck source=../boot/bootloaders.sh
-[[ "$(type -t bootloader_is_valid)" == "function" ]] \
+declare -F bootloader_is_valid >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
 
 # load_profile <name> — effective host config on stdout.

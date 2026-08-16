@@ -20,12 +20,12 @@
 # =============================================================================
 
 # shellcheck source=./state.sh
-[[ "$(type -t cfgstate_get)" == "function" ]] \
+declare -F cfgstate_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 # The supported-filesystem / mountpoint source of truth + the validator live in
 # the back-end planner; the editor and its live problem notice read from there.
 # shellcheck source=../layout/manual/plan.sh
-[[ "$(type -t manual_partition_problems)" == "function" ]] \
+declare -F manual_partition_problems >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../layout/manual/plan.sh"
 
 _MANUAL_ESP_GUID="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"   # EFI System Partition

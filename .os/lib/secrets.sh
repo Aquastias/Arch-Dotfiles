@@ -4,7 +4,7 @@
 set -Eeuo pipefail
 
 # shellcheck source=./install-state.sh
-[[ "$(type -t install_state_update)" == "function" ]] \
+declare -F install_state_update >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
 
 _SECRETS_TMPFS=""

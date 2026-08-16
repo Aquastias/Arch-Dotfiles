@@ -21,16 +21,16 @@
 # =============================================================================
 
 # shellcheck source=./config/state.sh
-[[ "$(type -t cfgstate_emit)" == "function" ]] \
+declare -F cfgstate_emit >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
 # shellcheck source=./config/emit.sh
-[[ "$(type -t guided_profile_delta)" == "function" ]] \
+declare -F guided_profile_delta >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
 # shellcheck source=./config/seed.sh
-[[ "$(type -t cfgstate_host_core)" == "function" ]] \
+declare -F cfgstate_host_core >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 # shellcheck source=./config/profile.sh
-[[ "$(type -t validate_config_schema)" == "function" ]] \
+declare -F validate_config_schema >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
 
 # guided_save_host_profile <state> <name> — see header. rc 1 (no write) on an

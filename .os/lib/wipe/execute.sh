@@ -16,10 +16,10 @@
 # =============================================================================
 
 # shellcheck source=method.sh
-[[ "$(type -t wipe_method)" == "function" ]] \
+declare -F wipe_method >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/method.sh"
 # shellcheck source=progress.sh
-[[ "$(type -t progress_line)" == "function" ]] \
+declare -F progress_line >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/progress.sh"
 
 # =============================================================================

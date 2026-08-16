@@ -14,19 +14,19 @@
 # =============================================================================
 
 # shellcheck source=./state.sh
-[[ "$(type -t cfgstate_set)" == "function" ]] \
+declare -F cfgstate_set >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/state.sh"
 
 # shellcheck source=./post-install.sh
-[[ "$(type -t post_install_default)" == "function" ]] \
+declare -F post_install_default >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
 
 # shellcheck source=./layer-resolver.sh
-[[ "$(type -t layer_resolve)" == "function" ]] \
+declare -F layer_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layer-resolver.sh"
 
 # shellcheck source=./layers.sh
-[[ "$(type -t _configs_parse)" == "function" ]] \
+declare -F _configs_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
 
 # cfgstate_host_core — Host Core as JSON ({} when absent/unreadable).

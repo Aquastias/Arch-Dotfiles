@@ -19,10 +19,10 @@
 # =============================================================================
 
 # shellcheck source=./registry.sh
-[[ "$(type -t matrix_registry_assert)" == "function" ]] \
+declare -F matrix_registry_assert >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/registry.sh"
 # shellcheck source=./generator.sh
-[[ "$(type -t matrix_tier2_cells)" == "function" ]] \
+declare -F matrix_tier2_cells >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
 
 # matrix_gen_cells — the Tier-2 Matrix Manifest on stdout (JSON cell per line).

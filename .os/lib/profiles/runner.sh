@@ -31,19 +31,19 @@
 # =============================================================================
 
 # shellcheck source=../config/post-install.sh
-[[ "$(type -t post_install_programs)" == "function" ]] \
+declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"
 
 # Install State owns the credential-key resolution + SOPS gate; source it if a
 # standalone unit test pulled runner.sh in without the installer's load order.
 # shellcheck source=../install-state.sh
-[[ "$(type -t install_state_credential_path)" == "function" ]] \
+declare -F install_state_credential_path >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
 
 # AUR Helper resolution rule (_profiles_detect_helper), shared with
 # tools/install-pkglist.sh so it has a single definition (ADR 0052).
 # shellcheck source=../aur-helper.sh
-[[ "$(type -t _profiles_detect_helper)" == "function" ]] \
+declare -F _profiles_detect_helper >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../aur-helper.sh"
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"

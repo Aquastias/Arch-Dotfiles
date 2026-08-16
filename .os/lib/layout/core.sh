@@ -16,12 +16,12 @@
 # The root-fs-agnostic Standalone Data Pool orchestrator — every root adapter's
 # seam verbs call resolve/partition/create_data_pools from here (ADR 0027/0043).
 # shellcheck source=./data-pools.sh
-[[ "$(type -t create_data_pools)" == "function" ]] \
+declare -F create_data_pools >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/data-pools.sh"
 
 # ESP budget model — kernel-aware sizing + the pre-install guard (ADR 0078).
 # shellcheck source=../boot/esp-budget.sh
-[[ "$(type -t esp_budget_auto_size)" == "function" ]] \
+declare -F esp_budget_auto_size >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/esp-budget.sh"
 
 # ── ESP size (config) ────────────────────────────────────────────────────────

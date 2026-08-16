@@ -28,7 +28,7 @@
 
 # The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
 # layout core; guard-source it so this resolver stands alone in its unit test.
-[[ "$(type -t nonzfs_plan_field)" == "function" ]] \
+declare -F nonzfs_plan_field >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 nonzfs_root_devices() {

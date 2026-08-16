@@ -24,49 +24,49 @@
 # =============================================================================
 
 # shellcheck source=lib/common.sh
-[[ "$(type -t error)" == "function" ]] \
+declare -F error >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/common.sh"
 # shellcheck source=lib/config/state.sh
-[[ "$(type -t cfgstate_new)" == "function" ]] \
+declare -F cfgstate_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
 # shellcheck source=lib/config/seed.sh
-[[ "$(type -t cfgstate_seed_defaults)" == "function" ]] \
+declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
 # shellcheck source=lib/config/layer-resolver.sh
-[[ "$(type -t layer_resolve)" == "function" ]] \
+declare -F layer_resolve >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
 # shellcheck source=lib/config/edits.sh
-[[ "$(type -t edit_set_scalar)" == "function" ]] \
+declare -F edit_set_scalar >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
 # shellcheck source=lib/config/emit.sh
-[[ "$(type -t emit_effective)" == "function" ]] \
+declare -F emit_effective >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
 # shellcheck source=lib/config/menu.sh
-[[ "$(type -t menu_rows)" == "function" ]] \
+declare -F menu_rows >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
 # shellcheck source=lib/config/history.sh
-[[ "$(type -t hist_new)" == "function" ]] \
+declare -F hist_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/history.sh"
 # shellcheck source=lib/config/skeleton.sh
-[[ "$(type -t skeleton_preset)" == "function" ]] \
+declare -F skeleton_preset >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
 # shellcheck source=lib/picker.sh
-[[ "$(type -t picker_enum_disks)" == "function" ]] \
+declare -F picker_enum_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/picker.sh"
 # shellcheck source=lib/live-medium.sh
-[[ "$(type -t live_medium_disks)" == "function" ]] \
+declare -F live_medium_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/live-medium.sh"
 # shellcheck source=lib/guided-secrets.sh
-[[ "$(type -t guided_write_passwords)" == "function" ]] \
+declare -F guided_write_passwords >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-secrets.sh"
 # shellcheck source=lib/guided-save.sh
-[[ "$(type -t guided_save_host_profile)" == "function" ]] \
+declare -F guided_save_host_profile >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-save.sh"
 # shellcheck source=lib/guided-controller.sh
-[[ "$(type -t guided_ctl_list)" == "function" ]] \
+declare -F guided_ctl_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/guided-controller.sh"
 # shellcheck source=lib/prompt.sh
-[[ "$(type -t prompt_secret)" == "function" ]] \
+declare -F prompt_secret >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/prompt.sh"
 
 # =============================================================================

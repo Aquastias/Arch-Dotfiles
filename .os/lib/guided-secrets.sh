@@ -20,7 +20,7 @@
 # =============================================================================
 
 # shellcheck source=./install-state.sh
-[[ "$(type -t install_state_update)" == "function" ]] \
+declare -F install_state_update >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
 # INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
 # shellcheck source=./globals.sh

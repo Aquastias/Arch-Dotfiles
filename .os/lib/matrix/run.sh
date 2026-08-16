@@ -18,7 +18,7 @@
 # =============================================================================
 
 # shellcheck source=./profile.sh
-[[ "$(type -t matrix_emit)" == "function" ]] \
+declare -F matrix_emit >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/profile.sh"
 
 # matrix_run [<cell-id>] — emit the cell's profile and run it through the VM

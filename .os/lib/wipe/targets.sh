@@ -11,7 +11,7 @@
 # =============================================================================
 
 # shellcheck source=../jsonc.sh
-[[ "$(type -t jsonc_strip)" == "function" ]] \
+declare -F jsonc_strip >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 # wipe_resolve_targets CONFIG_FILE → target device paths, one per line,

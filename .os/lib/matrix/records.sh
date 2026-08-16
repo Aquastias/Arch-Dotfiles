@@ -26,10 +26,10 @@
 # =============================================================================
 
 # shellcheck source=./generator.sh
-[[ "$(type -t matrix_tier2_cells)" == "function" ]] \
+declare -F matrix_tier2_cells >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/generator.sh"
 # shellcheck source=./registry.sh
-[[ "$(type -t matrix_registry_assert)" == "function" ]] \
+declare -F matrix_registry_assert >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/registry.sh"
 
 # the committed record paths (env-overridable; default under tests/vm/).

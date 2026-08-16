@@ -264,7 +264,7 @@ resolve_environment() {
 # Labels (KDE, AMD, NVIDIA, …), so the review reads consistently with the menu.
 # Display only — never touches the ENVIRONMENT_* values used to select packages.
 _env_summary_labels() {
-  [[ "$(type -t display_label)" == "function" ]] \
+  declare -F display_label >/dev/null 2>&1 \
     || source "${BASH_SOURCE[0]%/*}/display.sh"
   local out="" t
   for t in "$@"; do out+="${out:+, }$(display_label "$t")"; done
