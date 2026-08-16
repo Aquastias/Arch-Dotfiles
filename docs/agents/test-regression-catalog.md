@@ -17,8 +17,8 @@ current dev box, so VM rows do not run locally).
 
 | Bug class | Guarding test | --fast |
 | --- | --- | --- |
-| `mkfs.fat` 'No such file' — unstable by-id symlink | `commons-part-name.bats` | |
-| ERR trap trips on airootfs/copytoram boot | `live-medium.bats`, `wipe-probe.bats` | ✓* |
+| `mkfs.fat` 'No such file' — unstable by-id symlink | `commons-part-name.bats` | ✓ |
+| ERR trap trips on airootfs/copytoram boot | `live-medium.bats`, `wipe-probe.bats` | ✓ |
 | Live-medium not excluded / stdout unclean in wipe | `wipe-live-medium.bats`, `wipe-prior-install-state.bats` | ✓ |
 | `@blank` rollback wrongly no-ops over `/etc` | `impermanence-common.bats` | ✓ |
 | `persist-<esc>.mount` `Where=` ≠ escaped unit name | `impermanence-common.bats`, `chroot/mount-unit-validate.bats` | ✓ |
@@ -27,15 +27,16 @@ current dev box, so VM rows do not run locally).
 | user units invalid (`systemd-analyze verify --user`) | `profiles/user-units-validate.bats` | ✓ |
 | `jq` `getpath // empty` swallows `false` | `config/guided-state.bats` | ✓ |
 | emitter merges Host Core twice | `config/guided-emit.bats` | ✓ |
-| `print_summary` unbound var (ZFS-multi, single, non-ZFS) | `layout/layout-record.bats` | ✓ |
+| `print_summary` unbound var — every fs×topology cell, `set -u` | `matrix/print-summary-setu.bats` (exhaustive) + `layout/layout-record.bats` (accessors) | |
 | leftover-pool predicate unbound var (single mode) | `zfs/pool-owners.bats` | ✓ |
 | 2026-05-31: `linux-headers` pulled from mirror/archive | `zfs/zfs-module.bats` | ✓ |
 | pool records bare `/dev/sdX` kernel name (reorder-fragile) | `zfs/zfs-pools.bats` | ✓ |
 | archzfs version substring mismatch | `packages/iso-resolver.bats` | |
 | any menu-reachable storage combo fails to assemble | `matrix/matrix-assembly.bats` (Tier-1 exhaustive) | |
 
-\* the ERR-trap/live-medium files live at `tests/` root, outside the
-`--fast` dir set; fold them in if pre-push must cover them.
+The root-level guards (`live-medium`, `wipe-probe`, `wipe-live-medium`,
+`wipe-prior-install-state`, `commons-part-name`) are folded into `--fast`
+via `run.sh`'s `FAST_ROOT` set.
 
 ## VM-only (irreducible — a real boot is the only oracle)
 
@@ -48,21 +49,27 @@ current dev box, so VM rows do not run locally).
 | encrypted-boot passphrase unlock over serial | Console Answerer (`matrix.sh`, ADR 0046) |
 | `switch_root` / initramfs handoff | VM boot only |
 
+## Closed — exhaustive `set -u` summary sweep
+
+`matrix/print-summary-setu.bats` now renders the real `print_summary`
+under `set -u` for **every** base fs×topology cell (derived live from the
+generator), a standalone-data-pool cell, and a model-backed none+leftover
+branch — asserting no `unbound variable`. This converts the unbound-var
+class from few-fixture to exhaustive, unprivileged, always-on, and it has
+teeth (a mutation injecting an unbound var trips it). The btrfs-multi shape
+ADR 0048 named is covered.
+
 ## Known gap — the next validator worth writing
 
-The Tier-1 exhaustive matrix (`matrix/matrix-assembly.bats`) runs every
-storage combination through `validate_install_context`, but **not** through
-the real artifact generators. So the `print_summary`-class unbound-var bug
-(and fstab/mount-unit/initcpio generation) is checked only on the fixtures
-in `layout-record.bats` / the validator tier, not across *every* cell —
-notably not btrfs-multi, the exact shape ADR 0048 named.
+The generation-time artifacts other than the summary — **fstab, mount
+units, initcpio HOOKS** — still run through their real validators
+(`systemd-analyze verify`, `mkinitcpio -n`, fstab lint) only on the
+fixtures in the validator tier, not across *every* cell. `print_summary`
+now sweeps exhaustively; these do not.
 
-**Proposed slice:** extend the Tier-1 cell loop to populate the layout
-model per cell (as `layout-record.bats` does for its fixtures) and run
-`print_summary` — plus `write_fstab` and the mount-unit / initcpio
-generators — under `set -u`, asserting no `unbound variable` and feeding
-the output to the existing `validators.bash` helpers. This converts the
-unbound-var and generation-time classes from few-fixture to exhaustive,
-unprivileged, always-on. It is a real slice (the loop currently only
-validates config; the layout model must be built per cell), not a one-line
-add — scoped here rather than rushed.
+**Proposed slice:** in the Tier-1 cell loop, feed each cell's generated
+fstab / mount units / initcpio through the existing `validators.bash`
+helpers (`validators_fstab_lint`, `validators_verify_unit`,
+`validators_mkinitcpio_build`), so the generation-time class is exhaustive
+too. Larger than the summary sweep because those generators need `/boot`
+and mount context per cell; scoped here rather than rushed.
