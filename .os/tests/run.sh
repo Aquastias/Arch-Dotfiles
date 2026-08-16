@@ -62,6 +62,17 @@ VALIDATOR_TIER=(
   sops.bats
 )
 
+# Root-level bats guarding install-correctness classes (live-medium
+# exclusion, ERR-trap cleanliness, stable by-id part names) that live at
+# tests/ root rather than in a --fast dir. Named so the gate covers them.
+FAST_ROOT=(
+  live-medium.bats
+  wipe-probe.bats
+  wipe-live-medium.bats
+  wipe-prior-install-state.bats
+  commons-part-name.bats
+)
+
 collect_fast() {
   # Install-correctness core: the menu→assembly→layout→pool→wipe path plus
   # the validator tier. A regression here can produce a broken install.
@@ -70,7 +81,7 @@ collect_fast() {
     while IFS= read -r f; do FILES+=("$f"); done \
       < <(find "$HERE/$d" -name '*.bats' | sort)
   done
-  for f in "${VALIDATOR_TIER[@]}"; do
+  for f in "${VALIDATOR_TIER[@]}" "${FAST_ROOT[@]}"; do
     [[ -f "$HERE/$f" ]] && FILES+=("$HERE/$f")
   done
 }
