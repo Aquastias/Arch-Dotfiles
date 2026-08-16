@@ -31,9 +31,9 @@ declare -F _configs_parse >/dev/null 2>&1 \
 
 # cfgstate_host_core — Host Core as JSON ({} when absent/unreadable).
 # The menu's baseline is LOADED from Host Core rather than hand-copying a few
-# of its values (ADR 0058). Hand-copying is why `cups` installed on every host
-# and appeared nowhere in the menu, and why packages.repo/aur had no menu
-# representation at all.
+# of its values (ADR 0058). Hand-copying is why `cups` used to install on every
+# host and appear nowhere in the menu (cups is now toggle-derived — ADR 0079),
+# and why packages.repo/aur had no menu representation at all.
 cfgstate_host_core() {
   local f="${OS_DIR:-}/hosts/core/profile.jsonc"
   [[ -n "${OS_DIR:-}" && -f "$f" ]] || { printf '{}\n'; return 0; }

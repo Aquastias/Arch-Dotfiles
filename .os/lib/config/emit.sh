@@ -5,7 +5,7 @@
 # Turns a Config State (the sparse override map) plus an optional disk
 # assignment into the device-baked **Effective Config** the back-end consumes —
 # the same artifact the Pre-Install Picker produces. The override map is merged
-# *over Host Core* (so the shared base — cups, swappiness, base users — still
+# *over Host Core* (the shared base — swappiness, base users, packages — still
 # applies), then the picked disks are baked onto the layout skeleton.
 #
 # Pure: reads OS_DIR's Host Core, no disk writes, JSON on stdout.
