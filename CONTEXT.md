@@ -71,8 +71,8 @@ is a confirm-gated, undoable **full session reset** — clearing Config State,
 session-created users and their editor forms, password/secret overrides, and any
 in-menu disk bindings back to the bare Host Core baseline — broader than the
 edit-history `Reset all`, which resets Config State only. Merges operator
-choices over Host Core (so the shared base — `cups`,
-swappiness, base users — still applies) and covers the full host schema. Secrets
+choices over Host Core (so the shared base — swappiness, base
+users, packages — still applies) and covers the full host schema. Secrets
 **default** and are never gated — root + per-user passwords to `12345`, the disk
 encryption passphrase to `12345678` (8 chars, because ZFS `keyformat=passphrase`
 rejects a shorter one at pool creation; accounts have no such floor — ADR 0059).
@@ -116,8 +116,10 @@ seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
 User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
 `Europe/Bucharest` / keymap `us`. The **baseline is loaded from Host Core**
 rather than hand-copying a few of its values (ADR 0058), so everything core
-installs surfaces as a seeded-but-unmarked row — `cups` used to install on every
-host and appear nowhere. Core therefore enters the pipeline exactly once; the
+installs surfaces as a seeded-but-unmarked row — core's package list, once
+hand-copied and invisible. (`cups` was the original example; it has since become
+a toggle-derived System Program with its own menu home — ADR 0079.) Core
+therefore enters the pipeline exactly once; the
 emitter does not merge it again. The **Packages** category drills `repo` →
 category → package toggles (and `aur` likewise), with three-state provenance
 reusing the override dot: checked-without-dot means inherited from core,
@@ -230,8 +232,8 @@ installer's default.
 
 ### Host Core
 Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
-of users, system programs, Sysctl Defaults, **and the Host Package List** shared
-across all hosts (ADR 0056, amending ADR 0007 — whose "the lists are
+of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
+(ADR 0056, amending ADR 0007 — whose "the lists are
 machine-specific" premise failed: `laptop` is a strict subset of `desktop`, 57
 repo packages in both and zero unique to laptop). Holds the 61 packages both
 machines share, so each Host Profile is a **delta** and `hosts/laptop` carries
@@ -242,7 +244,9 @@ per-key classification. A host drops something core declares via
 out of the inherited package set wholesale with `packages.inherit: false`
 (scoped to packages — they still inherit core's users and sysctl). Also the
 Guided Installer's menu baseline (ADR 0058), so everything core installs is
-visible and deselectable in the menu.
+visible and deselectable in the menu. Core declares **no** system programs: its
+`system_programs` is empty since `cups` — once its sole entry — became a
+toggle-derived System Program with its own menu home (ADR 0079).
 
 ### Layer Resolver
 `.os/lib/config/layer-resolver.sh`. The pure module answering "given Host Core
@@ -429,12 +433,14 @@ declares one (`["podman"]`).
 
 ### System Program
 A program that requires root and is installed via pacman during the chroot
-phase. Declared in a Host Profile or Host Core. Marked `"system": true` in its
-program config. Only official repo packages (no AUR) should be system programs.
-Today exactly three qualify: `grub`, `cups`, `sops`. One documented exception to
-the "declared" rule: the sops Program is secrets-activated, not declared — the
-Runner selects it implicitly when install-state records secrets (see SOPS
-Runtime Service, ADR 0025).
+phase. Usually declared in a Host Profile or Host Core. Marked `"system": true`
+in its program config. Only official repo packages (no AUR) should be system
+programs. Today exactly three qualify: `grub`, `cups`, `sops` — but only `grub`
+is authored. Two are selected implicitly rather than declared: the sops Program
+is secrets-activated — the Runner selects it when install-state records secrets
+(see SOPS Runtime Service, ADR 0025) — and `cups` is toggle-derived, injected
+into `system_programs` at assembly when `options.printing.enabled` is on (see
+[[Printing Service]], ADR 0079).
 
 The `system` flag is carried by the [[Program Registry]] and is
 **authoritative** (ADR 0058): a program's name resolves to exactly one kind,
