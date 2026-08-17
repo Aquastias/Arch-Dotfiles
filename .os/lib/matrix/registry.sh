@@ -83,6 +83,9 @@ _MATRIX_AXIS_REGISTRY=(
   # Bluetooth Service (ADR 0080): a derived service toggle like printing — adds
   # one package + a service enable, no install-combination content.
   "options.bluetooth.enabled|inert|light"
+  # Power Profile (ADR 0080): an enum-derived service — value picks the daemon
+  # package, but no disk/boot/pool combination content, so inert.
+  "options.power.profile|inert|light"
   "users|inert|heavy"
 )
 

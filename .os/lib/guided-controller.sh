@@ -72,6 +72,9 @@ declare -F printing_owned_programs >/dev/null 2>&1 \
 # shellcheck source=lib/config/bluetooth.sh
 declare -F bluetooth_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/bluetooth.sh"
+# shellcheck source=lib/config/power.sh
+declare -F power_owned_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/power.sh"
 # shellcheck source=lib/config/profiles.sh
 declare -F profiles_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
@@ -567,7 +570,8 @@ _ctl_curated_persist_count() {
 # category as its sole home, so all are filtered from this Packages picker.
 _ctl_system_program_names() {
   program_names_of_kind system \
-    | grep -vxF -f <(printing_owned_programs; bluetooth_owned_programs)
+    | grep -vxF -f <(printing_owned_programs; bluetooth_owned_programs; \
+                     power_owned_programs)
 }
 _ctl_user_program_names()   { program_names_of_kind user; }
 

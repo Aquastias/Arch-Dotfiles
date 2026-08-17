@@ -158,12 +158,18 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "system-programs picker omits the toggle-owned cups, keeps the rest" {
   mkdir -p "$OS_DIR/programs/office/cups" \
            "$OS_DIR/programs/system/bluetooth" \
+           "$OS_DIR/programs/system/power-profiles-daemon" \
+           "$OS_DIR/programs/system/tuned" \
            "$OS_DIR/programs/bootloader/grub" \
            "$OS_DIR/programs/security/sops"
   printf '{"name":"cups","system":true}\n' \
     > "$OS_DIR/programs/office/cups/config.jsonc"
   printf '{"name":"bluetooth","system":true}\n' \
     > "$OS_DIR/programs/system/bluetooth/config.jsonc"
+  printf '{"name":"power-profiles-daemon","system":true}\n' \
+    > "$OS_DIR/programs/system/power-profiles-daemon/config.jsonc"
+  printf '{"name":"tuned","system":true}\n' \
+    > "$OS_DIR/programs/system/tuned/config.jsonc"
   printf '{"name":"grub","system":true}\n' \
     > "$OS_DIR/programs/bootloader/grub/config.jsonc"
   printf '{"name":"sops","system":true}\n' \
@@ -174,6 +180,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$status" -eq 0 ]
   ! grep -qx cups <<<"$output"        # printing-owned, filtered out
   ! grep -qx bluetooth <<<"$output"   # bluetooth-owned, filtered out (ADR 0080)
+  ! grep -qx power-profiles-daemon <<<"$output"   # power-owned (ADR 0080)
+  ! grep -qx tuned <<<"$output"                   # power-owned (ADR 0080)
   grep -qx grub <<<"$output"          # other system programs stay
   grep -qx sops <<<"$output"
 }

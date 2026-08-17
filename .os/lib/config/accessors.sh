@@ -43,6 +43,10 @@ _INSTALL_CONFIG_SCHEMA=(
   # assembly; bluetooth_enabled in bluetooth.sh reads the raw config for the
   # pure injector/resolver.
   "bluetooth_enabled|.options.bluetooth.enabled|bool|true"
+  # Power Profile (ADR 0080): the enum-derived power-management backend, default
+  # power-profiles-daemon. The value maps to a System Program (ppd/tuned)
+  # injected into system_programs at assembly; none installs nothing.
+  "power_profile|.options.power.profile|scalar|power-profiles-daemon"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"
   "impermanence_dataset|.options.impermanence.dataset|scalar|rpool/persist"
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"

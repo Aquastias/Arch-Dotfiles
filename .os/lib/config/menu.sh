@@ -81,6 +81,9 @@ _MENU_FIELDS=(
   # Bluetooth Service (ADR 0080): a bare-bool leaf → a Cycle Field (flips in
   # place). Default on installs the bluez daemon and enables bluetooth.service.
   "Bluetooth|options.bluetooth.enabled|bluetooth|true"
+  # Power Profile (ADR 0080): an enum leaf (none | power-profiles-daemon |
+  # tuned), NOT a bare bool, so it drills into a values submenu. Default ppd.
+  "Power|options.power.profile|power profile|power-profiles-daemon"
   "Advanced|options.ssh.enabled|ssh|false"
   "Advanced|options.age_key_url|age key url|"
   "Users|users|users|"
@@ -108,6 +111,7 @@ menu_enum_options() {
     printf '%s\n' multilib multilib-testing core-testing extra-testing ;;
   disk_config.kind)               printf '%s\n' auto manual ;;
   options.fonts)                  fonts_catalog_tokens ;;
+  options.power.profile)          printf '%s\n' power-profiles-daemon tuned none ;;
   esac
 }
 
@@ -159,6 +163,7 @@ _MENU_CATEGORIES=(
   "Backup|snapshots, encrypted backup"
   "Printing service|cups print daemon"
   "Bluetooth|bluez daemon + service"
+  "Power|power-management backend"
   "Advanced|ssh, age key url"
 )
 

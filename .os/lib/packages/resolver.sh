@@ -52,6 +52,9 @@ declare -F fonts_repo_packages >/dev/null 2>&1 \
 # shellcheck source=../config/bluetooth.sh
 declare -F bluetooth_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/bluetooth.sh"
+# shellcheck source=../config/power.sh
+declare -F power_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/power.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -75,6 +78,7 @@ _PKGRES_SOURCES=(
   "backup|Backup"
   "printing|Printing service"
   "bluetooth|Bluetooth"
+  "power|Power"
   "fonts|General"
   "sops|secrets on disk"
   "repo|Packages"
@@ -288,6 +292,17 @@ pkgres_resolve() {
     [[ -n "$bp" ]] || continue
     _pkgres_emit bluetooth derived "$bp"
   done < <(bluetooth_programs "$cfg" 2>/dev/null)
+
+  # ── Power Profile (ADR 0080) ──────────────────────────────────────────────
+  # The power daemon (power-profiles-daemon | tuned) is enum-derived, not
+  # authored in core: report it as source=power via power_programs, the single
+  # source of truth the injector shares, so explain-packages answers "why is
+  # this daemon here?".
+  local wp
+  while IFS= read -r wp; do
+    [[ -n "$wp" ]] || continue
+    _pkgres_emit power derived "$wp"
+  done < <(power_programs "$cfg" 2>/dev/null)
 
   # ── Font Catalog (ADR 0080) ───────────────────────────────────────────────
   # Fonts moved out of packages.repo into the curated options.fonts catalog, so

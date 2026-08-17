@@ -189,6 +189,25 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
     | jq -e 'any(.[]; .name == "Bluetooth" and (.summary | length > 0))'
 }
 
+# ── Power profile (ADR 0080): a root-level category, an enum leaf ───────────
+
+@test "menu_rows: power profile sits under Power, defaults ppd, no ●" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.power.profile | jq -e '.section == "Power"'
+  echo "$output" | row options.power.profile \
+    | jq -e '.value == "power-profiles-daemon"'
+  echo "$output" | row options.power.profile | jq -e '.overridden == false'
+}
+
+@test "menu_enum_options: power profile offers none / ppd / tuned" {
+  run menu_enum_options options.power.profile
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx power-profiles-daemon
+  echo "$output" | grep -qx tuned
+  echo "$output" | grep -qx none
+}
+
 @test "menu_category_rows: Printing service returns only its printing row" {
   run menu_category_rows "Printing service" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
@@ -417,10 +436,11 @@ cat_at() { jq -e ".[$1]"; }
 @test "menu_categories: returns the categories in canonical order (Pacman after Mirrors)" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 15'
+  echo "$output" | jq -e 'length == 16'
   echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
     "Pacman","Disks","Bootloader","Kernels","General","Users","Environment",
-    "Packages","Security","Backup","Printing service","Bluetooth","Advanced"]'
+    "Packages","Security","Backup","Printing service","Bluetooth","Power",
+    "Advanced"]'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
