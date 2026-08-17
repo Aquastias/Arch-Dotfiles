@@ -78,6 +78,9 @@ _MENU_FIELDS=(
   # Printing Service (ADR 0079): a single bare-bool leaf, so it is a Cycle Field
   # (flips in place) by shape. Default on preserves the historical print daemon.
   "Printing service|options.printing.enabled|printing|true"
+  # Bluetooth Service (ADR 0080): a bare-bool leaf → a Cycle Field (flips in
+  # place). Default on installs the bluez daemon and enables bluetooth.service.
+  "Bluetooth|options.bluetooth.enabled|bluetooth|true"
   "Advanced|options.ssh.enabled|ssh|false"
   "Advanced|options.age_key_url|age key url|"
   "Users|users|users|"
@@ -155,6 +158,7 @@ _MENU_CATEGORIES=(
   "Security|firewall, antivirus, rootkit, apparmor, sysctl"
   "Backup|snapshots, encrypted backup"
   "Printing service|cups print daemon"
+  "Bluetooth|bluez daemon + service"
   "Advanced|ssh, age key url"
 )
 

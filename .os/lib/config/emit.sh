@@ -30,6 +30,9 @@ declare -F picker_assign_disks >/dev/null 2>&1 \
 # shellcheck source=./printing.sh
 declare -F printing_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/printing.sh"
+# shellcheck source=./bluetooth.sh
+declare -F bluetooth_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/bluetooth.sh"
 
 # guided_profile_delta <config> — the device-less Host Profile a Save writes
 # (issue 08). Strips every device path — the single `.disk` and the per-pool
@@ -144,5 +147,8 @@ emit_effective() {
   # system_programs when printing is on. cups is no longer a Host Core system
   # program or a Packages-pickable row — the Printing category owns it, so it is
   # derived here at emit rather than shown as a system_programs baseline entry.
-  printing_inject "$(picker_assign_disks "$view" "$assignment")"
+  # Toggle-derived System Programs (ADR 0079/0080): fold cups (printing) then
+  # bluetooth into system_programs at emit — the Printing / Bluetooth categories
+  # own them, so they are derived here rather than shown as baseline entries.
+  bluetooth_inject "$(printing_inject "$(picker_assign_disks "$view" "$assignment")")"
 }

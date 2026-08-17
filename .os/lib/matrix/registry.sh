@@ -80,6 +80,9 @@ _MATRIX_AXIS_REGISTRY=(
   # Font Catalog (ADR 0080): a curated package multi-select — adds packages with
   # no disk/boot/pool combination content, so inert for the pairwise cover.
   "options.fonts|inert|light"
+  # Bluetooth Service (ADR 0080): a derived service toggle like printing — adds
+  # one package + a service enable, no install-combination content.
+  "options.bluetooth.enabled|inert|light"
   "users|inert|heavy"
 )
 

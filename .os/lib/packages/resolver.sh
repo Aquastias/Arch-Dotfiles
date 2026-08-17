@@ -49,6 +49,9 @@ declare -F printing_programs >/dev/null 2>&1 \
 # shellcheck source=../config/fonts.sh
 declare -F fonts_repo_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
+# shellcheck source=../config/bluetooth.sh
+declare -F bluetooth_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/bluetooth.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -71,6 +74,7 @@ _PKGRES_SOURCES=(
   "security|Security"
   "backup|Backup"
   "printing|Printing service"
+  "bluetooth|Bluetooth"
   "fonts|General"
   "sops|secrets on disk"
   "repo|Packages"
@@ -274,6 +278,16 @@ pkgres_resolve() {
     [[ -n "$pp" ]] || continue
     _pkgres_emit printing derived "$pp"
   done < <(printing_programs "$cfg" 2>/dev/null)
+
+  # ── Bluetooth Service (ADR 0080) ──────────────────────────────────────────
+  # The `bluetooth` program is toggle-derived like cups, not authored in core:
+  # report it as source=bluetooth so explain-packages answers "why is bluetooth
+  # here?" via bluetooth_programs, the single source of truth the injector shares.
+  local bp
+  while IFS= read -r bp; do
+    [[ -n "$bp" ]] || continue
+    _pkgres_emit bluetooth derived "$bp"
+  done < <(bluetooth_programs "$cfg" 2>/dev/null)
 
   # ── Font Catalog (ADR 0080) ───────────────────────────────────────────────
   # Fonts moved out of packages.repo into the curated options.fonts catalog, so
