@@ -171,6 +171,24 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.printing.enabled | jq -e '.overridden == true'
 }
 
+# ── Bluetooth service (ADR 0080): a root-level category, one bool leaf ──────
+
+@test "menu_rows: bluetooth sits under Bluetooth, defaults true, no ●" {
+  run menu_rows "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | row options.bluetooth.enabled \
+    | jq -e '.section == "Bluetooth"'
+  echo "$output" | row options.bluetooth.enabled | jq -e '.value == "true"'
+  echo "$output" | row options.bluetooth.enabled | jq -e '.overridden == false'
+}
+
+@test "menu_categories: Bluetooth is a category with a non-empty summary" {
+  run menu_categories "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" \
+    | jq -e 'any(.[]; .name == "Bluetooth" and (.summary | length > 0))'
+}
+
 @test "menu_category_rows: Printing service returns only its printing row" {
   run menu_category_rows "Printing service" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
@@ -399,10 +417,10 @@ cat_at() { jq -e ".[$1]"; }
 @test "menu_categories: returns the categories in canonical order (Pacman after Mirrors)" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 14'
+  echo "$output" | jq -e 'length == 15'
   echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
     "Pacman","Disks","Bootloader","Kernels","General","Users","Environment",
-    "Packages","Security","Backup","Printing service","Advanced"]'
+    "Packages","Security","Backup","Printing service","Bluetooth","Advanced"]'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {

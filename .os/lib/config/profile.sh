@@ -34,6 +34,9 @@ declare -F post_install_validate >/dev/null 2>&1 \
 # shellcheck source=./printing.sh
 declare -F printing_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/printing.sh"
+# shellcheck source=./bluetooth.sh
+declare -F bluetooth_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/bluetooth.sh"
 
 # shellcheck source=../boot/bootloaders.sh
 declare -F bootloader_is_valid >/dev/null 2>&1 \
@@ -116,7 +119,10 @@ assemble_profile_config() {
     | .system.hostname =
         (if (.system.hostname // "") == "" then $name else .system.hostname end)
   ' <<<"$effective")"
-  printing_inject "$effective"
+  # Toggle-derived System Programs (ADR 0079/0080): fold cups (printing) then
+  # bluetooth into system_programs when their toggles are on. Chained so each
+  # derives independently and the Runner installs them as authored programs.
+  bluetooth_inject "$(printing_inject "$effective")"
 }
 
 # =============================================================================
@@ -147,6 +153,9 @@ _PROFILE_SCHEMA_host=(
   # — Printing Service (ADR 0079): the toggle-derived cups switch. Default on;
   #   cups is injected into system_programs at assembly, not declared in core. —
   "options.printing.enabled"
+  # — Bluetooth Service (ADR 0080): the toggle-derived bluez switch. Default on;
+  #   the `bluetooth` program is injected into system_programs at assembly. —
+  "options.bluetooth.enabled"
   # — Font Catalog (ADR 0080): the curated multi-select of fonts. Absent ⇒ the
   #   catalog defaults; replaces packages.repo.fonts as the single font home. —
   "options.fonts[]"

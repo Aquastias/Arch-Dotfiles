@@ -109,6 +109,11 @@ _cfgstate_computed_defaults() {
   # to the same set via fonts_selected, so this is idempotent with the back end.
   state="$(cfgstate_set "$state" options.fonts \
     "$(fonts_default_selection_json)")"
+  # Bluetooth Service (ADR 0080): the bluez daemon is on out of the box, so the
+  # Bluetooth category shows it enabled with no ● until the operator flips it.
+  # The `bluetooth` program is derived from this at emit, never a system_programs
+  # baseline entry — idempotent with the bluetooth_enabled default (on).
+  state="$(cfgstate_set "$state" options.bluetooth.enabled 'true')"
   # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.
   # ILoveCandy / Color / VerbosePkgLists on out of the box; the two opt-ins off;
   # ParallelDownloads 5. Rides the baseline (no ● until edited); idempotent with

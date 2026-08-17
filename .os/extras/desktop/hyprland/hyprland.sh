@@ -116,6 +116,34 @@ else
 fi
 
 # =============================================================================
+# BLUETOOTH TRAY — blueman, suppressed inside KDE sessions (ADR 0080)
+# =============================================================================
+# The Bluetooth Service toggle (options.bluetooth.enabled) installs only the
+# bluez DAEMON layer, never a GUI — the desktop owns the tray. KDE gets BlueDevil
+# free via plasma-meta; Hyprland has no Plasma-independent applet, so the
+# Hyprland adapter supplies blueman. On a KDE+Hyprland co-install both are
+# present, so the packaged autostart is overwritten with NotShowIn=KDE: the
+# applet is suppressed in a KDE session (BlueDevil is the tray there) and shows
+# in a Hyprland session — one BT tray per session. On a Hyprland-only box the key
+# is harmless (no KDE session exists). blueman coexists with BlueDevil without
+# conflict; both are just bluez frontends.
+section "Hyprland Bluetooth tray (blueman)"
+pacman -S --noconfirm --needed blueman
+install -d "${ROOT}/etc/xdg/autostart"
+cat > "${ROOT}/etc/xdg/autostart/blueman.desktop" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=Blueman Applet
+Comment=Bluetooth tray applet (managed by the installer — ADR 0080)
+Exec=blueman-applet
+Icon=blueman
+Terminal=false
+NotShowIn=KDE;
+X-GNOME-Autostart-enabled=true
+DESKTOP
+info "blueman installed; autostart set NotShowIn=KDE (Hyprland sessions only)."
+
+# =============================================================================
 # AQUAMARINE DRM PINNING — hybrid AMD+NVIDIA only
 # =============================================================================
 # On an nvidia+integrated hybrid the panel hangs off the iGPU and the dGPU is

@@ -38,6 +38,11 @@ _INSTALL_CONFIG_SCHEMA=(
   # typed back-end reader (printing_enabled in printing.sh reads the raw config
   # for the pure injector/resolver).
   "printing_enabled|.options.printing.enabled|bool|true"
+  # Bluetooth Service (ADR 0080): the toggle-derived bluez switch, default on.
+  # The `bluetooth` program is injected into system_programs from this at
+  # assembly; bluetooth_enabled in bluetooth.sh reads the raw config for the
+  # pure injector/resolver.
+  "bluetooth_enabled|.options.bluetooth.enabled|bool|true"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"
   "impermanence_dataset|.options.impermanence.dataset|scalar|rpool/persist"
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"
