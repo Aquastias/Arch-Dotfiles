@@ -77,7 +77,9 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
   local d l
   d="$(aur_of desktop)"; l="$(aur_of laptop)"
   local p
-  for p in vscodium-bin zen-browser-bin octopi ttf-ms-fonts; do
+  # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
+  # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
+  for p in vscodium-bin zen-browser-bin octopi; do
     grep -qx "$p" <<<"$d" || { echo "desktop missing core aur: $p"; return 1; }
     grep -qx "$p" <<<"$l" || { echo "laptop missing core aur: $p"; return 1; }
   done

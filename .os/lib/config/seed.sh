@@ -29,6 +29,10 @@ declare -F layer_resolve >/dev/null 2>&1 \
 declare -F _configs_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/layers.sh"
 
+# shellcheck source=./fonts.sh
+declare -F fonts_default_selection_json >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/fonts.sh"
+
 # cfgstate_host_core — Host Core as JSON ({} when absent/unreadable).
 # The menu's baseline is LOADED from Host Core rather than hand-copying a few
 # of its values (ADR 0058). Hand-copying is why `cups` used to install on every
@@ -100,6 +104,11 @@ _cfgstate_computed_defaults() {
   # cups is derived from this toggle at emit, never a system_programs baseline
   # entry — idempotent with the printing_enabled default (on).
   state="$(cfgstate_set "$state" options.printing.enabled 'true')"
+  # Font Catalog (ADR 0080): seed the default-checked fonts into the baseline so
+  # a fresh run shows the default set with no ●. Absent options.fonts resolves
+  # to the same set via fonts_selected, so this is idempotent with the back end.
+  state="$(cfgstate_set "$state" options.fonts \
+    "$(fonts_default_selection_json)")"
   # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.
   # ILoveCandy / Color / VerbosePkgLists on out of the box; the two opt-ins off;
   # ParallelDownloads 5. Rides the baseline (no ● until edited); idempotent with

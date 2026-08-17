@@ -45,6 +45,9 @@ declare -F install_state_credential_path >/dev/null 2>&1 \
 # shellcheck source=../aur-helper.sh
 declare -F _profiles_detect_helper >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../aur-helper.sh"
+# shellcheck source=../config/fonts.sh
+declare -F fonts_aur_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
@@ -197,6 +200,13 @@ _profiles_resolve_aur() {
       || return 1
     [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
   fi
+
+  # Font Catalog (ADR 0080): AUR fonts (today ttf-ms-fonts) ride this pass too —
+  # options.fonts is the single font home, so its AUR members union in here
+  # rather than living in packages.aur. Absent options.fonts ⇒ catalog defaults.
+  local fonts_aur
+  fonts_aur="$(fonts_aur_packages "$host_json")" || return 1
+  [[ -n "$fonts_aur" ]] && mapfile -t -O "${#out[@]}" out <<< "$fonts_aur"
 
   local de adapter aur_json
   for de in "$@"; do

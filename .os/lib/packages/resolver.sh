@@ -46,6 +46,9 @@ declare -F post_install_programs >/dev/null 2>&1 \
 # shellcheck source=../config/printing.sh
 declare -F printing_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/printing.sh"
+# shellcheck source=../config/fonts.sh
+declare -F fonts_repo_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -68,6 +71,7 @@ _PKGRES_SOURCES=(
   "security|Security"
   "backup|Backup"
   "printing|Printing service"
+  "fonts|General"
   "sops|secrets on disk"
   "repo|Packages"
   "aur|Packages"
@@ -270,6 +274,22 @@ pkgres_resolve() {
     [[ -n "$pp" ]] || continue
     _pkgres_emit printing derived "$pp"
   done < <(printing_programs "$cfg" 2>/dev/null)
+
+  # ── Font Catalog (ADR 0080) ───────────────────────────────────────────────
+  # Fonts moved out of packages.repo into the curated options.fonts catalog, so
+  # they no longer surface under the authored repo slot below. Report them as
+  # source=fonts (derived) — repo fonts install via pacstrap, AUR fonts
+  # (ttf-ms-fonts) via the paru pass — so explain-packages still answers "why is
+  # this font here?". Absent options.fonts ⇒ the catalog defaults.
+  local fp
+  while IFS= read -r fp; do
+    [[ -n "$fp" ]] || continue
+    _pkgres_emit fonts derived "$fp"
+  done < <(fonts_repo_packages "$cfg" 2>/dev/null)
+  while IFS= read -r fp; do
+    [[ -n "$fp" ]] || continue
+    _pkgres_emit fonts derived "$fp"
+  done < <(fonts_aur_packages "$cfg" 2>/dev/null)
 
   # ── secrets-activated sops (ADR 0025) ─────────────────────────────────────
   # Not declared anywhere: the Runner selects it when the host or one of its

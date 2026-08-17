@@ -227,6 +227,7 @@ _ctl_field_kind() {
   options.mirror_servers) echo list ;;        # custom Server= URLs (0072)
   options.custom_repositories) echo list ;;   # archinstall-style repos (0072)
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
+  options.fonts) echo toggle ;;   # Font Catalog multi-select (ADR 0080)
   options.mirror_countries | system_programs \
     | options.optional_repos) echo toggle ;;
   users) echo users ;;   # toggle existing users + in-fzf create
@@ -568,7 +569,7 @@ _ctl_user_program_names()   { program_names_of_kind user; }
 _ctl_toggle_options() {
   case "$1" in
   options.kernel | environment.desktop | environment.gpu \
-    | options.mirror_countries | options.optional_repos)
+    | options.mirror_countries | options.optional_repos | options.fonts)
     menu_enum_options "$1" ;;
   system_programs)     _ctl_system_program_names ;;
   system.keymap)       _ctl_biglist_options system.keymap ;;
