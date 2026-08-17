@@ -469,6 +469,51 @@ read-only `derived` section / `explain-packages` as `source=printing` (layer
 `derived`) — the one place the resolver reports a System Program at all (ADR
 0079).
 
+### Bluetooth Service (`options.bluetooth.enabled`)
+The second **toggle-derived System Program**, twinning [[Printing Service]]: a
+single bool [[Cycle Field]] (default `true`, normalised-out when true) in its
+own root-level **Bluetooth** Configuration Category. On → a `bluetooth` program
+is injected into the Effective Config's `system_programs` at assembly time,
+installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
+genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
+`bluez`/BlueDevil already arrive via `plasma-meta`, so the injection is a
+`--needed` no-op and the toggle's real contribution is *enabling the service*
+(nothing else does today). A Hyprland-session tray is a separate concern — the
+[[Desktop Environment Adapter]] for Hyprland ships `blueman` with a
+`NotShowIn=KDE` autostart, so a KDE session shows BlueDevil and a Hyprland
+session shows blueman (ADR 0080). Filtered from the Packages → system-programs
+picker like `cups`; surfaces as `source=bluetooth` in the resolver.
+
+### Power Profile (`options.power.profile`)
+The **enum** generalization of the toggle-derived pattern (ADR 0080, extending
+0079's bool): a choice field `none | power-profiles-daemon | tuned` (default
+`power-profiles-daemon`) in its own root-level **Power** Configuration Category.
+Unlike a bool toggle — which only decides *whether* a package lands — the value
+picks *which* daemon is injected and whose service is enabled
+(`power-profiles-daemon.service` / `tuned.service`); `tuned` additionally pulls
+`tuned-ppd` so a KDE/Hyprland applet keeps a working switcher. DE-agnostic:
+`powerprofilesctl` / `tuned-adm` drive it with no desktop, so "I don't use KDE"
+is a non-issue — pick `tuned` or `none`. `power-profiles-daemon` is only an
+*optional* dep of Powerdevil, so this key genuinely adds it even on KDE.
+Surfaces as `source=power` in the resolver.
+
+### Font Catalog (`options.fonts`)
+The curated multi-select font list, modelled on `options.kernel`: an enumerated
+option set (in `menu_enum_options`) that the operator TAB-checks, some
+pre-checked, resolved to packages before pacstrap. **Replaces**
+`packages.repo.fonts`, which is **deleted from Host Core** so a font has exactly
+one home (mirroring cups' removal from core, ADR 0079). The resolver is
+repo+AUR aware — the lone AUR entry (`ttf-ms-fonts`, kept because
+`ttf-liberation` covers only Arial/Times/Courier metrics, not
+Verdana/Georgia/Tahoma) routes to the Primary-User paru pass. Lives as a leaf
+in the [[General Category]] (ADR 0080), the one non-identity resident there.
+Default-checked spans the Noto family (incl. `noto-fonts-cjk` for CJK glyphs),
+`ttf-liberation`, `ttf-dejavu`, `ttf-ms-fonts`, and the Nerd-patched monospace
+trio (`ttf-jetbrains-mono-nerd`, `ttf-iosevka-nerd`, `ttf-firacode-nerd`);
+`otf-monaspace-nerd` and `ttf-sazanami` are selectable-but-off. The Nerd builds
+supersede plain ones (`ttf-fira-code` dropped) because the tracked shell payload
+is Powerlevel10k, which renders Nerd glyphs.
+
 ### Program Registry
 The in-memory index built once per run by `configs_build_registry`
 (`lib/config/layers.sh`), mapping each program name to its `category/name` path
@@ -1400,9 +1445,15 @@ is deliberately excluded — it is a clock setting, not localization, and lives 
 the **General** Category (ADR 0076).
 
 ### General Category
-The Guided Installer Configuration Category holding a machine's hostname and
-timezone; the former **System**, renamed once its localization fields moved to
-the **Locales Category** (ADR 0076).
+The Guided Installer Configuration Category holding a machine's hostname,
+timezone, and the [[Font Catalog]] (`options.fonts`); the former **System**,
+renamed once its localization fields moved to the **Locales Category** (ADR
+0076). Was recut to machine *identity* by ADR 0076, then **re-broadened** to
+"identity + fonts" by ADR 0080 — the operator's deliberate choice to house the
+font multi-select here rather than spend a top-level category or a Packages
+leaf on it. Fonts are the one non-identity resident; service-enablement
+switches (Bluetooth, Power, Printing) still keep their own categories, so
+General never became a catch-all.
 _Avoid_: System.
 
 ## Flagged ambiguities
