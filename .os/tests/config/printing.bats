@@ -2,7 +2,7 @@
 # Tests for .os/lib/config/printing.sh — the Printing Service resolver (ADR
 # 0079): a pure helper turning options.printing.enabled into the toggle-derived
 # System Programs (cups when on, nothing when off), the injector that folds cups
-# into an Effective Config's system_programs, and the picker-filter owned set.
+# into an Effective Config's host_programs, and the picker-filter owned set.
 #
 # Behaviour under test (external only — the decision the helper produces), never
 # internal structure. Prior art: tests/config/post-install.bats.
@@ -49,39 +49,39 @@ setup() {
   [ -z "$output" ]
 }
 
-# ── printing_inject: folds cups into system_programs when on ────────────────
+# ── printing_inject: folds cups into host_programs when on ────────────────
 
-@test "printing_inject: on adds cups to an empty system_programs" {
+@test "printing_inject: on adds cups to an empty host_programs" {
   run printing_inject '{"options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 @test "printing_inject: on preserves existing programs and appends cups" {
-  run printing_inject '{"system_programs":["grub"],
+  run printing_inject '{"host_programs":["grub"],
                         "options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
+  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
 }
 
 @test "printing_inject: idempotent when cups already present" {
-  run printing_inject '{"system_programs":["cups"],
+  run printing_inject '{"host_programs":["cups"],
                         "options":{"printing":{"enabled":true}}}'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 @test "printing_inject: default-on (absent toggle) still injects cups" {
-  run printing_inject '{"system_programs":["grub"]}'
-  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
+  run printing_inject '{"host_programs":["grub"]}'
+  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
 }
 
 @test "printing_inject: off is a no-op (no cups, existing kept)" {
-  run printing_inject '{"system_programs":["grub"],
+  run printing_inject '{"host_programs":["grub"],
                         "options":{"printing":{"enabled":false}}}'
-  echo "$output" | jq -e '.system_programs == ["grub"]'
+  echo "$output" | jq -e '.host_programs == ["grub"]'
 }
 
-@test "printing_inject: off leaves a config with no system_programs untouched" {
+@test "printing_inject: off leaves a config with no host_programs untouched" {
   run printing_inject '{"options":{"printing":{"enabled":false}}}'
-  echo "$output" | jq -e 'has("system_programs") | not'
+  echo "$output" | jq -e 'has("host_programs") | not'
 }
 
 # ── printing_owned_programs: the picker-filter set ──────────────────────────

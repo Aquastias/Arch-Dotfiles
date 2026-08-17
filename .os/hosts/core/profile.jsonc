@@ -12,14 +12,14 @@
 // only — they still inherit these users and sysctl), so core is free to hold
 // the full workstation userland without bloating a test install.
 //
-// Resolution is per-key (ADR 0057): packages/system_programs/users/sysctl are
+// Resolution is per-key (ADR 0057): packages/host_programs/users/sysctl are
 // additive, ordered selections (kernel, locale, desktop) are replaced. A host
 // drops something core declares via `packages.exclude` /
-// `system_programs_exclude`.
+// `host_programs_exclude`.
 //
 // `cups` is deliberately NOT declared here (ADR 0079): the print daemon is a
 // toggle-derived System Program, driven by `options.printing.enabled` (default
-// on) and injected into system_programs at Effective-Config assembly, so it has
+// on) and injected into host_programs at Effective-Config assembly, so it has
 // exactly one home — the Guided Installer's Printing service category.
 //
 // Fonts are likewise NOT declared here (ADR 0080): they moved to the curated
@@ -29,7 +29,7 @@
 // list for the same reason (the catalog routes it to the paru pass).
 {
   "users": [],
-  "system_programs": [],
+  "host_programs": [],
   "sysctl": {
     "vm.swappiness": 10
   },

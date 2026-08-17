@@ -47,7 +47,7 @@ setup() {
 @test "explain-packages: works on a hand-edited profile" {
   local t; t="$(mktemp -d)"
   mkdir -p "$t/hosts/core" "$t/hosts/handmade" "$t/users/core"
-  printf '{"users":[],"system_programs":[]}\n' \
+  printf '{"users":[],"host_programs":[]}\n' \
     > "$t/hosts/core/profile.jsonc"
   printf '{"shell":"/bin/zsh"}\n' > "$t/users/core/profile.jsonc"
   cat > "$t/hosts/handmade/profile.jsonc" <<'JSON'
@@ -78,7 +78,7 @@ JSON
   local t; t="$(mktemp -d)"
   mkdir -p "$t/hosts/core" "$t/hosts/on" "$t/hosts/off" "$t/users/core" \
            "$t/tools" "$t/lib"
-  printf '{"users":[],"system_programs":[]}\n' > "$t/hosts/core/profile.jsonc"
+  printf '{"users":[],"host_programs":[]}\n' > "$t/hosts/core/profile.jsonc"
   printf '{"shell":"/bin/zsh"}\n' > "$t/users/core/profile.jsonc"
   # `on` leaves the toggle at its default (absent ⇒ on); `off` sets it false.
   printf '{"users":["alice"]}\n' > "$t/hosts/on/profile.jsonc"

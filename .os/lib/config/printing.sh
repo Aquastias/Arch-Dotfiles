@@ -3,28 +3,28 @@
 # lib/config/printing.sh — Printing Service resolver (ADR 0079)
 # =============================================================================
 # Pure core turning a host's `options.printing.enabled` toggle into the
-# toggle-derived System Programs: `cups` when on (the default), nothing when
+# toggle-derived Host Programs: `cups` when on (the default), nothing when
 # off. The single source of truth shared by the Effective-Config injector
 # (emit.sh / profile.sh assembly) and the Package Resolver, so the two can
 # never drift. No TTY, no disk writes — JSON in, decision out. Mirrors
 # post-install.sh.
 #
 # cups is NOT declared in Host Core (ADR 0079); it is the first toggle-derived
-# System Program. `options.ssh.enabled` only enables a service on the
+# Host Program. `options.ssh.enabled` only enables a service on the
 # always-present `openssh`, whereas this toggle gates the install itself, so
 # cups is genuinely absent when off. The toggle defaults ON to preserve the
 # historical "cups installed on every host" behaviour.
 #
 # The toggle predicate lives in exactly one place (printing_enabled);
 # printing_programs derives the program list from it, and printing_inject folds
-# whatever printing_programs emits into system_programs — so the `cups` literal
+# whatever printing_programs emits into host_programs — so the `cups` literal
 # and the on/off rule are never re-encoded per consumer.
 #
 # Public API:
 #   printing_enabled          <config-json> → "true" | "false" (default on)
-#   printing_programs         <config-json> → derived System Programs, one/line
+#   printing_programs         <config-json> → derived Host Programs, one/line
 #   printing_inject           <config-json> → config with the derived programs
-#                                             folded into .system_programs
+#                                             folded into .host_programs
 #   printing_owned_programs                 → every program the toggle owns,
 #                                             state-independent (picker filter)
 # =============================================================================
@@ -38,7 +38,7 @@ printing_enabled() {
     | if $v == false then "false" else "true" end' <<<"${1:-{\}}"
 }
 
-# printing_programs <config-json> — the toggle-derived System Programs, one per
+# printing_programs <config-json> — the toggle-derived Host Programs, one per
 # line: `cups` when printing is on, nothing when off. The source of truth both
 # the injector and the resolver consume, so neither re-encodes the mapping.
 printing_programs() {
@@ -47,25 +47,25 @@ printing_programs() {
 }
 
 # printing_inject <config-json> — the config with the toggle-derived System
-# Programs (printing_programs) folded into .system_programs (order-preserving,
-# idempotent), so the Runner installs cups exactly as an authored system program
+# Programs (printing_programs) folded into .host_programs (order-preserving,
+# idempotent), so the Runner installs cups exactly as an authored Host Program
 # when printing is on. A no-op when printing yields nothing. Pure: JSON in,
 # compact JSON out.
 printing_inject() {
   local cfg="${1:-{\}}" progs
   progs="$(printing_programs "$cfg")"
   # Nothing derived (printing off) → the config is untouched, not given an empty
-  # system_programs it never had.
+  # host_programs it never had.
   [[ -n "$progs" ]] || { jq -c . <<<"$cfg"; return; }
   jq -c --arg progs "$progs" '
     ($progs | split("\n") | map(select(length > 0))) as $add
-    | .system_programs = ((.system_programs // []) as $sp
+    | .host_programs = ((.host_programs // []) as $sp
         | reduce $add[] as $p ($sp;
             if (. | index($p)) then . else . + [$p] end))
   ' <<<"$cfg"
 }
 
-# printing_owned_programs — every System Program the Printing toggle owns,
+# printing_owned_programs — every Host Program the Printing toggle owns,
 # regardless of state. Filtered out of the Packages system-programs picker so
 # the Printing category stays cups's sole menu home (ADR 0079). A function, not
 # a hard-coded string at each call site, so a future toggle-owned program is

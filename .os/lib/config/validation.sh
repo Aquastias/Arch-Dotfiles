@@ -82,7 +82,7 @@ _validation_preflight_programs() {
 
   local -a sys_progs users
   mapfile -t sys_progs < <(printf '%s' "$host_json" \
-    | jq -r '.system_programs[]?')
+    | jq -r '.host_programs[]?')
   mapfile -t users     < <(printf '%s' "$host_json" | jq -r '.users[]?')
 
   local u
@@ -94,7 +94,7 @@ _validation_preflight_programs() {
 
   local any_fail=0
   if ((${#sys_progs[@]} > 0)); then
-    validate_programs "true" "${sys_progs[@]}" || any_fail=1
+    validate_programs "host" "${sys_progs[@]}" || any_fail=1
   fi
 
   # System-program JSON array for the requires-order check below (ADR 0065),
@@ -115,15 +115,15 @@ _validation_preflight_programs() {
     esac
     mapfile -t uprogs < <(printf '%s' "$uj" | jq -r '.programs[]?')
     # Reconcile each user program reference (ADR 0036): system:false installs
-    # at user level; a host-installed system program is a no-op; a system
-    # program no host installs aborts (reconcile prints the actionable why).
+    # at user level; a host-installed Host Program is a no-op; a Host Program
+    # no host installs aborts (reconcile prints the actionable why).
     local _up
     for _up in "${uprogs[@]}"; do
       reconcile_user_program "$_up" "${sys_progs[@]+"${sys_progs[@]}"}" \
         >/dev/null || any_fail=1
     done
     # Dependency ordering (ADR 0065): each program's `requires` must be
-    # installed first — a host system program or an earlier entry in this list.
+    # installed first — a Host Program or an earlier entry in this list.
     _validation_check_requires_order "$u" "$_sys_json" \
       "$(printf '%s' "$uj" | jq -c '.programs // []')" || any_fail=1
   done
@@ -167,10 +167,10 @@ _validation_program_requires() {
 
 # _validation_check_requires_order <user> <sys_json> <uprogs_json> — enforce
 # every user program's `requires` for one user. A required program is satisfied
-# when it is a host system program (installed before all user programs) or
+# when it is a Host Program (installed before all user programs) or
 # appears EARLIER in this user's own list. Prints an actionable line per
 # violation and returns 1 if any; 0 when clean. Pure over OS_DIR + the two JSON
-# array args (system_programs, the user's programs).
+# array args (host_programs, the user's programs).
 _validation_check_requires_order() {
   local user="$1" sys_json="$2" up_json="$3" fail=0
   local -a up sys
@@ -181,7 +181,7 @@ _validation_check_requires_order() {
     p="${up[$i]}"
     while IFS= read -r r; do
       [[ -n "$r" ]] || continue
-      # A host system program is installed before every user program.
+      # A Host Program is installed before every user program.
       local _si; _si="$(_validation_index_of "$r" "${sys[@]+"${sys[@]}"}")"
       [[ -n "$_si" ]] && continue
       ri="$(_validation_index_of "$r" "${up[@]}")"

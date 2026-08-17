@@ -26,7 +26,7 @@ setup() {
   # exercise both: an authored core program AND the printing-derived cups.
   mkdir -p "$OS_DIR/hosts/core"
   printf '%s\n' \
-    '{"system_programs":["grub"],"sysctl":{"vm.swappiness":10}}' \
+    '{"host_programs":["grub"],"sysctl":{"vm.swappiness":10}}' \
     > "$OS_DIR/hosts/core/profile.jsonc"
 
   # shellcheck source=../../lib/config/state.sh
@@ -55,7 +55,7 @@ effective() {
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   state="$(cfgstate_set "$state" mode '"single"')"
   # Isolate the printing-derived cups: disable the other toggle-derived System
-  # Programs (bluetooth, power — ADR 0080) so system_programs stays focused.
+  # Programs (bluetooth, power — ADR 0080) so host_programs stays focused.
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
   state="$(cfgstate_set "$state" options.power.profile '"none"')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
@@ -67,7 +67,7 @@ effective() {
   echo "$output" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
   # Host Core still applies under the guided session (grub authored), and the
   # printing toggle (on by default) injects cups as a derived System Program.
-  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
+  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
@@ -108,7 +108,7 @@ effective() {
 
 @test "emit_effective: a package name is passed through, never promoted" {
   mkdir -p "$OS_DIR/programs/security/wireguard"
-  printf '{"name":"wireguard","system":true}\n' \
+  printf '{"name":"wireguard","kind":"host"}\n' \
     > "$OS_DIR/programs/security/wireguard/config.jsonc"
   : > "$OS_DIR/programs/security/wireguard/install.sh"
 
@@ -119,9 +119,9 @@ effective() {
   run emit_effective "$(effective "$state")" "$assignment"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.packages.repo.extra == ["htop"]'
-  echo "$output" | jq -e '.system_programs | index("grub")'   # core kept
-  echo "$output" | jq -e '.system_programs | index("cups")'   # printing-derived
-  echo "$output" | jq -e '.system_programs | index("htop") | not'
+  echo "$output" | jq -e '.host_programs | index("grub")'   # core kept
+  echo "$output" | jq -e '.host_programs | index("cups")'   # printing-derived
+  echo "$output" | jq -e '.host_programs | index("htop") | not'
 }
 
 # ── the menu and the installer produce the same set (ADR 0058) ──────────────
@@ -134,7 +134,7 @@ effective() {
 # materialised only at emit, mirroring GPU/audio/security derived sets.
 @test "the print daemon is toggle-derived, not a baseline System Program" {
   local base; base="$(cfgstate_seed_defaults "$(cfgstate_new)")"
-  jq -e '.system_programs | index("cups") | not' <<<"$base"
+  jq -e '.host_programs | index("cups") | not' <<<"$base"
   jq -e '.options.printing.enabled == true' <<<"$base"
 }
 
@@ -148,13 +148,13 @@ effective() {
   # default on → cups injected alongside the authored core program
   run emit_effective "$(effective "$state")" "$asgn"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["grub","cups"]'
+  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
 
   # turned off → cups absent, the authored core program untouched
   local off; off="$(cfgstate_set "$state" options.printing.enabled 'false')"
   run emit_effective "$(effective "$off")" "$asgn"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["grub"]'
+  echo "$output" | jq -e '.host_programs == ["grub"]'
 }
 
 @test "menu view and installed set agree, aside from the derived cups" {
@@ -169,14 +169,14 @@ effective() {
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
   # packages/sysctl survive the emit unchanged (disks aside); the only
-  # system_programs difference is the printing-derived cups the emit injects.
+  # host_programs difference is the printing-derived cups the emit injects.
   local shown installed
   shown="$(jq -cS '{packages, sysctl}' <<<"$view")"
   installed="$(jq -cS '{packages, sysctl}' <<<"$output")"
   [ "$shown" = "$installed" ]
   local shown_sp installed_sp
-  shown_sp="$(jq -cS '.system_programs' <<<"$view")"
-  installed_sp="$(jq -cS '(.system_programs - ["cups"])' <<<"$output")"
+  shown_sp="$(jq -cS '.host_programs' <<<"$view")"
+  installed_sp="$(jq -cS '(.host_programs - ["cups"])' <<<"$output")"
   [ "$shown_sp" = "$installed_sp" ]
 }
 
@@ -189,13 +189,13 @@ effective() {
   # Isolate printing from the other toggle-derived programs (ADR 0080).
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
   state="$(cfgstate_set "$state" options.power.profile '"none"')"
-  state="$(cfgstate_set "$state" system_programs '[]')"
+  state="$(cfgstate_set "$state" host_programs '[]')"
 
   run emit_effective "$(effective "$state")" \
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs | index("grub") | not'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs | index("grub") | not'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 # ── Save writes a DELTA over Host Core, not a snapshot (ADR 0056) ───────────
@@ -204,15 +204,15 @@ effective() {
 # profile from core on the next edit.
 
 @test "guided_core_delta: drops what Host Core already provides" {
-  local core='{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+  local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
-  local eff='{"system_programs":["cups","grub"],
+  local eff='{"host_programs":["cups","grub"],
               "sysctl":{"vm.swappiness":10},
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "system":{"hostname":"eterniox"}}'
   run guided_core_delta "$eff" "$core"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["grub"]'
+  echo "$output" | jq -e '.host_programs == ["grub"]'
   echo "$output" | jq -e '.packages.repo.shell == ["btop"]'
   echo "$output" | jq -e 'has("sysctl") | not'
   echo "$output" | jq -e '.system.hostname == "eterniox"'
@@ -237,9 +237,9 @@ effective() {
 # over Host Core must reproduce exactly what the operator saw.
 @test "guided_core_delta round-trips through the Layer Resolver" {
   source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
-  local core='{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+  local core='{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
                "packages":{"repo":{"shell":["htop","fzf"]}}}'
-  local eff='{"system_programs":["cups","grub"],
+  local eff='{"host_programs":["cups","grub"],
               "sysctl":{"vm.swappiness":10},
               "packages":{"repo":{"shell":["htop","fzf","btop"]}},
               "options":{"kernel":["zen"]}}'
@@ -252,7 +252,7 @@ effective() {
 @test "Save writes a delta: core's packages are not baked into the profile" {
   # a richer core than the setup default, to make the snapshot obvious
   cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
-{"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+{"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
  "packages":{"repo":{"shell":["htop","fzf","btop"]}}}
 JSON
   source "$BATS_TEST_DIRNAME/../../lib/guided-save.sh"
@@ -265,7 +265,7 @@ JSON
   local saved; saved="$(cat "$OS_DIR/hosts/newbox/profile.jsonc")"
   # core's inherited payload is absent from the committed delta …
   jq -e '(.packages // {}) == {}'          <<<"$saved"
-  jq -e 'has("system_programs") | not'     <<<"$saved"
+  jq -e 'has("host_programs") | not'     <<<"$saved"
   jq -e 'has("sysctl") | not'              <<<"$saved"
   # … but the operator's own choices are there
   jq -e '.system.hostname == "newbox"'     <<<"$saved"

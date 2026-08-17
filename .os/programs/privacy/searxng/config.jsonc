@@ -1,6 +1,6 @@
 // Program metadata for searxng.
 //
-// system=false → installed by the profile runner inside the chroot as the
+// kind=user → installed by the profile runner inside the chroot as the
 // owning user via paru, with temp NOPASSWD sudo for /var/lib/systemd/linger
 // write.
 // requires podman (ADR 0065): podman's package + subuid/subgid setup must be in
@@ -12,7 +12,7 @@
 
 {
   "name": "searxng",
-  "system": false,
+  "kind": "user",
   "description": "Privacy metasearch via rootless podman, on 127.0.0.1:8080",
   "requires": ["podman"]
 }

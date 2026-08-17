@@ -60,7 +60,7 @@ setup() {
   [ "$(display_label "age key url")" = "Age key URL" ]
   [ "$(display_label "zfs snapshots")" = "ZFS snapshots" ]
   [ "$(display_label "mirror countries")" = "Mirror countries" ]
-  [ "$(display_label "system programs")" = "System programs" ]
+  [ "$(display_label "host programs")" = "Host programs" ]
   [ "$(display_label "extra packages")" = "Extra packages" ]
 }
 

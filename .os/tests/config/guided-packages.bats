@@ -16,7 +16,7 @@ setup() {
 
   mkdir -p "$OS_DIR/hosts/core" "$OS_DIR/users/core"
   cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
-{"users":[],"system_programs":["cups"],
+{"users":[],"host_programs":["cups"],
  "packages":{"repo":{"shell":["htop","fzf"],"media":["vlc"]},
              "aur":{"misc":["brave-bin"]}}}
 JSON

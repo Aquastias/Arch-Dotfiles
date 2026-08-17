@@ -1,7 +1,7 @@
 // Program metadata for tuned (ADR 0080).
 //
-// system=true → installed by the profile runner inside arch-chroot as root via
-// pacman. Toggle-derived: injected into system_programs when
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman. Toggle-derived: injected into host_programs when
 // options.power.profile == "tuned", so the Power category is its sole home — it
 // never appears in the Packages system-programs picker. Installs tuned +
 // tuned-ppd (the shim exposing the power-profiles-daemon D-Bus interface so a
@@ -9,6 +9,6 @@
 
 {
   "name": "tuned",
-  "system": true,
+  "kind": "host",
   "description": "tuned + tuned-ppd — tunable power-management profiles."
 }

@@ -11,14 +11,14 @@ Every `install.sh` is sourced (not executed as a subprocess) by
 `lib/profiles/program-runner.sh` inside **arch-chroot**. The shell stdlib is already
 sourced before `install.sh` runs — do not re-source it.
 
-Two execution modes, selected by `"system"` in `config.jsonc`:
+Two execution modes, selected by `"kind"` in `config.jsonc`:
 
-- `system: false` — runs as the **owning user** with temporary passwordless
+- `kind: "user"` — runs as the **owning user** with temporary passwordless
   sudo. Packages installed via `paru` (AUR-capable). Use this by default.
-- `system: true` — runs as **root**. Packages installed via `pacman`. Use this
+- `kind: "host"` — runs as **root**. Packages installed via `pacman`. Use this
   only when the install genuinely needs root and no per-user state
   (e.g. deriving machine-wide keys, writing under `/etc`/`/usr/lib`
-  unconditionally, bootloader setup). Listed under `system_programs` in the
+  unconditionally, bootloader setup). Listed under `host_programs` in the
   host config; runs before user programs.
 
 Key consequences:
@@ -55,12 +55,12 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
 
 ## `config.jsonc` format
 
-### `system: false` (default)
+### `kind: "user"` (default)
 
 ```jsonc
 // Program metadata for <name>.
 //
-// system=false → installed by the profile runner inside the chroot as the
+// kind=user → installed by the profile runner inside the chroot as the
 // owning user via paru, with temp NOPASSWD sudo for <describe what sudo is
 // needed for, e.g. "systemctl and /etc writes">.
 // <One or two sentences explaining any non-obvious post-install state,
@@ -68,24 +68,24 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
 
 {
   "name": "<program-name>",
-  "system": false,
+  "kind": "user",
   "description": "<one sentence: what is installed and what state it leaves.>"
 }
 ```
 
-### `system: true`
+### `kind: "host"`
 
 ```jsonc
 // Program metadata for <name>.
 //
-// system=true → installed by the profile runner inside arch-chroot as root
+// kind=host → installed by the profile runner inside arch-chroot as root
 // via pacman. <One or two sentences explaining what root-only work this
 // script does — e.g. deriving machine keys, installing services under
 // /usr/lib/systemd, patching bootloader.>
 
 {
   "name": "<program-name>",
-  "system": true,
+  "kind": "host",
   "description": "<one sentence: what is installed and what state it leaves.>"
 }
 ```
@@ -109,7 +109,8 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
 
 Rules:
 - `"name"` must be the kebab-case directory name under `programs/<category>/`.
-- `"system"` is `false` by default; set `true` only when root is required.
+- `"kind"` is required and must be `"user"` or `"host"`; use `"host"` only when
+  root is required.
 - `"description"` is one sentence, present tense, ends with a period.
 - The header comment must name what sudo (or root) is needed for so readers
   understand why the script has elevated access.
@@ -143,13 +144,13 @@ print_status success "<Name> staged."
 
 ### Package installation
 
-For `system: false`:
+For `kind: "user"`:
 
 ```bash
 ${AUR_HELPER} -S --noconfirm --needed <pkg1> <pkg2>
 ```
 
-For `system: true`:
+For `kind: "host"`:
 
 ```bash
 pacman -S --noconfirm --needed <pkg1> <pkg2>
@@ -157,7 +158,7 @@ pacman -S --noconfirm --needed <pkg1> <pkg2>
 
 - Always use `--needed` (idempotent).
 - Prefer official repo packages; fall back to AUR only if the Arch Wiki says so
-  (AUR access requires `system: false` + `paru`).
+  (AUR access requires `kind: "user"` + `paru`).
 - Split long package lists across lines with `\`.
 
 ### File writes
@@ -168,7 +169,7 @@ sudo tee /path/to/file >/dev/null <<'EOF'
 EOF
 ```
 
-(Drop `sudo` if running as root via `system: true`.)
+(Drop `sudo` if running as root via `kind: "host"`.)
 
 - Use `<<'EOF'` (single-quoted) to suppress variable expansion unless you need
   it, in which case use `<<EOF` and be deliberate.
@@ -306,11 +307,11 @@ print_status success "<Name> staged." \
 Before emitting output, verify:
 
 - [ ] `config.jsonc` `"name"` matches the intended directory name
-- [ ] `"system"` value matches the header comment variant used
+- [ ] `"kind"` value matches the header comment variant used
 - [ ] `"description"` is one sentence, present tense, ends with a period
 - [ ] Header comment names every `sudo`/root operation performed
 - [ ] All packages come from the Arch Wiki page for this program
-- [ ] `paru` used iff `system: false`; `pacman` used iff `system: true`
+- [ ] `paru` used iff `kind: "user"`; `pacman` used iff `kind: "host"`
 - [ ] No `systemctl start` anywhere
 - [ ] Services that ship with packages declared in `system_services` /
       `user_services` instead of `systemctl enable` in the script

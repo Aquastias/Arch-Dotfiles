@@ -1,7 +1,7 @@
 // Program metadata for power-profiles-daemon (ADR 0080).
 //
-// system=true → installed by the profile runner inside arch-chroot as root via
-// pacman. Toggle-derived: injected into system_programs when
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman. Toggle-derived: injected into host_programs when
 // options.power.profile == "power-profiles-daemon" (the default), so the Power
 // category is its sole home — it never appears in the Packages system-programs
 // picker. Enables power-profiles-daemon.service; KDE Powerdevil (and Hyprland
@@ -9,6 +9,6 @@
 
 {
   "name": "power-profiles-daemon",
-  "system": true,
+  "kind": "host",
   "description": "power-profiles-daemon — power profile switching daemon."
 }

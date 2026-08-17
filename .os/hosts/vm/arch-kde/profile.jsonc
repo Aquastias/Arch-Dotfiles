@@ -44,7 +44,7 @@
   // updating every time Host Core grows.
   "packages": { "inherit": false },
   "users": ["aquastias"],
-  "system_programs": [],
+  "host_programs": [],
 
   "mode":   "single",
   "ashift": 13

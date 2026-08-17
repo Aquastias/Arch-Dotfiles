@@ -300,7 +300,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 @test "menu_rows: system programs sits under Packages; post_install split out" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row system_programs                | jq -e '.section == "Packages"'
+  echo "$output" | row host_programs                | jq -e '.section == "Packages"'
   echo "$output" | row post_install.backup.borg       | jq -e '.section == "Backup"'
   echo "$output" | row post_install.security.firewall | jq -e '.section == "Security"'
   echo "$output" | row post_install.security.firewall | jq -e '.value == "firewalld"'
@@ -331,7 +331,7 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 # maintained tables. If a default changes in one only, the apply-time normalise
 # silently stops clearing ● for that field (the exact bug this fix closes).
 # Assert every non-empty, non-list spec default renders equal to its seeded
-# baseline value. List/append fields (packages.repo.extra, system_programs
+# baseline value. List/append fields (packages.repo.extra, host_programs
 # → "[]") and
 # empty defaults are unseeded by design and skipped.
 
@@ -655,7 +655,7 @@ cat_at() { jq -e ".[$1]"; }
   run menu_category_rows Packages "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
-  echo "$output" | jq -e 'any(.[]; .field == "system_programs")'
+  echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
 }
 
 @test "menu_category_rows: Security + Backup carry the structured tool rows" {

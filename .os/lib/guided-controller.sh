@@ -237,7 +237,7 @@ _ctl_field_kind() {
   options.custom_repositories) echo list ;;   # archinstall-style repos (0072)
   options.kernel | environment.desktop | environment.gpu) echo toggle ;;
   options.fonts) echo toggle ;;   # Font Catalog multi-select (ADR 0080)
-  options.mirror_countries | system_programs \
+  options.mirror_countries | host_programs \
     | options.optional_repos) echo toggle ;;
   users) echo users ;;   # toggle existing users + in-fzf create
   *) echo enum ;;
@@ -478,7 +478,7 @@ _ctl_apply_text() {
 
 # _ctl_route_package_entry <state> <raw> [slot] — split the space-separated
 # typed into the extra-packages row by kind, at ENTRY time, and file each into
-# the slot it belongs in: a system Program → system_programs, a user Program →
+# the slot it belongs in: a system Program → host_programs, a user Program →
 # the Primary User's programs, anything else → packages.repo.extra.
 #
 # This is the guided convenience the deleted promotion rule used to provide,
@@ -495,17 +495,17 @@ _ctl_route_package_entry() {
   local name
   for name in $raw; do
     case "$(program_kind "$name")" in
-    system) sys+=("$name") ;;
-    user)   usr+=("$name") ;;
-    *)      pkgs+=("$name") ;;
+    host) sys+=("$name") ;;
+    user) usr+=("$name") ;;
+    *)    pkgs+=("$name") ;;
     esac
   done
 
   ((${#pkgs[@]})) \
     && state="$(edit_append_packages "$state" "${pkgs[*]}" "$slot")"
   if ((${#sys[@]})); then
-    state="$(edit_append_system_programs "$state" "${sys[@]}")"
-    printf 'routed to system programs: %s\n' "${sys[*]}" >&2
+    state="$(edit_append_host_programs "$state" "${sys[@]}")"
+    printf 'routed to host programs: %s\n' "${sys[*]}" >&2
   fi
   if ((${#usr[@]})); then
     state="$(_ctl_append_primary_user_programs "$state" "${usr[@]}")"
@@ -566,21 +566,21 @@ _ctl_curated_persist_count() {
   printf '%s' "$(( ${#CURATED_FILES[@]} + ${#CURATED_DIRS[@]} ))"
 }
 
-# _ctl_system_program_names / _ctl_user_program_names — the option set for each
-# program picker, filtered on the registry's system flag (R22). The two screens
-# have opposite requirements: host system_programs needs system:true (else
+# _ctl_host_program_names / _ctl_user_program_names — the option set for each
+# program picker, filtered on the registry's kind (R22). The two screens have
+# opposite requirements: host host_programs needs kind host (else
 # validate_programs rejects the config at Proceed), the User Editor's programs
-# row needs system:false (else the reference silently no-ops or aborts). One
+# row needs kind user (else the reference silently no-ops or aborts). One
 # unfiltered list used to feed both.
 #
 # Programs the Printing toggle owns (cups) are filtered out (ADR 0079): they are
 # derived from options.printing.enabled, so the Printing service category is
 # their sole home — offering cups here too would be the double representation
 # the toggle exists to remove. Keyed on the toggle-owned sets, not literals —
-# each toggle-derived System Program (cups, bluetooth — ADR 0079/0080) has its
+# each toggle-derived Host Program (cups, bluetooth — ADR 0079/0080) has its
 # category as its sole home, so all are filtered from this Packages picker.
-_ctl_system_program_names() {
-  program_names_of_kind system \
+_ctl_host_program_names() {
+  program_names_of_kind host \
     | grep -vxF -f <(printing_owned_programs; bluetooth_owned_programs; \
                      power_owned_programs)
 }
@@ -592,7 +592,7 @@ _ctl_toggle_options() {
   options.kernel | environment.desktop | environment.gpu \
     | options.mirror_countries | options.optional_repos | options.fonts)
     menu_enum_options "$1" ;;
-  system_programs)     _ctl_system_program_names ;;
+  host_programs)     _ctl_host_program_names ;;
   system.keymap)       _ctl_biglist_options system.keymap ;;
   esac
 }
@@ -2567,7 +2567,7 @@ _ctl_enter_profiles() {
   # Seed the RESOLVED profile, not the raw delta. A committed profile is a
   # delta over Host Core, and the Config State is an override map that
   # REPLACES baseline values — so seeding the delta verbatim would show (and
-  # install) `system_programs: ["grub"]` where `install.sh --profile desktop`
+  # install) `host_programs: ["grub"]` where `install.sh --profile desktop`
   # installs `["cups","grub"]`. Resolving here means one profile produces one
   # install through every front-end.
   profile="$(layer_resolve host "$(cfgstate_host_core)" "$profile")"

@@ -161,7 +161,7 @@ flowchart LR
   d_im["options.impermanence.*"]:::cImp
   d_pe["host persist.{dirs,files}"]:::cImp
   d_id["system: locale[] / keymap[]<br/>timezone / hostname"]:::cProf
-  d_up["host users +<br/>system_programs; user profile"]:::cProf
+  d_up["host users +<br/>host_programs; user profile"]:::cProf
   d_pk["host packages.repo/.aur"]:::cProf
   d_sy["host sysctl"]:::cProf
   d_se["secrets.json + age key<br/>USB / age_key_url"]:::cSec
@@ -288,7 +288,7 @@ flowchart TD
     TV["configs@&lt;v&gt;/manifest.jsonc<br/>(variant trees)"]:::src
     UCv["User Core variants<br/>(House Defaults)"]:::sel
     USv["User Profile variants<br/>(per-key override)"]:::sel
-    DECL["declared set:<br/>user U system programs"]:::sel
+    DECL["declared set:<br/>user U host programs"]:::sel
   end
 
   subgraph GEN["generate-configs.sh (per user, chroot)"]

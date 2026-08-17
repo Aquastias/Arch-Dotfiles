@@ -98,10 +98,10 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
-@test "edit_append_system_programs: dedup-appends" {
-  run edit_append_system_programs '{"system_programs":["cups"]}' cups docker
+@test "edit_append_host_programs: dedup-appends" {
+  run edit_append_host_programs '{"host_programs":["cups"]}' cups docker
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.system_programs' <<<"$output")" = '["cups","docker"]' ]
+  [ "$(jq -c '.host_programs' <<<"$output")" = '["cups","docker"]' ]
 }
 
 @test "edit_append_persist: appends an absolute dir" {

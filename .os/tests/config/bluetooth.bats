@@ -2,7 +2,7 @@
 # Tests for .os/lib/config/bluetooth.sh — the Bluetooth Service resolver (ADR
 # 0080): a pure helper turning options.bluetooth.enabled into the toggle-derived
 # System Program (bluetooth when on, nothing when off), the injector that folds
-# it into an Effective Config's system_programs, and the picker-filter owned set.
+# it into an Effective Config's host_programs, and the picker-filter owned set.
 #
 # Behaviour under test is external only. Prior art: tests/config/printing.bats.
 
@@ -39,27 +39,27 @@ setup() {
   [ -z "$output" ]
 }
 
-# ── bluetooth_inject: folds bluetooth into system_programs when on ──────────
+# ── bluetooth_inject: folds bluetooth into host_programs when on ──────────
 
 @test "bluetooth_inject: on appends bluetooth, preserving existing" {
-  run bluetooth_inject '{"system_programs":["grub"],
+  run bluetooth_inject '{"host_programs":["grub"],
                          "options":{"bluetooth":{"enabled":true}}}'
-  echo "$output" | jq -e '.system_programs == ["grub","bluetooth"]'
+  echo "$output" | jq -e '.host_programs == ["grub","bluetooth"]'
 }
 
 @test "bluetooth_inject: default-on (absent toggle) still injects bluetooth" {
-  run bluetooth_inject '{"system_programs":["grub"]}'
-  echo "$output" | jq -e '.system_programs == ["grub","bluetooth"]'
+  run bluetooth_inject '{"host_programs":["grub"]}'
+  echo "$output" | jq -e '.host_programs == ["grub","bluetooth"]'
 }
 
 @test "bluetooth_inject: idempotent when bluetooth already present" {
-  run bluetooth_inject '{"system_programs":["bluetooth"]}'
-  echo "$output" | jq -e '.system_programs == ["bluetooth"]'
+  run bluetooth_inject '{"host_programs":["bluetooth"]}'
+  echo "$output" | jq -e '.host_programs == ["bluetooth"]'
 }
 
-@test "bluetooth_inject: off leaves a config without system_programs untouched" {
+@test "bluetooth_inject: off leaves a config without host_programs untouched" {
   run bluetooth_inject '{"options":{"bluetooth":{"enabled":false}}}'
-  echo "$output" | jq -e 'has("system_programs") | not'
+  echo "$output" | jq -e 'has("host_programs") | not'
 }
 
 # ── bluetooth_owned_programs: the picker-filter set ─────────────────────────

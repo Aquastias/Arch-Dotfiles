@@ -206,21 +206,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
            "$OS_DIR/programs/system/tuned" \
            "$OS_DIR/programs/bootloader/grub" \
            "$OS_DIR/programs/security/sops"
-  printf '{"name":"cups","system":true}\n' \
+  printf '{"name":"cups","kind":"host"}\n' \
     > "$OS_DIR/programs/office/cups/config.jsonc"
-  printf '{"name":"bluetooth","system":true}\n' \
+  printf '{"name":"bluetooth","kind":"host"}\n' \
     > "$OS_DIR/programs/system/bluetooth/config.jsonc"
-  printf '{"name":"power-profiles-daemon","system":true}\n' \
+  printf '{"name":"power-profiles-daemon","kind":"host"}\n' \
     > "$OS_DIR/programs/system/power-profiles-daemon/config.jsonc"
-  printf '{"name":"tuned","system":true}\n' \
+  printf '{"name":"tuned","kind":"host"}\n' \
     > "$OS_DIR/programs/system/tuned/config.jsonc"
-  printf '{"name":"grub","system":true}\n' \
+  printf '{"name":"grub","kind":"host"}\n' \
     > "$OS_DIR/programs/bootloader/grub/config.jsonc"
-  printf '{"name":"sops","system":true}\n' \
+  printf '{"name":"sops","kind":"host"}\n' \
     > "$OS_DIR/programs/security/sops/config.jsonc"
   configs_build_registry
 
-  run _ctl_system_program_names
+  run _ctl_host_program_names
   [ "$status" -eq 0 ]
   ! grep -qx cups <<<"$output"        # printing-owned, filtered out
   ! grep -qx bluetooth <<<"$output"   # bluetooth-owned, filtered out (ADR 0080)
@@ -266,7 +266,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Packages)"
   run guided_ctl_list
   echo "$output" | grep -q "Extra packages: \[\]"
-  echo "$output" | grep -q "System programs: \[\]"
+  echo "$output" | grep -q "Host programs: \[\]"
 }
 
 @test "list(category): an empty VALUE keeps its column (no dot-shift)" {
@@ -1924,12 +1924,12 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
 }
 
-@test "extra packages: a system Program name routes to system_programs" {
+@test "extra packages: a system Program name routes to host_programs" {
   mixed_programs_setup
   set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.system_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
+  [ "$(jq -c '.host_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
   # and it is NOT left behind as a package
   [ "$(jq -c '.packages.repo.extra // []' "$GUIDED_STATE_FILE")" = '[]' ]
 }
@@ -1940,14 +1940,14 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   run guided_ctl_enter "" "htop cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
-  [ "$(jq -c '.system_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
+  [ "$(jq -c '.host_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
 }
 
 @test "extra packages: routing reports where the name went" {
   mixed_programs_setup
   set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
-  [[ "$output" == *"routed to system programs"* ]]
+  [[ "$output" == *"routed to host programs"* ]]
   [[ "$output" == *"cups"* ]]
 }
 
@@ -1959,20 +1959,20 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 # Two programs of each kind under a hermetic OS_DIR.
 mixed_programs_setup() {
   export OS_DIR="$TEST_DIR"
-  local spec cat name sys
-  for spec in "bootloader/grub/true" "printing/cups/true" \
-              "virtualization/docker/false" "security/borg/false"; do
-    IFS=/ read -r cat name sys <<<"$spec"
+  local spec cat name knd
+  for spec in "bootloader/grub/host" "printing/cups/host" \
+              "virtualization/docker/user" "security/borg/user"; do
+    IFS=/ read -r cat name knd <<<"$spec"
     mkdir -p "$OS_DIR/programs/$cat/$name"
-    printf '{"name":"%s","system":%s}\n' "$name" "$sys" \
+    printf '{"name":"%s","kind":"%s"}\n' "$name" "$knd" \
       > "$OS_DIR/programs/$cat/$name/config.jsonc"
     printf '#!/bin/sh\n' > "$OS_DIR/programs/$cat/$name/install.sh"
   done
 }
 
-@test "system_programs picker offers the system:true programs, minus cups" {
+@test "host_programs picker offers the system:true programs, minus cups" {
   mixed_programs_setup
-  set_nav "$(nav_to_values Packages system_programs "system programs")"
+  set_nav "$(nav_to_values Packages host_programs "system programs")"
   run guided_ctl_list
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "\[ \] grub"

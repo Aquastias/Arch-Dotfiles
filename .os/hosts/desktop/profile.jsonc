@@ -5,7 +5,7 @@
 // + /var/lib/libvirt over the impermanence base set.
 //
 // One file carries the hostname, core machine defaults, users,
-// system_programs, and packages, and declares the full pool skeleton —
+// host_programs, and packages, and declares the full pool skeleton —
 // devices excluded, picked at install:
 //   os_pool  rpool  mirror (2x NVMe, ashift 12)
 //   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
@@ -45,7 +45,7 @@
   },
 
   "users": ["aquastias"],
-  "system_programs": ["grub"],
+  "host_programs": ["grub"],
 
   "packages": {
     "repo": {

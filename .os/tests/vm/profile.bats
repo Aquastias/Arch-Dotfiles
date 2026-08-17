@@ -49,7 +49,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   # shipped-default smoke survives the loss of the committed install.jsonc.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
-{ "system_programs": ["cups"],
+{ "host_programs": ["cups"],
   "options": { "bluetooth": { "enabled": false },
                "power": { "profile": "none" } } }
 JSONC
@@ -72,7 +72,7 @@ JSONC
   # identical to resolving the default host directly, single-disk
   expected="$(profile_resolve_config "$via_host")"
   [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
-  [ "$(echo "$output" | jq -c '.system_programs')" = '["cups"]' ]
+  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups"]' ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
 }
@@ -84,7 +84,7 @@ JSONC
   # profile (merged over core) via load_profile.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
-{ "system_programs": ["cups"],
+{ "host_programs": ["cups"],
   "options": { "bluetooth": { "enabled": false },
                "power": { "profile": "none" } } }
 JSONC
@@ -105,7 +105,7 @@ JSONC
   [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
   # software arrives via load_profile's core merge — impossible on the old
   # template-only path
-  [ "$(echo "$output" | jq -c '.system_programs')" = '["cups"]' ]
+  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups"]' ]
   [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]
 }
 

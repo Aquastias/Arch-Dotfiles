@@ -79,13 +79,13 @@ edit_append_packages() {
       + ($s | split(" ") | map(select(length > 0))))' <<<"$state"
 }
 
-# edit_append_system_programs <state> <name...> — dedup-append host System
-# Program name(s) to system_programs. rc 1 (unchanged) when nothing is passed.
-edit_append_system_programs() {
+# edit_append_host_programs <state> <name...> — dedup-append host System
+# Program name(s) to host_programs. rc 1 (unchanged) when nothing is passed.
+edit_append_host_programs() {
   local state="$1"; shift
   (($#)) || { printf '%s' "$state"; return 1; }
   jq --argjson add "$(printf '%s\n' "$@" | jq -R . | jq -s .)" \
-    '.system_programs = ((.system_programs // []) + $add | unique)' <<<"$state"
+    '.host_programs = ((.host_programs // []) + $add | unique)' <<<"$state"
 }
 
 # edit_append_persist <state> <dir> — append one absolute directory to

@@ -12,7 +12,7 @@ setup() {
 teardown() { rm -rf "$OSDIR"; }
 
 @test "--profile X --print-config emits the effective config to stdout" {
-  printf '%s\n' '{"users":[],"system_programs":[]}' \
+  printf '%s\n' '{"users":[],"host_programs":[]}' \
     > "$OSDIR/hosts/core/profile.jsonc"
   printf '%s\n' \
     '{"system":{"hostname":"eterniox"},"options":{"bootloader":"grub"}}' \

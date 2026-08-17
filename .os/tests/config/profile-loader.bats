@@ -41,26 +41,26 @@ write_jsonc() {
 
 @test "load_profile: merges real host profile.jsonc with core" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
-    '{"users":["alice"],"system_programs":["cups"]}'
+    '{"users":["alice"],"host_programs":["cups"]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
     '{"users":["bob"],"system":{"hostname":"eterniox"}}'
 
   run load_profile desktop
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.users == ["alice","bob"]'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
   echo "$output" | jq -e '.system.hostname == "eterniox"'
 }
 
 @test "load_profile: finds a VM host profile.jsonc under hosts/vm/<name>" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
   write_jsonc "$OS_DIR/hosts/vm/arch-data/profile.jsonc" \
     '{"users":["vm-data"],"mode":"multi"}'
 
   run load_profile arch-data
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.users == ["vm-data"]'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
   echo "$output" | jq -e '.mode == "multi"'
 }
 
@@ -70,26 +70,26 @@ write_jsonc() {
 # synthesized from the legacy files.
 
 @test "load_profile: ignores a sibling legacy config.jsonc (reads only profile)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["bob"]}'
   # a leftover legacy config.jsonc with conflicting content must not be read
   write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" \
-    '{"users":["LEGACY"],"system_programs":["LEGACY"]}'
+    '{"users":["LEGACY"],"host_programs":["LEGACY"]}'
 
   run load_profile desktop
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.users == ["bob"]'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 @test "load_profile: missing host profile.jsonc → core only, rc 1 (no synth)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"system_programs":["cups"]}'
+  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
   # a legacy config.jsonc exists but must NOT be synthesized in
   write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" '{"users":["LEGACY"]}'
 
   run load_profile desktop
   [ "$status" -eq 1 ]
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
   echo "$output" | jq -e '(.users // []) == []'
 }
 
@@ -162,14 +162,14 @@ write_jsonc() {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{
   // comment on its own line
   "users": ["alice"], // trailing comment
-  "system_programs": ["cups"]
+  "host_programs": ["cups"]
 }'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{}'
 
   run load_profile desktop
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.users == ["alice"]'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 # ── assemble_profile_config: the --profile effective-config seam ────────────
@@ -226,6 +226,22 @@ write_jsonc() {
     '{"options":{"impermanence":{"enabld":true}}}'
   [ "$status" -ne 0 ]
   [[ "$output" == *"options.impermanence.enabld"* ]]
+}
+
+# ── retired wire format aborts (ADR 0084 migration) ─────────────────────────
+# The Host Program field was renamed system_programs → host_programs (no alias).
+# The closed schema enforces the hard cutover: the old key is now unknown.
+
+@test "validate: the retired system_programs key aborts with its path" {
+  run validate_config_schema host '{"system_programs":["grub"]}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"system_programs"* ]]
+}
+
+@test "validate: the retired system_programs_exclude key aborts" {
+  run validate_config_schema host '{"system_programs_exclude":["grub"]}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"system_programs_exclude"* ]]
 }
 
 # ── the collapsed package slots (ticket 02) ─────────────────────────────────
@@ -309,16 +325,16 @@ write_jsonc() {
 
 @test "validate: unknown key in a program config aborts" {
   run validate_config_schema program \
-    '{"name":"x","system":true,"desc":"y"}'
+    '{"name":"x","kind":"host","desc":"y"}'
   [ "$status" -ne 0 ]
   [[ "$output" == *"desc"* ]]
 }
 
-@test "validate: a typo'd program 'system' key is caught (misroute guard)" {
+@test "validate: a typo'd program 'kind' key is caught (misroute guard)" {
   run validate_config_schema program \
-    '{"name":"x","sytem":true,"description":"y"}'
+    '{"name":"x","kidn":"host","description":"y"}'
   [ "$status" -ne 0 ]
-  [[ "$output" == *"sytem"* ]]
+  [[ "$output" == *"kidn"* ]]
 }
 
 # ── positive: representative valid configs pass clean ──────────────────────
@@ -374,7 +390,7 @@ write_jsonc() {
     "data_pools":[{"name":"tank","disks":["/dev/sdb"]}],
     "sysctl":{"vm.swappiness":10},
     "packages":{"repo":{"shell":["zsh"],"dev":["git"]}},
-    "users":["aquastias"],"system_programs":["grub"]
+    "users":["aquastias"],"host_programs":["grub"]
   }'
   [ "$status" -eq 0 ]
   [ -z "$output" ]
@@ -399,7 +415,7 @@ write_jsonc() {
 
 @test "validate: a valid program config passes" {
   run validate_config_schema program \
-    '{"name":"x","system":false,"description":"y"}'
+    '{"name":"x","kind":"user","description":"y"}'
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
@@ -467,7 +483,7 @@ write_jsonc() {
 # ── migration tracer: arch-data is the first host on profile.jsonc ──────────
 # Equivalence guard (ADR 0036): the migrated profile.jsonc must preserve every
 # field the pre-migration (template-less) synthesis produced — captured below
-# as software-only { sysctl, system_programs:[cups], users:[vm-data] } — while
+# as software-only { sysctl, host_programs:[cups], users:[vm-data] } — while
 # adding the machine skeleton (disks excluded; picked at install). No
 # host_profile; validates against the closed schema.
 
@@ -477,9 +493,9 @@ write_jsonc() {
 
   # software preserved from the legacy synthesis (core + arch-data). cups left
   # core (ADR 0079) — it is toggle-derived and injected at assembly, not present
-  # in the loaded (pre-assembly) profile — so system_programs is empty here.
+  # in the loaded (pre-assembly) profile — so host_programs is empty here.
   echo "$j" | jq -e '.users == ["vm-data"]'
-  echo "$j" | jq -e '.system_programs == []'
+  echo "$j" | jq -e '.host_programs == []'
   echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
 
   # machine skeleton present; devices excluded (operator-picked)
@@ -501,15 +517,15 @@ write_jsonc() {
 
 @test "validate_profile: passes for a clean host + users + programs" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
-    '{"users":[],"system_programs":[]}'
+    '{"users":[],"host_programs":[]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
-    '{"users":["aquastias"],"system_programs":["grub"]}'
+    '{"users":["aquastias"],"host_programs":["grub"]}'
   write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"programs":[]}'
   write_jsonc "$OS_DIR/users/aquastias/profile.jsonc" '{"programs":["neovim"]}'
   write_jsonc "$OS_DIR/programs/bootloader/grub/config.jsonc" \
-    '{"name":"grub","system":true,"description":"d"}'
+    '{"name":"grub","kind":"host","description":"d"}'
   write_jsonc "$OS_DIR/programs/editors/neovim/config.jsonc" \
-    '{"name":"neovim","system":false,"description":"d"}'
+    '{"name":"neovim","kind":"user","description":"d"}'
 
   run validate_profile desktop
   [ "$status" -eq 0 ]
@@ -529,9 +545,9 @@ write_jsonc() {
 
 @test "validate_profile: rejects the old bool post_install form (ADR 0041)" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
-    '{"users":[],"system_programs":[]}'
+    '{"users":[],"host_programs":[]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
-    '{"users":[],"system_programs":[],"post_install":{"security":false}}'
+    '{"users":[],"host_programs":[],"post_install":{"security":false}}'
 
   run validate_profile desktop
   [ "$status" -ne 0 ]
@@ -539,20 +555,20 @@ write_jsonc() {
 
 @test "validate_profile: a typo'd key in a referenced program config aborts" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
-    '{"users":[],"system_programs":[]}'
+    '{"users":[],"host_programs":[]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
-    '{"users":[],"system_programs":["grub"]}'
+    '{"users":[],"host_programs":["grub"]}'
   write_jsonc "$OS_DIR/programs/bootloader/grub/config.jsonc" \
-    '{"name":"grub","sytem":true,"description":"d"}'
+    '{"name":"grub","kidn":"host","description":"d"}'
 
   run validate_profile desktop
   [ "$status" -ne 0 ]
-  [[ "$output" == *"sytem"* ]]
+  [[ "$output" == *"kidn"* ]]
 }
 
 @test "validate_profile: a typo in a referenced user profile aborts with its path" {
   write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
-    '{"users":[],"system_programs":[]}'
+    '{"users":[],"host_programs":[]}'
   write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["aquastias"]}'
   write_jsonc "$OS_DIR/users/core/profile.jsonc" '{}'
   write_jsonc "$OS_DIR/users/aquastias/profile.jsonc" '{"shel":"/bin/zsh"}'

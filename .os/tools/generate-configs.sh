@@ -99,8 +99,8 @@ if [[ -f "$OS_DIR/users/core/profile.jsonc" ]]; then
   user_progs_json="$(jq -c '.programs // []' <<<"$user_merged")"
 fi
 
-# Merge hosts/core + hosts/<profile>. Extract system_programs declared for
-# this machine. Missing hosts/core is tolerated (no system programs).
+# Merge hosts/core + hosts/<profile>. Extract host_programs declared for
+# this machine. Missing hosts/core is tolerated (no host programs).
 sys_progs_json='[]'
 if [[ -f "$OS_DIR/hosts/core/profile.jsonc" ]]; then
   profile="$(_gc_resolve_host_profile)"
@@ -109,7 +109,7 @@ if [[ -f "$OS_DIR/hosts/core/profile.jsonc" ]]; then
   if (( hrc >= 2 )); then
     exit 1
   fi
-  sys_progs_json="$(jq -c '.system_programs // []' <<<"$host_merged")"
+  sys_progs_json="$(jq -c '.host_programs // []' <<<"$host_merged")"
 fi
 
 declared_progs_json="$(jq -c -n \

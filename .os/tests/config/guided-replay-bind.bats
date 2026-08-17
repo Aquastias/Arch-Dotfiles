@@ -17,7 +17,7 @@ setup() {
   export -f info warn error section
 
   mkdir -p "$OS_DIR/hosts/core"
-  printf '%s\n' '{"system_programs":["cups"]}' > "$OS_DIR/hosts/core/profile.jsonc"
+  printf '%s\n' '{"host_programs":["cups"]}' > "$OS_DIR/hosts/core/profile.jsonc"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"

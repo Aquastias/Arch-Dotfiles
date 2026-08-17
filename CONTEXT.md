@@ -14,7 +14,7 @@ machine. Declares everything about the machine **except its disks**: `system`
 array whose element 0 is the default), `options` (kernel, bootloader,
 encryption, swap, `ssh.enabled`, `impermanence.*`, optional `age_key_url`),
 `environment` (desktop, gpu), `users` (names; `users[0]` is the Primary User),
-`system_programs`, `packages` (`repo` + `aur`, both Categorized Lists), and the
+`host_programs`, `packages` (`repo` + `aur`, both Categorized Lists), and the
 full pool skeleton — `mode` plus `os_pool` / `storage_groups[]` / `data_pools[]`
 carrying names, topology, mount, ashift, and `disk_count`, but **no device
 paths**. Disks are machine-physical and operator-picked at install time; the
@@ -128,7 +128,7 @@ User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
 rather than hand-copying a few of its values (ADR 0058), so everything core
 installs surfaces as a seeded-but-unmarked row — core's package list, once
 hand-copied and invisible. (`cups` was the original example; it has since become
-a toggle-derived System Program with its own menu home — ADR 0079.) Core
+a toggle-derived Host Program with its own menu home — ADR 0079.) Core
 therefore enters the pipeline exactly once; the
 emitter does not merge it again. The **Packages** category drills `repo` →
 category → package toggles (and `aur` likewise), with three-state provenance
@@ -141,7 +141,7 @@ free-text entry. A read-only **`derived`** section lists what the current
 Environment, Security and Backup choices pull in, grouped by source and naming
 the category that drives each, via the same [[Package Resolver]] the CLI
 inspector calls. A typed extra-packages entry is **routed by kind at entry
-time** — a system Program name to `system_programs`, a user Program name to the
+time** — a Host Program name to `host_programs`, a User Program name to the
 Primary User's `programs`, anything else to `packages.repo` — so what reaches
 Config State is already canonical; the old emit-path promotion rule, which made
 the same file install differently per front-end, is deleted. Save Profile writes
@@ -250,20 +250,20 @@ machines share, so each Host Profile is a **delta** and `hosts/laptop` carries
 no packages block at all. Every Host Profile is resolved over core by the
 [[Layer Resolver]] — core applies first, then the host profile per the ADR 0057
 per-key classification. A host drops something core declares via
-`packages.exclude[]` or `system_programs_exclude[]`; the three VM fixtures opt
+`packages.exclude[]` or `host_programs_exclude[]`; the three VM fixtures opt
 out of the inherited package set wholesale with `packages.inherit: false`
 (scoped to packages — they still inherit core's users and sysctl). Also the
 Guided Installer's menu baseline (ADR 0058), so everything core installs is
-visible and deselectable in the menu. Core declares **no** system programs: its
-`system_programs` is empty since `cups` — once its sole entry — became a
-toggle-derived System Program with its own menu home (ADR 0079).
+visible and deselectable in the menu. Core declares **no** Host Programs: its
+`host_programs` is empty since `cups` — once its sole entry — became a
+toggle-derived Host Program with its own menu home (ADR 0079).
 
 ### Layer Resolver
 `.os/lib/config/layer-resolver.sh`. The pure module answering "given Host Core
 and a host profile, what is the effective set?" — and the same for User Core and
 a user profile. Resolution is **per-key**, classified by unordered set versus
 ordered selection (ADR 0057): *additive* keys concat + dedupe and `exclude`
-subtracts (`packages.repo.*`, `packages.aur.*`, `system_programs`, `users`,
+subtracts (`packages.repo.*`, `packages.aur.*`, `host_programs`, `users`,
 `persist.*`, `sysctl`, and user-side `groups`/`programs`/`ssh_authorized_keys`);
 *replace* keys are overwritten wholesale by the later layer (`options.kernel`,
 `system.locale`/`keymap`, `environment.desktop`/`gpu`,
@@ -310,8 +310,8 @@ via `systemctl --user enable` after the user's programs and dotfiles are placed
 fields: git identity, SSH authorized keys. `git` must be declared explicitly as
 a user program — it is not installed by default. Passwords are not stored in the
 profile — hardcoded as `12345` by default unless User Secrets override. User ↔
-system-program references (refining the old always-abort rule, ADR 0036): a
-user-level program may shadow a host program; referencing a System Program the
+Host-Program references (refining the old always-abort rule, ADR 0036): a
+user-level program may shadow a Host Program; referencing a Host Program the
 host already installs is a no-op; referencing one no host installs aborts with
 an actionable message — the `system` flag stays host-owned (ADR 0002). Applied
 on top of User Core.
@@ -435,29 +435,33 @@ whose install-time setup — package **and** side effects (e.g. podman's
 subuid/subgid + linger) — must be in place before this one runs (ADR 0065).
 Enforced at
 `validate_install_context` before any side effect: a required program must be a
-[[System Program]] (installed before all user programs) or appear earlier in the
+[[Host Program]] (installed before all user programs) or appear earlier in the
 same user's `programs` list, since the [[Runner]] installs a user's programs in
 declared order. A missing or later-ordered dependency aborts up front with an
 actionable message rather than hard-failing mid-install. Today only `searxng`
 declares one (`["podman"]`).
 
-### System Program
+### Host Program
 A program that requires root and is installed via pacman during the chroot
-phase. Usually declared in a Host Profile or Host Core. Marked `"system": true`
-in its program config. Only official repo packages (no AUR) should be system
-programs. Today exactly three qualify: `grub`, `cups`, `sops` — but only `grub`
+phase — host-owned, not any user's (contrast [[User Program]]). Declared in the
+host's `host_programs` field (renamed from `system_programs` by ADR 0085,
+completing ADR 0084's deferral). Usually declared in a Host Profile or Host
+Core. Marked `"kind": "host"` in its program config (the `"system": true` bool
+became a `kind` enum, ADR 0085). Only official repo packages (no AUR) should be
+Host Programs. Today exactly three qualify: `grub`, `cups`, `sops` — but only
+`grub`
 is authored. Two are selected implicitly rather than declared: the sops Program
 is secrets-activated — the Runner selects it when install-state records secrets
 (see SOPS Runtime Service, ADR 0025) — and `cups` is toggle-derived, injected
-into `system_programs` at assembly when `options.printing.enabled` is on (see
+into `host_programs` at assembly when `options.printing.enabled` is on (see
 [[Printing Service]], ADR 0079).
 
 The `system` flag is carried by the [[Program Registry]] and is
 **authoritative** (ADR 0058): a program's name resolves to exactly one kind,
 and that kind decides which slot may declare it. The Guided Installer's host
-`system_programs` picker offers only `system: true` programs and the User
+`host_programs` picker offers only `kind: host` programs and the User
 Editor's `programs` picker only
-`system: false` ones — one unfiltered list used to feed both, so the host side
+`kind: user` ones — one unfiltered list used to feed both, so the host side
 could build a config that failed validation at Proceed.
 
 ### Printing Service (`options.printing.enabled`)
@@ -469,22 +473,22 @@ pre-merge), a service-enablement field rather than an identity field like
 System's hostname/timezone. `cups` is
 **not**
 declared in Host Core; when the toggle is on it is **injected into the Effective
-Config's `system_programs` at assembly time**, so the [[Runner]] installs it in
-the chroot exactly as an authored System Program would (its Program dir /
-`install.sh` are unchanged). The first **toggle-derived System Program** —
+Config's `host_programs` at assembly time**, so the [[Runner]] installs it in
+the chroot exactly as an authored Host Program would (its Program dir /
+`install.sh` are unchanged). The first **toggle-derived Host Program** —
 `options.ssh.enabled` only enables a service on the always-present `openssh`,
 whereas this toggle gates the package install itself, so cups is genuinely
 absent when off. The Printing toggle is cups's **sole** menu home: it is
 filtered out of the Packages → system-programs picker, and surfaces in the
 read-only `derived` section / `explain-packages` as `source=printing` (layer
-`derived`) — the one place the resolver reports a System Program at all (ADR
+`derived`) — the one place the resolver reports a Host Program at all (ADR
 0079).
 
 ### Bluetooth Service (`options.bluetooth.enabled`)
-The second **toggle-derived System Program**, twinning [[Printing Service]]: a
+The second **toggle-derived Host Program**, twinning [[Printing Service]]: a
 single bool [[Cycle Field]] (default `true`, normalised-out when true) in the
 shared **Services** Configuration Category (ADR 0081). On → a `bluetooth` program
-is injected into the Effective Config's `system_programs` at assembly time,
+is injected into the Effective Config's `host_programs` at assembly time,
 installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
 genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
 `bluez`/BlueDevil already arrive via `plasma-meta`, so the injection is a
@@ -530,14 +534,14 @@ is Powerlevel10k, which renders Nerd glyphs.
 ### Program Registry
 The in-memory index built once per run by `configs_build_registry`
 (`lib/config/layers.sh`), mapping each program name to its `category/name` path
-**and** its `system` flag. Exposes `program_kind <name>` → `system` | `user` |
+**and** its `kind`. Exposes `program_kind <name>` → `host` | `user` |
 `none`, and `program_names_of_kind <kind>`. Backs the exclusivity validator,
 both Guided Installer program pickers, and the [[Package Resolver]], so a menu
 render never re-parses fifteen `config.jsonc` files.
 
 ### User Program
 A program installed for a specific user via the AUR Helper inside the chroot.
-Declared in a User Profile or User Core. Marked `"system": false` in its program
+Declared in a User Profile or User Core. Marked `"kind": "user"` in its program
 config. The AUR Helper is bootstrapped per user before any user programs are
 installed. `base-devel` is hardcoded into pacstrap and always available in the
 chroot.
@@ -560,8 +564,8 @@ another on `yay` is harmless.
 
 ### Runner
 `.os/lib/profiles/runner.sh`. Reads host core + host profile (merged), validates
-program references (a user referencing a System Program no host installs aborts;
-one the host already installs is a no-op — ADR 0036), installs system programs
+program references (a user referencing a Host Program no host installs aborts;
+one the host already installs is a no-op — ADR 0036), installs Host Programs
 via `arch-chroot`, then for each user merges user core + user profile and
 installs programs via `arch-chroot /mnt su - <username>`. Called by
 `03-install.sh` after `configure_system()`.
@@ -574,7 +578,7 @@ Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
 (the unattended seam consuming a pre-assembled Effective Config; the VM seed's
 path), and the **Guided Installer** (a from-scratch menu that builds an
 Effective Config interactively when no profile exists yet). Orchestrates: ZFS bootstrap → disk wipe → partition → pacstrap → system
-config → system programs → user programs → cleanup and pool export.
+config → Host Programs → user programs → cleanup and pool export.
 
 A global **`--debug`** modifier turns any front-end into inspect/author-only: it
 skips the full-toolchain preflight (only the front-end tools `jq`+`fzf` are
@@ -1000,7 +1004,7 @@ ownership and permissions. Programs that need runtime secrets reference
 installs it (deriving the Machine Age Key and building `ssh-to-age` via `go`)
 only when the host or one of its declared users ships a `secrets.json` —
 consistent with secrets being optional. It is therefore not a member of any
-host's declared System Programs, including Host Core; a host with no secrets
+host's declared Host Programs, including Host Core; a host with no secrets
 gets neither the service nor `go`.
 
 ### Base Package List
@@ -1041,8 +1045,8 @@ declared user's paru instance before any user programs run.
 (which was `repo` without a category) and `packages.groups.*[]` (used by no
 profile, and sharing a namespace with the internal GPU/audio buckets) were
 removed and now abort at load as unknown keys. The routing rule is mechanical:
-*does the name resolve to a Program directory?* — yes and `system: true` → host
-`system_programs`; yes and `system: false` → user `programs`; no →
+*does the name resolve to a Program directory?* — yes and `kind: host` → host
+`host_programs`; yes and `kind: user` → user `programs`; no →
 `packages.repo` or `packages.aur`. A name is **either a Program or a package,
 never both**: an overlap aborts at config load naming the path and the correct
 slot (ADR 0058),
@@ -1051,7 +1055,7 @@ path and so made the same file install differently per front-end.
 
 Three control keys accompany the authored slots, consumed by the [[Layer
 Resolver]] and stripped from the resolved output: `packages.exclude[]` and
-`system_programs_exclude[]` on a host profile, `programs_exclude[]` on a user
+`host_programs_exclude[]` on a host profile, `programs_exclude[]` on a user
 profile, and `packages.inherit` (bool, default true) scoped to packages only.
 
 ### Sysctl Defaults
@@ -1068,8 +1072,8 @@ the Guided Installer's Security / Backup categories. `security` picks one
 firewall (`firewalld` | `ufw` | none; the two are mutually exclusive) plus
 `clamav` (antivirus), `rkhunter` (rootkit scanner), and `apparmor` (MAC);
 `backup` picks `zfs-auto-snapshot` and/or `borg`. The selected tools are
-paru-based User Programs (`system:false`; paru refuses root), so they are
-**not** installed as System Programs — the Runner unions the resolved program
+paru-based User Programs (`kind: user`; paru refuses root), so they are
+**not** installed as Host Programs — the Runner unions the resolved program
 names into the **Primary User's** paru pass (the seam host AUR packages already
 use), and each tool's existing Program Install Script runs unchanged. Supersedes
 the former boolean `post_install.*` extras, which dispatched to never-shipped
@@ -1322,7 +1326,7 @@ Tree.
 ### Plan Builder
 Pure function inside the Config Generator. Inputs: the resolved Config Variant
 map, the per-user `~/.dotfiles/.stow/<user>/` stow root, and the declared
-program set (User Programs from User Core + User Profile, unioned with System
+program set (User Programs from User Core + User Profile, unioned with Host
 Programs from Host Core + Host Profile). Output: a deterministically-ordered
 flat list of `{ src_abs, dst_in_stow_tree, mode? }` entries. No writes. Programs
 with a Program Config Tree on disk but not in the declared set are silently

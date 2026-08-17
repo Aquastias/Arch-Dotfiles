@@ -115,15 +115,15 @@ assemble_profile_config() {
   effective="$(picker_assign_disks "$profile_json" "$assignment")" || return $?
 
   # Printing Service (ADR 0079): fold the toggle-derived cups into
-  # system_programs when printing is on, so the Runner installs it exactly as an
-  # authored System Program. cups is no longer declared in Host Core.
+  # host_programs when printing is on, so the Runner installs it exactly as an
+  # authored Host Program. cups is no longer declared in Host Core.
   effective="$(jq --arg name "$name" '
     .system = (.system // {})
     | .system.hostname =
         (if (.system.hostname // "") == "" then $name else .system.hostname end)
   ' <<<"$effective")"
-  # Toggle-derived System Programs (ADR 0079/0080): fold cups (printing),
-  # bluetooth, then the power daemon into system_programs when their toggles are
+  # Toggle-derived Host Programs (ADR 0079/0080): fold cups (printing),
+  # bluetooth, then the power daemon into host_programs when their toggles are
   # on. Chained so each derives independently and the Runner installs them as
   # authored programs.
   power_inject "$(bluetooth_inject "$(printing_inject "$effective")")"
@@ -155,10 +155,10 @@ _PROFILE_SCHEMA_host=(
   "options.zswap.max_pool_percent"
   "options.ssh.enabled" "options.mirror_countries[]"
   # — Printing Service (ADR 0079): the toggle-derived cups switch. Default on;
-  #   cups is injected into system_programs at assembly, not declared in core. —
+  #   cups is injected into host_programs at assembly, not declared in core. —
   "options.printing.enabled"
   # — Bluetooth Service (ADR 0080): the toggle-derived bluez switch. Default on;
-  #   the `bluetooth` program is injected into system_programs at assembly. —
+  #   the `bluetooth` program is injected into host_programs at assembly. —
   "options.bluetooth.enabled"
   # — Power Profile (ADR 0080): the enum-derived power backend (none | ppd |
   #   tuned). The derived daemon program is injected at assembly. —
@@ -222,9 +222,9 @@ _PROFILE_SCHEMA_host=(
   #   Host Core declares; `inherit: false` opts out of core's packages ONLY,
   #   so a fixture still inherits core's users and sysctl. —
   "packages.exclude[]" "packages.inherit"
-  "system_programs_exclude[]"
+  "host_programs_exclude[]"
   # — host software (config.jsonc) —
-  "users[]" "system_programs[]" "sysctl.*"
+  "users[]" "host_programs[]" "sysctl.*"
   "persist.directories[]" "persist.files[]"
 )
 
@@ -238,7 +238,7 @@ _PROFILE_SCHEMA_user=(
 # `requires[]` (ADR 0065): other Programs whose install-time setup must run
 # before this one (e.g. searxng needs podman's package + subuid/subgid). The
 # ordering is enforced at validate_install_context, before any side effect.
-_PROFILE_SCHEMA_program=( "name" "system" "description" "requires[]" )
+_PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" )
 
 # validate_config_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
@@ -325,7 +325,7 @@ _validate_bootloader() {
 
 # validate_profile <name> — the validate-at-load entrypoint. Loads and
 # closed-schema-validates the host profile, every referenced user profile,
-# and every referenced program config.jsonc (host system_programs + each
+# and every referenced program config.jsonc (host host_programs + each
 # user's programs). Aborts via error() with the offending path on the first
 # failure; runs before any disk-touching phase. Requires OS_DIR set.
 validate_profile() {
@@ -362,7 +362,7 @@ validate_profile() {
 
   local -a sysprogs uprogs
   mapfile -t sysprogs < <(printf '%s' "$host_json" \
-    | jq -r '.system_programs[]?')
+    | jq -r '.host_programs[]?')
   _validate_program_configs "${sysprogs[@]}" || return 1
 
   for u in "${users[@]}"; do
