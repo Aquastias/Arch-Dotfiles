@@ -961,7 +961,7 @@ guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
     GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE \
     GUIDED_USERFORMS_FILE GUIDED_PWBUF_FILE GUIDED_PWPENDING_FILE \
-    GUIDED_SESSION_UNDO_FILE
+    GUIDED_SESSION_UNDO_FILE GUIDED_SKIP_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -991,11 +991,17 @@ guided_run_persistent() {
   # `+ New host` reset-undo stash (ADR 0063): the pre-reset userforms + secrets
   # so a single undo restores the whole session. Absent until a reset fires.
   GUIDED_SESSION_UNDO_FILE="${TMPDIR:-/tmp}/guided-session-undo.$$.json"
+  # Focus skip direction (ADR 0083): the up/down binds record the last movement
+  # here so the `focus` bind knows which way to hop past an inert row. Seeded
+  # `down` so a skip before the first arrow (never happens — line 0 is a
+  # selectable Profiles row — but be safe) advances rather than stalls.
+  GUIDED_SKIP_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-skip.XXXXXX")"
+  printf 'down' >"$GUIDED_SKIP_FILE"
   local -a _guided_tmpfiles=(
     "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
     "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
-    "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE"
+    "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE" "$GUIDED_SKIP_FILE"
   )
   trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 
@@ -1060,6 +1066,15 @@ guided_run_persistent() {
     --preview="bash $entry preview {}" --preview-window='right,45%' \
     --bind "change:transform-query(bash $entry mask {q})" \
     --bind "start:unbind(change)" \
+    --bind "up:execute-silent(printf up > $GUIDED_SKIP_FILE)+up" \
+    --bind "ctrl-p:execute-silent(printf up > $GUIDED_SKIP_FILE)+up" \
+    --bind "ctrl-k:execute-silent(printf up > $GUIDED_SKIP_FILE)+up" \
+    --bind "page-up:execute-silent(printf up > $GUIDED_SKIP_FILE)+page-up" \
+    --bind "down:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
+    --bind "ctrl-n:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
+    --bind "ctrl-j:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
+    --bind "page-down:execute-silent(printf down > $GUIDED_SKIP_FILE)+page-down" \
+    --bind "focus:transform(bash $entry skip {})" \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-a:transform(bash $entry key ctrl-a)" \

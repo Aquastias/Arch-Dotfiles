@@ -53,6 +53,23 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   [ "$(guided_ctl_enter "── SYSTEM ──")" = "noop" ]
 }
 
+# ADR 0083: the focus-skip predicate — decorative rows are inert (the cursor
+# hops past them), real rows are selectable.
+@test "guided_row_inert: dividers, headers and spacers are inert" {
+  run guided_row_inert "── SYSTEM ──"                 ; [ "$status" -eq 0 ]
+  run guided_row_inert "──────────────────────────"   ; [ "$status" -eq 0 ]
+  run guided_row_inert ""                              ; [ "$status" -eq 0 ]
+  run guided_row_inert "   "                           ; [ "$status" -eq 0 ]
+}
+
+@test "guided_row_inert: categories and actions are selectable" {
+  run guided_row_inert "System — hostname, timezone, fonts"; [ "$status" -eq 1 ]
+  run guided_row_inert "Services — printing, bluetooth, power"; [ "$status" -eq 1 ]
+  run guided_row_inert "Profiles ▸ start from a saved machine"; [ "$status" -eq 1 ]
+  run guided_row_inert "Proceed ▸ review & install"    ; [ "$status" -eq 1 ]
+  run guided_row_inert "Abort ▸ quit without installing"; [ "$status" -eq 1 ]
+}
+
 @test "enter(top): Abort emits the abort directive (Esc-equivalent, ADR 0077)" {
   [ "$(guided_ctl_enter "Abort ▸ quit without installing")" = "abort" ]
 }
