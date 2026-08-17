@@ -77,6 +77,9 @@ _MATRIX_AXIS_REGISTRY=(
   # it adds one repo package (cups) with no install-combination content, so it
   # is inert for the pairwise cover, not a new axis.
   "options.printing.enabled|inert|light"
+  # Font Catalog (ADR 0080): a curated package multi-select — adds packages with
+  # no disk/boot/pool combination content, so inert for the pairwise cover.
+  "options.fonts|inert|light"
   "users|inert|heavy"
 )
 

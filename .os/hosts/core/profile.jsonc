@@ -21,6 +21,12 @@
 // toggle-derived System Program, driven by `options.printing.enabled` (default
 // on) and injected into system_programs at Effective-Config assembly, so it has
 // exactly one home — the Guided Installer's Printing service category.
+//
+// Fonts are likewise NOT declared here (ADR 0080): they moved to the curated
+// `options.fonts` Font Catalog, whose default-checked set is the shared
+// baseline. Absent `options.fonts` resolves to those defaults, so a font has
+// one home — the Guided Installer's General category. ttf-ms-fonts left the AUR
+// list for the same reason (the catalog routes it to the paru pass).
 {
   "users": [],
   "system_programs": [],
@@ -101,19 +107,12 @@
         "unrar",
         "unzip",
         "zip"
-      ],
-      "fonts": [
-        "noto-fonts-cjk",
-        "noto-fonts-extra",
-        "ttf-fira-code",
-        "ttf-sazanami"
       ]
     },
     "aur": {
       "misc": [
         "ani-cli-git",
         "octopi",
-        "ttf-ms-fonts",
         "vscodium-bin",
         "vscodium-marketplace",
         "zen-browser-bin"

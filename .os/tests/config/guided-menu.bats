@@ -447,6 +447,28 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
 }
 
+# Font Catalog (ADR 0080): the curated multi-select lives as a General leaf.
+@test "menu_category_rows: the Font Catalog is a General row" {
+  run menu_category_rows General "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'any(.[]; .field == "options.fonts")'
+}
+
+@test "menu_enum_options: the Font Catalog offers the curated set" {
+  run menu_enum_options options.fonts
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx ttf-jetbrains-mono-nerd
+  echo "$output" | grep -qx otf-monaspace-nerd   # off-by-default still offered
+  ! echo "$output" | grep -qx ttf-fira-code       # plain build dropped
+}
+
+@test "menu_categories: the General summary mentions fonts" {
+  run menu_categories "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" \
+    | jq -e 'any(.[]; .name == "General" and (.summary | test("fonts")))'
+}
+
 # ── field moves (issue 02): storage knobs surface under Disks ───────────────
 # swap / swap_size / esp_size display under Disks (where the operator expects
 # storage sizing) while their Config State path stays options.* — the display

@@ -21,6 +21,9 @@ declare -F categorized_list_parse >/dev/null 2>&1 \
 # shellcheck source=../boot/bootloaders.sh
 declare -F bootloader_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
+# shellcheck source=../config/fonts.sh
+declare -F fonts_repo_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
 
 # =============================================================================
 # PACKAGE COLLECTION
@@ -120,6 +123,16 @@ collect_packages() {
   while IFS= read -r p; do
     [[ -n "$p" ]] && pkgs+=("$p")
   done < <(categorized_list_parse "$repo_json" string "packages.repo")
+
+  # ── Font Catalog (ADR 0080) ────────────────────────────────────────────────
+  # Fonts moved out of packages.repo into the curated options.fonts catalog —
+  # the single font home. Repo fonts feed pacstrap here; AUR fonts
+  # (ttf-ms-fonts) ride the Runner's paru pass. Absent options.fonts ⇒ the
+  # catalog defaults, so a profile that declares no fonts still gets the set.
+  local _cfg_json; _cfg_json="$(jsonc_strip "$CONFIG_FILE")"
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && pkgs+=("$p")
+  done < <(fonts_repo_packages "$_cfg_json")
 
   # ZFS userland — only when some group is ZFS (root or a data pool). A pure
   # non-ZFS install installs no ZFS packages (ADR 0043). zfs-dkms compiles ZFS

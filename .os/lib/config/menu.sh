@@ -29,6 +29,10 @@ declare -F cfgstate_get >/dev/null 2>&1 \
 declare -F locale_list_keymaps >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/locale-source.sh"
 
+# shellcheck source=./fonts.sh
+declare -F fonts_catalog_tokens >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/fonts.sh"
+
 # Field table — "section|path|label|default". The single source of truth for
 # the covered fields; add a row here to surface a field in the menu.
 _MENU_FIELDS=(
@@ -55,6 +59,10 @@ _MENU_FIELDS=(
   "Kernels|options.kernel|kernel|lts"
   "General|system.hostname|hostname|"
   "General|system.timezone|timezone|Europe/Bucharest"
+  # Font Catalog (ADR 0080): a curated multi-select of fonts, resident in
+  # General (its one non-identity leaf). Absent ⇒ the catalog defaults, seeded
+  # into the baseline so a fresh run shows the default set with no ●.
+  "General|options.fonts|fonts|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
   "Environment|environment.gpu|gpu|auto"
@@ -96,6 +104,7 @@ menu_enum_options() {
   options.optional_repos)
     printf '%s\n' multilib multilib-testing core-testing extra-testing ;;
   disk_config.kind)               printf '%s\n' auto manual ;;
+  options.fonts)                  fonts_catalog_tokens ;;
   esac
 }
 
@@ -139,7 +148,7 @@ _MENU_CATEGORIES=(
   "Disks|layout, data pools, filesystem, encryption, swap"
   "Bootloader|bootloader"
   "Kernels|kernel"
-  "General|hostname, timezone"
+  "General|hostname, timezone, fonts"
   "Users|primary user, extra accounts"
   "Environment|desktop, display manager, gpu"
   "Packages|repo, aur, derived, system programs"

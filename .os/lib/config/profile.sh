@@ -147,6 +147,9 @@ _PROFILE_SCHEMA_host=(
   # — Printing Service (ADR 0079): the toggle-derived cups switch. Default on;
   #   cups is injected into system_programs at assembly, not declared in core. —
   "options.printing.enabled"
+  # — Font Catalog (ADR 0080): the curated multi-select of fonts. Absent ⇒ the
+  #   catalog defaults; replaces packages.repo.fonts as the single font home. —
+  "options.fonts[]"
   # — Mirrors & Repositories (ADR 0072): optional repos (multilib + testing),
   #   custom mirror servers, and archinstall-style custom repositories —
   "options.optional_repos[]" "options.mirror_servers[]"
