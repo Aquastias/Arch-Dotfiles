@@ -42,6 +42,9 @@ declare -F edit_set_bool >/dev/null 2>&1 \
 # shellcheck source=lib/config/menu.sh
 declare -F menu_categories >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
+# shellcheck source=lib/guided-rows.sh
+declare -F guided_row_inert >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/guided-rows.sh"
 
 declare -F esp_budget_fits_size >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/boot/esp-budget.sh"

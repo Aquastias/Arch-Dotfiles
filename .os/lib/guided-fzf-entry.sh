@@ -21,6 +21,20 @@ _entry_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _entry_self="${_entry_dir}/guided-fzf-entry.sh"
 export OS_DIR="${OS_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
 
+# The focus skip bind fires on every cursor move; source only the tiny row
+# classifier (not the whole controller) so it stays cheap. On an inert row it
+# echoes the last movement direction (up/down, recorded by the up/down binds)
+# so fzf re-moves and the cursor hops past dividers / headers / spacers (ADR
+# 0083). On a selectable row it echoes nothing, so the cursor settles.
+if [[ "${1:-}" == "skip" ]]; then
+  # shellcheck source=lib/guided-rows.sh
+  source "${_entry_dir}/guided-rows.sh"
+  if guided_row_inert "${2:-}"; then
+    cat "${GUIDED_SKIP_FILE:-/dev/null}" 2>/dev/null
+  fi
+  exit 0
+fi
+
 # The masking bind fires per keystroke on the password screen; source only the
 # tiny pure core (not the whole controller) so it stays cheap.
 if [[ "${1:-}" == "mask" ]]; then

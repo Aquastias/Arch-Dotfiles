@@ -95,7 +95,10 @@ Mirrors & Repositories, Pacman, Packages), `SERVICES` (Services),
 opening a submenu of its fields, so a section name never repeats per row.
 (ADR 0071 established the two-level model; ADR 0081 re-cut it into buckets,
 renamed General → **System**, and merged the Printing/Bluetooth/Power service
-toggles into one **Services** category.) Presentation is
+toggles into one **Services** category.) The bucket headers, the divider, and
+the blank spacers between buckets are **inert** — the cursor auto-skips them
+(a fzf `focus` bind, ADR 0083), so only Profiles, a category, and the terminal
+actions are ever selected. Presentation is
 **master-detail**: the fzf preview pane shows the highlighted item's live state,
 and the current selection is marked by the **triangle pointer (`▶`)** in the main
 list. On the **top screen** the pane shows only the highlighted category's own
