@@ -54,6 +54,10 @@ effective() {
 @test "emit_effective: bakes hostname + picked disk merged over Host Core" {
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   state="$(cfgstate_set "$state" mode '"single"')"
+  # Isolate the printing-derived cups: disable the other toggle-derived System
+  # Programs (bluetooth, power — ADR 0080) so system_programs stays focused.
+  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
+  state="$(cfgstate_set "$state" options.power.profile '"none"')"
   assignment='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   run emit_effective "$(effective "$state")" "$assignment"
@@ -136,6 +140,9 @@ effective() {
 
 @test "printing on injects cups at emit; off omits it" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  # Isolate printing from the other toggle-derived programs (ADR 0080).
+  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
+  state="$(cfgstate_set "$state" options.power.profile '"none"')"
   local asgn='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
   # default on → cups injected alongside the authored core program
@@ -152,6 +159,9 @@ effective() {
 
 @test "menu view and installed set agree, aside from the derived cups" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  # Isolate printing from the other toggle-derived programs (ADR 0080).
+  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
+  state="$(cfgstate_set "$state" options.power.profile '"none"')"
   state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
   local view; view="$(effective "$state")"
 
@@ -176,6 +186,9 @@ effective() {
 # program grub: unticking it removes grub, while the derived cups still lands.
 @test "unticking a core system program removes it from the install" {
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
+  # Isolate printing from the other toggle-derived programs (ADR 0080).
+  state="$(cfgstate_set "$state" options.bluetooth.enabled 'false')"
+  state="$(cfgstate_set "$state" options.power.profile '"none"')"
   state="$(cfgstate_set "$state" system_programs '[]')"
 
   run emit_effective "$(effective "$state")" \

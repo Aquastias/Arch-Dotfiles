@@ -111,13 +111,13 @@ _cfgstate_computed_defaults() {
     "$(fonts_default_selection_json)")"
   # Bluetooth Service (ADR 0080): the bluez daemon is on out of the box, so the
   # Bluetooth category shows it enabled with no ● until the operator flips it.
-  # The `bluetooth` program is derived from this at emit, never a system_programs
-  # baseline entry — idempotent with the bluetooth_enabled default (on).
+  # The bluetooth program is derived at emit, not a system_programs baseline —
+  # idempotent with the bluetooth_enabled default (on).
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'true')"
   # Power Profile (ADR 0080): power-profiles-daemon out of the box, so the Power
   # category shows it selected with no ● until the operator changes it. The
-  # derived daemon program is injected at emit; idempotent with the power_profile
-  # accessor default.
+  # derived daemon program is injected at emit; idempotent with the accessor
+  # default.
   state="$(cfgstate_set "$state" options.power.profile \
     '"power-profiles-daemon"')"
   # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.

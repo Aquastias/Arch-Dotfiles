@@ -142,14 +142,30 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "is_cycle_field: bare bools yes; enums and editor-backed bools no" {
   for f in options.ssh.enabled options.pacman.color \
            post_install.security.antivirus post_install.backup.borg \
-           options.printing.enabled; do
+           options.printing.enabled options.bluetooth.enabled; do
     _ctl_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
   done
+  # options.power.profile is a 3-value ENUM (none/ppd/tuned), not a bool — it
+  # must NOT be a Cycle Field, else the operator could never pick tuned/none
+  # (ADR 0080).
   for f in filesystem options.bootloader options.kernel \
            environment.display_manager options.encryption \
-           options.impermanence.enabled system.hostname; do
+           options.impermanence.enabled system.hostname \
+           options.power.profile; do
     ! _ctl_is_cycle_field "$f" || { echo "unexpected cycle: $f"; false; }
   done
+}
+
+# The Power enum's value picker must offer the three backends (regression: the
+# render seam was wired but _ctl_enum_options was not, so it fell through to
+# true/false and the field was misclassified as a bool — ADR 0080).
+@test "enum_options: power profile offers none / ppd / tuned, not true/false" {
+  run _ctl_enum_options options.power.profile
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx power-profiles-daemon
+  echo "$output" | grep -qx tuned
+  echo "$output" | grep -qx none
+  ! echo "$output" | grep -qx true
 }
 
 # cups is filtered from the Packages system-programs picker (ADR 0079): the

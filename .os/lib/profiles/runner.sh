@@ -201,13 +201,6 @@ _profiles_resolve_aur() {
     [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
   fi
 
-  # Font Catalog (ADR 0080): AUR fonts (today ttf-ms-fonts) ride this pass too —
-  # options.fonts is the single font home, so its AUR members union in here
-  # rather than living in packages.aur. Absent options.fonts ⇒ catalog defaults.
-  local fonts_aur
-  fonts_aur="$(fonts_aur_packages "$host_json")" || return 1
-  [[ -n "$fonts_aur" ]] && mapfile -t -O "${#out[@]}" out <<< "$fonts_aur"
-
   local de adapter aur_json
   for de in "$@"; do
     adapter="${OS_DIR}/extras/desktop/${de}/install-${de}.jsonc"
@@ -729,6 +722,16 @@ run_profiles() {
   _aur_out="$(_profiles_resolve_aur "$host_json" \
     "${ENVIRONMENT_DESKTOP[@]+"${ENVIRONMENT_DESKTOP[@]}"}")"
   [[ -n "$_aur_out" ]] && mapfile -t host_aur <<< "$_aur_out"
+
+  # Font Catalog (ADR 0080): AUR fonts (today ttf-ms-fonts) ride the paru pass
+  # too — options.fonts is the single font home, so its AUR members union in
+  # here rather than living in packages.aur. Kept out of _profiles_resolve_aur
+  # (whose contract is host ∪ adapters) so that resolver stays font-agnostic.
+  # Absent options.fonts ⇒ the catalog defaults.
+  local _fonts_aur
+  _fonts_aur="$(fonts_aur_packages "$host_json")" || return 1
+  [[ -n "$_fonts_aur" ]] && mapfile -t -O "${#host_aur[@]}" host_aur \
+    <<< "$_fonts_aur"
 
   # Security & Backup Extras (M4, ADR 0041): the host's structured
   # post_install.{security,backup} selection installs via the Primary User's

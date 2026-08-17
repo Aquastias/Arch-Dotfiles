@@ -330,7 +330,8 @@ _ctl_enum_options() {
   __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
   options.bootloader | post_install.security.firewall \
-    | environment.display_manager | disk_config.kind) menu_enum_options "$1" ;;
+    | environment.display_manager | disk_config.kind \
+    | options.power.profile) menu_enum_options "$1" ;;
   *) printf '%s\n' true false ;;
   esac
 }
@@ -418,6 +419,13 @@ _ctl_apply_enum() {
   options.bootloader | post_install.security.firewall \
     | environment.display_manager)
     edit_set_scalar "$state" "$path" "$val" ;;
+  options.power.profile)
+    # Power Profile enum (ADR 0080): a 3-value scalar, NOT a bool — commit only a
+    # known backend so the picker can never author an invalid daemon; an unknown
+    # value is a no-op (rc 1, unchanged).
+    case "$val" in none | power-profiles-daemon | tuned) ;;
+      *) printf '%s' "$state"; return 1 ;; esac
+    edit_set_scalar "$state" options.power.profile "$val" ;;
   *) edit_set_bool "$state" "$path" "$val" ;;
   esac
 }

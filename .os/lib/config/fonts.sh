@@ -26,7 +26,7 @@
 #   fonts_aur_packages   <cfg>    → selected fonts routed to the paru pass
 # =============================================================================
 
-# Catalog rows: package|kind|default   (kind ∈ {repo, aur}; default ∈ {on, off}).
+# Catalog rows: package|kind|default  (kind: repo|aur; default: on|off).
 # Nerd-patched monospace builds supersede plain ones (ttf-fira-code dropped for
 # ttf-firacode-nerd) because the tracked shell payload is Powerlevel10k, which
 # renders Nerd glyphs. Monaspace + Sazanami ship selectable-but-off: Monaspace
