@@ -19,7 +19,7 @@ setup() {
   export OS_DIR="$TEST_DIR"
   mkdir -p "$OS_DIR/hosts/core"
   cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
-{"users":[],"system_programs":["cups"],"sysctl":{"vm.swappiness":10},
+{"users":[],"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
  "packages":{"repo":{"shell":["htop"]},"aur":{"misc":["brave-bin"]}}}
 JSON
 
@@ -81,7 +81,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "cfgstate_seed_defaults: Host Core's system programs surface" {
   run cfgstate_seed_defaults "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
 }
 
 @test "cfgstate_seed_defaults: Host Core's packages surface" {

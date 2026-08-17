@@ -28,9 +28,9 @@ teardown() {
 # cups left Host Core (ADR 0079): it is now a toggle-derived System Program
 # driven by options.printing.enabled and injected at Effective-Config assembly,
 # so core declares no system programs — the Printing service category owns cups.
-@test "real host core declares no system_programs (cups is toggle-derived)" {
+@test "real host core declares no host_programs (cups is toggle-derived)" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  jsonc_strip "$core" | jq -e '.system_programs == []'
+  jsonc_strip "$core" | jq -e '.host_programs == []'
 }
 
 # The confirmation that two layers fit this fleet: laptop is a strict subset
@@ -86,9 +86,9 @@ teardown() {
   done
 }
 
-@test "desktop keeps system_programs [grub] with no grub/os-prober package" {
+@test "desktop keeps host_programs [grub] with no grub/os-prober package" {
   local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-  jsonc_strip "$desk" | jq -e '.system_programs == ["grub"]'
+  jsonc_strip "$desk" | jq -e '.host_programs == ["grub"]'
   local pkgs
   pkgs="$(jsonc_strip "$desk" | jq -r '.packages.repo | to_entries[].value[]')"
   ! grep -qx "grub"      <<< "$pkgs"
@@ -98,9 +98,10 @@ teardown() {
 # ── program resolution ───────────────────────────────────────────────────────
 
 write_program() {
-  local cat="$1" name="$2" system="$3"
+  local cat="$1" name="$2" system="$3" kind
+  [[ "$system" == "true" ]] && kind=host || kind=user
   mkdir -p "$TEST_DIR/programs/$cat/$name"
-  printf '{"name":"%s","system":%s}\n' "$name" "$system" \
+  printf '{"name":"%s","kind":"%s"}\n' "$name" "$kind" \
     > "$TEST_DIR/programs/$cat/$name/config.jsonc"
   printf '#!/bin/sh\n' > "$TEST_DIR/programs/$cat/$name/install.sh"
 }
@@ -119,25 +120,25 @@ write_program() {
 }
 
 # ── program kind is authoritative (R22) ──────────────────────────────────────
-# The registry carries the system flag so a menu render never re-parses every
+# The registry carries the kind so a menu render never re-parses every
 # program's config.jsonc, and one lookup answers "what kind is this name?".
 
-@test "registry: carries each program's system flag alongside its category" {
+@test "registry: carries each program's kind alongside its category" {
   write_program "bootloader" "grub" "true"
   write_program "virtualization" "docker" "false"
 
   configs_build_registry
   [ "${_CONFIGS_REGISTRY[grub]}" = "bootloader/grub" ]
-  [ "${_CONFIGS_KIND[grub]}" = "system" ]
+  [ "${_CONFIGS_KIND[grub]}" = "host" ]
   [ "${_CONFIGS_REGISTRY[docker]}" = "virtualization/docker" ]
   [ "${_CONFIGS_KIND[docker]}" = "user" ]
 }
 
-@test "program_kind: system for the real system programs" {
+@test "program_kind: host for the real host programs" {
   export OS_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   for p in grub cups sops; do
-    [ "$(program_kind "$p")" = "system" ]
+    [ "$(program_kind "$p")" = "host" ]
   done
 }
 
@@ -157,7 +158,7 @@ write_program() {
 @test "program_kind: resolves without a prebuilt registry" {
   write_program "bootloader" "grub" "true"
   write_program "virtualization" "docker" "false"
-  [ "$(program_kind grub)" = "system" ]
+  [ "$(program_kind grub)" = "host" ]
   [ "$(program_kind docker)" = "user" ]
   [ "$(program_kind nope)" = "none" ]
 }
@@ -171,12 +172,46 @@ write_program() {
   [ "$(program_kind docker)" = "none" ]
 }
 
-@test "program_names_of_kind: partitions the real program set by flag" {
+@test "registry: a program with a missing kind aborts the build" {
+  mkdir -p "$TEST_DIR/programs/security/nokind"
+  printf '{"name":"nokind"}\n' \
+    > "$TEST_DIR/programs/security/nokind/config.jsonc"
+  printf '#!/bin/sh\n' > "$TEST_DIR/programs/security/nokind/install.sh"
+  run configs_build_registry
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"nokind"* ]]
+  [[ "$output" == *"kind"* ]]
+}
+
+@test "registry: a program with an out-of-set kind aborts the build" {
+  mkdir -p "$TEST_DIR/programs/security/badkind"
+  printf '{"name":"badkind","kind":"root"}\n' \
+    > "$TEST_DIR/programs/security/badkind/config.jsonc"
+  printf '#!/bin/sh\n' > "$TEST_DIR/programs/security/badkind/install.sh"
+  run configs_build_registry
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"badkind"* ]]
+}
+
+# The retired "system" bool is not a kind — a config still carrying it (and no
+# kind) aborts, enforcing the ADR 0085 cutover at the program-config level.
+@test "registry: a program still using the retired system flag aborts" {
+  mkdir -p "$TEST_DIR/programs/bootloader/grub"
+  printf '{"name":"grub","system":true}\n' \
+    > "$TEST_DIR/programs/bootloader/grub/config.jsonc"
+  printf '#!/bin/sh\n' > "$TEST_DIR/programs/bootloader/grub/install.sh"
+  run configs_build_registry
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"grub"* ]]
+  [[ "$output" == *"kind"* ]]
+}
+
+@test "program_names_of_kind: partitions the real program set by kind" {
   export OS_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
-  run program_names_of_kind system
+  run program_names_of_kind host
   # cups (printing), bluetooth, power-profiles-daemon + tuned (power) are the
-  # toggle-derived System Programs added by ADR 0079/0080; grub + sops authored.
+  # toggle-derived Host Programs added by ADR 0079/0080; grub + sops authored.
   [ "$output" = "$(printf \
     'bluetooth\ncups\ngrub\npower-profiles-daemon\nsops\ntuned')" ]
 
@@ -228,7 +263,7 @@ write_program() {
     '{"packages":{"repo":{"boot":["grub"]}}}' "hosts/desktop/profile.jsonc"
   [[ "$output" == *"hosts/desktop/profile.jsonc"* ]]
   [[ "$output" == *"packages.repo.boot"* ]]
-  [[ "$output" == *"system_programs"* ]]
+  [[ "$output" == *"host_programs"* ]]
 
   run validate_package_program_exclusivity \
     '{"packages":{"repo":{"dev":["docker"]}}}' "hosts/desktop/profile.jsonc"
@@ -281,48 +316,48 @@ write_program() {
 
 # ── program validation ───────────────────────────────────────────────────────
 
-@test "validate_program: accepts system program from host config" {
+@test "validate_program: accepts host program from host config" {
   write_program "bootloader" "grub" "true"
 
-  run validate_program true grub
+  run validate_program host grub
   [ "$status" -eq 0 ]
 }
 
 @test "validate_program: accepts user program from user config" {
   write_program "security" "firewalld" "false"
 
-  run validate_program false firewalld
+  run validate_program user firewalld
   [ "$status" -eq 0 ]
 }
 
 @test "validate_program: rejects user program from host config" {
   write_program "security" "firewalld" "false"
 
-  run validate_program true firewalld
+  run validate_program host firewalld
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "system=false" ]]
+  [[ "$output" =~ "kind=user" ]]
 }
 
-@test "validate_program: rejects system program from user config" {
+@test "validate_program: rejects host program from user config" {
   write_program "bootloader" "grub" "true"
 
-  run validate_program false grub
+  run validate_program user grub
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "system=true" ]]
+  [[ "$output" =~ "kind=host" ]]
 }
 
 @test "validate_program: missing program reports not-found" {
-  run validate_program false nope
+  run validate_program user nope
   [ "$status" -eq 1 ]
   [[ "$output" =~ "not found" ]]
 }
 
 @test "validate_program: program missing install.sh is rejected" {
   mkdir -p "$TEST_DIR/programs/security/half"
-  printf '{"name":"half","system":false}\n' \
+  printf '{"name":"half","kind":"user"}\n' \
     > "$TEST_DIR/programs/security/half/config.jsonc"
 
-  run validate_program false half
+  run validate_program user half
   [ "$status" -eq 1 ]
   [[ "$output" =~ "missing install.sh" ]]
 }
@@ -331,14 +366,14 @@ write_program() {
   write_program "security" "ufw" "false"
   write_program "security" "clamav" "false"
 
-  run validate_programs false ufw clamav
+  run validate_programs user ufw clamav
   [ "$status" -eq 0 ]
 }
 
 @test "validate_programs: any-fail returns 1 but reports each failure" {
   write_program "security" "ufw" "false"
 
-  run validate_programs false ufw nope
+  run validate_programs user ufw nope
   [ "$status" -eq 1 ]
   [[ "$output" =~ "not found" ]]
 }

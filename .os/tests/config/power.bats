@@ -2,7 +2,7 @@
 # Tests for .os/lib/config/power.sh — the Power Profile resolver (ADR 0080): a
 # pure helper turning options.power.profile into a toggle-derived System Program
 # (power-profiles-daemon or tuned; none derives nothing), the injector that
-# folds it into an Effective Config's system_programs, and the owned set the
+# folds it into an Effective Config's host_programs, and the owned set the
 # Packages picker filters.
 #
 # Behaviour under test is external only. Prior art: tests/config/printing.bats.
@@ -48,24 +48,24 @@ setup() {
 # ── power_inject: folds the derived program in when not none ────────────────
 
 @test "power_inject: default appends power-profiles-daemon, preserving existing" {
-  run power_inject '{"system_programs":["grub"]}'
-  echo "$output" | jq -e '.system_programs == ["grub","power-profiles-daemon"]'
+  run power_inject '{"host_programs":["grub"]}'
+  echo "$output" | jq -e '.host_programs == ["grub","power-profiles-daemon"]'
 }
 
 @test "power_inject: tuned appends tuned" {
-  run power_inject '{"system_programs":["grub"],
+  run power_inject '{"host_programs":["grub"],
                      "options":{"power":{"profile":"tuned"}}}'
-  echo "$output" | jq -e '.system_programs == ["grub","tuned"]'
+  echo "$output" | jq -e '.host_programs == ["grub","tuned"]'
 }
 
-@test "power_inject: none leaves a config without system_programs untouched" {
+@test "power_inject: none leaves a config without host_programs untouched" {
   run power_inject '{"options":{"power":{"profile":"none"}}}'
-  echo "$output" | jq -e 'has("system_programs") | not'
+  echo "$output" | jq -e 'has("host_programs") | not'
 }
 
 @test "power_inject: idempotent when the daemon is already present" {
-  run power_inject '{"system_programs":["power-profiles-daemon"]}'
-  echo "$output" | jq -e '.system_programs == ["power-profiles-daemon"]'
+  run power_inject '{"host_programs":["power-profiles-daemon"]}'
+  echo "$output" | jq -e '.host_programs == ["power-profiles-daemon"]'
 }
 
 # ── power_owned_programs: the picker-filter set ─────────────────────────────

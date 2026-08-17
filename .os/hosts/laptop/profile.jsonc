@@ -46,7 +46,7 @@
   "users": [
     "aquastias"
   ],
-  "system_programs": [],
+  "host_programs": [],
   "mode": "single",
   "ashift": 12
 }

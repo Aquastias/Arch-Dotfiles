@@ -23,7 +23,7 @@ JSONC
 { "programs": ["hello", "alpha", "beta"] }
 JSONC
   cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSONC'
-{ "system_programs": [] }
+{ "host_programs": [] }
 JSONC
   ln -s "$BATS_TEST_DIRNAME/../../lib" "$OS_DIR/lib"
 }

@@ -34,18 +34,18 @@ _INSTALL_CONFIG_SCHEMA=(
   "root_shell|.options.root_shell|scalar|/bin/bash"
   "ssh_enabled|.options.ssh.enabled|bool|false"
   # Printing Service (ADR 0079): the toggle-derived print-daemon switch, default
-  # on. cups is injected into system_programs from this at assembly; this is the
+  # on. cups is injected into host_programs from this at assembly; this is the
   # typed back-end reader (printing_enabled in printing.sh reads the raw config
   # for the pure injector/resolver).
   "printing_enabled|.options.printing.enabled|bool|true"
   # Bluetooth Service (ADR 0080): the toggle-derived bluez switch, default on.
-  # The `bluetooth` program is injected into system_programs from this at
+  # The `bluetooth` program is injected into host_programs from this at
   # assembly; bluetooth_enabled in bluetooth.sh reads the raw config for the
   # pure injector/resolver.
   "bluetooth_enabled|.options.bluetooth.enabled|bool|true"
   # Power Profile (ADR 0080): the enum-derived power-management backend, default
-  # power-profiles-daemon. The value maps to a System Program (ppd/tuned)
-  # injected into system_programs at assembly; none installs nothing.
+  # power-profiles-daemon. The value maps to a Host Program (ppd/tuned)
+  # injected into host_programs at assembly; none installs nothing.
   "power_profile|.options.power.profile|scalar|power-profiles-daemon"
   "impermanence_enabled|.options.impermanence.enabled|bool|false"
   "impermanence_dataset|.options.impermanence.dataset|scalar|rpool/persist"

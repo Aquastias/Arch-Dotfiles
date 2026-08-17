@@ -1,14 +1,14 @@
 // Program metadata for bluetooth (ADR 0080).
 //
-// system=true → installed by the profile runner inside arch-chroot as root via
+// kind=host → installed by the profile runner inside arch-chroot as root via
 // pacman. install.sh installs bluez + bluez-utils and enables bluetooth.service
 // so the Bluetooth daemon comes up on first boot, independent of desktop
-// environment selection. Toggle-derived: injected into system_programs from
+// environment selection. Toggle-derived: injected into host_programs from
 // options.bluetooth.enabled (default on), so the Bluetooth category is its sole
 // home — it never appears in the Packages system-programs picker.
 
 {
   "name": "bluetooth",
-  "system": true,
+  "kind": "host",
   "description": "Bluetooth daemon (bluez) — installed and enabled at boot."
 }

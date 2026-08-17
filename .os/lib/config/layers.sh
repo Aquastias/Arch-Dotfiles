@@ -15,8 +15,8 @@
 #   resolve_program <name>
 #       → echoes "<cat>/<name>"; uses registry if built; 1 if not found
 #   program_kind <name>
-#       → echoes "system" | "user" | "none"; uses registry if built
-#   program_names_of_kind <system|user>
+#       → echoes "host" | "user" | "none"; uses registry if built
+#   program_names_of_kind <host|user>
 #       → echoes each program name of that kind, one per line, sorted
 #   validate_program <expected> <name>       → 0 ok | 1 with stderr message
 #   validate_programs <expected> <name...>   → 0 if all ok | 1 if any failed
@@ -62,15 +62,16 @@ _configs_merge() {
 # =============================================================================
 # Programs live at $OS_DIR/programs/<category>/<name>/. Resolution is by name
 # only — the category is recovered from the path. Validation enforces the
-# system-flag contract: programs referenced from a host config must have
-# system: true; from a user config, system: false.
+# kind contract: programs referenced from a host config must be kind "host";
+# from a user config, kind "user".
 
 # Build two in-memory indexes, both keyed by program name:
 #   _CONFIGS_REGISTRY[name]="cat/name"   — the path index
-#   _CONFIGS_KIND[name]="system"|"user"  — the config.jsonc system flag
+#   _CONFIGS_KIND[name]="host"|"user"    — the config.jsonc `kind` enum
 # Call once after OS_DIR is set; resolve_program and program_kind use them
 # automatically. Reading the flag here is what keeps a menu render from
-# re-parsing every program's config.jsonc (R22).
+# re-parsing every program's config.jsonc (R22). A program config with an
+# absent or out-of-set `kind` aborts the build (return 1) naming the program.
 configs_build_registry() {
   [[ -z "${OS_DIR:-}" ]] && { echo "configs: OS_DIR is not set" >&2; return 2; }
   declare -gA _CONFIGS_REGISTRY=()
@@ -79,23 +80,26 @@ configs_build_registry() {
   # an associative array — guarding on it left the fast paths below dead and
   # every lookup re-scanning the tree.
   declare -g _CONFIGS_REGISTRY_BUILT=1
-  local d name cat is_sys
+  local d name cat kind
   for d in "${OS_DIR}/programs"/*/*; do
     [[ -d "$d" ]] || continue
     name="$(basename "$d")"
     cat="$(basename "$(dirname "$d")")"
     _CONFIGS_REGISTRY["$name"]="${cat}/${name}"
-    is_sys=false
-    if [[ -f "$d/config.jsonc" ]]; then
-      is_sys="$(_configs_parse "$d/config.jsonc" | jq -r '.system // false')"
-    fi
-    [[ "$is_sys" == "true" ]] \
-      && _CONFIGS_KIND["$name"]=system \
-      || _CONFIGS_KIND["$name"]=user
+    kind=""
+    [[ -f "$d/config.jsonc" ]] \
+      && kind="$(_configs_parse "$d/config.jsonc" | jq -r '.kind // ""')"
+    case "$kind" in
+      host | user) _CONFIGS_KIND["$name"]="$kind" ;;
+      *) echo "configs: program '${name}' has an invalid or missing 'kind'" \
+              "(want \"host\" or \"user\"), got '${kind:-<none>}' in" \
+              "${d}/config.jsonc" >&2
+         return 1 ;;
+    esac
   done
 }
 
-# program_kind <name> → "system" | "user" | "none".
+# program_kind <name> → "host" | "user" | "none".
 # Answers "what kind of program is this name?" for the exclusivity validator,
 # both guided pickers, and the Package Resolver. Uses the registry when built
 # (O(1), no re-parse); falls back to resolving + reading config.jsonc.
@@ -109,13 +113,16 @@ program_kind() {
   resolve_program "$name" >/dev/null 2>&1 || { printf 'none\n'; return 0; }
   rel="$(resolve_program "$name")"
   local cfg="${OS_DIR}/programs/${rel}/config.jsonc"
-  [[ -f "$cfg" ]] || { printf 'user\n'; return 0; }
-  local is_sys
-  is_sys="$(_configs_parse "$cfg" | jq -r '.system // false')"
-  [[ "$is_sys" == "true" ]] && printf 'system\n' || printf 'user\n'
+  [[ -f "$cfg" ]] || { printf 'none\n'; return 0; }
+  local kind
+  kind="$(_configs_parse "$cfg" | jq -r '.kind // ""')"
+  case "$kind" in
+  host | user) printf '%s\n' "$kind" ;;
+  *)           printf 'none\n' ;;
+  esac
 }
 
-# program_names_of_kind <system|user> → the program names of that kind, one
+# program_names_of_kind <host|user> → the program names of that kind, one
 # per line, sorted. The option set behind each of the two guided pickers.
 program_names_of_kind() {
   local want="$1" name
@@ -147,8 +154,8 @@ resolve_program() {
   return 1
 }
 
-# Validate one program. $1 = "true"|"false" (expected system flag), $2 = name.
-# Returns 0 if program exists and its system flag matches; 1 with a stderr
+# Validate one program. $1 = "host"|"user" (expected kind), $2 = name.
+# Returns 0 if program exists and its kind matches; 1 with a stderr
 # message otherwise. Pure (no exit).
 validate_program() {
   local expected="$1" name="$2"
@@ -167,31 +174,24 @@ validate_program() {
     echo "configs: program '${name}' missing install.sh at ${dir}/" >&2
     return 1
   }
-  local is_sys
-  [[ "$(program_kind "$name")" == "system" ]] && is_sys=true || is_sys=false
-  if [[ "$is_sys" != "$expected" ]]; then
-    if [[ "$expected" == "true" ]]; then
-      echo "configs: program '${name}' is referenced from a host" \
-           "config but its config.jsonc has system=${is_sys}." \
-           "Expected true." >&2
-    else
-      echo "configs: program '${name}' is referenced from a user" \
-           "config but its config.jsonc has system=${is_sys}." \
-           "Expected false." >&2
-    fi
+  local got; got="$(program_kind "$name")"
+  if [[ "$got" != "$expected" ]]; then
+    echo "configs: program '${name}' is referenced from a ${expected}" \
+         "config but its config.jsonc has kind=${got}." \
+         "Expected ${expected}." >&2
     return 1
   fi
   return 0
 }
 
-# reconcile_user_program <name> <host_system_program...>
+# reconcile_user_program <name> <host_program...>
 # Classify a user's program reference (ADR 0036, refines ADR 0002). Echoes:
-#   user  — program is system:false → install at user level (may shadow a
+#   user  — program is kind user → install at user level (may shadow a
 #           host program of the same role)
-#   noop  — program is system:true AND a host already installs it → skip
-# Returns 1 with an actionable stderr message when the program is system:true
+#   noop  — program is kind host AND a host already installs it → skip
+# Returns 1 with an actionable stderr message when the program is kind host
 # but no host installs it (a user must not trigger a root-level install), or
-# when the program is not found. The system flag stays host-owned: this never
+# when the program is not found. The kind stays host-owned: this never
 # changes a program spec. Pure (no exit).
 reconcile_user_program() {
   local name="$1"; shift
@@ -200,9 +200,9 @@ reconcile_user_program() {
          "${OS_DIR}/programs/<cat>/${name}/" >&2
     return 1
   fi
-  local is_sys
-  [[ "$(program_kind "$name")" == "system" ]] && is_sys=true || is_sys=false
-  if [[ "$is_sys" != "true" ]]; then
+  local is_host
+  [[ "$(program_kind "$name")" == "host" ]] && is_host=true || is_host=false
+  if [[ "$is_host" != "true" ]]; then
     printf 'user\n'
     return 0
   fi
@@ -213,8 +213,8 @@ reconcile_user_program() {
       return 0
     fi
   done
-  echo "configs: user references system program '${name}', but no host" \
-       "installs it. Declare '${name}' in a host's system_programs, or" \
+  echo "configs: user references Host Program '${name}', but no host" \
+       "installs it. Declare '${name}' in a host's host_programs, or" \
        "remove it from the user." >&2
   return 1
 }
@@ -227,7 +227,7 @@ reconcile_user_program() {
 # to a program directory, naming the offending path and the correct slot.
 #
 # This replaces the promotion rule, which rewrote such a name into
-# system_programs — but only in the Guided Installer's emit path, so a
+# host_programs — but only in the Guided Installer's emit path, so a
 # hand-edited profile and a TUI-authored one installed differently. Rejecting
 # the overlap outright makes every front-end read the same file the same way.
 #
@@ -242,10 +242,10 @@ validate_package_program_exclusivity() {
     [[ -n "$name" ]] || continue
     kind="$(program_kind "$name")"
     [[ "$kind" == "none" ]] && continue
-    if [[ "$kind" == "system" ]]; then
+    if [[ "$kind" == "host" ]]; then
       echo "configs: ${label}: packages.${slot}.${cat} lists '${name}'," \
-           "but '${name}' is a System Program. Declare it in" \
-           "system_programs instead, or rename the package entry." >&2
+           "but '${name}' is a Host Program. Declare it in" \
+           "host_programs instead, or rename the package entry." >&2
     else
       echo "configs: ${label}: packages.${slot}.${cat} lists '${name}'," \
            "but '${name}' is a User Program. Declare it in a user profile's" \

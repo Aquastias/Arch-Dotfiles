@@ -221,7 +221,7 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
   for h in arch-data arch-kde arch-secure; do
     run load_profile "$h"
     echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-    echo "$output" | jq -e '.system_programs | index("cups") | not'
+    echo "$output" | jq -e '.host_programs | index("cups") | not'
   done
 }
 
@@ -251,7 +251,7 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
     run load_profile "$h"
     echo "$output" | jq -e '(.packages // {}) | has("inherit") | not'
     echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
-    echo "$output" | jq -e 'has("system_programs_exclude") | not'
+    echo "$output" | jq -e 'has("host_programs_exclude") | not'
   done
   run load_user_profile vm-test
   echo "$output" | jq -e 'has("programs_exclude") | not'

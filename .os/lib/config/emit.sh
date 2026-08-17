@@ -56,7 +56,7 @@ guided_profile_delta() {
 # snapshot (ADR 0056, PRD story 32).
 #
 # The menu baseline now loads Host Core, so the effective view legitimately
-# contains core's whole package list, system programs and sysctl. Writing that
+# contains core's whole package list, Host Programs and sysctl. Writing that
 # verbatim would bake ~61 inherited packages into every saved profile and
 # silently decouple it from core on the next edit.
 #
@@ -129,12 +129,12 @@ _emit_json_array() {
 # Host Core is NOT merged here. It enters once, into the menu's baseline
 # (cfgstate_seed_defaults), and the caller passes the effective view — the
 # operator's overrides over that baseline. Merging core a second time here is
-# precisely the bug where the menu displayed `system programs: grub` while the
+# precisely the bug where the menu displayed `host programs: grub` while the
 # install produced `["cups","grub"]`: display replaced arrays, emit
 # concatenated them. One entry point for core means the two cannot disagree.
 #
 # There is likewise no promotion step. It used to run HERE and only here, so a
-# typed package name resolving to a Program became a system_program in the
+# typed package name resolving to a Program became a host_program in the
 # guided path while `install.sh --profile` and `install.sh <config-file>` left
 # it a raw package. A name is now either a Program or a package, enforced at
 # config load by validate_package_program_exclusivity, and the guided
@@ -147,11 +147,11 @@ emit_effective() {
   # without this an unchecked package would be emitted and installed anyway.
   view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
   # Printing Service (ADR 0079): fold the toggle-derived cups into
-  # system_programs when printing is on. cups is no longer a Host Core system
+  # host_programs when printing is on. cups is no longer a Host Core system
   # program or a Packages-pickable row — the Printing category owns it, so it is
-  # derived here at emit rather than shown as a system_programs baseline entry.
-  # Toggle-derived System Programs (ADR 0079/0080): fold cups (printing),
-  # bluetooth, then the power daemon into system_programs at emit — the Printing
+  # derived here at emit rather than shown as a host_programs baseline entry.
+  # Toggle-derived Host Programs (ADR 0079/0080): fold cups (printing),
+  # bluetooth, then the power daemon into host_programs at emit — the Printing
   # / Bluetooth / Power categories own them, so they are derived here, not
   # shown as baseline entries.
   power_inject "$(bluetooth_inject \

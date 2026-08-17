@@ -7,7 +7,7 @@
 #
 # Public API:
 #   run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
-#                 creates users, installs system programs, bootstraps paru per
+#                 creates users, installs Host Programs, bootstraps paru per
 #                 user, installs user programs, then cleans up the staged tree.
 #
 # Behaviour for missing pieces:
@@ -150,7 +150,7 @@ _profiles_sops_selection() {
   fi
   # `|| return 0`, not `&& printf`: with no programs the arithmetic is false
   # (exit 1), which would trip the install's ERR trap when this feeds a
-  # `mapfile < <(...)` — a host with zero system_programs is valid (empty list).
+  # `mapfile < <(...)` — a host with zero host_programs is valid (empty list).
   ((${#progs[@]})) || return 0
   printf '%s\n' "${progs[@]}"
 }
@@ -273,11 +273,11 @@ usermod -aG "$existing" "$NAME"
 CHROOT_GROUPS
 }
 
-_profiles_install_system_program() {
+_profiles_install_host_program() {
   local prog="$1"
   local rel
   rel="$(resolve_program "$prog")"
-  info "Installing system program: ${prog}  (.os/programs/${rel})"
+  info "Installing Host Program: ${prog}  (.os/programs/${rel})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/env \
     OS_DIR="${_PROFILES_RUNTIME_DIR}" \
     PROGRAMS="${_PROFILES_RUNTIME_DIR}/programs" \
@@ -650,7 +650,7 @@ run_profiles() {
     return 0
   fi
 
-  # ADR 0036: read the host's software (users / system_programs / sysctl /
+  # ADR 0036: read the host's software (users / host_programs / sysctl /
   # packages) from the assembled effective config — the single source of truth
   # the front-end produced (install.sh --profile or the VM seed). CONFIG_FILE
   # is set by 03-install.sh.
@@ -668,7 +668,7 @@ run_profiles() {
   local -a users sys_progs
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
   mapfile -t sys_progs < <(printf '%s' "$host_json" \
-    | jq -r '.system_programs[]?')
+    | jq -r '.host_programs[]?')
 
   # Implicit sops activation (ADR 0025): sops is not declared in any host
   # config; the Runner selects it through the normal system-program path
@@ -710,7 +710,7 @@ run_profiles() {
 
   local prog
   for prog in "${sys_progs[@]}"; do
-    _profiles_install_system_program "$prog"
+    _profiles_install_host_program "$prog"
     _profiles_enable_system_services "$prog"
   done
 
@@ -776,8 +776,8 @@ run_profiles() {
     fi
     for prog in "${uprogs[@]}"; do
       # Reconcile the reference (ADR 0036): a system:false program installs
-      # at user level; a system program the host already installs is a no-op;
-      # a system program no host installs aborts (reconcile prints why).
+      # at user level; a Host Program the host already installs is a no-op;
+      # a Host Program no host installs aborts (reconcile prints why).
       local _action
       _action="$(reconcile_user_program "$prog" \
         "${sys_progs[@]+"${sys_progs[@]}"}")" \

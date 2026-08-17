@@ -48,7 +48,7 @@ cfgstate_host_core() {
 # resolved OVER Host Core so everything core installs is visible in the menu.
 #
 # Host Core is the lower layer and the computed defaults the upper one, folded
-# through the Layer Resolver: core's additive contributions (system_programs,
+# through the Layer Resolver: core's additive contributions (host_programs,
 # packages, sysctl, users) survive into the baseline, while the ordered
 # selections below (kernel, locale, desktop, mirrors) replace whatever core
 # declared. Because these land in the BASELINE and not the override map, they
@@ -101,7 +101,7 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
   # Printing Service (ADR 0079): the print daemon is on out of the box, so the
   # Services category shows it enabled with no ● until the operator flips it.
-  # cups is derived from this toggle at emit, never a system_programs baseline
+  # cups is derived from this toggle at emit, never a host_programs baseline
   # entry — idempotent with the printing_enabled default (on).
   state="$(cfgstate_set "$state" options.printing.enabled 'true')"
   # Font Catalog (ADR 0080): seed the default-checked fonts into the baseline so
@@ -111,7 +111,7 @@ _cfgstate_computed_defaults() {
     "$(fonts_default_selection_json)")"
   # Bluetooth Service (ADR 0080): the bluez daemon is on out of the box, so the
   # Services category shows it enabled with no ● until the operator flips it.
-  # The bluetooth program is derived at emit, not a system_programs baseline —
+  # The bluetooth program is derived at emit, not a host_programs baseline —
   # idempotent with the bluetooth_enabled default (on).
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'true')"
   # Power Profile (ADR 0080): power-profiles-daemon out of the box, so the

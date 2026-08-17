@@ -20,14 +20,15 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # Write a program fixture; $4 (optional) is a JSON array for `requires`.
 write_program() {
-  local cat="$1" name="$2" system="$3" requires="${4:-}"
+  local cat="$1" name="$2" system="$3" requires="${4:-}" kind
+  [[ "$system" == "true" ]] && kind=host || kind=user
   mkdir -p "$TEST_DIR/programs/$cat/$name"
   if [[ -n "$requires" ]]; then
-    printf '{"name":"%s","system":%s,"requires":%s}\n' \
-      "$name" "$system" "$requires" \
+    printf '{"name":"%s","kind":"%s","requires":%s}\n' \
+      "$name" "$kind" "$requires" \
       > "$TEST_DIR/programs/$cat/$name/config.jsonc"
   else
-    printf '{"name":"%s","system":%s}\n' "$name" "$system" \
+    printf '{"name":"%s","kind":"%s"}\n' "$name" "$kind" \
       > "$TEST_DIR/programs/$cat/$name/config.jsonc"
   fi
   printf '#!/bin/sh\n' > "$TEST_DIR/programs/$cat/$name/install.sh"

@@ -223,42 +223,42 @@ while IFS= read -r cfg; do
 done < <(find "${OS}/programs" -name "config.jsonc")
 
 _check_program() {
-  local name="$1" want_system="$2" context="$3"
+  local name="$1" want_kind="$2" context="$3"
   if [[ ! -v _prog_dir["$name"] ]]; then
     _fail "${context}: program '${name}' not found in programs/"
     return
   fi
   local dir="${_prog_dir[$name]}"
-  local got_system
-  got_system="$(grep '"system"' "${dir}/config.jsonc" 2>/dev/null \
+  local got_kind
+  got_kind="$(grep '"kind"' "${dir}/config.jsonc" 2>/dev/null \
                 | head -1 \
-                | sed 's/.*"system"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/')"
-  if [[ "$got_system" == "$want_system" ]]; then
-    _pass "${context}: program '${name}' (system=${got_system})"
+                | sed 's/.*"kind"[[:space:]]*:[[:space:]]*"\(host\|user\)".*/\1/')"
+  if [[ "$got_kind" == "$want_kind" ]]; then
+    _pass "${context}: program '${name}' (kind=${got_kind})"
   else
     _fail "${context}: program '${name}' has" \
-          "system=${got_system}, expected ${want_system}"
+          "kind=${got_kind}, expected ${want_kind}"
   fi
   if [[ ! -f "${dir}/install.sh" ]]; then
     _fail "${context}: program '${name}' missing install.sh"
   fi
 }
 
-# Host configs → system_programs must have system:true
+# Host configs → host_programs must have kind:host
 while IFS= read -r cfg; do
   host="$(basename "$(dirname "$cfg")")"
   [[ "$host" == "core" ]] && continue
   while IFS= read -r prog; do
-    _check_program "$prog" "true" "host:${host}"
-  done < <(_strip "$cfg" | jq -r '.system_programs[]?' 2>/dev/null)
+    _check_program "$prog" "host" "host:${host}"
+  done < <(_strip "$cfg" | jq -r '.host_programs[]?' 2>/dev/null)
 done < <(find "${OS}/hosts" -name "profile.jsonc")
 
-# User configs → programs must have system:false
+# User configs → programs must have kind:user
 while IFS= read -r cfg; do
   user="$(basename "$(dirname "$cfg")")"
   [[ "$user" == "core" ]] && continue
   while IFS= read -r prog; do
-    _check_program "$prog" "false" "user:${user}"
+    _check_program "$prog" "user" "user:${user}"
   done < <(_strip "$cfg" | jq -r '.programs[]?' 2>/dev/null)
 done < <(find "${OS}/users" -name "profile.jsonc")
 

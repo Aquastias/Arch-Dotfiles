@@ -273,7 +273,7 @@ pkgres_resolve() {
   fi
 
   # ── Printing Service (ADR 0079) ───────────────────────────────────────────
-  # cups is a toggle-derived System Program, not authored in Host Core: report
+  # cups is a toggle-derived Host Program, not authored in Host Core: report
   # it as source=printing so `explain-packages` and the guided derived section
   # answer "why is cups here?" the way they answer the Security/Backup extras —
   # via printing_programs, the single source of truth the injector also shares.

@@ -24,7 +24,7 @@ setup() {
 
   mkdir -p "$OS_DIR/hosts/core"
   printf '%s\n' \
-    '{"system_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
+    '{"host_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
     > "$OS_DIR/hosts/core/profile.jsonc"
 
   # Real pure cores (emit pulls in the real picker_assign_disks + layers).
@@ -67,7 +67,7 @@ write_answers() {
   # Seeded defaults derive all three toggle System Programs (ADR 0079/0080):
   # cups (printing), bluetooth, power-profiles-daemon (power), in inject order.
   echo "$effective" \
-    | jq -e '.system_programs == ["cups","bluetooth","power-profiles-daemon"]'
+    | jq -e '.host_programs == ["cups","bluetooth","power-profiles-daemon"]'
 }
 
 # ── issue 09: a built non-zfs root filesystem is selectable in replay ───────
@@ -733,7 +733,7 @@ write_answers() {
   ! echo "$output" | grep -qx "core"
 }
 
-# ── list builders: packages.repo.extra / system_programs / sysctl ───────────
+# ── list builders: packages.repo.extra / host_programs / sysctl ───────────
 
 @test "_guided_add_package: typed names (whitespace-split) append to extra" {
   _GUIDED_REPLAY=0
@@ -756,16 +756,16 @@ write_answers() {
   echo "$_GUIDED_STATE" | jq -e '.packages == null'
 }
 
-@test "_guided_add_system_program: picked names append, deduped" {
+@test "_guided_add_host_program: picked names append, deduped" {
   _GUIDED_REPLAY=0
-  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" system_programs '["cups"]')"
+  _GUIDED_STATE="$(cfgstate_set "$(cfgstate_new)" host_programs '["cups"]')"
   guided_multi() { printf '%s\n' "docker" "cups"; }   # cups already present
   export -f guided_multi
 
-  _guided_add_system_program
-  echo "$_GUIDED_STATE" | jq -e '.system_programs | index("docker")'
+  _guided_add_host_program
+  echo "$_GUIDED_STATE" | jq -e '.host_programs | index("docker")'
   echo "$_GUIDED_STATE" \
-    | jq -e '([.system_programs[] | select(. == "cups")] | length) == 1'
+    | jq -e '([.host_programs[] | select(. == "cups")] | length) == 1'
 }
 
 @test "_guided_add_sysctl: a key=value sets a literal (dotted) sysctl key" {

@@ -46,9 +46,9 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   echo "$output" | jq -e '.packages.aur.misc == ["brave-bin","zen-browser-bin"]'
 }
 
-@test "additive: system_programs concats" {
-  run resolve '{"system_programs":["cups"]}' '{"system_programs":["grub"]}'
-  echo "$output" | jq -e '.system_programs == ["cups","grub"]'
+@test "additive: host_programs concats" {
+  run resolve '{"host_programs":["cups"]}' '{"host_programs":["grub"]}'
+  echo "$output" | jq -e '.host_programs == ["cups","grub"]'
 }
 
 @test "additive: users concats, order preserved" {
@@ -175,10 +175,10 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   echo "$output" | jq -e '.packages.aur.misc == []'
 }
 
-@test "exclude: system_programs_exclude drops a core system program" {
-  run resolve '{"system_programs":["cups","grub"]}' \
-              '{"system_programs_exclude":["cups"]}'
-  echo "$output" | jq -e '.system_programs == ["grub"]'
+@test "exclude: host_programs_exclude drops a core system program" {
+  run resolve '{"host_programs":["cups","grub"]}' \
+              '{"host_programs_exclude":["cups"]}'
+  echo "$output" | jq -e '.host_programs == ["grub"]'
 }
 
 @test "exclude (user): programs_exclude drops a User Core program" {
@@ -190,8 +190,8 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
 @test "exclude: the control keys never reach the effective config" {
   run resolve '{"packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"exclude":["htop"]},
-                "system_programs_exclude":["cups"]}'
-  echo "$output" | jq -e 'has("system_programs_exclude") | not'
+                "host_programs_exclude":["cups"]}'
+  echo "$output" | jq -e 'has("host_programs_exclude") | not'
   echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
 }
 
@@ -232,12 +232,12 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
 
 @test "inherit false: users and sysctl are STILL inherited" {
   run resolve '{"users":["alice"],"sysctl":{"vm.swappiness":10},
-                "system_programs":["cups"],
+                "host_programs":["cups"],
                 "packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":false}}'
   echo "$output" | jq -e '.users == ["alice"]'
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-  echo "$output" | jq -e '.system_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups"]'
   echo "$output" | jq -e '(.packages.repo // {}) == {}'
 }
 

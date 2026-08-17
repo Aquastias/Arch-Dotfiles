@@ -248,11 +248,11 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   local d; d="$TEST_DIR/os2"
   mkdir -p "$d/hosts"/{core,desktop}
   cat > "$d/hosts/core/profile.jsonc" <<'JSON'
-{"system_programs":["cups"],
+{"host_programs":["cups"],
  "packages":{"repo":{"shell":["htop"]}},"sysctl":{"vm.swappiness":10}}
 JSON
   cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
-{"system_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
+{"host_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
 JSON
   export OS_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
@@ -262,7 +262,7 @@ JSON
   [ "$status" -eq 0 ]
 
   # the seeded state carries core's contribution as well as the delta
-  jq -e '.system_programs == ["cups","grub"]' "$GUIDED_STATE_FILE"
+  jq -e '.host_programs == ["cups","grub"]' "$GUIDED_STATE_FILE"
   jq -e '.packages.repo.shell == ["htop"]'    "$GUIDED_STATE_FILE"
   jq -e '.packages.repo.virt == ["qemu-full"]' "$GUIDED_STATE_FILE"
   jq -e '.sysctl["vm.swappiness"] == 10'      "$GUIDED_STATE_FILE"
@@ -272,10 +272,10 @@ JSON
   local d; d="$TEST_DIR/os3"
   mkdir -p "$d/hosts"/{core,desktop}
   cat > "$d/hosts/core/profile.jsonc" <<'JSON'
-{"system_programs":["cups"],"packages":{"repo":{"shell":["htop"]}}}
+{"host_programs":["cups"],"packages":{"repo":{"shell":["htop"]}}}
 JSON
   cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
-{"system_programs":["grub"],"options":{"kernel":["zen"]}}
+{"host_programs":["grub"],"options":{"kernel":["zen"]}}
 JSON
   export OS_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
@@ -285,8 +285,8 @@ JSON
 
   source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
   local seeded resolved
-  seeded="$(jq -cS '{system_programs, packages, options}' "$GUIDED_STATE_FILE")"
+  seeded="$(jq -cS '{host_programs, packages, options}' "$GUIDED_STATE_FILE")"
   resolved="$(load_profile desktop \
-    | jq -cS '{system_programs, packages, options}')"
+    | jq -cS '{host_programs, packages, options}')"
   [ "$seeded" = "$resolved" ]
 }

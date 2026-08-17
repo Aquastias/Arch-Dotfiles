@@ -540,7 +540,7 @@ _guided_edit_gpu() {
 # PACMAN + PACKAGES + HOST ▸ ADVANCED (issue 06 Pass B)
 # =============================================================================
 # The rarely-touched host knobs. Pacman/Advanced scalar+bool+multi fields reuse
-# the issue-05 helpers; the list builders (packages.repo, system_programs,
+# the issue-05 helpers; the list builders (packages.repo, host_programs,
 # sysctl) append through the seam like _guided_add_persist.
 
 # Mirror Countries (Pacman): a multi-select feeding reflector --country. The
@@ -625,7 +625,7 @@ _guided_edit_borg() {
 }
 
 # _guided_add_package — append typed repo package name(s) (whitespace-split) to
-# packages.extra. The emitter promotes any that resolve to a System Program at
+# packages.extra. The emitter promotes any that resolve to a Host Program at
 # build time (emit_promote_programs); the rest stay plain repo packages. rc 1
 # (no commit) on empty input.
 _guided_add_package() {
@@ -633,8 +633,8 @@ _guided_add_package() {
   _GUIDED_STATE="$(edit_append_packages "$_GUIDED_STATE" "$raw")"
 }
 
-# _guided_program_names — the resolvable System Program names (programs/*/*/),
-# one per line. The enumerable source for the system_programs multi-select.
+# _guided_program_names — the resolvable Host Program names (programs/*/*/),
+# one per line. The enumerable source for the host_programs multi-select.
 _guided_program_names() {
   local d
   for d in "${OS_DIR}/programs"/*/*; do
@@ -642,16 +642,16 @@ _guided_program_names() {
   done
 }
 
-# _guided_add_system_program — append host System Program name(s) chosen from
-# the resolvable set (multi-select; replay = whitespace list) to system_programs.
+# _guided_add_host_program — append Host Program name(s) chosen from
+# the resolvable set (multi-select; replay = whitespace list) to host_programs.
 # rc 1 (no commit) when nothing is picked.
-_guided_add_system_program() {
+_guided_add_host_program() {
   local -a names
   mapfile -t names < <(_guided_program_names)
   local -a picks=()
-  mapfile -t picks < <(_guided_collect_multi system_program "System programs" \
+  mapfile -t picks < <(_guided_collect_multi system_program "Host programs" \
     "${names[@]}")
-  _GUIDED_STATE="$(edit_append_system_programs "$_GUIDED_STATE" \
+  _GUIDED_STATE="$(edit_append_host_programs "$_GUIDED_STATE" \
     ${picks[@]+"${picks[@]}"})"
 }
 
@@ -942,7 +942,7 @@ _guided_oneshot_edit() {
   environment.display_manager) _guided_edit_display_manager ;;
   environment.gpu)          _guided_edit_gpu ;;
   options.mirror_countries) _guided_edit_mirror_countries ;;
-  system_programs)          _guided_add_system_program ;;
+  host_programs)          _guided_add_host_program ;;
   users)                    _guided_pick_users ;;
   __layout__)               _guided_edit_layout ;;
   __persist__)              _guided_add_persist ;;
@@ -1259,7 +1259,7 @@ guided_build() {
     _guided_add_mirror_server
     _guided_add_custom_repository
     _guided_add_package
-    _guided_add_system_program
+    _guided_add_host_program
     _guided_add_sysctl
     _guided_edit_firewall
     _guided_edit_antivirus

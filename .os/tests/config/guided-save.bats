@@ -18,7 +18,7 @@ setup() {
 
   mkdir -p "$OS_DIR/hosts/core"
   printf '%s\n' \
-    '{"system_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
+    '{"host_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
     > "$OS_DIR/hosts/core/profile.jsonc"
 
   # shellcheck source=../../lib/config/state.sh
@@ -64,7 +64,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   loaded="$(load_profile eterniox)"
   echo "$loaded" | jq -e '.options.bootloader == "grub"'   # delta applied
-  echo "$loaded" | jq -e '.system_programs == ["cups"]'    # over Host Core
+  echo "$loaded" | jq -e '.host_programs == ["cups"]'    # over Host Core
   run validate_config_schema host "$loaded"
   [ "$status" -eq 0 ]
 }

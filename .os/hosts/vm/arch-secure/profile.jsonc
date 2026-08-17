@@ -54,7 +54,7 @@
   // updating every time Host Core grows.
   "packages": { "inherit": false },
   "users": ["vm-test"],
-  "system_programs": [],
+  "host_programs": [],
 
   "mode": "multi",
   "os_pool": {

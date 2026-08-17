@@ -43,7 +43,7 @@
 # category under this object is an additive array".
 _LAYER_ADDITIVE_host=(
   "packages.repo.*" "packages.aur.*"
-  "system_programs"
+  "host_programs"
   "users"
   "persist.directories" "persist.files"
   "sysctl"                      # deep merge (object of scalars)
@@ -134,7 +134,7 @@ JQ
 layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
 
 # layer_apply_exclusions <config> — apply a config's OWN packages.exclude /
-# system_programs_exclude to itself, then strip the control keys.
+# host_programs_exclude to itself, then strip the control keys.
 #
 # The Guided Installer's Effective Config needs this: its Config State carries
 # the exclude entries the Packages screen writes, but it never goes through a
@@ -143,7 +143,7 @@ layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
 layer_apply_exclusions() {
   jq '
     (.packages.exclude // []) as $pkg_excl
-    | (.system_programs_exclude // []) as $sys_excl
+    | (.host_programs_exclude // []) as $sys_excl
     | (if (.packages.repo // null) != null
        then .packages.repo |= with_entries(
               .value |= (if type == "array"
@@ -156,13 +156,13 @@ layer_apply_exclusions() {
                          then map(select(. as $p | $pkg_excl | index($p) | not))
                          else . end))
        else . end)
-    | (if (.system_programs // null) != null
-       then .system_programs |=
+    | (if (.host_programs // null) != null
+       then .host_programs |=
               map(select(. as $p | $sys_excl | index($p) | not))
        else . end)
     | del(.packages.exclude)
     | del(.packages.inherit)
-    | del(.system_programs_exclude)
+    | del(.host_programs_exclude)
     | if (.packages // null) == {} then del(.packages) else . end
   ' <<<"$1"
 }
@@ -214,7 +214,7 @@ _layer_fold_one() {
     #    applying it here would stop a later layer from re-adding the entry,
     #    which is exactly the "last layer wins" guarantee.
     | ($upper.packages.exclude // []) as $pkg_excl
-    | ($upper.system_programs_exclude // []) as $sys_excl
+    | ($upper.host_programs_exclude // []) as $sys_excl
     | ($upper.programs_exclude // []) as $usr_excl
 
     | (if (.packages.repo // null) != null
@@ -229,8 +229,8 @@ _layer_fold_one() {
                          then map(select(. as $p | $pkg_excl | index($p) | not))
                          else . end))
        else . end)
-    | (if (.system_programs // null) != null
-       then .system_programs |=
+    | (if (.host_programs // null) != null
+       then .host_programs |=
               map(select(. as $p | $sys_excl | index($p) | not))
        else . end)
     | (if (.programs // null) != null
@@ -242,7 +242,7 @@ _layer_fold_one() {
     # from the authored layers on the next fold, which is what lets a later
     # layer re-add something an earlier layer excluded.
     | del(.packages.exclude)
-    | del(.system_programs_exclude)
+    | del(.host_programs_exclude)
     | del(.programs_exclude)
     | if (.packages // null) == {} then del(.packages) else . end
   '
