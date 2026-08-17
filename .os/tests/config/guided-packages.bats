@@ -215,6 +215,13 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   echo "$output" | grep -qE '^kernel ▸ [0-9]+   \(from Options\)'
 }
 
+@test "origin labels: services + fonts point at their merged homes (ADR 0081)" {
+  [ "$(pkgres_source_origin printing)" = "Services" ]
+  [ "$(pkgres_source_origin bluetooth)" = "Services" ]
+  [ "$(pkgres_source_origin power)" = "Services" ]
+  [ "$(pkgres_source_origin fonts)" = "System" ]
+}
+
 @test "the derived section drills to a source's package list" {
   printf '%s\n' '{"environment":{"gpu":["amd"]}}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_pkgderived Packages)"

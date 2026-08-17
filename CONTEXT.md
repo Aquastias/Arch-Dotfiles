@@ -87,20 +87,27 @@ Navigation is non-destructive: a single in-session **Config State** holds only
 the operator's overrides over the computed defaults, so every screen is
 re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
 between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
-list of fourteen **Configuration Categories** in archinstall reading order
-(Locales, Mirrors & Repositories, Pacman, Disks, Bootloader, Kernels, General,
-Users, Environment, Packages, Security, Backup, Printing service, Advanced —
-ADR 0071; Pacman added ADR 0074, Printing service ADR 0079), each opening a
-submenu of its fields, so a section name never repeats per row. Presentation is
-**master-detail**: the fzf preview pane is an always-on **detail column** that,
-at every level, shows the highlighted item's live state — a parent column (the
-siblings, current marked, the rest dimmed) above the detail. A category previews
-its fields as `key: value` with the `●` override dots; a leaf field previews its
-current value and allowed options; the Disks layout leaf previews the ZFS pool
-tree and the Users category its account table (both reusing the existing
-previews). Navigation stays drill-down (Enter deeper, Esc up) with a breadcrumb
-— archinstall's own behaviour, its persistent-column *feel* supplied by the
-detail column rather than a literally frozen list. Every value list is an fzf list, and
+list of fourteen **Configuration Categories** in **install-flow order** under
+six non-selectable **bucket headers** — `SYSTEM` (System, Locales, Users),
+`STORAGE & BOOT` (Disks, Bootloader, Kernels), `SOFTWARE` (Environment,
+Mirrors & Repositories, Pacman, Packages), `SERVICES` (Services),
+`SECURITY & DATA` (Security, Backup), `ADVANCED` (Advanced) — each category
+opening a submenu of its fields, so a section name never repeats per row.
+(ADR 0071 established the two-level model; ADR 0081 re-cut it into buckets,
+renamed General → **System**, and merged the Printing/Bluetooth/Power service
+toggles into one **Services** category.) Presentation is
+**master-detail**: the fzf preview pane shows the highlighted item's live state,
+and the current selection is marked by the **triangle pointer (`▶`)** in the main
+list. On the **top screen** the pane shows only the highlighted category's own
+`key: value` fields with the `●` override dots — the category **parent column was
+dropped** (ADR 0082) as a duplicate of the bucketed main list. **Drill (category)
+screens** still show a **sibling-field column** (the category's fields, current
+marked, the rest dimmed) above the leaf detail — there it lists fields, not a
+copy of the main list. A leaf field previews its current value and allowed
+options; the Disks layout leaf previews the ZFS pool tree and the Users category
+its account table (both reusing the existing previews). Navigation stays
+drill-down (Enter deeper, Esc up) with a breadcrumb — archinstall's own
+behaviour. Every value list is an fzf list, and
 multi-select re-entry pre-marks prior picks; only free-text fields with nothing
 to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs, persist
 paths) drop to a typed prompt. Terminal actions (Proceed / Save / Export) are
@@ -453,9 +460,10 @@ could build a config that failed validation at Proceed.
 ### Printing Service (`options.printing.enabled`)
 The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —
 is installed and its `cups.service` enabled. A single bool [[Cycle Field]]
-(default `true`, normalised-out when true) in its own root-level **Printing
-service** Configuration Category, a service-enablement twin of Security/Backup
-rather than an identity field like General's hostname/timezone. `cups` is
+(default `true`, normalised-out when true) in the shared **Services**
+Configuration Category (ADR 0081; its own **Printing service** category
+pre-merge), a service-enablement field rather than an identity field like
+System's hostname/timezone. `cups` is
 **not**
 declared in Host Core; when the toggle is on it is **injected into the Effective
 Config's `system_programs` at assembly time**, so the [[Runner]] installs it in
@@ -471,8 +479,8 @@ read-only `derived` section / `explain-packages` as `source=printing` (layer
 
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived System Program**, twinning [[Printing Service]]: a
-single bool [[Cycle Field]] (default `true`, normalised-out when true) in its
-own root-level **Bluetooth** Configuration Category. On → a `bluetooth` program
+single bool [[Cycle Field]] (default `true`, normalised-out when true) in the
+shared **Services** Configuration Category (ADR 0081). On → a `bluetooth` program
 is injected into the Effective Config's `system_programs` at assembly time,
 installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
 genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
@@ -487,7 +495,8 @@ picker like `cups`; surfaces as `source=bluetooth` in the resolver.
 ### Power Profile (`options.power.profile`)
 The **enum** generalization of the toggle-derived pattern (ADR 0080, extending
 0079's bool): a choice field `none | power-profiles-daemon | tuned` (default
-`power-profiles-daemon`) in its own root-level **Power** Configuration Category.
+`power-profiles-daemon`) in the shared **Services** Configuration Category
+(ADR 0081; its own **Power** category pre-merge).
 Unlike a bool toggle — which only decides *whether* a package lands — the value
 picks *which* daemon is injected and whose service is enabled
 (`power-profiles-daemon.service` / `tuned.service`); `tuned` additionally pulls
@@ -506,7 +515,8 @@ one home (mirroring cups' removal from core, ADR 0079). The resolver is
 repo+AUR aware — the lone AUR entry (`ttf-ms-fonts`, kept because
 `ttf-liberation` covers only Arial/Times/Courier metrics, not
 Verdana/Georgia/Tahoma) routes to the Primary-User paru pass. Lives as a leaf
-in the [[General Category]] (ADR 0080), the one non-identity resident there.
+in the **System** Category (ADR 0080; renamed from General by ADR 0081), the
+one non-identity resident there.
 Default-checked spans the Noto family (incl. `noto-fonts-cjk` for CJK glyphs),
 `ttf-liberation`, `ttf-dejavu`, `ttf-ms-fonts`, and the Nerd-patched monospace
 trio (`ttf-jetbrains-mono-nerd`, `ttf-iosevka-nerd`, `ttf-firacode-nerd`);

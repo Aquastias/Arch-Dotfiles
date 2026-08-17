@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PROTOTYPE — Guided menu re-org (throwaway)</title>
+<!--
+  THROWAWAY PROTOTYPE — menu category re-org.
+  Question: how should the 16 top-level Configuration Categories be arranged?
+  3 variants on install-flow order (grilling: Q1 grouping ok, Q2 merges ok,
+  Q3 install-flow, Q5 6 buckets + General→System, Q6 fonts stay in System).
+    V1  Flat, reordered      — install-flow order, no headers (16 rows)
+    V2  Grouped, dividers    — 6 bucket headers, all 16 kept
+    V3  Grouped + merged     — Services umbrella (printing/bluetooth/power→1)
+  Switch: ?variant=1|2|3, floating bar, or ← →.  Move cursor: ↑ ↓.
+  Renders the real fzf top-screen chrome (theme colors + master-detail pane).
+-->
+<style>
+  :root{
+    --bg:#0b0f14; --fg:#c7d0d9; --dim:#5b6b7a; --accent:#39d0d8;
+    --dot:#e0a54b; --sel-bg:#16202b; --sel-fg:#eaf2f8; --border:#233040;
+    --head:#5b6b7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#05080b;color:var(--fg);
+    font-family:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;}
+  body{display:flex;flex-direction:column;align-items:center;
+    padding:26px 16px 96px;gap:14px;}
+  .meta{max-width:900px;width:100%;color:var(--dim);font-size:12.5px;
+    line-height:1.5;}
+  .meta b{color:var(--fg)} .meta .k{color:var(--accent)}
+  .term{width:900px;max-width:100%;background:var(--bg);
+    border:1px solid var(--border);border-radius:6px;overflow:hidden;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);}
+  .term-top{position:relative;height:0;border-top:1px solid var(--border);}
+  .label{position:absolute;top:-9px;left:16px;background:var(--bg);
+    padding:0 8px;color:var(--accent);font-size:12px;letter-spacing:.5px;}
+  .hdr{padding:8px 14px 6px;color:var(--head);font-size:12px;
+    border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;}
+  .body{display:flex;min-height:430px;}
+  .list{flex:0 0 44%;padding:6px 0;border-right:1px solid var(--border);
+    font-size:13px;}
+  .pane{flex:1;padding:12px 16px;font-size:12.5px;color:var(--fg);}
+  .pane .ptitle{color:var(--accent);margin-bottom:8px;}
+  .pane .prow{display:flex;gap:10px;line-height:1.7;}
+  .pane .pk{color:var(--dim);flex:0 0 150px;}
+  .pane .pv{color:var(--fg);}
+  .pane .pdot{color:var(--dot);margin-left:6px;}
+  .pane .phint{color:var(--dim);margin-top:14px;font-style:italic;}
+  .row{padding:2px 14px;white-space:nowrap;display:flex;cursor:pointer;}
+  .row .ptr{width:16px;color:var(--accent);}
+  .row .txt{flex:1}
+  .row .sum{color:var(--dim)}
+  .row.sel{background:var(--sel-bg);color:var(--sel-fg);}
+  .row.sel .sum{color:#9fb0bf}
+  .row.action .txt{color:var(--fg)}
+  .row .dot{color:var(--dot);margin-left:8px;}
+  .grp{padding:8px 14px 3px;margin-top:11px;color:var(--dim);font-size:11px;
+    letter-spacing:2px;cursor:default;user-select:none;}
+  .list .grp:first-of-type{margin-top:0;}  /* no space before first bucket */
+  .div{padding:1px 14px;color:var(--border);cursor:default;user-select:none;}
+  .prompt{border-top:1px solid var(--border);padding:7px 14px;font-size:13px;
+    display:flex;justify-content:space-between;color:var(--fg);}
+  .prompt .caret{color:var(--accent)}
+  .prompt .count{color:var(--dim)}
+  .switch{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:14px;background:#e9eef2;color:#0b0f14;
+    padding:8px 12px;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.5);
+    font-family:system-ui,sans-serif;font-size:13px;z-index:10;}
+  .switch button{border:0;background:#0b0f14;color:#e9eef2;width:28px;
+    height:28px;border-radius:50%;cursor:pointer;font-size:15px;}
+  .switch .name{min-width:230px;text-align:center;font-weight:600;}
+  .switch .cost{font-weight:400;color:#4a5866;font-size:11.5px;}
+</style>
+</head>
+<body>
+  <div class="meta" id="meta"></div>
+
+  <div class="term">
+    <div class="term-top"><span class="label"> Guided </span></div>
+    <div class="hdr">Enter open&nbsp;&nbsp;&nbsp;Esc quit&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;^Z undo&nbsp;&nbsp;^Y redo&nbsp;&nbsp;^R reset</div>
+    <div class="body">
+      <div class="list" id="list"></div>
+      <div class="pane" id="pane"></div>
+    </div>
+    <div class="prompt">
+      <span><span class="caret">guided&gt; </span><span id="query"></span></span>
+      <span class="count" id="count"></span>
+    </div>
+  </div>
+
+  <div class="switch">
+    <button id="prev">‹</button>
+    <div class="name"><span id="vname"></span><br><span class="cost" id="vcost"></span></div>
+    <button id="next">›</button>
+  </div>
+
+<script>
+// ── Category catalog (name, summary, overridden, master-detail preview) ──────
+const C = {
+  System:   {name:"System", sum:"hostname, timezone, fonts", ov:false, prev:[
+    ["hostname","eterniox"],["timezone","Europe/Bucharest"],
+    ["fonts","12 selected"]]},
+  Locales:  {name:"Locales", sum:"keyboard, language, encoding, console font",
+    ov:false, prev:[["keyboard","us"],["language","en_US"],
+    ["encoding","UTF-8"],["console font","default8x16"]]},
+  Users:    {name:"Users", sum:"primary user, extra accounts", ov:false, prev:[
+    ["aquastias","zsh · wheel"],["+ add user",""]]},
+  Disks:    {name:"Disks", sum:"layout, data pools, filesystem, encryption, swap",
+    ov:true, prev:[["layout","single"],["filesystem","zfs"],
+    ["encryption","off"],["impermanence","off"],["esp size","auto ●"]]},
+  Bootloader:{name:"Bootloader", sum:"bootloader", ov:false,
+    prev:[["bootloader","systemd-boot"]]},
+  Kernels:  {name:"Kernels", sum:"kernel", ov:false, prev:[["kernel","lts"]]},
+  Environment:{name:"Environment", sum:"desktop, display manager, gpu", ov:true,
+    prev:[["desktop","hyprland ●"],["display manager","auto"],["gpu","auto"]]},
+  Mirrors:  {name:"Mirrors & Repositories",
+    sum:"countries, optional repos, custom servers/repos", ov:false, prev:[
+    ["countries","DE, CH, SE, FR, RO"],["optional repos","multilib"],
+    ["custom servers","—"]]},
+  Pacman:   {name:"Pacman", sum:"ilovecandy, color, parallel downloads, verbose",
+    ov:false, prev:[["ILoveCandy","on"],["Color","on"],
+    ["ParallelDownloads","5"],["VerbosePkgLists","on"]]},
+  Packages: {name:"Packages", sum:"repo, aur, derived, system programs",
+    ov:false, prev:[["repo","0 extra"],["aur","0"],["system programs","core"]]},
+  Printing: {name:"Printing service", sum:"cups print daemon", ov:false,
+    prev:[["printing","on (cups)"]]},
+  Bluetooth:{name:"Bluetooth", sum:"bluez daemon + service", ov:false,
+    prev:[["bluetooth","on (bluez)"]]},
+  Power:    {name:"Power", sum:"power-management backend", ov:false,
+    prev:[["profile","power-profiles-daemon"]]},
+  Services: {name:"Services", sum:"printing, bluetooth, power", ov:false, prev:[
+    ["printing","on (cups)"],["bluetooth","on (bluez)"],
+    ["power","power-profiles-daemon"]]},
+  Security: {name:"Security", sum:"firewall, antivirus, rootkit, apparmor, sysctl",
+    ov:false, prev:[["firewall","firewalld"],["antivirus","on"],
+    ["rootkit","on"],["apparmor","on"],["sysctl","core"]]},
+  Backup:   {name:"Backup", sum:"snapshots, encrypted backup", ov:false,
+    prev:[["zfs snapshots","on"],["borg","on"]]},
+  Advanced: {name:"Advanced", sum:"ssh, age key url", ov:false,
+    prev:[["ssh","off"],["age key url","—"]]},
+};
+
+// row helpers
+const cat = id => ({t:"cat", ...C[id]});
+const grp = t  => ({t:"grp", txt:t});
+const div = () => ({t:"div"});
+const act = txt => ({t:"act", txt});
+
+const LEAD = [act("Profiles ▸ start from a saved machine"), div()];
+const TAIL = [div(), act("Proceed ▸ review & install"),
+  act("Save profile ▸ write a device-less profile"),
+  act("Export config ▸ write a device-baked config"),
+  act("Abort ▸ quit without installing")];
+
+// ── The three arrangements ──────────────────────────────────────────────────
+const V1 = { key:"1", name:"Flat — install-flow order",
+  cost:"16 rows · reorder only · zero code beyond list order",
+  why:"Same flat list, re-sequenced to how you actually build a box: identity → storage/boot → desktop → software → services → security. Lowest risk; but 16 undifferentiated rows still scroll.",
+  rows:[...LEAD,
+    cat("System"),cat("Locales"),cat("Users"),
+    cat("Disks"),cat("Bootloader"),cat("Kernels"),
+    cat("Environment"),
+    cat("Mirrors"),cat("Pacman"),cat("Packages"),
+    cat("Printing"),cat("Bluetooth"),cat("Power"),
+    cat("Security"),cat("Backup"),
+    cat("Advanced"),
+    ...TAIL]};
+
+const V2 = { key:"2", name:"Grouped — 6 dividers, all 16 kept",
+  cost:"16 rows + 6 headers · menu-model only · no merges",
+  why:"Bucket headers make the list scannable without dropping any category. Downside on show: DESKTOP is a lonely 1-item bucket.",
+  rows:[...LEAD,
+    grp("── SYSTEM ──"),cat("System"),cat("Locales"),cat("Users"),
+    grp("── STORAGE & BOOT ──"),cat("Disks"),cat("Bootloader"),cat("Kernels"),
+    grp("── DESKTOP ──"),cat("Environment"),
+    grp("── SOFTWARE ──"),cat("Mirrors"),cat("Pacman"),cat("Packages"),
+    grp("── SERVICES ──"),cat("Printing"),cat("Bluetooth"),cat("Power"),
+    grp("── SECURITY ──"),cat("Security"),cat("Backup"),
+    grp("── ADVANCED ──"),cat("Advanced"),
+    ...TAIL]};
+
+const V3 = { key:"3", name:"Grouped + merged — tightest",
+  cost:"13 rows + 5 headers · Services merge = 1 new drill screen",
+  why:"Environment folds into SOFTWARE (kills the lonely bucket); Printing/Bluetooth/Power collapse into one Services screen (16→13 rows). Costs one merged drill-screen holding 3 toggles.",
+  rows:[...LEAD,
+    grp("── SYSTEM ──"),cat("System"),cat("Locales"),cat("Users"),
+    grp("── STORAGE & BOOT ──"),cat("Disks"),cat("Bootloader"),cat("Kernels"),
+    grp("── SOFTWARE ──"),cat("Environment"),cat("Mirrors"),cat("Pacman"),
+      cat("Packages"),
+    grp("── SERVICES ──"),cat("Services"),
+    grp("── SECURITY & DATA ──"),cat("Security"),cat("Backup"),
+    grp("── ADVANCED ──"),cat("Advanced"),
+    ...TAIL]};
+
+const VARIANTS = {1:V1, 2:V2, 3:V3};
+
+// ── Render ──────────────────────────────────────────────────────────────────
+let variant = new URLSearchParams(location.search).get("variant") || "1";
+if(!VARIANTS[variant]) variant = "1";
+let sel = 0; // index into selectable rows
+
+const selectable = v => v.rows.filter(r=>r.t==="cat"||r.t==="act");
+
+function render(){
+  const v = VARIANTS[variant];
+  const sels = selectable(v);
+  if(sel>=sels.length) sel = sels.length-1;
+  const current = sels[sel];
+
+  // list
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  let si = -1;
+  v.rows.forEach(r=>{
+    const el = document.createElement("div");
+    if(r.t==="grp"){ el.className="grp"; el.textContent=r.txt; }
+    else if(r.t==="div"){ el.className="div"; el.textContent="─".repeat(40); }
+    else {
+      si++;
+      const isSel = (r===current);
+      const idx = si;
+      el.className = "row"+(r.t==="act"?" action":"")+(isSel?" sel":"");
+      const ptr = document.createElement("span"); ptr.className="ptr";
+      ptr.textContent = isSel?"▶":" ";
+      const txt = document.createElement("span"); txt.className="txt";
+      if(r.t==="cat"){
+        txt.innerHTML = r.name+' <span class="sum">— '+r.sum+'</span>'+
+          (r.ov?' <span class="dot">●</span>':'');
+      } else txt.textContent = r.txt;
+      el.appendChild(ptr); el.appendChild(txt);
+      el.onclick = ()=>{ sel=idx; render(); };
+    }
+    list.appendChild(el);
+  });
+
+  // preview pane (master-detail, ADR 0071)
+  const pane = document.getElementById("pane");
+  if(current && current.t==="cat"){
+    let h = '<div class="ptitle">'+current.name+' ▸</div>';
+    current.prev.forEach(([k,val])=>{
+      const dot = /●/.test(val);
+      h += '<div class="prow"><span class="pk">'+k+'</span>'+
+        '<span class="pv">'+val.replace(" ●","")+
+        (dot?'<span class="pdot">●</span>':'')+'</span></div>';
+    });
+    h += '<div class="phint">Enter to edit · ● = changed from default</div>';
+    pane.innerHTML = h;
+  } else {
+    pane.innerHTML = '<div class="ptitle">'+(current?current.txt:"")+'</div>'+
+      '<div class="phint">terminal action</div>';
+  }
+
+  // prompt count = selectable count
+  document.getElementById("count").textContent = sels.length+"/"+sels.length;
+  document.getElementById("query").textContent = "";
+
+  // switcher + meta
+  document.getElementById("vname").textContent = v.key+" — "+v.name;
+  document.getElementById("vcost").textContent = v.cost;
+  document.getElementById("meta").innerHTML =
+    '<b>PROTOTYPE — Guided menu re-org</b> &nbsp; <span class="k">?variant='+
+    v.key+'</span> &nbsp; ↑↓ move cursor · ← → switch variant<br>'+v.why;
+}
+
+function switchVariant(d){
+  const keys = Object.keys(VARIANTS);
+  let i = keys.indexOf(variant);
+  i = (i+d+keys.length)%keys.length;
+  variant = keys[i]; sel = 0;
+  const u = new URL(location); u.searchParams.set("variant",variant);
+  history.replaceState({}, "", u);
+  render();
+}
+function move(d){
+  const sels = selectable(VARIANTS[variant]);
+  sel = (sel+d+sels.length)%sels.length; render();
+}
+
+document.getElementById("prev").onclick = ()=>switchVariant(-1);
+document.getElementById("next").onclick = ()=>switchVariant(1);
+addEventListener("keydown", e=>{
+  if(["INPUT","TEXTAREA"].includes(document.activeElement.tagName)) return;
+  if(e.key==="ArrowLeft"){ switchVariant(-1); e.preventDefault(); }
+  else if(e.key==="ArrowRight"){ switchVariant(1); e.preventDefault(); }
+  else if(e.key==="ArrowUp"){ move(-1); e.preventDefault(); }
+  else if(e.key==="ArrowDown"){ move(1); e.preventDefault(); }
+});
+render();
+</script>
+</body>
+</html>

@@ -1,9 +1,11 @@
 #!/usr/bin/env bats
-# Tests for the Guided Installer's always-on master-detail pane (ADR 0071):
-# guided_ctl_preview on the top + category screens renders a parent column
-# (siblings, current marked) above the highlighted item's live detail. The
-# render is pure — driven entirely by the state + nav files, no fzf, no tty —
-# so behaviour is asserted through the returned body, never internal structure.
+# Tests for the Guided Installer's always-on master-detail pane (ADR 0071;
+# top-screen parent column dropped by ADR 0082): guided_ctl_preview shows the
+# highlighted item's live detail. The category screen still renders a
+# sibling-field parent column (current marked) above the leaf; the top screen
+# shows only the highlighted category (current selection is the fzf triangle
+# pointer in the main list). The render is pure — driven entirely by the state +
+# nav files, no fzf, no tty — asserted through the body, never internal structure.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -30,23 +32,24 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # strip ANSI so assertions test content, not colour codes.
 plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
-# ── top screen: parent column of categories + the category's field summary ──
+# ── top screen: the highlighted category's field summary only (ADR 0082) ────
+# The parent-column preview is gone — the current selection is the fzf triangle
+# pointer in the main list, so the pane shows just the highlighted category.
 
-@test "detail(top): the parent column lists every category, current marked" {
+@test "detail(top): a category previews only its own fields, no parent column" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "General — hostname, timezone"
+  run guided_ctl_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
-  # every sibling category appears in the parent column
-  echo "$output" | plain | grep -q "Locales"
-  echo "$output" | plain | grep -q "Mirrors & Repositories"
-  echo "$output" | plain | grep -q "Security"
-  # the highlighted category is marked with the current-item marker
-  echo "$output" | plain | grep -qE '▶ +General'
+  # the highlighted category's own fields show
+  echo "$output" | plain | grep -qE 'hostname:'
+  # ...but sibling categories are NOT listed (parent column removed)
+  ! echo "$output" | plain | grep -q "Locales"
+  ! echo "$output" | plain | grep -q "Mirrors & Repositories"
 }
 
 @test "detail(top): a category previews its fields as key: value" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "General — hostname, timezone"
+  run guided_ctl_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'timezone: +Europe/Bucharest'
 }
@@ -54,7 +57,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 @test "detail(top): an overridden field carries a ● in the summary" {
   printf '%s\n' '{"system":{"hostname":"myhost"}}' > "$GUIDED_STATE_FILE"
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "General — hostname, timezone"
+  run guided_ctl_preview "System — hostname, timezone, fonts"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +myhost.*●'
 }
@@ -67,12 +70,20 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
   echo "$output" | plain | grep -q -- "--sort rate"
 }
 
-@test "detail(top): a non-category row (Proceed) previews no category detail" {
+@test "detail(top): a non-category row (Proceed) previews nothing" {
   set_nav '{"screen":"top"}'
   run guided_ctl_preview "Proceed ▸ review & install"
   [ "$status" -eq 0 ]
-  # still shows the parent column, but no bogus "Proceed" field summary
-  echo "$output" | plain | grep -q "Locales"
+  # no parent column and no bogus "Proceed" field summary (ADR 0082)
+  ! echo "$output" | plain | grep -q "Locales"
+  ! echo "$output" | plain | grep -qE 'hostname:|Proceed:'
+}
+
+@test "detail(top): a bucket header previews nothing" {
+  set_nav '{"screen":"top"}'
+  run guided_ctl_preview "── SYSTEM ──"
+  [ "$status" -eq 0 ]
+  ! echo "$output" | plain | grep -qE 'hostname:|Locales'
 }
 
 # ── category screen: parent column of sibling fields + the leaf's detail ─────
@@ -121,7 +132,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(text): a free-text field screen shows value + a free-text hint" {
   printf '%s\n' '{"system":{"hostname":"eterniox"}}' > "$GUIDED_STATE_FILE"
-  set_nav "$(nav_to_text General system.hostname hostname)"
+  set_nav "$(nav_to_text System system.hostname hostname)"
   run guided_ctl_preview "eterniox"
   [ "$status" -eq 0 ]
   echo "$output" | plain | grep -qE 'hostname: +eterniox'
@@ -135,7 +146,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
   run guided_ctl_preview "single"
   [ "$status" -eq 0 ]
   # no category parent-column header leaks onto the layout screen
-  ! echo "$output" | plain | grep -qE '▶ +(kernel|General)'
+  ! echo "$output" | plain | grep -qE '▶ +(kernel|System)'
 }
 
 # ── ticket 03: rich leaf detail — Users account table + Disks pool tree ──────

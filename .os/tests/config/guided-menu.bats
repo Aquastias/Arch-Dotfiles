@@ -19,13 +19,13 @@ setup() {
 
 row() { jq -e ".[] | select(.field == \"$1\")"; }
 
-# ── tracer: fresh state lists the hostname row under Host, not overridden ───
+# ── tracer: fresh state lists the hostname row under System, not overridden ──
 
-@test "menu_rows: a fresh state surfaces hostname under General, not overridden" {
+@test "menu_rows: a fresh state surfaces hostname under System, not overridden" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .section == "General" and .field == "system.hostname")'
+    | jq -e 'any(.[]; .section == "System" and .field == "system.hostname")'
   echo "$output" | row system.hostname | jq -e '.overridden == false'
 }
 
@@ -152,13 +152,13 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.age_key_url  | jq -e '.section == "Advanced"'
 }
 
-# ── Printing service (ADR 0079): a root-level category, one bool leaf ───────
+# ── Services (ADR 0081): printing/bluetooth/power share one category ────────
 
-@test "menu_rows: printing sits under Printing service, defaults true, no ●" {
+@test "menu_rows: printing sits under Services, defaults true, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.printing.enabled \
-    | jq -e '.section == "Printing service"'
+    | jq -e '.section == "Services"'
   echo "$output" | row options.printing.enabled | jq -e '.value == "true"'
   echo "$output" | row options.printing.enabled | jq -e '.overridden == false'
 }
@@ -171,30 +171,28 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.printing.enabled | jq -e '.overridden == true'
 }
 
-# ── Bluetooth service (ADR 0080): a root-level category, one bool leaf ──────
-
-@test "menu_rows: bluetooth sits under Bluetooth, defaults true, no ●" {
+@test "menu_rows: bluetooth sits under Services, defaults true, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.bluetooth.enabled \
-    | jq -e '.section == "Bluetooth"'
+    | jq -e '.section == "Services"'
   echo "$output" | row options.bluetooth.enabled | jq -e '.value == "true"'
   echo "$output" | row options.bluetooth.enabled | jq -e '.overridden == false'
 }
 
-@test "menu_categories: Bluetooth is a category with a non-empty summary" {
+@test "menu_categories: Services is a category with a non-empty summary" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .name == "Bluetooth" and (.summary | length > 0))'
+    | jq -e 'any(.[]; .name == "Services" and (.summary | length > 0))'
 }
 
-# ── Power profile (ADR 0080): a root-level category, an enum leaf ───────────
+# ── Power profile (ADR 0080): an enum leaf, now a Services row (ADR 0081) ────
 
-@test "menu_rows: power profile sits under Power, defaults ppd, no ●" {
+@test "menu_rows: power profile sits under Services, defaults ppd, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.power.profile | jq -e '.section == "Power"'
+  echo "$output" | row options.power.profile | jq -e '.section == "Services"'
   echo "$output" | row options.power.profile \
     | jq -e '.value == "power-profiles-daemon"'
   echo "$output" | row options.power.profile | jq -e '.overridden == false'
@@ -208,11 +206,23 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | grep -qx none
 }
 
-@test "menu_category_rows: Printing service returns only its printing row" {
-  run menu_category_rows "Printing service" "$(cfgstate_new)"
+@test "menu_category_rows: Services returns the three service rows" {
+  run menu_category_rows "Services" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "Printing service")'
+  echo "$output" | jq -e 'all(.[]; .section == "Services")'
   echo "$output" | jq -e 'any(.[]; .field == "options.printing.enabled")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.bluetooth.enabled")'
+  echo "$output" | jq -e 'any(.[]; .field == "options.power.profile")'
+}
+
+@test "menu_categories: the Services ● folds any of its three toggles" {
+  run menu_categories "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.name == "Services") | .overridden == false'
+  state="$(cfgstate_set "$(cfgstate_new)" options.bluetooth.enabled 'false')"
+  run menu_categories "$state"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.name == "Services") | .overridden == true'
 }
 
 # ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
@@ -347,13 +357,13 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$rows" | row __encoding__ | jq -e '.value == "UTF-8"'
 }
 
-# ── keyboard / locale are Locales rows; timezone is a General row (ADR 0076) ─
+# ── keyboard / locale are Locales rows; timezone is a System row (ADR 0076) ─
 
-@test "menu_rows: keyboard surfaces under Locales, timezone under General" {
+@test "menu_rows: keyboard surfaces under Locales, timezone under System" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row system.keymap   | jq -e '.section == "Locales"'
-  echo "$output" | row system.timezone | jq -e '.section == "General"'
+  echo "$output" | row system.timezone | jq -e '.section == "System"'
 }
 
 # the keymap field is labelled `keyboard` under Locales (ADR 0076)
@@ -416,31 +426,39 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
     | jq -e '.value == "ter-116n" and .overridden == true'
 }
 
-# ── the menu still carries a General and a Users section ────────────────────
+# ── the menu still carries a System and a Users section ─────────────────────
 
-@test "menu_rows: the menu carries both a General and a Users section" {
+@test "menu_rows: the menu carries both a System and a Users section" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .section == "General")'
+  echo "$output" | jq -e 'any(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .section == "Users")'
 }
 
-# ── the two-level model: the twelve Configuration Categories (ADR 0071) ─────
+# ── the two-level model: the fourteen Configuration Categories (ADR 0081) ────
 # menu_categories is the top-level contract: the ordered categories the operator
-# drills into, in archinstall reading order. Each carries a summary and an
-# aggregated ● (any descendant field overridden). The list is the same twelve
-# regardless of state.
+# drills into, in install-flow order under six buckets. Each carries a summary,
+# a bucket, and an aggregated ● (any descendant field overridden). The list is
+# the same fourteen regardless of state.
 
 cat_at() { jq -e ".[$1]"; }
 
-@test "menu_categories: returns the categories in canonical order (Pacman after Mirrors)" {
+@test "menu_categories: returns the categories in install-flow order (ADR 0081)" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'length == 16'
-  echo "$output" | jq -e '[.[].name] == ["Locales","Mirrors & Repositories",
-    "Pacman","Disks","Bootloader","Kernels","General","Users","Environment",
-    "Packages","Security","Backup","Printing service","Bluetooth","Power",
-    "Advanced"]'
+  echo "$output" | jq -e 'length == 14'
+  echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
+    "Bootloader","Kernels","Environment","Mirrors & Repositories","Pacman",
+    "Packages","Services","Security","Backup","Advanced"]'
+}
+
+@test "menu_categories: each category carries its bucket" {
+  run menu_categories "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'all(.[]; .bucket | length > 0)'
+  echo "$output" | jq -e '.[] | select(.name == "System")   | .bucket == "SYSTEM"'
+  echo "$output" | jq -e '.[] | select(.name == "Services") | .bucket == "SERVICES"'
+  echo "$output" | jq -e '.[] | select(.name == "Advanced") | .bucket == "ADVANCED"'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
@@ -461,7 +479,7 @@ cat_at() { jq -e ".[$1]"; }
   state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "General") | .overridden == true'
+  echo "$output" | jq -e '.[] | select(.name == "System")  | .overridden == true'
   echo "$output" | jq -e '.[] | select(.name == "Disks")   | .overridden == false'
   echo "$output" | jq -e '.[] | select(.name == "Kernels") | .overridden == false'
 }
@@ -471,23 +489,23 @@ cat_at() { jq -e ".[$1]"; }
   baseline="$(cfgstate_set "$(cfgstate_new)" system.hostname '"eterniox"')"
   run menu_categories "$(cfgstate_new)" "$baseline"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "General") | .overridden == false'
+  echo "$output" | jq -e '.[] | select(.name == "System") | .overridden == false'
 }
 
 # ── drill-in: menu_category_rows returns one category's field rows ──────────
 # The sub-menu contract: given a category name, the rows for that category only
 # (same per-row shape as menu_rows). The baseline still supplies seeded values.
 
-@test "menu_category_rows: General returns only General rows incl. hostname" {
-  run menu_category_rows General "$(cfgstate_new)"
+@test "menu_category_rows: System returns only System rows incl. hostname" {
+  run menu_category_rows System "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "General")'
+  echo "$output" | jq -e 'all(.[]; .section == "System")'
   echo "$output" | jq -e 'any(.[]; .field == "system.hostname")'
 }
 
-# Font Catalog (ADR 0080): the curated multi-select lives as a General leaf.
-@test "menu_category_rows: the Font Catalog is a General row" {
-  run menu_category_rows General "$(cfgstate_new)"
+# Font Catalog (ADR 0080): the curated multi-select lives as a System leaf.
+@test "menu_category_rows: the Font Catalog is a System row" {
+  run menu_category_rows System "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.fonts")'
 }
@@ -500,11 +518,46 @@ cat_at() { jq -e ".[$1]"; }
   ! echo "$output" | grep -qx ttf-fira-code       # plain build dropped
 }
 
-@test "menu_categories: the General summary mentions fonts" {
+@test "menu_categories: the System summary mentions fonts" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .name == "General" and (.summary | test("fonts")))'
+    | jq -e 'any(.[]; .name == "System" and (.summary | test("fonts")))'
+}
+
+# ── menu_top_lines (ADR 0081): the bucketed top-screen category block ────────
+@test "menu_top_lines: emits each bucket header once, before its categories" {
+  run menu_top_lines "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  # every bucket header present, exactly once
+  for b in "── SYSTEM ──" "── STORAGE & BOOT ──" "── SOFTWARE ──" \
+           "── SERVICES ──" "── SECURITY & DATA ──" "── ADVANCED ──"; do
+    [ "$(grep -Fxc "$b" <<<"$output")" -eq 1 ]
+  done
+  # the SYSTEM header leads System, its first category
+  printf '%s\n' "$output" | grep -A1 -Fx "── SYSTEM ──" | tail -1 \
+    | grep -q "^System — "
+  # a category line, no header, carries name — summary
+  printf '%s\n' "$output" | grep -q "^Services — "
+}
+
+@test "menu_top_lines: an overridden category carries a trailing ●" {
+  state="$(cfgstate_set "$(cfgstate_new)" system.hostname '"myhost"')"
+  run menu_top_lines "$state"
+  [ "$status" -eq 0 ]
+  printf '%s\n' "$output" | grep -q "^System — .*  ●$"
+}
+
+# ADR 0082: a blank spacer line separates one bucket from the next (but not
+# before the first bucket header).
+@test "menu_top_lines: a blank line separates the buckets" {
+  run menu_top_lines "$(cfgstate_new)"
+  [ "$status" -eq 0 ]
+  # the line immediately before a non-first bucket header is blank
+  [ -z "$(printf '%s\n' "$output" | grep -B1 -Fx '── STORAGE & BOOT ──' \
+          | head -1)" ]
+  # the first line is the first bucket header, not a blank
+  [ "$(printf '%s\n' "$output" | head -1)" = "── SYSTEM ──" ]
 }
 
 # ── field moves (issue 02): storage knobs surface under Disks ───────────────

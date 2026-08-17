@@ -100,7 +100,7 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.impermanence.enabled 'false')"
   state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
   # Printing Service (ADR 0079): the print daemon is on out of the box, so the
-  # Printing category shows it enabled with no ● until the operator flips it.
+  # Services category shows it enabled with no ● until the operator flips it.
   # cups is derived from this toggle at emit, never a system_programs baseline
   # entry — idempotent with the printing_enabled default (on).
   state="$(cfgstate_set "$state" options.printing.enabled 'true')"
@@ -110,12 +110,13 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.fonts \
     "$(fonts_default_selection_json)")"
   # Bluetooth Service (ADR 0080): the bluez daemon is on out of the box, so the
-  # Bluetooth category shows it enabled with no ● until the operator flips it.
+  # Services category shows it enabled with no ● until the operator flips it.
   # The bluetooth program is derived at emit, not a system_programs baseline —
   # idempotent with the bluetooth_enabled default (on).
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'true')"
-  # Power Profile (ADR 0080): power-profiles-daemon out of the box, so the Power
-  # category shows it selected with no ● until the operator changes it. The
+  # Power Profile (ADR 0080): power-profiles-daemon out of the box, so the
+  # Services category shows it selected with no ● until the operator changes it.
+  # The
   # derived daemon program is injected at emit; idempotent with the accessor
   # default.
   state="$(cfgstate_set "$state" options.power.profile \
