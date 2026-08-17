@@ -25,7 +25,11 @@
       "mount":   "/persist"
     },
 
-    "age_key_url": "http://192.168.122.1:9876/key.age"
+    "age_key_url": "http://192.168.122.1:9876/key.age",
+
+    // Opt out of the Font Catalog (ADR 0080) — a smoke install wants no fonts,
+    // and skips the ttf-ms-fonts AUR build. [] is the explicit "no fonts".
+    "fonts": []
   },
 
   "environment": {
