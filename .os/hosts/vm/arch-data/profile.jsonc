@@ -21,7 +21,11 @@
     "bootloader": "systemd-boot",
     "encryption": false,
     "swap":       true,
-    "swap_size":  "auto"
+    "swap_size":  "auto",
+
+    // Opt out of the Font Catalog (ADR 0080) — a smoke install wants no fonts,
+    // and skips the ttf-ms-fonts AUR build. [] is the explicit "no fonts".
+    "fonts": []
   },
 
   "post_install": {
