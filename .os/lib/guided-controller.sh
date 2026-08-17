@@ -1494,22 +1494,21 @@ _ctl_detail_user_table() {
   done < <(_ctl_user_marked "$state" "$base")
 }
 
-# _ctl_detail_top <line> <state> <base> — top-screen preview: the category
-# parent column, then the highlighted category's detail. Users shows its table
-# (ticket 03); every other category shows its fields as "label: value" (● on
-# overrides). A non-category row (Profiles/Proceed/…) shows only the column.
+# _ctl_detail_top <line> <state> <base> — top-screen preview: the highlighted
+# category's OWN detail only. The category parent column is gone (ADR 0082) — the
+# current selection is marked by the fzf triangle pointer in the main list, so
+# the pane no longer duplicates the category list. Users shows its table (ticket
+# 03); every other category shows its fields as "label: value" (● on overrides).
+# A non-category row (Profiles/Proceed/a bucket header/…) previews nothing.
 _ctl_detail_top() {
   local line="$1" state="$2" base="$3" cur rows
   cur="${line%% — *}"
-  printf '%sCategories%s\n' "$_CTL_BOLD" "$_CTL_RST"
-  menu_categories "$state" "$base" \
-    | jq -r '.[] | "\(.name)\t\(.overridden)"' | _ctl_detail_column "$cur"
   if [[ "$cur" == "Users" ]]; then
     _ctl_detail_user_table "$state" "$base"; return 0
   fi
   rows="$(menu_category_rows "$cur" "$state" "$base" 2>/dev/null)"
   [[ -n "$rows" && "$rows" != "[]" ]] || return 0
-  printf '\n%s%s%s\n' "$_CTL_BOLD" "$cur" "$_CTL_RST"
+  printf '%s%s%s\n' "$_CTL_BOLD" "$cur" "$_CTL_RST"
   jq -r '.[] | "  \(.label): \(.value // "")"
                + (if .overridden then "  ●" else "" end)' <<<"$rows"
   _ctl_detail_reflector_note "$cur"
@@ -1670,9 +1669,7 @@ guided_ctl_list() {
     # passphrase default to 12345, so Proceed always installs. The per-secret
     # source is surfaced (default 12345 / custom / from age) on the Users screen,
     # not as a top-row block. Save/Export are likewise never gated.
-    menu_categories "$state" "$base" | jq -r \
-      '.[] | "\(.name) — \(.summary)"
-             + (if .overridden then "  ●" else "" end)'
+    menu_top_lines "$state" "$base"
     printf '%s\n' "$_CTL_DIVIDER"
     printf '%s\n' "Proceed ▸ review & install"
     # Manual Partitioning is Proceed-only (ADR 0073): a hand-drawn partition

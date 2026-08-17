@@ -21,7 +21,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "entry list: renders the top menu" {
   run bash "$ENTRY" list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "General — "
+  echo "$output" | grep -q "System — "
   echo "$output" | grep -q "Proceed ▸"
 }
 

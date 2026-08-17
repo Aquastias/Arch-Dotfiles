@@ -57,12 +57,13 @@ _MENU_FIELDS=(
   "Disks|options.esp_size|esp size|auto"
   "Bootloader|options.bootloader|bootloader|systemd-boot"
   "Kernels|options.kernel|kernel|lts"
-  "General|system.hostname|hostname|"
-  "General|system.timezone|timezone|Europe/Bucharest"
+  "System|system.hostname|hostname|"
+  "System|system.timezone|timezone|Europe/Bucharest"
   # Font Catalog (ADR 0080): a curated multi-select of fonts, resident in
-  # General (its one non-identity leaf). Absent ⇒ the catalog defaults, seeded
-  # into the baseline so a fresh run shows the default set with no ●.
-  "General|options.fonts|fonts|"
+  # System (its one non-identity leaf; General renamed by ADR 0081). Absent ⇒
+  # the catalog defaults, seeded into the baseline so a fresh run shows the
+  # default set with no ●.
+  "System|options.fonts|fonts|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
   "Environment|environment.gpu|gpu|auto"
@@ -75,15 +76,16 @@ _MENU_FIELDS=(
   "Security|sysctl|sysctl|"
   "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|true"
   "Backup|post_install.backup.borg|borg|true"
-  # Printing Service (ADR 0079): a single bare-bool leaf, so it is a Cycle Field
-  # (flips in place) by shape. Default on preserves the historical print daemon.
-  "Printing service|options.printing.enabled|printing|true"
-  # Bluetooth Service (ADR 0080): a bare-bool leaf → a Cycle Field (flips in
-  # place). Default on installs the bluez daemon and enables bluetooth.service.
-  "Bluetooth|options.bluetooth.enabled|bluetooth|true"
+  # Services (ADR 0081): the three toggle-derived daemons share one Services
+  # category. Printing (ADR 0079) is a bare-bool Cycle Field (flips in place);
+  # default on preserves the historical print daemon.
+  "Services|options.printing.enabled|printing|true"
+  # Bluetooth (ADR 0080): a bare-bool Cycle Field. Default on installs the bluez
+  # daemon and enables bluetooth.service.
+  "Services|options.bluetooth.enabled|bluetooth|true"
   # Power Profile (ADR 0080): an enum leaf (none | power-profiles-daemon |
   # tuned), NOT a bare bool, so it drills into a values submenu. Default ppd.
-  "Power|options.power.profile|power profile|power-profiles-daemon"
+  "Services|options.power.profile|power profile|power-profiles-daemon"
   "Advanced|options.ssh.enabled|ssh|false"
   "Advanced|options.age_key_url|age key url|"
   "Users|users|users|"
@@ -144,28 +146,27 @@ Turn it back off to restore them — your other choices are kept.
 EOF
 }
 
-# Configuration Categories — the top-level drill-in groups, in canonical order
-# (archinstall reading order, ADR 0071; Pacman added by ADR 0074), each with a
-# one-line summary. The
-# category NAME matches a row's `section`, so a category aggregates its rows;
-# the summary is display-only.
+# Configuration Categories — the top-level drill-in groups, in install-flow
+# order under six bucket headers (ADR 0081, re-cutting ADR 0071's archinstall
+# reading order). Each row is "name|summary|bucket": the category NAME matches a
+# row's `section` so a category aggregates its rows; the summary is display-only;
+# the BUCKET drives the top-screen header lines (menu_top_lines). Categories
+# sharing a bucket MUST be contiguous — the header is emitted on bucket change.
 _MENU_CATEGORIES=(
-  "Locales|keyboard, language, encoding, console font"
-  "Mirrors & Repositories|countries, optional repos, custom servers/repos"
-  "Pacman|ilovecandy, color, parallel downloads, verbose lists"
-  "Disks|layout, data pools, filesystem, encryption, swap"
-  "Bootloader|bootloader"
-  "Kernels|kernel"
-  "General|hostname, timezone, fonts"
-  "Users|primary user, extra accounts"
-  "Environment|desktop, display manager, gpu"
-  "Packages|repo, aur, derived, system programs"
-  "Security|firewall, antivirus, rootkit, apparmor, sysctl"
-  "Backup|snapshots, encrypted backup"
-  "Printing service|cups print daemon"
-  "Bluetooth|bluez daemon + service"
-  "Power|power-management backend"
-  "Advanced|ssh, age key url"
+  "System|hostname, timezone, fonts|SYSTEM"
+  "Locales|keyboard, language, encoding, console font|SYSTEM"
+  "Users|primary user, extra accounts|SYSTEM"
+  "Disks|layout, data pools, filesystem, encryption, swap|STORAGE & BOOT"
+  "Bootloader|bootloader|STORAGE & BOOT"
+  "Kernels|kernel|STORAGE & BOOT"
+  "Environment|desktop, display manager, gpu|SOFTWARE"
+  "Mirrors & Repositories|countries, optional repos, custom servers/repos|SOFTWARE"
+  "Pacman|ilovecandy, color, parallel downloads, verbose lists|SOFTWARE"
+  "Packages|repo, aur, derived, system programs|SOFTWARE"
+  "Services|printing, bluetooth, power|SERVICES"
+  "Security|firewall, antivirus, rootkit, apparmor, sysctl|SECURITY & DATA"
+  "Backup|snapshots, encrypted backup|SECURITY & DATA"
+  "Advanced|ssh, age key url|ADVANCED"
 )
 
 # menu_categories <override> [<baseline>] — the top-level category rows (JSON
@@ -179,7 +180,7 @@ _menu_categories_json() {
   [[ -n "$_MENU_CATEGORIES_JSON" ]] \
     && { printf '%s' "$_MENU_CATEGORIES_JSON"; return; }
   _MENU_CATEGORIES_JSON="$(printf '%s\n' "${_MENU_CATEGORIES[@]}" | jq -Rn \
-    '[inputs | split("|") | {name:.[0], summary:.[1]}]')"
+    '[inputs | split("|") | {name:.[0], summary:.[1], bucket:.[2]}]')"
   printf '%s' "$_MENU_CATEGORIES_JSON"
 }
 
@@ -189,8 +190,29 @@ menu_categories() {
   jq -n --argjson rows "$rows" --argjson cats "$(_menu_categories_json)" '
     [ $cats[]
       | .name as $n
-      | { name: $n, summary: .summary,
+      | { name: $n, summary: .summary, bucket: .bucket,
           overridden: ($rows | any(.[]; .section == $n and .overridden)) } ]'
+}
+
+# menu_top_lines <override> [<baseline>] — the top screen's category block: the
+# categories in order (ADR 0081), each as "<name> — <summary>" plus a trailing
+# "  ●" when the category aggregates an override, with a "── <BUCKET> ──" header
+# line emitted once before each bucket's first category and a blank spacer line
+# separating one bucket from the next (ADR 0082 — the top list is the primary
+# surface now the parent-column preview is gone, so it breathes). Pure (lines on
+# stdout); the controller prints it between the Profiles / terminal-row dividers.
+# Kept in the model so the ordering + header logic is unit-testable in isolation.
+menu_top_lines() {
+  menu_categories "$1" "${2:-{\}}" | jq -r '
+    reduce .[] as $c ({prev: null, out: []};
+      .out += (if $c.bucket != .prev
+               then (if .prev == null then [] else [""] end)
+                    + ["── \($c.bucket) ──"]
+               else [] end)
+            + [ "\($c.name) — \($c.summary)"
+                + (if $c.overridden then "  ●" else "" end) ]
+      | .prev = $c.bucket)
+    | .out[]'
 }
 
 # menu_render_value <config> <path> — the one-line rendering of <path>'s value in

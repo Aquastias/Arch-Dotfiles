@@ -24,7 +24,7 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"; }
 }
 
 @test "nav_to_text: carries category, field, label" {
-  local n; n="$(nav_to_text General system.hostname hostname)"
+  local n; n="$(nav_to_text System system.hostname hostname)"
   [ "$(nav_screen "$n")" = "text" ]
   [ "$(nav_get "$n" field)" = "system.hostname" ]
 }
@@ -40,9 +40,9 @@ setup() { source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"; }
 }
 
 @test "nav_back: text → its category" {
-  local n; n="$(nav_back "$(nav_to_text General system.hostname hostname)")"
+  local n; n="$(nav_back "$(nav_to_text System system.hostname hostname)")"
   [ "$(nav_screen "$n")" = "category" ]
-  [ "$(nav_get "$n" category)" = "General" ]
+  [ "$(nav_get "$n" category)" = "System" ]
 }
 
 @test "nav_back: category → top" {

@@ -33,13 +33,24 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(top): the categories, a divider, and the terminal rows" {
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -q "General — "
+  echo "$output" | grep -q "System — "
   echo "$output" | grep -q "Users — "
   echo "$output" | grep -q "Proceed ▸"
   echo "$output" | grep -q "Save profile ▸"
   echo "$output" | grep -q "Export config ▸"
   echo "$output" | grep -q "Abort ▸"
   echo "$output" | grep -q "──────"
+}
+
+@test "list(top): bucket headers group the categories (ADR 0081)" {
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -Fq "── SYSTEM ──"
+  echo "$output" | grep -Fq "── SERVICES ──"
+}
+
+@test "enter(top): a bucket header is inert (noop)" {
+  [ "$(guided_ctl_enter "── SYSTEM ──")" = "noop" ]
 }
 
 @test "enter(top): Abort emits the abort directive (Esc-equivalent, ADR 0077)" {
@@ -122,7 +133,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(category): a text field opens the native query-line editor" {
-  set_nav "$(nav_to_category General)"
+  set_nav "$(nav_to_category System)"
   run guided_ctl_enter "Hostname: "
   [ "$output" = "render" ]
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
@@ -245,7 +256,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   # regression: a tab-IFS read collapses an empty value field and shifts the
   # overridden flag into it — an empty hostname must render "Hostname: " not
   # "Hostname: false"/"…True".
-  set_nav "$(nav_to_category General)"
+  set_nav "$(nav_to_category System)"
   run guided_ctl_list
   echo "$output" | grep -qE '^Hostname: *$'
   ! echo "$output" | grep -qiE '^Hostname: (true|false)'
@@ -1014,7 +1025,7 @@ _seed_baseline() {
 }
 
 @test "list(values timezone): includes region/city entries" {
-  set_nav "$(nav_to_values General system.timezone timezone)"
+  set_nav "$(nav_to_values System system.timezone timezone)"
   run guided_ctl_list
   echo "$output" | grep -qE '^[A-Z][A-Za-z_]+/'
 }
@@ -1099,7 +1110,7 @@ _seed_baseline() {
 # ── text screen: typed INTO fzf's query line, never leaves the window ─────────
 
 @test "enter(text): a typed query commits the scalar + returns to the category" {
-  set_nav "$(nav_to_text General system.hostname hostname)"
+  set_nav "$(nav_to_text System system.hostname hostname)"
   run guided_ctl_enter "current: (unset)" "myhost"
   [ "$output" = "render" ]
   [ "$(jq -r '.system.hostname' "$GUIDED_STATE_FILE")" = "myhost" ]
@@ -1107,7 +1118,7 @@ _seed_baseline() {
 }
 
 @test "enter(text): an empty query leaves the value unchanged" {
-  set_nav "$(nav_to_text General system.hostname hostname)"
+  set_nav "$(nav_to_text System system.hostname hostname)"
   run guided_ctl_enter "current: (unset)" ""
   [ "$output" = "render" ]
   [ "$(jq -c '. == {}' "$GUIDED_STATE_FILE")" = "true" ]

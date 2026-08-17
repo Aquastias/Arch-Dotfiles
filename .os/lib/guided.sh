@@ -1048,7 +1048,9 @@ guided_run_persistent() {
   # to the entry's `preview` verb from the start and shown on the initial top
   # screen, so the pane is populated on first paint (not only after the first
   # drill fires a render). Per-screen renders hide it where a screen owns no pane.
-  guided_ctl_list | fzf --reverse --prompt='guided> ' \
+  # The current row is marked by the triangle pointer in the main list (ADR
+  # 0082), which replaced the top screen's parent-column preview.
+  guided_ctl_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
     --border=rounded --border-label=' Guided Installer ' \
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
