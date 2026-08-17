@@ -175,7 +175,10 @@ write_program() {
   export OS_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   run program_names_of_kind system
-  [ "$output" = "$(printf 'cups\ngrub\nsops')" ]
+  # cups (printing), bluetooth, power-profiles-daemon + tuned (power) are the
+  # toggle-derived System Programs added by ADR 0079/0080; grub + sops authored.
+  [ "$output" = "$(printf \
+    'bluetooth\ncups\ngrub\npower-profiles-daemon\nsops\ntuned')" ]
 
   run program_names_of_kind user
   echo "$output" | grep -qx docker

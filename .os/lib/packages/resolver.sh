@@ -286,7 +286,7 @@ pkgres_resolve() {
   # ── Bluetooth Service (ADR 0080) ──────────────────────────────────────────
   # The `bluetooth` program is toggle-derived like cups, not authored in core:
   # report it as source=bluetooth so explain-packages answers "why is bluetooth
-  # here?" via bluetooth_programs, the single source of truth the injector shares.
+  # here?" via bluetooth_programs, the source of truth the injector shares.
   local bp
   while IFS= read -r bp; do
     [[ -n "$bp" ]] || continue

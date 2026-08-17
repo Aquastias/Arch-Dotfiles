@@ -111,7 +111,8 @@ menu_enum_options() {
     printf '%s\n' multilib multilib-testing core-testing extra-testing ;;
   disk_config.kind)               printf '%s\n' auto manual ;;
   options.fonts)                  fonts_catalog_tokens ;;
-  options.power.profile)          printf '%s\n' power-profiles-daemon tuned none ;;
+  options.power.profile)
+    printf '%s\n' power-profiles-daemon tuned none ;;
   esac
 }
 

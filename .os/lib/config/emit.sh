@@ -152,7 +152,7 @@ emit_effective() {
   # derived here at emit rather than shown as a system_programs baseline entry.
   # Toggle-derived System Programs (ADR 0079/0080): fold cups (printing),
   # bluetooth, then the power daemon into system_programs at emit — the Printing
-  # / Bluetooth / Power categories own them, so they are derived here rather than
+  # / Bluetooth / Power categories own them, so they are derived here, not
   # shown as baseline entries.
   power_inject "$(bluetooth_inject \
     "$(printing_inject "$(picker_assign_disks "$view" "$assignment")")")"

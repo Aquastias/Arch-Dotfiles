@@ -49,7 +49,9 @@ teardown() { rm -rf "$TEST_DIR"; }
   # shipped-default smoke survives the loss of the committed install.jsonc.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
-{ "system_programs": ["cups"] }
+{ "system_programs": ["cups"],
+  "options": { "bluetooth": { "enabled": false },
+               "power": { "profile": "none" } } }
 JSONC
   cat > "$HOSTS_DIR/$VM_DEFAULT_HOST_PROFILE/profile.jsonc" <<'JSONC'
 { "environment": { "desktop": ["kde"] } }
@@ -82,7 +84,9 @@ JSONC
   # profile (merged over core) via load_profile.
   mkdir -p "$HOSTS_DIR/core" "$HOSTS_DIR/myhost"
   cat > "$HOSTS_DIR/core/profile.jsonc" <<'JSONC'
-{ "system_programs": ["cups"] }
+{ "system_programs": ["cups"],
+  "options": { "bluetooth": { "enabled": false },
+               "power": { "profile": "none" } } }
 JSONC
   cat > "$HOSTS_DIR/myhost/profile.jsonc" <<'JSONC'
 { "environment": { "desktop": ["kde"] } }
