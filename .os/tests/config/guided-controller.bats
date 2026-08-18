@@ -1965,10 +1965,10 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   [ "$(jq -c '.dave.programs' "$GUIDED_USERFORMS_FILE")" = '["git"]' ]
 }
 
-# ── extra-packages row routes by kind at ENTRY time ─────────────────────────
-# The deleted promotion rule ran in the guided emit path only, so the same
-# file installed differently per front-end. Routing at entry keeps the
-# convenience while what reaches Config State stays canonical.
+# ── extra-packages row runs the ＋Add guard at ENTRY time (ADR 0086) ─────────
+# A raw name stays a package; a Menu-Owned name is informed, not promoted (its
+# control is its sole home); a free-standing user program goes to Users. What
+# reaches Config State stays canonical, so no Program name lands in packages.*.
 
 @test "extra packages: a plain name stays a repo package" {
   mixed_programs_setup
@@ -1978,30 +1978,30 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
 }
 
-@test "extra packages: a system Program name routes to host_programs" {
+@test "extra packages: a Menu-Owned name is not added, just informed" {
   mixed_programs_setup
   set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [ "$status" -eq 0 ]
-  [ "$(jq -c '.host_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
-  # and it is NOT left behind as a package
+  # cups is Menu-Owned (Services → printing): not promoted, not left a package.
+  [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
   [ "$(jq -c '.packages.repo.extra // []' "$GUIDED_STATE_FILE")" = '[]' ]
 }
 
-@test "extra packages: a mixed entry splits by kind" {
+@test "extra packages: a mixed entry keeps the Menu-Owned name out of state" {
   mixed_programs_setup
   set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "htop cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
-  [ "$(jq -c '.host_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
+  [ "$(jq -c '.host_programs // []' "$GUIDED_STATE_FILE")" = '[]' ]
 }
 
-@test "extra packages: routing reports where the name went" {
+@test "extra packages: routing reports where a Menu-Owned name went" {
   mixed_programs_setup
   set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
-  [[ "$output" == *"routed to host programs"* ]]
+  [[ "$output" == *"managed by"* ]]
   [[ "$output" == *"cups"* ]]
 }
 

@@ -169,6 +169,77 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   [ "$(jq -c '.packages.aur.extra' "$GUIDED_STATE_FILE")" = '["some-aur-pkg"]' ]
 }
 
+# ── the ＋Add guard routes each typed name visibly (ADR 0086) ────────────────
+# grub is Menu-Owned (Bootloader), clamav Menu-Owned (Security), docker a
+# free-standing user program, ripgrep a raw package name.
+guard_registry() {
+  mkdir -p "$OS_DIR/programs/bootloader/grub" \
+           "$OS_DIR/programs/security/clamav" \
+           "$OS_DIR/programs/virtualization/docker"
+  printf '{"name":"grub","kind":"host"}\n' \
+    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+  printf '{"name":"clamav","kind":"user"}\n' \
+    > "$OS_DIR/programs/security/clamav/config.jsonc"
+  printf '{"name":"docker","kind":"user"}\n' \
+    > "$OS_DIR/programs/virtualization/docker/config.jsonc"
+  configs_build_registry
+}
+
+@test "guard: a Menu-Owned host name (grub) is not added; informs Bootloader" {
+  guard_registry
+  out="$(_ctl_route_package_entry '{}' grub repo 2>"$TEST_DIR/msg")"
+  [ "$(jq -c . <<<"$out")" = '{}' ]           # state untouched
+  ! jq -e '.host_programs' <<<"$out" >/dev/null 2>&1
+  grep -qi "Bootloader" "$TEST_DIR/msg"
+}
+
+@test "guard: a Menu-Owned user name (clamav) is not added; informs Security" {
+  guard_registry
+  out="$(_ctl_route_package_entry '{}' clamav repo 2>"$TEST_DIR/msg")"
+  [ "$(jq -c . <<<"$out")" = '{}' ]
+  grep -qi "Security" "$TEST_DIR/msg"
+}
+
+@test "guard: a free-standing user program (docker) routes to the primary user" {
+  guard_registry
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  out="$(_ctl_route_package_entry '{"users":["dave"]}' docker repo \
+    2>"$TEST_DIR/msg")"
+  ! jq -e '.packages' <<<"$out" >/dev/null 2>&1     # not a package
+  guided_userform_get "$GUIDED_USERFORMS_FILE" dave \
+    | jq -e '.programs | index("docker")'           # on dave's programs
+  grep -qi "Users" "$TEST_DIR/msg"
+}
+
+@test "guard: a user program with no users is not added, and says so" {
+  guard_registry
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  out="$(_ctl_route_package_entry '{"users":[]}' docker repo 2>"$TEST_DIR/msg")"
+  [ "$(jq -c . <<<"$out")" = '{"users":[]}' ]       # untouched
+  ! jq -e '.packages' <<<"$out" >/dev/null 2>&1
+  grep -qi "add a user first" "$TEST_DIR/msg"
+}
+
+@test "guard: an ordinary name lands in packages.<slot>.extra" {
+  guard_registry
+  out="$(_ctl_route_package_entry '{}' ripgrep repo 2>/dev/null)"
+  [ "$(jq -c '.packages.repo.extra' <<<"$out")" = '["ripgrep"]' ]
+  out="$(_ctl_route_package_entry '{}' some-aur-pkg aur 2>/dev/null)"
+  [ "$(jq -c '.packages.aur.extra' <<<"$out")" = '["some-aur-pkg"]' ]
+}
+
+@test "guard: a mixed entry keeps Program names out of packages.*" {
+  guard_registry
+  export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
+  printf '{}\n' > "$GUIDED_USERFORMS_FILE"
+  out="$(_ctl_route_package_entry '{"users":["dave"]}' "grub docker ripgrep" \
+    repo 2>/dev/null)"
+  [ "$(jq -c '.packages.repo.extra' <<<"$out")" = '["ripgrep"]' ]
+  ! jq -e '.host_programs' <<<"$out" >/dev/null 2>&1   # grub not promoted
+}
+
 # ── navigation is non-destructive ───────────────────────────────────────────
 
 @test "edits survive leaving and re-entering the screen" {

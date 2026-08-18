@@ -496,41 +496,56 @@ _ctl_apply_text() {
   esac
 }
 
-# _ctl_route_package_entry <state> <raw> [slot] — split the space-separated
-# typed into the extra-packages row by kind, at ENTRY time, and file each into
-# the slot it belongs in: a system Program → host_programs, a user Program →
-# the Primary User's programs, anything else → packages.repo.extra.
-#
-# This is the guided convenience the deleted promotion rule used to provide,
-# moved from the emit path to entry so it cannot cause front-end divergence:
-# what lands in Config State is already canonical, so Save, Export and Proceed
-# all agree, and the config-load exclusivity check has nothing to reject.
-# The notice naming what was rerouted is emitted on stderr (the controller's
-# out-of-band channel) so the operator learns where their name went.
+# _ctl_route_package_entry <state> <raw> [slot] — the ＋Add guard (ADR 0086). It
+# splits the space-separated typed entry and routes each name VISIBLY, never by
+# silent reclassification:
+#   • a [[Menu-Owned Program]] (grub, clamav, …) → informed ("managed by its
+#     control"), NOT added — the control is its sole home;
+#   • a free-standing user Program → the Primary User's programs;
+#   • a free-standing host Program → host_programs (defensive: none today);
+#   • anything else (a raw package name) → packages.<slot>.extra.
+# A Program name therefore never reaches packages.* (config-load exclusivity
+# stays satisfiable), and every reclassification is announced on stderr (the
+# controller's out-of-band channel) so the operator learns where the name went.
 _ctl_route_package_entry() {
   local state="$1" raw="$2" slot="${3:-repo}"
   [[ -n "$raw" ]] || { printf '%s' "$state"; return 1; }
 
-  local -a pkgs=() sys=() usr=()
+  local -a pkgs=() usr=() host=() owned=()
   local name
   for name in $raw; do
-    case "$(program_kind "$name")" in
-    host) sys+=("$name") ;;
-    user) usr+=("$name") ;;
-    *)    pkgs+=("$name") ;;
-    esac
+    if menu_owned_programs | grep -qxF -- "$name"; then owned+=("$name")
+    else
+      case "$(program_kind "$name")" in
+      user) usr+=("$name") ;;
+      host) host+=("$name") ;;
+      *)    pkgs+=("$name") ;;
+      esac
+    fi
   done
 
   ((${#pkgs[@]})) \
     && state="$(edit_append_packages "$state" "${pkgs[*]}" "$slot")"
-  if ((${#sys[@]})); then
-    state="$(edit_append_host_programs "$state" "${sys[@]}")"
-    printf 'routed to host programs: %s\n' "${sys[*]}" >&2
+  if ((${#host[@]})); then
+    state="$(edit_append_host_programs "$state" "${host[@]}")"
+    printf 'routed to host programs: %s\n' "${host[*]}" >&2
   fi
   if ((${#usr[@]})); then
-    state="$(_ctl_append_primary_user_programs "$state" "${usr[@]}")"
-    printf 'routed to user programs: %s\n' "${usr[*]}" >&2
+    local primary
+    primary="$(jq -r '.users[0] // empty' \
+      <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
+    if [[ -n "$primary" ]]; then
+      state="$(_ctl_append_primary_user_programs "$state" "${usr[@]}")"
+      printf 'routed to Users → %s: %s\n' "$primary" "${usr[*]}" >&2
+    else
+      printf '“%s” is a user program — add a user first (not added).\n' \
+        "${usr[*]}" >&2
+    fi
   fi
+  for name in "${owned[@]}"; do
+    printf '“%s” is managed by %s — set it there (not added).\n' \
+      "$name" "$(menu_owned_control "$name")" >&2
+  done
   printf '%s' "$state"
 }
 
@@ -598,7 +613,7 @@ _ctl_curated_persist_count() {
 # [[Menu-Owned Program]]s are filtered from BOTH pickers (ADR 0086, generalising
 # ADR 0079/0080): a program whose install a dedicated control governs has that
 # control as its sole home, so offering it here too is the double representation
-# the rule removes. `menu_owned_programs` is the single union — grub (Bootloader),
+# the rule removes. `menu_owned_programs` is the union — grub (Bootloader),
 # the Security/Backup sets, sops (secrets), plus the service programs. Every
 # kind:host program is owned, so the host picker is normally empty (`|| :` keeps
 # the empty result a success, not grep's rc 1).
