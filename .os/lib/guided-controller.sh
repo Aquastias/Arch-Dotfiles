@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-controller.sh — Guided Installer persistent-fzf controller (ADR 0042)
+# lib/guided-controller.sh — Guided Installer persistent-fzf controller (ADR
+# 0042)
 # =============================================================================
 # Invoked by the single persistent fzf's reload/transform binds as SUBPROCESSES.
 # It reads the navigation + Config-State files (paths in GUIDED_NAV_FILE /
@@ -12,7 +13,8 @@
 #
 # Screens (nav.sh): top, category, values (enum picks, multi-select toggles, the
 # sysctl + users list editors, the Disk-layout preset picker), text (free-text
-# typed INTO fzf's own query line). EVERYTHING commits in place now — enum picks,
+# typed INTO fzf's own query line). EVERYTHING commits in place now — enum
+# picks,
 # toggles, layout presets, sysctl pairs, user toggle + create, Add-persist, and
 # every free-text field — so the menu never leaves fzf. (The `edit-oneshot`
 # directive remains only as an unused fallback seam.) ^Z/^Y/^R drive
@@ -20,8 +22,10 @@
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
 #   render             re-list + re-prompt + re-header the current screen
-#   terminal <action>  exit with proceed|save|export     (launcher → result + accept)
-#   edit-oneshot <path> one-shot helper hand-off          (launcher → execute + reload)
+#   terminal <action>  exit with proceed|save|export
+#                       (launcher → result + accept)
+#   edit-oneshot <path> one-shot helper hand-off
+#                       (launcher → execute + reload)
 #   abort              cancel the whole menu             (launcher → abort)
 #   noop               do nothing
 # =============================================================================
@@ -133,7 +137,8 @@ _ctl_secret_tag() {
     case "$role" in
     root) guided_secretsfile_has_root "$f" && { echo "custom"; return; } ;;
     enc)  guided_secretsfile_has_enc  "$f" && { echo "custom"; return; } ;;
-    *)    guided_secretsfile_has_user "$f" "$name" && { echo "custom"; return; } ;;
+    *)
+      guided_secretsfile_has_user "$f" "$name" && { echo "custom"; return; } ;;
     esac
   fi
   [[ -n "$(cfgstate_get "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
@@ -143,7 +148,8 @@ _ctl_secret_tag() {
 }
 
 # _ctl_pw_missing — count of required-but-unset passwords (root + each enabled
-# user), from GUIDED_SECRETS_FILE over the effective user list. 0 when no secrets
+# user), from GUIDED_SECRETS_FILE over the effective user list. 0 when no
+# secrets
 # file is wired (non-persistent contexts), so the top screen stays undecorated.
 _ctl_pw_missing() {
   local f="${GUIDED_SECRETS_FILE:-}"
@@ -225,7 +231,8 @@ _ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }
 _ctl_field_kind() {
   case "$1" in
   system.hostname) echo text ;;
-  system.keymap) echo toggle ;;   # multi: select several keymaps (element 0 = default)
+  # multi: select several keymaps (element 0 = default)
+  system.keymap) echo toggle ;;
   system.timezone) echo biglist ;;
   __language__ | __encoding__) echo biglist ;;   # locale projections (ADR 0076)
   system.console_font) echo biglist ;;           # console font (ADR 0076)
@@ -263,7 +270,8 @@ _ctl_is_cycle_field() {
   [[ "$(_ctl_enum_options "$1")" == $'true\nfalse' ]]
 }
 
-# _ctl_built_root_filesystems — the root filesystems whose Root Layout Adapter is
+# _ctl_built_root_filesystems — the root filesystems whose Root Layout Adapter
+# is
 # BUILT, one per line (issue 09). Kept in lockstep with lib/layout/dispatch.sh's
 # root_adapter_source (the dispatch is the source of truth for what's built);
 # the guided layer lists a value only when the operator can actually install it.
@@ -284,7 +292,8 @@ _ctl_topologies_for_fs() {
 }
 
 # _ctl_cycle_next <current> <item...> → the item after <current> (wrapping); the
-# first item when <current> is absent. The shared cycle primitive behind the pool
+# first item when <current> is absent. The shared cycle primitive behind the
+# pool
 # editor's topology and filesystem rows.
 _ctl_cycle_next() {
   local cur="$1"; shift; local -a list=("$@"); local i
@@ -299,7 +308,8 @@ _ctl_cycle_next() {
 # <current>, wrapping; the first entry when <current> is not in the set (e.g.
 # after the group's filesystem changed and left a stale topology).
 _ctl_cycle_topology() {
-  # shellcheck disable=SC2046 # deliberately word-split the topology list to args
+  # deliberately word-split the topology list to args
+  # shellcheck disable=SC2046
   _ctl_cycle_next "$2" $(_ctl_topologies_for_fs "$1")
 }
 
@@ -330,7 +340,8 @@ _ctl_pool_normalise_fs() {
 # synthetic __layout__ disk-layout preset list).
 _ctl_enum_options() {
   case "$1" in
-  __layout__) printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
+  __layout__)
+    printf '%s\n' single os-mirror os-mirror-raidz1 data-pools "custom…" ;;
   filesystem) _ctl_built_root_filesystems ;;
   options.bootloader | post_install.security.firewall \
     | environment.display_manager | disk_config.kind \
@@ -349,7 +360,8 @@ _ctl_manual_locked() {
 
 # _ctl_biglist_options <path> → the big, filterable option set for a system
 # identity field, from the live system (localectl/timedatectl) with a filesystem
-# fallback (the install host is the Arch live ISO; the fallback also covers a dev
+# fallback (the install host is the Arch live ISO; the fallback also covers a
+# dev
 # box where the systemd commands return nothing).
 _ctl_biglist_options() {
   local out
@@ -364,7 +376,8 @@ _ctl_biglist_options() {
     out="$(locale_list_languages)" ;;
   __encoding__)
     # only the encodings valid for the currently-chosen language (ADR 0076).
-    out="$(locale_list_encodings "$(locale_language "$(_ctl_locale_current)")")" ;;
+    out="$(locale_list_encodings \
+      "$(locale_language "$(_ctl_locale_current)")")" ;;
   system.console_font)
     out="$(locale_list_console_fonts)" ;;
   esac
@@ -414,8 +427,10 @@ _ctl_apply_enum() {
     case "$val" in auto | manual) ;; *) printf '%s' "$state"; return 1 ;; esac
     edit_set_scalar "$state" disk_config.kind "$val" ;;
   filesystem)
-    # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value is
-    # a no-op (rc 1, unchanged) so the picker can never author an uninstallable fs.
+    # Commit only a BUILT root filesystem (issue 09); an unbuilt/unknown value
+    # is
+    # a no-op (rc 1, unchanged) so the picker can never author an uninstallable
+    # fs.
     _ctl_built_root_filesystems | grep -qxF "$val" \
       || { printf '%s' "$state"; return 1; }
     edit_set_scalar "$state" filesystem "$val" ;;
@@ -423,7 +438,8 @@ _ctl_apply_enum() {
     | environment.display_manager)
     edit_set_scalar "$state" "$path" "$val" ;;
   options.power.profile)
-    # Power Profile enum (ADR 0080): a 3-value scalar, NOT a bool — commit only a
+    # Power Profile enum (ADR 0080): a 3-value scalar, NOT a bool — commit only
+    # a
     # known backend so the picker can never author an invalid daemon; an unknown
     # value is a no-op (rc 1, unchanged).
     case "$val" in none | power-profiles-daemon | tuned) ;;
@@ -460,7 +476,8 @@ _ctl_apply_text() {
       --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
       --arg v "$val" 'if any($a[]; . == $v) then $a else $a + [$v] end')" ;;
   options.custom_repositories)
-    # "name url [sign_check] [sign_option]" → an object appended (dedup by name);
+    # "name url [sign_check] [sign_option]" → an object appended (dedup by
+    # name);
     # sign_check/sign_option default to Required/TrustedOnly (ADR 0072).
     local -a _rf; read -ra _rf <<<"$val"
     [[ ${#_rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
@@ -541,8 +558,10 @@ _ctl_append_primary_user_programs() {
 # _ctl_normalise_default <state> <path> → <state> with the override at <path>
 # dropped when it renders identically to the seeded baseline default. The whole
 # "strict delta" contract: an apply that lands the operator back on the shown
-# default leaves NO override, so the map stays a true delta and ● (override-only)
-# never lights for an unchanged value. Rendered compare (menu_render_value) so it
+# default leaves NO override, so the map stays a true delta and ●
+# (override-only)
+# never lights for an unchanged value. Rendered compare (menu_render_value) so
+# it
 # judges "same as the default" the way the value displays — surviving the
 # scalar/array shape gaps (keymap "us" vs ["us"], gpu "auto"). Pure.
 _ctl_normalise_default() {
@@ -617,7 +636,8 @@ _ctl_marked_options() {
     'getpath($p | split(".")) // [] | if type == "array" then . else [.] end' \
     <<<"$(_ctl_effective "$state" "$base")")"
   while IFS= read -r opt; do
-    # jq -n (null input) so it does NOT consume the loop's stdin (the option list)
+    # jq -n (null input) so it does NOT consume the loop's stdin (the option
+    # list)
     if jq -ne --argjson s "$sel" --arg o "$opt" 'any($s[]; . == $o)' \
         >/dev/null 2>&1; then
       printf '[x] %s\n' "$opt"
@@ -627,8 +647,10 @@ _ctl_marked_options() {
   done < <(_ctl_toggle_options "$field")
 }
 
-# _ctl_toggle_multi <state> <base> <field> <value> → flip <value>'s membership in
-# the field's array (computed against the EFFECTIVE value so a seeded baseline is
+# _ctl_toggle_multi <state> <base> <field> <value> → flip <value>'s membership
+# in
+# the field's array (computed against the EFFECTIVE value so a seeded baseline
+# is
 # honoured), written back as an override; an empty result unsets the override.
 # gpu is mutually-exclusive with "auto" and normalizes to scalar "auto" / a
 # vendor array / unset.
@@ -636,7 +658,8 @@ _ctl_toggle_multi() {
   local state="$1" base="$2" field="$3" val="$4" eff cur new
   eff="$(_ctl_effective "$state" "$base")"
   if [[ "$field" == "environment.gpu" ]]; then
-    cur="$(jq -c '.environment.gpu // [] | if type == "array" then . else [.] end' \
+    cur="$(jq -c '.environment.gpu // []
+      | if type == "array" then . else [.] end' \
       <<<"$eff")"
     new="$(jq -cn --argjson a "$cur" --arg v "$val" '
       if $v == "auto"
@@ -670,7 +693,8 @@ _ctl_sysctl_lines() {
     <<<"$(_ctl_effective "$1" "$2")"
 }
 
-# _ctl_user_names → committed user names (users/<name>/profile.jsonc, minus core).
+# _ctl_user_names → committed user names (users/<name>/profile.jsonc, minus
+# core).
 _ctl_user_names() {
   local d n
   for d in "${OS_DIR:-.}"/users/*/; do
@@ -693,7 +717,8 @@ _ctl_default_user_shell() {
   printf '%s' "${s:-/bin/zsh}"
 }
 
-# _ctl_user_shell_full <name> — the effective login shell PATH: the User Editor's
+# _ctl_user_shell_full <name> — the effective login shell PATH: the User
+# Editor's
 # install-scoped override (userforms file) if set, else the committed User
 # Profile's shell merged over User Core, else the User Core default (an ad-hoc
 # name with no committed profile). The single source of truth the list display,
@@ -702,15 +727,20 @@ _ctl_user_shell_full() {
   local n="$1" s=""
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && s="$(guided_userform_field "$GUIDED_USERFORMS_FILE" "$n" shell)"
-  if [[ -z "$s" && -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
-    s="$(load_user_profile "$n" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
+  if [[ -z "$s" && -n "${OS_DIR:-}" \
+     && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
+    s="$(load_user_profile "$n" 2>/dev/null \
+      | jq -r '.shell // empty' 2>/dev/null)"
   fi
   [[ -n "$s" ]] || s="$(_ctl_default_user_shell)"
   printf '%s' "$s"
 }
 
 # _ctl_user_shell <name> — the short login shell (basename) for the list row.
-_ctl_user_shell() { local s; s="$(_ctl_user_shell_full "$1")"; printf '%s' "${s##*/}"; }
+_ctl_user_shell() {
+  local s; s="$(_ctl_user_shell_full "$1")"
+  printf '%s' "${s##*/}"
+}
 
 # _ctl_root_shell_full — root's effective login shell PATH (ADR 0054): the
 # Config State override (options.root_shell) merged over the baseline, else the
@@ -734,7 +764,8 @@ _ctl_root_shell_committed() {
 }
 
 # _ctl_user_is_committed <name> — rc 0 when the user has a committed profile
-# (users/<name>/profile.jsonc under OS_DIR): the editor shows `enabled` for those
+# (users/<name>/profile.jsonc under OS_DIR): the editor shows `enabled` for
+# those
 # and `✗ remove user` for a session-created (ad-hoc) name instead.
 _ctl_user_is_committed() {
   [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${1}/profile.jsonc" ]]
@@ -816,8 +847,10 @@ _ctl_clone_seed() {
     "$(jq -c '.programs // []' <<<"$eff")"
 }
 
-# _ctl_userfield_toggle_multi <user> <field> <value> — flip <value> in the user's
-# effective array for a multi field, stored as the full override (strict delta vs
+# _ctl_userfield_toggle_multi <user> <field> <value> — flip <value> in the
+# user's
+# effective array for a multi field, stored as the full override (strict delta
+# vs
 # the committed array).
 _ctl_userfield_toggle_multi() {
   local u="$1" field="$2" val="$3" eff cur new committed
@@ -825,7 +858,8 @@ _ctl_userfield_toggle_multi() {
   cur="$(jq -c --arg f "$field" '.[$f] // []' <<<"$eff")"
   new="$(jq -cn --argjson a "$cur" --arg v "$val" \
     'if any($a[]; . == $v) then ($a - [$v]) else ($a + [$v]) end')"
-  committed="$(jq -c --arg f "$field" '.[$f] // []' <<<"$(_ctl_user_committed "$u")")"
+  committed="$(jq -c --arg f "$field" '.[$f] // []' \
+    <<<"$(_ctl_user_committed "$u")")"
   _ctl_userform_set_strict "$u" "$field" "$new" "$committed"
 }
 
@@ -842,7 +876,8 @@ _ctl_userfield_set_git() {
 }
 
 # _ctl_userfield_add_ssh <user> <key> — append one SSH authorized key to the
-# user's effective list, stored as the full override (strict delta vs committed).
+# user's effective list, stored as the full override (strict delta vs
+# committed).
 _ctl_userfield_add_ssh() {
   local u="$1" key="$2" cur committed new
   [[ -n "$key" ]] || return 0
@@ -990,7 +1025,8 @@ _ctl_esp_budget_warn() {
     "$n" "$bl" "$(esp_budget_auto_size "$n" "$fs" "$bl")" "$size"
 }
 
-# _ctl_layout_label <effective-json> → a one-line description of the current disk
+# _ctl_layout_label <effective-json> → a one-line description of the current
+# disk
 # layout, so the Disks "Disk layout" row reflects the chosen preset instead of a
 # static "choose preset". single → "single"; multi → "os <topo> ×<n>" plus any
 # storage / data pool counts.
@@ -1006,7 +1042,8 @@ _ctl_layout_label() {
     end' <<<"$1"
 }
 
-# _ctl_swap_on <effective-json> → "true"/"false": is swap enabled (default true)?
+# _ctl_swap_on <effective-json> → "true"/"false": is swap enabled (default
+# true)?
 # has("swap") so an explicit `swap:false` is not swallowed by jq's `//` (which
 # treats false like null) — see [[dotfiles_jq_alternative_false]].
 _ctl_swap_on() {
@@ -1021,7 +1058,8 @@ _ctl_zswap_on() {
     | if ($z | has("enabled")) then $z.enabled else true end' <<<"$1"
 }
 
-# _ctl_swap_label <effective-json> → the one-line swap summary for the Disks swap
+# _ctl_swap_label <effective-json> → the one-line swap summary for the Disks
+# swap
 # row: "off" when swap is disabled, else the size (default "auto") plus a zswap
 # suffix — "· zswap <compressor>" when zswap is on, "· no zswap" when off (so a
 # deviation from the zswap-on default is visible). NOTE: a stored false must
@@ -1055,7 +1093,8 @@ _ctl_encryption_label() {
   fi
 }
 
-# _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the preview
+# _ctl_layout_graph <skeleton-json> → an ASCII tree of the layout for the
+# preview
 # pane (a pool per line + its topology / disk count).
 _ctl_layout_graph() {
   jq -r '
@@ -1070,7 +1109,8 @@ _ctl_layout_graph() {
       + pool(.os_pool.pool_name // "rpool"; "OS root";
              .os_pool.topology; .os_pool.disk_count)
       + ((.storage_groups // [])
-         | map("\n" + pool(.name; "storage → \(.mount)"; .topology; .disk_count))
+         | map("\n"
+               + pool(.name; "storage → \(.mount)"; .topology; .disk_count))
          | join(""))
       + ((.data_pools // [])
          | map("\n" + pool(.name; "data pool"; .topology; .disk_count))
@@ -1078,11 +1118,15 @@ _ctl_layout_graph() {
     end' <<<"$1"
 }
 
-# _ctl_add_data_pool <state> → state with one more data pool appended (auto-named
-# tank<N>, default single-disk stripe ×1), forcing multi mode + a default OS pool.
-# A 1-disk stripe is the friendliest default: it is the smallest installable pool
+# _ctl_add_data_pool <state> → state with one more data pool appended
+# (auto-named
+# tank<N>, default single-disk stripe ×1), forcing multi mode + a default OS
+# pool.
+# A 1-disk stripe is the friendliest default: it is the smallest installable
+# pool
 # (so adding several tanks never balloons the disk requirement), matches the
-# data-pools preset, and the user cycles up to mirror/raidz for redundancy. Shared
+# data-pools preset, and the user cycles up to mirror/raidz for redundancy.
+# Shared
 # by the data-pools editor's "+ Add" and by picking "data-pools" in the layout.
 _ctl_add_data_pool() {
   jq '
@@ -1098,7 +1142,8 @@ _ctl_add_data_pool() {
 # _ctl_add_storage_group <state> → state with one more storage group appended,
 # forcing multi mode + a default OS pool. Storage groups fold into the shared
 # `dpool` (each a redundant data area at /<name>), so a new one defaults to
-# mirror ×2; the user cycles to raidz1 ×3 to rebuild the os-mirror-raidz1 preset.
+# mirror ×2; the user cycles to raidz1 ×3 to rebuild the os-mirror-raidz1
+# preset.
 # The first group is auto-named "data" at /data (preset parity), then data1, …
 # Shared by the data-pools editor's "+ Add storage group".
 _ctl_add_storage_group() {
@@ -1181,11 +1226,13 @@ _ctl_device_mode() { [[ "${GUIDED_DEVICE_MODE:-0}" == "1" ]]; }
 # ── Rich chrome version gate (ADR 0047) ──────────────────────────────────────
 # The rich chrome (footer + breadcrumb + rounded borders, actions on keys) needs
 # fzf ≥ 0.62; a lagging install ISO (ADR 0023) may ship an older fzf, where the
-# menu degrades to today's action-rows layout. The mode is decided ONCE at guided
+# menu degrades to today's action-rows layout. The mode is decided ONCE at
+# guided
 # launch (guided.sh caches it in GUIDED_RICH_CHROME) — never a network/pacman
 # step, so offline Save/Export authoring is never gated.
 
-# _ctl_fzf_rich_for_version <version-string> — rc 0 when the parsed "MAJOR.MINOR"
+# _ctl_fzf_rich_for_version <version-string> — rc 0 when the parsed
+# "MAJOR.MINOR"
 # is ≥ 0.62 (any major > 0 qualifies). Pure: the first token's first two dotted
 # fields, base-10 to dodge a leading-zero octal read.
 _ctl_fzf_rich_for_version() {
@@ -1196,15 +1243,18 @@ _ctl_fzf_rich_for_version() {
   (( 10#$major > 0 || 10#$minor >= 62 ))
 }
 
-# _ctl_detect_rich_chrome — "1" when the installed fzf supports rich chrome, else
-# "0" (also 0 when fzf is absent — legacy is the safe floor). guided.sh calls this
+# _ctl_detect_rich_chrome — "1" when the installed fzf supports rich chrome,
+# else
+# "0" (also 0 when fzf is absent — legacy is the safe floor). guided.sh calls
+# this
 # once at launch; the pure result drives the cached flag.
 _ctl_detect_rich_chrome() {
   local ver; ver="$(fzf --version 2>/dev/null)"
   [[ -n "$ver" ]] && _ctl_fzf_rich_for_version "$ver" && echo 1 || echo 0
 }
 
-# _ctl_rich_chrome — rc 0 when the rich chrome is active (the cached flag). Unset
+# _ctl_rich_chrome — rc 0 when the rich chrome is active (the cached flag).
+# Unset
 # defaults to legacy, so every non-interactive seam renders action rows.
 _ctl_rich_chrome() { [[ "${GUIDED_RICH_CHROME:-0}" == "1" ]]; }
 
@@ -1310,7 +1360,8 @@ _ctl_free_disks() {
 }
 
 # _ctl_disk_label <by-id-path> — the disk row label; delegates to the shared
-# picker_disk_label ("/dev/sda <size> <model> · <tail>", tail parseable back out).
+# picker_disk_label ("/dev/sda <size> <model> · <tail>", tail parseable back
+# out).
 _ctl_disk_label() { picker_disk_label "$1"; }
 
 # _ctl_pool_toggle_disk <group> <by-id-path> — flip the disk's membership in the
@@ -1498,7 +1549,8 @@ _ctl_detail_user_table() {
 }
 
 # _ctl_detail_top <line> <state> <base> — top-screen preview: the highlighted
-# category's OWN detail only. The category parent column is gone (ADR 0082) — the
+# category's OWN detail only. The category parent column is gone (ADR 0082) —
+# the
 # current selection is marked by the fzf triangle pointer in the main list, so
 # the pane no longer duplicates the category list. Users shows its table (ticket
 # 03); every other category shows its fields as "label: value" (● on overrides).
@@ -1565,7 +1617,8 @@ guided_ctl_preview() {
   case "$(nav_screen "$nav")" in
   top | category) _ctl_detail_pane "$line"; return 0 ;;
   esac
-  # The data-pools editor screens graph the LIVE state (not a preset line) so the
+  # The data-pools editor screens graph the LIVE state (not a preset line) so
+  # the
   # tree reflects pools/disks as you add and cycle them.
   case "$(nav_screen "$nav")" in
   datapools | pooledit)
@@ -1619,7 +1672,8 @@ guided_ctl_preview() {
   __layout__)
     # A destructive preset row previews THAT preset ("what you'd get"). The
     # data-pools row is additive (it opens the editor, keeping your pools) and
-    # ← Back is no choice at all — both graph the LIVE state so edits stay visible.
+    # ← Back is no choice at all — both graph the LIVE state so edits stay
+    # visible.
     local sk
     if [[ "$line" == "data-pools" || "$line" == "← Back" ]]; then
       _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
@@ -1629,15 +1683,18 @@ guided_ctl_preview() {
       _ctl_layout_graph "$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     fi ;;
   system.keymap)
-    # multi: the selected keymap array (+ the highlighted candidate, mark stripped)
+    # multi: the selected keymap array (+ the highlighted candidate, mark
+    # stripped)
     local sel; sel="$(jq -r \
       '.system.keymap // [] | if type == "array" then . else [.] end | .[]' \
       <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
     printf 'Selected keymaps:\n'
-    if [[ -n "$sel" ]]; then sed 's/^/  /' <<<"$sel"; else printf '  (none)\n'; fi
+    if [[ -n "$sel" ]]; then sed 's/^/  /' <<<"$sel"
+    else printf '  (none)\n'; fi
     printf '\nHighlighted:\n  %s\n' "${line:4}" ;;
   system.locale | system.timezone)
-    local cur; cur="$(_ctl_field_display "$field" "$(_ctl_state)" "$(_ctl_baseline)")"
+    local cur
+    cur="$(_ctl_field_display "$field" "$(_ctl_state)" "$(_ctl_baseline)")"
     printf 'Selected %s:\n  %s\n\nHighlighted:\n  %s\n' \
       "$(nav_get "$nav" label)" "${cur:-(none)}" "$line" ;;
   esac
@@ -1670,7 +1727,8 @@ guided_ctl_list() {
     printf '%s\n' "$_CTL_DIVIDER"
     # Secrets are never a gate (ADR 0055): root, every user, and the encryption
     # passphrase default to 12345, so Proceed always installs. The per-secret
-    # source is surfaced (default 12345 / custom / from age) on the Users screen,
+    # source is surfaced (default 12345 / custom / from age) on the Users
+    # screen,
     # not as a top-row block. Save/Export are likewise never gated.
     menu_top_lines "$state" "$base"
     printf '%s\n' "$_CTL_DIVIDER"
@@ -1709,7 +1767,8 @@ guided_ctl_list() {
     if [[ "$cat" == "Disks" || "$cat" == "Kernels" ]]; then
       _ctl_esp_budget_warn "$(_ctl_effective "$state" "$base")"
     fi
-    # Disks leads with the layout row (the headline storage choice), then fields.
+    # Disks leads with the layout row (the headline storage choice), then
+    # fields.
     if [[ "$cat" == "Disks" ]] && manual_kind_active "$state"; then
       # Manual Partitioning (ADR 0073): the pool layout / root-disk / swap rows
       # are replaced by a single Partitions row that launches cfdisk and shows
@@ -1760,7 +1819,8 @@ guided_ctl_list() {
       printf 'derived ▸ %s package%s (read-only)\n' \
         "$_dtot" "$([[ "$_dtot" == 1 ]] || echo s)"
     fi
-    # Unit-separator (\x1f), not @tsv: a tab IFS is whitespace, so read collapses
+    # Unit-separator (\x1f), not @tsv: a tab IFS is whitespace, so read
+    # collapses
     # the double delimiter of an EMPTY value field and shifts the columns. \x1f
     # is non-whitespace, so empty fields are preserved.
     local _ffield _flabel _fval _fov
@@ -1886,7 +1946,8 @@ guided_ctl_list() {
         <<<"$(_ctl_effective "$state" "$base")"
       _ctl_action_row "+ Add server (URL)"
     elif [[ "$vf" == "options.custom_repositories" ]]; then
-      # Custom repositories (ADR 0072): "name — url · <SigLevel>" + an Add action.
+      # Custom repositories (ADR 0072): "name — url · <SigLevel>" + an Add
+      # action.
       jq -r '(.options.custom_repositories // [])[]
         | "\(.name) — \(.url) · "
           + "\(.sign_check // "Required") \(.sign_option // "TrustedOnly")"' \
@@ -1936,7 +1997,8 @@ guided_ctl_list() {
   text)
     local path cur
     path="$(nav_get "$nav" field)"
-    # the menu-displayed value (effective, else the field default) so a defaulted
+    # the menu-displayed value (effective, else the field default) so a
+    # defaulted
     # field shows e.g. "current: 2G" rather than "current: (unset)".
     cur="$(_ctl_field_display "$path" "$state" "$base")"
     printf 'current: %s\n' "${cur:-(unset)}"
@@ -2029,19 +2091,23 @@ guided_ctl_list() {
     # bare "<name>:" data-pool rows.
     local _eff; _eff="$(_ctl_effective "$state" "$base")"
     jq -e '.os_pool' <<<"$_eff" >/dev/null 2>&1 \
-      && jq -r '"OS pool: \(.os_pool.topology // "?") ×\(.os_pool.disk_count // "?")"' \
+      && jq -r '"OS pool: \(.os_pool.topology // "?") "
+                + "×\(.os_pool.disk_count // "?")"' \
         <<<"$_eff"
     jq -r '(.storage_groups // [])[]
              | "\(.name) (storage): \(.topology) ×\(.disk_count)"' <<<"$_eff"
     jq -r '(.data_pools // [])[] | "\(.name): \(.topology) ×\(.disk_count)"' \
       <<<"$_eff"
-    # The "+ Add …" rows stay visible in BOTH chromes: building the layout is this
+    # The "+ Add …" rows stay visible in BOTH chromes: building the layout is
+    # this
     # screen's primary action, and a footer-only ^A hint proved undiscoverable
     # (users saw tank0 and no way to add more). The parentheticals spell out the
     # distinction so the choice is obvious at author time: a data pool is an
-    # independent zpool (own filesystem + own key); a storage group folds into the
+    # independent zpool (own filesystem + own key); a storage group folds into
+    # the
     # shared `dpool` (zfs, disk-wide key). Offering both lets Custom reconstruct
-    # every preset (incl. os-mirror-raidz1). ← Back is legacy-only (Esc in rich).
+    # every preset (incl. os-mirror-raidz1). ← Back is legacy-only (Esc in
+    # rich).
     printf '%s\n' \
       "+ Add data pool  (standalone pool · any filesystem · own key)" \
       "+ Add storage group  (shared dpool · zfs · disk-wide key)"
@@ -2065,17 +2131,22 @@ guided_ctl_list() {
       _ctl_action_row "← Back" ;;
     storage)
       # Storage group: a redundant data area folded into the shared `dpool`. Its
-      # topology + disk count are editable (so Custom can rebuild os-mirror-raidz1);
+      # topology + disk count are editable (so Custom can rebuild
+      # os-mirror-raidz1);
       # the mount is display-only (defaults to /<name>). It inherits the root
-      # filesystem — no per-group fs/encryption rows (that is the data-pool path).
+      # filesystem — no per-group fs/encryption rows (that is the data-pool
+      # path).
       printf 'topology: %s   (Enter cycles)\n' \
         "$(jq -r '.topology // "?"' <<<"$p")"
       _ctl_disks_row "$p" 1
-      printf 'mount: %s\n' "$(jq -r '.mount // ("/" + (.name // "data"))' <<<"$p")"
+      printf 'mount: %s\n' \
+        "$(jq -r '.mount // ("/" + (.name // "data"))' <<<"$p")"
       # Storage groups share dpool's encryption (the disk-wide setting) — shown
-      # read-only, since they have no independent key (that is the data-pool path).
+      # read-only, since they have no independent key (that is the data-pool
+      # path).
       printf 'encryption: %s   (disk-wide, shared)\n' \
-        "$([[ "$(jq -r '.options.encryption // false' <<<"$_eff")" == "true" ]] \
+        "$([[ "$(jq -r '.options.encryption // false' <<<"$_eff")" \
+           == "true" ]] \
            && echo on || echo off)"
       _ctl_action_row "✗ remove this group" "← Back" ;;
     *)
@@ -2106,7 +2177,8 @@ guided_ctl_list() {
     done < <(_ctl_free_disks "$state")
     _ctl_action_row "← Back" ;;
   rootdisk)
-    # Single-select radio: the current root_disk marked (*) first (it is bound, so
+    # Single-select radio: the current root_disk marked (*) first (it is bound,
+    # so
     # the Free Set excludes it — add it back), then every free candidate ( ).
     # Picking one replaces the prior choice.
     local _rd d
@@ -2126,9 +2198,12 @@ guided_ctl_list() {
     printf 'shell: %s   (Enter cycles)\n' "$(_ctl_root_shell)"
     _ctl_action_row "← Back" ;;
   useredit)
-    # Per-user User Editor (ADR 0051): a committed user shows an `enabled` toggle
-    # (in/out of the install), an ad-hoc user a `✗ remove user` row; both show the
-    # full profile — shell, sudo, groups, git identity, ssh keys, programs — read
+    # Per-user User Editor (ADR 0051): a committed user shows an `enabled`
+    # toggle
+    # (in/out of the install), an ad-hoc user a `✗ remove user` row; both show
+    # the
+    # full profile — shell, sudo, groups, git identity, ssh keys, programs —
+    # read
     # from the effective (committed `*` install-scoped override) view.
     local un ueff; un="$(nav_get "$nav" user)"
     ueff="$(_ctl_user_effective "$un")"
@@ -2142,27 +2217,33 @@ guided_ctl_list() {
     printf 'sudo: %s   (Enter toggles)\n' \
       "$(jq -r 'if .sudo then "on" else "off" end' <<<"$ueff")"
     printf 'groups: %s   (Enter edits)\n' \
-      "$(jq -r '(.groups // []) | join(", ") | if . == "" then "(none)" else . end' \
+      "$(jq -r '(.groups // []) | join(", ")
+                | if . == "" then "(none)" else . end' \
         <<<"$ueff")"
-    printf 'git name: %s   (Enter edits)\n' "$(jq -r '.git.name // "(unset)"' <<<"$ueff")"
-    printf 'git email: %s   (Enter edits)\n' "$(jq -r '.git.email // "(unset)"' <<<"$ueff")"
+    printf 'git name: %s   (Enter edits)\n' \
+      "$(jq -r '.git.name // "(unset)"' <<<"$ueff")"
+    printf 'git email: %s   (Enter edits)\n' \
+      "$(jq -r '.git.email // "(unset)"' <<<"$ueff")"
     printf 'ssh keys: %s   (Enter edits)\n' \
       "$(jq -r '(.ssh_authorized_keys // []) | length' <<<"$ueff")"
     printf 'programs: %s   (Enter edits)\n' \
-      "$(jq -r '(.programs // []) | join(", ") | if . == "" then "(none)" else . end' \
+      "$(jq -r '(.programs // []) | join(", ")
+                | if . == "" then "(none)" else . end' \
         <<<"$ueff")"
     printf '%s\n' "⧉ Clone this user"
     _ctl_user_is_committed "$un" || printf '%s\n' "✗ remove user"
     _ctl_action_row "← Back" ;;
   userfield)
     # A user-scoped sub-editor (ADR 0051): multi (groups/programs) marks options
-    # against the effective value; text (git.name/git.email) shows current + hint;
+    # against the effective value; text (git.name/git.email) shows current +
+    # hint;
     # list (ssh) shows the keys + an add action.
     local un field; un="$(nav_get "$nav" user)"; field="$(nav_get "$nav" field)"
     case "$(_ctl_userfield_kind "$field")" in
     multi)
       local _sel _opt
-      _sel="$(jq -c --arg f "$field" '.[$f] // []' <<<"$(_ctl_user_effective "$un")")"
+      _sel="$(jq -c --arg f "$field" '.[$f] // []' \
+        <<<"$(_ctl_user_effective "$un")")"
       while IFS= read -r _opt; do
         if jq -ne --argjson s "$_sel" --arg o "$_opt" 'any($s[]; . == $o)' \
             >/dev/null 2>&1; then printf '[x] %s\n' "$_opt"
@@ -2180,13 +2261,15 @@ guided_ctl_list() {
     list)
       local _k
       while IFS= read -r _k; do [[ -n "$_k" ]] && printf '%s\n' "$_k"; done \
-        < <(jq -r '(.ssh_authorized_keys // [])[]' <<<"$(_ctl_user_effective "$un")")
+        < <(jq -r '(.ssh_authorized_keys // [])[]' \
+          <<<"$(_ctl_user_effective "$un")")
       _ctl_action_row "+ Add SSH key" ;;
     esac ;;
   secret)
     # Inline masked password entry (ADR 0051): the operator types into the fzf
     # query line (masked to bullets by the change bind); this body is just the
-    # hint for the current target + phase. The value is read from the buffer file
+    # hint for the current target + phase. The value is read from the buffer
+    # file
     # on Enter, never shown here.
     local _tgt _ph _who
     _tgt="$(nav_get "$nav" target)"; _ph="$(nav_get "$nav" phase)"
@@ -2323,9 +2406,11 @@ _ctl_enter_pkgderivedsrc() {
   echo noop
 }
 
-# _ctl_open_secret <root|user> [name] — start inline masked entry: clear the typed
+# _ctl_open_secret <root|user> [name] — start inline masked entry: clear the
+# typed
 # buffer + any pending first entry, then render the secret screen (phase entry).
-# The render directive turns masking on (rebind change, unbind cursor). Writes the
+# The render directive turns masking on (rebind change, unbind cursor). Writes
+# the
 # directive to stdout like the other enter handlers.
 _ctl_open_secret() {
   : > "${GUIDED_PWBUF_FILE:-/dev/null}"
@@ -2342,7 +2427,8 @@ _ctl_open_secret() {
 
 # _ctl_enter_secret — Enter on the masked screen: the typed value lives in the
 # buffer file. Phase entry stashes it as pending and switches to confirm; phase
-# confirm compares — a match writes the password to GUIDED_SECRETS_FILE and backs
+# confirm compares — a match writes the password to GUIDED_SECRETS_FILE and
+# backs
 # to the Users list, a mismatch notices and restarts entry. An empty first entry
 # is refused (stay). Never echoes the value.
 _ctl_enter_secret() {
@@ -2369,7 +2455,8 @@ _ctl_enter_secret() {
   fi
   pending="$(cat "${GUIDED_PWPENDING_FILE:-/dev/null}" 2>/dev/null)"
   if [[ "$buf" != "$pending" ]]; then
-    : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+    : > "${GUIDED_PWBUF_FILE:-/dev/null}"
+    : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
     _ctl_write_nav "$(nav_to_secret "$cat" "$tgt" "$user" entry "$origin")"
     echo "secret-mismatch"; return
   fi
@@ -2378,43 +2465,51 @@ _ctl_enter_secret() {
   enc)  guided_secretsfile_set_enc  "${GUIDED_SECRETS_FILE}" "$buf" ;;
   *)    guided_secretsfile_set_root "${GUIDED_SECRETS_FILE}" "$buf" ;;
   esac
-  : > "${GUIDED_PWBUF_FILE:-/dev/null}"; : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
+  : > "${GUIDED_PWBUF_FILE:-/dev/null}"
+  : > "${GUIDED_PWPENDING_FILE:-/dev/null}"
   # Return to the screen the capture was opened from — the same place Esc lands,
   # read from the carried origin (ADR 0059).
   _ctl_write_nav "$(nav_back "$nav")"
   echo render
 }
 
-# _ctl_user_committed_shell <name> — the committed User Profile's effective shell
+# _ctl_user_committed_shell <name> — the committed User Profile's effective
+# shell
 # (merged over User Core), or the User Core default. The strict-delta baseline
 # the editor compares an override against.
 _ctl_user_committed_shell() {
   local s=""
   _ctl_user_is_committed "$1" \
-    && s="$(load_user_profile "$1" 2>/dev/null | jq -r '.shell // empty' 2>/dev/null)"
+    && s="$(load_user_profile "$1" 2>/dev/null \
+              | jq -r '.shell // empty' 2>/dev/null)"
   printf '%s' "${s:-$(_ctl_default_user_shell)}"
 }
 
 # _ctl_enter_useredit <line> — the User Editor dispatch (ADR 0051): toggle a
 # committed user in/out of the install (enabled), cycle its shell into an
 # install-scoped override (dropped when it lands on the committed shell — strict
-# delta), or remove a session-created user. Shell/remove write the userforms file;
+# delta), or remove a session-created user. Shell/remove write the userforms
+# file;
 # enable/disable writes the Config State users list.
 _ctl_enter_useredit() {
   local line="$1" nav cat un cur next
-  nav="$(_ctl_nav)"; cat="$(nav_get "$nav" category)"; un="$(nav_get "$nav" user)"
+  nav="$(_ctl_nav)"
+  cat="$(nav_get "$nav" category)"; un="$(nav_get "$nav" user)"
   case "$line" in
   "← Back")
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
   "enabled:"*)
-    _ctl_write_state "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" "$un")"
+    _ctl_write_state \
+      "$(_ctl_toggle_users "$(_ctl_state)" "$(_ctl_baseline)" "$un")"
     echo refresh; return ;;
   "sudo:"*)
     [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] || { echo refresh; return; }
     local _cs _ns _com
-    _cs="$(jq -r 'if .sudo then true else false end' <<<"$(_ctl_user_effective "$un")")"
+    _cs="$(jq -r 'if .sudo then true else false end' \
+      <<<"$(_ctl_user_effective "$un")")"
     _ns="$([[ "$_cs" == "true" ]] && echo false || echo true)"
-    _com="$(jq -c 'if .sudo then true else false end' <<<"$(_ctl_user_committed "$un")")"
+    _com="$(jq -c 'if .sudo then true else false end' \
+      <<<"$(_ctl_user_committed "$un")")"
     _ctl_userform_set_strict "$un" sudo "$_ns" "$_com"
     echo refresh; return ;;
   "groups:"*)
@@ -2449,7 +2544,8 @@ _ctl_enter_useredit() {
     # ad-hoc user and lands in its editor.
     _ctl_write_nav "$(nav_to_clone "$cat" "$un")"; echo render; return ;;
   "✗ remove user")
-    # Session-created user: drop it from the install list and its held-aside form,
+    # Session-created user: drop it from the install list and its held-aside
+    # form,
     # then return to the Users list.
     _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
       "$(jq -c --arg u "$un" '(.users // []) - [$u]' \
@@ -2497,7 +2593,8 @@ _ctl_enter_userfield() {
 # _ctl_proceed_directive — the in-menu Proceed action (ADR 0055). Proceed is
 # NEVER gated on a secret: root, every user, and the encryption passphrase
 # default to 12345 (filled by the manifest builder), so install always runs. The
-# always-on WILL ERASE / typed-INSTALL consent (back-end) remains the real guard.
+# always-on WILL ERASE / typed-INSTALL consent (back-end) remains the real
+# guard.
 # Any unset secret is surfaced as `default 12345` on the Users screen, not here.
 _ctl_proceed_directive() {
   local state; state="$(_ctl_state)"
@@ -2779,7 +2876,8 @@ _ctl_enter_category() {
   # A Cycle Field (bare bool) flips in place and stays on the category screen —
   # no values submenu (ADR 0075). Read the EFFECTIVE value (a default-true bool
   # with no override must read true), flip it through the strict-delta apply so
-  # landing back on the default clears the override; a Manual-Partitioning-locked
+  # landing back on the default clears the override; a
+  # Manual-Partitioning-locked
   # field is a silent no-op (the apply guard returns the state unchanged).
   if _ctl_is_cycle_field "$path"; then
     local _cur _next _new
@@ -2809,9 +2907,11 @@ _ctl_enter_values() {
   fi
   if [[ "$(_ctl_field_kind "$path")" == "toggle" ]]; then
     # strip the "[x] "/"[ ] " mark, flip membership, and STAY on the screen so
-    # the operator can toggle several. `refresh` (reload-sync, query/header kept)
+    # the operator can toggle several. `refresh` (reload-sync, query/header
+    # kept)
     # re-marks the list in place without the flicker — and crucially without
-    # clearing a filter the operator typed on a long list (e.g. mirror countries).
+    # clearing a filter the operator typed on a long list (e.g. mirror
+    # countries).
     local _tval="${line:4}"   # strip the "[x] "/"[ ] " mark
     # Value-formattable toggles render options through the formatter, so map the
     # displayed option back to its stored (lower-case) value before flipping.
@@ -2863,7 +2963,8 @@ _ctl_enter_values() {
         "$(nav_to_text "$(nav_get "$nav" category)" __newuser__ "new user")"
       echo render; return
     fi
-    # A user row opens its User Editor (ADR 0051): enable/disable + shell (and the
+    # A user row opens its User Editor (ADR 0051): enable/disable + shell (and
+    # the
     # richer fields in slice 03) live there, not on the list. The row is
     # "name — shell · pw …" (enabled) or "name — disabled", so the name is the
     # text before the " — " separator.
@@ -2878,9 +2979,11 @@ _ctl_enter_values() {
     case "$path" in
     __language__ | __encoding__)
       _ctl_write_state "$(_ctl_normalise_default \
-        "$(_ctl_apply_locale_part "$(_ctl_state)" "$path" "$line")" system.locale)" ;;
+        "$(_ctl_apply_locale_part "$(_ctl_state)" "$path" "$line")" \
+        system.locale)" ;;
     system.console_font)
-      # Reject a font not installed on the medium (ADR 0076): an off-list value is
+      # Reject a font not installed on the medium (ADR 0076): an off-list value
+      # is
       # only ever a typo that breaks the console at boot. Stay on the screen.
       locale_list_console_fonts | grep -qxF "$line" || { echo noop; return; }
       _ctl_write_state "$(_ctl_normalise_default \
@@ -2893,8 +2996,10 @@ _ctl_enter_values() {
   fi
   if [[ "$path" == "__layout__" ]]; then
     if [[ "$line" == "data-pools" ]]; then
-      # "data-pools" is the door to the editor (the pools live under layout, not a
-      # separate row): seed one pool if there are none yet, then open the editor.
+      # "data-pools" is the door to the editor (the pools live under layout, not
+      # a
+      # separate row): seed one pool if there are none yet, then open the
+      # editor.
       [[ "$(jq '(.data_pools // []) | length' <<<"$(_ctl_state)")" == "0" ]] \
         && _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"
       _ctl_write_nav "$(nav_to_datapools "$(nav_get "$nav" category)")"
@@ -2943,7 +3048,8 @@ _ctl_enter_text() {
   # default (no key written). Either way return to that pool's editor.
   if [[ "$path" == "__poolmount__" ]]; then
     local idx; idx="$(nav_get "$nav" index)"
-    [[ -n "$query" ]] && _ctl_write_state "$(jq --argjson i "$idx" --arg m "$query" \
+    [[ -n "$query" ]] \
+      && _ctl_write_state "$(jq --argjson i "$idx" --arg m "$query" \
       '.data_pools[$i].mount = $m' <<<"$(_ctl_state)")"
     _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" data)"; echo render; return
   fi
@@ -2957,13 +3063,15 @@ _ctl_enter_text() {
                            echo render; return; }
     if _ctl_user_is_committed "$query" || jq -e --arg v "$query" \
         '(.users // []) | any(. == $v)' \
-        <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" >/dev/null; then
+        <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")" \
+        >/dev/null; then
       echo "notice ⚠ user '${query}' already exists — pick another name"; return
     fi
     _ctl_write_state "$(cfgstate_set "$(_ctl_state)" users \
       "$(jq -cn --arg v "$query" --argjson a \
         "$(jq -c '.users // []' \
-          <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")" '$a + [$v]')")"
+          <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")" \
+          '$a + [$v]')")"
     if [[ -n "${GUIDED_USERFORMS_FILE:-}" ]]; then
       guided_userform_set "$GUIDED_USERFORMS_FILE" "$query" shell \
         "$(jq -Rn --arg s "$(_ctl_default_user_shell)" '$s')"
@@ -3136,7 +3244,8 @@ _ctl_enter_datapools() {
     # a preset storage group (binding-only): parse its name, resolve its index.
     name="${line%% (storage):*}"
     idx="$(jq -r --arg n "$name" \
-      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' <<<"$(_ctl_state)")"
+      '[(.storage_groups // [])[] | .name] | (index($n) // -1)' \
+      <<<"$(_ctl_state)")"
     if [[ "$idx" =~ ^[0-9]+$ ]]; then
       _ctl_write_nav "$(nav_to_pooledit "$cat" "$idx" storage)"
       echo render; return
@@ -3179,8 +3288,10 @@ _ctl_enter_pooledit() {
       "$(jq -c --arg t "$_next" '.topology = $t' <<<"$p")")"
     echo refresh; return ;;
   "filesystem:"*)
-    # Cycle the group's filesystem through the built adapters, then normalise the
-    # group for its new filesystem (ext4/xfs → single-disk; a topology invalid for
+    # Cycle the group's filesystem through the built adapters, then normalise
+    # the
+    # group for its new filesystem (ext4/xfs → single-disk; a topology invalid
+    # for
     # the new fs resets to that fs's first) via _ctl_pool_normalise_fs. Only
     # data pools expose a filesystem row, so this stays index-scoped to data.
     local _cur _next
@@ -3279,7 +3390,8 @@ guided_ctl_back() {
 }
 
 # ── ^A / ^X context actions (ADR 0047 rich chrome) ───────────────────────────
-# _ctl_datapools_line_ref <line> — the "<kind> <index>" of the pool a highlighted
+# _ctl_datapools_line_ref <line> — the "<kind> <index>" of the pool a
+# highlighted
 # datapools list row addresses, or empty for a non-pool row (OS pool / + Add / ←
 # Back). Shared by ^X-on-list removal. Pure: reads state to resolve name→index.
 _ctl_datapools_line_ref() {
@@ -3302,7 +3414,8 @@ _ctl_datapools_line_ref() {
 # The add/create/remove affordances that legacy chrome puts in the list ride on
 # keybindings in rich mode. guided_ctl_action <add|add-storage|remove> [<line>]
 # runs the current screen's context action and returns a directive (like the
-# enter handlers), so ^A/^S/^X work identically to the legacy action rows. <line>
+# enter handlers), so ^A/^S/^X work identically to the legacy action rows.
+# <line>
 # is the highlighted row (used by ^X on the datapools list). A screen with no
 # matching action returns `noop`.
 guided_ctl_action() {
@@ -3315,7 +3428,8 @@ guided_ctl_action() {
       _ctl_write_state "$(_ctl_add_data_pool "$(_ctl_state)")"; echo refresh ;;
     values)
       case "$(nav_get "$nav" field)" in
-      sysctl) _ctl_write_nav "$(nav_to_text "$cat" sysctl sysctl)"; echo render ;;
+      sysctl)
+        _ctl_write_nav "$(nav_to_text "$cat" sysctl sysctl)"; echo render ;;
       users)  _ctl_write_nav "$(nav_to_text "$cat" __newuser__ "new user")"
               echo render ;;
       *)      echo noop ;;
@@ -3335,7 +3449,8 @@ guided_ctl_action() {
     # ^S — add a storage group (only meaningful on the datapools editor).
     case "$screen" in
     datapools)
-      _ctl_write_state "$(_ctl_add_storage_group "$(_ctl_state)")"; echo refresh ;;
+      _ctl_write_state "$(_ctl_add_storage_group "$(_ctl_state)")"
+      echo refresh ;;
     *) echo noop ;;
     esac ;;
   remove)
@@ -3352,7 +3467,8 @@ guided_ctl_action() {
       local ref k i; ref="$(_ctl_datapools_line_ref "$line")"
       [[ -n "$ref" ]] || { echo noop; return; }
       k="${ref%% *}"; i="${ref##* }"
-      _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"; echo refresh ;;
+      _ctl_write_state "$(_ctl_pool_del "$(_ctl_state)" "$k" "$i")"
+      echo refresh ;;
     *) echo noop ;;
     esac ;;
   *) echo noop ;;
@@ -3383,8 +3499,10 @@ _ctl_breadcrumb() {
   esac
 }
 
-# _ctl_footer_summary <nav> — the live one-line summary for the footer. On a pool
-# screen it describes THAT pool ("tank0 · mirror · 2 bound"); elsewhere it is the
+# _ctl_footer_summary <nav> — the live one-line summary for the footer. On a
+# pool
+# screen it describes THAT pool ("tank0 · mirror · 2 bound"); elsewhere it is
+# the
 # whole-layout label. Pure: reads state.
 _ctl_footer_summary() {
   local nav="$1" eff
@@ -3392,7 +3510,8 @@ _ctl_footer_summary() {
   pooledit | pooldisks)
     eff="$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")"
     jq -r --arg k "$(_ctl_pool_kind "$nav")" \
-      '. as $g | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
+      '. as $g
+       | "\($g.name // $g.pool_name // "pool") · \($g.topology // "?") · "
        + (if ($g.devices // null) != null
           then "\($g.devices | length) bound"
           else "\($g.disk_count // "?") disks" end)' \
@@ -3457,7 +3576,8 @@ _ctl_autocommit() {
 # pool a pooledit/pooldisks nav addresses (rendering "?" for the gone group), or
 # drop the layout back to single-disk while the multi-only datapools editor is
 # open (the OS pool row vanishes). Reset from inside the custom editor was the
-# reported case. When the current screen no longer fits the state, this backs the
+# reported case. When the current screen no longer fits the state, this backs
+# the
 # nav out to its category; any other nav is returned unchanged.
 _ctl_nav_reconcile() {
   local nav="$1" state="$2" screen kind i exists
@@ -3478,7 +3598,8 @@ _ctl_nav_reconcile() {
   case "$kind" in
   os)      exists="$(jq -r 'if .os_pool then 1 else 0 end' <<<"$state")" ;;
   storage) exists="$(jq -r --argjson i "$i" \
-             'if (.storage_groups[$i] // null) then 1 else 0 end' <<<"$state")" ;;
+             'if (.storage_groups[$i] // null) then 1 else 0 end' \
+             <<<"$state")" ;;
   *)       exists="$(jq -r --argjson i "$i" \
              'if (.data_pools[$i] // null) then 1 else 0 end' <<<"$state")" ;;
   esac
@@ -3490,7 +3611,8 @@ _ctl_nav_reconcile() {
 # ^Y redoes over the snapshot stack; ^R resets every override back to the seeded
 # launch state (itself undoable — ^Z brings it back, so no confirm is needed).
 # Each restores the Config State from the stack and re-renders in place; the nav
-# is reconciled so a pool editor left pointing at a now-deleted pool backs out to
+# is reconciled so a pool editor left pointing at a now-deleted pool backs out
+# to
 # its category instead of rendering "?" everywhere.
 guided_ctl_key() {
   local k="$1" hist state
@@ -3552,7 +3674,8 @@ _guided_directive_to_action() {
     profiles) _showpv=1 ;;               # the profile's header comment
     esac
     if ((_showpv)); then
-      pv="$(printf '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
+      pv="$(printf \
+      '+change-preview(bash %q preview {})+change-preview-window(right,45%%)' \
         "$entry")"
     else
       pv='+change-preview(echo)+change-preview-window(hidden)'
@@ -3565,10 +3688,14 @@ _guided_directive_to_action() {
       chrome="$(printf '+change-footer(%s)+change-list-label(%s)' \
         "$(_ctl_footer "$nav")" "$(_ctl_breadcrumb "$nav")")"
     fi
-    # Inline masking (ADR 0051): the password screen turns the change→mask bind on
-    # and disables query-cursor movement so the buffer diff can never desync; every
-    # other screen turns masking off and restores the cursor keys. rebind/unbind of
-    # an already-(un)bound key/event is harmless, so this is safe on all renders.
+    # Inline masking (ADR 0051): the password screen turns the change→mask bind
+    # on
+    # and disables query-cursor movement so the buffer diff can never desync;
+    # every
+    # other screen turns masking off and restores the cursor keys. rebind/unbind
+    # of
+    # an already-(un)bound key/event is harmless, so this is safe on all
+    # renders.
     local mask
     if [[ "$(nav_screen "$nav")" == "secret" ]]; then
       mask='+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)'
@@ -3583,7 +3710,8 @@ _guided_directive_to_action() {
     # reload shows, and keeps the query + header (no clear-query/change-*).
     # refresh-preview re-renders the live layout graph after a pool/disk edit;
     # a no-op where the preview pane is hidden. Rich chrome ALSO re-emits the
-    # footer so its live summary (e.g. "2 bound") tracks a bind/add without a full
+    # footer so its live summary (e.g. "2 bound") tracks a bind/add without a
+    # full
     # render — change-footer leaves the typed query untouched.
     local rfoot=''
     _ctl_rich_chrome && rfoot="$(printf '+change-footer(%s)' \
@@ -3595,8 +3723,8 @@ _guided_directive_to_action() {
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
                       "${d#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
   "edit-oneshot "*) printf \
-                      'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
-                      "$entry" "${d#edit-oneshot }" "$entry" ;;
+    'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
+    "$entry" "${d#edit-oneshot }" "$entry" ;;
   "secret-root")
     printf 'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;
@@ -3621,7 +3749,8 @@ _guided_directive_to_action() {
     # Re-render the (now entry-phase) masked screen with a warning header, query
     # cleared, masking + cursor-lock kept on. Distinct from `render` only in the
     # header text and the bell.
-    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(password> )+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)+bell' \
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(password> )'\
+'+rebind(change)+unbind(left)+unbind(right)+unbind(home)+unbind(end)+bell' \
       "$(_ctl_reload_cmd "$entry")" \
       '⚠ passwords did not match — type it again   ·   Esc cancels' ;;
   *)                printf 'ignore' ;;

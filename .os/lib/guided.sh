@@ -121,7 +121,8 @@ guided_multi() {
   local key="$1" prompt="$2"
   shift 2
   if ((_GUIDED_REPLAY)); then
-    # shellcheck disable=SC2086 # the answer is a whitespace-separated token list
+    # answer is a whitespace-separated token list
+    # shellcheck disable=SC2086
     printf '%s\n' ${_GUIDED_ANSWERS[$key]-}
     return
   fi
@@ -160,7 +161,8 @@ guided_pick_disk() {
 # ASSEMBLY
 # =============================================================================
 # In-flight session state for one guided run. Two layers (issue 01):
-#   _GUIDED_BASELINE — the seeded launch defaults, set once and held constant for
+#   _GUIDED_BASELINE — the seeded launch defaults, set once and held constant
+#   for
 #     the session. Not snapshotted (it never changes), not an "override".
 #   _GUIDED_STATE — the operator's sparse OVERRIDE map (empty at launch). Every
 #     edit writes here, so the ● flag / is_overridden reflect operator intent
@@ -289,7 +291,8 @@ _guided_author_skeleton() {
 }
 
 # _guided_inject_devices <kind> <index> <space-list> — set the group's devices[]
-# to the by-id list (word-split) and derive its disk_count, mirroring the in-menu
+# to the by-id list (word-split) and derive its disk_count, mirroring the
+# in-menu
 # bind (ADR 0047). kind is os_pool (singleton) | storage | data. Mutates
 # _GUIDED_STATE. Shared by the headless replay device-binding form.
 _guided_inject_devices() {
@@ -301,20 +304,24 @@ _guided_inject_devices() {
     '.os_pool.devices = $d | .os_pool.disk_count = ($d | length)' \
     <<<"$_GUIDED_STATE")" ;;
   storage) _GUIDED_STATE="$(jq -c --argjson i "$idx" --argjson d "$arr" \
-    '.storage_groups[$i].devices = $d | .storage_groups[$i].disk_count = ($d | length)' \
+    '.storage_groups[$i].devices = $d
+     | .storage_groups[$i].disk_count = ($d | length)' \
     <<<"$_GUIDED_STATE")" ;;
   data)    _GUIDED_STATE="$(jq -c --argjson i "$idx" --argjson d "$arr" \
-    '.data_pools[$i].devices = $d | .data_pools[$i].disk_count = ($d | length)' \
+    '.data_pools[$i].devices = $d
+     | .data_pools[$i].disk_count = ($d | length)' \
     <<<"$_GUIDED_STATE")" ;;
   esac
 }
 
 # _guided_edit_bound_devices — the headless-replay In-Menu Disk Binding form
-# (ADR 0047). In-menu binding is interactive-only; this lets a `--guided` answers
+# (ADR 0047). In-menu binding is interactive-only; this lets a `--guided`
+# answers
 # file inject each pool's bound disks so the bound assignment path (issue 04)
 # runs without a tty. Answer keys: os_pool_devices, storage_<N>_devices,
 # data_<N>_devices — each a whitespace-separated /dev/disk/by-id/* list. A group
-# with no key stays device-less (falls back to the counted flat pick). No-op when
+# with no key stays device-less (falls back to the counted flat pick). No-op
+# when
 # not replaying (the persistent menu binds disks itself).
 _guided_edit_bound_devices() {
   ((_GUIDED_REPLAY)) || return 0
@@ -323,7 +330,8 @@ _guided_edit_bound_devices() {
   local k
   for k in "${!_GUIDED_ANSWERS[@]}"; do
     if [[ "$k" =~ ^storage_([0-9]+)_devices$ ]]; then
-      _guided_inject_devices storage "${BASH_REMATCH[1]}" "${_GUIDED_ANSWERS[$k]}"
+      _guided_inject_devices storage "${BASH_REMATCH[1]}" \
+        "${_GUIDED_ANSWERS[$k]}"
     elif [[ "$k" =~ ^data_([0-9]+)_devices$ ]]; then
       _guided_inject_devices data "${BASH_REMATCH[1]}" "${_GUIDED_ANSWERS[$k]}"
     fi
@@ -331,7 +339,8 @@ _guided_edit_bound_devices() {
 }
 
 # guided_pick_disks <key> <n> — resolve <n> install disks (multi-disk layouts).
-# Replay: the scripted answer is a whitespace-separated device list. Interactive:
+# Replay: the scripted answer is a whitespace-separated device list.
+# Interactive:
 # an fzf multi-select over the picker candidates. Emits one device per line.
 guided_pick_disks() {
   local key="$1" n="$2" live
@@ -343,8 +352,8 @@ guided_pick_disks() {
   live="$(live_medium_disks)"
   local -a cands
   mapfile -t cands < <(picker_enum_disks "$live")
-  ((${#cands[@]} >= n)) || { error "guided: need $n disks, only ${#cands[@]} found"; \
-    return 1; }
+  ((${#cands[@]} >= n)) \
+    || { error "guided: need $n disks, only ${#cands[@]} found"; return 1; }
   # Readable labels (field 1) over the by-id paths (hidden field 2); emit the
   # picked paths, one per line.
   local p
@@ -387,8 +396,8 @@ _guided_edit_filesystem() {
       return 0
     fi
   done
-  printf "  Filesystem '%s' is reserved (ADR 0040); its adapter is not built.\n" \
-    "$token" >&2
+  printf "  Filesystem '%s' is reserved (ADR 0040); its adapter is not \
+built.\n" "$token" >&2
   return 1
 }
 
@@ -458,7 +467,8 @@ _guided_edit_scalar() {
 
 # _guided_edit_kernel — Kernel Selection: a multi-select over the flavour tokens
 # (first = Primary Kernel). All tokens are offered even on ZFS; the ZFS Module
-# Guard is the install-time backstop for a flavour archzfs can't build (ADR 0024).
+# Guard is the install-time backstop for a flavour archzfs can't build (ADR
+# 0024).
 _guided_edit_kernel() {
   local -a opts; mapfile -t opts < <(menu_enum_options options.kernel)
   local arr
@@ -524,7 +534,8 @@ _guided_edit_desktop() {
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" environment.desktop "$arr")"
 }
 
-# _guided_edit_gpu — Environment gpu: auto, or a multi-select of vendors. auto is
+# _guided_edit_gpu — Environment gpu: auto, or a multi-select of vendors. auto
+# is
 # mutually exclusive — choosing it clears explicit vendors and stores the scalar
 # "auto" (the accessor default shape); vendors store a JSON array (ADR: GPU
 # Resolution).
@@ -551,11 +562,13 @@ _guided_edit_mirror_countries() {
   local arr
   arr="$(_guided_multi_array mirror_countries "Mirror countries" \
     "${opts[@]}")" || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_countries "$arr")"
+  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" \
+    options.mirror_countries "$arr")"
 }
 
 # Optional Repositories (ADR 0072): a multi-select over multilib + the testing
-# repos (replaces the old multilib bool). Stored as a JSON array; unset keeps the
+# repos (replaces the old multilib bool). Stored as a JSON array; unset keeps
+# the
 # accessor's `multilib` default.
 _guided_edit_optional_repos() {
   local -a opts; mapfile -t opts < <(menu_enum_options options.optional_repos)
@@ -565,7 +578,8 @@ _guided_edit_optional_repos() {
   _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.optional_repos "$arr")"
 }
 
-# Custom mirror Server= URL, appended dedup (ADR 0072). rc 1 (no commit) on empty.
+# Custom mirror Server= URL, appended dedup (ADR 0072). rc 1 (no commit) on
+# empty.
 _guided_add_mirror_server() {
   local raw; raw="$(guided_prompt mirror_server "Custom mirror Server URL")"
   [[ -n "$raw" ]] || return 1
@@ -575,7 +589,8 @@ _guided_add_mirror_server() {
       'if any($a[]; . == $v) then $a else $a + [$v] end')")"
 }
 
-# Custom repository "name url [sign_check] [sign_option]" → object appended dedup
+# Custom repository "name url [sign_check] [sign_option]" → object appended
+# dedup
 # by name (ADR 0072). rc 1 on fewer than 2 tokens.
 _guided_add_custom_repository() {
   local raw; raw="$(guided_prompt custom_repository \
@@ -595,7 +610,8 @@ _guided_add_custom_repository() {
 # leaf under post_install.{security,backup}.*; the resolver maps the object to
 # the installed program list.
 _guided_edit_firewall() {
-  local -a opts; mapfile -t opts < <(menu_enum_options post_install.security.firewall)
+  local -a opts
+  mapfile -t opts < <(menu_enum_options post_install.security.firewall)
   local v; v="$(guided_select firewall "Firewall" "${opts[@]}")"
   case "$v" in
   firewalld | ufw | none) ;;
@@ -748,7 +764,8 @@ _guided_create_user() {
   [[ -n "$name" ]] || return 1
   shell="$(guided_select new_user_shell "Shell" /bin/bash /bin/zsh /bin/fish)"
   # Default sudo ON (→ wheel), unifying with the persistent-menu create + the
-  # materialize fallback (ADR 0051): the first option is the default under replay.
+  # materialize fallback (ADR 0051): the first option is the default under
+  # replay.
   sudo="$(guided_select new_user_sudo "Sudo (→ wheel)" true false)"
   local -a groups_a programs_a keys_a
   mapfile -t groups_a < <(_guided_collect_multi new_user_groups "Groups" \
@@ -788,7 +805,8 @@ _GUIDED_COMMITTED_AT_START=""
 # _guided_materialize_users [mode] — write each ad-hoc User Profile delta to
 # users/<name>/profile.jsonc so the back-end Runner can load it. At Proceed this
 # is a transient write to the live clone; Save (issue 08) commits the same file.
-# mode is "proceed" (default) or "save": under Save the install-scoped User Editor
+# mode is "proceed" (default) or "save": under Save the install-scoped User
+# Editor
 # deltas are NOT merged onto a committed profile (that would rewrite committed
 # source — ADR 0051); the caller warns about the dropped edits instead.
 _guided_materialize_users() {
@@ -799,7 +817,8 @@ _guided_materialize_users() {
     mkdir -p "$dir"
     printf '%s\n' "${_GUIDED_ADHOC_FORM[$name]}" > "${dir}/profile.jsonc"
   done
-  # Persistent-path created users carry only a name in the Config State; give any
+  # Persistent-path created users carry only a name in the Config State; give
+  # any
   # effective user lacking a committed profile a sensible default (bash + wheel
   # sudo). Committed/legacy-ad-hoc users already have one and are skipped.
   while IFS= read -r name; do
@@ -808,13 +827,16 @@ _guided_materialize_users() {
     [[ -f "${dir}/profile.jsonc" ]] && continue
     mkdir -p "$dir"
     guided_user_profile \
-      '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],"programs":["searxng"]}' \
+      '{"shell":"/bin/bash","sudo":true,"groups":["wheel"],
+        "programs":["searxng"]}' \
       > "${dir}/profile.jsonc"
   done < <(jq -r '(.users // [])[]' <<<"$(_guided_effective)")
 
   # Install-scoped User Editor deltas (ADR 0051): merge each held-aside per-user
-  # delta onto that user's profile ON THE CLONE — the committed source in the repo
-  # is only touched here because OS_DIR is the transient install clone at Proceed.
+  # delta onto that user's profile ON THE CLONE — the committed source in the
+  # repo
+  # is only touched here because OS_DIR is the transient install clone at
+  # Proceed.
   # A committed user's profile stays a delta over User Core (its existing delta
   # `*` the edit); an ad-hoc user's just-written profile gets the edit on top.
   _guided_apply_userforms "$mode"
@@ -822,7 +844,8 @@ _guided_materialize_users() {
 
 # _guided_apply_userforms [mode] — merge _GUIDED_USERFORMS_JSON deltas onto each
 # named user's profile.jsonc (the clone). No-op when empty (replay / no edits).
-# Reads the existing profile via _configs_parse (JSONC→JSON) so committed comments
+# Reads the existing profile via _configs_parse (JSONC→JSON) so committed
+# comments
 # are tolerated; writes plain JSON (comments are not needed on the clone). Under
 # mode "save" a user that was committed at the start of materialize is SKIPPED —
 # Save never rewrites committed source (ADR 0051).
@@ -844,7 +867,8 @@ _guided_apply_userforms() {
   done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
 
-# _guided_committed_userform_edits — the committed users carrying an install-only
+# _guided_committed_userform_edits — the committed users carrying an
+# install-only
 # User Editor delta (ADR 0051 Save-warn), one per line. "Committed" = has a repo
 # users/<name>/profile.jsonc; run BEFORE materialize (which writes ad-hoc
 # profiles), so an ad-hoc name has no file yet and is not reported. Pure: reads
@@ -858,13 +882,15 @@ _guided_committed_userform_edits() {
   done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
 
-# Credentials are captured in the menu (ticket 03) — the persistent-fzf front-end
+# Credentials are captured in the menu (ticket 03) — the persistent-fzf
+# front-end
 # writes GUIDED_SECRETS_FILE and guided_run_persistent loads it into the
 # held-aside vars via _guided_load_secrets_file. There is no post-menu prompt.
 
 # _guided_finalize_users — Proceed-time user side effects: materialize ad-hoc
 # profiles and, when the install flow set GUIDED_SECRETS_MANIFEST, write the
-# no-SOPS password manifest there for 03-install.sh to persist into install-state
+# no-SOPS password manifest there for 03-install.sh to persist into
+# install-state
 # (the file the chroot/Runner resolve via .guided_passwords.*). Passwords thus
 # reach the back-end without ever touching the Effective Config.
 _guided_finalize_users() {
@@ -882,7 +908,8 @@ _guided_set_root_password() {
   _GUIDED_ROOT_PW="$pw"
 }
 
-# _guided_secrets_manifest — the no-SOPS password manifest guided_write_passwords
+# _guided_secrets_manifest — the no-SOPS password manifest
+# guided_write_passwords
 # consumes: { root_password?, enc_passphrase?, users?: { <name>:{password} } }.
 # Built from the held-aside root + per-user passwords + encryption passphrase;
 # empty {} when nothing is set. The passphrase is read pre-chroot by
@@ -905,7 +932,8 @@ _guided_secrets_manifest() {
   local eff users enc
   eff="$(_guided_effective)"
   users="$(jq -c '.users // []' <<<"$eff")"
-  [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]] && enc=true || enc=false
+  [[ "$(cfgstate_get "$eff" options.encryption)" == "true" ]] \
+    && enc=true || enc=false
   guided_default_missing_secrets "$manifest" "$users" "$enc"
 }
 
@@ -968,7 +996,8 @@ guided_run_persistent() {
   GUIDED_RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-result.XXXXXX")"
   GUIDED_HIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-hist.XXXXXX.json")"
   # In-menu credential handoff (ticket 03): the masked prompt runs in an
-  # execute() subprocess and writes here; the parent loads it into the held-aside
+  # execute() subprocess and writes here; the parent loads it into the
+  # held-aside
   # vars below. Cleaned on RETURN with the others — never in the Config State.
   GUIDED_SECRETS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
   printf '{}\n' >"$GUIDED_SECRETS_FILE"
@@ -980,7 +1009,8 @@ guided_run_persistent() {
   # Install-scoped User Editor deltas (ADR 0051): the editor writes per-user
   # profile deltas here; loaded into _GUIDED_USERFORMS_JSON before this file is
   # reaped, then merged onto the clone at Proceed. Never the Config State.
-  GUIDED_USERFORMS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-userforms.XXXXXX.json")"
+  GUIDED_USERFORMS_FILE="$(mktemp \
+    "${TMPDIR:-/tmp}/guided-userforms.XXXXXX.json")"
   printf '{}\n' >"$GUIDED_USERFORMS_FILE"
   # Inline masked password entry (ADR 0051): the real characters typed on the
   # secret screen live in the buffer file; the first entry of a type-twice pair
@@ -1034,7 +1064,8 @@ guided_run_persistent() {
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
   # Rich chrome flags (fzf ≥ 0.62 only): a bottom footer + a rounded list border
   # for the breadcrumb. Passed only when supported so an older fzf never chokes
-  # on an unknown flag; the ^A/^X binds are harmless on either fzf (they just map
+  # on an unknown flag; the ^A/^X binds are harmless on either fzf (they just
+  # map
   # to context actions the controller already gates).
   local -a rich_flags=()
   if [[ "$GUIDED_RICH_CHROME" == "1" ]]; then
@@ -1044,16 +1075,19 @@ guided_run_persistent() {
   # Fixed navy/blue palette (ADR 0071) so the installer looks the same on any
   # box — not the operator's personal fzf theme (absent on the live ISO anyway).
   # Mirrors the design prototype: near-black bg, bright-blue selection bar, cyan
-  # accents, amber override marker. Truecolor; degrades to 256 where unsupported.
+  # accents, amber override marker. Truecolor; degrades to 256 where
+  # unsupported.
   local gc='bg:#0b0f14,bg+:#1f6feb,fg:#c7d0da,fg+:#ffffff,hl:#39d0d8'
   gc+=',hl+:#ffffff,border:#233240,label:#39d0d8,preview-bg:#0b0f14'
   gc+=',preview-fg:#c7d0da,prompt:#39d0d8,pointer:#ffffff,marker:#f0a020'
   gc+=',header:#5b6b7a,info:#5b6b7a,gutter:#0b0f14,spinner:#39d0d8'
   gc+=',query:#c7d0da'
-  # The preview pane is the always-on master-detail column (ADR 0071): it is wired
+  # The preview pane is the always-on master-detail column (ADR 0071): it is
+  # wired
   # to the entry's `preview` verb from the start and shown on the initial top
   # screen, so the pane is populated on first paint (not only after the first
-  # drill fires a render). Per-screen renders hide it where a screen owns no pane.
+  # drill fires a render). Per-screen renders hide it where a screen owns no
+  # pane.
   # The current row is marked by the triangle pointer in the main list (ADR
   # 0082), which replaced the top screen's parent-column preview.
   guided_ctl_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
@@ -1073,7 +1107,8 @@ guided_run_persistent() {
     --bind "down:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
     --bind "ctrl-n:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
     --bind "ctrl-j:execute-silent(printf down > $GUIDED_SKIP_FILE)+down" \
-    --bind "page-down:execute-silent(printf down > $GUIDED_SKIP_FILE)+page-down" \
+    --bind "page-down:execute-silent(printf down > $GUIDED_SKIP_FILE)+\
+page-down" \
     --bind "focus:transform(bash $entry skip {})" \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
@@ -1090,7 +1125,8 @@ guided_run_persistent() {
   # so the existing manifest path (_guided_secrets_manifest) is unchanged. The
   # Proceed gate guaranteed root + every enabled user is set before accept.
   _guided_load_secrets_file "$GUIDED_SECRETS_FILE"
-  # Hold the User Editor deltas aside before the tmpfiles are reaped on RETURN, so
+  # Hold the User Editor deltas aside before the tmpfiles are reaped on RETURN,
+  # so
   # Proceed's materialize (which runs after this function) can merge them.
   [[ -s "$GUIDED_USERFORMS_FILE" ]] \
     && _GUIDED_USERFORMS_JSON="$(<"$GUIDED_USERFORMS_FILE")"
@@ -1178,7 +1214,8 @@ _guided_resolve_assignment() {
     fi
     section "Disk layout" >&2
     skeleton_assignment_summary "$_GUIDED_STATE" "$assignment" >&2
-    local ok; ok="$(guided_prompt accept_layout "Type ACCEPT to use this layout")"
+    local ok
+    ok="$(guided_prompt accept_layout "Type ACCEPT to use this layout")"
     [[ "$ok" == "ACCEPT" ]] \
       || { error "guided: disk layout not accepted"; return 1; }
     printf '%s\n' "$assignment"
@@ -1227,7 +1264,8 @@ guided_build() {
     # non-zero return would abort the whole run — so errexit is suspended across
     # this best-effort sequence and restored after (the disk / assignment / emit
     # / consent steps below stay guarded). The caller's ERR trap is suspended
-    # too — `set -E` inherits it here, and it fires on each no-op edit's non-zero
+    # too — `set -E` inherits it here, and it fires on each no-op edit's
+    # non-zero
     # return even under set +e, spamming the log with bogus "aborted" lines.
     local _had_errexit=0; [[ $- == *e* ]] && _had_errexit=1
     local _err_trap; _err_trap="$(trap -p ERR)"
@@ -1271,14 +1309,16 @@ guided_build() {
     _guided_create_user
     _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
-    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] || _guided_edit_disk
+    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] \
+      || _guided_edit_disk
     ((_had_errexit)) && set -e
     eval "${_err_trap:-:}"
   else
     guided_run_persistent || { error "guided: cancelled"; return 1; }
   fi
 
-  # Terminal action (issue 08): Proceed (install now), Save (device-less profile),
+  # Terminal action (issue 08): Proceed (install now), Save (device-less
+  # profile),
   # or Export (device-baked config). Replay drives it via the `terminal` key;
   # interactively the menu loop set _GUIDED_ACTION. Save + Export return
   # _GUIDED_ACTION_DONE (64) so the caller does NOT run the back-end install.
@@ -1316,7 +1356,8 @@ guided_build() {
     # is dropped.
     # Save-warn (ADR 0051): a committed user's in-menu profile edits are
     # install-only — they are NOT written to the saved profile (users are
-    # names-only) nor back to the committed users/<name>/profile.jsonc. Name them
+    # names-only) nor back to the committed users/<name>/profile.jsonc. Name
+    # them
     # so the drop is never silent. Computed before materialize (which writes
     # ad-hoc profiles) so only genuinely-committed users are reported.
     local _edited
@@ -1326,7 +1367,8 @@ guided_build() {
     _guided_materialize_users save
     [[ -n "$_edited" ]] && warn "guided: install-only edits NOT saved for:" \
       "${_edited} — edit users/<name>/profile.jsonc to persist them." >&2
-    info "Saved hosts/${name}/profile.jsonc — install via --profile ${name}." >&2
+    info "Saved hosts/${name}/profile.jsonc — install via \
+--profile ${name}." >&2
     return "$_GUIDED_ACTION_DONE"
   fi
 
@@ -1353,8 +1395,10 @@ guided_build() {
 
   # Credentials are captured IN the menu now (ticket 03): the persistent-fzf
   # front-end writes them to GUIDED_SECRETS_FILE and guided_run_persistent loads
-  # them into the held-aside vars, gated so Proceed can't fire while any is unset.
-  # Replay supplies them via keyed answers. So there is no post-menu prompt here.
+  # them into the held-aside vars, gated so Proceed can't fire while any is
+  # unset.
+  # Replay supplies them via keyed answers. So there is no post-menu prompt
+  # here.
 
   # Review + the single consent gate. Human-facing → stderr; stdout carries only
   # the Effective Config the caller captures.
