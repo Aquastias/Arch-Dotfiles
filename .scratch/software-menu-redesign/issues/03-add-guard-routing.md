@@ -23,17 +23,17 @@ route(name, slot):
 **Blocked by:** 01 — needs `menu_owned_programs` and the owner→control label to
 name the managing control.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Routing a Menu-Owned name (e.g. `grub`, `clamav`) leaves Config State
+- [x] Routing a Menu-Owned name (e.g. `grub`, `clamav`) leaves Config State
       unchanged and reports the owning control.
-- [ ] Routing a free-standing user program name (e.g. `docker`) appends it to
+- [x] Routing a free-standing user program name (e.g. `docker`) appends it to
       `users[0].programs` and reports the redirect.
-- [ ] Routing an ordinary name (e.g. `ripgrep`) appends it to
+- [x] Routing an ordinary name (e.g. `ripgrep`) appends it to
       `packages.<slot>.extra` for both `repo` and `aur` slots.
-- [ ] With no users declared, a user-program name falls back sanely rather than
+- [x] With no users declared, a user-program name falls back sanely rather than
       being silently dropped.
-- [ ] No path lets a Program name reach `packages.*` (config-load exclusivity
+- [x] No path lets a Program name reach `packages.*` (config-load exclusivity
       stays satisfiable).
-- [ ] Covered in `guided-packages.bats`, following the free-text add and
+- [x] Covered in `guided-packages.bats`, following the free-text add and
       exclude/provenance prior art.

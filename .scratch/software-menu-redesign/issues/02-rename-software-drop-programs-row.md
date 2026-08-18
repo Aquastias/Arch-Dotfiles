@@ -11,12 +11,12 @@ summary `repo, aur, derived`, and no Programs row appears.
 **Blocked by:** None — can start immediately. (Its rationale rests on ticket 01,
 but it lands green on its own.)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `menu_categories` carries a **Software** category (not Packages) with
+- [x] `menu_categories` carries a **Software** category (not Packages) with
       summary `repo, aur, derived`, in the same SOFTWARE bucket position.
-- [ ] `menu_rows` no longer emits a `host programs` field row.
-- [ ] The `repo` / `aur` / `derived` drill and provenance dots are unaffected.
-- [ ] Any category-name reference used for navigation is updated so drilling
+- [x] `menu_rows` no longer emits a `host programs` field row.
+- [x] The `repo` / `aur` / `derived` drill and provenance dots are unaffected.
+- [x] Any category-name reference used for navigation is updated so drilling
       Software still reaches its children.
-- [ ] Covered in `guided-menu.bats`, following the existing category/row tests.
+- [x] Covered in `guided-menu.bats`, following the existing category/row tests.
