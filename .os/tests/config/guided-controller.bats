@@ -315,8 +315,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "Enter edit / cycle"
 }
 
-@test "list(category Software): empty list fields render as [] not blank" {
-  set_nav "$(nav_to_category Software)"
+@test "list(category Packages): empty list fields render as [] not blank" {
+  set_nav "$(nav_to_category Packages)"
   run guided_ctl_list
   echo "$output" | grep -q "Extra packages: \[\]"
   # Host programs row is gone (ADR 0086): every host program is Menu-Owned.
@@ -1972,7 +1972,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a plain name stays a repo package" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "htop"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
@@ -1980,7 +1980,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a Menu-Owned name is not added, just informed" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [ "$status" -eq 0 ]
   # cups is Menu-Owned (Services → printing): not promoted, not left a package.
@@ -1990,7 +1990,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a mixed entry keeps the Menu-Owned name out of state" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "htop cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
@@ -1999,7 +1999,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: routing reports where a Menu-Owned name went" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [[ "$output" == *"managed by"* ]]
   [[ "$output" == *"cups"* ]]

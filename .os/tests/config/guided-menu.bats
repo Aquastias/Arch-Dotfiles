@@ -288,12 +288,12 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.custom_repositories | jq -e '.value == "cool, neat"'
 }
 
-@test "menu_rows: Software carries the typed extra-packages row" {
+@test "menu_rows: Packages carries the typed extra-packages row" {
   state="$(cfgstate_set "$(cfgstate_new)" \
     packages.repo.extra '["htop","tmux"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row packages.repo.extra | jq -e '.section == "Software"'
+  echo "$output" | row packages.repo.extra | jq -e '.section == "Packages"'
   echo "$output" | row packages.repo.extra | jq -e '.value == "htop, tmux"'
 }
 
@@ -450,7 +450,7 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'length == 14'
   echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
     "Bootloader","Kernels","Environment","Mirrors & Repositories","Pacman",
-    "Software","Services","Security","Backup","Advanced"]'
+    "Packages","Services","Security","Backup","Advanced"]'
 }
 
 @test "menu_categories: each category carries its bucket" {
@@ -650,11 +650,11 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | row sysctl | jq -e '.overridden == true'
 }
 
-# post_install security/backup are their own categories; Software carries the
+# post_install security/backup are their own categories; Packages carries the
 # extra-packages row but no host programs row (ADR 0086 — every host program is
 # Menu-Owned, so the picker has no members).
-@test "menu_category_rows: Software carries extra packages, not host programs" {
-  run menu_category_rows Software "$(cfgstate_new)"
+@test "menu_category_rows: Packages carries extra packages, not host programs" {
+  run menu_category_rows Packages "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
   ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
