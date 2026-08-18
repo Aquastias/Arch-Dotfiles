@@ -9,7 +9,7 @@
 # subtract (_ctl_host_program_names / _ctl_user_program_names).
 #
 # Generalises the printing/bluetooth/power owned-sets (ADR 0079/0080) to every
-# control: the Bootloader enum owns `grub`, the Security & Backup toggles own the
+# control: the Bootloader owns `grub`, the Security & Backup toggles own the
 # post_install set, and secrets activation owns `sops`. Where a control already
 # ships an owned-set function it is reused; the two with none — the
 # bootloader-owned `grub` and the secrets-owned `sops` — are declared here.
@@ -43,7 +43,7 @@ bootloader_owned_programs() { printf '%s\n' grub; }
 # picker-chosen.
 secrets_owned_programs() { printf '%s\n' sops; }
 
-# menu_owned_programs — the union across every control, sorted-unique. The single
+# menu_owned_programs — the union of every control, sorted-unique. The single
 # set both guided program pickers subtract, so a new control-owned program is
 # filtered from one place.
 menu_owned_programs() {
@@ -54,4 +54,24 @@ menu_owned_programs() {
     bootloader_owned_programs
     secrets_owned_programs
   } | sort -u
+}
+
+# menu_owned_control <name> — the human label of the control owning <name>, so
+# the `＋Add` guard can say where a Menu-Owned name is set instead of silently
+# reclassifying it (ADR 0086). Display-only; falls back to "its control".
+menu_owned_control() {
+  case "$1" in
+  grub)                          printf 'Bootloader' ;;
+  cups)                          printf 'Services → printing' ;;
+  bluetooth)                     printf 'Services → bluetooth' ;;
+  power-profiles-daemon | tuned) printf 'Services → power' ;;
+  firewalld | ufw)               printf 'Security → firewall' ;;
+  clamav)                        printf 'Security → antivirus' ;;
+  rkhunter)                      printf 'Security → rootkit' ;;
+  apparmor)                      printf 'Security → apparmor' ;;
+  borg)                          printf 'Backup → borg' ;;
+  zfs-auto-snapshot)             printf 'Backup → zfs snapshots' ;;
+  sops)                          printf 'secrets activation' ;;
+  *)                             printf 'its control' ;;
+  esac
 }
