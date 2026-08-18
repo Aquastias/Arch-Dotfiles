@@ -150,15 +150,29 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   echo "$output" | grep -q "htop"
 }
 
-@test "a free-text entry adds a package not in the union" {
+@test "repo pkgcat offers a browse action; aur offers free-text" {
   set_nav "$(nav_to_pkgcat Software repo)"
-  run guided_ctl_enter "+ Add package ▸ type a name not in the list"
-  [ "$output" = "render" ]
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "text" ]
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "packages.repo.extra" ]
+  run guided_ctl_list
+  echo "$output" | grep -q "browse all repo packages"
+  set_nav "$(nav_to_pkgcat Software aur)"
+  run guided_ctl_list
+  echo "$output" | grep -q "type a name not in the list"
+}
 
-  run guided_ctl_enter "" "ripgrep"
-  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["ripgrep"]' ]
+@test "repo ＋Add opens the fzf pacman browser (execute bind)" {
+  set_nav "$(nav_to_pkgcat Software repo)"
+  run guided_ctl_enter "+ Add package ▸ browse all repo packages"
+  [ "$output" = "pkgbrowse repo" ]
+  # nav stays on the category list — no text screen for repo
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
+}
+
+@test "the pkgbrowse directive maps to an fzf execute bind" {
+  run _guided_directive_to_action "pkgbrowse repo" "/tmp/entry.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *execute* ]]
+  [[ "$output" == *pkgbrowse* ]]
+  [[ "$output" == *repo* ]]
 }
 
 @test "the aur free-text entry writes into packages.aur" {

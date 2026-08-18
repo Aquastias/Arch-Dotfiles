@@ -1904,7 +1904,13 @@ guided_ctl_list() {
       _pn="$(_ctl_pkg_union "$_peff" "$_pslot" "$_pk" | grep -c .)"
       printf '%s ▸ %s\n' "$_pk" "$_pn"
     done < <(_ctl_pkg_categories "$_peff" "$_pslot")
-    _ctl_action_row "+ Add package ▸ type a name not in the list"
+    # repo ＋Add opens the fzf pacman browser (ADR 0086); aur has no browsable
+    # DB (not in the sync DB, paru unbootstrapped), so it stays free-text.
+    if [[ "$_pslot" == "aur" ]]; then
+      _ctl_action_row "+ Add package ▸ type a name not in the list"
+    else
+      _ctl_action_row "+ Add package ▸ browse all repo packages"
+    fi
     _ctl_action_row "← Back" ;;
   pkgs)
     # Package toggles with three-state provenance. An inherited entry renders
@@ -2349,9 +2355,16 @@ _ctl_enter_pkgcat() {
   case "$line" in
   "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
   "+ Add package"*)
-    _ctl_write_nav "$(nav_to_text "$cat" "packages.${slot}.extra" \
-      "${slot} package")"
-    echo render; return ;;
+    if [[ "$slot" == "aur" ]]; then
+      # AUR is not in the sync DB → free-text prompt (ADR 0086).
+      _ctl_write_nav "$(nav_to_text "$cat" "packages.aur.extra" "aur package")"
+      echo render
+    else
+      # repo → the fzf pacman browser: an execute() bind lists every repo
+      # package and routes the picks through the ＋Add guard. Nav stays put.
+      echo "pkgbrowse ${slot}"
+    fi
+    return ;;
   esac
   # A typed name that matched no row still adds — same free-text affordance.
   if [[ -z "$line" && -n "$query" ]]; then
@@ -3764,6 +3777,11 @@ _guided_directive_to_action() {
     # then reload so the Partitions row shows the new count (ADR 0073).
     printf 'execute(bash %q cfdisk)+clear-query+reload(%s)' \
       "$entry" "$(_ctl_reload_cmd "$entry")" ;;
+  "pkgbrowse "*)
+    # repo ＋Add (ADR 0086): suspend fzf, browse every repo package via a nested
+    # fzf on the tty, route the picks through the guard, then reload the list.
+    printf 'execute(bash %q pkgbrowse %q)+clear-query+reload(%s)' \
+      "$entry" "${d#pkgbrowse }" "$(_ctl_reload_cmd "$entry")" ;;
   "secret-mismatch")
     # Re-render the (now entry-phase) masked screen with a warning header, query
     # cleared, masking + cursor-lock kept on. Distinct from `render` only in the
