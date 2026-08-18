@@ -82,6 +82,9 @@ declare -F bluetooth_owned_programs >/dev/null 2>&1 \
 # shellcheck source=lib/config/power.sh
 declare -F power_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/power.sh"
+# shellcheck source=lib/config/menu-owned.sh
+declare -F menu_owned_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/menu-owned.sh"
 # shellcheck source=lib/config/profiles.sh
 declare -F profiles_list >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
@@ -592,18 +595,19 @@ _ctl_curated_persist_count() {
 # row needs kind user (else the reference silently no-ops or aborts). One
 # unfiltered list used to feed both.
 #
-# Programs the Printing toggle owns (cups) are filtered out (ADR 0079): they are
-# derived from options.printing.enabled, so the Printing service category is
-# their sole home — offering cups here too would be the double representation
-# the toggle exists to remove. Keyed on the toggle-owned sets, not literals —
-# each toggle-derived Host Program (cups, bluetooth — ADR 0079/0080) has its
-# category as its sole home, so all are filtered from this Packages picker.
+# [[Menu-Owned Program]]s are filtered from BOTH pickers (ADR 0086, generalising
+# ADR 0079/0080): a program whose install a dedicated control governs has that
+# control as its sole home, so offering it here too is the double representation
+# the rule removes. `menu_owned_programs` is the single union — grub (Bootloader),
+# the Security/Backup sets, sops (secrets), plus the service programs. Every
+# kind:host program is owned, so the host picker is normally empty (`|| :` keeps
+# the empty result a success, not grep's rc 1).
 _ctl_host_program_names() {
-  program_names_of_kind host \
-    | grep -vxF -f <(printing_owned_programs; bluetooth_owned_programs; \
-                     power_owned_programs)
+  program_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
 }
-_ctl_user_program_names()   { program_names_of_kind user; }
+_ctl_user_program_names() {
+  program_names_of_kind user | grep -vxF -f <(menu_owned_programs) || :
+}
 
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
 _ctl_toggle_options() {
