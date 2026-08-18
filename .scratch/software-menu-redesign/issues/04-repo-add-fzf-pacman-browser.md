@@ -12,14 +12,14 @@ feels like archinstall's selector, and every pick is routed visibly.
 
 **Blocked by:** 03 — the browser feeds picked names into the guard.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `repo → ＋Add` launches the fzf browser sourced from `pacman -Slq`, with a
+- [x] `repo → ＋Add` launches the fzf browser sourced from `pacman -Slq`, with a
       `pacman -Si {}` preview and multi-select.
-- [ ] Confirmed picks are each routed through the ticket-03 guard.
-- [ ] `aur → ＋Add` still uses the free-text prompt (unchanged).
-- [ ] An unsynced/empty pacman DB fails understandably rather than silently (the
+- [x] Confirmed picks are each routed through the ticket-03 guard.
+- [x] `aur → ＋Add` still uses the free-text prompt (unchanged).
+- [x] An unsynced/empty pacman DB fails understandably rather than silently (the
       `pacman -Sy` gotcha, upstream archinstall issue #3307).
-- [ ] The interactive browser is not unit-tested (tty + live pacman DB, out of
+- [x] The interactive browser is not unit-tested (tty + live pacman DB, out of
       scope per spec); verify manually. Any pure helper it factors out (e.g. the
       routing over a confirmed pick list) is covered by ticket 03's tests.

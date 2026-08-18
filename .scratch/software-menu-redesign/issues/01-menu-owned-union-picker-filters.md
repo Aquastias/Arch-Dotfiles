@@ -17,18 +17,18 @@ stored slots are untouched (see ADR 0086, [[Menu-Owned Program]]).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A pure `menu_owned_programs` function emits the full owned union: the
+- [x] A pure `menu_owned_programs` function emits the full owned union: the
       three existing service programs plus `grub`, `firewalld`, `ufw`, `clamav`,
       `rkhunter`, `apparmor`, `borg`, `zfs-auto-snapshot`, `sops`.
-- [ ] The new Security/Backup owned-sets enumerate exactly the names
+- [x] The new Security/Backup owned-sets enumerate exactly the names
       `post_install_programs` can derive (they must not drift from the
       derivation — cross-checked against `post-install.bats`).
-- [ ] `_ctl_host_program_names` resolves to the empty set; never lists `grub`.
-- [ ] `_ctl_user_program_names` excludes every Menu-Owned user program and still
+- [x] `_ctl_host_program_names` resolves to the empty set; never lists `grub`.
+- [x] `_ctl_user_program_names` excludes every Menu-Owned user program and still
       lists `docker`, `podman`, `virt-manager`, `searxng`, `teamspeak3`.
-- [ ] The existing service filtering (`cups`, `bluetooth`,
+- [x] The existing service filtering (`cups`, `bluetooth`,
       `power-profiles-daemon`, `tuned`) still holds via the unified set.
-- [ ] Covered in `guided-controller.bats`, following the prior-art
+- [x] Covered in `guided-controller.bats`, following the prior-art
       "picker omits the toggle-owned cups, keeps the rest" test.
