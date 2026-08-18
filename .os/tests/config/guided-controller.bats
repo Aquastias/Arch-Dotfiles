@@ -315,11 +315,12 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "Enter edit / cycle"
 }
 
-@test "list(category Packages): empty list fields render as [] not blank" {
-  set_nav "$(nav_to_category Packages)"
+@test "list(category Software): empty list fields render as [] not blank" {
+  set_nav "$(nav_to_category Software)"
   run guided_ctl_list
   echo "$output" | grep -q "Extra packages: \[\]"
-  echo "$output" | grep -q "Host programs: \[\]"
+  # Host programs row is gone (ADR 0086): every host program is Menu-Owned.
+  ! echo "$output" | grep -qi "Host programs:"
 }
 
 @test "list(category): an empty VALUE keeps its column (no dot-shift)" {
@@ -1971,7 +1972,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a plain name stays a repo package" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "htop"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
@@ -1979,7 +1980,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a system Program name routes to host_programs" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.host_programs' "$GUIDED_STATE_FILE")" = '["cups"]' ]
@@ -1989,7 +1990,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: a mixed entry splits by kind" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "htop cups"
   [ "$status" -eq 0 ]
   [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["htop"]' ]
@@ -1998,7 +1999,7 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "extra packages: routing reports where the name went" {
   mixed_programs_setup
-  set_nav "$(nav_to_text Packages packages.repo.extra "extra packages")"
+  set_nav "$(nav_to_text Software packages.repo.extra "extra packages")"
   run guided_ctl_enter "" "cups"
   [[ "$output" == *"routed to host programs"* ]]
   [[ "$output" == *"cups"* ]]
@@ -2021,20 +2022,6 @@ mixed_programs_setup() {
       > "$OS_DIR/programs/$cat/$name/config.jsonc"
     printf '#!/bin/sh\n' > "$OS_DIR/programs/$cat/$name/install.sh"
   done
-}
-
-@test "host_programs picker offers nothing once every host program is owned" {
-  mixed_programs_setup
-  set_nav "$(nav_to_values Packages host_programs "system programs")"
-  run guided_ctl_list
-  [ "$status" -eq 0 ]
-  # grub + cups are both Menu-Owned (ADR 0086): neither is offered here, and no
-  # free-standing host program is present, so the picker is empty.
-  ! echo "$output" | grep -q "grub"
-  ! echo "$output" | grep -q "cups"
-  ! echo "$output" | grep -q "docker"
-  ! echo "$output" | grep -q "borg"
-  [ "$(echo "$output" | grep -c '^\[')" -eq 0 ]
 }
 
 @test "User Editor programs picker offers exactly the system:false programs" {

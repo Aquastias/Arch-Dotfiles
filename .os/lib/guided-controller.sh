@@ -1807,7 +1807,7 @@ guided_ctl_list() {
     # payload into Config State where the operator could neither see nor
     # deselect it. `derived` is read-only — it reports what the Environment,
     # Security and Backup choices pull in.
-    if [[ "$cat" == "Packages" ]]; then
+    if [[ "$cat" == "Software" ]]; then
       local _eff_pkg; _eff_pkg="$(_ctl_effective "$state" "$base")"
       local _slot _n _sov
       for _slot in repo aur; do
