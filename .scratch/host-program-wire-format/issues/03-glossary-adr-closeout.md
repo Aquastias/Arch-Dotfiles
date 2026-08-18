@@ -11,7 +11,7 @@ Historical ADRs stay verbatim.
 **Blocked by:** 01, 02 — the glossary and ADR describe the completed wire-format
 migration, so both renames must have landed.
 
-**Status:** ready-for-agent
+**Status:** done (commit 6c77e64)
 
 - [ ] The Host Program glossary entry states the field is `host_programs` with
       the deferral resolved; no `system_programs` mention remains in the

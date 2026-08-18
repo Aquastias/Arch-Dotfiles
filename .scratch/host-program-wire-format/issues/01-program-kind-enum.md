@@ -12,7 +12,7 @@ new value with no behaviour change to what installs.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done (commit 6c77e64)
 
 - [ ] All 18 Program Configs carry `"kind": "host" | "user"`; no `"system"`
       flag remains in any program config.

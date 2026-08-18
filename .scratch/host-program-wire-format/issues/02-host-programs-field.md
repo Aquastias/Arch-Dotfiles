@@ -14,7 +14,7 @@ machine does not change.
 **Blocked by:** 01 — shares the `guided.sh` / `validation.sh` consumer files, so
 it lands after the kind-enum ticket to avoid colliding edits.
 
-**Status:** ready-for-agent
+**Status:** done (commit 6c77e64)
 
 - [ ] Hosts declare `host_programs` / `host_programs_exclude`; the closed schema
       accepts them and aborts on `system_programs` / `system_programs_exclude`

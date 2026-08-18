@@ -1,6 +1,6 @@
 # Migrate the Host Program wire format
 
-Status: ready-for-agent
+Status: done (implemented in commit 6c77e64; full test suite green)
 
 ## Problem Statement
 
