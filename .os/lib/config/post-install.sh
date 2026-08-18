@@ -53,6 +53,16 @@ post_install_programs() {
   ' <<<"${1:-{\}}"
 }
 
+# post_install_owned_programs — every Program the Security & Backup toggles can
+# ever own, state-independent (the picker-filter set, mirroring
+# power_owned_programs). Kept in lockstep with post_install_programs' name
+# universe: firewalld / ufw, clamav, rkhunter, apparmor, zfs-auto-snapshot, borg.
+# Filtered from the guided program pickers so a Security/Backup toggle is each
+# program's sole menu home (ADR 0086).
+post_install_owned_programs() {
+  printf '%s\n' firewalld ufw clamav rkhunter apparmor zfs-auto-snapshot borg
+}
+
 # post_install_validate <post_install_json> — accept the object shape, reject
 # the old bool form and malformed objects. Returns 0 when valid; otherwise
 # calls error() with the offending path and returns 1. Rules: security/backup,

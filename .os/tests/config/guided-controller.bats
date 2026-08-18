@@ -196,16 +196,28 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   ! echo "$output" | grep -qx true
 }
 
-# cups is filtered from the Packages system-programs picker (ADR 0079): the
-# Printing service toggle owns it, so offering it here too would be the double
-# representation the toggle removes. Other system programs stay offered.
-@test "system-programs picker omits the toggle-owned cups, keeps the rest" {
+# menu_owned_programs is the union every control owns (ADR 0086): the service
+# programs (ADR 0079/0080), grub (Bootloader), the Security/Backup sets, sops.
+@test "menu_owned_programs unions every control-owned program" {
+  run menu_owned_programs
+  [ "$status" -eq 0 ]
+  for p in cups bluetooth power-profiles-daemon tuned grub firewalld ufw \
+           clamav rkhunter apparmor borg zfs-auto-snapshot sops; do
+    grep -qx "$p" <<<"$output" || { echo "missing owned: $p"; false; }
+  done
+}
+
+# Every Menu-Owned Program is filtered from the host picker (ADR 0086,
+# generalising ADR 0079/0080). All six kind:host programs are owned, so the host
+# picker keeps only a genuinely free-standing host program.
+@test "host-programs picker omits every Menu-Owned program, keeps free ones" {
   mkdir -p "$OS_DIR/programs/office/cups" \
            "$OS_DIR/programs/system/bluetooth" \
            "$OS_DIR/programs/system/power-profiles-daemon" \
            "$OS_DIR/programs/system/tuned" \
            "$OS_DIR/programs/bootloader/grub" \
-           "$OS_DIR/programs/security/sops"
+           "$OS_DIR/programs/security/sops" \
+           "$OS_DIR/programs/system/myhostprog"
   printf '{"name":"cups","kind":"host"}\n' \
     > "$OS_DIR/programs/office/cups/config.jsonc"
   printf '{"name":"bluetooth","kind":"host"}\n' \
@@ -218,16 +230,57 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$OS_DIR/programs/bootloader/grub/config.jsonc"
   printf '{"name":"sops","kind":"host"}\n' \
     > "$OS_DIR/programs/security/sops/config.jsonc"
+  printf '{"name":"myhostprog","kind":"host"}\n' \
+    > "$OS_DIR/programs/system/myhostprog/config.jsonc"
   configs_build_registry
 
   run _ctl_host_program_names
   [ "$status" -eq 0 ]
-  ! grep -qx cups <<<"$output"        # printing-owned, filtered out
-  ! grep -qx bluetooth <<<"$output"   # bluetooth-owned, filtered out (ADR 0080)
-  ! grep -qx power-profiles-daemon <<<"$output"   # power-owned (ADR 0080)
-  ! grep -qx tuned <<<"$output"                   # power-owned (ADR 0080)
-  grep -qx grub <<<"$output"          # other system programs stay
-  grep -qx sops <<<"$output"
+  for p in cups bluetooth power-profiles-daemon tuned grub sops; do
+    ! grep -qx "$p" <<<"$output"      # Menu-Owned, filtered out
+  done
+  grep -qx myhostprog <<<"$output"    # free-standing host program stays
+}
+
+# The User Editor's programs picker drops Menu-Owned user programs (clamav,
+# firewalld, borg, …) and keeps only free-standing ones (ADR 0086).
+@test "user-programs picker omits Menu-Owned user programs, keeps free ones" {
+  mkdir -p "$OS_DIR/programs/security/clamav" \
+           "$OS_DIR/programs/security/firewalld" \
+           "$OS_DIR/programs/backup/borg" \
+           "$OS_DIR/programs/virtualization/docker" \
+           "$OS_DIR/programs/communication/teamspeak3"
+  printf '{"name":"clamav","kind":"user"}\n' \
+    > "$OS_DIR/programs/security/clamav/config.jsonc"
+  printf '{"name":"firewalld","kind":"user"}\n' \
+    > "$OS_DIR/programs/security/firewalld/config.jsonc"
+  printf '{"name":"borg","kind":"user"}\n' \
+    > "$OS_DIR/programs/backup/borg/config.jsonc"
+  printf '{"name":"docker","kind":"user"}\n' \
+    > "$OS_DIR/programs/virtualization/docker/config.jsonc"
+  printf '{"name":"teamspeak3","kind":"user"}\n' \
+    > "$OS_DIR/programs/communication/teamspeak3/config.jsonc"
+  configs_build_registry
+
+  run _ctl_user_program_names
+  [ "$status" -eq 0 ]
+  ! grep -qx clamav <<<"$output"      # Security-owned
+  ! grep -qx firewalld <<<"$output"   # Security-owned
+  ! grep -qx borg <<<"$output"        # Backup-owned
+  grep -qx docker <<<"$output"        # free-standing user program stays
+  grep -qx teamspeak3 <<<"$output"
+}
+
+# Empty host picker (all host programs owned) is a clean success, not grep rc 1.
+@test "host-programs picker is empty and rc 0 when all host progs are owned" {
+  mkdir -p "$OS_DIR/programs/bootloader/grub"
+  printf '{"name":"grub","kind":"host"}\n' \
+    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+  configs_build_registry
+
+  run _ctl_host_program_names
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "enter(category): a bare bool flips in place (refresh, no drill)" {
@@ -1970,19 +2023,18 @@ mixed_programs_setup() {
   done
 }
 
-@test "host_programs picker offers the system:true programs, minus cups" {
+@test "host_programs picker offers nothing once every host program is owned" {
   mixed_programs_setup
   set_nav "$(nav_to_values Packages host_programs "system programs")"
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qx "\[ \] grub"
-  # cups is toggle-owned (ADR 0079): filtered from this picker, its sole home is
-  # the Printing service category.
+  # grub + cups are both Menu-Owned (ADR 0086): neither is offered here, and no
+  # free-standing host program is present, so the picker is empty.
+  ! echo "$output" | grep -q "grub"
   ! echo "$output" | grep -q "cups"
-  # the system:false programs must not be offered at all
   ! echo "$output" | grep -q "docker"
   ! echo "$output" | grep -q "borg"
-  [ "$(echo "$output" | grep -c '^\[')" -eq 1 ]
+  [ "$(echo "$output" | grep -c '^\[')" -eq 0 ]
 }
 
 @test "User Editor programs picker offers exactly the system:false programs" {
@@ -1995,12 +2047,13 @@ mixed_programs_setup() {
   set_nav "$(nav_to_userfield Users dave programs programs)"
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -qx "\[ \] borg"
   echo "$output" | grep -qx "\[ \] docker"
-  # the system:true programs must not be offered at all
+  # borg is Backup-owned (ADR 0086): filtered from the user picker too; only the
+  # free-standing docker is offered.
+  ! echo "$output" | grep -q "borg"
   ! echo "$output" | grep -q "cups"
   ! echo "$output" | grep -q "grub"
-  [ "$(echo "$output" | grep -c '^\[')" -eq 2 ]
+  [ "$(echo "$output" | grep -c '^\[')" -eq 1 ]
 }
 
 @test "back(userfield): returns to the user's editor" {
