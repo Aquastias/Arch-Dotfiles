@@ -464,6 +464,26 @@ Editor's `programs` picker only
 `kind: user` ones — one unfiltered list used to feed both, so the host side
 could build a config that failed validation at Proceed.
 
+### Menu-Owned Program
+A registry Program whose install is governed by a **dedicated menu control** —
+its control is the program's **sole home**, so it is never default-installed as
+a program and never listed in either Programs picker (host or User Editor).
+Generalizes the `*_owned_programs` filter that already delisted `cups` /
+`bluetooth` / `power-profiles-daemon` / `tuned` (ADR 0079/0080) into one
+`menu_owned_programs` union covering every control-owned program (ADR 0086):
+`grub` (Bootloader enum), `firewalld` / `ufw` / `clamav` / `rkhunter` /
+`apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
+and `sops` (secrets activation). Consequence: **every `kind: host` program is
+Menu-Owned**, so no free-standing Host Program exists and the Guided Installer's
+Software area lists no Programs at all — the only pickable Programs are the five
+free-standing User Programs (`docker`, `podman`, `virt-manager`, `searxng`,
+`teamspeak3`) in the [[User Editor]]. Delisting only; a deliberate free-text add
+is still allowed — the `＋ Add` guard informs (Menu-Owned → "managed by
+\<Control\>") or offers (free-standing user program → "add under Users") rather
+than silently reclassifying. Removes the duplicate representation (e.g. `clamav`
+appearing as a Program when Security already installs it) without changing any
+control's default — whether the program installs is still the control's call.
+
 ### Printing Service (`options.printing.enabled`)
 The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —
 is installed and its `cups.service` enabled. A single bool [[Cycle Field]]
