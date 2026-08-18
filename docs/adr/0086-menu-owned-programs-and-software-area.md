@@ -20,11 +20,14 @@ default-installed as a program, never listed in either Programs picker. This
 `ufw`, `clamav`, `rkhunter`, `apparmor`), the Backup set (`borg`,
 `zfs-auto-snapshot`),
 and `sops`. Because **every `kind: host` program is Menu-Owned**, no
-free-standing Host Program remains, so the Software area lists **no Programs at
-all**: the **Packages** category is renamed **Software** and drills only
-`repo` / `aur` / `derived`; the five free-standing User Programs (`docker`,
-`podman`, `virt-manager`, `searxng`, `teamspeak3`) stay in their one home, the
-[[User Editor]] under **Users**.
+free-standing Host Program remains, so the **Packages** category lists **no
+Programs at all**: its `host programs` row is dropped and it drills only
+`repo` / `aur` / `derived`. The category **keeps the name `Packages`** — once
+the Programs row is gone it is no longer a misnomer (it holds only packages), a
+`Software` name would merely echo the `SOFTWARE` bucket header it already sits
+under. The five free-standing User Programs (`docker`, `podman`, `virt-manager`,
+`searxng`, `teamspeak3`) stay in their one home, the [[User Editor]] under
+**Users**.
 
 The `＋Add` magic is replaced by an explicit **guard**. On `repo`, `＋Add` opens
 a package browser — `pacman -Slq | fzf --multi --preview 'pacman -Si {}'`, the
@@ -41,10 +44,10 @@ never changes whether it installs.
   that a control already owns has exactly one correct home; listing it twice is
   the duplication that reads as inconsistent, and produces an invalid config if
   added to the wrong slot.
-- **Software = host-declared only, user programs in Users** (chosen) over a
-  **symmetric Host/User Programs split in Software** — the guided menu's spine
+- **Packages = host-declared only, user programs in Users** (chosen) over a
+  **symmetric Host/User Programs split in Packages** — the guided menu's spine
   is already "Users category = per-user, everything else = host-declared"; a
-  second User-Programs editor in Software would recreate the two-homes drift
+  second User-Programs editor in Packages would recreate the two-homes drift
   this ADR removes. It also makes the empty Host side honest: nothing to show.
 - **`＋Add` browser via fzf + pacman** (chosen) over **reusing archinstall's own
   selector** or **free-text only**. archinstall 3.0 (PR #3196) loads the full
@@ -61,7 +64,7 @@ never changes whether it installs.
 
 ## Consequences
 
-- The `host_programs` picker is now always empty and the **Software** category
+- The `host_programs` picker is now always empty and the **Packages** category
   has no Programs child. A future free-standing `kind: host` program (not owned
   by any control) reintroduces the section — the filter, not a special case,
   decides.

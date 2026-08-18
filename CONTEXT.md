@@ -475,7 +475,9 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
 and `sops` (secrets activation). Consequence: **every `kind: host` program is
 Menu-Owned**, so no free-standing Host Program exists and the Guided Installer's
-Software area lists no Programs at all — the only pickable Programs are the five
+**Packages** category lists no Programs at all (its `host programs` row dropped;
+the name stays `Packages` — no longer a misnomer, and avoids echoing the
+`SOFTWARE` bucket) — the only pickable Programs are the five
 free-standing User Programs (`docker`, `podman`, `virt-manager`, `searxng`,
 `teamspeak3`) in the [[User Editor]]. Delisting only; a deliberate free-text add
 is still allowed — the `＋ Add` guard informs (Menu-Owned → "managed by

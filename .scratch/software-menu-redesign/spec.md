@@ -34,8 +34,10 @@ concept, without touching the stored schema.
   default-listed as a program, never shown in a Programs picker. `grub` is chosen
   under Bootloader, `clamav` under Security, and nowhere else.
 - Because **every `kind: host` program is Menu-Owned**, no free-standing Host
-  Program remains: rename the **Packages** category to **Software**, which drills
-  only `repo` / `aur` / `derived` — no Programs row. The five free-standing
+  Program remains: drop the Programs row from the **Packages** category, which
+  then drills only `repo` / `aur` / `derived`. The name stays `Packages` — with
+  Programs gone it is no longer a misnomer, and a `Software` name would echo the
+  `SOFTWARE` bucket header. The five free-standing
   [[User Program]]s (`docker`, `podman`, `virt-manager`, `searxng`, `teamspeak3`)
   keep their one home, the [[User Editor]] under **Users**.
 - Replace the `＋Add` magic with an explicit, visible guard. On `repo`, `＋Add`
@@ -60,11 +62,12 @@ concept, without touching the stored schema.
    consistent with the existing Services behaviour.
 4. As an operator, I want `sops` never listed as a pickable program, so that its
    secrets-activation remains its sole trigger.
-5. As an operator, I want the software category named **Software**, not
-   Packages, so that its name matches what it now contains.
-6. As an operator, I want the Software category to drill into exactly `repo`,
+5. As an operator, I want the packages category to keep the honest name
+   **Packages** (not echo the `SOFTWARE` bucket header), so that the label is
+   clear and non-repetitive now that it holds only packages.
+6. As an operator, I want the Packages category to drill into exactly `repo`,
    `aur`, and `derived`, so that there is no empty or misleading Programs row.
-7. As an operator, I want the Software category summary to read
+7. As an operator, I want the Packages category summary to read
    `repo, aur, derived`, so that the top-screen label reflects the new contents.
 8. As an operator, I want free-standing user programs (`docker`, `podman`,
    `virt-manager`, `searxng`, `teamspeak3`) to be pickable only under
@@ -105,7 +108,7 @@ concept, without touching the stored schema.
 22. As a maintainer, I want a future free-standing `kind: host` program to
     reintroduce the Host Programs section automatically, so that the empty state
     is a consequence of the filter, not a special case.
-23. As an operator installing off-target with `--debug`, I want the Software menu
+23. As an operator installing off-target with `--debug`, I want the Packages menu
     and previews to render without a live install, so that I can inspect the new
     layout on a daily driver.
 24. As an operator, I want the package browser to require a synced pacman DB, and
@@ -124,10 +127,11 @@ concept, without touching the stored schema.
 - **Both program pickers subtract the union.** `_ctl_host_program_names` and
   `_ctl_user_program_names` filter out `menu_owned_programs`. Since all six
   `kind: host` programs are owned, the host picker resolves empty.
-- **Menu model (`menu.sh`).** The `Packages` [[Configuration Category]] is
-  renamed **Software**; its summary becomes `repo, aur, derived`; the
-  `host programs` field row is removed. The `repo` / `aur` / `derived` drill and
-  the three-state provenance dots are unchanged.
+- **Menu model (`menu.sh`).** The `Packages` [[Configuration Category]] keeps
+  its name (the Programs row is dropped, so it is no longer a misnomer); its
+  summary becomes `repo, aur, derived`; the `host programs` field row is removed.
+  The `repo` / `aur` / `derived` drill and the three-state provenance dots are
+  unchanged.
 - **`＋Add` split by slot.** `repo → ＋Add` invokes the fzf package browser fed by
   `pacman -Slq`, previewing `pacman -Si {}`, multi-select. `aur → ＋Add` stays the
   current free-text prompt.
@@ -166,7 +170,7 @@ and a tty), matching how other interactive fzf entry surfaces are treated.
   toggle-owned cups, keeps the rest" test and `bluetooth.bats`'
   `*_owned_programs` tests.
 - **`guided-menu.bats` — menu model.** Assert `menu_categories` carries a
-  **Software** category with summary `repo, aur, derived`; assert `menu_rows` no
+  **Packages** category with summary `repo, aur, derived`; assert `menu_rows` no
   longer emits a `host programs` field row. Prior art: the category/row tests
   already in this file.
 - **`guided-packages.bats` — `＋Add` guard routing.** Assert routing a Menu-Owned
