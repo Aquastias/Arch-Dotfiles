@@ -67,7 +67,11 @@ _MENU_FIELDS=(
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
   "Environment|environment.gpu|gpu|auto"
-  "Packages|packages.repo.extra|extra packages|[]"
+  # Packages has NO field rows: its whole surface is the repo/aur/derived drill
+  # (ADR 0086). The old free-text "extra packages" row was a redundant third add
+  # path (repo ＋Add browses, aur ＋Add types; both write packages.<slot>.extra),
+  # so it is gone. The category ● is lit from the package override map instead
+  # (menu_categories), not a field row.
   "Security|post_install.security.firewall|firewall|firewalld"
   "Security|post_install.security.antivirus|antivirus|true"
   "Security|post_install.security.rootkit|rootkit|true"
@@ -186,11 +190,20 @@ _menu_categories_json() {
 menu_categories() {
   local rows; rows="$(menu_rows "$1" "${2:-{\}}")"
   # One jq: fold "any field in this category is overridden" per category row.
-  jq -n --argjson rows "$rows" --argjson cats "$(_menu_categories_json)" '
+  # Packages has no field rows (ADR 0086) — its edits are the repo/aur/exclude
+  # drill — so its ● is lit from any package override in the map instead.
+  jq -n --argjson rows "$rows" --argjson cats "$(_menu_categories_json)" \
+    --argjson ov "$1" '
+    def pkg_override($n):
+      $n == "Packages"
+      and (($ov.packages.repo // null) != null
+           or ($ov.packages.aur // null) != null
+           or ($ov.packages.exclude // null) != null);
     [ $cats[]
       | .name as $n
       | { name: $n, summary: .summary, bucket: .bucket,
-          overridden: ($rows | any(.[]; .section == $n and .overridden)) } ]'
+          overridden: (($rows | any(.[]; .section == $n and .overridden))
+                       or pkg_override($n)) } ]'
 }
 
 # menu_top_lines <override> [<baseline>] — the top screen's category block: the

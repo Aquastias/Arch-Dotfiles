@@ -288,13 +288,25 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.custom_repositories | jq -e '.value == "cool, neat"'
 }
 
-@test "menu_rows: Packages carries the typed extra-packages row" {
+@test "menu_rows: the extra-packages field row is gone (ADR 0086)" {
   state="$(cfgstate_set "$(cfgstate_new)" \
     packages.repo.extra '["htop","tmux"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row packages.repo.extra | jq -e '.section == "Packages"'
-  echo "$output" | row packages.repo.extra | jq -e '.value == "htop, tmux"'
+  ! echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
+}
+
+@test "menu_categories: a package edit lights the Packages ● (no field row)" {
+  # The Packages ● folds from the package override map, not a field row.
+  run menu_categories '{"packages":{"repo":{"extra":["ripgrep"]}}}'
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.name=="Packages") | .overridden == true'
+  run menu_categories '{"packages":{"exclude":["htop"]}}'      # an exclude too
+  echo "$output" | jq -e '.[] | select(.name=="Packages") | .overridden == true'
+  run menu_categories '{"packages":{"aur":{"misc":["yay"]}}}'  # aur too
+  echo "$output" | jq -e '.[] | select(.name=="Packages") | .overridden == true'
+  run menu_categories '{}'                                     # clean → no ●
+  echo "$output" | jq -e '.[] | select(.name=="Packages") | .overridden == false'
 }
 
 @test "menu_rows: no host programs row (Menu-Owned); post_install split out" {
@@ -653,11 +665,14 @@ cat_at() { jq -e ".[$1]"; }
 # post_install security/backup are their own categories; Packages carries the
 # extra-packages row but no host programs row (ADR 0086 — every host program is
 # Menu-Owned, so the picker has no members).
-@test "menu_category_rows: Packages carries extra packages, not host programs" {
+@test "menu_category_rows: Packages has no field rows (drill-only)" {
   run menu_category_rows Packages "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
+  # Neither extra packages nor host programs — Packages is a pure
+  # repo/aur/derived drill now (ADR 0086).
+  ! echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
   ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
+  echo "$output" | jq -e 'length == 0'
 }
 
 @test "menu_category_rows: Security + Backup carry the structured tool rows" {

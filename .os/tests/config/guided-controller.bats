@@ -315,11 +315,14 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   echo "$output" | grep -q "Enter edit / cycle"
 }
 
-@test "list(category Packages): empty list fields render as [] not blank" {
+@test "list(category Packages): drills repo/aur/derived, no field rows" {
   set_nav "$(nav_to_category Packages)"
   run guided_ctl_list
-  echo "$output" | grep -q "Extra packages: \[\]"
-  # Host programs row is gone (ADR 0086): every host program is Menu-Owned.
+  echo "$output" | grep -qE '^repo ▸'
+  echo "$output" | grep -qE '^aur ▸'
+  echo "$output" | grep -qE '^derived ▸'
+  # Both former field rows are gone (ADR 0086): Packages is a pure drill now.
+  ! echo "$output" | grep -qi "Extra packages:"
   ! echo "$output" | grep -qi "Host programs:"
 }
 
