@@ -95,6 +95,33 @@ cfdisk)
     printf '%s\n' "$_mnew" > "$GUIDED_STATE_FILE"
   fi
   ;;
+pkgbrowse)
+  # repo ＋Add (ADR 0086): the archinstall-style package browser, done in fzf.
+  # Runs under fzf execute() (has a tty). Lists every repo package (pacman -Slq)
+  # with a `pacman -Si` preview + multi-select, then routes each pick via the
+  # ＋Add guard (_ctl_route_package_entry). Needs a synced pacman DB — an empty
+  # list means `pacman -Sy` was never run (upstream archinstall issue #3307).
+  # UNVERIFIED by bats (tty + live pacman DB); the routing it calls is tested.
+  _pslot="${2:-repo}"
+  if ! command -v pacman >/dev/null 2>&1; then
+    printf 'pacman is not available — cannot browse packages.\n' >&2
+    sleep 2 || true; exit 0
+  fi
+  _plist="$(pacman -Slq 2>/dev/null)"
+  if [[ -z "$_plist" ]]; then
+    printf 'No repo packages listed — run `pacman -Sy` first, then retry.\n' >&2
+    sleep 2 || true; exit 0
+  fi
+  _picks="$(printf '%s\n' "$_plist" | fzf --multi --reverse \
+    --prompt="${_pslot} package (TAB to mark)> " \
+    --preview 'pacman -Si {} 2>/dev/null' --preview-window=right,60% \
+    | tr '\n' ' ')"
+  [[ -n "${_picks// /}" ]] || exit 0
+  _pcur="$(cat "$GUIDED_STATE_FILE")"
+  if _pnew="$(_ctl_route_package_entry "$_pcur" "$_picks" "$_pslot")"; then
+    printf '%s\n' "$_pnew" > "$GUIDED_STATE_FILE"
+  fi
+  ;;
 secret)
   # In-menu credential capture (ticket 03): a masked, confirmed prompt on the
   # tty, written to the handoff file. Runs under fzf execute() (has a tty).
