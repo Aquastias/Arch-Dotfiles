@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>PROTOTYPE (TUI) — Guided Installer software options</title>
+<style>
+  :root{
+    --bg:#0b0e14; --fg:#c8d3e0; --dim:#5f6d80; --hdr:#7c8aa0;
+    --ptr:#57d38c; --sel:#16202c; --dot:#f2c14e; --cyan:#5cc8ff;
+    --box:#2a3543; --ok:#57d38c; --warn:#f2c14e; --bad:#ff7a90;
+    --add:#c9a7ff;
+  }
+  html,body{margin:0;height:100%;background:#05070b;color:var(--fg);
+    font:14px/1.55 ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  .banner{background:#3a1d22;color:#f2c14e;padding:5px 12px;font-size:12px;
+    border-bottom:1px solid #6b2b34}
+  .screen{max-width:1040px;margin:14px auto;background:var(--bg);
+    border:1px solid var(--box);border-radius:8px;overflow:hidden;
+    box-shadow:0 10px 40px #0008}
+  .crumb{padding:7px 14px;border-bottom:1px solid var(--box);color:var(--cyan);
+    background:#0d1219}
+  .crumb .sep{color:var(--dim)}
+  .body{display:grid;grid-template-columns:1fr 380px;min-height:420px}
+  .list{padding:8px 0}
+  .prev{border-left:1px solid var(--box);background:#0a0f16;padding:12px 14px;
+    color:var(--fg)}
+  .prev h4{margin:0 0 8px;color:var(--dim);font-weight:400;font-size:12px;
+    letter-spacing:.1em;text-transform:uppercase}
+  .prev .kv{display:flex;justify-content:space-between;gap:14px;padding:1px 0}
+  .prev .kv .k{color:var(--dim)} .prev .kv .v{color:var(--fg)}
+  .prev .muted{color:var(--dim)} .prev pre{white-space:pre-wrap;margin:0}
+  .row{padding:2px 14px;white-space:pre;display:flex;align-items:center}
+  .row .ptr{width:2ch;color:var(--ptr)}
+  .row.sel{background:var(--sel)}
+  .row.sel .ptr::before{content:"\25b6"}
+  .row .txt{flex:1}
+  .row.header{color:var(--hdr);font-size:11px;letter-spacing:.14em;
+    padding-top:8px;padding-left:16px}
+  .row.divider{color:var(--box);padding:4px 14px}
+  .row.spacer{height:6px;padding:0}
+  .row.action{color:var(--add)}
+  .row.back{color:var(--dim)}
+  .row.ro{color:var(--dim);font-style:italic}
+  .dot{color:var(--dot)}
+  .chk{color:var(--ok)} .unchk{color:var(--dim)}
+  .status{border-top:1px solid var(--box);padding:6px 14px;min-height:20px;
+    background:#0d1219;font-size:12px}
+  .status.warn{color:var(--warn)} .status.ok{color:var(--ok)}
+  .status.info{color:var(--cyan)}
+  .keys{padding:6px 14px;color:var(--dim);font-size:11px;border-top:1px solid var(--box)}
+  .keys b{color:var(--fg)}
+  kbd{background:#111826;border:1px solid var(--box);border-radius:4px;
+    padding:0 5px;color:var(--fg)}
+</style>
+</head>
+<body>
+<div class="banner">⚠ PROTOTYPE (TUI mock) — the redesigned Software area in fzf
+  chrome. Keyboard-driven; not wired to the real installer.</div>
+
+<div class="screen">
+  <div class="crumb" id="crumb"></div>
+  <div class="body">
+    <div class="list" id="list" tabindex="0"></div>
+    <div class="prev" id="prev"></div>
+  </div>
+  <div class="status" id="status">Ready.</div>
+  <div class="keys">
+    <b>↑↓</b> move · <b>Enter</b> select/drill · <b>Esc</b> back ·
+    <b>Tab</b> toggle · <b>a</b> ＋Add (repo) · <b>A</b> ＋Add (aur) ·
+    click a row too
+  </div>
+</div>
+
+<script>
+// ── Registry (verified kinds) + owning controls ─────────────────────────────
+const REG=[
+ ['grub','host',['Bootloader','bootloader=grub']],
+ ['cups','host',['Services','printing']],
+ ['bluetooth','host',['Services','bluetooth']],
+ ['power-profiles-daemon','host',['Services','power']],
+ ['tuned','host',['Services','power']],
+ ['sops','host',['Secrets','auto']],
+ ['firewalld','user',['Security','firewall']],
+ ['ufw','user',['Security','firewall']],
+ ['clamav','user',['Security','antivirus']],
+ ['rkhunter','user',['Security','rootkit']],
+ ['apparmor','user',['Security','apparmor']],
+ ['borg','user',['Backup','borg']],
+ ['zfs-auto-snapshot','user',['Backup','zfs snapshots']],
+ ['docker','user',null],['podman','user',null],['virt-manager','user',null],
+ ['searxng','user',null],['teamspeak3','user',null],
+].map(([name,kind,owner])=>({name,kind,owner}));
+const reg=n=>REG.find(p=>p.name===n);
+const kindOf=n=>(reg(n)||{}).kind||null;
+const ownerOf=n=>(reg(n)||{}).owner||null;
+const isOwned=n=>!!ownerOf(n);
+const ofKind=k=>REG.filter(p=>p.kind===k).map(p=>p.name);
+const OWNED=REG.filter(p=>p.owner).map(p=>p.name);
+const freeUser=()=>ofKind('user').filter(n=>!OWNED.includes(n));
+const freeHost=()=>ofKind('host').filter(n=>!OWNED.includes(n));
+
+// ── Simulated `pacman -Slq` universe (real thing = 15k; sample here) ─────────
+const SAMPLE=[
+ {name:'bat',repo:'extra',ver:'0.24.0',size:'5.2 MiB',desc:'Cat clone with syntax highlighting',deps:['libgit2','oniguruma']},
+ {name:'borg',repo:'extra',ver:'1.4.0',size:'12 MiB',desc:'Deduplicating backup program',deps:['python','openssl']},
+ {name:'btop',repo:'extra',ver:'1.4.0',size:'1.1 MiB',desc:'Resource monitor',deps:['gcc-libs']},
+ {name:'chromium',repo:'extra',ver:'127.0',size:'220 MiB',desc:'Web browser',deps:['gtk3','nss','libxss']},
+ {name:'clamav',repo:'extra',ver:'1.4.1',size:'8 MiB',desc:'Antivirus toolkit',deps:['libmilter','pcre2']},
+ {name:'docker',repo:'extra',ver:'27.1',size:'120 MiB',desc:'Container platform',deps:['containerd','runc']},
+ {name:'eza',repo:'extra',ver:'0.19',size:'2.0 MiB',desc:'Modern ls replacement',deps:['libgit2']},
+ {name:'fd',repo:'extra',ver:'10.1',size:'3.0 MiB',desc:'Simple fast find',deps:['gcc-libs']},
+ {name:'firefox',repo:'extra',ver:'129.0',size:'240 MiB',desc:'Mozilla web browser',deps:['gtk3','nss']},
+ {name:'fzf',repo:'extra',ver:'0.54',size:'3.4 MiB',desc:'Command-line fuzzy finder',deps:['ncurses']},
+ {name:'gimp',repo:'extra',ver:'2.10',size:'90 MiB',desc:'GNU Image Manipulation Program',deps:['gtk2','babl','gegl']},
+ {name:'git',repo:'extra',ver:'2.46',size:'25 MiB',desc:'Distributed version control',deps:['curl','expat','perl']},
+ {name:'grub',repo:'core',ver:'2.12',size:'32 MiB',desc:'GNU GRUB bootloader',deps:['device-mapper','freetype2']},
+ {name:'htop',repo:'extra',ver:'3.3',size:'0.4 MiB',desc:'Interactive process viewer',deps:['ncurses']},
+ {name:'neovim',repo:'extra',ver:'0.10',size:'30 MiB',desc:'Hyperextensible Vim-based editor',deps:['libuv','luajit','tree-sitter']},
+ {name:'obs-studio',repo:'extra',ver:'30.2',size:'60 MiB',desc:'Streaming/recording',deps:['ffmpeg','qt6-base']},
+ {name:'podman',repo:'extra',ver:'5.2',size:'50 MiB',desc:'Rootless container engine',deps:['conmon','crun']},
+ {name:'ripgrep',repo:'extra',ver:'14.1',size:'5.5 MiB',desc:'Recursive regex search',deps:['gcc-libs','pcre2']},
+ {name:'rkhunter',repo:'extra',ver:'1.4.6',size:'0.9 MiB',desc:'Rootkit detection',deps:['bash']},
+ {name:'tmux',repo:'extra',ver:'3.4',size:'1.2 MiB',desc:'Terminal multiplexer',deps:['libevent','ncurses']},
+ {name:'vim',repo:'extra',ver:'9.1',size:'4.0 MiB',desc:'Vi Improved text editor',deps:['gpm','glibc']},
+ {name:'virt-manager',repo:'extra',ver:'4.1',size:'8 MiB',desc:'Virtual machine manager',deps:['libvirt','gtk3']},
+ {name:'vlc',repo:'extra',ver:'3.0.21',size:'55 MiB',desc:'Media player',deps:['qt5-base','ffmpeg']},
+ {name:'zsh',repo:'extra',ver:'5.9',size:'6.5 MiB',desc:'UNIX shell',deps:['pcre2','ncurses']},
+];
+function pkgInfo(p){return {title:p.repo+'/'+p.name+' '+p.ver,lines:[
+  'Repository   : '+p.repo,
+  'Description  : '+p.desc,
+  'Download Size: '+p.size,
+  'Depends On   : '+p.deps.join(' '),'',
+  (isOwned(p.name)?'⚠ Menu-Owned — its control installs it (pick = skipped)':
+   kindOf(p.name)==='user'?'⚠ user program — routes to Users on confirm':
+   '✓ plain package — adds to packages.<slot>.extra')]};}
+// browser session state (fzf-style: filter text + multi picks)
+const BR={filter:'',picks:new Set(),slot:'repo'};
+function togglePick(n){BR.picks.has(n)?BR.picks.delete(n):BR.picks.add(n);}
+function browserApply(name,slot){
+  if(isOwned(name)){const[c,f]=ownerOf(name);
+    return `🔒 ${name}: Menu-Owned (${c}${f==='auto'?'':' → '+f}) — skipped`;}
+  if(kindOf(name)==='host')return `🔒 ${name}: host program — skipped`;
+  if(kindOf(name)==='user'){if(!S.userProgs.includes(name))S.userProgs.push(name);
+    return `➡️ ${name} → Users`;}
+  (S.added[slot].extra=S.added[slot].extra||[]).push(name);
+  return `✓ ${name} → packages.${slot}.extra`;}
+function confirmBrowser(slot){
+  const msgs=[...BR.picks].map(n=>browserApply(n,slot));
+  status(msgs.join('  ·  ')||'nothing picked','info');BR.picks.clear();pop();}
+
+// ── State ────────────────────────────────────────────────────────────────────
+const CORE={repo:{base:['git','vim','stow'],cli:['ripgrep','fd','jq']},
+            aur:{shell:['zsh-theme']}};
+const S={
+  boot:'systemd-boot',
+  sec:{firewall:'firewalld',antivirus:true,rootkit:true,apparmor:true},
+  bak:{snap:true,borg:true},
+  svc:{printing:true,bluetooth:true,power:'power-profiles-daemon'},
+  added:{repo:{},aur:{}},   // cat -> [names] added beyond core
+  excluded:[],              // core names excluded
+  userProgs:[],             // free-standing user programs added to aquastias
+};
+const DEF={boot:'systemd-boot',
+  sec:{firewall:'firewalld',antivirus:true,rootkit:true,apparmor:true},
+  bak:{snap:true,borg:true},
+  svc:{printing:true,bluetooth:true,power:'power-profiles-daemon'}};
+
+// package provenance: 'inherit' | 'added' | 'excluded'
+function pkgState(slot,cat,name){
+  if((S.added[slot][cat]||[]).includes(name)) return 'added';
+  if(S.excluded.includes(name)) return 'excluded';
+  return 'inherit';
+}
+function pkgCats(slot){
+  const set=new Set([...Object.keys(CORE[slot]||{}),
+                     ...Object.keys(S.added[slot]||{})]);
+  return [...set].sort();
+}
+function pkgNames(slot,cat){
+  const set=new Set([...(CORE[slot]?.[cat]||[]),...(S.added[slot]?.[cat]||[])]);
+  return [...set].sort();
+}
+function togglePkg(slot,cat,name){
+  const st=pkgState(slot,cat,name);
+  if(st==='inherit'){ S.excluded.push(name);
+    status(`excluded inherited "${name}" → packages.exclude`,'warn'); }
+  else if(st==='excluded'){ S.excluded=S.excluded.filter(x=>x!==name);
+    status(`re-included "${name}"`,'ok'); }
+  else { // added -> remove
+    S.added[slot][cat]=(S.added[slot][cat]||[]).filter(x=>x!==name);
+    status(`removed added "${name}"`,'ok'); }
+}
+
+// ── derived (mirrors post-install.sh + services) ─────────────────────────────
+function derived(){
+  const o=[];
+  if(S.boot==='grub')o.push(['grub','Bootloader → bootloader']);
+  if(S.sec.firewall==='firewalld')o.push(['firewalld','Security → firewall']);
+  if(S.sec.firewall==='ufw')o.push(['ufw','Security → firewall']);
+  if(S.sec.antivirus)o.push(['clamav','Security → antivirus']);
+  if(S.sec.rootkit)o.push(['rkhunter','Security → rootkit']);
+  if(S.sec.apparmor)o.push(['apparmor','Security → apparmor']);
+  if(S.bak.snap)o.push(['zfs-auto-snapshot','Backup → zfs snapshots']);
+  if(S.bak.borg)o.push(['borg','Backup → borg']);
+  if(S.svc.printing)o.push(['cups','Services → printing']);
+  if(S.svc.bluetooth)o.push(['bluetooth','Services → bluetooth']);
+  if(S.svc.power!=='none')o.push([S.svc.power,'Services → power']);
+  return o;
+}
+
+// ── ＋Add guard (Q6/Q11) ─────────────────────────────────────────────────────
+function addGuard(slot){
+  const name=(prompt(`＋ Add package to ${slot} — type a name:\n`+
+    `(try grub · clamav · docker · ripgrep)`)||'').trim();
+  if(!name)return;
+  if(isOwned(name)){const[c,f]=ownerOf(name);
+    status(`🔒 "${name}" is Menu-Owned — managed by ${c}`+
+      (f==='auto'?' (auto)':` → ${f}`)+`. Toggle it there; not added.`,'warn');
+    return;}
+  if(kindOf(name)==='host'){
+    status(`🔒 "${name}" is a host program — no free-standing host progs `+
+      `exist; not added.`,'warn');return;}
+  if(kindOf(name)==='user'){
+    if(confirm(`"${name}" is a user program, not a package.\n\n`+
+      `Add under Users → aquastias → programs?`)){
+      if(!S.userProgs.includes(name))S.userProgs.push(name);
+      status(`➡️ routed "${name}" → Users → aquastias (you confirmed)`,'ok');
+    } else status(`✋ "${name}" not added`,'info');
+    return;}
+  const cat='extra';
+  (S.added[slot][cat]=S.added[slot][cat]||[]).push(name);
+  status(`✓ added raw package "${name}" → packages.${slot}.extra`,'ok');
+}
+
+// ── override detection for top-screen dots ───────────────────────────────────
+const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function catDot(cat){
+  switch(cat){
+    case 'Software': return Object.values(S.added.repo).some(a=>a.length)
+      || Object.values(S.added.aur).some(a=>a.length) || S.excluded.length>0;
+    case 'Bootloader': return S.boot!==DEF.boot;
+    case 'Security': return !eq(S.sec,DEF.sec);
+    case 'Backup': return !eq(S.bak,DEF.bak);
+    case 'Services': return !eq(S.svc,DEF.svc);
+    case 'Users': return S.userProgs.length>0;
+    default: return false;
+  }
+}
+
+// ── Screens ──────────────────────────────────────────────────────────────────
+// row types: header|divider|spacer|item(+onEnter/onToggle/preview/dot/mark)
+const H=l=>({type:'header',label:l});
+const SP=()=>({type:'spacer'});
+const back=()=>({type:'item',cls:'back',label:'← Back',onEnter:pop});
+
+const BUCKETS=[
+  ['SYSTEM',['System','Locales','Users']],
+  ['STORAGE & BOOT',['Disks','Bootloader','Kernels']],
+  ['SOFTWARE',['Environment','Mirrors & Repositories','Pacman','Software']],
+  ['SERVICES',['Services']],
+  ['SECURITY & DATA',['Security','Backup']],
+  ['ADVANCED',['Advanced']],
+];
+const CAT_SUMMARY={Software:'repo, aur, derived', Bootloader:'bootloader',
+  Security:'firewall, antivirus, rootkit, apparmor', Backup:'snapshots, borg',
+  Services:'printing, bluetooth, power', Users:'primary user, extra accounts'};
+const DRILLABLE={Software:1,Bootloader:1,Security:1,Backup:1,Services:1,Users:1};
+
+const screens={
+  top(){
+    const rows=[];
+    BUCKETS.forEach(([b,cats],i)=>{
+      if(i)rows.push(SP());
+      rows.push(H('── '+b+' ──'));
+      cats.forEach(c=>{
+        const drill=DRILLABLE[c];
+        rows.push({type:'item',label:c,dot:catDot(c),
+          cls:drill?'':'ro',
+          summary:CAT_SUMMARY[c]||'',
+          onEnter:drill?()=>push(c):()=>status(`${c} — not part of this `+
+            `prototype`,'info'),
+          preview:()=>catPreview(c)});
+      });
+    });
+    rows.push(SP(),{type:'divider',label:'─────────────'},
+      {type:'item',cls:'action',label:'Proceed',onEnter:()=>
+        status('Proceed → assemble Effective Config (mock)','info')},
+      {type:'item',cls:'action',label:'Save Profile',onEnter:()=>
+        status('Save → hosts/<name>/profile.jsonc (mock)','info')});
+    return {crumb:['Guided Installer'],rows};
+  },
+
+  Software(){
+    const repoN=[].concat(...pkgCats('repo').map(c=>pkgNames('repo',c)))
+      .filter(n=>pkgState('repo',catOf('repo',n),n)!=='excluded').length;
+    const aurN=[].concat(...pkgCats('aur').map(c=>pkgNames('aur',c)))
+      .filter(n=>pkgState('aur',catOf('aur',n),n)!=='excluded').length;
+    return {crumb:['Guided Installer','Software'],rows:[
+      {type:'item',label:'repo packages',meta:repoN+' pkgs',dot:catDot('Software')
+        && hasDelta('repo'),onEnter:()=>push('slot',{slot:'repo'}),
+        preview:()=>({title:'repo packages',lines:[
+          'Official-repo names, pacstrapped.',
+          'Enter → categories → Tab toggles a package.',
+          'Provenance dots: inherited (no ●) / added (●) / excluded (●, off).']})},
+      {type:'item',label:'aur packages',meta:aurN+' pkgs',dot:hasDelta('aur'),
+        onEnter:()=>push('slot',{slot:'aur'}),
+        preview:()=>({title:'aur packages',lines:[
+          'AUR names, paru via the Primary User.','Enter → categories.']})},
+      {type:'item',cls:'ro',label:'derived',meta:derived().length+' (read-only)',
+        onEnter:()=>push('derived'),
+        preview:()=>({title:'derived (read-only)',lines:[
+          'Pulled in by your Bootloader / Security / Backup / Services choices.',
+          'Not editable here — its control is its home.']})},
+      SP(),
+      {type:'item',cls:'ro',label:
+        'ⓘ no “Programs” row — every host program is menu-owned',
+        onEnter:()=>status('Host programs live in their controls; user programs '+
+          'in Users','info'),
+        preview:()=>({title:'why no Programs?',lines:[
+          'All 6 kind:host programs are Menu-Owned (grub→Bootloader,',
+          'cups/bluetooth/power→Services, sops→secrets), so the host',
+          'picker is empty. Free-standing USER programs live in Users.']})},
+      back()]};
+  },
+
+  slot({slot}){
+    const rows=pkgCats(slot).map(c=>({type:'item',label:c,
+      meta:pkgNames(slot,c).length+' pkgs',onEnter:()=>push('cat',{slot,cat:c}),
+      preview:()=>({title:slot+' → '+c,lines:pkgNames(slot,c).map(n=>{
+        const st=pkgState(slot,c,n);
+        return (st==='excluded'?'[ ] ':'[x] ')+n+
+          (st==='inherit'?'   (core)':'   ●');})})}));
+    rows.push(SP(),
+      {type:'item',cls:'action',
+       label: slot==='repo'
+         ? '＋ Add package ▸ browse ALL repo packages (archinstall/fzf-style)'
+         : '＋ Add package ▸ type a name (AUR — free text)',
+       onEnter: slot==='repo'
+         ? ()=>{BR.filter='';BR.picks.clear();BR.slot=slot;push('pkgbrowser',{slot});}
+         : ()=>{addGuard(slot);},
+       preview:()=>({title:'＋ Add',lines: slot==='repo'
+         ? ['Opens a filterable list of every repo package',
+            '(pacman -Slq) with a pacman -Si preview pane —',
+            'the archinstall browser, done in fzf. Tab picks,',
+            'Enter/Confirm applies. Guard runs per pick:',
+            ' grub/clamav → informed · docker → Users · else → repo.extra']
+         : ['AUR is not in the sync DB, so this slot stays',
+            'free-text (paru bootstraps post-menu).']})},
+      back());
+    return {crumb:['Guided Installer','Software',slot],rows};
+  },
+
+  cat({slot,cat}){
+    const rows=pkgNames(slot,cat).map(n=>{
+      const st=pkgState(slot,cat,n);
+      return {type:'item',mark:st!=='excluded',label:n,
+        dot:st!=='inherit',
+        onToggle:()=>togglePkg(slot,cat,n),
+        onEnter:()=>togglePkg(slot,cat,n),
+        preview:()=>({title:n,lines:[
+          'state: '+st,
+          st==='inherit'?'inherited from Host Core (checked, no ●)':
+          st==='added'?'added by this session (checked, ●)':
+          'excluded → packages.exclude (unchecked, ●)',
+          '','Tab / Enter toggles.']})};
+    });
+    rows.push(back());
+    return {crumb:['Guided Installer','Software',slot,cat],rows};
+  },
+
+  derived(){
+    const d=derived();
+    const rows=d.map(([p,src])=>({type:'item',cls:'ro',label:p,meta:'← '+src,
+      onEnter:()=>status(`"${p}" comes from ${src} — change it there`,'info'),
+      preview:()=>({title:p,lines:['source: '+src,'',
+        'read-only: toggle its control to add/remove it.']})}));
+    if(!rows.length)rows.push({type:'item',cls:'ro',
+      label:'(nothing — every owning control is off)'});
+    rows.push(back());
+    return {crumb:['Guided Installer','Software','derived'],rows};
+  },
+
+  Bootloader(){
+    const opts=['systemd-boot','grub','efistub','limine','refind'];
+    return {crumb:['Guided Installer','Bootloader'],rows:[
+      ...opts.map(o=>({type:'item',mark:S.boot===o,label:o,
+        dot:o===S.boot&&o!==DEF.boot,
+        onEnter:()=>{S.boot=o;status('bootloader = '+o+
+          (o==='grub'?'  → derives the grub program':''),'ok');},
+        preview:()=>({title:'bootloader',lines:[
+          'This enum OWNS the grub program.',
+          'Pick grub → grub installs (see derived).',
+          'grub NEVER appears in a Programs picker.']})})),
+      back()]};
+  },
+
+  Security(){
+    return {crumb:['Guided Installer','Security'],rows:[
+      cycleEnum('firewall','sec','firewall',['firewalld','ufw','none'],
+        'owns firewalld / ufw'),
+      cycleBool('antivirus','sec','antivirus','owns clamav'),
+      cycleBool('rootkit','sec','rootkit','owns rkhunter'),
+      cycleBool('apparmor','sec','apparmor','owns apparmor'),
+      back()]};
+  },
+  Backup(){
+    return {crumb:['Guided Installer','Backup'],rows:[
+      cycleBool('zfs snapshots','bak','snap','owns zfs-auto-snapshot'),
+      cycleBool('borg','bak','borg','owns borg'),
+      back()]};
+  },
+  Services(){
+    return {crumb:['Guided Installer','Services'],rows:[
+      cycleBool('printing','svc','printing','owns cups'),
+      cycleBool('bluetooth','svc','bluetooth','owns bluetooth'),
+      cycleEnum('power','svc','power',
+        ['power-profiles-daemon','tuned','none'],'owns ppd / tuned'),
+      back()]};
+  },
+
+  Users(){
+    return {crumb:['Guided Installer','Users'],rows:[
+      {type:'item',label:'aquastias — /bin/zsh · pw',
+        meta:S.userProgs.length+' progs',onEnter:()=>push('userProgs'),
+        preview:()=>({title:'aquastias',lines:[
+          'Primary User. Enter → programs picker.']})},
+      back()]};
+  },
+  userProgs(){
+    const rows=freeUser().map(n=>({type:'item',mark:S.userProgs.includes(n),
+      label:n,dot:S.userProgs.includes(n),
+      onToggle:()=>toggleUserProg(n),onEnter:()=>toggleUserProg(n),
+      preview:()=>({title:n,lines:['kind: user (free-standing)',
+        'the only pickable Programs — menu-owned ones (clamav…) are filtered']})}));
+    rows.push(back());
+    return {crumb:['Guided Installer','Users','aquastias','programs'],rows};
+  },
+
+  // archinstall-style package browser (fzf: pacman -Slq | fzf --preview 'pacman -Si {}')
+  pkgbrowser({slot}){
+    const q=BR.filter.toLowerCase();
+    const list=SAMPLE.filter(p=>p.name.toLowerCase().includes(q));
+    const rows=[{type:'header',
+      label:'/ '+(BR.filter||'')+'▊    ('+list.length+'/'+SAMPLE.length+
+        ' repo pkgs · pacman -Slq · type to filter)'}];
+    list.forEach(p=>rows.push({type:'item',mark:BR.picks.has(p.name),
+      label:p.name,meta:p.repo,onToggle:()=>togglePick(p.name),
+      onEnter:()=>togglePick(p.name),preview:()=>pkgInfo(p)}));
+    if(!list.length)rows.push({type:'item',cls:'ro',label:'(no match)'});
+    rows.push(SP(),
+      {type:'item',cls:'action',label:'✓ Confirm '+BR.picks.size+' pick(s)',
+        onEnter:()=>confirmBrowser(slot),
+        preview:()=>({title:'confirm '+BR.picks.size+' pick(s)',
+          lines:[[...BR.picks].join('\n')||'(nothing picked — Tab to toggle)','',
+            'Each pick runs the ＋Add guard on Confirm.']})},
+      {type:'item',cls:'back',label:'esc Cancel',onEnter:()=>{BR.picks.clear();pop();}});
+    return {crumb:['Guided Installer','Software',slot,'＋ Add ▸ pacman browser'],
+      rows};
+  },
+};
+function toggleUserProg(n){
+  if(S.userProgs.includes(n)){S.userProgs=S.userProgs.filter(x=>x!==n);
+    status('removed user program '+n,'ok');}
+  else{S.userProgs.push(n);status('added user program '+n,'ok');}
+}
+function cycleBool(label,grp,key,note){
+  return {type:'item',mark:S[grp][key],label,dot:S[grp][key]!==DEF[grp][key],
+    onEnter:()=>{S[grp][key]=!S[grp][key];status(label+' = '+S[grp][key],'ok');},
+    onToggle:()=>{S[grp][key]=!S[grp][key];},
+    preview:()=>({title:label,lines:[note,'',
+      'Cycle field — Enter flips in place.','Owns a program; sole home here.']})};
+}
+function cycleEnum(label,grp,key,opts,note){
+  return {type:'item',label:label+': '+S[grp][key],
+    dot:S[grp][key]!==DEF[grp][key],
+    onEnter:()=>{const i=opts.indexOf(S[grp][key]);
+      S[grp][key]=opts[(i+1)%opts.length];status(label+' = '+S[grp][key],'ok');},
+    preview:()=>({title:label,lines:[note,'options: '+opts.join(' · '),
+      'Enter cycles.']})};
+}
+function catOf(slot,name){
+  return pkgCats(slot).find(c=>pkgNames(slot,c).includes(name))||'extra';
+}
+function hasDelta(slot){
+  return Object.values(S.added[slot]).some(a=>a.length)
+    || S.excluded.some(n=>Object.values(CORE[slot]||{}).some(a=>a.includes(n)));
+}
+
+// ── category preview (top screen) ────────────────────────────────────────────
+function catPreview(cat){
+  const lines=[];
+  const kv=(k,v)=>lines.push('  '+k.padEnd(14)+v);
+  switch(cat){
+    case 'Software': kv('repo','see drill'); kv('aur','see drill');
+      kv('derived',derived().length+' pkgs'); break;
+    case 'Bootloader': kv('bootloader',S.boot); break;
+    case 'Security': kv('firewall',S.sec.firewall);kv('antivirus',S.sec.antivirus);
+      kv('rootkit',S.sec.rootkit);kv('apparmor',S.sec.apparmor);break;
+    case 'Backup': kv('zfs snapshots',S.bak.snap);kv('borg',S.bak.borg);break;
+    case 'Services': kv('printing',S.svc.printing);kv('bluetooth',S.svc.bluetooth);
+      kv('power',S.svc.power);break;
+    case 'Users': kv('aquastias',S.userProgs.length+' progs');break;
+    default: lines.push('  (not in this prototype)');
+  }
+  return {title:cat+(CAT_SUMMARY[cat]?' — '+CAT_SUMMARY[cat]:''),lines};
+}
+
+// ── Nav + render ─────────────────────────────────────────────────────────────
+let nav=[{id:'top',param:null,idx:0}];
+function cur(){return nav[nav.length-1];}
+function build(){const c=cur();return screens[c.id](c.param);}
+function isItem(r){return r.type==='item';}
+function firstItem(rows){return rows.findIndex(isItem);}
+function push(id,param){nav.push({id,param,idx:0});
+  const {rows}=build();cur().idx=Math.max(0,firstItem(rows));render();}
+function pop(){if(nav.length>1)nav.pop();render();}
+function move(dir){const {rows}=build();let i=cur().idx;
+  do{i+=dir;}while(i>=0&&i<rows.length&&!isItem(rows[i]));
+  if(i>=0&&i<rows.length){cur().idx=i;render();}}
+function enter(){const {rows}=build();const r=rows[cur().idx];
+  if(r&&r.onEnter){r.onEnter();render();}}
+function toggle(){const {rows}=build();const r=rows[cur().idx];
+  if(r&&(r.onToggle||r.onEnter)){(r.onToggle||r.onEnter)();render();}}
+
+let _status={msg:'Ready.',cls:''};
+function status(msg,cls){_status={msg,cls:cls||''};}
+
+function render(){
+  const {crumb,rows}=build();
+  document.getElementById('crumb').innerHTML=
+    crumb.map((c,i)=>i? '<span class="sep"> › </span>'+c : c).join('');
+  const list=document.getElementById('list');list.innerHTML='';
+  rows.forEach((r,i)=>{
+    const d=document.createElement('div');
+    const seld=i===cur().idx&&isItem(r);
+    if(r.type==='header'){d.className='row header';d.textContent=r.label;}
+    else if(r.type==='spacer'){d.className='row spacer';}
+    else if(r.type==='divider'){d.className='row divider';d.textContent=r.label;}
+    else{
+      d.className='row '+(r.cls||'')+(seld?' sel':'');
+      const ptr=document.createElement('span');ptr.className='ptr';
+      const txt=document.createElement('span');txt.className='txt';
+      let left='';
+      if(typeof r.mark==='boolean')
+        left+= (r.mark?'[x] ':'[ ] ');
+      left+=r.label;
+      txt.innerHTML=esc(left)
+        + (r.meta? '  <span style="color:var(--dim)">'+esc(r.meta)+'</span>':'');
+      d.appendChild(ptr);d.appendChild(txt);
+      if(r.dot){const dot=document.createElement('span');dot.className='dot';
+        dot.textContent=' ●';d.appendChild(dot);}
+      if(typeof r.mark==='boolean'){
+        txt.querySelector('*'); // colorize checkbox
+        left; }
+      d.onclick=()=>{cur().idx=i;if(r.onEnter){r.onEnter();}render();};
+      d.oncontextmenu=e=>{e.preventDefault();cur().idx=i;
+        if(r.onToggle){r.onToggle();}render();};
+    }
+    list.appendChild(d);
+  });
+  // preview
+  const prev=document.getElementById('prev');
+  const r=rows[cur().idx];
+  let pv=r&&r.preview?r.preview():{title:'',lines:[]};
+  prev.innerHTML='<h4>'+esc(pv.title||'preview')+'</h4>'
+    +'<pre>'+pv.lines.map(esc).join('\n')+'</pre>';
+  // status
+  const st=document.getElementById('status');
+  st.className='status '+(_status.cls||'');st.textContent=_status.msg;
+}
+function esc(s){return String(s).replace(/[&<>]/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+document.addEventListener('keydown',e=>{
+  const k=e.key;
+  // In the package browser, printable keys edit the /filter (fzf-style).
+  if(cur().id==='pkgbrowser' && k!=='ArrowDown' && k!=='ArrowUp'
+     && k!=='Enter' && k!=='Escape' && k!=='Tab'){
+    if(k==='Backspace'){BR.filter=BR.filter.slice(0,-1);}
+    else if(k.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){BR.filter+=k;}
+    else return;
+    cur().idx=Math.max(0,firstItem(build().rows));render();e.preventDefault();return;
+  }
+  if(k==='ArrowDown'){move(1);e.preventDefault();}
+  else if(k==='ArrowUp'){move(-1);e.preventDefault();}
+  else if(k==='Enter'){enter();e.preventDefault();}
+  else if(k==='Escape'){pop();e.preventDefault();}
+  else if(k==='Tab'){toggle();e.preventDefault();}
+  else if(k==='a'){if(cur().id==='slot')addGuard(cur().param.slot);
+    else addGuard('repo');render();}
+  else if(k==='A'){addGuard('aur');render();}
+});
+render();
+document.getElementById('list').focus();
+</script>
+</body>
+</html>
