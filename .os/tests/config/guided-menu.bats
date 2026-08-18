@@ -288,19 +288,20 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.custom_repositories | jq -e '.value == "cool, neat"'
 }
 
-@test "menu_rows: Packages carries the typed extra-packages row" {
+@test "menu_rows: Software carries the typed extra-packages row" {
   state="$(cfgstate_set "$(cfgstate_new)" \
     packages.repo.extra '["htop","tmux"]')"
   run menu_rows "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | row packages.repo.extra | jq -e '.section == "Packages"'
+  echo "$output" | row packages.repo.extra | jq -e '.section == "Software"'
   echo "$output" | row packages.repo.extra | jq -e '.value == "htop, tmux"'
 }
 
-@test "menu_rows: system programs sits under Packages; post_install split out" {
+@test "menu_rows: no host programs row (Menu-Owned); post_install split out" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row host_programs                | jq -e '.section == "Packages"'
+  # host_programs has no menu row (ADR 0086): every host program is Menu-Owned.
+  ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
   echo "$output" | row post_install.backup.borg       | jq -e '.section == "Backup"'
   echo "$output" | row post_install.security.firewall | jq -e '.section == "Security"'
   echo "$output" | row post_install.security.firewall | jq -e '.value == "firewalld"'
@@ -449,7 +450,7 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'length == 14'
   echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
     "Bootloader","Kernels","Environment","Mirrors & Repositories","Pacman",
-    "Packages","Services","Security","Backup","Advanced"]'
+    "Software","Services","Security","Backup","Advanced"]'
 }
 
 @test "menu_categories: each category carries its bucket" {
@@ -649,13 +650,14 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | row sysctl | jq -e '.overridden == true'
 }
 
-# the Advanced section dissolves: system programs joins the install lists under
-# Packages; post_install security/backup become their own categories.
-@test "menu_category_rows: Packages carries extra packages + system programs" {
-  run menu_category_rows Packages "$(cfgstate_new)"
+# post_install security/backup are their own categories; Software carries the
+# extra-packages row but no host programs row (ADR 0086 — every host program is
+# Menu-Owned, so the picker has no members).
+@test "menu_category_rows: Software carries extra packages, not host programs" {
+  run menu_category_rows Software "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "packages.repo.extra")'
-  echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
+  ! echo "$output" | jq -e 'any(.[]; .field == "host_programs")'
 }
 
 @test "menu_category_rows: Security + Backup carry the structured tool rows" {

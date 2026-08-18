@@ -81,8 +81,8 @@ _PKGRES_SOURCES=(
   "power|Services"
   "fonts|System"
   "sops|secrets on disk"
-  "repo|Packages"
-  "aur|Packages"
+  "repo|Software"
+  "aur|Software"
 )
 pkgres_sources() { printf '%s\n' "${_PKGRES_SOURCES[@]%%|*}"; }
 
