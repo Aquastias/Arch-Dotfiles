@@ -136,9 +136,9 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
 
 # ── the rest of the FS-agnostic knobs surface as rows with their defaults ───
 # swap / swap_size / esp_size moved to Disks (issue 02); ssh / age_key_url land
-# under Advanced (ADR 0071).
+# under Expert (ADR 0071).
 
-@test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Advanced" {
+@test "menu_rows: storage knobs show under Disks, ssh / age_key_url under Expert" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   # swap / swap_size are no longer menu_rows fields — like layout, they surface
@@ -147,18 +147,18 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | jq -e 'all(.[]; .field != "options.swap_size")'
   echo "$output" | row options.esp_size     | jq -e '.section == "Disks"'
   echo "$output" | row options.esp_size     | jq -e '.value == "auto"'
-  echo "$output" | row options.ssh.enabled  | jq -e '.section == "Advanced"'
+  echo "$output" | row options.ssh.enabled  | jq -e '.section == "Expert"'
   echo "$output" | row options.ssh.enabled  | jq -e '.value == "false"'
-  echo "$output" | row options.age_key_url  | jq -e '.section == "Advanced"'
+  echo "$output" | row options.age_key_url  | jq -e '.section == "Expert"'
 }
 
-# ── Services (ADR 0081): printing/bluetooth/power share one category ────────
+# ── Daemons (ADR 0081): printing/bluetooth/power share one category ────────
 
-@test "menu_rows: printing sits under Services, defaults true, no ●" {
+@test "menu_rows: printing sits under Daemons, defaults true, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.printing.enabled \
-    | jq -e '.section == "Services"'
+    | jq -e '.section == "Daemons"'
   echo "$output" | row options.printing.enabled | jq -e '.value == "true"'
   echo "$output" | row options.printing.enabled | jq -e '.overridden == false'
 }
@@ -171,28 +171,28 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | row options.printing.enabled | jq -e '.overridden == true'
 }
 
-@test "menu_rows: bluetooth sits under Services, defaults true, no ●" {
+@test "menu_rows: bluetooth sits under Daemons, defaults true, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | row options.bluetooth.enabled \
-    | jq -e '.section == "Services"'
+    | jq -e '.section == "Daemons"'
   echo "$output" | row options.bluetooth.enabled | jq -e '.value == "true"'
   echo "$output" | row options.bluetooth.enabled | jq -e '.overridden == false'
 }
 
-@test "menu_categories: Services is a category with a non-empty summary" {
+@test "menu_categories: Daemons is a category with a non-empty summary" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" \
-    | jq -e 'any(.[]; .name == "Services" and (.summary | length > 0))'
+    | jq -e 'any(.[]; .name == "Daemons" and (.summary | length > 0))'
 }
 
-# ── Power profile (ADR 0080): an enum leaf, now a Services row (ADR 0081) ────
+# ── Power profile (ADR 0080): an enum leaf, now a Daemons row (ADR 0081) ────
 
-@test "menu_rows: power profile sits under Services, defaults ppd, no ●" {
+@test "menu_rows: power profile sits under Daemons, defaults ppd, no ●" {
   run menu_rows "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | row options.power.profile | jq -e '.section == "Services"'
+  echo "$output" | row options.power.profile | jq -e '.section == "Daemons"'
   echo "$output" | row options.power.profile \
     | jq -e '.value == "power-profiles-daemon"'
   echo "$output" | row options.power.profile | jq -e '.overridden == false'
@@ -206,23 +206,23 @@ row() { jq -e ".[] | select(.field == \"$1\")"; }
   echo "$output" | grep -qx none
 }
 
-@test "menu_category_rows: Services returns the three service rows" {
-  run menu_category_rows "Services" "$(cfgstate_new)"
+@test "menu_category_rows: Daemons returns the three service rows" {
+  run menu_category_rows "Daemons" "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e 'all(.[]; .section == "Services")'
+  echo "$output" | jq -e 'all(.[]; .section == "Daemons")'
   echo "$output" | jq -e 'any(.[]; .field == "options.printing.enabled")'
   echo "$output" | jq -e 'any(.[]; .field == "options.bluetooth.enabled")'
   echo "$output" | jq -e 'any(.[]; .field == "options.power.profile")'
 }
 
-@test "menu_categories: the Services ● folds any of its three toggles" {
+@test "menu_categories: the Daemons ● folds any of its three toggles" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "Services") | .overridden == false'
+  echo "$output" | jq -e '.[] | select(.name == "Daemons") | .overridden == false'
   state="$(cfgstate_set "$(cfgstate_new)" options.bluetooth.enabled 'false')"
   run menu_categories "$state"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.[] | select(.name == "Services") | .overridden == true'
+  echo "$output" | jq -e '.[] | select(.name == "Daemons") | .overridden == true'
 }
 
 # ── Environment: desktop (multi) + gpu (auto default) ──────────────────────
@@ -462,16 +462,16 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'length == 14'
   echo "$output" | jq -e '[.[].name] == ["System","Locales","Users","Disks",
     "Bootloader","Kernels","Environment","Mirrors & Repositories","Pacman",
-    "Packages","Services","Security","Backup","Advanced"]'
+    "Packages","Daemons","Security","Backup","Expert"]'
 }
 
 @test "menu_categories: each category carries its bucket" {
   run menu_categories "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'all(.[]; .bucket | length > 0)'
-  echo "$output" | jq -e '.[] | select(.name == "System")   | .bucket == "SYSTEM"'
-  echo "$output" | jq -e '.[] | select(.name == "Services") | .bucket == "SERVICES"'
-  echo "$output" | jq -e '.[] | select(.name == "Advanced") | .bucket == "ADVANCED"'
+  echo "$output" | jq -e '.[] | select(.name == "System")   | .bucket == "GENERAL"'
+  echo "$output" | jq -e '.[] | select(.name == "Daemons") | .bucket == "SERVICES"'
+  echo "$output" | jq -e '.[] | select(.name == "Expert") | .bucket == "ADVANCED"'
 }
 
 @test "menu_categories: each category carries a non-empty summary" {
@@ -543,15 +543,15 @@ cat_at() { jq -e ".[$1]"; }
   run menu_top_lines "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   # every bucket header present, exactly once
-  for b in "── SYSTEM ──" "── STORAGE & BOOT ──" "── SOFTWARE ──" \
+  for b in "── GENERAL ──" "── STORAGE & BOOT ──" "── SOFTWARE ──" \
            "── SERVICES ──" "── SECURITY & DATA ──" "── ADVANCED ──"; do
     [ "$(grep -Fxc "$b" <<<"$output")" -eq 1 ]
   done
-  # the SYSTEM header leads System, its first category
-  printf '%s\n' "$output" | grep -A1 -Fx "── SYSTEM ──" | tail -1 \
+  # the GENERAL header leads System, its first category
+  printf '%s\n' "$output" | grep -A1 -Fx "── GENERAL ──" | tail -1 \
     | grep -q "^System — "
   # a category line, no header, carries name — summary
-  printf '%s\n' "$output" | grep -q "^Services — "
+  printf '%s\n' "$output" | grep -q "^Daemons — "
 }
 
 @test "menu_top_lines: an overridden category carries a trailing ●" {
@@ -570,7 +570,7 @@ cat_at() { jq -e ".[$1]"; }
   [ -z "$(printf '%s\n' "$output" | grep -B1 -Fx '── STORAGE & BOOT ──' \
           | head -1)" ]
   # the first line is the first bucket header, not a blank
-  [ "$(printf '%s\n' "$output" | head -1)" = "── SYSTEM ──" ]
+  [ "$(printf '%s\n' "$output" | head -1)" = "── GENERAL ──" ]
 }
 
 # ── field moves (issue 02): storage knobs surface under Disks ───────────────
@@ -688,13 +688,13 @@ cat_at() { jq -e ".[$1]"; }
   echo "$output" | jq -e 'any(.[]; .field == "post_install.backup.borg")'
 }
 
-# Advanced is now a real category (ADR 0071): the ssh + age-key-url remainder.
-@test "menu_category_rows: Advanced carries ssh + age key url" {
-  run menu_category_rows Advanced "$(cfgstate_new)"
+# Expert is now a real category (ADR 0071): the ssh + age-key-url remainder.
+@test "menu_category_rows: Expert carries ssh + age key url" {
+  run menu_category_rows Expert "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e 'any(.[]; .field == "options.ssh.enabled")'
   echo "$output" | jq -e 'any(.[]; .field == "options.age_key_url")'
-  echo "$output" | jq -e 'all(.[]; .section == "Advanced")'
+  echo "$output" | jq -e 'all(.[]; .section == "Expert")'
 }
 
 # the old catch-all "Options" category is gone (its fields were redistributed)

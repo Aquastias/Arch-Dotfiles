@@ -88,14 +88,17 @@ the operator's overrides over the computed defaults, so every screen is
 re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
 between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
 list of fourteen **Configuration Categories** in **install-flow order** under
-six non-selectable **bucket headers** — `SYSTEM` (System, Locales, Users),
+six non-selectable **bucket headers** — `GENERAL` (System, Locales, Users),
 `STORAGE & BOOT` (Disks, Bootloader, Kernels), `SOFTWARE` (Environment,
-Mirrors & Repositories, Pacman, Packages), `SERVICES` (Services),
-`SECURITY & DATA` (Security, Backup), `ADVANCED` (Advanced) — each category
+Mirrors & Repositories, Pacman, Packages), `SERVICES` (Daemons),
+`SECURITY & DATA` (Security, Backup), `ADVANCED` (Expert) — each category
 opening a submenu of its fields, so a section name never repeats per row.
 (ADR 0071 established the two-level model; ADR 0081 re-cut it into buckets,
 renamed General → **System**, and merged the Printing/Bluetooth/Power service
-toggles into one **Services** category.) The bucket headers, the divider, and
+toggles into one category. ADR 0086 then renamed every category that echoed its
+bucket header — **Services** → **Daemons**, **Advanced** → **Expert** — and the
+`SYSTEM` bucket → **`GENERAL`** so `System` no longer repeats it.) The bucket
+headers, the divider, and
 the blank spacers between buckets are **inert** — the cursor auto-skips them
 (a fzf `focus` bind, ADR 0083), so only Profiles, a category, and the terminal
 actions are ever selected. Presentation is
@@ -489,7 +492,7 @@ control's default — whether the program installs is still the control's call.
 ### Printing Service (`options.printing.enabled`)
 The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —
 is installed and its `cups.service` enabled. A single bool [[Cycle Field]]
-(default `true`, normalised-out when true) in the shared **Services**
+(default `true`, normalised-out when true) in the shared **Daemons**
 Configuration Category (ADR 0081; its own **Printing service** category
 pre-merge), a service-enablement field rather than an identity field like
 System's hostname/timezone. `cups` is
@@ -509,7 +512,7 @@ read-only `derived` section / `explain-packages` as `source=printing` (layer
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived Host Program**, twinning [[Printing Service]]: a
 single bool [[Cycle Field]] (default `true`, normalised-out when true) in the
-shared **Services** Configuration Category (ADR 0081). On → a `bluetooth` program
+shared **Daemons** Configuration Category (ADR 0081). On → a `bluetooth` program
 is injected into the Effective Config's `host_programs` at assembly time,
 installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
 genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
@@ -524,7 +527,7 @@ picker like `cups`; surfaces as `source=bluetooth` in the resolver.
 ### Power Profile (`options.power.profile`)
 The **enum** generalization of the toggle-derived pattern (ADR 0080, extending
 0079's bool): a choice field `none | power-profiles-daemon | tuned` (default
-`power-profiles-daemon`) in the shared **Services** Configuration Category
+`power-profiles-daemon`) in the shared **Daemons** Configuration Category
 (ADR 0081; its own **Power** category pre-merge).
 Unlike a bool toggle — which only decides *whether* a package lands — the value
 picks *which* daemon is injected and whose service is enabled
