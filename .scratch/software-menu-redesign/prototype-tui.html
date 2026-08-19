@@ -55,7 +55,7 @@
 </style>
 </head>
 <body>
-<div class="banner">⚠ PROTOTYPE (TUI mock) — the redesigned Software area in fzf
+<div class="banner">⚠ PROTOTYPE (TUI mock) — the redesigned software options in fzf
   chrome. Keyboard-driven; not wired to the real installer.</div>
 
 <div class="screen">
@@ -76,10 +76,10 @@
 // ── Registry (verified kinds) + owning controls ─────────────────────────────
 const REG=[
  ['grub','host',['Bootloader','bootloader=grub']],
- ['cups','host',['Services','printing']],
- ['bluetooth','host',['Services','bluetooth']],
- ['power-profiles-daemon','host',['Services','power']],
- ['tuned','host',['Services','power']],
+ ['cups','host',['Daemons','printing']],
+ ['bluetooth','host',['Daemons','bluetooth']],
+ ['power-profiles-daemon','host',['Daemons','power']],
+ ['tuned','host',['Daemons','power']],
  ['sops','host',['Secrets','auto']],
  ['firewalld','user',['Security','firewall']],
  ['ufw','user',['Security','firewall']],
@@ -238,12 +238,12 @@ function addGuard(slot){
 const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function catDot(cat){
   switch(cat){
-    case 'Software': return Object.values(S.added.repo).some(a=>a.length)
+    case 'Packages': return Object.values(S.added.repo).some(a=>a.length)
       || Object.values(S.added.aur).some(a=>a.length) || S.excluded.length>0;
     case 'Bootloader': return S.boot!==DEF.boot;
     case 'Security': return !eq(S.sec,DEF.sec);
     case 'Backup': return !eq(S.bak,DEF.bak);
-    case 'Services': return !eq(S.svc,DEF.svc);
+    case 'Daemons': return !eq(S.svc,DEF.svc);
     case 'Users': return S.userProgs.length>0;
     default: return false;
   }
@@ -256,17 +256,17 @@ const SP=()=>({type:'spacer'});
 const back=()=>({type:'item',cls:'back',label:'← Back',onEnter:pop});
 
 const BUCKETS=[
-  ['SYSTEM',['System','Locales','Users']],
+  ['GENERAL',['System','Locales','Users']],
   ['STORAGE & BOOT',['Disks','Bootloader','Kernels']],
-  ['SOFTWARE',['Environment','Mirrors & Repositories','Pacman','Software']],
-  ['SERVICES',['Services']],
+  ['SOFTWARE',['Environment','Mirrors & Repositories','Pacman','Packages']],
+  ['SERVICES',['Daemons']],
   ['SECURITY & DATA',['Security','Backup']],
-  ['ADVANCED',['Advanced']],
+  ['ADVANCED',['Expert']],
 ];
-const CAT_SUMMARY={Software:'repo, aur, derived', Bootloader:'bootloader',
+const CAT_SUMMARY={Packages:'repo, aur, derived', Bootloader:'bootloader',
   Security:'firewall, antivirus, rootkit, apparmor', Backup:'snapshots, borg',
-  Services:'printing, bluetooth, power', Users:'primary user, extra accounts'};
-const DRILLABLE={Software:1,Bootloader:1,Security:1,Backup:1,Services:1,Users:1};
+  Daemons:'printing, bluetooth, power', Users:'primary user, extra accounts'};
+const DRILLABLE={Packages:1,Bootloader:1,Security:1,Backup:1,Daemons:1,Users:1};
 
 const screens={
   top(){
@@ -292,13 +292,13 @@ const screens={
     return {crumb:['Guided Installer'],rows};
   },
 
-  Software(){
+  Packages(){
     const repoN=[].concat(...pkgCats('repo').map(c=>pkgNames('repo',c)))
       .filter(n=>pkgState('repo',catOf('repo',n),n)!=='excluded').length;
     const aurN=[].concat(...pkgCats('aur').map(c=>pkgNames('aur',c)))
       .filter(n=>pkgState('aur',catOf('aur',n),n)!=='excluded').length;
-    return {crumb:['Guided Installer','Software'],rows:[
-      {type:'item',label:'repo packages',meta:repoN+' pkgs',dot:catDot('Software')
+    return {crumb:['Guided Installer','Packages'],rows:[
+      {type:'item',label:'repo packages',meta:repoN+' pkgs',dot:catDot('Packages')
         && hasDelta('repo'),onEnter:()=>push('slot',{slot:'repo'}),
         preview:()=>({title:'repo packages',lines:[
           'Official-repo names, pacstrapped.',
@@ -349,7 +349,7 @@ const screens={
          : ['AUR is not in the sync DB, so this slot stays',
             'free-text (paru bootstraps post-menu).']})},
       back());
-    return {crumb:['Guided Installer','Software',slot],rows};
+    return {crumb:['Guided Installer','Packages',slot],rows};
   },
 
   cat({slot,cat}){
@@ -367,7 +367,7 @@ const screens={
           '','Tab / Enter toggles.']})};
     });
     rows.push(back());
-    return {crumb:['Guided Installer','Software',slot,cat],rows};
+    return {crumb:['Guided Installer','Packages',slot,cat],rows};
   },
 
   derived(){
@@ -379,7 +379,7 @@ const screens={
     if(!rows.length)rows.push({type:'item',cls:'ro',
       label:'(nothing — every owning control is off)'});
     rows.push(back());
-    return {crumb:['Guided Installer','Software','derived'],rows};
+    return {crumb:['Guided Installer','Packages','derived'],rows};
   },
 
   Bootloader(){
@@ -411,8 +411,8 @@ const screens={
       cycleBool('borg','bak','borg','owns borg'),
       back()]};
   },
-  Services(){
-    return {crumb:['Guided Installer','Services'],rows:[
+  Daemons(){
+    return {crumb:['Guided Installer','Daemons'],rows:[
       cycleBool('printing','svc','printing','owns cups'),
       cycleBool('bluetooth','svc','bluetooth','owns bluetooth'),
       cycleEnum('power','svc','power',
@@ -456,7 +456,7 @@ const screens={
           lines:[[...BR.picks].join('\n')||'(nothing picked — Tab to toggle)','',
             'Each pick runs the ＋Add guard on Confirm.']})},
       {type:'item',cls:'back',label:'esc Cancel',onEnter:()=>{BR.picks.clear();pop();}});
-    return {crumb:['Guided Installer','Software',slot,'＋ Add ▸ pacman browser'],
+    return {crumb:['Guided Installer','Packages',slot,'＋ Add ▸ pacman browser'],
       rows};
   },
 };
@@ -493,13 +493,13 @@ function catPreview(cat){
   const lines=[];
   const kv=(k,v)=>lines.push('  '+k.padEnd(14)+v);
   switch(cat){
-    case 'Software': kv('repo','see drill'); kv('aur','see drill');
+    case 'Packages': kv('repo','see drill'); kv('aur','see drill');
       kv('derived',derived().length+' pkgs'); break;
     case 'Bootloader': kv('bootloader',S.boot); break;
     case 'Security': kv('firewall',S.sec.firewall);kv('antivirus',S.sec.antivirus);
       kv('rootkit',S.sec.rootkit);kv('apparmor',S.sec.apparmor);break;
     case 'Backup': kv('zfs snapshots',S.bak.snap);kv('borg',S.bak.borg);break;
-    case 'Services': kv('printing',S.svc.printing);kv('bluetooth',S.svc.bluetooth);
+    case 'Daemons': kv('printing',S.svc.printing);kv('bluetooth',S.svc.bluetooth);
       kv('power',S.svc.power);break;
     case 'Users': kv('aquastias',S.userProgs.length+' progs');break;
     default: lines.push('  (not in this prototype)');
