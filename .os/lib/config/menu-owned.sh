@@ -62,9 +62,9 @@ menu_owned_programs() {
 menu_owned_control() {
   case "$1" in
   grub)                          printf 'Bootloader' ;;
-  cups)                          printf 'Services → printing' ;;
-  bluetooth)                     printf 'Services → bluetooth' ;;
-  power-profiles-daemon | tuned) printf 'Services → power' ;;
+  cups)                          printf 'Daemons → printing' ;;
+  bluetooth)                     printf 'Daemons → bluetooth' ;;
+  power-profiles-daemon | tuned) printf 'Daemons → power' ;;
   firewalld | ufw)               printf 'Security → firewall' ;;
   clamav)                        printf 'Security → antivirus' ;;
   rkhunter)                      printf 'Security → rootkit' ;;
