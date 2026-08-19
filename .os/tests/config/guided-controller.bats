@@ -45,18 +45,18 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(top): bucket headers group the categories (ADR 0081)" {
   run guided_ctl_list
   [ "$status" -eq 0 ]
-  echo "$output" | grep -Fq "── SYSTEM ──"
+  echo "$output" | grep -Fq "── GENERAL ──"
   echo "$output" | grep -Fq "── SERVICES ──"
 }
 
 @test "enter(top): a bucket header is inert (noop)" {
-  [ "$(guided_ctl_enter "── SYSTEM ──")" = "noop" ]
+  [ "$(guided_ctl_enter "── GENERAL ──")" = "noop" ]
 }
 
 # ADR 0083: the focus-skip predicate — decorative rows are inert (the cursor
 # hops past them), real rows are selectable.
 @test "guided_row_inert: dividers, headers and spacers are inert" {
-  run guided_row_inert "── SYSTEM ──"                 ; [ "$status" -eq 0 ]
+  run guided_row_inert "── GENERAL ──"                 ; [ "$status" -eq 0 ]
   run guided_row_inert "──────────────────────────"   ; [ "$status" -eq 0 ]
   run guided_row_inert ""                              ; [ "$status" -eq 0 ]
   run guided_row_inert "   "                           ; [ "$status" -eq 0 ]
@@ -284,7 +284,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "enter(category): a bare bool flips in place (refresh, no drill)" {
-  set_nav "$(nav_to_category Advanced)"
+  set_nav "$(nav_to_category Expert)"
   run guided_ctl_enter "SSH: false"
   [ "$output" = "refresh" ]                                   # stays on category
   [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "category" ]   # no values submenu
@@ -302,16 +302,16 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 @test "enter(category): flipping a bool back to its default clears the override" {
   _seed_baseline
-  set_nav "$(nav_to_category Advanced)"
+  set_nav "$(nav_to_category Expert)"
   guided_ctl_enter "SSH: false" >/dev/null   # default false → true, override kept
   cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
-  set_nav "$(nav_to_category Advanced)"
+  set_nav "$(nav_to_category Expert)"
   guided_ctl_enter "SSH: true"  >/dev/null   # true → back to default false, drop
   ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
 }
 
 @test "header(category): the hint advertises cycle" {
-  run _ctl_nav_header "$(nav_to_category Advanced)"
+  run _ctl_nav_header "$(nav_to_category Expert)"
   echo "$output" | grep -q "Enter edit / cycle"
 }
 

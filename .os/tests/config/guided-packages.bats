@@ -301,9 +301,9 @@ guard_registry() {
 }
 
 @test "origin labels: services + fonts point at their merged homes (ADR 0081)" {
-  [ "$(pkgres_source_origin printing)" = "Services" ]
-  [ "$(pkgres_source_origin bluetooth)" = "Services" ]
-  [ "$(pkgres_source_origin power)" = "Services" ]
+  [ "$(pkgres_source_origin printing)" = "Daemons" ]
+  [ "$(pkgres_source_origin bluetooth)" = "Daemons" ]
+  [ "$(pkgres_source_origin power)" = "Daemons" ]
   [ "$(pkgres_source_origin fonts)" = "System" ]
 }
 

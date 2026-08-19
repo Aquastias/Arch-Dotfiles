@@ -81,7 +81,7 @@ plain() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 @test "detail(top): a bucket header previews nothing" {
   set_nav '{"screen":"top"}'
-  run guided_ctl_preview "── SYSTEM ──"
+  run guided_ctl_preview "── GENERAL ──"
   [ "$status" -eq 0 ]
   ! echo "$output" | plain | grep -qE 'hostname:|Locales'
 }

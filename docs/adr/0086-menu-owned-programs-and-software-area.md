@@ -76,5 +76,15 @@ never changes whether it installs.
   is empty, the same operational gotcha archinstall hit (issue #3307).
 - Extends, does not supersede, ADR 0079/0080: those delisted three service
   programs; this folds them and ten more into one `menu_owned_programs` set.
+- The redundant top-level **extra packages** row was removed: `repo` `＋Add`
+  browses and `aur` `＋Add` types, both writing `packages.<slot>.extra`, so a
+  third free-text path made no sense. The Packages category is now a pure
+  repo/aur/derived drill with no field rows; its ● folds from the package
+  override map instead of that row.
+- **Category renames to stop bucket-header echoes:** any category whose name
+  repeated its bucket was renamed — **Services → Daemons**, **Advanced →
+  Expert** — and the `SYSTEM` bucket → **`GENERAL`** (keeping the `System`
+  category, so ADR 0081's identity-anchor rename stands). `SECURITY & DATA` /
+  `Security` is left as a partial, non-exact overlap.
 - Design validated against a throwaway TUI prototype at
   `.scratch/software-menu-redesign/prototype-tui.html`.

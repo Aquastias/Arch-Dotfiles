@@ -79,18 +79,19 @@ _MENU_FIELDS=(
   "Security|sysctl|sysctl|"
   "Backup|post_install.backup.zfs_auto_snapshot|zfs snapshots|true"
   "Backup|post_install.backup.borg|borg|true"
-  # Services (ADR 0081): the three toggle-derived daemons share one Services
-  # category. Printing (ADR 0079) is a bare-bool Cycle Field (flips in place);
+  # Daemons (ADR 0081): the three toggle-derived daemons share one Daemons
+  # category (renamed from Services to avoid echoing the SERVICES bucket).
+  # Printing (ADR 0079) is a bare-bool Cycle Field (flips in place);
   # default on preserves the historical print daemon.
-  "Services|options.printing.enabled|printing|true"
+  "Daemons|options.printing.enabled|printing|true"
   # Bluetooth (ADR 0080): a bare-bool Cycle Field. Default on installs the bluez
   # daemon and enables bluetooth.service.
-  "Services|options.bluetooth.enabled|bluetooth|true"
+  "Daemons|options.bluetooth.enabled|bluetooth|true"
   # Power Profile (ADR 0080): an enum leaf (none | power-profiles-daemon |
   # tuned), NOT a bare bool, so it drills into a values submenu. Default ppd.
-  "Services|options.power.profile|power profile|power-profiles-daemon"
-  "Advanced|options.ssh.enabled|ssh|false"
-  "Advanced|options.age_key_url|age key url|"
+  "Daemons|options.power.profile|power profile|power-profiles-daemon"
+  "Expert|options.ssh.enabled|ssh|false"
+  "Expert|options.age_key_url|age key url|"
   "Users|users|users|"
 )
 
@@ -156,9 +157,9 @@ EOF
 # the BUCKET drives the top-screen header lines (menu_top_lines). Categories
 # sharing a bucket MUST be contiguous — the header is emitted on bucket change.
 _MENU_CATEGORIES=(
-  "System|hostname, timezone, fonts|SYSTEM"
-  "Locales|keyboard, language, encoding, console font|SYSTEM"
-  "Users|primary user, extra accounts|SYSTEM"
+  "System|hostname, timezone, fonts|GENERAL"
+  "Locales|keyboard, language, encoding, console font|GENERAL"
+  "Users|primary user, extra accounts|GENERAL"
   "Disks|layout, data pools, filesystem, encryption, swap|STORAGE & BOOT"
   "Bootloader|bootloader|STORAGE & BOOT"
   "Kernels|kernel|STORAGE & BOOT"
@@ -166,10 +167,10 @@ _MENU_CATEGORIES=(
   "Mirrors & Repositories|countries, optional repos, custom servers/repos|SOFTWARE"
   "Pacman|ilovecandy, color, parallel downloads, verbose lists|SOFTWARE"
   "Packages|repo, aur, derived|SOFTWARE"
-  "Services|printing, bluetooth, power|SERVICES"
+  "Daemons|printing, bluetooth, power|SERVICES"
   "Security|firewall, antivirus, rootkit, apparmor, sysctl|SECURITY & DATA"
   "Backup|snapshots, encrypted backup|SECURITY & DATA"
-  "Advanced|ssh, age key url|ADVANCED"
+  "Expert|ssh, age key url|ADVANCED"
 )
 
 # menu_categories <override> [<baseline>] — the top-level category rows (JSON
