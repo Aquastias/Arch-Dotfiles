@@ -3680,7 +3680,8 @@ guided_ctl_key() {
 _ctl_reload_cmd() {
   local entry="$1"
   if [[ -n "${GUIDED_LIST_FILE:-}" ]]; then
-    guided_ctl_list >"$GUIDED_LIST_FILE" 2>/dev/null
+    # trailing blank line = an inert spacer row → a gap above the footer toolbar
+    { guided_ctl_list; echo; } >"$GUIDED_LIST_FILE" 2>/dev/null
     printf 'cat %q' "$GUIDED_LIST_FILE"
   else
     printf 'bash %q list' "$entry"
