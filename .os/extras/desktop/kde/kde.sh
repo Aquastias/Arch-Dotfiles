@@ -23,8 +23,24 @@ source "${SCRIPT_DIR}/../../../lib/config/categorized-list.sh"
   exit 1
 }
 
-do_shell="$(jsonc "$KDE_JSON" | jq -r '.shell // true')"
-do_apps="$(jsonc "$KDE_JSON" | jq -r '.apps  // true')"
+# Honor an explicit `false` (jq's `//` treats false as empty, so `.shell //
+# true` would wrongly resolve a disabled section back to true).
+do_shell="$(jsonc "$KDE_JSON" | jq -r 'if .shell == false then false else true end')"
+do_apps="$(jsonc "$KDE_JSON" | jq -r 'if .apps == false then false else true end')"
+
+# Seed root for the DE config defaults the adapter writes (ADR 0088). Default
+# `/` (the chroot); tests point KDE_SEED_ROOT at a temp dir. /etc/skel/.config
+# holds user-owned, later-editable state copied into each home at user
+# creation; /etc/xdg holds read-only system fallbacks.
+SEED_ROOT="${KDE_SEED_ROOT:-/}"
+
+# _seed_write <relative-path> — write stdin to <SEED_ROOT>/<relative-path>,
+# creating parent dirs. One place owns the skel/xdg write mechanics.
+_seed_write() {
+  local dst="${SEED_ROOT%/}/$1"
+  mkdir -p "$(dirname "$dst")"
+  cat > "$dst"
+}
 
 # =============================================================================
 # PLASMA SHELL
@@ -51,6 +67,8 @@ if [[ "$do_shell" == "true" ]]; then
     sddm-kcm \
     print-manager \
     papirus-icon-theme \
+    breeze-gtk \
+    kde-gtk-config \
     qt5-wayland \
     qt6-wayland \
     xdg-utils
@@ -59,6 +77,45 @@ if [[ "$do_shell" == "true" ]]; then
   # resolved Display Manager Adapter owns package + enable. KDE only ships the
   # Plasma sessions the greeter offers.
   info "Plasma shell installed."
+
+  # ── DEFAULT LOOK: Breeze Dark, seeded so a fresh login is ready ───────────
+  # (ADR 0088). Global look-and-feel + Papirus-Dark icons in /etc/skel so each
+  # user owns a writable, still-changeable copy; breeze-gtk + kde-gtk-config
+  # (installed above) make GTK apps follow the dark look.
+  section "KDE Default Look (Breeze Dark)"
+
+  _seed_write etc/skel/.config/kdeglobals <<'EOF'
+[General]
+ColorScheme=BreezeDark
+widgetStyle=Breeze
+
+[Icons]
+Theme=Papirus-Dark
+
+[KDE]
+LookAndFeelPackage=org.kde.breezedark.desktop
+EOF
+
+  _seed_write etc/skel/.config/kcminputrc <<'EOF'
+[Mouse]
+cursorTheme=breeze_cursors
+EOF
+
+  # Non-KDE (GTK/X) apps read the cursor from ~/.icons/default.
+  _seed_write etc/skel/.icons/default/index.theme <<'EOF'
+[Icon Theme]
+Inherits=breeze_cursors
+EOF
+
+  # SDDM login theme, in its own drop-in so it merges with the Display Manager
+  # Adapter's session-dirs file rather than clobbering it (ADR 0069). Only the
+  # THEME is set here — package and enablement stay dm-sddm's (ADR 0088).
+  _seed_write etc/sddm.conf.d/20-kde-theme.conf <<'EOF'
+[Theme]
+Current=breeze
+EOF
+
+  info "Seeded Breeze Dark look (icons, cursors, GTK bridge, SDDM theme)."
 fi
 
 # =============================================================================
