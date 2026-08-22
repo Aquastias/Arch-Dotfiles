@@ -101,6 +101,41 @@
       "haruna": true // mpv-based video player
     }
   },
+  // Per-app optional-dependency enhancers (ADR 0088), keyed by app. Same
+  // Categorized List shape, same install pass, deselectable per package.
+  // Ark's backends (7zip, unrar) are intentionally absent — Host Core's
+  // `packages.repo.archive` already ships them, so they have one home there.
+  "plugins": {
+    "dolphin": {
+      "dolphin-plugins": true, // Git/SVN/Mercurial integration
+      "kio-admin": true, // admin:// open-as-root
+      "kdegraphics-thumbnailers": true, // PDF/PostScript thumbnails
+      "ffmpegthumbs": true, // Video thumbnails
+      "kimageformats": true, // psd/exr/xcf thumbnails and support
+      "kdegraphics-mobipocket": true, // MOBI e-book support
+      "kde-cli-tools": true // kdesu, file-type editing
+    },
+    "okular": {
+      "ebook-tools": true // EPUB/MOBI support
+    },
+    "gwenview": {
+      "qt6-imageformats": true // TIFF/WEBP and more
+    },
+    "krita": {
+      "krita-plugin-gmic": true // G'MIC filter plugin
+    },
+    "kdenlive": {
+      "opencv": true, // Motion tracking
+      "noise-suppression-for-voice": true, // Voice noise-suppression effect
+      "recordmydesktop": true // Screen capture
+    },
+    "digikam": {
+      "darktable": true // RAW import
+    },
+    "kdeconnect": {
+      "sshfs": true // Browse phone filesystem
+    }
+  },
   // AUR dependencies for this DE, in the adapter's Categorized List shape.
   // Declared here (not installed by this adapter) — the Runner merges them
   // into its single paru pass, so they land only when KDE is selected.
