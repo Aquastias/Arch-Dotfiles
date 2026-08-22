@@ -24,6 +24,12 @@ declare -F bootloader_packages >/dev/null 2>&1 \
 # shellcheck source=../config/fonts.sh
 declare -F fonts_repo_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
+# shellcheck source=./base.sh
+declare -F base_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/base.sh"
+# shellcheck source=./filesystem.sh
+declare -F fs_userland_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/filesystem.sh"
 
 # =============================================================================
 # PACKAGE COLLECTION
@@ -69,46 +75,17 @@ collect_packages() {
   local bootloader_pkgs=()
   mapfile -t bootloader_pkgs < <(bootloader_packages "$bootloader")
 
-  local pkgs=(
-    # ── Core system ───────────────────────────────────────────────────────
-    base
-    base-devel
-    "${kernel_pkgs[@]}" # kernel(s) + headers; headers needed by zfs-dkms
-    linux-firmware
-
-    # ── CPU microcode ─────────────────────────────────────────────────────
-    # Resolved per CPU vendor below (ADR 0038), not hardcoded to both.
-
-    # ── ZFS ───────────────────────────────────────────────────────────────
-    # zfs-dkms / zfs-utils are appended below only when some group is ZFS
-    # (ADR 0043); a pure non-ZFS install must not pull ZFS userland.
-
-    # ── Network ───────────────────────────────────────────────────────────
-    networkmanager # handles wired + wireless; enabled in chroot
-    openssh        # ssh-keygen used by create-user.sh + sops setup
-
-    # ── Universal infrastructure ──────────────────────────────────────────
-    cronie # cron daemon; enabled in chroot (ADR 0026) — every host needs it
-
-    # ── Bootloader + EFI tools ────────────────────────────────────────────
-    efibootmgr # manages UEFI boot entries
-    dosfstools # mkfs.fat for ESP formatting
-    "${bootloader_pkgs[@]+"${bootloader_pkgs[@]}"}"
-
-    # ── Core utilities ────────────────────────────────────────────────────
-    vim
-    git
-    sudo
-    rsync          # used by the ESP mirror pacman hook
-    jq             # used by the installer; handy on the installed system
-    pacman-contrib # provides paccache for package cache management
-    stow           # the Runner stows dotfiles for EVERY user, unconditionally
-
-    # ── Documentation ─────────────────────────────────────────────────────
-    man-db
-    man-pages
-    texinfo
-  )
+  # Base set from the shared Base Package List (lib/packages/base.sh) — the same
+  # names the Package Resolver reports, so install and query cannot drift. The
+  # kernel(s)+headers and bootloader package(s) come from their own token tables
+  # (kernel.sh / bootloaders.sh), also shared with the resolver. CPU microcode,
+  # ZFS/LUKS/fs userland, GPU, and audio are appended below, config-conditional.
+  local pkgs=()
+  local _bp
+  mapfile -t _bp < <(base_packages)
+  pkgs+=("${_bp[@]}")
+  pkgs+=("${kernel_pkgs[@]}") # kernel(s) + headers; headers needed by zfs-dkms
+  pkgs+=("${bootloader_pkgs[@]+"${bootloader_pkgs[@]}"}")
 
   # ── Host repo packages ─────────────────────────────────────────────────────
   # packages.repo from the EFFECTIVE CONFIG, which already carries the resolved
@@ -138,7 +115,8 @@ collect_packages() {
   # non-ZFS install installs no ZFS packages (ADR 0043). zfs-dkms compiles ZFS
   # against the installed kernel headers; zfs-utils provides zpool/zfs.
   if [[ "$(install_config_any_zfs)" == "true" ]]; then
-    pkgs+=(zfs-dkms zfs-utils)
+    local -a _zfs; read -ra _zfs <<<"$(fs_userland_packages zfs)"
+    pkgs+=("${_zfs[@]}")
   fi
 
   # LUKS userland for any non-ZFS encrypted group — a non-zfs encrypted root
@@ -146,15 +124,21 @@ collect_packages() {
   # (boot-time crypttab). ZFS uses its own native crypto so it needs none of
   # this (ADR 0043).
   if [[ "$(install_config_any_nonzfs_luks)" == "true" ]]; then
-    pkgs+=(cryptsetup)
+    local -a _luks; read -ra _luks <<<"$(luks_userland_packages)"
+    pkgs+=("${_luks[@]}")
   fi
 
   # Per-filesystem userland for any non-zfs group that uses it (ADR 0043):
   # xfsprogs (fsck.xfs/mkfs.xfs) for xfs, btrfs-progs (fsck.btrfs/mkfs.btrfs) for
   # btrfs — so the data group fscks + mounts at boot. ext4 rides e2fsprogs in
   # base; zfs has no mkfs. Independent of encryption.
-  [[ "$(install_config_uses_filesystem xfs)" == "true" ]]   && pkgs+=(xfsprogs)
-  [[ "$(install_config_uses_filesystem btrfs)" == "true" ]] && pkgs+=(btrfs-progs)
+  local -a _fstool
+  if [[ "$(install_config_uses_filesystem xfs)" == "true" ]]; then
+    read -ra _fstool <<<"$(fs_userland_packages xfs)"; pkgs+=("${_fstool[@]}")
+  fi
+  if [[ "$(install_config_uses_filesystem btrfs)" == "true" ]]; then
+    read -ra _fstool <<<"$(fs_userland_packages btrfs)"; pkgs+=("${_fstool[@]}")
+  fi
 
   # GPU and audio packages resolved during validate_install_context
   pkgs+=("${GPU_PACMAN_PACKAGES[@]+"${GPU_PACMAN_PACKAGES[@]}"}")
