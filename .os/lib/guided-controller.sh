@@ -1743,6 +1743,9 @@ guided_ctl_list() {
     # fresh repo with no committed profiles shows it, because the picker leads
     # with `+ New host (start blank)`, so it is always a first-class entry.
     printf '%s\n' "Profiles ▸ start from a saved machine"
+    # A blank spacer under Profiles, mirroring the one above the terminal block —
+    # an inert row, so each divider gets a clear gap on its category-facing side.
+    printf '\n'
     printf '%s\n' "$_CTL_DIVIDER"
     # Secrets are never a gate (ADR 0055): root, every user, and the encryption
     # passphrase default to 12345, so Proceed always installs. The per-secret
