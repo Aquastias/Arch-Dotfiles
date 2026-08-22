@@ -67,18 +67,27 @@ fi
 if [[ "$do_apps" == "true" ]]; then
   section "KDE Applications"
 
-  # apps_list is a 2-level Categorized List { category: { pkg: bool } }.
-  # Parse in bool mode via command substitution so a shape/leaf/category
-  # violation aborts the install here (error() exit propagates under set -e);
-  # a process substitution would swallow it.
-  apps_json="$(jsonc "$KDE_JSON" | jq -c '.apps_list')"
-  apps_out="$(categorized_list_parse "$apps_json" bool apps_list)"
+  # Three sibling Categorized Lists { category: { pkg: bool } } feed one
+  # pacman pass: apps_list (kde-applications group members), apps_extra
+  # (KDE-ecosystem repo apps outside that group — ADR 0087), and plugins
+  # (per-app optdepend enhancers — ADR 0088). Parse each in bool mode via
+  # command substitution so a shape/leaf/category violation aborts the install
+  # here (error() exit propagates under set -e); a process substitution would
+  # swallow it. An absent section contributes nothing.
   kde_apps=()
-  [[ -n "$apps_out" ]] && mapfile -t kde_apps <<< "$apps_out"
+  for _sec in apps_list apps_extra plugins; do
+    _sec_json="$(jsonc "$KDE_JSON" | jq -c ".${_sec} // {}")"
+    [[ "$_sec_json" == "{}" ]] && continue
+    _sec_out="$(categorized_list_parse "$_sec_json" bool "$_sec")"
+    [[ -n "$_sec_out" ]] && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_sec_out"
+  done
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then
+    # Sections may share a package (e.g. an imageformats plugin under two
+    # apps); dedupe before the single install pass.
+    mapfile -t kde_apps < <(printf '%s\n' "${kde_apps[@]}" | sort -u)
     pacman -S --noconfirm --needed "${kde_apps[@]}"
-    info "Installed ${#kde_apps[@]} KDE applications."
+    info "Installed ${#kde_apps[@]} KDE packages."
   else
     info "No KDE applications selected (all set to false in install-kde.jsonc)."
   fi

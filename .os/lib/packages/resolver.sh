@@ -73,6 +73,8 @@ _PKGRES_SOURCES=(
   "login-shell|Users"
   "kde-shell|Environment"
   "kde-apps|Environment"
+  "kde-apps-extra|Environment"
+  "kde-plugins|Environment"
   "kde-aur|Environment"
   "security|Security"
   "backup|Backup"
@@ -383,6 +385,16 @@ _pkgres_de_packages() {
       [[ -n "$p" ]] && _pkgres_emit kde-apps derived "$p"
     done < <(categorized_list_parse \
       "$(jq -c '.apps_list // {}' <<<"$json")" bool apps_list 2>/dev/null)
+    # apps_extra: KDE-ecosystem repo apps outside the kde-applications group
+    # (ADR 0087). plugins: per-app optdepend enhancers (ADR 0088).
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit kde-apps-extra derived "$p"
+    done < <(categorized_list_parse \
+      "$(jq -c '.apps_extra // {}' <<<"$json")" bool apps_extra 2>/dev/null)
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit kde-plugins derived "$p"
+    done < <(categorized_list_parse \
+      "$(jq -c '.plugins // {}' <<<"$json")" bool plugins 2>/dev/null)
   fi
 
   while IFS= read -r p; do
