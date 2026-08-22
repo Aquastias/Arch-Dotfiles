@@ -279,7 +279,12 @@ control keys are stripped from the output — they instruct the resolver and mus
 never reach a consumer. Pure: JSON in, JSON out, no filesystem, no TTY, so the
 layering contract is testable without a VM. Replaces the two divergent merge
 rules that were in use (concatenation in config load, replacement in the guided
-view), **both** of which were load-bearing where they were.
+view), **both** of which were load-bearing where they were. The subtract-then-
+strip exclusion logic has **one** implementation — the jq `apply_exclusions` def
+in `layer_jq_exclusions`, included by both the fold (`_layer_fold_one`) and the
+guided effective-config path (`layer_apply_exclusions`), mirroring how
+`layer_jq_prelude` already shares `is_additive` with the Save-path inverse, so
+the two exclusion paths cannot drift.
 
 ### Config Store
 `.os/lib/config/store.sh`. The **effectful** edge over the pure Config State —

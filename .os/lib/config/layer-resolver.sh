@@ -129,6 +129,37 @@ layer_jq_prelude() {
 JQ
 }
 
+# layer_jq_exclusions — the shared jq def both the fold (_layer_fold_one) and the
+# guided effective-config path (layer_apply_exclusions) use, so the subtract-
+# then-strip logic has ONE implementation (mirroring layer_jq_prelude, which did
+# the same for is_additive). Takes the three exclude lists, subtracts each from
+# its slot, drops the exclude control keys, and prunes an emptied packages
+# object. No $additive dependency, so a caller that doesn't bind it can still
+# include this.
+layer_jq_exclusions() {
+  cat <<'JQ'
+    def _drop($excl): map(select(. as $p | $excl | index($p) | not));
+    def _drop_cats($excl): with_entries(.value |=
+      (if type == "array" then _drop($excl) else . end));
+
+    # apply_exclusions($pkg; $sys; $usr) — subtract each list from its slot, then
+    # strip the exclude control keys and prune an emptied packages object.
+    def apply_exclusions($pkg_excl; $sys_excl; $usr_excl):
+      (if (.packages.repo // null) != null
+       then .packages.repo |= _drop_cats($pkg_excl) else . end)
+      | (if (.packages.aur // null) != null
+         then .packages.aur |= _drop_cats($pkg_excl) else . end)
+      | (if (.host_programs // null) != null
+         then .host_programs |= _drop($sys_excl) else . end)
+      | (if (.programs // null) != null
+         then .programs |= _drop($usr_excl) else . end)
+      | del(.packages.exclude)
+      | del(.host_programs_exclude)
+      | del(.programs_exclude)
+      | if (.packages // null) == {} then del(.packages) else . end;
+JQ
+}
+
 # layer_additive_json <host|user> — the classification table as a JSON array,
 # ready to pass as --argjson additive.
 layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
@@ -141,29 +172,16 @@ layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
 # layer fold (Host Core is already in the baseline), so without this an
 # unchecked package would be written to the config and installed anyway.
 layer_apply_exclusions() {
-  jq '
-    (.packages.exclude // []) as $pkg_excl
-    | (.host_programs_exclude // []) as $sys_excl
-    | (if (.packages.repo // null) != null
-       then .packages.repo |= with_entries(
-              .value |= (if type == "array"
-                         then map(select(. as $p | $pkg_excl | index($p) | not))
-                         else . end))
-       else . end)
-    | (if (.packages.aur // null) != null
-       then .packages.aur |= with_entries(
-              .value |= (if type == "array"
-                         then map(select(. as $p | $pkg_excl | index($p) | not))
-                         else . end))
-       else . end)
-    | (if (.host_programs // null) != null
-       then .host_programs |=
-              map(select(. as $p | $sys_excl | index($p) | not))
-       else . end)
-    | del(.packages.exclude)
-    | del(.packages.inherit)
-    | del(.host_programs_exclude)
-    | if (.packages // null) == {} then del(.packages) else . end
+  # inherit is meaningless without a fold (Host Core is already in the baseline),
+  # so drop it up front; apply_exclusions then subtracts the config's OWN excludes
+  # and strips the remaining control keys. Shares one implementation with the
+  # fold path via layer_jq_exclusions.
+  jq "$(layer_jq_exclusions)"'
+    del(.packages.inherit)
+    | apply_exclusions(
+        (.packages.exclude // []);
+        (.host_programs_exclude // []);
+        (.programs_exclude // []))
   ' <<<"$1"
 }
 
@@ -186,7 +204,8 @@ _layer_fold_one() {
   jq -n \
     --argjson lower "$lower" \
     --argjson upper "$upper" \
-    --argjson additive "$additive" "$(layer_jq_prelude)"'
+    --argjson additive "$additive" \
+    "$(layer_jq_prelude)$(layer_jq_exclusions)"'
     def merge($a; $b; $path):
       if   ($a == null) then $b
       elif ($b == null) then $a
@@ -212,38 +231,12 @@ _layer_fold_one() {
     # 3. exclusions, applied over the merged result — the UPPER layer only.
     #    A lower layer excluding something it never inherited is vacuous, and
     #    applying it here would stop a later layer from re-adding the entry,
-    #    which is exactly the "last layer wins" guarantee.
-    | ($upper.packages.exclude // []) as $pkg_excl
-    | ($upper.host_programs_exclude // []) as $sys_excl
-    | ($upper.programs_exclude // []) as $usr_excl
-
-    | (if (.packages.repo // null) != null
-       then .packages.repo |= with_entries(
-              .value |= (if type == "array"
-                         then map(select(. as $p | $pkg_excl | index($p) | not))
-                         else . end))
-       else . end)
-    | (if (.packages.aur // null) != null
-       then .packages.aur |= with_entries(
-              .value |= (if type == "array"
-                         then map(select(. as $p | $pkg_excl | index($p) | not))
-                         else . end))
-       else . end)
-    | (if (.host_programs // null) != null
-       then .host_programs |=
-              map(select(. as $p | $sys_excl | index($p) | not))
-       else . end)
-    | (if (.programs // null) != null
-       then .programs |= map(select(. as $p | $usr_excl | index($p) | not))
-       else . end)
-
-    # The exclude lists are control keys, not content — drop them so the
-    # effective config stays the shape the back-end reads. They are re-read
-    # from the authored layers on the next fold, which is what lets a later
-    # layer re-add something an earlier layer excluded.
-    | del(.packages.exclude)
-    | del(.host_programs_exclude)
-    | del(.programs_exclude)
-    | if (.packages // null) == {} then del(.packages) else . end
+    #    which is exactly the "last layer wins" guarantee. apply_exclusions also
+    #    strips the exclude control keys (re-read from the authored layers on the
+    #    next fold, which is what lets a later layer re-add an excluded entry).
+    | apply_exclusions(
+        ($upper.packages.exclude // []);
+        ($upper.host_programs_exclude // []);
+        ($upper.programs_exclude // []))
   '
 }
