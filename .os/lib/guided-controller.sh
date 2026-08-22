@@ -1750,6 +1750,10 @@ guided_ctl_list() {
     # screen,
     # not as a top-row block. Save/Export are likewise never gated.
     menu_top_lines "$state" "$base"
+    # A blank spacer sets the terminal-action block off from the categories —
+    # an inert row (skipped like the inter-bucket spacers), so a clear gap sits
+    # above the Proceed / Save / Export / Abort divider.
+    printf '\n'
     printf '%s\n' "$_CTL_DIVIDER"
     printf '%s\n' "Proceed ▸ review & install"
     # Manual Partitioning is Proceed-only (ADR 0073): a hand-drawn partition
@@ -3680,8 +3684,7 @@ guided_ctl_key() {
 _ctl_reload_cmd() {
   local entry="$1"
   if [[ -n "${GUIDED_LIST_FILE:-}" ]]; then
-    # trailing blank line = an inert spacer row → a gap above the footer toolbar
-    { guided_ctl_list; echo; } >"$GUIDED_LIST_FILE" 2>/dev/null
+    guided_ctl_list >"$GUIDED_LIST_FILE" 2>/dev/null
     printf 'cat %q' "$GUIDED_LIST_FILE"
   else
     printf 'bash %q list' "$entry"
