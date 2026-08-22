@@ -55,6 +55,20 @@ declare -F bluetooth_programs >/dev/null 2>&1 \
 # shellcheck source=../config/power.sh
 declare -F power_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/power.sh"
+# The pure package maps shared with the install path, so the query and the
+# install can never disagree on these names (base, gpu, audio, fs userland).
+# shellcheck source=./base.sh
+declare -F base_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/base.sh"
+# shellcheck source=./gpu.sh
+declare -F gpu_vendor_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/gpu.sh"
+# shellcheck source=./audio.sh
+declare -F audio_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/audio.sh"
+# shellcheck source=./filesystem.sh
+declare -F fs_userland_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/filesystem.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -144,14 +158,12 @@ pkgres_unresolved() {
 pkgres_resolve() {
   local cfg="$1"
 
-  # ── authored: the Base Package List ───────────────────────────────────────
-  # Mirrors lib/packages/list.sh's hardcoded set. Listed here rather than
-  # calling collect_packages because that function resolves the environment
-  # and reads globals; the resolver must stay pure.
-  _pkgres_emit base derived \
-    base base-devel linux-firmware networkmanager openssh cronie \
-    efibootmgr dosfstools vim git sudo rsync jq pacman-contrib stow \
-    man-db man-pages texinfo
+  # ── the Base Package List ─────────────────────────────────────────────────
+  # The shared pure set (lib/packages/base.sh) that collect_packages also
+  # installs — one source of truth, so query and install cannot drift. (Tagged
+  # `derived` because the resolver reports it as computed, not operator-authored.)
+  # shellcheck disable=SC2046
+  _pkgres_emit base derived $(base_packages)
 
   # ── kernel(s) + headers ───────────────────────────────────────────────────
   local tok
@@ -180,36 +192,37 @@ pkgres_resolve() {
     [(.filesystem // "zfs"),
      ((.storage_groups // [])[] | .filesystem // empty),
      ((.data_pools    // [])[] | .filesystem // empty)] | unique | .[]')"
-  grep -qx xfs   <<<"$fs_all" && _pkgres_emit filesystem-tools derived xfsprogs
+  # Names from the shared fs userland map (lib/packages/filesystem.sh).
+  # shellcheck disable=SC2046
+  grep -qx xfs   <<<"$fs_all" \
+    && _pkgres_emit filesystem-tools derived $(fs_userland_packages xfs)
+  # shellcheck disable=SC2046
   grep -qx btrfs <<<"$fs_all" \
-    && _pkgres_emit filesystem-tools derived btrfs-progs
-  grep -qx zfs   <<<"$fs_all" && _pkgres_emit zfs derived zfs-dkms zfs-utils
+    && _pkgres_emit filesystem-tools derived $(fs_userland_packages btrfs)
+  # shellcheck disable=SC2046
+  grep -qx zfs   <<<"$fs_all" \
+    && _pkgres_emit zfs derived $(fs_userland_packages zfs)
 
   # LUKS userland for any non-zfs encrypted group.
   if [[ "$(_pkgres_jq "$cfg" '.options.encryption // false')" == "true" ]] \
      && grep -qvx zfs <<<"$fs_all"; then
-    _pkgres_emit luks derived cryptsetup
+    # shellcheck disable=SC2046
+    _pkgres_emit luks derived $(luks_userland_packages)
   fi
 
   # ── GPU drivers ───────────────────────────────────────────────────────────
+  # Names from the shared pure GPU map (lib/packages/gpu.sh), the same map the
+  # install path uses. intel reports its modern default (intel-media-driver);
+  # the pre-Broadwell libva-intel-driver downgrade needs the lspci device id a
+  # pure resolver cannot read, so it surfaces via pkgres_unresolved instead of
+  # being silently wrong. `auto` is no vendor, so the map returns nothing —
+  # emitting no fake name to pollute a --flat listing; pkgres_unresolved reports
+  # it.
   local vendor
   while IFS= read -r vendor; do
     [[ -n "$vendor" ]] || continue
-    case "$vendor" in
-    amd)    _pkgres_emit gpu derived vulkan-radeon xf86-video-amdgpu mesa ;;
-    nvidia) _pkgres_emit gpu derived nvidia-open-dkms nvidia-utils \
-              lib32-nvidia-utils libva-nvidia-driver egl-wayland ;;
-    # Broadwell+ gets intel-media-driver, older gets libva-intel-driver; the
-    # split needs the lspci device id, which a pure resolver cannot read. The
-    # modern default is reported and the caveat surfaces via
-    # pkgres_unresolved rather than being silently wrong on old hardware.
-    intel)  _pkgres_emit gpu derived intel-media-driver ;;
-    vm)     _pkgres_emit gpu derived mesa ;;
-    # `auto` resolves from lspci on the live ISO. The resolver is pure and
-    # makes no hardware call, so it emits NOTHING rather than a fake package
-    # name that would pollute a --flat listing. pkgres_unresolved reports it.
-    auto)   : ;;
-    esac
+    # shellcheck disable=SC2046
+    _pkgres_emit gpu derived $(gpu_vendor_packages "$vendor")
   done < <(_pkgres_jq "$cfg" '
     (.environment.gpu // "auto")
     | if type == "string" then [.] else . end | .[]')
@@ -220,11 +233,11 @@ pkgres_resolve() {
     (.environment.desktop // [])
     | if type == "string" then [.] else . end | .[]')"
 
-  # Audio is auto-derived: PipeWire whenever any desktop is selected.
+  # Audio is auto-derived: the shared PipeWire stack (lib/packages/audio.sh)
+  # whenever any desktop is selected — the same names the install path adds.
   if [[ -n "$desktops" ]]; then
-    _pkgres_emit audio derived \
-      pipewire pipewire-pulse pipewire-alsa wireplumber \
-      gst-plugin-pipewire pipewire-jack libpulse
+    # shellcheck disable=SC2046
+    _pkgres_emit audio derived $(audio_packages)
   fi
 
   local de

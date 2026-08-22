@@ -40,6 +40,15 @@ _VALID_DESKTOP=(kde hyprland)
 _VALID_GPU=(amd nvidia intel auto)
 _VALID_DISPLAY_MANAGER=(auto greetd sddm)
 
+# The pure GPU + audio package maps, shared with the Package Resolver so the
+# names live once. Detection and the intel refinement below stay impure here.
+# shellcheck source=../packages/gpu.sh
+declare -F gpu_vendor_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../packages/gpu.sh"
+# shellcheck source=../packages/audio.sh
+declare -F audio_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../packages/audio.sh"
+
 # =============================================================================
 # GPU RESOLUTION
 # =============================================================================
@@ -47,33 +56,23 @@ _VALID_DISPLAY_MANAGER=(auto greetd sddm)
 # Wraps lspci -nn. Override in tests to control hardware detection.
 _gpu_lspci_output() { lspci -nn 2>/dev/null; }
 
-# Resolve GPU vendor string → package list entry.
-_gpu_vendor_packages() {
-  local vendor="$1"
-  case "$vendor" in
-    amd)    echo "vulkan-radeon xf86-video-amdgpu mesa" ;;
-    nvidia)
-      echo "nvidia-open-dkms nvidia-utils lib32-nvidia-utils" \
-           "libva-nvidia-driver egl-wayland"
-      ;;
-    intel)
-      local lspci_out device_id dec_id
-      lspci_out="$(_gpu_lspci_output)"
-      device_id="$(echo "$lspci_out" | grep -i "intel" \
-        | grep -oP '8086:\K[0-9a-fA-F]+' | head -1)"
-      if [[ -n "$device_id" ]]; then
-        dec_id=$(( 16#$device_id ))
-        if (( dec_id >= 0x1600 )); then
-          echo "intel-media-driver"
-        else
-          echo "libva-intel-driver"
-        fi
-      else
-        echo "intel-media-driver"
-      fi
-      ;;
-    vm) echo "mesa" ;;
-  esac
+# _gpu_intel_refine — the intel pre-Broadwell downgrade, applied install-side
+# only (the pure map returns the intel-media-driver default). Broadwell+
+# (device id ≥ 0x1600) keeps intel-media-driver; older gets libva-intel-driver;
+# an unreadable id keeps the modern default. Needs lspci, so it lives here, not
+# in the pure map.
+_gpu_intel_refine() {
+  local lspci_out device_id dec_id
+  lspci_out="$(_gpu_lspci_output)"
+  device_id="$(echo "$lspci_out" | grep -i "intel" \
+    | grep -oP '8086:\K[0-9a-fA-F]+' | head -1)"
+  if [[ -n "$device_id" ]]; then
+    dec_id=$(( 16#$device_id ))
+    if (( dec_id >= 0x1600 )); then echo "intel-media-driver"
+    else echo "libva-intel-driver"; fi
+  else
+    echo "intel-media-driver"
+  fi
 }
 
 # Detect GPU vendors from lspci output. Emits one vendor per line.
@@ -113,7 +112,13 @@ _resolve_env_gpu() {
 
   for _vendor in "${ENVIRONMENT_GPU[@]}"; do
     local _pkgs
-    _pkgs="$(_gpu_vendor_packages "$_vendor")"
+    # The shared pure map gives the deterministic set; intel additionally gets
+    # the lspci-driven pre-Broadwell refinement (install-side only).
+    if [[ "$_vendor" == intel ]]; then
+      _pkgs="$(_gpu_intel_refine)"
+    else
+      _pkgs="$(gpu_vendor_packages "$_vendor")"
+    fi
     # shellcheck disable=SC2206
     GPU_PACMAN_PACKAGES+=( $_pkgs )
   done
@@ -130,14 +135,9 @@ _resolve_env_gpu() {
 _resolve_env_audio() {
   AUDIO_PACKAGES=()
   [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]] && return 0
-  # The last three were declared by hand in the host profiles alongside the
-  # set the installer already derived — so they were not misplaced across
-  # layers so much as they should never have been declared at all (R11).
-  local _pipewire=(
-    pipewire pipewire-pulse pipewire-alsa wireplumber
-    gst-plugin-pipewire pipewire-jack libpulse
-  )
-  AUDIO_PACKAGES=("${_pipewire[@]}")
+  # The PipeWire stack — the name list lives in the shared pure audio map so the
+  # Package Resolver reports exactly what installs here (R11).
+  mapfile -t AUDIO_PACKAGES < <(audio_packages)
 }
 
 # =============================================================================

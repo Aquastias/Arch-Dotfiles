@@ -1038,12 +1038,17 @@ host's declared Host Programs, including Host Core; a host with no secrets
 gets neither the service nor `go`.
 
 ### Base Package List
-The hardcoded set pacstrapped onto every host regardless of config, defined in
-`lib/packages/list.sh:collect_packages` (e.g. `base`, `base-devel`, the selected
-kernel + headers, `linux-firmware`, `intel-ucode`/`amd-ucode`,
-`zfs-dkms`/`zfs-utils`, `networkmanager`, `openssh`, `efibootmgr`, `dosfstools`,
-`vim`, `git`, `sudo`, `rsync`, `jq`, `pacman-contrib`, `stow`, `man-db`,
-`cronie`). What the **installer itself** needs, as distinct from the [[Host
+The **unconditional** set pacstrapped onto every host regardless of config — the
+18 always-on names (`base`, `base-devel`, `linux-firmware`, `networkmanager`,
+`openssh`, `cronie`, `efibootmgr`, `dosfstools`, `vim`, `git`, `sudo`, `rsync`,
+`jq`, `pacman-contrib`, `stow`, `man-db`, `man-pages`, `texinfo`). Now a shared
+pure module, `lib/packages/base.sh:base_packages`, and one of the [[Package
+Derivation Maps]] — consumed by **both** `lib/packages/list.sh:collect_packages`
+(install) and the [[Package Resolver]] (query), so the two can never disagree on
+what "base" is. Config-*conditional* additions (selected kernel + headers, CPU
+microcode, `zfs-dkms`/`zfs-utils`, `cryptsetup`, `xfsprogs`/`btrfs-progs`, GPU +
+audio) are **not** part of this set — they come from their own Package
+Derivation Maps. What the **installer itself** needs, as distinct from the [[Host
 Package List]] in Host Core, which is what this *fleet* wants — the two are
 different layers, not competing ones. A Host Package List is deduplicated
 against it at install time. `stow` belongs here because the Runner invokes it
@@ -1052,6 +1057,22 @@ it — only the two host profiles happened to declare it, so every VM fixture hi
 `stow: command not found`. Universal infrastructure daemons whose package lives
 here (NetworkManager, cron) are enabled by the Chroot Configuration Module, not
 by a Program (ADR 0026).
+
+### Package Derivation Maps
+The shared **pure** modules under `lib/packages/` that hold a package-name set
+once so the install path and the [[Package Resolver]] cannot drift:
+`base.sh` (`base_packages` — the [[Base Package List]]), `gpu.sh`
+(`gpu_vendor_packages <vendor>`), `audio.sh` (`audio_packages` — the PipeWire
+stack), and `filesystem.sh` (`fs_userland_packages <fs>` + `luks_userland_packages`),
+alongside the older-established `kernel.sh`, `boot/bootloaders.sh`, and
+`config/fonts.sh`. Each maps an already-resolved input to package **names** only;
+the **decision** of which inputs apply, and any impure **detection**, stay with
+the caller — GPU vendor detection (`lspci`) and the intel pre-Broadwell
+refinement live in `config/environment.sh`, so the resolver stays headless and
+`environment.sh` owns the hardware edge. The pattern: extract the pure name list
+to a map both callers source, keep detection out of it. This is what lets the
+Package Resolver *query* the same names the installer *installs* rather than
+mirror a second hand-typed copy.
 
 `collect_packages` reads `packages.repo` from the **Effective Config**, not by
 re-loading a committed profile keyed on hostname: the guided and inline-config
