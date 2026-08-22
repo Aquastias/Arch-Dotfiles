@@ -1743,15 +1743,15 @@ guided_ctl_list() {
     # fresh repo with no committed profiles shows it, because the picker leads
     # with `+ New host (start blank)`, so it is always a first-class entry.
     printf '%s\n' "Profiles ▸ start from a saved machine"
-    # A blank spacer under Profiles, mirroring the one above the terminal block —
-    # an inert row, so each divider gets a clear gap on its category-facing side.
-    printf '\n'
     printf '%s\n' "$_CTL_DIVIDER"
     # Secrets are never a gate (ADR 0055): root, every user, and the encryption
     # passphrase default to 12345, so Proceed always installs. The per-secret
     # source is surfaced (default 12345 / custom / from age) on the Users
     # screen,
     # not as a top-row block. Save/Export are likewise never gated.
+    # A blank spacer below the Profiles divider, right above the first category —
+    # an inert row for a clear gap between the rule and the categories.
+    printf '\n'
     menu_top_lines "$state" "$base"
     # A blank spacer sets the terminal-action block off from the categories —
     # an inert row (skipped like the inter-bucket spacers), so a clear gap sits
