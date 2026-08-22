@@ -380,16 +380,20 @@ _pkgres_de_packages() {
   [[ -f "$f" ]] || return 0
   local json; json="$(jsonc_strip "$f" 2>/dev/null)" || return 0
 
-  # The shell section is a fixed pacman list inside the adapter script, not
-  # data — mirrored here so the report is complete.
-  local _sh; _sh="$(jq -r '.shell // true' <<<"$json")"
+  # The shell section is now DATA — the shell_packages Categorized List in the
+  # adapter's install-<de>.jsonc, read here so the report matches exactly what
+  # the adapter installs (source of truth, not a mirror). Honor .shell == false
+  # (jq's // treats false as empty, so an explicit check, not `.shell // true`).
+  # sddm the PACKAGE moved to the display-manager set (ADR 0069); sddm-kcm (a
+  # KDE config app) stays with the KDE shell.
+  local _sh
+  _sh="$(jq -r 'if .shell == false then false else true end' <<<"$json")"
   if [[ "$_sh" == "true" && "$de" == "kde" ]]; then
-    # sddm the PACKAGE moved to the display-manager set (ADR 0069); sddm-kcm (a
-    # KDE config app) stays with the KDE shell.
-    _pkgres_emit kde-shell derived \
-      plasma-meta plasma-workspace plasma-x11-session polkit-kde-agent \
-      sddm-kcm print-manager papirus-icon-theme breeze-gtk kde-gtk-config \
-      qt5-wayland qt6-wayland xdg-utils
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit kde-shell derived "$p"
+    done < <(categorized_list_parse \
+      "$(jq -c '.shell_packages // {}' <<<"$json")" bool shell_packages \
+      2>/dev/null)
   fi
 
   local p field src pair

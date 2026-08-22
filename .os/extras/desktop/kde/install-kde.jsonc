@@ -3,8 +3,44 @@
 //
 // To add packages after install: sudo pacman -S <package>
 {
-  // Install KDE Plasma shell + SDDM display manager.
+  // Install the KDE Plasma shell (the shell_packages below). Set to false for
+  // an apps-only install.
   "shell": true,
+  // The Plasma shell package set as a Categorized List { category: { pkg: bool
+  // } }, parsed in bool mode like the apps sections. ONE source of truth: the
+  // adapter installs these and the Package Resolver reports them (source
+  // kde-shell), so the two cannot drift. Not individually operator-toggleable —
+  // the shell is a unit; the menu toggles apps, not this.
+  //
+  // Rationale for the DE-tied non-obvious members: plasma-x11-session is only an
+  // optional dep of plasma-meta, installed so SDDM always offers an X11 fallback
+  // session (a black-screen guard on GPUs where kwin_wayland can't take over);
+  // sddm-kcm is the SDDM config module and is NOT in plasma-meta (the sddm
+  // PACKAGE + enablement are the Display Manager Adapter's, ADR 0069); the
+  // wayland/portal/icon pieces were once hand-declared in host profiles (ADR
+  // 0021).
+  "shell_packages": {
+    "plasma": {
+      "plasma-meta": true,
+      "plasma-workspace": true,
+      "plasma-x11-session": true,
+      "polkit-kde-agent": true
+    },
+    "integration": {
+      "sddm-kcm": true,
+      "print-manager": true,
+      "xdg-utils": true
+    },
+    "theming": {
+      "papirus-icon-theme": true,
+      "breeze-gtk": true,
+      "kde-gtk-config": true
+    },
+    "wayland": {
+      "qt5-wayland": true,
+      "qt6-wayland": true
+    }
+  },
   // Install KDE applications (controlled individually below).
   "apps": true,
   // KDE APPLICATIONS as a Categorized List: { category: { pkg: bool } }.

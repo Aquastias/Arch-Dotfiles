@@ -150,6 +150,19 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   ! grep -qx "sddm" <<<"$kdeshell"
 }
 
+# Drift guard (Candidate 5): the KDE adapter installs shell_packages from
+# install-kde.jsonc and the resolver reports them — assert the resolver's
+# kde-shell set equals the jsonc data, so install and query cannot diverge.
+@test "kde-shell source == install-kde.jsonc shell_packages" {
+  source "$OS_DIR/lib/config/categorized-list.sh"
+  local json expected got
+  json="$(jsonc_strip "$OS_DIR/extras/desktop/kde/install-kde.jsonc")"
+  expected="$(categorized_list_parse \
+    "$(jq -c '.shell_packages' <<<"$json")" bool shell_packages | sort -u)"
+  got="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
+}
+
 @test "the derived audio set covers the formerly hand-declared packages" {
   local a; a="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' audio)"
   local p
