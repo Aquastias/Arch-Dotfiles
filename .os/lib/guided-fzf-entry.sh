@@ -53,7 +53,7 @@ source "${_entry_dir}/guided-controller.sh"
 
 case "${1:-}" in
 list)
-  guided_ctl_list; echo   # trailing inert spacer → gap above the footer toolbar
+  guided_ctl_list
   ;;
 dispatch)
   _verb="${2:-}"; _line="${3:-}"; _query="${4:-}"; _d="noop"

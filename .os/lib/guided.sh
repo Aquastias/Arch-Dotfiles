@@ -1090,9 +1090,7 @@ guided_run_persistent() {
   # pane.
   # The current row is marked by the triangle pointer in the main list (ADR
   # 0082), which replaced the top screen's parent-column preview.
-  # A trailing blank line is an inert spacer row (guided_row_inert skips it), so
-  # it renders as a gap between the last menu row and the footer toolbar.
-  { guided_ctl_list; echo; } | fzf --reverse --prompt='guided> ' --pointer='▶' \
+  guided_ctl_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
     --border=rounded --border-label=' Guided Installer ' \
     --border-label-pos=center \
     --header='Enter open   Esc quit   ·   ^Z undo  ^Y redo  ^R reset' \
