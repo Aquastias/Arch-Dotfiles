@@ -146,6 +146,47 @@ JSON
   [ ! -e "$TEST_DIR/seed/etc/sddm.conf.d/10-session-dirs.conf" ]
 }
 
+# ── first-run suppression seeding (ADR 0088, Q4-B) ──────────────────────────
+
+@test "Plasma Welcome Center autostart is hidden" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "Hidden=true" \
+    "$TEST_DIR/seed/etc/skel/.config/autostart/plasma-welcome.desktop"
+}
+
+@test "Baloo indexing is left enabled" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "Indexing-Enabled=true" "$TEST_DIR/seed/etc/skel/.config/baloofilerc"
+}
+
+@test "a default Konsole profile is pre-created and selected" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_DIR/seed/etc/skel/.local/share/konsole/Default.profile" ]
+  grep -q "DefaultProfile=Default.profile" \
+    "$TEST_DIR/seed/etc/skel/.config/konsolerc"
+}
+
+@test "Dolphin config version is stamped to suppress migration popups" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "Version=" "$TEST_DIR/seed/etc/skel/.config/dolphinrc"
+}
+
 # ── malformed apps_list aborts the install ──────────────────────────────────
 
 @test "old flat shape (bool leaf at top) aborts with parser error" {
