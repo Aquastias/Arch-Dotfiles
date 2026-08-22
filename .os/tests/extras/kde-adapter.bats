@@ -162,6 +162,51 @@ JSON
   [[ "$output" == *"expected boolean leaf"* ]]
 }
 
+# ── plugins (categorized, bool mode) ────────────────────────────────────────
+# plugins are per-app optdepend enhancers, installed in the same pass (ADR 0088).
+
+@test "selected plugin is installed" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"plugins":{"dolphin":{"sentinel-plugin":true}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-plugin" "$PACMAN_LOG"
+}
+
+@test "deselected plugin (false) is not installed" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"plugins":{"dolphin":{"sentinel-keep":true,"sentinel-drop":false}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-keep" "$PACMAN_LOG"
+  ! grep -q "sentinel-drop" "$PACMAN_LOG"
+}
+
+@test "a package shared across app sections installs once" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"plugins":{"gwenview":{"shared-fmt":true},"digikam":{"shared-fmt":true}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ "$(grep -c "shared-fmt" "$PACMAN_LOG")" -eq 1 ]
+}
+
+@test "malformed plugins aborts with a pathed parser error" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"plugins":{"dolphin":{"kio-admin":"yes"}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"plugins.dolphin.kio-admin"* ]]
+  [[ "$output" == *"expected boolean leaf"* ]]
+}
+
 # ── shipped install-kde.jsonc regression lock ───────────────────────────────
 
 # apps_list holds exactly the operator's kde-applications-group roster plus the
@@ -200,6 +245,31 @@ JSON
   [ "$status" -eq 0 ]
   [ "$(sort <<<"$output")" = "$(printf '%s\n' \
     digikam haruna kdiff3 kommit krename krusader krita okteta | sort)" ]
+}
+
+@test "shipped plugins is exactly the curated enhancer set" {
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  local plugins_json
+  plugins_json="$(jsonc "$real" | jq -c '.plugins')"
+
+  run categorized_list_parse "$plugins_json" bool plugins
+  [ "$status" -eq 0 ]
+  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+    darktable dolphin-plugins ebook-tools ffmpegthumbs kde-cli-tools \
+    kdegraphics-mobipocket kdegraphics-thumbnailers kimageformats kio-admin \
+    krita-plugin-gmic noise-suppression-for-voice opencv qt6-imageformats \
+    recordmydesktop sshfs | sort)" ]
+}
+
+@test "Ark backends are not duplicated into plugins (they live in Host Core)" {
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
+  local names
+  names="$(jsonc_strip "$real" | jq -r '.plugins | to_entries[].value | keys[]')"
+  ! grep -qx "7zip" <<<"$names"
+  ! grep -qx "unrar" <<<"$names"
 }
 
 @test "the plasma-extras category is gone" {
