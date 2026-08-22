@@ -375,7 +375,7 @@ _pkgres_de_packages() {
     # KDE config app) stays with the KDE shell.
     _pkgres_emit kde-shell derived \
       plasma-meta plasma-workspace plasma-x11-session polkit-kde-agent \
-      sddm-kcm print-manager papirus-icon-theme \
+      sddm-kcm print-manager papirus-icon-theme breeze-gtk kde-gtk-config \
       qt5-wayland qt6-wayland xdg-utils
   fi
 

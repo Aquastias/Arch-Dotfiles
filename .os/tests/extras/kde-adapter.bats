@@ -17,8 +17,10 @@ setup() {
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
   KDE_JSON="$TEST_DIR/install-kde.jsonc"
   ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/kde/kde.sh"
+  # Seed DE defaults into the temp tree, never the real /etc/skel.
+  KDE_SEED_ROOT="$TEST_DIR/seed"
 
-  export PACMAN_LOG SYSTEMCTL_LOG KDE_JSON
+  export PACMAN_LOG SYSTEMCTL_LOG KDE_JSON KDE_SEED_ROOT
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
@@ -94,6 +96,54 @@ JSON
   grep -q "sddm-kcm" "$PACMAN_LOG"
   # the bare sddm package is not installed by KDE — dm-sddm owns it
   ! grep -qE '(^|[[:space:]])sddm([[:space:]]|$)' "$PACMAN_LOG"
+}
+
+# ── default look: Breeze Dark seeding (ADR 0088) ────────────────────────────
+
+@test "shell phase installs the GTK-dark bridge packages" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "breeze-gtk" "$PACMAN_LOG"
+  grep -q "kde-gtk-config" "$PACMAN_LOG"
+}
+
+@test "theme seed writes Breeze Dark kdeglobals into skel" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local kg="$TEST_DIR/seed/etc/skel/.config/kdeglobals"
+  [ -f "$kg" ]
+  grep -q "ColorScheme=BreezeDark" "$kg"
+  grep -q "Theme=Papirus-Dark" "$kg"
+  grep -q "LookAndFeelPackage=org.kde.breezedark.desktop" "$kg"
+}
+
+@test "theme seed sets Breeze cursors" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "cursorTheme=breeze_cursors" \
+    "$TEST_DIR/seed/etc/skel/.config/kcminputrc"
+}
+
+@test "SDDM theme drop-in is Breeze in its own file (no session-dir clobber)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/sddm.conf.d/20-kde-theme.conf"
+  [ -f "$f" ]
+  grep -q "Current=breeze" "$f"
+  # dm-sddm owns 10-session-dirs.conf; the KDE theme uses a distinct filename.
+  [ ! -e "$TEST_DIR/seed/etc/sddm.conf.d/10-session-dirs.conf" ]
 }
 
 # ── malformed apps_list aborts the install ──────────────────────────────────
