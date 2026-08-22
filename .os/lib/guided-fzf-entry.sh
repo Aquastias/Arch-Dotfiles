@@ -90,9 +90,9 @@ cfdisk)
   # assignment into the guided state. The controller (sourced above) already
   # pulled in manual-partition.sh + picker.sh. VM/HITL-verified glue.
   _mdisk="$(manual_target_disk)" || exit 0
-  _mcur="$(cat "$GUIDED_STATE_FILE")"
+  _mcur="$(cfgstore_state)"
   if _mnew="$(manual_partition_flow "$_mcur" "$_mdisk")"; then
-    printf '%s\n' "$_mnew" > "$GUIDED_STATE_FILE"
+    cfgstore_write_state "$_mnew"
   fi
   ;;
 pkgbrowse)
@@ -117,9 +117,9 @@ pkgbrowse)
     --preview 'pacman -Si {} 2>/dev/null' --preview-window=right,60% \
     | tr '\n' ' ')"
   [[ -n "${_picks// /}" ]] || exit 0
-  _pcur="$(cat "$GUIDED_STATE_FILE")"
+  _pcur="$(cfgstore_state)"
   if _pnew="$(_ctl_route_package_entry "$_pcur" "$_picks" "$_pslot")"; then
-    printf '%s\n' "$_pnew" > "$GUIDED_STATE_FILE"
+    cfgstore_write_state "$_pnew"
   fi
   ;;
 secret)

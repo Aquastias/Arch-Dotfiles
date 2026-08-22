@@ -29,6 +29,9 @@ declare -F error >/dev/null 2>&1 \
 # shellcheck source=lib/config/state.sh
 declare -F cfgstate_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
+# shellcheck source=lib/config/store.sh
+declare -F cfgstore_state >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/store.sh"
 # shellcheck source=lib/config/seed.sh
 declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
@@ -953,7 +956,7 @@ _guided_secrets_manifest() {
 # fields and the Disks layout/persist actions (slices 02/03 make these native).
 _guided_oneshot_edit() {
   local field="$1"
-  _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
+  _GUIDED_STATE="$(cfgstore_state)"
   case "$field" in
   system.hostname)          _guided_edit_hostname ;;
   system.locale)            _guided_edit_locale ;;
@@ -976,7 +979,7 @@ _guided_oneshot_edit() {
   __persist__)              _guided_add_persist ;;
   *) : ;;
   esac
-  printf '%s\n' "$_GUIDED_STATE" >"$GUIDED_STATE_FILE"
+  cfgstore_write_state "$_GUIDED_STATE"
 }
 
 # guided_run_persistent — the ADR-0042 single-fzf front-end. Sets up the tmpfs
@@ -1050,9 +1053,9 @@ guided_run_persistent() {
   export GUIDED_RICH_CHROME
   GUIDED_RICH_CHROME="$(_ctl_detect_rich_chrome)"
 
-  printf '%s\n' "$_GUIDED_BASELINE" >"$GUIDED_BASELINE_FILE"
-  printf '%s\n' "$_GUIDED_STATE"    >"$GUIDED_STATE_FILE"
-  nav_new >"$GUIDED_NAV_FILE"
+  cfgstore_write_baseline "$_GUIDED_BASELINE"
+  cfgstore_write_state "$_GUIDED_STATE"
+  cfgstore_write_nav "$(nav_new)"
   : >"$GUIDED_RESULT_FILE"
   hist_new "$_GUIDED_STATE" >"$GUIDED_HIST_FILE"   # undo/redo seed
 
@@ -1120,7 +1123,7 @@ page-down" \
     --bind "ctrl-r:transform(bash $entry key ctrl-r)" \
     >/dev/null || true
 
-  _GUIDED_STATE="$(<"$GUIDED_STATE_FILE")"
+  _GUIDED_STATE="$(cfgstore_state)"
   # Load the in-menu credentials captured via execute() into the held-aside vars
   # so the existing manifest path (_guided_secrets_manifest) is unchanged. The
   # Proceed gate guaranteed root + every enabled user is set before accept.

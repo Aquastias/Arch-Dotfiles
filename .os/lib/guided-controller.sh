@@ -37,6 +37,9 @@
 # shellcheck source=lib/config/state.sh
 declare -F cfgstate_get >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/state.sh"
+# shellcheck source=lib/config/store.sh
+declare -F cfgstore_state >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/store.sh"
 # shellcheck source=lib/config/nav.sh
 declare -F nav_new >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/nav.sh"
@@ -212,17 +215,13 @@ _ctl_display_value_str() {
 _CTL_DIVIDER="──────────────────────────"
 
 # ── state-file accessors ─────────────────────────────────────────────────────
-_ctl_state()    { printf '%s' "$(<"$GUIDED_STATE_FILE")"; }
-_ctl_nav()      { printf '%s' "$(<"$GUIDED_NAV_FILE")"; }
-_ctl_baseline() {
-  if [[ -n "${GUIDED_BASELINE_FILE:-}" && -f "${GUIDED_BASELINE_FILE}" ]]; then
-    printf '%s' "$(<"$GUIDED_BASELINE_FILE")"
-  else
-    printf '%s' '{}'
-  fi
-}
-_ctl_write_state() { printf '%s\n' "$1" >"$GUIDED_STATE_FILE"; }
-_ctl_write_nav()   { printf '%s\n' "$1" >"$GUIDED_NAV_FILE"; }
+# Thin delegations to the Config Store (lib/config/store.sh), which owns the
+# triad session files — so the file IPC lives in one place, not here.
+_ctl_state()       { cfgstore_state; }
+_ctl_nav()         { cfgstore_nav; }
+_ctl_baseline()    { cfgstore_baseline; }
+_ctl_write_state() { cfgstore_write_state "$1"; }
+_ctl_write_nav()   { cfgstore_write_nav "$1"; }
 
 # _ctl_effective <state> <baseline> — the merged view (override wins).
 _ctl_effective() { jq -n --argjson b "$2" --argjson o "$1" '$b * $o'; }

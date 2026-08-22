@@ -281,6 +281,26 @@ layering contract is testable without a VM. Replaces the two divergent merge
 rules that were in use (concatenation in config load, replacement in the guided
 view), **both** of which were load-bearing where they were.
 
+### Config Store
+`.os/lib/config/store.sh`. The **effectful** edge over the pure Config State —
+owns the Guided Installer's triad session files (`GUIDED_STATE_FILE` /
+`GUIDED_NAV_FILE` / `GUIDED_BASELINE_FILE`) behind a small named interface
+(`cfgstore_state` / `cfgstore_write_state`, `cfgstore_nav` /
+`cfgstore_write_nav`, `cfgstore_baseline` / `cfgstore_write_baseline`) so no
+caller pokes the tmpfs paths directly. `config/state.sh` (`cfgstate_*`) stays
+**pure** (JSON in/out); the Config Store is where the file IPC lives, once. fzf
+runs each keystroke bind in a **fresh shell**, so the session state must be
+process-external — the backing is a tmpfs file read via the `GUIDED_*_FILE` path
+the launcher (`guided_run_persistent`) exports; there is **one adapter** (the
+file), and the controller tests set the same globals to a temp path, asserting
+behaviour through it unchanged. The controller's private `_ctl_state` /
+`_ctl_write_state` / `_ctl_nav` / `_ctl_write_nav` / `_ctl_baseline` now delegate
+here, and the former direct pokes in `guided-fzf-entry.sh` (the `cfdisk` /
+`pkgbrowse` execute() verbs) and `guided.sh` (`_guided_oneshot_edit`, the session
+seed/read in `guided_run_persistent`) route through it. Scope is the Config State
+triad; the other session handoff files (secrets, userforms, history, pw buffers,
+session-undo, skip, list, result) are separate concerns not yet folded in.
+
 ### Package Resolver
 `.os/lib/packages/resolver.sh`. The pure module answering "what actually lands
 on this machine?" — an Effective Config in, every package out, each tagged with
