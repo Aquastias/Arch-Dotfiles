@@ -116,6 +116,50 @@ Current=breeze
 EOF
 
   info "Seeded Breeze Dark look (icons, cursors, GTK bridge, SDDM theme)."
+
+  # ── FIRST-RUN: seed a "not first launch" state (ADR 0088, Q4-B) ───────────
+  # Scope is the reliably-suppressible defaults — the Plasma Welcome Center
+  # (the visible first-login wizard), Baloo, and the two apps with a stable
+  # first-run key (Konsole profile, Dolphin config version). Other apps have no
+  # dependable Plasma-6 first-run flag, so none is guessed.
+  section "KDE First-Run Defaults"
+
+  # Plasma Welcome Center: hide its autostart so a fresh session opens straight
+  # to the desktop instead of the first-login wizard.
+  _seed_write etc/skel/.config/autostart/plasma-welcome.desktop <<'EOF'
+[Desktop Entry]
+Hidden=true
+EOF
+
+  # Baloo file indexing ON so desktop search works from first login.
+  _seed_write etc/skel/.config/baloofilerc <<'EOF'
+[Basic Settings]
+Indexing-Enabled=true
+EOF
+
+  # Konsole: a pre-created default profile so first launch is not the bare
+  # "no profile" state.
+  _seed_write etc/skel/.config/konsolerc <<'EOF'
+[Desktop Entry]
+DefaultProfile=Default.profile
+EOF
+  _seed_write etc/skel/.local/share/konsole/Default.profile <<'EOF'
+[Appearance]
+ColorScheme=Breeze
+
+[General]
+Name=Default
+Parent=FALLBACK/
+EOF
+
+  # Dolphin: stamp the config version so migration / "what's new" popups do not
+  # fire on first launch.
+  _seed_write etc/skel/.config/dolphinrc <<'EOF'
+[General]
+Version=200
+EOF
+
+  info "Seeded first-run defaults (welcome off, Baloo on, Konsole, Dolphin)."
 fi
 
 # =============================================================================
