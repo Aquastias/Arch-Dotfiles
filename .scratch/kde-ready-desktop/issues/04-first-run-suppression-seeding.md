@@ -14,13 +14,15 @@ helper it introduces.
 
 **Status:** ready-for-agent
 
-- [ ] Global welcome/tips/what's-new are disabled in the seeded skel
-- [ ] Per-app first-run state is seeded for Dolphin, Konsole, Kate,
-      Okular, Spectacle, Gwenview, Ark (a default Konsole profile
-      exists)
-- [ ] Baloo indexing is left enabled
-- [ ] `kde-adapter.bats`: with the seed-root pointed at a temp dir, the
+- [x] The Plasma Welcome Center autostart is hidden in the seeded skel
+- [x] Per-app first-run state is seeded **where a dependable Plasma-6
+      key exists** — Konsole (a pre-created default profile) and Dolphin
+      (a stamped config `Version`). Kate/Okular/Spectacle/Gwenview/Ark
+      have no stable first-run flag on Plasma 6, so none is guessed
+      (rationale recorded in ADR 0088; invented keys would be noise)
+- [x] Baloo indexing is left enabled
+- [x] `kde-adapter.bats`: with the seed-root pointed at a temp dir, the
       first-run suppression files land — asserted by presence and key
       value
-- [ ] Only the curated apps are touched; no attempt at exhaustive
+- [x] Only the curated apps are touched; no attempt at exhaustive
       per-app coverage
