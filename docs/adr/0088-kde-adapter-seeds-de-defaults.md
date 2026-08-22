@@ -31,10 +31,15 @@ Seeded content:
   `Breeze` cursors. GTK follows via `breeze-gtk`/`kde-gtk-config`; the
   Catppuccin GTK theming is removed from the stow payload (re-addable
   later).
-- **First-run suppression** (ADR Q4-B scope): global welcome noise off
-  (Plasma Welcome Center, tip-of-the-day, "what's new" popups) plus curated
-  per-app first-run state for the heavy-hitters (Dolphin, Konsole, Kate,
-  Okular, Spectacle, Gwenview, Ark). Baloo file indexing left **on**.
+- **First-run suppression** (ADR Q4-B scope): the Plasma **Welcome Center**
+  autostart is hidden (the one visible first-login wizard), and per-app
+  first-run state is seeded **only where a package exposes a dependable
+  Plasma-6 first-run key** — today that is **Konsole** (a pre-created default
+  profile) and **Dolphin** (a stamped config `Version`). Kate, Okular,
+  Spectacle, Gwenview and Ark have no stable first-run flag to seed on
+  Plasma 6, so none is guessed — writing invented keys would be config noise,
+  not suppression. Baloo file indexing is left **on**. (Amends the earlier
+  "all seven apps" wording, which named apps that have nothing to seed.)
 - **SDDM**: pinned to the Breeze theme in dark so login → session is
   visually seamless.
 

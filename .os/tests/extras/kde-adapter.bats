@@ -254,7 +254,7 @@ JSON
 }
 
 # ── plugins (categorized, bool mode) ────────────────────────────────────────
-# plugins are per-app optdepend enhancers, installed in the same pass (ADR 0088).
+# plugins are per-app optdepend enhancers (ADR 0088), same install pass.
 
 @test "selected plugin is installed" {
   cat > "$KDE_JSON" <<'JSON'
@@ -358,7 +358,8 @@ JSON
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local names
-  names="$(jsonc_strip "$real" | jq -r '.plugins | to_entries[].value | keys[]')"
+  names="$(jsonc_strip "$real" \
+    | jq -r '.plugins | to_entries[].value | keys[]')"
   ! grep -qx "7zip" <<<"$names"
   ! grep -qx "unrar" <<<"$names"
 }

@@ -2,7 +2,8 @@
 # =============================================================================
 # extras/desktop/kde/kde.sh — KDE Plasma Desktop
 # =============================================================================
-# Installs KDE Plasma shell and KDE applications ONLY.
+# Installs the KDE Plasma shell + applications and seeds the DE config
+# defaults (Breeze Dark look, cursors, SDDM theme, first-run state — ADR 0088).
 # Package selection is driven by install-kde.jsonc in the same directory.
 # =============================================================================
 
@@ -25,8 +26,9 @@ source "${SCRIPT_DIR}/../../../lib/config/categorized-list.sh"
 
 # Honor an explicit `false` (jq's `//` treats false as empty, so `.shell //
 # true` would wrongly resolve a disabled section back to true).
-do_shell="$(jsonc "$KDE_JSON" | jq -r 'if .shell == false then false else true end')"
-do_apps="$(jsonc "$KDE_JSON" | jq -r 'if .apps == false then false else true end')"
+_KDE_BOOL='if . == false then false else true end'
+do_shell="$(jsonc "$KDE_JSON" | jq -r ".shell | $_KDE_BOOL")"
+do_apps="$(jsonc "$KDE_JSON" | jq -r ".apps | $_KDE_BOOL")"
 
 # Seed root for the DE config defaults the adapter writes (ADR 0088). Default
 # `/` (the chroot); tests point KDE_SEED_ROOT at a temp dir. /etc/skel/.config
@@ -180,7 +182,8 @@ if [[ "$do_apps" == "true" ]]; then
     _sec_json="$(jsonc "$KDE_JSON" | jq -c ".${_sec} // {}")"
     [[ "$_sec_json" == "{}" ]] && continue
     _sec_out="$(categorized_list_parse "$_sec_json" bool "$_sec")"
-    [[ -n "$_sec_out" ]] && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_sec_out"
+    [[ -n "$_sec_out" ]] \
+      && mapfile -t -O "${#kde_apps[@]}" kde_apps <<< "$_sec_out"
   done
 
   if [[ ${#kde_apps[@]} -gt 0 ]]; then
