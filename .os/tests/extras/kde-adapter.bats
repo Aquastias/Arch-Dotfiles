@@ -127,15 +127,49 @@ JSON
   [[ "$output" == *"invalid category name"* ]]
 }
 
+# ── apps_extra (categorized, bool mode) ─────────────────────────────────────
+# apps_extra installs in the same pacman pass as apps_list (ADR 0087).
+
+@test "selected app under apps_extra is installed" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"apps_extra":{"gfx":{"sentinel-extra":true}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-extra" "$PACMAN_LOG"
+}
+
+@test "deselected apps_extra leaf (false) is not installed" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"apps_extra":{"gfx":{"sentinel-keep":true,"sentinel-drop":false}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-keep" "$PACMAN_LOG"
+  ! grep -q "sentinel-drop" "$PACMAN_LOG"
+}
+
+@test "malformed apps_extra aborts with a pathed parser error" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":true,"apps_list":{},
+"apps_extra":{"gfx":{"krita":"yes"}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"apps_extra.gfx.krita"* ]]
+  [[ "$output" == *"expected boolean leaf"* ]]
+}
+
 # ── shipped install-kde.jsonc regression lock ───────────────────────────────
 
-# apps_list is exactly the 20 kde-applications entries. The membership rule is
-# mechanical: a package belongs here iff its pacman Groups contains
-# `kde-applications` (R21). Five non-applications were removed — sddm-kcm to
-# the shell section, xdg-desktop-portal-kde and kimageformats5 as redundant
-# (already in plasma-meta's tree / a stale KF5 parallel stack), and
-# pacmanlogviewer + octopi to Host Core because they are not KDE at all.
-@test "shipped apps_list is exactly the 20 kde-applications entries" {
+# apps_list holds exactly the operator's kde-applications-group roster plus the
+# three plasma-group no-ops (spectacle / plasma-systemmonitor / discover) that
+# plasma-meta already pulls. Membership is mechanical (R21, ADR 0087): a repo
+# app belongs here iff its pacman Groups contains `kde-applications`; every
+# non-group KDE app lives in apps_extra instead.
+@test "shipped apps_list matches the curated roster" {
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/config/categorized-list.sh
@@ -146,12 +180,26 @@ JSON
 
   run categorized_list_parse "$apps_json" bool apps_list
   [ "$status" -eq 0 ]
-  [ "$(wc -l <<<"$output")" -eq 20 ]
-  [ "$output" = "$(printf '%s\n' \
-    ark calligra dolphin filelight gwenview kate kdiff3 keditbookmarks \
-    kleopatra kompare konsole krename krita krusader \
-    ktorrent kwalletmanager okular partitionmanager \
-    skanlite skanpage | sort)" ]
+  [ "$(wc -l <<<"$output")" -eq 34 ]
+  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+    ark calligra discover dolphin elisa filelight ghostwriter gwenview \
+    isoimagewriter k3b kate kcalc kcolorchooser kdeconnect kdenlive keysmith \
+    kfind kiten kleopatra kmag kolourpaint konsole krdc krfb ktorrent \
+    kwalletmanager merkuro okular partitionmanager plasma-systemmonitor \
+    skanpage spectacle sweeper yakuake | sort)" ]
+}
+
+@test "shipped apps_extra is exactly the non-group KDE apps" {
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
+  local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
+  local extra_json
+  extra_json="$(jsonc "$real" | jq -c '.apps_extra')"
+
+  run categorized_list_parse "$extra_json" bool apps_extra
+  [ "$status" -eq 0 ]
+  [ "$(sort <<<"$output")" = "$(printf '%s\n' \
+    digikam haruna kdiff3 kommit krename krusader krita okteta | sort)" ]
 }
 
 @test "the plasma-extras category is gone" {
@@ -161,16 +209,21 @@ JSON
   jsonc_strip "$real" | jq -e '.apps_list | has("plasma-extras") | not'
 }
 
-@test "the removed non-applications appear nowhere in apps_list" {
+@test "the pruned/removed apps appear in no section" {
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
   source "$BATS_TEST_DIRNAME/../../lib/jsonc.sh"
   local names
-  names="$(jsonc_strip "$real" \
-    | jq -r '.apps_list | to_entries[].value | keys[]')"
+  names="$(jsonc_strip "$real" | jq -r '
+    [(.apps_list // {}), (.apps_extra // {}), (.plugins // {})]
+    | .[] | to_entries[].value | keys[]')"
   local p
+  # Old non-applications (relocated / redundant) plus this round's prunes:
+  # karbon (⊂ calligra), kclock (mobile), skanlite (⊂ skanpage), arianna
+  # (Okular covers EPUB), kgpg (kleopatra kept), kompare (→ kdiff3),
+  # keditbookmarks (unrequested).
   for p in sddm-kcm xdg-desktop-portal-kde kimageformats5 pacmanlogviewer \
-           octopi; do
-    ! grep -qx "$p" <<<"$names" || { echo "still in apps_list: $p"; return 1; }
+           octopi karbon kclock skanlite arianna kgpg kompare keditbookmarks; do
+    ! grep -qx "$p" <<<"$names" || { echo "still declared: $p"; return 1; }
   done
 }
 
