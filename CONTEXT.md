@@ -876,9 +876,14 @@ Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
 the Hyprland adapter is core-only and ships none — ADR 0062). Invoked
 dynamically by the Environment Runner based on `environment.desktop`. KDE and
 Hyprland are the two adapters. Each adapter owns every
-DE-tied package (apps, Qt plugins, AUR theming bridges): it installs its repo
-packages via pacman, writes its session files (and, for Hyprland, enables
-seatd), and enables its services. The display manager is **not** its concern
+DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
+config default**: it installs its repo packages via pacman, writes its session
+files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
+seeds the DE's default look (Breeze Dark, Papirus-Dark icons, Breeze cursors)
+plus per-app first-run state into `/etc/skel` and `/etc/xdg` so a fresh login is
+ready, not first-run (ADR 0088). The KDE app set is split by provenance across
+`apps_list` (packages in the `kde-applications` group) and `apps_extra`
+(KDE-ecosystem repo packages outside that group — ADR 0087). The display manager is **not** its concern
 (ADR 0069) — a separate [[Display Manager Adapter]] owns package, config, and
 enable. AUR dependencies are not installed by the adapter — they are declared
 in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level
