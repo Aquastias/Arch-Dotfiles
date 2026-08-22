@@ -80,6 +80,15 @@
         "ccache",
         "nvm"
       ],
+      "language-servers": [
+        "bash-language-server",
+        "clang",
+        "gopls",
+        "rust-analyzer",
+        "typescript-language-server",
+        "yaml-language-server",
+        "zls"
+      ],
       "browsers": [
         "firefox"
       ],
@@ -116,6 +125,9 @@
         "vscodium-bin",
         "vscodium-marketplace",
         "zen-browser-bin"
+      ],
+      "language-servers": [
+        "vscode-langservers-extracted"
       ]
     }
   }
