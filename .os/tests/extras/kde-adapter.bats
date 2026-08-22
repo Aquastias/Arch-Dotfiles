@@ -55,21 +55,26 @@ JSON
   ! grep -q "sentinel-drop" "$PACMAN_LOG"
 }
 
-# The shell section owns the DE-tied non-applications: sddm-kcm (a KCM, and
-# not in plasma-meta) plus the wayland/portal/icon pieces relocated out of the
-# host profiles (ADR 0021, R10/R21).
-@test "shell section installs the DE-tied non-applications" {
+# The shell package set is DATA now — the shell_packages Categorized List in
+# install-kde.jsonc, parsed like apps. This is the MECHANISM test (a sentinel);
+# the real 12-package content is covered by resolver.bats (kde-shell) and the
+# drift guard that asserts kde-shell == the jsonc shell_packages.
+@test "shell section installs the declared shell_packages" {
   cat > "$KDE_JSON" <<'JSON'
-{"shell":true,"apps":false,"apps_list":{}}
+{"shell":true,"apps":false,"shell_packages":{"core":{"sentinel-shell":true}}}
 JSON
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  local p
-  for p in plasma-meta sddm-kcm papirus-icon-theme \
-           qt5-wayland qt6-wayland xdg-utils; do
-    grep -q "$p" "$PACMAN_LOG" \
-      || { echo "shell section missing: $p"; return 1; }
-  done
+  grep -q "sentinel-shell" "$PACMAN_LOG"
+}
+
+@test "shell:false skips the shell packages" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":false,"apps":false,"shell_packages":{"core":{"sentinel-shell":true}}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "sentinel-shell" "$PACMAN_LOG"
 }
 
 # ── display manager is no longer the KDE adapter's concern (ADR 0069) ─────────
@@ -89,7 +94,7 @@ JSON
 
 @test "KDE adapter installs sddm-kcm but not the sddm package" {
   cat > "$KDE_JSON" <<'JSON'
-{"shell":true,"apps":false,"apps_list":{}}
+{"shell":true,"apps":false,"shell_packages":{"integration":{"sddm-kcm":true}}}
 JSON
   run env ENVIRONMENT_DESKTOP="kde hyprland" bash "$ADAPTER"
   [ "$status" -eq 0 ]
@@ -102,7 +107,8 @@ JSON
 
 @test "shell phase installs the GTK-dark bridge packages" {
   cat > "$KDE_JSON" <<'JSON'
-{"shell":true,"apps":false,"apps_list":{}}
+{"shell":true,"apps":false,
+"shell_packages":{"theming":{"breeze-gtk":true,"kde-gtk-config":true}}}
 JSON
   KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
   [ "$status" -eq 0 ]

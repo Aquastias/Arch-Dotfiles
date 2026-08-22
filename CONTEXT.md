@@ -901,9 +901,14 @@ config default**: it installs its repo packages via pacman, writes its session
 files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
 seeds the DE's default look (Breeze Dark, Papirus-Dark icons, Breeze cursors)
 plus per-app first-run state into `/etc/skel` and `/etc/xdg` so a fresh login is
-ready, not first-run (ADR 0088). The KDE app set is split by provenance across
-`apps_list` (packages in the `kde-applications` group) and `apps_extra`
-(KDE-ecosystem repo packages outside that group — ADR 0087). The display manager is **not** its concern
+ready, not first-run (ADR 0088). The KDE package set is **all data** in
+`install-kde.jsonc`, parsed in bool mode: the Plasma shell itself is
+`shell_packages` (gated by the `shell` bool), and the app set is split by
+provenance across `apps_list` (packages in the `kde-applications` group) and
+`apps_extra` (KDE-ecosystem repo packages outside that group — ADR 0087). The
+[[Package Resolver]] reads the same `install-kde.jsonc`, so what the adapter
+installs and what the resolver reports (source `kde-shell`) cannot drift — the
+shell list is no longer a fixed pacman line mirrored in the resolver. The display manager is **not** its concern
 (ADR 0069) — a separate [[Display Manager Adapter]] owns package, config, and
 enable. AUR dependencies are not installed by the adapter — they are declared
 in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level

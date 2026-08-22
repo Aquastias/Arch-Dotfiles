@@ -49,31 +49,23 @@ _seed_write() {
 # =============================================================================
 if [[ "$do_shell" == "true" ]]; then
   section "KDE Plasma Shell"
-  # plasma-x11-session is only an *optional* dep of plasma-meta, so without it
-  # SDDM offers Wayland only. On GPUs where kwin_wayland can't take over the
-  # display (e.g. amdgpu atomic-commit regressions), that leaves a black screen
-  # at login with no fallback. Install it so an X11 session is always available.
-  #
-  # The trailing group is DE-tied but NOT applications, so it belongs here
-  # rather than in apps_list (ADR 0021, R10/R21): sddm-kcm is a config module
-  # and is not in plasma-meta; the wayland/portal/icon pieces were declared by
-  # hand in the host profiles, where they installed even on a host that never
-  # selected KDE. `sddm-kcm` stays here (a KDE config app); the sddm PACKAGE and
-  # its enablement moved to the SDDM Display Manager Adapter (ADR 0069) so the
-  # display manager is an operator choice, not KDE's to decide.
-  pacman -S --noconfirm --needed \
-    plasma-meta \
-    plasma-workspace \
-    plasma-x11-session \
-    polkit-kde-agent \
-    sddm-kcm \
-    print-manager \
-    papirus-icon-theme \
-    breeze-gtk \
-    kde-gtk-config \
-    qt5-wayland \
-    qt6-wayland \
-    xdg-utils
+  # The shell package set is DATA — the shell_packages Categorized List in
+  # install-kde.jsonc, parsed the same way apps are (bool mode). One source of
+  # truth the Package Resolver reads too, so install and query cannot drift; the
+  # rationale for the non-obvious members (plasma-x11-session fallback session,
+  # sddm-kcm the KCM not in plasma-meta, the wayland/portal/icon pieces) is
+  # documented in the jsonc. The sddm PACKAGE + enablement are the SDDM Display
+  # Manager Adapter's (ADR 0069), not KDE's.
+  shell_pkgs=()
+  _shell_json="$(jsonc "$KDE_JSON" | jq -c '.shell_packages // {}')"
+  if [[ "$_shell_json" != "{}" ]]; then
+    mapfile -t shell_pkgs < <(categorized_list_parse "$_shell_json" bool \
+      shell_packages)
+  fi
+  if [[ ${#shell_pkgs[@]} -gt 0 ]]; then
+    mapfile -t shell_pkgs < <(printf '%s\n' "${shell_pkgs[@]}" | sort -u)
+    pacman -S --noconfirm --needed "${shell_pkgs[@]}"
+  fi
 
   # The display manager is no longer the KDE adapter's concern (ADR 0069): the
   # resolved Display Manager Adapter owns package + enable. KDE only ships the
