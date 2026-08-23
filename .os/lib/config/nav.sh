@@ -214,6 +214,12 @@ nav_to_pkgderivedsrc() {
 # nav_back <nav> — values/text → their category; category → top; top stays top.
 # The secret screen routes through nav_secret_return so its cancel path reads
 # the same carried origin the save path does (ADR 0059).
+#
+# A back transition carries a `focus` hint naming the row it is returning ONTO —
+# the category name for category→top, the field label for a field→category — so
+# render restores the cursor there instead of leaving it on the reload's stale
+# line index (a spacer/header). The hint is best-effort: render no-ops it when it
+# matches no row, so only reliably-labelled screens set it.
 nav_back() {
   if [[ "$(jq -r '.screen' <<<"$1")" == "secret" ]]; then
     nav_secret_return "$1"; return
@@ -226,12 +232,15 @@ nav_back() {
     elif .screen == "rooteditor"
          then {screen:"values",category:.category,field:"users",label:"users"}
     elif .screen == "values" and .field == "users"
-         then {screen:"top"}
+         then {screen:"top", focus:.category}
     elif .screen == "values" or .screen == "text"
-         then {screen:"category", category:.category}
-    elif .screen == "swapedit"  then {screen:"category", category:.category}
-    elif .screen == "encryption" then {screen:"category", category:.category}
-    elif .screen == "impermanence" then {screen:"category", category:.category}
+         then {screen:"category", category:.category, focus:.label}
+    elif .screen == "swapedit"
+         then {screen:"category", category:.category, focus:"Swap"}
+    elif .screen == "encryption"
+         then {screen:"category", category:.category, focus:"Encryption"}
+    elif .screen == "impermanence"
+         then {screen:"category", category:.category, focus:"Impermanence"}
     elif .screen == "datapools" then {screen:"category", category:.category}
     elif .screen == "pooledit"  then {screen:"datapools", category:.category}
     elif .screen == "pooldisks"
@@ -251,6 +260,6 @@ nav_back() {
          then {screen:"category", category:.category}
     elif .screen == "pkgderivedsrc"
          then {screen:"pkgderived", category:.category}
-    elif .screen == "category" then {screen:"top"}
+    elif .screen == "category" then {screen:"top", focus:.category}
     else {screen:"top"} end' <<<"$1"
 }
