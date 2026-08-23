@@ -29,12 +29,11 @@ declare -F prompt_secret >/dev/null 2>&1 \
 # =============================================================================
 # CHROOT STAGING MANIFEST
 # =============================================================================
-# The lib/ files the chroot phase needs are declared here as data, so the
-# dependency set is explicit and lockstep-checkable (tests/chroot/chroot-
-# staging.bats) instead of buried in a run of cp lines. Each entry is
-# "<src-rel-to-SCRIPT_DIR>|<dst-rel-to-stage-root>". A renamed or moved lib
-# file then fails the bats check, not the VM — the lib-foldering lockstep made
-# visible. Keep in step with the `source` lines in lib/chroot/*.
+# The lib/ files the chroot phase needs, declared as data so the dependency set
+# is explicit and lockstep-checkable (tests/chroot/chroot-staging.bats) instead
+# of buried in cp lines. Each entry is "<src-rel-SCRIPT_DIR>|<dst-rel-stage>".
+# A renamed lib then fails the bats check, not the VM. Keep in step with the
+# `source` lines in lib/chroot/*.
 
 # Staged flat into /root/lib-chroot, as siblings of the lib/chroot/* tree the
 # chroot scripts source by bare name.
@@ -143,13 +142,9 @@ write_crypttab() {
 # =============================================================================
 
 write_esp_mirror_hook() {
-  # Installs a pacman hook that rsyncs the primary ESP (/boot/efi) to all
-  # secondary ESPs (/boot/efi1, /boot/efi2, ...) after every kernel update
-  # or systemd-boot update. This keeps every OS disk independently bootable.
-  #
-  # The hook fires on any change to:
-  #   usr/lib/modules/*/vmlinuz  — kernel image updated
-  #   usr/lib/systemd/boot/efi/*.efi  — systemd-boot EFI binary updated
+  # Install a pacman hook that rsyncs the primary ESP to all secondary ESPs
+  # after any kernel or systemd-boot update (Target = usr/lib/modules/*/vmlinuz
+  # and usr/lib/systemd/boot/efi/*.efi), keeping every OS disk bootable.
 
   local esp_count="$1"
   # Explicit `return 0`: bare `return` would propagate the false-arithmetic
@@ -185,9 +180,8 @@ Exec = /usr/local/sbin/esp-mirror
 HOOK
   info "ESP mirror pacman hook installed."
 
-  # Install paccache cleanup hook — runs after every pacman transaction
-  # and keeps only the 2 most recent versions of each package in cache.
-  # This prevents /var/cache/pacman/pkg from growing unbounded after updates.
+  # Install paccache cleanup hook: after every transaction, keep only the 2 most
+  # recent versions per package so /var/cache/pacman/pkg doesn't grow unbounded.
   mkdir -p "${MOUNT_ROOT}/etc/pacman.d/hooks"
   cat >"${MOUNT_ROOT}/etc/pacman.d/hooks/90-paccache.hook" <<'HOOK'
 [Trigger]
@@ -257,13 +251,11 @@ _resolve_root_password() {
 }
 
 # Seed a valid zpool.cache into the new root's /etc/zfs so the initramfs ZFS
-# hook imports every pool at boot. `zpool set` takes exactly ONE pool per call
-# — passing all pools at once (single-disk makes rpool AND dpool) made it fail,
-# and the old `cp` fallback then copied the live ISO's stale/empty zpool.cache,
-# baking a corrupt cache into the initramfs (boot died in a retry loop with
-# "invalid or corrupt cache file"). Loop one pool per call so all land in one
-# valid file. If any set fails or the file ends up empty, remove it entirely so
-# the hook falls back to scan import (what the VMs did, hence they booted).
+# hook imports every pool at boot. `zpool set` takes exactly ONE pool per call:
+# passing all at once failed, and the old `cp` fallback then baked the live
+# ISO's stale/empty cache into the initramfs (boot looped on "invalid or corrupt
+# cache file"). Loop one pool per call. If any set fails or the file ends up
+# empty, remove it so the hook falls back to scan import.
 _chroot_seed_zpool_cache() {
   local cache="$1"; shift
   local p
@@ -302,9 +294,8 @@ configure_system() {
 
   # ── Copy extras/ scripts for execution inside chroot ──────────────────────
   if [[ -d "${SCRIPT_DIR}/extras" ]]; then
-    # Remove any previous copy first so cp -r is always idempotent.
-    # Without rm: if /root/extras already exists, cp -r would nest the
-    # contents inside /root/extras/extras/ instead of /root/extras/.
+    # rm first so cp -r is idempotent: otherwise an existing /root/extras nests
+    # the copy at /root/extras/extras/.
     rm -rf "${MOUNT_ROOT}/root/extras"
     cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
     # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.

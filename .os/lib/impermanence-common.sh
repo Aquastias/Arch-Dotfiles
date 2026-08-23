@@ -52,28 +52,23 @@ imp_btrfs_rollback_subvols() {
   done
 }
 
-# Create the Persist Dataset EARLY (with the Rollback Datasets, before the OS is
-# installed) so it lands in the zfs-list.cache and mounts at boot BEFORE
-# local-fs.target. The curated Persist Mounts (RequiredBy=local-fs.target) then
-# restore /etc/machine-id, host keys, the SOPS age key, etc. over the
-# @blank-rolled-back /etc before early services run — dbus-broker hard-fails
-# (restart-loops) on an empty /etc/machine-id, so this ordering is load-bearing.
-# Idempotent.
+# Create the Persist Dataset EARLY (before the OS) so it lands in zfs-list.cache
+# and mounts BEFORE local-fs.target. The Persist Mounts then restore
+# /etc/machine-id, host keys, the SOPS age key, etc. over the @blank-rolled-back
+# /etc before early services run — dbus-broker restart-loops on an empty
+# machine-id, so this ordering is load-bearing. Idempotent.
 imp_create_persist_dataset() {
   local dataset="$1" mount="$2"
   zfs list -H -o name "$dataset" >/dev/null 2>&1 && return 0
   zfs create -o mountpoint="$mount" -o canmount=on "$dataset"
 }
 
-# Create the Rollback Datasets EARLY — during pool/dataset creation, before the
-# OS is installed — so pacstrap writes /etc, /root, /opt, /srv, /usr/local onto
-# them AND they land in the zfs-list.cache (built later in chroot configure),
-# letting zfs-mount-generator mount them at boot. canmount=on is REQUIRED:
-# `zfs mount -a` and the generator's auto-mount both SKIP canmount=noauto, so a
-# noauto dataset never mounts, /etc stays on the root dataset, and the @blank
-# rollback becomes a no-op. Creating them late (post-pacstrap) is not an option
-# — an empty dataset would mount over the already-populated path. Idempotent:
-# pre-existing datasets are left untouched.
+# Create the Rollback Datasets EARLY (before the OS) so pacstrap writes /etc,
+# /root, /opt, /srv, /usr/local onto them AND they land in zfs-list.cache for
+# zfs-mount-generator. canmount=on is REQUIRED: `zfs mount -a` and the generator
+# both SKIP canmount=noauto, so a noauto dataset never mounts and @blank rollback
+# no-ops. Creating them late would mount an empty dataset over a populated path.
+# Idempotent.
 imp_create_rollback_datasets() {
   local rpool="$1"
   local entry suffix mp ds

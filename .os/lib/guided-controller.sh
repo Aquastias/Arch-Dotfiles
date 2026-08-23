@@ -11,13 +11,10 @@
 # guided_ctl_back). No fzf is needed to drive it — state files in, files + a
 # directive out — so the dispatch is unit-testable without a tty.
 #
-# Screens (nav.sh): top, category, values (enum picks, multi-select toggles, the
-# sysctl + users list editors, the Disk-layout preset picker), text (free-text
-# typed INTO fzf's own query line). EVERYTHING commits in place now — enum
-# picks,
-# toggles, layout presets, sysctl pairs, user toggle + create, Add-persist, and
-# every free-text field — so the menu never leaves fzf. ^Z/^Y/^R drive
-# undo/redo/reset over a snapshot history.
+# Screens (nav.sh): top, category, values (enum picks, toggles, list editors,
+# the Disk-layout preset picker), text (typed into fzf's query line). Everything
+# commits in place, so the menu never leaves fzf; ^Z/^Y/^R drive undo/redo/reset
+# over a snapshot history.
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
 #   render             re-list + re-prompt + re-header the current screen
@@ -251,17 +248,12 @@ _ctl_field_kind() {
 }
 
 # _ctl_is_cycle_field <path> → rc 0 when <path> is a Cycle Field: an enum leaf
-# whose whole value set is {true,false}, so Enter flips it in place on the
-# category screen instead of drilling into the values submenu (ADR 0075).
-# Structural (not a path list) — any bare bool qualifies with nothing to keep in
-# sync; the editor-backed bools (encryption, impermanence) are ▸ rows that never
-# reach this, and the other enums (filesystem, bootloader, …) carry real option
-# lists, so only the bare bools match.
+# whose value set is {true,false}, so Enter flips it in place instead of drilling
+# into the values submenu (ADR 0075). Structural — any bare bool qualifies.
 _ctl_is_cycle_field() {
-  # The two editor-backed bools are ▸ rows with their own screens (Encryption /
-  # Impermanence editors) — bare-bool by shape but NOT Cycle Fields (Q8); the
-  # dispatch never routes them here, but the detail pane resolves them directly,
-  # so exclude them so they are never labelled a Cycle Field.
+  # The editor-backed bools (encryption, impermanence) are ▸ rows with their own
+  # screens — bare-bool by shape but NOT Cycle Fields; exclude them so they are
+  # never labelled one.
   case "$1" in
   options.encryption | options.impermanence.enabled) return 1 ;;
   esac
@@ -554,14 +546,10 @@ _ctl_append_primary_user_programs() {
 }
 
 # _ctl_normalise_default <state> <path> → <state> with the override at <path>
-# dropped when it renders identically to the seeded baseline default. The whole
-# "strict delta" contract: an apply that lands the operator back on the shown
-# default leaves NO override, so the map stays a true delta and ●
-# (override-only)
-# never lights for an unchanged value. Rendered compare (menu_render_value) so
-# it
-# judges "same as the default" the way the value displays — surviving the
-# scalar/array shape gaps (keymap "us" vs ["us"], gpu "auto"). Pure.
+# dropped when it renders identically to the seeded default (the "strict delta"
+# contract: landing back on the default leaves NO override, so ● never lights for
+# an unchanged value). Rendered compare (menu_render_value) survives scalar/array
+# shape gaps (keymap "us" vs ["us"], gpu "auto"). Pure.
 _ctl_normalise_default() {
   local state="$1" path="$2"
   cfgstate_is_overridden "$state" "$path" || { printf '%s' "$state"; return 0; }
@@ -584,19 +572,11 @@ _ctl_curated_persist_count() {
 }
 
 # _ctl_host_program_names / _ctl_user_program_names — the option set for each
-# program picker, filtered on the registry's kind (R22). The two screens have
-# opposite requirements: host host_programs needs kind host (else
-# validate_programs rejects the config at Proceed), the User Editor's programs
-# row needs kind user (else the reference silently no-ops or aborts). One
-# unfiltered list used to feed both.
-#
-# [[Menu-Owned Program]]s are filtered from BOTH pickers (ADR 0086, generalising
-# ADR 0079/0080): a program whose install a dedicated control governs has that
-# control as its sole home, so offering it here too is the double representation
-# the rule removes. `menu_owned_programs` is the union — grub (Bootloader),
-# the Security/Backup sets, sops (secrets), plus the service programs. Every
-# kind:host program is owned, so the host picker is normally empty (`|| :` keeps
-# the empty result a success, not grep's rc 1).
+# program picker, filtered on the registry's kind (R22): the host row needs kind
+# host, the User Editor's row needs kind user. [[Menu-Owned Program]]s are
+# filtered from BOTH (ADR 0086): a program a dedicated control governs has that
+# control as its sole home. Every kind:host program is owned, so the host picker
+# is normally empty (`|| :` keeps the empty result a success, not grep's rc 1).
 _ctl_host_program_names() {
   program_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
 }

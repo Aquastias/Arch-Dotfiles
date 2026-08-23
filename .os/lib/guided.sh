@@ -164,14 +164,11 @@ guided_pick_disk() {
 # ASSEMBLY
 # =============================================================================
 # In-flight session state for one guided run. Two layers (issue 01):
-#   _GUIDED_BASELINE — the seeded launch defaults, set once and held constant
-#   for
-#     the session. Not snapshotted (it never changes), not an "override".
-#   _GUIDED_STATE — the operator's sparse OVERRIDE map (empty at launch). Every
-#     edit writes here, so the ● flag / is_overridden reflect operator intent
-#     only. The effective config the back-end consumes is BASELINE * STATE.
-# The edit helpers (shared by the interactive menu + headless replay) write the
-# override; value/mode/hostname reads go through _guided_effective.
+#   _GUIDED_BASELINE — seeded launch defaults, set once, held constant (not
+#     snapshotted, not an override).
+#   _GUIDED_STATE — the operator's sparse OVERRIDE map (empty at launch); every
+#     edit writes here, so the ● flag reflects operator intent only.
+# Effective config = BASELINE * STATE, read via _guided_effective.
 _GUIDED_BASELINE=""
 _GUIDED_STATE=""
 _GUIDED_DISK=""
@@ -186,12 +183,10 @@ readonly _GUIDED_ACTION_DONE=64
 # or stepping back and forth, never loses a value.
 _GUIDED_HIST=""
 
-# _guided_set_identity — seed this operator's launch defaults into the BASELINE
-# layer (hostname, Primary User, single-disk layout, locale/timezone/keymap) via
-# the pure seeder. The seed is a default, not an override: it lives in the
-# baseline so a fresh run carries no ●, yet still emits — validation.sh requires
-# system.locale + system.timezone and the host must never be userless.
-# locale/timezone/keymap surface as editable Host rows over these seeds.
+# _guided_set_identity — seed launch defaults into the BASELINE layer (hostname,
+# Primary User, single-disk layout, locale/timezone/keymap). A default, not an
+# override, so a fresh run carries no ● yet still emits (validation.sh requires
+# locale + timezone, and the host must never be userless).
 _guided_set_identity() {
   _GUIDED_BASELINE="$(cfgstate_seed_defaults "$(cfgstate_new)")"
 }
@@ -946,16 +941,13 @@ guided_run_persistent() {
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
   GUIDED_RESULT_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-result.XXXXXX")"
   GUIDED_HIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-hist.XXXXXX.json")"
-  # In-menu credential handoff (ticket 03): the masked prompt runs in an
-  # execute() subprocess and writes here; the parent loads it into the
-  # held-aside
-  # vars below. Cleaned on RETURN with the others — never in the Config State.
+  # In-menu credential handoff (ticket 03): the masked execute() prompt writes
+  # here; the parent loads it into the held-aside vars. Never the Config State.
   GUIDED_SECRETS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
   printf '{}\n' >"$GUIDED_SECRETS_FILE"
   # Latency fast-path (ticket 04): a nav dispatch precomputes the next screen's
-  # list here so fzf can reload(cat …) it — one cheap fork instead of a second
-  # bash that re-sources the controller. fzf runs binds sequentially, so one
-  # reused file is race-free.
+  # list here so fzf can reload(cat …) it — one cheap fork, not a controller
+  # re-source. Binds run sequentially, so one reused file is race-free.
   GUIDED_LIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-list.XXXXXX")"
   # Install-scoped User Editor deltas (ADR 0051): the editor writes per-user
   # profile deltas here; loaded into _GUIDED_USERFORMS_JSON before this file is
@@ -1013,34 +1005,25 @@ guided_run_persistent() {
   # {q} from fzf's own input line); esc maps to a back/abort transform; the
   # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
   local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
-  # Rich chrome flags (fzf ≥ 0.62 only): a bottom footer + a rounded list border
-  # for the breadcrumb. Passed only when supported so an older fzf never chokes
-  # on an unknown flag; the ^A/^X binds are harmless on either fzf (they just
-  # map
-  # to context actions the controller already gates).
+  # Rich chrome flags (fzf >= 0.62 only): footer + rounded list border. Passed
+  # only when supported so an older fzf never chokes; the ^A/^X binds are
+  # harmless on either.
   local -a rich_flags=()
   if [[ "$GUIDED_RICH_CHROME" == "1" ]]; then
     rich_flags=(--footer=' ' --footer-border=top \
       --list-border=rounded --list-label-pos=center)
   fi
-  # Fixed navy/blue palette (ADR 0071) so the installer looks the same on any
-  # box — not the operator's personal fzf theme (absent on the live ISO anyway).
-  # Mirrors the design prototype: near-black bg, bright-blue selection bar, cyan
-  # accents, amber override marker. Truecolor; degrades to 256 where
-  # unsupported.
+  # Fixed navy/blue palette (ADR 0071) so the installer looks the same on any box
+  # (not the operator's fzf theme, absent on the live ISO). Truecolor; degrades
+  # to 256 where unsupported.
   local gc='bg:#0b0f14,bg+:#1f6feb,fg:#c7d0da,fg+:#ffffff,hl:#39d0d8'
   gc+=',hl+:#ffffff,border:#233240,label:#39d0d8,preview-bg:#0b0f14'
   gc+=',preview-fg:#c7d0da,prompt:#39d0d8,pointer:#ffffff,marker:#f0a020'
   gc+=',header:#5b6b7a,info:#5b6b7a,gutter:#0b0f14,spinner:#39d0d8'
   gc+=',query:#c7d0da'
-  # The preview pane is the always-on master-detail column (ADR 0071): it is
-  # wired
-  # to the entry's `preview` verb from the start and shown on the initial top
-  # screen, so the pane is populated on first paint (not only after the first
-  # drill fires a render). Per-screen renders hide it where a screen owns no
-  # pane.
-  # The current row is marked by the triangle pointer in the main list (ADR
-  # 0082), which replaced the top screen's parent-column preview.
+  # The preview pane is the always-on master-detail column (ADR 0071), wired to
+  # the entry's `preview` verb from the start so it paints on first render.
+  # The current row is marked by the ▶ pointer (ADR 0082).
   guided_ctl_list | fzf --reverse --prompt='guided> ' --pointer='▶' \
     --border=rounded --border-label=' Guided Installer ' \
     --border-label-pos=center \
@@ -1209,15 +1192,10 @@ guided_build() {
   _guided_seed_primary_user
 
   if ((_GUIDED_REPLAY)); then
-    # Each edit reads its own seam key; an absent answer is a no-op (the edit
-    # returns non-zero "no commit"). The replay file declares only the fields it
-    # wants. install.sh drives guided_build under `set -e`, where a no-op edit's
-    # non-zero return would abort the whole run — so errexit is suspended across
-    # this best-effort sequence and restored after (the disk / assignment / emit
-    # / consent steps below stay guarded). The caller's ERR trap is suspended
-    # too — `set -E` inherits it here, and it fires on each no-op edit's
-    # non-zero
-    # return even under set +e, spamming the log with bogus "aborted" lines.
+    # Each edit reads its own seam key; an absent answer is a no-op returning
+    # non-zero. install.sh runs guided_build under `set -e`, so errexit AND the
+    # inherited ERR trap are suspended across this best-effort sequence (else
+    # every no-op edit aborts the run / spams "aborted"), restored after.
     local _had_errexit=0; [[ $- == *e* ]] && _had_errexit=1
     local _err_trap; _err_trap="$(trap -p ERR)"
     set +e

@@ -2,36 +2,24 @@
 # =============================================================================
 # lib/preflight.sh — ensure the installer's host tools exist before any run
 # =============================================================================
-# The front-ends (guided TUI, --profile disk picker) and the Target Resolver run
-# inside install.sh BEFORE 01-bootstrap-zfs.sh, and the numbered phases then
-# shell out to the whole partition/format/pacstrap toolchain. This module checks
-# every host tool the installer needs up front and pacman-installs any that are
-# missing (mirrors lib/secrets.sh's on-demand age/sops install), so the operator
-# never hits a bare "fzf: command not found" — or worse, a missing mkfs mid-wipe.
+# Front-ends and the Target Resolver run in install.sh BEFORE 01-bootstrap, and
+# the numbered phases shell out to the whole partition/pacstrap toolchain. This
+# checks every host tool up front and pacman-installs any missing, so the
+# operator never hits "fzf: command not found" or a missing mkfs mid-wipe.
 #
-# Scope — what is and isn't guarded:
-#   • Guarded: the "extra" packages a stripped/custom live medium might omit
-#     (jq, fzf, gptfdisk, arch-install-scripts, btrfs-progs, cryptsetup, …).
-#   • NOT guarded — the ISO's non-negotiable base (bash/coreutils/util-linux/
-#     systemd/gawk/sed/grep/pacman): if any were absent, pacman/bash could not
-#     have started this script, so a pacman guard is moot.
-#   • NOT guarded — zfs/zpool/zgenhostid: 01-bootstrap-zfs.sh installs zfs-dkms
-#     on demand (ADR 0023), and only for a ZFS layout.
-#   • NOT guarded — age/sops: lib/secrets.sh installs them contextually, only
-#     for encrypted-secrets profiles.
+# Guarded: the "extra" packages a stripped medium might omit (jq, fzf, gptfdisk,
+# arch-install-scripts, btrfs-progs, cryptsetup, …). NOT guarded: the ISO base
+# (bash/coreutils/…, or the script couldn't run); zfs (01-bootstrap installs it,
+# ADR 0023); age/sops (lib/secrets.sh installs contextually).
 #
-# Off a live medium (no pacman) a missing tool is a hard error listing exactly
-# what to install — never a cryptic command-not-found. main()-free, so sourcing
-# is inert. The pacman call is a seam (_preflight_pacman) so tests can assert the
-# resolved package set without root or a network.
+# Off a live medium (no pacman) a missing tool is a hard error listing what to
+# install. The pacman call is a seam (_preflight_pacman) for tests.
 # =============================================================================
 
-# The host toolchain the installer shells out to, beyond the ISO base. Entries
-# are cmd[:pkg]; pkg defaults to cmd. One representative command per package is
-# enough — pacman --needed dedups, and every tool a package ships arrives with
-# it. Kept config-independent on purpose: verifying the full toolchain up front
-# (even btrfs/luks/raid helpers on a ZFS-only run) is cheap on the official ISO,
-# where every entry is already present, and fails fast on a minimal medium.
+# The host toolchain beyond the ISO base. Entries are cmd[:pkg] (pkg defaults to
+# cmd); one representative command per package (pacman --needed dedups).
+# Config-independent on purpose: checking the full toolchain up front is cheap on
+# the official ISO and fails fast on a minimal medium.
 _PREFLIGHT_BASE_TOOLS=(
   jq                         # config parsing — every front-end + phase
   git                        # repo clone / profile assembly
@@ -51,39 +39,27 @@ _PREFLIGHT_BASE_TOOLS=(
   pvs:lvm2                   # LVM layouts
 )
 
-# preflight_installer_tools [--interactive]
-# Emit the required cmd[:pkg] tokens, one per line. --interactive adds fzf, used
-# by the disk picker / guided TUI — not needed for --print-config, a --guided
-# replay, or a positional-config install.
+# preflight_installer_tools [--interactive] — emit the required cmd[:pkg] tokens,
+# one per line. --interactive adds fzf (disk picker / guided TUI).
 preflight_installer_tools() {
   printf '%s\n' "${_PREFLIGHT_BASE_TOOLS[@]}"
   [[ "${1:-}" == --interactive ]] && printf '%s\n' fzf
   return 0
 }
 
-# preflight_frontend_tools [--interactive]
-# The front-end-only tier for a `--debug` run: jq (every front-end parses
-# jsonc), plus fzf when an interactive front-end (guided menu / --profile
-# picker) will run — and NONE of the install toolchain. This is what lets
-# `install.sh --debug` launch the menu on a daily-driver box without
-# pacman-installing pacstrap/mdadm/…
+# preflight_frontend_tools [--interactive] — the front-end-only tier for --debug:
+# jq (+ fzf when interactive), and NONE of the install toolchain, so
+# `install.sh --debug` can launch the menu on a daily-driver box.
 preflight_frontend_tools() {
   printf '%s\n' jq
   [[ "${1:-}" == --interactive ]] && printf '%s\n' fzf
   return 0
 }
 
-# preflight_resolve_plan <debug:0|1> — the pure --debug resolver (ADR 0063).
-# Maps the parsed flags to two decisions, as one line "<tier> <install>".
-#   --debug (1) → "frontend no"  — ensure only the front-end tools, WITHHOLD the
-#                                  install (the numbered bootstrap/wipe/install
-#                                  phases never run, so no disk is touched).
-#   normal  (0) → "full yes"     — ensure the whole install toolchain and run
-#                                  the install, exactly as on the live CD today.
-# Pure: no root, no network, no installer execution — so the "front-end-tools-
-# only, never install" guarantee is unit-testable. The caller expands the tier
-# to a token set via preflight_frontend_tools / preflight_installer_tools (the
-# --interactive fzf choice is orthogonal and stays with the caller).
+# preflight_resolve_plan <debug:0|1> — pure --debug resolver (ADR 0063). Maps
+# the flags to one line "<tier> <install>": --debug → "frontend no" (front-end
+# tools only, install withheld), normal → "full yes". Pure (no root/network/
+# exec), so the "never install under --debug" guarantee is unit-testable.
 preflight_resolve_plan() {
   if [[ "${1:-0}" == "1" ]]; then
     printf 'frontend no\n'
@@ -97,9 +73,8 @@ _preflight_pacman() {
   pacman -Sy --noconfirm --needed "$@" >&2
 }
 
-# preflight_ensure_host_tools <cmd[:pkg]>...
-# Returns 0 once every command resolves; non-zero (with guidance on stderr) if a
-# tool is missing and cannot be installed. The caller decides whether to exit.
+# preflight_ensure_host_tools <cmd[:pkg]>... — returns 0 once every command
+# resolves; non-zero (guidance on stderr) if one is missing and uninstallable.
 preflight_ensure_host_tools() {
   local -a missing_cmds=() missing_pkgs=()
   local spec cmd pkg
@@ -115,8 +90,8 @@ preflight_ensure_host_tools() {
   echo -e "${YELLOW:-}[preflight]${NC:-} missing host tool(s):" \
     "${missing_cmds[*]}" >&2
 
-  # No pacman → not an Arch live medium (e.g. running on a dev box). Don't try
-  # to install; tell the operator exactly which packages to provide and stop.
+  # No pacman → not an Arch live medium (e.g. a dev box). Don't install; list
+  # the packages to provide and stop.
   if ! command -v pacman >/dev/null 2>&1; then
     echo -e "${RED:-}[preflight]${NC:-} no pacman — not an Arch live medium." >&2
     echo "  Install these packages and re-run: ${missing_pkgs[*]}" >&2

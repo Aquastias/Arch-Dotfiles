@@ -2,19 +2,15 @@
 # =============================================================================
 # lib/guided-secrets.sh — Guided Installer no-SOPS password injector (issue 07)
 # =============================================================================
-# The guided counterpart of the Secrets Module (lib/secrets.sh): it sets root
-# and per-user passwords (and optional SSH identities) WITHOUT SOPS. Passwords
-# are collected in the TUI at Proceed, never enter the Config State, and are
-# never written by Save or Export — so no plaintext secret lands in a committed
-# or exported file.
+# The guided counterpart of the Secrets Module (lib/secrets.sh): sets root and
+# per-user passwords (+ optional SSH identities) WITHOUT SOPS. Collected in the
+# TUI at Proceed; never in Config State, Save, or Export.
 #
-# It writes the same *decrypted* file shape the Secrets Module decrypts to —
-# host-secrets.json `{root_password}` and <name>-secrets.json `{password,
-# ssh_identity_private_key?, ssh_identity_key_type?}` — into a tmpfs dir, and
-# points the back-end at them via install-state's `.guided_passwords.*` key.
-# Crucially it does NOT touch `.secrets.*`: that key gates implicit SOPS-program
-# activation (ADR 0025), which guided passwords must not trigger. The chroot
-# host-secrets resolver and the Runner user-secrets resolver read both keys.
+# Writes the same *decrypted* file shape the Secrets Module produces
+# (host-secrets.json, <name>-secrets.json) into a tmpfs dir, pointing the
+# back-end at them via install-state's `.guided_passwords.*`. It does NOT touch
+# `.secrets.*`, which gates implicit SOPS activation (ADR 0025) that guided
+# passwords must not trigger. The chroot + Runner resolvers read both keys.
 #
 # Requires install_state_update (lib/install-state.sh).
 # =============================================================================
