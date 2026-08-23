@@ -191,6 +191,15 @@ nav_to_pkgs() {
     '{screen:"pkgs", category:$c, slot:$s, pkgcat:$k}'
 }
 
+# nav_to_pkgbrowse <category> <slot> — the full repo package browser (ADR 0086):
+# every pacman -Slq package as toggle rows IN the persistent fzf, so ＋Add needs
+# no execute() hand-off (which flashed the bare tty). Back returns to the slot's
+# category list.
+nav_to_pkgbrowse() {
+  jq -nc --arg c "$1" --arg s "$2" \
+    '{screen:"pkgbrowse", category:$c, slot:$s}'
+}
+
 # nav_to_pkgderived <category> — the read-only derived source list.
 nav_to_pkgderived() {
   jq -nc --arg c "$1" '{screen:"pkgderived", category:$c}'
@@ -235,6 +244,8 @@ nav_back() {
          then {screen:"useredit", category:.category, user:.user}
     elif .screen == "pkgcat" then {screen:"category", category:.category}
     elif .screen == "pkgs"
+         then {screen:"pkgcat", category:.category, slot:.slot}
+    elif .screen == "pkgbrowse"
          then {screen:"pkgcat", category:.category, slot:.slot}
     elif .screen == "pkgderived"
          then {screen:"category", category:.category}

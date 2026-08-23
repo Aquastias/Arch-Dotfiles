@@ -88,3 +88,31 @@ never changes whether it installs.
   `Security` is left as a partial, non-exact overlap.
 - Design validated against a throwaway TUI prototype at
   `.scratch/software-menu-redesign/prototype-tui.html`.
+
+## Amendment (2026-08-23): in-place browser, not a nested fzf
+
+The `repo` `＋Add` browser first shipped as an fzf `execute()` hand-off: the
+persistent fzf suspended, `pacman -Slq | fzf --multi --preview 'pacman -Si {}'`
+ran as a second process on the tty, then the menu reloaded. The teardown between
+the two processes flashed the bare terminal for a fraction of a second — jarring,
+and the residual could not be masked (paint in the gap races the parent's own
+teardown).
+
+Reworked to browse **in place**: a new `pkgbrowse` nav screen renders the whole
+`pacman -Slq` universe as toggle rows in the *same* persistent fzf. No second
+process, no screen teardown, no flash. `Enter` toggles a package (add routes
+through the same `_ctl_route_package_entry` guard; remove drops a session-added
+extra or excludes an inherited core package), replacing `TAB` multi-select — the
+toggle-in-place model the rest of the menu already uses. The preview pane keeps
+`pacman -Si {}`. The package list is prewarmed into a tmpfs cache at menu launch
+(`GUIDED_PKGLIST_FILE`) so the screen opens instantly; an empty cache falls back
+to a live `pacman -Slq`, preserving the synced-DB gotcha above.
+
+Rows also flag provenance from the same three-state map the per-category screen
+uses: `●` for a session/profile-touched package, and `⟲ derived` for one the
+Package Resolver already pulls in (base set, kernel, DE, fonts, login shell, …).
+A derived row is read-only here — Enter says where its source lives (ADR 0021)
+rather than duplicating it into `extra`. Resolving the derived set is the
+render's expensive step and is invariant while only extras are toggled, so it is
+cached (`GUIDED_PKGDERIV_FILE`) keyed by the config with the browse-add buckets
+stripped: an add hits the cache, a derivation change (GPU/DE/kernel/…) recomputes.

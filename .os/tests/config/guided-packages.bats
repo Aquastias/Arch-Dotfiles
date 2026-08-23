@@ -159,20 +159,96 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   echo "$output" | grep -q "type a name not in the list"
 }
 
-@test "repo ＋Add opens the fzf pacman browser (execute bind)" {
+@test "repo ＋Add drills to the in-place browser (no execute hand-off)" {
   set_nav "$(nav_to_pkgcat Packages repo)"
   run guided_ctl_enter "+ Add package ▸ browse all repo packages"
-  [ "$output" = "pkgbrowse repo" ]
-  # nav stays on the category list — no text screen for repo
-  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgbrowse" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" slot)" = "repo" ]
 }
 
-@test "the pkgbrowse directive maps to an fzf execute bind" {
-  run _guided_directive_to_action "pkgbrowse repo" "/tmp/entry.sh"
+@test "the browser reads the prewarm cache and marks membership" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  # htop/vlc are core (checked, no dot); cowsay is a plain available package
+  printf '%s\n' htop cowsay vlc > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_list
   [ "$status" -eq 0 ]
-  [[ "$output" == *execute* ]]
-  [[ "$output" == *pkgbrowse* ]]
-  [[ "$output" == *repo* ]]
+  echo "$output" | grep -qxF "← Back"
+  echo "$output" | grep -qxF "[x] htop"     # inherited core, no dot
+  echo "$output" | grep -qxF "[ ] cowsay"   # available to add
+}
+
+@test "the browser falls back to a notice when the list is empty" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  : > "$GUIDED_PKGLIST_FILE"
+  # neutralise the live pacman fallback so the test is host-independent
+  pacman() { return 1; }
+  export -f pacman
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_list
+  echo "$output" | grep -q "run 'pacman -Sy' first"
+}
+
+@test "browser Enter on an available package routes it into repo.extra" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  printf '%s\n' cowsay > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_enter "[ ] cowsay"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.packages.repo.extra' "$GUIDED_STATE_FILE")" = '["cowsay"]' ]
+}
+
+@test "browser Enter on a checked core package excludes it" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  printf '%s\n' htop > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_enter "[x] htop"
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.packages.exclude' "$GUIDED_STATE_FILE")" = '["htop"]' ]
+}
+
+@test "browser Back returns to the slot's category list" {
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_enter "← Back"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgcat" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" slot)" = "repo" ]
+}
+
+@test "the browser flags a derived package read-only (⟲)" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  # git is a Base Package → always derived; cowsay is neither
+  printf '%s\n' git cowsay > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qF "[x] git  ⟲ derived"
+  echo "$output" | grep -qxF "[ ] cowsay"
+}
+
+@test "browser Enter on a derived row is read-only (notice, no change)" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  printf '%s\n' git > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_enter "[x] git  ⟲ derived"
+  [[ "$output" == notice* ]]
+  [ "$(cat "$GUIDED_STATE_FILE")" = '{}' ]   # state untouched
+}
+
+@test "the browser caches the derived set across extra toggles" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  export GUIDED_PKGDERIV_FILE="$TEST_DIR/deriv"
+  printf '%s\n' git cowsay > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  guided_ctl_list >/dev/null                        # first render → populate
+  [ -s "$GUIDED_PKGDERIV_FILE" ]
+  key1="$(head -n1 "$GUIDED_PKGDERIV_FILE")"
+  tail -n +2 "$GUIDED_PKGDERIV_FILE" | grep -qx git # git cached as derived
+  # adding an extra must NOT change the key (an add never re-derives)
+  echo '{"packages":{"repo":{"extra":["cowsay"]}}}' > "$GUIDED_STATE_FILE"
+  guided_ctl_list >/dev/null
+  [ "$(head -n1 "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
 }
 
 @test "the aur free-text entry writes into packages.aur" {
