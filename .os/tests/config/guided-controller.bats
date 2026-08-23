@@ -2,8 +2,8 @@
 # Tests for .os/lib/guided-controller.sh — the persistent-fzf controller (ADR
 # 0042). The controller is driven entirely through its state files (no fzf, no
 # tty), so behaviour is asserted through the public interface: the rendered list
-# for a screen, and the (directive + file mutation) of an enter/back. This is
-# the slice-01 scope — nav + enum native, text/multi → edit-oneshot.
+# for a screen, and the (directive + file mutation) of an enter/back. Every
+# field commits natively in fzf now (no edit-oneshot hand-off).
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -1835,11 +1835,6 @@ _seed_baseline() {
   [[ "$output" == clear-query+reload* ]]
 }
 
-@test "directive→action: edit-oneshot clears the query before re-listing" {
-  run _guided_directive_to_action "edit-oneshot options.kernel" /x/entry.sh
-  echo "$output" | grep -q "clear-query+reload(bash /x/entry.sh list)"
-}
-
 @test "directive→action: abort and noop map to fzf primitives" {
   [ "$(_guided_directive_to_action abort /x/entry.sh)" = "abort" ]
   [ "$(_guided_directive_to_action noop /x/entry.sh)" = "ignore" ]
@@ -1851,12 +1846,6 @@ _seed_baseline() {
   echo "$output" | grep -q "proceed"
   echo "$output" | grep -q "$TEST_DIR/result"
   echo "$output" | grep -q "+accept"
-}
-
-@test "directive→action: edit-oneshot hands off then re-lists" {
-  run _guided_directive_to_action "edit-oneshot system.hostname" /x/entry.sh
-  echo "$output" | grep -q "execute(bash /x/entry.sh oneshot system.hostname)"
-  echo "$output" | grep -q "reload(bash /x/entry.sh list)"
 }
 
 # ── latency fast-path (ticket 04): reload(cat FILE) instead of a second fork ──

@@ -155,3 +155,43 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$(jq -c '.users // "gone"' <<<"$output")" = '"gone"' ]
 }
+
+# ── routing-heavy adds shared with the controller (Candidate 3 / ADR 0072) ──
+
+@test "edit_add_sysctl_pair: parses key=value into a sysctl pair" {
+  run edit_add_sysctl_pair '{}' vm.swappiness=10
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.sysctl["vm.swappiness"]' <<<"$output")" = "10" ]
+}
+
+@test "edit_add_sysctl_pair: no '=' is a no-op (rc1, unchanged)" {
+  run edit_add_sysctl_pair '{"a":1}' nonsense
+  [ "$status" -eq 1 ]
+  [ "$(jq -c . <<<"$output")" = '{"a":1}' ]
+}
+
+@test "edit_add_mirror_server: dedup-appends a Server URL" {
+  local s; s="$(edit_add_mirror_server '{}' https://m.example/repo)"
+  s="$(edit_add_mirror_server "$s" https://m.example/repo)"   # dup ignored
+  [ "$(jq -c '.options.mirror_servers' <<<"$s")" \
+    = '["https://m.example/repo"]' ]
+}
+
+@test "edit_add_mirror_server: empty URL is a no-op (rc1)" {
+  run edit_add_mirror_server '{"a":1}' ""
+  [ "$status" -eq 1 ]
+  [ "$(jq -c . <<<"$output")" = '{"a":1}' ]
+}
+
+@test "edit_add_custom_repository: appends an object with defaulted signing" {
+  run edit_add_custom_repository '{}' "myrepo https://r.example/x"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.options.custom_repositories[0]' <<<"$output")" \
+    = '{"name":"myrepo","url":"https://r.example/x","sign_check":"Required","sign_option":"TrustedOnly"}' ]
+}
+
+@test "edit_add_custom_repository: fewer than 2 tokens is a no-op (rc1)" {
+  run edit_add_custom_repository '{"a":1}' "onlyname"
+  [ "$status" -eq 1 ]
+  [ "$(jq -c . <<<"$output")" = '{"a":1}' ]
+}

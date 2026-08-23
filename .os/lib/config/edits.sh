@@ -118,6 +118,39 @@ edit_apply_skeleton() {
     'del(.os_pool, .storage_groups, .data_pools) * $sk' <<<"$state"
 }
 
+# edit_add_sysctl_pair <state> <key=value> — parse a "key=value" entry and set
+# the pair via edit_set_sysctl. rc 1 (unchanged) on a malformed entry (no `=`).
+edit_add_sysctl_pair() {
+  local state="$1" raw="$2"
+  [[ "$raw" == *=* ]] || { printf '%s' "$state"; return 1; }
+  edit_set_sysctl "$state" "${raw%%=*}" "${raw#*=}"
+}
+
+# edit_add_mirror_server <state> <url> — dedup-append a custom mirror Server= URL
+# to options.mirror_servers (ADR 0072). rc 1 (unchanged) on empty input.
+edit_add_mirror_server() {
+  local state="$1" url="$2"
+  [[ -n "$url" ]] || { printf '%s' "$state"; return 1; }
+  cfgstate_set "$state" options.mirror_servers "$(jq -cn \
+    --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
+    --arg v "$url" 'if any($a[]; . == $v) then $a else $a + [$v] end')"
+}
+
+# edit_add_custom_repository <state> <"name url [sign_check] [sign_option]"> — an
+# archinstall-style custom repo appended dedup by name (ADR 0072); sign_check /
+# sign_option default to Required / TrustedOnly. rc 1 on fewer than 2 tokens.
+edit_add_custom_repository() {
+  local state="$1" raw="$2"
+  local -a rf; read -ra rf <<<"$raw"
+  [[ ${#rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
+  cfgstate_set "$state" options.custom_repositories "$(jq -cn \
+    --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
+    --arg n "${rf[0]}" --arg u "${rf[1]}" \
+    --arg c "${rf[2]:-Required}" --arg o "${rf[3]:-TrustedOnly}" \
+    'if any($a[]; .name == $n) then $a
+     else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')"
+}
+
 # edit_set_users <state> <name...> — set .users to the order-preserving dedup of
 # the names (users[0] = Primary User). With NO names the key is unset (a host
 # may carry no user). Always rc 0 — clearing is a real edit, not a no-op.
