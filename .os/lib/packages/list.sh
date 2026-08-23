@@ -36,22 +36,10 @@ declare -F fs_userland_packages >/dev/null 2>&1 \
 # =============================================================================
 
 collect_packages() {
-  # Builds the full package list to install via pacstrap.
-  #
-  # Sources (merged and deduplicated):
-  #   1. Base packages — always installed regardless of config
-  #   2. Kernel packages — selected by options.kernel in config
-  #      'lts'     → linux-lts + linux-lts-headers  (recommended, always
-  #                  supported by archzfs, moves slowly)
-  #      'default' → linux + linux-headers           (latest rolling kernel,
-  #                  may temporarily be unsupported by archzfs)
-  #   3. Bootloader packages — selected by options.bootloader in the profile
-  #   4. Host packages.repo[] — repo packages from the merged host
-  #                            config
-  #   5. GPU_PACMAN_PACKAGES — resolved by resolve_environment()
-  #   6. AUDIO_PACKAGES — resolved by resolve_environment()
-  #
-  # Output: one package name per line, sorted and deduplicated.
+  # Builds the full pacstrap package list, merged + deduplicated from: base
+  # packages, kernel packages (options.kernel, via kernel.sh), bootloader
+  # packages (options.bootloader), host packages.repo[], and the resolved
+  # GPU_PACMAN_PACKAGES + AUDIO_PACKAGES. One name per line, sorted-unique.
   resolve_environment
 
   # ── Kernel selection ──────────────────────────────────────────────────────
