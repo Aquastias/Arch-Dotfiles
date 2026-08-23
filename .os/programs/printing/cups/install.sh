@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# programs/office/cups/install.sh
+# programs/printing/cups/install.sh
 # =============================================================================
 # Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
 # Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.

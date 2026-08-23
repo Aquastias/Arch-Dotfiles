@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# programs/system/gamemode/install.sh
+# programs/gaming/gamemode/install.sh
 # =============================================================================
 # Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
 # Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.

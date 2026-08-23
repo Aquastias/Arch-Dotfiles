@@ -211,21 +211,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # generalising ADR 0079/0080). All six kind:host programs are owned, so the host
 # picker keeps only a genuinely free-standing host program.
 @test "host-programs picker omits every Menu-Owned program, keeps free ones" {
-  mkdir -p "$OS_DIR/programs/office/cups" \
+  mkdir -p "$OS_DIR/programs/printing/cups" \
            "$OS_DIR/programs/system/bluetooth" \
-           "$OS_DIR/programs/system/power-profiles-daemon" \
-           "$OS_DIR/programs/system/tuned" \
+           "$OS_DIR/programs/power/power-profiles-daemon" \
+           "$OS_DIR/programs/power/tuned" \
            "$OS_DIR/programs/bootloader/grub" \
            "$OS_DIR/programs/security/sops" \
            "$OS_DIR/programs/system/myhostprog"
   printf '{"name":"cups","kind":"host"}\n' \
-    > "$OS_DIR/programs/office/cups/config.jsonc"
+    > "$OS_DIR/programs/printing/cups/config.jsonc"
   printf '{"name":"bluetooth","kind":"host"}\n' \
     > "$OS_DIR/programs/system/bluetooth/config.jsonc"
   printf '{"name":"power-profiles-daemon","kind":"host"}\n' \
-    > "$OS_DIR/programs/system/power-profiles-daemon/config.jsonc"
+    > "$OS_DIR/programs/power/power-profiles-daemon/config.jsonc"
   printf '{"name":"tuned","kind":"host"}\n' \
-    > "$OS_DIR/programs/system/tuned/config.jsonc"
+    > "$OS_DIR/programs/power/tuned/config.jsonc"
   printf '{"name":"grub","kind":"host"}\n' \
     > "$OS_DIR/programs/bootloader/grub/config.jsonc"
   printf '{"name":"sops","kind":"host"}\n' \
