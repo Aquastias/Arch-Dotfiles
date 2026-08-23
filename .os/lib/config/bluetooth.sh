@@ -2,20 +2,14 @@
 # =============================================================================
 # lib/config/bluetooth.sh — Bluetooth Service resolver (ADR 0080)
 # =============================================================================
-# Pure core turning a host's `options.bluetooth.enabled` toggle into the
-# toggle-derived Host Program `bluetooth` when on (the default), nothing when
-# off. The second toggle-derived Host Program, twinning printing.sh: the
-# `bluetooth` program installs bluez + bluez-utils and enables
-# bluetooth.service, so the daemon layer is present and running on first boot
-# independent of the desktop. On KDE bluez already arrives via plasma-meta, so
-# the install is a --needed no-op there and the material effect is the service
-# enable. The GUI tray is never this toggle's concern — the desktop owns it
-# (BlueDevil on KDE; blueman on Hyprland).
+# Pure core turning `options.bluetooth.enabled` into the Host Program `bluetooth`
+# when on (default), nothing when off — twinning printing.sh. The program
+# installs bluez + bluez-utils and enables bluetooth.service, so the daemon runs
+# on first boot independent of the desktop (on KDE bluez rides plasma-meta, so
+# the effect is the service enable). The GUI tray is the desktop's concern.
 #
-# The toggle predicate lives in exactly one place (bluetooth_enabled);
-# bluetooth_programs derives the program list, and bluetooth_inject folds it
-# into host_programs — so the literal and the on/off rule are never re-encoded
-# per consumer. JSON in, decision out. No TTY, no disk writes.
+# The on/off rule lives in one place (bluetooth_enabled); *_programs + *_inject
+# derive from it, never re-encoding the literal. JSON in, decision out.
 #
 # Public API:
 #   bluetooth_enabled         <config-json> → "true" | "false" (default on)

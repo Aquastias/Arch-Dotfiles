@@ -10,15 +10,10 @@
 # post-install.sh.
 #
 # cups is NOT declared in Host Core (ADR 0079); it is the first toggle-derived
-# Host Program. `options.ssh.enabled` only enables a service on the
-# always-present `openssh`, whereas this toggle gates the install itself, so
-# cups is genuinely absent when off. The toggle defaults ON to preserve the
-# historical "cups installed on every host" behaviour.
-#
-# The toggle predicate lives in exactly one place (printing_enabled);
-# printing_programs derives the program list from it, and printing_inject folds
-# whatever printing_programs emits into host_programs — so the `cups` literal
-# and the on/off rule are never re-encoded per consumer.
+# Host Program, genuinely absent when off. The toggle defaults ON to preserve
+# the historical "cups on every host" behaviour. The on/off rule lives in one
+# place (printing_enabled); printing_programs + printing_inject derive from it,
+# so the `cups` literal is never re-encoded per consumer.
 #
 # Public API:
 #   printing_enabled          <config-json> → "true" | "false" (default on)

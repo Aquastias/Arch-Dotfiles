@@ -15,10 +15,9 @@
 #                                 complete; exits via error() on any
 #                                 missing piece
 #
-# This is the single place where "is this install context valid?" is answered.
-# The three former validation layers — config-load (system fields, disks),
-# program contracts (configs.sh), and staging integrity (profiles.sh) — are
-# owned here. Callers get one seam and one error-signaling convention.
+# The single place "is this install context valid?" is answered: the three
+# former layers (config-load, program contracts, staging integrity) are owned
+# here, so callers get one seam and one error convention.
 # =============================================================================
 
 # shellcheck source=../impermanence-common.sh
@@ -135,14 +134,11 @@ _validation_preflight_programs() {
 # =============================================================================
 # PROGRAM DEPENDENCY ORDERING (ADR 0065)
 # =============================================================================
-# A Program may declare `requires: ["podman", ...]` — other Programs whose
-# install-time SETUP (package + side effects like podman's subuid/subgid) must
-# be in place before it runs. Because the Runner installs a user's programs
-# one-by-one in declared order, the dependency must already be installed when
-# the dependent runs. Enforced here, before any side effect, so a mis-ordered
-# or incomplete list aborts up front with an actionable message instead of a
-# hard failure part-way through the install (the class of bug that let a guided
-# selection put searxng before podman).
+# A Program may declare `requires: [...]` — Programs whose install-time setup
+# must be in place before it runs. The Runner installs in declared order, so the
+# dependency must appear earlier. Enforced here, before any side effect, so a
+# mis-ordered list aborts up front with an actionable message (the bug that let
+# a guided selection put searxng before podman).
 
 # _validation_index_of <needle> <hay...> — 0-based index of the first <hay>
 # equal to <needle>, or empty when absent. Pure.
@@ -229,14 +225,10 @@ _validation_impermanence() {
           "same pool as ${os_pool}/ROOT/arch."
 }
 
-# Impermanence is forbidden on a hybrid AMD+NVIDIA GPU (ADR 0060). On a
-# rolled-back impermanent root the graphical login hits a logind-session race
-# that black-screens the compositor; it was only ever reproduced on the hybrid
-# laptop, so the ban targets that combination and leaves single-GPU impermanence
-# untouched. Runs AFTER resolve_environment (it reads the resolved
-# ENVIRONMENT_GPU array), so `gpu: "auto"` is judged on the hardware detected at
-# install time.
-# Desktop-independent by design — the fault is impermanence, not the desktop.
+# Impermanence is forbidden on a hybrid AMD+NVIDIA GPU (ADR 0060): on a
+# rolled-back root the graphical login hits a logind race that black-screens the
+# compositor (only ever reproduced on the hybrid laptop). Runs AFTER
+# resolve_environment so `gpu: "auto"` is judged on detected hardware.
 _validation_impermanence_gpu() {
   [[ "$(install_config_impermanence_enabled)" == "true" ]] || return 0
   local v has_amd=false has_nvidia=false

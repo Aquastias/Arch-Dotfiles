@@ -8,14 +8,10 @@
 # the package collector, the AUR resolver, and the Package Resolver, so none of
 # them re-encode the catalog. JSON in, package names out. No TTY, no disk.
 #
-# Replaces `packages.repo.fonts` as the single font home (ADR 0080, mirroring
-# cups' removal from Host Core under ADR 0079). Absent `options.fonts` ⇒ the
-# catalog defaults (the shared baseline), the way absent `options.kernel` ⇒
-# lts; an explicit empty array (`[]`) means "no fonts" and is honoured.
-#
-# The catalog is the sole classifier of a font's repo/AUR routing, so a new
-# font is one row here — its menu presence, default state, and install path all
-# derive from that one line.
+# Replaces `packages.repo.fonts` as the single font home (ADR 0080). Absent
+# `options.fonts` ⇒ catalog defaults, like absent `options.kernel` ⇒ lts; an
+# explicit `[]` means "no fonts". The catalog is the sole classifier of a font's
+# repo/AUR routing, so a new font is one row here.
 #
 # Public API:
 #   fonts_catalog_tokens          → every catalog font, one/line (menu options)
