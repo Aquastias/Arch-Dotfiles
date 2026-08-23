@@ -1,0 +1,40 @@
+// Host Profile for `minimal` — the desktop-less base install (archinstall's
+// "minimal" role). Merged under hosts/core/profile.jsonc (ADR 0036).
+//
+// No desktop: `environment.desktop: []` resolves the display manager to `none`,
+// so the Environment Runner dispatches no DE adapter (ADR 0005) — a TTY boot.
+//
+// Bare userland: `packages.inherit: false` opts out of Host Core's workstation
+// Host Package List (ADR 0056) — the installer's own base only, nothing else.
+// Scoped to packages, so this still inherits core's users and sysctl. The
+// operator adds everything post-install, the empty-canvas archinstall promise.
+//
+// Simplest bootable skeleton: one operator-picked disk, no encryption. Copy and
+// edit for encryption / mirror / a desktop.
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop": [],
+    "gpu":     "auto"
+  },
+
+  "packages": { "inherit": false },
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 12
+}
