@@ -5,58 +5,26 @@
 # Public:
 #
 #   iso_resolver_get DOWNLOADS_DIR
-#       Resolve and download the *latest* Arch x86_64 ISO. Reuses a cached
-#       copy if one is already in DOWNLOADS_DIR. Prints the absolute path
-#       of the usable ISO file on stdout.
-#
-#       Source: geo.mirror.pkgbuild.com (archlinux.org/iso returns 403).
-#       The mirror exposes `archlinux-x86_64.iso` as a 200-OK symlink with
-#       no Location header, so the resolver scrapes the directory listing
-#       to find the versioned filename.
+#       Resolve + download the *latest* Arch x86_64 ISO (reusing a cached copy).
+#       Prints the ISO path on stdout. Source: geo.mirror.pkgbuild.com
+#       (archlinux.org/iso 403s); the `archlinux-x86_64.iso` symlink 200s with no
+#       Location header, so the resolver scrapes the directory listing.
 #
 #   iso_resolver_get_zfs_compatible DOWNLOADS_DIR
-#       Resolve and download the *newest available* archived ISO whose
-#       kernel matches a kernel archzfs has prebuilt zfs-linux for. Use
-#       this when the latest ISO has a kernel newer than archzfs supports
-#       — the installer's DKMS path will fail without a matching prebuilt.
+#       Resolve + download the newest archived ISO whose kernel matches one
+#       archzfs has a prebuilt zfs-linux for — needed when the latest ISO's
+#       kernel outruns archzfs (the DKMS path fails otherwise). Source:
+#       archive.archlinux.org, walked newest-first. Match rule: ISO kernel
+#       major.minor == an archzfs-supported major.minor (same API surface, so
+#       DKMS builds even if patchlevels differ). Non-zero if archzfs lists none
+#       or no archived ISO matches. Downloads only; sha256 is verified by
+#       iso_resolver_verify_sha256 (ADR 0023).
 #
-#       Source: archive.archlinux.org keeps every monthly ISO; the picker
-#       walks releases newest-first and returns the first match.
-#
-#       Compatibility rule: the ISO's kernel major.minor must equal an
-#       archzfs-supported major.minor (e.g. archzfs `6.19.14` matches ISO
-#       `6.19.x`). Same major.minor means same upstream kernel API surface
-#       — DKMS for ZFS 2.4.1 then builds successfully against the headers
-#       even if the patchlevels differ.
-#
-#       Returns non-zero if archzfs lists no supported kernels (e.g. API
-#       outage), or if no available archived ISO matches.
-#
-#       This resolver only downloads; sha256 is verified separately by
-#       iso_resolver_verify_sha256 (against the release's sha256sums.txt on
-#       the archive), which fetch-iso.sh calls after the download (ADR 0023).
-#
-# Dependencies: curl, jq, grep. Tests stub the network seams.
-#
-# Test seams (each function is overridable in bats by re-defining it after
-# sourcing this module):
-#
-#   _iso_resolver_resolve_url DIR_URL
-#       Echo the full URL of the latest Arch x86_64 ISO. Default
-#       implementation HTTP-GETs DIR_URL and greps for the versioned
-#       filename.
-#
-#   _iso_resolver_fetch_archzfs_kernels
-#       Echo one `major.minor` per line for each kernel archzfs has a
-#       prebuilt zfs-linux package for. Default implementation queries the
-#       archzfs `experimental` GitHub release.
-#
-#   _iso_resolver_fetch_arch_releases
-#       Echo the raw releases JSON from archlinux.org/releng. Default
-#       implementation fetches the canonical URL.
-#
-#   _iso_resolver_download URL DEST
-#       Fetch URL into DEST atomically. Default implementation uses curl.
+# Dependencies: curl, jq, grep. Test seams (overridable in bats after sourcing):
+#   _iso_resolver_resolve_url DIR_URL     — latest ISO URL (HTTP GET + grep)
+#   _iso_resolver_fetch_archzfs_kernels   — one major.minor/line archzfs prebuilt
+#   _iso_resolver_fetch_arch_releases     — raw releng releases JSON
+#   _iso_resolver_download URL DEST       — atomic fetch (curl)
 # =============================================================================
 
 # Directory URL whose listing contains the versioned latest ISO file.
