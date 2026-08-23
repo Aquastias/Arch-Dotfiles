@@ -34,7 +34,7 @@ Concretely for KDE:
 - Non-KDE packages previously installed by `kde.sh` move out:
   - `extra-cmake-modules` → Host Core `packages.repo` (pure build
     dep, no service).
-  - `cups` → new System Program at `programs/office/cups/`, listed
+  - `cups` → new System Program at `programs/printing/cups/`, listed
     in Host Core `system_programs`. Service enablement now lives
     where service enablement actually lives, not as a side effect of
     selecting KDE.

@@ -86,9 +86,9 @@ teardown() {
   done
 }
 
-@test "desktop keeps host_programs [grub] with no grub/os-prober package" {
+@test "desktop keeps host_programs [grub, gamemode] with no grub/os-prober package" {
   local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-  jsonc_strip "$desk" | jq -e '.host_programs == ["grub"]'
+  jsonc_strip "$desk" | jq -e '.host_programs == ["grub","gamemode"]'
   local pkgs
   pkgs="$(jsonc_strip "$desk" | jq -r '.packages.repo | to_entries[].value[]')"
   ! grep -qx "grub"      <<< "$pkgs"
@@ -211,9 +211,10 @@ write_program() {
   configs_build_registry
   run program_names_of_kind host
   # cups (printing), bluetooth, power-profiles-daemon + tuned (power) are the
-  # toggle-derived Host Programs added by ADR 0079/0080; grub + sops authored.
+  # toggle-derived Host Programs added by ADR 0079/0080; grub + sops + gamemode
+  # (gaming, on desktop/laptop) authored.
   [ "$output" = "$(printf \
-    'bluetooth\ncups\ngrub\npower-profiles-daemon\nsops\ntuned')" ]
+    'bluetooth\ncups\ngamemode\ngrub\npower-profiles-daemon\nsops\ntuned')" ]
 
   run program_names_of_kind user
   echo "$output" | grep -qx docker

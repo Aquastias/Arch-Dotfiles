@@ -5,7 +5,7 @@
 ## Context
 
 Two ways exist to land a package whose daemon must be enabled at boot.
-ADR 0021 made `cups` a System Program (`programs/office/cups/`) so its
+ADR 0021 made `cups` a System Program (`programs/printing/cups/`) so its
 service enablement lives "where service enablement actually lives." But
 the truly universal daemons — `NetworkManager`, `systemd-resolved`,
 `systemd-timesyncd`, the `zfs-*` units — were never Programs: their
