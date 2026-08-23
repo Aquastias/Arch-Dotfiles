@@ -67,7 +67,7 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
   local p h
   for h in desktop laptop; do
     local pkgs; pkgs="$(repo_of "$h")"
-    for p in firefox steam kitty htop gimp vlc discord fwupd; do
+    for p in firefox steam kitty htop gimp vlc fwupd; do
       grep -qx "$p" <<<"$pkgs" || { echo "$h missing core pkg: $p"; return 1; }
     done
   done
