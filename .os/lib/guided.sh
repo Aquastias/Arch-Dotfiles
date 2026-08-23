@@ -935,7 +935,7 @@ guided_run_persistent() {
   export GUIDED_STATE_FILE GUIDED_NAV_FILE GUIDED_BASELINE_FILE \
     GUIDED_RESULT_FILE GUIDED_HIST_FILE GUIDED_SECRETS_FILE GUIDED_LIST_FILE \
     GUIDED_USERFORMS_FILE GUIDED_PWBUF_FILE GUIDED_PWPENDING_FILE \
-    GUIDED_SESSION_UNDO_FILE GUIDED_SKIP_FILE
+    GUIDED_SESSION_UNDO_FILE GUIDED_SKIP_FILE GUIDED_POS_FILE
   GUIDED_STATE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-state.XXXXXX.json")"
   GUIDED_NAV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-nav.XXXXXX.json")"
   GUIDED_BASELINE_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-base.XXXXXX.json")"
@@ -992,11 +992,17 @@ guided_run_persistent() {
   # selectable Profiles row — but be safe) advances rather than stalls.
   GUIDED_SKIP_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-skip.XXXXXX")"
   printf 'down' >"$GUIDED_SKIP_FILE"
+  # Cursor-restore target (position memory): a back nav writes the 1-based line
+  # to re-focus here; the `load` bind's poshint applies it once after the reload
+  # (a `pos` in the reload's own action targets the pre-reload list — proven by
+  # the fzf pty harness — so it must be deferred to load). Empty = no restore.
+  GUIDED_POS_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pos.XXXXXX")"
   local -a _guided_tmpfiles=(
     "$GUIDED_STATE_FILE" "$GUIDED_NAV_FILE" "$GUIDED_BASELINE_FILE"
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
     "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
     "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE" "$GUIDED_SKIP_FILE"
+    "$GUIDED_POS_FILE"
     "$GUIDED_PKGLIST_FILE" "$GUIDED_PKGDERIV_FILE" "$GUIDED_AURLIST_FILE"
     "$GUIDED_AURINFO_DIR"
   )
@@ -1069,6 +1075,7 @@ guided_run_persistent() {
     --bind "page-down:execute-silent(printf down > $GUIDED_SKIP_FILE)+\
 page-down" \
     --bind "focus:transform(bash $entry skip {})" \
+    --bind "load:transform(bash $entry poshint)" \
     --bind "enter:transform(bash $entry dispatch enter {} {q})" \
     --bind "esc:transform(bash $entry dispatch back {})" \
     --bind "ctrl-a:transform(bash $entry key ctrl-a)" \

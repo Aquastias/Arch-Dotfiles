@@ -34,6 +34,21 @@ if [[ "${1:-}" == "skip" ]]; then
   exit 0
 fi
 
+# The `load` bind fires after every (re)load. A back nav stashes the 1-based line
+# to re-focus in GUIDED_POS_FILE (as a side effect of building its reload action,
+# so the write lands before load); emit the deferred `pos` and consume it, so the
+# cursor lands on the exited row instead of the reload's stale index (ADR 0083).
+# A `pos` inside the reload's own action string would target the PRE-reload list.
+# One-shot: cleared on read so an ordinary reload (enter/refresh) never re-jumps.
+if [[ "${1:-}" == "poshint" ]]; then
+  _pf="${GUIDED_POS_FILE:-}"
+  if [[ -n "$_pf" ]]; then
+    _pn="$(cat "$_pf" 2>/dev/null)"
+    if [[ -n "$_pn" ]]; then : >"$_pf"; printf 'pos(%s)' "$_pn"; fi
+  fi
+  exit 0
+fi
+
 # The masking bind fires per keystroke on the password screen; source only the
 # tiny pure core (not the whole controller) so it stays cheap.
 if [[ "${1:-}" == "mask" ]]; then
