@@ -11,3 +11,7 @@ Default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-f
 ### Domain docs
 
 Single-context repo: one `CONTEXT.md` + `docs/adr/` at root. See `docs/agents/domain.md`.
+
+### Comment style
+
+Installer (`.os/`) comments are compact: keep the non-obvious *why* + its `(ADR NNNN)` anchor, cut code-restatement and ADR duplication. See `docs/agents/comment-style.md`.
