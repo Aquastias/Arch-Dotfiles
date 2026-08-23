@@ -45,7 +45,7 @@
   },
 
   "users": ["aquastias"],
-  "host_programs": ["grub"],
+  "host_programs": ["grub", "gamemode"],
 
   "packages": {
     "repo": {

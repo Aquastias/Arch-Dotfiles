@@ -100,8 +100,6 @@
         "vlc"
       ],
       "gaming": [
-        "gamemode",
-        "lib32-gamemode",
         "steam"
       ],
       "archive": [
