@@ -207,14 +207,10 @@ menu_categories() {
                        or pkg_override($n)) } ]'
 }
 
-# menu_top_lines <override> [<baseline>] — the top screen's category block: the
-# categories in order (ADR 0081), each as "<name> — <summary>" plus a trailing
-# "  ●" when the category aggregates an override, with a "── <BUCKET> ──" header
-# line emitted once before each bucket's first category and a blank spacer line
-# separating one bucket from the next (ADR 0082 — the top list is the primary
-# surface now the parent-column preview is gone, so it breathes). Pure (lines on
-# stdout); the controller prints it between the Profiles / terminal-row dividers.
-# Kept in the model so the ordering + header logic is unit-testable in isolation.
+# menu_top_lines <override> [<baseline>] — the top screen's category block: each
+# category as "<name> — <summary>" (+ "  ●" when it aggregates an override), a
+# "── <BUCKET> ──" header before each bucket's first category, and a blank spacer
+# between buckets (ADR 0081/0082). Pure; unit-testable in isolation.
 menu_top_lines() {
   menu_categories "$1" "${2:-{\}}" | jq -r '
     reduce .[] as $c ({prev: null, out: []};
@@ -260,12 +256,10 @@ _menu_fields_json() {
 }
 
 # menu_rows <override> [<baseline>] — the menu rows on stdout (JSON array).
-# One jq call: it merges baseline*override, derives the effective filesystem
-# (Impermanence is hidden for ext4/xfs — ADR 0040), and for each field renders
-# the value (array→", "-join, object→"k=v", scalar→string, empty→default) and
-# the override-only ● flag (getpath on the override map != null). Behaviour is
-# identical to the old per-field loop — the render logic mirrors
-# menu_render_value / cfgstate_is_overridden.
+# One jq call: merges baseline*override, derives the effective filesystem
+# (Impermanence hidden for ext4/xfs — ADR 0040), and per field renders the value
+# (array→", ", object→"k=v", scalar→string, empty→default) and the override-only
+# ● flag. Render logic mirrors menu_render_value / cfgstate_is_overridden.
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
   local lockpaths; lockpaths="$(menu_manual_locked_paths | jq -Rn '[inputs]')"

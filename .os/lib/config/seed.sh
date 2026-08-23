@@ -99,26 +99,19 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.encryption 'false')"
   state="$(cfgstate_set "$state" options.impermanence.enabled 'false')"
   state="$(cfgstate_set "$state" options.ssh.enabled 'false')"
-  # Printing Service (ADR 0079): the print daemon is on out of the box, so the
-  # Services category shows it enabled with no ● until the operator flips it.
-  # cups is derived from this toggle at emit, never a host_programs baseline
-  # entry — idempotent with the printing_enabled default (on).
+  # Printing Service (ADR 0079): print daemon on by default; cups is derived at
+  # emit, not a baseline host_programs entry. Idempotent with the accessor.
   state="$(cfgstate_set "$state" options.printing.enabled 'true')"
   # Font Catalog (ADR 0080): seed the default-checked fonts into the baseline so
   # a fresh run shows the default set with no ●. Absent options.fonts resolves
   # to the same set via fonts_selected, so this is idempotent with the back end.
   state="$(cfgstate_set "$state" options.fonts \
     "$(fonts_default_selection_json)")"
-  # Bluetooth Service (ADR 0080): the bluez daemon is on out of the box, so the
-  # Services category shows it enabled with no ● until the operator flips it.
-  # The bluetooth program is derived at emit, not a host_programs baseline —
-  # idempotent with the bluetooth_enabled default (on).
+  # Bluetooth Service (ADR 0080): bluez on by default; the bluetooth program is
+  # derived at emit, not a baseline entry. Idempotent with the accessor.
   state="$(cfgstate_set "$state" options.bluetooth.enabled 'true')"
-  # Power Profile (ADR 0080): power-profiles-daemon out of the box, so the
-  # Services category shows it selected with no ● until the operator changes it.
-  # The
-  # derived daemon program is injected at emit; idempotent with the accessor
-  # default.
+  # Power Profile (ADR 0080): power-profiles-daemon by default; the daemon
+  # program is injected at emit. Idempotent with the accessor.
   state="$(cfgstate_set "$state" options.power.profile \
     '"power-profiles-daemon"')"
   # Pacman Options (ADR 0074): the [options] flags shown in the Pacman category.

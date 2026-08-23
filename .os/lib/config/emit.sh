@@ -55,10 +55,9 @@ guided_profile_delta() {
 # OVER Host Core, so a saved profile stays layered rather than freezing a
 # snapshot (ADR 0056, PRD story 32).
 #
-# The menu baseline now loads Host Core, so the effective view legitimately
-# contains core's whole package list, Host Programs and sysctl. Writing that
-# verbatim would bake ~61 inherited packages into every saved profile and
-# silently decouple it from core on the next edit.
+# The menu baseline loads Host Core, so the effective view contains core's whole
+# package list, Host Programs and sysctl; writing that verbatim would bake them
+# into every saved profile and decouple it from core on the next edit.
 #
 # The reduction is the inverse of the Layer Resolver's fold, key-class by
 # key-class, so `layer_resolve host <core> <delta>` reproduces <effective>:
@@ -126,19 +125,14 @@ _emit_json_array() {
 # Bakes the assignment's picked disks onto the layout skeleton (reusing the
 # picker's assembler).
 #
-# Host Core is NOT merged here. It enters once, into the menu's baseline
-# (cfgstate_seed_defaults), and the caller passes the effective view — the
-# operator's overrides over that baseline. Merging core a second time here is
-# precisely the bug where the menu displayed `host programs: grub` while the
-# install produced `["cups","grub"]`: display replaced arrays, emit
-# concatenated them. One entry point for core means the two cannot disagree.
+# Host Core is NOT merged here — it enters once, into the menu's baseline
+# (cfgstate_seed_defaults), and the caller passes the effective view. Merging it
+# again was the bug where the menu showed `host programs: grub` but the install
+# produced `["cups","grub"]` (display replaced arrays, emit concatenated).
 #
-# There is likewise no promotion step. It used to run HERE and only here, so a
-# typed package name resolving to a Program became a host_program in the
-# guided path while `install.sh --profile` and `install.sh <config-file>` left
-# it a raw package. A name is now either a Program or a package, enforced at
-# config load by validate_package_program_exclusivity, and the guided
-# extra-packages row routes what the operator types at ENTRY time.
+# No promotion step either: a name is either a Program or a package, enforced at
+# config load by validate_package_program_exclusivity (it used to be promoted
+# here only in the guided path, diverging from the --profile / file paths).
 emit_effective() {
   local state="$1" assignment="$2" view
   # Apply the operator's own exclusions before baking disks. The Packages
@@ -146,14 +140,10 @@ emit_effective() {
   # never goes through a layer fold (core is already in the baseline), so
   # without this an unchecked package would be emitted and installed anyway.
   view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
-  # Printing Service (ADR 0079): fold the toggle-derived cups into
-  # host_programs when printing is on. cups is no longer a Host Core system
-  # program or a Packages-pickable row — the Printing category owns it, so it is
-  # derived here at emit rather than shown as a host_programs baseline entry.
   # Toggle-derived Host Programs (ADR 0079/0080): fold cups (printing),
-  # bluetooth, then the power daemon into host_programs at emit — the Printing
-  # / Bluetooth / Power categories own them, so they are derived here, not
-  # shown as baseline entries.
+  # bluetooth, then the power daemon into host_programs at emit — the Printing /
+  # Bluetooth / Power categories own them, so they are derived here, not shown as
+  # baseline entries.
   power_inject "$(bluetooth_inject \
     "$(printing_inject "$(picker_assign_disks "$view" "$assignment")")")"
 }

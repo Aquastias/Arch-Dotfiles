@@ -2,22 +2,15 @@
 # =============================================================================
 # lib/config/power.sh — Power Profile resolver (ADR 0080)
 # =============================================================================
-# Pure core turning a host's `options.power.profile` choice into a toggle-
-# derived Host Program. The ENUM generalisation of the printing/bluetooth
-# pattern (ADR 0079/0080): unlike a bool toggle — which only decides WHETHER a
-# package lands — the value picks WHICH daemon is installed and whose service is
-# enabled. `power-profiles-daemon` (the default) and `tuned` each map to a
-# Host Program of the same name; `none` derives nothing.
+# Pure core turning `options.power.profile` into a toggle-derived Host Program —
+# the ENUM generalisation of printing/bluetooth (ADR 0079/0080): the value picks
+# WHICH daemon installs. `power-profiles-daemon` (default) and `tuned` each map
+# to a Host Program of the same name; `none` derives nothing.
 #
-# DE-agnostic: the daemon works with or without KDE (powerprofilesctl / tuned-
-# adm drive it headlessly). power-profiles-daemon is only an optional dep of
-# Powerdevil, so this key genuinely adds it even on KDE. The tuned program pulls
-# tuned-ppd so a KDE/Hyprland applet keeps a working switcher.
-#
-# The value predicate lives in exactly one place (power_profile); power_programs
-# derives the program list, and power_inject folds it into host_programs — so
-# the value→program mapping is never re-encoded per consumer. JSON in, decision
-# out. No TTY, no disk writes.
+# DE-agnostic (powerprofilesctl / tuned-adm drive it headlessly); ppd is only an
+# optional dep of Powerdevil, so this genuinely adds it even on KDE. The value
+# rule lives in one place (power_profile); power_programs + power_inject derive
+# from it. JSON in, decision out.
 #
 # Public API:
 #   power_profile           <config-json> → none | power-profiles-daemon | tuned
