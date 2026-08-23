@@ -2,49 +2,25 @@
 # =============================================================================
 # install.sh — single entry point for the Arch Linux ZFS installer
 # =============================================================================
-# Runs the three numbered scripts in order:
-#   1. 01-bootstrap-zfs.sh — adds archzfs and loads ZFS modules on the live ISO
-#   2. 02-wipe.sh          — wipes only the install's target disks, resolved
-#                            from the config and passed explicitly
-#   3. 03-install.sh       — partitions, pacstraps, configures, runs profiles
-#
-# The numbered scripts remain individually runnable for debugging. An optional
-# positional argument is forwarded to 03-install.sh as an alternate config path.
-# Recognised flags are stripped here and re-emitted to the numbered scripts.
+# Runs three numbered scripts in order (each still individually runnable for
+# debugging): 01-bootstrap-zfs.sh (archzfs + ZFS modules on the live ISO),
+# 02-wipe.sh (only the install's target disks, resolved from config), then
+# 03-install.sh (partition, pacstrap, configure, run profiles).
 #
 # Three front-ends over one back-end (ADR 0036/0039), all producing a tmpfs
 # Effective Config:
-#   ./install.sh --profile <name>          # pick disks against a committed
-#                                          # Host Profile, then install
-#   ./install.sh /path/to/effective.jsonc  # unattended pre-assembled config
-#                                          # (the VM seed's seam)
-#   ./install.sh                           # Guided Installer (fzf TUI) when
-#                                          # no --profile and no config file
+#   ./install.sh --profile <name>          # pick disks vs a committed profile
+#   ./install.sh /path/to/effective.jsonc  # unattended pre-assembled (VM seed)
+#   ./install.sh                           # Guided Installer (fzf TUI)
 #
-# USAGE:
-#   ./install.sh --profile <name>          # interactive (picks disks)
-#   ./install.sh --profile <name> -y       # unattended (hostname preset)
-#   ./install.sh --profile <name> --print-config   # validate + print, no install
-#   ./install.sh /path/to/effective.jsonc  # positional config seam
-#   ./install.sh                           # Guided Installer
-#   ./install.sh --guided answers.txt      # headless guided replay
-#
-# OPTIONS:
-#   --profile <name>   Host Profile under hosts/<name>/ to install.
-#   --print-config     Validate --profile + assemble the Effective Config,
-#                      print it, and exit (no disk phase runs).
-#   --guided <file>    Run the Guided Installer headlessly from an answers file.
-#   -y, --unattended   Bypass every interactive confirmation prompt — disk
-#                      selection, the WIPE confirmation, and the final
-#                      "Proceed?" summary. Hostname must be set in the config
-#                      beforehand; the hostname prompt is not bypassed.
-#   -h, --help         Print this help and exit.
+# Recognised flags are stripped here and re-emitted to the numbered scripts; an
+# optional positional arg forwards to 03 as the config. See usage() / --help.
 # =============================================================================
 
 set -Eeuo pipefail
 _install_on_err() {
-  # Only the top-level shell reports; `set -E` also fires this inside command
-  # substitutions, which would double-print the same abort.
+  # Only the top-level shell reports; `set -E` fires this inside command subs
+  # too, which would double-print the same abort.
   (( BASH_SUBSHELL == 0 )) || return 0
   echo -e "\n\033[0;31m[install.sh]\033[0m aborted at line $1." >&2
 }
@@ -88,9 +64,9 @@ Options:
 EOF
 }
 
-# _install_render_assignment <profile_json> <assignment_json>
-# Prints the per-group disk mapping (operator-readable) so a multi assignment is
-# never implicit (ADR 0037). Caller sends this to stderr — stdout is the JSON.
+# _install_render_assignment <profile_json> <assignment_json> — print the
+# per-group disk mapping so a multi assignment is never implicit (ADR 0037).
+# Caller sends this to stderr; stdout is the JSON.
 _install_render_assignment() {
   jq -rn --argjson p "$1" --argjson a "$2" '
     "Disk assignment (per ADR 0037):",
@@ -108,14 +84,12 @@ _install_render_assignment() {
   '
 }
 
-# _install_pick_assignment <profile_json>
-# Interactive disk resolution for `--profile`: the profile declares the layout
-# (single via .mode/.disk, multi via the pool skeleton + per-group disk_count)
-# and the operator picks only the disks (ADR 0036/0037). Emits the assignment
-# JSON consumed by assemble_profile_config. A profile that declares no layout
-# yet (un-migrated, synthesized) aborts with guidance to use the positional
-# config seam meanwhile. Multi: the picked disks are sliced onto every declared
-# group by disk_count, in declared order, and the mapping is rendered to stderr.
+# _install_pick_assignment <profile_json> — interactive disk resolution for
+# `--profile`: the profile declares the layout, the operator picks only disks
+# (ADR 0036/0037). Emits the assignment JSON for assemble_profile_config. A
+# profile with no layout yet aborts with guidance to use the positional config
+# seam. Multi slices the picked disks onto each declared group by disk_count, in
+# declared order (mapping rendered to stderr).
 _install_pick_assignment() {
   local profile_json="$1" mode picked live_set p
   local -a candidates disks
@@ -137,8 +111,8 @@ _install_pick_assignment() {
     || { echo "[install.sh] no /dev/disk/by-id/* candidates found" >&2; \
          return 1; }
 
-  # Readable "/dev/sda <size> <model> …" label (field 1) over the by-id path
-  # (hidden field 2 — the value kept and previewed via {2}).
+  # Readable "/dev/sda <size> <model>" label (field 1) over the by-id path
+  # (hidden field 2 — kept and previewed via {2}).
   picked="$(
     for p in "${candidates[@]}"; do
       printf '%s\t%s\n' "$(picker_disk_label "$p")" "$p"
@@ -157,9 +131,8 @@ _install_pick_assignment() {
     picker_validate_layout single "${#disks[@]}" || return 1
     jq -n --arg d "${disks[0]}" '{mode:"single", disk:$d}'
   else
-    # Slice the picked disks onto every declared group by disk_count, in
-    # declared order (ADR 0037); the per-group min-disk check runs downstream
-    # in picker_assign_disks. Render the mapping to stderr so it is explicit.
+    # Slice picked disks onto each group by disk_count, declared order (ADR
+    # 0037); per-group min-disk check runs downstream in picker_assign_disks.
     local assignment
     assignment="$(picker_build_assignment "$profile_json" "${disks[@]}")" \
       || return 1
@@ -202,11 +175,10 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --debug)
-      # --debug means "inspect/author only", NOT "verbose logging": it skips the
-      # install-toolchain preflight (only the front-end tools are ensured, so
-      # the menu still opens) and WITHHOLDS the install — the numbered phases
-      # below never run, so no disk is touched. Global: honoured by the guided,
-      # --profile, and positional-config front-ends alike (ADR 0063).
+      # --debug = inspect/author only, NOT verbose logging: skip the install
+      # toolchain preflight (front-end tools only, menu still opens) and
+      # WITHHOLD the install (numbered phases never run). Honoured by all three
+      # front-ends (ADR 0063).
       debug_flag=1
       shift
       ;;
@@ -233,27 +205,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# The config file the operator passed on the CLI (the unattended pre-assembled
-# path), captured before the --profile / guided branches reassign the arg
-# to their tmpfs Effective Config. Used only to reject a committed manual layout
-# below — it must stay empty on every assembled path.
+# The config the operator passed on the CLI, captured before --profile/guided
+# reassign the arg to their tmpfs Effective Config. Used only to reject a
+# committed manual layout below — must stay empty on every assembled path.
 cli_positional="${positional_args[0]:-}"
 
-# Minimal preflight: jq parses jsonc on every path (Target Resolver, profile
-# load, guided menu), so ensure it before anything else — including the
-# --print-config validation below, which is jq-only and touches no disk. The
-# Arch ISO ships no jq; install it on the live medium (mirrors lib/secrets.sh's
-# age/sops install). The full toolchain check happens further down, only on the
-# paths that actually install.
+# Minimal preflight: jq parses jsonc on every path, so ensure it first —
+# including --print-config below (jq-only, no disk). The Arch ISO ships no jq;
+# install it on the live medium. Full toolchain check happens further down, only
+# on paths that actually install.
 # shellcheck source=lib/preflight.sh
 source "${SCRIPT_DIR}/lib/preflight.sh"
 preflight_ensure_host_tools jq || exit 1
 
-# --print-config: validate the named Host Profile against the closed schema,
-# assemble the effective config, and emit it to stdout — then exit. Runs
-# before any disk-touching phase (01/02/03 never start), so a typo'd key
-# aborts with its path before a disk is touched (ADR 0036). No libvirt, no
-# writes. OS_DIR honours an existing value (tests) and defaults to this dir.
+# --print-config: validate the profile, assemble the effective config, print to
+# stdout, exit — before any disk phase (01/02/03 never start), so a typo'd key
+# aborts with its path first (ADR 0036). OS_DIR honours an existing value
+# (tests), else this dir.
 if [[ -n "$print_config" ]]; then
   if [[ -z "$profile_name" ]]; then
     echo "[install.sh] --print-config requires --profile <name>" >&2
@@ -269,31 +237,26 @@ if [[ -n "$print_config" ]]; then
   exit 0
 fi
 
-# Full-toolchain preflight: only the paths that actually install reach here
-# (--print-config has already exited). The numbered phases shell out to the whole
-# partition/format/pacstrap toolchain, and a run wipes disks — so verify every
-# host tool now and pacman-install any missing piece before a disk is touched,
-# never mid-wipe. fzf is added only when an interactive picker will run: the
-# --profile disk picker or the bare guided TUI — not a --guided replay or a
-# positional-config install, which drive no menu.
+# Full-toolchain preflight: only install paths reach here (--print-config
+# exited). A run wipes disks, so verify every host tool and pacman-install any
+# missing piece now, never mid-wipe. fzf added only when an interactive picker
+# runs (the --profile picker or bare guided TUI), not a replay or positional
+# install.
 interactive_fzf=""
 if [[ -n "$profile_name" ]] \
   || { [[ -z "$guided_replay" ]] && ((${#positional_args[@]} == 0)); }; then
   interactive_fzf=1
 fi
 
-# --debug resolver (ADR 0063): decide the preflight tier and whether the
-# numbered phases run, purely from the flags — so the "front-end-tools-only,
-# never install" guarantee is unit-tested (tests/preflight.bats) without running
-# the installer. --debug → the front-end tier (jq, + fzf for an interactive
-# front-end) with the install withheld; without it, the full toolchain and a
-# real install, exactly as today.
+# --debug resolver (ADR 0063): decide the preflight tier and whether the phases
+# run, purely from the flags, so the "front-end-only, never install" guarantee
+# is unit-tested (tests/preflight.bats). --debug → front-end tier + install
+# withheld; else full toolchain + real install.
 _debug_plan="$(preflight_resolve_plan "${debug_flag:-0}")"
 read -r preflight_tier run_install <<<"$_debug_plan"
-# Signal inspect-only mode to the guided front-end's subprocesses (ADR 0063): a
-# --debug run must never touch a disk, so disk-touching menu actions (the Manual
-# Partitioning cfdisk hand-off) go inert. Exported so `bash guided-fzf-entry.sh`
-# binds see it.
+# Signal inspect-only mode to guided subprocesses (ADR 0063): a --debug run
+# never touches a disk, so disk-touching menu actions (Manual Partitioning
+# cfdisk hand-off) go inert. Exported so guided-fzf-entry.sh binds see it.
 export INSTALL_DEBUG=0
 [[ "$run_install" == "yes" ]] || INSTALL_DEBUG=1
 _pf_arg=()
@@ -305,15 +268,11 @@ else
 fi
 preflight_ensure_host_tools "${preflight_tools[@]}" || exit 1
 
-# Quiet the console for the interactive TUI. On the stock Arch ISO the kernel
-# writes printk messages straight to the VT at the default console loglevel
-# (e.g. `ideapad_acpi ... unexpected charge_types`, a KERN_WARNING). fzf only
-# repaints on the next keystroke, so those lines land on top of the menu and it
-# looks corrupted. Lower console_loglevel to 1 (only KERN_EMERG breaks through)
-# for the life of this session and restore the prior value on exit. Gated on the
-# same interactive-fzf condition as the picker/menu above, plus a real terminal
-# ([[ -t 1 ]]) so --guided replays, positional installs, and bats runs (no tty)
-# never touch kernel.printk. The EXIT trap composes with the ERR trap above.
+# Quiet the console for the TUI: the Arch ISO writes printk messages to the VT,
+# and fzf only repaints on keystroke, so they corrupt the menu. Lower
+# console_loglevel to 1 for this session, restore on exit. Gated on the same
+# interactive-fzf condition plus a real terminal ([[ -t 1 ]]) so replays,
+# positional installs, and bats runs (no tty) never touch kernel.printk.
 if [[ -n "$interactive_fzf" && -t 1 ]] \
   && _saved_printk="$(cat /proc/sys/kernel/printk 2>/dev/null)" \
   && [[ -n "$_saved_printk" ]]; then
@@ -321,10 +280,10 @@ if [[ -n "$interactive_fzf" && -t 1 ]] \
   dmesg -n 1 2>/dev/null || true
 fi
 
-# Interactive --profile front-end: validate the named Host Profile against the
-# closed schema, let the operator pick disks, assemble the effective config in
-# tmpfs (never committed — ADR 0036), and hand it to the back-end as a positional
-# config. The picker resolves only disks; layout/identity come from the profile.
+# Interactive --profile front-end: validate the profile, pick disks, assemble
+# the effective config in tmpfs (never committed — ADR 0036), hand it to the
+# back-end positionally. The picker resolves only disks; layout/identity come
+# from the profile.
 if [[ -n "$profile_name" ]]; then
   export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
@@ -336,8 +295,8 @@ if [[ -n "$profile_name" ]]; then
 
   validate_profile "$profile_name"
   profile_json="$(load_profile "$profile_name")"
-  # Expected control-flow failures (no layout, no disks) exit with the picker's
-  # own actionable message — no generic abort footer.
+  # Expected failures (no layout, no disks) exit with the picker's own message,
+  # no generic abort footer.
   assignment="$(_install_pick_assignment "$profile_json")" || exit "$?"
 
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
@@ -345,12 +304,11 @@ if [[ -n "$profile_name" ]]; then
   positional_args=("$effective_config")
 fi
 
-# Guided front-end (ADR 0039): bare install.sh — or `--guided <answers>` for a
-# headless replay — launches the interactive menu, which assembles a tmpfs
-# Effective Config and hands it to the back-end positionally. The typed INSTALL
-# in the review screen is the sole consent gate, so the back-end runs
-# --unattended (02's WIPE / 03's Proceed don't re-ask; root defaults to 12345 —
-# change on first boot; TUI passwords are issue 07).
+# Guided front-end (ADR 0039): bare install.sh, or `--guided <answers>` for a
+# headless replay, launches the menu, which assembles a tmpfs Effective Config
+# and hands it to the back-end positionally. The typed INSTALL in the review
+# screen is the sole consent gate, so the back-end runs --unattended (02/03
+# don't re-ask; root defaults to 12345 — change on first boot).
 if [[ -z "$profile_name" && -z "$print_config" ]] \
   && { [[ -n "$guided_replay" ]] || ((${#positional_args[@]} == 0)); }; then
   export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
@@ -361,19 +319,17 @@ if [[ -z "$profile_name" && -z "$print_config" ]] \
 
   [[ -n "$guided_replay" ]] && guided_load_replay "$guided_replay"
 
-  # Stage the no-SOPS password manifest (issue 07): guided_build writes root +
-  # per-user passwords here at Proceed; 03-install.sh persists it into
-  # install-state under .guided_passwords.*. Exported so the 03 subprocess sees
-  # it. Passwords never enter the Effective Config.
+  # Stage the no-SOPS password manifest: guided_build writes root + per-user
+  # passwords here at Proceed; 03 persists them into install-state under
+  # .guided_passwords.*. Exported for the 03 subprocess. Never in the config.
   export GUIDED_SECRETS_MANIFEST
   GUIDED_SECRETS_MANIFEST="$(mktemp "${TMPDIR:-/tmp}/guided-secrets.XXXXXX.json")"
 
   effective_config="$(mktemp "${TMPDIR:-/tmp}/install-effective.XXXXXX.jsonc")"
   guided_build >"$effective_config"
   guided_rc=$?
-  # Exit 64 = a terminal action that is NOT install (Save profile / Export
-  # config, issue 08): the artifact is written, nothing to install — stop here.
-  # Any other non-zero is a cancel/error.
+  # Exit 64 = a terminal action that is NOT install (Save/Export): artifact
+  # written, nothing to install. Any other non-zero is a cancel/error.
   [[ "$guided_rc" -eq 64 ]] && exit 0
   [[ "$guided_rc" -eq 0 ]] || exit "$guided_rc"
   positional_args=("$effective_config")
@@ -383,17 +339,15 @@ if [[ -z "$profile_name" && -z "$print_config" ]] \
     || forward_args+=(--unattended)
 fi
 
-# Resolve the install's target disks from the config (single .disk, or multi
-# os_pool/storage_groups/data_pools) so the wipe only ever touches disks this
-# install will use. Mirrors 03-install.sh's config-path default. A missing
-# config yields no targets — the wipe no-ops and 03 generates the template.
+# Resolve target disks from the config so the wipe only touches disks this
+# install uses. Mirrors 03's config-path default. A missing config yields no
+# targets — the wipe no-ops and 03 generates the template.
 CONFIG_FILE="${positional_args[0]:-${SCRIPT_DIR}/install.jsonc}"
 
 # Manual Partitioning is Guided-only (ADR 0073): a hand-drawn table is not
-# reproducible, so an unattended pre-assembled config (`install.sh <file>`) may
-# not carry it. The guided Proceed path assembles its own manual config and is
-# unaffected (cli_positional is empty there); only a file the operator passed on
-# the CLI is rejected.
+# reproducible, so an unattended pre-assembled config may not carry it. The
+# guided Proceed path is unaffected (cli_positional empty there); only a
+# CLI-passed file is rejected.
 if [[ -n "$cli_positional" && -f "$cli_positional" \
       && "$(jsonc_read "$cli_positional" '.disk_config.kind // "auto"')" \
          == "manual" ]]; then
@@ -408,19 +362,17 @@ if [[ -f "$CONFIG_FILE" ]]; then
   mapfile -t wipe_targets < <(wipe_resolve_targets "$CONFIG_FILE")
 fi
 
-# --debug withholds the install (ADR 0063): the front-end above already ran (the
-# guided menu + previews, the --profile picker, Save/Export), but the numbered
-# bootstrap/wipe/install phases must never execute, so no disk is touched. This
-# is the sole install gate for every front-end — the model is the guided rc-64
-# "terminal action that is not install" early-exit above.
+# --debug withholds the install (ADR 0063): the front-end already ran, but the
+# numbered phases must never execute, so no disk is touched. The sole install
+# gate for every front-end, modelled on the guided rc-64 early-exit above.
 if [[ "$run_install" != "yes" ]]; then
   echo "[install.sh] --debug: inspection/authoring only —" \
     "install withheld, no disk touched." >&2
   exit 0
 fi
 
-# Pass the config so the bootstrap can skip itself for a pure non-ZFS install
-# (ADR 0043): no archzfs repo / zfs module is needed on the live ISO then.
+# Pass the config so bootstrap can skip itself for a pure non-ZFS install (ADR
+# 0043): no archzfs repo / zfs module needed on the live ISO then.
 bash "${SCRIPT_DIR}/01-bootstrap-zfs.sh" "$CONFIG_FILE"
 bash "${SCRIPT_DIR}/02-wipe.sh" "${forward_args[@]}" "${wipe_targets[@]}"
 bash "${SCRIPT_DIR}/03-install.sh" "${forward_args[@]}" "${positional_args[@]}"
