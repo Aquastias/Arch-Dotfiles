@@ -119,13 +119,12 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   ! grep -qx "greetd" <<<"$dm"
 }
 
-@test "display-manager set: auto with hyprland resolves to greetd + tuigreet" {
+@test "display-manager set: auto with hyprland still resolves to sddm" {
   local dm
   dm="$(pkgs_of \
     '{"users":[],"environment":{"desktop":["kde","hyprland"]}}' display-manager)"
-  grep -qx "greetd"          <<<"$dm"
-  grep -qx "greetd-tuigreet" <<<"$dm"
-  ! grep -qx "sddm" <<<"$dm"
+  grep -qx "sddm" <<<"$dm"
+  ! grep -qx "greetd" <<<"$dm"
 }
 
 @test "display-manager set: an explicit greetd on a kde box wins over auto" {
@@ -133,7 +132,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   dm="$(pkgs_of \
     '{"users":[],"environment":{"desktop":["kde"],"display_manager":"greetd"}}' \
     display-manager)"
-  grep -qx "greetd" <<<"$dm"
+  grep -qx "greetd"          <<<"$dm"
+  grep -qx "greetd-tuigreet" <<<"$dm"
   ! grep -qx "sddm" <<<"$dm"
 }
 

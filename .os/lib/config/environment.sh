@@ -213,11 +213,13 @@ _resolve_env_validate() {
 }
 
 # Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
-# greeter the chroot dispatches (ADR 0069). `auto` → `greetd` when Hyprland is
-# in the resolved desktop set, else `sddm`; `none` when no desktop is selected.
-# A concrete greeter with no desktop aborts — a greeter with no session to
-# launch. Explicit `greetd`/`sddm` pass through unchanged. Requires
-# ENVIRONMENT_DESKTOP already resolved by _resolve_env_validate.
+# greeter the chroot dispatches (ADR 0069). `auto` → `sddm` for any desktop —
+# SDDM is the fleet-wide greeter now that seatd grants a Hyprland session DRM
+# master independent of the greeter (ADR 0068 supersedes ADR 0067's auto→greetd
+# co-install rule); `none` when no desktop is selected. greetd stays available
+# by explicit opt-in. A concrete greeter with no desktop aborts — a greeter with
+# no session to launch. Explicit `greetd`/`sddm` pass through unchanged.
+# Requires ENVIRONMENT_DESKTOP already resolved by _resolve_env_validate.
 _resolve_env_display_manager() {
   local authored="${ENVIRONMENT_DISPLAY_MANAGER:-auto}"
   if [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]]; then
@@ -229,11 +231,7 @@ _resolve_env_display_manager() {
       "a greeter has no session to launch."
   fi
   if [[ "$authored" == "auto" ]]; then
-    local _dm="sddm" _d
-    for _d in "${ENVIRONMENT_DESKTOP[@]}"; do
-      [[ "$_d" == "hyprland" ]] && { _dm="greetd"; break; }
-    done
-    ENVIRONMENT_DISPLAY_MANAGER="$_dm"
+    ENVIRONMENT_DISPLAY_MANAGER="sddm"
   fi
 }
 

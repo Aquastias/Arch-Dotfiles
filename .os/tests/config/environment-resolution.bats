@@ -68,9 +68,16 @@ write_config() {
   [ "${AUDIO_PACKAGES[*]}" = "$a1" ]
 }
 
-@test "display_manager auto resolves to greetd when hyprland present" {
+@test "display_manager auto resolves to sddm even when hyprland present" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "explicit greetd is honored on a hyprland box" {
+  write_config \
+    '{"environment": {"desktop": ["kde","hyprland"], "display_manager": "greetd"}}'
   resolve_environment
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
 }

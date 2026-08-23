@@ -31,11 +31,7 @@
 
   "environment": {
     "desktop": ["kde", "hyprland"],
-    "gpu":     "auto",
-    // Pin SDDM over the kde+hyprland auto→greetd default (ADR 0067): the seatd
-    // DRM-master fix (ADR 0068) lets an SDDM-launched Hyprland session take
-    // master, so the graphical greeter serves both sessions.
-    "display_manager": "sddm"
+    "gpu":     "auto"
   },
 
   "post_install": {

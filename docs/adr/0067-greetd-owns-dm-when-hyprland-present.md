@@ -1,8 +1,19 @@
 # greetd owns the display manager whenever Hyprland is installed
 
 ---
-Status: accepted
+Status: superseded by ADR 0068
 ---
+
+## Superseded (2026-08-23)
+
+The root cause below — an SDDM-launched Hyprland session never granted DRM
+master — was fixed by giving seatd the master, independent of the greeter
+(ADR 0068). SDDM launches Hyprland reliably now, so the auto→greetd co-install
+rule is withdrawn: **`auto` resolves to `sddm` for any desktop, fleet-wide**
+(`_resolve_env_display_manager`), and greetd is explicit-opt-in only. The SDDM
+adapter already owns the sole-Hyprland case (installs + enables + curates
+sessions). The analysis below is retained as the historical record of why
+greetd was once required.
 
 greetd + greetd-tuigreet is now the display manager whenever Hyprland is
 installed — a sole-Hyprland install **and** a KDE+Hyprland co-install. Under ADR
