@@ -952,6 +952,7 @@ _ctl_nav_header() {
   secret)    b='Type the password, Enter continues   Esc cancels' ;;
   pkgcat)    b='Enter open / add   Esc back' ;;
   pkgs)      b='Enter toggle ✓   Esc back' ;;
+  pkgbrowse) b='Type to filter · Enter add/remove ✓   Esc back' ;;
   pkgderived)    b='Enter open (read-only)   Esc back' ;;
   pkgderivedsrc) b='Read-only — change it in Environment/Security/Backup' ;;
   *)        b='Esc back' ;;
@@ -981,6 +982,7 @@ _ctl_nav_prompt() {
   pkgcat)        printf '%s> ' "$(nav_get "$1" slot)" ;;
   pkgs)          printf '%s/%s> ' "$(nav_get "$1" slot)" \
                    "$(nav_get "$1" pkgcat)" ;;
+  pkgbrowse)     printf '%s pkg> ' "$(nav_get "$1" slot)" ;;
   pkgderived)    printf 'derived> ' ;;
   pkgderivedsrc) printf 'derived/%s> ' "$(nav_get "$1" source)" ;;
   *)           printf 'guided> ' ;;
@@ -1314,6 +1316,25 @@ _ctl_pkg_derived_total() {
   printf '%s' "${n:-0}"
 }
 
+# _ctl_pkg_derived_names <effective> — the sorted-unique derived package names,
+# cached across a browser session (ADR 0086). Resolving is expensive and the set
+# does not change while extras are toggled, so the cache is keyed by the config
+# with the browse-add buckets stripped: an add hits it, a derivation change
+# (GPU/DE/kernel/…) misses and recomputes. Falls back to a live resolve when no
+# cache file is wired (tests, non-menu callers).
+_ctl_pkg_derived_names() {
+  local eff="$1" key f names
+  f="${GUIDED_PKGDERIV_FILE:-}"
+  key="$(jq -cS 'del(.packages.repo.extra, .packages.aur.extra)' <<<"$eff" \
+    | cksum | cut -d' ' -f1)"
+  if [[ -n "$f" && -s "$f" && "$(head -n1 "$f" 2>/dev/null)" == "$key" ]]; then
+    tail -n +2 "$f"; return 0
+  fi
+  names="$(_ctl_pkg_derived "$eff" | cut -f3 | sort -u)"
+  [[ -n "$f" ]] && { printf '%s\n' "$key"; printf '%s' "$names"; } >"$f"
+  printf '%s\n' "$names"
+}
+
 # The source → driving-category mapping lives with the source table in
 # resolver.sh (pkgres_source_origin), so a new derived source cannot render
 # here with a missing origin.
@@ -1623,6 +1644,13 @@ guided_ctl_preview() {
     _ctl_detail_leaf "$(nav_get "$nav" field)" \
       "$(_ctl_state)" "$(_ctl_baseline)"
     return 0 ;;
+  pkgbrowse)
+    # The highlighted package's pacman -Si detail (ADR 0086) — the browser keeps
+    # the master-detail pane the rest of the menu shows.
+    [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
+    local _bpkg; _bpkg="${line:4}"; _bpkg="${_bpkg%%  *}"
+    [[ -n "$_bpkg" ]] && pacman -Si "$_bpkg" 2>/dev/null
+    return 0 ;;
   esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
   field="$(nav_get "$nav" field)"
@@ -1871,8 +1899,8 @@ guided_ctl_list() {
       _pn="$(_ctl_pkg_union "$_peff" "$_pslot" "$_pk" | grep -c .)"
       printf '%s ▸ %s\n' "$_pk" "$_pn"
     done < <(_ctl_pkg_categories "$_peff" "$_pslot")
-    # repo ＋Add opens the fzf pacman browser (ADR 0086); aur has no browsable
-    # DB (not in the sync DB, paru unbootstrapped), so it stays free-text.
+    # repo ＋Add opens the in-place pacman browser (ADR 0086); aur has no
+    # browsable DB (not synced, paru unbootstrapped), so it stays free-text.
     if [[ "$_pslot" == "aur" ]]; then
       _ctl_action_row "+ Add package ▸ type a name not in the list"
     else
@@ -1902,6 +1930,44 @@ guided_ctl_list() {
       printf '%s %s%s\n' "$_mark" "$_pp" "$_dot"
     done < <(_ctl_pkg_union "$_peff" "$_pslot" "$_pcat")
     _ctl_action_row "← Back" ;;
+  pkgbrowse)
+    # Every repo package as toggle rows IN this fzf (ADR 0086) — no execute()
+    # hand-off, so no bare-tty flash. Reads the launch-time prewarm cache; a
+    # live pacman -Slq is the fallback. Back leads (the list runs to ~15k rows,
+    # so a trailing Back would be unreachable; Esc backs out too).
+    _ctl_action_row "← Back"
+    local _bslot _blist
+    _bslot="$(nav_get "$nav" slot)"
+    _blist="$(cat "${GUIDED_PKGLIST_FILE:-/dev/null}" 2>/dev/null)"
+    [[ -n "$_blist" ]] || _blist="$(pacman -Slq 2>/dev/null)"
+    if [[ -z "$_blist" ]]; then
+      printf '%s\n' "(no repo packages — run 'pacman -Sy' first, then retry)"
+    else
+      # Mark the ~15k rows in one awk pass off precomputed sets (a per-row jq
+      # would fork per package). `●` flags a session/profile-touched row; `⟲`
+      # a package another choice already pulls in (derived, read-only here).
+      local _beff _bcore _bextra _bexcl _bderiv
+      _beff="$(_ctl_effective "$state" "$base")"
+      _bcore="$(jq -rn --argjson c "$(cfgstate_host_core)" --arg s "$_bslot" \
+        '($c.packages[$s] // {}) | [ .[] | .[]? ] | unique | .[]')"
+      _bextra="$(jq -rn --argjson e "$_beff" --arg s "$_bslot" \
+        '($e.packages[$s].extra // []) | .[]')"
+      _bexcl="$(jq -rn --argjson e "$_beff" '($e.packages.exclude // [])|.[]')"
+      _bderiv="$(_ctl_pkg_derived_names "$_beff")"
+      awk -v core="$_bcore" -v extra="$_bextra" -v excl="$_bexcl" \
+          -v deriv="$_bderiv" -v dot='  ●' -v der='  ⟲ derived' '
+        BEGIN{ n=split(core,a,"\n"); for(i=1;i<=n;i++) if(a[i]!="") C[a[i]]=1
+               n=split(extra,b,"\n"); for(i=1;i<=n;i++) if(b[i]!="") X[b[i]]=1
+               n=split(excl,d,"\n"); for(i=1;i<=n;i++) if(d[i]!="") E[d[i]]=1
+               n=split(deriv,g,"\n"); for(i=1;i<=n;i++) if(g[i]!="") D[g[i]]=1 }
+        { p=$0
+          if      (E[p]) print "[ ] " p dot   # core, excluded here
+          else if (C[p]) print "[x] " p       # inherited from core
+          else if (X[p]) print "[x] " p dot   # added here
+          else if (D[p]) print "[x] " p der   # derived by another choice
+          else           print "[ ] " p }     # available to add
+      ' <<<"$_blist"
+    fi ;;
   pkgderived)
     # Read-only (ADR 0021 keeps the DE adapter owning its own package set).
     # Each row names the category that drives it, so the operator knows where
@@ -2306,6 +2372,7 @@ guided_ctl_enter() {
   secret)    _ctl_enter_secret ;;
   pkgcat)    _ctl_enter_pkgcat "$line" "$query" ;;
   pkgs)      _ctl_enter_pkgs "$line" ;;
+  pkgbrowse) _ctl_enter_pkgbrowse "$line" ;;
   pkgderived)    _ctl_enter_pkgderived "$line" ;;
   pkgderivedsrc) _ctl_enter_pkgderivedsrc "$line" ;;
   *)         echo noop ;;
@@ -2327,9 +2394,10 @@ _ctl_enter_pkgcat() {
       _ctl_write_nav "$(nav_to_text "$cat" "packages.aur.extra" "aur package")"
       echo render
     else
-      # repo → the fzf pacman browser: an execute() bind lists every repo
-      # package and routes the picks through the ＋Add guard. Nav stays put.
-      echo "pkgbrowse ${slot}"
+      # repo → the in-place pacman browser (ADR 0086): a persistent-fzf screen
+      # listing every repo package, so no execute() hand-off flashes the tty.
+      _ctl_write_nav "$(nav_to_pkgbrowse "$cat" "$slot")"
+      echo render
     fi
     return ;;
   esac
@@ -2381,6 +2449,63 @@ _ctl_enter_pkgs() {
       --arg s "$slot" --arg k "$pcat" --arg p "$pkg" \
       '.packages[$s][$k] = (((.packages[$s][$k] // []) + [$p]) | unique)' \
       <<<"$state")"
+  fi
+  _ctl_write_state "$state"
+  echo refresh
+}
+
+# _ctl_pkg_in_core_any <slot> <pkg> — rc 0 when <pkg> is in ANY of the Host
+# Core's <slot> category arrays. The browser has no single pkgcat, so it tests
+# the whole slot to decide add-vs-exclude the way _ctl_enter_pkgs does per-cat.
+_ctl_pkg_in_core_any() {
+  jq -e --arg s "$1" --arg p "$2" \
+    '[(.packages[$s] // {}) | .[] | .[]?] | index($p)' \
+    <<<"$(cfgstate_host_core)" >/dev/null 2>&1
+}
+
+# _ctl_enter_pkgbrowse <line> — toggle one package from the full repo browser
+# (ADR 0086). Adds route through the ＋Add guard (repo extra / host / user
+# program); removes drop a session-added extra or exclude an inherited core
+# package — mirroring _ctl_enter_pkgs without a per-category context.
+_ctl_enter_pkgbrowse() {
+  local line="$1" nav slot pkg state
+  nav="$(_ctl_nav)"; slot="$(nav_get "$nav" slot)"
+  [[ "$line" == "← Back" ]] && {
+    _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+  # only the "[x] "/"[ ] " rows toggle — skip the empty-list notice etc.
+  [[ "${line:0:1}" == "[" ]] || { echo noop; return; }
+  # A derived row is read-only here — its source (Environment/GPU/…) owns it
+  # (ADR 0021); toggling would only duplicate it into extra. Say where to change
+  # it instead of silently no-op'ing.
+  [[ "$line" == *"⟲ derived"* ]] && {
+    echo "notice ⟲ already included by another choice — change it there"
+    return; }
+  # strip the "[x] "/"[ ] " mark and any trailing annotation (a name has no
+  # embedded double space, so cutting at the first one is safe)
+  pkg="${line:4}"; pkg="${pkg%%  *}"
+  [[ -n "$pkg" ]] || { echo noop; return; }
+
+  state="$(_ctl_state)"
+  if [[ "${line:0:3}" == "[x]" ]]; then
+    if _ctl_pkg_in_core_any "$slot" "$pkg"; then
+      state="$(jq --arg p "$pkg" \
+        '.packages.exclude = (((.packages.exclude // []) + [$p]) | unique)' \
+        <<<"$state")"
+    else
+      state="$(jq --arg s "$slot" --arg p "$pkg" \
+        'if .packages[$s].extra then
+           .packages[$s].extra |= map(select(. != $p)) else . end' <<<"$state")"
+    fi
+  else
+    if _ctl_pkg_in_core_any "$slot" "$pkg"; then
+      state="$(jq --arg p "$pkg" \
+        'if .packages.exclude then
+           .packages.exclude |= map(select(. != $p)) else . end
+         | if (.packages.exclude // null) == [] then del(.packages.exclude)
+           else . end' <<<"$state")"
+    else
+      state="$(_ctl_route_package_entry "$state" "$pkg" "$slot")"
+    fi
   fi
   _ctl_write_state "$state"
   echo refresh
@@ -3544,6 +3669,7 @@ _ctl_footer() {
     *)              acts='Enter choose · Esc back' ;;
     esac ;;
   category)  acts='Enter edit · Esc back' ;;
+  pkgbrowse) acts='Enter add/remove · Esc back' ;;
   *)         acts='Esc back' ;;
   esac
   local sum; sum="$(_ctl_footer_summary "$nav")"
@@ -3671,6 +3797,7 @@ _guided_directive_to_action() {
       _showpv=1 ;;
     datapools | pooledit) _showpv=1 ;;   # the live layout graph
     profiles) _showpv=1 ;;               # the profile's header comment
+    pkgbrowse) _showpv=1 ;;              # the highlighted package's pacman -Si
     esac
     if ((_showpv)); then
       pv="$(printf \
@@ -3741,11 +3868,6 @@ _guided_directive_to_action() {
     # then reload so the Partitions row shows the new count (ADR 0073).
     printf 'execute(bash %q cfdisk)+clear-query+reload(%s)' \
       "$entry" "$(_ctl_reload_cmd "$entry")" ;;
-  "pkgbrowse "*)
-    # repo ＋Add (ADR 0086): suspend fzf, browse every repo package via a nested
-    # fzf on the tty, route the picks through the guard, then reload the list.
-    printf 'execute(bash %q pkgbrowse %q)+clear-query+reload(%s)' \
-      "$entry" "${d#pkgbrowse }" "$(_ctl_reload_cmd "$entry")" ;;
   "secret-mismatch")
     # Re-render the (now entry-phase) masked screen with a warning header, query
     # cleared, masking + cursor-lock kept on. Distinct from `render` only in the

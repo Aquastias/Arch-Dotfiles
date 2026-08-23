@@ -949,6 +949,20 @@ guided_run_persistent() {
   # list here so fzf can reload(cat …) it — one cheap fork, not a controller
   # re-source. Binds run sequentially, so one reused file is race-free.
   GUIDED_LIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-list.XXXXXX")"
+  # Repo package browser prewarm (ADR 0086): the in-place browser reloads the
+  # pacman -Slq universe (~15k rows) into this fzf. Fill this cache in the
+  # background at menu start so the browse screen renders instantly on open.
+  # Empty (race / no pacman) → the pkgbrowse render falls back to a live query.
+  export GUIDED_PKGLIST_FILE
+  GUIDED_PKGLIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pkglist.XXXXXX")"
+  command -v pacman >/dev/null 2>&1 \
+    && (pacman -Slq >"$GUIDED_PKGLIST_FILE" 2>/dev/null &)
+  # Derived-set cache for the package browser (ADR 0086): resolving the derived
+  # packages is the expensive part of that screen's render, and it is invariant
+  # while only extras are toggled. Keyed by the derivation-relevant config, so a
+  # browse add hits the cache and a real change (GPU/DE/…) recomputes.
+  export GUIDED_PKGDERIV_FILE
+  GUIDED_PKGDERIV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pkgderiv.XXXXXX")"
   # Install-scoped User Editor deltas (ADR 0051): the editor writes per-user
   # profile deltas here; loaded into _GUIDED_USERFORMS_JSON before this file is
   # reaped, then merged onto the clone at Proceed. Never the Config State.
@@ -975,6 +989,7 @@ guided_run_persistent() {
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
     "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
     "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE" "$GUIDED_SKIP_FILE"
+    "$GUIDED_PKGLIST_FILE" "$GUIDED_PKGDERIV_FILE"
   )
   trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
 
