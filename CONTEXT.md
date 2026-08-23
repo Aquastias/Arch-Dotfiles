@@ -24,6 +24,16 @@ aborts with its path (ADR 0036, amending ADR 0015). Independent of the machine's
 hostname (ADR 0020): a profile may pin one via `system.hostname`, or let the
 profile name serve as the default. Optionally ships Host Secrets alongside.
 
+### Minimal Profile
+The committed `minimal` Host Profile (`.os/hosts/minimal/`) — the desktop-less,
+bare base install, archinstall's "minimal" role. Selects no desktop
+(`environment.desktop: []`, so the display manager resolves to `none` and no DE
+adapter runs — ADR 0005) and opts out of Host Core's workstation Host Package
+List (`packages.inherit: false` — ADR 0056), leaving the installer's own base on
+a TTY. Not a new capability: no-desktop was always representable; this is the
+canonical example of it. Guided reaches the same state from scratch (Host Core
+declares no desktop) or by seeding this profile.
+
 ### Effective Config
 The ephemeral, fully-resolved install config the installer back-end consumes —
 never a committed file. `assemble_profile_config` builds it from a Host Profile
