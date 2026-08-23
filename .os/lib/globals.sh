@@ -7,23 +7,16 @@
 #
 # LAYOUT CONTRACT
 # ───────────────
-# layout_plan() (unified in lib/layout/zfs/plan.sh, dispatching to the active mode
-# adapter) MUST populate the three LAYOUT_* variables before returning.
-# Consumers (chroot.sh, finalize.sh) read these and never reference
-# layout-private variables (_LAYOUT_IMPL_*), so they work with either mode
-# without changes. The richer multi-disk model (per-group topology, standalone
-# data pools, folded leftovers) is read through the layout_* accessors at the
-# bottom of this file — never by naming _LAYOUT_IMPL_* in a consumer.
+# layout_plan() MUST populate the LAYOUT_* variables before returning. Consumers
+# (chroot.sh, finalize.sh) read these only, never the layout-private
+# _LAYOUT_IMPL_*, so they work in either mode. The richer multi-disk model is
+# read through the layout_* accessors at the bottom of this file (ADR 0034).
 #
-#   LAYOUT_ESP_PARTS[]     Resolved ESP partition device paths.
-#                          Index 0 = primary (/boot/efi).
-#                          Length ≥ 1 after layout_plan() returns — ESP paths
-#                          are decided at plan time via part_name (ADR 0034).
-#   LAYOUT_OS_POOL_NAME    Resolved OS pool name (e.g. "rpool").
-#                          Safe to read after layout_plan() returns.
-#   LAYOUT_DATA_POOL_NAMES[] Resolved data pool names to export — the
-#                          Combined Data Pool (when present) plus every
-#                          Standalone Data Pool. Empty when no data pools.
+#   LAYOUT_ESP_PARTS[]       ESP partition paths; index 0 = primary (/boot/efi),
+#                            length >= 1 after layout_plan().
+#   LAYOUT_OS_POOL_NAME      OS pool name (e.g. "rpool").
+#   LAYOUT_DATA_POOL_NAMES[] Data pool names to export (Combined + every
+#                            Standalone). Empty when none.
 # =============================================================================
 
 # shellcheck disable=SC2034  # all vars consumed by other sourced modules
@@ -32,14 +25,11 @@
 INSTALL_MODE=""
 PICK_RESULT=""           # last result from pick_option() in common.sh
 
-# The default disk-encryption passphrase (ADR 0059). Eight characters, NOT five
-# like the account default (`12345`): ZFS keyformat=passphrase rejects anything
-# shorter at pool creation, so a 5-char default could never install an encrypted
-# pool. Consumed by the guided Secrets Manifest fill, the guided source tag, and
-# collect_enc_passphrase's unattended tier. A runtime default only — never
-# written to Config State, Save, or Export. Default-assigned (not readonly) so
-# re-sourcing globals.sh — guided subprocesses source it standalone — is
-# idempotent and can never abort.
+# Default disk-encryption passphrase (ADR 0059). Eight chars, NOT five like the
+# account default: ZFS keyformat=passphrase rejects shorter at pool creation.
+# Runtime default only — never written to Config State, Save, or Export.
+# Default-assigned (not readonly) so re-sourcing (guided subprocesses) is
+# idempotent.
 : "${INSTALL_DEFAULT_ENC_PASSPHRASE:=12345678}"
 
 LAYOUT_ESP_PARTS=()      # populated by layout_plan() — see contract above
@@ -57,15 +47,12 @@ LAYOUT_CRYPTTAB=""       # adapter's /etc/crypttab body (encrypted non-ZFS roots
 # ─────────────────────────────────────────────────────────────────────────────
 # LAYOUT RECORD — read interface (ADR 0043)
 # ─────────────────────────────────────────────────────────────────────────────
-# The multi-disk Root/Data adapter resolves a richer model than the LAYOUT_*
-# scalars above: per-Storage-Group topology, Standalone Data Pool names / mounts
-# / topologies, and any folded leftover OS disks. Consumers (print_summary,
-# pool_owners_apply) read that model ONLY through these accessors — never the
-# adapter-private _LAYOUT_IMPL_* variables — so the representation stays owned by
-# the layout module and the consumers depend on the interface, not the adapter's
-# internals. The accessors ARE the record's test surface. All are safe when the
-# model is absent (single-disk / non-ZFS root): they emit nothing / rc 1 rather
-# than arithmetic-aborting an undeclared associative array under `set -u`.
+# The multi-disk adapter resolves a richer model than the LAYOUT_* scalars:
+# per-group topology, Standalone Data Pool names/mounts/topologies, folded
+# leftover OS disks. Consumers read it ONLY through these accessors, never the
+# adapter-private _LAYOUT_IMPL_*. All are safe when the model is absent
+# (single-disk / non-ZFS root): they emit nothing / rc 1 rather than aborting an
+# undeclared array under `set -u`.
 
 # layout_has_leftover — rc 0 iff an interactively-folded leftover OS-disk pool
 # exists. The `declare -p` guard short-circuits before the subscript is touched,

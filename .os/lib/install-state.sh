@@ -76,11 +76,10 @@ install_state_load() {
 # which is the machine identity — not the profile name.
 install_state_write() {
   local path="$1" profile="$2" host_json persist kernels
-  # load_profile prints core-only JSON *and* returns 1 when no host-specific
-  # profile exists (its graceful path). Capture stdout and ignore the exit
-  # status; fall back to {} only when nothing was printed (a hard load
-  # failure). A `|| printf '{}'` here would append a second JSON value onto
-  # valid output, corrupting the --argjson persist payload below.
+  # load_profile prints core-only JSON *and* returns 1 when no host profile
+  # exists (graceful). Capture stdout, ignore the status, fall back to {} only
+  # when nothing printed. A `|| printf '{}'` would append a second JSON value,
+  # corrupting the --argjson persist payload below.
   host_json="$(load_profile "$profile" 2>/dev/null)" || true
   [[ -n "$host_json" ]] || host_json='{}'
   persist="$(_install_state_persist_obj "$host_json")"
@@ -162,13 +161,10 @@ install_state_update() {
 # =============================================================================
 # Credential resolution — the .secrets / .guided_passwords keys
 # =============================================================================
-# These keys carry filesystem paths to *decrypted* secret files staged in
-# tmpfs during install. Two producers write them: the Secrets Module
-# (.secrets.*, SOPS-backed) and the Guided Installer's no-SOPS injector
-# (.guided_passwords.*). Both belong to this wire format, so their read
-# precedence and the SOPS-activation gate live here — the schema's owner —
-# instead of being re-encoded as raw jq at every consumer (chroot.sh,
-# profiles/runner.sh).
+# These keys carry tmpfs paths to *decrypted* secret files. Two producers: the
+# Secrets Module (.secrets.*, SOPS-backed) and the Guided no-SOPS injector
+# (.guided_passwords.*). Read precedence + the SOPS-activation gate live here,
+# the schema's owner, not re-encoded as raw jq at every consumer.
 
 # install_state_credential_path <state> host
 # install_state_credential_path <state> user <name>

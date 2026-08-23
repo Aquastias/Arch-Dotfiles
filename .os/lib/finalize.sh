@@ -11,12 +11,10 @@
 #   finalize  — unmounts ESPs and ZFS datasets, exports pools, prints summary
 # =============================================================================
 
-# Given `findmnt -rno TARGET,FSTYPE` lines on stdin, print the NON-zfs mount
-# targets deepest-path-first. finalize unmounts these (data-group disks:
-# ext4/xfs/btrfs, possibly via a LUKS mapper) BEFORE exporting the zfs pools: a
-# stale non-zfs mount under ${MOUNT_ROOT} holds it busy, so `zpool export` fails
-# and the pool stays active → the initramfs import panics next boot ("pool was
-# previously in use from another system", ADR 0043). Pure: a string transform.
+# Given `findmnt -rno TARGET,FSTYPE` on stdin, print the NON-zfs mount targets
+# deepest-first. finalize unmounts these before exporting the zfs pools: a stale
+# non-zfs mount under ${MOUNT_ROOT} holds it busy, failing `zpool export` and
+# leaving the pool active → initramfs import panic next boot (ADR 0043).
 _finalize_nonzfs_mounts() {
   awk '$2 != "zfs" && $1 != "" { print length($1), $1 }' \
     | sort -rn | awk '{ print $2 }'
@@ -37,9 +35,8 @@ finalize() {
 
   # ── Unmount the installed root ────────────────────────────────────────────
   if command -v zpool >/dev/null 2>&1; then
-    # Drop any NON-zfs data-group mounts under the install root first (ext4/xfs/
-    # btrfs, ADR 0043) — they hold ${MOUNT_ROOT} busy, which would fail the
-    # export below and leave the pool active (initramfs panic next boot).
+    # Drop NON-zfs data-group mounts under the install root first (ADR 0043) —
+    # see _finalize_nonzfs_mounts.
     if command -v findmnt >/dev/null 2>&1; then
       local _mp
       while IFS= read -r _mp; do
