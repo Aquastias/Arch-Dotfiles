@@ -2,33 +2,18 @@
 # =============================================================================
 # lib/config/layer-resolver.sh — Layer Resolver (ADR 0057)
 # =============================================================================
-# One pure function answering "given Host Core and a host profile, what is the
-# effective set?" — and the same for User Core and a user profile.
+# One pure function: given Host Core + a host profile (or User Core + a user
+# profile), what is the effective set? JSON in, JSON out — no filesystem, TTY,
+# or globals.
 #
-# Two divergent merge rules were in use before this, and BOTH were load-bearing
-# where they were:
-#   - The config-load path concatenated every array. Harmless only while Host
-#     Core was nearly empty; the moment core carries content, a core
-#     options.kernel of ["lts"] plus a host wanting ["zen"] yields BOTH, each
-#     built against ZFS DKMS.
-#   - The guided effective view replaced arrays. Deliberate — it is what lets
-#     an operator drop a seeded user or switch kernels — but it meant the menu
-#     displayed a different set from what installed.
-#
-# So the rule cannot be global either way. It is per-key, classified by
-# **unordered set versus ordered selection**:
-#
-#   Additive  — concat, dedupe, and `exclude` subtracts. Membership is what
-#               matters, order does not, and a lower layer contributing is a
-#               feature.
-#   Replace   — the later layer wins outright. Position carries meaning
-#               (element 0 is the Primary Kernel / default locale), or the
-#               value is a single choice, so merging two layers is incoherent.
-#
-# Layers fold in order and the LAST layer wins, so a host may re-add something
-# a lower layer excluded.
-#
-# Pure: JSON in, JSON out. No filesystem, no TTY, no globals.
+# The merge rule is per-key, not global — a global rule broke either way (core
+# ["lts"] + host ["zen"] built BOTH kernels when concatenating; array-replace
+# made the guided menu show a different set from what installed):
+#   Additive — concat, dedupe, `exclude` subtracts. Order irrelevant; a lower
+#              layer contributing is a feature.
+#   Replace  — later layer wins outright. Position carries meaning (element 0 =
+#              Primary Kernel / default locale) or the value is a single choice.
+# Layers fold in order, LAST wins — a host re-adds what a lower layer excluded.
 #
 # Public API:
 #   layer_resolve_host <core-json> <profile-json>  → effective host JSON
@@ -52,9 +37,8 @@ _LAYER_ADDITIVE_user=(
   "groups" "programs" "ssh_authorized_keys"
 )
 
-# Replace keys — a later layer wins outright. Listed for documentation and the
-# coverage test; the implementation treats "not additive" as replace, so this
-# table cannot drift into letting an unlisted key concatenate by accident.
+# Replace keys. The impl treats "not additive" as replace; this table exists for
+# docs + the coverage test, so an unlisted key can't silently concatenate.
 _LAYER_REPLACE_host=(
   "options.kernel"              # element 0 is the Primary Kernel
   "system.locale" "system.keymap"   # element 0 is the default
@@ -82,8 +66,8 @@ layer_replace_keys() {
 }
 
 # ── the fold ────────────────────────────────────────────────────────────────
-# layer_resolve <host|user> <layer-json>... — fold the layers left to right.
-# The first is the base (core); each subsequent one is a delta over the result.
+# layer_resolve <host|user> <layer-json>... — fold left to right; first is the
+# base (core), each next a delta over the result.
 layer_resolve() {
   local kind="$1"; shift
   (($#)) || { printf '{}\n'; return 0; }
@@ -103,11 +87,9 @@ layer_resolve() {
 layer_resolve_host() { layer_resolve host "$1" "$2"; }
 layer_resolve_user() { layer_resolve user "$1" "$2"; }
 
-# layer_jq_prelude — the shared jq defs every fold and its inverse needs, so the
-# classification predicate has ONE implementation. `guided_core_delta` (the Save
-# path) is the inverse of _layer_fold_one and must classify keys identically;
-# duplicating `is_additive` there would let the two drift silently.
-# Expects an $additive binding in the caller's jq invocation.
+# layer_jq_prelude — shared jq defs so the classification predicate has ONE
+# implementation; `guided_core_delta` (Save path, inverse of _layer_fold_one)
+# must classify keys identically or the two drift. Needs an $additive binding.
 layer_jq_prelude() {
   cat <<'JQ'
     def odedup: reduce .[] as $x ([];
@@ -129,12 +111,9 @@ layer_jq_prelude() {
 JQ
 }
 
-# layer_jq_exclusions — the shared jq def both the fold (_layer_fold_one) and the
-# guided effective-config path (layer_apply_exclusions) use, so the subtract-
-# then-strip logic has ONE implementation (mirroring layer_jq_prelude, which did
-# the same for is_additive). Takes the three exclude lists, subtracts each from
-# its slot, drops the exclude control keys, and prunes an emptied packages
-# object. No $additive dependency, so a caller that doesn't bind it can still
+# layer_jq_exclusions — shared jq def for the fold (_layer_fold_one) and the
+# guided path (layer_apply_exclusions), so subtract-then-strip has ONE
+# implementation. No $additive dependency, so a caller that omits it can still
 # include this.
 layer_jq_exclusions() {
   cat <<'JQ'
@@ -142,7 +121,7 @@ layer_jq_exclusions() {
     def _drop_cats($excl): with_entries(.value |=
       (if type == "array" then _drop($excl) else . end));
 
-    # apply_exclusions($pkg; $sys; $usr) — subtract each list from its slot, then
+    # apply_exclusions($pkg; $sys; $usr) — subtract each from its slot, then
     # strip the exclude control keys and prune an emptied packages object.
     def apply_exclusions($pkg_excl; $sys_excl; $usr_excl):
       (if (.packages.repo // null) != null
@@ -160,22 +139,17 @@ layer_jq_exclusions() {
 JQ
 }
 
-# layer_additive_json <host|user> — the classification table as a JSON array,
-# ready to pass as --argjson additive.
+# layer_additive_json <host|user> — classification table as a JSON array for
+# --argjson additive.
 layer_additive_json() { layer_additive_keys "$1" | jq -R . | jq -s -c .; }
 
-# layer_apply_exclusions <config> — apply a config's OWN packages.exclude /
-# host_programs_exclude to itself, then strip the control keys.
-#
-# The Guided Installer's Effective Config needs this: its Config State carries
-# the exclude entries the Packages screen writes, but it never goes through a
-# layer fold (Host Core is already in the baseline), so without this an
-# unchecked package would be written to the config and installed anyway.
+# layer_apply_exclusions <config> — apply a config's OWN excludes to itself,
+# then strip the control keys. The Guided Effective Config needs this: it never
+# goes through a fold (Host Core is already baseline), so without it an
+# unchecked package would be installed anyway.
 layer_apply_exclusions() {
-  # inherit is meaningless without a fold (Host Core is already in the baseline),
-  # so drop it up front; apply_exclusions then subtracts the config's OWN excludes
-  # and strips the remaining control keys. Shares one implementation with the
-  # fold path via layer_jq_exclusions.
+  # inherit is meaningless without a fold, so drop it up front; apply_exclusions
+  # then subtracts the config's OWN excludes and strips the control keys.
   jq "$(layer_jq_exclusions)"'
     del(.packages.inherit)
     | apply_exclusions(
@@ -186,18 +160,10 @@ layer_apply_exclusions() {
 }
 
 # _layer_fold_one <lower> <upper> <additive-paths-json> — one layer over one.
-#
-# Order of operations matters and is deliberate:
-#   1. `inherit: false` drops the lower layer's packages FIRST, so a fixture
-#      opting out never has to exclude what it never wanted. Scoped to
-#      packages only — users and sysctl still inherit.
-#   2. Additive keys concat+dedupe; everything else is replaced by the upper
-#      layer (recursing into plain objects so a nested scalar override does
-#      not wipe its siblings).
-#   3. Exclusions apply LAST, over the merged result, so the upper layer's own
-#      additions can be excluded by the same layer and — because each fold
-#      re-applies the surviving lists — a later layer can re-add something an
-#      earlier one excluded.
+# Order is deliberate: (1) inherit:false drops lower packages, (2) additive
+# keys concat+dedupe / everything else replaces (recursing into plain objects so
+# a nested scalar override keeps its siblings), (3) exclusions apply last. See
+# the numbered steps below.
 _layer_fold_one() {
   local lower="$1" upper="$2" additive="$3"
 
@@ -217,9 +183,8 @@ _layer_fold_one() {
       else $b
       end;
 
-    # 1. packages.inherit: false — drop the lower layer packages wholesale.
-    #    Compared against `false` directly: jq'"'"'s `//` treats false as empty,
-    #    so `(.inherit // true) == false` is never true.
+    # 1. inherit:false drops lower packages wholesale. Compared to `false`
+    #    directly: jq `//` treats false as empty, so `(.inherit // true)` fails.
     (if ($upper.packages.inherit == false)
      then ($lower | del(.packages))
      else $lower end) as $base
@@ -228,12 +193,11 @@ _layer_fold_one() {
     | merge($base; $upper; [])
     | del(.packages.inherit)
 
-    # 3. exclusions, applied over the merged result — the UPPER layer only.
-    #    A lower layer excluding something it never inherited is vacuous, and
-    #    applying it here would stop a later layer from re-adding the entry,
-    #    which is exactly the "last layer wins" guarantee. apply_exclusions also
-    #    strips the exclude control keys (re-read from the authored layers on the
-    #    next fold, which is what lets a later layer re-add an excluded entry).
+    # 3. exclusions over the merged result — UPPER layer only. A lower layer
+    #    excluding what it never inherited is vacuous, and applying it here
+    #    would block a later layer re-adding it, breaking "last layer wins".
+    #    apply_exclusions also strips control keys (re-read from the authored
+    #    layers next fold — how a later layer re-adds an excluded entry).
     | apply_exclusions(
         ($upper.packages.exclude // []);
         ($upper.host_programs_exclude // []);
