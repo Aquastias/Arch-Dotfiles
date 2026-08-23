@@ -99,9 +99,6 @@
         "speech-dispatcher",
         "vlc"
       ],
-      "communication": [
-        "discord"
-      ],
       "gaming": [
         "gamemode",
         "lib32-gamemode",
