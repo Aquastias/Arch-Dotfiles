@@ -3849,6 +3849,23 @@ _ctl_reload_cmd() {
   fi
 }
 
+# _ctl_focus_pos <focus> — the 1-based line index of the row <focus> names in the
+# CURRENT screen's list, for a back-nav cursor restore (fzf `pos`). <focus> is a
+# category name ("Disks — …") or a field label ("Filesystem: …" / "Swap ▸ …");
+# the row is matched by literal prefix at a token boundary (space / colon), so no
+# regex-escaping and no false hit on a longer name. Empty when <focus> is unset
+# or unmatched — the caller then omits `pos` and fzf keeps its default landing.
+_ctl_focus_pos() {
+  local focus="$1" i=0 line
+  [[ -n "$focus" ]] || return 0
+  while IFS= read -r line; do
+    i=$((i + 1))
+    case "$line" in
+    "$focus" | "$focus "* | "$focus:"*) printf '%s' "$i"; return 0 ;;
+    esac
+  done < <(guided_ctl_list)
+}
+
 _guided_directive_to_action() {
   local d="$1" entry="$2" nav
   case "$d" in
@@ -3897,9 +3914,15 @@ _guided_directive_to_action() {
     else
       mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
     fi
-    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \
+    # Cursor restore (position memory): a back nav carries a `focus` hint naming
+    # the row it returned onto; land the cursor there — after the reload — so
+    # Esc-ing out of a category/field lands on it, not the reload's stale index.
+    local pos='' _fpos
+    _fpos="$(_ctl_focus_pos "$(nav_get "$nav" focus)")"
+    [[ -n "$_fpos" ]] && pos="+pos(${_fpos})"
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s%s' \
       "$(_ctl_reload_cmd "$entry")" "$(_ctl_nav_header "$nav")" \
-      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" "$mask" ;;
+      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" "$mask" "$pos" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).

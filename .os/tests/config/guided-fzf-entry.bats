@@ -64,6 +64,27 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$output" = "abort" ]
 }
 
+@test "entry dispatch back: category→top re-focuses the exited category row" {
+  printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
+  run bash "$ENTRY" dispatch back ""
+  [ "$status" -eq 0 ]
+  # Disks is the 10th row of the top list — the cursor is restored there, not
+  # left on a spacer/header (the reported bug).
+  echo "$output" | grep -q "+pos(10)"
+  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "top" ]
+}
+
+@test "entry dispatch back: values→category re-focuses the exited field row" {
+  printf '%s\n' \
+    '{"screen":"values","category":"Disks","field":"filesystem","label":"Filesystem"}' \
+    > "$GUIDED_NAV_FILE"
+  run bash "$ENTRY" dispatch back ""
+  [ "$status" -eq 0 ]
+  # "Filesystem: ZFS" is the 4th row of the Disks category screen.
+  echo "$output" | grep -q "+pos(4)"
+  [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "category" ]
+}
+
 @test "entry key: ctrl-z emits a render action over the history file" {
   bash -c '. "'"$BATS_TEST_DIRNAME"'/../../lib/config/history.sh"; hist_new "{}"' \
     > "$TEST_DIR/hist"
