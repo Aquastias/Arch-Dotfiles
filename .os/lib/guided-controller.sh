@@ -1335,6 +1335,55 @@ _ctl_pkg_derived_names() {
   printf '%s\n' "$names"
 }
 
+# _ctl_aur_list — every AUR package name for the browser (ADR 0086). AUR has no
+# local DB and no helper at menu time, so the names come from the published
+# packages.gz. Lazy + session-cached: filled on first open, reused after; a
+# failed/offline fetch yields nothing (the render then shows the type-to-add
+# notice). Bounded curl so offline does not hang the menu. Network path is
+# UNVERIFIED by bats; tests seed GUIDED_AURLIST_FILE to exercise the cache read.
+_ctl_aur_list() {
+  local f="${GUIDED_AURLIST_FILE:-}" list
+  if [[ -n "$f" && -s "$f" ]]; then cat "$f"; return 0; fi
+  list="$(curl -fsSL --connect-timeout 2 --max-time 8 \
+    https://aur.archlinux.org/packages.gz 2>/dev/null \
+    | gunzip 2>/dev/null | grep -v '^#')"
+  if [[ -n "$list" ]]; then
+    [[ -n "$f" ]] && printf '%s\n' "$list" >"$f"
+    printf '%s\n' "$list"
+  fi
+}
+
+# _ctl_aur_preview <pkg> — the browser's preview for an AUR row: the RPC info
+# (ADR 0086), formatted, cached one file per package under GUIDED_AURINFO_DIR so
+# re-hovering never re-hits the network. Only a good fetch is cached, so a
+# transient timeout retries next hover. curl -g keeps the literal arg[] query.
+_ctl_aur_preview() {
+  local pkg="$1" d="${GUIDED_AURINFO_DIR:-}" cf json out
+  if [[ -n "$d" ]]; then
+    cf="$d/${pkg//\//_}"
+    [[ -s "$cf" ]] && { cat "$cf"; return 0; }
+  fi
+  json="$(curl -fsSL -g --connect-timeout 2 --max-time 2 \
+    "https://aur.archlinux.org/rpc/v5/info?arg[]=${pkg}" 2>/dev/null)"
+  [[ -n "$json" ]] && out="$(jq -r '
+    .results[0] // empty
+    | "Name:        \(.Name)",
+      "Version:     \(.Version)",
+      "Description: \(.Description // "-")",
+      "Maintainer:  \(.Maintainer // "(orphaned)")",
+      "Votes:       \(.NumVotes)   Popularity: \(.Popularity)",
+      (if .OutOfDate then "⚠ OUT OF DATE" else empty end),
+      "URL:         \(.URL // "-")",
+      "AUR:         https://aur.archlinux.org/packages/\(.Name)"
+    ' <<<"$json" 2>/dev/null)"
+  if [[ -n "$out" ]]; then
+    [[ -n "$d" ]] && printf '%s\n' "$out" >"$cf"
+    printf '%s\n' "$out"
+  else
+    printf '%s\n' "(no AUR info — offline, timed out, or not found)"
+  fi
+}
+
 # The source → driving-category mapping lives with the source table in
 # resolver.sh (pkgres_source_origin), so a new derived source cannot render
 # here with a missing origin.
@@ -1645,11 +1694,17 @@ guided_ctl_preview() {
       "$(_ctl_state)" "$(_ctl_baseline)"
     return 0 ;;
   pkgbrowse)
-    # The highlighted package's pacman -Si detail (ADR 0086) — the browser keeps
-    # the master-detail pane the rest of the menu shows.
+    # The highlighted package's detail (ADR 0086) — the browser keeps the
+    # master-detail pane the rest of the menu shows. repo uses pacman -Si; aur
+    # queries the RPC info endpoint (cached per package).
     [[ "$line" == "← Back" || "${line:0:1}" != "[" ]] && return 0
     local _bpkg; _bpkg="${line:4}"; _bpkg="${_bpkg%%  *}"
-    [[ -n "$_bpkg" ]] && pacman -Si "$_bpkg" 2>/dev/null
+    [[ -n "$_bpkg" ]] || return 0
+    if [[ "$(nav_get "$nav" slot)" == "aur" ]]; then
+      _ctl_aur_preview "$_bpkg"
+    else
+      pacman -Si "$_bpkg" 2>/dev/null
+    fi
     return 0 ;;
   esac
   [[ "$(nav_screen "$nav")" == "values" ]] || return 0
@@ -1899,10 +1954,10 @@ guided_ctl_list() {
       _pn="$(_ctl_pkg_union "$_peff" "$_pslot" "$_pk" | grep -c .)"
       printf '%s ▸ %s\n' "$_pk" "$_pn"
     done < <(_ctl_pkg_categories "$_peff" "$_pslot")
-    # repo ＋Add opens the in-place pacman browser (ADR 0086); aur has no
-    # browsable DB (not synced, paru unbootstrapped), so it stays free-text.
+    # Both slots open the in-place browser (ADR 0086): repo from the local sync
+    # DB, aur from the fetched packages.gz list.
     if [[ "$_pslot" == "aur" ]]; then
-      _ctl_action_row "+ Add package ▸ type a name not in the list"
+      _ctl_action_row "+ Add package ▸ browse all aur packages"
     else
       _ctl_action_row "+ Add package ▸ browse all repo packages"
     fi
@@ -1931,17 +1986,26 @@ guided_ctl_list() {
     done < <(_ctl_pkg_union "$_peff" "$_pslot" "$_pcat")
     _ctl_action_row "← Back" ;;
   pkgbrowse)
-    # Every repo package as toggle rows IN this fzf (ADR 0086) — no execute()
-    # hand-off, so no bare-tty flash. Reads the launch-time prewarm cache; a
-    # live pacman -Slq is the fallback. Back leads (the list runs to ~15k rows,
-    # so a trailing Back would be unreachable; Esc backs out too).
+    # Every package in the slot as toggle rows IN this fzf (ADR 0086) — no
+    # execute() hand-off, so no bare-tty flash. repo reads the local prewarm
+    # cache (pacman -Slq); aur lazily fetches packages.gz. Back leads (the list
+    # runs to ~15k/~100k rows, so trailing Back is unreachable; Esc backs too).
     _ctl_action_row "← Back"
     local _bslot _blist
     _bslot="$(nav_get "$nav" slot)"
-    _blist="$(cat "${GUIDED_PKGLIST_FILE:-/dev/null}" 2>/dev/null)"
-    [[ -n "$_blist" ]] || _blist="$(pacman -Slq 2>/dev/null)"
+    if [[ "$_bslot" == "aur" ]]; then
+      _blist="$(_ctl_aur_list)"
+    else
+      _blist="$(cat "${GUIDED_PKGLIST_FILE:-/dev/null}" 2>/dev/null)"
+      [[ -n "$_blist" ]] || _blist="$(pacman -Slq 2>/dev/null)"
+    fi
     if [[ -z "$_blist" ]]; then
-      printf '%s\n' "(no repo packages — run 'pacman -Sy' first, then retry)"
+      if [[ "$_bslot" == "aur" ]]; then
+        printf '%s\n' \
+          "(no AUR list — offline? type a package name and press Enter to add)"
+      else
+        printf '%s\n' "(no repo packages — run 'pacman -Sy' first, then retry)"
+      fi
     else
       # Mark the ~15k rows in one awk pass off precomputed sets (a per-row jq
       # would fork per package). `●` flags a session/profile-touched row; `⟲`
@@ -2372,7 +2436,7 @@ guided_ctl_enter() {
   secret)    _ctl_enter_secret ;;
   pkgcat)    _ctl_enter_pkgcat "$line" "$query" ;;
   pkgs)      _ctl_enter_pkgs "$line" ;;
-  pkgbrowse) _ctl_enter_pkgbrowse "$line" ;;
+  pkgbrowse) _ctl_enter_pkgbrowse "$line" "$query" ;;
   pkgderived)    _ctl_enter_pkgderived "$line" ;;
   pkgderivedsrc) _ctl_enter_pkgderivedsrc "$line" ;;
   *)         echo noop ;;
@@ -2389,16 +2453,12 @@ _ctl_enter_pkgcat() {
   case "$line" in
   "← Back") _ctl_write_nav "$(nav_back "$nav")"; echo render; return ;;
   "+ Add package"*)
-    if [[ "$slot" == "aur" ]]; then
-      # AUR is not in the sync DB → free-text prompt (ADR 0086).
-      _ctl_write_nav "$(nav_to_text "$cat" "packages.aur.extra" "aur package")"
-      echo render
-    else
-      # repo → the in-place pacman browser (ADR 0086): a persistent-fzf screen
-      # listing every repo package, so no execute() hand-off flashes the tty.
-      _ctl_write_nav "$(nav_to_pkgbrowse "$cat" "$slot")"
-      echo render
-    fi
+    # Both slots open the in-place browser (ADR 0086): repo lists the local
+    # pacman -Slq universe; aur lazily fetches the packages.gz names. Either way
+    # a typed name that matches nothing still adds (query-as-add, aur), so a
+    # brand-new/offline AUR package is never locked out.
+    _ctl_write_nav "$(nav_to_pkgbrowse "$cat" "$slot")"
+    echo render
     return ;;
   esac
   # A typed name that matched no row still adds — same free-text affordance.
@@ -2468,10 +2528,18 @@ _ctl_pkg_in_core_any() {
 # program); removes drop a session-added extra or exclude an inherited core
 # package — mirroring _ctl_enter_pkgs without a per-category context.
 _ctl_enter_pkgbrowse() {
-  local line="$1" nav slot pkg state
+  local line="$1" query="${2:-}" nav slot pkg state
   nav="$(_ctl_nav)"; slot="$(nav_get "$nav" slot)"
   [[ "$line" == "← Back" ]] && {
     _ctl_write_nav "$(nav_back "$nav")"; echo render; return; }
+  # query-as-add (aur only): a typed name matching no row still adds, so a
+  # brand-new or offline AUR package is reachable when the list can't list it
+  # (ADR 0086). repo is fully enumerable, so an unmatched repo name is a typo,
+  # not a package — no query-add there.
+  if [[ "$slot" == "aur" && -z "$line" && -n "$query" ]]; then
+    _ctl_write_state "$(_ctl_route_package_entry "$(_ctl_state)" "$query" aur)"
+    echo refresh; return
+  fi
   # only the "[x] "/"[ ] " rows toggle — skip the empty-list notice etc.
   [[ "${line:0:1}" == "[" ]] || { echo noop; return; }
   # A derived row is read-only here — its source (Environment/GPU/…) owns it

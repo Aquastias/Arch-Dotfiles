@@ -150,13 +150,13 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   echo "$output" | grep -q "htop"
 }
 
-@test "repo pkgcat offers a browse action; aur offers free-text" {
+@test "both slots offer a browse action" {
   set_nav "$(nav_to_pkgcat Packages repo)"
   run guided_ctl_list
   echo "$output" | grep -q "browse all repo packages"
   set_nav "$(nav_to_pkgcat Packages aur)"
   run guided_ctl_list
-  echo "$output" | grep -q "type a name not in the list"
+  echo "$output" | grep -q "browse all aur packages"
 }
 
 @test "repo ＋Add drills to the in-place browser (no execute hand-off)" {
@@ -251,12 +251,55 @@ state()   { cat "$GUIDED_STATE_FILE"; }
   [ "$(head -n1 "$GUIDED_PKGDERIV_FILE")" = "$key1" ]
 }
 
-@test "the aur free-text entry writes into packages.aur" {
+@test "aur ＋Add drills to the in-place browser (same as repo)" {
   set_nav "$(nav_to_pkgcat Packages aur)"
-  guided_ctl_enter "+ Add package ▸ type a name not in the list" >/dev/null
-  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" field)" = "packages.aur.extra" ]
-  run guided_ctl_enter "" "some-aur-pkg"
+  run guided_ctl_enter "+ Add package ▸ browse all aur packages"
+  [ "$output" = "render" ]
+  [ "$(nav_screen "$(<"$GUIDED_NAV_FILE")")" = "pkgbrowse" ]
+  [ "$(nav_get "$(<"$GUIDED_NAV_FILE")" slot)" = "aur" ]
+}
+
+@test "aur browser reads the fetched list cache and marks membership" {
+  export GUIDED_AURLIST_FILE="$TEST_DIR/aurlist"
+  # brave-bin is aur core (checked, no dot); some-aur-pkg is available
+  printf '%s\n' brave-bin some-aur-pkg > "$GUIDED_AURLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages aur)"
+  run guided_ctl_list
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qxF "[x] brave-bin"      # inherited aur core, no dot
+  echo "$output" | grep -qxF "[ ] some-aur-pkg"   # available to add
+}
+
+@test "aur browser query-as-add routes a typed name into aur.extra" {
+  export GUIDED_AURLIST_FILE="$TEST_DIR/aurlist"
+  printf '%s\n' brave-bin > "$GUIDED_AURLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages aur)"
+  run guided_ctl_enter "" "some-aur-pkg"          # no row match, typed query
+  [ "$output" = "refresh" ]
   [ "$(jq -c '.packages.aur.extra' "$GUIDED_STATE_FILE")" = '["some-aur-pkg"]' ]
+}
+
+@test "repo browser does NOT query-as-add an unmatched name" {
+  export GUIDED_PKGLIST_FILE="$TEST_DIR/pkglist"
+  printf '%s\n' htop > "$GUIDED_PKGLIST_FILE"
+  set_nav "$(nav_to_pkgbrowse Packages repo)"
+  run guided_ctl_enter "" "not-a-real-pkg"        # repo is enumerable → no-op
+  [ "$output" = "noop" ]
+  [ "$(cat "$GUIDED_STATE_FILE")" = '{}' ]
+}
+
+@test "aur browser previews via the RPC info endpoint, cached per package" {
+  export GUIDED_AURINFO_DIR="$TEST_DIR/aurinfo"; mkdir -p "$GUIDED_AURINFO_DIR"
+  # shadow curl with a fixture so no network is hit
+  curl() { printf '%s' '{"results":[{"Name":"brave-bin","Version":"1.2-1",
+    "Description":"Brave browser","Maintainer":"someone","NumVotes":42,
+    "Popularity":3.1,"OutOfDate":null,"URL":"https://brave.com"}]}'; }
+  export -f curl
+  set_nav "$(nav_to_pkgbrowse Packages aur)"
+  run guided_ctl_preview "[x] brave-bin"
+  echo "$output" | grep -q "Version:     1.2-1"
+  echo "$output" | grep -q "Votes:       42"
+  [ -s "$GUIDED_AURINFO_DIR/brave-bin" ]           # cached to disk
 }
 
 # ── the ＋Add guard routes each typed name visibly (ADR 0086) ────────────────

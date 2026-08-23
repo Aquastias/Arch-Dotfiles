@@ -963,6 +963,14 @@ guided_run_persistent() {
   # browse add hits the cache and a real change (GPU/DE/…) recomputes.
   export GUIDED_PKGDERIV_FILE
   GUIDED_PKGDERIV_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pkgderiv.XXXXXX")"
+  # AUR browser session caches (ADR 0086): the list file holds the fetched
+  # packages.gz names (filled on first AUR-browse open, not prewarmed — it is a
+  # network call, unlike the local repo list); the info dir caches one RPC-info
+  # preview per package. Both tmpfs, reaped on RETURN — nothing persists (live
+  # ISO /root is RAM).
+  export GUIDED_AURLIST_FILE GUIDED_AURINFO_DIR
+  GUIDED_AURLIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-aurlist.XXXXXX")"
+  GUIDED_AURINFO_DIR="$(mktemp -d "${TMPDIR:-/tmp}/guided-aurinfo.XXXXXX")"
   # Install-scoped User Editor deltas (ADR 0051): the editor writes per-user
   # profile deltas here; loaded into _GUIDED_USERFORMS_JSON before this file is
   # reaped, then merged onto the clone at Proceed. Never the Config State.
@@ -989,9 +997,11 @@ guided_run_persistent() {
     "$GUIDED_RESULT_FILE" "$GUIDED_HIST_FILE" "$GUIDED_SECRETS_FILE"
     "$GUIDED_LIST_FILE" "$GUIDED_USERFORMS_FILE" "$GUIDED_PWBUF_FILE"
     "$GUIDED_PWPENDING_FILE" "$GUIDED_SESSION_UNDO_FILE" "$GUIDED_SKIP_FILE"
-    "$GUIDED_PKGLIST_FILE" "$GUIDED_PKGDERIV_FILE"
+    "$GUIDED_PKGLIST_FILE" "$GUIDED_PKGDERIV_FILE" "$GUIDED_AURLIST_FILE"
+    "$GUIDED_AURINFO_DIR"
   )
-  trap 'rm -f "${_guided_tmpfiles[@]}"' RETURN
+  # rm -rf, not -f: GUIDED_AURINFO_DIR is a directory (per-package RPC cache).
+  trap 'rm -rf "${_guided_tmpfiles[@]}"' RETURN
 
   # In-Menu Disk Binding (ADR 0047): resolve the live medium + whether any
   # install disk is enumerable ONCE, and export both so the fzf-entry

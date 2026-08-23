@@ -116,3 +116,32 @@ rather than duplicating it into `extra`. Resolving the derived set is the
 render's expensive step and is invariant while only extras are toggled, so it is
 cached (`GUIDED_PKGDERIV_FILE`) keyed by the config with the browse-add buckets
 stripped: an add hits the cache, a derivation change (GPU/DE/kernel/…) recomputes.
+
+## Amendment (2026-08-23): AUR browses in-place too
+
+This ADR originally kept `aur` `＋Add` as free-text because AUR is not in the sync
+DB and no helper is bootstrapped at menu time. The in-place browser makes parity
+worth the reversal: `aur` `＋Add` now opens the *same* `pkgbrowse` screen as repo
+(`slot=aur`), sharing the marking, toggle, derived-flagging and caching logic.
+
+Only the network-touching seams differ, because AUR has no local data:
+
+- **Enumeration** comes from the published `packages.gz` (all AUR names), not a
+  local DB. Fetched **lazily** on first open (a network call, so unlike the
+  repo `pacman -Slq` prewarm it must not run on every launch), gunzipped, and
+  session-cached in `GUIDED_AURLIST_FILE`. `curl` is bounded (`--connect-timeout
+  2 --max-time 8`) so offline never hangs the menu.
+- **Preview** is the AUR RPC `info` endpoint (description, version, maintainer,
+  votes, out-of-date), one bounded call per hovered package cached under
+  `GUIDED_AURINFO_DIR`; only a good fetch is cached, so a timeout retries.
+- **Query-as-add** stays: a typed name that matches no row still adds to
+  `aur.extra` (via the guard). It is the offline path (type into an empty list)
+  and reaches brand-new packages the fetched list lags. Repo keeps no query-add
+  — it is fully enumerable, so an unmatched repo name is a typo, not a package.
+
+Offline, the screen is entered uniformly (empty list + a type-to-add notice)
+rather than diverging to a second screen. Network at menu time is a new but
+acceptable dependency: the install already needs it (AUR builds git-clone from
+`aur.archlinux.org` and hit `/rpc`), and it degrades to the old free-text
+behaviour when it is absent. Nothing persists — the caches are tmpfs, reaped on
+menu return, and `/root` is RAM on the live ISO.
