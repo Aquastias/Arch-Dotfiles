@@ -249,13 +249,15 @@ pkgres_resolve() {
   # ── display manager (ADR 0069) ────────────────────────────────────────────
   # The greeter is its own derived set keyed on the resolved display_manager,
   # not smuggled inside kde-shell. `auto` resolves the same way the installer
-  # does: greetd if Hyprland is selected, else sddm; none when no desktop.
+  # does (_resolve_env_display_manager): sddm for any desktop fleet-wide (ADR
+  # 0068 supersedes 0067's auto→greetd), greetd only by explicit opt-in; none
+  # when no desktop.
   local dm_raw dm
   dm_raw="$(_pkgres_jq "$cfg" '.environment.display_manager // "auto"')"
   if [[ -z "$desktops" ]]; then
     dm="none"
   elif [[ "$dm_raw" == "auto" ]]; then
-    if grep -qx "hyprland" <<<"$desktops"; then dm="greetd"; else dm="sddm"; fi
+    dm="sddm"
   else
     dm="$dm_raw"
   fi
