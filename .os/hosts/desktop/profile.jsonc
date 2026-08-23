@@ -30,7 +30,7 @@
   },
 
   "environment": {
-    "desktop": ["kde"],
+    "desktop": ["kde", "hyprland"],
     "gpu":     "auto"
   },
 

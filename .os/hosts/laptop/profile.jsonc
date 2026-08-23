@@ -1,7 +1,8 @@
 // Host Profile for `laptop` (chronos) — the unified, self-contained profile
 // (ADR 0036). Resolved over hosts/core/profile.jsonc. One file carries the
-// hostname, core machine defaults, and users, declares the kde desktop, and a
-// single-disk skeleton (one operator-picked disk → ESP + rpool + dpool).
+// hostname, core machine defaults, and users, declares the kde+hyprland
+// desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
+// + dpool).
 //
 // **No packages block.** laptop is a strict subset of desktop — 57 repo
 // packages in both, zero unique to laptop — so everything it wants is in Host
@@ -30,7 +31,8 @@
   },
   "environment": {
     "desktop": [
-      "kde"
+      "kde",
+      "hyprland"
     ],
     "gpu": "auto"
   },
