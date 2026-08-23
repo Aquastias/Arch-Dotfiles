@@ -301,8 +301,8 @@ file), and the controller tests set the same globals to a temp path, asserting
 behaviour through it unchanged. The controller's private `_ctl_state` /
 `_ctl_write_state` / `_ctl_nav` / `_ctl_write_nav` / `_ctl_baseline` now delegate
 here, and the former direct pokes in `guided-fzf-entry.sh` (the `cfdisk` /
-`pkgbrowse` execute() verbs) and `guided.sh` (`_guided_oneshot_edit`, the session
-seed/read in `guided_run_persistent`) route through it. Scope is the Config State
+`pkgbrowse` execute() verbs) and `guided.sh` (the session seed/read in
+`guided_run_persistent`) route through it. Scope is the Config State
 triad; the other session handoff files (secrets, userforms, history, pw buffers,
 session-undo, skip, list, result) are separate concerns not yet folded in.
 

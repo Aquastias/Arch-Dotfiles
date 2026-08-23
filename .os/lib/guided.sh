@@ -520,13 +520,6 @@ _guided_edit_esp_size() {
 _guided_edit_age_key_url() {
   _guided_edit_scalar age_key_url "Age key URL" options.age_key_url
 }
-# Pacman ParallelDownloads (ADR 0074): the numeric [options] value. The five
-# pacman bool flags edit through the native true/false enum picker; only this
-# free-text value needs a replay editor.
-_guided_edit_parallel_downloads() {
-  _guided_edit_scalar parallel_downloads "Parallel downloads (e.g. 5)" \
-    options.pacman.parallel_downloads
-}
 
 # _guided_edit_desktop — Environment desktop: a multi-select over kde
 # (one, both, or none → a server install). Stored as a JSON array.
@@ -585,11 +578,7 @@ _guided_edit_optional_repos() {
 # empty.
 _guided_add_mirror_server() {
   local raw; raw="$(guided_prompt mirror_server "Custom mirror Server URL")"
-  [[ -n "$raw" ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.mirror_servers \
-    "$(jq -cn --argjson a "$(jq -c '.options.mirror_servers // []' \
-      <<<"$_GUIDED_STATE")" --arg v "$raw" \
-      'if any($a[]; . == $v) then $a else $a + [$v] end')")"
+  _GUIDED_STATE="$(edit_add_mirror_server "$_GUIDED_STATE" "$raw")"
 }
 
 # Custom repository "name url [sign_check] [sign_option]" → object appended
@@ -598,14 +587,7 @@ _guided_add_mirror_server() {
 _guided_add_custom_repository() {
   local raw; raw="$(guided_prompt custom_repository \
     "Custom repo: name url [Never|Optional|Required] [TrustAll|TrustedOnly]")"
-  local -a rf; read -ra rf <<<"$raw"
-  [[ ${#rf[@]} -ge 2 ]] || return 1
-  _GUIDED_STATE="$(cfgstate_set "$_GUIDED_STATE" options.custom_repositories \
-    "$(jq -cn --argjson a "$(jq -c '.options.custom_repositories // []' \
-      <<<"$_GUIDED_STATE")" --arg n "${rf[0]}" --arg u "${rf[1]}" \
-      --arg c "${rf[2]:-Required}" --arg o "${rf[3]:-TrustedOnly}" \
-      'if any($a[]; .name == $n) then $a
-       else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')")"
+  _GUIDED_STATE="$(edit_add_custom_repository "$_GUIDED_STATE" "$raw")"
 }
 # Security & Backup Extras editors (ADR 0041). The firewall is a single-choice
 # radiolist (firewalld | ufw | none) — picking one IS the mutual exclusion; the
@@ -680,8 +662,7 @@ _guided_add_host_program() {
 # key, never a dotted path. rc 1 (no commit) on a malformed entry.
 _guided_add_sysctl() {
   local raw; raw="$(guided_prompt sysctl "sysctl key=value")"
-  [[ "$raw" == *=* ]] || return 1
-  _GUIDED_STATE="$(edit_set_sysctl "$_GUIDED_STATE" "${raw%%=*}" "${raw#*=}")"
+  _GUIDED_STATE="$(edit_add_sysctl_pair "$_GUIDED_STATE" "$raw")"
 }
 
 # =============================================================================
@@ -948,39 +929,6 @@ _guided_secrets_manifest() {
 # functions below are the live glue — UNVERIFIED by bats (they need fzf + a
 # tty); the LOGIC they lean on (controller, setters, nav, translation) is
 # unit-tested in tests/config/guided-*.bats.
-
-# _guided_oneshot_edit <field> — the slice-01 bridge: load the Config State from
-# $GUIDED_STATE_FILE into _GUIDED_STATE, run the EXISTING one-shot edit helper
-# for <field> (interactive guided_prompt/guided_select), write the result back.
-# Invoked by guided-fzf-entry.sh under fzf's execute() for the text + multi
-# fields and the Disks layout/persist actions (slices 02/03 make these native).
-_guided_oneshot_edit() {
-  local field="$1"
-  _GUIDED_STATE="$(cfgstore_state)"
-  case "$field" in
-  system.hostname)          _guided_edit_hostname ;;
-  system.locale)            _guided_edit_locale ;;
-  system.timezone)          _guided_edit_timezone ;;
-  system.keymap)            _guided_edit_keymap ;;
-  options.swap_size)        _guided_edit_swap_size ;;
-  options.esp_size)         _guided_edit_esp_size ;;
-  options.age_key_url)      _guided_edit_age_key_url ;;
-  options.pacman.parallel_downloads) _guided_edit_parallel_downloads ;;
-  sysctl)                   _guided_add_sysctl ;;
-  packages.repo.extra)      _guided_add_package ;;
-  options.kernel)           _guided_edit_kernel ;;
-  environment.desktop)      _guided_edit_desktop ;;
-  environment.display_manager) _guided_edit_display_manager ;;
-  environment.gpu)          _guided_edit_gpu ;;
-  options.mirror_countries) _guided_edit_mirror_countries ;;
-  host_programs)          _guided_add_host_program ;;
-  users)                    _guided_pick_users ;;
-  __layout__)               _guided_edit_layout ;;
-  __persist__)              _guided_add_persist ;;
-  *) : ;;
-  esac
-  cfgstore_write_state "$_GUIDED_STATE"
-}
 
 # guided_run_persistent — the ADR-0042 single-fzf front-end. Sets up the tmpfs
 # state files (mktemp under ${TMPDIR:-/tmp}, cleaned on RETURN), launches ONE

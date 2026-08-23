@@ -16,16 +16,13 @@
 # typed INTO fzf's own query line). EVERYTHING commits in place now — enum
 # picks,
 # toggles, layout presets, sysctl pairs, user toggle + create, Add-persist, and
-# every free-text field — so the menu never leaves fzf. (The `edit-oneshot`
-# directive remains only as an unused fallback seam.) ^Z/^Y/^R drive
+# every free-text field — so the menu never leaves fzf. ^Z/^Y/^R drive
 # undo/redo/reset over a snapshot history.
 #
 # Directives (one per guided_ctl_enter / guided_ctl_back call):
 #   render             re-list + re-prompt + re-header the current screen
 #   terminal <action>  exit with proceed|save|export
 #                       (launcher → result + accept)
-#   edit-oneshot <path> one-shot helper hand-off
-#                       (launcher → execute + reload)
 #   abort              cancel the whole menu             (launcher → abort)
 #   noop               do nothing
 # =============================================================================
@@ -468,27 +465,11 @@ _ctl_apply_text() {
       <<<"$(_ctl_effective "$state" "$(_ctl_baseline)")")"
     cfgstate_set "$state" users "$(jq -cn --argjson a "$_cur" --arg v "$val" \
       'if any($a[]; . == $v) then $a else ($a + [$v]) end')" ;;
-  sysctl)
-    [[ "$val" == *=* ]] || { printf '%s' "$state"; return 1; }
-    edit_set_sysctl "$state" "${val%%=*}" "${val#*=}" ;;
-  options.mirror_servers)
-    # A custom mirror Server= URL, appended (dedup) — ADR 0072.
-    [[ -n "$val" ]] || { printf '%s' "$state"; return 1; }
-    cfgstate_set "$state" options.mirror_servers "$(jq -cn \
-      --argjson a "$(jq -c '.options.mirror_servers // []' <<<"$state")" \
-      --arg v "$val" 'if any($a[]; . == $v) then $a else $a + [$v] end')" ;;
-  options.custom_repositories)
-    # "name url [sign_check] [sign_option]" → an object appended (dedup by
-    # name);
-    # sign_check/sign_option default to Required/TrustedOnly (ADR 0072).
-    local -a _rf; read -ra _rf <<<"$val"
-    [[ ${#_rf[@]} -ge 2 ]] || { printf '%s' "$state"; return 1; }
-    cfgstate_set "$state" options.custom_repositories "$(jq -cn \
-      --argjson a "$(jq -c '.options.custom_repositories // []' <<<"$state")" \
-      --arg n "${_rf[0]}" --arg u "${_rf[1]}" \
-      --arg c "${_rf[2]:-Required}" --arg o "${_rf[3]:-TrustedOnly}" \
-      'if any($a[]; .name == $n) then $a
-       else $a + [{name:$n, url:$u, sign_check:$c, sign_option:$o}] end')" ;;
+  # sysctl / custom mirror Server / custom repository — the routing-heavy adds
+  # share one implementation with the replay helpers via edits.sh (ADR 0072).
+  sysctl)                      edit_add_sysctl_pair "$state" "$val" ;;
+  options.mirror_servers)      edit_add_mirror_server "$state" "$val" ;;
+  options.custom_repositories) edit_add_custom_repository "$state" "$val" ;;
   packages.repo.extra) _ctl_route_package_entry "$state" "$val" repo ;;
   packages.aur.extra)  _ctl_route_package_entry "$state" "$val" aur ;;
   *) edit_set_scalar "$state" "$path" "$val" ;;
@@ -2933,7 +2914,7 @@ _ctl_enter_category() {
   text)
     _ctl_write_nav "$(nav_to_text "$cat" "$path" "$label")"; echo render ;;
   *)
-    echo "edit-oneshot $path" ;;   # fallback seam — no field reaches it now
+    echo noop ;;   # unreachable: _ctl_field_kind returns only the kinds above
   esac
 }
 
@@ -3760,9 +3741,6 @@ _guided_directive_to_action() {
   noop)             printf 'ignore' ;;
   "terminal "*)     printf 'execute-silent(printf %%s %q > %q)+accept' \
                       "${d#terminal }" "${GUIDED_RESULT_FILE:-/dev/null}" ;;
-  "edit-oneshot "*) printf \
-    'execute(bash %q oneshot %q)+clear-query+reload(bash %q list)' \
-    "$entry" "${d#edit-oneshot }" "$entry" ;;
   "secret-root")
     printf 'execute(bash %q secret root)+clear-query+reload(bash %q list)' \
       "$entry" "$entry" ;;

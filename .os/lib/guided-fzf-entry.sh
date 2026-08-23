@@ -3,12 +3,11 @@
 # lib/guided-fzf-entry.sh — persistent-fzf bind entry point (ADR 0042)
 # =============================================================================
 # The command the single persistent fzf's binds invoke. fzf runs binds in fresh
-# shells, so this sources the controller (+ guided helpers for one-shot) and
-# dispatches:
+# shells, so this sources the controller and dispatches:
 #   list                    → the current screen's item list (for `reload`)
 #   dispatch <verb> <line>  → run the controller, print the fzf action string
 #                             that the `transform` bind then executes
-#   oneshot <field>         → run the existing one-shot edit helper for <field>
+#   cfdisk / pkgbrowse / secret → tty-hosted execute() hand-offs
 #
 # State lives in the GUIDED_*_FILE paths the launcher exported. This is the live
 # glue: it is UNVERIFIED by bats (it needs a tty + fzf) and is exercised at the
@@ -78,11 +77,6 @@ key)
 preview)
   # fzf preview body — the ASCII layout graph (only on the Disk-layout screen).
   guided_ctl_preview "${2:-}"
-  ;;
-oneshot)
-  # shellcheck source=lib/guided.sh
-  source "${_entry_dir}/guided.sh"
-  _guided_oneshot_edit "${2:-}"
   ;;
 cfdisk)
   # Manual Partitioning (ADR 0073): runs under fzf execute() (has a tty). Launch
