@@ -1,75 +1,27 @@
 #!/usr/bin/env bash
 # =============================================================================
-# 02-wipe.sh
+# 02-wipe.sh — make-blank wipe (no secure-erase) of opted-in disks
 # =============================================================================
-# PURPOSE:
-#   Make-blank wipe of the disk(s) you opt into so they appear brand new —
-#   no partition tables, no filesystem signatures, no ZFS labels, no LVM
-#   metadata, no RAID superblocks. After this script each wiped disk is a blank
-#   slate ready for the installer to partition from scratch.
+# Leaves each wiped disk a blank slate: no partition table, no filesystem/ZFS/
+# LVM/MD signatures. Include-based — nothing is wiped by default.
 #
-# SELECTION MODEL (include-based, nothing wiped by default):
-#   - Explicit targets: any positional DISK args are the exact disks to wipe;
-#     detection + selection are skipped. install.sh resolves the install's
-#     target disks (single .disk, or os_pool/storage_groups/data_pools) and
-#     passes them here, so the wipe only ever touches disks the install uses.
-#   - Standalone (no targets), attended: detected disks are listed and you
-#     pick which to wipe by index (or `all`); Enter cancels (wipe nothing).
-#   - Standalone (no targets), unattended (-y): nothing to wipe (safe no-op).
+# Selection:
+#   - Explicit DISK args (install.sh passes the install's target disks): wiped
+#     exactly, no detection or selection.
+#   - Standalone attended: detected disks listed, pick by index or `all`; Enter
+#     cancels.
+#   - Standalone unattended (-y) with no targets: no-op.
 #
-# WHAT IT DOES PER DISK (in order):
-#   1. Tears down any ZFS pools using that disk (import → destroy)
-#   2. Deactivates any LVM physical volumes / volume groups on that disk
-#   3. Stops any MD-RAID arrays that include partitions on that disk
-#   4. wipefs -af           — clears all filesystem/partition signatures
-#   5. sgdisk --zap-all     — destroys GPT + MBR partition tables
-#   6. device-aware clear   — blkdiscard (SSD/NVMe) or a dd zero-pass (HDD),
-#                             routed by the Wipe-Method Selector; discard
-#                             falls back to a zero-pass if unsupported
-#   7. Second wipefs pass   — catches anything the clear may have re-written
-#   8. blockdev --rereadpt  — tells the kernel to re-read the empty table
+# Per disk: tear down ZFS/LVM/MD → wipefs → sgdisk --zap-all → device-aware
+# clear (blkdiscard on SSD/NVMe, dd zero-pass on HDD) → second wipefs →
+# blockdev --rereadpt. Disks already blank are probed and skipped
+# (_wipe_probe_disk + lib/wipe/prior-state.sh). SSD/NVMe = seconds, HDD = hours;
+# wiped in parallel, logged to /tmp/wipe-<disk>.log.
 #
-# DISK DETECTION (standalone path only):
-#   Auto-detects all block devices of type "disk" via lsblk for the selection
-#   table. Automatically SKIPS:
-#     - The live USB/CD the system booted from
-#     - Any disk with currently mounted partitions
-#     - Loop devices, optical drives, RAM disks
-#   The live-medium hard guard also refuses any explicitly-passed target that
-#   is the install medium, so the boot stick can never be erased.
-#
-# ALREADY-ZEROED DISKS:
-#   Before wiping, each selected disk is checked: if it carries no signatures,
-#   no partition table, and samples clean of non-zero data, it is reported as
-#   already blank and SKIPPED (no redundant zero-fill). See _wipe_probe_disk()
-#   + the pure decider in lib/wipe/prior-state.sh.
-#
-# CONFIRMATION:
-#   Two gates protect the wipe (both skipped under unattended mode):
-#     1. "Do you wish to wipe the disk(s)?"  [y/N]
-#     2. Type WIPE (all caps) at the point of no return.
-#
-# WIPE DEPTH:
-#   Make-blank, not secure-erase (shred is never used). SSD/NVMe are cleared
-#   with an instant blkdiscard; HDDs get a single dd zero-pass. All disks are
-#   wiped IN PARALLEL to minimise total wall-clock time. Progress is logged to
-#   /tmp/wipe-<diskname>.log.
-#   Expect: SSDs/NVMe = seconds (discard), HDDs = hours (~130 MB/s, 1TB ≈ 2h).
-#
-# RUN ORDER:
-#   1. 01-bootstrap-zfs.sh
-#   2. 02-wipe.sh            ← you are here
-#   3. 03-install.sh
-#
-# USAGE:
-#   chmod +x 02-wipe.sh
-#   ./02-wipe.sh                      # interactive include-based selection
-#   ./02-wipe.sh /dev/sda /dev/sdb    # wipe exactly these disks
-#   ./02-wipe.sh -y /dev/sda          # unattended, explicit target, no prompts
-#   ./02-wipe.sh -y                   # unattended, no target → nothing to wipe
-#
-# Honors INSTALL_UNATTENDED=1 from the environment as well as the CLI flag, so
-# it works whether invoked directly or via install.sh.
+# Two confirmation gates (both skipped under unattended): [y/N] intent, then
+# type WIPE. The Live-Medium Detector + a hard guard ensure the boot stick can
+# never be erased. Honors INSTALL_UNATTENDED=1 from env or the -y flag.
+# Run order: 01-bootstrap → 02-wipe → 03-install. See -h for usage.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -105,15 +57,10 @@ TARGETS=()
 # =============================================================================
 
 detect_disks() {
-  # Diagnostics go to stderr: this function's stdout is captured verbatim as the
-  # disk list (`mapfile -t all_disks < <(detect_disks)`), so any info/warn line
-  # on stdout would be mistaken for a disk to wipe (and wipe_one_disk fails on
-  # it). Only device paths may reach stdout here.
-  #
-  # The live medium is excluded via the multi-signal Live-Medium Detector
-  # (lib/live-medium.sh) — boot-mount parent disk, iso9660, ARCH_* label —
-  # resolved once here and matched by whole-disk path. Robust on label/uuid
-  # boot sources and on copytoram boots where the USB is unmounted.
+  # Diagnostics go to stderr: stdout is captured verbatim as the disk list, so a
+  # stray line there would be taken as a disk to wipe. Only device paths on
+  # stdout. The live medium is excluded via the Live-Medium Detector
+  # (lib/live-medium.sh), matched by whole-disk path.
   local live_set
   live_set="$(live_medium_disks)"
   [[ -n "$live_set" ]] \
@@ -151,8 +98,7 @@ detect_disks() {
 
 disk_info_table() {
   local disks=("$@")
-  # SC2059: BOLD/NC are colour escapes that we deliberately interpolate into
-  # the printf format string for ANSI colouring of the header row.
+  # SC2059: BOLD/NC colour escapes are interpolated into the format.
   # shellcheck disable=SC2059
   printf "\n  ${BOLD}%-5s  %-14s  %-8s  %-8s  %-28s  %s${NC}\n" \
     "Idx" "Device" "Size" "Type" "Model" "Serial"
@@ -185,9 +131,8 @@ disk_info_table() {
 # INTERACTIVE DISK SELECTION
 # =============================================================================
 
-# parse_disk_selection INPUT DISK... — pure include-based selection.
-# Emits the included device paths (one per line). Empty INPUT selects nothing
-# (the default-cancel: wipe nothing). Other rules are added per test below.
+# parse_disk_selection INPUT DISK... — pure include-based selection, one path
+# per line. Empty INPUT selects nothing (default-cancel).
 parse_disk_selection() {
   local input="$1"; shift
   [[ -z "${input//[[:space:]]/}" ]] && return 0  # cancel → wipe nothing
@@ -195,9 +140,8 @@ parse_disk_selection() {
     printf '%s\n' "$@"
     return 0
   fi
-  # 1-based indices into the disk list. Non-numeric / out-of-range tokens are
-  # skipped (never wipe a disk you didn't name); a repeated index is emitted
-  # once (preserve first-seen order) so a disk can't be wiped twice.
+  # 1-based indices. Non-numeric / out-of-range tokens are skipped (never wipe a
+  # disk you didn't name); a repeated index is emitted once (first-seen order).
   local all=("$@") tok seen=() out=() s dup
   for tok in $input; do
     [[ "$tok" =~ ^[0-9]+$ ]] || continue
@@ -211,10 +155,8 @@ parse_disk_selection() {
   ((${#out[@]})) && printf '%s\n' "${out[@]}" || true
 }
 
-# Interactive include-based selection. Only reached on a standalone, attended
-# run with no explicit targets — main() handles the install-driven (explicit
-# targets) and unattended (no-op) paths before this. The default is to wipe
-# NOTHING: Enter cancels.
+# Interactive selection — only reached on a standalone attended run with no
+# targets (main() handles the other paths). Enter cancels: nothing wiped.
 select_disks() {
   local all_disks=("$@")
   echo -e "  ${BOLD}Select the disk(s) to wipe.${NC}"
@@ -232,29 +174,21 @@ select_disks() {
 # ALREADY-ZEROED DETECTION
 # =============================================================================
 
-# _wipe_probe_disk DISK — block-device I/O that produces one prior-state fact
-# line for the pure decider in lib/wipe/prior-state.sh:
+# _wipe_probe_disk DISK — block-device I/O producing one prior-state fact line
+# for the pure decider in lib/wipe/prior-state.sh:
 #   <disk>|<is_live>|<sig>|<nparts>|<nonzero>
-#   1. Any filesystem/partition signature (wipefs)  → sig non-empty
-#   2. Any child partitions (lsblk)                 → nparts > 0
-#   3. Sample 4 MiB windows at 33 evenly-spaced
-#      offsets; any non-zero byte                   → nonzero=1
-# Steps 1-2 catch all *structured* data (filesystems, partition tables,
-# LVM/MD/ZFS labels). Step 3 catches gross leftover data but is heuristic —
-# not an exhaustive every-sector scan, since a full read of a multi-TB disk
-# would cost as much as the zero-fill it is meant to skip. A disk reported
-# blank by the decider is safe to install onto as-is, so skipping its
-# zero-fill is sound even if unstructured data hides between sample windows.
+# sig/nparts (wipefs, lsblk) catch all structured data; nonzero samples 4 MiB at
+# 33 offsets — heuristic, not an every-sector scan (a full multi-TB read would
+# cost as much as the zero-fill it skips). Blank-by-decider is safe to install
+# onto, so skipping is sound even if data hides between windows.
 _wipe_probe_disk() {
   local disk="$1" is_live=0 sig="" nparts=0 nonzero=0
 
   is_live_medium "$disk" && is_live=1
 
-  # Only probe a real block device. An install's resolved target set may name a
-  # disk absent on this machine (e.g. the config's os_pool lists another host's
-  # disks); such a target is reported blank (nothing to wipe) rather than run
-  # through lsblk/dd — which would fail under `set -o pipefail` and trip the ERR
-  # trap. A non-existent disk can't be wiped anyway.
+  # Only probe a real block device. A resolved target set may name a disk absent
+  # here (another host's disks); report it blank rather than run lsblk/dd,
+  # which would fail under pipefail and trip the ERR trap. Can't wipe it anyway.
   if [[ -b "$disk" ]]; then
     # Presence only — wipefs output is multi-line, so collapse it to a token.
     [[ -n "$(wipefs "$disk" 2>/dev/null)" ]] && sig=present
@@ -264,8 +198,8 @@ _wipe_probe_disk() {
     local size
     size="$(blockdev --getsize64 "$disk" 2>/dev/null || echo 0)"
     if ((size > 0)); then
-      # Read a 4 MiB window at 33 evenly-spaced offsets (~132 MiB worst case).
-      # Any non-zero byte in any window means the disk still holds data.
+      # 4 MiB window at 33 offsets (~132 MiB worst case); any non-zero byte
+      # means the disk still holds data.
       local chunk=$((4 * 1024 * 1024))
       local windows=32
       local step=$((size > chunk ? (size - chunk) / windows : 0))
@@ -283,8 +217,8 @@ _wipe_probe_disk() {
   printf '%s|%s|%s|%s|%s\n' "$disk" "$is_live" "$sig" "$nparts" "$nonzero"
 }
 
-# Drops already-zeroed disks from DISKS_TO_WIPE, reporting each skip. Probes
-# each target (I/O), then lets the pure decider pick the set to wipe.
+# Drop already-zeroed disks from DISKS_TO_WIPE (reporting each skip): probe each
+# target, then let the pure decider pick the set to wipe.
 skip_zeroed_disks() {
   section "Checking for Already-Zeroed Disks"
   local disk kept=()
@@ -292,8 +226,8 @@ skip_zeroed_disks() {
     for disk in "${DISKS_TO_WIPE[@]}"; do _wipe_probe_disk "$disk"; done \
       | wipe_select_to_wipe
   )
-  # Report each disk the decider dropped as already blank. (Live-medium disks
-  # are aborted by the hard guard before this point, so a drop here is blank.)
+  # Report each disk the decider dropped as blank. (Live-medium disks are
+  # aborted by the hard guard earlier, so a drop here is blank.)
   local k in_kept
   for disk in "${DISKS_TO_WIPE[@]}"; do
     in_kept=false
@@ -307,9 +241,9 @@ skip_zeroed_disks() {
 # LIVE-MEDIUM HARD GUARD
 # =============================================================================
 
-# Belt-and-suspenders over the Live-Medium Detector: even if a live-medium disk
-# somehow reaches DISKS_TO_WIPE (e.g. a future caller passing targets in), abort
-# before any teardown so the boot stick can never be erased.
+# Belt-and-suspenders over the Live-Medium Detector: if a live-medium disk ever
+# reaches DISKS_TO_WIPE, abort before any teardown — the boot stick is never
+# erased.
 assert_no_live_medium_targets() {
   local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
@@ -376,16 +310,11 @@ final_confirm() {
 # =============================================================================
 # PRIOR INSTALL STATE RESET  (runs before disk detection)
 # =============================================================================
-# A failed/aborted 03-install.sh leaves the target's ZFS pools imported with
-# altroot=/mnt and the datasets + ESP mounted under /mnt. detect_disks() then
-# sees a mounted partition (the ESP at /mnt/boot/efi) and SKIPS the very disk
-# you want to wipe — "No eligible disks". teardown_zfs() can't help: it runs
-# per-disk, AFTER detection has already excluded the disk. So clear that
-# scratch state here, first.
-#
-# Scoped strictly to /mnt (the installer's mountpoint) and pools whose altroot
-# is /mnt — never the live system, which lives at '/'. Unmounting/exporting is
-# non-destructive: no disk data is erased, pools can be re-imported.
+# A failed 03-install.sh leaves ZFS pools imported (altroot=/mnt) and datasets +
+# ESP mounted under /mnt; detect_disks() then sees a mounted partition and SKIPS
+# the disk you want to wipe. So clear that scratch state here, first. Scoped to
+# /mnt and pools with altroot=/mnt (never the live system); unmount/export
+# is non-destructive — no data erased, pools re-importable.
 
 # Injectable seams (overridden in tests).
 _wipe_mounts_under_mnt() {
@@ -531,25 +460,24 @@ main() {
     command -v "$cmd" &>/dev/null || error "Required tool not found: $cmd"
   done
 
-  # Clear any leftover /mnt install env from a failed run, so the target disk
+  # Clear any leftover /mnt install env from a failed run so the target disk
   # isn't excluded by detect_disks() as "mounted". No-op when /mnt is clean.
   reset_prior_install_state
 
   if ((${#TARGETS[@]} > 0)); then
     # Install-driven: wipe exactly the disks we were handed (resolved by the
-    # Single Entry Point from the Install Config). No detection, no selection.
+    # Single Entry Point). No detection, no selection.
     section "Target Disks (install-driven)"
     DISKS_TO_WIPE=("${TARGETS[@]}")
     info "Wiping ${#DISKS_TO_WIPE[@]} install target disk(s):"
     disk_info_table "${DISKS_TO_WIPE[@]}"
   elif [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    # Unattended with no explicit targets: nothing to wipe (safe no-op). The
-    # old "wipe every detected disk" default is intentionally gone.
+    # Unattended with no targets: nothing to wipe. The old "wipe every detected
+    # disk" default is intentionally gone.
     info "No target disks given. Nothing to wipe."
     exit 0
   else
-    # Standalone, attended: detect, show the table, include-select (Enter
-    # cancels — nothing is wiped by default).
+    # Standalone attended: detect, show table, include-select (Enter cancels).
     section "Detecting Disks"
     mapfile -t all_disks < <(detect_disks)
     ((${#all_disks[@]} > 0)) ||
@@ -568,8 +496,8 @@ main() {
   fi
 
   # Hard guard first: never wipe the live medium, even if it reached the target
-  # set — abort loudly before any probing. (The pure prior-state decider also
-  # drops it as belt-and-suspenders, but the loud abort must win here.)
+  # set — abort loudly before probing (the decider also drops it, but the loud
+  # abort must win).
   assert_no_live_medium_targets
 
   # Drop disks that are already blank — no point zero-filling them again.

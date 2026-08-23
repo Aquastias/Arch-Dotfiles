@@ -1,28 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# 01-bootstrap-zfs.sh
+# 01-bootstrap-zfs.sh — prepare the Arch live ISO for ZFS
 # =============================================================================
-# PURPOSE:
-#   Prepares the official Arch Linux live ISO environment so that ZFS tools
-#   are available for the installer. The official ISO ships no ZFS kernel
-#   module, so this script adds the archzfs repository, installs the module
-#   (pre-built binary if available for the running kernel, DKMS compile
-#   otherwise), loads it, and writes /etc/hostid — a file ZFS requires for
-#   pool imports.
-#
-# RUN ORDER:
-#   1. 01-bootstrap-zfs.sh   ← you are here
-#   2. 02-wipe.sh            (optional — full disk wipe)
-#   3. 03-install.sh         (main installer)
-#
-# REQUIREMENTS:
-#   - Booted from the official Arch Linux ISO (2024.xx or later)
-#   - UEFI boot mode (not BIOS/legacy)
-#   - Internet connection (ethernet recommended; see iwctl for Wi-Fi)
-#
-# USAGE:
-#   chmod +x 01-bootstrap-zfs.sh
-#   ./01-bootstrap-zfs.sh
+# The official ISO ships no ZFS module, so this adds the archzfs repo, installs
+# the module (DKMS on the live ISO), loads it, and writes /etc/hostid (required
+# for pool imports). Run order: 01 → 02-wipe (optional) → 03-install.
+# Requires: official Arch ISO, UEFI boot, internet.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -53,8 +36,7 @@ check_root() {
 }
 
 check_uefi() {
-  # The installer uses systemd-boot which requires UEFI.
-  # /sys/firmware/efi is only present when booted in UEFI mode.
+  # systemd-boot needs UEFI; /sys/firmware/efi exists only in UEFI mode.
   [[ -d /sys/firmware/efi ]] ||
     error "Not in UEFI mode." \
           "Reboot and select UEFI entry in your firmware menu."
@@ -62,8 +44,8 @@ check_uefi() {
 }
 
 check_live_env() {
-  # The Arch ISO always mounts its root at /run/archiso.
-  # Warn (but don't abort) if we can't confirm — some custom ISOs differ.
+  # Arch ISO mounts root at /run/archiso. Warn (don't abort) if unconfirmed —
+  # custom ISOs differ.
   if [[ -d /run/archiso ]] || grep -qi 'archiso' /proc/cmdline 2>/dev/null; then
     info "Arch ISO live environment confirmed."
   else
@@ -77,10 +59,8 @@ check_live_env() {
 check_internet() {
   section "Network"
 
-  # Wait briefly for DHCP to complete if the interface just came up.
-  # The Arch ISO starts dhcpcd/NetworkManager in the background at boot;
-  # running the script immediately after login can race with it.
-  # We check for a default route rather than sleeping a fixed amount.
+  # Wait briefly for DHCP: the ISO brings up networking in the background, so
+  # an immediate run races it. Poll for a default route, not a fixed sleep.
   local waited=0
   while ((waited < 10)); do
     if ip route show default &>/dev/null; then
@@ -91,13 +71,8 @@ check_internet() {
     ((waited++))
   done
 
-  # Test connectivity by opening a TCP connection to a well-known IP.
-  # curl --max-time 3 is faster than ping because:
-  #   - ping requires ICMP which some networks/VMs block
-  #   - TCP connect returns the moment the SYN-ACK arrives, not after a
-  #     full round-trip wait
-  #   - We run all three checks in parallel with & and wait for any one
-  #     to succeed rather than testing them sequentially
+  # Test connectivity via TCP (curl), not ping: ICMP is often blocked, TCP
+  # connect returns on SYN-ACK, and all three hosts run in parallel.
   info "Testing internet connectivity..."
 
   local ok=false tmpdir
@@ -125,7 +100,6 @@ check_internet() {
     ((elapsed++)) || true
   done
 
-  # Reap background jobs
   wait 2>/dev/null || true
   rm -rf "${tmpdir}"
 
@@ -140,9 +114,8 @@ check_internet() {
 }
 
 check_ram() {
-  # Refuse to proceed if RAM is genuinely too low.
-  # Everything else (cowspace, package cache) lives in RAM on the live ISO,
-  # so RAM is the one hard constraint we cannot work around automatically.
+  # RAM is the one hard constraint: cowspace and package cache live in RAM on
+  # the live ISO, so too little can't be worked around.
   section "Checking RAM"
   local total_ram_mb
   total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
@@ -160,22 +133,13 @@ check_ram() {
 }
 
 expand_cowspace() {
-  # The Arch ISO root is an overlay filesystem:
-  #   lower = squashfs  (read-only — always appears "full" in df)
-  #   upper = /run/archiso/cowspace  (a tmpfs, default size 256 MB)
-  #
-  # Installing ZFS packages (zfs-linux ~80 MB, zfs-dkms ~900 MB) writes into
-  # this upper tmpfs. The default 256 MB fills up immediately.
-  #
-  # Fix: remount cowspace with a larger size derived from available RAM.
-  # This is safe — tmpfs only consumes physical RAM as it is actually written,
-  # so allocating "2G" does not immediately use 2 GB of RAM.
-  #
-  # This function is idempotent: if cowspace is already large enough, it skips.
+  # The ISO root is an overlay: read-only squashfs + a tmpfs upper at
+  # /run/archiso/cowspace (default 256 MB). ZFS packages (zfs-dkms ~900 MB)
+  # write there and fill it, so remount it larger, sized from RAM. Safe — tmpfs
+  # only uses RAM as written. Idempotent: skips if already large enough.
 
   section "Expanding cowspace"
 
-  # Only applies to Arch ISO environments
   if ! findmnt /run/archiso/cowspace &>/dev/null 2>&1; then
     info "cowspace not present — not running on Arch ISO, skipping."
     return
@@ -189,8 +153,8 @@ expand_cowspace() {
   info "cowspace current size : ${cow_total_mb} MB"
   info "cowspace available    : ${cow_avail_mb} MB"
 
-  # Target: 75% of total RAM, floored at 1024 MB, capped at total RAM - 512 MB
-  # This leaves ~512 MB of RAM for the kernel + running processes.
+  # Target 75% of RAM, floored at 1024 MB, capped at RAM-512 (leaves ~512 MB
+  # for kernel + processes).
   local target_mb=$((total_ram_mb * 75 / 100))
   ((target_mb < 1024)) && target_mb=1024
   local cap=$((total_ram_mb - 512))
@@ -202,8 +166,7 @@ expand_cowspace() {
   fi
 
   info "Expanding cowspace: ${cow_total_mb} MB → ${target_mb} MB ..."
-  # mount --remount,size= resizes the underlying tmpfs in place.
-  # No data is lost; the overlay stays mounted throughout.
+  # remount,size= resizes the tmpfs in place — no data lost, overlay stays up.
   mount -o remount,size="${target_mb}M" /run/archiso/cowspace ||
     error "Failed to expand cowspace.
   This should not happen on the official Arch ISO.
@@ -228,23 +191,11 @@ sync_clock() {
 # =============================================================================
 # ZFS MODULE INSTALLATION
 # =============================================================================
-#
-# The archzfs repo setup and the DKMS build/load live in lib/zfs/module.sh so
-# that BOTH this bootstrap and 03-install.sh's fallback share one proven copy
-# (zfs_add_archzfs_repo / zfs_install_dkms / zfs_load_module). See ADR 0023.
-#
-# Design:
-#   On the live ISO, always use DKMS. The Arch ISO ships the kernel headers for
-#   its own kernel at /usr/lib/modules/$(uname -r)/build — DKMS uses exactly
-#   those, so the compiled module always matches the running kernel perfectly.
-#
-#   Pre-built zfs-linux packages are pinned to a specific kernel version and
-#   will almost never match the live ISO's kernel exactly. Attempting them leads
-#   to version magic mismatches that cannot be worked around.
-#
-#   The installed system uses zfs-dkms too (configured in lib/packages/list.sh),
-#   which compiles against whatever linux-lts kernel is installed
-#   at pacstrap time.
+# Repo setup + DKMS build/load live in lib/zfs/module.sh so this bootstrap and
+# 03's fallback share one copy (ADR 0023). Always DKMS on the live ISO: the ISO
+# ships headers for its own kernel, so the module always matches; pre-built
+# zfs-linux is pinned to a kernel version and almost never matches. The
+# installed system uses zfs-dkms too (lib/packages/list.sh).
 
 install_zfs() {
   section "Installing ZFS"
@@ -272,9 +223,8 @@ install_zfs() {
 
 setup_hostid() {
   section "Host ID"
-  # ZFS stores the hostid in pool metadata. On import it checks that the
-  # current system's hostid matches. /etc/hostid must exist and be consistent
-  # across reboots. zgenhostid generates a random 4-byte ID and writes it.
+  # ZFS stores the hostid in pool metadata and checks it on import, so
+  # /etc/hostid must exist and be stable across reboots. zgenhostid writes one.
   if [[ -f /etc/hostid ]]; then
     info "hostid already exists: $(hostid)"
   else
@@ -312,10 +262,10 @@ print_summary() {
 # =============================================================================
 
 main() {
-  # Skip the whole ZFS bootstrap for a pure non-ZFS install (ADR 0043): the live
-  # ISO needs no archzfs repo, no zfs userland, and no zfs module when no group
-  # is ZFS. The generic root/UEFI/internet pre-flight is re-run by 03-install.sh,
-  # so nothing is lost. <config> is passed by install.sh.
+  # Skip the whole ZFS bootstrap for a pure non-ZFS install (ADR 0043): no
+  # archzfs repo, userland, or module when no group is ZFS. 03 re-runs the
+  # generic root/UEFI/internet pre-flight, so nothing is lost. <config> from
+  # install.sh.
   local cfg="${1:-}"
   if [[ -n "$cfg" && -f "$cfg" ]]; then
     export CONFIG_FILE="$cfg"
