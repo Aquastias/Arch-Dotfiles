@@ -1,0 +1,15 @@
+// Program metadata for gamemode.
+//
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman (repo `gamemode` + `lib32-gamemode`; the latter needs multilib and is
+// skipped when it is off). No service is enabled and no group is added, on
+// purpose: gamemoded is a D-Bus-activated systemd USER service (starts on
+// demand) and modern gamemode escalates the CPU governor via polkit — the old
+// `gamemode` group is NOT required (Arch Wiki / upstream README). Games opt in
+// at runtime with `gamemoderun`, so there is nothing to configure at install.
+
+{
+  "name": "gamemode",
+  "kind": "host",
+  "description": "gamemode — on-demand game performance daemon (gamemoderun)."
+}
