@@ -673,13 +673,14 @@ _ctl_sysctl_lines() {
 }
 
 # _ctl_user_names → committed user names (users/<name>/profile.jsonc, minus
-# core).
+# core and the `vm-*` harness fixtures — ADR 0035 throwaway smoke-test users
+# have no place in an operator's menu, mirroring profiles_list's core/vm skip).
 _ctl_user_names() {
   local d n
   for d in "${OS_DIR:-.}"/users/*/; do
     [[ -d "$d" ]] || continue
     n="$(basename "$d")"
-    [[ "$n" == "core" ]] && continue
+    [[ "$n" == "core" || "$n" == vm-* ]] && continue
     [[ -f "${d}profile.jsonc" ]] && printf '%s\n' "$n"
   done
 }
