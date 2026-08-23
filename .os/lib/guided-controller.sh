@@ -3915,14 +3915,18 @@ _guided_directive_to_action() {
       mask='+unbind(change)+rebind(left)+rebind(right)+rebind(home)+rebind(end)'
     fi
     # Cursor restore (position memory): a back nav carries a `focus` hint naming
-    # the row it returned onto; land the cursor there — after the reload — so
-    # Esc-ing out of a category/field lands on it, not the reload's stale index.
-    local pos='' _fpos
+    # the row it returned onto. Resolve it to a 1-based line and stash it in
+    # GUIDED_POS_FILE for the `load` bind's one-shot `pos`. The write happens HERE
+    # — inside the transform command, before the returned reload runs — so it
+    # lands before `load` fires. A `+pos(N)` in this action string instead would
+    # target the PRE-reload (child) list and clamp onto a spacer (fzf pty-proven).
+    local _fpos
     _fpos="$(_ctl_focus_pos "$(nav_get "$nav" focus)")"
-    [[ -n "$_fpos" ]] && pos="+pos(${_fpos})"
-    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s%s' \
+    [[ -n "$_fpos" && -n "${GUIDED_POS_FILE:-}" ]] \
+      && printf '%s' "$_fpos" >"$GUIDED_POS_FILE"
+    printf 'clear-query+reload(%s)+change-header(%s)+change-prompt(%s)%s%s%s' \
       "$(_ctl_reload_cmd "$entry")" "$(_ctl_nav_header "$nav")" \
-      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" "$mask" "$pos" ;;
+      "$(_ctl_nav_prompt "$nav")" "$pv" "$chrome" "$mask" ;;
   refresh)
     # same screen, just re-mark the list: reload-sync avoids the flicker a plain
     # reload shows, and keeps the query + header (no clear-query/change-*).

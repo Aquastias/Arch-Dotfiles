@@ -11,10 +11,12 @@ setup() {
   ENTRY="$BATS_TEST_DIRNAME/../../lib/guided-fzf-entry.sh"
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/s" GUIDED_NAV_FILE="$TEST_DIR/n" \
-         GUIDED_BASELINE_FILE="$TEST_DIR/b" GUIDED_RESULT_FILE="$TEST_DIR/r"
+         GUIDED_BASELINE_FILE="$TEST_DIR/b" GUIDED_RESULT_FILE="$TEST_DIR/r" \
+         GUIDED_POS_FILE="$TEST_DIR/pos"
   printf '{}\n' > "$GUIDED_STATE_FILE"
   printf '{}\n' > "$GUIDED_BASELINE_FILE"
   printf '{"screen":"top"}\n' > "$GUIDED_NAV_FILE"
+  : > "$GUIDED_POS_FILE"
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
@@ -64,25 +66,38 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$output" = "abort" ]
 }
 
-@test "entry dispatch back: category→top re-focuses the exited category row" {
+@test "entry dispatch back: category→top stashes the exited category's line" {
   printf '%s\n' '{"screen":"category","category":"Disks"}' > "$GUIDED_NAV_FILE"
   run bash "$ENTRY" dispatch back ""
   [ "$status" -eq 0 ]
-  # Disks is the 10th row of the top list — the cursor is restored there, not
-  # left on a spacer/header (the reported bug).
-  echo "$output" | grep -q "+pos(10)"
+  # Disks is the 10th row of the top list — stashed for the load bind's pos, so
+  # Esc-back lands there, not on a spacer/header (the reported bug). The reload
+  # action must NOT inline pos (it would target the pre-reload list).
+  [ "$(cat "$GUIDED_POS_FILE")" = "10" ]
+  echo "$output" | grep -vq "pos("
   [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "top" ]
 }
 
-@test "entry dispatch back: values→category re-focuses the exited field row" {
+@test "entry dispatch back: values→category stashes the exited field's line" {
   printf '%s\n' \
     '{"screen":"values","category":"Disks","field":"filesystem","label":"Filesystem"}' \
     > "$GUIDED_NAV_FILE"
   run bash "$ENTRY" dispatch back ""
   [ "$status" -eq 0 ]
   # "Filesystem: ZFS" is the 4th row of the Disks category screen.
-  echo "$output" | grep -q "+pos(4)"
+  [ "$(cat "$GUIDED_POS_FILE")" = "4" ]
   [ "$(jq -r '.screen' "$GUIDED_NAV_FILE")" = "category" ]
+}
+
+@test "entry poshint: emits the stashed pos once, then clears it" {
+  printf '10' > "$GUIDED_POS_FILE"
+  run bash "$ENTRY" poshint
+  [ "$status" -eq 0 ]
+  [ "$output" = "pos(10)" ]
+  [ -z "$(cat "$GUIDED_POS_FILE")" ]        # consumed (one-shot)
+  run bash "$ENTRY" poshint                  # second load → no re-jump
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "entry key: ctrl-z emits a render action over the history file" {
