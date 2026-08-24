@@ -83,8 +83,8 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
     grep -qx "$p" <<<"$d" || { echo "desktop missing core aur: $p"; return 1; }
     grep -qx "$p" <<<"$l" || { echo "laptop missing core aur: $p"; return 1; }
   done
-  grep -qx "brave-bin" <<<"$d"
-  ! grep -qx "brave-bin" <<<"$l"
+  grep -qx "runelite" <<<"$d"
+  ! grep -qx "runelite" <<<"$l"
 }
 
 # ── no Program name appears in any package list ─────────────────────────────
