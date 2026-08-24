@@ -1,0 +1,15 @@
+// Program metadata for reflector.
+//
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman. install.sh installs reflector; the runner enables reflector.timer
+// (weekly mirror refresh) from system_services. The shipped
+// /etc/xdg/reflector/reflector.conf default is left as-is; enabling the service
+// too would be redundant (Arch Wiki: Reflector). Core-Owned (ADR 0089): declared
+// unconditionally in Host Core's host_programs, never a pickable program.
+
+{
+  "name": "reflector",
+  "kind": "host",
+  "description": "reflector mirror-ranking with a weekly reflector.timer.",
+  "system_services": ["reflector.timer"]
+}

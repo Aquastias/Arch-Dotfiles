@@ -30,7 +30,10 @@
 {
   "users": [],
   "host_programs": [
-    "ccache"
+    "ccache",
+    "fwupd",
+    "reflector",
+    "smartmontools"
   ],
   "sysctl": {
     "vm.swappiness": 10
@@ -38,13 +41,10 @@
   "packages": {
     "repo": {
       "system": [
-        "fwupd",
         "logrotate",
         "lsb-release",
         "pacmanlogviewer",
-        "reflector",
         "sbctl",
-        "smartmontools",
         "sof-firmware"
       ],
       "filesystems": [

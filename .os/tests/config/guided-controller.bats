@@ -213,7 +213,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "core_owned_programs lists every promoted Host-Core base program" {
   run core_owned_programs
   [ "$status" -eq 0 ]
-  for p in ccache; do
+  for p in ccache reflector smartmontools fwupd; do
     grep -qx "$p" <<<"$output" || { echo "missing core-owned: $p"; false; }
   done
 }
