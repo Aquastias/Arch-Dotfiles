@@ -26,13 +26,15 @@ teardown() {
 }
 
 # Host Core authors the unconditional base host programs promoted in ADR 0089;
-# cups is NOT among them — it left Host Core (ADR 0079) and is toggle-derived,
-# injected at Effective-Config assembly, so core never declares it.
-@test "real host core declares the base host_programs, not cups" {
+# cups and reflector are NOT among them — cups left Host Core (ADR 0079) and
+# reflector is section-derived by Mirrors & Repositories (ADR 0089), both
+# injected at Effective-Config assembly, so core never declares them.
+@test "real host core declares the base host_programs, not cups/reflector" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
   jsonc_strip "$core" | jq -e '.host_programs
-    == ["ccache","fwupd","lact","reflector","smartmontools"]'
+    == ["ccache","fwupd","lact","smartmontools"]'
   jsonc_strip "$core" | jq -e '.host_programs | index("cups") | not'
+  jsonc_strip "$core" | jq -e '.host_programs | index("reflector") | not'
 }
 
 # The confirmation that two layers fit this fleet: laptop is a strict subset

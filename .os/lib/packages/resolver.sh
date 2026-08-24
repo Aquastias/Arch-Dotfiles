@@ -46,6 +46,9 @@ declare -F post_install_programs >/dev/null 2>&1 \
 # shellcheck source=../config/printing.sh
 declare -F printing_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/printing.sh"
+# shellcheck source=../config/mirrors.sh
+declare -F mirrors_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/mirrors.sh"
 # shellcheck source=../config/fonts.sh
 declare -F fonts_repo_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
@@ -95,6 +98,7 @@ _PKGRES_SOURCES=(
   "printing|Daemons"
   "bluetooth|Daemons"
   "power|Daemons"
+  "mirrors|Mirrors & Repositories"
   "fonts|System"
   "sops|secrets on disk"
   "repo|Packages"
@@ -299,6 +303,16 @@ pkgres_resolve() {
     [[ -n "$pp" ]] || continue
     _pkgres_emit printing derived "$pp"
   done < <(printing_programs "$cfg" 2>/dev/null)
+
+  # ── Mirror Service (ADR 0089) ─────────────────────────────────────────────
+  # reflector is section-derived (Mirrors & Repositories), not authored in Host
+  # Core: report it as source=mirrors so explain-packages and the guided derived
+  # section answer "why is reflector here?" the way they do for cups.
+  local mp
+  while IFS= read -r mp; do
+    [[ -n "$mp" ]] || continue
+    _pkgres_emit mirrors derived "$mp"
+  done < <(mirrors_programs "$cfg" 2>/dev/null)
 
   # ── Bluetooth Service (ADR 0080) ──────────────────────────────────────────
   # The `bluetooth` program is toggle-derived like cups, not authored in core:

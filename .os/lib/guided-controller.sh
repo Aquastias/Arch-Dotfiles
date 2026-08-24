@@ -73,6 +73,9 @@ declare -F load_user_profile >/dev/null 2>&1 \
 # shellcheck source=lib/config/printing.sh
 declare -F printing_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/printing.sh"
+# shellcheck source=lib/config/mirrors.sh
+declare -F mirrors_owned_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/config/mirrors.sh"
 # shellcheck source=lib/config/bluetooth.sh
 declare -F bluetooth_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/config/bluetooth.sh"

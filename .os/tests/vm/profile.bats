@@ -72,7 +72,7 @@ JSONC
   # identical to resolving the default host directly, single-disk
   expected="$(profile_resolve_config "$via_host")"
   [ "$(echo "$output" | jq -S .)" = "$(echo "$expected" | jq -S .)" ]
-  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups"]' ]
+  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
 }
@@ -104,8 +104,8 @@ JSONC
   # hostname falls back to the host-dir name (ADR 0036: dir ≡ hostname)
   [ "$(echo "$output" | jq -r '.system.hostname')" = "myhost" ]
   # software arrives via load_profile's core merge — impossible on the old
-  # template-only path
-  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups"]' ]
+  # template-only path; reflector is section-derived by Mirrors (ADR 0089)
+  [ "$(echo "$output" | jq -c '.host_programs')" = '["cups","reflector"]' ]
   [ "$(echo "$output" | jq -c '.environment.desktop')" = '["kde"]' ]
 }
 

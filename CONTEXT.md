@@ -511,12 +511,13 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 `menu_owned_programs` union covering every control-owned program (ADR 0086):
 `grub` (Bootloader enum), `firewalld` / `ufw` / `clamav` / `rkhunter` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
-and `sops` (secrets activation). The unconditional base host programs promoted
-in ADR 0089 (`ccache`, `fwupd`, `lact`, `reflector`, `smartmontools`) are the
-exception — free-standing `kind: host` programs owned by no control; they
-install via Host Core's `host_programs` and are dropped from a bare install by
-`inherit: false`. Consequence: no `kind: host` program is operator-pickable —
-the Guided Installer's
+`sops` (secrets activation), and `reflector` (the Mirrors & Repositories
+section, ADR 0089 — its sole home, like cups' is Printing). The unconditional
+base host programs promoted in ADR 0089 (`ccache`, `fwupd`, `lact`,
+`smartmontools`) are the exception — free-standing `kind: host` programs owned
+by no control; they install via Host Core's `host_programs` and are dropped from
+a bare install by `inherit: false`. Consequence: no `kind: host` program is
+operator-pickable — the Guided Installer's
 **Packages** category lists no Programs at all (its `host programs` row dropped;
 the name stays `Packages` — no longer a misnomer, and avoids echoing the
 `SOFTWARE` bucket) — the only pickable Programs are the five
@@ -547,6 +548,19 @@ filtered out of the Packages → system-programs picker, and surfaces in the
 read-only `derived` section / `explain-packages` as `source=printing` (layer
 `derived`) — the one place the resolver reports a Host Program at all (ADR
 0079).
+
+### Mirror Service (Mirrors & Repositories)
+The Mirrors & Repositories section's owned Host Program: `reflector`. Unlike the
+toggle-derived [[Printing Service]] it is **state-independent** — the section
+has no on/off bool; it always injects `reflector` into the Effective Config's
+`host_programs` at assembly time (`lib/config/mirrors.sh:mirrors_inject`), so
+the [[Runner]] installs the package and enables the weekly `reflector.timer` on
+every install (ADR 0089). `reflector` is **not** declared in Host Core; the
+section is its sole menu home, filtered from the Packages picker
+(`mirrors_owned_programs`) and reported by the resolver as `source=mirrors`
+(layer `derived`). Distinct from the install-time use of `reflector` (the ISO's
+copy ranks mirrors once during `install_base` from the operator's Mirror
+Countries) — this is the *installed system's* recurring refresh.
 
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived Host Program**, twinning [[Printing Service]]: a

@@ -236,7 +236,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   local h p pkgs hp
   for h in desktop laptop; do
     pkgs="$(repo_of "$h")"; hp="$(host_programs_of "$h")"
-    for p in ccache fwupd lact reflector smartmontools; do
+    for p in ccache fwupd lact smartmontools; do
       grep -qx "$p" <<<"$hp" \
         || { echo "$h missing host program: $p"; return 1; }
       ! grep -qx "$p" <<<"$pkgs" \
@@ -252,7 +252,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   local h p hp
   for h in arch-data arch-kde arch-secure minimal; do
     hp="$(host_programs_of "$h")"
-    for p in ccache fwupd lact reflector smartmontools; do
+    for p in ccache fwupd lact smartmontools; do
       ! grep -qx "$p" <<<"$hp" \
         || { echo "$h wrongly inherited host program: $p"; return 1; }
     done

@@ -36,6 +36,9 @@ declare -F bluetooth_inject >/dev/null 2>&1 \
 # shellcheck source=./power.sh
 declare -F power_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/power.sh"
+# shellcheck source=./mirrors.sh
+declare -F mirrors_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
 # guided_profile_delta <config> — the device-less Host Profile a Save writes
 # (issue 08). Strips every device path — the single `.disk` and the per-pool
@@ -140,10 +143,10 @@ emit_effective() {
   # never goes through a layer fold (core is already in the baseline), so
   # without this an unchecked package would be emitted and installed anyway.
   view="$(layer_apply_exclusions "$(cfgstate_emit "$state")")"
-  # Toggle-derived Host Programs (ADR 0079/0080): fold cups (printing),
-  # bluetooth, then the power daemon into host_programs at emit — the Printing /
-  # Bluetooth / Power categories own them, so they are derived here, not shown as
-  # baseline entries.
-  power_inject "$(bluetooth_inject \
-    "$(printing_inject "$(picker_assign_disks "$view" "$assignment")")")"
+  # Section-derived Host Programs (ADR 0079/0080/0089): fold cups (printing),
+  # bluetooth, the power daemon, then reflector (mirrors) into host_programs at
+  # emit — the Printing / Bluetooth / Power / Mirrors sections own them, so they
+  # are derived here, not shown as baseline entries.
+  mirrors_inject "$(power_inject "$(bluetooth_inject \
+    "$(printing_inject "$(picker_assign_disks "$view" "$assignment")")")")"
 }
