@@ -3,9 +3,9 @@
 // kind=host → installed by the profile runner inside arch-chroot as root via
 // pacman. install.sh installs lact; the runner enables lactd.service from
 // system_services so GPU tuning/monitoring works — the daemon must run for the
-// GUI to apply any setting (Arch Wiki / upstream LACT). Core-Owned (ADR 0089):
-// declared unconditionally in Host Core's host_programs; where no supported GPU
-// is present the daemon simply monitors what is there.
+// GUI to apply any setting (Arch Wiki / upstream LACT). Declared in Host Core's
+// host_programs (ADR 0089); where no supported GPU is present the daemon just
+// monitors what is there.
 
 {
   "name": "lact",

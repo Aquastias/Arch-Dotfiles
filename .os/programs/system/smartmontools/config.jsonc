@@ -3,8 +3,8 @@
 // kind=host → installed by the profile runner inside arch-chroot as root via
 // pacman. install.sh installs smartmontools; the runner enables smartd.service
 // from system_services. The shipped /etc/smartd.conf DEVICESCAN default
-// monitors every disk for all SMART errors (Arch Wiki: S.M.A.R.T.). Core-Owned
-// (ADR 0089): declared unconditionally in Host Core's host_programs.
+// monitors every disk for all SMART errors (Arch Wiki: S.M.A.R.T.). Declared
+// unconditionally in Host Core's host_programs (ADR 0089).
 
 {
   "name": "smartmontools",

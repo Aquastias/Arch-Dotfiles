@@ -18,7 +18,6 @@
 #
 # Public API:
 #   menu_owned_programs → every Menu-Owned Program name, sorted-unique, one/line
-#   core_owned_programs → every Core-Owned Program name (ADR 0089), one/line
 # =============================================================================
 
 # shellcheck source=./printing.sh
@@ -43,15 +42,6 @@ bootloader_owned_programs() { printf '%s\n' grub; }
 # selects it when install-state records secrets (ADR 0025), so it is never
 # picker-chosen.
 secrets_owned_programs() { printf '%s\n' sops; }
-
-# core_owned_programs — Programs whose sole home is Host Core (ADR 0089):
-# unconditional, free-standing kind:host base software declared directly in
-# core's host_programs, neither toggle-derived nor secrets-activated. Filtered
-# from both pickers alongside menu_owned_programs so unconditional base is never
-# offered as a choice.
-core_owned_programs() {
-  printf '%s\n' ccache fwupd lact reflector smartmontools
-}
 
 # menu_owned_programs — the union of every control, sorted-unique. The single
 # set both guided program pickers subtract, so a new control-owned program is
