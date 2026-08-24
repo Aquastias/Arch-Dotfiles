@@ -512,8 +512,8 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 `grub` (Bootloader enum), `firewalld` / `ufw` / `clamav` / `rkhunter` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
 and `sops` (secrets activation). Consequence: **every `kind: host` program is
-Menu-Owned or [[Core-Owned|Core-Owned Program]]** (ADR 0089), so no free-standing
-*pickable* Host Program exists and the Guided Installer's
+Menu-Owned or [[Core-Owned|Core-Owned Program]]** (ADR 0089), so no
+free-standing *pickable* Host Program exists and the Guided Installer's
 **Packages** category lists no Programs at all (its `host programs` row dropped;
 the name stays `Packages` — no longer a misnomer, and avoids echoing the
 `SOFTWARE` bucket) — the only pickable Programs are the five
