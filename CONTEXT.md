@@ -532,10 +532,10 @@ free-standing `kind: host` base software declared directly in core's
 secrets-activated. Like Menu-Owned Programs it is filtered from both Guided
 Installer pickers — via the `core_owned_programs` set the pickers subtract
 alongside `menu_owned_programs` — so unconditional base is never presented as a
-choice. The set is `ccache`, `reflector`, `smartmontools`, `fwupd`: packages the
-installer once pacstrapped bare but which need setup nothing ran (enabling a
-timer/service, toggling `makepkg.conf`), promoted to Programs so their
-`install.sh` owns both install and setup. The VM fixtures, which opt out of Host
+choice. The set is `ccache`, `fwupd`, `lact`, `reflector`, `smartmontools`:
+packages the installer once pacstrapped bare but which need setup nothing ran
+(enabling a timer/service, toggling `makepkg.conf`), promoted to Programs so
+their `install.sh` owns both install and setup. The VM fixtures, which opt out of Host
 Core packages, exclude these via `host_programs_exclude` to stay lean.
 
 ### Printing Service (`options.printing.enabled`)

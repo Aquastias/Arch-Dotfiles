@@ -236,7 +236,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   local h p pkgs hp
   for h in desktop laptop; do
     pkgs="$(repo_of "$h")"; hp="$(host_programs_of "$h")"
-    for p in ccache reflector smartmontools fwupd; do
+    for p in ccache fwupd lact reflector smartmontools; do
       grep -qx "$p" <<<"$hp" \
         || { echo "$h missing host program: $p"; return 1; }
       ! grep -qx "$p" <<<"$pkgs" \
@@ -249,7 +249,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   local h p hp
   for h in arch-data arch-kde arch-secure; do
     hp="$(host_programs_of "$h")"
-    for p in ccache reflector smartmontools fwupd; do
+    for p in ccache fwupd lact reflector smartmontools; do
       ! grep -qx "$p" <<<"$hp" \
         || { echo "$h did not exclude host program: $p"; return 1; }
     done
