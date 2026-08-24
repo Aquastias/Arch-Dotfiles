@@ -180,12 +180,15 @@ else
   _fail "configure.sh: does not source install-state.sh"
 fi
 
-# extras.sh must source install-state.sh
-if grep -qE 'source.*install-state\.sh' \
+# extras.sh does NOT source install-state.sh: it is invoked by configure.sh
+# (bash /root/lib-chroot/extras.sh) after install_state_load has exported the
+# state, so extras.sh reads the inherited DISPLAY_MANAGER / ENVIRONMENT_DESKTOP.
+# Assert it consumes that inherited state rather than re-loading it.
+if grep -qE 'DISPLAY_MANAGER|ENVIRONMENT_DESKTOP' \
     "${OS}/lib/chroot/extras.sh" 2>/dev/null; then
-  _pass "extras.sh: sources install-state.sh"
+  _pass "extras.sh: reads install-state via inherited env (from configure.sh)"
 else
-  _fail "extras.sh: does not source install-state.sh"
+  _fail "extras.sh: does not read the inherited install-state env"
 fi
 
 # =============================================================================
