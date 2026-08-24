@@ -209,11 +209,13 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # core_owned_programs is the Host-Core-owned set (ADR 0089): unconditional,
 # free-standing kind:host base Programs, filtered from the pickers like
-# Menu-Owned ones. Empty until the first package is promoted.
-@test "core_owned_programs runs and is empty until a program is enrolled" {
+# Menu-Owned ones.
+@test "core_owned_programs lists every promoted Host-Core base program" {
   run core_owned_programs
   [ "$status" -eq 0 ]
-  [ -z "$output" ]
+  for p in ccache; do
+    grep -qx "$p" <<<"$output" || { echo "missing core-owned: $p"; false; }
+  done
 }
 
 # Every Menu-Owned Program is filtered from the host picker (ADR 0086,

@@ -50,7 +50,7 @@ secrets_owned_programs() { printf '%s\n' sops; }
 # from both pickers alongside menu_owned_programs so unconditional base is never
 # offered as a choice. Empty until the first package is promoted.
 core_owned_programs() {
-  :
+  printf '%s\n' ccache
 }
 
 # menu_owned_programs — the union of every control, sorted-unique. The single

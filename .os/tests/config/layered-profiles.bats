@@ -225,6 +225,37 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
   done
 }
 
+# ── promoted Core-Owned Programs (ADR 0089) ─────────────────────────────────
+# Packages the installer once pacstrapped bare, now kind:host Programs with a
+# single home: absent from packages.repo, present in host_programs on the real
+# hosts, and excluded on the lean VM fixtures.
+
+host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
+
+@test "promoted Core-Owned Programs resolve into host_programs, not packages" {
+  local h p pkgs hp
+  for h in desktop laptop; do
+    pkgs="$(repo_of "$h")"; hp="$(host_programs_of "$h")"
+    for p in ccache; do
+      grep -qx "$p" <<<"$hp" \
+        || { echo "$h missing host program: $p"; return 1; }
+      ! grep -qx "$p" <<<"$pkgs" \
+        || { echo "$h still declares $p as a package"; return 1; }
+    done
+  done
+}
+
+@test "the VM fixtures exclude the promoted Core-Owned Programs" {
+  local h p hp
+  for h in arch-data arch-kde arch-secure; do
+    hp="$(host_programs_of "$h")"
+    for p in ccache; do
+      ! grep -qx "$p" <<<"$hp" \
+        || { echo "$h did not exclude host program: $p"; return 1; }
+    done
+  done
+}
+
 # ── the user layer ──────────────────────────────────────────────────────────
 
 @test "a real user inherits User Core's programs and zsh shell" {
