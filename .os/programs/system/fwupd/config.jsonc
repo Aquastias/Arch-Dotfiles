@@ -1,0 +1,15 @@
+// Program metadata for fwupd.
+//
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman. install.sh installs fwupd; the runner enables fwupd-refresh.timer from
+// system_services for firmware metadata refresh + MOTD update notices — useful
+// on a bare-WM install with no graphical updater, and not enabled by default on
+// Arch (Arch Wiki: fwupd). Core-Owned (ADR 0089): declared unconditionally in
+// Host Core's host_programs.
+
+{
+  "name": "fwupd",
+  "kind": "host",
+  "description": "fwupd firmware updates with a fwupd-refresh.timer.",
+  "system_services": ["fwupd-refresh.timer"]
+}
