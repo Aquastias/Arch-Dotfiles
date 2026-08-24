@@ -93,7 +93,6 @@
     "aur": {
       "misc": [
         "bolt-launcher",
-        "brave-bin",
         "bridge-utils",
         "grayjay-bin",
         "lua-format",
