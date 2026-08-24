@@ -25,12 +25,14 @@ teardown() {
   jsonc_strip "$core" | jq -e '.packages.aur  | type == "object"'
 }
 
-# cups left Host Core (ADR 0079): it is now a toggle-derived System Program
-# driven by options.printing.enabled and injected at Effective-Config assembly,
-# so core declares no system programs — the Printing service category owns cups.
-@test "real host core declares no host_programs (cups is toggle-derived)" {
+# Host Core authors the unconditional base host programs promoted in ADR 0089;
+# cups is NOT among them — it left Host Core (ADR 0079) and is toggle-derived,
+# injected at Effective-Config assembly, so core never declares it.
+@test "real host core declares the base host_programs, not cups" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  jsonc_strip "$core" | jq -e '.host_programs == []'
+  jsonc_strip "$core" | jq -e '.host_programs
+    == ["ccache","fwupd","lact","reflector","smartmontools"]'
+  jsonc_strip "$core" | jq -e '.host_programs | index("cups") | not'
 }
 
 # The confirmation that two layers fit this fleet: laptop is a strict subset
@@ -212,9 +214,11 @@ write_program() {
   run program_names_of_kind host
   # cups (printing), bluetooth, power-profiles-daemon + tuned (power) are the
   # toggle-derived Host Programs added by ADR 0079/0080; grub + sops + gamemode
-  # (gaming, on desktop/laptop) authored.
+  # (gaming, on desktop/laptop) authored; ccache, fwupd, lact, reflector,
+  # smartmontools are the unconditional base Host Programs promoted by ADR 0089.
   [ "$output" = "$(printf \
-    'bluetooth\ncups\ngamemode\ngrub\npower-profiles-daemon\nsops\ntuned')" ]
+    'bluetooth\nccache\ncups\nfwupd\ngamemode\ngrub\nlact\n'\
+'power-profiles-daemon\nreflector\nsmartmontools\nsops\ntuned')" ]
 
   run program_names_of_kind user
   echo "$output" | grep -qx docker
