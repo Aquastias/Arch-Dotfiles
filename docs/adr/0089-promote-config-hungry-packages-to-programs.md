@@ -11,4 +11,4 @@ install and work with no further state stay bare in `packages.repo`.
 This is recorded because the change is hard to reverse (splitting a package's
 install and config across two homes later is churn) and surprising without
 context: a reader diffing `hosts/core/profile.jsonc` will wonder why `ccache`,
-`reflector`, and `smartmontools` vanished from the package list.
+`reflector`, `smartmontools`, and `fwupd` vanished from the package list.

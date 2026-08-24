@@ -48,9 +48,9 @@ secrets_owned_programs() { printf '%s\n' sops; }
 # unconditional, free-standing kind:host base software declared directly in
 # core's host_programs, neither toggle-derived nor secrets-activated. Filtered
 # from both pickers alongside menu_owned_programs so unconditional base is never
-# offered as a choice. Empty until the first package is promoted.
+# offered as a choice.
 core_owned_programs() {
-  printf '%s\n' ccache reflector smartmontools fwupd
+  printf '%s\n' ccache fwupd reflector smartmontools
 }
 
 # menu_owned_programs — the union of every control, sorted-unique. The single
