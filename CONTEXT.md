@@ -512,7 +512,8 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 `grub` (Bootloader enum), `firewalld` / `ufw` / `clamav` / `rkhunter` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
 and `sops` (secrets activation). Consequence: **every `kind: host` program is
-Menu-Owned**, so no free-standing Host Program exists and the Guided Installer's
+Menu-Owned or [[Core-Owned|Core-Owned Program]]** (ADR 0089), so no free-standing
+*pickable* Host Program exists and the Guided Installer's
 **Packages** category lists no Programs at all (its `host programs` row dropped;
 the name stays `Packages` — no longer a misnomer, and avoids echoing the
 `SOFTWARE` bucket) — the only pickable Programs are the five
@@ -523,6 +524,19 @@ is still allowed — the `＋ Add` guard informs (Menu-Owned → "managed by
 than silently reclassifying. Removes the duplicate representation (e.g. `clamav`
 appearing as a Program when Security already installs it) without changing any
 control's default — whether the program installs is still the control's call.
+
+### Core-Owned Program
+A registry Program whose **sole home is Host Core** (ADR 0089): unconditional,
+free-standing `kind: host` base software declared directly in core's
+`host_programs`, neither toggle-derived (contrast [[Menu-Owned Program]]) nor
+secrets-activated. Like Menu-Owned Programs it is filtered from both Guided
+Installer pickers — via the `core_owned_programs` set the pickers subtract
+alongside `menu_owned_programs` — so unconditional base is never presented as a
+choice. The set is `ccache`, `reflector`, `smartmontools`, `fwupd`: packages the
+installer once pacstrapped bare but which need setup nothing ran (enabling a
+timer/service, toggling `makepkg.conf`), promoted to Programs so their
+`install.sh` owns both install and setup. The VM fixtures, which opt out of Host
+Core packages, exclude these via `host_programs_exclude` to stay lean.
 
 ### Printing Service (`options.printing.enabled`)
 The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —

@@ -573,15 +573,19 @@ _ctl_curated_persist_count() {
 
 # _ctl_host_program_names / _ctl_user_program_names — the option set for each
 # program picker, filtered on the registry's kind (R22): the host row needs kind
-# host, the User Editor's row needs kind user. [[Menu-Owned Program]]s are
-# filtered from BOTH (ADR 0086): a program a dedicated control governs has that
-# control as its sole home. Every kind:host program is owned, so the host picker
-# is normally empty (`|| :` keeps the empty result a success, not grep's rc 1).
+# host, the User Editor's row needs kind user. [[Menu-Owned Program]]s and
+# [[Core-Owned Program]]s are filtered from BOTH (ADR 0086, ADR 0089): a program
+# a dedicated control governs, or one whose sole home is Host Core, is never a
+# free-standing pick. Every kind:host program is Menu-Owned or Core-Owned, so
+# the host picker is normally empty (`|| :` keeps the empty result a success,
+# not grep's rc 1).
 _ctl_host_program_names() {
-  program_names_of_kind host | grep -vxF -f <(menu_owned_programs) || :
+  program_names_of_kind host \
+    | grep -vxF -f <(menu_owned_programs; core_owned_programs) || :
 }
 _ctl_user_program_names() {
-  program_names_of_kind user | grep -vxF -f <(menu_owned_programs) || :
+  program_names_of_kind user \
+    | grep -vxF -f <(menu_owned_programs; core_owned_programs) || :
 }
 
 # _ctl_toggle_options <field> → the raw option lines for a toggle (multi) field.
