@@ -4,8 +4,8 @@
 // pacman. install.sh installs fwupd; the runner enables fwupd-refresh.timer
 // from system_services for firmware metadata refresh + MOTD update notices —
 // useful on a bare-WM install with no graphical updater, and not enabled by
-// default on Arch (Arch Wiki: fwupd). Core-Owned (ADR 0089): declared
-// unconditionally in Host Core's host_programs.
+// default on Arch (Arch Wiki: fwupd). Declared unconditionally in Host Core's
+// host_programs (ADR 0089).
 
 {
   "name": "fwupd",
