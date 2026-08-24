@@ -160,7 +160,8 @@ layer_apply_exclusions() {
 }
 
 # _layer_fold_one <lower> <upper> <additive-paths-json> — one layer over one.
-# Order is deliberate: (1) inherit:false drops lower packages, (2) additive
+# Order is deliberate: (1) inherit:false drops lower packages + host_programs,
+# (2) additive
 # keys concat+dedupe / everything else replaces (recursing into plain objects so
 # a nested scalar override keeps its siblings), (3) exclusions apply last. See
 # the numbered steps below.
@@ -183,10 +184,13 @@ _layer_fold_one() {
       else $b
       end;
 
-    # 1. inherit:false drops lower packages wholesale. Compared to `false`
-    #    directly: jq `//` treats false as empty, so `(.inherit // true)` fails.
+    # 1. inherit:false drops the lower layer base software wholesale — both
+    #    packages AND host_programs (the ADR 0089 base programs are the same
+    #    workstation base as the packages, so a bare install opts out of both
+    #    with the one flag). Compared to `false` directly: jq `//` treats
+    #    false as empty, so `(.inherit // true)` fails.
     (if ($upper.packages.inherit == false)
-     then ($lower | del(.packages))
+     then ($lower | del(.packages) | del(.host_programs))
      else $lower end) as $base
 
     # 2. fold, then strip the control keys so they never reach a consumer.

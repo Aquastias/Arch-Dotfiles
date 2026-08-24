@@ -9,7 +9,7 @@
 #   1. Additive keys concat + dedupe; replace keys are overwritten wholesale.
 #   2. `exclude` subtracts what a lower layer contributed.
 #   3. The LAST layer wins — it may re-add what an earlier layer excluded.
-#   4. `packages.inherit: false` is scoped to packages only.
+#   4. `packages.inherit: false` drops the lower packages AND host_programs.
 
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/layer-resolver.sh"
@@ -215,7 +215,7 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   echo "$output" | jq -e '.packages.repo.cli == ["htop"]'
 }
 
-# ── packages.inherit: false — scoped to packages only ───────────────────────
+# ── packages.inherit: false — drops packages + host_programs ────────────────
 
 @test "inherit false: yields no inherited packages" {
   run resolve '{"packages":{"repo":{"cli":["htop"]},"aur":{"m":["brave"]}}}' \
@@ -230,14 +230,17 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   echo "$output" | jq -e '.packages.repo.cli == ["vim"]'
 }
 
-@test "inherit false: users and sysctl are STILL inherited" {
+# inherit:false also drops the lower host_programs (ADR 0089) — the base
+# programs are the same workstation base as the packages, so one flag opts a
+# bare install out of both. users and sysctl are still inherited.
+@test "inherit false: users/sysctl inherited, host_programs dropped" {
   run resolve '{"users":["alice"],"sysctl":{"vm.swappiness":10},
                 "host_programs":["cups"],
                 "packages":{"repo":{"cli":["htop"]}}}' \
               '{"packages":{"inherit":false}}'
   echo "$output" | jq -e '.users == ["alice"]'
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  echo "$output" | jq -e '(.host_programs // []) == []'
   echo "$output" | jq -e '(.packages.repo // {}) == {}'
 }
 

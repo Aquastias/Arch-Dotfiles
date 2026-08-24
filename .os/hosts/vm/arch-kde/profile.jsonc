@@ -45,10 +45,6 @@
   "packages": { "inherit": false },
   "users": ["aquastias"],
   "host_programs": [],
-  // Core-Owned base Programs (ADR 0089) inherit additively — host_programs
-  // has no `inherit: false` — so exclude them to keep this fixture lean.
-  "host_programs_exclude": ["ccache", "fwupd", "lact", "reflector",
-    "smartmontools"],
 
   "mode":   "single",
   "ashift": 13

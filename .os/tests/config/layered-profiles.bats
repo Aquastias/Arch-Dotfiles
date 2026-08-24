@@ -225,14 +225,14 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
   done
 }
 
-# ── promoted Core-Owned Programs (ADR 0089) ─────────────────────────────────
+# ── promoted base host programs (ADR 0089) ──────────────────────────────────
 # Packages the installer once pacstrapped bare, now kind:host Programs with a
 # single home: absent from packages.repo, present in host_programs on the real
-# hosts, and excluded on the lean VM fixtures.
+# hosts, and dropped on the bare inherit:false profiles.
 
 host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 
-@test "promoted Core-Owned Programs resolve into host_programs, not packages" {
+@test "promoted base host programs resolve into host_programs, not packages" {
   local h p pkgs hp
   for h in desktop laptop; do
     pkgs="$(repo_of "$h")"; hp="$(host_programs_of "$h")"
@@ -245,16 +245,16 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   done
 }
 
-# Every inherit:false profile (the lean VM fixtures AND minimal) must exclude
-# the Core-Owned programs: host_programs is additive and inherit:false scopes
-# only packages, so an unexcluded bare profile would still run their setup.
-@test "the inherit:false profiles exclude the promoted Core-Owned Programs" {
+# inherit:false drops the lower layer's host_programs as well as its packages
+# (ADR 0089), so every bare profile (the lean VM fixtures AND minimal) opts out
+# of the base host programs in one place — no per-profile exclude list.
+@test "the inherit:false profiles inherit no host_programs from Host Core" {
   local h p hp
   for h in arch-data arch-kde arch-secure minimal; do
     hp="$(host_programs_of "$h")"
     for p in ccache fwupd lact reflector smartmontools; do
       ! grep -qx "$p" <<<"$hp" \
-        || { echo "$h did not exclude host program: $p"; return 1; }
+        || { echo "$h wrongly inherited host program: $p"; return 1; }
     done
   done
 }
