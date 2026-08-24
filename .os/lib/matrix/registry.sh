@@ -65,8 +65,6 @@ _MATRIX_AXIS_REGISTRY=(
   "options.pacman.disable_download_timeout|inert|light"
   "options.pacman.no_progress_bar|inert|light"
   "options.pacman.parallel_downloads|inert|light"
-  "packages.repo.extra|inert|heavy"
-  "host_programs|inert|heavy"
   "post_install.security.firewall|inert|light"
   "post_install.security.antivirus|inert|light"
   "post_install.security.rootkit|inert|light"
