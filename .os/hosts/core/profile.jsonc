@@ -29,7 +29,9 @@
 // list for the same reason (the catalog routes it to the paru pass).
 {
   "users": [],
-  "host_programs": [],
+  "host_programs": [
+    "ccache"
+  ],
   "sysctl": {
     "vm.swappiness": 10
   },
@@ -77,7 +79,6 @@
         "neovim"
       ],
       "dev": [
-        "ccache",
         "nvm"
       ],
       "language-servers": [
