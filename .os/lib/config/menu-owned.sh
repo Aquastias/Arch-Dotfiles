@@ -50,7 +50,7 @@ secrets_owned_programs() { printf '%s\n' sops; }
 # from both pickers alongside menu_owned_programs so unconditional base is never
 # offered as a choice.
 core_owned_programs() {
-  printf '%s\n' ccache fwupd reflector smartmontools
+  printf '%s\n' ccache fwupd lact reflector smartmontools
 }
 
 # menu_owned_programs — the union of every control, sorted-unique. The single

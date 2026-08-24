@@ -32,6 +32,7 @@
   "host_programs": [
     "ccache",
     "fwupd",
+    "lact",
     "reflector",
     "smartmontools"
   ],
