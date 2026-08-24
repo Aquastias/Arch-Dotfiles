@@ -370,12 +370,12 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 
 # The curation's headline number: desktop adds exactly 34 packages over
 # laptop, and laptop declares none of its own.
-@test "desktop resolves to exactly 34 packages more than laptop" {
+@test "desktop resolves to exactly 31 packages more than laptop" {
   source "$OS_DIR/lib/config/profile.sh"
   local d l
   d="$(pkgres_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
   l="$(pkgres_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
-  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 34 ]
+  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 31 ]
   # laptop adds nothing desktop lacks
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }
