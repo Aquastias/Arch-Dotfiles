@@ -495,7 +495,7 @@ write_jsonc() {
   # core (ADR 0079) — it is toggle-derived and injected at assembly, not present
   # in the loaded (pre-assembly) profile — so host_programs is empty here.
   echo "$j" | jq -e '.users == ["vm-data"]'
-  echo "$j" | jq -e '.host_programs == []'
+  echo "$j" | jq -e '(.host_programs // []) == []'
   echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
 
   # machine skeleton present; devices excluded (operator-picked)

@@ -238,7 +238,8 @@ _PROFILE_SCHEMA_user=(
 # `requires[]` (ADR 0065): other Programs whose install-time setup must run
 # before this one (e.g. searxng needs podman's package + subuid/subgid). The
 # ordering is enforced at validate_install_context, before any side effect.
-_PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" )
+_PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
+  "system_services[]" "user_services[]" )
 
 # validate_config_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
