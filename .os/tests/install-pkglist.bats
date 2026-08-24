@@ -21,10 +21,14 @@ setup() {
 
 teardown() { rm -rf "$T"; }
 
-# Drop a fake helper that records its name and exits 0 (ignores the piped list).
+# Drop a fake helper that records its name and exits 0. It drains stdin first
+# (like the real `paru/yay -S -`): the script pipes the package list in, so a
+# helper that exits without reading it races the producer to SIGPIPE under load
+# (set -o pipefail then fails the script).
 _fake_helper() {
   local name="$1"
-  printf '#!/bin/sh\necho %s >> "$CALLED"\n' "$name" > "$BIN/$name"
+  printf '#!/bin/sh\ncat >/dev/null 2>&1\necho %s >> "$CALLED"\n' "$name" \
+    > "$BIN/$name"
   chmod +x "$BIN/$name"
 }
 
