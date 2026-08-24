@@ -45,9 +45,10 @@
   // updating every time Host Core grows.
   "packages": { "inherit": false },
   "users": ["vm-data"],
-  // Core-Owned base Programs (ADR 0089) are inherited additively — host_programs
+  // Core-Owned base Programs (ADR 0089) inherit additively — host_programs
   // has no `inherit: false` — so exclude them to keep this fixture lean.
-  "host_programs_exclude": ["ccache", "fwupd", "lact", "reflector", "smartmontools"],
+  "host_programs_exclude": ["ccache", "fwupd", "lact", "reflector",
+    "smartmontools"],
 
   "mode": "multi",
   "os_pool": {

@@ -245,9 +245,12 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   done
 }
 
-@test "the VM fixtures exclude the promoted Core-Owned Programs" {
+# Every inherit:false profile (the lean VM fixtures AND minimal) must exclude
+# the Core-Owned programs: host_programs is additive and inherit:false scopes
+# only packages, so an unexcluded bare profile would still run their setup.
+@test "the inherit:false profiles exclude the promoted Core-Owned Programs" {
   local h p hp
-  for h in arch-data arch-kde arch-secure; do
+  for h in arch-data arch-kde arch-secure minimal; do
     hp="$(host_programs_of "$h")"
     for p in ccache fwupd lact reflector smartmontools; do
       ! grep -qx "$p" <<<"$hp" \
