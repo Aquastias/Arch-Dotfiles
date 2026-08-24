@@ -202,7 +202,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   run menu_owned_programs
   [ "$status" -eq 0 ]
   for p in cups bluetooth power-profiles-daemon tuned grub firewalld ufw \
-           clamav rkhunter apparmor borg zfs-auto-snapshot sops; do
+           clamav rkhunter apparmor borg zfs-auto-snapshot sops reflector; do
     grep -qx "$p" <<<"$output" || { echo "missing owned: $p"; false; }
   done
 }

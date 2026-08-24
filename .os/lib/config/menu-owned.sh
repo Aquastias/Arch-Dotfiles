@@ -32,6 +32,9 @@ declare -F power_owned_programs >/dev/null 2>&1 \
 # shellcheck source=./post-install.sh
 declare -F post_install_owned_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/post-install.sh"
+# shellcheck source=./mirrors.sh
+declare -F mirrors_owned_programs >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
 # bootloader_owned_programs — the one bootloader that is also a registry Program
 # (`grub`); the Bootloader enum is its home. State-independent, like
@@ -53,6 +56,7 @@ menu_owned_programs() {
     post_install_owned_programs
     bootloader_owned_programs
     secrets_owned_programs
+    mirrors_owned_programs
   } | sort -u
 }
 
@@ -72,6 +76,7 @@ menu_owned_control() {
   borg)                          printf 'Backup → borg' ;;
   zfs-auto-snapshot)             printf 'Backup → zfs snapshots' ;;
   sops)                          printf 'secrets activation' ;;
+  reflector)                     printf 'Mirrors & Repositories' ;;
   *)                             printf 'its control' ;;
   esac
 }

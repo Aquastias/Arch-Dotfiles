@@ -65,9 +65,9 @@ effective() {
   echo "$output" | jq -e '.system.hostname == "eterniox"'
   echo "$output" | jq -e '.mode == "single"'
   echo "$output" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
-  # Host Core still applies under the guided session (grub authored), and the
-  # printing toggle (on by default) injects cups as a derived System Program.
-  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
+  # Host Core still applies (grub authored); printing (on by default) injects
+  # cups and the Mirrors section always injects reflector (ADR 0089).
+  echo "$output" | jq -e '.host_programs == ["grub","cups","reflector"]'
   echo "$output" | jq -e '.sysctl["vm.swappiness"] == 10'
 }
 
@@ -145,16 +145,18 @@ effective() {
   state="$(cfgstate_set "$state" options.power.profile '"none"')"
   local asgn='{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
 
-  # default on → cups injected alongside the authored core program
+  # default on → cups injected alongside the authored core program; reflector is
+  # always injected by Mirrors (ADR 0089)
   run emit_effective "$(effective "$state")" "$asgn"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["grub","cups"]'
+  echo "$output" | jq -e '.host_programs == ["grub","cups","reflector"]'
 
-  # turned off → cups absent, the authored core program untouched
+  # turned off → cups absent, the authored core program untouched; reflector
+  # still lands (state-independent)
   local off; off="$(cfgstate_set "$state" options.printing.enabled 'false')"
   run emit_effective "$(effective "$off")" "$asgn"
   [ "$status" -eq 0 ]
-  echo "$output" | jq -e '.host_programs == ["grub"]'
+  echo "$output" | jq -e '.host_programs == ["grub","reflector"]'
 }
 
 @test "menu view and installed set agree, aside from the derived cups" {
@@ -169,14 +171,16 @@ effective() {
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
   # packages/sysctl survive the emit unchanged (disks aside); the only
-  # host_programs difference is the printing-derived cups the emit injects.
+  # host_programs differences are the section-derived cups (printing) and
+  # reflector (mirrors) the emit injects.
   local shown installed
   shown="$(jq -cS '{packages, sysctl}' <<<"$view")"
   installed="$(jq -cS '{packages, sysctl}' <<<"$output")"
   [ "$shown" = "$installed" ]
   local shown_sp installed_sp
   shown_sp="$(jq -cS '.host_programs' <<<"$view")"
-  installed_sp="$(jq -cS '(.host_programs - ["cups"])' <<<"$output")"
+  installed_sp="$(jq -cS \
+    '(.host_programs - ["cups","reflector"])' <<<"$output")"
   [ "$shown_sp" = "$installed_sp" ]
 }
 
@@ -195,7 +199,7 @@ effective() {
     '{"mode":"single","disk":"/dev/disk/by-id/wwn-0xDEAD"}'
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.host_programs | index("grub") | not'
-  echo "$output" | jq -e '.host_programs == ["cups"]'
+  echo "$output" | jq -e '.host_programs == ["cups","reflector"]'
 }
 
 # ── Save writes a DELTA over Host Core, not a snapshot (ADR 0056) ───────────

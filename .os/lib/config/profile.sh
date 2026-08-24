@@ -40,6 +40,9 @@ declare -F bluetooth_inject >/dev/null 2>&1 \
 # shellcheck source=./power.sh
 declare -F power_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/power.sh"
+# shellcheck source=./mirrors.sh
+declare -F mirrors_inject >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
 # shellcheck source=../boot/bootloaders.sh
 declare -F bootloader_is_valid >/dev/null 2>&1 \
@@ -122,11 +125,13 @@ assemble_profile_config() {
     | .system.hostname =
         (if (.system.hostname // "") == "" then $name else .system.hostname end)
   ' <<<"$effective")"
-  # Toggle-derived Host Programs (ADR 0079/0080): fold cups (printing),
-  # bluetooth, then the power daemon into host_programs when their toggles are
-  # on. Chained so each derives independently and the Runner installs them as
-  # authored programs.
-  power_inject "$(bluetooth_inject "$(printing_inject "$effective")")"
+  # Section-derived Host Programs (ADR 0079/0080/0089): fold cups (printing),
+  # bluetooth, the power daemon, then reflector (mirrors) into host_programs.
+  # Chained so each derives independently and the Runner installs them as
+  # authored programs. reflector is state-independent — every install ranks
+  # mirrors, so the Mirrors section always brings it.
+  mirrors_inject "$(power_inject \
+    "$(bluetooth_inject "$(printing_inject "$effective")")")"
 }
 
 # =============================================================================

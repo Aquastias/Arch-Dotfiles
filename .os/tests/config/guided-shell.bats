@@ -64,10 +64,12 @@ write_answers() {
   echo "$effective" | jq -e '.system.hostname == "eterniox"'
   echo "$effective" | jq -e '.mode == "single"'
   echo "$effective" | jq -e '.disk == "/dev/disk/by-id/wwn-0xDEAD"'
-  # Seeded defaults derive all three toggle System Programs (ADR 0079/0080):
-  # cups (printing), bluetooth, power-profiles-daemon (power), in inject order.
+  # Seeded defaults derive the section System Programs (ADR 0079/0080/0089):
+  # cups (printing), bluetooth, power-profiles-daemon (power), reflector
+  # (mirrors), in inject order.
   echo "$effective" \
-    | jq -e '.host_programs == ["cups","bluetooth","power-profiles-daemon"]'
+    | jq -e '.host_programs
+        == ["cups","bluetooth","power-profiles-daemon","reflector"]'
 }
 
 # ── issue 09: a built non-zfs root filesystem is selectable in replay ───────
