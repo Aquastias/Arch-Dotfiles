@@ -66,6 +66,10 @@ _MENU_FIELDS=(
   "System|options.fonts|fonts|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
+  # niri shell (ADR 0090): the Noctalia work-preset selector. Only meaningful
+  # when niri is in the desktop set; default noctalia (prepared work desktop),
+  # none = bare niri.
+  "Environment|environment.niri_shell|niri shell|noctalia"
   "Environment|environment.gpu|gpu|auto"
   # Packages has NO field rows: its whole surface is the repo/aur/derived drill
   # (ADR 0086). The old free-text "extra packages" row was a redundant third add
@@ -106,8 +110,9 @@ menu_enum_options() {
   options.kernel)                 printf '%s\n' lts default hardened zen ;;
   options.bootloader)
     printf '%s\n' systemd-boot grub efistub limine refind ;;
-  environment.desktop)            printf '%s\n' kde hyprland ;;
+  environment.desktop)            printf '%s\n' kde hyprland niri ;;
   environment.display_manager)    printf '%s\n' auto greetd sddm ;;
+  environment.niri_shell)         printf '%s\n' noctalia none ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   options.mirror_countries)
@@ -163,7 +168,7 @@ _MENU_CATEGORIES=(
   "Disks|layout, data pools, filesystem, encryption, swap|STORAGE & BOOT"
   "Bootloader|bootloader|STORAGE & BOOT"
   "Kernels|kernel|STORAGE & BOOT"
-  "Environment|desktop, display manager, gpu|SOFTWARE"
+  "Environment|desktop, display manager, niri shell, gpu|SOFTWARE"
   "Mirrors & Repositories|countries, optional repos, custom servers/repos|SOFTWARE"
   "Pacman|ilovecandy, color, parallel downloads, verbose lists|SOFTWARE"
   "Packages|repo, aur, derived|SOFTWARE"

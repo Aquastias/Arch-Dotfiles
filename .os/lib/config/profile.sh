@@ -185,8 +185,10 @@ _PROFILE_SCHEMA_host=(
   "options.pacman.verbose_pkg_lists" "options.pacman.disable_download_timeout"
   "options.pacman.no_progress_bar" "options.pacman.parallel_downloads"
   # — environment (desktop/gpu are string|array unions; display_manager is a
-  #   scalar discriminator resolved against the desktop set — ADR 0069) —
+  #   scalar discriminator resolved against the desktop set — ADR 0069;
+  #   niri_shell is the Noctalia work-preset selector — ADR 0090) —
   "environment.desktop[]" "environment.gpu[]" "environment.display_manager"
+  "environment.niri_shell"
   # — layout scalars —
   "ashift" "os_size" "os_pool_name" "storage_pool_name" "storage_mount"
   "mode" "disk"

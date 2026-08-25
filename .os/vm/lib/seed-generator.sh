@@ -58,6 +58,7 @@ _seed_generator_desktop_marker() {
   case "$1" in
   kde)      printf '===KDE-OK===' ;;
   hyprland) printf '===HYPR-OK===' ;;
+  niri)     printf '===NIRI-OK===' ;;
   esac
 }
 
@@ -78,6 +79,8 @@ _seed_generator_desktop_check() {
       out+="if command -v startplasma-wayland > /dev/null 2>&1 && [ -f /usr/share/wayland-sessions/plasma.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
     hyprland)
       out+="if command -v Hyprland > /dev/null 2>&1 && [ -f /usr/local/share/wayland-sessions/hyprland.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
+    niri)
+      out+="if command -v niri > /dev/null 2>&1 && [ -e /usr/local/share/wayland-sessions/niri.desktop ]; then echo ${ok}; else echo ===${tag}-FAIL===; fi; " ;;
     esac
   done
   printf '%s' "$out"
@@ -90,6 +93,7 @@ _seed_generator_session_tag() {
   case "$1" in
   kde)      printf 'KDE' ;;
   hyprland) printf 'HYPR' ;;
+  niri)     printf 'NIRI' ;;
   esac
 }
 
@@ -101,6 +105,7 @@ _seed_generator_session_file() {
   case "$1" in
   kde)      printf 'plasma.desktop' ;;
   hyprland) printf 'hyprland.desktop' ;;
+  niri)     printf 'niri.desktop' ;;
   esac
 }
 

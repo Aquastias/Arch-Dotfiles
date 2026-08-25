@@ -56,6 +56,21 @@ write_config() {
   [ "${ENVIRONMENT_DESKTOP[0]}" = "hyprland" ]
 }
 
+@test "desktop 'niri' passes validation and sets ENVIRONMENT_DESKTOP" {
+  write_config '{"environment": {"desktop": "niri", "gpu": "auto"}}'
+  _resolve_env_validate
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 1 ]
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "niri" ]
+}
+
+@test "desktop array ['kde','hyprland','niri'] passes and sets three elements" {
+  write_config \
+    '{"environment": {"desktop": ["kde","hyprland","niri"], "gpu": "auto"}}'
+  _resolve_env_validate
+  [ "${#ENVIRONMENT_DESKTOP[@]}" -eq 3 ]
+  [ "${ENVIRONMENT_DESKTOP[2]}" = "niri" ]
+}
+
 @test "desktop array ['kde','hyprland'] passes and sets two elements" {
   write_config \
     '{"environment": {"desktop": ["kde", "hyprland"], "gpu": "auto"}}'
@@ -152,6 +167,29 @@ write_config() {
   [ "$status" -ne 0 ]
   [[ "$output" =~ "lightdm" ]]
   [[ "$output" =~ "greetd" ]]
+}
+
+# ── niri shell preset (ADR 0090) ───────────────────────────────────────────
+
+@test "niri_shell defaults to noctalia when absent" {
+  write_config '{"environment": {"desktop": "niri"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_NIRI_SHELL" = "noctalia" ]
+}
+
+@test "niri_shell 'none' passes validation" {
+  write_config '{"environment": {"desktop": "niri", "niri_shell": "none"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_NIRI_SHELL" = "none" ]
+}
+
+@test "niri_shell unknown value fails validation naming valid options" {
+  write_config \
+    '{"environment": {"desktop": "niri", "niri_shell": "waybar"}}'
+  run _resolve_env_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "waybar" ]]
+  [[ "$output" =~ "noctalia" ]]
 }
 
 # ── install summary environment lines ─────────────────────────────────────

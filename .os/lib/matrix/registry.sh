@@ -54,6 +54,9 @@ _MATRIX_AXIS_REGISTRY=(
   "sysctl|inert|light"
   "environment.desktop|pairwise-affecting|heavy"
   "environment.display_manager|pairwise-affecting|light"
+  # niri_shell (ADR 0090): its variation pulls the Noctalia package set + an
+  # AUR-shaped git plugin fetch, so it is a heavy install-affecting axis.
+  "environment.niri_shell|pairwise-affecting|heavy"
   "environment.gpu|pairwise-affecting|heavy"
   "options.mirror_countries|inert|light"
   "options.optional_repos|inert|light"
