@@ -45,7 +45,7 @@
   },
 
   "users": ["aquastias"],
-  "host_programs": ["grub", "gamemode"],
+  "host_programs": ["grub"],
 
   "packages": {
     "repo": {
@@ -63,14 +63,6 @@
       ],
       "network": [
         "dnsmasq"
-      ],
-      "dev": [
-        "biome",
-        "go",
-        "mermaid-cli",
-        "python-pip",
-        "python-pipx",
-        "tree-sitter-cli"
       ],
       "media": [
         "qbittorrent",
