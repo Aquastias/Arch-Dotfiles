@@ -3,8 +3,7 @@
 // scalars user-wins. A user drops something declared here via
 // `programs_exclude`.
 //
-// `shell` is /bin/zsh: the entire tracked shell payload is zsh (18 files under
-// .zsh/ plus .zshrc, .zshenv, .zprofile, .zsh_aliases, .p10k.zsh), while
+// `shell` is /bin/zsh: the entire tracked shell payload is zsh while
 // .bashrc/.bash_profile/.profile are untracked — so a bash default landed a
 // fresh install in a shell whose stowed config never loaded. The zsh package
 // itself is NOT declared: ensure_login_shell_installed pacman-installs a

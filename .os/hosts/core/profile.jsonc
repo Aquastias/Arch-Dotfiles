@@ -5,9 +5,9 @@
 //
 // Carrying packages here amends ADR 0007, whose "the lists are
 // machine-specific" premise no longer holds: `laptop` is a strict subset of
-// `desktop` (63 shared packages, zero unique to laptop), so the shared
-// base is real. `hosts/laptop` consequently carries no packages block at all.
-// Both hosts are dev boxes, so the dev toolchain lives here, not in desktop.
+// `desktop`, so the shared base is real. `hosts/laptop` consequently carries
+// no packages block at all. Both hosts are dev boxes, so the dev toolchain
+// lives here, not in desktop.
 //
 // The three VM fixtures opt out with `packages.inherit: false` (packages
 // only — they still inherit these users and sysctl), so core is free to hold
