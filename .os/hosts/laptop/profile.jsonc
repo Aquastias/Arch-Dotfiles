@@ -4,11 +4,10 @@
 // desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
 // + dpool).
 //
-// **No packages block.** laptop is a strict subset of desktop — 63 shared
-// packages, zero unique to laptop — so everything it wants is in Host
-// Core (ADR 0056). That is the confirmation two layers fit this fleet. To drop
-// something core declares, add `packages.exclude`; to add something, declare
-// the category here and it concatenates.
+// **No packages block.** laptop is a strict subset of desktop, so everything
+// it wants is in Host Core (ADR 0056). That is the confirmation two layers fit
+// this fleet. To drop something core declares, add `packages.exclude`; to add
+// something, declare the category here and it concatenates.
 //
 // Encrypted, SSH-enabled ZFS (persistent root — impermanence disabled).
 {
