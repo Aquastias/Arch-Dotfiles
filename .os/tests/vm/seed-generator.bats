@@ -169,10 +169,27 @@ teardown() {
 
 # ── per-desktop session verification (ADR 0062) ──────────────────────────────
 
-@test "desktop marker: kde/hyprland map to their OK sentinel tags" {
+@test "desktop marker: kde/hyprland/niri map to their OK sentinel tags" {
   [ "$(_seed_generator_desktop_marker kde)" = "===KDE-OK===" ]
   [ "$(_seed_generator_desktop_marker hyprland)" = "===HYPR-OK===" ]
+  [ "$(_seed_generator_desktop_marker niri)" = "===NIRI-OK===" ]
   [ -z "$(_seed_generator_desktop_marker gnome)" ]   # unknown → empty
+}
+
+@test "desktop check: niri probes its binary + curated session file" {
+  run _seed_generator_desktop_check niri
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "===NIRI-OK===" ]]
+  [[ "$output" =~ "===NIRI-FAIL===" ]]
+  [[ "$output" =~ "command -v niri" ]]
+  [[ "$output" =~ "wayland-sessions/niri.desktop" ]]
+  [[ "$output" != *"'"* ]]
+}
+
+@test "session file/tag: niri logs into niri.desktop with the NIRI tag" {
+  [ "$(_seed_generator_session_tag niri)" = "NIRI" ]
+  [ "$(_seed_generator_session_file niri)" = "niri.desktop" ]
+  [ "$(_seed_generator_session_marker niri)" = "===NIRI-SESSION-OK===" ]
 }
 
 @test "desktop check: kde+hyprland emit both OK/FAIL checks, no single quotes" {

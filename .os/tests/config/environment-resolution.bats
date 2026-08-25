@@ -45,6 +45,13 @@ write_config() {
   [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
 }
 
+@test "resolve_environment accepts niri and derives audio" {
+  write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
+  resolve_environment
+  [ "${ENVIRONMENT_DESKTOP[0]}" = "niri" ]
+  [[ " ${AUDIO_PACKAGES[*]} " == *" pipewire "* ]]
+}
+
 @test "resolve_environment accepts a kde+hyprland co-install" {
   write_config '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
   resolve_environment
@@ -68,9 +75,33 @@ write_config() {
   [ "${AUDIO_PACKAGES[*]}" = "$a1" ]
 }
 
-@test "display_manager auto resolves to sddm even when hyprland present" {
+@test "display_manager auto resolves to sddm when kde present (with hyprland)" {
   write_config \
     '{"environment": {"desktop": ["kde","hyprland"], "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
+}
+
+@test "display_manager auto resolves to greetd for a hyprland-only box" {
+  write_config '{"environment": {"desktop": "hyprland", "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager auto resolves to greetd for a niri-only box" {
+  write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager auto resolves to greetd for a hyprland+niri box" {
+  write_config '{"environment": {"desktop": ["hyprland","niri"], "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_DISPLAY_MANAGER" = "greetd" ]
+}
+
+@test "display_manager auto resolves to sddm for a kde+niri box" {
+  write_config '{"environment": {"desktop": ["kde","niri"], "gpu": "amd"}}'
   resolve_environment
   [ "$ENVIRONMENT_DISPLAY_MANAGER" = "sddm" ]
 }

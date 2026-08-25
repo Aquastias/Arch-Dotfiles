@@ -72,6 +72,9 @@ declare -F audio_packages >/dev/null 2>&1 \
 # shellcheck source=./filesystem.sh
 declare -F fs_userland_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/filesystem.sh"
+# shellcheck source=./niri.sh
+declare -F niri_core_packages >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/niri.sh"
 
 # The source names in report order, each paired with the menu category that
 # DRIVES it. One table, not two: the guided derived section needs the origin
@@ -93,6 +96,8 @@ _PKGRES_SOURCES=(
   "kde-apps-extra|Environment"
   "kde-plugins|Environment"
   "kde-aur|Environment"
+  "niri-shell|Environment"
+  "noctalia|Environment"
   "security|Security"
   "backup|Backup"
   "printing|Daemons"
@@ -247,21 +252,21 @@ pkgres_resolve() {
   local de
   while IFS= read -r de; do
     [[ -n "$de" ]] || continue
-    _pkgres_de_packages "$de"
+    _pkgres_de_packages "$de" "$cfg"
   done <<<"$desktops"
 
   # ── display manager (ADR 0069) ────────────────────────────────────────────
   # The greeter is its own derived set keyed on the resolved display_manager,
-  # not smuggled inside kde-shell. `auto` resolves the same way the installer
-  # does (_resolve_env_display_manager): sddm for any desktop fleet-wide (ADR
-  # 0068 supersedes 0067's auto→greetd), greetd only by explicit opt-in; none
-  # when no desktop.
+  # not smuggled inside kde-shell. `auto` resolves the same DESKTOP-AWARE way
+  # the installer does (_resolve_env_display_manager, ADR 0091): greetd for a
+  # KDE-free desktop set (hyprland/niri), sddm when kde is present; none when no
+  # desktop. Explicit greetd/sddm win.
   local dm_raw dm
   dm_raw="$(_pkgres_jq "$cfg" '.environment.display_manager // "auto"')"
   if [[ -z "$desktops" ]]; then
     dm="none"
   elif [[ "$dm_raw" == "auto" ]]; then
-    dm="sddm"
+    if grep -qx kde <<<"$desktops"; then dm="sddm"; else dm="greetd"; fi
   else
     dm="$dm_raw"
   fi
@@ -388,10 +393,16 @@ pkgres_resolve() {
   done
 }
 
-# _pkgres_de_packages <de> — the Desktop Environment Adapter's own sets, read
-# from its install-<de>.jsonc so the adapter stays the owner (ADR 0021).
+# _pkgres_de_packages <de> <cfg> — the Desktop Environment Adapter's own sets.
+# KDE reads its install-kde.jsonc (ADR 0021); niri's core is a pure map shared
+# with the adapter and its Noctalia preset keys on environment.niri_shell (ADR
+# 0090), so it is handled separately from the jsonc-driven KDE path.
 _pkgres_de_packages() {
-  local de="$1"
+  local de="$1" cfg="${2:-}"
+  if [[ "$de" == niri ]]; then
+    _pkgres_niri_packages "$cfg"
+    return 0
+  fi
   local f="${OS_DIR:-}/extras/desktop/${de}/install-${de}.jsonc"
   [[ -f "$f" ]] || return 0
   local json; json="$(jsonc_strip "$f" 2>/dev/null)" || return 0
@@ -435,6 +446,45 @@ _pkgres_de_packages() {
     [[ -n "$p" ]] && _pkgres_emit kde-aur derived "$p"
   done < <(categorized_list_parse \
     "$(jq -c '.aur // {}' <<<"$json")" bool aur 2>/dev/null)
+}
+
+# _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
+# pure niri_core_packages map (shared with the adapter). The Noctalia work
+# preset (source `noctalia`) is keyed on environment.niri_shell: the base preset
+# map plus the enabled install-niri.jsonc component bools (cava, cliphist, and
+# bitwarden-cli under `bitwarden`), so query and install cannot drift.
+_pkgres_niri_packages() {
+  local cfg="$1" p shell
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && _pkgres_emit niri-shell derived "$p"
+  done < <(niri_core_packages)
+
+  shell="$(_pkgres_jq "$cfg" '.environment.niri_shell // "noctalia"')"
+  [[ "$shell" == noctalia ]] || return 0
+
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
+  done < <(noctalia_preset_packages)
+
+  # Optional companions from install-niri.jsonc (the adapter's owner file). The
+  # key is the package name for cava/cliphist; bitwarden additionally pulls the
+  # bitwarden-cli backend (ADR 0090).
+  local nj=""
+  if [[ -n "${OS_DIR:-}" \
+     && -f "${OS_DIR}/extras/desktop/niri/install-niri.jsonc" ]]; then
+    nj="$(jsonc_strip "${OS_DIR}/extras/desktop/niri/install-niri.jsonc" \
+      2>/dev/null)"
+  fi
+  [[ -n "$nj" ]] || return 0
+  [[ "$(jq -r '.cava // false' <<<"$nj")" == true ]] \
+    && _pkgres_emit noctalia derived cava
+  [[ "$(jq -r '.cliphist // false' <<<"$nj")" == true ]] \
+    && _pkgres_emit noctalia derived cliphist
+  if [[ "$(jq -r '.bitwarden // false' <<<"$nj")" == true ]]; then
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
+    done < <(noctalia_bitwarden_packages)
+  fi
 }
 
 # _pkgres_user_shells <config> — the login shell package of every declared

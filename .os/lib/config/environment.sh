@@ -27,6 +27,13 @@ ENVIRONMENT_GPU=()
 # shellcheck disable=SC2034
 ENVIRONMENT_DISPLAY_MANAGER=""
 
+# The Noctalia work-shell preset selector (ADR 0090): noctalia | none. Set by
+# _resolve_env_validate (default noctalia); meaningful only when niri is in the
+# desktop set. Crosses into the chroot as an env var (chroot.sh) and is read by
+# the niri adapter — no install-state field, like ENVIRONMENT_DESKTOP.
+# shellcheck disable=SC2034
+ENVIRONMENT_NIRI_SHELL=""
+
 # Set by _resolve_env_gpu; consumed by collect_packages.
 # Declared here so collect_packages can detect unresolved state.
 GPU_PACMAN_PACKAGES=()
@@ -36,9 +43,10 @@ GPU_PARU_PACKAGES=()
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────
-_VALID_DESKTOP=(kde hyprland)
+_VALID_DESKTOP=(kde hyprland niri)
 _VALID_GPU=(amd nvidia intel auto)
 _VALID_DISPLAY_MANAGER=(auto greetd sddm)
+_VALID_NIRI_SHELL=(noctalia none)
 
 # The pure GPU + audio package maps, shared with the Package Resolver so the
 # names live once. Detection and the intel refinement below stay impure here.
@@ -210,16 +218,29 @@ _resolve_env_validate() {
   done
   $_dm_ok || error "Unknown display_manager '${ENVIRONMENT_DISPLAY_MANAGER}'." \
     "Valid: ${_VALID_DISPLAY_MANAGER[*]}."
+
+  # ── niri shell ─────────────────────────────────────────────────────────────
+  # The Noctalia work-shell preset selector (ADR 0090); defaults to noctalia.
+  # Meaningful only when niri is in the desktop set — harmless otherwise (the
+  # niri adapter is the only reader).
+  ENVIRONMENT_NIRI_SHELL="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.niri_shell // "noctalia"')"
+  local _ns_ok=false
+  for _v in "${_VALID_NIRI_SHELL[@]}"; do
+    [[ "$ENVIRONMENT_NIRI_SHELL" == "$_v" ]] && _ns_ok=true && break
+  done
+  $_ns_ok || error "Unknown niri_shell '${ENVIRONMENT_NIRI_SHELL}'." \
+    "Valid: ${_VALID_NIRI_SHELL[*]}."
 }
 
 # Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
-# greeter the chroot dispatches (ADR 0069). `auto` → `sddm` for any desktop —
-# SDDM is the fleet-wide greeter now that seatd grants a Hyprland session DRM
-# master independent of the greeter (ADR 0068 supersedes ADR 0067's auto→greetd
-# co-install rule); `none` when no desktop is selected. greetd stays available
-# by explicit opt-in. A concrete greeter with no desktop aborts — a greeter with
-# no session to launch. Explicit `greetd`/`sddm` pass through unchanged.
-# Requires ENVIRONMENT_DESKTOP already resolved by _resolve_env_validate.
+# greeter the chroot dispatches (ADR 0069). `auto` is DESKTOP-AWARE (ADR 0091):
+# `greetd` for a KDE-free non-empty desktop set (hyprland and/or niri), `sddm`
+# when the set contains `kde`, and `none` when no desktop is selected. It is a
+# smart default, not a lock — seatd (ADR 0068) lets any greeter launch any DE,
+# so an explicit `greetd`/`sddm` still passes through unchanged. A concrete
+# greeter with no desktop aborts — a greeter with no session to launch. Requires
+# ENVIRONMENT_DESKTOP already resolved by _resolve_env_validate.
 _resolve_env_display_manager() {
   local authored="${ENVIRONMENT_DISPLAY_MANAGER:-auto}"
   if [[ ${#ENVIRONMENT_DESKTOP[@]} -eq 0 ]]; then
@@ -231,7 +252,15 @@ _resolve_env_display_manager() {
       "a greeter has no session to launch."
   fi
   if [[ "$authored" == "auto" ]]; then
-    ENVIRONMENT_DISPLAY_MANAGER="sddm"
+    local _has_kde=false _d
+    for _d in "${ENVIRONMENT_DESKTOP[@]}"; do
+      [[ "$_d" == kde ]] && { _has_kde=true; break; }
+    done
+    if $_has_kde; then
+      ENVIRONMENT_DISPLAY_MANAGER="sddm"
+    else
+      ENVIRONMENT_DISPLAY_MANAGER="greetd"
+    fi
   fi
 }
 
@@ -245,6 +274,7 @@ resolve_environment() {
   ENVIRONMENT_DESKTOP=()
   ENVIRONMENT_GPU=()
   ENVIRONMENT_DISPLAY_MANAGER=""
+  ENVIRONMENT_NIRI_SHELL=""
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
   AUDIO_PACKAGES=()

@@ -927,8 +927,8 @@ Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
 `install-<name>.jsonc` for per-component toggles (KDE has one for its app list;
 the Hyprland adapter is core-only and ships none — ADR 0062). Invoked
-dynamically by the Environment Runner based on `environment.desktop`. KDE and
-Hyprland are the two adapters. Each adapter owns every
+dynamically by the Environment Runner based on `environment.desktop`. KDE,
+Hyprland, and niri are the three adapters (ADR 0090). Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
 config default**: it installs its repo packages via pacman, writes its session
 files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
@@ -949,6 +949,28 @@ Categorized List `{ category: { pkg: bool } }` shape as `apps_list`, validated
 in bool mode; absent field contributes nothing) and installed by the Profiles
 Runner's paru pass. Adding a new DE requires only a new `extras/desktop/<name>/`
 directory — no runner code changes.
+
+The **niri adapter** is core-only like Hyprland but leaner: the `niri` package
+ships its own session file + `niri-session` and pulls `seatd`, so it authors no
+launcher shim and no aquamarine DRM pin (ADR 0090). Its one companion is the
+[[Wayland Shell Companion]], selected via `environment.niri_shell`.
+
+### Wayland Shell Companion
+The Noctalia desktop shell as an optional, menu-visible layer on a niri install,
+selected via `environment.niri_shell` (`noctalia` | `none`, default `noctalia`;
+meaningful only when niri is in the desktop set — ADR 0090). `none` = bare niri,
+seeding nothing (Hyprland core-only precedent). `noctalia` = the **prepared work
+preset**: the `noctalia` package (v5, `extra` repo — one package for bar,
+launcher, notifications, clipboard history, control center, lock, wallpaper, OSD)
+plus the session-completing gaps `kitty` + `brightnessctl`, a minimal
+`/etc/skel/.config/niri/config.kdl` glue that autostarts `noctalia --daemon`
+(ADR 0088 skel precedent, glue only — never Noctalia's theming), and the
+official **Bitwarden** Luau plugin (pinned sparse-checkout into skel's
+`plugins.json` + `bitwarden-cli` for the `bw` backend; `bw login` is the user's
+first-boot step). Preset component bools live in `install-niri.jsonc`
+(`bitwarden`, `cava`, `cliphist`), mirroring KDE's `install-kde.jsonc` (ADR
+0087). Noctalia runs on Hyprland too; the field is niri-bound for now but
+written to generalise.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
@@ -1014,10 +1036,12 @@ SDDM for Hyprland or KDE+Hyprland, greetd for KDE. This became a choice once
 **seatd** (ADR 0068) gave aquamarine DRM master independent of the DM; before
 that an SDDM-launched Hyprland session could not obtain master (atomic KMS
 commit `Permission denied`, retry-loop, black screen — kwin survived it, ADR
-0067), so greetd was *forced* whenever Hyprland was present. `auto` resolves at
-config-load: `greetd` if `hyprland` is in the desktop set, else `sddm`, and
-`none` when no desktop is selected — so every profile omitting the key behaves
-exactly as before. A **concrete** DM with an empty desktop set aborts at
+0067), so greetd was *forced* whenever Hyprland was present. `auto` is **desktop-aware** (ADR 0091,
+superseding the fleet-wide-SDDM code and ADR 0069's stale body): `greetd` for a
+KDE-free non-empty desktop set (hyprland and/or niri), `sddm` when the set
+contains `kde`, and `none` when no desktop is selected. It is a smart default,
+not a lock — a concrete DM still overrides freely (seatd makes any DM launch any
+DE, so the pairing is preference, not constraint). A **concrete** DM with an empty desktop set aborts at
 config-load (a greeter with no session). Dispatched as a [[Display Manager
 Adapter]] by the Environment Runner after the desktop loop, so the choice is
 independent of DE adapter execution order. The DM adapter owns its package +

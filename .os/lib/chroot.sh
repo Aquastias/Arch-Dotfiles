@@ -63,6 +63,9 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   # predicate for the aquamarine DRM pin (ADR 0053/0062). Must be staged here or
   # the Hyprland adapter aborts with "gpu.sh: No such file or directory".
   "lib/chroot/gpu.sh|chroot/gpu.sh"
+  # niri.sh (ADR 0090) sources this pure package map so its core/preset install
+  # matches exactly what the Package Resolver reports — one source of truth.
+  "lib/packages/niri.sh|packages/niri.sh"
 )
 
 # _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"
@@ -340,7 +343,8 @@ configure_system() {
     "$RESOLVED_HOST_PROFILE"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
-  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" ROOT_PW="$root_pw" \
+  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" \
+  ENVIRONMENT_NIRI_SHELL="${ENVIRONMENT_NIRI_SHELL:-}" ROOT_PW="$root_pw" \
     arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
 

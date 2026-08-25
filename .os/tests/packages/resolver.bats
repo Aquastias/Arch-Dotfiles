@@ -110,6 +110,47 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "konsole"     <<<"$kde"
 }
 
+# ── niri core set (ADR 0090) ────────────────────────────────────────────────
+
+@test "niri-shell set reports the niri core packages" {
+  source "$OS_DIR/lib/packages/niri.sh"
+  local got want
+  got="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' niri-shell)"
+  want="$(niri_core_packages | sort)"
+  [ "$(printf '%s\n' "$got" | sort)" = "$want" ]
+  grep -qx "niri" <<<"$got"
+  grep -qx "seatd" <<<"$got"
+}
+
+@test "niri-shell set is empty when niri is not selected" {
+  local got
+  got="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' niri-shell)"
+  [ -z "$got" ]
+}
+
+@test "noctalia set reports the work preset when niri_shell defaults on" {
+  local n
+  n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  grep -qx "noctalia"      <<<"$n"
+  grep -qx "kitty"         <<<"$n"
+  grep -qx "brightnessctl" <<<"$n"
+}
+
+@test "noctalia set is empty for bare niri (niri_shell=none)" {
+  local n
+  n="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["niri"],"niri_shell":"none"}}' \
+    noctalia)"
+  [ -z "$n" ]
+}
+
+@test "noctalia set includes bitwarden-cli when bitwarden is enabled" {
+  # the committed install-niri.jsonc enables bitwarden by default (ADR 0090)
+  local n
+  n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  grep -qx "bitwarden-cli" <<<"$n"
+}
+
 # ── display manager derived set (ADR 0069) ──────────────────────────────────
 
 @test "display-manager set: auto on a kde-only box resolves to sddm" {
@@ -119,7 +160,24 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   ! grep -qx "greetd" <<<"$dm"
 }
 
-@test "display-manager set: auto with hyprland still resolves to sddm" {
+@test "display-manager set: auto on a hyprland-only box resolves to greetd" {
+  local dm
+  dm="$(pkgs_of '{"users":[],"environment":{"desktop":["hyprland"]}}' \
+    display-manager)"
+  grep -qx "greetd"          <<<"$dm"
+  grep -qx "greetd-tuigreet" <<<"$dm"
+  ! grep -qx "sddm" <<<"$dm"
+}
+
+@test "display-manager set: auto on a niri-only box resolves to greetd" {
+  local dm
+  dm="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' \
+    display-manager)"
+  grep -qx "greetd" <<<"$dm"
+  ! grep -qx "sddm" <<<"$dm"
+}
+
+@test "display-manager set: auto with kde present resolves to sddm" {
   local dm
   dm="$(pkgs_of \
     '{"users":[],"environment":{"desktop":["kde","hyprland"]}}' display-manager)"

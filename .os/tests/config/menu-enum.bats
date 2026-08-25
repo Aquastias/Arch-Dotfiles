@@ -24,7 +24,7 @@ setup() {
 
 @test "menu_enum_options: desktop" {
   run menu_enum_options environment.desktop
-  [ "$output" == "$(printf '%s\n' kde hyprland)" ]
+  [ "$output" == "$(printf '%s\n' kde hyprland niri)" ]
 }
 
 @test "menu_enum_options: gpu vendors (auto first)" {
@@ -35,6 +35,11 @@ setup() {
 @test "menu_enum_options: display manager (auto first)" {
   run menu_enum_options environment.display_manager
   [ "$output" == "$(printf '%s\n' auto greetd sddm)" ]
+}
+
+@test "menu_enum_options: niri shell (noctalia default, ADR 0090)" {
+  run menu_enum_options environment.niri_shell
+  [ "$output" == "$(printf '%s\n' noctalia none)" ]
 }
 
 @test "menu_enum_options: firewall (mutually-exclusive radiolist)" {
