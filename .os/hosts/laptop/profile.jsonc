@@ -4,8 +4,8 @@
 // desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
 // + dpool).
 //
-// **No packages block.** laptop is a strict subset of desktop — 57 repo
-// packages in both, zero unique to laptop — so everything it wants is in Host
+// **No packages block.** laptop is a strict subset of desktop — 63 shared
+// packages, zero unique to laptop — so everything it wants is in Host
 // Core (ADR 0056). That is the confirmation two layers fit this fleet. To drop
 // something core declares, add `packages.exclude`; to add something, declare
 // the category here and it concatenates.
@@ -48,7 +48,7 @@
   "users": [
     "aquastias"
   ],
-  "host_programs": ["gamemode"],
+  "host_programs": [],
   "mode": "single",
   "ashift": 12
 }

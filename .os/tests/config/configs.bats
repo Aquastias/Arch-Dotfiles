@@ -32,7 +32,7 @@ teardown() {
 @test "real host core declares the base host_programs, not cups/reflector" {
   local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
   jsonc_strip "$core" | jq -e '.host_programs
-    == ["ccache","fwupd","lact","smartmontools"]'
+    == ["ccache","fwupd","gamemode","lact","smartmontools"]'
   jsonc_strip "$core" | jq -e '.host_programs | index("cups") | not'
   jsonc_strip "$core" | jq -e '.host_programs | index("reflector") | not'
 }
@@ -90,9 +90,10 @@ teardown() {
   done
 }
 
-@test "desktop keeps host_programs [grub, gamemode] with no grub/os-prober package" {
+@test "desktop keeps host_programs [grub] with no grub/os-prober package" {
   local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-  jsonc_strip "$desk" | jq -e '.host_programs == ["grub","gamemode"]'
+  # gamemode moved to Host Core (both hosts game); desktop keeps only grub.
+  jsonc_strip "$desk" | jq -e '.host_programs == ["grub"]'
   local pkgs
   pkgs="$(jsonc_strip "$desk" | jq -r '.packages.repo | to_entries[].value[]')"
   ! grep -qx "grub"      <<< "$pkgs"

@@ -368,14 +368,15 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "base"        <<<"$p"   # derived, base list
 }
 
-# The curation's headline number: desktop adds exactly 34 packages over
-# laptop, and laptop declares none of its own.
-@test "desktop resolves to exactly 31 packages more than laptop" {
+# The curation's headline number: desktop adds exactly 25 packages over
+# laptop, and laptop declares none of its own. (Was 31 before the dev
+# toolchain moved to Host Core — both hosts are dev boxes.)
+@test "desktop resolves to exactly 25 packages more than laptop" {
   source "$OS_DIR/lib/config/profile.sh"
   local d l
   d="$(pkgres_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
   l="$(pkgres_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
-  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 31 ]
+  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 25 ]
   # laptop adds nothing desktop lacks
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }
