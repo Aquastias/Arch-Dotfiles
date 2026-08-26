@@ -157,12 +157,15 @@ CONTEXT.md.
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
-when any desktop is selected. Display manager is chosen per
-adapter: KDE → SDDM. GPU `"auto"` resolves all detected
+when any desktop is selected. Display manager is a separate
+operator choice via `environment.display_manager` (`auto` is
+desktop-aware: SDDM when KDE is present, else greetd — ADR
+0069/0091). GPU `"auto"` resolves all detected
 vendors and installs the right driver set (`vulkan-radeon`,
-`nvidia-open-dkms` + `envycontrol` for hybrids, `intel-media-
-driver` / `libva-intel-driver` by device generation, `mesa`
-only for VM GPUs).
+`nvidia-open-dkms` — an amd+nvidia hybrid gets the deterministic
+GPU Configuration Module, not `envycontrol` (ADR 0053) —
+`intel-media-driver` / `libva-intel-driver` by device
+generation, `mesa` only for VM GPUs).
 
 ### `mode`
 
@@ -495,22 +498,36 @@ See CONTEXT.md § Host Package List for the full model.
 
 The Environment Runner (`lib/chroot/extras.sh`) dispatches to
 `extras/desktop/<de>/<de>.sh` for each entry in
-`environment.desktop`. Two adapters ship today.
+`environment.desktop`. Three adapters ship today: KDE, Hyprland,
+and niri. The display manager is not an adapter's concern — it is
+a separate Display Manager Adapter (`extras/dm/<dm>/<dm>.sh`)
+selected by `environment.display_manager` (ADR 0069).
 
 **KDE Plasma 6 — `extras/desktop/kde/kde.sh`**
 
 - `plasma-meta` — full KDE Plasma 6 desktop
-- `sddm` — display manager (graphical login screen)
 - PipeWire audio stack (replaces PulseAudio)
 - BlueDevil Bluetooth integration
-- CUPS printing
 - Noto fonts (covers Latin, CJK, emoji)
 
-Enables: `sddm.service`, `bluetooth.service`, `cups.service`.
 Per-component toggles live in
 `extras/desktop/kde/install-kde.jsonc`.
 
-KDE is the only Desktop Environment Adapter (ADR 0050).
+**Hyprland — `extras/desktop/hyprland/hyprland.sh`**
+
+Core-only (ADR 0062): the compositor, both XDG portals, the
+polkit agent, `wl-clipboard`, `seatd`, and the curated
+`start-hyprland` session. Companion tools come from dotfiles.
+
+**niri — `extras/desktop/niri/niri.sh`**
+
+Core-only (ADR 0090): `niri` (ships its own session, pulls
+`seatd`), both XDG portals, the polkit agent, `wl-clipboard`.
+An optional Noctalia work shell (`environment.niri_shell` =
+`noctalia` | `none`) layers on top — the Noctalia package plus
+kitty, brightnessctl, a seeded `/etc/skel` niri config, and the
+Bitwarden plugin. Toggles live in
+`extras/desktop/niri/install-niri.jsonc`.
 
 ### Backup — `programs/backup/`
 

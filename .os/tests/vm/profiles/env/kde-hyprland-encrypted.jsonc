@@ -6,9 +6,9 @@
 // the test passphrase), and BOTH desktops' session-launch artifacts must be
 // present: KDE (startplasma-wayland + plasma.desktop) and Hyprland (Hyprland +
 // the /usr/local wayland-sessions override the adapter writes). The display
-// manager is a separate axis (ADR 0069): with `display_manager` unset it
-// resolves to `auto` → greetd (Hyprland is present), asserted on its own via
-// the DM-OK marker rather than folded into the KDE artifact check.
+// manager is a separate axis (ADR 0069/0091): with `display_manager` unset it
+// resolves to `auto` → sddm (KDE is present; auto is desktop-aware), asserted
+// on its own via the DM-OK marker, not folded into the KDE artifact check.
 {
   "name": "arch-zfs-test-env-kde-hyprland-enc",
   "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
