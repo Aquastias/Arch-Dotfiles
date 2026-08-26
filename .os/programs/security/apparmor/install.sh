@@ -64,7 +64,7 @@ if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
       "in GRUB_CMDLINE_LINUX_DEFAULT."
   fi
 
-  if command -v grub-mkconfig &>/dev/null; then
+  if command_exists grub-mkconfig; then
     print_status info "Regenerating GRUB configuration at $GRUB_BOOT_CFG..."
     sudo grub-mkconfig -o "$GRUB_BOOT_CFG"
   fi
