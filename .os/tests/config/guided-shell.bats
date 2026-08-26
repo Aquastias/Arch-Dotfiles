@@ -724,15 +724,20 @@ write_answers() {
   echo "$output" | jq -e '.root_password == "12345"'
 }
 
-@test "_guided_user_names: lists committed users, excludes core" {
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+@test "_guided_user_names: lists committed users, excludes core + vm-* fixtures" {
+  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core" \
+    "$OS_DIR/users/vm-test" "$OS_DIR/users/vm-data"
   : > "$OS_DIR/users/alice/profile.jsonc"
   : > "$OS_DIR/users/core/profile.jsonc"
+  : > "$OS_DIR/users/vm-test/profile.jsonc"
+  : > "$OS_DIR/users/vm-data/profile.jsonc"
 
   run _guided_user_names
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "alice"
   ! echo "$output" | grep -qx "core"
+  ! echo "$output" | grep -qx "vm-test"
+  ! echo "$output" | grep -qx "vm-data"
 }
 
 # ── list builders: packages.repo.extra / host_programs / sysctl ───────────
