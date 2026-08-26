@@ -689,6 +689,13 @@ the Effective Config and passed in explicitly), never an unrelated disk that
 holds data. Run standalone it wipes only an explicitly selected target set,
 defaulting to nothing.
 
+### Installer Stdlib
+`.os/lib/common.sh`. Shared utility library for host-side install scripts and
+`lib/` modules — colour codes, `info/warn/error/section`, `confirm`,
+`pick_option`, `cfg/cfgo`, `part_name`, `command_exists`. **Not** sourced inside
+`arch-chroot` (that world uses `chroot-common.sh`). The installer-world twin of
+Shell Stdlib: same concepts, one stdlib per world, never shared across.
+
 ### Shell Stdlib
 `.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by
 the Program Runner (not by the install.sh itself), so program scripts get its
