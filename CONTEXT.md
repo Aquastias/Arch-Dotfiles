@@ -258,8 +258,9 @@ Declarative JSONC file at `.os/hosts/core/profile.jsonc`. Declares the base set
 of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
 (ADR 0056, amending ADR 0007 — whose "the lists are
 machine-specific" premise failed: `laptop` is a strict subset of `desktop`, 57
-repo packages in both and zero unique to laptop). Holds the 61 packages both
-machines share, so each Host Profile is a **delta** and `hosts/laptop` carries
+repo packages in both and zero unique to laptop). Holds the 63 packages both
+machines share (57 repo + 6 AUR), so each Host Profile is a **delta** and
+`hosts/laptop` carries
 no packages block at all. Every Host Profile is resolved over core by the
 [[Layer Resolver]] — core applies first, then the host profile per the ADR 0057
 per-key classification. A host drops something core declares via
@@ -486,13 +487,16 @@ host's `host_programs` field (renamed from `system_programs` by ADR 0085,
 completing ADR 0084's deferral). Usually declared in a Host Profile or Host
 Core. Marked `"kind": "host"` in its program config (the `"system": true` bool
 became a `kind` enum, ADR 0085). Only official repo packages (no AUR) should be
-Host Programs. Today exactly three qualify: `grub`, `cups`, `sops` — but only
-`grub`
-is authored. Two are selected implicitly rather than declared: the sops Program
-is secrets-activated — the Runner selects it when install-state records secrets
-(see SOPS Runtime Service, ADR 0025) — and `cups` is toggle-derived, injected
-into `host_programs` at assembly when `options.printing.enabled` is on (see
-[[Printing Service]], ADR 0079).
+Host Programs. The registry now marks **twelve** programs `kind: host`, reaching
+the install four ways. **Authored**: Host Core declares five free-standing base
+host programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
+0089), and a Host Profile declares `grub`. **Control-derived**, injected into
+`host_programs` at assembly and never in a committed list: `cups`/`bluetooth` by
+a Daemons toggle, `power-profiles-daemon`|`tuned` by the Power enum, `reflector`
+by the Mirrors & Repositories section (see [[Printing Service]] / [[Bluetooth
+Service]] / [[Power Profile]] / [[Mirror Service]] — ADR 0079/0080/0089).
+**Secrets-activated**: the sops Program, selected by the Runner when
+install-state records secrets (see SOPS Runtime Service, ADR 0025).
 
 The `system` flag is carried by the [[Program Registry]] and is
 **authoritative** (ADR 0058): a program's name resolves to exactly one kind,
@@ -513,8 +517,9 @@ Generalizes the `*_owned_programs` filter that already delisted `cups` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
 `sops` (secrets activation), and `reflector` (the Mirrors & Repositories
 section, ADR 0089 — its sole home, like cups' is Printing). The unconditional
-base host programs promoted in ADR 0089 (`ccache`, `fwupd`, `lact`,
-`smartmontools`) are the exception — free-standing `kind: host` programs owned
+base host programs promoted under ADR 0089's rule (`ccache`, `fwupd`,
+`gamemode`, `lact`, `smartmontools`) are the exception — free-standing
+`kind: host` programs owned
 by no control; they install via Host Core's `host_programs` and are dropped from
 a bare install by `inherit: false`. Consequence: no `kind: host` program is
 operator-pickable — the Guided Installer's
