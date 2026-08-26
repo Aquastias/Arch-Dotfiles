@@ -125,7 +125,7 @@ array, with one `users/<name>/profile.jsonc` each.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `kernel` | string \| array | `"lts"` | Flavour token(s): `lts`/`default`/`zen`/`hardened` |
-| `bootloader` | string | `"systemd-boot"` | `"systemd-boot"` or `"grub"` |
+| `bootloader` | string | `"systemd-boot"` | `systemd-boot`/`grub`/`efistub`/`limine`/`refind` (ADR 0077) |
 | `encryption` | bool | `false` | Encrypt OS volume (+ pools) |
 | `encryption_method` | string | *(fs-derived)* | `native` (ZFS AES) or `luks` (dm-crypt) |
 | `swap` | bool | `true` | Create swap (zvol on ZFS) |
@@ -135,8 +135,16 @@ array, with one `users/<name>/profile.jsonc` each.
 | `zswap.max_pool_percent` | int | `20` | zswap RAM budget (%) |
 | `esp_size` | string | `"2G"` | EFI partition size per OS disk |
 | `ssh.enabled` | bool | `false` | Enable + start sshd on the installed system |
-| `multilib` | bool | `true` | Enable the `[multilib]` repo |
+| `optional_repos` | array | `["multilib"]` | Extra pacman repos: `multilib`/`*-testing` (ADR 0072) |
 | `mirror_countries` | string \| array | *(near-DE set)* | `reflector --country` list |
+| `mirror_servers` | array | `[]` | Custom pacman `Server =` URLs, tried first (ADR 0072) |
+| `custom_repositories` | array | `[]` | Extra `{name,url,sign_check,sign_option}` repos (ADR 0072) |
+| `pacman.*` | object | *(see CONTEXT)* | pacman `[options]` flags + `parallel_downloads` (ADR 0074) |
+| `printing.enabled` | bool | `true` | Install `cups` + enable `cups.service` (ADR 0079) |
+| `bluetooth.enabled` | bool | `true` | Install `bluez` + enable `bluetooth.service` (ADR 0080) |
+| `power.profile` | string | `"power-profiles-daemon"` | `none`/`power-profiles-daemon`/`tuned` (ADR 0080) |
+| `fonts` | array | *(curated set)* | Font packages, multi-select (ADR 0080) |
+| `root_shell` | string | `"/bin/bash"` | Root login shell: `/bin/bash`/`/bin/zsh`/`/bin/fish` |
 | `age_key_url` | string | `""` | HTTPS URL for `.age` key (live-CD fallback) |
 | `impermanence.enabled` | bool | `false` | Rollback to `@blank` on every boot (ZFS/btrfs) |
 | `impermanence.dataset` | string | `"rpool/persist"` | Persist dataset name |
@@ -152,8 +160,10 @@ CONTEXT.md.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `desktop` | varies | `null` | `"kde"` or `null` |
-| `gpu` | varies | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
+| `desktop` | string \| array | `[]` | `"kde"`/`"hyprland"`/`"niri"` (array = co-install), or `null` |
+| `gpu` | string \| array | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
+| `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`sddm` (ADR 0069/0091) |
+| `niri_shell` | string | `"noctalia"` | Noctalia work shell on niri: `noctalia`/`none` (ADR 0090) |
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
@@ -247,8 +257,8 @@ ADR 0022):
 }
 ```
 
-Both are deduplicated against the hardcoded Base Package List
-(`lib/packages/list.sh`) and the resolved `gpu`/`audio` groups (derived
+Both are deduplicated against the Base Package List
+(`lib/packages/base.sh`) and the resolved `gpu`/`audio` groups (derived
 from `environment` — never authored by hand). Renaming a category does
 not change what installs; a shape or leaf-type violation aborts at
 config-load with the offending path. The Guided Installer also accepts a
@@ -291,7 +301,7 @@ listed here: it is secrets-activated (installed only when a
 
 ```
 /dev/sda
-├── p1  [ESP  512M ]  → /boot/efi   (FAT32, systemd-boot)
+├── p1  [ESP  2G   ]  → /boot/efi   (FAT32, systemd-boot)
 ├── p2  [rpool Xg  ]  → /           (ZFS: /, /home, /var, swap)
 └── p3  [dpool rest]  → /data        (ZFS: storage)
 ```
