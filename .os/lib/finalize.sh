@@ -34,10 +34,10 @@ finalize() {
   ((esp_count >= 1)) && umount "${MOUNT_ROOT}/boot/efi" 2>/dev/null || true
 
   # ── Unmount the installed root ────────────────────────────────────────────
-  if command -v zpool >/dev/null 2>&1; then
+  if command_exists zpool; then
     # Drop NON-zfs data-group mounts under the install root first (ADR 0043) —
     # see _finalize_nonzfs_mounts.
-    if command -v findmnt >/dev/null 2>&1; then
+    if command_exists findmnt; then
       local _mp
       while IFS= read -r _mp; do
         [[ -n "$_mp" ]] || continue
@@ -76,7 +76,7 @@ finalize() {
   # ── Pool import recovery hint (ZFS only) ──────────────────────────────────
   # Shown in case zfs-import-cache doesn't find the pools on first boot
   # (e.g. if /etc/zfs/zpool.cache was missing or the hostid changed).
-  if command -v zpool >/dev/null 2>&1; then
+  if command_exists zpool; then
     warn "If ZFS pools fail to import on first boot, boot the live ISO and run:"
     echo "    zpool import -f ${LAYOUT_OS_POOL_NAME}"
     local dp2

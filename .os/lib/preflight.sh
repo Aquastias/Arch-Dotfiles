@@ -82,7 +82,7 @@ preflight_ensure_host_tools() {
     cmd="${spec%%:*}"
     pkg="${spec#*:}"
     [[ "$pkg" == "$spec" ]] && pkg="$cmd"
-    command -v "$cmd" >/dev/null 2>&1 \
+    command_exists "$cmd" \
       || { missing_cmds+=("$cmd"); missing_pkgs+=("$pkg"); }
   done
   ((${#missing_pkgs[@]})) || return 0
@@ -92,7 +92,7 @@ preflight_ensure_host_tools() {
 
   # No pacman → not an Arch live medium (e.g. a dev box). Don't install; list
   # the packages to provide and stop.
-  if ! command -v pacman >/dev/null 2>&1; then
+  if ! command_exists pacman; then
     echo -e "${RED:-}[preflight]${NC:-} no pacman — not an Arch live medium." >&2
     echo "  Install these packages and re-run: ${missing_pkgs[*]}" >&2
     return 1
@@ -111,7 +111,7 @@ preflight_ensure_host_tools() {
   # absent — verify each originally-missing command resolves before we hand off.
   local -a still=()
   for cmd in "${missing_cmds[@]}"; do
-    command -v "$cmd" >/dev/null 2>&1 || still+=("$cmd")
+    command_exists "$cmd" || still+=("$cmd")
   done
   if ((${#still[@]})); then
     echo -e "${RED:-}[preflight]${NC:-} still missing after install:" \

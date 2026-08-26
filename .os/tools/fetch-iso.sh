@@ -52,8 +52,8 @@ fetch_iso_run() {
 # Only this step needs root; the download itself runs unprivileged.
 fetch_iso_ensure_deps() {
   local need=()
-  command -v jq   >/dev/null 2>&1 || need+=(jq)
-  command -v curl >/dev/null 2>&1 || need+=(curl)
+  command_exists jq   || need+=(jq)
+  command_exists curl || need+=(curl)
   ((${#need[@]})) || return 0
   info "Installing missing dependencies: ${need[*]}"
   sudo pacman -Sy --noconfirm "${need[@]}"

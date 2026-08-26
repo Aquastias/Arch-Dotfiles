@@ -272,7 +272,7 @@ _zpool_create() {
   # label + zpool.cache survive disk-enumeration reordering across reboots
   # (ADR 0028). Settle udev first so the freshly-created -partN by-id symlinks
   # exist. SC2086 (intentional): word-split the controlled vdev_spec into tokens.
-  command -v udevadm >/dev/null 2>&1 && udevadm settle 2>/dev/null || true
+  command_exists udevadm && udevadm settle 2>/dev/null || true
   # shellcheck disable=SC2086
   vdev_spec="$(_zpool_translate_vdev $vdev_spec)"
 

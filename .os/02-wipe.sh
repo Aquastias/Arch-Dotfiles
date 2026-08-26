@@ -321,7 +321,7 @@ _wipe_mounts_under_mnt() {
   findmnt -rno TARGET 2>/dev/null | grep -E '^/mnt(/|$)' || true
 }
 _wipe_pools_altroot_mnt() {
-  command -v zpool &>/dev/null || return 0
+  command_exists zpool || return 0
   zpool list -H -o name,altroot 2>/dev/null \
     | awk '$2 ~ /^\/mnt(\/|$)/ {print $1}'
 }
@@ -361,7 +361,7 @@ reset_prior_install_state() {
   fi
 
   # 1. swapoff any swap backed by a zvol (e.g. /dev/zvol/rpool/swap).
-  if command -v swapon &>/dev/null; then
+  if command_exists swapon; then
     local _sw
     while IFS= read -r _sw; do
       [[ -n "$_sw" ]] && { swapoff "$_sw" 2>/dev/null || true; }
@@ -457,7 +457,7 @@ main() {
   [[ $EUID -eq 0 ]] || error "Run as root."
   local cmd
   for cmd in lsblk wipefs sgdisk dd blockdev partprobe blkdiscard; do
-    command -v "$cmd" &>/dev/null || error "Required tool not found: $cmd"
+    command_exists "$cmd" || error "Required tool not found: $cmd"
   done
 
   # Clear any leftover /mnt install env from a failed run so the target disk

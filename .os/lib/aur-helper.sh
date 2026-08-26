@@ -13,7 +13,7 @@
 _profiles_detect_helper() {
   local h
   for h in paru yay; do
-    if command -v "$h" >/dev/null 2>&1; then
+    if command_exists "$h"; then
       printf '%s\n' "$h"
       return 0
     fi
