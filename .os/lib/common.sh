@@ -80,6 +80,12 @@ pick_option() {
   done
 }
 
+# ── Command utilities ─────────────────────────────────────────────────────────
+
+# True if <cmd> resolves on PATH. Installer-world twin of Shell Stdlib's
+# command_exists (one helper per world; see docs/agents/shell-commons.md).
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+
 # ── Config accessors ──────────────────────────────────────────────────────────
 # Both functions require CONFIG_FILE to be set before use.
 

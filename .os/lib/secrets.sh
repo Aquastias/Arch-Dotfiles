@@ -19,8 +19,8 @@ _SECRETS_USER_NAMES=()
 # Arch ISO ships neither age nor sops; install them on demand.
 _secrets_install_tools() {
   local -a pkgs=()
-  command -v age  >/dev/null 2>&1 || pkgs+=("age")
-  command -v sops >/dev/null 2>&1 || pkgs+=("sops")
+  command_exists age  || pkgs+=("age")
+  command_exists sops || pkgs+=("sops")
   [[ ${#pkgs[@]} -eq 0 ]] && return 0
   echo "[secrets] installing on live ISO: ${pkgs[*]}" >&2
   pacman -Sy --noconfirm --needed "${pkgs[@]}" >&2
@@ -189,7 +189,7 @@ secrets_print_machine_key() {
   [[ -f "$key_file" ]] || return 0
 
   local pub_key=""
-  if command -v age-keygen &>/dev/null; then
+  if command_exists age-keygen; then
     pub_key="$(age-keygen -y "$key_file" 2>/dev/null)" || true
   fi
   if [[ -z "$pub_key" ]]; then

@@ -57,7 +57,7 @@ load_config() {
       "file (./install.sh <config>) or a profile (./install.sh --profile" \
       "<name>)."
   fi
-  command -v jq &>/dev/null ||
+  command_exists jq ||
     error "'jq' not found. Run 01-bootstrap-zfs.sh first."
   jsonc_strip "$CONFIG_FILE" | jq empty 2>/dev/null ||
     error "Invalid JSON: $CONFIG_FILE"

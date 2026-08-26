@@ -956,7 +956,7 @@ guided_run_persistent() {
   # Empty (race / no pacman) → the pkgbrowse render falls back to a live query.
   export GUIDED_PKGLIST_FILE
   GUIDED_PKGLIST_FILE="$(mktemp "${TMPDIR:-/tmp}/guided-pkglist.XXXXXX")"
-  command -v pacman >/dev/null 2>&1 \
+  command_exists pacman \
     && (pacman -Slq >"$GUIDED_PKGLIST_FILE" 2>/dev/null &)
   # Derived-set cache for the package browser (ADR 0086): resolving the derived
   # packages is the expensive part of that screen's render, and it is invariant

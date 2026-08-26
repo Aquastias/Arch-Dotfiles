@@ -28,7 +28,7 @@ declare -F progress_line >/dev/null 2>&1 \
 
 teardown_zfs() {
   local disk="$1"
-  command -v zpool &>/dev/null || return 0
+  command_exists zpool || return 0
 
   # Destroy any already-imported pools using this disk.
   # Pool names cannot contain whitespace, so word-splitting is safe.
@@ -58,7 +58,7 @@ teardown_zfs() {
 
 teardown_lvm() {
   local disk="$1"
-  command -v pvs &>/dev/null || return 0
+  command_exists pvs || return 0
   while IFS= read -r pv; do
     local vg
     vg="$(pvs --noheadings -o vg_name "$pv" 2>/dev/null | xargs || true)"
@@ -73,7 +73,7 @@ teardown_lvm() {
 
 teardown_mdraid() {
   local disk="$1"
-  command -v mdadm &>/dev/null || return 0
+  command_exists mdadm || return 0
   while IFS= read -r part; do
     local md
     md="$(mdadm --query "/dev/${part}" 2>/dev/null |

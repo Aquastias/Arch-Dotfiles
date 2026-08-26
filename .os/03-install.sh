@@ -121,7 +121,7 @@ main() {
     || error "Not in UEFI mode. Reboot and select a UEFI entry."
 
   # Install jq only if missing — skip the slow pacman -Sy if already present
-  if ! command -v jq &>/dev/null; then
+  if ! command_exists jq; then
     info "Installing jq..."
     pacman -S --noconfirm --needed jq \
       || error "Failed to install jq. Run 01-bootstrap-zfs.sh first."

@@ -287,7 +287,7 @@ configure_system() {
   # is built, otherwise the ZFS hook cannot import the pool at boot. The archzfs
   # repo config is copied so the new system can update ZFS packages. A pure
   # non-ZFS install has no zpool / hostid / archzfs repo to seed (ADR 0043).
-  if command -v zpool >/dev/null 2>&1; then
+  if command_exists zpool; then
     local _pools=()
     mapfile -t _pools < <(zpool list -H -o name)
     _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
