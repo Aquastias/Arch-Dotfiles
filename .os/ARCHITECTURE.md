@@ -246,7 +246,7 @@ flowchart TD
 
   HE["effective host profile<br/>(core + host, merged)"]:::eff
 
-  BASE["Base Package List<br/>hardcoded lib/packages/list.sh"]:::set
+  BASE["Base Package List<br/>lib/packages/base.sh"]:::set
   GPU["resolved gpu group<br/>(environment.gpu)"]:::set
   AUD["resolved audio group<br/>(environment.desktop)"]:::set
   PAC["pacstrap set (dedupe)"]:::set

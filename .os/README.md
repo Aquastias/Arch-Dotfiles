@@ -68,8 +68,9 @@ install.sh                  Entry point. Front-ends (--profile /
     │   └─ nonzfs/{root,boot,data,plan,devices,datacrypt}.sh
     ├─ lib/zfs/             pools.sh, module.sh, verify.sh,
     │                       pool-owners.sh
-    ├─ lib/packages/        list.sh (collect+pacstrap), kernel.sh,
-    │                       microcode.sh, iso-resolver.sh
+    ├─ lib/packages/        list.sh (collect+pacstrap), base.sh
+    │                       (Base Package List), kernel.sh, microcode.sh,
+    │                       gpu.sh, audio.sh, filesystem.sh, iso-resolver.sh
     ├─ lib/boot/            esp-kernel-sync.sh, stray-kernel.sh,
     │                       zswap.sh
     ├─ lib/wipe/            targets.sh, method.sh, execute.sh, …
@@ -90,8 +91,9 @@ Scripts inside `lib/chroot/` (staged into the new root and run by
 - `base-services.sh`    — NetworkManager, cron, ssh, etc.
 - `zfs-import.sh`       — boot-time ZFS import wiring
 - `udisks.sh`           — udisks/mount policy
-- `bootloader-systemd-boot.sh` — selected by `options.bootloader`
-- `bootloader-grub.sh`  — selected by `options.bootloader`
+- `bootloader-<name>.sh` — one per loader (`systemd-boot`, `grub`,
+                          `efistub`, `limine`, `refind`), selected by
+                          `options.bootloader` (ADR 0077)
 - `password.sh`         — root password (host secrets or prompt)
 - `create-user.sh`      — per-user creation (shell, groups,
                           sudo, password, SSH identity)
@@ -431,8 +433,9 @@ every boot without the USB.
 │   │                       #   xfs/nonzfs) + core.sh + dispatch.sh
 │   │                       #   + data-pools.sh (standalone pools)
 │   ├── zfs/                # pools, module guard, verify, pool-owners
-│   ├── packages/           # list (collect+pacstrap), kernel,
-│   │                       #   microcode, iso-resolver
+│   ├── packages/           # list (collect+pacstrap), base (Base
+│   │                       #   Package List), kernel, microcode,
+│   │                       #   gpu, audio, filesystem, iso-resolver
 │   ├── boot/               # esp-kernel-sync, stray-kernel, zswap
 │   ├── wipe/               # targets, method, execute, progress
 │   ├── profiles/           # runner + program-runner
@@ -449,7 +452,8 @@ every boot without the USB.
 │   ├── core/               # Shared base for all hosts
 │   ├── desktop/            # eterniox
 │   ├── laptop/
-│   └── vm/                 # arch-kde, arch-secure, …
+│   ├── minimal/            # Desktop-less base install
+│   └── vm/                 # arch-kde, arch-secure, arch-data
 │
 ├── users/                  # Per-user config
 │   ├── core/               # Shared base for all users
@@ -460,19 +464,25 @@ every boot without the USB.
 │   ├── backup/             # borg, zfs-auto-snapshot
 │   ├── bootloader/         # grub
 │   ├── communication/      # teamspeak3
-│   ├── office/
+│   ├── dev/                # ccache
+│   ├── gaming/             # gamemode
+│   ├── power/              # power-profiles-daemon, tuned
+│   ├── printing/           # cups
 │   ├── privacy/            # searxng
 │   ├── security/           # apparmor, clamav, firewalld,
 │   │                       # rkhunter, sops, ufw
+│   ├── system/             # bluetooth, fwupd, lact, reflector,
+│   │                       # smartmontools
 │   └── virtualization/     # docker, podman, virt-manager
 │
-├── extras/                 # In-chroot extras (DE adapters)
-│   └── desktop/
-│       └── kde/kde.sh      # KDE Plasma 6 + SDDM
+├── extras/                 # In-chroot extras (DE + DM adapters)
+│   ├── desktop/            # kde/, hyprland/, niri/  (<de>/<de>.sh)
+│   └── dm/                 # greetd/, sddm/  (<dm>/<dm>.sh)
 │
 ├── tools/                  # Operator utilities (runtime)
 │   ├── save-pkglist.sh     # Snapshot current packages
 │   ├── install-pkglist.sh  # Restore packages from txt
+│   ├── explain-packages.sh # Package Resolver CLI (provenance)
 │   ├── impermanence.sh     # add/remove/status/apply-defaults
 │   ├── fetch-iso.sh        # Download + verify archzfs ISO
 │   ├── generate-configs.sh # Materialize per-user stow tree
@@ -554,15 +564,18 @@ Set under `environment` in the host profile:
 
 ```json
 "environment": {
-  "desktop": "kde",          // or ["kde"], or null
-  "gpu":     "auto"          // or "amd"/"nvidia"/"intel"/array
+  "desktop":         "kde",   // "kde"/"hyprland"/"niri", array, or null
+  "gpu":             "auto",  // or "amd"/"nvidia"/"intel"/array
+  "display_manager": "auto"   // "auto"/"greetd"/"sddm"
 }
 ```
 
 Each desktop dispatches dynamically to `extras/desktop/<de>/
-<de>.sh`. Audio (PipeWire) is auto-derived when any desktop is
-selected; GPU drivers are auto-detected with `"auto"`. Display
-manager is chosen per the adapter (SDDM for KDE).
+<de>.sh`; the display manager is a separate `extras/dm/<dm>/<dm>.sh`
+adapter (ADR 0069). Audio (PipeWire) is auto-derived when any
+desktop is selected; GPU drivers are auto-detected with `"auto"`.
+`display_manager: "auto"` is desktop-aware — SDDM when KDE is in the
+set, else greetd, and none for a desktop-less install (ADR 0091).
 
 ### Impermanence
 

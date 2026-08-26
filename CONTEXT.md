@@ -268,9 +268,10 @@ per-key classification. A host drops something core declares via
 out of the inherited package set wholesale with `packages.inherit: false`
 (scoped to packages — they still inherit core's users and sysctl). Also the
 Guided Installer's menu baseline (ADR 0058), so everything core installs is
-visible and deselectable in the menu. Core declares **no** Host Programs: its
-`host_programs` is empty since `cups` — once its sole entry — became a
-toggle-derived Host Program with its own menu home (ADR 0079).
+visible and deselectable in the menu. Core declares **five** free-standing base
+Host Programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
+0089); `cups`, once its sole entry, has since moved out to a toggle-derived Host
+Program with its own menu home (ADR 0079).
 
 ### Layer Resolver
 `.os/lib/config/layer-resolver.sh`. The pure module answering "given Host Core
@@ -620,7 +621,7 @@ The in-memory index built once per run by `configs_build_registry`
 **and** its `kind`. Exposes `program_kind <name>` → `host` | `user` |
 `none`, and `program_names_of_kind <kind>`. Backs the exclusivity validator,
 both Guided Installer program pickers, and the [[Package Resolver]], so a menu
-render never re-parses fifteen `config.jsonc` files.
+render never re-parses twenty-four `config.jsonc` files.
 
 ### User Program
 A program installed for a specific user via the AUR Helper inside the chroot.
@@ -697,9 +698,12 @@ defaulting to nothing.
 Shell Stdlib: same concepts, one stdlib per world, never shared across.
 
 ### Shell Stdlib
-`.os/lib/shell-stdlib.sh`. Shared utility library. Sourced once per program by
-the Program Runner (not by the install.sh itself), so program scripts get its
-helpers without their own source line.
+`.os/lib/shell-stdlib.sh` — a **facade** that sources the domain modules under
+`lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`, `packages.sh`,
+`notifications.sh`). Shared utility library sourced once per program by the
+Program Runner (not by the install.sh itself), so program scripts get its
+helpers (`print_status`, `command_exists`, package/permission/notification
+helpers) without their own source line.
 
 ### Program Install Script
 `install.sh` inside each `.os/programs/<category>/<name>/`. Source of truth for
@@ -1623,9 +1627,9 @@ _Avoid_: System.
 
 - "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now
   two shared bases and they are different layers, not competitors. The **Base
-  Package List** (hardcoded in `lib/packages/list.sh`) is what the *installer*
-  needs on any host it builds. **Host Core**'s `packages` object is what this
-  *fleet* wants on every real machine. ADR 0007's rule that Host Core carries no
+  Package List** (the pure `lib/packages/base.sh:base_packages` map) is what the
+  *installer* needs on any host it builds. **Host Core**'s `packages` object is
+  what this *fleet* wants on every real machine. ADR 0007's rule that Host Core carries no
   package list is **superseded**: its "the lists are machine-specific" premise
   failed against the actual fleet (`laptop` is a strict subset of `desktop`).
   A VM fixture takes the first and opts out of the second via
