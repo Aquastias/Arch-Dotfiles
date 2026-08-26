@@ -19,3 +19,7 @@ Installer (`.os/`) comments are compact: keep the non-obvious *why* + its `(ADR 
 ### Arch Wiki grounding
 
 Package/config/service decisions trace to the Arch Wiki — fetch the page, don't recall it. Covers program specs (`.os/programs/`, per `PROGRAM_SPEC.md`) and bare `packages.*` additions. See `docs/agents/arch-wiki.md`.
+
+### Shell commons
+
+Reuse a Commons helper before writing a new one; put new helpers in the right world (Installer Stdlib vs Shell Stdlib) and don't merge across execution-context boundaries. See `docs/agents/shell-commons.md`.
