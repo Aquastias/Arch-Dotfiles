@@ -915,13 +915,14 @@ at config-load time; resolves into the derived `GPU_PACMAN_PACKAGES` and
 `AUDIO_PACKAGES` sets before pacstrap. These are internal, never authorable —
 they used to share the `packages.groups` namespace, which made a derived set
 look like something the operator declares; that key is gone and authoring it
-aborts at load (ADR 0056). Valid desktop values: `"kde"` (the sole supported
-desktop —
-still array-shaped so a future DE stays zero-runner-change, ADR 0005/0050).
-Valid GPU values: `"amd"`, `"nvidia"`, `"intel"`, `["amd",
-"nvidia"]`, or `"auto"`. Valid `display_manager` values: `"auto"` (default —
-`greetd` if Hyprland is selected, else `sddm`, `none` if no desktop), `"greetd"`,
-`"sddm"` (ADR 0069). Replaces `post_install.desktop` from the previous schema.
+aborts at load (ADR 0056). Valid desktop values: `"kde"`, `"hyprland"`, `"niri"`
+(array-shaped, multi-select co-installs allowed; adding a DE stays
+zero-runner-change, ADR 0005/0062/0090). Valid GPU values: `"amd"`, `"nvidia"`,
+`"intel"`, `["amd", "nvidia"]`, or `"auto"`. Valid `display_manager` values:
+`"auto"` (default — desktop-aware: `sddm` when `kde` is present, else `greetd`
+for a KDE-free set; `none` if no desktop, ADR 0091), `"greetd"`, `"sddm"` (ADR
+0069). Valid `niri_shell` values: `"noctalia"` (default) | `"none"` (ADR 0090).
+Replaces `post_install.desktop` from the previous schema.
 
 ### Desktop Environment Adapter
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
@@ -1621,8 +1622,8 @@ _Avoid_: System.
   since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
-  Host Profile (ADR 0021). KDE and Hyprland are the adapters (Hyprland re-added,
-  ADR 0062, superseding the ADR 0050 removal).
+  Host Profile (ADR 0021). KDE, Hyprland, and niri are the adapters (Hyprland
+  re-added ADR 0062 superseding the ADR 0050 removal; niri added ADR 0090).
 - `host_profile` now lives at one layer only (ADR 0036): it is a **VM Profile**
   key naming a real host directory, which the unified Profile Loader resolves to
   that machine's **Host Profile** (the picker assembles the **Effective Config**
