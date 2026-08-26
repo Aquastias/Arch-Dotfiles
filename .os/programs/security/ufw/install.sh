@@ -52,7 +52,7 @@ print_status info "Adding NAT masquerading for libvirt VMs..."
 # known-good default for the chroot phase. Override via UFW_EXT_IF env var.
 EXT_IF="${UFW_EXT_IF:-}"
 if [[ -z "$EXT_IF" ]]; then
-  if command -v ip &>/dev/null; then
+  if command_exists ip; then
     EXT_IF="$(ip route show default 0.0.0.0/0 2>/dev/null \
       | awk '{for(i=1;i<=NF;i++){if($i=="dev"){print $(i+1); exit}}}')"
   fi
