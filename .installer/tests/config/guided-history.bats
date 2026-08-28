@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/history.sh — the Guided Installer's Undo/Redo
+# Tests for .installer/lib/config/history.sh — the Guided Installer's Undo/Redo
 # snapshot stack (ADR 0039, issue 02): a past/present/future history over the
 # Config State, so navigation is non-destructive. Every mutating action is one
 # commit (one undo step); a fresh edit after an undo clears the redo stack;

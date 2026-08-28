@@ -39,7 +39,7 @@ _flow_render_user_data() {
   layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"
   if [[ "$layout" != "single" ]]; then
     [[ "$(type -t skeleton_total_disks)" == function ]] \
-      || source "$OS_DIR/lib/config/skeleton.sh"
+      || source "$INSTALLER_DIR/lib/config/skeleton.sh"
     n_disks="$(skeleton_total_disks "$(skeleton_preset "$layout")")"
   fi
   # guided_user (issue 07) names an ad-hoc user + passwords the replay authors;

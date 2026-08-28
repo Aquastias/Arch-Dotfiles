@@ -13,12 +13,12 @@
 # See docs/agents/test-regression-catalog.md.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR SCRIPT_DIR="$OS_DIR"
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR SCRIPT_DIR="$INSTALLER_DIR"
   # shellcheck source=../../lib/matrix/generator.sh
-  source "$OS_DIR/lib/matrix/generator.sh"
+  source "$INSTALLER_DIR/lib/matrix/generator.sh"
   # shellcheck source=../../lib/matrix/assemble.sh
-  source "$OS_DIR/lib/matrix/assemble.sh"
+  source "$INSTALLER_DIR/lib/matrix/assemble.sh"
 }
 
 # _base_cells — plaintext, non-impermanent, no-data-pool cells: the fs ×
@@ -41,10 +41,10 @@ _summary_unbound() {
   matrix_cell_assemble "$cell" > "$cfg"
   (
     export CONFIG_FILE="$cfg"
-    source "$OS_DIR/lib/common.sh"
-    source "$OS_DIR/lib/config/categorized-list.sh"
-    source "$OS_DIR/lib/config/accessors.sh"
-    source "$OS_DIR/lib/config/lifecycle.sh"
+    source "$INSTALLER_DIR/lib/common.sh"
+    source "$INSTALLER_DIR/lib/config/categorized-list.sh"
+    source "$INSTALLER_DIR/lib/config/accessors.sh"
+    source "$INSTALLER_DIR/lib/config/lifecycle.sh"
     lsblk() { echo 20G; }   # no real block device in the harness
     load_config >/dev/null 2>&1
     detect_mode  >/dev/null 2>&1
@@ -78,11 +78,11 @@ _summary_unbound() {
   cfg="$(mktemp "$BATS_TEST_TMPDIR/cfg.XXXXXX")"
   matrix_cell_assemble "$cell" > "$cfg"
   run bash -uc "
-    export OS_DIR='$OS_DIR' SCRIPT_DIR='$OS_DIR' CONFIG_FILE='$cfg'
-    source '$OS_DIR/lib/common.sh'
-    source '$OS_DIR/lib/config/categorized-list.sh'
-    source '$OS_DIR/lib/config/accessors.sh'
-    source '$OS_DIR/lib/config/lifecycle.sh'
+    export INSTALLER_DIR='$INSTALLER_DIR' SCRIPT_DIR='$INSTALLER_DIR' CONFIG_FILE='$cfg'
+    source '$INSTALLER_DIR/lib/common.sh'
+    source '$INSTALLER_DIR/lib/config/categorized-list.sh'
+    source '$INSTALLER_DIR/lib/config/accessors.sh'
+    source '$INSTALLER_DIR/lib/config/lifecycle.sh'
     lsblk() { echo 20G; }
     load_config >/dev/null 2>&1
     INSTALL_MODE=multi

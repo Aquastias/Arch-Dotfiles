@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/packages/iso-resolver.sh — latest-Arch-ISO resolver.
+# Tests for .installer/lib/packages/iso-resolver.sh — latest-Arch-ISO resolver.
 #
 # Test strategy: override the two internal seams
 # (_iso_resolver_resolve_url, _iso_resolver_download) to simulate HEAD

@@ -1,6 +1,6 @@
 # Comment Style
 
-How comments are written in the installer (`.os/`). The style is compact:
+How comments are written in the installer (`.installer/`). The style is compact:
 say the non-obvious *why* once, anchor it to an ADR, and stop. This doc is the
 convention a `docs(installer): Compact comments` pass produced and future edits
 should hold to, so comments don't re-inflate.

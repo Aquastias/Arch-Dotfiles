@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/display.sh — the Display Label formatter (PRD
+# Tests for .installer/lib/config/display.sh — the Display Label formatter (PRD
 # guided-installer-legion-fixes). Pure: token in, display string out. No fzf,
 # no state. Covers curated acronyms, sentence-case + acronym words, the
 # first-letter fallback, technical/free-text passthrough, and reverse lookup.

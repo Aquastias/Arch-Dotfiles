@@ -29,7 +29,7 @@ _secrets_install_tools() {
 secrets_load() {
   local profile="$1"
 
-  local host_sec="${OS_DIR}/hosts/${profile}/secrets.json"
+  local host_sec="${INSTALLER_DIR}/hosts/${profile}/secrets.json"
   local -a user_secs=() user_names=()
 
   # Scope user secrets to the users this host declares (mirrors run_profiles'
@@ -41,7 +41,7 @@ secrets_load() {
   if host_json="$(load_profile "$profile" 2>/dev/null)"; then
     while IFS= read -r u; do
       [[ -n "$u" ]] || continue
-      uf="${OS_DIR}/users/${u}/secrets.json"
+      uf="${INSTALLER_DIR}/users/${u}/secrets.json"
       [[ -f "$uf" ]] && { user_secs+=("$uf"); user_names+=("$u"); }
     done < <(printf '%s' "$host_json" | jq -r '.users[]?')
   fi
@@ -200,6 +200,6 @@ secrets_print_machine_key() {
   echo ""
   echo "==> Machine age public key: ${pub_key}"
   echo "==> Run: sops updatekeys" \
-       ".os/users/*/secrets.json .os/hosts/*/secrets.json"
+       ".installer/users/*/secrets.json .installer/hosts/*/secrets.json"
   echo "==> Then update .sops.yaml to include this key and commit."
 }

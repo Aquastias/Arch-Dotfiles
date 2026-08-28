@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/jsonc.sh — JSONC comment stripping and field reading.
+# Tests for .installer/lib/jsonc.sh — JSONC comment stripping and field reading.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/boot/bootloaders.sh — the Bootloader Manifest (ADR 0077).
+# Tests for .installer/lib/boot/bootloaders.sh — the Bootloader Manifest (ADR 0077).
 # Pure token table: options.bootloader value → EFI loader path, package set,
 # ESP-entry style, and whether the loader boots from the FAT ESP (ESP-mirroring)
 # or reads /boot natively (grub). Sourced host-side (package resolver / list)

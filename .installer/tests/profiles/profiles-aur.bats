@@ -3,13 +3,13 @@
 #
 # Pure resolver: unions host packages.aur (categorized string mode) with each
 # desktop adapter's `aur` field (categorized bool mode), read from
-# ${OS_DIR}/extras/desktop/<de>/install-<de>.jsonc. Sorted-unique on stdout;
+# ${INSTALLER_DIR}/extras/desktop/<de>/install-<de>.jsonc. Sorted-unique on stdout;
 # missing host field / adapter file / adapter field contribute nothing.
 # Asserts on the resolved set — paru never runs.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR/os"
+  export INSTALLER_DIR="$TEST_DIR/os"
 
   # shellcheck source=../../lib/common.sh
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
@@ -24,8 +24,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 # Write an adapter install-<de>.jsonc with the given JSON body.
 _adapter() {
   local de="$1" body="$2"
-  mkdir -p "$OS_DIR/extras/desktop/${de}"
-  printf '%s\n' "$body" > "$OS_DIR/extras/desktop/${de}/install-${de}.jsonc"
+  mkdir -p "$INSTALLER_DIR/extras/desktop/${de}"
+  printf '%s\n' "$body" > "$INSTALLER_DIR/extras/desktop/${de}/install-${de}.jsonc"
 }
 
 @test "adapter-declared AUR package appears in the resolved set" {
@@ -91,14 +91,14 @@ _adapter() {
 # profiles, because it is DE-tied and should not install on a non-KDE host.
 
 @test "qt6ct-kde resolves under kde via the real adapter" {
-  OS_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
   run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   grep -qx "qt6ct-kde" <<< "$output"
 }
 
 @test "qt6ct-kde does not resolve under a non-kde DE" {
-  OS_DIR="$BATS_TEST_DIRNAME/../.."
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   run _profiles_resolve_aur '{}' nonexistent-de
   [ "$status" -eq 0 ]
   ! grep -qx "qt6ct-kde" <<< "$output"
@@ -112,7 +112,7 @@ _adapter() {
 }
 
 @test "octopi is host-declared now, not adapter-owned" {
-  OS_DIR="$BATS_TEST_DIRNAME/../.."
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   ! grep -qx "octopi" <<< "$output"

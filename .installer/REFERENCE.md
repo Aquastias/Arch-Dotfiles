@@ -545,7 +545,7 @@ Declared as **Security & Backup Extras** — a `post_install.backup`
 object (ADR 0041), installed via the Primary User's paru pass:
 
 ```jsonc
-// .os/hosts/<name>/profile.jsonc
+// .installer/hosts/<name>/profile.jsonc
 "post_install": { "backup": { "zfs-auto-snapshot": true, "borg": true } }
 ```
 

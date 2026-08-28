@@ -25,7 +25,7 @@
 #   Programs do not need to source stdlib themselves.
 #
 # Exports inside arch-chroot for each program install.sh:
-#   OS_DIR, PROGRAMS, SHELL_COMMONS
+#   INSTALLER_DIR, PROGRAMS, SHELL_COMMONS
 #   AUR_HELPER (user-program path only) — the resolved AUR Helper (ADR 0052),
 #     paru or yay, for scripts that install via `${AUR_HELPER} -S`.
 # =============================================================================
@@ -50,7 +50,7 @@ declare -F fonts_aur_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
-readonly _PROFILES_RUNTIME_DIR="/var/tmp/.os-runtime"
+readonly _PROFILES_RUNTIME_DIR="/var/tmp/.installer-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 # Paths (relative to the runtime root) that constitute a valid staged tree.
 # Both _profiles_stage_runtime and validate_staging iterate this array so the
@@ -95,15 +95,15 @@ _profiles_stage_runtime() {
   local target="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
   rm -rf "$target"
   mkdir -p "$target/lib"
-  if [[ -d "${OS_DIR}/programs" ]]; then
-    cp -r "${OS_DIR}/programs" "$target/programs"
+  if [[ -d "${INSTALLER_DIR}/programs" ]]; then
+    cp -r "${INSTALLER_DIR}/programs" "$target/programs"
   else
     mkdir -p "$target/programs"
   fi
   local f
   for f in "${_STAGED_RUNTIME_FILES[@]}"; do
     mkdir -p "$(dirname "$target/${f}")"
-    cp -r "${OS_DIR}/${f}" "$target/${f}"
+    cp -r "${INSTALLER_DIR}/${f}" "$target/${f}"
   done
   chmod +x "$target/lib/profiles/program-runner.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
@@ -183,7 +183,7 @@ _profiles_resolve_post_install() {
 
 # Pure resolver for the Runner AUR pass. Unions host packages.aur (categorized
 # string mode) with each desktop adapter's `aur` field (categorized bool mode),
-# read from ${OS_DIR}/extras/desktop/<de>/install-<de>.jsonc. Prints the
+# read from ${INSTALLER_DIR}/extras/desktop/<de>/install-<de>.jsonc. Prints the
 # sorted-unique union, one per line. A missing host field, adapter file, or
 # adapter `aur` field contributes nothing. Parses are captured by command
 # substitution (not process substitution) so a parser error() abort propagates
@@ -203,7 +203,7 @@ _profiles_resolve_aur() {
 
   local de adapter aur_json
   for de in "$@"; do
-    adapter="${OS_DIR}/extras/desktop/${de}/install-${de}.jsonc"
+    adapter="${INSTALLER_DIR}/extras/desktop/${de}/install-${de}.jsonc"
     [[ -f "$adapter" ]] || continue
     aur_json="$(jsonc_strip "$adapter" | jq -c '.aur // empty')"
     [[ -n "$aur_json" ]] || continue
@@ -277,9 +277,9 @@ _profiles_install_host_program() {
   local prog="$1"
   local rel
   rel="$(resolve_program "$prog")"
-  info "Installing Host Program: ${prog}  (.os/programs/${rel})"
+  info "Installing Host Program: ${prog}  (.installer/programs/${rel})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/env \
-    OS_DIR="${_PROFILES_RUNTIME_DIR}" \
+    INSTALLER_DIR="${_PROFILES_RUNTIME_DIR}" \
     PROGRAMS="${_PROFILES_RUNTIME_DIR}/programs" \
     SHELL_COMMONS="${_PROFILES_RUNTIME_DIR}/lib" \
     /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/lib/profiles/program-runner.sh" \
@@ -432,7 +432,7 @@ _profiles_userprog_chroot() {
 set -e
 USER_NAME="$1"; OS_DIR_IN="$2"; INSTALL_SH="$3"; AUR_HELPER_IN="$4"
 su - "$USER_NAME" -c "
-  export OS_DIR='${OS_DIR_IN}'
+  export INSTALLER_DIR='${OS_DIR_IN}'
   export PROGRAMS='${OS_DIR_IN}/programs'
   export SHELL_COMMONS='${OS_DIR_IN}/lib'
   export AUR_HELPER='${AUR_HELPER_IN}'
@@ -445,7 +445,7 @@ _profiles_install_user_program() {
   local user="$1" prog="$2" helper="$3"
   local rel
   rel="$(resolve_program "$prog")"
-  info "Installing user program: ${prog}  (user=${user}, .os/programs/${rel})"
+  info "Installing user program: ${prog}  (user=${user}, .installer/programs/${rel})"
   # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
   # in from run_profiles rather than re-detected here; program install.sh
   # scripts install via ${AUR_HELPER} -S. Those scripts hit aur.archlinux.org/rpc
@@ -487,7 +487,7 @@ _profiles_enable_system_services() {
   local prog="$1"
   local rel config_file
   rel="$(resolve_program "$prog")"
-  config_file="${OS_DIR}/programs/${rel}/config.jsonc"
+  config_file="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
   local -a svcs=()
   mapfile -t svcs < <(jsonc_strip "$config_file" \
     | jq -r '.system_services[]?' 2>/dev/null)
@@ -503,7 +503,7 @@ _profiles_enable_user_services() {
   local user="$1" prog="$2"
   local rel config_file
   rel="$(resolve_program "$prog")"
-  config_file="${OS_DIR}/programs/${rel}/config.jsonc"
+  config_file="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
   local -a svcs=()
   mapfile -t svcs < <(jsonc_strip "$config_file" \
     | jq -r '.user_services[]?' 2>/dev/null)
@@ -597,8 +597,8 @@ if [[ -d "\$DOTFILES" ]]; then
 fi
 git clone "${REPO}" "\$DOTFILES"
 cd "\$DOTFILES"
-"\$DOTFILES/.os/tools/generate-configs.sh" --user "${USER_NAME}"
-source "\$DOTFILES/.os/lib/config/generator.sh"
+"\$DOTFILES/.installer/tools/generate-configs.sh" --user "${USER_NAME}"
+source "\$DOTFILES/.installer/lib/config/generator.sh"
 mapfile -t _pkgs < <(cg_legacy_packages ".")
 stow --no-folding "\${_pkgs[@]}"
 stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .
@@ -635,18 +635,18 @@ run_profiles() {
     return 0
   fi
 
-  # OS_DIR is consumed by configs.sh and exported so program install.sh
+  # INSTALLER_DIR is consumed by configs.sh and exported so program install.sh
   # scripts can locate the staged runtime tree.
-  export OS_DIR="${SCRIPT_DIR}"
+  export INSTALLER_DIR="${SCRIPT_DIR}"
 
-  if [[ ! -f "${OS_DIR}/hosts/core/profile.jsonc" ]]; then
+  if [[ ! -f "${INSTALLER_DIR}/hosts/core/profile.jsonc" ]]; then
     warn "Hosts core profile not found at" \
-         "${OS_DIR}/hosts/core/profile.jsonc — skipping profiles runner."
+         "${INSTALLER_DIR}/hosts/core/profile.jsonc — skipping profiles runner."
     return 0
   fi
-  if [[ ! -f "${OS_DIR}/users/core/profile.jsonc" ]]; then
+  if [[ ! -f "${INSTALLER_DIR}/users/core/profile.jsonc" ]]; then
     warn "Users core profile not found at" \
-         "${OS_DIR}/users/core/profile.jsonc — skipping profiles runner."
+         "${INSTALLER_DIR}/users/core/profile.jsonc — skipping profiles runner."
     return 0
   fi
 

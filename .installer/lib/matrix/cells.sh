@@ -12,7 +12,7 @@
 # entry) aborts the generator before any cell is emitted — the matrix can't
 # silently drift from what the menu offers.
 #
-# Pure: JSON on stdout, no TTY, no disk writes. Requires OS_DIR (menu functions).
+# Pure: JSON on stdout, no TTY, no disk writes. Requires INSTALLER_DIR (menu functions).
 #
 # Public API:
 #   matrix_gen_cells   → the Tier-2 Matrix Manifest, one JSON cell per line

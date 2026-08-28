@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/zfs/module.sh — shared ZFS DKMS build/load.
+# Tests for .installer/lib/zfs/module.sh — shared ZFS DKMS build/load.
 #
 # Regression guard for the 2026-05-31 install failure: the old 03-install.sh
 # fallback ran `pacman -S linux-headers` UNPINNED (pulling a newer kernel's

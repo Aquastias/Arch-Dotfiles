@@ -22,7 +22,7 @@
 #
 #       No libvirt or network dependency — pure file watcher.
 #
-# The sentinel format is a hard contract with .os/lib/seed-generator.sh
+# The sentinel format is a hard contract with .installer/lib/seed-generator.sh
 # (which writes it via the test VM's runcmd). Do not change this regex
 # without updating the writer in lockstep.
 #

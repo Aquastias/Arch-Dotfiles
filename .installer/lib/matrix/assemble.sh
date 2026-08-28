@@ -10,7 +10,7 @@
 #
 # Thin: it seeds the menu-derived launch defaults (cfgstate_seed_defaults), lays
 # the cell's axes over them as overrides, and delegates disk baking to
-# emit_effective. Pure: JSON in/out, no TTY, no disk writes. Requires OS_DIR.
+# emit_effective. Pure: JSON in/out, no TTY, no disk writes. Requires INSTALLER_DIR.
 #
 # Public API:
 #   matrix_cell_state    <cell>  → the Config State for the cell

@@ -11,7 +11,7 @@
 #   _configs_parse <file>     → strip JSONC + jq '.'  (returns 1 if absent)
 #   _configs_merge <a> <b>    → merge two JSON values per the rules below
 #   configs_build_registry
-#       → build in-memory program index from $OS_DIR/programs/
+#       → build in-memory program index from $INSTALLER_DIR/programs/
 #   resolve_program <name>
 #       → echoes "<cat>/<name>"; uses registry if built; 1 if not found
 #   program_kind <name>
@@ -60,7 +60,7 @@ _configs_merge() {
 # =============================================================================
 # PROGRAM RESOLUTION & VALIDATION
 # =============================================================================
-# Programs live at $OS_DIR/programs/<category>/<name>/. Resolution is by name
+# Programs live at $INSTALLER_DIR/programs/<category>/<name>/. Resolution is by name
 # only — the category is recovered from the path. Validation enforces the
 # kind contract: programs referenced from a host config must be kind "host";
 # from a user config, kind "user".
@@ -68,12 +68,12 @@ _configs_merge() {
 # Build two in-memory indexes, both keyed by program name:
 #   _CONFIGS_REGISTRY[name]="cat/name"   — the path index
 #   _CONFIGS_KIND[name]="host"|"user"    — the config.jsonc `kind` enum
-# Call once after OS_DIR is set; resolve_program and program_kind use them
+# Call once after INSTALLER_DIR is set; resolve_program and program_kind use them
 # automatically. Reading the flag here is what keeps a menu render from
 # re-parsing every program's config.jsonc (R22). A program config with an
 # absent or out-of-set `kind` aborts the build (return 1) naming the program.
 configs_build_registry() {
-  [[ -z "${OS_DIR:-}" ]] && { echo "configs: OS_DIR is not set" >&2; return 2; }
+  [[ -z "${INSTALLER_DIR:-}" ]] && { echo "configs: INSTALLER_DIR is not set" >&2; return 2; }
   declare -gA _CONFIGS_REGISTRY=()
   declare -gA _CONFIGS_KIND=()
   # Explicit sentinel: `[[ -v assoc ]]` tests index 0, so it is always false for
@@ -81,7 +81,7 @@ configs_build_registry() {
   # every lookup re-scanning the tree.
   declare -g _CONFIGS_REGISTRY_BUILT=1
   local d name cat kind
-  for d in "${OS_DIR}/programs"/*/*; do
+  for d in "${INSTALLER_DIR}/programs"/*/*; do
     [[ -d "$d" ]] || continue
     name="$(basename "$d")"
     cat="$(basename "$(dirname "$d")")"
@@ -112,7 +112,7 @@ program_kind() {
   local rel
   resolve_program "$name" >/dev/null 2>&1 || { printf 'none\n'; return 0; }
   rel="$(resolve_program "$name")"
-  local cfg="${OS_DIR}/programs/${rel}/config.jsonc"
+  local cfg="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
   [[ -f "$cfg" ]] || { printf 'none\n'; return 0; }
   local kind
   kind="$(_configs_parse "$cfg" | jq -r '.kind // ""')"
@@ -145,7 +145,7 @@ resolve_program() {
     return 1
   fi
   local d cat
-  for d in "${OS_DIR}/programs"/*/"$name"; do
+  for d in "${INSTALLER_DIR}/programs"/*/"$name"; do
     [[ -d "$d" ]] || continue
     cat="$(basename "$(dirname "$d")")"
     printf '%s/%s\n' "$cat" "$name"
@@ -162,10 +162,10 @@ validate_program() {
   local rel
   if ! rel="$(resolve_program "$name")"; then
     echo "configs: program '${name}' not found under" \
-         "${OS_DIR}/programs/<cat>/${name}/" >&2
+         "${INSTALLER_DIR}/programs/<cat>/${name}/" >&2
     return 1
   fi
-  local dir="${OS_DIR}/programs/${rel}"
+  local dir="${INSTALLER_DIR}/programs/${rel}"
   [[ -f "$dir/config.jsonc" ]] || {
     echo "configs: program '${name}' missing config.jsonc at ${dir}/" >&2
     return 1
@@ -197,7 +197,7 @@ reconcile_user_program() {
   local name="$1"; shift
   if ! resolve_program "$name" >/dev/null; then
     echo "configs: user program '${name}' not found under" \
-         "${OS_DIR}/programs/<cat>/${name}/" >&2
+         "${INSTALLER_DIR}/programs/<cat>/${name}/" >&2
     return 1
   fi
   local is_host

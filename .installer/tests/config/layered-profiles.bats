@@ -11,10 +11,10 @@
 #   - the VM fixtures resolve lean, with no workstation userland
 
 setup() {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
-  source "$OS_DIR/lib/config/profile.sh"
-  source "$OS_DIR/lib/config/layer-resolver.sh"
-  source "$OS_DIR/lib/config/layers.sh"
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
+  source "$INSTALLER_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/layer-resolver.sh"
+  source "$INSTALLER_DIR/lib/config/layers.sh"
   configs_build_registry
 }
 
@@ -23,7 +23,7 @@ repo_of() { load_profile "$1" | jq -r '.packages.repo // {}
   | to_entries[].value[]' | sort -u; }
 aur_of()  { load_profile "$1" | jq -r '.packages.aur // {}
   | to_entries[].value[]' | sort -u; }
-core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
+core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   | jq -r '.packages.repo | to_entries[].value[]' | sort -u; }
 
 # ── the committed profiles resolve ──────────────────────────────────────────
@@ -184,7 +184,7 @@ core_repo() { jsonc_strip "$OS_DIR/hosts/core/profile.jsonc" \
 @test "no catppuccin package survives anywhere" {
   local h
   for h in core desktop laptop; do
-    ! grep -q "catppuccin" "$OS_DIR/hosts/$h/profile.jsonc" \
+    ! grep -q "catppuccin" "$INSTALLER_DIR/hosts/$h/profile.jsonc" \
       || { echo "$h still declares a catppuccin package"; return 1; }
   done
 }

@@ -13,7 +13,7 @@ setup() {
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/userforms.json"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"

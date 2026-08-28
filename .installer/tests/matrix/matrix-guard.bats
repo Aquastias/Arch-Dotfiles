@@ -6,10 +6,10 @@
 # computed.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/guard.sh
-  source "$OS_DIR/lib/matrix/guard.sh"
+  source "$INSTALLER_DIR/lib/matrix/guard.sh"
 }
 
 # ── AC1: max_parallel = floor((avail − reserve) / per_vm), clamped to cap ─────

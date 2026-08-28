@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/virtualization/docker/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
 #
 # Installs docker + docker-compose via paru, enables the socket for on-demand
 # daemon activation (starts on first client connection), and ensures the

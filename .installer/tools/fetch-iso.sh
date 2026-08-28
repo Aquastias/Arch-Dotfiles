@@ -4,18 +4,18 @@
 # stick. Download-only — it does not flash anything.
 #
 # Run on your current machine (Arch) before booting the installer:
-#   bash .os/tools/fetch-iso.sh [output-dir]
+#   bash .installer/tools/fetch-iso.sh [output-dir]
 #     output-dir defaults to ~/Downloads
 #
 # See CONTEXT.md (archzfs-Compatible ISO) and ADR 0023 for why the latest
 # Arch ISO cannot be used.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OS_DIR="$(dirname "$SCRIPT_DIR")"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=../lib/common.sh
-source "${OS_DIR}/lib/common.sh"
+source "${INSTALLER_DIR}/lib/common.sh"
 # shellcheck source=../lib/packages/iso-resolver.sh
-source "${OS_DIR}/lib/packages/iso-resolver.sh"
+source "${INSTALLER_DIR}/lib/packages/iso-resolver.sh"
 
 # Resolve + create the output directory: positional arg, else ~/Downloads.
 fetch_iso_out_dir() {

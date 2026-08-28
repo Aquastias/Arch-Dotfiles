@@ -9,7 +9,7 @@
 
 setup() {
   MATRIX_SH="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)/tools/matrix.sh"
-  export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   # write records to the sandbox, never the committed repo files.
   export MATRIX_MANIFEST_PATH="$BATS_TEST_TMPDIR/manifest.jsonl"
   export MATRIX_COVERAGE_PATH="$BATS_TEST_TMPDIR/coverage.txt"

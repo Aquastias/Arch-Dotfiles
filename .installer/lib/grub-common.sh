@@ -6,7 +6,7 @@
 #   - lib/chroot/bootloader-grub.sh   (adapter, when options.bootloader=grub)
 #   - programs/bootloader/grub/install.sh   (system-program, declarative path)
 #
-# Staged into both runtime trees (/root/lib-chroot and /var/tmp/.os-runtime/lib)
+# Staged into both runtime trees (/root/lib-chroot and /var/tmp/.installer-runtime/lib)
 # so each entry point is self-contained. Defines a function only — no top-level
 # side effects — and logs via plain echo (the adapter has no Shell Stdlib).
 # =============================================================================

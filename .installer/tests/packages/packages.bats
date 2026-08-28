@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/packages/list.sh — collect_packages() logic.
+# Tests for .installer/lib/packages/list.sh — collect_packages() logic.
 # install_base() is system-bound (pacstrap/reflector) and is not tested here.
 
 setup() {

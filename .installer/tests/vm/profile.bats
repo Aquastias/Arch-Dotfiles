@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/vm/lib/profile.sh — VM Profile resolution (deep, pure).
+# Tests for .installer/vm/lib/profile.sh — VM Profile resolution (deep, pure).
 # Prior art: tests/config/profile-loader.bats (load_profile +
 # assemble_profile_config), tests/config/install-config.bats.
 
@@ -7,8 +7,8 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   HOSTS_DIR="$TEST_DIR/hosts"
   mkdir -p "$HOSTS_DIR"
-  # load_profile/assemble_profile_config resolve hosts under $OS_DIR/hosts.
-  export TEST_DIR HOSTS_DIR OS_DIR="$TEST_DIR"
+  # load_profile/assemble_profile_config resolve hosts under $INSTALLER_DIR/hosts.
+  export TEST_DIR HOSTS_DIR INSTALLER_DIR="$TEST_DIR"
 
   # The config stack (layers.sh/jsonc.sh) emits through these — stub to quiet.
   info()    { :; }

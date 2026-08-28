@@ -7,16 +7,16 @@
 # under test is the assertion + the lookups, never how the table is stored.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # _MENU_FIELDS lives in menu.sh; the registry classifies it.
   # shellcheck source=../../lib/config/menu.sh
-  source "$OS_DIR/lib/config/menu.sh"
+  source "$INSTALLER_DIR/lib/config/menu.sh"
   # shellcheck source=../../lib/matrix/registry.sh
-  source "$OS_DIR/lib/matrix/registry.sh"
+  source "$INSTALLER_DIR/lib/matrix/registry.sh"
   # the generator invokes the assertion before emitting.
   # shellcheck source=../../lib/matrix/cells.sh
-  source "$OS_DIR/lib/matrix/cells.sh"
+  source "$INSTALLER_DIR/lib/matrix/cells.sh"
 }
 
 # ── tracer: the shipped registry covers _MENU_FIELDS exactly ────────────────

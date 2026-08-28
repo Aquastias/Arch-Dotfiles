@@ -17,7 +17,7 @@
 #       export deliberately keeps device paths out of committed source).
 #
 # Pure deps only (state / emit / profile) — no fzf, no disk ops beyond the
-# single profile/config write. Requires OS_DIR set.
+# single profile/config write. Requires INSTALLER_DIR set.
 # =============================================================================
 
 # shellcheck source=./config/state.sh
@@ -38,7 +38,7 @@ declare -F validate_config_schema >/dev/null 2>&1 \
 guided_save_host_profile() {
   local state="$1" name="$2"
   [[ -n "$name" ]] || { error "guided: Save needs a profile name"; return 1; }
-  local dir="${OS_DIR}/hosts/${name}"
+  local dir="${INSTALLER_DIR}/hosts/${name}"
   if [[ -e "${dir}/profile.jsonc" ]]; then
     error "guided: hosts/${name}/ already exists — choose a new name" \
           "(Save never overwrites a committed profile)."
@@ -64,7 +64,7 @@ guided_export_config() {
   [[ -n "$path" ]] || { error "guided: Export needs a path"; return 1; }
   local abs hosts_abs
   abs="$(realpath -m "$path")"
-  hosts_abs="$(realpath -m "${OS_DIR}/hosts")"
+  hosts_abs="$(realpath -m "${INSTALLER_DIR}/hosts")"
   case "$abs" in
   "$hosts_abs" | "$hosts_abs"/*)
     error "guided: Export must not write under hosts/ — that is Save's job." \

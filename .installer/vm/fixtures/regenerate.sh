@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# .os/vm/fixtures/regenerate.sh — rotate the Test Age Key.
+# .installer/vm/fixtures/regenerate.sh — rotate the Test Age Key.
 # =============================================================================
 # Generates a fresh Age keypair, passphrase-encrypts the private key into
 # key.age (passphrase "test"), updates the test-rule recipient in .sops.yaml,
@@ -19,11 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${REPO_ROOT:=$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 
 PASSPHRASE="test"
-KEY_AGE="$REPO_ROOT/.os/vm/fixtures/key.age"
+KEY_AGE="$REPO_ROOT/.installer/vm/fixtures/key.age"
 SOPS_YAML="$REPO_ROOT/.sops.yaml"
 SECRETS_FILES=(
-  "$REPO_ROOT/.os/hosts/vm/arch-secure/secrets.json"
-  "$REPO_ROOT/.os/users/vm-test/secrets.json"
+  "$REPO_ROOT/.installer/hosts/vm/arch-secure/secrets.json"
+  "$REPO_ROOT/.installer/users/vm-test/secrets.json"
 )
 
 TMP="$(mktemp -d)"

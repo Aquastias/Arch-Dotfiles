@@ -153,7 +153,7 @@ JSON
   run bash "$TOOL" laptop --flat
   [ "$status" -eq 0 ]
   local direct
-  direct="$(cd "$OS" && OS_DIR="$OS" bash -c '
+  direct="$(cd "$OS" && INSTALLER_DIR="$OS" bash -c '
     source lib/common.sh
     source lib/config/profile.sh
     source lib/packages/resolver.sh

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the boot-verify console capture in .os/vm/lib/flow-test.sh. A serial
+# Tests for the boot-verify console capture in .installer/vm/lib/flow-test.sh. A serial
 # PTY can drop mid-boot (notably the slower multi-disk boot), so the capture
 # re-attaches `virsh console` until the domain halts rather than attaching once —
 # otherwise the first-boot marker printed after the drop is lost and boot-verify
@@ -12,7 +12,7 @@ setup() {
   section() { :; }
   error() { echo "$*" >&2; return 1; }
   export -f info warn section error
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
 
   # shellcheck source=../../vm/lib/flow-test.sh
   source "$BATS_TEST_DIRNAME/../../vm/lib/flow-test.sh"

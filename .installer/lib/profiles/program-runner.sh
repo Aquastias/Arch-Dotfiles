@@ -15,7 +15,7 @@
 #
 # Staging integrity (shell-stdlib.sh readable, run-program.sh present) is
 # guaranteed by validate_staging before arch-chroot is entered.
-# Expects `$OS_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` exported by the Runner.
+# Expects `$INSTALLER_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` exported by the Runner.
 # Argument: install.sh path.
 # =============================================================================
 

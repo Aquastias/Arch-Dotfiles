@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/profile.sh — Profile Loader + closed-schema
+# Tests for .installer/lib/config/profile.sh — Profile Loader + closed-schema
 # validation + transient migration assembler (ADR 0036, issue
 # unified-host-profile/01).
 #
@@ -17,7 +17,7 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   info()    { :; }
   warn()    { :; }
@@ -40,9 +40,9 @@ write_jsonc() {
 # ── load_profile: real profile.jsonc + core merge ──────────────────────────
 
 @test "load_profile: merges real host profile.jsonc with core" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":["alice"],"host_programs":["cups"]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"users":["bob"],"system":{"hostname":"eterniox"}}'
 
   run load_profile desktop
@@ -53,8 +53,8 @@ write_jsonc() {
 }
 
 @test "load_profile: finds a VM host profile.jsonc under hosts/vm/<name>" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
-  write_jsonc "$OS_DIR/hosts/vm/arch-data/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/vm/arch-data/profile.jsonc" \
     '{"users":["vm-data"],"mode":"multi"}'
 
   run load_profile arch-data
@@ -70,10 +70,10 @@ write_jsonc() {
 # synthesized from the legacy files.
 
 @test "load_profile: ignores a sibling legacy config.jsonc (reads only profile)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["bob"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" '{"users":["bob"]}'
   # a leftover legacy config.jsonc with conflicting content must not be read
-  write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/config.jsonc" \
     '{"users":["LEGACY"],"host_programs":["LEGACY"]}'
 
   run load_profile desktop
@@ -83,9 +83,9 @@ write_jsonc() {
 }
 
 @test "load_profile: missing host profile.jsonc → core only, rc 1 (no synth)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"host_programs":["cups"]}'
   # a legacy config.jsonc exists but must NOT be synthesized in
-  write_jsonc "$OS_DIR/hosts/desktop/config.jsonc" '{"users":["LEGACY"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/config.jsonc" '{"users":["LEGACY"]}'
 
   run load_profile desktop
   [ "$status" -eq 1 ]
@@ -96,9 +96,9 @@ write_jsonc() {
 # ── user path: profile.jsonc + user core (symmetric with the host path) ─────
 
 @test "load_user_profile: merges real user profile.jsonc with core" {
-  write_jsonc "$OS_DIR/users/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/users/core/profile.jsonc" \
     '{"shell":"/bin/bash","groups":["audio"]}'
-  write_jsonc "$OS_DIR/users/aquastias/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/users/aquastias/profile.jsonc" \
     '{"sudo":true,"groups":["video"]}'
 
   run load_user_profile aquastias
@@ -109,9 +109,9 @@ write_jsonc() {
 }
 
 @test "load_user_profile: missing user profile.jsonc → core only, rc 1 (no synth)" {
-  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
+  write_jsonc "$INSTALLER_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
   # a legacy user config.jsonc exists but must NOT be synthesized in
-  write_jsonc "$OS_DIR/users/aquastias/config.jsonc" '{"sudo":true}'
+  write_jsonc "$INSTALLER_DIR/users/aquastias/config.jsonc" '{"sudo":true}'
 
   run load_user_profile aquastias
   [ "$status" -eq 1 ]
@@ -122,7 +122,7 @@ write_jsonc() {
 # ── loader contract: exit codes, merge rules, JSONC (moved from configs.bats) ─
 
 @test "load_profile: missing core profile.jsonc is a hard error (exit 2)" {
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["alice"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" '{"users":["alice"]}'
 
   run load_profile desktop
   [ "$status" -eq 2 ]
@@ -130,7 +130,7 @@ write_jsonc() {
 }
 
 @test "load_profile: 'core' as host name is rejected (exit 3)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":["alice"]}'
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":["alice"]}'
 
   run load_profile core
   [ "$status" -eq 3 ]
@@ -138,7 +138,7 @@ write_jsonc() {
 }
 
 @test "load_user_profile: 'core' as user name is rejected (exit 3)" {
-  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
+  write_jsonc "$INSTALLER_DIR/users/core/profile.jsonc" '{"shell":"/bin/bash"}'
 
   run load_user_profile core
   [ "$status" -eq 3 ]
@@ -146,9 +146,9 @@ write_jsonc() {
 }
 
 @test "load_profile: arrays concat+dedupe, objects deep-merge, scalars win" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":["alice","shared"],"system":{"timezone":"UTC"}}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"users":["shared","bob"],"system":{"hostname":"eterniox"}}'
 
   run load_profile desktop
@@ -159,12 +159,12 @@ write_jsonc() {
 }
 
 @test "load_profile: JSONC // comments are stripped before parsing" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{
   // comment on its own line
   "users": ["alice"], // trailing comment
   "host_programs": ["cups"]
 }'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" '{}'
 
   run load_profile desktop
   [ "$status" -eq 0 ]
@@ -178,8 +178,8 @@ write_jsonc() {
 # install back-end consumes. Pure: no disks, no TTY.
 
 @test "assemble_profile_config: hostname falls back to the profile name" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/arch-kde/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/arch-kde/profile.jsonc" \
     '{"environment":{"desktop":["kde"]}}'
 
   run assemble_profile_config arch-kde '{"mode":"single","disk":"/dev/sda"}'
@@ -191,8 +191,8 @@ write_jsonc() {
 }
 
 @test "assemble_profile_config: a profile-set hostname wins over the name" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"system":{"hostname":"eterniox"}}'
 
   run assemble_profile_config desktop '{"mode":"single","disk":"/dev/sda"}'
@@ -201,8 +201,8 @@ write_jsonc() {
 }
 
 @test "assemble_profile_config: under-populated raidz1 aborts (min-disk)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/srv/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/srv/profile.jsonc" \
     '{"os_pool":{"topology":"raidz1"}}'
 
   run assemble_profile_config srv \
@@ -443,14 +443,14 @@ write_jsonc() {
 # uses, or these break (and so would a real install).
 
 @test "real: every host profile validates against the closed schema" {
-  export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local n h j
   for n in desktop laptop; do
     j="$(load_profile "$n")" || { echo "load_profile $n failed"; return 1; }
     run validate_config_schema host "$j"
     [ "$status" -eq 0 ] || { echo "host $n: $output"; return 1; }
   done
-  for h in "$OS_DIR"/hosts/vm/*/; do
+  for h in "$INSTALLER_DIR"/hosts/vm/*/; do
     n="$(basename "$h")"
     j="$(load_profile "$n")" || { echo "load_profile vm/$n failed"; return 1; }
     run validate_config_schema host "$j"
@@ -459,9 +459,9 @@ write_jsonc() {
 }
 
 @test "real: every user profile validates against the closed schema" {
-  export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local u n j
-  for u in "$OS_DIR"/users/*/; do
+  for u in "$INSTALLER_DIR"/users/*/; do
     n="$(basename "$u")"
     [ "$n" = core ] && continue
     j="$(load_user_profile "$n")" || { echo "load user $n failed"; return 1; }
@@ -488,7 +488,7 @@ write_jsonc() {
 # host_profile; validates against the closed schema.
 
 @test "migration: arch-data profile.jsonc preserves legacy software + machine skeleton" {
-  export OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   local j; j="$(load_profile arch-data)"
 
   # software preserved from the legacy synthesis (core + arch-data). cups left
@@ -516,15 +516,15 @@ write_jsonc() {
 # aborts with its path (before any disk-touching phase).
 
 @test "validate_profile: passes for a clean host + users + programs" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":[],"host_programs":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"users":["aquastias"],"host_programs":["grub"]}'
-  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{"programs":[]}'
-  write_jsonc "$OS_DIR/users/aquastias/profile.jsonc" '{"programs":["neovim"]}'
-  write_jsonc "$OS_DIR/programs/bootloader/grub/config.jsonc" \
+  write_jsonc "$INSTALLER_DIR/users/core/profile.jsonc" '{"programs":[]}'
+  write_jsonc "$INSTALLER_DIR/users/aquastias/profile.jsonc" '{"programs":["neovim"]}'
+  write_jsonc "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc" \
     '{"name":"grub","kind":"host","description":"d"}'
-  write_jsonc "$OS_DIR/programs/editors/neovim/config.jsonc" \
+  write_jsonc "$INSTALLER_DIR/programs/editors/neovim/config.jsonc" \
     '{"name":"neovim","kind":"user","description":"d"}'
 
   run validate_profile desktop
@@ -544,9 +544,9 @@ write_jsonc() {
 }
 
 @test "validate_profile: rejects the old bool post_install form (ADR 0041)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":[],"host_programs":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"users":[],"host_programs":[],"post_install":{"security":false}}'
 
   run validate_profile desktop
@@ -554,11 +554,11 @@ write_jsonc() {
 }
 
 @test "validate_profile: a typo'd key in a referenced program config aborts" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":[],"host_programs":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"users":[],"host_programs":["grub"]}'
-  write_jsonc "$OS_DIR/programs/bootloader/grub/config.jsonc" \
+  write_jsonc "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc" \
     '{"name":"grub","kidn":"host","description":"d"}'
 
   run validate_profile desktop
@@ -567,11 +567,11 @@ write_jsonc() {
 }
 
 @test "validate_profile: a typo in a referenced user profile aborts with its path" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" \
     '{"users":[],"host_programs":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" '{"users":["aquastias"]}'
-  write_jsonc "$OS_DIR/users/core/profile.jsonc" '{}'
-  write_jsonc "$OS_DIR/users/aquastias/profile.jsonc" '{"shel":"/bin/zsh"}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" '{"users":["aquastias"]}'
+  write_jsonc "$INSTALLER_DIR/users/core/profile.jsonc" '{}'
+  write_jsonc "$INSTALLER_DIR/users/aquastias/profile.jsonc" '{"shel":"/bin/zsh"}'
 
   run validate_profile desktop
   [ "$status" -ne 0 ]
@@ -579,8 +579,8 @@ write_jsonc() {
 }
 
 @test "validate_profile: a typo in the host profile itself aborts with its path" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"options":{"encrytion":true}}'
 
   run validate_profile desktop
@@ -589,8 +589,8 @@ write_jsonc() {
 }
 
 @test "validate_profile: unknown bootloader aborts with its path (ADR 0077)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"options":{"bootloader":"lilo"}}'
 
   run validate_profile desktop
@@ -600,8 +600,8 @@ write_jsonc() {
 }
 
 @test "validate_profile: a known bootloader validates clean (ADR 0077)" {
-  write_jsonc "$OS_DIR/hosts/core/profile.jsonc" '{"users":[]}'
-  write_jsonc "$OS_DIR/hosts/desktop/profile.jsonc" \
+  write_jsonc "$INSTALLER_DIR/hosts/core/profile.jsonc" '{"users":[]}'
+  write_jsonc "$INSTALLER_DIR/hosts/desktop/profile.jsonc" \
     '{"options":{"bootloader":"grub"}}'
 
   run validate_profile desktop

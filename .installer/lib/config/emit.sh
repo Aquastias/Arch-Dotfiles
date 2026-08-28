@@ -8,8 +8,8 @@
 # *over Host Core* (the shared base — swappiness, base users, packages — still
 # applies), then the picked disks are baked onto the layout skeleton.
 #
-# Pure: reads OS_DIR's Host Core, no disk writes, JSON on stdout.
-# Requires OS_DIR set.
+# Pure: reads INSTALLER_DIR's Host Core, no disk writes, JSON on stdout.
+# Requires INSTALLER_DIR set.
 #
 # Public API:
 #   emit_effective <state> <assignment>  → device-baked Effective Config

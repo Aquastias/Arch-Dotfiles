@@ -7,21 +7,21 @@
 # The one physically-coupled check validate_install_context makes — the
 # block-device probe (_layout_disk_exists) — is stubbed here: disk existence is
 # a Tier-2/VM concern with no combinatorial content, so Tier-1 exercises every
-# other validator against the real OS_DIR tree. Behaviour under test: the cell
+# other validator against the real INSTALLER_DIR tree. Behaviour under test: the cell
 # the generator emits validates clean.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
-  export SCRIPT_DIR="$OS_DIR"
-  MATRIX_SH="$OS_DIR/tools/matrix.sh"
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
+  export SCRIPT_DIR="$INSTALLER_DIR"
+  MATRIX_SH="$INSTALLER_DIR/tools/matrix.sh"
 
   # The cell → Effective Config adapter (Tier-1 input) + the generator that
   # produces the Tier-1 cells this oracle validates.
   # shellcheck source=../../lib/matrix/assemble.sh
-  source "$OS_DIR/lib/matrix/assemble.sh"
+  source "$INSTALLER_DIR/lib/matrix/assemble.sh"
   # shellcheck source=../../lib/matrix/generator.sh
-  source "$OS_DIR/lib/matrix/generator.sh"
+  source "$INSTALLER_DIR/lib/matrix/generator.sh"
 }
 
 # _matrix_tier1_cell <id> — the generated Tier-1 cell with the given id.
@@ -45,13 +45,13 @@ _matrix_validate_cell() {
     lib/config/lifecycle.sh lib/config/layers.sh lib/config/profile.sh \
     lib/layout/dispatch.sh lib/packages/list.sh lib/profiles/runner.sh \
     lib/config/validation.sh; do
-    source "$OS_DIR/$m"
+    source "$INSTALLER_DIR/$m"
   done
 
   load_config >/dev/null 2>&1
   detect_mode  >/dev/null 2>&1
   local adapter
-  adapter="$(root_adapter_source "$OS_DIR" \
+  adapter="$(root_adapter_source "$INSTALLER_DIR" \
     "$(install_config_filesystem)" "$INSTALL_MODE")"
   source "$adapter"
 

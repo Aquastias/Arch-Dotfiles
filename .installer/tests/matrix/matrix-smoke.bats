@@ -9,10 +9,10 @@
 # VM runs here.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/driver.sh
-  source "$OS_DIR/lib/matrix/driver.sh"
+  source "$INSTALLER_DIR/lib/matrix/driver.sh"
 }
 
 # ── selection: exactly the curated cells, drawn from the real generator ───────
@@ -25,7 +25,7 @@ setup() {
 }
 
 @test "smoke_cells: every selected cell is a real generator cell (has axes)" {
-  run bash -c "source '$OS_DIR/lib/matrix/driver.sh'
+  run bash -c "source '$INSTALLER_DIR/lib/matrix/driver.sh'
     matrix_smoke_cells 0 | jq -e '.axes.filesystem' >/dev/null"
   [ "$status" -eq 0 ]
 }

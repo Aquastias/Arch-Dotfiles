@@ -5,8 +5,8 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  OS_DIR="$BATS_TEST_DIRNAME/../.."
-  export SCRIPT_DIR="$OS_DIR"
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
+  export SCRIPT_DIR="$INSTALLER_DIR"
 
   # chroot.sh references these inside function bodies only; stub for safety.
   info()    { :; }
@@ -37,7 +37,7 @@ _staged_basenames() {
   local entry src dst
   for entry in "${_CHROOT_STAGE_LIBCHROOT[@]}"; do
     IFS='|' read -r src dst <<< "$entry"
-    [ -f "$OS_DIR/$src" ] || { echo "missing src: $src"; false; }
+    [ -f "$INSTALLER_DIR/$src" ] || { echo "missing src: $src"; false; }
   done
 }
 
@@ -45,7 +45,7 @@ _staged_basenames() {
   local entry src dst
   for entry in "${_CHROOT_STAGE_EXTRAS_LIB[@]}"; do
     IFS='|' read -r src dst <<< "$entry"
-    [ -f "$OS_DIR/$src" ] || { echo "missing src: $src"; false; }
+    [ -f "$INSTALLER_DIR/$src" ] || { echo "missing src: $src"; false; }
   done
 }
 
@@ -78,13 +78,13 @@ _staged_basenames() {
 
   local refs name
   refs="$(grep -rhoE '_LIB_DIR[}]?/[a-z0-9][a-z0-9-]*\.sh' \
-    "$OS_DIR"/lib/chroot/*.sh | sed -E 's#.*/##' | sort -u)"
+    "$INSTALLER_DIR"/lib/chroot/*.sh | sed -E 's#.*/##' | sort -u)"
 
   [ -n "$refs" ]  # sanity: the grep found references
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     # A file that actually lives in lib/chroot/ is staged by the cp -r tree.
-    [[ -f "$OS_DIR/lib/chroot/$name" ]] && continue
+    [[ -f "$INSTALLER_DIR/lib/chroot/$name" ]] && continue
     grep -qxF "$name" <<< "$staged" \
       || { echo "sourced sibling not staged: $name"; false; }
   done <<< "$refs"
@@ -107,7 +107,7 @@ _staged_basenames() {
   done
 
   local refs path
-  refs="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$OS_DIR"/extras \
+  refs="$(grep -rhoE '\.\./\.\./\.\./lib/[A-Za-z0-9/_-]+\.sh' "$INSTALLER_DIR"/extras \
     2>/dev/null | sed -E 's#.*\.\./\.\./\.\./lib/##' | sort -u)"
 
   [ -n "$refs" ]  # sanity: the grep found extras→lib sources

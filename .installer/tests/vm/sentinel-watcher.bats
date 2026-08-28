@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/sentinel-watcher.sh — installer-completion sentinel reader.
+# Tests for .installer/lib/sentinel-watcher.sh — installer-completion sentinel reader.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

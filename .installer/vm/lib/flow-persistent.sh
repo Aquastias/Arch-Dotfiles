@@ -61,8 +61,8 @@ pacman-key --populate archlinux
 pacman -Sy --noconfirm --needed git
 rm -rf /root/dotfiles
 git clone ${repo_url} /root/dotfiles
-printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.os/install.jsonc
-cd /root/dotfiles/.os
+printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.installer/install.jsonc
+cd /root/dotfiles/.installer
 # Test-only preset passphrases so an encrypted/SOPS profile installs unattended
 # (no-ops on profiles without encryption or secrets). Disposable VMs only.
 export INSTALL_ENC_PASSPHRASE='testtest'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/tools/generate-configs.sh — CLI flag matrix.
+# Tests for .installer/tools/generate-configs.sh — CLI flag matrix.
 
 CLI="$BATS_TEST_DIRNAME/../../tools/generate-configs.sh"
 
@@ -15,17 +15,17 @@ setup() {
                "dst": "~/.config/hello/greeting" } ] }
 JSONC
 
-  # Minimal OS_DIR seed so the CLI's host/user merge picks up declared
-  # programs without contaminating from the real .os/ tree.
-  export OS_DIR="$TEST_DIR/osdir"
-  mkdir -p "$OS_DIR/users/core" "$OS_DIR/hosts/core"
-  cat > "$OS_DIR/users/core/profile.jsonc" <<'JSONC'
+  # Minimal INSTALLER_DIR seed so the CLI's host/user merge picks up declared
+  # programs without contaminating from the real .installer/ tree.
+  export INSTALLER_DIR="$TEST_DIR/osdir"
+  mkdir -p "$INSTALLER_DIR/users/core" "$INSTALLER_DIR/hosts/core"
+  cat > "$INSTALLER_DIR/users/core/profile.jsonc" <<'JSONC'
 { "programs": ["hello", "alpha", "beta"] }
 JSONC
-  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSONC'
+  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSONC'
 { "host_programs": [] }
 JSONC
-  ln -s "$BATS_TEST_DIRNAME/../../lib" "$OS_DIR/lib"
+  ln -s "$BATS_TEST_DIRNAME/../../lib" "$INSTALLER_DIR/lib"
 }
 
 teardown() {
@@ -102,27 +102,27 @@ JSONC
 }
 
 @test "cli: --user resolves House Default from core, override from user" {
-  mkdir -p "$OS_DIR/users/alex" \
-           "$OS_DIR/programs/_fixture/alpha/configs" \
-           "$OS_DIR/programs/_fixture/alpha/configs@minimal" \
-           "$OS_DIR/programs/_fixture/alpha/configs@gaudy" \
-           "$OS_DIR/programs/_fixture/bravo/configs" \
-           "$OS_DIR/programs/_fixture/bravo/configs@minimal"
+  mkdir -p "$INSTALLER_DIR/users/alex" \
+           "$INSTALLER_DIR/programs/_fixture/alpha/configs" \
+           "$INSTALLER_DIR/programs/_fixture/alpha/configs@minimal" \
+           "$INSTALLER_DIR/programs/_fixture/alpha/configs@gaudy" \
+           "$INSTALLER_DIR/programs/_fixture/bravo/configs" \
+           "$INSTALLER_DIR/programs/_fixture/bravo/configs@minimal"
 
-  cat > "$OS_DIR/users/core/profile.jsonc" <<'JSONC'
+  cat > "$INSTALLER_DIR/users/core/profile.jsonc" <<'JSONC'
 { "programs": ["alpha", "bravo"],
   "variants": { "alpha": "gaudy", "bravo": "minimal" } }
 JSONC
-  cat > "$OS_DIR/users/alex/profile.jsonc" <<'JSONC'
+  cat > "$INSTALLER_DIR/users/alex/profile.jsonc" <<'JSONC'
 { "variants": { "alpha": "minimal" } }
 JSONC
 
   for d in \
-    "$OS_DIR/programs/_fixture/alpha/configs" \
-    "$OS_DIR/programs/_fixture/alpha/configs@minimal" \
-    "$OS_DIR/programs/_fixture/alpha/configs@gaudy" \
-    "$OS_DIR/programs/_fixture/bravo/configs" \
-    "$OS_DIR/programs/_fixture/bravo/configs@minimal"; do
+    "$INSTALLER_DIR/programs/_fixture/alpha/configs" \
+    "$INSTALLER_DIR/programs/_fixture/alpha/configs@minimal" \
+    "$INSTALLER_DIR/programs/_fixture/alpha/configs@gaudy" \
+    "$INSTALLER_DIR/programs/_fixture/bravo/configs" \
+    "$INSTALLER_DIR/programs/_fixture/bravo/configs@minimal"; do
     printf 'x\n' > "$d/file"
     cat > "$d/manifest.jsonc" <<JSONC
 { "files": [ { "src": "file",
@@ -130,7 +130,7 @@ JSONC
 JSONC
   done
 
-  run env PROGRAMS_ROOT="$OS_DIR/programs" \
+  run env PROGRAMS_ROOT="$INSTALLER_DIR/programs" \
       "$CLI" --dry-run --user alex
   [ "$status" -eq 0 ]
   # alpha: user override wins (minimal), not core's gaudy
@@ -178,8 +178,8 @@ JSONC
 }
 
 @test "cli: --validate-only --user fails on missing variant directory" {
-  mkdir -p "$OS_DIR/users/alex"
-  cat > "$OS_DIR/users/alex/profile.jsonc" <<'JSONC'
+  mkdir -p "$INSTALLER_DIR/users/alex"
+  cat > "$INSTALLER_DIR/users/alex/profile.jsonc" <<'JSONC'
 { "variants": { "hello": "ghost" } }
 JSONC
 

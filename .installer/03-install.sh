@@ -138,7 +138,7 @@ main() {
   # ── Config phase ──────────────────────────────────────────────────────────
   load_config
   detect_mode
-  export OS_DIR="${SCRIPT_DIR}"
+  export INSTALLER_DIR="${SCRIPT_DIR}"
   # Layout dispatch (ADR 0040/0043/0073): the disk-config kind wins first — a
   # manual layout owns the disk regardless of filesystem — otherwise the Root
   # Layout Adapter is chosen by the filesystem discriminator + mode.

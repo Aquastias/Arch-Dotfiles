@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/boot/loader-entries.sh — pure per-loader boot-entry
+# Tests for .installer/lib/boot/loader-entries.sh — pure per-loader boot-entry
 # renderers (ADR 0078). Each takes the resolved per-kernel inputs (kbase, title,
 # microcode initrd lines, the initramfs image, the options/cmdline) and prints
 # the loader's entry text. No disk, no state — the adapters loop KERNELS and

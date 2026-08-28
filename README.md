@@ -4,9 +4,9 @@ This directory contains the dotfiles for my Arch Linux system: Eterniox.
 
 ## OS Installer
 
-A fully scripted, config-driven Arch Linux installer with ZFS lives in [`.os/`](.os/). It handles partitioning, ZFS pool creation, chroot configuration, desktop environments, and optional VM testing.
+A fully scripted, config-driven Arch Linux installer with ZFS lives in [`.installer/`](.installer/). It handles partitioning, ZFS pool creation, chroot configuration, desktop environments, and optional VM testing.
 
-See [`.os/README.md`](.os/README.md) for setup, configuration reference, and VM testing.
+See [`.installer/README.md`](.installer/README.md) for setup, configuration reference, and VM testing.
 
 ---
 
@@ -28,9 +28,9 @@ pacman -S stow
 
 > To provision a whole machine (partitioning, filesystem, desktop, users,
 > secrets) rather than just symlink dotfiles, use the installer in
-> [`.os/`](.os/) — see [`.os/README.md`](.os/README.md). The package
-> manifests it manages live under `.os/hosts/<name>/` (`pkglist-repo.txt`
-> / `pkglist-aur.txt`, written by `.os/tools/save-pkglist.sh`).
+> [`.installer/`](.installer/) — see [`.installer/README.md`](.installer/README.md). The package
+> manifests it manages live under `.installer/hosts/<name>/` (`pkglist-repo.txt`
+> / `pkglist-aur.txt`, written by `.installer/tools/save-pkglist.sh`).
 
 ## Installation
 

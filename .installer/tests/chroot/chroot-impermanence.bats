@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/chroot/impermanence.sh — Chroot Configuration Module.
+# Tests for .installer/lib/chroot/impermanence.sh — Chroot Configuration Module.
 #
 # Strategy: stub zfs/zpool/systemctl as bash fns that append argv to $CALLS,
 # then source impermanence.sh and call impermanence_apply. Assertions read

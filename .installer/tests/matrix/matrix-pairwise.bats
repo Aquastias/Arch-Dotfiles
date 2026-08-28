@@ -8,9 +8,9 @@
 # an implementation detail, not asserted).
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   # shellcheck source=../../lib/matrix/pairwise.sh
-  source "$OS_DIR/lib/matrix/pairwise.sh"
+  source "$INSTALLER_DIR/lib/matrix/pairwise.sh"
 }
 
 # _covered <rows> <axisA> <valA> <axisB> <valB> — 0 iff some row assigns both.

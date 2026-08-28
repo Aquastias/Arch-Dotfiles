@@ -2,13 +2,13 @@
 
 Running notes for agents working on the Combination Matrix (ADR 0046) — the
 two-tier "no menu-reachable install combination errors" testing. Entry point:
-`.os/tools/matrix.sh` (`gen` / `emit <cell-id>` / `run`); generator/adapter
-logic in `.os/lib/matrix/*.sh`; Tier-1 assembly bats under
-`.os/tests/matrix/`.
+`.installer/tools/matrix.sh` (`gen` / `emit <cell-id>` / `run`); generator/adapter
+logic in `.installer/lib/matrix/*.sh`; Tier-1 assembly bats under
+`.installer/tests/matrix/`.
 
 ## Test gates (ADR 0078)
 
-`.os/tests/run.sh` has three modes:
+`.installer/tests/run.sh` has three modes:
 
 - `--fast` — curated install-correctness subset (config + the validator
   tier + layout + zfs + wipe), ~30 s wall. The pre-push gate.
@@ -31,9 +31,9 @@ from what the installer menu offers. Two guards keep it honest:
 1. **Axis Registry completeness** (issue 02) — `matrix.sh gen` aborts if a menu
    field (`_MENU_FIELDS`) is unclassified or a registry entry is stale.
 2. **Committed records + drift guard** (issue 08) — two files are checked in:
-   - `.os/tests/vm/matrix-manifest.jsonl` — the Tier-2 set (one cell/line): the
+   - `.installer/tests/vm/matrix-manifest.jsonl` — the Tier-2 set (one cell/line): the
      expensive, selective cells worth pinning/reproducing.
-   - `.os/tests/vm/matrix-coverage.txt` — a diffable snapshot of resolved axes →
+   - `.installer/tests/vm/matrix-coverage.txt` — a diffable snapshot of resolved axes →
      values → exclusions + per-tier cell counts. A silent constraint shrink
      (fewer valid cells — which Tier-1 bats still passes) shows here as a
      one-line change + a count delta, not a wall of vanished rows.
@@ -44,7 +44,7 @@ from what the installer menu offers. Two guards keep it honest:
    VM Profiles are never committed (materialized via `emit`).
 
 **Wrap-up step (do this after any menu / constraint / axis change, and in the
-`/improve-codebase-architecture` flow):** run `./.os/tools/matrix.sh gen` and
+`/improve-codebase-architecture` flow):** run `./.installer/tools/matrix.sh gen` and
 commit the updated `matrix-manifest.jsonl` + `matrix-coverage.txt`. The suite
 will otherwise go red on the drift guard.
 

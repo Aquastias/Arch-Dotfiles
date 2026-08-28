@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/shell/permissions.sh — check_root helper.
+# Tests for .installer/lib/shell/permissions.sh — check_root helper.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

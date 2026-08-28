@@ -12,11 +12,11 @@
 .config/nvim/data
 
 # VM test harness — vendored bats, caches, and run logs
-.os/tests/bats/
-.os/**/.vm-test/
-.os/**/.vm-cache/
-.os/testing-vm-logs
-.os/tests/vm/*.log
+.installer/tests/bats/
+.installer/**/.vm-test/
+.installer/**/.vm-cache/
+.installer/testing-vm-logs
+.installer/tests/vm/*.log
 
 # Generated per-user stow tree (ADR 0012)
 .stow/

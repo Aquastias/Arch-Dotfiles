@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/chroot/zfs-import.sh — decouple the post-boot ZFS import
+# Tests for .installer/lib/chroot/zfs-import.sh — decouple the post-boot ZFS import
 # services from the deprecated systemd-udev-settle (ADR 0030, boot-import
 # issue 01).
 #

@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/security/rkhunter/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
 #
 # Installs rkhunter + unhide via paru, drops the bundled rkhunter.conf,
 # desktop entry, scan service+timer, and scan helper. Stages shell-stdlib.sh

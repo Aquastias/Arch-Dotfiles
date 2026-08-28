@@ -18,7 +18,7 @@ set -uo pipefail
 
 _entry_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _entry_self="${_entry_dir}/guided-fzf-entry.sh"
-export OS_DIR="${OS_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
+export INSTALLER_DIR="${INSTALLER_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
 
 # The focus skip bind fires on every cursor move; source only the tiny row
 # classifier (not the whole controller) so it stays cheap. On an inert row it

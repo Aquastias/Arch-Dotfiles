@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/security/sops/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs sops + ssh-to-age, derives the Machine Age Key from the SSH host
 # key, and installs + enables the sops-runtime.service that decrypts

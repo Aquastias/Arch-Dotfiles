@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/vm-pool-verify.sh — booted-VM pool/mount verifier.
+# Tests for .installer/lib/vm-pool-verify.sh — booted-VM pool/mount verifier.
 #
 # Strategy: the verifier queries the live system through `zpool` / `zfs`, which
 # the tests stub as bash functions to simulate a healthy or faulty system. No

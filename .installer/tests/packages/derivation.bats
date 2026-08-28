@@ -7,19 +7,19 @@
 # headless (no lspci).
 
 setup() {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   TEST_DIR="$(mktemp -d)"
   CONFIG_FILE="$TEST_DIR/install.json"
   export CONFIG_FILE
-  source "$OS_DIR/lib/common.sh"
-  source "$OS_DIR/lib/config/accessors.sh"
-  source "$OS_DIR/lib/packages/base.sh"
-  source "$OS_DIR/lib/packages/gpu.sh"
-  source "$OS_DIR/lib/packages/audio.sh"
-  source "$OS_DIR/lib/packages/filesystem.sh"
-  source "$OS_DIR/lib/packages/list.sh"
-  source "$OS_DIR/lib/config/environment.sh"
-  source "$OS_DIR/lib/packages/resolver.sh"
+  source "$INSTALLER_DIR/lib/common.sh"
+  source "$INSTALLER_DIR/lib/config/accessors.sh"
+  source "$INSTALLER_DIR/lib/packages/base.sh"
+  source "$INSTALLER_DIR/lib/packages/gpu.sh"
+  source "$INSTALLER_DIR/lib/packages/audio.sh"
+  source "$INSTALLER_DIR/lib/packages/filesystem.sh"
+  source "$INSTALLER_DIR/lib/packages/list.sh"
+  source "$INSTALLER_DIR/lib/config/environment.sh"
+  source "$INSTALLER_DIR/lib/packages/resolver.sh"
   # Keep gpu resolution deterministic even if a test uses intel/auto.
   _gpu_lspci_output() { printf ''; }
 }

@@ -18,7 +18,7 @@
 #                              affecting axes ∪ the pinned historical-bug seeds.
 #   matrix_all_cells  [seed]   tier1 ∪ tier2 (cell-id resolution for emit/run).
 #
-# Pure: JSON on stdout, no TTY, no disk writes. Requires OS_DIR (for the menu
+# Pure: JSON on stdout, no TTY, no disk writes. Requires INSTALLER_DIR (for the menu
 # functions' lockstep with the layout dispatch).
 #
 # Public API: matrix_tier1_cells / matrix_tier2_cells / matrix_all_cells

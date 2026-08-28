@@ -12,15 +12,15 @@ setup() {
   export GUIDED_STATE_FILE="$TEST_DIR/state.json"
   export GUIDED_NAV_FILE="$TEST_DIR/nav.json"
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
-  mkdir -p "$OS_DIR/hosts/core" "$OS_DIR/users/core"
-  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+  mkdir -p "$INSTALLER_DIR/hosts/core" "$INSTALLER_DIR/users/core"
+  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
 {"users":[],"host_programs":["cups"],
  "packages":{"repo":{"shell":["htop","fzf"],"media":["vlc"]},
              "aur":{"misc":["brave-bin"]}}}
 JSON
-  printf '{"shell":"/bin/zsh"}\n' > "$OS_DIR/users/core/profile.jsonc"
+  printf '{"shell":"/bin/zsh"}\n' > "$INSTALLER_DIR/users/core/profile.jsonc"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
@@ -306,15 +306,15 @@ state()   { cat "$GUIDED_STATE_FILE"; }
 # grub is Menu-Owned (Bootloader), clamav Menu-Owned (Security), docker a
 # free-standing user program, ripgrep a raw package name.
 guard_registry() {
-  mkdir -p "$OS_DIR/programs/bootloader/grub" \
-           "$OS_DIR/programs/security/clamav" \
-           "$OS_DIR/programs/virtualization/docker"
+  mkdir -p "$INSTALLER_DIR/programs/bootloader/grub" \
+           "$INSTALLER_DIR/programs/security/clamav" \
+           "$INSTALLER_DIR/programs/virtualization/docker"
   printf '{"name":"grub","kind":"host"}\n' \
-    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+    > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
   printf '{"name":"clamav","kind":"user"}\n' \
-    > "$OS_DIR/programs/security/clamav/config.jsonc"
+    > "$INSTALLER_DIR/programs/security/clamav/config.jsonc"
   printf '{"name":"docker","kind":"user"}\n' \
-    > "$OS_DIR/programs/virtualization/docker/config.jsonc"
+    > "$INSTALLER_DIR/programs/virtualization/docker/config.jsonc"
   configs_build_registry
 }
 

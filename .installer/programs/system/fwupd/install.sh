@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/system/fwupd/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs fwupd; the runner enables fwupd-refresh.timer (declared in
 # config.jsonc system_services) for periodic firmware metadata refresh and MOTD

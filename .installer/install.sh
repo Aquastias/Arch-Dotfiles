@@ -119,7 +119,7 @@ _install_pick_assignment() {
     done | fzf --multi --reverse \
       --prompt='disks (TAB=multi, ENTER=confirm)> ' \
       --delimiter='\t' --with-nth=1 \
-      --preview="bash -c 'source \"$OS_DIR/lib/picker.sh\"; \
+      --preview="bash -c 'source \"$INSTALLER_DIR/lib/picker.sh\"; \
         picker_format_disk_preview {2}'" \
       --preview-window=right,60%)" \
     || { echo "[install.sh] no disks selected" >&2; return 1; }
@@ -220,14 +220,14 @@ preflight_ensure_host_tools jq || exit 1
 
 # --print-config: validate the profile, assemble the effective config, print to
 # stdout, exit — before any disk phase (01/02/03 never start), so a typo'd key
-# aborts with its path first (ADR 0036). OS_DIR honours an existing value
+# aborts with its path first (ADR 0036). INSTALLER_DIR honours an existing value
 # (tests), else this dir.
 if [[ -n "$print_config" ]]; then
   if [[ -z "$profile_name" ]]; then
     echo "[install.sh] --print-config requires --profile <name>" >&2
     exit 2
   fi
-  export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
+  export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
   # shellcheck source=lib/config/profile.sh
@@ -285,7 +285,7 @@ fi
 # back-end positionally. The picker resolves only disks; layout/identity come
 # from the profile.
 if [[ -n "$profile_name" ]]; then
-  export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
+  export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
   # shellcheck source=lib/config/profile.sh
@@ -311,7 +311,7 @@ fi
 # don't re-ask; root defaults to 12345 — change on first boot).
 if [[ -z "$profile_name" && -z "$print_config" ]] \
   && { [[ -n "$guided_replay" ]] || ((${#positional_args[@]} == 0)); }; then
-  export OS_DIR="${OS_DIR:-$SCRIPT_DIR}"
+  export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
   # shellcheck source=lib/guided.sh

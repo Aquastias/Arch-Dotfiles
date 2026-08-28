@@ -21,17 +21,17 @@ setup() {
   printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"
 
   # A fixture hosts/ tree with two installable profiles (+ excluded core).
-  export OS_DIR="$TEST_DIR/os"
-  mkdir -p "$OS_DIR/hosts"/{core,desktop,laptop}
-  printf '{}\n' > "$OS_DIR/hosts/core/profile.jsonc"
-  cat > "$OS_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
+  export INSTALLER_DIR="$TEST_DIR/os"
+  mkdir -p "$INSTALLER_DIR/hosts"/{core,desktop,laptop}
+  printf '{}\n' > "$INSTALLER_DIR/hosts/core/profile.jsonc"
+  cat > "$INSTALLER_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
 // Encrypted, impermanent ZFS desktop.
 { "system": { "hostname": "eterniox" },
   "options": { "encryption": true }, "filesystem": "zfs" }
 JSONC
   # laptop: no header comment (exercises the dim fallback).
   printf '{ "system": { "hostname": "chronos" } }\n' \
-    > "$OS_DIR/hosts/laptop/profile.jsonc"
+    > "$INSTALLER_DIR/hosts/laptop/profile.jsonc"
 }
 teardown() { rm -rf "$TEST_DIR"; }
 
@@ -51,7 +51,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "list(top): the Profiles row shows even when the hosts tree has none" {
   # ADR 0063: the picker is unconditional — it leads with the reset row, so it is
   # always a first-class entry point, even on a fresh repo with no profiles.
-  rm -rf "$OS_DIR/hosts/desktop" "$OS_DIR/hosts/laptop"
+  rm -rf "$INSTALLER_DIR/hosts/desktop" "$INSTALLER_DIR/hosts/laptop"
   run guided_ctl_list
   echo "$output" | grep -q "Profiles ▸"
 }
@@ -75,7 +75,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 }
 
 @test "list(profiles): a fresh repo shows only the Reset row + Back" {
-  rm -rf "$OS_DIR/hosts/desktop" "$OS_DIR/hosts/laptop"
+  rm -rf "$INSTALLER_DIR/hosts/desktop" "$INSTALLER_DIR/hosts/laptop"
   set_nav '{"screen":"profiles"}'
   run guided_ctl_list
   [ "${lines[0]}" = "↺ Reset to blank" ]
@@ -112,7 +112,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
     > "$d/hosts/box/profile.jsonc"
   printf '{"shell":"/bin/fish","groups":["wheel","docker"]}\n' \
     > "$d/users/alice/profile.jsonc"
-  export OS_DIR="$d"
+  export INSTALLER_DIR="$d"
   set_nav '{"screen":"profiles"}'
   run guided_ctl_preview box
   echo "$output" | grep -q "alice"
@@ -125,7 +125,7 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   mkdir -p "$d/hosts"/{core,box}
   printf '{"options":{"bootloader":"grub"}}\n' > "$d/hosts/core/profile.jsonc"
   printf '{"system":{"hostname":"box"}}\n' > "$d/hosts/box/profile.jsonc"
-  export OS_DIR="$d"
+  export INSTALLER_DIR="$d"
   set_nav '{"screen":"profiles"}'
   run guided_ctl_preview box
   echo "$output" | grep -q "bootloader: grub"     # inherited from Host Core
@@ -254,7 +254,7 @@ JSON
   cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
 {"host_programs":["grub"],"packages":{"repo":{"virt":["qemu-full"]}}}
 JSON
-  export OS_DIR="$d"
+  export INSTALLER_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
   set_nav "$(nav_to_profiles)"
@@ -277,7 +277,7 @@ JSON
   cat > "$d/hosts/desktop/profile.jsonc" <<'JSON'
 {"host_programs":["grub"],"options":{"kernel":["zen"]}}
 JSON
-  export OS_DIR="$d"
+  export INSTALLER_DIR="$d"
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
 
   set_nav "$(nav_to_profiles)"

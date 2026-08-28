@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/chroot/udisks.sh — udisks-ignore rule for ZFS members.
+# Tests for .installer/lib/chroot/udisks.sh — udisks-ignore rule for ZFS members.
 #
 # The rule stops a udisks2-backed file manager (KDE Solid/Dolphin, …) from
 # listing ZFS pool members as removable drives, which today prompt for a

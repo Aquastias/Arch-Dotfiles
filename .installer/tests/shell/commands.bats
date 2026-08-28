@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/shell/commands.sh — command_exists helper.
+# Tests for .installer/lib/shell/commands.sh — command_exists helper.
 
 setup() {
   # shellcheck source=../../lib/shell/commands.sh

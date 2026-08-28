@@ -3,7 +3,7 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export INSTALL_STATE="$TEST_DIR/install-state.json"
   printf '{}' > "$INSTALL_STATE"
 
@@ -83,9 +83,9 @@ _write_sops_stub() {
 # ── correct key: host secrets ─────────────────────────────────────────────────
 
 @test "writes secrets.host path to install-state.json when host exists" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -104,8 +104,8 @@ _write_sops_stub() {
 
 @test "writes secrets.users.<name> path to install-state.json (user)" {
   load_profile() { printf '%s' '{"users":["alice"]}'; }
-  mkdir -p "$OS_DIR/users/alice"
-  printf '{"password":"s3cr3t"}\n' > "$OS_DIR/users/alice/secrets.json"
+  mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{"password":"s3cr3t"}\n' > "$INSTALLER_DIR/users/alice/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -123,9 +123,9 @@ _write_sops_stub() {
 # ── wrong passphrase ──────────────────────────────────────────────────────────
 
 @test "exits non-zero with clear message when age decryption fails" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -140,9 +140,9 @@ _write_sops_stub() {
 # ── tmpfs cleanup ─────────────────────────────────────────────────────────────
 
 @test "secrets_cleanup unmounts and removes tmpfs after successful load" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -191,9 +191,9 @@ _write_curl_stub() {
 # ── URL fallback ──────────────────────────────────────────────────────────────
 
 @test "URL fallback: loads secrets when no USB and SECRETS_KEY_URL is set" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   local key_file="$TEST_DIR/key.age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$key_file"
   export SECRETS_KEY_URL="https://example.com/age/key.age"
@@ -211,9 +211,9 @@ _write_curl_stub() {
 }
 
 @test "no source: exits non-zero with clear message when no USB and no URL" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   _write_lsblk_stub
   unset SECRETS_KEY_DEVICE SECRETS_KEY_URL
 
@@ -223,9 +223,9 @@ _write_curl_stub() {
 }
 
 @test "URL download failure: exits non-zero with clear message" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   export SECRETS_KEY_URL="https://example.com/age/key.age"
   _write_lsblk_stub
   _write_curl_stub 1
@@ -236,9 +236,9 @@ _write_curl_stub() {
 }
 
 @test "USB takes priority: SECRETS_KEY_DEVICE wins over SECRETS_KEY_URL" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -255,9 +255,9 @@ _write_curl_stub() {
 }
 
 @test "URL temp file removed after successful decrypt" {
-  mkdir -p "$OS_DIR/hosts/myhostname"
+  mkdir -p "$INSTALLER_DIR/hosts/myhostname"
   printf '{"root_password":"s3cr3t"}\n' \
-    > "$OS_DIR/hosts/myhostname/secrets.json"
+    > "$INSTALLER_DIR/hosts/myhostname/secrets.json"
   local key_file="$TEST_DIR/key.age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$key_file"
   export SECRETS_KEY_URL="https://example.com/age/key.age"
@@ -276,9 +276,9 @@ _write_curl_stub() {
 
 @test "user secrets scoped to host: foreign user is excluded" {
   load_profile() { printf '%s' '{"users":["alice"]}'; }
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/vm-test"
-  printf '{"password":"a"}\n'  > "$OS_DIR/users/alice/secrets.json"
-  printf '{"password":"x"}\n'  > "$OS_DIR/users/vm-test/secrets.json"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/vm-test"
+  printf '{"password":"a"}\n'  > "$INSTALLER_DIR/users/alice/secrets.json"
+  printf '{"password":"x"}\n'  > "$INSTALLER_DIR/users/vm-test/secrets.json"
   mkdir -p "$TEST_DIR/usb/age"
   printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
   export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
@@ -293,8 +293,8 @@ _write_curl_stub() {
 
 @test "host with no declared secrets skips even if other users have secrets" {
   load_profile() { printf '%s' '{"users":[]}'; }
-  mkdir -p "$OS_DIR/users/vm-test"
-  printf '{"password":"x"}\n' > "$OS_DIR/users/vm-test/secrets.json"
+  mkdir -p "$INSTALLER_DIR/users/vm-test"
+  printf '{"password":"x"}\n' > "$INSTALLER_DIR/users/vm-test/secrets.json"
   _write_lsblk_stub
   unset SECRETS_KEY_DEVICE SECRETS_KEY_URL
 

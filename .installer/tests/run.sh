@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the bats tests under .os/tests/ (recursively, so folder-mirrored
+# Run the bats tests under .installer/tests/ (recursively, so folder-mirrored
 # subdirs like config/ are discovered). Vendors bats-core on first run.
 #
 # Modes (ADR 0046 two-tier + ADR 0078 gate split):

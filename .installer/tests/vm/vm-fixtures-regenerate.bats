@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for .os/vm/fixtures/regenerate.sh — Test Age Key rotation script.
+# Tests for .installer/vm/fixtures/regenerate.sh — Test Age Key rotation script.
 #
 # Runs regenerate.sh against an isolated REPO_ROOT temp workspace so the
-# committed fixtures under .os/vm/fixtures, .os/hosts/vm/arch-secure and
-# .os/users/vm-test are never mutated.
+# committed fixtures under .installer/vm/fixtures, .installer/hosts/vm/arch-secure and
+# .installer/users/vm-test are never mutated.
 
 REGEN="$BATS_TEST_DIRNAME/../../vm/fixtures/regenerate.sh"
 PASSPHRASE="test"
@@ -12,15 +12,15 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   export REPO_ROOT="$TEST_DIR"
   mkdir -p \
-    "$TEST_DIR/.os/vm/fixtures" \
-    "$TEST_DIR/.os/hosts/vm/arch-secure" \
-    "$TEST_DIR/.os/users/vm-test"
+    "$TEST_DIR/.installer/vm/fixtures" \
+    "$TEST_DIR/.installer/hosts/vm/arch-secure" \
+    "$TEST_DIR/.installer/users/vm-test"
 
   # .sops.yaml with the test rule placed before the operator placeholder so
   # the test paths win their match. regenerate.sh updates the test rule's age.
   cat > "$TEST_DIR/.sops.yaml" <<'YAML'
 creation_rules:
-  - path_regex: ^\.os/(hosts/vm/arch-secure|users/vm-test)/secrets\.json$
+  - path_regex: ^\.installer/(hosts/vm/arch-secure|users/vm-test)/secrets\.json$
     age: >-
       age1placeholderplaceholderplaceholderplaceholderplaceholder
   - path_regex: (users|hosts)/[^/]+/secrets\.json$
@@ -31,9 +31,9 @@ YAML
   # Plaintext seed secrets. regenerate.sh detects unencrypted JSON and runs
   # sops -e -i on first run; subsequent runs hit the sops updatekeys path.
   printf '{"root_password":"vmtest"}\n' \
-    > "$TEST_DIR/.os/hosts/vm/arch-secure/secrets.json"
+    > "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json"
   printf '{"password":"vmtest","ssh_identity_key_type":"ed25519"}\n' \
-    > "$TEST_DIR/.os/users/vm-test/secrets.json"
+    > "$TEST_DIR/.installer/users/vm-test/secrets.json"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -59,7 +59,7 @@ for r in data["creation_rules"]:
 # Stdout: plaintext JSON; exit 0 on success.
 _sops_decrypt_with_test_key() {
   local sops_file="$1"
-  local key_file="$TEST_DIR/.os/vm/fixtures/key.age"
+  local key_file="$TEST_DIR/.installer/vm/fixtures/key.age"
   local priv="$TMP_SOPS/key.txt"
   mkdir -p "$TMP_SOPS"
   _decrypt_key_age "$key_file" > "$priv"
@@ -73,10 +73,10 @@ setup_file() { :; }
 @test "regenerate.sh writes key.age that decrypts with passphrase 'test'" {
   run bash "$REGEN"
   [ "$status" -eq 0 ]
-  [ -s "$TEST_DIR/.os/vm/fixtures/key.age" ]
+  [ -s "$TEST_DIR/.installer/vm/fixtures/key.age" ]
 
   local priv
-  priv="$(_decrypt_key_age "$TEST_DIR/.os/vm/fixtures/key.age")"
+  priv="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
   [[ "$priv" == AGE-SECRET-KEY-1* ]]
 }
 
@@ -84,7 +84,7 @@ setup_file() { :; }
   bash "$REGEN"
 
   local priv pub_from_key pub_in_yaml
-  priv="$(_decrypt_key_age "$TEST_DIR/.os/vm/fixtures/key.age")"
+  priv="$(_decrypt_key_age "$TEST_DIR/.installer/vm/fixtures/key.age")"
   pub_from_key="$(printf '%s\n' "$priv" | age-keygen -y 2>/dev/null)"
   pub_in_yaml="$(_sops_yaml_test_recipient "$TEST_DIR/.sops.yaml")"
 
@@ -98,9 +98,9 @@ setup_file() { :; }
 
   local host_dec user_dec
   host_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.os/hosts/vm/arch-secure/secrets.json")"
+    "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
   user_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.os/users/vm-test/secrets.json")"
+    "$TEST_DIR/.installer/users/vm-test/secrets.json")"
 
   [[ "$host_dec" == *root_password* ]]
   [[ "$user_dec" == *ssh_identity_key_type* ]]
@@ -122,9 +122,9 @@ setup_file() { :; }
 
   local host_dec user_dec
   host_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.os/hosts/vm/arch-secure/secrets.json")"
+    "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
   user_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.os/users/vm-test/secrets.json")"
+    "$TEST_DIR/.installer/users/vm-test/secrets.json")"
   [[ "$host_dec" == *root_password* ]]
   [[ "$user_dec" == *ssh_identity_key_type* ]]
 

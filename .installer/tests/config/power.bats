@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/power.sh — the Power Profile resolver (ADR 0080): a
+# Tests for .installer/lib/config/power.sh — the Power Profile resolver (ADR 0080): a
 # pure helper turning options.power.profile into a toggle-derived System Program
 # (power-profiles-daemon or tuned; none derives nothing), the injector that
 # folds it into an Effective Config's host_programs, and the owned set the

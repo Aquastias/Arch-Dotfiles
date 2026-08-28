@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/post-install.sh — the Security & Backup Extras
+# Tests for .installer/lib/config/post-install.sh — the Security & Backup Extras
 # resolver (M2, ADR 0041): a pure core mapping a post_install.{security,backup}
 # object to the ordered Program-name list, the secure-baseline default object,
 # and shape validation. Pure: JSON-in / list-out, no TTY, no disk writes.

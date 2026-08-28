@@ -8,7 +8,7 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   info()    { :; }
   warn()    { :; }
@@ -16,10 +16,10 @@ setup() {
   section() { :; }
   export -f info warn error section
 
-  mkdir -p "$OS_DIR/hosts/core"
+  mkdir -p "$INSTALLER_DIR/hosts/core"
   printf '%s\n' \
     '{"host_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
-    > "$OS_DIR/hosts/core/profile.jsonc"
+    > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
   # shellcheck source=../../lib/config/state.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
@@ -58,9 +58,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 
   run guided_save_host_profile "$state" "eterniox"
   [ "$status" -eq 0 ]
-  [ -f "$OS_DIR/hosts/eterniox/profile.jsonc" ]
+  [ -f "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" ]
   # device-less + schema-clean + re-loadable via the Profile Loader
-  run jq -e 'has("disk") | not' "$OS_DIR/hosts/eterniox/profile.jsonc"
+  run jq -e 'has("disk") | not' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
   [ "$status" -eq 0 ]
   loaded="$(load_profile eterniox)"
   echo "$loaded" | jq -e '.options.bootloader == "grub"'   # delta applied
@@ -72,13 +72,13 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── Save never overwrites — an existing profile forces a new name ────────────
 
 @test "guided_save_host_profile: refuses to overwrite an existing profile" {
-  mkdir -p "$OS_DIR/hosts/taken"
-  printf 'KEEP\n' > "$OS_DIR/hosts/taken/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/hosts/taken"
+  printf 'KEEP\n' > "$INSTALLER_DIR/hosts/taken/profile.jsonc"
   state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
 
   run guided_save_host_profile "$state" "taken"
   [ "$status" -ne 0 ]
-  [ "$(cat "$OS_DIR/hosts/taken/profile.jsonc")" = "KEEP" ]   # untouched
+  [ "$(cat "$INSTALLER_DIR/hosts/taken/profile.jsonc")" = "KEEP" ]   # untouched
 }
 
 # ── Export writes the device-baked config to a chosen path ──────────────────
@@ -96,9 +96,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── Export refuses to write into the repo's hosts/ tree ─────────────────────
 
 @test "guided_export_config: refuses a path under hosts/" {
-  run guided_export_config '{"mode":"single"}' "$OS_DIR/hosts/sneaky.jsonc"
+  run guided_export_config '{"mode":"single"}' "$INSTALLER_DIR/hosts/sneaky.jsonc"
   [ "$status" -ne 0 ]
-  [ ! -f "$OS_DIR/hosts/sneaky.jsonc" ]
+  [ ! -f "$INSTALLER_DIR/hosts/sneaky.jsonc" ]
 }
 
 # ── neither Save nor Export leaks the disk passphrase default (ADR 0059) ─────
@@ -112,7 +112,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   state="$(cfgstate_set "$state" options.encryption 'true')"
 
   guided_save_host_profile "$state" "eterniox"
-  saved="$OS_DIR/hosts/eterniox/profile.jsonc"
+  saved="$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
   ! grep -qE "enc_passphrase|12345678" "$saved"
 
   effective="$(cfgstate_set "$state" disk '"/dev/sda"')"

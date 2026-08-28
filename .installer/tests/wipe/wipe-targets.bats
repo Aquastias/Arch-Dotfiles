@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/wipe/targets.sh — the Target Resolver.
+# Tests for .installer/lib/wipe/targets.sh — the Target Resolver.
 #
 # The Single Entry Point resolves the install's target disks from the Install
 # Config and passes them to the wipe as an explicit list, so the wipe touches

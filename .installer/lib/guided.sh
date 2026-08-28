@@ -153,7 +153,7 @@ guided_pick_disk() {
     for p in "${cands[@]}"; do
       printf '%s\t%s\n' "$(picker_disk_label "$p")" "$p"
     done | fzf --reverse --prompt='disk> ' --delimiter='\t' --with-nth=1 \
-      --preview="bash -c 'source \"${OS_DIR}/lib/picker.sh\"; \
+      --preview="bash -c 'source \"${INSTALLER_DIR}/lib/picker.sh\"; \
         picker_format_disk_preview {2}'" \
       --preview-window=right,60%
   )"
@@ -633,7 +633,7 @@ _guided_add_package() {
 # one per line. The enumerable source for the host_programs multi-select.
 _guided_program_names() {
   local d
-  for d in "${OS_DIR}/programs"/*/*; do
+  for d in "${INSTALLER_DIR}/programs"/*/*; do
     [[ -d "$d" ]] && basename "$d"
   done
 }
@@ -705,7 +705,7 @@ _guided_seed_primary_user() { _GUIDED_USERS_COMMITTED=("aquastias"); }
 # installable). The enumerable source for the picker.
 _guided_user_names() {
   local d n
-  for d in "${OS_DIR}/users"/*/; do
+  for d in "${INSTALLER_DIR}/users"/*/; do
     [[ -d "$d" ]] || continue
     n="$(basename "$d")"
     [[ "$n" == "core" || "$n" == vm-* ]] && continue
@@ -793,7 +793,7 @@ _guided_materialize_users() {
   local mode="${1:-proceed}" name dir
   _GUIDED_COMMITTED_AT_START=" $(_guided_user_names | tr '\n' ' ')"
   for name in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
-    dir="${OS_DIR}/users/${name}"
+    dir="${INSTALLER_DIR}/users/${name}"
     mkdir -p "$dir"
     printf '%s\n' "${_GUIDED_ADHOC_FORM[$name]}" > "${dir}/profile.jsonc"
   done
@@ -803,7 +803,7 @@ _guided_materialize_users() {
   # sudo). Committed/legacy-ad-hoc users already have one and are skipped.
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
-    dir="${OS_DIR}/users/${name}"
+    dir="${INSTALLER_DIR}/users/${name}"
     [[ -f "${dir}/profile.jsonc" ]] && continue
     mkdir -p "$dir"
     guided_user_profile \
@@ -815,7 +815,7 @@ _guided_materialize_users() {
   # Install-scoped User Editor deltas (ADR 0051): merge each held-aside per-user
   # delta onto that user's profile ON THE CLONE — the committed source in the
   # repo
-  # is only touched here because OS_DIR is the transient install clone at
+  # is only touched here because INSTALLER_DIR is the transient install clone at
   # Proceed.
   # A committed user's profile stays a delta over User Core (its existing delta
   # `*` the edit); an ad-hoc user's just-written profile gets the edit on top.
@@ -840,7 +840,7 @@ _guided_apply_userforms() {
     fi
     delta="$(jq -c --arg n "$name" '.[$n] // {}' <<<"$_GUIDED_USERFORMS_JSON")"
     [[ "$delta" == "{}" || -z "$delta" ]] && continue
-    dir="${OS_DIR}/users/${name}"; f="${dir}/profile.jsonc"
+    dir="${INSTALLER_DIR}/users/${name}"; f="${dir}/profile.jsonc"
     mkdir -p "$dir"
     if [[ -f "$f" ]]; then base="$(_configs_parse "$f")"; else base='{}'; fi
     jq -n --argjson b "$base" --argjson d "$delta" '$b * $d' > "$f"
@@ -858,7 +858,7 @@ _guided_committed_userform_edits() {
   local n
   while IFS= read -r n; do
     [[ -n "$n" ]] || continue
-    [[ -f "${OS_DIR}/users/${n}/profile.jsonc" ]] && printf '%s\n' "$n"
+    [[ -f "${INSTALLER_DIR}/users/${n}/profile.jsonc" ]] && printf '%s\n' "$n"
   done < <(jq -r 'keys[]' <<<"$_GUIDED_USERFORMS_JSON")
 }
 
@@ -1036,7 +1036,7 @@ guided_run_persistent() {
   # enter passes BOTH the selection {} and the typed query {q} (text fields read
   # {q} from fzf's own input line); esc maps to a back/abort transform; the
   # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
-  local entry="${OS_DIR}/lib/guided-fzf-entry.sh"
+  local entry="${INSTALLER_DIR}/lib/guided-fzf-entry.sh"
   # Rich chrome flags (fzf >= 0.62 only): footer + rounded list border. Passed
   # only when supported so an older fzf never chokes; the ^A/^X binds are
   # harmless on either.
@@ -1208,7 +1208,7 @@ _guided_resolve_assignment() {
 _guided_seed_from_profile() {
   local name="${_GUIDED_ANSWERS[profile]-}" f profile
   [[ -n "$name" ]] || return 0
-  f="${OS_DIR}/hosts/${name}/profile.jsonc"
+  f="${INSTALLER_DIR}/hosts/${name}/profile.jsonc"
   profile="$(_configs_parse "$f" 2>/dev/null)" || return 0
   # Resolve over Host Core first — see _ctl_enter_profiles: seeding the raw
   # delta would install a different set from `install.sh --profile <name>`.
@@ -1308,7 +1308,7 @@ guided_build() {
     # is committed, so a failed Save leaves no half-written artifacts.
     local clash
     for clash in "${_GUIDED_ADHOC_ORDER[@]+"${_GUIDED_ADHOC_ORDER[@]}"}"; do
-      [[ -e "${OS_DIR}/users/${clash}/profile.jsonc" ]] && {
+      [[ -e "${INSTALLER_DIR}/users/${clash}/profile.jsonc" ]] && {
         error "guided: users/${clash}/ already exists — choose a new user name."
         return 1
       }

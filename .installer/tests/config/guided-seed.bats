@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/seed.sh — the Guided Installer's default seeder
+# Tests for .installer/lib/config/seed.sh — the Guided Installer's default seeder
 # (guided-installer-redesign issue 01 / M3): a pure helper that fills a launch
 # Config State with this operator's computed defaults, so an untouched run is
 # ready to install. Pure: a Config State in, the seeded state out, no TTY.
@@ -12,13 +12,13 @@ setup() {
   export -f error
 
   # The baseline is LOADED from Host Core now (ADR 0058), so the seeder needs
-  # an OS_DIR to read. A representative core: one System Program, a sysctl
+  # an INSTALLER_DIR to read. A representative core: one System Program, a sysctl
   # default, and a package list — the three things that used to be invisible
   # in the menu because they were hand-copied or not copied at all.
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/hosts/core"
-  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/hosts/core"
+  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
 {"users":[],"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
  "packages":{"repo":{"shell":["htop"]},"aur":{"misc":["brave-bin"]}}}
 JSON
@@ -94,7 +94,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # The ordered selections still replace whatever core declared — the baseline
 # fold is the Layer Resolver, not a blanket concat.
 @test "cfgstate_seed_defaults: a core kernel does not concat with the default" {
-  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
 {"options":{"kernel":["zen"]}}
 JSON
   run cfgstate_seed_defaults "$(cfgstate_new)"
@@ -103,7 +103,7 @@ JSON
 }
 
 @test "cfgstate_seed_defaults: with no Host Core it still seeds the defaults" {
-  rm -rf "$OS_DIR/hosts"
+  rm -rf "$INSTALLER_DIR/hosts"
   run cfgstate_seed_defaults "$(cfgstate_new)"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'

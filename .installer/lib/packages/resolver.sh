@@ -368,8 +368,8 @@ pkgres_resolve() {
   # `core`, otherwise `host` — so the report answers "do I edit Host Core or
   # this host profile?" rather than only "was this authored or derived?".
   local core_json=""
-  if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/hosts/core/profile.jsonc" ]]; then
-    core_json="$(jsonc_strip "${OS_DIR}/hosts/core/profile.jsonc" 2>/dev/null)"
+  if [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/hosts/core/profile.jsonc" ]]; then
+    core_json="$(jsonc_strip "${INSTALLER_DIR}/hosts/core/profile.jsonc" 2>/dev/null)"
   fi
   local slot json p layer
   for slot in repo aur; do
@@ -403,7 +403,7 @@ _pkgres_de_packages() {
     _pkgres_niri_packages "$cfg"
     return 0
   fi
-  local f="${OS_DIR:-}/extras/desktop/${de}/install-${de}.jsonc"
+  local f="${INSTALLER_DIR:-}/extras/desktop/${de}/install-${de}.jsonc"
   [[ -f "$f" ]] || return 0
   local json; json="$(jsonc_strip "$f" 2>/dev/null)" || return 0
 
@@ -470,9 +470,9 @@ _pkgres_niri_packages() {
   # key is the package name for cava/cliphist; bitwarden additionally pulls the
   # bitwarden-cli backend (ADR 0090).
   local nj=""
-  if [[ -n "${OS_DIR:-}" \
-     && -f "${OS_DIR}/extras/desktop/niri/install-niri.jsonc" ]]; then
-    nj="$(jsonc_strip "${OS_DIR}/extras/desktop/niri/install-niri.jsonc" \
+  if [[ -n "${INSTALLER_DIR:-}" \
+     && -f "${INSTALLER_DIR}/extras/desktop/niri/install-niri.jsonc" ]]; then
+    nj="$(jsonc_strip "${INSTALLER_DIR}/extras/desktop/niri/install-niri.jsonc" \
       2>/dev/null)"
   fi
   [[ -n "$nj" ]] || return 0
@@ -491,15 +491,15 @@ _pkgres_niri_packages() {
 # user, resolved through User Core so an undeclared shell still reports.
 _pkgres_user_shells() {
   local cfg="$1" u shell core_shell=""
-  if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/core/profile.jsonc" ]]; then
-    core_shell="$(jsonc_strip "${OS_DIR}/users/core/profile.jsonc" 2>/dev/null \
+  if [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/users/core/profile.jsonc" ]]; then
+    core_shell="$(jsonc_strip "${INSTALLER_DIR}/users/core/profile.jsonc" 2>/dev/null \
       | jq -r '.shell // empty' 2>/dev/null)"
   fi
   while IFS= read -r u; do
     [[ -n "$u" ]] || continue
     shell=""
-    if [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${u}/profile.jsonc" ]]; then
-      shell="$(jsonc_strip "${OS_DIR}/users/${u}/profile.jsonc" 2>/dev/null \
+    if [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/users/${u}/profile.jsonc" ]]; then
+      shell="$(jsonc_strip "${INSTALLER_DIR}/users/${u}/profile.jsonc" 2>/dev/null \
         | jq -r '.shell // empty' 2>/dev/null)"
     fi
     printf '%s\n' "${shell:-${core_shell:-/bin/bash}}"
@@ -511,11 +511,11 @@ _pkgres_user_shells() {
 _pkgres_has_secrets() {
   local cfg="$1" host u
   host="$(_pkgres_jq "$cfg" '.system.hostname // empty')"
-  [[ -n "${OS_DIR:-}" ]] || return 1
-  [[ -n "$host" && -f "${OS_DIR}/hosts/${host}/secrets.json" ]] && return 0
+  [[ -n "${INSTALLER_DIR:-}" ]] || return 1
+  [[ -n "$host" && -f "${INSTALLER_DIR}/hosts/${host}/secrets.json" ]] && return 0
   while IFS= read -r u; do
     [[ -n "$u" ]] || continue
-    [[ -f "${OS_DIR}/users/${u}/secrets.json" ]] && return 0
+    [[ -f "${INSTALLER_DIR}/users/${u}/secrets.json" ]] && return 0
   done < <(_pkgres_jq "$cfg" '(.users // [])[]')
   return 1
 }

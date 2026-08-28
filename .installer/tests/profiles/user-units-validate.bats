@@ -17,7 +17,7 @@
 
 setup() {
   load ../lib/validators
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   TEST_DIR="$(mktemp -d)"
 }
 teardown() { rm -rf "$TEST_DIR"; }
@@ -31,14 +31,14 @@ teardown() { rm -rf "$TEST_DIR"; }
     if [ "$status" -ne 0 ]; then
       echo "verify failed for $u:"; echo "$output"; return 1
     fi
-  done < <(find "$OS_DIR/programs" -name '*.service')
+  done < <(find "$INSTALLER_DIR/programs" -name '*.service')
   [ "$found" -eq 1 ]   # guard: the glob actually matched units
 }
 
 @test "regression: a unit with an unknown directive is rejected" {
   validators_skip_unless systemd-analyze
   # Start from a real shipped unit so only the injected fault differs.
-  local src; src="$(find "$OS_DIR/programs" -name '*.service' | head -1)"
+  local src; src="$(find "$INSTALLER_DIR/programs" -name '*.service' | head -1)"
   cp "$src" "$TEST_DIR/bad.service"
   printf '\n[Service]\nNotADirective=oops\n' >> "$TEST_DIR/bad.service"
   run validators_verify_user_unit "$TEST_DIR/bad.service"

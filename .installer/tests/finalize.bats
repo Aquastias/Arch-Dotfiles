@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/finalize.sh — post-install cleanup.
+# Tests for .installer/lib/finalize.sh — post-install cleanup.
 #
 # Strategy: stub zpool / zfs / umount as bash fns that append argv to $CALLS,
 # then source finalize.sh and call finalize. Assertions read $CALLS.

@@ -14,19 +14,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OS_DIR="${OS_DIR:-$(dirname "$SCRIPT_DIR")}"
-export OS_DIR
+INSTALLER_DIR="${INSTALLER_DIR:-$(dirname "$SCRIPT_DIR")}"
+export INSTALLER_DIR
 
 # shellcheck source=../lib/shell-stdlib.sh
-source "$OS_DIR/lib/shell-stdlib.sh"
+source "$INSTALLER_DIR/lib/shell-stdlib.sh"
 # shellcheck source=../lib/config/generator.sh
-source "$OS_DIR/lib/config/generator.sh"
+source "$INSTALLER_DIR/lib/config/generator.sh"
 # shellcheck source=../lib/jsonc.sh
-source "$OS_DIR/lib/jsonc.sh"
+source "$INSTALLER_DIR/lib/jsonc.sh"
 # Brings load_profile + load_user_profile (transitively sources layers.sh for
 # program resolution).
 # shellcheck source=../lib/config/profile.sh
-source "$OS_DIR/lib/config/profile.sh"
+source "$INSTALLER_DIR/lib/config/profile.sh"
 
 # Resolve the Host Profile for this machine — the live hostname (the host
 # directory name is the identity, ADR 0036).
@@ -66,7 +66,7 @@ if (( VALIDATE_ONLY == 0 )) && [[ -z "$USER_NAME" ]]; then
   usage
 fi
 
-PROGRAMS_ROOT="${PROGRAMS_ROOT:-$OS_DIR/programs}"
+PROGRAMS_ROOT="${PROGRAMS_ROOT:-$INSTALLER_DIR/programs}"
 
 if (( VALIDATE_ONLY == 1 )) && [[ -z "$USER_NAME" ]]; then
   errors=0
@@ -89,7 +89,7 @@ LEGACY_ROOT="${LEGACY_ROOT:-$HOME/.dotfiles}"
 # variants={} and programs=[]), >=2 on hard error.
 user_progs_json='[]'
 variants='{}'
-if [[ -f "$OS_DIR/users/core/profile.jsonc" ]]; then
+if [[ -f "$INSTALLER_DIR/users/core/profile.jsonc" ]]; then
   urc=0
   user_merged="$(load_user_profile "$USER_NAME")" || urc=$?
   if (( urc >= 2 )); then
@@ -102,7 +102,7 @@ fi
 # Merge hosts/core + hosts/<profile>. Extract host_programs declared for
 # this machine. Missing hosts/core is tolerated (no host programs).
 sys_progs_json='[]'
-if [[ -f "$OS_DIR/hosts/core/profile.jsonc" ]]; then
+if [[ -f "$INSTALLER_DIR/hosts/core/profile.jsonc" ]]; then
   profile="$(_gc_resolve_host_profile)"
   hrc=0
   host_merged="$(load_profile "$profile")" || hrc=$?

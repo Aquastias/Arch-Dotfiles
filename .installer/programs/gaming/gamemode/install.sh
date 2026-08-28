@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/gaming/gamemode/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs `gamemode` (and `lib32-gamemode` for 32-bit games when multilib is
 # enabled). That is the whole install: no service enable — gamemoded is a

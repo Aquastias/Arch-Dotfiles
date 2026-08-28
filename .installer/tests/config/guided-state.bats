@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/state.sh — the Guided Installer's Config State
+# Tests for .installer/lib/config/state.sh — the Guided Installer's Config State
 # (ADR 0039): a sparse override map over the computed defaults, mutated by
 # pure verbs (get/set/unset/emit), JSON-in/JSON-out, no TTY.
 #

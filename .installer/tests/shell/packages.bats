@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/shell/packages.sh — package_installed helper.
+# Tests for .installer/lib/shell/packages.sh — package_installed helper.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

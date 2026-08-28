@@ -11,15 +11,15 @@
 # properties (validity, coverage, seeds, determinism).
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # the generator + the real validation contract it must not violate.
   # shellcheck source=../../lib/matrix/generator.sh
-  source "$OS_DIR/lib/matrix/generator.sh"
+  source "$INSTALLER_DIR/lib/matrix/generator.sh"
   # the REAL topology contract, so the cross-check can't drift from production.
   error() { return 1; }
   # shellcheck source=../../lib/config/validation.sh
-  source "$OS_DIR/lib/config/validation.sh"
+  source "$INSTALLER_DIR/lib/config/validation.sh"
 }
 
 # ── tracer: Tier-1 is a real (non-trivial) set that includes the simplest cell

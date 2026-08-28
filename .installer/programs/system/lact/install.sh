@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/system/lact/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs lact; the runner enables lactd.service (declared in config.jsonc
 # system_services) so the LACT GPU configuration/monitoring daemon is up on
