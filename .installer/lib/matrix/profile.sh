@@ -12,7 +12,7 @@
 # Disk-count = Σ disk_count, the oracle-driven verify block, and the light/heavy
 # timeout band land in the synthesizer slice (05).
 #
-# Pure: JSON in/out. Requires OS_DIR (for the assembler's Host Core).
+# Pure: JSON in/out. Requires INSTALLER_DIR (for the assembler's Host Core).
 #
 # Public API:
 #   matrix_cell_profile <cell>     → the VM Profile JSON for the cell

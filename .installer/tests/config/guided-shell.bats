@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/guided.sh — the Guided Installer's fzf shell (ADR 0039).
+# Tests for .installer/lib/guided.sh — the Guided Installer's fzf shell (ADR 0039).
 # The shell is impure glue, but its selection seam (guided_select /
 # guided_prompt) is replayable: under a GUIDED_REPLAY answers file the menu
 # is driven headlessly, no fzf, no tty. So guided_build — the assembly path —
@@ -10,7 +10,7 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   # Mirror common.sh faithfully: info/warn/section echo to STDOUT, error to
   # stderr. guided_build's only stdout MUST be the Effective Config — any human
@@ -22,10 +22,10 @@ setup() {
   section() { echo "== $* =="; }
   export -f info warn error section
 
-  mkdir -p "$OS_DIR/hosts/core"
+  mkdir -p "$INSTALLER_DIR/hosts/core"
   printf '%s\n' \
     '{"host_programs":["cups"],"sysctl":{"vm.swappiness":10}}' \
-    > "$OS_DIR/hosts/core/profile.jsonc"
+    > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
   # Real pure cores (emit pulls in the real picker_assign_disks + layers).
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
@@ -108,8 +108,8 @@ write_answers() {
 
   run guided_build
   [ "$status" -eq 64 ]
-  jq -e '.users == ["aquastias"]' "$OS_DIR/hosts/eterniox/profile.jsonc"
-  jq -e '.system.hostname == "eterniox"' "$OS_DIR/hosts/eterniox/profile.jsonc"
+  jq -e '.users == ["aquastias"]' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
+  jq -e '.system.hostname == "eterniox"' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
 }
 
 # ── editing a Host identity row overrides the seed in the emitted config ─────
@@ -250,14 +250,14 @@ write_answers() {
 
   run guided_build
   [ "$status" -eq 64 ]                       # action done — no back-end install
-  [ -f "$OS_DIR/hosts/eterniox/profile.jsonc" ]
-  jq -e 'has("disk") | not' "$OS_DIR/hosts/eterniox/profile.jsonc"   # device-less
-  jq -e '.options.bootloader == "grub"' "$OS_DIR/hosts/eterniox/profile.jsonc"
+  [ -f "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" ]
+  jq -e 'has("disk") | not' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"   # device-less
+  jq -e '.options.bootloader == "grub"' "$INSTALLER_DIR/hosts/eterniox/profile.jsonc"
 }
 
 @test "guided_build: a replayed Save refuses an ad-hoc user that already exists" {
-  mkdir -p "$OS_DIR/users/carol"
-  printf 'KEEP\n' > "$OS_DIR/users/carol/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/carol"
+  printf 'KEEP\n' > "$INSTALLER_DIR/users/carol/profile.jsonc"
   guided_load_replay "$(write_answers \
     'hostname=eterniox' \
     'new_user_name=carol' 'new_user_password=x' \
@@ -266,8 +266,8 @@ write_answers() {
   run guided_build
   [ "$status" -ne 0 ]
   [ "$status" -ne 64 ]
-  [ "$(cat "$OS_DIR/users/carol/profile.jsonc")" = "KEEP" ]   # untouched
-  [ ! -f "$OS_DIR/hosts/eterniox/profile.jsonc" ]             # host not committed
+  [ "$(cat "$INSTALLER_DIR/users/carol/profile.jsonc")" = "KEEP" ]   # untouched
+  [ ! -f "$INSTALLER_DIR/hosts/eterniox/profile.jsonc" ]             # host not committed
 }
 
 @test "guided_build: a replayed Export writes the device-baked config to a path" {
@@ -302,9 +302,9 @@ write_answers() {
   # ad-hoc user joins the host users[] after the seeded Primary User (aquastias
   # stays first); its User Profile is materialized.
   echo "$effective" | jq -e '.users == ["aquastias","carol"]'
-  [ -f "$OS_DIR/users/carol/profile.jsonc" ]
+  [ -f "$INSTALLER_DIR/users/carol/profile.jsonc" ]
   jq -e '.shell == "/bin/zsh" and .sudo == true' \
-    "$OS_DIR/users/carol/profile.jsonc"
+    "$INSTALLER_DIR/users/carol/profile.jsonc"
   # passwords land ONLY in the side manifest — never in the Effective Config
   echo "$effective" | jq -e 'has("root_password") | not'
   echo "$effective" | jq -e '(.. | objects | has("password")) // false | not' \
@@ -648,10 +648,10 @@ write_answers() {
 @test "_guided_pick_users: committed multi-select sets users[], primary first" {
   _GUIDED_REPLAY=0
   _GUIDED_STATE="$(cfgstate_new)"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/bob" "$OS_DIR/users/core"
-  : > "$OS_DIR/users/alice/profile.jsonc"
-  : > "$OS_DIR/users/bob/profile.jsonc"
-  : > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/bob" "$INSTALLER_DIR/users/core"
+  : > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  : > "$INSTALLER_DIR/users/bob/profile.jsonc"
+  : > "$INSTALLER_DIR/users/core/profile.jsonc"
   guided_multi() { printf '%s\n' "alice" "bob"; }   # core never offered
   export -f guided_multi
 
@@ -725,12 +725,12 @@ write_answers() {
 }
 
 @test "_guided_user_names: lists committed users, excludes core + vm-* fixtures" {
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core" \
-    "$OS_DIR/users/vm-test" "$OS_DIR/users/vm-data"
-  : > "$OS_DIR/users/alice/profile.jsonc"
-  : > "$OS_DIR/users/core/profile.jsonc"
-  : > "$OS_DIR/users/vm-test/profile.jsonc"
-  : > "$OS_DIR/users/vm-data/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core" \
+    "$INSTALLER_DIR/users/vm-test" "$INSTALLER_DIR/users/vm-data"
+  : > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  : > "$INSTALLER_DIR/users/core/profile.jsonc"
+  : > "$INSTALLER_DIR/users/vm-test/profile.jsonc"
+  : > "$INSTALLER_DIR/users/vm-data/profile.jsonc"
 
   run _guided_user_names
   [ "$status" -eq 0 ]
@@ -959,10 +959,10 @@ write_answers() {
   _GUIDED_STATE='{"users":["newbie"]}'
   _GUIDED_ADHOC_ORDER=()
   _guided_materialize_users
-  [ -f "$OS_DIR/users/newbie/profile.jsonc" ]
+  [ -f "$INSTALLER_DIR/users/newbie/profile.jsonc" ]
   jq -e '.sudo == true and (.groups | index("wheel"))
     and (.programs | index("searxng"))' \
-    "$OS_DIR/users/newbie/profile.jsonc"
+    "$INSTALLER_DIR/users/newbie/profile.jsonc"
 }
 
 # ── issue 04: In-Menu Disk Binding resolves without a post-menu pick ──────────
@@ -991,30 +991,30 @@ write_answers() {
 # ── slice 02: install-scoped User Editor deltas merged onto the clone ─────────
 
 @test "_guided_apply_userforms: merges a shell delta, keeps the committed delta" {
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   # committed delta carries groups; the edit only changes shell
   printf '{"groups":["docker"],"shell":"/bin/bash"}' \
-    > "$OS_DIR/users/alice/profile.jsonc"
+    > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_apply_userforms
-  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/alice/profile.jsonc"
-  jq -e '.groups == ["docker"]' "$OS_DIR/users/alice/profile.jsonc"  # delta kept
+  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
+  jq -e '.groups == ["docker"]' "$INSTALLER_DIR/users/alice/profile.jsonc"  # delta kept
 }
 
 @test "_guided_apply_userforms: no-op when no deltas were held aside" {
-  mkdir -p "$OS_DIR/users/alice"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_USERFORMS_JSON=''
   _guided_apply_userforms
-  jq -e '.shell == "/bin/bash"' "$OS_DIR/users/alice/profile.jsonc"   # untouched
+  jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
 }
 
 # ── slice 04: Save-warn — committed profiles never rewritten ─────────────────
 
 @test "_guided_committed_userform_edits: reports committed users, not ad-hoc" {
-  mkdir -p "$OS_DIR/users/alice"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   # dave has NO committed profile → session-created, must not be reported
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"},"dave":{"shell":"/bin/fish"}}'
   run _guided_committed_userform_edits
@@ -1023,37 +1023,37 @@ write_answers() {
 }
 
 @test "_guided_apply_userforms save: does NOT rewrite a committed profile" {
-  mkdir -p "$OS_DIR/users/alice"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_apply_userforms save
-  jq -e '.shell == "/bin/bash"' "$OS_DIR/users/alice/profile.jsonc"   # untouched
+  jq -e '.shell == "/bin/bash"' "$INSTALLER_DIR/users/alice/profile.jsonc"   # untouched
 }
 
 @test "_guided_apply_userforms save: still applies to a session-created user" {
-  mkdir -p "$OS_DIR/users/dave"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/dave/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/dave"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/dave/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" "     # dave was not committed at start
   _GUIDED_USERFORMS_JSON='{"dave":{"shell":"/bin/zsh"}}'
   _guided_apply_userforms save
-  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/dave/profile.jsonc"
+  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/dave/profile.jsonc"
 }
 
 @test "_guided_apply_userforms proceed: DOES apply to a committed profile" {
-  mkdir -p "$OS_DIR/users/alice"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   _GUIDED_COMMITTED_AT_START=" alice "
   _GUIDED_USERFORMS_JSON='{"alice":{"shell":"/bin/zsh"}}'
   _guided_apply_userforms proceed
-  jq -e '.shell == "/bin/zsh"' "$OS_DIR/users/alice/profile.jsonc"
+  jq -e '.shell == "/bin/zsh"' "$INSTALLER_DIR/users/alice/profile.jsonc"
 }
 
 # ── headless replay: `profile=<name>` seeds the state (ADR 0055) ─────────────
 
 @test "_guided_seed_from_profile: replay 'profile=' seeds the state" {
-  mkdir -p "$OS_DIR/hosts/desktop"
-  cat > "$OS_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
+  mkdir -p "$INSTALLER_DIR/hosts/desktop"
+  cat > "$INSTALLER_DIR/hosts/desktop/profile.jsonc" <<'JSONC'
 { "system": { "hostname": "eterniox" },
   "options": { "encryption": true }, "filesystem": "zfs" }
 JSONC
@@ -1085,8 +1085,8 @@ JSONC
 # password answers (secrets default to 12345 via the manifest, tested separately).
 
 @test "guided_build: replay 'profile=' assembles the seeded machine end-to-end" {
-  mkdir -p "$OS_DIR/hosts/laptop"
-  cat > "$OS_DIR/hosts/laptop/profile.jsonc" <<'JSONC'
+  mkdir -p "$INSTALLER_DIR/hosts/laptop"
+  cat > "$INSTALLER_DIR/hosts/laptop/profile.jsonc" <<'JSONC'
 { "system": { "hostname": "chronos" },
   "filesystem": "zfs", "mode": "single", "ashift": 12,
   "options": { "encryption": true,
@@ -1111,9 +1111,9 @@ JSONC
 }
 
 @test "guided_build: a field answer overrides the seeded profile value" {
-  mkdir -p "$OS_DIR/hosts/laptop"
+  mkdir -p "$INSTALLER_DIR/hosts/laptop"
   printf '%s\n' '{"system":{"hostname":"chronos"},"mode":"single","ashift":12}' \
-    > "$OS_DIR/hosts/laptop/profile.jsonc"
+    > "$INSTALLER_DIR/hosts/laptop/profile.jsonc"
   guided_load_replay "$(write_answers \
     'profile=laptop' \
     'hostname=override' \

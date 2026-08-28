@@ -18,7 +18,7 @@
 #  10.  Host config cross-refs — referenced users exist
 #  11.  User config cross-refs — referenced programs exist + correct flag
 #  12.  Program install scripts — no local commons-helper redefinitions
-#  13.  No _fixture/ directories under .os/programs/
+#  13.  No _fixture/ directories under .installer/programs/
 #  14.  Package existence — packages.repo in official repos, packages.aur in AUR
 #       (offline via pacman/AUR RPC; SKIPs when tooling/network unavailable)
 #
@@ -69,7 +69,7 @@ _jsonc_valid() {
 _strip() { sed -e 's|[[:space:]]*//[^"]*$||' -e '/^[[:space:]]*\/\//d' "$1"; }
 
 # =============================================================================
-echo -e "\n${BOLD}Installer static audit${NC}  (OS_DIR: ${OS})"
+echo -e "\n${BOLD}Installer static audit${NC}  (INSTALLER_DIR: ${OS})"
 
 # =============================================================================
 _section "1. Host-side lib modules"
@@ -206,7 +206,7 @@ for bl in systemd-boot grub; do
 done
 
 # =============================================================================
-_section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.os-runtime/)"
+_section "7. STAGED_RUNTIME_FILES  (profiles.sh → /var/tmp/.installer-runtime/)"
 # =============================================================================
 while IFS= read -r entry; do
   _file "${OS}/${entry}" "_STAGED_RUNTIME_FILES: ${entry}"
@@ -331,11 +331,11 @@ if (( _dups_found == 0 )); then
 fi
 
 # =============================================================================
-_section "13. No _fixture/ directories under .os/programs/"
+_section "13. No _fixture/ directories under .installer/programs/"
 # =============================================================================
 # Per ADR 0013 + config-generator-finalization slice 04, the production
 # programs/ tree must ship no fixture program. Test fixtures live under
-# .os/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT overrides.
+# .installer/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT overrides.
 _strays=0
 while IFS= read -r d; do
   rel="${d#"${OS}"/}"

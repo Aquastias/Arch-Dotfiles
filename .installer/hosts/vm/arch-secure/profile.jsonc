@@ -1,7 +1,7 @@
 // Host Profile for vm/arch-secure — headless VM smoke-test host exercising
 // the combined secure path: SOPS (age_key_url) + impermanence + ZFS native
 // encryption on a fixed 2-disk OS mirror (ADR 0036; mirrors the inlined
-// INSTALL_CONFIG_CONTENT of .os/vm/vm-secure.sh so it is also installable on
+// INSTALL_CONFIG_CONTENT of .installer/vm/vm-secure.sh so it is also installable on
 // real hardware via the picker). Merged under hosts/core/profile.jsonc.
 // Self-contained: core machine defaults + the secure overrides + the
 // device-free mirror skeleton (disks operator-picked at install).

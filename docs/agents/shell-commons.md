@@ -8,11 +8,11 @@ consumers. This keeps the two stdlib worlds from re-growing the duplication a
 
 ## Two host-side worlds (each has its own stdlib)
 
-- **Installer Stdlib** — `.os/lib/common.sh`. Host-side install scripts and
+- **Installer Stdlib** — `.installer/lib/common.sh`. Host-side install scripts and
   `lib/` modules. `info/warn/error/section`, `confirm`, `pick_option`,
   `cfg/cfgo`, `part_name`, `command_exists`. **Not** sourced inside
   `arch-chroot`.
-- **Shell Stdlib** — `.os/lib/shell-stdlib.sh` → `lib/shell/*.sh`. Program
+- **Shell Stdlib** — `.installer/lib/shell-stdlib.sh` → `lib/shell/*.sh`. Program
   Install Scripts, sourced once by the Program Runner via `$SHELL_COMMONS`.
   `print_status`, `command_exists`, package/permission/notification helpers.
 

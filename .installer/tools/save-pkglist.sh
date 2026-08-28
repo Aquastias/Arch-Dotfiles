@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Saves a DRIFT SNAPSHOT of the running system's explicitly-installed packages
-# to .os/hosts/<profile>/pkglist-repo.txt and pkglist-aur.txt.
+# to .installer/hosts/<profile>/pkglist-repo.txt and pkglist-aur.txt.
 #
 # Usage: save-pkglist.sh [profile]
 #   profile defaults to $SAVE_PKGLIST_PROFILE, else $(hostname)
@@ -18,19 +18,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OS_DIR="$(dirname "$SCRIPT_DIR")"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 
 profile="${1:-${SAVE_PKGLIST_PROFILE:-$(hostname)}}"
-host_dir="${OS_DIR}/hosts/${profile}"
-[[ -d "$host_dir" ]] || host_dir="${OS_DIR}/hosts/vm/${profile}"
+host_dir="${INSTALLER_DIR}/hosts/${profile}"
+[[ -d "$host_dir" ]] || host_dir="${INSTALLER_DIR}/hosts/vm/${profile}"
 
 if [[ ! -d "$host_dir" ]]; then
   {
-    echo "save-pkglist: no profile '${profile}' under ${OS_DIR}/hosts/"
+    echo "save-pkglist: no profile '${profile}' under ${INSTALLER_DIR}/hosts/"
     echo "This takes a PROFILE name (a hosts/<name>/ directory), not a"
     echo "hostname — ADR 0020 decoupled the two."
     echo "Available profiles:"
-    for d in "${OS_DIR}"/hosts/*/ "${OS_DIR}"/hosts/vm/*/; do
+    for d in "${INSTALLER_DIR}"/hosts/*/ "${INSTALLER_DIR}"/hosts/vm/*/; do
       [[ -f "${d}profile.jsonc" ]] || continue
       n="$(basename "$d")"
       [[ "$n" == "core" ]] && continue

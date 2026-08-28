@@ -15,7 +15,7 @@
 # 0023). Pure planner helpers are lib-only-sourceable (HARDEN_BOOT_LIB_ONLY=1).
 # =============================================================================
 
-# Repo .os dir, resolved from this script's location (tools/ -> .os/).
+# Repo .installer dir, resolved from this script's location (tools/ -> .installer/).
 _HB_OS_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." 2>/dev/null && pwd || true)"
 
 # Detect the bootloader under <root>: "systemd-boot" if the ESP carries a
@@ -188,7 +188,7 @@ ROOT="${ROOT%/}"
 ESP="$ROOT/boot/efi"
 
 [[ -n "$_HB_OS_DIR" ]] || {
-  echo "harden-boot: cannot locate the repo .os dir" >&2
+  echo "harden-boot: cannot locate the repo .installer dir" >&2
   exit 1
 }
 

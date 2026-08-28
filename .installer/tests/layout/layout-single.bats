@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout/zfs/single.sh — single-disk Layout Module seams.
+# Tests for .installer/lib/layout/zfs/single.sh — single-disk Layout Module seams.
 #
 # Strategy: stub external commands (blockdev/wipefs/sgdisk/...) and the
 # zfs-pools.sh seam (_zpool_create / _create_os_datasets / build_enc_opts)

@@ -11,7 +11,7 @@
 # to end. The host-resource guard, 3-way parallel scheduling, per-cell oracle
 # dispatch, and the run-all summary table land in slice 06.
 #
-# Requires OS_DIR. Honors REPO_URL (passed through to the VM Harness).
+# Requires INSTALLER_DIR. Honors REPO_URL (passed through to the VM Harness).
 #
 # Public API:
 #   matrix_run [<cell-id>]   → install + boot-verify the cell (default tracer)
@@ -39,5 +39,5 @@ matrix_run() {
 
   local -a args=(--testing --profile "$profile")
   [[ "$bootv" == true ]] && args=(--testing --verify-boot --profile "$profile")
-  "$OS_DIR/vm/vm.sh" "${args[@]}"
+  "$INSTALLER_DIR/vm/vm.sh" "${args[@]}"
 }

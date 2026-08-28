@@ -16,7 +16,7 @@
 # Both are menu-derived (via the generator), so they can only change when the
 # menu / constraints change — which is exactly when CI should demand a regen.
 #
-# Pure: text on stdout, no TTY. Requires OS_DIR (menu functions).
+# Pure: text on stdout, no TTY. Requires INSTALLER_DIR (menu functions).
 #
 # Public API:
 #   matrix_manifest [seed]           → the Tier-2 manifest (JSON cell / line)
@@ -35,10 +35,10 @@ declare -F matrix_registry_assert >/dev/null 2>&1 \
 # the committed record paths (env-overridable; default under tests/vm/).
 matrix_manifest_path() {
   printf '%s\n' \
-    "${MATRIX_MANIFEST_PATH:-$OS_DIR/tests/vm/matrix-manifest.jsonl}"
+    "${MATRIX_MANIFEST_PATH:-$INSTALLER_DIR/tests/vm/matrix-manifest.jsonl}"
 }
 matrix_coverage_path() {
-  printf '%s\n' "${MATRIX_COVERAGE_PATH:-$OS_DIR/tests/vm/matrix-coverage.txt}"
+  printf '%s\n' "${MATRIX_COVERAGE_PATH:-$INSTALLER_DIR/tests/vm/matrix-coverage.txt}"
 }
 
 # matrix_manifest [seed] — the committed Tier-2 set, one JSON cell per line,

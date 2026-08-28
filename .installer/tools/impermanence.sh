@@ -10,23 +10,23 @@
 #   IMPERMANENCE_MOUNT      default /persist
 #   IMPERMANENCE_MANIFEST   default /usr/lib/impermanence/defaults.manifest
 #   IMPERMANENCE_HOSTNAME   default $(hostname)
-#   IMPERMANENCE_HOSTS_DIR  default <repo>/.os/hosts
+#   IMPERMANENCE_HOSTS_DIR  default <repo>/.installer/hosts
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OS_DIR="$(dirname "$SCRIPT_DIR")"
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
 
 # shellcheck source=../lib/jsonc.sh
-source "$OS_DIR/lib/jsonc.sh"
+source "$INSTALLER_DIR/lib/jsonc.sh"
 # shellcheck source=../lib/impermanence-common.sh
-source "$OS_DIR/lib/impermanence-common.sh"
+source "$INSTALLER_DIR/lib/impermanence-common.sh"
 
 : "${IMPERMANENCE_ROOT:=}"
 : "${IMPERMANENCE_MOUNT:=/persist}"
 : "${IMPERMANENCE_MANIFEST:=/usr/lib/impermanence/defaults.manifest}"
 : "${IMPERMANENCE_HOSTNAME:=$(hostname)}"
-: "${IMPERMANENCE_HOSTS_DIR:=$OS_DIR/hosts}"
+: "${IMPERMANENCE_HOSTS_DIR:=$INSTALLER_DIR/hosts}"
 : "${IMPERMANENCE_RPOOL:=rpool}"
 
 usage() {

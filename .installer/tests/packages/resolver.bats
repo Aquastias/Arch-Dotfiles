@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/packages/resolver.sh — the Package Resolver.
+# Tests for .installer/lib/packages/resolver.sh — the Package Resolver.
 #
 # Pure JSON-in/TSV-out: every input is declarative, so the resolver needs no
 # pacman query and no network. Assertions are external — given this Effective
 # Config, these packages with these sources.
 
 setup() {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
-  source "$OS_DIR/lib/common.sh"
-  source "$OS_DIR/lib/packages/resolver.sh"
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
+  source "$INSTALLER_DIR/lib/common.sh"
+  source "$INSTALLER_DIR/lib/packages/resolver.sh"
 }
 
 # pkgs_of <config> [source] — the resolved package names, optionally one source.
@@ -54,7 +54,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
     > "$t/hosts/core/profile.jsonc"
   local cfg='{"users":[],"packages":{"repo":{"cli":["htop","ripgrep"]},
                                       "aur":{"misc":["brave-bin"]}}}'
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '$cfg'"
@@ -67,7 +67,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 
 @test "with no Host Core to compare against, authored slots read authored" {
   local t; t="$(mktemp -d)"
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '{\"users\":[],\"packages\":{\"repo\":{\"c\":[\"htop\"]}}}'"
@@ -113,7 +113,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # ── niri core set (ADR 0090) ────────────────────────────────────────────────
 
 @test "niri-shell set reports the niri core packages" {
-  source "$OS_DIR/lib/packages/niri.sh"
+  source "$INSTALLER_DIR/lib/packages/niri.sh"
   local got want
   got="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' niri-shell)"
   want="$(niri_core_packages | sort)"
@@ -212,9 +212,9 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # install-kde.jsonc and the resolver reports them — assert the resolver's
 # kde-shell set equals the jsonc data, so install and query cannot diverge.
 @test "kde-shell source == install-kde.jsonc shell_packages" {
-  source "$OS_DIR/lib/config/categorized-list.sh"
+  source "$INSTALLER_DIR/lib/config/categorized-list.sh"
   local json expected got
-  json="$(jsonc_strip "$OS_DIR/extras/desktop/kde/install-kde.jsonc")"
+  json="$(jsonc_strip "$INSTALLER_DIR/extras/desktop/kde/install-kde.jsonc")"
   expected="$(categorized_list_parse \
     "$(jq -c '.shell_packages' <<<"$json")" bool shell_packages | sort -u)"
   got="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
@@ -284,7 +284,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   mkdir -p "$t/users/core" "$t/users/alice"
   printf '{"shell":"/bin/zsh"}\n'  > "$t/users/core/profile.jsonc"
   printf '{"shell":"/bin/fish"}\n' > "$t/users/alice/profile.jsonc"
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '{\"users\":[\"alice\"]}' \
@@ -297,7 +297,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   local t; t="$(mktemp -d)"
   mkdir -p "$t/users/core"
   printf '{"shell":"/bin/zsh"}\n' > "$t/users/core/profile.jsonc"
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '{\"users\":[\"bob\"]}' \
@@ -332,7 +332,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 @test "sops resolves only when the host or a user ships secrets" {
   local t; t="$(mktemp -d)"
   mkdir -p "$t/users/alice" "$t/hosts/box"
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
@@ -340,7 +340,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ -z "$output" ]
 
   printf '{}' > "$t/users/alice/secrets.json"
-  OS_DIR="$t" run bash -c "
+  INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
@@ -387,7 +387,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
     printf '#!/bin/sh\necho "FORBIDDEN: %s" >&2\nexit 127\n' "$c" > "$bin/$c"
     chmod +x "$bin/$c"
   done
-  run env PATH="$bin:$PATH" OS_DIR="$OS_DIR" bash -c "
+  run env PATH="$bin:$PATH" INSTALLER_DIR="$INSTALLER_DIR" bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
     pkgres_resolve '$MIN'"
@@ -415,7 +415,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # ── the real committed profiles ─────────────────────────────────────────────
 
 @test "the real desktop profile resolves through the resolver" {
-  source "$OS_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/profile.sh"
   local eff; eff="$(load_profile desktop)"
   run pkgres_resolve "$eff"
   [ "$status" -eq 0 ]
@@ -430,7 +430,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # laptop, and laptop declares none of its own. (Was 31 before the dev
 # toolchain moved to Host Core — both hosts are dev boxes.)
 @test "desktop resolves to exactly 25 packages more than laptop" {
-  source "$OS_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/profile.sh"
   local d l
   d="$(pkgres_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
   l="$(pkgres_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"

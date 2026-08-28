@@ -10,25 +10,25 @@
 #   matrix.sh run            Install the cell(s) in a VM via the config seam.
 #
 # Generator/adapter logic lives in sourced lib helpers under lib/matrix/ so it
-# is unit-testable without the driver. OS_DIR is the data root (defaults to the
+# is unit-testable without the driver. INSTALLER_DIR is the data root (defaults to the
 # repo the tool ships in).
 # =============================================================================
 set -euo pipefail
 
 SELF_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
-OS_DIR="${OS_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
-export OS_DIR
+INSTALLER_DIR="${INSTALLER_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
+export INSTALLER_DIR
 
 # shellcheck source=../lib/matrix/cells.sh
-source "$OS_DIR/lib/matrix/cells.sh"
+source "$INSTALLER_DIR/lib/matrix/cells.sh"
 # shellcheck source=../lib/matrix/profile.sh
-source "$OS_DIR/lib/matrix/profile.sh"
+source "$INSTALLER_DIR/lib/matrix/profile.sh"
 # shellcheck source=../lib/matrix/run.sh
-source "$OS_DIR/lib/matrix/run.sh"
+source "$INSTALLER_DIR/lib/matrix/run.sh"
 # shellcheck source=../lib/matrix/driver.sh
-source "$OS_DIR/lib/matrix/driver.sh"
+source "$INSTALLER_DIR/lib/matrix/driver.sh"
 # shellcheck source=../lib/matrix/records.sh
-source "$OS_DIR/lib/matrix/records.sh"
+source "$INSTALLER_DIR/lib/matrix/records.sh"
 
 usage() {
   cat <<'EOF'

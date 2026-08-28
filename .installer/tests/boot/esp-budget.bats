@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/boot/esp-budget.sh — the pre-install ESP budget model
+# Tests for .installer/lib/boot/esp-budget.sh — the pre-install ESP budget model
 # (ADR 0078). Pure arithmetic: estimate how much ESP an ESP-mirroring loader
 # needs to hold every selected kernel's images (grub is exempt — it reads /boot
 # natively), size it upward-only from the 2G floor, and check a pinned esp_size.

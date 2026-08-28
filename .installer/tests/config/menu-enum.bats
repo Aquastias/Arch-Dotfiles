@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/menu.sh — menu_enum_options, the single source of
+# Tests for .installer/lib/config/menu.sh — menu_enum_options, the single source of
 # truth for enumerable-field option sets. Both the interactive controller
 # (_ctl_*) and the replay editors (_guided_edit_*) read it, so the two guided
 # front-ends can never drift on what a field offers. Pure: no TTY.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/mirrors.sh — the Mirror Service resolver (ADR 0089):
+# Tests for .installer/lib/config/mirrors.sh — the Mirror Service resolver (ADR 0089):
 # a pure helper turning the Mirrors & Repositories section into its owned Host
 # Program (reflector, state-independent), the injector that folds reflector into
 # an Effective Config's host_programs, and the picker-filter owned set.

@@ -7,7 +7,7 @@
 # the profile file is laid out. Prior art: profile-loader.bats.
 
 setup() {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   info()    { :; }
   warn()    { :; }
   error()   { echo "[error] $*" >&2; return 1; }
@@ -15,7 +15,7 @@ setup() {
   export -f info warn error section
 
   # shellcheck source=../../lib/config/profile.sh
-  source "$OS_DIR/lib/config/profile.sh"
+  source "$INSTALLER_DIR/lib/config/profile.sh"
 }
 
 # ── each profile merges with core and carries the new machine shape ─────────

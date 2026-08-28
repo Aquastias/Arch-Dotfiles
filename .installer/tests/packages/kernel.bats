@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/packages/kernel.sh — Kernel Selection token table (ADR 0024).
+# Tests for .installer/lib/packages/kernel.sh — Kernel Selection token table (ADR 0024).
 # Pure mapping: flavour token → kernel package base + headers. The same table
 # is used host-side (packages) and chroot-side (initramfs preset, bootloader).
 

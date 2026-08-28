@@ -6,10 +6,10 @@
 # (fewer valid cells) shows as a one-line change, not a wall of vanished rows.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/records.sh
-  source "$OS_DIR/lib/matrix/records.sh"
+  source "$INSTALLER_DIR/lib/matrix/records.sh"
 }
 
 # ── AC1/AC2: the coverage summary is sectioned + deterministic ───────────────
@@ -84,8 +84,8 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
 @test "drift guard: committed records match a fresh regen at the pinned seed" {
   matrix_manifest 0 >"$BATS_TEST_TMPDIR/m"
   matrix_coverage_summary 0 >"$BATS_TEST_TMPDIR/c"
-  diff "$OS_DIR/tests/vm/matrix-manifest.jsonl" "$BATS_TEST_TMPDIR/m"
-  diff "$OS_DIR/tests/vm/matrix-coverage.txt" "$BATS_TEST_TMPDIR/c"
+  diff "$INSTALLER_DIR/tests/vm/matrix-manifest.jsonl" "$BATS_TEST_TMPDIR/m"
+  diff "$INSTALLER_DIR/tests/vm/matrix-coverage.txt" "$BATS_TEST_TMPDIR/c"
 }
 
 @test "drift guard: a deliberate axis-value change is detected (fails CI)" {
@@ -96,6 +96,6 @@ _axes_section() { printf '%s\n' "$1" | sed -n '/^\[axes\]$/,/^$/p'; }
   }
   matrix_coverage_summary 0 >"$BATS_TEST_TMPDIR/c"
   # the regen now diverges from the committed snapshot → CI would fail.
-  ! diff -q "$OS_DIR/tests/vm/matrix-coverage.txt" "$BATS_TEST_TMPDIR/c" \
+  ! diff -q "$INSTALLER_DIR/tests/vm/matrix-coverage.txt" "$BATS_TEST_TMPDIR/c" \
     >/dev/null
 }

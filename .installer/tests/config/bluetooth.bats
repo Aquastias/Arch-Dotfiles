@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/bluetooth.sh — the Bluetooth Service resolver (ADR
+# Tests for .installer/lib/config/bluetooth.sh — the Bluetooth Service resolver (ADR
 # 0080): a pure helper turning options.bluetooth.enabled into the toggle-derived
 # System Program (bluetooth when on, nothing when off), the injector that folds
 # it into an Effective Config's host_programs, and the picker-filter owned set.

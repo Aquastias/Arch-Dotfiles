@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/locale-source.sh — the Locale option-source boundary
+# Tests for .installer/lib/config/locale-source.sh — the Locale option-source boundary
 # (ADR 0076). Enumerates the Locales leaves' options from the medium; rooted at
 # LOCALE_SRC_ROOT so a fixture tree stands in for the live ISO. Pure: no TTY.
 

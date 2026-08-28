@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/privacy/searxng/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# OS_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
 #
 # Checks podman is installed, seeds ~/.config/searxng/settings.yml with a
 # fresh secret key, and enables user linger via /var/lib/systemd/linger so

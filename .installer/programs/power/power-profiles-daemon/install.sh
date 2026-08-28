@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/power/power-profiles-daemon/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs power-profiles-daemon and enables its service so power-profile
 # switching (performance / balanced / power-saver) works on first boot. It is

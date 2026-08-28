@@ -10,7 +10,7 @@
 # the resolved install.jsonc to stdout (no libvirt). The persistent and test
 # provisioning flows land in later slices.
 #
-# OS_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/) is
+# INSTALLER_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/) is
 # overridable for tests; the lib modules are always sourced from this script's
 # own directory.
 # =============================================================================
@@ -18,7 +18,7 @@
 set -Eeuo pipefail
 
 SELF_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
-OS_DIR="${OS_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
+INSTALLER_DIR="${INSTALLER_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
 
 # shellcheck source=lib/profile.sh
 source "$SELF_DIR/lib/profile.sh"
@@ -81,13 +81,13 @@ main() {
     profile_file="$profile_ref"
   else
     local base
-    if ((testing || guided)); then base="$OS_DIR/tests/vm/profiles"; else
-      base="$OS_DIR/vm/profiles"; fi
+    if ((testing || guided)); then base="$INSTALLER_DIR/tests/vm/profiles"; else
+      base="$INSTALLER_DIR/vm/profiles"; fi
     profile_file="$base/$profile_ref.jsonc"
   fi
   [[ -f "$profile_file" ]] || die "profile not found: $profile_file"
 
-  local hosts_dir="$OS_DIR/hosts"
+  local hosts_dir="$INSTALLER_DIR/hosts"
   local profile_json
   profile_json="$(jsonc_strip "$profile_file" | jq '.')" \
     || die "profile is not valid JSONC: $profile_file"
@@ -110,7 +110,7 @@ main() {
   # shellcheck disable=SC2034 # both consumed by core.sh _stage_fixture_files
   mapfile -t VM_FIXTURE_FILES < <(jq -r '.fixtures[]?' <<<"$profile_json")
   # shellcheck disable=SC2034
-  VM_SCRIPT_DIR="$OS_DIR/vm"
+  VM_SCRIPT_DIR="$INSTALLER_DIR/vm"
 
   # Timeouts: env > profile > flow default. An empty profile value leaves the
   # flow's own `: "${VAR:=default}"` to apply.

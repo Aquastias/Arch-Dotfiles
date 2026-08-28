@@ -7,4 +7,4 @@ set -euo pipefail
 [[ -n "${SKIP_FAST_TESTS:-}" ]] && { echo "[pre-push] skipped"; exit 0; }
 
 HERE="$(git rev-parse --show-toplevel)"
-exec "$HERE/.os/tests/run.sh" --fast
+exec "$HERE/.installer/tests/run.sh" --fast

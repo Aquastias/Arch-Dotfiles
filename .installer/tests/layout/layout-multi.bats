@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/layout/zfs/multi.sh — pure topology suggestion functions.
+# Tests for .installer/lib/layout/zfs/multi.sh — pure topology suggestion functions.
 # suggest_os_topologies and suggest_storage_topologies have no system calls.
 
 setup() {
@@ -646,10 +646,10 @@ setup_leftover_fixture() {
   mkdir -p "$MOUNT_ROOT"
 
   # create_data_pools now dispatches every group (zfs included) through the Data
-  # Group Formatter seam (data_formatter_source "$OS_DIR" <fs>), so the leaf must
+  # Group Formatter seam (data_formatter_source "$INSTALLER_DIR" <fs>), so the leaf must
   # be resolvable; the mocked _zpool_create/zfs/etc below survive its guarded
   # sources (they only load pools.sh when the primitive is not already a function).
-  export OS_DIR; OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"

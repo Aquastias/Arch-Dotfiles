@@ -18,7 +18,7 @@ teardown() { rm -rf "$OSDIR"; }
     '{"system":{"hostname":"eterniox"},"options":{"bootloader":"grub"}}' \
     > "$OSDIR/hosts/desktop/profile.jsonc"
 
-  run env OS_DIR="$OSDIR" bash "$INSTALL_SH" --profile desktop --print-config
+  run env INSTALLER_DIR="$OSDIR" bash "$INSTALL_SH" --profile desktop --print-config
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.system.hostname == "eterniox"'
   echo "$output" | jq -e '.options.bootloader == "grub"'
@@ -29,13 +29,13 @@ teardown() { rm -rf "$OSDIR"; }
   printf '%s\n' '{"options":{"encrytion":true}}' \
     > "$OSDIR/hosts/desktop/profile.jsonc"
 
-  run env OS_DIR="$OSDIR" bash "$INSTALL_SH" --profile desktop --print-config
+  run env INSTALLER_DIR="$OSDIR" bash "$INSTALL_SH" --profile desktop --print-config
   [ "$status" -ne 0 ]
   [[ "$output" == *"options.encrytion"* ]]
 }
 
 @test "--print-config without --profile is rejected" {
-  run env OS_DIR="$OSDIR" bash "$INSTALL_SH" --print-config
+  run env INSTALLER_DIR="$OSDIR" bash "$INSTALL_SH" --print-config
   [ "$status" -ne 0 ]
   [[ "$output" == *"--profile"* ]]
 }

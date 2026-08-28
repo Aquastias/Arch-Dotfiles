@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/dev/ccache/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs ccache and enables the ccache BUILDENV flag in /etc/makepkg.conf
 # (!ccache → ccache) so makepkg / paru cache compilations for faster rebuilds

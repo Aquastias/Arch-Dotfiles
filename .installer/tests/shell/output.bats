@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/shell/output.sh — print_status helper.
+# Tests for .installer/lib/shell/output.sh — print_status helper.
 
 setup() {
   # shellcheck source=../../lib/shell/output.sh

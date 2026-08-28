@@ -248,7 +248,7 @@ setup_writer_globals() {
   LAYOUT_ESP_PARTS=(/dev/nvme0n1p1)
   ENVIRONMENT_GPU=(amd nvidia)
   ENVIRONMENT_DISPLAY_MANAGER="sddm"
-  export OS_DIR="$FIXTURES"
+  export INSTALLER_DIR="$FIXTURES"
 }
 
 @test "install_state_write: emits .display_manager from ENVIRONMENT_DISPLAY_MANAGER" {
@@ -337,7 +337,7 @@ setup_writer_globals() {
 
 @test "install_state_write: persist empty when host dir absent (fallback)" {
   setup_writer_globals
-  export OS_DIR="$TEST_DIR/no-such-os-dir"
+  export INSTALLER_DIR="$TEST_DIR/no-such-os-dir"
   install_state_write "$STATE" "ghost-host"
   [ "$(jq -r '.persist.directories | length' "$STATE")" = "0" ]
   [ "$(jq -r '.persist.files       | length' "$STATE")" = "0" ]
@@ -350,7 +350,7 @@ setup_writer_globals() {
   # value, corrupting the --argjson persist payload. The state file must
   # remain a single valid JSON document with an empty persist.
   setup_writer_globals
-  export OS_DIR="$FIXTURES"   # core present, "ghost-host" absent → rc 1 + stdout
+  export INSTALLER_DIR="$FIXTURES"   # core present, "ghost-host" absent → rc 1 + stdout
   install_state_write "$STATE" "ghost-host"
   run jq -e . "$STATE"
   [ "$status" -eq 0 ]

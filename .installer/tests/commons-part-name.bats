@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/common.sh — part_name partition-path derivation.
+# Tests for .installer/lib/common.sh — part_name partition-path derivation.
 
 setup() {
   # shellcheck source=../lib/common.sh

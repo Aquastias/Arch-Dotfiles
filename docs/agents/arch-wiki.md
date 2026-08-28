@@ -13,8 +13,8 @@ would have been wrong — the wiki/polkit path is current.
 
 ## Two scopes
 
-- **Program specs** (`.os/programs/<name>/config.jsonc` + `install.sh`). The
-  authoring contract is `.os/programs/PROGRAM_SPEC.md` — feed it the wiki page
+- **Program specs** (`.installer/programs/<name>/config.jsonc` + `install.sh`). The
+  authoring contract is `.installer/programs/PROGRAM_SPEC.md` — feed it the wiki page
   and it dictates package sourcing, service declaration, groups, and kernel
   params. Every package and every config value must trace to the wiki page.
 

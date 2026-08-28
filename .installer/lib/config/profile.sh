@@ -13,7 +13,7 @@
 # legacy fallback (issue 10).
 #
 # Pure: no side effects beyond reading files and writing stdout/stderr.
-# Requires OS_DIR set.
+# Requires INSTALLER_DIR set.
 # =============================================================================
 
 # shellcheck source=./layer-resolver.sh
@@ -61,8 +61,8 @@ load_user_profile() { _profile_load users "$1"; }
 _profile_load() {
   local kind="$1" name="$2"
 
-  if [[ -z "${OS_DIR:-}" ]]; then
-    echo "profile: OS_DIR is not set" >&2
+  if [[ -z "${INSTALLER_DIR:-}" ]]; then
+    echo "profile: INSTALLER_DIR is not set" >&2
     return 2
   fi
   if [[ "$name" == "core" ]]; then
@@ -70,9 +70,9 @@ _profile_load() {
     return 3
   fi
 
-  local core_file="${OS_DIR}/${kind}/core/profile.jsonc"
-  local spec_file="${OS_DIR}/${kind}/${name}/profile.jsonc"
-  [[ -f "$spec_file" ]] || spec_file="${OS_DIR}/${kind}/vm/${name}/profile.jsonc"
+  local core_file="${INSTALLER_DIR}/${kind}/core/profile.jsonc"
+  local spec_file="${INSTALLER_DIR}/${kind}/${name}/profile.jsonc"
+  [[ -f "$spec_file" ]] || spec_file="${INSTALLER_DIR}/${kind}/vm/${name}/profile.jsonc"
 
   if [[ ! -f "$core_file" ]]; then
     echo "profile: missing ${kind%s} core profile: ${core_file}" >&2
@@ -335,7 +335,7 @@ _validate_bootloader() {
 # closed-schema-validates the host profile, every referenced user profile,
 # and every referenced program config.jsonc (host host_programs + each
 # user's programs). Aborts via error() with the offending path on the first
-# failure; runs before any disk-touching phase. Requires OS_DIR set.
+# failure; runs before any disk-touching phase. Requires INSTALLER_DIR set.
 validate_profile() {
   local name="$1"
 
@@ -389,10 +389,10 @@ _validate_program_configs() {
     [[ -n "$p" ]] || continue
     if ! rel="$(resolve_program "$p")"; then
       error "validate_profile: program '${p}' not found under" \
-            "${OS_DIR}/programs/<cat>/${p}/"
+            "${INSTALLER_DIR}/programs/<cat>/${p}/"
       return 1
     fi
-    cfg="${OS_DIR}/programs/${rel}/config.jsonc"
+    cfg="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
     if ! json="$(jsonc_strip "$cfg" 2>/dev/null | jq '.' 2>/dev/null)"; then
       error "validate_profile: program '${p}' config.jsonc missing or" \
             "unparseable at ${cfg}"

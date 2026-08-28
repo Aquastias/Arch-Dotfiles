@@ -5,10 +5,10 @@
 # under test is the derived profile fields, never how they're computed.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/synth.sh
-  source "$OS_DIR/lib/matrix/synth.sh"
+  source "$INSTALLER_DIR/lib/matrix/synth.sh"
 }
 
 # a minimal cell fixture: only the axes the synthesizer reads.

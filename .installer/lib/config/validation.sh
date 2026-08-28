@@ -61,15 +61,15 @@ _validation_system_fields() {
 # PROGRAM PREFLIGHT
 # =============================================================================
 # Validates all program contracts for <profile> and its users.
-# Requires OS_DIR set and configs_build_registry already called.
+# Requires INSTALLER_DIR set and configs_build_registry already called.
 # Returns immediately (no-op) if no core profiles are present — profiles will
 # be skipped at runtime and there is nothing to validate.
 # Exits via error() on any validation failure or corrupt core profile.
 
 _validation_preflight_programs() {
   local profile="$1"
-  [[ -f "${OS_DIR}/hosts/core/profile.jsonc" ]] || return 0
-  [[ -f "${OS_DIR}/users/core/profile.jsonc" ]] || return 0
+  [[ -f "${INSTALLER_DIR}/hosts/core/profile.jsonc" ]] || return 0
+  [[ -f "${INSTALLER_DIR}/users/core/profile.jsonc" ]] || return 0
 
   local host_json rc=0
   host_json="$(load_profile "$profile" 2>/dev/null)" || rc=$?
@@ -86,9 +86,9 @@ _validation_preflight_programs() {
 
   local u
   for u in "${users[@]}"; do
-    [[ -d "${OS_DIR}/users/${u}" ]] ||
+    [[ -d "${INSTALLER_DIR}/users/${u}" ]] ||
       error "Host config references user '${u}' but" \
-            "${OS_DIR}/users/${u}/ does not exist."
+            "${INSTALLER_DIR}/users/${u}/ does not exist."
   done
 
   local any_fail=0
@@ -152,11 +152,11 @@ _validation_index_of() {
 }
 
 # _validation_program_requires <prog> — the program's declared `requires` list,
-# one per line (empty when none or the program has no config). Pure over OS_DIR.
+# one per line (empty when none or the program has no config). Pure over INSTALLER_DIR.
 _validation_program_requires() {
   local rel cf
   rel="$(resolve_program "$1" 2>/dev/null)" || return 0
-  cf="${OS_DIR}/programs/${rel}/config.jsonc"
+  cf="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
   [[ -f "$cf" ]] || return 0
   jsonc_strip "$cf" | jq -r '.requires[]?' 2>/dev/null
 }
@@ -165,7 +165,7 @@ _validation_program_requires() {
 # every user program's `requires` for one user. A required program is satisfied
 # when it is a Host Program (installed before all user programs) or
 # appears EARLIER in this user's own list. Prints an actionable line per
-# violation and returns 1 if any; 0 when clean. Pure over OS_DIR + the two JSON
+# violation and returns 1 if any; 0 when clean. Pure over INSTALLER_DIR + the two JSON
 # array args (host_programs, the user's programs).
 _validation_check_requires_order() {
   local user="$1" sys_json="$2" up_json="$3" fail=0
@@ -437,7 +437,7 @@ _validation_persist_one() {
 
 # Validate all config contracts in one pass.
 # Sets RESOLVED_HOSTNAME and RESOLVED_HOST_PROFILE.
-# Requires CONFIG_FILE, INSTALL_MODE, OS_DIR set.
+# Requires CONFIG_FILE, INSTALL_MODE, INSTALLER_DIR set.
 # Exits via error() on the first fatal failure; collects all program failures
 # before exiting so every problem is visible at once.
 validate_install_context() {

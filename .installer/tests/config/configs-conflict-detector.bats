@@ -79,7 +79,7 @@ plan_from_pairs() {
 
 @test "detector: legacy_packages helper excludes repo metadata dirs" {
   mkdir -p "$LEGACY/.config" "$LEGACY/.zsh" "$LEGACY/.git" \
-           "$LEGACY/.os" "$LEGACY/.scratch" "$LEGACY/.stow" \
+           "$LEGACY/.installer" "$LEGACY/.scratch" "$LEGACY/.stow" \
            "$LEGACY/docs"
 
   run cg_legacy_packages "$LEGACY"
@@ -88,7 +88,7 @@ plan_from_pairs() {
   [[ "$output" == *".zsh"* ]]
   [[ "$output" == *"docs"* ]]
   [[ "$output" != *".git"* ]]
-  [[ "$output" != *".os"* ]]
+  [[ "$output" != *".installer"* ]]
   [[ "$output" != *".scratch"* ]]
   [[ "$output" != *".stow"* ]]
 }

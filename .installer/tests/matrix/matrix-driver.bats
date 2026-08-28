@@ -6,10 +6,10 @@
 # run-all behaviour is exercised without a real VM.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
   # shellcheck source=../../lib/matrix/driver.sh
-  source "$OS_DIR/lib/matrix/driver.sh"
+  source "$INSTALLER_DIR/lib/matrix/driver.sh"
 }
 
 # ── AC4: --smoke runs only the pinned seeds ──────────────────────────────────

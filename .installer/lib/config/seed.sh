@@ -39,8 +39,8 @@ declare -F fonts_default_selection_json >/dev/null 2>&1 \
 # host and appear nowhere in the menu (cups is now toggle-derived — ADR 0079),
 # and why packages.repo/aur had no menu representation at all.
 cfgstate_host_core() {
-  local f="${OS_DIR:-}/hosts/core/profile.jsonc"
-  [[ -n "${OS_DIR:-}" && -f "$f" ]] || { printf '{}\n'; return 0; }
+  local f="${INSTALLER_DIR:-}/hosts/core/profile.jsonc"
+  [[ -n "${INSTALLER_DIR:-}" && -f "$f" ]] || { printf '{}\n'; return 0; }
   _configs_parse "$f" 2>/dev/null || printf '{}\n'
 }
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/layers.sh — real Host Profile invariants +
+# Tests for .installer/lib/config/layers.sh — real Host Profile invariants +
 # program resolution/validation. The loader/merge contract moved to the
 # Profile Loader (tests/config/profile-loader.bats) with the legacy readers.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   # shellcheck source=../../lib/config/layers.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/layers.sh"
 }
@@ -140,7 +140,7 @@ write_program() {
 }
 
 @test "program_kind: host for the real host programs" {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   for p in grub cups sops; do
     [ "$(program_kind "$p")" = "host" ]
@@ -148,7 +148,7 @@ write_program() {
 }
 
 @test "program_kind: user for the real user programs" {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   for p in docker podman borg firewalld; do
     [ "$(program_kind "$p")" = "user" ]
@@ -212,7 +212,7 @@ write_program() {
 }
 
 @test "program_names_of_kind: partitions the real program set by kind" {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   run program_names_of_kind host
   # cups (printing), bluetooth, power-profiles-daemon + tuned (power) are the
@@ -312,12 +312,12 @@ write_program() {
 # The committed profiles must satisfy it — this is what caught docker,
 # virt-manager and teamspeak3 being declared as raw packages AND as Programs.
 @test "exclusivity: the real desktop and laptop profiles are clean" {
-  export OS_DIR="$BATS_TEST_DIRNAME/../.."
+  export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   configs_build_registry
   local h
   for h in desktop laptop core; do
     run validate_package_program_exclusivity \
-      "$(jsonc_strip "$OS_DIR/hosts/$h/profile.jsonc")" "hosts/$h"
+      "$(jsonc_strip "$INSTALLER_DIR/hosts/$h/profile.jsonc")" "hosts/$h"
     [ "$status" -eq 0 ]
   done
 }

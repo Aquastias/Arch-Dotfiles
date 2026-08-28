@@ -103,7 +103,7 @@ write_manifest() {
 @test "resolver: house defaults override per-key via load_user_profile" {
   # shellcheck source=../../lib/config/profile.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   mkdir -p "$TEST_DIR/users/core" "$TEST_DIR/users/alex"
   cat > "$TEST_DIR/users/core/profile.jsonc" <<'JSONC'

@@ -14,11 +14,11 @@ Single-context repo: one `CONTEXT.md` + `docs/adr/` at root. See `docs/agents/do
 
 ### Comment style
 
-Installer (`.os/`) comments are compact: keep the non-obvious *why* + its `(ADR NNNN)` anchor, cut code-restatement and ADR duplication. See `docs/agents/comment-style.md`.
+Installer (`.installer/`) comments are compact: keep the non-obvious *why* + its `(ADR NNNN)` anchor, cut code-restatement and ADR duplication. See `docs/agents/comment-style.md`.
 
 ### Arch Wiki grounding
 
-Package/config/service decisions trace to the Arch Wiki — fetch the page, don't recall it. Covers program specs (`.os/programs/`, per `PROGRAM_SPEC.md`) and bare `packages.*` additions. See `docs/agents/arch-wiki.md`.
+Package/config/service decisions trace to the Arch Wiki — fetch the page, don't recall it. Covers program specs (`.installer/programs/`, per `PROGRAM_SPEC.md`) and bare `packages.*` additions. See `docs/agents/arch-wiki.md`.
 
 ### Shell commons
 

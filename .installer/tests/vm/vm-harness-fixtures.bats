@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the VM_FIXTURE_FILES staging hook in .os/vm/lib/core.sh.
+# Tests for the VM_FIXTURE_FILES staging hook in .installer/vm/lib/core.sh.
 #
 # Drives `_stage_fixture_files` in isolation — no libvirt, no HTTP server,
 # no python. Each test sets VM_SCRIPT_DIR + CACHE_DIR + VM_FIXTURE_FILES

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/skeleton.sh — the Guided Installer's Disk Skeleton
+# Tests for .installer/lib/config/skeleton.sh — the Guided Installer's Disk Skeleton
 # builder (ADR 0039, issue 04). Pure: a named ZFS shape preset → a device-less
 # pool skeleton (mode + os_pool + storage_groups[] / data_pools[] carrying
 # topology + disk_count), merged into the Config State and later device-baked by

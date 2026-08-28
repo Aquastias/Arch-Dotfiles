@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/emit.sh — the Guided Installer's Emitter (ADR 0039):
+# Tests for .installer/lib/config/emit.sh — the Guided Installer's Emitter (ADR 0039):
 # an effective view (+ optional disk assignment) → a device-baked Effective
 # Config. Pure: JSON-in/JSON-out, no TTY, no disk writes.
 #
@@ -13,7 +13,7 @@
 
 setup() {
   TEST_DIR="$(mktemp -d)"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   info()    { :; }
   warn()    { :; }
@@ -24,10 +24,10 @@ setup() {
   # Host Core declares a plain System Program (grub) — cups is no longer a core
   # program but the toggle-derived one injected at emit (ADR 0079), so these
   # exercise both: an authored core program AND the printing-derived cups.
-  mkdir -p "$OS_DIR/hosts/core"
+  mkdir -p "$INSTALLER_DIR/hosts/core"
   printf '%s\n' \
     '{"host_programs":["grub"],"sysctl":{"vm.swappiness":10}}' \
-    > "$OS_DIR/hosts/core/profile.jsonc"
+    > "$INSTALLER_DIR/hosts/core/profile.jsonc"
 
   # shellcheck source=../../lib/config/state.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
@@ -107,10 +107,10 @@ effective() {
 # packages through untouched; routing happens at entry, exclusivity at load.
 
 @test "emit_effective: a package name is passed through, never promoted" {
-  mkdir -p "$OS_DIR/programs/security/wireguard"
+  mkdir -p "$INSTALLER_DIR/programs/security/wireguard"
   printf '{"name":"wireguard","kind":"host"}\n' \
-    > "$OS_DIR/programs/security/wireguard/config.jsonc"
-  : > "$OS_DIR/programs/security/wireguard/install.sh"
+    > "$INSTALLER_DIR/programs/security/wireguard/config.jsonc"
+  : > "$INSTALLER_DIR/programs/security/wireguard/install.sh"
 
   state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
   state="$(cfgstate_set "$state" packages.repo.extra '["htop"]')"
@@ -255,7 +255,7 @@ effective() {
 
 @test "Save writes a delta: core's packages are not baked into the profile" {
   # a richer core than the setup default, to make the snapshot obvious
-  cat > "$OS_DIR/hosts/core/profile.jsonc" <<'JSON'
+  cat > "$INSTALLER_DIR/hosts/core/profile.jsonc" <<'JSON'
 {"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
  "packages":{"repo":{"shell":["htop","fzf","btop"]}}}
 JSON
@@ -266,7 +266,7 @@ JSON
   run guided_save_host_profile "$(effective "$state")" newbox
   [ "$status" -eq 0 ]
 
-  local saved; saved="$(cat "$OS_DIR/hosts/newbox/profile.jsonc")"
+  local saved; saved="$(cat "$INSTALLER_DIR/hosts/newbox/profile.jsonc")"
   # core's inherited payload is absent from the committed delta …
   jq -e '(.packages // {}) == {}'          <<<"$saved"
   jq -e 'has("host_programs") | not'     <<<"$saved"

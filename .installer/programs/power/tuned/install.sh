@@ -2,8 +2,8 @@
 # =============================================================================
 # programs/power/tuned/install.sh
 # =============================================================================
-# Invoked by .os/lib/profiles/runner.sh inside arch-chroot, as root.
-# Env vars provided by the runner: OS_DIR, PROGRAMS, SHELL_COMMONS.
+# Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as root.
+# Env vars provided by the runner: INSTALLER_DIR, PROGRAMS, SHELL_COMMONS.
 #
 # Installs tuned and tuned-ppd and enables tuned.service so tunable power
 # profiles are active on first boot. tuned-ppd re-exposes the power-profiles-

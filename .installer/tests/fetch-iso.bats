@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/tools/fetch-iso.sh — the human-facing fetcher for the
+# Tests for .installer/tools/fetch-iso.sh — the human-facing fetcher for the
 # archzfs-Compatible ISO.
 #
 # Test strategy: the tool is sourceable (its main is guarded by

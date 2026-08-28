@@ -7,13 +7,13 @@
 # VM Harness and carries the cell's config.
 
 setup() {
-  OS_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  export OS_DIR
-  MATRIX_SH="$OS_DIR/tools/matrix.sh"
+  INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  export INSTALLER_DIR
+  MATRIX_SH="$INSTALLER_DIR/tools/matrix.sh"
 
   # The VM Profile schema validator (pure jq).
   # shellcheck source=../../vm/lib/profile-validate.sh
-  source "$OS_DIR/vm/lib/profile-validate.sh"
+  source "$INSTALLER_DIR/vm/lib/profile-validate.sh"
 }
 
 # ── emit writes a path to a real tmpfs profile file ─────────────────────────
@@ -29,7 +29,7 @@ setup() {
 @test "emit: the profile passes VM Profile schema validation" {
   local path; path="$(bash "$MATRIX_SH" emit zfs-single-plain)"
   local json; json="$(jq '.' "$path")"
-  run profile_validate "$json" "$OS_DIR/hosts"
+  run profile_validate "$json" "$INSTALLER_DIR/hosts"
   [ "$status" -eq 0 ]
 }
 

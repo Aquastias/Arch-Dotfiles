@@ -10,7 +10,7 @@
 # through the _matrix_run_cell seam, which bats overrides to inject
 # PASS/FAIL/SKIP without a real VM.
 #
-# Requires OS_DIR (menu functions, for the generator).
+# Requires INSTALLER_DIR (menu functions, for the generator).
 #
 # Public API:
 #   matrix_run_select <smoke|full> [seed]  → the selected Tier-2 cells (1/line)

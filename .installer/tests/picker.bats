@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/picker.sh — Pre-Install Picker deep modules.
+# Tests for .installer/lib/picker.sh — Pre-Install Picker deep modules.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

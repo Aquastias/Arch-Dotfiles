@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/vm/lib/console-answerer.sh — the Console Answerer's pure prompt-
+# Tests for .installer/vm/lib/console-answerer.sh — the Console Answerer's pure prompt-
 # matcher (combination-matrix/07, ADR 0046). Given a line of serial text, decide
 # whether a disk-unlock prompt is present and which unlock variant it is, so the
 # IO watcher can write the test passphrase to the serial char device unattended.

@@ -15,15 +15,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OS_DIR="$(dirname "$SCRIPT_DIR")"
-export OS_DIR
+INSTALLER_DIR="$(dirname "$SCRIPT_DIR")"
+export INSTALLER_DIR
 
 # shellcheck source=../lib/common.sh
-source "${OS_DIR}/lib/common.sh"
+source "${INSTALLER_DIR}/lib/common.sh"
 # shellcheck source=../lib/config/profile.sh
-source "${OS_DIR}/lib/config/profile.sh"
+source "${INSTALLER_DIR}/lib/config/profile.sh"
 # shellcheck source=../lib/packages/resolver.sh
-source "${OS_DIR}/lib/packages/resolver.sh"
+source "${INSTALLER_DIR}/lib/packages/resolver.sh"
 
 profile="${1:-}"
 mode="${2:-grouped}"
@@ -32,7 +32,7 @@ if [[ -z "$profile" || "$profile" == "-h" || "$profile" == "--help" ]]; then
   sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's|^# \{0,1\}||'
   echo
   echo "Available profiles:"
-  for d in "${OS_DIR}"/hosts/*/ "${OS_DIR}"/hosts/vm/*/; do
+  for d in "${INSTALLER_DIR}"/hosts/*/ "${INSTALLER_DIR}"/hosts/vm/*/; do
     [[ -f "${d}profile.jsonc" ]] || continue
     n="$(basename "$d")"; [[ "$n" == "core" ]] && continue
     printf '  - %s\n' "$n"
@@ -59,8 +59,8 @@ unresolved="$(pkgres_unresolved "$effective")"
 # Layer Resolver applies packages.exclude and then strips the key, so by the
 # time a config is resolved there is nothing left to report. Reading the
 # committed file is what lets the operator confirm an exclusion took effect.
-authored="$(jsonc_strip "${OS_DIR}/hosts/${profile}/profile.jsonc" 2>/dev/null \
-  || jsonc_strip "${OS_DIR}/hosts/vm/${profile}/profile.jsonc" 2>/dev/null \
+authored="$(jsonc_strip "${INSTALLER_DIR}/hosts/${profile}/profile.jsonc" 2>/dev/null \
+  || jsonc_strip "${INSTALLER_DIR}/hosts/vm/${profile}/profile.jsonc" 2>/dev/null \
   || printf '{}')"
 excluded="$(pkgres_excluded "$authored")"
 

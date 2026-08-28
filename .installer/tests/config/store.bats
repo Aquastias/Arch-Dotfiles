@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/store.sh — the Config Store, the effectful edge over
+# Tests for .installer/lib/config/store.sh — the Config Store, the effectful edge over
 # the pure Config State. Owns the triad session files behind named verbs so no
 # caller pokes the tmpfs paths directly. Pure round-trip through the file: set a
 # GUIDED_*_FILE, read it back.

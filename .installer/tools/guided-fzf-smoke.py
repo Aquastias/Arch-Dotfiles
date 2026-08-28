@@ -9,7 +9,7 @@
 # check. It runs NONE of the install flow (guided-preview.sh is inert), so it is
 # safe on any machine. Requires fzf on PATH.
 #
-#   python3 .os/tools/guided-fzf-smoke.py     # exit 0 = all screens rendered OK
+#   python3 .installer/tools/guided-fzf-smoke.py     # exit 0 = all screens rendered OK
 #
 # Coverage: the top menu draws (no flash to bare shell); the root-fs picker lists
 # all four built adapters with no "(reserved)"; the Disks screen shows the
@@ -17,9 +17,9 @@
 # editor renders the per-group filesystem/topology/encryption rows.
 import os, pty, select, subprocess, sys, time, re, fcntl, termios, struct
 
-OS_DIR = os.environ.get("OS_DIR") or os.path.abspath(
+INSTALLER_DIR = os.environ.get("INSTALLER_DIR") or os.path.abspath(
     os.path.join(os.path.dirname(__file__), ".."))
-PREVIEW = os.path.join(OS_DIR, "tools/guided-preview.sh")
+PREVIEW = os.path.join(INSTALLER_DIR, "tools/guided-preview.sh")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][AB0]|\x1b[=>]|\r")
 strip = lambda b: ANSI.sub("", b.decode("utf-8", "replace"))
 
@@ -139,7 +139,7 @@ s.quit()
 
 # ── Profiles picker: the top-screen row drills to the profile list (ADR 0055) ─
 # Navigate top → Profiles and assert the drill screen lists the committed
-# desktop/laptop profiles. guided-preview.sh points OS_DIR at the real repo, so
+# desktop/laptop profiles. guided-preview.sh points INSTALLER_DIR at the real repo, so
 # hosts/{desktop,laptop} are the profiles enumerated.
 s = Session()
 s.pump(3.0)

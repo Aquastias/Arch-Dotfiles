@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/profiles/program-runner.sh — staging guard + Shell Stdlib sourcing.
+# Tests for .installer/lib/profiles/program-runner.sh — staging guard + Shell Stdlib sourcing.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -8,7 +8,7 @@ setup() {
   printf '#!/usr/bin/env bash\nstdlib_marker() { echo from-stdlib; }\n' \
     > "$TEST_DIR/lib/shell-stdlib.sh"
   export SHELL_COMMONS="$TEST_DIR/lib"
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export PROGRAMS="$TEST_DIR/programs"
 }
 

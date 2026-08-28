@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .os/vm/vm.sh — the profile-driven entry point (dry-run skeleton).
-# OS_DIR is overridable so the CLI resolves profiles/hosts from a fixture tree
+# Tests for .installer/vm/vm.sh — the profile-driven entry point (dry-run skeleton).
+# INSTALLER_DIR is overridable so the CLI resolves profiles/hosts from a fixture tree
 # while still sourcing the real vm/lib modules.
 
 setup() {
@@ -56,14 +56,14 @@ JSONC
 teardown() { rm -rf "$OS_FIX"; }
 
 @test "vm.sh --print-config: inline profile resolves to its install block" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --profile cat/inline --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile cat/inline --print-config
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq -r '.mode')" = "single" ]
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/sda" ]
 }
 
 @test "vm.sh --print-config: host_profile profile merges the host core profile" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --profile desktop/myhost --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile desktop/myhost --print-config
   [ "$status" -eq 0 ]
   # The resolved install config no longer carries host_profile (ADR 0036) — the
   # core+host profile merge is proven by the machine fields below.
@@ -75,7 +75,7 @@ teardown() { rm -rf "$OS_FIX"; }
 }
 
 @test "vm.sh --print-config: repo resolves to VM_DEFAULT_HOST_PROFILE, single" {
-  run env OS_DIR="$OS_FIX" VM_DEFAULT_HOST_PROFILE=myhost \
+  run env INSTALLER_DIR="$OS_FIX" VM_DEFAULT_HOST_PROFILE=myhost \
     "$VM_SH" --profile cat/repo --print-config
   [ "$status" -eq 0 ]
   # install:"repo" resolves as host_profile: myhost (the designated default) at
@@ -89,7 +89,7 @@ teardown() { rm -rf "$OS_FIX"; }
 }
 
 @test "vm.sh --testing: flips profile resolution to the tests/vm tree" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --testing --profile cat/inline --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --testing --profile cat/inline --print-config
   [ "$status" -eq 0 ]
   # the test-tree profile installs to /dev/vda, the persistent one to /dev/sda
   [ "$(echo "$output" | jq -r '.disk')" = "/dev/vda" ]
@@ -101,26 +101,26 @@ teardown() { rm -rf "$OS_FIX"; }
 { "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 2 },
   "install": { "mode": "single" } }
 JSONC
-  run env OS_DIR="$OS_FIX" "$VM_SH" --profile bad/noname --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile bad/noname --print-config
   [ "$status" -ne 0 ]
   [[ "$output" == *name* ]]
 }
 
 @test "vm.sh: missing profile file → clear error" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --profile cat/nope --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile cat/nope --print-config
   [ "$status" -ne 0 ]
   [[ "$output" == *"not found"* ]]
 }
 
 @test "vm.sh --help: prints usage and exits 0" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --help
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"--profile"* ]]
   [[ "$output" == *"--testing"* ]]
 }
 
 @test "vm.sh: no --profile → error" {
-  run env OS_DIR="$OS_FIX" "$VM_SH" --print-config
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --print-config
   [ "$status" -ne 0 ]
   [[ "$output" == *profile* ]]
 }

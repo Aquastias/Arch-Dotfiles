@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/zfs/pools.sh — ZFS pool primitives.
+# Tests for .installer/lib/zfs/pools.sh — ZFS pool primitives.
 # Covers: build_vdev_spec (pure), build_enc_opts (config-driven), ram_gib.
 
 setup() {

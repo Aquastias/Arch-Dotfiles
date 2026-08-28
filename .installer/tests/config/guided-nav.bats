@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/config/nav.sh — the Guided Installer's navigation state
+# Tests for .installer/lib/config/nav.sh — the Guided Installer's navigation state
 # (ADR 0042). Pure JSON-in/JSON-out screen transitions for the persistent-fzf
 # controller; behaviour asserted through the public verbs (screen + fields out).
 

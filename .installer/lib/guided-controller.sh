@@ -682,7 +682,7 @@ _ctl_sysctl_lines() {
 # have no place in an operator's menu, mirroring profiles_list's core/vm skip).
 _ctl_user_names() {
   local d n
-  for d in "${OS_DIR:-.}"/users/*/; do
+  for d in "${INSTALLER_DIR:-.}"/users/*/; do
     [[ -d "$d" ]] || continue
     n="$(basename "$d")"
     [[ "$n" == "core" || "$n" == vm-* ]] && continue
@@ -696,8 +696,8 @@ _ctl_user_names() {
 # name typed into the menu lands in the same shell a declared user would.
 _ctl_default_user_shell() {
   local s=""
-  [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/core/profile.jsonc" ]] \
-    && s="$(_configs_parse "${OS_DIR}/users/core/profile.jsonc" 2>/dev/null \
+  [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/users/core/profile.jsonc" ]] \
+    && s="$(_configs_parse "${INSTALLER_DIR}/users/core/profile.jsonc" 2>/dev/null \
           | jq -r '.shell // empty' 2>/dev/null)"
   printf '%s' "${s:-/bin/zsh}"
 }
@@ -712,8 +712,8 @@ _ctl_user_shell_full() {
   local n="$1" s=""
   [[ -n "${GUIDED_USERFORMS_FILE:-}" ]] \
     && s="$(guided_userform_field "$GUIDED_USERFORMS_FILE" "$n" shell)"
-  if [[ -z "$s" && -n "${OS_DIR:-}" \
-     && -f "${OS_DIR}/users/${n}/profile.jsonc" ]]; then
+  if [[ -z "$s" && -n "${INSTALLER_DIR:-}" \
+     && -f "${INSTALLER_DIR}/users/${n}/profile.jsonc" ]]; then
     s="$(load_user_profile "$n" 2>/dev/null \
       | jq -r '.shell // empty' 2>/dev/null)"
   fi
@@ -749,11 +749,11 @@ _ctl_root_shell_committed() {
 }
 
 # _ctl_user_is_committed <name> — rc 0 when the user has a committed profile
-# (users/<name>/profile.jsonc under OS_DIR): the editor shows `enabled` for
+# (users/<name>/profile.jsonc under INSTALLER_DIR): the editor shows `enabled` for
 # those
 # and `✗ remove user` for a session-created (ad-hoc) name instead.
 _ctl_user_is_committed() {
-  [[ -n "${OS_DIR:-}" && -f "${OS_DIR}/users/${1}/profile.jsonc" ]]
+  [[ -n "${INSTALLER_DIR:-}" && -f "${INSTALLER_DIR}/users/${1}/profile.jsonc" ]]
 }
 
 # _ctl_user_committed <name> — the committed (core-merged) User Profile as JSON,
@@ -1770,7 +1770,7 @@ guided_ctl_preview() {
 
 # ── Profiles picker (ADR 0055) ───────────────────────────────────────────────
 # _ctl_hosts_root — the hosts/ tree the Profiles picker enumerates.
-_ctl_hosts_root() { printf '%s' "${OS_DIR:-.}/hosts"; }
+_ctl_hosts_root() { printf '%s' "${INSTALLER_DIR:-.}/hosts"; }
 
 # _ctl_profiles_available — rc 0 when at least one installable Host Profile
 # exists (so the top-screen `Profiles ▸` row is shown), rc 1 otherwise.

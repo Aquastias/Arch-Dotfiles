@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the Guided Installer cloud-init render in .os/vm/lib/seed-generator.sh
+# Tests for the Guided Installer cloud-init render in .installer/vm/lib/seed-generator.sh
 # (issue 01b). The guided seed drives install.sh --guided headlessly: it resolves
 # the install disk in-guest via the Pre-Install Picker, writes a replay answers
 # file (hostname / disk / INSTALL), and runs the guided installer — no fzf, no

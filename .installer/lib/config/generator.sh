@@ -30,7 +30,7 @@ cg_legacy_packages() {
     for d in */; do
       name="${d%/}"
       case "$name" in
-        .git|.os|.scratch|.stow) continue ;;
+        .git|.installer|.scratch|.stow) continue ;;
       esac
       printf '%s\n' "$name"
     done

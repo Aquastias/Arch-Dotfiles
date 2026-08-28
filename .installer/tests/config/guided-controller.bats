@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/guided-controller.sh — the persistent-fzf controller (ADR
+# Tests for .installer/lib/guided-controller.sh — the persistent-fzf controller (ADR
 # 0042). The controller is driven entirely through its state files (no fzf, no
 # tty), so behaviour is asserted through the public interface: the rendered list
 # for a screen, and the (directive + file mutation) of an enter/back. Every
@@ -12,7 +12,7 @@ setup() {
   export GUIDED_BASELINE_FILE="$TEST_DIR/base.json"
   # Hermetic hosts/ root: no installable profiles here, so the top-screen
   # Profiles row (ADR 0055) stays hidden unless a test wires its own tree.
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
@@ -211,27 +211,27 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # generalising ADR 0079/0080). All six kind:host programs are owned, so the host
 # picker keeps only a genuinely free-standing host program.
 @test "host-programs picker omits every Menu-Owned program, keeps free ones" {
-  mkdir -p "$OS_DIR/programs/printing/cups" \
-           "$OS_DIR/programs/system/bluetooth" \
-           "$OS_DIR/programs/power/power-profiles-daemon" \
-           "$OS_DIR/programs/power/tuned" \
-           "$OS_DIR/programs/bootloader/grub" \
-           "$OS_DIR/programs/security/sops" \
-           "$OS_DIR/programs/system/myhostprog"
+  mkdir -p "$INSTALLER_DIR/programs/printing/cups" \
+           "$INSTALLER_DIR/programs/system/bluetooth" \
+           "$INSTALLER_DIR/programs/power/power-profiles-daemon" \
+           "$INSTALLER_DIR/programs/power/tuned" \
+           "$INSTALLER_DIR/programs/bootloader/grub" \
+           "$INSTALLER_DIR/programs/security/sops" \
+           "$INSTALLER_DIR/programs/system/myhostprog"
   printf '{"name":"cups","kind":"host"}\n' \
-    > "$OS_DIR/programs/printing/cups/config.jsonc"
+    > "$INSTALLER_DIR/programs/printing/cups/config.jsonc"
   printf '{"name":"bluetooth","kind":"host"}\n' \
-    > "$OS_DIR/programs/system/bluetooth/config.jsonc"
+    > "$INSTALLER_DIR/programs/system/bluetooth/config.jsonc"
   printf '{"name":"power-profiles-daemon","kind":"host"}\n' \
-    > "$OS_DIR/programs/power/power-profiles-daemon/config.jsonc"
+    > "$INSTALLER_DIR/programs/power/power-profiles-daemon/config.jsonc"
   printf '{"name":"tuned","kind":"host"}\n' \
-    > "$OS_DIR/programs/power/tuned/config.jsonc"
+    > "$INSTALLER_DIR/programs/power/tuned/config.jsonc"
   printf '{"name":"grub","kind":"host"}\n' \
-    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+    > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
   printf '{"name":"sops","kind":"host"}\n' \
-    > "$OS_DIR/programs/security/sops/config.jsonc"
+    > "$INSTALLER_DIR/programs/security/sops/config.jsonc"
   printf '{"name":"myhostprog","kind":"host"}\n' \
-    > "$OS_DIR/programs/system/myhostprog/config.jsonc"
+    > "$INSTALLER_DIR/programs/system/myhostprog/config.jsonc"
   configs_build_registry
 
   run _ctl_host_program_names
@@ -245,21 +245,21 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 # The User Editor's programs picker drops Menu-Owned user programs (clamav,
 # firewalld, borg, …) and keeps only free-standing ones (ADR 0086).
 @test "user-programs picker omits Menu-Owned user programs, keeps free ones" {
-  mkdir -p "$OS_DIR/programs/security/clamav" \
-           "$OS_DIR/programs/security/firewalld" \
-           "$OS_DIR/programs/backup/borg" \
-           "$OS_DIR/programs/virtualization/docker" \
-           "$OS_DIR/programs/communication/teamspeak3"
+  mkdir -p "$INSTALLER_DIR/programs/security/clamav" \
+           "$INSTALLER_DIR/programs/security/firewalld" \
+           "$INSTALLER_DIR/programs/backup/borg" \
+           "$INSTALLER_DIR/programs/virtualization/docker" \
+           "$INSTALLER_DIR/programs/communication/teamspeak3"
   printf '{"name":"clamav","kind":"user"}\n' \
-    > "$OS_DIR/programs/security/clamav/config.jsonc"
+    > "$INSTALLER_DIR/programs/security/clamav/config.jsonc"
   printf '{"name":"firewalld","kind":"user"}\n' \
-    > "$OS_DIR/programs/security/firewalld/config.jsonc"
+    > "$INSTALLER_DIR/programs/security/firewalld/config.jsonc"
   printf '{"name":"borg","kind":"user"}\n' \
-    > "$OS_DIR/programs/backup/borg/config.jsonc"
+    > "$INSTALLER_DIR/programs/backup/borg/config.jsonc"
   printf '{"name":"docker","kind":"user"}\n' \
-    > "$OS_DIR/programs/virtualization/docker/config.jsonc"
+    > "$INSTALLER_DIR/programs/virtualization/docker/config.jsonc"
   printf '{"name":"teamspeak3","kind":"user"}\n' \
-    > "$OS_DIR/programs/communication/teamspeak3/config.jsonc"
+    > "$INSTALLER_DIR/programs/communication/teamspeak3/config.jsonc"
   configs_build_registry
 
   run _ctl_user_program_names
@@ -273,9 +273,9 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 
 # Empty host picker (all host programs owned) is a clean success, not grep rc 1.
 @test "host-programs picker is empty and rc 0 when all host progs are owned" {
-  mkdir -p "$OS_DIR/programs/bootloader/grub"
+  mkdir -p "$INSTALLER_DIR/programs/bootloader/grub"
   printf '{"name":"grub","kind":"host"}\n' \
-    > "$OS_DIR/programs/bootloader/grub/config.jsonc"
+    > "$INSTALLER_DIR/programs/bootloader/grub/config.jsonc"
   configs_build_registry
 
   run _ctl_host_program_names
@@ -1256,11 +1256,11 @@ _seed_baseline() {
 }
 
 @test "list(values users): existing users marked + Create + Back, core excluded" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/bob" "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/bob/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/bob" "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/bob/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_values Users users users)"
   run guided_ctl_list
@@ -1453,10 +1453,10 @@ _seed_baseline() {
 }
 
 @test "preview(values users): shows effective (core-merged) values" {
-  mkdir -p "$OS_DIR/users"/{core,bob}
-  printf '{}\n' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users"/{core,bob}
+  printf '{}\n' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '{"shell":"/bin/bash","groups":["wheel"]}\n' \
-    > "$OS_DIR/users/bob/profile.jsonc"
+    > "$INSTALLER_DIR/users/bob/profile.jsonc"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
   printf '{"bob":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["bob"]}' > "$GUIDED_STATE_FILE"
@@ -1609,10 +1609,10 @@ _seed_baseline() {
 }
 
 @test "list(useredit committed): enabled + shell (from profile) + Back" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{"shell":"/bin/zsh"}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{"shell":"/bin/zsh"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"
   run guided_ctl_list
@@ -1623,9 +1623,9 @@ _seed_baseline() {
 }
 
 @test "list(useredit ad-hoc): remove + shell, no enabled row" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users dave)"
   run guided_ctl_list
@@ -1635,10 +1635,10 @@ _seed_baseline() {
 }
 
 @test "enter(useredit): enabled toggles the user out of the install" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"
   run guided_ctl_enter "enabled: on   (Enter toggles)"
@@ -1647,11 +1647,11 @@ _seed_baseline() {
 }
 
 @test "enter(useredit): shell cycles into an install-scoped override" {
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"
   run guided_ctl_enter "shell: bash   (Enter cycles)"
@@ -1662,12 +1662,12 @@ _seed_baseline() {
 }
 
 @test "enter(useredit): cycling back to the committed shell drops the override" {
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
   printf '{"alice":{"shell":"/bin/fish"}}\n' > "$GUIDED_USERFORMS_FILE"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{"shell":"/bin/bash"}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{"shell":"/bin/bash"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"
   run guided_ctl_enter "shell: fish   (Enter cycles)"   # fish → wrap bash = committed
@@ -1675,7 +1675,7 @@ _seed_baseline() {
 }
 
 @test "enter(useredit): remove drops an ad-hoc user + returns to the list" {
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
   printf '{"dave":{"shell":"/bin/zsh"}}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
@@ -1715,8 +1715,8 @@ _seed_baseline() {
 }
 
 @test "enter(text __newuser__): a duplicate name is refused with a notice" {
-  export OS_DIR="$TEST_DIR"; mkdir -p "$OS_DIR/users/alice"
-  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"; mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_text Users __newuser__ "new user")"
   run guided_ctl_enter "+ Create user (name)" "alice"
@@ -1727,10 +1727,10 @@ _seed_baseline() {
 # ── clone user (ADR 0064) ────────────────────────────────────────────────────
 
 @test "list(useredit): offers the clone row for both committed + ad-hoc users" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{"shell":"/bin/zsh"}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{"shell":"/bin/zsh"}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice","dave"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"           # committed
   run guided_ctl_list
@@ -1741,10 +1741,10 @@ _seed_baseline() {
 }
 
 @test "enter(useredit): clone drops to a name screen carrying the source" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_useredit Users alice)"
   run guided_ctl_enter "⧉ Clone this user"
@@ -1755,15 +1755,15 @@ _seed_baseline() {
 }
 
 @test "enter(text __cloneuser__): copies shape not identity into a clone" {
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; uf="$GUIDED_USERFORMS_FILE"
   printf '{}\n' > "$uf"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
   printf '%s' '{"shell":"/bin/fish","sudo":true,
     "groups":["wheel","docker"],"programs":["git"],
     "git":{"name":"Alice"},"ssh_authorized_keys":["ssh-ed25519 AAAA"]}' \
-    > "$OS_DIR/users/alice/profile.jsonc"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+    > "$INSTALLER_DIR/users/alice/profile.jsonc"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_clone Users alice)"
   run guided_ctl_enter "clone" "bob"
@@ -1782,8 +1782,8 @@ _seed_baseline() {
 }
 
 @test "enter(text __cloneuser__): a duplicate name is refused with a notice" {
-  export OS_DIR="$TEST_DIR"; mkdir -p "$OS_DIR/users/alice"
-  printf '{}' > "$OS_DIR/users/alice/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"; mkdir -p "$INSTALLER_DIR/users/alice"
+  printf '{}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_clone Users alice)"
   run guided_ctl_enter "clone" "alice"
@@ -1882,8 +1882,8 @@ _seed_baseline() {
 # ── slice 03: full-profile User Editor fields (userfield sub-editors) ─────────
 
 adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/core"; printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/core"; printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
 }
@@ -1949,8 +1949,8 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 
 @test "userfield programs: toggle marks against resolvable program names" {
   adhoc_editor_setup
-  # a couple of resolvable programs under OS_DIR/programs/<cat>/<name>
-  mkdir -p "$OS_DIR/programs/dev/git" "$OS_DIR/programs/dev/htop"
+  # a couple of resolvable programs under INSTALLER_DIR/programs/<cat>/<name>
+  mkdir -p "$INSTALLER_DIR/programs/dev/git" "$INSTALLER_DIR/programs/dev/htop"
   set_nav "$(nav_to_userfield Users dave programs programs)"
   run guided_ctl_enter "[ ] git"
   [ "$output" = "refresh" ]
@@ -2002,24 +2002,24 @@ adhoc_editor_setup() {          # an ad-hoc user 'dave' with a userforms file
 # list. Assert *which options are offered*, not only the [x]/[ ] marking —
 # marking-only assertions are exactly what let the bad option sets through.
 
-# Two programs of each kind under a hermetic OS_DIR.
+# Two programs of each kind under a hermetic INSTALLER_DIR.
 mixed_programs_setup() {
-  export OS_DIR="$TEST_DIR"
+  export INSTALLER_DIR="$TEST_DIR"
   local spec cat name knd
   for spec in "bootloader/grub/host" "printing/cups/host" \
               "virtualization/docker/user" "security/borg/user"; do
     IFS=/ read -r cat name knd <<<"$spec"
-    mkdir -p "$OS_DIR/programs/$cat/$name"
+    mkdir -p "$INSTALLER_DIR/programs/$cat/$name"
     printf '{"name":"%s","kind":"%s"}\n' "$name" "$knd" \
-      > "$OS_DIR/programs/$cat/$name/config.jsonc"
-    printf '#!/bin/sh\n' > "$OS_DIR/programs/$cat/$name/install.sh"
+      > "$INSTALLER_DIR/programs/$cat/$name/config.jsonc"
+    printf '#!/bin/sh\n' > "$INSTALLER_DIR/programs/$cat/$name/install.sh"
   done
 }
 
 @test "User Editor programs picker offers exactly the system:false programs" {
   mixed_programs_setup
-  mkdir -p "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
+  mkdir -p "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"
   printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["dave"]}' > "$GUIDED_STATE_FILE"
@@ -2044,10 +2044,10 @@ mixed_programs_setup() {
 }
 
 @test "userfield groups (committed): dropping back to committed clears override" {
-  export OS_DIR="$TEST_DIR"
-  mkdir -p "$OS_DIR/users/alice" "$OS_DIR/users/core"
-  printf '{}' > "$OS_DIR/users/core/profile.jsonc"
-  printf '{"groups":["docker"]}' > "$OS_DIR/users/alice/profile.jsonc"
+  export INSTALLER_DIR="$TEST_DIR"
+  mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core"
+  printf '{}' > "$INSTALLER_DIR/users/core/profile.jsonc"
+  printf '{"groups":["docker"]}' > "$INSTALLER_DIR/users/alice/profile.jsonc"
   export GUIDED_USERFORMS_FILE="$TEST_DIR/uf.json"; printf '{}\n' > "$GUIDED_USERFORMS_FILE"
   printf '%s\n' '{"users":["alice"]}' > "$GUIDED_STATE_FILE"
   set_nav "$(nav_to_userfield Users alice groups groups)"

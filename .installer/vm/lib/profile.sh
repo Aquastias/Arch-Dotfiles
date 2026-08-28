@@ -28,7 +28,7 @@ VM_DEFAULT_HOST_PROFILE="${VM_DEFAULT_HOST_PROFILE:-arch-kde}"
 # profile_resolve_config <profile_json>
 #   Emits the resolved install.jsonc on stdout. Assumes the profile already
 #   passed profile_validate (exactly one install source). Hosts resolve through
-#   the unified loader/assembler under OS_DIR.
+#   the unified loader/assembler under INSTALLER_DIR.
 profile_resolve_config() {
   local profile="$1"
   local host_profile install_type install_str

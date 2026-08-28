@@ -121,10 +121,10 @@ On your **current machine** (Arch), from this repo, download the ISO
 the installer can build ZFS against:
 
 ```bash
-bash .os/tools/fetch-iso.sh
+bash .installer/tools/fetch-iso.sh
 #   → ~/Downloads/archlinux-<ver>-x86_64.iso
 # or pass a directory:
-bash .os/tools/fetch-iso.sh /path/to/dir
+bash .installer/tools/fetch-iso.sh /path/to/dir
 ```
 
 Then flash it to a USB stick with `dd` (or Ventoy / Impression /
@@ -165,7 +165,7 @@ exit
 ```bash
 mount /dev/sdX1 /mnt/usb
 cp -r /mnt/usb/dotfiles /root/
-cd /root/dotfiles/.os
+cd /root/dotfiles/.installer
 ```
 
 **From a URL (if you have network):**
@@ -173,7 +173,7 @@ cd /root/dotfiles/.os
 ```bash
 curl -LO https://your-host/dotfiles.tar.gz
 tar -xzf dotfiles.tar.gz
-cd dotfiles/.os
+cd dotfiles/.installer
 ```
 
 ### 2.5 Pick or author the host profile
@@ -327,7 +327,7 @@ key as recipient:
 
 ```yaml
 creation_rules:
-  - path_regex: .os/(users|hosts)/.*secrets.json$
+  - path_regex: .installer/(users|hosts)/.*secrets.json$
     age: "age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
@@ -339,7 +339,7 @@ step 4.2.
 User secrets:
 
 ```bash
-sops .os/users/<username>/secrets.json
+sops .installer/users/<username>/secrets.json
 ```
 
 Add content (values are encrypted on save; keys remain
@@ -356,7 +356,7 @@ plaintext):
 Host secrets (root password):
 
 ```bash
-sops .os/hosts/<hostname>/secrets.json
+sops .installer/hosts/<hostname>/secrets.json
 ```
 
 ```json
@@ -378,8 +378,8 @@ printed:
 ```
 ==> Machine age public key: age1yyyyyy...
 ==> Add it to .sops.yaml and run:
-==>   sops updatekeys .os/users/*/secrets.json \
-==>                   .os/hosts/*/secrets.json
+==>   sops updatekeys .installer/users/*/secrets.json \
+==>                   .installer/hosts/*/secrets.json
 ```
 
 ### 4.7 Add the machine key and re-encrypt
@@ -387,18 +387,18 @@ printed:
 ```yaml
 # .sops.yaml — add the machine key alongside yours
 creation_rules:
-  - path_regex: .os/(users|hosts)/.*secrets.json$
+  - path_regex: .installer/(users|hosts)/.*secrets.json$
     age: |
       age1xxxxxx...   # your personal key
       age1yyyyyy...   # machine key (from install output)
 ```
 
 ```bash
-sops updatekeys .os/users/<username>/secrets.json
-sops updatekeys .os/hosts/<hostname>/secrets.json
+sops updatekeys .installer/users/<username>/secrets.json
+sops updatekeys .installer/hosts/<hostname>/secrets.json
 git add .sops.yaml \
-        .os/users/<username>/secrets.json \
-        .os/hosts/<hostname>/secrets.json
+        .installer/users/<username>/secrets.json \
+        .installer/hosts/<hostname>/secrets.json
 git commit -m "secrets: add machine age key for <hostname>"
 ```
 
@@ -411,7 +411,7 @@ every boot without the USB.
 ## 5. File Layout
 
 ```
-.os/
+.installer/
 ├── install.sh              # Entry. Runs 01 → 02 → 03.
 ├── 01-bootstrap-zfs.sh     # ZFS DKMS on the live ISO
 ├── 02-wipe.sh              # Wipe disks (dd + wipefs + sgdisk)
@@ -607,7 +607,7 @@ paru-based user programs (paru refuses root), so the Runner unions
 them into the **Primary User's** paru pass:
 
 ```jsonc
-// .os/hosts/<name>/profile.jsonc
+// .installer/hosts/<name>/profile.jsonc
 "post_install": {
   "security": {
     "firewall": "firewalld",   // "firewalld" | "ufw" | null (pick one)

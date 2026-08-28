@@ -13,14 +13,14 @@
 # toolbar/header is present at every depth. Needs a real terminal (fzf wants a
 # tty); piped/non-tty invocation just reports "cancelled" and exits cleanly.
 #
-#   bash .os/tools/guided-preview.sh
+#   bash .installer/tools/guided-preview.sh
 # =============================================================================
 set -Eeuo pipefail
 
-OS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export OS_DIR
+INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export INSTALLER_DIR
 # shellcheck source=lib/guided.sh
-source "${OS_DIR}/lib/guided.sh"
+source "${INSTALLER_DIR}/lib/guided.sh"
 
 # Seed exactly as guided_build does, then run the menu only (calling
 # guided_run_persistent directly, not via guided_build).

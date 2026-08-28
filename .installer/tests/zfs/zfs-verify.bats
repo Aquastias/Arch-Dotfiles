@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/zfs/verify.sh — fail-fast ZFS Module Guard (ADR 0024).
+# Tests for .installer/lib/zfs/verify.sh — fail-fast ZFS Module Guard (ADR 0024).
 #
 # The guard runs host-side after pacstrap and before chroot configuration: it
 # verifies a loadable `zfs` module exists for every kernel installed into the

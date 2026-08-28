@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .os/lib/live-medium.sh — the Live-Medium Detector.
+# Tests for .installer/lib/live-medium.sh — the Live-Medium Detector.
 #
 # Identifies the installer's own medium so the wipe never lists, selects, or
 # erases it. Multiple signals: the parent disk of the boot mount (resolved via
