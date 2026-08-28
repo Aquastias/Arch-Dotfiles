@@ -88,42 +88,63 @@ _niri_bool() {
   jsonc "$NIRI_JSON" | jq -r --arg k "$1" '.[$k] // false'
 }
 
-# Bitwarden plugin source, pinned to a commit for a deterministic install (ADR
-# 0090). A bad ref (or offline) degrades to skip-with-warning, never an abort.
+# Bitwarden plugin source, pinned to a v5 commit for a deterministic install
+# (ADR 0090/0093). A bad ref (or offline) degrades to skip-with-warning, never
+# an abort.
 _NIRI_BW_REPO="https://github.com/noctalia-dev/official-plugins.git"
-_NIRI_BW_REF="ea6dfe3fae4d4a755dd05390548b04066250ffe9"
+_NIRI_BW_REF="8cb833c3e2502f57e49d34fa64386b4d66794b77"
 
-# _niri_register_plugin <name> — enable <name> in skel's Noctalia plugins.json
-# (Noctalia does not auto-discover; the key must match the plugin dir + manifest
-# id). Merges into an existing file, creating it when absent.
-_niri_register_plugin() {
-  local name="$1"
-  local pj="${SEED_ROOT%/}/etc/skel/.config/noctalia/plugins.json"
-  local url="https://github.com/noctalia-dev/official-plugins"
-  local cur='{}'
-  mkdir -p "$(dirname "$pj")"
-  [[ -f "$pj" ]] && cur="$(cat "$pj")"
-  jq --arg n "$name" --arg u "$url" \
-    '.[$n] = {enabled: true, sourceUrl: $u}' <<<"$cur" > "$pj"
+# Noctalia v5 plugin seeding (ADR 0093). Loads a plugin from its folder in the
+# DATA dir and enables it by canonical id in config.toml's [plugins] list — the
+# v4 plugins.json path is dead. Plugins are vendored (folder copied at a pinned
+# ref), so first daemon start scans + enables them offline; auto_update is off
+# and no settings.toml is shipped (the state-dir one loads last and would
+# override the seed).
+_NIRI_PLUGIN_DATA="etc/skel/.local/share/noctalia/plugins"
+_NIRI_ENABLED_PLUGINS=()
+
+# _niri_seed_plugin <repo> <ref> <subdir> — sparse-checkout <subdir> at <ref>
+# into the skel data dir and mark its manifest id (read from plugin.toml)
+# enabled. Returns non-zero on any git/parse failure so the caller can
+# warn-and-continue (invoked in an `if`, so set -e is suppressed inside — a
+# network failure never aborts the install).
+_niri_seed_plugin() {
+  local repo="$1" ref="$2" sub="$3"
+  local tmp; tmp="$(mktemp -d)" || return 1
+  local dst="${SEED_ROOT%/}/${_NIRI_PLUGIN_DATA}/${sub}"
+  git clone --filter=blob:none --no-checkout --sparse "$repo" "$tmp/op" \
+    || { rm -rf "$tmp"; return 1; }
+  git -C "$tmp/op" sparse-checkout set "$sub" || { rm -rf "$tmp"; return 1; }
+  git -C "$tmp/op" checkout "$ref" || { rm -rf "$tmp"; return 1; }
+  [[ -f "$tmp/op/$sub/plugin.toml" ]] || { rm -rf "$tmp"; return 1; }
+  local id
+  id="$(sed -nE 's/^[[:space:]]*id[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' \
+    "$tmp/op/$sub/plugin.toml" | head -n1)"
+  [[ -n "$id" ]] || { rm -rf "$tmp"; return 1; }
+  mkdir -p "$(dirname "$dst")"
+  rm -rf "$dst"
+  cp -r "$tmp/op/$sub" "$dst"
+  rm -rf "$tmp"
+  _NIRI_ENABLED_PLUGINS+=("$id")
 }
 
-# _niri_seed_bitwarden_plugin — sparse-checkout the bitwarden/ subfolder at the
-# pinned ref into skel and register it. Returns non-zero on any git failure so
-# the caller can warn-and-continue (invoked in an `if`, so set -e is suppressed
-# inside — a network failure never aborts the install).
-_niri_seed_bitwarden_plugin() {
-  local tmp; tmp="$(mktemp -d)" || return 1
-  local dst="${SEED_ROOT%/}/etc/skel/.config/noctalia/plugins"
-  git clone --filter=blob:none --no-checkout --sparse \
-    "$_NIRI_BW_REPO" "$tmp/op" || { rm -rf "$tmp"; return 1; }
-  git -C "$tmp/op" sparse-checkout set bitwarden || { rm -rf "$tmp"; return 1; }
-  git -C "$tmp/op" checkout "$_NIRI_BW_REF" || { rm -rf "$tmp"; return 1; }
-  [[ -d "$tmp/op/bitwarden" ]] || { rm -rf "$tmp"; return 1; }
-  mkdir -p "$dst"
-  rm -rf "$dst/bitwarden"
-  cp -r "$tmp/op/bitwarden" "$dst/bitwarden"
-  rm -rf "$tmp"
-  _niri_register_plugin bitwarden
+# _niri_write_noctalia_config — assemble skel config.toml. Currently the
+# [plugins] table: the vendored ids as the enabled list, plus auto_update=none
+# so Noctalia never background-fetches a pinned install.
+_niri_write_noctalia_config() {
+  local list="" id
+  for id in "${_NIRI_ENABLED_PLUGINS[@]:-}"; do
+    [[ -n "$id" ]] && list+="\"$id\", "
+  done
+  list="${list%, }"
+  _seed_write etc/skel/.config/noctalia/config.toml <<TOML
+# Seeded by the installer (ADR 0093). Plugins are vendored under
+# ~/.local/share/noctalia/plugins and enabled here by canonical id; auto_update
+# is off (pinned installs). Noctalia owns the rest of its look.
+[plugins]
+auto_update = "none"
+enabled = [${list}]
+TOML
 }
 
 if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
@@ -153,21 +174,25 @@ binds {
 KDL
   info "Seeded /etc/skel niri config (Noctalia autostart + kitty)."
 
-  # Bitwarden vault plugin (ADR 0090). Install the CLI backend, then seed +
-  # register the Luau plugin. The install-only step (bitwarden-cli) precedes the
-  # network fetch, so an offline box still gets the CLI and only the plugin is
-  # skipped. `bw login` is the user's first-boot step.
+  # Bitwarden vault plugin (ADR 0090/0093). Install the CLI backend, then vendor
+  # + enable the Luau plugin via the v5 mechanism. The install-only step
+  # (bitwarden-cli) precedes the network fetch, so an offline box still gets the
+  # CLI and the plugin is skipped. `bw login` is the user's first-boot step.
   if [[ "$(_niri_bool bitwarden)" == true ]]; then
     section "Noctalia Bitwarden plugin"
     # shellcheck disable=SC2046  # word-split the pure map into args
     pacman -S --noconfirm --needed $(noctalia_bitwarden_packages)
-    if _niri_seed_bitwarden_plugin; then
-      info "Bitwarden plugin seeded + enabled (run 'bw login' to authenticate)."
+    if _niri_seed_plugin "$_NIRI_BW_REPO" "$_NIRI_BW_REF" bitwarden; then
+      info "Bitwarden plugin enabled (run 'bw login' to authenticate)."
     else
       warn "Bitwarden plugin fetch failed (offline?) — skipped;" \
         "bitwarden-cli is installed. Add the plugin later from Noctalia."
     fi
   fi
+
+  # Assemble skel config.toml — the [plugins] enabled list (v5 replaces the
+  # dead plugins.json). ADR 0093 adds [theme] here next.
+  _niri_write_noctalia_config
 fi
 
 section "niri installation complete"

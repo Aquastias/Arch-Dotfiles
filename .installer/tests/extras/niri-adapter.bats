@@ -31,7 +31,7 @@ setup() {
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
   # git stub emulating a successful sparse-checkout: `clone` makes the target
-  # dir, `-C <dir> checkout` populates a bitwarden/ tree with a manifest.
+  # dir, `-C <dir> checkout` populates a bitwarden/ tree with a v5 plugin.toml.
   cat > "$STUB_BIN/git" <<'GIT'
 #!/usr/bin/env bash
 echo "git $*" >> "$GIT_LOG"
@@ -39,7 +39,8 @@ case "$1" in
   clone) mkdir -p "${@: -1}" ;;
   -C)    [[ "$3" == checkout ]] && {
            mkdir -p "$2/bitwarden"
-           printf '{"id":"bitwarden"}' > "$2/bitwarden/manifest.json"; } ;;
+           printf 'id = "noctalia/bitwarden"\nname = "Bitwarden"\n' \
+             > "$2/bitwarden/plugin.toml"; } ;;
 esac
 exit 0
 GIT
@@ -141,24 +142,33 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 # ── Bitwarden plugin (ADR 0090) ──────────────────────────────────────────────
 
-@test "bitwarden on: installs the cli, seeds+registers the plugin at the pin" {
+@test "bitwarden on: installs the cli, vendors+enables the plugin at the pin" {
   local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   grep -q "bitwarden-cli" "$PACMAN_LOG"
-  [ -f "$SEED/etc/skel/.config/noctalia/plugins/bitwarden/manifest.json" ]
-  local pj="$SEED/etc/skel/.config/noctalia/plugins.json"
-  [ "$(jq -r '.bitwarden.enabled' "$pj")" = "true" ]
-  grep -q "ea6dfe3fae4d4a755dd05390548b04066250ffe9" "$GIT_LOG"
+  # v5 layout: plugin folder in the DATA dir, id enabled in config.toml
+  [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden/plugin.toml" ]
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q 'auto_update = "none"' "$ct"
+  grep -q '"noctalia/bitwarden"' "$ct"
+  grep -q "8cb833c3e2502f57e49d34fa64386b4d66794b77" "$GIT_LOG"
+  # the dead v4 artifacts are not produced
+  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins.json" ]
+  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins/bitwarden" ]
+  [ ! -e "$SEED/etc/skel/.local/state/noctalia/settings.toml" ]
 }
 
-@test "bitwarden off: no cli, no plugin, no git fetch" {
+@test "bitwarden off: no cli, no plugin, no git; config.toml empty enabled" {
   local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":false}\n' > "$nj"
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   ! grep -q "bitwarden-cli" "$PACMAN_LOG"
-  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins/bitwarden" ]
+  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden" ]
   [ ! -f "$GIT_LOG" ]
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  [ -f "$ct" ]
+  grep -q 'enabled = \[\]' "$ct"
 }
 
 @test "bitwarden offline: fetch fails, install succeeds, cli still installed" {
@@ -170,5 +180,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   grep -q "bitwarden-cli" "$PACMAN_LOG"
-  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins/bitwarden" ]
+  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden" ]
+  # config.toml still written, bitwarden not in the enabled list
+  grep -q 'enabled = \[\]' "$SEED/etc/skel/.config/noctalia/config.toml"
 }
