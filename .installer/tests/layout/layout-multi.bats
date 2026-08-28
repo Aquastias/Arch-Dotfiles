@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/layout/zfs/multi.sh — pure topology suggestion functions.
+# Tests for .installer/lib/layout/zfs/multi.sh — pure topology suggestion
+# functions.
 # suggest_os_topologies and suggest_storage_topologies have no system calls.
 
 setup() {

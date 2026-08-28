@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/seed.sh — the Guided Installer's default seeder
+# Tests for .installer/lib/config/seed.sh — the Guided Installer's default
+# seeder
 # (guided-installer-redesign issue 01 / M3): a pure helper that fills a launch
 # Config State with this operator's computed defaults, so an untouched run is
 # ready to install. Pure: a Config State in, the seeded state out, no TTY.
@@ -12,7 +13,8 @@ setup() {
   export -f error
 
   # The baseline is LOADED from Host Core now (ADR 0058), so the seeder needs
-  # an INSTALLER_DIR to read. A representative core: one System Program, a sysctl
+  # an INSTALLER_DIR to read. A representative core: one System Program, a
+  # sysctl
   # default, and a package list — the three things that used to be invisible
   # in the menu because they were hand-copied or not copied at all.
   TEST_DIR="$(mktemp -d)"

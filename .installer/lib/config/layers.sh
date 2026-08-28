@@ -60,7 +60,8 @@ _configs_merge() {
 # =============================================================================
 # PROGRAM RESOLUTION & VALIDATION
 # =============================================================================
-# Programs live at $INSTALLER_DIR/programs/<category>/<name>/. Resolution is by name
+# Programs live at $INSTALLER_DIR/programs/<category>/<name>/. Resolution is by
+# name
 # only — the category is recovered from the path. Validation enforces the
 # kind contract: programs referenced from a host config must be kind "host";
 # from a user config, kind "user".
@@ -68,7 +69,8 @@ _configs_merge() {
 # Build two in-memory indexes, both keyed by program name:
 #   _CONFIGS_REGISTRY[name]="cat/name"   — the path index
 #   _CONFIGS_KIND[name]="host"|"user"    — the config.jsonc `kind` enum
-# Call once after INSTALLER_DIR is set; resolve_program and program_kind use them
+# Call once after INSTALLER_DIR is set; resolve_program and program_kind use
+# them
 # automatically. Reading the flag here is what keeps a menu render from
 # re-parsing every program's config.jsonc (R22). A program config with an
 # absent or out-of-set `kind` aborts the build (return 1) naming the program.

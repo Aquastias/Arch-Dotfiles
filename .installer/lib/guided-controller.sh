@@ -749,7 +749,8 @@ _ctl_root_shell_committed() {
 }
 
 # _ctl_user_is_committed <name> — rc 0 when the user has a committed profile
-# (users/<name>/profile.jsonc under INSTALLER_DIR): the editor shows `enabled` for
+# (users/<name>/profile.jsonc under INSTALLER_DIR): the editor shows `enabled`
+# for
 # those
 # and `✗ remove user` for a session-created (ad-hoc) name instead.
 _ctl_user_is_committed() {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-userforms.sh — the Guided Installer's install-scoped
+# Tests for .installer/lib/guided-userforms.sh — the Guided Installer's
+# install-scoped
 # per-user profile deltas (ADR 0051). A file path + name/key in, a file mutation
 # or value out; pure, no fzf, no tty. The deltas are held aside like passwords —
 # never the Config State, never a committed repo file — and merged onto the

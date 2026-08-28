@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
-# Tests for .installer/vm/vm.sh — the profile-driven entry point (dry-run skeleton).
-# INSTALLER_DIR is overridable so the CLI resolves profiles/hosts from a fixture tree
+# Tests for .installer/vm/vm.sh — the profile-driven entry point (dry-run
+# skeleton).
+# INSTALLER_DIR is overridable so the CLI resolves profiles/hosts from a fixture
+# tree
 # while still sourcing the real vm/lib modules.
 
 setup() {

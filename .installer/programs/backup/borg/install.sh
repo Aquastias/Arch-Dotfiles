@@ -3,7 +3,8 @@
 # programs/backup/borg/install.sh
 # =============================================================================
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo
+# granted.
 #
 # Installs borgbackup + Vorta GUI + borgmatic via paru, writes a starter
 # borgmatic config for the first regular user, and enables the borgmatic

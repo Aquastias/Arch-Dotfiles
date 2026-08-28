@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/zfs/pool-owners.sh — the Owners Resolver (pure, ADR 0031).
+# Tests for .installer/lib/zfs/pool-owners.sh — the Owners Resolver (pure, ADR
+# 0031).
 #
 # The resolver decides, for one pool, how its mountpoint becomes usable by a
 # human: who owns it (chown), whether POSIX ACLs are needed, which users get a

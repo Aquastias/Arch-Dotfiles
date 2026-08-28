@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/seed-generator.sh — cloud-init NoCloud seed-ISO builder.
+# Tests for .installer/lib/seed-generator.sh — cloud-init NoCloud seed-ISO
+# builder.
 #
 # Strategy:
 #   - Substitution + runcmd-shape tests inspect the rendered user-data text

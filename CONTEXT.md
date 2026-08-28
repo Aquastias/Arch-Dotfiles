@@ -4,7 +4,8 @@
 
 ### Host Profile (`profile.jsonc`)
 The single, self-contained file describing one machine —
-`.installer/hosts/<name>/profile.jsonc`, merged under `.installer/hosts/core/profile.jsonc`
+`.installer/hosts/<name>/profile.jsonc`, merged under
+`.installer/hosts/core/profile.jsonc`
 (Host Core). Its directory basename is the profile name, the identity passed as
 `install.sh --profile <name>`; there is no `host_profile` field. Collapses the
 previous schema's three files (`install.jsonc` + `install.template.jsonc` + host
@@ -25,7 +26,8 @@ hostname (ADR 0020): a profile may pin one via `system.hostname`, or let the
 profile name serve as the default. Optionally ships Host Secrets alongside.
 
 ### Minimal Profile
-The committed `minimal` Host Profile (`.installer/hosts/minimal/`) — the desktop-less,
+The committed `minimal` Host Profile (`.installer/hosts/minimal/`) — the
+desktop-less,
 bare base install, archinstall's "minimal" role. Selects no desktop
 (`environment.desktop: []`, so the display manager resolves to `none` and no DE
 adapter runs — ADR 0005) and opts out of Host Core's workstation Host Package
@@ -254,7 +256,8 @@ Distinct from the predefined (auto) layouts, whose pool skeleton is the
 installer's default.
 
 ### Host Core
-Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the base set
+Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the
+base set
 of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
 (ADR 0056, amending ADR 0007 — whose "the lists are
 machine-specific" premise failed: `laptop` is a strict subset of `desktop`, 57
@@ -274,7 +277,8 @@ Host Programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
 Program with its own menu home (ADR 0079).
 
 ### Layer Resolver
-`.installer/lib/config/layer-resolver.sh`. The pure module answering "given Host Core
+`.installer/lib/config/layer-resolver.sh`. The pure module answering "given Host
+Core
 and a host profile, what is the effective set?" — and the same for User Core and
 a user profile. Resolution is **per-key**, classified by unordered set versus
 ordered selection (ADR 0057): *additive* keys concat + dedupe and `exclude`
@@ -299,7 +303,8 @@ guided effective-config path (`layer_apply_exclusions`), mirroring how
 the two exclusion paths cannot drift.
 
 ### Config Store
-`.installer/lib/config/store.sh`. The **effectful** edge over the pure Config State —
+`.installer/lib/config/store.sh`. The **effectful** edge over the pure Config
+State —
 owns the Guided Installer's triad session files (`GUIDED_STATE_FILE` /
 `GUIDED_NAV_FILE` / `GUIDED_BASELINE_FILE`) behind a small named interface
 (`cfgstore_state` / `cfgstore_write_state`, `cfgstore_nav` /
@@ -319,7 +324,8 @@ triad; the other session handoff files (secrets, userforms, history, pw buffers,
 session-undo, skip, list, result) are separate concerns not yet folded in.
 
 ### Package Resolver
-`.installer/lib/packages/resolver.sh`. The pure module answering "what actually lands
+`.installer/lib/packages/resolver.sh`. The pure module answering "what actually
+lands
 on this machine?" — an Effective Config in, every package out, each tagged with
 its **source** and **layer**. The layer is provenance: `derived` for a computed
 set, or `core` vs `host` for an authored one, so the report answers "do I edit
@@ -341,7 +347,8 @@ the sets that genuinely need the target hardware (GPU `auto`, CPU microcode) by
 `pkgres_unresolved`, so they are never faked as package names.
 
 ### User Profile
-Declarative JSONC file at `.installer/users/<username>/profile.jsonc` (renamed from
+Declarative JSONC file at `.installer/users/<username>/profile.jsonc` (renamed
+from
 `config.jsonc` in step with the host side — profile = a host/user, config = a
 program spec; ADR 0036). Declares a user's shell, sudo access, groups, which
 user-level programs are installed, and an optional `user_services` list enabled
@@ -434,7 +441,8 @@ missing-shell package install, mirroring `create-user.sh`), so root can never be
 left with an unusable login shell (ADR 0054).
 
 ### User Core
-Declarative JSONC file at `.installer/users/core/profile.jsonc`. Declares the base set
+Declarative JSONC file at `.installer/users/core/profile.jsonc`. Declares the
+base set
 of programs, shell defaults, groups, and House Defaults shared across all users.
 Every User Profile is resolved over core by the [[Layer Resolver]] — core
 applies first, then the user profile per the ADR 0057 per-key classification
@@ -454,7 +462,8 @@ interactive shell — which means the first login after install needs network.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in
-`.installer/hosts/<profile>/profile.jsonc`, merged with Host Core) — the same user the
+`.installer/hosts/<profile>/profile.jsonc`, merged with Host Core) — the same
+user the
 Runner uses for the shared AUR/paru pass (`profiles.sh` gates host + GPU AUR
 installs on `users[0]`). Purely positional: there is no `primary: true` flag, so
 ordering the `users` array chooses it. A host that declares no users has no
@@ -647,7 +656,8 @@ Resolution is per user — a transient blip leaving one user on `paru` and
 another on `yay` is harmless.
 
 ### Runner
-`.installer/lib/profiles/runner.sh`. Reads host core + host profile (merged), validates
+`.installer/lib/profiles/runner.sh`. Reads host core + host profile (merged),
+validates
 program references (a user referencing a Host Program no host installs aborts;
 one the host already installs is a no-op — ADR 0036), installs Host Programs
 via `arch-chroot`, then for each user merges user core + user profile and
@@ -655,7 +665,8 @@ installs programs via `arch-chroot /mnt su - <username>`. Called by
 `03-install.sh` after `configure_system()`.
 
 ### Single Entry Point
-`.installer/install.sh`. The one script a user runs from the Arch live CD after cloning
+`.installer/install.sh`. The one script a user runs from the Arch live CD after
+cloning
 the repo. Three front-ends over one back-end (ADR 0036): `install.sh --profile
 <name>` (interactive — the Pre-Install Picker resolves disks and assembles the
 Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
@@ -676,7 +687,8 @@ driver) that has neither the install toolchain nor an intent to install; plain
 "skip install" (not "verbose logging") meaning, documented at the flag site.
 
 ### Disk Wipe
-`.installer/02-wipe.sh`, the install flow's **make-blank** step — not a secure-erase.
+`.installer/02-wipe.sh`, the install flow's **make-blank** step — not a
+secure-erase.
 It clears partition tables, filesystem signatures, and ZFS/LVM/MD labels so a
 target disk looks pristine to the partitioner. Method is device-aware:
 `blkdiscard` on SSD/NVMe (instant), a single zero-pass on HDDs (the slow case,
@@ -691,14 +703,16 @@ holds data. Run standalone it wipes only an explicitly selected target set,
 defaulting to nothing.
 
 ### Installer Stdlib
-`.installer/lib/common.sh`. Shared utility library for host-side install scripts and
+`.installer/lib/common.sh`. Shared utility library for host-side install scripts
+and
 `lib/` modules — colour codes, `info/warn/error/section`, `confirm`,
 `pick_option`, `cfg/cfgo`, `part_name`, `command_exists`. **Not** sourced inside
 `arch-chroot` (that world uses `chroot-common.sh`). The installer-world twin of
 Shell Stdlib: same concepts, one stdlib per world, never shared across.
 
 ### Shell Stdlib
-`.installer/lib/shell-stdlib.sh` — a **facade** that sources the domain modules under
+`.installer/lib/shell-stdlib.sh` — a **facade** that sources the domain modules
+under
 `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`, `packages.sh`,
 `notifications.sh`). Shared utility library sourced once per program by the
 Program Runner (not by the install.sh itself), so program scripts get its
@@ -706,15 +720,18 @@ helpers (`print_status`, `command_exists`, package/permission/notification
 helpers) without their own source line.
 
 ### Program Install Script
-`install.sh` inside each `.installer/programs/<category>/<name>/`. Source of truth for
+`install.sh` inside each `.installer/programs/<category>/<name>/`. Source of
+truth for
 all installation logic: package install, file copying, service enabling. Invoked
 by the Program Runner via `lib/profiles/program-runner.sh`, which validates staging, sources
 Shell Stdlib, then sources the install.sh in the same shell. Receives env vars
-`$INSTALLER_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are referenced
+`$INSTALLER_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` pre-exported. Programs are
+referenced
 by name only across all categories (names are unique).
 
 ### Layout Module
-`.installer/lib/layout/zfs/<mode>.sh` (`zfs/single.sh`, `zfs/multi.sh`; ADR 0043). Each
+`.installer/lib/layout/zfs/<mode>.sh` (`zfs/single.sh`, `zfs/multi.sh`; ADR
+0043). Each
 implements the layout interface (`layout_validate`, `layout_plan`,
 `layout_partition`, `layout_create_pools`, `layout_mount_esp`) and publishes a
 normalized state record consumed by chroot/finalize: `LAYOUT_ESP_PARTS[]`
@@ -828,7 +845,8 @@ install.sh files inherit `set -Eeuo pipefail` and the stdlib helpers without a
 per-script source line.
 
 ### Chroot Configuration Module
-`.installer/lib/chroot/`. Set of shell scripts copied into `/mnt/root/lib-chroot/`
+`.installer/lib/chroot/`. Set of shell scripts copied into
+`/mnt/root/lib-chroot/`
 before `arch-chroot` and orchestrated by `configure.sh` inside the chroot. Each
 sub-script owns one concern: identity (locale/timezone/keymap/hostname), pacman
 config, initcpio (ZFS hook + mkinitcpio), root password, an extras runner
@@ -873,7 +891,8 @@ means dropping in a new Bootloader Adapter plus one Bootloader Manifest row — 
 `if/elif` branches grow.
 
 ### Bootloader Adapter
-`.installer/lib/chroot/bootloader-<name>.sh`. Concrete bootloader implementation:
+`.installer/lib/chroot/bootloader-<name>.sh`. Concrete bootloader
+implementation:
 package install, config file generation, kernel-image entry registration. Five
 adapters: `bootloader-systemd-boot.sh`, `bootloader-grub.sh`,
 `bootloader-efistub.sh`, `bootloader-limine.sh`, `bootloader-refind.sh`. Each
@@ -894,7 +913,8 @@ direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
 loader binary; its manifest loader path is the kernel image itself (ADR 0077).
 
 ### Bootloader Manifest
-`.installer/lib/boot/bootloaders.sh`. The pure token table — sourced host-side by the
+`.installer/lib/boot/bootloaders.sh`. The pure token table — sourced host-side
+by the
 package resolver / list and staged into the chroot for the orchestrator —
 keying each `options.bootloader` value to its EFI loader path, package set, and
 ESP-entry style. The single source of truth that replaced the per-loader
@@ -1125,7 +1145,8 @@ decryption. Must be added as a recipient in `.sops.yaml` and secrets
 re-encrypted via `sops updatekeys` after first install.
 
 ### SOPS Runtime Service
-Systemd service installed by `.installer/programs/security/sops/install.sh`. Runs early
+Systemd service installed by `.installer/programs/security/sops/install.sh`.
+Runs early
 in boot (before user services), mounts a tmpfs at `/run/secrets/`, decrypts all
 SOPS-encrypted secret files using the Machine Age Key, and sets declared
 ownership and permissions. Programs that need runtime secrets reference
@@ -1231,7 +1252,8 @@ the former boolean `post_install.*` extras, which dispatched to never-shipped
 cannot carry these — the Guided Installer aborts at the terminal action.
 
 ### Tools
-`.installer/tools/`. Utility scripts for managing a running system or preparing an
+`.installer/tools/`. Utility scripts for managing a running system or preparing
+an
 install — not part of the install flow itself. Currently: `save-pkglist.sh`
 (writes a Drift Snapshot of the running system to
 `hosts/<profile>/pkglist-repo.txt` and `pkglist-aur.txt`),
@@ -1407,7 +1429,8 @@ future opt-in pre-transaction drift check (`zfs diff` fails loudly if dirty)
 closes this leak.
 
 ### Impermanence Tool
-`.installer/tools/impermanence.sh`. Runtime utility for managing Persist Extensions on
+`.installer/tools/impermanence.sh`. Runtime utility for managing Persist
+Extensions on
 a system where Impermanence is enabled. Verbs: `add <path>` (writes the path
 into the host's `persist.directories` or `persist.files` in
 `hosts/<hostname>/profile.jsonc`, copies current data onto the Persist Dataset,
@@ -1429,7 +1452,8 @@ Config Generator.
 
 ### Program Config Tree
 Per-program user-side config files under
-`.installer/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is the
+`.installer/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is
+the
 default; sibling `configs@<variant>/` directories hold alternates (Config
 Variants). Optional — programs without user-side config omit the dir entirely.
 Manifest scope is user paths only; system paths stay in the program's
@@ -1462,7 +1486,8 @@ always regenerable from the repo + User Profile + Config Variants. Consumed by
 Stow Tree pass.
 
 ### Config Generator
-`.installer/tools/generate-configs.sh`. Reads the merged User Core + User Profile for a
+`.installer/tools/generate-configs.sh`. Reads the merged User Core + User
+Profile for a
 target user and the merged Host Core + Host Profile for the machine (hostname
 looked up at runtime). Resolves each program's Config Variant via the Variant
 Resolver, validates all relevant Config Manifests, builds a per-user plan via
@@ -1508,7 +1533,8 @@ expectations (pools, mounts, owners, boot checks). Grouped into Profile
 Categories (subdirectories).
 
 ### VM Harness
-`.installer/vm/vm.sh`. The single profile-driven entry point that provisions a libvirt
+`.installer/vm/vm.sh`. The single profile-driven entry point that provisions a
+libvirt
 VM from a VM Profile and runs `install.sh --unattended` inside it. Default flow
 builds a persistent, reusable VM (spice graphics, reboots into the installed
 system for interactive use via virt-manager). `--testing` selects the disposable
@@ -1537,8 +1563,10 @@ encrypted cell verifies as close to reality as a human at the prompt.
 
 ### Profile Category
 The subdirectory grouping VM Profiles within a `profiles/` tree. The axis
-differs per tree: persistent profiles (`.installer/vm/profiles/`) are categorized by
-desktop/use (`desktop/`, `headless/`); test profiles (`.installer/tests/vm/profiles/`)
+differs per tree: persistent profiles (`.installer/vm/profiles/`) are
+categorized by
+desktop/use (`desktop/`, `headless/`); test profiles
+(`.installer/tests/vm/profiles/`)
 are categorized by the install path they exercise (`single/`, `multi/`,
 `data-pools/`, `impermanence/`, `env/`, `boot/`, `headless/`). Each profile
 lives in exactly one

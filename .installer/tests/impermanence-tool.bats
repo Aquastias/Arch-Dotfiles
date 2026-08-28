@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/tools/impermanence.sh — operator CLI for Persist Extensions.
+# Tests for .installer/tools/impermanence.sh — operator CLI for Persist
+# Extensions.
 #
 # Strategy: redirect filesystem writes under $FAKEROOT via env overrides.
 # Stub systemctl/zfs (in $BIN_STUBS, first on PATH) to log argv to $CALLS.

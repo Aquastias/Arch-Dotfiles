@@ -2,7 +2,8 @@
 
 Running notes for agents working on the Combination Matrix (ADR 0046) — the
 two-tier "no menu-reachable install combination errors" testing. Entry point:
-`.installer/tools/matrix.sh` (`gen` / `emit <cell-id>` / `run`); generator/adapter
+`.installer/tools/matrix.sh` (`gen` / `emit <cell-id>` / `run`);
+generator/adapter
 logic in `.installer/lib/matrix/*.sh`; Tier-1 assembly bats under
 `.installer/tests/matrix/`.
 
@@ -44,7 +45,8 @@ from what the installer menu offers. Two guards keep it honest:
    VM Profiles are never committed (materialized via `emit`).
 
 **Wrap-up step (do this after any menu / constraint / axis change, and in the
-`/improve-codebase-architecture` flow):** run `./.installer/tools/matrix.sh gen` and
+`/improve-codebase-architecture` flow):** run `./.installer/tools/matrix.sh gen`
+and
 commit the updated `matrix-manifest.jsonl` + `matrix-coverage.txt`. The suite
 will otherwise go red on the drift guard.
 

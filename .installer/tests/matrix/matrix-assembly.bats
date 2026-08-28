@@ -7,7 +7,8 @@
 # The one physically-coupled check validate_install_context makes — the
 # block-device probe (_layout_disk_exists) — is stubbed here: disk existence is
 # a Tier-2/VM concern with no combinatorial content, so Tier-1 exercises every
-# other validator against the real INSTALLER_DIR tree. Behaviour under test: the cell
+# other validator against the real INSTALLER_DIR tree. Behaviour under test: the
+# cell
 # the generator emits validates clean.
 
 setup() {

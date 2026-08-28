@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/fonts.sh — the Font Catalog resolver (ADR 0080): a
+# Tests for .installer/lib/config/fonts.sh — the Font Catalog resolver (ADR
+# 0080): a
 # pure helper turning options.fonts into the font packages that install, split
 # by repo (pacstrap) vs AUR (paru pass), with the catalog's defaults applied
 # when options.fonts is absent.

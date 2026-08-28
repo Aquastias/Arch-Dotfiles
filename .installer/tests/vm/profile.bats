@@ -7,7 +7,8 @@ setup() {
   TEST_DIR="$(mktemp -d)"
   HOSTS_DIR="$TEST_DIR/hosts"
   mkdir -p "$HOSTS_DIR"
-  # load_profile/assemble_profile_config resolve hosts under $INSTALLER_DIR/hosts.
+  # load_profile/assemble_profile_config resolve hosts under
+  # $INSTALLER_DIR/hosts.
   export TEST_DIR HOSTS_DIR INSTALLER_DIR="$TEST_DIR"
 
   # The config stack (layers.sh/jsonc.sh) emits through these — stub to quiet.

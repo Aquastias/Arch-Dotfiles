@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/picker.sh — disk->group assignment (unified-host-profile
+# Tests for .installer/lib/picker.sh — disk->group assignment
+# (unified-host-profile
 # /02). Pure, libvirt-free: given a profile pool skeleton (os_pool +
 # storage_groups + data_pools, NO device fields) and a per-group disk
 # assignment, picker_assign_disks computes the effective config (skeleton +

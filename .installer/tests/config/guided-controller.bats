@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-controller.sh — the persistent-fzf controller (ADR
+# Tests for .installer/lib/guided-controller.sh — the persistent-fzf controller
+# (ADR
 # 0042). The controller is driven entirely through its state files (no fzf, no
 # tty), so behaviour is asserted through the public interface: the rendered list
 # for a screen, and the (directive + file mutation) of an enter/back. Every

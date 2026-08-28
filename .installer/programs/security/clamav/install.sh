@@ -3,7 +3,8 @@
 # programs/security/clamav/install.sh
 # =============================================================================
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo granted.
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo
+# granted.
 #
 # Installs clamav via paru, drops bundled configs into /etc/clamav, installs
 # the desktop entry, the on-access systemd unit, the daily-scan timer +

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/menu.sh — the Guided Installer's Menu model (ADR
+# Tests for .installer/lib/config/menu.sh — the Guided Installer's Menu model
+# (ADR
 # 0039): Config State → menu rows (section / label / value / ● override flag).
 # It drives both the fzf shell and these tests, so the rows ARE the contract.
 # Pure: JSON-in/JSON-out, no TTY.

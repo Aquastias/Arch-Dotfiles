@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/printing.sh — the Printing Service resolver (ADR
+# Tests for .installer/lib/config/printing.sh — the Printing Service resolver
+# (ADR
 # 0079): a pure helper turning options.printing.enabled into the toggle-derived
 # System Programs (cups when on, nothing when off), the injector that folds cups
 # into an Effective Config's host_programs, and the picker-filter owned set.

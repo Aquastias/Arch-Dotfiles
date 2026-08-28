@@ -3,7 +3,8 @@
 #
 # Pure resolver: unions host packages.aur (categorized string mode) with each
 # desktop adapter's `aur` field (categorized bool mode), read from
-# ${INSTALLER_DIR}/extras/desktop/<de>/install-<de>.jsonc. Sorted-unique on stdout;
+# ${INSTALLER_DIR}/extras/desktop/<de>/install-<de>.jsonc. Sorted-unique on
+# stdout;
 # missing host field / adapter file / adapter field contribute nothing.
 # Asserts on the resolved set — paru never runs.
 
