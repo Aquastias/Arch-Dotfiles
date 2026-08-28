@@ -139,7 +139,8 @@ s.quit()
 
 # ── Profiles picker: the top-screen row drills to the profile list (ADR 0055) ─
 # Navigate top → Profiles and assert the drill screen lists the committed
-# desktop/laptop profiles. guided-preview.sh points INSTALLER_DIR at the real repo, so
+# desktop/laptop profiles. guided-preview.sh points INSTALLER_DIR at the real
+# repo, so
 # hosts/{desktop,laptop} are the profiles enumerated.
 s = Session()
 s.pump(3.0)

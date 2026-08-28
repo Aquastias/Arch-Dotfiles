@@ -18,7 +18,8 @@
 # ZFS-multi-specific; the shared structure and creation path are here.
 #
 # Requires at call time: lib/common.sh (cfg/section/info/warn/error, part_name),
-# lib/config/accessors.sh (install_config_data_pool_*), MOUNT_ROOT, INSTALLER_DIR.
+# lib/config/accessors.sh (install_config_data_pool_*), MOUNT_ROOT,
+# INSTALLER_DIR.
 # =============================================================================
 
 # The Data Group Formatter dispatch (data_formatter_source) + the redundant-size

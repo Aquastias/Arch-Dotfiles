@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided.sh — the Guided Installer's fzf shell (ADR 0039).
+# Tests for .installer/lib/guided.sh — the Guided Installer's fzf shell (ADR
+# 0039).
 # The shell is impure glue, but its selection seam (guided_select /
 # guided_prompt) is replayable: under a GUIDED_REPLAY answers file the menu
 # is driven headlessly, no fzf, no tty. So guided_build — the assembly path —

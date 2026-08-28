@@ -10,7 +10,8 @@
 #   matrix.sh run            Install the cell(s) in a VM via the config seam.
 #
 # Generator/adapter logic lives in sourced lib helpers under lib/matrix/ so it
-# is unit-testable without the driver. INSTALLER_DIR is the data root (defaults to the
+# is unit-testable without the driver. INSTALLER_DIR is the data root (defaults
+# to the
 # repo the tool ships in).
 # =============================================================================
 set -euo pipefail

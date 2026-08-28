@@ -2,7 +2,8 @@
 # Tests for .installer/vm/fixtures/regenerate.sh — Test Age Key rotation script.
 #
 # Runs regenerate.sh against an isolated REPO_ROOT temp workspace so the
-# committed fixtures under .installer/vm/fixtures, .installer/hosts/vm/arch-secure and
+# committed fixtures under .installer/vm/fixtures,
+# .installer/hosts/vm/arch-secure and
 # .installer/users/vm-test are never mutated.
 
 REGEN="$BATS_TEST_DIRNAME/../../vm/fixtures/regenerate.sh"

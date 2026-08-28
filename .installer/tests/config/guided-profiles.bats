@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/profiles.sh — the Guided Installer's Profiles picker
+# Tests for .installer/lib/config/profiles.sh — the Guided Installer's Profiles
+# picker
 # core (ADR 0055): enumerate installable Host Profiles + seed a Config State from
 # one. Pure: a hosts/ tree or JSON in, names / text / state out, no TTY.
 #

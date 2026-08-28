@@ -152,7 +152,8 @@ _validation_index_of() {
 }
 
 # _validation_program_requires <prog> — the program's declared `requires` list,
-# one per line (empty when none or the program has no config). Pure over INSTALLER_DIR.
+# one per line (empty when none or the program has no config). Pure over
+# INSTALLER_DIR.
 _validation_program_requires() {
   local rel cf
   rel="$(resolve_program "$1" 2>/dev/null)" || return 0
@@ -165,7 +166,8 @@ _validation_program_requires() {
 # every user program's `requires` for one user. A required program is satisfied
 # when it is a Host Program (installed before all user programs) or
 # appears EARLIER in this user's own list. Prints an actionable line per
-# violation and returns 1 if any; 0 when clean. Pure over INSTALLER_DIR + the two JSON
+# violation and returns 1 if any; 0 when clean. Pure over INSTALLER_DIR + the
+# two JSON
 # array args (host_programs, the user's programs).
 _validation_check_requires_order() {
   local user="$1" sys_json="$2" up_json="$3" fail=0

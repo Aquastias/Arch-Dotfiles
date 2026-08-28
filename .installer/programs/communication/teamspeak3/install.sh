@@ -3,7 +3,8 @@
 # programs/communication/teamspeak3/install.sh
 # =============================================================================
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning user, with
-# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported. Builds and installs the AUR
+# INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported. Builds and installs the
+# AUR
 # `teamspeak3` package via paru, then drops the bundled Material icon pack
 # and Demus theme into ~/.ts3client so the user lands on a styled client at
 # first launch.

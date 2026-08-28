@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-fzf-entry.sh — the persistent-fzf bind entry point
+# Tests for .installer/lib/guided-fzf-entry.sh — the persistent-fzf bind entry
+# point
 # (ADR 0042). fzf itself can't run in CI (no tty), but the entry script's `list`
 # and `dispatch` subcommands are plain commands: this drives them as a real
 # subprocess (the way fzf's binds would) and asserts the rendered list, the

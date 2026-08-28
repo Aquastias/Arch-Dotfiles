@@ -10,7 +10,8 @@
 # the resolved install.jsonc to stdout (no libvirt). The persistent and test
 # provisioning flows land in later slices.
 #
-# INSTALLER_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/) is
+# INSTALLER_DIR (the data root holding hosts/, vm/profiles/, tests/vm/profiles/)
+# is
 # overridable for tests; the lib modules are always sourced from this script's
 # own directory.
 # =============================================================================

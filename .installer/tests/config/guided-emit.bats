@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/emit.sh — the Guided Installer's Emitter (ADR 0039):
+# Tests for .installer/lib/config/emit.sh — the Guided Installer's Emitter (ADR
+# 0039):
 # an effective view (+ optional disk assignment) → a device-baked Effective
 # Config. Pure: JSON-in/JSON-out, no TTY, no disk writes.
 #

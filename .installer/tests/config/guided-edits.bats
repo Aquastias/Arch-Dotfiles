@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/edits.sh — the Guided Installer's pure edit setters
+# Tests for .installer/lib/config/edits.sh — the Guided Installer's pure edit
+# setters
 # (ADR 0042). Each setter is JSON-in/JSON-out with no TTY, so behaviour is
 # asserted through the public interface: a state + value in, the new state out,
 # and the no-op rc/contract. These are the SET half shared by the replay helpers

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/config/layer-resolver.sh — the Layer Resolver (ADR 0057).
+# Tests for .installer/lib/config/layer-resolver.sh — the Layer Resolver (ADR
+# 0057).
 #
 # The module is pure JSON-in/JSON-out, so every assertion is external: given
 # these layers, this is the effective set. Nothing here reaches into

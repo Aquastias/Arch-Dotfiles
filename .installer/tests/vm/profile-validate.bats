@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/vm/lib/profile-validate.sh — one test per validation rule.
+# Tests for .installer/vm/lib/profile-validate.sh — one test per validation
+# rule.
 # Prior art: tests/picker.bats (picker_validate_layout),
 # tests/config/validation-*.bats.
 

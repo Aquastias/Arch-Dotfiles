@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for apply_pacman_options in .installer/lib/packages/list.sh — the authoritative
+# Tests for apply_pacman_options in .installer/lib/packages/list.sh — the
+# authoritative
 # Pacman Options apply step (ADR 0074). Seam 2: run it against a fixture
 # `[options]` block and assert the resulting file. External behaviour only (the
 # file contents), never internals.

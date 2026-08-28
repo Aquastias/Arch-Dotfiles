@@ -335,7 +335,8 @@ _section "13. No _fixture/ directories under .installer/programs/"
 # =============================================================================
 # Per ADR 0013 + config-generator-finalization slice 04, the production
 # programs/ tree must ship no fixture program. Test fixtures live under
-# .installer/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT overrides.
+# .installer/tests/fixtures/programs/ and are reached via PROGRAMS_ROOT
+# overrides.
 _strays=0
 while IFS= read -r d; do
   rel="${d#"${OS}"/}"

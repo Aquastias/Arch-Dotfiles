@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/shell/notifications.sh — send_user_notification helper.
+# Tests for .installer/lib/shell/notifications.sh — send_user_notification
+# helper.
 
 setup() {
   TEST_DIR="$(mktemp -d)"

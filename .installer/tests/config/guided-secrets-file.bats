@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-secrets-file.sh — the in-menu credential handoff file
+# Tests for .installer/lib/guided-secrets-file.sh — the in-menu credential
+# handoff file
 # (ticket 03). Pure file mutation + queries: the masked tty prompt is glue and
 # not covered here. Shape: { root_password?, users?: { <name>: { password } } }.
 
