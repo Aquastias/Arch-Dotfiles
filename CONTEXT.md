@@ -1001,13 +1001,19 @@ preset**: the `noctalia` package (v5, `extra` repo — one package for bar,
 launcher, notifications, clipboard history, control center, lock, wallpaper, OSD)
 plus the session-completing gaps `kitty` + `brightnessctl`, a minimal
 `/etc/skel/.config/niri/config.kdl` glue that autostarts `noctalia --daemon`
-(ADR 0088 skel precedent, glue only — never Noctalia's theming), and the
-official **Bitwarden** Luau plugin (pinned sparse-checkout into skel's
-`plugins.json` + `bitwarden-cli` for the `bw` backend; `bw login` is the user's
-first-boot step). Preset component bools live in `install-niri.jsonc`
-(`bitwarden`, `cava`, `cliphist`), mirroring KDE's `install-kde.jsonc` (ADR
-0087). Noctalia runs on Hyprland too; the field is niri-bound for now but
-written to generalise.
+(ADR 0088 skel precedent). Since ADR 0093 the preset is **enriched by default**:
+it also seeds the **Rosé Pine** built-in palette (`[theme]`, the one theming
+exception to 0090's glue-only rule) and a curated, overlap-free plugin set —
+`keymap`, `screen-toolkit`, `wl-screen-mirror`, `arch-updater`, `procmon`,
+`audio-switcher`, `file-search`, `shell-command`, `ssh-launcher`, `mini-docker`,
+`custom-shortcut`, `udiskie`, `todo`, `drive-health`, `eyecare`, `gamer-mode`,
+`cat`, `wallpaper-switcher`, the three `niri-*` plugins, and the official
+**Bitwarden** plugin, plus laptop-gated `battery-power-management` +
+`battery-widget`. Plugins install pinned from two registered sources (official +
+community). Preset component bools — one per plugin, plus `laptop`, `cava`,
+`cliphist` — live in `install-niri.jsonc`, mirroring KDE's `install-kde.jsonc`
+(ADR 0087); toggling them off recovers the lean shell. Noctalia runs on Hyprland
+too; the field is niri-bound for now but written to generalise.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
