@@ -75,14 +75,16 @@ noctalia_laptop_plugins() {
 # pipewire, pacman, polkit, coreutils), alt-compositor deps (hyprland, mango —
 # a pure niri host), AUR-only deps (wl-screenrec, paru/yay — an extra-repo
 # recorder and the system AUR helper cover these), and heavyweight optional
-# integrations (gimp, mpv, a second recorder/annotator). --needed dedups shared
-# tools (upower, power-profiles-daemon, xdg-utils, procps-ng).
+# integrations (gimp, mpv, a second recorder/annotator), and hyprpicker
+# (dropped with color_picker per ADR 0093 — screen-toolkit picks via slurp+grim).
+# --needed dedups shared tools (upower, power-profiles-daemon, xdg-utils,
+# procps-ng).
 noctalia_plugin_deps() {
   case "$1" in
     keymap)           printf '%s\n' xdg-utils ;;
     screen-toolkit)
-      printf '%s\n' slurp grim hyprpicker tesseract imagemagick zbar ffmpeg \
-        jq translate-shell bc xdg-utils satty wf-recorder ;;
+      printf '%s\n' slurp grim tesseract imagemagick zbar ffmpeg jq \
+        translate-shell bc xdg-utils satty wf-recorder ;;
     wl-screen-mirror) printf '%s\n' wl-mirror ;;
     arch-updater)     printf '%s\n' pacman-contrib flatpak less xdg-utils ;;
     audio-switcher)   printf '%s\n' libpulse bluez-utils ;;

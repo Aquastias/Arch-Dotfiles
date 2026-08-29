@@ -186,6 +186,8 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   grep -qw "wl-mirror" "$PACMAN_LOG"        # wl-screen-mirror
   grep -qw "docker" "$PACMAN_LOG"           # mini-docker
   grep -qw "fzf" "$PACMAN_LOG"              # file-search
+  # vendored at the pinned community ref
+  grep -q "caed21ab081948435cd770d2e954c99b8bbb72cf" "$GIT_LOG"
 }
 
 @test "dropped plugins are never vendored" {
