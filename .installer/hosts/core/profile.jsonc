@@ -104,6 +104,7 @@
       "media": [
         "gimp",
         "imagemagick",
+        "mpv",
         "pavucontrol",
         "speech-dispatcher",
         "vlc"
