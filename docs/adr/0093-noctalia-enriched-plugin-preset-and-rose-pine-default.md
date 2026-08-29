@@ -24,8 +24,11 @@ adapter seeds glue and never look. The rule holds everywhere else: only the
 default palette is seeded; Noctalia self-generates the rest of its look on first
 run. The other four palettes need no seeding — they are switchable natively
 (Settings → Theming, or `qs -c noctalia-shell ipc call colorScheme set <Name>`).
-For one-click switching we seed a few `custom-shortcut` control-center tiles that
-call that IPC — no `config-swap` (a generic file swapper, **not** palette-aware).
+For a one-click affordance we seed the (singleton) `custom-shortcut` tile wired
+to a seeded script that cycles the five palettes via IPC — no `config-swap`
+(a generic file swapper, **not** palette-aware). We do not seed
+`control_center.shortcuts` (that array would replace the built-in Control Center
+defaults), so placing the tile is a one-time user step.
 
 ## Plugin set and the overlap resolutions
 
@@ -57,8 +60,8 @@ dropped from the default set (still installable by hand):
   drop `calculator`.
 
 Remaining non-overlapping picks ship as-is: `niri-active-workspace`,
-`niri-animations`, `niri-displays`, `sharednd`, `audio-switcher`, `drive-health`,
-`eyecare`, `mini-docker`, `custom-shortcut`, `udiskie`, `todo`,
+`niri-animations`, `niri-displays`, `sharednd`, `audio-switcher`,
+`drive-health`, `eyecare`, `mini-docker`, `custom-shortcut`, `udiskie`, `todo`,
 `wallpaper-switcher`.
 
 ## Laptop gating
@@ -72,7 +75,7 @@ host-profile system.
 
 Register both default v5 sources — `noctalia-dev/official-plugins` and
 `noctalia-dev/community-plugins`. Community-plugins is a **single repo**, so one
-pinned commit covers all community picks and one covers the official picks: **two
+pinned commit covers all community picks and one the official picks: **two
 refs total**, not one per plugin — reproducible installs at trivial maintenance,
 bumped by editing two SHAs. Extends ADR 0090's pinned-Bitwarden precedent.
 
