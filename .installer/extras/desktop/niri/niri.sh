@@ -180,6 +180,46 @@ builtin = "${_NIRI_DEFAULT_PALETTE}"
 auto_update = "none"
 enabled = [${list}]
 TOML
+  # Palette-cycle tile (ADR 0093): when custom-shortcut is enabled, pre-wire its
+  # (singleton) tile to the seeded cycler. The user places the tile in the
+  # Control Center once — seeding control_center.shortcuts would replace the
+  # built-in defaults, so it is left alone.
+  if [[ "$(_niri_bool custom-shortcut)" == true ]]; then
+    cat >> "${SEED_ROOT%/}/etc/skel/.config/noctalia/config.toml" <<'TOML'
+
+[plugin_settings."yocraft/custom-shortcut"]
+label = "Cycle palette"
+icon = "palette"
+onclick_cmd = "sh $HOME/.local/bin/noctalia-cycle-palette"
+TOML
+  fi
+}
+
+# _niri_seed_palette_cycler — seed the script the custom-shortcut tile runs: it
+# walks the five seeded built-in palettes via Noctalia's colorScheme IPC,
+# tracking the index in the state dir. Palette switching is built-in theming —
+# this is only a one-click affordance over it (ADR 0093).
+_niri_seed_palette_cycler() {
+  _seed_write etc/skel/.local/bin/noctalia-cycle-palette <<'SH'
+#!/bin/sh
+# Seeded by the installer (ADR 0093): cycle Noctalia's built-in palette.
+set -eu
+state="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/palette-cycle"
+i=0
+[ -f "$state" ] && i=$(cat "$state") || true
+i=$(( (i + 1) % 5 ))
+case "$i" in
+  0) p="Rosé Pine" ;;
+  1) p="Catppuccin" ;;
+  2) p="Tokyo-Night" ;;
+  3) p="Gruvbox" ;;
+  4) p="Nord" ;;
+esac
+mkdir -p "$(dirname "$state")"
+printf '%s' "$i" > "$state"
+qs -c noctalia-shell ipc call colorScheme set "$p"
+SH
+  chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-cycle-palette"
 }
 
 if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
@@ -259,8 +299,12 @@ KDL
     else warn "Plugin $_pl fetch failed (offline?) — skipped."; fi
   done
 
+  # Palette-cycle affordance (ADR 0093): seed the cycler script when the
+  # custom-shortcut tile is enabled; its tile config lands in config.toml below.
+  [[ "$(_niri_bool custom-shortcut)" == true ]] && _niri_seed_palette_cycler
+
   # Assemble skel config.toml — the [theme] default + [plugins] enabled list
-  # (v5 replaces the dead plugins.json).
+  # (v5 replaces the dead plugins.json), plus the palette-cycle tile settings.
   _niri_write_noctalia_config
 fi
 

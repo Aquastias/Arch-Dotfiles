@@ -229,6 +229,31 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   grep -qw "noctalia" "$PACMAN_LOG"
 }
 
+# ── Palette-cycle tile (ADR 0093) ────────────────────────────────────────────
+
+@test "custom-shortcut on: seeds the palette cycler + tile settings" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"   # custom-shortcut default on
+  [ "$status" -eq 0 ]
+  local sc="$SEED/etc/skel/.local/bin/noctalia-cycle-palette"
+  [ -x "$sc" ]
+  grep -q 'colorScheme set' "$sc"
+  grep -q 'Rosé Pine' "$sc"
+  grep -q 'Nord' "$sc"
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q 'yocraft/custom-shortcut' "$ct"
+  grep -q 'onclick_cmd' "$ct"
+  # the built-in Control Center layout is left untouched
+  ! grep -q 'control_center.shortcuts' "$ct"
+}
+
+@test "custom-shortcut off: no palette cycler or tile settings" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"custom-shortcut":false}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
+  ! grep -q 'onclick_cmd' "$SEED/etc/skel/.config/noctalia/config.toml"
+}
+
 # ── Laptop-gated battery pair (ADR 0093) ─────────────────────────────────────
 
 @test "battery present (laptop): the battery pair is vendored with upower" {
