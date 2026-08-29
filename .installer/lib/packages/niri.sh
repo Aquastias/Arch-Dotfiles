@@ -46,3 +46,49 @@ noctalia_preset_packages() {
 noctalia_bitwarden_packages() {
   printf '%s\n' bitwarden-cli
 }
+
+# noctalia_community_plugins — the enriched preset's community plugin set (ADR
+# 0093), one name per line. The name is BOTH the community-plugins subdir and
+# the install-niri.jsonc bool key; canonical ids are read from each plugin.toml
+# at vendor time. Shared by the adapter (installs+vendors) and the Package
+# Resolver (reports deps) so the set cannot drift. The laptop-gated battery
+# plugins are added by their own caller (ADR 0093), not listed here.
+noctalia_community_plugins() {
+  printf '%s\n' \
+    keymap niri-active-workspace niri-animations niri-displays sharednd \
+    screen-toolkit wl-screen-mirror arch-updater audio-switcher procmon cat \
+    gamer-mode drive-health eyecare file-search shell-command ssh-launcher \
+    mini-docker custom-shortcut udiskie todo wallpaper-switcher
+}
+
+# noctalia_plugin_deps <name> — the official-repo Arch packages a plugin's
+# wrapped system tools need (ADR 0093), one per line; empty for none. Grounded
+# per each plugin.toml `dependencies`. Excludes: base-already tools (niri,
+# pipewire, pacman, polkit, coreutils), alt-compositor deps (hyprland, mango —
+# a pure niri host), AUR-only deps (wl-screenrec, paru/yay — an extra-repo
+# recorder and the system AUR helper cover these), and heavyweight optional
+# integrations (gimp, mpv, a second recorder/annotator). --needed dedups shared
+# tools (upower, power-profiles-daemon, xdg-utils, procps-ng).
+noctalia_plugin_deps() {
+  case "$1" in
+    keymap)           printf '%s\n' xdg-utils ;;
+    screen-toolkit)
+      printf '%s\n' slurp grim hyprpicker tesseract imagemagick zbar ffmpeg \
+        jq translate-shell bc xdg-utils satty wf-recorder ;;
+    wl-screen-mirror) printf '%s\n' wl-mirror ;;
+    arch-updater)     printf '%s\n' pacman-contrib flatpak less xdg-utils ;;
+    audio-switcher)   printf '%s\n' libpulse bluez-utils ;;
+    procmon)          printf '%s\n' procps-ng ;;
+    gamer-mode)       printf '%s\n' procps-ng power-profiles-daemon ;;
+    drive-health)     printf '%s\n' smartmontools ;;
+    eyecare)          printf '%s\n' libcanberra libpulse alsa-utils ;;
+    file-search)      printf '%s\n' fzf xdg-utils ;;
+    ssh-launcher)     printf '%s\n' openssh ;;
+    mini-docker)      printf '%s\n' docker ;;
+    udiskie)          printf '%s\n' udiskie udisks2 xdg-utils ;;
+    battery-power-management)
+      printf '%s\n' power-profiles-daemon upower ;;
+    battery-widget)   printf '%s\n' upower ;;
+    *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-* : no deps
+  esac
+}

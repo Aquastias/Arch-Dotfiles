@@ -94,6 +94,11 @@ _niri_bool() {
 _NIRI_BW_REPO="https://github.com/noctalia-dev/official-plugins.git"
 _NIRI_BW_REF="8cb833c3e2502f57e49d34fa64386b4d66794b77"
 
+# Community plugin source, pinned to one v5 commit (ADR 0093) — a single ref
+# covers the whole enriched set (bump = two SHAs, this + the official one).
+_NIRI_COMMUNITY_REPO="https://github.com/noctalia-dev/community-plugins.git"
+_NIRI_COMMUNITY_REF="caed21ab081948435cd770d2e954c99b8bbb72cf"
+
 # Noctalia v5 plugin seeding (ADR 0093). Loads a plugin from its folder in the
 # DATA dir and enables it by canonical id in config.toml's [plugins] list — the
 # v4 plugins.json path is dead. Plugins are vendored (folder copied at a pinned
@@ -198,6 +203,28 @@ KDL
         "bitwarden-cli is installed. Add the plugin later from Noctalia."
     fi
   fi
+
+  # Enriched community plugin set (ADR 0093). Collect the enabled plugins and
+  # their official-repo tool deps (per-plugin bools in install-niri.jsonc gate
+  # each, default on), install deps in one pass, then vendor + enable each at
+  # the pinned community ref. A fetch failure warns and continues, so one bad
+  # plugin never aborts the install.
+  section "Noctalia plugin set"
+  _enabled_pls=()
+  _all_deps=()
+  while IFS= read -r _pl; do
+    [[ "$(_niri_bool "$_pl")" == true ]] || continue
+    _enabled_pls+=("$_pl")
+    mapfile -t -O "${#_all_deps[@]}" _all_deps < <(noctalia_plugin_deps "$_pl")
+  done < <(noctalia_community_plugins)
+  [[ ${#_all_deps[@]} -gt 0 ]] \
+    && pacman -S --noconfirm --needed "${_all_deps[@]}"
+  for _pl in "${_enabled_pls[@]:-}"; do
+    [[ -n "$_pl" ]] || continue
+    if _niri_seed_plugin "$_NIRI_COMMUNITY_REPO" "$_NIRI_COMMUNITY_REF" "$_pl"
+    then info "Plugin $_pl enabled."
+    else warn "Plugin $_pl fetch failed (offline?) — skipped."; fi
+  done
 
   # Assemble skel config.toml — the [theme] default + [plugins] enabled list
   # (v5 replaces the dead plugins.json).
