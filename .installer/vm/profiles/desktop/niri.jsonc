@@ -1,0 +1,11 @@
+// Persistent VM: single-disk niri + Noctalia (enriched preset).
+// References host arch-niri, so the VM exercises the real niri adapter + the
+// Noctalia work preset (desktop=niri, niri_shell=noctalia; ADR 0090/0093) —
+// one source of truth. Greeter is greetd/tuigreet (auto DM for KDE-free
+// Wayland, ADR 0091); log in and niri autostarts Noctalia.
+{
+  "name": "arch-niri",
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-niri",
+  "layout": { "mode": "single" }
+}
