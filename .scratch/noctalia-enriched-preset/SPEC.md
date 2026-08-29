@@ -52,9 +52,9 @@ I still get the ADR 0090 escape hatch: `niri_shell=none` seeds nothing.
 2. As the operator, I want the other four palettes (Catppuccin, Tokyo-Night,
    Gruvbox, Nord) available without extra install, so that I can switch on a
    whim — they are built-in, so nothing is seeded for them.
-3. As the operator, I want one-click palette switching from the control center,
-   so that I do not have to open Settings — implemented as `custom-shortcut`
-   tiles calling `colorScheme set`, not a `config-swap` plugin.
+3. As the operator, I want a one-click palette-cycle affordance, so that I do
+   not have to open Settings — a single `custom-shortcut` tile cycling the five
+   palettes via `colorScheme set`, not a `config-swap` plugin.
 4. As the operator, I want a curated plugin set installed and **enabled** by
    default, so that the desktop is ready to work, not a bare shell.
 5. As the operator, I want the preset to make the non-redundant choice where
@@ -116,12 +116,14 @@ default palette is seeded, and Noctalia self-generates the rest of its look. In
 v5 this is a `[theme]` table in `/etc/skel/.config/noctalia/config.toml`
 (`source = "builtin"`, `builtin = "Rosé Pine"`).
 
-**Palette switching is built-in, surfaced via `custom-shortcut`.** No plugin
-handles palette switching: the built-in theming system does (Settings, or
-`qs -c noctalia-shell ipc call colorScheme set <Name>`). The preset seeds a
-few `custom-shortcut` control-center tiles, one per shipped palette, each
-calling that IPC. `config-swap` is **not** used (it is a generic file swapper,
-not palette-aware).
+**Palette switching is built-in, surfaced via a `custom-shortcut` cycler.** No
+plugin handles palette switching: the built-in theming system does (Settings, or
+`qs -c noctalia-shell ipc call colorScheme set <Name>`). `custom-shortcut` is a
+singleton, so the preset seeds ONE tile (via `[plugin_settings]`) wired to a
+seeded script that cycles the five palettes over that IPC. `control_center.
+shortcuts` is not seeded (it would replace the built-in Control Center
+defaults), so placing the tile is a one-time user step. `config-swap` is **not**
+used (a generic file swapper, not palette-aware).
 
 **Curated plugin set, overlap resolutions.** The default set is (base):
 `keymap`, `niri-active-workspace`, `niri-animations`, `niri-displays`,
@@ -222,8 +224,9 @@ set — never internal wiring. The existing niri adapter test harness
 - **Laptop gating** — in the same file: with `laptop=true` the battery pair is
   seeded; with `laptop=false` it is absent; the detection default resolves
   correctly for a battery-present vs battery-absent fixture.
-- **Palette switch tiles** — assert the `custom-shortcut` tiles for the five
-  palettes are seeded and call `colorScheme set` with the right names.
+- **Palette cycle tile** — assert the seeded cycler script covers the five
+  palettes and calls `colorScheme set`, and that the `[plugin_settings]` tile
+  config is seeded only when `custom-shortcut` is on.
 - **Package Resolver** — extend `tests/packages/resolver.bats`: the Noctalia
   preset derived set reports the enriched plugin/system-tool packages per
   `install-niri.jsonc` + `laptop`, and reports none of the dropped plugins.

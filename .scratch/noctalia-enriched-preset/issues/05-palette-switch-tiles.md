@@ -1,17 +1,25 @@
-# 05 — Palette-switch control-center tiles
+# 05 — Palette-cycle control-center tile
 
-**What to build:** From the control center, one click switches between the five
-built-in palettes (Rosé Pine, Catppuccin, Tokyo-Night, Gruvbox, Nord). The
-adapter seeds a `custom-shortcut` tile per palette, each calling
-`qs -c noctalia-shell ipc call colorScheme set <Name>`. Palette switching uses
-built-in theming — no `config-swap`.
+**What to build:** A one-click affordance that cycles between the five built-in
+palettes (Rosé Pine, Catppuccin, Tokyo-Night, Gruvbox, Nord). `custom-shortcut`
+is a v5 singleton whose settings seed declaratively via `[plugin_settings]`, so
+the adapter seeds ONE tile ("Cycle palette") wired to a seeded script that walks
+the palettes over `qs -c noctalia-shell ipc call colorScheme set <Name>`.
+Palette switching itself is built-in theming — no `config-swap`.
+
+Note (implementation finding): `custom-shortcut` cannot host five direct-select
+tiles (singleton, one instance per id), and `control_center.shortcuts` is not
+seeded because that array would replace the built-in Control Center defaults —
+so placing the "Cycle palette" tile in the CC is a one-time user step.
 
 **Blocked by:** 02, 03 (needs the seeded palette default and the
 `custom-shortcut` plugin installed).
 
 **Status:** ready-for-agent
 
-- [ ] One `custom-shortcut` tile per built-in palette is seeded.
-- [ ] Each tile invokes `colorScheme set` with the correct palette name.
+- [ ] A seeded script cycles the five palettes via `colorScheme set`.
+- [ ] The `custom-shortcut` tile is pre-wired to it via `[plugin_settings]`,
+      only when `custom-shortcut` is enabled.
+- [ ] The built-in `control_center.shortcuts` defaults are left untouched.
 - [ ] No `config-swap` plugin is involved.
-- [ ] `niri-adapter.bats` asserts the five tiles and their target palette names.
+- [ ] `niri-adapter.bats` asserts the cycler + tile settings on, and absent off.
