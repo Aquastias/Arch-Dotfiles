@@ -14,6 +14,8 @@
 #
 # Injectable seams (tests):
 #   NIRI_SEED_ROOT       — prefix for /etc/skel seeds (default: / — the chroot)
+#   NIRI_BAT_GLOB        — battery-presence glob for laptop detection
+#                          (default: /sys/class/power_supply/BAT*)
 #   NIRI_JSON            — install-niri.jsonc override (preset component bools)
 #   WAYLAND_SESSIONS_DIR — curated session dir
 #                          (default: /usr/local/share/wayland-sessions)
@@ -86,6 +88,25 @@ _seed_write() {
 _niri_bool() {
   [[ -f "$NIRI_JSON" ]] || { echo false; return; }
   jsonc "$NIRI_JSON" | jq -r --arg k "$1" '.[$k] // false'
+}
+
+# Battery-presence glob for laptop detection (ADR 0093). Default is real /sys —
+# the adapter runs in arch-chroot on the target, so this is live hardware; tests
+# point NIRI_BAT_GLOB at a controlled dir.
+_NIRI_BAT_GLOB="${NIRI_BAT_GLOB:-/sys/class/power_supply/BAT*}"
+
+# _niri_laptop — laptop? install-niri.jsonc `laptop` wins when set to a boolean
+# (true/false); "auto" (the default) or absence falls back to detecting a
+# battery. Gates the battery plugin pair (ADR 0093).
+_niri_laptop() {
+  local v="auto"
+  [[ -f "$NIRI_JSON" ]] && v="$(jsonc "$NIRI_JSON" \
+    | jq -r 'if has("laptop") then (.laptop|tostring) else "auto" end')"
+  case "$v" in
+    true)  echo true;  return ;;
+    false) echo false; return ;;
+  esac
+  compgen -G "$_NIRI_BAT_GLOB" >/dev/null 2>&1 && echo true || echo false
 }
 
 # Bitwarden plugin source, pinned to a v5 commit for a deterministic install
@@ -217,6 +238,18 @@ KDL
     _enabled_pls+=("$_pl")
     mapfile -t -O "${#_all_deps[@]}" _all_deps < <(noctalia_plugin_deps "$_pl")
   done < <(noctalia_community_plugins)
+
+  # Battery plugins (ADR 0093) — laptop-gated: added only on a machine with a
+  # battery, or when install-niri.jsonc forces `laptop`. Desktops get neither.
+  if [[ "$(_niri_laptop)" == true ]]; then
+    while IFS= read -r _pl; do
+      [[ "$(_niri_bool "$_pl")" == true ]] || continue
+      _enabled_pls+=("$_pl")
+      mapfile -t -O "${#_all_deps[@]}" _all_deps \
+        < <(noctalia_plugin_deps "$_pl")
+    done < <(noctalia_laptop_plugins)
+  fi
+
   [[ ${#_all_deps[@]} -gt 0 ]] \
     && pacman -S --noconfirm --needed "${_all_deps[@]}"
   for _pl in "${_enabled_pls[@]:-}"; do

@@ -496,6 +496,19 @@ _pkgres_niri_packages() {
       [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
     done < <(noctalia_plugin_deps "$pl")
   done < <(noctalia_community_plugins)
+
+  # Battery plugins are laptop-gated (ADR 0093). The resolver has no target
+  # hardware, so it reports the pair only when install-niri.jsonc sets `laptop`
+  # to true explicitly; the "auto" default is an install-time /sys decision the
+  # adapter makes and the resolver does not replicate.
+  [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
+     <<<"$nj")" == true ]] || return 0
+  while IFS= read -r pl; do
+    [[ "$(jq -r --arg k "$pl" '.[$k] // false' <<<"$nj")" == true ]] || continue
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
+    done < <(noctalia_plugin_deps "$pl")
+  done < <(noctalia_laptop_plugins)
 }
 
 # _pkgres_user_shells <config> — the login shell package of every declared

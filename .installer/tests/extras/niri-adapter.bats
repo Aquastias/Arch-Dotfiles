@@ -25,6 +25,9 @@ setup() {
 
   export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT
   export NIRI_SEED_ROOT="$SEED"
+  # Default to "no battery" (desktop) so battery gating is deterministic
+  # regardless of the machine running the tests; battery tests override this.
+  export NIRI_BAT_GLOB="$TEST_DIR/nobat/BAT*"
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
@@ -224,6 +227,47 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   grep -q 'enabled = \[\]' "$ct"
   grep -q 'builtin = "Rosé Pine"' "$ct"
   grep -qw "noctalia" "$PACMAN_LOG"
+}
+
+# ── Laptop-gated battery pair (ADR 0093) ─────────────────────────────────────
+
+@test "battery present (laptop): the battery pair is vendored with upower" {
+  mkdir -p "$TEST_DIR/bat/BAT0"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
+  [ "$status" -eq 0 ]
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  [ -f "$base/battery-power-management/plugin.toml" ]
+  [ -f "$base/battery-widget/plugin.toml" ]
+  grep -qw "upower" "$PACMAN_LOG"
+}
+
+@test "no battery (desktop): the battery pair is absent, upower not installed" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"   # setup glob matches no BAT
+  [ "$status" -eq 0 ]
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  [ ! -e "$base/battery-power-management" ]
+  [ ! -e "$base/battery-widget" ]
+  ! grep -qw "upower" "$PACMAN_LOG"
+}
+
+@test "laptop=true forces the battery pair even without a battery" {
+  local nj="$TEST_DIR/nj.jsonc"
+  printf '{"laptop":true,"battery-widget":true}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
+  [ -f "$p/plugin.toml" ]
+}
+
+@test "laptop=false forces the battery pair off even with a battery" {
+  mkdir -p "$TEST_DIR/bat/BAT0"
+  local nj="$TEST_DIR/nj.jsonc"
+  printf '{"laptop":false,"battery-widget":true}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj" \
+    NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
+  [ "$status" -eq 0 ]
+  local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
+  [ ! -e "$p" ]
 }
 
 # ── Bitwarden plugin (ADR 0090) ──────────────────────────────────────────────

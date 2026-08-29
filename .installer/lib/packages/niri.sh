@@ -61,6 +61,14 @@ noctalia_community_plugins() {
     mini-docker custom-shortcut udiskie todo wallpaper-switcher
 }
 
+# noctalia_laptop_plugins — the laptop-gated battery plugins (ADR 0093), added
+# to the enriched set only on a machine with a battery. battery-power-management
+# already does charge-limit + profiles + draw, so battery-threshold is not
+# shipped (it would duplicate the charge limit).
+noctalia_laptop_plugins() {
+  printf '%s\n' battery-power-management battery-widget
+}
+
 # noctalia_plugin_deps <name> — the official-repo Arch packages a plugin's
 # wrapped system tools need (ADR 0093), one per line; empty for none. Grounded
 # per each plugin.toml `dependencies`. Excludes: base-already tools (niri,

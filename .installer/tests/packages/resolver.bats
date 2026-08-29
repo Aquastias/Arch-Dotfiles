@@ -161,6 +161,26 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "fzf"           <<<"$n"    # file-search
 }
 
+@test "noctalia set omits battery deps under the laptop:auto default" {
+  # the resolver has no hardware, so auto does not report the battery pair
+  local n
+  n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  ! grep -qx "upower" <<<"$n"
+}
+
+@test "noctalia set reports battery deps when laptop is forced true" {
+  local t; t="$(mktemp -d)"
+  mkdir -p "$t/extras/desktop/niri"
+  printf '{"laptop":true,"battery-widget":true}\n' \
+    > "$t/extras/desktop/niri/install-niri.jsonc"
+  INSTALLER_DIR="$t" run bash -c "
+    source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
+    pkgres_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"]}}'"
+  echo "$output" | grep -qP '^noctalia\tderived\tupower$'
+  rm -rf "$t"
+}
+
 # ── display manager derived set (ADR 0069) ──────────────────────────────────
 
 @test "display-manager set: auto on a kde-only box resolves to sddm" {

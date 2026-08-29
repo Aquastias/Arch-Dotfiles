@@ -46,5 +46,14 @@
   "custom-shortcut": true,
   "udiskie": true,
   "todo": true,
-  "wallpaper-switcher": true
+  "wallpaper-switcher": true,
+
+  // ── Laptop-gated battery plugins (ADR 0093) ────────────────────────────────
+  // `laptop`: "auto" detects a battery (/sys/class/power_supply/BAT*) at
+  // install; set true/false to force. When the gate is on, the pair below (each
+  // still individually toggleable) is vendored. battery-threshold is
+  // deliberately absent (battery-power-management already sets the limit).
+  "laptop": "auto",
+  "battery-power-management": true,
+  "battery-widget": true
 }
