@@ -1,13 +1,15 @@
-// niri Noctalia work-preset configuration (ADR 0090)
+// niri Noctalia work-preset configuration (ADR 0090/0093)
 // Read by extras/desktop/niri/niri.sh and the Package Resolver when
 // environment.niri_shell = "noctalia". The base preset (noctalia, kitty,
 // brightnessctl) is non-negotiable and lives in lib/packages/niri.sh; the
-// bools below are the optional companions layered on top. Flip one to add or
-// drop it — the menu's only niri control is the niri_shell on/off choice, so
-// these component toggles live here (mirroring KDE's install-kde.jsonc).
+// bools below are the optional companions + the enriched plugin set layered on
+// top. Flip one to add or drop it — the menu's only niri control is the
+// niri_shell on/off choice, so these component toggles live here (mirroring
+// KDE's install-kde.jsonc). Turning every plugin off recovers the lean shell.
 {
-  // Bitwarden vault-search plugin: installs bitwarden-cli and seeds the
-  // official Luau plugin into /etc/skel (ADR 0090). Default on — the user
+  // ── Companions ─────────────────────────────────────────────────────────────
+  // Bitwarden vault-search plugin: installs bitwarden-cli and vendors the
+  // official Luau plugin into /etc/skel (ADR 0090/0093). Default on — the user
   // authenticates with `bw login` on first use.
   "bitwarden": true,
   // Audio visualizer. Off by default: cava is a known audio sample-rate
@@ -15,5 +17,34 @@
   "cava": false,
   // Clipboard-history backend. Off by default — Noctalia's clipboard history
   // works without a separate backend for most users.
-  "cliphist": false
+  "cliphist": false,
+
+  // ── Enriched community plugin set (ADR 0093) ───────────────────────────────
+  // Each key is a community-plugins subdir vendored at a pinned ref and enabled
+  // in config.toml; its official-repo tool deps install only when on. The
+  // overlap-losers (color_picker, screen_recorder, system-monitor,
+  // system-updater, config-swap, calculator, keybind-cheatsheet,
+  // battery-threshold) are deliberately absent (ADR 0093).
+  "keymap": true,
+  "niri-active-workspace": true,
+  "niri-animations": true,
+  "niri-displays": true,
+  "sharednd": true,
+  "screen-toolkit": true,
+  "wl-screen-mirror": true,
+  "arch-updater": true,
+  "audio-switcher": true,
+  "procmon": true,
+  "cat": true,
+  "gamer-mode": true,
+  "drive-health": true,
+  "eyecare": true,
+  "file-search": true,
+  "shell-command": true,
+  "ssh-launcher": true,
+  "mini-docker": true,
+  "custom-shortcut": true,
+  "udiskie": true,
+  "todo": true,
+  "wallpaper-switcher": true
 }

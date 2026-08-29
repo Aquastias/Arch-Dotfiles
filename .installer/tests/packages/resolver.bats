@@ -151,6 +151,16 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "bitwarden-cli" <<<"$n"
 }
 
+@test "noctalia set reports enriched plugin tool deps (ADR 0093)" {
+  # committed install-niri.jsonc enables the curated plugin set by default
+  local n
+  n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
+  grep -qx "smartmontools" <<<"$n"   # drive-health
+  grep -qx "wl-mirror"     <<<"$n"    # wl-screen-mirror
+  grep -qx "docker"        <<<"$n"    # mini-docker
+  grep -qx "fzf"           <<<"$n"    # file-search
+}
+
 # ── display manager derived set (ADR 0069) ──────────────────────────────────
 
 @test "display-manager set: auto on a kde-only box resolves to sddm" {

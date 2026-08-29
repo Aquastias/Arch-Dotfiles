@@ -485,6 +485,17 @@ _pkgres_niri_packages() {
       [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
     done < <(noctalia_bitwarden_packages)
   fi
+
+  # Enriched community plugin deps (ADR 0093) — the official-repo tools each
+  # enabled plugin wraps, from the same list + bools the adapter installs from,
+  # so query and install cannot drift.
+  local pl
+  while IFS= read -r pl; do
+    [[ "$(jq -r --arg k "$pl" '.[$k] // false' <<<"$nj")" == true ]] || continue
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
+    done < <(noctalia_plugin_deps "$pl")
+  done < <(noctalia_community_plugins)
 }
 
 # _pkgres_user_shells <config> — the login shell package of every declared

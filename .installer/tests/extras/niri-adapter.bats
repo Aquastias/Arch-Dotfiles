@@ -31,16 +31,23 @@ setup() {
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
   # git stub emulating a successful sparse-checkout: `clone` makes the target
-  # dir, `-C <dir> checkout` populates a bitwarden/ tree with a v5 plugin.toml.
+  # dir, `sparse-checkout set <subs>` records the requested subdirs, and
+  # `checkout` populates each with a v5 plugin.toml (id "noctalia/<sub>").
   cat > "$STUB_BIN/git" <<'GIT'
 #!/usr/bin/env bash
 echo "git $*" >> "$GIT_LOG"
 case "$1" in
   clone) mkdir -p "${@: -1}" ;;
-  -C)    [[ "$3" == checkout ]] && {
-           mkdir -p "$2/bitwarden"
-           printf 'id = "noctalia/bitwarden"\nname = "Bitwarden"\n' \
-             > "$2/bitwarden/plugin.toml"; } ;;
+  -C)
+    dir="$2"; op="$3"; shift 3
+    case "$op" in
+      sparse-checkout) shift; printf '%s\n' "$@" >> "$dir/.subs" ;;
+      checkout) [[ -f "$dir/.subs" ]] && while read -r s; do
+                  mkdir -p "$dir/$s"
+                  printf 'id = "noctalia/%s"\nname = "%s"\n' "$s" "$s" \
+                    > "$dir/$s/plugin.toml"
+                done < "$dir/.subs" ;;
+    esac ;;
 esac
 exit 0
 GIT
@@ -155,6 +162,68 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   run_niri ENVIRONMENT_NIRI_SHELL="none"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
+}
+
+# ── Enriched community plugin set (ADR 0093) ─────────────────────────────────
+
+@test "noctalia vendors+enables the curated plugin set with tool deps" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  local pl
+  for pl in keymap screen-toolkit procmon udiskie ssh-launcher \
+            wallpaper-switcher; do
+    [ -f "$base/$pl/plugin.toml" ] || { echo "not vendored: $pl"; return 1; }
+  done
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q '"noctalia/keymap"' "$ct"
+  grep -q '"noctalia/screen-toolkit"' "$ct"
+  # official-repo tool deps installed
+  grep -qw "smartmontools" "$PACMAN_LOG"   # drive-health
+  grep -qw "wl-mirror" "$PACMAN_LOG"        # wl-screen-mirror
+  grep -qw "docker" "$PACMAN_LOG"           # mini-docker
+  grep -qw "fzf" "$PACMAN_LOG"              # file-search
+}
+
+@test "dropped plugins are never vendored" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  local pl
+  for pl in system-monitor color_picker screen_recorder config-swap \
+            calculator battery-threshold; do
+    [ ! -e "$base/$pl" ] || { echo "unexpectedly vendored: $pl"; return 1; }
+  done
+}
+
+@test "a plugin toggled off is not vendored and its unique dep is skipped" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"mini-docker":false}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/mini-docker" ]
+  ! grep -qw "docker" "$PACMAN_LOG"
+}
+
+@test "a plugin toggled on is vendored and its unique dep installs" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"mini-docker":true}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/mini-docker/plugin.toml" ]
+  grep -qw "docker" "$PACMAN_LOG"
+  grep -q '"noctalia/mini-docker"' \
+    "$SEED/etc/skel/.config/noctalia/config.toml"
+}
+
+@test "all plugin bools off recovers the lean shell (base + palette only)" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":false}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q 'enabled = \[\]' "$ct"
+  grep -q 'builtin = "Rosé Pine"' "$ct"
+  grep -qw "noctalia" "$PACMAN_LOG"
 }
 
 # ── Bitwarden plugin (ADR 0090) ──────────────────────────────────────────────
