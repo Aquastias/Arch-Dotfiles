@@ -448,6 +448,23 @@ _pkgres_de_packages() {
     "$(jq -c '.aur // {}' <<<"$json")" bool aur 2>/dev/null)
 }
 
+# _pkgres_niri_bool <key> <nj-json> — an install-niri.jsonc bool (false absent).
+_pkgres_niri_bool() { jq -r --arg k "$1" '.[$k] // false' <<<"$2"; }
+
+# _pkgres_niri_plugin_deps <nj-json> <plugin-list-fn> — emit the official-repo
+# tool deps of every plugin the list-fn names that is enabled in <nj>, from the
+# same list + bools the adapter installs from, so query and install cannot drift
+# (ADR 0093).
+_pkgres_niri_plugin_deps() {
+  local nj="$1" fn="$2" pl p
+  while IFS= read -r pl; do
+    [[ "$(_pkgres_niri_bool "$pl" "$nj")" == true ]] || continue
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
+    done < <(noctalia_plugin_deps "$pl")
+  done < <("$fn")
+}
+
 # _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
 # pure niri_core_packages map (shared with the adapter). The Noctalia work
 # preset (source `noctalia`) is keyed on environment.niri_shell: the base preset
@@ -486,29 +503,16 @@ _pkgres_niri_packages() {
     done < <(noctalia_bitwarden_packages)
   fi
 
-  # Enriched community plugin deps (ADR 0093) — the official-repo tools each
-  # enabled plugin wraps, from the same list + bools the adapter installs from,
-  # so query and install cannot drift.
-  local pl
-  while IFS= read -r pl; do
-    [[ "$(jq -r --arg k "$pl" '.[$k] // false' <<<"$nj")" == true ]] || continue
-    while IFS= read -r p; do
-      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
-    done < <(noctalia_plugin_deps "$pl")
-  done < <(noctalia_community_plugins)
+  # Enriched community plugin deps (ADR 0093) — shared list + bools with the
+  # adapter, so query and install cannot drift.
+  _pkgres_niri_plugin_deps "$nj" noctalia_community_plugins
 
   # Battery plugins are laptop-gated (ADR 0093). The resolver has no target
   # hardware, so it reports the pair only when install-niri.jsonc sets `laptop`
-  # to true explicitly; the "auto" default is an install-time /sys decision the
-  # adapter makes and the resolver does not replicate.
+  # true; the "auto" default is an install-time /sys decision the adapter makes.
   [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
      <<<"$nj")" == true ]] || return 0
-  while IFS= read -r pl; do
-    [[ "$(jq -r --arg k "$pl" '.[$k] // false' <<<"$nj")" == true ]] || continue
-    while IFS= read -r p; do
-      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
-    done < <(noctalia_plugin_deps "$pl")
-  done < <(noctalia_laptop_plugins)
+  _pkgres_niri_plugin_deps "$nj" noctalia_laptop_plugins
 }
 
 # _pkgres_user_shells <config> — the login shell package of every declared

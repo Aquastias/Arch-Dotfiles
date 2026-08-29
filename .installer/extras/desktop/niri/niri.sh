@@ -185,6 +185,8 @@ TOML
   # Control Center once — seeding control_center.shortcuts would replace the
   # built-in defaults, so it is left alone.
   if [[ "$(_niri_bool custom-shortcut)" == true ]]; then
+    # The id literal below matches custom-shortcut's plugin.toml at the pinned
+    # community ref (verified) — it must equal the id enabled in [plugins].
     cat >> "${SEED_ROOT%/}/etc/skel/.config/noctalia/config.toml" <<'TOML'
 
 [plugin_settings."yocraft/custom-shortcut"]
@@ -220,6 +222,18 @@ printf '%s' "$i" > "$state"
 qs -c noctalia-shell ipc call colorScheme set "$p"
 SH
   chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-cycle-palette"
+}
+
+# _niri_collect_plugins <plugin-list-fn> — append each plugin the list-fn names
+# that is enabled (per its install-niri.jsonc bool) plus its tool deps to the
+# _enabled_pls / _all_deps accumulators (ADR 0093).
+_niri_collect_plugins() {
+  local pl
+  while IFS= read -r pl; do
+    [[ "$(_niri_bool "$pl")" == true ]] || continue
+    _enabled_pls+=("$pl")
+    mapfile -t -O "${#_all_deps[@]}" _all_deps < <(noctalia_plugin_deps "$pl")
+  done < <("$1")
 }
 
 if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
@@ -273,21 +287,12 @@ KDL
   section "Noctalia plugin set"
   _enabled_pls=()
   _all_deps=()
-  while IFS= read -r _pl; do
-    [[ "$(_niri_bool "$_pl")" == true ]] || continue
-    _enabled_pls+=("$_pl")
-    mapfile -t -O "${#_all_deps[@]}" _all_deps < <(noctalia_plugin_deps "$_pl")
-  done < <(noctalia_community_plugins)
+  _niri_collect_plugins noctalia_community_plugins
 
   # Battery plugins (ADR 0093) — laptop-gated: added only on a machine with a
   # battery, or when install-niri.jsonc forces `laptop`. Desktops get neither.
   if [[ "$(_niri_laptop)" == true ]]; then
-    while IFS= read -r _pl; do
-      [[ "$(_niri_bool "$_pl")" == true ]] || continue
-      _enabled_pls+=("$_pl")
-      mapfile -t -O "${#_all_deps[@]}" _all_deps \
-        < <(noctalia_plugin_deps "$_pl")
-    done < <(noctalia_laptop_plugins)
+    _niri_collect_plugins noctalia_laptop_plugins
   fi
 
   [[ ${#_all_deps[@]} -gt 0 ]] \
