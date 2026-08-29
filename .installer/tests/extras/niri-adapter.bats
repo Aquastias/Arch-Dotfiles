@@ -140,6 +140,23 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   ! grep -qw "cliphist" "$PACMAN_LOG"
 }
 
+# ── Rosé Pine palette default (ADR 0093) ─────────────────────────────────────
+
+@test "niri_shell=noctalia seeds the Rosé Pine palette default" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q '^\[theme\]' "$ct"
+  grep -q 'source = "builtin"' "$ct"
+  grep -q 'builtin = "Rosé Pine"' "$ct"
+}
+
+@test "niri_shell=none seeds no noctalia config.toml" {
+  run_niri ENVIRONMENT_NIRI_SHELL="none"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
+}
+
 # ── Bitwarden plugin (ADR 0090) ──────────────────────────────────────────────
 
 @test "bitwarden on: installs the cli, vendors+enables the plugin at the pin" {

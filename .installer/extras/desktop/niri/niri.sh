@@ -103,6 +103,11 @@ _NIRI_BW_REF="8cb833c3e2502f57e49d34fa64386b4d66794b77"
 _NIRI_PLUGIN_DATA="etc/skel/.local/share/noctalia/plugins"
 _NIRI_ENABLED_PLUGINS=()
 
+# Default palette seeded into config.toml (ADR 0093) — the one theming exception
+# to ADR 0090's glue-only rule. Rosé Pine and the other built-ins (Catppuccin,
+# Tokyo-Night, Gruvbox, Nord) switch at runtime; only the default is seeded.
+_NIRI_DEFAULT_PALETTE="Rosé Pine"
+
 # _niri_seed_plugin <repo> <ref> <subdir> — sparse-checkout <subdir> at <ref>
 # into the skel data dir and mark its manifest id (read from plugin.toml)
 # enabled. Returns non-zero on any git/parse failure so the caller can
@@ -128,9 +133,9 @@ _niri_seed_plugin() {
   _NIRI_ENABLED_PLUGINS+=("$id")
 }
 
-# _niri_write_noctalia_config — assemble skel config.toml. Currently the
-# [plugins] table: the vendored ids as the enabled list, plus auto_update=none
-# so Noctalia never background-fetches a pinned install.
+# _niri_write_noctalia_config — assemble skel config.toml: the [theme] default
+# (the one theming exception to ADR 0090) plus the [plugins] table (vendored ids
+# as the enabled list, auto_update=none so no background fetch of a pinned set).
 _niri_write_noctalia_config() {
   local list="" id
   for id in "${_NIRI_ENABLED_PLUGINS[@]:-}"; do
@@ -138,9 +143,13 @@ _niri_write_noctalia_config() {
   done
   list="${list%, }"
   _seed_write etc/skel/.config/noctalia/config.toml <<TOML
-# Seeded by the installer (ADR 0093). Plugins are vendored under
-# ~/.local/share/noctalia/plugins and enabled here by canonical id; auto_update
-# is off (pinned installs). Noctalia owns the rest of its look.
+# Seeded by the installer (ADR 0093): the default palette (the one theming
+# exception to ADR 0090) plus vendored plugins enabled by canonical id, with
+# auto_update off (pinned installs). Noctalia owns the rest of its look.
+[theme]
+source = "builtin"
+builtin = "${_NIRI_DEFAULT_PALETTE}"
+
 [plugins]
 auto_update = "none"
 enabled = [${list}]
@@ -190,8 +199,8 @@ KDL
     fi
   fi
 
-  # Assemble skel config.toml — the [plugins] enabled list (v5 replaces the
-  # dead plugins.json). ADR 0093 adds [theme] here next.
+  # Assemble skel config.toml — the [theme] default + [plugins] enabled list
+  # (v5 replaces the dead plugins.json).
   _niri_write_noctalia_config
 fi
 
