@@ -19,10 +19,30 @@ FLOW_PERSIST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 [[ "$(type -t core_resolve_iso)" == function ]] \
   || source "${FLOW_PERSIST_DIR}/core.sh"
 
-# Per-flow virt-install graphics (core._vm_create appends these).
-# shellcheck disable=SC2054 # spice,listen=none is one virt-install argument
-FLOW_GRAPHICS_ARGS=(--graphics spice,listen=none --video virtio \
-                    --channel spicevmc)
+# Per-flow virt-install graphics (core._vm_create appends these). niri (and any
+# Wayland compositor) REJECTS software EGL — a display-only virtio-gpu renders a
+# black screen. So give the guest a virgl 3D device (hardware EGL) via spice-gl
+# when the host has a DRM render node; else fall back to display-only (a
+# headless/no-GPU host still builds, sans an interactive Wayland desktop).
+_persist_render_node() {
+  local n
+  for n in "${VM_RENDER_NODE:-}" /dev/dri/renderD*; do
+    [[ -n "$n" && -e "$n" ]] && { printf '%s\n' "$n"; return 0; }
+  done
+  return 1
+}
+if _rnode="$(_persist_render_node)"; then
+  # shellcheck disable=SC2054 # each --graphics value is one virt-install arg
+  FLOW_GRAPHICS_ARGS=(
+    --video model.type=virtio,model.acceleration.accel3d=on
+    --graphics "spice,listen=none,gl.enable=on,gl.rendernode=${_rnode}"
+    --channel spicevmc)
+else
+  warn "No DRM render node — VM gets a display-only GPU (no Wayland desktop)."
+  # shellcheck disable=SC2054 # spice,listen=none is one virt-install argument
+  FLOW_GRAPHICS_ARGS=(--graphics spice,listen=none --video virtio \
+                      --channel spicevmc)
+fi
 
 # Flow defaults (env overrides win; timeouts also resolved env>profile>here).
 : "${CACHE_DIR:=${FLOW_PERSIST_DIR%/lib}/.vm-cache}"
