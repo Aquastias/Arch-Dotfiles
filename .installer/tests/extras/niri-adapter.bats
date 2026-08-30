@@ -142,6 +142,21 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   grep -q 'kitty' "$kdl"
 }
 
+# Plugins are only discoverable from a vendored folder; Noctalia enables (and
+# exports) them on an explicit `msg plugins enable`, so the adapter seeds a
+# first-login one-shot to do it (ADR 0093).
+@test "noctalia seeds the first-login plugin-enable one-shot" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  local kdl="$SEED/etc/skel/.config/niri/config.kdl"
+  local sc="$SEED/etc/skel/.local/bin/noctalia-enable-plugins"
+  grep -q 'noctalia-enable-plugins' "$kdl"      # spawned by niri at login
+  [ -x "$sc" ]
+  grep -q 'msg plugins enable' "$sc"            # actually enables
+  grep -q '\[local\]' "$sc"                     # scoped to vendored plugins
+  grep -q 'installer-plugins-enabled' "$sc"     # runs exactly once (guard)
+}
+
 @test "cava/cliphist install only when toggled on in install-niri.jsonc" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"cava":true,"cliphist":true}\n' > "$nj"
