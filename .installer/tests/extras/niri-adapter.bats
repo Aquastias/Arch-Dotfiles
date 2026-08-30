@@ -29,8 +29,13 @@ setup() {
   # regardless of the machine running the tests; battery tests override this.
   export NIRI_BAT_GLOB="$TEST_DIR/nobat/BAT*"
 
-  printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
-    > "$STUB_BIN/pacman"
+  # pacman stub: `-Qq` lists the "installed" packages (from NIRI_QQ, empty by
+  # default) so the bitwarden nodejs-provider check is testable; all else logs.
+  cat > "$STUB_BIN/pacman" <<'PAC'
+#!/usr/bin/env bash
+[[ "$1" == "-Qq" ]] && { printf '%s\n' ${NIRI_QQ:-}; exit 0; }
+echo "pacman $*" >> "$PACMAN_LOG"
+PAC
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
   # git stub emulating a successful sparse-checkout: `clone` makes the target
@@ -314,6 +319,17 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$SEED/etc/skel/.config/noctalia/plugins.json" ]
   [ ! -e "$SEED/etc/skel/.config/noctalia/plugins/bitwarden" ]
   [ ! -e "$SEED/etc/skel/.local/state/noctalia/settings.toml" ]
+}
+
+@test "bitwarden coexists with an installed nodejs LTS (--assume-installed)" {
+  # a full userland ships nodejs-lts-jod; bitwarden-cli wants plain nodejs (they
+  # conflict). The install must reuse the installed provider, not pull nodejs.
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj" \
+    NIRI_QQ="nodejs-lts-jod"
+  [ "$status" -eq 0 ]
+  grep -q -- "--assume-installed nodejs" "$PACMAN_LOG"
+  grep -q "bitwarden-cli" "$PACMAN_LOG"
 }
 
 @test "bitwarden off: no cli, no plugin, no git; config.toml empty enabled" {
