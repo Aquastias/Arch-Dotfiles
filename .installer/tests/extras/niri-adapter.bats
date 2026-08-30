@@ -177,6 +177,25 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
 }
 
+# Portable look tweaks lifted from a live VM (ADR 0093) — theme extras + a few
+# section toggles. Host-specific surfaces (lockscreen widget geometry keyed to
+# an output name) are deliberately NOT seeded.
+@test "noctalia seeds the curated look tweaks, not host-specific state" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -q 'mode = "dark"' "$ct"
+  grep -q 'community_palette = "Oxocarbon"' "$ct"
+  grep -q 'wallpaper_scheme = "m3-content"' "$ct"
+  grep -q '^\[audio\]' "$ct" && grep -q 'enable_overdrive = true' "$ct"
+  grep -q '^\[dock\]' "$ct" && grep -q 'icon_size = 25' "$ct"
+  grep -q '^\[nightlight\]' "$ct" && grep -q 'enabled = true' "$ct"
+  grep -q '^\[shell\]' "$ct" && grep -q 'app_icon_colorize = true' "$ct"
+  # host-specific surfaces stay out
+  ! grep -q 'lockscreen_widgets' "$ct"
+  ! grep -q 'Virtual-1' "$ct"
+}
+
 # ── Enriched community plugin set (ADR 0093) ─────────────────────────────────
 
 @test "noctalia vendors+enables the curated plugin set with tool deps" {
@@ -248,7 +267,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ "$status" -eq 0 ]
   local sc="$SEED/etc/skel/.local/bin/noctalia-cycle-palette"
   [ -x "$sc" ]
-  grep -q 'colorScheme set' "$sc"
+  # v5 native CLI, not the old Quickshell `qs -c noctalia-shell` IPC
+  grep -q 'noctalia msg color-scheme-set builtin' "$sc"
+  ! grep -q 'qs -c noctalia-shell' "$sc"
   grep -q 'Rosé Pine' "$sc"
   grep -q 'Nord' "$sc"
   local ct="$SEED/etc/skel/.config/noctalia/config.toml"

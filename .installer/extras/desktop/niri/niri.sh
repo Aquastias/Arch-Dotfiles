@@ -169,12 +169,30 @@ _niri_write_noctalia_config() {
   done
   list="${list%, }"
   _seed_write etc/skel/.config/noctalia/config.toml <<TOML
-# Seeded by the installer (ADR 0093): the default palette (the one theming
-# exception to ADR 0090) plus vendored plugins enabled by canonical id, with
-# auto_update off (pinned installs). Noctalia owns the rest of its look.
+# Seeded by the installer (ADR 0093): the curated look (the theming exception
+# to ADR 0090) plus vendored plugins enabled by canonical id, auto_update off
+# (pinned installs). config.toml is the fresh-boot base; the UI's state-dir
+# settings.toml overrides it later. Host-specific surfaces (lockscreen widget
+# geometry keyed to an output name, wallpaper paths) are left to Noctalia.
 [theme]
 source = "builtin"
 builtin = "${_NIRI_DEFAULT_PALETTE}"
+mode = "dark"
+community_palette = "Oxocarbon"
+wallpaper_scheme = "m3-content"
+
+[audio]
+enable_overdrive = true
+
+[dock]
+enabled = true
+icon_size = 25
+
+[nightlight]
+enabled = true
+
+[shell]
+app_icon_colorize = true
 
 [plugins]
 auto_update = "none"
@@ -198,9 +216,9 @@ TOML
 }
 
 # _niri_seed_palette_cycler — seed the script the custom-shortcut tile runs: it
-# walks the five seeded built-in palettes via Noctalia's colorScheme IPC,
-# tracking the index in the state dir. Palette switching is built-in theming —
-# this is only a one-click affordance over it (ADR 0093).
+# walks the five seeded built-in palettes via Noctalia's `msg color-scheme-set`
+# (v5 native CLI, not the old Quickshell IPC), tracking the index in the state
+# dir. Palette switching is built-in theming — a one-click affordance (0093).
 _niri_seed_palette_cycler() {
   _seed_write etc/skel/.local/bin/noctalia-cycle-palette <<'SH'
 #!/bin/sh
@@ -219,7 +237,7 @@ case "$i" in
 esac
 mkdir -p "$(dirname "$state")"
 printf '%s' "$i" > "$state"
-qs -c noctalia-shell ipc call colorScheme set "$p"
+noctalia msg color-scheme-set builtin "$p"
 SH
   chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-cycle-palette"
 }
