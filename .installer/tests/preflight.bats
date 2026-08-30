@@ -29,6 +29,18 @@ teardown() {
 # Put a fake executable named $1 on the isolated PATH.
 _make_tool() { printf '#!/bin/sh\n' >"$BIN/$1"; chmod +x "$BIN/$1"; }
 
+# Regression: preflight runs in install.sh BEFORE common.sh is sourced, so it
+# must define command_exists itself — a VM install once aborted at
+# 'command_exists: command not found' (idle guest, no disk writes).
+@test "command_exists resolves when preflight is sourced alone" {
+  run "$BASH" -c '
+    source "'"$BATS_TEST_DIRNAME"'/../lib/preflight.sh"
+    command_exists cd || exit 1                  # builtin — PATH-independent
+    command_exists __definitely_absent_cmd__ && exit 1
+    exit 0'
+  [ "$status" -eq 0 ]
+}
+
 # Map a package name back to the command(s) it delivers, for the pacman stub.
 _install_pkg() {
   case "$1" in

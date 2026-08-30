@@ -16,6 +16,11 @@
 # install. The pacman call is a seam (_preflight_pacman) for tests.
 # =============================================================================
 
+# Self-contained on purpose: preflight runs in install.sh BEFORE common.sh is
+# sourced (jq must exist before anything parses jsonc), so it cannot use
+# common.sh's command_exists — define a local copy here.
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+
 # The host toolchain beyond the ISO base. Entries are cmd[:pkg] (pkg defaults to
 # cmd); one representative command per package (pacman --needed dedups).
 # Config-independent on purpose: checking the full toolchain up front is cheap on
