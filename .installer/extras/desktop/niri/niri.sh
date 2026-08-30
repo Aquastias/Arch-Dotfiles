@@ -242,6 +242,37 @@ SH
   chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-cycle-palette"
 }
 
+# _niri_seed_plugin_enabler — seed a first-login one-shot that enables the
+# vendored plugins. Vendoring a plugin folder only makes it discoverable as a
+# `[local]` source entry; Noctalia activates a plugin (running its per-plugin
+# "export") solely on an explicit `msg plugins enable`, which needs the shell
+# already running — pre-seeding cannot do it (ADR 0093). niri spawns this beside
+# Noctalia at login; it waits for the IPC, enables every `[local]` plugin (the
+# curated set — off-toggled plugins are never vendored, so never `[local]`),
+# then guards itself so it runs exactly once.
+_niri_seed_plugin_enabler() {
+  _seed_write etc/skel/.local/bin/noctalia-enable-plugins <<'SH'
+#!/bin/sh
+# Seeded by the installer (ADR 0093): first-login one-shot — enable the vendored
+# [local] plugins once (their "export" only runs on an explicit enable).
+set -eu
+guard="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/installer-plugins-enabled"
+[ -f "$guard" ] && exit 0
+i=0                                       # wait for Noctalia's IPC (co-spawned)
+until noctalia msg plugins list >/dev/null 2>&1; do
+  i=$((i + 1)); [ "$i" -ge 60 ] && exit 0  # give up this login; retry next
+  sleep 1
+done
+noctalia msg plugins list 2>/dev/null | awk '/\[local\]/ { print $1 }' |
+  while read -r id; do
+    noctalia msg plugins enable "$id" >/dev/null 2>&1 || true
+  done
+mkdir -p "$(dirname "$guard")"
+: > "$guard"
+SH
+  chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-enable-plugins"
+}
+
 # _niri_collect_plugins <plugin-list-fn> — append each plugin the list-fn names
 # that is enabled (per its install-niri.jsonc bool) plus its tool deps to the
 # _enabled_pls / _all_deps accumulators (ADR 0093).
@@ -273,6 +304,9 @@ if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
 // autostarts and a terminal + screenshot are bound on first login. Noctalia
 // owns its own look; edit freely — this is only the glue.
 spawn-at-startup "noctalia" "--daemon"
+// First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
+// guards, so it is a no-op on every later login — safe to leave in place.
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
 
 binds {
     Mod+Return { spawn "kitty"; }
@@ -282,9 +316,9 @@ KDL
   info "Seeded /etc/skel niri config (Noctalia autostart + kitty)."
 
   # Bitwarden vault plugin (ADR 0090/0093). Install the CLI backend, then vendor
-  # + enable the Luau plugin via the v5 mechanism. The install-only step
-  # (bitwarden-cli) precedes the network fetch, so an offline box still gets the
-  # CLI and the plugin is skipped. `bw login` is the user's first-boot step.
+  # the Luau plugin (the first-login one-shot enables it, like the rest). The
+  # install-only step (bitwarden-cli) precedes the network fetch, so an offline
+  # box still gets the CLI and the plugin is skipped. `bw login` is first-boot.
   if [[ "$(_niri_bool bitwarden)" == true ]]; then
     section "Noctalia Bitwarden plugin"
     # bitwarden-cli depends on nodejs-lts-jod, which CONFLICTS with the plain
@@ -296,7 +330,7 @@ KDL
     # shellcheck disable=SC2046  # word-split the pure map into args
     pacman -S --noconfirm --needed $(noctalia_bitwarden_packages)
     if _niri_seed_plugin "$_NIRI_BW_REPO" "$_NIRI_BW_REF" bitwarden; then
-      info "Bitwarden plugin enabled (run 'bw login' to authenticate)."
+      info "Bitwarden plugin vendored (run 'bw login' to authenticate)."
     else
       warn "Bitwarden plugin fetch failed (offline?) — skipped;" \
         "bitwarden-cli is installed. Add the plugin later from Noctalia."
@@ -305,9 +339,9 @@ KDL
 
   # Enriched community plugin set (ADR 0093). Collect the enabled plugins and
   # their official-repo tool deps (per-plugin bools in install-niri.jsonc gate
-  # each, default on), install deps in one pass, then vendor + enable each at
-  # the pinned community ref. A fetch failure warns and continues, so one bad
-  # plugin never aborts the install.
+  # each, default on), install deps in one pass, then vendor each at the pinned
+  # community ref (the first-login one-shot enables them). A fetch failure warns
+  # and continues, so one bad plugin never aborts the install.
   section "Noctalia plugin set"
   _enabled_pls=()
   _all_deps=()
@@ -324,13 +358,17 @@ KDL
   for _pl in "${_enabled_pls[@]:-}"; do
     [[ -n "$_pl" ]] || continue
     if _niri_seed_plugin "$_NIRI_COMMUNITY_REPO" "$_NIRI_COMMUNITY_REF" "$_pl"
-    then info "Plugin $_pl enabled."
+    then info "Plugin $_pl vendored."
     else warn "Plugin $_pl fetch failed (offline?) — skipped."; fi
   done
 
   # Palette-cycle affordance (ADR 0093): seed the cycler script when the
   # custom-shortcut tile is enabled; its tile config lands in config.toml below.
   [[ "$(_niri_bool custom-shortcut)" == true ]] && _niri_seed_palette_cycler
+
+  # First-login one-shot that actually enables the vendored plugins: pre-seeding
+  # only makes them discoverable; enabling (its export) needs the live shell.
+  _niri_seed_plugin_enabler
 
   # Assemble skel config.toml — the [theme] default + [plugins] enabled list
   # (v5 replaces the dead plugins.json), plus the palette-cycle tile settings.

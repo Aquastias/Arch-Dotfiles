@@ -3,9 +3,10 @@
 ---
 Status: accepted. Extends ADR 0090 (niri adapter + Noctalia preset); supersedes
 ADR 0090's "glue only — never Noctalia's theming" clause, scoped to this preset.
-Verified end-to-end by a full VM install: niri renders (via virgl — a Wayland
+Exercised end-to-end in a full VM install: niri renders (via virgl — a Wayland
 compositor rejects software EGL, so the VM harness gives it an accel3d GPU), the
-plugin set vendors + enables, and the seeded config.toml is honoured on boot.
+palette + curated look apply, and the plugin set vendors + activates. That last
+step took a correction — see "Enabling vs vendoring" below.
 ---
 
 ADR 0090 shipped the `noctalia` preset as a near-bare shell plus one plugin
@@ -94,6 +95,20 @@ pinned commit covers all community picks and one the official picks: **two
 refs total**, not one per plugin — reproducible installs at trivial maintenance,
 bumped by editing two SHAs. Extends ADR 0090's pinned-Bitwarden precedent.
 
+## Enabling vs vendoring (correction)
+
+Vendoring a plugin folder into `~/.local/share/noctalia/plugins/<plugin>/` only
+makes it **discoverable** — it shows up as a `[local]` source entry. It does
+**not** activate: v5 runs a per-plugin **"export"** the first time a plugin is
+enabled via `noctalia msg plugins enable <id>`, and that needs the shell already
+running. Listing ids in `config.toml`'s `[plugins].enabled` alone leaves every
+plugin **disabled** on first boot (observed in the VM). So the adapter seeds a
+**first-login one-shot** (`noctalia-enable-plugins`, spawned by niri next to
+Noctalia) that waits for the IPC, enables every `[local]` plugin — exactly the
+vendored/toggled-on set — then guards itself to run once. Enabling ≠ placing:
+bar/Control-Center **widget placement stays the user's** (like the excluded
+host-bound lockscreen geometry).
+
 ## Considered alternatives
 
 - **A separate `noctalia-enriched` variant** — rejected: two presets to test and
@@ -108,11 +123,12 @@ bumped by editing two SHAs. Extends ADR 0090's pinned-Bitwarden precedent.
 
 ## Consequences
 
-- **v5 mechanism rework (done, verified).** ADR 0090's seeding wrote a
-  `plugins.json {enabled, sourceUrl}` registry — a **v4** shape. v5 moved to
-  `plugin.toml`, git **sources**, and a separate enable step; the seeding path
-  was rewritten to vendor each plugin folder and enable it by canonical id in
-  `[plugins].enabled`. Confirmed by a full VM install (see Status).
+- **v5 mechanism rework (done).** ADR 0090's seeding wrote a `plugins.json
+  {enabled, sourceUrl}` registry — a **v4** shape. v5 moved to `plugin.toml`,
+  git **sources**, and a separate enable step. The seeding path now vendors each
+  plugin folder (canonical id in `[plugins].enabled`) **and** seeds the
+  first-login enable one-shot, because config alone does not activate a plugin
+  (see "Enabling vs vendoring"). Shaken out by a full VM install.
 - **Trust surface.** v5 plugins are unsandboxed Luau run as the user. Seeding
   ~22 enabled-by-default into `/etc/skel` is a conscious expansion of what the
   preset trusts — acceptable because every source is pinned and operator-visible
