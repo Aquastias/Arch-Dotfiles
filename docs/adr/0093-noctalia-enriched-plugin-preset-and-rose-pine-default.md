@@ -1,9 +1,11 @@
 # Noctalia enriched-by-default plugin preset and a seeded Rosé Pine palette
 
 ---
-Status: proposed. Extends ADR 0090 (niri adapter + Noctalia preset); supersedes
+Status: accepted. Extends ADR 0090 (niri adapter + Noctalia preset); supersedes
 ADR 0090's "glue only — never Noctalia's theming" clause, scoped to this preset.
-Pending verification of the v5 plugin-seeding mechanism (see Consequences).
+Verified end-to-end by a full VM install: niri renders (via virgl — a Wayland
+compositor rejects software EGL, so the VM harness gives it an accel3d GPU), the
+plugin set vendors + enables, and the seeded config.toml is honoured on boot.
 ---
 
 ADR 0090 shipped the `noctalia` preset as a near-bare shell plus one plugin
@@ -23,12 +25,25 @@ Noctalia config — the single deliberate deviation from ADR 0090's rule that th
 adapter seeds glue and never look. The rule holds everywhere else: only the
 default palette is seeded; Noctalia self-generates the rest of its look on first
 run. The other four palettes need no seeding — they are switchable natively
-(Settings → Theming, or `qs -c noctalia-shell ipc call colorScheme set <Name>`).
+(Settings → Theming, or `noctalia msg color-scheme-set builtin <Name>`; v5 is a
+native binary, so the old `qs -c noctalia-shell` Quickshell IPC is gone).
 For a one-click affordance we seed the (singleton) `custom-shortcut` tile wired
-to a seeded script that cycles the five palettes via IPC — no `config-swap`
-(a generic file swapper, **not** palette-aware). We do not seed
+to a seeded script that cycles the five palettes via `msg color-scheme-set` — no
+`config-swap` (a generic file swapper, **not** palette-aware). We do not seed
 `control_center.shortcuts` (that array would replace the built-in Control Center
 defaults), so placing the tile is a one-time user step.
+
+## Seeded look tweaks (beyond the palette)
+
+The palette is not the only look the preset fixes. A short, **portable** set of
+prefs captured from a curated live session is seeded into the same config.toml:
+`[theme]` gains `mode="dark"`, `community_palette`, `wallpaper_scheme`; plus
+`[audio] enable_overdrive`, `[dock] enabled`/`icon_size`, `[nightlight]`, and
+`[shell] app_icon_colorize`. config.toml is the fresh-boot base; the UI's
+state-dir settings.toml overrides it once the user edits it. **Host-bound**
+surfaces are deliberately excluded — lockscreen widget geometry keyed to an
+output name (`@Virtual-1`, pixel positions, resolution) and wallpaper paths do
+not survive a move to real hardware, so they stay Noctalia/user-owned.
 
 ## Plugin set and the overlap resolutions
 
@@ -93,11 +108,11 @@ bumped by editing two SHAs. Extends ADR 0090's pinned-Bitwarden precedent.
 
 ## Consequences
 
-- **v5 mechanism rework (must verify before implementing).** ADR 0090's seeding
-  writes a `plugins.json {enabled, sourceUrl}` registry — likely a **v4** shape.
-  Noctalia v5 moved to `plugin.toml`, git **sources**, and a separate enable
-  step. The `_niri_register_plugin` / `_niri_seed_*` path probably needs a v5
-  rewrite; hence this ADR is `proposed`, not `accepted`.
+- **v5 mechanism rework (done, verified).** ADR 0090's seeding wrote a
+  `plugins.json {enabled, sourceUrl}` registry — a **v4** shape. v5 moved to
+  `plugin.toml`, git **sources**, and a separate enable step; the seeding path
+  was rewritten to vendor each plugin folder and enable it by canonical id in
+  `[plugins].enabled`. Confirmed by a full VM install (see Status).
 - **Trust surface.** v5 plugins are unsandboxed Luau run as the user. Seeding
   ~22 enabled-by-default into `/etc/skel` is a conscious expansion of what the
   preset trusts — acceptable because every source is pinned and operator-visible
