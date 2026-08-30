@@ -269,20 +269,14 @@ KDL
   # CLI and the plugin is skipped. `bw login` is the user's first-boot step.
   if [[ "$(_niri_bool bitwarden)" == true ]]; then
     section "Noctalia Bitwarden plugin"
-    # bitwarden-cli depends on `nodejs`; a full userland may already carry an LTS
-    # provider (e.g. nodejs-lts-jod) that conflicts with the plain `nodejs`
-    # pacman would otherwise pull. If a provider is installed, mark the dep
-    # satisfied so pacman reuses it instead of a conflicting pull.
-    _bw_flags=()
-    pacman -Qq 2>/dev/null | grep -qxE 'nodejs|nodejs-lts-[a-z]+' \
-      && _bw_flags=(--assume-installed nodejs)
+    # bitwarden-cli depends on nodejs-lts-jod, which CONFLICTS with the plain
+    # `nodejs` that userland node tools (e.g. language servers) pull. Since
+    # nodejs-lts-jod provides `nodejs`, drop the plain package first (if present)
+    # so the install pulls the LTS without an interactive conflict prompt — every
+    # `nodejs` dependent stays satisfied by the provider.
+    pacman -Qq nodejs >/dev/null 2>&1 && pacman -Rdd --noconfirm nodejs
     # shellcheck disable=SC2046  # word-split the pure map into args
-    if ((${#_bw_flags[@]})); then
-      pacman -S --noconfirm --needed "${_bw_flags[@]}" \
-        $(noctalia_bitwarden_packages)
-    else
-      pacman -S --noconfirm --needed $(noctalia_bitwarden_packages)
-    fi
+    pacman -S --noconfirm --needed $(noctalia_bitwarden_packages)
     if _niri_seed_plugin "$_NIRI_BW_REPO" "$_NIRI_BW_REF" bitwarden; then
       info "Bitwarden plugin enabled (run 'bw login' to authenticate)."
     else
