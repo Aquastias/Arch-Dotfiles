@@ -8,10 +8,6 @@
 // KDE's install-kde.jsonc). Turning every plugin off recovers the lean shell.
 {
   // ── Companions ─────────────────────────────────────────────────────────────
-  // Bitwarden vault-search plugin: installs bitwarden-cli and vendors the
-  // official Luau plugin into /etc/skel (ADR 0090/0093). Default on — the user
-  // authenticates with `bw login` on first use.
-  "bitwarden": true,
   // Audio visualizer. Off by default: cava is a known audio sample-rate
   // footgun with Noctalia's visualizer widget.
   "cava": false,
@@ -19,12 +15,14 @@
   // works without a separate backend for most users.
   "cliphist": false,
 
-  // ── Enriched community plugin set (ADR 0093) ───────────────────────────────
-  // Each key is a community-plugins subdir vendored at a pinned ref and enabled
-  // in config.toml; its official-repo tool deps install only when on. The
+  // ── Enriched community plugin set (ADR 0093/0094) ──────────────────────────
+  // Each key is a community-plugins subdir vendored at a pinned ref; the stowed
+  // config.toml carries the matching enabled list (a drift guard keeps the two
+  // in step). Its official-repo tool deps install only when on. The
   // overlap-losers (color_picker, screen_recorder, system-monitor,
   // system-updater, config-swap, calculator, keybind-cheatsheet,
-  // battery-threshold) are deliberately absent (ADR 0093).
+  // battery-threshold) are deliberately absent (ADR 0093); bitwarden and
+  // mini-docker were dropped from the default set (ADR 0094).
   "keymap": true,
   "niri-active-workspace": true,
   "niri-animations": true,
@@ -42,11 +40,16 @@
   "file-search": true,
   "shell-command": true,
   "ssh-launcher": true,
-  "mini-docker": true,
   "custom-shortcut": true,
   "udiskie": true,
   "todo": true,
   "wallpaper-switcher": true,
+  "portctl": true,
+  "game-launcher": true,
+  "hotspot": true,
+  "bookmarks": true,
+  "llamanager": true,
+  "dns-switcher": true,
 
   // ── Laptop-gated battery plugins (ADR 0093) ────────────────────────────────
   // `laptop`: "auto" detects a battery (/sys/class/power_supply/BAT*) at

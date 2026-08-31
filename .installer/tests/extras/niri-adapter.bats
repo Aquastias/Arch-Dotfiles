@@ -133,28 +133,16 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   done
 }
 
-@test "niri_shell=noctalia seeds the /etc/skel niri config glue" {
+# The niri glue (config.kdl), the Noctalia look (config.toml), the palette cycler
+# and the plugin-enable one-shot are stow-owned dotfiles now (ADR 0094) — the
+# adapter seeds none of them, only the vendored plugin folders below.
+@test "noctalia seeds no config.toml, config.kdl, or helper scripts" {
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
-  local kdl="$SEED/etc/skel/.config/niri/config.kdl"
-  [ -f "$kdl" ]
-  grep -q 'spawn-at-startup "noctalia"' "$kdl"
-  grep -q 'kitty' "$kdl"
-}
-
-# Plugins are only discoverable from a vendored folder; Noctalia enables (and
-# exports) them on an explicit `msg plugins enable`, so the adapter seeds a
-# first-login one-shot to do it (ADR 0093).
-@test "noctalia seeds the first-login plugin-enable one-shot" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
-  [ "$status" -eq 0 ]
-  local kdl="$SEED/etc/skel/.config/niri/config.kdl"
-  local sc="$SEED/etc/skel/.local/bin/noctalia-enable-plugins"
-  grep -q 'noctalia-enable-plugins' "$kdl"      # spawned by niri at login
-  [ -x "$sc" ]
-  grep -q 'msg plugins enable' "$sc"            # actually enables
-  grep -q '\[local\]' "$sc"                     # scoped to vendored plugins
-  grep -q 'installer-plugins-enabled' "$sc"     # runs exactly once (guard)
+  [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
+  [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
+  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
+  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
 }
 
 @test "cava/cliphist install only when toggled on in install-niri.jsonc" {
@@ -175,131 +163,66 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   ! grep -qw "cliphist" "$PACMAN_LOG"
 }
 
-# ── Rosé Pine palette default (ADR 0093) ─────────────────────────────────────
+# ── Enriched community plugin set (ADR 0093/0094) ────────────────────────────
 
-@test "niri_shell=noctalia seeds the Rosé Pine palette default" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
-  [ "$status" -eq 0 ]
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q '^\[theme\]' "$ct"
-  grep -q 'source = "builtin"' "$ct"
-  grep -q 'builtin = "Rosé Pine"' "$ct"
-}
-
-@test "niri_shell=none seeds no noctalia config.toml" {
-  run_niri ENVIRONMENT_NIRI_SHELL="none"
-  [ "$status" -eq 0 ]
-  [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
-}
-
-# Portable look tweaks lifted from a live VM (ADR 0093) — theme extras + a few
-# section toggles. Host-specific surfaces (lockscreen widget geometry keyed to
-# an output name) are deliberately NOT seeded.
-@test "noctalia seeds the curated look tweaks, not host-specific state" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
-  [ "$status" -eq 0 ]
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q 'mode = "dark"' "$ct"
-  grep -q 'community_palette = "Oxocarbon"' "$ct"
-  grep -q 'wallpaper_scheme = "m3-content"' "$ct"
-  grep -q '^\[audio\]' "$ct" && grep -q 'enable_overdrive = true' "$ct"
-  grep -q '^\[dock\]' "$ct" && grep -q 'icon_size = 25' "$ct"
-  grep -q '^\[nightlight\]' "$ct" && grep -q 'enabled = true' "$ct"
-  grep -q '^\[shell\]' "$ct" && grep -q 'app_icon_colorize = true' "$ct"
-  # host-specific surfaces stay out
-  ! grep -q 'lockscreen_widgets' "$ct"
-  ! grep -q 'Virtual-1' "$ct"
-}
-
-# ── Enriched community plugin set (ADR 0093) ─────────────────────────────────
-
-@test "noctalia vendors+enables the curated plugin set with tool deps" {
+@test "noctalia vendors the curated plugin set with tool deps" {
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   local pl
   for pl in keymap screen-toolkit procmon udiskie ssh-launcher \
-            wallpaper-switcher; do
+            wallpaper-switcher portctl game-launcher hotspot bookmarks \
+            llamanager dns-switcher; do
     [ -f "$base/$pl/plugin.toml" ] || { echo "not vendored: $pl"; return 1; }
   done
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q '"noctalia/keymap"' "$ct"
-  grep -q '"noctalia/screen-toolkit"' "$ct"
   # official-repo tool deps installed
   grep -qw "smartmontools" "$PACMAN_LOG"   # drive-health
   grep -qw "wl-mirror" "$PACMAN_LOG"        # wl-screen-mirror
-  grep -qw "docker" "$PACMAN_LOG"           # mini-docker
-  grep -qw "fzf" "$PACMAN_LOG"              # file-search
+  grep -qw "fzf" "$PACMAN_LOG"             # file-search
+  grep -qw "ollama" "$PACMAN_LOG"          # llamanager
+  grep -qw "iw" "$PACMAN_LOG"              # hotspot
+  grep -qw "bind" "$PACMAN_LOG"            # dns-switcher
   # vendored at the pinned community ref
   grep -q "caed21ab081948435cd770d2e954c99b8bbb72cf" "$GIT_LOG"
 }
 
-@test "dropped plugins are never vendored" {
+@test "dropped plugins are never vendored (ADR 0093/0094)" {
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   local pl
-  for pl in system-monitor color_picker screen_recorder config-swap \
-            calculator battery-threshold; do
+  for pl in bitwarden mini-docker system-updater system-monitor color_picker \
+            screen_recorder config-swap calculator battery-threshold; do
     [ ! -e "$base/$pl" ] || { echo "unexpectedly vendored: $pl"; return 1; }
   done
-}
-
-@test "a plugin toggled off is not vendored and its unique dep is skipped" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"mini-docker":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
-  [ "$status" -eq 0 ]
-  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/mini-docker" ]
+  # the dropped bitwarden CLI backend and mini-docker's docker never install
+  ! grep -qw "bitwarden-cli" "$PACMAN_LOG"
   ! grep -qw "docker" "$PACMAN_LOG"
 }
 
-@test "a plugin toggled on is vendored and its unique dep installs" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"mini-docker":true}\n' > "$nj"
+@test "a plugin toggled off is not vendored and its unique dep is skipped" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":false}\n' > "$nj"
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
-  [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/mini-docker/plugin.toml" ]
-  grep -qw "docker" "$PACMAN_LOG"
-  grep -q '"noctalia/mini-docker"' \
-    "$SEED/etc/skel/.config/noctalia/config.toml"
+  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager" ]
+  ! grep -qw "ollama" "$PACMAN_LOG"
 }
 
-@test "all plugin bools off recovers the lean shell (base + palette only)" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":false}\n' > "$nj"
+@test "a plugin toggled on is vendored and its unique dep installs" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":true}\n' > "$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager/plugin.toml" ]
+  grep -qw "ollama" "$PACMAN_LOG"
+}
+
+@test "all plugin bools off recovers the lean shell (base only)" {
+  local nj="$TEST_DIR/nj.jsonc"; printf '{"cava":false}\n' > "$nj"
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q 'enabled = \[\]' "$ct"
-  grep -q 'builtin = "Rosé Pine"' "$ct"
   grep -qw "noctalia" "$PACMAN_LOG"
-}
-
-# ── Palette-cycle tile (ADR 0093) ────────────────────────────────────────────
-
-@test "custom-shortcut on: seeds the palette cycler + tile settings" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"   # custom-shortcut default on
-  [ "$status" -eq 0 ]
-  local sc="$SEED/etc/skel/.local/bin/noctalia-cycle-palette"
-  [ -x "$sc" ]
-  # v5 native CLI, not the old Quickshell `qs -c noctalia-shell` IPC
-  grep -q 'noctalia msg color-scheme-set builtin' "$sc"
-  ! grep -q 'qs -c noctalia-shell' "$sc"
-  grep -q 'Rosé Pine' "$sc"
-  grep -q 'Nord' "$sc"
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q 'yocraft/custom-shortcut' "$ct"
-  grep -q 'onclick_cmd' "$ct"
-  # the built-in Control Center layout is left untouched
-  ! grep -q 'control_center.shortcuts' "$ct"
-}
-
-@test "custom-shortcut off: no palette cycler or tile settings" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"custom-shortcut":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
-  [ "$status" -eq 0 ]
-  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
-  ! grep -q 'onclick_cmd' "$SEED/etc/skel/.config/noctalia/config.toml"
 }
 
 # ── Laptop-gated battery pair (ADR 0093) ─────────────────────────────────────
@@ -343,66 +266,16 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$p" ]
 }
 
-# ── Bitwarden plugin (ADR 0090) ──────────────────────────────────────────────
+# ── Offline resilience (ADR 0093) ────────────────────────────────────────────
 
-@test "bitwarden on: installs the cli, vendors+enables the plugin at the pin" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
-  [ "$status" -eq 0 ]
-  grep -q "bitwarden-cli" "$PACMAN_LOG"
-  # v5 layout: plugin folder in the DATA dir, id enabled in config.toml
-  [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden/plugin.toml" ]
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  grep -q 'auto_update = "none"' "$ct"
-  grep -q '"noctalia/bitwarden"' "$ct"
-  grep -q "8cb833c3e2502f57e49d34fa64386b4d66794b77" "$GIT_LOG"
-  # the dead v4 artifacts are not produced
-  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins.json" ]
-  [ ! -e "$SEED/etc/skel/.config/noctalia/plugins/bitwarden" ]
-  [ ! -e "$SEED/etc/skel/.local/state/noctalia/settings.toml" ]
-}
-
-@test "bitwarden swaps plain nodejs for nodejs-lts-jod (conflict-free)" {
-  # userland node tools pull plain nodejs; bitwarden-cli needs nodejs-lts-jod
-  # (conflicts). With plain nodejs installed, the install must drop it first.
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj" NIRI_QQ="nodejs"
-  [ "$status" -eq 0 ]
-  grep -q -- "-Rdd --noconfirm nodejs" "$PACMAN_LOG"
-  grep -q "bitwarden-cli" "$PACMAN_LOG"
-}
-
-@test "bitwarden does not remove nodejs when plain nodejs is absent" {
-  # no plain nodejs installed → nothing to drop; just install bitwarden-cli.
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
-  [ "$status" -eq 0 ]
-  ! grep -q -- "-Rdd" "$PACMAN_LOG"
-  grep -q "bitwarden-cli" "$PACMAN_LOG"
-}
-
-@test "bitwarden off: no cli, no plugin, no git; config.toml empty enabled" {
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
-  [ "$status" -eq 0 ]
-  ! grep -q "bitwarden-cli" "$PACMAN_LOG"
-  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden" ]
-  [ ! -f "$GIT_LOG" ]
-  local ct="$SEED/etc/skel/.config/noctalia/config.toml"
-  [ -f "$ct" ]
-  grep -q 'enabled = \[\]' "$ct"
-}
-
-@test "bitwarden offline: fetch fails, install succeeds, cli still installed" {
-  # a git that always fails (network down)
+@test "a plugin fetch failure warns but never aborts the install" {
+  # a git that always fails (network down) — no plugin vendored, install ok
   printf '#!/usr/bin/env bash\necho "git $*" >> "$GIT_LOG"\nexit 1\n' \
     > "$STUB_BIN/git"
   chmod +x "$STUB_BIN/git"
-  local nj="$TEST_DIR/nj.jsonc"; printf '{"bitwarden":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
-  grep -q "bitwarden-cli" "$PACMAN_LOG"
-  [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/bitwarden" ]
-  # config.toml still written, bitwarden not in the enabled list
-  grep -q 'enabled = \[\]' "$SEED/etc/skel/.config/noctalia/config.toml"
+  grep -qw "noctalia" "$PACMAN_LOG"
+  local base="$SEED/etc/skel/.local/share/noctalia/plugins"
+  [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
 }

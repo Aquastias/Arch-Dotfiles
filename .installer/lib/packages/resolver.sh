@@ -468,8 +468,8 @@ _pkgres_niri_plugin_deps() {
 # _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
 # pure niri_core_packages map (shared with the adapter). The Noctalia work
 # preset (source `noctalia`) is keyed on environment.niri_shell: the base preset
-# map plus the enabled install-niri.jsonc component bools (cava, cliphist, and
-# bitwarden-cli under `bitwarden`), so query and install cannot drift.
+# map plus the enabled install-niri.jsonc component bools (cava, cliphist), so
+# query and install cannot drift.
 _pkgres_niri_packages() {
   local cfg="$1" p shell
   while IFS= read -r p; do
@@ -484,8 +484,7 @@ _pkgres_niri_packages() {
   done < <(noctalia_preset_packages)
 
   # Optional companions from install-niri.jsonc (the adapter's owner file). The
-  # key is the package name for cava/cliphist; bitwarden additionally pulls the
-  # bitwarden-cli backend (ADR 0090).
+  # key is the package name for cava/cliphist.
   local nj=""
   if [[ -n "${INSTALLER_DIR:-}" \
      && -f "${INSTALLER_DIR}/extras/desktop/niri/install-niri.jsonc" ]]; then
@@ -497,11 +496,6 @@ _pkgres_niri_packages() {
     && _pkgres_emit noctalia derived cava
   [[ "$(jq -r '.cliphist // false' <<<"$nj")" == true ]] \
     && _pkgres_emit noctalia derived cliphist
-  if [[ "$(jq -r '.bitwarden // false' <<<"$nj")" == true ]]; then
-    while IFS= read -r p; do
-      [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
-    done < <(noctalia_bitwarden_packages)
-  fi
 
   # Enriched community plugin deps (ADR 0093) — shared list + bools with the
   # adapter, so query and install cannot drift.

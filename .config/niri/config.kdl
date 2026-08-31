@@ -1,0 +1,12 @@
+// niri glue for the Noctalia work shell — stow-owned dotfile (ADR 0090/0094).
+// Autostarts Noctalia and binds a terminal + native screenshot on first login.
+// Noctalia owns its own look (config.toml); edit freely — this is only glue.
+spawn-at-startup "noctalia" "--daemon"
+// First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
+// guards, so it is a no-op on every later login — safe to leave in place.
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
+
+binds {
+    Mod+Return { spawn "kitty"; }
+    Print { screenshot; }
+}

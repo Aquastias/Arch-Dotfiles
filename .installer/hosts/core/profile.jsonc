@@ -126,7 +126,6 @@
     "aur": {
       "misc": [
         "ani-cli-git",
-        "octopi",
         "vscodium-bin",
         "vscodium-marketplace",
         "zen-browser-bin"

@@ -77,13 +77,6 @@ ln -sf /usr/share/wayland-sessions/niri.desktop \
 # into a prepared work desktop: the Noctalia shell + the gaps it does not cover,
 # plus a minimal /etc/skel config that autostarts it.
 
-# _seed_write <relative-path> — write stdin under SEED_ROOT, creating parents.
-_seed_write() {
-  local dst="${SEED_ROOT%/}/$1"
-  mkdir -p "$(dirname "$dst")"
-  cat > "$dst"
-}
-
 # _niri_bool <key> — an install-niri.jsonc component bool (false when absent).
 _niri_bool() {
   [[ -f "$NIRI_JSON" ]] || { echo false; return; }
@@ -109,36 +102,23 @@ _niri_laptop() {
   compgen -G "$_NIRI_BAT_GLOB" >/dev/null 2>&1 && echo true || echo false
 }
 
-# Bitwarden plugin source, pinned to a v5 commit for a deterministic install
-# (ADR 0090/0093). A bad ref (or offline) degrades to skip-with-warning, never
-# an abort.
-_NIRI_BW_REPO="https://github.com/noctalia-dev/official-plugins.git"
-_NIRI_BW_REF="8cb833c3e2502f57e49d34fa64386b4d66794b77"
-
 # Community plugin source, pinned to one v5 commit (ADR 0093) — a single ref
-# covers the whole enriched set (bump = two SHAs, this + the official one).
+# covers the whole enriched set (bump = one SHA).
 _NIRI_COMMUNITY_REPO="https://github.com/noctalia-dev/community-plugins.git"
 _NIRI_COMMUNITY_REF="caed21ab081948435cd770d2e954c99b8bbb72cf"
 
-# Noctalia v5 plugin seeding (ADR 0093). Loads a plugin from its folder in the
-# DATA dir and enables it by canonical id in config.toml's [plugins] list — the
-# v4 plugins.json path is dead. Plugins are vendored (folder copied at a pinned
-# ref), so first daemon start scans + enables them offline; auto_update is off
-# and no settings.toml is shipped (the state-dir one loads last and would
-# override the seed).
+# Noctalia v5 plugin vendoring (ADR 0093/0094). Copies a plugin's folder into
+# the skel DATA dir at a pinned ref, so a fresh box discovers it as a `[local]`
+# source offline. The config that ENABLES it (config.toml's [plugins] list) is
+# now a stow-owned dotfile, not seeded here; the stowed first-login one-shot
+# runs the per-plugin export. This adapter only vendors.
 _NIRI_PLUGIN_DATA="etc/skel/.local/share/noctalia/plugins"
-_NIRI_ENABLED_PLUGINS=()
-
-# Default palette seeded into config.toml (ADR 0093) — the one theming exception
-# to ADR 0090's glue-only rule. Rosé Pine and the other built-ins (Catppuccin,
-# Tokyo-Night, Gruvbox, Nord) switch at runtime; only the default is seeded.
-_NIRI_DEFAULT_PALETTE="Rosé Pine"
 
 # _niri_seed_plugin <repo> <ref> <subdir> — sparse-checkout <subdir> at <ref>
-# into the skel data dir and mark its manifest id (read from plugin.toml)
-# enabled. Returns non-zero on any git/parse failure so the caller can
-# warn-and-continue (invoked in an `if`, so set -e is suppressed inside — a
-# network failure never aborts the install).
+# into the skel data dir. Returns non-zero on any git/parse failure so a caller
+# can warn-and-continue (invoked in an `if`, so set -e is suppressed inside — a
+# network failure never aborts the install). The plugin.toml presence + a
+# non-empty id are validated so a half-checkout is treated as a failure.
 _niri_seed_plugin() {
   local repo="$1" ref="$2" sub="$3"
   local tmp; tmp="$(mktemp -d)" || return 1
@@ -156,121 +136,6 @@ _niri_seed_plugin() {
   rm -rf "$dst"
   cp -r "$tmp/op/$sub" "$dst"
   rm -rf "$tmp"
-  _NIRI_ENABLED_PLUGINS+=("$id")
-}
-
-# _niri_write_noctalia_config — assemble skel config.toml: the [theme] default
-# (the one theming exception to ADR 0090) plus the [plugins] table (vendored ids
-# as the enabled list, auto_update=none so no background fetch of a pinned set).
-_niri_write_noctalia_config() {
-  local list="" id
-  for id in "${_NIRI_ENABLED_PLUGINS[@]:-}"; do
-    [[ -n "$id" ]] && list+="\"$id\", "
-  done
-  list="${list%, }"
-  _seed_write etc/skel/.config/noctalia/config.toml <<TOML
-# Seeded by the installer (ADR 0093): the curated look (the theming exception
-# to ADR 0090) plus vendored plugins enabled by canonical id, auto_update off
-# (pinned installs). config.toml is the fresh-boot base; the UI's state-dir
-# settings.toml overrides it later. Host-specific surfaces (lockscreen widget
-# geometry keyed to an output name, wallpaper paths) are left to Noctalia.
-[theme]
-source = "builtin"
-builtin = "${_NIRI_DEFAULT_PALETTE}"
-mode = "dark"
-community_palette = "Oxocarbon"
-wallpaper_scheme = "m3-content"
-
-[audio]
-enable_overdrive = true
-
-[dock]
-enabled = true
-icon_size = 25
-
-[nightlight]
-enabled = true
-
-[shell]
-app_icon_colorize = true
-
-[plugins]
-auto_update = "none"
-enabled = [${list}]
-TOML
-  # Palette-cycle tile (ADR 0093): when custom-shortcut is enabled, pre-wire its
-  # (singleton) tile to the seeded cycler. The user places the tile in the
-  # Control Center once — seeding control_center.shortcuts would replace the
-  # built-in defaults, so it is left alone.
-  if [[ "$(_niri_bool custom-shortcut)" == true ]]; then
-    # The id literal below matches custom-shortcut's plugin.toml at the pinned
-    # community ref (verified) — it must equal the id enabled in [plugins].
-    cat >> "${SEED_ROOT%/}/etc/skel/.config/noctalia/config.toml" <<'TOML'
-
-[plugin_settings."yocraft/custom-shortcut"]
-label = "Cycle palette"
-icon = "palette"
-onclick_cmd = "sh $HOME/.local/bin/noctalia-cycle-palette"
-TOML
-  fi
-}
-
-# _niri_seed_palette_cycler — seed the script the custom-shortcut tile runs: it
-# walks the five seeded built-in palettes via Noctalia's `msg color-scheme-set`
-# (v5 native CLI, not the old Quickshell IPC), tracking the index in the state
-# dir. Palette switching is built-in theming — a one-click affordance (0093).
-_niri_seed_palette_cycler() {
-  _seed_write etc/skel/.local/bin/noctalia-cycle-palette <<'SH'
-#!/bin/sh
-# Seeded by the installer (ADR 0093): cycle Noctalia's built-in palette.
-set -eu
-state="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/palette-cycle"
-i=0
-[ -f "$state" ] && i=$(cat "$state") || true
-i=$(( (i + 1) % 5 ))
-case "$i" in
-  0) p="Rosé Pine" ;;
-  1) p="Catppuccin" ;;
-  2) p="Tokyo-Night" ;;
-  3) p="Gruvbox" ;;
-  4) p="Nord" ;;
-esac
-mkdir -p "$(dirname "$state")"
-printf '%s' "$i" > "$state"
-noctalia msg color-scheme-set builtin "$p"
-SH
-  chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-cycle-palette"
-}
-
-# _niri_seed_plugin_enabler — seed a first-login one-shot that enables the
-# vendored plugins. Vendoring a plugin folder only makes it discoverable as a
-# `[local]` source entry; Noctalia activates a plugin (running its per-plugin
-# "export") solely on an explicit `msg plugins enable`, which needs the shell
-# already running — pre-seeding cannot do it (ADR 0093). niri spawns this beside
-# Noctalia at login; it waits for the IPC, enables every `[local]` plugin (the
-# curated set — off-toggled plugins are never vendored, so never `[local]`),
-# then guards itself so it runs exactly once.
-_niri_seed_plugin_enabler() {
-  _seed_write etc/skel/.local/bin/noctalia-enable-plugins <<'SH'
-#!/bin/sh
-# Seeded by the installer (ADR 0093): first-login one-shot — enable the vendored
-# [local] plugins once (their "export" only runs on an explicit enable).
-set -eu
-guard="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/installer-plugins-enabled"
-[ -f "$guard" ] && exit 0
-i=0                                       # wait for Noctalia's IPC (co-spawned)
-until noctalia msg plugins list >/dev/null 2>&1; do
-  i=$((i + 1)); [ "$i" -ge 60 ] && exit 0  # give up this login; retry next
-  sleep 1
-done
-noctalia msg plugins list 2>/dev/null | awk '/\[local\]/ { print $1 }' |
-  while read -r id; do
-    noctalia msg plugins enable "$id" >/dev/null 2>&1 || true
-  done
-mkdir -p "$(dirname "$guard")"
-: > "$guard"
-SH
-  chmod +x "${SEED_ROOT%/}/etc/skel/.local/bin/noctalia-enable-plugins"
 }
 
 # _niri_collect_plugins <plugin-list-fn> — append each plugin the list-fn names
@@ -287,55 +152,17 @@ _niri_collect_plugins() {
 
 if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
   section "Noctalia work shell"
-  # Base preset (pure map) + the enabled optional companions. bitwarden is
-  # handled below (it also pulls a CLI + a plugin, not just a package).
+  # Base preset (pure map) + the enabled optional companions (cava, cliphist).
   _noc_pkgs=()
   mapfile -t _noc_pkgs < <(noctalia_preset_packages)
   [[ "$(_niri_bool cava)" == true ]]     && _noc_pkgs+=(cava)
   [[ "$(_niri_bool cliphist)" == true ]] && _noc_pkgs+=(cliphist)
   pacman -S --noconfirm --needed "${_noc_pkgs[@]}"
 
-  # Minimal niri config GLUE only (ADR 0090): autostart Noctalia and bind kitty
-  # + niri's native screenshot. Noctalia owns its own look (first-run defaults +
-  # the operator's dotfiles) — no theming is seeded here.
-  section "niri config glue (/etc/skel)"
-  _seed_write etc/skel/.config/niri/config.kdl <<'KDL'
-// Seeded by the installer (ADR 0090): minimal glue so the Noctalia work shell
-// autostarts and a terminal + screenshot are bound on first login. Noctalia
-// owns its own look; edit freely — this is only the glue.
-spawn-at-startup "noctalia" "--daemon"
-// First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
-// guards, so it is a no-op on every later login — safe to leave in place.
-spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
-
-binds {
-    Mod+Return { spawn "kitty"; }
-    Print { screenshot; }
-}
-KDL
-  info "Seeded /etc/skel niri config (Noctalia autostart + kitty)."
-
-  # Bitwarden vault plugin (ADR 0090/0093). Install the CLI backend, then vendor
-  # the Luau plugin (the first-login one-shot enables it, like the rest). The
-  # install-only step (bitwarden-cli) precedes the network fetch, so an offline
-  # box still gets the CLI and the plugin is skipped. `bw login` is first-boot.
-  if [[ "$(_niri_bool bitwarden)" == true ]]; then
-    section "Noctalia Bitwarden plugin"
-    # bitwarden-cli depends on nodejs-lts-jod, which CONFLICTS with the plain
-    # `nodejs` that userland node tools (e.g. language servers) pull. Since
-    # nodejs-lts-jod provides `nodejs`, drop the plain package first (if present)
-    # so the install pulls the LTS without an interactive conflict prompt — every
-    # `nodejs` dependent stays satisfied by the provider.
-    pacman -Qq nodejs >/dev/null 2>&1 && pacman -Rdd --noconfirm nodejs
-    # shellcheck disable=SC2046  # word-split the pure map into args
-    pacman -S --noconfirm --needed $(noctalia_bitwarden_packages)
-    if _niri_seed_plugin "$_NIRI_BW_REPO" "$_NIRI_BW_REF" bitwarden; then
-      info "Bitwarden plugin vendored (run 'bw login' to authenticate)."
-    else
-      warn "Bitwarden plugin fetch failed (offline?) — skipped;" \
-        "bitwarden-cli is installed. Add the plugin later from Noctalia."
-    fi
-  fi
+  # The niri glue (config.kdl), the Noctalia look (config.toml), the palette
+  # cycler, and the plugin-enable one-shot are stow-owned dotfiles now (ADR
+  # 0094), delivered by the Runner's per-user stow — NOT seeded here. This
+  # adapter only vendors the plugin folders below; the stow config enables them.
 
   # Enriched community plugin set (ADR 0093). Collect the enabled plugins and
   # their official-repo tool deps (per-plugin bools in install-niri.jsonc gate
@@ -361,18 +188,6 @@ KDL
     then info "Plugin $_pl vendored."
     else warn "Plugin $_pl fetch failed (offline?) — skipped."; fi
   done
-
-  # Palette-cycle affordance (ADR 0093): seed the cycler script when the
-  # custom-shortcut tile is enabled; its tile config lands in config.toml below.
-  [[ "$(_niri_bool custom-shortcut)" == true ]] && _niri_seed_palette_cycler
-
-  # First-login one-shot that actually enables the vendored plugins: pre-seeding
-  # only makes them discoverable; enabling (its export) needs the live shell.
-  _niri_seed_plugin_enabler
-
-  # Assemble skel config.toml — the [theme] default + [plugins] enabled list
-  # (v5 replaces the dead plugins.json), plus the palette-cycle tile settings.
-  _niri_write_noctalia_config
 fi
 
 section "niri installation complete"
