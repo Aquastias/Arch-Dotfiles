@@ -1,0 +1,267 @@
+# Noctalia work-shell config — stow-owned dotfile (ADR 0094).
+#
+# This is the curated look shipped by default for the niri+Noctalia preset. It
+# is delivered two ways from ONE source: the installer stows this repo per-user
+# at install time, and `stow .` places it on any box. The niri adapter no longer
+# seeds Noctalia config into /etc/skel — it only vendors the plugin folders; the
+# enabled list below is the declarative mirror of that vendored set (a drift
+# guard keeps them in step). Host-bound state (lockscreen widget geometry keyed
+# to an output name, captured wallpaper paths) is deliberately excluded so this
+# file stays portable across hardware; Noctalia regenerates it on first run.
+
+[audio]
+enable_overdrive = true
+
+[bar]
+order = [ "default", "bottom" ]
+
+    [bar.bottom]
+    center = [ "widget_9" ]
+    enabled = true
+    end = [
+        "indicator_2",
+        "mirror",
+        "widget_11",
+        "wallpaper",
+        "privacy",
+        "summary_2",
+        "status_3",
+        "eyecare_widget_2"
+    ]
+    position = "bottom"
+    start = [
+        "file-search",
+        "gamermode_2",
+        "launcher_3",
+        "bar_3",
+        "widget_7",
+        "widget_8"
+    ]
+    thickness = 25
+
+    [bar.default]
+    end = [
+        "tray",
+        "network",
+        "dns-switcher",
+        "toggle",
+        "notifications",
+        "clipboard",
+        "bluetooth",
+        "volume",
+        "brightness",
+        "battery",
+        "control-center",
+        "bluetooth",
+        "cat",
+        "nightlight",
+        "todo",
+        "session"
+    ]
+    start = [
+        "launcher",
+        "theme_mode",
+        "widget",
+        "wallpaper",
+        "active-workspace",
+        "workspaces"
+    ]
+    thickness = 25
+
+[desktop_widgets]
+schema_version = 2
+widget_order = []
+
+    [desktop_widgets.grid]
+    cell_size = 16
+    major_interval = 4
+    visible = true
+
+    [desktop_widgets.widget]
+
+[dock]
+icon_size = 25
+
+[lockscreen_widgets]
+schema_version = 2
+widget_order = []
+
+    [lockscreen_widgets.grid]
+    cell_size = 16
+    major_interval = 4
+    visible = true
+
+[nightlight]
+enabled = true
+
+[plugin_settings."yocraft/custom-shortcut"]
+icon = "palette"
+label = "Cycle palette"
+onclick_cmd = "sh $HOME/.local/bin/noctalia-cycle-palette"
+
+[plugins]
+auto_update = "none"
+enabled = [
+    "blackbartblues/keymap",
+    "salemsayed/niri-active-workspace",
+    "imjustdoingmypart/niri-animations",
+    "raycursive/niri-displays",
+    "whyoolw/sharednd",
+    "alexander/screen-toolkit",
+    "elijaharch/wl-screen-mirror",
+    "yuuto/arch-updater",
+    "blackbartblues/audio-switcher",
+    "weinguyen/procmon",
+    "dotnetrob/cat",
+    "nomadcxx/gamer-mode",
+    "gustav0ar/drive-health",
+    "apex077/eyecare",
+    "nightwatch75/file-search",
+    "weinguyen/shell-command",
+    "cleboost/ssh-launcher",
+    "yocraft/custom-shortcut",
+    "aristides/udiskie",
+    "nightwatch75/todo",
+    "kavya-nama/wallpaper-switcher",
+    "rxtsel/portctl",
+    "alexander/game-launcher",
+    "cleboost/hotspot",
+    "dunarand/bookmarks",
+    "marccvictoria/llamanager",
+    "nightwatch75/dns-switcher"
+]
+
+[shell]
+app_icon_colorize = true
+font_family = "Noto Sans"
+
+[theme]
+builtin = "Rosé Pine"
+community_palette = "Oxocarbon"
+mode = "dark"
+source = "builtin"
+wallpaper_scheme = "m3-content"
+
+    [theme.templates]
+    builtin_ids = [
+        "btop",
+        "emacs",
+        "gtk3",
+        "gtk4",
+        "hyprland",
+        "kcolorscheme",
+        "kitty",
+        "niri",
+        "qt",
+        "umbriel"
+    ]
+
+[wallpaper.default]
+path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"
+
+[widget.active-workspace]
+type = "salemsayed/niri-active-workspace:active-workspace"
+
+[widget.bar]
+type = "dunarand/bookmarks:bar"
+
+[widget.bar_3]
+text = ""
+type = "dunarand/bookmarks:bar"
+
+[widget.cat]
+type = "dotnetrob/cat:cat"
+
+[widget.clock]
+capsule = true
+
+[widget.dns-switcher]
+color = "secondary"
+show_label = false
+type = "nightwatch75/dns-switcher:dns-switcher"
+
+[widget.eyecare-widget]
+font_scale = 0.69999999999999996
+type = "apex077/eyecare:eyecare-widget"
+
+[widget.eyecare_widget_2]
+type = "apex077/eyecare:eyecare-widget"
+
+[widget.file-search]
+type = "nightwatch75/file-search:file-search"
+
+[widget.gamermode]
+type = "nomadcxx/gamer-mode:gamermode"
+
+[widget.gamermode_2]
+type = "nomadcxx/gamer-mode:gamermode"
+
+[widget.indicator]
+type = "rxtsel/portctl:indicator"
+
+[widget.indicator_2]
+type = "rxtsel/portctl:indicator"
+
+[widget.launcher_2]
+type = "alexander/game-launcher:launcher"
+
+[widget.launcher_3]
+type = "alexander/game-launcher:launcher"
+
+[widget.media]
+font_scale = 0.80000000000000004
+
+[widget.mirror]
+type = "elijaharch/wl-screen-mirror:mirror"
+
+[widget.network]
+icon_color = "secondary"
+show_label = false
+show_vpn_label = true
+
+[widget.status]
+type = "aristides/udiskie:status"
+
+[widget.status_3]
+type = "aristides/udiskie:status"
+
+[widget.summary]
+type = "gustav0ar/drive-health:summary"
+
+[widget.summary_2]
+type = "gustav0ar/drive-health:summary"
+
+[widget.todo]
+type = "nightwatch75/todo:todo"
+
+[widget.toggle]
+type = "cleboost/hotspot:toggle"
+
+[widget.widget]
+type = "yuuto/arch-updater:widget"
+
+[widget.widget_11]
+type = "alexander/screen-toolkit:widget"
+
+[widget.widget_2]
+type = "blackbartblues/audio-switcher:widget"
+
+[widget.widget_3]
+type = "blackbartblues/keymap:widget"
+
+[widget.widget_5]
+type = "marccvictoria/llamanager:widget"
+
+[widget.widget_6]
+type = "weinguyen/procmon:widget"
+
+[widget.widget_7]
+type = "blackbartblues/keymap:widget"
+
+[widget.widget_8]
+type = "marccvictoria/llamanager:widget"
+
+[widget.widget_9]
+capsule = true
+icon_only = true
+type = "weinguyen/procmon:widget"

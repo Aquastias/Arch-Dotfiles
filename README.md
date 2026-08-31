@@ -44,6 +44,11 @@ $ cd .dotfiles
 then use GNU stow to create symlinks
 
 ```bash
-$ stow .
+$ stow --no-folding .
 ```
+
+> `--no-folding` keeps directories like `~/.config/noctalia` as real dirs with
+> only the tracked files symlinked in, so apps that write runtime state next to
+> their config (e.g. Noctalia's `settings.toml`) never write back into this repo.
+> The installer's per-user stow step already runs with this flag.
 

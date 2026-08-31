@@ -144,21 +144,24 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ -z "$n" ]
 }
 
-@test "noctalia set includes bitwarden-cli when bitwarden is enabled" {
-  # the committed install-niri.jsonc enables bitwarden by default (ADR 0090)
+@test "noctalia set omits the dropped bitwarden-cli backend (ADR 0094)" {
+  # bitwarden left the default set; its CLI backend must no longer resolve
   local n
   n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
-  grep -qx "bitwarden-cli" <<<"$n"
+  ! grep -qx "bitwarden-cli" <<<"$n"
 }
 
-@test "noctalia set reports enriched plugin tool deps (ADR 0093)" {
+@test "noctalia set reports enriched plugin tool deps (ADR 0093/0094)" {
   # committed install-niri.jsonc enables the curated plugin set by default
   local n
   n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
   grep -qx "smartmontools" <<<"$n"   # drive-health
   grep -qx "wl-mirror"     <<<"$n"    # wl-screen-mirror
-  grep -qx "docker"        <<<"$n"    # mini-docker
   grep -qx "fzf"           <<<"$n"    # file-search
+  grep -qx "ollama"        <<<"$n"    # llamanager
+  grep -qx "iw"            <<<"$n"    # hotspot
+  grep -qx "bind"          <<<"$n"    # dns-switcher
+  ! grep -qx "docker"      <<<"$n"    # mini-docker was dropped (ADR 0094)
 }
 
 @test "noctalia set omits battery deps under the laptop:auto default" {

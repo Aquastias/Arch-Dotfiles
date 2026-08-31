@@ -31,8 +31,8 @@ niri_core_packages() {
 # noctalia_preset_packages — the non-negotiable base of the Noctalia work preset
 # (ADR 0090), one package per line: the Noctalia shell itself (v5, extra repo),
 # the kitty terminal (Noctalia is not a terminal), and brightnessctl (Noctalia's
-# brightness OSD shells out to it). Optional companions (cava, cliphist,
-# bitwarden-cli) are toggles in install-niri.jsonc, added by their callers.
+# brightness OSD shells out to it). Optional companions (cava, cliphist) are
+# toggles in install-niri.jsonc, added by their callers.
 noctalia_preset_packages() {
   printf '%s\n' \
     noctalia \
@@ -40,25 +40,21 @@ noctalia_preset_packages() {
     brightnessctl
 }
 
-# noctalia_bitwarden_packages — the backend for the Bitwarden vault plugin (ADR
-# 0090). The official plugin requires the official Bitwarden CLI (`bw` on PATH);
-# it does NOT work with rbw. bitwarden-cli is in the extra repo.
-noctalia_bitwarden_packages() {
-  printf '%s\n' bitwarden-cli
-}
-
 # noctalia_community_plugins — the enriched preset's community plugin set (ADR
-# 0093), one name per line. The name is BOTH the community-plugins subdir and
-# the install-niri.jsonc bool key; canonical ids are read from each plugin.toml
-# at vendor time. Shared by the adapter (installs+vendors) and the Package
-# Resolver (reports deps) so the set cannot drift. The laptop-gated battery
-# plugins are added by their own caller (ADR 0093), not listed here.
+# 0093/0094), one name per line. The name is BOTH the community-plugins subdir
+# and the install-niri.jsonc bool key; canonical ids are read from each
+# plugin.toml at vendor time. Shared by the adapter (installs+vendors), the
+# Package Resolver (reports deps), and the stowed config.toml enabled list (a
+# drift guard keeps them in step), so the set cannot drift. The laptop-gated
+# battery plugins are added by their own caller (ADR 0093), not listed here.
+# bitwarden and mini-docker were dropped from the default set (ADR 0094).
 noctalia_community_plugins() {
   printf '%s\n' \
     keymap niri-active-workspace niri-animations niri-displays sharednd \
     screen-toolkit wl-screen-mirror arch-updater audio-switcher procmon cat \
     gamer-mode drive-health eyecare file-search shell-command ssh-launcher \
-    mini-docker custom-shortcut udiskie todo wallpaper-switcher
+    custom-shortcut udiskie todo wallpaper-switcher portctl game-launcher \
+    hotspot bookmarks llamanager dns-switcher
 }
 
 # noctalia_laptop_plugins — the laptop-gated battery plugins (ADR 0093), added
@@ -94,11 +90,15 @@ noctalia_plugin_deps() {
     eyecare)          printf '%s\n' libcanberra libpulse alsa-utils ;;
     file-search)      printf '%s\n' fzf xdg-utils ;;
     ssh-launcher)     printf '%s\n' openssh ;;
-    mini-docker)      printf '%s\n' docker ;;
+    game-launcher)    printf '%s\n' xdg-utils ;;
+    hotspot)          printf '%s\n' iw ;;
+    llamanager)       printf '%s\n' ollama ;;
+    dns-switcher)     printf '%s\n' bind ;;
     udiskie)          printf '%s\n' udiskie udisks2 xdg-utils ;;
     battery-power-management)
       printf '%s\n' power-profiles-daemon upower ;;
     battery-widget)   printf '%s\n' upower ;;
-    *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-* : no deps
+    *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-*, portctl
+            # (ss⊂iproute2), bookmarks (nohup⊂coreutils) : deps in base already
   esac
 }

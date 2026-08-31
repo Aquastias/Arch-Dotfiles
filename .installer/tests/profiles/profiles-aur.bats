@@ -39,11 +39,11 @@ _adapter() {
 
 @test "empty adapter aur resolves to exactly the host AUR set" {
   _adapter kde '{"aur":{}}'
-  local host='{"packages":{"aur":{"misc":["brave-bin","octopi"]}}}'
+  local host='{"packages":{"aur":{"misc":["brave-bin","ani-cli-git"]}}}'
 
   run _profiles_resolve_aur "$host" kde
   [ "$status" -eq 0 ]
-  [ "$output" = "$(printf 'brave-bin\noctopi')" ]
+  [ "$output" = "$(printf 'ani-cli-git\nbrave-bin')" ]
 }
 
 @test "host + multiple adapters union and dedupe overlaps" {
@@ -86,10 +86,10 @@ _adapter() {
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
 }
 
-# ── the adapter's aur list is DE-tied theming, not a pacman frontend (R21) ──
-# octopi went the other way: it is a third-party Qt pacman GUI, not KDE, so it
-# moved OUT of the adapter into Host Core. qt6ct-kde moved IN, off the host
-# profiles, because it is DE-tied and should not install on a non-KDE host.
+# ── the adapter's aur list is DE-tied: qt6ct-kde AND octopi (ADR 0094) ──
+# Both are KDE-tied and must not install on a non-KDE host, so they live in the
+# adapter aur, off the host profiles. octopi (a Qt pacman GUI) moved here from
+# Host Core by operator decision; qt6ct-kde moved here off the host profiles.
 
 @test "qt6ct-kde resolves under kde via the real adapter" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
@@ -112,12 +112,18 @@ _adapter() {
   done
 }
 
-@test "octopi is host-declared now, not adapter-owned" {
-  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
+@test "octopi resolves under kde via the real adapter" {
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
   run _profiles_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
-  ! grep -qx "octopi" <<< "$output"
-  grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
+  grep -qx "octopi" <<< "$output"
+}
+
+@test "octopi is no longer declared in any host packages.aur" {
+  local h
+  for h in core desktop laptop; do
+    ! grep -q '"octopi"' "$BATS_TEST_DIRNAME/../../hosts/$h/profile.jsonc"
+  done
 }
 
 # ── steam: repo package, not AUR steam-native-runtime (libjpeg6 conflict) ────

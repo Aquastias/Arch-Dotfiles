@@ -179,6 +179,11 @@
   "aur": {
     "theming": {
       "qt6ct-kde": true // Qt6 configuration tool, KDE build
+    },
+    // octopi is a Qt pacman GUI, KDE-tied by operator decision (ADR 0094) so it
+    // installs only when KDE is selected, not on every host. Mirrors qt6ct-kde.
+    "system": {
+      "octopi": true // Qt pacman/AUR frontend
     }
   }
 }

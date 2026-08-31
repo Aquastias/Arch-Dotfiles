@@ -1,0 +1,18 @@
+#!/bin/sh
+# Stow-owned dotfile (ADR 0093/0094): cycle Noctalia's built-in palette. Wired
+# to the custom-shortcut tile via config.toml's plugin_settings onclick_cmd.
+set -eu
+state="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/palette-cycle"
+i=0
+[ -f "$state" ] && i=$(cat "$state") || true
+i=$(( (i + 1) % 5 ))
+case "$i" in
+  0) p="Rosé Pine" ;;
+  1) p="Catppuccin" ;;
+  2) p="Tokyo-Night" ;;
+  3) p="Gruvbox" ;;
+  4) p="Nord" ;;
+esac
+mkdir -p "$(dirname "$state")"
+printf '%s' "$i" > "$state"
+noctalia msg color-scheme-set builtin "$p"

@@ -999,21 +999,27 @@ meaningful only when niri is in the desktop set — ADR 0090). `none` = bare nir
 seeding nothing (Hyprland core-only precedent). `noctalia` = the **prepared work
 preset**: the `noctalia` package (v5, `extra` repo — one package for bar,
 launcher, notifications, clipboard history, control center, lock, wallpaper, OSD)
-plus the session-completing gaps `kitty` + `brightnessctl`, a minimal
-`/etc/skel/.config/niri/config.kdl` glue that autostarts `noctalia --daemon`
-(ADR 0088 skel precedent). Since ADR 0093 the preset is **enriched by default**:
-it also seeds the **Rosé Pine** built-in palette (`[theme]`, the one theming
-exception to 0090's glue-only rule) and a curated, overlap-free plugin set —
+plus the session-completing gaps `kitty` + `brightnessctl`. Since ADR 0093 the
+preset is **enriched by default** with a curated, overlap-free plugin set —
 `keymap`, `screen-toolkit`, `wl-screen-mirror`, `arch-updater`, `procmon`,
-`audio-switcher`, `file-search`, `shell-command`, `ssh-launcher`, `mini-docker`,
+`audio-switcher`, `file-search`, `shell-command`, `ssh-launcher`,
 `custom-shortcut`, `udiskie`, `todo`, `drive-health`, `eyecare`, `gamer-mode`,
-`cat`, `wallpaper-switcher`, the three `niri-*` plugins, and the official
-**Bitwarden** plugin, plus laptop-gated `battery-power-management` +
-`battery-widget`. Plugins install pinned from two registered sources (official +
-community). Preset component bools — one per plugin, plus `laptop`, `cava`,
+`cat`, `wallpaper-switcher`, the three `niri-*` plugins, plus `portctl`,
+`game-launcher`, `hotspot`, `bookmarks`, `llamanager`, `dns-switcher`, and
+laptop-gated `battery-power-management` + `battery-widget`. Since ADR 0094 the
+adapter only **vendors** these plugin folders (pinned from the community source)
+into `/etc/skel`; the curated **config is a stow-owned dotfile**, delivered by
+the Runner's per-user stow — the niri `config.kdl` glue (autostart
+`noctalia --daemon`), the `config.toml` look (Rosé Pine palette, dark mode,
+`Noto Sans` UI font, the bundled wallpaper, the enabled-plugin list), the
+palette-cycle tile + script, and the first-login plugin-enable one-shot. Nothing
+Noctalia is skel-seeded but the vendored plugins. Host-bound surfaces (lockscreen
+widget geometry, wallpaper paths) stay out of the stowed config so it is portable
+across hardware. Preset component bools — one per plugin, plus `laptop`, `cava`,
 `cliphist` — live in `install-niri.jsonc`, mirroring KDE's `install-kde.jsonc`
-(ADR 0087); toggling them off recovers the lean shell. Noctalia runs on Hyprland
-too; the field is niri-bound for now but written to generalise.
+(ADR 0087); toggling them off recovers the lean shell, and a drift guard keeps
+the stowed enabled list equal to the vendored set. Noctalia runs on Hyprland too;
+the field is niri-bound for now but written to generalise.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

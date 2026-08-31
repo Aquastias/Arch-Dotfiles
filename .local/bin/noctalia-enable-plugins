@@ -1,0 +1,19 @@
+#!/bin/sh
+# Stow-owned dotfile (ADR 0093/0094): first-login one-shot — enable the vendored
+# [local] plugins once (their "export" only runs on an explicit enable). Spawned
+# by niri beside Noctalia; waits for the IPC, enables every [local] plugin, then
+# guards itself so it runs exactly once.
+set -eu
+guard="${XDG_STATE_HOME:-$HOME/.local/state}/noctalia/installer-plugins-enabled"
+[ -f "$guard" ] && exit 0
+i=0                                       # wait for Noctalia's IPC (co-spawned)
+until noctalia msg plugins list >/dev/null 2>&1; do
+  i=$((i + 1)); [ "$i" -ge 60 ] && exit 0  # give up this login; retry next
+  sleep 1
+done
+noctalia msg plugins list 2>/dev/null | awk '/\[local\]/ { print $1 }' |
+  while read -r id; do
+    noctalia msg plugins enable "$id" >/dev/null 2>&1 || true
+  done
+mkdir -p "$(dirname "$guard")"
+: > "$guard"
