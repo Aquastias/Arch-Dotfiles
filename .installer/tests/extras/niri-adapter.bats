@@ -5,7 +5,7 @@
 # stubbed as executables in a temp bin dir prepended to PATH. Injectable seams:
 #   NIRI_SEED_ROOT — prefix for /etc/skel seeds (default /; tests → tmpdir)
 #   ENVIRONMENT_WAYLAND_SHELL — noctalia | none (the shell preset selector)
-#   NIRI_JSON      — install-niri.jsonc override (preset component bools)
+#   NIRI_JSON      — install-noctalia.jsonc override (preset component bools)
 #
 # niri is core-only like Hyprland but leaner: the niri package ships its own
 # session file and pulls seatd, so the adapter writes no session file and no
@@ -167,7 +167,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
-@test "cava/cliphist install only when toggled on in install-niri.jsonc" {
+@test "cava/cliphist install only when toggled on in install-noctalia.jsonc" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"cava":true,"cliphist":true}\n' > "$nj"
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"

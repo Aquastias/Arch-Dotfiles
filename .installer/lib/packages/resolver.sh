@@ -448,7 +448,7 @@ _pkgres_de_packages() {
     "$(jq -c '.aur // {}' <<<"$json")" bool aur 2>/dev/null)
 }
 
-# _pkgres_niri_bool <key> <nj-json> — an install-niri.jsonc bool (false absent).
+# _pkgres_niri_bool <key> <nj-json> — an install-noctalia.jsonc bool (false absent).
 _pkgres_niri_bool() { jq -r --arg k "$1" '.[$k] // false' <<<"$2"; }
 
 # _pkgres_niri_plugin_deps <nj-json> <plugin-list-fn> — emit the official-repo
@@ -468,7 +468,7 @@ _pkgres_niri_plugin_deps() {
 # _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
 # pure niri_core_packages map (shared with the adapter). The Noctalia work
 # preset (source `noctalia`) is keyed on environment.wayland_shell: the base preset
-# map plus the enabled install-niri.jsonc component bools (cava, cliphist), so
+# map plus the enabled install-noctalia.jsonc component bools (cava, cliphist), so
 # query and install cannot drift.
 _pkgres_niri_packages() {
   local cfg="$1" p shell
@@ -483,12 +483,12 @@ _pkgres_niri_packages() {
     [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
   done < <(noctalia_preset_packages)
 
-  # Optional companions from install-niri.jsonc (the adapter's owner file). The
-  # key is the package name for cava/cliphist.
+  # Optional companions from install-noctalia.jsonc (the shared preset owner
+  # file, ADR 0097). The key is the package name for cava/cliphist.
   local nj=""
   if [[ -n "${INSTALLER_DIR:-}" \
-     && -f "${INSTALLER_DIR}/extras/desktop/niri/install-niri.jsonc" ]]; then
-    nj="$(jsonc_strip "${INSTALLER_DIR}/extras/desktop/niri/install-niri.jsonc" \
+     && -f "${INSTALLER_DIR}/extras/desktop/install-noctalia.jsonc" ]]; then
+    nj="$(jsonc_strip "${INSTALLER_DIR}/extras/desktop/install-noctalia.jsonc" \
       2>/dev/null)"
   fi
   [[ -n "$nj" ]] || return 0
@@ -497,12 +497,14 @@ _pkgres_niri_packages() {
   [[ "$(jq -r '.cliphist // false' <<<"$nj")" == true ]] \
     && _pkgres_emit noctalia derived cliphist
 
-  # Enriched community plugin deps (ADR 0093) — shared list + bools with the
-  # adapter, so query and install cannot drift.
-  _pkgres_niri_plugin_deps "$nj" noctalia_community_plugins
+  # Enriched plugin deps (ADR 0093/0097) — the shared core plus the niri slice
+  # (this is the niri resolver path). Shared list + bools with the adapter, so
+  # query and install cannot drift.
+  _pkgres_niri_plugin_deps "$nj" noctalia_core_plugins
+  _pkgres_niri_plugin_deps "$nj" noctalia_niri_plugins
 
   # Battery plugins are laptop-gated (ADR 0093). The resolver has no target
-  # hardware, so it reports the pair only when install-niri.jsonc sets `laptop`
+  # hardware, so it reports the pair only when install-noctalia.jsonc sets `laptop`
   # true; the "auto" default is an install-time /sys decision the adapter makes.
   [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
      <<<"$nj")" == true ]] || return 0

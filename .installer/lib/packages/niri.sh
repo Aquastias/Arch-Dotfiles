@@ -33,7 +33,7 @@ niri_core_packages() {
 # the kitty terminal (Noctalia is not a terminal), brightnessctl (Noctalia's
 # brightness OSD shells out to it), and playerctl (the shared media-key binds
 # shell out to it — ADR 0096; Hyprland leaves it operator-supplied). Optional
-# companions (cava, cliphist) are toggles in install-niri.jsonc, added by their
+# companions (cava, cliphist) are toggles in install-noctalia.jsonc, added by their
 # callers.
 noctalia_preset_packages() {
   printf '%s\n' \
@@ -43,21 +43,37 @@ noctalia_preset_packages() {
     playerctl
 }
 
-# noctalia_community_plugins — the enriched preset's community plugin set (ADR
-# 0093/0094), one name per line. The name is BOTH the community-plugins subdir
-# and the install-niri.jsonc bool key; canonical ids are read from each
-# plugin.toml at vendor time. Shared by the adapter (installs+vendors), the
-# Package Resolver (reports deps), and the stowed config.toml enabled list (a
-# drift guard keeps them in step), so the set cannot drift. The laptop-gated
-# battery plugins are added by their own caller (ADR 0093), not listed here.
-# bitwarden and mini-docker were dropped from the default set (ADR 0094).
-noctalia_community_plugins() {
+# noctalia_core_plugins — the compositor-AGNOSTIC community plugin set (ADR
+# 0093/0094/0097), one name per line: everything that works the same on any
+# wlroots compositor. The name is BOTH the community-plugins subdir and the
+# install-noctalia.jsonc bool key; canonical ids are read from each plugin.toml
+# at vendor time. Shared by both adapters (install+vendor), the Package Resolver
+# (reports deps), and the config.toml enabled list (a drift guard keeps them in
+# step). The compositor-SPECIFIC slices (niri-* / hypr-*) are listed separately
+# below and vendored per-adapter, so `config.toml` stays byte-identical across
+# compositors (ADR 0097). Laptop battery plugins are their own caller's (ADR
+# 0093); bitwarden and mini-docker were dropped from the default set (ADR 0094).
+noctalia_core_plugins() {
   printf '%s\n' \
-    keymap niri-active-workspace niri-animations niri-displays sharednd \
-    screen-toolkit wl-screen-mirror arch-updater audio-switcher procmon cat \
-    gamer-mode drive-health eyecare file-search shell-command ssh-launcher \
-    custom-shortcut udiskie todo wallpaper-switcher portctl game-launcher \
-    hotspot bookmarks llamanager dns-switcher
+    keymap sharednd screen-toolkit wl-screen-mirror arch-updater \
+    audio-switcher procmon cat gamer-mode drive-health eyecare file-search \
+    shell-command ssh-launcher custom-shortcut udiskie todo wallpaper-switcher \
+    portctl game-launcher hotspot bookmarks llamanager dns-switcher
+}
+
+# noctalia_niri_plugins — the niri compositor slice (ADR 0097): plugins that
+# read niri's IPC/state. Vendored only on a niri box; never written into the
+# shared config.toml (the first-login one-shot enables the vendored [local] set).
+noctalia_niri_plugins() {
+  printf '%s\n' niri-active-workspace niri-animations niri-displays
+}
+
+# noctalia_hyprland_plugins — the Hyprland compositor slice (ADR 0097): the
+# hypr-* counterparts of the niri slice, vendored only on a Hyprland box. Each id
+# is verified to exist at the pinned community ref before it ships; the set is
+# populated by the Hyprland plugin-slice work (empty until then).
+noctalia_hyprland_plugins() {
+  : # empty until the Hyprland plugin slice is populated (ADR 0097)
 }
 
 # noctalia_laptop_plugins — the laptop-gated battery plugins (ADR 0093), added

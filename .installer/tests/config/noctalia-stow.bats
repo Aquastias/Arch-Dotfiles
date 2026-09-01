@@ -5,7 +5,7 @@
 # payload and assert its shape:
 # required keys/values present, host-bound/orphan content absent, scripts
 # shaped, and — the drift guard — that config.toml's enabled list mirrors the
-# vendored community set (noctalia_community_plugins), so the two cannot drift.
+# vendored shared core set (noctalia_core_plugins), so the two cannot drift.
 
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."      # .installer/tests/config → repo root
@@ -91,13 +91,17 @@ setup() {
 # ── drift guard ──────────────────────────────────────────────────────────────
 
 # config.toml's enabled ids (author/name) reduced to their bare plugin names
-# must equal the installer's vendored community set. Off-by-one here means a
-# plugin ships enabled-but-not-vendored (or vice versa) — the drift 0094 bans.
-@test "config.toml enabled list mirrors the vendored community set" {
-  local enabled community
+# must equal the installer's SHARED CORE plugin set — and ONLY the core set. The
+# compositor slices (niri-* / hypr-*) are deliberately NOT in config.toml (ADR
+# 0097): they are vendored per-adapter and enabled by the first-login one-shot,
+# so config.toml stays byte-identical across compositors. Off-by-one here means a
+# core plugin ships enabled-but-not-vendored, or a slice id leaked into the
+# shared config — the drift 0094/0097 bans.
+@test "config.toml enabled list mirrors the shared core plugin set (no slices)" {
+  local enabled core
   enabled="$(awk '/^enabled = \[/{f=1;next} f&&/^\]/{f=0} f' "$CT" \
     | grep -oE '"[^"]+"' | tr -d '"' | sed 's#.*/##' | sort)"
-  community="$( (set +u; source "$NIRI_SH"; noctalia_community_plugins) | sort)"
+  core="$( (set +u; source "$NIRI_SH"; noctalia_core_plugins) | sort)"
   [ -n "$enabled" ]
-  [ "$enabled" = "$community" ]
+  [ "$enabled" = "$core" ]
 }
