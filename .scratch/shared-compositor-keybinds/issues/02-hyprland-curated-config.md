@@ -15,19 +15,26 @@ the config is no longer an uncommitted stock file living outside the repo.
 the spec; use the same design table as ticket 01 so the two dialects stay in
 lockstep.)
 
-**Status:** ready-for-agent
+**Status:** done (commit 5bc7669)
 
-- [ ] A curated `hyprland.conf` exists in the repo as a single stow-able source.
-- [ ] Every shared bind matches the niri config's semantics on the same keys
+- [x] A curated `hyprland.conf` exists in the repo as a single stow-able source.
+- [x] Every shared bind matches the niri config's semantics on the same keys
       (terminal, close, launcher, quit, fullscreen, float, focus, move,
       workspaces `1`–`9`, move-to-workspace `Super+Shift`+`<n>`, lock, drag
       move/resize, volume/brightness/media keys).
-- [ ] Hyprland-only binds present: `Super+E` file manager, `Super+S` /
+- [x] Hyprland-only binds present: `Super+E` file manager, `Super+S` /
       `Super+Shift+S` scratchpad.
-- [ ] Workspace 10 / `Super+0` is dropped; stock `Print` stays unbound (no
+- [x] Workspace 10 / `Super+0` is dropped; stock `Print` stays unbound (no
       screenshot tool in core-only).
-- [ ] The launcher (`wofi`), file manager (`dolphin`), and `playerctl` binds are
+- [x] The launcher (`wofi`), file manager (`dolphin`), and `playerctl` binds are
       present but remain operator-supplied — the config assumes nothing is
       installed by the adapter except the lock (ticket 03).
 - [ ] The config is valid Hyprland syntax (loads without error in a running
-      Hyprland).
+      Hyprland). *(not verified — Hyprland can't check config offline without
+      launching a session; authored against the stock grammar. Confirm on next
+      Hyprland login.)*
+
+## Comments
+
+Implemented in 5bc7669. Open verification: confirm the config loads clean on
+the next Hyprland session (no offline verifier exists).
