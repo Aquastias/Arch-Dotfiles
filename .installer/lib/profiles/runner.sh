@@ -467,17 +467,19 @@ _profiles_write_authorized_keys() {
     | jq -r '.ssh_authorized_keys[]?' 2>/dev/null)
   ((${#keys[@]} > 0)) || return 0
   info "Writing authorized_keys for user: ${user}  (${#keys[@]} key(s))"
-  local tmp="${MOUNT_ROOT}/tmp/.authorized_keys_${user}"
-  printf '%s\n' "${keys[@]}" > "$tmp"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-    "$user" "/tmp/.authorized_keys_${user}" <<'CHROOT_AUTHKEYS'
+  # Pass keys as positional args, not via a host ${MOUNT_ROOT}/tmp staging file:
+  # on a ZFS install /tmp is its own dataset (rpool/tmp), and the host can write
+  # the staging file to the root-dataset dir *before* that dataset mounts over
+  # it — the chroot then sees the freshly-mounted empty /tmp and the copy fails
+  # "cannot stat". Args cross the chroot boundary with no shared-path assumption.
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "${keys[@]}" \
+    <<'CHROOT_AUTHKEYS'
 set -e
-USER_NAME="$1"; KEYS_TMP="$2"
+USER_NAME="$1"; shift
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 mkdir -p "${HOME_DIR}/.ssh"
 chmod 700 "${HOME_DIR}/.ssh"
-cp "$KEYS_TMP" "${HOME_DIR}/.ssh/authorized_keys"
-rm -f "$KEYS_TMP"
+printf '%s\n' "$@" > "${HOME_DIR}/.ssh/authorized_keys"
 chmod 600 "${HOME_DIR}/.ssh/authorized_keys"
 chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.ssh"
 CHROOT_AUTHKEYS
