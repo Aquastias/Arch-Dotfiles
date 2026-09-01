@@ -957,21 +957,28 @@ zero-runner-change, ADR 0005/0062/0090). Valid GPU values: `"amd"`, `"nvidia"`,
 `"intel"`, `["amd", "nvidia"]`, or `"auto"`. Valid `display_manager` values:
 `"auto"` (default — desktop-aware: `sddm` when `kde` is present, else `greetd`
 for a KDE-free set; `none` if no desktop, ADR 0091), `"greetd"`, `"sddm"` (ADR
-0069). Valid `niri_shell` values: `"noctalia"` (default) | `"none"` (ADR 0090).
-Replaces `post_install.desktop` from the previous schema.
+0069). Valid `wayland_shell` values: `"noctalia"` (default) | `"none"`
+(compositor-agnostic — honored by both niri and Hyprland; ADR 0090/0097,
+renamed from `niri_shell` by 0097). Replaces `post_install.desktop` from the
+previous schema.
 
 ### Desktop Environment Adapter
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
 `install-<name>.jsonc` for per-component toggles (KDE has one for its app list;
-the Hyprland adapter is core-only and ships none — ADR 0062). Invoked
+niri and Hyprland share `install-noctalia.jsonc` for the [[Wayland Shell
+Companion]] toggles — ADR 0097). Invoked
 dynamically by the Environment Runner based on `environment.desktop`. KDE,
 Hyprland, and niri are the three adapters (ADR 0090). Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
 config default**: it installs its repo packages via pacman, writes its session
 files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
-seeds the DE's default look (Breeze Dark, Papirus-Dark icons, Breeze cursors)
-plus per-app first-run state into `/etc/skel` and `/etc/xdg` so a fresh login is
-ready, not first-run (ADR 0088). The KDE package set is **all data** in
+seeds the DE's default look (Breeze Dark, Papirus-Dark icons, the Bibata Modern
+Ice cursor — ADR 0098) plus per-app first-run state into `/etc/skel` and
+`/etc/xdg` so a fresh login is ready, not first-run (ADR 0088). **Bibata Modern
+Ice** (`bibata-cursor-git`, one AUR package shipping both hyprcursor and Xcursor)
+is the seeded default cursor on all three adapters — KDE via `kcminputrc`, niri
+via its `cursor {}` node, Hyprland via `HYPRCURSOR_THEME` (Xcursor fallback);
+declared per-adapter `aur`, off headless hosts (ADR 0098). The KDE package set is **all data** in
 `install-kde.jsonc`, parsed in bool mode: the Plasma shell itself is
 `shell_packages` (gated by the `shell` bool), and the app set is split by
 provenance across `apps_list` (packages in the `kde-applications` group) and
@@ -989,14 +996,19 @@ directory — no runner code changes.
 
 The **niri adapter** is core-only like Hyprland but leaner: the `niri` package
 ships its own session file + `niri-session` and pulls `seatd`, so it authors no
-launcher shim and no aquamarine DRM pin (ADR 0090). Its one companion is the
-[[Wayland Shell Companion]], selected via `environment.niri_shell`.
+launcher shim and no aquamarine DRM pin (ADR 0090). Both the niri and Hyprland
+adapters layer the same [[Wayland Shell Companion]], selected via
+`environment.wayland_shell` — the shared preset logic lives in
+`lib/chroot/noctalia-preset.sh`, sourced by both (ADR 0097).
 
 ### Wayland Shell Companion
-The Noctalia desktop shell as an optional, menu-visible layer on a niri install,
-selected via `environment.niri_shell` (`noctalia` | `none`, default `noctalia`;
-meaningful only when niri is in the desktop set — ADR 0090). `none` = bare niri,
-seeding nothing (Hyprland core-only precedent). `noctalia` = the **prepared work
+The Noctalia desktop shell as the shared, menu-visible layer on **both** the niri
+and Hyprland installs — one environment, only the compositor differing (ADR
+0097). Selected via `environment.wayland_shell` (`noctalia` | `none`, default
+`noctalia`; meaningful for any wlroots compositor in the desktop set — renamed
+from `niri_shell` by ADR 0097). `none` = truly bare compositor, seeding nothing —
+symmetric for both (the operator's dotfiles own it). `noctalia` = the **prepared
+work
 preset**: the `noctalia` package (v5, `extra` repo — one package for bar,
 launcher, notifications, clipboard history, control center, lock, wallpaper, OSD)
 plus the session-completing gaps `kitty` + `brightnessctl`. Since ADR 0093 the
@@ -1004,9 +1016,13 @@ preset is **enriched by default** with a curated, overlap-free plugin set —
 `keymap`, `screen-toolkit`, `wl-screen-mirror`, `arch-updater`, `procmon`,
 `audio-switcher`, `file-search`, `shell-command`, `ssh-launcher`,
 `custom-shortcut`, `udiskie`, `todo`, `drive-health`, `eyecare`, `gamer-mode`,
-`cat`, `wallpaper-switcher`, the three `niri-*` plugins, plus `portctl`,
-`game-launcher`, `hotspot`, `bookmarks`, `llamanager`, `dns-switcher`, and
-laptop-gated `battery-power-management` + `battery-widget`. Since ADR 0094 the
+`cat`, `wallpaper-switcher`, plus `portctl`, `game-launcher`, `hotspot`,
+`bookmarks`, `llamanager`, `dns-switcher`, and laptop-gated
+`battery-power-management` + `battery-widget`. Compositor-specific plugins ship
+as a **per-compositor slice** (ADR 0097): the `niri-*` set
+(`niri-active-workspace`, `niri-animations`, `niri-displays`) on niri, the
+`hypr-*` equivalents on Hyprland — same features, compositor-native backend.
+Since ADR 0094 the
 curated config is **single-source stow payload** at the repo root — the niri
 `config.kdl` glue (autostart `noctalia --daemon`), the `config.toml` look (Rosé
 Pine palette, dark mode, `Noto Sans` UI font, the bundled wallpaper, the
@@ -1018,11 +1034,16 @@ stages the repo files into the adapter, which copies them), and the installer
 operator. The plugin folders are separately **vendored** (pinned from the
 community source) into `/etc/skel/.local/share/noctalia/plugins`. Host-bound
 surfaces (lockscreen widget geometry, wallpaper paths) stay out of the config so
-it is portable across hardware. Preset component bools — one per plugin, plus
-`laptop`, `cava`, `cliphist` — live in `install-niri.jsonc`, mirroring KDE's
-`install-kde.jsonc` (ADR 0087); toggling them off recovers the lean shell, and a
-drift guard keeps the config's enabled list equal to the vendored set. Noctalia
-runs on Hyprland too; the field is niri-bound for now but written to generalise.
+it is portable across hardware. Preset component bools — the shared plugins, the `niri`/`hyprland` slices,
+`laptop`, `cava`, `cliphist` — live in the shared `install-noctalia.jsonc`
+(renamed from `install-niri.jsonc` by ADR 0097), read by both adapters and the
+[[Package Resolver]], mirroring KDE's `install-kde.jsonc` (ADR 0087); toggling
+them off recovers the lean shell, and a drift guard keeps the config's enabled
+list equal to the vendored set. On Hyprland the seeded compositor config is a
+**Noctalia-wired `hyprland.conf`** (`exec-once` autostarts the shell; the shared
+launcher/lock keys route through Noctalia IPC), and `hyprlock` is dropped from
+core — Noctalia locks natively via `ext-session-lock-v1` (ADR 0097, superseding
+0096).
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
