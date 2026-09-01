@@ -3,16 +3,21 @@
 # extras/desktop/hyprland/hyprland.sh — Hyprland Wayland Compositor
 # =============================================================================
 # Installs the minimum working-session CORE ONLY (ADR 0021, ADR 0062): the
-# compositor, both portals, the polkit agent, the Wayland clipboard bridge.
-# Companion apps, bars, launchers, terminals, lock/idle/wallpaper and theming
-# (qt6ct) are deliberately NOT installed — the operator brings those via their
-# own dotfiles.
+# compositor, both portals, the polkit agent, the Wayland clipboard bridge —
+# plus hyprlock, the one companion (ADR 0096), because it backs the shared lock
+# bind. Bars, launchers, terminals, idle/wallpaper and theming (qt6ct) are
+# deliberately NOT installed — the operator brings those via their own dotfiles.
+# The adapter does seed a curated hyprland.conf carrying the keybind vocabulary
+# shared with niri (ADR 0096, mirroring niri's ADR 0095 /etc/skel delivery).
 #
 # Injectable seams (tests):
 #   WAYLAND_SESSIONS_DIR — session-override dir
 #                          (default: /usr/local/share/wayland-sessions)
 #   ROOT                 — prefix for the session override + aquamarine DRM pin
 #                          writes (default: empty — writes to the live root)
+#   HYPR_SEED_ROOT       — prefix for the /etc/skel config seed (default: /)
+#   HYPR_CURATED_DIR     — curated hyprland.conf source
+#                          (default: SCRIPT_DIR/curated)
 #   STATE                — install-state.json, for the resolved `.gpu` array
 # =============================================================================
 set -Eeuo pipefail
@@ -21,6 +26,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _WS_DIR_DEFAULT=/usr/local/share/wayland-sessions
 WAYLAND_SESSIONS_DIR="${WAYLAND_SESSIONS_DIR:-$_WS_DIR_DEFAULT}"
 ROOT="${ROOT:-}"
+# Seed root for the /etc/skel config (ADR 0096, mirroring niri's ADR 0095).
+# Default `/` (the chroot); tests point HYPR_SEED_ROOT at a temp dir.
+SEED_ROOT="${HYPR_SEED_ROOT:-/}"
+# Curated-config source (ADR 0096). chroot.sh stages the repo's single-source
+# hyprland.conf here so this adapter seeds it into /etc/skel — served by
+# default, while the repo copy stays stowable. Injectable for tests.
+HYPR_CURATED_DIR="${HYPR_CURATED_DIR:-${SCRIPT_DIR}/curated}"
 
 # shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
 DE_TAG=HYPR
@@ -35,14 +47,38 @@ GPU_LIB_ONLY=1 source "${SCRIPT_DIR}/../../../lib/chroot/gpu.sh"
 # =============================================================================
 # CORE
 # =============================================================================
+# hyprlock is the ONE companion in core (ADR 0096): it backs the shared
+# Super+Alt+L lock bind, and a lock key that silently no-ops is a safety hole.
+# Every other app the curated config references (wofi, dolphin, playerctl, a
+# screenshot tool) stays operator-supplied — core-only is otherwise intact.
 section "Hyprland core"
 pacman -S --noconfirm --needed \
   hyprland \
+  hyprlock \
   seatd \
   xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk \
   polkit-kde-agent \
   wl-clipboard
+
+# =============================================================================
+# CURATED CONFIG (ADR 0096) — keybinds shared with niri, served via /etc/skel
+# =============================================================================
+# The curated hyprland.conf carries the keybind vocabulary shared with niri so
+# switching compositors feels like home. chroot.sh staged the repo's single
+# source into HYPR_CURATED_DIR; copy it into /etc/skel — a copy of the one
+# source (mirrors the niri adapter / ADR 0095), so the repo file stays stowable
+# and there is no drift. The launcher/file-manager/media binds stay operator-
+# supplied; only hyprlock is installed (core, above).
+section "Hyprland curated config"
+if [[ -f "${HYPR_CURATED_DIR}/.config/hypr/hyprland.conf" ]]; then
+  install -Dm644 "${HYPR_CURATED_DIR}/.config/hypr/hyprland.conf" \
+    "${SEED_ROOT%/}/etc/skel/.config/hypr/hyprland.conf"
+  info "Curated hyprland.conf seeded to /etc/skel."
+else
+  warn "Curated config absent (${HYPR_CURATED_DIR}) —" \
+       "skel gets no hyprland.conf."
+fi
 
 # SEAT MANAGER — seatd, not logind (ADR 0068).
 # aquamarine (Hyprland's backend) could not obtain DRM master via logind on

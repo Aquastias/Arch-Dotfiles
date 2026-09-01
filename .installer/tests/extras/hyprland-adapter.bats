@@ -19,11 +19,13 @@ setup() {
   PACMAN_LOG="$TEST_DIR/pacman.log"
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
   ROOT="$TEST_DIR/root"
+  SEED="$TEST_DIR/seed"
   STATE="$TEST_DIR/state.json"
   SESSION="$ROOT/usr/local/share/wayland-sessions/hyprland.desktop"
   ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
 
   export PACMAN_LOG SYSTEMCTL_LOG ROOT STATE
+  export HYPR_SEED_ROOT="$SEED"
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
@@ -32,6 +34,14 @@ setup() {
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl"
 
   export PATH="$STUB_BIN:$PATH"
+
+  # Curated-config source (ADR 0096, mirroring niri's ADR 0095): chroot.sh
+  # stages the repo's single-source hyprland.conf here; the adapter seeds it
+  # into /etc/skel.
+  CURATED="$TEST_DIR/curated"
+  mkdir -p "$CURATED/.config/hypr"
+  echo 'hypr-config' > "$CURATED/.config/hypr/hyprland.conf"
+  export HYPR_CURATED_DIR="$CURATED"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -73,14 +83,43 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
   grep -q "systemctl enable seatd" "$SYSTEMCTL_LOG"
 }
 
+# Core-only for apps (ADR 0021/0062) — no launcher, bar, screenshot tool, etc.
+# hyprlock is the sole exception (ADR 0096): it backs the shared lock bind, so a
+# fresh box can never be left with a dead Super+Alt+L (see its own test below).
 @test "installs no companion packages and no qt6ct" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   local p
-  for p in waybar dunst fuzzel rofi-wayland wofi alacritty hyprlock \
+  for p in waybar dunst fuzzel rofi-wayland wofi alacritty \
            hypridle hyprpaper grim slurp nwg-look qt6ct qt6ct-kde; do
     ! grep -q "$p" "$PACMAN_LOG" || { echo "unexpected package: $p"; return 1; }
   done
+}
+
+# hyprlock is in core so the shared Super+Alt+L lock bind always works on a
+# fresh box — a lock key that silently no-ops is a safety hole (ADR 0096).
+@test "installs hyprlock so the lock bind is never a dead no-op (ADR 0096)" {
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  grep -qw "hyprlock" "$PACMAN_LOG"
+}
+
+# ── curated config seeded via /etc/skel (ADR 0096, mirroring niri's ADR 0095) ─
+# The single-source hyprland.conf is staged into HYPR_CURATED_DIR by chroot.sh
+# and copied verbatim into /etc/skel, so a fresh box boots the shared keybinds.
+@test "seeds the curated hyprland.conf to /etc/skel (ADR 0096)" {
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
+  # Content matches the single source (a copy, no heredoc, no drift).
+  grep -qx hypr-config "$SEED/etc/skel/.config/hypr/hyprland.conf"
+}
+
+@test "warns but does not abort when the curated dir is absent" {
+  run env HYPR_CURATED_DIR="$TEST_DIR/none" ENVIRONMENT_DESKTOP="hyprland" \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
 }
 
 # ── session override (start-hyprland, DRM backend) ───────────────────────────

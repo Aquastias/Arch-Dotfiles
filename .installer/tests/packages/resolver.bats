@@ -134,6 +134,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "noctalia"      <<<"$n"
   grep -qx "kitty"         <<<"$n"
   grep -qx "brightnessctl" <<<"$n"
+  grep -qx "playerctl"     <<<"$n"   # media-key backend (ADR 0096)
 }
 
 @test "noctalia set is empty for bare niri (niri_shell=none)" {

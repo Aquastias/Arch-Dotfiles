@@ -135,11 +135,14 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 # ── Noctalia work preset (niri_shell=noctalia) ───────────────────────────────
 
+# playerctl is in the preset base (ADR 0096): the shared media-key binds shell
+# out to it, so it must be present for the keys to work out-of-box on the
+# prepared niri desktop (Hyprland leaves it operator-supplied).
 @test "niri_shell=noctalia installs the Noctalia work preset" {
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local p
-  for p in noctalia kitty brightnessctl; do
+  for p in noctalia kitty brightnessctl playerctl; do
     grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
   done
 }

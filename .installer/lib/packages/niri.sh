@@ -30,14 +30,17 @@ niri_core_packages() {
 
 # noctalia_preset_packages — the non-negotiable base of the Noctalia work preset
 # (ADR 0090), one package per line: the Noctalia shell itself (v5, extra repo),
-# the kitty terminal (Noctalia is not a terminal), and brightnessctl (Noctalia's
-# brightness OSD shells out to it). Optional companions (cava, cliphist) are
-# toggles in install-niri.jsonc, added by their callers.
+# the kitty terminal (Noctalia is not a terminal), brightnessctl (Noctalia's
+# brightness OSD shells out to it), and playerctl (the shared media-key binds
+# shell out to it — ADR 0096; Hyprland leaves it operator-supplied). Optional
+# companions (cava, cliphist) are toggles in install-niri.jsonc, added by their
+# callers.
 noctalia_preset_packages() {
   printf '%s\n' \
     noctalia \
     kitty \
-    brightnessctl
+    brightnessctl \
+    playerctl
 }
 
 # noctalia_community_plugins — the enriched preset's community plugin set (ADR

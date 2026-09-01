@@ -318,6 +318,14 @@ configure_system() {
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_niri_cur}/.local/bin/"
     fi
+    # Same single-source staging for the curated hyprland.conf (ADR 0096): the
+    # Hyprland adapter seeds it into /etc/skel. Harmless when Hyprland isn't
+    # chosen.
+    _hypr_cur="${MOUNT_ROOT}/root/extras/desktop/hyprland/curated"
+    if [[ -f "${SCRIPT_DIR}/../.config/hypr/hyprland.conf" ]]; then
+      install -Dm644 "${SCRIPT_DIR}/../.config/hypr/hyprland.conf" \
+        "${_hypr_cur}/.config/hypr/hyprland.conf"
+    fi
     info "Copied extras/ → /root/extras/"
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras" \
