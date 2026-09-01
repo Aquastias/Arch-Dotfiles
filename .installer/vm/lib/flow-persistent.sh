@@ -53,6 +53,23 @@ fi
 _HTTP_PID=""
 
 # =============================================================================
+# HARNESS SSH KEY — local-only debug key the host uses to enter the guest
+# =============================================================================
+# Persistent VMs enable sshd + authorize this key so the host (and an agent
+# driving it) can SSH in to diagnose the installed desktop. The key lives under
+# the git-ignored .vm-cache; generate it on first use so a fresh checkout is
+# self-contained. Never a production install artifact.
+_harness_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
+
+_harness_ensure_key() {
+  local key; key="$(_harness_key_path)"
+  [[ -f "$key" && -f "${key}.pub" ]] && return 0
+  command_exists ssh-keygen || error "ssh-keygen not found — install openssh."
+  info "Generating harness SSH key at ${key}."
+  ssh-keygen -t ed25519 -N '' -C arch-vm-harness -f "$key" >/dev/null
+}
+
+# =============================================================================
 # SEED — empty cloud-config (NoCloud datasource only; installer runs via HTTP)
 # =============================================================================
 _flow_build_seed() {
@@ -70,7 +87,7 @@ _flow_build_seed() {
 # INSTALLER SCRIPT (served over HTTP, launched via send-key)
 # =============================================================================
 _render_installer_script() {
-  local repo_url="$1" config_b64
+  local repo_url="$1" pubkey="$2" primary_user="${3:-aquastias}" config_b64
   config_b64="$(printf '%s' "${INSTALL_CONFIG_CONTENT}" | base64 -w 0)"
   cat <<EOF
 #!/usr/bin/env bash
@@ -78,11 +95,24 @@ set -euo pipefail
 set -x
 pacman-key --init
 pacman-key --populate archlinux
-pacman -Sy --noconfirm --needed git
+# jq patches the config (below) before the installer's own toolchain preflight.
+pacman -Sy --noconfirm --needed git jq
 rm -rf /root/dotfiles
 git clone ${repo_url} /root/dotfiles
 printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.installer/install.jsonc
 cd /root/dotfiles/.installer
+# Persistent debug VMs only: enable sshd + authorize the harness key so the host
+# can SSH into the installed guest to diagnose the desktop. The clone is
+# disposable, so patching the committed profile in place never leaks upstream.
+jq '.options.ssh.enabled = true' install.jsonc > install.jsonc.n \\
+  && mv install.jsonc.n install.jsonc
+source lib/jsonc.sh
+_uprof="users/${primary_user}/profile.jsonc"
+[[ -f "\$_uprof" ]] || _uprof="users/core/profile.jsonc"
+jsonc_strip "\$_uprof" \\
+  | jq --arg k '${pubkey}' \\
+      '.ssh_authorized_keys = ((.ssh_authorized_keys // []) + [\$k])' \\
+  > "\$_uprof.n" && mv "\$_uprof.n" "\$_uprof"
 # Test-only preset passphrases so an encrypted/SOPS profile installs unattended
 # (no-ops on profiles without encryption or secrets). Disposable VMs only.
 export INSTALL_ENC_PASSPHRASE='testtest'
@@ -131,7 +161,9 @@ _stop_http_server() {
 
 _launch_installer() {
   local script="${CACHE_DIR}/run"
-  _render_installer_script "${REPO_URL}" > "${script}"
+  local pubkey; pubkey="$(cat "$(_harness_key_path).pub")"
+  _render_installer_script "${REPO_URL}" "$pubkey" "${PRIMARY_USER}" \
+    > "${script}"
 
   python3 -m http.server "${HTTP_PORT}" \
     --directory "${CACHE_DIR}" \
@@ -149,17 +181,46 @@ _launch_installer() {
 # =============================================================================
 # NETWORK / COMPLETION WAITS
 # =============================================================================
+# Current DHCP lease of the domain's first NIC, or empty if none yet.
+_vm_ip_now() {
+  virsh domifaddr "$VM_NAME" 2>/dev/null \
+    | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' \
+    | head -1
+}
+
 _get_vm_ip() {
   local elapsed=0 ip
   while true; do
-    ip="$(virsh domifaddr "$VM_NAME" 2>/dev/null \
-          | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' \
-          | head -1)"
+    ip="$(_vm_ip_now)"
     [[ -n "$ip" ]] && { printf '%s\n' "$ip"; return 0; }
     sleep 5; elapsed=$((elapsed + 5))
     ((elapsed >= BOOT_TIMEOUT_SEC)) && \
       error "Timed out waiting for VM IP address."
   done
+}
+
+# Best-effort: wait for the installed guest's sshd, then print the ready-to-use
+# ssh command. Never fatal — a slow boot or a GPU-less host that never reaches a
+# lease must not fail an otherwise-successful install; it just prints guidance.
+_report_ssh_access() {
+  local key ip elapsed=0
+  key="$(_harness_key_path)"
+  info "Waiting for sshd on the installed guest (best-effort)."
+  while :; do
+    ip="$(_vm_ip_now)"
+    [[ -n "$ip" ]] && nc -z "$ip" 22 >/dev/null 2>&1 && break
+    sleep 5; elapsed=$((elapsed + 5))
+    ((elapsed >= BOOT_TIMEOUT_SEC)) && {
+      warn "Guest SSH not up yet — once it boots:"
+      warn "  ssh -i ${key} ${PRIMARY_USER}@<guest-ip>"
+      return 0
+    }
+  done
+  section "SSH access"
+  info "Guest IP: ${ip}"
+  info "Connect:  ssh -i ${key}" \
+       "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+       "${PRIMARY_USER}@${ip}"
 }
 
 _wait_for_ssh() {
@@ -188,7 +249,9 @@ _wait_for_poweroff() {
 # =============================================================================
 # ENTRY POINT
 # =============================================================================
-flow_persistent_deps() { _harness_ensure_deps nc:openbsd-netcat python3:python; }
+flow_persistent_deps() {
+  _harness_ensure_deps nc:openbsd-netcat python3:python ssh-keygen:openssh
+}
 
 flow_run() {
   trap '_stop_http_server' EXIT
@@ -196,6 +259,10 @@ flow_run() {
   _ensure_libvirt_group
   _ensure_libvirtd
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
+  _harness_ensure_key
+  # Primary user (users[0]) owns the authorized harness key + the ssh command.
+  PRIMARY_USER="$(jq -r '.users[0] // "aquastias"' \
+    <<<"${INSTALL_CONFIG_CONTENT}")"
 
   section "Resolving Arch ISO"
   local iso; iso="$(core_resolve_iso "$ISO_DIR")"
@@ -237,8 +304,10 @@ flow_run() {
   _vm_eject_cdroms
   _vm_boot
 
+  _report_ssh_access
+
   section "Done"
   info "VM '${VM_NAME}' is booting into the installed system."
   info "Open virt-manager and connect to '${VM_NAME}'."
-  info "Login: aquastias / 12345  (or root / 12345)"
+  info "Login: ${PRIMARY_USER} / 12345  (or root / 12345)"
 }
