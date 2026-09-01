@@ -197,6 +197,47 @@ COMPAT_RELEASES_JSON='{
   [[ "$output" == *"/archlinux-2099.02.01-x86_64.iso" ]]
 }
 
+@test "compat: picks a DKMS-buildable OLDER ISO when archzfs outran the ISOs" {
+  # The real block: archzfs bumped to 7.2 but the newest published ISO is still
+  # 7.1.x. DKMS builds ZFS against the ISO's own 7.1 headers, so 7.1 (<= 7.2) is
+  # usable — the resolver must pick it, not error. (Exact-match wrongly errored.)
+  _iso_resolver_fetch_archzfs_kernels() { printf '7.2\n'; }
+  _iso_resolver_fetch_arch_releases() { cat <<'JSON'
+{"releases": [
+  {"version":"2099.08.01","kernel_version":"7.1.5",
+   "iso_url":"/iso/2099.08.01/archlinux-2099.08.01-x86_64.iso","available":true},
+  {"version":"2099.07.01","kernel_version":"7.0.14",
+   "iso_url":"/iso/2099.07.01/archlinux-2099.07.01-x86_64.iso","available":true}
+]}
+JSON
+  }
+  _iso_resolver_download() { : > "$2"; return 0; }
+
+  run iso_resolver_get_zfs_compatible "$DOWNLOADS_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"/archlinux-2099.08.01-x86_64.iso" ]]
+}
+
+@test "compat: rejects an ISO NEWER than archzfs supports (too-new guard)" {
+  # The inverse guard (ADR 0023): an ISO kernel above the ceiling can't DKMS-
+  # build, so it must be skipped even though it is the newest available.
+  _iso_resolver_fetch_archzfs_kernels() { printf '7.2\n'; }
+  _iso_resolver_fetch_arch_releases() { cat <<'JSON'
+{"releases": [
+  {"version":"2099.09.01","kernel_version":"7.3.1",
+   "iso_url":"/iso/2099.09.01/archlinux-2099.09.01-x86_64.iso","available":true},
+  {"version":"2099.08.01","kernel_version":"7.1.5",
+   "iso_url":"/iso/2099.08.01/archlinux-2099.08.01-x86_64.iso","available":true}
+]}
+JSON
+  }
+  _iso_resolver_download() { : > "$2"; return 0; }
+
+  run iso_resolver_get_zfs_compatible "$DOWNLOADS_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"/archlinux-2099.08.01-x86_64.iso" ]]
+}
+
 @test "compat: cache hit short-circuits download" {
   _iso_resolver_fetch_archzfs_kernels() { printf '6.19\n'; }
   _iso_resolver_fetch_arch_releases() { echo "$COMPAT_RELEASES_JSON"; }
