@@ -68,6 +68,11 @@ setup() {
   grep -q 'spawn "kitty"' "$KDL"
 }
 
+@test "config.kdl skips the hotkey-overlay so no welcome screen on first login" {
+  grep -Eq 'hotkey-overlay[[:space:]]*\{' "$KDL"
+  grep -q 'skip-at-startup' "$KDL"
+}
+
 @test "the palette cycler is executable and uses the v5 native CLI" {
   [ -x "$CYCLE" ]
   grep -q 'noctalia msg color-scheme-set builtin' "$CYCLE"
