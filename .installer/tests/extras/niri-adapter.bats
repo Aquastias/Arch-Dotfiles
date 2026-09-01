@@ -67,6 +67,17 @@ GIT
   chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/git"
 
   export PATH="$STUB_BIN:$PATH"
+
+  # Curated-config source (ADR 0095): chroot.sh stages the repo's single-source
+  # dotfiles here at install time; the adapter seeds them into /etc/skel.
+  CURATED="$TEST_DIR/curated"
+  mkdir -p "$CURATED/.config/niri" "$CURATED/.config/noctalia" \
+    "$CURATED/.local/bin"
+  echo 'niri-config'     > "$CURATED/.config/niri/config.kdl"
+  echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
+  echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
+  echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
+  export NIRI_CURATED_DIR="$CURATED"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -133,16 +144,24 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   done
 }
 
-# The niri glue (config.kdl), the Noctalia look (config.toml), the palette cycler
-# and the plugin-enable one-shot are stow-owned dotfiles now (ADR 0094) — the
-# adapter seeds none of them, only the vendored plugin folders below.
-@test "noctalia seeds no config.toml, config.kdl, or helper scripts" {
+# The curated look is served by default via /etc/skel (ADR 0095): the niri glue
+# (config.kdl), the Noctalia look (config.toml), and the two helper scripts,
+# copied from the single-source curated dir so the repo copy stays stowable.
+@test "noctalia seeds the curated config + helpers to /etc/skel (ADR 0095)" {
   run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
   [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.config/niri/config.kdl" ]
+  [ -f "$SEED/etc/skel/.config/noctalia/config.toml" ]
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
+  # Content matches the single source (a copy, no heredoc, no drift).
+  grep -qx niri-config "$SEED/etc/skel/.config/niri/config.kdl"
+}
+
+@test "noctalia warns but does not abort when the curated dir is absent" {
+  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_CURATED_DIR="$TEST_DIR/none"
+  [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
-  [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
-  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
-  [ ! -e "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
 }
 
 @test "cava/cliphist install only when toggled on in install-niri.jsonc" {

@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
-# Seam B (ADR 0094): the curated Noctalia/niri config is a stow-owned dotfile at
-# the repo root, delivered by the Runner's per-user stow — not seeded by the
-# niri adapter. These tests read the COMMITTED payload and assert its shape:
+# Seam B (ADR 0094/0095): the curated Noctalia/niri config is the single-source
+# stow-ready payload at the repo root — the operator may stow it, and the niri
+# adapter seeds a copy into /etc/skel (ADR 0095). These tests read the COMMITTED
+# payload and assert its shape:
 # required keys/values present, host-bound/orphan content absent, scripts
 # shaped, and — the drift guard — that config.toml's enabled list mirrors the
 # vendored community set (noctalia_community_plugins), so the two cannot drift.

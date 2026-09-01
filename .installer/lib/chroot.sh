@@ -304,6 +304,20 @@ configure_system() {
     # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.
     _chroot_stage "${MOUNT_ROOT}/root/lib" "${_CHROOT_STAGE_EXTRAS_LIB[@]}"
     find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
+    # Stage the curated niri/Noctalia dotfiles (single source: the repo's
+    # .config/.local) into the niri adapter so it seeds /etc/skel (ADR 0095) —
+    # the extras tree is all the chroot adapter can reach. Repo-root is
+    # SCRIPT_DIR/.. (SCRIPT_DIR is .installer). Harmless when niri isn't chosen.
+    _niri_cur="${MOUNT_ROOT}/root/extras/desktop/niri/curated"
+    if [[ -f "${SCRIPT_DIR}/../.config/niri/config.kdl" ]]; then
+      install -Dm644 "${SCRIPT_DIR}/../.config/niri/config.kdl" \
+        "${_niri_cur}/.config/niri/config.kdl"
+      install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
+        "${_niri_cur}/.config/noctalia/config.toml"
+      install -d "${_niri_cur}/.local/bin"
+      install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
+        "${_niri_cur}/.local/bin/"
+    fi
     info "Copied extras/ → /root/extras/"
   else
     warn "extras/ directory not found at ${SCRIPT_DIR}/extras" \

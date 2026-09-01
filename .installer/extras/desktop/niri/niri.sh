@@ -32,6 +32,12 @@ ROOT="${ROOT:-}"
 # chroot); tests point NIRI_SEED_ROOT at a temp dir.
 SEED_ROOT="${NIRI_SEED_ROOT:-/}"
 
+# Curated-config source (ADR 0095). chroot.sh stages the repo's single-source
+# `.config`/`.local` curated niri+Noctalia dotfiles here so this adapter seeds
+# them into /etc/skel — served by default, while the repo copy stays
+# independently stowable. Injectable for tests.
+NIRI_CURATED_DIR="${NIRI_CURATED_DIR:-${SCRIPT_DIR}/curated}"
+
 # shellcheck disable=SC2034  # read by chroot/extras-common.sh after sourcing
 DE_TAG=niri
 # shellcheck source=/dev/null
@@ -159,10 +165,27 @@ if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
   [[ "$(_niri_bool cliphist)" == true ]] && _noc_pkgs+=(cliphist)
   pacman -S --noconfirm --needed "${_noc_pkgs[@]}"
 
-  # The niri glue (config.kdl), the Noctalia look (config.toml), the palette
-  # cycler, and the plugin-enable one-shot are stow-owned dotfiles now (ADR
-  # 0094), delivered by the Runner's per-user stow — NOT seeded here. This
-  # adapter only vendors the plugin folders below; the stow config enables them.
+  # Seed the curated config into /etc/skel so a fresh box boots the full look by
+  # default (ADR 0095, superseding 0094's stow-only delivery): the niri glue
+  # (config.kdl), the Noctalia look (config.toml), and the palette-cycle /
+  # enable-plugins helpers. Single source — chroot.sh staged these from the
+  # repo's .config/.local into NIRI_CURATED_DIR — so the same files stay
+  # independently stowable; the installer seeds, it never stows.
+  section "Noctalia curated config"
+  if [[ -d "$NIRI_CURATED_DIR" ]]; then
+    _skel="${SEED_ROOT%/}/etc/skel"
+    install -Dm644 "${NIRI_CURATED_DIR}/.config/niri/config.kdl" \
+      "${_skel}/.config/niri/config.kdl"
+    install -Dm644 "${NIRI_CURATED_DIR}/.config/noctalia/config.toml" \
+      "${_skel}/.config/noctalia/config.toml"
+    install -d "${_skel}/.local/bin"
+    install -m755 "${NIRI_CURATED_DIR}"/.local/bin/noctalia-* \
+      "${_skel}/.local/bin/"
+    info "Curated niri+Noctalia config seeded to /etc/skel."
+  else
+    warn "Curated config dir absent (${NIRI_CURATED_DIR}) —" \
+         "skel gets no niri/Noctalia config."
+  fi
 
   # Enriched community plugin set (ADR 0093). Collect the enabled plugins and
   # their official-repo tool deps (per-plugin bools in install-niri.jsonc gate
