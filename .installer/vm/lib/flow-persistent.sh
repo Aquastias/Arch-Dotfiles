@@ -104,8 +104,12 @@ cd /root/dotfiles/.installer
 # Persistent debug VMs only: enable sshd + authorize the harness key so the host
 # can SSH into the installed guest to diagnose the desktop. The clone is
 # disposable, so patching the committed profile in place never leaks upstream.
-jq '.options.ssh.enabled = true' install.jsonc > install.jsonc.n \\
-  && mv install.jsonc.n install.jsonc
+# dotfiles_repo = the repo under install, so the Runner stows the curated
+# per-user config (e.g. the niri/Noctalia dotfiles, ADR 0094) — without it the
+# desktop boots on built-in defaults, not the config the VM exists to exercise.
+jq --arg r '${repo_url}' \\
+  '.options.ssh.enabled = true | .dotfiles_repo = \$r' \\
+  install.jsonc > install.jsonc.n && mv install.jsonc.n install.jsonc
 source lib/jsonc.sh
 _uprof="users/${primary_user}/profile.jsonc"
 [[ -f "\$_uprof" ]] || _uprof="users/core/profile.jsonc"
