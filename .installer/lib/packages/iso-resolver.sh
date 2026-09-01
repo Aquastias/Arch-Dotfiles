@@ -114,19 +114,29 @@ _iso_resolver_pick_compatible_release() {
   [[ -n "$kernels_text" ]] || return 1
   [[ -n "$releases_json" ]] || return 1
 
-  # Build a `^(6\.19|6\.18)\.` regex that anchors to the kernel string's
-  # start and forces a literal dot after the major.minor — this prevents
-  # `6.19` from matching `6.190.x`.
-  local k_alt
-  k_alt="$(echo "$kernels_text" \
-    | sed 's/\./\\./g' | tr '\n' '|' | sed 's/|$//')"
-  [[ -n "$k_alt" ]] || return 1
+  # 01-bootstrap-zfs builds ZFS via DKMS against the ISO's OWN headers (the
+  # prebuilt is almost never installed), so an ISO is usable whenever its kernel
+  # is not NEWER than the newest kernel archzfs's ZFS source supports — the
+  # prebuilt kernels give that ceiling. Matching only an exact prebuilt version
+  # wrongly rejected a perfectly DKMS-buildable older ISO (e.g. archzfs at 7.2
+  # while the newest published ISO is still 7.1), stalling every ZFS install
+  # between an archzfs bump and the next monthly ISO.
+  local max_mm
+  max_mm="$(printf '%s\n' "$kernels_text" | sort -V | tail -1)"
+  [[ -n "$max_mm" ]] || return 1
 
+  # Walk releases newest-first; pick the first AVAILABLE one whose kernel
+  # major.minor is <= the ceiling, compared numerically (so 6.190 does not
+  # slip under a 6.19 cap, and 6.9 < 6.19).
   local picked
-  picked="$(jq -r --arg re "^($k_alt)\\." '
-    .releases
+  picked="$(jq -r --arg max "$max_mm" '
+    ($max | split(".") | map(tonumber)) as $cap
+    | .releases
     | map(select(.available == true))
-    | map(select(.kernel_version | test($re)))
+    | map(select(
+        (.kernel_version | split(".") | map(tonumber)) as $k
+        | ($k[0] < $cap[0]) or ($k[0] == $cap[0] and $k[1] <= $cap[1])
+      ))
     | (.[0].iso_url // empty)
   ' <<<"$releases_json")"
 
