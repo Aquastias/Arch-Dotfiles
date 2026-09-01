@@ -13,18 +13,23 @@ or playerctl — ADR 0096 Q15-a); `hyprlock` is the sole exception.
 
 **Blocked by:** Ticket 02 (needs the curated `hyprland.conf` to stage & seed).
 
-**Status:** ready-for-agent
+**Status:** done (commit 5bc7669)
 
-- [ ] The Hyprland adapter seeds the curated `hyprland.conf` to
+- [x] The Hyprland adapter seeds the curated `hyprland.conf` to
       `/etc/skel/.config/hypr/`, as a verbatim copy of the single repo source.
-- [ ] `HYPR_SEED_ROOT` and `HYPR_CURATED_DIR` seams exist and default the same
+- [x] `HYPR_SEED_ROOT` and `HYPR_CURATED_DIR` seams exist and default the same
       way niri's equivalents do; `chroot.sh` stages the config into the curated
       dir.
-- [ ] `hyprlock` is installed as part of the Hyprland core.
-- [ ] The adapter installs no other companion apps — the existing "installs no
+- [x] `hyprlock` is installed as part of the Hyprland core.
+- [x] The adapter installs no other companion apps — the existing "installs no
       companion packages" behavior still holds.
-- [ ] The adapter warns but does not abort when the curated dir is absent
+- [x] The adapter warns but does not abort when the curated dir is absent
       (mirrors the niri "warns but does not abort" behavior).
-- [ ] Hyprland-adapter tests cover: the skel seed + verbatim copy, `hyprlock` in
+- [x] Hyprland-adapter tests cover: the skel seed + verbatim copy, `hyprlock` in
       core, no other apps, and warn-if-curated-dir-absent.
-- [ ] No `hyprlock.conf` is seeded — hyprlock runs on its built-in defaults.
+- [x] No `hyprlock.conf` is seeded — hyprlock runs on its built-in defaults.
+
+## Comments
+
+Implemented in 5bc7669. Fully covered by the hyprland-adapter bats suite (all
+green); no open verification.

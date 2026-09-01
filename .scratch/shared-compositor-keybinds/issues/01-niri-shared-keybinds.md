@@ -13,21 +13,29 @@ Launcher and lock keys spawn Noctalia (`noctalia msg …`).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done (commit 5bc7669)
 
-- [ ] The curated niri config carries the full shared + niri-only bind set from
+- [x] The curated niri config carries the full shared + niri-only bind set from
       the ADR 0096 design table, in KDL dialect.
-- [ ] `niri validate` passes against the config.
-- [ ] The niri-only feature keys land collision-free (overview `Super+O`, width
+- [ ] `niri validate` passes against the config. *(not run — `niri` not
+      installed in the build env; authored against upstream default-config.
+      Verify on a niri box.)*
+- [x] The niri-only feature keys land collision-free (overview `Super+O`, width
       presets `Super+R`/`Shift+R`, consume/expel `Super+[`/`]`, tabbed `Super+W`,
       center `Super+C`, fine width `Super+-`/`=`, maximize-to-edges `Super+M`,
       monitor nav `Super+Shift`+HJKL/arrows, directional workspace nav
       `Super+U/I` + `Page_Up/Down`, power-off `Super+Shift+P`).
-- [ ] Shared move-to-workspace `Super+Shift`+`<n>` works alongside niri's native
+- [x] Shared move-to-workspace `Super+Shift`+`<n>` works alongside niri's native
       `Super+Ctrl`+`<n>`; workspace 10 / `Super+0` is not bound.
-- [ ] The overlay remains `hotkey-overlay { skip-at-startup }`.
-- [ ] `playerctl` is added to the Noctalia preset base in the pure package map
+- [x] The overlay remains `hotkey-overlay { skip-at-startup }`.
+- [x] `playerctl` is added to the Noctalia preset base in the pure package map
       shared with the Package Resolver.
-- [ ] The niri-adapter test asserts `playerctl` is installed with the preset.
-- [ ] The full adapter/test suite stays green; the curated config is still
+- [x] The niri-adapter test asserts `playerctl` is installed with the preset.
+- [x] The full adapter/test suite stays green; the curated config is still
       seeded to `/etc/skel` verbatim (ADR 0095 behavior unchanged).
+
+## Comments
+
+Implemented in 5bc7669. One open verification: run
+`niri validate ~/.config/niri/config.kdl` on a niri box before relying on it —
+the build env has no `niri`.
