@@ -93,6 +93,11 @@ _render_installer_script() {
 #!/usr/bin/env bash
 set -euo pipefail
 set -x
+# Authorize the harness key on the LIVE ISO too (archiso already runs sshd), so
+# the host can SSH in to read the install log even when the install fails before
+# the installed system is up — the whole point of a debug VM.
+install -d -m700 /root/.ssh
+printf '%s\n' '${pubkey}' >> /root/.ssh/authorized_keys
 pacman-key --init
 pacman-key --populate archlinux
 # jq patches the config (below) before the installer's own toolchain preflight.
@@ -121,7 +126,10 @@ jsonc_strip "\$_uprof" \\
 # (no-ops on profiles without encryption or secrets). Disposable VMs only.
 export INSTALL_ENC_PASSPHRASE='testtest'
 export SECRETS_AGE_PASSPHRASE='test'
-./install.sh --unattended install.jsonc
+# Capture the install to a file (a FILE tee is safe; serial is not — a slow
+# reader wedges pacman). On failure set -e aborts before poweroff, leaving the
+# VM up with the log at /root/install.log for the host to SSH in and read.
+./install.sh --unattended install.jsonc 2>&1 | tee /root/install.log
 sync
 poweroff
 EOF

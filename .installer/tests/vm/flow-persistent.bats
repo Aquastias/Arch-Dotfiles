@@ -49,6 +49,18 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'--needed git jq'* ]]
 }
 
+@test "render: authorizes the key on the live ISO and captures a log" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git \
+    'ssh-ed25519 AAAALIVE k' aquastias
+  [ "$status" -eq 0 ]
+  # Live-ISO key so the host can SSH in even on a failed install.
+  [[ "$output" == *'/root/.ssh/authorized_keys'* ]]
+  [[ "$output" == *'ssh-ed25519 AAAALIVE k'* ]]
+  # Install output captured to a retrievable file.
+  [[ "$output" == *'tee /root/install.log'* ]]
+}
+
 @test "harness key: generated on demand when absent" {
   command -v ssh-keygen >/dev/null || skip "ssh-keygen not available"
   run _harness_ensure_key
