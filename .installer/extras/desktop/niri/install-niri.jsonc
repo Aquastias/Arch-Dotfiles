@@ -1,10 +1,10 @@
 // niri Noctalia work-preset configuration (ADR 0090/0093)
 // Read by extras/desktop/niri/niri.sh and the Package Resolver when
-// environment.niri_shell = "noctalia". The base preset (noctalia, kitty,
+// environment.wayland_shell = "noctalia". The base preset (noctalia, kitty,
 // brightnessctl) is non-negotiable and lives in lib/packages/niri.sh; the
 // bools below are the optional companions + the enriched plugin set layered on
-// top. Flip one to add or drop it — the menu's only niri control is the
-// niri_shell on/off choice, so these component toggles live here (mirroring
+// top. Flip one to add or drop it — the menu's only shell control is the
+// wayland_shell on/off choice, so these component toggles live here (mirroring
 // KDE's install-kde.jsonc). Turning every plugin off recovers the lean shell.
 {
   // ── Companions ─────────────────────────────────────────────────────────────

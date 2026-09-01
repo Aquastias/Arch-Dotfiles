@@ -10,7 +10,7 @@
 # Display Manager Adapter (ADR 0069) — not this adapter's concern.
 #
 # The optional Noctalia work shell (ADR 0090) layers on top, gated on
-# ENVIRONMENT_NIRI_SHELL; bare niri (none / unset) installs the core only.
+# ENVIRONMENT_WAYLAND_SHELL; bare niri (none / unset) installs the core only.
 #
 # Injectable seams (tests):
 #   NIRI_SEED_ROOT       — prefix for /etc/skel seeds (default: / — the chroot)
@@ -76,7 +76,7 @@ ln -sf /usr/share/wayland-sessions/niri.desktop \
   "${ROOT}${WAYLAND_SESSIONS_DIR}/niri.desktop"
 
 # =============================================================================
-# NOCTALIA WORK PRESET (ADR 0090) — niri_shell=noctalia only
+# NOCTALIA WORK PRESET (ADR 0090) — wayland_shell=noctalia only
 # =============================================================================
 # Bare niri (none / unset) stops at the core above — the operator's dotfiles own
 # the shell (Hyprland core-only precedent). The preset turns a fresh niri box
@@ -156,7 +156,7 @@ _niri_collect_plugins() {
   done < <("$1")
 }
 
-if [[ "${ENVIRONMENT_NIRI_SHELL:-}" == noctalia ]]; then
+if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
   section "Noctalia work shell"
   # Base preset (pure map) + the enabled optional companions (cava, cliphist).
   _noc_pkgs=()

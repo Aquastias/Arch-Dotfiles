@@ -6,7 +6,7 @@
 # path (extras/desktop/niri/niri.sh, in the chroot) and the Package Resolver
 # (resolver.sh, on the host), so what installs and what the query reports can
 # never drift (mirrors base.sh / gpu.sh / audio.sh). Pure: name lists only —
-# the DECISION to install (niri selected; niri_shell=noctalia) stays with each
+# the DECISION to install (niri selected; wayland_shell=noctalia) stays with each
 # caller (ADR 0090).
 # =============================================================================
 
