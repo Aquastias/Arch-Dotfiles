@@ -1007,19 +1007,22 @@ preset is **enriched by default** with a curated, overlap-free plugin set —
 `cat`, `wallpaper-switcher`, the three `niri-*` plugins, plus `portctl`,
 `game-launcher`, `hotspot`, `bookmarks`, `llamanager`, `dns-switcher`, and
 laptop-gated `battery-power-management` + `battery-widget`. Since ADR 0094 the
-adapter only **vendors** these plugin folders (pinned from the community source)
-into `/etc/skel`; the curated **config is a stow-owned dotfile**, delivered by
-the Runner's per-user stow — the niri `config.kdl` glue (autostart
-`noctalia --daemon`), the `config.toml` look (Rosé Pine palette, dark mode,
-`Noto Sans` UI font, the bundled wallpaper, the enabled-plugin list), the
-palette-cycle tile + script, and the first-login plugin-enable one-shot. Nothing
-Noctalia is skel-seeded but the vendored plugins. Host-bound surfaces (lockscreen
-widget geometry, wallpaper paths) stay out of the stowed config so it is portable
-across hardware. Preset component bools — one per plugin, plus `laptop`, `cava`,
-`cliphist` — live in `install-niri.jsonc`, mirroring KDE's `install-kde.jsonc`
-(ADR 0087); toggling them off recovers the lean shell, and a drift guard keeps
-the stowed enabled list equal to the vendored set. Noctalia runs on Hyprland too;
-the field is niri-bound for now but written to generalise.
+curated config is **single-source stow payload** at the repo root — the niri
+`config.kdl` glue (autostart `noctalia --daemon`), the `config.toml` look (Rosé
+Pine palette, dark mode, `Noto Sans` UI font, the bundled wallpaper, the
+enabled-plugin list), the palette-cycle tile + script, and the first-login
+plugin-enable one-shot. ADR **0095** reversed 0094's *delivery*: the adapter now
+**seeds** those into `/etc/skel` (served by default on a fresh box — `chroot.sh`
+stages the repo files into the adapter, which copies them), and the installer
+**never stows** — the same repo copy stays independently stowable by the
+operator. The plugin folders are separately **vendored** (pinned from the
+community source) into `/etc/skel/.local/share/noctalia/plugins`. Host-bound
+surfaces (lockscreen widget geometry, wallpaper paths) stay out of the config so
+it is portable across hardware. Preset component bools — one per plugin, plus
+`laptop`, `cava`, `cliphist` — live in `install-niri.jsonc`, mirroring KDE's
+`install-kde.jsonc` (ADR 0087); toggling them off recovers the lean shell, and a
+drift guard keeps the config's enabled list equal to the vendored set. Noctalia
+runs on Hyprland too; the field is niri-bound for now but written to generalise.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
