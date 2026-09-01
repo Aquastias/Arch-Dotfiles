@@ -1,11 +1,14 @@
-// niri Noctalia work-preset configuration (ADR 0090/0093)
-// Read by extras/desktop/niri/niri.sh and the Package Resolver when
+// Noctalia work-preset configuration (ADR 0090/0093/0097) — SHARED by the niri
+// AND Hyprland adapters, read by both and the Package Resolver when
 // environment.wayland_shell = "noctalia". The base preset (noctalia, kitty,
-// brightnessctl) is non-negotiable and lives in lib/packages/niri.sh; the
-// bools below are the optional companions + the enriched plugin set layered on
-// top. Flip one to add or drop it — the menu's only shell control is the
-// wayland_shell on/off choice, so these component toggles live here (mirroring
-// KDE's install-kde.jsonc). Turning every plugin off recovers the lean shell.
+// brightnessctl) is non-negotiable and lives in lib/packages/niri.sh; the bools
+// below are the optional companions + the enriched plugin set layered on top.
+// Plugins are grouped: a compositor-AGNOSTIC shared core, then per-compositor
+// SLICES (niri-* / hypr-*) — each adapter installs shared + its own slice, so
+// config.toml stays byte-identical across compositors (ADR 0097). Flip one to
+// add or drop it — the menu's only shell control is the wayland_shell on/off
+// choice, so these toggles live here (mirroring KDE's install-kde.jsonc).
+// Turning every plugin off recovers the lean shell.
 {
   // ── Companions ─────────────────────────────────────────────────────────────
   // Audio visualizer. Off by default: cava is a known audio sample-rate
@@ -15,18 +18,15 @@
   // works without a separate backend for most users.
   "cliphist": false,
 
-  // ── Enriched community plugin set (ADR 0093/0094) ──────────────────────────
+  // ── Shared core plugin set — compositor-agnostic (ADR 0093/0094/0097) ──────
   // Each key is a community-plugins subdir vendored at a pinned ref; the stowed
-  // config.toml carries the matching enabled list (a drift guard keeps the two
-  // in step). Its official-repo tool deps install only when on. The
-  // overlap-losers (color_picker, screen_recorder, system-monitor,
+  // config.toml carries the matching enabled list for THIS core set (a drift
+  // guard keeps the two in step). Its official-repo tool deps install only when
+  // on. The overlap-losers (color_picker, screen_recorder, system-monitor,
   // system-updater, config-swap, calculator, keybind-cheatsheet,
   // battery-threshold) are deliberately absent (ADR 0093); bitwarden and
   // mini-docker were dropped from the default set (ADR 0094).
   "keymap": true,
-  "niri-active-workspace": true,
-  "niri-animations": true,
-  "niri-displays": true,
   "sharednd": true,
   "screen-toolkit": true,
   "wl-screen-mirror": true,
@@ -50,6 +50,18 @@
   "bookmarks": true,
   "llamanager": true,
   "dns-switcher": true,
+
+  // ── niri slice — vendored only on a niri box (ADR 0097) ────────────────────
+  // Compositor-specific plugins reading niri's IPC/state. Never written into the
+  // shared config.toml; the first-login one-shot enables the vendored set.
+  "niri-active-workspace": true,
+  "niri-animations": true,
+  "niri-displays": true,
+
+  // ── Hyprland slice — vendored only on a Hyprland box (ADR 0097) ─────────────
+  // The hypr-* counterparts of the niri slice; each id is verified to exist at
+  // the pinned community ref before it ships. Populated by the Hyprland
+  // plugin-slice work — empty until then.
 
   // ── Laptop-gated battery plugins (ADR 0093) ────────────────────────────────
   // `laptop`: "auto" detects a battery (/sys/class/power_supply/BAT*) at

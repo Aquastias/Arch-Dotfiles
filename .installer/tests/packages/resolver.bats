@@ -153,7 +153,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 }
 
 @test "noctalia set reports enriched plugin tool deps (ADR 0093/0094)" {
-  # committed install-niri.jsonc enables the curated plugin set by default
+  # committed install-noctalia.jsonc enables the curated plugin set by default
   local n
   n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
   grep -qx "smartmontools" <<<"$n"   # drive-health
@@ -174,9 +174,9 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 
 @test "noctalia set reports battery deps when laptop is forced true" {
   local t; t="$(mktemp -d)"
-  mkdir -p "$t/extras/desktop/niri"
+  mkdir -p "$t/extras/desktop"
   printf '{"laptop":true,"battery-widget":true}\n' \
-    > "$t/extras/desktop/niri/install-niri.jsonc"
+    > "$t/extras/desktop/install-noctalia.jsonc"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
     source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'

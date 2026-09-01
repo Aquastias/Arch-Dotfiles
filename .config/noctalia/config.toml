@@ -103,9 +103,6 @@ onclick_cmd = "sh $HOME/.local/bin/noctalia-cycle-palette"
 auto_update = "none"
 enabled = [
     "blackbartblues/keymap",
-    "salemsayed/niri-active-workspace",
-    "imjustdoingmypart/niri-animations",
-    "raycursive/niri-displays",
     "whyoolw/sharednd",
     "alexander/screen-toolkit",
     "elijaharch/wl-screen-mirror",
