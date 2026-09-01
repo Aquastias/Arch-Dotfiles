@@ -27,12 +27,13 @@ ENVIRONMENT_GPU=()
 # shellcheck disable=SC2034
 ENVIRONMENT_DISPLAY_MANAGER=""
 
-# The Noctalia work-shell preset selector (ADR 0090): noctalia | none. Set by
-# _resolve_env_validate (default noctalia); meaningful only when niri is in the
-# desktop set. Crosses into the chroot as an env var (chroot.sh) and is read by
-# the niri adapter — no install-state field, like ENVIRONMENT_DESKTOP.
+# The Noctalia work-shell preset selector (ADR 0090/0097): noctalia | none. Set
+# by _resolve_env_validate (default noctalia); meaningful for any wlroots
+# compositor in the desktop set (niri and Hyprland). Crosses into the chroot as
+# an env var (chroot.sh) and is read by the niri/Hyprland adapters — no
+# install-state field, like ENVIRONMENT_DESKTOP.
 # shellcheck disable=SC2034
-ENVIRONMENT_NIRI_SHELL=""
+ENVIRONMENT_WAYLAND_SHELL=""
 
 # Set by _resolve_env_gpu; consumed by collect_packages.
 # Declared here so collect_packages can detect unresolved state.
@@ -46,7 +47,7 @@ AUDIO_PACKAGES=()
 _VALID_DESKTOP=(kde hyprland niri)
 _VALID_GPU=(amd nvidia intel auto)
 _VALID_DISPLAY_MANAGER=(auto greetd sddm)
-_VALID_NIRI_SHELL=(noctalia none)
+_VALID_WAYLAND_SHELL=(noctalia none)
 
 # The pure GPU + audio package maps, shared with the Package Resolver so the
 # names live once. Detection and the intel refinement below stay impure here.
@@ -219,18 +220,18 @@ _resolve_env_validate() {
   $_dm_ok || error "Unknown display_manager '${ENVIRONMENT_DISPLAY_MANAGER}'." \
     "Valid: ${_VALID_DISPLAY_MANAGER[*]}."
 
-  # ── niri shell ─────────────────────────────────────────────────────────────
-  # The Noctalia work-shell preset selector (ADR 0090); defaults to noctalia.
-  # Meaningful only when niri is in the desktop set — harmless otherwise (the
-  # niri adapter is the only reader).
-  ENVIRONMENT_NIRI_SHELL="$(jsonc_strip "$CONFIG_FILE" \
-    | jq -r '.environment.niri_shell // "noctalia"')"
+  # ── wayland shell ────────────────────────────────────────────────────────────
+  # The Noctalia work-shell preset selector (ADR 0090/0097); defaults to
+  # noctalia. Meaningful for any wlroots compositor in the desktop set (niri and
+  # Hyprland) — harmless otherwise (the niri/Hyprland adapters are the readers).
+  ENVIRONMENT_WAYLAND_SHELL="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.wayland_shell // "noctalia"')"
   local _ns_ok=false
-  for _v in "${_VALID_NIRI_SHELL[@]}"; do
-    [[ "$ENVIRONMENT_NIRI_SHELL" == "$_v" ]] && _ns_ok=true && break
+  for _v in "${_VALID_WAYLAND_SHELL[@]}"; do
+    [[ "$ENVIRONMENT_WAYLAND_SHELL" == "$_v" ]] && _ns_ok=true && break
   done
-  $_ns_ok || error "Unknown niri_shell '${ENVIRONMENT_NIRI_SHELL}'." \
-    "Valid: ${_VALID_NIRI_SHELL[*]}."
+  $_ns_ok || error "Unknown wayland_shell '${ENVIRONMENT_WAYLAND_SHELL}'." \
+    "Valid: ${_VALID_WAYLAND_SHELL[*]}."
 }
 
 # Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
@@ -274,7 +275,7 @@ resolve_environment() {
   ENVIRONMENT_DESKTOP=()
   ENVIRONMENT_GPU=()
   ENVIRONMENT_DISPLAY_MANAGER=""
-  ENVIRONMENT_NIRI_SHELL=""
+  ENVIRONMENT_WAYLAND_SHELL=""
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
   AUDIO_PACKAGES=()

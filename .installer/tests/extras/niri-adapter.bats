@@ -4,7 +4,7 @@
 # Strategy: run the adapter as a subprocess with pacman, systemctl and git
 # stubbed as executables in a temp bin dir prepended to PATH. Injectable seams:
 #   NIRI_SEED_ROOT — prefix for /etc/skel seeds (default /; tests → tmpdir)
-#   ENVIRONMENT_NIRI_SHELL — noctalia | none (the shell preset selector)
+#   ENVIRONMENT_WAYLAND_SHELL — noctalia | none (the shell preset selector)
 #   NIRI_JSON      — install-niri.jsonc override (preset component bools)
 #
 # niri is core-only like Hyprland but leaner: the niri package ships its own
@@ -123,23 +123,23 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   ! grep -q "enable sddm" "$SYSTEMCTL_LOG"
 }
 
-# ── bare niri seeds nothing (niri_shell=none) ────────────────────────────────
+# ── bare niri seeds nothing (wayland_shell=none) ─────────────────────────────
 
-@test "niri_shell=none installs only the core and seeds nothing" {
-  run_niri ENVIRONMENT_NIRI_SHELL="none"
+@test "wayland_shell=none installs only the core and seeds nothing" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL="none"
   [ "$status" -eq 0 ]
   ! grep -q "noctalia" "$PACMAN_LOG"
   ! grep -q "kitty" "$PACMAN_LOG"
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
-# ── Noctalia work preset (niri_shell=noctalia) ───────────────────────────────
+# ── Noctalia work preset (wayland_shell=noctalia) ────────────────────────────
 
 # playerctl is in the preset base (ADR 0096): the shared media-key binds shell
 # out to it, so it must be present for the keys to work out-of-box on the
 # prepared niri desktop (Hyprland leaves it operator-supplied).
-@test "niri_shell=noctalia installs the Noctalia work preset" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+@test "wayland_shell=noctalia installs the Noctalia work preset" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local p
   for p in noctalia kitty brightnessctl playerctl; do
@@ -151,7 +151,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 # (config.kdl), the Noctalia look (config.toml), and the two helper scripts,
 # copied from the single-source curated dir so the repo copy stays stowable.
 @test "noctalia seeds the curated config + helpers to /etc/skel (ADR 0095)" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   [ -f "$SEED/etc/skel/.config/niri/config.kdl" ]
   [ -f "$SEED/etc/skel/.config/noctalia/config.toml" ]
@@ -162,7 +162,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "noctalia warns but does not abort when the curated dir is absent" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_CURATED_DIR="$TEST_DIR/none"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_CURATED_DIR="$TEST_DIR/none"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
@@ -170,7 +170,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "cava/cliphist install only when toggled on in install-niri.jsonc" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"cava":true,"cliphist":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   grep -q "cava" "$PACMAN_LOG"
   grep -q "cliphist" "$PACMAN_LOG"
@@ -179,7 +179,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "cava/cliphist stay out when toggled off" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"cava":false,"cliphist":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   ! grep -qw "cava" "$PACMAN_LOG"
   ! grep -qw "cliphist" "$PACMAN_LOG"
@@ -188,7 +188,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 # ── Enriched community plugin set (ADR 0093/0094) ────────────────────────────
 
 @test "noctalia vendors the curated plugin set with tool deps" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   local pl
@@ -209,7 +209,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "dropped plugins are never vendored (ADR 0093/0094)" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   local pl
@@ -224,7 +224,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 @test "a plugin toggled off is not vendored and its unique dep is skipped" {
   local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager" ]
   ! grep -qw "ollama" "$PACMAN_LOG"
@@ -232,7 +232,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 @test "a plugin toggled on is vendored and its unique dep installs" {
   local nj="$TEST_DIR/nj.jsonc"; printf '{"llamanager":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   [ -f "$SEED/etc/skel/.local/share/noctalia/plugins/llamanager/plugin.toml" ]
   grep -qw "ollama" "$PACMAN_LOG"
@@ -240,7 +240,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 @test "all plugin bools off recovers the lean shell (base only)" {
   local nj="$TEST_DIR/nj.jsonc"; printf '{"cava":false}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -d "$base" ] || [ -z "$(ls -A "$base")" ]
@@ -251,7 +251,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 @test "battery present (laptop): the battery pair is vendored with upower" {
   mkdir -p "$TEST_DIR/bat/BAT0"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ -f "$base/battery-power-management/plugin.toml" ]
@@ -260,7 +260,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 }
 
 @test "no battery (desktop): the battery pair is absent, upower not installed" {
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"   # setup glob matches no BAT
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"   # setup glob matches no BAT
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ ! -e "$base/battery-power-management" ]
@@ -271,7 +271,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 @test "laptop=true forces the battery pair even without a battery" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"laptop":true,"battery-widget":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj"
   [ "$status" -eq 0 ]
   local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
   [ -f "$p/plugin.toml" ]
@@ -281,7 +281,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   mkdir -p "$TEST_DIR/bat/BAT0"
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"laptop":false,"battery-widget":true}\n' > "$nj"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia" NIRI_JSON="$nj" \
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_JSON="$nj" \
     NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
   [ "$status" -eq 0 ]
   local p="$SEED/etc/skel/.local/share/noctalia/plugins/battery-widget"
@@ -295,7 +295,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   printf '#!/usr/bin/env bash\necho "git $*" >> "$GIT_LOG"\nexit 1\n' \
     > "$STUB_BIN/git"
   chmod +x "$STUB_BIN/git"
-  run_niri ENVIRONMENT_NIRI_SHELL="noctalia"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   grep -qw "noctalia" "$PACMAN_LOG"
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"

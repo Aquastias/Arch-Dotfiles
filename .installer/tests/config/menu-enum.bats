@@ -38,8 +38,8 @@ setup() {
   [ "$output" == "$(printf '%s\n' auto greetd sddm)" ]
 }
 
-@test "menu_enum_options: niri shell (noctalia default, ADR 0090)" {
-  run menu_enum_options environment.niri_shell
+@test "menu_enum_options: wayland shell (noctalia default, ADR 0090/0097)" {
+  run menu_enum_options environment.wayland_shell
   [ "$output" == "$(printf '%s\n' noctalia none)" ]
 }
 

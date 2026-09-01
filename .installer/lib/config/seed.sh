@@ -80,7 +80,7 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" options.kernel '["lts"]')"
   state="$(cfgstate_set "$state" environment.gpu '"auto"')"
   state="$(cfgstate_set "$state" environment.display_manager '"auto"')"
-  state="$(cfgstate_set "$state" environment.niri_shell '"noctalia"')"
+  state="$(cfgstate_set "$state" environment.wayland_shell '"noctalia"')"
   state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"

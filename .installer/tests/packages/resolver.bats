@@ -128,7 +128,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ -z "$got" ]
 }
 
-@test "noctalia set reports the work preset when niri_shell defaults on" {
+@test "noctalia set reports the work preset when wayland_shell defaults on" {
   local n
   n="$(pkgs_of '{"users":[],"environment":{"desktop":["niri"]}}' noctalia)"
   grep -qx "noctalia"      <<<"$n"
@@ -137,10 +137,10 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "playerctl"     <<<"$n"   # media-key backend (ADR 0096)
 }
 
-@test "noctalia set is empty for bare niri (niri_shell=none)" {
+@test "noctalia set is empty for bare niri (wayland_shell=none)" {
   local n
   n="$(pkgs_of \
-    '{"users":[],"environment":{"desktop":["niri"],"niri_shell":"none"}}' \
+    '{"users":[],"environment":{"desktop":["niri"],"wayland_shell":"none"}}' \
     noctalia)"
   [ -z "$n" ]
 }

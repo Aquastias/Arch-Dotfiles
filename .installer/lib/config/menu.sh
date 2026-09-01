@@ -66,10 +66,10 @@ _MENU_FIELDS=(
   "System|options.fonts|fonts|"
   "Environment|environment.desktop|desktop|"
   "Environment|environment.display_manager|display manager|auto"
-  # niri shell (ADR 0090): the Noctalia work-preset selector. Only meaningful
-  # when niri is in the desktop set; default noctalia (prepared work desktop),
-  # none = bare niri.
-  "Environment|environment.niri_shell|niri shell|noctalia"
+  # wayland shell (ADR 0090/0097): the Noctalia work-preset selector. Meaningful
+  # for any wlroots compositor in the desktop set (niri, Hyprland); default
+  # noctalia (prepared work desktop), none = bare compositor.
+  "Environment|environment.wayland_shell|wayland shell|noctalia"
   "Environment|environment.gpu|gpu|auto"
   # Packages has NO field rows: its whole surface is the repo/aur/derived drill
   # (ADR 0086). The old free-text "extra packages" row was a redundant third add
@@ -112,7 +112,7 @@ menu_enum_options() {
     printf '%s\n' systemd-boot grub efistub limine refind ;;
   environment.desktop)            printf '%s\n' kde hyprland niri ;;
   environment.display_manager)    printf '%s\n' auto greetd sddm ;;
-  environment.niri_shell)         printf '%s\n' noctalia none ;;
+  environment.wayland_shell)      printf '%s\n' noctalia none ;;
   environment.gpu)                printf '%s\n' auto amd nvidia intel ;;
   post_install.security.firewall) printf '%s\n' firewalld ufw none ;;
   options.mirror_countries)

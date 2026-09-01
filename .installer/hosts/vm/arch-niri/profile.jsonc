@@ -20,9 +20,9 @@
   },
 
   "environment": {
-    "desktop":    "niri",
-    "niri_shell": "noctalia",
-    "gpu":        "auto"
+    "desktop":       "niri",
+    "wayland_shell": "noctalia",
+    "gpu":           "auto"
   },
 
   "post_install": {

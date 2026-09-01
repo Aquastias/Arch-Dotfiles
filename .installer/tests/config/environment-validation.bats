@@ -169,23 +169,30 @@ write_config() {
   [[ "$output" =~ "greetd" ]]
 }
 
-# ── niri shell preset (ADR 0090) ───────────────────────────────────────────
+# ── wayland shell preset (ADR 0090/0097) ────────────────────────────────────
 
-@test "niri_shell defaults to noctalia when absent" {
+@test "wayland_shell defaults to noctalia when absent" {
   write_config '{"environment": {"desktop": "niri"}}'
   _resolve_env_validate
-  [ "$ENVIRONMENT_NIRI_SHELL" = "noctalia" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]
 }
 
-@test "niri_shell 'none' passes validation" {
-  write_config '{"environment": {"desktop": "niri", "niri_shell": "none"}}'
+@test "wayland_shell 'none' passes validation" {
+  write_config '{"environment": {"desktop": "niri", "wayland_shell": "none"}}'
   _resolve_env_validate
-  [ "$ENVIRONMENT_NIRI_SHELL" = "none" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
 }
 
-@test "niri_shell unknown value fails validation naming valid options" {
+@test "wayland_shell is honored for hyprland too" {
   write_config \
-    '{"environment": {"desktop": "niri", "niri_shell": "waybar"}}'
+    '{"environment": {"desktop": "hyprland", "wayland_shell": "none"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
+}
+
+@test "wayland_shell unknown value fails validation naming valid options" {
+  write_config \
+    '{"environment": {"desktop": "niri", "wayland_shell": "waybar"}}'
   run _resolve_env_validate
   [ "$status" -ne 0 ]
   [[ "$output" =~ "waybar" ]]

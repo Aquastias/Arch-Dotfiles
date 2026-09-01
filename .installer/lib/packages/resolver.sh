@@ -395,8 +395,8 @@ pkgres_resolve() {
 
 # _pkgres_de_packages <de> <cfg> — the Desktop Environment Adapter's own sets.
 # KDE reads its install-kde.jsonc (ADR 0021); niri's core is a pure map shared
-# with the adapter and its Noctalia preset keys on environment.niri_shell (ADR
-# 0090), so it is handled separately from the jsonc-driven KDE path.
+# with the adapter and its Noctalia preset keys on environment.wayland_shell (ADR
+# 0090/0097), so it is handled separately from the jsonc-driven KDE path.
 _pkgres_de_packages() {
   local de="$1" cfg="${2:-}"
   if [[ "$de" == niri ]]; then
@@ -467,7 +467,7 @@ _pkgres_niri_plugin_deps() {
 
 # _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
 # pure niri_core_packages map (shared with the adapter). The Noctalia work
-# preset (source `noctalia`) is keyed on environment.niri_shell: the base preset
+# preset (source `noctalia`) is keyed on environment.wayland_shell: the base preset
 # map plus the enabled install-niri.jsonc component bools (cava, cliphist), so
 # query and install cannot drift.
 _pkgres_niri_packages() {
@@ -476,7 +476,7 @@ _pkgres_niri_packages() {
     [[ -n "$p" ]] && _pkgres_emit niri-shell derived "$p"
   done < <(niri_core_packages)
 
-  shell="$(_pkgres_jq "$cfg" '.environment.niri_shell // "noctalia"')"
+  shell="$(_pkgres_jq "$cfg" '.environment.wayland_shell // "noctalia"')"
   [[ "$shell" == noctalia ]] || return 0
 
   while IFS= read -r p; do
