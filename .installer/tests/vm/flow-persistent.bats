@@ -21,13 +21,12 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'.options.ssh.enabled = true'* ]]
 }
 
-@test "render: sets dotfiles_repo so the curated config gets stowed" {
+@test "render: does NOT set dotfiles_repo (installer never stows — ADR 0095)" {
   INSTALL_CONFIG_CONTENT='{"users":["aquastias"],"options":{}}'
   run _render_installer_script https://example/repo.git \
     'ssh-ed25519 AAAAKEY test' aquastias
   [ "$status" -eq 0 ]
-  [[ "$output" == *'.dotfiles_repo = $r'* ]]
-  [[ "$output" == *'--arg r '\''https://example/repo.git'\'''* ]]
+  [[ "$output" != *'.dotfiles_repo ='* ]]
 }
 
 @test "render: authorizes the harness pubkey for the primary user" {
