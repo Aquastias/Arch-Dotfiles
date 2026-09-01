@@ -1,9 +1,12 @@
 # The curated Noctalia config ships as a stow-owned dotfile
 
 ---
-Status: accepted. Partially supersedes ADR 0093's "widget placement stays the
-user's" clause (scoped to the placement clause only). Extends ADR 0090 (niri
-adapter + Noctalia preset) and ADR 0012 (legacy top-level stow tree).
+Status: accepted; its delivery mechanism (stow-at-install) is **superseded by
+ADR 0095** — the curated config is now skel-seeded, not Runner-stowed; its
+single-source-in-the-repo and config-*content* decisions stand. Partially
+supersedes ADR 0093's "widget placement stays the user's" clause (scoped to the
+placement clause only). Extends ADR 0090 (niri adapter + Noctalia preset) and
+ADR 0012 (legacy top-level stow tree).
 ---
 
 ADR 0090/0093 seeded a **minimal** glue `config.kdl` and an installer-**generated**
