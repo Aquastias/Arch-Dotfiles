@@ -605,6 +605,10 @@ mapfile -t _pkgs < <(cg_legacy_packages ".")
 stow --no-folding "\${_pkgs[@]}"
 stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .
 CLONE_INNER
+# mktemp created the script as root (0600); make it readable so the su'd user
+# can run it — otherwise "bash: <tmp>: Permission denied" aborts the install.
+# Only reachable once a host sets dotfiles_repo (the VM path exercises it).
+chmod 0644 "$CLONE_SCRIPT"
 su - "$USER_NAME" -c "bash '$CLONE_SCRIPT'"
 rm -f "$CLONE_SCRIPT"
 CHROOT_DOTFILES
