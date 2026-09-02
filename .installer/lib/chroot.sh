@@ -321,13 +321,20 @@ configure_system() {
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_niri_cur}/.local/bin/"
     fi
-    # Same single-source staging for the curated hyprland.conf (ADR 0096): the
-    # Hyprland adapter seeds it into /etc/skel. Harmless when Hyprland isn't
-    # chosen.
+    # Same single-source staging for Hyprland (ADR 0097): the Hyprland adapter
+    # seeds the SAME Noctalia payload niri does — the Noctalia-wired
+    # hyprland.conf plus the shared config.toml + noctalia-* helpers — so a
+    # Hyprland+Noctalia box gets a config.toml byte-identical to the niri one.
+    # Harmless when Hyprland isn't chosen.
     _hypr_cur="${MOUNT_ROOT}/root/extras/desktop/hyprland/curated"
     if [[ -f "${SCRIPT_DIR}/../.config/hypr/hyprland.conf" ]]; then
       install -Dm644 "${SCRIPT_DIR}/../.config/hypr/hyprland.conf" \
         "${_hypr_cur}/.config/hypr/hyprland.conf"
+      install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
+        "${_hypr_cur}/.config/noctalia/config.toml"
+      install -d "${_hypr_cur}/.local/bin"
+      install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
+        "${_hypr_cur}/.local/bin/"
     fi
     info "Copied extras/ → /root/extras/"
   else

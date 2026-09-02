@@ -18,35 +18,74 @@ setup() {
 
   PACMAN_LOG="$TEST_DIR/pacman.log"
   SYSTEMCTL_LOG="$TEST_DIR/systemctl.log"
+  GIT_LOG="$TEST_DIR/git.log"
   ROOT="$TEST_DIR/root"
   SEED="$TEST_DIR/seed"
   STATE="$TEST_DIR/state.json"
   SESSION="$ROOT/usr/local/share/wayland-sessions/hyprland.desktop"
   ADAPTER="$BATS_TEST_DIRNAME/../../extras/desktop/hyprland/hyprland.sh"
 
-  export PACMAN_LOG SYSTEMCTL_LOG ROOT STATE
+  export PACMAN_LOG SYSTEMCTL_LOG GIT_LOG ROOT STATE
   export HYPR_SEED_ROOT="$SEED"
+  # Default to "no battery" (desktop) so laptop plugin gating is deterministic;
+  # battery is not exercised here.
+  export HYPR_BAT_GLOB="$TEST_DIR/nobat/BAT*"
 
   printf '#!/usr/bin/env bash\necho "pacman $*" >> "$PACMAN_LOG"\n' \
     > "$STUB_BIN/pacman"
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
-  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl"
+  # git stub emulating a successful sparse-checkout (same as niri-adapter.bats):
+  # clone makes the target, sparse-checkout records subs, checkout populates each
+  # with a v5 plugin.toml (id "noctalia/<sub>").
+  cat > "$STUB_BIN/git" <<'GIT'
+#!/usr/bin/env bash
+echo "git $*" >> "$GIT_LOG"
+case "$1" in
+  clone) mkdir -p "${@: -1}" ;;
+  -C)
+    dir="$2"; op="$3"; shift 3
+    case "$op" in
+      sparse-checkout) shift; printf '%s\n' "$@" >> "$dir/.subs" ;;
+      checkout) [[ -f "$dir/.subs" ]] && while read -r s; do
+                  mkdir -p "$dir/$s"
+                  printf 'id = "noctalia/%s"\nname = "%s"\n' "$s" "$s" \
+                    > "$dir/$s/plugin.toml"
+                done < "$dir/.subs" ;;
+    esac ;;
+esac
+exit 0
+GIT
+  chmod +x "$STUB_BIN/pacman" "$STUB_BIN/systemctl" "$STUB_BIN/git"
 
   export PATH="$STUB_BIN:$PATH"
 
-  # Curated-config source (ADR 0096, mirroring niri's ADR 0095): chroot.sh
-  # stages the repo's single-source hyprland.conf here; the adapter seeds it
-  # into /etc/skel.
+  # Curated-config source (ADR 0097, mirroring niri's ADR 0095): chroot.sh stages
+  # the repo's single-source Noctalia-wired hyprland.conf PLUS the shared
+  # config.toml + noctalia-* helpers here; the adapter seeds them into /etc/skel
+  # under wayland_shell=noctalia.
   CURATED="$TEST_DIR/curated"
-  mkdir -p "$CURATED/.config/hypr"
-  echo 'hypr-config' > "$CURATED/.config/hypr/hyprland.conf"
+  mkdir -p "$CURATED/.config/hypr" "$CURATED/.config/noctalia" \
+    "$CURATED/.local/bin"
+  echo 'hypr-config'     > "$CURATED/.config/hypr/hyprland.conf"
+  echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
+  echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
+  echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
   export HYPR_CURATED_DIR="$CURATED"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
+# run_hypr <desktop> [wayland_shell]
+run_hypr() {
+  local desk="$1" shell="${2:-}"
+  if [[ -n "$shell" ]]; then
+    run env ENVIRONMENT_DESKTOP="$desk" ENVIRONMENT_WAYLAND_SHELL="$shell" \
+      bash "$ADAPTER"
+  else
+    run env ENVIRONMENT_DESKTOP="$desk" bash "$ADAPTER"
+  fi
+}
 
 # ── core packages ───────────────────────────────────────────────────────────
 
@@ -84,42 +123,76 @@ run_hypr() { run env ENVIRONMENT_DESKTOP="$1" bash "$ADAPTER"; }
 }
 
 # Core-only for apps (ADR 0021/0062) — no launcher, bar, screenshot tool, etc.
-# hyprlock is the sole exception (ADR 0096): it backs the shared lock bind, so a
-# fresh box can never be left with a dead Super+Alt+L (see its own test below).
-@test "installs no companion packages and no qt6ct" {
+# hyprlock is dropped too (ADR 0097): Noctalia locks natively via
+# ext-session-lock, so the lock key drives the shell, not a separate locker.
+@test "installs no companion packages, no qt6ct, no hyprlock" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
   local p
-  for p in waybar dunst fuzzel rofi-wayland wofi alacritty \
+  for p in waybar dunst fuzzel rofi-wayland wofi alacritty hyprlock \
            hypridle hyprpaper grim slurp nwg-look qt6ct qt6ct-kde; do
     ! grep -q "$p" "$PACMAN_LOG" || { echo "unexpected package: $p"; return 1; }
   done
 }
 
-# hyprlock is in core so the shared Super+Alt+L lock bind always works on a
-# fresh box — a lock key that silently no-ops is a safety hole (ADR 0096).
-@test "installs hyprlock so the lock bind is never a dead no-op (ADR 0096)" {
-  run_hypr "hyprland"
+# hyprlock is no longer in core (ADR 0097, superseding 0096) — Noctalia is the
+# lock, on both compositors.
+@test "does not install hyprlock even under noctalia (ADR 0097)" {
+  run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
-  grep -qw "hyprlock" "$PACMAN_LOG"
+  ! grep -qw "hyprlock" "$PACMAN_LOG"
 }
 
-# ── curated config seeded via /etc/skel (ADR 0096, mirroring niri's ADR 0095) ─
-# The single-source hyprland.conf is staged into HYPR_CURATED_DIR by chroot.sh
-# and copied verbatim into /etc/skel, so a fresh box boots the shared keybinds.
-@test "seeds the curated hyprland.conf to /etc/skel (ADR 0096)" {
-  run_hypr "hyprland"
+# ── Noctalia preset seeded via /etc/skel (ADR 0097) ──────────────────────────
+# Under wayland_shell=noctalia the shared preset seeds the SAME payload niri does
+# — the Noctalia-wired hyprland.conf, the byte-identical config.toml, and the
+# noctalia-* helpers — all staged into HYPR_CURATED_DIR by chroot.sh, copied
+# verbatim (no heredoc, no drift).
+@test "noctalia: seeds hyprland.conf + shared config.toml + helpers to skel" {
+  run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
   [ -f "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
-  # Content matches the single source (a copy, no heredoc, no drift).
   grep -qx hypr-config "$SEED/etc/skel/.config/hypr/hyprland.conf"
+  [ -f "$SEED/etc/skel/.config/noctalia/config.toml" ]
+  grep -qx noctalia-config "$SEED/etc/skel/.config/noctalia/config.toml"
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
 }
 
-@test "warns but does not abort when the curated dir is absent" {
+@test "noctalia: installs the Noctalia preset packages" {
+  run_hypr "hyprland" noctalia
+  [ "$status" -eq 0 ]
+  local p
+  for p in noctalia kitty brightnessctl playerctl; do
+    grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
+  done
+}
+
+@test "noctalia: vendors the shared core plugins (hypr slice empty for now)" {
+  run_hypr "hyprland" noctalia
+  [ "$status" -eq 0 ]
+  grep -q "sparse-checkout set keymap" "$GIT_LOG"
+  grep -q "sparse-checkout set arch-updater" "$GIT_LOG"
+  # no niri slice ever vendored on Hyprland
+  ! grep -q "sparse-checkout set niri-" "$GIT_LOG"
+}
+
+@test "noctalia: warns but does not abort when the curated dir is absent" {
   run env HYPR_CURATED_DIR="$TEST_DIR/none" ENVIRONMENT_DESKTOP="hyprland" \
+    ENVIRONMENT_WAYLAND_SHELL="noctalia" HYPR_BAT_GLOB="$TEST_DIR/nobat/BAT*" \
     bash "$ADAPTER"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
+}
+
+# ── bare Hyprland seeds nothing (wayland_shell=none / unset, ADR 0097) ────────
+@test "none: seeds no config and installs no Noctalia (truly bare)" {
+  run_hypr "hyprland"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
+  [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
+  ! grep -qw "noctalia" "$PACMAN_LOG"
+  [ ! -f "$GIT_LOG" ]
 }
 
 # ── session override (start-hyprland, DRM backend) ───────────────────────────

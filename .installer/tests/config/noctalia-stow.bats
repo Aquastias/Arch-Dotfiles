@@ -105,3 +105,11 @@ setup() {
   [ -n "$enabled" ]
   [ "$enabled" = "$core" ]
 }
+
+# The shared config.toml must be compositor-NEUTRAL (ADR 0097): no niri-* or
+# hypr-* slice id anywhere — not in the enabled list, not in a bar/widget
+# placement — so the one seeded file is byte-identical and correct on both
+# compositors. The built-in `workspaces` widget covers workspaces on both.
+@test "config.toml carries no compositor-specific slice widget or id" {
+  ! grep -qE '(niri|hypr)-' "$CT"
+}

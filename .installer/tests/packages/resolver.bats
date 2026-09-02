@@ -145,6 +145,23 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ -z "$n" ]
 }
 
+@test "noctalia set reports the shared preset on hyprland too (ADR 0097)" {
+  local n
+  n="$(pkgs_of '{"users":[],"environment":{"desktop":["hyprland"]}}' noctalia)"
+  grep -qx "noctalia"      <<<"$n"
+  grep -qx "kitty"         <<<"$n"
+  grep -qx "playerctl"     <<<"$n"
+  grep -qx "smartmontools" <<<"$n"   # drive-health: a shared-core plugin dep
+}
+
+@test "noctalia set is empty for bare hyprland (wayland_shell=none)" {
+  local n
+  n="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["hyprland"],"wayland_shell":"none"}}' \
+    noctalia)"
+  [ -z "$n" ]
+}
+
 @test "noctalia set omits the dropped bitwarden-cli backend (ADR 0094)" {
   # bitwarden left the default set; its CLI backend must no longer resolve
   local n

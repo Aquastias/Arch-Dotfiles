@@ -394,13 +394,20 @@ pkgres_resolve() {
 }
 
 # _pkgres_de_packages <de> <cfg> — the Desktop Environment Adapter's own sets.
-# KDE reads its install-kde.jsonc (ADR 0021); niri's core is a pure map shared
-# with the adapter and its Noctalia preset keys on environment.wayland_shell (ADR
-# 0090/0097), so it is handled separately from the jsonc-driven KDE path.
+# KDE reads its install-kde.jsonc (ADR 0021); niri and Hyprland share the pure
+# Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097), so they are
+# handled separately from the jsonc-driven KDE path.
 _pkgres_de_packages() {
   local de="$1" cfg="${2:-}"
   if [[ "$de" == niri ]]; then
     _pkgres_niri_packages "$cfg"
+    return 0
+  fi
+  # Hyprland shares the same Noctalia preset (ADR 0097), keyed on wayland_shell,
+  # with the Hyprland plugin slice. Its compositor core is installed by the
+  # adapter directly (not resolver-tracked), as it always has been.
+  if [[ "$de" == hyprland ]]; then
+    _pkgres_noctalia_preset "$cfg" noctalia_hyprland_plugins
     return 0
   fi
   local f="${INSTALLER_DIR:-}/extras/desktop/${de}/install-${de}.jsonc"
@@ -465,17 +472,15 @@ _pkgres_niri_plugin_deps() {
   done < <("$fn")
 }
 
-# _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
-# pure niri_core_packages map (shared with the adapter). The Noctalia work
-# preset (source `noctalia`) is keyed on environment.wayland_shell: the base preset
-# map plus the enabled install-noctalia.jsonc component bools (cava, cliphist), so
-# query and install cannot drift.
-_pkgres_niri_packages() {
-  local cfg="$1" p shell
-  while IFS= read -r p; do
-    [[ -n "$p" ]] && _pkgres_emit niri-shell derived "$p"
-  done < <(niri_core_packages)
-
+# _pkgres_noctalia_preset <cfg> <slice-fn> — the SHARED Noctalia work preset
+# (source `noctalia`, ADR 0097), keyed on environment.wayland_shell: the base
+# preset map, the enabled install-noctalia.jsonc companions (cava, cliphist), the
+# shared-core plugin deps + this compositor's <slice-fn> deps, and the
+# laptop-gated battery deps. Reused by both the niri and Hyprland resolver paths
+# from the same list + bools the adapters install from, so query and install
+# cannot drift.
+_pkgres_noctalia_preset() {
+  local cfg="$1" slice_fn="$2" p shell
   shell="$(_pkgres_jq "$cfg" '.environment.wayland_shell // "noctalia"')"
   [[ "$shell" == noctalia ]] || return 0
 
@@ -497,11 +502,11 @@ _pkgres_niri_packages() {
   [[ "$(jq -r '.cliphist // false' <<<"$nj")" == true ]] \
     && _pkgres_emit noctalia derived cliphist
 
-  # Enriched plugin deps (ADR 0093/0097) — the shared core plus the niri slice
-  # (this is the niri resolver path). Shared list + bools with the adapter, so
-  # query and install cannot drift.
+  # Enriched plugin deps (ADR 0093/0097) — the shared core plus this compositor's
+  # slice. Shared list + bools with the adapter, so query and install cannot
+  # drift.
   _pkgres_niri_plugin_deps "$nj" noctalia_core_plugins
-  _pkgres_niri_plugin_deps "$nj" noctalia_niri_plugins
+  _pkgres_niri_plugin_deps "$nj" "$slice_fn"
 
   # Battery plugins are laptop-gated (ADR 0093). The resolver has no target
   # hardware, so it reports the pair only when install-noctalia.jsonc sets `laptop`
@@ -509,6 +514,18 @@ _pkgres_niri_packages() {
   [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
      <<<"$nj")" == true ]] || return 0
   _pkgres_niri_plugin_deps "$nj" noctalia_laptop_plugins
+}
+
+# _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the
+# pure niri_core_packages map (shared with the adapter); the Noctalia preset is
+# the shared helper with the niri plugin slice.
+_pkgres_niri_packages() {
+  local cfg="$1" p
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && _pkgres_emit niri-shell derived "$p"
+  done < <(niri_core_packages)
+
+  _pkgres_noctalia_preset "$cfg" noctalia_niri_plugins
 }
 
 # _pkgres_user_shells <config> — the login shell package of every declared
