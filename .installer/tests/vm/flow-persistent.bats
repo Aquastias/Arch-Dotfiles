@@ -110,6 +110,16 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'poweroff'* ]]
 }
 
+@test "render: routes the installed kernel to serial on a clean install" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [ "$status" -eq 0 ]
+  # console=ttyS0 patched onto the installed loader entries so a broken boot of
+  # this debug VM is never silent (ADR 0099); only on a clean install (rc==0).
+  [[ "$output" == *'console=ttyS0,115200'* ]]
+  [[ "$output" == *'loader/entries'* ]]
+}
+
 @test "_report_failure_access: prints live-ISO ssh, serial, log, and cleanup" {
   VM_NAME="failvm"
   _vm_ip_now() { echo "192.168.122.99"; }

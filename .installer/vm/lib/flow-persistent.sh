@@ -20,6 +20,10 @@ FLOW_PERSIST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
   || source "${FLOW_PERSIST_DIR}/core.sh"
 # shellcheck source=./sentinel-watcher.sh
 source "${FLOW_PERSIST_DIR}/sentinel-watcher.sh"
+# shellcheck source=./seed-generator.sh
+# Only for _seed_generator_esp_serial_lines — route the INSTALLED kernel to
+# serial so a broken persistent boot is never silent (ADR 0099).
+source "${FLOW_PERSIST_DIR}/seed-generator.sh"
 
 # Per-flow virt-install graphics (core._vm_create appends these). niri (and any
 # Wayland compositor) REJECTS software EGL — a display-only virtio-gpu renders a
@@ -173,6 +177,10 @@ printf '%d\n' "\$rc" > /root/.install-exit
 printf '===INSTALLER-EXIT-%d===\n' "\$rc" > /dev/ttyS0
 sync
 if [ "\$rc" -eq 0 ]; then
+  # Route the INSTALLED kernel + LUKS/zfs unlock prompt to serial so a
+  # broken boot of this debug VM is never silent (ADR 0099). install.sh has
+  # exported the pool by now, so /mnt is free for the ESP mount.
+$(_seed_generator_esp_serial_lines)
   poweroff
 fi
 EOF
@@ -423,4 +431,49 @@ flow_run() {
   info "VM '${VM_NAME}' is booting into the installed system."
   info "Open virt-manager and connect to '${VM_NAME}'."
   info "Login: ${PRIMARY_USER} / 12345  (or root / 12345)"
+}
+
+# --rescue: re-attach the install ISO + a fresh access seed to an EXISTING VM and
+# boot it back into the live ISO, so a system that installed but won't boot can be
+# inspected — SSH/serial reach the live env (ticket 01's channels) and the
+# half-installed pool can be imported (ADR 0099). Does not reinstall or touch the
+# installed disk.
+flow_rescue() {
+  trap '_stop_console_capture; _stop_http_server' EXIT
+  flow_persistent_deps
+  _ensure_libvirt_group
+  _ensure_libvirtd
+  _ensure_libvirt_reachable
+  _vm_exists || error "No VM '${VM_NAME}' to rescue — create one first."
+  mkdir -p "$ISO_DIR" "$CACHE_DIR"
+  _harness_ensure_key
+
+  section "Resolving Arch ISO"
+  local iso; iso="$(core_resolve_iso "$ISO_DIR")"
+
+  section "Rebuilding live-ISO access seed"
+  local pubkey; pubkey="$(cat "$(_harness_key_path).pub")"
+  local seed; seed="$(_flow_build_seed "$pubkey")"
+  _refresh_pool_for_path "$iso"
+  _refresh_pool_for_path "$seed"
+
+  section "Re-attaching install ISO + seed (rescue boot into live ISO)"
+  _vm_insert_cdroms "$iso" "$seed"
+  _vm_boot
+
+  section "Waiting for live system"
+  local vm_ip; vm_ip="$(_get_vm_ip)"
+  info "VM IP: ${vm_ip}"
+  _wait_for_ssh "$vm_ip"
+
+  local key; key="$(_harness_key_path)"
+  section "Rescue live ISO ready"
+  info "SSH (live ISO):  ssh -i ${key}" \
+       "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+       "root@${vm_ip}"
+  info "Serial console:  virsh console ${VM_NAME}" \
+       "  (root autologin; Ctrl-] to exit)"
+  info "Inspect the half-installed pool, e.g.:" \
+       "zpool import -f -N -R /mnt rpool && zfs mount rpool/ROOT/arch"
+  info "When done, eject the ISO to boot the disk again:  vm.sh … (normal run)"
 }
