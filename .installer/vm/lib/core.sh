@@ -69,6 +69,30 @@ _ensure_libvirtd() {
   fi
 }
 
+# Probe that `virsh` can actually reach libvirtd, and give an agent a recognizable
+# signal when it can't — distinguishing a sandbox-blocked socket from libvirtd
+# being down, so the agent knows to retry the command outside the sandbox (ADR
+# 0099; see docs/agents/vm-sandbox.md). Best-effort probe: `virsh uri` connects
+# to the daemon without touching any domain.
+_ensure_libvirt_reachable() {
+  local err
+  err="$(virsh uri 2>&1 >/dev/null)" && return 0
+  if systemctl is-active --quiet libvirtd 2>/dev/null; then
+    # Daemon is up but virsh cannot connect → almost certainly a sandbox-blocked
+    # socket (or a permissions issue), not a dead daemon.
+    error "libvirt unreachable (sandbox?) — libvirtd is running but 'virsh' \
+cannot reach its socket:
+  ${err}
+  If this ran under a sandbox, the libvirt socket is likely blocked; retry the
+  same command with the sandbox disabled (see docs/agents/vm-sandbox.md)."
+  else
+    error "libvirt unreachable — libvirtd is not reachable:
+  ${err}
+  Start it (sudo systemctl enable --now libvirtd), or if under a sandbox that \
+blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
+  fi
+}
+
 # =============================================================================
 # VM STATE PREDICATES
 # =============================================================================

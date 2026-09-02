@@ -320,6 +320,7 @@ flow_run() {
   flow_test_deps
   _ensure_libvirt_group
   _ensure_libvirtd
+  _ensure_libvirt_reachable
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
 
   # Secure profiles fetch the Test Age Key over HTTP during install; stand the
