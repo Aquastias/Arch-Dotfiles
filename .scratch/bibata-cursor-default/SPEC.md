@@ -1,6 +1,7 @@
 # Spec: Bibata Modern Ice as the seeded default cursor
 
-Status: ready-for-agent
+Status: done (commits c1242d3, e8065a1). Bibata seeded + AUR-declared on KDE,
+niri, Hyprland; ~/.icons/default on all three; bats green.
 
 Related: ADR 0098 (this feature — Bibata Modern Ice seeded across KDE, niri,
 Hyprland). Extends ADR 0088 (KDE adapter seeds DE defaults incl. cursors) and
