@@ -77,6 +77,7 @@ GIT
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
+  echo 'suspend' > "$CURATED/.local/bin/noctalia-idle-suspend"  # ADR 0100
   # pcmanfm-qt curated payload (ADR 0100): settings + right-click actions.
   mkdir -p "$CURATED/.config/pcmanfm-qt/lxqt" \
     "$CURATED/.local/share/file-manager/actions"
@@ -173,6 +174,9 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ -f "$SEED/etc/skel/.config/noctalia/config.toml" ]
   [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
   [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
+  # Idle-suspend gate helper (ADR 0100) — the config.toml suspend behavior
+  # shells out to it; laptop-on-battery gating lives here, not in the config.
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-idle-suspend" ]
   # Content matches the single source (a copy, no heredoc, no drift).
   grep -qx niri-config "$SEED/etc/skel/.config/niri/config.kdl"
   # GTK/XWayland cursor fallback (ADR 0098)

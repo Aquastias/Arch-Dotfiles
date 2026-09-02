@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Idle-suspend gate (ADR 0100). Called by Noctalia's idle `suspend` behavior in
+# config.toml. Suspends ONLY on a laptop that is on battery: a desktop (no
+# BAT*) or a laptop on AC is a no-op. This keeps the curated config.toml
+# byte-identical/portable while giving "auto-suspend on battery only"
+# everywhere. lock_before_suspend (Noctalia) locks first on logind
+# PrepareForSleep, so `systemctl suspend` here still locks before sleeping.
+for status in /sys/class/power_supply/BAT*/status; do
+	[ -e "$status" ] || continue
+	if grep -qx Discharging "$status"; then
+		exec systemctl suspend
+	fi
+done
