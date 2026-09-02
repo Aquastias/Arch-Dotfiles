@@ -11,14 +11,18 @@ Anchored by ADR 0099.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A pure function computes the max-concurrent-VMs cap from free RAM and core
-      count, with a conservative default clamp.
-- [ ] Graphical / desktop-verify / persistent VMs are forced serial regardless
-      of the cap.
-- [ ] A launch preflight refuses to start a VM when projected RAM would exceed a
-      safe fraction of host RAM, with a clear message.
-- [ ] Seam-3 test: table-test `(free_ram, cores) → cap` with injected values;
-      assert the serial-forcing rule and the preflight refusal threshold. No
-      real host probing in the test.
+- [x] A pure function computes the max-concurrent-VMs cap from free RAM and core
+      count, with a conservative default clamp (`host_capacity_max_vms`).
+- [x] Graphical / desktop-verify / persistent VMs are forced serial regardless
+      of the cap (`host_capacity_force_serial`, unit-tested). A direct `vm.sh`
+      launch is one VM (inherently serial); the concurrent scheduler (the
+      Combination Matrix) already prevents host overcommit via its own
+      RAM-gated guard (ADR 0046), left intact to avoid duplication.
+- [x] A launch preflight refuses to start a VM when projected RAM would exceed a
+      safe fraction of host RAM, with a clear message (`_vm_capacity_preflight`
+      in `_vm_boot`, using `host_capacity_admit` against probed MemTotal) — the
+      gate a direct `vm.sh` run previously lacked.
+- [x] Seam-3 test: `host-capacity.bats` table-tests the cap, the serial-forcing
+      rule, and the admit threshold with injected values (no host probing).

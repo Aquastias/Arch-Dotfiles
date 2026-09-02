@@ -24,6 +24,8 @@ CORE_LIB_DIR="${CORE_DIR}/../../lib"
   || source "${CORE_LIB_DIR}/common.sh"
 # shellcheck source=../../lib/packages/iso-resolver.sh
 source "${CORE_LIB_DIR}/packages/iso-resolver.sh"
+# shellcheck source=./host-capacity.sh
+source "${CORE_DIR}/host-capacity.sh"
 
 # =============================================================================
 # SHARED DEFAULTS (env overrides win)
@@ -200,8 +202,26 @@ _vm_create() {
     --noreboot
 }
 
+# Host RAM (MiB) from /proc/meminfo; empty when unreadable.
+_host_total_mb() {
+  awk '/^MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null
+}
+
+# Refuse to boot a VM whose RAM would exceed the safe fraction of host RAM, so a
+# single oversized VM never thrashes the host (ADR 0099). A direct `vm.sh` launch
+# bypasses the Combination Matrix's own parallel guard, so this is the general
+# gate every flow gets. Best-effort: if MemTotal can't be probed, don't block.
+_vm_capacity_preflight() {
+  local host_mb; host_mb="$(_host_total_mb)"
+  [[ "$host_mb" =~ ^[0-9]+$ && "$host_mb" -gt 0 ]] || return 0
+  host_capacity_admit "$VM_RAM_MB" "$host_mb" || error \
+    "VM RAM ${VM_RAM_MB} MiB exceeds ${HOST_CAP_SAFE_PCT}% of host RAM \
+(${host_mb} MiB) — lower VM_RAM_MB or free host memory before launching."
+}
+
 # Start the domain, force-stopping a stale running instance first.
 _vm_boot() {
+  _vm_capacity_preflight
   _vm_running && {
     info "VM is running — force-stopping for a clean start."
     virsh destroy "$VM_NAME" >/dev/null
