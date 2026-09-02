@@ -168,13 +168,23 @@ run_hypr() {
   done
 }
 
-@test "noctalia: vendors the shared core plugins (hypr slice empty for now)" {
+@test "noctalia: vendors the shared core plus the hypr-* slice, never niri-*" {
   run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
   grep -q "sparse-checkout set keymap" "$GIT_LOG"
   grep -q "sparse-checkout set arch-updater" "$GIT_LOG"
-  # no niri slice ever vendored on Hyprland
+  # the Hyprland slice (ADR 0097)
+  grep -q "sparse-checkout set hypr-layout-switcher" "$GIT_LOG"
+  grep -q "sparse-checkout set hypr-submap" "$GIT_LOG"
+  grep -q "sparse-checkout set hypr-screen-mirror" "$GIT_LOG"
+  # the niri slice is never vendored on Hyprland
   ! grep -q "sparse-checkout set niri-" "$GIT_LOG"
+}
+
+@test "noctalia: installs the hypr slice tool deps (socat)" {
+  run_hypr "hyprland" noctalia
+  [ "$status" -eq 0 ]
+  grep -qw "socat" "$PACMAN_LOG"
 }
 
 @test "noctalia: warns but does not abort when the curated dir is absent" {

@@ -59,9 +59,13 @@
   "niri-displays": true,
 
   // ── Hyprland slice — vendored only on a Hyprland box (ADR 0097) ─────────────
-  // The hypr-* counterparts of the niri slice; each id is verified to exist at
-  // the pinned community ref before it ships. Populated by the Hyprland
-  // plugin-slice work — empty until then.
+  // Hyprland-native niceties (not a mirror of the niri slice — workspace/anim/
+  // display have no hypr counterpart at the pinned ref). Each id verified present
+  // at the ref. hypr-screen-mirror overlaps the core wl-screen-mirror on
+  // Hyprland (both installed) — kept by explicit choice.
+  "hypr-layout-switcher": true,
+  "hypr-submap": true,
+  "hypr-screen-mirror": true,
 
   // ── Laptop-gated battery plugins (ADR 0093) ────────────────────────────────
   // `laptop`: "auto" detects a battery (/sys/class/power_supply/BAT*) at
