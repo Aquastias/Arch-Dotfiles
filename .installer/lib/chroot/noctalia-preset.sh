@@ -34,13 +34,15 @@ declare -F noctalia_preset_packages >/dev/null 2>&1 \
 
 # Community plugin source, pinned to one v5 commit (ADR 0093) — a single ref
 # covers the whole enriched set for every compositor (bump = one SHA).
-NOC_COMMUNITY_REPO="${NOC_COMMUNITY_REPO:-https://github.com/noctalia-dev/community-plugins.git}"
-NOC_COMMUNITY_REF="${NOC_COMMUNITY_REF:-caed21ab081948435cd770d2e954c99b8bbb72cf}"
+_NOC_REPO_DEFAULT="https://github.com/noctalia-dev/community-plugins.git"
+_NOC_REF_DEFAULT="caed21ab081948435cd770d2e954c99b8bbb72cf"
+NOC_COMMUNITY_REPO="${NOC_COMMUNITY_REPO:-$_NOC_REPO_DEFAULT}"
+NOC_COMMUNITY_REF="${NOC_COMMUNITY_REF:-$_NOC_REF_DEFAULT}"
 # Where a plugin folder is vendored so a fresh box discovers it as `[local]`
 # (ADR 0093/0094): the skel DATA dir. The stowed one-shot enables what it finds.
 NOC_PLUGIN_DATA="${NOC_PLUGIN_DATA:-etc/skel/.local/share/noctalia/plugins}"
 
-# _noc_bool <key> — an install-noctalia.jsonc component bool (false when absent).
+# _noc_bool <key> — an install-noctalia.jsonc component bool (false if absent).
 _noc_bool() {
   [[ -f "$NOC_JSON" ]] || { echo false; return; }
   jsonc "$NOC_JSON" | jq -r --arg k "$1" '.[$k] // false'
@@ -126,8 +128,15 @@ noctalia_preset_install() {
     install -Dm644 "${NOC_CURATED_DIR}/.config/noctalia/config.toml" \
       "${_skel}/.config/noctalia/config.toml"
     install -d "${_skel}/.local/bin"
-    install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* "${_skel}/.local/bin/"
-    info "Curated Noctalia config seeded to /etc/skel."
+    install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* \
+      "${_skel}/.local/bin/"
+    # Default cursor for GTK/XWayland apps (ADR 0098): ~/.icons/default inherits
+    # Bibata Modern Ice, matching the compositor's XCURSOR_THEME. KDE seeds its
+    # own copy; niri/Hyprland get theirs here (one line, no per-user state).
+    install -d "${_skel}/.icons/default"
+    printf '[Icon Theme]\nInherits=Bibata-Modern-Ice\n' \
+      > "${_skel}/.icons/default/index.theme"
+    info "Curated Noctalia config + cursor seeded to /etc/skel."
   else
     warn "Curated config dir absent (${NOC_CURATED_DIR}) —" \
          "skel gets no Noctalia config."

@@ -158,7 +158,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 @test "noctalia set is empty for bare hyprland (wayland_shell=none)" {
   local n
   n="$(pkgs_of \
-    '{"users":[],"environment":{"desktop":["hyprland"],"wayland_shell":"none"}}' \
+  '{"users":[],"environment":{"desktop":["hyprland"],"wayland_shell":"none"}}' \
     noctalia)"
   [ -z "$n" ]
 }

@@ -6,8 +6,8 @@
 # path (extras/desktop/niri/niri.sh, in the chroot) and the Package Resolver
 # (resolver.sh, on the host), so what installs and what the query reports can
 # never drift (mirrors base.sh / gpu.sh / audio.sh). Pure: name lists only —
-# the DECISION to install (niri selected; wayland_shell=noctalia) stays with each
-# caller (ADR 0090).
+# the DECISION to install (niri selected; wayland_shell=noctalia) stays with
+# each caller (ADR 0090).
 # =============================================================================
 
 [[ -n "${_NIRI_SH_SOURCED:-}" ]] && return 0
@@ -33,7 +33,7 @@ niri_core_packages() {
 # the kitty terminal (Noctalia is not a terminal), brightnessctl (Noctalia's
 # brightness OSD shells out to it), and playerctl (the shared media-key binds
 # shell out to it — ADR 0096; Hyprland leaves it operator-supplied). Optional
-# companions (cava, cliphist) are toggles in install-noctalia.jsonc, added by their
+# companions (cava, cliphist) are install-noctalia.jsonc toggles, added by their
 # callers.
 noctalia_preset_packages() {
   printf '%s\n' \
@@ -63,7 +63,7 @@ noctalia_core_plugins() {
 
 # noctalia_niri_plugins — the niri compositor slice (ADR 0097): plugins that
 # read niri's IPC/state. Vendored only on a niri box; never written into the
-# shared config.toml (the first-login one-shot enables the vendored [local] set).
+# shared config.toml (the first-login one-shot enables the vendored set).
 noctalia_niri_plugins() {
   printf '%s\n' niri-active-workspace niri-animations niri-displays
 }
@@ -72,9 +72,9 @@ noctalia_niri_plugins() {
 # Hyprland-native niceties, vendored only on a Hyprland box. NOT a mirror of the
 # niri slice — the niri workspace/animation/display plugins have no hypr
 # counterpart at the pinned ref (workspace parity is the built-in `workspaces`
-# widget; animations/displays are configured in hyprland.conf directly). The set:
+# widget; animations/displays are set in hyprland.conf directly). The set:
 # hypr-layout-switcher (cycle dwindle/master), hypr-submap (submap indicator),
-# hypr-screen-mirror (Hyprland-native output mirror). Each id is verified present
+# hypr-screen-mirror (Hyprland-native output mirror). Each id verified present
 # at the pinned community ref.
 noctalia_hyprland_plugins() {
   printf '%s\n' hypr-layout-switcher hypr-submap hypr-screen-mirror

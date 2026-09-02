@@ -376,7 +376,8 @@ configure_system() {
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
 
   ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" \
-  ENVIRONMENT_WAYLAND_SHELL="${ENVIRONMENT_WAYLAND_SHELL:-}" ROOT_PW="$root_pw" \
+  ENVIRONMENT_WAYLAND_SHELL="${ENVIRONMENT_WAYLAND_SHELL:-}" \
+  ROOT_PW="$root_pw" \
     arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
 

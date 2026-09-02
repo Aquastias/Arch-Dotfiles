@@ -1,6 +1,6 @@
 // Hyprland adapter AUR list (ADR 0098). Read by the Profiles Runner's paru pass
-// (unioned per selected desktop) — NOT the shared Noctalia preset toggles, which
-// live in ../install-noctalia.jsonc. Only adapter-level AUR packages belong here.
+// (unioned per selected desktop) — NOT the shared Noctalia preset toggles,
+// which live in ../install-noctalia.jsonc. Only adapter AUR packages here.
 {
   "aur": {
     "theming": {

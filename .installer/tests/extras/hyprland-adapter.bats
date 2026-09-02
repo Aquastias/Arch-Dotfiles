@@ -36,7 +36,7 @@ setup() {
   printf '#!/usr/bin/env bash\necho "systemctl $*" >> "$SYSTEMCTL_LOG"\n' \
     > "$STUB_BIN/systemctl"
   # git stub emulating a successful sparse-checkout (same as niri-adapter.bats):
-  # clone makes the target, sparse-checkout records subs, checkout populates each
+  # clone makes the target, sparse-checkout records subs, checkout fills each
   # with a v5 plugin.toml (id "noctalia/<sub>").
   cat > "$STUB_BIN/git" <<'GIT'
 #!/usr/bin/env bash
@@ -60,8 +60,8 @@ GIT
 
   export PATH="$STUB_BIN:$PATH"
 
-  # Curated-config source (ADR 0097, mirroring niri's ADR 0095): chroot.sh stages
-  # the repo's single-source Noctalia-wired hyprland.conf PLUS the shared
+  # Curated-config source (ADR 0097, mirroring niri's ADR 0095): chroot.sh
+  # stages the repo's single-source Noctalia-wired hyprland.conf PLUS the shared
   # config.toml + noctalia-* helpers here; the adapter seeds them into /etc/skel
   # under wayland_shell=noctalia.
   CURATED="$TEST_DIR/curated"
@@ -144,7 +144,7 @@ run_hypr() {
 }
 
 # ── Noctalia preset seeded via /etc/skel (ADR 0097) ──────────────────────────
-# Under wayland_shell=noctalia the shared preset seeds the SAME payload niri does
+# Under wayland_shell=noctalia the shared preset seeds the SAME payload as niri
 # — the Noctalia-wired hyprland.conf, the byte-identical config.toml, and the
 # noctalia-* helpers — all staged into HYPR_CURATED_DIR by chroot.sh, copied
 # verbatim (no heredoc, no drift).
@@ -157,6 +157,9 @@ run_hypr() {
   grep -qx noctalia-config "$SEED/etc/skel/.config/noctalia/config.toml"
   [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
   [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
+  # GTK/XWayland cursor fallback (ADR 0098)
+  grep -q "Inherits=Bibata-Modern-Ice" \
+    "$SEED/etc/skel/.icons/default/index.theme"
 }
 
 @test "noctalia: installs the Noctalia preset packages" {
