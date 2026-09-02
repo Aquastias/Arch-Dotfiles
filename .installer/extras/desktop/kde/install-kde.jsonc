@@ -178,7 +178,10 @@
   // `qt6ct-kde` is the Qt6 config tool, DE-tied but not an application.
   "aur": {
     "theming": {
-      "qt6ct-kde": true // Qt6 configuration tool, KDE build
+      "qt6ct-kde": true, // Qt6 configuration tool, KDE build
+      // Default cursor, shared with niri/Hyprland (ADR 0098). One AUR package
+      // ships both hyprcursor + Xcursor; KDE uses the Xcursor theme.
+      "bibata-cursor-git": true
     },
     // octopi is a Qt pacman GUI, KDE-tied by operator decision (ADR 0094) so it
     // installs only when KDE is selected, not on every host. Mirrors qt6ct-kde.

@@ -129,14 +129,17 @@ JSON
   grep -q "LookAndFeelPackage=org.kde.breezedark.desktop" "$kg"
 }
 
-@test "theme seed sets Breeze cursors" {
+@test "theme seed sets the Bibata Modern Ice cursor (ADR 0098)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
   KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  grep -q "cursorTheme=breeze_cursors" \
+  grep -q "cursorTheme=Bibata-Modern-Ice" \
     "$TEST_DIR/seed/etc/skel/.config/kcminputrc"
+  # non-KDE (GTK/X) apps follow via ~/.icons/default
+  grep -q "Inherits=Bibata-Modern-Ice" \
+    "$TEST_DIR/seed/etc/skel/.icons/default/index.theme"
 }
 
 @test "SDDM theme drop-in is Breeze in its own file (no session-dir clobber)" {

@@ -90,15 +90,18 @@ Theme=Papirus-Dark
 LookAndFeelPackage=org.kde.breezedark.desktop
 EOF
 
+  # Cursor: Bibata Modern Ice, the fleet default shared with niri/Hyprland (ADR
+  # 0098; bibata-cursor-git in this adapter's aur). Size 24.
   _seed_write etc/skel/.config/kcminputrc <<'EOF'
 [Mouse]
-cursorTheme=breeze_cursors
+cursorTheme=Bibata-Modern-Ice
+cursorSize=24
 EOF
 
   # Non-KDE (GTK/X) apps read the cursor from ~/.icons/default.
   _seed_write etc/skel/.icons/default/index.theme <<'EOF'
 [Icon Theme]
-Inherits=breeze_cursors
+Inherits=Bibata-Modern-Ice
 EOF
 
   # SDDM login theme, in its own drop-in so it merges with the Display Manager
@@ -109,7 +112,7 @@ EOF
 Current=breeze
 EOF
 
-  info "Seeded Breeze Dark look (icons, cursors, GTK bridge, SDDM theme)."
+  info "Seeded Breeze Dark look (Papirus icons, Bibata cursor, GTK, SDDM)."
 
   # ── FIRST-RUN: seed a "not first launch" state (ADR 0088, Q4-B) ───────────
   # Scope is the reliably-suppressible defaults — the Plasma Welcome Center
