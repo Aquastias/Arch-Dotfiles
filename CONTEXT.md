@@ -1043,7 +1043,20 @@ list equal to the vendored set. On Hyprland the seeded compositor config is a
 **Noctalia-wired `hyprland.conf`** (`exec-once` autostarts the shell; the shared
 launcher/lock keys route through Noctalia IPC), and `hyprlock` is dropped from
 core — Noctalia locks natively via `ext-session-lock-v1` (ADR 0097, superseding
-0096).
+0096). ADR **0100** extends "Noctalia locks natively" to the whole QoL layer:
+Noctalia v5 also owns **idle** (built-in `[idle.behavior.*]` — lock ~5 min,
+DPMS-off ~10 min, `lock_before_suspend`, auto-suspend laptop-on-battery only)
+and **polkit** (its own agent), so both close in the stowed `config.toml` with
+zero new packages — the unconditional `polkit-kde-agent` install leaves both
+wlroots adapters (KDE keeps its own). Polkit is a one-time verified, hardcoded
+pick, never two agents at once; if Noctalia's agent fails verification the
+fallback is KDE-aware — reuse `polkit-kde-agent` when KDE is co-installed, else
+`hyprpolkitagent`. The preset also ships **`pcmanfm-qt`** (compact layout,
+kitty-in-folder via `Terminal=kitty` / F4 / an "Open in kitty here" action,
+Rosé Pine via the Qt template), and niri's `config.kdl` gains
+`input`/`layout`/`window-rules` (never `output` — host-specific). If the
+ADR-0097 lock-then-suspend crash reproduces on Hyprland, that compositor alone
+flips to `hyprlock` + `hypridle`.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
