@@ -63,7 +63,6 @@ order = [ "default", "bottom" ]
         "theme_mode",
         "widget",
         "wallpaper",
-        "active-workspace",
         "workspaces"
     ]
     thickness = 25
@@ -155,9 +154,6 @@ wallpaper_scheme = "m3-content"
 
 [wallpaper.default]
 path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"
-
-[widget.active-workspace]
-type = "salemsayed/niri-active-workspace:active-workspace"
 
 [widget.bar]
 type = "dunarand/bookmarks:bar"
