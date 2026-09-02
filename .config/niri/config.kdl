@@ -9,6 +9,14 @@ hotkey-overlay {
     skip-at-startup
 }
 
+// Default cursor: Bibata Modern Ice, the fleet default shared with KDE/Hyprland
+// (ADR 0098). niri exports XCURSOR_THEME/XCURSOR_SIZE to spawned apps, so
+// GTK/XWayland clients follow it too.
+cursor {
+    xcursor-theme "Bibata-Modern-Ice"
+    xcursor-size 24
+}
+
 spawn-at-startup "noctalia" "--daemon"
 // First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
 // guards, so it is a no-op on every later login — safe to leave in place.

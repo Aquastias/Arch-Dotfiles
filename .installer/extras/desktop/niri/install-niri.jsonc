@@ -1,0 +1,14 @@
+// niri adapter AUR list (ADR 0098). Read by the Profiles Runner's paru pass
+// (unioned per selected desktop) — NOT the same file as the shared Noctalia
+// preset toggles, which live in ../install-noctalia.jsonc. Only adapter-level
+// AUR packages belong here.
+{
+  "aur": {
+    "theming": {
+      // Default cursor, shared with KDE/Hyprland (ADR 0098). One AUR package
+      // ships both hyprcursor + Xcursor; niri uses the Xcursor theme via its
+      // native cursor{} config node.
+      "bibata-cursor-git": true
+    }
+  }
+}

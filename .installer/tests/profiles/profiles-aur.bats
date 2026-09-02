@@ -126,6 +126,29 @@ _adapter() {
   done
 }
 
+# ── Bibata Modern Ice: the fleet cursor, per-adapter AUR on all three (0098) ──
+# One AUR package (bibata-cursor-git) ships both hyprcursor + Xcursor; each DE
+# adapter declares it so it installs whenever that desktop is selected, and never
+# on a headless/minimal host.
+
+@test "bibata-cursor-git resolves under kde, niri and hyprland (ADR 0098)" {
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
+  local de
+  for de in kde niri hyprland; do
+    run _profiles_resolve_aur '{}' "$de"
+    [ "$status" -eq 0 ]
+    grep -qx "bibata-cursor-git" <<< "$output" \
+      || { echo "bibata missing under $de"; return 1; }
+  done
+}
+
+@test "bibata-cursor-git does not resolve on a desktop-less host (ADR 0098)" {
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
+  run _profiles_resolve_aur '{}'          # no desktops
+  [ "$status" -eq 0 ]
+  ! grep -qx "bibata-cursor-git" <<< "$output"
+}
+
 # ── steam: repo package, not AUR steam-native-runtime (libjpeg6 conflict) ────
 # steam-native-runtime pulls the virtual libjpeg6 dep, whose default provider
 # jpegli-git conflicts with libjxl — fatal under paru --noconfirm. Repo `steam`

@@ -11,6 +11,7 @@ setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."      # .installer/tests/config → repo root
   CT="$REPO/.config/noctalia/config.toml"
   KDL="$REPO/.config/niri/config.kdl"
+  HC="$REPO/.config/hypr/hyprland.conf"
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
@@ -71,6 +72,25 @@ setup() {
 @test "config.kdl skips the hotkey-overlay so no welcome screen on first login" {
   grep -Eq 'hotkey-overlay[[:space:]]*\{' "$KDL"
   grep -q 'skip-at-startup' "$KDL"
+}
+
+# ── shared Bibata cursor default (ADR 0098) ──────────────────────────────────
+
+@test "config.kdl sets the Bibata Modern Ice cursor (ADR 0098)" {
+  grep -q 'xcursor-theme "Bibata-Modern-Ice"' "$KDL"
+  grep -q 'xcursor-size 24' "$KDL"
+}
+
+@test "hyprland.conf sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
+  grep -q '^env = HYPRCURSOR_THEME,Bibata-Modern-Ice' "$HC"
+  grep -q '^env = XCURSOR_THEME,Bibata-Modern-Ice' "$HC"
+}
+
+@test "hyprland.conf hosts Noctalia: autostart + IPC launcher/lock (ADR 0097)" {
+  grep -q '^exec-once = noctalia --daemon' "$HC"
+  grep -q 'noctalia msg panel-toggle launcher' "$HC"
+  grep -q 'noctalia msg session lock' "$HC"
+  ! grep -q 'hyprlock' "$HC"
 }
 
 @test "the palette cycler is executable and uses the v5 native CLI" {
