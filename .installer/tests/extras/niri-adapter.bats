@@ -159,10 +159,14 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
   # Content matches the single source (a copy, no heredoc, no drift).
   grep -qx niri-config "$SEED/etc/skel/.config/niri/config.kdl"
+  # GTK/XWayland cursor fallback (ADR 0098)
+  grep -q "Inherits=Bibata-Modern-Ice" \
+    "$SEED/etc/skel/.icons/default/index.theme"
 }
 
 @test "noctalia warns but does not abort when the curated dir is absent" {
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_CURATED_DIR="$TEST_DIR/none"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" \
+    NIRI_CURATED_DIR="$TEST_DIR/none"
   [ "$status" -eq 0 ]
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
@@ -251,7 +255,8 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
 
 @test "battery present (laptop): the battery pair is vendored with upower" {
   mkdir -p "$TEST_DIR/bat/BAT0"
-  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" \
+    NIRI_BAT_GLOB="$TEST_DIR/bat/BAT*"
   [ "$status" -eq 0 ]
   local base="$SEED/etc/skel/.local/share/noctalia/plugins"
   [ -f "$base/battery-power-management/plugin.toml" ]

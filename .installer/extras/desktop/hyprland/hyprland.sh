@@ -8,9 +8,9 @@
 # layered on top and gated on ENVIRONMENT_WAYLAND_SHELL: under `noctalia` the
 # adapter hands off to lib/chroot/noctalia-preset.sh, which installs Noctalia +
 # its gaps and seeds the Noctalia-wired hyprland.conf + shared config.toml +
-# helpers into /etc/skel; under `none` the box is truly bare (nothing seeded, the
-# operator brings their own config — symmetric with bare niri). hyprlock is NO
-# LONGER installed (ADR 0097, superseding 0096): Noctalia locks natively via
+# helpers into /etc/skel; under `none` the box is truly bare (nothing seeded,
+# the operator brings their own config — symmetric with bare niri). hyprlock is
+# NO LONGER installed (ADR 0097, superseding 0096): Noctalia locks natively via
 # ext-session-lock-v1, so the lock bind drives Noctalia, not a separate locker.
 #
 # Injectable seams (tests):
@@ -20,8 +20,8 @@
 #                          writes (default: empty — writes to the live root)
 #   HYPR_SEED_ROOT       — prefix for the /etc/skel config seed (default: /)
 #   HYPR_CURATED_DIR     — curated dotfiles source (hyprland.conf + the shared
-#                          Noctalia config.toml + helpers; default SCRIPT_DIR/curated)
-#   HYPR_JSON            — install-noctalia.jsonc override (preset component bools)
+#                          config.toml + helpers; default SCRIPT_DIR/curated)
+#   HYPR_JSON            — install-noctalia.jsonc override (component bools)
 #   HYPR_BAT_GLOB        — battery-presence glob for laptop plugin gating
 #   STATE                — install-state.json, for the resolved `.gpu` array
 # =============================================================================
@@ -35,9 +35,9 @@ ROOT="${ROOT:-}"
 # Default `/` (the chroot); tests point HYPR_SEED_ROOT at a temp dir.
 SEED_ROOT="${HYPR_SEED_ROOT:-/}"
 # Curated-config source (ADR 0097). chroot.sh stages the repo's single-source
-# Noctalia-wired hyprland.conf + the shared config.toml + noctalia-* helpers here
-# so this adapter seeds them into /etc/skel — served by default, while the repo
-# copies stay stowable. Injectable for tests.
+# Noctalia-wired hyprland.conf + the shared config.toml + noctalia-* helpers
+# here so this adapter seeds them into /etc/skel — served by default, while the
+# repo copies stay stowable. Injectable for tests.
 HYPR_CURATED_DIR="${HYPR_CURATED_DIR:-${SCRIPT_DIR}/curated}"
 # The Noctalia preset toggles, SHARED with the niri adapter (ADR 0097).
 HYPR_JSON="${HYPR_JSON:-${SCRIPT_DIR}/../install-noctalia.jsonc}"
@@ -51,8 +51,8 @@ source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 # loads the functions without running gpu.sh's chroot side effects.
 # shellcheck source=/dev/null
 GPU_LIB_ONLY=1 source "${SCRIPT_DIR}/../../../lib/chroot/gpu.sh"
-# The shared Noctalia work-shell preset (ADR 0097) — same module the niri adapter
-# uses; pulls in the pure package maps it needs.
+# The shared Noctalia work-shell preset (ADR 0097) — the same module the niri
+# adapter uses; pulls in the pure package maps it needs.
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/noctalia-preset.sh"
 
@@ -243,7 +243,8 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
   export NOC_CURATED_DIR="$HYPR_CURATED_DIR"
   export NOC_BAT_GLOB="${HYPR_BAT_GLOB:-/sys/class/power_supply/BAT*}"
   export NOC_SLICE_FN=noctalia_hyprland_plugins
-  noctalia_preset_install ".config/hypr/hyprland.conf" ".config/hypr/hyprland.conf"
+  _hc=".config/hypr/hyprland.conf"
+  noctalia_preset_install "$_hc" "$_hc"
 fi
 
 section "Hyprland installation complete"

@@ -395,8 +395,8 @@ pkgres_resolve() {
 
 # _pkgres_de_packages <de> <cfg> — the Desktop Environment Adapter's own sets.
 # KDE reads its install-kde.jsonc (ADR 0021); niri and Hyprland share the pure
-# Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097), so they are
-# handled separately from the jsonc-driven KDE path.
+# Noctalia preset keyed on environment.wayland_shell (ADR 0090/0097), handled
+# separately from the jsonc-driven KDE path.
 _pkgres_de_packages() {
   local de="$1" cfg="${2:-}"
   if [[ "$de" == niri ]]; then
@@ -455,17 +455,17 @@ _pkgres_de_packages() {
     "$(jq -c '.aur // {}' <<<"$json")" bool aur 2>/dev/null)
 }
 
-# _pkgres_niri_bool <key> <nj-json> — an install-noctalia.jsonc bool (false absent).
-_pkgres_niri_bool() { jq -r --arg k "$1" '.[$k] // false' <<<"$2"; }
+# _pkgres_noc_bool <key> <nj> — install-noctalia.jsonc bool (false if absent).
+_pkgres_noc_bool() { jq -r --arg k "$1" '.[$k] // false' <<<"$2"; }
 
-# _pkgres_niri_plugin_deps <nj-json> <plugin-list-fn> — emit the official-repo
+# _pkgres_noc_plugin_deps <nj-json> <plugin-list-fn> — emit the official-repo
 # tool deps of every plugin the list-fn names that is enabled in <nj>, from the
 # same list + bools the adapter installs from, so query and install cannot drift
 # (ADR 0093).
-_pkgres_niri_plugin_deps() {
+_pkgres_noc_plugin_deps() {
   local nj="$1" fn="$2" pl p
   while IFS= read -r pl; do
-    [[ "$(_pkgres_niri_bool "$pl" "$nj")" == true ]] || continue
+    [[ "$(_pkgres_noc_bool "$pl" "$nj")" == true ]] || continue
     while IFS= read -r p; do
       [[ -n "$p" ]] && _pkgres_emit noctalia derived "$p"
     done < <(noctalia_plugin_deps "$pl")
@@ -474,7 +474,7 @@ _pkgres_niri_plugin_deps() {
 
 # _pkgres_noctalia_preset <cfg> <slice-fn> — the SHARED Noctalia work preset
 # (source `noctalia`, ADR 0097), keyed on environment.wayland_shell: the base
-# preset map, the enabled install-noctalia.jsonc companions (cava, cliphist), the
+# preset map, the enabled install-noctalia.jsonc companions (cava, cliphist),
 # shared-core plugin deps + this compositor's <slice-fn> deps, and the
 # laptop-gated battery deps. Reused by both the niri and Hyprland resolver paths
 # from the same list + bools the adapters install from, so query and install
@@ -502,18 +502,19 @@ _pkgres_noctalia_preset() {
   [[ "$(jq -r '.cliphist // false' <<<"$nj")" == true ]] \
     && _pkgres_emit noctalia derived cliphist
 
-  # Enriched plugin deps (ADR 0093/0097) — the shared core plus this compositor's
-  # slice. Shared list + bools with the adapter, so query and install cannot
-  # drift.
-  _pkgres_niri_plugin_deps "$nj" noctalia_core_plugins
-  _pkgres_niri_plugin_deps "$nj" "$slice_fn"
+  # Enriched plugin deps (ADR 0093/0097) — the shared core plus this
+  # compositor's slice. Shared list + bools with the adapter, so query and
+  # install cannot drift.
+  _pkgres_noc_plugin_deps "$nj" noctalia_core_plugins
+  _pkgres_noc_plugin_deps "$nj" "$slice_fn"
 
   # Battery plugins are laptop-gated (ADR 0093). The resolver has no target
-  # hardware, so it reports the pair only when install-noctalia.jsonc sets `laptop`
-  # true; the "auto" default is an install-time /sys decision the adapter makes.
+  # hardware, so it reports the pair only when install-noctalia.jsonc sets
+  # `laptop` true; the "auto" default is an install-time /sys decision the
+  # adapter makes.
   [[ "$(jq -r 'if has("laptop") then (.laptop|tostring) else "false" end' \
      <<<"$nj")" == true ]] || return 0
-  _pkgres_niri_plugin_deps "$nj" noctalia_laptop_plugins
+  _pkgres_noc_plugin_deps "$nj" noctalia_laptop_plugins
 }
 
 # _pkgres_niri_packages <cfg> — niri's derived sets (ADR 0090). The core is the

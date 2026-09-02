@@ -128,7 +128,7 @@ _adapter() {
 
 # ── Bibata Modern Ice: the fleet cursor, per-adapter AUR on all three (0098) ──
 # One AUR package (bibata-cursor-git) ships both hyprcursor + Xcursor; each DE
-# adapter declares it so it installs whenever that desktop is selected, and never
+# adapter declares it so it installs whenever that desktop is selected, never
 # on a headless/minimal host.
 
 @test "bibata-cursor-git resolves under kde, niri and hyprland (ADR 0098)" {

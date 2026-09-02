@@ -1,6 +1,6 @@
 // Persistent VM: single-disk Hyprland + Noctalia (shared shell, ADR 0097).
-// References host arch-hyprland, so the VM exercises the real Hyprland adapter +
-// the SAME Noctalia work preset niri runs (desktop=hyprland,
+// References host arch-hyprland, so the VM exercises the real Hyprland adapter
+// + the SAME Noctalia work preset niri runs (desktop=hyprland,
 // wayland_shell=noctalia) — one source of truth. Greeter is greetd/tuigreet
 // (auto DM for KDE-free Wayland, ADR 0091); log in and Hyprland autostarts
 // Noctalia. The desktop-verify prober waits for the Hyprland compositor + a

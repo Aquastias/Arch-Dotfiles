@@ -220,7 +220,7 @@ _resolve_env_validate() {
   $_dm_ok || error "Unknown display_manager '${ENVIRONMENT_DISPLAY_MANAGER}'." \
     "Valid: ${_VALID_DISPLAY_MANAGER[*]}."
 
-  # ── wayland shell ────────────────────────────────────────────────────────────
+  # ── wayland shell ──────────────────────────────────────────────────────────
   # The Noctalia work-shell preset selector (ADR 0090/0097); defaults to
   # noctalia. Meaningful for any wlroots compositor in the desktop set (niri and
   # Hyprland) — harmless otherwise (the niri/Hyprland adapters are the readers).

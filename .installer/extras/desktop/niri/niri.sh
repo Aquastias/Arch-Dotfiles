@@ -19,7 +19,7 @@
 #   NIRI_SEED_ROOT       — prefix for /etc/skel seeds (default: / — the chroot)
 #   NIRI_BAT_GLOB        — battery-presence glob for laptop detection
 #                          (default: /sys/class/power_supply/BAT*)
-#   NIRI_JSON            — install-noctalia.jsonc override (preset component bools)
+#   NIRI_JSON            — install-noctalia.jsonc override (component bools)
 #   NIRI_CURATED_DIR     — staged curated dotfiles source
 #   WAYLAND_SESSIONS_DIR — curated session dir
 #                          (default: /usr/local/share/wayland-sessions)
@@ -52,8 +52,8 @@ source "${SCRIPT_DIR}/../../../lib/chroot/extras-common.sh"
 # query cannot drift (ADR 0090).
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/packages/niri.sh"
-# The shared Noctalia work-shell preset (ADR 0097) — install + seed logic used by
-# both the niri and Hyprland adapters.
+# The shared Noctalia work-shell preset (ADR 0097) — install + seed logic
+# used by both the niri and Hyprland adapters.
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/../../../lib/chroot/noctalia-preset.sh"
 
@@ -90,8 +90,8 @@ ln -sf /usr/share/wayland-sessions/niri.desktop \
 # =============================================================================
 # Bare niri (none / unset) stops at the core above — the operator's dotfiles own
 # the shell. Under noctalia, hand off to the shared preset module: map this
-# adapter's seams onto the module's NOC_* contract, pick the niri config file and
-# the niri plugin slice, and let the module install + seed + vendor.
+# adapter's seams onto the module's NOC_* contract, pick the niri config file
+# and the niri plugin slice, and let the module install + seed + vendor.
 if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
   # NOC_* are the shared preset module's input contract (read by
   # lib/chroot/noctalia-preset.sh, sourced above) — exported so the contract is

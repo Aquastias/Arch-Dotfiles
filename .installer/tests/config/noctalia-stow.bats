@@ -114,10 +114,10 @@ setup() {
 # must equal the installer's SHARED CORE plugin set — and ONLY the core set. The
 # compositor slices (niri-* / hypr-*) are deliberately NOT in config.toml (ADR
 # 0097): they are vendored per-adapter and enabled by the first-login one-shot,
-# so config.toml stays byte-identical across compositors. Off-by-one here means a
-# core plugin ships enabled-but-not-vendored, or a slice id leaked into the
+# so config.toml stays byte-identical across compositors. Off-by-one here means
+# a core plugin ships enabled-but-not-vendored, or a slice id leaked into the
 # shared config — the drift 0094/0097 bans.
-@test "config.toml enabled list mirrors the shared core plugin set (no slices)" {
+@test "config.toml enabled list mirrors the shared core plugin set" {
   local enabled core
   enabled="$(awk '/^enabled = \[/{f=1;next} f&&/^\]/{f=0} f' "$CT" \
     | grep -oE '"[^"]+"' | tr -d '"' | sed 's#.*/##' | sort)"
