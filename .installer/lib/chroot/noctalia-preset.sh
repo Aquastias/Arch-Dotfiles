@@ -130,6 +130,15 @@ noctalia_preset_install() {
     install -d "${_skel}/.local/bin"
     install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* \
       "${_skel}/.local/bin/"
+    # pcmanfm-qt (the shared file manager, ADR 0100): its curated settings +
+    # right-click custom actions (Open in kitty / Copy path / Duplicate). Same
+    # single-source copy as the rest — stays independently stowable.
+    install -Dm644 "${NOC_CURATED_DIR}/.config/pcmanfm-qt/lxqt/settings.conf" \
+      "${_skel}/.config/pcmanfm-qt/lxqt/settings.conf"
+    install -d "${_skel}/.local/share/file-manager/actions"
+    install -m644 \
+      "${NOC_CURATED_DIR}"/.local/share/file-manager/actions/*.desktop \
+      "${_skel}/.local/share/file-manager/actions/"
     # Default cursor for GTK/XWayland apps (ADR 0098): ~/.icons/default inherits
     # Bibata Modern Ice, matching the compositor's XCURSOR_THEME. KDE seeds its
     # own copy; niri/Hyprland get theirs here (one line, no per-user state).

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Action
+Name=Copy path
+Icon=edit-copy
+Profiles=profile-zero;
+
+[X-Action-Profile profile-zero]
+Exec=sh -c 'printf "%s" "%f" | wl-copy'
+Name=Default profile

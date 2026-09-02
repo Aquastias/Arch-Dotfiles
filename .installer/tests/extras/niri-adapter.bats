@@ -77,6 +77,12 @@ GIT
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
+  # pcmanfm-qt curated payload (ADR 0100): settings + right-click actions.
+  mkdir -p "$CURATED/.config/pcmanfm-qt/lxqt" \
+    "$CURATED/.local/share/file-manager/actions"
+  echo 'pcmanfm-settings' > "$CURATED/.config/pcmanfm-qt/lxqt/settings.conf"
+  echo 'kitty-action' \
+    > "$CURATED/.local/share/file-manager/actions/open-in-kitty.desktop"
   export NIRI_CURATED_DIR="$CURATED"
 }
 
@@ -130,6 +136,7 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ "$status" -eq 0 ]
   ! grep -q "noctalia" "$PACMAN_LOG"
   ! grep -q "kitty" "$PACMAN_LOG"
+  ! grep -q "pcmanfm-qt" "$PACMAN_LOG"
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
@@ -142,9 +149,18 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
   [ "$status" -eq 0 ]
   local p
-  for p in noctalia kitty brightnessctl playerctl; do
+  for p in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
     grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
   done
+}
+
+# The shared file manager (ADR 0100): pcmanfm-qt's curated settings + the
+# right-click custom actions are seeded to /etc/skel alongside the rest.
+@test "noctalia seeds the pcmanfm-qt settings + custom actions (ADR 0100)" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.config/pcmanfm-qt/lxqt/settings.conf" ]
+  [ -f "$SEED/etc/skel/.local/share/file-manager/actions/open-in-kitty.desktop" ]
 }
 
 # The curated look is served by default via /etc/skel (ADR 0095): the niri glue

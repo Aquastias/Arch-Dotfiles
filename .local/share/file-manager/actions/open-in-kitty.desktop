@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Action
+Name=Open in kitty
+Icon=kitty
+Profiles=profile-zero;
+
+[X-Action-Profile profile-zero]
+MimeTypes=inode/directory;
+Exec=kitty --directory %f
+Name=Default profile
