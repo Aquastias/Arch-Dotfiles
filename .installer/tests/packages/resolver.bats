@@ -152,6 +152,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   grep -qx "kitty"         <<<"$n"
   grep -qx "playerctl"     <<<"$n"
   grep -qx "smartmontools" <<<"$n"   # drive-health: a shared-core plugin dep
+  grep -qx "socat"         <<<"$n"   # hypr-submap/screen-mirror: hypr-slice dep
 }
 
 @test "noctalia set is empty for bare hyprland (wayland_shell=none)" {

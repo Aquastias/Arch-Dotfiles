@@ -1,12 +1,14 @@
 # 04 — Hyprland `hypr-*` compositor plugin slice
 
-**What to build:** the compositor-specific widgets that work on niri via its
-`niri-*` plugins also work on Hyprland via the native `hypr-*` equivalents
-(workspace / animations / displays), so the *features* match on both. The
-Hyprland plugin slice in `install-noctalia.jsonc` is populated and vendored on a
-Hyprland install; each `hypr-*` id is verified to exist at the pinned community
-ref, and any that do not exist are dropped from the slice rather than blocking
-the ticket.
+**What to build:** the Hyprland plugin slice — Hyprland-native niceties vendored
+on a Hyprland install. **As-built note:** the niri slice
+(`niri-active-workspace`/`niri-animations`/`niri-displays`) has **no** `hypr-*`
+counterpart at the pinned ref (verified via the community-plugins tree), so those
+were dropped as verified-absent. Workspace parity is the built-in `workspaces`
+bar widget; animations/displays are configured in `hyprland.conf` directly. The
+shipped slice (operator's choice) is `hypr-layout-switcher`, `hypr-submap`,
+`hypr-screen-mirror` — the latter overlapping the core `wl-screen-mirror` on
+Hyprland, kept by explicit choice.
 
 **Blocked by:** 03
 

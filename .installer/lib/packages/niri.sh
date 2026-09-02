@@ -69,11 +69,15 @@ noctalia_niri_plugins() {
 }
 
 # noctalia_hyprland_plugins — the Hyprland compositor slice (ADR 0097): the
-# hypr-* counterparts of the niri slice, vendored only on a Hyprland box. Each id
-# is verified to exist at the pinned community ref before it ships; the set is
-# populated by the Hyprland plugin-slice work (empty until then).
+# Hyprland-native niceties, vendored only on a Hyprland box. NOT a mirror of the
+# niri slice — the niri workspace/animation/display plugins have no hypr
+# counterpart at the pinned ref (workspace parity is the built-in `workspaces`
+# widget; animations/displays are configured in hyprland.conf directly). The set:
+# hypr-layout-switcher (cycle dwindle/master), hypr-submap (submap indicator),
+# hypr-screen-mirror (Hyprland-native output mirror). Each id is verified present
+# at the pinned community ref.
 noctalia_hyprland_plugins() {
-  : # empty until the Hyprland plugin slice is populated (ADR 0097)
+  printf '%s\n' hypr-layout-switcher hypr-submap hypr-screen-mirror
 }
 
 # noctalia_laptop_plugins — the laptop-gated battery plugins (ADR 0093), added
@@ -114,10 +118,16 @@ noctalia_plugin_deps() {
     llamanager)       printf '%s\n' ollama ;;
     dns-switcher)     printf '%s\n' bind ;;
     udiskie)          printf '%s\n' udiskie udisks2 xdg-utils ;;
+    # Hyprland slice (ADR 0097). hyprctl/stdbuf come from hyprland/coreutils
+    # (already present), so only socat is an extra dep; hypr-layout-switcher
+    # needs just hyprland itself (the adapter's core).
+    hypr-submap)        printf '%s\n' socat ;;
+    hypr-screen-mirror) printf '%s\n' socat ;;
     battery-power-management)
       printf '%s\n' power-profiles-daemon upower ;;
     battery-widget)   printf '%s\n' upower ;;
-    *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-*, portctl
-            # (ss⊂iproute2), bookmarks (nohup⊂coreutils) : deps in base already
+    *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-*,
+            # hypr-layout-switcher (hyprctl⊂hyprland), portctl (ss⊂iproute2),
+            # bookmarks (nohup⊂coreutils) : deps in base/compositor already
   esac
 }
