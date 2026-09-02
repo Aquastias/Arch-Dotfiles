@@ -71,6 +71,12 @@ GIT
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
+  # pcmanfm-qt curated payload (ADR 0100): settings + right-click actions.
+  mkdir -p "$CURATED/.config/pcmanfm-qt/lxqt" \
+    "$CURATED/.local/share/file-manager/actions"
+  echo 'pcmanfm-settings' > "$CURATED/.config/pcmanfm-qt/lxqt/settings.conf"
+  echo 'kitty-action' \
+    > "$CURATED/.local/share/file-manager/actions/open-in-kitty.desktop"
   export HYPR_CURATED_DIR="$CURATED"
 }
 
@@ -160,13 +166,16 @@ run_hypr() {
   # GTK/XWayland cursor fallback (ADR 0098)
   grep -q "Inherits=Bibata-Modern-Ice" \
     "$SEED/etc/skel/.icons/default/index.theme"
+  # Shared file manager settings + custom actions (ADR 0100)
+  [ -f "$SEED/etc/skel/.config/pcmanfm-qt/lxqt/settings.conf" ]
+  [ -f "$SEED/etc/skel/.local/share/file-manager/actions/open-in-kitty.desktop" ]
 }
 
 @test "noctalia: installs the Noctalia preset packages" {
   run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
   local p
-  for p in noctalia kitty brightnessctl playerctl; do
+  for p in noctalia kitty brightnessctl playerctl pcmanfm-qt; do
     grep -q "$p" "$PACMAN_LOG" || { echo "preset missing: $p"; return 1; }
   done
 }

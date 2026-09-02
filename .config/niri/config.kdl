@@ -31,6 +31,9 @@ binds {
     Mod+D hotkey-overlay-title="App Launcher" {
         spawn-sh "noctalia msg panel-toggle launcher";
     }
+    // File manager: pcmanfm-qt, the shared preset FM (ADR 0100). Matches
+    // Hyprland's Super+E so the key means the same on both compositors.
+    Mod+E hotkey-overlay-title="File Manager" { spawn "pcmanfm-qt"; }
     Super+Alt+L hotkey-overlay-title="Lock Screen" {
         spawn-sh "noctalia msg session lock";
     }

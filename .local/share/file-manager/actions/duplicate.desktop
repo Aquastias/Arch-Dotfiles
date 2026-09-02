@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Action
+Name=Duplicate
+Icon=edit-copy
+Profiles=profile-zero;
+
+[X-Action-Profile profile-zero]
+Exec=sh -c 'cp -a -- "%f" "%f.copy"'
+Name=Default profile
