@@ -16,17 +16,18 @@ Anchored by ADR 0099.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Persistent-flow VM gets a cloud-init NoCloud seed whose `user-data`
+- [x] Persistent-flow VM gets a cloud-init NoCloud seed whose `user-data`
       authorizes the harness key and ensures sshd at first boot, with no
       install runcmd.
-- [ ] Live ISO exposes a root autologin shell on `ttyS0`.
-- [ ] Harness SSH key authorization is removed from the typed `curl|bash`
+- [x] Live ISO exposes a root autologin shell on `ttyS0`.
+- [x] Harness SSH key authorization is removed from the typed `curl|bash`
       payload (it now comes from the seed).
-- [ ] SSH into the live ISO works even when the typed payload never executes.
-- [ ] Install log remains a file; nothing streams it to serial.
-- [ ] No change to installer-produced config semantics; a real install still
+- [x] SSH into the live ISO works even when the typed payload never executes
+      (guaranteed by the seed's content; end-to-end boot check stays CI/local).
+- [x] Install log remains a file; nothing streams it to serial.
+- [x] No change to installer-produced config semantics; a real install still
       uses `options.ssh.enabled` as its only SSH knob.
-- [ ] Seam-1 tests assert the generated seed contains key-authorize +
+- [x] Seam-1 tests assert the generated seed contains key-authorize +
       sshd-ensure + `ttyS0` autologin and **no** install runcmd.
