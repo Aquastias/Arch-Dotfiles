@@ -336,6 +336,7 @@ flow_run() {
   flow_persistent_deps
   _ensure_libvirt_group
   _ensure_libvirtd
+  _ensure_libvirt_reachable
   mkdir -p "$ISO_DIR" "$CACHE_DIR"
   _harness_ensure_key
   # Primary user (users[0]) owns the authorized harness key + the ssh command.

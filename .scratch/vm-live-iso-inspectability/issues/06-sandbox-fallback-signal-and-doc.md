@@ -13,10 +13,11 @@ Anchored by ADR 0099.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `vm.sh` preflight emits a recognizable "libvirt unreachable (sandbox?)"
-      signal, distinguishing a blocked socket from libvirt being down where it
-      can.
-- [ ] A `docs/agents/` doc states the retry-outside-sandbox operating rule.
-- [ ] `CLAUDE.md` references the new agent doc under its Agent skills section.
+- [x] `vm.sh` preflight (`_ensure_libvirt_reachable`) emits a recognizable
+      "libvirt unreachable (sandbox?)" signal when libvirtd is up but virsh
+      can't connect, and a plain "libvirt unreachable" when the daemon is down.
+- [x] `docs/agents/vm-sandbox.md` states the retry-outside-sandbox operating
+      rule.
+- [x] `CLAUDE.md` references it under Agent skills (`### VM sandbox`).

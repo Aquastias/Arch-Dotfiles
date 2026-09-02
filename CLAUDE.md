@@ -23,3 +23,7 @@ Package/config/service decisions trace to the Arch Wiki — fetch the page, don'
 ### Shell commons
 
 Reuse a Commons helper before writing a new one; put new helpers in the right world (Installer Stdlib vs Shell Stdlib) and don't merge across execution-context boundaries. See `docs/agents/shell-commons.md`.
+
+### VM sandbox
+
+`vm.sh`/`virsh` talk to libvirtd over a socket the command sandbox often blocks. On a `libvirt unreachable (sandbox?)` signal, retry the same command with the sandbox disabled. See `docs/agents/vm-sandbox.md`.
