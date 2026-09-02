@@ -1,6 +1,8 @@
 # Spec: Noctalia as the shared niri/Hyprland shell
 
-Status: ready-for-agent
+Status: done (commits 358fb13, 02f52c6, 90fae9f, 73ed83e, 7812185, e8065a1).
+Bats green for every touched subsystem; VM boot-verify cell wired but not run
+here (needs a real VM).
 
 Related: ADR 0097 (this feature — Noctalia is the shared shell, `wayland_shell`).
 Supersedes ADR 0096 (shared keybinds + skel Hyprland config) whole — the keybind
