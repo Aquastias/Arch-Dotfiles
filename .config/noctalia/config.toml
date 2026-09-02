@@ -81,6 +81,34 @@ widget_order = []
 [dock]
 icon_size = 25
 
+# Idle behaviors (ADR 0100). Noctalia v5 owns lock + idle natively, so this is
+# config-only, zero extra packages, identical on niri and Hyprland. timeouts are
+# seconds. lock @5min, monitors off @10min. Suspend @15min routes through a
+# self-gating helper so it fires only on a laptop-on-battery — a desktop or a
+# laptop on AC is a no-op (keeps this file byte-identical/portable). Noctalia
+# respects idle inhibitors, so fullscreen video / audio hold off idle.
+[idle.behavior.lock]
+timeout = 300
+action = "lock"
+enabled = true
+
+[idle.behavior.screen-off]
+timeout = 600
+action = "screen_off"
+enabled = true
+
+[idle.behavior.suspend]
+timeout = 900
+action = "command"
+command = "sh $HOME/.local/bin/noctalia-idle-suspend"
+enabled = true
+
+# Lock before suspend/hibernate on logind PrepareForSleep (ADR 0100) — so both
+# the idle suspend above and a lid-close/systemctl suspend land on the lock
+# screen. Default is already true; set explicitly to document the intent.
+[lockscreen]
+lock_before_suspend = true
+
 [lockscreen_widgets]
 schema_version = 2
 widget_order = []

@@ -71,6 +71,7 @@ GIT
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
+  echo 'suspend' > "$CURATED/.local/bin/noctalia-idle-suspend"  # ADR 0100
   # pcmanfm-qt curated payload (ADR 0100): settings + right-click actions.
   mkdir -p "$CURATED/.config/pcmanfm-qt/lxqt" \
     "$CURATED/.local/share/file-manager/actions"
@@ -163,6 +164,8 @@ run_hypr() {
   grep -qx noctalia-config "$SEED/etc/skel/.config/noctalia/config.toml"
   [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
   [ -x "$SEED/etc/skel/.local/bin/noctalia-enable-plugins" ]
+  # Idle-suspend gate helper (ADR 0100)
+  [ -x "$SEED/etc/skel/.local/bin/noctalia-idle-suspend" ]
   # GTK/XWayland cursor fallback (ADR 0098)
   grep -q "Inherits=Bibata-Modern-Ice" \
     "$SEED/etc/skel/.icons/default/index.theme"
