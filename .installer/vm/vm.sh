@@ -47,6 +47,10 @@ Options:
   --hold-on-fail          (test flow) On a FAILED cell, skip poweroff and give
                           ttyS0 a root autologin shell so the VM stays
                           inspectable over `virsh console`.
+  --rescue                Re-attach the install ISO + access seed to an EXISTING
+                          persistent VM and boot the live ISO, to inspect a
+                          system that installed but won't boot (does not
+                          reinstall). Ignores --testing/--guided.
   --print-config          Dry run: validate and print the resolved
                           install.jsonc to stdout, then exit.
   --help, -h              Show this help.
@@ -59,7 +63,7 @@ USAGE
 
 main() {
   local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0 guided=0
-  local hold_on_fail=0
+  local hold_on_fail=0 rescue=0
   while (($#)); do
     case "$1" in
       --profile)      profile_ref="${2:-}"; shift 2 ;;
@@ -69,6 +73,7 @@ main() {
       --recreate)     recreate=1; shift ;;
       --verify-boot)  verify_boot=1; shift ;;
       --hold-on-fail) hold_on_fail=1; shift ;;
+      --rescue)       rescue=1; shift ;;
       --print-config) print_config=1; shift ;;
       --help | -h)    usage; return 0 ;;
       *)              usage >&2; die "unknown argument '$1'" ;;
@@ -181,6 +186,14 @@ main() {
   RECREATE=$( ((recreate)) && echo true || echo false )
 
   # ── Dispatch to the selected flow (each guard-sources core.sh) ──────────────
+  # --rescue is a persistent-flow-only operation on an existing VM: re-attach the
+  # ISO + seed and boot the live env to inspect a broken install (ADR 0099).
+  if ((rescue)); then
+    # shellcheck source=lib/flow-persistent.sh
+    source "$SELF_DIR/lib/flow-persistent.sh"
+    flow_rescue
+    return
+  fi
   if ((guided)); then
     # shellcheck source=lib/flow-guided.sh
     source "$SELF_DIR/lib/flow-guided.sh"

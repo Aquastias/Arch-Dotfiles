@@ -14,16 +14,19 @@ Anchored by ADR 0099.
 
 **Blocked by:** 01 — rescue boots back into the live-ISO channels seeded there.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Persistent-flow installed systemd-boot and GRUB entries carry
-      `console=ttyS0,115200`.
-- [ ] `--rescue` / `--reattach-iso` re-inserts the install ISO so the next boot
-      lands on the live ISO with ticket-01's channels.
-- [ ] From a rescued live ISO the half-installed pool is importable for
-      inspection.
-- [ ] A booted-but-broken installed system remains SSH-reachable via the harness
-      key (unchanged).
-- [ ] Seam-1 test: installed loader entries (systemd-boot + GRUB) carry
-      `console=ttyS0,115200` for the persistent flow.
-- [ ] Seam-4 test (mocked libvirt): `--rescue` re-attaches the ISO.
+- [x] Persistent-flow installed systemd-boot and GRUB entries carry
+      `console=ttyS0,115200` (reuses `_seed_generator_esp_serial_lines` in the
+      payload's success branch).
+- [x] `--rescue` re-inserts the install ISO + a fresh access seed on an existing
+      VM and boots the live ISO with ticket-01's channels (`flow_rescue` +
+      `_vm_insert_cdroms`).
+- [x] From a rescued live ISO the half-installed pool is importable — the flow
+      prints the `zpool import` guidance.
+- [x] A booted-but-broken installed system remains SSH-reachable via the harness
+      key (unchanged — installer still enables ssh for the installed guest).
+- [x] Seam-1 test: the rendered payload patches `console=ttyS0,115200` onto the
+      installed loader entries.
+- [x] Seam-4 test (mocked virsh): `_vm_insert_cdroms` puts the ISO in the first
+      cdrom drive and the seed in the second.

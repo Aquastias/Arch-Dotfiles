@@ -337,6 +337,24 @@ _wait_for_serial_pty() {
   return 0   # best-effort; console capture surfaces any genuine failure
 }
 
+# Re-insert media into the domain's cdrom drives (the reverse of
+# _vm_eject_cdroms): <iso> into the first cdrom drive, <seed> into the second, so
+# a rescue boot lands back on the live ISO with the seed's SSH + serial channels
+# (ADR 0099). The drives persist across an eject (only their media is removed);
+# operates on the persistent config so it survives the next start. Best-effort.
+_vm_insert_cdroms() {
+  local iso="$1" seed="${2:-}"
+  local -a tgts=()
+  mapfile -t tgts < <(virsh domblklist --details "$VM_NAME" 2>/dev/null \
+    | awk '$2 == "cdrom" { print $3 }')
+  [[ -n "${tgts[0]:-}" && -n "$iso" ]] \
+    && virsh change-media "$VM_NAME" "${tgts[0]}" "$iso" \
+         --insert --config >/dev/null 2>&1 || true
+  [[ -n "${tgts[1]:-}" && -n "$seed" ]] \
+    && virsh change-media "$VM_NAME" "${tgts[1]}" "$seed" \
+         --insert --config >/dev/null 2>&1 || true
+}
+
 # =============================================================================
 # FIXTURE STAGING (VM_FIXTURE_FILES → CACHE_DIR)
 # =============================================================================
