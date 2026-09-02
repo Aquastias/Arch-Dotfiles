@@ -1,0 +1,44 @@
+// Host Profile for vm/arch-hyprland — Hyprland + Noctalia VM (ADR 0036/0097).
+// Merged under hosts/core/profile.jsonc. A COMPLETE desktop: inherits Host
+// Core's full package userland + the shared Noctalia environment on Hyprland, on
+// a single-disk skeleton (one operator-picked disk auto-partitioned into ESP +
+// rpool + dpool; no os_pool block needed). No display_manager → auto resolves to
+// greetd for a KDE-free Wayland session (ADR 0091). Same wayland_shell=noctalia
+// as arch-niri — only the compositor backend differs (ADR 0097).
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop":       "hyprland",
+    "wayland_shell": "noctalia",
+    "gpu":           "auto"
+  },
+
+  "post_install": {
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
+  },
+
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 13
+}
