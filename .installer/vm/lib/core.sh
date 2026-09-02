@@ -224,6 +224,57 @@ _vm_eject_cdroms() {
 }
 
 # =============================================================================
+# SERIAL CONSOLE CAPTURE — shared by both flows
+# =============================================================================
+# script(1) provides the pseudo-TTY `virsh console` needs. Both flows capture
+# the serial console to a log the sentinel watcher greps: the test flow for the
+# installer/boot sentinels, the persistent flow to tell a failed install from a
+# hang and hold the VM for inspection (ADR 0099).
+CONSOLE_WRAP_PID=""
+
+_start_console_capture() {
+  local log="${1:?console capture needs a log path}"
+  : > "$log"
+  _console_capture_loop "$log" &
+  CONSOLE_WRAP_PID=$!
+  info "Console capture running — \`tail -F ${log}\` to watch live."
+}
+
+# Re-attach `virsh console` until the domain halts, appending to <log>. A serial
+# PTY can drop mid-boot — notably on the slower multi-disk boot, when the kernel
+# and then serial-getty re-grab the console — and a single non-looping attach
+# would then miss a marker printed afterwards (the VM runs fine but the capture
+# dies and the log stays empty). Re-attaching until poweroff makes the capture
+# robust. Stops as soon as the domain is no longer running.
+_console_capture_loop() {
+  local log="$1"
+  while :; do
+    script -qafc "virsh console --force \"$VM_NAME\"" "$log" >/dev/null 2>&1
+    _vm_running || break
+    sleep 0.3
+  done
+}
+
+_stop_console_capture() {
+  [[ -n "$CONSOLE_WRAP_PID" ]] || return 0
+  kill     "$CONSOLE_WRAP_PID" 2>/dev/null || true  # stop the re-attach loop
+  pkill -P "$CONSOLE_WRAP_PID" 2>/dev/null || true  # and its live script/virsh
+  wait     "$CONSOLE_WRAP_PID" 2>/dev/null || true
+  CONSOLE_WRAP_PID=""
+}
+
+# Poll virsh ttyconsole until the serial PTY is assigned, so console capture
+# attaches to a live pty instead of dying on "PTY device is not yet assigned".
+_wait_for_serial_pty() {
+  local _
+  for _ in $(seq 1 50); do
+    [[ -n "$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" ]] && return 0
+    sleep 0.1
+  done
+  return 0   # best-effort; console capture surfaces any genuine failure
+}
+
+# =============================================================================
 # FIXTURE STAGING (VM_FIXTURE_FILES → CACHE_DIR)
 # =============================================================================
 # Copies each declared fixture into CACHE_DIR so the flow's HTTP server can

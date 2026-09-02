@@ -149,42 +149,9 @@ _flow_build_seed() {
   printf '%s\n' "${seed_iso}"
 }
 
-# =============================================================================
-# CONSOLE CAPTURE — script(1) provides the pseudo-TTY virsh console needs
-# =============================================================================
-CONSOLE_WRAP_PID=""
-
-_start_console_capture() {
-  local log="${1:-$LOG_FILE}"
-  : > "$log"
-  _console_capture_loop "$log" &
-  CONSOLE_WRAP_PID=$!
-  info "Console capture running — \`tail -F ${log}\` to watch live."
-}
-
-# Re-attach `virsh console` until the domain halts, appending to <log>. A serial
-# PTY can drop mid-boot — notably on the slower multi-disk boot, when the kernel
-# and then serial-getty re-grab the console — and a single non-looping attach
-# would then miss the first-boot marker printed afterwards (the VM boots fine but
-# the capture dies and the log stays empty). Re-attaching until poweroff makes
-# boot-verify robust for multi-disk installs. Stops as soon as the domain is no
-# longer running — nothing more will be written.
-_console_capture_loop() {
-  local log="$1"
-  while :; do
-    script -qafc "virsh console --force \"$VM_NAME\"" "$log" >/dev/null 2>&1
-    _vm_running || break
-    sleep 0.3
-  done
-}
-
-_stop_console_capture() {
-  [[ -n "$CONSOLE_WRAP_PID" ]] || return 0
-  kill     "$CONSOLE_WRAP_PID" 2>/dev/null || true  # stop the re-attach loop
-  pkill -P "$CONSOLE_WRAP_PID" 2>/dev/null || true  # and its live script/virsh
-  wait     "$CONSOLE_WRAP_PID" 2>/dev/null || true
-  CONSOLE_WRAP_PID=""
-}
+# Serial console capture (_start_console_capture / _console_capture_loop /
+# _stop_console_capture / _wait_for_serial_pty) is shared with the persistent
+# flow and lives in core.sh (ADR 0099).
 
 # CONSOLE ANSWERER — supply the disk-unlock passphrase over serial so encrypted
 # roots boot-verify unattended. The prompt reads /dev/console (console=ttyS0 is
@@ -234,17 +201,6 @@ _stop_fixture_http_server() {
 # shellcheck disable=SC2329
 _on_signal() { _stop_console_answerer; _stop_console_capture; \
   _stop_fixture_http_server; exit "$((128 + ${1:-2}))"; }
-
-# Poll virsh ttyconsole until the serial PTY is assigned, so console capture
-# attaches to a live pty instead of dying on "PTY device is not yet assigned".
-_wait_for_serial_pty() {
-  local _
-  for _ in $(seq 1 50); do
-    [[ -n "$(virsh ttyconsole "$VM_NAME" 2>/dev/null)" ]] && return 0
-    sleep 0.1
-  done
-  return 0   # best-effort; console capture surfaces any genuine failure
-}
 
 # =============================================================================
 # BOOT VERIFY (opt-in)
