@@ -44,6 +44,9 @@ Options:
   --recreate              Destroy and undefine the existing VM first.
   --verify-boot           After a clean test install, power-cycle to the
                           installed disk and wait for the first-boot sentinel.
+  --hold-on-fail          (test flow) On a FAILED cell, skip poweroff and give
+                          ttyS0 a root autologin shell so the VM stays
+                          inspectable over `virsh console`.
   --print-config          Dry run: validate and print the resolved
                           install.jsonc to stdout, then exit.
   --help, -h              Show this help.
@@ -56,6 +59,7 @@ USAGE
 
 main() {
   local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0 guided=0
+  local hold_on_fail=0
   while (($#)); do
     case "$1" in
       --profile)      profile_ref="${2:-}"; shift 2 ;;
@@ -64,6 +68,7 @@ main() {
       --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
       --verify-boot)  verify_boot=1; shift ;;
+      --hold-on-fail) hold_on_fail=1; shift ;;
       --print-config) print_config=1; shift ;;
       --help | -h)    usage; return 0 ;;
       *)              usage >&2; die "unknown argument '$1'" ;;
@@ -123,6 +128,10 @@ main() {
   VERIFY_BOOT="${VERIFY_BOOT:-$(jq -r '.verify.boot // false' <<<"$profile_json")}"
   ((verify_boot)) && VERIFY_BOOT=true
   DIRTY_CACHE="${DIRTY_CACHE:-$(jq -r '.verify.dirty_cache // false' <<<"$profile_json")}"
+  # Hold-on-fail (ADR 0099): env > profile > flag. When on, a failed test cell is
+  # left running with a serial autologin shell instead of powering off.
+  HOLD_ON_FAIL="${HOLD_ON_FAIL:-$(jq -r '.verify.hold_on_fail // false' <<<"$profile_json")}"
+  ((hold_on_fail)) && HOLD_ON_FAIL=true
   VM_VERIFY_BYID="${VM_VERIFY_BYID:-$(jq -r '.verify.by_id // false' <<<"$profile_json")}"
   VM_REORDER_BOOT_DISKS="${VM_REORDER_BOOT_DISKS:-$(jq -r '.verify.reorder_boot_disks // false' <<<"$profile_json")}"
   mapfile -t VM_VERIFY_POOLS  < <(jq -r '.verify.pools[]?'  <<<"$profile_json")

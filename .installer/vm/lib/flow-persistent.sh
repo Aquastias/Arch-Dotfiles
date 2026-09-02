@@ -103,15 +103,7 @@ runcmd:
     systemctl enable --now sshd 2>/dev/null || systemctl start sshd || true
     # Serial fallback: a root autologin getty on ttyS0 — the zero-network channel
     # an agent drives over \`virsh console\` (survives no-DHCP, no-sshd, a panic).
-    install -d /etc/systemd/system/serial-getty@ttyS0.service.d
-    printf '%s\n' \\
-      '[Service]' \\
-      'ExecStart=' \\
-      'ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,57600,38400,9600 --noclear ttyS0 \$TERM' \\
-      > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
-    systemctl daemon-reload || true
-    systemctl enable --now serial-getty@ttyS0.service 2>/dev/null || true
-    systemctl restart serial-getty@ttyS0.service || true
+$(_serial_autologin_root_lines)
 EOF
 }
 
