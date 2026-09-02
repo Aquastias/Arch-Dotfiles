@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 # Tests for vm/lib/flow-persistent.sh — the SSH-debug affordance on persistent
-# VMs: the rendered in-VM installer script enables sshd + authorizes the harness
-# key, and the harness key is generated on demand.
+# VMs: the boot seed authorizes the harness key on the live ISO + sets up a root
+# autologin getty on ttyS0 (ADR 0099), the rendered in-VM installer script
+# enables sshd for the INSTALLED guest, and the harness key is generated on
+# demand.
 
 setup() {
   FLOW="$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
@@ -48,16 +50,44 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'--needed git jq'* ]]
 }
 
-@test "render: authorizes the key on the live ISO and captures a log" {
+@test "render: captures a log to a retrievable file" {
   INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
   run _render_installer_script https://example/repo.git \
     'ssh-ed25519 AAAALIVE k' aquastias
   [ "$status" -eq 0 ]
-  # Live-ISO key so the host can SSH in even on a failed install.
-  [[ "$output" == *'/root/.ssh/authorized_keys'* ]]
-  [[ "$output" == *'ssh-ed25519 AAAALIVE k'* ]]
-  # Install output captured to a retrievable file.
+  # Install output captured to a retrievable file (never streamed to serial).
   [[ "$output" == *'tee /root/install.log'* ]]
+}
+
+@test "render: no longer authorizes the live-ISO key (the seed does — ADR 0099)" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git \
+    'ssh-ed25519 AAAALIVE k' aquastias
+  [ "$status" -eq 0 ]
+  # The live-ISO /root authorize moved out of the payload into the boot seed, so
+  # a failure before this payload runs still leaves the live ISO reachable.
+  [[ "$output" != *'/root/.ssh/authorized_keys'* ]]
+}
+
+@test "seed: authorizes the harness key on the live ISO, no install runcmd" {
+  run _flow_render_seed_user_data 'ssh-ed25519 AAAASEED k'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'#cloud-config'* ]]
+  [[ "$output" == *'/root/.ssh/authorized_keys'* ]]
+  [[ "$output" == *'ssh-ed25519 AAAASEED k'* ]]
+  # sshd is ensured so SSH works even if the typed payload never runs.
+  [[ "$output" == *'sshd'* ]]
+  # NO install runcmd: the installer is typed via curl|bash, not seeded.
+  [[ "$output" != *'install.sh'* ]]
+  [[ "$output" != *'git clone'* ]]
+}
+
+@test "seed: sets up a root autologin getty on ttyS0" {
+  run _flow_render_seed_user_data 'ssh-ed25519 AAAASEED k'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'serial-getty@ttyS0'* ]]
+  [[ "$output" == *'--autologin root'* ]]
+  [[ "$output" == *'ttyS0'* ]]
 }
 
 @test "harness key: generated on demand when absent" {
