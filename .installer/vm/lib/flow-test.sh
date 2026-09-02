@@ -61,6 +61,10 @@ _HTTP_PID=""
 # Verify-block knobs (default off so a plain install profile behaves vanilla).
 : "${VERIFY_BOOT:=false}"
 : "${DIRTY_CACHE:=false}"
+# Hold-on-fail (ADR 0099): default off so a matrix cell still self-disposes on
+# poweroff. When on, a FAILED cell skips poweroff and gives ttyS0 a root
+# autologin shell, so the VM stays inspectable over `virsh console`.
+: "${HOLD_ON_FAIL:=false}"
 : "${VM_REORDER_BOOT_DISKS:=false}"
 : "${VM_VERIFY_BYID:=false}"
 : "${VM_VERIFY_RESILIENCE:=false}"
@@ -79,6 +83,21 @@ _flow_render_user_data() {
   local dirty_step=""
   [[ "${DIRTY_CACHE}" == "true" ]] && \
     dirty_step='mkdir -p /etc/zfs && printf %s garbage-not-an-nvlist > /etc/zfs/zpool.cache && '
+
+  # On failure with HOLD_ON_FAIL, skip poweroff and hand ttyS0 a root autologin
+  # shell so a failed cell is inspectable over serial (ADR 0099); otherwise the
+  # cell always powers off so the matrix disposes of it.
+  local poweroff_step="    poweroff -f"
+  if [[ "${HOLD_ON_FAIL}" == "true" ]]; then
+    poweroff_step="$(cat <<HOLD
+    if [ "\$rc" -eq 0 ]; then
+      poweroff -f
+    else
+$(_serial_autologin_root_lines)
+    fi
+HOLD
+)"
+  fi
 
   local boot_block=""
   if [[ "${VERIFY_BOOT}" == "true" ]]; then
@@ -134,7 +153,7 @@ runcmd:
 ${boot_block}
     printf '===INSTALLER-EXIT-%d===\n' "\$rc" > /dev/ttyS0
     sync
-    poweroff -f
+${poweroff_step}
 EOF
 }
 
@@ -353,6 +372,19 @@ flow_run() {
       info "Boot log: ${BOOT_LOG_FILE}"
       rc=125
     fi
+  fi
+
+  # Hold-on-fail (ADR 0099): a failed cell skipped its poweroff and gave ttyS0 a
+  # root autologin shell, so it is left running for inspection over serial. Never
+  # auto-destroyed — it IS the evidence; the user reaps it when done.
+  if ((rc != 0)) && [[ "$HOLD_ON_FAIL" == "true" ]] && _vm_running; then
+    section "Inspect the failed cell (VM held up)"
+    info "Cell failed (exit ${rc}) — the VM is left running for inspection."
+    info "Serial console:  virsh console ${VM_NAME}" \
+         "  (root autologin; Ctrl-] to exit)"
+    info "Install log (host copy): ${LOG_FILE}"
+    info "Clean up when done:  virsh destroy ${VM_NAME} &&" \
+         "virsh undefine --nvram ${VM_NAME}"
   fi
 
   exit "$rc"

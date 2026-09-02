@@ -263,6 +263,25 @@ _stop_console_capture() {
   CONSOLE_WRAP_PID=""
 }
 
+# Shell lines (for a cloud-init runcmd / cloud-config) that give ttyS0 a ROOT
+# autologin getty — the zero-network serial channel an agent drives over
+# `virsh console` (ADR 0099). Expanded at render time into a seed's user-data;
+# single-quoted heredoc so $TERM stays literal (systemd expands it) and nothing
+# resolves host-side. 4-space indent to sit inside a `runcmd: - |` block.
+_serial_autologin_root_lines() {
+  cat <<'LINES'
+    install -d /etc/systemd/system/serial-getty@ttyS0.service.d
+    printf '%s\n' \
+      '[Service]' \
+      'ExecStart=' \
+      'ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,57600,38400,9600 --noclear ttyS0 $TERM' \
+      > /etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf
+    systemctl daemon-reload || true
+    systemctl enable --now serial-getty@ttyS0.service 2>/dev/null || true
+    systemctl restart serial-getty@ttyS0.service || true
+LINES
+}
+
 # Poll virsh ttyconsole until the serial PTY is assigned, so console capture
 # attaches to a live pty instead of dying on "PTY device is not yet assigned".
 _wait_for_serial_pty() {
