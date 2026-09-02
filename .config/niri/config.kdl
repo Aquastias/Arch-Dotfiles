@@ -17,6 +17,49 @@ cursor {
     xcursor-size 24
 }
 
+// Input devices (ADR 0100). Touchpad tap-to-click + natural scroll +
+// disable-while-typing make a fresh laptop feel right out of the box; keyboard
+// layout/repeat match a standard US board. No `output` block on purpose —
+// display scale/mode is host-specific and kept out of the portable curated
+// config (ADR 0094), same reason config.toml excludes host-bound state.
+input {
+    keyboard {
+        xkb {
+            layout "us"
+        }
+        repeat-delay 600
+        repeat-rate 25
+    }
+    touchpad {
+        tap
+        natural-scroll
+        dwt
+        click-method "clickfinger"
+        accel-profile "adaptive"
+    }
+}
+
+// Minimal layout (ADR 0100): gaps + a sensible column-width cycle (Mod+R walks
+// these). Colors stay Noctalia's to own via its config.toml theme templates, so
+// no focus-ring/border colors are hardcoded here.
+layout {
+    gaps 16
+    center-focused-column "never"
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    default-column-width { proportion 0.5; }
+}
+
+// Window rules (ADR 0100): rounded corners on every window — the niri parallel
+// to Hyprland's decoration rounding, so both compositors read the same.
+window-rule {
+    geometry-corner-radius 8
+    clip-to-geometry true
+}
+
 spawn-at-startup "noctalia" "--daemon"
 // First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
 // guards, so it is a no-op on every later login — safe to leave in place.
