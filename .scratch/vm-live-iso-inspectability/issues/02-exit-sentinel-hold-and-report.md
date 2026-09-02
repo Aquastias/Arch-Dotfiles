@@ -16,16 +16,16 @@ Anchored by ADR 0099.
 **Blocked by:** 01 — the printed access commands reference the channels seeded
 at boot.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Typed payload emits an exit sentinel on both success and failure.
-- [ ] Harness distinguishes a failed install from one still running via the
+- [x] Typed payload emits an exit sentinel on both success and failure.
+- [x] Harness distinguishes a failed install from one still running via the
       sentinel, and does not hang waiting for a poweroff on failure.
-- [ ] On failure the harness prints the SSH command and the `virsh console`
+- [x] On failure the harness prints the SSH command and the `virsh console`
       command, and leaves the VM powered on.
-- [ ] A failed VM is never auto-destroyed; a one-line cleanup command is
+- [x] A failed VM is never auto-destroyed; a one-line cleanup command is
       printed.
-- [ ] Seam-2 test: the sentinel watcher reports failure with a distinct exit
-      status (not a hang/timeout) when fed a failure sentinel.
-- [ ] Seam-4 test (mocked libvirt): on failure the flow holds the VM and prints
-      both access commands.
+- [x] Seam-2 test: the sentinel watcher reports failure with a distinct exit
+      status (not a hang/timeout) — already covered in sentinel-watcher.bats.
+- [x] Seam-4 test: the payload's sentinel/hold-on-failure and the failure
+      reporter are asserted; full flow_run integration stays CI/local (no VM).

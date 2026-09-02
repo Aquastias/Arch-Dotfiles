@@ -90,6 +90,40 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *'ttyS0'* ]]
 }
 
+@test "render: emits an exit sentinel (serial + marker file) on any outcome" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [ "$status" -eq 0 ]
+  # The captured rc drives the sentinel the host greps for (===INSTALLER-EXIT-N).
+  [[ "$output" == *'PIPESTATUS'* ]]
+  [[ "$output" == *'===INSTALLER-EXIT-%d==='* ]]
+  [[ "$output" == *'> /dev/ttyS0'* ]]
+  [[ "$output" == *'/root/.install-exit'* ]]
+}
+
+@test "render: only powers off on a clean install (holds up on failure)" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [ "$status" -eq 0 ]
+  # poweroff is guarded by rc==0, so a failed install leaves the live ISO up.
+  [[ "$output" == *'if [ "$rc" -eq 0 ]'* ]]
+  [[ "$output" == *'poweroff'* ]]
+}
+
+@test "_report_failure_access: prints live-ISO ssh, serial, log, and cleanup" {
+  VM_NAME="failvm"
+  _vm_ip_now() { echo "192.168.122.99"; }
+  run _report_failure_access
+  [ "$status" -eq 0 ]
+  # SSH to the live ISO as root (the seed authorized the harness key there).
+  [[ "$output" == *'root@192.168.122.99'* ]]
+  # The zero-network serial fallback and where the log lives.
+  [[ "$output" == *'virsh console failvm'* ]]
+  [[ "$output" == *'/root/install.log'* ]]
+  # A failed VM is never auto-destroyed — cleanup is a printed one-liner.
+  [[ "$output" == *'virsh destroy failvm'* ]]
+}
+
 @test "harness key: generated on demand when absent" {
   command -v ssh-keygen >/dev/null || skip "ssh-keygen not available"
   run _harness_ensure_key

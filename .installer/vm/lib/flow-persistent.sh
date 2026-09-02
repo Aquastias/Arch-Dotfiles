@@ -18,6 +18,8 @@ FLOW_PERSIST_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
 # shellcheck source=./core.sh
 [[ "$(type -t core_resolve_iso)" == function ]] \
   || source "${FLOW_PERSIST_DIR}/core.sh"
+# shellcheck source=./sentinel-watcher.sh
+source "${FLOW_PERSIST_DIR}/sentinel-watcher.sh"
 
 # Per-flow virt-install graphics (core._vm_create appends these). niri (and any
 # Wayland compositor) REJECTS software EGL — a display-only virtio-gpu renders a
@@ -166,11 +168,21 @@ jsonc_strip "\$_uprof" \\
 export INSTALL_ENC_PASSPHRASE='testtest'
 export SECRETS_AGE_PASSPHRASE='test'
 # Capture the install to a file (a FILE tee is safe; serial is not — a slow
-# reader wedges pacman). On failure set -e aborts before poweroff, leaving the
-# VM up with the log at /root/install.log for the host to SSH in and read.
+# reader wedges pacman). Then emit an exit sentinel on BOTH success and failure
+# so the host can tell a failed install from a hang, and on failure HOLD the
+# live ISO up (no poweroff) so the log at /root/install.log is inspectable over
+# the seed's SSH + serial channels (ADR 0099). Only a clean install powers off,
+# so the flow reboots into the installed system.
+set +e
 ./install.sh --unattended install.jsonc 2>&1 | tee /root/install.log
+rc=\${PIPESTATUS[0]}
+set -e
+printf '%d\n' "\$rc" > /root/.install-exit
+printf '===INSTALLER-EXIT-%d===\n' "\$rc" > /dev/ttyS0
 sync
-poweroff
+if [ "\$rc" -eq 0 ]; then
+  poweroff
+fi
 EOF
 }
 
@@ -274,6 +286,28 @@ _report_ssh_access() {
        "${PRIMARY_USER}@${ip}"
 }
 
+# Print how to inspect a FAILED/hung install: the live ISO is still running, so
+# both seed-provided channels (SSH as root, serial autologin) reach it, and the
+# install log is at /root/install.log inside the VM (ADR 0099). Also the cleanup
+# one-liner — a failed VM is never auto-destroyed (it IS the evidence), so the
+# user reaps it when done, or re-runs with --recreate.
+_report_failure_access() {
+  local key ip
+  key="$(_harness_key_path)"
+  ip="$(_vm_ip_now)"
+  section "Inspect the failed install (live ISO held up)"
+  info "The installer did not complete — the live ISO is left running so you" \
+       "can inspect it. Install log inside the VM: /root/install.log"
+  info "SSH (live ISO):  ssh -i ${key}" \
+       "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+       "root@${ip:-<guest-ip>}"
+  info "Serial console:  virsh console ${VM_NAME}" \
+       "  (root autologin; Ctrl-] to exit)"
+  info "Clean up when done:  virsh destroy ${VM_NAME} &&" \
+       "virsh undefine --nvram ${VM_NAME}"
+  info "Or rebuild from scratch with:  vm.sh … --recreate"
+}
+
 _wait_for_ssh() {
   local ip="$1" elapsed=0
   info "Waiting for live system to finish booting (SSH port on ${ip})."
@@ -301,11 +335,12 @@ _wait_for_poweroff() {
 # ENTRY POINT
 # =============================================================================
 flow_persistent_deps() {
-  _harness_ensure_deps nc:openbsd-netcat python3:python ssh-keygen:openssh
+  _harness_ensure_deps nc:openbsd-netcat python3:python ssh-keygen:openssh \
+    script:util-linux
 }
 
 flow_run() {
-  trap '_stop_http_server' EXIT
+  trap '_stop_console_capture; _stop_http_server' EXIT
   flow_persistent_deps
   _ensure_libvirt_group
   _ensure_libvirtd
@@ -346,11 +381,42 @@ flow_run() {
 
   _stage_fixture_files
   section "Launching installer"
+  # Capture serial so we can read the exit sentinel: the sentinel is one line
+  # (safe on serial); the pacman-heavy install log stays a FILE. This lets us
+  # tell a failed install from a hang and hold the VM for inspection (ADR 0099).
+  local console_log="${CACHE_DIR}/${VM_NAME}-console.log"
+  _wait_for_serial_pty
+  _start_console_capture "$console_log"
   _launch_installer
 
   section "Waiting for installer to complete"
-  _wait_for_poweroff
+  info "Watching for the installer exit sentinel" \
+       "(max ${INSTALL_TIMEOUT_SEC}s — install takes 10-30 min)."
+  local rc=0
+  set +e
+  sentinel_watcher_wait "$console_log" "$INSTALL_TIMEOUT_SEC"
+  rc=$?
+  set -e
+  _stop_console_capture
   _stop_http_server
+
+  if ((rc != 0)); then
+    # Failure (installer exit N) or timeout (124): HOLD the live ISO up. Never
+    # eject/reboot — that would discard the evidence — and never auto-destroy.
+    if ((rc == 124)); then
+      warn "Installer did not finish within ${INSTALL_TIMEOUT_SEC}s" \
+           "— holding the VM for inspection."
+    else
+      warn "Installer FAILED (exit ${rc}) — holding the VM for inspection."
+    fi
+    _report_failure_access
+    return 0
+  fi
+
+  info "Installer completed successfully (exit 0)."
+  # The payload powers off after the success sentinel; wait for it so the reboot
+  # lands cleanly on the installed disk.
+  _wait_for_poweroff
 
   section "Starting installed system"
   # Eject the install ISO + seed so the reboot lands on the installed disk's
