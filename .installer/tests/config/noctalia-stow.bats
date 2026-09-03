@@ -183,8 +183,9 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "the base preset ships adw-gtk3 for the GTK bridge (ADR 0102)" {
-  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) | grep -qx 'adw-gtk3'
+@test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
+  # Package is adw-gtk-theme (extra); it ships the adw-gtk3-dark theme dir.
+  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) | grep -qx 'adw-gtk-theme'
 }
 
 @test "qt6ct is pre-seeded onto Noctalia's generated scheme (ADR 0102)" {

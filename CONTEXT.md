@@ -1064,7 +1064,8 @@ flips to `hyprlock` + `hypridle`.
 The wiring that makes GTK and Qt apps follow the [[Wayland Shell Companion]]'s
 live palette on both compositors (ADR 0102). Noctalia's `gtk3`/`gtk4`/`qt`
 templates are the single source of app color; the bridge is the consuming half:
-`adw-gtk3` (repo) + `qt6ct-kde` (AUR) in the base preset, GTK `settings.ini`
+`adw-gtk-theme` (repo, ships the `adw-gtk3-dark` theme) + `qt6ct-kde` (AUR) in
+the base preset, GTK `settings.ini`
 **seeded, not stowed** by the shared preset (ADR 0104 — `kde-gtk-config`
 rewrites them every Plasma login, and a stow symlink would dirty the repo:
 `adw-gtk3-dark` in gtk-3.0, **no** theme name in gtk-4.0 so libadwaita follows

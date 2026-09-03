@@ -18,9 +18,11 @@ files.
 
 ## What this requires
 
-- **Packages (base preset, non-negotiable):** `adw-gtk3` (repo — Noctalia's
-  `apply.sh` sets `adw-gtk3-dark` via gsettings *only if the theme exists on
-  disk*) and `qt6ct-kde` (AUR — the KDE-patched qt6ct exposing the
+- **Packages (base preset, non-negotiable):** `adw-gtk-theme` (repo — the
+  `extra` package shipping the `adw-gtk3`/`adw-gtk3-dark` themes, upstream
+  lassekongo83/adw-gtk3; Noctalia's `apply.sh` sets `adw-gtk3-dark` via
+  gsettings *only if the theme exists on disk*) and `qt6ct-kde` (AUR — the
+  KDE-patched qt6ct exposing the
   `noctalia (KColorScheme)` option). Covers plain-Qt6 and KDE apps in one.
 - **GTK reconciliation:** the stow'd `gtk-3.0`/`gtk-4.0` `settings.ini` are
   *slimmed*, not dropped — they keep the keys Noctalia does **not** set
@@ -42,7 +44,7 @@ files.
   not Hyprland. Per-compositor mirrors how cursor is already set (ADR 0098).
 
 Both package picks trace to the Arch Wiki *Uniform look for Qt and GTK
-applications* / *GTK* pages: `adw-gtk3` as the GTK theme that carries the
+applications* / *GTK* pages: `adw-gtk-theme` as the GTK theme that carries the
 generated CSS, and a qt6ct platform theme driven by `QT_QPA_PLATFORMTHEME`
 (here `qt6ct-kde`, the KDE build that also serves KColorScheme).
 
