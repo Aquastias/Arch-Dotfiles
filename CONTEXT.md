@@ -1062,17 +1062,23 @@ flips to `hyprlock` + `hypridle`.
 
 ### App Theming Bridge
 The wiring that makes GTK and Qt apps follow the [[Wayland Shell Companion]]'s
-live palette on both compositors (ADR 0102). Noctalia's own `gtk3`/`gtk4`/`qt`/
-`kcolorscheme` templates are the single source of app color; the bridge is the
-consuming half: `adw-gtk3` (repo) + `qt6ct-kde` (AUR) in the base preset,
-*slimmed* stow'd GTK `settings.ini` (icon/font/`prefer-dark` only —
+live palette on both compositors (ADR 0102). Noctalia's `gtk3`/`gtk4`/`qt`
+templates are the single source of app color; the bridge is the consuming half:
+`adw-gtk3` (repo) + `qt6ct-kde` (AUR) in the base preset, GTK `settings.ini`
+**seeded, not stowed** by the shared preset (ADR 0104 — `kde-gtk-config`
+rewrites them every Plasma login, and a stow symlink would dirty the repo:
 `adw-gtk3-dark` in gtk-3.0, **no** theme name in gtk-4.0 so libadwaita follows
-`gtk.css`), a pre-seeded `qt6ct.conf` pointing at Noctalia's `noctalia` scheme,
-and `QT_QPA_PLATFORMTHEME=qt6ct` set **per-compositor** (niri `environment {}`,
-Hyprland `env =` — never `environment.d`, unreachable under `start-hyprland`,
-ADR 0070). Scope is exactly Noctalia's native templates: GTK3, GTK4, Qt6,
-KColorScheme — no GTK2/Qt5. Supersedes ADR 0062's "operator brings qt6ct".
-_Avoid_: matugen, uniform-look.
+`gtk.css`), a stow'd `qt6ct.conf` pointing at Noctalia's `noctalia` scheme
+(Plasma ignores it, so it is safe to share), and `QT_QPA_PLATFORMTHEME=qt6ct`
+set **per-compositor** (niri `environment {}`, Hyprland `env =` — never
+`environment.d`, unreachable under `start-hyprland`, ADR 0070). On a combined
+`kde`+compositor host the two must not fight over one `$HOME` (ADR 0104): the
+`kcolorscheme` template is **dropped fleet-wide** so Noctalia never merges into
+KDE's `kdeglobals`, keeping the Plasma session pure Breeze Dark; a KDE-native
+app under a compositor keeps Noctalia's base palette (qt6ct) and loses only
+`KColorScheme` accents. Scope is now GTK3, GTK4, Qt6 — no KColorScheme, no
+GTK2/Qt5. Supersedes ADR 0062's "operator brings qt6ct". _Avoid_: matugen,
+uniform-look, `GTK_THEME` (breaks libadwaita).
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

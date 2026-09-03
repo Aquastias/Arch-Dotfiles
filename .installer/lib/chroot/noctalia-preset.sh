@@ -145,7 +145,50 @@ noctalia_preset_install() {
     install -d "${_skel}/.icons/default"
     printf '[Icon Theme]\nInherits=Bibata-Modern-Ice\n' \
       > "${_skel}/.icons/default/index.theme"
-    info "Curated Noctalia config + cursor seeded to /etc/skel."
+    # GTK settings.ini — SEEDED, never stowed (ADR 0104). kde-gtk-config
+    # rewrites these at every Plasma login; through a stow symlink that write
+    # lands in the dotfiles repo (perpetual git dirt). A real skel file lets
+    # Plasma own them on KDE while a compositor keeps adw-gtk3-dark here +
+    # Noctalia's live gtk.css colors. gtk-4.0 carries no theme name so
+    # libadwaita follows gtk.css (ADR 0102). Host-neutral: no DPI/scaling.
+    install -Dm644 /dev/stdin "${_skel}/.config/gtk-3.0/settings.ini" <<'EOF'
+[Settings]
+gtk-application-prefer-dark-theme=true
+gtk-button-images=true
+gtk-cursor-blink=true
+gtk-cursor-blink-time=1000
+gtk-cursor-theme-size=24
+gtk-decoration-layout=icon:minimize,maximize,close
+gtk-enable-animations=true
+gtk-enable-event-sounds=1
+gtk-enable-input-feedback-sounds=0
+gtk-font-name=Noto Sans,  10
+gtk-icon-theme-name=Papirus-Dark
+gtk-menu-images=true
+gtk-primary-button-warps-slider=true
+gtk-sound-theme-name=ocean
+gtk-theme-name=adw-gtk3-dark
+gtk-toolbar-icon-size=GTK_ICON_SIZE_LARGE_TOOLBAR
+gtk-toolbar-style=3
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintslight
+gtk-xft-rgba=rgb
+EOF
+    install -Dm644 /dev/stdin "${_skel}/.config/gtk-4.0/settings.ini" <<'EOF'
+[Settings]
+gtk-application-prefer-dark-theme=true
+gtk-cursor-blink=true
+gtk-cursor-blink-time=1000
+gtk-cursor-theme-size=24
+gtk-decoration-layout=icon:minimize,maximize,close
+gtk-enable-animations=true
+gtk-font-name=Noto Sans,  10
+gtk-icon-theme-name=Papirus-Dark
+gtk-primary-button-warps-slider=true
+gtk-sound-theme-name=ocean
+EOF
+    info "Curated Noctalia config + cursor + GTK settings seeded to /etc/skel."
   else
     warn "Curated config dir absent (${NOC_CURATED_DIR}) —" \
          "skel gets no Noctalia config."

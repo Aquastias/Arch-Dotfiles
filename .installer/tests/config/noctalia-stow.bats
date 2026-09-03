@@ -15,8 +15,7 @@ setup() {
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
-  GTK3="$REPO/.config/gtk-3.0/settings.ini"
-  GTK4="$REPO/.config/gtk-4.0/settings.ini"
+  PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
   QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
   QT6CT_COLORS="$REPO/.config/qt6ct/colors"
 }
@@ -45,6 +44,14 @@ setup() {
 
 @test "config.toml pins plugins to the vendored set (auto_update off)" {
   grep -q '^auto_update = "none"' "$CT"
+}
+
+# The kcolorscheme template merges its colors into ~/.config/kdeglobals — the
+# same file KDE owns. On a kde+compositor box that leak repaints the Plasma
+# session, so the template is dropped fleet-wide (ADR 0104): pure-compositor
+# boxes have no KColorScheme apps to want it (pcmanfm-qt uses the qt template).
+@test "config.toml drops the kcolorscheme template (ADR 0104)" {
+  ! grep -q 'kcolorscheme' "$CT"
 }
 
 # ── config.toml: host-bound / dead content excluded ──────────────────────────
@@ -139,32 +146,41 @@ setup() {
   ! grep -qE '(niri|hypr)-' "$CT"
 }
 
-# ── App Theming Bridge: GTK/Qt apps follow Noctalia (ADR 0102) ───────────────
-# The stow payload's GTK/Qt config is the consuming half of the bridge: it must
-# stop fighting Noctalia's live palette (no Breeze, no GTK4 theme name) while
-# keeping the keys Noctalia never sets (icons, font, prefer-dark), and route Qt
-# through qt6ct on both compositors. Noctalia's own generated files
-# (gtk-*/noctalia.css, qt6ct/colors/noctalia.conf) are NOT part of this payload.
+# ── App Theming Bridge: GTK/Qt apps follow Noctalia (ADR 0102/0104) ──────────
+# GTK settings.ini are SEEDED by the shared preset, never stowed (ADR 0104):
+# Plasma's kde-gtk-config rewrites them every login, and a stow symlink would
+# push that write into the dotfiles repo. So the drift guard reads the preset's
+# heredoc, not a repo file; qt6ct.conf stays stowed — Plasma never touches it.
+# Noctalia's own generated files (noctalia.css, qt6ct's noctalia.conf) are NOT
+# part of either payload.
 
-@test "gtk-3.0 uses adw-gtk3-dark and keeps icons/font/dark (ADR 0102)" {
-  [ -f "$GTK3" ]
-  grep -q '^gtk-theme-name=adw-gtk3-dark' "$GTK3"
-  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$GTK3"
-  grep -q '^gtk-font-name=' "$GTK3"
-  grep -q '^gtk-application-prefer-dark-theme=true' "$GTK3"
+@test "GTK settings.ini are seeded by the preset, not stowed (ADR 0104)" {
+  [ ! -e "$REPO/.config/gtk-3.0/settings.ini" ]
+  [ ! -e "$REPO/.config/gtk-4.0/settings.ini" ]
+  grep -q '\.config/gtk-3.0/settings.ini' "$PRESET"
+  grep -q '\.config/gtk-4.0/settings.ini' "$PRESET"
 }
 
-@test "gtk-3.0 drops the stale breeze cursor for Bibata (ADR 0098/0102)" {
-  ! grep -q 'breeze_cursors' "$GTK3"
+@test "seeded gtk-3.0 is adw-gtk3-dark + icons/font/dark (ADR 0102/0104)" {
+  grep -q '^gtk-theme-name=adw-gtk3-dark' "$PRESET"
+  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$PRESET"
+  grep -q '^gtk-font-name=' "$PRESET"
+  grep -q '^gtk-application-prefer-dark-theme=true' "$PRESET"
 }
 
-@test "gtk-4.0 carries no theme name so libadwaita follows gtk.css (ADR 0102)" {
-  [ -f "$GTK4" ]
-  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$GTK4"
-  grep -q '^gtk-font-name=' "$GTK4"
-  # No GTK4 theme name — kept LAST so set -e honours the negation (a middle
-  # `! grep` is exempt from errexit and would silently never fail).
-  ! grep -q '^gtk-theme-name=' "$GTK4"
+@test "seeded GTK config drops stale breeze cursor + host DPI (ADR 0098/0104)" {
+  # /etc/skel is a system default: no per-host DPI, no dead breeze cursor.
+  run grep -qE 'breeze_cursors|gtk-xft-dpi' "$PRESET"
+  [ "$status" -ne 0 ]
+}
+
+@test "seeded gtk-4.0 carries no theme name so libadwaita follows gtk.css" {
+  # exactly one gtk-theme-name in the preset (the gtk-3.0 one) …
+  [ "$(grep -c '^gtk-theme-name=' "$PRESET")" -eq 1 ]
+  # … and none after the gtk-4.0 seed begins (awk exits with that count).
+  run awk '/gtk-4.0.settings/{f=1} f&&/^gtk-theme-name=/{c++} END{exit c}' \
+    "$PRESET"
+  [ "$status" -eq 0 ]
 }
 
 @test "the base preset ships adw-gtk3 for the GTK bridge (ADR 0102)" {
