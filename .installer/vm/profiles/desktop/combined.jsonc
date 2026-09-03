@@ -1,0 +1,12 @@
+// Persistent VM: single-disk KDE + niri + Hyprland on one machine (ADR 0104).
+// References host arch-combined, so every Desktop Environment Adapter runs and
+// the three sessions share one $HOME — the fixture that exercises dual-session
+// App Theming Bridge isolation (KDE stays Breeze; the wlroots sessions follow
+// Noctalia; neither breaks the other). Greeter auto-resolves to sddm because
+// kde is in the desktop set. Log in, then pick a session at the greeter.
+{
+  "name": "arch-combined",
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-combined",
+  "layout": { "mode": "single" }
+}
