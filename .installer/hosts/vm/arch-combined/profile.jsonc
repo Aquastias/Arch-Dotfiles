@@ -1,0 +1,47 @@
+// Host Profile for vm/arch-combined — KDE + niri + Hyprland on one machine
+// (ADR 0036/0104). A deliberate multi-desktop host: the Environment Runner
+// loops the desktop set, so every Desktop Environment Adapter runs and all
+// three sessions share one $HOME. This is the fixture for the dual-session App
+// Theming Bridge isolation (ADR 0104) — KDE seeds Breeze Dark, the shared
+// Noctalia preset seeds the wlroots session, and neither must break the other.
+// display_manager is left to auto-resolve; with kde in the set the box is not
+// KDE-free, so it resolves to sddm (ADR 0091). Inherits Host Core's full
+// userland like arch-niri, on the single-disk skeleton (one operator-picked
+// disk auto-partitioned into ESP + rpool + dpool; no os_pool block needed).
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop":       ["kde", "niri", "hyprland"],
+    "wayland_shell": "noctalia",
+    "gpu":           "auto"
+  },
+
+  "post_install": {
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
+  },
+
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 13
+}
