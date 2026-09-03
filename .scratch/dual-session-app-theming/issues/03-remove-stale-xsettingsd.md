@@ -9,6 +9,11 @@ carries no dead config. Anchored by ADR 0104.
 
 **Status:** ready-for-agent
 
-- [ ] `xsettingsd.conf` is deleted from the payload (and its now-empty directory
+- [x] `xsettingsd.conf` is deleted from the payload (and its now-empty directory
       not left tracked).
-- [ ] No installer code, adapter, or test references it; the suite stays green.
+- [x] No installer code, adapter, or test references it; the suite stays green.
+
+## Comments
+
+- Done in `faadbe3`. `xsettingsd.conf` (and its empty dir) removed; no
+  remaining references in installer code or tests.
