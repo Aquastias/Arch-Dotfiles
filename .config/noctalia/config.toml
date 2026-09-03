@@ -160,15 +160,16 @@ app_icon_colorize = true
 font_family = "Noto Sans"
 
 [theme]
-# Default: Catppuccin Mocha with a mauve accent (ADR 0101, superseding 0093's
-# Rosé Pine default) via the community palette "Catppuccin Mocha Mauve-Lavender"
-# — its mPrimary #cba6f7 (mauve) is the accent Noctalia paints everywhere (no
-# pure "Mocha Mauve" exists in the community repo). Community palettes are
-# fetched from api.noctalia.dev and cached, so first boot needs network (like
-# the plugin one-shot). `builtin` is Catppuccin too, so a builtin fallback still
-# lands on Catppuccin (Mocha in dark mode).
+# Default: Catppuccin Mocha with a lavender accent (ADR 0101, superseding 0093's
+# Rosé Pine default) via the community palette "Catppuccin Mocha Lavender" — its
+# mPrimary #b4befe (lavender) is the accent Noctalia paints everywhere and
+# pushes to apps via its templates. Community palettes are fetched from
+# api.noctalia.dev and cached, so first boot needs network (like the plugin
+# one-shot). `builtin` is Catppuccin too, so a builtin fallback still lands on
+# Catppuccin (Mocha in dark mode). This is the SHARED shell config (ADR 0097),
+# so the theme is identical on niri and Hyprland.
 builtin = "Catppuccin"
-community_palette = "Catppuccin Mocha Mauve-Lavender"
+community_palette = "Catppuccin Mocha Lavender"
 mode = "dark"
 source = "community"
 wallpaper_scheme = "m3-content"

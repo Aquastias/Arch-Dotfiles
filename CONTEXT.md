@@ -1025,11 +1025,11 @@ as a **per-compositor slice** (ADR 0097): the `niri-*` set
 Since ADR 0094 the
 curated config is **single-source stow payload** at the repo root — the niri
 `config.kdl` glue (autostart `noctalia --daemon`), the `config.toml` look
-(Catppuccin Mocha mauve palette — the community "Catppuccin Mocha
-Mauve-Lavender", ADR 0101 superseding 0093's Rosé Pine — dark mode, `Noto Sans`
-UI font, the bundled wallpaper, the enabled-plugin list), the palette-cycle tile
-+ script, and the first-login plugin-enable one-shot. ADR **0095** reversed
-0094's *delivery*: the adapter now
+(Catppuccin Mocha lavender palette — the community "Catppuccin Mocha Lavender",
+ADR 0101 superseding 0093's Rosé Pine — dark mode, `Noto Sans` UI font, the
+bundled wallpaper, the enabled-plugin list), the palette-cycle tile + script,
+and the first-login plugin-enable one-shot. ADR **0095** reversed 0094's
+*delivery*: the adapter now
 **seeds** those into `/etc/skel` (served by default on a fresh box — `chroot.sh`
 stages the repo files into the adapter, which copies them), and the installer
 **never stows** — the same repo copy stays independently stowable by the
