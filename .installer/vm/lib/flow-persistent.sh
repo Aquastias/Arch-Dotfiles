@@ -174,7 +174,11 @@ set +e
 rc=\${PIPESTATUS[0]}
 set -e
 printf '%d\n' "\$rc" > /root/.install-exit
-printf '===INSTALLER-EXIT-%d===\n' "\$rc" > /dev/ttyS0
+# Leading CRLF so the sentinel starts a fresh line even when the login shell has
+# already redrawn its prompt on the current one — the watcher regex is anchored
+# to line start, so an appended sentinel (prompt + escapes + marker) never
+# matched and the host waited the full timeout on a successful install.
+printf '\r\n===INSTALLER-EXIT-%d===\r\n' "\$rc" > /dev/ttyS0
 sync
 if [ "\$rc" -eq 0 ]; then
   # Route the INSTALLED kernel + LUKS/zfs unlock prompt to serial so a
