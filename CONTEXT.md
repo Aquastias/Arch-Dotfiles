@@ -1655,6 +1655,34 @@ the Effective Config via the config seam. The covered set is recorded as a
 committed **Matrix Manifest** (one line per cell); VM Profiles are materialized
 on demand, never committed.
 
+### Change-Targeted Run
+`run.sh --changed [<ref>]` — runs only the tests for the code that actually
+changed, instead of all 195 files or the fixed `--fast` set (ADR 0103). Maps
+`git diff --name-only` (default working-tree+staged vs `HEAD`, untracked
+included; an optional `<ref>` diffs against a base) to tests via the **directory
+mirror** (`lib/<x>/… → tests/<x>/`) plus an explicit map for the root/`tools/`
+tests, at directory granularity. Always unions the [[Install-Correctness Core]],
+and widens to `--full` on a [[Broad-Blast Path]] or any unmapped path — so it
+only ever narrows when that is provably safe. The edit-loop / agent tool;
+`--fast` stays the pre-push safety gate.
+_Avoid_: incremental tests, affected tests.
+
+### Broad-Blast Path
+A changed source path whose blast radius is too wide for the directory mirror to
+narrow safely — `lib/common.sh`, widely-sourced helpers (`lib/config/accessors`,
+`generator`, `categorized-list`), shared `tests/fixtures/*`, or `run.sh` itself
+(ADR 0103). A [[Change-Targeted Run]] that touches one widens to `--full` rather
+than risk missing coverage; an unmapped/unknown path is treated the same way
+(fail-safe).
+
+### Install-Correctness Core
+The `--fast` tier's curated set — the menu→assembly→layout→pool→wipe path plus
+the validator tier and the root-level install-correctness guards (ADR
+0046/0048/0078) — every test whose failure could yield a broken install, mapped
+to a bug-class in the regression catalog. A [[Change-Targeted Run]] always
+unions this core, so no change can bypass the catalogued guards.
+_Avoid_: fast suite (that is the run mode, not the set).
+
 ### Optional Repositories
 `options.optional_repos[]` in a Host Profile — the pacman repos enabled beyond
 `core`/`extra`: any of `multilib`, `multilib-testing`, `core-testing`,
