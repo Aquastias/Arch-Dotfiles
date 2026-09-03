@@ -1055,10 +1055,24 @@ pick, never two agents at once; if Noctalia's agent fails verification the
 fallback is KDE-aware — reuse `polkit-kde-agent` when KDE is co-installed, else
 `hyprpolkitagent`. The preset also ships **`pcmanfm-qt`** (compact layout,
 kitty-in-folder via `Terminal=kitty` / F4 / an "Open in kitty here" action,
-Rosé Pine via the Qt template), and niri's `config.kdl` gains
+themed via the [[App Theming Bridge]], ADR 0102), and niri's `config.kdl` gains
 `input`/`layout`/`window-rules` (never `output` — host-specific). If the
 ADR-0097 lock-then-suspend crash reproduces on Hyprland, that compositor alone
 flips to `hyprlock` + `hypridle`.
+
+### App Theming Bridge
+The wiring that makes GTK and Qt apps follow the [[Wayland Shell Companion]]'s
+live palette on both compositors (ADR 0102). Noctalia's own `gtk3`/`gtk4`/`qt`/
+`kcolorscheme` templates are the single source of app color; the bridge is the
+consuming half: `adw-gtk3` (repo) + `qt6ct-kde` (AUR) in the base preset,
+*slimmed* stow'd GTK `settings.ini` (icon/font/`prefer-dark` only —
+`adw-gtk3-dark` in gtk-3.0, **no** theme name in gtk-4.0 so libadwaita follows
+`gtk.css`), a pre-seeded `qt6ct.conf` pointing at Noctalia's `noctalia` scheme,
+and `QT_QPA_PLATFORMTHEME=qt6ct` set **per-compositor** (niri `environment {}`,
+Hyprland `env =` — never `environment.d`, unreachable under `start-hyprland`,
+ADR 0070). Scope is exactly Noctalia's native templates: GTK3, GTK4, Qt6,
+KColorScheme — no GTK2/Qt5. Supersedes ADR 0062's "operator brings qt6ct".
+_Avoid_: matugen, uniform-look.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

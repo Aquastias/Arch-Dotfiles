@@ -15,16 +15,21 @@ setup() {
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
+  GTK3="$REPO/.config/gtk-3.0/settings.ini"
+  GTK4="$REPO/.config/gtk-4.0/settings.ini"
+  QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
+  QT6CT_COLORS="$REPO/.config/qt6ct/colors"
 }
 
 # ── config.toml: required look ───────────────────────────────────────────────
 
 @test "config.toml exists and is the stow-owned curated look" {
   [ -f "$CT" ]
-  grep -q '^builtin = "Rosé Pine"' "$CT"
-  grep -q '^source = "builtin"' "$CT"
+  # Catppuccin Mocha Lavender via the community palette (ADR 0101).
+  grep -q '^builtin = "Catppuccin"' "$CT"
+  grep -q '^source = "community"' "$CT"
   grep -q '^mode = "dark"' "$CT"
-  grep -q '^community_palette = "Oxocarbon"' "$CT"
+  grep -q '^community_palette = "Catppuccin Mocha Lavender"' "$CT"
   grep -q '^wallpaper_scheme = "m3-content"' "$CT"
 }
 
@@ -132,4 +137,55 @@ setup() {
 # compositors. The built-in `workspaces` widget covers workspaces on both.
 @test "config.toml carries no compositor-specific slice widget or id" {
   ! grep -qE '(niri|hypr)-' "$CT"
+}
+
+# ── App Theming Bridge: GTK/Qt apps follow Noctalia (ADR 0102) ───────────────
+# The stow payload's GTK/Qt config is the consuming half of the bridge: it must
+# stop fighting Noctalia's live palette (no Breeze, no GTK4 theme name) while
+# keeping the keys Noctalia never sets (icons, font, prefer-dark), and route Qt
+# through qt6ct on both compositors. Noctalia's own generated files
+# (gtk-*/noctalia.css, qt6ct/colors/noctalia.conf) are NOT part of this payload.
+
+@test "gtk-3.0 uses adw-gtk3-dark and keeps icons/font/dark (ADR 0102)" {
+  [ -f "$GTK3" ]
+  grep -q '^gtk-theme-name=adw-gtk3-dark' "$GTK3"
+  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$GTK3"
+  grep -q '^gtk-font-name=' "$GTK3"
+  grep -q '^gtk-application-prefer-dark-theme=true' "$GTK3"
+}
+
+@test "gtk-3.0 drops the stale breeze cursor for Bibata (ADR 0098/0102)" {
+  ! grep -q 'breeze_cursors' "$GTK3"
+}
+
+@test "gtk-4.0 carries no theme name so libadwaita follows gtk.css (ADR 0102)" {
+  [ -f "$GTK4" ]
+  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$GTK4"
+  grep -q '^gtk-font-name=' "$GTK4"
+  # No GTK4 theme name — kept LAST so set -e honours the negation (a middle
+  # `! grep` is exempt from errexit and would silently never fail).
+  ! grep -q '^gtk-theme-name=' "$GTK4"
+}
+
+@test "the base preset ships adw-gtk3 for the GTK bridge (ADR 0102)" {
+  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) | grep -qx 'adw-gtk3'
+}
+
+@test "qt6ct is pre-seeded onto Noctalia's generated scheme (ADR 0102)" {
+  [ -f "$QT6CT" ]
+  grep -q 'colors/noctalia.conf' "$QT6CT"
+  grep -q '^custom_palette=true' "$QT6CT"
+  # Fusion honours the custom palette; Papirus matches the GTK icon theme.
+  grep -q '^style=Fusion' "$QT6CT"
+  grep -q '^icon_theme=Papirus-Dark' "$QT6CT"
+}
+
+@test "the static Catppuccin qt6ct color files are gone (ADR 0102)" {
+  ! compgen -G "$QT6CT_COLORS/catppuccin-mocha-*.conf" >/dev/null
+}
+
+@test "QT_QPA_PLATFORMTHEME=qt6ct is set per-compositor (ADR 0102)" {
+  # niri's environment{} node sets the value on one line; assert them together.
+  grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$KDL"
+  grep -q '^env = QT_QPA_PLATFORMTHEME,qt6ct' "$HC"
 }

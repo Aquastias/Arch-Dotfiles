@@ -32,10 +32,12 @@ niri_core_packages() {
 # (ADR 0090), one package per line: the Noctalia shell itself (v5, extra repo),
 # the kitty terminal (Noctalia is not a terminal), brightnessctl (Noctalia's
 # brightness OSD shells out to it), playerctl (the shared media-key binds shell
-# out to it — ADR 0096; Hyprland leaves it operator-supplied), and pcmanfm-qt
+# out to it — ADR 0096; Hyprland leaves it operator-supplied), pcmanfm-qt
 # (Noctalia is not a file manager — the shared `Super+E` bind opens it; ADR
-# 0100). pcmanfm-qt is Qt/libfm-qt, so it inherits Noctalia's Qt-template Rosé
-# Pine with no extra theming. Optional companions (cava, cliphist) are
+# 0100), and adw-gtk3 (the GTK theme Noctalia's apply.sh sets — adw-gtk3-dark —
+# so GTK apps follow the palette; App Theming Bridge, ADR 0102). pcmanfm-qt is
+# Qt/libfm-qt, themed via the same bridge's qt6ct path (ADR 0102) rather than
+# inheriting anything for free. Optional companions (cava, cliphist) are
 # install-noctalia.jsonc toggles, added by their callers.
 noctalia_preset_packages() {
   printf '%s\n' \
@@ -43,7 +45,8 @@ noctalia_preset_packages() {
     kitty \
     brightnessctl \
     playerctl \
-    pcmanfm-qt
+    pcmanfm-qt \
+    adw-gtk3
 }
 
 # noctalia_core_plugins — the compositor-AGNOSTIC community plugin set (ADR
