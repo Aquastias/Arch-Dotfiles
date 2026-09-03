@@ -133,21 +133,9 @@ JSONC
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
 }
 
-@test "phase lifecycle: full chain leaves _LAYOUT_PHASE=5" {
-  setup_phase_smoke_fixture
-  layout_plan
-  layout_partition
-  layout_create_pools
-  layout_mount_esp
-  [ "$_LAYOUT_PHASE" -eq 5 ]
-}
-
-@test "phase lifecycle: layout_partition before layout_plan errors" {
-  setup_phase_smoke_fixture
-  run layout_partition
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"out of order"* ]]
-}
+# The phase-lifecycle smoke (full chain → _LAYOUT_PHASE=5; out-of-order guard)
+# is topology-invariant, so it lives once in layout-single.bats (ADR 0103
+# redundancy pass); layout-multi keeps only the mirror-specific assertions.
 
 # ── layout_plan: normalized record (pure, no partitioning) ───────────────────
 
