@@ -320,6 +320,14 @@ configure_system() {
       install -d "${_niri_cur}/.local/bin"
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_niri_cur}/.local/bin/"
+      # pcmanfm-qt settings + its right-click actions (ADR 0100): the preset
+      # seeds these from the curated dir, so they must be staged too.
+      install -Dm644 "${SCRIPT_DIR}/../.config/pcmanfm-qt/lxqt/settings.conf" \
+        "${_niri_cur}/.config/pcmanfm-qt/lxqt/settings.conf"
+      install -d "${_niri_cur}/.local/share/file-manager/actions"
+      install -m644 \
+        "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
+        "${_niri_cur}/.local/share/file-manager/actions/"
     fi
     # Same single-source staging for Hyprland (ADR 0097): the Hyprland adapter
     # seeds the SAME Noctalia payload niri does — the Noctalia-wired
@@ -335,6 +343,14 @@ configure_system() {
       install -d "${_hypr_cur}/.local/bin"
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_hypr_cur}/.local/bin/"
+      # pcmanfm-qt settings + its right-click actions (ADR 0100): the preset
+      # seeds these from the curated dir, so they must be staged too.
+      install -Dm644 "${SCRIPT_DIR}/../.config/pcmanfm-qt/lxqt/settings.conf" \
+        "${_hypr_cur}/.config/pcmanfm-qt/lxqt/settings.conf"
+      install -d "${_hypr_cur}/.local/share/file-manager/actions"
+      install -m644 \
+        "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
+        "${_hypr_cur}/.local/share/file-manager/actions/"
     fi
     info "Copied extras/ → /root/extras/"
   else
