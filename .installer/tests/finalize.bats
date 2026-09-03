@@ -9,6 +9,12 @@ setup() {
   CALLS="$TEST_DIR/calls.log"
   export TEST_DIR CALLS
 
+  # finalize.sh runs inside the installer with common.sh loaded (it uses
+  # command_exists and the BOLD colour var). Source it first, then override
+  # the log helpers below with silencing stubs so output stays clean.
+  # shellcheck source=../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../lib/common.sh"
+
   info()    { :; }
   warn()    { :; }
   section() { :; }
