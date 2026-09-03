@@ -12,15 +12,17 @@
 # Rules, in order (ADR 0103): a Broad-Blast Path or any UNMAPPED path widens to
 # `--full` (fail-safe); a mirrored source dir maps to its tests/ subdir; a
 # root/tools/ script maps via the explicit table; a changed test file maps to
-# itself. The result always unions the Install-Correctness Core (the --fast set).
+# itself. The result always unions the Install-Correctness Core (the --fast
+# set).
 # =============================================================================
 
 [[ -n "${_SELECT_CHANGED_SOURCED:-}" ]] && return 0
 _SELECT_CHANGED_SOURCED=1
 
-# Install-Correctness Core tokens — the --fast set (must mirror run.sh's
-# collect_fast: config/layout/zfs/wipe dirs + the validator tier + FAST_ROOT).
-# Always unioned into a targeted run so no change skips the catalogued guards.
+# Install-Correctness Core tokens — the --fast set, defined HERE as the one
+# source of truth: run.sh's collect_fast expands this list, so --fast and
+# --changed cannot drift. Always unioned into a targeted run so no change skips
+# the catalogued guards (config/layout/zfs/wipe dirs + validator tier + roots).
 _FAST_CORE_TOKENS=(
   config layout zfs wipe
   chroot/mount-unit-validate.bats chroot/initcpio-validate.bats
@@ -32,7 +34,8 @@ _FAST_CORE_TOKENS=(
 )
 
 # Source subdirs mirrored 1:1 onto a tests/ subdir (tests/<name>/).
-_MIRRORED_DIRS='boot chroot config layout matrix packages profiles shell wipe zfs extras vm'
+_MIRRORED_DIRS=(boot chroot config layout matrix packages profiles shell wipe
+                zfs extras vm)
 
 # Broad-Blast Paths: a change here can affect ~any test — widen to --full.
 _changed_is_broad_blast() {
@@ -54,28 +57,31 @@ _changed_is_broad_blast() {
 # Prints space-separated target tokens, or nothing (caller treats as unmapped).
 _changed_root_map() {
   case "$1" in
-    .installer/lib/finalize.sh)            echo "finalize.bats" ;;
-    .installer/lib/grub-common.sh)         echo "grub-common.bats" ;;
+    .installer/lib/finalize.sh) echo "finalize.bats" ;;
+    .installer/lib/grub-common.sh) echo "grub-common.bats" ;;
     .installer/lib/impermanence-common.sh) echo "impermanence-common.bats" ;;
-    .installer/lib/jsonc.sh)               echo "jsonc.bats" ;;
-    .installer/lib/live-medium.sh)         echo "live-medium.bats wipe-live-medium.bats" ;;
-    .installer/lib/picker.sh)              echo "picker.bats picker-assign.bats" ;;
-    .installer/lib/preflight.sh)           echo "preflight.bats" ;;
-    .installer/lib/secrets.sh)             echo "secrets.bats" ;;
-    .installer/lib/validators.sh)          echo "lib/validators.bats" ;;
+    .installer/lib/jsonc.sh) echo "jsonc.bats" ;;
+    .installer/lib/live-medium.sh)
+      echo "live-medium.bats wipe-live-medium.bats" ;;
+    .installer/lib/picker.sh) echo "picker.bats picker-assign.bats" ;;
+    .installer/lib/preflight.sh) echo "preflight.bats" ;;
+    .installer/lib/secrets.sh) echo "secrets.bats" ;;
+    .installer/lib/validators.sh) echo "lib/validators.bats" ;;
     .installer/lib/aur-helper.sh)
-      echo "install-pkglist.bats pkglist-profile.bats profiles/profiles-aur.bats \
-            profiles/profiles-bootstrap.bats profiles/profiles-helper.bats" ;;
-    .installer/tools/explain-packages.sh)  echo "explain-packages.bats" ;;
-    .installer/tools/fetch-iso.sh)         echo "fetch-iso.bats" ;;
-    .installer/tools/harden-boot.sh)       echo "harden-boot.bats" ;;
-    .installer/tools/impermanence.sh)      echo "impermanence-tool.bats" ;;
-    .installer/tools/install-pkglist.sh)   echo "install-pkglist.bats pkglist-profile.bats" ;;
-    .installer/tools/save-pkglist.sh)      echo "pkglist-profile.bats" ;;
+      echo "install-pkglist.bats pkglist-profile.bats" \
+           "profiles/profiles-aur.bats profiles/profiles-bootstrap.bats" \
+           "profiles/profiles-helper.bats" ;;
+    .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
+    .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;
+    .installer/tools/harden-boot.sh) echo "harden-boot.bats" ;;
+    .installer/tools/impermanence.sh) echo "impermanence-tool.bats" ;;
+    .installer/tools/install-pkglist.sh)
+      echo "install-pkglist.bats pkglist-profile.bats" ;;
+    .installer/tools/save-pkglist.sh) echo "pkglist-profile.bats" ;;
     .installer/02-wipe.sh)
-      echo "wipe-live-medium.bats wipe-prior-install-state.bats \
-            wipe-probe.bats wipe-select.bats" ;;
-    .installer/programs/security/sops*)    echo "sops.bats" ;;
+      echo "wipe-live-medium.bats wipe-prior-install-state.bats" \
+           "wipe-probe.bats wipe-select.bats" ;;
+    .installer/programs/security/sops*) echo "sops.bats" ;;
     *) return 1 ;;
   esac
 }
@@ -88,8 +94,8 @@ _changed_map_one() {
   case "$p" in
     .installer/tests/*.bats) printf '%s\n' "${p#.installer/tests/}"; return 0 ;;
   esac
-  # Mirrored source subdir: .installer/lib/<d>/… or .installer/<d>/… → tests/<d>.
-  for d in $_MIRRORED_DIRS; do
+  # Mirrored source subdir: .installer/lib/<d>/ or .installer/<d>/ → tests/<d>.
+  for d in "${_MIRRORED_DIRS[@]}"; do
     case "$p" in
       .installer/lib/"$d"/*|.installer/"$d"/*) printf '%s\n' "$d"; return 0 ;;
     esac

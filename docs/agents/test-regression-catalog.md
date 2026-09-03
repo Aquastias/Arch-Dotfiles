@@ -13,6 +13,19 @@ confidence it gives. The VM-only rows are the residual you accept unless
 you run `matrix.sh run` on a KVM box first (`/dev/kvm` is absent on the
 current dev box, so VM rows do not run locally).
 
+## Running the suite (ADR 0103)
+
+- `run.sh --full` (default) is the **green bar**: every always-on bats file
+  passes unprivileged (no `/dev/kvm`, root, or network). The VM-only rows below
+  are excluded from it.
+- `run.sh --fast` is the curated install-correctness gate (this catalogue's
+  always-on rows) for a pre-push check.
+- `run.sh --changed [<ref>]` is the edit-loop / agent run: it maps the `git
+  diff` to just the affected tests (directory mirror + root/tools map), always
+  **unions the `--fast` core** so no change skips these guards, and widens to
+  `--full` on a broad-blast or unmapped change. Use it while iterating; it never
+  runs *less* than `--fast`, so a green `--changed` still carries every row.
+
 ## Always-on (caught without a VM)
 
 | Bug class | Guarding test | --fast |
