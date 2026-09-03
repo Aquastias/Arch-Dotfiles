@@ -160,10 +160,17 @@ app_icon_colorize = true
 font_family = "Noto Sans"
 
 [theme]
-builtin = "Rosé Pine"
-community_palette = "Oxocarbon"
+# Default: Catppuccin Mocha with a mauve accent (ADR 0101, superseding 0093's
+# Rosé Pine default) via the community palette "Catppuccin Mocha Mauve-Lavender"
+# — its mPrimary #cba6f7 (mauve) is the accent Noctalia paints everywhere (no
+# pure "Mocha Mauve" exists in the community repo). Community palettes are
+# fetched from api.noctalia.dev and cached, so first boot needs network (like
+# the plugin one-shot). `builtin` is Catppuccin too, so a builtin fallback still
+# lands on Catppuccin (Mocha in dark mode).
+builtin = "Catppuccin"
+community_palette = "Catppuccin Mocha Mauve-Lavender"
 mode = "dark"
-source = "builtin"
+source = "community"
 wallpaper_scheme = "m3-content"
 
     [theme.templates]
