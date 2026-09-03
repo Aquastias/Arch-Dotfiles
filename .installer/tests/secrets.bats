@@ -21,6 +21,11 @@ setup() {
   chmod +x "$TEST_DIR/bin/mktemp" "$TEST_DIR/bin/mount" "$TEST_DIR/bin/umount"
   PATH="$TEST_DIR/bin:$PATH"
 
+  # secrets.sh runs inside the installer with common.sh loaded (it uses
+  # command_exists to detect age/sops); source it here so the stubbed
+  # age/sops on PATH are detected and _secrets_install_tools no-ops.
+  # shellcheck source=../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../lib/common.sh"
   # shellcheck source=../lib/secrets.sh
   source "$BATS_TEST_DIRNAME/../lib/secrets.sh"
 }

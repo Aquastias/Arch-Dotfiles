@@ -4,7 +4,9 @@
 # =============================================================================
 # The single definition of the "paru preferred, yay fallback" rule. Sourced by
 # lib/profiles/runner.sh (installer) and tools/install-pkglist.sh (booted), so
-# helper resolution has one home. Pure: defines a function, no side effects.
+# helper resolution has one home. Pure and SELF-CONTAINED: the booted tool
+# sources this without common.sh, so it must not lean on common's helpers —
+# uses `command -v` directly, not command_exists (ADR 0052).
 # =============================================================================
 
 # Resolve the AUR Helper on the current PATH: print `paru`/`yay` (paru
@@ -13,7 +15,7 @@
 _profiles_detect_helper() {
   local h
   for h in paru yay; do
-    if command_exists "$h"; then
+    if command -v "$h" >/dev/null 2>&1; then
       printf '%s\n' "$h"
       return 0
     fi
