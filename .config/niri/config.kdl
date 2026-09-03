@@ -17,6 +17,13 @@ cursor {
     xcursor-size 24
 }
 
+// Route Qt apps through qt6ct so they follow Noctalia's palette — App Theming
+// Bridge (ADR 0102). Set per-compositor (Hyprland uses `env =`), not via
+// environment.d, which Hyprland's start-hyprland session can't see (ADR 0070).
+environment {
+    QT_QPA_PLATFORMTHEME "qt6ct"
+}
+
 // Input devices (ADR 0100). Touchpad tap-to-click + natural scroll +
 // disable-while-typing make a fresh laptop feel right out of the box; keyboard
 // layout/repeat match a standard US board. No `output` block on purpose —

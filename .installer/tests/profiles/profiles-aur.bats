@@ -86,21 +86,26 @@ _adapter() {
   jsonc_strip "$f" | jq -e 'has("aur")' >/dev/null
 }
 
-# ── the adapter's aur list is DE-tied: qt6ct-kde AND octopi (ADR 0094) ──
-# Both are KDE-tied and must not install on a non-KDE host, so they live in the
-# adapter aur, off the host profiles. octopi (a Qt pacman GUI) moved here from
-# Host Core by operator decision; qt6ct-kde moved here off the host profiles.
+# ── qt6ct-kde: fleet theming dep on every DE adapter (App Theming Bridge) ────
+# Was KDE-only (ADR 0094); the App Theming Bridge (ADR 0102, reversing ADR
+# 0062's qt6ct clause) needs the Qt platform theme on niri and Hyprland too, so
+# each DE adapter declares it — like bibata-cursor-git — landing whenever a
+# desktop is selected, never on a headless host. octopi stays KDE-only (below).
 
-@test "qt6ct-kde resolves under kde via the real adapter" {
-  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
-  run _profiles_resolve_aur '{}' kde
-  [ "$status" -eq 0 ]
-  grep -qx "qt6ct-kde" <<< "$output"
+@test "qt6ct-kde resolves under kde, niri and hyprland (ADR 0102)" {
+  INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
+  local de
+  for de in kde niri hyprland; do
+    run _profiles_resolve_aur '{}' "$de"
+    [ "$status" -eq 0 ]
+    grep -qx "qt6ct-kde" <<< "$output" \
+      || { echo "qt6ct-kde missing under $de"; return 1; }
+  done
 }
 
-@test "qt6ct-kde does not resolve under a non-kde DE" {
+@test "qt6ct-kde does not resolve on a desktop-less host (App Theming Bridge)" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
-  run _profiles_resolve_aur '{}' nonexistent-de
+  run _profiles_resolve_aur '{}'          # no desktops
   [ "$status" -eq 0 ]
   ! grep -qx "qt6ct-kde" <<< "$output"
 }

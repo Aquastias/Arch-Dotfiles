@@ -7,7 +7,11 @@
       // Default cursor, shared with KDE/niri (ADR 0098). One AUR package ships
       // both hyprcursor + Xcursor; Hyprland uses the hyprcursor theme (with the
       // Xcursor theme as the XWayland/legacy fallback), set in hyprland.conf.
-      "bibata-cursor-git": true
+      "bibata-cursor-git": true,
+      // Qt platform theme for the App Theming Bridge (ADR 0102): qt6ct-kde
+      // (KDE build, adds KColorScheme) lets Qt/KDE apps follow Noctalia's
+      // palette. Fleet dep like the cursor — declared on every DE adapter.
+      "qt6ct-kde": true
     }
   }
 }
