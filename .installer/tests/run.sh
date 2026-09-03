@@ -100,7 +100,7 @@ collect_changed() {
   local targets
   targets="$(select_changed_targets ${changed[@]+"${changed[@]}"})"
   if [[ "$targets" == "--full" ]]; then
-    echo "[run.sh] --changed: broad-blast or unmapped change → widening to --full" >&2
+    echo "[run.sh] --changed: broad-blast/unmapped; running --full" >&2
     collect_all
   else
     echo "[run.sh] --changed targets (+ install-correctness core):" >&2
@@ -118,7 +118,8 @@ esac
 
 # Dedupe (a changed test file may also be pulled in by its directory token).
 if ((${#FILES[@]})); then
-  IFS=$'\n' read -r -d '' -a FILES < <(printf '%s\n' "${FILES[@]}" | sort -u && printf '\0')
+  IFS=$'\n' read -r -d '' -a FILES \
+    < <(printf '%s\n' "${FILES[@]}" | sort -u && printf '\0')
 fi
 
 echo "[run.sh] mode=$MODE files=${#FILES[@]}" >&2
