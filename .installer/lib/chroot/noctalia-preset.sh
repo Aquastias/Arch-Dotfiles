@@ -145,6 +145,17 @@ noctalia_preset_install() {
     install -d "${_skel}/.icons/default"
     printf '[Icon Theme]\nInherits=Bibata-Modern-Ice\n' \
       > "${_skel}/.icons/default/index.theme"
+    # Suppress Noctalia's first-run setup wizard (ADR 0088 precedent: an
+    # adapter marks first-run state so a fresh login is ready, as KDE's
+    # Welcome Center does). Noctalia opens the wizard as a modal panel when
+    # the marker file is absent, and only ONE panel may be open, so every bar
+    # click (clock -> calendar, ...) is a no-op until dismissed. Seeding the
+    # empty marker is byte-identical to finishing/closing the wizard (writes
+    # the same empty file); the feature stays available (setup_wizard_enabled
+    # untouched). The marker is state not config, so seeded, never stowed;
+    # respects XDG_STATE_HOME, default ~/.local/state (what skel seeds).
+    install -Dm644 /dev/null \
+      "${_skel}/.local/state/noctalia/.setup-complete"
     # GTK settings.ini — SEEDED, never stowed (ADR 0104). kde-gtk-config
     # rewrites these at every Plasma login; through a stow symlink that write
     # lands in the dotfiles repo (perpetual git dirt). A real skel file lets
