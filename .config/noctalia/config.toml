@@ -51,11 +51,12 @@ order = [ "default", "bottom" ]
         "volume",
         "brightness",
         "battery",
-        "control-center",
         "bluetooth",
         "cat",
         "nightlight",
         "todo",
+        "weather",
+        "control-center",
         "session"
     ]
     start = [
@@ -63,6 +64,7 @@ order = [ "default", "bottom" ]
         "theme_mode",
         "widget",
         "wallpaper",
+        "media",
         "workspaces"
     ]
     thickness = 25
@@ -120,6 +122,18 @@ widget_order = []
 
 [nightlight]
 enabled = true
+
+# Weather (Open-Meteo, 6-day) + its location source, shared with nightlight and
+# theme-auto. auto_locate resolves via IP geolocation so the seed stays portable
+# — every box gets its own location, no hardcoded city. metric = Celsius.
+[weather]
+enabled = true
+unit = "metric"
+refresh_minutes = 30
+effects = true
+
+[location]
+auto_locate = true
 
 [plugin_settings."yocraft/custom-shortcut"]
 icon = "palette"
@@ -237,7 +251,9 @@ type = "alexander/game-launcher:launcher"
 type = "alexander/game-launcher:launcher"
 
 [widget.media]
+album_art_only = true
 font_scale = 0.80000000000000004
+hide_when_no_media = true
 
 [widget.mirror]
 type = "elijaharch/wl-screen-mirror:mirror"
@@ -264,6 +280,10 @@ type = "nightwatch75/todo:todo"
 
 [widget.toggle]
 type = "cleboost/hotspot:toggle"
+
+[widget.weather]
+capsule = true
+show_condition = false
 
 [widget.widget]
 type = "yuuto/arch-updater:widget"
