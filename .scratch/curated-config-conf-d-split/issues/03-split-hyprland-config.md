@@ -1,7 +1,10 @@
 # 03 — Split the Hyprland config into `conf.d/`
 
-**What to build:** `.config/hypr/hyprland.lua` becomes a pure manifest — a header
-comment plus ordered `require("conf.d.NAME")` lines — and every setting moves
+**What to build:** `.config/hypr/hyprland.lua` becomes a manifest — a header
+comment, a two-line `package.path` shim (the `conf.d` dir has a dot, which Lua
+`require` reads as a path separator, so the dir is put on `package.path` from
+the entry file's own location), then ordered `require("NAME")` lines by
+basename — and every setting moves
 into the seven parallel part-files under `.config/hypr/conf.d/`: `environment`
 (`hl.monitor` folded here + `hl.env` cursor/qt), `input`, `appearance`
 (`general/decoration/animations/dwindle/master/misc` `hl.config` + `hl.curve` +
@@ -19,9 +22,9 @@ Independent of 02; may run in parallel.
 
 **Status:** ready-for-agent
 
-- [ ] `hyprland.lua` contains only a header comment and the ordered `require`
-      lines (order: environment, input, appearance, autostart, keybinds, media,
-      rules); no settings remain in it.
+- [ ] `hyprland.lua` contains only a header comment, the `package.path` shim,
+      and the ordered `require` lines (order: environment, input, appearance,
+      autostart, keybinds, media, rules); no settings remain in it.
 - [ ] The seven `conf.d/*.lua` part-files carry the moved content verbatim, each
       with a compact `(ADR NNNN)`-anchored header; each file is self-contained
       (separate Lua scope), with the keybind locals confined to `keybinds.lua`.

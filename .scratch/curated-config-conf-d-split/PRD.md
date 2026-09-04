@@ -40,7 +40,10 @@ sides:
 ```
 
 - niri uses `include "conf.d/NAME.kdl"` (top-level, since 25.11).
-- Hyprland uses `require("conf.d.NAME")` (Lua, ≥ 0.55; fleet on 0.56.2).
+- Hyprland uses Lua `require` (≥ 0.55; fleet on 0.56.2). The dotted
+  `conf.d` dir cannot be dot-addressed (`require` treats dots as path
+  separators), so the manifest puts `conf.d/` on `package.path` (from its
+  own dir) and requires each part by basename — `require("keybinds")`.
 
 Manifest order is fixed: environment, input, appearance, autostart, keybinds,
 media, rules. The split is a pure move — every binding, rule, env, spawn, and

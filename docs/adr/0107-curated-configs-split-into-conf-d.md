@@ -29,11 +29,15 @@ seven parallel part-files per side:
   fleet pulls bare Arch `niri`, well past that floor). `binds{}` blocks **merge
   by key** across includes (keybinds vs media use disjoint keys → lossless);
   window-rules accumulate positionally, so the manifest order is fixed.
-- **Hyprland** uses `require("conf.d.NAME")` (Lua, ≥ 0.55; fleet on 0.56.2).
-  Each `require` is a **separate Lua scope**, so every part-file is
-  self-contained — the `terminal`/`menu`/`lock`/`mainMod` locals live wholly in
-  `keybinds.lua` (autostart uses literals), needing no cross-file globals.
-  Multiple `hl.config{}` calls each apply their sub-table (the ADR 0106
+- **Hyprland** uses Lua `require` (≥ 0.55; fleet on 0.56.2). The `conf.d` dir
+  name contains a dot, which `require` reads as a path separator — so
+  `require("conf.d.NAME")` would look for `conf/d/NAME.lua` and fail. Instead the
+  manifest puts `conf.d/` on `package.path` (resolved from the entry file's own
+  location via `debug.getinfo`) and requires each part by bare basename
+  (`require("keybinds")`). Each `require` is a **separate Lua scope**, so every
+  part-file is self-contained — the `terminal`/`menu`/`lock`/`mainMod` locals
+  live wholly in `keybinds.lua` (autostart uses literals), needing no cross-file
+  globals. Multiple `hl.config{}` calls each apply their sub-table (the ADR 0106
   VM-override already relies on this).
 - **Rounded corners are an idiom split, not an asymmetry in structure:** niri
   models rounding as a `window-rule` (→ `rules.kdl`); Hyprland's is
