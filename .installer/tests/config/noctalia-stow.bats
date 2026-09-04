@@ -19,6 +19,9 @@ setup() {
   NAPP="$REPO/.config/niri/conf.d/appearance.kdl"
   NAUTO="$REPO/.config/niri/conf.d/autostart.kdl"
   NBIND="$REPO/.config/niri/conf.d/keybinds.kdl"
+  HENV="$REPO/.config/hypr/conf.d/environment.lua"
+  HAUTO="$REPO/.config/hypr/conf.d/autostart.lua"
+  HBIND="$REPO/.config/hypr/conf.d/keybinds.lua"
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
@@ -105,16 +108,25 @@ setup() {
   grep -q 'xcursor-size 24' "$NENV"
 }
 
-@test "hyprland.lua sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
-  grep -q 'hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")' "$HC"
-  grep -q 'hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")' "$HC"
+# The conf.d dir name has a dot (Lua require reads dots as path separators), so
+# the manifest puts conf.d/ on package.path and requires parts by basename.
+@test "hyprland.lua is a manifest that requires the conf.d/ part-files" {
+  [ -f "$HC" ]
+  grep -q 'conf.d/?.lua' "$HC"
+  grep -q 'require("autostart")' "$HC"
+  grep -q 'require("keybinds")' "$HC"
 }
 
-@test "hyprland.lua hosts Noctalia: autostart + IPC launcher/lock (ADR 0097)" {
-  grep -q 'hl.exec_cmd("noctalia --daemon")' "$HC"
-  grep -q 'noctalia msg panel-toggle launcher' "$HC"
-  grep -q 'noctalia msg session lock' "$HC"
-  ! grep -q 'hyprlock' "$HC"
+@test "hypr conf.d sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
+  grep -q 'hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")' "$HENV"
+  grep -q 'hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")' "$HENV"
+}
+
+@test "hypr conf.d hosts Noctalia: autostart + IPC launcher/lock (ADR 0097)" {
+  grep -q 'hl.exec_cmd("noctalia --daemon")' "$HAUTO"
+  grep -q 'noctalia msg panel-toggle launcher' "$HBIND"
+  grep -q 'noctalia msg session lock' "$HBIND"
+  run grep -rq 'hyprlock' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
 }
 
 @test "the palette cycler is executable and uses the v5 native CLI" {
@@ -212,7 +224,7 @@ setup() {
   grep -q 'no_hardware_cursors' "$PRESET"
   # NOT in the stow'd configs (real hardware keeps hardware cursors); run/status
   # so the negation actually fails the test (a bare `! grep` is errexit-exempt).
-  run grep -q 'no_hardware_cursors' "$HC"; [ "$status" -ne 0 ]
+  run grep -rq 'no_hardware_cursors' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
   run grep -rq 'disable-cursor-plane' "$REPO/.config/niri"; [ "$status" -ne 0 ]
 }
 
@@ -238,5 +250,5 @@ setup() {
 @test "QT_QPA_PLATFORMTHEME=qt6ct is set per-compositor (ADR 0102)" {
   # niri's environment{} node sets the value on one line; assert them together.
   grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$NENV"
-  grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HC"
+  grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HENV"
 }
