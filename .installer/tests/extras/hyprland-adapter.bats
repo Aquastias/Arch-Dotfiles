@@ -210,6 +210,35 @@ run_hypr() {
   [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
 }
 
+# Split config (ADR 0107): the conf.d/ part-file tree beside the entry manifest
+# is seeded whole to /etc/skel next to it.
+@test "noctalia: seeds the conf.d/ part-file tree when present (ADR 0107)" {
+  mkdir -p "$CURATED/.config/hypr/conf.d"
+  echo 'keybinds'    > "$CURATED/.config/hypr/conf.d/keybinds.lua"
+  echo 'environment' > "$CURATED/.config/hypr/conf.d/environment.lua"
+  run_hypr "hyprland" noctalia
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
+  [ -f "$SEED/etc/skel/.config/hypr/conf.d/keybinds.lua" ]
+  [ -f "$SEED/etc/skel/.config/hypr/conf.d/environment.lua" ]
+}
+
+# VM software-cursor override (ADR 0106) relocates onto the split tree (ADR
+# 0107): with a conf.d/ present it appends to conf.d/environment.lua, not the
+# entry manifest.
+@test "noctalia: VM cursor override lands in conf.d/environment when split" {
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/systemd-detect-virt"
+  chmod +x "$STUB_BIN/systemd-detect-virt"
+  mkdir -p "$CURATED/.config/hypr/conf.d"
+  echo 'environment' > "$CURATED/.config/hypr/conf.d/environment.lua"
+  run_hypr "hyprland" noctalia
+  [ "$status" -eq 0 ]
+  grep -q 'no_hardware_cursors' \
+    "$SEED/etc/skel/.config/hypr/conf.d/environment.lua"
+  run grep -q 'no_hardware_cursors' "$SEED/etc/skel/.config/hypr/hyprland.lua"
+  [ "$status" -ne 0 ]
+}
+
 # ── bare Hyprland seeds nothing (wayland_shell=none / unset, ADR 0097) ────────
 @test "none: seeds no config and installs no Noctalia (truly bare)" {
   run_hypr "hyprland"

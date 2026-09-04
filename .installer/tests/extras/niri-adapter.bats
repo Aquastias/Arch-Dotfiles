@@ -191,6 +191,35 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
+# Split config (ADR 0107): when the curated dir carries a conf.d/ part-file tree
+# beside the entry manifest, the whole tree is seeded to /etc/skel next to it.
+@test "noctalia seeds the conf.d/ part-file tree when present (ADR 0107)" {
+  mkdir -p "$CURATED/.config/niri/conf.d"
+  echo 'keybinds'    > "$CURATED/.config/niri/conf.d/keybinds.kdl"
+  echo 'environment' > "$CURATED/.config/niri/conf.d/environment.kdl"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  [ -f "$SEED/etc/skel/.config/niri/config.kdl" ]
+  [ -f "$SEED/etc/skel/.config/niri/conf.d/keybinds.kdl" ]
+  [ -f "$SEED/etc/skel/.config/niri/conf.d/environment.kdl" ]
+}
+
+# VM software-cursor override (ADR 0106) relocates onto the split tree (ADR
+# 0107): with a conf.d/ present it appends to conf.d/environment.kdl — keeping
+# the seeded manifest pure — not the entry file.
+@test "VM cursor override lands in conf.d/environment when split (ADR 0107)" {
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/systemd-detect-virt"
+  chmod +x "$STUB_BIN/systemd-detect-virt"
+  mkdir -p "$CURATED/.config/niri/conf.d"
+  echo 'environment' > "$CURATED/.config/niri/conf.d/environment.kdl"
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia"
+  [ "$status" -eq 0 ]
+  grep -q 'disable-cursor-plane' \
+    "$SEED/etc/skel/.config/niri/conf.d/environment.kdl"
+  run grep -q 'disable-cursor-plane' "$SEED/etc/skel/.config/niri/config.kdl"
+  [ "$status" -ne 0 ]
+}
+
 @test "cava/cliphist install only when toggled on in install-noctalia.jsonc" {
   local nj="$TEST_DIR/nj.jsonc"
   printf '{"cava":true,"cliphist":true}\n' > "$nj"
