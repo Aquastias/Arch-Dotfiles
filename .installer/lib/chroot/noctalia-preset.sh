@@ -127,7 +127,7 @@ noctalia_preset_install() {
     install -Dm644 "${NOC_CURATED_DIR}/${cfg_src}" "${_skel}/${cfg_dst}"
     # Split config (ADR 0107): the entry file (cfg_src) is a pure manifest of
     # include/require lines; the settings live in a sibling conf.d/ tree, which
-    # always ships beside it. Seed the whole tree next to the entry file.
+    # always ships beside it.
     local _confd_src _confd_dst
     _confd_src="${NOC_CURATED_DIR}/$(dirname "$cfg_src")/conf.d"
     _confd_dst="${_skel}/$(dirname "$cfg_dst")/conf.d"
@@ -138,7 +138,7 @@ noctalia_preset_install() {
     # TYPE — injected here, NOT shipped in the stow'd config — so real hardware
     # keeps the optimal hardware cursor. Appended to the conf.d/environment
     # part-file (branch on suffix) so the seeded manifest stays pure (ADR 0107):
-    # niri a `debug{}` block, Hyprland an hl.config cursor block (Lua, ADR 0105).
+    # niri a debug{} block, Hyprland an hl.config cursor (Lua, ADR 0105).
     # (Harmless if detect-virt is unavailable — no-ops, real-HW config stands.)
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
       local _cur_ext="${cfg_dst##*.}"
@@ -150,7 +150,7 @@ noctalia_preset_install() {
         printf '\nhl.config({ cursor = { no_hardware_cursors = true } })\n' \
           >> "$_cur_tgt" ;;
       esac
-      info "VM detected — seeded software-cursor override into ${_cur_tgt#"${_skel}/"}."
+      info "VM detected — SW-cursor override seeded into ${_cur_tgt##*/}."
     fi
     install -Dm644 "${NOC_CURATED_DIR}/.config/noctalia/config.toml" \
       "${_skel}/.config/noctalia/config.toml"
