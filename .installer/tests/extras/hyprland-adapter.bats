@@ -61,13 +61,13 @@ GIT
   export PATH="$STUB_BIN:$PATH"
 
   # Curated-config source (ADR 0097, mirroring niri's ADR 0095): chroot.sh
-  # stages the repo's single-source Noctalia-wired hyprland.conf PLUS the shared
+  # stages the repo's single-source Noctalia-wired hyprland.lua PLUS the shared
   # config.toml + noctalia-* helpers here; the adapter seeds them into /etc/skel
   # under wayland_shell=noctalia.
   CURATED="$TEST_DIR/curated"
   mkdir -p "$CURATED/.config/hypr" "$CURATED/.config/noctalia" \
     "$CURATED/.local/bin"
-  echo 'hypr-config'     > "$CURATED/.config/hypr/hyprland.conf"
+  echo 'hypr-config'     > "$CURATED/.config/hypr/hyprland.lua"
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
@@ -152,14 +152,14 @@ run_hypr() {
 
 # ── Noctalia preset seeded via /etc/skel (ADR 0097) ──────────────────────────
 # Under wayland_shell=noctalia the shared preset seeds the SAME payload as niri
-# — the Noctalia-wired hyprland.conf, the byte-identical config.toml, and the
+# — the Noctalia-wired hyprland.lua, the byte-identical config.toml, and the
 # noctalia-* helpers — all staged into HYPR_CURATED_DIR by chroot.sh, copied
 # verbatim (no heredoc, no drift).
-@test "noctalia: seeds hyprland.conf + shared config.toml + helpers to skel" {
+@test "noctalia: seeds hyprland.lua + shared config.toml + helpers to skel" {
   run_hypr "hyprland" noctalia
   [ "$status" -eq 0 ]
-  [ -f "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
-  grep -qx hypr-config "$SEED/etc/skel/.config/hypr/hyprland.conf"
+  [ -f "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
+  grep -qx hypr-config "$SEED/etc/skel/.config/hypr/hyprland.lua"
   [ -f "$SEED/etc/skel/.config/noctalia/config.toml" ]
   grep -qx noctalia-config "$SEED/etc/skel/.config/noctalia/config.toml"
   [ -x "$SEED/etc/skel/.local/bin/noctalia-cycle-palette" ]
@@ -207,14 +207,14 @@ run_hypr() {
     ENVIRONMENT_WAYLAND_SHELL="noctalia" HYPR_BAT_GLOB="$TEST_DIR/nobat/BAT*" \
     bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
+  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
 }
 
 # ── bare Hyprland seeds nothing (wayland_shell=none / unset, ADR 0097) ────────
 @test "none: seeds no config and installs no Noctalia (truly bare)" {
   run_hypr "hyprland"
   [ "$status" -eq 0 ]
-  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.conf" ]
+  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
   [ ! -e "$SEED/etc/skel/.config/noctalia/config.toml" ]
   ! grep -qw "noctalia" "$PACMAN_LOG"
   [ ! -f "$GIT_LOG" ]

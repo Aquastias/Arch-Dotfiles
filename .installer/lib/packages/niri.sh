@@ -80,7 +80,7 @@ noctalia_niri_plugins() {
 # Hyprland-native niceties, vendored only on a Hyprland box. NOT a mirror of the
 # niri slice — the niri workspace/animation/display plugins have no hypr
 # counterpart at the pinned ref (workspace parity is the built-in `workspaces`
-# widget; animations/displays are set in hyprland.conf directly). The set:
+# widget; animations/displays are set in hyprland.lua directly). The set:
 # hypr-layout-switcher (cycle dwindle/master), hypr-submap (submap indicator),
 # hypr-screen-mirror (Hyprland-native output mirror). Each id verified present
 # at the pinned community ref.

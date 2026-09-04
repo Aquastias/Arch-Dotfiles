@@ -7,7 +7,7 @@
 # SHELL is the shared Noctalia work preset (ADR 0097) — the SAME one niri uses —
 # layered on top and gated on ENVIRONMENT_WAYLAND_SHELL: under `noctalia` the
 # adapter hands off to lib/chroot/noctalia-preset.sh, which installs Noctalia +
-# its gaps and seeds the Noctalia-wired hyprland.conf + shared config.toml +
+# its gaps and seeds the Noctalia-wired hyprland.lua + shared config.toml +
 # helpers into /etc/skel; under `none` the box is truly bare (nothing seeded,
 # the operator brings their own config — symmetric with bare niri). hyprlock is
 # NO LONGER installed (ADR 0097, superseding 0096): Noctalia locks natively via
@@ -19,7 +19,7 @@
 #   ROOT                 — prefix for the session override + aquamarine DRM pin
 #                          writes (default: empty — writes to the live root)
 #   HYPR_SEED_ROOT       — prefix for the /etc/skel config seed (default: /)
-#   HYPR_CURATED_DIR     — curated dotfiles source (hyprland.conf + the shared
+#   HYPR_CURATED_DIR     — curated dotfiles source (hyprland.lua + the shared
 #                          config.toml + helpers; default SCRIPT_DIR/curated)
 #   HYPR_JSON            — install-noctalia.jsonc override (component bools)
 #   HYPR_BAT_GLOB        — battery-presence glob for laptop plugin gating
@@ -35,7 +35,7 @@ ROOT="${ROOT:-}"
 # Default `/` (the chroot); tests point HYPR_SEED_ROOT at a temp dir.
 SEED_ROOT="${HYPR_SEED_ROOT:-/}"
 # Curated-config source (ADR 0097). chroot.sh stages the repo's single-source
-# Noctalia-wired hyprland.conf + the shared config.toml + noctalia-* helpers
+# Noctalia-wired hyprland.lua + the shared config.toml + noctalia-* helpers
 # here so this adapter seeds them into /etc/skel — served by default, while the
 # repo copies stay stowable. Injectable for tests.
 HYPR_CURATED_DIR="${HYPR_CURATED_DIR:-${SCRIPT_DIR}/curated}"
@@ -232,7 +232,7 @@ _hypr_aq_pin
 # The SAME shared preset the niri adapter runs: under noctalia, hand off to the
 # module — map this adapter's seams onto the NOC_* contract, pick the Hyprland
 # config file and the Hyprland plugin slice, and let the module install + seed +
-# vendor. The seeded config.toml is byte-identical to niri's; only hyprland.conf
+# vendor. The seeded config.toml is byte-identical to niri's; only hyprland.lua
 # (the Noctalia-wired compositor config) differs. Under `none` nothing is seeded
 # — the box is truly bare, symmetric with bare niri.
 if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
@@ -243,7 +243,7 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
   export NOC_CURATED_DIR="$HYPR_CURATED_DIR"
   export NOC_BAT_GLOB="${HYPR_BAT_GLOB:-/sys/class/power_supply/BAT*}"
   export NOC_SLICE_FN=noctalia_hyprland_plugins
-  _hc=".config/hypr/hyprland.conf"
+  _hc=".config/hypr/hyprland.lua"
   noctalia_preset_install "$_hc" "$_hc"
 fi
 

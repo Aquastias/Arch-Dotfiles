@@ -11,7 +11,7 @@ setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."      # .installer/tests/config → repo root
   CT="$REPO/.config/noctalia/config.toml"
   KDL="$REPO/.config/niri/config.kdl"
-  HC="$REPO/.config/hypr/hyprland.conf"
+  HC="$REPO/.config/hypr/hyprland.lua"
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
@@ -93,13 +93,13 @@ setup() {
   grep -q 'xcursor-size 24' "$KDL"
 }
 
-@test "hyprland.conf sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
-  grep -q '^env = HYPRCURSOR_THEME,Bibata-Modern-Ice' "$HC"
-  grep -q '^env = XCURSOR_THEME,Bibata-Modern-Ice' "$HC"
+@test "hyprland.lua sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
+  grep -q 'hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")' "$HC"
+  grep -q 'hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")' "$HC"
 }
 
-@test "hyprland.conf hosts Noctalia: autostart + IPC launcher/lock (ADR 0097)" {
-  grep -q '^exec-once = noctalia --daemon' "$HC"
+@test "hyprland.lua hosts Noctalia: autostart + IPC launcher/lock (ADR 0097)" {
+  grep -q 'hl.exec_cmd("noctalia --daemon")' "$HC"
   grep -q 'noctalia msg panel-toggle launcher' "$HC"
   grep -q 'noctalia msg session lock' "$HC"
   ! grep -q 'hyprlock' "$HC"
@@ -226,5 +226,5 @@ setup() {
 @test "QT_QPA_PLATFORMTHEME=qt6ct is set per-compositor (ADR 0102)" {
   # niri's environment{} node sets the value on one line; assert them together.
   grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$KDL"
-  grep -q '^env = QT_QPA_PLATFORMTHEME,qt6ct' "$HC"
+  grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HC"
 }
