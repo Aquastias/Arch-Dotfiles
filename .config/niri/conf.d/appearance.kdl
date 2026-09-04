@@ -1,0 +1,22 @@
+// Look + feel (ADR 0100). Mirrors hypr/conf.d/appearance.lua. Colors stay
+// Noctalia's to own via its config.toml theme templates, so no focus-ring/
+// border colors are hardcoded here. (Rounded corners are a window-rule on niri
+// — see rules.kdl, the parallel to Hyprland's decoration rounding.)
+
+// Skip niri's "Important Hotkeys" overlay on startup — no welcome screen on
+// first login. Toggle it any time with Mod+Shift+Slash.
+hotkey-overlay {
+    skip-at-startup
+}
+
+// Minimal layout: gaps + a sensible column-width cycle (Mod+R walks these).
+layout {
+    gaps 16
+    center-focused-column "never"
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    default-column-width { proportion 0.5; }
+}

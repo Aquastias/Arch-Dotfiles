@@ -1,0 +1,7 @@
+// Window rules (ADR 0100). Rounded corners on every window — niri models
+// rounding as a window-rule, the parallel to Hyprland's decoration.rounding
+// (hypr/conf.d/appearance.lua), so both compositors read the same.
+window-rule {
+    geometry-corner-radius 10
+    clip-to-geometry true
+}

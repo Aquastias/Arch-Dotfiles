@@ -1,0 +1,21 @@
+// Input devices (ADR 0100). Touchpad tap-to-click + natural scroll +
+// disable-while-typing make a fresh laptop feel right out of the box; keyboard
+// layout/repeat match a standard US board. No `output` block on purpose —
+// display scale/mode is host-specific and kept out of the portable curated
+// config (ADR 0094), same reason config.toml excludes host-bound state.
+input {
+    keyboard {
+        xkb {
+            layout "us"
+        }
+        repeat-delay 600
+        repeat-rate 25
+    }
+    touchpad {
+        tap
+        natural-scroll
+        dwt
+        click-method "clickfinger"
+        accel-profile "adaptive"
+    }
+}

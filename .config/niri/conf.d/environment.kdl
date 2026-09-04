@@ -1,0 +1,16 @@
+// Cursor + environment (ADR 0098/0102). Mirrors hypr/conf.d/environment.lua.
+
+// Default cursor: Bibata Modern Ice, the fleet default shared with KDE/Hyprland
+// (ADR 0098). niri exports XCURSOR_THEME/XCURSOR_SIZE to spawned apps, so
+// GTK/XWayland clients follow it too.
+cursor {
+    xcursor-theme "Bibata-Modern-Ice"
+    xcursor-size 24
+}
+
+// Route Qt apps through qt6ct so they follow Noctalia's palette — App Theming
+// Bridge (ADR 0102). Set per-compositor (Hyprland uses `env =`), not via
+// environment.d, which Hyprland's start-hyprland session can't see (ADR 0070).
+environment {
+    QT_QPA_PLATFORMTHEME "qt6ct"
+}

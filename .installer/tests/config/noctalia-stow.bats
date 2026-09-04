@@ -12,6 +12,13 @@ setup() {
   CT="$REPO/.config/noctalia/config.toml"
   KDL="$REPO/.config/niri/config.kdl"
   HC="$REPO/.config/hypr/hyprland.lua"
+  # Split config (ADR 0107): the entry file is a manifest of `include` lines;
+  # settings live in these conf.d/ part-files, asserted where each construct now
+  # lives.
+  NENV="$REPO/.config/niri/conf.d/environment.kdl"
+  NAPP="$REPO/.config/niri/conf.d/appearance.kdl"
+  NAUTO="$REPO/.config/niri/conf.d/autostart.kdl"
+  NBIND="$REPO/.config/niri/conf.d/keybinds.kdl"
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
@@ -74,23 +81,28 @@ setup() {
 
 # ── niri glue + helper scripts ───────────────────────────────────────────────
 
-@test "config.kdl autostarts Noctalia, the enable one-shot, and binds kitty" {
+@test "config.kdl is a manifest that includes the conf.d/ part-files" {
   [ -f "$KDL" ]
-  grep -q 'spawn-at-startup "noctalia" "--daemon"' "$KDL"
-  grep -q 'noctalia-enable-plugins' "$KDL"
-  grep -q 'spawn "kitty"' "$KDL"
+  grep -q 'include "conf.d/autostart.kdl"' "$KDL"
+  grep -q 'include "conf.d/keybinds.kdl"' "$KDL"
 }
 
-@test "config.kdl skips the hotkey-overlay so no welcome screen on first login" {
-  grep -Eq 'hotkey-overlay[[:space:]]*\{' "$KDL"
-  grep -q 'skip-at-startup' "$KDL"
+@test "niri conf.d autostarts Noctalia, the enable one-shot, and binds kitty" {
+  grep -q 'spawn-at-startup "noctalia" "--daemon"' "$NAUTO"
+  grep -q 'noctalia-enable-plugins' "$NAUTO"
+  grep -q 'spawn "kitty"' "$NBIND"
+}
+
+@test "niri conf.d skips the hotkey-overlay so no welcome on first login" {
+  grep -Eq 'hotkey-overlay[[:space:]]*\{' "$NAPP"
+  grep -q 'skip-at-startup' "$NAPP"
 }
 
 # ── shared Bibata cursor default (ADR 0098) ──────────────────────────────────
 
-@test "config.kdl sets the Bibata Modern Ice cursor (ADR 0098)" {
-  grep -q 'xcursor-theme "Bibata-Modern-Ice"' "$KDL"
-  grep -q 'xcursor-size 24' "$KDL"
+@test "niri conf.d sets the Bibata Modern Ice cursor (ADR 0098)" {
+  grep -q 'xcursor-theme "Bibata-Modern-Ice"' "$NENV"
+  grep -q 'xcursor-size 24' "$NENV"
 }
 
 @test "hyprland.lua sets Bibata hyprcursor + Xcursor fallback (ADR 0098)" {
@@ -201,7 +213,7 @@ setup() {
   # NOT in the stow'd configs (real hardware keeps hardware cursors); run/status
   # so the negation actually fails the test (a bare `! grep` is errexit-exempt).
   run grep -q 'no_hardware_cursors' "$HC"; [ "$status" -ne 0 ]
-  run grep -q 'disable-cursor-plane' "$KDL"; [ "$status" -ne 0 ]
+  run grep -rq 'disable-cursor-plane' "$REPO/.config/niri"; [ "$status" -ne 0 ]
 }
 
 @test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
@@ -225,6 +237,6 @@ setup() {
 
 @test "QT_QPA_PLATFORMTHEME=qt6ct is set per-compositor (ADR 0102)" {
   # niri's environment{} node sets the value on one line; assert them together.
-  grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$KDL"
+  grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$NENV"
   grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HC"
 }
