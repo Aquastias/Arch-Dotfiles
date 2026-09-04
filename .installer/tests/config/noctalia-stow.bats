@@ -183,9 +183,17 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+# The preset seeds Noctalia's setup-complete marker so a fresh first login lands
+# on a usable, interactive bar (the wizard is a modal panel that otherwise
+# blocks every bar click). Marker is state, not config — seeded, never stowed.
+@test "preset seeds the Noctalia setup-wizard-complete marker (first-run)" {
+  grep -q '\.local/state/noctalia/\.setup-complete' "$PRESET"
+}
+
 @test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
   # Package is adw-gtk-theme (extra); it ships the adw-gtk3-dark theme dir.
-  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) | grep -qx 'adw-gtk-theme'
+  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \
+    | grep -qx 'adw-gtk-theme'
 }
 
 @test "qt6ct is pre-seeded onto Noctalia's generated scheme (ADR 0102)" {
