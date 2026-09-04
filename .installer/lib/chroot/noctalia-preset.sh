@@ -6,7 +6,7 @@
 # layer the SAME shell — bar, launcher, notifications, lock, wallpaper, OSD,
 # palette, curated plugins — so the preset logic lives here, sourced by both
 # `extras/desktop/niri/niri.sh` and `extras/desktop/hyprland/hyprland.sh`. Only
-# the compositor config file (config.kdl vs hyprland.conf) and the plugin SLICE
+# the compositor config file (config.kdl vs hyprland.lua) and the plugin SLICE
 # (niri-* vs hypr-*) differ; the seeded `config.toml` is byte-identical.
 #
 # Extracted from the niri adapter (ADR 0090/0093/0095) with no behaviour change.
@@ -101,7 +101,7 @@ _noc_collect_plugins() {
 
 # noctalia_preset_install <cfg-src-rel> <cfg-dst-rel> — install + seed the whole
 # preset. <cfg-src-rel>/<cfg-dst-rel> are the compositor config file relative to
-# the curated dir / skel (config.kdl on niri, hyprland.conf on Hyprland); the
+# the curated dir / skel (config.kdl on niri, hyprland.lua on Hyprland); the
 # shared config.toml + noctalia-* helpers are always seeded. Uses the section/
 # info/warn helpers the sourcing adapter already has from extras-common.sh.
 noctalia_preset_install() {
@@ -129,15 +129,15 @@ noctalia_preset_install() {
     # and the pointer renders as a broken "X". Force software cursors by machine
     # TYPE — injected here, NOT shipped in the stow'd config — so real hardware
     # keeps the optimal hardware cursor. niri toggles it in `debug{}`, Hyprland
-    # in `cursor{}`; branch on the seeded file. (Harmless if detect-virt is
-    # unavailable — it just no-ops and real-HW config stands.)
+    # via an hl.config cursor block (Lua, ADR 0105); branch on the seeded file.
+    # (Harmless if detect-virt is unavailable — no-ops, real-HW config stands.)
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
       case "$cfg_dst" in
       *.kdl)
         printf '\ndebug {\n    disable-cursor-plane\n}\n' \
           >> "${_skel}/${cfg_dst}" ;;
-      *.conf)
-        printf '\ncursor {\n    no_hardware_cursors = true\n}\n' \
+      *.lua)
+        printf '\nhl.config({ cursor = { no_hardware_cursors = true } })\n' \
           >> "${_skel}/${cfg_dst}" ;;
       esac
       info "VM detected — seeded software-cursor override into ${cfg_dst}."

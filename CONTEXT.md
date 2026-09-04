@@ -1042,8 +1042,9 @@ it is portable across hardware. Preset component bools — the shared plugins, t
 [[Package Resolver]], mirroring KDE's `install-kde.jsonc` (ADR 0087); toggling
 them off recovers the lean shell, and a drift guard keeps the config's enabled
 list equal to the vendored set. On Hyprland the seeded compositor config is a
-**Noctalia-wired `hyprland.conf`** (`exec-once` autostarts the shell; the shared
-launcher/lock keys route through Noctalia IPC), and `hyprlock` is dropped from
+**Noctalia-wired `hyprland.lua`** (Lua config, ADR 0105 — a `hyprland.start`
+hook autostarts the shell; the shared launcher/lock keys route through Noctalia
+IPC), and `hyprlock` is dropped from
 core — Noctalia locks natively via `ext-session-lock-v1` (ADR 0097, superseding
 0096). ADR **0100** extends "Noctalia locks natively" to the whole QoL layer:
 Noctalia v5 also owns **idle** (built-in `[idle.behavior.*]` — lock ~5 min,
