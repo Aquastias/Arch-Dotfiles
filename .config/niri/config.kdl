@@ -17,14 +17,6 @@ cursor {
     xcursor-size 24
 }
 
-// Composite the cursor into the frame instead of the DRM cursor plane. On
-// virtio-gpu (VMs) the para-virtual cursor plane is buggy and the pointer
-// renders as a broken "X"; this is niri's software-cursor fix (the analog of
-// Hyprland's cursor:no_hardware_cursors). Harmless on real hardware.
-debug {
-    disable-cursor-plane
-}
-
 // Route Qt apps through qt6ct so they follow Noctalia's palette — App Theming
 // Bridge (ADR 0102). Set per-compositor (Hyprland uses `env =`), not via
 // environment.d, which Hyprland's start-hyprland session can't see (ADR 0070).
