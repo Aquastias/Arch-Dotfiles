@@ -190,6 +190,20 @@ setup() {
   grep -q '\.local/state/noctalia/\.setup-complete' "$PRESET"
 }
 
+# The stow'd compositor configs must NOT force software cursors (real hardware
+# keeps the optimal hardware cursor); the software-cursor override is injected
+# by the preset ONLY when installing into a VM (virtio-gpu's cursor plane is
+# buggy). So: absent from the payload, gated on systemd-detect-virt in the seed.
+@test "software-cursor override is VM-gated in the preset, not in the payload" {
+  grep -q 'systemd-detect-virt' "$PRESET"
+  grep -q 'disable-cursor-plane' "$PRESET"
+  grep -q 'no_hardware_cursors' "$PRESET"
+  # NOT in the stow'd configs (real hardware keeps hardware cursors); run/status
+  # so the negation actually fails the test (a bare `! grep` is errexit-exempt).
+  run grep -q 'no_hardware_cursors' "$HC"; [ "$status" -ne 0 ]
+  run grep -q 'disable-cursor-plane' "$KDL"; [ "$status" -ne 0 ]
+}
+
 @test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
   # Package is adw-gtk-theme (extra); it ships the adw-gtk3-dark theme dir.
   ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \

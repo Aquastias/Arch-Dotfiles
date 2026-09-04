@@ -125,6 +125,23 @@ noctalia_preset_install() {
   if [[ -d "$NOC_CURATED_DIR" ]]; then
     local _skel="${NOC_SEED_ROOT%/}/etc/skel"
     install -Dm644 "${NOC_CURATED_DIR}/${cfg_src}" "${_skel}/${cfg_dst}"
+    # VM-only software cursor: virtio-gpu's DRM cursor plane is buggy in a guest
+    # and the pointer renders as a broken "X". Force software cursors by machine
+    # TYPE — injected here, NOT shipped in the stow'd config — so real hardware
+    # keeps the optimal hardware cursor. niri toggles it in `debug{}`, Hyprland
+    # in `cursor{}`; branch on the seeded file. (Harmless if detect-virt is
+    # unavailable — it just no-ops and real-HW config stands.)
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+      case "$cfg_dst" in
+      *.kdl)
+        printf '\ndebug {\n    disable-cursor-plane\n}\n' \
+          >> "${_skel}/${cfg_dst}" ;;
+      *.conf)
+        printf '\ncursor {\n    no_hardware_cursors = true\n}\n' \
+          >> "${_skel}/${cfg_dst}" ;;
+      esac
+      info "VM detected — seeded software-cursor override into ${cfg_dst}."
+    fi
     install -Dm644 "${NOC_CURATED_DIR}/.config/noctalia/config.toml" \
       "${_skel}/.config/noctalia/config.toml"
     install -d "${_skel}/.local/bin"
