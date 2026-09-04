@@ -316,12 +316,10 @@ configure_system() {
       install -Dm644 "${SCRIPT_DIR}/../.config/niri/config.kdl" \
         "${_niri_cur}/.config/niri/config.kdl"
       # Split config (ADR 0107): stage the conf.d/ part-file tree beside the
-      # entry manifest so the preset seeds it. Absent → no-op (single file).
-      if [[ -d "${SCRIPT_DIR}/../.config/niri/conf.d" ]]; then
-        install -d "${_niri_cur}/.config/niri/conf.d"
-        install -m644 "${SCRIPT_DIR}/../.config/niri/conf.d/"* \
-          "${_niri_cur}/.config/niri/conf.d/"
-      fi
+      # entry manifest so the preset seeds it.
+      install -d "${_niri_cur}/.config/niri/conf.d"
+      install -m644 "${SCRIPT_DIR}/../.config/niri/conf.d/"* \
+        "${_niri_cur}/.config/niri/conf.d/"
       install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
         "${_niri_cur}/.config/noctalia/config.toml"
       install -d "${_niri_cur}/.local/bin"
@@ -346,12 +344,10 @@ configure_system() {
       install -Dm644 "${SCRIPT_DIR}/../.config/hypr/hyprland.lua" \
         "${_hypr_cur}/.config/hypr/hyprland.lua"
       # Split config (ADR 0107): stage the conf.d/ part-file tree beside the
-      # entry manifest so the preset seeds it. Absent → no-op (single file).
-      if [[ -d "${SCRIPT_DIR}/../.config/hypr/conf.d" ]]; then
-        install -d "${_hypr_cur}/.config/hypr/conf.d"
-        install -m644 "${SCRIPT_DIR}/../.config/hypr/conf.d/"* \
-          "${_hypr_cur}/.config/hypr/conf.d/"
-      fi
+      # entry manifest so the preset seeds it.
+      install -d "${_hypr_cur}/.config/hypr/conf.d"
+      install -m644 "${SCRIPT_DIR}/../.config/hypr/conf.d/"* \
+        "${_hypr_cur}/.config/hypr/conf.d/"
       install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
         "${_hypr_cur}/.config/noctalia/config.toml"
       install -d "${_hypr_cur}/.local/bin"

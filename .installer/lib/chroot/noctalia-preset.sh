@@ -126,27 +126,23 @@ noctalia_preset_install() {
     local _skel="${NOC_SEED_ROOT%/}/etc/skel"
     install -Dm644 "${NOC_CURATED_DIR}/${cfg_src}" "${_skel}/${cfg_dst}"
     # Split config (ADR 0107): the entry file (cfg_src) is a pure manifest of
-    # include/require lines; the settings live in a sibling conf.d/ tree. Seed
-    # the whole tree beside the entry file when present. Absent (a pre-split
-    # single-file config) → only the entry file is seeded, exactly as before.
+    # include/require lines; the settings live in a sibling conf.d/ tree, which
+    # always ships beside it. Seed the whole tree next to the entry file.
     local _confd_src _confd_dst
     _confd_src="${NOC_CURATED_DIR}/$(dirname "$cfg_src")/conf.d"
     _confd_dst="${_skel}/$(dirname "$cfg_dst")/conf.d"
-    if [[ -d "$_confd_src" ]]; then
-      install -d "$_confd_dst"
-      install -m644 "$_confd_src"/* "$_confd_dst/"
-    fi
+    install -d "$_confd_dst"
+    install -m644 "$_confd_src"/* "$_confd_dst/"
     # VM-only software cursor: virtio-gpu's DRM cursor plane is buggy in a guest
     # and the pointer renders as a broken "X". Force software cursors by machine
     # TYPE — injected here, NOT shipped in the stow'd config — so real hardware
-    # keeps the optimal hardware cursor. niri toggles it in `debug{}`, Hyprland
-    # via an hl.config cursor block (Lua, ADR 0105); branch on the file suffix.
-    # Target the conf.d/environment part-file when the split tree is present so
-    # the seeded manifest stays pure (ADR 0107), else the entry file itself.
+    # keeps the optimal hardware cursor. Appended to the conf.d/environment
+    # part-file (branch on suffix) so the seeded manifest stays pure (ADR 0107):
+    # niri a `debug{}` block, Hyprland an hl.config cursor block (Lua, ADR 0105).
     # (Harmless if detect-virt is unavailable — no-ops, real-HW config stands.)
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
-      local _cur_ext="${cfg_dst##*.}" _cur_tgt="${_skel}/${cfg_dst}"
-      [[ -d "$_confd_dst" ]] && _cur_tgt="${_confd_dst}/environment.${_cur_ext}"
+      local _cur_ext="${cfg_dst##*.}"
+      local _cur_tgt="${_confd_dst}/environment.${_cur_ext}"
       case "$_cur_ext" in
       kdl)
         printf '\ndebug {\n    disable-cursor-plane\n}\n' >> "$_cur_tgt" ;;

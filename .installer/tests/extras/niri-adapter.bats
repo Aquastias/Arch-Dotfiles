@@ -74,6 +74,10 @@ GIT
   mkdir -p "$CURATED/.config/niri" "$CURATED/.config/noctalia" \
     "$CURATED/.local/bin"
   echo 'niri-config'     > "$CURATED/.config/niri/config.kdl"
+  # Split config (ADR 0107): the entry manifest always ships beside a conf.d/
+  # part-file tree — the seed copies it unconditionally.
+  mkdir -p "$CURATED/.config/niri/conf.d"
+  echo 'environment' > "$CURATED/.config/niri/conf.d/environment.kdl"
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"

@@ -68,6 +68,10 @@ GIT
   mkdir -p "$CURATED/.config/hypr" "$CURATED/.config/noctalia" \
     "$CURATED/.local/bin"
   echo 'hypr-config'     > "$CURATED/.config/hypr/hyprland.lua"
+  # Split config (ADR 0107): the entry manifest always ships beside a conf.d/
+  # part-file tree — the seed copies it unconditionally.
+  mkdir -p "$CURATED/.config/hypr/conf.d"
+  echo 'environment' > "$CURATED/.config/hypr/conf.d/environment.lua"
   echo 'noctalia-config' > "$CURATED/.config/noctalia/config.toml"
   echo 'cycle'  > "$CURATED/.local/bin/noctalia-cycle-palette"
   echo 'enable' > "$CURATED/.local/bin/noctalia-enable-plugins"
