@@ -88,6 +88,10 @@ GIT
   echo 'pcmanfm-settings' > "$CURATED/.config/pcmanfm-qt/lxqt/settings.conf"
   echo 'kitty-action' \
     > "$CURATED/.local/share/file-manager/actions/open-in-kitty.desktop"
+  # qt6ct.conf — App Theming Bridge Qt half (ADR 0108): chroot.sh stages it into
+  # the curated dir, so the preset seeds it; the mock must provide it.
+  mkdir -p "$CURATED/.config/qt6ct"
+  echo 'qt6ct-conf' > "$CURATED/.config/qt6ct/qt6ct.conf"
   export NIRI_CURATED_DIR="$CURATED"
 }
 

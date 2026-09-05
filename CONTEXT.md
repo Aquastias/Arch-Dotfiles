@@ -1025,8 +1025,10 @@ as a **per-compositor slice** (ADR 0097): the `niri-*` set
 Since ADR 0094 the
 curated config is **single-source stow payload** at the repo root — the niri
 `config.kdl` glue (autostart `noctalia --daemon`), the `config.toml` look
-(Catppuccin Mocha lavender palette — the community "Catppuccin Mocha Lavender",
-ADR 0101 superseding 0093's Rosé Pine — dark mode, `Noto Sans` UI font, the
+(Catppuccin Mocha sapphire palette — the community "Catppuccin Mocha Sapphire",
+ADR 0109 superseding 0101's lavender / 0093's Rosé Pine, its cache JSON
+**seeded offline** so first boot needs no network — dark mode, `Noto Sans` UI
+font, the
 bundled wallpaper, the enabled-plugin list), the palette-cycle tile + script,
 and the first-login plugin-enable one-shot. ADR **0095** reversed 0094's
 *delivery*: the adapter now
@@ -1070,17 +1072,26 @@ the base preset, GTK `settings.ini`
 **seeded, not stowed** by the shared preset (ADR 0104 — `kde-gtk-config`
 rewrites them every Plasma login, and a stow symlink would dirty the repo:
 `adw-gtk3-dark` in gtk-3.0, **no** theme name in gtk-4.0 so libadwaita follows
-`gtk.css`), a stow'd `qt6ct.conf` pointing at Noctalia's `noctalia` scheme
-(Plasma ignores it, so it is safe to share), and `QT_QPA_PLATFORMTHEME=qt6ct`
-set **per-compositor** (niri `environment {}`, Hyprland `env =` — never
-`environment.d`, unreachable under `start-hyprland`, ADR 0070). On a combined
-`kde`+compositor host the two must not fight over one `$HOME` (ADR 0104): the
-`kcolorscheme` template is **dropped fleet-wide** so Noctalia never merges into
-KDE's `kdeglobals`, keeping the Plasma session pure Breeze Dark; a KDE-native
-app under a compositor keeps Noctalia's base palette (qt6ct) and loses only
-`KColorScheme` accents. Scope is now GTK3, GTK4, Qt6 — no KColorScheme, no
-GTK2/Qt5. Supersedes ADR 0062's "operator brings qt6ct". _Avoid_: matugen,
-uniform-look, `GTK_THEME` (breaks libadwaita).
+`gtk.css`), a `qt6ct.conf` pointing at Noctalia's `noctalia` scheme (Plasma
+ignores it, so it is compositor-private and safe to share), and
+`QT_QPA_PLATFORMTHEME=qt6ct` set **per-compositor** (niri `environment {}`,
+Hyprland `env =` — never `environment.d`, unreachable under `start-hyprland`,
+ADR 0070). `qt6ct.conf` is **seeded, not stowed** (ADR 0108): ADR 0102/0104 left
+it stow-only, but the installer never stows (ADR 0095), so it reached **no**
+fresh box and every Qt/KDE app rendered default white — the delivery bug 0108
+fixes by seeding it into `/etc/skel` (staged on both adapters) plus a **boot-race
+color snapshot** (seed-only, overwritten by Noctalia on first apply) closing the
+sub-second first-login window. On a combined `kde`+compositor host the two must
+not fight over one `$HOME` (ADR 0104): the `kcolorscheme` template stays **off**
+so Noctalia never merges into KDE's `kdeglobals`, keeping the Plasma session pure
+Breeze Dark; a KDE-native app under a compositor keeps Noctalia's base palette
+(qt6ct) and loses only `KColorScheme` accents. On a **pure**-compositor box (no
+KDE) ADR 0108 **re-enables `kcolorscheme` per-box** (the preset injects it into
+the seeded `config.toml`, gated on `ENVIRONMENT_DESKTOP`), giving KDE-framework
+apps the full KColorScheme palette — safe, no Plasma to leak into. Scope: GTK3,
+GTK4, Qt6 everywhere; KColorScheme on pure-compositor only; no GTK2/Qt5.
+Supersedes ADR 0062's "operator brings qt6ct". _Avoid_: matugen, uniform-look,
+`GTK_THEME` (breaks libadwaita).
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

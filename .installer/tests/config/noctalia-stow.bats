@@ -26,6 +26,7 @@ setup() {
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
   PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
+  CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
   QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
   QT6CT_COLORS="$REPO/.config/qt6ct/colors"
 }
@@ -34,11 +35,11 @@ setup() {
 
 @test "config.toml exists and is the stow-owned curated look" {
   [ -f "$CT" ]
-  # Catppuccin Mocha Lavender via the community palette (ADR 0101).
+  # Catppuccin Mocha Sapphire via the community palette (ADR 0109).
   grep -q '^builtin = "Catppuccin"' "$CT"
   grep -q '^source = "community"' "$CT"
   grep -q '^mode = "dark"' "$CT"
-  grep -q '^community_palette = "Catppuccin Mocha Lavender"' "$CT"
+  grep -q '^community_palette = "Catppuccin Mocha Sapphire"' "$CT"
   grep -q '^wallpaper_scheme = "m3-content"' "$CT"
 }
 
@@ -58,10 +59,22 @@ setup() {
 
 # The kcolorscheme template merges its colors into ~/.config/kdeglobals — the
 # same file KDE owns. On a kde+compositor box that leak repaints the Plasma
-# session, so the template is dropped fleet-wide (ADR 0104): pure-compositor
-# boxes have no KColorScheme apps to want it (pcmanfm-qt uses the qt template).
-@test "config.toml drops the kcolorscheme template (ADR 0104)" {
+# session, so the SHARED config.toml ships WITHOUT it (combined-safe, ADR 0104).
+# ADR 0108 re-enables it per-box ONLY on a pure compositor via a preset injection
+# (next test); the committed shared file must still carry none.
+@test "config.toml drops the kcolorscheme template (ADR 0104/0108)" {
   ! grep -q 'kcolorscheme' "$CT"
+}
+
+# ADR 0108: on a pure compositor (no KDE co-installed) the preset injects the
+# kcolorscheme template into the SEEDED config.toml so KDE-framework apps
+# (Dolphin/Gwenview/Kate) get the full KColorScheme palette — safe there (no
+# Plasma to leak into). Gated on ENVIRONMENT_DESKTOP not containing kde.
+@test "preset injects kcolorscheme only on a pure compositor (ADR 0108)" {
+  grep -q 'ENVIRONMENT_DESKTOP' "$PRESET"
+  grep -q '"kcolorscheme",' "$PRESET"
+  # the injection is gated (the sed runs inside the no-kde branch)
+  grep -q 'builtin_ids = ' "$PRESET"
 }
 
 # ── config.toml: host-bound / dead content excluded ──────────────────────────
@@ -241,6 +254,37 @@ setup() {
   # Fusion honours the custom palette; Papirus matches the GTK icon theme.
   grep -q '^style=Fusion' "$QT6CT"
   grep -q '^icon_theme=Papirus-Dark' "$QT6CT"
+}
+
+# ADR 0108: a fresh box never stows (ADR 0095), so the stow-only qt6ct.conf never
+# arrived and Qt/KDE apps rendered default white. The preset must SEED it (from
+# the curated dir) and chroot.sh must STAGE it into that dir, on both adapters.
+@test "preset seeds qt6ct.conf so a fresh box themes Qt apps (ADR 0108)" {
+  grep -q '\.config/qt6ct/qt6ct.conf' "$PRESET"
+  # staged into BOTH adapters' curated dirs (niri + hyprland): src+dst per block.
+  grep -q '_niri_cur' "$CHROOT"
+  grep -q '_hypr_cur' "$CHROOT"
+  [ "$(grep -c 'qt6ct/qt6ct.conf' "$CHROOT")" -ge 2 ]
+}
+
+# ADR 0108: qt6ct.conf points at colors/noctalia.conf, written only once Noctalia
+# first applies; the preset seeds a static snapshot to kill the boot-race white
+# flash. Seed-only (never a stowed repo file — Noctalia rewrites it → git dirt).
+@test "preset seeds a boot-race qt6ct color snapshot (ADR 0108)" {
+  grep -q '\.config/qt6ct/colors/noctalia.conf' "$PRESET"
+  grep -q '^active_colors=' "$PRESET"
+  # NOT a stowed repo file (colors/ stays free of committed schemes, ADR 0102).
+  [ ! -e "$QT6CT_COLORS/noctalia.conf" ]
+}
+
+# ADR 0109: the default is the COMMUNITY palette "Catppuccin Mocha Sapphire";
+# the preset seeds its cache JSON so first boot resolves it OFFLINE (no
+# api.noctalia.dev). Seed-only, into the XDG_STATE community-palettes cache.
+@test "preset seeds the Sapphire palette JSON for offline first boot (ADR 0109)" {
+  grep -q 'community-palettes/Catppuccin%20Mocha%20Sapphire.json' "$PRESET"
+  grep -q '"mPrimary": "#74c7ec"' "$PRESET"
+  # not a stowed repo file (state, not config)
+  [ ! -e "$REPO/.local/state/noctalia/community-palettes" ]
 }
 
 @test "the static Catppuccin qt6ct color files are gone (ADR 0102)" {
