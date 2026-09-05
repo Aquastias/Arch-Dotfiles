@@ -154,6 +154,19 @@ noctalia_preset_install() {
     fi
     install -Dm644 "${NOC_CURATED_DIR}/.config/noctalia/config.toml" \
       "${_skel}/.config/noctalia/config.toml"
+    # kcolorscheme merges Noctalia's palette into the SHARED ~/.config/kdeglobals,
+    # which Plasma also reads — on a combined kde+compositor box that repaints the
+    # next Plasma session (ADR 0104). So the shared config.toml ships WITHOUT it
+    # (combined-safe), and we enable it here per-box ONLY on a pure compositor (no
+    # KDE co-installed): no Plasma to leak into, so KDE-framework apps (Dolphin/
+    # Gwenview/Kate) get the full KColorScheme palette (ADR 0108). The seeded
+    # config.toml thus differs by box class — the one narrow break from 0097's
+    # byte-identical rule, done on the seeded copy (one authored source stands).
+    if [[ " ${ENVIRONMENT_DESKTOP:-} " != *" kde "* ]]; then
+      sed -i '/^[[:space:]]*builtin_ids = \[/a\        "kcolorscheme",' \
+        "${_skel}/.config/noctalia/config.toml"
+      info "Pure compositor (no KDE): enabled kcolorscheme for KDE-app theming."
+    fi
     install -d "${_skel}/.local/bin"
     install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* \
       "${_skel}/.local/bin/"
@@ -226,7 +239,131 @@ gtk-icon-theme-name=Papirus-Dark
 gtk-primary-button-warps-slider=true
 gtk-sound-theme-name=ocean
 EOF
-    info "Curated Noctalia config + cursor + GTK settings seeded to /etc/skel."
+    # qt6ct pre-seed — the App Theming Bridge's Qt half (ADR 0102), now SEEDED not
+    # stowed (ADR 0108): a fresh box never stows (ADR 0095), so the stow-only
+    # qt6ct.conf never arrived and every Qt/KDE app rendered default white. Seeding
+    # it here points qt6ct at Noctalia's generated colors/noctalia.conf so apps
+    # follow the palette on first login. Compositor-private — Plasma uses
+    # plasma-integration and never reads it, so it is safe on a combined box (0104).
+    install -Dm644 "${NOC_CURATED_DIR}/.config/qt6ct/qt6ct.conf" \
+      "${_skel}/.config/qt6ct/qt6ct.conf"
+    # Boot-race belt (ADR 0108): qt6ct.conf points at colors/noctalia.conf, which
+    # Noctalia only writes once its daemon first applies. Seed a static snapshot of
+    # this palette's Qt scheme so an app launched in the sub-second before that
+    # first apply is themed, not white. Noctalia OVERWRITES it on first apply
+    # (self-heals). Seed-only (never stowed — a stow symlink would push Noctalia's
+    # write into the repo, 0104). Update alongside the default palette (0109).
+    install -Dm644 /dev/stdin \
+      "${_skel}/.config/qt6ct/colors/noctalia.conf" <<'EOF'
+[ColorScheme]
+active_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
+disabled_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
+inactive_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
+EOF
+    # Offline default palette (ADR 0109): the default is the COMMUNITY palette
+    # "Catppuccin Mocha Sapphire", normally fetched from api.noctalia.dev. Seed its
+    # cache JSON so first boot resolves it with ZERO network — Noctalia reads
+    # $XDG_STATE_HOME/noctalia/community-palettes/<url-encoded-name>.json (the %20
+    # is its URL-encoding of the space). Seed-only; without it an offline first
+    # boot falls back to builtin Catppuccin (Mocha, mauve accent) until network.
+    install -Dm644 /dev/stdin \
+      "${_skel}/.local/state/noctalia/community-palettes/Catppuccin%20Mocha%20Sapphire.json" <<'EOF'
+{
+  "dark": {
+    "mPrimary": "#74c7ec",
+    "mOnPrimary": "#1e1e2e",
+    "mSecondary": "#89b4fa",
+    "mOnSecondary": "#1e1e2e",
+    "mTertiary": "#89dceb",
+    "mOnTertiary": "#1e1e2e",
+    "mError": "#f38ba8",
+    "mOnError": "#1e1e2e",
+    "mSurface": "#1e1e2e",
+    "mOnSurface": "#cdd6f4",
+    "mSurfaceVariant": "#313244",
+    "mOnSurfaceVariant": "#a6adc8",
+    "mOutline": "#6c7086",
+    "mShadow": "#11111b",
+    "mHover": "#45475a",
+    "mOnHover": "#cdd6f4",
+    "terminal": {
+      "normal": {
+        "black": "#45475a",
+        "red": "#f38ba8",
+        "green": "#a6e3a1",
+        "yellow": "#f9e2af",
+        "blue": "#89b4fa",
+        "magenta": "#f5c2e7",
+        "cyan": "#94e2d5",
+        "white": "#bac2de"
+      },
+      "bright": {
+        "black": "#585b70",
+        "red": "#f38ba8",
+        "green": "#a6e3a1",
+        "yellow": "#f9e2af",
+        "blue": "#89b4fa",
+        "magenta": "#f5c2e7",
+        "cyan": "#94e2d5",
+        "white": "#a6adc8"
+      },
+      "foreground": "#cdd6f4",
+      "background": "#1e1e2e",
+      "selectionFg": "#cdd6f4",
+      "selectionBg": "#585b70",
+      "cursorText": "#1e1e2e",
+      "cursor": "#f5e0dc"
+    }
+  },
+  "light": {
+    "mPrimary": "#209fb5",
+    "mOnPrimary": "#eff1f5",
+    "mSecondary": "#1e66f5",
+    "mOnSecondary": "#eff1f5",
+    "mTertiary": "#04a5e5",
+    "mOnTertiary": "#eff1f5",
+    "mError": "#d20f39",
+    "mOnError": "#eff1f5",
+    "mSurface": "#eff1f5",
+    "mOnSurface": "#4c4f69",
+    "mSurfaceVariant": "#ccd0da",
+    "mOnSurfaceVariant": "#6c6f85",
+    "mOutline": "#9ca0b0",
+    "mShadow": "#dce0e8",
+    "mHover": "#bcc0cc",
+    "mOnHover": "#4c4f69",
+    "terminal": {
+      "normal": {
+        "black": "#5c5f77",
+        "red": "#d20f39",
+        "green": "#40a02b",
+        "yellow": "#df8e1d",
+        "blue": "#1e66f5",
+        "magenta": "#ea76cb",
+        "cyan": "#179299",
+        "white": "#acb0be"
+      },
+      "bright": {
+        "black": "#6c6f85",
+        "red": "#d20f39",
+        "green": "#40a02b",
+        "yellow": "#df8e1d",
+        "blue": "#1e66f5",
+        "magenta": "#ea76cb",
+        "cyan": "#179299",
+        "white": "#bcc0cc"
+      },
+      "foreground": "#4c4f69",
+      "background": "#eff1f5",
+      "selectionFg": "#4c4f69",
+      "selectionBg": "#acb0be",
+      "cursorText": "#eff1f5",
+      "cursor": "#dc8a78"
+    }
+  }
+}
+EOF
+    info "Curated Noctalia config + cursor + GTK/Qt theming seeded to /etc/skel."
   else
     warn "Curated config dir absent (${NOC_CURATED_DIR}) —" \
          "skel gets no Noctalia config."

@@ -333,6 +333,11 @@ configure_system() {
       install -m644 \
         "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
         "${_niri_cur}/.local/share/file-manager/actions/"
+      # qt6ct.conf — the App Theming Bridge's Qt half (ADR 0102/0108): the preset
+      # seeds it from the curated dir, so it must be staged too (it was stow-only,
+      # so it never reached a fresh box — the white-Qt-apps bug, ADR 0108).
+      install -Dm644 "${SCRIPT_DIR}/../.config/qt6ct/qt6ct.conf" \
+        "${_niri_cur}/.config/qt6ct/qt6ct.conf"
     fi
     # Same single-source staging for Hyprland (ADR 0097): the Hyprland adapter
     # seeds the SAME Noctalia payload niri does — the Noctalia-wired
@@ -361,6 +366,11 @@ configure_system() {
       install -m644 \
         "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
         "${_hypr_cur}/.local/share/file-manager/actions/"
+      # qt6ct.conf — the App Theming Bridge's Qt half (ADR 0102/0108): the preset
+      # seeds it from the curated dir, so it must be staged too (it was stow-only,
+      # so it never reached a fresh box — the white-Qt-apps bug, ADR 0108).
+      install -Dm644 "${SCRIPT_DIR}/../.config/qt6ct/qt6ct.conf" \
+        "${_hypr_cur}/.config/qt6ct/qt6ct.conf"
     fi
     info "Copied extras/ → /root/extras/"
   else
