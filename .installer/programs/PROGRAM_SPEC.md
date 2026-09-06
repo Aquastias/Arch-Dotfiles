@@ -95,17 +95,34 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
 ```jsonc
 {
   ...
+  "requires":  ["podman"],                          // ordered before this one
+  "conflicts": ["ufw"],                             // cannot coexist
   "system_services": ["foo.service", "bar.timer"],  // enabled by runner
   "user_services":   ["baz.service"]                // enabled per-user
 }
 ```
 
+- `requires[]` — other Programs whose install-time **setup** (package *and* its
+  side effects — e.g. podman's subuid/subgid + linger) must already be in place
+  when this one runs (ADR 0065). Validated at `validate_install_context` before
+  any side effect: a required program must be a Host Program or listed earlier
+  in the same user's `programs`. Declare only for cross-Program *setup ordering*
+  — not for plain package deps, which pacman/paru already resolve.
+- `conflicts[]` — other Programs this one is mutually exclusive with, e.g.
+  firewalld vs ufw (ADR 0115). Symmetric: declaring on one side is enough.
+  Validated at `validate_install_context` before any side effect — a selection
+  with both aborts up front. Keep any runtime `command_exists` guard in
+  `install.sh` as defense-in-depth for manual/partial runs.
 - `system_services[]` — unit names the runner enables system-wide after
   `install.sh` finishes (via `systemctl enable` inside the chroot). Use this
   instead of calling `systemctl enable` from the script when the unit ships
   with the package.
 - `user_services[]` — user units the runner symlinks into each owning user's
   `~/.config/systemd/user/default.target.wants/`.
+
+Declare `requires`/`conflicts` the moment a genuine cross-Program relation
+exists — before writing `install.sh` — so the fail-fast check, not a mid-install
+abort, catches a bad selection.
 
 Rules:
 - `"name"` must be the kebab-case directory name under `programs/<category>/`.

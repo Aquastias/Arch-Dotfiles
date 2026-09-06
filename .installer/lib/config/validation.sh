@@ -125,6 +125,10 @@ _validation_preflight_programs() {
     # installed first — a Host Program or an earlier entry in this list.
     _validation_check_requires_order "$u" "$_sys_json" \
       "$(printf '%s' "$uj" | jq -c '.programs // []')" || any_fail=1
+    # Mutual exclusion (ADR 0115): no program's `conflicts` may name another
+    # program that also reaches this machine (Host Program or user's own).
+    _validation_check_conflicts "$u" "$_sys_json" \
+      "$(printf '%s' "$uj" | jq -c '.programs // []')" || any_fail=1
   done
 
   ((any_fail == 0)) || \
@@ -193,6 +197,59 @@ _validation_check_requires_order() {
         fail=1
       fi
     done < <(_validation_program_requires "$p")
+  done
+  return "$fail"
+}
+
+# =============================================================================
+# PROGRAM MUTUAL EXCLUSION (ADR 0115)
+# =============================================================================
+# A Program may declare `conflicts: [...]` — other Programs it cannot coexist
+# with (e.g. firewalld vs ufw). The relation is symmetric: one side declaring is
+# enough. Enforced here, before any side effect, over the combined set that
+# reaches a user's machine (Host Programs + the user's own programs), so a
+# selection with both a firewall and its rival aborts up front instead of one
+# installing + enabling and the other detonating mid-run.
+
+# _validation_program_conflicts <prog> — the program's declared `conflicts`
+# list, one per line (empty when none or the program has no config). Pure over
+# INSTALLER_DIR.
+_validation_program_conflicts() {
+  local rel cf
+  rel="$(resolve_program "$1" 2>/dev/null)" || return 0
+  cf="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
+  [[ -f "$cf" ]] || return 0
+  jsonc_strip "$cf" | jq -r '.conflicts[]?' 2>/dev/null
+}
+
+# _validation_check_conflicts <user> <sys_json> <uprogs_json> — enforce every
+# program's `conflicts` for one user. The present set is the union of Host
+# Programs and the user's programs. For each present program, a declared
+# conflict that is also present is a violation. Symmetric declarations and the
+# two directions of one pair are de-duplicated to a single unordered-pair
+# message. Prints an actionable line per distinct violating pair and returns 1
+# if any; 0 when clean. Pure over INSTALLER_DIR + the two JSON array args.
+_validation_check_conflicts() {
+  local user="$1" sys_json="$2" up_json="$3" fail=0
+  local -a present
+  mapfile -t present < <({ printf '%s' "$sys_json" | jq -r '.[]?'
+                           printf '%s' "$up_json"  | jq -r '.[]?'; } | sort -u)
+  local p c seen=""
+  for p in "${present[@]}"; do
+    [[ -n "$p" ]] || continue
+    while IFS= read -r c; do
+      [[ -n "$c" ]] || continue
+      # Present on this machine? Otherwise the conflict is inert.
+      [[ -n "$(_validation_index_of "$c" "${present[@]}")" ]] || continue
+      # Canonical unordered-pair key so A→B and B→A report once.
+      local key
+      [[ "$p" < "$c" ]] && key="${p}|${c}" || key="${c}|${p}"
+      [[ " $seen " == *" $key "* ]] && continue
+      seen="$seen $key"
+      echo "User '${user}': programs '${p}' and '${c}' conflict and cannot" \
+           "both be installed. Remove one." >&2
+      fail=1
+    done < <(_validation_program_conflicts "$p")
   done
   return "$fail"
 }

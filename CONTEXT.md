@@ -506,6 +506,17 @@ declared order. A missing or later-ordered dependency aborts up front with an
 actionable message rather than hard-failing mid-install. Today only `searxng`
 declares one (`["podman"]`).
 
+### Program Conflict (`conflicts`)
+A `conflicts: [name, …]` array in a [[Program Config]] naming other Programs
+this one is mutually exclusive with, e.g. firewalld vs ufw (ADR 0115). Symmetric
+— declaring on one side is enough. Enforced at `validate_install_context` before
+any side effect, over the combined set that reaches a machine ([[Host Program]]s
+plus a user's own `programs`): a selection with both rivals aborts up front
+instead of one installing + enabling and the other failing mid-run. Any runtime
+`command_exists` guard in `install.sh` stays as defense-in-depth. Distinct from
+package-level conflicts, which pacman resolves; this models cross-[[Program]]
+exclusion the package manager cannot see.
+
 ### Host Program
 A program that requires root and is installed via pacman during the chroot
 phase — host-owned, not any user's (contrast [[User Program]]). Declared in the
