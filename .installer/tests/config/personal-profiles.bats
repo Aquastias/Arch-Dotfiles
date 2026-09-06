@@ -40,6 +40,13 @@ persists() {  # <profile-name>
   flags_on desktop
 }
 
+# Discord (extra repo) is a fleet app declared in Host Core, so it resolves onto
+# both real machines (desktop, laptop) with no per-profile packages block.
+@test "discord (from core) resolves onto desktop and laptop" {
+  load_profile desktop | jq -e '[.packages.repo[]?[]?] | index("discord")'
+  load_profile laptop  | jq -e '[.packages.repo[]?[]?] | index("discord")'
+}
+
 @test "laptop: encrypted, ssh-enabled zfs (impermanence disabled)" {
   load_profile laptop | jq -e '
     .filesystem == "zfs"

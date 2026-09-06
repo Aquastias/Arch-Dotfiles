@@ -164,6 +164,22 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/kglobalshortcutsrc"
 }
 
+# Discord is a global (all-activities) kickoff favorite: the seeded kickoff is
+# file-backed (favoritesPortedToKAstats=false) so the favorites list imports to
+# KActivities globally on first login.
+@test "captured kickoff favorites are file-backed and include Discord" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local d="$TEST_DIR/seed/etc/skel/.config"
+  grep -q "^favoritesPortedToKAstats=false" \
+    "$d/plasma-org.kde.plasma.desktop-appletsrc"
+  grep -q "^favorites=.*discord.desktop" \
+    "$d/plasma-org.kde.plasma.desktop-appletsrc"
+}
+
 @test "captured kwin seeds virtual desktops, plugins and 30-min lock" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
