@@ -1,6 +1,6 @@
 // Host Profile for `laptop` (chronos) — the unified, self-contained profile
 // (ADR 0036). Resolved over hosts/core/profile.jsonc. One file carries the
-// hostname, core machine defaults, and users, declares the kde+hyprland
+// hostname, core machine defaults, and users, declares the kde+niri+hyprland
 // desktop, and a single-disk skeleton (one operator-picked disk → ESP + rpool
 // + dpool).
 //
@@ -31,6 +31,7 @@
   "environment": {
     "desktop": [
       "kde",
+      "niri",
       "hyprland"
     ],
     "gpu": "auto"
