@@ -274,12 +274,13 @@ installer's default.
 Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the
 base set
 of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
-(ADR 0056, amending ADR 0007 — whose "the lists are
-machine-specific" premise failed: `laptop` is a strict subset of `desktop`, 57
-repo packages in both and zero unique to laptop). Holds the 63 packages both
-machines share (57 repo + 6 AUR), so each Host Profile is a **delta** and
-`hosts/laptop` carries
-no packages block at all. Every Host Profile is resolved over core by the
+(ADR 0056, amending ADR 0007 — whose "the lists are machine-specific" premise
+failed). ADR 0114 then went further: `desktop` and `laptop` run the **same**
+software (both are dev + gaming machines), so **every fleet package lives in
+core** and **both** host profiles carry no packages block — a host profile is
+now purely per-machine facts (hostname, impermanence, disk skeleton, GPU). The
+two machines are one software image plus hardware. Every Host Profile is
+resolved over core by the
 [[Layer Resolver]] — core applies first, then the host profile per the ADR 0057
 per-key classification. A host drops something core declares via
 `packages.exclude[]` or `host_programs_exclude[]`; the three VM fixtures opt
@@ -1800,9 +1801,10 @@ _Avoid_: System.
   two shared bases and they are different layers, not competitors. The **Base
   Package List** (the pure `lib/packages/base.sh:base_packages` map) is what the
   *installer* needs on any host it builds. **Host Core**'s `packages` object is
-  what this *fleet* wants on every real machine. ADR 0007's rule that Host Core carries no
-  package list is **superseded**: its "the lists are machine-specific" premise
-  failed against the actual fleet (`laptop` is a strict subset of `desktop`).
+  what this *fleet* wants on every real machine. ADR 0007's rule that Host Core
+  carries no package list is **superseded**: its "machine-specific lists"
+  premise failed against the actual fleet (desktop and laptop run the same
+  software — ADR 0056, then ADR 0114 folding *all* fleet packages into core).
   A VM fixture takes the first and opts out of the second via
   `packages.inherit: false`. The ADR 0021 clause placing `extra-cmake-modules`
   in Host Core is withdrawn (see ADR 0021 amendment); ECM is dropped entirely

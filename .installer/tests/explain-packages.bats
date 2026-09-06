@@ -16,7 +16,8 @@ setup() {
   [[ "$output" == *"Resolved package set — profile: desktop"* ]]
   # grouped by source, with a layer + count per group
   [[ "$output" == *"base  (derived,"* ]]
-  [[ "$output" == *"repo  (core+host,"* ]]
+  # desktop carries no packages delta now — repo is core-only (ADR 0114)
+  [[ "$output" == *"repo  (core,"* ]]
 }
 
 @test "explain-packages: reports a total count" {

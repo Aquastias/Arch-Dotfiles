@@ -47,14 +47,23 @@
         "lsb-release",
         "pacmanlogviewer",
         "sbctl",
-        "sof-firmware"
+        "sof-firmware",
+        "stress",
+        "stress-ng",
+        "tectonic"
       ],
       "filesystems": [
+        "bcachefs-tools",
         "exfatprogs",
         "f2fs-tools",
-        "lvm2"
+        "fatresize",
+        "jfsutils",
+        "lvm2",
+        "nilfs-utils",
+        "udftools"
       ],
       "network": [
+        "dnsmasq",
         "iwd",
         "network-manager-applet",
         "openbsd-netcat",
@@ -106,14 +115,27 @@
         "imagemagick",
         "mpv",
         "pavucontrol",
+        "qbittorrent",
         "speech-dispatcher",
-        "vlc"
+        "vlc",
+        "vlc-plugin-freetype",
+        "vlc-plugin-notify",
+        "vlc-plugin-srt"
       ],
       "gaming": [
-        "steam"
+        "lutris",
+        "steam",
+        "wine",
+        "wine-gecko",
+        "wine-mono"
       ],
       "communication": [
         "discord"
+      ],
+      "virt": [
+        "libguestfs",
+        "qemu-full",
+        "virt-viewer"
       ],
       "archive": [
         "7zip",
@@ -129,6 +151,11 @@
     "aur": {
       "misc": [
         "ani-cli-git",
+        "bolt-launcher",
+        "bridge-utils",
+        "grayjay-bin",
+        "lua-format",
+        "runelite",
         "vscodium-bin",
         "vscodium-marketplace",
         "zen-browser-bin"

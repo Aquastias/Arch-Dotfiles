@@ -6,10 +6,9 @@
   "sudo":  true,
   "groups": [],
   "programs": [],
-  // User Core declares docker + virt-manager for every real user; this
-  // throwaway excludes both so the smoke test exercises the system install
-  // path,
-  // not user program installs (ADR 0057).
-  "programs_exclude": ["docker", "virt-manager"],
+  // User Core declares virt-manager + podman + searxng for every real user;
+  // this throwaway excludes them so the smoke test exercises the system install
+  // path, not user program installs (ADR 0057).
+  "programs_exclude": ["virt-manager", "podman", "searxng"],
   "ssh_authorized_keys": []
 }

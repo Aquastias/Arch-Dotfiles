@@ -500,12 +500,14 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 # The curation's headline number: desktop adds exactly 25 packages over
 # laptop, and laptop declares none of its own. (Was 31 before the dev
 # toolchain moved to Host Core — both hosts are dev boxes.)
-@test "desktop resolves to exactly 25 packages more than laptop" {
+# desktop and laptop run identical software — every app lives in Host Core, so
+# both profiles resolve to the same package set (ADR 0114, superseding ADR 0056's
+# laptop-subset framing). They differ only in hardware/hostname/impermanence.
+@test "desktop and laptop resolve to the same package set (all apps in core)" {
   source "$INSTALLER_DIR/lib/config/profile.sh"
   local d l
   d="$(pkgres_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
   l="$(pkgres_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
-  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 25 ]
-  # laptop adds nothing desktop lacks
+  [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }

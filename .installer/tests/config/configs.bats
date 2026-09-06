@@ -44,15 +44,11 @@ teardown() {
   jsonc_strip "$lap" | jq -e '.packages == null'
 }
 
-@test "desktop declares only a delta, not the full list" {
+# desktop and laptop run identical software, so all apps live in Host Core and
+# desktop carries no packages block at all (ADR 0114, superseding ADR 0056).
+@test "desktop carries no packages block (all apps in core)" {
   local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-  local core="$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc"
-  local n_desk n_core
-  n_desk="$(jsonc_strip "$desk" \
-    | jq '[.packages.repo, .packages.aur | to_entries[].value[]] | length')"
-  n_core="$(jsonc_strip "$core" \
-    | jq '[.packages.repo, .packages.aur | to_entries[].value[]] | length')"
-  [ "$n_desk" -lt "$n_core" ]
+  jsonc_strip "$desk" | jq -e '.packages == null'
 }
 
 # The three VM fixtures opt out of core's packages wholesale rather than
@@ -67,37 +63,35 @@ teardown() {
 
 @test "users/core declares its programs; the test users exclude them" {
   local ucore="$BATS_TEST_DIRNAME/../../users/core/profile.jsonc"
-  jsonc_strip "$ucore" | jq -e '.programs == ["docker","virt-manager"]'
+  # virt-manager + searxng/podman are every-user programs; docker is
+  # aquastias-specific (ADR 0114). podman precedes searxng (dependency, ADR 0065).
+  jsonc_strip "$ucore" | jq -e '.programs == ["virt-manager","podman","searxng"]'
   jsonc_strip "$ucore" | jq -e '.shell == "/bin/zsh"'
   local u
   for u in vm-test vm-data; do
     jsonc_strip "$BATS_TEST_DIRNAME/../../users/$u/profile.jsonc" \
-      | jq -e '.programs_exclude == ["docker","virt-manager"]'
+      | jq -e '.programs_exclude == ["virt-manager","podman","searxng"]'
   done
 }
 
-@test "real desktop packages.repo/aur parse as Categorized Lists" {
+# Core now carries all fleet packages (desktop/laptop declare none — ADR 0114).
+@test "real host core packages.repo/aur parse as Categorized Lists" {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
-  local f slot
-  for f in "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc" \
-           "$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"; do
-    for slot in repo aur; do
-      local j; j="$(jsonc_strip "$f" | jq -c ".packages.$slot")"
-      run categorized_list_parse "$j" string "packages.$slot"
-      [ "$status" -eq 0 ]
-    done
+  local slot j
+  for slot in repo aur; do
+    j="$(jsonc_strip "$BATS_TEST_DIRNAME/../../hosts/core/profile.jsonc" \
+      | jq -c ".packages.$slot")"
+    run categorized_list_parse "$j" string "packages.$slot"
+    [ "$status" -eq 0 ]
   done
 }
 
-@test "desktop keeps host_programs [grub] with no grub/os-prober package" {
+# desktop boots systemd-boot, so the stray grub host_program was dropped (it was
+# legacy — grub auto-injects only when options.bootloader=grub, ADR 0114).
+@test "desktop declares no host_programs (grub removed)" {
   local desk="$BATS_TEST_DIRNAME/../../hosts/desktop/profile.jsonc"
-  # gamemode moved to Host Core (both hosts game); desktop keeps only grub.
-  jsonc_strip "$desk" | jq -e '.host_programs == ["grub"]'
-  local pkgs
-  pkgs="$(jsonc_strip "$desk" | jq -r '.packages.repo | to_entries[].value[]')"
-  ! grep -qx "grub"      <<< "$pkgs"
-  ! grep -qx "os-prober" <<< "$pkgs"
+  jsonc_strip "$desk" | jq -e '.host_programs == []'
 }
 
 # ── program resolution ───────────────────────────────────────────────────────

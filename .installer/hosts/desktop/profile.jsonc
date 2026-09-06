@@ -4,11 +4,14 @@
 // Encrypted, impermanent, SSH-enabled ZFS. Persists /home + /var/lib/docker
 // + /var/lib/libvirt over the impermanence base set.
 //
-// One file carries the hostname, core machine defaults, users,
-// host_programs, and packages, and declares the full pool skeleton —
-// devices excluded, picked at install:
+// One file carries the hostname, core machine defaults, users, and the full
+// pool skeleton — devices excluded, picked at install:
 //   os_pool  rpool  mirror (2x NVMe, ashift 12)
 //   dpool    raidz1 (3x SSD, ashift 12) -> /data, 1-disk fault tolerant
+//
+// **No packages block.** desktop and laptop run the same software, so every app
+// lives in Host Core; both machines are core + per-machine hardware/hostname
+// (ADR 0114, superseding ADR 0056's laptop-subset framing).
 {
   "system": {
     "hostname": "eterniox",
@@ -45,53 +48,7 @@
   },
 
   "users": ["aquastias"],
-  "host_programs": ["grub"],
-
-  "packages": {
-    "repo": {
-      "system": [
-        "stress",
-        "stress-ng",
-        "tectonic"
-      ],
-      "filesystems": [
-        "bcachefs-tools",
-        "fatresize",
-        "jfsutils",
-        "nilfs-utils",
-        "udftools"
-      ],
-      "network": [
-        "dnsmasq"
-      ],
-      "media": [
-        "qbittorrent",
-        "vlc-plugin-freetype",
-        "vlc-plugin-notify",
-        "vlc-plugin-srt"
-      ],
-      "gaming": [
-        "lutris",
-        "wine",
-        "wine-gecko",
-        "wine-mono"
-      ],
-      "virt": [
-        "libguestfs",
-        "qemu-full",
-        "virt-viewer"
-      ]
-    },
-    "aur": {
-      "misc": [
-        "bolt-launcher",
-        "bridge-utils",
-        "grayjay-bin",
-        "lua-format",
-        "runelite"
-      ]
-    }
-  },
+  "host_programs": [],
 
   "mode": "multi",
   "os_pool": {

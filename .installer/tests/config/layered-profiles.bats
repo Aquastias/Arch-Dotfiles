@@ -43,16 +43,17 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   [ "$(repo_of laptop)" = "$(core_repo)" ]
 }
 
-@test "desktop resolves to core plus its own delta, and is a superset" {
+# desktop carries no packages delta now — all apps live in Host Core (ADR 0114),
+# so desktop's repo set equals core's exactly (every core package survives, and
+# desktop adds none of its own).
+@test "desktop resolves to core's repo set with no delta of its own" {
   local desk core
   desk="$(repo_of desktop)"; core="$(core_repo)"
-  # every core package survives into desktop
   local p
   while IFS= read -r p; do
     grep -qx "$p" <<<"$desk" || { echo "core package missing: $p"; return 1; }
   done <<<"$core"
-  # and desktop adds strictly more
-  [ "$(wc -l <<<"$desk")" -gt "$(wc -l <<<"$core")" ]
+  [ "$(printf '%s\n' "$desk" | sort -u)" = "$(printf '%s\n' "$core" | sort -u)" ]
 }
 
 @test "desktop's delta packages land in the resolved set" {
@@ -73,18 +74,18 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   done
 }
 
-@test "aur resolves layered too: core on both, delta on desktop only" {
+# aur lives entirely in core now too (ADR 0114): runelite moved from desktop's
+# delta into Host Core, so both machines get it.
+@test "aur resolves from core on both machines (no desktop-only delta)" {
   local d l
   d="$(aur_of desktop)"; l="$(aur_of laptop)"
   local p
   # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
   # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
-  for p in vscodium-bin zen-browser-bin; do
+  for p in vscodium-bin zen-browser-bin runelite; do
     grep -qx "$p" <<<"$d" || { echo "desktop missing core aur: $p"; return 1; }
     grep -qx "$p" <<<"$l" || { echo "laptop missing core aur: $p"; return 1; }
   done
-  grep -qx "runelite" <<<"$d"
-  ! grep -qx "runelite" <<<"$l"
 }
 
 # ── no Program name appears in any package list ─────────────────────────────
