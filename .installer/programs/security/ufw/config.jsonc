@@ -2,11 +2,12 @@
 //
 // kind=user → installed by the profile runner inside the chroot as the
 // owning user via paru, with temp NOPASSWD sudo for ufw + /etc writes.
-// Mutually exclusive with firewalld; install.sh aborts if firewalld is
-// already installed.
+// conflicts firewalld (ADR 0115): both a firewall — declaring both aborts at
+// validate_install_context; install.sh keeps a runtime guard as backstop.
 
 {
   "name": "ufw",
   "kind": "user",
-  "description": "UFW with libvirt bridge rules and NAT masquerading."
+  "description": "UFW with libvirt bridge rules and NAT masquerading.",
+  "conflicts": ["firewalld"]
 }

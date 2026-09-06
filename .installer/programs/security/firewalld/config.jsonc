@@ -3,9 +3,12 @@
 // kind=user → installed by the profile runner inside the chroot as the
 // owning user via paru, with temp NOPASSWD sudo for root writes. firewalld
 // is not OS-essential; any user can opt in via their user config.
+// conflicts ufw (ADR 0115): both a firewall — declaring both aborts at
+// validate_install_context; install.sh keeps a runtime guard as backstop.
 
 {
   "name": "firewalld",
   "kind": "user",
-  "description": "Stateful firewall (replaces ufw) with libvirt bridge support."
+  "description": "Stateful firewall (replaces ufw); libvirt bridge support.",
+  "conflicts": ["ufw"]
 }
