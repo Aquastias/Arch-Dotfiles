@@ -59,6 +59,30 @@ write_config() {
   [ "${ENVIRONMENT_DESKTOP[1]}" = "hyprland" ]
 }
 
+# ── environment.stock (ADR 0112) ─────────────────────────────────────────────
+
+@test "stock defaults to false and leaves wayland_shell at noctalia" {
+  write_config '{"environment": {"desktop": "niri", "gpu": "amd"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_STOCK" = "false" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "noctalia" ]
+}
+
+@test "stock=true resolves the flag and forces wayland_shell=none" {
+  write_config \
+    '{"environment": {"desktop": "niri", "gpu": "amd", "stock": true}}'
+  resolve_environment
+  [ "$ENVIRONMENT_STOCK" = "true" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
+}
+
+@test "stock=true overrides an explicit wayland_shell=noctalia" {
+  write_config '{"environment": {"desktop": "hyprland", "gpu": "amd",
+    "stock": true, "wayland_shell": "noctalia"}}'
+  resolve_environment
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
+}
+
 @test "resolve_environment is idempotent: second call produces identical state" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
   resolve_environment

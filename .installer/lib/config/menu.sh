@@ -70,6 +70,10 @@ _MENU_FIELDS=(
   # for any wlroots compositor in the desktop set (niri, Hyprland); default
   # noctalia (prepared work desktop), none = bare compositor.
   "Environment|environment.wayland_shell|wayland shell|noctalia"
+  # stock (ADR 0112): a bare-bool Cycle Field. On, every selected desktop is
+  # upstream-stock (KDE = shell only; niri/Hyprland = bare, forcing
+  # wayland_shell none), nothing seeded. Default off (opinionated environment).
+  "Environment|environment.stock|stock|false"
   "Environment|environment.gpu|gpu|auto"
   # Packages has NO field rows: its whole surface is the repo/aur/derived drill
   # (ADR 0086). The old free-text "extra packages" row was a redundant third add
@@ -168,7 +172,7 @@ _MENU_CATEGORIES=(
   "Disks|layout, data pools, filesystem, encryption, swap|STORAGE & BOOT"
   "Bootloader|bootloader|STORAGE & BOOT"
   "Kernels|kernel|STORAGE & BOOT"
-  "Environment|desktop, display manager, niri shell, gpu|SOFTWARE"
+  "Environment|desktop, display manager, wayland shell, stock, gpu|SOFTWARE"
   "Mirrors & Repositories|countries, optional repos, custom servers/repos|SOFTWARE"
   "Pacman|ilovecandy, color, parallel downloads, verbose lists|SOFTWARE"
   "Packages|repo, aur, derived|SOFTWARE"

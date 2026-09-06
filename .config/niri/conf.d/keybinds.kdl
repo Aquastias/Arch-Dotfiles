@@ -3,10 +3,11 @@
 // across includes, so this binds{} and media.kdl's coexist.
 binds {
     // ── Shared vocabulary (matches ~/.config/hypr/conf.d/keybinds.lua) ──
-    // Apps: terminal, close, launcher, quit, lock. Launcher + lock go through
+    // Apps: terminal, close, launcher, quit, lock. Close is Mod+X across KDE,
+    // niri and Hyprland (ADR 0113); Mod+Q is freed. Launcher + lock go through
     // Noctalia's IPC (Hyprland spawns wofi / hyprlock on the same keys).
     Mod+Return hotkey-overlay-title="Terminal: kitty" { spawn "kitty"; }
-    Mod+Q repeat=false hotkey-overlay-title="Close Window" { close-window; }
+    Mod+X repeat=false hotkey-overlay-title="Close Window" { close-window; }
     Mod+D hotkey-overlay-title="App Launcher" {
         spawn-sh "noctalia msg panel-toggle launcher";
     }

@@ -1,0 +1,36 @@
+// Host Profile for `hyprland-pure` — a stock (pure) Hyprland install (ADR
+// 0112). Merged under hosts/core/profile.jsonc (ADR 0036).
+//
+// Stock environment: `environment.stock: true` installs the bare Hyprland
+// compositor + session only — no Noctalia work shell, no seeded configs or
+// keybinds (stock forces wayland_shell=none). Modelled on `minimal`: bare
+// userland (`packages.inherit: false`, no host_programs), one operator-picked
+// disk, no encryption. The operator's own dotfiles own the shell.
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop": ["hyprland"],
+    "gpu":     "auto",
+    "stock":   true
+  },
+
+  "packages": { "inherit": false },
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 12
+}

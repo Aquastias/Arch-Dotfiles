@@ -171,7 +171,8 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
 @test "is_cycle_field: bare bools yes; enums and editor-backed bools no" {
   for f in options.ssh.enabled options.pacman.color \
            post_install.security.antivirus post_install.backup.borg \
-           options.printing.enabled options.bluetooth.enabled; do
+           options.printing.enabled options.bluetooth.enabled \
+           environment.stock; do
     _ctl_is_cycle_field "$f" || { echo "expected cycle: $f"; false; }
   done
   # options.power.profile is a 3-value ENUM (none/ppd/tuned), not a bool — it
@@ -309,6 +310,20 @@ set_nav() { printf '%s\n' "$1" > "$GUIDED_NAV_FILE"; }
   set_nav "$(nav_to_category Expert)"
   guided_ctl_enter "SSH: true"  >/dev/null   # true → back to default false, drop
   ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" options.ssh.enabled
+}
+
+# environment.stock (ADR 0112): the Environment stock Cycle Field flips in place,
+# stores the override, and normalises out when flipped back to its default off.
+@test "enter(category): environment.stock flips on, stores, then clears on flip-back" {
+  _seed_baseline
+  set_nav "$(nav_to_category Environment)"
+  run guided_ctl_enter "Stock: false"        # default false → true, override kept
+  [ "$output" = "refresh" ]
+  [ "$(jq -c '.environment.stock' "$GUIDED_STATE_FILE")" = "true" ]
+  cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
+  set_nav "$(nav_to_category Environment)"
+  guided_ctl_enter "Stock: true" >/dev/null  # true → back to default false, drop
+  ! cfgstate_is_overridden "$(<"$GUIDED_STATE_FILE")" environment.stock
 }
 
 @test "header(category): the hint advertises cycle" {

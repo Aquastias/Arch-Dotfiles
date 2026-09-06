@@ -35,6 +35,15 @@ ENVIRONMENT_DISPLAY_MANAGER=""
 # shellcheck disable=SC2034
 ENVIRONMENT_WAYLAND_SHELL=""
 
+# Stock (pure) selector (ADR 0112): install every selected desktop as upstream
+# stock — KDE = plasma-meta shell only (no apps/seed), niri/Hyprland = bare
+# compositor. Set by _resolve_env_validate (default false); when true it forces
+# ENVIRONMENT_WAYLAND_SHELL=none so the compositor adapters seed nothing with no
+# adapter change. Crosses into the chroot (chroot.sh) and is read by the KDE
+# adapter — no install-state field, like ENVIRONMENT_WAYLAND_SHELL.
+# shellcheck disable=SC2034
+ENVIRONMENT_STOCK=""
+
 # Set by _resolve_env_gpu; consumed by collect_packages.
 # Declared here so collect_packages can detect unresolved state.
 GPU_PACMAN_PACKAGES=()
@@ -232,6 +241,19 @@ _resolve_env_validate() {
   done
   $_ns_ok || error "Unknown wayland_shell '${ENVIRONMENT_WAYLAND_SHELL}'." \
     "Valid: ${_VALID_WAYLAND_SHELL[*]}."
+
+  # ── stock (pure) ────────────────────────────────────────────────────────────
+  # Bool selector for an upstream-stock install (ADR 0112). When true it is
+  # authoritative for every selected desktop and forces wayland_shell=none, so
+  # the niri/Hyprland adapters seed nothing (their existing `none` path) with no
+  # adapter change; the KDE adapter reads ENVIRONMENT_STOCK directly.
+  ENVIRONMENT_STOCK="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -r '.environment.stock // false')"
+  [[ "$ENVIRONMENT_STOCK" == true || "$ENVIRONMENT_STOCK" == false ]] \
+    || error "Invalid environment.stock '${ENVIRONMENT_STOCK}' — want a bool."
+  if [[ "$ENVIRONMENT_STOCK" == true ]]; then
+    ENVIRONMENT_WAYLAND_SHELL="none"
+  fi
 }
 
 # Resolve ENVIRONMENT_DISPLAY_MANAGER (`auto`|`greetd`|`sddm`) into the concrete
@@ -276,6 +298,7 @@ resolve_environment() {
   ENVIRONMENT_GPU=()
   ENVIRONMENT_DISPLAY_MANAGER=""
   ENVIRONMENT_WAYLAND_SHELL=""
+  ENVIRONMENT_STOCK=""
   GPU_PACMAN_PACKAGES=()
   GPU_PARU_PACKAGES=()
   AUDIO_PACKAGES=()

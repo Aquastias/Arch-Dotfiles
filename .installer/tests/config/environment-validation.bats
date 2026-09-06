@@ -199,6 +199,28 @@ write_config() {
   [[ "$output" =~ "noctalia" ]]
 }
 
+# ── stock selector (ADR 0112) ─────────────────────────────────────────────
+
+@test "stock defaults to false when absent" {
+  write_config '{"environment": {"desktop": "niri"}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_STOCK" = "false" ]
+}
+
+@test "stock=true validates and forces wayland_shell=none" {
+  write_config '{"environment": {"desktop": "niri", "stock": true}}'
+  _resolve_env_validate
+  [ "$ENVIRONMENT_STOCK" = "true" ]
+  [ "$ENVIRONMENT_WAYLAND_SHELL" = "none" ]
+}
+
+@test "stock non-bool value fails validation" {
+  write_config '{"environment": {"desktop": "niri", "stock": "yes"}}'
+  run _resolve_env_validate
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "stock" ]]
+}
+
 # ── install summary environment lines ─────────────────────────────────────
 
 @test "summary shows desktop, GPU and audio when desktop is selected" {

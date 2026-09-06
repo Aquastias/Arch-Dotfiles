@@ -163,7 +163,8 @@ CONTEXT.md.
 | `desktop` | string \| array | `[]` | `"kde"`/`"hyprland"`/`"niri"` (array = co-install), or `null` |
 | `gpu` | string \| array | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
 | `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`sddm` (ADR 0069/0091) |
-| `niri_shell` | string | `"noctalia"` | Noctalia work shell on niri: `noctalia`/`none` (ADR 0090) |
+| `wayland_shell` | string | `"noctalia"` | Noctalia work shell on niri/Hyprland: `noctalia`/`none` (ADR 0090/0097) |
+| `stock` | bool | `false` | Every desktop upstream-stock: KDE shell only, bare compositor (ADR 0112) |
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
@@ -515,13 +516,20 @@ selected by `environment.display_manager` (ADR 0069).
 
 **KDE Plasma 6 — `extras/desktop/kde/kde.sh`**
 
-- `plasma-meta` — full KDE Plasma 6 desktop
+- `plasma-meta` — full KDE Plasma 6 desktop (every default widget's
+  backend is a hard dep of this tree — `lm_sensors`, `plasma-vault`
+  + `gocryptfs`, `plasma-nm`, `bluedevil`, `plasma-pa`,
+  `kdeplasma-addons` — so nothing extra is seeded for widgets)
 - PipeWire audio stack (replaces PulseAudio)
-- BlueDevil Bluetooth integration
+- The operator's captured Plasma settings seeded verbatim into
+  `/etc/skel` (ADR 0111): custom colour scheme, virtual desktops,
+  widgets, shortcuts (incl. Meta+X close — ADR 0113), lock, klipper
 - Noto fonts (covers Latin, CJK, emoji)
 
 Per-component toggles live in
-`extras/desktop/kde/install-kde.jsonc`.
+`extras/desktop/kde/install-kde.jsonc`. Under `environment.stock`
+(ADR 0112) the adapter installs the `plasma-meta` shell only — no
+apps, no captured seed.
 
 **Hyprland — `extras/desktop/hyprland/hyprland.sh`**
 
@@ -533,11 +541,13 @@ polkit agent, `wl-clipboard`, `seatd`, and the curated
 
 Core-only (ADR 0090): `niri` (ships its own session, pulls
 `seatd`), both XDG portals, the polkit agent, `wl-clipboard`.
-An optional Noctalia work shell (`environment.niri_shell` =
-`noctalia` | `none`) layers on top — the Noctalia package plus
-kitty, brightnessctl, a seeded `/etc/skel` niri config, and the
-Bitwarden plugin. Toggles live in
-`extras/desktop/niri/install-niri.jsonc`.
+An optional Noctalia work shell (`environment.wayland_shell` =
+`noctalia` | `none`, ADR 0097) layers on top — the Noctalia
+package plus kitty, brightnessctl, a seeded `/etc/skel` niri
+config, and the curated plugin set (ADR 0093/0094). Toggles live
+in `extras/desktop/install-noctalia.jsonc`. Under
+`environment.stock` (ADR 0112) — or `wayland_shell: none` — the
+box is bare: core only, nothing seeded.
 
 ### Backup — `programs/backup/`
 

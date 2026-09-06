@@ -109,6 +109,32 @@ setup() {
   grep -q 'spawn "kitty"' "$NBIND"
 }
 
+# Close window on Meta+X across both compositors and KDE (ADR 0113) — the old
+# Mod+Q close bind is freed, not repurposed.
+@test "niri closes the focused window on Mod+X, not Mod+Q (ADR 0113)" {
+  grep -Eq 'Mod\+X[^{]*\{ close-window; \}' "$NBIND"
+  run grep -Eq 'Mod\+Q[^{]*\{ close-window; \}' "$NBIND"
+  [ "$status" -ne 0 ]
+}
+
+@test "hypr closes the focused window on SUPER+X, not SUPER+Q (ADR 0113)" {
+  grep -Eq '" \+ X".*window\.close' "$HBIND"
+  run grep -Eq '" \+ Q".*window\.close' "$HBIND"
+  [ "$status" -ne 0 ]
+}
+
+# Resolution stays autodetected (ADR 0110): the seeded compositor configs pin no
+# host-specific mode — niri omits any `output` block, Hyprland uses `preferred`.
+@test "compositor configs seed no hardcoded resolution (ADR 0110)" {
+  # niri: no output {} block anywhere in the config tree
+  run grep -rEq 'output[[:space:]]+"' "$REPO/.config/niri"
+  [ "$status" -ne 0 ]
+  # Hyprland: autodetects via preferred, never a WxH@Hz literal
+  grep -q 'mode = "preferred"' "$HENV"
+  run grep -rEq '[0-9]{3,}x[0-9]{3,}(@[0-9]+)?' "$REPO/.config/hypr"
+  [ "$status" -ne 0 ]
+}
+
 @test "niri conf.d skips the hotkey-overlay so no welcome on first login" {
   grep -Eq 'hotkey-overlay[[:space:]]*\{' "$NAPP"
   grep -q 'skip-at-startup' "$NAPP"

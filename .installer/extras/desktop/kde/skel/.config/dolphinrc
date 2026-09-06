@@ -1,0 +1,10 @@
+[General]
+BrowseThroughArchives=true
+Version=202
+
+[KFileDialog Settings]
+Places Icons Auto-resize=false
+Places Icons Static Size=22
+
+[PreviewSettings]
+Plugins=ffmpegthumbs,exrthumbnail,svgthumbnail,calligrathumbnail,appimagethumbnail,jpegthumbnail,directorythumbnail,windowsexethumbnail,blenderthumbnail,mobithumbnail,comicbookthumbnail,imagethumbnail,kraorathumbnail,calligraimagethumbnail,ebookthumbnail,fontthumbnail,windowsimagethumbnail,djvuthumbnail,audiothumbnail,gsthumbnail,cursorthumbnail,opendocumentthumbnail,mltpreview,rawthumbnail,glycin-svg,gsf-office,glycin-jxl,glycin-image-rs,glycin-heif

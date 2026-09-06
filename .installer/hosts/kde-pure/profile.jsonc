@@ -1,0 +1,36 @@
+// Host Profile for `kde-pure` — a stock (pure) KDE Plasma install (ADR 0112).
+// Merged under hosts/core/profile.jsonc (ADR 0036).
+//
+// Stock environment: `environment.stock: true` installs the plasma-meta shell
+// only — no curated apps, no captured settings seed (ADR 0111), upstream Breeze
+// first-run. Modelled on `minimal`: bare userland (`packages.inherit: false`,
+// no host_programs), one operator-picked disk, no encryption. Copy and edit to
+// build up from a stock base.
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "timezone": "UTC",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto"
+  },
+
+  "environment": {
+    "desktop": ["kde"],
+    "gpu":     "auto",
+    "stock":   true
+  },
+
+  "packages": { "inherit": false },
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 12
+}

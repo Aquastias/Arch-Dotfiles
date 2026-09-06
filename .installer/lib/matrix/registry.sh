@@ -57,6 +57,10 @@ _MATRIX_AXIS_REGISTRY=(
   # wayland_shell (ADR 0090/0097): its variation pulls the Noctalia package set
   # + an AUR-shaped git plugin fetch, so it is a heavy install-affecting axis.
   "environment.wayland_shell|pairwise-affecting|heavy"
+  # stock (ADR 0112): pairs with desktop — it reduces the DE to upstream-stock
+  # (KDE shell only; bare compositor), a distinct install path worth covering,
+  # but it installs LESS, so light, not heavy.
+  "environment.stock|pairwise-affecting|light"
   "environment.gpu|pairwise-affecting|heavy"
   "options.mirror_countries|inert|light"
   "options.optional_repos|inert|light"

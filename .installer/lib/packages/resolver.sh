@@ -430,6 +430,12 @@ _pkgres_de_packages() {
       2>/dev/null)
   fi
 
+  # Stock (pure) KDE (ADR 0112): the plasma-meta shell only — no apps/aur, so
+  # the report matches what the stock adapter installs (no query/install drift).
+  if [[ "$(_pkgres_jq "$cfg" '.environment.stock // false')" == "true" ]]; then
+    return 0
+  fi
+
   local p field src pair
   if [[ "$(jq -r '.apps // true' <<<"$json")" == "true" ]]; then
     # apps_list (kde-applications group members), apps_extra (non-group KDE
@@ -481,6 +487,11 @@ _pkgres_noc_plugin_deps() {
 # cannot drift.
 _pkgres_noctalia_preset() {
   local cfg="$1" slice_fn="$2" p shell
+  # Stock (pure) compositor (ADR 0112) forces wayland_shell=none, so the preset
+  # is absent regardless of the authored wayland_shell value.
+  if [[ "$(_pkgres_jq "$cfg" '.environment.stock // false')" == "true" ]]; then
+    return 0
+  fi
   shell="$(_pkgres_jq "$cfg" '.environment.wayland_shell // "noctalia"')"
   [[ "$shell" == noctalia ]] || return 0
 

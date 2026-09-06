@@ -257,6 +257,16 @@ run_hypr() {
   [ ! -f "$GIT_LOG" ]
 }
 
+# Stock (pure) Hyprland seeds nothing even if wayland_shell says noctalia — the
+# ENVIRONMENT_STOCK guard wins (ADR 0112).
+@test "stock: seeds nothing despite wayland_shell=noctalia" {
+  run env ENVIRONMENT_DESKTOP="hyprland" ENVIRONMENT_WAYLAND_SHELL="noctalia" \
+    ENVIRONMENT_STOCK="true" bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -e "$SEED/etc/skel/.config/hypr/hyprland.lua" ]
+  ! grep -qw "noctalia" "$PACMAN_LOG"
+}
+
 # ── session override (start-hyprland, DRM backend) ───────────────────────────
 
 @test "ships a wayland-session override that launches start-hyprland on DRM" {

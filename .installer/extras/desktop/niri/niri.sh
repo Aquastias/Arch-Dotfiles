@@ -92,7 +92,11 @@ ln -sf /usr/share/wayland-sessions/niri.desktop \
 # the shell. Under noctalia, hand off to the shared preset module: map this
 # adapter's seams onto the module's NOC_* contract, pick the niri config file
 # and the niri plugin slice, and let the module install + seed + vendor.
-if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
+# Stock (pure) niri seeds nothing (ADR 0112) — the resolver forces
+# wayland_shell=none under stock; guard here too so a direct invocation stays
+# self-consistent.
+if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
+      && "${ENVIRONMENT_STOCK:-}" != true ]]; then
   # NOC_* are the shared preset module's input contract (read by
   # lib/chroot/noctalia-preset.sh, sourced above) — exported so the contract is
   # explicit and to satisfy the same-shell reader.

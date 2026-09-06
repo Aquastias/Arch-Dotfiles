@@ -2,8 +2,9 @@
 # =============================================================================
 # extras/desktop/kde/kde.sh — KDE Plasma Desktop
 # =============================================================================
-# Installs the KDE Plasma shell + applications and seeds the DE config
-# defaults (Breeze Dark look, cursors, SDDM theme, first-run state — ADR 0088).
+# Installs the KDE Plasma shell + applications and seeds the DE config: the
+# operator's captured Plasma settings (ADR 0111 — vendored under skel/, copied
+# verbatim), plus the non-captured GTK-cursor/SDDM/first-run seeds (ADR 0088).
 # Package selection is driven by install-kde.jsonc in the same directory.
 # =============================================================================
 
@@ -30,11 +31,20 @@ _KDE_BOOL='if . == false then false else true end'
 do_shell="$(jsonc "$KDE_JSON" | jq -r ".shell | $_KDE_BOOL")"
 do_apps="$(jsonc "$KDE_JSON" | jq -r ".apps | $_KDE_BOOL")"
 
+# Stock (pure) KDE (ADR 0112): the plasma-meta shell only — no captured seed,
+# no apps. Resolved from ENVIRONMENT_STOCK, threaded from the host (chroot.sh).
+STOCK="${ENVIRONMENT_STOCK:-false}"
+if [[ "$STOCK" == true ]]; then do_apps=false; fi
+
 # Seed root for the DE config defaults the adapter writes (ADR 0088). Default
 # `/` (the chroot); tests point KDE_SEED_ROOT at a temp dir. /etc/skel/.config
 # holds user-owned, later-editable state copied into each home at user
 # creation; /etc/xdg holds read-only system fallbacks.
 SEED_ROOT="${KDE_SEED_ROOT:-/}"
+
+# Vendored captured Plasma settings (ADR 0111) copied verbatim into skel. The
+# operator's arch-combined config, snapshotted here; tests override the source.
+KDE_SKEL_SRC="${KDE_SKEL_SRC:-${SCRIPT_DIR}/skel}"
 
 # _seed_write <relative-path> — write stdin to <SEED_ROOT>/<relative-path>,
 # creating parent dirs. One place owns the skel/xdg write mechanics.
@@ -72,33 +82,36 @@ if [[ "$do_shell" == "true" ]]; then
   # Plasma sessions the greeter offers.
   info "Plasma shell installed."
 
-  # ── DEFAULT LOOK: Breeze Dark, seeded so a fresh login is ready ───────────
-  # (ADR 0088). Global look-and-feel + Papirus-Dark icons in /etc/skel so each
-  # user owns a writable, still-changeable copy; breeze-gtk + kde-gtk-config
-  # (installed above) make GTK apps follow the dark look.
-  section "KDE Default Look (Breeze Dark)"
+  # Stock (pure) KDE stops at the shell (ADR 0112): no captured seed, no
+  # first-run — upstream Breeze. Everything below is the opinionated look.
+  if [[ "$STOCK" != true ]]; then
 
-  _seed_write etc/skel/.config/kdeglobals <<'EOF'
-[General]
-ColorScheme=BreezeDark
-widgetStyle=Breeze
+  # ── CAPTURED PLASMA SETTINGS, seeded so a fresh login is ready ────────────
+  # (ADR 0111). Copy the operator's vendored captured config files verbatim into
+  # /etc/skel, konsave-style — whole-file copy, no heredocs, so the custom
+  # colour scheme (inline in kdeglobals), virtual desktops, kwin plugins/tiling,
+  # widget layout, shortcuts (incl. Meta+X close — ADR 0113), lock timeout and
+  # klipper all arrive together. Supersedes the ADR 0088 Breeze-Dark heredocs;
+  # the non-captured first-run/GTK/SDDM seeds below are retained. The host-
+  # specific monitor config (kscreenrc/kwinoutputconfig.json) is deliberately
+  # NOT vendored — resolution stays autodetected (ADR 0110).
+  section "KDE Captured Plasma Settings"
 
-[Icons]
-Theme=Papirus-Dark
+  if [[ -d "${KDE_SKEL_SRC}/.config" ]]; then
+    _skel_dst="${SEED_ROOT%/}/etc/skel/.config"
+    mkdir -p "$_skel_dst"
+    _seeded=0
+    for _cf in "${KDE_SKEL_SRC}/.config/"*; do
+      [[ -f "$_cf" ]] && { cp "$_cf" "$_skel_dst/"; _seeded=$((_seeded + 1)); }
+    done
+    info "Seeded captured Plasma settings (${_seeded} files)."
+  else
+    warn "No captured skel at ${KDE_SKEL_SRC}/.config — seeding first-run only."
+  fi
 
-[KDE]
-LookAndFeelPackage=org.kde.breezedark.desktop
-EOF
-
-  # Cursor: Bibata Modern Ice, the fleet default shared with niri/Hyprland (ADR
-  # 0098; bibata-cursor-git in this adapter's aur). Size 24.
-  _seed_write etc/skel/.config/kcminputrc <<'EOF'
-[Mouse]
-cursorTheme=Bibata-Modern-Ice
-cursorSize=24
-EOF
-
-  # Non-KDE (GTK/X) apps read the cursor from ~/.icons/default.
+  # GTK/X cursor: Bibata Modern Ice via ~/.icons/default (ADR 0098). KDE apps
+  # follow the captured kcminputrc; this covers non-KDE toolkits, which read
+  # ~/.icons/default, not kcminputrc.
   _seed_write etc/skel/.icons/default/index.theme <<'EOF'
 [Icon Theme]
 Inherits=Bibata-Modern-Ice
@@ -112,7 +125,7 @@ EOF
 Current=breeze
 EOF
 
-  info "Seeded Breeze Dark look (Papirus icons, Bibata cursor, GTK, SDDM)."
+  info "Seeded captured look + GTK cursor + SDDM theme."
 
   # ── FIRST-RUN: seed a "not first launch" state (ADR 0088, Q4-B) ───────────
   # Scope is the reliably-suppressible defaults — the Plasma Welcome Center
@@ -134,12 +147,8 @@ EOF
 Indexing-Enabled=true
 EOF
 
-  # Konsole: a pre-created default profile so first launch is not the bare
-  # "no profile" state.
-  _seed_write etc/skel/.config/konsolerc <<'EOF'
-[Desktop Entry]
-DefaultProfile=Default.profile
-EOF
+  # Konsole: the captured konsolerc points DefaultProfile at Default.profile, so
+  # seed that profile (it is not one of the captured .config files).
   _seed_write etc/skel/.local/share/konsole/Default.profile <<'EOF'
 [Appearance]
 ColorScheme=Breeze
@@ -149,14 +158,10 @@ Name=Default
 Parent=FALLBACK/
 EOF
 
-  # Dolphin: stamp the config version so migration / "what's new" popups do not
-  # fire on first launch.
-  _seed_write etc/skel/.config/dolphinrc <<'EOF'
-[General]
-Version=200
-EOF
-
-  info "Seeded first-run defaults (welcome off, Baloo on, Konsole, Dolphin)."
+  # Konsole and Dolphin rc files themselves arrive via the captured seed above
+  # (both carry the operator's stamped config version already).
+  info "Seeded first-run defaults (welcome off, Baloo on, Konsole profile)."
+  fi  # end stock guard
 fi
 
 # =============================================================================

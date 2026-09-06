@@ -234,8 +234,11 @@ _hypr_aq_pin
 # config file and the Hyprland plugin slice, and let the module install + seed +
 # vendor. The seeded config.toml is byte-identical to niri's; only hyprland.lua
 # (the Noctalia-wired compositor config) differs. Under `none` nothing is seeded
-# — the box is truly bare, symmetric with bare niri.
-if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia ]]; then
+# — the box is truly bare, symmetric with bare niri. Stock (pure) Hyprland (ADR
+# 0112) is the same bare box: the resolver forces wayland_shell=none under
+# stock; this guard keeps a direct invocation self-consistent too.
+if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
+      && "${ENVIRONMENT_STOCK:-}" != true ]]; then
   # NOC_* are the shared preset module's input contract (read by
   # lib/chroot/noctalia-preset.sh, sourced above); exported so it is explicit.
   export NOC_JSON="$HYPR_JSON"

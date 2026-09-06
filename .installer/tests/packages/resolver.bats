@@ -163,6 +163,25 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ -z "$n" ]
 }
 
+# ── stock (pure) reduction (ADR 0112) ────────────────────────────────────────
+
+@test "stock KDE reports the shell but no apps" {
+  local shell apps
+  shell="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["kde"],"stock":true}}' kde-shell)"
+  apps="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["kde"],"stock":true}}' kde-apps)"
+  grep -qx "plasma-meta" <<<"$shell"
+  [ -z "$apps" ]
+}
+
+@test "stock compositor reports no Noctalia preset even if shell defaults on" {
+  local n
+  n="$(pkgs_of \
+    '{"users":[],"environment":{"desktop":["niri"],"stock":true}}' noctalia)"
+  [ -z "$n" ]
+}
+
 @test "noctalia set omits the dropped bitwarden-cli backend (ADR 0094)" {
   # bitwarden left the default set; its CLI backend must no longer resolve
   local n

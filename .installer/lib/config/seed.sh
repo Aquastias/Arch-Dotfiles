@@ -81,6 +81,8 @@ _cfgstate_computed_defaults() {
   state="$(cfgstate_set "$state" environment.gpu '"auto"')"
   state="$(cfgstate_set "$state" environment.display_manager '"auto"')"
   state="$(cfgstate_set "$state" environment.wayland_shell '"noctalia"')"
+  # stock (ADR 0112): off by default — the opinionated environment installs.
+  state="$(cfgstate_set "$state" environment.stock 'false')"
   state="$(cfgstate_set "$state" environment.desktop '["kde"]')"
   state="$(cfgstate_set "$state" options.mirror_countries \
     '["Germany","Switzerland","Sweden","France","Romania"]')"

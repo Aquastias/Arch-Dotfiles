@@ -36,6 +36,21 @@ a TTY. Not a new capability: no-desktop was always representable; this is the
 canonical example of it. Guided reaches the same state from scratch (Host Core
 declares no desktop) or by seeding this profile.
 
+### Pure (Stock) Profiles
+The three committed `*-pure` Host Profiles — `kde-pure`, `hyprland-pure`,
+`niri-pure` (`.installer/hosts/<name>-pure/`) — each an upstream-**stock**
+single-desktop install (ADR 0112). Modelled on the Minimal Profile
+(`packages.inherit: false`, `host_programs: []`, one operator-picked disk) but
+with one `environment.desktop` and `environment.stock: true`, so the DE lands as
+the distro's own default: KDE = the `plasma-meta` shell only (no curated apps,
+no captured settings seed — ADR 0087/0111), niri/Hyprland = the bare compositor
+(no Noctalia, no seeded config — the `wayland_shell: none` path). Reachable both
+as
+`install.sh --profile <name>-pure` and, for an ad-hoc run, via the Guided
+Installer's `stock` [[Cycle Field]] in the Environment category. Bluetooth stays
+enabled (a host-daemon toggle, not DE config — ADR 0080). The opposite of the
+opinionated default environment, not a new mechanism.
+
 ### Effective Config
 The ephemeral, fully-resolved install config the installer back-end consumes —
 never a committed file. `assemble_profile_config` builds it from a Host Profile
@@ -959,8 +974,13 @@ zero-runner-change, ADR 0005/0062/0090). Valid GPU values: `"amd"`, `"nvidia"`,
 for a KDE-free set; `none` if no desktop, ADR 0091), `"greetd"`, `"sddm"` (ADR
 0069). Valid `wayland_shell` values: `"noctalia"` (default) | `"none"`
 (compositor-agnostic — honored by both niri and Hyprland; ADR 0090/0097,
-renamed from `niri_shell` by 0097). Replaces `post_install.desktop` from the
-previous schema.
+renamed from `niri_shell` by 0097). The optional `stock` bool (default `false`,
+ADR 0112) installs every selected desktop **upstream-stock**: KDE = the
+`plasma-meta` shell only (no curated apps, no captured settings seed), niri /
+Hyprland = the bare compositor (`stock` forces `wayland_shell: none`). It
+threads into the chroot as `ENVIRONMENT_STOCK` (read by the KDE adapter) and is
+authoritative for the selected desktops. Replaces `post_install.desktop` from
+the previous schema.
 
 ### Desktop Environment Adapter
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
@@ -972,9 +992,20 @@ Hyprland, and niri are the three adapters (ADR 0090). Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
 config default**: it installs its repo packages via pacman, writes its session
 files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
-seeds the DE's default look (Breeze Dark, Papirus-Dark icons, the Bibata Modern
-Ice cursor — ADR 0098) plus per-app first-run state into `/etc/skel` and
-`/etc/xdg` so a fresh login is ready, not first-run (ADR 0088). **Bibata Modern
+seeds the DE's look and per-app state into `/etc/skel` so a fresh login is
+ready, not first-run (ADR 0088). Since ADR 0111 the KDE look/state seed is the
+operator's **captured Plasma settings** — a curated, konsave-style set of
+`~/.config` files (kdeglobals with its inline custom colour scheme, kwinrc,
+appletsrc, kglobalshortcutsrc incl. the Meta+X close bind — ADR 0113,
+klipperrc, kscreenlockerrc, ksmserverrc, dolphinrc, konsolerc,
+plasmarc/plasmashellrc, plasma-localerc) vendored under the adapter's `skel/`
+and copied **verbatim**, superseding ADR 0088's Breeze-Dark heredocs (its
+non-captured GTK-cursor / SDDM / first-run seeds are retained). The
+host-specific monitor config (`kscreenrc`/`kwinoutputconfig.json`) is
+deliberately **not** vendored — resolution stays autodetected (ADR 0110). Under
+`environment.stock` (ADR 0112) the KDE adapter installs the shell only and seeds
+none of this, and the niri/Hyprland adapters seed nothing (their
+`wayland_shell: none` path). **Bibata Modern
 Ice** (`bibata-cursor-git`, one AUR package shipping both hyprcursor and Xcursor)
 is the seeded default cursor on all three adapters — KDE via `kcminputrc`, niri
 via its `cursor {}` node, Hyprland via `HYPRCURSOR_THEME` (Xcursor fallback);

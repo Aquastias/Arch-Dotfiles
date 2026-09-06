@@ -149,6 +149,15 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
 }
 
+# Stock (pure) niri seeds nothing even if wayland_shell says noctalia — the
+# ENVIRONMENT_STOCK guard wins (ADR 0112).
+@test "stock niri seeds nothing despite wayland_shell=noctalia" {
+  run_niri ENVIRONMENT_WAYLAND_SHELL="noctalia" ENVIRONMENT_STOCK="true"
+  [ "$status" -eq 0 ]
+  ! grep -q "noctalia" "$PACMAN_LOG"
+  [ ! -e "$SEED/etc/skel/.config/niri/config.kdl" ]
+}
+
 # ── Noctalia work preset (wayland_shell=noctalia) ────────────────────────────
 
 # playerctl is in the preset base (ADR 0096): the shared media-key binds shell

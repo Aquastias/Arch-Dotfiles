@@ -12,8 +12,9 @@ local lock = "noctalia msg session lock"
 local mainMod = "SUPER"
 
 -- Shared vocabulary. Apps: terminal, close, launcher, file manager, quit, lock.
+-- Close is Mod+X across KDE, niri and Hyprland (ADR 0113); Mod+Q is freed.
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
-hl.bind(mainMod .. " + Q", hl.dsp.window.close())
+hl.bind(mainMod .. " + X", hl.dsp.window.close())
 hl.bind(mainMod .. " + D", hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + SHIFT + E", hl.dsp.exit())

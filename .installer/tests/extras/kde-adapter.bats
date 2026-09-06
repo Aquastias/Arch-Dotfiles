@@ -116,7 +116,10 @@ JSON
   grep -q "kde-gtk-config" "$PACMAN_LOG"
 }
 
-@test "theme seed writes Breeze Dark kdeglobals into skel" {
+# The look seed is now the operator's CAPTURED kdeglobals (ADR 0111): a custom
+# dark scheme (inline [Colors:*] + ColorSchemeHash) on the Breeze widget style /
+# breezedark look-and-feel / Papirus-Dark icons, not the old BreezeDark heredoc.
+@test "theme seed writes the captured custom kdeglobals into skel (ADR 0111)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
@@ -124,9 +127,66 @@ JSON
   [ "$status" -eq 0 ]
   local kg="$TEST_DIR/seed/etc/skel/.config/kdeglobals"
   [ -f "$kg" ]
-  grep -q "ColorScheme=BreezeDark" "$kg"
+  grep -q "widgetStyle=Breeze" "$kg"
   grep -q "Theme=Papirus-Dark" "$kg"
   grep -q "LookAndFeelPackage=org.kde.breezedark.desktop" "$kg"
+  # the custom scheme rides inline: a [Colors:*] section + the faster animations
+  grep -q "^\[Colors:View\]" "$kg"
+  grep -q "AnimationDurationFactor=" "$kg"
+}
+
+# ── captured Plasma settings seed (ADR 0111) ────────────────────────────────
+# The adapter copies the vendored captured config files verbatim into
+# /etc/skel/.config, konsave-style — one whole-file copy per file.
+
+@test "captured settings seed lands the full file set in skel (ADR 0111)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local d="$TEST_DIR/seed/etc/skel/.config" f
+  for f in kdeglobals kwinrc plasmarc plasmashellrc \
+    plasma-org.kde.plasma.desktop-appletsrc kglobalshortcutsrc kcminputrc \
+    klipperrc kscreenlockerrc ksmserverrc dolphinrc konsolerc \
+    plasma-localerc; do
+    [ -f "$d/$f" ] || { echo "captured file missing: $f"; return 1; }
+  done
+}
+
+@test "captured kglobalshortcutsrc binds Window Close to Meta+X (ADR 0113)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -Eq 'Window Close=.*Meta\+X' \
+    "$TEST_DIR/seed/etc/skel/.config/kglobalshortcutsrc"
+}
+
+@test "captured kwin seeds virtual desktops, plugins and 30-min lock" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local d="$TEST_DIR/seed/etc/skel/.config"
+  grep -q "wobblywindowsEnabled=true" "$d/kwinrc"
+  grep -q "Timeout=30" "$d/kscreenlockerrc"
+  grep -q "loginMode=emptySession" "$d/ksmserverrc"
+}
+
+# The host-specific monitor/output config is NOT seeded (ADR 0110) — resolution
+# stays autodetected.
+@test "captured seed excludes the host-specific output config (ADR 0110)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local d="$TEST_DIR/seed/etc/skel/.config"
+  [ ! -e "$d/kscreenrc" ]
+  [ ! -e "$d/kwinoutputconfig.json" ]
 }
 
 @test "theme seed sets the Bibata Modern Ice cursor (ADR 0098)" {
@@ -194,6 +254,32 @@ JSON
   run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   grep -q "Version=" "$TEST_DIR/seed/etc/skel/.config/dolphinrc"
+}
+
+# ── stock (pure) KDE (ADR 0112) ─────────────────────────────────────────────
+# With ENVIRONMENT_STOCK set, KDE is upstream-stock: the plasma-meta shell only,
+# no captured seed and no apps.
+
+@test "stock KDE installs the shell but seeds nothing captured" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":true,"shell_packages":{"core":{"sentinel-shell":true}},
+"apps_list":{"files":{"sentinel-app":true}}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" ENVIRONMENT_STOCK=true run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "sentinel-shell" "$PACMAN_LOG"
+  [ ! -e "$TEST_DIR/seed/etc/skel/.config/kdeglobals" ]
+  [ ! -e "$TEST_DIR/seed/etc/skel/.config/kglobalshortcutsrc" ]
+}
+
+@test "stock KDE installs no applications" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":true,"shell_packages":{"core":{"sentinel-shell":true}},
+"apps_list":{"files":{"sentinel-app":true}}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" ENVIRONMENT_STOCK=true run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  ! grep -q "sentinel-app" "$PACMAN_LOG"
 }
 
 # ── malformed apps_list aborts the install ──────────────────────────────────

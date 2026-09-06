@@ -413,6 +413,7 @@ configure_system() {
 
   ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" \
   ENVIRONMENT_WAYLAND_SHELL="${ENVIRONMENT_WAYLAND_SHELL:-}" \
+  ENVIRONMENT_STOCK="${ENVIRONMENT_STOCK:-}" \
   ROOT_PW="$root_pw" \
     arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
