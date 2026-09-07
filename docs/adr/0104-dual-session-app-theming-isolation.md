@@ -4,6 +4,12 @@
 Status: accepted. **Amends ADR 0102** (App Theming Bridge) for hosts whose
 `environment.desktop` set pairs `kde` with a wlroots compositor. Extends ADR
 0088 (KDE seeds `/etc/skel`) and ADR 0090/0097 (shared Noctalia preset).
+**Corrected by ADR 0116:** VM testing showed `kde-gtk-config` does **not**
+auto-rewrite the GTK `settings.ini`/theme to Breeze on every Plasma login (as
+this ADR assumed), so GTK apps under Plasma inherited Noctalia's accent; ADR
+0116 adds a combined-box-gated KDE autostart that reasserts Breeze. The rest of
+this ADR (drop `kcolorscheme` on combined boxes; `kdeglobals` stays Plasma-owned)
+is confirmed.
 ---
 
 A multi-desktop host (`kde+niri`, `kde+hyprland`, or all three) runs **every**

@@ -141,8 +141,19 @@ Plasma-side reset script and no per-host gate.
   seeded to `/etc/skel` by the shared Noctalia preset (the installer never
   stows, ADR 0095); the autostart lines land in the curated per-compositor
   configs (already seeded).
-- **Domain docs.** ADR 0116 written; a **Live Theme Bridge** glossary entry
-  added to `CONTEXT.md` beside the [[App Theming Bridge]].
+- **Combined-box KDE Breeze reset (ADR 0116, from VM testing).** Cross-session
+  reboot testing showed `kde-gtk-config` does **not** auto-reset the shared GTK
+  theme on Plasma login (correcting ADR 0104), so a compositor session's
+  `adw-gtk3-dark`+`noctalia.css` accent leaks into KDE apps. The KDE adapter
+  (`kde.sh`) seeds a **combined-box-gated, KDE-only** autostart
+  (`kde-gtk-breeze-reset.desktop`, `OnlyShowIn=KDE`) that reasserts
+  `gtk-theme=Breeze` on Plasma login; the compositor side reasserts
+  `adw-gtk3-dark` via Noctalia — symmetric. Gated on `ENVIRONMENT_DESKTOP`
+  carrying a compositor (pure KDE must not seed it — it would clobber the
+  operator's own GTK theme).
+- **Domain docs.** ADR 0116 written (with the VM-testing corrections); a **Live
+  Theme Bridge** glossary entry added to `CONTEXT.md` beside the
+  [[App Theming Bridge]]; ADR 0104 gets a correction note.
 
 ## Testing Decisions
 

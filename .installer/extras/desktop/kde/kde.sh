@@ -141,6 +141,30 @@ EOF
 Hidden=true
 EOF
 
+  # Combined-box GTK Breeze reset (ADR 0116): on a shared-$HOME box that also
+  # runs niri/Hyprland, a Noctalia compositor session leaves the shared gsettings
+  # gtk-theme at adw-gtk3-dark + a noctalia.css accent, and kde-gtk-config does
+  # NOT auto-reset it on Plasma login (VM-verified — disproves ADR 0104). Without
+  # this, GTK apps under Plasma inherit Noctalia's accent. A KDE-only autostart
+  # reasserts Breeze; the compositor side reasserts adw-gtk3-dark via Noctalia on
+  # the next niri/Hyprland login, so the sessions stay symmetric. ONLY on a
+  # combined box — on pure KDE it would clobber the operator's own GTK theme every
+  # login. gsettings is inlined (the systemd XDG-autostart generator mangles a
+  # $HOME script path).
+  _ed=" ${ENVIRONMENT_DESKTOP:-} "
+  if [[ "$_ed" == *" niri "* || "$_ed" == *" hyprland "* ]]; then
+    _seed_write etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Reset GTK to Breeze (KDE)
+Comment=Reset the shared GTK theme to Breeze on Plasma login (ADR 0116)
+Exec=sh -c "gsettings set org.gnome.desktop.interface gtk-theme Breeze; gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
+OnlyShowIn=KDE;
+NoDisplay=true
+EOF
+    info "Seeded combined-box GTK Breeze reset (ADR 0116)."
+  fi
+
   # Baloo file indexing ON so desktop search works from first login.
   _seed_write etc/skel/.config/baloofilerc <<'EOF'
 [Basic Settings]

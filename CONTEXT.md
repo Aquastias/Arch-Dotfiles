@@ -1154,14 +1154,20 @@ GTK apps; preserves Noctalia's own theme name). Dark/light still follows live fo
 libadwaita. **KColorScheme** apps on pure boxes repaint for free via the
 `KGlobalSettings` D-Bus notify.
 Ships **fleet-wide** (`inotify-tools` in the preset, seeded **and** stowed like
-ADR 0108) but is **isolated by confinement, not exclusion**: it writes only
-compositor-private `qt6ct.conf` + shared theme-name that `kde-gtk-config` resets
-to Breeze on every Plasma login, and runs only from the compositor autostart —
-so a combined `kde`+compositor box gets live theming in its compositor session
-with Plasma still pure Breeze, needing **no** Plasma-side reset script (that is
-`kde-gtk-config`) and **no** per-host gate. _Avoid_: an explicit Plasma Breeze
-reset, a `kde`-gated install, wrapping `noctalia-cycle-palette` (misses the GUI),
-a systemd-user unit (unreachable under `start-hyprland`, ADR 0070).
+ADR 0108), **isolated by confinement**: it writes only compositor-private
+`qt6ct.conf` + shared theme-name/dconf and runs **only** from the compositor
+autostart (never under Plasma), so `kdeglobals` and KDE-native apps stay Breeze
+on a combined box. GTK apps under Plasma are a separate matter: VM testing showed
+`kde-gtk-config` does **not** auto-reset the shared GTK theme on Plasma login
+(correcting ADR 0104), so a compositor session's `adw-gtk3-dark`+`noctalia.css`
+accent would leak into KDE. The KDE adapter (`kde.sh`) seeds a **combined-box-
+gated, KDE-only autostart** (`kde-gtk-breeze-reset.desktop`, `OnlyShowIn=KDE`)
+that reasserts `gtk-theme=Breeze` on Plasma login; the compositor side reasserts
+`adw-gtk3-dark` via Noctalia — symmetric, VM-verified across niri↔KDE↔hyprland.
+_Avoid_: relying on `kde-gtk-config` to auto-reset GTK, seeding the reset on pure
+KDE (clobbers the operator's theme), a `kde`-gated bridge install, wrapping
+`noctalia-cycle-palette` (misses the GUI), a systemd-user unit (unreachable under
+`start-hyprland`, ADR 0070).
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

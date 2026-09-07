@@ -243,6 +243,34 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/autostart/plasma-welcome.desktop"
 }
 
+# ADR 0116: on a COMBINED box (kde + a wlroots compositor) a Noctalia session
+# leaves the shared GTK theme non-Breeze and kde-gtk-config does not auto-reset
+# it, so seed a KDE-only autostart that reasserts Breeze on Plasma login.
+@test "combined box seeds the GTK Breeze reset autostart (ADR 0116)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run env ENVIRONMENT_DESKTOP="kde niri" \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop"
+  grep -q 'gtk-theme Breeze' "$f"
+  grep -q '^OnlyShowIn=KDE;' "$f"
+}
+
+# On a PURE KDE box the reset must NOT be seeded — it would clobber the operator's
+# own GTK theme on every login.
+@test "pure KDE box does not seed the GTK Breeze reset (ADR 0116)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run env ENVIRONMENT_DESKTOP="kde" \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -f \
+    "$TEST_DIR/seed/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop" ]
+}
+
 @test "Baloo indexing is left enabled" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
