@@ -27,3 +27,7 @@ Reuse a Commons helper before writing a new one; put new helpers in the right wo
 ### VM sandbox
 
 `vm.sh`/`virsh` talk to libvirtd over a socket the command sandbox often blocks. On a `libvirt unreachable (sandbox?)` signal, retry the same command with the sandbox disabled. See `docs/agents/vm-sandbox.md`.
+
+### VM agent control
+
+Drive a persistent debug VM (login/logout/reboot, session-switch, screenshot, run/launch apps, lock) via `.installer/vm/vm-agent.sh` instead of hand-rolling `virsh`/`ssh`/`grim`. Qt theming tests use a KDE app (Dolphin); GTK tests use any GTK app. See `docs/agents/vm-agent-control.md`.
