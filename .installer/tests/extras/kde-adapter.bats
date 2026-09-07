@@ -167,6 +167,47 @@ JSON
     "$BATS_TEST_DIRNAME/../../extras/desktop/kde/skel/.face"
 }
 
+# ── #06: first-login state (ADR 0121) ───────────────────────────────────────
+
+@test "SDDM login background points at the Horos wallpaper (ADR 0121)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/usr/share/sddm/themes/breeze/theme.conf.user"
+  [ -f "$f" ]
+  grep -q "background=/usr/share/wallpapers/Horos/" "$f"
+  grep -q "type=image" "$f"
+}
+
+@test "audio-full-volume autostart raises sink and source (ADR 0121)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/skel/.config/autostart/kde-audio-full-volume.desktop"
+  [ -f "$f" ]
+  grep -q "@DEFAULT_AUDIO_SINK@ 1.0"   "$f"
+  grep -q "@DEFAULT_AUDIO_SOURCE@ 1.0" "$f"
+}
+
+@test "welcome LastSeenVersion is stamped from the installed version (ADR 0121)" {
+  # pacman -Q returns the installed version; other calls fall through to the log
+  printf '#!/usr/bin/env bash\nif [ "$1" = "-Q" ]; then echo "plasma-welcome 6.7.4"; else echo "pacman $*" >> "%s"; fi\n' \
+    "$PACMAN_LOG" > "$STUB_BIN/pacman"
+  chmod +x "$STUB_BIN/pacman"
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/skel/.config/plasma-welcomerc"
+  [ -f "$f" ]
+  grep -q "LastSeenVersion=6.7.4" "$f"
+}
+
 @test "captured kglobalshortcutsrc binds Window Close to Meta+X (ADR 0113)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
@@ -477,7 +518,10 @@ JSON
     skanpage spectacle sweeper yakuake | sort)" ]
 }
 
-@test "shipped apps_extra is exactly the non-group KDE apps" {
+# apps_extra holds the non-group KDE-ecosystem apps plus the two non-KDE apps the
+# operator's KDE experience wants: vlc (default video player) and orca (screen
+# reader) — ADR 0120.
+@test "shipped apps_extra is exactly the non-group apps (incl. vlc, orca)" {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/categorized-list.sh"
   local real="$BATS_TEST_DIRNAME/../../extras/desktop/kde/install-kde.jsonc"
@@ -487,7 +531,8 @@ JSON
   run categorized_list_parse "$extra_json" bool apps_extra
   [ "$status" -eq 0 ]
   [ "$(sort <<<"$output")" = "$(printf '%s\n' \
-    digikam haruna kdiff3 kommit krename krusader krita okteta | sort)" ]
+    digikam haruna kdiff3 kommit krename krusader krita okteta orca vlc \
+    | sort)" ]
 }
 
 @test "shipped plugins is exactly the curated enhancer set" {

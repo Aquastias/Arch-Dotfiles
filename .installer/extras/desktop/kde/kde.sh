@@ -133,7 +133,19 @@ EOF
 Current=breeze
 EOF
 
-  info "Seeded captured look + GTK cursor + SDDM theme."
+  # SDDM login background = the Horos wallpaper, so the login screen matches the
+  # lock screen (captured kscreenlockerrc also points at Horos) — ADR 0121. The
+  # breeze SDDM theme reads its background from theme.conf.user; an absolute path
+  # to a Horos image that plasma-meta always ships (Horos ∈ oxygen → plasma-meta,
+  # so it is present on every KDE install).
+  _seed_write usr/share/sddm/themes/breeze/theme.conf.user <<'EOF'
+[General]
+background=/usr/share/wallpapers/Horos/contents/images/5120x2880.png
+type=image
+showClock=true
+EOF
+
+  info "Seeded captured look + GTK cursor + SDDM theme + Horos login bg."
 
   # ── FIRST-RUN: seed a "not first launch" state (ADR 0088, Q4-B) ───────────
   # Scope is the reliably-suppressible defaults — the Plasma Welcome Center
@@ -147,6 +159,32 @@ EOF
   _seed_write etc/skel/.config/autostart/plasma-welcome.desktop <<'EOF'
 [Desktop Entry]
 Hidden=true
+EOF
+
+  # Belt-and-suspenders welcome suppression (ADR 0121): plasma-welcome shows only
+  # when its own LastSeenVersion is older than the installed version, so stamp
+  # the INSTALLED version (pacman -Q, not a captured static one that goes stale
+  # on upgrade). A no-op if the package is somehow absent.
+  _pw_ver="$(pacman -Q plasma-welcome 2>/dev/null | awk '{print $2}')"
+  if [[ -n "$_pw_ver" ]]; then
+    _seed_write etc/skel/.config/plasma-welcomerc <<EOF
+[General]
+LastSeenVersion=$_pw_ver
+EOF
+  fi
+
+  # Audio line in/out at 100% on first login (ADR 0121). WirePlumber restore
+  # state is device-keyed, so instead of vendoring it, an idempotent autostart
+  # raises the default sink AND source to full volume once the session's PipeWire
+  # is up. `|| true` per node so a missing source never fails the session start.
+  _seed_write etc/skel/.config/autostart/kde-audio-full-volume.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Set audio to 100% (KDE)
+Comment=Raise default sink and source to full volume on first login (ADR 0121)
+Exec=sh -c "wpctl set-volume @DEFAULT_AUDIO_SINK@ 1.0 || true; wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 1.0 || true"
+OnlyShowIn=KDE;
+NoDisplay=true
 EOF
 
   # Combined-box GTK Breeze reset (ADR 0116): on a shared-$HOME box that also
