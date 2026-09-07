@@ -201,6 +201,7 @@ JSON
   ! grep -q "provider=bbcukmet" "$a"          # stock Sibiu config gone
   grep -q '"providerId":"metno"' "$a"
   grep -q 'lat=45.10&lon=24.37' "$a"
+  grep -q "layoutType=Compact" "$a"           # operator's compact layout
 }
 
 @test "avatar seed lands the vendored ~/.face in skel (ADR 0121)" {

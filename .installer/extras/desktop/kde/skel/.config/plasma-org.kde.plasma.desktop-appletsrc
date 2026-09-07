@@ -178,8 +178,11 @@ immutability=1
 plugin=org.kde.weatherWidget-3
 
 [Containments][2][Applets][55][Configuration]
-popupHeight=400
-popupWidth=560
+popupHeight=504
+popupWidth=800
+
+[Containments][2][Applets][55][Configuration][Appearance]
+layoutType=Compact
 
 [Containments][2][Applets][55][Configuration][ConfigDialog]
 DialogHeight=630
