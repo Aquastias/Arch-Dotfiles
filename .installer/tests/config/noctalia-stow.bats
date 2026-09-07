@@ -24,6 +24,7 @@ setup() {
   HBIND="$REPO/.config/hypr/conf.d/keybinds.lua"
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
+  BRIDGE="$REPO/.local/bin/noctalia-theme-bridge"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
   PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
   CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
@@ -183,6 +184,23 @@ setup() {
   grep -q 'installer-plugins-enabled' "$ENABLE"   # the run-once guard
 }
 
+# Live Theme Bridge (ADR 0116): the runtime half of the App Theming Bridge —
+# watches Noctalia's generated color files and nudges each toolkit to re-read so
+# RUNNING apps repaint. Qt6 by touching the watched qt6ct.conf; GTK3 by a
+# gtk-theme toggle that fires kde-gtk-config's colorreload-gtk-module.
+@test "the Live Theme Bridge is executable and nudges Qt6 + GTK3 (ADR 0116)" {
+  [ -x "$BRIDGE" ]
+  grep -q 'inotifywait' "$BRIDGE"                 # watches the generated files
+  grep -q "noctalia" "$BRIDGE"                    # filtered to Noctalia's output
+  grep -q 'qt6ct.conf' "$BRIDGE"                  # Qt6 nudge: touch the conf
+  grep -q 'gtk-theme' "$BRIDGE"                   # GTK3 nudge: colorreload toggle
+}
+
+@test "both compositors autostart the Live Theme Bridge (ADR 0116)" {
+  grep -q 'noctalia-theme-bridge' "$NAUTO"
+  grep -q 'noctalia-theme-bridge' "$HAUTO"
+}
+
 # ── drift guard ──────────────────────────────────────────────────────────────
 
 # config.toml's enabled ids (author/name) reduced to their bare plugin names
@@ -271,6 +289,12 @@ setup() {
   # Package is adw-gtk-theme (extra); it ships the adw-gtk3-dark theme dir.
   ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \
     | grep -qx 'adw-gtk-theme'
+}
+
+@test "the base preset ships inotify-tools for the Live Theme Bridge (0116)" {
+  # inotifywait (inotify-tools, extra) drives the bridge's file watch.
+  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \
+    | grep -qx 'inotify-tools'
 }
 
 @test "qt6ct is pre-seeded onto Noctalia's generated scheme (ADR 0102)" {

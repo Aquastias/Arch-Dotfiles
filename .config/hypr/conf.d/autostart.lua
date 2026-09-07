@@ -6,6 +6,9 @@
 hl.on("hyprland.start", function()
     hl.exec_cmd("noctalia --daemon")
     hl.exec_cmd('sh -c "$HOME/.local/bin/noctalia-enable-plugins"')
+    -- Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a Noctalia
+    -- theme change. Long-lived; dies with the session.
+    hl.exec_cmd('sh -c "$HOME/.local/bin/noctalia-theme-bridge"')
     -- Apply the cursor to Hyprland's OWN pointer: env alone is unreliable for
     -- the compositor cursor, so setcursor is the wiki-recommended path (0098).
     hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 24")

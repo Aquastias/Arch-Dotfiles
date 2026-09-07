@@ -4,3 +4,6 @@ spawn-at-startup "noctalia" "--daemon"
 // First-login one-shot: enable the vendored plugins once (ADR 0093). Self-
 // guards, so it is a no-op on every later login — safe to leave in place.
 spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
+// Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a Noctalia
+// theme change. Long-lived; dies with the session.
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-theme-bridge"

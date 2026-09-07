@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Live Theme Bridge (ADR 0116): repaint RUNNING Qt6/GTK3 apps when Noctalia
+# rewrites its generated color files on a theme change. The App Theming Bridge
+# (ADR 0102) already writes the palette into these files on every change, so a
+# freshly-launched app follows any theme; running apps just never re-read them.
+# This watches those files and nudges each toolkit to re-read:
+#   Qt6  → touch the top-level qt6ct.conf; qt6ct watches its config DIR, not
+#          colors/, so this re-runs applySettings() and open Qt apps repaint.
+#   GTK3 → a transient gtk-theme toggle, to fire kde-gtk-config's
+#          colorreload-gtk-module (a palette change keeps the name adw-gtk3-dark,
+#          so the module never fires on its own).
+# GTK4/libadwaita is load-once → relaunch-only for palette colors (mode still
+# follows live via libadwaita's portal subscription). Launched per-compositor
+# (ADR 0070); confined to the compositor session so it never touches Plasma —
+# the shared gtk-theme/dconf it toggles is reset to Breeze by kde-gtk-config on
+# every Plasma login (ADR 0104/0116).
+set -eu
+
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+qt_conf="$cfg/qt6ct/qt6ct.conf"
+gtk_theme="adw-gtk3-dark"
+
+# Parent dirs of Noctalia's generated color files. Watch the DIRS (not the
+# files) so an atomic write-then-rename is still caught; --include (below) keeps
+# only the generated files so unrelated writes never trigger a repaint.
+dirs=""
+for d in "$cfg/qt6ct/colors" "$cfg/gtk-3.0" "$cfg/gtk-4.0"; do
+	if [ -d "$d" ]; then dirs="$dirs $d"; fi
+done
+
+nudge() {
+	if [ -f "$qt_conf" ]; then
+		touch "$qt_conf"
+	fi
+	if command -v gsettings >/dev/null 2>&1; then
+		gsettings set org.gnome.desktop.interface gtk-theme '' 2>/dev/null || true
+		gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" \
+			2>/dev/null || true
+	fi
+}
+
+command -v inotifywait >/dev/null 2>&1 || exit 0
+[ -n "$dirs" ] || exit 0
+
+# Reconcile once at session start (ADR 0116 Q3), then follow every later change.
+nudge
+
+# shellcheck disable=SC2086  # word-split $dirs into separate path args
+inotifywait -m -q -e close_write -e moved_to \
+	--include 'noctalia\.(conf|css)$' $dirs 2>/dev/null |
+while true; do
+	# Block for the first event of a burst; one theme change rewrites up to three
+	# files, so drain the burst (trailing debounce) and repaint exactly once.
+	read -r _ || exit 0
+	while read -r -t 0.5 _; do :; done
+	nudge
+done

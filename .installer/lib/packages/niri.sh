@@ -39,8 +39,10 @@ niri_core_packages() {
 # Bridge, ADR 0102 — the theme name is adw-gtk3-dark, the package is
 # adw-gtk-theme, upstream lassekongo83/adw-gtk3). pcmanfm-qt is
 # Qt/libfm-qt, themed via the same bridge's qt6ct path (ADR 0102) rather than
-# inheriting anything for free. Optional companions (cava, cliphist) are
-# install-noctalia.jsonc toggles, added by their callers.
+# inheriting anything for free. inotify-tools gives the Live Theme Bridge its
+# inotifywait, so a Noctalia theme change repaints RUNNING Qt6/GTK3 apps (ADR
+# 0116). Optional companions (cava, cliphist) are install-noctalia.jsonc
+# toggles, added by their callers.
 noctalia_preset_packages() {
   printf '%s\n' \
     noctalia \
@@ -48,7 +50,8 @@ noctalia_preset_packages() {
     brightnessctl \
     playerctl \
     pcmanfm-qt \
-    adw-gtk-theme
+    adw-gtk-theme \
+    inotify-tools
 }
 
 # noctalia_core_plugins — the compositor-AGNOSTIC community plugin set (ADR
