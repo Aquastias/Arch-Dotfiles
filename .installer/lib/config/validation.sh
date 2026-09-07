@@ -54,7 +54,9 @@ _validation_system_fields() {
   RESOLVED_HOST_PROFILE="$hostname"
 
   cfg '.system.locale' 'system.locale'
-  cfg '.system.timezone' 'system.timezone'
+  # Timezone is NOT required in the config (ADR 0118): it is resolved at persist
+  # time — an explicit/guided value wins, else geo-IP autodetect, else
+  # Europe/Bucharest — so an absent field is valid, not an error.
 }
 
 # =============================================================================

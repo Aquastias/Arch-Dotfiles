@@ -264,7 +264,10 @@ print_summary() {
   _hn="$(install_config_hostname)"
   _hn="${_hn:-(prompted during install)}"
   printf "  %-16s %s\n" "Hostname:" "$_hn"
-  printf "  %-16s %s\n" "Timezone:" "$(cfg '.system.timezone')"
+  # Resolved, not raw (ADR 0118): shows the value that will actually apply
+  # (explicit/guided → geo-IP autodetect → Europe/Bucharest), and never aborts
+  # on an absent field the way the required-field cfg reader would.
+  printf "  %-16s %s\n" "Timezone:" "$(install_config_timezone)"
   printf "  %-16s %s\n" "Encryption:" "$enc"
   printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)$_zswap"
   local _dr
