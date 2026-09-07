@@ -1708,6 +1708,35 @@ divergent flows live in `vm/lib/`. A test profile run **without** `--testing`
 yields a persistent VM of that exact config — the supported way to interactively
 debug a failing test case.
 
+### Agent-Controllable VM
+A persistent-flow [[VM Harness]] VM provisioned so an AI agent can fully drive it
+over the harness SSH key (ADR 0117): DM-agnostic **autologin on by default** (sddm
+`[Autologin]` when KDE is in the set, greetd `[initial_session]` for a KDE-free
+compositor set — ADR 0069/0091), booting into the first compositor of the desktop
+set; `grim` (wlroots) + `spectacle` (KDE) screenshot tools guaranteed present;
+`inotify-tools` from the Noctalia preset (ADR 0116). SSH is the harness key,
+`sudo` takes the harness password `12345`. The `--testing` cells are **not**
+agent-controllable (single-shot, desktop-less, served by their sentinel/serial
+channel). The trade-off is a human loses the greeter session-picker on these
+boxes. Driven by the [[VM Agent Control]] CLI.
+
+### VM Agent Control
+The host-side CLI `.installer/vm/vm-agent.sh` (sibling of `vm.sh`, ADR 0117) that
+drives an [[Agent-Controllable VM]] over the harness key — the one home for the
+logic a live debugging session otherwise rediscovers by hand. Verbs:
+`session <niri|hyprland|kde>` (rewrite the agent autologin drop-in + reboot +
+wait-ready), `shot [file]` (auto-select `grim` vs `spectacle` by the running
+compositor, source the session env from `/proc/<pid>/environ`, wake the display,
+capture, pull to host), `exec`/`launch` (env-aware, detached), `logout`
+(`loginctl terminate-session` → fresh re-autologin), `reboot`, `idle <on|off>`
+(a reversible inhibitor, default inhibited so lock/idle stay debuggable — never
+provisioned off), `lock`/`unlock` (`loginctl`), `ssh`, `ready`. Toolkit-test
+convention (ADR 0117): Qt → a KDE app (Dolphin default), GTK → any GTK app
+(agent's choice, `nm-connection-editor` default). Runs `virsh`/`ssh` the command
+sandbox often blocks, so `docs/agents/vm-sandbox.md`'s retry-with-sandbox-disabled
+rule applies. _Avoid_: a guest-side daemon (can't own the reboot), a doc-only
+playbook, permanently disabling lock/idle, a single universal screenshot tool.
+
 ### Console Answerer
 The Combination-Matrix harness component that makes encrypted cells
 boot-verify headlessly instead of stopping at install. It watches the serial
