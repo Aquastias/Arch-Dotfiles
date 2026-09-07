@@ -150,7 +150,7 @@ _PROFILE_SCHEMA_host=(
   # — system identity (locale/keymap are scalar|array unions — ADR 0036;
   #   console_font is the Locales console-font leaf — ADR 0076) —
   "system.hostname" "system.locale[]" "system.timezone" "system.keymap[]"
-  "system.console_font"
+  "system.console_font" "system.fullname"
   "dotfiles_repo"
   # — options (kernel is a string|array union — the [] form admits both) —
   "options.kernel[]" "options.bootloader" "options.encryption"

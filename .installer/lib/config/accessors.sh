@@ -52,7 +52,9 @@ _INSTALL_CONFIG_SCHEMA=(
   "impermanence_mount|.options.impermanence.mount|scalar|/persist"
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
-  "timezone|.system.timezone|scalar|UTC"
+  # timezone is NOT a schema row: it is resolved, not read raw (ADR 0118), so it
+  # is a hand-written special below (it breaks the pure-default mould, like the
+  # array/kernel specials).
   # Primary User display name → GECOS via useradd -c (ADR 0121). Default "Alex"
   # (the operator's), applied to the Primary User only by the Runner; an
   # explicit value overrides. Not a per-user schema — that is out of scope.
@@ -138,11 +140,10 @@ install_config_encryption_enabled() {
 }
 
 # Timezone is resolved, not read raw (ADR 0118): an explicit/guided value wins,
-# else geo-IP autodetect, else Europe/Bucharest. The schema row above still
-# declares the field (and its raw UTC default for install_config_get); this
-# OVERRIDES the generated wrapper so the single persist call site autodetects.
-# The Timezone resolver is sourced by 03-install before persist; tests that stub
-# install_config_timezone override this in turn (last definition wins).
+# else geo-IP autodetect, else Europe/Bucharest. A hand-written special (no
+# schema row) because it breaks the pure-default mould. The Timezone resolver is
+# sourced by 03-install before the single persist call site; tests that stub
+# install_config_timezone override this (last definition wins).
 install_config_timezone() {
   timezone_resolve "$(cfgo .)"
 }
