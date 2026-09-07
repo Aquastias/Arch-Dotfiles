@@ -292,6 +292,14 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
 }
 
+@test "kde extra-apps set includes orca and vlc (ADR 0120)" {
+  local apps
+  apps="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' \
+    kde-apps-extra)"
+  grep -qx "orca" <<<"$apps" || { echo "extra-apps missing orca"; return 1; }
+  grep -qx "vlc"  <<<"$apps" || { echo "extra-apps missing vlc";  return 1; }
+}
+
 @test "the derived audio set covers the formerly hand-declared packages" {
   local a; a="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' audio)"
   local p

@@ -134,7 +134,17 @@
       "krusader": true // Twin-panel file manager
     },
     "multimedia": {
-      "haruna": true // mpv-based video player
+      "haruna": true, // mpv-based video player
+      // Not KDE-ecosystem: the operator's default video player (ADR 0120),
+      // installed alongside haruna; the captured mimeapps.list makes VLC the
+      // default video handler.
+      "vlc": true
+    },
+    // Not KDE-ecosystem: the AT-SPI screen reader (ADR 0120). Plasma ships no
+    // screen reader in plasma-meta, so it is added here to work from first
+    // login.
+    "accessibility": {
+      "orca": true // Screen reader
     }
   },
   // Per-app optional-dependency enhancers (ADR 0088), keyed by app. Same
