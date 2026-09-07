@@ -1868,6 +1868,25 @@ switches (Bluetooth, Power, Printing) still keep their own categories, so
 General never became a catch-all.
 _Avoid_: System.
 
+### Captured Plasma Settings
+The operator's `arch-combined` `~/.config` files vendored verbatim into
+`/etc/skel` by the KDE adapter so a fresh Plasma login is fully configured, not
+first-run (ADR 0111, extended by ADR 0120). A fixed, konsave-style file list —
+colour scheme, virtual desktops, kwin plugins/tiling, widget layout + settings,
+shortcuts, lock, klipper, plus (ADR 0120) Activities, power, default apps,
+window rules, welcome-version. A **point-in-time snapshot**: re-tweaking Plasma
+means re-capturing. Excludes the EDID-keyed monitor files (`kscreenrc`,
+`kwinoutputconfig.json`) — resolution stays autodetected (ADR 0110/0119).
+_Avoid_: konsave profile, Plasma dotfiles.
+
+### First-Login State
+The part of the "looks like `arch-combined`" guarantee that is **reconstructed**
+at install/first-login rather than verbatim-copied, because it has no capturable
+per-user `.config` home (ADR 0121): audio volume (a `wpctl` autostart), the SDDM
+login background (Horos, system theme), welcome-center suppression (dynamic
+`LastSeenVersion`), and the avatar + display name (AccountsService + GECOS, per
+primary user). Distinct from [[Captured Plasma Settings]], which are copied.
+
 ## Flagged ambiguities
 
 - "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now
