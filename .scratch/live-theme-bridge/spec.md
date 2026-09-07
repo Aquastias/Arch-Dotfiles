@@ -41,8 +41,10 @@ Plasma-side reset script and no per-host gate.
 1. As an operator, I want my open Qt apps to repaint when I change the Noctalia
    palette, so that pcmanfm-qt and other Qt tools match the shell without a
    relaunch.
-2. As an operator, I want my open GTK3 apps to repaint when I change the
-   palette, so that GTK utilities match the shell without a relaunch.
+2. As an operator, I accept that open GTK apps pick up a new palette on next
+   launch on native Wayland (a load-once `gtk.css` limitation), while XWayland
+   GTK apps repaint live via the best-effort nudge, so that GTK follows as far as
+   the toolkit allows without brittle restart hacks.
 3. As an operator, I want a dark/light flip to repaint running apps live, so
    that toggling mode no longer forces me to reopen every window.
 4. As an operator, I want a full palette switch (not just mode) to be respected,
@@ -100,16 +102,20 @@ Plasma-side reset script and no per-host gate.
   to *cause* a render but nothing to *subscribe* to completion; watching the
   outputs catches every trigger path (cycle tile + GUI) with no dependency on an
   IPC that may not exist.
-- **Per-toolkit repaint nudge:**
-  - **Qt6** → `touch` the top-level `qt6ct.conf` (the qt6ct dir-watcher misses
-    writes into the `colors/` subdir) so `applySettings()` re-runs and running
-    Qt apps repaint.
-  - **GTK3** → a transient `gsettings` `gtk-theme` toggle, to fire
-    `kde-gtk-config`'s `colorreload-gtk-module` (a palette change alone does not:
-    the theme name stays `adw-gtk3-dark`, only `noctalia.css` content changes).
-  - **GTK4/libadwaita** → **relaunch-only** for palette colors (`gtk.css` is
-    load-once); mode/dark-light still follows live via libadwaita's own portal
-    subscription. No app-restart hacks.
+- **Per-toolkit repaint nudge** (mechanisms verified live on the VM):
+  - **Qt6** → an **atomic rewrite** of `qt6ct.conf` (copy then rename in place).
+    qt6ct watches its config *directory*, so a bare mtime `touch` does not fire
+    it — a rename into the dir does; then `applySettings()` re-runs and running
+    Qt apps repaint. **This is the working live path** (verified across three
+    palettes + dark/light).
+  - **GTK (3 and 4)** → **relaunch-only for palette on native Wayland.** The
+    palette lives in the load-once user `gtk.css` (`@import noctalia.css`) that a
+    running GTK app never re-reads, and `colorreload-gtk-module` is a KDE **X11**
+    path inert under native Wayland (verified: a Wayland `nm-connection-editor`
+    stayed on its launch-time palette through every change). A transient
+    `gsettings` `gtk-theme` **read-toggle-restore** is kept **best-effort** — it
+    repaints XWayland/X11 GTK apps and preserves Noctalia's own theme name.
+    Dark/light still follows live for libadwaita via the portal.
   - **KColorScheme apps** (pure-compositor boxes, `kcolorscheme` on per ADR
     0108) → already repaint live via the `KGlobalSettings` D-Bus notify
     Noctalia's `kde-color-scheme` post-action emits; no bridge work.

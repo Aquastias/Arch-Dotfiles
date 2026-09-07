@@ -8,6 +8,16 @@ kept by confinement, not by excluding combined hosts. Facts traced live in the
 running `arch-combined` VM (niri session): a `builtin Gruvbox` set flipped the
 qt6ct base `#1e1e2e`→`#282828` and rewrote `gtk-{3,4}.0/noctalia.css`, proving
 file-following already works for any theme.
+
+**Verified end-to-end on the VM with screenshots + pixel sampling.** Two
+mechanism corrections came out of that testing and are folded in below: (a) the
+Qt nudge is an **atomic rewrite** of `qt6ct.conf`, not a bare `touch` — qt6ct
+watches its config *directory*, and a mtime `touch` does not fire a directory
+watcher; the rewrite made pcmanfm-qt repaint live across Catppuccin→Gruvbox→Nord
+and dark→light. (b) **GTK palette is relaunch-only on native Wayland** (not just
+GTK4): a running Wayland GTK app never re-reads the load-once user `gtk.css`, and
+`colorreload-gtk-module` is a KDE **X11** path inert under native Wayland. The
+GTK nudge is kept **best-effort** (it does fire for XWayland/X11 GTK apps).
 ---
 
 The App Theming Bridge (ADR 0102) writes Noctalia's palette into
@@ -24,12 +34,11 @@ Why nothing repaints today, per toolkit:
 
 - **Qt6/qt6ct** watches its config **directory**; Noctalia rewrites the
   `colors/` **subfile**, which does not reliably fire that watcher.
-- **GTK3** would reload via `kde-gtk-config`'s `colorreload-gtk-module` (loaded
-  through `gtk-modules`), but that module fires on a **theme-name or
-  `colors.css`** change — a palette change keeps the name `adw-gtk3-dark` and
-  only rewrites `noctalia.css`, so it never triggers.
-- **GTK4/libadwaita** loads `~/.config/gtk-4.0/gtk.css` (and its
+- **GTK (3 and 4)** loads `~/.config/gtk-{3,4}.0/gtk.css` (and its
   `@import noctalia.css`) **once at startup** with no runtime user-CSS reload.
+  `kde-gtk-config`'s `colorreload-gtk-module` *would* poke a reload, but it is a
+  KDE **X11** mechanism inert under native Wayland — so a running Wayland GTK app
+  never picks up the new palette (VM-verified).
 
 ## Decision
 
@@ -45,14 +54,21 @@ counterpart to ADR 0102's file-writing bridge.
    Noctalia GUI — with no dependency on an IPC that may not exist.
 
 2. **Per-toolkit repaint nudge:**
-   - **Qt6** → `touch ~/.config/qt6ct/qt6ct.conf` (a top-level file the qt6ct
-     dir-watcher *does* see) → `applySettings()` re-runs → live repaint.
-   - **GTK3** → a transient `gsettings` `gtk-theme` toggle to force
-     `colorreload-gtk-module` to fire → running GTK3 apps re-read `gtk.css`.
-   - **GTK4** → **relaunch-only** (accepted ceiling). Mode (dark/light) still
-     follows live via libadwaita's own portal subscription; palette colors land
-     on next launch. The alternative — killing/restarting GTK4 apps to force a
-     reload — is brittle and app-hostile for a shrinking class of apps.
+   - **Qt6** → an **atomic rewrite** of `~/.config/qt6ct/qt6ct.conf` (copy then
+     rename in place). qt6ct watches its config *directory*, so a bare mtime
+     `touch` does **not** fire it — a rename into the dir does; then
+     `applySettings()` re-runs and running Qt apps repaint. **This is the live
+     path that works** (VM-verified across three palettes + dark/light).
+   - **GTK (3 and 4)** → **relaunch-only for palette** on native Wayland. The
+     palette lives in the load-once user `gtk.css` (`@import noctalia.css`) that
+     a running GTK app never re-reads, and `colorreload-gtk-module` is a KDE
+     **X11** mechanism inert under native Wayland (VM-verified: a Wayland
+     nm-connection-editor stayed on its launch-time palette through every
+     change). A transient `gsettings` `gtk-theme` read-toggle-restore is kept as
+     a **best-effort** nudge — it *does* repaint XWayland/X11 GTK apps and is
+     harmless otherwise; it reads and restores Noctalia's own theme name so it
+     never overrides the mode Noctalia set. Dark/light still follows live for
+     libadwaita apps via the portal.
    - **KColorScheme apps** (pure-compositor boxes, where `kcolorscheme` is on,
      ADR 0108) already repaint live via the `KGlobalSettings` D-Bus notify
      Noctalia's `kde-color-scheme` post-action emits — no bridge work.
@@ -95,17 +111,20 @@ counterpart to ADR 0102's file-writing bridge.
   script.
 - **A systemd-user service** for supervision — rejected on the `start-hyprland`
   fact above (ADR 0070); it would not reliably reach Hyprland.
-- **Chase GTK4 live palette** (restart apps, or an injected reload no toolkit
-  supports) — rejected as brittle; the load-once `gtk.css` ceiling is a GTK4
-  design fact, and mode still follows live.
+- **Chase GTK live palette on Wayland** (restart apps, or ship a
+  `noctalia.css`-watching GTK module) — rejected as brittle / disproportionate;
+  the load-once `gtk.css` + X11-only `colorreload` ceiling is a native-Wayland
+  fact, and mode still follows live. Left as a future option if GTK live palette
+  ever becomes a hard requirement.
 
 ## Consequences
 
-- **Changing the Noctalia theme mid-session repaints running Qt6, GTK3 and
-  (pure-box) KDE apps live**, on niri and Hyprland, on any box class — the
-  stated goal.
-- **GTK4/libadwaita apps** follow dark/light live but pick up **palette colors
-  on next launch** — the one bounded, documented cost.
+- **Changing the Noctalia theme mid-session repaints running Qt6 (and pure-box
+  KDE) apps live**, on niri and Hyprland, on any box class — VM-verified across
+  three palettes and dark/light.
+- **GTK apps (3 and 4)** follow dark/light live (libadwaita) but pick up
+  **palette colors on next launch** on native Wayland — the bounded, documented
+  cost. The best-effort `gtk-theme` nudge still repaints XWayland/X11 GTK apps.
 - **Plasma stays deterministically Breeze** on combined boxes with no new
   Plasma-side component; isolation is by confinement, extending ADR 0104 rather
   than reversing it.

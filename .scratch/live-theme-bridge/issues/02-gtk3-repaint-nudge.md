@@ -1,29 +1,29 @@
-# 02 — GTK3 live-repaint nudge
+# 02 — GTK repaint nudge (best-effort; Wayland palette is relaunch-only)
 
-**What to build:** extend the [[Live Theme Bridge]] so a mid-session theme change
-also repaints **running GTK3** apps without a relaunch. On each color-file
-change the bridge additionally performs a transient `gsettings` `gtk-theme`
-toggle — the minimal poke that makes `kde-gtk-config`'s `colorreload-gtk-module`
-fire (a palette change alone does not: the theme name stays `adw-gtk3-dark` and
-only `noctalia.css` content changes, so the module never triggers on its own).
-This is a runtime-only change to the existing script — no new committed payload —
-so acceptance is by hand on the VM, per the repo's no-runtime-test model.
-GTK4/libadwaita stays relaunch-only for palette colors by design (ADR 0116);
-mode still follows live.
+**What to build:** extend the [[Live Theme Bridge]] with a GTK nudge on each
+color-file change. **Finding from VM testing (ADR 0116):** a running *native
+Wayland* GTK app cannot be made to re-read its palette — the palette lives in the
+load-once user `gtk.css` (`@import noctalia.css`), and `kde-gtk-config`'s
+`colorreload-gtk-module` is an X11 mechanism inert under native Wayland (a
+Wayland `nm-connection-editor` stayed on its launch-time Catppuccin palette
+through Gruvbox and Nord). So GTK palette is **relaunch-only on Wayland**. The
+bridge keeps a transient `gsettings` `gtk-theme` **read-toggle-restore** as a
+**best-effort** nudge: it *does* repaint XWayland/X11 GTK apps, it preserves
+whatever theme name Noctalia set (never forcing dark over light), and it is
+harmless for native-Wayland apps. Dark/light still follows live for libadwaita
+via the portal. GTK4 was always relaunch-only for palette.
 
-**Blocked by:** 01 — Live Theme Bridge scaffolding + Qt6 live-repaint (the shared
-script and its watch loop must exist).
+**Blocked by:** 01 — Live Theme Bridge scaffolding + Qt6 live-repaint.
 
 **Status:** ready-for-agent
 
-- [ ] On a color-file change the bridge performs a transient `gsettings`
-      `gtk-theme` toggle that fires `colorreload-gtk-module`; a running GTK3 app
-      repaints to the new palette without relaunch — verified by hand on the
-      `arch-combined` VM.
-- [ ] The toggle returns `gtk-theme` to `adw-gtk3-dark` and produces no visible
-      flash / no lingering wrong theme name (tune the exact toggle on the VM).
+- [ ] On a color-file change the bridge performs a `gsettings` `gtk-theme`
+      read-toggle-restore: read the current name, set a transient alternate, then
+      restore the original — never hardcoding `adw-gtk3-dark` (which would
+      override Noctalia's light-mode choice).
 - [ ] No new persistent write Plasma reads-and-does-not-reset: the toggle touches
       only shared theme-name/dconf that `kde-gtk-config` reasserts to Breeze on
       Plasma login — Plasma stays deterministically Breeze on a combined box.
-- [ ] GTK4 palette repaint is explicitly NOT attempted; dark/light on GTK4 keeps
-      following live via libadwaita's own portal subscription.
+- [ ] Docs state GTK palette is relaunch-only on native Wayland (ADR 0116 /
+      spec / `CONTEXT.md`); no brittle app-restart hack is attempted.
+- [ ] Dark/light on libadwaita keeps following live via the portal (unchanged).

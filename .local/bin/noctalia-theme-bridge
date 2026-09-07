@@ -18,7 +18,6 @@ set -eu
 
 cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
 qt_conf="$cfg/qt6ct/qt6ct.conf"
-gtk_theme="adw-gtk3-dark"
 
 # Parent dirs of Noctalia's generated color files. Watch the DIRS (not the
 # files) so an atomic write-then-rename is still caught; --include (below) keeps
@@ -30,12 +29,25 @@ done
 
 nudge() {
 	if [ -f "$qt_conf" ]; then
-		touch "$qt_conf"
+		# qt6ct watches its config DIRECTORY, so a bare mtime touch does NOT fire
+		# it — an atomic rename INTO the dir does. Rewrite qt6ct.conf in place so
+		# running Qt apps re-run applySettings() and repaint (verified on VM).
+		cp -p "$qt_conf" "$qt_conf.bridge.tmp" \
+			&& mv -f "$qt_conf.bridge.tmp" "$qt_conf"
 	fi
+	# GTK3: kde-gtk-config's colorreload-gtk-module fires on a gtk-theme NAME
+	# change, not a noctalia.css rewrite (the name is unchanged on a palette
+	# swap). Toggle to a transient name and RESTORE Noctalia's own choice, so a
+	# running GTK3 app re-reads gtk.css/noctalia.css without us overriding the
+	# mode/theme Noctalia set. GTK4/libadwaita ignores the name (relaunch-only).
 	if command -v gsettings >/dev/null 2>&1; then
-		gsettings set org.gnome.desktop.interface gtk-theme '' 2>/dev/null || true
-		gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" \
-			2>/dev/null || true
+		local key=org.gnome.desktop.interface cur alt=Adwaita
+		cur="$(gsettings get "$key" gtk-theme 2>/dev/null | tr -d \")"
+		if [ -n "$cur" ]; then
+			[ "$cur" = "$alt" ] && alt=Default
+			gsettings set "$key" gtk-theme "$alt" 2>/dev/null || true
+			gsettings set "$key" gtk-theme "$cur" 2>/dev/null || true
+		fi
 	fi
 }
 

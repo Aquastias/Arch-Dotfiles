@@ -1143,13 +1143,16 @@ makes *already-running* apps repaint on a mid-session theme change instead of
 only on relaunch. A long-lived compositor-session process
 (`~/.local/bin/noctalia-theme-bridge`, launched from the niri/Hyprland autostart
 beside `noctalia --daemon`) `inotifywait`s Noctalia's generated color files and,
-on each write, nudges each toolkit to re-read: **Qt6** via `touch qt6ct.conf`
-(the qt6ct dir-watcher misses writes into `colors/`), **GTK3** via a transient
-`gsettings` `gtk-theme` toggle (to fire `kde-gtk-config`'s
-`colorreload-gtk-module`, which a palette change alone does not — the theme name
-stays `adw-gtk3-dark`). **GTK4/libadwaita** is **relaunch-only** for palette
-colors (`gtk.css` is load-once; mode still follows live); **KColorScheme** apps
-on pure boxes repaint for free via the `KGlobalSettings` D-Bus notify.
+on each write, nudges each toolkit to re-read. **Qt6** via an **atomic rewrite**
+of `qt6ct.conf` (qt6ct watches its config *dir*, so a bare `touch` does not fire
+it — a rename in place does; VM-verified live across three palettes + dark/light).
+**GTK (3 and 4)** palette is **relaunch-only on native Wayland**: the palette is
+in the load-once user `gtk.css`, and `kde-gtk-config`'s `colorreload-gtk-module`
+is an X11 path inert under Wayland — so a transient `gtk-theme`
+read-toggle-restore is kept only as a **best-effort** nudge (repaints XWayland/X11
+GTK apps; preserves Noctalia's own theme name). Dark/light still follows live for
+libadwaita. **KColorScheme** apps on pure boxes repaint for free via the
+`KGlobalSettings` D-Bus notify.
 Ships **fleet-wide** (`inotify-tools` in the preset, seeded **and** stowed like
 ADR 0108) but is **isolated by confinement, not exclusion**: it writes only
 compositor-private `qt6ct.conf` + shared theme-name that `kde-gtk-config` resets

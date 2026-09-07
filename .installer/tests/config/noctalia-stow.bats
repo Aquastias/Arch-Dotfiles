@@ -186,14 +186,15 @@ setup() {
 
 # Live Theme Bridge (ADR 0116): the runtime half of the App Theming Bridge —
 # watches Noctalia's generated color files and nudges each toolkit to re-read so
-# RUNNING apps repaint. Qt6 by touching the watched qt6ct.conf; GTK3 by a
-# gtk-theme toggle that fires kde-gtk-config's colorreload-gtk-module.
-@test "the Live Theme Bridge is executable and nudges Qt6 + GTK3 (ADR 0116)" {
+# RUNNING apps repaint. Qt6 by an atomic rewrite of qt6ct.conf (its dir-watcher
+# misses a bare mtime touch); GTK by a best-effort gtk-theme toggle (X11-only —
+# palette is relaunch-only on native Wayland, ADR 0116).
+@test "the Live Theme Bridge is executable and nudges Qt6 + GTK (ADR 0116)" {
   [ -x "$BRIDGE" ]
   grep -q 'inotifywait' "$BRIDGE"                 # watches the generated files
   grep -q "noctalia" "$BRIDGE"                    # filtered to Noctalia's output
-  grep -q 'qt6ct.conf' "$BRIDGE"                  # Qt6 nudge: touch the conf
-  grep -q 'gtk-theme' "$BRIDGE"                   # GTK3 nudge: colorreload toggle
+  grep -q 'qt6ct.conf' "$BRIDGE"                  # Qt6 nudge: rewrite the conf
+  grep -q 'gtk-theme' "$BRIDGE"                   # GTK best-effort toggle
 }
 
 @test "both compositors autostart the Live Theme Bridge (ADR 0116)" {
