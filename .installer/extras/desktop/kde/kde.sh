@@ -109,6 +109,14 @@ if [[ "$do_shell" == "true" ]]; then
     warn "No captured skel at ${KDE_SKEL_SRC}/.config — seeding first-run only."
   fi
 
+  # Avatar (ADR 0121): seed the operator's avatar as ~/.face so useradd -m copies
+  # it into each home; create-user.sh points the Primary User's AccountsService
+  # record at it. Not a .config file, so copied on its own (binary-safe cat).
+  if [[ -f "${KDE_SKEL_SRC}/.face" ]]; then
+    _seed_write etc/skel/.face < "${KDE_SKEL_SRC}/.face"
+    info "Seeded avatar (~/.face)."
+  fi
+
   # GTK/X cursor: Bibata Modern Ice via ~/.icons/default (ADR 0098). KDE apps
   # follow the captured kcminputrc; this covers non-KDE toolkits, which read
   # ~/.icons/default, not kcminputrc.

@@ -157,3 +157,54 @@ _run_create_user() {
   [ "$status" -eq 0 ]
   grep -q "alice:alice" "$TEST_DIR/chown_calls"
 }
+
+# ── #07: Primary User display name → GECOS (ADR 0121) ───────────────────────
+
+@test "USER_FULLNAME adds useradd -c for a new user" {
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/useradd_calls"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/useradd"
+  chmod +x "$TEST_DIR/bin/useradd"
+  USER_FULLNAME="Alex" run _run_create_user "alice" "/bin/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  grep -q -- "-c Alex" "$TEST_DIR/useradd_calls"
+}
+
+@test "no USER_FULLNAME means no -c (non-primary user)" {
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/useradd_calls"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/useradd"
+  chmod +x "$TEST_DIR/bin/useradd"
+  run _run_create_user "bob" "/bin/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  ! grep -q -- "-c" "$TEST_DIR/useradd_calls"
+}
+
+@test "USER_FULLNAME sets -c via usermod for an existing user" {
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TEST_DIR/bin/id"  # user exists
+  chmod +x "$TEST_DIR/bin/id"
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s/usermod_calls"\n' "$TEST_DIR" \
+    > "$TEST_DIR/bin/usermod"
+  chmod +x "$TEST_DIR/bin/usermod"
+  USER_FULLNAME="Alex" run _run_create_user "alice" "/bin/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  grep -q -- "-c Alex" "$TEST_DIR/usermod_calls"
+}
+
+@test "Primary User avatar: AccountsService record written when ~/.face exists" {
+  mkdir -p "$TEST_DIR/home/alice"
+  printf 'PNGDATA' > "$TEST_DIR/home/alice/.face"
+  export ACCOUNTSSERVICE_DIR="$TEST_DIR/asvc"
+  USER_FULLNAME="Alex" run _run_create_user "alice" "/bin/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  [ -f "$TEST_DIR/asvc/users/alice" ]
+  [ -f "$TEST_DIR/asvc/icons/alice" ]
+  grep -q "Icon=$TEST_DIR/asvc/icons/alice" "$TEST_DIR/asvc/users/alice"
+}
+
+@test "no avatar record for a non-primary user (no USER_FULLNAME)" {
+  mkdir -p "$TEST_DIR/home/bob"
+  printf 'PNGDATA' > "$TEST_DIR/home/bob/.face"
+  export ACCOUNTSSERVICE_DIR="$TEST_DIR/asvc"
+  run _run_create_user "bob" "/bin/bash" "" "pw"
+  [ "$status" -eq 0 ]
+  [ ! -e "$TEST_DIR/asvc/users/bob" ]
+}

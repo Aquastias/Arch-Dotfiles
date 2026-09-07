@@ -53,6 +53,10 @@ _INSTALL_CONFIG_SCHEMA=(
   "age_key_url|.options.age_key_url|scalar|"
   "hostname|.system.hostname|scalar|"
   "timezone|.system.timezone|scalar|UTC"
+  # Primary User display name → GECOS via useradd -c (ADR 0121). Default "Alex"
+  # (the operator's), applied to the Primary User only by the Runner; an
+  # explicit value overrides. Not a per-user schema — that is out of scope.
+  "fullname|.system.fullname|scalar|Alex"
   # Console font (ADR 0076) — the Locales console-font leaf, written as FONT= in
   # /etc/vconsole.conf. default8x16 is always present (kbd ∈ base).
   "console_font|.system.console_font|scalar|default8x16"

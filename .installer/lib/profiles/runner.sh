@@ -231,7 +231,7 @@ _profiles_resolve_user_secrets() {
 }
 
 _profiles_create_user() {
-  local name="$1" json="$2"
+  local name="$1" json="$2" fullname="${3:-}"
   local shell sudo_flag groups_csv
   shell="$(printf '%s' "$json" | jq -r '.shell // "/bin/bash"')"
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
@@ -240,7 +240,14 @@ _profiles_create_user() {
        "(shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
   local sec_path
   sec_path="$(_profiles_resolve_user_secrets "$name")"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash /root/lib-chroot/create-user.sh \
+  # Primary User display name → GECOS (ADR 0121). Passed as a chroot env var
+  # (arch-chroot strips the host env, and adding a positional arg would collide
+  # with the optional secrets path); create-user.sh reads USER_FULLNAME. An
+  # array so a name with spaces stays one token; empty ⇒ no env prefix.
+  local -a env_pfx=()
+  [[ -n "$fullname" ]] && env_pfx=(env "USER_FULLNAME=$fullname")
+  arch-chroot "$MOUNT_ROOT" "${env_pfx[@]}" \
+    /usr/bin/bash /root/lib-chroot/create-user.sh \
     "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" \
     ${sec_path:+"$sec_path"}
 }
@@ -709,9 +716,18 @@ run_profiles() {
   _profiles_stage_runtime
   validate_staging "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
 
+  # The Primary User (first in the list) gets the display name; the rest do not
+  # (ADR 0121 — avatar/name is scoped to the Primary User).
+  local _primary_fullname _uidx=0
+  _primary_fullname="$(install_config_fullname)"
   for u in "${users[@]}"; do
-    _profiles_create_user "$u" "${USER_JSONS[$u]}"
+    if [[ $_uidx -eq 0 ]]; then
+      _profiles_create_user "$u" "${USER_JSONS[$u]}" "$_primary_fullname"
+    else
+      _profiles_create_user "$u" "${USER_JSONS[$u]}"
+    fi
     _profiles_write_authorized_keys "$u" "${USER_JSONS[$u]}"
+    _uidx=$((_uidx + 1))
   done
 
   local prog

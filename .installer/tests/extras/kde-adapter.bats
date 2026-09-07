@@ -154,6 +154,19 @@ JSON
   done
 }
 
+@test "avatar seed lands the vendored ~/.face in skel (ADR 0121)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local face="$TEST_DIR/seed/etc/skel/.face"
+  [ -f "$face" ]
+  # binary-safe copy: byte-identical to the vendored avatar
+  cmp -s "$face" \
+    "$BATS_TEST_DIRNAME/../../extras/desktop/kde/skel/.face"
+}
+
 @test "captured kglobalshortcutsrc binds Window Close to Meta+X (ADR 0113)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}

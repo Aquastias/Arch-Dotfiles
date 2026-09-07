@@ -9,6 +9,9 @@ chroot_err_trap "create-user"
 
 NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
 SECRETS_FILE="${5:-}"
+# Primary User display name → GECOS (ADR 0121). Passed by the Runner as an env
+# var for the Primary User only; empty for everyone else, and no -c is added.
+FULLNAME="${USER_FULLNAME:-}"
 
 # Groups like docker/libvirt/kvm are created by their packages, installed
 # later.  Filter to only groups that currently exist; the remainder are
@@ -34,14 +37,19 @@ ensure_login_shell_installed "$LOGIN_SHELL"
 
 PRESENT="$(filter_existing_groups "$GROUPS_CSV")"
 
+# GECOS comment arg, only when a display name was given (Primary User).
+_cflag=()
+[[ -n "$FULLNAME" ]] && _cflag=(-c "$FULLNAME")
+
 if id "$NAME" &>/dev/null; then
   usermod -s "$LOGIN_SHELL" "$NAME"
   [[ -n "$PRESENT" ]] && usermod -G "$PRESENT" "$NAME"
+  [[ -n "$FULLNAME" ]] && usermod -c "$FULLNAME" "$NAME"
 else
   if [[ -n "$PRESENT" ]]; then
-    useradd -m -s "$LOGIN_SHELL" -G "$PRESENT" "$NAME"
+    useradd -m -s "$LOGIN_SHELL" -G "$PRESENT" "${_cflag[@]}" "$NAME"
   else
-    useradd -m -s "$LOGIN_SHELL" "$NAME"
+    useradd -m -s "$LOGIN_SHELL" "${_cflag[@]}" "$NAME"
   fi
 fi
 
@@ -68,3 +76,23 @@ if [[ -n "$SECRETS_FILE" && -f "$SECRETS_FILE" ]]; then
 fi
 
 printf '%s:%s\n' "$NAME" "$PASSWORD" | chpasswd
+
+# Primary User avatar → AccountsService (ADR 0121). The KDE adapter seeds the
+# avatar into /etc/skel/.face, so useradd -m has already copied it into the home
+# above; point KDE's AccountsService record at it so the greeter/session show it.
+# Primary User only (FULLNAME is the Runner's primary signal); a no-op when no
+# avatar was seeded (non-KDE install).
+if [[ -n "$FULLNAME" ]]; then
+  _home="${HOME_BASE:-/home}/$NAME"
+  _asvc="${ACCOUNTSSERVICE_DIR:-/var/lib/AccountsService}"
+  if [[ -f "$_home/.face" ]]; then
+    mkdir -p "$_asvc/users" "$_asvc/icons"
+    cp "$_home/.face" "$_asvc/icons/$NAME"
+    cat > "$_asvc/users/$NAME" <<EOF
+[User]
+Session=
+Icon=$_asvc/icons/$NAME
+SystemAccount=false
+EOF
+  fi
+fi
