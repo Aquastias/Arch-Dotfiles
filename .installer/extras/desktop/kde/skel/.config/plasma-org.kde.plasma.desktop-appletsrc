@@ -173,6 +173,10 @@ plugin=org.kde.plasma.activitypager
 DialogHeight=630
 DialogWidth=810
 
+[Containments][2][Applets][52][Configuration][General]
+displayedText=Name
+pagerLayout=Horizontal
+
 [Containments][2][Applets][55]
 immutability=1
 plugin=org.kde.weatherWidget-3

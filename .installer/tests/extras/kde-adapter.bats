@@ -204,6 +204,18 @@ JSON
   grep -q "layoutType=Compact" "$a"           # operator's compact layout
 }
 
+@test "captured Activity Pager carries the operator's settings (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local a="$TEST_DIR/seed/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
+  grep -q "plugin=org.kde.plasma.activitypager" "$a"   # pager present at all
+  grep -q "displayedText=Name" "$a"
+  grep -q "pagerLayout=Horizontal" "$a"
+}
+
 @test "captured Total CPU Use widget renders as a pie chart (ADR 0120)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
