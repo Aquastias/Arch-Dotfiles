@@ -133,6 +133,16 @@ install_config_encryption_enabled() {
   install_config_get encryption_enabled
 }
 
+# Timezone is resolved, not read raw (ADR 0118): an explicit/guided value wins,
+# else geo-IP autodetect, else Europe/Bucharest. The schema row above still
+# declares the field (and its raw UTC default for install_config_get); this
+# OVERRIDES the generated wrapper so the single persist call site autodetects.
+# The Timezone resolver is sourced by 03-install before persist; tests that stub
+# install_config_timezone override this in turn (last definition wins).
+install_config_timezone() {
+  timezone_resolve "$(cfgo .)"
+}
+
 # =============================================================================
 # Hand-written specials — kept verbatim because each breaks the schema mould.
 # =============================================================================
