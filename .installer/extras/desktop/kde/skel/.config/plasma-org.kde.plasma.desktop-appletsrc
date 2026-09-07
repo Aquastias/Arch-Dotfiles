@@ -4,29 +4,6 @@ RightButton;NoModifier=org.kde.contextmenu
 [ActionPlugins][1]
 RightButton;NoModifier=org.kde.contextmenu
 
-[Containments][1]
-ItemGeometries-1280x800=
-ItemGeometries-1920x1080=
-ItemGeometriesHorizontal=
-activityId=eb97a6c4-20ce-4ca5-8e0a-69b041bdf695
-formfactor=0
-immutability=1
-lastScreen=0
-location=0
-plugin=org.kde.plasma.folder
-wallpaperplugin=org.kde.image
-
-[Containments][1][ConfigDialog]
-DialogHeight=630
-DialogWidth=810
-
-[Containments][1][General]
-iconSize=2
-
-[Containments][1][Wallpaper][org.kde.image][General]
-Image=file:///usr/share/wallpapers/Horos/
-SlidePaths=/usr/share/wallpapers/
-
 [Containments][2]
 activityId=
 formfactor=2
@@ -48,11 +25,12 @@ popupWidth=810
 autoFontAndSize=false
 dateDisplayFormat=BesideTime
 dateFormat=longDate
-enabledCalendarPlugins=astronomicalevents,holidaysevents
+enabledCalendarPlugins=a,s,t,r,o,n,o,m,i,c,a,l,e,v,e,n,t,s,h,o,l,i,d,a,y,s,e,v,e,n,t,s,
 fontFamily=Noto Sans
 fontSize=7
 fontStyleName=Regular
 fontWeight=400
+showLocalTimezone=true
 showSeconds=Always
 showWeekNumbers=true
 
@@ -63,19 +41,6 @@ DialogWidth=810
 [Containments][2][Applets][24]
 immutability=1
 plugin=org.kde.plasma.showdesktop
-
-[Containments][2][Applets][29]
-immutability=1
-plugin=org.kde.plasma.activitypager
-
-[Containments][2][Applets][29][Configuration][ConfigDialog]
-DialogHeight=630
-DialogWidth=810
-
-[Containments][2][Applets][29][Configuration][General]
-currentDesktopSelected=ShowDesktop
-displayedText=Name
-pagerLayout=Horizontal
 
 [Containments][2][Applets][3]
 immutability=1
@@ -91,8 +56,8 @@ DialogWidth=810
 
 [Containments][2][Applets][3][Configuration][General]
 compactMode=true
-favoritesPortedToKAstats=false
 favorites=org.kde.kontact.desktop\\,applications:systemsettings.desktop\\,applications:org.kde.dolphin.desktop\\,applications:org.kde.discover.desktop\\,applications:octopi.desktop\\,applications:zen.desktop\\,applications:org.kde.sweeper.desktop\\,applications:org.kde.kfind.desktop\\,applications:org.kde.krename.desktop\\,applications:discord.desktop
+favoritesPortedToKAstats=false
 icon=org.kde.archUpdate
 switchCategoryOnHover=true
 systemFavorites=suspend\\,hibernate\\,reboot\\,shutdown
@@ -200,6 +165,31 @@ highPrioritySensorIds=["cpu/all/usage"]
 lowPrioritySensorIds=["cpu/all/cpuCount","cpu/all/coreCount"]
 totalSensors=["cpu/all/usage"]
 
+[Containments][2][Applets][52]
+immutability=1
+plugin=org.kde.plasma.activitypager
+
+[Containments][2][Applets][52][Configuration][ConfigDialog]
+DialogHeight=630
+DialogWidth=810
+
+[Containments][2][Applets][55]
+immutability=1
+plugin=org.kde.plasma.weather
+
+[Containments][2][Applets][55][Configuration]
+popupHeight=400
+popupWidth=560
+
+[Containments][2][Applets][55][Configuration][ConfigDialog]
+DialogHeight=630
+DialogWidth=810
+
+[Containments][2][Applets][55][Configuration][WeatherStation]
+placeDisplayName=Sibiu, Romania, RO
+placeInfo=Sibiu, Romania, RO|667268
+provider=bbcukmet
+
 [Containments][2][Applets][6]
 immutability=1
 plugin=org.kde.plasma.marginsseparator
@@ -291,10 +281,13 @@ extraItems=org.kde.plasma.vault,org.kde.kdeconnect,org.kde.plasma.notifications,
 knownItems=org.kde.plasma.vault,org.kde.kdeconnect,org.kde.plasma.notifications,org.kde.plasma.printmanager,org.kde.kscreen,org.kde.plasma.manage-inputmethod,org.kde.plasma.brightness,org.kde.merkuro.contact.applet,org.kde.plasma.bluetooth,org.kde.plasma.battery,org.kde.plasma.volume,org.kde.plasma.networkmanagement,org.kde.plasma.cameraindicator,org.kde.plasma.keyboardlayout,org.kde.plasma.keyboardindicator,org.kde.plasma.weather,org.kde.plasma.clipboard,org.kde.plasma.devicenotifier,org.kde.plasma.mediacontroller
 
 [Containments][2][General]
-AppletOrder=3;29;4;5;6;7;31;32;34;41;49;50;23;24
+AppletOrder=3;52;4;5;6;7;31;32;34;41;55;49;50;23;24
 
-[Containments][30]
-activityId=a000de01-2921-43eb-97dc-2f4dc92191cf
+[Containments][51]
+ItemGeometries-1280x800=
+ItemGeometries-1920x1080=
+ItemGeometriesHorizontal=
+activityId=061c3ccc-9512-4bf9-83d0-0e9d9a9daed7
 formfactor=0
 immutability=1
 lastScreen=0
@@ -302,16 +295,34 @@ location=0
 plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
-[Containments][30][ConfigDialog]
+[Containments][51][ConfigDialog]
 DialogHeight=630
 DialogWidth=810
 
-[Containments][30][General]
-iconSize=2
-
-[Containments][30][Wallpaper][org.kde.image][General]
-Image=file:///usr/share/wallpapers/Air/
+[Containments][51][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/Horos/
 SlidePaths=/usr/share/wallpapers/
+
+[Containments][53]
+activityId=d71c2b09-8d5a-4ce1-aa4f-d868d82a0073
+formfactor=0
+immutability=1
+lastScreen=0
+location=0
+plugin=org.kde.plasma.folder
+wallpaperplugin=org.kde.image
+
+[Containments][53][ConfigDialog]
+DialogHeight=630
+DialogWidth=810
+
+[Containments][53][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/Horos/
+SlidePaths=/usr/share/wallpapers/
+
+[Containments2Appletsts][52][Configuration][General]
+displayedText=Name
+pagerLayout=Horizontal
 
 [ScreenMapping]
 itemsOnDisabledScreens=

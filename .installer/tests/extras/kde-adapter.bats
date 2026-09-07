@@ -149,9 +149,44 @@ JSON
   for f in kdeglobals kwinrc plasmarc plasmashellrc \
     plasma-org.kde.plasma.desktop-appletsrc kglobalshortcutsrc kcminputrc \
     klipperrc kscreenlockerrc ksmserverrc dolphinrc konsolerc \
-    plasma-localerc; do
+    plasma-localerc \
+    kactivitymanagerdrc kactivitymanagerd-statsrc powerdevilrc \
+    mimeapps.list kwinrulesrc; do
     [ -f "$d/$f" ] || { echo "captured file missing: $f"; return 1; }
   done
+}
+
+@test "captured kwinrc pins night light to Location + coords (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local kw="$TEST_DIR/seed/etc/skel/.config/kwinrc"
+  grep -q "Mode=Location"     "$kw"
+  grep -q "LatitudeFixed=45"  "$kw"
+  grep -q "LongitudeFixed=24" "$kw"
+}
+
+@test "captured mimeapps makes VLC the default video handler (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -q "video/mp4=vlc.desktop" \
+    "$TEST_DIR/seed/etc/skel/.config/mimeapps.list"
+}
+
+@test "captured activities seed Default and Dev (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local ka="$TEST_DIR/seed/etc/skel/.config/kactivitymanagerdrc"
+  grep -q "=Default" "$ka"
+  grep -q "=Dev"     "$ka"
 }
 
 @test "avatar seed lands the vendored ~/.face in skel (ADR 0121)" {

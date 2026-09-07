@@ -1,0 +1,11 @@
+[activities]
+061c3ccc-9512-4bf9-83d0-0e9d9a9daed7=Default
+d71c2b09-8d5a-4ce1-aa4f-d868d82a0073=Dev
+
+[activities-descriptions]
+061c3ccc-9512-4bf9-83d0-0e9d9a9daed7=General stuff
+d71c2b09-8d5a-4ce1-aa4f-d868d82a0073=Development stuff
+
+[activities-icons]
+061c3ccc-9512-4bf9-83d0-0e9d9a9daed7=qjoypad
+d71c2b09-8d5a-4ce1-aa4f-d868d82a0073=builder-symbolic
