@@ -24,6 +24,7 @@ install_state_load "$STATE"
 _bl_src kernel.sh         ../packages/kernel.sh
 _bl_src microcode.sh      ../packages/microcode.sh
 _bl_src zswap.sh          ../boot/zswap.sh
+_bl_src vm-video.sh       ../boot/vm-video.sh
 _bl_src loader-entries.sh ../boot/loader-entries.sh
 
 ESP="/boot/efi"
@@ -45,7 +46,15 @@ MICROCODE_IMGS="${MICROCODE_IMGS% }"
 # root= cmdline + rw + optional zswap fragment; desktop installs boot quietly so
 # the greeter VT stays clean (fallback entries stay verbose).
 ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
-DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}"
+# VM Full-HD floor (ADR 0119): pin a video= mode when installing inside a VM so
+# the guest's virtual panel does not come up sub-FHD. Bare metal emits nothing —
+# resolution stays autodetected (ADR 0110). systemd-detect-virt exits non-zero
+# and prints nothing on bare metal; `|| echo none` normalises that to the empty
+# fragment. Applied to every entry (default + fallback) so recovery is FHD too.
+VM_VIDEO_CMDLINE="$(vm_video_cmdline_params \
+  "$(systemd-detect-virt 2>/dev/null || echo none)")"
+DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}\
+${VM_VIDEO_CMDLINE:+ ${VM_VIDEO_CMDLINE}}"
 QUIET_CMDLINE=""
 [[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
   && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"

@@ -47,6 +47,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
   "lib/boot/stray-kernel.sh|stray-kernel.sh"
   "lib/boot/zswap.sh|zswap.sh"
+  "lib/boot/vm-video.sh|vm-video.sh"
   "lib/zfs/verify.sh|verify.sh"
   "lib/impermanence-common.sh|impermanence-common.sh"
   "lib/grub-common.sh|grub-common.sh"
