@@ -23,6 +23,16 @@ _LOCALE_PARTS_SH="$_LIB_DIR/locale-parts.sh"
 source "$_LOCALE_PARTS_SH"
 
 # ── Timezone ──────────────────────────────────────────────────────────────────
+# Never symlink /etc/localtime to a missing/empty zone: an empty $TIMEZONE would
+# point it at the zoneinfo DIRECTORY (clock reads UTC/n/a). The resolver already
+# falls back to Europe/Bucharest (ADR 0118), but guard here too so a degraded
+# resolution (e.g. a subshell that failed to fork under memory pressure) can
+# never leave a broken clock on the installed system.
+if [[ -z "${TIMEZONE:-}" || ! -f "/usr/share/zoneinfo/${TIMEZONE}" ]]; then
+  echo "[identity] WARN: timezone '${TIMEZONE:-}' empty/invalid —" \
+       "defaulting to Europe/Bucharest" >&2
+  TIMEZONE="Europe/Bucharest"
+fi
 ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
 hwclock --systohc
 echo "Timezone set: $TIMEZONE"
