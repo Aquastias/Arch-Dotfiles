@@ -292,6 +292,13 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   diff <(printf '%s\n' "$expected") <(printf '%s\n' "$got")
 }
 
+@test "kde-shell set includes the packaged weather widget (ADR 0120)" {
+  local shell
+  shell="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' kde-shell)"
+  grep -qx "plasma-applets-weather-widget-3" <<<"$shell" \
+    || { echo "kde-shell missing plasma-applets-weather-widget-3"; return 1; }
+}
+
 @test "kde extra-apps set includes orca and vlc (ADR 0120)" {
   local apps
   apps="$(pkgs_of '{"users":[],"environment":{"desktop":["kde"]}}' \

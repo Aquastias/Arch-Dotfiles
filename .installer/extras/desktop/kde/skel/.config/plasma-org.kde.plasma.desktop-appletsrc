@@ -175,7 +175,7 @@ DialogWidth=810
 
 [Containments][2][Applets][55]
 immutability=1
-plugin=org.kde.plasma.weather
+plugin=org.kde.weatherWidget-3
 
 [Containments][2][Applets][55][Configuration]
 popupHeight=400
@@ -185,10 +185,10 @@ popupWidth=560
 DialogHeight=630
 DialogWidth=810
 
-[Containments][2][Applets][55][Configuration][WeatherStation]
-placeDisplayName=Sibiu, Romania, RO
-placeInfo=Sibiu, Romania, RO|667268
-provider=bbcukmet
+[Containments][2][Applets][55][Configuration][General]
+firstRun=false
+placeIndex=0
+places=[{"providerId":"metno","placeIdentifier":"lat=45.10&lon=24.37&altitude=240","placeAlias":"Râmnicu Vâlcea","timezoneID":"Europe/Bucharest"}]
 
 [Containments][2][Applets][6]
 immutability=1

@@ -189,6 +189,20 @@ JSON
   grep -q "=Dev"     "$ka"
 }
 
+@test "panel weather widget targets Ramnicu Valcea via met.no (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local a="$TEST_DIR/seed/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
+  # the coordinate-capable widget replaced the stock plasmoid in the same slot
+  grep -q "plugin=org.kde.weatherWidget-3" "$a"
+  ! grep -q "provider=bbcukmet" "$a"          # stock Sibiu config gone
+  grep -q '"providerId":"metno"' "$a"
+  grep -q 'lat=45.10&lon=24.37' "$a"
+}
+
 @test "avatar seed lands the vendored ~/.face in skel (ADR 0121)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}

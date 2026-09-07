@@ -29,7 +29,11 @@
     "integration": {
       "sddm-kcm": true,
       "print-manager": true,
-      "xdg-utils": true
+      "xdg-utils": true,
+      // The panel weather widget (ADR 0120): a coordinate-capable plasmoid from
+      // the official repos (met.no, keyless), required by the seeded panel
+      // layout so applet 55 resolves instead of showing a missing-widget box.
+      "plasma-applets-weather-widget-3": true
     },
     "theming": {
       "papirus-icon-theme": true,
