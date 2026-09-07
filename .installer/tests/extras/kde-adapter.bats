@@ -204,6 +204,17 @@ JSON
   grep -q "layoutType=Compact" "$a"           # operator's compact layout
 }
 
+@test "captured Total CPU Use widget renders as a pie chart (ADR 0120)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local a="$TEST_DIR/seed/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
+  grep -q "chartFace=org.kde.ksysguard.piechart" "$a"
+  ! grep -q "chartFace=org.kde.ksysguard.barchart" "$a"
+}
+
 @test "avatar seed lands the vendored ~/.face in skel (ADR 0121)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}

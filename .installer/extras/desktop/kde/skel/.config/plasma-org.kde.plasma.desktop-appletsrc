@@ -150,7 +150,7 @@ popupHeight=400
 popupWidth=560
 
 [Containments][2][Applets][50][Configuration][Appearance]
-chartFace=org.kde.ksysguard.barchart
+chartFace=org.kde.ksysguard.piechart
 title=Total CPU Use
 
 [Containments][2][Applets][50][Configuration][ConfigDialog]
