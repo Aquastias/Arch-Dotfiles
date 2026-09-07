@@ -209,6 +209,24 @@ OnlyShowIn=KDE;
 NoDisplay=true
 EOF
     info "Seeded combined-box GTK Breeze reset (ADR 0116)."
+
+    # Combined-box Qt platform-theme un-leak (ADR 0122): niri/Hyprland set
+    # QT_QPA_PLATFORMTHEME=qt6ct per-compositor (ADR 0102) and the compositor
+    # exports it into the shared systemd --user / D-Bus activation env, which
+    # OUTLIVES the compositor session. A same-boot login to Plasma then inherits
+    # it, so Qt/Kirigami KDE apps (e.g. System Settings) render Noctalia's qt6ct
+    # palette instead of Breeze. A Plasma env script (sourced by startplasma
+    # before plasmashell) strips it so Plasma falls back to plasma-integration
+    # (Breeze). A no-op on a fresh KDE boot (var unset). ONLY on a combined box.
+    _seed_write etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh <<'EOF'
+# Combined box (ADR 0122): a prior niri/Hyprland session on this boot exported
+# QT_QPA_PLATFORMTHEME=qt6ct into the shared systemd --user / D-Bus activation
+# env, which outlives it. Strip it so Plasma uses plasma-integration (Breeze),
+# not Noctalia's qt6ct palette. Runs before plasmashell; no-op if unset.
+unset QT_QPA_PLATFORMTHEME
+systemctl --user unset-environment QT_QPA_PLATFORMTHEME 2>/dev/null || true
+EOF
+    info "Seeded combined-box Qt platform-theme un-leak (ADR 0122)."
   fi
 
   # Baloo file indexing ON so desktop search works from first login.

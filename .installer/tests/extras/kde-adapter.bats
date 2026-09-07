@@ -398,6 +398,34 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop" ]
 }
 
+# ADR 0122: on a COMBINED box the compositor exports QT_QPA_PLATFORMTHEME=qt6ct
+# into the shared systemd --user env, which leaks into a same-boot Plasma login;
+# seed a Plasma env script that strips it so KDE apps stay Breeze.
+@test "combined box seeds the Qt platform-theme un-leak env script (ADR 0122)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run env ENVIRONMENT_DESKTOP="kde hyprland" \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh"
+  grep -q 'unset QT_QPA_PLATFORMTHEME' "$f"
+  grep -q 'systemctl --user unset-environment QT_QPA_PLATFORMTHEME' "$f"
+}
+
+# On a PURE KDE box the un-leak script must NOT be seeded — there is no
+# compositor to export the var, so it would be dead payload.
+@test "pure KDE box does not seed the Qt platform-theme un-leak (ADR 0122)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run env ENVIRONMENT_DESKTOP="kde" \
+    bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  [ ! -f \
+    "$TEST_DIR/seed/etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh" ]
+}
+
 @test "Baloo indexing is left enabled" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
