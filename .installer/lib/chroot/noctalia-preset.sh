@@ -155,18 +155,18 @@ noctalia_preset_install() {
     install -Dm644 "${NOC_CURATED_DIR}/.config/noctalia/config.toml" \
       "${_skel}/.config/noctalia/config.toml"
     # kcolorscheme merges Noctalia's palette into the SHARED ~/.config/kdeglobals,
-    # which Plasma also reads — on a combined kde+compositor box that repaints the
-    # next Plasma session (ADR 0104). So the shared config.toml ships WITHOUT it
-    # (combined-safe), and we enable it here per-box ONLY on a pure compositor (no
-    # KDE co-installed): no Plasma to leak into, so KDE-framework apps (Dolphin/
-    # Gwenview/Kate) get the full KColorScheme palette (ADR 0108). The seeded
-    # config.toml thus differs by box class — the one narrow break from 0097's
-    # byte-identical rule, done on the seeded copy (one authored source stands).
-    if [[ " ${ENVIRONMENT_DESKTOP:-} " != *" kde "* ]]; then
-      sed -i '/^[[:space:]]*builtin_ids = \[/a\        "kcolorscheme",' \
-        "${_skel}/.config/noctalia/config.toml"
-      info "Pure compositor (no KDE): enabled kcolorscheme for KDE-app theming."
-    fi
+    # so KDE-framework apps (Dolphin/Gwenview/Kate) follow the shell palette under
+    # a compositor (ADR 0108). Enabled on EVERY Noctalia box now (ADR 0123),
+    # combined included: on a combined box `kde.sh` seeds a KDE-login "session
+    # reset" that reasserts BreezeDark, so the shared kdeglobals is a login-time
+    # tug-of-war that always lands Breeze under Plasma — the same pattern the GTK
+    # theme already uses (ADR 0116). Superseded reasoning: ADR 0104/0108 kept it
+    # off on combined boxes for lack of that reset. Injected into the SEEDED copy
+    # (not the committed config.toml) so a hand-stow without the installer's KDE
+    # reset never leaks; the injection and the reset ship together per install.
+    sed -i '/^[[:space:]]*builtin_ids = \[/a\        "kcolorscheme",' \
+      "${_skel}/.config/noctalia/config.toml"
+    info "Enabled kcolorscheme so KDE-framework apps follow Noctalia (ADR 0123)."
     install -d "${_skel}/.local/bin"
     install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* \
       "${_skel}/.local/bin/"

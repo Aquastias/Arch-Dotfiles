@@ -12,4 +12,11 @@ hl.on("hyprland.start", function()
     -- Apply the cursor to Hyprland's OWN pointer: env alone is unreliable for
     -- the compositor cursor, so setcursor is the wiki-recommended path (0098).
     hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 24")
+    -- Reassert the shared gsettings cursor into Bibata (ADR 0123): on a combined
+    -- box a KDE cursor change rewrites the SHARED gsettings cursor-theme, which a
+    -- GTK app here could otherwise inherit. XCURSOR env covers XWayland; this is
+    -- the GTK belt. No-op on a pure box (already Bibata).
+    hl.exec_cmd('sh -c "gsettings set org.gnome.desktop.interface cursor-theme '
+      .. 'Bibata-Modern-Ice; gsettings set org.gnome.desktop.interface '
+      .. 'cursor-size 24"')
 end)

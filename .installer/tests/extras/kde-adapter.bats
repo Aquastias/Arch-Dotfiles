@@ -370,24 +370,30 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/autostart/plasma-welcome.desktop"
 }
 
-# ADR 0116: on a COMBINED box (kde + a wlroots compositor) a Noctalia session
-# leaves the shared GTK theme non-Breeze and kde-gtk-config does not auto-reset
-# it, so seed a KDE-only autostart that reasserts Breeze on Plasma login.
-@test "combined box seeds the GTK Breeze reset autostart (ADR 0116)" {
+# ADR 0116/0123: on a COMBINED box (kde + a wlroots compositor) a Noctalia
+# session leaves the shared GTK theme, kdeglobals colours (kcolorscheme is on,
+# ADR 0123) and cursor non-Breeze, and Plasma does not self-reset them, so seed a
+# KDE-only autostart + helper that reasserts the Breeze look on Plasma login.
+@test "combined box seeds the KDE session reset (ADR 0116/0123)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
   KDE_SEED_ROOT="$TEST_DIR/seed" run env ENVIRONMENT_DESKTOP="kde niri" \
     bash "$ADAPTER"
   [ "$status" -eq 0 ]
-  local f="$TEST_DIR/seed/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop"
-  grep -q 'gtk-theme Breeze' "$f"
-  grep -q '^OnlyShowIn=KDE;' "$f"
+  local d="$TEST_DIR/seed/etc/skel/.config/autostart/kde-session-reset.desktop"
+  local h="$TEST_DIR/seed/usr/local/bin/kde-session-reset"
+  grep -q '^Exec=/usr/local/bin/kde-session-reset' "$d"
+  grep -q '^OnlyShowIn=KDE;' "$d"
+  [ -x "$h" ]
+  grep -q 'gtk-theme Breeze' "$h"
+  grep -q 'plasma-apply-colorscheme BreezeDark' "$h"
+  grep -q 'kreadconfig6 --file kcminputrc' "$h"   # cursor honours KDE choice
 }
 
 # On a PURE KDE box the reset must NOT be seeded — it would clobber the operator's
-# own GTK theme on every login.
-@test "pure KDE box does not seed the GTK Breeze reset (ADR 0116)" {
+# own look on every login.
+@test "pure KDE box does not seed the KDE session reset (ADR 0116/0123)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
@@ -395,7 +401,8 @@ JSON
     bash "$ADAPTER"
   [ "$status" -eq 0 ]
   [ ! -f \
-    "$TEST_DIR/seed/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop" ]
+    "$TEST_DIR/seed/etc/skel/.config/autostart/kde-session-reset.desktop" ]
+  [ ! -f "$TEST_DIR/seed/usr/local/bin/kde-session-reset" ]
 }
 
 # ADR 0122: on a COMBINED box the compositor exports QT_QPA_PLATFORMTHEME=qt6ct

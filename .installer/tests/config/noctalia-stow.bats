@@ -58,24 +58,23 @@ setup() {
   grep -q '^auto_update = "none"' "$CT"
 }
 
-# The kcolorscheme template merges its colors into ~/.config/kdeglobals — the
-# same file KDE owns. On a kde+compositor box that leak repaints the Plasma
-# session, so the SHARED config.toml ships WITHOUT it (combined-safe, ADR 0104).
-# ADR 0108 re-enables it per-box ONLY on a pure compositor via a preset injection
-# (next test); the committed shared file must still carry none.
-@test "config.toml drops the kcolorscheme template (ADR 0104/0108)" {
+# The kcolorscheme template merges its colors into ~/.config/kdeglobals. The
+# committed shared config.toml still ships WITHOUT it, so a hand-stow (no
+# installer) never leaks into Plasma; the preset injects it into the SEEDED copy,
+# shipped together with the combined-box KDE reset that makes it safe (ADR 0123).
+@test "config.toml drops the kcolorscheme template (ADR 0104/0123)" {
   ! grep -q 'kcolorscheme' "$CT"
 }
 
-# ADR 0108: on a pure compositor (no KDE co-installed) the preset injects the
-# kcolorscheme template into the SEEDED config.toml so KDE-framework apps
-# (Dolphin/Gwenview/Kate) get the full KColorScheme palette — safe there (no
-# Plasma to leak into). Gated on ENVIRONMENT_DESKTOP not containing kde.
-@test "preset injects kcolorscheme only on a pure compositor (ADR 0108)" {
-  grep -q 'ENVIRONMENT_DESKTOP' "$PRESET"
+# ADR 0123: the preset injects kcolorscheme into the SEEDED config.toml on EVERY
+# Noctalia box (combined included) so KDE-framework apps (Dolphin/Gwenview/Kate)
+# follow the shell palette. No longer gated on a KDE-free desktop set — on a
+# combined box kde.sh's KDE session reset reasserts BreezeDark under Plasma.
+@test "preset injects kcolorscheme unconditionally (ADR 0123)" {
   grep -q '"kcolorscheme",' "$PRESET"
-  # the injection is gated (the sed runs inside the no-kde branch)
   grep -q 'builtin_ids = ' "$PRESET"
+  # the injection is no longer gated behind a KDE-free desktop set
+  ! grep -qF '!= *" kde "*' "$PRESET"
 }
 
 # ── config.toml: host-bound / dead content excluded ──────────────────────────

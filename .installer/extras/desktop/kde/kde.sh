@@ -187,28 +187,43 @@ OnlyShowIn=KDE;
 NoDisplay=true
 EOF
 
-  # Combined-box GTK Breeze reset (ADR 0116): on a shared-$HOME box that also
-  # runs niri/Hyprland, a Noctalia compositor session leaves the shared gsettings
-  # gtk-theme at adw-gtk3-dark + a noctalia.css accent, and kde-gtk-config does
-  # NOT auto-reset it on Plasma login (VM-verified — disproves ADR 0104). Without
-  # this, GTK apps under Plasma inherit Noctalia's accent. A KDE-only autostart
-  # reasserts Breeze; the compositor side reasserts adw-gtk3-dark via Noctalia on
+  # Combined-box KDE session reset (ADR 0116/0123): on a shared-$HOME box that
+  # also runs niri/Hyprland, a Noctalia compositor session leaves the shared
+  # theme/cursor state Noctalia-colored — gsettings gtk-theme at adw-gtk3-dark
+  # (ADR 0116), and now that kcolorscheme is on fleet-wide (ADR 0123) the shared
+  # kdeglobals colored by Noctalia too, plus a possible cursor change. Plasma does
+  # NOT self-reset these on login (VM-verified). A KDE-only autostart reasserts
+  # the Breeze look; the compositor side reasserts its own state via Noctalia on
   # the next niri/Hyprland login, so the sessions stay symmetric. ONLY on a
-  # combined box — on pure KDE it would clobber the operator's own GTK theme every
-  # login. gsettings is inlined (the systemd XDG-autostart generator mangles a
-  # $HOME script path).
+  # combined box — on pure KDE it would clobber the operator's own look. The logic
+  # lives in a FIXED-path helper (/usr/local/bin), not a $HOME script the systemd
+  # XDG-autostart generator would mangle, and not an inline Exec (too complex to
+  # quote safely with the cursor read-back). plasma-apply-colorscheme's live
+  # KGlobalSettings notify repaints already-open KColorScheme apps; the cursor is
+  # read from kcminputrc so it honours the operator's KDE cursor, not a hardcode.
   _ed=" ${ENVIRONMENT_DESKTOP:-} "
   if [[ "$_ed" == *" niri "* || "$_ed" == *" hyprland "* ]]; then
-    _seed_write etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop <<'EOF'
+    _seed_write usr/local/bin/kde-session-reset <<'EOF'
+#!/bin/sh
+# Combined box (ADR 0116/0123): reassert KDE's Breeze look on Plasma login after
+# a niri/Hyprland session left the shared theme/cursor state Noctalia-colored.
+gsettings set org.gnome.desktop.interface gtk-theme Breeze
+gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+plasma-apply-colorscheme BreezeDark
+c=$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme)
+[ -n "$c" ] && gsettings set org.gnome.desktop.interface cursor-theme "$c"
+EOF
+    chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-session-reset"
+    _seed_write etc/skel/.config/autostart/kde-session-reset.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=Reset GTK to Breeze (KDE)
-Comment=Reset the shared GTK theme to Breeze on Plasma login (ADR 0116)
-Exec=sh -c "gsettings set org.gnome.desktop.interface gtk-theme Breeze; gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
+Name=KDE session reset (Breeze)
+Comment=Reassert Breeze theme + colours + cursor on Plasma login (ADR 0116/0123)
+Exec=/usr/local/bin/kde-session-reset
 OnlyShowIn=KDE;
 NoDisplay=true
 EOF
-    info "Seeded combined-box GTK Breeze reset (ADR 0116)."
+    info "Seeded combined-box KDE session reset (ADR 0116/0123)."
 
     # Combined-box Qt platform-theme un-leak (ADR 0122): niri/Hyprland set
     # QT_QPA_PLATFORMTHEME=qt6ct per-compositor (ADR 0102) and the compositor
