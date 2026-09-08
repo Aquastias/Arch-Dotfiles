@@ -189,6 +189,59 @@ JSON
   grep -q "=Dev"     "$ka"
 }
 
+# ── per-Activity Kickoff favorites (ADR 0126) ───────────────────────────────
+# Favorites are KActivities links (SQLite DB), not a .config key, so the adapter
+# seeds a run-once first-login helper that relinks them per Activity.
+
+@test "favorites helper + autostart seeded, linking per Activity (ADR 0126)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local h="$TEST_DIR/seed/usr/local/bin/kde-seed-favorites"
+  local a="$TEST_DIR/seed/etc/skel/.config/autostart/kde-seed-favorites.desktop"
+  [ -x "$h" ]
+  [ -f "$a" ]
+  grep -q "Exec=/usr/local/bin/kde-seed-favorites" "$a"
+  grep -q "OnlyShowIn=KDE" "$a"
+  # the launcher's own linking agent + the two Activity UUIDs + :global scope
+  grep -q "org.kde.plasma.favorites.applications" "$h"
+  grep -q "061c3ccc-9512-4bf9-83d0-0e9d9a9daed7" "$h"
+  grep -q "d71c2b09-8d5a-4ce1-aa4f-d868d82a0073" "$h"
+  grep -q ":global" "$h"
+  # a representative app per scope: global / Default / Dev
+  grep -q "virt-manager.desktop" "$h"
+  grep -q "steam.desktop"        "$h"
+  grep -q "org.kde.kate.desktop" "$h"
+  # run-once stamp guard
+  grep -q "kde-favorites-seeded" "$h"
+}
+
+@test "appletsrc marks favorites ported so legacy import can't race (ADR 0126)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local a="$TEST_DIR/seed/etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc"
+  grep -q "favoritesPortedToKAstats=true" "$a"
+}
+
+@test "statsrc ordering carries the per-Activity favorite sets (ADR 0126)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local s="$TEST_DIR/seed/etc/skel/.config/kactivitymanagerd-statsrc"
+  # Default ordering carries a Default-only app; Dev ordering a Dev-only app
+  grep -q "instance-3-061c3ccc-9512-4bf9-83d0-0e9d9a9daed7" "$s"
+  grep -q "instance-3-d71c2b09-8d5a-4ce1-aa4f-d868d82a0073" "$s"
+  grep -A1 "061c3ccc" "$s" | grep -q "applications:steam.desktop"
+  grep -A1 "d71c2b09" "$s" | grep -q "applications:codium.desktop"
+}
+
 @test "panel weather widget targets Ramnicu Valcea via met.no (ADR 0120)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
@@ -291,17 +344,17 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/kglobalshortcutsrc"
 }
 
-# Discord is a global (all-activities) kickoff favorite: the seeded kickoff is
-# file-backed (favoritesPortedToKAstats=false) so the favorites list imports to
-# KActivities globally on first login.
-@test "captured kickoff favorites are file-backed and include Discord" {
+# Favorites are no longer file-backed via the inline list (ADR 0126, superseding
+# the legacy import): the appletsrc is marked ported so Kickoff reads KActivities
+# links, and the inline favorites= carries only the :global set (Discord ∈ both).
+@test "kickoff appletsrc is ported; inline favorites is the global set (ADR 0126)" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}
 JSON
   KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
   [ "$status" -eq 0 ]
   local d="$TEST_DIR/seed/etc/skel/.config"
-  grep -q "^favoritesPortedToKAstats=false" \
+  grep -q "^favoritesPortedToKAstats=true" \
     "$d/plasma-org.kde.plasma.desktop-appletsrc"
   grep -q "^favorites=.*discord.desktop" \
     "$d/plasma-org.kde.plasma.desktop-appletsrc"

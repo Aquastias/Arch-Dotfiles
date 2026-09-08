@@ -187,6 +187,56 @@ OnlyShowIn=KDE;
 NoDisplay=true
 EOF
 
+  # Per-Activity Kickoff favorites (ADR 0126). Favorites are KActivities links in
+  # a SQLite DB, not a .config key, so relink them at first login via the
+  # launcher's OWN DBus call (the appletsrc is seeded favoritesPortedToKAstats=
+  # true so Kickoff's legacy import can't race this). gdbus, not qdbus6 — glib2
+  # is guaranteed present. Fixed-path helper (the systemd XDG-autostart generator
+  # mangles a $HOME script). Run-once via a stamp; a missing .desktop links to a
+  # harmless dead row, so the same list is safe on any non-stock KDE host.
+  _seed_write usr/local/bin/kde-seed-favorites <<'EOF'
+#!/bin/sh
+# Relink Kickoff favorites per Activity on first login (ADR 0126).
+stamp="${XDG_STATE_HOME:-$HOME/.local/state}/kde-favorites-seeded"
+[ -f "$stamp" ] && exit 0
+DEF=061c3ccc-9512-4bf9-83d0-0e9d9a9daed7   # Default Activity (ADR 0120)
+DEV=d71c2b09-8d5a-4ce1-aa4f-d868d82a0073   # Dev Activity
+# Wait for kactivitymanagerd — the Activities arrive via captured kactivitymanagerdrc.
+i=0
+while [ "$i" -lt 30 ]; do
+  gdbus call --session --dest org.kde.ActivityManager \
+    --object-path /ActivityManager/Activities \
+    --method org.kde.ActivityManager.Activities.ListActivities >/dev/null 2>&1 \
+    && break
+  i=$((i + 1)); sleep 1
+done
+link() {  # <desktop-id> <activity|:global>
+  gdbus call --session --dest org.kde.ActivityManager \
+    --object-path /ActivityManager/Resources/Linking \
+    --method org.kde.ActivityManager.ResourcesLinking.LinkResourceToActivity \
+    org.kde.plasma.favorites.applications "applications:$1" "$2" >/dev/null 2>&1
+}
+for a in org.kde.dolphin.desktop zen.desktop org.kde.konsole.desktop \
+  discord.desktop teamspeak3.desktop virt-manager.desktop; do link "$a" :global; done
+for a in steam.desktop bolt-launcher.desktop octopi.desktop \
+  org.kde.discover.desktop org.kde.sweeper.desktop org.kde.krename.desktop \
+  org.kde.kfind.desktop; do link "$a" "$DEF"; done
+for a in codium.desktop org.kde.kommit.desktop neovide.desktop \
+  org.kde.kate.desktop kitty.desktop; do link "$a" "$DEV"; done
+mkdir -p "$(dirname "$stamp")"; : > "$stamp"
+EOF
+  chmod 0755 "${SEED_ROOT%/}/usr/local/bin/kde-seed-favorites"
+  _seed_write etc/skel/.config/autostart/kde-seed-favorites.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Seed KDE favorites (per Activity)
+Comment=Relink Kickoff favorites per Activity on first login (ADR 0126)
+Exec=/usr/local/bin/kde-seed-favorites
+OnlyShowIn=KDE;
+NoDisplay=true
+EOF
+  info "Seeded per-Activity Kickoff favorites reconstruction (ADR 0126)."
+
   # Combined-box KDE session reset (ADR 0116/0123): on a shared-$HOME box that
   # also runs niri/Hyprland, a Noctalia compositor session leaves the shared
   # theme/cursor state Noctalia-colored — gsettings gtk-theme at adw-gtk3-dark

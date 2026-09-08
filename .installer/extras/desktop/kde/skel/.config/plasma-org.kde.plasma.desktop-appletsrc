@@ -56,8 +56,8 @@ DialogWidth=810
 
 [Containments][2][Applets][3][Configuration][General]
 compactMode=true
-favorites=org.kde.kontact.desktop\\,applications:systemsettings.desktop\\,applications:org.kde.dolphin.desktop\\,applications:org.kde.discover.desktop\\,applications:octopi.desktop\\,applications:zen.desktop\\,applications:org.kde.sweeper.desktop\\,applications:org.kde.kfind.desktop\\,applications:org.kde.krename.desktop\\,applications:discord.desktop
-favoritesPortedToKAstats=false
+favorites=applications:org.kde.dolphin.desktop\\,applications:zen.desktop\\,applications:org.kde.konsole.desktop\\,applications:discord.desktop\\,applications:teamspeak3.desktop\\,applications:virt-manager.desktop
+favoritesPortedToKAstats=true
 icon=org.kde.archUpdate
 switchCategoryOnHover=true
 systemFavorites=suspend\\,hibernate\\,reboot\\,shutdown

@@ -1884,8 +1884,28 @@ The part of the "looks like `arch-combined`" guarantee that is **reconstructed**
 at install/first-login rather than verbatim-copied, because it has no capturable
 per-user `.config` home (ADR 0121): audio volume (a `wpctl` autostart), the SDDM
 login background (Horos, system theme), welcome-center suppression (dynamic
-`LastSeenVersion`), and the avatar + display name (AccountsService + GECOS, per
-primary user). Distinct from [[Captured Plasma Settings]], which are copied.
+`LastSeenVersion`), the avatar + display name (AccountsService + GECOS, per
+primary user), and the per-Activity [[Kickoff Favorites]] (a run-once relink
+autostart — ADR 0126). Distinct from [[Captured Plasma Settings]], which are
+copied.
+
+### Activity
+A KDE Plasma workspace context. This fleet seeds two (ADR 0120): **Default**
+(`061c3ccc-…`, general) and **Dev** (`d71c2b09-…`, development). The set + names
++ icons are [[Captured Plasma Settings]] (`kactivitymanagerdrc`); their
+per-Activity resource links (favorites, recents) are not — those live in a
+KActivities SQLite DB, so favorites are [[First-Login State]].
+
+### Kickoff Favorites
+The application-launcher favorites grid. In Plasma 6 each favorite is a
+KActivities-linked resource — a `ResourceLink` row `(Activity-UUID | :global,
+agent, applications:<id>.desktop)` in
+`~/.local/share/kactivitymanagerd/resources/database` — **not** a `.config` key,
+so it is [[First-Login State]], relinked per [[Activity]] at first login via the
+launcher's own DBus call (ADR 0126). The appletsrc inline `favorites=` is only a
+legacy pre-port seed; `kactivitymanagerd-statsrc` `ordering=` only sorts links,
+it does not create them. _Distinct from_ the Task Manager's pinned `launchers=`,
+which is a plain captured appletsrc key.
 
 ## Flagged ambiguities
 

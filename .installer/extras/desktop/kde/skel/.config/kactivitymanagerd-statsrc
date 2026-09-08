@@ -1,8 +1,8 @@
 [Favorites-org.kde.plasma.kickoff.favorites.instance-3-061c3ccc-9512-4bf9-83d0-0e9d9a9daed7]
-ordering=applications:steam.desktop,applications:bolt-launcher.desktop,applications:discord.desktop,applications:teamspeak3.desktop
+ordering=applications:org.kde.dolphin.desktop,applications:zen.desktop,applications:org.kde.konsole.desktop,applications:discord.desktop,applications:teamspeak3.desktop,applications:virt-manager.desktop,applications:steam.desktop,applications:bolt-launcher.desktop,applications:octopi.desktop,applications:org.kde.discover.desktop,applications:org.kde.sweeper.desktop,applications:org.kde.krename.desktop,applications:org.kde.kfind.desktop
 
 [Favorites-org.kde.plasma.kickoff.favorites.instance-3-d71c2b09-8d5a-4ce1-aa4f-d868d82a0073]
-ordering=applications:discord.desktop,applications:teamspeak3.desktop,applications:codium.desktop,applications:org.kde.kommit.desktop,applications:zen.desktop,applications:org.kde.krename.desktop,applications:org.kde.sweeper.desktop,applications:neovide.desktop
+ordering=applications:org.kde.dolphin.desktop,applications:zen.desktop,applications:org.kde.konsole.desktop,applications:discord.desktop,applications:teamspeak3.desktop,applications:virt-manager.desktop,applications:codium.desktop,applications:org.kde.kommit.desktop,applications:neovide.desktop,applications:org.kde.kate.desktop,applications:kitty.desktop
 
 [Favorites-org.kde.plasma.kickoff.favorites.instance-3-global]
-ordering=applications:discord.desktop,applications:teamspeak3.desktop,applications:codium.desktop,applications:org.kde.kommit.desktop,applications:zen.desktop,applications:org.kde.krename.desktop,applications:org.kde.sweeper.desktop,applications:neovide.desktop
+ordering=applications:org.kde.dolphin.desktop,applications:zen.desktop,applications:org.kde.konsole.desktop,applications:discord.desktop,applications:teamspeak3.desktop,applications:virt-manager.desktop
