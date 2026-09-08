@@ -194,6 +194,8 @@ setup() {
   grep -q "noctalia" "$BRIDGE"                    # filtered to Noctalia's output
   grep -q 'qt6ct.conf' "$BRIDGE"                  # Qt6 nudge: rewrite the conf
   grep -q 'gtk-theme' "$BRIDGE"                   # GTK best-effort toggle
+  grep -q 'color-schemes' "$BRIDGE"               # watch the KColorScheme (0124)
+  grep -q 'noctalia\\\.(conf|css|colors)' "$BRIDGE"  # incl. .colors (ADR 0124)
 }
 
 @test "both compositors autostart the Live Theme Bridge (ADR 0116)" {
@@ -297,9 +299,12 @@ setup() {
     | grep -qx 'inotify-tools'
 }
 
-@test "qt6ct is pre-seeded onto Noctalia's generated scheme (ADR 0102)" {
+@test "qt6ct is pre-seeded onto Noctalia's KColorScheme (ADR 0102/0124)" {
   [ -f "$QT6CT" ]
-  grep -q 'colors/noctalia.conf' "$QT6CT"
+  # points at the .colors KColorScheme (qt6ct-kde applies the full scheme so
+  # Dolphin's accents follow), NOT the qt6ct QPalette colors/noctalia.conf (0124).
+  grep -q 'color-schemes/noctalia.colors' "$QT6CT"
+  ! grep -q 'colors/noctalia.conf' "$QT6CT"
   grep -q '^custom_palette=true' "$QT6CT"
   # Fusion honours the custom palette; Papirus matches the GTK icon theme.
   grep -q '^style=Fusion' "$QT6CT"
@@ -317,14 +322,15 @@ setup() {
   [ "$(grep -c 'qt6ct/qt6ct.conf' "$CHROOT")" -ge 2 ]
 }
 
-# ADR 0108: qt6ct.conf points at colors/noctalia.conf, written only once Noctalia
-# first applies; the preset seeds a static snapshot to kill the boot-race white
-# flash. Seed-only (never a stowed repo file — Noctalia rewrites it → git dirt).
-@test "preset seeds a boot-race qt6ct color snapshot (ADR 0108)" {
-  grep -q '\.config/qt6ct/colors/noctalia.conf' "$PRESET"
-  grep -q '^active_colors=' "$PRESET"
-  # NOT a stowed repo file (colors/ stays free of committed schemes, ADR 0102).
-  [ ! -e "$QT6CT_COLORS/noctalia.conf" ]
+# ADR 0108/0124: qt6ct.conf points at ~/.local/share/color-schemes/noctalia.colors,
+# written only once Noctalia first applies; the preset seeds a static snapshot to
+# kill the boot-race white flash + create the dir the bridge watches. Seed-only
+# (never a stowed repo file — Noctalia rewrites it → git dirt).
+@test "preset seeds a boot-race KColorScheme snapshot (ADR 0108/0124)" {
+  grep -q '\.local/share/color-schemes/noctalia.colors' "$PRESET"
+  grep -q '^\[Colors:Selection\]' "$PRESET"          # a real KColorScheme group
+  # NOT a stowed repo file (Noctalia rewrites it → git dirt, ADR 0104).
+  [ ! -e "$REPO/.local/share/color-schemes/noctalia.colors" ]
 }
 
 # ADR 0109: the default is the COMMUNITY palette "Catppuccin Mocha Sapphire";

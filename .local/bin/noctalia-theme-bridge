@@ -10,20 +10,29 @@
 #          colorreload-gtk-module (a palette change keeps the name adw-gtk3-dark,
 #          so the module never fires on its own).
 # GTK4/libadwaita is load-once → relaunch-only for palette colors (mode still
-# follows live via libadwaita's portal subscription). Launched per-compositor
+# follows live via libadwaita's portal subscription). KColorScheme apps
+# (Dolphin/Gwenview/Kate) are ALSO relaunch-only under qt6ct: they read their
+# KColorScheme once at startup and neither the qt6ct nudge nor a KGlobalSettings
+# notify makes them re-read it (VM-verified, ADR 0124) — a freshly-launched one
+# follows the palette; an open one updates on relaunch. Launched per-compositor
 # (ADR 0070); confined to the compositor session so it never touches Plasma —
 # the shared gtk-theme/dconf it toggles is reset to Breeze by kde-gtk-config on
 # every Plasma login (ADR 0104/0116).
 set -eu
 
 cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+data="${XDG_DATA_HOME:-$HOME/.local/share}"
 qt_conf="$cfg/qt6ct/qt6ct.conf"
 
 # Parent dirs of Noctalia's generated color files. Watch the DIRS (not the
 # files) so an atomic write-then-rename is still caught; --include (below) keeps
 # only the generated files so unrelated writes never trigger a repaint.
+# color-schemes/ holds noctalia.colors — the KColorScheme qt6ct now reads
+# (ADR 0124); mkdir it so the watch exists from first login even before Noctalia
+# first writes there.
+mkdir -p "$data/color-schemes" 2>/dev/null || true
 dirs=""
-for d in "$cfg/qt6ct/colors" "$cfg/gtk-3.0" "$cfg/gtk-4.0"; do
+for d in "$data/color-schemes" "$cfg/qt6ct/colors" "$cfg/gtk-3.0" "$cfg/gtk-4.0"; do
 	if [ -d "$d" ]; then dirs="$dirs $d"; fi
 done
 
@@ -59,7 +68,7 @@ nudge
 
 # shellcheck disable=SC2086  # word-split $dirs into separate path args
 inotifywait -m -q -e close_write -e moved_to \
-	--include 'noctalia\.(conf|css)$' $dirs 2>/dev/null |
+	--include 'noctalia\.(conf|css|colors)$' $dirs 2>/dev/null |
 while true; do
 	# Block for the first event of a burst; one theme change rewrites up to three
 	# files, so drain the burst (trailing debounce) and repaint exactly once.

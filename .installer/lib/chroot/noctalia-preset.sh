@@ -239,26 +239,134 @@ gtk-icon-theme-name=Papirus-Dark
 gtk-primary-button-warps-slider=true
 gtk-sound-theme-name=ocean
 EOF
-    # qt6ct pre-seed — the App Theming Bridge's Qt half (ADR 0102), now SEEDED not
+    # qt6ct pre-seed — the App Theming Bridge's Qt half (ADR 0102), SEEDED not
     # stowed (ADR 0108): a fresh box never stows (ADR 0095), so the stow-only
-    # qt6ct.conf never arrived and every Qt/KDE app rendered default white. Seeding
-    # it here points qt6ct at Noctalia's generated colors/noctalia.conf so apps
-    # follow the palette on first login. Compositor-private — Plasma uses
+    # qt6ct.conf never arrived and every Qt/KDE app rendered default white. It now
+    # points qt6ct at Noctalia's KColorScheme `.colors` (ADR 0124), so qt6ct-kde
+    # applies the FULL scheme and KColorScheme apps (Dolphin) follow the accent
+    # roles, not just the base palette. Compositor-private — Plasma uses
     # plasma-integration and never reads it, so it is safe on a combined box (0104).
     install -Dm644 "${NOC_CURATED_DIR}/.config/qt6ct/qt6ct.conf" \
       "${_skel}/.config/qt6ct/qt6ct.conf"
-    # Boot-race belt (ADR 0108): qt6ct.conf points at colors/noctalia.conf, which
-    # Noctalia only writes once its daemon first applies. Seed a static snapshot of
-    # this palette's Qt scheme so an app launched in the sub-second before that
-    # first apply is themed, not white. Noctalia OVERWRITES it on first apply
-    # (self-heals). Seed-only (never stowed — a stow symlink would push Noctalia's
-    # write into the repo, 0104). Update alongside the default palette (0109).
+    # Boot-race belt (ADR 0108/0124): qt6ct.conf points at
+    # ~/.local/share/color-schemes/noctalia.colors, which the kcolorscheme
+    # template (ADR 0123) only writes once Noctalia's daemon first applies. Seed a
+    # static snapshot of the default palette's KColorScheme so an app launched in
+    # the sub-second before that first apply is themed, not white, AND the dir
+    # exists for the Live Theme Bridge's watch. Noctalia OVERWRITES it on first
+    # apply (self-heals). Seed-only (never stowed — a stow symlink would push
+    # Noctalia's write into the repo, 0104). Update with the default palette (0109).
     install -Dm644 /dev/stdin \
-      "${_skel}/.config/qt6ct/colors/noctalia.conf" <<'EOF'
-[ColorScheme]
-active_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
-disabled_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
-inactive_colors=#cdd6f4, #1e1e2e, #ffffff, #cacaca, #9f9f9f, #b8b8b8, #cdd6f4, #ffffff, #cdd6f4, #1e1e2e, #1e1e2e, #11111b, #12719c, #d3effb, #89b4fa, #74c7ec, #313244, #1e1e2e, #313244, #cdd6f4, #cdd6f4, #74c7ec
+      "${_skel}/.local/share/color-schemes/noctalia.colors" <<'EOF'
+[General]
+ColorScheme=Noctalia
+Name=noctalia
+
+[Colors:Button]
+BackgroundAlternate=39,40,57
+BackgroundNormal=58,59,80
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=205,214,244
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[Colors:Complementary]
+BackgroundAlternate=39,40,57
+BackgroundNormal=30,30,46
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=211,239,251
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[Colors:Header]
+BackgroundAlternate=30,30,46
+BackgroundNormal=49,50,68
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=205,214,244
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[Colors:Selection]
+BackgroundAlternate=39,40,57
+BackgroundNormal=116,199,236
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=30,30,46
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=187,16,64
+ForegroundNeutral=24,147,170
+ForegroundNormal=30,30,46
+ForegroundPositive=24,147,170
+ForegroundVisited=206,224,253
+
+[Colors:Tooltip]
+BackgroundAlternate=30,30,46
+BackgroundNormal=49,50,68
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=205,214,244
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[Colors:View]
+BackgroundAlternate=49,50,68
+BackgroundNormal=30,30,46
+DecorationFocus=211,239,251
+DecorationHover=30,30,46
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=205,214,244
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[Colors:Window]
+BackgroundAlternate=18,113,156
+BackgroundNormal=49,50,68
+DecorationFocus=116,199,236
+DecorationHover=116,199,236
+ForegroundActive=116,199,236
+ForegroundInactive=166,173,200
+ForegroundLink=137,180,250
+ForegroundNegative=243,139,168
+ForegroundNeutral=137,220,235
+ForegroundNormal=205,214,244
+ForegroundPositive=137,220,235
+ForegroundVisited=206,224,253
+
+[WM]
+activeBackground=18,113,156
+activeBlend=211,239,251
+activeForeground=211,239,251
+inactiveBackground=30,30,46
+inactiveBlend=166,173,200
+inactiveForeground=166,173,200
 EOF
     # Offline default palette (ADR 0109): the default is the COMMUNITY palette
     # "Catppuccin Mocha Sapphire", normally fetched from api.noctalia.dev. Seed its
