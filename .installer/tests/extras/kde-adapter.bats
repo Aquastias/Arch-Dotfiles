@@ -433,6 +433,20 @@ JSON
     "$TEST_DIR/seed/etc/skel/.config/plasma-workspace/env/kde-unset-qt-platformtheme.sh" ]
 }
 
+# ADR 0125: Dolphin ships with the embedded Terminal panel hidden. Visibility
+# lives only in the base64 QMainWindow state (no KConfig key), so seed a
+# dolphinstaterc whose terminalDock flag is hidden.
+@test "Dolphin is seeded without the terminal panel (ADR 0125)" {
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local f="$TEST_DIR/seed/etc/skel/.local/state/dolphinstaterc"
+  grep -q '^\[State\]' "$f"
+  grep -q '^State=' "$f"
+}
+
 @test "Baloo indexing is left enabled" {
   cat > "$KDE_JSON" <<'JSON'
 {"shell":true,"apps":false,"apps_list":{}}

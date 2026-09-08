@@ -261,9 +261,24 @@ Name=Default
 Parent=FALLBACK/
 EOF
 
+  # Dolphin without the embedded Terminal panel (ADR 0125). This Dolphin build
+  # shows the Terminal panel by DEFAULT (its QMainWindow default layout marks
+  # terminalDock visible), and panel visibility has NO KConfig key — it lives only
+  # in the base64 QMainWindow state in ~/.local/state/dolphinstaterc. So seed a
+  # state whose terminalDock flag is "hidden" (0x08, vs 0x01 shown), captured from
+  # Dolphin itself after toggling the panel off. Only the generic State= is seeded
+  # (no screen-size-keyed line), so it applies at any resolution; Dolphin adapts
+  # the rest. The "Open Terminal" action is untouched — opening a folder in a
+  # terminal still works; only the docked panel is gone. If a Qt/Dolphin update
+  # ever rejects the blob it simply reverts to the default (harmless).
+  _seed_write etc/skel/.local/state/dolphinstaterc <<'EOF'
+[State]
+State=AAAA/wAAAAD9AAAAAwAAAAAAAAC0AAACd/wCAAAAAvsAAAAWAGYAbwBsAGQAZQByAHMARABvAGMAawEAAABLAAABMQAAAFMA////+wAAABQAcABsAGEAYwBlAHMARABvAGMAawEAAAF9AAABRQAAAFMA////AAAAAQAAALQAAAJ3/AIAAAAB+wAAABAAaQBuAGYAbwBEAG8AYwBrAQAAAEsAAAJ3AAABCwD///8AAAADAAAE1AAAACT8AQAAAAH7AAAAGAB0AGUAcgBtAGkAbgBhAGwARABvAGMAawgAAAAAAAAE1AAAAK0A////AAADagAAAncAAAAEAAAABAAAAAgAAAAI/AAAAAEAAAACAAAAAQAAABYAbQBhAGkAbgBUAG8AbwBsAEIAYQByAQAAAAD/////AAAAAAAAAAA=
+EOF
+
   # Konsole and Dolphin rc files themselves arrive via the captured seed above
   # (both carry the operator's stamped config version already).
-  info "Seeded first-run defaults (welcome off, Baloo on, Konsole profile)."
+  info "Seeded first-run defaults (welcome off, Baloo on, Konsole, no Dolphin term)."
   fi  # end stock guard
 fi
 
