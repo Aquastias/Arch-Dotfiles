@@ -3,8 +3,8 @@
 # programs/dev/pi/install.sh
 # =============================================================================
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning
-# user with temp NOPASSWD sudo, with INSTALLER_DIR, PROGRAMS, SHELL_COMMONS and
-# AUR_HELPER pre-exported.
+# user (the runner grants temp NOPASSWD sudo — unused here; paru + $HOME writes
+# only), with INSTALLER_DIR/PROGRAMS/SHELL_COMMONS/AUR_HELPER pre-exported.
 #
 # Installs the pi coding agent (pi-coding-agent-bin, AUR) and seeds ~/.pi/agent/
 # from the payload bundled beside this script (settings.json, web-search.json,

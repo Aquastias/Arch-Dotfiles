@@ -6,10 +6,13 @@ Status: accepted.
 
 We ship the **pi** coding agent (earendil-works/pi) as a second coding agent
 alongside Claude Code, served to desktop + laptop. Because those two profiles
-run identical software out of Host Core (ADR 0114), pi goes into **core** — the
-same path the obs-studio addition took — so it also lands on `minimal` and the
-pure-compositor hosts. We do **not** ship barebones pi: a full config is both
-seeded at install time and made stow-ready for the operator.
+run identical software out of core (ADR 0114), pi goes into **core** — in the
+spirit of the obs-studio addition, but since pi is a `kind: user` program the
+fleet-wide lever is **User Core `programs`** (the per-user analogue of Host
+Core's package list), not a host package. It therefore also reaches every other
+user on any core-resolved host (the VM test users exclude it, like searxng). We
+do **not** ship barebones pi: a full config is both seeded at install time and
+made stow-ready for the operator.
 
 ## Decision
 

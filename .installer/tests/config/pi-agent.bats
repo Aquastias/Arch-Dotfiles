@@ -9,7 +9,7 @@ setup() {
   PROG="$REPO/.installer/programs/dev/pi"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
-  ASEED="$PROG/agent"                     # bundled seed payload (under .installer)
+  ASEED="$PROG/agent"                     # bundled seed payload (.installer)
   ASTOW="$REPO/.pi/agent"                 # repo-root hand-stow copy
   SEED="$ASEED/settings.json"
   STOW="$ASTOW/settings.json"
@@ -18,7 +18,7 @@ setup() {
   GI="$REPO/.gitignore"
   SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
   CT="$REPO/.config/noctalia/config.toml"
-  TPL="$REPO/.config/noctalia/templates/pi.json"   # Noctalia user-template input
+  TPL="$REPO/.config/noctalia/templates/pi.json"   # user-template input
 }
 
 # ── program definition ───────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ setup() {
     [ -f "$f" ]
     grep -q '"mcpServers"' "$f"
     # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
-    run grep -qiE '(api[_-]?key|token|secret)"[[:space:]]*:[[:space:]]*"[^$]' "$f"
+    run grep -qiE '(key|token|secret)" *: *"[^$"]' "$f"
     [ "$status" -ne 0 ]
   done
   diff -q "$ASEED/mcp.json" "$ASTOW/mcp.json"
@@ -135,14 +135,14 @@ setup() {
   grep -q '"theme": "noctalia"' "$STOW"
 }
 
-@test "noctalia.json is seeded Catppuccin Mocha Sapphire, 53+ tokens (ADR 0109)" {
+@test "noctalia.json seeded: Mocha Sapphire, 53+ tokens (ADR 0109)" {
   local f="$ASEED/themes/noctalia.json"
   [ -f "$f" ]
   grep -q '"name": "noctalia"' "$f"
   grep -q '"sapphire": "#74c7ec"' "$f"          # the accent var
   grep -q '"accent": "sapphire"' "$f"           # accent bound to sapphire
   grep -q '"thinkingHigh": "red"' "$f"          # default thinking level border
-  grep -q '"bashMode":' "$f"                    # a late-section token is present
+  grep -q '"bashMode":' "$f"                    # a late-section token
   # pi requires all 53 colour tokens — assert a generous floor
   [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$f")" -ge 53 ]
 }

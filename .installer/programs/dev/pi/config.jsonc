@@ -11,5 +11,5 @@
 {
   "name": "pi",
   "kind": "user",
-  "description": "Pi coding agent (pi-coding-agent-bin) with a seeded ~/.pi/agent config."
+  "description": "Pi coding agent (pi-coding-agent-bin) with a seeded config."
 }
