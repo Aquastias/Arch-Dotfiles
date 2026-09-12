@@ -1199,9 +1199,12 @@ its active theme file on write, so **no `post_hook` and no [[Live Theme Bridge]]
 change** is needed. The single `noctalia.json` is **seeded with Catppuccin Mocha
 Sapphire** (the fleet default, ADR 0109) and live-rewritten only in compositor
 sessions — so niri/Hyprland follow live while KDE (no template run) stays fixed
-on Catppuccin Mocha Sapphire, matching the [[App Theming Bridge]] isolation.
-_Avoid_: per-palette static theme files, extending `noctalia-theme-bridge` for
-pi, `--use-theme light/dark` (follows only terminal light/dark).
+on Catppuccin Mocha Sapphire, matching the [[App Theming Bridge]] isolation. The
+rewritten `noctalia.json` is **seed-only, never stowed** (gitignored, ADR 0104);
+only the static template input (`templates/pi.json`) is stowed. _Avoid_:
+per-palette static theme files, extending `noctalia-theme-bridge` for pi,
+stowing `noctalia.json`, `--use-theme light/dark` (follows only terminal
+light/dark).
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

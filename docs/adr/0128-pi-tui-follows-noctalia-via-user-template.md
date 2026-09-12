@@ -27,6 +27,14 @@ template, so under KDE the file stays on the seeded Catppuccin Mocha Sapphire �
 one file satisfies the default, KDE-no-follow, and compositor-live-follow at
 once, matching the [[App Theming Bridge]]'s compositor isolation.
 
+Because Noctalia rewrites it, `noctalia.json` is **seed-only — never stowed**
+(ADR 0104): it is gitignored (`.pi/agent/themes/`) and delivered by the program
+seed into the user's home, so a stow symlink can never push a live repaint back
+into the repo. The **template input file** (`~/.config/noctalia/templates/
+pi.json`, Mustache `{{colors.<role>.default.hex}}`) is static and *is* stowed;
+semantic colours (success/warning/diff) map to the palette's `terminal_*` roles
+since Material You exposes no green/yellow accent role.
+
 ## Considered options
 
 - **Extend `noctalia-theme-bridge` to regenerate the pi theme** — rejected: a

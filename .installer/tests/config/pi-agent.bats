@@ -17,6 +17,8 @@ setup() {
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
   SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
+  CT="$REPO/.config/noctalia/config.toml"
+  TPL="$REPO/.config/noctalia/templates/pi.json"   # Noctalia user-template input
 }
 
 # ── program definition ───────────────────────────────────────────────────────
@@ -134,15 +136,38 @@ setup() {
 }
 
 @test "noctalia.json is seeded Catppuccin Mocha Sapphire, 53+ tokens (ADR 0109)" {
-  for f in "$ASEED/themes/noctalia.json" "$ASTOW/themes/noctalia.json"; do
-    [ -f "$f" ]
-    grep -q '"name": "noctalia"' "$f"
-    grep -q '"sapphire": "#74c7ec"' "$f"        # the accent var
-    grep -q '"accent": "sapphire"' "$f"         # accent bound to sapphire
-    grep -q '"thinkingHigh": "red"' "$f"        # default thinking level border
-    grep -q '"bashMode":' "$f"                  # a late-section token is present
-  done
+  local f="$ASEED/themes/noctalia.json"
+  [ -f "$f" ]
+  grep -q '"name": "noctalia"' "$f"
+  grep -q '"sapphire": "#74c7ec"' "$f"          # the accent var
+  grep -q '"accent": "sapphire"' "$f"           # accent bound to sapphire
+  grep -q '"thinkingHigh": "red"' "$f"          # default thinking level border
+  grep -q '"bashMode":' "$f"                    # a late-section token is present
   # pi requires all 53 colour tokens — assert a generous floor
-  [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$ASTOW/themes/noctalia.json")" -ge 53 ]
-  diff -q "$ASEED/themes/noctalia.json" "$ASTOW/themes/noctalia.json"
+  [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$f")" -ge 53 ]
+}
+
+@test "the theme file is seed-only: gitignored, never in the stow tree (0128)" {
+  grep -q '^\.pi/agent/themes/' "$GI"
+  [ ! -e "$ASTOW/themes/noctalia.json" ]
+}
+
+# ── ticket 05: live-follow via a Noctalia user-template ──────────────────────
+
+@test "config.toml declares the pi user-template → pi's theme file (ADR 0128)" {
+  grep -q '\[theme.templates.user.pi\]' "$CT"
+  grep -q 'noctalia/templates/pi.json' "$CT"
+  grep -qE 'output_path[[:space:]]*=.*\.pi/agent/themes/noctalia.json' "$CT"
+}
+
+@test "the pi template input maps Noctalia roles to pi's tokens (Mustache)" {
+  [ -f "$TPL" ]
+  grep -q '"name": "noctalia"' "$TPL"
+  # Mustache role placeholders, e.g. accent ← primary
+  grep -q '"accent": "{{colors.primary.default.hex}}"' "$TPL"
+  # semantic colours come from the palette's terminal_* roles
+  grep -q '"success": "{{colors.terminal_normal_green.default.hex}}"' "$TPL"
+  grep -q '"error": "{{colors.error.default.hex}}"' "$TPL"
+  # same 53+ token floor as the static seed
+  [ "$(grep -cE '"[a-zA-Z]+": "\{\{colors\.' "$TPL")" -ge 53 ]
 }

@@ -23,3 +23,5 @@
 
 # Pi coding agent: OAuth tokens are secret — never committed or stowed (ADR 0127)
 .pi/agent/auth.json
+# Pi theme file is Noctalia-generated/seed-only — never stowed (ADR 0128/0104)
+.pi/agent/themes/

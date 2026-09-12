@@ -201,6 +201,15 @@ wallpaper_scheme = "m3-content"
         "umbriel"
     ]
 
+    # Render the live palette into pi's active theme file (ADR 0128). pi
+    # hot-reloads its theme file, so the TUI follows palette changes on the
+    # compositors with no post_hook and no Live Theme Bridge change. Seed-only
+    # target (ADR 0104): Noctalia rewrites it, so noctalia.json is never stowed;
+    # KDE never runs this template, so there pi stays the seeded Mocha Sapphire.
+    [theme.templates.user.pi]
+    input_path  = "$XDG_CONFIG_HOME/noctalia/templates/pi.json"
+    output_path = "$HOME/.pi/agent/themes/noctalia.json"
+
 [wallpaper.default]
 path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"
 
