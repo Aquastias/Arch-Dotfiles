@@ -9,6 +9,7 @@
   ],
   "quietStartup": true,
   "defaultProjectTrust": "ask",
+  "theme": "noctalia",
   "packages": [
     "npm:pi-web-access",
     "npm:@juicesharp/rpiv-todo",

@@ -125,3 +125,24 @@ setup() {
   done
   diff -q "$ASEED/mcp.json" "$ASTOW/mcp.json"
 }
+
+# ── ticket 04: default theme Catppuccin Mocha Sapphire ───────────────────────
+
+@test "settings selects the noctalia theme (ADR 0128)" {
+  grep -q '"theme": "noctalia"' "$SEED"
+  grep -q '"theme": "noctalia"' "$STOW"
+}
+
+@test "noctalia.json is seeded Catppuccin Mocha Sapphire, 53+ tokens (ADR 0109)" {
+  for f in "$ASEED/themes/noctalia.json" "$ASTOW/themes/noctalia.json"; do
+    [ -f "$f" ]
+    grep -q '"name": "noctalia"' "$f"
+    grep -q '"sapphire": "#74c7ec"' "$f"        # the accent var
+    grep -q '"accent": "sapphire"' "$f"         # accent bound to sapphire
+    grep -q '"thinkingHigh": "red"' "$f"        # default thinking level border
+    grep -q '"bashMode":' "$f"                  # a late-section token is present
+  done
+  # pi requires all 53 colour tokens — assert a generous floor
+  [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$ASTOW/themes/noctalia.json")" -ge 53 ]
+  diff -q "$ASEED/themes/noctalia.json" "$ASTOW/themes/noctalia.json"
+}
