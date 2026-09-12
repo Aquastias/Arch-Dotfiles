@@ -82,6 +82,7 @@
         "lynx",
         "nano",
         "parallel",
+        "ripgrep",
         "yazi",
         "zoxide"
       ],

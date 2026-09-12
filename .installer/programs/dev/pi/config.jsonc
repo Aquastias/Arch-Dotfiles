@@ -1,0 +1,15 @@
+// Program metadata for pi.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru. Installs the pi coding agent (pi-coding-agent-bin) and seeds
+// ~/.pi/agent from the payload bundled beside this file — the same config the
+// repo-root .pi/ stow tree carries for a hand-stow (ADR 0127). User programs
+// run before the dotfiles clone, so the seed payload lives under .installer,
+// not the repo-root stow tree. auth.json is never seeded (secret; /login on
+// first run).
+
+{
+  "name": "pi",
+  "kind": "user",
+  "description": "Pi coding agent (pi-coding-agent-bin) with a seeded ~/.pi/agent config."
+}

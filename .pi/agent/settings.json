@@ -1,0 +1,12 @@
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-8",
+  "defaultThinkingLevel": "high",
+  "enabledModels": [
+    "anthropic/claude-opus-4-8",
+    "anthropic/claude-sonnet*",
+    "anthropic/claude-haiku*"
+  ],
+  "quietStartup": true,
+  "defaultProjectTrust": "ask"
+}

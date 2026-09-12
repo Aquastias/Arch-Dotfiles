@@ -12,13 +12,14 @@
 //
 // `programs` is the standard tooling every real user gets: `virt-manager`, plus
 // `searxng` and its `podman` backend (podman precedes searxng — a required
-// program must resolve earlier in the same user's list, ADR 0065). `docker` is
-// NOT here — it is aquastias-specific (users/aquastias). The two VM test users
-// exclude these — they exercise the system install path, not user programs.
+// program must resolve earlier in the same user's list, ADR 0065), plus `pi`
+// (the pi coding agent, served fleet-wide, ADR 0127). `docker` is NOT here — it
+// is aquastias-specific (users/aquastias). The two VM test users exclude these
+// — they exercise the system install path, not user programs.
 {
   "shell": "/bin/zsh",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network", "seat"],
-  "programs": ["virt-manager", "podman", "searxng"],
+  "programs": ["virt-manager", "podman", "searxng", "pi"],
   "ssh_authorized_keys": []
 }
