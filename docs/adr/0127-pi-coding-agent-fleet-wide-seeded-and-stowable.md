@@ -31,10 +31,14 @@ seeded** — credentials never enter the repo and are established per-machine.
 
 **Skills.** Ship the full mattpocock/skills set, **vendored** (copied, not
 symlinked) into `.agents/skills/` — the Vercel `skills` CLI's shared canonical
-dir, which pi also reads (`~/.agents/skills/` globally). Vendoring keeps them
-present offline at install time and stow-owned. The CLI-written
-`.skill-lock.json` is committed for a reproducible pin. The operator refreshes
-with `npx skills@latest add mattpocock/skills` run in-repo.
+dir, which pi also reads (`~/.agents/skills/` globally, auto-discovered with no
+settings entry). Vendoring keeps them present offline (in the repo clone) at
+install time and stow-owned. The **committed tree is itself the reproducible
+pin** (the CLI writes `.skill-lock.json` only for global installs, not the
+project scope we vendor into). The operator refreshes with
+`npx skills@latest add mattpocock/skills` run in-repo, which overwrites in place.
+Skills are not program-seeded — they ride the dotfiles clone and the operator's
+stow, like every other stowed dotfile.
 
 **Packages.** Pi's minimal core omits several Claude-Code staples; we add three
 ready-made packages (the `abhinand5/pi-setup` ecosystem confirmed these exist as

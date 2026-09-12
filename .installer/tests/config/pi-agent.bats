@@ -14,6 +14,7 @@ setup() {
   CORE="$REPO/.installer/hosts/core/profile.jsonc"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
+  SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
 }
 
 # ── program definition ───────────────────────────────────────────────────────
@@ -71,4 +72,25 @@ setup() {
 
 @test "User Core serves pi fleet-wide (ADR 0127)" {
   grep -qE '"programs":.*"pi"' "$UCORE"
+}
+
+# ── ticket 02: vendored mattpocock skills ────────────────────────────────────
+
+@test "the full mattpocock skill set is vendored under .agents/skills" {
+  [ -d "$SKILLS" ]
+  # "all of them" — a generous floor so a partial vendor is caught
+  [ "$(find "$SKILLS" -name SKILL.md | wc -l)" -ge 30 ]
+  for s in tdd research code-review diagnosing-bugs domain-modeling wizard; do
+    [ -f "$SKILLS/$s/SKILL.md" ]
+  done
+}
+
+@test "vendored skills are real copies, not symlinks (offline, committed)" {
+  run find "$SKILLS" -maxdepth 1 -type l
+  [ -z "$output" ]
+}
+
+@test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {
+  ! grep -q '"skills"' "$SEED"
+  ! grep -q '"skills"' "$STOW"
 }
