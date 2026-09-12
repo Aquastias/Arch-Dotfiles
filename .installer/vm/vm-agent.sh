@@ -131,6 +131,9 @@ _agent_load_env() {
   AGENT_COMPOSITOR="$comp"
   # Source the session env from a real CLIENT — the compositor *server* has no
   # WAYLAND_DISPLAY of its own. noctalia (wlroots) / plasmashell (KDE).
+  # XDG_SESSION_TYPE comes from the client (=wayland), NOT our SSH pty (=tty):
+  # a leaked `tty` makes browsers/Electron skip the ScreenCast portal and fall
+  # back to internal window-capture (no full-screen), faking a portal failure.
   for client in noctalia plasmashell waybar; do
     clpid="$(pgrep -x "$client" 2>/dev/null | head -1)"
     [ -n "$clpid" ] && break
@@ -139,7 +142,8 @@ _agent_load_env() {
   while IFS= read -r -d '' kv; do
     case "$kv" in
       XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DBUS_SESSION_BUS_ADDRESS=*|\
-DISPLAY=*|XAUTHORITY=*|XDG_CURRENT_DESKTOP=*) export "$kv" ;;
+DISPLAY=*|XAUTHORITY=*|XDG_CURRENT_DESKTOP=*|\
+XDG_SESSION_TYPE=*) export "$kv" ;;
     esac
   done < "/proc/$src/environ" 2>/dev/null || true
   # Fallbacks so a server-only source still yields a usable env.
