@@ -6,11 +6,11 @@
 # user with temp NOPASSWD sudo, with INSTALLER_DIR, PROGRAMS, SHELL_COMMONS and
 # AUR_HELPER pre-exported.
 #
-# Installs the pi coding agent (pi-coding-agent-bin, AUR) and seeds
-# ~/.pi/agent/settings.json from the payload bundled beside this script (the
-# same config the repo-root .pi/ stow tree carries). Seeds only — the operator
-# stows the repo copy by hand (ADR 0095/0127). auth.json is never written here;
-# pi's `/login` creates it (0600) on first run.
+# Installs the pi coding agent (pi-coding-agent-bin, AUR) and seeds ~/.pi/agent/
+# from the payload bundled beside this script (settings.json, web-search.json,
+# mcp.json, themes/ — the same config the repo-root .pi/ stow tree carries).
+# Seeds only — the operator stows the repo copy by hand (ADR 0095/0127).
+# auth.json is never written here; pi's `/login` creates it (0600) on first run.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -20,8 +20,8 @@ print_status info "Installing pi-coding-agent-bin..."
 ${AUR_HELPER} -S --noconfirm --needed pi-coding-agent-bin
 
 mkdir -p "${HOME}/.pi/agent"
-cp "${PROGRAMS}/dev/pi/agent/settings.json" "${HOME}/.pi/agent/settings.json"
-print_status info "Seeded ~/.pi/agent/settings.json."
+cp -r "${PROGRAMS}/dev/pi/agent/." "${HOME}/.pi/agent/"
+print_status info "Seeded ~/.pi/agent (settings, web-search, mcp, theme)."
 
 print_status success "Pi staged." \
   "Run 'pi' then /login to sign in to Claude; config is hand-stowable."

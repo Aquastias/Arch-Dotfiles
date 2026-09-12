@@ -9,8 +9,10 @@ setup() {
   PROG="$REPO/.installer/programs/dev/pi"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
-  SEED="$PROG/agent/settings.json"        # bundled seed payload (under .installer)
-  STOW="$REPO/.pi/agent/settings.json"    # repo-root hand-stow copy
+  ASEED="$PROG/agent"                     # bundled seed payload (under .installer)
+  ASTOW="$REPO/.pi/agent"                 # repo-root hand-stow copy
+  SEED="$ASEED/settings.json"
+  STOW="$ASTOW/settings.json"
   CORE="$REPO/.installer/hosts/core/profile.jsonc"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
@@ -28,8 +30,8 @@ setup() {
 @test "dev/pi install.sh installs pi-coding-agent-bin via the AUR helper" {
   [ -x "$INSTALL" ]
   grep -q '${AUR_HELPER} -S --noconfirm --needed pi-coding-agent-bin' "$INSTALL"
-  # seeds the config; never writes the secret auth.json
-  grep -q '\.pi/agent/settings.json' "$INSTALL"
+  # seeds the whole bundled agent payload; never writes the secret auth.json
+  grep -q 'cp -r "${PROGRAMS}/dev/pi/agent/\." "${HOME}/.pi/agent/"' "$INSTALL"
   run grep -qE '(cp|tee|>)[^#]*auth\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }
@@ -93,4 +95,33 @@ setup() {
 @test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {
   ! grep -q '"skills"' "$SEED"
   ! grep -q '"skills"' "$STOW"
+}
+
+# ── ticket 03: web / todo / MCP packages ─────────────────────────────────────
+
+@test "settings declares the web, todo and MCP packages (ADR 0127)" {
+  grep -q '"npm:pi-web-access"' "$SEED"
+  grep -q '"npm:@juicesharp/rpiv-todo"' "$SEED"
+  grep -q '"npm:pi-mcp-adapter"' "$SEED"
+}
+
+@test "web-search.json routes SearXNG-first with a DuckDuckGo fallback" {
+  for f in "$ASEED/web-search.json" "$ASTOW/web-search.json"; do
+    [ -f "$f" ]
+    grep -q '"searxngBaseUrl": "http://127.0.0.1:8080"' "$f"
+    grep -q '"searxng"' "$f"
+    grep -q '"duckduckgo"' "$f"
+  done
+  diff -q "$ASEED/web-search.json" "$ASTOW/web-search.json"
+}
+
+@test "starter mcp.json is a valid mcpServers shape with no committed secret" {
+  for f in "$ASEED/mcp.json" "$ASTOW/mcp.json"; do
+    [ -f "$f" ]
+    grep -q '"mcpServers"' "$f"
+    # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
+    run grep -qiE '(api[_-]?key|token|secret)"[[:space:]]*:[[:space:]]*"[^$]' "$f"
+    [ "$status" -ne 0 ]
+  done
+  diff -q "$ASEED/mcp.json" "$ASTOW/mcp.json"
 }

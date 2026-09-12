@@ -8,5 +8,10 @@
     "anthropic/claude-haiku*"
   ],
   "quietStartup": true,
-  "defaultProjectTrust": "ask"
+  "defaultProjectTrust": "ask",
+  "packages": [
+    "npm:pi-web-access",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-mcp-adapter"
+  ]
 }
