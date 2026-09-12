@@ -1169,6 +1169,39 @@ KDE (clobbers the operator's theme), a `kde`-gated bridge install, wrapping
 `noctalia-cycle-palette` (misses the GUI), a systemd-user unit (unreachable under
 `start-hyprland`, ADR 0070).
 
+### Pi Coding Agent
+The second coding agent shipped fleet-wide beside Claude Code (ADR 0127), placed
+in [[Host Core]] so it reaches desktop + laptop (and every other core-resolved
+host) like the obs-studio addition. Installed from the AUR prebuilt
+`pi-coding-agent-bin` as a [[User Program]]; its grep/find are ripgrep/fd-backed.
+The full `~/.pi/agent/` config is **both seeded into `/etc/skel` and stow-ready**
+at the repo root (`.pi/`) — seeded because the installer never stows (ADR 0095),
+stowed by the operator's own hand. Provider is Anthropic via Claude Max OAuth
+(`/login`, per machine); `~/.pi/agent/auth.json` (`0600`) holds the tokens and is
+**gitignored, never stowed or seeded** — secrets stay out of the repo. Skills are
+the full mattpocock set, **vendored** (copied) into `.agents/skills/` via the
+Vercel `skills` CLI (which pi also reads) and refreshed by the operator with
+`npx skills@latest add mattpocock/skills`; the CLI's `.skill-lock.json` pins
+them. Pi's minimal core is topped up with three packages: **web** access
+(`pi-web-access` → the host's own SearXNG with a DuckDuckGo fallback), **todos**
+(`@juicesharp/rpiv-todo`), and **MCP** (`pi-mcp-adapter`, reading a Claude-style
+`mcpServers` JSON). Sub-agents and plan mode stay out — pi omits them by design
+and the vendored skills cover those workflows. _Avoid_: barebones pi, API-key
+auth, aliasing over `claude`.
+
+### Pi Theme Template
+The [[Wayland Shell Companion]]'s Noctalia user-template that makes the
+[[Pi Coding Agent]]'s TUI follow a live palette change (ADR 0128). A
+`[theme.templates.user.pi]` declaration maps Noctalia's 16 Material roles into
+pi's 53 color tokens, writing `~/.pi/agent/themes/noctalia.json`; pi hot-reloads
+its active theme file on write, so **no `post_hook` and no [[Live Theme Bridge]]
+change** is needed. The single `noctalia.json` is **seeded with Catppuccin Mocha
+Sapphire** (the fleet default, ADR 0109) and live-rewritten only in compositor
+sessions — so niri/Hyprland follow live while KDE (no template run) stays fixed
+on Catppuccin Mocha Sapphire, matching the [[App Theming Bridge]] isolation.
+_Avoid_: per-palette static theme files, extending `noctalia-theme-bridge` for
+pi, `--use-theme light/dark` (follows only terminal light/dark).
+
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by

@@ -1,0 +1,250 @@
+<!doctype html>
+<!--
+  ⚠️ THROWAWAY PROTOTYPE — not production. Answers one question:
+  "What will the pi TUI look like themed, and how will live-follow of a
+   Noctalia palette change look?"  (ADR 0127 / ADR 0128)
+
+  It renders a mock pi coding-agent session and maps Noctalia Material roles
+  -> pi's 53 theme tokens, per palette. Switch palette via the bottom bar or
+  ?palette=mocha-sapphire|nord|rose-pine|tokyo-night. Double-click to open.
+
+  Catppuccin Mocha Sapphire -> pi token map (the real seeded noctalia.json):
+    accent/borderAccent/toolTitle/mdLink/syntaxKeyword = primary #74c7ec
+    text/onSurface #cdd6f4 · muted/onSurfaceVariant #a6adc8 · dim/outline #6c7086
+    surface/bg #1e1e2e · selectedBg/surface0 #313244 · shadow/crust #11111b
+    success #a6e3a1 · error #f38ba8 · warning #f9e2af
+    syntaxString #a6e3a1 · syntaxNumber #fab387 · syntaxType #f9e2af
+    syntaxFunction #89b4fa · syntaxComment #6c7086 · bashMode #fab387
+    thinkingHigh border #f38ba8 · diff+ #a6e3a1 · diff- #f38ba8
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>pi TUI theme prototype (THROWAWAY)</title>
+<style>
+  /* ---- palettes: Noctalia roles -> CSS vars -> pi tokens ---- */
+  :root[data-palette="mocha-sapphire"] {
+    --bg:#1e1e2e; --crust:#11111b; --surface0:#313244; --surface1:#45475a;
+    --text:#cdd6f4; --subtext:#a6adc8; --overlay:#6c7086;
+    --accent:#74c7ec; --blue:#89b4fa; --sky:#89dceb; --green:#a6e3a1;
+    --red:#f38ba8; --yellow:#f9e2af; --peach:#fab387; --mauve:#cba6f7; --teal:#94e2d5;
+    --name:"Catppuccin Mocha Sapphire";
+  }
+  :root[data-palette="nord"] {
+    --bg:#2e3440; --crust:#272c36; --surface0:#3b4252; --surface1:#434c5e;
+    --text:#d8dee9; --subtext:#aeb3bb; --overlay:#6b7280;
+    --accent:#88c0d0; --blue:#81a1c1; --sky:#8fbcbb; --green:#a3be8c;
+    --red:#bf616a; --yellow:#ebcb8b; --peach:#d08770; --mauve:#b48ead; --teal:#8fbcbb;
+    --name:"Nord (builtin)";
+  }
+  :root[data-palette="rose-pine"] {
+    --bg:#191724; --crust:#12101d; --surface0:#1f1d2e; --surface1:#26233a;
+    --text:#e0def4; --subtext:#908caa; --overlay:#6e6a86;
+    --accent:#9ccfd8; --blue:#31748f; --sky:#9ccfd8; --green:#31748f;
+    --red:#eb6f92; --yellow:#f6c177; --peach:#ebbcba; --mauve:#c4a7e7; --teal:#9ccfd8;
+    --name:"Rosé Pine (community)";
+  }
+  :root[data-palette="tokyo-night"] {
+    --bg:#1a1b26; --crust:#16161e; --surface0:#24283b; --surface1:#2f344d;
+    --text:#c0caf5; --subtext:#a9b1d6; --overlay:#565f89;
+    --accent:#7aa2f7; --blue:#7aa2f7; --sky:#7dcfff; --green:#9ece6a;
+    --red:#f7768e; --yellow:#e0af68; --peach:#ff9e64; --mauve:#bb9af7; --teal:#7dcfff;
+    --name:"Tokyo Night (community)";
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--crust); color:var(--text);
+    font-family:"JetBrains Mono","Fira Code",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:13.5px; line-height:1.5; padding:24px 0 88px;
+  }
+  .screen {
+    max-width:900px; margin:0 auto; background:var(--bg);
+    border:1px solid var(--surface0); border-radius:8px; overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  .titlebar {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--crust); border-bottom:1px solid var(--surface0);
+    color:var(--subtext); font-size:12px;
+  }
+  .dot{width:11px;height:11px;border-radius:50%}
+  .d1{background:var(--red)}.d2{background:var(--yellow)}.d3{background:var(--green)}
+  .pane{padding:14px 16px}
+  .row{margin:0 0 14px}
+
+  .label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  /* user message */
+  .user{background:var(--surface0);border-left:3px solid var(--accent);
+        padding:8px 12px;border-radius:0 6px 6px 0;color:var(--text)}
+  .user .label{color:var(--accent)}
+
+  /* thinking (high => red border per token map) */
+  .thinking{border-left:3px solid var(--red);padding:6px 12px;color:var(--subtext);
+            font-style:italic;background:color-mix(in srgb,var(--red) 7%,transparent)}
+  .thinking .label{color:var(--red);font-style:normal}
+
+  /* assistant markdown */
+  h1.md{color:var(--accent);font-size:18px;margin:.2em 0 .4em;
+        border-bottom:1px solid var(--surface0);padding-bottom:4px}
+  a.md{color:var(--accent);text-decoration:underline}
+  .url{color:var(--subtext)}
+  .quote{border-left:3px solid var(--overlay);padding-left:10px;color:var(--subtext)}
+  ul.md{margin:.3em 0;padding-left:1.2em}
+  ul.md li::marker{color:var(--sky)}
+  code.inline{color:var(--sky);background:var(--surface0);padding:1px 5px;border-radius:4px}
+
+  /* code block with syntax highlight */
+  pre.code{background:var(--crust);border:1px solid var(--surface0);
+           border-radius:6px;padding:10px 12px;overflow:auto;margin:.4em 0}
+  .cm{color:var(--overlay)}       /* comment */
+  .kw{color:var(--accent)}        /* keyword = primary */
+  .fn{color:var(--blue)}          /* function */
+  .st{color:var(--green)}         /* string */
+  .nm{color:var(--peach)}         /* number */
+  .ty{color:var(--yellow)}        /* type */
+  .op{color:var(--sky)}           /* operator */
+
+  /* tool call */
+  .tool{border:1px solid var(--surface0);border-radius:6px;overflow:hidden;margin:.2em 0}
+  .tool .head{display:flex;justify-content:space-between;padding:6px 10px;
+              background:color-mix(in srgb,var(--green) 12%,var(--bg));color:var(--accent)}
+  .tool.err .head{background:color-mix(in srgb,var(--red) 14%,var(--bg));color:var(--red)}
+  .tool .st-ok{color:var(--green)} .tool .st-err{color:var(--red)}
+  .tool .body{padding:8px 10px;color:var(--subtext);background:var(--bg)}
+  .diff span{display:block;white-space:pre}
+  .add{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent)}
+  .del{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
+  .ctx{color:var(--overlay)}
+
+  /* bash mode prompt */
+  .bash{color:var(--peach)}
+  .cursor{background:var(--text);color:var(--bg);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* footer status line (inspired by pi-setup footer ext) */
+  .footer{display:flex;gap:14px;flex-wrap:wrap;padding:7px 16px;
+          border-top:1px solid var(--surface0);background:var(--crust);
+          color:var(--overlay);font-size:12px}
+  .footer b{color:var(--subtext);font-weight:500}
+  .footer .k{color:var(--accent)}
+  .footer .g{color:var(--green)}
+
+  /* floating switcher */
+  .bar{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:9;
+       display:flex;gap:6px;align-items:center;background:#0c0c12;border:1px solid #2a2a38;
+       padding:8px 10px;border-radius:999px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .bar button{font:inherit;font-size:12px;cursor:pointer;border-radius:999px;
+       border:1px solid #33334a;background:#17171f;color:#c9c9d6;padding:5px 11px}
+  .bar button.on{background:var(--accent);color:var(--crust);border-color:var(--accent);font-weight:600}
+  .bar .tag{color:#7a7a8c;font-size:11px;padding-right:4px}
+  .warn{max-width:900px;margin:0 auto 12px;color:#8a8a9a;font-size:11px;text-align:center}
+  .state{max-width:900px;margin:10px auto 0;color:var(--subtext);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+  <div class="warn">⚠️ THROWAWAY PROTOTYPE — mock of the pi TUI. Palette switch simulates Noctalia live-follow (ADR 0128).</div>
+
+  <div class="screen">
+    <div class="titlebar">
+      <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+      <span style="margin-left:8px">pi · ~/.dotfiles · opus-4.8 · thinking:high</span>
+    </div>
+
+    <div class="pane">
+      <div class="row user">
+        <div class="label">you</div>
+        add a retry wrapper around the searxng fetch in the web tool
+      </div>
+
+      <div class="row thinking">
+        <div class="label">thinking · high</div>
+        The fetch can fail if the searxng container is down; I'll add a bounded
+        retry then fall back to DuckDuckGo before surfacing an error…
+      </div>
+
+      <div class="row">
+        <h1 class="md">Retry + fallback</h1>
+        I'll wrap the call and degrade gracefully. See
+        <a class="md" href="#">the providers doc</a>
+        <span class="url">(pi.dev/docs/latest/providers)</span>.
+        <ul class="md">
+          <li>bounded <code class="inline">retries = 3</code>, exponential backoff</li>
+          <li>fall back to <code class="inline">duckduckgo</code> on exhaustion</li>
+        </ul>
+        <div class="quote">Note: searxng lives at 127.0.0.1:8080 (User Core).</div>
+
+        <pre class="code"><span class="cm">// web-access: searxng first, ddg fallback</span>
+<span class="kw">export async function</span> <span class="fn">search</span>(<span class="nm">q</span>: <span class="ty">string</span>)<span class="op">:</span> <span class="ty">Promise</span>&lt;<span class="ty">Result</span>[]&gt; {
+  <span class="kw">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="nm">0</span>; i &lt; <span class="nm">3</span>; i<span class="op">++</span>) {
+    <span class="kw">try</span> { <span class="kw">return await</span> <span class="fn">searxng</span>(<span class="st">"http://127.0.0.1:8080"</span>, q); }
+    <span class="kw">catch</span> { <span class="kw">await</span> <span class="fn">sleep</span>(<span class="nm">250</span> <span class="op">*</span> <span class="nm">2</span><span class="op">**</span>i); }
+  }
+  <span class="kw">return</span> <span class="fn">duckduckgo</span>(q); <span class="cm">// keyless fallback</span>
+}</pre>
+      </div>
+
+      <div class="row tool">
+        <div class="head"><span>✎ edit · src/web/search.ts</span><span class="st-ok">✓ applied</span></div>
+        <div class="body diff">
+          <span class="ctx">  for (let i = 0; i &lt; 3; i++) {</span>
+          <span class="del">-   return await searxng(url, q);</span>
+          <span class="add">+   try { return await searxng(url, q); }</span>
+          <span class="add">+   catch { await sleep(250 * 2**i); }</span>
+          <span class="ctx">  }</span>
+        </div>
+      </div>
+
+      <div class="row tool err">
+        <div class="head"><span>⌘ bash · curl 127.0.0.1:8080</span><span class="st-err">✗ exit 7</span></div>
+        <div class="body">curl: (7) Failed to connect — container down; fallback path exercised.</div>
+      </div>
+
+      <div class="row">
+        <span class="bash">!</span> <span>git status --short</span> <span class="cursor">&nbsp;</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span><b class="k">opus-4.8</b></span>
+      <span>thinking <b>high</b></span>
+      <span>ctx <b>31%</b></span>
+      <span>↑<b>12.4k</b> ↓<b>3.1k</b></span>
+      <span><b>$0.18</b></span>
+      <span> <b class="g">main</b></span>
+      <span class="k" style="margin-left:auto">theme: noctalia (live)</span>
+    </div>
+  </div>
+
+  <div class="state" id="state"></div>
+
+  <div class="bar">
+    <span class="tag">palette →</span>
+    <button data-p="mocha-sapphire">Mocha Sapphire</button>
+    <button data-p="nord">Nord</button>
+    <button data-p="rose-pine">Rosé Pine</button>
+    <button data-p="tokyo-night">Tokyo Night</button>
+  </div>
+
+<script>
+  const VALID = ["mocha-sapphire","nord","rose-pine","tokyo-night"];
+  function nameFor(){ return getComputedStyle(document.documentElement)
+      .getPropertyValue('--name').trim().replace(/^"|"$/g,''); }
+  function apply(p){
+    if(!VALID.includes(p)) p = "mocha-sapphire";
+    document.documentElement.dataset.palette = p;
+    const u = new URL(location); u.searchParams.set('palette', p);
+    history.replaceState({}, '', u);
+    document.querySelectorAll('.bar button').forEach(b =>
+      b.classList.toggle('on', b.dataset.p === p));
+    document.getElementById('state').textContent =
+      'STATE · active palette = "' + nameFor() + '"  (Noctalia roles → pi 53 tokens; '
+      + 'KDE would stay pinned on Mocha Sapphire)';
+  }
+  document.querySelectorAll('.bar button').forEach(b =>
+    b.addEventListener('click', () => apply(b.dataset.p)));
+  apply(new URLSearchParams(location.search).get('palette') || 'mocha-sapphire');
+</script>
+</body>
+</html>
