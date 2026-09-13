@@ -57,3 +57,11 @@ the same relaunch-only limit the [[Live Theme Bridge]]'s KColorScheme apps have
 - The default palette now lives in one more place (the seeded zsh theme files);
   a default change must update them alongside the other ADR 0109 seed points.
 - The p10k prompt only partially follows (accent foregrounds); the rest is fixed.
+- Two Noctalia template-engine constraints, both VM-verified, shape the `zsh`
+  template: (1) never put a double-brace tag in a **comment** — the engine
+  parses comments too, so an example placeholder there becomes a real (and, if
+  it names a non-existent role, failing) tag that aborts the whole render;
+  (2) `FZF_DEFAULT_OPTS` must be a single line — backslash line-continuations
+  make the render fail. The template inputs must be **seeded**, not only stowed
+  (the preset seeds `templates/`), or a seed-only box declares templates whose
+  input is absent and live-follow silently no-ops.
