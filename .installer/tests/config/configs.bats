@@ -63,14 +63,16 @@ teardown() {
 
 @test "users/core declares its programs; the test users exclude them" {
   local ucore="$BATS_TEST_DIRNAME/../../users/core/profile.jsonc"
-  # virt-manager + searxng/podman are every-user programs; docker is
-  # aquastias-specific (ADR 0114). podman precedes searxng (dependency, ADR 0065).
-  jsonc_strip "$ucore" | jq -e '.programs == ["virt-manager","podman","searxng"]'
+  # zsh (shell tooling) + virt-manager + searxng/podman + pi are every-user
+  # programs; docker is aquastias-specific (ADR 0114). podman precedes searxng
+  # (dependency, ADR 0065). The test users exclude every one of them.
+  jsonc_strip "$ucore" \
+    | jq -e '.programs == ["zsh","virt-manager","podman","searxng","pi"]'
   jsonc_strip "$ucore" | jq -e '.shell == "/bin/zsh"'
   local u
   for u in vm-test vm-data; do
     jsonc_strip "$BATS_TEST_DIRNAME/../../users/$u/profile.jsonc" \
-      | jq -e '.programs_exclude == ["virt-manager","podman","searxng"]'
+      | jq -e '.programs_exclude == ["zsh","virt-manager","podman","searxng","pi"]'
   done
 }
 

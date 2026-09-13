@@ -1206,6 +1206,25 @@ per-palette static theme files, extending `noctalia-theme-bridge` for pi,
 stowing `noctalia.json`, `--use-theme light/dark` (follows only terminal
 light/dark).
 
+### Zsh Theme Template
+The [[Wayland Shell Companion]]'s Noctalia user-templates that make the
+interactive zsh shell follow a live palette change (ADR 0129), reusing the
+[[Pi Theme Template]] pattern (ADR 0128). Two `[theme.templates.user.*]` map
+Noctalia's Material roles into shell color: `zsh` writes
+`~/.zsh/themes/noctalia.zsh` (`FZF_DEFAULT_OPTS` + `ZSH_HIGHLIGHT_STYLES`),
+`p10k-accent` writes `~/.zsh/themes/p10k-accent.zsh` (only the accent-carrying
+Powerlevel10k `*_FOREGROUND` keys — the prompt is otherwise the fixed committed
+`.p10k.zsh`). `.zshrc` sources both. Unlike pi, zsh does not hot-reload: a
+running shell repaints on next shell / `zshreload`, not mid-session (env-var and
+prompt color are read at startup — the same relaunch-only limit the [[Live Theme
+Bridge]]'s KColorScheme apps have). Both files are **seeded with Catppuccin
+Mocha Sapphire** (the fleet default, ADR 0109) and live-rewritten only in
+compositor sessions — niri/Hyprland follow, KDE stays fixed. The generated
+outputs are **seed-only, never stowed** (gitignored); only the template inputs
+(`templates/zsh.zsh`, `templates/p10k-accent.zsh`) are stowed. _Avoid_:
+per-palette static theme files, live-following the whole 491-key `.p10k.zsh`,
+stowing the generated outputs.
+
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by

@@ -1,0 +1,18 @@
+// Program metadata for zsh.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru, with temp NOPASSWD sudo for: refreshing the pkgfile database
+// (`pkgfile -u`, root-owned /var/cache/pkgfile) and seeding /etc/skel so users
+// created outside the dotfiles clone still get the shell tooling defaults.
+// The zsh binary and login shell are NOT set here — User Core's shell=/bin/zsh
+// + ensure_login_shell_installed already own that. This installs the
+// interactive tooling the stowed config expects (eza/zoxide/fzf/nvm/…),
+// pre-warms the zinit plugin cache so the first login shell clones nothing, and
+// seeds the Noctalia-generated theme files (Catppuccin Mocha Sapphire default).
+
+{
+  "name": "zsh",
+  "kind": "user",
+  "description": "Interactive zsh tooling (eza, zoxide, fzf, nvm, p10k deps) with a pre-warmed zinit cache and seeded palette theme.",
+  "system_services": ["pkgfile-update.timer"]
+}

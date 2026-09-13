@@ -25,3 +25,5 @@
 .pi/agent/auth.json
 # Pi theme file is Noctalia-generated/seed-only — never stowed (ADR 0128/0104)
 .pi/agent/themes/
+# Zsh theme files are Noctalia-generated/seed-only — never stowed (ADR 0128)
+.zsh/themes/

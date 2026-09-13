@@ -210,6 +210,20 @@ wallpaper_scheme = "m3-content"
     input_path  = "$XDG_CONFIG_HOME/noctalia/templates/pi.json"
     output_path = "$HOME/.pi/agent/themes/noctalia.json"
 
+    # Render the live palette into the interactive zsh shell (ADR 0128 pattern,
+    # "Zsh Theme Template"). `zsh` → FZF_DEFAULT_OPTS + zsh-syntax-highlighting
+    # styles; `p10k-accent` → only the accent-carrying Powerlevel10k
+    # foregrounds. Seed-only targets (never stowed); zsh reads color at startup
+    # so a running shell repaints on next shell / zshreload, not mid-session.
+    # KDE never runs these, so there zsh stays the seeded Mocha Sapphire.
+    [theme.templates.user.zsh]
+    input_path  = "$XDG_CONFIG_HOME/noctalia/templates/zsh.zsh"
+    output_path = "$HOME/.zsh/themes/noctalia.zsh"
+
+    [theme.templates.user.p10k-accent]
+    input_path  = "$XDG_CONFIG_HOME/noctalia/templates/p10k-accent.zsh"
+    output_path = "$HOME/.zsh/themes/p10k-accent.zsh"
+
 [wallpaper.default]
 path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"
 
