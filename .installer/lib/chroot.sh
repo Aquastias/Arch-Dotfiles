@@ -323,6 +323,13 @@ configure_system() {
         "${_niri_cur}/.config/niri/conf.d/"
       install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
         "${_niri_cur}/.config/noctalia/config.toml"
+      # User-template inputs (ADR 0128/0129): config.toml declares
+      # [theme.templates.user.*] whose input_path lives here; stage the dir so
+      # the preset seeds it — live palette-follow on seed-only boxes (pi + zsh),
+      # not just stow'd ones.
+      install -d "${_niri_cur}/.config/noctalia/templates"
+      install -m644 "${SCRIPT_DIR}/../.config/noctalia/templates/"* \
+        "${_niri_cur}/.config/noctalia/templates/"
       install -d "${_niri_cur}/.local/bin"
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_niri_cur}/.local/bin/"
@@ -356,6 +363,11 @@ configure_system() {
         "${_hypr_cur}/.config/hypr/conf.d/"
       install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
         "${_hypr_cur}/.config/noctalia/config.toml"
+      # User-template inputs (ADR 0128/0129): staged so the preset seeds them for
+      # live palette-follow on seed-only boxes (pi + zsh).
+      install -d "${_hypr_cur}/.config/noctalia/templates"
+      install -m644 "${SCRIPT_DIR}/../.config/noctalia/templates/"* \
+        "${_hypr_cur}/.config/noctalia/templates/"
       install -d "${_hypr_cur}/.local/bin"
       install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
         "${_hypr_cur}/.local/bin/"

@@ -167,6 +167,17 @@ noctalia_preset_install() {
     sed -i '/^[[:space:]]*builtin_ids = \[/a\        "kcolorscheme",' \
       "${_skel}/.config/noctalia/config.toml"
     info "Enabled kcolorscheme so KDE-framework apps follow Noctalia (ADR 0123)."
+    # User-template inputs (ADR 0128/0129): config.toml declares
+    # [theme.templates.user.*] (pi, zsh, p10k-accent); their input_path files
+    # live here. Seed the whole dir so Noctalia can render them on a seed-only
+    # box — otherwise the templates are declared but absent and live
+    # palette-follow silently no-ops (only builtin templates run).
+    if [[ -d "${NOC_CURATED_DIR}/.config/noctalia/templates" ]]; then
+      install -d "${_skel}/.config/noctalia/templates"
+      install -m644 "${NOC_CURATED_DIR}"/.config/noctalia/templates/* \
+        "${_skel}/.config/noctalia/templates/"
+      info "Seeded Noctalia user-templates (live palette-follow: pi, zsh)."
+    fi
     install -d "${_skel}/.local/bin"
     install -m755 "${NOC_CURATED_DIR}"/.local/bin/noctalia-* \
       "${_skel}/.local/bin/"
