@@ -38,7 +38,7 @@ pwd_last_two() {
   printf '%s\n' "$(pwd | awk -F/ '{printf "%s/%s\n", $(NF-1), $NF}')"
 }
 
-alias cpp='copy_progress_bar'
+alias cppv='copy_progress_bar'   # was 'cpp' — that shadows the C preprocessor
 alias cpg='copy_and_go'
 alias mvg='move_and_go'
 alias mkdirg='mkdir_and_go'

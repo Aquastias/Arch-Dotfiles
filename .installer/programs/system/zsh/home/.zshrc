@@ -28,6 +28,10 @@ source "$ZSH_BASE_DIR/history/default.zsh"
 source "$ZSH_BASE_DIR/zstyle/default.zsh"
 source "$ZSH_BASE_DIR/zinit/default.zsh"
 
+# compinit runs HERE, after zinit added plugin completions (zsh-completions) to
+# fpath — otherwise their functions miss the dump. -C trusts the dump for speed.
+compinit -C
+
 # Powerlevel10k (loads via zinit, then sources ~/.p10k.zsh + accent override).
 source "$ZSH_BASE_DIR/vendors/p10k/default.zsh"
 

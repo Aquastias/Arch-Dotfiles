@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
 ### Modified commands
 alias grep='grep --color=auto'
@@ -48,9 +48,8 @@ alias psgrep='ps aux | grep -v grep | grep -i -e VSZ -e'
 alias topcpu='ps auxf | sort -nr -k 3 | head -10'
 ###
 
-### Search files in current folder
-alias f='find . | grep -i -e'
-alias fgrep='find . | grep -i -e'
+### Search files in current folder (ff, not f/fgrep — those shadow real fgrep)
+alias ff='find . | grep -i -e'
 ###
 
 ### Count all files (recursively) in the current folder
@@ -99,13 +98,11 @@ alias untarxz='tar -Jxvf'
 alias untarzip='unzip'
 alias untarrar='unrar x'
 alias untar7z='7z x'
-alias untarxz='tar -Jxvf'
 alias mkzip='zip -r'
 alias mktar='tar -czvf'
 alias mktarbz2='tar -cjvf'
 alias mktarxz='tar -cJvf'
 alias mktargz='tar -czvf'
-alias mktarxz='tar -cJvf'
 alias mktarrar='rar a'
 alias mktar7z='7z a'
 ###
