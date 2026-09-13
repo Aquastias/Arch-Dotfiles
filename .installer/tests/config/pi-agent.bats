@@ -17,6 +17,7 @@ setup() {
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
   SKILLS="$REPO/.agents/skills"       # vendored mattpocock skills (stow tree)
+  LOCK="$REPO/skills-lock.json"       # Vercel skills CLI pin (repo root)
   CT="$REPO/.config/noctalia/config.toml"
   TPL="$REPO/.config/noctalia/templates/pi.json"   # user-template input
 }
@@ -92,6 +93,14 @@ setup() {
 @test "vendored skills are real copies, not symlinks (offline, committed)" {
   run find "$SKILLS" -maxdepth 1 -type l
   [ -z "$output" ]
+}
+
+@test "skills-lock.json pins every vendored skill (reproducible pin)" {
+  [ -f "$LOCK" ]
+  grep -q '"source": "mattpocock/skills"' "$LOCK"
+  # one lock entry per vendored SKILL.md
+  [ "$(grep -c '"computedHash":' "$LOCK")" \
+      -eq "$(find "$SKILLS" -name SKILL.md | wc -l)" ]
 }
 
 @test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {

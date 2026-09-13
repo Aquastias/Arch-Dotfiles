@@ -36,10 +36,11 @@ seeded** — credentials never enter the repo and are established per-machine.
 symlinked) into `.agents/skills/` — the Vercel `skills` CLI's shared canonical
 dir, which pi also reads (`~/.agents/skills/` globally, auto-discovered with no
 settings entry). Vendoring keeps them present offline (in the repo clone) at
-install time and stow-owned. The **committed tree is itself the reproducible
-pin** (the CLI writes `.skill-lock.json` only for global installs, not the
-project scope we vendor into). The operator refreshes with
-`npx skills@latest add mattpocock/skills` run in-repo, which overwrites in place.
+install time and stow-owned. The CLI writes a project-scope **`skills-lock.json`**
+at the repo root, pinning each skill's upstream `source` + content hash; it is
+committed as the reproducible pin (alongside the vendored tree itself). The
+operator refreshes with `npx skills@latest add mattpocock/skills` run in-repo,
+which overwrites in place and updates the lock.
 Skills are not program-seeded — they ride the dotfiles clone and the operator's
 stow, like every other stowed dotfile.
 

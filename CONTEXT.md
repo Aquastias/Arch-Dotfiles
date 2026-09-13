@@ -1182,8 +1182,8 @@ stowed by the operator's own hand. Provider is Anthropic via Claude Max OAuth
 the full mattpocock set, **vendored** (copied) into `.agents/skills/` via the
 Vercel `skills` CLI and auto-discovered by pi at `~/.agents/skills/` (no settings
 entry); refreshed by the operator with `npx skills@latest add mattpocock/skills`.
-The committed tree is the pin (git — the CLI writes a lock file only for global
-installs). Pi's minimal core is topped up with three packages: **web** access
+The CLI writes a repo-root **`skills-lock.json`** (per-skill source + content
+hash), committed as the pin alongside the vendored tree. Pi's minimal core is topped up with three packages: **web** access
 (`pi-web-access` → the host's own SearXNG with a DuckDuckGo fallback), **todos**
 (`@juicesharp/rpiv-todo`), and **MCP** (`pi-mcp-adapter`, reading a Claude-style
 `mcpServers` JSON). Sub-agents and plan mode stay out — pi omits them by design
