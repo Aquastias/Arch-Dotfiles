@@ -57,6 +57,10 @@ the same relaunch-only limit the [[Live Theme Bridge]]'s KColorScheme apps have
 - The default palette now lives in one more place (the seeded zsh theme files);
   a default change must update them alongside the other ADR 0109 seed points.
 - The p10k prompt only partially follows (accent foregrounds); the rest is fixed.
+- `bat` follows the palette with no template: `BAT_THEME=ansi` renders via the
+  terminal's 16 ANSI colours, which Noctalia already themes — the same
+  no-template trick the syntax-highlighter could not use (it needs 256-colour
+  hexes). This is live on compositors and fixed under KDE, like everything else.
 - Two Noctalia template-engine constraints, both VM-verified, shape the `zsh`
   template: (1) never put a double-brace tag in a **comment** — the engine
   parses comments too, so an example placeholder there becomes a real (and, if

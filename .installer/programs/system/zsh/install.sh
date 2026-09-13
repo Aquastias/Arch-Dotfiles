@@ -29,7 +29,7 @@ SELF="${PROGRAMS}/system/zsh"
 print_status info "Installing zsh tooling..."
 ${AUR_HELPER} -S --noconfirm --needed \
   eza zoxide fzf pv age python-pygments pkgfile ttf-meslo-nerd nvm \
-  git-extras
+  bat git-extras
 
 # ── pkgfile database (command-not-found) ─────────────────────────────────────
 # pkgfile keeps its own file index; build it now (chroot has network). The

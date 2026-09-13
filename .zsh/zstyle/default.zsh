@@ -4,6 +4,9 @@ zstyle ':omz:plugins:eza' git-status yes
 zstyle ':omz:plugins:eza' header yes
 zstyle ':omz:plugins:eza' show-group yes
 zstyle ':omz:plugins:eza' size-prefix si
+# --icons=auto: per-filetype nerd-font glyphs in listings (js/ts/php/json/yaml/
+# html/css/scss/c/cpp/sh…). eza colours are on by default (its own theme).
+zstyle ':omz:plugins:eza' icons yes
 
 # NVM plugin: lazy-load (defer nvm until first `nvm`/`node`/`npm` use) so shell
 # startup stays fast. OMZ's nvm plugin is the single init — no eager
