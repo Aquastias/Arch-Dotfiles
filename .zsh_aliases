@@ -103,6 +103,7 @@ alias mktar='tar -czvf'
 alias mktarbz2='tar -cjvf'
 alias mktarxz='tar -cJvf'
 alias mktargz='tar -czvf'
+alias mktarrar='rar a'
 alias mktar7z='7z a'
 ###
 

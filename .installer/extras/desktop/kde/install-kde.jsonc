@@ -153,8 +153,9 @@
   },
   // Per-app optional-dependency enhancers (ADR 0088), keyed by app. Same
   // Categorized List shape, same install pass, deselectable per package.
-  // Ark's backends (7zip, unrar) are intentionally absent — Host Core's
-  // `packages.repo.archive` already ships them, so they have one home there.
+  // Ark's backends (7zip, rar) are intentionally absent — Host Core already
+  // ships them (7zip in repo.archive, rar in aur.misc — rar Provides unrar),
+  // so they have one home there.
   "plugins": {
     "dolphin": {
       "dolphin-plugins": true, // Git/SVN/Mercurial integration

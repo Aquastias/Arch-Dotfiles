@@ -145,7 +145,6 @@
         "lhasa",
         "unace",
         "unarj",
-        "unrar",
         "unzip",
         "zip"
       ]
@@ -157,6 +156,9 @@
         "bridge-utils",
         "grayjay-bin",
         "lua-format",
+        // rar (proprietary) replaces repo `unrar`: it Provides unrar so
+        // extraction still works, and adds .rar creation (mktarrar).
+        "rar",
         "runelite",
         "vscodium-bin",
         "vscodium-marketplace",
