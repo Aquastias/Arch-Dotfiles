@@ -19,11 +19,14 @@ eval "$(dircolors -b)"
 
 ZSH_BASE_DIR="$HOME/.zsh"
 
-# Standard
+# Standard. zstyle before zinit: the OMZ plugin options (ssh-agent quiet/lazy,
+# eza, nvm lazy) are zstyles the plugins read at load time, so they must be set
+# before zinit sources the plugins — otherwise they no-op (ssh-agent then prints
+# "Starting ssh-agent" after p10k's instant-prompt preamble, corrupting async).
 source "$ZSH_BASE_DIR/autoload/default.zsh"
 source "$ZSH_BASE_DIR/history/default.zsh"
-source "$ZSH_BASE_DIR/zinit/default.zsh"
 source "$ZSH_BASE_DIR/zstyle/default.zsh"
+source "$ZSH_BASE_DIR/zinit/default.zsh"
 
 # Powerlevel10k (loads via zinit, then sources ~/.p10k.zsh + accent override).
 source "$ZSH_BASE_DIR/vendors/p10k/default.zsh"
