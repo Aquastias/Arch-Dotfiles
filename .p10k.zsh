@@ -61,8 +61,10 @@
     go_version              # go version (https://golang.org)
     rust_version            # rustc version (https://www.rust-lang.org)
     swift_version           # swift version (https://swift.org)
+    typescript              # typescript version (custom, tsc; tsconfig.json)
+    cc                      # c/c++ toolchain version (custom, cc; Makefile/CMake)
     # dotnet_version        # .NET version (https://dotnet.microsoft.com)
-    # php_version           # php version (https://www.php.net/)
+    php_version             # php version (https://www.php.net/)
     # laravel_version       # laravel php framework version (https://laravel.com/)
     # java_version          # java version (https://www.java.com/)
     # package               # name@version from package.json (https://docs.npmjs.com/files/package.json)
@@ -1089,8 +1091,8 @@
   typeset -g POWERLEVEL9K_PHP_VERSION_FOREGROUND=99
   # Show PHP version only when in a PHP project subdirectory.
   typeset -g POWERLEVEL9K_PHP_VERSION_PROJECT_ONLY=true
-  # Custom icon.
-  # typeset -g POWERLEVEL9K_PHP_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
+  # Custom icon (nerd-font glyph).
+  typeset -g POWERLEVEL9K_PHP_VERSION_VISUAL_IDENTIFIER_EXPANSION=''
 
   ##########[ laravel_version: laravel php framework version (https://laravel.com/) ]###########
   # Laravel version color.
@@ -1726,3 +1728,56 @@ typeset -g POWERLEVEL9K_CONFIG_FILE=${${(%):-%x}:a}
 
 (( ${#p10k_config_opts} )) && setopt ${p10k_config_opts[@]}
 'builtin' 'unset' 'p10k_config_opts'
+
+# =============================================================================
+# Custom p10k segments: typescript + c/c++ versions (not built into p10k).
+# Both are PROJECT_ONLY — they render only inside a matching project tree — and
+# cache the parsed version keyed by the tool binary's path+mtime, so the tool
+# runs once per toolchain, not once per prompt. prompt_* run in the main shell
+# each precmd, so the global cache persists across prompts.
+# =============================================================================
+zmodload -F zsh/stat b:zstat 2>/dev/null
+typeset -gA _usrseg_ver_cache
+
+# _usrseg_find_up <marker...> — true if any marker exists in $PWD or an ancestor.
+function _usrseg_find_up() {
+  local d=$PWD m
+  while true; do
+    for m in "$@"; do [[ -e $d/$m ]] && return 0; done
+    [[ $d == / ]] && return 1
+    d=${d:h}
+  done
+}
+
+# _usrseg_version <cache-key> <bin> <extra-args…> — echo first x.y[.z] from the
+# tool's --version, cached by bin path+mtime.
+function _usrseg_version() {
+  local key=$1 bin=$2; shift 2
+  local mt; mt=$(zstat +mtime -- $bin 2>/dev/null)
+  local ck="$key:$bin:$mt" v=${_usrseg_ver_cache[$ck]-}
+  if [[ -z $v ]]; then
+    local out; out=$($bin "$@" --version 2>/dev/null)
+    [[ $out =~ '[0-9]+\.[0-9]+(\.[0-9]+)?' ]] && v=$MATCH
+    [[ -n $v ]] && _usrseg_ver_cache[$ck]=$v
+  fi
+  print -r -- $v
+}
+
+function prompt_typescript() {
+  _usrseg_find_up tsconfig.json || return
+  local bin
+  if [[ -x $PWD/node_modules/.bin/tsc ]]; then bin=$PWD/node_modules/.bin/tsc
+  else bin=${commands[tsc]-}; fi
+  [[ -n $bin ]] || return
+  local v; v=$(_usrseg_version ts $bin)
+  [[ -n $v ]] && p10k segment -f 39 -i '' -t "$v"
+}
+
+function prompt_cc() {
+  _usrseg_find_up Makefile CMakeLists.txt compile_commands.json meson.build \
+    configure || return
+  local bin=${commands[cc]-${commands[gcc]-${commands[clang]-}}}
+  [[ -n $bin ]] || return
+  local v; v=$(_usrseg_version cc $bin)
+  [[ -n $v ]] && p10k segment -f 75 -i '' -t "$v"
+}
