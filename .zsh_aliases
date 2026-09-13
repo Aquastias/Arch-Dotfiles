@@ -103,7 +103,6 @@ alias mktar='tar -czvf'
 alias mktarbz2='tar -cjvf'
 alias mktarxz='tar -cJvf'
 alias mktargz='tar -czvf'
-alias mktarrar='rar a'
 alias mktar7z='7z a'
 ###
 
@@ -115,8 +114,10 @@ alias showwifipass="nmcli device wifi show-password"
 alias pacrmdb='$SUDO rm /var/lib/pacman/db.lck'
 ###
 
-### Grub
-alias update-grub='$SUDO grub-mkconfig -o $GRUB_BOOT_CFG'
+### Grub — defined only when grub is the installed bootloader (default is
+### systemd-boot; this alias is dead weight on non-grub machines).
+(( $+commands[grub-mkconfig] )) && \
+  alias update-grub='$SUDO grub-mkconfig -o $GRUB_BOOT_CFG'
 ###
 
 ### Anime
