@@ -28,8 +28,6 @@ setup() {
   [ -f "$CFG" ]
   grep -q '"name": "zsh"' "$CFG"
   grep -q '"kind": "user"' "$CFG"
-  # pkgfile index freshness ships as a system timer, not systemctl start
-  grep -q '"pkgfile-update.timer"' "$CFG"
 }
 
 @test "install.sh has the mandated shape and installs the tooling" {
@@ -45,8 +43,10 @@ setup() {
     grep -q "$p" "$INSTALL"
   done
   grep -q 'sudo pkgfile -u' "$INSTALL"
+  # user programs don't get system_services enabled by the runner, so the
+  # timer is enabled in-script (enable, never start)
+  grep -q 'systemctl enable pkgfile-update.timer' "$INSTALL"
   grep -q 'print_status success' "$INSTALL"
-  # never start services in the chroot
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
@@ -133,8 +133,10 @@ setup() {
   [ "$output" -gt "$p10k_line" ]
 }
 
-@test "nvm is lazy OMZ-only — no eager /usr/share/nvm source remains" {
+@test "nvm is lazy OMZ-only with NVM_DIR set — no eager init-nvm.sh source" {
   grep -q "zstyle ':omz:plugins:nvm' lazy yes" "$ZSTYLE"
+  # NVM_DIR points the OMZ plugin at Arch's /usr/share/nvm (else nvm is absent)
+  grep -q 'export NVM_DIR="/usr/share/nvm"' "$REPO/.zsh/env/exports.zsh"
   ! grep -rq '/usr/share/nvm/init-nvm.sh' "$REPO/.zsh" "$ZSHRC"
   [ ! -e "$REPO/.zsh/vendors/nodejs" ]
 }

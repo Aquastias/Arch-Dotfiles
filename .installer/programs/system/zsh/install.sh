@@ -9,8 +9,8 @@
 #
 # Installs the interactive zsh tooling — eza, zoxide, fzf, nvm, pv, age,
 # python-pygments (colorize), pkgfile (command-not-found), ttf-meslo-nerd (p10k
-# glyphs), all repo; git-extras from the AUR. Builds the pkgfile database
-# (pkgfile-update.timer enabled via config.jsonc). SEEDS the full zsh config
+# glyphs), all repo; git-extras from the AUR. Builds the pkgfile database and
+# enables pkgfile-update.timer. SEEDS the full zsh config
 # (bundled under home/, kept byte-identical to the repo root by a drift test)
 # into the owning user's $HOME and into /etc/skel — the installer never stows
 # (ADR 0095), so a fresh non-stowing user still gets a working shell; the
@@ -37,6 +37,10 @@ ${AUR_HELPER} -S --noconfirm --needed \
 # at login; pkgfile-update.timer keeps it fresh (enabled via config.jsonc).
 print_status info "Building pkgfile database..."
 sudo pkgfile -u
+# The runner enables system_services only for host programs, so this user
+# program enables pkgfile's shipped timer itself (enable, never start — ADR
+# 0026 / PROGRAM_SPEC). Keeps the index fresh after first boot.
+sudo systemctl enable pkgfile-update.timer
 
 # ── seed the full zsh config (ADR 0095: installer never stows, so seed) ───────
 # The bundled home/ tree is byte-identical to the repo-root config (drift test).

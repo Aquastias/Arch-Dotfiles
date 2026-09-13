@@ -12,6 +12,10 @@ export DOTFILES="$HOME/.dotfiles"
 export ZSH_COLORIZE_STYLE="colorful"
 export ZSH_COLORIZE_CHROMA_FORMATTER=terminal256
 
+# NVM — Arch installs nvm under /usr/share/nvm; point NVM_DIR there so the OMZ
+# nvm plugin (lazy) can find and source it (no eager /usr/share/nvm source).
+export NVM_DIR="/usr/share/nvm"
+
 # Zoxide
 export ZOXIDE_CMD_OVERRIDE="cd"
 ###
