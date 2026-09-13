@@ -8,10 +8,6 @@ export SUDO="sudo"
 ## Dotfiles
 export DOTFILES="$HOME/.dotfiles"
 
-# Colorize
-export ZSH_COLORIZE_STYLE="colorful"
-export ZSH_COLORIZE_CHROMA_FORMATTER=terminal256
-
 # NVM — Arch installs nvm under /usr/share/nvm; point NVM_DIR there so the OMZ
 # nvm plugin (lazy) can find and source it (no eager /usr/share/nvm source).
 export NVM_DIR="/usr/share/nvm"
@@ -37,6 +33,3 @@ export BAT_THEME="ansi"
 export GRUB_DEFAULT_FILE="/etc/default/grub"
 export GRUB_BOOT_CFG="/boot/grub/grub.cfg"
 ###
-
-## Lua
-export LUA_VERSION=5.4

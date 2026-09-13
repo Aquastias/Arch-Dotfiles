@@ -1,30 +1,7 @@
 #!/usr/bin/env zsh
 
-extract_archive() {
-  for archive in "$@"; do
-    if [ -f "$archive" ]; then
-      case $archive in
-        *.tar.bz2)  tar xvjf "$archive"   ;;
-        *.tar.gz)   tar xvzf "$archive"   ;;
-        *.bz2)      bunzip2 "$archive"    ;;
-        *.rar)
-          type -P rar >/dev/null \
-            && rar x "$archive" \
-            || echo "rar not found." ;;
-        *.gz)       gunzip "$archive"     ;;
-        *.tar)      tar xvf "$archive"    ;;
-        *.tbz2)     tar xvjf "$archive"   ;;
-        *.tgz)      tar xvzf "$archive"   ;;
-        *.zip)      unzip "$archive"      ;;
-        *.Z)        uncompress "$archive" ;;
-        *.7z)       7z x "$archive"       ;;
-        *)          echo "don't know how to extract '$archive'" ;;
-      esac
-    else
-      echo "'$archive' is not a valid file!"
-    fi
-  done
-}
+# Archive extraction is provided by the OMZ `extract` plugin (`extract`/`x`);
+# only the openssl/age encrypt-archive helpers below are unique to this file.
 
 archive_encrypt_openssl() {
   if [ $# -lt 2 ]; then
@@ -114,7 +91,6 @@ decrypt_with_age() {
   fi
 }
 
-alias extractarchive='extract_archive'
 alias archiveopenssl='archive_encrypt_openssl'
 alias unarchiveopenssl='unarchive_decrypt_openssl'
 alias ageencrypt='encrypt_with_age'
