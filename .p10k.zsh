@@ -63,9 +63,10 @@
     swift_version           # swift version (https://swift.org)
     typescript              # typescript version (custom, tsc; tsconfig.json)
     cc                      # c/c++ toolchain version (custom, cc; Makefile/CMake)
+    lua                     # lua version (custom, lua -v; .luarc.json/init.lua)
     # dotnet_version        # .NET version (https://dotnet.microsoft.com)
     php_version             # php version (https://www.php.net/)
-    # laravel_version       # laravel php framework version (https://laravel.com/)
+    laravel_version         # laravel php framework version (https://laravel.com/)
     # java_version          # java version (https://www.java.com/)
     # package               # name@version from package.json (https://docs.npmjs.com/files/package.json)
     rbenv                   # ruby version from rbenv (https://github.com/rbenv/rbenv)
@@ -351,7 +352,7 @@
 
   #####################################[ vcs: git status ]######################################
   # Branch icon. Set this parameter to '\UE0A0 ' for the popular Powerline branch icon.
-  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=
+  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON=' '
 
   # Untracked files icon. It's really a question mark, your font isn't broken.
   # Change the value of this parameter to show a different icon.
@@ -1097,8 +1098,8 @@
   ##########[ laravel_version: laravel php framework version (https://laravel.com/) ]###########
   # Laravel version color.
   typeset -g POWERLEVEL9K_LARAVEL_VERSION_FOREGROUND=161
-  # Custom icon.
-  # typeset -g POWERLEVEL9K_LARAVEL_VERSION_VISUAL_IDENTIFIER_EXPANSION='⭐'
+  # Custom icon (nerd-font glyph; unverified — no laravel project in test VM).
+  typeset -g POWERLEVEL9K_LARAVEL_VERSION_VISUAL_IDENTIFIER_EXPANSION=''
 
   ####################[ java_version: java version (https://www.java.com/) ]####################
   # Java version color.
@@ -1749,14 +1750,16 @@ function _usrseg_find_up() {
   done
 }
 
-# _usrseg_version <cache-key> <bin> <extra-args…> — echo first x.y[.z] from the
-# tool's --version, cached by bin path+mtime.
+# _usrseg_version <cache-key> <bin> [version-flag] — echo first x.y[.z] from the
+# tool's version output (flag defaults to --version; lua wants -v), cached by
+# bin path+mtime. </dev/null stops tools that would drop into a REPL; 2>&1 since
+# some (lua) print the version banner to stderr.
 function _usrseg_version() {
-  local key=$1 bin=$2; shift 2
+  local key=$1 bin=$2 flag=${3:---version}
   local mt; mt=$(zstat +mtime -- $bin 2>/dev/null)
   local ck="$key:$bin:$mt" v=${_usrseg_ver_cache[$ck]-}
   if [[ -z $v ]]; then
-    local out; out=$($bin "$@" --version 2>/dev/null)
+    local out; out=$($bin $flag </dev/null 2>&1)
     [[ $out =~ '[0-9]+\.[0-9]+(\.[0-9]+)?' ]] && v=$MATCH
     [[ -n $v ]] && _usrseg_ver_cache[$ck]=$v
   fi
@@ -1780,4 +1783,12 @@ function prompt_cc() {
   [[ -n $bin ]] || return
   local v; v=$(_usrseg_version cc $bin)
   [[ -n $v ]] && p10k segment -f 75 -i '' -t "$v"
+}
+
+function prompt_lua() {
+  _usrseg_find_up .luarc.json init.lua main.lua stylua.toml .stylua.toml || return
+  local bin=${commands[lua]-${commands[luajit]-}}
+  [[ -n $bin ]] || return
+  local v; v=$(_usrseg_version lua $bin -v)
+  [[ -n $v ]] && p10k segment -f 33 -i '' -t "$v"
 }
