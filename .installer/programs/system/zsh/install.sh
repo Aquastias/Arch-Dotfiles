@@ -83,5 +83,21 @@ else
     "first login will clone plugins."
 fi
 
+# ── seed /root and make zsh its shell ────────────────────────────────────────
+# /root never receives /etc/skel, so a root shell (su -/sudo -i) is stock. Seed
+# the same config directly from the zsh bundle (NOT /etc/skel — other programs
+# write there too), the STATIC default theme (Noctalia runs only in user
+# sessions, so root never live-follows), and the warmed zinit cache. chown to
+# root since cp -a keeps the installing user's ownership. The p10k `context`
+# segment then shows a red 🔒 root@host so a root shell is unmistakable.
+print_status info "Seeding zsh config for root (/root) + setting root shell..."
+sudo cp -a "${SELF}/home/." /root/
+sudo mkdir -p /root/.zsh/themes
+sudo cp "${SELF}/themes/noctalia.zsh"    /root/.zsh/themes/noctalia.zsh
+sudo cp "${SELF}/themes/p10k-accent.zsh" /root/.zsh/themes/p10k-accent.zsh
+[[ -d "${HOME}/.zinit" ]] && sudo cp -a "${HOME}/.zinit" /root/.zinit
+sudo chown -R root:root /root
+sudo chsh -s /usr/bin/zsh root
+
 print_status success "Zsh staged (tooling + seeded config + warmed zinit)." \
   "Login shell comes from User Core; repo copy stays hand-stowable."

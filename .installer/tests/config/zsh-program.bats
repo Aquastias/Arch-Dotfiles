@@ -57,6 +57,13 @@ setup() {
   grep -q 'source "${HOME}/.zsh/zinit/default.zsh"' "$INSTALL"
 }
 
+@test "install.sh seeds /root and makes zsh root's shell" {
+  # /root never gets /etc/skel; seed it directly + own it + set the shell
+  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+  grep -q 'sudo chown -R root:root /root' "$INSTALL"
+  grep -q 'sudo chsh -s /usr/bin/zsh root' "$INSTALL"
+}
+
 @test "bundled home/ config is byte-identical to the repo root (drift)" {
   [ -d "$HOMESEED" ]
   # every seeded file matches its committed repo-root source, no drift

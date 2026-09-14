@@ -32,6 +32,8 @@
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     # =========================[ Line #1 ]=========================
     os_icon                 # os identifier
+    context                 # user@host — blank for normal local users, red
+                            # root@host for root, so a root shell is obvious
     dir                     # current directory
     vcs                     # git status
     # =========================[ Line #2 ]=========================
@@ -88,7 +90,6 @@
     gcloud                  # google cloud cli account and project (https://cloud.google.com/)
     google_app_cred         # google application credentials (https://cloud.google.com/docs/authentication/production)
     toolbox                 # toolbox name (https://github.com/containers/toolbox)
-    context                 # user@hostname
     nordvpn                 # nordvpn connection status, linux only (https://nordvpn.com/)
     ranger                  # ranger shell (https://github.com/ranger/ranger)
     yazi                    # yazi shell (https://github.com/sxyazi/yazi)
@@ -905,23 +906,23 @@
   # typeset -g POWERLEVEL9K_CPU_ARCH_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   ##################################[ context: user@hostname ]##################################
-  # Context color when running with privileges.
-  typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=178
-  # Context color in SSH without privileges.
-  typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,REMOTE_SUDO}_FOREGROUND=180
-  # Default context color (no privileges, no SSH).
-  typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND=180
+  # Context by privilege. ANY euid-0 shell (ROOT login, SUDO via sudo -i/-s, or
+  # REMOTE_SUDO over SSH) = loud red  root@host, so a root shell is
+  # unmistakable however you reached it. Non-root SSH (REMOTE) = tan user@host as
+  # a remote-box hint; a normal local shell (DEFAULT) hides context.
+  # Hex, not a 256-index: this truecolor terminal remaps some palette indices
+  # (196 rendered blue), and p10k-accent already uses hex reliably. #f38ba8 is
+  # Catppuccin Mocha red; #fab387 is peach for the remote hint.
+  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_FOREGROUND='#f38ba8'
+  typeset -g POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND='#fab387'
+  typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND='#fab387'
 
-  # Context format when running with privileges: bold user@hostname.
-  typeset -g POWERLEVEL9K_CONTEXT_ROOT_TEMPLATE='%B%n@%m'
-  # Context format when in SSH without privileges: user@hostname.
-  typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,REMOTE_SUDO}_TEMPLATE='%n@%m'
-  # Default context format (no privileges, no SSH): user@hostname.
+  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_TEMPLATE='%B %n@%m'
+  typeset -g POWERLEVEL9K_CONTEXT_REMOTE_TEMPLATE='%n@%m'
   typeset -g POWERLEVEL9K_CONTEXT_TEMPLATE='%n@%m'
 
-  # Don't show context unless running with privileges or in SSH.
-  # Tip: Remove the next line to always show context.
-  typeset -g POWERLEVEL9K_CONTEXT_{DEFAULT,SUDO}_{CONTENT,VISUAL_IDENTIFIER}_EXPANSION=
+  # Hide context only for a normal local (non-root, non-SSH) shell.
+  typeset -g POWERLEVEL9K_CONTEXT_DEFAULT_{CONTENT,VISUAL_IDENTIFIER}_EXPANSION=
 
   # Custom icon.
   # typeset -g POWERLEVEL9K_CONTEXT_VISUAL_IDENTIFIER_EXPANSION='⭐'
