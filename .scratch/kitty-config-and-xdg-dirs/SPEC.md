@@ -61,7 +61,7 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
     step, so a palette change needs no restart or keypress.
 12. As a user, I want the built-in Noctalia kitty template's config-rewriting
     behavior disabled, so it never clobbers my stowed `kitty.conf`.
-13. As a user reviewing the config, I want the transparency (0.7),
+13. As a user reviewing the config, I want the opaque background (1.0),
     tab-bar-hides-when-single, hidden-window-decorations and single-source-color
     choices applied, so the terminal matches the reviewed decisions.
 14. As a user on a niri/Hyprland session, I want `~/Desktop`, `~/Downloads`,
@@ -110,7 +110,8 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   terminal color. Every color knob it sets is stripped from the split config
   part-files, and the static Catppuccin theme files are deleted. Non-color knobs
   stay.
-- **Reviewed config knobs.** `background_opacity 0.7` (subtle, readable) and
+- **Reviewed config knobs.** `background_opacity 1.0` (opaque — transparency
+  tinted toward the purple wallpaper on the dark theme) and
   `cursor_shape beam` kept; drop the `LS_COLORS` env pass-through part-file from
   the include list; hide the tab bar for a single tab; hide client-side window
   decorations (no toolbar; titlebar colour left `system`); let the active-window

@@ -65,8 +65,10 @@ foreground/background/palette/selection (`color-scheme.conf`), cursor color
 `themes/catppuccin-*.conf` are deleted (mirroring ADR 0129 dropping the static
 Catppuccin zsh files). Non-color knobs stay put.
 
-**Config knobs (operator-reviewed).** `background_opacity 0.7` (subtle, readable
-transparency — `0.8` was imperceptible on the dark theme, VM-verified) and
+**Config knobs (operator-reviewed).** `background_opacity 1.0` (opaque —
+transparency was tried and rejected: on this dark theme it only tinted the
+terminal toward the purple wallpaper bleeding through, hurting readability;
+VM-verified) and
 `cursor_shape beam` kept; `env.conf` (`env LS_COLORS=$LS_COLORS`) dropped from
 the include list (the shell owns `LS_COLORS`); `tab_bar_min_tabs 2` (hide the
 bar for a single tab); `hide_window_decorations yes` (no client-side titlebar —
