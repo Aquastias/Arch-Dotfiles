@@ -22,7 +22,9 @@ stows, ADR 0095).
       Shell Companion]] preset still lists kitty for the compositor terminal.
 - [ ] The program is registered in User Core `programs` so it reaches the fleet
       like the [[Pi Coding Agent]].
-- [ ] A drift test (the zsh/noctalia precedent in `configs.bats`) asserts the
-      seeded config equals the repo stow tree byte-for-byte.
-- [ ] `noctalia-stow.bats` asserts the program seeds config + default theme and
-      installs the font.
+- [ ] A drift test in `kitty-program.bats` (the zsh precedent lives in
+      `zsh-program.bats`) asserts the seeded config equals the repo stow tree
+      byte-for-byte.
+- [ ] `kitty-program.bats` asserts the program installs kitty + the Nerd font
+      and seeds the config + default theme; `configs.bats` covers the User Core
+      `programs` list.

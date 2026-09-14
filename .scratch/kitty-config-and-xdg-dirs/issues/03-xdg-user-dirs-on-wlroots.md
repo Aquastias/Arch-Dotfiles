@@ -1,8 +1,9 @@
 # 03: XDG user dirs generated on niri/Hyprland (incl. Projects)
 
 **What to build:** After logging into a niri or Hyprland session, the user has
-the standard XDG user dirs (`~/Desktop`, `~/Downloads`, `~/Documents`, `~/Music`,
-`~/Pictures`, `~/Videos`, `~/Templates`, `~/Public`) and a `~/Projects` folder —
+the standard XDG user dirs (`~/Desktop`, `~/Downloads`, `~/Documents`,
+`~/Music`, `~/Pictures`, `~/Videos`, `~/Templates`, `~/Public`) and a
+`~/Projects` folder —
 the [[Wayland Session XDG Dirs]] behaviour (ADR 0131). KDE is unchanged (it
 already generates them via XDG autostart). Generation is idempotent.
 
@@ -12,8 +13,8 @@ already generates them via XDG autostart). Generation is idempotent.
 
 - [ ] A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland Shell
       Companion]] preset's `.local/bin/noctalia-*` skel seed) runs
-      `xdg-user-dirs-update` (standard set from the stock English defaults), then
-      creates `~/Projects` and declares a non-standard `XDG_PROJECTS_DIR`.
+      `xdg-user-dirs-update` (standard set from the stock English defaults),
+      then creates `~/Projects` and declares a non-standard `XDG_PROJECTS_DIR`.
       Idempotent.
 - [ ] Both compositor autostarts call it (niri + Hyprland), beside the shell
       daemon / [[Live Theme Bridge]] launch.

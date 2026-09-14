@@ -3,10 +3,10 @@
 # (ADR 0131, "Wayland Session XDG Dirs"). xdg-user-dirs is installed fleet-wide,
 # but its xdg-user-dirs-update ships only as an /etc/xdg/autostart/ entry, which
 # Plasma runs and niri/Hyprland do NOT — so KDE gets the folders and bare
-# compositors don't. The Noctalia autostart calls this at login to close the gap.
-# Idempotent: xdg-user-dirs-update and `mkdir -p` are no-ops once the dirs exist,
-# so it is safe on every login. Compositor-only by virtue of where it is called;
-# KDE already generates the dirs via /etc/xdg/autostart/.
+# compositors don't. The Noctalia autostart calls this at login to close it.
+# Idempotent: xdg-user-dirs-update and `mkdir -p` are no-ops once the dirs
+# exist, so it is safe every login. Compositor-only by where it is called; KDE
+# already generates the dirs via /etc/xdg/autostart/.
 set -eu
 
 # The standard set (Desktop, Downloads, Documents, Music, Pictures, Videos,

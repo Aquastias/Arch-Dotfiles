@@ -3,8 +3,8 @@
 # programs/system/kitty/install.sh
 # =============================================================================
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, as the owning
-# user (the runner grants temp NOPASSWD sudo, used here for seeding /etc/skel and
-# /root), with INSTALLER_DIR/PROGRAMS/SHELL_COMMONS/AUR_HELPER pre-exported.
+# user (the runner grants temp NOPASSWD sudo, used here for seeding /etc/skel
+# and /root), with INSTALLER_DIR/PROGRAMS/SHELL_COMMONS/AUR_HELPER pre-exported.
 #
 # Installs the FiraCode Nerd font (so kitty's font_family renders Nerd glyphs)
 # and SEEDS the full kitty config (bundled under home/, kept byte-identical to
@@ -46,7 +46,8 @@ print_status info "Seeding kitty palette theme..."
 mkdir -p "${HOME}/.config/kitty/themes"
 cp "${SELF}/themes/noctalia.conf" "${HOME}/.config/kitty/themes/noctalia.conf"
 sudo mkdir -p /etc/skel/.config/kitty/themes
-sudo cp "${SELF}/themes/noctalia.conf" /etc/skel/.config/kitty/themes/noctalia.conf
+sudo cp "${SELF}/themes/noctalia.conf" \
+  /etc/skel/.config/kitty/themes/noctalia.conf
 
 # ── seed /root (never receives /etc/skel) ─────────────────────────────────────
 # A root terminal (su -/sudo -i) gets the same themed config; cp -a keeps the

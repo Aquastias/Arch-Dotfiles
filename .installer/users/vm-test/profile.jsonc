@@ -9,6 +9,7 @@
   // User Core declares virt-manager + podman + searxng for every real user;
   // this throwaway excludes them so the smoke test exercises the system install
   // path, not user program installs (ADR 0057).
-  "programs_exclude": ["zsh", "kitty", "virt-manager", "podman", "searxng", "pi"],
+  "programs_exclude":
+    ["zsh", "kitty", "virt-manager", "podman", "searxng", "pi"],
   "ssh_authorized_keys": []
 }

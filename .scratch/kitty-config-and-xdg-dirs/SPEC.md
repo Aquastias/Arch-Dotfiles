@@ -10,14 +10,15 @@ Config]], [[Kitty Theme Template]], [[Wayland Session XDG Dirs]].
 
 Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 
-1. **Kitty is unthemed and under-delivered.** The kitty config is stow-only, so a
-   fresh box runs stock kitty unless the operator stows by hand — unlike pi/zsh,
-   which seed **and** stow. Its committed colors are a dead Nord palette overridden
-   by a Catppuccin include, it does not follow a live Noctalia palette change, and
-   its `font_family` (`Fira Code Bold`) is not installed on the fleet, so Nerd-Font
-   glyphs in the shell prompt break.
-2. **XDG user dirs are missing under niri/Hyprland.** `~/Desktop`, `~/Downloads`,
-   … exist under KDE but not on the compositors, and there is no `~/Projects`.
+1. **Kitty is unthemed and under-delivered.** The kitty config is stow-only, so
+   a fresh box runs stock kitty unless the operator stows by hand — unlike
+   pi/zsh, which seed **and** stow. Its committed colors are a dead Nord palette
+   overridden by a Catppuccin include, it does not follow a live Noctalia
+   palette change, and its `font_family` (`Fira Code Bold`) is not installed on
+   the fleet, so Nerd-Font glyphs in the shell prompt break.
+2. **XDG user dirs are missing under niri/Hyprland.** `~/Desktop`,
+   `~/Downloads`, … exist under KDE but not on the compositors, and there is no
+   `~/Projects`.
 
 ## Solution
 
@@ -49,12 +50,13 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 7. As a user, I want the terminal's 16 ANSI colors, background, foreground,
    cursor, selection, borders and tab colors all driven by the palette, so no
    element is left on a stale hardcoded color.
-8. As a maintainer, I want a single source of truth for terminal color, so I never
-   have to reconcile a Nord block against a Catppuccin include again.
+8. As a maintainer, I want a single source of truth for terminal color, so I
+   never have to reconcile a Nord block against a Catppuccin include again.
 9. As a user, I want the shell prompt's Nerd-Font glyphs to render in kitty, so
    Powerlevel10k segments aren't broken boxes.
-10. As an operator, I want kitty's package ownership left in core/preset, so this
-    change doesn't churn the package graph.
+10. As a maintainer, I want the kitty package owned in exactly one place (the
+    program, not also a package list), so the package graph stays coherent under
+    Program/package exclusivity.
 11. As a user, I want the terminal to reload its colors on write with no manual
     step, so a palette change needs no restart or keypress.
 12. As a user, I want the built-in Noctalia kitty template's config-rewriting
@@ -72,19 +74,21 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 17. As a user under KDE, I want no change to XDG-dir behavior, so the compositor
     fix never double-runs or interferes under Plasma.
 18. As a maintainer, I want the XDG fix launched from the compositor autostart
-    (not a systemd-user unit), so it reliably reaches Hyprland's non-uwsm session.
-19. As a maintainer, I want the default-palette seed point for kitty tracked with
-    the other ADR-0109 seed points, so a default change updates all of them.
+    (not a systemd-user unit), so it reliably reaches Hyprland's non-uwsm
+    session.
+19. As a maintainer, I want the default-palette seed point for kitty tracked
+    with the other ADR-0109 seed points, so a default change updates all of
+    them.
 
 ## Implementation Decisions
 
-- **Delivery.** A new `kind: user` [[User Program]] `system/kitty` seeds the full
-  [[Kitty Config]] into `$HOME` and `/etc/skel`, byte-identical to the repo stow
-  tree, and stays hand-stowable — the pi/zsh delivery pattern (ADR 0127/0129,
-  installer-never-stows ADR 0095). It also seeds the default generated theme file
-  (Catppuccin Mocha Sapphire) into `$HOME`, `/etc/skel`, and `/root`, matching the
-  zsh theme-seed. The program is registered in **User Core `programs`** so it
-  reaches the fleet like pi (ADR 0114).
+- **Delivery.** A new `kind: user` [[User Program]] `system/kitty` seeds the
+  full [[Kitty Config]] into `$HOME` and `/etc/skel`, byte-identical to the repo
+  stow tree, and stays hand-stowable — the pi/zsh delivery pattern (ADR
+  0127/0130, installer-never-stows ADR 0095). It also seeds the default
+  generated theme file (Catppuccin Mocha Sapphire) into `$HOME`, `/etc/skel`,
+  and `/root`, matching the zsh theme-seed. The program is registered in **User
+  Core `programs`** so it reaches the fleet like pi (ADR 0114).
 - **Package ownership.** The program **owns the `kitty` package** plus the font
   (`ttf-firacode-nerd`, `extra`, provides `ttf-font-nerd`): Program/package
   exclusivity (ADR 0115) forbids a Categorized-List entry that also names a
@@ -95,15 +99,16 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   user-template `[theme.templates.user.kitty]` ([[Kitty Theme Template]]) whose
   static Mustache input maps the palette's `terminal_*`/Material roles into
   kitty color and whose output is the generated theme file that `kitty.conf`
-  `include`s. Rationale: the builtin's `apply.sh` rewrites `kitty.conf` and would
-  clobber the stow symlink; a user-template only writes its output. The generated
-  output is **seed-only, never stowed** (its whole themes dir is gitignored);
-  the template input is stowed and rides the preset's existing `templates/*`
-  seed. Kitty's `auto_reload_config` (pinned on) repaints on write — no
-  `post_hook`, no [[Live Theme Bridge]] change, exactly as pi.
-- **Color ownership.** The generated theme file (included last) owns all terminal
-  color. Every color knob it sets is stripped from the split config part-files,
-  and the static Catppuccin theme files are deleted. Non-color knobs stay.
+  `include`s. Rationale: the builtin's `apply.sh` rewrites `kitty.conf` and
+  would clobber the stow symlink; a user-template only writes its output. The
+  generated output is **seed-only, never stowed** (its whole themes dir is
+  gitignored); the template input is stowed and rides the preset's existing
+  `templates/*` seed. Kitty's `auto_reload_config` (pinned on) repaints on
+  write — no `post_hook`, no [[Live Theme Bridge]] change, exactly as pi.
+- **Color ownership.** The generated theme file (included last) owns all
+  terminal color. Every color knob it sets is stripped from the split config
+  part-files, and the static Catppuccin theme files are deleted. Non-color knobs
+  stay.
 - **Reviewed config knobs.** Keep `background_opacity` transparent and
   `cursor_shape beam`; drop the `LS_COLORS` env pass-through part-file from the
   include list; hide the tab bar for a single tab; titlebar follows the palette;
@@ -111,10 +116,10 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   font at the reviewed size with automatic bold. Scrollback, bell, keybinds,
   padding and confirm-close are unchanged kitty behavior.
 - **XDG dirs.** A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland
-  Shell Companion]] preset's `.local/bin/noctalia-*` skel seed) is called from the
-  per-compositor autostart part-files. It runs `xdg-user-dirs-update` — the
-  standard set, created from the stock English `/etc/xdg/user-dirs.defaults` for a
-  user with no `user-dirs.dirs` yet — then creates `~/Projects` and appends a
+  Shell Companion]] preset's `.local/bin/noctalia-*` skel seed) is called from
+  the per-compositor autostart part-files. It runs `xdg-user-dirs-update` — the
+  standard set, created from the stock English `/etc/xdg/user-dirs.defaults` for
+  a user with no `user-dirs.dirs` yet — then creates `~/Projects` and appends a
   non-standard `XDG_PROJECTS_DIR`. Run at login as the user, it reaches existing
   and new users alike (no per-`$HOME` preset seed; the preset is skel-only, ADR
   0095). Compositor-scoped — KDE already generates the dirs via
@@ -123,23 +128,29 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 ## Testing Decisions
 
 Good tests here assert **external behavior at the delivery and theming seams**,
-not file contents line-by-line. Prefer existing seams; the ideal is to add no new
-seam.
+not file contents line-by-line. Prefer existing seams; the ideal is to add no
+new seam.
 
-- **Drift seam (existing).** Extend the config drift suite that already keeps a
-  program's seeded `home/` byte-identical to the repo stow tree (the zsh/noctalia
-  precedent in `configs.bats`) to cover kitty. This is the single highest seam for
+- **Drift seam (new file, existing pattern).** A byte-identical drift test keeps
+  the program's seeded `home/` equal to the repo stow tree — the zsh precedent,
+  which lives in `zsh-program.bats`, so kitty's lives in a sibling
+  `kitty-program.bats` (not `configs.bats`, which only carries the User Core
+  `programs` list assertion). This is the single highest seam for
   "seeded == stowed".
-- **Preset/theme-wiring seam (existing).** Extend `noctalia-stow.bats` to assert:
-  `"kitty"` is absent from `builtin_ids`; the `kitty` user-template is declared
-  with the right input/output; the kitty program seeds the config + default theme
-  and installs the font; the preset seeds `user-dirs.dirs` and the per-compositor
-  autostart carries the XDG update + `~/Projects`.
-- **End-to-end seam (existing).** The arch-combined VM is the established seam for
-  live theme-follow and fresh-install delivery (ADR 0108/0116 were verified this
-  way). Verify: kitty opens themed on first login; a Noctalia palette change
-  repaints a running kitty live on the compositor; kitty stays fixed under KDE;
-  and the XDG dirs incl. `~/Projects` exist after a niri/Hyprland login.
+- **Program-definition seam.** `kitty-program.bats` also asserts the program
+  shape (config.jsonc kind; install.sh installs kitty + the Nerd font and seeds
+  `$HOME`/`/etc/skel`/`/root` + the default theme) and the seed default palette.
+- **Preset/theme-wiring seam (existing).** Extend `noctalia-stow.bats` to
+  assert: `"kitty"` is absent from `builtin_ids`; the `kitty` user-template is
+  declared with the right input/output; `kitty.conf` includes the generated
+  theme; and the `noctalia-xdg-user-dirs` script + both per-compositor autostart
+  entries exist.
+- **End-to-end seam (existing).** The arch-combined VM is the established seam
+  for live theme-follow and fresh-install delivery (ADR 0108/0116 were verified
+  this way). Verify: kitty opens themed on first login; a Noctalia palette
+  change repaints a running kitty live on the compositor; kitty stays fixed
+  under KDE; and the XDG dirs incl. `~/Projects` exist after a niri/Hyprland
+  login.
 
 ## Out of Scope
 
@@ -151,8 +162,9 @@ seam.
 
 ## Further Notes
 
-- The default palette now has one more seed point (kitty's generated theme file);
-  an ADR-0109 default change must update it beside pi/zsh and the qt6ct snapshot.
+- The default palette now has one more seed point (kitty's generated theme
+  file); an ADR-0109 default change must update it beside pi/zsh and the qt6ct
+  snapshot.
 - A bare stow user *without* the installer will have an `include` of an absent
   generated theme file (kitty warns, continues) — the same seed-only limit
   `.zsh/themes/` already has; the fleet always installs.

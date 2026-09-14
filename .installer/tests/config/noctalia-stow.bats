@@ -363,9 +363,9 @@ setup() {
 # the generated output; the output is seed-only (gitignored), never stowed.
 
 @test "config.toml drops the builtin kitty template (ADR 0130)" {
-  # builtin_ids must NOT carry kitty (else apply.sh rewrites the stowed conf).
-  run awk '/builtin_ids = \[/{f=1} f&&/"kitty"/{c++} /^\]/{f=0} END{exit c}' "$CT"
-  [ "$status" -eq 0 ]
+  # builtin_ids must NOT carry a "kitty", entry (else apply.sh rewrites the
+  # stowed kitty.conf). The user-template header [.user.kitty] is not quoted.
+  ! grep -qE '^[[:space:]]*"kitty",' "$CT"
 }
 
 @test "config.toml declares the kitty user-template (ADR 0130)" {
@@ -374,7 +374,7 @@ setup() {
   grep -q '~/.config/kitty/themes/noctalia.conf' "$CT"
 }
 
-@test "kitty.conf includes the generated Noctalia theme, not Catppuccin (0130)" {
+@test "kitty.conf includes the generated theme, not Catppuccin (ADR 0130)" {
   [ -f "$KITTY" ]
   grep -q '^include themes/noctalia.conf' "$KITTY"
   ! grep -q 'catppuccin' "$KITTY"
@@ -385,7 +385,7 @@ setup() {
 @test "the kitty template input maps the palette terminal roles (ADR 0130)" {
   [ -f "$KTPL" ]
   grep -q 'color0 {{colors.terminal_normal_black.default.hex}}' "$KTPL"
-  grep -q 'background            {{colors.terminal_background.default.hex}}' "$KTPL"
+  grep -q '^background .*terminal_background.default.hex' "$KTPL"
   # engine parses comments too (ADR 0129): no double-brace tag in any comment.
   run grep -E '^[[:space:]]*#.*\{\{' "$KTPL"
   [ "$status" -ne 0 ]
@@ -402,11 +402,11 @@ setup() {
 }
 
 # ── Wayland Session XDG Dirs: generate XDG dirs + ~/Projects (ADR 0131) ──────
-# niri/Hyprland don't run /etc/xdg/autostart, so xdg-user-dirs-update never fires
-# as it does under Plasma. A seeded noctalia-xdg-user-dirs script, called from the
-# compositor autostart at login, closes the gap for existing + new users.
+# niri/Hyprland don't run /etc/xdg/autostart, so xdg-user-dirs-update never
+# fires as it does under Plasma. A seeded noctalia-xdg-user-dirs script, called
+# from the compositor autostart at login, closes the gap for all users.
 
-@test "noctalia-xdg-user-dirs is executable and updates dirs + Projects (0131)" {
+@test "noctalia-xdg-user-dirs updates dirs + Projects (ADR 0131)" {
   [ -x "$XDGDIRS" ]
   grep -q 'xdg-user-dirs-update' "$XDGDIRS"          # standard set
   grep -q 'mkdir -p "$HOME/Projects"' "$XDGDIRS"     # the non-standard folder

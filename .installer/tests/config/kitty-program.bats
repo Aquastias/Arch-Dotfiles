@@ -6,7 +6,7 @@
 # noctalia-stow.bats.
 
 setup() {
-  REPO="$BATS_TEST_DIRNAME/../../.."        # .installer/tests/config → repo root
+  REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/system/kitty"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
@@ -38,7 +38,7 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh seeds the config into \$HOME, /etc/skel, and /root (ADR 0095)" {
+@test "install.sh seeds config to \$HOME, /etc/skel, /root (ADR 0095)" {
   grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
   grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
   grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
