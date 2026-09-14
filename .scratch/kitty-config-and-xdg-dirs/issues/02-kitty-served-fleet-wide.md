@@ -17,8 +17,9 @@ stows, ADR 0095).
 - [ ] The program seeds the default generated theme file (Catppuccin Mocha
       Sapphire, ADR 0109) into `$HOME`, `/etc/skel`, and `/root`, so first boot
       and KDE (no template run) have color.
-- [ ] The program installs only the Nerd font package; the `kitty` package stays
-      owned by core `packages.shell` + the [[Wayland Shell Companion]] preset.
+- [ ] The program owns the `kitty` package + the Nerd font; `kitty` leaves core
+      `packages.shell` (Program/package exclusivity, ADR 0115). The [[Wayland
+      Shell Companion]] preset still lists kitty for the compositor terminal.
 - [ ] The program is registered in User Core `programs` so it reaches the fleet
       like the [[Pi Coding Agent]].
 - [ ] A drift test (the zsh/noctalia precedent in `configs.bats`) asserts the

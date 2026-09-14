@@ -23,10 +23,14 @@ a live Noctalia palette change exactly as the pi TUI does (ADR 0128).
 full kitty config (bundled `home/.config/kitty/`, kept byte-identical to the repo
 stow tree by a drift test) into the owning user's `$HOME` **and** `/etc/skel` —
 the installer never stows (ADR 0095), so a non-stowing user still gets a working
-terminal; the repo copy stays hand-stowable. The **`kitty` package is not
-re-declared** here (already fleet-wide via core + the Noctalia preset); the
-program's only package is the font, `ttf-firacode-nerd`, so `font_family FiraCode
-Nerd Font` keeps the Fira Code look *and* renders Nerd glyphs.
+terminal; the repo copy stays hand-stowable. The program **owns the `kitty`
+package** (plus the font `ttf-firacode-nerd`, so `font_family FiraCode Nerd Font`
+keeps the Fira Code look *and* renders Nerd glyphs): a Categorized-List package
+entry may not also name a Program (Program/package exclusivity, ADR 0115), so
+`kitty` **leaves core `packages.shell`** for this program — the same shape as
+`docker`/`virt-manager`. The Noctalia preset's own package list (a bash function,
+not a Categorized List) still carries `kitty` so a compositor box has its terminal
+even for a user who excludes the program.
 
 **Theme-follow — a Noctalia user-template, not the builtin.** Noctalia's builtin
 `kitty` template renders the palette into `~/.config/kitty/themes/noctalia.conf`
@@ -71,10 +75,11 @@ unchanged kitty behavior.
   a no-op — rejected: `apply.sh` still `mv`s over `kitty.conf`, turning the stow
   symlink into a divergent regular file. A user-template never touches a stowed
   file, exactly as pi/zsh do.
-- **A config-only program that also owns the `kitty` package** (move it out of
-  core `packages.shell`/preset) — rejected: the preset genuinely needs kitty as
-  the compositor terminal and `--needed` dedups a double-declare harmlessly;
-  moving it churns the package graph for no gain.
+- **A config-only program, leaving `kitty` in core `packages.shell`** — rejected
+  as *invalid*: Program/package exclusivity (ADR 0115) forbids a Categorized-List
+  entry that names a Program, so the moment `system/kitty` exists, `kitty` must
+  leave `packages.shell`. The program therefore owns the package (like
+  `docker`/`virt-manager`); the preset's non-list `kitty` is exempt and stays.
 - **Keep `Fira Code Bold` + install plain `ttf-firacode`** — rejected: no Nerd
   glyphs, so the p10k prompt icons stay broken; the Nerd variant is the point.
 - **Keep the static Catppuccin theme files** — rejected: they don't follow the

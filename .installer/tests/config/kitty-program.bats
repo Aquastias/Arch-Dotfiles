@@ -1,0 +1,79 @@
+#!/usr/bin/env bats
+# system/kitty program + Kitty Theme Template (ADR 0130). Static seam like
+# zsh-program.bats / pi-agent.bats: assert the COMMITTED program definition,
+# payload, seed default, and byte-identical drift without running an install.
+# The Noctalia live-follow wiring (config.toml, template input) is asserted in
+# noctalia-stow.bats.
+
+setup() {
+  REPO="$BATS_TEST_DIRNAME/../../.."        # .installer/tests/config → repo root
+  PROG="$REPO/.installer/programs/system/kitty"
+  CFG="$PROG/config.jsonc"
+  INSTALL="$PROG/install.sh"
+  HOMESEED="$PROG/home"
+  SEED_THEME="$PROG/themes/noctalia.conf"
+  KITTY="$REPO/.config/kitty"
+  UCORE="$REPO/.installer/users/core/profile.jsonc"
+  GI="$REPO/.gitignore"
+}
+
+# ── program definition ───────────────────────────────────────────────────────
+
+@test "system/kitty config.jsonc declares the user-kind kitty program" {
+  [ -f "$CFG" ]
+  grep -q '"name": "kitty"' "$CFG"
+  grep -q '"kind": "user"' "$CFG"
+}
+
+@test "install.sh has the mandated shape and installs kitty + the font" {
+  [ -f "$INSTALL" ]
+  # set -Eeuo pipefail + trap are the first two non-comment lines (PROGRAM_SPEC)
+  run bash -c "grep -vE '^[[:space:]]*(#|\$)' '$INSTALL' | head -2"
+  [[ "${lines[0]}" == "set -Eeuo pipefail" ]]
+  [[ "${lines[1]}" == trap* ]]
+  # the program owns the kitty package (exclusivity, ADR 0115) + the Nerd font
+  grep -q '${AUR_HELPER} -S --noconfirm --needed kitty ttf-firacode-nerd' \
+    "$INSTALL"
+  grep -q 'print_status success' "$INSTALL"
+  ! grep -qE 'systemctl (start|restart)' "$INSTALL"
+}
+
+@test "install.sh seeds the config into \$HOME, /etc/skel, and /root (ADR 0095)" {
+  grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
+  grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+}
+
+@test "install.sh seeds the generated palette theme into all three targets" {
+  grep -q '"${HOME}/.config/kitty/themes/noctalia.conf"' "$INSTALL"
+  grep -q '/etc/skel/.config/kitty/themes/noctalia.conf' "$INSTALL"
+  grep -q '/root/.config/kitty/themes/noctalia.conf' "$INSTALL"
+}
+
+@test "bundled home/ config is byte-identical to the repo stow tree (drift)" {
+  [ -d "$HOMESEED" ]
+  # generated themes/ is seed-only, excluded from the bundle (as zsh does)
+  diff -r -x themes "$KITTY" "$HOMESEED/.config/kitty"
+  [ ! -e "$HOMESEED/.config/kitty/themes" ]
+}
+
+# ── seed theme: Catppuccin Mocha Sapphire default (ADR 0109) ─────────────────
+
+@test "seeded noctalia.conf is the Mocha Sapphire palette default" {
+  [ -f "$SEED_THEME" ]
+  grep -q '^background            #1e1e2e' "$SEED_THEME"   # Mocha base
+  grep -q '^foreground            #cdd6f4' "$SEED_THEME"   # Mocha text
+  grep -q '^active_border_color   #74c7ec' "$SEED_THEME"   # Sapphire accent
+  grep -q '^active_tab_background   #74c7ec' "$SEED_THEME"
+}
+
+@test "generated theme is seed-only: gitignored, never in the stow tree" {
+  grep -q '^\.config/kitty/themes/' "$GI"
+  [ ! -e "$KITTY/themes/noctalia.conf" ]
+}
+
+# ── profile wiring ───────────────────────────────────────────────────────────
+
+@test "User Core serves the kitty program fleet-wide, after zsh" {
+  grep -qE '"programs":.*"kitty"' "$UCORE"
+}

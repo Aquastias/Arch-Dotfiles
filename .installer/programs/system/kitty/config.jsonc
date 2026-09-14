@@ -1,0 +1,16 @@
+// Program metadata for kitty.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru, with temp NOPASSWD sudo for seeding /etc/skel and /root.
+// Installs the FiraCode Nerd font (so kitty's font_family renders Nerd glyphs)
+// and seeds the full kitty config (bundled under home/, kept byte-identical to
+// the repo stow tree by a drift test) plus the Noctalia-generated theme default
+// (Catppuccin Mocha Sapphire). The kitty package itself is owned by core
+// packages.shell + the Noctalia preset, not here; the installer never stows
+// (ADR 0095/0130), so the repo copy stays hand-stowable.
+
+{
+  "name": "kitty",
+  "kind": "user",
+  "description": "Kitty config seeded fleet-wide (Noctalia-following) + FiraCode Nerd font."
+}

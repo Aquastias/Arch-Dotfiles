@@ -85,10 +85,12 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   (Catppuccin Mocha Sapphire) into `$HOME`, `/etc/skel`, and `/root`, matching the
   zsh theme-seed. The program is registered in **User Core `programs`** so it
   reaches the fleet like pi (ADR 0114).
-- **Package ownership.** The program installs only the font
-  (`ttf-firacode-nerd`, `extra`, provides `ttf-font-nerd`); the `kitty` package
-  stays owned by core `packages.shell` + the [[Wayland Shell Companion]] preset
-  (a `--needed` double-declare is harmless).
+- **Package ownership.** The program **owns the `kitty` package** plus the font
+  (`ttf-firacode-nerd`, `extra`, provides `ttf-font-nerd`): Program/package
+  exclusivity (ADR 0115) forbids a Categorized-List entry that also names a
+  Program, so `kitty` leaves core `packages.shell` for this program (as
+  `docker`/`virt-manager` do). The [[Wayland Shell Companion]] preset's non-list
+  package set still carries `kitty` for the compositor terminal.
 - **Theme-follow.** Drop `"kitty"` from Noctalia's `builtin_ids` and add a
   user-template `[theme.templates.user.kitty]` ([[Kitty Theme Template]]) whose
   static Mustache input maps the palette's `terminal_*`/Material roles into

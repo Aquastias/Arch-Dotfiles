@@ -13,6 +13,8 @@
 // `programs` is the standard tooling every real user gets: `zsh` (the
 // interactive shell tooling + pre-warmed zinit cache + palette theme the stowed
 // config expects — the login shell itself is the `shell` key above), plus
+// `kitty` (the fleet terminal's seeded + stowable config + FiraCode Nerd font,
+// ADR 0130 — the kitty binary itself is core/preset-owned), plus
 // `virt-manager`, plus `searxng` and its `podman` backend (podman precedes
 // searxng — a required program must resolve earlier in the same user's list,
 // ADR 0065), plus `pi` (the pi coding agent, served fleet-wide, ADR 0127).
@@ -23,6 +25,6 @@
   "shell": "/bin/zsh",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network", "seat"],
-  "programs": ["zsh", "virt-manager", "podman", "searxng", "pi"],
+  "programs": ["zsh", "kitty", "virt-manager", "podman", "searxng", "pi"],
   "ssh_authorized_keys": []
 }

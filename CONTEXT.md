@@ -1230,10 +1230,11 @@ The fleet terminal's config (`~/.config/kitty/`), delivered like the [[Pi Coding
 Agent]] (ADR 0130): **both seeded into `$HOME` + `/etc/skel`** by the `system/
 kitty` [[User Program]] (byte-identical to the repo stow tree by a drift test)
 **and stow-ready** at the repo root — seeded because the installer never stows
-(ADR 0095), stowed by the operator's own hand. The `kitty` package itself is
-owned elsewhere (core `packages.shell` + the [[Wayland Shell Companion]] preset);
-the program adds only the `ttf-firacode-nerd` font, so `font_family FiraCode Nerd
-Font` keeps the Fira Code look with working Nerd glyphs. `kitty.conf` is a pure
+(ADR 0095), stowed by the operator's own hand. The program **owns the `kitty`
+package** — Program/package exclusivity (ADR 0115) forced it out of core
+`packages.shell` — plus the `ttf-firacode-nerd` font, so `font_family FiraCode
+Nerd Font` keeps the Fira Code look with working Nerd glyphs; the [[Wayland Shell
+Companion]] preset's non-list package set still carries kitty for the compositor. `kitty.conf` is a pure
 manifest of `include`s ending in `themes/noctalia.conf` (the [[Kitty Theme
 Template]]'s output); all terminal **color** is owned by that generated file, so
 the split `conf/*.conf` carry non-color knobs only. _Avoid_: stock/unstowed
