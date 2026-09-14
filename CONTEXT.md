@@ -1225,6 +1225,50 @@ outputs are **seed-only, never stowed** (gitignored); only the template inputs
 per-palette static theme files, live-following the whole 491-key `.p10k.zsh`,
 stowing the generated outputs.
 
+### Kitty Config
+The fleet terminal's config (`~/.config/kitty/`), delivered like the [[Pi Coding
+Agent]] (ADR 0130): **both seeded into `$HOME` + `/etc/skel`** by the `system/
+kitty` [[User Program]] (byte-identical to the repo stow tree by a drift test)
+**and stow-ready** at the repo root — seeded because the installer never stows
+(ADR 0095), stowed by the operator's own hand. The `kitty` package itself is
+owned elsewhere (core `packages.shell` + the [[Wayland Shell Companion]] preset);
+the program adds only the `ttf-firacode-nerd` font, so `font_family FiraCode Nerd
+Font` keeps the Fira Code look with working Nerd glyphs. `kitty.conf` is a pure
+manifest of `include`s ending in `themes/noctalia.conf` (the [[Kitty Theme
+Template]]'s output); all terminal **color** is owned by that generated file, so
+the split `conf/*.conf` carry non-color knobs only. _Avoid_: stock/unstowed
+kitty, the dead Nord palette, `Fira Code` without a Nerd variant, static
+`catppuccin-*.conf` theme files.
+
+### Kitty Theme Template
+The [[Wayland Shell Companion]]'s Noctalia user-template that makes kitty follow a
+live palette change (ADR 0130), reusing the [[Pi Theme Template]] pattern. A
+`[theme.templates.user.kitty]` declaration maps Noctalia's `terminal_*`/Material
+roles into kitty color, writing `~/.config/kitty/themes/noctalia.conf`, which
+`kitty.conf` `include`s; kitty's `auto_reload_config` repaints on write, so **no
+`post_hook` and no [[Live Theme Bridge]] change** is needed. The builtin `kitty`
+template is **deliberately dropped from `builtin_ids`** because its `apply.sh`
+rewrites (clobbers) the stowed `kitty.conf` — a user-template only ever writes its
+output file. `noctalia.conf` is **seeded with Catppuccin Mocha Sapphire** (ADR
+0109) and live-rewritten only in compositor sessions — niri/Hyprland follow, KDE
+stays fixed. The generated output is **seed-only, never stowed** (the whole
+`.config/kitty/themes/` is gitignored); only the static template input
+(`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
+per-palette static theme files, stowing `noctalia.conf`.
+
+### Wayland Session XDG Dirs
+The standard XDG user dirs (`~/Desktop`, `~/Downloads`, …) plus a non-standard
+`~/Projects`, generated on **niri/Hyprland** sessions (ADR 0131). `xdg-user-dirs`
+is installed fleet-wide, but its `xdg-user-dirs-update` ships only as an
+`/etc/xdg/autostart/` entry, which Plasma runs and the wl-roots compositors do
+not — so KDE gets the folders and bare niri/Hyprland do not. The [[Wayland Shell
+Companion]] preset closes the gap: the compositor autostart runs
+`xdg-user-dirs-update` then `mkdir -p ~/Projects`, and `/etc/skel/.config/
+user-dirs.dirs` is seeded with the full standard set (explicit English paths) plus
+a declarative `XDG_PROJECTS_DIR`. Compositor-scoped (KDE already works). _Avoid_:
+a systemd-user unit (misses Hyprland), treating `Projects` as a well-known XDG
+dir.
+
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by
