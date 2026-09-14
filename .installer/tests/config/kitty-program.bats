@@ -57,6 +57,12 @@ setup() {
   [ ! -e "$HOMESEED/.config/kitty/themes" ]
 }
 
+@test "kitty config carries no invalid auto_reload_config (parse error)" {
+  # kitty has NO auto_reload_config option; it auto-reloads config by default.
+  # Setting it is a hard parse error (VM-verified, ADR 0130); never re-add.
+  ! grep -rq 'auto_reload_config' "$KITTY"
+}
+
 # ── seed theme: Catppuccin Mocha Sapphire default (ADR 0109) ─────────────────
 
 @test "seeded noctalia.conf is the Mocha Sapphire palette default" {

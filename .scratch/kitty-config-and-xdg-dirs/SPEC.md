@@ -103,8 +103,9 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   would clobber the stow symlink; a user-template only writes its output. The
   generated output is **seed-only, never stowed** (its whole themes dir is
   gitignored); the template input is stowed and rides the preset's existing
-  `templates/*` seed. Kitty's `auto_reload_config` (pinned on) repaints on
-  write — no `post_hook`, no [[Live Theme Bridge]] change, exactly as pi.
+  `templates/*` seed. Kitty auto-reloads its config on change by default
+  (VM-verified), so a running window repaints on write — no `post_hook`, no
+  [[Live Theme Bridge]] change, exactly as pi.
 - **Color ownership.** The generated theme file (included last) owns all
   terminal color. Every color knob it sets is stripped from the split config
   part-files, and the static Catppuccin theme files are deleted. Non-color knobs
@@ -112,8 +113,8 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 - **Reviewed config knobs.** Keep `background_opacity` transparent and
   `cursor_shape beam`; drop the `LS_COLORS` env pass-through part-file from the
   include list; hide the tab bar for a single tab; titlebar follows the palette;
-  pin `auto_reload_config` on; let the active-window border follow the accent;
-  font at the reviewed size with automatic bold. Scrollback, bell, keybinds,
+  let the active-window border follow the accent; font at the reviewed size with
+  automatic bold. Scrollback, bell, keybinds,
   padding and confirm-close are unchanged kitty behavior.
 - **XDG dirs.** A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland
   Shell Companion]] preset's `.local/bin/noctalia-*` skel seed) is called from

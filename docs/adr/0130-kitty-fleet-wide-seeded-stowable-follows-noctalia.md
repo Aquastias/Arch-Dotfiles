@@ -42,9 +42,11 @@ repo — the exact generated-vs-stowed dirt ADR 0104/0108 bans. So we **drop
 `[theme.templates.user.kitty]`: input `$XDG_CONFIG_HOME/noctalia/templates/
 kitty.conf` (static, stowed, Mustache — the same `terminal_*`/Material role
 mapping the builtin uses), output `~/.config/kitty/themes/noctalia.conf`. The
-committed `kitty.conf` carries `include themes/noctalia.conf` itself. Kitty's
-`auto_reload_config` (pinned `yes`) repaints on write — so like pi, **no
-`post_hook` and no [[Live Theme Bridge]] change** is needed.
+committed `kitty.conf` carries `include themes/noctalia.conf` itself. Kitty
+auto-reloads its config on change by default (VM-verified: a running window
+repaints on write) — so like pi, **no `post_hook` and no [[Live Theme Bridge]]
+change** is needed. (`auto_reload_config` is **not** a kitty option — setting it
+is a parse error; the default watch is what does the work.)
 
 The generated `noctalia.conf` is **seeded with Catppuccin Mocha Sapphire** (ADR
 0109) by the kitty program and live-rewritten **only in compositor sessions** —

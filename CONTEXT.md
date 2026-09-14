@@ -1246,15 +1246,16 @@ The [[Wayland Shell Companion]]'s Noctalia user-template that makes kitty follow
 a live palette change (ADR 0130), reusing the [[Pi Theme Template]] pattern. A
 `[theme.templates.user.kitty]` declaration maps Noctalia's `terminal_*`/Material
 roles into kitty color, writing `~/.config/kitty/themes/noctalia.conf`, which
-`kitty.conf` `include`s; kitty's `auto_reload_config` repaints on write, so **no
-`post_hook` and no [[Live Theme Bridge]] change** is needed. The builtin `kitty`
+`kitty.conf` `include`s; kitty's default config auto-reload repaints a running
+window on write, so **no `post_hook` and no [[Live Theme Bridge]] change** is
+needed. The builtin `kitty`
 template is **deliberately dropped from `builtin_ids`** because its `apply.sh`
 rewrites (clobbers) the stowed `kitty.conf` — a user-template only ever writes
-its output file. `noctalia.conf` is **seeded with Catppuccin Mocha Sapphire** (ADR
-0109) and live-rewritten only in compositor sessions — niri/Hyprland follow, KDE
-stays fixed. The generated output is **seed-only, never stowed** (the whole
-`.config/kitty/themes/` is gitignored); only the static template input
-(`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
+its output file. `noctalia.conf` is **seeded with Catppuccin Mocha Sapphire**
+(ADR 0109) and live-rewritten only in compositor sessions — niri/Hyprland
+follow, KDE stays fixed. The generated output is **seed-only, never stowed**
+(the whole `.config/kitty/themes/` is gitignored); only the static template
+input (`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
 per-palette static theme files, stowing `noctalia.conf`.
 
 ### Wayland Session XDG Dirs
