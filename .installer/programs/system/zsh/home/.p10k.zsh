@@ -907,7 +907,7 @@
 
   ##################################[ context: user@hostname ]##################################
   # Context by privilege. ANY euid-0 shell (ROOT login, SUDO via sudo -i/-s, or
-  # REMOTE_SUDO over SSH) = loud red  root@host, so a root shell is
+  # REMOTE_SUDO over SSH) = loud red  root@host, so a root shell is
   # unmistakable however you reached it. Non-root SSH (REMOTE) = tan user@host as
   # a remote-box hint; a normal local shell (DEFAULT) hides context.
   # Hex, not a 256-index: this truecolor terminal remaps some palette indices
@@ -917,7 +917,7 @@
   typeset -g POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND='#fab387'
   typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND='#fab387'
 
-  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_TEMPLATE='%B %n@%m'
+  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_TEMPLATE='%B %n@%m'
   typeset -g POWERLEVEL9K_CONTEXT_REMOTE_TEMPLATE='%n@%m'
   typeset -g POWERLEVEL9K_CONTEXT_TEMPLATE='%n@%m'
 
