@@ -61,9 +61,9 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
     step, so a palette change needs no restart or keypress.
 12. As a user, I want the built-in Noctalia kitty template's config-rewriting
     behavior disabled, so it never clobbers my stowed `kitty.conf`.
-13. As a user reviewing the config, I want the transparency, tab-bar-hides-when-
-    single, titlebar-follows-palette and single-source-color choices applied, so
-    the terminal matches the reviewed decisions.
+13. As a user reviewing the config, I want the transparency (0.7),
+    tab-bar-hides-when-single, hidden-window-decorations and single-source-color
+    choices applied, so the terminal matches the reviewed decisions.
 14. As a user on a niri/Hyprland session, I want `~/Desktop`, `~/Downloads`,
     `~/Documents`, `~/Music`, `~/Pictures`, `~/Videos`, `~/Templates`,
     `~/Public` generated on login, so apps have their standard destinations.
@@ -110,11 +110,12 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   terminal color. Every color knob it sets is stripped from the split config
   part-files, and the static Catppuccin theme files are deleted. Non-color knobs
   stay.
-- **Reviewed config knobs.** Keep `background_opacity` transparent and
-  `cursor_shape beam`; drop the `LS_COLORS` env pass-through part-file from the
-  include list; hide the tab bar for a single tab; titlebar follows the palette;
-  let the active-window border follow the accent; font at the reviewed size with
-  automatic bold. Scrollback, bell, keybinds,
+- **Reviewed config knobs.** `background_opacity 0.7` (subtle, readable) and
+  `cursor_shape beam` kept; drop the `LS_COLORS` env pass-through part-file from
+  the include list; hide the tab bar for a single tab; hide client-side window
+  decorations (no toolbar; titlebar colour left `system`); let the active-window
+  border follow the accent; font at the reviewed size with automatic bold.
+  Scrollback, bell, keybinds,
   padding and confirm-close are unchanged kitty behavior.
 - **XDG dirs.** A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland
   Shell Companion]] preset's `.local/bin/noctalia-*` skel seed) is called from

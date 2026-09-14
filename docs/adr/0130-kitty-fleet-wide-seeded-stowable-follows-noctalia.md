@@ -65,12 +65,15 @@ foreground/background/palette/selection (`color-scheme.conf`), cursor color
 `themes/catppuccin-*.conf` are deleted (mirroring ADR 0129 dropping the static
 Catppuccin zsh files). Non-color knobs stay put.
 
-**Config knobs (operator-reviewed).** `background_opacity 0.8` and
+**Config knobs (operator-reviewed).** `background_opacity 0.7` (subtle, readable
+transparency — `0.8` was imperceptible on the dark theme, VM-verified) and
 `cursor_shape beam` kept; `env.conf` (`env LS_COLORS=$LS_COLORS`) dropped from
 the include list (the shell owns `LS_COLORS`); `tab_bar_min_tabs 2` (hide the
-bar for a single tab); `wayland_titlebar_color background` (titlebar follows the
-palette); `active_border_color` left to the Noctalia accent; font size 12,
-`bold_font auto`. Everything else (scrollback, bell, keybinds, padding,
+bar for a single tab); `hide_window_decorations yes` (no client-side titlebar —
+the operator disliked the toolbar; clean on a tiling WM) with
+`wayland_titlebar_color system` (moot once hidden, but neutral if re-enabled);
+`active_border_color` left to the Noctalia accent; font size 12, `bold_font
+auto`. Everything else (scrollback, bell, keybinds, padding,
 confirm-close) is unchanged kitty behavior.
 
 ## Considered options

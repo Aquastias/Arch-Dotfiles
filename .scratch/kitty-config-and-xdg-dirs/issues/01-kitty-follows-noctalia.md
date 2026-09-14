@@ -25,9 +25,9 @@ Nerd-Font glyphs render, and the reviewed non-color knobs are applied.
 - [ ] Font family is the installed Nerd variant so p10k glyphs render; automatic
       bold; reviewed size.
 - [ ] Reviewed knobs applied: `LS_COLORS` env pass-through part-file dropped
-      from the include list; tab bar hidden for a single tab; titlebar follows
-      the palette; active-window border follows the accent; transparent
-      background and beam cursor kept.
+      from the include list; tab bar hidden for a single tab; window decorations
+      hidden (no toolbar); active-window border follows the accent;
+      `background_opacity 0.7` and beam cursor kept.
 - [ ] The generated theme output is gitignored (seed-only, never stowed).
 - [ ] `noctalia-stow.bats` asserts the builtin drop, the user-template
       declaration, and the include wiring.
