@@ -195,7 +195,6 @@ wallpaper_scheme = "m3-content"
         "gtk3",
         "gtk4",
         "hyprland",
-        "kitty",
         "niri",
         "qt",
         "umbriel"
@@ -223,6 +222,17 @@ wallpaper_scheme = "m3-content"
     [theme.templates.user.p10k-accent]
     input_path  = "$XDG_CONFIG_HOME/noctalia/templates/p10k-accent.zsh"
     output_path = "~/.zsh/themes/p10k-accent.zsh"
+
+    # Render the live palette into kitty (ADR 0130, "Kitty Theme Template").
+    # A user-template, NOT the builtin kitty template (dropped from builtin_ids
+    # above): the builtin's apply.sh rewrites kitty.conf and would clobber the
+    # stow symlink. kitty.conf includes the output; auto_reload_config repaints
+    # on write, so no post_hook and no Live Theme Bridge change, as pi does.
+    # Seed-only target (never stowed); KDE never runs it, so kitty stays the
+    # seeded Mocha Sapphire there.
+    [theme.templates.user.kitty]
+    input_path  = "$XDG_CONFIG_HOME/noctalia/templates/kitty.conf"
+    output_path = "~/.config/kitty/themes/noctalia.conf"
 
 [wallpaper.default]
 path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"

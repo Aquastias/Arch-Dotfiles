@@ -30,6 +30,9 @@ setup() {
   CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
   QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
   QT6CT_COLORS="$REPO/.config/qt6ct/colors"
+  KITTY="$REPO/.config/kitty/kitty.conf"
+  KTPL="$REPO/.config/noctalia/templates/kitty.conf"
+  KTHEMES="$REPO/.config/kitty/themes"
 }
 
 # ── config.toml: required look ───────────────────────────────────────────────
@@ -351,4 +354,48 @@ setup() {
   # niri's environment{} node sets the value on one line; assert them together.
   grep -q 'QT_QPA_PLATFORMTHEME "qt6ct"' "$NENV"
   grep -q 'hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")' "$HENV"
+}
+
+# ── Kitty Theme Template: kitty follows Noctalia (ADR 0130) ──────────────────
+# A USER template, NOT the builtin kitty template — the builtin's apply.sh
+# rewrites kitty.conf and would clobber the stow symlink. kitty.conf includes
+# the generated output; the output is seed-only (gitignored), never stowed.
+
+@test "config.toml drops the builtin kitty template (ADR 0130)" {
+  # builtin_ids must NOT carry kitty (else apply.sh rewrites the stowed conf).
+  run awk '/builtin_ids = \[/{f=1} f&&/"kitty"/{c++} /^\]/{f=0} END{exit c}' "$CT"
+  [ "$status" -eq 0 ]
+}
+
+@test "config.toml declares the kitty user-template (ADR 0130)" {
+  grep -q '^\s*\[theme.templates.user.kitty\]' "$CT"
+  grep -q 'noctalia/templates/kitty.conf' "$CT"
+  grep -q '~/.config/kitty/themes/noctalia.conf' "$CT"
+}
+
+@test "kitty.conf includes the generated Noctalia theme, not Catppuccin (0130)" {
+  [ -f "$KITTY" ]
+  grep -q '^include themes/noctalia.conf' "$KITTY"
+  ! grep -q 'catppuccin' "$KITTY"
+  # the LS_COLORS env pass-through part-file was dropped from the include list
+  ! grep -q 'conf/env.conf' "$KITTY"
+}
+
+@test "the kitty template input maps the palette terminal roles (ADR 0130)" {
+  [ -f "$KTPL" ]
+  grep -q 'color0 {{colors.terminal_normal_black.default.hex}}' "$KTPL"
+  grep -q 'background            {{colors.terminal_background.default.hex}}' "$KTPL"
+  # engine parses comments too (ADR 0129): no double-brace tag in any comment.
+  run grep -E '^[[:space:]]*#.*\{\{' "$KTPL"
+  [ "$status" -ne 0 ]
+}
+
+@test "the generated kitty theme is seed-only, never stowed (ADR 0130/0104)" {
+  # Noctalia rewrites themes/noctalia.conf; a stowed copy would push into repo.
+  [ ! -e "$KTHEMES/noctalia.conf" ]
+  grep -q '^\.config/kitty/themes/' "$REPO/.gitignore"
+}
+
+@test "the static Catppuccin kitty theme files are gone (ADR 0130)" {
+  ! compgen -G "$KTHEMES/catppuccin-*.conf" >/dev/null
 }

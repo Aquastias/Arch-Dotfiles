@@ -27,3 +27,5 @@
 .pi/agent/themes/
 # Zsh theme files are Noctalia-generated/seed-only — never stowed (ADR 0128)
 .zsh/themes/
+# Kitty theme file is Noctalia-generated/seed-only — never stowed (ADR 0130/0104)
+.config/kitty/themes/
