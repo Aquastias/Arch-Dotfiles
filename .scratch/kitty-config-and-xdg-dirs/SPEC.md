@@ -62,7 +62,7 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 12. As a user, I want the built-in Noctalia kitty template's config-rewriting
     behavior disabled, so it never clobbers my stowed `kitty.conf`.
 13. As a user reviewing the config, I want the opaque background (1.0),
-    tab-bar-hides-when-single, hidden-window-decorations and single-source-color
+    tab-bar-hides-when-single, session-aware-decorations and single-source-color
     choices applied, so the terminal matches the reviewed decisions.
 14. As a user on a niri/Hyprland session, I want `~/Desktop`, `~/Downloads`,
     `~/Documents`, `~/Music`, `~/Pictures`, `~/Videos`, `~/Templates`,
@@ -113,8 +113,10 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
 - **Reviewed config knobs.** `background_opacity 1.0` (opaque — transparency
   tinted toward the purple wallpaper on the dark theme) and
   `cursor_shape beam` kept; drop the `LS_COLORS` env pass-through part-file from
-  the include list; hide the tab bar for a single tab; hide client-side window
-  decorations (no toolbar; titlebar colour left `system`); let the active-window
+  the include list; hide the tab bar for a single tab; **session-aware window
+  decorations** — default `no` so KDE keeps KWin's system titlebar/borders
+  (movable/closable), the compositors hide them via a `KITTY_DECORATIONS` env
+  var read by `envinclude`; titlebar colour left `system`; let the active-window
   border follow the accent; font at the reviewed size with automatic bold.
   Scrollback, bell, keybinds,
   padding and confirm-close are unchanged kitty behavior.

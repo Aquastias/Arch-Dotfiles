@@ -26,7 +26,9 @@ Nerd-Font glyphs render, and the reviewed non-color knobs are applied.
       bold; reviewed size.
 - [ ] Reviewed knobs applied: `LS_COLORS` env pass-through part-file dropped
       from the include list; tab bar hidden for a single tab; window decorations
-      hidden (no toolbar); active-window border follows the accent;
+      session-aware (hidden on compositors via `KITTY_DECORATIONS`+`envinclude`,
+      KDE keeps system titlebar/borders); active-window border follows the
+      accent;
       `background_opacity 1.0` (opaque) and beam cursor kept.
 - [ ] The generated theme output is gitignored (seed-only, never stowed).
 - [ ] `noctalia-stow.bats` asserts the builtin drop, the user-template

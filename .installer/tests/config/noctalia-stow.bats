@@ -401,6 +401,18 @@ setup() {
   ! compgen -G "$KTHEMES/catppuccin-*.conf" >/dev/null
 }
 
+# Session-aware window decorations (ADR 0130): default `no` so KDE keeps KWin's
+# system titlebar/borders (movable/closable); the compositors export
+# KITTY_DECORATIONS, applied via `envinclude`, to hide them for tiling.
+@test "kitty decorations session-aware: default no + envinclude (ADR 0130)" {
+  grep -q '^hide_window_decorations         no' \
+    "$REPO/.config/kitty/conf/window-layout.conf"
+  grep -q '^envinclude KITTY_DECORATIONS' "$KITTY"
+  # both compositors export the hide-decorations override
+  grep -q 'KITTY_DECORATIONS "hide_window_decorations yes"' "$NENV"
+  grep -q 'KITTY_DECORATIONS", "hide_window_decorations yes"' "$HENV"
+}
+
 # ── Wayland Session XDG Dirs: generate XDG dirs + ~/Projects (ADR 0131) ──────
 # niri/Hyprland don't run /etc/xdg/autostart, so xdg-user-dirs-update never
 # fires as it does under Plasma. A seeded noctalia-xdg-user-dirs script, called

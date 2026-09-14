@@ -13,4 +13,8 @@ cursor {
 // environment.d, which Hyprland's start-hyprland session can't see (ADR 0070).
 environment {
     QT_QPA_PLATFORMTHEME "qt6ct"
+    // Hide kitty's decorations on niri (tiling); read by kitty's `envinclude`.
+    // KDE never sets this, so there kitty keeps KWin's system titlebar so its
+    // windows stay movable/closable (ADR 0130).
+    KITTY_DECORATIONS "hide_window_decorations yes"
 }

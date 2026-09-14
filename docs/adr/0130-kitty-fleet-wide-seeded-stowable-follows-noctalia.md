@@ -71,10 +71,14 @@ terminal toward the purple wallpaper bleeding through, hurting readability;
 VM-verified) and
 `cursor_shape beam` kept; `env.conf` (`env LS_COLORS=$LS_COLORS`) dropped from
 the include list (the shell owns `LS_COLORS`); `tab_bar_min_tabs 2` (hide the
-bar for a single tab); `hide_window_decorations yes` (no client-side titlebar —
-the operator disliked the toolbar; clean on a tiling WM) with
-`wayland_titlebar_color system` (moot once hidden, but neutral if re-enabled);
-`active_border_color` left to the Noctalia accent; font size 12, `bold_font
+bar for a single tab); **session-aware window decorations** — the committed
+default is `hide_window_decorations no` so **KDE** gets KWin's system titlebar +
+borders (windows stay movable/closable), and the wl-roots compositors hide them
+for tiling by exporting `KITTY_DECORATIONS="hide_window_decorations yes"` (niri
+`environment{}` / Hyprland `hl.env`), which `kitty.conf` applies via `envinclude
+KITTY_DECORATIONS` (KDE never sets it — VM-verified both ways);
+`wayland_titlebar_color system`; `active_border_color` left to the Noctalia
+accent; font size 12, `bold_font
 auto`. Everything else (scrollback, bell, keybinds, padding,
 confirm-close) is unchanged kitty behavior.
 

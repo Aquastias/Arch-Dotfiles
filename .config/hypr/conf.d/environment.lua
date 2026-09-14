@@ -18,3 +18,8 @@ hl.env("XCURSOR_SIZE", "24")
 -- Bridge (ADR 0102). Set here (niri uses its environment{} node), not via
 -- environment.d: start-hyprland is not the systemd-user session (ADR 0070).
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+
+-- Hide kitty's decorations on Hyprland (tiling); read by kitty's `envinclude`.
+-- KDE never sets this, so there kitty keeps KWin's system titlebar so its
+-- windows stay movable/closable (ADR 0130).
+hl.env("KITTY_DECORATIONS", "hide_window_decorations yes")
