@@ -1263,12 +1263,14 @@ The standard XDG user dirs (`~/Desktop`, `~/Downloads`, …) plus a non-standard
 is installed fleet-wide, but its `xdg-user-dirs-update` ships only as an
 `/etc/xdg/autostart/` entry, which Plasma runs and the wl-roots compositors do
 not — so KDE gets the folders and bare niri/Hyprland do not. The [[Wayland Shell
-Companion]] preset closes the gap: the compositor autostart runs
-`xdg-user-dirs-update` then `mkdir -p ~/Projects`, and `/etc/skel/.config/
-user-dirs.dirs` is seeded with the full standard set (explicit English paths) plus
-a declarative `XDG_PROJECTS_DIR`. Compositor-scoped (KDE already works). _Avoid_:
-a systemd-user unit (misses Hyprland), treating `Projects` as a well-known XDG
-dir.
+Companion]] preset closes the gap with a seeded `noctalia-xdg-user-dirs` script
+(rides the preset's `.local/bin/noctalia-*` skel seed) that the compositor
+autostart calls at login: it runs `xdg-user-dirs-update` (the standard set from
+the stock English defaults) then creates `~/Projects` and declares
+`XDG_PROJECTS_DIR`. Run at login as the user, it reaches existing + new users
+alike; compositor-scoped (KDE already works). _Avoid_: a systemd-user unit
+(misses Hyprland), a per-`$HOME` preset seed, treating `Projects` as a well-known
+XDG dir.
 
 ### Environment Runner
 The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved

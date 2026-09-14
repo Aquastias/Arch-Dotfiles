@@ -16,24 +16,28 @@ non-standard **`Projects`** folder.
 
 ## Decision
 
-Run the update from the **compositor autostart**, where the gap is — beside
-`noctalia --daemon` and the Live Theme Bridge (ADR 0107 `conf.d/autostart.*`):
+Ship a small seeded script `~/.local/bin/noctalia-xdg-user-dirs` and call it from
+the **compositor autostart**, where the gap is — beside `noctalia --daemon` and
+the Live Theme Bridge (ADR 0107 `conf.d/autostart.*`):
 
 - **niri** — a `spawn-at-startup` in `conf.d/autostart.kdl`.
-- **Hyprland** — an `exec` in `conf.d/autostart.lua`.
+- **Hyprland** — an `exec_cmd` in `conf.d/autostart.lua`.
 
-Both run `xdg-user-dirs-update` (creates the well-known set from `user-dirs.dirs`)
-then `mkdir -p "$HOME/Projects"`. The preset seeds `/etc/skel/.config/
-user-dirs.dirs` with the **full standard set** in explicit English paths (so the
-names are deterministic, not locale-derived) plus a **non-standard
-`XDG_PROJECTS_DIR="$HOME/Projects"`** line, so tools that resolve XDG user dirs
-can find Projects. `xdg-user-dirs-update` manages only the well-known set, so the
-folder itself is created by the explicit `mkdir` — `XDG_PROJECTS_DIR` is
-declarative only.
+The script runs `xdg-user-dirs-update` — which, for a user with no
+`~/.config/user-dirs.dirs` yet, reads the stock English `/etc/xdg/
+user-dirs.defaults` and creates the **full standard set** — then `mkdir -p
+"$HOME/Projects"` and appends a **non-standard `XDG_PROJECTS_DIR="$HOME/Projects"`**
+line to the generated `user-dirs.dirs` (update manages only the well-known set, so
+Projects is created and declared explicitly). It is a **stowed dotfile** and rides
+the [[Wayland Shell Companion]] preset's existing `.local/bin/noctalia-*` skel
+seed, so no new seed leg is needed.
 
-Scope is **compositor-only**: KDE already creates the folders via
-`/etc/xdg/autostart/`, so re-running under Plasma is unnecessary; the autostart is
-launched only from the compositor sessions (ADR 0107).
+Because it runs **at login as the user**, it reaches **existing and new users
+alike** — no per-`$HOME` seed is required (the preset is skel-only, ADR 0095) and
+`/etc/skel` timing relative to user creation is irrelevant. Idempotent: safe on
+every login. Scope is **compositor-only**: KDE already creates the folders via
+`/etc/xdg/autostart/`, and the script is launched only from the compositor
+sessions (ADR 0107).
 
 ## Considered options
 
@@ -52,5 +56,10 @@ launched only from the compositor sessions (ADR 0107).
 
 - niri/Hyprland sessions get the standard XDG folders and `~/Projects` on login,
   idempotently (the update and `mkdir -p` are no-ops once created).
-- New preset surface: two autostart lines (one per compositor) and a seeded
-  `user-dirs.dirs`, guarded by the preset's bats suite.
+- New surface: one stowed `noctalia-xdg-user-dirs` script (riding the preset's
+  `.local/bin/noctalia-*` skel seed) and two autostart lines (one per
+  compositor), guarded by `noctalia-stow.bats`.
+- Standard dir names follow the session locale (stock `xdg-user-dirs-update`
+  behavior); on this English fleet they are the English set. Deterministic
+  English names regardless of locale would need a seeded `user-dirs.dirs` — not
+  done, as the fleet is English.

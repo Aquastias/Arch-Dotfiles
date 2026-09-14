@@ -7,6 +7,9 @@ spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-enable-plugins"
 // Live Theme Bridge (ADR 0116): repaint running Qt6/GTK3 apps on a Noctalia
 // theme change. Long-lived; dies with the session.
 spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-theme-bridge"
+// XDG user dirs (ADR 0131): niri doesn't run /etc/xdg/autostart, so generate
+// the standard dirs + ~/Projects here. Idempotent.
+spawn-at-startup "sh" "-c" "$HOME/.local/bin/noctalia-xdg-user-dirs"
 // Reassert the shared gsettings cursor into Bibata (ADR 0123): a KDE cursor
 // change rewrites the SHARED gsettings cursor-theme, which a GTK app here could
 // inherit. niri exports XCURSOR to spawned apps (covers XWayland); this is the

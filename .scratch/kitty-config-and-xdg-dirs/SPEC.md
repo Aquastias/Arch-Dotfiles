@@ -110,12 +110,15 @@ Two gaps on the wl-roots (niri/Hyprland) side of the fleet:
   pin `auto_reload_config` on; let the active-window border follow the accent;
   font at the reviewed size with automatic bold. Scrollback, bell, keybinds,
   padding and confirm-close are unchanged kitty behavior.
-- **XDG dirs.** The [[Wayland Shell Companion]] preset seeds
-  `/etc/skel/.config/user-dirs.dirs` (and the existing user's `$HOME`, since skel
-  misses already-created users) with the full standard set in explicit English
-  paths plus a declarative non-standard `XDG_PROJECTS_DIR`; the per-compositor
-  autostart part-files run `xdg-user-dirs-update` then create `~/Projects`.
-  Compositor-scoped — KDE already generates the dirs via `/etc/xdg/autostart/`.
+- **XDG dirs.** A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland
+  Shell Companion]] preset's `.local/bin/noctalia-*` skel seed) is called from the
+  per-compositor autostart part-files. It runs `xdg-user-dirs-update` — the
+  standard set, created from the stock English `/etc/xdg/user-dirs.defaults` for a
+  user with no `user-dirs.dirs` yet — then creates `~/Projects` and appends a
+  non-standard `XDG_PROJECTS_DIR`. Run at login as the user, it reaches existing
+  and new users alike (no per-`$HOME` preset seed; the preset is skel-only, ADR
+  0095). Compositor-scoped — KDE already generates the dirs via
+  `/etc/xdg/autostart/`.
 
 ## Testing Decisions
 

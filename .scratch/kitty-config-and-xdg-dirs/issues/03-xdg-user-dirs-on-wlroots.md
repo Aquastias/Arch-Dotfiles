@@ -10,13 +10,15 @@ already generates them via XDG autostart). Generation is idempotent.
 
 **Status:** ready-for-agent
 
-- [ ] The [[Wayland Shell Companion]] preset seeds `user-dirs.dirs` — full
-      standard set in explicit English paths plus a declarative non-standard
-      `XDG_PROJECTS_DIR` — into `/etc/skel` **and** the existing user's `$HOME`
-      (skel misses already-created users).
-- [ ] The per-compositor autostart runs `xdg-user-dirs-update` then creates
-      `~/Projects`, on both niri and Hyprland, beside the shell daemon /
-      [[Live Theme Bridge]] launch.
+- [ ] A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland Shell
+      Companion]] preset's `.local/bin/noctalia-*` skel seed) runs
+      `xdg-user-dirs-update` (standard set from the stock English defaults), then
+      creates `~/Projects` and declares a non-standard `XDG_PROJECTS_DIR`.
+      Idempotent.
+- [ ] Both compositor autostarts call it (niri + Hyprland), beside the shell
+      daemon / [[Live Theme Bridge]] launch.
+- [ ] Run at login as the user, it reaches existing and new users alike — no
+      per-`$HOME` seed (the preset is skel-only, ADR 0095).
 - [ ] Scope is compositor-only; nothing new runs under KDE.
-- [ ] The preset bats suite asserts the seeded `user-dirs.dirs` and the
-      per-compositor autostart entries.
+- [ ] `noctalia-stow.bats` asserts the script's shape and the per-compositor
+      autostart entries.

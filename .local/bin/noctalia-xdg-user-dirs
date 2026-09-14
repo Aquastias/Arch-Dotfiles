@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Generate the standard XDG user dirs + a ~/Projects folder on wl-roots sessions
+# (ADR 0131, "Wayland Session XDG Dirs"). xdg-user-dirs is installed fleet-wide,
+# but its xdg-user-dirs-update ships only as an /etc/xdg/autostart/ entry, which
+# Plasma runs and niri/Hyprland do NOT — so KDE gets the folders and bare
+# compositors don't. The Noctalia autostart calls this at login to close the gap.
+# Idempotent: xdg-user-dirs-update and `mkdir -p` are no-ops once the dirs exist,
+# so it is safe on every login. Compositor-only by virtue of where it is called;
+# KDE already generates the dirs via /etc/xdg/autostart/.
+set -eu
+
+# The standard set (Desktop, Downloads, Documents, Music, Pictures, Videos,
+# Templates, Public). With no ~/.config/user-dirs.dirs yet, xdg-user-dirs-update
+# reads the stock /etc/xdg/user-dirs.defaults (English) and creates them.
+command -v xdg-user-dirs-update >/dev/null 2>&1 && xdg-user-dirs-update || true
+
+# Projects is NOT a well-known XDG dir, so xdg-user-dirs-update never makes it:
+# create it explicitly and declare XDG_PROJECTS_DIR so tools can resolve it.
+mkdir -p "$HOME/Projects"
+dirs_file="${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs"
+if [ -f "$dirs_file" ] && ! grep -q '^XDG_PROJECTS_DIR=' "$dirs_file"; then
+	# literal $HOME is the user-dirs.dirs format — the reader expands it, not us
+	# shellcheck disable=SC2016
+	printf 'XDG_PROJECTS_DIR="$HOME/Projects"\n' >> "$dirs_file"
+fi
