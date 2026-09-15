@@ -1258,6 +1258,30 @@ follow, KDE stays fixed. The generated output is **seed-only, never stowed**
 input (`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
 per-palette static theme files, stowing `noctalia.conf`.
 
+### ANSI-16 Following
+The cohesion mechanism for shipped terminal CLIs/TUIs that are **not** Noctalia
+templates (ADR 0132). Instead of a per-app [[Pi Theme Template]]-style hex
+template, the tool is pointed at the terminal's **16 ANSI colors**, which the
+[[Kitty Theme Template]] already makes follow a live Noctalia palette change on
+the compositors and sit on the seeded Catppuccin Mocha Sapphire under KDE (ADR
+0130/0109) — so cohesion **and** KDE isolation fall out of one seam, with **no
+new template and no new ADR-0109 seed point** (the tools carry no palette hex;
+they defer to the terminal). Applies to `eza` (ANSI-16 `EZA_COLORS` export in
+the `system/zsh` program, covering the fields `LS_COLORS` misses),
+`lazygit`/`yazi` (ANSI color **names** in their configs, each a new seeded+
+stowable [[User Program]] that owns its package per ADR 0115), `htop`
+(`color_scheme=0` Default, already ANSI — `htoprc` left unstowed as htop
+runtime-rewrites it), `bat` (`BAT_THEME=ansi`, latent — not installed), and
+`git`/`less`/`ripgrep`/`fd` (default ANSI). The two hardcoded Catppuccin hexes
+in `.p10k.zsh` (root/context) are remapped to ANSI red/yellow. Repaint follows
+each tool's reload model (`eza` next render; `lazygit`/`yazi` restart-only, like
+the [[Zsh Theme Template]] limit). **Neovim is excluded** — its own rose-pine
+colorscheme, not ANSI-driven. Unlike the template outputs, the lazygit/yazi
+configs are static (nothing rewrites them), so they are **stowed and seeded**
+with no gitignore/seed-only dance. _Avoid_: per-app hex Noctalia templates or
+static Catppuccin theme files when a tool can express color through the 16 ANSI
+slots; stowing a runtime-rewritten config (`htoprc`).
+
 ### Wayland Session XDG Dirs
 The standard XDG user dirs (`~/Desktop`, `~/Downloads`, …) plus a non-standard
 `~/Projects`, generated on **niri/Hyprland** sessions (ADR 0131).

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!--
+  PROTOTYPE — THROWAWAY. Not shipped, not stowed.
+  Question it answers: "How will the fleet's TUI programs look once every one
+  of them renders through the terminal's 16 ANSI colors (the ANSI-16-first
+  strategy), and does swapping the palette repaint them cohesively?"
+
+  Thesis being tested: every pane below reads ONLY the 16 ANSI slots
+  (--c0..--c15) + --bg/--fg/--accent/--surface. Clicking a palette rewrites
+  just those ~20 CSS variables — nothing else. That mirrors reality: on
+  wl-roots, Noctalia rewrites kitty's noctalia.conf 16-color table and every
+  TUI follows live (ADR 0130); under KDE nothing rewrites it, so it stays on
+  the seeded Catppuccin Mocha Sapphire (ADR 0109/0104).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TUI theme cohesion — prototype</title>
+<style>
+  :root {
+    /* Defaults overwritten by JS on load (Catppuccin Mocha Sapphire). */
+    --bg:#1e1e2e; --fg:#cdd6f4; --muted:#a6adc8;
+    --surface:#313244; --surface2:#45475a; --accent:#74c7ec;
+    --c0:#45475a; --c1:#f38ba8; --c2:#a6e3a1; --c3:#f9e2af;
+    --c4:#89b4fa; --c5:#f5c2e7; --c6:#94e2d5; --c7:#bac2de;
+    --c8:#585b70; --c9:#f38ba8; --c10:#a6e3a1; --c11:#f9e2af;
+    --c12:#89b4fa; --c13:#f5c2e7; --c14:#94e2d5; --c15:#a6adc8;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:#0c0c14; color:#cdd6f4;
+    font-family:"JetBrains Mono","Fira Code","MesloLGS NF",ui-monospace,
+                "Cascadia Code",Menlo,Consolas,monospace;
+    font-size:13px; line-height:1.45; padding:20px 24px 60px;
+  }
+  h1 { font-size:16px; margin:0 0 2px; letter-spacing:.2px; }
+  .sub { color:#7f849c; font-size:12px; margin:0 0 16px; max-width:900px; }
+  .sub b { color:#a6adc8; font-weight:600; }
+
+  /* palette switcher */
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+         margin-bottom:6px; }
+  .bar .lbl { color:#585b70; font-size:11px; text-transform:uppercase;
+              letter-spacing:.8px; margin-right:4px; }
+  button {
+    font:inherit; font-size:12px; cursor:pointer; border-radius:8px;
+    padding:7px 12px; border:1px solid #313244; background:#181825;
+    color:#bac2de; transition:transform .08s ease, border-color .12s ease;
+  }
+  button:hover { border-color:#45475a; transform:translateY(-1px); }
+  button.active { border-color:var(--accent); color:var(--fg);
+                  box-shadow:0 0 0 1px var(--accent) inset; }
+  button .tag { display:block; font-size:9.5px; color:#585b70;
+                letter-spacing:.4px; }
+  button.active .tag { color:var(--accent); }
+  .mode-note { color:#585b70; font-size:11px; margin:8px 0 4px; }
+  .mode-note code { color:#a6adc8; }
+
+  /* ansi swatch strip */
+  .swatches { display:flex; gap:3px; margin:10px 0 22px; flex-wrap:wrap; }
+  .sw { width:34px; height:22px; border-radius:4px; position:relative;
+        border:1px solid rgba(255,255,255,.06); }
+  .sw span { position:absolute; bottom:-15px; left:0; right:0;
+             text-align:center; font-size:8.5px; color:#585b70; }
+
+  /* window grid */
+  .grid { display:grid; gap:18px;
+          grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); }
+  .win { background:var(--bg); border-radius:10px; overflow:hidden;
+         border:1px solid rgba(255,255,255,.07);
+         box-shadow:0 10px 30px rgba(0,0,0,.45);
+         transition:background .35s ease; display:flex; flex-direction:column; }
+  .titlebar { display:flex; align-items:center; gap:7px;
+              padding:8px 12px; background:rgba(0,0,0,.22);
+              border-bottom:1px solid rgba(255,255,255,.05); }
+  .dot { width:11px; height:11px; border-radius:50%; }
+  .dot.r{background:#f38ba8}.dot.y{background:#f9e2af}.dot.g{background:#a6e3a1}
+  .titlebar .t { margin-left:6px; color:var(--muted); font-size:11px; }
+  .term { padding:12px 14px; white-space:pre; overflow:auto;
+          color:var(--fg); flex:1;
+          transition:color .35s ease; }
+  .term .full { display:block; }
+
+  /* ansi helpers — panes use ONLY these */
+  .c0{color:var(--c0)}.c1{color:var(--c1)}.c2{color:var(--c2)}
+  .c3{color:var(--c3)}.c4{color:var(--c4)}.c5{color:var(--c5)}
+  .c6{color:var(--c6)}.c7{color:var(--c7)}.c8{color:var(--c8)}
+  .c9{color:var(--c9)}.c10{color:var(--c10)}.c11{color:var(--c11)}
+  .c12{color:var(--c12)}.c13{color:var(--c13)}.c14{color:var(--c14)}
+  .c15{color:var(--c15)}
+  .acc{color:var(--accent)} .mut{color:var(--muted)} .b{font-weight:700}
+  .selbg{background:var(--surface2);color:var(--fg)}
+  .accbg{background:var(--accent);color:var(--bg);font-weight:700}
+  .surfbg{background:var(--surface)}
+
+  .caption { color:#585b70; font-size:11px; margin:6px 2px 0; }
+  footer { margin-top:34px; color:#585b70; font-size:11px; max-width:900px; }
+  footer code { color:#7f849c; }
+</style>
+</head>
+<body>
+
+<h1>Terminal theme cohesion — <span style="color:var(--accent)">ANSI-16-first</span> prototype</h1>
+<p class="sub">
+  Every pane below reads <b>only the 16 ANSI slots + accent</b>. Click a palette:
+  it rewrites just those ~20 CSS variables and <b>all panes repaint together</b>.
+  That is the whole architecture — on wl-roots Noctalia rewrites kitty's 16-color
+  table and every TUI follows live; under KDE nothing rewrites it, so it stays
+  on the seeded <b>Catppuccin Mocha Sapphire</b>.
+</p>
+
+<div class="bar">
+  <span class="lbl">Palette</span>
+  <button data-p="mocha" class="active">Catppuccin Mocha Sapphire<span class="tag">default · KDE seed</span></button>
+  <button data-p="gruvbox">Gruvbox<span class="tag">Noctalia · wl-roots live</span></button>
+  <button data-p="nord">Nord<span class="tag">Noctalia · wl-roots live</span></button>
+  <button data-p="rose">Rosé Pine<span class="tag">Noctalia · wl-roots live</span></button>
+  <button data-p="latte">Catppuccin Latte<span class="tag">Noctalia · light mode</span></button>
+</div>
+<p class="mode-note">
+  Switching a non-default palette simulates <code>noctalia msg color-scheme-set</code>
+  on a niri/Hyprland session → kitty's ANSI table is rewritten → every TUI repaints.
+  <b>KDE never runs the template</b>, so on KDE only "Catppuccin Mocha Sapphire" ever shows.
+</p>
+
+<div class="swatches" id="swatches"></div>
+
+<div class="grid">
+
+  <!-- p10k -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">zsh · Powerlevel10k</span></div>
+    <div class="term"><span class="full"><span class="accbg"> ~/.dotfiles </span><span class="c2"> </span><span class="surfbg c2"> ⎇ main </span><span class="c2 surfbg">✔ </span>
+<span class="acc">❯</span> eza --long --icons
+
+<span class="c1 b"> root </span><span class="c3 b"> ssh </span><span class="mut">← context/root warning now ANSI red/yellow (Q6)</span>
+<span class="acc">❯</span> █</span></div>
+  </div>
+
+  <!-- eza -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">eza --long --icons (EZA_COLORS → ANSI-16)</span></div>
+    <div class="term"><span class="full"><span class="c8">drwxr-xr-x</span>  <span class="c3">   -</span> <span class="c7">alex</span> <span class="c6">12 Sep</span> <span class="c4 b">.config</span>
+<span class="c8">drwxr-xr-x</span>  <span class="c3">   -</span> <span class="c7">alex</span> <span class="c6"> 9 Sep</span> <span class="c4 b">.installer</span>
+<span class="c8">.rw-r--r--</span> <span class="c3">2.3k</span> <span class="c7">alex</span> <span class="c6">15 Sep</span> <span class="fg">CONTEXT.md</span>
+<span class="c8">.rwxr-xr-x</span> <span class="c3"> 841</span> <span class="c7">alex</span> <span class="c6">11 Sep</span> <span class="c2 b">install.sh</span>
+<span class="c8">lrwxrwxrwx</span>  <span class="c3">   -</span> <span class="c7">alex</span> <span class="c6"> 1 Sep</span> <span class="c6 b">.zshrc</span> <span class="c8">→</span> <span class="c6">dotfiles/.zshrc</span></span></div>
+  </div>
+
+  <!-- fzf (the user's original example) -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">fzf · Ctrl-T / tab-complete</span></div>
+    <div class="term"><span class="full">  <span class="mut">3/128</span>
+  <span class="acc">></span> inst
+  <span class="selbg"><span class="acc">▌</span> .installer/<span class="acc b">inst</span>all.sh          </span>
+    .installer/lib/<span class="acc b">inst</span>all-helpers.sh
+    .config/<span class="acc b">inst</span>ant/theme.conf
+  <span class="acc">╭──────────────────────────────╮</span>
+  <span class="acc">│</span> preview: install.sh          <span class="acc">│</span>
+  <span class="acc">╰──────────────────────────────╯</span></span></div>
+  </div>
+
+  <!-- lazygit -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">lazygit (theme → ANSI names)</span></div>
+    <div class="term"><span class="full"><span class="acc">╭─ Files ───────────╮</span> <span class="c8">╭─ Log ────────────╮</span>
+<span class="acc">│</span><span class="selbg"> <span class="c2">M</span> .zshrc            </span><span class="acc">│</span> <span class="c8">│</span> <span class="c3">●</span> feat(zsh) ansi  <span class="c8">│</span>
+<span class="acc">│</span> <span class="c1">M</span> exports.zsh       <span class="acc">│</span> <span class="c8">│</span> <span class="c3">●</span> fix(kitty) seed <span class="c8">│</span>
+<span class="acc">│</span> <span class="c1">?</span> theme.toml        <span class="acc">│</span> <span class="c8">│</span> <span class="c3">●</span> feat(eza) color <span class="c8">│</span>
+<span class="acc">╰───────────────────╯</span> <span class="c8">╰──────────────────╯</span>
+<span class="c8">╭─ Branches ────────╮</span> <span class="c8">╭─ Commit ─────────╮</span>
+<span class="c8">│</span> <span class="c2">* main</span>            <span class="c8">│</span> <span class="c8">│</span> <span class="mut">staged  </span><span class="c2">+18</span>     <span class="c8">│</span>
+<span class="c8">╰───────────────────╯</span> <span class="c8">╰──────────────────╯</span></span></div>
+  </div>
+
+  <!-- yazi -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">yazi (theme.toml)</span></div>
+    <div class="term"><span class="full"><span class="c4 b">.dotfiles</span> <span class="c8">›</span> <span class="c4 b">.installer</span> <span class="c8">›</span>
+
+ <span class="c4 b">  hosts/</span>            <span class="accbg">  lib/            </span>  <span class="mut">lib/chroot/</span>
+ <span class="c4 b">  programs/</span>            <span class="c4 b">  packages/</span>       <span class="c4 b">  chroot/</span>
+ <span class="c2">  install.sh</span>           <span class="c4 b">  chroot/</span>        <span class="fg">  noctalia-...sh</span>
+ <span class="fg">  REFERENCE.md</span>         <span class="c2">  install.sh</span>     <span class="fg">  kde.sh</span>
+<span class="mut"> ────────────────────────────────────────────── </span>
+ <span class="acc">NORMAL</span> <span class="mut">lib/  ·  9/14  ·  drwxr-xr-x</span></span></div>
+  </div>
+
+  <!-- btop -->
+  <div class="win">
+    <div class="titlebar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="t">btop (Noctalia builtin template)</span></div>
+    <div class="term"><span class="full"><span class="acc">╭─ cpu ──────────────────────────╮</span>
+<span class="acc">│</span> <span class="c2">▁▂▃▃▄</span><span class="c3">▅▅▆▆▇</span><span class="c1">▇██</span>  <span class="c2">CPU 62%</span>       <span class="acc">│</span>
+<span class="acc">│</span> <span class="c2">████████</span><span class="c3">██████</span><span class="c1">███</span><span class="c8">░░░</span>  <span class="acc">│</span>
+<span class="acc">╰────────────────────────────────╯</span>
+<span class="c8">╭─ mem ──────────────────────────╮</span>
+<span class="c8">│</span> <span class="c4">used </span><span class="c2">██████████</span><span class="c3">████</span><span class="c8">░░░░░░</span> <span class="c4">9.1G</span> <span class="c8">│</span>
+<span class="c8">│</span> <span class="c4">swap </span><span class="c2">██</span><span class="c8">░░░░░░░░░░░░░░░░░░░░</span> <span class="c4">0.2G</span> <span class="c8">│</span>
+<span class="c8">╰────────────────────────────────╯</span></span></div>
+  </div>
+
+</div>
+
+<p class="caption">
+  Panes marked as already-cohesive today: <b>fzf</b>, <b>p10k accent</b>,
+  <b>btop</b>. Panes this effort brings in: <b>eza</b>, <b>lazygit</b>,
+  <b>yazi</b> (+ the p10k root/context hexes → ANSI, Q6). Not shown / excluded:
+  <b>neovim</b> (own rose-pine universe, Q3-excluded), <b>htop</b> (Q4 static/stock).
+</p>
+
+<footer>
+  <b style="color:#7f849c">Why this can't break what's built:</b> the panes touch
+  <code>--c0..--c15 / --bg / --fg / --accent / --surface*</code> and nothing else —
+  the exact contract kitty already exposes. Bringing eza/lazygit/yazi in means
+  pointing each at those same ANSI slots (a static stowed config), <em>not</em> a
+  new Noctalia template and <em>not</em> a new seed point. kitty/zsh/pi templates,
+  the Sapphire seed (ADR 0109), and KDE isolation (ADR 0104) are untouched.
+  &nbsp;·&nbsp; <em>Throwaway prototype — capture to a branch, don't ship.</em>
+</footer>
+
+<script>
+  const PALETTES = {
+    // Catppuccin Mocha, sapphire accent (#74c7ec) — the fleet default seed.
+    mocha: { bg:'#1e1e2e', fg:'#cdd6f4', muted:'#a6adc8',
+      surface:'#313244', surface2:'#45475a', accent:'#74c7ec',
+      c:['#45475a','#f38ba8','#a6e3a1','#f9e2af','#89b4fa','#f5c2e7','#94e2d5','#bac2de',
+         '#585b70','#f38ba8','#a6e3a1','#f9e2af','#89b4fa','#f5c2e7','#94e2d5','#a6adc8'] },
+    gruvbox: { bg:'#282828', fg:'#ebdbb2', muted:'#a89984',
+      surface:'#3c3836', surface2:'#504945', accent:'#fabd2f',
+      c:['#282828','#cc241d','#98971a','#d79921','#458588','#b16286','#689d6a','#a89984',
+         '#928374','#fb4934','#b8bb26','#fabd2f','#83a598','#d3869b','#8ec07c','#ebdbb2'] },
+    nord: { bg:'#2e3440', fg:'#d8dee9', muted:'#7b88a1',
+      surface:'#3b4252', surface2:'#434c5e', accent:'#88c0d0',
+      c:['#3b4252','#bf616a','#a3be8c','#ebcb8b','#81a1c1','#b48ead','#88c0d0','#e5e9f0',
+         '#4c566a','#bf616a','#a3be8c','#ebcb8b','#81a1c1','#b48ead','#8fbcbb','#eceff4'] },
+    rose: { bg:'#191724', fg:'#e0def4', muted:'#908caa',
+      surface:'#1f1d2e', surface2:'#26233a', accent:'#ebbcba',
+      c:['#26233a','#eb6f92','#31748f','#f6c177','#9ccfd8','#c4a7e7','#ebbcba','#e0def4',
+         '#6e6a86','#eb6f92','#31748f','#f6c177','#9ccfd8','#c4a7e7','#ebbcba','#e0def4'] },
+    latte: { bg:'#eff1f5', fg:'#4c4f69', muted:'#6c6f85',
+      surface:'#e6e9ef', surface2:'#ccd0da', accent:'#209fb5',
+      c:['#5c5f77','#d20f39','#40a02b','#df8e1d','#1e66f5','#ea76cb','#179299','#acb0be',
+         '#6c6f85','#d20f39','#40a02b','#df8e1d','#1e66f5','#ea76cb','#179299','#bcc0cc'] },
+  };
+
+  const root = document.documentElement;
+  const swatchBox = document.getElementById('swatches');
+
+  function apply(name) {
+    const p = PALETTES[name];
+    root.style.setProperty('--bg', p.bg);
+    root.style.setProperty('--fg', p.fg);
+    root.style.setProperty('--muted', p.muted);
+    root.style.setProperty('--surface', p.surface);
+    root.style.setProperty('--surface2', p.surface2);
+    root.style.setProperty('--accent', p.accent);
+    p.c.forEach((hex,i) => root.style.setProperty('--c'+i, hex));
+
+    swatchBox.innerHTML = p.c.map((hex,i) =>
+      `<div class="sw" style="background:${hex}"><span>${i}</span></div>`).join('');
+
+    document.querySelectorAll('.bar button').forEach(b =>
+      b.classList.toggle('active', b.dataset.p === name));
+  }
+
+  document.querySelectorAll('.bar button').forEach(b =>
+    b.addEventListener('click', () => apply(b.dataset.p)));
+
+  apply('mocha');
+</script>
+</body>
+</html>
