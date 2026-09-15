@@ -5,7 +5,7 @@
 # sessions. Keep the key set in sync with templates/zsh.zsh (asserted by tests).
 
 # ── fzf ──────────────────────────────────────────────────────────────────────
-export FZF_DEFAULT_OPTS="--color=bg+:#313244,bg:#181825,spinner:#74c7ec,hl:#74c7ec,fg:#cdd6f4,header:#74c7ec,info:#74c7ec,pointer:#74c7ec,marker:#a6e3a1,fg+:#cdd6f4,prompt:#74c7ec,hl+:#74c7ec"
+export FZF_DEFAULT_OPTS="--color=bg+:#313244,bg:#1e1e2e,spinner:#74c7ec,hl:#74c7ec,fg:#cdd6f4,header:#74c7ec,info:#74c7ec,pointer:#74c7ec,marker:#a6e3a1,fg+:#cdd6f4,prompt:#74c7ec,hl+:#74c7ec"
 
 # ── zsh-syntax-highlighting ──────────────────────────────────────────────────
 ZSH_HIGHLIGHT_HIGHLIGHTERS=(main cursor)

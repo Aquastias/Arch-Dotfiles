@@ -11,7 +11,7 @@
 #   2. FZF_DEFAULT_OPTS must be ONE line — backslash line-continuations fail.
 
 # ── fzf: accent = Material primary; base = surface_container_lowest ───────────
-export FZF_DEFAULT_OPTS="--color=bg+:{{colors.surface_container.default.hex}},bg:{{colors.surface_container_lowest.default.hex}},spinner:{{colors.primary.default.hex}},hl:{{colors.primary.default.hex}},fg:{{colors.on_surface.default.hex}},header:{{colors.primary.default.hex}},info:{{colors.primary.default.hex}},pointer:{{colors.primary.default.hex}},marker:{{colors.terminal_normal_green.default.hex}},fg+:{{colors.on_surface.default.hex}},prompt:{{colors.primary.default.hex}},hl+:{{colors.primary.default.hex}}"
+export FZF_DEFAULT_OPTS="--color=bg+:{{colors.surface_container.default.hex}},bg:{{colors.terminal_background.default.hex}},spinner:{{colors.primary.default.hex}},hl:{{colors.primary.default.hex}},fg:{{colors.on_surface.default.hex}},header:{{colors.primary.default.hex}},info:{{colors.primary.default.hex}},pointer:{{colors.primary.default.hex}},marker:{{colors.terminal_normal_green.default.hex}},fg+:{{colors.on_surface.default.hex}},prompt:{{colors.primary.default.hex}},hl+:{{colors.primary.default.hex}}"
 
 # ── zsh-syntax-highlighting: Material roles -> highlighter styles ─────────────
 ZSH_HIGHLIGHT_HIGHLIGHTERS=(main cursor)

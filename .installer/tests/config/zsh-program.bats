@@ -86,6 +86,19 @@ setup() {
   grep -q "ZSH_HIGHLIGHT_STYLES\[unknown-token\]='fg=#f38ba8,bold'" "$SEED_FZF"
 }
 
+@test "fzf menu background matches the kitty terminal background (ADR 0132)" {
+  # the fzf popup bg must equal the terminal bg (same role kitty uses), not a
+  # different surface_* role — otherwise the menu bg does not match the terminal
+  local kbg
+  kbg=$(grep -oE '^background +#[0-9a-fA-F]{6}' \
+    "$REPO/.installer/programs/system/kitty/themes/noctalia.conf" \
+    | grep -oE '#[0-9a-fA-F]{6}')
+  [ -n "$kbg" ]
+  grep -q "bg:${kbg}," "$SEED_FZF"
+  # template drives it off the same terminal_background role kitty uses
+  grep -q 'bg:{{colors.terminal_background.default.hex}}' "$TPL_FZF"
+}
+
 @test "seeded p10k-accent.zsh overrides only accent foregrounds" {
   [ -f "$SEED_P10K" ]
   grep -q "POWERLEVEL9K_DIR_FOREGROUND='#74c7ec'" "$SEED_P10K"
