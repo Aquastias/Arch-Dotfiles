@@ -1,0 +1,16 @@
+// Program metadata for lazygit.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru, with temp NOPASSWD sudo for seeding /etc/skel and /root.
+// Seeds the ANSI-16 lazygit config (bundled under home/, kept byte-identical to
+// the repo stow tree by a drift test) so a fresh non-stowing user gets a themed
+// git TUI; the repo copy stays hand-stowable. The program owns the lazygit
+// package — a Categorized-List entry may not also name a Program (exclusivity,
+// ADR 0115), so lazygit left core packages.shell for here. The theme is static
+// ANSI-16 (ADR 0132), so nothing is seed-only/gitignored (unlike kitty/zsh).
+
+{
+  "name": "lazygit",
+  "kind": "user",
+  "description": "Lazygit config seeded fleet-wide, ANSI-16 palette-following (ADR 0132)."
+}

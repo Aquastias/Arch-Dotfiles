@@ -77,12 +77,10 @@
         "fzf",
         "htop",
         "inxi",
-        "lazygit",
         "lynx",
         "nano",
         "parallel",
         "ripgrep",
-        "yazi",
         "zoxide"
       ],
       "editors": [

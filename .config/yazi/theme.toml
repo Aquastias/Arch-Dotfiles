@@ -1,0 +1,40 @@
+# yazi theme — ANSI-16 named colors only (ADR 0132). No hex: every color is an
+# ANSI name (or `reset` = terminal default), so panes/mode/selection render
+# through the terminal's 16 colours — following Noctalia live on the compositors
+# and fixed on Catppuccin Mocha Sapphire under KDE. yazi reads this at launch
+# only, so a palette change repaints on the next launch. `blue` stands in for
+# the sapphire accent; under any other palette it resolves to that blue slot.
+
+[mgr]
+cwd = { fg = "cyan" }
+hovered = { fg = "black", bg = "blue" }
+preview_hovered = { underline = true }
+find_keyword = { fg = "yellow", bold = true }
+find_position = { fg = "magenta", bg = "reset", bold = true }
+marker_copied = { fg = "green", bg = "green" }
+marker_cut = { fg = "red", bg = "red" }
+marker_marked = { fg = "cyan", bg = "cyan" }
+marker_selected = { fg = "yellow", bg = "yellow" }
+tab_active = { fg = "black", bg = "blue" }
+tab_inactive = { fg = "white", bg = "black" }
+border_symbol = "│"
+border_style = { fg = "blue" }
+
+[mode]
+normal_main = { fg = "black", bg = "blue", bold = true }
+normal_alt = { fg = "blue", bg = "black" }
+select_main = { fg = "black", bg = "green", bold = true }
+select_alt = { fg = "green", bg = "black" }
+unset_main = { fg = "black", bg = "magenta", bold = true }
+unset_alt = { fg = "magenta", bg = "black" }
+
+[status]
+overall = { fg = "reset", bg = "reset" }
+
+[which]
+cand = { fg = "cyan" }
+
+[notify]
+title_info = { fg = "green" }
+title_warn = { fg = "yellow" }
+title_error = { fg = "red" }

@@ -1,0 +1,37 @@
+# lazygit — ANSI-16 theming (ADR 0132). Colors are ANSI names / `default`,
+# never hex, so borders/selection/diff render through the terminal's 16 colours:
+# they follow Noctalia live on the compositors and sit on Catppuccin Mocha
+# Sapphire under KDE. lazygit reads this at startup only, so a palette change
+# repaints on the next launch (the bounded relaunch-only limit, like the zsh
+# theme). `blue` stands in for the sapphire accent — under any other palette it
+# resolves to that palette's blue slot, so it stays cohesive.
+gui:
+  theme:
+    activeBorderColor:
+      - blue
+      - bold
+    inactiveBorderColor:
+      - default
+    searchingActiveBorderColor:
+      - yellow
+      - bold
+    optionsTextColor:
+      - blue
+    selectedLineBgColor:
+      - blue
+    inactiveViewSelectedLineBgColor:
+      - black
+    cherryPickedCommitBgColor:
+      - cyan
+    cherryPickedCommitFgColor:
+      - blue
+    markedBaseCommitBgColor:
+      - yellow
+    markedBaseCommitFgColor:
+      - blue
+    unstagedChangesColor:
+      - red
+    defaultFgColor:
+      - default
+  authorColors:
+    "*": blue

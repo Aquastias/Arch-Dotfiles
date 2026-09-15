@@ -29,6 +29,13 @@ export PATH="$HOME/.local/bin:$PATH"
 # the Noctalia palette live for free — same principle as the syntax-highlighter.
 export BAT_THEME="ansi"
 
+# eza: file-type colors come from LS_COLORS (dircolors), but eza's own UI
+# fields (permissions/size/date/owner/git) default to its built-in palette.
+# Map them to ANSI-16 SGR codes so they render through the terminal's 16
+# colours — following Noctalia live on compositors, fixed Sapphire under KDE
+# (ADR 0132). No 38;5;/38;2; hex, so nothing is pinned off-palette.
+export EZA_COLORS="ur=33:uw=31:ux=32:ue=32:gr=33:gw=31:gx=32:tr=33:tw=31:tx=32:su=33:sf=33:xa=36:sn=32:sb=32:df=34:ds=34:uu=33:gu=33:un=90:gn=90:da=34:ga=32:gm=33:gd=31:gv=35:gt=36:xx=90:in=90:bl=90"
+
 ## Grub
 export GRUB_DEFAULT_FILE="/etc/default/grub"
 export GRUB_BOOT_CFG="/boot/grub/grub.cfg"

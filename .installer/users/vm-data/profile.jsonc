@@ -11,6 +11,7 @@
   // this throwaway excludes them so the install stays focused on data-pool
   // ownership, not user program installs (ADR 0057).
   "programs_exclude":
-    ["zsh", "kitty", "virt-manager", "podman", "searxng", "pi"],
+    ["zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
+     "pi"],
   "ssh_authorized_keys": []
 }

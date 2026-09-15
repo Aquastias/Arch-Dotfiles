@@ -1,0 +1,16 @@
+// Program metadata for yazi.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru, with temp NOPASSWD sudo for seeding /etc/skel and /root.
+// Seeds the ANSI-16 yazi theme (bundled under home/, kept byte-identical to the
+// repo stow tree by a drift test) so a fresh non-stowing user gets a themed file
+// manager; the repo copy stays hand-stowable. The program owns the yazi package
+// — a Categorized-List entry may not also name a Program (exclusivity, ADR
+// 0115), so yazi left core packages.shell for here. The theme is static ANSI-16
+// (ADR 0132), so nothing is seed-only/gitignored (unlike kitty/zsh).
+
+{
+  "name": "yazi",
+  "kind": "user",
+  "description": "Yazi theme seeded fleet-wide, ANSI-16 palette-following (ADR 0132)."
+}

@@ -173,6 +173,27 @@ setup() {
   grep -q 'noctalia/templates' "$preset"
 }
 
+@test "eza follows ANSI-16 via an EZA_COLORS export (no hex)" {
+  local exp="$REPO/.zsh/env/exports.zsh"
+  grep -q 'export EZA_COLORS=' "$exp"
+  # UI fields (perms/size/date/git) are set — not left on eza defaults
+  grep -qE 'EZA_COLORS=.*(ur=|sn=|da=|gm=)' "$exp"
+  # ANSI-16 SGR codes only — no 256-colour / truecolour escapes
+  run bash -c "grep 'export EZA_COLORS=' '$exp'"
+  [[ "$output" != *'38;5;'* ]]
+  [[ "$output" != *'38;2;'* ]]
+}
+
+@test "p10k context is ANSI red/yellow, not a hardcoded Catppuccin hex" {
+  local p10k="$REPO/.p10k.zsh"
+  # the two Catppuccin Mocha hexes are gone from the context segments
+  ! grep -q "#f38ba8" "$p10k"
+  ! grep -q "#fab387" "$p10k"
+  # root/sudo = ANSI red (1), remote/default = ANSI yellow (3)
+  grep -qE 'POWERLEVEL9K_CONTEXT_\{ROOT,SUDO,REMOTE_SUDO\}_FOREGROUND=1' "$p10k"
+  grep -qE 'POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND=3' "$p10k"
+}
+
 @test "User Core serves the zsh program fleet-wide" {
   grep -qE '"programs":.*"zsh"' "$UCORE"
 }

@@ -910,12 +910,14 @@
   # REMOTE_SUDO over SSH) = loud red  root@host, so a root shell is
   # unmistakable however you reached it. Non-root SSH (REMOTE) = tan user@host as
   # a remote-box hint; a normal local shell (DEFAULT) hides context.
-  # Hex, not a 256-index: this truecolor terminal remaps some palette indices
-  # (196 rendered blue), and p10k-accent already uses hex reliably. #f38ba8 is
-  # Catppuccin Mocha red; #fab387 is peach for the remote hint.
-  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_FOREGROUND='#f38ba8'
-  typeset -g POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND='#fab387'
-  typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND='#fab387'
+  # ANSI-16 indices, not hex: index 1 (red) / 3 (yellow) resolve through the
+  # terminal's 16-colour table, which kitty makes follow Noctalia live on the
+  # compositors and sit on Catppuccin Mocha Sapphire under KDE (ADR 0132) — so
+  # the root/remote warning tracks the palette instead of a pinned Catppuccin
+  # hex. Only the 256-cube remaps oddly here (196 rendered blue); 0-15 are safe.
+  typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_FOREGROUND=1
+  typeset -g POWERLEVEL9K_CONTEXT_REMOTE_FOREGROUND=3
+  typeset -g POWERLEVEL9K_CONTEXT_FOREGROUND=3
 
   typeset -g POWERLEVEL9K_CONTEXT_{ROOT,SUDO,REMOTE_SUDO}_TEMPLATE='%B %n@%m'
   typeset -g POWERLEVEL9K_CONTEXT_REMOTE_TEMPLATE='%n@%m'
