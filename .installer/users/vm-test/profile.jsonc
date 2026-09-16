@@ -11,6 +11,6 @@
   // path, not user program installs (ADR 0057).
   "programs_exclude":
     ["zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
-     "pi"],
+     "pi", "claude"],
   "ssh_authorized_keys": []
 }
