@@ -82,7 +82,7 @@ setup() {
   git -C "$REPO" check-ignore -q .claude/settings.local.json
   git -C "$REPO" check-ignore -q .claude/.credentials.json
   git -C "$REPO" check-ignore -q .claude/commands
-  grep -q '^\.claude/\.credentials\.json' "$GI"
+  grep -qE '^/?\.claude/\.credentials\.json' "$GI"
 }
 
 # ── package + profile wiring ─────────────────────────────────────────────────
