@@ -27,6 +27,9 @@
   "shell": "/bin/zsh",
   "sudo": false,
   "groups": ["audio", "video", "storage", "optical", "network", "seat"],
-  "programs": ["zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng", "pi"],
+  "programs": [
+    "zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
+    "pi", "claude"
+  ],
   "ssh_authorized_keys": []
 }

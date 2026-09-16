@@ -1,0 +1,108 @@
+{
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Read(~/.dotfiles/**)",
+      "Edit(~/.dotfiles/**)",
+      "Read(~/.claude/**)",
+      "Edit(~/.claude/**)",
+      "Read(~/Projects/**)",
+      "Edit(~/Projects/**)",
+      "Bash(bats:*)",
+      "Bash(shellcheck:*)",
+      "Bash(jq:*)",
+      "Bash(bash -n:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git branch:*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.docker/**)",
+      "Read(~/.password-store/**)",
+      "Read(~/.netrc)",
+      "Read(~/.config/sops/**)",
+      "Read(/etc/secrets/**)",
+      "Read(/run/secrets/**)"
+    ],
+    "defaultMode": "auto",
+    "disableBypassPermissionsMode": true,
+    "additionalDirectories": [
+      "~/.dotfiles",
+      "~/.claude",
+      "~/Projects"
+    ]
+  },
+  "skipAutoPermissionPrompt": true,
+  "model": "claude-opus-4-8",
+  "fallbackModel": ["claude-sonnet-5"],
+  "promptCacheTtl": 3600,
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/scripts/statusline.sh"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.dotfiles",
+        "~/.claude",
+        "~/Projects",
+        "/tmp"
+      ],
+      "denyWrite": [
+        "/"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.aws",
+        "~/.config/gcloud",
+        "~/.kube",
+        "~/.docker",
+        "~/.password-store",
+        "~/.netrc",
+        "~/.config/sops",
+        "/etc/secrets",
+        "/run/secrets"
+      ]
+    },
+    "network": {
+      "allowUnixSockets": [
+        "/run/libvirt/libvirt-sock",
+        "/run/libvirt/libvirt-sock-ro"
+      ]
+    }
+  },
+  "effortLevel": "high",
+  "cleanupPeriodDays": 30,
+  "feedbackSurveyRate": 0,
+  "preferredNotifChannel": "desktop",
+  "autoUpdatesChannel": "stable",
+  "emojiCompletionEnabled": false,
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "autoMemoryEnabled": false,
+  "voiceEnabled": true,
+  "tui": "fullscreen"
+}

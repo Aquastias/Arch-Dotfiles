@@ -1,0 +1,16 @@
+// Program metadata for claude.
+//
+// kind=user → installed by the profile runner inside the chroot as the owning
+// user via paru. Installs Claude Code (claude-code) plus its Bash-sandbox
+// runtime (bubblewrap, socat), gh (github-cli), and ccusage, and seeds
+// ~/.claude from the payload bundled beside this file — the same config the
+// repo-root .claude/ stow tree carries for a hand-stow (ADR 0133). User
+// programs run before the dotfiles clone, so the seed payload lives under
+// .installer, not the repo-root stow tree. .credentials.json is never seeded;
+// Claude's /login writes it (0600) on first run.
+
+{
+  "name": "claude",
+  "kind": "user",
+  "description": "Claude Code (claude-code) with a seeded, stow-ready config."
+}
