@@ -23,7 +23,7 @@ setup() {
   grep -q '"kind": "user"' "$CFG"
 }
 
-@test "install.sh installs claude-code + sandbox/gh/ccusage deps via AUR helper" {
+@test "install.sh installs claude-code + sandbox/gh/ccusage deps" {
   [ -x "$INSTALL" ]
   grep -qE '\$\{AUR_HELPER\} -S --noconfirm --needed' "$INSTALL"
   for p in claude-code bubblewrap socat github-cli ccusage; do
@@ -32,7 +32,8 @@ setup() {
 }
 
 @test "install.sh seeds the payload and never writes .credentials.json" {
-  grep -q 'cp -r "${PROGRAMS}/dev/claude/payload/\." "${HOME}/.claude/"' "$INSTALL"
+  local pat='cp -r "${PROGRAMS}/dev/claude/payload/\." "${HOME}/.claude/"'
+  grep -q "$pat" "$INSTALL"
   run grep -qE '(cp|tee|>)[^#]*\.credentials\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }
@@ -52,7 +53,8 @@ setup() {
   [ "$(jq -r '.attribution.pr' "$s")" = "" ]
   [ "$(jq -r '.attribution.sessionUrl' "$s")" = "false" ]
   [ "$(jq -r '.sandbox.failIfUnavailable' "$s")" = "true" ]
-  jq -e '.sandbox.network.allowUnixSockets | index("/run/libvirt/libvirt-sock")' "$s" >/dev/null
+  jq -e '.sandbox.network.allowUnixSockets
+    | index("/run/libvirt/libvirt-sock")' "$s" >/dev/null
   [ "$(jq -r '.cleanupPeriodDays' "$s")" = "30" ]
   [ "$(jq -r '.autoUpdatesChannel' "$s")" = "stable" ]
 }
@@ -93,5 +95,6 @@ setup() {
 
 @test "CONTEXT.md records .claude as selectively tracked, not wholesale" {
   grep -q 'tracked' "$CONTEXT"
-  grep -qE 'selectively.*settings\.json|scripts/statusline\.sh.*ADR 0133' "$CONTEXT"
+  grep -qE 'selectively.*settings\.json|scripts/statusline\.sh.*ADR 0133' \
+    "$CONTEXT"
 }
