@@ -14,7 +14,8 @@ choices.
 - [ ] Attribution off: `attribution.commit` = `""`, `attribution.pr` = `""`,
       `attribution.sessionUrl: false`
 - [ ] Launch in auto mode: `permissions.defaultMode: "auto"`,
-      `skipAutoPermissionPrompt: true`, `disableBypassPermissionsMode: true`
+      `skipAutoPermissionPrompt: true`,
+      `disableBypassPermissionsMode: "disable"`
 - [ ] Sandbox: `network.allowUnixSockets` includes the libvirt sockets
       (`/run/libvirt/libvirt-sock`, `…-sock-ro`), `failIfUnavailable: true`;
       existing `filesystem` block retained

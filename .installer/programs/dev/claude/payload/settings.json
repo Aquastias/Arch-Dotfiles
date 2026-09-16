@@ -37,7 +37,7 @@
       "Read(/run/secrets/**)"
     ],
     "defaultMode": "auto",
-    "disableBypassPermissionsMode": true,
+    "disableBypassPermissionsMode": "disable",
     "additionalDirectories": [
       "~/.dotfiles",
       "~/.claude",

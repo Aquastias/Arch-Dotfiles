@@ -47,7 +47,7 @@ setup() {
   [ "$(jq -r '.fallbackModel[0]' "$s")" = "claude-sonnet-5" ]
   [ "$(jq -r '.promptCacheTtl' "$s")" = "3600" ]
   [ "$(jq -r '.permissions.defaultMode' "$s")" = "auto" ]
-  [ "$(jq -r '.permissions.disableBypassPermissionsMode' "$s")" = "true" ]
+  [ "$(jq -r '.permissions.disableBypassPermissionsMode' "$s")" = "disable" ]
   [ "$(jq -r '.skipAutoPermissionPrompt' "$s")" = "true" ]
   [ "$(jq -r '.attribution.commit' "$s")" = "" ]
   [ "$(jq -r '.attribution.pr' "$s")" = "" ]

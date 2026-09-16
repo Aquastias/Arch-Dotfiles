@@ -49,8 +49,9 @@ gains `network.allowUnixSockets` for the **libvirt socket**
 needing the escape hatch `docs/agents/vm-sandbox.md` documents, plus
 `failIfUnavailable: true`. Launch drops straight into **auto mode**
 (`permissions.defaultMode: auto`, `skipAutoPermissionPrompt: true`) with
-`disableBypassPermissionsMode: true`. Also `fallbackModel: ["claude-sonnet-5"]`,
-`promptCacheTtl: 3600` (1h), `cleanupPeriodDays: 30`, `feedbackSurveyRate: 0`,
+`disableBypassPermissionsMode: "disable"`. Also
+`fallbackModel: ["claude-sonnet-5"]`, `promptCacheTtl: 3600` (1h),
+`cleanupPeriodDays: 30`, `feedbackSurveyRate: 0`,
 `preferredNotifChannel: "desktop"`, `autoUpdatesChannel: "stable"`,
 `emojiCompletionEnabled: false`. Model stays Opus 4.8 (`claude-opus-4-8`).
 

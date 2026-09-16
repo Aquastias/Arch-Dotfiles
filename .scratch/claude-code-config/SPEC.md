@@ -141,8 +141,9 @@ the repo copy. Auth stays a per-machine `/login`; no token is ever committed.
 - **Curated `settings.json`** (seeded verbatim, paths are fleet-uniform). Model
   `claude-opus-4-8`; `fallbackModel: ["claude-sonnet-5"]`; `promptCacheTtl:
   3600`; `permissions.defaultMode: auto` + `skipAutoPermissionPrompt: true` +
-  `disableBypassPermissionsMode: true`; `attribution.commit`/`attribution.pr`
-  = `""`, `attribution.sessionUrl: false`; sandbox `network.allowUnixSockets`
+  `disableBypassPermissionsMode: "disable"`; `attribution.commit`/
+  `attribution.pr` = `""`, `attribution.sessionUrl: false`; sandbox
+  `network.allowUnixSockets`
   for `/run/libvirt/libvirt-sock*` + `failIfUnavailable: true` (existing
   filesystem block retained); `cleanupPeriodDays: 30`; `feedbackSurveyRate: 0`;
   `preferredNotifChannel: "desktop"`; `autoUpdatesChannel: "stable"`;
