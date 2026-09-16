@@ -36,20 +36,30 @@
       "Read(/etc/secrets/**)",
       "Read(/run/secrets/**)"
     ],
-    "defaultMode": "acceptEdits",
+    "defaultMode": "auto",
+    "disableBypassPermissionsMode": true,
     "additionalDirectories": [
       "~/.dotfiles",
       "~/.claude",
       "~/Projects"
     ]
   },
+  "skipAutoPermissionPrompt": true,
   "model": "claude-opus-4-8",
+  "fallbackModel": ["claude-sonnet-5"],
+  "promptCacheTtl": 3600,
   "statusLine": {
     "type": "command",
     "command": "~/.claude/scripts/statusline.sh"
   },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "sandbox": {
     "enabled": true,
+    "failIfUnavailable": true,
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
       "allowWrite": [
@@ -74,9 +84,20 @@
         "/etc/secrets",
         "/run/secrets"
       ]
+    },
+    "network": {
+      "allowUnixSockets": [
+        "/run/libvirt/libvirt-sock",
+        "/run/libvirt/libvirt-sock-ro"
+      ]
     }
   },
   "effortLevel": "high",
+  "cleanupPeriodDays": 30,
+  "feedbackSurveyRate": 0,
+  "preferredNotifChannel": "desktop",
+  "autoUpdatesChannel": "stable",
+  "emojiCompletionEnabled": false,
   "voice": {
     "enabled": true,
     "mode": "hold"
