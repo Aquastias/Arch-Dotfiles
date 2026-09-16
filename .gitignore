@@ -1,12 +1,15 @@
-# Claude Code: ignore internals/state, track only the stow files (ADR 0133)
-.claude/*
-!.claude/settings.json
-!.claude/CLAUDE.md
-!.claude/scripts/
-.claude/scripts/*
-!.claude/scripts/statusline.sh
+# Claude Code: ignore every .claude dir (project state anywhere in the tree),
+# but at the repo root track only the three stow files (ADR 0133)
+.claude/
+!/.claude/
+/.claude/*
+!/.claude/settings.json
+!/.claude/CLAUDE.md
+!/.claude/scripts/
+/.claude/scripts/*
+!/.claude/scripts/statusline.sh
 # Claude auth is secret — never committed/stowed (ADR 0133, cf. pi ADR 0127)
-.claude/.credentials.json
+/.claude/.credentials.json
 
 # Neovim
 .config/nvim/tt.*
