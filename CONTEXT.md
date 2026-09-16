@@ -1734,7 +1734,10 @@ Persist Defaults directly — those are vendor-shipped.
 Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose
 home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each
 user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
-Layout groups files by destination path, not by program. Legacy as of ADR 0012 —
+Layout groups files by destination path, not by program. `.claude/` is tracked
+**selectively** — only `settings.json`, `CLAUDE.md`, and `scripts/statusline.sh`
+are stowed; Claude Code's runtime state stays gitignored (ADR 0133). Legacy as
+of ADR 0012 —
 being migrated program-by-program into Program Config Trees, but remains
 supported indefinitely. Path collisions with the Generated Stow Tree abort the
 Config Generator.

@@ -1,0 +1,87 @@
+{
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Read(~/.dotfiles/**)",
+      "Edit(~/.dotfiles/**)",
+      "Read(~/.claude/**)",
+      "Edit(~/.claude/**)",
+      "Read(~/Projects/**)",
+      "Edit(~/Projects/**)",
+      "Bash(bats:*)",
+      "Bash(shellcheck:*)",
+      "Bash(jq:*)",
+      "Bash(bash -n:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git branch:*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.docker/**)",
+      "Read(~/.password-store/**)",
+      "Read(~/.netrc)",
+      "Read(~/.config/sops/**)",
+      "Read(/etc/secrets/**)",
+      "Read(/run/secrets/**)"
+    ],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "~/.dotfiles",
+      "~/.claude",
+      "~/Projects"
+    ]
+  },
+  "model": "claude-opus-4-8",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/scripts/statusline.sh"
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.dotfiles",
+        "~/.claude",
+        "~/Projects",
+        "/tmp"
+      ],
+      "denyWrite": [
+        "/"
+      ],
+      "denyRead": [
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.aws",
+        "~/.config/gcloud",
+        "~/.kube",
+        "~/.docker",
+        "~/.password-store",
+        "~/.netrc",
+        "~/.config/sops",
+        "/etc/secrets",
+        "/run/secrets"
+      ]
+    }
+  },
+  "effortLevel": "high",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "autoMemoryEnabled": false,
+  "voiceEnabled": true,
+  "tui": "fullscreen"
+}
