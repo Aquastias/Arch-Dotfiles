@@ -650,38 +650,43 @@ _profiles_apply_sysctl() {
 # (cleaned up post-install), so symlinks would dangle. `./stow-configs` is the
 # operator's day-2 symlink from the persistent clone; both read the one source.
 
+# _profiles_names_to_rels <names-json> — map a JSON array of program names to
+# their "<cat>/<name>" rel paths (one per line), skipping any that do not
+# resolve. Shared by the plan and the skel/root seed so the walk lives once.
+_profiles_names_to_rels() {
+  local name rel
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    rel="$(resolve_program "$name" 2>/dev/null)" || continue
+    printf '%s\n' "$rel"
+  done < <(jq -r '.[]' <<<"$1")
+}
+
 # _profiles_config_plan_rels <user-json> <ships-home-json> <sys-progs-json>
 #   → the ordered "<cat>/<name>" rel paths whose home/ config applies for this
 #   user: (user programs ∪ host programs) that ship a home/ and are not in the
 #   user's config_exclude. Pure planning delegated to ca_plan.
 _profiles_config_plan_rels() {
   local user_json="$1" ships="$2" sysprogs="$3"
-  local selected exclude plan name rel
+  local selected exclude plan
   selected="$(jq -c -n \
     --argjson u "$(jq -c '.programs // []' <<<"$user_json")" \
     --argjson s "$sysprogs" '$s + $u')"
   exclude="$(jq -c '.config_exclude // []' <<<"$user_json")"
   plan="$(ca_plan "$selected" "$ships" "$exclude")"
-  while IFS= read -r name; do
-    [[ -n "$name" ]] || continue
-    rel="$(resolve_program "$name" 2>/dev/null)" || continue
-    printf '%s\n' "$rel"
-  done < <(jq -r '.[]' <<<"$plan")
+  _profiles_names_to_rels "$plan"
 }
 
-# _profiles_seed_skel_root <ships-home-json> — copy every home/-shipping
-# program's config into /etc/skel and /root (the machine default, ADR 0095).
-# Not per-user and not config_exclude-aware: it is the fallback for users
-# created later and for root, which never receives /etc/skel.
+# _profiles_seed_skel_root <selected-home-json> — copy the config of each
+# home/-shipping program SELECTED on this host into /etc/skel and /root (the
+# machine default, ADR 0095). Scoped to the host's selection (not the whole
+# catalog) so a program no user installs never leaves a dangling config under
+# /root; not config_exclude-aware, since skel/root is the shared fallback for
+# later-created users and for root, which never receives /etc/skel.
 _profiles_seed_skel_root() {
-  local ships="$1"
+  local selected="$1"
   local -a rels=()
-  local name rel
-  while IFS= read -r name; do
-    [[ -n "$name" ]] || continue
-    rel="$(resolve_program "$name" 2>/dev/null)" || continue
-    rels+=("$rel")
-  done < <(jq -r '.[]' <<<"$ships")
+  mapfile -t rels < <(_profiles_names_to_rels "$selected")
   ((${#rels[@]})) || return 0
   info "Config Apply: seeding /etc/skel + /root from ${#rels[@]} home/ tree(s)"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
@@ -916,7 +921,19 @@ run_profiles() {
     "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/programs")"
   _sysprogs_json="$(printf '%s\n' "${sys_progs[@]+"${sys_progs[@]}"}" \
     | jq -R . | jq -s -c 'map(select(length > 0))')"
-  _profiles_seed_skel_root "$_ships_home"
+  # Seed /etc/skel + /root from the host's SELECTED home-shippers only
+  # (host_programs ∪ every user's programs), so an unselected program never
+  # leaves a dangling config under /root. No config_exclude here — it is the
+  # machine default, shared across users.
+  local _all_user_progs='[]' _uj _skel_plan
+  for _uj in "${USER_JSONS[@]}"; do
+    _all_user_progs="$(jq -c -n --argjson a "$_all_user_progs" \
+      --argjson b "$(jq -c '.programs // []' <<<"$_uj")" '$a + $b')"
+  done
+  _skel_plan="$(ca_plan \
+    "$(jq -c -n --argjson s "$_sysprogs_json" --argjson u "$_all_user_progs" \
+      '$s + $u')" "$_ships_home" '[]')"
+  _profiles_seed_skel_root "$_skel_plan"
 
   # Re-apply full group memberships now that package-created groups exist.
   # Then apply per-user config, clone dotfiles, and enable user services.

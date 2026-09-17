@@ -246,6 +246,12 @@ write_jsonc() {
   [[ "$output" == *"programz"* ]]
 }
 
+@test "validate: programs as an object is rejected (stays an array)" {
+  # ADR 0134: programs_inherit is a sibling key, never a {inherit,list} reshape.
+  run validate_config_schema user '{"programs":{"inherit":false}}'
+  [ "$status" -ne 0 ]
+}
+
 # ── retired wire format aborts (ADR 0084 migration) ─────────────────────────
 # The Host Program field was renamed system_programs → host_programs (no alias).
 # The closed schema enforces the hard cutover: the old key is now unknown.

@@ -49,7 +49,8 @@ done
 
 # Bash array → compact JSON array ([] when empty).
 _json_arr() {
-  if (($#)); then printf '%s\n' "$@" | jq -R . | jq -s -c .; else printf '[]'; fi
+  (($#)) || { printf '[]'; return 0; }
+  printf '%s\n' "$@" | jq -R . | jq -s -c .
 }
 
 ships="$(ca_ships_home_list "$PROGRAMS")"
