@@ -48,6 +48,11 @@ declare -F _profiles_detect_helper >/dev/null 2>&1 \
 # shellcheck source=../config/fonts.sh
 declare -F fonts_aur_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
+# Config Apply Planner (ADR 0134): decides which selected programs' home/ config
+# to copy for a user, honoring config_exclude. Decoupled from package install.
+# shellcheck source=../config/config-apply.sh
+declare -F ca_plan >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/config-apply.sh"
 
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.installer-runtime"
@@ -636,6 +641,90 @@ _profiles_apply_sysctl() {
 }
 
 # =============================================================================
+# CONFIG APPLY PASS (ADR 0134)
+# =============================================================================
+# Config is decoupled from package install: install.sh installs the package,
+# this pass copies each selected program's home/ tree into the user's $HOME
+# (honoring config_exclude) and seeds the machine default into /etc/skel +
+# /root. It is a COPY, not a stow — the staged programs tree is ephemeral
+# (cleaned up post-install), so symlinks would dangle. `./stow-configs` is the
+# operator's day-2 symlink from the persistent clone; both read the one source.
+
+# _profiles_config_plan_rels <user-json> <ships-home-json> <sys-progs-json>
+#   → the ordered "<cat>/<name>" rel paths whose home/ config applies for this
+#   user: (user programs ∪ host programs) that ship a home/ and are not in the
+#   user's config_exclude. Pure planning delegated to ca_plan.
+_profiles_config_plan_rels() {
+  local user_json="$1" ships="$2" sysprogs="$3"
+  local selected exclude plan name rel
+  selected="$(jq -c -n \
+    --argjson u "$(jq -c '.programs // []' <<<"$user_json")" \
+    --argjson s "$sysprogs" '$s + $u')"
+  exclude="$(jq -c '.config_exclude // []' <<<"$user_json")"
+  plan="$(ca_plan "$selected" "$ships" "$exclude")"
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    rel="$(resolve_program "$name" 2>/dev/null)" || continue
+    printf '%s\n' "$rel"
+  done < <(jq -r '.[]' <<<"$plan")
+}
+
+# _profiles_seed_skel_root <ships-home-json> — copy every home/-shipping
+# program's config into /etc/skel and /root (the machine default, ADR 0095).
+# Not per-user and not config_exclude-aware: it is the fallback for users
+# created later and for root, which never receives /etc/skel.
+_profiles_seed_skel_root() {
+  local ships="$1"
+  local -a rels=()
+  local name rel
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    rel="$(resolve_program "$name" 2>/dev/null)" || continue
+    rels+=("$rel")
+  done < <(jq -r '.[]' <<<"$ships")
+  ((${#rels[@]})) || return 0
+  info "Config Apply: seeding /etc/skel + /root from ${#rels[@]} home/ tree(s)"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+    "$_PROFILES_RUNTIME_DIR" "${rels[@]}" <<'CHROOT_SKEL'
+set -e
+RT="$1"; shift
+mkdir -p /etc/skel
+for rel in "$@"; do
+  src="${RT}/programs/${rel}/home"
+  [ -d "$src" ] || continue
+  cp -a "${src}/." /etc/skel/
+  cp -a "${src}/." /root/
+done
+chown -R root:root /root
+CHROOT_SKEL
+}
+
+# _profiles_apply_user_config <user> <user-json> <ships-json> <sys-progs-json>
+#   Copy the user's planned home/ trees into their $HOME, then chown to them
+#   (cp -a from the root-owned staged tree would otherwise land root-owned).
+_profiles_apply_user_config() {
+  local user="$1" user_json="$2" ships="$3" sysprogs="$4"
+  local -a rels=()
+  mapfile -t rels < <(_profiles_config_plan_rels "$user_json" "$ships" \
+    "$sysprogs")
+  ((${#rels[@]})) || { info "User '${user}': no home/ config to apply."; \
+    return 0; }
+  info "User '${user}': applying ${#rels[@]} program config tree(s) to \$HOME"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
+    "$user" "$_PROFILES_RUNTIME_DIR" "${rels[@]}" <<'CHROOT_APPLYCFG'
+set -e
+USER_NAME="$1"; RT="$2"; shift 2
+HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+for rel in "$@"; do
+  src="${RT}/programs/${rel}/home"
+  [ -d "$src" ] || continue
+  cp -a "${src}/." "${HOME_DIR}/"
+done
+chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}"
+CHROOT_APPLYCFG
+}
+
+# =============================================================================
 # PUBLIC ENTRY POINT
 # =============================================================================
 
@@ -818,10 +907,23 @@ run_profiles() {
     _profiles_revoke_temp_sudo
   done
 
+  # ── Config Apply pass (ADR 0134) ─────────────────────────────────────────
+  # Copy each selected program's home/ into $HOME (honoring config_exclude) and
+  # seed the machine default into /etc/skel + /root. Runs while the staged
+  # programs tree still exists (before _profiles_cleanup).
+  local _ships_home _sysprogs_json
+  _ships_home="$(ca_ships_home_list \
+    "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/programs")"
+  _sysprogs_json="$(printf '%s\n' "${sys_progs[@]+"${sys_progs[@]}"}" \
+    | jq -R . | jq -s -c 'map(select(length > 0))')"
+  _profiles_seed_skel_root "$_ships_home"
+
   # Re-apply full group memberships now that package-created groups exist.
-  # Then clone dotfiles and stow for each user.
+  # Then apply per-user config, clone dotfiles, and enable user services.
   for u in "${users[@]}"; do
     _profiles_apply_user_groups "$u" "${USER_JSONS[$u]}"
+    _profiles_apply_user_config "$u" "${USER_JSONS[$u]}" "$_ships_home" \
+      "$_sysprogs_json"
     _profiles_clone_dotfiles "$u" "$dotfiles_repo"
     # user_services run last — after the user's programs + dotfiles placed
     # the providing units, so a missing unit is a real error.

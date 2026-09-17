@@ -257,6 +257,41 @@ uresolve() { layer_resolve_user "$1" "$2" | jq -c .; }
   echo "$output" | jq -e '.packages.repo.cli == ["htop","vim"]'
 }
 
+# ── programs_inherit: false — user bareness (ADR 0134) ──────────────────────
+# Mirrors packages.inherit for the user fold, scoped to .programs only:
+# identity keys (groups/shell/sudo/ssh_authorized_keys) still inherit.
+
+@test "programs_inherit false: yields no inherited programs" {
+  run uresolve '{"programs":["zsh","kitty","claude"]}' \
+               '{"programs_inherit":false}'
+  echo "$output" | jq -e '(.programs // []) == []'
+}
+
+@test "programs_inherit false: the user's OWN programs still apply" {
+  run uresolve '{"programs":["zsh","kitty"]}' \
+               '{"programs_inherit":false,"programs":["docker"]}'
+  echo "$output" | jq -e '.programs == ["docker"]'
+}
+
+@test "programs_inherit false: identity keys still inherit" {
+  run uresolve '{"programs":["zsh"],"groups":["wheel"],"shell":"/bin/zsh"}' \
+               '{"programs_inherit":false}'
+  echo "$output" | jq -e '.groups == ["wheel"]'
+  echo "$output" | jq -e '.shell == "/bin/zsh"'
+}
+
+@test "programs_inherit: the control key never reaches the effective config" {
+  run uresolve '{"programs":["zsh"]}' \
+               '{"programs_inherit":false,"programs":["docker"]}'
+  echo "$output" | jq -e 'has("programs_inherit") | not'
+}
+
+@test "programs_inherit true (the default) inherits normally" {
+  run uresolve '{"programs":["zsh"]}' \
+               '{"programs_inherit":true,"programs":["docker"]}'
+  echo "$output" | jq -e '.programs == ["zsh","docker"]'
+}
+
 # ── shape / edge cases ──────────────────────────────────────────────────────
 
 @test "an empty upper layer returns the lower layer unchanged" {

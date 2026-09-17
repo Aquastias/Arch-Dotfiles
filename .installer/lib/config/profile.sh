@@ -241,6 +241,9 @@ _PROFILE_SCHEMA_user=(
   "user_services[]" "git.name" "git.email"
   # — Layer Resolver control key: drop a program User Core declares —
   "programs_exclude[]"
+  # — ADR 0134 — start bare (drop User Core's programs wholesale) and skip a
+  #   selected program's config while its package still installs —
+  "programs_inherit" "config_exclude[]"
 )
 
 # `requires[]` (ADR 0065): other Programs whose install-time setup must run

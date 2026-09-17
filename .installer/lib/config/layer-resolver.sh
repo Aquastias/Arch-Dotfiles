@@ -152,6 +152,7 @@ layer_apply_exclusions() {
   # then subtracts the config's OWN excludes and strips the control keys.
   jq "$(layer_jq_exclusions)"'
     del(.packages.inherit)
+    | del(.programs_inherit)
     | apply_exclusions(
         (.packages.exclude // []);
         (.host_programs_exclude // []);
@@ -189,13 +190,20 @@ _layer_fold_one() {
     #    workstation base as the packages, so a bare install opts out of both
     #    with the one flag). Compared to `false` directly: jq `//` treats
     #    false as empty, so `(.inherit // true)` fails.
-    (if ($upper.packages.inherit == false)
-     then ($lower | del(.packages) | del(.host_programs))
-     else $lower end) as $base
+    # `programs_inherit: false` is the user-fold twin of packages.inherit (ADR
+    # 0134): scoped to .programs only, so identity keys (groups/shell/sudo/
+    # ssh_authorized_keys) still fold. Harmless on the host fold — a host layer
+    # never carries programs_inherit.
+    ((if ($upper.packages.inherit == false)
+      then ($lower | del(.packages) | del(.host_programs))
+      else $lower end)
+     | (if ($upper.programs_inherit == false)
+        then del(.programs) else . end)) as $base
 
     # 2. fold, then strip the control keys so they never reach a consumer.
     | merge($base; $upper; [])
     | del(.packages.inherit)
+    | del(.programs_inherit)
 
     # 3. exclusions over the merged result — UPPER layer only. A lower layer
     #    excluding what it never inherited is vacuous, and applying it here

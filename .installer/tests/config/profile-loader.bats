@@ -228,6 +228,24 @@ write_jsonc() {
   [[ "$output" == *"options.impermanence.enabld"* ]]
 }
 
+# ── ADR 0134 user keys: programs_inherit + config_exclude ───────────────────
+
+@test "validate: programs_inherit is accepted on a user profile" {
+  run validate_config_schema user '{"programs_inherit":false,"programs":["zsh"]}'
+  [ "$status" -eq 0 ]
+}
+
+@test "validate: config_exclude is accepted on a user profile" {
+  run validate_config_schema user '{"config_exclude":["kitty"]}'
+  [ "$status" -eq 0 ]
+}
+
+@test "validate: an unknown user key still aborts with its path" {
+  run validate_config_schema user '{"programz":["zsh"]}'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"programz"* ]]
+}
+
 # ── retired wire format aborts (ADR 0084 migration) ─────────────────────────
 # The Host Program field was renamed system_programs → host_programs (no alias).
 # The closed schema enforces the hard cutover: the old key is now unknown.
