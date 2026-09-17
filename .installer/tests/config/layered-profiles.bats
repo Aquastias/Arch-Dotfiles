@@ -280,6 +280,18 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
   done
 }
 
+@test "the bare server user (programs_inherit:false) inherits no programs" {
+  # ADR 0134: minimal's server user drops User Core's programs wholesale via one
+  # flag — the user-layer twin of packages.inherit:false.
+  run load_user_profile server
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '(.programs // []) == []'
+  echo "$output" | jq -e '.programs | index("kitty") | not'
+  echo "$output" | jq -e '.programs | index("claude") | not'
+  # the control key is stripped from the resolved profile
+  echo "$output" | jq -e 'has("programs_inherit") | not'
+}
+
 @test "the control keys never reach a resolved profile" {
   local h
   for h in desktop laptop arch-kde; do

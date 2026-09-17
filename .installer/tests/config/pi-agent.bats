@@ -9,8 +9,8 @@ setup() {
   PROG="$REPO/.installer/programs/dev/pi"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
-  ASEED="$PROG/agent"                     # bundled seed payload (.installer)
-  ASTOW="$REPO/.pi/agent"                 # repo-root hand-stow copy
+  ASEED="$PROG/home/.pi/agent"            # single-source config (ADR 0134)
+  ASTOW="$REPO/.pi/agent"                 # repo-root stow copy (retired)
   SEED="$ASEED/settings.json"
   STOW="$ASTOW/settings.json"
   CORE="$REPO/.installer/hosts/core/profile.jsonc"
@@ -33,8 +33,8 @@ setup() {
 @test "dev/pi install.sh installs pi-coding-agent-bin via the AUR helper" {
   [ -x "$INSTALL" ]
   grep -q '${AUR_HELPER} -S --noconfirm --needed pi-coding-agent-bin' "$INSTALL"
-  # seeds the whole bundled agent payload; never writes the secret auth.json
-  grep -q 'cp -r "${PROGRAMS}/dev/pi/agent/\." "${HOME}/.pi/agent/"' "$INSTALL"
+  # ADR 0134: package-only — no $HOME config seed, never writes secret auth.json
+  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/pi/agent' "$INSTALL"
   run grep -qE '(cp|tee|>)[^#]*auth\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }
@@ -51,10 +51,12 @@ setup() {
   grep -q '"enabledModels"' "$SEED"
 }
 
-@test "repo-root .pi stow copy exists and matches the seed (no drift)" {
-  [ -f "$STOW" ]
-  # the hand-stow copy and the installer seed must be byte-identical
-  diff -q "$SEED" "$STOW"
+@test "home/.pi/agent is the single source; repo-root .pi is retired" {
+  [ -f "$SEED" ]                          # config lives under the program home/
+  # ADR 0134: the repo-root stow duplicate is gone (single source).
+  [ ! -e "$ASTOW" ]
+  run git -C "$REPO" ls-files .pi
+  [ -z "$output" ]
 }
 
 # ── secret handling ──────────────────────────────────────────────────────────
@@ -106,7 +108,6 @@ setup() {
 
 @test "pi auto-discovers ~/.agents/skills — settings declares no skills key" {
   ! grep -q '"skills"' "$SEED"
-  ! grep -q '"skills"' "$STOW"
 }
 
 # ── ticket 03: web / todo / MCP packages ─────────────────────────────────────
@@ -118,31 +119,26 @@ setup() {
 }
 
 @test "web-search.json routes SearXNG-first with a DuckDuckGo fallback" {
-  for f in "$ASEED/web-search.json" "$ASTOW/web-search.json"; do
-    [ -f "$f" ]
-    grep -q '"searxngBaseUrl": "http://127.0.0.1:8080"' "$f"
-    grep -q '"searxng"' "$f"
-    grep -q '"duckduckgo"' "$f"
-  done
-  diff -q "$ASEED/web-search.json" "$ASTOW/web-search.json"
+  local f="$ASEED/web-search.json"
+  [ -f "$f" ]
+  grep -q '"searxngBaseUrl": "http://127.0.0.1:8080"' "$f"
+  grep -q '"searxng"' "$f"
+  grep -q '"duckduckgo"' "$f"
 }
 
 @test "starter mcp.json is a valid mcpServers shape with no committed secret" {
-  for f in "$ASEED/mcp.json" "$ASTOW/mcp.json"; do
-    [ -f "$f" ]
-    grep -q '"mcpServers"' "$f"
-    # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
-    run grep -qiE '(key|token|secret)" *: *"[^$"]' "$f"
-    [ "$status" -ne 0 ]
-  done
-  diff -q "$ASEED/mcp.json" "$ASTOW/mcp.json"
+  local f="$ASEED/mcp.json"
+  [ -f "$f" ]
+  grep -q '"mcpServers"' "$f"
+  # no raw API keys baked in — secrets, if any, use ${VAR} interpolation
+  run grep -qiE '(key|token|secret)" *: *"[^$"]' "$f"
+  [ "$status" -ne 0 ]
 }
 
 # ── ticket 04: default theme Catppuccin Mocha Sapphire ───────────────────────
 
 @test "settings selects the noctalia theme (ADR 0128)" {
   grep -q '"theme": "noctalia"' "$SEED"
-  grep -q '"theme": "noctalia"' "$STOW"
 }
 
 @test "noctalia.json seeded: Mocha Sapphire, 53+ tokens (ADR 0109)" {
@@ -157,9 +153,12 @@ setup() {
   [ "$(grep -cE '^[[:space:]]*"[a-zA-Z]+": ' "$f")" -ge 53 ]
 }
 
-@test "the theme file is seed-only: gitignored, never in the stow tree (0128)" {
-  grep -q '^\.pi/agent/themes/' "$GI"
-  [ ! -e "$ASTOW/themes/noctalia.json" ]
+@test "the theme default lives under the program home/, repo-root .pi retired" {
+  # ADR 0134: the config-apply pass copies home/.pi/agent/ (incl. the theme)
+  # into ~/.pi/agent; Noctalia rewrites the runtime copy, so no repo-root stow
+  # copy exists to drift into.
+  [ -f "$ASEED/themes/noctalia.json" ]
+  [ ! -e "$ASTOW" ]
 }
 
 # ── ticket 05: live-follow via a Noctalia user-template ──────────────────────

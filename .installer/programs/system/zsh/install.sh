@@ -10,14 +10,13 @@
 # Installs the interactive zsh tooling — eza, zoxide, fzf, nvm, pv, age,
 # python-pygments (colorize), pkgfile (command-not-found), ttf-meslo-nerd (p10k
 # glyphs), all repo; git-extras from the AUR. Builds the pkgfile database and
-# enables pkgfile-update.timer. SEEDS the full zsh config
-# (bundled under home/, kept byte-identical to the repo root by a drift test)
-# into the owning user's $HOME and into /etc/skel — the installer never stows
-# (ADR 0095), so a fresh non-stowing user still gets a working shell; the
-# repo-root copy stays hand-stowable. Seeds the Noctalia-generated theme files
-# (Catppuccin Mocha Sapphire default). Pre-warms the zinit plugin cache so the
-# first interactive login clones nothing. The zsh binary and login shell are
-# owned elsewhere (User Core shell=/bin/zsh + ensure_login_shell_installed).
+# enables pkgfile-update.timer. The zsh config (home/) is applied by the
+# Runner's Config Apply pass, not here (ADR 0134). install.sh still does the
+# non-config work: seeds the Noctalia-generated theme files (Catppuccin Mocha
+# Sapphire default, seed-only/gitignored), pre-warms the zinit plugin cache
+# (from the bundle, into a throwaway env) so the first login clones nothing,
+# and makes zsh root's login shell. The zsh binary + user login shell are owned
+# elsewhere (User Core shell=/bin/zsh + ensure_login_shell_installed).
 # =============================================================================
 
 set -Eeuo pipefail
@@ -42,13 +41,8 @@ sudo pkgfile -u
 # 0026 / PROGRAM_SPEC). Keeps the index fresh after first boot.
 sudo systemctl enable pkgfile-update.timer
 
-# ── seed the full zsh config (ADR 0095: installer never stows, so seed) ───────
-# The bundled home/ tree is byte-identical to the repo-root config (drift test).
-# Seed into the owning user's $HOME (they already exist, so /etc/skel would not
-# reach them) and into /etc/skel for users created later.
-print_status info "Seeding zsh config into \$HOME and /etc/skel..."
-cp -a "${SELF}/home/." "${HOME}/"
-sudo cp -a "${SELF}/home/." /etc/skel/
+# The zsh config (home/) is applied by the Config Apply pass (ADR 0134) into
+# $HOME + /etc/skel + /root — install.sh no longer copies it.
 
 # ── seed the Noctalia-generated theme (Catppuccin Mocha Sapphire default) ─────
 # Seed-only/gitignored: not part of the home/ bundle. Ships a default so first
@@ -62,14 +56,15 @@ sudo cp "${SELF}/themes/noctalia.zsh"    /etc/skel/.zsh/themes/noctalia.zsh
 sudo cp "${SELF}/themes/p10k-accent.zsh" /etc/skel/.zsh/themes/p10k-accent.zsh
 
 # ── pre-warm the zinit plugin cache ──────────────────────────────────────────
-# Source the just-seeded zinit config (+ powerlevel10k) in a throwaway ZDOTDIR
-# so ~/.zinit is cloned/compiled now; the first interactive login then loads
-# every plugin from disk, offline — the arch-combined "clean stderr" bar. Copy
-# the warmed cache into /etc/skel so later users inherit it too.
+# Source the zinit config from the BUNDLE (+ powerlevel10k) in a throwaway
+# ZDOTDIR so ~/.zinit is cloned/compiled now — install.sh no longer seeds the
+# config into $HOME (the pass does), so warm from ${SELF}/home directly. The
+# first interactive login then loads every plugin from disk, offline. Copy the
+# warmed cache into /etc/skel so later users inherit it too.
 print_status info "Pre-warming zinit plugin cache (clones plugins now)..."
 _zdot="$(mktemp -d)"
 cat >"${_zdot}/.zshrc" <<EOF
-source "${HOME}/.zsh/zinit/default.zsh"
+source "${SELF}/home/.zsh/zinit/default.zsh"
 zinit light romkatv/powerlevel10k
 EOF
 ZDOTDIR="${_zdot}" zsh -i -c 'exit' >/dev/null 2>&1 || true
@@ -83,21 +78,19 @@ else
     "first login will clone plugins."
 fi
 
-# ── seed /root and make zsh its shell ────────────────────────────────────────
-# /root never receives /etc/skel, so a root shell (su -/sudo -i) is stock. Seed
-# the same config directly from the zsh bundle (NOT /etc/skel — other programs
-# write there too), the STATIC default theme (Noctalia runs only in user
-# sessions, so root never live-follows), and the warmed zinit cache. chown to
-# root since cp -a keeps the installing user's ownership. The p10k `context`
-# segment then shows a red 🔒 root@host so a root shell is unmistakable.
-print_status info "Seeding zsh config for root (/root) + setting root shell..."
-sudo cp -a "${SELF}/home/." /root/
+# ── seed /root's theme + warmed cache, and make zsh its shell ────────────────
+# The zsh CONFIG under /root is placed by the Config Apply pass (ADR 0134).
+# install.sh adds only the non-config bits /root needs: the STATIC default theme
+# (Noctalia runs only in user sessions, so root never live-follows) and the
+# warmed zinit cache. chown to root since cp -a keeps the installing user's
+# ownership. The p10k `context` segment then shows a red 🔒 root@host.
+print_status info "Seeding zsh theme + cache for root (/root) + root shell..."
 sudo mkdir -p /root/.zsh/themes
 sudo cp "${SELF}/themes/noctalia.zsh"    /root/.zsh/themes/noctalia.zsh
 sudo cp "${SELF}/themes/p10k-accent.zsh" /root/.zsh/themes/p10k-accent.zsh
 [[ -d "${HOME}/.zinit" ]] && sudo cp -a "${HOME}/.zinit" /root/.zinit
-sudo chown -R root:root /root
+sudo chown -R root:root /root/.zsh /root/.zinit 2>/dev/null || true
 sudo chsh -s /usr/bin/zsh root
 
-print_status success "Zsh staged (tooling + seeded config + warmed zinit)." \
-  "Login shell comes from User Core; repo copy stays hand-stowable."
+print_status success "Zsh installed (tooling + theme + warmed zinit)." \
+  "Config applied by the Runner pass; login shell from User Core."

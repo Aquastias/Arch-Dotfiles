@@ -43,7 +43,6 @@ _changed_is_broad_blast() {
     .installer/lib/common.sh) return 0 ;;
     .installer/lib/install-state.sh) return 0 ;;
     .installer/lib/config/accessors.sh) return 0 ;;
-    .installer/lib/config/generator.sh) return 0 ;;
     .installer/lib/config/categorized-list.sh) return 0 ;;
     .installer/lib/config/store.sh) return 0 ;;
     .installer/tests/fixtures/*) return 0 ;;

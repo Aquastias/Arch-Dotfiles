@@ -6,7 +6,10 @@
 //
 // Bare userland: `packages.inherit: false` opts out of Host Core's workstation
 // Host Package List (ADR 0056) — the installer's own base only, nothing else.
-// Scoped to packages, so this still inherits core's users and sysctl. The
+// Minimal end-to-end (ADR 0134): the bare `server` user sets
+// `programs_inherit: false`, so it also carries none of User Core's workstation
+// programs (kitty, yazi, virt-manager, pi, claude, …) — a headless box, not a
+// workstation reusing a workstation identity. sysctl is still inherited. The
 // operator adds everything post-install, the empty-canvas archinstall promise.
 //
 // Simplest bootable skeleton: one operator-picked disk, no encryption. Copy and
@@ -32,7 +35,7 @@
   },
 
   "packages": { "inherit": false },
-  "users": ["aquastias"],
+  "users": ["server"],
   "host_programs": [],
 
   "mode":   "single",

@@ -50,17 +50,18 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh seeds the full config into \$HOME and /etc/skel (ADR 0095)" {
-  grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
-  # pre-warms zinit against the seeded config
-  grep -q 'source "${HOME}/.zsh/zinit/default.zsh"' "$INSTALL"
+@test "install.sh does NOT seed config; warms zinit from the bundle (ADR 0134)" {
+  # Config (home/) is applied by the Config Apply pass, not install.sh.
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  # cache warm sources the zinit config from the BUNDLE, not from a seeded $HOME
+  grep -q 'source "${SELF}/home/.zsh/zinit/default.zsh"' "$INSTALL"
 }
 
-@test "install.sh seeds /root and makes zsh root's shell" {
-  # /root never gets /etc/skel; seed it directly + own it + set the shell
-  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
-  grep -q 'sudo chown -R root:root /root' "$INSTALL"
+@test "install.sh seeds /root theme + cache and makes zsh root's shell" {
+  # /root config is placed by the pass; install.sh no longer copies home/ there.
+  ! grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+  grep -q '/root/.zsh/themes/noctalia.zsh' "$INSTALL"    # theme (seed-only)
   grep -q 'sudo chsh -s /usr/bin/zsh root' "$INSTALL"
 }
 

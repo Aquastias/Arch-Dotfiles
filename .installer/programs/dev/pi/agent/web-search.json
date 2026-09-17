@@ -1,7 +1,0 @@
-{
-  "searxngBaseUrl": "http://127.0.0.1:8080",
-  "searchRouting": {
-    "providers": ["searxng", "duckduckgo"],
-    "fallbackOn": ["transient", "quota", "network", "invalid-response"]
-  }
-}

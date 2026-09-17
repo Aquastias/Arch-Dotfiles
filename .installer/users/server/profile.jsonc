@@ -1,0 +1,17 @@
+// User Profile for `server` — a bare admin user for headless / server
+// installs (the Minimal Profile). Merged under users/core/profile.jsonc, but
+// `programs_inherit: false` (ADR 0134) drops User Core's workstation program
+// set wholesale, so a headless box carries no GUI userland — the user-layer
+// twin of the host's `packages.inherit: false`. One flag instead of the stale
+// nine-item `programs_exclude` the VM fixtures still carry.
+//
+// sudo for administration; no workstation groups (no docker/libvirt/kvm). Bash
+// shell, since the zsh tooling is a workstation program the bare user skips.
+{
+  "shell": "/bin/bash",
+  "sudo": true,
+  "groups": [],
+  "programs_inherit": false,
+  "programs": [],
+  "ssh_authorized_keys": []
+}

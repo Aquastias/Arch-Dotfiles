@@ -9,11 +9,11 @@
 # Installs Claude Code (claude-code, AUR) plus its Bash-sandbox runtime
 # (bubblewrap + socat — optdepends upstream, mandatory here because the seeded
 # config runs sandbox.enabled), gh (github-cli), and ccusage (statusline usage
-# detail). Seeds ~/.claude/ from the payload bundled beside this script
-# (settings.json, CLAUDE.md, scripts/statusline.sh — the same config the repo
-# .claude/ stow tree carries). Seeds only — the operator stows the repo copy by
-# hand (ADR 0095/0133). .credentials.json is never written here; Claude's
-# /login creates it (0600) on first run.
+# detail). Its config (home/.claude/ — settings.json, CLAUDE.md,
+# scripts/statusline.sh, the latter committed +x) is applied by the Runner's
+# Config Apply pass, not here (ADR 0134): install.sh installs the packages only.
+# .credentials.json is never written; Claude's /login creates it (0600) on
+# first run.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -23,10 +23,5 @@ print_status info "Installing claude-code and companions..."
 ${AUR_HELPER} -S --noconfirm --needed \
   claude-code bubblewrap socat github-cli ccusage
 
-mkdir -p "${HOME}/.claude"
-cp -r "${PROGRAMS}/dev/claude/payload/." "${HOME}/.claude/"
-chmod +x "${HOME}/.claude/scripts/statusline.sh"
-print_status info "Seeded ~/.claude (settings, CLAUDE.md, statusline)."
-
-print_status success "Claude Code staged." \
-  "Run 'claude' then /login to sign in; config is hand-stowable."
+print_status success "Claude Code installed." \
+  "Config applied by the Runner pass; run 'claude' then /login to sign in."

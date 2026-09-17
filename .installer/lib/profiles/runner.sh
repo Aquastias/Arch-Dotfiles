@@ -610,12 +610,9 @@ if [[ -d "\$DOTFILES" ]]; then
   exit 0
 fi
 git clone "${REPO}" "\$DOTFILES"
-cd "\$DOTFILES"
-"\$DOTFILES/.installer/tools/generate-configs.sh" --user "${USER_NAME}"
-source "\$DOTFILES/.installer/lib/config/generator.sh"
-mapfile -t _pkgs < <(cg_legacy_packages ".")
-stow --no-folding "\${_pkgs[@]}"
-stow -d "\$DOTFILES/.stow/${USER_NAME}" --no-folding .
+# ADR 0134: config is applied by the Config Apply pass from the staged tree;
+# the installer never stows (ADR 0095). The operator runs ./stow-configs on
+# their installed system for live symlinks. This path just places the repo.
 CLONE_INNER
 # mktemp created the script as root (0600); make it readable so the su'd user
 # can run it — otherwise "bash: <tmp>: Permission denied" aborts the install.

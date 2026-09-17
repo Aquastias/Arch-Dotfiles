@@ -8,8 +8,8 @@ setup() {
   PROG="$REPO/.installer/programs/dev/claude"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
-  PAYLOAD="$PROG/payload"                 # bundled seed payload (.installer)
-  STOW="$REPO/.claude"                    # repo-root hand-stow copy
+  HOMESEED="$PROG/home/.claude"           # single-source config (ADR 0134)
+  STOW="$REPO/.claude"                    # repo-root (3 tracked files retired)
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
   CONTEXT="$REPO/CONTEXT.md"
@@ -31,9 +31,11 @@ setup() {
   done
 }
 
-@test "install.sh seeds the payload and never writes .credentials.json" {
-  local pat='cp -r "${PROGRAMS}/dev/claude/payload/\." "${HOME}/.claude/"'
-  grep -q "$pat" "$INSTALL"
+@test "install.sh does NOT seed config and never writes .credentials.json" {
+  # ADR 0134: the Config Apply pass places home/.claude/; install.sh is
+  # package-only and touches no $HOME config.
+  ! grep -qE 'cp -r "\$\{PROGRAMS\}/dev/claude/payload' "$INSTALL"
+  ! grep -qE 'cp[^#]*"\$\{HOME\}/\.claude' "$INSTALL"
   run grep -qE '(cp|tee|>)[^#]*\.credentials\.json' "$INSTALL"
   [ "$status" -ne 0 ]
 }
@@ -41,7 +43,7 @@ setup() {
 # ── seeded settings: the pinned keys (ADR 0133) ──────────────────────────────
 
 @test "seeded settings.json pins the decided keys" {
-  local s="$PAYLOAD/settings.json"
+  local s="$HOMESEED/settings.json"
   [ -f "$s" ]
   [ "$(jq -r '.model' "$s")" = "claude-opus-4-8" ]
   [ "$(jq -r '.fallbackModel[0]' "$s")" = "claude-sonnet-5" ]
@@ -59,23 +61,20 @@ setup() {
   [ "$(jq -r '.autoUpdatesChannel' "$s")" = "stable" ]
 }
 
-# ── seed ↔ stow parity (no drift) ────────────────────────────────────────────
+# ── single source under the program home/ (ADR 0134) ─────────────────────────
 
-@test "repo .claude stow copy is byte-identical to the seed payload" {
+@test "home/.claude is the single source: the 3 files live here, +x preserved" {
   for f in settings.json CLAUDE.md scripts/statusline.sh; do
-    [ -f "$STOW/$f" ]
-    diff -q "$PAYLOAD/$f" "$STOW/$f"
+    [ -f "$HOMESEED/$f" ]
   done
+  [ -x "$HOMESEED/scripts/statusline.sh" ]
 }
 
-# ── stow gitignore shape ─────────────────────────────────────────────────────
-
-@test "exactly the three stow files are tracked under .claude" {
+@test "the repo-root .claude stow duplicate is retired (nothing tracked)" {
+  # ADR 0134: the 3 tracked files moved into the program home/; repo-root
+  # .claude no longer tracks them (operator's gitignored config is untouched).
   run git -C "$REPO" ls-files .claude
-  [ "$(printf '%s\n' "$output" | grep -c .)" -eq 3 ]
-  printf '%s\n' "$output" | grep -qx '.claude/settings.json'
-  printf '%s\n' "$output" | grep -qx '.claude/CLAUDE.md'
-  printf '%s\n' "$output" | grep -qx '.claude/scripts/statusline.sh'
+  [ -z "$output" ]
 }
 
 @test "claude runtime state and credentials stay gitignored" {

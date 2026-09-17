@@ -50,3 +50,21 @@ setup() {
   run validate_config_schema user "$(guided_user_profile "$form")"
   [ "$status" -eq 0 ]
 }
+
+# ── ADR 0134: config_exclude + programs_inherit authored via the form ────────
+
+@test "guided_user_profile: config_exclude kept; both 0134 keys schema-clean" {
+  # a non-empty config_exclude survives the pruner
+  run guided_user_profile \
+    '{"name":"c","config_exclude":["kitty"],"programs":["kitty"]}'
+  echo "$output" | jq -e '.config_exclude == ["kitty"]'
+  echo "$output" | jq -e 'has("name") | not'
+
+  # the create form re-attaches programs_inherit:false after pruning (the pruner
+  # drops `false`); the resulting delta carrying both keys is schema-valid.
+  local delta
+  delta="$(guided_user_profile '{"name":"c","config_exclude":["kitty"]}' \
+    | jq -c '. + {programs_inherit:false}')"
+  run validate_config_schema user "$delta"
+  [ "$status" -eq 0 ]
+}

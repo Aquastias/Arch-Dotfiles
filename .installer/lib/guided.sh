@@ -753,6 +753,15 @@ _guided_create_user() {
   local -a prog_names; mapfile -t prog_names < <(_guided_program_names)
   mapfile -t programs_a < <(_guided_collect_multi new_user_programs "Programs" \
     "${prog_names[@]}")
+  # ADR 0134: bareness (drop User Core's programs wholesale) + config_exclude
+  # (install a program's package but skip its config). Inherit defaults ON (the
+  # first option under replay), config_exclude offers the user's own programs.
+  local inherit
+  inherit="$(guided_select new_user_programs_inherit \
+    "Inherit User Core programs" true false)"
+  local -a cfgexcl_a
+  mapfile -t cfgexcl_a < <(_guided_collect_multi new_user_config_exclude \
+    "Skip config for (config_exclude)" "${programs_a[@]+"${programs_a[@]}"}")
   gn="$(guided_prompt new_user_git_name "Git name")"
   ge="$(guided_prompt new_user_git_email "Git email")"
   mapfile -t keys_a < <(_guided_collect_multi new_user_ssh_keys \
@@ -766,12 +775,21 @@ _guided_create_user() {
     --argjson sudo "$([[ "$sudo" == "true" ]] && echo true || echo false)" \
     --argjson groups "$(_emit_json_array "${groups_a[@]}")" \
     --argjson programs "$(_emit_json_array "${programs_a[@]}")" \
+    --argjson config_exclude "$(_emit_json_array \
+      "${cfgexcl_a[@]+"${cfgexcl_a[@]}"}")" \
     --arg gn "$gn" --arg ge "$ge" \
     --argjson keys "$(_emit_json_array "${keys_a[@]}")" \
     '{shell:$shell, sudo:$sudo, groups:$groups, programs:$programs,
+      config_exclude:$config_exclude,
       git: ({name:$gn, email:$ge} | with_entries(select(.value != ""))),
       ssh_authorized_keys:$keys}')"
-  _GUIDED_ADHOC_FORM["$name"]="$(guided_user_profile "$form")"
+  local profile; profile="$(guided_user_profile "$form")"
+  # programs_inherit:false is the meaningful flag but the pruner drops `false`;
+  # re-attach it explicitly when bareness was chosen (true is the omitted
+  # default). See ADR 0134.
+  [[ "$inherit" == "false" ]] \
+    && profile="$(jq -c '. + {programs_inherit:false}' <<<"$profile")"
+  _GUIDED_ADHOC_FORM["$name"]="$profile"
   _GUIDED_ADHOC_ORDER+=("$name")
   _GUIDED_USER_PW["$name"]="$pw"
   _guided_sync_users

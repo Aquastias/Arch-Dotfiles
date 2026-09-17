@@ -7,7 +7,8 @@
 
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."
-  SL="$REPO/.claude/scripts/statusline.sh"
+  # single source under the claude program home/ (ADR 0134)
+  SL="$REPO/.installer/programs/dev/claude/home/.claude/scripts/statusline.sh"
   HOME_SUB="$BATS_TEST_TMPDIR/sub"
   HOME_API="$BATS_TEST_TMPDIR/api"
   mkdir -p "$HOME_SUB/.claude" "$HOME_API/.claude"
