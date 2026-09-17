@@ -34,7 +34,11 @@ adapter runs — ADR 0005) and opts out of Host Core's workstation Host Package
 List (`packages.inherit: false` — ADR 0056), leaving the installer's own base on
 a TTY. Not a new capability: no-desktop was always representable; this is the
 canonical example of it. Guided reaches the same state from scratch (Host Core
-declares no desktop) or by seeding this profile.
+declares no desktop) or by seeding this profile. Minimal only at the **host**
+layer, though: `packages.inherit: false` is host-scoped, so its declared user
+still extends User Core and installs the full workstation userland (kitty,
+yazi, virt-manager, searxng+podman, pi, claude) onto a headless box. A
+symmetric per-user bareness flag (`inherit: false`) closes this — ADR 0134.
 
 ### Pure (Stock) Profiles
 The three committed `*-pure` Host Profiles — `kde-pure`, `hyprland-pure`,

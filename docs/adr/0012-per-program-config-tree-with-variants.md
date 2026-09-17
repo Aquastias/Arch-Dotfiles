@@ -1,7 +1,10 @@
 # ADR 0012: Per-program config tree with variants
 
 ## Status
-Accepted
+Superseded by ADR 0134. Never wired into the Runner; zero programs migrated.
+The single-source-under-the-program idea survives; the manifest + generator +
+variants + generated stow tree do not (0134 uses a plain `home/` subtree that
+mirrors `$HOME`, with stow reading it directly).
 
 ## Context
 Today the repo manages user-side dotfiles via GNU stow. The Runner
