@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No-Core model — PROTOTYPE (throwaway)</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36;
+    --ink: #e6e9ef; --dim: #9aa4b2; --accent: #5cc8ff;
+    --good: #57d9a3; --warn: #ffb454; --bad: #ff6b6b;
+    --user: #88c0d0; --host: #b48ead;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; max-width: 1080px; padding: 24px; background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase;
+       color: var(--dim); margin: 28px 0 10px; }
+  .q { color: var(--dim); margin: 0 0 8px; max-width: 80ch; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px;
+         border-radius: 99px; border: 1px solid var(--line);
+         color: var(--warn); }
+  .dim { color: var(--dim); }
+  .panel { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 10px; padding: 14px 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button { background: #1e2530; color: var(--ink);
+           border: 1px solid var(--line); border-radius: 8px;
+           padding: 7px 11px; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  button.step { background: #10203040; }
+  select { background: #1e2530; color: var(--ink);
+           border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  .lbl { font-size: 11px; color: var(--dim); }
+  .boxes { display: flex; gap: 10px; flex-wrap: wrap; }
+  .box { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+         min-width: 130px; background: #12151b; }
+  .box b { font-size: 12px; } .box .sub { font-size: 11px; color: var(--dim); }
+  .lane-user { border-color: var(--user); }
+  .lane-host { border-color: var(--host); }
+  .connector { text-align: center; color: var(--line); font-size: 18px;
+               margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px;
+           border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: .03em; }
+  .yes { color: var(--good); } .no { color: var(--dim); }
+  .exc { color: var(--bad); } .warn { color: var(--warn); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .metric { display: inline-flex; flex-direction: column; margin-right: 22px; }
+  .metric b { font-size: 22px; } .metric span { font-size: 11px;
+    color: var(--dim); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .steps { display: grid; gap: 8px; }
+  .desc { color: var(--dim); font-size: 13px; max-width: 82ch; }
+  code { background: #10141b; padding: 1px 5px; border-radius: 5px;
+         color: var(--accent); }
+  .banner { border: 1px solid var(--warn); border-radius: 8px;
+            padding: 8px 12px; color: var(--warn); background: #221a0f40;
+            font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Core-less, flat, additive model
+  <span class="tag">PROTOTYPE · throwaway</span></h1>
+<p class="q">
+  <b>Question:</b> drop the Core layer <em>and</em> the host program lane —
+  a host just names <b>users</b>, each user declares its own flat, additive
+  program list, extending from nothing. Simpler to read one user; but watch
+  the two costs it surfaces: <b>duplication</b> of a shared base across every
+  user, and <b>homeless machine daemons</b> (gamemode, ccache) that no single
+  user owns.
+</p>
+
+<h2>Drive it</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:8px">
+    <span class="dim">View for:</span>
+    <label>host <select id="host"></select></label>
+    <label>user <select id="user"></select></label>
+    <button id="addUser">+ add user to host</button>
+    <button id="reset">reset model</button>
+  </div>
+  <div class="dim" style="font-size:12px">
+    Each user lists <b>every</b> program it wants — nothing inherited. Toggle
+    a program's membership, or exclude just its config.
+  </div>
+  <table id="ptable" style="margin-top:8px"></table>
+</div>
+
+<h2>The infrastructure, live <span class="dim">(no Core, no host lane)</span>
+</h2>
+<div class="panel" id="diagram"></div>
+
+<h2>What it costs</h2>
+<div class="panel">
+  <div id="metrics" style="margin-bottom:10px"></div>
+  <div id="homeless"></div>
+</div>
+
+<h2>Effective config <span class="dim" id="effWho"></span></h2>
+<div class="cols">
+  <div class="panel"><div id="effLeft"></div></div>
+  <div class="panel"><div id="effRight"></div></div>
+</div>
+
+<h2>Guided walkthroughs</h2>
+<div class="panel">
+  <div class="tabs" id="tabs"></div>
+  <div class="desc" id="scenDesc"></div>
+  <div class="steps" id="scenSteps" style="margin-top:10px"></div>
+</div>
+
+<script>
+/* =====================================================================
+ * PURE MODEL — core-less. A host is just a user list. A user is a flat
+ * additive program set. resolve(model, host, user) derives everything.
+ * ===================================================================== */
+const uniq = a => [...new Set(a)];
+
+function baseRepo() {
+  return {
+    hosts: {
+      desktop: { users: ["alex"] },
+      laptop:  { users: ["alex", "guest"] },
+    },
+    users: {
+      // No inheritance: each spells out its whole set, base included.
+      alex:  { programs: ["zsh", "kitty", "gamemode", "ccache",
+                          "claude", "pi"], configExclude: [] },
+      guest: { programs: ["zsh", "kitty"], configExclude: ["kitty"] },
+    },
+    programs: {
+      ccache:   { cat: "dev",    pkg: ["ccache"],      home: false,
+                  machine: true  },
+      gamemode: { cat: "gaming", pkg: ["gamemode"],    home: true,
+                  machine: true  },
+      zsh:      { cat: "system", pkg: ["zsh"],         home: true  },
+      kitty:    { cat: "system", pkg: ["kitty"],       home: true  },
+      claude:   { cat: "dev",    pkg: ["claude-code"], home: true  },
+      pi:       { cat: "dev",    pkg: ["pi"],          home: true  },
+    },
+    // The de-facto "everyone wants these" set — but with no Core there is
+    // nowhere to say it once; used only to measure the duplication tax.
+    impliedBase: ["zsh", "kitty"],
+  };
+}
+
+function resolve(m, host, user) {
+  const u = m.users[user];
+  const selected = uniq(u.programs);          // flat, no merge
+  const exclude  = uniq(u.configExclude);
+  const rows = selected.map(name => {
+    const p = m.programs[name] || { cat: "?", pkg: [name], home: false };
+    const eligible = !!p.home;
+    const excluded = eligible && exclude.includes(name);
+    return { name, cat: p.cat, pkg: p.pkg, machine: !!p.machine,
+             eligible, excluded, applied: eligible && !excluded };
+  });
+  return { host, user, rows };
+}
+
+// Duplication tax: how many times shared programs are repeated across all
+// users on this host (with Core they'd be declared once).
+function duplication(m, host) {
+  const users = m.hosts[host].users;
+  const count = {};
+  users.forEach(un => uniq(m.users[un].programs)
+    .forEach(p => count[p] = (count[p] || 0) + 1));
+  const declarations = Object.values(count).reduce((a, b) => a + b, 0);
+  const unique = Object.keys(count).length;
+  const repeated = Object.entries(count)
+    .filter(([, c]) => c > 1).map(([p, c]) => `${p}×${c}`);
+  return { users: users.length, declarations, unique, repeated };
+}
+
+// Machine daemons present on the host but owned by no clear single user.
+function homeless(m, host) {
+  const users = m.hosts[host].users;
+  const out = [];
+  for (const [name, p] of Object.entries(m.programs)) {
+    if (!p.machine) continue;
+    const owners = users.filter(un => m.users[un].programs.includes(name));
+    if (owners.length) out.push({ name, owners });
+  }
+  return out;
+}
+
+/* =====================================================================
+ * PAGE GLUE — throwaway shell.
+ * ===================================================================== */
+let model = baseRepo();
+let view = { host: "laptop", user: "guest" };
+let userSeq = 0;
+const $ = id => document.getElementById(id);
+
+function fillSelect(el, items, cur) {
+  el.innerHTML = items.map(i =>
+    `<option ${i === cur ? "selected" : ""}>${i}</option>`).join("");
+}
+
+function renderControls() {
+  fillSelect($("host"), Object.keys(model.hosts), view.host);
+  fillSelect($("user"), model.hosts[view.host].users, view.user);
+  const u = model.users[view.user];
+  let html = "<tr><th>program</th><th>in this user?</th>" +
+    "<th>ships config</th><th>config_exclude</th></tr>";
+  for (const name of Object.keys(model.programs)) {
+    const p = model.programs[name];
+    const inU = u.programs.includes(name);
+    const excl = u.configExclude.includes(name);
+    html += `<tr>
+      <td><b>${name}</b> <span class="dim">${p.cat}${
+        p.machine ? " · machine" : ""}</span></td>
+      <td><button data-sel="${name}" class="${inU ? "on" : ""}">
+        ${inU ? "yes" : "no"}</button></td>
+      <td>${p.home ? "<span class=\"yes\">home/</span>"
+        : "<span class=\"no\">package-only</span>"}</td>
+      <td>${p.home
+        ? `<button data-exc="${name}" class="${excl ? "on" : ""}">
+             ${excl ? "excluded" : "applied"}</button>`
+        : "<span class=\"dim\">n/a</span>"}</td>
+    </tr>`;
+  }
+  $("ptable").innerHTML = html;
+  $("ptable").querySelectorAll("[data-sel]").forEach(b =>
+    b.onclick = () => toggleSel(b.dataset.sel));
+  $("ptable").querySelectorAll("[data-exc]").forEach(b =>
+    b.onclick = () => toggleExc(b.dataset.exc));
+}
+
+function toggleSel(name) {
+  const a = model.users[view.user].programs;
+  const i = a.indexOf(name); i >= 0 ? a.splice(i, 1) : a.push(name);
+  render();
+}
+function toggleExc(name) {
+  const a = model.users[view.user].configExclude;
+  const i = a.indexOf(name); i >= 0 ? a.splice(i, 1) : a.push(name);
+  render();
+}
+
+function box(name, cls, sub) {
+  return `<div class="box ${cls}"><b>${name}</b>${
+    sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+}
+
+function renderDiagram() {
+  const eff = resolve(model, view.host, view.user);
+  const userBoxes = model.hosts[view.host].users.map(un =>
+    box("User: " + un, "lane-user",
+      model.users[un].programs.length + " programs" +
+      (un === view.user ? " ← viewing" : ""))).join("");
+  const progBoxes = eff.rows.map(r =>
+    box(r.name, "lane-user",
+      (r.machine ? "machine · " : "") +
+      (r.applied ? "config applied"
+        : r.excluded ? "config SKIPPED"
+        : r.eligible ? "config off" : "package-only"))).join("");
+  $("diagram").innerHTML = `
+    <div class="lbl">HOST — just a bag of users (machine identity only)</div>
+    <div class="boxes" style="margin:4px 0 4px">${
+      box("Host: " + view.host, "lane-host",
+        model.hosts[view.host].users.join(", "))}</div>
+    <div class="connector">▼ installs users</div>
+    <div class="lbl">USERS — each a flat additive list, extends nothing</div>
+    <div class="boxes" style="margin:4px 0 4px">${userBoxes}</div>
+    <div class="connector">▼ (viewing ${view.user}) apply, minus exclude</div>
+    <div class="lbl">SELECTED PROGRAMS</div>
+    <div class="boxes" style="margin-top:4px">${
+      progBoxes || "<span class='dim'>none</span>"}</div>`;
+}
+
+function renderMetrics() {
+  const d = duplication(model, view.host);
+  const ratio = d.unique ? (d.declarations / d.unique).toFixed(2) : "0";
+  $("metrics").innerHTML = `
+    <span class="metric"><b>${d.users}</b><span>users on host</span></span>
+    <span class="metric"><b>${d.declarations}</b>
+      <span>total program declarations</span></span>
+    <span class="metric"><b>${d.unique}</b><span>unique programs</span></span>
+    <span class="metric"><b class="${
+      +ratio > 1 ? "warn" : "yes"}">${ratio}×</b>
+      <span>redundancy (1.00 = no waste)</span></span>
+    <div class="dim" style="margin-top:6px">repeated across users: ${
+      d.repeated.length ? d.repeated.join("  ") : "none"} — with a Core layer
+      these would be declared <b>once</b>.</div>`;
+
+  const hl = homeless(model, view.host);
+  $("homeless").innerHTML = hl.length ? `
+    <div class="banner">⚠ machine daemons with no host lane — each pinned to
+      specific users instead of the machine:
+      ${hl.map(h => `<b>${h.name}</b> → ${h.owners.join(", ")}`).join("  ·  ")}
+      <div style="margin-top:4px">Add a user who omits it and the daemon is
+      silently absent for them, though it is a property of the box.</div>
+    </div>` : `<div class="dim">no machine daemons currently selected.</div>`;
+}
+
+function renderEffective() {
+  const eff = resolve(model, view.host, view.user);
+  $("effWho").textContent = `— ${eff.user} @ ${eff.host}`;
+  const pkgs = uniq(eff.rows.flatMap(r => r.pkg));
+  const applied = eff.rows.filter(r => r.applied).map(r => r.name);
+  const skipped = eff.rows.filter(r => r.excluded).map(r => r.name);
+  const pkgOnly = eff.rows.filter(r => !r.eligible).map(r => r.name);
+  $("effLeft").innerHTML = `
+    <div class="lbl">packages installed</div>
+    <div style="margin:4px 0 12px">${pkgs.join("  ") || "—"}</div>
+    <div class="lbl">config applied (stowed)</div>
+    <div class="yes" style="margin-top:4px">${applied.join("  ") || "—"}
+    </div>`;
+  $("effRight").innerHTML = `
+    <div class="lbl">installed but config SKIPPED (opt-out)</div>
+    <div class="exc" style="margin:4px 0 12px">${skipped.join("  ") || "—"}
+    </div>
+    <div class="lbl">package-only (no config)</div>
+    <div class="no" style="margin-top:4px">${pkgOnly.join("  ") || "—"}</div>`;
+}
+
+function render() {
+  renderControls(); renderDiagram(); renderMetrics(); renderEffective();
+}
+
+$("host").onchange = e => {
+  view.host = e.target.value;
+  view.user = model.hosts[view.host].users[0]; render();
+};
+$("user").onchange = e => { view.user = e.target.value; render(); };
+$("addUser").onclick = () => {
+  const name = "user" + (++userSeq);
+  // No Core, so a brand-new user starts EMPTY — you must re-declare the base.
+  model.users[name] = { programs: [], configExclude: [] };
+  model.hosts[view.host].users.push(name);
+  view.user = name; render();
+};
+$("reset").onclick = () => {
+  model = baseRepo(); userSeq = 0;
+  view = { host: "laptop", user: "guest" }; render();
+};
+
+/* =====================================================================
+ * WALKTHROUGHS
+ * ===================================================================== */
+const scenarios = {
+  "Flat & readable": {
+    desc: "The upside: one user is its whole truth. No merge, no Core, no " +
+      "host lane — read alex and you know exactly what alex gets.",
+    steps: [
+      ["Reset + view alex@desktop", () => {
+        model = baseRepo(); view = { host: "desktop", user: "alex" };
+      }],
+      ["👀 alex's list IS the effective set — nothing hidden", () => {}],
+    ],
+  },
+  "The duplication tax": {
+    desc: "The cost: with no Core there is nowhere to say 'everyone gets " +
+      "zsh+kitty' once. Add users and watch the base get re-typed per user; " +
+      "the redundancy metric climbs above 1.00×.",
+    steps: [
+      ["Reset + view laptop", () => {
+        model = baseRepo(); view = { host: "laptop", user: "guest" };
+      }],
+      ["Add a fresh user (starts EMPTY)", () => {
+        model.users["user1"] = { programs: [], configExclude: [] };
+        model.hosts.laptop.users.push("user1"); view.user = "user1";
+      }],
+      ["Re-declare the base for them (zsh)", () => {
+        model.users.user1.programs.push("zsh");
+      }],
+      ["Re-declare the base for them (kitty)", () => {
+        model.users.user1.programs.push("kitty");
+      }],
+      ["👀 base repeated per user — no single home", () => {}],
+    ],
+  },
+  "Homeless machine daemons": {
+    desc: "gamemode + ccache are machine-wide, but with no host lane they " +
+      "must be pinned to users. Watch a user who omits gamemode silently " +
+      "lack it, though it's a property of the box.",
+    steps: [
+      ["Reset + view alex@desktop", () => {
+        model = baseRepo(); view = { host: "desktop", user: "alex" };
+      }],
+      ["👀 gamemode/ccache pinned to alex, not the host", () => {}],
+      ["Add a 2nd user on desktop (empty)", () => {
+        model.users["user1"] = { programs: ["zsh"], configExclude: [] };
+        model.hosts.desktop.users.push("user1"); view.user = "user1";
+      }],
+      ["👀 user1 has NO gamemode — daemon absent for them", () => {}],
+    ],
+  },
+  "Opt-out still works": {
+    desc: "config_exclude survives fine without Core: guest installs kitty " +
+      "but skips its config. The opt-out you needed does not depend on the " +
+      "Core layer at all.",
+    steps: [
+      ["Reset + view guest@laptop", () => {
+        model = baseRepo(); view = { host: "laptop", user: "guest" };
+      }],
+      ["👀 kitty installed, config SKIPPED", () => {}],
+    ],
+  },
+};
+
+let curScen = Object.keys(scenarios)[0], stepIdx = 0;
+function renderTabs() {
+  $("tabs").innerHTML = Object.keys(scenarios).map(n =>
+    `<button data-tab="${n}" class="${n === curScen ? "on" : ""}">${n}
+     </button>`).join("");
+  $("tabs").querySelectorAll("[data-tab]").forEach(b =>
+    b.onclick = () => { curScen = b.dataset.tab; stepIdx = 0;
+      renderScenario(); });
+}
+function renderScenario() {
+  const s = scenarios[curScen];
+  $("scenDesc").textContent = s.desc;
+  $("scenSteps").innerHTML = s.steps.map((st, i) =>
+    `<button class="step" data-step="${i}" ${i === stepIdx ? "" : "disabled"}
+       style="${i < stepIdx ? "opacity:.4" : ""}">${i + 1}. ${st[0]}
+     </button>`).join("");
+  $("scenSteps").querySelectorAll("[data-step]").forEach(b =>
+    b.onclick = () => {
+      s.steps[+b.dataset.step][1]();
+      stepIdx = Math.min(stepIdx + 1, s.steps.length);
+      renderScenario(); render();
+    });
+  renderTabs();
+}
+
+renderScenario();
+render();
+</script>
+</body>
+</html>

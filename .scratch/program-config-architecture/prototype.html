@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Config Architecture — PROTOTYPE (throwaway)</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36;
+    --ink: #e6e9ef; --dim: #9aa4b2; --accent: #5cc8ff;
+    --good: #57d9a3; --warn: #ffb454; --bad: #ff6b6b;
+    --host: #b48ead; --user: #88c0d0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+    padding: 24px; max-width: 1080px; margin: 0 auto;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase;
+       color: var(--dim); margin: 28px 0 10px; }
+  .q { color: var(--dim); margin: 0 0 8px; max-width: 78ch; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px;
+         border-radius: 99px; border: 1px solid var(--line);
+         color: var(--warn); }
+  .panel { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 10px; padding: 14px 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button {
+    background: #1e2530; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 11px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  button.step { background: #10203040; }
+  select { background: #1e2530; color: var(--ink);
+           border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  /* diagram */
+  .layer { margin: 8px 0; }
+  .layer .lbl { font-size: 11px; color: var(--dim); margin-bottom: 4px; }
+  .boxes { display: flex; gap: 10px; flex-wrap: wrap; }
+  .box { border: 1px solid var(--line); border-radius: 8px;
+         padding: 8px 10px; min-width: 120px; background: #12151b; }
+  .box b { font-size: 12px; }
+  .box .sub { font-size: 11px; color: var(--dim); }
+  .core { border-color: #3b4252; }
+  .lane-host { border-color: var(--host); }
+  .lane-user { border-color: var(--user); }
+  .muted { opacity: .32; }
+  .connector { text-align: center; color: var(--line); font-size: 18px;
+               line-height: 1; margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px;
+           border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: .03em; }
+  .pill { font-size: 11px; padding: 1px 7px; border-radius: 99px;
+          border: 1px solid var(--line); }
+  .pill.host { color: var(--host); border-color: var(--host); }
+  .pill.user { color: var(--user); border-color: var(--user); }
+  .pill.both { color: var(--accent); border-color: var(--accent); }
+  .yes { color: var(--good); } .no { color: var(--dim); }
+  .exc { color: var(--bad); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button.on { background: #10203040; }
+  .steps { display: grid; gap: 8px; }
+  .desc { color: var(--dim); font-size: 13px; max-width: 80ch; }
+  code { background: #10141b; padding: 1px 5px; border-radius: 5px;
+         color: var(--accent); }
+  .flag { color: var(--warn); }
+</style>
+</head>
+<body>
+
+<h1>Config resolution model <span class="tag">PROTOTYPE · throwaway</span></h1>
+<p class="q">
+  <b>Question:</b> we want a single home for each program's config under
+  <code>programs/&lt;cat&gt;/&lt;name&gt;/home/</code>, applied by stow, with
+  config decoupled from package install so you can install a program and
+  <em>skip its config</em>. Open forks this drives:
+  (1) should <b>hosts</b> provide programs, or only <b>users</b>?
+  (2) does the <b>Core</b> layer earn its keep? Flip
+  <span class="flag">Coupling</span> to see the original bug vs the fix.
+</p>
+
+<!-- ─────────────────────────── controls ─────────────────────────── -->
+<h2>Drive it</h2>
+<div class="panel">
+  <div class="row" style="margin-bottom:10px">
+    <span class="dim">View for:</span>
+    <label>host <select id="host"></select></label>
+    <label>user <select id="user"></select></label>
+    <button id="forkHost">host provides programs: ON</button>
+    <button id="coupling" class="flag">coupling: DECOUPLED (fixed)</button>
+    <button id="reset">reset model</button>
+  </div>
+  <div class="dim" style="font-size:12px">
+    Toggle a program's <b>selection</b> (does its package install for this
+    user?) and its <b>config_exclude</b> (skip its config?). Package-only
+    programs have no config to apply.
+  </div>
+  <table id="ptable" style="margin-top:8px"></table>
+</div>
+
+<!-- ─────────────────────────── diagram ─────────────────────────── -->
+<h2>The infrastructure, live</h2>
+<div class="panel" id="diagram"></div>
+
+<!-- ─────────────────────────── effective ─────────────────────────── -->
+<h2>Effective config <span class="dim" id="effWho"></span></h2>
+<div class="cols">
+  <div class="panel"><div id="effLeft"></div></div>
+  <div class="panel"><div id="effRight"></div></div>
+</div>
+
+<!-- ─────────────────────────── walkthroughs ─────────────────────────── -->
+<h2>Guided walkthroughs</h2>
+<div class="panel">
+  <div class="tabs" id="tabs"></div>
+  <div class="desc" id="scenDesc"></div>
+  <div class="steps" id="scenSteps" style="margin-top:10px"></div>
+</div>
+
+<script>
+/* =====================================================================
+ * PURE MODEL  (liftable — no DOM below this line until the page glue)
+ * resolve(model, host, user) -> effective config for that user on that
+ * host. Everything the page shows is derived from this.
+ * ===================================================================== */
+const uniq = a => [...new Set(a)];
+
+function baseRepo() {
+  return {
+    fork: { hostProvidesPrograms: true, coupling: "decoupled" },
+    // Core = the layer host/user extend from (house defaults).
+    hostCore: { hostPrograms: ["ccache"] },
+    userCore: { programs: ["zsh", "kitty"], configExclude: [] },
+    hosts: {
+      desktop: { hostPrograms: ["gamemode"], users: ["alex"] },
+      laptop:  { hostPrograms: [],           users: ["alex", "guest"] },
+    },
+    users: {
+      alex:  { programs: ["claude", "pi"], configExclude: [] },
+      guest: { programs: [],               configExclude: ["kitty"] },
+    },
+    // programs/<cat>/<name>: package(s) + does it ship a home/ config?
+    programs: {
+      ccache:   { cat: "dev",    pkg: ["ccache"],      home: false },
+      gamemode: { cat: "gaming", pkg: ["gamemode"],    home: true  },
+      zsh:      { cat: "system", pkg: ["zsh"],         home: true  },
+      kitty:    { cat: "system", pkg: ["kitty"],       home: true  },
+      claude:   { cat: "dev",    pkg: ["claude-code"], home: true  },
+      pi:       { cat: "dev",    pkg: ["pi"],          home: true  },
+    },
+  };
+}
+
+function resolve(m, host, user) {
+  const h = m.hosts[host], u = m.users[user];
+  const hostProgs = m.fork.hostProvidesPrograms
+    ? uniq([...m.hostCore.hostPrograms, ...h.hostPrograms]) : [];
+  const userProgs = uniq([...m.userCore.programs, ...u.programs]);
+  const selected = uniq([...hostProgs, ...userProgs]);
+  const exclude  = uniq([...m.userCore.configExclude, ...u.configExclude]);
+  const rows = selected.map(name => {
+    const p = m.programs[name] || { cat: "?", pkg: [name], home: false };
+    const provider = hostProgs.includes(name)
+      ? (userProgs.includes(name) ? "both" : "host") : "user";
+    const eligible = !!p.home;
+    // The fork that fixes the original bug: in COUPLED mode config always
+    // rides the package (exclude ignored). In DECOUPLED mode exclude wins.
+    const excluded = eligible && exclude.includes(name);
+    const applied  = eligible &&
+      (m.fork.coupling === "coupled" ? true : !excluded);
+    return { name, cat: p.cat, pkg: p.pkg, provider, eligible,
+             excluded, applied };
+  });
+  return { host, user, hostProgs, userProgs, exclude, rows };
+}
+
+/* =====================================================================
+ * PAGE GLUE  (throwaway shell)
+ * ===================================================================== */
+let model = baseRepo();
+let view = { host: "laptop", user: "guest" };
+
+const $ = id => document.getElementById(id);
+
+function fillSelect(el, items, cur) {
+  el.innerHTML = items.map(i =>
+    `<option ${i === cur ? "selected" : ""}>${i}</option>`).join("");
+}
+
+function renderControls() {
+  fillSelect($("host"), Object.keys(model.hosts), view.host);
+  fillSelect($("user"), Object.keys(model.users), view.user);
+  $("forkHost").textContent =
+    "host provides programs: " +
+    (model.fork.hostProvidesPrograms ? "ON" : "OFF (users only)");
+  $("forkHost").classList.toggle("on", model.fork.hostProvidesPrograms);
+  const coupled = model.fork.coupling === "coupled";
+  $("coupling").textContent =
+    "coupling: " + (coupled ? "COUPLED (the old bug)"
+                            : "DECOUPLED (fixed)");
+  $("coupling").classList.toggle("on", !coupled);
+
+  const u = model.users[view.user];
+  const uc = model.userCore;
+  const allNames = Object.keys(model.programs);
+  let html = "<tr><th>program</th><th>package installs?</th>" +
+    "<th>ships config</th><th>config_exclude</th></tr>";
+  for (const name of allNames) {
+    const p = model.programs[name];
+    const inUser = u.programs.includes(name);
+    const inCore = uc.programs.includes(name);
+    const selLabel = inCore ? "core (all users)"
+      : (inUser ? "selected" : "—");
+    const excl = uc.configExclude.includes(name) ||
+      u.configExclude.includes(name);
+    html += `<tr>
+      <td><b>${name}</b> <span class="dim">${p.cat}</span></td>
+      <td>${inCore ? `<span class="dim">${selLabel}</span>`
+        : `<button data-sel="${name}" class="${inUser ? "on" : ""}">
+             ${inUser ? "yes" : "no"}</button>`}</td>
+      <td>${p.home ? "<span class=\"yes\">home/</span>"
+        : "<span class=\"no\">package-only</span>"}</td>
+      <td>${p.home
+        ? `<button data-exc="${name}" class="${excl ? "on" : ""}">
+             ${excl ? "excluded" : "applied"}</button>`
+        : "<span class=\"dim\">n/a</span>"}</td>
+    </tr>`;
+  }
+  $("ptable").innerHTML = html;
+  $("ptable").querySelectorAll("[data-sel]").forEach(b =>
+    b.onclick = () => toggleSel(b.dataset.sel));
+  $("ptable").querySelectorAll("[data-exc]").forEach(b =>
+    b.onclick = () => toggleExc(b.dataset.exc));
+}
+
+function toggleSel(name) {
+  const arr = model.users[view.user].programs;
+  const i = arr.indexOf(name);
+  i >= 0 ? arr.splice(i, 1) : arr.push(name);
+  render();
+}
+function toggleExc(name) {
+  const arr = model.users[view.user].configExclude;
+  const i = arr.indexOf(name);
+  i >= 0 ? arr.splice(i, 1) : arr.push(name);
+  render();
+}
+
+function box(name, cls, sub, muted) {
+  return `<div class="box ${cls} ${muted ? "muted" : ""}">
+    <b>${name}</b>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+}
+
+function renderDiagram() {
+  const eff = resolve(model, view.host, view.user);
+  const hostOn = model.fork.hostProvidesPrograms;
+
+  const coreBoxes =
+    box("Host Core", "core", "hostPrograms: " +
+        model.hostCore.hostPrograms.join(", ")) +
+    box("User Core", "core", "programs: " +
+        model.userCore.programs.join(", "));
+
+  const hostBox = box("Host: " + view.host, "lane-host",
+    "hostPrograms: " +
+    (model.hosts[view.host].hostPrograms.join(", ") || "—"),
+    !hostOn);
+  const userBox = box("User: " + view.user, "lane-user",
+    "programs: " + (model.users[view.user].programs.join(", ") || "—") +
+    " · exclude: " +
+    (model.users[view.user].configExclude.join(", ") || "—"));
+
+  const progBoxes = eff.rows.map(r => {
+    const cls = r.provider === "host" ? "lane-host"
+      : r.provider === "user" ? "lane-user" : "";
+    const sub = r.applied ? "config applied"
+      : r.excluded ? "config SKIPPED"
+      : r.eligible ? "config off" : "package-only";
+    return box(r.name, cls, sub);
+  }).join("");
+
+  $("diagram").innerHTML = `
+    <div class="layer"><div class="lbl">CORE — what everything extends from
+      </div><div class="boxes">${coreBoxes}</div></div>
+    <div class="connector">▼ extends</div>
+    <div class="layer"><div class="lbl">PROVIDERS — who declares programs
+      ${hostOn ? "" : "· <span class='flag'>host lane OFF</span>"}</div>
+      <div class="boxes">${hostBox}${userBox}</div></div>
+    <div class="connector">▼ resolve (union, then config_exclude)</div>
+    <div class="layer"><div class="lbl">SELECTED PROGRAMS — package installs;
+      config applies unless excluded</div>
+      <div class="boxes">${progBoxes || "<span class='dim'>none</span>"}</div>
+    </div>`;
+}
+
+function renderEffective() {
+  const eff = resolve(model, view.host, view.user);
+  $("effWho").textContent = `— ${eff.user} @ ${eff.host}`;
+  const pkgs = uniq(eff.rows.flatMap(r => r.pkg));
+  const applied = eff.rows.filter(r => r.applied).map(r => r.name);
+  const skipped = eff.rows.filter(r => r.excluded && !r.applied)
+    .map(r => r.name);
+  const pkgOnly = eff.rows.filter(r => !r.eligible).map(r => r.name);
+
+  $("effLeft").innerHTML = `
+    <div class="lbl dim">packages installed</div>
+    <div style="margin:4px 0 12px">${pkgs.join("  ") || "—"}</div>
+    <div class="lbl dim">config applied (stowed)</div>
+    <div class="yes" style="margin-top:4px">${applied.join("  ") || "—"}
+    </div>`;
+  $("effRight").innerHTML = `
+    <div class="lbl dim">installed but config SKIPPED (opt-out)</div>
+    <div class="exc" style="margin:4px 0 12px">${skipped.join("  ") ||
+      "—"}</div>
+    <div class="lbl dim">package-only (no config to apply)</div>
+    <div class="no" style="margin-top:4px">${pkgOnly.join("  ") || "—"}</div>`;
+}
+
+function render() {
+  renderControls();
+  renderDiagram();
+  renderEffective();
+}
+
+/* ---- top-level control wiring ---- */
+$("host").onchange = e => { view.host = e.target.value; render(); };
+$("user").onchange = e => { view.user = e.target.value; render(); };
+$("forkHost").onclick = () => {
+  model.fork.hostProvidesPrograms = !model.fork.hostProvidesPrograms;
+  render();
+};
+$("coupling").onclick = () => {
+  model.fork.coupling =
+    model.fork.coupling === "coupled" ? "decoupled" : "coupled";
+  render();
+};
+$("reset").onclick = () => { model = baseRepo(); render(); };
+
+/* =====================================================================
+ * WALKTHROUGHS — each resets to a known state, then guided buttons.
+ * ===================================================================== */
+const scenarios = {
+  "The original bug": {
+    desc: "Old world: config-seed is welded inside install.sh, so " +
+      "selecting a program forces its config. Watch: exclude claude, " +
+      "but in COUPLED mode it lands anyway.",
+    steps: [
+      ["Reset + view alex@desktop", () => {
+        model = baseRepo(); view = { host: "desktop", user: "alex" };
+      }],
+      ["Set coupling = COUPLED (old bug)", () => {
+        model.fork.coupling = "coupled";
+      }],
+      ["Try to exclude claude's config", () => {
+        const a = model.users.alex.configExclude;
+        if (!a.includes("claude")) a.push("claude");
+      }],
+      ["👀 claude config STILL applied — the bug", () => {}],
+    ],
+  },
+  "config_exclude fixes it": {
+    desc: "New world: install.sh installs the package only; a separate " +
+      "pass applies config unless config_exclude names it. Same exclude, " +
+      "now honored.",
+    steps: [
+      ["Reset + view alex@desktop", () => {
+        model = baseRepo(); view = { host: "desktop", user: "alex" };
+      }],
+      ["Set coupling = DECOUPLED (fixed)", () => {
+        model.fork.coupling = "decoupled";
+      }],
+      ["Exclude claude's config", () => {
+        const a = model.users.alex.configExclude;
+        if (!a.includes("claude")) a.push("claude");
+      }],
+      ["👀 claude package installs, config SKIPPED", () => {}],
+    ],
+  },
+  "Who provides programs?": {
+    desc: "The fork you're weighing. gamemode is a HOST program on " +
+      "desktop. Flip 'host provides programs' OFF and watch it vanish — " +
+      "only user-declared programs survive. Does the host lane earn its " +
+      "keep?",
+    steps: [
+      ["Reset + view alex@desktop", () => {
+        model = baseRepo(); view = { host: "desktop", user: "alex" };
+      }],
+      ["👀 gamemode present (host-provided)", () => {}],
+      ["Turn host lane OFF (users only)", () => {
+        model.fork.hostProvidesPrograms = false;
+      }],
+      ["👀 gamemode gone — only user + core remain", () => {}],
+    ],
+  },
+  "Does Core earn its keep?": {
+    desc: "zsh + kitty live in User Core, so every user inherits them. " +
+      "guest excludes kitty's config. Watch both users share the base, " +
+      "yet differ by their own layer.",
+    steps: [
+      ["Reset + view alex@laptop", () => {
+        model = baseRepo(); view = { host: "laptop", user: "alex" };
+      }],
+      ["👀 alex: zsh+kitty config applied (from Core)", () => {}],
+      ["Switch to guest@laptop", () => { view.user = "guest"; }],
+      ["👀 guest: same base, kitty config excluded", () => {}],
+    ],
+  },
+};
+
+let curScen = Object.keys(scenarios)[0];
+let stepIdx = 0;
+
+function renderTabs() {
+  $("tabs").innerHTML = Object.keys(scenarios).map(n =>
+    `<button data-tab="${n}" class="${n === curScen ? "on" : ""}">${n}
+     </button>`).join("");
+  $("tabs").querySelectorAll("[data-tab]").forEach(b =>
+    b.onclick = () => { curScen = b.dataset.tab; stepIdx = 0;
+      renderScenario(); });
+}
+function renderScenario() {
+  const s = scenarios[curScen];
+  $("scenDesc").textContent = s.desc;
+  $("scenSteps").innerHTML = s.steps.map((st, i) =>
+    `<button class="step" data-step="${i}"
+       ${i === stepIdx ? "" : "disabled"}
+       style="${i < stepIdx ? "opacity:.4" : ""}">
+       ${i + 1}. ${st[0]}</button>`).join("");
+  $("scenSteps").querySelectorAll("[data-step]").forEach(b =>
+    b.onclick = () => {
+      s.steps[+b.dataset.step][1]();
+      stepIdx = Math.min(stepIdx + 1, s.steps.length);
+      renderTabs(); renderScenario(); render();
+    });
+  renderTabs();
+}
+
+renderScenario();
+render();
+</script>
+</body>
+</html>
