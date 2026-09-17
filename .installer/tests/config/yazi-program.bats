@@ -35,26 +35,25 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh seeds theme to \$HOME, /etc/skel, /root (ADR 0095)" {
-  grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+@test "install.sh does NOT seed home/ theme — the pass applies it (ADR 0134)" {
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
-@test "bundled home/ theme is byte-identical to the repo stow tree (drift)" {
+@test "home/ is the single source: no repo-root .config/yazi duplicate" {
   [ -d "$HOMESEED" ]
-  # no seed-only themes dir: the ANSI-16 theme is static (ADR 0132), so the
-  # whole tree is checked with no exclusion (unlike kitty/zsh)
-  diff -r "$YAZI" "$HOMESEED/.config/yazi"
+  [ -f "$HOMESEED/.config/yazi/theme.toml" ]
+  [ ! -e "$YAZI" ]   # ADR 0134: repo-root stow-tree copy retired
 }
 
 # ── ANSI-16 theming: named colors only, current [mgr] schema (ADR 0132) ──────
 
 @test "yazi theme is named ANSI colors only — no hex, current [mgr] table" {
-  ! grep -qE '#[0-9a-fA-F]{6}' "$YAZI/theme.toml"
-  grep -q '^\[mgr\]' "$YAZI/theme.toml"          # current table name, not [manager]
-  grep -qE 'fg = "(blue|red|green|yellow|cyan|black|white|reset)"' \
-    "$YAZI/theme.toml"
+  thm="$HOMESEED/.config/yazi/theme.toml"
+  ! grep -qE '#[0-9a-fA-F]{6}' "$thm"
+  grep -q '^\[mgr\]' "$thm"          # current table name, not [manager]
+  grep -qE 'fg = "(blue|red|green|yellow|cyan|black|white|reset)"' "$thm"
 }
 
 # ── package move: exclusivity (ADR 0115) ─────────────────────────────────────

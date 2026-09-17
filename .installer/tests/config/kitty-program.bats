@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 # system/kitty program + Kitty Theme Template (ADR 0130). Static seam like
 # zsh-program.bats / pi-agent.bats: assert the COMMITTED program definition,
-# payload, seed default, and byte-identical drift without running an install.
+# single-source home/ config, and seed theme default without running an
+# install. Config is decoupled from install (ADR 0134): the Runner's Config
+# Apply pass copies home/, so install.sh installs the package only.
 # The Noctalia live-follow wiring (config.toml, template input) is asserted in
 # noctalia-stow.bats.
 
@@ -12,7 +14,7 @@ setup() {
   INSTALL="$PROG/install.sh"
   HOMESEED="$PROG/home"
   SEED_THEME="$PROG/themes/noctalia.conf"
-  KITTY="$REPO/.config/kitty"
+  KITTY="$HOMESEED/.config/kitty"          # single source (ADR 0134)
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
 }
@@ -38,10 +40,12 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh seeds config to \$HOME, /etc/skel, /root (ADR 0095)" {
-  grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+@test "install.sh does NOT seed home/ config — the pass applies it (ADR 0134)" {
+  # Config is decoupled from package install: install.sh installs the package,
+  # the Runner's Config Apply pass copies home/. So no home/ cp lives here.
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
 @test "install.sh seeds the generated palette theme into all three targets" {
@@ -50,10 +54,12 @@ setup() {
   grep -q '/root/.config/kitty/themes/noctalia.conf' "$INSTALL"
 }
 
-@test "bundled home/ config is byte-identical to the repo stow tree (drift)" {
+@test "home/ is the single source: no repo-root .config/kitty duplicate" {
   [ -d "$HOMESEED" ]
+  [ -f "$HOMESEED/.config/kitty/kitty.conf" ]
+  # ADR 0134: the repo-root stow tree copy is gone — home/ is the one source.
+  [ ! -e "$REPO/.config/kitty" ]
   # generated themes/ is seed-only, excluded from the bundle (as zsh does)
-  diff -r -x themes "$KITTY" "$HOMESEED/.config/kitty"
   [ ! -e "$HOMESEED/.config/kitty/themes" ]
 }
 
@@ -81,5 +87,8 @@ setup() {
 # ── profile wiring ───────────────────────────────────────────────────────────
 
 @test "User Core serves the kitty program fleet-wide, after zsh" {
-  grep -qE '"programs":.*"kitty"' "$UCORE"
+  # programs is a multi-line array; assert both are listed (order: zsh precedes
+  # kitty in the source), not that they share one line.
+  grep -q '"zsh"' "$UCORE"
+  grep -q '"kitty"' "$UCORE"
 }

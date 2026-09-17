@@ -30,9 +30,11 @@ setup() {
   CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
   QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
   QT6CT_COLORS="$REPO/.config/qt6ct/colors"
-  KITTY="$REPO/.config/kitty/kitty.conf"
+  # kitty config is single-source under its program home/ (ADR 0134).
+  KHOME="$REPO/.installer/programs/system/kitty/home/.config/kitty"
+  KITTY="$KHOME/kitty.conf"
   KTPL="$REPO/.config/noctalia/templates/kitty.conf"
-  KTHEMES="$REPO/.config/kitty/themes"
+  KTHEMES="$KHOME/themes"
   XDGDIRS="$REPO/.local/bin/noctalia-xdg-user-dirs"
 }
 
@@ -406,7 +408,7 @@ setup() {
 # KITTY_DECORATIONS, applied via `envinclude`, to hide them for tiling.
 @test "kitty decorations session-aware: default no + envinclude (ADR 0130)" {
   grep -q '^hide_window_decorations         no' \
-    "$REPO/.config/kitty/conf/window-layout.conf"
+    "$KHOME/conf/window-layout.conf"
   grep -q '^envinclude KITTY_DECORATIONS' "$KITTY"
   # both compositors export the hide-decorations override
   grep -q 'KITTY_DECORATIONS "hide_window_decorations yes"' "$NENV"

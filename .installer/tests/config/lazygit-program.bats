@@ -35,26 +35,26 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh seeds config to \$HOME, /etc/skel, /root (ADR 0095)" {
-  grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
-  grep -q 'sudo cp -a "${SELF}/home/." /root/' "$INSTALL"
+@test "install.sh does NOT seed home/ config — the pass applies it (ADR 0134)" {
+  ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"
+  ! grep -q 'cp -a "${SELF}/home/." /root/' "$INSTALL"
 }
 
-@test "bundled home/ config is byte-identical to the repo stow tree (drift)" {
+@test "home/ is the single source: no repo-root .config/lazygit duplicate" {
   [ -d "$HOMESEED" ]
-  # no seed-only themes dir: the ANSI-16 config is static (ADR 0132), so the
-  # whole tree is checked with no exclusion (unlike kitty/zsh)
-  diff -r "$LZG" "$HOMESEED/.config/lazygit"
+  [ -f "$HOMESEED/.config/lazygit/config.yml" ]
+  [ ! -e "$LZG" ]   # ADR 0134: repo-root stow-tree copy retired
 }
 
 # ── ANSI-16 theming: no hardcoded hex (ADR 0132) ─────────────────────────────
 
 @test "lazygit theme is ANSI names only — no hex color" {
-  ! grep -qE '#[0-9a-fA-F]{6}' "$LZG/config.yml"
-  grep -q 'activeBorderColor' "$LZG/config.yml"
+  cfg="$HOMESEED/.config/lazygit/config.yml"
+  ! grep -qE '#[0-9a-fA-F]{6}' "$cfg"
+  grep -q 'activeBorderColor' "$cfg"
   grep -qE '^[[:space:]]*-[[:space:]]*(blue|red|green|yellow|cyan|default)' \
-    "$LZG/config.yml"
+    "$cfg"
 }
 
 # ── package move: exclusivity (ADR 0115) ─────────────────────────────────────
