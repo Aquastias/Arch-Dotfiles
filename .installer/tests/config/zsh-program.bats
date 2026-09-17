@@ -50,7 +50,7 @@ setup() {
   ! grep -qE 'systemctl (start|restart)' "$INSTALL"
 }
 
-@test "install.sh does NOT seed config; warms zinit from the bundle (ADR 0134)" {
+@test "install.sh does NOT seed config; warms zinit from the bundle" {
   # Config (home/) is applied by the Config Apply pass, not install.sh.
   ! grep -q 'cp -a "${SELF}/home/." "${HOME}/"' "$INSTALL"
   ! grep -q 'cp -a "${SELF}/home/." /etc/skel/' "$INSTALL"

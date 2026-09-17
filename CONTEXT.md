@@ -1738,76 +1738,61 @@ Persist Defaults directly — those are vendor-shipped.
 Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose
 home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each
 user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
-Layout groups files by destination path, not by program. `.claude/` is tracked
-**selectively** — only `settings.json`, `CLAUDE.md`, and `scripts/statusline.sh`
-are stowed; Claude Code's runtime state stays gitignored (ADR 0133). Legacy as
-of ADR 0012 —
-being migrated program-by-program into Program Config Trees, but remains
-supported indefinitely. Path collisions with the Generated Stow Tree abort the
-Config Generator.
+Layout groups files by destination path, not by program. Retired by ADR 0134:
+config now lives per-program in Program Config Trees (`home/`), applied by the
+Config Apply Pass and `stow-configs`. The repo-root duplicates were removed
+program-by-program; two files linger only because they are bind-mounts in the
+dev sandbox (`.zshrc`, `.claude/settings.json`) and their de-dup lands outside
+it — the programs are decoupled regardless. `.claude` stays tracked
+**selectively** (ADR 0133): only `settings.json` / `scripts/statusline.sh` /
+`CLAUDE.md` were ever committed (the latter two now under the claude Program's
+`home/`); Claude Code's runtime state stays gitignored, never wholesale.
 
 ### Program Config Tree
-Per-program user-side config files under
-`.installer/programs/<category>/<name>/configs/`. The unsuffixed `configs/` is
-the
-default; sibling `configs@<variant>/` directories hold alternates (Config
-Variants). Optional — programs without user-side config omit the dir entirely.
-Manifest scope is user paths only; system paths stay in the program's
-`install.sh`. Authoring location only — never directly symlinked or copied; the
-Config Generator materializes the Generated Stow Tree from these.
+A Program's user-side config under `.installer/programs/<category>/<name>/home/`
+— a subtree mirroring `$HOME` (e.g. `home/.config/kitty/kitty.conf`). The folder
+layout *is* the manifest; there is no `src`/`dst` metadata, no variants (ADR
+0134, superseding ADR 0012's `configs/` + manifest + `configs@<variant>/`).
+Optional — a Program without user config omits `home/` and is package-only.
+Discovered by convention: a `home/` dir present ⇒ the Program ships config. The
+single source; both the Config Apply Pass (install-time) and `stow-configs`
+(day-2) read it.
 
-### Config Variant
-An alternate version of a program's Program Config Tree, named by the suffix on
-`configs@<variant>/`. Variant names match `[a-z0-9-]+`; `default` is reserved
-and refers to the unsuffixed `configs/`. Selected per-user via a `variants`
-object in a User Profile (with House Defaults inheritable from User Core,
-overridden per-key by the User Profile). Unselected variants fall back to
-`configs/`; programs with only `configs@*/` and no `configs/` require an
-explicit selection or the generator aborts.
+### Config Apply Planner
+`.installer/lib/config/config-apply.sh` — pure logic (`ca_plan`,
+`ca_ships_home_list`, `ca_stow_selection`) that decides which selected Programs'
+`home/` config applies for a user: `apply = selected && ships_home(program) &&
+!config_exclude(program)`. No filesystem writes; the Runner Pass and
+`stow-configs` share it (ADR 0134).
 
-### Config Manifest
-`manifest.jsonc` inside each `configs[@variant]/` directory. Declares file
-placement only — `files` is an array of `{ src, dst, mode? }` entries. `src` is
-relative to the manifest's directory; `dst` is a `~/`-rooted user path. No
-templating, no conditionals, no hooks, no system paths, no encrypted entries.
-Constraints exist so that complexity is forced into the Config Variant axis
-instead of into per-file metadata.
+### Config Apply Pass
+The Runner step (ADR 0134) that applies config, decoupled from package install:
+`install.sh` installs the package, the Pass **copies** each planned Program's
+`home/` into the user's `$HOME` (a copy, not a symlink — the staged programs
+tree is ephemeral, ADR 0095) and seeds `/etc/skel` + `/root` scoped to the
+host's selected home-shippers. Runs after the user's programs install, before
+staging cleanup.
 
-### Generated Stow Tree
-Per-user materialized tree at `~/.dotfiles/.stow/<user>/` produced by the Config
-Generator on the target machine. Mirrors destination paths (`.config/<...>`,
-`.local/<...>`, home-relative files at root). Gitignored — never committed,
-always regenerable from the repo + User Profile + Config Variants. Consumed by
-`stow -d ~/.dotfiles/.stow/<user> --no-folding .`, which runs after the legacy
-Stow Tree pass.
+### config_exclude
+Per-user Profile key (array of program names, ADR 0134): install a Program's
+package but skip its config for that user. Empty/absent ⇒ every selected
+Program's config applies (no behaviour change). The install-time twin of
+`stow-configs --except`.
 
-### Config Generator
-`.installer/tools/generate-configs.sh`. Reads the merged User Core + User
-Profile for a
-target user and the merged Host Core + Host Profile for the machine (hostname
-looked up at runtime). Resolves each program's Config Variant via the Variant
-Resolver, validates all relevant Config Manifests, builds a per-user plan via
-the Plan Builder, and materializes the Generated Stow Tree. Invoked by the
-Runner inside `arch-chroot` per user between the dotfiles clone and the stow
-invocation. Also runnable standalone after install (`--user <name>`) to
-re-render after variant edits. Flags `--validate-only` and `--dry-run` are
-supported. Aborts if a planned destination is already owned by the legacy Stow
-Tree.
+### User Bareness (`programs_inherit`)
+A User Profile boolean (ADR 0134) — the user-layer twin of the host's
+`packages.inherit`. `programs_inherit: false` drops User Core's `programs`
+wholesale so a user starts with none, taking only what it names; scoped to
+`.programs` only (`groups`/`shell`/`sudo`/`ssh_authorized_keys` still inherit).
+Sibling key — `programs` stays an array. The `server` user (Minimal Profile)
+uses it so a headless box carries no workstation userland.
 
-### Plan Builder
-Pure function inside the Config Generator. Inputs: the resolved Config Variant
-map, the per-user `~/.dotfiles/.stow/<user>/` stow root, and the declared
-program set (User Programs from User Core + User Profile, unioned with Host
-Programs from Host Core + Host Profile). Output: a deterministically-ordered
-flat list of `{ src_abs, dst_in_stow_tree, mode? }` entries. No writes. Programs
-with a Program Config Tree on disk but not in the declared set are silently
-omitted — mid-migration is a normal state.
-
-### House Defaults
-Variants declared in User Core's `variants` object, applied to every user unless
-overridden per-key in their own User Profile. Same merge semantics as the rest
-of the User Core / User Profile relationship — core first, user adds on top,
-individual keys can be replaced without replacing the whole object.
+### stow-configs
+The operator's day-2 tool (`./stow-configs` at the repo root, ADR 0134):
+GNU-stows each Program's `home/` into `$HOME` from the persistent clone
+(`stow --adopt --no-folding`). Bare = every home-shipping Program; `<prog…>` a
+subset; `--except <prog…>` an opt-out. Same single source as the install-time
+Pass; the installer never stows (ADR 0095), the operator does.
 
 ### VM Profile
 A JSON file describing one virtual machine to provision for install testing or

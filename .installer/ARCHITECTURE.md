@@ -15,9 +15,9 @@ Term definitions: `../CONTEXT.md`. Decisions: `../docs/adr/`.
 - **Diagram 3** — package composition. The merge rule is stated once in
   prose; the diagram shows which sources compose the pacstrap set vs the
   paru set.
-- **Diagram 4** — per-user config-tree authoring & generation. The
-  machinery collapsed in Diagram 3: how program config trees + variants
-  become `$HOME` symlinks via the Config Generator + two stow passes.
+- **Diagram 4** — per-program config apply (ADR 0134). How each Program's
+  `home/` config reaches `$HOME`, decoupled from package install: the Config
+  Apply Pass copies it (honoring `config_exclude`); `stow-configs` is day-2.
 
 Concern colors (Diagram 2 left column): storage = blue, boot+kernel =
 purple, desktop+gpu = teal, impermanence = orange, identity/users/
@@ -232,7 +232,7 @@ one `profile.jsonc` merged over its `core` — arrays concat+dedupe,
 objects deep-merge, scalars specific-wins. The picker folds
 operator-picked disks into the ephemeral effective config (no template,
 no committed `install.jsonc` — ADR 0036); secrets are never merged;
-config variants / House Defaults are expanded in Diagram 4.
+per-program config apply is expanded in Diagram 4.
 
 The part worth a picture is what *lands* — which sources compose the
 pacstrap set vs the paru set. `repo`/`gpu`/`audio` + the hardcoded Base
@@ -263,17 +263,18 @@ flowchart TD
 
 ---
 
-## Diagram 4 — Per-user config-tree authoring & generation
+## Diagram 4 — Per-program config apply (ADR 0134)
 
-The config-variant machinery Diagram 3 defers — how per-program user
-configs become `$HOME` symlinks (ADR 0012). Authored as Program Config Trees
-(default `configs/` + `configs@<variant>/` alternates). The Config
-Generator (`tools/generate-configs.sh`, per user, in chroot between
-dotfiles clone and stow) resolves a variant per program (House Defaults
-from User Core, overridden per-key by the User Profile), validates manifests,
-builds a plan, materializes the Generated Stow Tree. Two stow passes
-apply it — legacy tree first, generated second. A planned dst already
-owned by the legacy tree aborts generation.
+How per-program user config reaches `$HOME` — decoupled from package install
+(ADR 0134, superseding ADR 0012's generator). Each Program owns its config in
+`programs/<c>/<n>/home/` (a subtree mirroring `$HOME`). `install.sh` installs
+the package only. The Config Apply Planner (`lib/config/config-apply.sh`,
+pure) computes which selected Programs' `home/` apply for a user —
+`apply = selected && ships_home && !config_exclude` — and the Runner **copies**
+each into `$HOME` (the staged tree is ephemeral, so a copy not a symlink; ADR
+0095), also seeding `/etc/skel` + `/root` scoped to the host's selection. The
+operator's day-2 tool `./stow-configs` symlinks the same `home/` source from
+the persistent clone.
 
 ```mermaid
 flowchart TD
@@ -284,39 +285,26 @@ flowchart TD
   classDef leg fill:#fff3e0,stroke:#ef6c00,color:#e65100
 
   subgraph AUTH["authored in repo"]
-    T0["programs/&lt;c&gt;/&lt;n&gt;/<br/>configs/manifest.jsonc"]:::src
-    TV["configs@&lt;v&gt;/manifest.jsonc<br/>(variant trees)"]:::src
-    UCv["User Core variants<br/>(House Defaults)"]:::sel
-    USv["User Profile variants<br/>(per-key override)"]:::sel
-    DECL["declared set:<br/>user U host programs"]:::sel
+    HSRC["programs/&lt;c&gt;/&lt;n&gt;/home/<br/>(mirrors $HOME)"]:::src
+    SEL["selected:<br/>user U host programs"]:::sel
+    EXCL["User Profile<br/>config_exclude[]"]:::sel
   end
 
-  subgraph GEN["generate-configs.sh (per user, chroot)"]
-    VR["Variant Resolver<br/>configs[@v]/program"]:::proc
-    VAL["validate manifests"]:::proc
-    PB["Plan Builder (pure)<br/>{src -> dst, mode}"]:::proc
-    MAT["materialize -> stow tree"]:::proc
+  subgraph PASS["Config Apply pass (Runner, chroot)"]
+    PLAN["Planner (pure)<br/>selected & ships_home & !exclude"]:::proc
+    CP["copy home/ -> $HOME"]:::proc
+    SKEL["seed /etc/skel + /root<br/>(host selection)"]:::proc
   end
 
-  GST["Generated Stow Tree<br/>~/.dotfiles/.stow/&lt;u&gt;/"]:::out
+  DAY2["./stow-configs (operator)<br/>symlink from clone"]:::out
+  HOMEOUT["config in $HOME"]:::out
 
-  subgraph APPLY["apply (after dotfiles clone)"]
-    LEG["legacy Stow Tree<br/>.config/ .zsh/ ..."]:::leg
-    S1["stow --no-folding */"]:::proc
-    S2["stow -d .stow/&lt;u&gt; .<br/>--no-folding"]:::proc
-    HOME["symlinks into $HOME"]:::out
-  end
-
-  UCv-->|merge|VR
-  USv-->|merge|VR
-  T0-->VR
-  TV-->VR
-  DECL-->PB
-  VR-->VAL-->PB-->MAT-->GST
-  LEG-->S1-->HOME
-  GST-->S2-->HOME
-  S1-.then.->S2
-  LEG-.abort on collision.->MAT
+  HSRC-->PLAN
+  SEL-->PLAN
+  EXCL-->PLAN
+  PLAN-->CP-->HOMEOUT
+  PLAN-->SKEL
+  HSRC-.day-2.->DAY2-->HOMEOUT
 ```
 
 ---

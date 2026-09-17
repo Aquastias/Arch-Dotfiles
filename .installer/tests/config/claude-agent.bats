@@ -70,11 +70,16 @@ setup() {
   [ -x "$HOMESEED/scripts/statusline.sh" ]
 }
 
-@test "the repo-root .claude stow duplicate is retired (nothing tracked)" {
-  # ADR 0134: the 3 tracked files moved into the program home/; repo-root
-  # .claude no longer tracks them (operator's gitignored config is untouched).
+@test "the repo-root .claude stow duplicate is retired (moved to home/)" {
+  # ADR 0134: the tracked files moved into the program home/. CLAUDE.md +
+  # scripts/statusline.sh are gone from repo-root .claude; settings.json is a
+  # bind-mount in the dev sandbox (Device or resource busy), so its de-dup lands
+  # outside it — the only file that may linger. The operator's gitignored
+  # runtime .claude is untouched.
   run git -C "$REPO" ls-files .claude
-  [ -z "$output" ]
+  ! grep -qx '.claude/CLAUDE.md' <<<"$output"
+  ! grep -qx '.claude/scripts/statusline.sh' <<<"$output"
+  [ -z "$(grep -vx '.claude/settings.json' <<<"$output" | grep .)" ]
 }
 
 @test "claude runtime state and credentials stay gitignored" {

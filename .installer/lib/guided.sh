@@ -759,9 +759,12 @@ _guided_create_user() {
   local inherit
   inherit="$(guided_select new_user_programs_inherit \
     "Inherit User Core programs" true false)"
+  # config_exclude offers ALL program names, not just the ones selected above:
+  # a user also gets User Core's programs (kitty, zsh, …), and their config is
+  # just as skippable (ADR 0134).
   local -a cfgexcl_a
   mapfile -t cfgexcl_a < <(_guided_collect_multi new_user_config_exclude \
-    "Skip config for (config_exclude)" "${programs_a[@]+"${programs_a[@]}"}")
+    "Skip config for (config_exclude)" "${prog_names[@]}")
   gn="$(guided_prompt new_user_git_name "Git name")"
   ge="$(guided_prompt new_user_git_email "Git email")"
   mapfile -t keys_a < <(_guided_collect_multi new_user_ssh_keys \

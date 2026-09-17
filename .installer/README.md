@@ -485,7 +485,6 @@ every boot without the USB.
 │   ├── explain-packages.sh # Package Resolver CLI (provenance)
 │   ├── impermanence.sh     # add/remove/status/apply-defaults
 │   ├── fetch-iso.sh        # Download + verify archzfs ISO
-│   ├── generate-configs.sh # Materialize per-user stow tree
 │   ├── harden-boot.sh      # Boot-path hardening
 │   ├── guided-preview.sh   # Live-fzf render harness
 │   ├── guided-fzf-smoke.py # Headless fzf-render smoke helper
