@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Migrate remaining simple config Programs to `home/`-only
 

@@ -1,7 +1,16 @@
 # ADR 0134: Per-program config `home/`, decoupled install + bareness flag
 
 ## Status
-Accepted — not yet implemented (forward-looking; migration is incremental).
+Accepted — implemented. The Config Apply Planner, `config_exclude`,
+`programs_inherit`, the Runner copy-pass, `./stow-configs`, and the migration of
+every config-bearing program (kitty, lazygit, yazi, pi, claude, teamspeak3, zsh)
+are in place; the ADR-0012 generator and its `.stow` plumbing are deleted;
+`minimal` uses a bare `server` user; the Guided Create-user form authors both
+keys. Two deliberate carve-outs: zsh keeps its repo-root tree (its `.zshrc` is a
+bind-mount in the dev sandbox, so the de-dup lands outside it — zsh is decoupled
+regardless), and the Guided wiring covers the create form (not the existing-user
+editor). Validated end-to-end on an `arch-combined` VM install: the pass placed
+all four home/ configs and seeded `/etc/skel` + `/root`.
 Supersedes ADR 0012 (per-program config tree with variants). Amends ADR 0095
 (single source moves from the repo-root stow tree into each program's `home/`;
 the installer still seeds a working default and still never stows).

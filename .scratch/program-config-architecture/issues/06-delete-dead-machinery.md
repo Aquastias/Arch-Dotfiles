@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Delete dead machinery (ADR 0012 generator, `.stow`, drift test)
 

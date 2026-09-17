@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Guided Create-user wiring for `programs_inherit` + `config_exclude`
 

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Tracer: decouple config apply + `config_exclude`, migrate `kitty`
 

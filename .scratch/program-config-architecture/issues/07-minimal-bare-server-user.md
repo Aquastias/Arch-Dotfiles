@@ -1,4 +1,4 @@
-Status: ready-for-human
+Status: done (option A: bare server user)
 
 # `minimal` bare server user (HITL decision)
 
