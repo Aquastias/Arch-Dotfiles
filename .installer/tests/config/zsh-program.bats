@@ -208,5 +208,6 @@ setup() {
 }
 
 @test "User Core serves the zsh program fleet-wide" {
-  grep -qE '"programs":.*"zsh"' "$UCORE"
+  # programs is a multi-line array; assert zsh is listed (not same-line match).
+  grep -q '"zsh"' "$UCORE"
 }

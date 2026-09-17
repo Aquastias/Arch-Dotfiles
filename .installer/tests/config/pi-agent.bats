@@ -76,7 +76,8 @@ setup() {
 }
 
 @test "User Core serves pi fleet-wide (ADR 0127)" {
-  grep -qE '"programs":.*"pi"' "$UCORE"
+  # programs is a multi-line array; assert pi is listed (not same-line match).
+  grep -q '"pi"' "$UCORE"
 }
 
 # ── ticket 02: vendored mattpocock skills ────────────────────────────────────
