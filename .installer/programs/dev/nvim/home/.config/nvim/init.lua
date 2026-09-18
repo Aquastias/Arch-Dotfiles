@@ -1,0 +1,6 @@
+-- Served Neovim config (ADR 0135). Hand-rolled on lazy.nvim; not LazyVim,
+-- not vim.pack. Targets stable Neovim 0.12.x.
+require("config.options")
+require("config.keymaps")
+require("config.autocmds")
+require("config.lazy")

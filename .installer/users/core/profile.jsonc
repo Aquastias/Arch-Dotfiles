@@ -29,7 +29,7 @@
   "groups": ["audio", "video", "storage", "optical", "network", "seat"],
   "programs": [
     "zsh", "kitty", "lazygit", "yazi", "virt-manager", "podman", "searxng",
-    "pi", "claude"
+    "pi", "claude", "nvim"
   ],
   "ssh_authorized_keys": []
 }
