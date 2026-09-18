@@ -1262,6 +1262,42 @@ follow, KDE stays fixed. The generated output is **seed-only, never stowed**
 input (`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
 per-palette static theme files, stowing `noctalia.conf`.
 
+### Neovim Config
+The fleet editor config (`~/.config/nvim/`): a **hand-rolled** Lua config on the
+`lazy.nvim` plugin manager — **not the LazyVim distro**, and not Neovim 0.12's
+built-in `vim.pack` (ADR 0135). Targets **stable Neovim 0.12.x** (Arch `extra`).
+Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
+toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
+— **no `mason`**, reusing the declarative `language-servers` convention), while
+the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
+nvim-treesitter, nvim-lspconfig, conform, nvim-lint, gitsigns + fugitive, oil +
+neo-tree, snacks (picker/dashboard/notifier), lualine, bufferline, harpoon,
+which-key, mini.ai/mini.pairs, nvim-ufo, render-markdown, todo-comments,
+undotree, nvim-emmet — **no noice**. Real LSPs span the full web/systems set
+(**solid** rides the ts server; **Swift** is best-effort optional AUR
+sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, every in-scope LSP on
+`PATH`, benign WARNs allowed, unused providers (perl/ruby/node) disabled.
+_Avoid_: LazyVim, `mason`, `vim.pack` (until 0.13 is stable), the retired
+`nvim.bak` and its rose-pine default.
+
+### Neovim Theme Template
+The Noctalia-follow seam for [[Neovim Config]] (ADR 0136), amending the
+[[ANSI-16 Following]] "Neovim is excluded" carve-out. A `follow_noctalia` Lua
+toggle, **default `false`**: off, nvim is static **Catppuccin Mocha + sapphire
+accent** (`#74c7ec`), switchable among the five Noctalia builtin palettes
+(rose-pine / catppuccin / tokyonight / gruvbox / nord); on, nvim follows the
+live palette. Following reuses the [[Pi Theme Template]] pattern — a
+`[theme.templates.user.nvim]` renders Noctalia's **16 terminal colors** into a
+nvim **base16** file (truecolor, `termguicolors` on, accent from `primary`),
+which nvim `fs_event`-watches and re-applies **mid-session**, so **no
+`post_hook` and no [[Live Theme Bridge]] change** (like pi/kitty hot-reload).
+Seeded with Catppuccin Mocha Sapphire (ADR 0109), live-rewritten only in
+compositor sessions — niri/Hyprland follow, KDE stays fixed. The generated file
+is **seed-only, never stowed** (gitignored); only the static template input is
+stowed. _Avoid_: ANSI-16 following for nvim (heavy app → own template), parsing
+kitty's `noctalia.conf`, a full 53-role map (base16 suffices), defaulting the
+toggle on.
+
 ### ANSI-16 Following
 The cohesion mechanism for shipped terminal CLIs/TUIs that are **not** Noctalia
 templates (ADR 0132). Instead of a per-app [[Pi Theme Template]]-style hex
@@ -1279,8 +1315,11 @@ runtime-rewrites it), `bat` (`BAT_THEME=ansi`, latent — not installed), and
 `git`/`less`/`ripgrep`/`fd` (default ANSI). The two hardcoded Catppuccin hexes
 in `.p10k.zsh` (root/context) are remapped to ANSI red/yellow. Repaint follows
 each tool's reload model (`eza` next render; `lazygit`/`yazi` restart-only, like
-the [[Zsh Theme Template]] limit). **Neovim is excluded** — its own rose-pine
-colorscheme, not ANSI-driven. Unlike the template outputs, the lazygit/yazi
+the [[Zsh Theme Template]] limit). **Neovim now follows via its own [[Neovim
+Theme Template]]** (ADR 0136, amending this) — a heavy app like pi warrants a
+dedicated template over the shared ANSI-16 slots; its `follow_noctalia` toggle
+is **off by default**, so out of the box nvim stays static Catppuccin Mocha
+Sapphire. Unlike the template outputs, the lazygit/yazi
 configs are static (nothing rewrites them), so they are **stowed and seeded**
 with no gitignore/seed-only dance. _Avoid_: per-app hex Noctalia templates or
 static Catppuccin theme files when a tool can express color through the 16 ANSI

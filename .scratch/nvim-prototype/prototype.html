@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PROTOTYPE — Neovim screens (Catppuccin Mocha Sapphire)</title>
+<!--
+  THROWAWAY PROTOTYPE (ADR 0135/0136). Not production. Double-click to view.
+  Answers: "what should the served Neovim config look like, per screen, in the
+  default static theme (Catppuccin Mocha + sapphire accent)?" The arch-combined
+  VM screenshots verify parity against these panels after implementation.
+  Nerd-font glyphs in real nvim are shown here as safe unicode approximations.
+-->
+<style>
+  :root{
+    /* Catppuccin Mocha */
+    --base:#1e1e2e; --mantle:#181825; --crust:#11111b;
+    --surface0:#313244; --surface1:#45475a; --surface2:#585b70;
+    --overlay0:#6c7086; --overlay1:#7f849c; --overlay2:#9399b2;
+    --subtext0:#a6adc8; --subtext1:#bac2de; --text:#cdd6f4;
+    --rosewater:#f5e0dc; --flamingo:#f2cdcd; --pink:#f5c2e7;
+    --mauve:#cba6f7; --red:#f38ba8; --maroon:#eba0ac; --peach:#fab387;
+    --yellow:#f9e2af; --green:#a6e3a1; --teal:#94e2d5; --sky:#89dceb;
+    --sapphire:#74c7ec; --blue:#89b4fa; --lavender:#b4befe;
+    /* accent = sapphire */
+    --accent:var(--sapphire);
+    --mono:"JetBrainsMono Nerd Font","JetBrains Mono","Fira Code",
+      ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--crust);color:var(--text);
+    font-family:var(--mono);font-size:13px;line-height:1.5;padding:28px}
+  h1{font-size:18px;margin:0 0 4px;color:var(--text)}
+  h1 b{color:var(--accent)}
+  .lede{color:var(--subtext0);margin:0 0 24px;font-size:12px;max-width:70ch}
+  .lede code{color:var(--sapphire)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));
+    gap:22px;align-items:start}
+  .screen{border:1px solid var(--surface1);border-radius:8px;overflow:hidden;
+    background:var(--base);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+  .cap{background:var(--mantle);border-bottom:1px solid var(--surface0);
+    padding:7px 12px;font-size:11px;color:var(--subtext0);
+    display:flex;gap:8px;align-items:center}
+  .cap .dot{width:9px;height:9px;border-radius:50%;background:var(--surface2)}
+  .cap .dot.a{background:var(--accent)}
+  .cap b{color:var(--text)}
+  .term{padding:0;min-height:230px;position:relative}
+  pre{margin:0;padding:10px 12px;white-space:pre;overflow-x:auto}
+  /* editor gutters */
+  .ln{color:var(--surface2)} .lnc{color:var(--peach)} /* cursorline nr */
+  .sign-add{color:var(--green)} .sign-chg{color:var(--yellow)}
+  .sign-del{color:var(--red)} .fold{color:var(--overlay0)}
+  .cur{background:var(--surface1)} /* cursorline */
+  .cursor{background:var(--accent);color:var(--crust)}
+  .sel{background:#3a3d5a}
+  /* syntax (catppuccin-nvim roles) */
+  .kw{color:var(--mauve)} .fn{color:var(--blue)} .str{color:var(--green)}
+  .num{color:var(--peach)} .cm{color:var(--overlay0);font-style:italic}
+  .ty{color:var(--yellow)} .cons{color:var(--peach)} .op{color:var(--sky)}
+  .var{color:var(--text)} .pun{color:var(--overlay2)} .prop{color:var(--text)}
+  .bool{color:var(--peach)} .tag{color:var(--blue)} .attr{color:var(--yellow)}
+  /* statusline */
+  .status{display:flex;font-size:12px;background:var(--mantle)}
+  .status .seg{padding:2px 10px}
+  .st-mode{background:var(--accent);color:var(--crust);font-weight:700}
+  .st-mode.ins{background:var(--green)} .st-mode.vis{background:var(--mauve)}
+  .st-b{background:var(--surface0);color:var(--subtext1)}
+  .st-c{background:var(--mantle);color:var(--subtext0);flex:1}
+  .st-git{color:var(--peach)} .st-err{color:var(--red)} .st-warn{color:var(--yellow)}
+  .st-r{background:var(--surface0);color:var(--subtext1)}
+  .st-pos{background:var(--accent);color:var(--crust);font-weight:700}
+  /* bufferline */
+  .bufline{display:flex;background:var(--crust);font-size:12px;
+    border-bottom:1px solid var(--surface0)}
+  .buf{padding:4px 12px;color:var(--overlay1);border-right:1px solid var(--surface0);
+    display:flex;gap:7px;align-items:center}
+  .buf.active{background:var(--base);color:var(--text);
+    box-shadow:inset 0 -2px 0 var(--accent)}
+  .buf .mod{color:var(--peach)} .buf .close{color:var(--overlay0)}
+  .buf.tabpage{margin-left:auto;color:var(--subtext0)}
+  /* floats */
+  .float{border:1px solid var(--accent);border-radius:6px;background:var(--mantle);
+    box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .ftitle{color:var(--accent);padding:3px 10px;border-bottom:1px solid var(--surface0)}
+  /* diagnostics severities */
+  .d-err{color:var(--red)} .d-warn{color:var(--yellow)}
+  .d-info{color:var(--sky)} .d-hint{color:var(--teal)}
+  .virt-err{color:var(--red);font-style:italic;opacity:.85}
+  .virt-warn{color:var(--yellow);font-style:italic;opacity:.85}
+  /* which-key / menus */
+  .wk-key{color:var(--accent);font-weight:700} .wk-grp{color:var(--pink)}
+  .wk-sep{color:var(--overlay0)} .wk-desc{color:var(--subtext1)}
+  /* picker */
+  .pk{display:grid;grid-template-columns:1fr 1fr;min-height:230px}
+  .pk-list{border-right:1px solid var(--surface0)}
+  .pk-prompt{color:var(--accent);padding:6px 12px;border-bottom:1px solid var(--surface0)}
+  .pk-item{padding:1px 12px;color:var(--subtext1)}
+  .pk-item.on{background:var(--surface0);color:var(--text)}
+  .pk-item.on::before{content:"▎";color:var(--accent);margin-left:-12px;
+    padding-right:4px}
+  .pk-match{color:var(--accent);font-weight:700}
+  .pk-icon{color:var(--blue)}
+  .pk-prev-h{color:var(--overlay0);padding:6px 12px;border-bottom:1px solid var(--surface0)}
+  /* tree */
+  .tree .dir{color:var(--accent)} .tree .file{color:var(--subtext1)}
+  .tree .g-new{color:var(--green)} .tree .g-mod{color:var(--yellow)}
+  .tree .g-unt{color:var(--overlay0)} .tree .root{color:var(--text);font-weight:700}
+  /* markdown render */
+  .md h2{color:var(--accent);border-bottom:1px solid var(--surface0);
+    margin:0 0 6px;font-size:15px}
+  .md h3{color:var(--yellow);margin:12px 0 4px;font-size:13px}
+  .md .bullet{color:var(--sapphire)} .md .chk{color:var(--green)}
+  .md .code{background:var(--mantle);border:1px solid var(--surface0);
+    border-radius:5px;padding:8px 10px;display:block;margin:8px 0}
+  .md .inline{background:var(--mantle);color:var(--peach);
+    border-radius:3px;padding:0 4px} .md .link{color:var(--blue);
+    text-decoration:underline}
+  .md .quote{border-left:3px solid var(--accent);padding-left:10px;
+    color:var(--subtext0);font-style:italic}
+  /* toast */
+  .toast{position:absolute;right:10px;top:10px;width:260px}
+  .toast .float{border-color:var(--green)}
+  .toast .ftitle{color:var(--green)}
+  /* dashboard */
+  .dash{padding:18px 12px;text-align:center;color:var(--subtext1)}
+  .dash .logo{color:var(--accent);font-weight:700}
+  .dash .item{color:var(--subtext1);padding:1px 0}
+  .dash .item b{color:var(--accent)}
+  .dash .foot{color:var(--overlay0);margin-top:10px;font-size:11px}
+  .legend{margin-top:26px;color:var(--overlay1);font-size:11px}
+  .legend b{color:var(--subtext1)}
+  .chip{display:inline-block;padding:1px 7px;border:1px solid var(--surface1);
+    border-radius:10px;margin:2px;font-size:11px}
+</style>
+</head>
+<body>
+<h1>Neovim served-config prototype — <b>Catppuccin Mocha · Sapphire</b></h1>
+<p class="lede">Static default look (<code>follow_noctalia = false</code>).
+Accent = sapphire <code>#74c7ec</code>. Thirteen screens from the locked roster;
+glyphs approximate nerd-font. This is the parity target the arch-combined VM is
+screenshotted against.</p>
+
+<div class="grid">
+
+<!-- 1. Dashboard -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>1 · Start screen</b> — snacks.dashboard</div>
+  <div class="term">
+    <div class="dash">
+<pre class="logo">
+      ██╗   ██╗ ██╗ ███╗   ███╗
+      ██║   ██║ ██║ ████╗ ████║
+      ██║   ██║ ██║ ██╔████╔██║
+      ╚██╗ ██╔╝ ██║ ██║╚██╔╝██║
+       ╚████╔╝  ██║ ██║ ╚═╝ ██║
+        ╚═══╝   ╚═╝ ╚═╝     ╚═╝                </pre>
+      <div class="item"><b> f</b>  Find File</div>
+      <div class="item"><b> n</b>  New File</div>
+      <div class="item"><b> r</b>  Recent Files</div>
+      <div class="item"><b> g</b>  Find Text</div>
+      <div class="item"><b> c</b>  Config</div>
+      <div class="item"><b> s</b>  Restore Session</div>
+      <div class="item"><b> q</b>  Quit</div>
+      <div class="foot">⚡ 41 plugins loaded in 28ms   ·   nvim v0.12.5</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Editing view -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>2 · Editing</b> — treesitter · gitsigns · lualine · bufferline</div>
+  <div class="bufline">
+    <span class="buf active">  init.lua</span>
+    <span class="buf">  options.lua <span class="mod">●</span></span>
+    <span class="buf">  theme.lua <span class="close">✗</span></span>
+    <span class="buf tabpage">  1  2 </span>
+  </div>
+<pre>
+<span class="ln">  1 </span><span class="cm">-- bootstrap the plugin manager</span>
+<span class="ln">  2 </span><span class="kw">local</span> <span class="var">lazypath</span> <span class="op">=</span> <span class="fn">vim</span><span class="pun">.</span><span class="fn">fn</span><span class="pun">.</span><span class="fn">stdpath</span><span class="pun">(</span><span class="str">"data"</span><span class="pun">)</span> <span class="op">..</span> <span class="str">"/lazy"</span>
+<span class="sign-add">▎</span><span class="lnc">  3 </span><span class="cur"><span class="kw">local</span> <span class="var">opts</span> <span class="op">=</span> <span class="pun">{</span> <span class="prop">follow_noctalia</span> <span class="op">=</span> <span class="bool">false</span><span class="cursor">,</span> <span class="pun">}</span>            </span>
+<span class="sign-chg">▎</span><span class="ln">  4 </span><span class="kw">require</span><span class="pun">(</span><span class="str">"lazy"</span><span class="pun">).</span><span class="fn">setup</span><span class="pun">(</span><span class="str">"plugins"</span><span class="pun">,</span> <span class="var">opts</span><span class="pun">)</span>
+<span class="ln">  5 </span>
+<span class="fold">  6 </span><span class="fold">+--  12 lines: keymaps ······································</span>
+<span class="ln"> 18 </span><span class="kw">return</span> <span class="pun">{</span>
+<span class="ln"> 19 </span>  <span class="prop">accent</span> <span class="op">=</span> <span class="str">"#74c7ec"</span><span class="pun">,</span> <span class="cm">-- sapphire</span>
+<span class="ln"> 20 </span><span class="pun">}</span>
+</pre>
+  <div class="status">
+    <span class="seg st-mode">NORMAL</span>
+    <span class="seg st-b st-git"> main</span>
+    <span class="seg st-c"> init.lua  <span class="st-err">● 1</span> <span class="st-warn">▲ 2</span></span>
+    <span class="seg st-r">lua · utf-8 · LF</span>
+    <span class="seg st-r">78%</span>
+    <span class="seg st-pos"> 3:41</span>
+  </div>
+</section>
+
+<!-- 3. Completion -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>3 · Completion</b> — blink.cmp + docs + signature</div>
+<pre>
+<span class="ln">  9 </span><span class="fn">vim</span><span class="pun">.</span><span class="fn">lsp</span><span class="pun">.</span><span class="var">conf</span><span class="cursor">i</span>
+<span class="ln">    </span>   <span class="float" style="display:inline-block;vertical-align:top">
+<span class="pk-item on"><span class="pk-icon"></span> config<span class="pk-match">i</span>g          <span class="wk-sep">func</span></span>
+<span class="pk-item"><span class="pk-icon"></span> enable            <span class="wk-sep">func</span></span>
+<span class="pk-item"><span class="pk-icon"></span> get_clients       <span class="wk-sep">func</span></span>
+<span class="pk-item"><span class="pk-icon"></span> buf_request       <span class="wk-sep">func</span></span></span>   <span class="float" style="display:inline-block;vertical-align:top;width:230px">
+<span class="ftitle"> documentation</span>
+<span class="var"> vim.lsp.config(name, cfg)</span>
+<span class="cm"> Update the config for an LSP</span>
+<span class="cm"> client by name. Merges cfg</span>
+<span class="cm"> into the resolved default.</span></span>
+<span class="ln"> </span>
+<span class="float" style="display:inline-block">
+<span class="ftitle"> signature</span> <span class="fn">config</span><span class="pun">(</span><span class="var">name</span><span class="pun">:</span> <span class="ty">string</span><span class="pun">,</span> <span class="sel">cfg: vim.lsp.Config</span><span class="pun">)</span></span>
+</pre>
+  <div class="status">
+    <span class="seg st-mode ins">INSERT</span>
+    <span class="seg st-b st-git"> main</span>
+    <span class="seg st-c"> lsp.lua</span>
+    <span class="seg st-pos"> 9:18</span>
+  </div>
+</section>
+
+<!-- 4. LSP hover + diagnostics -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>4 · Hover + diagnostics</b> — float · virtual text · list</div>
+<pre>
+<span class="ln"> 12 </span><span class="kw">const</span> <span class="var">count</span><span class="op">:</span> <span class="ty">number</span> <span class="op">=</span> <span class="fn">parseInt</span><span class="pun">(</span><span class="var">raw</span><span class="cursor">)</span>   <span class="virt-warn">■ Prefer Number() over parseInt</span>
+<span class="ln"> 13 </span><span class="var">user</span><span class="pun">.</span><span class="var">nam</span>                              <span class="virt-err">● Property 'nam' does not exist on 'User'</span>
+<span class="ln">    </span>  <span class="float">
+<span class="ftitle"> hover</span>
+<span class="pun"> (property) </span><span class="var">User.name</span><span class="pun">:</span> <span class="ty">string</span>
+<span class="cm"> The user's display name.</span></span>
+</pre>
+  <div class="float" style="border-color:var(--surface1);border-radius:0;border-left:0;border-right:0">
+    <div class="ftitle" style="color:var(--subtext0)"> Diagnostics (snacks)</div>
+<pre>
+<span class="d-err">●</span> <span class="ln">app.ts 13:6</span>  Property 'nam' does not exist on type 'User'. <span class="wk-sep">ts(2339)</span>
+<span class="d-warn">■</span> <span class="ln">app.ts 12:15</span> Prefer Number() over parseInt. <span class="wk-sep">biome</span>
+<span class="d-hint">▲</span> <span class="ln">app.ts 4:7</span>  'raw' is never reassigned; use const. <span class="wk-sep">ts</span>
+</pre>
+  </div>
+</section>
+
+<!-- 5. oil -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>5 · oil.nvim</b> — filesystem as an editable buffer</div>
+<pre>
+<span class="pk-prompt">oil ~/.config/nvim/lua/</span>
+<span class="ln">  1 </span><span class="tree dir">../</span>
+<span class="ln">  2 </span><span class="tree dir"> config/</span>
+<span class="ln">  3 </span><span class="tree dir"> plugins/</span>
+<span class="sign-add">▎</span><span class="lnc">  4 </span><span class="cur"><span class="tree file"> theme.lua</span>                              </span>
+<span class="ln">  5 </span><span class="tree file"> colorscheme.lua</span>
+<span class="ln">  6 </span><span class="tree file"> init.lua</span>
+<span class="ln">  7 </span><span class="tree file"> options.lua</span>
+</pre>
+  <div class="status">
+    <span class="seg st-mode">NORMAL</span>
+    <span class="seg st-c"> oil://~/.config/nvim/lua/</span>
+    <span class="seg st-pos"> 4:2</span>
+  </div>
+</section>
+
+<!-- 6. neo-tree -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>6 · neo-tree</b> — sidebar · git status · diagnostics</div>
+<pre>
+<span class="pk-prompt"> Neo-tree</span>
+<span class="tree root"> ~/.config/nvim</span>
+<span class="tree dir">  lua</span>
+<span class="tree dir">   config</span>
+<span class="tree file">    options.lua</span>  <span class="tree g-mod">▲</span>
+<span class="tree file">    keymaps.lua</span>
+<span class="tree dir">   plugins</span>
+<span class="tree file">    theme.lua</span>    <span class="tree g-new">✚</span>
+<span class="tree file">    blink.lua</span>    <span class="tree g-new">✚</span>
+<span class="tree file">  init.lua</span>
+<span class="tree file">  lazy-lock.json</span> <span class="tree g-unt"></span>
+<span class="tree file">  stylua.toml</span>
+</pre>
+  <div class="status">
+    <span class="seg st-mode">NORMAL</span>
+    <span class="seg st-c"> neo-tree filesystem</span>
+    <span class="seg st-r st-git">+2 ~1</span>
+  </div>
+</section>
+
+<!-- 7. picker -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>7 · snacks.picker</b> — files, live preview</div>
+  <div class="pk">
+    <div class="pk-list">
+      <div class="pk-prompt">  the<span class="cursor"> </span></div>
+      <div class="pk-item on"><span class="pk-icon"></span> lua/plugins/<span class="pk-match">the</span>me.lua</div>
+      <div class="pk-item"><span class="pk-icon"></span> lua/config/<span class="pk-match">the</span>me.lua</div>
+      <div class="pk-item"><span class="pk-icon"></span> docs/adr/0136-<span class="pk-match">the</span>me.md</div>
+      <div class="pk-item"><span class="pk-icon"></span> <span class="pk-match">the</span>mes/noctalia.lua</div>
+      <div class="pk-item" style="color:var(--overlay0);padding-top:8px">  4/312   ↑↓ move · ⏎ open</div>
+    </div>
+    <div>
+      <div class="pk-prev-h"> lua/plugins/theme.lua</div>
+<pre style="min-height:0">
+<span class="ln"> 1 </span><span class="kw">return</span> <span class="pun">{</span>
+<span class="ln"> 2 </span>  <span class="str">"catppuccin/nvim"</span><span class="pun">,</span>
+<span class="ln"> 3 </span>  <span class="prop">name</span> <span class="op">=</span> <span class="str">"catppuccin"</span><span class="pun">,</span>
+<span class="ln"> 4 </span>  <span class="prop">opts</span> <span class="op">=</span> <span class="pun">{</span>
+<span class="ln"> 5 </span>    <span class="prop">flavour</span> <span class="op">=</span> <span class="str">"mocha"</span><span class="pun">,</span>
+<span class="ln"> 6 </span>    <span class="cm">-- accent → sapphire</span>
+<span class="ln"> 7 </span>  <span class="pun">}</span><span class="pun">,</span>
+</pre>
+    </div>
+  </div>
+</section>
+
+<!-- 8. which-key -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>8 · which-key</b> — leader popup</div>
+<pre style="min-height:120px">
+<span class="cm">  editing  ·  &lt;Space&gt;</span>
+</pre>
+  <div class="float" style="border-radius:0;border-left:0;border-right:0;border-bottom:0">
+<pre>
+<span class="wk-key">f</span> <span class="wk-sep">→</span> <span class="wk-grp">+find</span>       <span class="wk-key">g</span> <span class="wk-sep">→</span> <span class="wk-grp">+git</span>        <span class="wk-key">e</span> <span class="wk-sep">→</span> <span class="wk-grp">+explorer</span>
+<span class="wk-key">u</span> <span class="wk-sep">→</span> <span class="wk-grp">+ui/toggle</span>  <span class="wk-key">x</span> <span class="wk-sep">→</span> <span class="wk-grp">+diagnostics</span> <span class="wk-key">a</span> <span class="wk-sep">→</span> <span class="wk-desc">harpoon add</span>
+<span class="wk-key">/</span> <span class="wk-sep">→</span> <span class="wk-desc">grep</span>       <span class="wk-key">-</span> <span class="wk-sep">→</span> <span class="wk-desc">oil (parent)</span>  <span class="wk-key">L</span> <span class="wk-sep">→</span> <span class="wk-desc">lint buffer</span>
+<span class="wk-key">uC</span> <span class="wk-sep">→</span> <span class="wk-desc">pick colorscheme</span>            <span class="wk-key">uN</span> <span class="wk-sep">→</span> <span class="wk-desc">toggle follow_noctalia</span>
+</pre>
+  </div>
+</section>
+
+<!-- 9. harpoon -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>9 · harpoon</b> — quick menu</div>
+<pre style="min-height:80px"><span class="cm">  jump list — &lt;C-e&gt;</span></pre>
+  <div class="float" style="margin:0 40px">
+    <div class="ftitle"> harpoon</div>
+<pre>
+<span class="num">1</span>  <span class="var">lua/plugins/theme.lua</span>
+<span class="num">2</span>  <span class="var">lua/config/options.lua</span>
+<span class="num">3</span>  <span class="var">docs/adr/0136-neovim-follows-noctalia.md</span>
+<span class="num">4</span>  <span class="var">.config/noctalia/config.toml</span>
+</pre>
+  </div>
+<pre style="min-height:20px"></pre>
+</section>
+
+<!-- 10. fugitive + blame -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>10 · fugitive</b> — status + gitsigns inline blame</div>
+<pre>
+<span class="pk-prompt"> main  origin/main</span>
+<span class="cm">Head: main Complete ADR 0136 — nvim follows noctalia</span>
+<span class="ln"> </span>
+<span class="d-warn">Unstaged (2)</span>
+<span class="sign-chg">~</span> <span class="var">lua/plugins/theme.lua</span>
+<span class="sign-add">+</span> <span class="var">themes/noctalia.lua</span>
+<span class="ln"> </span>
+<span class="d-hint">Staged (1)</span>
+<span class="sign-add">+</span> <span class="var">docs/adr/0136-neovim-follows-noctalia.md</span>
+<span class="ln"> </span>
+<span class="cm">a4da628</span> <span class="var">theme.lua</span> <span class="wk-sep">(You, 2h ago)</span> feat: sapphire accent
+</pre>
+</section>
+
+<!-- 11. undotree -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>11 · undotree</b> — history + diff</div>
+  <div class="pk">
+    <div class="pk-list">
+      <div class="pk-prompt"> undotree</div>
+<pre style="min-height:0">
+<span class="var">* </span><span class="num">5</span>  <span class="cm">seconds ago</span>
+<span class="pun">| * </span><span class="num">4</span>  <span class="cm">(2 min)</span>
+<span class="pun">|/  </span>
+<span class="var">* </span><span class="num">3</span>  <span class="cm">5 min ago</span>
+<span class="var">* </span><span class="num">2</span>  <span class="cm">9 min ago</span>
+<span class="var">* </span><span class="num">1</span>  <span class="cm">origin</span>
+</pre>
+    </div>
+    <div>
+      <div class="pk-prev-h"> diff</div>
+<pre style="min-height:0">
+<span class="sign-del">-  accent = "#b4befe"</span>
+<span class="sign-add">+  accent = "#74c7ec"</span>
+<span class="sign-add">+  -- sapphire, not lavender</span>
+</pre>
+    </div>
+  </div>
+</section>
+
+<!-- 12. render-markdown -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>12 · render-markdown</b> — in-buffer render</div>
+  <div class="md" style="padding:12px">
+    <h2>󰎤 Neovim Config</h2>
+    <div><span class="bullet">●</span> Hand-rolled on <span class="inline">lazy.nvim</span></div>
+    <div><span class="bullet">●</span> Follows <span class="link">Noctalia</span> when toggled</div>
+    <h3>󰎧 Theme toggle</h3>
+    <div><span class="chk">✓</span> static Catppuccin Mocha + sapphire</div>
+    <div><span class="chk">✓</span> five builtin palettes</div>
+    <div style="color:var(--overlay0)"><span style="color:var(--surface2)">☐</span> live follow (default off)</div>
+    <span class="code"><span class="kw">local</span> follow <span class="op">=</span> <span class="bool">false</span></span>
+    <div class="quote">Seed-only, never stowed — regenerated per palette.</div>
+  </div>
+</section>
+
+<!-- 13. terminal + notifier -->
+<section class="screen">
+  <div class="cap"><span class="dot a"></span><span class="dot"></span><span class="dot"></span><b>13 · terminal + notifier</b> — snacks toast</div>
+  <div class="term">
+    <div class="toast">
+      <div class="float">
+        <div class="ftitle">✓ Theme saved</div>
+<pre style="min-height:0;font-size:11px"><span class="var"> follow_noctalia = true</span>
+<span class="cm"> repaint on next fs_event</span></pre>
+      </div>
+    </div>
+<pre>
+<span class="pk-prompt"> term</span>
+<span class="green">❯</span> nvim --headless "+checkhealth" +qa
+<span class="d-hint">nvim: OK</span>   <span class="d-hint">lsp: 14 clients OK</span>   <span class="d-hint">treesitter: OK</span>
+<span class="d-warn">providers: perl/ruby disabled (expected)</span>
+<span class="var">swift: sourcekit-lsp not found (optional)</span>
+<span class="green">❯</span> <span class="cursor"> </span>
+</pre>
+    <div class="status">
+      <span class="seg st-mode" style="background:var(--peach)">TERMINAL</span>
+      <span class="seg st-c"> term://checkhealth</span>
+      <span class="seg st-pos"> 6:2</span>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="legend">
+<b>Palette roles</b> —
+<span class="chip" style="color:var(--sapphire)">accent · sapphire #74c7ec</span>
+<span class="chip" style="color:var(--mauve)">keyword</span>
+<span class="chip" style="color:var(--blue)">function</span>
+<span class="chip" style="color:var(--green)">string / add</span>
+<span class="chip" style="color:var(--peach)">number / const</span>
+<span class="chip" style="color:var(--yellow)">type / change</span>
+<span class="chip" style="color:var(--red)">error / delete</span>
+<span class="chip" style="color:var(--overlay0)">comment</span>
+<br><b>Note</b> — glyphs approximate nerd-font; in the VM they render via the
+programming nerd font. When <code>follow_noctalia=true</code>, every color above
+is replaced live by Noctalia's base16 output (accent from <code>primary</code>).
+</div>
+</body>
+</html>

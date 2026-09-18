@@ -1,0 +1,44 @@
+# ADR 0135: Hand-rolled Neovim on lazy.nvim; LSP toolchain via system packages
+
+## Status
+Accepted. Supersedes the two prior in-repo Neovim configs — the LazyVim distro
+at `.config/nvim` and the hand-rolled `.config/nvim.bak` — both retired. The
+fresh config is built and VM-verified in `.scratch/` before it swaps into the
+served `.config/nvim`.
+
+## Context
+The repo carried two Neovim configs: a LazyVim distro and an older hand-rolled
+tree kept as `nvim.bak`. Neither was the deliberate, single served config the
+rest of the fleet userland has. Two premises needed grounding first:
+
+- Neovim's built-in plugin manager **`vim.pack` shipped in stable 0.12**
+  (2026-03), not 0.13; **0.13 is still nightly**. So "drop LazyVim because the
+  new version bundles a manager" conflates two independent axes — the plugin
+  **manager** (`vim.pack` vs `lazy.nvim`) and the **framework** (LazyVim distro
+  vs hand-rolled).
+- `vim.pack` deliberately does **not** reproduce `lazy.nvim`'s declarative
+  lazy-loading (`event`/`ft`/`cmd`/`keys`), `opts`, or dependency ordering; its
+  maintainer guide frames it for simple configs. For a ~20-language config,
+  lazy-loading keeps startup fast without hand-rolled autocmds.
+
+Separately, the fleet already installs LSP servers as **declarative system
+packages** (Host Core `packages.language-servers`: rust-analyzer, gopls, zls,
+clang, typescript-language-server, yaml-language-server, bash-language-server,
+vscode-langservers-extracted; biome under dev). `mason` appears nowhere.
+
+## Decision
+Serve **one** hand-rolled Lua Neovim config on **`lazy.nvim`** — not the LazyVim
+distro, not `vim.pack` yet — targeting **stable 0.12.x**. Full control fits the
+repo's ethos (documented, minimal opaque deps, "reuse before add"); lazy.nvim
+keeps a 20-language startup fast and its ecosystem mature. `vim.pack` is
+revisited when 0.13 stabilises.
+
+The editor's LSP servers, formatters, and linters install as **system packages**
+(repo; AUR only for gaps), owned by a new `dev/nvim` User Program,
+arch-wiki-grounded per `PROGRAM_SPEC.md`. **No `mason`** — it would duplicate
+binaries into nvim's data dir and fight the declarative, reproducible install
+the rest of the fleet uses. `:checkhealth` on the arch-combined VM is the
+acceptance gate: zero ERROR, every in-scope LSP on `PATH`, benign WARNs allowed,
+unused providers (perl/ruby/node) disabled.
+
+Both prior configs are deleted once the fresh one passes the VM gate.
