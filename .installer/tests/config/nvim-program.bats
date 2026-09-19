@@ -155,3 +155,20 @@ setup() {
   grep -q 'ruff' "$L"
   grep -q 'biomejs' "$L"
 }
+
+# ── ticket 04: files & navigation UX ─────────────────────────────────────────
+
+@test "files/nav plugins present: snacks, oil, neo-tree, harpoon" {
+  local P="$NVIM/lua/plugins"
+  grep -rq 'folke/snacks.nvim' "$P"
+  grep -rq 'stevearc/oil.nvim' "$P"
+  grep -rq 'nvim-neo-tree/neo-tree.nvim' "$P"
+  grep -rq 'ThePrimeagen/harpoon' "$P"
+}
+
+@test "snacks provides picker, dashboard and notifier" {
+  local S="$NVIM/lua/plugins/snacks.lua"
+  grep -q 'picker' "$S"
+  grep -q 'dashboard' "$S"
+  grep -q 'notifier' "$S"
+}
