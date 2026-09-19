@@ -40,6 +40,13 @@ setup() {
 
 # ── config.toml: required look ───────────────────────────────────────────────
 
+@test "config.toml registers the Neovim Theme Template (ADR 0136)" {
+  grep -q '\[theme.templates.user.nvim\]' "$CT"
+  grep -q 'templates/nvim.lua' "$CT"
+  grep -q '~/.config/nvim/themes/noctalia.lua' "$CT"
+  [ -f "$REPO/.config/noctalia/templates/nvim.lua" ]
+}
+
 @test "config.toml exists and is the stow-owned curated look" {
   [ -f "$CT" ]
   # Catppuccin Mocha Sapphire via the community palette (ADR 0109).

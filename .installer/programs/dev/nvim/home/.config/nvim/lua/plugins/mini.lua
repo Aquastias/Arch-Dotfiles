@@ -11,4 +11,7 @@ return {
     event = "InsertEnter",
     opts = {},
   },
+  -- Base16 engine for the Noctalia follow path (ADR 0136); loaded on require by
+  -- config/noctalia.lua only when follow_noctalia is on.
+  { "echasnovski/mini.base16" },
 }

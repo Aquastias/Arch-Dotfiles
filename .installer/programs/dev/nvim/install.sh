@@ -18,12 +18,28 @@
 set -Eeuo pipefail
 trap 'echo "[nvim] error on line $LINENO" >&2' ERR
 
+SELF="${PROGRAMS}/dev/nvim"
+
 print_status info "Installing Swift toolchain (sourcekit-lsp) — best-effort..."
 if ${AUR_HELPER} -S --noconfirm --needed swift-bin; then
   print_status success "Swift toolchain installed (sourcekit-lsp available)."
 else
   print_status warning "Swift unavailable; sourcekit-lsp skipped (optional)."
 fi
+
+# ── seed the Noctalia-generated theme (Catppuccin Mocha Sapphire default) ─────
+# Seed-only/gitignored (ADR 0136): nvim loads it only when follow_noctalia is
+# on. Noctalia rewrites it live on compositors, so KDE and first boot keep this
+# default. Three targets like kitty: the user, /etc/skel, and /root.
+print_status info "Seeding Neovim palette theme..."
+mkdir -p "${HOME}/.config/nvim/themes"
+cp "${SELF}/themes/noctalia.lua" "${HOME}/.config/nvim/themes/noctalia.lua"
+sudo mkdir -p /etc/skel/.config/nvim/themes
+sudo cp "${SELF}/themes/noctalia.lua" \
+  /etc/skel/.config/nvim/themes/noctalia.lua
+sudo mkdir -p /root/.config/nvim/themes
+sudo cp "${SELF}/themes/noctalia.lua" /root/.config/nvim/themes/noctalia.lua
+sudo chown -R root:root /root/.config/nvim
 
 print_status success "Neovim staged." \
   "Config applied by the Runner pass; LSP toolchain from Host Core."

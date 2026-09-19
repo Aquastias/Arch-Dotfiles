@@ -234,6 +234,17 @@ wallpaper_scheme = "m3-content"
     input_path  = "$XDG_CONFIG_HOME/noctalia/templates/kitty.conf"
     output_path = "~/.config/kitty/themes/noctalia.conf"
 
+    # Render the live palette into Neovim (ADR 0136, "Neovim Theme Template").
+    # A user-template mapping the 16 terminal colors + primary accent into a
+    # base16 Lua file; nvim's config/noctalia.lua fs_event-watches it and
+    # re-applies mid-session, but only when follow_noctalia is on — so no
+    # post_hook and no Live Theme Bridge change, as pi/kitty do. Seed-only
+    # output (never stowed); KDE never runs it, so nvim stays the seeded Mocha
+    # Sapphire there.
+    [theme.templates.user.nvim]
+    input_path  = "$XDG_CONFIG_HOME/noctalia/templates/nvim.lua"
+    output_path = "~/.config/nvim/themes/noctalia.lua"
+
 [wallpaper.default]
 path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"
 

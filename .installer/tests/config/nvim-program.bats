@@ -222,3 +222,38 @@ setup() {
 @test "init applies the theme after plugins load" {
   grep -q 'require("config.theme").setup()' "$NVIM/init.lua"
 }
+
+# ── ticket 07: Neovim Theme Template (live bridge) ───────────────────────────
+# The config.toml registration + stowed template input are asserted in
+# noctalia-stow.bats, beside the pi/kitty/zsh template tests.
+
+@test "seed theme source is Mocha Sapphire base16 (ADR 0136)" {
+  local S="$PROG/themes/noctalia.lua"
+  [ -f "$S" ]
+  grep -q 'base00 = "#1e1e2e"' "$S"          # Mocha base
+  grep -q 'base05 = "#cdd6f4"' "$S"          # Mocha text
+  grep -q 'accent = "#74c7ec"' "$S"          # sapphire
+}
+
+@test "install.sh seeds the generated nvim theme into all three targets" {
+  grep -q '"${HOME}/.config/nvim/themes/noctalia.lua"' "$INSTALL"
+  grep -q '/etc/skel/.config/nvim/themes/noctalia.lua' "$INSTALL"
+  grep -q '/root/.config/nvim/themes/noctalia.lua' "$INSTALL"
+}
+
+@test "generated nvim theme is seed-only: gitignored, not in the home bundle" {
+  grep -q 'programs/dev/nvim/home/.config/nvim/themes/' "$REPO/.gitignore"
+  [ ! -e "$NVIM/themes/noctalia.lua" ]
+}
+
+@test "follow path loads the base16 file and live-reloads (ADR 0136)" {
+  local N="$NVIM/lua/config/noctalia.lua"
+  [ -f "$N" ]
+  grep -q 'mini.base16' "$N"
+  grep -q 'fs_event' "$N"
+  grep -q 'themes/noctalia.lua' "$N"
+}
+
+@test "mini.base16 is available for the follow path" {
+  grep -rq 'echasnovski/mini.base16' "$NVIM/lua/plugins"
+}
