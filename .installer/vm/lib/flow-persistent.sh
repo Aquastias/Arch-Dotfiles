@@ -129,6 +129,13 @@ _flow_build_seed() {
 _render_installer_script() {
   local repo_url="$1" pubkey="$2" primary_user="${3:-aquastias}" config_b64
   config_b64="$(printf '%s' "${INSTALL_CONFIG_CONTENT}" | base64 -w 0)"
+  # Forced-skew gate (ADR 0137): when the host exports
+  # ARCHZFS_LTS_CEILING_OVERRIDE, thread it into the guest so the install
+  # exercises the archzfs LTS ceiling pin even after archzfs has caught up to
+  # the mirror (no live skew). Empty ⇒ no line injected ⇒ happy path.
+  local skew_line=""
+  [[ -n "${ARCHZFS_LTS_CEILING_OVERRIDE:-}" ]] \
+    && skew_line="export ARCHZFS_LTS_CEILING_OVERRIDE='${ARCHZFS_LTS_CEILING_OVERRIDE}'"
   cat <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -163,6 +170,9 @@ jsonc_strip "\$_uprof" \\
 # (no-ops on profiles without encryption or secrets). Disposable VMs only.
 export INSTALL_ENC_PASSPHRASE='testtest'
 export SECRETS_AGE_PASSPHRASE='test'
+# Forced-skew gate (ADR 0137): fake-low archzfs LTS ceiling, host-injected. A
+# blank line when unset — the happy path is untouched.
+${skew_line}
 # Capture the install to a file (a FILE tee is safe; serial is not — a slow
 # reader wedges pacman). Then emit an exit sentinel on BOTH success and failure
 # so the host can tell a failed install from a hang, and on failure HOLD the
