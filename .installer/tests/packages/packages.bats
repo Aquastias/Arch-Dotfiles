@@ -200,6 +200,42 @@ write_config() {
   echo "$output" | grep -qx "stow"
 }
 
+# ── archzfs LTS ceiling pin wiring (ADR 0137) ─────────────────────────────────
+# collect_packages reads LTS_PIN_SPECS (exported by archzfs_lts_pin_prepare) and
+# swaps the bare lts token + headers for the version-pinned specs.
+
+@test "collect_packages: LTS_PIN_SPECS swaps the bare lts token + headers" {
+  write_config '{"options": {"kernel": "lts"}}'
+  LTS_PIN_SPECS="linux-lts=6.18.52-1 linux-lts-headers=6.18.52-1" \
+    run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "linux-lts=6.18.52-1"
+  echo "$output" | grep -qx "linux-lts-headers=6.18.52-1"
+  # the bare, unpinned tokens must be gone
+  ! echo "$output" | grep -qx "linux-lts"
+  ! echo "$output" | grep -qx "linux-lts-headers"
+}
+
+@test "collect_packages: no LTS_PIN_SPECS → bare tokens survive (byte-identical)" {
+  write_config '{"options": {"kernel": "lts"}}'
+  run collect_packages
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -qx "linux-lts"
+  echo "$output" | grep -qx "linux-lts-headers"
+  ! echo "$output" | grep -q "linux-lts="
+}
+
+@test "collect_packages: LTS pin leaves a non-lts flavour untouched" {
+  write_config '{"options": {"kernel": ["lts", "default"]}}'
+  LTS_PIN_SPECS="linux-lts=6.18.52-1 linux-lts-headers=6.18.52-1" \
+    run collect_packages
+  [ "$status" -eq 0 ]
+  # the rolling kernel + headers are never rewritten
+  echo "$output" | grep -qx "linux"
+  echo "$output" | grep -qx "linux-headers"
+  echo "$output" | grep -qx "linux-lts=6.18.52-1"
+}
+
 # ── GPU and audio packages ────────────────────────────────────────────────────
 
 @test "collect_packages: environment.gpu=nvidia drivers appear in output" {

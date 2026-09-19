@@ -30,6 +30,9 @@ declare -F base_packages >/dev/null 2>&1 \
 # shellcheck source=./filesystem.sh
 declare -F fs_userland_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/filesystem.sh"
+# shellcheck source=./archzfs-kernel.sh
+declare -F archzfs_lts_pin_prepare >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/archzfs-kernel.sh"
 
 # =============================================================================
 # PACKAGE COLLECTION
@@ -52,6 +55,21 @@ collect_packages() {
     [[ -n "$tok" ]] || continue
     kernel_pkgs+=("$(kernel_pkg "$tok")" "$(kernel_headers_pkg "$tok")")
   done < <(install_config_kernels)
+
+  # archzfs LTS ceiling pin (ADR 0137): when archzfs_lts_pin_prepare had to hold
+  # the target linux-lts back, it exported the version-pinned specs. Swap the
+  # bare lts token + headers for them so pacstrap installs the archzfs-safe
+  # kernel. No-op when unset — the happy path stays byte-identical.
+  if [[ -n "${LTS_PIN_SPECS:-}" ]]; then
+    local -a _pin; read -ra _pin <<<"$LTS_PIN_SPECS"
+    local _i
+    for _i in "${!kernel_pkgs[@]}"; do
+      case "${kernel_pkgs[$_i]}" in
+        linux-lts)         kernel_pkgs[$_i]="${_pin[0]}" ;;
+        linux-lts-headers) kernel_pkgs[$_i]="${_pin[1]}" ;;
+      esac
+    done
+  fi
 
   # ── Bootloader selection ──────────────────────────────────────────────────
   # Extra package(s) come from the Bootloader Manifest (ADR 0077). Today:
@@ -376,6 +394,15 @@ install_base() {
   # ZFS reports space in a way pacman's CheckSpace can't read — disable it so
   # pacstrap (and later upgrades) don't abort with a false "too full".
   disable_checkspace
+
+  # archzfs LTS ceiling (ADR 0137): before pacstrap, pin the target linux-lts to
+  # a version archzfs can build ZFS against. No-op unless the mirror's linux-lts
+  # has outrun archzfs. Only when some group is ZFS and lts is selected — the
+  # only flavour the pin covers.
+  if [[ "$(install_config_any_zfs)" == "true" ]] \
+     && install_config_kernels | grep -qx lts; then
+    archzfs_lts_pin_prepare
+  fi
 
   mapfile -t pkgs < <(collect_packages)
   info "Packages to install: ${#pkgs[@]}"
