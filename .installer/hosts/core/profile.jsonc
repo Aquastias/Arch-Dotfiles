@@ -173,7 +173,6 @@
         "basedpyright",
         "emmet-language-server",
         "nixd",
-        "phpactor",
         "vscode-langservers-extracted"
       ]
     }

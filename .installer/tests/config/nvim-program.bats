@@ -99,8 +99,16 @@ setup() {
   local H="$REPO/.installer/hosts/core/profile.jsonc"
   grep -q '"basedpyright"' "$H"
   grep -q '"nixd"' "$H"
-  grep -q '"phpactor"' "$H"
   grep -q '"emmet-language-server"' "$H"
+}
+
+@test "phpactor installs via the program with php iconv enabled (ADR 0135)" {
+  # phpactor's AUR build needs php's iconv extension, so it can't be a bare
+  # package (VM-verified). The program enables iconv, then installs it — and it
+  # is NOT declared as a bare Host Core package.
+  grep -q 'extension=iconv' "$INSTALL"
+  grep -q 'needed phpactor' "$INSTALL"
+  ! grep -q '"phpactor"' "$REPO/.installer/hosts/core/profile.jsonc"
 }
 
 @test "install.sh installs Swift best-effort, never failing the install" {

@@ -20,6 +20,15 @@ trap 'echo "[nvim] error on line $LINENO" >&2' ERR
 
 SELF="${PROGRAMS}/dev/nvim"
 
+# PHP LSP (ADR 0135): phpactor's AUR build check() and its runtime need php's
+# iconv extension, which Arch ships (iconv.so) but leaves DISABLED — so phpactor
+# can't be a bare package (its build aborts: "iconv extension is not installed",
+# VM-verified). Enable iconv, then install phpactor here in the user-program
+# phase (php is already present from Host Core dev).
+print_status info "Enabling php iconv + installing phpactor (PHP LSP)..."
+echo 'extension=iconv' | sudo tee /etc/php/conf.d/iconv.ini >/dev/null
+${AUR_HELPER} -S --noconfirm --needed phpactor
+
 print_status info "Installing Swift toolchain (sourcekit-lsp) — best-effort..."
 if ${AUR_HELPER} -S --noconfirm --needed swift-bin; then
   print_status success "Swift toolchain installed (sourcekit-lsp available)."
