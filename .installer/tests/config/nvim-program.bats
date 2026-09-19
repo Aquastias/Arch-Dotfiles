@@ -172,3 +172,25 @@ setup() {
   grep -q 'dashboard' "$S"
   grep -q 'notifier' "$S"
 }
+
+# ── ticket 05: chrome, git & editing helpers ─────────────────────────────────
+
+@test "chrome/git/editing plugins present (ticket 05)" {
+  local P="$NVIM/lua/plugins"
+  grep -rq 'nvim-lualine/lualine.nvim' "$P"
+  grep -rq 'akinsho/bufferline.nvim' "$P"
+  grep -rq 'folke/which-key.nvim' "$P"
+  grep -rq 'lewis6991/gitsigns.nvim' "$P"
+  grep -rq 'tpope/vim-fugitive' "$P"
+  grep -rq 'echasnovski/mini.ai' "$P"
+  grep -rq 'echasnovski/mini.pairs' "$P"
+  grep -rq 'kevinhwang91/nvim-ufo' "$P"
+  grep -rq 'render-markdown.nvim' "$P"
+  grep -rq 'folke/todo-comments.nvim' "$P"
+  grep -rq 'mbbill/undotree' "$P"
+  grep -rq 'olrtg/nvim-emmet' "$P"
+}
+
+@test "lualine is themed to catppuccin (accent-aware)" {
+  grep -q 'theme = "catppuccin"' "$NVIM/lua/plugins/lualine.lua"
+}
