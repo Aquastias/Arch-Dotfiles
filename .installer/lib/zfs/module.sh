@@ -27,6 +27,12 @@
 [[ -n "${_ZFS_MODULE_SH_SOURCED:-}" ]] && return 0
 _ZFS_MODULE_SH_SOURCED=1
 
+# Shared archive.archlinux.org fetch — the exact-version primitive this module
+# and the archzfs LTS ceiling pin (ADR 0137) both use. common.sh is assumed
+# already sourced by the caller.
+# shellcheck source=../packages/archive.sh
+source "${BASH_SOURCE[0]%/*}/../packages/archive.sh"
+
 _remove_stale_archzfs_testing() {
   # archzfs-testing no longer exists as a separate repo since the project
   # moved to GitHub in Feb 2026. The single GitHub repo is always current.
@@ -170,57 +176,22 @@ zfs_install_dkms() {
     *-zen*)      headers_pkg="linux-zen-headers"     ;;
     esac
 
-    # Build the exact pkgver string pacman/archive uses.
-    # Arch kernel version strings are like: 6.19.10-arch1-1
-    # The package version is:               6.19.10.arch1-1
-    # (dot not dash before arch)
-    # Convert kernel release string to pacman package version.
-    # Kernel: 6.19.10-arch1-1  →  Package: 6.19.10.arch1-1
-    # (the hyphen before "arch" becomes a dot in the package version)
+    # The pacman package version for this kernel release (mirror-then-archive
+    # fetch is handled by the shared helper). Scenario B (mirror) and C (archive)
+    # both collapse into pkg_ensure_version.
     local pkg_ver
-    pkg_ver="${kver/-arch/.arch}"
+    pkg_ver="$(kver_to_pkgver "$kver")"
 
     info "Need ${headers_pkg}=${pkg_ver}"
-
-    # ── Scenario B: try the current mirror first ──────────────────────────
-    info "Attempting to install ${headers_pkg} from current mirror ..."
-    if pacman -S --noconfirm --needed "${headers_pkg}=${pkg_ver}" 2>/dev/null &&
-      [[ -d "$kernel_src" ]]; then
-      info "Headers installed from mirror."
-
+    if pkg_ensure_version "$headers_pkg" "$pkg_ver" && [[ -d "$kernel_src" ]]; then
+      info "Headers installed (${headers_pkg}=${pkg_ver})."
     else
-      # ── Scenario C: fetch exact version from Arch Linux Archive ──────
-      warn "Exact version not on mirror. Fetching from Arch Linux Archive..."
-      warn "URL: https://archive.archlinux.org/packages/"
-
-      # The archive path uses the package name's first letter as a subdir.
-      # linux-headers →
-      # l/linux-headers/linux-headers-6.19.10.arch1-1-x86_64.pkg.tar.zst
-      local arch="x86_64"
-      local pkg_file="${headers_pkg}-${pkg_ver}-${arch}.pkg.tar.zst"
-      local first_char="${headers_pkg:0:1}"
-      local archive_base="https://archive.archlinux.org/packages"
-      local archive_url
-      archive_url="${archive_base}/${first_char}/${headers_pkg}/${pkg_file}"
-
-      info "Downloading: ${pkg_file}"
-      local tmp_pkg="/tmp/${pkg_file}"
-      curl -fL --progress-bar "$archive_url" -o "$tmp_pkg" ||
-        error "Failed to download headers from Arch Linux Archive.
-  URL tried: ${archive_url}
+      error "Failed to install ${headers_pkg}=${pkg_ver}.
+  Tried the current mirror and the Arch Linux Archive.
   Check the archive manually:
-  https://archive.archlinux.org/packages/l/${headers_pkg}/
-  Then install manually: pacman -U /path/to/${pkg_file}"
-
-      info "Installing headers from archive package ..."
-      pacman -U --noconfirm "$tmp_pkg" ||
-        error "pacman -U failed for ${tmp_pkg}"
-      rm -f "$tmp_pkg"
-
-      [[ -d "$kernel_src" ]] ||
-        error "Headers installed but ${kernel_src} still missing.
-  This should not happen. Check: ls /usr/lib/modules/${kver}/"
-      info "Headers installed from Arch Linux Archive."
+  $(pkg_archive_url "$headers_pkg" "$pkg_ver")
+  Or, if installed but ${kernel_src} is still missing:
+  ls /usr/lib/modules/${kver}/"
     fi
   fi
 
