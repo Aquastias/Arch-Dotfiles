@@ -2,7 +2,7 @@
 # ANSI-16 cohesion guardrails for the already-cohesive tools (ADR 0132, issue
 # 05). htop follows the palette via color_scheme=0 for free and its htoprc is
 # runtime-rewritten, so it must never be stowed; git/less/ripgrep/fd render
-# default ANSI; neovim is out of scope (rose-pine intact).
+# default ANSI; neovim now follows via its own template (ADR 0136), not ANSI-16.
 
 setup() {
   REPO="$BATS_TEST_DIRNAME/../../.."       # .installer/tests/config → repo root
@@ -19,6 +19,11 @@ setup() {
   grep -q 'export BAT_THEME="ansi"' "$REPO/.zsh/env/exports.zsh"
 }
 
-@test "neovim is out of scope: its rose-pine colorscheme is untouched" {
-  grep -q 'rose-pine' "$REPO/.config/nvim/lua/colorscheme.lua"
+@test "neovim follows via its own template now, not rose-pine (ADR 0136)" {
+  # ADR 0136 amended ADR 0132: nvim is no longer excluded/rose-pine. It has its
+  # own Neovim Theme Template (default off, static Catppuccin Mocha Sapphire),
+  # served from the dev/nvim program — no repo-root .config/nvim remains.
+  local CS="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/plugins"
+  [ ! -e "$REPO/.config/nvim" ]
+  grep -rq 'catppuccin' "$CS"
 }

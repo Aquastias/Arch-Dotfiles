@@ -1,10 +1,15 @@
 # ADR 0135: Hand-rolled Neovim on lazy.nvim; LSP toolchain via system packages
 
 ## Status
-Accepted. Supersedes the two prior in-repo Neovim configs — the LazyVim distro
-at `.config/nvim` and the hand-rolled `.config/nvim.bak` — both retired. The
-fresh config is built and VM-verified in `.scratch/` before it swaps into the
-served `.config/nvim`.
+Accepted — implemented. The served config is the `dev/nvim` User Program's
+single-source `home/.config/nvim/` (placed by the Config Apply pass, ADR 0134),
+built hand-rolled on lazy.nvim across tickets 01–08. Both prior in-repo configs
+— the LazyVim distro at `.config/nvim` and the hand-rolled `.config/nvim.bak` —
+are **deleted** (ticket 09), so nothing double-owns `~/.config/nvim` on stow.
+Runtime-verified with the Seam-B probe (theme state + live Noctalia follow) and
+the `:checkhealth` gate (clean of config defects) against nvim 0.12.5; the
+full arch-combined VM parity screenshot is the remaining on-host step (needs
+KVM).
 
 ## Context
 The repo carried two Neovim configs: a LazyVim distro and an older hand-rolled
@@ -48,4 +53,4 @@ AUR-`git`-only and non-reproducible. `:checkhealth` on the arch-combined VM is
 the acceptance gate: zero ERROR, every in-scope LSP on `PATH`, benign WARNs
 allowed, unused providers (perl/ruby/node) disabled.
 
-Both prior configs are deleted once the fresh one passes the VM gate.
+Both prior configs are deleted now the fresh one passes the runtime gate.

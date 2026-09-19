@@ -280,3 +280,12 @@ setup() {
   grep -q 'basedpyright-langserver' "$CH"
   grep -q 'sourcekit-lsp' "$CH"          # optional, noted not failed
 }
+
+# ── ticket 09: cutover — single source, old trees retired ────────────────────
+
+@test "home/ is the single source: no repo-root nvim trees (ADR 0134/0135)" {
+  # After cutover the served config is the program's home/ only; the old LazyVim
+  # tree and the nvim.bak reference are gone, so nothing collides on stow.
+  [ ! -e "$REPO/.config/nvim" ]
+  [ ! -e "$REPO/.config/nvim.bak" ]
+}
