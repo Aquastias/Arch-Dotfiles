@@ -92,6 +92,7 @@
         "go",
         "mermaid-cli",
         "nvm",
+        "php",
         "python-pip",
         "python-pipx",
         "tree-sitter-cli"
@@ -100,8 +101,12 @@
         "bash-language-server",
         "clang",
         "gopls",
+        "lua-language-server",
         "rust-analyzer",
+        "svelte-language-server",
+        "tailwindcss-language-server",
         "typescript-language-server",
+        "vue-language-server",
         "yaml-language-server",
         "zls"
       ],
@@ -162,6 +167,10 @@
         "zen-browser-bin"
       ],
       "language-servers": [
+        "basedpyright",
+        "emmet-language-server",
+        "nixd",
+        "phpactor",
         "vscode-langservers-extracted"
       ]
     }

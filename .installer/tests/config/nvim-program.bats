@@ -80,3 +80,51 @@ setup() {
 @test "User Core serves the nvim program fleet-wide" {
   grep -q '"nvim"' "$UCORE"
 }
+
+# ── ticket 02: LSP + completion ──────────────────────────────────────────────
+# Servers install as system packages in Host Core language-servers, not the
+# program and not mason (ADR 0135); the program owns only the config + a guarded
+# best-effort Swift.
+
+@test "Host Core declares the added repo language servers (ADR 0135)" {
+  local H="$REPO/.installer/hosts/core/profile.jsonc"
+  grep -q '"lua-language-server"' "$H"
+  grep -q '"svelte-language-server"' "$H"
+  grep -q '"vue-language-server"' "$H"
+  grep -q '"tailwindcss-language-server"' "$H"
+  grep -q '"php"' "$H"                       # phpactor runtime
+}
+
+@test "Host Core declares the added AUR language servers (ADR 0135)" {
+  local H="$REPO/.installer/hosts/core/profile.jsonc"
+  grep -q '"basedpyright"' "$H"
+  grep -q '"nixd"' "$H"
+  grep -q '"phpactor"' "$H"
+  grep -q '"emmet-language-server"' "$H"
+}
+
+@test "install.sh installs Swift best-effort, never failing the install" {
+  grep -q 'swift-bin' "$INSTALL"            # sourcekit-lsp ships with swift-bin
+  grep -qE 'print_status warning' "$INSTALL"
+}
+
+@test "config wires nvim-lspconfig + native vim.lsp.enable (no mason)" {
+  grep -rq 'neovim/nvim-lspconfig' "$NVIM/lua/plugins"
+  grep -rq 'vim.lsp.enable' "$NVIM/lua/plugins"
+  # no mason plugin (system packages instead, ADR 0135)
+  ! grep -rqiE 'mason-org|williamboman/mason|mason\.nvim' "$NVIM/lua"
+}
+
+@test "completion is blink.cmp (ADR 0135)" {
+  grep -rq 'saghen/blink.cmp' "$NVIM/lua/plugins"
+}
+
+@test "solid rides ts_ls; no dedicated solid server" {
+  grep -rq 'ts_ls' "$NVIM/lua/plugins"
+  ! grep -rqiE 'solid[_-]?(ls|language)' "$NVIM/lua/plugins"
+}
+
+@test "vue uses the current vue_ls name, not the deprecated volar" {
+  grep -rq 'vue_ls' "$NVIM/lua/plugins"
+  ! grep -rqw 'volar' "$NVIM/lua/plugins"
+}

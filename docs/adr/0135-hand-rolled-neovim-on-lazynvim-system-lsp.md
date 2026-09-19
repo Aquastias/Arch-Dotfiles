@@ -34,11 +34,18 @@ keeps a 20-language startup fast and its ecosystem mature. `vim.pack` is
 revisited when 0.13 stabilises.
 
 The editor's LSP servers, formatters, and linters install as **system packages**
-(repo; AUR only for gaps), owned by a new `dev/nvim` User Program,
-arch-wiki-grounded per `PROGRAM_SPEC.md`. **No `mason`** — it would duplicate
+(repo; AUR only for gaps), arch-wiki-grounded. They are **editor-agnostic dev
+tooling**, so they are declared as bare package entries in **Host Core
+`packages.language-servers`** beside the existing servers (rust-analyzer, gopls,
+zls, …) — the arch-wiki bare-package path — **not** owned by the `dev/nvim`
+program. The program owns the config (placed by the Config Apply pass) and the
+single genuinely program-shaped exception: **Swift's sourcekit-lsp** (AUR
+`swift-bin`, heavy, AUR-only), installed guarded/best-effort in its `install.sh`
+so a missing build never fails the install. **No `mason`** — it would duplicate
 binaries into nvim's data dir and fight the declarative, reproducible install
-the rest of the fleet uses. `:checkhealth` on the arch-combined VM is the
-acceptance gate: zero ERROR, every in-scope LSP on `PATH`, benign WARNs allowed,
-unused providers (perl/ruby/node) disabled.
+the rest of the fleet uses. Nix uses **`nixd`** (versioned AUR); `nil` is
+AUR-`git`-only and non-reproducible. `:checkhealth` on the arch-combined VM is
+the acceptance gate: zero ERROR, every in-scope LSP on `PATH`, benign WARNs
+allowed, unused providers (perl/ruby/node) disabled.
 
 Both prior configs are deleted once the fresh one passes the VM gate.
