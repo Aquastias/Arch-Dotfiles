@@ -13,3 +13,11 @@ map("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
 
 -- Leave terminal mode.
 map("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
+
+-- Theme control (ADR 0136): pick a static palette / toggle Noctalia-follow.
+map("n", "<leader>uC", function()
+  require("config.theme").pick_colorscheme()
+end, { desc = "Pick colorscheme" })
+map("n", "<leader>uN", function()
+  require("config.theme").toggle_follow()
+end, { desc = "Toggle follow Noctalia" })

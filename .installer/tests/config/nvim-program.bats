@@ -194,3 +194,31 @@ setup() {
 @test "lualine is themed to catppuccin (accent-aware)" {
   grep -q 'theme = "catppuccin"' "$NVIM/lua/plugins/lualine.lua"
 }
+
+# ── ticket 06: palettes + follow toggle ──────────────────────────────────────
+
+@test "the five Noctalia builtin palettes are installed" {
+  local P="$NVIM/lua/plugins"
+  grep -rq 'catppuccin/nvim' "$P"
+  grep -rq 'rose-pine/neovim' "$P"
+  grep -rq 'folke/tokyonight.nvim' "$P"
+  grep -rq 'ellisonleao/gruvbox.nvim' "$P"
+  grep -rq 'nord.nvim' "$P"
+}
+
+@test "theme module resolves follow_noctalia and persists the static choice" {
+  local T="$NVIM/lua/config/theme.lua"
+  [ -f "$T" ]
+  grep -q 'follow_noctalia' "$T"
+  grep -q 'save_choice' "$T"
+  grep -q 'apply_static' "$T"
+}
+
+@test "the colorscheme picker + follow toggle are mapped" {
+  grep -q 'pick_colorscheme' "$NVIM/lua/config/keymaps.lua"
+  grep -q 'toggle_follow' "$NVIM/lua/config/keymaps.lua"
+}
+
+@test "init applies the theme after plugins load" {
+  grep -q 'require("config.theme").setup()' "$NVIM/init.lua"
+}

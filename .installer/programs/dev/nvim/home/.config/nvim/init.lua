@@ -4,3 +4,5 @@ require("config.options")
 require("config.keymaps")
 require("config.autocmds")
 require("config.lazy")
+-- Apply the colorscheme after plugins load (static, or Noctalia-follow).
+require("config.theme").setup()

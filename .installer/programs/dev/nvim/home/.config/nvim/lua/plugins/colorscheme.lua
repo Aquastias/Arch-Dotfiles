@@ -1,6 +1,6 @@
--- Static default look (ADR 0136): Catppuccin Mocha with the accent overridden
--- to Catppuccin sapphire (#74c7ec). Palette switching among the five Noctalia
--- builtins and the follow_noctalia live path arrive in tickets 06/07.
+-- The five Noctalia builtin palettes (ADR 0136) as switchable colorschemes.
+-- catppuccin (mocha + sapphire accent) is the default; the active scheme is
+-- applied by lua/config/theme.lua, which also persists the user's choice.
 return {
   {
     "catppuccin/nvim",
@@ -26,9 +26,9 @@ return {
         }
       end,
     },
-    config = function(_, opts)
-      require("catppuccin").setup(opts)
-      vim.cmd.colorscheme("catppuccin")
-    end,
   },
+  { "rose-pine/neovim", name = "rose-pine", lazy = false, opts = {} },
+  { "folke/tokyonight.nvim", lazy = false, opts = { style = "night" } },
+  { "ellisonleao/gruvbox.nvim", lazy = false, opts = {} },
+  { "gbprod/nord.nvim", lazy = false, opts = {} },
 }
