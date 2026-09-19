@@ -10,9 +10,13 @@ return {
     notifier = { enabled = true },
     bigfile = { enabled = true },
     quickfile = { enabled = true },
+    -- No image preview; avoids the kitty-graphics checkhealth ERROR headless.
+    image = { enabled = false },
   },
   config = function(_, opts)
     require("snacks").setup(opts)
+    -- Route vim.ui.select through the picker (snacks checkhealth expects this).
+    vim.ui.select = Snacks.picker.select
     local p = Snacks.picker
     local map = vim.keymap.set
     map("n", "<leader><space>", function()

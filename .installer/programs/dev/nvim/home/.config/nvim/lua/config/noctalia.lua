@@ -45,7 +45,18 @@ function M.apply()
     watch()
     return
   end
-  require("mini.base16").setup({
+  -- mini.base16 is loaded on demand (follow mode is rare); force lazy to put it
+  -- on the rtp before requiring, and fall back to static if it is unavailable.
+  pcall(function()
+    require("lazy").load({ plugins = { "mini.base16" } })
+  end)
+  local ok, base16 = pcall(require, "mini.base16")
+  if not ok then
+    require("config.theme").apply_static()
+    watch()
+    return
+  end
+  base16.setup({
     palette = {
       base00 = p.base00,
       base01 = p.base01,

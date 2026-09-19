@@ -17,6 +17,8 @@ require("lazy").setup({
   install = { colorscheme = { "catppuccin" } },
   checker = { enabled = false },
   change_detection = { notify = false },
+  -- No plugin needs luarocks; disabling it keeps :checkhealth clean (ADR 0135).
+  rocks = { enabled = false },
   performance = {
     rtp = {
       disabled_plugins = {

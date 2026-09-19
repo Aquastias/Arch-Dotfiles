@@ -257,3 +257,26 @@ setup() {
 @test "mini.base16 is available for the follow path" {
   grep -rq 'echasnovski/mini.base16' "$NVIM/lua/plugins"
 }
+
+# ── ticket 08: acceptance gate (Seam B) ──────────────────────────────────────
+# These assert the probe + gate exist and are shaped right; they are RUN against
+# a booted config on the arch-combined VM verify-block, not in this static seam.
+
+@test "Seam B probe asserts theme state + follow reload" {
+  local PB="$REPO/.installer/tests/nvim/probe.lua"
+  [ -f "$PB" ]
+  grep -q 'follow_noctalia' "$PB"
+  grep -q 'catppuccin' "$PB"
+  grep -q '74c7ec' "$PB"
+  grep -q 'config.noctalia' "$PB"
+}
+
+@test "checkhealth gate script gates on ERROR + in-scope LSPs on PATH" {
+  local CH="$REPO/.installer/tests/nvim/checkhealth.sh"
+  [ -f "$CH" ]
+  [ -x "$CH" ]
+  grep -q 'checkhealth' "$CH"
+  grep -q 'ERROR' "$CH"
+  grep -q 'basedpyright-langserver' "$CH"
+  grep -q 'sourcekit-lsp' "$CH"          # optional, noted not failed
+}
