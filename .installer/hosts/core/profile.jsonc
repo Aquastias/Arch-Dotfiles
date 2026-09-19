@@ -93,8 +93,11 @@
         "mermaid-cli",
         "nvm",
         "php",
+        "prettier",
         "python-pip",
         "python-pipx",
+        "ruff",
+        "stylua",
         "tree-sitter-cli"
       ],
       "language-servers": [

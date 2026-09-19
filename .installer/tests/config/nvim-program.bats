@@ -128,3 +128,30 @@ setup() {
   grep -rq 'vue_ls' "$NVIM/lua/plugins"
   ! grep -rqw 'volar' "$NVIM/lua/plugins"
 }
+
+# ── ticket 03: format + lint ─────────────────────────────────────────────────
+
+@test "Host Core declares the formatter/linter packages (ADR 0135)" {
+  local H="$REPO/.installer/hosts/core/profile.jsonc"
+  grep -q '"stylua"' "$H"
+  grep -q '"prettier"' "$H"
+  grep -q '"ruff"' "$H"
+  grep -q '"biome"' "$H"                     # already present for js/ts
+}
+
+@test "formatting via conform with the biome/prettier/stylua/ruff split" {
+  local C="$NVIM/lua/plugins/conform.lua"
+  grep -q 'stevearc/conform.nvim' "$C"
+  grep -q 'stylua' "$C"
+  grep -q 'ruff_format' "$C"
+  grep -q 'biome' "$C"
+  grep -q 'prettier' "$C"
+  grep -q 'format_on_save' "$C"
+}
+
+@test "linting via nvim-lint (biome/ruff)" {
+  local L="$NVIM/lua/plugins/lint.lua"
+  grep -q 'mfussenegger/nvim-lint' "$L"
+  grep -q 'ruff' "$L"
+  grep -q 'biomejs' "$L"
+}
