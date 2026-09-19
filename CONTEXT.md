@@ -1618,6 +1618,19 @@ prebuilt. Resolved by `iso_resolver_get_zfs_compatible` in
 kernel is newer than `archzfs` tracks: DKMS then fails to build the ZFS module
 against that kernel.
 
+### archzfs LTS Ceiling
+Newest `linux-lts` major.minor that `archzfs` ships a prebuilt
+`zfs-linux-lts` for — the target-kernel analogue of the archzfs-Compatible
+ISO's ceiling, but resolved from `zfs-linux-lts-*` assets (6.x lts series)
+rather than `zfs-linux-*` (the default kernel). Before pacstrap the target's
+`linux-lts` + `linux-lts-headers` are pinned to the newest patchlevel at or
+below this ceiling, so `zfs-dkms` never builds against a kernel newer than the
+ZFS source supports (the intermittent `BIO_MAX_PAGES` build failure). Pinned
+from the current mirror when possible, else pre-seeded from
+`archive.archlinux.org`. Owned by `lib/packages/archzfs-kernel.sh`. When the
+lookup is unreachable the target install proceeds unpinned and the ZFS Module
+Guard stays the backstop. Applies to the `lts` token only (ADR 0137).
+
 ### Kernel Selection
 `options.kernel` in the Host Profile: one or more kernel flavour tokens naming
 which kernels the installed system gets. Accepts a single token (string) or a
