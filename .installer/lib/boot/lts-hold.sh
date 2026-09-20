@@ -39,7 +39,12 @@ lts_hold_set() {
 # on failure (offline / lookup error).
 _lts_hold_newest_available() {
   local tmp; tmp="$(mktemp -d)" || return 1
+  # pacman drops to its download user for fetches, which then can't write into a
+  # root-owned 0700 tempdir. Mirror checkupdates(8): symlink the real local db
+  # and make the tree writable by the download user.
   mkdir -p "$tmp/sync"
+  ln -s /var/lib/pacman/local "$tmp/local" 2>/dev/null
+  chmod -R a+rwX "$tmp"
   local ver=""
   if pacman -Sy --dbpath "$tmp" --logfile /dev/null >/dev/null 2>&1; then
     ver="$(pacman -Si --dbpath "$tmp" linux-lts 2>/dev/null \
