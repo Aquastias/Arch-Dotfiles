@@ -1631,6 +1631,19 @@ from the current mirror when possible, else pre-seeded from
 lookup is unreachable the target install proceeds unpinned and the ZFS Module
 Guard stays the backstop. Applies to the `lts` token only (ADR 0137).
 
+### archzfs LTS Hold
+The ongoing counterpart to the archzfs LTS Ceiling pin (ADR 0139 extends ADR
+0137). On the installed system a systemd timer (`archzfs-lts-hold.timer` →
+`/usr/local/lib/archzfs/lts-hold.sh`) toggles a marked
+`IgnorePkg = linux-lts linux-lts-headers  # archzfs-lts-hold` line in
+`/etc/pacman.conf`: set when the mirror's newest `linux-lts` outruns the archzfs
+ceiling at the minor level, cleared when archzfs catches up. So `pacman -Syu`
+holds the kernel at its installed version (never stranding it without a
+`zfs.ko`) while still upgrading everything else — non-blocking, since it only
+uses pacman's own `IgnorePkg`, never aborts. Reuses the ceiling logic from
+`archzfs-kernel.sh`; fail-safe (leaves the hold untouched when offline).
+Installed only for ZFS hosts that selected `lts`.
+
 ### Kernel Selection
 `options.kernel` in the Host Profile: one or more kernel flavour tokens naming
 which kernels the installed system gets. Accepts a single token (string) or a
