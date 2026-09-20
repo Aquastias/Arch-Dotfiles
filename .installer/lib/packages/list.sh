@@ -122,6 +122,17 @@ collect_packages() {
   # against the installed kernel headers; zfs-utils provides zpool/zfs.
   if [[ "$(install_config_any_zfs)" == "true" ]]; then
     local -a _zfs; read -ra _zfs <<<"$(fs_userland_packages zfs)"
+    # archzfs prebuilt for a pure-lts install (ADR 0137): archzfs's zfs-dkms
+    # source fails to build even at the ceiling, but its prebuilt zfs-linux-lts
+    # for the pinned linux-lts works. Swap zfs-dkms -> zfs-linux-lts when one is
+    # available; the ceiling pin keeps linux-lts at the prebuilt's version.
+    local _modpkg _k
+    _modpkg="$(archzfs_lts_module_pkg $(install_config_kernels))"
+    if [[ -n "$_modpkg" ]]; then
+      for _k in "${!_zfs[@]}"; do
+        [[ "${_zfs[$_k]}" == "zfs-dkms" ]] && _zfs[$_k]="$_modpkg"
+      done
+    fi
     pkgs+=("${_zfs[@]}")
   fi
 

@@ -24,6 +24,8 @@
 #   archzfs_pick_lts_version    pure pin decision (supported, mirror → pin?)
 #   archzfs_resolve_lts_pin     the pacstrap specs to pin, or nothing (no-op)
 #   archzfs_lts_pin_prepare     host-side pre-pacstrap setup (warn + local repo)
+#   archzfs_lts_module_pkg      zfs-linux-lts (prebuilt) for a pure-lts install,
+#                               or nothing (keep zfs-dkms)
 # =============================================================================
 
 # Guard against double-sourcing.
@@ -139,6 +141,23 @@ archzfs_resolve_lts_pin() {
   printf 'linux-lts=%s linux-lts-headers=%s\n' "$pin" "$pin"
 }
 
+# archzfs_lts_module_pkg <kernel_token…>
+# The ZFS module package for the root pool. Default is zfs-dkms (builds against
+# any kernel), but archzfs's zfs-dkms SOURCE lags the kernel even at the ceiling
+# — its prebuilt zfs-linux-lts is patched for the new kernel, the dkms source is
+# not (the `BIO_MAX_PAGES` break, VM-verified). So for a pure-lts install where
+# archzfs ships a prebuilt, use that prebuilt: it carries a working module for
+# the (ceiling-pinned) linux-lts and needs no DKMS compile. Echo "zfs-linux-lts"
+# then; nothing otherwise (mixed kernels keep the single-zfs-dkms path).
+archzfs_lts_module_pkg() {
+  local -a kernels=("$@")
+  [[ ${#kernels[@]} -eq 1 && "${kernels[0]}" == "lts" ]] || return 0
+  # Read the ceiling published by archzfs_lts_pin_prepare (which runs first),
+  # so list-building makes no network call. Empty ⇒ no prebuilt ⇒ keep zfs-dkms.
+  [[ -n "${ARCHZFS_LTS_SUPPORTED:-}" ]] || return 0
+  printf '%s\n' "zfs-linux-lts"
+}
+
 # ── Host-side pin setup (before pacstrap) ────────────────────────────────────
 
 # Download linux-lts + linux-lts-headers at <ver> from the archive into
@@ -199,6 +218,11 @@ EOF
 # staging failure degrades to an unpinned install with the ZFS Module Guard as
 # the backstop.
 archzfs_lts_pin_prepare() {
+  # Publish the archzfs-supported lts ceiling for collect_packages' module swap
+  # (archzfs_lts_module_pkg) — the one place the network lookup happens, so
+  # list-building stays offline. Empty when archzfs ships no lts prebuilt.
+  export ARCHZFS_LTS_SUPPORTED="$(archzfs_lts_pkgver)"
+
   local specs; specs="$(archzfs_resolve_lts_pin)"
   [[ -n "$specs" ]] || return 0
 

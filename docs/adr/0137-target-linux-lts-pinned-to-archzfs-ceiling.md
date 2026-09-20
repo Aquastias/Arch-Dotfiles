@@ -1,7 +1,9 @@
 # ADR 0137: Target linux-lts pinned to the archzfs LTS ceiling
 
 ## Status
-Accepted. Extends ADR 0023 and ADR 0024.
+Accepted, then **amended** — the pin alone proved insufficient; a pure-lts
+install now installs the prebuilt `zfs-linux-lts`. Extends ADR 0023 and 0024;
+see the Amendment section. VM-verified on `arch-combined`.
 
 ## Context
 The installed system pulls `zfs-dkms` + `zfs-utils` (per-flavour, see
@@ -84,3 +86,24 @@ place; the install still fails intermittently.
 - ADR 0023 still governs the live-ISO/bootstrap kernel; this ADR governs
   the installed-system `linux-lts`. The two ceilings are resolved
   independently (`zfs-linux-*` vs `zfs-linux-lts-*`).
+
+## Amendment: install the prebuilt for pure-lts (the pin alone is insufficient)
+The Context's proxy — "archzfs ships a prebuilt `zfs-linux-lts` for kernel X ⇒
+the current ZFS *source* compiles against X" — is **false**, VM-verified.
+archzfs ships `zfs-linux-lts-2.4.4_6.18.52.1` (a working prebuilt for 6.18.52),
+yet `zfs-dkms 2.4.4` — from archzfs's *own* repo — fails to build against
+6.18.52 (`BIO_MAX_PAGES`). archzfs patches the prebuilt for the newer kernel;
+the dkms source is not. So pinning `linux-lts` to a ceiling that *has* a
+prebuilt does not make the DKMS build succeed: at mirror == ceiling == 6.18.52
+there is nothing to downgrade, and the build still fails.
+
+Therefore, for a **pure-lts** install where archzfs ships a prebuilt, install
+that **prebuilt `zfs-linux-lts`** (the Alternatives' "strongest guarantee",
+first rejected for reversing ADR 0023's DKMS default) instead of `zfs-dkms`.
+The ceiling pin is retained and still needed: it keeps `linux-lts` at the
+prebuilt's exact version, so the prebuilt's `depends=linux-lts=<ver>` always
+resolves. `archzfs_lts_module_pkg` returns `zfs-linux-lts` only when lts is the
+sole kernel and a prebuilt exists (published offline via `ARCHZFS_LTS_SUPPORTED`
+from `archzfs_lts_pin_prepare`); mixed-kernel and non-lts installs keep the DKMS
+path, with the ZFS Module Guard as the backstop. VM-verified: the prebuilt
+installs a valid module (`modinfo` → `vermagic 6.18.52-1-lts`) with no compile.

@@ -227,3 +227,39 @@ CONF
   [ -z "$output" ]
   rm -rf "$dir" "$conf"
 }
+
+# ── archzfs_lts_module_pkg: prebuilt swap for a pure-lts install ──────────────
+# Reads the ceiling from ARCHZFS_LTS_SUPPORTED (published by pin_prepare), so
+# it is offline — the tests set the var directly.
+
+@test "archzfs_lts_module_pkg: pure-lts + prebuilt -> zfs-linux-lts" {
+  ARCHZFS_LTS_SUPPORTED="6.18.52-1" run archzfs_lts_module_pkg lts
+  [ "$status" -eq 0 ]
+  [ "$output" = "zfs-linux-lts" ]
+}
+
+@test "archzfs_lts_module_pkg: no lts prebuilt -> empty (keep zfs-dkms)" {
+  ARCHZFS_LTS_SUPPORTED="" run archzfs_lts_module_pkg lts
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "archzfs_lts_module_pkg: mixed kernels keep zfs-dkms (empty)" {
+  ARCHZFS_LTS_SUPPORTED="6.18.52-1" run archzfs_lts_module_pkg lts default
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "archzfs_lts_module_pkg: non-lts kernel keeps zfs-dkms (empty)" {
+  ARCHZFS_LTS_SUPPORTED="6.18.52-1" run archzfs_lts_module_pkg default
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "archzfs_lts_pin_prepare publishes ARCHZFS_LTS_SUPPORTED (default seam)" {
+  # default seam: mirror == supported → no pin (early return), but the ceiling
+  # is still published for the module swap.
+  unset ARCHZFS_LTS_SUPPORTED
+  archzfs_lts_pin_prepare
+  [ "$ARCHZFS_LTS_SUPPORTED" = "6.18.52-1" ]
+}
