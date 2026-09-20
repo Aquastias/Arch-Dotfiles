@@ -164,3 +164,66 @@ CONF
   grep -q '^\[core\]' "$conf"
   rm -f "$conf"
 }
+
+# ── archzfs_pin_candidates: newest-first, at/below the ceiling (ADR 0139) ─────
+
+@test "pin_candidates: only versions <= ceiling major.minor, newest first" {
+  _archzfs_fetch_archive_lts_versions() {
+    printf '%s\n' 6.12.74-1 6.12.75-1 6.17.9-1 6.18.51-1 6.18.52-1 6.19.1-1
+  }
+  export -f _archzfs_fetch_archive_lts_versions
+  run archzfs_pin_candidates "6.18.52-1"
+  [ "$status" -eq 0 ]
+  # 6.19.1 excluded (minor > 6.18); rest newest-first
+  [ "${lines[0]}" = "6.18.52-1" ]
+  [ "${lines[1]}" = "6.18.51-1" ]
+  ! printf '%s\n' "${lines[@]}" | grep -qx "6.19.1-1"
+  printf '%s\n' "${lines[@]}" | grep -qx "6.12.75-1"
+}
+
+# ── build_repo: fall back to the closest available compatible version ─────────
+
+@test "build_repo: exact version fetches → pins to it" {
+  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  printf '[options]\n' > "$conf"
+  _archzfs_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
+  pkg_fetch_from_archive() { : > "$3"; return 0; }   # every fetch succeeds
+  repo-add() { return 0; }
+  pacman() { return 0; }
+  export -f _archzfs_fetch_archive_lts_versions pkg_fetch_from_archive repo-add pacman
+  PACMAN_CONF="$conf" run _archzfs_lts_pin_build_repo "6.18.52-1" "$dir"
+  [ "$status" -eq 0 ]
+  [ "$output" = "6.18.52-1" ]
+  rm -rf "$dir" "$conf"
+}
+
+@test "build_repo: exact missing → uses closest available compatible" {
+  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  printf '[options]\n' > "$conf"
+  _archzfs_fetch_archive_lts_versions() { printf '%s\n' 6.18.50-1 6.18.52-1; }
+  # The requested 6.18.52 fails; 6.18.50 (next candidate) succeeds.
+  pkg_fetch_from_archive() {
+    case "$2" in 6.18.52-1) return 1;; *) : > "$3"; return 0;; esac
+  }
+  repo-add() { return 0; }
+  pacman() { return 0; }
+  export -f _archzfs_fetch_archive_lts_versions pkg_fetch_from_archive repo-add pacman
+  PACMAN_CONF="$conf" run _archzfs_lts_pin_build_repo "6.18.52-1" "$dir"
+  [ "$status" -eq 0 ]
+  [ "$output" = "6.18.50-1" ]         # fell back to the closest available
+  grep -q '^\[archzfs-lts-pin\]' "$conf"
+  rm -rf "$dir" "$conf"
+}
+
+@test "build_repo: nothing fetchable → non-zero (caller degrades)" {
+  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  printf '[options]\n' > "$conf"
+  _archzfs_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
+  pkg_fetch_from_archive() { return 1; }   # all fetches fail
+  repo-add() { return 0; }; pacman() { return 0; }
+  export -f _archzfs_fetch_archive_lts_versions pkg_fetch_from_archive repo-add pacman
+  PACMAN_CONF="$conf" run _archzfs_lts_pin_build_repo "6.18.52-1" "$dir"
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+  rm -rf "$dir" "$conf"
+}

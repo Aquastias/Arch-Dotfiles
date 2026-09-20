@@ -124,6 +124,46 @@ if command -v zpool >/dev/null 2>&1; then
     # importer (ADR 0030).
     zfs_import_write_settle_overrides ""
 
+    # ── Ongoing archzfs LTS ceiling hold (ADR 0139) ─────────────────────────
+    # When linux-lts is selected, install a systemd timer that holds linux-lts
+    # (via a marked IgnorePkg line) whenever the mirror's newest lts outruns what
+    # archzfs can build ZFS against — so a later `pacman -Syu` never leaves the
+    # running system with a zfs.ko-less kernel. Non-blocking (everything else
+    # still upgrades); self-clears when archzfs catches up. Runtime + shared
+    # ceiling logic are staged flat in lib-chroot; install them side-by-side so
+    # lts-hold.sh's sibling `source` resolves on the target.
+    if printf '%s\n' "${KERNELS[@]}" | grep -qx lts; then
+      install -Dm755 "$_LIB_DIR/lts-hold.sh" \
+        /usr/local/lib/archzfs/lts-hold.sh
+      install -Dm644 "$_LIB_DIR/archzfs-kernel.sh" \
+        /usr/local/lib/archzfs/archzfs-kernel.sh
+      install -Dm644 "$_LIB_DIR/archive.sh" \
+        /usr/local/lib/archzfs/archive.sh
+      cat >/etc/systemd/system/archzfs-lts-hold.service <<'UNIT'
+[Unit]
+Description=Hold linux-lts within the archzfs ZFS ceiling (ADR 0139)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/archzfs/lts-hold.sh
+UNIT
+      cat >/etc/systemd/system/archzfs-lts-hold.timer <<'UNIT'
+[Unit]
+Description=Periodic archzfs LTS ceiling check (ADR 0139)
+
+[Timer]
+OnBootSec=10min
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+      systemctl enable archzfs-lts-hold.timer
+    fi
+
     # Auto-load keys for encrypted DATA pools post-boot (ADR 0043). A data pool's
     # keylocation is a keyfile on the already-mounted root (file://…), so it can
     # load non-interactively; the ROOT pool is keylocation=prompt and is unlocked

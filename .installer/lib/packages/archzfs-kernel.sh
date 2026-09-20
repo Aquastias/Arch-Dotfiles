@@ -75,6 +75,35 @@ archzfs_lts_pkgver() {
   printf '%s\n' "${dotted%.*}-${dotted##*.}"
 }
 
+# Seam: list linux-lts pkgvers available on the Arch Linux Archive, one per
+# line. Overridable in tests.
+_archzfs_fetch_archive_lts_versions() {
+  curl -fsSL "https://archive.archlinux.org/packages/l/linux-lts/" 2>/dev/null |
+    grep -oE 'linux-lts-[0-9][^"<> ]*-x86_64\.pkg\.tar\.zst' |
+    sed -E 's/^linux-lts-(.*)-x86_64\.pkg\.tar\.zst$/\1/' | sort -uV
+}
+
+# Pin-version candidates, NEWEST-first: linux-lts versions available on the
+# archive whose major.minor is at or below the archzfs ceiling <ceiling_pkgver>.
+# The archzfs-built version is normally the top one; older compatible versions
+# follow as fallbacks when the exact version can't be fetched (ADR 0139 amends
+# ADR 0137). Pure given the seam.
+archzfs_pin_candidates() {
+  local ceiling="$1"
+  local cM cm; IFS='.' read -r cM cm _ <<<"${ceiling%%-*}"
+  local v vM vm
+  # newest-first (sort -V ascending → reverse)
+  while IFS= read -r v; do
+    [[ -n "$v" ]] || continue
+    IFS='.' read -r vM vm _ <<<"${v%%-*}"
+    if (( 10#${vM:-0} < 10#${cM:-0} )) \
+       || { (( 10#${vM:-0} == 10#${cM:-0} )) && (( 10#${vm:-0} <= 10#${cm:-0} )); }
+    then
+      printf '%s\n' "$v"
+    fi
+  done < <(_archzfs_fetch_archive_lts_versions | sort -rV)
+}
+
 # ── Pin decision (pure) ──────────────────────────────────────────────────────
 
 # archzfs_pick_lts_version <supported_pkgver> <mirror_pkgver>
@@ -117,17 +146,40 @@ archzfs_resolve_lts_pin() {
 # pacman.conf (pacstrap reads it). The version-pinned specs (=<ver>) then
 # resolve from this repo even though the mirror has moved on. Non-zero if any
 # step fails.
+# Stage the pinned linux-lts + headers into a local repo and register it. Tries
+# <requested> first, then the closest-available-compatible archive versions
+# (ADR 0139), so a vanished exact version doesn't force a degrade. Prints the
+# CHOSEN version on stdout; non-zero if no candidate could be fetched.
 _archzfs_lts_pin_build_repo() {
-  local ver="$1" repo_dir="$2" pkg
+  local requested="$1" repo_dir="$2"
   mkdir -p "$repo_dir" || return 1
-  for pkg in linux-lts linux-lts-headers; do
-    pkg_fetch_from_archive "$pkg" "$ver" \
-      "${repo_dir}/${pkg}-${ver}-x86_64.pkg.tar.zst" || return 1
+
+  # Requested version first, then closest-available-compatible fallbacks (deduped).
+  local -a cands=("$requested"); local c
+  while IFS= read -r c; do
+    [[ -n "$c" && "$c" != "$requested" ]] && cands+=("$c")
+  done < <(archzfs_pin_candidates "$requested")
+
+  local candidate chosen="" lk hk
+  for candidate in "${cands[@]}"; do
+    lk="${repo_dir}/linux-lts-${candidate}-x86_64.pkg.tar.zst"
+    hk="${repo_dir}/linux-lts-headers-${candidate}-x86_64.pkg.tar.zst"
+    if pkg_fetch_from_archive linux-lts "$candidate" "$lk" 2>/dev/null \
+       && pkg_fetch_from_archive linux-lts-headers "$candidate" "$hk" 2>/dev/null
+    then
+      chosen="$candidate"; break
+    fi
+    rm -f "$lk" "$hk"
   done
+  [[ -n "$chosen" ]] || return 1
+
   repo-add "${repo_dir}/archzfs-lts-pin.db.tar.zst" \
-    "${repo_dir}"/*.pkg.tar.zst >/dev/null 2>&1 || return 1
-  if ! grep -q '^\[archzfs-lts-pin\]' /etc/pacman.conf; then
-    cat >>/etc/pacman.conf <<EOF
+    "${repo_dir}/linux-lts-${chosen}-x86_64.pkg.tar.zst" \
+    "${repo_dir}/linux-lts-headers-${chosen}-x86_64.pkg.tar.zst" \
+    >/dev/null 2>&1 || return 1
+  local conf="${PACMAN_CONF:-/etc/pacman.conf}"
+  if ! grep -q '^\[archzfs-lts-pin\]' "$conf"; then
+    cat >>"$conf" <<EOF
 
 # archzfs LTS ceiling pin (ADR 0137) — the exact linux-lts the mirror no longer
 # carries, so the version-pinned pacstrap spec resolves. Local, unsigned.
@@ -137,6 +189,7 @@ Server = file://${repo_dir}
 EOF
   fi
   pacman -Sy --noconfirm >/dev/null 2>&1 || return 1
+  printf '%s\n' "$chosen"
 }
 
 # Run host-side before pacstrap. When a pin resolves: warn (held-back kernel
@@ -152,17 +205,21 @@ archzfs_lts_pin_prepare() {
   local ver="${specs#linux-lts=}"; ver="${ver%% *}"
   local mirror; mirror="$(_mirror_lts_pkgver)"
   warn "archzfs LTS ceiling: holding linux-lts back" \
-       "${mirror:+from ${mirror} }to ${ver}"
+       "${mirror:+from ${mirror} }to ${ver} (or closest available)."
   warn "  archzfs has no zfs-dkms build for the newer kernel yet (ADR 0137)."
 
-  if ! _archzfs_lts_pin_build_repo "$ver" \
-        "${LTS_PIN_REPO_DIR:-/var/cache/archzfs-lts-pin}"; then
+  # build_repo may fall back to the closest available compatible version; use
+  # whatever it actually staged for the pacstrap spec.
+  local chosen
+  chosen="$(_archzfs_lts_pin_build_repo "$ver" \
+    "${LTS_PIN_REPO_DIR:-/var/cache/archzfs-lts-pin}")"
+  if [[ -z "$chosen" ]]; then
     warn "archzfs LTS ceiling: could not stage the pinned kernel — proceeding"
     warn "  unpinned; the ZFS Module Guard remains the backstop."
     return 0
   fi
-  export LTS_PIN_SPECS="$specs"
-  info "archzfs LTS ceiling: target linux-lts pinned to ${ver}."
+  export LTS_PIN_SPECS="linux-lts=${chosen} linux-lts-headers=${chosen}"
+  info "archzfs LTS ceiling: target linux-lts pinned to ${chosen}."
 }
 
 # Remove the temporary [archzfs-lts-pin] local repo block from <conf>. The pin
