@@ -46,8 +46,10 @@ stray_kernels() {
 stray_kernel_presets() {
   local modules_dir="$1" preset_dir="$2"; shift 2
   local base
+  # `if` (not `[[…]] && printf`) so the loop body always exits 0 — keeps the
+  # function safe under the installer's `set -Eeuo pipefail`.
   while IFS= read -r base; do
-    [[ -n "$base" ]] && printf '%s/%s.preset\n' "$preset_dir" "$base"
+    if [[ -n "$base" ]]; then printf '%s/%s.preset\n' "$preset_dir" "$base"; fi
   done < <(stray_kernels "$modules_dir" "$@")
 }
 

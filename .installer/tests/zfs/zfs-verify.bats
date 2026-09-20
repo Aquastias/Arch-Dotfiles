@@ -122,6 +122,28 @@ _kernel() {
   [[ "$output" == *"linux-lts"* ]]       # named in the abort
 }
 
+# Regression: the guard must survive the installer's `set -Eeuo pipefail`. A
+# trailing stray once made an internal `| sort -u` pipe fail the `$(…)` capture
+# and abort the guard (the VM install died here though plain bats passed).
+@test "guard tolerates a stray under set -Eeuo pipefail (no ERR-trap crash)" {
+  local root="$TEST_DIR/mnt"
+  local mods="$root/usr/lib/modules"
+  mkdir -p "$mods/6.12.75-1-lts/updates/dkms" "$mods/7.2.6-arch2-1"
+  echo linux-lts > "$mods/6.12.75-1-lts/pkgbase"
+  : > "$mods/6.12.75-1-lts/updates/dkms/zfs.ko.zst"
+  echo linux > "$mods/7.2.6-arch2-1/pkgbase"   # stray, no zfs.ko
+
+  run bash -c '
+    set -Eeuo pipefail
+    source "'"$BATS_TEST_DIRNAME"'/../../lib/common.sh"
+    source "'"$BATS_TEST_DIRNAME"'/../../lib/zfs/verify.sh"
+    zfs_verify_target_modules "'"$root"'" linux-lts
+    echo "GUARD_OK"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GUARD_OK"* ]]           # reached the line after the guard
+  [[ "$output" == *"Stray Kernel 'linux'"* ]]
+}
+
 @test "guard passes silently when every selected kernel has a module (lts path)" {
   local root="$TEST_DIR/mnt"
   MODULES="$root/usr/lib/modules"

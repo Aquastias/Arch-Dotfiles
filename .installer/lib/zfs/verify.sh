@@ -59,8 +59,12 @@ zfs_missing_selected_kernels() {
   local -A selected=(); local s
   for s in "$@"; do selected["$s"]=1; done
   local k
+  # An `if` (not `[[…]] && printf`) so the loop body's last command always exits
+  # 0 — otherwise a trailing stray makes the loop return 1, and under the
+  # installer's `set -Eeuo pipefail` the `| sort -u` pipe (pipefail) then fails
+  # the `$(…)` capture and aborts the guard.
   while IFS= read -r k; do
-    [[ -n "$k" && -n "${selected[$k]:-}" ]] && printf '%s\n' "$k"
+    if [[ -n "$k" && -n "${selected[$k]:-}" ]]; then printf '%s\n' "$k"; fi
   done <<<"$missing_text" | sort -u
 }
 
