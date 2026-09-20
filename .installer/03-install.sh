@@ -186,9 +186,16 @@ main() {
 
   # ── Install & configure ───────────────────────────────────────────────────
   install_base
-  # Fail-fast before chroot config: every kernel must have a ZFS module, else
-  # mkinitcpio crashes later (ADR 0024). Only when some group is ZFS (ADR 0043).
-  [[ "$(install_config_any_zfs)" == "true" ]] && zfs_verify_target_modules
+  # Fail-fast before chroot config: every SELECTED kernel must have a ZFS module,
+  # else mkinitcpio crashes later (ADR 0024). A stray kernel pulled in as a
+  # dependency (not in options.kernel) is tolerated — warned, non-fatal (ADR
+  # 0138). Only when some group is ZFS (ADR 0043).
+  if [[ "$(install_config_any_zfs)" == "true" ]]; then
+    _sel_bases=(); while IFS= read -r _tok; do
+      [[ -n "$_tok" ]] && _sel_bases+=("$(kernel_pkg "$_tok")")
+    done < <(install_config_kernels)
+    zfs_verify_target_modules "${MOUNT_ROOT:-/mnt}" "${_sel_bases[@]}"
+  fi
   configure_system
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────

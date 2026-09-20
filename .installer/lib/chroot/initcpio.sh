@@ -124,6 +124,28 @@ fi
 # (ADR 0030).
 _initcpio_write_udev_override ""
 
+# ── Stray Kernel tolerance (ADR 0138) ─────────────────────────────────────────
+# A kernel pulled in as a dependency but not in the Kernel Selection (e.g. a
+# rolling `linux` dragged in by wine on an lts host) has no zfs.ko, so its preset
+# would crash `mkinitcpio -P` with 'module not found: zfs'. Drop stray presets
+# first so -P builds only the selected kernels; the stray keeps its vmlinuz but
+# gets no initramfs (useless on a ZFS root anyway) and is surfaced by the
+# post-install warn hook. Reuses stray-kernel.sh's stray identification.
+# shellcheck source=../boot/stray-kernel.sh
+_STRAY_SH="$_LIB_DIR/stray-kernel.sh"
+if [[ -f "$_STRAY_SH" ]]; then
+  STRAY_KERNEL_LIB_ONLY=1 source "$_STRAY_SH"
+  _sel_bases=()
+  for _tok in "${KERNELS[@]}"; do _sel_bases+=("$(kernel_pkg "$_tok")"); done
+  while IFS= read -r _preset; do
+    [[ -n "$_preset" && -f "$_preset" ]] || continue
+    echo "Stray Kernel preset ${_preset} not in Kernel Selection —" \
+         "removing so mkinitcpio skips it (no zfs.ko; never booted)."
+    rm -f "$_preset"
+  done < <(stray_kernel_presets /usr/lib/modules /etc/mkinitcpio.d \
+             "${_sel_bases[@]}")
+fi
+
 mkinitcpio -P
 
 # ── Stray Kernel warn hook (ADR 0038) ─────────────────────────────────────────

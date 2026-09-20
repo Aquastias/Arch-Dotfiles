@@ -62,25 +62,73 @@ _kernel() {
   [ -z "$output" ]
 }
 
-@test "guard aborts naming the kernel + archzfs when a module is missing" {
+# ── zfs_missing_selected_kernels (pure): abort-set = missing ∩ selected ───────
+
+@test "missing∩selected: a missing SELECTED kernel is in the abort set" {
+  run zfs_missing_selected_kernels "$(printf 'linux\nlinux-lts\n')" linux-lts
+  [ "$status" -eq 0 ]
+  [ "$output" = "linux-lts" ]
+}
+
+@test "missing∩selected: a missing STRAY kernel is excluded" {
+  # `linux` missing but only `linux-lts` is selected → not in the abort set.
+  run zfs_missing_selected_kernels "$(printf 'linux\n')" linux-lts
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "missing∩selected: no selection ⇒ empty abort set" {
+  run zfs_missing_selected_kernels "$(printf 'linux\nlinux-lts\n')"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# ── guard: selection-aware abort vs stray tolerance (ADR 0138) ────────────────
+
+@test "guard aborts when a SELECTED kernel lacks the module" {
   local root="$TEST_DIR/mnt"
   MODULES="$root/usr/lib/modules"
   mkdir -p "$MODULES"
   _kernel 7.0.10-arch1-1 linux 0
 
-  run zfs_verify_target_modules "$root"
+  run zfs_verify_target_modules "$root" linux
   [ "$status" -ne 0 ]
   [[ "$output" == *"linux"* ]]
   [[ "$output" == *"archzfs"* ]]
 }
 
-@test "guard passes silently when every kernel has a module (lts path)" {
+@test "guard TOLERATES a stray kernel lacking the module (warn, pass)" {
+  local root="$TEST_DIR/mnt"
+  MODULES="$root/usr/lib/modules"
+  mkdir -p "$MODULES"
+  _kernel 6.12.1-lts      linux-lts 1   # selected, has module
+  _kernel 7.2.6-arch2-1   linux     0   # stray (wine-pulled), no module
+
+  run zfs_verify_target_modules "$root" linux-lts
+  [ "$status" -eq 0 ]                    # NOT fatal — stray tolerated
+  [[ "$output" == *"Stray Kernel 'linux'"* ]]
+  [[ "$output" == *"tolerated"* ]]
+}
+
+@test "guard aborts on the selected kernel even when a stray is also missing" {
+  local root="$TEST_DIR/mnt"
+  MODULES="$root/usr/lib/modules"
+  mkdir -p "$MODULES"
+  _kernel 6.12.1-lts      linux-lts 0   # selected, MISSING → fatal
+  _kernel 7.2.6-arch2-1   linux     0   # stray, missing → warn only
+
+  run zfs_verify_target_modules "$root" linux-lts
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"linux-lts"* ]]       # named in the abort
+}
+
+@test "guard passes silently when every selected kernel has a module (lts path)" {
   local root="$TEST_DIR/mnt"
   MODULES="$root/usr/lib/modules"
   mkdir -p "$MODULES"
   _kernel 6.12.1-lts linux-lts 1
 
-  run zfs_verify_target_modules "$root"
+  run zfs_verify_target_modules "$root" linux-lts
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }

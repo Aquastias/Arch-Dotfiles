@@ -38,6 +38,19 @@ stray_kernels() {
   done | sort -u
 }
 
+# Pure: print the mkinitcpio preset file path for every Stray Kernel under
+# <modules_dir>, given <preset_dir> and the selected package bases. These are the
+# presets to delete before `mkinitcpio -P` so it skips strays — a stray keeps its
+# vmlinuz but gets no initramfs (useless on a ZFS root), instead of crashing the
+# build on its zfs.ko-less preset (ADR 0138). One path per line.
+stray_kernel_presets() {
+  local modules_dir="$1" preset_dir="$2"; shift 2
+  local base
+  while IFS= read -r base; do
+    [[ -n "$base" ]] && printf '%s/%s.preset\n' "$preset_dir" "$base"
+  done < <(stray_kernels "$modules_dir" "$@")
+}
+
 # Warn (stderr) for each Stray Kernel and each kernel missing zfs.ko over
 # <modules_dir>, given the selected package bases. Never removes a kernel and
 # always returns 0 — it only informs.

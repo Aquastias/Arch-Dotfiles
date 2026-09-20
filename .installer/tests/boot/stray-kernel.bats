@@ -37,6 +37,21 @@ _kernel() {
   ! grep -qxF linux-lts <<<"$output"
 }
 
+@test "stray_kernel_presets maps strays to their mkinitcpio preset paths" {
+  _kernel 6.18.35-1-lts linux-lts zfs
+  _kernel 7.0.11-arch1-1 linux zfs   # stray
+  run stray_kernel_presets "$MODULES" /etc/mkinitcpio.d linux-lts
+  [ "$status" -eq 0 ]
+  [ "$output" = "/etc/mkinitcpio.d/linux.preset" ]   # stray only
+}
+
+@test "stray_kernel_presets emits nothing when no strays exist" {
+  _kernel 6.18.35-1-lts linux-lts zfs
+  run stray_kernel_presets "$MODULES" /etc/mkinitcpio.d linux-lts
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "stray_kernel_warn warns on stray + zfs.ko-less kernels, never fails" {
   _kernel 6.18.35-1-lts linux-lts zfs
   _kernel 7.0.11-arch1-1 linux # stray AND no zfs.ko

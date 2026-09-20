@@ -50,25 +50,62 @@ zfs_kernels_missing_module() {
   done | sort -u
 }
 
+# Pure: intersect the missing-set (one pkgbase per line) with the selected
+# package bases (remaining args) — the Kernel Selection kernels that lack a ZFS
+# module (the ABORT set). A Stray Kernel (missing but not selected) is excluded.
+# One per line, sorted-unique. No args ⇒ empty selection ⇒ empty abort set.
+zfs_missing_selected_kernels() {
+  local missing_text="$1"; shift
+  local -A selected=(); local s
+  for s in "$@"; do selected["$s"]=1; done
+  local k
+  while IFS= read -r k; do
+    [[ -n "$k" && -n "${selected[$k]:-}" ]] && printf '%s\n' "$k"
+  done <<<"$missing_text" | sort -u
+}
+
 # Fail-fast guard. Runs host-side after pacstrap, before chroot configuration.
-# Aborts the install (via error) when any kernel installed into target_root
-# lacks a ZFS module, naming the offending kernel(s) and pointing at the
-# archzfs constraint. Never attempts a DKMS rebuild — surfaces the real cause
-# (archzfs lagging the chosen kernel) rather than masking it. Returns silently
-# when every kernel has a module (the supported lts path is unchanged).
+#
+#   zfs_verify_target_modules <target_root> [selected_pkgbase...]
+#
+# Aborts the install (via error) only when a kernel in the Kernel Selection
+# (selected_pkgbase args) lacks a ZFS module — the case that would crash
+# 'mkinitcpio -P' with 'module not found: zfs' for a kernel we deliberately
+# chose. A Stray Kernel (installed as a dependency, not in the selection, e.g.
+# a rolling `linux` pulled in by wine on an lts host) that lacks a module is
+# TOLERATED: warned here, non-fatal — its preset is dropped before mkinitcpio,
+# it never reaches the ESP, and it is never the default boot (ADR 0138, amending
+# ADR 0024). Never attempts a DKMS rebuild. Returns silently when every selected
+# kernel has a module (the supported lts path is unchanged).
 zfs_verify_target_modules() {
-  local target_root="${1:-${MOUNT_ROOT:-/mnt}}"
+  local target_root="${1:-${MOUNT_ROOT:-/mnt}}"; shift 2>/dev/null || true
   local missing
   missing="$(zfs_kernels_missing_module "${target_root}/usr/lib/modules")"
   [[ -z "$missing" ]] && return 0
 
+  local abort_set
+  abort_set="$(zfs_missing_selected_kernels "$missing" "$@")"
+
+  # Warn (non-fatal) about strays that lack a module — every missing kernel not
+  # in the abort set.
+  local k
+  while IFS= read -r k; do
+    [[ -n "$k" ]] || continue
+    printf '%s\n' "$abort_set" | grep -qxF "$k" && continue
+    warn "Stray Kernel '${k}' has no zfs.ko — tolerated. It is not in the
+  Kernel Selection, is dropped before mkinitcpio, never reaches the ESP, and is
+  never the default boot; it will not block this install (ADR 0138)."
+  done <<<"$missing"
+
+  [[ -z "$abort_set" ]] && return 0
+
   local list
-  list="$(printf '%s' "$missing" | tr '\n' ' ')"
+  list="$(printf '%s' "$abort_set" | tr '\n' ' ')"
   list="${list% }"
   error "No ZFS kernel module was built for: ${list}.
-  archzfs could not build zfs-dkms against this/these kernel(s). Left
+  archzfs could not build zfs-dkms against this/these SELECTED kernel(s). Left
   unchecked the install would crash later in 'mkinitcpio -P' with
   'module not found: zfs'. Fix: select an archzfs-supported kernel — 'lts'
   via options.kernel — or wait for archzfs to track ${list}.
-  See ADR 0024 and the archzfs-Compatible ISO concept (ADR 0023)."
+  See ADR 0024/0138 and the archzfs-Compatible ISO concept (ADR 0023)."
 }
