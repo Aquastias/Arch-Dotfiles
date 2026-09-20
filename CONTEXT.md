@@ -1652,12 +1652,14 @@ track only the Primary Kernel until full multi-kernel preset wiring lands.
 
 ### ZFS Module Guard
 Post-pacstrap check, host-side, run before chroot configuration begins. Verifies
-a loadable `zfs` module exists for every kernel installed into the target,
-aborting the install with archzfs-support guidance if any kernel lacks one.
-Turns the otherwise opaque mid-`mkinitcpio` "module not found" failure into an
-early, explicit error naming the unsupported kernel. Necessary because Kernel
-Selection may include kernels newer than `archzfs` tracks (see
-archzfs-Compatible ISO).
+a loadable `zfs` module exists for every **selected** kernel (the Kernel
+Selection) installed into the target, aborting the install with archzfs-support
+guidance if a selected kernel lacks one. Turns the otherwise opaque
+mid-`mkinitcpio` "module not found" failure into an early, explicit error naming
+the unsupported kernel. Necessary because Kernel Selection may include kernels
+newer than `archzfs` tracks (see archzfs-Compatible ISO). A **Stray Kernel**
+missing `zfs.ko` is *tolerated* here — warned, non-fatal — since it is never
+booted (ADR 0138 amends ADR 0024).
 
 ### Stray Kernel
 A kernel installed on a host but **not** in its Kernel Selection — e.g. a
@@ -1669,7 +1671,12 @@ higher-sorting stray cannot auto-boot. It still wastes ZFS `/boot` space and,
 lacking a buildable `zfs.ko`,
 would be a trap if booted. Surfaced — warned, never removed — by a non-blocking
 PostTransaction hook (`97-stray-kernel-warn.hook`) that reuses the ZFS Module
-Guard's `zfs.ko`-presence check (ADR 0038).
+Guard's `zfs.ko`-presence check (ADR 0038). Also tolerated at **install time**
+(ADR 0138): the ZFS Module Guard warns (never aborts) for a stray missing
+`zfs.ko`, and `mkinitcpio -P` skips a stray's preset so it gets no initramfs (a
+zfs-less initramfs cannot import a ZFS root) — the install completes even when a
+dependency (e.g. `wine`→`ntsync-autoload`→`linux`) drags a rolling kernel onto
+an lts host.
 
 ### Impermanence
 Optional install-time feature that resets selected system directories to a clean
