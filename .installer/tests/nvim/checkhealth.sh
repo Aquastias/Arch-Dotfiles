@@ -5,6 +5,14 @@
 # missing from PATH. Benign WARNs (optional Swift, disabled providers) pass.
 set -Eeuo pipefail
 
+# Be robust to a bare (non-session) invocation, e.g. over ssh: without a locale
+# and TERM, checkhealth reports environmental "Locale does not support UTF-8" /
+# "infocmp" ERRORs that are not config defects. Default them so the gate judges
+# the config, not the caller's shell.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+export TERM="${TERM:-xterm-256color}"
+
 log="$(mktemp)"
 nvim --headless "+checkhealth" "+write! ${log}" "+qa!" >/dev/null 2>&1 || true
 
