@@ -10,15 +10,15 @@ solid rides the ts server; Swift is best-effort and never blocks.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Program adds: lua-language-server, basedpyright, nil, phpactor,
+- [x] Program adds: lua-language-server, basedpyright, nil, phpactor,
       svelte-language-server, vue-language-server (Volar),
       tailwindcss-language-server, emmet-language-server (repo/AUR,
       arch-wiki-grounded). Existing Host Core servers are reused, not duplicated.
-- [ ] Each in-scope language attaches its LSP; hover/definition/references work.
-- [ ] blink.cmp completion + signature + docs work (screen 3 of the prototype).
-- [ ] Swift/sourcekit-lsp wiring is guarded — a missing AUR package does not
+- [x] Each in-scope language attaches its LSP; hover/definition/references work.
+- [x] blink.cmp completion + signature + docs work (screen 3 of the prototype).
+- [x] Swift/sourcekit-lsp wiring is guarded — a missing AUR package does not
       break the config or `:checkhealth`.
-- [ ] `:checkhealth` LSP section shows every enabled server reachable; zero
+- [x] `:checkhealth` LSP section shows every enabled server reachable; zero
       ERROR.

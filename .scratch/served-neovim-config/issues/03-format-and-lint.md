@@ -6,14 +6,14 @@ Format-on-save and lint diagnostics follow project config per filetype.
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] conform maps: biome (js/ts/jsx/tsx/json/css), prettier (html/svelte/vue/
+- [x] conform maps: biome (js/ts/jsx/tsx/json/css), prettier (html/svelte/vue/
       yaml/md), stylua (lua), ruff (python), native rustfmt/gofmt/`zig fmt`.
-- [ ] nvim-lint provides biome/ruff diagnostics where the LSP does not, gated on
+- [x] nvim-lint provides biome/ruff diagnostics where the LSP does not, gated on
       the project carrying the relevant config (e.g. `biome.json`).
-- [ ] Program adds the formatter/linter packages (stylua, prettier, ruff; biome
+- [x] Program adds the formatter/linter packages (stylua, prettier, ruff; biome
       already present).
-- [ ] Format-on-save produces the same output the CLI tool would; no format war
+- [x] Format-on-save produces the same output the CLI tool would; no format war
       with the LSP.
-- [ ] `:checkhealth` conform/lint sections show tools found; zero ERROR.
+- [x] `:checkhealth` conform/lint sections show tools found; zero ERROR.

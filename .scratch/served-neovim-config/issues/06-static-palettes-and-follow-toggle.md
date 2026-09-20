@@ -9,13 +9,13 @@ static palette (default Catppuccin Mocha + sapphire accent).
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The five builtin palettes are installed and load cleanly.
-- [ ] A snacks colorscheme picker switches the static palette and persists it
+- [x] The five builtin palettes are installed and load cleanly.
+- [x] A snacks colorscheme picker switches the static palette and persists it
       across restarts.
-- [ ] `follow_noctalia` defaults to `false`; a fresh install is static.
-- [ ] With `follow_noctalia = false`, the default is Catppuccin Mocha with the
+- [x] `follow_noctalia` defaults to `false`; a fresh install is static.
+- [x] With `follow_noctalia = false`, the default is Catppuccin Mocha with the
       sapphire accent override.
-- [ ] The startup read path is structured so the follow branch (ticket 07) can
+- [x] The startup read path is structured so the follow branch (ticket 07) can
       hook in without reworking it.

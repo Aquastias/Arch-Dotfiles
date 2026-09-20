@@ -11,15 +11,15 @@ slice cuts the whole path (program + config + theme + test) thin.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `dev/nvim` `config.jsonc` declares a kind=user program; `install.sh` has
+- [x] `dev/nvim` `config.jsonc` declares a kind=user program; `install.sh` has
       the mandated `set -Eeuo pipefail` + trap shape and no `systemctl start`.
-- [ ] Config is single-source under the program's `home/.config/nvim/`; no
+- [x] Config is single-source under the program's `home/.config/nvim/`; no
       repo-root duplicate is introduced.
-- [ ] nvim boots on `lazy.nvim` (not LazyVim, not `vim.pack`) on stable 0.12.x.
-- [ ] Default look is Catppuccin Mocha with a sapphire accent; `termguicolors`
+- [x] nvim boots on `lazy.nvim` (not LazyVim, not `vim.pack`) on stable 0.12.x.
+- [x] Default look is Catppuccin Mocha with a sapphire accent; `termguicolors`
       on; unused providers (perl/ruby/node) disabled so they do not warn.
-- [ ] `nvim-program.bats` skeleton asserts the program shape and single-source
+- [x] `nvim-program.bats` skeleton asserts the program shape and single-source
       config, cloned from `kitty-program.bats`/`pi-agent.bats`.
-- [ ] Core `:checkhealth` (nvim, treesitter) reports zero ERROR.
+- [x] Core `:checkhealth` (nvim, treesitter) reports zero ERROR.
