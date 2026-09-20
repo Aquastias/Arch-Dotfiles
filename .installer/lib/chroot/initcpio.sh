@@ -131,9 +131,14 @@ _initcpio_write_udev_override ""
 # first so -P builds only the selected kernels; the stray keeps its vmlinuz but
 # gets no initramfs (useless on a ZFS root anyway) and is surfaced by the
 # post-install warn hook. Reuses stray-kernel.sh's stray identification.
+#
+# ZFS-only: this exists solely because zfs-dkms can't build a module for the
+# stray. A non-ZFS system has no zfs.ko requirement, so every kernel's preset
+# builds fine and none must be dropped — `zpool` present is the chroot's ZFS
+# signal (matches configure.sh / ADR 0043).
 # shellcheck source=../boot/stray-kernel.sh
 _STRAY_SH="$_LIB_DIR/stray-kernel.sh"
-if [[ -f "$_STRAY_SH" ]]; then
+if command -v zpool >/dev/null 2>&1 && [[ -f "$_STRAY_SH" ]]; then
   STRAY_KERNEL_LIB_ONLY=1 source "$_STRAY_SH"
   _sel_bases=()
   for _tok in "${KERNELS[@]}"; do _sel_bases+=("$(kernel_pkg "$_tok")"); done
