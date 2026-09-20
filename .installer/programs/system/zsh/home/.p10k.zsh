@@ -62,7 +62,7 @@
     node_version            # node.js version
     go_version              # go version (https://golang.org)
     rust_version            # rustc version (https://www.rust-lang.org)
-    swift_version           # swift version (https://swift.org)
+    swift                   # swift version (custom, project-only; *.swift/Package.swift)
     typescript              # typescript version (custom, tsc; tsconfig.json)
     cc                      # c/c++ toolchain version (custom, cc; Makefile/CMake)
     lua                     # lua version (custom, lua -v; .luarc.json/init.lua)
@@ -1074,13 +1074,13 @@
     # Custom icon (nerd-font glyph).
   typeset -g POWERLEVEL9K_RUST_VERSION_VISUAL_IDENTIFIER_EXPANSION=''
 
-  #####################[ swift_version: swift version (https://swift.org) ]####################
-  # Swift version color.
-  typeset -g POWERLEVEL9K_SWIFT_VERSION_FOREGROUND=208
-  # Show swift version only when in a swift project subdirectory.
-  typeset -g POWERLEVEL9K_SWIFT_VERSION_PROJECT_ONLY=true
-  # Custom icon (nerd-font glyph).
-  typeset -g POWERLEVEL9K_SWIFT_VERSION_VISUAL_IDENTIFIER_EXPANSION=''
+  #####################[ swift: swift version (https://swift.org) ]####################
+  # Swift is a custom PROJECT_ONLY segment (prompt_swift below), not p10k's builtin
+  # swift_version: upstream ignores POWERLEVEL9K_SWIFT_VERSION_PROJECT_ONLY (its
+  # condition is only `$commands[swift]`), so it renders everywhere once swift is on
+  # PATH. prompt_swift gates on *.swift/Package.swift like go/rust. Colour + glyph:
+  typeset -g POWERLEVEL9K_SWIFT_FOREGROUND=208
+  typeset -g POWERLEVEL9K_SWIFT_VISUAL_IDENTIFIER_EXPANSION=''
 
   ###############[ dotnet_version: .NET version (https://dotnet.microsoft.com) ]################
   # .NET version color.
@@ -1786,6 +1786,19 @@ function prompt_cc() {
   [[ -n $bin ]] || return
   local v; v=$(_usrseg_version cc $bin)
   [[ -n $v ]] && p10k segment -f 75 -i '' -t "$v"
+}
+
+# swift-bin is installed for sourcekit-lsp, so swift is always on PATH; p10k's
+# builtin swift_version can't be gated (see config block), so this custom segment
+# replaces it. Marker: Package.swift up-tree (SPM), else a *.swift in $PWD.
+function prompt_swift() {
+  if ! _usrseg_find_up Package.swift; then
+    local -a s=( $PWD/*.swift(N) ); (( $#s )) || return
+  fi
+  local bin=${commands[swift]-}
+  [[ -n $bin ]] || return
+  local v; v=$(_usrseg_version swift $bin)
+  [[ -n $v ]] && p10k segment -f 208 -t "$v"
 }
 
 function prompt_lua() {
