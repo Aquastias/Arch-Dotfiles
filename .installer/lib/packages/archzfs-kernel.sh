@@ -164,3 +164,21 @@ archzfs_lts_pin_prepare() {
   export LTS_PIN_SPECS="$specs"
   info "archzfs LTS ceiling: target linux-lts pinned to ${ver}."
 }
+
+# Remove the temporary [archzfs-lts-pin] local repo block from <conf>. The pin
+# repo is only needed for the pacstrap transaction; left in place it leaks into
+# the installed system (pacstrap copies pacman.conf into the target, and
+# chroot.sh re-copies it) and then breaks `pacman -Sy`/`-Fy` — the local repo
+# directory does not exist in the target. Idempotent; no-op when absent.
+# Call on the HOST conf after pacstrap (so the chroot copy is clean) and on the
+# target conf defensively (ADR 0137).
+archzfs_lts_pin_cleanup() {
+  local conf="${1:-/etc/pacman.conf}"
+  [[ -f "$conf" ]] || return 0
+  grep -q '^\[archzfs-lts-pin\]' "$conf" || return 0
+  # Delete our comment header through the Server line (the whole appended block).
+  sed -i '/^# archzfs LTS ceiling pin (ADR 0137)/,\#^Server = file://.*archzfs-lts-pin#d' \
+    "$conf"
+  # Belt-and-suspenders: drop a bare header/directives if the comment drifted.
+  sed -i '/^\[archzfs-lts-pin\]/,/^Server = /d' "$conf"
+}

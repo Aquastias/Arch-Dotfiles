@@ -419,6 +419,16 @@ install_base() {
   # needed).
   pacstrap -K "${MOUNT_ROOT}" --needed "${pkgs[@]}"
 
+  # archzfs LTS ceiling pin (ADR 0137): the temporary [archzfs-lts-pin] local
+  # repo was only needed for this pacstrap transaction. Remove it now from both
+  # the host conf (so chroot.sh's copy is clean) and the target's copy (pacstrap
+  # already copied pacman.conf in) — left in place it breaks `pacman -Sy`/`-Fy`
+  # later, since the local repo dir is not in the target. No-op when unpinned.
+  if [[ -n "${LTS_PIN_SPECS:-}" ]]; then
+    archzfs_lts_pin_cleanup /etc/pacman.conf
+    archzfs_lts_pin_cleanup "${MOUNT_ROOT}/etc/pacman.conf"
+  fi
+
   # Clean the package cache inside the new root — downloaded .pkg.tar.zst
   # files are no longer needed after install and take ~500 MB–1.5 GB.
   # Keep 0 cached versions (keep=0 removes everything).

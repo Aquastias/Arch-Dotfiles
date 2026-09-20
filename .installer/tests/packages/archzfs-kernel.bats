@@ -126,3 +126,41 @@ setup() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+# ── archzfs_lts_pin_cleanup: the pin repo must never leak into the target ──────
+
+_write_conf_with_pin() {
+  cat > "$1" <<'CONF'
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+# archzfs LTS ceiling pin (ADR 0137) — the exact linux-lts the mirror no longer
+# carries, so the version-pinned pacstrap spec resolves. Local, unsigned.
+[archzfs-lts-pin]
+SigLevel = Never
+Server = file:///var/cache/archzfs-lts-pin
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+CONF
+}
+
+@test "cleanup removes the pin repo block, keeps other repos" {
+  local conf; conf="$(mktemp)"
+  _write_conf_with_pin "$conf"
+  run archzfs_lts_pin_cleanup "$conf"
+  [ "$status" -eq 0 ]
+  ! grep -q 'archzfs-lts-pin' "$conf"     # block + comments gone
+  grep -q '^\[core\]' "$conf"             # untouched
+  grep -q '^\[extra\]' "$conf"            # untouched
+  rm -f "$conf"
+}
+
+@test "cleanup is idempotent / no-op when the block is absent" {
+  local conf; conf="$(mktemp)"
+  printf '[core]\nInclude = /x\n' > "$conf"
+  run archzfs_lts_pin_cleanup "$conf"
+  [ "$status" -eq 0 ]
+  grep -q '^\[core\]' "$conf"
+  rm -f "$conf"
+}
