@@ -4,7 +4,7 @@
 # =============================================================================
 # Decides which selected Programs' `home/` config to apply for a user. Config
 # is decoupled from package install: `install.sh` installs the package, this
-# module (via the Runner pass and `./stow-configs`) applies the config.
+# module (via the Runner pass and `./stow-configs.sh`) applies the config.
 #
 # `ca_plan` is pure (JSON in, JSON out). `ca_ships_home_list` / `ca_home_dir`
 # walk the programs tree — a Program ships config iff it has a `home/` dir
@@ -40,7 +40,7 @@ ca_plan() {
 }
 
 # ca_stow_selection <ships-json> <except-json> <only-json>
-#   The `./stow-configs` wrapper's pure selection logic.
+#   The `./stow-configs.sh` wrapper's pure selection logic.
 #   ships-json:  every program that ships a `home/` (ca_ships_home_list order).
 #   except-json:  names to skip (the `--except` flag); ignored when a name
 #                 ships no home.

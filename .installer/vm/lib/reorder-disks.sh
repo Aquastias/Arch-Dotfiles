@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# vm/lib/reorder-disks — permute data-disk backing files in a libvirt domain
+# vm/lib/reorder-disks.sh — permute data-disk backing files in a libvirt domain
 # =============================================================================
 # Reads a libvirt domain XML on stdin, reverses the <source file> of every
 # data disk EXCEPT the first (the OS disk, which must keep booting), and writes

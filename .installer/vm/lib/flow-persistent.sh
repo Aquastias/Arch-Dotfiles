@@ -242,7 +242,7 @@ _launch_installer() {
   _render_installer_script "${REPO_URL}" "$pubkey" "${PRIMARY_USER}" \
     > "${script}"
 
-  "${FLOW_PERSIST_DIR}/serve-http" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
+  "${FLOW_PERSIST_DIR}/serve-http.sh" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
     "${HTTP_PORT}" >/dev/null 2>&1 &
   _HTTP_PID=$!
 

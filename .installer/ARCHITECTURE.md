@@ -17,7 +17,7 @@ Term definitions: `../CONTEXT.md`. Decisions: `../docs/adr/`.
   paru set.
 - **Diagram 4** — per-program config apply (ADR 0134). How each Program's
   `home/` config reaches `$HOME`, decoupled from package install: the Config
-  Apply Pass copies it (honoring `config_exclude`); `stow-configs` is day-2.
+  Apply Pass copies it (honoring `config_exclude`); `stow-configs.sh` is day-2.
 
 Concern colors (Diagram 2 left column): storage = blue, boot+kernel =
 purple, desktop+gpu = teal, impermanence = orange, identity/users/
@@ -273,7 +273,7 @@ pure) computes which selected Programs' `home/` apply for a user —
 `apply = selected && ships_home && !config_exclude` — and the Runner **copies**
 each into `$HOME` (the staged tree is ephemeral, so a copy not a symlink; ADR
 0095), also seeding `/etc/skel` + `/root` scoped to the host's selection. The
-operator's day-2 tool `./stow-configs` symlinks the same `home/` source from
+operator's day-2 tool `./stow-configs.sh` symlinks the same `home/` source from
 the persistent clone.
 
 ```mermaid
@@ -296,7 +296,7 @@ flowchart TD
     SKEL["seed /etc/skel + /root<br/>(host selection)"]:::proc
   end
 
-  DAY2["./stow-configs (operator)<br/>symlink from clone"]:::out
+  DAY2["./stow-configs.sh (operator)<br/>symlink from clone"]:::out
   HOMEOUT["config in $HOME"]:::out
 
   HSRC-->PLAN

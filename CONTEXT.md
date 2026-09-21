@@ -1812,7 +1812,7 @@ home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each
 user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
 Layout groups files by destination path, not by program. Retired by ADR 0134:
 config now lives per-program in Program Config Trees (`home/`), applied by the
-Config Apply Pass and `stow-configs`. The repo-root duplicates were removed
+Config Apply Pass and `stow-configs.sh`. The repo-root duplicates were removed
 program-by-program; two files linger only because they are bind-mounts in the
 dev sandbox (`.zshrc`, `.claude/settings.json`) and their de-dup lands outside
 it — the programs are decoupled regardless. `.claude` stays tracked
@@ -1827,7 +1827,7 @@ layout *is* the manifest; there is no `src`/`dst` metadata, no variants (ADR
 0134, superseding ADR 0012's `configs/` + manifest + `configs@<variant>/`).
 Optional — a Program without user config omits `home/` and is package-only.
 Discovered by convention: a `home/` dir present ⇒ the Program ships config. The
-single source; both the Config Apply Pass (install-time) and `stow-configs`
+single source; both the Config Apply Pass (install-time) and `stow-configs.sh`
 (day-2) read it.
 
 ### Config Apply Planner
@@ -1835,7 +1835,7 @@ single source; both the Config Apply Pass (install-time) and `stow-configs`
 `ca_ships_home_list`, `ca_stow_selection`) that decides which selected Programs'
 `home/` config applies for a user: `apply = selected && ships_home(program) &&
 !config_exclude(program)`. No filesystem writes; the Runner Pass and
-`stow-configs` share it (ADR 0134).
+`stow-configs.sh` share it (ADR 0134).
 
 ### Config Apply Pass
 The Runner step (ADR 0134) that applies config, decoupled from package install:
@@ -1849,7 +1849,7 @@ staging cleanup.
 Per-user Profile key (array of program names, ADR 0134): install a Program's
 package but skip its config for that user. Empty/absent ⇒ every selected
 Program's config applies (no behaviour change). The install-time twin of
-`stow-configs --except`.
+`stow-configs.sh --except`.
 
 ### User Bareness (`programs_inherit`)
 A User Profile boolean (ADR 0134) — the user-layer twin of the host's
@@ -1859,8 +1859,8 @@ wholesale so a user starts with none, taking only what it names; scoped to
 Sibling key — `programs` stays an array. The `server` user (Minimal Profile)
 uses it so a headless box carries no workstation userland.
 
-### stow-configs
-The operator's day-2 tool (`./stow-configs` at the repo root, ADR 0134):
+### stow-configs.sh
+The operator's day-2 tool (`./stow-configs.sh` at the repo root, ADR 0134):
 GNU-stows each Program's `home/` into `$HOME` from the persistent clone
 (`stow --adopt --no-folding`). Bare = every home-shipping Program; `<prog…>` a
 subset; `--except <prog…>` an opt-out. Same single source as the install-time

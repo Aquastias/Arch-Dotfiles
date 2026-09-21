@@ -611,7 +611,7 @@ if [[ -d "\$DOTFILES" ]]; then
 fi
 git clone "${REPO}" "\$DOTFILES"
 # ADR 0134: config is applied by the Config Apply pass from the staged tree;
-# the installer never stows (ADR 0095). The operator runs ./stow-configs on
+# the installer never stows (ADR 0095). The operator runs ./stow-configs.sh on
 # their installed system for live symlinks. This path just places the repo.
 CLONE_INNER
 # mktemp created the script as root (0600); make it readable so the su'd user
@@ -644,7 +644,7 @@ _profiles_apply_sysctl() {
 # this pass copies each selected program's home/ tree into the user's $HOME
 # (honoring config_exclude) and seeds the machine default into /etc/skel +
 # /root. It is a COPY, not a stow — the staged programs tree is ephemeral
-# (cleaned up post-install), so symlinks would dangle. `./stow-configs` is the
+# (cleaned up post-install), so symlinks would dangle. `./stow-configs.sh` is the
 # operator's day-2 symlink from the persistent clone; both read the one source.
 
 # _profiles_names_to_rels <names-json> — map a JSON array of program names to

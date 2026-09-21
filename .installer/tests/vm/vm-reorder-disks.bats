@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for vm/lib/reorder-disks — permutes data-disk backing files so the next
+# Tests for vm/lib/reorder-disks.sh — permutes data-disk backing files so the next
 # boot renames /dev/sdX, the faithful in-VM repro of the multi-disk reorder bug
 # (ADR 0028). Pure XML in → XML out; no libvirt touched. Bash + awk, no python.
 
-SCRIPT="$BATS_TEST_DIRNAME/../../vm/lib/reorder-disks"
+SCRIPT="$BATS_TEST_DIRNAME/../../vm/lib/reorder-disks.sh"
 
 # A minimal domain: OS disk (sda) + three data disks (sdb/sdc/sdd) + a cdrom.
 _domain_xml() {

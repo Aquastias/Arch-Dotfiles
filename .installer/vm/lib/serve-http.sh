@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# vm/lib/serve-http — minimal static-file HTTP/1.0 server (no python)
+# vm/lib/serve-http.sh — minimal static-file HTTP/1.0 server (no python)
 # =============================================================================
 # Serves files from <dir> on <bind>:<port> so the guest can `curl … | bash` the
 # installer payload + fetch fixtures. Replaces `python3 -m http.server` (repo
 # no-Python policy, docs/agents/no-python.md). socat forks one handler per
 # connection; the script re-invokes itself (`--handle`) as that handler.
 #
-#   serve-http <dir> <bind> <port>        # foreground; background it in the flow
+#   serve-http.sh <dir> <bind> <port>        # foreground; background it in the flow
 # =============================================================================
 set -euo pipefail
 SELF="$(readlink -f "$0")"
@@ -29,7 +29,7 @@ if [[ "${1:-}" == "--handle" ]]; then
   exit 0
 fi
 
-dir="${1:?serve-http <dir> <bind> <port>}"; bind="${2:?}"; port="${3:?}"
-command -v socat >/dev/null 2>&1 || { echo "serve-http: socat not found" >&2; exit 1; }
+dir="${1:?serve-http.sh <dir> <bind> <port>}"; bind="${2:?}"; port="${3:?}"
+command -v socat >/dev/null 2>&1 || { echo "serve-http.sh: socat not found" >&2; exit 1; }
 export SERVE_DIR="$dir"
 exec socat "TCP-LISTEN:${port},bind=${bind},reuseaddr,fork" "EXEC:${SELF} --handle"

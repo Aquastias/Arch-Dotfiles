@@ -74,7 +74,7 @@ plan() { ca_plan "$1" "$2" "$3" | jq -c .; }
   [ "$status" -ne 0 ]
 }
 
-# ── ca_stow_selection — the ./stow-configs wrapper's pure brain ──────────────
+# ── ca_stow_selection — the ./stow-configs.sh wrapper's pure brain ──────────────
 # select <ships> <except> <only> — compact selection output.
 select_() { ca_stow_selection "$1" "$2" "$3" | jq -c .; }
 

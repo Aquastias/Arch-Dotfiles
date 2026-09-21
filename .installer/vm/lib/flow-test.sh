@@ -198,11 +198,11 @@ _stop_console_answerer() {
 # Stage declared fixtures into CACHE_DIR and serve it over HTTP on the libvirt
 # gateway, so the in-guest Secrets Module can fetch the Test Age Key
 # (http://<gateway>:<port>/key.age) during a secure install. No-op when the
-# profile declares no fixtures. Static files via serve-http (socat, no python).
+# profile declares no fixtures. Static files via serve-http.sh (socat, no python).
 _start_fixture_http_server() {
   _fixture_http_should_serve || return 0
   _stage_fixture_files
-  "${FLOW_TEST_DIR}/serve-http" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
+  "${FLOW_TEST_DIR}/serve-http.sh" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
     "${HTTP_PORT}" >/dev/null 2>&1 &
   _HTTP_PID=$!
   info "Serving fixtures at http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/ (pid ${_HTTP_PID})."
@@ -224,12 +224,12 @@ _on_signal() { _stop_console_answerer; _stop_console_capture; \
 # =============================================================================
 # Permute data-disk backing files on the (shut-off) domain so the installed
 # system boots with a different /dev/sdX order than it installed under. The OS
-# disk stays put. reorder-disks is pure + unit-tested (vm-reorder-disks.bats).
+# disk stays put. reorder-disks.sh is pure + unit-tested (vm-reorder-disks.bats).
 _reorder_boot_disks() {
   local reordered="${CACHE_DIR}/${VM_NAME}-reordered.xml"
   info "Reordering data disks before boot (multi-disk reorder repro)."
   virsh dumpxml --inactive "$VM_NAME" \
-    | "${FLOW_TEST_DIR}/reorder-disks" > "$reordered" \
+    | "${FLOW_TEST_DIR}/reorder-disks.sh" > "$reordered" \
     || { warn "Could not render reordered domain XML."; return 1; }
   virsh define "$reordered" >/dev/null \
     || { warn "Could not define reordered domain."; return 1; }
