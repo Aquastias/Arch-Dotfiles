@@ -16,6 +16,7 @@
 #   ssh [cmd…]               interactive guest shell (or one-off command)
 #   ready [timeout]          block until the session's compositor is up
 #   session <niri|hyprland|kde>   switch autologin session + reboot + wait-ready
+#   greeter                  remove the CLI autologin → boot to the DM greeter
 #   logout                   loginctl terminate-session (fresh re-autologin)
 #   reboot                   reboot + wait-ready
 #   idle <on|off>            toggle a removable idle/suspend/DPMS inhibitor
@@ -291,22 +292,63 @@ verb_session() {
       _ssh "rm -f /tmp/vm-agent-autologin.conf" || true ;;
     greetd)
       # Rewrite greetd's [initial_session] table, keeping the rest of the file.
+      # No python (repo policy): a staged bash+awk script splices the block in at
+      # the table's position, or appends it when the table is absent.
       { printf '%s\n' "$cfg"; } | _stage /tmp/vm-agent-greetd-block
-      _stage /tmp/vm-agent-greetd.py <<'PY'
-import re, sys
-p = "/etc/greetd/config.toml"
-block = open("/tmp/vm-agent-greetd-block").read().rstrip() + "\n"
-s = open(p).read()
-if "[initial_session]" in s:
-    s = re.sub(r"(?ms)^\[initial_session\].*?(?=^\[|\Z)", block, s)
-else:
-    s = s.rstrip() + "\n\n" + block
-open(p, "w").write(s)
-PY
-      _sudo "python3 /tmp/vm-agent-greetd.py"
-      _ssh "rm -f /tmp/vm-agent-greetd.py /tmp/vm-agent-greetd-block" || true ;;
+      _stage /tmp/vm-agent-greetd.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+cfg=/etc/greetd/config.toml
+blk=/tmp/vm-agent-greetd-block
+if grep -q '^\[initial_session\]' "$cfg"; then
+  awk -v b="$blk" '
+    BEGIN { while ((getline l < b) > 0) B = B l ORS }
+    /^\[initial_session\]/ { printf "%s", B; skip = 1; next }
+    skip && /^\[/          { skip = 0 }
+    skip                  { next }
+    { print }' "$cfg" > "$cfg.n"
+else
+  { cat "$cfg"; printf '\n'; cat "$blk"; } > "$cfg.n"
+fi
+install -Dm644 "$cfg.n" "$cfg"
+rm -f "$cfg.n"
+SH
+      _sudo "bash /tmp/vm-agent-greetd.sh"
+      _ssh "rm -f /tmp/vm-agent-greetd.sh /tmp/vm-agent-greetd-block" || true ;;
   esac
   verb_reboot
+}
+
+# Remove the CLI-owned autologin so the box boots to its DM greeter (for testing
+# greeter bugs) — the inverse of `session`. Does NOT wait-ready afterwards: with
+# autologin gone there is no graphical session to become ready, so it restarts
+# the display manager and returns. `session <de>` re-arms autologin.
+verb_greeter() {
+  local dm; dm="$(_guest_dm)"
+  [[ -n "$dm" ]] || die "could not detect the guest display manager"
+  info "removing $dm autologin → greeter…"
+  case "$dm" in
+    # sddm reads EVERY file in .conf.d (not just *.conf), so delete the drop-in
+    # outright — renaming it would leave it active.
+    sddm) _sudo "rm -f /etc/sddm.conf.d/zz-agent-autologin.conf" ;;
+    greetd)
+      _stage /tmp/vm-agent-greetd-degreet.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+cfg=/etc/greetd/config.toml
+awk '
+  /^\[initial_session\]/ { skip = 1; next }
+  skip && /^\[/          { skip = 0 }
+  skip                  { next }
+  { print }' "$cfg" > "$cfg.n"
+install -Dm644 "$cfg.n" "$cfg"; rm -f "$cfg.n"
+SH
+      _sudo "bash /tmp/vm-agent-greetd-degreet.sh"
+      _ssh "rm -f /tmp/vm-agent-greetd-degreet.sh" || true ;;
+  esac
+  _sudo "systemctl restart display-manager" || _sudo "systemctl reboot" || true
+  info "$dm greeter shown — log in at the console (agent desktop control needs \
+'session <de>' to re-arm autologin)."
 }
 
 verb_idle() {
@@ -381,7 +423,7 @@ main() {
   VM_NAME="$(agent_resolve_name "$sel_kind" "$sel_ref")"
 
   case "$verb" in
-    exec|launch|ssh|ready|session|logout|reboot|idle|lock|unlock|shot) ;;
+    exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;
   esac
 

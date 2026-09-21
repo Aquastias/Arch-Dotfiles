@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# =============================================================================
+# vm/lib/reorder-disks — permute data-disk backing files in a libvirt domain
+# =============================================================================
+# Reads a libvirt domain XML on stdin, reverses the <source file> of every
+# data disk EXCEPT the first (the OS disk, which must keep booting), and writes
+# the result to stdout. CDROMs are left untouched.
+#
+# Why: the kernel names SATA disks (/dev/sdX) by controller-port order. Moving
+# which qcow2 backs each port renames the disks at boot WITHOUT moving the OS
+# disk. A pool recorded by a bare /dev/sdX kernel name then fails to import
+# ("one or more devices is currently unavailable"); a pool recorded by a stable
+# /dev/disk/by-id or by-partuuid path (the fix) follows its qcow2 and imports
+# fine. This is the faithful in-VM reproduction of the multi-disk reorder bug
+# (ADR 0028) — pure XML surgery so it is unit-testable without libvirt.
+#
+# Bash + awk, no python (repo policy: no Python scripts, see docs/agents).
+# =============================================================================
+set -euo pipefail
+
+exec awk '
+BEGIN { q = "\047"; nd = 0 }                 # \047 = the single-quote attr delim
+{
+  lines[NR] = $0
+  if ($0 ~ "<disk[ >]") {                     # a disk element opens here
+    iscd   = ($0 ~ ("device=" q "cdrom" q)) ? 1 : 0
+    indisk = 1
+  }
+  # The <source file=.../> of a data disk (cdroms skipped): record its position
+  # and backing file, in declared order.
+  if (indisk && !iscd && match($0, ("file=" q "[^" q "]*" q))) {
+    nd++; idx[nd] = NR
+    files[nd] = substr($0, RSTART + 6, RLENGTH - 7)   # strip file= and delims
+  }
+  if ($0 ~ "</disk>") { indisk = 0; iscd = 0 }
+}
+END {
+  # Need the OS disk + at least two data disks for a meaningful swap.
+  if (nd < 3) { for (i = 1; i <= NR; i++) print lines[i]; exit }
+  # Keep disk 0 (OS) fixed; reverse the backing files of the rest.
+  neworder[1] = files[1]; j = 2
+  for (i = nd; i >= 2; i--) neworder[j++] = files[i]
+  for (k = 1; k <= nd; k++) repl[idx[k]] = neworder[k]
+  for (i = 1; i <= NR; i++) {
+    if (i in repl) {
+      r = repl[i]; gsub(/[&\\]/, "\\\\&", r)          # escape sub() replacement
+      s = lines[i]
+      sub(("file=" q "[^" q "]*" q), ("file=" q r q), s)
+      print s
+    } else print lines[i]
+  }
+}
+'
