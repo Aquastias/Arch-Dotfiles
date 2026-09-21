@@ -63,10 +63,10 @@ gated on a clean `:checkhealth`.
 12. As the operator, I want formatting via conform and linting via nvim-lint,
     so that format-on-save and diagnostics follow project config (biome,
     prettier, stylua, ruff, and native fmt tools).
-13. As the operator, I want git integration via gitsigns + fugitive, so that I
-    see signs/blame inline and run raw git.
+13. As the operator, I want git integration via gitsigns + snacks lazygit, so
+    that I see signs/blame inline and run raw git.
 14. As the operator, I want two explorers — oil (buffer-as-directory) and
-    neo-tree (sidebar) — so that I can pick per task.
+    snacks.explorer (sidebar) — so that I can pick per task.
 15. As the operator, I want a snacks-based picker, dashboard and notifier, so
     that fuzzy-find, the start screen and toasts come from one cohesive stack.
 16. As the operator, I want lualine + bufferline, so that the statusline and
@@ -131,8 +131,9 @@ gated on a clean `:checkhealth`.
   (html/svelte/vue/yaml/md), stylua (lua), ruff (py), native rustfmt/gofmt/
   `zig fmt`. nvim-lint for biome/ruff diagnostics where the LSP doesn't cover.
 - **Roster (final).** blink.cmp, nvim-treesitter, nvim-lspconfig(+lazydev,
-  fidget), conform, nvim-lint, gitsigns, fugitive, oil, neo-tree, snacks
-  (picker/dashboard/notifier), lualine, bufferline, harpoon, which-key,
+  fidget), conform, nvim-lint, gitsigns, oil, snacks
+  (picker/dashboard/notifier/explorer/input/lazygit), lualine, bufferline,
+  harpoon, which-key,
   mini.ai, mini.pairs, nvim-ufo, render-markdown, todo-comments, undotree,
   nvim-emmet. No noice. Unused providers (perl/ruby/node) disabled in options.
 - **Theme model ([[Neovim Theme Template]], ADR 0136).** A `follow_noctalia`
