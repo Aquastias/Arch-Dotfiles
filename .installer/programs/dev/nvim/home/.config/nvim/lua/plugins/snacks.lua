@@ -14,11 +14,13 @@ return {
     -- Sidebar file tree (replaced neo-tree). oil keeps netrw, so don't let the
     -- explorer grab it too.
     explorer = { enabled = true, replace_netrw = false },
-    -- Quality-of-life modules kept green in :checkhealth: nicer vim.ui.input,
-    -- LSP reference highlight under cursor, and indent-scope.
+    -- Quality-of-life modules: nicer vim.ui.input, LSP reference highlight under
+    -- cursor, indent-scope, smooth scrolling, and a custom fold/sign/git gutter.
     input = { enabled = true },
     words = { enabled = true },
     scope = { enabled = true },
+    scroll = { enabled = true },
+    statuscolumn = { enabled = true },
     -- Inline image rendering (files, markdown, PDF, mermaid, LaTeX math) via the
     -- kitty graphics protocol. `svg` is added to formats — snacks rasterizes it
     -- with ImageMagick's rsvg delegate, but it is not a default format. LaTeX
