@@ -132,7 +132,7 @@ gated on a clean `:checkhealth`.
   `zig fmt`. nvim-lint for biome/ruff diagnostics where the LSP doesn't cover.
 - **Roster (final).** blink.cmp, nvim-treesitter, nvim-lspconfig(+lazydev,
   fidget), conform, nvim-lint, gitsigns, oil, snacks
-  (picker/dashboard/notifier/explorer/input/lazygit), lualine, bufferline,
+  (picker/dashboard/notifier/explorer/input/image/lazygit), lualine, bufferline,
   harpoon, which-key,
   mini.ai, mini.pairs, nvim-ufo, render-markdown, todo-comments, undotree,
   nvim-emmet. No noice. Unused providers (perl/ruby/node) disabled in options.
