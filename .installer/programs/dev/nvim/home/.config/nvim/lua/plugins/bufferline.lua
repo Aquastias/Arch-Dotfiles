@@ -10,6 +10,9 @@ return {
       separator_style = "thin",
       show_buffer_close_icons = false,
       show_close_icon = false,
+      -- Hide the bar until there are ≥2 buffers, so the dashboard / a single
+      -- file isn't topped by an empty dark tabline strip.
+      always_show_bufferline = false,
     },
   },
 }
