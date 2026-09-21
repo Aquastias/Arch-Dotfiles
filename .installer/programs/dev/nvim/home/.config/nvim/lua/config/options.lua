@@ -3,7 +3,9 @@ local g = vim.g
 local opt = vim.opt
 
 g.mapleader = " "
-g.maplocalleader = " "
+-- Distinct from leader so filetype-local maps (e.g. orgmode's) don't collide
+-- with the global <leader> (space) mappings.
+g.maplocalleader = ","
 
 -- Follow-Noctalia toggle (ADR 0136). Default off → static Catppuccin Mocha
 -- Sapphire. The live-follow path (ticket 07) reads this at startup.
