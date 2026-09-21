@@ -21,6 +21,7 @@ the VM exactly like `vm.sh`. The VM must be running.
 | `launch <app…>` | launch a GUI app detached (returns immediately) |
 | `ssh [cmd…]` | interactive guest shell (or a one-off command) |
 | `session <niri\|hyprland\|kde>` | switch autologin session + reboot + wait |
+| `greeter` | remove the CLI autologin → boot to the DM greeter (for greeter-bug testing); inverse of `session`. No wait-ready (no session to await) |
 | `logout` | terminate the graphical session (fresh re-autologin) |
 | `reboot` | reboot + wait-ready |
 | `idle <on\|off>` | toggle a reversible idle/suspend/DPMS inhibitor |
@@ -49,7 +50,12 @@ Example: `vm-agent.sh session kde && vm-agent.sh shot /tmp/kde.png`.
   it is `zz-agent-autologin.conf` — named to sort **last** in `/etc/sddm.conf.d`
   so it beats the seeded `kde_settings.conf` (sddm merges alphabetically,
   last-wins, and `kde_settings.conf` sorts after `99-*`). On greetd it rewrites
-  `[initial_session]`.
+  `[initial_session]`. `vm.sh --recreate` itself does NOT set autologin — a fresh
+  install boots to the greeter; only `session` arms it.
+- **Disabling autologin (`greeter`):** sddm reads **every file** in
+  `/etc/sddm.conf.d/`, not just `*.conf`, so renaming the drop-in to `.disabled`
+  leaves it **active** — the file must leave the directory. `greeter` deletes it
+  (and strips greetd's `[initial_session]`), then restarts the DM to the greeter.
 - **Logout:** terminates only the **seat0** graphical session — never the
   agent's own SSH session (which has no seat). `terminate-user` would kill your
   SSH connection and hang.
