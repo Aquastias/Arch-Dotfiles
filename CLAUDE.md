@@ -24,6 +24,10 @@ Package/config/service decisions trace to the Arch Wiki — fetch the page, don'
 
 Reuse a Commons helper before writing a new one; put new helpers in the right world (Installer Stdlib vs Shell Stdlib) and don't merge across execution-context boundaries. See `docs/agents/shell-commons.md`.
 
+### No Python
+
+Repo tooling is bash + awk/sed/coreutils — never Python. No committed `.py` files, no `python3 -c`/`-m` in `.installer/` (incl. tests). Python package names in host profiles are fine. See `docs/agents/no-python.md`.
+
 ### VM sandbox
 
 `vm.sh`/`virsh` talk to libvirtd over a socket the command sandbox often blocks. On a `libvirt unreachable (sandbox?)` signal, retry the same command with the sandbox disabled. See `docs/agents/vm-sandbox.md`.
