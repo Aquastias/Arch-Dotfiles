@@ -226,14 +226,12 @@ _on_signal() { _stop_console_answerer; _stop_console_capture; \
 # =============================================================================
 # Permute data-disk backing files on the (shut-off) domain so the installed
 # system boots with a different /dev/sdX order than it installed under. The OS
-# disk stays put. reorder-disks.py is pure + unit-tested (vm-reorder-disks.bats).
+# disk stays put. reorder-disks is pure + unit-tested (vm-reorder-disks.bats).
 _reorder_boot_disks() {
-  command -v python3 >/dev/null 2>&1 \
-    || { warn "python3 missing — skipping disk reorder."; return 1; }
   local reordered="${CACHE_DIR}/${VM_NAME}-reordered.xml"
   info "Reordering data disks before boot (multi-disk reorder repro)."
   virsh dumpxml --inactive "$VM_NAME" \
-    | python3 "${FLOW_TEST_DIR}/reorder-disks.py" > "$reordered" \
+    | "${FLOW_TEST_DIR}/reorder-disks" > "$reordered" \
     || { warn "Could not render reordered domain XML."; return 1; }
   virsh define "$reordered" >/dev/null \
     || { warn "Could not define reordered domain."; return 1; }
