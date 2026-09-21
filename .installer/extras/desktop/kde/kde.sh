@@ -202,14 +202,17 @@ stamp="${XDG_STATE_HOME:-$HOME/.local/state}/kde-favorites-seeded"
 DEF=061c3ccc-9512-4bf9-83d0-0e9d9a9daed7   # Default Activity (ADR 0120)
 DEV=d71c2b09-8d5a-4ce1-aa4f-d868d82a0073   # Dev Activity
 # Wait for kactivitymanagerd — the Activities arrive via captured kactivitymanagerdrc.
-i=0
-while [ "$i" -lt 30 ]; do
-  gdbus call --session --dest org.kde.ActivityManager \
+# Only stamp once it actually answers; a first-login race that times out must
+# retry on the next login, NOT mark a no-op done forever (ADR 0126).
+i=0; ready=0
+while [ "$i" -lt 60 ]; do
+  if gdbus call --session --dest org.kde.ActivityManager \
     --object-path /ActivityManager/Activities \
-    --method org.kde.ActivityManager.Activities.ListActivities >/dev/null 2>&1 \
-    && break
+    --method org.kde.ActivityManager.Activities.ListActivities >/dev/null 2>&1
+  then ready=1; break; fi
   i=$((i + 1)); sleep 1
 done
+[ "$ready" -eq 1 ] || exit 0   # manager never came up — retry next login, no stamp
 link() {  # <desktop-id> <activity|:global>
   gdbus call --session --dest org.kde.ActivityManager \
     --object-path /ActivityManager/Resources/Linking \

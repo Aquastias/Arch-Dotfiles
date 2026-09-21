@@ -78,5 +78,13 @@ skel seed and so skips this too.
   `kactivitymanagerd-statsrc` will reintroduce the stale `favorites=` /
   `favoritesPortedToKAstats=false` / `ordering=` — the three overrides above must
   be re-applied after any re-capture.
+- The helper is `OnlyShowIn=KDE`, so on a shared-$HOME combined box that mostly
+  runs niri/Hyprland it only fires on the **first Plasma login** — until then
+  Kickoff shows no favorites, which is expected, not a regression.
+- Reliability (VM-observed): the helper now stamps **only after
+  `kactivitymanagerd` answers** (`ListActivities`), waiting up to 60 s; if the
+  manager never comes up it exits **without** stamping so the next login retries.
+  The earlier version stamped unconditionally, so a first-login race could mark a
+  no-op done and leave the Favorites grid permanently empty.
 - The grid is empty for the ~second between login and the helper linking; it then
   populates live via the `ResourceLinkedToActivity` signal. No re-login needed.
