@@ -64,7 +64,7 @@ Security: firewall (firewalld) / antivirus / rootkit / apparmor; Backup: zfs
 snapshots / borg — pathing to `post_install.{security,backup}.*`. The category ●
 aggregation is unchanged (folds the per-field override flag).
 
-**Editors** (`guided.sh`): `_guided_edit_firewall` — a single-choice radiolist
+**Editors** (`guided/shell.sh`): `_guided_edit_firewall` — a single-choice radiolist
 (firewalld | ufw | none); picking one IS the mutual exclusion. `_guided_edit_
 {antivirus,rootkit,apparmor,zfs_snapshot,borg}` reuse `_guided_edit_bool` over
 the structured leaves. The old `_guided_edit_backup`/`_guided_edit_security`

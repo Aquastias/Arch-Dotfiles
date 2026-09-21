@@ -46,7 +46,7 @@ default (the back-end derives it RAM×2, disk-capped, treating empty ≡ "auto")
 so its row shows `auto` for legibility — display only, never written to state,
 so an untouched swap_size still emits no key.
 
-guided.sh: new `guided_multi` seam (fzf --multi interactive / whitespace-list
+guided/shell.sh: new `guided_multi` seam (fzf --multi interactive / whitespace-list
 replay, mirrors `guided_pick_disks`); `_guided_collect_multi` +
 `_guided_multi_array` (empty-dropping list→JSON-array); `_guided_edit_scalar`
 free-text helper. Edits: kernel (token array, all flavours offered even on ZFS

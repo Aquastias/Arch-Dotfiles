@@ -48,7 +48,7 @@ Pure (emit.sh): `guided_profile_delta` strips every device path (the single
 `.disk` + per-pool `.disks[]`), keeping the mode/topology/disk_count skeleton —
 the committed audit artifact never carries operator-picked devices (ADR 0036).
 
-Writers (new `lib/guided-save.sh`, pure deps state/emit/profile — no fzf):
+Writers (new `lib/guided/save.sh`, pure deps state/emit/profile — no fzf):
 `guided_save_host_profile <state> <name>` refuses an existing `hosts/<name>/`,
 schema-validates the device-less delta, writes `hosts/<name>/profile.jsonc`
 (re-loads via `load_profile`, applies over Host Core, schema-clean).
@@ -57,7 +57,7 @@ refusing any path under `hosts/` (realpath-guarded). New
 `tests/config/guided-save.bats` (5: delta-strip, save loadable, host collision,
 export device-baked, export hosts/ guard).
 
-Shell (guided.sh): `guided_build` gained a terminal-action branch
+Shell (guided/shell.sh): `guided_build` gained a terminal-action branch
 (_GUIDED_ACTION proceed|save|export; replay `terminal` key / the menu loop sets
 it). Save is device-less (no disk/assignment) + refuses a colliding ad-hoc
 `users/<n>/` BEFORE writing the host (no half-written artifacts) + materializes

@@ -54,7 +54,7 @@ a seeded user can be dropped) and feeds emit / Save / the hostname+mode reads.
 Reset just drops the override → the baseline still supplies locale/timezone, so
 Reset can no longer strip the back-end-required identity (the dissolved footgun).
 
-guided.sh: `_guided_set_identity` seeds the baseline; `_guided_effective` helper;
+guided/shell.sh: `_guided_set_identity` seeds the baseline; `_guided_effective` helper;
 emit/Save/hostname/mode reads routed through it; `_guided_seed_primary_user`
 pre-selects `aquastias` as the committed Primary User (build + reset-all) so an
 ad-hoc add keeps aquastias first (drop it by re-picking committed users without
@@ -63,7 +63,7 @@ loop label-dispatch + the replay branch route them.
 
 menu.sh: `menu_rows <override> [<baseline>]` — value is `baseline*override`, ● is
 override-only; three new `Host` rows (locale/timezone/keymap). state.sh / emit.sh
-/ history.sh / guided-save.sh unchanged. Saved profiles stay self-contained
+/ history.sh / guided/save.sh unchanged. Saved profiles stay self-contained
 (emit/Save bake the baseline), and every seeded path is in the closed host schema
 (the untouched-Save test asserts it validates).
 

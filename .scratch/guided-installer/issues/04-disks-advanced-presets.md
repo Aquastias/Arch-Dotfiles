@@ -52,7 +52,7 @@ with topology+disk_count), `skeleton_total_disks`, `skeleton_validate`
 names an under-populated group), `skeleton_assignment_summary`. 13 bats
 (`tests/config/guided-skeleton.bats`).
 
-Guided shell (`lib/guided.sh`): `_guided_edit_layout` (preset → skeleton
+Guided shell (`lib/guided/shell.sh`): `_guided_edit_layout` (preset → skeleton
 merged into Config State, replacing any prior), `guided_pick_disks <key> <n>`
 (N-disk seam; replay = whitespace list, interactive = fzf multi-select),
 `_guided_resolve_assignment` (multi → picker_build_assignment slices Σ
@@ -69,7 +69,7 @@ disk manually). Full suite **1149 bats**, shellcheck clean.
 
 **Advanced authoring (follow-up, now DONE):** composable builders
 `skeleton_new_multi` / `skeleton_add_storage` / `skeleton_add_data_pool`
-(owners → array) in `skeleton.sh`; `_guided_author_skeleton` (guided.sh) walks
+(owners → array) in `skeleton.sh`; `_guided_author_skeleton` (guided/shell.sh) walks
 OS pool → N storage groups → N data pools through the seam (replay-driven keyed
 answers `adv_*`), guards with `skeleton_validate`, applies via
 `_guided_apply_skeleton`; wired as the `advanced` layout choice. +7 bats.

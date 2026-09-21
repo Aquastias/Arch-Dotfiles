@@ -47,6 +47,6 @@ the pane to show just the highlighted category's fields.
 - CONTEXT.md's master-detail description is updated: the top screen's current
   selection is the triangle pointer, and the pane shows only the highlighted
   item; drill screens retain their sibling column.
-- The `--pointer` flag lives in the fzf interactive glue (`lib/guided.sh`),
+- The `--pointer` flag lives in the fzf interactive glue (`lib/guided/shell.sh`),
   which is unverified by bats; the pane behaviour is covered by guided-detail
   bats.

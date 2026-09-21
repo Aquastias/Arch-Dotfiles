@@ -68,7 +68,7 @@ post_install.backup → **Backup** (Advanced dissolves); `dotfiles_repo` row +
 back-end accessor/schema keep it — only the guided surface drops it, so an
 untouched/edited guided run never emits it).
 
-Shell (`lib/guided.sh`): `_guided_menu_loop` is now a **top category loop**
+Shell (`lib/guided/shell.sh`): `_guided_menu_loop` is now a **top category loop**
 (8 categories via `_guided_category_top_lines` "Name — summary ●" + the
 terminal Proceed/Save/Export rows + the Undo/Redo/Reset footer); selecting a
 category enters `_guided_category_loop <category>` — its field rows

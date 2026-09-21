@@ -13,16 +13,16 @@ category, and the terminal actions are ever selected.
 
 ## How
 
-One rule — `guided_row_inert` (`lib/guided-rows.sh`) — classifies a row as inert
+One rule — `guided_row_inert` (`lib/guided/rows.sh`) — classifies a row as inert
 when it is blank/whitespace-only or opens with a box-drawing dash (`─`, which
 both the divider and the bucket headers do). It is pure and dependency-free so
 the per-focus bind can source just it, not the whole controller.
 
-fzf drives it with three binds (`lib/guided.sh`):
+fzf drives it with three binds (`lib/guided/shell.sh`):
 
 - `up` / `down` record the movement direction into a tmpfs file
   (`GUIDED_SKIP_FILE`) **before** moving;
-- `focus` runs `guided-fzf-entry.sh skip {}` — on an inert row it echoes the
+- `focus` runs `guided/fzf-entry.sh skip {}` — on an inert row it echoes the
   recorded direction (fzf re-moves and focus fires again), on a selectable row
   it echoes nothing (the cursor settles).
 
@@ -47,7 +47,7 @@ flanking holds regardless of direction.
 
 - `guided_row_inert` is unit-tested (guided-controller bats); the fzf wiring
   (up/down/focus binds) is interactive glue, **unverified by bats** like the
-  rest of `lib/guided.sh`, so the skip *feel* is a VM/HITL check.
+  rest of `lib/guided/shell.sh`, so the skip *feel* is a VM/HITL check.
 - Two extra tmpfs writes + one `bash` fork per cursor move (the fork mirrors the
   preview, which already runs per focus) — negligible, but noted for slow ISOs.
 - `GUIDED_SKIP_FILE` joins the tmpfs set reaped on RETURN.

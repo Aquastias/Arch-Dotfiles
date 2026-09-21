@@ -85,7 +85,7 @@ serial too. This closes the encrypted-boot gap the project already hit (the
 recorded headless-verify reboot-loop finding) and is built as its own slice.
 
 **Derivation, not duplication.** The generator sources `lib/config/*` and
-`lib/guided-controller.sh` and walks their option functions
+`lib/guided/controller.sh` and walks their option functions
 (`_ctl_topologies_for_fs`, `menu_rows`, the picker/validation min-disk rules),
 so unreachable cells are structurally impossible and the matrix tracks the
 menu automatically. The pairwise draw is seeded (fixed → deterministic).

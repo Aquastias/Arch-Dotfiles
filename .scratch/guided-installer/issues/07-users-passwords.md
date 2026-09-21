@@ -48,7 +48,7 @@ Pure cores (emit.sh): `guided_user_profile` — ad-hoc form → User Profile del
 over User Core (drops `name`, prunes empty/false/[]/{}, closed-schema-valid).
 New `tests/config/guided-users.bats` (2).
 
-No-SOPS password seam: new `lib/guided-secrets.sh:guided_write_passwords` writes
+No-SOPS password seam: new `lib/guided/secrets.sh:guided_write_passwords` writes
 the decrypted shape (`host-secrets.json {root_password}`, `<name>-secrets.json
 {password, ssh_identity_private_key?}`) to a tmpfs dir and records the paths in
 install-state under **`.guided_passwords.*`** — NOT `.secrets.*`, which gates
@@ -58,7 +58,7 @@ both keys: `chroot.sh:_chroot_resolve_host_secrets` (`.secrets.host //
 (likewise). New `tests/config/guided-secrets.bats` (3) + chroot-configure(+1) +
 profiles-secrets(+1).
 
-Guided shell (guided.sh): Users are the ordered union of committed picks
+Guided shell (guided/shell.sh): Users are the ordered union of committed picks
 (`_guided_pick_users` fzf-multi over `users/*/`, excl. core) and ad-hoc creates
 (`_guided_create_user` — name/shell/sudo/groups/programs/git/ssh-keys via the
 seam → `guided_user_profile` delta), committed first, deduped — `users[0]` is the

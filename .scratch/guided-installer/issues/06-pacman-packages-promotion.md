@@ -80,7 +80,7 @@ menu.sh: 7 new `_MENU_FIELDS` rows — `Pacman` (mirror_countries array,
 multilib bool), `Packages` (packages.extra array), `Advanced` (system_programs,
 dotfiles_repo, post_install.backup, post_install.security).
 
-guided.sh: scalar/bool/multi edits reuse the issue-05 helpers
+guided/shell.sh: scalar/bool/multi edits reuse the issue-05 helpers
 (`_guided_edit_mirror_countries` multi, `_guided_edit_multilib`/`_backup`/
 `_security` bool, `_guided_edit_dotfiles_repo` scalar). List builders append
 through the seam like `_guided_add_persist`: `_guided_add_package`

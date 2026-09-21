@@ -11,7 +11,7 @@ routing, and Save / Export all speak the new field. Every committed profile is
 migrated so the repo loads clean under the closed schema. What lands on a
 machine does not change.
 
-**Blocked by:** 01 — shares the `guided.sh` / `validation.sh` consumer files, so
+**Blocked by:** 01 — shares the `guided/shell.sh` / `validation.sh` consumer files, so
 it lands after the kind-enum ticket to avoid colliding edits.
 
 **Status:** done (commit 6c77e64)

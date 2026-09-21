@@ -80,7 +80,7 @@ layout/dispatch(3). Full suite **1111 bats**, shellcheck clean.
 filesystem-first. menu.sh: new **Disks** section — `filesystem` moved
 Host→Disks, `options.encryption` + `options.impermanence.enabled` bool rows
 added; the impermanence row is hidden when filesystem is ext4/xfs (menu_rows
-reads the effective filesystem). guided.sh: `_guided_filesystem_options`
+reads the effective filesystem). guided/shell.sh: `_guided_filesystem_options`
 (zfs active, btrfs/ext4/xfs "(reserved)") + `_guided_edit_filesystem`
 (commits only an active fs; reserved picks refused); `_guided_edit_bool`
 → encryption/impermanence toggles through the seam; `_guided_add_persist`

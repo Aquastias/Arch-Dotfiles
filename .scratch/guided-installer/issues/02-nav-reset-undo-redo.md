@@ -45,7 +45,7 @@ Reset-all = commit of the seeded baseline (so undoable). Reset granularities
 reuse the existing `cfgstate_unset` (leaf = field, prefix = section subtree)
 and `cfgstate_new` (all) — locked with bats, no new verb.
 
-Shell (`lib/guided.sh`): `_guided_menu_loop` seeds the stack from the launch
+Shell (`lib/guided/shell.sh`): `_guided_menu_loop` seeds the stack from the launch
 state, commits every edit, dispatches Undo/Redo/Reset-all, and appends the
 pure `_guided_footer_lines` (Undo/Redo offered only when available, Reset-all
 always). Reset-all confirms via typed `RESET` through `guided_prompt`.

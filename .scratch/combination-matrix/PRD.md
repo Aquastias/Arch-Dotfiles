@@ -169,7 +169,7 @@ sourced lib helpers (see modules) so it is unit-testable without the driver.
   registry covers `_MENU_FIELDS` *exactly* (hard-fail `unclassified axis <path>`
   on a gap). The stay-in-sync enforcer.
 - **Cell Generator + Constraint Model** — sources `lib/config/*` and
-  `lib/guided-controller.sh`, walks the option functions, and emits the Tier-1
+  `lib/guided/controller.sh`, walks the option functions, and emits the Tier-1
   exhaustive storage-cluster cells and the Tier-2 pairwise+seed cells as JSON
   lines (cell-id + axis assignment). Reachability comes from the menu functions,
   so impossible cells are structurally excluded. Seeds are unioned in

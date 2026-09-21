@@ -23,7 +23,7 @@ measurement (baseline ~1956 tests, all green) showed three things:
 - **The real per-source cost was subshell-forking include guards.** Each
   lib guarded its idempotent load with
   `[[ "$(type -t fn)" == "function" ]]` — a `$(…)` subshell fork.
-  `guided-controller.sh` had 19, and transitively pulled ~14 more libs
+  `guided/controller.sh` had 19, and transitively pulled ~14 more libs
   with their own guards: **~34 ms per source**, ×242 tests, the long pole.
   `declare -F fn` is a builtin with identical semantics and **no fork**.
 - **Wall time can't be trusted here.** The dev box runs a steady external

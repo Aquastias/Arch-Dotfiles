@@ -221,7 +221,7 @@ actionable message ("security/backup install via paru and need a primary
 user — add a user or clear the selections"). Consistent with validation
 being deferred to the terminal actions.
 
-**S1 — Two-level fzf loop (impure shell).** `lib/guided.sh` is
+**S1 — Two-level fzf loop (impure shell).** `lib/guided/shell.sh` is
 restructured: a top category loop renders categories (with `●` markers) +
 the Proceed/Save/Export rows under a divider; Enter on a category opens a
 sub-loop over that category's fields; `--expect=ctrl-z,ctrl-y,ctrl-r`

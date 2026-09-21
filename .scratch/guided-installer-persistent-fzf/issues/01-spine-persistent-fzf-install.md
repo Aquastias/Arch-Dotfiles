@@ -77,13 +77,13 @@ history stack, the skeleton builder, the Pre-Install Picker) and the
 ## Comments
 
 **DONE (2026-06-23 … 06-26).** Built across `lib/config/edits.sh` (pure setters),
-`lib/config/nav.sh` (nav-state model), `lib/guided-controller.sh` (controller +
-directive→action), `lib/guided-fzf-entry.sh` (bind entry point), and
-`lib/guided.sh`'s `guided_run_persistent` launcher + post-menu `prompt_secret`
+`lib/config/nav.sh` (nav-state model), `lib/guided/controller.sh` (controller +
+directive→action), `lib/guided/fzf-entry.sh` (bind entry point), and
+`lib/guided/shell.sh`'s `guided_run_persistent` launcher + post-menu `prompt_secret`
 credentials; single-disk resolution moved post-menu. Commits `f6a21b3` /
 `a5a2b3f` / `6d4da83` / `93e1b4e` / `f38768e`. The **cutover** (`ddc1602`) made
 the persistent fzf the only interactive path (legacy `_guided_menu_loop` deleted,
-GUIDED_PERSISTENT flag gone, guided.sh 1230→1019). On main, full suite green.
+GUIDED_PERSISTENT flag gone, guided/shell.sh 1230→1019). On main, full suite green.
 Only the live fzf render + the VM spine smoke remain HITL/VM-gated (no tty/fzf in
 CI); everything else is bats-verified + headless-walked through the real entry
 script.

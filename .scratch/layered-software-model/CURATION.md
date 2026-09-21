@@ -523,7 +523,7 @@ the shell section; anything else isn't KDE and belongs in a host profile.
 Not caused by this refactor — pre-existing, found while pinning down the
 System Program definition. Belongs with the guided-surface work (ADR 0058).
 
-`_ctl_program_names` (`lib/guided-controller.sh:357`) enumerates every
+`_ctl_program_names` (`lib/guided/controller.sh:357`) enumerates every
 `programs/<cat>/<name>/` with **no filter on the `system` flag**, and the same
 unfiltered list feeds two pickers with opposite requirements:
 

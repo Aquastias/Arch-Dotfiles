@@ -103,7 +103,7 @@ Bucket layout (prototype V3):
 
   Keeping it in the model (not inline jq in the controller) makes it
   unit-testable and keeps the render thin.
-- **Top-screen render (`lib/guided-controller.sh`)** `guided_ctl_list` top case
+- **Top-screen render (`lib/guided/controller.sh`)** `guided_ctl_list` top case
   emits `menu_top_lines` between the `Profiles ▸` divider and the terminal-row
   divider, replacing the inline `menu_categories | jq` category loop. The
   Profiles/divider/Proceed/Save/Export/Abort rows are unchanged.

@@ -125,7 +125,7 @@ Redesign the Users area and the credential capture surface:
   row in `menu_categories`, computed from the completeness predicate the same way
   the `●` override flag is folded. The count is root (if unset) plus each enabled
   user lacking a password.
-- **Controller (`guided-controller.sh`)** — the primary work:
+- **Controller (`guided/controller.sh`)** — the primary work:
   - Flatten the Users `values` screen: root-password row, per-user rows rendered
     `name — shell · pw <ok|⚠>` (enabled) or `name — disabled`, `＋ Create user`,
     `← Back`. No `users: aquastias` category-level row.
@@ -162,7 +162,7 @@ Redesign the Users area and the credential capture surface:
   set of committed users, return the committed users carrying non-empty deltas.
   `guided_save_host_profile`'s caller warns (naming them) but still writes the
   device-less profile; it never rewrites `users/<name>/profile.jsonc`.
-- **Secrets-file (`guided-secrets-file.sh`)** — unchanged shape and completeness
+- **Secrets-file (`guided/secrets-file.sh`)** — unchanged shape and completeness
   predicate (`guided_secretsfile_missing`) drive the list `⚠`, the top-level
   count, and the Proceed gate — one source of truth.
 

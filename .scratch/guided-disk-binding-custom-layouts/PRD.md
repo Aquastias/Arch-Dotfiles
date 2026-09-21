@@ -181,9 +181,9 @@ identically either way.
   today's action-rows-in-list + header/border, no footer/breadcrumb. Version
   detected once at launch into a cached boolean. No hard-floor bump and no
   `pacman -Sy fzf` at menu start (would break offline Save/Export authoring).
-- **Modules touched.** `lib/guided-controller.sh` (pool model, editor nav/rows,
+- **Modules touched.** `lib/guided/controller.sh` (pool model, editor nav/rows,
   Free Set, fs-pin trim, chrome-action emission, version gate),
-  `lib/guided-fzf-entry.sh` (dispatch for the new screens/keys), `lib/guided.sh`
+  `lib/guided/fzf-entry.sh` (dispatch for the new screens/keys), `lib/guided/shell.sh`
   (bind-all resolution, flatten-on-save, replay `devices[]` injection),
   `lib/config/skeleton.sh` (devices↔count flatten, Custom seed builder),
   `lib/picker.sh` (Free-Set computation over enumerated candidates;
@@ -200,14 +200,14 @@ Good tests here assert **external behavior at a seam** — JSON-in/JSON-out for
 logic, emitted fzf action strings for chrome — never internal helper calls. Three
 seams, all already established, plus one small new replay hook:
 
-- **Pure logic seam (bats over `guided-controller.sh` / `skeleton.sh` /
+- **Pure logic seam (bats over `guided/controller.sh` / `skeleton.sh` /
   `picker.sh`).** Covers the pool data model (`devices[]` add/remove, derived
   `disk_count`), the fs-pin trim-to-first, the Free-Set computation (using the
   existing **`PICKER_BY_ID_DIR`** override to fake `/dev/disk/by-id`, exactly as
   `picker.bats` does), the flatten-on-save, and the assignment build from
   `devices[]`. Prior art: `guided-controller.bats`, `guided-per-group-fs.bats`,
   `skeleton.bats`, `picker.bats`.
-- **fzf-entry seam (bats over `guided-fzf-entry.sh dispatch`).** Automates the
+- **fzf-entry seam (bats over `guided/fzf-entry.sh dispatch`).** Automates the
   chrome without a tty: assert the rendered list contains only data (no action
   rows in rich mode), the emitted action string carries the right
   `change-footer` / `change-list-label` / `change-header` content and the

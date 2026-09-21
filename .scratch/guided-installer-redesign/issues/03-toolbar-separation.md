@@ -34,7 +34,7 @@ existing snapshot stack and reset verbs.
 
 **DONE via /tdd (2026-06-21).** Toolbar pulled out of the top category list.
 
-Render (`lib/guided.sh`): new pure `_guided_top_menu_lines <o> [<b>]` = the 8
+Render (`lib/guided/shell.sh`): new pure `_guided_top_menu_lines <o> [<b>]` = the 8
 category rows + a `_GUIDED_DIVIDER` rule + the terminal rows (Proceed / Save /
 Export). The edit-history rows are gone — `_guided_footer_lines` and
 `_guided_reset_lines` are **deleted** (their selectable Undo/Redo/Reset rows

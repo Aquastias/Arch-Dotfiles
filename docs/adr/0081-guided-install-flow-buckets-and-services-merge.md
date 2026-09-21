@@ -78,7 +78,7 @@ without a one-item bucket.
   field path are preserved, so emit, Layer Resolver and Package Resolver are
   untouched. The Axis Registry keys on field paths, not sections, so it is
   unaffected.
-- The top-screen render (`guided-controller.sh`) gains bucket-header emission;
+- The top-screen render (`guided/controller.sh`) gains bucket-header emission;
   Enter/detail already degrade to `noop` on a non-category line.
 - The [[Package Resolver]]'s display-only origin hints repoint
   printing/bluetooth/power → `Services` and fonts → `System`.

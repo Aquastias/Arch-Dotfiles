@@ -31,7 +31,7 @@ The pure core ships at the scope this slice exercises: **Config State**
 for the covered fields), **Emitter** (state → Effective Config) — all
 JSON-in/JSON-out, no TTY. The fzf shell is the thin impure layer.
 
-The fzf shell (`lib/guided.sh`) holds **no logic** — it renders
+The fzf shell (`lib/guided/shell.sh`) holds **no logic** — it renders
 `menu_rows`, dispatches to Config State, resolves disks via the picker,
 assembles via the Emitter, and runs the terminal action. Its **only**
 selection primitives are `guided_select` / `guided_prompt`: fzf (and a
