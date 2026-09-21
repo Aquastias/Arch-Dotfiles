@@ -242,10 +242,8 @@ _launch_installer() {
   _render_installer_script "${REPO_URL}" "$pubkey" "${PRIMARY_USER}" \
     > "${script}"
 
-  python3 -m http.server "${HTTP_PORT}" \
-    --directory "${CACHE_DIR}" \
-    --bind "${LIBVIRT_GATEWAY}" \
-    >/dev/null 2>&1 &
+  "${FLOW_PERSIST_DIR}/serve-http" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
+    "${HTTP_PORT}" >/dev/null 2>&1 &
   _HTTP_PID=$!
 
   local url="http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/run"
@@ -349,7 +347,7 @@ _wait_for_poweroff() {
 # ENTRY POINT
 # =============================================================================
 flow_persistent_deps() {
-  _harness_ensure_deps nc:openbsd-netcat python3:python ssh-keygen:openssh \
+  _harness_ensure_deps nc:openbsd-netcat socat:socat ssh-keygen:openssh \
     script:util-linux
 }
 

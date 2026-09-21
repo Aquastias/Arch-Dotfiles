@@ -198,14 +198,12 @@ _stop_console_answerer() {
 # Stage declared fixtures into CACHE_DIR and serve it over HTTP on the libvirt
 # gateway, so the in-guest Secrets Module can fetch the Test Age Key
 # (http://<gateway>:<port>/key.age) during a secure install. No-op when the
-# profile declares no fixtures. Smoke-only (live python http.server).
+# profile declares no fixtures. Static files via serve-http (socat, no python).
 _start_fixture_http_server() {
   _fixture_http_should_serve || return 0
   _stage_fixture_files
-  python3 -m http.server "${HTTP_PORT}" \
-    --directory "${CACHE_DIR}" \
-    --bind "${LIBVIRT_GATEWAY}" \
-    >/dev/null 2>&1 &
+  "${FLOW_TEST_DIR}/serve-http" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
+    "${HTTP_PORT}" >/dev/null 2>&1 &
   _HTTP_PID=$!
   info "Serving fixtures at http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/ (pid ${_HTTP_PID})."
 }
