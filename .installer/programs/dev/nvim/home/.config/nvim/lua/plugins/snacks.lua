@@ -1,5 +1,6 @@
--- snacks.nvim (ADR 0135): the picker + dashboard + notifier stack, plus a few
--- quality-of-life modules. oil and neo-tree own file exploration, not snacks.
+-- snacks.nvim (ADR 0135): picker + dashboard + notifier + the sidebar explorer
+-- and git stack (lazygit/gitbrowse). oil owns buffer-style file editing; snacks
+-- owns the sidebar tree (replaced neo-tree) and git UI (replaced fugitive).
 return {
   "folke/snacks.nvim",
   priority = 1000,
@@ -10,12 +11,15 @@ return {
     notifier = { enabled = true },
     bigfile = { enabled = true },
     quickfile = { enabled = true },
+    -- Sidebar file tree (replaced neo-tree). oil keeps netrw, so don't let the
+    -- explorer grab it too.
+    explorer = { enabled = true, replace_netrw = false },
     -- Quality-of-life modules kept green in :checkhealth: nicer vim.ui.input,
     -- LSP reference highlight under cursor, and indent-scope.
     input = { enabled = true },
     words = { enabled = true },
     scope = { enabled = true },
-    -- No image preview (oil/neo-tree own files; no image workflow). Snacks still
+    -- No image preview (oil owns files; no image workflow). Snacks still
     -- healthchecks image regardless of this flag, so its WARN is expected.
     image = { enabled = false },
   },
@@ -44,5 +48,30 @@ return {
     map("n", "<leader>fh", function()
       p.help()
     end, { desc = "Help pages" })
+
+    -- Sidebar file explorer (replaced neo-tree's <leader>e).
+    map("n", "<leader>e", function()
+      Snacks.explorer()
+    end, { desc = "Explorer (snacks)" })
+
+    -- Git (replaced fugitive): lazygit for actions, pickers for browsing.
+    map("n", "<leader>gg", function()
+      Snacks.lazygit()
+    end, { desc = "Lazygit" })
+    map("n", "<leader>gl", function()
+      Snacks.lazygit.log()
+    end, { desc = "Lazygit log" })
+    map("n", "<leader>gs", function()
+      p.git_status()
+    end, { desc = "Git status" })
+    map("n", "<leader>gb", function()
+      p.git_branches()
+    end, { desc = "Git branches" })
+    map("n", "<leader>gL", function()
+      p.git_log()
+    end, { desc = "Git log (picker)" })
+    map({ "n", "v" }, "<leader>gB", function()
+      Snacks.gitbrowse()
+    end, { desc = "Git browse (open remote)" })
   end,
 }

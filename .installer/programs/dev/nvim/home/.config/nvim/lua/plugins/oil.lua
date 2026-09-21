@@ -1,5 +1,5 @@
 -- oil.nvim (ADR 0135): edit the filesystem as a buffer. Primary explorer for
--- quick moves; neo-tree is the sidebar view.
+-- quick moves; snacks.explorer is the sidebar view.
 return {
   "stevearc/oil.nvim",
   dependencies = { "nvim-tree/nvim-web-devicons" },
