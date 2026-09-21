@@ -19,11 +19,10 @@ return {
     input = { enabled = true },
     words = { enabled = true },
     scope = { enabled = true },
-    -- Inline image rendering (files, markdown, PDF, mermaid) via the kitty
-    -- graphics protocol. `svg` is added to formats — snacks rasterizes it with
-    -- ImageMagick's rsvg delegate, but it is not a default format. LaTeX math
-    -- needs the `latex` treesitter parser, which does not build on the current
-    -- tree-sitter CLI, so math stays unrendered.
+    -- Inline image rendering (files, markdown, PDF, mermaid, LaTeX math) via the
+    -- kitty graphics protocol. `svg` is added to formats — snacks rasterizes it
+    -- with ImageMagick's rsvg delegate, but it is not a default format. LaTeX
+    -- math renders via the `latex` parser (see treesitter.lua) + tectonic.
     image = {
       enabled = true,
       formats = {
