@@ -487,7 +487,6 @@ every boot without the USB.
 │   ├── fetch-iso.sh        # Download + verify archzfs ISO
 │   ├── harden-boot.sh      # Boot-path hardening
 │   ├── guided-preview.sh   # Live-fzf render harness
-│   ├── guided-fzf-smoke.py # Headless fzf-render smoke helper
 │   └── matrix.sh           # Combination Matrix runner (ADR 0046)
 │
 ├── tests/                  # BATS + VM integration tests

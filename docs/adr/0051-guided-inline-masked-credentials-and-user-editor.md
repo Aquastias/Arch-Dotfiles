@@ -76,9 +76,9 @@ captured inline in the Disks screen, with the back-end prompt kept as fallback.)
 - Replay is unchanged: it never enters fzf, still supplying passwords via keyed
   answers into the held-aside vars.
 - The masking binds + the User Editor's live edits need a real tty/fzf; they are
-  driven automatically by the PTY smoke harness (`tools/guided-fzf-smoke.py`,
-  which sends keystrokes to `guided-preview.sh` and asserts rendered screens), so
-  the check is repeatable and AFK rather than a human gate. The pure logic (buffer
+  eyeballed via `tools/guided-preview.sh` (a live-fzf render harness) as a human
+  gate — the earlier automated PTY smoke driver was removed with the repo's
+  no-Python rule (`docs/agents/no-python.md`). The pure logic (buffer
   accumulate/backspace, delta authoring, effective-view render, completeness
   predicate) is bats-covered.
 - The User Editor subsumes the old bare `＋ Create user` (name-only) flow:

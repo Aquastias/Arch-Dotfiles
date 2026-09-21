@@ -26,6 +26,8 @@ about.
 ## If you find Python
 
 Convert it to bash+awk in place and update its callers + tests (the reorder-disks
-and guided-fzf-smoke conversions are the worked examples). If a conversion needs
-a tool that is not already a repo dependency, ground the new dependency on the
-Arch Wiki first (see `arch-wiki.md`) and flag it.
+conversion — libvirt-XML surgery in awk — is the worked example). A tool that
+only made sense in Python and can't be cleanly ported (e.g. a PTY-driving smoke
+harness) is removed rather than half-ported. If a conversion needs a tool that is
+not already a repo dependency, ground the new dependency on the Arch Wiki first
+(see `arch-wiki.md`) and flag it.
