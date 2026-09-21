@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# stow-configs — apply per-program config from each program's home/ (ADR 0134)
+# stow-configs.sh — apply per-program config from each program's home/ (ADR 0134)
 # =============================================================================
 # The operator's day-2 twin of the Runner's install-time config-apply pass.
 # Each Program owns its user config under
@@ -8,9 +8,9 @@
 # stows the selected ones into $HOME with GNU stow. Single source — the folder
 # layout IS the manifest; there is no repo-root stow tree.
 #
-#   ./stow-configs                 # stow every Program that ships a home/
-#   ./stow-configs kitty zsh       # stow exactly these
-#   ./stow-configs --except claude # stow everything but claude's config
+#   ./stow-configs.sh                 # stow every Program that ships a home/
+#   ./stow-configs.sh kitty zsh       # stow exactly these
+#   ./stow-configs.sh --except claude # stow everything but claude's config
 #
 # `--adopt` makes it safe whether $HOME is empty (fresh clone) or already
 # installer-seeded (same bytes, single source): it flips real files to symlinks
@@ -30,9 +30,9 @@ usage() {
 }
 
 command -v stow >/dev/null 2>&1 \
-  || { echo "stow-configs: GNU stow is not installed" >&2; exit 1; }
+  || { echo "stow-configs.sh: GNU stow is not installed" >&2; exit 1; }
 [[ -d "$PROGRAMS" ]] \
-  || { echo "stow-configs: no programs dir at ${PROGRAMS}" >&2; exit 1; }
+  || { echo "stow-configs.sh: no programs dir at ${PROGRAMS}" >&2; exit 1; }
 
 # Args: positional names (the `only` set) OR `--except <names…>`.
 declare -a except=() only=()
@@ -41,7 +41,7 @@ while (($#)); do
   case "$1" in
   --except) mode="except" ;;
   -h | --help) usage 0 ;;
-  -*) echo "stow-configs: unknown flag '$1'" >&2; usage 1 ;;
+  -*) echo "stow-configs.sh: unknown flag '$1'" >&2; usage 1 ;;
   *) if [[ "$mode" == "except" ]]; then except+=("$1"); else only+=("$1"); fi ;;
   esac
   shift
@@ -62,10 +62,10 @@ count=0
 while IFS= read -r name; do
   [[ -n "$name" ]] || continue
   home="$(ca_home_dir "$PROGRAMS" "$name")" || {
-    echo "stow-configs: '${name}' ships no home/ — skipping" >&2; continue; }
+    echo "stow-configs.sh: '${name}' ships no home/ — skipping" >&2; continue; }
   stow -d "$(dirname "$home")" -t "$HOME" --adopt --no-folding home
-  echo "stow-configs: stowed ${name}"
+  echo "stow-configs.sh: stowed ${name}"
   count=$((count + 1))
 done < <(jq -r '.[]' <<<"$selection")
 
-echo "stow-configs: ${count} program(s) stowed into ${HOME}"
+echo "stow-configs.sh: ${count} program(s) stowed into ${HOME}"

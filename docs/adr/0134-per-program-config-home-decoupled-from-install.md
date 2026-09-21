@@ -2,7 +2,7 @@
 
 ## Status
 Accepted — implemented. The Config Apply Planner, `config_exclude`,
-`programs_inherit`, the Runner copy-pass, `./stow-configs`, and the migration of
+`programs_inherit`, the Runner copy-pass, `./stow-configs.sh`, and the migration of
 every config-bearing program (kitty, lazygit, yazi, pi, claude, teamspeak3, zsh)
 are in place; the ADR-0012 generator and its `.stow` plumbing are deleted;
 `minimal` uses a bare `server` user; the Guided Create-user form authors both
@@ -71,7 +71,7 @@ selection-driven pass with two entry points over one source:
 
 - **Install time** — the Runner applies each selected Program's `home/` for
   each user, honoring that user's `config_exclude`.
-- **Day 2** — `./stow-configs [program…]` (a thin repo-root wrapper looping
+- **Day 2** — `./stow-configs.sh [program…]` (a thin repo-root wrapper looping
   `stow -d <prog> -t ~ --adopt --no-folding home` over Programs that ship a
   `home/`). `--adopt` makes it safe whether `~` is empty or already
   installer-seeded (same bytes, single source).
@@ -82,7 +82,7 @@ user's `$HOME`.
 
 ### Opt-out is first-class
 `config_exclude[]` (new per-user Profile key) skips a Program's config while
-its package still installs — the install-time twin of `./stow-configs
+its package still installs — the install-time twin of `./stow-configs.sh
 --except`. Default empty ⇒ every selected Program's config applies, i.e. no
 behaviour change for existing Profiles.
 
@@ -98,7 +98,7 @@ bare server user) and is finally minimal end-to-end.
 ### Discovery by convention
 A Program ships config iff it has a `home/` dir. No registry, no
 `config.jsonc` flag — adding a Program needs no central edit. The Runner and
-`./stow-configs` walk the same glob.
+`./stow-configs.sh` walk the same glob.
 
 ## Considered alternatives
 

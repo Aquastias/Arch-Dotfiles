@@ -28,6 +28,10 @@ Reuse a Commons helper before writing a new one; put new helpers in the right wo
 
 Repo tooling is bash + awk/sed/coreutils — never Python. No committed `.py` files, no `python3 -c`/`-m` in `.installer/` (incl. tests). Python package names in host profiles are fine. See `docs/agents/no-python.md`.
 
+### Repo conventions
+
+Exactly one `.claude/` (repo root; the dev/claude `home/.claude/` seed payload is the sole exception). Shell scripts the tooling runs/sources end in `.sh` — except git hooks, PATH-installed commands, `.zsh` config, and bats `.bash` `load` helpers. See `docs/agents/conventions.md`.
+
 ### VM sandbox
 
 `vm.sh`/`virsh` talk to libvirtd over a socket the command sandbox often blocks. On a `libvirt unreachable (sandbox?)` signal, retry the same command with the sandbox disabled. See `docs/agents/vm-sandbox.md`.
