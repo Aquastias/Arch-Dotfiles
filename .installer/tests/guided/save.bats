@@ -27,8 +27,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/emit.sh"
   # shellcheck source=../../lib/config/profile.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/profile.sh"
-  # shellcheck source=../../lib/guided-save.sh
-  source "$BATS_TEST_DIRNAME/../../lib/guided-save.sh"
+  # shellcheck source=../../lib/guided/save.sh
+  source "$BATS_TEST_DIRNAME/../../lib/guided/save.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

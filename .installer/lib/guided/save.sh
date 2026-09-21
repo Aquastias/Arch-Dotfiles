@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-save.sh — Guided Installer terminal-action writers (issue 08)
+# lib/guided/save.sh — Guided Installer terminal-action writers (issue 08)
 # =============================================================================
 # The two non-Proceed terminal actions, as testable file writers:
 #
@@ -20,18 +20,18 @@
 # single profile/config write. Requires INSTALLER_DIR set.
 # =============================================================================
 
-# shellcheck source=./config/state.sh
+# shellcheck source=../config/state.sh
 declare -F cfgstate_emit >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/state.sh"
-# shellcheck source=./config/emit.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
+# shellcheck source=../config/emit.sh
 declare -F guided_profile_delta >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
-# shellcheck source=./config/seed.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
+# shellcheck source=../config/seed.sh
 declare -F cfgstate_host_core >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
-# shellcheck source=./config/profile.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
+# shellcheck source=../config/profile.sh
 declare -F validate_config_schema >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
+  || source "${BASH_SOURCE[0]%/*}/../config/profile.sh"
 
 # guided_save_host_profile <state> <name> — see header. rc 1 (no write) on an
 # empty name, a name collision, or a schema-invalid delta.

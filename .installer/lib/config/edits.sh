@@ -3,7 +3,7 @@
 # lib/config/edits.sh — Guided Installer pure edit setters (ADR 0042)
 # =============================================================================
 # The SET half of every guided editor, extracted into pure functions shared by
-# two callers: the replay helpers in lib/guided.sh (which GET a value through
+# two callers: the replay helpers in lib/guided/shell.sh (which GET a value through
 # the selection seam, then SET it) and the persistent-fzf controller (which GETs
 # a value from fzf, then SETs it). Centralizing the bespoke jq here means the
 # path/value writes have one tested implementation — the controller never

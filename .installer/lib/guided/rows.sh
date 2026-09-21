@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-rows.sh — top-list row classifier (ADR 0083)
+# lib/guided/rows.sh — top-list row classifier (ADR 0083)
 # =============================================================================
 # fzf has no non-selectable items, so the cursor CAN land on the decorative
 # rows the top screen renders. This is the single rule for which rows are

@@ -15,7 +15,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/skeleton.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/guided-controller.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
   printf '%s\n' '{}' > "$GUIDED_BASELINE_FILE"
   printf '%s\n' '{"screen":"top"}' > "$GUIDED_NAV_FILE"

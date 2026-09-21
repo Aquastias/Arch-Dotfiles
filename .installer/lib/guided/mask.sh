@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-mask.sh — Guided Installer inline password masking core (ADR 0051)
+# lib/guided/mask.sh — Guided Installer inline password masking core (ADR 0051)
 # =============================================================================
 # fzf has no masked-input mode, so a password typed inline in its query line is
 # masked with a query-buffer trick: the real characters live in a tmpfs buffer,

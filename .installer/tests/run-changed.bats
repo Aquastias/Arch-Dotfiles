@@ -43,8 +43,8 @@ setup() {
 
 # A changed test file targets itself (tests/-relative).
 @test "a changed test file targets itself" {
-  run select_changed_targets .installer/tests/config/guided-emit.bats
-  grep -qx 'config/guided-emit.bats' <<< "$output"
+  run select_changed_targets .installer/tests/guided/emit.bats
+  grep -qx 'guided/emit.bats' <<< "$output"
 }
 
 # Broad-Blast Paths widen to --full.

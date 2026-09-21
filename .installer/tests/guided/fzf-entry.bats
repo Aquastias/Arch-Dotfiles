@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-fzf-entry.sh — the persistent-fzf bind entry
+# Tests for .installer/lib/guided/fzf-entry.sh — the persistent-fzf bind entry
 # point
 # (ADR 0042). fzf itself can't run in CI (no tty), but the entry script's `list`
 # and `dispatch` subcommands are plain commands: this drives them as a real
@@ -9,7 +9,7 @@
 # slice-01 VM/HITL gate.
 
 setup() {
-  ENTRY="$BATS_TEST_DIRNAME/../../lib/guided-fzf-entry.sh"
+  ENTRY="$BATS_TEST_DIRNAME/../../lib/guided/fzf-entry.sh"
   TEST_DIR="$(mktemp -d)"
   export GUIDED_STATE_FILE="$TEST_DIR/s" GUIDED_NAV_FILE="$TEST_DIR/n" \
          GUIDED_BASELINE_FILE="$TEST_DIR/b" GUIDED_RESULT_FILE="$TEST_DIR/r" \

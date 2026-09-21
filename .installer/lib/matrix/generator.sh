@@ -26,9 +26,9 @@
 # =============================================================================
 
 # menu option functions (the source of truth for reachability).
-# shellcheck source=../guided-controller.sh
+# shellcheck source=../guided/controller.sh
 declare -F _ctl_topologies_for_fs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../guided-controller.sh"
+  || source "${BASH_SOURCE[0]%/*}/../guided/controller.sh"
 # shellcheck source=./pairwise.sh
 declare -F matrix_pairwise >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/pairwise.sh"

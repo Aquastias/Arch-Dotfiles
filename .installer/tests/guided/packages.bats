@@ -27,7 +27,7 @@ JSON
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/seed.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/guided-controller.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   cfgstate_seed_defaults "$(cfgstate_new)" > "$GUIDED_BASELINE_FILE"

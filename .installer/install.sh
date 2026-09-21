@@ -314,8 +314,8 @@ if [[ -z "$profile_name" && -z "$print_config" ]] \
   export INSTALLER_DIR="${INSTALLER_DIR:-$SCRIPT_DIR}"
   # shellcheck source=lib/common.sh
   source "${SCRIPT_DIR}/lib/common.sh"
-  # shellcheck source=lib/guided.sh
-  source "${SCRIPT_DIR}/lib/guided.sh"
+  # shellcheck source=lib/guided/shell.sh
+  source "${SCRIPT_DIR}/lib/guided/shell.sh"
 
   [[ -n "$guided_replay" ]] && guided_load_replay "$guided_replay"
 

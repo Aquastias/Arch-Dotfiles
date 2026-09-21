@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for lib/guided-secrets.sh — the Guided Installer's no-SOPS password
+# Tests for lib/guided/secrets.sh — the Guided Installer's no-SOPS password
 # injector (issue 07). It writes the *decrypted* secrets shape ({root_password},
 # per-user {password, ssh_identity_private_key?}) to a tmpfs dir and points the
 # back-end at the files via install-state's `.guided_passwords.*` key — the same
@@ -18,8 +18,8 @@ setup() {
 
   # shellcheck source=../../lib/install-state.sh
   source "$BATS_TEST_DIRNAME/../../lib/install-state.sh"
-  # shellcheck source=../../lib/guided-secrets.sh
-  source "$BATS_TEST_DIRNAME/../../lib/guided-secrets.sh"
+  # shellcheck source=../../lib/guided/secrets.sh
+  source "$BATS_TEST_DIRNAME/../../lib/guided/secrets.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

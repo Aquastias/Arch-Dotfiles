@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-secrets-file.sh — in-menu credential handoff file (ticket 03)
+# lib/guided/secrets-file.sh — in-menu credential handoff file (ticket 03)
 # =============================================================================
 # The Guided Installer captures the root + per-user passwords INSIDE the
 # persistent fzf. The masked prompt runs in an execute() subprocess that cannot

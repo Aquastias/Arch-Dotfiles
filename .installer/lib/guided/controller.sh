@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-controller.sh — Guided Installer persistent-fzf controller (ADR
+# lib/guided/controller.sh — Guided Installer persistent-fzf controller (ADR
 # 0042)
 # =============================================================================
 # Invoked by the single persistent fzf's reload/transform binds as SUBPROCESSES.
@@ -25,92 +25,92 @@
 # =============================================================================
 
 # INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
-# shellcheck source=lib/globals.sh
+# shellcheck source=../globals.sh
 [[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
-  || source "${BASH_SOURCE[0]%/*}/globals.sh"
-# shellcheck source=lib/config/state.sh
+  || source "${BASH_SOURCE[0]%/*}/../globals.sh"
+# shellcheck source=../config/state.sh
 declare -F cfgstate_get >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/state.sh"
-# shellcheck source=lib/config/store.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
+# shellcheck source=../config/store.sh
 declare -F cfgstore_state >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/store.sh"
-# shellcheck source=lib/config/nav.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/store.sh"
+# shellcheck source=../config/nav.sh
 declare -F nav_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/nav.sh"
-# shellcheck source=lib/config/edits.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/nav.sh"
+# shellcheck source=../config/edits.sh
 declare -F edit_set_bool >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
-# shellcheck source=lib/config/menu.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/edits.sh"
+# shellcheck source=../config/menu.sh
 declare -F menu_categories >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
-# shellcheck source=lib/guided-rows.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/menu.sh"
+# shellcheck source=rows.sh
 declare -F guided_row_inert >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-rows.sh"
+  || source "${BASH_SOURCE[0]%/*}/rows.sh"
 
 declare -F esp_budget_fits_size >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/boot/esp-budget.sh"
-# shellcheck source=lib/config/manual-partition.sh
+  || source "${BASH_SOURCE[0]%/*}/../boot/esp-budget.sh"
+# shellcheck source=../config/manual-partition.sh
 declare -F manual_kind_active >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/manual-partition.sh"
-# shellcheck source=lib/config/skeleton.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/manual-partition.sh"
+# shellcheck source=../config/skeleton.sh
 declare -F skeleton_preset >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
-# shellcheck source=lib/picker.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/skeleton.sh"
+# shellcheck source=../picker.sh
 declare -F picker_enum_disks >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/picker.sh"
-# shellcheck source=lib/config/history.sh
+  || source "${BASH_SOURCE[0]%/*}/../picker.sh"
+# shellcheck source=../config/history.sh
 declare -F hist_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/history.sh"
-# shellcheck source=lib/config/display.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/history.sh"
+# shellcheck source=../config/display.sh
 declare -F display_label >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/display.sh"
-# shellcheck source=lib/guided-secrets-file.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/display.sh"
+# shellcheck source=secrets-file.sh
 declare -F guided_secretsfile_has_root >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-secrets-file.sh"
-# shellcheck source=lib/config/profile.sh
+  || source "${BASH_SOURCE[0]%/*}/secrets-file.sh"
+# shellcheck source=../config/profile.sh
 declare -F load_user_profile >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/profile.sh"
-# shellcheck source=lib/config/printing.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/profile.sh"
+# shellcheck source=../config/printing.sh
 declare -F printing_owned_programs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/printing.sh"
-# shellcheck source=lib/config/mirrors.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/printing.sh"
+# shellcheck source=../config/mirrors.sh
 declare -F mirrors_owned_programs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/mirrors.sh"
-# shellcheck source=lib/config/bluetooth.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/mirrors.sh"
+# shellcheck source=../config/bluetooth.sh
 declare -F bluetooth_owned_programs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/bluetooth.sh"
-# shellcheck source=lib/config/power.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/bluetooth.sh"
+# shellcheck source=../config/power.sh
 declare -F power_owned_programs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/power.sh"
-# shellcheck source=lib/config/menu-owned.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/power.sh"
+# shellcheck source=../config/menu-owned.sh
 declare -F menu_owned_programs >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/menu-owned.sh"
-# shellcheck source=lib/config/profiles.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/menu-owned.sh"
+# shellcheck source=../config/profiles.sh
 declare -F profiles_list >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/profiles.sh"
-# shellcheck source=lib/config/layers.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/profiles.sh"
+# shellcheck source=../config/layers.sh
 declare -F _configs_parse >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/layers.sh"
-# shellcheck source=lib/guided-userforms.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/layers.sh"
+# shellcheck source=userforms.sh
 declare -F guided_userform_get >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-userforms.sh"
+  || source "${BASH_SOURCE[0]%/*}/userforms.sh"
 # Curated Persist Defaults, for the Impermanence Editor's read-only count line
 # (ADR 0066).
-# shellcheck source=lib/impermanence-common.sh
+# shellcheck source=../impermanence-common.sh
 [[ -n "${CURATED_FILES:-}" ]] \
-  || source "${BASH_SOURCE[0]%/*}/impermanence-common.sh"
-# shellcheck source=lib/guided-mask.sh
+  || source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
+# shellcheck source=mask.sh
 declare -F guided_mask_apply >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-mask.sh"
-# shellcheck source=lib/packages/resolver.sh
+  || source "${BASH_SOURCE[0]%/*}/mask.sh"
+# shellcheck source=../packages/resolver.sh
 declare -F pkgres_resolve >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/packages/resolver.sh"
-# shellcheck source=lib/config/seed.sh
+  || source "${BASH_SOURCE[0]%/*}/../packages/resolver.sh"
+# shellcheck source=../config/seed.sh
 declare -F cfgstate_host_core >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
-# shellcheck source=lib/config/layer-resolver.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
+# shellcheck source=../config/layer-resolver.sh
 declare -F layer_resolve >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
+  || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
 
 # _ctl_secret_state <root|user|enc> [name] → "(set)" / "(not set)" for the
 # in-menu credential rows, read from GUIDED_SECRETS_FILE. Never emits the value.
@@ -1527,7 +1527,7 @@ _ctl_profile_tree() {
 # On the top + category screens the preview pane is a live detail column: a
 # parent column (the siblings, current item marked "▶", the rest dimmed) above
 # the highlighted item's detail. Pure: reads state + nav from files like
-# guided_ctl_list, so it is asserted headless (tests/config/guided-detail.bats).
+# guided_ctl_list, so it is asserted headless (tests/guided/detail.bats).
 _CTL_DIM=$'\033[2m'; _CTL_BOLD=$'\033[1m'; _CTL_RST=$'\033[0m'
 
 # _ctl_detail_column <current> < "name\toverridden"-lines — the parent column:

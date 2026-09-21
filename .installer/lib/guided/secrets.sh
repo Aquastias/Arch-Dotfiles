@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-secrets.sh — Guided Installer no-SOPS password injector (issue 07)
+# lib/guided/secrets.sh — Guided Installer no-SOPS password injector (issue 07)
 # =============================================================================
 # The guided counterpart of the Secrets Module (lib/secrets.sh): sets root and
 # per-user passwords (+ optional SSH identities) WITHOUT SOPS. Collected in the
@@ -15,13 +15,13 @@
 # Requires install_state_update (lib/install-state.sh).
 # =============================================================================
 
-# shellcheck source=./install-state.sh
+# shellcheck source=../install-state.sh
 declare -F install_state_update >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/install-state.sh"
+  || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
 # INSTALL_DEFAULT_ENC_PASSPHRASE (ADR 0059) — the 8-char passphrase default.
-# shellcheck source=./globals.sh
+# shellcheck source=../globals.sh
 [[ -n "${INSTALL_DEFAULT_ENC_PASSPHRASE:-}" ]] \
-  || source "${BASH_SOURCE[0]%/*}/globals.sh"
+  || source "${BASH_SOURCE[0]%/*}/../globals.sh"
 
 # guided_write_passwords <secrets-json> <dir> <state-file>
 # <secrets-json>: { root_password?: str,

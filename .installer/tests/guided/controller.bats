@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-controller.sh — the persistent-fzf controller
+# Tests for .installer/lib/guided/controller.sh — the persistent-fzf controller
 # (ADR
 # 0042). The controller is driven entirely through its state files (no fzf, no
 # tty), so behaviour is asserted through the public interface: the rendered list
@@ -19,7 +19,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/edits.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/menu.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/guided-controller.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/guided/controller.sh"
 
   printf '%s\n' '{}' > "$GUIDED_STATE_FILE"
   printf '%s\n' '{}' > "$GUIDED_BASELINE_FILE"
@@ -2320,7 +2320,7 @@ secret_setup() {
 @test "mask entry: the fzf mask subcommand masks + captures the buffer" {
   export GUIDED_PWBUF_FILE="$TEST_DIR/pwbuf2"; printf 'ab' > "$GUIDED_PWBUF_FILE"
   # query is 2 bullets + a newly typed 'c'
-  run bash "$BATS_TEST_DIRNAME/../../lib/guided-fzf-entry.sh" mask "••c"
+  run bash "$BATS_TEST_DIRNAME/../../lib/guided/fzf-entry.sh" mask "••c"
   [ "$output" = "•••" ]                           # display: 3 bullets
   [ "$(cat "$GUIDED_PWBUF_FILE")" = "abc" ]       # buffer captured the real char
 }

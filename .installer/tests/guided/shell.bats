@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided.sh — the Guided Installer's fzf shell (ADR
+# Tests for .installer/lib/guided/shell.sh — the Guided Installer's fzf shell (ADR
 # 0039).
 # The shell is impure glue, but its selection seam (guided_select /
 # guided_prompt) is replayable: under a GUIDED_REPLAY answers file the menu
@@ -39,8 +39,8 @@ setup() {
   picker_enum_disks() { printf '%s\n' "/dev/disk/by-id/wwn-0xDEAD"; }
   export -f live_medium_disks picker_enum_disks
 
-  # shellcheck source=../../lib/guided.sh
-  source "$BATS_TEST_DIRNAME/../../lib/guided.sh"
+  # shellcheck source=../../lib/guided/shell.sh
+  source "$BATS_TEST_DIRNAME/../../lib/guided/shell.sh"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }

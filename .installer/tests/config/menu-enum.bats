@@ -68,12 +68,12 @@ setup() {
 # of the single authority (the interactive/replay drift bug it closes).
 @test "drift guard: kernel flavour list appears only in menu.sh" {
   local lib="$BATS_TEST_DIRNAME/../../lib"
-  run grep -rn 'hardened zen' "$lib/guided.sh" "$lib/guided-controller.sh"
+  run grep -rn 'hardened zen' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
   [ "$status" -ne 0 ]
 }
 
 @test "drift guard: gpu vendor list appears only in menu.sh" {
   local lib="$BATS_TEST_DIRNAME/../../lib"
-  run grep -rn 'amd nvidia intel' "$lib/guided.sh" "$lib/guided-controller.sh"
+  run grep -rn 'amd nvidia intel' "$lib/guided/shell.sh" "$lib/guided/controller.sh"
   [ "$status" -ne 0 ]
 }

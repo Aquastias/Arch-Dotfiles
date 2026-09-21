@@ -260,7 +260,7 @@ effective() {
 {"host_programs":["cups"],"sysctl":{"vm.swappiness":10},
  "packages":{"repo":{"shell":["htop","fzf","btop"]}}}
 JSON
-  source "$BATS_TEST_DIRNAME/../../lib/guided-save.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/guided/save.sh"
 
   local state; state="$(cfgstate_set "$(cfgstate_new)" mode '"single"')"
   state="$(cfgstate_set "$state" system.hostname '"newbox"')"

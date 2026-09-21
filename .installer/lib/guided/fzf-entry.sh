@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-fzf-entry.sh — persistent-fzf bind entry point (ADR 0042)
+# lib/guided/fzf-entry.sh — persistent-fzf bind entry point (ADR 0042)
 # =============================================================================
 # The command the single persistent fzf's binds invoke. fzf runs binds in fresh
 # shells, so this sources the controller and dispatches:
@@ -17,8 +17,8 @@
 set -uo pipefail
 
 _entry_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_entry_self="${_entry_dir}/guided-fzf-entry.sh"
-export INSTALLER_DIR="${INSTALLER_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
+_entry_self="${_entry_dir}/fzf-entry.sh"
+export INSTALLER_DIR="${INSTALLER_DIR:-$(cd "${_entry_dir}/../.." && pwd)}"
 
 # The focus skip bind fires on every cursor move; source only the tiny row
 # classifier (not the whole controller) so it stays cheap. On an inert row it
@@ -26,8 +26,8 @@ export INSTALLER_DIR="${INSTALLER_DIR:-$(cd "${_entry_dir}/.." && pwd)}"
 # so fzf re-moves and the cursor hops past dividers / headers / spacers (ADR
 # 0083). On a selectable row it echoes nothing, so the cursor settles.
 if [[ "${1:-}" == "skip" ]]; then
-  # shellcheck source=lib/guided-rows.sh
-  source "${_entry_dir}/guided-rows.sh"
+  # shellcheck source=rows.sh
+  source "${_entry_dir}/rows.sh"
   if guided_row_inert "${2:-}"; then
     cat "${GUIDED_SKIP_FILE:-/dev/null}" 2>/dev/null
   fi
@@ -52,8 +52,8 @@ fi
 # The masking bind fires per keystroke on the password screen; source only the
 # tiny pure core (not the whole controller) so it stays cheap.
 if [[ "${1:-}" == "mask" ]]; then
-  # shellcheck source=lib/guided-mask.sh
-  source "${_entry_dir}/guided-mask.sh"
+  # shellcheck source=mask.sh
+  source "${_entry_dir}/mask.sh"
   _q="${2:-}"
   _buf="$(cat "${GUIDED_PWBUF_FILE:-/dev/null}" 2>/dev/null)"
   _res="$(guided_mask_apply "$_buf" "$_q")"
@@ -62,8 +62,8 @@ if [[ "${1:-}" == "mask" ]]; then
   exit 0
 fi
 
-# shellcheck source=lib/guided-controller.sh
-source "${_entry_dir}/guided-controller.sh"
+# shellcheck source=controller.sh
+source "${_entry_dir}/controller.sh"
 
 case "${1:-}" in
 list)
@@ -107,10 +107,10 @@ cfdisk)
 secret)
   # In-menu credential capture (ticket 03): a masked, confirmed prompt on the
   # tty, written to the handoff file. Runs under fzf execute() (has a tty).
-  # shellcheck source=lib/prompt.sh
-  source "${_entry_dir}/prompt.sh"
-  # shellcheck source=lib/guided-secrets-file.sh
-  source "${_entry_dir}/guided-secrets-file.sh"
+  # shellcheck source=../prompt.sh
+  source "${_entry_dir}/../prompt.sh"
+  # shellcheck source=secrets-file.sh
+  source "${_entry_dir}/secrets-file.sh"
   _spw=""
   case "${2:-}" in
   root) prompt_secret _spw "Root password"

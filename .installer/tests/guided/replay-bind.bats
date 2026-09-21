@@ -28,7 +28,7 @@ setup() {
   picker_enum_disks() { echo "FLAT-PICK-SHOULD-NOT-RUN" >&2; return 1; }
   export -f live_medium_disks picker_enum_disks
 
-  source "$BATS_TEST_DIRNAME/../../lib/guided.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/guided/shell.sh"
 }
 teardown() { rm -rf "$TEST_DIR"; }
 

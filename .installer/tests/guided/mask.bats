@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/guided-mask.sh — the inline password masking core (ADR 0051).
+# Tests for .installer/lib/guided/mask.sh — the inline password masking core (ADR 0051).
 # Two strings in (previous buffer, new fzf query), two lines out (reconstructed
 # buffer, bullet display). The append + backspace-at-end contract the live front-
 # end guarantees by unbinding cursor movement on the password screen.
 
-setup() { source "$BATS_TEST_DIRNAME/../../lib/guided-mask.sh"; }
+setup() { source "$BATS_TEST_DIRNAME/../../lib/guided/mask.sh"; }
 
 B='•'   # the bullet
 

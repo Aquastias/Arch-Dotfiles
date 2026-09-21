@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided.sh — Guided Installer fzf shell (ADR 0039)
+# lib/guided/shell.sh — Guided Installer fzf shell (ADR 0039)
 # =============================================================================
 # The only impure module of the Guided Installer: it renders menus, reads the
 # operator's choices, and dispatches to the pure cores (Config State, Emitter,
@@ -23,54 +23,54 @@
 # back-end `--unattended`.
 # =============================================================================
 
-# shellcheck source=lib/common.sh
+# shellcheck source=../common.sh
 declare -F error >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/common.sh"
-# shellcheck source=lib/config/state.sh
+  || source "${BASH_SOURCE[0]%/*}/../common.sh"
+# shellcheck source=../config/state.sh
 declare -F cfgstate_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/state.sh"
-# shellcheck source=lib/config/store.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/state.sh"
+# shellcheck source=../config/store.sh
 declare -F cfgstore_state >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/store.sh"
-# shellcheck source=lib/config/seed.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/store.sh"
+# shellcheck source=../config/seed.sh
 declare -F cfgstate_seed_defaults >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/seed.sh"
-# shellcheck source=lib/config/layer-resolver.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
+# shellcheck source=../config/layer-resolver.sh
 declare -F layer_resolve >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/layer-resolver.sh"
-# shellcheck source=lib/config/edits.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/layer-resolver.sh"
+# shellcheck source=../config/edits.sh
 declare -F edit_set_scalar >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/edits.sh"
-# shellcheck source=lib/config/emit.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/edits.sh"
+# shellcheck source=../config/emit.sh
 declare -F emit_effective >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/emit.sh"
-# shellcheck source=lib/config/menu.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/emit.sh"
+# shellcheck source=../config/menu.sh
 declare -F menu_rows >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/menu.sh"
-# shellcheck source=lib/config/history.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/menu.sh"
+# shellcheck source=../config/history.sh
 declare -F hist_new >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/history.sh"
-# shellcheck source=lib/config/skeleton.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/history.sh"
+# shellcheck source=../config/skeleton.sh
 declare -F skeleton_preset >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/config/skeleton.sh"
-# shellcheck source=lib/picker.sh
+  || source "${BASH_SOURCE[0]%/*}/../config/skeleton.sh"
+# shellcheck source=../picker.sh
 declare -F picker_enum_disks >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/picker.sh"
-# shellcheck source=lib/live-medium.sh
+  || source "${BASH_SOURCE[0]%/*}/../picker.sh"
+# shellcheck source=../live-medium.sh
 declare -F live_medium_disks >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/live-medium.sh"
-# shellcheck source=lib/guided-secrets.sh
+  || source "${BASH_SOURCE[0]%/*}/../live-medium.sh"
+# shellcheck source=secrets.sh
 declare -F guided_write_passwords >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-secrets.sh"
-# shellcheck source=lib/guided-save.sh
+  || source "${BASH_SOURCE[0]%/*}/secrets.sh"
+# shellcheck source=save.sh
 declare -F guided_save_host_profile >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-save.sh"
-# shellcheck source=lib/guided-controller.sh
+  || source "${BASH_SOURCE[0]%/*}/save.sh"
+# shellcheck source=controller.sh
 declare -F guided_ctl_list >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/guided-controller.sh"
-# shellcheck source=lib/prompt.sh
+  || source "${BASH_SOURCE[0]%/*}/controller.sh"
+# shellcheck source=../prompt.sh
 declare -F prompt_secret >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/prompt.sh"
+  || source "${BASH_SOURCE[0]%/*}/../prompt.sh"
 
 # =============================================================================
 # SELECTION SEAM
@@ -667,7 +667,7 @@ _guided_add_sysctl() {
 # ad-hoc creations, committed first, deduped — users[0] is the Primary User
 # (positional, ADR 0036). Ad-hoc forms are held aside and materialized into
 # users/<name>/profile.jsonc at Proceed; passwords (root + per-user) are held
-# aside too and injected via the no-SOPS seam (guided-secrets.sh) — they never
+# aside too and injected via the no-SOPS seam (secrets.sh) — they never
 # enter the Config State, so Save/Export never carry them.
 _GUIDED_USERS_COMMITTED=()
 _GUIDED_ADHOC_ORDER=()
@@ -949,7 +949,7 @@ _guided_secrets_manifest() {
 
 # guided_run_persistent — the ADR-0042 single-fzf front-end. Sets up the tmpfs
 # state files (mktemp under ${TMPDIR:-/tmp}, cleaned on RETURN), launches ONE
-# fzf whose enter/esc binds call lib/guided-fzf-entry.sh, then picks up the
+# fzf whose enter/esc binds call lib/guided/fzf-entry.sh, then picks up the
 # operator's edits + chosen terminal action. Returns 0 on a terminal action
 # (sets _GUIDED_ACTION), 1 on abort. Single + multi disks resolve post-menu in
 # _guided_resolve_assignment, so the menu carries no disk screen.
@@ -1057,7 +1057,7 @@ guided_run_persistent() {
   # enter passes BOTH the selection {} and the typed query {q} (text fields read
   # {q} from fzf's own input line); esc maps to a back/abort transform; the
   # ^Z/^Y/^R keys undo/redo/reset over the snapshot stack.
-  local entry="${INSTALLER_DIR}/lib/guided-fzf-entry.sh"
+  local entry="${INSTALLER_DIR}/lib/guided/fzf-entry.sh"
   # Rich chrome flags (fzf >= 0.62 only): footer + rounded list border. Passed
   # only when supported so an older fzf never chokes; the ^A/^X binds are
   # harmless on either.

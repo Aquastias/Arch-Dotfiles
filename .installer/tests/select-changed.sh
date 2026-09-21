@@ -24,7 +24,7 @@ _SELECT_CHANGED_SOURCED=1
 # --changed cannot drift. Always unioned into a targeted run so no change skips
 # the catalogued guards (config/layout/zfs/wipe dirs + validator tier + roots).
 _FAST_CORE_TOKENS=(
-  config layout zfs wipe
+  config guided layout zfs wipe
   chroot/mount-unit-validate.bats chroot/initcpio-validate.bats
   chroot/fstab-lint.bats chroot/chroot-impermanence.bats
   profiles/user-units-validate.bats impermanence-common.bats
@@ -34,8 +34,8 @@ _FAST_CORE_TOKENS=(
 )
 
 # Source subdirs mirrored 1:1 onto a tests/ subdir (tests/<name>/).
-_MIRRORED_DIRS=(boot chroot config layout matrix packages profiles shell wipe
-                zfs extras vm)
+_MIRRORED_DIRS=(boot chroot config guided layout matrix packages profiles shell
+                wipe zfs extras vm)
 
 # Broad-Blast Paths: a change here can affect ~any test — widen to --full.
 _changed_is_broad_blast() {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/guided-userforms.sh — Guided Installer install-scoped per-user edits (0051)
+# lib/guided/userforms.sh — Guided Installer install-scoped per-user edits (0051)
 # =============================================================================
 # The User Editor (ADR 0051) lets the operator change a user's profile fields
 # (shell, sudo, groups, …) INSIDE the persistent fzf. Those edits are
