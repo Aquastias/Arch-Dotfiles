@@ -49,20 +49,22 @@ mkdir -p "$(dirname "$KEY_AGE")"
 script -qc "age -p -o '$KEY_AGE' '$TMP/new.txt'" /dev/null \
   <<< "${PASSPHRASE}"$'\n'"${PASSPHRASE}"$'\n' >/dev/null
 
-# 3. Update the test rule's age recipient in .sops.yaml. Targeted text edit
-#    preserves the operator placeholder rule byte-for-byte.
-python3 - "$SOPS_YAML" "$PUB" <<'PY'
-import re, sys
-path, pub = sys.argv[1], sys.argv[2]
-text = open(path).read()
-new = re.sub(
-    r'(path_regex:[^\n]*arch-secure[^\n]*\n\s*age:\s*>-\n\s*)age1[a-z0-9]+',
-    r'\g<1>' + pub,
-    text, count=1)
-if new == text:
-    sys.exit("regenerate.sh: failed to locate test rule in " + path)
-open(path, 'w').write(new)
-PY
+# 3. Update the test rule's age recipient in .sops.yaml. Targeted awk edit
+#    (no python, repo policy): rewrite only the `age1…` line that follows the
+#    arch-secure `path_regex` block; the operator placeholder rule is preserved
+#    byte-for-byte. Non-zero when the test rule can't be found.
+awk -v pub="$PUB" '
+  found && !done && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
+    match($0, /^[[:space:]]*/); print substr($0, 1, RLENGTH) pub
+    done = 1; found = 0; next
+  }
+  /path_regex:.*arch-secure/ { found = 1 }
+  { print }
+  END { if (!done) exit 3 }
+' "$SOPS_YAML" > "$SOPS_YAML.tmp" \
+  || { echo "regenerate.sh: failed to locate test rule in $SOPS_YAML" >&2
+       rm -f "$SOPS_YAML.tmp"; exit 1; }
+mv "$SOPS_YAML.tmp" "$SOPS_YAML"
 
 # 4. Re-key (or encrypt-fresh) every committed secrets.json. sops walks
 #    upward to find .sops.yaml, so cd into REPO_ROOT first. updatekeys uses

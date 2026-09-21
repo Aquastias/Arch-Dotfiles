@@ -46,14 +46,15 @@ _decrypt_key_age() {
     | sed -n 's/\r$//; /AGE-SECRET-KEY-1/p'
 }
 
+# The arch-secure rule's age recipient (no python): the age1… line following the
+# arch-secure path_regex block.
 _sops_yaml_test_recipient() {
-  python3 -c '
-import sys, yaml
-data = yaml.safe_load(open(sys.argv[1]))
-for r in data["creation_rules"]:
-    if "arch-secure" in r["path_regex"]:
-        print(r["age"].strip()); break
-' "$1"
+  awk '
+    /path_regex:.*arch-secure/ { found = 1; next }
+    found && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
+      gsub(/[[:space:]]/, ""); print; exit
+    }
+  ' "$1"
 }
 
 # Decrypt a SOPS file using a freshly-decrypted Test Age private key.
