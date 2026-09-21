@@ -1270,8 +1270,8 @@ Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
 toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
 — **no `mason`**, reusing the declarative `language-servers` convention), while
 the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
-nvim-treesitter, nvim-lspconfig, conform, nvim-lint, gitsigns + fugitive, oil +
-neo-tree, snacks (picker/dashboard/notifier), lualine, bufferline, harpoon,
+nvim-treesitter, nvim-lspconfig, conform, nvim-lint, gitsigns, oil, snacks
+(picker/dashboard/notifier/explorer/input/lazygit), lualine, bufferline, harpoon,
 which-key, mini.ai/mini.pairs, nvim-ufo, render-markdown, todo-comments,
 undotree, nvim-emmet — **no noice**. Real LSPs span the full web/systems set
 (**solid** rides the ts server; **Swift** is best-effort optional AUR
