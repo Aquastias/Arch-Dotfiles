@@ -20,9 +20,17 @@ return {
     words = { enabled = true },
     scope = { enabled = true },
     -- Inline image rendering (files, markdown, PDF, mermaid) via the kitty
-    -- graphics protocol. LaTeX math needs the `latex` treesitter parser, which
-    -- does not build on the current tree-sitter CLI, so math stays unrendered.
-    image = { enabled = true },
+    -- graphics protocol. `svg` is added to formats — snacks rasterizes it with
+    -- ImageMagick's rsvg delegate, but it is not a default format. LaTeX math
+    -- needs the `latex` treesitter parser, which does not build on the current
+    -- tree-sitter CLI, so math stays unrendered.
+    image = {
+      enabled = true,
+      formats = {
+        "png", "jpg", "jpeg", "gif", "bmp", "webp", "tiff", "heic", "avif",
+        "mp4", "mov", "avi", "mkv", "webm", "pdf", "icns", "svg",
+      },
+    },
   },
   config = function(_, opts)
     require("snacks").setup(opts)
