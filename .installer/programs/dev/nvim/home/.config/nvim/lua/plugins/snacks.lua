@@ -19,9 +19,10 @@ return {
     input = { enabled = true },
     words = { enabled = true },
     scope = { enabled = true },
-    -- No image preview (oil owns files; no image workflow). Snacks still
-    -- healthchecks image regardless of this flag, so its WARN is expected.
-    image = { enabled = false },
+    -- Inline image rendering (files, markdown, PDF, mermaid) via the kitty
+    -- graphics protocol. LaTeX math needs the `latex` treesitter parser, which
+    -- does not build on the current tree-sitter CLI, so math stays unrendered.
+    image = { enabled = true },
   },
   config = function(_, opts)
     require("snacks").setup(opts)
