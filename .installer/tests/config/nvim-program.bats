@@ -199,8 +199,11 @@ setup() {
   grep -rq 'olrtg/nvim-emmet' "$P"
 }
 
-@test "lualine is themed to catppuccin (accent-aware)" {
-  grep -q 'theme = "catppuccin"' "$NVIM/lua/plugins/lualine.lua"
+@test "lualine uses the auto theme (tracks the active palette)" {
+  # "auto" derives the bar from the live colorscheme, so it follows any of the 5
+  # palettes; a named theme ("catppuccin") warns (no such lualine module ships)
+  # and would not track a palette switch.
+  grep -q 'theme = "auto"' "$NVIM/lua/plugins/lualine.lua"
 }
 
 # ── ticket 06: palettes + follow toggle ──────────────────────────────────────
