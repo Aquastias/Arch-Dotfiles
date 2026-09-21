@@ -183,8 +183,12 @@ _archzfs_lts_pin_build_repo() {
   for candidate in "${cands[@]}"; do
     lk="${repo_dir}/linux-lts-${candidate}-x86_64.pkg.tar.zst"
     hk="${repo_dir}/linux-lts-headers-${candidate}-x86_64.pkg.tar.zst"
-    if pkg_fetch_from_archive linux-lts "$candidate" "$lk" 2>/dev/null \
-       && pkg_fetch_from_archive linux-lts-headers "$candidate" "$hk" 2>/dev/null
+    # 1>&2: pkg_fetch logs via info() → stdout; this function's stdout IS the
+    # chosen version (captured by the caller), so route the fetch's stdout to
+    # stderr or it corrupts LTS_PIN_SPECS (the pin would emit malformed pacstrap
+    # targets). Keep the logs visible on stderr; drop only curl's noise.
+    if pkg_fetch_from_archive linux-lts "$candidate" "$lk" 1>&2 2>/dev/null \
+       && pkg_fetch_from_archive linux-lts-headers "$candidate" "$hk" 1>&2 2>/dev/null
     then
       chosen="$candidate"; break
     fi

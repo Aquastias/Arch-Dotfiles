@@ -197,6 +197,28 @@ CONF
   rm -rf "$dir" "$conf"
 }
 
+@test "build_repo: fetch logs never leak into the captured version (spec)" {
+  # Regression: the real pkg_fetch_from_archive logs via info() → stdout. This
+  # function's stdout IS the chosen version (captured by archzfs_lts_pin_prepare
+  # with $(...)), so a leak corrupts LTS_PIN_SPECS → pacstrap 'target not found'.
+  local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
+  printf '[options]\n' > "$conf"
+  _archzfs_fetch_archive_lts_versions() { printf '6.18.52-1\n'; }
+  # Emulate the real fetch: emit an info() line to STDOUT, then create the pkg.
+  pkg_fetch_from_archive() {
+    info "Downloading ${1}=${2} from Arch Linux Archive ..."; : > "$3"; return 0;
+  }
+  repo-add() { return 0; }
+  pacman() { return 0; }
+  export -f _archzfs_fetch_archive_lts_versions pkg_fetch_from_archive repo-add pacman
+  # Capture STDOUT only, exactly as the caller does; stderr (logs) is discarded.
+  local chosen
+  chosen="$(PACMAN_CONF="$conf" _archzfs_lts_pin_build_repo "6.18.52-1" "$dir" \
+    2>/dev/null)"
+  [ "$chosen" = "6.18.52-1" ]                 # clean version, no [INFO] text
+  rm -rf "$dir" "$conf"
+}
+
 @test "build_repo: exact missing → uses closest available compatible" {
   local dir; dir="$(mktemp -d)"; local conf; conf="$(mktemp)"
   printf '[options]\n' > "$conf"
