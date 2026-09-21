@@ -1273,7 +1273,7 @@ the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
 nvim-treesitter, nvim-lspconfig, conform, nvim-lint, gitsigns, oil, snacks
 (picker/dashboard/notifier/explorer/input/image/lazygit), lualine, bufferline, harpoon,
 which-key, mini.ai/mini.pairs, nvim-ufo, render-markdown, todo-comments,
-undotree, nvim-emmet — **no noice**. Real LSPs span the full web/systems set
+undotree, nvim-emmet, orgmode — **no noice**. Real LSPs span the full web/systems set
 (**solid** rides the ts server; **Swift** is best-effort optional AUR
 sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, every in-scope LSP on
 `PATH`, benign WARNs allowed, unused providers (perl/ruby/node) disabled.
