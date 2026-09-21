@@ -10,13 +10,20 @@ return {
     notifier = { enabled = true },
     bigfile = { enabled = true },
     quickfile = { enabled = true },
-    -- No image preview; avoids the kitty-graphics checkhealth ERROR headless.
+    -- Quality-of-life modules kept green in :checkhealth: nicer vim.ui.input,
+    -- LSP reference highlight under cursor, and indent-scope.
+    input = { enabled = true },
+    words = { enabled = true },
+    scope = { enabled = true },
+    -- No image preview (oil/neo-tree own files; no image workflow). Snacks still
+    -- healthchecks image regardless of this flag, so its WARN is expected.
     image = { enabled = false },
   },
   config = function(_, opts)
     require("snacks").setup(opts)
-    -- Route vim.ui.select through the picker (snacks checkhealth expects this).
+    -- Route vim.ui.select/input through snacks (checkhealth expects this).
     vim.ui.select = Snacks.picker.select
+    vim.ui.input = Snacks.input.input
     local p = Snacks.picker
     local map = vim.keymap.set
     map("n", "<leader><space>", function()
