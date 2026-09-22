@@ -249,12 +249,13 @@ setup() {
 
 # ── ticket 04: files & navigation UX ─────────────────────────────────────────
 
-@test "files/nav plugins present: snacks, oil, neo-tree, harpoon" {
+@test "files/nav plugins present: snacks, oil, harpoon" {
+  # snacks.explorer replaced neo-tree; oil owns buffer-editing.
   local P="$NVIM/lua/plugins"
   grep -rq 'folke/snacks.nvim' "$P"
   grep -rq 'stevearc/oil.nvim' "$P"
-  grep -rq 'nvim-neo-tree/neo-tree.nvim' "$P"
   grep -rq 'ThePrimeagen/harpoon' "$P"
+  ! grep -rq 'nvim-neo-tree/neo-tree.nvim' "$P"
 }
 
 @test "snacks provides picker, dashboard and notifier" {
@@ -267,19 +268,25 @@ setup() {
 # ── ticket 05: chrome, git & editing helpers ─────────────────────────────────
 
 @test "chrome/git/editing plugins present (ticket 05)" {
+  # snacks replaced fugitive for git; Emmet is served by its LSP, not a plugin.
   local P="$NVIM/lua/plugins"
   grep -rq 'nvim-lualine/lualine.nvim' "$P"
   grep -rq 'akinsho/bufferline.nvim' "$P"
   grep -rq 'folke/which-key.nvim' "$P"
   grep -rq 'lewis6991/gitsigns.nvim' "$P"
-  grep -rq 'tpope/vim-fugitive' "$P"
   grep -rq 'echasnovski/mini.ai' "$P"
   grep -rq 'echasnovski/mini.pairs' "$P"
   grep -rq 'kevinhwang91/nvim-ufo' "$P"
   grep -rq 'render-markdown.nvim' "$P"
   grep -rq 'folke/todo-comments.nvim' "$P"
   grep -rq 'mbbill/undotree' "$P"
-  grep -rq 'olrtg/nvim-emmet' "$P"
+  ! grep -rq 'tpope/vim-fugitive' "$P"
+}
+
+@test "nvim-emmet is dropped; Emmet is served by emmet_language_server" {
+  ! grep -rq 'olrtg/nvim-emmet' "$NVIM/lua"
+  [ ! -e "$NVIM/lua/plugins/emmet.lua" ]
+  grep -q 'emmet_language_server' "$NVIM/lua/config/languages.lua"
 }
 
 @test "lualine uses the auto theme (tracks the active palette)" {
