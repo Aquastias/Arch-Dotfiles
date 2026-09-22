@@ -1269,16 +1269,40 @@ built-in `vim.pack` (ADR 0135). Targets **stable Neovim 0.12.x** (Arch `extra`).
 Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
 toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
 — **no `mason`**, reusing the declarative `language-servers` convention), while
-the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
-nvim-treesitter, nvim-lspconfig, conform, nvim-lint, gitsigns, oil, snacks
-(picker/dashboard/notifier/explorer/input/image/lazygit), lualine, bufferline, harpoon,
-which-key, mini.ai/mini.pairs, nvim-ufo, render-markdown, todo-comments,
-undotree, nvim-emmet, orgmode — **no noice**. Real LSPs span the full web/systems set
+the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp, nvim-treesitter (+treesitter-context), nvim-lspconfig,
+conform, nvim-lint, nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview,
+trouble, oil, snacks (picker/dashboard/notifier/explorer/indent/input/image/
+lazygit), grug-far, kulala, flash, lualine, bufferline, harpoon, which-key,
+mini.ai/mini.pairs/mini.surround, nvim-ts-autotag, nvim-highlight-colors,
+refactoring.nvim, nvim-ufo, render-markdown, todo-comments, undotree, orgmode
+— **no noice, no `mason`, no multicursor plugin**. Editor UX adds native
+**inlay hints** (default on, `<leader>uh`) + blink **signature help** and
+**native multi-cursor** (`cn`/`cN` + visual-block). Debugging is **nvim-dap**,
+adapters as **system packages** (ADR 0140); the per-language toolchain
+(LSP/treesitter/formatter/linter/adapter) is driven by one **[[Language
+Registry]]** (ADR 0141). **Emmet** rides the `emmet_language_server` LSP —
+the abandoned `nvim-emmet` plugin is dropped. Real LSPs span the full web/systems set
 (**solid** rides the ts server; **Swift** is best-effort optional AUR
 sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, every in-scope LSP on
 `PATH`, benign WARNs allowed, unused providers (perl/ruby/node) disabled.
-_Avoid_: LazyVim, `mason`, `vim.pack` (until 0.13 is stable), the retired
-`nvim.bak` and its rose-pine default.
+_Avoid_: LazyVim, `mason`/`mason-nvim-dap` (LSPs & debug adapters are system
+packages), `vim.pack` (until 0.13 is stable), `nvim-emmet` (the Emmet LSP
+covers it), multicursor.nvim / vim-visual-multi (native `cn`+`.` and
+visual-block suffice), the retired `nvim.bak` and its rose-pine default.
+
+### Language Registry
+The single source of truth for [[Neovim Config]]'s per-language toolchain
+(ADR 0141): one table (`lua/config/languages.lua`) keyed by language, each row
+declaring its `{ lsp, treesitter, formatter, linter, dap }`. The `lsp.lua` /
+`conform.lua` / `lint.lua` / `dap.lua` specs **consume** the table instead of
+carrying their own inline lists, so **adding a language is one row** and "what
+is wired for X" is answered in one place. Data, not behaviour — each consumer
+still maps a row into its own plugin shape (`vim.lsp.enable`, conform's
+`formatters_by_ft`, nvim-lint's `linters_by_ft`, dap `adapters`/
+`configurations`). Debug adapters resolve to **system-package binaries**
+(codelldb/debugpy/delve/js-debug), never `mason` (ADR 0140). _Avoid_:
+per-plugin inline language lists, duplicating a language across the four specs,
+`mason`/`mason-nvim-dap`.
 
 ### Neovim Theme Template
 The Noctalia-follow seam for [[Neovim Config]] (ADR 0136), amending the
