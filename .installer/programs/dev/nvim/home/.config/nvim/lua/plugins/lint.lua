@@ -7,14 +7,8 @@ return {
   config = function()
     local lint = require("lint")
 
-    lint.linters_by_ft = {
-      python = { "ruff" },
-      javascript = { "biomejs" },
-      typescript = { "biomejs" },
-      javascriptreact = { "biomejs" },
-      typescriptreact = { "biomejs" },
-      svelte = { "biomejs" },
-    }
+    -- linters_by_ft comes from the Language Registry (ADR 0141).
+    lint.linters_by_ft = require("config.languages").linters_by_ft()
 
     -- Only run biome inside a project that configures it.
     lint.linters.biomejs.condition = function(ctx)

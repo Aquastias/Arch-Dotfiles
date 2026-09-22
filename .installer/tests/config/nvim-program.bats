@@ -128,13 +128,49 @@ setup() {
 }
 
 @test "solid rides ts_ls; no dedicated solid server" {
-  grep -rq 'ts_ls' "$NVIM/lua/plugins"
-  ! grep -rqiE 'solid[_-]?(ls|language)' "$NVIM/lua/plugins"
+  # ts_ls now lives in the Language Registry (ADR 0141), under lua/config.
+  grep -rq 'ts_ls' "$NVIM/lua"
+  ! grep -rqiE 'solid[_-]?(ls|language)' "$NVIM/lua"
 }
 
 @test "vue uses the current vue_ls name, not the deprecated volar" {
-  grep -rq 'vue_ls' "$NVIM/lua/plugins"
-  ! grep -rqw 'volar' "$NVIM/lua/plugins"
+  grep -rq 'vue_ls' "$NVIM/lua"
+  ! grep -rqw 'volar' "$NVIM/lua"
+}
+
+# ── Language Registry (ADR 0141) ─────────────────────────────────────────────
+# One table drives lsp/conform/lint/dap; the specs consume it, no inline lists.
+
+@test "the Language Registry table exists and declares the toolchain fields" {
+  local R="$NVIM/lua/config/languages.lua"
+  [ -f "$R" ]
+  grep -q 'lsp =' "$R"
+  grep -q 'ts =' "$R"
+  grep -q 'formatter =' "$R"
+  grep -q 'linter =' "$R"
+  grep -q 'dap =' "$R"
+}
+
+@test "the registry carries the servers, formatters and linters" {
+  local R="$NVIM/lua/config/languages.lua"
+  grep -q 'ts_ls' "$R"
+  grep -q 'gopls' "$R"
+  grep -q 'rust_analyzer' "$R"
+  grep -q 'stylua' "$R"
+  grep -q 'ruff_format' "$R"
+  grep -q 'biome' "$R"
+  grep -q 'prettier' "$R"
+  grep -q 'biomejs' "$R"
+}
+
+@test "lsp/conform/lint/treesitter consume the registry, not inline lists" {
+  grep -q 'require("config.languages").servers()' "$NVIM/lua/plugins/lsp.lua"
+  grep -q 'require("config.languages").formatters_by_ft()' \
+    "$NVIM/lua/plugins/conform.lua"
+  grep -q 'require("config.languages").linters_by_ft()' \
+    "$NVIM/lua/plugins/lint.lua"
+  grep -q 'require("config.languages").parsers()' \
+    "$NVIM/lua/plugins/treesitter.lua"
 }
 
 # ── ticket 03: format + lint ─────────────────────────────────────────────────
@@ -147,21 +183,25 @@ setup() {
   grep -q '"biome"' "$H"                     # already present for js/ts
 }
 
-@test "formatting via conform with the biome/prettier/stylua/ruff split" {
+@test "formatting via conform, formatters from the registry" {
   local C="$NVIM/lua/plugins/conform.lua"
   grep -q 'stevearc/conform.nvim' "$C"
-  grep -q 'stylua' "$C"
-  grep -q 'ruff_format' "$C"
-  grep -q 'biome' "$C"
-  grep -q 'prettier' "$C"
+  grep -q 'formatters_by_ft()' "$C"
   grep -q 'format_on_save' "$C"
+  # the biome/prettier/stylua/ruff split lives in the registry
+  local R="$NVIM/lua/config/languages.lua"
+  grep -q 'stylua' "$R"
+  grep -q 'ruff_format' "$R"
+  grep -q 'biome' "$R"
+  grep -q 'prettier' "$R"
 }
 
-@test "linting via nvim-lint (biome/ruff)" {
-  local L="$NVIM/lua/plugins/lint.lua"
-  grep -q 'mfussenegger/nvim-lint' "$L"
-  grep -q 'ruff' "$L"
-  grep -q 'biomejs' "$L"
+@test "linting via nvim-lint, linters from the registry" {
+  grep -q 'mfussenegger/nvim-lint' "$NVIM/lua/plugins/lint.lua"
+  grep -q 'linters_by_ft()' "$NVIM/lua/plugins/lint.lua"
+  local R="$NVIM/lua/config/languages.lua"
+  grep -q 'ruff' "$R"
+  grep -q 'biomejs' "$R"
 }
 
 # ── ticket 04: files & navigation UX ─────────────────────────────────────────

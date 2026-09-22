@@ -16,27 +16,12 @@ return {
       desc = "Format buffer",
     },
   },
-  opts = {
-    formatters_by_ft = {
-      lua = { "stylua" },
-      python = { "ruff_format" },
-      javascript = { "biome" },
-      typescript = { "biome" },
-      javascriptreact = { "biome" },
-      typescriptreact = { "biome" },
-      json = { "biome" },
-      jsonc = { "biome" },
-      css = { "biome" },
-      html = { "prettier" },
-      svelte = { "prettier" },
-      vue = { "prettier" },
-      yaml = { "prettier" },
-      markdown = { "prettier" },
-      rust = { "rustfmt" },
-      go = { "gofmt" },
-      zig = { "zigfmt" },
-    },
-    default_format_opts = { lsp_format = "fallback" },
-    format_on_save = { timeout_ms = 1000, lsp_format = "fallback" },
-  },
+  opts = function()
+    -- formatters_by_ft comes from the Language Registry (ADR 0141).
+    return {
+      formatters_by_ft = require("config.languages").formatters_by_ft(),
+      default_format_opts = { lsp_format = "fallback" },
+      format_on_save = { timeout_ms = 1000, lsp_format = "fallback" },
+    }
+  end,
 }

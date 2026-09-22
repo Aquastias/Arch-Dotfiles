@@ -2,28 +2,8 @@
 -- predicates throw "attempt to call method 'range'" on every injection parse
 -- (markdown, hover floats) under 0.12. `main`'s API differs: no configs.setup —
 -- .install{} for parsers, a FileType autocmd for highlight + indent; ufo folds.
-local ensure = {
-  "lua",
-  "vim",
-  "vimdoc",
-  "bash",
-  "markdown",
-  "markdown_inline",
-  "json",
-  "yaml",
-  -- Web set (matches the served LSPs) + regex/doc parsers snacks expects.
-  "regex",
-  "css",
-  "scss",
-  "html",
-  "javascript",
-  "typescript",
-  "tsx",
-  "svelte",
-  "vue",
-  "latex",
-  "typst",
-}
+-- Parser list comes from the Language Registry (ADR 0141).
+local ensure = require("config.languages").parsers()
 
 return {
   "nvim-treesitter/nvim-treesitter",

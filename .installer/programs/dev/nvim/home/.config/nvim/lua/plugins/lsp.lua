@@ -57,27 +57,8 @@ return {
       end
       vim.lsp.config("*", { capabilities = caps })
 
-      vim.lsp.enable({
-        "lua_ls",
-        "basedpyright",
-        "nixd",
-        "phpactor",
-        "svelte",
-        "vue_ls",
-        "tailwindcss",
-        "emmet_language_server",
-        "ts_ls",
-        "html",
-        "cssls",
-        "jsonls",
-        "eslint",
-        "yamlls",
-        "bashls",
-        "gopls",
-        "rust_analyzer",
-        "zls",
-        "clangd",
-      })
+      -- Server list comes from the Language Registry (ADR 0141), de-duped.
+      vim.lsp.enable(require("config.languages").servers())
 
       -- Swift is best-effort: enable sourcekit only when its binary exists.
       if vim.fn.executable("sourcekit-lsp") == 1 then
