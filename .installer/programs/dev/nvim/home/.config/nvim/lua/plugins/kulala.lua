@@ -5,14 +5,36 @@ return {
   "mistweaverco/kulala.nvim",
   ft = { "http", "rest" },
   keys = {
-    -- stylua: ignore start
-    { "<leader>Rs", function() require("kulala").run() end, desc = "REST: send request" },
-    { "<leader>Ra", function() require("kulala").run_all() end, desc = "REST: send all" },
-    { "<leader>Rn", function() require("kulala").jump_next() end, desc = "REST: next request" },
-    { "<leader>Rp", function() require("kulala").jump_prev() end, desc = "REST: prev request" },
-    { "<leader>Ri", function() require("kulala").inspect() end, desc = "REST: inspect" },
-    { "<leader>Rc", function() require("kulala").copy() end, desc = "REST: copy as curl" },
-    -- stylua: ignore end
+    {
+      "<leader>Rs",
+      function() require("kulala").run() end,
+      desc = "REST: send request",
+    },
+    {
+      "<leader>Ra",
+      function() require("kulala").run_all() end,
+      desc = "REST: send all",
+    },
+    {
+      "<leader>Rn",
+      function() require("kulala").jump_next() end,
+      desc = "REST: next request",
+    },
+    {
+      "<leader>Rp",
+      function() require("kulala").jump_prev() end,
+      desc = "REST: prev request",
+    },
+    {
+      "<leader>Ri",
+      function() require("kulala").inspect() end,
+      desc = "REST: inspect",
+    },
+    {
+      "<leader>Rc",
+      function() require("kulala").copy() end,
+      desc = "REST: copy as curl",
+    },
   },
   init = function()
     -- Teach Neovim the .http/.rest extensions so the ft trigger fires.

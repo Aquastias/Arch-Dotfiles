@@ -5,12 +5,20 @@ return {
   "folke/trouble.nvim",
   cmd = "Trouble",
   keys = {
-    { "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", desc = "Diagnostics (Trouble)" },
-    { "<leader>xX", "<cmd>Trouble diagnostics toggle filter.buf=0<cr>", desc = "Buffer diagnostics (Trouble)" },
-    { "<leader>xt", "<cmd>Trouble todo toggle<cr>", desc = "Todo list (Trouble)" },
-    { "<leader>xq", "<cmd>Trouble qflist toggle<cr>", desc = "Quickfix (Trouble)" },
-    { "<leader>xl", "<cmd>Trouble loclist toggle<cr>", desc = "Location list (Trouble)" },
-    { "<leader>xs", "<cmd>Trouble symbols toggle focus=false<cr>", desc = "Symbols (Trouble)" },
+    { "<leader>xx", "<cmd>Trouble diagnostics toggle<cr>", desc = "Diags" },
+    {
+      "<leader>xX",
+      "<cmd>Trouble diagnostics toggle filter.buf=0<cr>",
+      desc = "Buffer diagnostics",
+    },
+    { "<leader>xt", "<cmd>Trouble todo toggle<cr>", desc = "Todo list" },
+    { "<leader>xq", "<cmd>Trouble qflist toggle<cr>", desc = "Quickfix" },
+    { "<leader>xl", "<cmd>Trouble loclist toggle<cr>", desc = "Loclist" },
+    {
+      "<leader>xs",
+      "<cmd>Trouble symbols toggle focus=false<cr>",
+      desc = "Symbols",
+    },
   },
   opts = {},
 }

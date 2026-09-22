@@ -10,7 +10,7 @@ local function same_range(a, b)
   return a1 == b1 and a2 == b2 and a3 == b3 and a4 == b4
 end
 
-local function select(node)
+local function select_node(node)
   local srow, scol, erow, ecol = node:range()
   -- Treesitter end is exclusive; convert to an inclusive charwise selection.
   if ecol == 0 then
@@ -29,7 +29,7 @@ function M.expand()
       return
     end
     stack = { node }
-    return select(node)
+    return select_node(node)
   end
   local cur = stack[#stack]
   local parent = cur:parent()
@@ -38,9 +38,9 @@ function M.expand()
   end
   if parent then
     stack[#stack + 1] = parent
-    select(parent)
+    select_node(parent)
   else
-    select(cur)
+    select_node(cur)
   end
 end
 
@@ -50,7 +50,7 @@ function M.shrink()
   end
   local cur = stack[#stack]
   if cur then
-    select(cur)
+    select_node(cur)
   end
 end
 

@@ -16,8 +16,8 @@ return {
       if option ~= "commentstring" then
         return get_option(filetype, option)
       end
-      return require("ts_context_commentstring.internal").calculate_commentstring()
-        or get_option(filetype, option)
+      local ctx = require("ts_context_commentstring.internal")
+      return ctx.calculate_commentstring() or get_option(filetype, option)
     end
   end,
 }

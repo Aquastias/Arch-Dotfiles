@@ -11,18 +11,58 @@ return {
       "leoluz/nvim-dap-go",
     },
     keys = {
-      -- stylua: ignore start
-      { "<leader>db", function() require("dap").toggle_breakpoint() end, desc = "Debug: Toggle breakpoint" },
-      { "<leader>dB", function() require("dap").set_breakpoint(vim.fn.input("Condition: ")) end, desc = "Debug: Conditional breakpoint" },
-      { "<leader>dc", function() require("dap").continue() end, desc = "Debug: Continue/Start" },
-      { "<leader>di", function() require("dap").step_into() end, desc = "Debug: Step into" },
-      { "<leader>do", function() require("dap").step_over() end, desc = "Debug: Step over" },
-      { "<leader>dO", function() require("dap").step_out() end, desc = "Debug: Step out" },
-      { "<leader>dr", function() require("dap").repl.toggle() end, desc = "Debug: REPL" },
-      { "<leader>dl", function() require("dap").run_last() end, desc = "Debug: Run last" },
-      { "<leader>dt", function() require("dap").terminate() end, desc = "Debug: Terminate" },
-      { "<leader>du", function() require("dapui").toggle() end, desc = "Debug: Toggle UI" },
-      -- stylua: ignore end
+      {
+        "<leader>db",
+        function() require("dap").toggle_breakpoint() end,
+        desc = "Debug: Toggle breakpoint",
+      },
+      {
+        "<leader>dB",
+        function()
+          require("dap").set_breakpoint(vim.fn.input("Condition: "))
+        end,
+        desc = "Debug: Conditional breakpoint",
+      },
+      {
+        "<leader>dc",
+        function() require("dap").continue() end,
+        desc = "Debug: Continue/Start",
+      },
+      {
+        "<leader>di",
+        function() require("dap").step_into() end,
+        desc = "Debug: Step into",
+      },
+      {
+        "<leader>do",
+        function() require("dap").step_over() end,
+        desc = "Debug: Step over",
+      },
+      {
+        "<leader>dO",
+        function() require("dap").step_out() end,
+        desc = "Debug: Step out",
+      },
+      {
+        "<leader>dr",
+        function() require("dap").repl.toggle() end,
+        desc = "Debug: REPL",
+      },
+      {
+        "<leader>dl",
+        function() require("dap").run_last() end,
+        desc = "Debug: Run last",
+      },
+      {
+        "<leader>dt",
+        function() require("dap").terminate() end,
+        desc = "Debug: Terminate",
+      },
+      {
+        "<leader>du",
+        function() require("dapui").toggle() end,
+        desc = "Debug: Toggle UI",
+      },
     },
     config = function()
       local dap = require("dap")
@@ -30,16 +70,23 @@ return {
       dapui.setup()
 
       -- Open the UI on session start, close it when the session ends.
-      dap.listeners.before.attach.dapui_config = function() dapui.open() end
-      dap.listeners.before.launch.dapui_config = function() dapui.open() end
-      dap.listeners.before.event_terminated.dapui_config = function() dapui.close() end
-      dap.listeners.before.event_exited.dapui_config = function() dapui.close() end
+      local L = dap.listeners.before
+      L.attach.dapui_config = function() dapui.open() end
+      L.launch.dapui_config = function() dapui.open() end
+      L.event_terminated.dapui_config = function() dapui.close() end
+      L.event_exited.dapui_config = function() dapui.close() end
 
-      vim.fn.sign_define("DapBreakpoint", { text = "●", texthl = "DiagnosticError" })
+      vim.fn.sign_define(
+        "DapBreakpoint",
+        { text = "●", texthl = "DiagnosticError" }
+      )
 
-      -- Which adapters the registry asks for (ADR 0140/0141).
+      -- Which adapters the registry asks for, and the filetypes each debugs
+      -- (both from the Language Registry, ADR 0140/0141).
+      local langs = require("config.languages")
+      local dft = langs.dap_filetypes()
       local want = {}
-      for _, a in ipairs(require("config.languages").adapters()) do
+      for _, a in ipairs(langs.adapters()) do
         want[a] = true
       end
 
@@ -76,8 +123,11 @@ return {
             stopOnEntry = false,
           },
         }
-        for _, ft in ipairs({ "rust", "c", "cpp" }) do
-          dap.configurations[ft] = launch
+        -- codelldb serves these adapter keys; their filetypes come from dft.
+        for _, key in ipairs({ "rust", "c", "cpp" }) do
+          for _, ft in ipairs(dft[key] or {}) do
+            dap.configurations[ft] = launch
+          end
         end
       end
 
@@ -100,12 +150,7 @@ return {
             cwd = "${workspaceFolder}",
           },
         }
-        for _, ft in ipairs({
-          "javascript",
-          "typescript",
-          "javascriptreact",
-          "typescriptreact",
-        }) do
+        for _, ft in ipairs(dft.js or {}) do
           dap.configurations[ft] = node_launch
         end
       end

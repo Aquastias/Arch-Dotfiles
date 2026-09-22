@@ -1,5 +1,5 @@
 -- nvim-ufo (ADR 0135): IDE-grade folding. Provider chain LSP -> treesitter ->
--- indent; files open unfolded; a readable fold summary; peek; a fold gutter with
+-- indent; files open unfolded; readable fold summary; peek; a fold gutter with
 -- nerd-font markers. LSP folds need the foldingRange capability (lsp.lua).
 return {
   "kevinhwang91/nvim-ufo",
@@ -20,13 +20,31 @@ return {
     })
   end,
   keys = {
-    -- stylua: ignore start
-    { "zR", function() require("ufo").openAllFolds() end, desc = "Open all folds" },
-    { "zM", function() require("ufo").closeAllFolds() end, desc = "Close all folds" },
-    { "zr", function() require("ufo").openFoldsExceptKinds() end, desc = "Open folds (incremental)" },
-    { "zm", function() require("ufo").closeFoldsWith() end, desc = "Close folds (incremental)" },
-    { "zK", function() require("ufo").peekFoldedLinesUnderCursor() end, desc = "Peek fold" },
-    -- stylua: ignore end
+    {
+      "zR",
+      function() require("ufo").openAllFolds() end,
+      desc = "Open all folds",
+    },
+    {
+      "zM",
+      function() require("ufo").closeAllFolds() end,
+      desc = "Close all folds",
+    },
+    {
+      "zr",
+      function() require("ufo").openFoldsExceptKinds() end,
+      desc = "Open folds (incremental)",
+    },
+    {
+      "zm",
+      function() require("ufo").closeFoldsWith() end,
+      desc = "Close folds (incremental)",
+    },
+    {
+      "zK",
+      function() require("ufo").peekFoldedLinesUnderCursor() end,
+      desc = "Peek fold",
+    },
   },
   opts = function()
     -- LSP -> treesitter -> indent fallback chain (ufo's canonical pattern).

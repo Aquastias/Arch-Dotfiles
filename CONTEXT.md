@@ -1269,21 +1269,24 @@ built-in `vim.pack` (ADR 0135). Targets **stable Neovim 0.12.x** (Arch `extra`).
 Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
 toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
 — **no `mason`**, reusing the declarative `language-servers` convention), while
-the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp, nvim-treesitter (+treesitter-context), nvim-lspconfig,
-conform, nvim-lint, nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview,
-trouble, oil, snacks (picker/dashboard/notifier/explorer/indent/input/image/
-lazygit), grug-far, kulala, flash, lualine, bufferline, harpoon, which-key,
-mini.ai/mini.pairs/mini.surround, nvim-ts-autotag, nvim-highlight-colors,
-refactoring.nvim, nvim-ufo, render-markdown, todo-comments, undotree, orgmode
+the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
+nvim-treesitter (+treesitter-context, +treesitter-textobjects — the latter a
+query-provider for mini.ai's `af`/`ac`), nvim-lspconfig, conform, nvim-lint,
+nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview, trouble, oil, snacks
+(picker/dashboard/notifier/explorer/indent/input/image/lazygit), grug-far,
+kulala, flash, lualine, bufferline, harpoon, which-key, mini.ai/mini.pairs/
+mini.surround, nvim-ts-autotag, nvim-ts-context-commentstring (context-aware
+`gc`), nvim-highlight-colors, refactoring.nvim, nvim-ufo, render-markdown,
+todo-comments, undotree, orgmode
 — **no noice, no `mason`, no multicursor plugin**. Editor UX adds native
 **inlay hints** (default on, `<leader>uh`) + blink **signature help** and
 **native multi-cursor** (`cn`/`cN` + visual-block). Debugging is **nvim-dap**,
 adapters as **system packages** (ADR 0140); the per-language toolchain
 (LSP/treesitter/formatter/linter/adapter) is driven by one **[[Language
 Registry]]** (ADR 0141). **Emmet** rides the `emmet_language_server` LSP —
-the abandoned `nvim-emmet` plugin is dropped. Real LSPs span the full web/systems set
-(**solid** rides the ts server; **Swift** is best-effort optional AUR
-sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, every in-scope LSP on
+the abandoned `nvim-emmet` plugin is dropped. Real LSPs span the full
+web/systems set (**solid** rides the ts server; **Swift** is best-effort
+optional AUR sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, LSPs on
 `PATH`, benign WARNs allowed, unused providers (perl/ruby/node) disabled.
 _Avoid_: LazyVim, `mason`/`mason-nvim-dap` (LSPs & debug adapters are system
 packages), `vim.pack` (until 0.13 is stable), `nvim-emmet` (the Emmet LSP

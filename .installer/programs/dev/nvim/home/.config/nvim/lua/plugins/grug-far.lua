@@ -1,5 +1,5 @@
 -- grug-far.nvim: a VS Code-style search/replace panel with live matches across
--- the repo (ripgrep-backed), where snacks' grep only finds. Lazy on command/key.
+-- the repo (ripgrep-backed) where snacks' grep only finds. Lazy on command.
 -- Maps under the <leader>s (search) group.
 return {
   "MagicDuck/grug-far.nvim",

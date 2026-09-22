@@ -188,9 +188,11 @@ setup() {
   ! grep -qE '^\s*event =' "$D"          # lazy on keys, not an eager event
 }
 
-@test "dap wires adapters from the registry; codelldb + pwa-node" {
+@test "dap wires adapters + filetypes from the registry; codelldb + pwa-node" {
   local D="$NVIM/lua/plugins/dap.lua"
-  grep -q 'require("config.languages").adapters()' "$D"
+  grep -q 'require("config.languages")' "$D"
+  grep -q 'adapters()' "$D"
+  grep -q 'dap_filetypes()' "$D"   # ft read from the registry, not hardcoded
   grep -q 'codelldb' "$D"
   grep -q 'pwa-node' "$D"
   grep -q 'dap-python' "$D"
@@ -474,7 +476,8 @@ setup() {
 
 @test "surround uses the gs prefix so flash keeps s" {
   grep -q 'add = "gsa"' "$NVIM/lua/plugins/mini.lua"
-  grep -q '"s", mode' "$NVIM/lua/plugins/flash.lua"
+  grep -qE '^\s*"s",' "$NVIM/lua/plugins/flash.lua"
+  grep -q 'flash").jump' "$NVIM/lua/plugins/flash.lua"
 }
 
 # ── IDE expansion: LSP UX (ticket 10) ────────────────────────────────────────
