@@ -21,6 +21,12 @@ end, { desc = "Pick colorscheme" })
 map("n", "<leader>uN", function()
   require("config.theme").toggle_follow()
 end, { desc = "Toggle follow Noctalia" })
+map("n", "<leader>uh", function()
+  vim.lsp.inlay_hint.enable(
+    not vim.lsp.inlay_hint.is_enabled({ bufnr = 0 }),
+    { bufnr = 0 }
+  )
+end, { desc = "Toggle inlay hints" })
 
 -- Buffer cycling (bufferline).
 map("n", "<Tab>", "<cmd>BufferLineCycleNext<cr>", { desc = "Next buffer" })
@@ -40,11 +46,40 @@ map(
   { desc = "Replace word under cursor" }
 )
 
+-- Native multi-cursor: change the word under the cursor, then `.` repeats on
+-- each next match (`n` skips). The visual variant changes the selection
+-- everywhere. No plugin — this is the VS Code Ctrl+D/Ctrl+Shift+L workflow.
+map("n", "cn", "*``cgn", { desc = "Change word (. repeats)" })
+map("n", "cN", "#``cgN", { desc = "Change word backward (. repeats)" })
+map(
+  "x",
+  "cn",
+  [["sy/\V<C-r>=escape(@s,'/\')<CR><CR>cgn]],
+  { desc = "Change selection (. repeats)" }
+)
+
+-- Incremental selection by syntax node (WebStorm Ctrl+W): grow with <C-space>,
+-- shrink with <BS>.
+map({ "n", "x" }, "<C-space>", function()
+  require("config.incremental").expand()
+end, { desc = "Expand selection (treesitter)" })
+map("x", "<BS>", function()
+  require("config.incremental").shrink()
+end, { desc = "Shrink selection (treesitter)" })
+
 -- Navigation stays centered.
 map("n", "<C-d>", "<C-d>zz", { desc = "Half page down (centered)" })
 map("n", "<C-u>", "<C-u>zz", { desc = "Half page up (centered)" })
 map("n", "n", "nzzzv", { desc = "Next match (centered)" })
 map("n", "N", "Nzzzv", { desc = "Prev match (centered)" })
+
+-- Diagnostics navigation (0.11+ jump API).
+map("n", "]d", function()
+  vim.diagnostic.jump({ count = 1, float = true })
+end, { desc = "Next diagnostic" })
+map("n", "[d", function()
+  vim.diagnostic.jump({ count = -1, float = true })
+end, { desc = "Prev diagnostic" })
 
 -- Repo-handy.
 map("n", "<leader>cx", "<cmd>!chmod +x %<cr>", { silent = true, desc = "Make file executable" })

@@ -3,6 +3,7 @@ return {
   "mbbill/undotree",
   cmd = "UndotreeToggle",
   keys = {
-    { "<leader>u", "<cmd>UndotreeToggle<cr>", desc = "Undotree" },
+    -- <leader>U: <leader>u is the ui/toggle group (uC/uN/uh).
+    { "<leader>U", "<cmd>UndotreeToggle<cr>", desc = "Undotree" },
   },
 }

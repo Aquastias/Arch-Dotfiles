@@ -53,6 +53,8 @@ local registry = {
   yaml = { lsp = "yamlls", ts = { "yaml" }, ft = { "yaml" }, formatter = { "prettier" } },
   markdown = { ts = { "markdown", "markdown_inline" }, ft = { "markdown" }, formatter = { "prettier" } },
   bash = { lsp = "bashls", ts = { "bash" } },
+  -- .http/.rest API files (kulala); no LSP, just the parser + filetype.
+  http = { ts = { "http" } },
   go = { lsp = "gopls", ft = { "go" }, formatter = { "gofmt" }, dap = "go" },
   rust = { lsp = "rust_analyzer", ft = { "rust" }, formatter = { "rustfmt" }, dap = "rust" },
   zig = { lsp = "zls", ft = { "zig" }, formatter = { "zigfmt" } },

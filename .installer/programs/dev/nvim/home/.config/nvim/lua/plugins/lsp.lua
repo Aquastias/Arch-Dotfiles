@@ -46,6 +46,19 @@ return {
           map("gri", vim.lsp.buf.implementation, "Implementation")
           map("grd", vim.lsp.buf.definition, "Definition")
           map("K", vim.lsp.buf.hover, "Hover")
+          map("<leader>co", function()
+            vim.lsp.buf.code_action({
+              context = { only = { "source.organizeImports" } },
+              apply = true,
+            })
+          end, "Organize imports")
+
+          -- Inlay hints on by default where the server supports them; the
+          -- <leader>uh toggle (keymaps.lua) silences them per buffer.
+          local client = vim.lsp.get_client_by_id(ev.data.client_id)
+          if client and client:supports_method("textDocument/inlayHint") then
+            vim.lsp.inlay_hint.enable(true, { bufnr = ev.buf })
+          end
         end,
       })
 
@@ -55,6 +68,10 @@ return {
       if ok then
         caps = blink.get_lsp_capabilities(caps)
       end
+      -- Advertise folding ranges so nvim-ufo's LSP provider works (ufo.lua).
+      caps.textDocument = caps.textDocument or {}
+      caps.textDocument.foldingRange =
+        { dynamicRegistration = false, lineFoldingOnly = true }
       vim.lsp.config("*", { capabilities = caps })
 
       -- Server list comes from the Language Registry (ADR 0141), de-duped.

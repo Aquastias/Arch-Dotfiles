@@ -15,6 +15,7 @@ return {
     -- Quality-of-life modules.
     input = { enabled = true },
     words = { enabled = true },
+    indent = { enabled = true },
     scope = { enabled = true },
     scroll = { enabled = true },
     statuscolumn = { enabled = true },
@@ -54,9 +55,34 @@ return {
       p.help()
     end, { desc = "Help pages" })
 
+    -- Search group: symbols (VS Code Ctrl+Shift+O / Ctrl+T) + command palette.
+    map("n", "<leader>ss", function()
+      p.lsp_symbols()
+    end, { desc = "Symbols (document)" })
+    map("n", "<leader>sS", function()
+      p.lsp_workspace_symbols()
+    end, { desc = "Symbols (workspace)" })
+    map("n", "<leader>sc", function()
+      p.commands()
+    end, { desc = "Commands (palette)" })
+    map("n", "<leader>sk", function()
+      p.keymaps()
+    end, { desc = "Keymaps" })
+
     map("n", "<leader>e", function()
       Snacks.explorer()
     end, { desc = "Explorer (snacks)" })
+
+    -- UI ergonomics: terminal toggle + buffer delete (keeps the window).
+    map({ "n", "t" }, "<C-/>", function()
+      Snacks.terminal()
+    end, { desc = "Toggle terminal" })
+    map({ "n", "t" }, "<C-_>", function()
+      Snacks.terminal()
+    end, { desc = "Toggle terminal" })
+    map("n", "<leader>bd", function()
+      Snacks.bufdelete()
+    end, { desc = "Delete buffer" })
 
     -- Git (replaced fugitive): lazygit + pickers.
     map("n", "<leader>gg", function()

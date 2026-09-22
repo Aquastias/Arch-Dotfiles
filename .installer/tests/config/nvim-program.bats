@@ -390,3 +390,168 @@ setup() {
   [ ! -e "$REPO/.config/nvim" ]
   [ ! -e "$REPO/.config/nvim.bak" ]
 }
+
+# ── IDE expansion: git diffview (ticket 04) ──────────────────────────────────
+
+@test "diffview is declared, lazy on :Diffview* and mapped under <leader>g" {
+  local D="$NVIM/lua/plugins/diffview.lua"
+  [ -f "$D" ]
+  grep -q 'sindrets/diffview.nvim' "$D"
+  grep -q 'DiffviewFileHistory' "$D"
+  grep -q 'cmd =' "$D"
+  grep -q '"<leader>gd"' "$D"
+  ! grep -qE '^\s*event =' "$D"
+}
+
+@test "gitsigns has a line-blame toggle and hunk navigation" {
+  local G="$NVIM/lua/plugins/gitsigns.lua"
+  grep -q 'toggle_current_line_blame' "$G"
+  grep -q '"<leader>gt"' "$G"
+  grep -q 'nav_hunk' "$G"
+  grep -q '"]h"' "$G"
+}
+
+# ── IDE expansion: trouble + navigation (ticket 05) ──────────────────────────
+
+@test "trouble is declared, lazy, mapped under <leader>x" {
+  local T="$NVIM/lua/plugins/trouble.lua"
+  [ -f "$T" ]
+  grep -q 'folke/trouble.nvim' "$T"
+  grep -q 'cmd = "Trouble"' "$T"
+  grep -q '"<leader>xx"' "$T"
+  grep -q 'todo toggle' "$T"
+}
+
+@test "bracket navigation for diagnostics, hunks and todos" {
+  grep -q '"]d"' "$NVIM/lua/config/keymaps.lua"
+  grep -q 'diagnostic.jump' "$NVIM/lua/config/keymaps.lua"
+  grep -q '"]h"' "$NVIM/lua/plugins/gitsigns.lua"
+  grep -q '"]t"' "$NVIM/lua/plugins/todo-comments.lua"
+}
+
+# ── IDE expansion: kulala API testing (ticket 06) ────────────────────────────
+
+@test "kulala is declared, lazy on http ft, mapped under <leader>R" {
+  local K="$NVIM/lua/plugins/kulala.lua"
+  [ -f "$K" ]
+  grep -q 'mistweaverco/kulala.nvim' "$K"
+  grep -qE '^\s*ft = \{' "$K"
+  grep -q '"<leader>Rs"' "$K"
+  grep -q 'filetype.add' "$K"
+}
+
+# ── IDE expansion: grug-far find & replace (ticket 07) ───────────────────────
+
+@test "grug-far is declared, lazy, mapped under <leader>s" {
+  local G="$NVIM/lua/plugins/grug-far.lua"
+  [ -f "$G" ]
+  grep -q 'MagicDuck/grug-far.nvim' "$G"
+  grep -q 'cmd = "GrugFar"' "$G"
+  grep -q '"<leader>sr"' "$G"
+}
+
+# ── IDE expansion: refactoring (ticket 08) ───────────────────────────────────
+
+@test "refactoring is declared, lazy, mapped under <leader>r" {
+  local R="$NVIM/lua/plugins/refactoring.lua"
+  [ -f "$R" ]
+  grep -q 'ThePrimeagen/refactoring.nvim' "$R"
+  grep -q 'Extract Function' "$R"
+  grep -q 'Inline Variable' "$R"
+  grep -q '"<leader>re"' "$R"
+}
+
+# ── IDE expansion: ergonomics plugins (ticket 09) ────────────────────────────
+
+@test "ergonomics plugins: surround, autotag, ts-context, flash, colors" {
+  local P="$NVIM/lua/plugins"
+  grep -rq 'echasnovski/mini.surround' "$P"
+  grep -rq 'windwp/nvim-ts-autotag' "$P"
+  grep -rq 'nvim-treesitter/nvim-treesitter-context' "$P"
+  grep -rq 'folke/flash.nvim' "$P"
+  grep -rq 'brenoprata10/nvim-highlight-colors' "$P"
+}
+
+@test "surround uses the gs prefix so flash keeps s" {
+  grep -q 'add = "gsa"' "$NVIM/lua/plugins/mini.lua"
+  grep -q '"s", mode' "$NVIM/lua/plugins/flash.lua"
+}
+
+# ── IDE expansion: LSP UX (ticket 10) ────────────────────────────────────────
+
+@test "inlay hints default on with a <leader>uh toggle" {
+  grep -q 'inlay_hint.enable(true' "$NVIM/lua/plugins/lsp.lua"
+  grep -q '"<leader>uh"' "$NVIM/lua/config/keymaps.lua"
+  grep -q 'inlay_hint' "$NVIM/lua/config/keymaps.lua"
+}
+
+@test "signature help is enabled in blink" {
+  grep -q 'signature = { enabled = true' "$NVIM/lua/plugins/blink.lua"
+}
+
+@test "symbols, workspace symbols, palette and organize-imports mapped" {
+  grep -q 'lsp_symbols' "$NVIM/lua/plugins/snacks.lua"
+  grep -q 'lsp_workspace_symbols' "$NVIM/lua/plugins/snacks.lua"
+  grep -q '"<leader>sc"' "$NVIM/lua/plugins/snacks.lua"
+  grep -q 'organizeImports' "$NVIM/lua/plugins/lsp.lua"
+}
+
+# ── IDE expansion: native editing power (ticket 11) ──────────────────────────
+
+@test "native multi-cursor keymaps, no multi-cursor plugin" {
+  grep -q 'cgn' "$NVIM/lua/config/keymaps.lua"
+  grep -q '"cn"' "$NVIM/lua/config/keymaps.lua"
+  ! grep -rqiE 'multicursor|visual-multi' "$NVIM/lua"
+}
+
+@test "mini.ai wires treesitter function/class textobjects" {
+  local M="$NVIM/lua/plugins/mini.lua"
+  grep -q 'gen_spec.treesitter' "$M"
+  grep -q '@function.outer' "$M"
+  grep -q 'nvim-treesitter-textobjects' "$M"
+}
+
+@test "incremental selection + context-aware comments present" {
+  [ -f "$NVIM/lua/config/incremental.lua" ]
+  grep -q '"<C-space>"' "$NVIM/lua/config/keymaps.lua"
+  grep -rq 'JoosepAlviste/nvim-ts-context-commentstring' "$NVIM/lua/plugins"
+}
+
+# ── IDE expansion: UI ergonomics + keybind conventions (ticket 12) ───────────
+
+@test "snacks indent guides on; terminal + bufdelete mapped" {
+  local S="$NVIM/lua/plugins/snacks.lua"
+  grep -q 'indent = { enabled = true }' "$S"
+  grep -q 'Snacks.terminal' "$S"
+  grep -q '"<leader>bd"' "$S"
+}
+
+@test "which-key registers the leader group prefixes" {
+  local W="$NVIM/lua/plugins/which-key.lua"
+  grep -q 'group = "debug"' "$W"
+  grep -q 'group = "git"' "$W"
+  grep -q 'group = "refactor"' "$W"
+}
+
+@test "undotree moved off <leader>u so u is the ui group" {
+  grep -q '"<leader>U"' "$NVIM/lua/plugins/undotree.lua"
+  ! grep -q '"<leader>u"' "$NVIM/lua/plugins/undotree.lua"
+}
+
+# ── IDE expansion: folding tune (ticket 13) ──────────────────────────────────
+
+@test "ufo tuned: lsp->treesitter->indent, foldtext, peek, foldcolumn" {
+  local U="$NVIM/lua/plugins/ufo.lua"
+  grep -q '"lsp"' "$U"
+  grep -q '"treesitter"' "$U"
+  grep -q '"indent"' "$U"
+  grep -q 'fold_virt_text_handler' "$U"
+  grep -q 'peekFoldedLinesUnderCursor' "$U"
+  grep -q 'foldcolumn = "1"' "$U"
+  grep -q '"zK"' "$U"
+  grep -q '"zr"' "$U"
+}
+
+@test "lsp advertises foldingRange for ufo's LSP provider" {
+  grep -q 'foldingRange' "$NVIM/lua/plugins/lsp.lua"
+}
