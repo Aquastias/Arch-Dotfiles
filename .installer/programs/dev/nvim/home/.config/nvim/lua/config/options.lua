@@ -3,8 +3,7 @@ local g = vim.g
 local opt = vim.opt
 
 g.mapleader = " "
--- Distinct from leader so filetype-local maps (e.g. orgmode's) don't collide
--- with the global <leader> (space) mappings.
+-- Distinct from leader so filetype-local maps (e.g. orgmode) don't collide.
 g.maplocalleader = ","
 
 -- Follow-Noctalia toggle (ADR 0136). Default off → static Catppuccin Mocha

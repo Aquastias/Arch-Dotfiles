@@ -1,9 +1,7 @@
--- Treesitter on the `main` branch (the Neovim 0.12 rewrite). The old `master`
--- branch's query predicates call a treesitter API 0.12 removed, throwing
--- "attempt to call method 'range' (a nil value)" on every injection parse
--- (markdown, LSP hover floats). `main` fixes that, but has a different API:
--- no `configs.setup` — install via `.install{}`, and enable highlighting +
--- treesitter indent per buffer from a FileType autocmd. Folding stays with ufo.
+-- Treesitter on the `main` branch (the Neovim 0.12 rewrite). `master`'s query
+-- predicates throw "attempt to call method 'range'" on every injection parse
+-- (markdown, hover floats) under 0.12. `main`'s API differs: no configs.setup —
+-- .install{} for parsers, a FileType autocmd for highlight + indent; ufo folds.
 local ensure = {
   "lua",
   "vim",
@@ -35,8 +33,7 @@ return {
   config = function()
     require("nvim-treesitter").install(ensure)
 
-    -- Start highlighting + TS indent for any buffer whose filetype maps to an
-    -- installed parser. pcall so a not-yet-installed parser is a silent no-op.
+    -- Start highlight + TS indent per buffer; pcall so a missing parser no-ops.
     local function start(buf)
       local lang = vim.treesitter.language.get_lang(vim.bo[buf].filetype)
       if lang and pcall(vim.treesitter.start, buf, lang) then

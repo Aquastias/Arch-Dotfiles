@@ -1,6 +1,5 @@
--- snacks.nvim (ADR 0135): picker + dashboard + notifier + the sidebar explorer
--- and git stack (lazygit/gitbrowse). oil owns buffer-style file editing; snacks
--- owns the sidebar tree (replaced neo-tree) and git UI (replaced fugitive).
+-- snacks.nvim (ADR 0135): picker, dashboard, notifier, the sidebar explorer
+-- (replaced neo-tree) and git UI (replaced fugitive). oil owns buffer-editing.
 return {
   "folke/snacks.nvim",
   priority = 1000,
@@ -11,20 +10,16 @@ return {
     notifier = { enabled = true },
     bigfile = { enabled = true },
     quickfile = { enabled = true },
-    -- Sidebar file tree (replaced neo-tree). oil keeps netrw, so don't let the
-    -- explorer grab it too.
+    -- oil owns netrw, so the explorer must not grab it too.
     explorer = { enabled = true, replace_netrw = false },
-    -- Quality-of-life modules: nicer vim.ui.input, LSP reference highlight under
-    -- cursor, indent-scope, smooth scrolling, and a custom fold/sign/git gutter.
+    -- Quality-of-life modules.
     input = { enabled = true },
     words = { enabled = true },
     scope = { enabled = true },
     scroll = { enabled = true },
     statuscolumn = { enabled = true },
-    -- Inline image rendering (files, markdown, PDF, mermaid, LaTeX math) via the
-    -- kitty graphics protocol. `svg` is added to formats — snacks rasterizes it
-    -- with ImageMagick's rsvg delegate, but it is not a default format. LaTeX
-    -- math renders via the `latex` parser (see treesitter.lua) + tectonic.
+    -- Inline images via kitty graphics. `svg` is added (not a default format;
+    -- rasterized via ImageMagick's rsvg). LaTeX math needs latex + tectonic.
     image = {
       enabled = true,
       formats = {
@@ -59,12 +54,11 @@ return {
       p.help()
     end, { desc = "Help pages" })
 
-    -- Sidebar file explorer (replaced neo-tree's <leader>e).
     map("n", "<leader>e", function()
       Snacks.explorer()
     end, { desc = "Explorer (snacks)" })
 
-    -- Git (replaced fugitive): lazygit for actions, pickers for browsing.
+    -- Git (replaced fugitive): lazygit + pickers.
     map("n", "<leader>gg", function()
       Snacks.lazygit()
     end, { desc = "Lazygit" })
