@@ -173,6 +173,49 @@ setup() {
     "$NVIM/lua/plugins/treesitter.lua"
 }
 
+# ── Debugging: nvim-dap (ADR 0140) ───────────────────────────────────────────
+# Adapters are system packages (Host Core), never mason.
+
+@test "nvim-dap + dap-ui + adapters are declared and lazy on <leader>d" {
+  local D="$NVIM/lua/plugins/dap.lua"
+  [ -f "$D" ]
+  grep -q 'mfussenegger/nvim-dap' "$D"
+  grep -q 'rcarriga/nvim-dap-ui' "$D"
+  grep -q 'nvim-neotest/nvim-nio' "$D"
+  grep -q 'mfussenegger/nvim-dap-python' "$D"
+  grep -q 'leoluz/nvim-dap-go' "$D"
+  grep -q '"<leader>d' "$D"
+  ! grep -qE '^\s*event =' "$D"          # lazy on keys, not an eager event
+}
+
+@test "dap wires adapters from the registry; codelldb + pwa-node" {
+  local D="$NVIM/lua/plugins/dap.lua"
+  grep -q 'require("config.languages").adapters()' "$D"
+  grep -q 'codelldb' "$D"
+  grep -q 'pwa-node' "$D"
+  grep -q 'dap-python' "$D"
+  grep -q 'dap-go' "$D"
+}
+
+@test "no mason-nvim-dap; adapters are system packages (ADR 0140)" {
+  ! grep -rqiE 'mason-nvim-dap|jay-babu/mason' "$NVIM/lua"
+}
+
+@test "Host Core declares the DAP adapter packages (ADR 0140)" {
+  local H="$REPO/.installer/hosts/core/profile.jsonc"
+  grep -q '"delve"' "$H"
+  grep -q '"python-debugpy"' "$H"
+  grep -q '"codelldb-bin"' "$H"
+  grep -q '"vscode-js-debug"' "$H"
+}
+
+@test "checkhealth gate loads dap and requires the adapter binaries" {
+  local CH="$REPO/.installer/tests/nvim/checkhealth.sh"
+  grep -q 'load nvim-dap' "$CH"
+  grep -q 'codelldb' "$CH"
+  grep -q 'dlv' "$CH"
+}
+
 # ── ticket 03: format + lint ─────────────────────────────────────────────────
 
 @test "Host Core declares the formatter/linter packages (ADR 0135)" {

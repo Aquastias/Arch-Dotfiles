@@ -103,8 +103,12 @@
       "language-servers": [
         "bash-language-server",
         "clang",
+        // delve + python-debugpy are DAP adapters, installed as system
+        // packages beside the LSP servers, not mason (ADR 0140).
+        "delve",
         "gopls",
         "lua-language-server",
+        "python-debugpy",
         "rust-analyzer",
         "svelte-language-server",
         "tailwindcss-language-server",
@@ -171,8 +175,12 @@
       ],
       "language-servers": [
         "basedpyright",
+        // codelldb-bin + vscode-js-debug are DAP adapters (ADR 0140):
+        // rust/c/cpp and js/ts respectively. Prebuilt -bin per repo custom.
+        "codelldb-bin",
         "emmet-language-server",
         "nixd",
+        "vscode-js-debug",
         "vscode-langservers-extracted"
       ]
     }

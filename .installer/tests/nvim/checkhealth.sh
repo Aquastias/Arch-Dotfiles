@@ -14,7 +14,10 @@ export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 export TERM="${TERM:-xterm-256color}"
 
 log="$(mktemp)"
-nvim --headless "+checkhealth" "+write! ${log}" "+qa!" >/dev/null 2>&1 || true
+# Force-load nvim-dap first so :checkhealth includes the dap section and any
+# debug-adapter defect surfaces (ADR 0140); it is otherwise lazy.
+nvim --headless "+Lazy! load nvim-dap" "+checkhealth" \
+  "+write! ${log}" "+qa!" >/dev/null 2>&1 || true
 
 fails=0
 
@@ -54,6 +57,20 @@ required=(
 for bin in "${required[@]}"; do
   if ! command -v "${bin}" >/dev/null 2>&1; then
     echo "missing LSP on PATH: ${bin}" >&2
+    fails=1
+  fi
+done
+
+# Debug adapters that resolve as PATH binaries must be present (ADR 0140).
+# debugpy (python module) and vscode-js-debug (node) have no clean PATH binary
+# and are validated by the dap section of :checkhealth above, not here.
+adapters=(
+  codelldb   # rust + c/cpp (codelldb-bin)
+  dlv        # go (delve)
+)
+for bin in "${adapters[@]}"; do
+  if ! command -v "${bin}" >/dev/null 2>&1; then
+    echo "missing debug adapter on PATH: ${bin}" >&2
     fails=1
   fi
 done
