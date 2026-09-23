@@ -10,10 +10,12 @@ return {
     vim.o.foldlevel = 99
     vim.o.foldlevelstart = 99
     vim.o.foldenable = true
-    -- Clickable fold gutter markers.
+    -- Fold gutter markers, by codepoint so the glyphs stay ASCII in source and
+    -- cannot be stripped (▾ open, ▸ closed). Each fillchars field must be
+    -- exactly one character or Neovim raises E1511.
     vim.opt.fillchars:append({
-      foldopen = "",
-      foldclose = "",
+      foldopen = "\u{25be}",
+      foldclose = "\u{25b8}",
       foldsep = " ",
       fold = " ",
       eob = " ",
