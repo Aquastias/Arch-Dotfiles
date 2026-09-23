@@ -40,12 +40,9 @@ return {
       mode = "n",
       desc = "Extract block",
     },
-    {
-      "<leader>rr",
-      function() require("refactoring").select_refactor() end,
-      mode = { "n", "x" },
-      desc = "Select refactor",
-    },
+    -- No <leader>rr / select_refactor: the plugin's picker calls `async.run`,
+    -- which resolves to promise-async's (nvim-ufo dep) top-level `async` module
+    -- that has no `run` → E5108. The direct maps above cover every refactor.
   },
   opts = {},
 }
