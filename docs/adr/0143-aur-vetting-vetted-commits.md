@@ -130,3 +130,16 @@ Choices made while building it, beyond the decision above:
 - `verify.aur_audit` runs inside the plain first-boot sentinel only; with a
   pools/sessions/rollback verify the OK marker never appears, so the run
   fails loudly rather than silently skipping the audit.
+- Hardening from the post-implementation review:
+  - Bump-only lines must hold a bare value; code riding on a `pkgrel=` line
+    is a real change. A NUL byte makes git print "Binary files differ",
+    which is never a bump.
+  - A binary is never silently skipped: NUL in a sourced file (PKGBUILD,
+    `.install`, scripts) is critical, any other binary suspicious.
+  - The installed copy ignores every `AUR_VET_*` override except
+    `AUR_VET_UNATTENDED` (which only refuses prompts), so a user's
+    environment can't redirect its store, data, RPC or sudo.
+  - A pin with no recorded maintainer (accepted while the RPC was down) is
+    suspicious until re-accepted, so the maintainer check can't lapse.
+  - The system `paru.conf` is created if missing, so paru never runs
+    unhooked.

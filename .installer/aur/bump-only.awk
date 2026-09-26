@@ -7,16 +7,20 @@
 # swapped for the new; else 1. Such a diff can't add logic, so it is
 # auto-accepted.
 # =============================================================================
+# A NUL byte makes git print "Binary files … differ": never a bump.
+/^Binary files / { bad = 1; next }
 /^(diff |index |@@|\+\+\+ |--- )/ { next }
 !/^[+-]/ { next }
 {
   l = substr($0, 2); sign = substr($0, 1, 1)
-  if (l ~ /^[[:space:]]*pkgver[[:space:]]*=/) {
+  # A bare value only: code riding on the line (`pkgrel=1; rm …`) is no bump.
+  if (l ~ /^[[:space:]]*(pkgver|pkgrel|epoch)[[:space:]]*=[[:space:]]*["']?\
+[[:alnum:]._+~:-]+["']?[[:space:]]*$/) {
+    if (l !~ /^[[:space:]]*pkgver/) next
     v = l; sub(/^[^=]*=[[:space:]]*/, "", v); gsub(/["'[:space:]]/, "", v)
     if (sign == "-") ov = v; else nv = v
     next
   }
-  if (l ~ /^[[:space:]]*(pkgrel|epoch)[[:space:]]*=/) next
   # sha256sums=('…' 'SKIP') / .SRCINFO `sha256sums = …`: sums only, no code.
   if (l ~ /^[[:space:]]*[[:alnum:]]+sums(_[[:alnum:]_]+)?[[:space:]]*[+]?=\
 [[:space:]]*[(]?([[:space:]]*["']?([0-9a-fA-F]+|SKIP)["']?)*[[:space:]]*\

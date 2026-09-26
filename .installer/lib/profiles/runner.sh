@@ -140,9 +140,12 @@ _profiles_install_aur_vet() {
 # Point paru's PreBuildCommand at the vetter in <conf> (a system or per-user
 # paru.conf): drop any other PreBuildCommand, set ours under [options]. paru
 # reads a user's own paru.conf *instead of* /etc/paru.conf, so each one must
-# carry the hook (ADR 0143). Idempotent; a missing file is a no-op.
+# carry the hook (ADR 0143). Idempotent; a missing file is a no-op unless
+# `create` is passed (the system paru.conf).
 _profiles_wire_paru_hook() {
   local conf="$1" line="PreBuildCommand = ${_PROFILES_AUR_VET_BIN}"
+  # `create`: the system config must exist, or paru runs unhooked.
+  [[ "${2:-}" == create && ! -f "$conf" ]] && printf '[options]\n' > "$conf"
   [[ -f "$conf" ]] || return 0
   awk -v hook="$line" '
     /^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*=/ { next }
@@ -928,7 +931,7 @@ run_profiles() {
     local _helper
     _helper="$(_profiles_bootstrap_helper "$u")"
     [[ "$_helper" == paru ]] \
-      && _profiles_wire_paru_hook "${MOUNT_ROOT}/etc/paru.conf"
+      && _profiles_wire_paru_hook "${MOUNT_ROOT}/etc/paru.conf" create
     # Install host AUR packages and GPU AUR packages for the primary user.
     if [[ "${u}" == "${users[0]}" ]]; then
       local -a primary_aur=(

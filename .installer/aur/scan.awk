@@ -6,6 +6,7 @@
 #   severity  id  file  line  description
 # Vars: root (clone dir, stripped from file names), pkgbase, commit_day
 # (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths),
+# binaries (\037-separated tracked files that are not text),
 # list_trust / list_indicators (print that data instead of scanning).
 # =============================================================================
 BEGIN {
@@ -107,6 +108,7 @@ FNR == 1 {
 
 END {
   if (list_trust || list_indicators) exit
+  binaries_emit()
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
   indicators_pkgbase()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }
@@ -268,4 +270,17 @@ function forge_owner(u,   h, o) {
 |codeberg\.org|bitbucket\.org|git\.sr\.ht|sr\.ht)$/) return ""
   o = u; sub(/^[^\/]*\//, "", o); sub(/\/.*/, "", o); sub(/^~/, "", o)
   return tolower(o)
+}
+
+# Files grep -I calls binary are never text-scanned. A NUL in a file bash
+# sources (PKGBUILD, .install, scripts) hides code from review — and from
+# `git diff` — so it is critical; other binaries (icons) are suspicious.
+function binaries_emit(   k, nb, bn) {
+  nb = split(binaries, bn, "\037")
+  for (k = 1; k <= nb; k++) {
+    if (bn[k] == "") continue
+    if (bn[k] ~ /(^|\/)(PKGBUILD|\.SRCINFO)$|\.(install|sh|bash)$/)
+      emit("nul-in-script", bn[k], 0)
+    else emit("binary-file", bn[k], 0)
+  }
 }

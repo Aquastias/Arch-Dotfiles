@@ -22,6 +22,17 @@ set -euo pipefail
 
 _SELF_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
+# Overrides (data, store, RPC fixtures, clock, sudo, …) exist for tests and
+# the operator's repo copy (scan.awk beside it). The installed vetter drops
+# them, so an environment user-level malware controls can't redirect its
+# store, data, RPC answers or sudo (ADR 0143). AUR_VET_UNATTENDED stays: it
+# can only refuse prompts, never skip review.
+if [[ ! -f "$_SELF_DIR/scan.awk" ]]; then
+  unset AUR_VET_DATA AUR_VET_STORE AUR_VET_RPC_FIXTURE_DIR AUR_VET_NOW \
+    AUR_VET_SUDO AUR_VET_INTERACTIVE AUR_VET_RETRY_DELAYS AUR_VET_GIT_BASE \
+    AUR_VET_REPO AUR_VET_AUDIT_ROOT AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL
+fi
+
 _say() { printf 'aur-vet: %s\n' "$*" >&2; }
 _die() { _say "$*"; exit 2; }
 
@@ -42,21 +53,23 @@ _lib_dir() {
 # Findings for the clone at <dir> <pkgbase> on stdout: TSV from scan.awk
 # (severity id file line description).
 _scan() {
-  local dir="$1" base="$2" data day; data="$(_data_dir)"
+  local dir="$1" base="$2" data day bins=""; data="$(_data_dir)"
   local -a files=()
   local f
   for f in rules indicators campaigns; do
     [[ -r "$data/$f.tsv" ]] || _die "missing data file: $data/$f.tsv"
   done
   while IFS= read -r -d '' f; do
-    # Text files only: binaries carry no reviewable shell.
-    LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null && files+=("$dir/$f")
+    [[ -s "$dir/$f" ]] || continue
+    # Text files are scanned; the rest are reported by name, never skipped.
+    if LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null; then files+=("$dir/$f")
+    else bins+="${f}"$'\037'; fi
   done < <(git -C "$dir" ls-files -z)
   day="$(TZ=UTC git -C "$dir" log -1 --format=%cd --date=format-local:%F)"
   awk -v root="$dir" -v pkgbase="$base" -v commit_day="$day" \
     -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
-    -v campaigns="$data/campaigns.tsv" -f "$(_lib_dir)/scan.awk" \
-    "${files[@]+"${files[@]}"}" </dev/null
+    -v campaigns="$data/campaigns.tsv" -v binaries="$bins" \
+    -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
 }
 
 
@@ -196,7 +209,10 @@ _bump_only() {
 _review_full() {
   local dir="$1" f
   while IFS= read -r -d '' f; do
-    LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null || continue
+    if ! LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null; then
+      printf '==> %s (binary, %s bytes) <==\n' "$f" "$(wc -c < "$dir/$f")"
+      continue
+    fi
     printf '==> %s <==\n' "$f"
     cat -n "$dir/$f"
   done < <(git -C "$dir" ls-files -z) >&2
@@ -275,6 +291,9 @@ _trust() {
     | map(tostring) | join("\u001f")' <<<"$r")
   printf 'meta\tmaintainer\tAUR\t0\t%s\n' "$maint"
   now="${AUR_VET_NOW:-$(date +%s)}"
+  if ((pinned)) && [[ -z "$pmaint" && -n "$maint" ]]; then
+    _t trust-maintainer-unrecorded "now ${maint}"
+  fi
   if ((pinned)) && [[ -n "$pmaint" && "$maint" != "$pmaint" ]]; then
     _t trust-maintainer-changed "${pmaint} -> ${maint:-orphan}"
   fi

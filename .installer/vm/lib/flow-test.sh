@@ -303,11 +303,11 @@ _run_boot_verify() {
   done
 
   # AUR audit (ADR 0143): the sentinel echoed the audit verdict first; a FAIL
-  # or missing OK marker fails boot-verify with its own code (127).
+  # or missing OK marker fails boot-verify with its own code (122).
   if [[ "${VM_VERIFY_AUR_AUDIT}" == "true" ]]; then
     if ! grep -Fq -- "===AUR-AUDIT-OK===" "$BOOT_LOG_FILE"; then
       warn "AUR audit FAILED on the installed system — see ${BOOT_LOG_FILE}."
-      return 127
+      return 122
     fi
     info "AUR audit OK."
   fi

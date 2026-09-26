@@ -120,3 +120,10 @@ trust-not-found	suspicious	trust	-	package base not found on the AUR
 trust-orphaned	info	trust	-	package is orphaned
 trust-out-of-date	info	trust	-	flagged out of date
 trust-low-votes	info	trust	-	fewer than 3 votes
+
+# ── Binary files (not text-scanned; builtin) ────────────────────────────────
+nul-in-script	critical	builtin	-\
+		NUL byte in a sourced file hides it from review (bash still runs it)
+binary-file	suspicious	builtin	-	binary file in the AUR repo
+trust-maintainer-unrecorded	suspicious	trust	-\
+		pin has no recorded maintainer to compare against

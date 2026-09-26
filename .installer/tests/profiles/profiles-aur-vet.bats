@@ -146,3 +146,17 @@ SH
   done < <(git -C "$INSTALLER_DIR" ls-files --full-name ':/*paru.conf')
   [ -z "$bad" ] || { echo "missing hook:$bad"; return 1; }
 }
+
+@test "install: the installed vetter ignores test-only env overrides" {
+  _profiles_install_aur_vet
+  mkdir -p "$T/fake-store"; : > "$T/fake-store/vetted.tsv"
+  run env AUR_VET_STORE="$T/fake-store" AUR_VET_DATA="$T/nope" \
+    bash -c 'cd /tmp && "$1" export --check "$2"' _ \
+    "$MOUNT_ROOT/usr/local/bin/aur-vet" "$T/fake-store"
+  [[ "$output" == *"/etc/aur-vet and"* ]]   # the system store, not ours
+}
+
+@test "paru.conf: a missing system paru.conf is created with the hook" {
+  _profiles_wire_paru_hook "$T/etc-paru.conf" create
+  grep -qx "PreBuildCommand = /usr/local/bin/aur-vet" "$T/etc-paru.conf"
+}

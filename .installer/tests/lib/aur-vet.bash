@@ -83,6 +83,8 @@ aurvet_case() {
       _aurvet_ins "$si" '^\tsource = ' "	source = $text"
       _aurvet_ins "$si" '^\tsha256sums = ' "	sha256sums = $sum" ;;
     nosrcinfo) rm -f "$si" ;;
+    binary) printf '\x89PNG\0\1' > "$dir/icon.png" ;;
+    nulpkgbuild) printf '# \0\n' >> "$pb" ;;
     pkgbase) ;;
     *) echo "unknown placement: $placement" >&2; return 1 ;;
   esac

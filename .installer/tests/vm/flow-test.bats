@@ -66,7 +66,7 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
 @test "boot verify: a failed audit fails the VM run" {
   VM_VERIFY_AUR_AUDIT=true
   _boot_verify_with_log $'===AUR-AUDIT-FAIL===\n===FIRSTBOOT-OK==='
-  [ "$status" -eq 127 ]
+  [ "$status" -eq 122 ]
 }
 
 @test "boot verify: a clean audit passes" {

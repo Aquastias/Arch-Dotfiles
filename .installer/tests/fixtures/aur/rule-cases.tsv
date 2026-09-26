@@ -96,3 +96,7 @@ indicator-pkgbase	+	pkgbase	123pan-bin@2026-06-11T12:00:00
 indicator-pkgbase	-	pkgbase	123pan-bin@2026-09-01T12:00:00
 indicator-pkgbase-past	+	pkgbase	123pan-bin@2026-09-01T12:00:00
 indicator-pkgbase-past	-	pkgbase	rulecase@2026-09-01T12:00:00
+nul-in-script	+	nulpkgbuild	-
+nul-in-script	-	binary	-
+binary-file	+	binary	-
+binary-file	-	build	true
