@@ -31,6 +31,7 @@ _FAST_CORE_TOKENS=(
   lib/validators.bats sops.bats
   live-medium.bats wipe-probe.bats wipe-live-medium.bats
   wipe-prior-install-state.bats commons-part-name.bats
+  no-python.bats
 )
 
 # Source subdirs mirrored 1:1 onto a tests/ subdir (tests/<name>/).
@@ -70,6 +71,7 @@ _changed_root_map() {
       echo "install-pkglist.bats pkglist-profile.bats" \
            "profiles/profiles-aur.bats profiles/profiles-bootstrap.bats" \
            "profiles/profiles-helper.bats" ;;
+    .installer/tests/no-python.sh) echo "no-python.bats" ;;
     .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
     .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;
     .installer/tools/harden-boot.sh) echo "harden-boot.bats" ;;

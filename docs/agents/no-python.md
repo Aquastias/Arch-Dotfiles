@@ -8,13 +8,24 @@ about.
 
 ## The rule
 
-- **No committed `.py` files**, and no Python-shebang scripts, anywhere under the
-  repo's own tooling (`.installer/`, `docs/`, helper scripts).
-- **No Python invocations** in that tooling: no `python3 -c …`, `python3 -m …`,
-  or piping through a `.py`. Use bash with `awk`/`sed`/`grep`/coreutils; for
-  driving an interactive TUI use the same approach the TUI tests use.
+- **No committed `.py` files**, and no Python-shebang scripts, anywhere in the
+  repo — not just `.installer/`.
+- **No Python invocations** in any shell script: no `python`/`python3 -c`/`-m`,
+  `pip`, `pipx`, `poetry`, `pyenv`, `uv`, or piping through a `.py`. Use bash with
+  `awk`/`sed`/`grep`/coreutils; for driving an interactive TUI use the same
+  approach the TUI tests use.
 - Applies to tests too (`.installer/tests/**`): a bats test must not shell out to
   Python to build fixtures or parse output — do it in awk/sed.
+
+## Enforcement
+
+`.installer/tests/no-python.sh` is the gate (test: `no-python.bats`, in the
+`--fast` set, so the pre-push hook runs it). It scans **tracked files only** for
+the three signals above, keying on what *executes* python — extension, shebang,
+command — never on syntax (jq's `def f($k): … end;` reads like Python but is
+data to `jq`, so it passes). Package names, editor/prompt config, and
+prose/comments naming python are untouched. A line the heuristic can't tell
+apart is exempted with a trailing `no-python-ok` comment.
 
 ## Not covered (fine to keep)
 

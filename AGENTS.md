@@ -26,7 +26,7 @@ Reuse a Commons helper before writing a new one; put new helpers in the right wo
 
 ### No Python
 
-Repo tooling is bash + awk/sed/coreutils — never Python. No committed `.py` files, no `python3 -c`/`-m` in `.installer/` (incl. tests). Python package names in host profiles are fine. See `docs/agents/no-python.md`.
+Repo tooling is bash + awk/sed/coreutils — never Python. No committed `.py` files, no python shebangs, no `python`/`pip`/`uv`/… invocations anywhere in the repo (incl. tests). Enforced by `.installer/tests/no-python.sh`. Python package names in host profiles are fine. See `docs/agents/no-python.md`.
 
 ### Repo conventions
 
