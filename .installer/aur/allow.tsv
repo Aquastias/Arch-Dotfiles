@@ -1,2 +1,13 @@
 # Suspicious-finding allowlist (ADR 0143): pkgbase  commit  rule  note.
 # Scoped to one Vetted Commit; a new commit re-triggers the finding.
+basedpyright	c9560ba1dc7c1edba79aacf8aed1149e6d8c826c	source-owner	reviewed 2026-09-26
+bridge-utils	6578fca4187e37ebd4436e035dd2888989a60148	skip-checksum	reviewed 2026-09-26
+claude-code	c5a5dee39e4ce89e36b00313075d01844dc9eadc	skip-checksum	reviewed 2026-09-26
+nixd	2a3c32e661a8f10dea51b77b95712c5bda7221dd	trust-adopted	reviewed 2026-09-26
+octopi	fa2e765a120fe5fb4c7eebfac3494c86fc9b4ce6	toplevel-code	reviewed 2026-09-26
+phpactor	d93d50fae6d5fc345f760ff867512adf67ee4cc5	srcinfo-mismatch	reviewed 2026-09-26
+swift-bin	2e32c008a1e442a2a59dc6e5c4764d73a546cc52	trust-adopted	reviewed 2026-09-26
+vscode-js-debug	64a17058c160f2e991b91b958576255ab42e29e1	npx-run	reviewed 2026-09-26
+vscodium-bin	13bee17006571a4da71416ae2e15dd19cc7bcc2d	toplevel-code	reviewed 2026-09-26
+zen-browser-bin	f4c4f31acf056e4756596fb958ae7fa824c760bb	trust-adopted	reviewed 2026-09-26
+vscodium	fd12213394dce8d7f7a6d0bc8bd9bb412aee36c3	toplevel-code	reviewed 2026-09-26
