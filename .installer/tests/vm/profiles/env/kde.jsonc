@@ -2,7 +2,9 @@
 // profile arch-kde end-to-end (gpu=auto resolves to mesa in the VM).
 {
   "name": "arch-zfs-test-env-kde",
-  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
+  // 60 GB like the persistent desktop VMs: the full dev set (swift-bin, the
+  // nvim toolchain) fills 40 GB mid-install ("No space left on device").
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 2 },
   "host_profile": "arch-kde",
   "layout": { "mode": "single" },
   // aur_audit (ADR 0143): the booted desktop VM runs `aur-vet audit`.
