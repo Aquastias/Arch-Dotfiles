@@ -19,7 +19,7 @@ set -Eeuo pipefail
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export INSTALLER_DIR
-# shellcheck source=lib/guided/shell.sh
+# shellcheck source=../lib/guided/shell.sh
 source "${INSTALLER_DIR}/lib/guided/shell.sh"
 
 # Seed exactly as guided_build does, then run the menu only (calling

@@ -104,6 +104,7 @@ collect_changed() {
     collect_all
   else
     echo "[run.sh] --changed targets (+ install-correctness core):" >&2
+    # shellcheck disable=SC2001  # sed line-prefix clearer than repeating literal
     sed 's/^/[run.sh]   /' <<< "$targets" >&2
     local t; while IFS= read -r t; do expand_tokens "$t"; done <<< "$targets"
   fi

@@ -65,8 +65,8 @@ collect_packages() {
     local _i
     for _i in "${!kernel_pkgs[@]}"; do
       case "${kernel_pkgs[$_i]}" in
-        linux-lts)         kernel_pkgs[$_i]="${_pin[0]}" ;;
-        linux-lts-headers) kernel_pkgs[$_i]="${_pin[1]}" ;;
+        linux-lts)         kernel_pkgs[_i]="${_pin[0]}" ;;
+        linux-lts-headers) kernel_pkgs[_i]="${_pin[1]}" ;;
       esac
     done
   fi
@@ -127,10 +127,11 @@ collect_packages() {
     # for the pinned linux-lts works. Swap zfs-dkms -> zfs-linux-lts when one is
     # available; the ceiling pin keeps linux-lts at the prebuilt's version.
     local _modpkg _k
-    _modpkg="$(archzfs_lts_module_pkg $(install_config_kernels))"
+    local -a _kernels; mapfile -t _kernels < <(install_config_kernels)
+    _modpkg="$(archzfs_lts_module_pkg "${_kernels[@]}")"
     if [[ -n "$_modpkg" ]]; then
       for _k in "${!_zfs[@]}"; do
-        [[ "${_zfs[$_k]}" == "zfs-dkms" ]] && _zfs[$_k]="$_modpkg"
+        [[ "${_zfs[$_k]}" == "zfs-dkms" ]] && _zfs[_k]="$_modpkg"
       done
     fi
     pkgs+=("${_zfs[@]}")

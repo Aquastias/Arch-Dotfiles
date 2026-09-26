@@ -225,7 +225,7 @@ archzfs_lts_pin_prepare() {
   # Publish the archzfs-supported lts ceiling for collect_packages' module swap
   # (archzfs_lts_module_pkg) — the one place the network lookup happens, so
   # list-building stays offline. Empty when archzfs ships no lts prebuilt.
-  export ARCHZFS_LTS_SUPPORTED="$(archzfs_lts_pkgver)"
+  ARCHZFS_LTS_SUPPORTED="$(archzfs_lts_pkgver)"; export ARCHZFS_LTS_SUPPORTED
 
   local specs; specs="$(archzfs_resolve_lts_pin)"
   [[ -n "$specs" ]] || return 0

@@ -136,9 +136,9 @@ _initcpio_write_udev_override ""
 # stray. A non-ZFS system has no zfs.ko requirement, so every kernel's preset
 # builds fine and none must be dropped — `zpool` present is the chroot's ZFS
 # signal (matches configure.sh / ADR 0043).
-# shellcheck source=../boot/stray-kernel.sh
 _STRAY_SH="$_LIB_DIR/stray-kernel.sh"
 if command -v zpool >/dev/null 2>&1 && [[ -f "$_STRAY_SH" ]]; then
+  # shellcheck source=../boot/stray-kernel.sh
   STRAY_KERNEL_LIB_ONLY=1 source "$_STRAY_SH"
   _sel_bases=()
   for _tok in "${KERNELS[@]}"; do _sel_bases+=("$(kernel_pkg "$_tok")"); done

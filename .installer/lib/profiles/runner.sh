@@ -759,6 +759,7 @@ run_profiles() {
   # the front-end produced (install.sh --profile or the VM seed). CONFIG_FILE
   # is set by 03-install.sh.
   local host_json
+  # shellcheck disable=SC2153  # CONFIG_FILE global, set by 03-install.sh
   if ! host_json="$(jsonc_read "$CONFIG_FILE" '.' 2>/dev/null)" \
      || [[ -z "$host_json" || "$host_json" == "null" ]]; then
     warn "Runner: cannot read effective config at ${CONFIG_FILE}" \

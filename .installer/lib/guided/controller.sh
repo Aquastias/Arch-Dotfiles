@@ -1577,7 +1577,7 @@ _ctl_detail_leaf() {
   opts="$(menu_enum_options "$field")"
   [[ -n "$opts" ]] || return 0
   printf '%sOptions:%s\n' "$_CTL_DIM" "$_CTL_RST"
-  sed 's/^/  /' <<<"$opts"
+  printf '%s\n' "  ${opts//$'\n'/$'\n'  }"
 }
 
 # _ctl_detail_reflector_note <category> — the reflector consumer line, shown
@@ -1758,7 +1758,7 @@ guided_ctl_preview() {
       '.system.keymap // [] | if type == "array" then . else [.] end | .[]' \
       <<<"$(_ctl_effective "$(_ctl_state)" "$(_ctl_baseline)")")"
     printf 'Selected keymaps:\n'
-    if [[ -n "$sel" ]]; then sed 's/^/  /' <<<"$sel"
+    if [[ -n "$sel" ]]; then printf '%s\n' "  ${sel//$'\n'/$'\n'  }"
     else printf '  (none)\n'; fi
     printf '\nHighlighted:\n  %s\n' "${line:4}" ;;
   system.locale | system.timezone)

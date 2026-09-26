@@ -157,7 +157,7 @@ _matrix_run_one() {
   if [[ "$bv" == true ]]; then
     [[ "$imp" == true ]] && oracle=rollback || oracle=firstboot
   else
-    oracle=install-only
+    oracle="install-only"
   fi
   axes="$(jq -r '.axes | "\(.filesystem)/\(.topology // "single")/"
     + (if .encryption then "enc" else "plain" end)' <<<"$cell")"

@@ -51,7 +51,7 @@ bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
 # disk via the shared blcommon_efistub_register (ADR 0078).
 ESP_STYLE="$(bootloader_esp_style "$BOOTLOADER")"
 if [[ "$ESP_STYLE" == efistub ]]; then
-    # shellcheck source=../boot/bootloader-common.sh
+    # shellcheck source=bootloader-common.sh
     source "$_LIB_DIR/bootloader-common.sh"
 else
     EFI_LOADER="$(bootloader_efi_loader "$BOOTLOADER")"

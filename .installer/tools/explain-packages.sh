@@ -99,11 +99,11 @@ printf '  Total: %d unique packages\n' "$total"
 
 if [[ -n "$excluded" ]]; then
   printf '\n  Excluded by this profile (%d):\n' "$(wc -l <<<"$excluded")"
-  sed 's/^/      /' <<<"$excluded"
+  printf '%s\n' "      ${excluded//$'\n'/$'\n'      }"
 fi
 
 if [[ -n "$unresolved" ]]; then
   printf '\n  Resolved at install time (needs the target hardware):\n'
-  sed 's/^/      /' <<<"$unresolved"
+  printf '%s\n' "      ${unresolved//$'\n'/$'\n'      }"
 fi
 printf '\n'

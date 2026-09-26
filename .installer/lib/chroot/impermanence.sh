@@ -164,6 +164,7 @@ _impermanence_snapshot_blank_zfs() {
   local entry suffix
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
+    # shellcheck disable=SC2153  # RPOOL: install-state global (install-state.sh)
     zfs snapshot "$RPOOL/ROOT/$suffix@blank"
   done
 }

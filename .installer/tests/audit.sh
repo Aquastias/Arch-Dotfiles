@@ -120,6 +120,7 @@ _section "3. Chroot source chain  (extras scripts running at /root/)"
 # common.sh sources jsonc.sh and globals.sh relative to itself →
 # /root/lib/{jsonc,globals}.sh
 
+# shellcheck disable=SC2043  # kde is the only extras-common DE today; loop eases adds
 for de in kde; do
   script="${OS}/extras/desktop/${de}/${de}.sh"
   if [[ ! -f "$script" ]]; then
@@ -268,6 +269,7 @@ done < <(find "${OS}/users" -name "profile.jsonc")
 # =============================================================================
 _section "9. Extras JSON files"
 # =============================================================================
+# shellcheck disable=SC2043  # kde is the only extras JSON DE today; loop eases adds
 for de in kde; do
   json="${OS}/extras/desktop/${de}/install-${de}.jsonc"
   if [[ -f "$json" ]]; then

@@ -103,7 +103,8 @@ _changed_map_one() {
   done
   # Root/tools explicit map.
   local tokens; if tokens="$(_changed_root_map "$p")"; then
-    printf '%s\n' $tokens; return 0
+    local -a _toks; read -ra _toks <<<"$tokens"
+    printf '%s\n' "${_toks[@]}"; return 0
   fi
   return 1
 }

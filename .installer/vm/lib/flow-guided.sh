@@ -38,6 +38,7 @@ _flow_render_user_data() {
   # replay; the guest then resolves Σ disk_count disks in-guest. Default single.
   layout="$(jq -r '.guided_layout // "single"' <<<"${INSTALL_CONFIG_CONTENT}")"
   if [[ "$layout" != "single" ]]; then
+    # shellcheck source=../../lib/config/skeleton.sh
     [[ "$(type -t skeleton_total_disks)" == function ]] \
       || source "$INSTALLER_DIR/lib/config/skeleton.sh"
     n_disks="$(skeleton_total_disks "$(skeleton_preset "$layout")")"

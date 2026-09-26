@@ -16,6 +16,7 @@ _LOCALE_PARTS_SH_SOURCED=1
 
 # locale_language <locale> → the language identity: the name with its .CODESET
 # dropped, any @modifier kept. en_US.UTF-8→en_US, sr_RS.UTF-8@latin→sr_RS@latin.
+# shellcheck disable=SC2001  # regex removal, no param-expansion equivalent
 locale_language() { sed 's/\.[^.@]*//' <<<"$1"; }
 
 # locale_encoding <locale> → the CODESET (between . and any @), empty if none.
