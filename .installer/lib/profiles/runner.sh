@@ -437,7 +437,7 @@ _profiles_aur_install() {
   local user="$1" helper="$2"; shift 2
   local -a pkgs=("$@")
   ((${#pkgs[@]} > 0)) || return 0
-  [[ "$helper" == paru ]] \
+  _aur_helper_vets_aur "$helper" \
     || error "AUR install for ${user} landed on ${helper}: vetting needs paru" \
              "(ADR 0143) — retry once the paru rung can bootstrap."
 
@@ -508,8 +508,7 @@ _profiles_install_user_program() {
   # Under yay (no vetting hook, ADR 0143) the helper is repo-only: a program's
   # repo packages still install, an AUR-only one fails instead of building
   # unvetted.
-  local h="$helper"
-  [[ "$h" == yay ]] && h="yay --repo"
+  local h; h="$(_aur_helper_repo_cmd "$helper")"
   # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
   # in from run_profiles rather than re-detected here; program install.sh
   # scripts install via ${AUR_HELPER} -S. Those scripts hit aur.archlinux.org/rpc

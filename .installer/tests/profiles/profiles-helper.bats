@@ -112,3 +112,15 @@ _stub_helpers() {
   [ "$status" -ne 0 ]
   [ -z "$output" ]
 }
+
+# ── AUR Vetting helper policy (ADR 0143) ────────────────────────────────────
+
+@test "_aur_helper_vets_aur: only paru carries the vetting hook" {
+  _aur_helper_vets_aur paru
+  ! _aur_helper_vets_aur yay
+}
+
+@test "_aur_helper_repo_cmd: yay is repo-only, paru unchanged" {
+  [ "$(_aur_helper_repo_cmd yay)" = "yay --repo" ]
+  [ "$(_aur_helper_repo_cmd paru)" = "paru" ]
+}

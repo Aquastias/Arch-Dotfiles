@@ -83,6 +83,13 @@ aurvet_case() {
       _aurvet_ins "$si" '^\tsource = ' "	source = $text"
       _aurvet_ins "$si" '^\tsha256sums = ' "	sha256sums = $sum" ;;
     nosrcinfo) rm -f "$si" ;;
+    srcvar) # a host hidden behind a variable; .SRCINFO shows a benign one
+      _aurvet_ins "$pb" '^license=' "_h=$text"
+      _aurvet_ins "$pb" '^source=' 'source+=("https://${_h}/rulecase/p.tgz")'
+      _aurvet_ins "$pb" '^sha256sums=' "sha256sums+=('SKIP')"
+      _aurvet_ins "$si" '^\tsource = ' \
+        "	source = https://github.com/rulecase/p.tgz"
+      _aurvet_ins "$si" '^\tsha256sums = ' "	sha256sums = SKIP" ;;
     binary) printf '\x89PNG\0\1' > "$dir/icon.png" ;;
     nulpkgbuild) printf '# \0\n' >> "$pb" ;;
     pkgbase) ;;

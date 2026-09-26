@@ -50,10 +50,10 @@ _lib_dir() {
   else printf '%s' /usr/local/share/aur-vet; fi
 }
 
-# Findings for the clone at <dir> <pkgbase> on stdout: TSV from scan.awk
-# (severity id file line description).
+# Findings for the clone at <dir> <pkgbase> [<AUR LastModified epoch>] on
+# stdout: TSV from scan.awk (severity id file line description).
 _scan() {
-  local dir="$1" base="$2" data day bins=""; data="$(_data_dir)"
+  local dir="$1" base="$2" data days bins=""; data="$(_data_dir)"
   local -a files=()
   local f
   for f in rules indicators campaigns; do
@@ -65,8 +65,12 @@ _scan() {
     if LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null; then files+=("$dir/$f")
     else bins+="${f}"$'\037'; fi
   done < <(git -C "$dir" ls-files -z)
-  day="$(TZ=UTC git -C "$dir" log -1 --format=%cd --date=format-local:%F)"
-  awk -v root="$dir" -v pkgbase="$base" -v commit_day="$day" \
+  # Days that may place the package in a campaign window: every commit's
+  # author + committer day, and the AUR's own LastModified (<modified>,
+  # server-side). Backdating a commit can't hide an in-window one.
+  days="$(TZ=UTC git -C "$dir" log --format='%ad %cd' --date=format-local:%F)"
+  [[ -n "${3:-}" ]] && days+=" $(date -u -d "@$3" +%F)"
+  awk -v root="$dir" -v pkgbase="$base" -v days="${days//$'\n'/ }" \
     -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
     -v campaigns="$data/campaigns.tsv" -v binaries="$bins" \
     -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
@@ -264,15 +268,20 @@ _rpc_retry() {
 
 _rpc_info() { _rpc_retry _rpc_fetch "$@"; }
 
-# Trust findings (scan TSV shape, file "AUR") for <dir> <pkgbase> against
-# the pin's <maintainer> (<pinned> 1|0), plus a `meta maintainer` row with
-# the AUR's current one. Returns 3 when the RPC is unreachable.
-_trust() {
-  local dir="$1" base="$2" pmaint="$3" pinned="$4"
-  local name json r
+# The RPC answer for the clone at <dir> <pkgbase> (queried by its first
+# pkgname), or failure when unreachable.
+_rpc_for() {
+  local name
   name="$(awk -F' = ' '/^pkgname = / { print $2; exit }' \
-    "$dir/.SRCINFO" 2>/dev/null)"
-  json="$(_rpc_info "$base" "${name:-$base}")" || return 3
+    "$1/.SRCINFO" 2>/dev/null)"
+  _rpc_info "$2" "${name:-$2}"
+}
+
+# Trust findings (scan TSV shape, file "AUR") from the RPC <json> for
+# <pkgbase>, against the pin's <maintainer> (<pinned> 1|0), plus a
+# `meta maintainer` row with the AUR's current one.
+_trust() {
+  local json="$1" base="$2" pmaint="$3" pinned="$4" r
   local -A sev=() desc=()
   local id s d
   while IFS=$'\t' read -r id s d; do sev[$id]="$s"; desc[$id]="$d"
@@ -560,11 +569,20 @@ _hook() {
   [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
 
   local -a findings=()
+  # One RPC answer feeds both the trust signals and the Indicator window.
+  local json="" rpc_down=0 modified=""
+  json="$(_rpc_for "$dir" "$base")" || rpc_down=1
+  if ((!rpc_down)); then
+    modified="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
+      == $b)][0].LastModified // empty' <<<"$json")"
+  fi
   # Fail closed: an engine error must abort, never read as "no findings".
-  local out trust="" rpc_down=0
-  out="$(_scan "$dir" "$base")" || _die "${base}: scan failed"
-  trust="$(_trust "$dir" "$base" "$pmaint" "$([[ -n "$pcommit" ]] && echo 1 \
-    || echo 0)")" || rpc_down=1
+  local out trust=""
+  out="$(_scan "$dir" "$base" "$modified")" || _die "${base}: scan failed"
+  if ((!rpc_down)); then
+    trust="$(_trust "$json" "$base" "$pmaint" \
+      "$([[ -n "$pcommit" ]] && echo 1 || echo 0)")"
+  fi
   [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
   [[ -n "$out" ]] && mapfile -t findings <<<"$out"
 

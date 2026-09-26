@@ -103,3 +103,20 @@ _bump() { # pinned electron-benign, then a clean version bump
   aurvet_hook "$d"
   [ "$status" -eq 0 ]
 }
+
+@test "indicators: a backdated commit can't dodge the window (LastModified)" {
+  # 123pan-bin is on the Atomic Arch list; the commit claims 2026-09 but the
+  # AUR (server-side) says it was modified inside the campaign window.
+  local d; d="$(aurvet_case pkgbase '123pan-bin@2026-09-01T12:00:00' bd)"
+  aurvet_rpc 123pan-bin LastModified="$(date -d 2026-06-11 +%s)"
+  aurvet_hook "$d" 123pan-bin
+  [[ "$output" == *"CRITICAL indicator-pkgbase "* ]]
+}
+
+@test "indicators: any in-window commit in history stays critical" {
+  local d; d="$(aurvet_case pkgbase '123pan-bin@2026-06-11T12:00:00' hist)"
+  GIT_COMMITTER_DATE=2026-09-01T12:00:00 aurvet_commit "$d" PKGBUILD \
+    's/^pkgrel=1$/pkgrel=2/'
+  aurvet_hook "$d" 123pan-bin
+  [[ "$output" == *"CRITICAL indicator-pkgbase "* ]]
+}

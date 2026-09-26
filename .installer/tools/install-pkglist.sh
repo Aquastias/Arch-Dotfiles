@@ -58,14 +58,13 @@ _pkgs() {
 # AUR builds need paru: its PreBuildCommand runs AUR Vetting, yay has no such
 # hook (ADR 0143). Under yay the repo pass is repo-only and the AUR pass is
 # refused rather than built unvetted.
-repo_helper=("$helper")
-[[ "$helper" == yay ]] && repo_helper=(yay --repo)
+read -ra repo_helper <<<"$(_aur_helper_repo_cmd "$helper")"
 
 echo "Installing repo packages for profile ${profile}..."
 _pkgs "$repo_list" | "${repo_helper[@]}" -S --needed -
 
 if [[ -f "$aur_list" ]] && [[ -n "$(_pkgs "$aur_list")" ]]; then
-  if [[ "$helper" != paru ]]; then
+  if ! _aur_helper_vets_aur "$helper"; then
     echo "AUR packages need paru: vetting needs paru (ADR 0143)." >&2
     exit 1
   fi

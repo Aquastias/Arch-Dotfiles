@@ -4,8 +4,9 @@
 # Text-only: never sources the PKGBUILD. Input files are the clone's text
 # files; data comes in via vars. Prints one TSV finding per hit:
 #   severity  id  file  line  description
-# Vars: root (clone dir, stripped from file names), pkgbase, commit_day
-# (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths),
+# Vars: root (clone dir, stripped from file names), pkgbase, days
+# (candidate UTC YYYY-MM-DD days: commits + AUR LastModified), rules /
+# indicators / campaigns (paths),
 # binaries (\037-separated tracked files that are not text),
 # list_trust / list_indicators (print that data instead of scanning).
 # =============================================================================
@@ -78,7 +79,8 @@ FNR == 1 {
   cursums = 0; curtop = 0
   if (kind == "pkgbuild") {
     pkgbuild_pre(line)
-    if (!comment) hosts_of(line, pbhost)
+    # Hosts are extracted at END, after top-level variables are known.
+    if (!comment) { npb++; pbl[npb] = line; pbln[npb] = FNR }
     if (curtop) emit("toplevel-code", f, FNR)
   }
   if (kind == "srcinfo") srcinfo_collect(line)
@@ -112,6 +114,7 @@ END {
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
   indicators_pkgbase()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }
+  pkgbuild_hosts()
   for (h in pbhost)
     if (!(h in sihost)) emit("srcinfo-mismatch", "PKGBUILD", pbhost[h])
   for (k = 1; k <= sn; k++) {
@@ -149,14 +152,19 @@ function indicators_line(l,   k, low, code) {
   for (k = 1; k <= nsha; k++)
     if (index(low, isha[k])) emit("indicator-sha256", f, FNR, isha[k])
 }
-# The package itself is listed: critical when HEAD was committed inside
-# the campaign window, else suspicious until pinned (ADR 0143).
-function indicators_pkgbase(   c) {
+# The package itself is listed: critical when any candidate day (a commit's,
+# or the AUR's server-side LastModified) falls inside the campaign window,
+# else suspicious until pinned (ADR 0143).
+function indicators_pkgbase(   c, k, nd, d) {
   if (!(pkgbase in ipkg)) return
   c = ipkg[pkgbase]
-  if (commit_day >= cfrom[c] && commit_day <= cto[c])
-    emit("indicator-pkgbase", "PKGBUILD", 0, c)
-  else emit("indicator-pkgbase-past", "PKGBUILD", 0, c)
+  nd = split(days, d, " ")
+  for (k = 1; k <= nd; k++)
+    if (d[k] >= cfrom[c] && d[k] <= cto[c]) {
+      emit("indicator-pkgbase", "PKGBUILD", 0, c)
+      return
+    }
+  emit("indicator-pkgbase-past", "PKGBUILD", 0, c)
 }
 function has_word(s, w,   p, i, a, b) {
   p = 0
@@ -203,6 +211,7 @@ function pkgbuild_pre(l,   m) {
   if (l ~ /^[[:space:]]*[[:alpha:]_][[:alnum:]_]*(\[[^]]*\])?[+]?=/) {
     m = l; sub(/^[[:space:]]*/, "", m); sub(/[[+=].*/, "", m)
     if (l ~ /[$][(]|`/) curtop = 1
+    else if (l !~ /=[(]/) pvar_set(m, l)
     if (l ~ /=[(]/) {
       arrsums = (m ~ /sums(_[[:alnum:]_]+)?$/); cursums = arrsums
       if (!closes(l)) inarr = 1
@@ -226,13 +235,13 @@ function closes(l,   t) {
 }
 
 # ── URLs / .SRCINFO ─────────────────────────────────────────────────────────
-function hosts_of(l, arr,   s, h) {
+function hosts_of(l, arr, ln,   s, h) {
   s = l
   while (match(s, /[[:alpha:]][[:alnum:]+.-]*:\/\/[^\/[:space:]"'$:)#?]+/)) {
     h = substr(s, RSTART, RLENGTH)
     sub(/^[^:]*:\/\//, "", h); sub(/^[^@]*@/, "", h)
     h = tolower(h)
-    if (!(h in arr)) arr[h] = FNR
+    if (!(h in arr)) arr[h] = ln
     s = substr(s, RSTART + RLENGTH)
   }
 }
@@ -245,7 +254,7 @@ function source_url(l,   u) {
 }
 # Collect .SRCINFO sources and checksums per arch key, aligned by index.
 function srcinfo_collect(l,   key, typ) {
-  hosts_of(l, sihost)
+  hosts_of(l, sihost, FNR)
   if (l ~ /^[[:space:]]*url[[:space:]]*=/) {
     siurl = l; sub(/^[^=]*=[[:space:]]*/, "", siurl)
   } else if (is_source(l)) {
@@ -282,5 +291,35 @@ function binaries_emit(   k, nb, bn) {
     if (bn[k] ~ /(^|\/)(PKGBUILD|\.SRCINFO)$|\.(install|sh|bash)$/)
       emit("nul-in-script", bn[k], 0)
     else emit("binary-file", bn[k], 0)
+  }
+}
+
+# ── Variable-aware host cross-check ─────────────────────────────────────────
+# A URL built from variables (`https://${_h}/x`) would dodge a literal host
+# match, so plain top-level `name=value` assignments are expanded first; a
+# host still unresolved after that is itself a mismatch.
+function pvar_set(name, l,   v) {
+  v = l; sub(/^[^=]*=/, "", v); sub(/[[:space:]]+#.*$/, "", v)
+  if (v ~ /^".*"$/ || v ~ /^'.*'$/) v = substr(v, 2, length(v) - 2)
+  pvar[name] = v
+}
+function expand(s,   pass, out, v, n) {
+  for (pass = 0; pass < 3; pass++) {
+    out = ""
+    while (match(s, /[$][{]?[[:alpha:]_][[:alnum:]_]*[}]?/)) {
+      v = substr(s, RSTART, RLENGTH); n = v; gsub(/[${}]/, "", n)
+      out = out substr(s, 1, RSTART - 1) ((n in pvar) ? pvar[n] : v)
+      s = substr(s, RSTART + RLENGTH)
+    }
+    s = out s
+  }
+  return s
+}
+function pkgbuild_hosts(   k, e) {
+  for (k = 1; k <= npb; k++) {
+    e = expand(pbl[k])
+    hosts_of(e, pbhost, pbln[k])
+    if (e ~ /:\/\/[$]/)
+      emit("srcinfo-mismatch", "PKGBUILD", pbln[k], "unresolved host")
   }
 }

@@ -127,6 +127,13 @@ Choices made while building it, beyond the decision above:
   by definition only version/checksum lines changed.
 - The RPC has no ownership history, so orphan adoption is approximated:
   maintainer ≠ submitter and last modified < 14 days (unpinned packages).
+- Commit dates are attacker-set, so the campaign window is checked against
+  every commit's author/committer day plus the AUR's server-side
+  LastModified; any in-window day is critical (backdating can't hide one).
+- The PKGBUILD/.SRCINFO host cross-check expands plain top-level variables
+  first; a host still unresolved is itself a mismatch.
+- The paru/yay policy lives with the helper rule in `lib/aur-helper.sh`
+  (`_aur_helper_vets_aur`, `_aur_helper_repo_cmd`).
 - `verify.aur_audit` runs inside the plain first-boot sentinel only; with a
   pools/sessions/rollback verify the OK marker never appears, so the run
   fails loudly rather than silently skipping the audit.
