@@ -356,7 +356,7 @@ flow_run() {
 
   section "Capturing installer log → ${LOG_FILE}"
   _wait_for_serial_pty
-  _start_console_capture
+  _start_console_capture "$LOG_FILE"
 
   section "Waiting for installer (timeout: ${TIMEOUT_SEC}s)"
   local rc=0

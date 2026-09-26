@@ -74,3 +74,10 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
   _boot_verify_with_log $'===AUR-AUDIT-OK===\n===FIRSTBOOT-OK==='
   [ "$status" -eq 0 ]
 }
+
+@test "flow: every console capture is given its log path (regression)" {
+  run grep -nE '^[[:space:]]*_start_console_capture[[:space:]]*$' \
+    "$BATS_TEST_DIRNAME/../../vm/lib/flow-test.sh" \
+    "$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
+  [ "$status" -eq 1 ]
+}
