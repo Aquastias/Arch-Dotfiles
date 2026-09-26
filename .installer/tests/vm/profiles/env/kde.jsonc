@@ -5,5 +5,6 @@
   "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 2 },
   "host_profile": "arch-kde",
   "layout": { "mode": "single" },
-  "verify": { "boot": true }
+  // aur_audit (ADR 0143): the booted desktop VM runs `aur-vet audit`.
+  "verify": { "boot": true, "aur_audit": true }
 }

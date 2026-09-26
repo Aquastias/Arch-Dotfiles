@@ -6,7 +6,7 @@
 #   severity  id  file  line  description
 # Vars: root (clone dir, stripped from file names), pkgbase, commit_day
 # (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths),
-# list_trust (print the RPC trust rules instead of scanning).
+# list_trust / list_indicators (print that data instead of scanning).
 # =============================================================================
 BEGIN {
   FS = "\t"
@@ -39,8 +39,10 @@ BEGIN {
       else if (c[1] == "npm") inpm[++nnpm] = c[2]
       else if (c[1] == "domain") idom[++ndom] = tolower(c[2])
       else if (c[1] == "sha256") isha[++nsha] = tolower(c[2])
+      if (list_indicators) printf "%s\t%s\t%s\n", c[1], c[2], c[3]
     }
     delete rec
+    if (list_indicators) exit
   }
 }
 
@@ -104,7 +106,7 @@ FNR == 1 {
 }
 
 END {
-  if (list_trust) exit
+  if (list_trust || list_indicators) exit
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
   indicators_pkgbase()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }

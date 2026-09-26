@@ -220,6 +220,7 @@ LINES
 _seed_generator_firstboot_block() {
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER" verify_user="${1:-}"
   local verify_extras="${2:-}" verify_desktops="${3:-}" verify_dm="${4:-}"
+  local verify_aur="${5:-false}"
   local user_check=""
   [[ -n "$verify_user" ]] && user_check="if id ${verify_user} > /dev/null 2>&1 && passwd -S ${verify_user} 2>/dev/null | grep -qw P; then echo ===USER-OK===; else echo ===USER-FAIL===; fi; "
   # Per-desktop session-artifact check (ADR 0062): each named desktop echoes its
@@ -242,6 +243,13 @@ _seed_generator_firstboot_block() {
   # artifacts only). Same one-`is-enabled` shape as extras_check.
   local dm_check=""
   [[ -n "$verify_dm" ]] && dm_check="if systemctl is-enabled ${verify_dm}.service > /dev/null 2>&1; then echo ===DM-OK===; else echo ===DM-FAIL===; fi; "
+  # AUR Vetting audit (ADR 0143): the installed VM checks its foreign packages
+  # and npm/bun caches against the Indicators. Same OK/FAIL shape as above.
+  local aur_check=""
+  if [[ "$verify_aur" == "true" ]]; then
+    aur_check="if /usr/local/bin/aur-vet audit; then echo ===AUR-AUDIT-OK===; "
+    aur_check+="else echo ===AUR-AUDIT-FAIL===; fi; "
+  fi
   cat <<BLOCK
     if [ "\$rc" -eq 0 ]; then
       # Mount the freshly installed root to inject the sentinel: a ZFS root via
@@ -280,7 +288,7 @@ _seed_generator_firstboot_block() {
       fi
 $(_seed_generator_esp_serial_lines)
       mkdir -p /mnt/etc/systemd/system/multi-user.target.wants
-      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}${desktop_check}${dm_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
+      printf '%s\n' '[Unit]' 'Description=boot-verify sentinel (test-only)' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/usr/bin/bash -c "{ ${extras_check}${user_check}${desktop_check}${dm_check}${aur_check}echo ===DIAG-ZFS-IMPORT-DEPS===; systemctl show zfs-import-cache.service zfs-import-scan.service -p Id -p Requires -p After; echo ===DIAG-UDEV-SETTLE===; grep -i settle /etc/initcpio/hooks/udev 2>/dev/null || echo NO-UDEV-OVERRIDE-HOOK; echo ${m}; } > /dev/ttyS0 2>&1"' 'ExecStartPost=/usr/bin/systemctl disable firstboot-ok.service' '[Install]' 'WantedBy=multi-user.target' > /mnt/etc/systemd/system/firstboot-ok.service
       ln -sf ../firstboot-ok.service /mnt/etc/systemd/system/multi-user.target.wants/firstboot-ok.service
       if [ "\$_vroot" = zfs ]; then
         zfs umount -a || true

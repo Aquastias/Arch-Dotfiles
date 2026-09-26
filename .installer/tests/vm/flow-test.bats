@@ -40,3 +40,37 @@ setup() {
   [[ "$output" == *'serial-getty@ttyS0'* ]]
   [[ "$output" == *'--autologin root'* ]]
 }
+
+# ── AUR audit (ADR 0143) ────────────────────────────────────────────────────
+
+@test "seed: verify.aur_audit threads the audit into the boot sentinel" {
+  VERIFY_BOOT=true VM_VERIFY_AUR_AUDIT=true
+  run _flow_render_user_data https://example/repo.git
+  [[ "$output" == *'===AUR-AUDIT-OK==='* ]]
+  VERIFY_BOOT=true VM_VERIFY_AUR_AUDIT=false
+  run _flow_render_user_data https://example/repo.git
+  [[ "$output" != *'aur-vet'* ]]
+}
+
+_boot_verify_with_log() { # <log content>: run the marker assertions only
+  BOOT_LOG_FILE="$BATS_TEST_TMPDIR/boot.log"
+  printf '%s\n' "$1" > "$BOOT_LOG_FILE"
+  _vm_eject_cdroms() { :; }; _vm_running() { return 1; }
+  virsh() { :; }; _wait_for_serial_pty() { :; }
+  _start_console_capture() { :; }; _stop_console_capture() { :; }
+  _start_console_answerer() { :; }; _stop_console_answerer() { :; }
+  sentinel_watcher_wait_marker() { return 0; }
+  run _run_boot_verify
+}
+
+@test "boot verify: a failed audit fails the VM run" {
+  VM_VERIFY_AUR_AUDIT=true
+  _boot_verify_with_log $'===AUR-AUDIT-FAIL===\n===FIRSTBOOT-OK==='
+  [ "$status" -eq 127 ]
+}
+
+@test "boot verify: a clean audit passes" {
+  VM_VERIFY_AUR_AUDIT=true
+  _boot_verify_with_log $'===AUR-AUDIT-OK===\n===FIRSTBOOT-OK==='
+  [ "$status" -eq 0 ]
+}

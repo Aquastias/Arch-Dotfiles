@@ -126,3 +126,11 @@ JSONC
   [ "$status" -ne 0 ]
   [[ "$output" == *profile* ]]
 }
+
+@test "vm.sh --verify-aur: accepted and documented (ADR 0143)" {
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --profile cat/inline \
+    --verify-aur --print-config
+  [ "$status" -eq 0 ]
+  run env INSTALLER_DIR="$OS_FIX" "$VM_SH" --help
+  [[ "$output" == *"--verify-aur"* ]]
+}

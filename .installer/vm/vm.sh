@@ -42,6 +42,9 @@ Options:
                           headlessly (install.sh --guided): the guest resolves
                           the disk in-guest and replays the menu answers.
   --recreate              Destroy and undefine the existing VM first.
+  --verify-aur            (test flow) Implies --verify-boot; the first-boot
+                          sentinel also runs `aur-vet audit` (ADR 0143) and
+                          a finding fails the run (plain boot verify only).
   --verify-boot           After a clean test install, power-cycle to the
                           installed disk and wait for the first-boot sentinel.
   --hold-on-fail          (test flow) On a FAILED cell, skip poweroff and give
@@ -63,7 +66,7 @@ USAGE
 
 main() {
   local profile_ref="" testing=0 print_config=0 recreate=0 verify_boot=0 guided=0
-  local hold_on_fail=0 rescue=0
+  local hold_on_fail=0 rescue=0 verify_aur=0
   while (($#)); do
     case "$1" in
       --profile)      profile_ref="${2:-}"; shift 2 ;;
@@ -72,6 +75,7 @@ main() {
       --guided)       guided=1; shift ;;
       --recreate)     recreate=1; shift ;;
       --verify-boot)  verify_boot=1; shift ;;
+      --verify-aur)   verify_aur=1; verify_boot=1; shift ;;
       --hold-on-fail) hold_on_fail=1; shift ;;
       --rescue)       rescue=1; shift ;;
       --print-config) print_config=1; shift ;;
@@ -132,6 +136,11 @@ main() {
   # Verify block (test flow): env > profile; --verify-boot forces boot verify.
   VERIFY_BOOT="${VERIFY_BOOT:-$(jq -r '.verify.boot // false' <<<"$profile_json")}"
   ((verify_boot)) && VERIFY_BOOT=true
+  # verify.aur_audit (ADR 0143): the booted VM audits itself; needs boot verify.
+  VM_VERIFY_AUR_AUDIT="${VM_VERIFY_AUR_AUDIT:-$(
+    jq -r '.verify.aur_audit // false' <<<"$profile_json")}"
+  ((verify_aur)) && VM_VERIFY_AUR_AUDIT=true
+  [[ "$VM_VERIFY_AUR_AUDIT" == true ]] && VERIFY_BOOT=true
   DIRTY_CACHE="${DIRTY_CACHE:-$(jq -r '.verify.dirty_cache // false' <<<"$profile_json")}"
   # Hold-on-fail (ADR 0099): env > profile > flag. When on, a failed test cell is
   # left running with a serial autologin shell instead of powering off.

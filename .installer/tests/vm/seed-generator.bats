@@ -543,3 +543,21 @@ teardown() {
   [[ "$output" =~ "esp_resilience_verify" ]]
   [[ "$output" =~ "$SEED_GENERATOR_FIRSTBOOT_MARKER" ]]
 }
+
+# ── AUR audit boot check (ADR 0143) ─────────────────────────────────────────
+# verify.aur_audit makes the first-boot sentinel run `aur-vet audit` on the
+# installed system and echo ===AUR-AUDIT-OK=== / ===AUR-AUDIT-FAIL===.
+
+@test "firstboot block: aur_audit on injects the aur-vet audit check" {
+  run _seed_generator_firstboot_block "" "" "" "" true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "/usr/local/bin/aur-vet audit" ]]
+  [[ "$output" =~ "===AUR-AUDIT-OK===" ]]
+  [[ "$output" =~ "===AUR-AUDIT-FAIL===" ]]
+}
+
+@test "firstboot block: aur_audit off (default) omits the audit check" {
+  run _seed_generator_firstboot_block ""
+  [ "$status" -eq 0 ]
+  [[ ! "$output" =~ "aur-vet" ]]
+}

@@ -467,6 +467,66 @@ _export_merge() {
   ' "$2" "${3}" 2>/dev/null || cat "$2"
 }
 
+# ── audit ───────────────────────────────────────────────────────────────────
+# Post-install check for installer-created VMs, never the operator's host
+# (ADR 0143): installed foreign packages on a campaign list, campaign npm/bun
+# packages in caches or global node_modules, and on-disk IOC paths.
+# AUR_VET_AUDIT_ROOT prefixes every path (tests).
+_audit() {
+  local root="${AUR_VET_AUDIT_ROOT:-}" data kind value camp hits=0
+  data="$(_data_dir)"
+  local -A pkg=()
+  local -a npm=() paths=() homes=()
+  while IFS=$'\t' read -r kind value camp; do
+    case "$kind" in
+      pkgbase) pkg[$value]="$camp" ;;
+      npm) npm+=("$value") ;;
+      path) paths+=("$value") ;;
+    esac
+  done < <(awk -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
+             -v campaigns="$data/campaigns.tsv" -v list_indicators=1 \
+             -f "$(_lib_dir)/scan.awk" </dev/null)
+  _hit() { _say "AUDIT $*"; hits=$((hits + 1)); }
+
+  local p
+  while IFS= read -r p; do
+    [[ -n "${pkg[$p]:-}" ]] && _hit "installed ${p} is on the ${pkg[$p]} list"
+  done < <(pacman -Qmq 2>/dev/null || true)
+
+  local h n
+  for h in "$root"/home/* "$root/root"; do
+    [[ -d "$h" ]] && homes+=("$h")
+  done
+  for n in "${npm[@]}"; do
+    for h in "${homes[@]}"; do
+      grep -rqsF -- "/${n}/-/" "$h/.npm/_cacache/index-v5" \
+        && _hit "npm cache of ${h#"$root"} holds ${n}"
+      for p in "$h/.bun/install/cache/${n}" "$h/.bun/install/cache/${n}@"* \
+               "$h/.local/lib/node_modules/${n}" \
+               "$h/.npm-global/lib/node_modules/${n}"; do
+        [[ -e "$p" ]] && _hit "${p#"$root"}"
+      done
+    done
+    for p in "$root/usr/lib/node_modules/${n}" \
+             "$root/usr/local/lib/node_modules/${n}"; do
+      [[ -e "$p" ]] && _hit "${p#"$root"}"
+    done
+  done
+  for p in "${paths[@]}"; do
+    # shellcheck disable=SC2088  # a literal ~/ marker from indicators.tsv
+    if [[ "$p" == "~/"* ]]; then
+      for h in "${homes[@]}"; do
+        [[ -e "$h/${p#"~/"}" ]] && _hit "${h#"$root"}/${p#"~/"}"
+      done
+    elif [[ -e "${root}${p}" ]]; then
+      _hit "$p"
+    fi
+  done
+
+  if ((hits)); then _say "audit: ${hits} finding(s)"; return 1; fi
+  _say "audit: clean"
+}
+
 # ── Hook mode ───────────────────────────────────────────────────────────────
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
@@ -571,6 +631,7 @@ case "${1:-}" in
   refresh-indicators) _refresh_indicators ;;
   seed) shift; _seed "$@" ;;
   export) shift; _export "$@" ;;
+  audit) _audit ;;
   -h | --help) sed -n '5,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

@@ -68,6 +68,7 @@ _HTTP_PID=""
 : "${VM_REORDER_BOOT_DISKS:=false}"
 : "${VM_VERIFY_BYID:=false}"
 : "${VM_VERIFY_RESILIENCE:=false}"
+: "${VM_VERIFY_AUR_AUDIT:=false}"
 
 # =============================================================================
 # SEED — cloud-init runcmd, install.jsonc injected base64 (all profile types)
@@ -126,7 +127,8 @@ HOLD
         "${VM_SESSION_USER:-aquastias}" "${VM_VERIFY_SESSIONS[@]}")"
     else
       boot_block="$(_seed_generator_firstboot_block "" "" \
-        "${VM_VERIFY_DESKTOPS[*]:-}" "${VM_VERIFY_DM:-}")"
+        "${VM_VERIFY_DESKTOPS[*]:-}" "${VM_VERIFY_DM:-}" \
+        "${VM_VERIFY_AUR_AUDIT}")"
     fi
   fi
 
@@ -299,6 +301,16 @@ _run_boot_verify() {
     fi
     info "Desktop verify OK: '${_de}' (${_ok})."
   done
+
+  # AUR audit (ADR 0143): the sentinel echoed the audit verdict first; a FAIL
+  # or missing OK marker fails boot-verify with its own code (127).
+  if [[ "${VM_VERIFY_AUR_AUDIT}" == "true" ]]; then
+    if ! grep -Fq -- "===AUR-AUDIT-OK===" "$BOOT_LOG_FILE"; then
+      warn "AUR audit FAILED on the installed system — see ${BOOT_LOG_FILE}."
+      return 127
+    fi
+    info "AUR audit OK."
+  fi
   return 0
 }
 
