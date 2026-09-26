@@ -1,0 +1,3 @@
+post_install() {
+  python /opt/chaos-rat/patches/main.py
+}

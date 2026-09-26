@@ -1,0 +1,13 @@
+pkgbase = chrome-reupload
+	pkgdesc = Fixture
+	pkgver = 138.0
+	pkgrel = 1
+	url = https://www.google.com/chrome
+	arch = x86_64
+	license = custom
+	source = https://dl.google.com/linux/chrome/deb/pool/main/g/chrome-138.0.deb
+	source = chrome-reupload.sh
+	sha256sums = 5555555555555555555555555555555555555555555555555555555555555555
+	sha256sums = 6666666666666666666666666666666666666666666666666666666666666666
+
+pkgname = chrome-reupload

@@ -1,0 +1,7 @@
+# Top-level code: executes the instant anything sources this file.
+pkgname=never-run
+pkgver=1
+pkgrel=1
+arch=('any')
+touch "$AUR_VET_TEST_MARKER"
+package() { :; }

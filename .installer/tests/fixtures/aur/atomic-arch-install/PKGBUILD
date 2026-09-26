@@ -1,0 +1,21 @@
+# Atomic Arch wave 2: bun install injected into the .install scriptlet.
+pkgname=atomic-arch-install
+pkgver=1.0.0
+pkgrel=2
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://example.org/atomic-arch-install"
+license=('MIT')
+install=atomic-arch-install.install
+source=("https://example.org/src/$pkgname-$pkgver.tgz")
+sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "$pkgname-$pkgver"
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+}

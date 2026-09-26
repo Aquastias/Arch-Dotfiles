@@ -1,0 +1,22 @@
+# Defanged reproduction of the Atomic Arch injection (ADR 0143): upstream
+# untouched, a named npm install added to build().
+pkgname=atomic-arch
+pkgver=1.0.0
+pkgrel=2
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://example.org/atomic-arch"
+license=('MIT')
+source=("https://example.org/atomic-arch/atomic-arch-$pkgver.tar.gz")
+sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "$pkgname-$pkgver"
+  npm install atomic-lockfile
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+}

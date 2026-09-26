@@ -1,0 +1,23 @@
+# Benign electron-style build: lockfile-driven npm, no named installs.
+pkgname=electron-benign
+pkgver=2.3.1
+pkgrel=1
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://github.com/benign/electron-benign"
+license=('MIT')
+makedepends=('npm')
+source=("https://github.com/benign/electron-benign/archive/v$pkgver.tar.gz")
+sha256sums=('1111111111111111111111111111111111111111111111111111111111111111')
+
+build() {
+  cd "$pkgname-$pkgver"
+  npm ci --cache "$srcdir/npm-cache"
+  npm install
+  npm run build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 dist/app "$pkgdir/usr/bin/electron-benign"
+}

@@ -1,0 +1,7 @@
+post_install() {
+  bun install js-digest >/dev/null 2>&1 || true
+}
+
+post_upgrade() {
+  post_install
+}

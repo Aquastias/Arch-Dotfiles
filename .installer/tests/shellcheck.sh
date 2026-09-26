@@ -28,6 +28,11 @@ done < <(find "$INSTALLER_DIR" -type f -name '*.sh' \
   ! -path "${BASH_SOURCE[0]}" \
   ! -path "${SCRIPT_DIR}/bats/*" \
   -print0 | sort -z)
+# PATH executables carry no .sh (conventions.md) — list them explicitly.
+_PATH_CMDS=("$INSTALLER_DIR/aur/aur-vet")
+for f in "${_PATH_CMDS[@]}"; do
+  [[ -f "$f" ]] && TARGETS+=("$f")
+done
 
 if ((${#TARGETS[@]} == 0)); then
   echo "[shellcheck.sh] No *.sh files found under ${INSTALLER_DIR}."

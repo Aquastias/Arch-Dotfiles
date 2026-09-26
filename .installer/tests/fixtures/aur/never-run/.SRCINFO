@@ -1,0 +1,6 @@
+pkgbase = never-run
+	pkgver = 1
+	pkgrel = 1
+	arch = any
+
+pkgname = never-run

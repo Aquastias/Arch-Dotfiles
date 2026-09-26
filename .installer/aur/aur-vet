@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# =============================================================================
+# aur-vet — AUR Vetting (ADR 0143)
+# =============================================================================
+# Pre-build review of one AUR package base. Hook mode (no args) is paru's
+# PreBuildCommand contract: cwd = the package's AUR git clone, $PKGBASE set,
+# non-zero exit aborts the whole transaction. The PKGBUILD is never sourced or
+# run — analysis is text-only (awk/grep), so the review can't execute attacker
+# code. SELF-CONTAINED: installed onto PATH and staged into the chroot, so it
+# sources no Installer/Shell Stdlib.
+#
+# Exit: 0 pass · 1 abort (findings or policy) · 2 usage/environment error.
+# =============================================================================
+set -euo pipefail
+
+_SELF_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+_say() { printf 'aur-vet: %s\n' "$*" >&2; }
+_die() { _say "$*"; exit 2; }
+
+# Data (rules/indicators) and the pin store sit beside the script in the repo;
+# the installed copy reads the system locations.
+_data_dir() {
+  if [[ -n "${AUR_VET_DATA:-}" ]]; then printf '%s' "$AUR_VET_DATA"
+  elif [[ -f "$_SELF_DIR/rules.tsv" ]]; then printf '%s' "$_SELF_DIR"
+  else printf '%s' /usr/local/share/aur-vet; fi
+}
+
+# The engine (scan.awk) ships with the command, not with the data.
+_lib_dir() {
+  if [[ -f "$_SELF_DIR/scan.awk" ]]; then printf '%s' "$_SELF_DIR"
+  else printf '%s' /usr/local/share/aur-vet; fi
+}
+
+# Findings for the clone at <dir> <pkgbase> on stdout: TSV from scan.awk
+# (severity id file line description).
+_scan() {
+  local dir="$1" base="$2" data; data="$(_data_dir)"
+  local -a files=()
+  local f
+  while IFS= read -r -d '' f; do
+    # Text files only: binaries carry no reviewable shell.
+    LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null && files+=("$dir/$f")
+  done < <(git -C "$dir" ls-files -z)
+  awk -v root="$dir" -v pkgbase="$base" -f "$(_lib_dir)/scan.awk" \
+    "$data/rules.tsv" "${files[@]+"${files[@]}"}" </dev/null
+}
+
+# ── Hook mode ───────────────────────────────────────────────────────────────
+_hook() {
+  local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
+  git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
+    || _die "${base}: not an AUR git clone: ${dir}"
+  local head; head="$(git -C "$dir" rev-parse HEAD)"
+
+  local -a findings=()
+  mapfile -t findings < <(_scan "$dir" "$base")
+
+  local row sev id file ln desc crit=0 susp=0 info=0
+  for row in "${findings[@]}"; do
+    IFS=$'\t' read -r sev id file ln desc <<<"$row"
+    _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
+    case "$sev" in
+      critical) crit=$((crit + 1)) ;;
+      suspicious) susp=$((susp + 1)) ;;
+      *) info=$((info + 1)) ;;
+    esac
+  done
+  local tally="${crit} critical, ${susp} suspicious, ${info} info"
+  if ((crit + susp)); then
+    _say "${base} @${head:0:12}: ABORT (${tally})"
+    return 1
+  fi
+  _say "${base} @${head:0:12}: PASS (${tally})"
+}
+
+case "${1:-}" in
+  "") _hook ;;
+  -h | --help) sed -n '3,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  *) _die "unknown command: $1" ;;
+esac

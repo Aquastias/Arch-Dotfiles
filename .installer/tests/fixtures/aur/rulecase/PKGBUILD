@@ -1,0 +1,19 @@
+# Clean base the rule-case harness injects one line into (ADR 0143).
+pkgname=rulecase
+pkgver=1.0
+pkgrel=1
+arch=('x86_64')
+url="https://github.com/rulecase/rulecase"
+license=('MIT')
+source=("https://github.com/rulecase/rulecase/archive/v$pkgver.tar.gz")
+sha256sums=('2222222222222222222222222222222222222222222222222222222222222222')
+
+build() {
+  cd "$srcdir/rulecase-$pkgver"
+  make
+}
+
+package() {
+  cd "$srcdir/rulecase-$pkgver"
+  make DESTDIR="$pkgdir" install
+}

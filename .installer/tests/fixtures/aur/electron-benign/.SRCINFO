@@ -1,0 +1,12 @@
+pkgbase = electron-benign
+	pkgdesc = Fixture
+	pkgver = 2.3.1
+	pkgrel = 1
+	url = https://github.com/benign/electron-benign
+	arch = x86_64
+	license = MIT
+	makedepends = npm
+	source = https://github.com/benign/electron-benign/archive/v2.3.1.tar.gz
+	sha256sums = 1111111111111111111111111111111111111111111111111111111111111111
+
+pkgname = electron-benign

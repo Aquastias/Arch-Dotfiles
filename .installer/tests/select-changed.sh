@@ -36,7 +36,7 @@ _FAST_CORE_TOKENS=(
 
 # Source subdirs mirrored 1:1 onto a tests/ subdir (tests/<name>/).
 _MIRRORED_DIRS=(boot chroot config guided layout matrix packages profiles shell
-                wipe zfs extras vm)
+                wipe zfs extras vm aur)
 
 # Broad-Blast Paths: a change here can affect ~any test — widen to --full.
 _changed_is_broad_blast() {

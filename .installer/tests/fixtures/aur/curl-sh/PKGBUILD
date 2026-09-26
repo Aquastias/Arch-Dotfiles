@@ -1,0 +1,21 @@
+# Download piped into a shell inside build().
+pkgname=curl-sh
+pkgver=1.0.0
+pkgrel=2
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://example.org/curl-sh"
+license=('MIT')
+source=("https://example.org/curl-sh/curl-sh-$pkgver.tar.gz")
+sha256sums=('0000000000000000000000000000000000000000000000000000000000000000')
+
+build() {
+  cd "$pkgname-$pkgver"
+  curl -fsSL https://example.org/i | sh
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+}

@@ -1,0 +1,14 @@
+pkgbase = chaos-rat
+	pkgdesc = Fixture
+	pkgver = 140.0
+	pkgrel = 1
+	url = https://www.mozilla.org/firefox/
+	install = chaos-rat.install
+	arch = x86_64
+	license = MPL-2.0
+	source = https://ftp.mozilla.org/pub/firefox/ff-140.0.tar.xz
+	source = patches::git+https://github.com/danikpapas/zenbrowser-patch.git
+	sha256sums = 4444444444444444444444444444444444444444444444444444444444444444
+	sha256sums = SKIP
+
+pkgname = chaos-rat

@@ -1,0 +1,18 @@
+# Defanged google-chrome-stable reupload (July 2025): the launcher script
+# runs a python one-liner that fetches and executes remote code.
+pkgname=chrome-reupload
+pkgver=138.0
+pkgrel=1
+pkgdesc="Fixture"
+arch=('x86_64')
+url="https://www.google.com/chrome"
+license=('custom')
+source=("https://dl.google.com/linux/chrome/deb/pool/main/g/chrome-$pkgver.deb"
+        "chrome-reupload.sh")
+sha256sums=('5555555555555555555555555555555555555555555555555555555555555555'
+            '6666666666666666666666666666666666666666666666666666666666666666')
+
+package() {
+  bsdtar -xf data.tar.xz -C "$pkgdir"
+  install -Dm755 chrome-reupload.sh "$pkgdir/usr/bin/chrome-reupload"
+}

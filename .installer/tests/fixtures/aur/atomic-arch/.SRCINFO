@@ -1,0 +1,11 @@
+pkgbase = atomic-arch
+	pkgdesc = Fixture
+	pkgver = 1.0.0
+	pkgrel = 2
+	url = https://example.org/atomic-arch
+	arch = x86_64
+	license = MIT
+	source = https://example.org/atomic-arch/atomic-arch-1.0.0.tar.gz
+	sha256sums = 0000000000000000000000000000000000000000000000000000000000000000
+
+pkgname = atomic-arch

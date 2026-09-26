@@ -1,0 +1,104 @@
+# AUR Vetting rule catalogue (ADR 0143). One rule per record, TAB-separated:
+#   id  severity  scope  ERE  description  [unless-ERE]
+# severity: critical (always aborts) | suspicious (aborts unless allowlisted
+# for the Vetted Commit) | info (logged). A trailing backslash continues a
+# record on the next line, dropping exactly one leading TAB (so a line
+# opening with two TABs starts the next field).
+# Scopes:
+#   code     every tracked text file but .SRCINFO, minus comments and
+#            PKGBUILD checksum arrays
+#   build    PKGBUILD prepare/build/check/package/pkgver bodies
+#   install  *.install scriptlets (run as root by pacman)
+#   source   .SRCINFO source URLs (the `name::` prefix stripped)
+#   builtin  engine-coded check; ERE is `-`, severity/description live here
+# unless: a line matching it is skipped (e.g. echo'd instructions).
+
+# ── critical ────────────────────────────────────────────────────────────────
+named-pkg-install	critical	code	(^|[^[:alnum:]_-])(npm|pnpm|yarn|bun)\
+	[[:space:]]+(-[^[:space:]]+[[:space:]]+)*(i|install|add)[[:space:]]+\
+	(-[^[:space:]]+[[:space:]]+)*[@[:alnum:]]\
+		named package-manager install (Atomic Arch vector)
+named-pip-gem	critical	code	(^|[^[:alnum:]_-])(pip3?[[:space:]]+install\
+	|gem[[:space:]]+install)[[:space:]]+(-[^[:space:]]+[[:space:]]+)*\
+	[[:alnum:]][[:alnum:]_-]*([[:space:]]|$|[=<>~])\
+		named pip/gem install from the network
+pipe-to-shell	critical	code	(curl|wget)[^|]*[|][[:space:]]*\
+	(sudo[[:space:]]+)?((ba|z|da|k)?sh|python[0-9.]*|perl|ruby|node|bun)\
+	([[:space:]]|$)	download piped into a shell or interpreter
+exec-download	critical	code	((ba|z|da|k)?sh|eval|source|[.])[[:space:]]+\
+	(-c[[:space:]]+)?["']?(<[(]|[$][(])[[:space:]]*(curl|wget)\
+		download executed via substitution
+script-fetch	critical	code	(python[0-9.]*|perl|ruby|node)[[:space:]]+\
+	-[ce][[:space:]].*(urllib|urlopen|requests[.]get|http[.]client|LWP\
+	|Net::HTTP|open-uri|https?[.]get|fetch[(])\
+		interpreter one-liner fetching remote code
+decode-exec	critical	code	(base64[[:space:]]+(-d|--decode)|xxd[[:space:]]+\
+	-r|openssl[[:space:]]+(base64|enc)[^|]*-d)[^|]*[|][[:space:]]*\
+	((ba|z|da|k)?sh|eval|python[0-9.]*|perl)([[:space:]]|$)\
+		decoded blob fed into a shell
+decode-eval	critical	code	eval[[:space:]]+["']?[$][(].*(base64|xxd|openssl)\
+		eval of a decoded blob
+install-network	critical	install	(^|[^[:alnum:]_.-])(curl|wget|nc|ncat|socat\
+	|aria2c|git|npm|npx|bun|bunx|pip3?|gem|yarn|pnpm)([[:space:]]|$)\
+	|/dev/(tcp|udp)/	network tool in a root-run scriptlet\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+home-persistence	critical	code	(~|[$][{]?HOME[}]?|/home/[^/[:space:]]+\
+	|/root)/([.]ssh|[.](bash|zsh)rc|[.](bash_)?profile|[.]zprofile\
+	|[.]config/(autostart|systemd/user))\
+		write to a user's shell/ssh/autostart files\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+etc-persistence	critical	code	(^|[[:space:]>=(])["']?(/etc/(profile[.]d\
+	|cron[.][a-z]+|crontab)|/var/spool/cron)|(^|[;&|][[:space:]]*)crontab\
+	([[:space:]]|$)	cron/profile.d persistence outside $pkgdir\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+bad-source-host	critical	source	://([^/]*[.])?(pastebin[.]com|paste[.]ee\
+	|hastebin[.]com|ghostbin[.][a-z]+|rentry[.](co|org)|transfer[.]sh\
+	|temp[.]sh|0x0[.]st|termbin[.]com|catsh[.]zip|cdn[.]discordapp[.]com\
+	|media[.]discordapp[.]net|t[.]me|telegram[.]org|bit[.]ly|tinyurl[.]com\
+	|is[.]gd|goo[.]gl|cutt[.]ly|rb[.]gy)([/:]|$)\
+		source from a paste site, chat CDN or URL shortener
+raw-ip-source	critical	source	://[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+([:/]|$)\
+		source from a raw IP address
+
+# ── suspicious ──────────────────────────────────────────────────────────────
+build-network	suspicious	build	(^|[^[:alnum:]_.-])(curl|wget|nc|ncat|socat\
+	|aria2c)([[:space:]]|$)|/dev/(tcp|udp)/|git[[:space:]]+clone\
+		network fetch outside source=
+npx-run	suspicious	code	(^|[^[:alnum:]_-])(npx|bunx|pnpx|pnpm[[:space:]]+\
+	dlx)[[:space:]]	runs a package fetched on demand
+python-inline	suspicious	code	(^|[^[:alnum:]_-])python[0-9.]*[[:space:]]+-c\
+	[[:space:]]	inline python one-liner
+install-interp	suspicious	install	(^|[^[:alnum:]_-])(python[0-9.]*|perl|node\
+	|ruby|bun|php)[[:space:]]+[^-[:space:]]\
+		interpreter runs a script from a root-run scriptlet (Chaos RAT)\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+install-systemctl	suspicious	install	systemctl[[:space:]]+(--user[[:space:]]+\
+	|--global[[:space:]]+)?(enable|start)	scriptlet enables/starts a unit
+unit-write	suspicious	code	(^|[[:space:]>=(])["']?(/etc/systemd/(system\
+	|user)|/usr/lib/systemd/(system|user))/\
+		writes a systemd unit outside $pkgdir\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+http-source	suspicious	source	^http://	plain-http (tamperable) source
+gist-source	suspicious	source	://gist[.]github(usercontent)?[.]com/\
+		source from a gist
+obfuscated-blob	suspicious	code	[A-Za-z0-9+/]{100,}={0,2}	long base64 blob
+hex-escapes	suspicious	code	(\\x[0-9a-fA-F]{2}){8,}	run of \x escapes
+rev-pipe	suspicious	code	[|][[:space:]]*rev([[:space:]]|$|[|;)])\
+		string reversal (obfuscation)
+decode-pipe	suspicious	code	(printf[[:space:]]+["']?%b|echo[[:space:]]+-e)\
+	[^|]*[|][[:space:]]*((ba|z|da)?sh|eval)	escaped string fed to a shell
+eval-subst	suspicious	code	eval[[:space:]]+["']?[$][(]\
+		eval of a command substitution
+srcinfo-missing	suspicious	builtin	-	no .SRCINFO in the clone
+srcinfo-mismatch	suspicious	builtin	-	PKGBUILD URL host absent from .SRCINFO
+skip-checksum	suspicious	builtin	-	SKIP checksum on a non-VCS remote source
+source-owner	suspicious	builtin	-	forge source owner absent from url=
+toplevel-code	suspicious	builtin	-	PKGBUILD runs code at parse time
+
+# ── info ────────────────────────────────────────────────────────────────────
+lockfile-install	info	code	(^|[^[:alnum:]_-])(npm[[:space:]]+(ci|install)\
+	|(yarn|pnpm|bun)[[:space:]]+install)([[:space:]]|$)\
+		lockfile-driven package-manager install
+lang-fetch	info	build	cargo[[:space:]]+fetch|go[[:space:]]+mod[[:space:]]+\
+	download|go[[:space:]]+get	cargo/go dependency fetch
+bin-package	info	builtin	-	prebuilt -bin payload is opaque to review

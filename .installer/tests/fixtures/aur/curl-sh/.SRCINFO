@@ -1,0 +1,11 @@
+pkgbase = curl-sh
+	pkgdesc = Fixture
+	pkgver = 1.0.0
+	pkgrel = 2
+	url = https://example.org/curl-sh
+	arch = x86_64
+	license = MIT
+	source = https://example.org/curl-sh/curl-sh-1.0.0.tar.gz
+	sha256sums = 0000000000000000000000000000000000000000000000000000000000000000
+
+pkgname = curl-sh
