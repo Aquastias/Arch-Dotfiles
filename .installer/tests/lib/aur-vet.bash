@@ -4,6 +4,8 @@
 
 AUR_VET_SRC="$BATS_TEST_DIRNAME/../../aur"
 AUR_VET_FIXTURES="$BATS_TEST_DIRNAME/../fixtures/aur"
+# The Atomic Arch deps payload hash (indicators.tsv, ioctl).
+_AURVET_PAYLOAD=6144d433f8a0316869877b5f834c801251bbb936e5f1577c5680878c7443c98b
 
 aurvet_setup() {
   T="$(mktemp -d)"
@@ -44,6 +46,9 @@ aurvet_hook() {
 aurvet_case() {
   local placement="$1" text="$2" dir="$T/clone/${3:-case}"
   text="${text//@BLOB@/$(printf 'QUJD%.0s' {1..30})}"
+  text="${text//@PAYLOAD@/$_AURVET_PAYLOAD}"
+  local when=""
+  [[ "$placement" == pkgbase && "$text" == *@* ]] && when="${text#*@}"
   rm -rf "$dir"; mkdir -p "$dir"
   cp -r "$AUR_VET_FIXTURES/rulecase/." "$dir/"
   local pb="$dir/PKGBUILD" si="$dir/.SRCINFO" sum
@@ -62,6 +67,8 @@ aurvet_case() {
     source | source-skip)
       sum=3333333333333333333333333333333333333333333333333333333333333333
       [[ "$placement" == source-skip ]] && sum=SKIP
+      [[ "$text" == *@SHA=* ]] && \
+        { sum="${text#*@SHA=}"; text="${text%@SHA=*}"; }
       _aurvet_ins "$pb" '^source=' "source+=(\"$text\")"
       _aurvet_ins "$pb" '^sha256sums=' "sha256sums+=('$sum')"
       _aurvet_ins "$si" '^\tsource = ' "	source = $text"
@@ -72,6 +79,7 @@ aurvet_case() {
   esac
   git -C "$dir" init -q
   git -C "$dir" add -A
-  git -C "$dir" -c user.name=m -c user.email=m@aur commit -q -m case
+  GIT_COMMITTER_DATE="$when" GIT_AUTHOR_DATE="$when" \
+    git -C "$dir" -c user.name=m -c user.email=m@aur commit -q -m case
   printf '%s\n' "$dir"
 }

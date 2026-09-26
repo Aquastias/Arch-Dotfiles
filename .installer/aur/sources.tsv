@@ -1,0 +1,12 @@
+# Indicator sources (ADR 0143): key  URL. Every indicators.tsv row names one.
+# A trailing backslash continues a record (one leading TAB dropped).
+arch-md	https://md.archlinux.org/s/SxbqukK6IA/download
+arch-news	https://archlinux.org/news/active-aur-malicious-packages-incident/
+ioctl	https://ioctl.fail/preliminary-analysis-of-aur-malware/
+lenucksi	https://github.com/lenucksi/aur-malware-check
+aur-chaos\
+		https://www.mail-archive.com/aur-general@lists.archlinux.org/msg01827.html
+chaos-analysis\
+		https://www.mh4ckt3mh4ckt1c4s.xyz/blog/aur-chaos-malware-analysis/
+linuxiac-chrome\
+		https://linuxiac.com/arch-aur-under-fire-once-more-as-malware-resurfaces/

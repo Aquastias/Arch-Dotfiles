@@ -1,0 +1,5 @@
+# AUR campaigns (ADR 0143): id  first-day  last-day  description. A
+# pkgbase Indicator is critical only for a commit inside its window.
+atomic-arch	2026-06-09	2026-06-15	orphan adoption + npm/bun payload
+chaos-rat	2025-07-16	2025-07-19	Chaos RAT via patch-repo source
+chrome-rat	2025-07-31	2025-08-01	google-chrome-stable reupload RAT

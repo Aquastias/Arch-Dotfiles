@@ -1,0 +1,3 @@
+# npm list
+atomic-lockfile
+fresh-npm-payload

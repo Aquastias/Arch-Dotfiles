@@ -102,3 +102,10 @@ lockfile-install	info	code	(^|[^[:alnum:]_-])(npm[[:space:]]+(ci|install)\
 lang-fetch	info	build	cargo[[:space:]]+fetch|go[[:space:]]+mod[[:space:]]+\
 	download|go[[:space:]]+get	cargo/go dependency fetch
 bin-package	info	builtin	-	prebuilt -bin payload is opaque to review
+
+# ── Indicators (indicators.tsv; builtin matchers) ───────────────────────────
+indicator-npm	critical	builtin	-	known-malicious npm/bun package
+indicator-domain	critical	builtin	-	known-malicious host
+indicator-sha256	critical	builtin	-	known-malicious payload hash
+indicator-pkgbase	critical	builtin	-	package compromised in this window
+indicator-pkgbase-past	suspicious	builtin	-	package listed in a past campaign

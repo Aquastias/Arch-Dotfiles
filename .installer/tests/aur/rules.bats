@@ -14,7 +14,7 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
   local id pol place text dir base fails="" i=0
   while IFS=$'\t' read -r id pol place text; do
     i=$((i + 1))
-    base=rulecase; [[ "$place" == pkgbase ]] && base="$text"
+    base=rulecase; [[ "$place" == pkgbase ]] && base="${text%@*}"
     dir="$(aurvet_case "$place" "$text" "c$i")"
     aurvet_hook "$dir" "$base"
     if [[ "$pol" == + && "$output" != *" $id "* ]] \

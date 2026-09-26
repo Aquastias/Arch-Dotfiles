@@ -35,15 +35,57 @@ _lib_dir() {
 # Findings for the clone at <dir> <pkgbase> on stdout: TSV from scan.awk
 # (severity id file line description).
 _scan() {
-  local dir="$1" base="$2" data; data="$(_data_dir)"
+  local dir="$1" base="$2" data day; data="$(_data_dir)"
   local -a files=()
   local f
+  for f in rules indicators campaigns; do
+    [[ -r "$data/$f.tsv" ]] || _die "missing data file: $data/$f.tsv"
+  done
   while IFS= read -r -d '' f; do
     # Text files only: binaries carry no reviewable shell.
     LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null && files+=("$dir/$f")
   done < <(git -C "$dir" ls-files -z)
-  awk -v root="$dir" -v pkgbase="$base" -f "$(_lib_dir)/scan.awk" \
-    "$data/rules.tsv" "${files[@]+"${files[@]}"}" </dev/null
+  day="$(TZ=UTC git -C "$dir" log -1 --format=%cd --date=format-local:%F)"
+  awk -v root="$dir" -v pkgbase="$base" -v commit_day="$day" \
+    -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
+    -v campaigns="$data/campaigns.tsv" -f "$(_lib_dir)/scan.awk" \
+    "${files[@]+"${files[@]}"}" </dev/null
+}
+
+
+# ── refresh-indicators ──────────────────────────────────────────────────────
+# Pull the official Arch Atomic Arch list and lenucksi's npm list, append the
+# names not yet held, tagged with their source key, and print them for review.
+# Explicit and offline-safe: vetting itself never fetches (ADR 0143).
+_ARCH_LIST_URL="https://md.archlinux.org/s/SxbqukK6IA/download"
+_NPM_LIST_URL="https://raw.githubusercontent.com/lenucksi/aur-malware-check"
+_NPM_LIST_URL+="/main/data/campaigns/aur-infected/npm-packages.txt"
+
+_refresh_indicators() {
+  local ind; ind="$(_data_dir)/indicators.tsv"
+  [[ -w "$ind" ]] || _die "not writable: $ind"
+  local arch npm add
+  arch="$(curl -fsSL "${AUR_VET_ARCH_LIST_URL:-$_ARCH_LIST_URL}")" \
+    || _die "download failed: Arch package list"
+  npm="$(curl -fsSL "${AUR_VET_NPM_LIST_URL:-$_NPM_LIST_URL}")" \
+    || _die "download failed: npm package list"
+  # AUR names are [a-z0-9@._+-]; anything else (markup, typos) is dropped.
+  add="$(
+    {
+      printf '%s\n' "$arch" | awk '/^[a-z0-9@._+-]+$/ {
+        printf "pkgbase\t%s\tatomic-arch\tarch-md\n", $1 }'
+      printf '%s\n' "$npm" | awk '/^[a-z0-9@._\/-]+$/ {
+        printf "npm\t%s\tatomic-arch\tlenucksi\n", $1 }'
+    } | awk -F'\t' 'FNR == NR { if (!/^#/) seen[$1 FS $2]; next }
+                    !(($1 FS $2) in seen) { seen[$1 FS $2]; print }' "$ind" -
+  )"
+  local count=0
+  if [[ -n "$add" ]]; then
+    printf '%s\n' "$add" >> "$ind"
+    count="$(printf '%s\n' "$add" | wc -l)"
+    printf '%s\n' "$add"
+  fi
+  _say "added ${count} indicator(s) to ${ind} — review the diff, then commit"
 }
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
@@ -54,7 +96,10 @@ _hook() {
   local head; head="$(git -C "$dir" rev-parse HEAD)"
 
   local -a findings=()
-  mapfile -t findings < <(_scan "$dir" "$base")
+  # Fail closed: an engine error must abort, never read as "no findings".
+  local out
+  out="$(_scan "$dir" "$base")" || _die "${base}: scan failed"
+  [[ -n "$out" ]] && mapfile -t findings <<<"$out"
 
   local row sev id file ln desc crit=0 susp=0 info=0
   for row in "${findings[@]}"; do
@@ -76,6 +121,7 @@ _hook() {
 
 case "${1:-}" in
   "") _hook ;;
+  refresh-indicators) _refresh_indicators ;;
   -h | --help) sed -n '3,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

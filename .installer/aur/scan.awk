@@ -1,29 +1,57 @@
 # =============================================================================
 # scan.awk — AUR Vetting scan engine (ADR 0143)
 # =============================================================================
-# Text-only: never sources the PKGBUILD. First file is rules.tsv, then every
-# text file of the clone. Prints one TSV finding per hit:
+# Text-only: never sources the PKGBUILD. Input files are the clone's text
+# files; data comes in via vars. Prints one TSV finding per hit:
 #   severity  id  file  line  description
-# Vars: root (clone dir, stripped from file names), pkgbase.
+# Vars: root (clone dir, stripped from file names), pkgbase, commit_day
+# (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths).
 # =============================================================================
-BEGIN { FS = "\t" }
+BEGIN {
+  FS = "\t"
+  nr = load(rules, rec)
+  for (k = 1; k <= nr; k++) {
+    if (split(rec[k], c, "\t") < 5) continue
+    if (c[3] == "builtin") { bsev[c[1]] = c[2]; bdesc[c[1]] = c[5]; continue }
+    n++; rid[n] = c[1]; rsev[n] = c[2]; rscope[n] = c[3]; rre[n] = c[4]
+    rdesc[n] = c[5]; runless[n] = (6 in c) ? c[6] : ""
+    delete c
+  }
+  delete rec
+  if (campaigns != "") {
+    nr = load(campaigns, rec)
+    for (k = 1; k <= nr; k++)
+      if (split(rec[k], c, "\t") >= 3) { cfrom[c[1]] = c[2]; cto[c[1]] = c[3] }
+    delete rec
+  }
+  if (indicators != "") {
+    nr = load(indicators, rec)
+    for (k = 1; k <= nr; k++) {
+      if (split(rec[k], c, "\t") < 3) continue
+      if (c[1] == "pkgbase") ipkg[c[2]] = c[3]
+      else if (c[1] == "npm") inpm[++nnpm] = c[2]
+      else if (c[1] == "domain") idom[++ndom] = tolower(c[2])
+      else if (c[1] == "sha256") isha[++nsha] = tolower(c[2])
+    }
+    delete rec
+  }
+}
 
-# ── rules.tsv ───────────────────────────────────────────────────────────────
-# A trailing backslash continues a record; the continuation drops exactly one
+# Read a TAB-separated data file into out[1..N], skipping comments/blanks. A
+# trailing backslash continues a record; the continuation drops exactly one
 # leading TAB, so a line opening with two TABs starts the next field.
-FNR == NR {
-  if (!held && ($0 ~ /^#/ || $0 ~ /^[[:space:]]*$/)) next
-  t = $0
-  if (held != "") sub(/^\t/, "", t)
-  r = held t
-  if (r ~ /\\$/) { held = substr(r, 1, length(r) - 1); next }
+function load(path, out,   line, held, t, r, cnt) {
   held = ""
-  if (split(r, c, "\t") < 5) next
-  if (c[3] == "builtin") { bsev[c[1]] = c[2]; bdesc[c[1]] = c[5]; next }
-  n++; rid[n] = c[1]; rsev[n] = c[2]; rscope[n] = c[3]; rre[n] = c[4]
-  rdesc[n] = c[5]; runless[n] = (6 in c) ? c[6] : ""
-  delete c
-  next
+  while ((getline line < path) > 0) {
+    if (held == "" && (line ~ /^#/ || line ~ /^[[:space:]]*$/)) continue
+    t = line
+    if (held != "") sub(/^\t/, "", t)
+    r = held t
+    if (r ~ /\\$/) { held = substr(r, 1, length(r) - 1); continue }
+    held = ""; out[++cnt] = r
+  }
+  close(path)
+  return cnt
 }
 
 # ── per file ────────────────────────────────────────────────────────────────
@@ -64,11 +92,13 @@ FNR == 1 {
     if (runless[i] != "" && subj ~ runless[i]) continue
     printf "%s\t%s\t%s\t%d\t%s\n", rsev[i], rid[i], f, FNR, rdesc[i]
   }
+  indicators_line(line)
   if (kind == "pkgbuild") pkgbuild_post(line)
 }
 
 END {
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
+  indicators_pkgbase()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }
   for (h in pbhost)
     if (!(h in sihost)) emit("srcinfo-mismatch", "PKGBUILD", pbhost[h])
@@ -85,9 +115,56 @@ END {
   }
 }
 
-function emit(id, file, ln) {
+function emit(id, file, ln, detail) {
   if (id in bsev)
-    printf "%s\t%s\t%s\t%d\t%s\n", bsev[id], id, file, ln, bdesc[id]
+    printf "%s\t%s\t%s\t%d\t%s%s\n", bsev[id], id, file, ln, bdesc[id], \
+      (detail == "" ? "" : " [" detail "]")
+}
+
+# ── Indicators ──────────────────────────────────────────────────────────────
+# npm names and hosts match on word boundaries in code lines (a host only
+# after `/`, `@` or `.`, so a file named temp.sh is no hit; IPs and onions
+# bare). Payload hashes match anywhere, checksum arrays included.
+function indicators_line(l,   k, low, code) {
+  low = tolower(l)
+  code = !comment
+  for (k = 1; k <= nnpm; k++)
+    if (code && kind != "srcinfo" && has_word(l, inpm[k]))
+      emit("indicator-npm", f, FNR, inpm[k])
+  for (k = 1; k <= ndom; k++)
+    if (code && has_host(low, idom[k]))
+      emit("indicator-domain", f, FNR, idom[k])
+  for (k = 1; k <= nsha; k++)
+    if (index(low, isha[k])) emit("indicator-sha256", f, FNR, isha[k])
+}
+# The package itself is listed: critical when HEAD was committed inside
+# the campaign window, else suspicious until pinned (ADR 0143).
+function indicators_pkgbase(   c) {
+  if (!(pkgbase in ipkg)) return
+  c = ipkg[pkgbase]
+  if (commit_day >= cfrom[c] && commit_day <= cto[c])
+    emit("indicator-pkgbase", "PKGBUILD", 0, c)
+  else emit("indicator-pkgbase-past", "PKGBUILD", 0, c)
+}
+function has_word(s, w,   p, i, a, b) {
+  p = 0
+  while ((i = index(substr(s, p + 1), w)) > 0) {
+    p += i
+    a = substr(s, p - 1, 1); b = substr(s, p + length(w), 1)
+    if ((p == 1 || a !~ /[[:alnum:]_.-]/) && b !~ /[[:alnum:]_-]/) return 1
+  }
+  return 0
+}
+function has_host(s, h,   p, i, a, b, bare) {
+  bare = (h ~ /^[0-9.]+$/ || h ~ /\.onion$/)
+  p = 0
+  while ((i = index(substr(s, p + 1), h)) > 0) {
+    p += i
+    a = substr(s, p - 1, 1); b = substr(s, p + length(h), 1)
+    if (b ~ /[[:alnum:]_-]/) continue
+    if (a ~ /[\/@.]/ || (bare && (p == 1 || a !~ /[[:alnum:].]/))) return 1
+  }
+  return 0
 }
 
 # ── PKGBUILD structure ──────────────────────────────────────────────────────

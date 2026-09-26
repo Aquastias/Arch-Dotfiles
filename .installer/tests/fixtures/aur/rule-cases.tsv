@@ -86,3 +86,13 @@ lockfile-install	+	build	npm ci
 lockfile-install	-	build	npm run build
 lang-fetch	+	build	cargo fetch --locked
 lang-fetch	-	build	cargo build --frozen
+indicator-npm	+	build	node -e "require('atomic-lockfile')"
+indicator-npm	-	build	# atomic-lockfile was removed upstream
+indicator-domain	+	source	https://temp.sh/abc/payload
+indicator-domain	-	build	install -Dm755 temp.sh "$pkgdir/usr/bin/t"
+indicator-sha256	+	source	https://example.org/p.tgz@SHA=@PAYLOAD@
+indicator-sha256	-	source	https://example.org/p.tgz
+indicator-pkgbase	+	pkgbase	123pan-bin@2026-06-11T12:00:00
+indicator-pkgbase	-	pkgbase	123pan-bin@2026-09-01T12:00:00
+indicator-pkgbase-past	+	pkgbase	123pan-bin@2026-09-01T12:00:00
+indicator-pkgbase-past	-	pkgbase	rulecase@2026-09-01T12:00:00
