@@ -408,7 +408,7 @@ _profiles_bootstrap_helper() {
   fi
   info "Bootstrapping AUR helper for user: ${user}" >&2
   local pkg landed
-  for pkg in paru paru-bin yay-bin; do
+  for pkg in "${_AUR_HELPER_LADDER[@]}"; do
     # Rung stdout (git clone + makepkg build log) → stderr, so it stays visible
     # on the terminal but never contaminates this function's stdout, which
     # carries only the resolved helper name for the caller's capture.

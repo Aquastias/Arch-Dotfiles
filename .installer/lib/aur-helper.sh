@@ -35,3 +35,8 @@ _aur_helper_repo_cmd() {
   if _aur_helper_vets_aur "$1"; then printf '%s\n' "$1"
   else printf '%s --repo\n' "$1"; fi
 }
+
+# The AUR Helper bootstrap ladder (ADR 0052), in rung order. These are the
+# first AUR builds, so `aur-vet seed` reviews them like any declared package.
+# (declare, not readonly: runner.sh and seed may both source this file.)
+declare -ga _AUR_HELPER_LADDER=(paru paru-bin yay-bin)

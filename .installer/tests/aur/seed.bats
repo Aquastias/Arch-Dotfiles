@@ -11,7 +11,8 @@ setup() {
   # A fake installer tree; jsonc.sh is the real one, never a stale copy.
   export AUR_VET_GIT_BASE="$T/remote" AUR_VET_REPO="$T/repo"
   cp -r "$AUR_VET_FIXTURES/seed-repo" "$AUR_VET_REPO"
-  cp "$AUR_VET_SRC/../lib/jsonc.sh" "$AUR_VET_REPO/lib/"
+  cp "$AUR_VET_SRC/../lib/jsonc.sh" "$AUR_VET_SRC/../lib/aur-helper.sh" \
+    "$AUR_VET_REPO/lib/"
   local b
   for b in electron-benign rust-benign chaos-rat curl-sh rulecase benign-dep; do
     aurvet_remote "$b"
@@ -22,6 +23,7 @@ setup() {
   aurvet_rpc chaos-rat
   aurvet_rpc curl-sh
   aurvet_rpc rulecase
+  local h; for h in paru paru-bin yay-bin; do aurvet_rpc "$h"; done
 }
 teardown() { aurvet_teardown; }
 
@@ -72,4 +74,13 @@ _pinned() { awk -F'\t' -v b="$1" '$1 == b { f = 1 } END { exit !f }' \
   _seed '' electron-benign
   [ "$status" -eq 0 ]
   [[ "$output" == *"skipped 2 (already pinned)"* ]]
+}
+
+@test "seed --list: the AUR Helper bootstrap ladder is always reviewed" {
+  run "$AUR_VET_SRC/aur-vet" seed --list
+  [ "$status" -eq 0 ]
+  local h
+  for h in paru paru-bin yay-bin; do
+    grep -qx "$h" <<<"$output" || { echo "missing $h"; return 1; }
+  done
 }

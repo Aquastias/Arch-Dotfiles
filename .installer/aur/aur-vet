@@ -329,11 +329,15 @@ _seed_repo() { printf '%s' "${AUR_VET_REPO:-$_SELF_DIR/..}"; }
 
 # Every AUR name the repo declares, one per line (repeats allowed): host
 # packages.aur, DE adapter `aur` lists, AUR fonts, and each name after
-# `${AUR_HELPER} -S` in a User Program (its repo names drop out at the RPC).
+# `${AUR_HELPER} -S` in a User Program (its repo names drop out at the RPC),
+# plus the AUR Helper bootstrap ladder (the very first AUR builds).
 _declared_aur() {
   local repo f; repo="$(_seed_repo)"
   [[ -d "$repo/hosts" ]] \
     || _die "seed: no installer repo at ${repo} — pass package names"
+  # shellcheck source=../lib/aur-helper.sh
+  source "$repo/lib/aur-helper.sh"
+  printf '%s\n' "${_AUR_HELPER_LADDER[@]}"
   # shellcheck source=../lib/jsonc.sh
   source "$repo/lib/jsonc.sh"
   # Categorized List leaves: string arrays (hosts) or { name: true } toggles
