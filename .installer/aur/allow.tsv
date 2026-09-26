@@ -1,0 +1,2 @@
+# Suspicious-finding allowlist (ADR 0143): pkgbase  commit  rule  note.
+# Scoped to one Vetted Commit; a new commit re-triggers the finding.

@@ -36,7 +36,8 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 }
 
 @test "rules: the clean rulecase base passes with no findings" {
-  aurvet_hook "$(aurvet_case build true base)" rulecase
+  local d; d="$(aurvet_case build true base)"; aurvet_pin "$d" rulecase
+  aurvet_hook "$d" rulecase
   [ "$status" -eq 0 ]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* \
      && "$output" != *INFO* ]]
@@ -56,14 +57,14 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
 }
 
 @test "rules: benign rust fixture passes with info only" {
-  aurvet_hook "$(aurvet_clone rust-benign)"
+  aurvet_hook "$(aurvet_clone_pinned rust-benign)"
   [ "$status" -eq 0 ]
   [[ "$output" == *"INFO lang-fetch PKGBUILD:16"* ]]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]
 }
 
 @test "rules: benign electron fixture passes with info only" {
-  aurvet_hook "$(aurvet_clone electron-benign)"
+  aurvet_hook "$(aurvet_clone_pinned electron-benign)"
   [ "$status" -eq 0 ]
   [[ "$output" == *"INFO lockfile-install PKGBUILD:15"* ]]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]

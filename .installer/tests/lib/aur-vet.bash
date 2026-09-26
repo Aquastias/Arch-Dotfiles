@@ -83,3 +83,31 @@ aurvet_case() {
     git -C "$dir" -c user.name=m -c user.email=m@aur commit -q -m case
   printf '%s\n' "$dir"
 }
+
+# Pin <dir>'s HEAD as the Vetted Commit for <pkgbase> (default: dir name).
+aurvet_pin() {
+  local dir="$1" base="${2:-$(basename "$1")}" maint="${3:-fixture-maintainer}"
+  printf '%s\t%s\t%s\t2026-01-01\ttest\n' "$base" \
+    "$(git -C "$dir" rev-parse HEAD)" "$maint" >> "$AUR_VET_STORE/vetted.tsv"
+}
+
+# Commit a change in <dir>: <file> gets <sed-expr> applied.
+aurvet_commit() {
+  local dir="$1" file="$2" expr="$3"
+  sed -i "$expr" "$dir/$file"
+  git -C "$dir" -c user.name=m -c user.email=m@aur commit -q -am change
+}
+
+# Interactive run: answers on stdin.
+aurvet_hook_answer() {
+  local dir="$1" answer="$2" base="${3:-$(basename "$1")}"
+  run bash -c 'cd "$1" && printf "%s\n" "$4" | AUR_VET_INTERACTIVE=1 \
+    PKGBASE="$2" "$3"' _ "$dir" "$base" "$AUR_VET_SRC/aur-vet" "$answer"
+}
+
+# aurvet_clone + pin its HEAD: a reviewed package, so only findings decide.
+aurvet_clone_pinned() {
+  local d; d="$(aurvet_clone "$@")"
+  aurvet_pin "$d" "$1"
+  printf '%s\n' "$d"
+}

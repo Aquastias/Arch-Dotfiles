@@ -1,0 +1,3 @@
+# Vetted Commits (ADR 0143): pkgbase  commit  maintainer  date  note.
+# The repo copy is the source of truth; the installer seeds the root-owned
+# /etc/aur-vet/vetted.tsv from it, and `aur-vet export` writes back.

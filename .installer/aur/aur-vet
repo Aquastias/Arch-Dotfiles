@@ -88,12 +88,116 @@ _refresh_indicators() {
   _say "added ${count} indicator(s) to ${ind} — review the diff, then commit"
 }
 
+# ── Pin store (Vetted Commits) ──────────────────────────────────────────────
+# vetted.tsv: pkgbase commit maintainer date note — one row per package.
+# allow.tsv:  pkgbase commit rule note — suspicious findings accepted for
+# exactly that commit (ADR 0143).
+_store_dir() {
+  if [[ -n "${AUR_VET_STORE:-}" ]]; then printf '%s' "$AUR_VET_STORE"
+  elif [[ -f "$_SELF_DIR/vetted.tsv" ]]; then printf '%s' "$_SELF_DIR"
+  else printf '%s' /etc/aur-vet; fi
+}
+
+# Unattended never prompts. The installer says so explicitly; otherwise a
+# terminal on stdin means a human is there. AUR_VET_INTERACTIVE forces the
+# prompt (tests) — it can only ask for more review, never skip it.
+_unattended() {
+  [[ "${AUR_VET_UNATTENDED:-}" == 1 ]] && return 0
+  [[ "${AUR_VET_INTERACTIVE:-}" == 1 ]] && return 1
+  [[ ! -t 0 ]]
+}
+
+_today() { date -u -d "@${AUR_VET_NOW:-$(date +%s)}" +%F; }
+
+# Print "<commit>\t<maintainer>" of <pkgbase>'s Vetted Commit, if any.
+_pin_of() {
+  local f; f="$(_store_dir)/vetted.tsv"
+  [[ -r "$f" ]] || return 0
+  awk -F'\t' -v b="$1" '$1 == b { r = $2 "\t" $3 } END { if (r) print r }' "$f"
+}
+
+_allowed() {
+  local f; f="$(_store_dir)/allow.tsv"
+  [[ -r "$f" ]] || return 1
+  awk -F'\t' -v b="$1" -v c="$2" -v r="$3" \
+    '$1 == b && $2 == c && $3 == r { hit = 1 } END { exit !hit }' "$f"
+}
+
+# Replace <file>'s content with stdin. Stays in the store's own dir so a
+# failed write leaves the old file intact.
+_store_put() {
+  local file="$1" tmp
+  tmp="$(mktemp "${file}.XXXXXX" 2>/dev/null)" \
+    || _die "pin store not writable: ${file}"
+  cat > "$tmp"
+  chmod 0644 "$tmp"
+  command mv -f "$tmp" "$file"
+}
+
+# Record <pkgbase> <commit> <maintainer> <note>; <old> carries its allowlist
+# rows to the new commit (bump-only: the flagged lines did not change).
+_set_pin() {
+  local base="$1" commit="$2" maint="$3" note="$4" carry="${5:-}"
+  local store; store="$(_store_dir)"
+  local vf="$store/vetted.tsv" af="$store/allow.tsv"
+  [[ -e "$vf" ]] || : > "$vf" 2>/dev/null || true
+  {
+    awk -F'\t' -v b="$base" '$1 != b' "$vf" 2>/dev/null || true
+    printf '%s\t%s\t%s\t%s\t%s\n' "$base" "$commit" "$maint" "$(_today)" \
+      "$note"
+  } | _store_put "$vf"
+  if [[ -n "$carry" && -r "$af" ]]; then
+    awk -F'\t' -v OFS='\t' -v b="$base" -v o="$carry" -v n="$commit" \
+      '{ print } $1 == b && $2 == o { $2 = n; print }' "$af" | _store_put "$af"
+  fi
+}
+
+_allow_add() {
+  local af; af="$(_store_dir)/allow.tsv"
+  { cat "$af" 2>/dev/null || true; printf '%s\n' "$@"; } | _store_put "$af"
+}
+
+# ── Diff classification ─────────────────────────────────────────────────────
+# Bump-only: only PKGBUILD/.SRCINFO changed, each line a version bump
+# (bump-only.awk).
+_bump_only() {
+  local dir="$1" old="$2" new="$3" n
+  while IFS= read -r n; do
+    [[ "$n" == PKGBUILD || "$n" == .SRCINFO ]] || return 1
+  done < <(git -C "$dir" diff --name-only "$old" "$new")
+  git -C "$dir" diff -U0 "$old" "$new" -- PKGBUILD .SRCINFO \
+    | awk -f "$(_lib_dir)/bump-only.awk"
+}
+
+# ── Review output ───────────────────────────────────────────────────────────
+_review_full() {
+  local dir="$1" f
+  while IFS= read -r -d '' f; do
+    LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null || continue
+    printf '==> %s <==\n' "$f"
+    cat -n "$dir/$f"
+  done < <(git -C "$dir" ls-files -z) >&2
+}
+
+_review_diff() {
+  git -C "$1" --no-pager diff --stat "$2" "$3" >&2
+  git -C "$1" --no-pager diff "$2" "$3" >&2
+}
+
+_ask() {
+  local ans
+  printf 'aur-vet: %s [y/N] ' "$1" >&2
+  read -r ans || return 1
+  [[ "$ans" == [yY] || "$ans" == [yY][eE][sS] ]]
+}
+
 # ── Hook mode ───────────────────────────────────────────────────────────────
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
   git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
     || _die "${base}: not an AUR git clone: ${dir}"
   local head; head="$(git -C "$dir" rev-parse HEAD)"
+  local at="${base} @${head:0:12}"
 
   local -a findings=()
   # Fail closed: an engine error must abort, never read as "no findings".
@@ -102,21 +206,76 @@ _hook() {
   [[ -n "$out" ]] && mapfile -t findings <<<"$out"
 
   local row sev id file ln desc crit=0 susp=0 info=0
+  local -A suspicious=()
   for row in "${findings[@]}"; do
     IFS=$'\t' read -r sev id file ln desc <<<"$row"
     _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
     case "$sev" in
       critical) crit=$((crit + 1)) ;;
-      suspicious) susp=$((susp + 1)) ;;
+      suspicious) susp=$((susp + 1)); suspicious["$id"]=1 ;;
       *) info=$((info + 1)) ;;
     esac
   done
   local tally="${crit} critical, ${susp} suspicious, ${info} info"
-  if ((crit + susp)); then
-    _say "${base} @${head:0:12}: ABORT (${tally})"
+  _abort() { _say "${at}: ABORT (${tally}) — $1"; }
+  ((crit == 0)) || { _abort "critical findings always abort"; return 1; }
+
+  # What the pin says about this commit. Writes are deferred to the verdict.
+  local pin pcommit="" pmaint="" review="" reason="" carry=""
+  pin="$(_pin_of "$base")"
+  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
+  if [[ -z "$pcommit" ]]; then
+    review="full"; reason="unpinned: no Vetted Commit"
+  elif [[ "$pcommit" == "$head" ]]; then
+    :
+  elif ! git -C "$dir" cat-file -e "${pcommit}^{commit}" 2>/dev/null; then
+    review="full"; reason="Vetted Commit ${pcommit:0:12} not in history"
+  elif _bump_only "$dir" "$pcommit" "$head"; then
+    carry="$pcommit"
+  else
+    review="diff"; reason="changed since Vetted Commit ${pcommit:0:12}"
+  fi
+
+  local -a unallowed=()
+  for id in "${!suspicious[@]}"; do
+    _allowed "$base" "$head" "$id" \
+      || { [[ -n "$carry" ]] && _allowed "$base" "$carry" "$id"; } \
+      || unallowed+=("$id")
+  done
+  if [[ -z "$review" ]] && ((${#unallowed[@]})); then
+    reason="suspicious findings not allowlisted: ${unallowed[*]}"
+  fi
+
+  if [[ -z "$reason" ]]; then
+    if [[ -n "$carry" ]]; then
+      _set_pin "$base" "$head" "$pmaint" bump-only "$carry"
+      _say "${at}: bump-only diff since ${carry:0:12} — auto-accepted"
+    fi
+    _say "${at}: PASS (${tally})"
+    return 0
+  fi
+
+  if _unattended; then
+    _abort "${reason} (review interactively to accept)"
     return 1
   fi
-  _say "${base} @${head:0:12}: PASS (${tally})"
+  _say "${at}: ${reason}"
+  case "$review" in
+    full) _review_full "$dir" ;;
+    diff) _review_diff "$dir" "$pcommit" "$head" ;;
+  esac
+  if ! _ask "Accept ${at} as the Vetted Commit?"; then
+    _abort "rejected"
+    return 1
+  fi
+  _set_pin "$base" "$head" "$pmaint" reviewed
+  local -a rows=()
+  for id in "${unallowed[@]}"; do
+    rows+=("$(printf '%s\t%s\t%s\treviewed %s' \
+      "$base" "$head" "$id" "$(_today)")")
+  done
+  ((${#rows[@]} == 0)) || _allow_add "${rows[@]}"
+  _say "${at}: PASS (${tally}) — accepted and pinned"
 }
 
 case "${1:-}" in

@@ -20,7 +20,7 @@ teardown() { aurvet_teardown; }
 }
 
 @test "hook: benign electron (npm ci / bare npm install) passes" {
-  aurvet_hook "$(aurvet_clone electron-benign)"
+  aurvet_hook "$(aurvet_clone_pinned electron-benign)"
   [ "$status" -eq 0 ]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]
 }
@@ -47,7 +47,7 @@ teardown() { aurvet_teardown; }
 @test "hook: a rule added to the data file fires with no code change" {
   printf 'make-call\tcritical\tbuild\t^[[:space:]]*make$\tmake called\n' \
     >> "$AUR_VET_DATA/rules.tsv"
-  aurvet_hook "$(aurvet_clone electron-benign)"
+  aurvet_hook "$(aurvet_clone_pinned electron-benign)"
   [ "$status" -eq 0 ]
   aurvet_hook "$(aurvet_clone curl-sh)"
   [[ "$output" == *"CRITICAL make-call PKGBUILD:15 make called"* ]]
