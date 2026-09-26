@@ -90,6 +90,13 @@ setup() {
   [ -x "$HOMESEED/scripts/statusline.sh" ]
 }
 
+@test "repo-root .claude/settings.json stays identical to the source (ADR 0142)" {
+  # The lingering repo-root duplicate (read at project scope inside .dotfiles)
+  # must not drift from the single source. Synced outside the dev sandbox, where
+  # it is a read-only bind-mount.
+  cmp -s "$STOW/settings.json" "$HOMESEED/settings.json"
+}
+
 @test "the repo-root .claude stow duplicate is retired (moved to home/)" {
   # ADR 0134: the tracked files moved into the program home/. CLAUDE.md +
   # scripts/statusline.sh are gone from repo-root .claude; settings.json is a
