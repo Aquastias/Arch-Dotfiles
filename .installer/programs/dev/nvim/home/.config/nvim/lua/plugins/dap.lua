@@ -131,15 +131,15 @@ return {
         end
       end
 
-      -- js/ts (vscode-js-debug): the pwa-node server adapter. The adapter
-      -- binary name is best-effort — defining it never errors, only launching
+      -- js/ts (vscode-js-debug-bin): the pwa-node server adapter, served by
+      -- the package's js-debug-dap. Defining it never errors, only launching
       -- a session with the package absent does.
       if want.js then
         dap.adapters["pwa-node"] = {
           type = "server",
           host = "localhost",
           port = "${port}",
-          executable = { command = "js-debug-adapter", args = { "${port}" } },
+          executable = { command = "js-debug-dap", args = { "${port}" } },
         }
         local node_launch = {
           {

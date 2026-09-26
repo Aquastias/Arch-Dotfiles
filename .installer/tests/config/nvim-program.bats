@@ -195,6 +195,7 @@ setup() {
   grep -q 'dap_filetypes()' "$D"   # ft read from the registry, not hardcoded
   grep -q 'codelldb' "$D"
   grep -q 'pwa-node' "$D"
+  grep -q 'command = "js-debug-dap"' "$D"   # the bin vscode-js-debug-bin ships
   grep -q 'dap-python' "$D"
   grep -q 'dap-go' "$D"
 }
@@ -208,7 +209,7 @@ setup() {
   grep -q '"delve"' "$H"
   grep -q '"python-debugpy"' "$H"
   grep -q '"codelldb-bin"' "$H"
-  grep -q '"vscode-js-debug"' "$H"
+  grep -q '"vscode-js-debug-bin"' "$H"
 }
 
 @test "checkhealth gate loads dap and requires the adapter binaries" {
@@ -216,6 +217,7 @@ setup() {
   grep -q 'load nvim-dap' "$CH"
   grep -q 'codelldb' "$CH"
   grep -q 'dlv' "$CH"
+  grep -q 'js-debug-dap' "$CH"
 }
 
 # ── ticket 03: format + lint ─────────────────────────────────────────────────

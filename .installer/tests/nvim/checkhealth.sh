@@ -62,11 +62,12 @@ for bin in "${required[@]}"; do
 done
 
 # Debug adapters that resolve as PATH binaries must be present (ADR 0140).
-# debugpy (python module) and vscode-js-debug (node) have no clean PATH binary
-# and are validated by the dap section of :checkhealth above, not here.
+# debugpy (python module) has no clean PATH binary and is validated by the
+# dap section of :checkhealth above, not here.
 adapters=(
-  codelldb   # rust + c/cpp (codelldb-bin)
-  dlv        # go (delve)
+  codelldb      # rust + c/cpp (codelldb-bin)
+  dlv           # go (delve)
+  js-debug-dap  # js/ts (vscode-js-debug-bin)
 )
 for bin in "${adapters[@]}"; do
   if ! command -v "${bin}" >/dev/null 2>&1; then

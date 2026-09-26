@@ -175,12 +175,12 @@
       ],
       "language-servers": [
         "basedpyright",
-        // codelldb-bin + vscode-js-debug are DAP adapters (ADR 0140):
+        // codelldb-bin + vscode-js-debug-bin are DAP adapters (ADR 0140):
         // rust/c/cpp and js/ts respectively. Prebuilt -bin per repo custom.
         "codelldb-bin",
         "emmet-language-server",
         "nixd",
-        "vscode-js-debug",
+        "vscode-js-debug-bin",
         "vscode-langservers-extracted"
       ]
     }
