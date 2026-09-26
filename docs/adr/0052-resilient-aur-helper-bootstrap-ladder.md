@@ -1,7 +1,9 @@
 # Resilient AUR-helper bootstrap ladder
 
 ---
-Status: accepted
+Status: accepted — amended by ADR 0143 (AUR Vetting: every rung is vetted
+before makepkg; AUR builds refuse to run under the `yay` rung, which is
+repo-only for User Programs)
 ---
 
 The per-user AUR-helper bootstrap no longer aborts the install on a transient

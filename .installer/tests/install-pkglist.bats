@@ -27,7 +27,8 @@ teardown() { rm -rf "$T"; }
 # (set -o pipefail then fails the script).
 _fake_helper() {
   local name="$1"
-  printf '#!/bin/sh\ncat >/dev/null 2>&1\necho %s >> "$CALLED"\n' "$name" \
+  printf '#!/bin/sh\ncat >/dev/null 2>&1\necho %s >> "$CALLED"\n%s\n' \
+    "$name" "echo \"$name \$*\" >> \"\$CALLED.args\"" \
     > "$BIN/$name"
   chmod +x "$BIN/$name"
 }
@@ -50,11 +51,21 @@ _run_pkglist() { PATH="$BIN" run bash "$T/os/tools/install-pkglist.sh" h; }
   [ "$(sort -u "$CALLED")" = "paru" ]
 }
 
-@test "install-pkglist: falls back to yay when only yay present" {
+@test "install-pkglist: under yay, repo list is repo-only and AUR refused" {
   _fake_helper yay
   _run_pkglist
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"vetting needs paru"* ]]
+  grep -qx "yay --repo -S --needed -" "$CALLED.args"
+  [ "$(wc -l < "$CALLED.args")" -eq 1 ]      # no AUR pass ran
+}
+
+@test "install-pkglist: under yay with no AUR list, succeeds repo-only" {
+  _fake_helper yay
+  rm "$T/os/hosts/h/pkglist-aur.txt"
+  _run_pkglist
   [ "$status" -eq 0 ]
-  [ "$(sort -u "$CALLED")" = "yay" ]
+  grep -qx "yay --repo -S --needed -" "$CALLED.args"
 }
 
 @test "install-pkglist: dies clearly when no AUR helper is present" {

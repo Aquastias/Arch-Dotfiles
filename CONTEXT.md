@@ -683,8 +683,9 @@ alongside `INSTALLER_DIR` / `PROGRAMS` / `SHELL_COMMONS`, resolving it once at
 bootstrap. The "paru preferred, yay fallback" rule lives in one place —
 `_profiles_detect_helper` (`lib/aur-helper.sh`), shared with the standalone
 `tools/install-pkglist.sh`. Only exhausting all three rungs aborts, cleanly.
-Resolution is per user — a transient blip leaving one user on `paru` and
-another on `yay` is harmless.
+Resolution is per user. Under [[AUR Vetting]] (ADR 0143) only `paru` builds from
+the AUR — its `PreBuildCommand` runs the vetter — so a user left on `yay` gets
+repo-only installs and the AUR pass refuses.
 
 ### AUR Vetting
 The pre-build review every AUR package (and each AUR dependency, recursively)

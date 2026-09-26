@@ -57,6 +57,12 @@ declare -F ca_plan >/dev/null 2>&1 \
 readonly _PROFILES_DEFAULT_PASSWORD="12345"
 readonly _PROFILES_RUNTIME_DIR="/var/tmp/.installer-runtime"
 readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
+# AUR Vetting (ADR 0143). The rungs and paru's PreBuildCommand call the
+# vetter by absolute path, so nothing earlier on a user's PATH stands in.
+: "${_PROFILES_AUR_VET_BIN:=/usr/local/bin/aur-vet}"
+readonly -a _AUR_VET_SHARE_FILES=(
+  scan.awk bump-only.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
+)
 # Paths (relative to the runtime root) that constitute a valid staged tree.
 # Both _profiles_stage_runtime and validate_staging iterate this array so the
 # contract lives in one place.
@@ -114,6 +120,39 @@ _profiles_stage_runtime() {
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
 }
 
+
+
+# Install AUR Vetting into the target (ADR 0143): the command on PATH, its
+# engine + data under /usr/local/share/aur-vet, and the root-owned pin store
+# /etc/aur-vet seeded from the repo's Vetted Commits. Runs before any AUR
+# Helper bootstrap, so the very first AUR build is vetted. Mandatory — not a
+# Program, never toggled.
+_profiles_install_aur_vet() {
+  local src="${INSTALLER_DIR}/aur" root="${MOUNT_ROOT}" f
+  install -Dm0755 "$src/aur-vet" "${root}${_PROFILES_AUR_VET_BIN}"
+  install -d -m0755 "$root/usr/local/share/aur-vet" "$root/etc/aur-vet"
+  for f in "${_AUR_VET_SHARE_FILES[@]}"; do
+    install -m0644 "$src/$f" "$root/usr/local/share/aur-vet/$f"
+  done
+  install -m0644 "$src/vetted.tsv" "$src/allow.tsv" "$root/etc/aur-vet/"
+}
+
+# Point paru's PreBuildCommand at the vetter in <conf> (a system or per-user
+# paru.conf): drop any other PreBuildCommand, set ours under [options]. paru
+# reads a user's own paru.conf *instead of* /etc/paru.conf, so each one must
+# carry the hook (ADR 0143). Idempotent; a missing file is a no-op.
+_profiles_wire_paru_hook() {
+  local conf="$1" line="PreBuildCommand = ${_PROFILES_AUR_VET_BIN}"
+  [[ -f "$conf" ]] || return 0
+  awk -v hook="$line" '
+    /^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*=/ { next }
+    { print }
+    /^\[options\][[:space:]]*$/ && !done { print hook; done = 1 }
+    END { if (!done) { print "[options]"; print hook } }' "$conf" \
+    > "${conf}.new"
+  cat "${conf}.new" > "$conf"
+  rm -f "${conf}.new"
+}
 
 # Remove the staged runtime tree and any leftover sudoers drop-ins.
 # Idempotent — safe to call from finalize and from error traps.
@@ -325,20 +364,24 @@ _profiles_detect_user_helper() {
 }
 
 # One rung of the bootstrap ladder: build+install <aur-pkg> as <user> in the
-# chroot via git clone + makepkg. Returns the rung's status. Wrapped in _retry
-# by the ladder and stubbed in unit tests.
+# chroot via git clone + AUR Vetting + makepkg. The helper package is the
+# first AUR build, so it is vetted like any other (ADR 0143); the full clone
+# lets a newer HEAD be diffed against its Vetted Commit. Returns the rung's
+# status. Wrapped in _retry by the ladder and stubbed in unit tests.
 _profiles_bootstrap_rung() {
   local user="$1" pkg="$2"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" <<'CHROOT_RUNG'
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" \
+    "$_PROFILES_AUR_VET_BIN" <<'CHROOT_RUNG'
 set -e
-USER_NAME="$1"; PKG="$2"
+USER_NAME="$1"; PKG="$2"; VET="$3"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 BUILD="${HOME_DIR}/.aur-helper-bootstrap"
 rm -rf "$BUILD"
 su - "$USER_NAME" -c "
   set -e
-  git clone --depth 1 https://aur.archlinux.org/${PKG}.git '${BUILD}'
+  git clone https://aur.archlinux.org/${PKG}.git '${BUILD}'
   cd '${BUILD}'
+  AUR_VET_UNATTENDED=1 PKGBASE='${PKG}' '${VET}'
   makepkg -si --noconfirm
 "
 rm -rf "$BUILD"
@@ -379,37 +422,37 @@ _profiles_bootstrap_helper() {
         "(paru, paru-bin, yay-bin) — upstream AUR/GitHub may be unavailable."
 }
 
-# Resolve + install an AUR set for a user with their <helper> (paru|yay). Under
-# paru, a print-only pre-flight pass runs first in the real installed
-# environment, so a provider/conflict failure — a virtual dep (e.g. libjpeg6)
-# whose default provider conflicts with an already installed package — aborts
+# Resolve + install an AUR set for a user with their <helper>. AUR builds
+# need paru: its PreBuildCommand runs AUR Vetting per package base, and yay
+# has no such hook, so the yay fallback rung refuses here (ADR 0143). A
+# print-only pre-flight pass runs first in the real installed environment,
+# so a provider/conflict failure — a virtual dep (e.g. libjpeg6) whose
+# default provider conflicts with an already installed package — aborts
 # *before* any download, with an actionable hint, instead of the bare ERR-trap
-# line number. The pre-flight is paru-only: its -Sp/conflict phrasing is what
-# _profiles_aur_conflict_report parses, so under yay (ADR 0052) it is skipped
-# and a conflict surfaces via the real install's ERR trap. The real install
-# streams live either way.
+# line number. The real install streams live, the hook unattended.
 _profiles_aur_install() {
   local user="$1" helper="$2"; shift 2
   local -a pkgs=("$@")
   ((${#pkgs[@]} > 0)) || return 0
+  [[ "$helper" == paru ]] \
+    || error "AUR install for ${user} landed on ${helper}: vetting needs paru" \
+             "(ADR 0143) — retry once the paru rung can bootstrap."
 
-  if [[ "$helper" == paru ]]; then
-    info "Pre-flight resolving AUR set for ${user}..."
-    local out rc=0
-    out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-      "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
-    if ((rc != 0)); then
-      if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
-        _profiles_aur_conflict_report "$out"
-        error "AUR pre-flight found an unresolvable conflict for ${user}." \
-              "Pin a non-conflicting provider, then re-run."
-      fi
-      # Non-conflict failure (e.g. transient resolver hiccup): warn, let the
-      # real pass surface it through the normal ERR trap.
-      warn "AUR pre-flight returned non-zero with no conflict signature;" \
-           "proceeding to install."
-      printf '%s\n' "$out" >&2
+  info "Pre-flight resolving AUR set for ${user}..."
+  local out rc=0
+  out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+    "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
+  if ((rc != 0)); then
+    if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
+      _profiles_aur_conflict_report "$out"
+      error "AUR pre-flight found an unresolvable conflict for ${user}." \
+            "Pin a non-conflicting provider, then re-run."
     fi
+    # Non-conflict failure (e.g. transient resolver hiccup): warn, let the
+    # real pass surface it through the normal ERR trap.
+    warn "AUR pre-flight returned non-zero with no conflict signature;" \
+         "proceeding to install."
+    printf '%s\n' "$out" >&2
   fi
 
   # The real install hits aur.archlinux.org/rpc to resolve deps; a transient
@@ -417,7 +460,7 @@ _profiles_aur_install() {
   # with backoff — --needed keeps it idempotent, so a re-run skips what landed.
   # A genuine build/conflict failure still aborts after the last try.
   _retry 3 "5,15" -- arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-    "${helper} -S --noconfirm --needed ${pkgs[*]}"
+    "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed ${pkgs[*]}"
 }
 
 # Surface a provider conflict from captured paru resolution output. The output
@@ -448,6 +491,7 @@ su - "$USER_NAME" -c "
   export PROGRAMS='${OS_DIR_IN}/programs'
   export SHELL_COMMONS='${OS_DIR_IN}/lib'
   export AUR_HELPER='${AUR_HELPER_IN}'
+  export AUR_VET_UNATTENDED=1
   bash '${OS_DIR_IN}/lib/profiles/program-runner.sh' '${INSTALL_SH}'
 "
 CHROOT_USERPROG
@@ -458,6 +502,11 @@ _profiles_install_user_program() {
   local rel
   rel="$(resolve_program "$prog")"
   info "Installing user program: ${prog}  (user=${user}, .installer/programs/${rel})"
+  # Under yay (no vetting hook, ADR 0143) the helper is repo-only: a program's
+  # repo packages still install, an AUR-only one fails instead of building
+  # unvetted.
+  local h="$helper"
+  [[ "$h" == yay ]] && h="yay --repo"
   # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
   # in from run_profiles rather than re-detected here; program install.sh
   # scripts install via ${AUR_HELPER} -S. Those scripts hit aur.archlinux.org/rpc
@@ -468,7 +517,7 @@ _profiles_install_user_program() {
     "$user" \
     "${_PROFILES_RUNTIME_DIR}" \
     "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" \
-    "$helper"
+    "$h"
 }
 
 
@@ -807,6 +856,7 @@ run_profiles() {
   # ── Stage runtime, validate it, create users, install programs ───────────
   _profiles_stage_runtime
   validate_staging "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
+  _profiles_install_aur_vet
 
   # The Primary User (first in the list) gets the display name; the rest do not
   # (ADR 0121 — avatar/name is scoped to the Primary User).
@@ -877,6 +927,8 @@ run_profiles() {
     _profiles_grant_temp_sudo "$u"
     local _helper
     _helper="$(_profiles_bootstrap_helper "$u")"
+    [[ "$_helper" == paru ]] \
+      && _profiles_wire_paru_hook "${MOUNT_ROOT}/etc/paru.conf"
     # Install host AUR packages and GPU AUR packages for the primary user.
     if [[ "${u}" == "${users[0]}" ]]; then
       local -a primary_aur=(
@@ -940,6 +992,9 @@ run_profiles() {
     _profiles_apply_user_config "$u" "${USER_JSONS[$u]}" "$_ships_home" \
       "$_sysprogs_json"
     _profiles_clone_dotfiles "$u" "$dotfiles_repo"
+    # A per-user paru.conf replaces /etc/paru.conf, so it must carry the hook
+    # too (ADR 0143).
+    _profiles_wire_paru_hook "${MOUNT_ROOT}/home/${u}/.config/paru/paru.conf"
     # user_services run last — after the user's programs + dotfiles placed
     # the providing units, so a missing unit is a real error.
     _profiles_enable_profile_user_services "$u" "${USER_JSONS[$u]}"

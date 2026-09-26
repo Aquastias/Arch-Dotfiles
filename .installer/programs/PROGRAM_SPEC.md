@@ -144,7 +144,8 @@ Rules:
 # Invoked by .installer/lib/profiles/runner.sh inside arch-chroot, <as the owning user with
 # temp NOPASSWD sudo | as root>, with INSTALLER_DIR, PROGRAMS, SHELL_COMMONS
 # pre-exported (plus AUR_HELPER on the user path — the resolved AUR Helper,
-# paru or yay; install via ${AUR_HELPER} -S, never literal paru).
+# paru or yay; install via ${AUR_HELPER} -S, never literal paru. Under yay it
+# is `yay --repo`: AUR builds need paru for AUR Vetting, ADR 0143).
 #
 # <What the script does, in one to three sentences. Name every distinct action:
 #  packages installed, files written, services enabled, groups created, etc.

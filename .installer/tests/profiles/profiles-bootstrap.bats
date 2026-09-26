@@ -102,15 +102,8 @@ teardown() { rm -rf "$T"; }
   arch-chroot() { echo "$*" >> "$T/calls"; }
   _profiles_aur_install alice paru pkg1 pkg2
   grep -q -- "-Sp" "$T/calls"                          # pre-flight ran
-  grep -q "paru -S --noconfirm --needed pkg1 pkg2" "$T/calls"
-}
-
-@test "aur_install: yay skips the pre-flight, installs directly" {
-  : > "$T/calls"
-  arch-chroot() { echo "$*" >> "$T/calls"; }
-  _profiles_aur_install alice yay pkg1
-  ! grep -q -- "-Sp" "$T/calls"                        # no pre-flight
-  grep -q "yay -S --noconfirm --needed pkg1" "$T/calls"
+  grep -q "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed pkg1 pkg2" \
+    "$T/calls"
 }
 
 @test "aur_install: a transient RPC failure retries the real install" {
@@ -122,7 +115,7 @@ teardown() { rm -rf "$T"; }
     local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
     (( n >= 2 ))                                        # succeed on 3rd try
   }
-  run _profiles_aur_install alice yay pkg1
+  run _profiles_aur_install alice paru pkg1
   [ "$status" -eq 0 ]
   [ "$(< "$T/n")" -eq 3 ]                               # retried to success
 }
