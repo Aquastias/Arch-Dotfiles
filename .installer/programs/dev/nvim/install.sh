@@ -24,8 +24,10 @@ SELF="${PROGRAMS}/dev/nvim"
 # iconv extension, which Arch ships (iconv.so) but leaves DISABLED — so phpactor
 # can't be a bare package (its build aborts: "iconv extension is not installed",
 # VM-verified). Enable iconv, then install phpactor here in the user-program
-# phase (php is already present from Host Core dev).
+# phase. php is installed here too: a host with `packages.inherit: false`
+# (e.g. the arch-kde VM fixture) never gets Host Core's dev php.
 print_status info "Enabling php iconv + installing phpactor (PHP LSP)..."
+${AUR_HELPER} -S --noconfirm --needed php
 echo 'extension=iconv' | sudo tee /etc/php/conf.d/iconv.ini >/dev/null
 ${AUR_HELPER} -S --noconfirm --needed phpactor
 
