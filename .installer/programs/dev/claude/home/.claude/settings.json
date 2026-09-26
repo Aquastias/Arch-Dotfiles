@@ -1,6 +1,8 @@
 {
   "env": {
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1"
   },
   "permissions": {
     "allow": [
@@ -45,7 +47,7 @@
     ]
   },
   "skipAutoPermissionPrompt": true,
-  "model": "claude-opus-4-8",
+  "model": "claude-opus-5-5",
   "fallbackModel": ["claude-sonnet-5"],
   "promptCacheTtl": 3600,
   "statusLine": {
@@ -92,12 +94,18 @@
       ]
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "cleanupPeriodDays": 30,
   "feedbackSurveyRate": 0,
   "preferredNotifChannel": "desktop",
   "autoUpdatesChannel": "stable",
   "emojiCompletionEnabled": false,
+  "disableClaudeAiConnectors": true,
+  "disableRemoteControl": true,
+  "enableArtifact": false,
+  "disableWorkflows": true,
+  "syncClaudeAiSkills": false,
+  "syncClaudeAiPlugins": false,
   "voice": {
     "enabled": true,
     "mode": "hold"

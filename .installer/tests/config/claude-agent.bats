@@ -45,7 +45,7 @@ setup() {
 @test "seeded settings.json pins the decided keys" {
   local s="$HOMESEED/settings.json"
   [ -f "$s" ]
-  [ "$(jq -r '.model' "$s")" = "claude-opus-4-8" ]
+  [ "$(jq -r '.model' "$s")" = "claude-opus-5-5" ]
   [ "$(jq -r '.fallbackModel[0]' "$s")" = "claude-sonnet-5" ]
   [ "$(jq -r '.promptCacheTtl' "$s")" = "3600" ]
   [ "$(jq -r '.permissions.defaultMode' "$s")" = "auto" ]
@@ -59,6 +59,21 @@ setup() {
     | index("/run/libvirt/libvirt-sock")' "$s" >/dev/null
   [ "$(jq -r '.cleanupPeriodDays' "$s")" = "30" ]
   [ "$(jq -r '.autoUpdatesChannel' "$s")" = "stable" ]
+}
+
+# ── curated feature set: unused tooling off, current Opus (ADR 0142) ──────────
+
+@test "seeded settings.json curates the feature set (ADR 0142)" {
+  local s="$HOMESEED/settings.json"
+  [ "$(jq -r '.effortLevel' "$s")" = "medium" ]
+  [ "$(jq -r '.disableClaudeAiConnectors' "$s")" = "true" ]
+  [ "$(jq -r '.disableRemoteControl' "$s")" = "true" ]
+  [ "$(jq -r '.enableArtifact' "$s")" = "false" ]
+  [ "$(jq -r '.disableWorkflows' "$s")" = "true" ]
+  [ "$(jq -r '.syncClaudeAiSkills' "$s")" = "false" ]
+  [ "$(jq -r '.syncClaudeAiPlugins' "$s")" = "false" ]
+  [ "$(jq -r '.env.DISABLE_TELEMETRY' "$s")" = "1" ]
+  [ "$(jq -r '.env.DISABLE_ERROR_REPORTING' "$s")" = "1" ]
 }
 
 # ── single source under the program home/ (ADR 0134) ─────────────────────────
