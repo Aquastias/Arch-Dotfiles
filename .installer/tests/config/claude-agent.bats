@@ -23,12 +23,17 @@ setup() {
   grep -q '"kind": "user"' "$CFG"
 }
 
-@test "install.sh installs claude-code + sandbox/gh/ccusage deps" {
+@test "install.sh installs claude-code + sandbox/gh/ccusage/npm deps" {
   [ -x "$INSTALL" ]
   grep -qE '\$\{AUR_HELPER\} -S --noconfirm --needed' "$INSTALL"
-  for p in claude-code bubblewrap socat github-cli ccusage; do
+  for p in claude-code bubblewrap socat github-cli ccusage npm; do
     grep -q "$p" "$INSTALL"
   done
+}
+
+@test "install.sh bootstraps the Matt Pocock skill store (skills CLI)" {
+  # ADR 0142: the skill store is a regenerable runtime asset seeded via npx.
+  grep -qE 'npx .*skills@latest add mattpocock/skills' "$INSTALL"
 }
 
 @test "install.sh does NOT seed config and never writes .credentials.json" {
