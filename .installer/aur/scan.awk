@@ -71,11 +71,14 @@ FNR == 1 {
   kind = (f == "PKGBUILD") ? "pkgbuild" : (f ~ /\.install$/) ? "install" \
        : (f == ".SRCINFO") ? "srcinfo" : "other"
   infn = 0; bfn = 0; depth = 0; braced = 0; inarr = 0; arrsums = 0
+  hd_end = ""; hd_inert = 0
   if (kind == "srcinfo") have_srcinfo = 1
 }
 {
   line = $0
   comment = (line ~ /^[[:space:]]*#/)
+  # An inert heredoc body (a message) reads like a comment; see heredoc().
+  if (heredoc(line)) comment = 1
   cursums = 0; curtop = 0
   if (kind == "pkgbuild") {
     pkgbuild_pre(line)
@@ -322,4 +325,27 @@ function pkgbuild_hosts(   k, e) {
     if (e ~ /:\/\/[$]/)
       emit("srcinfo-mismatch", "PKGBUILD", pbln[k], "unresolved host")
   }
+}
+
+# ── Heredocs ────────────────────────────────────────────────────────────────
+# Is <l> the body (or terminator) of an inert heredoc? A heredoc fed to a
+# plain cat/echo/printf with no redirect or pipe is a message printed to the
+# user (e.g. "put this line into ~/.zshrc"), so its body isn't code. One fed
+# to a shell, or redirected into a file, stays code: the opener line itself
+# is scanned as usual.
+function heredoc(l,   inert, w, p) {
+  if (hd_end != "") {
+    inert = hd_inert
+    if (l ~ ("^[\t]*" hd_end "[[:space:]]*$")) { hd_end = ""; hd_inert = 0 }
+    return inert
+  }
+  if (kind == "srcinfo") return 0
+  p = match(l, /(^|[^<])<<-?[[:space:]]*["']?[[:alpha:]_][[:alnum:]_]*["']?/)
+  if (!p) return 0
+  w = substr(l, RSTART, RLENGTH); sub(/^[^<]*<<-?[[:space:]]*/, "", w)
+  gsub(/["']/, "", w)
+  hd_end = w
+  hd_inert = (l ~ /^[[:space:]]*(cat|echo|printf)[[:space:]]/ \
+              && l !~ /[>|]/)
+  return 0
 }

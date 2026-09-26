@@ -83,6 +83,11 @@ aurvet_case() {
       _aurvet_ins "$si" '^\tsource = ' "	source = $text"
       _aurvet_ins "$si" '^\tsha256sums = ' "	sha256sums = $sum" ;;
     nosrcinfo) rm -f "$si" ;;
+    heredoc | shheredoc)
+      local cmd=cat; [[ "$placement" == shheredoc ]] && cmd=sh
+      _aurvet_ins "$pb" '^license=' 'install=rulecase.install'
+      printf 'post_install() {\n%s << EOF\n%s\nEOF\n}\n' "$cmd" "$text" \
+        > "$dir/rulecase.install" ;;
     srcvar) # a host hidden behind a variable; .SRCINFO shows a benign one
       _aurvet_ins "$pb" '^license=' "_h=$text"
       _aurvet_ins "$pb" '^source=' 'source+=("https://${_h}/rulecase/p.tgz")'
