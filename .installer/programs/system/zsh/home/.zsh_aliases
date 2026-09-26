@@ -128,3 +128,7 @@ alias anime="ani-cli"
 ### NodeJS package managers
 alias pn="pnpm"
 ###
+
+### Dotfiles — stow per-program configs into $HOME (ADR 0134)
+alias dstow='"$DOTFILES/stow-configs.sh"'
+###
