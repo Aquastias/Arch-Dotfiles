@@ -190,6 +190,78 @@ _ask() {
   read -r ans || return 1
   [[ "$ans" == [yY] || "$ans" == [yY][eE][sS] ]]
 }
+# ── Trust signals (AUR RPC) ─────────────────────────────────────────────────
+_RPC_URL="https://aur.archlinux.org/rpc/v5/info"
+_TRUST_WINDOW=$((14 * 86400))
+
+# One RPC `info` answer for <pkgbase> (queried by <pkgname>). Tests serve
+# <pkgbase>.json from AUR_VET_RPC_FIXTURE_DIR instead of the network.
+_rpc_fetch() {
+  if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
+    cat "$AUR_VET_RPC_FIXTURE_DIR/$1.json" 2>/dev/null
+    return
+  fi
+  curl -fsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}"
+}
+
+# Retry with backoff (ADR 0052 pattern): AUR_VET_RETRY_DELAYS is the CSV of
+# per-gap seconds. Non-zero when every attempt failed.
+_rpc_info() {
+  local -a delays
+  IFS=, read -ra delays <<<"${AUR_VET_RETRY_DELAYS:-3,10}"
+  local tries=$((${#delays[@]} + 1)) i out
+  for ((i = 1; i <= tries; i++)); do
+    if out="$(_rpc_fetch "$1" "$2")" \
+       && jq -e '.results | type == "array"' >/dev/null 2>&1 <<<"$out"; then
+      printf '%s\n' "$out"
+      return 0
+    fi
+    _say "RPC attempt ${i}/${tries} failed"
+    ((i < tries)) && sleep "${delays[i - 1]:-0}"
+  done
+  return 1
+}
+
+# Trust findings (scan TSV shape, file "AUR") for <dir> <pkgbase> against
+# the pin's <maintainer> (<pinned> 1|0), plus a `meta maintainer` row with
+# the AUR's current one. Returns 3 when the RPC is unreachable.
+_trust() {
+  local dir="$1" base="$2" pmaint="$3" pinned="$4"
+  local name json r
+  name="$(awk -F' = ' '/^pkgname = / { print $2; exit }' \
+    "$dir/.SRCINFO" 2>/dev/null)"
+  json="$(_rpc_info "$base" "${name:-$base}")" || return 3
+  local -A sev=() desc=()
+  local id s d
+  while IFS=$'\t' read -r id s d; do sev[$id]="$s"; desc[$id]="$d"
+  done < <(awk -v rules="$(_data_dir)/rules.tsv" -v list_trust=1 \
+             -f "$(_lib_dir)/scan.awk" </dev/null)
+  _t() { [[ -n "${sev[$1]:-}" ]] && printf '%s\tAUR\t0\t%s%s\n' \
+    "${sev[$1]}"$'\t'"$1" "${desc[$1]}" "${2:+ [$2]}"; return 0; }
+
+  r="$(jq -c --arg b "$base" \
+    '[.results[] | select(.PackageBase == $b)][0] // empty' <<<"$json")"
+  if [[ -z "$r" ]]; then _t trust-not-found; return 0; fi
+  local maint sub first last ood votes now
+  IFS=$'\x1f' read -r maint sub first last ood votes < <(jq -r '[
+    .Maintainer // "", .Submitter // "", .FirstSubmitted // 0,
+    .LastModified // 0, .OutOfDate // "", .NumVotes // 0]
+    | map(tostring) | join("\u001f")' <<<"$r")
+  printf 'meta\tmaintainer\tAUR\t0\t%s\n' "$maint"
+  now="${AUR_VET_NOW:-$(date +%s)}"
+  if ((pinned)) && [[ -n "$pmaint" && "$maint" != "$pmaint" ]]; then
+    _t trust-maintainer-changed "${pmaint} -> ${maint:-orphan}"
+  fi
+  if ((!pinned)) && [[ -n "$maint" && -n "$sub" && "$maint" != "$sub" ]] \
+     && ((now - last < _TRUST_WINDOW)); then
+    _t trust-adopted "${sub} -> ${maint}"
+  fi
+  ((now - first < _TRUST_WINDOW)) && _t trust-new
+  [[ -z "$maint" ]] && _t trust-orphaned
+  [[ -n "$ood" ]] && _t trust-out-of-date
+  ((votes < 3)) && _t trust-low-votes "${votes}"
+  return 0
+}
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
 _hook() {
@@ -199,16 +271,25 @@ _hook() {
   local head; head="$(git -C "$dir" rev-parse HEAD)"
   local at="${base} @${head:0:12}"
 
+  # The pin decides both the review mode and the maintainer to compare.
+  local pin pcommit="" pmaint=""
+  pin="$(_pin_of "$base")"
+  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
+
   local -a findings=()
   # Fail closed: an engine error must abort, never read as "no findings".
-  local out
+  local out trust="" rpc_down=0
   out="$(_scan "$dir" "$base")" || _die "${base}: scan failed"
+  trust="$(_trust "$dir" "$base" "$pmaint" "$([[ -n "$pcommit" ]] && echo 1 \
+    || echo 0)")" || rpc_down=1
+  [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
   [[ -n "$out" ]] && mapfile -t findings <<<"$out"
 
-  local row sev id file ln desc crit=0 susp=0 info=0
+  local row sev id file ln desc crit=0 susp=0 info=0 rpc_maint="$pmaint"
   local -A suspicious=()
   for row in "${findings[@]}"; do
     IFS=$'\t' read -r sev id file ln desc <<<"$row"
+    if [[ "$sev" == meta ]]; then rpc_maint="$desc"; continue; fi
     _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
     case "$sev" in
       critical) crit=$((crit + 1)) ;;
@@ -218,12 +299,15 @@ _hook() {
   done
   local tally="${crit} critical, ${susp} suspicious, ${info} info"
   _abort() { _say "${at}: ABORT (${tally}) — $1"; }
-  ((crit == 0)) || { _abort "critical findings always abort"; return 1; }
+  if ((crit)); then _abort "critical findings always abort"; return 1; fi
+  if ((rpc_down)); then
+    if _unattended; then _abort "AUR RPC unreachable"; return 1; fi
+    _ask "AUR RPC unreachable — continue without trust signals?" \
+      || { _abort "AUR RPC unreachable"; return 1; }
+  fi
 
   # What the pin says about this commit. Writes are deferred to the verdict.
-  local pin pcommit="" pmaint="" review="" reason="" carry=""
-  pin="$(_pin_of "$base")"
-  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
+  local review="" reason="" carry=""
   if [[ -z "$pcommit" ]]; then
     review="full"; reason="unpinned: no Vetted Commit"
   elif [[ "$pcommit" == "$head" ]]; then
@@ -268,7 +352,7 @@ _hook() {
     _abort "rejected"
     return 1
   fi
-  _set_pin "$base" "$head" "$pmaint" reviewed
+  _set_pin "$base" "$head" "$rpc_maint" reviewed
   local -a rows=()
   for id in "${unallowed[@]}"; do
     rows+=("$(printf '%s\t%s\t%s\treviewed %s' \

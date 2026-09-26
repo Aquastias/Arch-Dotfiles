@@ -15,6 +15,9 @@ aurvet_setup() {
   # An empty store: fixtures opt into pins explicitly.
   : > "$AUR_VET_STORE/vetted.tsv"; : > "$AUR_VET_STORE/allow.tsv"
   export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+  # Trust signals come from fixtures, never the network; retries never wait.
+  export AUR_VET_RPC_FIXTURE_DIR="$T/rpc" AUR_VET_RETRY_DELAYS=0,0
+  mkdir -p "$AUR_VET_RPC_FIXTURE_DIR"
 }
 
 aurvet_teardown() { rm -rf "$T"; }
@@ -34,10 +37,16 @@ aurvet_clone() {
 
 # Run the hook the way paru does: cwd = clone, $PKGBASE set.
 aurvet_hook() {
-  local dir="$1"
-  run bash -c 'cd "$1" && PKGBASE="$2" "$3"' _ \
-    "$dir" "${2:-$(basename "$dir")}" \
+  local dir="$1" base="${2:-$(basename "$1")}"
+  _aurvet_default_rpc "$base"
+  run bash -c 'cd "$1" && PKGBASE="$2" "$3"' _ "$dir" "$base" \
     "$AUR_VET_SRC/aur-vet"
+}
+
+# A reviewed-looking default RPC answer unless the test wrote its own.
+_aurvet_default_rpc() {
+  [[ -n "${AURVET_NO_RPC:-}" || -e "$AUR_VET_RPC_FIXTURE_DIR/$1.json" ]] \
+    || aurvet_rpc "$1"
 }
 
 # Inject <text> into a fresh copy of the rulecase fixture per <placement> (see
@@ -86,7 +95,7 @@ aurvet_case() {
 
 # Pin <dir>'s HEAD as the Vetted Commit for <pkgbase> (default: dir name).
 aurvet_pin() {
-  local dir="$1" base="${2:-$(basename "$1")}" maint="${3:-fixture-maintainer}"
+  local dir="$1" base="${2:-$(basename "$1")}" maint="${3-fixture-maintainer}"
   printf '%s\t%s\t%s\t2026-01-01\ttest\n' "$base" \
     "$(git -C "$dir" rev-parse HEAD)" "$maint" >> "$AUR_VET_STORE/vetted.tsv"
 }
@@ -101,6 +110,7 @@ aurvet_commit() {
 # Interactive run: answers on stdin.
 aurvet_hook_answer() {
   local dir="$1" answer="$2" base="${3:-$(basename "$1")}"
+  _aurvet_default_rpc "$base"
   run bash -c 'cd "$1" && printf "%s\n" "$4" | AUR_VET_INTERACTIVE=1 \
     PKGBASE="$2" "$3"' _ "$dir" "$base" "$AUR_VET_SRC/aur-vet" "$answer"
 }
@@ -110,4 +120,22 @@ aurvet_clone_pinned() {
   local d; d="$(aurvet_clone "$@")"
   aurvet_pin "$d" "$1"
   printf '%s\n' "$d"
+}
+
+# AUR RPC fixture for <pkgbase> (ADR 0143): one `info` result. Args are
+# jq-style overrides, e.g. Maintainer=evil NumVotes=0 (values are JSON).
+aurvet_rpc() {
+  local base="$1"; shift
+  local now; now="$(date +%s)"
+  local j
+  j="$(jq -n --arg b "$base" --argjson t "$((now - 400 * 86400))" '{
+    Name: $b, PackageBase: $b, Maintainer: "fixture-maintainer",
+    Submitter: "fixture-maintainer", FirstSubmitted: $t, LastModified: $t,
+    OutOfDate: null, NumVotes: 100 }')"
+  local kv
+  for kv in "$@"; do
+    j="$(jq --arg k "${kv%%=*}" --argjson v "${kv#*=}" '.[$k] = $v' <<<"$j")"
+  done
+  jq -n --argjson r "$j" '{ resultcount: 1, results: [$r], type: "multiinfo",
+    version: 5 }' > "$AUR_VET_RPC_FIXTURE_DIR/$base.json"
 }

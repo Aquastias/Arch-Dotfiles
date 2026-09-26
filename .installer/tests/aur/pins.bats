@@ -76,7 +76,7 @@ _head() { git -C "$1" rev-parse HEAD; }
 
 @test "pins: a pin missing from history is vetted as a full change" {
   local d; d="$(aurvet_clone electron-benign)"
-  printf 'electron-benign\t%s\tm\t2026-01-01\tgone\n' \
+  printf 'electron-benign\t%s\tfixture-maintainer\t2026-01-01\tgone\n' \
     "$(printf 'f%.0s' {1..40})" \
     >> "$AUR_VET_STORE/vetted.tsv"
   aurvet_hook "$d"

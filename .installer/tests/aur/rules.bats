@@ -25,12 +25,14 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
   [[ -z "$fails" ]] || { echo "failing cases:${fails}"; return 1; }
 }
 
+# trust-scope rules need the RPC: trust.bats covers them.
 @test "rules: every catalogue rule has a positive and a negative case" {
   local id missing=""
   while read -r id; do
     _cases | grep -q "^${id}"$'\t+\t' || missing+=" ${id}(+)"
     _cases | grep -q "^${id}"$'\t-\t' || missing+=" ${id}(-)"
-  done < <(awk -F'\t' '/^[a-z]/ && NF > 1 { print $1 }' \
+  done < <(awk -F'\t' '/^[a-z]/ && NF > 1 && $3 != "trust" {
+             print $1 }' \
              "$AUR_VET_DATA/rules.tsv")
   [[ -z "$missing" ]] || { echo "missing:${missing}"; return 1; }
 }

@@ -5,7 +5,8 @@
 # files; data comes in via vars. Prints one TSV finding per hit:
 #   severity  id  file  line  description
 # Vars: root (clone dir, stripped from file names), pkgbase, commit_day
-# (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths).
+# (HEAD commit date, UTC YYYY-MM-DD), rules / indicators / campaigns (paths),
+# list_trust (print the RPC trust rules instead of scanning).
 # =============================================================================
 BEGIN {
   FS = "\t"
@@ -13,11 +14,17 @@ BEGIN {
   for (k = 1; k <= nr; k++) {
     if (split(rec[k], c, "\t") < 5) continue
     if (c[3] == "builtin") { bsev[c[1]] = c[2]; bdesc[c[1]] = c[5]; continue }
+    # list_trust: hand the RPC trust rules to aur-vet and stop.
+    if (c[3] == "trust") {
+      if (list_trust) printf "%s\t%s\t%s\n", c[1], c[2], c[5]
+      continue
+    }
     n++; rid[n] = c[1]; rsev[n] = c[2]; rscope[n] = c[3]; rre[n] = c[4]
     rdesc[n] = c[5]; runless[n] = (6 in c) ? c[6] : ""
     delete c
   }
   delete rec
+  if (list_trust) exit
   if (campaigns != "") {
     nr = load(campaigns, rec)
     for (k = 1; k <= nr; k++)
@@ -97,6 +104,7 @@ FNR == 1 {
 }
 
 END {
+  if (list_trust) exit
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
   indicators_pkgbase()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }

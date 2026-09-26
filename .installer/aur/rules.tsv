@@ -109,3 +109,14 @@ indicator-domain	critical	builtin	-	known-malicious host
 indicator-sha256	critical	builtin	-	known-malicious payload hash
 indicator-pkgbase	critical	builtin	-	package compromised in this window
 indicator-pkgbase-past	suspicious	builtin	-	package listed in a past campaign
+
+# ── Trust signals (AUR RPC; evaluated by aur-vet, not scan.awk) ─────────────
+trust-maintainer-changed	critical	trust	-\
+		maintainer differs from the one recorded with the Vetted Commit
+trust-adopted	suspicious	trust	-\
+		maintainer is not the submitter and it changed <14 days ago
+trust-new	suspicious	trust	-	first submitted <14 days ago
+trust-not-found	suspicious	trust	-	package base not found on the AUR
+trust-orphaned	info	trust	-	package is orphaned
+trust-out-of-date	info	trust	-	flagged out of date
+trust-low-votes	info	trust	-	fewer than 3 votes

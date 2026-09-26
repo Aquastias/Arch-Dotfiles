@@ -73,3 +73,9 @@ _refresh() {
   [ "$status" -ne 0 ]
   cmp -s "$T/before" "$AUR_VET_DATA/indicators.tsv"
 }
+
+@test "data: no record continues with a TAB before the backslash" {
+  # `value<TAB>\` + a two-TAB continuation would yield an empty field.
+  run grep -nP '\t\\$' "$AUR_VET_SRC"/*.tsv
+  [ "$status" -eq 1 ]
+}
