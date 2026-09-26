@@ -2,14 +2,21 @@
 # =============================================================================
 # aur-vet — AUR Vetting (ADR 0143)
 # =============================================================================
-# Pre-build review of one AUR package base. Hook mode (no args) is paru's
-# PreBuildCommand contract: cwd = the package's AUR git clone, $PKGBASE set,
-# non-zero exit aborts the whole transaction. The PKGBUILD is never sourced or
-# run — analysis is text-only (awk/grep), so the review can't execute attacker
-# code. SELF-CONTAINED: installed onto PATH and staged into the chroot, so it
-# sources no Installer/Shell Stdlib.
+# Pre-build review of AUR package bases. Text-only (awk/grep): the PKGBUILD
+# is never sourced or run, so the review can't execute attacker code.
+#
+#   aur-vet                    hook: paru PreBuildCommand contract (cwd = the
+#                              AUR clone, $PKGBASE set; non-zero aborts)
+#   aur-vet seed [--list] [pkg...]
+#                              bulk-review declared AUR packages + AUR deps
+#   aur-vet export [--check] [repo-aur-dir]
+#                              merge the booted pin store into the repo
+#   aur-vet audit              scan installed foreign packages (VMs only)
+#   aur-vet refresh-indicators pull community Indicator lists for review
 #
 # Exit: 0 pass · 1 abort (findings or policy) · 2 usage/environment error.
+# SELF-CONTAINED: installed onto PATH and staged into the chroot, so it
+# sources no Installer/Shell Stdlib (seed alone reads the repo checkout).
 # =============================================================================
 set -euo pipefail
 
@@ -123,15 +130,31 @@ _allowed() {
     '$1 == b && $2 == c && $3 == r { hit = 1 } END { exit !hit }' "$f"
 }
 
-# Replace <file>'s content with stdin. Stays in the store's own dir so a
-# failed write leaves the old file intact.
+# Replace <file>'s content with stdin. A writable store (repo, tests) is
+# rewritten in place via a temp file in its own dir, so a failed write leaves
+# the old file intact. The booted store is root-owned, so user-level malware
+# can't forge pins (ADR 0143): writes go through sudo — non-interactive when
+# unattended, where the installer's temporary NOPASSWD grant carries them.
 _store_put() {
   local file="$1" tmp
-  tmp="$(mktemp "${file}.XXXXXX" 2>/dev/null)" \
-    || _die "pin store not writable: ${file}"
+  if [[ -w "$(dirname "$file")" ]]; then
+    tmp="$(mktemp "${file}.XXXXXX")"
+    cat > "$tmp"
+    chmod 0644 "$tmp"
+    command mv -f "$tmp" "$file"
+    return 0
+  fi
+  local sudo="${AUR_VET_SUDO:-sudo}"
+  local -a flags=()
+  _unattended && flags=(-n)
+  tmp="$(mktemp)"
   cat > "$tmp"
-  chmod 0644 "$tmp"
-  command mv -f "$tmp" "$file"
+  if ! command -v "$sudo" >/dev/null 2>&1 \
+     || ! "$sudo" "${flags[@]}" install -m0644 "$tmp" "$file"; then
+    command rm -f "$tmp"
+    _die "pin store not writable: ${file} (needs sudo)"
+  fi
+  command rm -f "$tmp"
 }
 
 # Record <pkgbase> <commit> <maintainer> <note>; <old> carries its allowlist
@@ -395,6 +418,55 @@ _seed() {
   fi
 }
 
+# ── export ──────────────────────────────────────────────────────────────────
+# Merge the booted store back into the repo pin files (default: the dotfiles
+# checkout) for the operator to commit: a store row replaces the repo row of
+# the same pkgbase, new ones append, repo comments stay; allowlist rows
+# union. `--check` only reports drift (exit 1).
+_export() {
+  local check=0
+  [[ "${1:-}" == --check ]] && { check=1; shift; }
+  local repo="${1:-$HOME/.dotfiles/.installer/aur}"
+  local src="${AUR_VET_STORE:-/etc/aur-vet}" f new drift=0
+  [[ -f "$repo/vetted.tsv" ]] || _die "export: no pin file at ${repo}"
+  for f in vetted allow; do
+    [[ -r "$src/$f.tsv" ]] || continue
+    new="$(_export_merge "$f" "$src/$f.tsv" "$repo/$f.tsv")"
+    local changes
+    changes="$(diff <(cat "$repo/$f.tsv" 2>/dev/null) <(printf '%s\n' "$new") \
+      | sed -n 's/^> /+ /p; s/^< /- /p')" || true
+    [[ -z "$changes" ]] && continue
+    drift=1
+    printf '%s.tsv:\n%s\n' "$f" "$changes"
+    ((check)) || printf '%s\n' "$new" > "$repo/$f.tsv"
+  done
+  if ((check)); then
+    ((drift)) && { _say "export: drift between ${src} and ${repo}"; return 1; }
+    _say "export: ${src} and ${repo} in sync"
+    return 0
+  fi
+  if ((drift)); then
+    _say "export: updated ${repo} — review the diff, then commit"
+  else
+    _say "export: nothing to export"
+  fi
+}
+
+# <kind> <store-file> <repo-file> → the merged repo file on stdout.
+_export_merge() {
+  awk -F'\t' -v kind="$1" '
+    function key() { return kind == "vetted" ? $1 : $1 FS $2 FS $3 }
+    FNR == NR {
+      if ($0 ~ /^#/ || !NF) next
+      k = key(); if (!(k in s)) order[++n] = k
+      s[k] = $0; next
+    }
+    /^#/ || !NF { print; next }
+    { k = key(); if (k in s) { print s[k]; done[k] = 1 } else print }
+    END { for (i = 1; i <= n; i++) if (!(order[i] in done)) print s[order[i]] }
+  ' "$2" "${3}" 2>/dev/null || cat "$2"
+}
+
 # ── Hook mode ───────────────────────────────────────────────────────────────
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
@@ -498,6 +570,7 @@ case "${1:-}" in
   "") _hook ;;
   refresh-indicators) _refresh_indicators ;;
   seed) shift; _seed "$@" ;;
-  -h | --help) sed -n '3,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  export) shift; _export "$@" ;;
+  -h | --help) sed -n '5,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac
