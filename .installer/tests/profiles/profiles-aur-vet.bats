@@ -160,3 +160,12 @@ SH
   _profiles_wire_paru_hook "$T/etc-paru.conf" create
   grep -qx "PreBuildCommand = /usr/local/bin/aur-vet" "$T/etc-paru.conf"
 }
+
+@test "install: a login hook runs aur-vet doctor for every user" {
+  _profiles_install_aur_vet
+  local f="$MOUNT_ROOT/etc/profile.d/aur-vet.sh"
+  [ -f "$f" ]
+  grep -q "/usr/local/bin/aur-vet doctor" "$f"
+  run sh -n "$f"
+  [ "$status" -eq 0 ]
+}

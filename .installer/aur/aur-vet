@@ -11,6 +11,8 @@
 #                              bulk-review declared AUR packages + AUR deps
 #   aur-vet export [--check] [repo-aur-dir]
 #                              merge the booted pin store into the repo
+#   aur-vet repin <pkgbase>    accept a legit maintainer transfer (sudo)
+#   aur-vet doctor             warn when a paru.conf drops the hook
 #   aur-vet audit              scan installed foreign packages (VMs only)
 #   aur-vet refresh-indicators pull community Indicator lists for review
 #
@@ -30,7 +32,8 @@ _SELF_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 if [[ ! -f "$_SELF_DIR/scan.awk" ]]; then
   unset AUR_VET_DATA AUR_VET_STORE AUR_VET_RPC_FIXTURE_DIR AUR_VET_NOW \
     AUR_VET_SUDO AUR_VET_INTERACTIVE AUR_VET_RETRY_DELAYS AUR_VET_GIT_BASE \
-    AUR_VET_REPO AUR_VET_AUDIT_ROOT AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL
+    AUR_VET_REPO AUR_VET_AUDIT_ROOT AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL \
+    AUR_VET_ETC_PARU_CONF
 fi
 
 _say() { printf 'aur-vet: %s\n' "$*" >&2; }
@@ -555,7 +558,140 @@ _audit() {
   _say "audit: clean"
 }
 
+# ── repin ───────────────────────────────────────────────────────────────────
+# Accept a legit maintainer transfer — the one critical the hook never lets
+# through (ADR 0143). Deliberate and interactive only: a fresh AUR clone is
+# evaluated like the hook does, the transition + diff since the Vetted Commit
+# are shown, and you type the new maintainer's name (case-insensitive; the
+# commit prefix when the name is outside the AUR's [A-Za-z0-9._-]). Any other
+# critical, or an unreachable RPC, still refuses.
+_repin() {
+  local base="${1:-}"
+  [[ -n "$base" ]] || _die "usage: aur-vet repin <pkgbase>"
+  _unattended && _die "repin is interactive — run it from a terminal"
+  local pin pcommit="" pmaint=""
+  pin="$(_pin_of "$base")"
+  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
+  if [[ -z "$pcommit" ]]; then
+    _say "${base}: no Vetted Commit to repin — review it via the hook"
+    return 1
+  fi
+  local work dir head
+  work="$(mktemp -d)"
+  # shellcheck disable=SC2064  # expand now: $work is local
+  trap "rm -rf '$work'" EXIT
+  dir="$work/$base"
+  git clone -q "${AUR_VET_GIT_BASE:-https://aur.archlinux.org}/$base.git" \
+    "$dir" || _die "${base}: clone failed"
+  head="$(git -C "$dir" rev-parse HEAD)"
+  local at="${base} @${head:0:12}"
+
+  _evaluate "$dir" "$base" "$pcommit" "$pmaint"
+  if ((_E_RPC_DOWN)); then
+    _say "${at}: ABORT — AUR RPC unreachable (no maintainer to record)"
+    return 1
+  fi
+  local id
+  for id in "${!_E_CRIT[@]}"; do
+    [[ "$id" == trust-maintainer-changed ]] && continue
+    _say "${at}: ABORT (${_E_TALLY}) — repin clears only a maintainer change"
+    return 1
+  done
+
+  local modified="unknown"
+  [[ -n "$_E_MODIFIED" ]] && modified="$(date -u -d "@$_E_MODIFIED" +%F)"
+  _say "${at}: maintainer ${pmaint:-none} -> ${_E_MAINT:-orphan}" \
+    "(AUR LastModified ${modified})"
+  if git -C "$dir" cat-file -e "${pcommit}^{commit}" 2>/dev/null; then
+    _review_diff "$dir" "$pcommit" "$head"
+  else
+    _say "Vetted Commit ${pcommit:0:12} not in history — full review"
+    _review_full "$dir"
+  fi
+
+  local want="$_E_MAINT" prompt ans
+  if [[ "$want" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    prompt="Type the new maintainer's name (${want}) to accept:"
+  else
+    want="${head:0:8}"
+    prompt="Type the first 8 characters of ${head:0:12} to accept:"
+  fi
+  printf 'aur-vet: %s ' "$prompt" >&2
+  read -r ans || ans=""
+  if [[ "${ans,,}" != "${want,,}" ]]; then
+    _say "${at}: ABORT — confirmation did not match; pin unchanged"
+    return 1
+  fi
+  _set_pin "$base" "$head" "$_E_MAINT" repinned
+  local -a rows=()
+  for id in "${!_E_SUSP[@]}"; do
+    _allowed "$base" "$head" "$id" && continue
+    rows+=("$(printf '%s\t%s\t%s\trepinned %s' \
+      "$base" "$head" "$id" "$(_today)")")
+  done
+  ((${#rows[@]} == 0)) || _allow_add "${rows[@]}"
+  _say "${at}: repinned to maintainer ${_E_MAINT:-orphan}"
+}
+
+# ── doctor ──────────────────────────────────────────────────────────────────
+# Login check (/etc/profile.d/aur-vet.sh): paru reads $PARU_CONF or the
+# user's own paru.conf *instead of* /etc/paru.conf, so any of them without
+# the hook runs AUR builds unvetted (ADR 0143). Silent when all is well.
+_HOOK_LINE="PreBuildCommand = /usr/local/bin/aur-vet"
+_doctor() {
+  local etc="${AUR_VET_ETC_PARU_CONF:-/etc/paru.conf}" f bad=0
+  local user="${XDG_CONFIG_HOME:-$HOME/.config}/paru/paru.conf"
+  for f in "${PARU_CONF:-}" "$user" "$etc"; do
+    [[ -n "$f" && -f "$f" ]] || continue
+    grep -Eq "^[[:space:]]*PreBuildCommand[[:space:]]*=[[:space:]]*\
+/usr/local/bin/aur-vet[[:space:]]*$" "$f" && continue
+    _say "WARNING: ${f} is without the AUR Vetting hook — AUR builds run" \
+      "unvetted. Add under [options]: ${_HOOK_LINE}"
+    bad=1
+  done
+  return "$bad"
+}
+
 # ── Hook mode ───────────────────────────────────────────────────────────────
+# Scan + trust one clone and print its findings. Shared by the hook and
+# repin; results land in _E_* globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY,
+# _E_RPC_DOWN, _E_MAINT (the AUR's current maintainer), _E_MODIFIED.
+_evaluate() {
+  local dir="$1" base="$2" pcommit="$3" pmaint="$4"
+  declare -gA _E_CRIT=() _E_SUSP=()
+  _E_RPC_DOWN=0; _E_MAINT="$pmaint"; _E_MODIFIED=""
+  # One RPC answer feeds both the trust signals and the Indicator window.
+  local json=""
+  json="$(_rpc_for "$dir" "$base")" || _E_RPC_DOWN=1
+  if ((!_E_RPC_DOWN)); then
+    _E_MODIFIED="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
+      == $b)][0].LastModified // empty' <<<"$json")"
+  fi
+  # Fail closed: an engine error must abort, never read as "no findings".
+  local out trust=""
+  out="$(_scan "$dir" "$base" "$_E_MODIFIED")" || _die "${base}: scan failed"
+  if ((!_E_RPC_DOWN)); then
+    trust="$(_trust "$json" "$base" "$pmaint" \
+      "$([[ -n "$pcommit" ]] && echo 1 || echo 0)")"
+  fi
+  [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
+  local -a findings=()
+  [[ -n "$out" ]] && mapfile -t findings <<<"$out"
+
+  local row sev id file ln desc crit=0 susp=0 info=0
+  for row in "${findings[@]}"; do
+    IFS=$'\t' read -r sev id file ln desc <<<"$row"
+    if [[ "$sev" == meta ]]; then _E_MAINT="$desc"; continue; fi
+    _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
+    case "$sev" in
+      critical) crit=$((crit + 1)); _E_CRIT["$id"]=1 ;;
+      suspicious) susp=$((susp + 1)); _E_SUSP["$id"]=1 ;;
+      *) info=$((info + 1)) ;;
+    esac
+  done
+  _E_TALLY="${crit} critical, ${susp} suspicious, ${info} info"
+}
+
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
   git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
@@ -568,39 +704,17 @@ _hook() {
   pin="$(_pin_of "$base")"
   [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
 
-  local -a findings=()
-  # One RPC answer feeds both the trust signals and the Indicator window.
-  local json="" rpc_down=0 modified=""
-  json="$(_rpc_for "$dir" "$base")" || rpc_down=1
-  if ((!rpc_down)); then
-    modified="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
-      == $b)][0].LastModified // empty' <<<"$json")"
-  fi
-  # Fail closed: an engine error must abort, never read as "no findings".
-  local out trust=""
-  out="$(_scan "$dir" "$base" "$modified")" || _die "${base}: scan failed"
-  if ((!rpc_down)); then
-    trust="$(_trust "$json" "$base" "$pmaint" \
-      "$([[ -n "$pcommit" ]] && echo 1 || echo 0)")"
-  fi
-  [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
-  [[ -n "$out" ]] && mapfile -t findings <<<"$out"
-
-  local row sev id file ln desc crit=0 susp=0 info=0 rpc_maint="$pmaint"
+  _evaluate "$dir" "$base" "$pcommit" "$pmaint"
+  local tally="$_E_TALLY" rpc_down="$_E_RPC_DOWN" rpc_maint="$_E_MAINT" id
   local -A suspicious=()
-  for row in "${findings[@]}"; do
-    IFS=$'\t' read -r sev id file ln desc <<<"$row"
-    if [[ "$sev" == meta ]]; then rpc_maint="$desc"; continue; fi
-    _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
-    case "$sev" in
-      critical) crit=$((crit + 1)) ;;
-      suspicious) susp=$((susp + 1)); suspicious["$id"]=1 ;;
-      *) info=$((info + 1)) ;;
-    esac
-  done
-  local tally="${crit} critical, ${susp} suspicious, ${info} info"
+  for id in "${!_E_SUSP[@]}"; do suspicious["$id"]=1; done
   _abort() { _say "${at}: ABORT (${tally}) — $1"; }
-  if ((crit)); then _abort "critical findings always abort"; return 1; fi
+  if ((${#_E_CRIT[@]})); then
+    _abort "critical findings always abort"
+    [[ -n "${_E_CRIT[trust-maintainer-changed]:-}" ]] \
+      && _say "legit maintainer transfer? review it: sudo aur-vet repin ${base}"
+    return 1
+  fi
   if ((rpc_down)); then
     if _unattended; then _abort "AUR RPC unreachable"; return 1; fi
     _ask "AUR RPC unreachable — continue without trust signals?" \
@@ -669,6 +783,8 @@ case "${1:-}" in
   seed) shift; _seed "$@" ;;
   export) shift; _export "$@" ;;
   audit) _audit ;;
-  -h | --help) sed -n '5,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  repin) shift; _repin "$@" ;;
+  doctor) _doctor ;;
+  -h | --help) sed -n '5,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

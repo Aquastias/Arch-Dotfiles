@@ -124,7 +124,8 @@ _profiles_stage_runtime() {
 
 # Install AUR Vetting into the target (ADR 0143): the command on PATH, its
 # engine + data under /usr/local/share/aur-vet, and the root-owned pin store
-# /etc/aur-vet seeded from the repo's Vetted Commits. Runs before any AUR
+# /etc/aur-vet seeded from the repo's Vetted Commits, plus the login check
+# /etc/profile.d/aur-vet.sh (`aur-vet doctor`). Runs before any AUR
 # Helper bootstrap, so the very first AUR build is vetted. Mandatory — not a
 # Program, never toggled.
 _profiles_install_aur_vet() {
@@ -135,6 +136,7 @@ _profiles_install_aur_vet() {
     install -m0644 "$src/$f" "$root/usr/local/share/aur-vet/$f"
   done
   install -m0644 "$src/vetted.tsv" "$src/allow.tsv" "$root/etc/aur-vet/"
+  install -Dm0644 "$src/profile.d-aur-vet.sh" "$root/etc/profile.d/aur-vet.sh"
 }
 
 # Point paru's PreBuildCommand at the vetter in <conf> (a system or per-user

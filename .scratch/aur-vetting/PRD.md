@@ -325,3 +325,15 @@ There is no bypass. Vetting guarantees nothing about fetched sources or
   pressure valve.
 - Landing on the `yay` rung after a transient paru failure blocks AUR
   installs for that run. That's accepted.
+
+## Addendum: repin + doctor (ticket 11)
+
+Decided after the first implementation pass:
+
+66. As the operator, I want `sudo aur-vet repin <pkgbase>` to accept a
+    legit maintainer transfer after reviewing the transition and the diff
+    and typing the new maintainer's name, so that a takeover can't be
+    waved through by a habitual `y`, yet real transfers aren't stuck.
+67. As the operator, I want a login warning when any paru.conf that
+    overrides `/etc/paru.conf` lacks the hook, so that AUR builds never
+    silently run unvetted.

@@ -150,3 +150,11 @@ Choices made while building it, beyond the decision above:
     suspicious until re-accepted, so the maintainer check can't lapse.
   - The system `paru.conf` is created if missing, so paru never runs
     unhooked.
+- A maintainer change stays critical in the hook. The only way to accept
+  a legit transfer is `sudo aur-vet repin <pkgbase>` (interactive): it
+  shows the transition + diff and wants the new maintainer's name typed.
+  AUR usernames are ASCII (`[A-Za-z0-9._-]`, aurweb `valid_username`); a
+  name outside that falls back to the new commit's first 8 characters.
+- No per-user paru.conf ships. `aur-vet doctor`, run at every login by
+  `/etc/profile.d/aur-vet.sh`, warns when `$PARU_CONF`, the user's
+  paru.conf or `/etc/paru.conf` lacks the hook.
