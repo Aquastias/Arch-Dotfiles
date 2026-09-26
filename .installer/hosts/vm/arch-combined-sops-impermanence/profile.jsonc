@@ -1,0 +1,52 @@
+// Host Profile for vm/arch-combined-sops-impermanence — arch-combined (KDE +
+// niri + Hyprland, one $HOME; ADR 0104) plus the secure path's SOPS +
+// impermanence, on the single-disk skeleton. Exercises both on a full desktop
+// userland: the host secrets.json (Test Age Key, fetched via age_key_url)
+// forces the Secrets Module + sops Program, and the ephemeral root proves the
+// desktop survives the @blank rollback. Encryption stays off so a failure
+// isolates to SOPS / impermanence, not ZFS native crypto (arch-secure covers
+// all three on a mirror).
+{
+  "system": {
+    "locale":   "en_US.UTF-8",
+    "keymap":   "us"
+  },
+
+  "options": {
+    "kernel":     "lts",
+    "bootloader": "systemd-boot",
+    "encryption": false,
+    "swap":       true,
+    "swap_size":  "auto",
+
+    "impermanence": {
+      "enabled": true,
+      "dataset": "rpool/persist",
+      "mount":   "/persist"
+    },
+
+    "age_key_url": "http://192.168.122.1:9876/key.age"
+  },
+
+  "environment": {
+    "desktop":       ["kde", "niri", "hyprland"],
+    "wayland_shell": "noctalia",
+    "gpu":           "auto"
+  },
+
+  "post_install": {
+    "security": {
+      "firewall":  "firewalld",
+      "antivirus": true,
+      "rootkit":   true,
+      "apparmor":  true
+    },
+    "backup": { "zfs_auto_snapshot": true, "borg": true }
+  },
+
+  "users": ["aquastias"],
+  "host_programs": [],
+
+  "mode":   "single",
+  "ashift": 13
+}

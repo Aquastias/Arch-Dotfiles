@@ -21,7 +21,7 @@ setup() {
   # the test paths win their match. regenerate.sh updates the test rule's age.
   cat > "$TEST_DIR/.sops.yaml" <<'YAML'
 creation_rules:
-  - path_regex: ^\.installer/(hosts/vm/arch-secure|users/vm/test)/secrets\.json$
+  - path_regex: ^\.installer/(hosts|users)/vm/[^/]+/secrets\.json$
     age: >-
       age1placeholderplaceholderplaceholderplaceholderplaceholder
   - path_regex: (users|hosts)/[^/]+/secrets\.json$
@@ -46,11 +46,11 @@ _decrypt_key_age() {
     | sed -n 's/\r$//; /AGE-SECRET-KEY-1/p'
 }
 
-# The arch-secure rule's age recipient (no python): the age1… line following the
-# arch-secure path_regex block.
+# The VM-fixture rule's age recipient (no python): the age1… line after the
+# `/vm/` path_regex block.
 _sops_yaml_test_recipient() {
   awk '
-    /path_regex:.*arch-secure/ { found = 1; next }
+    /path_regex:.*\/vm\// { found = 1; next }
     found && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
       gsub(/[[:space:]]/, ""); print; exit
     }
@@ -129,6 +129,21 @@ setup_file() { :; }
     "$TEST_DIR/.installer/users/vm/test/secrets.json")"
   [[ "$host_dec" == *root_password* ]]
   [[ "$user_dec" == *ssh_identity_key_type* ]]
+
+  rm -rf "$TMP_SOPS"
+}
+
+@test "regenerate.sh re-keys every hosts/vm/*/secrets.json fixture" {
+  TMP_SOPS="$(mktemp -d)"
+  local extra="$TEST_DIR/.installer/hosts/vm/arch-extra/secrets.json"
+  mkdir -p "$(dirname "$extra")"
+  printf '{"root_password":"vmtest"}\n' > "$extra"
+
+  bash "$REGEN"
+
+  local dec
+  dec="$(_sops_decrypt_with_test_key "$extra")"
+  [[ "$dec" == *root_password* ]]
 
   rm -rf "$TMP_SOPS"
 }

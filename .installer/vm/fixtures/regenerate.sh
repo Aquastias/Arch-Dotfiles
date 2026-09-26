@@ -21,10 +21,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PASSPHRASE="test"
 KEY_AGE="$REPO_ROOT/.installer/vm/fixtures/key.age"
 SOPS_YAML="$REPO_ROOT/.sops.yaml"
+# Every VM fixture secrets.json — all keyed to the Test Age Key by the
+# .sops.yaml `(hosts|users)/vm/` rule.
+shopt -s nullglob
 SECRETS_FILES=(
-  "$REPO_ROOT/.installer/hosts/vm/arch-secure/secrets.json"
-  "$REPO_ROOT/.installer/users/vm/test/secrets.json"
+  "$REPO_ROOT"/.installer/hosts/vm/*/secrets.json
+  "$REPO_ROOT"/.installer/users/vm/*/secrets.json
 )
+shopt -u nullglob
+[[ ${#SECRETS_FILES[@]} -gt 0 ]] \
+  || { echo "regenerate.sh: no VM secrets.json fixtures found" >&2; exit 1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -51,14 +57,14 @@ script -qc "age -p -o '$KEY_AGE' '$TMP/new.txt'" /dev/null \
 
 # 3. Update the test rule's age recipient in .sops.yaml. Targeted awk edit
 #    (no python, repo policy): rewrite only the `age1…` line that follows the
-#    arch-secure `path_regex` block; the operator placeholder rule is preserved
-#    byte-for-byte. Non-zero when the test rule can't be found.
+#    VM-fixture (`/vm/`) `path_regex` block; the operator placeholder rule is
+#    preserved byte-for-byte. Non-zero when the test rule can't be found.
 awk -v pub="$PUB" '
   found && !done && /^[[:space:]]*age1[a-z0-9]+[[:space:]]*$/ {
     match($0, /^[[:space:]]*/); print substr($0, 1, RLENGTH) pub
     done = 1; found = 0; next
   }
-  /path_regex:.*arch-secure/ { found = 1 }
+  /path_regex:.*\/vm\// { found = 1 }
   { print }
   END { if (!done) exit 3 }
 ' "$SOPS_YAML" > "$SOPS_YAML.tmp" \

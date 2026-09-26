@@ -1,0 +1,21 @@
+// Persistent VM: arch-combined (KDE + niri + Hyprland) + SOPS + impermanence,
+// single disk. References host arch-combined-sops-impermanence, whose host
+// secrets.json (Test Age Key) drives the Secrets Module and whose
+// options.impermanence gives the ephemeral root.
+//
+// Test Age Key: vm/fixtures/key.age, passphrase "test" — staged + served at
+// http://192.168.122.1:9876/key.age; type `test` at the age prompt.
+//
+// Manual post-reboot checklist (log in as aquastias):
+//   - zfs list -t snapshot rpool | grep @blank — 5 datasets with @blank
+//   - mount | grep /persist — Persist Dataset mounted
+//   - systemctl status sops-runtime.service — green, decrypted on boot
+//   - ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub — same across reboot
+//   - touch /etc/imp-probe; reboot — file gone, sessions still log in
+{
+  "name": "arch-combined-sops-impermanence",
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+  "host_profile": "arch-combined-sops-impermanence",
+  "layout": { "mode": "single" },
+  "fixtures": ["fixtures/key.age"]
+}

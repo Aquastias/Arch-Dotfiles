@@ -45,6 +45,10 @@ resolved effective config to stdout without touching libvirt.
 | `desktop/kde` | `arch-kde` | 1 × 60 GiB | 8 GiB | KDE Plasma 6 + SDDM |
 | `headless/secure` | `arch-secure` | 2 × 40 GiB (mirror) | 6 GiB | none (headless) |
 
+`desktop/combined-sops-impermanence` (VM `arch-combined-sops-impermanence`,
+1 × 60 GiB, 8 GiB) is `arch-combined` plus SOPS + impermanence; type `test`
+at the Age-key passphrase prompt, as for `headless/secure`.
+
 Each profile names its install config via one source: a `host_profile`
 reference (resolved through the unified Profile Loader — one source of
 truth), an inline `install` block, or `"install": "repo"` (the repo's
