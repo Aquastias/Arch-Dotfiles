@@ -139,3 +139,11 @@ aurvet_rpc() {
   jq -n --argjson r "$j" '{ resultcount: 1, results: [$r], type: "multiinfo",
     version: 5 }' > "$AUR_VET_RPC_FIXTURE_DIR/$base.json"
 }
+
+# Publish fixture <name> as a local AUR git remote at
+# $AUR_VET_GIT_BASE/<name>.git (seed clones from there).
+aurvet_remote() {
+  local src; src="$(aurvet_clone "$1")"
+  mkdir -p "$AUR_VET_GIT_BASE"
+  command mv "$src" "$AUR_VET_GIT_BASE/$1.git"
+}

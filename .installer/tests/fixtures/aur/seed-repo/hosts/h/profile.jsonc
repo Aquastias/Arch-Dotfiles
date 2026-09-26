@@ -1,0 +1,7 @@
+{
+  // Seed fixture: a host declaring AUR packages (Categorized List).
+  "packages": {
+    "repo": { "base": ["ripgrep"] },
+    "aur": { "misc": ["electron-benign", "rust-benign"] }
+  }
+}

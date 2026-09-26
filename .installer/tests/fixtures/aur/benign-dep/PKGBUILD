@@ -1,0 +1,19 @@
+# An AUR dependency of electron-benign (seed recursion).
+pkgname=benign-dep
+pkgver=1.0
+pkgrel=1
+arch=('x86_64')
+url="https://github.com/benign-dep/benign-dep"
+license=('MIT')
+source=("https://github.com/benign-dep/benign-dep/archive/v$pkgver.tar.gz")
+sha256sums=('2222222222222222222222222222222222222222222222222222222222222222')
+
+build() {
+  cd "$srcdir/benign-dep-$pkgver"
+  make
+}
+
+package() {
+  cd "$srcdir/benign-dep-$pkgver"
+  make DESTDIR="$pkgdir" install
+}

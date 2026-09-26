@@ -194,33 +194,36 @@ _ask() {
 _RPC_URL="https://aur.archlinux.org/rpc/v5/info"
 _TRUST_WINDOW=$((14 * 86400))
 
-# One RPC `info` answer for <pkgbase> (queried by <pkgname>). Tests serve
-# <pkgbase>.json from AUR_VET_RPC_FIXTURE_DIR instead of the network.
+# One RPC `info` answer for <pkgbase> (queried by <pkgname>), valid JSON or
+# failure. Tests serve <pkgbase>.json from AUR_VET_RPC_FIXTURE_DIR instead.
 _rpc_fetch() {
+  local out
   if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
-    cat "$AUR_VET_RPC_FIXTURE_DIR/$1.json" 2>/dev/null
-    return
+    out="$(cat "$AUR_VET_RPC_FIXTURE_DIR/$1.json" 2>/dev/null)" || return 1
+  else
+    out="$(curl -fsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}")" \
+      || return 1
   fi
-  curl -fsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}"
+  jq -e '.results | type == "array"' >/dev/null 2>&1 <<<"$out" || return 1
+  printf '%s\n' "$out"
 }
 
-# Retry with backoff (ADR 0052 pattern): AUR_VET_RETRY_DELAYS is the CSV of
-# per-gap seconds. Non-zero when every attempt failed.
-_rpc_info() {
+# Run <cmd...> with the RPC retry policy (ADR 0052 pattern):
+# AUR_VET_RETRY_DELAYS is the CSV of per-gap seconds. Prints the output of
+# the first success; non-zero when every attempt failed.
+_rpc_retry() {
   local -a delays
   IFS=, read -ra delays <<<"${AUR_VET_RETRY_DELAYS:-3,10}"
   local tries=$((${#delays[@]} + 1)) i out
   for ((i = 1; i <= tries; i++)); do
-    if out="$(_rpc_fetch "$1" "$2")" \
-       && jq -e '.results | type == "array"' >/dev/null 2>&1 <<<"$out"; then
-      printf '%s\n' "$out"
-      return 0
-    fi
+    if out="$("$@")"; then printf '%s\n' "$out"; return 0; fi
     _say "RPC attempt ${i}/${tries} failed"
     ((i < tries)) && sleep "${delays[i - 1]:-0}"
   done
   return 1
 }
+
+_rpc_info() { _rpc_retry _rpc_fetch "$@"; }
 
 # Trust findings (scan TSV shape, file "AUR") for <dir> <pkgbase> against
 # the pin's <maintainer> (<pinned> 1|0), plus a `meta maintainer` row with
@@ -261,6 +264,135 @@ _trust() {
   [[ -n "$ood" ]] && _t trust-out-of-date
   ((votes < 3)) && _t trust-low-votes "${votes}"
   return 0
+}
+
+# ── seed ────────────────────────────────────────────────────────────────────
+# One-time bulk review: every AUR package the repo declares plus its AUR
+# dependencies, each through the hook's interactive review, pinned on
+# accept. Operator-side (needs the repo checkout); resumable — bases that
+# already have a pin are skipped.
+_seed_repo() { printf '%s' "${AUR_VET_REPO:-$_SELF_DIR/..}"; }
+
+# Every AUR name the repo declares, one per line (repeats allowed): host
+# packages.aur, DE adapter `aur` lists, AUR fonts, and each name after
+# `${AUR_HELPER} -S` in a User Program (its repo names drop out at the RPC).
+_declared_aur() {
+  local repo f; repo="$(_seed_repo)"
+  [[ -d "$repo/hosts" ]] \
+    || _die "seed: no installer repo at ${repo} — pass package names"
+  # shellcheck source=../lib/jsonc.sh
+  source "$repo/lib/jsonc.sh"
+  # Categorized List leaves: string arrays (hosts) or { name: true } toggles
+  # (adapters); a false toggle is off.
+  local leaves='def leaves: if type == "array" then .[] | strings
+    elif type == "object" then to_entries[]
+      | if .value == true then .key else (.value | leaves) end
+    else empty end; leaves'
+  for f in "$repo"/hosts/*/profile.jsonc "$repo"/hosts/*/*/profile.jsonc; do
+    [[ -f "$f" ]] || continue
+    jsonc_strip "$f" | jq -r ".packages.aur // {} | $leaves"
+  done
+  for f in "$repo"/extras/desktop/*/install-*.jsonc; do
+    [[ -f "$f" ]] && jsonc_strip "$f" | jq -r ".aur // {} | $leaves"
+  done
+  sed -n 's/^[[:space:]]*"\([^|"]*\)|aur|[a-z]*"$/\1/p' \
+    "$repo/lib/config/fonts.sh" 2>/dev/null || true
+  for f in "$repo"/programs/*/*/install.sh; do
+    [[ -f "$f" ]] || continue
+    awk '
+      /\\$/ { held = held substr($0, 1, length($0) - 1) " "; next }
+      { l = held $0; held = "" }
+      l ~ /[$][{]?AUR_HELPER[}]?/ {
+        sub(/.*[$][{]?AUR_HELPER[}]?/, "", l); sub(/[;&|#].*/, "", l)
+        n = split(l, t, /[[:space:]]+/)
+        for (i = 1; i <= n; i++)
+          if (t[i] ~ /^[a-z0-9@_+][a-z0-9@._+-]*$/) print t[i]
+      }' "$f"
+  done
+}
+
+# RPC `info` results for <names...> as {"results": [...]}, 100 per request
+# with retries. Fixture mode serves <name>.json per queried name.
+_rpc_query() {
+  if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
+    local n
+    for n; do cat "$AUR_VET_RPC_FIXTURE_DIR/$n.json" 2>/dev/null || true; done \
+      | jq -s '{ results: [.[].results[]] }'
+    return
+  fi
+  local -a all=("$@") chunk
+  local i q parts=""
+  for ((i = 0; i < ${#all[@]}; i += 100)); do
+    chunk=("${all[@]:i:100}")
+    q="$(printf 'arg%%5B%%5D=%s&' "${chunk[@]//+/%2B}")"
+    parts+="$(_rpc_retry curl -fsS --max-time 30 "${_RPC_URL}?${q%&}")" \
+      || return 1
+    parts+=$'\n'
+  done
+  jq -s '{ results: [.[].results[]] }' <<<"$parts"
+}
+
+# Package bases for <names...> plus their AUR depends/makedepends/
+# checkdepends, recursively, in discovery order. Names the AUR doesn't know
+# (repo packages) drop out; so do virtual deps only an AUR provider supplies
+# — the paru hook still vets those at install time.
+_seed_resolve() {
+  local -A seen_name=() seen_base=()
+  local -a queue=() next=()
+  local n b deps json
+  for n; do
+    [[ -n "${seen_name[$n]:-}" ]] && continue
+    seen_name[$n]=1; queue+=("$n")
+  done
+  while ((${#queue[@]})); do
+    json="$(_rpc_query "${queue[@]}")" || _die "seed: AUR RPC unreachable"
+    next=()
+    while IFS=$'\t' read -r b deps; do
+      [[ -n "$b" && -z "${seen_base[$b]:-}" ]] \
+        && { seen_base[$b]=1; printf '%s\n' "$b"; }
+      for n in $deps; do
+        n="${n%%[<>=]*}"
+        [[ -n "${seen_name[$n]:-}" ]] && continue
+        seen_name[$n]=1; next+=("$n")
+      done
+    done < <(jq -r '.results[] | [.PackageBase, ((.Depends // [])
+      + (.MakeDepends // []) + (.CheckDepends // []) | join(" "))] | @tsv' \
+      <<<"$json")
+    queue=("${next[@]+"${next[@]}"}")
+  done
+}
+
+_seed() {
+  local list=0
+  [[ "${1:-}" == --list ]] && { list=1; shift; }
+  local -a names=() bases=()
+  if (($#)); then names=("$@")
+  else mapfile -t names < <(_declared_aur | sort -u); fi
+  ((${#names[@]})) || { _say "seed: nothing declared"; return 0; }
+  mapfile -t bases < <(_seed_resolve "${names[@]}")
+  if ((list)); then
+    ((${#bases[@]} == 0)) || printf '%s\n' "${bases[@]}"
+    return 0
+  fi
+  local work b ok=0 skipped=0
+  local -a rejected=()
+  work="$(mktemp -d)"
+  # shellcheck disable=SC2064  # expand now: $work is local
+  trap "rm -rf '$work'" EXIT
+  for b in "${bases[@]}"; do
+    if [[ -n "$(_pin_of "$b")" ]]; then skipped=$((skipped + 1)); continue; fi
+    if ! git clone -q "${AUR_VET_GIT_BASE:-https://aur.archlinux.org}/$b.git" \
+         "$work/$b"; then
+      rejected+=("${b}(clone failed)"); continue
+    fi
+    if (cd "$work/$b" && PKGBASE="$b" _hook); then ok=$((ok + 1))
+    else rejected+=("$b"); fi
+  done
+  _say "seed: pinned ${ok}, skipped ${skipped} (already pinned)"
+  if ((${#rejected[@]})); then
+    _say "seed: rejected: ${rejected[*]}"
+    return 1
+  fi
 }
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
@@ -365,6 +497,7 @@ _hook() {
 case "${1:-}" in
   "") _hook ;;
   refresh-indicators) _refresh_indicators ;;
+  seed) shift; _seed "$@" ;;
   -h | --help) sed -n '3,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

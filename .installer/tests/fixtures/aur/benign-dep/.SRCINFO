@@ -1,0 +1,10 @@
+pkgbase = benign-dep
+	pkgver = 1.0
+	pkgrel = 1
+	url = https://github.com/benign-dep/benign-dep
+	arch = x86_64
+	license = MIT
+	source = https://github.com/benign-dep/benign-dep/archive/v1.0.tar.gz
+	sha256sums = 2222222222222222222222222222222222222222222222222222222222222222
+
+pkgname = benign-dep
