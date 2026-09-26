@@ -647,10 +647,13 @@ _doctor() {
   local user="${XDG_CONFIG_HOME:-$HOME/.config}/paru/paru.conf"
   for f in "${PARU_CONF:-}" "$user" "$etc"; do
     [[ -n "$f" && -f "$f" ]] || continue
-    grep -Eq "^[[:space:]]*PreBuildCommand[[:space:]]*=[[:space:]]*\
-/usr/local/bin/aur-vet[[:space:]]*$" "$f" && continue
+    # paru parses PreBuildCommand only in [bin]; anywhere else it is ignored.
+    awk '/^[[:space:]]*\[/ { s = $0; gsub(/[[:space:]]/, "", s) }
+      s == "[bin]" && /^[[:space:]]*PreBuildCommand[[:space:]]*=[[:space:]]*\
+\/usr\/local\/bin\/aur-vet[[:space:]]*$/ { hit = 1 }
+      END { exit !hit }' "$f" && continue
     _say "WARNING: ${f} is without the AUR Vetting hook — AUR builds run" \
-      "unvetted. Add under [options]: ${_HOOK_LINE}"
+      "unvetted. Add under [bin]: ${_HOOK_LINE}"
     bad=1
   done
   return "$bad"

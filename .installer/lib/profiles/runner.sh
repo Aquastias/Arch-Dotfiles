@@ -140,20 +140,21 @@ _profiles_install_aur_vet() {
 }
 
 # Point paru's PreBuildCommand at the vetter in <conf> (a system or per-user
-# paru.conf): drop any other PreBuildCommand, set ours under [options]. paru
-# reads a user's own paru.conf *instead of* /etc/paru.conf, so each one must
-# carry the hook (ADR 0143). Idempotent; a missing file is a no-op unless
-# `create` is passed (the system paru.conf).
+# paru.conf): drop any other PreBuildCommand, set ours under [bin] — the only
+# section paru parses it in (src/config.rs parse_bin; under [options] it is
+# an "unknown option" and builds run unhooked). paru reads a user's own
+# paru.conf *instead of* /etc/paru.conf, so each one must carry the hook
+# (ADR 0143). Idempotent; a missing file is a no-op unless `create` is passed
+# (the system paru.conf).
 _profiles_wire_paru_hook() {
   local conf="$1" line="PreBuildCommand = ${_PROFILES_AUR_VET_BIN}"
-  # `create`: the system config must exist, or paru runs unhooked.
-  [[ "${2:-}" == create && ! -f "$conf" ]] && printf '[options]\n' > "$conf"
+  [[ "${2:-}" == create && ! -f "$conf" ]] && : > "$conf"
   [[ -f "$conf" ]] || return 0
   awk -v hook="$line" '
     /^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*=/ { next }
     { print }
-    /^\[options\][[:space:]]*$/ && !done { print hook; done = 1 }
-    END { if (!done) { print "[options]"; print hook } }' "$conf" \
+    /^\[bin\][[:space:]]*$/ && !done { print hook; done = 1 }
+    END { if (!done) { print ""; print "[bin]"; print hook } }' "$conf" \
     > "${conf}.new"
   cat "${conf}.new" > "$conf"
   rm -f "${conf}.new"

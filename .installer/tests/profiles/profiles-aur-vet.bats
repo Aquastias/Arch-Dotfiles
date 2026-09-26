@@ -120,22 +120,25 @@ SH
 
 # ── paru hook wiring ────────────────────────────────────────────────────────
 
-@test "paru.conf: the hook lands under [options], replacing any other" {
-  printf '[options]\nBottomUp\n#PreBuildCommand = foo\n\n[bin]\nSudo = doas\n' \
+@test "paru.conf: the hook lands under [bin], replacing any other" {
+  # paru parses PreBuildCommand only in [bin]; under [options] it is an
+  # "unknown option" and the build runs unhooked (seen in a VM run).
+  printf '[options]\nBottomUp\nPreBuildCommand = foo\n\n[bin]\nSudo = doas\n' \
     > "$T/paru.conf"
   _profiles_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
-  [ "$(sed -n 2p "$T/paru.conf")" = \
-    "PreBuildCommand = /usr/local/bin/aur-vet" ]
+  [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
+    "$T/paru.conf")" = "[bin]" ]
   _profiles_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
 }
 
-@test "paru.conf: a config without [options] gains one" {
-  printf '[bin]\nSudo = doas\n' > "$T/paru.conf"
+@test "paru.conf: a config without [bin] gains one (a #[bin] doesn't count)" {
+  printf '[options]\nBottomUp\n\n#[bin]\n#Sudo = doas\n' > "$T/paru.conf"
   _profiles_wire_paru_hook "$T/paru.conf"
-  grep -qx "PreBuildCommand = /usr/local/bin/aur-vet" "$T/paru.conf"
-  grep -qx '\[options\]' "$T/paru.conf"
+  [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
+    "$T/paru.conf")" = "[bin]" ]
+  grep -qx 'BottomUp' "$T/paru.conf"
 }
 
 @test "paru.conf: every paru.conf shipped in the repo carries the hook" {

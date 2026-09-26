@@ -96,7 +96,7 @@ _doctor() {
 
 @test "doctor: silent when only a hooked /etc/paru.conf exists" {
   mkdir -p "$T/home"
-  printf '[options]\nPreBuildCommand = /usr/local/bin/aur-vet\n' \
+  printf '[bin]\nPreBuildCommand = /usr/local/bin/aur-vet\n' \
     > "$T/etc-paru.conf"
   _doctor
   [ "$status" -eq 0 ]
@@ -106,7 +106,7 @@ _doctor() {
 @test "doctor: warns about a user paru.conf without the hook" {
   mkdir -p "$T/home/.config/paru"
   printf '[options]\nBottomUp\n' > "$T/home/.config/paru/paru.conf"
-  printf '[options]\nPreBuildCommand = /usr/local/bin/aur-vet\n' \
+  printf '[bin]\nPreBuildCommand = /usr/local/bin/aur-vet\n' \
     > "$T/etc-paru.conf"
   _doctor
   [ "$status" -eq 1 ]
@@ -121,4 +121,12 @@ _doctor() {
     PARU_CONF="$T/custom.conf" "$AUR_VET_SRC/aur-vet" doctor
   [ "$status" -eq 1 ]
   [[ "$output" == *"custom.conf"* && "$output" == *"etc-paru.conf"* ]]
+}
+
+@test "doctor: a hook under [options] (ignored by paru) is a warning" {
+  mkdir -p "$T/home"
+  printf '[options]\nPreBuildCommand = /usr/local/bin/aur-vet\n' \
+    > "$T/etc-paru.conf"
+  _doctor
+  [ "$status" -eq 1 ]
 }
