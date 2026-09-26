@@ -6,7 +6,7 @@
 // Unencrypted single-disk so the installed system boot-verifies headlessly. The
 // guided seed pre-ticks the secure baseline (firewalld + clamav + rkhunter +
 // apparmor and zfs-auto-snapshot + borg); guided_extras drives the categories:
-//   - users=vm-test re-picks a MINIMAL committed user as users[0] (no user
+//   - users=test re-picks a MINIMAL committed user as users[0] (no user
 //     programs), so only the host Security/Backup Extras install via that user's
 //     paru pass — not aquastias's full program set (ADR 0041, issue 04 M4).
 //   - answers toggle the Backup category OFF (borg=false, zfs_snapshot=false) —
@@ -35,7 +35,7 @@
       "swap_size":  "auto"
     },
     "guided_extras": {
-      "users": "vm-test",
+      "users": "test",
       "answers": { "borg": "false", "zfs_snapshot": "false" },
       "verify": [
         "firewalld.service",

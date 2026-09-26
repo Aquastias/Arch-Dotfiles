@@ -487,10 +487,16 @@ write_jsonc() {
   local u n j
   for u in "$INSTALLER_DIR"/users/*/; do
     n="$(basename "$u")"
-    [ "$n" = core ] && continue
+    { [ "$n" = core ] || [ "$n" = vm ]; } && continue
     j="$(load_user_profile "$n")" || { echo "load user $n failed"; return 1; }
     run validate_config_schema user "$j"
     [ "$status" -eq 0 ] || { echo "user $n: $output"; return 1; }
+  done
+  for u in "$INSTALLER_DIR"/users/vm/*/; do
+    n="$(basename "$u")"
+    j="$(load_user_profile "$n")" || { echo "load user vm/$n failed"; return 1; }
+    run validate_config_schema user "$j"
+    [ "$status" -eq 0 ] || { echo "user vm/$n: $output"; return 1; }
   done
 }
 
@@ -507,7 +513,7 @@ write_jsonc() {
 # ── migration tracer: arch-data is the first host on profile.jsonc ──────────
 # Equivalence guard (ADR 0036): the migrated profile.jsonc must preserve every
 # field the pre-migration (template-less) synthesis produced — captured below
-# as software-only { sysctl, host_programs:[cups], users:[vm-data] } — while
+# as software-only { sysctl, host_programs:[cups], users:[data] } — while
 # adding the machine skeleton (disks excluded; picked at install). No
 # host_profile; validates against the closed schema.
 
@@ -518,7 +524,7 @@ write_jsonc() {
   # software preserved from the legacy synthesis (core + arch-data). cups left
   # core (ADR 0079) — it is toggle-derived and injected at assembly, not present
   # in the loaded (pre-assembly) profile — so host_programs is empty here.
-  echo "$j" | jq -e '.users == ["vm-data"]'
+  echo "$j" | jq -e '.users == ["data"]'
   echo "$j" | jq -e '(.host_programs // []) == []'
   echo "$j" | jq -e '.sysctl == {"vm.swappiness":10}'
 

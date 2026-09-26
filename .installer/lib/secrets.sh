@@ -34,14 +34,16 @@ secrets_load() {
 
   # Scope user secrets to the users this host declares (mirrors run_profiles'
   # .users[]), not every users/*/secrets.json in the repo. Otherwise a
-  # committed fixture such as users/vm-test/secrets.json would force every
+  # committed fixture such as users/vm/test/secrets.json would force every
   # host to demand an age key. When load_profile is unavailable (unit
   # tests sourcing this file standalone) no users are scoped in.
   local host_json="" u uf
   if host_json="$(load_profile "$profile" 2>/dev/null)"; then
     while IFS= read -r u; do
       [[ -n "$u" ]] || continue
+      # VM users live under users/vm/<name>/ (fallback mirrors _profile_load).
       uf="${INSTALLER_DIR}/users/${u}/secrets.json"
+      [[ -f "$uf" ]] || uf="${INSTALLER_DIR}/users/vm/${u}/secrets.json"
       [[ -f "$uf" ]] && { user_secs+=("$uf"); user_names+=("$u"); }
     done < <(printf '%s' "$host_json" | jq -r '.users[]?')
   fi

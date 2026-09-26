@@ -4,7 +4,7 @@
 # Runs regenerate.sh against an isolated REPO_ROOT temp workspace so the
 # committed fixtures under .installer/vm/fixtures,
 # .installer/hosts/vm/arch-secure and
-# .installer/users/vm-test are never mutated.
+# .installer/users/vm/test are never mutated.
 
 REGEN="$BATS_TEST_DIRNAME/../../vm/fixtures/regenerate.sh"
 PASSPHRASE="test"
@@ -15,13 +15,13 @@ setup() {
   mkdir -p \
     "$TEST_DIR/.installer/vm/fixtures" \
     "$TEST_DIR/.installer/hosts/vm/arch-secure" \
-    "$TEST_DIR/.installer/users/vm-test"
+    "$TEST_DIR/.installer/users/vm/test"
 
   # .sops.yaml with the test rule placed before the operator placeholder so
   # the test paths win their match. regenerate.sh updates the test rule's age.
   cat > "$TEST_DIR/.sops.yaml" <<'YAML'
 creation_rules:
-  - path_regex: ^\.installer/(hosts/vm/arch-secure|users/vm-test)/secrets\.json$
+  - path_regex: ^\.installer/(hosts/vm/arch-secure|users/vm/test)/secrets\.json$
     age: >-
       age1placeholderplaceholderplaceholderplaceholderplaceholder
   - path_regex: (users|hosts)/[^/]+/secrets\.json$
@@ -34,7 +34,7 @@ YAML
   printf '{"root_password":"vmtest"}\n' \
     > "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json"
   printf '{"password":"vmtest","ssh_identity_key_type":"ed25519"}\n' \
-    > "$TEST_DIR/.installer/users/vm-test/secrets.json"
+    > "$TEST_DIR/.installer/users/vm/test/secrets.json"
 }
 
 teardown() { rm -rf "$TEST_DIR"; }
@@ -102,7 +102,7 @@ setup_file() { :; }
   host_dec="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
   user_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.installer/users/vm-test/secrets.json")"
+    "$TEST_DIR/.installer/users/vm/test/secrets.json")"
 
   [[ "$host_dec" == *root_password* ]]
   [[ "$user_dec" == *ssh_identity_key_type* ]]
@@ -126,7 +126,7 @@ setup_file() { :; }
   host_dec="$(_sops_decrypt_with_test_key \
     "$TEST_DIR/.installer/hosts/vm/arch-secure/secrets.json")"
   user_dec="$(_sops_decrypt_with_test_key \
-    "$TEST_DIR/.installer/users/vm-test/secrets.json")"
+    "$TEST_DIR/.installer/users/vm/test/secrets.json")"
   [[ "$host_dec" == *root_password* ]]
   [[ "$user_dec" == *ssh_identity_key_type* ]]
 

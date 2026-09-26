@@ -53,7 +53,7 @@
   // core's users and sysctl. Cheaper than an exclude list that would need
   // updating every time Host Core grows.
   "packages": { "inherit": false },
-  "users": ["vm-test"],
+  "users": ["test"],
   "host_programs": [],
 
   "mode": "multi",

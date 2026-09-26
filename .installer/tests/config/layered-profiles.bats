@@ -272,7 +272,7 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
 
 @test "the throwaway test users exclude User Core's programs" {
   local u
-  for u in vm-test vm-data; do
+  for u in test data; do
     run load_user_profile "$u"
     [ "$status" -eq 0 ]
     echo "$output" | jq -e '.programs | index("docker") | not'
@@ -300,6 +300,6 @@ host_programs_of() { load_profile "$1" | jq -r '.host_programs // [] | .[]'; }
     echo "$output" | jq -e '(.packages // {}) | has("exclude") | not'
     echo "$output" | jq -e 'has("host_programs_exclude") | not'
   done
-  run load_user_profile vm-test
+  run load_user_profile test
   echo "$output" | jq -e 'has("programs_exclude") | not'
 }

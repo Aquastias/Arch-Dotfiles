@@ -2,10 +2,10 @@
 //   /dev/sda → rpool (OS, topology=none, single disk)
 //   /dev/sdb → tank0 (single-disk stripe)
 //   /dev/sdc + /dev/sdd → tank1 (2-disk mirror)
-// users:[vm-data] makes vm-data the Primary User, so pool-owners (owners
+// users:[data] makes data the Primary User, so pool-owners (owners
 // omitted) gives the /data pools to that user. verify.boot runs the pool verifier; the
 // sentinel fires only when every pool imported, every data dataset mounted,
-// every leaf vdev resolves via by-id, and each pool is owned by vm-data.
+// every leaf vdev resolves via by-id, and each pool is owned by data.
 {
   "name": "arch-zfs-test-multi-data-pools",
   "hardware": { "disks": [20, 20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
@@ -28,7 +28,7 @@
       "security": false,
       "desktop": { "kde": false }
     },
-    "users": ["vm-data"],
+    "users": ["data"],
     "mode": "multi",
     "os_pool": {
       "pool_name": "rpool",
@@ -47,6 +47,6 @@
     "by_id":  true,
     "pools":  ["rpool", "tank0", "tank1"],
     "mounts": ["tank0/data:/data/tank0", "tank1/data:/data/tank1"],
-    "owned":  ["/data/tank0:vm-data", "/data/tank1:vm-data"]
+    "owned":  ["/data/tank0:data", "/data/tank1:data"]
   }
 }

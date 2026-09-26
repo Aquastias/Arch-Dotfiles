@@ -8,10 +8,10 @@
 //   /dev/sda → rpool (OS, topology=none, 1 disk)
 //   /dev/sdb → tank0 (1-disk stripe)
 //   /dev/sdc + /dev/sdd → tank1 (2-disk mirror)
-// arch-data declares vm-data, so pool-owners gives the /data pools to that
+// arch-data declares data, so pool-owners gives the /data pools to that
 // user. verify.boot runs the pool verifier; the sentinel fires only when every
 // pool imported, every data dataset mounted, every leaf vdev resolves via
-// by-id, and each pool is owned by vm-data. Closes issue 08 AC3.
+// by-id, and each pool is owned by data. Closes issue 08 AC3.
 {
   "name": "arch-zfs-test-data-pools-profile",
   "hardware": { "disks": [20, 20, 20, 20], "ram_mb": 4096, "vcpus": 2 },
@@ -21,6 +21,6 @@
     "by_id":  true,
     "pools":  ["rpool", "tank0", "tank1"],
     "mounts": ["tank0/data:/data/tank0", "tank1/data:/data/tank1"],
-    "owned":  ["/data/tank0:vm-data", "/data/tank1:vm-data"]
+    "owned":  ["/data/tank0:data", "/data/tank1:data"]
   }
 }

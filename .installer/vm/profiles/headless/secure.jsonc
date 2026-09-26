@@ -8,7 +8,7 @@
 // http://192.168.122.1:9876/key.age; the Secrets Module fetches it during
 // install and `age --decrypt` prompts on /dev/tty — type `test` when asked.
 //
-// Manual post-reboot checklist (log in as vm-test / vmtest):
+// Manual post-reboot checklist (log in as test / vmtest):
 //   - zfs list -t snapshot rpool | grep @blank — 5 datasets with @blank
 //   - mount | grep /persist — Persist Dataset mounted
 //   - systemctl status sops-runtime.service — green, decrypted on boot

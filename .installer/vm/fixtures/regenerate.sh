@@ -23,7 +23,7 @@ KEY_AGE="$REPO_ROOT/.installer/vm/fixtures/key.age"
 SOPS_YAML="$REPO_ROOT/.sops.yaml"
 SECRETS_FILES=(
   "$REPO_ROOT/.installer/hosts/vm/arch-secure/secrets.json"
-  "$REPO_ROOT/.installer/users/vm-test/secrets.json"
+  "$REPO_ROOT/.installer/users/vm/test/secrets.json"
 )
 
 TMP="$(mktemp -d)"

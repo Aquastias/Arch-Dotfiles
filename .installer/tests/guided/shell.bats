@@ -725,20 +725,21 @@ write_answers() {
   echo "$output" | jq -e '.root_password == "12345"'
 }
 
-@test "_guided_user_names: lists committed users, excludes core + vm-* fixtures" {
+@test "_guided_user_names: lists committed users, excludes core + users/vm fixtures" {
   mkdir -p "$INSTALLER_DIR/users/alice" "$INSTALLER_DIR/users/core" \
-    "$INSTALLER_DIR/users/vm-test" "$INSTALLER_DIR/users/vm-data"
+    "$INSTALLER_DIR/users/vm/test" "$INSTALLER_DIR/users/vm/data"
   : > "$INSTALLER_DIR/users/alice/profile.jsonc"
   : > "$INSTALLER_DIR/users/core/profile.jsonc"
-  : > "$INSTALLER_DIR/users/vm-test/profile.jsonc"
-  : > "$INSTALLER_DIR/users/vm-data/profile.jsonc"
+  : > "$INSTALLER_DIR/users/vm/test/profile.jsonc"
+  : > "$INSTALLER_DIR/users/vm/data/profile.jsonc"
 
   run _guided_user_names
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "alice"
   ! echo "$output" | grep -qx "core"
-  ! echo "$output" | grep -qx "vm-test"
-  ! echo "$output" | grep -qx "vm-data"
+  ! echo "$output" | grep -qx "vm"
+  ! echo "$output" | grep -qx "test"
+  ! echo "$output" | grep -qx "data"
 }
 
 # ── list builders: packages.repo.extra / host_programs / sysctl ───────────

@@ -701,14 +701,15 @@ _guided_users_reset() {
 _guided_seed_primary_user() { _GUIDED_USERS_COMMITTED=("aquastias"); }
 
 # _guided_user_names — committed user names (users/*/ with a profile.jsonc),
-# excluding the User Core layer and vm-* harness fixtures (ADR 0035, never
-# installable). The enumerable source for the picker.
+# excluding the User Core layer and the users/vm/ harness-fixtures container
+# (ADR 0035, never installable — its members are nested a level down, so the
+# flat glob never enumerates them). The enumerable source for the picker.
 _guided_user_names() {
   local d n
   for d in "${INSTALLER_DIR}/users"/*/; do
     [[ -d "$d" ]] || continue
     n="$(basename "$d")"
-    [[ "$n" == "core" || "$n" == vm-* ]] && continue
+    [[ "$n" == "core" || "$n" == "vm" ]] && continue
     [[ -f "${d}profile.jsonc" ]] && printf '%s\n' "$n"
   done
 }

@@ -12,7 +12,7 @@
 //
 // host_profile arch-secure carries the object-form Security & Backup Extras
 // (firewalld + clamav + rkhunter + apparmor and zfs-auto-snapshot + borg), which
-// install via the Primary User's (vm-test) paru pass. The test flow exports
+// install via the Primary User's (test) paru pass. The test flow exports
 // INSTALL_ENC_PASSPHRASE='testtest' + SECRETS_AGE_PASSPHRASE='test'; the fixture
 // HTTP server serves the Test Age Key the Secrets Module fetches at
 // http://192.168.122.1:9876/key.age.
