@@ -16,7 +16,7 @@ See PRD stories 1-11, 46, 57, 58.
 
 **Blocked by:** 02, 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Runner bats: the rung invokes the vetter before `makepkg`; a vetter
       failure fails the rung and falls through the ladder.

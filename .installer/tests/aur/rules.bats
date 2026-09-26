@@ -52,10 +52,10 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
   [[ "$output" == *"SUSPICIOUS install-interp chaos-rat.install:2"* ]]
 }
 
-@test "rules: chrome-reupload fixture (python fetch in launcher) aborts" {
+@test "rules: chrome-reupload fixture (interpreter fetch in launcher) aborts" {
   aurvet_hook "$(aurvet_clone chrome-reupload)"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"CRITICAL script-fetch chrome-reupload.sh:2"* ]]
+  [[ "$output" == *"CRITICAL script-fetch chrome-reupload.sh:3"* ]]
 }
 
 @test "rules: benign rust fixture passes with info only" {

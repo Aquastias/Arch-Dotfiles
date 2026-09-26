@@ -14,7 +14,7 @@ See PRD stories 31-33, 51, 52.
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] A maintainer-change fixture aborts even with an otherwise clean,
       bump-only diff.

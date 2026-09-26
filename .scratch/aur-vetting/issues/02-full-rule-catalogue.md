@@ -9,7 +9,7 @@ logged only. See ADR 0143.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Critical rules: base64/xxd output into a shell or eval; network tool
       in a `.install` scriptlet; persistence writes outside `$pkgdir`;

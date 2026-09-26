@@ -10,7 +10,7 @@ operator's host. See PRD stories 61-63.
 
 **Blocked by:** 03, 06.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Audit exits non-zero on an Indicator hit or artefact (bats with
       fixture trees).

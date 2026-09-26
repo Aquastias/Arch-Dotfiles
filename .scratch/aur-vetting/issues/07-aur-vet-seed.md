@@ -8,7 +8,7 @@ writes pins on accept. See PRD story 45.
 
 **Blocked by:** 05.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Covers all three declaration sources; repo packages are excluded.
 - [ ] Recursive AUR dependencies are included and deduped.

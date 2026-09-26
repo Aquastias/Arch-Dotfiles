@@ -8,7 +8,7 @@ stories 46-49.
 
 **Blocked by:** 06.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] An accept without sudo fails cleanly; with sudo it writes the store.
 - [ ] `export` produces a repo-file diff containing only the new or changed

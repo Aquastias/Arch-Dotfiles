@@ -13,7 +13,7 @@ a live fetch at runtime. See PRD stories 15, 16, 54-56.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Any npm/domain Indicator hit is critical.
 - [ ] A package-name hit inside the window is critical; outside the window

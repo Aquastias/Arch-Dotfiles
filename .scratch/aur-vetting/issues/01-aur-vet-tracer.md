@@ -14,7 +14,7 @@ piped into a shell or interpreter. See PRD stories 12, 13, 17-19, 34, 53, 59,
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] The PKGBUILD is never sourced or run through `makepkg`; a bats test
       proves top-level PKGBUILD code does not execute during vetting.

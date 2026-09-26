@@ -16,7 +16,7 @@ unattended signal. There is no bypass flag. See PRD stories 35, 37-44, 50.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Unpinned + unattended exits non-zero with a clear message.
 - [ ] Unpinned + interactive accept writes a pin row.

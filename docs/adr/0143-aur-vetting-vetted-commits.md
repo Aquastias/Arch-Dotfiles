@@ -1,9 +1,10 @@
 # ADR 0143: AUR Vetting via Vetted Commits
 
 ## Status
-Accepted — not implemented. Adds the [[AUR Vetting]], [[Vetted Commit]] and
-[[Indicator]] terms to `CONTEXT.md`. Amends ADR 0052: the `yay` fallback rung
-still bootstraps, but AUR installs refuse to run under it.
+Accepted — implemented (`.installer/aur/`). Adds the [[AUR Vetting]],
+[[Vetted Commit]] and [[Indicator]] terms to `CONTEXT.md`. Amends ADR 0052:
+the `yay` fallback rung still bootstraps, but AUR builds refuse to run under
+it.
 
 ## Context
 The AUR was hit twice in a year. In July 2025, Chaos RAT came in through a
@@ -106,3 +107,26 @@ red flags and changes of trust, not to certify safety.
   runs on installer-created VMs only, never the operator's host. It is
   opt-in per VM profile through `verify.aur_audit` (forced with
   `--verify-aur`, like `--verify-boot`) and on in the desktop profile.
+
+## Implementation notes
+Choices made while building it, beyond the decision above:
+- The engine is `scan.awk` + `bump-only.awk` beside the command. Data stays
+  TAB-separated; a trailing backslash continues a record (one leading TAB
+  dropped), so long EREs keep the 80-column limit. A scan error fails
+  closed (exit 2), never "no findings".
+- `PreBuildCommand = /usr/local/bin/aur-vet`, an absolute path, so nothing
+  earlier on a user's PATH stands in for the vetter.
+- No per-user `paru.conf` ships today (config lives in Programs' `home/`,
+  ADR 0134). The Runner wires `/etc/paru.conf` after bootstrap and any
+  per-user one Config Apply lays down; a bats guard covers every tracked
+  `paru.conf`.
+- Under `yay`, the Runner's AUR pass and `install-pkglist.sh`'s AUR list
+  abort; User Programs get `AUR_HELPER="yay --repo"`, so their repo packages
+  still install and an AUR-only one fails instead of building unvetted.
+- A bump-only auto-accept carries the old commit's allowlist rows forward:
+  by definition only version/checksum lines changed.
+- The RPC has no ownership history, so orphan adoption is approximated:
+  maintainer ≠ submitter and last modified < 14 days (unpinned packages).
+- `verify.aur_audit` runs inside the plain first-boot sentinel only; with a
+  pools/sessions/rollback verify the OK marker never appears, so the run
+  fails loudly rather than silently skipping the audit.
