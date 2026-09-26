@@ -30,6 +30,9 @@ secrets_load() {
   local profile="$1"
 
   local host_sec="${INSTALLER_DIR}/hosts/${profile}/secrets.json"
+  # VM hosts live under hosts/vm/<name>/ (fallback mirrors _profile_load).
+  [[ -f "$host_sec" ]] \
+    || host_sec="${INSTALLER_DIR}/hosts/vm/${profile}/secrets.json"
   local -a user_secs=() user_names=()
 
   # Scope user secrets to the users this host declares (mirrors run_profiles'

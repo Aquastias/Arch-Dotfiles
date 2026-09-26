@@ -435,6 +435,27 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   rm -rf "$t"
 }
 
+@test "sops resolves for secrets under the hosts/vm + users/vm fallback" {
+  local t cfg; t="$(mktemp -d)"
+  cfg='{"users":["bob"],"system":{"hostname":"vmbox"}}'
+  mkdir -p "$t/hosts/vm/vmbox" "$t/users/vm/bob"
+  printf '{}' > "$t/hosts/vm/vmbox/secrets.json"
+  INSTALLER_DIR="$t" run bash -c "
+    source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
+    _pkgres_has_secrets '$cfg'"
+  [ "$status" -eq 0 ]
+
+  rm "$t/hosts/vm/vmbox/secrets.json"
+  printf '{}' > "$t/users/vm/bob/secrets.json"
+  INSTALLER_DIR="$t" run bash -c "
+    source '$BATS_TEST_DIRNAME/../../lib/common.sh'
+    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
+    _pkgres_has_secrets '$cfg'"
+  [ "$status" -eq 0 ]
+  rm -rf "$t"
+}
+
 # ── exclusions are reported separately ──────────────────────────────────────
 
 @test "excluded packages are reported separately and are not installed" {

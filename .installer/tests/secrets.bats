@@ -105,6 +105,21 @@ _write_sops_stub() {
   [ -f "$host_path" ]
 }
 
+@test "host secrets under hosts/vm/<name>/ are found (VM fallback)" {
+  mkdir -p "$INSTALLER_DIR/hosts/vm/myvm"
+  printf '{"root_password":"s3cr3t"}\n' \
+    > "$INSTALLER_DIR/hosts/vm/myvm/secrets.json"
+  mkdir -p "$TEST_DIR/usb/age"
+  printf 'AGE-SECRET-KEY-PLACEHOLDER\n' > "$TEST_DIR/usb/age/key.age"
+  export SECRETS_KEY_DEVICE="$TEST_DIR/usb"
+  _write_age_stub 0
+  _write_sops_stub 0
+
+  run _load_and_persist "myvm"
+  [ "$status" -eq 0 ]
+  [ -f "$(jq -r '.secrets.host' "$INSTALL_STATE")" ]
+}
+
 # ── correct key: user secrets ─────────────────────────────────────────────────
 
 @test "writes secrets.users.<name> path to install-state.json (user)" {

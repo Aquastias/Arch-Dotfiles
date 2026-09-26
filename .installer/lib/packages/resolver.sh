@@ -565,10 +565,15 @@ _pkgres_has_secrets() {
   local cfg="$1" host u
   host="$(_pkgres_jq "$cfg" '.system.hostname // empty')"
   [[ -n "${INSTALLER_DIR:-}" ]] || return 1
-  [[ -n "$host" && -f "${INSTALLER_DIR}/hosts/${host}/secrets.json" ]] && return 0
+  # VM hosts/users live under <kind>/vm/<name>/ (fallback mirrors _profile_load).
+  if [[ -n "$host" ]]; then
+    [[ -f "${INSTALLER_DIR}/hosts/${host}/secrets.json" \
+       || -f "${INSTALLER_DIR}/hosts/vm/${host}/secrets.json" ]] && return 0
+  fi
   while IFS= read -r u; do
     [[ -n "$u" ]] || continue
-    [[ -f "${INSTALLER_DIR}/users/${u}/secrets.json" ]] && return 0
+    [[ -f "${INSTALLER_DIR}/users/${u}/secrets.json" \
+       || -f "${INSTALLER_DIR}/users/vm/${u}/secrets.json" ]] && return 0
   done < <(_pkgres_jq "$cfg" '(.users // [])[]')
   return 1
 }
