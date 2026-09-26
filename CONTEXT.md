@@ -686,6 +686,20 @@ bootstrap. The "paru preferred, yay fallback" rule lives in one place —
 Resolution is per user — a transient blip leaving one user on `paru` and
 another on `yay` is harmless.
 
+### AUR Vetting
+The pre-build review every AUR package (and each AUR dependency, recursively)
+must pass before it is built — installer and booted system alike. Flags
+Indicators, heuristic red flags and trust signals; guarantees nothing, since
+fetched sources stay opaque. _Avoid_: PKGBUILD audit, AUR gate, malware scan.
+
+### Vetted Commit
+The AUR git commit of a package last reviewed and accepted, recorded in the
+repo. Any newer commit is re-vetted as a diff against it.
+
+### Indicator
+A known-bad marker from a past AUR incident (package, domain, command) kept in
+the repo. _Avoid_: IOC, signature.
+
 ### Runner
 `.installer/lib/profiles/runner.sh`. Reads host core + host profile (merged),
 validates
