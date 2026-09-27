@@ -1144,12 +1144,11 @@ extends "Noctalia locks natively" to the whole QoL layer: Noctalia v5 also owns
 **idle** (built-in `[idle.behavior.*]` — lock ~5 min, DPMS-off ~10 min,
 `lock_before_suspend`, auto-suspend laptop-on-battery only) and **polkit** (its
 own agent), so idle closes in the stowed `config.toml` with zero new packages.
-Polkit is **still open**: the Hyprland adapter still installs `polkit-kde-agent`
-and niri ships no agent, pending the verification probe
-(`.scratch/wlroots-desktop-completion/` 01/03). The intended end state is a
-one-time verified, hardcoded pick, never two agents at once; if Noctalia's agent
-fails verification the fallback is KDE-aware — reuse `polkit-kde-agent` when KDE
-is co-installed, else `hyprpolkitagent`. The preset also ships **`pcmanfm-qt`**
+Polkit is Noctalia's own agent, switched on in the curated `config.toml`
+(`[shell] polkit_agent = true`; upstream defaults it off) and VM-verified as the
+only agent in both sessions — a one-time verified, hardcoded pick, never two
+agents at once; neither wlroots adapter installs `polkit-kde-agent` any more
+(KDE keeps its own). The preset also ships **`pcmanfm-qt`**
 (compact layout, kitty-in-folder via `Terminal=kitty` / F4 / an "Open in kitty
 here" action, themed via the [[App Theming Bridge]], ADR 0102), and niri's
 `config.kdl` gains `input`/`layout`/`window-rules` (never `output` —

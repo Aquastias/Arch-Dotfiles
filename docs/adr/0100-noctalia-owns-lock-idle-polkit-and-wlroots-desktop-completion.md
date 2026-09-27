@@ -5,6 +5,8 @@ Status: accepted. **Amends ADR 0097** (Noctalia as the shared niri/Hyprland
 shell) — extends its "Noctalia locks natively" finding to *idle* and *polkit*.
 Extends ADR 0090 (niri adapter + preset), 0093 (enriched plugins), 0094/0095
 (curated config as stow payload / skel seed), 0098 (Bibata cursor).
+Polkit gate resolved 2026-09-27: the Noctalia-agent branch ships (see
+"Polkit gate outcome" below).
 ---
 
 ADR 0097 made Noctalia the one shared shell, but the two wlroots presets were
@@ -105,3 +107,20 @@ packages, identically on both compositors. That is maximally aligned with ADR
   reflect it.
 - The glossary's **Wayland Shell Companion** entry records that Noctalia owns
   lock, idle, and polkit natively.
+
+## Polkit gate outcome (2026-09-27)
+
+The verification in decision 2 ran on the `env/wlroots-sessions` VM cell
+(niri + Hyprland, Noctalia preset). The first run found **no** agent
+registered: Noctalia v5's agent is opt-in, `[shell] polkit_agent`, **default
+`false`** (docs.noctalia.dev → Configuration → Shell). With `polkit_agent =
+true` set in the curated `config.toml`, both sessions report
+`POLKIT-OK agents=noctalia` and no second agent, and the prober's idle check
+passes. So the **"it works" branch ships**: Noctalia's agent is enabled in the
+shared config, and `polkit-kde-agent` is dropped from both wlroots cores (it was
+never autostarted there, since neither compositor runs XDG autostart). The
+KDE-aware fallback ladder is not needed. KDE keeps its own agent; Noctalia
+does not run under Plasma, so a combined box never has two agents at once.
+polkitd 127 does not log agent registrations, so the prober reads Noctalia's
+own log ("polkit authentication agent active") and lists any other known agent
+process.

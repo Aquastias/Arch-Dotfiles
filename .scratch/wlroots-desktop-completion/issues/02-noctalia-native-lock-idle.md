@@ -12,7 +12,7 @@ working unchanged.
 **Blocked by:** 01 (uses the idle-active probe to verify idle actually fires in
 the VM).
 
-**Status:** done (behavioral verification pending Seam 2 / ticket 01)
+**Status:** done (idle verified by the ticket-01 probe, 2026-09-27)
 
 - [x] `config.toml` gains `[idle.behavior.*]` (lock @300s, screen-off @600s) +
       `[lockscreen].lock_before_suspend=true`. Schema matches Noctalia's
@@ -32,7 +32,7 @@ the VM).
 - [x] `wayland_shell=none` seeds none of this (config.toml only under noctalia).
 - [x] Adapter bats (niri 21 / hyprland 20) assert config.toml + the idle helper
       seed to /etc/skel; TOML parse + shellcheck green.
-- [ ] The desktop-verify idle-active marker (ticket 01) passes — PENDING: needs
+- [x] The desktop-verify idle-active marker (ticket 01) passes — PENDING: needs
       the VM harness (ticket 01) to actually run; idle firing is only provable
       there.
 
@@ -45,3 +45,7 @@ inhibitors hold) is a Seam 2 (VM) concern, blocked on ticket 01.
 
 - 2026-09-27 audit: cadc60f. Remaining unticked lines are suite/VM runs not
   re-verifiable now.
+
+- 2026-09-27 audit: VM run 2026-09-27 on
+  tests/vm/profiles/env/wlroots-sessions.jsonc (local repo at ab13af2):
+  NIRI/HYPR SESSION-OK, POLKIT-OK agents=noctalia, IDLE-OK.

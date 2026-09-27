@@ -11,16 +11,25 @@ feature is checked against.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The prober emits a distinct OK/FAIL marker for "polkit agent registered"
+- [x] The prober emits a distinct OK/FAIL marker for "polkit agent registered"
       in the niri+Noctalia and Hyprland+Noctalia cells.
-- [ ] The prober emits a distinct OK/FAIL marker for "Noctalia idle daemon
+- [x] The prober emits a distinct OK/FAIL marker for "Noctalia idle daemon
       active" in those same cells.
-- [ ] Markers follow the existing per-session serial-console pattern and do not
+- [x] Markers follow the existing per-session serial-console pattern and do not
       change the KDE cell's behavior.
-- [ ] A harness run on a current niri+Noctalia / Hyprland+Noctalia install
+- [x] A harness run on a current niri+Noctalia / Hyprland+Noctalia install
       records whether Noctalia's built-in agent registers (the gate answer for
       ticket 03) and whether its idle daemon runs.
-- [ ] No change to what installs on a real system — the prober stays a
+- [x] No change to what installs on a real system — the prober stays a
       test-only VM fixture.
+
+## Comments
+
+- 2026-09-27 audit: 0a14fa0, ab13af2 (prober polkit/idle probes;
+  tests/vm/desktop-verify.bats; host records markers via
+  _seed_generator_probe_markers). First run answered the gate: no agent
+  (Noctalia's polkit_agent defaults off). VM run 2026-09-27 on
+  tests/vm/profiles/env/wlroots-sessions.jsonc (local repo at ab13af2):
+  NIRI/HYPR SESSION-OK, POLKIT-OK agents=noctalia, IDLE-OK.

@@ -1,6 +1,6 @@
 # Complete the niri+Noctalia and Hyprland+Noctalia daily-driver experience
 
-Status: ready-for-agent
+Status: done
 
 Grounds in ADR 0100 (Noctalia natively owns lock, idle, and polkit; wlroots
 desktop completion), amending ADR 0097. Uses the [[Wayland Shell Companion]] /

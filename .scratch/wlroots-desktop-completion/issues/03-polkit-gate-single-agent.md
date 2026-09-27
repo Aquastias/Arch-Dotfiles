@@ -16,17 +16,27 @@ implementation time from ticket 01's result, not per install (ADR 0100):
 
 **Blocked by:** 01 (needs the polkit-registered probe result to pick a branch).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The polkit gate is resolved from ticket 01 and the winning branch is
+- [x] The polkit gate is resolved from ticket 01 and the winning branch is
       implemented; the outcome is recorded (ADR 0100 reference).
-- [ ] Exactly one polkit agent is active per wlroots session — never two.
-- [ ] Verify-pass path: `polkit-kde-agent` no longer installed by either
+- [x] Exactly one polkit agent is active per wlroots session — never two.
+- [x] Verify-pass path: `polkit-kde-agent` no longer installed by either
       wlroots adapter; the `niri-adapter.bats` assertion that it *is* installed
       is flipped; the KDE adapter test stays green.
 - [ ] Verify-fail path: the KDE-else-hyprpolkitagent ladder installs/autostarts
       the correct agent for each co-installed `environment.desktop` set.
-- [ ] The [[Package Resolver]] reports the resulting agent set with no drift
+- [x] The [[Package Resolver]] reports the resulting agent set with no drift
       from what installs.
-- [ ] The desktop-verify polkit-registered marker (ticket 01) passes in both
+- [x] The desktop-verify polkit-registered marker (ticket 01) passes in both
       wlroots cells.
+
+## Comments
+
+- 2026-09-27 audit: 12278cb (config.toml [shell] polkit_agent = true;
+  polkit-kde-agent dropped from niri + Hyprland cores; adapter/noctalia-stow
+  bats). The verify-pass branch shipped, so the fail-path ladder line stays
+  unticked (not built, not needed). VM run 2026-09-27 on
+  tests/vm/profiles/env/wlroots-sessions.jsonc (local repo at ab13af2):
+  NIRI/HYPR SESSION-OK, POLKIT-OK agents=noctalia, IDLE-OK. ADR 0100 records the
+  outcome.
