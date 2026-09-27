@@ -91,6 +91,16 @@ fi
 print_status info "Creating on-access quarantine directory..."
 sudo install -d -o root -g root -m 700 /root/quarantine
 
+# Arch Wiki (ClamAV): freshclam must run before clamd first starts — with no
+# DB, clamav-daemon.service skips itself on first boot and clamonacc fails.
+# Non-fatal: clamav-freshclam.service retries on boot if the CDN is down.
+print_status info "Seeding virus signatures (freshclam)..."
+sudo install -d -o clamav -g clamav -m 755 /var/log/clamav
+sudo install -o clamav -g clamav -m 600 /dev/null \
+  /var/log/clamav/freshclam.log
+sudo freshclam \
+  || print_status warning "freshclam failed; the DB seeds on first boot."
+
 print_status info "Enabling services (started on first boot)..."
 sudo systemctl enable clamav-daemon.service
 sudo systemctl enable clamav-freshclam.service
