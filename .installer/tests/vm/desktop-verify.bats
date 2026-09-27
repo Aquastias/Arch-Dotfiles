@@ -27,14 +27,13 @@ enabled = true
 TOML
   stub id 'echo 1000'
   stub systemctl 'echo "systemctl $*" >> "'"$T"'/calls"'
-  stub pgrep 'exit 0'
-  stub busctl 'echo "PID=4242"'
-  # A real polkitd registration line, split only to fit the file width.
-  stub journalctl 'printf "%s%s\n" \
-    "Registered Authentication Agent for unix-session:2 (system bus name " \
-    ":1.42 [x], object path /org/freedesktop/PolicyKit1/AuthenticationAgent)"'
-  mkdir -p "$T/proc/4242"; printf 'noctalia\n' > "$T/proc/4242/comm"
-  export DESKTOP_VERIFY_PROC="$T/proc"
+  # pgrep: noctalia runs; no other agent does (per-test override adds one).
+  stub pgrep 'case "$*" in *agent*|*polkit*) exit 1 ;; *) exit 0 ;; esac'
+  # Noctalia's own log line once its agent registers (v5, VM-observed).
+  mkdir -p "$T/home/.cache/noctalia"
+  printf '%s %s\n' "2026-09-27 13:57:18.496 [INF] [app]" \
+    "polkit authentication agent active" \
+    > "$T/home/.cache/noctalia/noctalia.log"
   PATH="$T/bin:$PATH"
 }
 
@@ -52,13 +51,21 @@ stub() {
   grep -q 'systemctl reboot' "$T/calls"
 }
 
-@test "wlroots session: records the registered polkit agent by process" {
+@test "wlroots session: Noctalia's active agent is POLKIT-OK agents=noctalia" {
   run "$PROBER"
   grep -q '===NIRI-POLKIT-OK agents=noctalia===' "$DESKTOP_VERIFY_TTY"
 }
 
+@test "wlroots session: a second agent running is reported alongside" {
+  stub pgrep 'case "$*" in *polkit-kde*) exit 0 ;; *agent*|*polkit*) exit 1 ;;
+    *) exit 0 ;; esac'
+  run "$PROBER"
+  local want='agents=noctalia,polkit-kde-authentication-agent-1==='
+  grep -q "===NIRI-POLKIT-OK $want" "$DESKTOP_VERIFY_TTY"
+}
+
 @test "wlroots session: no registered agent is POLKIT-FAIL" {
-  stub journalctl 'exit 0'
+  : > "$T/home/.cache/noctalia/noctalia.log"
   run "$PROBER"
   grep -q '===NIRI-POLKIT-FAIL===' "$DESKTOP_VERIFY_TTY"
 }

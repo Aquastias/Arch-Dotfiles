@@ -30,7 +30,6 @@ S="${DESKTOP_VERIFY_STATE:-/usr/local/lib/desktop-verify}"
 TTY="${DESKTOP_VERIFY_TTY:-/dev/ttyS0}"
 CONF="${DESKTOP_VERIFY_CONF:-/etc/sddm.conf.d/zz-desktop-verify.conf}"
 RUNDIR="${DESKTOP_VERIFY_RUNDIR:-/run/user}"
-PROC="${DESKTOP_VERIFY_PROC:-/proc}"
 POLL_SECONDS="${DESKTOP_VERIFY_POLL_SECONDS:-180}"
 POLKIT_SECONDS="${DESKTOP_VERIFY_POLKIT_SECONDS:-60}"
 
@@ -70,25 +69,29 @@ while [ "$i" -lt "$POLL_SECONDS" ]; do
   sleep 1
 done
 
-# probe_polkit — which polkit agents registered this boot, by process name.
-# polkitd logs each registration; the bus name resolves to the agent's PID. Two
-# names here means two racing agents (ADR 0100 wants exactly one).
+# probe_polkit — which polkit agents serve this session. polkitd 127 does not
+# log registrations, so Noctalia's agent is read from its own log ("polkit
+# authentication agent active", VM-observed) while noctalia runs; any other
+# known agent process is listed too. Two names = two racing agents (ADR 0100
+# wants exactly one).
+POLKIT_AGENTS="polkit-kde-authentication-agent-1
+polkit-gnome-authentication-agent-1 hyprpolkitagent lxqt-policykit-agent
+polkit-mate-authentication-agent-1"
 probe_polkit() {
-  local names="" n pid comm agents="" j=0
-  local reg='^Registered Authentication Agent for .*'
-  reg+='(system bus name \([^ ,]*\).*'
+  local home log agents="" a j=0
+  home="${DESKTOP_VERIFY_HOMEDIR:-$(getent passwd "$USER_NAME" | cut -d: -f6)}"
+  log="$home/.cache/noctalia/noctalia.log"
   while [ "$j" -lt "$POLKIT_SECONDS" ]; do
-    names="$(journalctl -b -u polkit --no-pager -o cat 2>/dev/null \
-      | sed -n "s/${reg}/\\1/p")"
-    [ -n "$names" ] && break
+    if pgrep -u "$uid" -f noctalia >/dev/null 2>&1 \
+      && grep -q 'polkit authentication agent active' "$log" 2>/dev/null; then
+      agents=noctalia
+      break
+    fi
     j=$((j + 1))
     sleep 1
   done
-  for n in $names; do
-    pid="$(busctl --system status "$n" 2>/dev/null | sed -n 's/^PID=//p')"
-    [ -n "$pid" ] || continue      # unregistered since (bus name gone)
-    comm="$(cat "$PROC/$pid/comm" 2>/dev/null)"
-    agents="${agents}${agents:+,}${comm:-pid$pid}"
+  for a in $POLKIT_AGENTS; do
+    pgrep -x "$a" >/dev/null 2>&1 && agents="${agents}${agents:+,}${a}"
   done
   if [ -n "$agents" ]; then
     printf '===%s-POLKIT-OK agents=%s===\n' "$tag" "$agents" >> "$TTY"
