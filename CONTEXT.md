@@ -1669,7 +1669,8 @@ Guided Installer's Security / Backup categories. `security` picks one firewall
 (antivirus), `rkhunter` (rootkit scanner), and `apparmor` (MAC); `backup` picks
 `zfs-auto-snapshot` and/or `borg`. `zfs-auto-snapshot` resolves only when the
 install has ZFS somewhere (a ZFS-less root drops it rather than pulling ZFS from
-the AUR). The selected tools are paru-based User Programs (`kind: user`; paru
+the AUR; the Guided Installer shows that toggle shown-but-locked as "off
+(no ZFS)"). The selected tools are paru-based User Programs (`kind: user`; paru
 refuses root), so they are **not** installed as Host Programs — the Runner
 unions the resolved program names into the **Primary User's** paru pass (the
 seam host AUR packages already use), and each tool's existing Program Install

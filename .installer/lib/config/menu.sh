@@ -141,6 +141,24 @@ _MENU_MANUAL_LOCKED=(
 )
 menu_manual_locked_paths() { printf '%s\n' "${_MENU_MANUAL_LOCKED[@]}"; }
 
+# No-ZFS lock (ADR 0041): the zfs-auto-snapshot toggle means nothing on an
+# install with no ZFS anywhere, so it renders shown-but-locked there like the
+# manual fields. _MENU_ANY_ZFS_JQ is the jq twin of install_config_any_zfs over
+# a merged Config State (manual → false; else root, data pool or storage group
+# resolves to zfs, a group inheriting the root filesystem).
+_MENU_ZFS_LOCKED=(post_install.backup.zfs_auto_snapshot)
+menu_zfs_locked_paths() { printf '%s\n' "${_MENU_ZFS_LOCKED[@]}"; }
+_MENU_ANY_ZFS_JQ='def any_zfs:
+  (if ((.filesystem // "") == "") then "zfs" else .filesystem end) as $r
+  | if (.disk_config.kind // "auto") == "manual" then false
+    else ([$r] + [(.data_pools // [])[], (.storage_groups // [])[]
+                  | .filesystem // $r]) | index("zfs") != null end;'
+
+# menu_state_any_zfs <merged_state> → 0 when the state puts ZFS anywhere.
+menu_state_any_zfs() {
+  jq -e "${_MENU_ANY_ZFS_JQ} any_zfs" <<<"${1:-{\}}" >/dev/null 2>&1
+}
+
 # menu_manual_notice — the one-time notice shown when Manual Partitioning is
 # turned on, enumerating exactly which installer features become unavailable.
 # The controller prints it on the auto→manual transition; kept here so the
@@ -272,11 +290,13 @@ _menu_fields_json() {
 menu_rows() {
   local state="$1" baseline="${2:-{\}}"
   local lockpaths; lockpaths="$(menu_manual_locked_paths | jq -Rn '[inputs]')"
+  local zfslock; zfslock="$(menu_zfs_locked_paths | jq -Rn '[inputs]')"
   jq -n \
     --argjson fields "$(_menu_fields_json)" \
     --argjson override "$state" \
     --argjson baseline "$baseline" \
-    --argjson lockpaths "$lockpaths" '
+    --argjson lockpaths "$lockpaths" \
+    --argjson zfslock "$zfslock" "${_MENU_ANY_ZFS_JQ}"'
     def render($v; $d):
       (if   $v == null            then null
        elif ($v | type) == "array"  then
@@ -325,8 +345,10 @@ menu_rows() {
                elif $fp == "__encoding__"
                then ($loc_ov and (loc_enc($mloc) != loc_enc($bloc)))
                else (($override | getpath($pp)) != null) end),
-            locked:  ($kind == "manual"
-                      and ($lockpaths | index($fp)) != null) } ]'
+            locked:  (($kind == "manual"
+                       and ($lockpaths | index($fp)) != null)
+                      or (($m | any_zfs | not)
+                          and ($zfslock | index($fp)) != null)) } ]'
 }
 
 # menu_category_rows <category> <override> [<baseline>] — the field rows for one

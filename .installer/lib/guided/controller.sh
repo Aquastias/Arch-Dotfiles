@@ -352,6 +352,13 @@ _ctl_manual_locked() {
     && menu_manual_locked_paths | grep -qxF "$2"
 }
 
+# _ctl_zfs_locked <state> <path> → 0 (locked) when <path> is a no-ZFS-locked
+# field (zfs snapshots) and the effective state puts no ZFS anywhere.
+_ctl_zfs_locked() {
+  menu_zfs_locked_paths | grep -qxF "$2" \
+    && ! menu_state_any_zfs "$(_ctl_effective "$1" "$(_ctl_baseline)")"
+}
+
 # _ctl_biglist_options <path> → the big, filterable option set for a system
 # identity field, from the live system (localectl/timedatectl) with a filesystem
 # fallback (the install host is the Arch live ISO; the fallback also covers a
@@ -416,6 +423,8 @@ _ctl_apply_enum() {
   # Manual Partitioning locks the pool-dependent Disks fields (ADR 0073): a
   # locked field is a no-op (rc 1, unchanged).
   _ctl_manual_locked "$state" "$path" && { printf '%s' "$state"; return 1; }
+  # No ZFS on the install: zfs snapshots is locked the same way (ADR 0041).
+  _ctl_zfs_locked "$state" "$path" && { printf '%s' "$state"; return 1; }
   case "$path" in
   disk_config.kind)
     case "$val" in auto | manual) ;; *) printf '%s' "$state"; return 1 ;; esac
@@ -1491,7 +1500,7 @@ _ctl_profile_tree() {
     [[ -n "$grp" ]] || grp="-"
     printf '      └─ %s  (%s · %s)\n' "$u" "$sh" "$grp"
   done < <(jq -r '(.users // [])[]' <<<"$prof")
-  jq -r '
+  jq -r "${_MENU_ANY_ZFS_JQ}"'
     def onoff(v): if v == true then "on" else "off" end;
     "  ▸ options",
     "      └─ kernel: \((.options.kernel // ["lts"])
@@ -1515,7 +1524,9 @@ _ctl_profile_tree() {
     "      └─ rootkit: \(onoff(.post_install.security.rootkit))",
     "      └─ apparmor: \(onoff(.post_install.security.apparmor))",
     "  ▸ backup",
-    "      └─ snapshots: \(onoff(.post_install.backup.zfs_auto_snapshot))",
+    "      └─ snapshots: \(if any_zfs
+       then onoff(.post_install.backup.zfs_auto_snapshot)
+       else "off (no ZFS)" end)",
     "      └─ borg: \(onoff(.post_install.backup.borg))"
   ' <<<"$prof"
   printf '  ▸ disks\n'
@@ -1899,8 +1910,14 @@ guided_ctl_list() {
     # collapses
     # the double delimiter of an EMPTY value field and shifts the columns. \x1f
     # is non-whitespace, so empty fields are preserved.
-    local _ffield _flabel _fval _fov
-    while IFS=$'\x1f' read -r _ffield _flabel _fval _fov; do
+    local _ffield _flabel _fval _fov _flock
+    while IFS=$'\x1f' read -r _ffield _flabel _fval _fov _flock; do
+      # No ZFS anywhere: zfs snapshots is forced off (ADR 0041).
+      if [[ "$_ffield" == "post_install.backup.zfs_auto_snapshot" \
+            && "$_flock" == "true" ]]; then
+        printf '%s: off (no ZFS)\n' "$(display_label "$_flabel")"
+        continue
+      fi
       # Disks encryption collapses to ONE drill-down row (ADR 0059): the toggle
       # + passphrase live in the Encryption Editor, not on a bool row plus a
       # passphrase sub-row. The row still carries options.encryption's override
@@ -1947,7 +1964,8 @@ guided_ctl_list() {
         "$(_ctl_display_value_str "$_ffield" "$_fval")" \
         "$([[ "$_fov" == "true" ]] && printf '  ●')"
     done < <(menu_category_rows "$cat" "$state" "$base" | jq -r \
-      '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring)]
+      '.[] | [.field, .label, (.value // ""), (.overridden // false | tostring),
+               (.locked // false | tostring)]
              | join("\u001f")')
     _ctl_action_row "← Back" ;;
   pkgcat)

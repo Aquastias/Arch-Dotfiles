@@ -35,3 +35,7 @@ tool's existing Program Install Script runs unchanged.
   (server) install gets no firewall under this model. This is a pre-existing
   limitation of these being User Programs, now surfaced as a **fail-fast abort**
   at the terminal action rather than a silent skip.
+- A ZFS-less install (ext4/xfs root with no ZFS pool or group, or Manual
+  Partitioning) drops `zfs-auto-snapshot` at resolve time (2026-09-27): it
+  would pull ZFS in from the AUR. The guided Backup screen mirrors this — the
+  toggle is shown-but-locked as "off (no ZFS)" and edits are a no-op.
