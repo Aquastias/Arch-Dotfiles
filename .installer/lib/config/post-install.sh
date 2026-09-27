@@ -30,13 +30,16 @@ post_install_default() {
   }'
 }
 
-# post_install_programs <post_install_json> — the ordered Program names the
-# selection installs, one per line. The firewall enum picks firewalld / ufw /
-# neither; the bool toggles map antivirus→clamav, rootkit→rkhunter, apparmor,
-# zfs_auto_snapshot→zfs-auto-snapshot, borg. Canonical order (firewall first,
-# backup last); an absent/false field contributes nothing.
+# post_install_programs <post_install_json> [any_zfs] — the ordered Program
+# names the selection installs, one per line. The firewall enum picks
+# firewalld / ufw / neither; the bool toggles map antivirus→clamav,
+# rootkit→rkhunter, apparmor, zfs_auto_snapshot→zfs-auto-snapshot, borg.
+# Canonical order (firewall first, backup last); an absent/false field
+# contributes nothing. any_zfs=false (no ZFS on the install) drops
+# zfs-auto-snapshot, which would otherwise pull ZFS in from the AUR; absent
+# means unknown and keeps it.
 post_install_programs() {
-  jq -r '
+  jq -r --arg zfs "${2:-true}" '
     # Coerce a non-object (absent, null, or a legacy bool) to off — `// {}`
     # alone would keep a stored `true` and then index a boolean.
     (if (.security | type) == "object" then .security else {} end) as $s
@@ -47,7 +50,8 @@ post_install_programs() {
         (if $s.antivirus then "clamav"  else empty end),
         (if $s.rootkit   then "rkhunter" else empty end),
         (if $s.apparmor  then "apparmor" else empty end),
-        (if $b.zfs_auto_snapshot then "zfs-auto-snapshot" else empty end),
+        (if $b.zfs_auto_snapshot and $zfs != "false"
+         then "zfs-auto-snapshot" else empty end),
         (if $b.borg              then "borg" else empty end) ]
     | .[]
   ' <<<"${1:-{\}}"

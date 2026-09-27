@@ -216,7 +216,10 @@ _profiles_resolve_post_install() {
   local -a out=("$@")
   local -a extras=()
   local _ex
-  _ex="$(post_install_programs "$pi_json")" || return 1
+  local _zfs=true
+  declare -F install_config_any_zfs >/dev/null \
+    && _zfs="$(install_config_any_zfs)"
+  _ex="$(post_install_programs "$pi_json" "$_zfs")" || return 1
   [[ -n "$_ex" ]] && mapfile -t extras <<< "$_ex"
 
   local e p has

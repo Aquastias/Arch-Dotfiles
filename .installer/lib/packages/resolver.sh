@@ -196,11 +196,14 @@ pkgres_resolve() {
   # ── filesystem userland ───────────────────────────────────────────────────
   # Per-filesystem tools for any group using them; ext4 rides e2fsprogs in base
   # and zfs has no mkfs. Independent of encryption.
+  # A manual layout is plain partitions (ADR 0073): no pools, so no ZFS even
+  # though `filesystem` still defaults to zfs.
   local fs_all
   fs_all="$(_pkgres_jq "$cfg" '
+    if (.disk_config.kind // "auto") == "manual" then empty else
     [(.filesystem // "zfs"),
      ((.storage_groups // [])[] | .filesystem // empty),
-     ((.data_pools    // [])[] | .filesystem // empty)] | unique | .[]')"
+     ((.data_pools    // [])[] | .filesystem // empty)] | unique | .[] end')"
   # Names from the shared fs userland map (lib/packages/filesystem.sh).
   # shellcheck disable=SC2046
   grep -qx xfs   <<<"$fs_all" \
@@ -295,7 +298,8 @@ pkgres_resolve() {
       zfs-auto-snapshot | borg) _pkgres_emit backup derived "$prog" ;;
       *)                        _pkgres_emit security derived "$prog" ;;
       esac
-    done < <(post_install_programs "$pi" 2>/dev/null)
+    done < <(post_install_programs "$pi" \
+      "$(grep -qx zfs <<<"$fs_all" && echo true || echo false)" 2>/dev/null)
   fi
 
   # ── Printing Service (ADR 0079) ───────────────────────────────────────────

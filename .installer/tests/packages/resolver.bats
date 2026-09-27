@@ -547,3 +547,18 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }
+
+@test "a non-ZFS root reports no zfs-auto-snapshot" {
+  local cfg='{"users":["a"],"filesystem":"ext4",
+    "post_install":{"backup":{"zfs_auto_snapshot":true,"borg":true}}}'
+  local bak; bak="$(pkgs_of "$cfg" backup)"
+  grep -qx "borg" <<<"$bak"
+  ! grep -qx "zfs-auto-snapshot" <<<"$bak"
+}
+
+@test "a manual layout reports no ZFS userland and no zfs-auto-snapshot" {
+  local cfg='{"users":["a"],"disk_config":{"kind":"manual"},
+    "post_install":{"backup":{"zfs_auto_snapshot":true}}}'
+  [ -z "$(pkgs_of "$cfg" zfs)" ]
+  [ -z "$(pkgs_of "$cfg" backup)" ]
+}

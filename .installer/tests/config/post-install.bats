@@ -116,3 +116,17 @@ setup() {
   run post_install_guard_users '{}' 0
   [ "$status" -eq 0 ]
 }
+
+@test "post_install_programs: no ZFS on the install drops zfs-auto-snapshot" {
+  run post_install_programs \
+    '{"backup":{"zfs_auto_snapshot":true,"borg":true}}' false
+  [ "$status" -eq 0 ]
+  [ "$output" = "borg" ]
+}
+
+@test "post_install_programs: ZFS present or unknown keeps zfs-auto-snapshot" {
+  run post_install_programs '{"backup":{"zfs_auto_snapshot":true}}' true
+  [ "$output" = "zfs-auto-snapshot" ]
+  run post_install_programs '{"backup":{"zfs_auto_snapshot":true}}'
+  [ "$output" = "zfs-auto-snapshot" ]
+}

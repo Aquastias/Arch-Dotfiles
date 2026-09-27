@@ -246,7 +246,8 @@ print_summary() {
   # via the Primary User's paru pass. Empty when nothing is selected.
   local _pi _extras
   _pi="$(jsonc_strip "$CONFIG_FILE" | jq -c '.post_install // {}')"
-  _extras="$(post_install_programs "$_pi" | paste -sd ', ')"
+  _extras="$(post_install_programs "$_pi" "$(install_config_any_zfs)" \
+    | paste -sd ', ')"
   echo ""
   echo -e "  ${BOLD}Security & Backup Extras:${NC}"
   printf "    %-12s %s\n" "install:" "${_extras:-(none)}"

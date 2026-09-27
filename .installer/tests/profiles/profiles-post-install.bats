@@ -42,3 +42,11 @@ setup() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "a ZFS-less install never routes zfs-auto-snapshot to the paru pass" {
+  install_config_any_zfs() { printf 'false\n'; }
+  run _profiles_resolve_post_install '{"backup":{"zfs_auto_snapshot":true,
+    "borg":true}}'
+  [ "$status" -eq 0 ]
+  [ "$output" = "borg" ]
+}
