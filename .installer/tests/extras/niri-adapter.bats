@@ -106,9 +106,11 @@ run_niri() { run env ENVIRONMENT_DESKTOP="niri" "$@" bash "$ADAPTER"; }
   [ "$status" -eq 0 ]
   local p
   for p in niri seatd xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
-           polkit-kde-agent wl-clipboard; do
+           wl-clipboard; do
     grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
   done
+  # Noctalia's own agent serves polkit (ADR 0100); no second agent.
+  ! grep -q polkit-kde-agent "$PACMAN_LOG"
 }
 
 @test "enables seatd so niri gets DRM master" {

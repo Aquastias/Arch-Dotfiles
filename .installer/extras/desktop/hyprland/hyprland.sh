@@ -3,8 +3,9 @@
 # extras/desktop/hyprland/hyprland.sh — Hyprland Wayland Compositor
 # =============================================================================
 # Installs the minimum working-session CORE ONLY (ADR 0021, ADR 0062): the
-# compositor, both portals, the polkit agent, the Wayland clipboard bridge. The
-# SHELL is the shared Noctalia work preset (ADR 0097) — the SAME one niri uses —
+# compositor, both portals, the Wayland clipboard bridge (polkit is Noctalia's
+# own agent, ADR 0100). The SHELL is the shared Noctalia work preset (ADR 0097)
+# — the SAME one niri uses —
 # layered on top and gated on ENVIRONMENT_WAYLAND_SHELL: under `noctalia` the
 # adapter hands off to lib/chroot/noctalia-preset.sh, which installs Noctalia +
 # its gaps and seeds the Noctalia-wired hyprland.lua + shared config.toml +
@@ -69,7 +70,6 @@ pacman -S --noconfirm --needed \
   seatd \
   xdg-desktop-portal-hyprland \
   xdg-desktop-portal-gtk \
-  polkit-kde-agent \
   wl-clipboard
 
 # SEAT MANAGER — seatd, not logind (ADR 0068).

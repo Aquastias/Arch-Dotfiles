@@ -24,7 +24,6 @@ niri_core_packages() {
     seatd \
     xdg-desktop-portal-gnome \
     xdg-desktop-portal-gtk \
-    polkit-kde-agent \
     wl-clipboard
 }
 

@@ -109,9 +109,11 @@ run_hypr() {
   [ "$status" -eq 0 ]
   local p
   for p in hyprland seatd xdg-desktop-portal-hyprland \
-           xdg-desktop-portal-gtk polkit-kde-agent wl-clipboard; do
+           xdg-desktop-portal-gtk wl-clipboard; do
     grep -q "$p" "$PACMAN_LOG" || { echo "core missing: $p"; return 1; }
   done
+  # Noctalia's own agent serves polkit (ADR 0100); no second agent.
+  ! grep -q polkit-kde-agent "$PACMAN_LOG"
 }
 
 # uwsm is not installed (ADR 0070): its session deadlocks on first-boot login

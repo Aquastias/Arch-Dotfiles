@@ -172,6 +172,10 @@ enabled = [
 [shell]
 app_icon_colorize = true
 font_family = "Noto Sans"
+# Noctalia's native polkit agent (ADR 0100). Upstream defaults it off; the
+# niri/Hyprland sessions run no other agent, so without it every auth prompt is
+# silently denied (VM-probed: no agent registered). KDE keeps its own agent.
+polkit_agent = true
 
 [theme]
 # Default: Catppuccin Mocha with a sapphire accent (ADR 0109, superseding 0101's

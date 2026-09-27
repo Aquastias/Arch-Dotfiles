@@ -63,6 +63,11 @@ setup() {
   [ "$(grep -c 'font_family' "$CT")" -eq 1 ]
 }
 
+@test "config.toml registers Noctalia's own polkit agent (ADR 0100)" {
+  # Off by default upstream; the wlroots sessions have no other agent.
+  sed -n '/^\[shell\]/,/^\[/p' "$CT" | grep -q '^polkit_agent = true'
+}
+
 @test "config.toml points the default wallpaper at the packaged asset" {
   grep -q '^path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"' "$CT"
 }
