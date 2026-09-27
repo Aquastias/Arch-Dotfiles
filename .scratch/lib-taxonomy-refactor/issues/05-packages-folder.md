@@ -27,10 +27,10 @@ move only.
 
 ## Acceptance criteria
 
-- [ ] 3 package files moved into `lib/packages/` per the mapping
-- [ ] Every `source`/path reference updated repo-wide
-- [ ] All public function names unchanged (e.g. `collect_packages`)
-- [ ] Tests relocated to mirrored `tests/packages/` paths
+- [x] 3 package files moved into `lib/packages/` per the mapping
+- [x] Every `source`/path reference updated repo-wide
+- [x] All public function names unchanged (e.g. `collect_packages`)
+- [x] Tests relocated to mirrored `tests/packages/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
@@ -54,3 +54,6 @@ variable-prefixed source the literal `lib/` rename missed.
 
 3 tests relocated to `tests/packages/`. Verified: bats **917/0**,
 `audit.sh` **82/82**, `shellcheck.sh` clean.
+
+- 2026-09-27 audit: 652e41f. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

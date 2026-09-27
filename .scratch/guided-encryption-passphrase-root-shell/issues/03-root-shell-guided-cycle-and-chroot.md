@@ -22,23 +22,23 @@ package-install guard from `create-user.sh`.
 
 ## Acceptance criteria
 
-- [ ] A `root shell: <name>   (Enter cycles)` row renders on the Users screen
+- [x] A `root shell: <name>   (Enter cycles)` row renders on the Users screen
       directly under `root password`.
-- [ ] Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish` (same cycle helper as
+- [x] Enter cycles `/bin/bash` → `/bin/zsh` → `/bin/fish` (same cycle helper as
       the user shell row).
-- [ ] The choice writes Config State `options.root_shell` (default `/bin/bash`),
+- [x] The choice writes Config State `options.root_shell` (default `/bin/bash`),
       normalised out when it equals the default, so it bakes into Export / a saved
       profile. The row is not gated.
-- [ ] `lib/chroot/password.sh` sets root's login shell to the resolved
+- [x] `lib/chroot/password.sh` sets root's login shell to the resolved
       `options.root_shell` via `chsh`, resolved host-side and passed in like
       `ROOT_PW`.
-- [ ] A non-default root shell installs the shell's package first if absent,
+- [x] A non-default root shell installs the shell's package first if absent,
       reusing the missing-login-shell guard pattern from `create-user.sh`, so root
       login can't break on a missing shell.
-- [ ] `tests/config/guided-controller.bats`: the Users list shows
+- [x] `tests/config/guided-controller.bats`: the Users list shows
       `root shell: <name>`; Enter cycles bash→zsh→fish and writes
       `options.root_shell`, normalising the value out when it lands on the default.
-- [ ] `tests/chroot/chroot-password.bats`: root's `/etc/passwd` shell ends up at
+- [x] `tests/chroot/chroot-password.bats`: root's `/etc/passwd` shell ends up at
       the resolved `options.root_shell`; a non-default shell triggers the package
       install (guard prior art in `tests/chroot/chroot-create-user.bats`).
 - [ ] VM (`arch-zfs-test-guided-secure` or an equivalent guided run):
@@ -47,3 +47,9 @@ package-install guard from `create-user.sh`.
 ## Blocked by
 
 - None — can start immediately (independent of tickets 01 and 02).
+
+## Comments
+
+- 2026-09-27 audit: 787a1e1. Later: the zsh Program chsh's root to zsh when
+  installed (ADR 0146). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

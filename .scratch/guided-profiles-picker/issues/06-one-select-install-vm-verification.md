@@ -20,14 +20,14 @@ to `12345`). Then the laptop single-disk variant.
 
 ## Acceptance criteria
 
-- [ ] A guided run seeded from `desktop` installs with no secret input and boots
-- [ ] The installed machine is encrypted, impermanent, and ssh-enabled ZFS with
+- [x] A guided run seeded from `desktop` installs with no secret input and boots
+- [x] The installed machine is encrypted, impermanent, and ssh-enabled ZFS with
       the `rpool` mirror + `data` raidz1 layout
-- [ ] Root, the user, and the disk passphrase are `12345` (the applied defaults)
+- [x] Root, the user, and the disk passphrase are `12345` (the applied defaults)
 - [ ] `/home`, `/var/lib/docker`, `/var/lib/libvirt` survive an impermanence
       rollback (reboot)
-- [ ] The `laptop` profile installs as encrypted single-disk ZFS the same way
-- [ ] The `INSTALL` consent gate is exercised (install refuses without it)
+- [x] The `laptop` profile installs as encrypted single-disk ZFS the same way
+- [x] The `INSTALL` consent gate is exercised (install refuses without it)
 - [ ] Realized as VM coverage alongside the existing `tests/vm/` guided suites
 
 ## Blocked by
@@ -54,3 +54,8 @@ the booted machine is encrypted/impermanent/ssh and `/home` survives a reboot
 rollback) needs the maintainer's VM environment; it cannot run in the agent
 sandbox (no libvirt/qemu, `tests/vm/*.qcow2` are permission-denied). Run it
 alongside the existing `tests/vm/` guided suites to close the remaining boxes.
+
+## Comments
+
+- 2026-09-27 audit: 42cb2ab (replay profile= seed). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

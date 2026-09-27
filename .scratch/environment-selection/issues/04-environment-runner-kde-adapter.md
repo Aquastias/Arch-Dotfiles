@@ -19,15 +19,15 @@ Remove `post_install.desktop` from `install.jsonc` (now superseded by `"environm
 
 ## Acceptance criteria
 
-- [ ] `ENVIRONMENT_DESKTOP="kde"` causes only the KDE adapter to be invoked
-- [ ] `ENVIRONMENT_DESKTOP="hyprland"` causes only the Hyprland adapter to be invoked (even before it exists — runner emits a clear "script not found" error rather than a silent no-op)
-- [ ] `ENVIRONMENT_DESKTOP="kde hyprland"` causes both adapters to be invoked in order
-- [ ] `ENVIRONMENT_DESKTOP=""` (no desktop) causes no adapter to be invoked; `post_install.backup` and `post_install.security` still run if set
-- [ ] No DE name (including `"kde"`) appears as a literal string in the runner loop body
-- [ ] KDE adapter receives `ENVIRONMENT_DESKTOP` and uses it; SDDM is installed and enabled when `"kde"` is in the array
-- [ ] `post_install.desktop` key removed from `install.jsonc`; existing `post_install.backup` and `post_install.security` keys unchanged
-- [ ] BATS tests for the runner cover: single DE, dual DE, empty, unknown DE (error path)
-- [ ] BATS tests for the KDE adapter cover: SDDM install when KDE-only, SDDM install when KDE+Hyprland
+- [x] `ENVIRONMENT_DESKTOP="kde"` causes only the KDE adapter to be invoked
+- [x] `ENVIRONMENT_DESKTOP="hyprland"` causes only the Hyprland adapter to be invoked (even before it exists — runner emits a clear "script not found" error rather than a silent no-op)
+- [x] `ENVIRONMENT_DESKTOP="kde hyprland"` causes both adapters to be invoked in order
+- [x] `ENVIRONMENT_DESKTOP=""` (no desktop) causes no adapter to be invoked; `post_install.backup` and `post_install.security` still run if set
+- [x] No DE name (including `"kde"`) appears as a literal string in the runner loop body
+- [x] KDE adapter receives `ENVIRONMENT_DESKTOP` and uses it; SDDM is installed and enabled when `"kde"` is in the array
+- [x] `post_install.desktop` key removed from `install.jsonc`; existing `post_install.backup` and `post_install.security` keys unchanged
+- [x] BATS tests for the runner cover: single DE, dual DE, empty, unknown DE (error path)
+- [x] BATS tests for the KDE adapter cover: SDDM install when KDE-only, SDDM install when KDE+Hyprland
 - [ ] Shellcheck passes on all modified scripts
 
 ## Blocked by
@@ -63,17 +63,22 @@ The KDE adapter (`extras/desktop/kde/kde.sh`) is updated to read `ENVIRONMENT_DE
 - BATS tests — stub adapter scripts as executable test doubles that write to a sentinel file when called. Cover: single DE, dual DE, empty, unknown DE (error). KDE adapter tests: mock `pacman` and `systemctl`; assert SDDM installed in both kde-only and kde+hyprland cases.
 
 **Acceptance criteria:**
-- [ ] `ENVIRONMENT_DESKTOP="kde"` → only KDE adapter invoked; `backup`/`security` extras unaffected
-- [ ] `ENVIRONMENT_DESKTOP="kde hyprland"` → both adapters invoked in order
-- [ ] `ENVIRONMENT_DESKTOP=""` → no adapter invoked
-- [ ] Unknown DE name → runner exits non-zero with "script not found" style error
-- [ ] No DE name literal in runner loop body
-- [ ] KDE adapter: SDDM installed and enabled when `"kde"` in `ENVIRONMENT_DESKTOP`
-- [ ] `post_install.desktop` removed from `install.jsonc`; backup/security keys untouched
-- [ ] BATS tests pass for all runner cases and KDE DM guard
+- [x] `ENVIRONMENT_DESKTOP="kde"` → only KDE adapter invoked; `backup`/`security` extras unaffected
+- [x] `ENVIRONMENT_DESKTOP="kde hyprland"` → both adapters invoked in order
+- [x] `ENVIRONMENT_DESKTOP=""` → no adapter invoked
+- [x] Unknown DE name → runner exits non-zero with "script not found" style error
+- [x] No DE name literal in runner loop body
+- [x] KDE adapter: SDDM installed and enabled when `"kde"` in `ENVIRONMENT_DESKTOP`
+- [x] `post_install.desktop` removed from `install.jsonc`; backup/security keys untouched
+- [x] BATS tests pass for all runner cases and KDE DM guard
 - [ ] Shellcheck passes
 
 **Out of scope:**
 - Hyprland adapter implementation (issue #05)
 - GPU or audio resolution
 - Any change to KDE package selection or `install-kde.jsonc`
+
+- 2026-09-27 audit: 5009860. Later: packages.groups.* became internal derived
+  sets (ADR 0056); envycontrol dropped for GPU Hardening (ADR 0053); greetd/SDDM
+  moved to Display Manager Adapters (ADR 0069). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

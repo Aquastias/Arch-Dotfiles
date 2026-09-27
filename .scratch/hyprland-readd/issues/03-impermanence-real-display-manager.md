@@ -19,13 +19,19 @@ the DM login survives the rolled-back root.
 
 ## Acceptance criteria
 
-- [ ] The tty1 autologin step is removed from the impermanence apply sequence
-- [ ] The stale greetd-swap comment reference is removed
-- [ ] With `ROOT` redirected, the DM (SDDM) remains enabled on a rolled-back root
-- [ ] Enablement relocation and graphical-session hardening still applied
-- [ ] `chroot-impermanence.bats` updated (autologin assertions removed; DM-stays-
+- [x] The tty1 autologin step is removed from the impermanence apply sequence
+- [x] The stale greetd-swap comment reference is removed
+- [x] With `ROOT` redirected, the DM (SDDM) remains enabled on a rolled-back root
+- [x] Enablement relocation and graphical-session hardening still applied
+- [x] `chroot-impermanence.bats` updated (autologin assertions removed; DM-stays-
       enabled + session-fix assertions added) and green
 
 ## Blocked by
 
 - None — can start immediately
+
+## Comments
+
+- 2026-09-27 audit: 6719e92, 93eca37. Later: impermanence DM login reworked by
+  ADR 0067→0069 (greetd then operator-chosen DM) and the uwsm session dropped
+  (ADR 0070).

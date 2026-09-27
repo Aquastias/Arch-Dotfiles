@@ -42,3 +42,6 @@ Config authored against Noctalia's `example.toml` idle schema (lock/screen-off
 verbatim shape) and the existing config.toml `sh $HOME/.local/bin/...` command
 convention. Behavioral verification (idle actually locks/blanks/suspends,
 inhibitors hold) is a Seam 2 (VM) concern, blocked on ticket 01.
+
+- 2026-09-27 audit: cadc60f. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

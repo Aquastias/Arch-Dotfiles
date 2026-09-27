@@ -145,3 +145,5 @@ regressions). Full suite 681/681; shellcheck 0; audit 81/81. The two
 e2e "fresh install" criteria are VM-covered; the unit guarantee is the
 resolver smoke tests (cases 1 & 2 prove qt6ct-kde present for hyprland,
 absent for kde-only).
+
+- 2026-09-27 audit: 307eb49.

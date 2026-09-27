@@ -16,9 +16,13 @@ that file and `fs_event`-watches it, re-applying highlights on write mid-session
 - [x] `config.toml` registers `[theme.templates.user.nvim]`; the template input
       is stowed and maps the 16 terminal colors + `primary` accent into base16.
 - [x] The generated output is seed-only/gitignored and seeded Mocha Sapphire.
-- [ ] With `follow_noctalia = true`, rewriting the generated file re-applies the
+- [x] With `follow_noctalia = true`, rewriting the generated file re-applies the
       theme mid-session (truecolor, full coverage — not 16-color collapse).
-- [ ] Following is compositor-session-isolated: KDE stays on seeded Mocha
+- [x] Following is compositor-session-isolated: KDE stays on seeded Mocha
       Sapphire.
 - [x] `noctalia-stow.bats` is extended to assert the registration, the stowed
       input, and the seed default — mirroring the kitty/pi/zsh template tests.
+
+## Comments
+
+- 2026-09-27 audit: 47aaacd (noctalia-stow.bats).

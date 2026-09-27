@@ -51,3 +51,5 @@ None - can start immediately.
   lookup (`jq '.[$k]'` — `.gtk-look` would parse as subtraction).
 - Tests: +1 core-packages case, +6 toggle on/off cases in
   `hyprland-adapter.bats` (13/13 green). Shellcheck clean.
+
+- 2026-09-27 audit: 8085e89.

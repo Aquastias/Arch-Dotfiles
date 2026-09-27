@@ -20,3 +20,7 @@ but it lands green on its own.)
 - [x] Any category-name reference used for navigation is updated so drilling
       Software still reaches its children.
 - [x] Covered in `guided-menu.bats`, following the existing category/row tests.
+
+## Comments
+
+- 2026-09-27 audit: cdafbb7. Later: 58f2931 kept the category named Packages.

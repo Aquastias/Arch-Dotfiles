@@ -50,36 +50,41 @@ extends the harness so future scripts can opt in.
 
 ## Acceptance criteria
 
-- [ ] `_harness.sh` reads `VM_FIXTURE_FILES` (default empty
+- [x] `_harness.sh` reads `VM_FIXTURE_FILES` (default empty
       array) and stages each entry into `${CACHE_DIR}` before
       the HTTP server starts.
-- [ ] Existing `vm-kde.sh`, `vm-hyprland.sh`,
+- [x] Existing `vm-kde.sh`, `vm-hyprland.sh`,
       `vm-kde-hyprland.sh` continue to run with no
       modification — the new code is a no-op when
       `VM_FIXTURE_FILES` is unset or empty.
-- [ ] Relative paths in `VM_FIXTURE_FILES` are resolved
+- [x] Relative paths in `VM_FIXTURE_FILES` are resolved
       relative to the calling script's directory, not the
       harness's directory.
-- [ ] A missing source file aborts with `error` and a
+- [x] A missing source file aborts with `error` and a
       message naming the path.
-- [ ] A duplicate basename across two `VM_FIXTURE_FILES`
+- [x] A duplicate basename across two `VM_FIXTURE_FILES`
       entries aborts with `error`.
-- [ ] A fixture whose basename collides with `run` aborts
+- [x] A fixture whose basename collides with `run` aborts
       with `error`.
-- [ ] Staged files are copied (not symlinked) into
+- [x] Staged files are copied (not symlinked) into
       `${CACHE_DIR}` and removed with the rest of
       `${CACHE_DIR}` by the existing cleanup trap.
-- [ ] A bats test exercises the staging function in
+- [x] A bats test exercises the staging function in
       isolation (no libvirt, no HTTP). It covers: happy path
       with one entry, happy path with multiple entries,
       missing-file failure, duplicate-basename failure, and
       `/run` collision failure.
-- [ ] `shellcheck` passes on `_harness.sh` and any new
+- [x] `shellcheck` passes on `_harness.sh` and any new
       shell file.
 - [ ] Full bats suite passes.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 7aaedd6. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

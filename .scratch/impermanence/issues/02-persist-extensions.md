@@ -25,17 +25,21 @@ This slice does NOT touch the runtime tool — that's slices 4 and 5. It also do
 
 ## Acceptance criteria
 
-- [ ] Host Config and Host Core accept a `persist: { directories: [], files: [] }` object
-- [ ] `persist` is deep-merged across Host Core and Host Config (host-specific paths are added to core-declared paths, not replacing them)
-- [ ] All validation rules from the PRD's table are implemented with the exact messages specified, matching the existing short-imperative style
-- [ ] Errors abort the install; warnings print and continue
-- [ ] Extension Persist Mount units land under `/persist/etc/systemd/system/` (not `/usr/lib/`)
-- [ ] Extension tmpfiles entries land under `/persist/etc/tmpfiles.d/`
-- [ ] Each declared extension path is moved from its live location to the Persist Dataset before `@blank` is taken
-- [ ] After install, `systemctl list-units 'persist-*.mount'` includes both curated defaults (from `/usr/lib/`) and declared extensions (from `/persist/`)
-- [ ] When `options.impermanence.enabled=false`, declaring `persist` paths in host config produces only the warning — no datasets, units, or moves happen
-- [ ] `tests/chroot-impermanence.bats` covers extension unit generation, deep-merge, validation rules (error and warning paths), and the move semantics for extensions
+- [x] Host Config and Host Core accept a `persist: { directories: [], files: [] }` object
+- [x] `persist` is deep-merged across Host Core and Host Config (host-specific paths are added to core-declared paths, not replacing them)
+- [x] All validation rules from the PRD's table are implemented with the exact messages specified, matching the existing short-imperative style
+- [x] Errors abort the install; warnings print and continue
+- [x] Extension Persist Mount units land under `/persist/etc/systemd/system/` (not `/usr/lib/`)
+- [x] Extension tmpfiles entries land under `/persist/etc/tmpfiles.d/`
+- [x] Each declared extension path is moved from its live location to the Persist Dataset before `@blank` is taken
+- [x] After install, `systemctl list-units 'persist-*.mount'` includes both curated defaults (from `/usr/lib/`) and declared extensions (from `/persist/`)
+- [x] When `options.impermanence.enabled=false`, declaring `persist` paths in host config produces only the warning — no datasets, units, or moves happen
+- [x] `tests/chroot-impermanence.bats` covers extension unit generation, deep-merge, validation rules (error and warning paths), and the move semantics for extensions
 
 ## Blocked by
 
 - `.scratch/impermanence/issues/01-core-impermanence.md`
+
+## Comments
+
+- 2026-09-27 audit: b366949. Later: persist units moved to /usr/lib (ADR 0144).

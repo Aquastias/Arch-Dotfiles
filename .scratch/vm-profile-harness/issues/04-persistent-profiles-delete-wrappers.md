@@ -30,16 +30,21 @@ profile, options, env overrides). Leave ADRs 0019/0028 untouched.
 
 ## Acceptance criteria
 
-- [ ] `vm/profiles/{desktop/kde,desktop/hyprland,desktop/kde-hyprland,
+- [x] `vm/profiles/{desktop/kde,desktop/hyprland,desktop/kde-hyprland,
       headless/secure}.jsonc` exist and each validates + resolves via
       `vm.sh --print-config`.
-- [ ] `headless/secure` stages `key.age` and resolves the SOPS +
+- [x] `headless/secure` stages `key.age` and resolves the SOPS +
       impermanence + encryption + mirror config of `arch-secure`.
-- [ ] The 4 `vm/vm-*.sh` scripts are deleted.
-- [ ] `vm/README.md` documents the `vm.sh --profile` workflow; no stale
+- [x] The 4 `vm/vm-*.sh` scripts are deleted.
+- [x] `vm/README.md` documents the `vm.sh --profile` workflow; no stale
       references to the deleted scripts remain in it.
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
 
 ## Blocked by
 
 - `.scratch/vm-profile-harness/issues/02-persistent-flow-core.md`
+
+## Comments
+
+- 2026-09-27 audit: aa8169c (ADR 0035). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

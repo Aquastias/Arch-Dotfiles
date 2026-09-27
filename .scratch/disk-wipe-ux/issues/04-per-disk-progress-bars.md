@@ -28,3 +28,7 @@ line to the block.
 ## Blocked by
 
 - `issues/03-device-aware-wipe-method.md`
+
+## Comments
+
+- 2026-09-27 audit: 85ff5c7.

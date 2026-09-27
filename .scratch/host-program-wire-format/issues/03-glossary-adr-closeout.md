@@ -13,9 +13,13 @@ migration, so both renames must have landed.
 
 **Status:** done (commit 92fea73)
 
-- [ ] The Host Program glossary entry states the field is `host_programs` with
+- [x] The Host Program glossary entry states the field is `host_programs` with
       the deferral resolved; no `system_programs` mention remains in the
       glossary.
-- [ ] A new ADR records the `kind` enum choice and the no-alias hard cutover,
+- [x] A new ADR records the `kind` enum choice and the no-alias hard cutover,
       and marks ADR 0084's deferral resolved.
-- [ ] Historical ADRs (0079, 0080, 0084, …) are unchanged.
+- [x] Historical ADRs (0079, 0080, 0084, …) are unchanged.
+
+## Comments
+
+- 2026-09-27 audit: 92fea73.

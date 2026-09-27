@@ -17,13 +17,13 @@ core and the reset verbs; the header advertises them.
 
 ## Acceptance criteria
 
-- [ ] `^Z` undoes and `^Y` redoes over the snapshot stack at any menu
+- [x] `^Z` undoes and `^Y` redoes over the snapshot stack at any menu
       depth; both inert when there is nothing to undo / redo.
-- [ ] `^R` offers a reset scope (field / section / all); reset-all is
+- [x] `^R` offers a reset scope (field / section / all); reset-all is
       itself undoable; all confirmed/gated as today.
-- [ ] One edit = one undo step; leaving and re-entering a category never
+- [x] One edit = one undo step; leaving and re-entering a category never
       loses a value.
-- [ ] Controller / dispatch bats cover the bind handling against the
+- [x] Controller / dispatch bats cover the bind handling against the
       history core.
 - [ ] The `--guided` replay path is unchanged; full suite green; shellcheck
       clean.
@@ -39,3 +39,6 @@ history (`$GUIDED_HIST_FILE`; `_ctl_autocommit` pushes one snapshot per change
 from the single `guided_ctl_list` choke point, so toggles/text/one-shots are all
 captured). `^R` = reset-all, itself undoable (no confirm needed). Covered by
 `guided-controller.bats` + a headless walk.
+
+- 2026-09-27 audit: 8ad3ff9. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

@@ -57,24 +57,24 @@ replaced. `install.sh` remains unmodified.
 
 ## Acceptance criteria
 
-- [ ] Review screen renders before any write, regardless of
+- [x] Review screen renders before any write, regardless of
       whether `.os/install.jsonc` exists.
-- [ ] When a prior `install.jsonc` exists, the review screen shows
+- [x] When a prior `install.jsonc` exists, the review screen shows
       a diff against it.
-- [ ] Four-way prompt accepts `w` (write & install), `W` (write
+- [x] Four-way prompt accepts `w` (write & install), `W` (write
       only — or another distinct key the implementer chooses; the
       surface is `[w]rite & install / [w]rite only / [e]dit /
       [a]bort`), `e`, `a`. Unrecognised input re-prompts.
-- [ ] `[w]rite & install` writes the file then execs `install.sh`
+- [x] `[w]rite & install` writes the file then execs `install.sh`
       in the same shell.
-- [ ] `[w]rite only` writes the file and exits zero.
-- [ ] `[e]dit` re-enters the pipeline at a documented re-entry
+- [x] `[w]rite only` writes the file and exits zero.
+- [x] `[e]dit` re-enters the pipeline at a documented re-entry
       point and lets the operator change inputs without losing
       progress on unchanged prompts.
-- [ ] `[a]bort` exits non-zero and does not modify
+- [x] `[a]bort` exits non-zero and does not modify
       `.os/install.jsonc`.
-- [ ] `install.sh` is unchanged by this slice.
-- [ ] No new deep modules; no slice 1–3 tests need updating.
+- [x] `install.sh` is unchanged by this slice.
+- [x] No new deep modules; no slice 1–3 tests need updating.
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass.
 
 ## Blocked by
@@ -103,3 +103,7 @@ time. CONTEXT.md and pick.sh header updated to reflect this.
 A narrower `validate_install_config_shape` helper (field
 presence/types only, no environment dependencies) could be added in a
 future slice if template-shape errors become a real source of pain.
+
+- 2026-09-27 audit: d8d95ad, f2158c3. Later: the picker became the install.sh
+  --profile front-end (ADR 0036). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

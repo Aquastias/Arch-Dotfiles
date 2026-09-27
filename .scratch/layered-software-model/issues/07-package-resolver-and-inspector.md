@@ -33,21 +33,25 @@ so the two can never drift.
 
 ## Acceptance criteria
 
-- [ ] The resolver returns every package with its source and layer
-- [ ] Authored slots, the Base Package List and all derived sets are covered
-- [ ] Changing the GPU vendor changes the resolved driver set
-- [ ] Changing the desktop selection changes the audio and Plasma sets
-- [ ] Changing the filesystem changes the filesystem-tool set
-- [ ] Changing a user's login shell changes the shell package
-- [ ] Changing the bootloader changes the bootloader package
-- [ ] Excluded packages are reported separately and absent from the installed set
-- [ ] The resolver is deterministic for a given config
-- [ ] The resolver makes no pacman or network call
-- [ ] The CLI takes a profile name and prints the set grouped by source
-- [ ] The CLI works on a hand-edited profile with no TUI involvement
-- [ ] The CLI reports a total count and the excluded entries
+- [x] The resolver returns every package with its source and layer
+- [x] Authored slots, the Base Package List and all derived sets are covered
+- [x] Changing the GPU vendor changes the resolved driver set
+- [x] Changing the desktop selection changes the audio and Plasma sets
+- [x] Changing the filesystem changes the filesystem-tool set
+- [x] Changing a user's login shell changes the shell package
+- [x] Changing the bootloader changes the bootloader package
+- [x] Excluded packages are reported separately and absent from the installed set
+- [x] The resolver is deterministic for a given config
+- [x] The resolver makes no pacman or network call
+- [x] The CLI takes a profile name and prints the set grouped by source
+- [x] The CLI works on a hand-edited profile with no TUI involvement
+- [x] The CLI reports a total count and the excluded entries
 
 ## Blocked by
 
 - Program kind is authoritative
 - Layer Resolver
+
+## Comments
+
+- 2026-09-27 audit: b00da12.

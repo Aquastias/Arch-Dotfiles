@@ -45,3 +45,7 @@ stays portable.
 ## Blocked by
 
 - 03 — Bind-all: OS pool, storage groups, single-disk root.
+
+## Comments
+
+- 2026-09-27 audit: 2bbde38.

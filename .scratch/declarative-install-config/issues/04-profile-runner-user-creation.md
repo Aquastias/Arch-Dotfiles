@@ -19,17 +19,17 @@ End-to-end demo: a VM install completes successfully, with the same set of users
 
 ## Acceptance criteria
 
-- [ ] `.os/lib/profiles.sh` exists and exposes a single entry function callable from `03-install.sh`
-- [ ] `.os/03-install.sh` calls profiles.sh after `configure_system()`
-- [ ] `.os/lib/chroot.sh` no longer creates users
-- [ ] `.os/install.jsonc` template no longer contains a `users` section
-- [ ] `.os/lib/config.sh` no longer validates `users`
-- [ ] `.os/hosts/core/config.jsonc`, `.os/users/core/config.jsonc` exist with documented examples
-- [ ] At least one example host config and one example user config exist
-- [ ] User creation uses merged user config (shell, sudo via wheel, groups)
-- [ ] Default password `12345` applied to every created user
-- [ ] Missing host config aborts the new flow with a warning, install continues
-- [ ] Validation aborts the install if a host config references a non-existent user
+- [x] `.os/lib/profiles.sh` exists and exposes a single entry function callable from `03-install.sh`
+- [x] `.os/03-install.sh` calls profiles.sh after `configure_system()`
+- [x] `.os/lib/chroot.sh` no longer creates users
+- [x] `.os/install.jsonc` template no longer contains a `users` section
+- [x] `.os/lib/config.sh` no longer validates `users`
+- [x] `.os/hosts/core/config.jsonc`, `.os/users/core/config.jsonc` exist with documented examples
+- [x] At least one example host config and one example user config exist
+- [x] User creation uses merged user config (shell, sudo via wheel, groups)
+- [x] Default password `12345` applied to every created user
+- [x] Missing host config aborts the new flow with a warning, install continues
+- [x] Validation aborts the install if a host config references a non-existent user
 - [ ] VM install verified end-to-end: users created via new flow, system boots, login works
 
 ## Blocked by
@@ -52,3 +52,8 @@ Design is fully specified by the parent PRD and the four ADRs in `docs/adr/`. Th
 - Parent PRD: `.scratch/declarative-install-config/PRD.md`
 - Glossary: `CONTEXT.md`
 - ADRs: `docs/adr/0001..0004`
+
+- 2026-09-27 audit: b1a3f5a, 7bccec2, f778b82. Later: host/user config became
+  the unified Host/User Profile (ADR 0036); system flag became kind (ADR 0085);
+  OS_DIR renamed INSTALLER_DIR (ADR 0092). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

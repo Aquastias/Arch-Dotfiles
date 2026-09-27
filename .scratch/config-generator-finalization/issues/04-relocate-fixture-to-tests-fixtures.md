@@ -25,10 +25,10 @@ directory.
 
 ## Acceptance criteria
 
-- [ ] `.os/programs/_fixture/` no longer exists
-- [ ] `.os/tests/fixtures/programs/hello/configs/manifest.jsonc`
+- [x] `.os/programs/_fixture/` no longer exists
+- [x] `.os/tests/fixtures/programs/hello/configs/manifest.jsonc`
       exists with the same contents as the previous fixture
-- [ ] All bats that referenced the old fixture path use the new
+- [x] All bats that referenced the old fixture path use the new
       one (via `PROGRAMS_ROOT` override where applicable)
 - [ ] `tests/run.sh` still passes
 - [ ] `tests/audit.sh` still passes
@@ -38,3 +38,9 @@ directory.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 7a16354, a5f90fd. Later: ADR 0134 (c8442fe) deleted the
+  config generator. Remaining unticked lines are suite/VM runs not re-verifiable
+  now.

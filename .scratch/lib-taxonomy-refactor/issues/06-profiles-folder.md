@@ -22,10 +22,10 @@ run-program.sh -> profiles/program-runner.sh
 
 ## Acceptance criteria
 
-- [ ] 2 profile files moved into `lib/profiles/` per the mapping
-- [ ] Every `source`/path reference updated repo-wide
-- [ ] All public function names unchanged
-- [ ] Tests relocated to mirrored `tests/profiles/` paths
+- [x] 2 profile files moved into `lib/profiles/` per the mapping
+- [x] Every `source`/path reference updated repo-wide
+- [x] All public function names unchanged
+- [x] Tests relocated to mirrored `tests/profiles/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
@@ -53,3 +53,6 @@ vacuously (KDE-owned pkg absent either way). Both now `../..`.
 
 3 tests relocated to `tests/profiles/`. Verified: bats **917/0**,
 `audit.sh` **82/82**, `shellcheck.sh` clean.
+
+- 2026-09-27 audit: 6012e4e. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

@@ -43,25 +43,30 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] A multi-mode config with one `data_pools[]` entry (single disk,
+- [x] A multi-mode config with one `data_pools[]` entry (single disk,
       defaults) creates a pool named `name` with a `<name>/data` dataset
       mounted at `/data/<name>`.
-- [ ] `topology`, `mount`, `ashift` apply their defaults when omitted.
-- [ ] When `options.encryption` is true, the standalone pool is
+- [x] `topology`, `mount`, `ashift` apply their defaults when omitted.
+- [x] When `options.encryption` is true, the standalone pool is
       encrypted with the same passphrase as rpool.
-- [ ] `LAYOUT_DATA_POOL_NAMES[]` is populated in both single and multi
+- [x] `LAYOUT_DATA_POOL_NAMES[]` is populated in both single and multi
       modes; the scalar `LAYOUT_DATA_POOL_NAME` is gone.
-- [ ] `finalize` exports every pool in the list and lists each in the
+- [x] `finalize` exports every pool in the list and lists each in the
       recovery hint.
-- [ ] All pools (rpool, dpool if any, standalone) import on first boot
+- [x] All pools (rpool, dpool if any, standalone) import on first boot
       (zpool.cache seeding already loops all pools — verify no change
       needed).
-- [ ] Single-disk mode behaviour is unchanged.
-- [ ] `install.jsonc` contains a `data_pools[]` example.
-- [ ] Unit tests cover the new config accessors and defaults (prior art:
+- [x] Single-disk mode behaviour is unchanged.
+- [x] `install.jsonc` contains a `data_pools[]` example.
+- [x] Unit tests cover the new config accessors and defaults (prior art:
       `tests/install-config.bats`); `finalize` array export/hint tests
       updated (prior art: `tests/finalize.bats`).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 5eef39b (ADR 0027). Later: per-group filesystem/encryption
+  (ADR 0043).

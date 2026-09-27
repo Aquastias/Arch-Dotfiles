@@ -68,3 +68,5 @@ destructive action.
   guaranteed (only `TARGETS` ever reach `DISKS_TO_WIPE`) and covered by
   the existing VM smoke tests; no libvirt on this dev host. Same bar as
   sibling slices 01/03/04 (unit-tested wipe logic = done).
+
+- 2026-09-27 audit: 7218507.

@@ -79,3 +79,5 @@ suite 29/29, shellcheck clean.
 **Deferred to slice 05:** multi-disk + data-pool DISK ASSIGNMENT in the
 assembler/synthesizer (emit/run bake single-disk today), and iterating the full
 360-cell Tier-1 set through validate_install_context (needs the multi assembler).
+
+- 2026-09-27 audit: d7dc6f8.

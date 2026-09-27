@@ -62,3 +62,7 @@ never committed (materialized via `emit`).
 
 - `.scratch/combination-matrix/issues/04-cell-generator-constraints-mixed-fs-seeds.md`
 - `.scratch/combination-matrix/issues/06-host-guard-parallel-driver-summary.md`
+
+## Comments
+
+- 2026-09-27 audit: 00d9450.

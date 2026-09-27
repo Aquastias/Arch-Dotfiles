@@ -23,15 +23,20 @@ prerequisite for the resolver gate change (slice 03).
 
 ## Acceptance criteria
 
-- [ ] `programs/security/rkhunter/configs/` no longer exists
-- [ ] `programs/security/rkhunter/install/` exists with the same
+- [x] `programs/security/rkhunter/configs/` no longer exists
+- [x] `programs/security/rkhunter/install/` exists with the same
       file contents as the previous `configs/`
-- [ ] `programs/security/rkhunter/install.sh` references
+- [x] `programs/security/rkhunter/install.sh` references
       `install/` (no remaining `configs/` references)
 - [ ] `tests/audit.sh` still passes
 - [ ] `tests/run.sh` still passes
-- [ ] One commit, scoped to rkhunter only
+- [x] One commit, scoped to rkhunter only
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 62a92dc. Later: ADR 0134 (c8442fe) deleted the config
+  generator. Remaining unticked lines are suite/VM runs not re-verifiable now.

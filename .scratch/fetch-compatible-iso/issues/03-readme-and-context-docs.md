@@ -28,17 +28,21 @@ do not duplicate them; reference them.
 
 ## Acceptance criteria
 
-- [ ] README §2 has a new "Prepare the install media" step before
+- [x] README §2 has a new "Prepare the install media" step before
       "Boot the ISO", documenting `tools/fetch-iso.sh` and the flash
       step.
-- [ ] A concise "why not the latest Arch ISO" note is present and
+- [x] A concise "why not the latest Arch ISO" note is present and
       points at the archzfs-Compatible ISO term.
-- [ ] Subsequent Quick Start steps (boot / internet / copy scripts)
+- [x] Subsequent Quick Start steps (boot / internet / copy scripts)
       are renumbered with no broken internal references.
-- [ ] The CONTEXT.md "Tools" entry lists `fetch-iso.sh`.
-- [ ] The documented `fetch-iso.sh` command matches the tool shipped
+- [x] The CONTEXT.md "Tools" entry lists `fetch-iso.sh`.
+- [x] The documented `fetch-iso.sh` command matches the tool shipped
       in issue 02 (path, default output, arg).
 
 ## Blocked by
 
 - Issue 02 (fetch-iso.sh tool).
+
+## Comments
+
+- 2026-09-27 audit: e447920 docs.

@@ -65,3 +65,5 @@ keybinds; added `^Y` redo, `^Z`-inert, and the header tests; dropped the 3
 (--severity=warning; the 2 SC2153 infos are pre-existing, untouched files).
 The live fzf draw (header/--expect rendering) stays smoke-only. Issue 03 was
 blocked by 02 (the two-level loop) — both now done in this session.
+
+- 2026-09-27 audit: 649f76c, 6331c90.

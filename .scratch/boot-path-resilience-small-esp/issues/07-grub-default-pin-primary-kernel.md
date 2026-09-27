@@ -18,12 +18,17 @@ enumerating present files.
 
 ## Acceptance criteria
 
-- [ ] After grub config generation, the default boot entry is the
+- [x] After grub config generation, the default boot entry is the
       Primary Kernel even when a higher-versioned Stray Kernel is
       installed.
-- [ ] The stray kernel remains a selectable (non-default) menu entry.
+- [x] The stray kernel remains a selectable (non-default) menu entry.
 - [ ] A fresh GRUB install boots the Primary Kernel by default.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 65bc075 (grub-common.bats). Install/boot runs not recorded —
+  left unticked.

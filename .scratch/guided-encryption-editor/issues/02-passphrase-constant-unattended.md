@@ -39,20 +39,24 @@ makes the existing five-character default unusable.
 
 ## Acceptance criteria
 
-- [ ] A shared constant defines the default disk passphrase as `12345678`
-- [ ] The constant's definition is safe to source more than once
-- [ ] A comment beside it records the ZFS ≥8-character reason for its length
-- [ ] The preset still takes precedence over the Secrets Manifest
-- [ ] The Secrets Manifest takes precedence over the unattended default
-- [ ] An unattended run with no preset and no manifest resolves to `12345678`
-- [ ] An interactive run with no preset and no manifest still reaches the prompt
-- [ ] Encryption being off still short-circuits before any collection
-- [ ] One assertion pins the default against ZFS's ≥8-character floor
-- [ ] The new cases extend the existing precedence test block
-- [ ] No new test seam is introduced for the ladder
-- [ ] Account password defaults are untouched by this ticket
-- [ ] Installing an encrypted Host Profile unattended no longer blocks
+- [x] A shared constant defines the default disk passphrase as `12345678`
+- [x] The constant's definition is safe to source more than once
+- [x] A comment beside it records the ZFS ≥8-character reason for its length
+- [x] The preset still takes precedence over the Secrets Manifest
+- [x] The Secrets Manifest takes precedence over the unattended default
+- [x] An unattended run with no preset and no manifest resolves to `12345678`
+- [x] An interactive run with no preset and no manifest still reaches the prompt
+- [x] Encryption being off still short-circuits before any collection
+- [x] One assertion pins the default against ZFS's ≥8-character floor
+- [x] The new cases extend the existing precedence test block
+- [x] No new test seam is introduced for the ladder
+- [x] Account password defaults are untouched by this ticket
+- [x] Installing an encrypted Host Profile unattended no longer blocks
 
 ## Blocked by
 
 None — can start immediately
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

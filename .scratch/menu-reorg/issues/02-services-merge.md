@@ -29,22 +29,28 @@ Security, Backup, Advanced.
 
 ## Acceptance criteria
 
-- [ ] `options.printing.enabled`, `options.bluetooth.enabled`,
+- [x] `options.printing.enabled`, `options.bluetooth.enabled`,
       `options.power.profile` rows report `section == "Services"`.
-- [ ] `menu_categories` returns fourteen categories including one `Services`
+- [x] `menu_categories` returns fourteen categories including one `Services`
       row (with a non-empty summary) and no `Printing service` / `Bluetooth` /
       `Power` rows.
-- [ ] `menu_category_rows Services` returns exactly the three service rows.
+- [x] `menu_category_rows Services` returns exactly the three service rows.
 - [ ] The Services category's aggregated `●` is set when any of the three
       toggles is overridden, and clear on a fresh state.
-- [ ] Drilling Services: power drills into its none/ppd/tuned enum; printing and
+- [x] Drilling Services: power drills into its none/ppd/tuned enum; printing and
       bluetooth flip in place without leaving the screen.
-- [ ] `pkgres_source_origin` returns `Services` for printing/bluetooth/power and
+- [x] `pkgres_source_origin` returns `Services` for printing/bluetooth/power and
       `System` for fonts.
-- [ ] `guided-menu.bats` updated (14-category order, Services section + drill,
+- [x] `guided-menu.bats` updated (14-category order, Services section + drill,
       merged-category ●); resolver origin assertions added; guided + resolver
       bats suites pass.
 
 ## Blocked by
 
 - .scratch/menu-reorg/issues/01-install-flow-reorder-system-rename.md
+
+## Comments
+
+- 2026-09-27 audit: a7b1e0e, 429b173. Later: Services renamed Daemons and the
+  SYSTEM bucket renamed GENERAL (ADR 0086, f411c8e). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

@@ -56,3 +56,7 @@ back-end's required `system.locale`/`timezone` (→ identity defaults in
 
 - `01-guided-install-tracer-bullet` (ships the `guided_select` /
   `guided_prompt` replay seam this driver consumes) — satisfied.
+
+## Comments
+
+- 2026-09-27 audit: 559a9f0.

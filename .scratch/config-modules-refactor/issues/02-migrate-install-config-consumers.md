@@ -45,14 +45,20 @@ informational (e.g. diagnostics, summary).
 
 ## Acceptance criteria
 
-- [ ] All accessors listed above are implemented and tested in
+- [x] All accessors listed above are implemented and tested in
       `tests/install-config.bats`
-- [ ] `grep -rn "cfgo.*}.*:-" .os/lib/ .os/tools/` returns no hits
+- [x] `grep -rn "cfgo.*}.*:-" .os/lib/ .os/tools/` returns no hits
       outside `lib/install-config.sh`
-- [ ] All listed consumer modules are migrated
+- [x] All listed consumer modules are migrated
 - [ ] Existing bats suite passes unmodified
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 
 - `.scratch/config-modules-refactor/issues/01-install-config-reader-tracer.md`
+
+## Comments
+
+- 2026-09-27 audit: 49e23cf. Later: the install config later became the
+  schema-driven accessor table (ADR 0015, 6145524) and the unified Host Profile
+  (ADR 0036). Remaining unticked lines are suite/VM runs not re-verifiable now.

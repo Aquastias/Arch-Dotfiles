@@ -22,15 +22,19 @@ lts path.
 
 ## Acceptance criteria
 
-- [ ] After an upgrade, a kernel not in Kernel Selection is reported by
+- [x] After an upgrade, a kernel not in Kernel Selection is reported by
       name as a Stray Kernel.
-- [ ] A kernel whose module tree lacks `zfs.ko` is reported.
-- [ ] The hook never removes a kernel and never fails the transaction.
-- [ ] The detector reuses the ZFS Module Guard's module-presence check
+- [x] A kernel whose module tree lacks `zfs.ko` is reported.
+- [x] The hook never removes a kernel and never fails the transaction.
+- [x] The detector reuses the ZFS Module Guard's module-presence check
       (no second copy of that logic).
-- [ ] Bats cover stray and `zfs.ko`-less classification over a fixture
+- [x] Bats cover stray and `zfs.ko`-less classification over a fixture
       module tree.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 1ffa4cc (tests/boot/stray-kernel.bats).

@@ -96,3 +96,5 @@ login proxy.
 VM note: the guest clones `REPO_URL` (default public GitHub) so this run needed
 the issue-07 commits pushed first; a host-side `git daemon --export-all` +
 `REPO_URL=git://<host>/<repo>` removes the push dependency next time.
+
+- 2026-09-27 audit: 32d59c7, e3e10a9.

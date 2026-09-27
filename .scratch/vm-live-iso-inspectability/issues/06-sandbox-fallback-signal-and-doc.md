@@ -21,3 +21,7 @@ Anchored by ADR 0099.
 - [x] `docs/agents/vm-sandbox.md` states the retry-outside-sandbox operating
       rule.
 - [x] `CLAUDE.md` references it under Agent skills (`### VM sandbox`).
+
+## Comments
+
+- 2026-09-27 audit: d9b41a8.

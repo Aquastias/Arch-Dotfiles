@@ -40,16 +40,21 @@ Add `sops` to `.os/hosts/core/config.jsonc` system programs so it is installed o
 
 ## Acceptance criteria
 
-- [ ] `sops` and `ssh-to-age` are installed by the program's `install.sh`
-- [ ] `/etc/secrets/age/keys.txt` exists after program install, is owned by root, has permissions `600`
-- [ ] The age key in `/etc/secrets/age/keys.txt` is derivable from the machine's `ssh_host_ed25519_key` (deterministic)
-- [ ] Systemd service unit passes `systemd-analyze verify`
-- [ ] Service is enabled and runs at `sysinit.target`
-- [ ] After chroot exits, installer prints the machine age public key and the exact `sops updatekeys` command
-- [ ] `sops` appears in `.os/hosts/core/config.jsonc` system programs
-- [ ] BATS test: `ssh-to-age` derivation from a fixture SSH host key produces a valid age public key
-- [ ] BATS test: generated systemd unit file passes `systemd-analyze verify`
+- [x] `sops` and `ssh-to-age` are installed by the program's `install.sh`
+- [x] `/etc/secrets/age/keys.txt` exists after program install, is owned by root, has permissions `600`
+- [x] The age key in `/etc/secrets/age/keys.txt` is derivable from the machine's `ssh_host_ed25519_key` (deterministic)
+- [x] Systemd service unit passes `systemd-analyze verify`
+- [x] Service is enabled and runs at `sysinit.target`
+- [x] After chroot exits, installer prints the machine age public key and the exact `sops updatekeys` command
+- [x] `sops` appears in `.os/hosts/core/config.jsonc` system programs
+- [x] BATS test: `ssh-to-age` derivation from a fixture SSH host key produces a valid age public key
+- [x] BATS test: generated systemd unit file passes `systemd-analyze verify`
 
 ## Blocked by
 
 - `.scratch/sops-secrets-management/issues/01-secrets-module.md`
+
+## Comments
+
+- 2026-09-27 audit: b4c31e4. Later: secrets-activated instead of a Host Core
+  program (ADR 0025).

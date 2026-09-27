@@ -29,9 +29,9 @@ If during implementation the Rollback Hook turns out to need an explicit `After=
 ## Acceptance criteria
 
 - [ ] `tests/vm/testing-single-disk-impermanent-kde-encrypted.sh` provisions a single-disk KDE install with ZFS encryption and impermanence enabled
-- [ ] Install prompts for the encryption passphrase using the existing fixture mechanism
-- [ ] Boot succeeds: passphrase unlocks the pool, Rollback Hook reverts all Rollback Datasets to `@blank`, `filesystems` mounts cleanly
-- [ ] All curated persist mounts are active post-boot
+- [x] Install prompts for the encryption passphrase using the existing fixture mechanism
+- [x] Boot succeeds: passphrase unlocks the pool, Rollback Hook reverts all Rollback Datasets to `@blank`, `filesystems` mounts cleanly
+- [x] All curated persist mounts are active post-boot
 - [ ] SSH host key persists across reboot
 - [ ] Unpersisted `/etc` edit disappears after reboot
 - [ ] SDDM reaches the login screen after reboot
@@ -40,3 +40,9 @@ If during implementation the Rollback Hook turns out to need an explicit `After=
 
 - `.scratch/impermanence/issues/01-core-impermanence.md`
 - `.scratch/impermanence/issues/03-pacman-resnapshot-hook.md`
+
+## Comments
+
+- 2026-09-27 audit: 1a85daf. Later: the testing-*.sh fixtures were replaced by
+  the profile-driven VM harness (ADR 0035, aa8169c). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

@@ -48,3 +48,7 @@ tests the validator now covers for real; keep pure branch-selection logic.
 ## Blocked by
 
 - Issue 01 (shares `tests/lib/validators.bash`).
+
+## Comments
+
+- 2026-09-27 audit: 88ab690.

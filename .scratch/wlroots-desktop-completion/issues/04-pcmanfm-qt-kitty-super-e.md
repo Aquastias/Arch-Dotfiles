@@ -38,3 +38,5 @@ bind is added to niri.
 Verified: `niri-adapter.bats` (21), `hyprland-adapter.bats` (20),
 `resolver.bats` (43), `explain-packages.bats` all green; `shellcheck` clean on
 the changed shell files. No VM needed for this ticket.
+
+- 2026-09-27 audit: b71444b, a7a94d9.

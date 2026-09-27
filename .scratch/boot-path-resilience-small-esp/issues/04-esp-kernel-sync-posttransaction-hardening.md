@@ -25,18 +25,22 @@ smaller one; entry presence always tracks image presence.
 
 ## Acceptance criteria
 
-- [ ] A critical copy that cannot complete (full ESP) leaves the
+- [x] A critical copy that cannot complete (full ESP) leaves the
       previous working image in place and exits non-zero, failing the
       transaction loudly.
-- [ ] The critical default initramfs on the ESP is byte-identical to its
+- [x] The critical default initramfs on the ESP is byte-identical to its
       `/boot` source after a successful run (cmp passes).
-- [ ] Orphaned `.new` temp files from a prior interrupted run are removed
+- [x] Orphaned `.new` temp files from a prior interrupted run are removed
       at the start of a run.
-- [ ] Fallback image + entry present on a ≥1G ESP, absent on a smaller
+- [x] Fallback image + entry present on a ≥1G ESP, absent on a smaller
       ESP; no fallback entry references a missing image.
-- [ ] Bats cover the planner: critical/optional selection, space
+- [x] Bats cover the planner: critical/optional selection, space
       go/no-go, cmp gate, sweep decision.
 
 ## Blocked by
 
 - Issue 03 (Extract ESP Kernel Sync + drive from Kernel Selection)
+
+## Comments
+
+- 2026-09-27 audit: 5ee8482 (esp-kernel-sync.bats).

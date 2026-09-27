@@ -24,3 +24,7 @@ paru.conf that drops the hook is caught.
 - [x] Refuses unattended, unpinned, other criticals, RPC down.
 - [x] doctor silent when hooked; warns for user conf, $PARU_CONF, /etc.
 - [x] Login hook installed for every user.
+
+## Comments
+
+- 2026-09-27 audit: 48efa98, 072fd04 (tests/aur/repin.bats).

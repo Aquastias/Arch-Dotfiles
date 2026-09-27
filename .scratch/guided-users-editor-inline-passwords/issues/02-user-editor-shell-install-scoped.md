@@ -31,20 +31,24 @@ the Config State.
 
 ## Acceptance criteria
 
-- [ ] Enter on a user opens the User Editor; Esc returns to the flattened list.
-- [ ] Committed user shows `enabled` (toggle) + `shell` (cycle); ad-hoc user shows
+- [x] Enter on a user opens the User Editor; Esc returns to the flattened list.
+- [x] Committed user shows `enabled` (toggle) + `shell` (cycle); ad-hoc user shows
       `✗ remove user` + `shell`, no `enabled`.
-- [ ] Cycling shell commits a per-user delta; a committed user renders effective
+- [x] Cycling shell commits a per-user delta; a committed user renders effective
       values (e.g. groups from its profile) while storing only the delta.
-- [ ] Proceed materializes the delta onto the install clone; the committed repo
+- [x] Proceed materializes the delta onto the install clone; the committed repo
       `users/<name>/profile.jsonc` is byte-identical afterward.
-- [ ] Disabling the last user yields a userless (root-only) config that Proceeds
+- [x] Disabling the last user yields a userless (root-only) config that Proceeds
       when no extras are selected and blocks (existing message) when they are.
-- [ ] `.users` remains names-only in the Config State after any editor edit.
-- [ ] Editor edits are captured by the undo/redo autocommit like any other edit.
-- [ ] Controller/emit-seam bats cover delta authoring, effective-view display, and
+- [x] `.users` remains names-only in the Config State after any editor edit.
+- [x] Editor edits are captured by the undo/redo autocommit like any other edit.
+- [x] Controller/emit-seam bats cover delta authoring, effective-view display, and
       the enabled/remove dispatch.
 
 ## Blocked by
 
 - `01-flatten-users-toplevel-warn.md`
+
+## Comments
+
+- 2026-09-27 audit: eaa977e.

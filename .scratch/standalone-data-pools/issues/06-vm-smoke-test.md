@@ -25,15 +25,20 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] `testing-multi-data-pools.sh` provisions 1 OS disk + a single-disk
+- [x] `testing-multi-data-pools.sh` provisions 1 OS disk + a single-disk
       pool + a mirror pool and runs the installer to completion.
 - [ ] After reboot, all pools import without `-f` and the `<name>/data`
       datasets are mounted at their configured mountpoints.
-- [ ] The test fails loudly if any pool is missing or unmounted.
-- [ ] Conforms to the existing VM test harness (prior art:
+- [x] The test fails loudly if any pool is missing or unmounted.
+- [x] Conforms to the existing VM test harness (prior art:
       `tests/vm/testing-multi-os-none.sh`).
 
 ## Blocked by
 
 - 02 — Multi-disk topologies + reject none/independent
 - 03 — Pool-name + uniqueness + mount validation
+
+## Comments
+
+- 2026-09-27 audit: 5028854. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

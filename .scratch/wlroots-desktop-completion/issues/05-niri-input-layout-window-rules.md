@@ -28,3 +28,6 @@ equivalent input/monitor/look blocks, so this ticket is niri-only.
 Content correctness (niri accepting the new blocks, idle/input actually
 behaving) is provable only at Seam 2 (desktop-verify VM) or a local `niri
 validate` — neither runnable here. KDL authored against niri's schema.
+
+- 2026-09-27 audit: 98fd495, ecb431a. Later: config split into conf.d (ADR
+  0107). Remaining unticked lines are suite/VM runs not re-verifiable now.

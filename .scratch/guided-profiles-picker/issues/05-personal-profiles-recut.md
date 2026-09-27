@@ -29,16 +29,21 @@ mirror ×2 + `data` raidz1 ×3; laptop `mode: single`).
 
 ## Acceptance criteria
 
-- [ ] Both profiles declare `filesystem: "zfs"` explicitly
-- [ ] Both have `options.encryption`, `options.impermanence.enabled`,
+- [x] Both profiles declare `filesystem: "zfs"` explicitly
+- [x] Both have `options.encryption`, `options.impermanence.enabled`,
       `options.ssh.enabled` on
-- [ ] Both persist `/home`, `/var/lib/docker`, `/var/lib/libvirt`
-- [ ] Existing layouts are unchanged
-- [ ] Each profile loads and validates clean against the closed schema (ADR 0036),
+- [x] Both persist `/home`, `/var/lib/docker`, `/var/lib/libvirt`
+- [x] Existing layouts are unchanged
+- [x] Each profile loads and validates clean against the closed schema (ADR 0036),
       including the impermanence same-pool rule
-- [ ] Covered by a profile-load / validation assertion (existing validation-test
+- [x] Covered by a profile-load / validation assertion (existing validation-test
       prior art)
 
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: e8e2b10. Later: laptop impermanence disabled (e41e15f);
+  fleet packages folded into core (ADR 0114).

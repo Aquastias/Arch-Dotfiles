@@ -20,15 +20,20 @@ validation.
 
 ## Acceptance criteria
 
-- [ ] Unset `esp_size` resolves to 2G.
-- [ ] A resolved `esp_size` below 1G aborts the install with a clear
+- [x] Unset `esp_size` resolves to 2G.
+- [x] A resolved `esp_size` below 1G aborts the install with a clear
       error naming the field and the floor.
-- [ ] The 2G default is defined once; no host or test/VM profile pins
+- [x] The 2G default is defined once; no host or test/VM profile pins
       `esp_size` unless it genuinely overrides.
 - [ ] A new single-disk and a new multi-disk install partition a 2G ESP.
-- [ ] Bats cover resolve (unset → 2G; explicit value passes through) and
+- [x] Bats cover resolve (unset → 2G; explicit value passes through) and
       floor (≥1G ok, <1G error).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 3b1ac41 (layout core; esp_size bats). Later: default became
+  esp_size auto (kernel-aware, ADR 0078).

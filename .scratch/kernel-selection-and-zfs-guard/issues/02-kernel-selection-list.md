@@ -74,3 +74,5 @@ kernels (audit 81/81). CONTEXT.md already documents the terms.
 - `.scratch/kernel-selection-and-zfs-guard/issues/01-zfs-module-guard.md`
   (the guard lands first as the safety net before non-`lts`
   selection becomes possible).
+
+- 2026-09-27 audit: dfaf162, b3f0383. Later: per-kernel boot entries (ADR 0078).

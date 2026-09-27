@@ -25,11 +25,11 @@ positive assertion that a `configs/` without a manifest errors.
 
 ## Acceptance criteria
 
-- [ ] `cg_resolve_variants` errors when a `configs/` exists
+- [x] `cg_resolve_variants` errors when a `configs/` exists
       without a `manifest.jsonc`
-- [ ] The error message names the affected program (cat/name)
+- [x] The error message names the affected program (cat/name)
       and the missing file
-- [ ] `configs-variant-resolver.bats` loses the "skipped"
+- [x] `configs-variant-resolver.bats` loses the "skipped"
       case and gains a positive "errors" case
 - [ ] All other resolver bats cases still pass
 - [ ] `tests/run.sh` still passes
@@ -39,3 +39,9 @@ positive assertion that a `configs/` without a manifest errors.
 
 - `01-rename-clamav-configs-to-install.md`
 - `02-rename-rkhunter-configs-to-install.md`
+
+## Comments
+
+- 2026-09-27 audit: f7f25dc (configs-variant-resolver.bats). Later: ADR 0134
+  (c8442fe) deleted the config generator. Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

@@ -46,21 +46,21 @@ history stack, the skeleton builder, the Pre-Install Picker) and the
 
 ## Acceptance criteria
 
-- [ ] One persistent fzf for the whole interactive session — no return to
+- [x] One persistent fzf for the whole interactive session — no return to
       the bare terminal between the category list, a category's fields, and
       an enumerable value edit.
-- [ ] The header (toolbar line) and the Proceed / Save / Export rows are
+- [x] The header (toolbar line) and the Proceed / Save / Export rows are
       present at every menu depth.
-- [ ] A category row shows ● when any field inside it is overridden.
-- [ ] Edits commit on confirm and survive moving between categories; Esc
+- [x] A category row shows ● when any field inside it is overridden.
+- [x] Edits commit on confirm and survive moving between categories; Esc
       backs out of a screen without committing.
-- [ ] All disk resolution (single and multi) happens post-menu with the
+- [x] All disk resolution (single and multi) happens post-menu with the
       lsblk / SMART preview; passwords are entered hidden and confirmed;
       ACCEPT (multi) and INSTALL gate at the commit step; the disk to be
       erased is shown in the review.
-- [ ] No password is ever echoed on screen or written to the state file
+- [x] No password is ever echoed on screen or written to the state file
       (today's plaintext echo is fixed).
-- [ ] Pure setters, the controller dispatch, and the nav-state transitions
+- [x] Pure setters, the controller dispatch, and the nav-state transitions
       are bats-tested (state files in → list / next-nav / new state out,
       no fzf).
 - [ ] The `--guided` replay path and its bats interface are unchanged; full
@@ -87,3 +87,7 @@ GUIDED_PERSISTENT flag gone, guided/shell.sh 1230→1019). On main, full suite g
 Only the live fzf render + the VM spine smoke remain HITL/VM-gated (no tty/fzf in
 CI); everything else is bats-verified + headless-walked through the real entry
 script.
+
+- 2026-09-27 audit: dcdf402, bf70530, 07770bc, ac989f6, db3307b; cutover
+  ddc1602. Later: passwords moved in-menu (ADR 0049, c6274d5). Remaining
+  unticked lines are suite/VM runs not re-verifiable now.

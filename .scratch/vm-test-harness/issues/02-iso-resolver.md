@@ -23,14 +23,14 @@ The module must have no libvirt dependency and must be sourceable in isolation. 
 
 ## Acceptance criteria
 
-- [ ] A new module under `.os/lib/` exposes a single public function whose contract is "given a downloads dir, print path to usable ISO"
-- [ ] When the resolved-latest ISO is already in the downloads dir, the function does not invoke the downloader
-- [ ] When the resolved-latest ISO is not present, it downloads via the latest URL and returns the new path
-- [ ] Network failures (HEAD or download) surface as non-zero exit, not a silent fallback
-- [ ] No checksum verification logic is added
-- [ ] Bats tests under `.os/tests/` cover: cached-hit (no download), cache-miss (download invoked), and HEAD failure (non-zero exit). Tests stub `curl` or whatever HTTP helper the module uses
-- [ ] All bats tests pass
-- [ ] Shellcheck passes
+- [x] A new module under `.os/lib/` exposes a single public function whose contract is "given a downloads dir, print path to usable ISO"
+- [x] When the resolved-latest ISO is already in the downloads dir, the function does not invoke the downloader
+- [x] When the resolved-latest ISO is not present, it downloads via the latest URL and returns the new path
+- [x] Network failures (HEAD or download) surface as non-zero exit, not a silent fallback
+- [x] No checksum verification logic is added
+- [x] Bats tests under `.os/tests/` cover: cached-hit (no download), cache-miss (download invoked), and HEAD failure (non-zero exit). Tests stub `curl` or whatever HTTP helper the module uses
+- [x] All bats tests pass
+- [x] Shellcheck passes
 
 ## Blocked by
 
@@ -49,3 +49,6 @@ Deep module with a one-function interface and clean test seams. Mirror the test 
 
 **Reference material:**
 - Parent PRD: `.scratch/vm-test-harness/PRD.md`
+
+- 2026-09-27 audit: 1ac243a, e3ca02e, 8d1ce38. Later: replaced by the
+  profile-driven harness (ADR 0035, aa8169c).

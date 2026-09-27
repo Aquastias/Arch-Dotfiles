@@ -65,27 +65,31 @@ emoji — they are double-width and break alignment in the persistent fzf.
 
 ## Acceptance criteria
 
-- [ ] Disks shows one `Encryption ▸` row in the slot beneath filesystem
-- [ ] The row's four summary states render correctly
-- [ ] The row shows the override dot when enablement differs from the baseline
-- [ ] The label helper is called and asserted directly, without a screen render
-- [ ] The separate passphrase row no longer appears on the Disks screen
-- [ ] Enter on the row opens the Encryption Editor
-- [ ] The Editor shows only the enablement row and Back when encryption is off
-- [ ] The Editor shows enablement, passphrase and Back when encryption is on
-- [ ] Enter on the enablement row flips it and stays on the Editor
-- [ ] Enter on the passphrase row opens the inline-masked capture
-- [ ] A passphrase under 8 characters is refused inline with a notice
-- [ ] Confirming a passphrase returns to the Encryption Editor
-- [ ] Cancelling a passphrase also returns to the Encryption Editor
-- [ ] Setting a passphrase leaves enablement unchanged
-- [ ] A stored passphrase survives an off→on round-trip and reads as custom
-- [ ] The Editor's footer and prompt match the other sub-editors
-- [ ] Esc from the Editor returns to the Disks screen
-- [ ] No emoji appear in any rendered row
-- [ ] The replay seam still drives enablement unchanged
+- [x] Disks shows one `Encryption ▸` row in the slot beneath filesystem
+- [x] The row's four summary states render correctly
+- [x] The row shows the override dot when enablement differs from the baseline
+- [x] The label helper is called and asserted directly, without a screen render
+- [x] The separate passphrase row no longer appears on the Disks screen
+- [x] Enter on the row opens the Encryption Editor
+- [x] The Editor shows only the enablement row and Back when encryption is off
+- [x] The Editor shows enablement, passphrase and Back when encryption is on
+- [x] Enter on the enablement row flips it and stays on the Editor
+- [x] Enter on the passphrase row opens the inline-masked capture
+- [x] A passphrase under 8 characters is refused inline with a notice
+- [x] Confirming a passphrase returns to the Encryption Editor
+- [x] Cancelling a passphrase also returns to the Encryption Editor
+- [x] Setting a passphrase leaves enablement unchanged
+- [x] A stored passphrase survives an off→on round-trip and reads as custom
+- [x] The Editor's footer and prompt match the other sub-editors
+- [x] Esc from the Editor returns to the Disks screen
+- [x] No emoji appear in any rendered row
+- [x] The replay seam still drives enablement unchanged
 
 ## Blocked by
 
 - .scratch/guided-encryption-editor/issues/01-secret-return-target.md
 - .scratch/guided-encryption-editor/issues/03-manifest-8char-default.md
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

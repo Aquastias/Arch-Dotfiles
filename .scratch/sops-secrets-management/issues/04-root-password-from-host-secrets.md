@@ -14,11 +14,15 @@ End-to-end behaviour: if `install-state.json` contains a `secrets.host` key poin
 
 ## Acceptance criteria
 
-- [ ] When `install-state.json` has no `secrets.host` entry: operator is prompted interactively (existing behaviour unchanged)
-- [ ] When the entry is present but the decrypted file has no `root_password` field: falls back to interactive prompt
-- [ ] When `root_password` is present in the decrypted file: root password is set non-interactively using that value, no prompt shown
-- [ ] No plaintext password appears in process list or installer logs
+- [x] When `install-state.json` has no `secrets.host` entry: operator is prompted interactively (existing behaviour unchanged)
+- [x] When the entry is present but the decrypted file has no `root_password` field: falls back to interactive prompt
+- [x] When `root_password` is present in the decrypted file: root password is set non-interactively using that value, no prompt shown
+- [x] No plaintext password appears in process list or installer logs
 
 ## Blocked by
 
 - `.scratch/sops-secrets-management/issues/01-secrets-module.md`
+
+## Comments
+
+- 2026-09-27 audit: 0b71966, 01b71af.

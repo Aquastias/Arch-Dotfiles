@@ -24,10 +24,10 @@ progress.sh     -> wipe/progress.sh
 
 ## Acceptance criteria
 
-- [ ] 3 wipe files moved into `lib/wipe/` per the mapping
-- [ ] Every `source`/path reference updated, including `02-wipe.sh`
-- [ ] All public function names unchanged
-- [ ] Tests relocated to mirrored `tests/wipe/` paths
+- [x] 3 wipe files moved into `lib/wipe/` per the mapping
+- [x] Every `source`/path reference updated, including `02-wipe.sh`
+- [x] All public function names unchanged
+- [x] Tests relocated to mirrored `tests/wipe/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
@@ -48,3 +48,6 @@ Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
 no stale `lib/wipe-*`/`lib/progress` refs.
 
 Unblocks issue 08 (thin Disk Wipe).
+
+- 2026-09-27 audit: 969c6db. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

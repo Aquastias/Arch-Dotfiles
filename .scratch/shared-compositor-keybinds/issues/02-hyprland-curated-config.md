@@ -38,3 +38,7 @@ lockstep.)
 
 Implemented in 1c5bc9d. Open verification: confirm the config loads clean on
 the next Hyprland session (no offline verifier exists).
+
+- 2026-09-27 audit: 1c5bc9d. Later: superseded whole by ADR 0097 (shared
+  Noctalia shell); Meta+X close (ADR 0113). The live-run line stays unticked
+  (not run, per the notes above).

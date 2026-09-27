@@ -34,21 +34,21 @@ operator-visible output.
 
 ## Acceptance criteria
 
-- [ ] `--dry-run --user <u>` prints the plan, performs no writes
+- [x] `--dry-run --user <u>` prints the plan, performs no writes
       to `~/.dotfiles/.stow/<u>/`, exits zero on clean
-- [ ] `--dry-run --user <u>` exits non-zero when the plan would
+- [x] `--dry-run --user <u>` exits non-zero when the plan would
       conflict with the legacy stow tree; conflict messages
       printed
-- [ ] `--dry-run --user <u>` exits non-zero when a manifest fails
+- [x] `--dry-run --user <u>` exits non-zero when a manifest fails
       validation; validation errors printed
-- [ ] `--validate-only --user <u>` validates manifests AND resolves
+- [x] `--validate-only --user <u>` validates manifests AND resolves
       variants for that user; exits 0/1; no plan output, no writes
-- [ ] `--validate-only` without `--user` validates manifests
+- [x] `--validate-only` without `--user` validates manifests
       globally (no per-user variant resolution); exits 0/1
-- [ ] Plan output is stable byte-for-byte across two runs with
+- [x] Plan output is stable byte-for-byte across two runs with
       identical inputs (regression-protects deterministic ordering
       from slice 05)
-- [ ] A test (bats or shell) covers each flag's exit-code matrix
+- [x] A test (bats or shell) covers each flag's exit-code matrix
       and the no-writes guarantee for `--dry-run` and
       `--validate-only`
 - [ ] `tests/audit.sh` still passes
@@ -56,3 +56,9 @@ operator-visible output.
 ## Blocked by
 
 - `01-tracer-end-to-end-pipeline.md`
+
+## Comments
+
+- 2026-09-27 audit: 1a13926, 3713522. Later: the generator was deleted by ADR
+  0134 (c8442fe) in favour of per-program home/. Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

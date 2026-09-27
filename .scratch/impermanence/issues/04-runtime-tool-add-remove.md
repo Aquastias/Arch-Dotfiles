@@ -46,3 +46,7 @@ The `status` and `apply-defaults` verbs are slice 5; this slice ships only `add`
 ## Blocked by
 
 - `.scratch/impermanence/issues/02-persist-extensions.md`
+
+## Comments
+
+- 2026-09-27 audit: c784686. Later: profile lookup by hostname fixed (51c9803).

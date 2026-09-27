@@ -58,26 +58,26 @@ manually).
 
 ## Acceptance criteria
 
-- [ ] `.os/vm/vm-secure.sh` exists, is executable, and
+- [x] `.os/vm/vm-secure.sh` exists, is executable, and
       follows the same structure as the existing
       `vm/vm-kde.sh`.
-- [ ] The script declares `VM_NAME="arch-secure"`,
+- [x] The script declares `VM_NAME="arch-secure"`,
       `VM_DISK_SIZES=(40 40)`, and
       `VM_FIXTURE_FILES=("fixtures/key.age")`.
-- [ ] The inlined `INSTALL_CONFIG_CONTENT` contains
+- [x] The inlined `INSTALL_CONFIG_CONTENT` contains
       `mode: "multi"`, `os_pool.topology: "mirror"`, two-disk
       `os_pool.disks`, `options.encryption: true`,
       `options.impermanence.enabled: true`,
       `options.age_key_url:
       "http://192.168.122.1:9876/key.age"`, and
       `environment.desktop: []`.
-- [ ] The script's header comment names the passphrase
+- [x] The script's header comment names the passphrase
       `test`, lists the manual verification checklist, and
       points at ADR 0019 + the PRD.
-- [ ] `.os/vm/README.md` gains a row in the VM-flavors table
+- [x] `.os/vm/README.md` gains a row in the VM-flavors table
       for `vm-secure.sh` and a short note in the
       quick-start section, including the passphrase prompt.
-- [ ] Running `bash .os/vm/vm-secure.sh --help` prints
+- [x] Running `bash .os/vm/vm-secure.sh --help` prints
       usage without error.
 - [ ] Running `bash .os/vm/vm-secure.sh` on a host with
       libvirtd up creates the VM, boots the live ISO, types
@@ -86,8 +86,8 @@ manually).
       prompt, install completes, VM powers off, harness
       restarts once into the installed system. (Manual smoke
       verification — not automated.)
-- [ ] `shellcheck` passes on `vm-secure.sh`.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] `shellcheck` passes on `vm-secure.sh`.
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
@@ -95,3 +95,9 @@ manually).
 - `.scratch/vm-secure-smoke-test/issues/01-sops-fixture-infrastructure.md`
 - `.scratch/vm-secure-smoke-test/issues/02-test-host-user-config.md`
 - `.scratch/vm-secure-smoke-test/issues/03-harness-fixture-serving-hook.md`
+
+## Comments
+
+- 2026-09-27 audit: 0aea247. Later: the script became the vm.sh --profile
+  headless/secure profile (ADR 0035). Remaining unticked lines are suite/VM runs
+  not re-verifiable now.

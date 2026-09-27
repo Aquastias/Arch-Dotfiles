@@ -57,18 +57,18 @@ Config in CONTEXT.md).
 
 ## Acceptance criteria
 
-- [ ] `tools/pick.sh` prompts for `INSTALL_MODE` (single / mirror /
+- [x] `tools/pick.sh` prompts for `INSTALL_MODE` (single / mirror /
       raidz) before the disk picker.
-- [ ] Disk picker supports fzf multi-select via `<TAB>` and
+- [x] Disk picker supports fzf multi-select via `<TAB>` and
       `<ENTER>`.
-- [ ] Selection violating the mode's disk-count rule is rejected
+- [x] Selection violating the mode's disk-count rule is rejected
       with a clear error and re-prompted.
-- [ ] Valid `mirror` and `raidz` selections produce
+- [x] Valid `mirror` and `raidz` selections produce
       `install.jsonc` files that pass `lib/install-config.sh`
       validation and are consumed by `install.sh` unchanged.
-- [ ] bats tests for the Layout validator cover the full rule
+- [x] bats tests for the Layout validator cover the full rule
       table: every (mode, count) pair → expected ok / error.
-- [ ] bats tests for the Config assembler include multi-disk
+- [x] bats tests for the Config assembler include multi-disk
       fixtures for `mirror` and `raidz`.
 - [ ] All slice-1 and slice-2 tests continue to pass;
       `tests/run.sh` and `tests/shellcheck.sh` pass.
@@ -76,3 +76,9 @@ Config in CONTEXT.md).
 ## Blocked by
 
 - `.scratch/pre-install-picker/issues/02-fzf-with-preview.md`
+
+## Comments
+
+- 2026-09-27 audit: 05a1a83. Later: the picker became the install.sh --profile
+  front-end (ADR 0036). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

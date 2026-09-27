@@ -56,3 +56,5 @@ covering the four seam functions. Full bats suite: 562 / 0 fail
 stubbed for contract tests since it requires a real block device —
 one separate test exercises its `[[ -b ]]` guard. Exhaustive sizing
 math (floor / RAM-based / 80% / cap branches) deliberately deferred.
+
+- 2026-09-27 audit: cc2b353.

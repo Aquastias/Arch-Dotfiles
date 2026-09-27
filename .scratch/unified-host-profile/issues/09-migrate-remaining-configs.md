@@ -97,3 +97,5 @@ the `single/plain` precedent.) The literal `desktop` host's 5-disk/25-AUR
 set stays VM-impractical; its single-disk DE proxy (arch-kde) + multi-pool
 slicing (arch-data) cover its shape. Closing — issue 10 may now remove the
 legacy files + the equivalence guard.
+
+- 2026-09-27 audit: d473026, 99a85b3 (ADR 0036).

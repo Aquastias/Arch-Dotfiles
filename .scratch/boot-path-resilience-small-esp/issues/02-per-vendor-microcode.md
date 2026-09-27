@@ -21,16 +21,21 @@ enumerates only present microcode via grub-mkconfig.)
 
 ## Acceptance criteria
 
-- [ ] CPU vendor detected at install; only the matching `*-ucode` is
+- [x] CPU vendor detected at install; only the matching `*-ucode` is
       installed (Intel board → no `amd-ucode`, and vice-versa).
-- [ ] systemd-boot loader entries list a microcode `initrd` only for a
+- [x] systemd-boot loader entries list a microcode `initrd` only for a
       `*-ucode.img` that exists.
-- [ ] Omitting the other vendor's microcode never produces a dangling
+- [x] Omitting the other vendor's microcode never produces a dangling
       `initrd` reference ("Error preparing initrd").
 - [ ] VM / unknown CPU → no microcode referenced, install still succeeds.
-- [ ] Bats cover vendor→package mapping and present-files→entry-`initrd`
+- [x] Bats cover vendor→package mapping and present-files→entry-`initrd`
       lines (including the missing-file case).
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 6e51042 (lib/packages/microcode.sh). Install/boot runs not
+  recorded — left unticked.

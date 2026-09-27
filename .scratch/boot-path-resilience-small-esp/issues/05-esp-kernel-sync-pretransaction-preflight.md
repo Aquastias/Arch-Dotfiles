@@ -19,14 +19,18 @@ it mainly protects retrofitted 512M machines.
 
 ## Acceptance criteria
 
-- [ ] A kernel transaction with insufficient ESP free space is aborted at
+- [x] A kernel transaction with insufficient ESP free space is aborted at
       PreTransaction with a clear message to free space.
-- [ ] On an ESP with ample room (e.g. 2G), the preflight never aborts a
+- [x] On an ESP with ample room (e.g. 2G), the preflight never aborts a
       normal upgrade.
-- [ ] The preflight and the PostTransaction guard share one space-proxy
+- [x] The preflight and the PostTransaction guard share one space-proxy
       implementation (no duplicate logic).
-- [ ] Bats cover the space-proxy / abort decision.
+- [x] Bats cover the space-proxy / abort decision.
 
 ## Blocked by
 
 - Issue 04 (ESP Kernel Sync PostTransaction hardening)
+
+## Comments
+
+- 2026-09-27 audit: 5edb472.

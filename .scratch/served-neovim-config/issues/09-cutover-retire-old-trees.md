@@ -16,3 +16,7 @@ the served path is never broken before it is proven.
       single-source config on stow.
 - [x] ADR 0135's "both prior configs deleted once the fresh one passes the VM
       gate" is satisfied and its Status reflects implemented.
+
+## Comments
+
+- 2026-09-27 audit: 3438671 (old .config/nvim + nvim.bak deleted).

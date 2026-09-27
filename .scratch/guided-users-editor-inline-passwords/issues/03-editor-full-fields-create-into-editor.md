@@ -28,19 +28,23 @@ A created name left untouched still materializes the default profile
 
 ## Acceptance criteria
 
-- [ ] Editor exposes sudo, groups, git name/email, ssh keys, programs, each
+- [x] Editor exposes sudo, groups, git name/email, ssh keys, programs, each
       committing the expected per-user delta.
-- [ ] `＋ Create user` → name prompt → lands in the editor with bash / sudo on /
+- [x] `＋ Create user` → name prompt → lands in the editor with bash / sudo on /
       wheel defaults.
-- [ ] A duplicate name (committed or session) is rejected with an actionable
+- [x] A duplicate name (committed or session) is rejected with an actionable
       message; no partial user is created.
-- [ ] The interactive create and the replay create path produce the same default
+- [x] The interactive create and the replay create path produce the same default
       profile (sudo on / wheel).
-- [ ] A created-but-untouched user still materializes the default profile at
+- [x] A created-but-untouched user still materializes the default profile at
       Proceed.
-- [ ] Controller/emit-seam bats cover each field's delta authoring, the create
+- [x] Controller/emit-seam bats cover each field's delta authoring, the create
       defaults, and the duplicate-name rejection.
 
 ## Blocked by
 
 - `02-user-editor-shell-install-scoped.md`
+
+## Comments
+
+- 2026-09-27 audit: 5762bd1.

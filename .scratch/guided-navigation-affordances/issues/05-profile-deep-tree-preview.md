@@ -19,18 +19,22 @@ the preview pane.
 
 ## Acceptance criteria
 
-- [ ] Hovering a committed profile row renders a nested tree containing the
+- [x] Hovering a committed profile row renders a nested tree containing the
       hostname, at least one user expanded to shell·groups, and the
       encryption/impermanence options.
-- [ ] The tree also surfaces environment, security, backup, and disk skeleton.
-- [ ] Values shown are the resolved profile (merged over Host Core), not the raw
+- [x] The tree also surfaces environment, security, backup, and disk skeleton.
+- [x] Values shown are the resolved profile (merged over Host Core), not the raw
       on-disk delta.
-- [ ] The tree uses the same ASCII tree style as the disk-layout preview.
-- [ ] Profile rows show only the name (and `▸`); no inline user/hostname hint.
-- [ ] Covered headless via `guided_ctl_preview <line>` with the nav set to the
+- [x] The tree uses the same ASCII tree style as the disk-layout preview.
+- [x] Profile rows show only the name (and `▸`); no inline user/hostname hint.
+- [x] Covered headless via `guided_ctl_preview <line>` with the nav set to the
       profiles screen; prior art: `tests/config/guided-profiles-menu.bats`
       (preview), the layout-graph tests.
 
 ## Blocked by
 
 - None — enhances the existing profiles preview.
+
+## Comments
+
+- 2026-09-27 audit: 8c5bccc (ADR 0063).

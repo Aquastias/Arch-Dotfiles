@@ -33,18 +33,23 @@ list/action affordances exist.
 
 ## Acceptance criteria
 
-- [ ] The editor lists OS pool + storage groups + data pools; each opens with the
+- [x] The editor lists OS pool + storage groups + data pools; each opens with the
       per-kind row set above (fzf-entry + nav seams).
-- [ ] A data pool exposes an editable `mount` row defaulting to `/<name>`; blank
+- [x] A data pool exposes an editable `mount` row defaulting to `/<name>`; blank
       input keeps the default (pure seam).
-- [ ] `Custom…` appears in the preset picker, seeds the single-disk OS skeleton,
+- [x] `Custom…` appears in the preset picker, seeds the single-disk OS skeleton,
       and lands the operator in the editor.
-- [ ] Picking any multi preset (e.g. `os-mirror-raidz1`) opens the editor rather
+- [x] Picking any multi preset (e.g. `os-mirror-raidz1`) opens the editor rather
       than backing out; `single` still backs out.
-- [ ] Adding/removing a standalone data pool updates the layout and the editor
+- [x] Adding/removing a standalone data pool updates the layout and the editor
       list (pure + fzf-entry seams).
 - [ ] Full existing bats suite stays green.
 
 ## Blocked by
 
 - 03 — Bind-all: OS pool, storage groups, single-disk root.
+
+## Comments
+
+- 2026-09-27 audit: 6edb9c0 (custom-layout.bats). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

@@ -138,3 +138,5 @@ All four representative gates now pass (`single/plain`, `data-pools/reorder`,
 acceptance criterion, the vm-profile-harness PRD is marked **done**. Gate
 closed. Full secure evidence: `.scratch/impermanence/issues/10-…` final
 comments.
+
+- 2026-09-27 audit: human smoke fixes (ffa9364 et al.) (ADR 0035).

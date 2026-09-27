@@ -31,14 +31,14 @@ tickets 02 and 03 already migrated every consumer.
 
 ## Acceptance criteria
 
-- [ ] bats (stubbing `_bootstrap_rung`): rung-1 success → resolves `paru`; rungs
+- [x] bats (stubbing `_bootstrap_rung`): rung-1 success → resolves `paru`; rungs
       1–2 fail then `paru-bin` succeeds → `paru`; rungs 1–2 fail then `yay-bin`
       succeeds → `yay`; all rungs fail → non-zero abort.
-- [ ] bats: pre-flight runs when `AUR_HELPER=paru` and is skipped when
+- [x] bats: pre-flight runs when `AUR_HELPER=paru` and is skipped when
       `AUR_HELPER=yay`; the real install runs in both cases.
-- [ ] The rung executor is wrapped in `_retry` with 2 attempts / `3,10` backoff
+- [x] The rung executor is wrapped in `_retry` with 2 attempts / `3,10` backoff
       and cleans `$BUILD` between attempts.
-- [ ] Skip-check short-circuits when either helper is already installed.
+- [x] Skip-check short-circuits when either helper is already installed.
 - [ ] The existing VM / combination-matrix happy path (rung 1) still installs
       end-to-end; no new VM case is added for fallback rungs.
 - [ ] No literal `paru -S` / `paru -Sp` remains in the Runner AUR pass.
@@ -48,3 +48,9 @@ tickets 02 and 03 already migrated every consumer.
 - Ticket 01 (Ladder foundations) — needs `_retry` + `_profiles_detect_helper`.
 - Ticket 02 (Migrate program scripts) — all leaf consumers on `${AUR_HELPER}`.
 - Ticket 03 (`install-pkglist.sh` detect) — standalone consumer migrated.
+
+## Comments
+
+- 2026-09-27 audit: 0aefc32 (profiles-bootstrap.bats). A literal paru -Sp
+  pre-flight remained even then, and ADR 0143 (a9725a6) deliberately pins the
+  pass to paru — that line and the VM run stay unticked.

@@ -24,18 +24,23 @@ DE literal added.
 
 ## Acceptance criteria
 
-- [ ] `hyprland` passes Environment validation; an unknown desktop still errors
-- [ ] Guided Environment desktop selection offers `hyprland`
-- [ ] Display Label formatter renders `hyprland` as `Hyprland`
-- [ ] Adapter installs exactly the 5-package working-session core
-- [ ] Adapter installs no companion packages and no `qt6ct-kde`
-- [ ] greetd + greetd-tuigreet installed and enabled when KDE is absent
-- [ ] Session override exec launches the compositor directly, never `start-hyprland`
-- [ ] Environment Runner dispatches to the adapter by convention (no DE literal)
-- [ ] `hyprland-adapter.bats` restored (sibling of `kde-adapter.bats`) and green;
+- [x] `hyprland` passes Environment validation; an unknown desktop still errors
+- [x] Guided Environment desktop selection offers `hyprland`
+- [x] Display Label formatter renders `hyprland` as `Hyprland`
+- [x] Adapter installs exactly the 5-package working-session core
+- [x] Adapter installs no companion packages and no `qt6ct-kde`
+- [x] greetd + greetd-tuigreet installed and enabled when KDE is absent
+- [x] Session override exec launches the compositor directly, never `start-hyprland`
+- [x] Environment Runner dispatches to the adapter by convention (no DE literal)
+- [x] `hyprland-adapter.bats` restored (sibling of `kde-adapter.bats`) and green;
       environment-resolution, environment-validation, display-label, menu-enum
       tests updated and green
 
 ## Blocked by
 
 - None — can start immediately
+
+## Comments
+
+- 2026-09-27 audit: 6719e92, 57a8aff. Later: DM became a separate adapter axis
+  (ADR 0069); config migrated to Lua (ADR 0105).

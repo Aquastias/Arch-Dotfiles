@@ -46,28 +46,28 @@ collide with `arch-kde`, `arch-hyprland`, or
 
 ## Acceptance criteria
 
-- [ ] `hosts/vm/arch-secure/config.jsonc` exists, parses as
+- [x] `hosts/vm/arch-secure/config.jsonc` exists, parses as
       JSONC, and lists `vm-test` as a user.
-- [ ] `hosts/vm/arch-secure/install.template.jsonc` exists,
+- [x] `hosts/vm/arch-secure/install.template.jsonc` exists,
       parses as JSONC, and contains `mode: "multi"`,
       `os_pool.topology: "mirror"`, two-disk `os_pool.disks`,
       `options.encryption: true`, `options.impermanence.
       enabled: true`, `options.age_key_url` pointing at
       `http://192.168.122.1:9876/key.age`,
       `environment.desktop: []`.
-- [ ] `users/vm-test/config.jsonc` exists, parses as JSONC,
+- [x] `users/vm-test/config.jsonc` exists, parses as JSONC,
       and declares shell + groups + minimal user-program set.
-- [ ] `tools/pick.sh` shows `arch-secure` in its host
+- [x] `tools/pick.sh` shows `arch-secure` in its host
       picker (smoke check — host has both `config.jsonc` and
       `install.template.jsonc`, so it must appear).
-- [ ] The Host Core + Host Config merge for `arch-secure`
+- [x] The Host Core + Host Config merge for `arch-secure`
       produces a config whose program references all resolve
       (no User Config references a System Program — the
       validation rule from CONTEXT.md User Config).
-- [ ] `shellcheck` passes on every changed shell file (if
+- [x] `shellcheck` passes on every changed shell file (if
       any) and `jq -e . < <(cpp -P ...)`-style JSONC parse
       checks pass on the three new files.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
@@ -76,3 +76,7 @@ None - can start immediately. Independent of slice 01:
 `secrets.json` is optional per CONTEXT.md User Secrets / Host
 Secrets, so config validation runs cleanly even before the
 fixtures land.
+
+## Comments
+
+- 2026-09-27 audit: 0455f4d.

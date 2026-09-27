@@ -21,14 +21,20 @@ Communication scripts that invoke `paru -S`.
 
 ## Acceptance criteria
 
-- [ ] Every `programs/*/install.sh` uses `${AUR_HELPER}` for its AUR install,
+- [x] Every `programs/*/install.sh` uses `${AUR_HELPER}` for its AUR install,
       with no literal `paru -S` remaining in those scripts.
-- [ ] Each script continues to work when `AUR_HELPER=paru` (unchanged runtime
+- [x] Each script continues to work when `AUR_HELPER=paru` (unchanged runtime
       behaviour).
-- [ ] A grep confirms no `programs/*/install.sh` hardcodes `paru` for the
+- [x] A grep confirms no `programs/*/install.sh` hardcodes `paru` for the
       install call (comments referencing paru are fine).
 - [ ] Existing suite / VM happy path stays green.
 
 ## Blocked by
 
 - Ticket 01 (Ladder foundations) — the `AUR_HELPER` export must exist.
+
+## Comments
+
+- 2026-09-27 audit: 0aefc32 (every programs/*/install.sh on ${AUR_HELPER}).
+  Suite/VM run not recorded — left unticked. Later: ADR 0143 made paru the only
+  AUR builder (yay is repo-only).

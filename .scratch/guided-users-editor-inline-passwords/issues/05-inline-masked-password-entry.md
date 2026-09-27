@@ -31,18 +31,18 @@ and the replay path (keyed answers) is unaffected.
 
 ## Acceptance criteria
 
-- [ ] `guided_mask_apply` bats: append one char, append several (paste),
+- [x] `guided_mask_apply` bats: append one char, append several (paste),
       backspace, backspace-to-empty, and a consistency case under the
       append/backspace contract.
-- [ ] On capable fzf, typing a root or user password renders `••••` inline; the
+- [x] On capable fzf, typing a root or user password renders `••••` inline; the
       captured value equals what was typed; cursor keys are inert on the screen.
-- [ ] Type-twice confirm: matching entries save; a mismatch shows a notice and
+- [x] Type-twice confirm: matching entries save; a mismatch shows a notice and
       re-prompts without leaving fzf.
-- [ ] On an fzf below the gate, entry falls back to the `execute()` masked,
+- [x] On an fzf below the gate, entry falls back to the `execute()` masked,
       confirmed prompt and still succeeds.
-- [ ] Captured passwords never appear in the Config State, Save, or Export.
-- [ ] Replay installs still supply passwords via keyed answers (no tty), unchanged.
-- [ ] The PTY smoke harness (`tools/guided-fzf-smoke.py`, extended) drives the
+- [x] Captured passwords never appear in the Config State, Save, or Export.
+- [x] Replay installs still supply passwords via keyed answers (no tty), unchanged.
+- [x] The PTY smoke harness (`tools/guided-fzf-smoke.py`, extended) drives the
       password screen and asserts: query renders `••••`, the captured value equals
       the keystrokes, cursor keys are inert, a type-twice mismatch re-prompts, and
       the old-fzf fallback path is taken when the version flag is forced off.
@@ -51,3 +51,7 @@ and the replay path (keyed answers) is unaffected.
 
 - `01-flatten-users-toplevel-warn.md`
 - `03-editor-full-fields-create-into-editor.md`
+
+## Comments
+
+- 2026-09-27 audit: 90ae0d7.

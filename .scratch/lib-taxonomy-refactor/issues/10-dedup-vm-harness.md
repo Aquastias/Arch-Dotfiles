@@ -26,14 +26,14 @@ Behaviour-preserving for both.
 
 ## Acceptance criteria
 
-- [ ] Common harness logic lives in one shared file; both harnesses
+- [x] Common harness logic lives in one shared file; both harnesses
       source it (no copy-paste divergence)
-- [ ] Persistent-VM harness (`vm/*.sh` entry scripts) behaviour unchanged
-- [ ] Test harness (`testing-*.sh` entry scripts; seed + sentinel +
+- [x] Persistent-VM harness (`vm/*.sh` entry scripts) behaviour unchanged
+- [x] Test harness (`testing-*.sh` entry scripts; seed + sentinel +
       verify) behaviour unchanged
-- [ ] bats suite + `audit.sh` + `shellcheck.sh` stay green
+- [x] bats suite + `audit.sh` + `shellcheck.sh` stay green
       (917/0 · 82/82 · clean)
-- [ ] **Human VM verification**: one real persistent `vm-*.sh` run and
+- [x] **Human VM verification**: one real persistent `vm-*.sh` run and
       one `testing-*.sh` run, end-to-end on a libvirt/QEMU host
 
 ## Blocked by
@@ -87,3 +87,7 @@ NVMe disks); `_wipe_probe_disk` ran `lsblk`/`dd` on them and tripped the
 ERR trap under `pipefail` (the pre-refactor `is_disk_zeroed` masked this
 by being called inside an `if`). Now guarded with `[[ -b "$disk" ]]` so a
 non-existent target is reported blank. Re-run confirmed 0 wipe errors.
+
+- 2026-09-27 audit: 9942007; closed after human VM verification (dabc4d2).
+  Later: lib/guided-* folded into lib/guided/ (698d487). All criteria now
+  ticked.

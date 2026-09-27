@@ -102,3 +102,5 @@ glossary stay issue 11.
 
 **Verify.** 1007 bats pass (0 fail); `audit.sh` 82 checks pass;
 shellcheck clean (one pre-existing `CONFIG_FILE` SC2153 info).
+
+- 2026-09-27 audit: 8878143 (ADR 0036).

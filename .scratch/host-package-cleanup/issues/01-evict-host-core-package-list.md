@@ -46,3 +46,6 @@ None - can start immediately.
   `system_programs == ["cups"]`) + 1 merge guard (core sans packages
   preserves host packages). Verified `cups` resolves `system: true`, so
   preflight passes.
+
+- 2026-09-27 audit: 1267f9a. Later: ADR 0056/0114 moved the fleet package list
+  back into Host Core.

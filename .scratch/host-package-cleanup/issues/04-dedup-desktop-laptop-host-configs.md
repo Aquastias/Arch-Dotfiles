@@ -71,3 +71,5 @@ Categorized List category (replacing the now-stale `qt-and-kde` and
   gone, aur drops, no sops/age, desktop `system_programs:["grub"]` with no
   grub/os-prober pkg, repos parse). Full suite 722 green, shellcheck
   clean, `audit.sh` 81/81 (all packages resolve in repos/AUR).
+
+- 2026-09-27 audit: af53f76.

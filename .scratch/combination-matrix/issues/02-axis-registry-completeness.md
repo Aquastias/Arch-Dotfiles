@@ -55,3 +55,5 @@ adjustable point; slices 04/05 refine against real generator behaviour. (Note:
 topology / disk-mode / per-group data-pool axes are NOT `_MENU_FIELDS` entries —
 they come from the layout/data-pools editor and are added as derived axes in
 slice 04, so they're out of this completeness assertion's scope.)
+
+- 2026-09-27 audit: 74df2eb.

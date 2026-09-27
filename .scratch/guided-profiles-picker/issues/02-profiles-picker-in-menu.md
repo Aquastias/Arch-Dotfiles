@@ -22,19 +22,23 @@ omitted and the menu behaves exactly as before.
 
 ## Acceptance criteria
 
-- [ ] `Profiles ▸` is the first top-screen row, above the terminal/category divider
-- [ ] Entering it drills to a screen listing the enumerated profiles, alphabetical
-- [ ] The preview pane shows the selected profile's header comment; missing/thin
+- [x] `Profiles ▸` is the first top-screen row, above the terminal/category divider
+- [x] Entering it drills to a screen listing the enumerated profiles, alphabetical
+- [x] The preview pane shows the selected profile's header comment; missing/thin
       headers show the dim `(no description — …)` fallback
-- [ ] `Esc` on the Profiles screen returns to the top menu (non-committal)
-- [ ] Picking a profile seeds the Config State (categories reflect it) and returns
+- [x] `Esc` on the Profiles screen returns to the top menu (non-committal)
+- [x] Picking a profile seeds the Config State (categories reflect it) and returns
       to the top screen
-- [ ] After picking, the operator can tweak any value and/or Proceed; disks are
+- [x] After picking, the operator can tweak any value and/or Proceed; disks are
       resolved interactively at Proceed
-- [ ] The `Profiles` entry is hidden when no installable profile exists
-- [ ] Menu-model behaviour covered by bats (`guided-menu.bats` prior art); the fzf
+- [x] The `Profiles` entry is hidden when no installable profile exists
+- [x] Menu-model behaviour covered by bats (`guided-menu.bats` prior art); the fzf
       Profiles screen is smoke-only (`tools/guided-fzf-smoke.py` prior art)
 
 ## Blocked by
 
 - 01 — Pure core: profile enumeration + seed-merge
+
+## Comments
+
+- 2026-09-27 audit: 2bdff99.

@@ -25,33 +25,33 @@ target; the Secrets Manifest / `.guided_passwords.*` no-SOPS seam (ADR 0049); an
 
 ## Acceptance criteria
 
-- [ ] An `encryption password` row renders on the Disks screen directly under the
+- [x] An `encryption password` row renders on the Disks screen directly under the
       `encryption` toggle, **only when encryption is on**, reading `(set)` /
       `(not set)` — never the value.
-- [ ] Enter on the row opens the existing inline-masked secret screen (masked
+- [x] Enter on the row opens the existing inline-masked secret screen (masked
       bullets, cursor-unbound, type-twice confirm) via a new `enc` secret target.
-- [ ] First entry shorter than 8 chars emits a notice and stays on the entry
+- [x] First entry shorter than 8 chars emits a notice and stays on the entry
       screen (ZFS `keyformat=passphrase` minimum); an 8+ entry proceeds to
       confirm.
-- [ ] A matching confirm writes the value to the Secrets Manifest under
+- [x] A matching confirm writes the value to the Secrets Manifest under
       `enc_passphrase`; a mismatch restarts entry (as with passwords).
-- [ ] On an fzf too old for the masking binds, entry degrades to the ADR 0049
+- [x] On an fzf too old for the masking binds, entry degrades to the ADR 0049
       `execute()` masked prompt via the same rich-chrome gate the password rows
       use.
-- [ ] The guided injector stages `enc_passphrase` into install-state under the
+- [x] The guided injector stages `enc_passphrase` into install-state under the
       `.guided_passwords.*` family; `.secrets.*` stays untouched (no SOPS
       activation). The value never enters Config State and is never emitted by
       Save/Export.
-- [ ] `collect_enc_passphrase` resolves `ZFS_PASSPHRASE` by precedence
+- [x] `collect_enc_passphrase` resolves `ZFS_PASSPHRASE` by precedence
       `INSTALL_ENC_PASSPHRASE` → guided manifest value → interactive tty prompt;
       the prompt still works when neither preset is present.
-- [ ] `tests/config/guided-controller.bats`: the Disks row appears only when
+- [x] `tests/config/guided-controller.bats`: the Disks row appears only when
       encryption is on; Enter navigates to the `enc` secret screen; a `<8` first
       entry notices-and-stays; a valid type-twice writes the manifest and returns.
-- [ ] `tests/config/guided-secrets.bats`: an `enc_passphrase` in the manifest
+- [x] `tests/config/guided-secrets.bats`: an `enc_passphrase` in the manifest
       lands as its decrypted file + the `.guided_passwords.*` seam, `.secrets.*`
       untouched.
-- [ ] Back-end resolution covered (prior art `tests/secrets.bats`): each
+- [x] Back-end resolution covered (prior art `tests/secrets.bats`): each
       precedence tier yields the right `ZFS_PASSPHRASE`.
 - [ ] VM `arch-zfs-test-guided-secure` still passes: the guided→manifest→
       `collect_enc_passphrase` handoff drives the real passphrase-unlock path via
@@ -60,3 +60,8 @@ target; the Secrets Manifest / `.guided_passwords.*` no-SOPS seam (ADR 0049); an
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 06ff671. Later: folded into the Encryption Editor (ADR 0059,
+  ca227d8). Remaining unticked lines are suite/VM runs not re-verifiable now.

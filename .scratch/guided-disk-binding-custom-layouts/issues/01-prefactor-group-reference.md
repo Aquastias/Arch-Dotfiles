@@ -37,3 +37,7 @@ on screen and every test stays green.
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: f8f8de3 (pool-ref.bats).

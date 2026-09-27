@@ -30,20 +30,25 @@ before.
 
 ## Acceptance criteria
 
-- [ ] `_retry` returns success when the command eventually succeeds within the
+- [x] `_retry` returns success when the command eventually succeeds within the
       attempt budget, and the command's failure status when it never does.
-- [ ] `_retry` consumes backoff values in order and calls the injected sleep
+- [x] `_retry` consumes backoff values in order and calls the injected sleep
       between attempts (assert count + sequence); no sleep after the final
       attempt.
-- [ ] `_profiles_detect_helper` prints `paru` when only paru is on PATH, `yay`
+- [x] `_profiles_detect_helper` prints `paru` when only paru is on PATH, `yay`
       when only yay, `paru` when both (paru preferred), and returns non-zero when
       neither.
-- [ ] Runner exports `AUR_HELPER` into the program-script environment; on a
+- [x] Runner exports `AUR_HELPER` into the program-script environment; on a
       paru-only system it equals `paru`.
-- [ ] New bats file(s) follow the `profiles-aur.bats` shape (source `runner.sh`,
+- [x] New bats file(s) follow the `profiles-aur.bats` shape (source `runner.sh`,
       `run` the pure function, assert stdout/status; no paru/chroot executed).
-- [ ] `CONTEXT.md` documents **AUR Helper**; existing suite stays green.
+- [x] `CONTEXT.md` documents **AUR Helper**; existing suite stays green.
 
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 0aefc32 (runner _retry/_profiles_detect_helper;
+  profiles-helper.bats). Boxes ticked from the tests it added.

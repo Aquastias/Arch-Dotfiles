@@ -46,3 +46,5 @@ core packages). Re-measured on same 24-core host:
 - `chroot-impermanence.bats` alone: **4.83s** wall (vs 30.6s seq)
 
 The 4.83s figure is the gate input for issue 05 (threshold ~5s).
+
+- 2026-09-27 audit: 2e6c862, 4c2e8ae.

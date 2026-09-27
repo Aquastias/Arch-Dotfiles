@@ -17,14 +17,19 @@ adapter is unchanged and continues to always enable SDDM.
 
 ## Acceptance criteria
 
-- [ ] Hyprland adapter skips greetd when KDE is in the resolved desktop set
-- [ ] Behavior is identical for desktop order KDE+Hyprland and Hyprland+KDE
-- [ ] SDDM greeter offers both sessions; the Hyprland session uses the direct-
+- [x] Hyprland adapter skips greetd when KDE is in the resolved desktop set
+- [x] Behavior is identical for desktop order KDE+Hyprland and Hyprland+KDE
+- [x] SDDM greeter offers both sessions; the Hyprland session uses the direct-
       launch override
-- [ ] KDE adapter still enables SDDM (unchanged)
-- [ ] `hyprland-adapter.bats` covers the greetd-skipped-when-KDE-present case;
+- [x] KDE adapter still enables SDDM (unchanged)
+- [x] `hyprland-adapter.bats` covers the greetd-skipped-when-KDE-present case;
       environment-runner dispatch of both adapters is green
 
 ## Blocked by
 
 - Hyprland-only install, end-to-end
+
+## Comments
+
+- 2026-09-27 audit: 6719e92. Later: greetd briefly owned the DM (ADR 0067,
+  a91dbfd), then the DM became an operator choice (ADR 0069).

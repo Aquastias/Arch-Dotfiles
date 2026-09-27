@@ -68,3 +68,7 @@ install-plan details (pools, disks, sizes) stay raw. Reverse lookup is
 format-aware in three seams: `_ctl_field_for_label`, the Disks special-row
 prefixes, and `_ctl_enter_values`. Fixed an empty-value column-shift bug
 (whitespace-IFS collapse) by switching the row encoding to a unit-separator.
+
+## Comments
+
+- 2026-09-27 audit: be8614b.

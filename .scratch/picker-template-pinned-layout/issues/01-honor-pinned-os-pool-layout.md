@@ -31,18 +31,22 @@ Scope:
   hedge); update the Diagram 1 note in `.os/ARCHITECTURE.md`.
 
 ## Acceptance criteria
-- [ ] Template `mode: "multi"` + `os_pool.topology: "mirror"`, no
+- [x] Template `mode: "multi"` + `os_pool.topology: "mirror"`, no
       disks → picker skips the mode prompt, picks ≥2 disks, writes
       `install.jsonc` with that topology + picked disks.
-- [ ] Template `mode: "single"` → skips the mode prompt, requires
+- [x] Template `mode: "single"` → skips the mode prompt, requires
       exactly 1 disk.
-- [ ] `mode: "multi"` without `os_pool.topology` → picker errors.
-- [ ] Pinned `raidz2` with 3 disks → count error; with 4 → ok.
-- [ ] No `.mode` → unchanged prompt flow (single/mirror/raidz).
-- [ ] Template `os_pool.disks` present → overridden by picked disks.
-- [ ] `tests/picker.bats` covers pinned skip, count validation,
+- [x] `mode: "multi"` without `os_pool.topology` → picker errors.
+- [x] Pinned `raidz2` with 3 disks → count error; with 4 → ok.
+- [x] No `.mode` → unchanged prompt flow (single/mirror/raidz).
+- [x] Template `os_pool.disks` present → overridden by picked disks.
+- [x] `tests/picker.bats` covers pinned skip, count validation,
       partial-pin error, and the unpinned regression.
 
 ## Notes
 - `vm/arch-secure` already carries the target pin shape (ADR 0029).
 - Min-disk rules mirror REFERENCE § Topology Options.
+
+## Comments
+
+- 2026-09-27 audit: a1e8440 (ADR 0029).

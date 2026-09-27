@@ -57,3 +57,5 @@ Tests: `.os/tests/picker-assign.bats` (8) + 2 cross-checks in
 ## Blocked by
 
 - `.scratch/unified-host-profile/issues/01-profile-loader-schema-assembler.md`
+
+- 2026-09-27 audit: eb51081 (ADR 0036).

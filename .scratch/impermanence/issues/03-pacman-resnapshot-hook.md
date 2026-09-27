@@ -35,3 +35,8 @@ Document the v1 leak as a comment in the helper script so a future reader unders
 ## Blocked by
 
 - `.scratch/impermanence/issues/01-core-impermanence.md`
+
+## Comments
+
+- 2026-09-27 audit: 69d7864. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

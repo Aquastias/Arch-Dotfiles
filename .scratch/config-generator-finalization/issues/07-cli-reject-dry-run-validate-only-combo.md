@@ -28,10 +28,10 @@ when both flags are passed.
 
 ## Acceptance criteria
 
-- [ ] CLI exits 2 when both `--dry-run` and `--validate-only`
+- [x] CLI exits 2 when both `--dry-run` and `--validate-only`
       are passed
-- [ ] CLI's usage / help output names the mutual exclusion
-- [ ] A bats case in `configs-cli-flags.bats` verifies the
+- [x] CLI's usage / help output names the mutual exclusion
+- [x] A bats case in `configs-cli-flags.bats` verifies the
       exit code
 - [ ] All other CLI flag bats cases still pass
 - [ ] `tests/run.sh` still passes
@@ -40,3 +40,9 @@ when both flags are passed.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 12223f5 (configs-cli-flags.bats). Later: ADR 0134 (c8442fe)
+  deleted the config generator. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

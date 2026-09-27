@@ -27,10 +27,10 @@ tests.
 
 ## Acceptance criteria
 
-- [ ] A `--guided` answers file can specify each pool's bound by-id disks, and the
+- [x] A `--guided` answers file can specify each pool's bound by-id disks, and the
       resulting Config State carries them as `devices[]` (asserted at the pure /
       seed seam).
-- [ ] A replayed bound layout resolves through the slice-04 assignment path (no
+- [x] A replayed bound layout resolves through the slice-04 assignment path (no
       summed flat pick) into a valid Effective Config.
 - [ ] One bound multi-disk cell installs in a VM and reports PASS on
       `INSTALLER-EXIT-0` + `===FIRSTBOOT-OK===`.
@@ -57,3 +57,6 @@ tests.
   `===FIRSTBOOT-OK===`. Pinned ISO 2026.07.01 (kernel 7.0.14 = host; archzfs
   experimental resolver wanted 7.1 and rejected all archived ISOs — pin
   bypasses). ALL 3 ACs now met.
+
+- 2026-09-27 audit: 0c2b32f, eb3faae (replay-bind.bats; bound VM cell).
+  Remaining unticked lines are suite/VM runs not re-verifiable now.

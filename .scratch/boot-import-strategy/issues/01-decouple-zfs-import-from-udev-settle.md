@@ -93,3 +93,6 @@ None - can start immediately.
   → `FIRSTBOOT-OK`, `FIXTURE_EXIT=0`. Box 1 met. All 4 ACs done — issue done.
   Fix commit `097af46`. NOTE: ADR 0030 + this issue's "What to build" say
   "drop-ins"; the working mechanism is full units (ADR updated).
+
+- 2026-09-27 audit: f041661, then 097af46 (the drop-in approach failed; full
+  /etc units work).

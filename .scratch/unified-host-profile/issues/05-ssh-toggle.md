@@ -35,3 +35,5 @@ Full suite green (1021).
 ## Blocked by
 
 - `.scratch/unified-host-profile/issues/01-profile-loader-schema-assembler.md`
+
+- 2026-09-27 audit: e29fee6 (ADR 0036).

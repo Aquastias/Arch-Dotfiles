@@ -34,18 +34,22 @@ guided encrypted install with no override now completes.
 
 ## Acceptance criteria
 
-- [ ] An unset disk passphrase fills from the shared 8-character constant
-- [ ] Unset account passwords still fill with the existing account default
-- [ ] The filled disk passphrase satisfies ZFS's ≥8-character floor
-- [ ] The source tag reports the disk default value for the disk passphrase
-- [ ] The source tag reports the account default value for root and users
-- [ ] An operator override still reports as a custom value, not a default
-- [ ] An age-decrypted secret still reports as coming from age
-- [ ] Neither default enters Config State, Save profile, or Export config
-- [ ] Proceed remains ungated on every secret
-- [ ] A guided encrypted install with no override reaches pool creation with a
+- [x] An unset disk passphrase fills from the shared 8-character constant
+- [x] Unset account passwords still fill with the existing account default
+- [x] The filled disk passphrase satisfies ZFS's ≥8-character floor
+- [x] The source tag reports the disk default value for the disk passphrase
+- [x] The source tag reports the account default value for root and users
+- [x] An operator override still reports as a custom value, not a default
+- [x] An age-decrypted secret still reports as coming from age
+- [x] Neither default enters Config State, Save profile, or Export config
+- [x] Proceed remains ungated on every secret
+- [x] A guided encrypted install with no override reaches pool creation with a
       passphrase ZFS accepts
 
 ## Blocked by
 
 - .scratch/guided-encryption-editor/issues/02-passphrase-constant-unattended.md
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

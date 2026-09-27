@@ -58,3 +58,5 @@ shellcheck clean. Unblocks issue 02.
 ## Blocked by
 
 - None - can start immediately.
+
+- 2026-09-27 audit: b58f237. Later: stray kernels are tolerated (ADR 0138).

@@ -60,3 +60,5 @@ Scope:
     seam.
 - Full suite 776 green, shellcheck clean. Unblocks nothing new (06 was
   already unblocked by 02+03); leaves only 05 (interactive) and 06 (VM).
+
+- 2026-09-27 audit: 4d16da5.

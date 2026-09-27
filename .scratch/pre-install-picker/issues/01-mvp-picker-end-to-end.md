@@ -73,22 +73,22 @@ operator runs `./install.sh` separately.
 
 - [ ] `tools/pick.sh` exists, is executable, and runs end-to-end
       against a host that ships `install.template.jsonc`.
-- [ ] `hosts/core/install.template.jsonc` and at least one
+- [x] `hosts/core/install.template.jsonc` and at least one
       `hosts/<hostname>/install.template.jsonc` exist and define
       every per-machine field listed in CONTEXT.md → Install
       Template.
-- [ ] Hosts without `install.template.jsonc` do not appear in the
+- [x] Hosts without `install.template.jsonc` do not appear in the
       host pick list.
-- [ ] The chosen host directory's basename is written verbatim to
+- [x] The chosen host directory's basename is written verbatim to
       the `hostname` field of the generated `install.jsonc`.
-- [ ] The live medium device and its partitions are excluded from
+- [x] The live medium device and its partitions are excluded from
       the disk list.
-- [ ] The assembled `install.jsonc` passes validation via
+- [x] The assembled `install.jsonc` passes validation via
       `lib/install-config.sh`; validation failure exits non-zero
       with the error visible to the operator.
-- [ ] The generated `install.jsonc` is consumed by `install.sh`
+- [x] The generated `install.jsonc` is consumed by `install.sh`
       unchanged (`install.sh` is not modified by this slice).
-- [ ] bats tests cover the Host enumerator, Template loader, Disk
+- [x] bats tests cover the Host enumerator, Template loader, Disk
       enumerator, Layout validator, and Config assembler — fixture
       patterns analogous to `tests/jsonc.bats`,
       `tests/install-config.bats`, `tests/layout-common.bats`,
@@ -98,3 +98,9 @@ operator runs `./install.sh` separately.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: f14d8cd. Later: the picker became the install.sh --profile
+  front-end (ADR 0036). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

@@ -47,3 +47,5 @@ None - can start immediately
 data-pool skipped when empty, both exports when both set. Stub
 strategy mirrors `chroot-impermanence.bats` (zpool / zfs / umount as
 fns appending to `$CALLS`). Full suite: 565 / 0 fail (was 562).
+
+- 2026-09-27 audit: b8d7883.

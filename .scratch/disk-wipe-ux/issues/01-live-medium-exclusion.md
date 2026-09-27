@@ -32,3 +32,7 @@ system inputs through injectable seams so it is testable.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: c112dae (lib/live-medium.sh).

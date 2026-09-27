@@ -74,3 +74,5 @@ Scope:
     rpool, disk reuse ×2, reserved mount, dup mount, nested-pass). Full
     suite 767 green, shellcheck clean.
   - Unblocks 05 (interactive own-pool reuses both helpers) and 06.
+
+- 2026-09-27 audit: 1076e79.

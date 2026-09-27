@@ -52,3 +52,7 @@ storage groups, single-disk root, install/flatten, or chrome.
 ## Blocked by
 
 - 01 — Prefactor: address pool groups by (kind, index).
+
+## Comments
+
+- 2026-09-27 audit: 9844998.

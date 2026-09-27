@@ -20,3 +20,5 @@ Seeded by the operator (30 declared bases) plus the AUR Helper ladder
 (2026-09-26, local repo served over HTTP) passed: every rung, paru-hook and
 User Program AUR build vetted PASS against its pin; installer exit 0;
 first-boot `aur-vet audit: clean`, AUR audit OK, boot OK.
+
+- 2026-09-27 audit: 7a60e5b, 47512e7 (aur/vetted.tsv).

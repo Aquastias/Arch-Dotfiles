@@ -61,3 +61,8 @@ Behavior:
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: c6274d5. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

@@ -68,3 +68,8 @@ merge function — this slice does not introduce a parallel merger.
 ## Blocked by
 
 - `01-tracer-end-to-end-pipeline.md`
+
+## Comments
+
+- 2026-09-27 audit: 1a13926. Later: the generator was deleted by ADR 0134
+  (c8442fe) in favour of per-program home/.

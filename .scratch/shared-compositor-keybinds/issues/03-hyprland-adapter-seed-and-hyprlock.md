@@ -33,3 +33,6 @@ or playerctl — ADR 0096 Q15-a); `hyprlock` is the sole exception.
 
 Implemented in 1c5bc9d. Fully covered by the hyprland-adapter bats suite (all
 green); no open verification.
+
+- 2026-09-27 audit: 1c5bc9d. Later: superseded whole by ADR 0097 (shared
+  Noctalia shell); Meta+X close (ADR 0113).

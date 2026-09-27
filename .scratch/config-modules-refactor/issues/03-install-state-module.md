@@ -43,23 +43,23 @@ Migration:
 
 ## Acceptance criteria
 
-- [ ] `lib/install-state.sh` exists with `install_state_write`,
+- [x] `lib/install-state.sh` exists with `install_state_write`,
       `install_state_load`, and a field-update primitive
-- [ ] `lib/chroot/load-state.sh` is deleted; every consumer points at
+- [x] `lib/chroot/load-state.sh` is deleted; every consumer points at
       `install_state_load`
-- [ ] `lib/chroot.sh::configure_system` no longer contains the
+- [x] `lib/chroot.sh::configure_system` no longer contains the
       inline `jq -n --arg ...` state-write block
-- [ ] `lib/secrets.sh::_secrets_write_state` uses the new field-update
+- [x] `lib/secrets.sh::_secrets_write_state` uses the new field-update
       primitive (no hand-rolled `jq` mutation)
-- [ ] No JSON-level defaults (`// "..."`) remain in chroot-side state
+- [x] No JSON-level defaults (`// "..."`) remain in chroot-side state
       reads
-- [ ] Round-trip bats test in `tests/install-state.bats` builds a
+- [x] Round-trip bats test in `tests/install-state.bats` builds a
       fake state via the writer, loads it via the reader, asserts
       every field comes back intact
-- [ ] A "missing field is an error" test in `tests/install-state.bats`
-- [ ] `tests/chroot-load-state.bats` is updated (or replaced) to
+- [x] A "missing field is an error" test in `tests/install-state.bats`
+- [x] `tests/chroot-load-state.bats` is updated (or replaced) to
       exercise `install_state_load`; passes
-- [ ] `tests/chroot-configure.bats`,
+- [x] `tests/chroot-configure.bats`,
       `tests/chroot-install-state-persist.bats`,
       `tests/profiles-secrets.bats` pass unmodified
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
@@ -67,3 +67,9 @@ Migration:
 ## Blocked by
 
 - `.scratch/config-modules-refactor/issues/01-install-config-reader-tracer.md`
+
+## Comments
+
+- 2026-09-27 audit: c803f0e (lib/install-state.sh; install-state.bats). Later:
+  hostname passed positionally (ADR 0018, 4912211). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

@@ -23,15 +23,15 @@ The match must be exact: a line containing `===INSTALLER-EXIT-` followed by a no
 
 ## Acceptance criteria
 
-- [ ] A new module under `.os/lib/` exposes a single public function with the contract above
-- [ ] When the log contains `===INSTALLER-EXIT-0===`, the function returns 0
-- [ ] When the log contains `===INSTALLER-EXIT-7===`, the function returns 7
-- [ ] When the log never contains a matching line and the timeout elapses, the function returns 124
-- [ ] When the log file does not exist at call time but is created within the timeout window with a sentinel, the function still returns the parsed code
-- [ ] The function does not delete or truncate the log file
-- [ ] Bats tests under `.os/tests/` cover: zero-exit, non-zero-exit, timeout, late-creation. Tests use a temp file written by a backgrounded helper to exercise the tail behavior
-- [ ] All bats tests pass
-- [ ] Shellcheck passes
+- [x] A new module under `.os/lib/` exposes a single public function with the contract above
+- [x] When the log contains `===INSTALLER-EXIT-0===`, the function returns 0
+- [x] When the log contains `===INSTALLER-EXIT-7===`, the function returns 7
+- [x] When the log never contains a matching line and the timeout elapses, the function returns 124
+- [x] When the log file does not exist at call time but is created within the timeout window with a sentinel, the function still returns the parsed code
+- [x] The function does not delete or truncate the log file
+- [x] Bats tests under `.os/tests/` cover: zero-exit, non-zero-exit, timeout, late-creation. Tests use a temp file written by a backgrounded helper to exercise the tail behavior
+- [x] All bats tests pass
+- [x] Shellcheck passes
 
 ## Blocked by
 
@@ -50,3 +50,6 @@ Pairs with issue 03 — that one writes the sentinel, this one reads it. The exa
 
 **Reference material:**
 - Parent PRD: `.scratch/vm-test-harness/PRD.md`
+
+- 2026-09-27 audit: 1ac243a, e3ca02e, 8d1ce38. Later: replaced by the
+  profile-driven harness (ADR 0035, aa8169c).

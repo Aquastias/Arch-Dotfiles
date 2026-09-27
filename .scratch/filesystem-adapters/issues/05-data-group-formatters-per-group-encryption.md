@@ -121,3 +121,5 @@ Results: `zfs-enc` (encrypted zfs data, keyfile auto-load, no prompt), `xfs`,
   gone). Re-verified impermanence (the generator re-activates for rpool) via a
   new **automated rollback test** (`verify.rollback` two-boot sentinel; baseline
   + negative-control + post-fix VM-validated). 1538 bats, 0 fail.
+
+- 2026-09-27 audit: dc81c1b, 68bd6ab, 9fc00a9, a4eeabd, 950d472.

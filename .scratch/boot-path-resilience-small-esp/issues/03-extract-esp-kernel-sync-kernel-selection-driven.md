@@ -21,17 +21,22 @@ the mirror first, so secondary ESPs would receive stale images.
 
 ## Acceptance criteria
 
-- [ ] The ESP Kernel Sync script lives in the shared artifact location,
+- [x] The ESP Kernel Sync script lives in the shared artifact location,
       sourced by the systemd-boot adapter; no behavior change beyond the
       items below.
-- [ ] The hook copies only Kernel-Selection kernels' images; an
+- [x] The hook copies only Kernel-Selection kernels' images; an
       installed Stray Kernel's `vmlinuz`/`initramfs` are never copied to
       the ESP.
-- [ ] On a multi-disk OS layout, the ESP Kernel Sync runs before the ESP
+- [x] On a multi-disk OS layout, the ESP Kernel Sync runs before the ESP
       Mirror Hook (verified by hook ordering).
 - [ ] A fresh systemd-boot install still boots (no regression).
-- [ ] The shared artifact is lib-only-sourceable for tests.
+- [x] The shared artifact is lib-only-sourceable for tests.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: e50c34c (lib/boot/esp-kernel-sync.sh; esp-kernel-sync.bats).
+  Install/boot runs not recorded — left unticked.

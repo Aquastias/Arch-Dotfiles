@@ -34,17 +34,21 @@ co-dependent conditionals in different modules.
 
 ## Acceptance criteria
 
-- [ ] The secret screen's nav carries the screen to return to
-- [ ] The back path reads that field rather than branching on the target
-- [ ] The confirm path reads the same field rather than its own conditional
-- [ ] Root password capture still returns to the Users list
-- [ ] Per-user password capture still returns to the Users list
-- [ ] Disk passphrase capture still returns to the Disks category
-- [ ] Cancelling a capture returns to the same screen as confirming it
-- [ ] The type-twice mismatch path still restarts entry on the secret screen
-- [ ] The nav module stays pure: JSON in, JSON out, no terminal reads
-- [ ] No existing test is modified to accommodate this change
+- [x] The secret screen's nav carries the screen to return to
+- [x] The back path reads that field rather than branching on the target
+- [x] The confirm path reads the same field rather than its own conditional
+- [x] Root password capture still returns to the Users list
+- [x] Per-user password capture still returns to the Users list
+- [x] Disk passphrase capture still returns to the Disks category
+- [x] Cancelling a capture returns to the same screen as confirming it
+- [x] The type-twice mismatch path still restarts entry on the secret screen
+- [x] The nav module stays pure: JSON in, JSON out, no terminal reads
+- [x] No existing test is modified to accommodate this change
 
 ## Blocked by
 
 None — can start immediately
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

@@ -62,34 +62,34 @@ files still decrypt successfully with that key.
 
 ## Acceptance criteria
 
-- [ ] `.os/vm/fixtures/key.age` exists and is a valid
+- [x] `.os/vm/fixtures/key.age` exists and is a valid
       passphrase-encrypted Age key (passphrase `test`).
-- [ ] `.os/vm/fixtures/regenerate.sh` exists, is executable
+- [x] `.os/vm/fixtures/regenerate.sh` exists, is executable
       (`chmod +x`), uses `set -Eeuo pipefail`, and shellcheck
       passes.
-- [ ] `.os/vm/fixtures/README.md` exists, names the
+- [x] `.os/vm/fixtures/README.md` exists, names the
       passphrase `test`, links to ADR 0019, and explicitly
       labels the fixtures throwaway.
-- [ ] `hosts/vm/arch-secure/secrets.json` exists and is a
+- [x] `hosts/vm/arch-secure/secrets.json` exists and is a
       SOPS-encrypted JSON document containing
       `root_password`.
-- [ ] `users/vm-test/secrets.json` exists and is a
+- [x] `users/vm-test/secrets.json` exists and is a
       SOPS-encrypted JSON document containing `password`,
       `ssh_identity_private_key`, and `ssh_identity_key_type:
       "ed25519"`.
-- [ ] `.sops.yaml` contains a second `creation_rules` entry
+- [x] `.sops.yaml` contains a second `creation_rules` entry
       whose `path_regex` matches *only*
       `hosts/vm/arch-secure/secrets.json` and
       `users/vm-test/secrets.json`, with `age:` set to the
       Test Age Key's public half.
-- [ ] The original placeholder rule
+- [x] The original placeholder rule
       (`age1REPLACE_WITH_OPERATOR_PUBLIC_KEY`) in
       `.sops.yaml` is byte-identical to before this slice.
-- [ ] Running `bash .os/vm/fixtures/regenerate.sh` in a
+- [x] Running `bash .os/vm/fixtures/regenerate.sh` in a
       clean clone is idempotent — it produces a new keypair
       but leaves both `secrets.json` files still decryptable
       with the regenerated key.
-- [ ] A bats test exists that runs `regenerate.sh` against
+- [x] A bats test exists that runs `regenerate.sh` against
       a temp copy of the four fixture files and asserts:
       (a) `key.age` decrypts with passphrase `test` to a
       valid Age private key, (b) that private key's public
@@ -98,13 +98,18 @@ files still decrypt successfully with that key.
       with the regenerated key, (d) a second invocation
       produces a different keypair but the secrets remain
       decryptable.
-- [ ] The bats test never mutates the committed fixtures in
+- [x] The bats test never mutates the committed fixtures in
       `.os/vm/fixtures/` or under `hosts/` / `users/`.
 - [ ] Full bats suite passes; shellcheck passes on every
       changed shell file.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: c94664d (ADR 0019). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

@@ -72,3 +72,7 @@ log — no human gate.
 ## Blocked by
 
 None - can start immediately (independent of the validator slices).
+
+## Comments
+
+- 2026-09-27 audit: 8cb1830.

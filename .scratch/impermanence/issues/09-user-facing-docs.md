@@ -35,14 +35,18 @@ Out of scope:
 
 ## Acceptance criteria
 
-- [ ] `.os/README.md` File Layout tree includes the three impermanence source files
-- [ ] `.os/README.md` Optional Components table has an `options.impermanence` row
-- [ ] `.os/README.md` After Installation section mentions `tools/impermanence.sh status` as a health check
-- [ ] `.os/REFERENCE.md` documents `options.impermanence` fields in the `options` reference
-- [ ] `.os/REFERENCE.md` has an "Impermanence" section covering Persist Extensions, the four tool verbs, and Curated Persist Defaults
-- [ ] `REFERENCE.md` cross-links to `ADR-0008` and `CONTEXT.md`
-- [ ] No regression: existing bats suite still green (sanity check; this issue should not touch any code)
+- [x] `.os/README.md` File Layout tree includes the three impermanence source files
+- [x] `.os/README.md` Optional Components table has an `options.impermanence` row
+- [x] `.os/README.md` After Installation section mentions `tools/impermanence.sh status` as a health check
+- [x] `.os/REFERENCE.md` documents `options.impermanence` fields in the `options` reference
+- [x] `.os/REFERENCE.md` has an "Impermanence" section covering Persist Extensions, the four tool verbs, and Curated Persist Defaults
+- [x] `REFERENCE.md` cross-links to `ADR-0008` and `CONTEXT.md`
+- [x] No regression: existing bats suite still green (sanity check; this issue should not touch any code)
 
 ## Blocked by
 
 - `.scratch/impermanence/issues/05-runtime-tool-status-apply-defaults.md` (now done)
+
+## Comments
+
+- 2026-09-27 audit: 1a85daf (README/REFERENCE impermanence docs).

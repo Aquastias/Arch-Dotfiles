@@ -35,20 +35,25 @@ planner/executor split and the leftover-disk seam.
 
 ## Acceptance criteria
 
-- [ ] `layout_plan` is pure — no state writes, no destructive ops, no
+- [x] `layout_plan` is pure — no state writes, no destructive ops, no
       TTY — and emits the normalized `LAYOUT_*` record
-- [ ] `layout_validate` remains a pure check
-- [ ] Leftover-disk prompt isolated behind an adapter seam; default
+- [x] `layout_validate` remains a pure check
+- [x] Leftover-disk prompt isolated behind an adapter seam; default
       adapter prompts at install time
-- [ ] A non-interactive adapter is substitutable in tests
-- [ ] Pure tests: single-mode and multi-mode emit the correct record
+- [x] A non-interactive adapter is substitutable in tests
+- [x] Pure tests: single-mode and multi-mode emit the correct record
       (ESP ordering with primary at index 0, pool names, empty
       `LAYOUT_DATA_POOL_NAME` when no data pool)
-- [ ] Seam test: planner produces a plan without a TTY and the adapter's
+- [x] Seam test: planner produces a plan without a TTY and the adapter's
       choice flows into the plan
-- [ ] Phase ordering validate→plan→partition→pools→esp preserved
-- [ ] ADR added for the planner/executor split + leftover-disk seam
+- [x] Phase ordering validate→plan→partition→pools→esp preserved
+- [x] ADR added for the planner/executor split + leftover-disk seam
 
 ## Blocked by
 
 - Issue 03 (`03-layout-folder-move.md`) — `lib/layout/` must exist first
+
+## Comments
+
+- 2026-09-27 audit: bbb2a33. Later: lib/guided-* folded into lib/guided/
+  (698d487).

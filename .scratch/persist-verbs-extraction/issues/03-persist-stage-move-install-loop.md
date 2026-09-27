@@ -28,13 +28,13 @@ disk) must be byte-identical before and after for the same inputs.
 
 ## Acceptance criteria
 
-- [ ] `persist_stage_in_move` exists in `lib/impermanence-common.sh`
-- [ ] Bats test covers the move semantic against a temp `ROOT`
+- [x] `persist_stage_in_move` exists in `lib/impermanence-common.sh`
+- [x] Bats test covers the move semantic against a temp `ROOT`
       (source removed, destination populated)
-- [ ] `lib/chroot/impermanence.sh::impermanence_apply` composes
+- [x] `lib/chroot/impermanence.sh::impermanence_apply` composes
       `persist_apply` + `persist_stage_in_move` for curated +
       extension paths
-- [ ] Duplicated `_impermanence_write_*` helpers covering mount unit
+- [x] Duplicated `_impermanence_write_*` helpers covering mount unit
       / tmpfiles / data move are removed
 - [ ] `tests/chroot-impermanence.bats` passes unmodified
 - [ ] `tests/chroot-install-state-persist.bats` passes unmodified
@@ -43,3 +43,8 @@ disk) must be byte-identical before and after for the same inputs.
 ## Blocked by
 
 - `.scratch/persist-verbs-extraction/issues/01-persist-apply-and-stage-copy.md`
+
+## Comments
+
+- 2026-09-27 audit: 2dc5d1a. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

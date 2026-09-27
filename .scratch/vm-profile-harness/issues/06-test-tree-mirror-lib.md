@@ -66,3 +66,5 @@ premise; deleting would drop real 02-wipe.sh coverage. Per the issue's own
 rule (a test of a flat root script stays flat) they remain flat. No wipe
 files changed. Full suite 963 ok / 0 fail (unchanged total → no coverage
 lost). Revisit if 02-wipe.sh is later thinned onto lib/wipe.
+
+- 2026-09-27 audit: 003919d, 9942007 (ADR 0035).

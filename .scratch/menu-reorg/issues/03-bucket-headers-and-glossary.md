@@ -54,21 +54,27 @@ built model — this lands now that the code does).
 
 ## Acceptance criteria
 
-- [ ] `menu_categories` rows each carry a `bucket`; the six buckets tag the
+- [x] `menu_categories` rows each carry a `bucket`; the six buckets tag the
       categories exactly as tabled above.
-- [ ] `menu_top_lines` emits each bucket header once, in order, immediately
+- [x] `menu_top_lines` emits each bucket header once, in order, immediately
       before that bucket's first category; a category line carries `  ●` iff its
       category is overridden. Covered by a direct bats unit test.
-- [ ] The top screen shows the six `── … ──` headers interleaved with the
+- [x] The top screen shows the six `── … ──` headers interleaved with the
       categories, still bracketed by the Profiles and terminal-row dividers.
-- [ ] Enter on a `── BUCKET ──` line returns `noop`; the detail pane does not
+- [x] Enter on a `── BUCKET ──` line returns `noop`; the detail pane does not
       error on a header line.
 - [ ] Existing top-screen assertions (Proceed / Save / Export / Abort, a
       `System — ` line) still pass; `guided-menu.bats` +
       `guided-controller.bats` updated and green.
-- [ ] CONTEXT.md's Guided Installer entry reflects the fourteen categories, six
+- [x] CONTEXT.md's Guided Installer entry reflects the fourteen categories, six
       buckets, System rename, and Services merge.
 
 ## Blocked by
 
 - .scratch/menu-reorg/issues/02-services-merge.md
+
+## Comments
+
+- 2026-09-27 audit: a7b1e0e, 429b173. Later: Services renamed Daemons and the
+  SYSTEM bucket renamed GENERAL (ADR 0086, f411c8e). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

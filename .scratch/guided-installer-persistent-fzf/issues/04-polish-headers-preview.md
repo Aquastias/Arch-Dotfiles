@@ -17,8 +17,8 @@ fields, or defaults.
 
 ## Acceptance criteria
 
-- [ ] Each screen shows context-appropriate header / prompt text.
-- [ ] The post-menu disk pick shows the lsblk / SMART preview with sensible
+- [x] Each screen shows context-appropriate header / prompt text.
+- [x] The post-menu disk pick shows the lsblk / SMART preview with sensible
       window sizing.
 - [ ] Any edge-case seams from slices 01–03 are smoothed; the live draw is
       exercised by the guided VM smoke.
@@ -38,3 +38,6 @@ border + verbose layout label (`1a3df41`); ASCII layout-graph **preview** pane
 side-panel (`b16cd12`); the data-pools editor (`a93222b`) reached under the
 layout option (`ed77136`). Grew well past the original "headers + preview" scope
 via direct operator feedback. On main, full suite green.
+
+- 2026-09-27 audit: 1a3df41 and the polish commits cited above. Remaining
+  unticked lines are suite/VM runs not re-verifiable now.

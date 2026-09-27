@@ -51,3 +51,8 @@ remaining unverified item.
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 audit: a18cff9 (layout dispatch split; ZFS moved to
+  lib/layout/zfs/).

@@ -18,12 +18,12 @@ after — both arrays contain the same entries today.
 
 ## Acceptance criteria
 
-- [ ] `lib/validation.sh` sources `lib/impermanence-common.sh`
-- [ ] `_validation_persist_one` iterates `CURATED_FILES + CURATED_DIRS`
-- [ ] `_VALIDATION_CURATED` array is removed
-- [ ] "must mirror" comment is removed
+- [x] `lib/validation.sh` sources `lib/impermanence-common.sh`
+- [x] `_validation_persist_one` iterates `CURATED_FILES + CURATED_DIRS`
+- [x] `_VALIDATION_CURATED` array is removed
+- [x] "must mirror" comment is removed
 - [ ] `tests/validation-impermanence.bats` passes unmodified
-- [ ] A regression test exists asserting the curated-defaults warning
+- [x] A regression test exists asserting the curated-defaults warning
       fires for at least one path from each of `CURATED_FILES` and
       `CURATED_DIRS` (add one if absent)
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
@@ -31,3 +31,8 @@ after — both arrays contain the same entries today.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: f62e5c5. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

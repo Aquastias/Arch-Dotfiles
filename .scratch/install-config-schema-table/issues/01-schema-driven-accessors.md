@@ -63,45 +63,51 @@ split is impossible. `CONTEXT.md` is unaffected (no domain change).
 
 ## Acceptance criteria
 
-- [ ] `_INSTALL_CONFIG_SCHEMA` array exists at the top of the
+- [x] `_INSTALL_CONFIG_SCHEMA` array exists at the top of the
       Install Config reader module with one row per regular
       accessor (21 rows total), each in
       `name|jq_path|type|default` format.
-- [ ] `install_config_get <name>` exists as a statically-defined
+- [x] `install_config_get <name>` exists as a statically-defined
       function that looks up the schema row by name and
       dispatches on type.
-- [ ] All 21 generated wrappers exist via the eval loop and
+- [x] All 21 generated wrappers exist via the eval loop and
       forward their call to `install_config_get`.
-- [ ] The four specials (`install_config_packages_groups`,
+- [x] The four specials (`install_config_packages_groups`,
       `install_config_storage_group_ashift`,
       `install_config_gpu`, plus `_install_config_array` helper)
       remain hand-written below the schema.
-- [ ] Every accessor produces byte-identical output to today's
+- [x] Every accessor produces byte-identical output to today's
       hand-written version for the same input, including the
       bool null-distinction (`null` and absent → default;
       explicit `false` → `false`).
-- [ ] An empty default field in the schema results in an empty
+- [x] An empty default field in the schema results in an empty
       string when the jq path is absent (matching today's
       behaviour for `hostname`, `age_key_url`, `dotfiles_repo`).
-- [ ] No old hand-written wrapper survives for any name covered
+- [x] No old hand-written wrapper survives for any name covered
       by the schema.
-- [ ] A short header comment above the eval loop points future
+- [x] A short header comment above the eval loop points future
       readers at the schema.
-- [ ] `tests/install-config.bats` is restructured: one
+- [x] `tests/install-config.bats` is restructured: one
       parameterised loop over the schema asserts
       default-on-absent + value-on-present per entry; dedicated
       cases cover the four specials and the bool
       null-distinction.
-- [ ] Coverage parity: every assertion present in today's
+- [x] Coverage parity: every assertion present in today's
       `tests/install-config.bats` is preserved in the new
       structure.
-- [ ] `shellcheck` passes on every changed file.
+- [x] `shellcheck` passes on every changed file.
 - [ ] Full `bats` suite passes (regressions in any consumer of
       `install_config_*` accessors must surface here).
-- [ ] No call site of any `install_config_*` accessor changes.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] No call site of any `install_config_*` accessor changes.
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 6145524 (ADR 0015). Later: the closed profile schema was
+  added alongside (ADR 0036). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

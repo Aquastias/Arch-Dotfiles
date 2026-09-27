@@ -39,3 +39,7 @@ Launcher and lock keys spawn Noctalia (`noctalia msg …`).
 Implemented in 1c5bc9d. One open verification: run
 `niri validate ~/.config/niri/config.kdl` on a niri box before relying on it —
 the build env has no `niri`.
+
+- 2026-09-27 audit: 1c5bc9d. Later: superseded whole by ADR 0097 (shared
+  Noctalia shell); Meta+X close (ADR 0113). The live-run line stays unticked
+  (not run, per the notes above).

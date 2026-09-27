@@ -29,17 +29,21 @@ need the same lookup.
 
 ## Acceptance criteria
 
-- [ ] The registry carries each program's `system` flag alongside its category
-- [ ] A kind lookup returns `system` for `grub`, `cups`, `sops`
-- [ ] It returns `user` for `docker`, `podman`, `borg`, `firewalld`
-- [ ] It returns `none` for a name with no program directory
-- [ ] The registry is built once per run, not per lookup
-- [ ] The host System Programs picker offers exactly the `system: true` programs
-- [ ] The User Editor programs picker offers exactly the `system: false` programs
-- [ ] Tests assert the *membership* of each picker's option set, not only the
+- [x] The registry carries each program's `system` flag alongside its category
+- [x] A kind lookup returns `system` for `grub`, `cups`, `sops`
+- [x] It returns `user` for `docker`, `podman`, `borg`, `firewalld`
+- [x] It returns `none` for a name with no program directory
+- [x] The registry is built once per run, not per lookup
+- [x] The host System Programs picker offers exactly the `system: true` programs
+- [x] The User Editor programs picker offers exactly the `system: false` programs
+- [x] Tests assert the *membership* of each picker's option set, not only the
       `[x]`/`[ ]` marking — marking-only assertions are what let this through
-- [ ] A menu render no longer parses every program's `config.jsonc`
+- [x] A menu render no longer parses every program's `config.jsonc`
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 43f6fe4.

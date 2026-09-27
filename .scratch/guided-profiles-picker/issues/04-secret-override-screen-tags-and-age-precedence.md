@@ -21,18 +21,23 @@ the encryption passphrase only — SSH identities stay on their existing path.
 
 ## Acceptance criteria
 
-- [ ] The Users screen lists root, each user, and a `Disk encryption` entry
-- [ ] Each entry shows a tag: `default 12345`, `custom`, or `from age`
-- [ ] Enter opens the inline-masked secret screen; a confirmed value flips the tag
+- [x] The Users screen lists root, each user, and a `Disk encryption` entry
+- [x] Each entry shows a tag: `default 12345`, `custom`, or `from age`
+- [x] Enter opens the inline-masked secret screen; a confirmed value flips the tag
       to `custom` and takes effect at install
-- [ ] An age-resolved secret shows `from age` and takes precedence over `12345`
-- [ ] An operator override takes precedence over an age-resolved value for that
+- [x] An age-resolved secret shows `from age` and takes precedence over `12345`
+- [x] An operator override takes precedence over an age-resolved value for that
       install
-- [ ] SSH identities are not editable from this screen (unchanged path)
-- [ ] Precedence/tagging behaviour covered by bats over the menu/secrets model
+- [x] SSH identities are not editable from this screen (unchanged path)
+- [x] Precedence/tagging behaviour covered by bats over the menu/secrets model
       (`guided-menu.bats` / `guided-secrets.bats` prior art); inline-masked screen
       smoke-only
 
 ## Blocked by
 
 - 03 — Default-`12345` posture: manifest + Proceed-gate removal
+
+## Comments
+
+- 2026-09-27 audit: f8af150. Later: the Users-screen Disk-encryption row moved
+  into the Encryption Editor (ADR 0059).

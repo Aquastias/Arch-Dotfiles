@@ -32,12 +32,12 @@ Reference for companion package selection: stepskop/.dotfiles on GitHub.
 
 ## Acceptance criteria
 
-- [ ] `"desktop": "hyprland"` installs Hyprland, all default companions, greetd+tuigreet; greetd service is enabled; `/etc/greetd/config.toml` is written with `tuigreet --cmd Hyprland`
-- [ ] `"desktop": ["kde", "hyprland"]` installs Hyprland and companions; greetd is NOT installed; SDDM (from KDE adapter) is the active display manager
-- [ ] Setting a companion toggle to `false` in `install-hyprland.jsonc` results in that package not being passed to pacman
-- [ ] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` are always installed regardless of toggles
-- [ ] `install-hyprland.jsonc` has all companions defaulting to `true` with inline comments naming the package each toggle controls
-- [ ] BATS tests cover: Hyprland-only (greetd installed), KDE+Hyprland (greetd skipped), companion toggle respected (disabled companion absent from pacman call), always-installed packages present regardless of toggles
+- [x] `"desktop": "hyprland"` installs Hyprland, all default companions, greetd+tuigreet; greetd service is enabled; `/etc/greetd/config.toml` is written with `tuigreet --cmd Hyprland`
+- [x] `"desktop": ["kde", "hyprland"]` installs Hyprland and companions; greetd is NOT installed; SDDM (from KDE adapter) is the active display manager
+- [x] Setting a companion toggle to `false` in `install-hyprland.jsonc` results in that package not being passed to pacman
+- [x] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` are always installed regardless of toggles
+- [x] `install-hyprland.jsonc` has all companions defaulting to `true` with inline comments naming the package each toggle controls
+- [x] BATS tests cover: Hyprland-only (greetd installed), KDE+Hyprland (greetd skipped), companion toggle respected (disabled companion absent from pacman call), always-installed packages present regardless of toggles
 - [ ] Shellcheck passes on all new scripts
 
 ## Blocked by
@@ -96,12 +96,12 @@ Reference implementation for companion selection: stepskop/.dotfiles on GitHub.
 - BATS tests — mock `pacman`, `systemctl`, and file writes. Cover: Hyprland-only (greetd installed + config written + service enabled), KDE+Hyprland (greetd steps skipped), disabled companion absent from pacman args, always-installed packages present regardless of toggles.
 
 **Acceptance criteria:**
-- [ ] `ENVIRONMENT_DESKTOP="hyprland"` → greetd+greetd-tuigreet installed, `/etc/greetd/config.toml` written, greetd enabled
-- [ ] `ENVIRONMENT_DESKTOP="kde hyprland"` → greetd NOT installed, no config written, greetd NOT enabled
-- [ ] Setting any companion toggle to `false` → that package absent from pacman call
-- [ ] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` always installed
-- [ ] `install-hyprland.jsonc` has all 8 companion toggles defaulting to `true` with package name in comment
-- [ ] BATS tests pass for all cases above
+- [x] `ENVIRONMENT_DESKTOP="hyprland"` → greetd+greetd-tuigreet installed, `/etc/greetd/config.toml` written, greetd enabled
+- [x] `ENVIRONMENT_DESKTOP="kde hyprland"` → greetd NOT installed, no config written, greetd NOT enabled
+- [x] Setting any companion toggle to `false` → that package absent from pacman call
+- [x] `xdg-desktop-portal-hyprland` and `polkit-kde-agent` always installed
+- [x] `install-hyprland.jsonc` has all 8 companion toggles defaulting to `true` with package name in comment
+- [x] BATS tests pass for all cases above
 - [ ] Shellcheck passes on all new scripts
 
 **Out of scope:**
@@ -109,3 +109,8 @@ Reference implementation for companion selection: stepskop/.dotfiles on GitHub.
 - Any display manager other than greetd+tuigreet for the Hyprland-only case
 - Changes to KDE adapter or Environment Runner (issue #04)
 - GPU or audio resolution
+
+- 2026-09-27 audit: 5009860. Later: packages.groups.* became internal derived
+  sets (ADR 0056); envycontrol dropped for GPU Hardening (ADR 0053); greetd/SDDM
+  moved to Display Manager Adapters (ADR 0069). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

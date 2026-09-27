@@ -97,21 +97,25 @@ Adapter` or `Environment Runner` yet — those land with issue 06.
 
 ## Acceptance criteria
 
-- [ ] A new parser module exists, pure (no I/O), with the validation
+- [x] A new parser module exists, pure (no I/O), with the validation
       rules above.
-- [ ] `lib/packages.sh` uses the parser for `packages.repo`.
-- [ ] `hosts/core/config.jsonc:packages.repo` is a 2-level object.
-- [ ] `hosts/desktop/config.jsonc:packages.repo` is a 2-level object.
-- [ ] `packages.aur` in both host configs is still a flat array.
-- [ ] Parser unit tests cover all the listed cases and pass.
-- [ ] A fresh install on `hosts/desktop` yields the same package set
+- [x] `lib/packages.sh` uses the parser for `packages.repo`.
+- [x] `hosts/core/config.jsonc:packages.repo` is a 2-level object.
+- [x] `hosts/desktop/config.jsonc:packages.repo` is a 2-level object.
+- [x] `packages.aur` in both host configs is still a flat array.
+- [x] Parser unit tests cover all the listed cases and pass.
+- [x] A fresh install on `hosts/desktop` yields the same package set
       as before this change.
-- [ ] Malformed configs (shape/leaf-type/category-name violations)
+- [x] Malformed configs (shape/leaf-type/category-name violations)
       fail at config-load time with a precise error.
-- [ ] `docs/adr/0022-categorized-list-schema.md` exists.
-- [ ] `CONTEXT.md:Host Package List` entry updated to reflect 2-level
+- [x] `docs/adr/0022-categorized-list-schema.md` exists.
+- [x] `CONTEXT.md:Host Package List` entry updated to reflect 2-level
       shape.
 
 ## Blocked by
 
 None - can start immediately (can run in parallel with issues 1-3).
+
+## Comments
+
+- 2026-09-27 audit: 68bceb1 (Categorized List parser).

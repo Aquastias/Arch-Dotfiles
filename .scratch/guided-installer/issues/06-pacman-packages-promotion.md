@@ -102,3 +102,6 @@ relied on the old behaviour (all compare against strings).
 Tests: guided-menu (+3), guided-shell (+12), guided-state (+1) = +16. Full
 suite **1207 bats**, shellcheck clean. fzf shell smoke-only; menu-model rows +
 edit funcs are bats-tested.
+
+- 2026-09-27 audit: 89aa04c, 5bffcf0. Later: the emit-path promotion rule was
+  deleted for kind-routing (ADR 0058).

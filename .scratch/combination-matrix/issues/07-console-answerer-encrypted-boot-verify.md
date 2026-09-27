@@ -104,3 +104,8 @@ automation verifies itself — no HITL.
 ## Blocked by
 
 - `.scratch/combination-matrix/issues/05-vm-profile-synthesizer-oracle-dispatch.md`
+
+## Comments
+
+- 2026-09-27 audit: 2f357a3, 9b1ed76, 771c687. Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

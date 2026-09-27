@@ -45,37 +45,41 @@ already updated.
 
 ## Acceptance criteria
 
-- [ ] `layout_validate` is defined in `lib/layout-single.sh`
+- [x] `layout_validate` is defined in `lib/layout-single.sh`
       with the body of the current `_validation_single`.
-- [ ] `layout_validate` is defined in `lib/layout-multi.sh`
+- [x] `layout_validate` is defined in `lib/layout-multi.sh`
       with the body of the current `_validation_multi`.
-- [ ] `lib/validation.sh` no longer defines `_validation_single`
+- [x] `lib/validation.sh` no longer defines `_validation_single`
       or `_validation_multi` and no longer contains the
       `declare -F "$validator"` mode-guard. `validate_install_context`
       calls `layout_validate` directly.
-- [ ] In `03-install.sh`, `source_module
+- [x] In `03-install.sh`, `source_module
       "${SCRIPT_DIR}/lib/layout-${INSTALL_MODE}.sh"` happens
       between `detect_mode` and `validate_install_context`
       (today it happens after).
-- [ ] An unknown `INSTALL_MODE` value fails at `source_module`
+- [x] An unknown `INSTALL_MODE` value fails at `source_module`
       time with a clear file-not-found message (not at the
       removed `declare -F` guard).
-- [ ] Validator test cases for the single-disk mode live in
+- [x] Validator test cases for the single-disk mode live in
       `tests/layout-single.bats`; multi-disk cases live in
       `tests/layout-multi.bats`. Cases removed from
       `tests/validation*.bats`.
-- [ ] Every pre-existing assertion (disk-missing, bad-topology,
+- [x] Every pre-existing assertion (disk-missing, bad-topology,
       no-disks-in-group, missing-group-disk) still fires with
       the same error message in the new location.
-- [ ] `shellcheck` passes on every changed file.
-- [ ] `bats` runs cleanly across the full suite.
-- [ ] Cross-cutting validators (`_validation_system_fields`,
+- [x] `shellcheck` passes on every changed file.
+- [x] `bats` runs cleanly across the full suite.
+- [x] Cross-cutting validators (`_validation_system_fields`,
       `_validation_impermanence`, `_validation_persist`,
       `_validation_preflight_programs`) are untouched.
-- [ ] `LAYOUT_*` published globals are untouched.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] `LAYOUT_*` published globals are untouched.
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: ada69da (ADR 0014).

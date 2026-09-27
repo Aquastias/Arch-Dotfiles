@@ -86,3 +86,6 @@ tests + an "Esc commits nothing" test; dropped the dotfiles_repo editor test —
 77 total. **Full suite 1263 bats, 0 failures; shellcheck clean** (--severity=
 warning). No VM here (issue 02 is bats-only; the redesign VM smoke is 04/05).
 Unblocks issues 03 + 05.
+
+- 2026-09-27 audit: 649f76c. Later: buckets and a 14-category recut (ADR
+  0071/0081/0086).

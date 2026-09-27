@@ -34,15 +34,15 @@ Delete the 14 `tests/vm/testing-*.sh` wrappers. Rewrite the VM section of
 
 ## Acceptance criteria
 
-- [ ] All test profiles exist under `tests/vm/profiles/<category>/` and
+- [x] All test profiles exist under `tests/vm/profiles/<category>/` and
       each validates + resolves via `vm.sh --testing --print-config`.
-- [ ] `single/*` use `"repo"`; `multi/*` and `impermanence/*` inline;
+- [x] `single/*` use `"repo"`; `multi/*` and `impermanence/*` inline;
       `data-pools/*` inline with `host_profile: arch-data` inside.
-- [ ] `env/*` reference the desktop host profiles.
-- [ ] `verify` blocks reproduce each script's prior `VM_VERIFY_*` /
+- [x] `env/*` reference the desktop host profiles.
+- [x] `verify` blocks reproduce each script's prior `VM_VERIFY_*` /
       `VERIFY_BOOT` / `DIRTY_CACHE` / reorder expectations.
-- [ ] The 14 `testing-*.sh` scripts are deleted.
-- [ ] `.os/README.md` VM section documents the new workflow with no stale
+- [x] The 14 `testing-*.sh` scripts are deleted.
+- [x] `.os/README.md` VM section documents the new workflow with no stale
       script references.
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
 
@@ -66,3 +66,6 @@ reproduce each script's prior expectations:
 - `impermanence/kde-sops` ships empty `dotfiles_repo`/`age_key_url` (these
   were env-supplied at runtime; operator fills them for a real run).
 Gates: shellcheck clean, run.sh 963 ok / 0 fail.
+
+- 2026-09-27 audit: aa8169c, 039200c (ADR 0035). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

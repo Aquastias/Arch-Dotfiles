@@ -37,3 +37,5 @@ Design is fully specified by the parent PRD and the four ADRs in `docs/adr/`. Th
 - Parent PRD: `.scratch/declarative-install-config/PRD.md`
 - Glossary: `CONTEXT.md`
 - ADRs: `docs/adr/0001..0004`
+
+- 2026-09-27 audit: 3f0f9ae.

@@ -27,17 +27,21 @@ current enable/exclude toggle for now (the editor arrives in slice 02).
 
 ## Acceptance criteria
 
-- [ ] Entering `Users` renders the list directly; no `users:` single-row screen.
-- [ ] Root password row is the first row and shows `(set)` / `(not set)`.
-- [ ] Enabled users render `name — shell · pw <ok|⚠>`; disabled render
+- [x] Entering `Users` renders the list directly; no `users:` single-row screen.
+- [x] Root password row is the first row and shows `(set)` / `(not set)`.
+- [x] Enabled users render `name — shell · pw <ok|⚠>`; disabled render
       `name — disabled`; no checkbox glyphs.
-- [ ] The top `Users` category row shows `⚠ N pw needed` with the correct count,
+- [x] The top `Users` category row shows `⚠ N pw needed` with the correct count,
       and clears to no `⚠` when all required passwords are set.
-- [ ] The top `Proceed` row renders blocked while N > 0 and normal when N = 0.
-- [ ] The list `⚠`, the top-level count, and the Proceed gate all derive from the
+- [x] The top `Proceed` row renders blocked while N > 0 and normal when N = 0.
+- [x] The list `⚠`, the top-level count, and the Proceed gate all derive from the
       one completeness predicate over the same effective user set.
-- [ ] Controller-seam bats cover the rendering + fold; no fzf glue is unit-tested.
+- [x] Controller-seam bats cover the rendering + fold; no fzf glue is unit-tested.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 9c53260.

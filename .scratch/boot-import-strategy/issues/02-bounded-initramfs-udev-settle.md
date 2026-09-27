@@ -56,3 +56,5 @@ None - can start immediately.
   installed `/etc/initcpio/hooks/udev` shows `udevadm settle --timeout=30`
   on serial — the bound is baked into the installed initramfs hook. All
   ACs now met; issue done.
+
+- 2026-09-27 audit: ffbccee, d9ea66b.

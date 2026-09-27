@@ -27,8 +27,8 @@ Scope:
 ## Acceptance criteria
 
 - [ ] `tests/vm/testing-multi-os-mirror-impermanent.sh` provisions a mirrored OS pool with impermanence enabled
-- [ ] Multi-disk layout module invokes the impermanence dataset-creation helper
-- [ ] All Rollback Datasets exist on the mirrored pool with `@blank` post-install
+- [x] Multi-disk layout module invokes the impermanence dataset-creation helper
+- [x] All Rollback Datasets exist on the mirrored pool with `@blank` post-install
 - [ ] SSH host key persists across reboot on the multi-disk install
 - [ ] Unpersisted edit to `/etc` disappears after reboot
 - [ ] ESP mirror hook and pacman resnapshot hook coexist (kernel update mirrors ESPs; test package install survives reboot)
@@ -37,3 +37,9 @@ Scope:
 
 - `.scratch/impermanence/issues/01-core-impermanence.md`
 - `.scratch/impermanence/issues/03-pacman-resnapshot-hook.md`
+
+## Comments
+
+- 2026-09-27 audit: 1a85daf. Later: the testing-*.sh fixtures were replaced by
+  the profile-driven VM harness (ADR 0035, aa8169c). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

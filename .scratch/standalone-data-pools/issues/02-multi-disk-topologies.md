@@ -67,3 +67,5 @@ Scope:
     none, independent, valid-pass) + 9 `zfs-pools.bats` helper cases
     (each ok/rejection class). Full suite 746 green, shellcheck clean.
   - Unblocks 04 and 06.
+
+- 2026-09-27 audit: d0fa9eb.

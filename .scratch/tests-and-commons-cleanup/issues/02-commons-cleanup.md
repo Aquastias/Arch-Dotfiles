@@ -78,3 +78,7 @@ entry remains accurate.
 ## Blocked by
 
 None - can start immediately
+
+## Comments
+
+- 2026-09-27 audit: fe26c00, b01f6bd, 6e43de3 (ADR 0011).

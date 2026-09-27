@@ -43,14 +43,20 @@ lines (`kde="$(cfgo '.desktop.kde')"`, the fallback, and the
 
 ## Acceptance criteria
 
-- [ ] All accessors above implemented with bats coverage in
+- [x] All accessors above implemented with bats coverage in
       `tests/install-config.bats`
-- [ ] `grep -rnB1 '^\s*[a-z_]\+="\${[a-z_]\+:-' .os/lib/ | grep -B0 -A1 cfgo`
+- [x] `grep -rnB1 '^\s*[a-z_]\+="\${[a-z_]\+:-' .os/lib/ | grep -B0 -A1 cfgo`
       returns no hits after migration
-- [ ] `.desktop.kde` reference removed from `lib/config.sh`
+- [x] `.desktop.kde` reference removed from `lib/config.sh`
 - [ ] Existing bats suite passes
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 
 - `.scratch/config-modules-refactor/issues/02-migrate-install-config-consumers.md`
+
+## Comments
+
+- 2026-09-27 audit: c120c62. Later: the install config later became the
+  schema-driven accessor table (ADR 0015, 6145524) and the unified Host Profile
+  (ADR 0036). Remaining unticked lines are suite/VM runs not re-verifiable now.

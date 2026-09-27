@@ -32,19 +32,23 @@ Behavior:
 
 ## Acceptance criteria
 
-- [ ] The Disks category renders exactly one swap row and no `swap size` row.
-- [ ] The swap row appears for ZFS, ext4, and xfs, and on single-disk layouts.
-- [ ] Entering the swap row navigates to the `swapedit` screen; back returns to
+- [x] The Disks category renders exactly one swap row and no `swap size` row.
+- [x] The swap row appears for ZFS, ext4, and xfs, and on single-disk layouts.
+- [x] Entering the swap row navigates to the `swapedit` screen; back returns to
       the Disks category.
-- [ ] `enabled` toggles `options.swap` true/false.
-- [ ] `size` opens the free-text editor and saves to `options.swap_size`;
+- [x] `enabled` toggles `options.swap` true/false.
+- [x] `size` opens the free-text editor and saves to `options.swap_size`;
       `auto` and explicit sizes both round-trip.
-- [ ] The `size` row is hidden when swap is off.
-- [ ] The swap row summary renders `off` (swap off) or the size (swap on).
-- [ ] Undo/redo/reset cover swap edits.
-- [ ] Controller bats cover the above (prior art: the data-pools / pooledit
+- [x] The `size` row is hidden when swap is off.
+- [x] The swap row summary renders `off` (swap off) or the size (swap on).
+- [x] Undo/redo/reset cover swap edits.
+- [x] Controller bats cover the above (prior art: the data-pools / pooledit
       blocks in the guided-controller tests). Full bats suite green.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 602ac3d.

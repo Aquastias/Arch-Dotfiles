@@ -82,3 +82,5 @@ Europe/Bucharest for consistency with the new seed.
 Tests: guided-seed (+4), guided-menu (+2), guided-shell (+8). Full non-VM suite
 **1122 bats**, shellcheck clean. fzf draw stays smoke-only; replay exercises the
 assembly deterministically.
+
+- 2026-09-27 audit: 319ece4.

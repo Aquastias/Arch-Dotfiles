@@ -97,3 +97,5 @@ profile `tests/vm/profiles/data-pools/from-profile.jsonc`:
 `INSTALLER-EXIT-0`; pool verifier `===FIRSTBOOT-OK===` (rpool/tank0/tank1
 imported, /data/tank0 + /data/tank1 mounted + owned by `vm-data`, by-id
 vdevs). Closing this issue. See issue 12 for the full record.
+
+- 2026-09-27 audit: ee8f391 (ADR 0036).

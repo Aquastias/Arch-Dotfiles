@@ -75,3 +75,5 @@ Note: locale/keymap stay scalar here; the array form + interactive
 ## Blocked by
 
 - None - can start immediately.
+
+- 2026-09-27 audit: 5b1bd44 (ADR 0036).

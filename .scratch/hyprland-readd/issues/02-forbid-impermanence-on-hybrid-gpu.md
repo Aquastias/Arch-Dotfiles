@@ -15,13 +15,17 @@ install time. A single-vendor GPU with impermanence still passes.
 
 ## Acceptance criteria
 
-- [ ] Impermanence enabled + resolved GPU set contains both `amd` and `nvidia`
+- [x] Impermanence enabled + resolved GPU set contains both `amd` and `nvidia`
       → hard validation error naming the conflict
-- [ ] Impermanence enabled + a single-vendor GPU → passes
-- [ ] The error fires independent of `environment.desktop`
-- [ ] The check runs after GPU Resolution (works for `gpu: "auto"`)
-- [ ] `validation-impermanence.bats` covers pass and fail cases and is green
+- [x] Impermanence enabled + a single-vendor GPU → passes
+- [x] The error fires independent of `environment.desktop`
+- [x] The check runs after GPU Resolution (works for `gpu: "auto"`)
+- [x] `validation-impermanence.bats` covers pass and fail cases and is green
 
 ## Blocked by
 
 - None — can start immediately
+
+## Comments
+
+- 2026-09-27 audit: 6719e92.

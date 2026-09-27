@@ -11,11 +11,15 @@ static palette (default Catppuccin Mocha + sapphire accent).
 
 **Status:** done
 
-- [ ] The five builtin palettes are installed and load cleanly.
-- [ ] A snacks colorscheme picker switches the static palette and persists it
+- [x] The five builtin palettes are installed and load cleanly.
+- [x] A snacks colorscheme picker switches the static palette and persists it
       across restarts.
 - [x] `follow_noctalia` defaults to `false`; a fresh install is static.
 - [x] With `follow_noctalia = false`, the default is Catppuccin Mocha with the
       sapphire accent override.
 - [x] The startup read path is structured so the follow branch (ticket 07) can
       hook in without reworking it.
+
+## Comments
+
+- 2026-09-27 audit: dc40e3b.

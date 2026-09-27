@@ -21,14 +21,18 @@ behavioural definition.
 
 ## Acceptance criteria
 
-- [ ] `install-pkglist.sh` selects `paru` when present, else `yay`.
-- [ ] It dies with a clear "no AUR helper found" message when neither exists
+- [x] `install-pkglist.sh` selects `paru` when present, else `yay`.
+- [x] It dies with a clear "no AUR helper found" message when neither exists
       (replacing today's paru-only "paru not found" check).
-- [ ] It runs `<helper> -S --needed - < list` for both the repo and AUR lists
+- [x] It runs `<helper> -S --needed - < list` for both the repo and AUR lists
       with the detected helper.
-- [ ] A focused bats/harness test stubs PATH and asserts helper selection plus
+- [x] A focused bats/harness test stubs PATH and asserts helper selection plus
       the die-if-neither path.
 
 ## Blocked by
 
 - Ticket 01 (Ladder foundations) — shares `_profiles_detect_helper`.
+
+## Comments
+
+- 2026-09-27 audit: 0aefc32 (tools/install-pkglist.sh; install-pkglist.bats).

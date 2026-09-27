@@ -36,13 +36,13 @@ the right resolved tree.
 
 ## Acceptance criteria
 
-- [ ] CLI with `--user <u>` invokes `load_user_config <u>`
+- [x] CLI with `--user <u>` invokes `load_user_config <u>`
       and passes `.variants` to the resolver
-- [ ] CLI with `--validate-only` and no `--user` skips
+- [x] CLI with `--validate-only` and no `--user` skips
       variant resolution (no behavior change)
-- [ ] A bats case in `configs-cli-flags.bats` verifies House
+- [x] A bats case in `configs-cli-flags.bats` verifies House
       Defaults applied from User Core
-- [ ] The same bats case verifies User Config overrides per-
+- [x] The same bats case verifies User Config overrides per-
       key (the standard deep-merge contract from `configs.sh`)
 - [ ] `tests/run.sh` still passes
 - [ ] `tests/audit.sh` still passes
@@ -50,3 +50,9 @@ the right resolved tree.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 531fc97 (configs-cli-flags.bats). Later: ADR 0134 (c8442fe)
+  deleted the config generator. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

@@ -22,15 +22,15 @@ emitted rather than failing the install.
 
 ## Acceptance criteria
 
-- [ ] After install, each data-pool mountpoint is owned by the Primary
+- [x] After install, each data-pool mountpoint is owned by the Primary
       User and writable by them without `sudo`.
-- [ ] Each owned pool appears as `~/Disks/<pool>` in the Primary User's
+- [x] Each owned pool appears as `~/Disks/<pool>` in the Primary User's
       home and resolves to the mountpoint.
-- [ ] Both Combined Data Pool (Storage Group) datasets and Standalone
+- [x] Both Combined Data Pool (Storage Group) datasets and Standalone
       Data Pools are covered.
-- [ ] On a host with no declared users, pools are left `root`-owned and
+- [x] On a host with no declared users, pools are left `root`-owned and
       a warning is logged; the install still succeeds.
-- [ ] The Owners Resolver's chown-path decision is unit-tested (omitted
+- [x] The Owners Resolver's chown-path decision is unit-tested (omitted
       owners → Primary User; userless host → no-op + reason).
 - [ ] The multi-data-pools VM smoke test asserts a pool is owned and
       writable by its owner on the booted system.
@@ -38,3 +38,8 @@ emitted rather than failing the install.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: fd1f5ac, c00705d. Remaining unticked lines are suite/VM runs
+  not re-verifiable now.

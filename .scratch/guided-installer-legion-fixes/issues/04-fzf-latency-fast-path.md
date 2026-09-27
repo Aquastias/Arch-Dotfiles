@@ -49,3 +49,8 @@ this slice only changes speed.
 
 (Both edit the same render/dispatch paths as this slice; land them first so the
 output-equivalence baseline reflects final row content and to avoid conflicts.)
+
+## Comments
+
+- 2026-09-27 audit: ce0904c. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

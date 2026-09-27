@@ -16,14 +16,18 @@ If neither field is present in the secrets file, no SSH identity files are writt
 
 ## Acceptance criteria
 
-- [ ] No `ssh_identity_private_key` in secrets: no `~/.ssh/id_*` files written
-- [ ] `ssh_identity_key_type: ed25519` (or absent): key written to `~/.ssh/id_ed25519` and `~/.ssh/id_ed25519.pub`
-- [ ] `ssh_identity_key_type: rsa`: key written to `~/.ssh/id_rsa` and `~/.ssh/id_rsa.pub`
-- [ ] `ssh_identity_key_type: ecdsa`: key written to `~/.ssh/id_ecdsa` and `~/.ssh/id_ecdsa.pub`
-- [ ] Private key file has permissions `600`; public key file has permissions `644`
-- [ ] Both files are owned by the created user
-- [ ] BATS tests cover: no key field, each of the three key types, missing key type defaults to ed25519
+- [x] No `ssh_identity_private_key` in secrets: no `~/.ssh/id_*` files written
+- [x] `ssh_identity_key_type: ed25519` (or absent): key written to `~/.ssh/id_ed25519` and `~/.ssh/id_ed25519.pub`
+- [x] `ssh_identity_key_type: rsa`: key written to `~/.ssh/id_rsa` and `~/.ssh/id_rsa.pub`
+- [x] `ssh_identity_key_type: ecdsa`: key written to `~/.ssh/id_ecdsa` and `~/.ssh/id_ecdsa.pub`
+- [x] Private key file has permissions `600`; public key file has permissions `644`
+- [x] Both files are owned by the created user
+- [x] BATS tests cover: no key field, each of the three key types, missing key type defaults to ed25519
 
 ## Blocked by
 
 - `.scratch/sops-secrets-management/issues/02-user-password-from-secrets.md`
+
+## Comments
+
+- 2026-09-27 audit: 556b35e.

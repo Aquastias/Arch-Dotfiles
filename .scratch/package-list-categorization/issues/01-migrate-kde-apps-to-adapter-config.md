@@ -30,18 +30,22 @@ later slices: `plasma-meta`, `plasma-workspace`, `polkit-kde-agent`,
 
 ## Acceptance criteria
 
-- [ ] `hosts/desktop/config.jsonc:packages.repo` no longer contains
+- [x] `hosts/desktop/config.jsonc:packages.repo` no longer contains
       `ark`, `calligra`, `dolphin`, `filelight`, `gwenview`, `kate`,
       `kdiff3`, `keditbookmarks`, `kleopatra`, `kompare`, `konsole`,
       `krename`, `krita`, `krusader`, `ktorrent`, `kwalletmanager`,
       `okular`, `pacmanlogviewer`, `partitionmanager`, `skanlite`,
       `skanpage`.
-- [ ] `install-kde.jsonc:apps_list` contains `pacmanlogviewer: true`
+- [x] `install-kde.jsonc:apps_list` contains `pacmanlogviewer: true`
       in addition to the existing entries.
-- [ ] A fresh install on `hosts/desktop` with `environment.desktop=kde`
+- [x] A fresh install on `hosts/desktop` with `environment.desktop=kde`
       installs the same KDE app set as before this change.
-- [ ] No schema changes to `install-kde.jsonc` or any host config.
+- [x] No schema changes to `install-kde.jsonc` or any host config.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 68bceb1.

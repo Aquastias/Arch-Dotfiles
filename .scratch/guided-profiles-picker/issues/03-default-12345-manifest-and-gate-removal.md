@@ -21,18 +21,22 @@ supersedes the ADR 0051/0054 Proceed password/passphrase gate.
 
 ## Acceptance criteria
 
-- [ ] Proceed is never blocked on a missing root/user password or encryption
+- [x] Proceed is never blocked on a missing root/user password or encryption
       passphrase
-- [ ] The menu no longer emits a Proceed-block signal for unset secrets (the
+- [x] The menu no longer emits a Proceed-block signal for unset secrets (the
       former `_ctl_pw_missing` / `_ctl_enc_missing` blockers are display-only)
-- [ ] The secrets manifest emits `12345` for any secret left unset
-- [ ] A set (operator-typed) secret emits its own value, not `12345`
-- [ ] No secret value (default or typed) appears in the emitted Config State,
+- [x] The secrets manifest emits `12345` for any secret left unset
+- [x] A set (operator-typed) secret emits its own value, not `12345`
+- [x] No secret value (default or typed) appears in the emitted Config State,
       Save, or Export
-- [ ] The `WILL ERASE` / typed-`INSTALL` consent gate still runs on every Proceed
-- [ ] bats over the manifest builder (`guided-secrets.bats` prior art) and the
+- [x] The `WILL ERASE` / typed-`INSTALL` consent gate still runs on every Proceed
+- [x] bats over the manifest builder (`guided-secrets.bats` prior art) and the
       menu gate signal (`guided-menu.bats` prior art)
 
 ## Blocked by
 
 - None — can start immediately (parallel to 01).
+
+## Comments
+
+- 2026-09-27 audit: 8d3f617.

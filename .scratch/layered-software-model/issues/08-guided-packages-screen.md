@@ -34,19 +34,23 @@ enumerable, so adding a brand-new package stays a free-text entry.
 
 ## Acceptance criteria
 
-- [ ] Packages drills `repo` → category → package toggles
-- [ ] `aur` drills the same way
-- [ ] Each category row shows its package count
-- [ ] An inherited package renders checked with no override dot
-- [ ] A package added in this session renders checked with a dot
-- [ ] Unchecking an inherited package writes an `exclude` entry
-- [ ] An excluded package renders unchecked with a dot
-- [ ] Re-checking an excluded package removes the exclusion
-- [ ] The toggle list offers the declared union across core and profile
-- [ ] A free-text entry adds a package not in the union
-- [ ] Edits survive leaving and re-entering the screen
-- [ ] Edits commit on confirm and not on Esc
+- [x] Packages drills `repo` → category → package toggles
+- [x] `aur` drills the same way
+- [x] Each category row shows its package count
+- [x] An inherited package renders checked with no override dot
+- [x] A package added in this session renders checked with a dot
+- [x] Unchecking an inherited package writes an `exclude` entry
+- [x] An excluded package renders unchecked with a dot
+- [x] Re-checking an excluded package removes the exclusion
+- [x] The toggle list offers the declared union across core and profile
+- [x] A free-text entry adds a package not in the union
+- [x] Edits survive leaving and re-entering the screen
+- [x] Edits commit on confirm and not on Esc
 
 ## Blocked by
 
 - Menu reads Host Core via the Layer Resolver
+
+## Comments
+
+- 2026-09-27 audit: 55856b3.

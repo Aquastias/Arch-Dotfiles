@@ -55,3 +55,8 @@ deferred follow-up.
 ## Blocked by
 
 None - can start immediately (independent of the validator slices).
+
+## Comments
+
+- 2026-09-27 audit: wontfix, as recorded above; the fork-free-guard alternative
+  shipped as ADR 0145 (9278dc3).

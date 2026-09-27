@@ -70,3 +70,7 @@ root; the pool editor renders the `filesystem:`/`topology:`/`encryption:` rows.
 ## Blocked by
 
 - `01` (schema/validation); grows as adapters `03`–`08` land
+
+## Comments
+
+- 2026-09-27 audit: 27cd44a, eeae4ee, 63754fc, a226bfb.

@@ -16,16 +16,20 @@ adds the Users values screen to the set that shows a preview panel.
 
 ## Acceptance criteria
 
-- [ ] Hovering a user row renders shell, sudo, groups, programs, and
+- [x] Hovering a user row renders shell, sudo, groups, programs, and
       (when set) git identity and SSH-key count.
-- [ ] The panel shows effective values (core-merged, override-applied), matching
+- [x] The panel shows effective values (core-merged, override-applied), matching
       what will install.
-- [ ] A session-created user's panel reflects its in-progress editor-form state.
-- [ ] The Users values screen is registered as having a preview panel.
-- [ ] Covered headless via `guided_ctl_preview <line>` with the nav set to the
+- [x] A session-created user's panel reflects its in-progress editor-form state.
+- [x] The Users values screen is registered as having a preview panel.
+- [x] Covered headless via `guided_ctl_preview <line>` with the nav set to the
       Users screen; prior art: `tests/config/guided-users.bats`,
       `guided-userforms.bats`.
 
 ## Blocked by
 
 - None — the Users screen exists today.
+
+## Comments
+
+- 2026-09-27 audit: 8c5bccc (ADR 0063).

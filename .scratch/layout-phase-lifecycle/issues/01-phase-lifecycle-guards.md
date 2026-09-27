@@ -59,50 +59,50 @@ land together. `CONTEXT.md` already updated.
 
 ## Acceptance criteria
 
-- [ ] `_LAYOUT_PHASE` is declared in `lib/layout-common.sh`,
+- [x] `_LAYOUT_PHASE` is declared in `lib/layout-common.sh`,
       initialised to 0.
-- [ ] `_layout_phase_ordinal <name>` maps phase names to
+- [x] `_layout_phase_ordinal <name>` maps phase names to
       ordinals (`validate=1`, `plan=2`, `partition=3`,
       `pools=4`, `esp=5`); unknown name errors.
-- [ ] `_layout_enter_phase <name>` asserts
+- [x] `_layout_enter_phase <name>` asserts
       `_LAYOUT_PHASE == ordinal(<name>) - 1` and errors with a
       clear out-of-order message otherwise.
-- [ ] `_layout_exit_phase <name>` sets
+- [x] `_layout_exit_phase <name>` sets
       `_LAYOUT_PHASE = ordinal(<name>)`.
-- [ ] Each of the 5 seam verbs in `lib/layout-single.sh`
+- [x] Each of the 5 seam verbs in `lib/layout-single.sh`
       (`layout_validate`, `layout_plan`, `layout_partition`,
       `layout_create_pools`, `layout_mount_esp`) opens with
       `_layout_enter_phase <name>` and closes with
       `_layout_exit_phase <name>`.
-- [ ] The same 5 seam verbs in `lib/layout-multi.sh` are
+- [x] The same 5 seam verbs in `lib/layout-multi.sh` are
       wrapped identically.
-- [ ] Existing `_layout_verify_*_contract` helpers stay in
+- [x] Existing `_layout_verify_*_contract` helpers stay in
       place and are called between the body and the exit
       helper.
-- [ ] No internal implementation
+- [x] No internal implementation
       (`calculate_*`, `partition_*`, `create_*`, `mount_*`,
       `resolve_*`) is modified.
-- [ ] No `LAYOUT_*` published global is modified.
-- [ ] No `_LAYOUT_IMPL_*` private global is modified.
-- [ ] `tests/layout-common.bats` covers: (a) fresh-state
+- [x] No `LAYOUT_*` published global is modified.
+- [x] No `_LAYOUT_IMPL_*` private global is modified.
+- [x] `tests/layout-common.bats` covers: (a) fresh-state
       `_layout_enter_phase validate` succeeds; (b) entering an
       out-of-order phase fails with a recognisable error; (c)
       double-entering the same phase fails; (d) full
       sequential walk (validate→plan→partition→pools→esp)
       leaves `_LAYOUT_PHASE = 5`.
-- [ ] `tests/layout-single.bats` adds one smoke test that
+- [x] `tests/layout-single.bats` adds one smoke test that
       runs the full chain through the seam wrappers (with
       stubbed `sgdisk` / `blockdev` / `lspci` consistent with
       existing fixtures) and asserts `_LAYOUT_PHASE = 5` at
       the end.
-- [ ] `tests/layout-multi.bats` adds the same smoke test.
-- [ ] Any existing test that drives a wrapper in isolation
+- [x] `tests/layout-multi.bats` adds the same smoke test.
+- [x] Any existing test that drives a wrapper in isolation
       (e.g. calling `layout_partition` without first running
       `layout_plan`) is updated to seed `_LAYOUT_PHASE` to the
       prerequisite value in its setup.
-- [ ] `shellcheck` passes on every changed file.
+- [x] `shellcheck` passes on every changed file.
 - [ ] Full `bats` suite passes.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
@@ -117,3 +117,6 @@ land together. `CONTEXT.md` already updated.
   `_LAYOUT_PHASE` seeded to 1; `validate=1` reserved in the ordinal map.
   When `layout-adapter-owns-validation/01` (ADR 0014) merges, change
   `_LAYOUT_PHASE=1` → `=0` and wrap `layout_validate`.
+
+- 2026-09-27 audit: c5a5406 (ADR 0016). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

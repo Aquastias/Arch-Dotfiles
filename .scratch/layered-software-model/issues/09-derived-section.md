@@ -28,18 +28,22 @@ operator knows where to go to change them.
 
 ## Acceptance criteria
 
-- [ ] The Packages screen has a `derived` section
-- [ ] Sources are listed separately: KDE shell, KDE apps, GPU, audio, security,
+- [x] The Packages screen has a `derived` section
+- [x] Sources are listed separately: KDE shell, KDE apps, GPU, audio, security,
       backup, sops
-- [ ] Each source shows its package count and drills to the list
-- [ ] Entries cannot be toggled
-- [ ] The section names which category drives each source
-- [ ] Changing the GPU vendor updates the section
-- [ ] Changing the desktop selection updates the section
-- [ ] Toggling a security or backup tool updates the section
-- [ ] The section and the CLI inspector agree for the same config
+- [x] Each source shows its package count and drills to the list
+- [x] Entries cannot be toggled
+- [x] The section names which category drives each source
+- [x] Changing the GPU vendor updates the section
+- [x] Changing the desktop selection updates the section
+- [x] Toggling a security or backup tool updates the section
+- [x] The section and the CLI inspector agree for the same config
 
 ## Blocked by
 
 - Package Resolver + explain-packages
 - Guided Packages screen
+
+## Comments
+
+- 2026-09-27 audit: 55856b3.

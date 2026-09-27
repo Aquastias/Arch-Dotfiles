@@ -29,3 +29,7 @@ at boot.
       status (not a hang/timeout) — already covered in sentinel-watcher.bats.
 - [x] Seam-4 test: the payload's sentinel/hold-on-failure and the failure
       reporter are asserted; full flow_run integration stays CI/local (no VM).
+
+## Comments
+
+- 2026-09-27 audit: a68ff5a, 4331ae2.

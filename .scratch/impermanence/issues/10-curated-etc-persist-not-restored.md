@@ -432,3 +432,6 @@ criteria ticked.
 Parent `PRD.md` was already `Status: done`; issue 10 was the post-PRD
 regression found at the issue-07 gate and is now resolved + VM-verified.
 Nothing left open.
+
+- 2026-09-27 audit: dd1de98, 4b336e1, 5a027a7, 028e426, 29fcd98, 767257f; VM
+  gate PASS recorded in 5916ab7.

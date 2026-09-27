@@ -45,3 +45,5 @@ None - can start immediately.
 - Tests: +1 `packages.bats` (cronie in base), +2 `chroot-configure.bats`
   (stub systemctl → assert the four enables). Full bats suite green,
   shellcheck clean.
+
+- 2026-09-27 audit: 06f69a3.

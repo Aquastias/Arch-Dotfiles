@@ -24,14 +24,18 @@ Also add a `.sops.yaml` template (with placeholder age recipient) at the repo ro
 
 ## Acceptance criteria
 
-- [ ] `lib/secrets.sh` is sourced by `03-install.sh` after `lib/config.sh`
-- [ ] With no USB and no secrets files: module exits 0, `install-state.json` contains no `secrets.*` keys, install proceeds normally
-- [ ] With a correct key and secrets files present: `install-state.json` contains `secrets.users.<name>` and `secrets.host` paths pointing to decrypted tmpfs files
-- [ ] With a wrong passphrase: module exits non-zero with a clear error message before any disk operations
-- [ ] Tmpfs is cleared after chroot exits regardless of success or failure
-- [ ] BATS tests cover: no-op path, correct key path (fixture key + fixture secrets), wrong passphrase, tmpfs cleanup
-- [ ] `.sops.yaml` template committed at repo root with `path_regex` covering `users/*/secrets.json` and `hosts/*/secrets.json`
+- [x] `lib/secrets.sh` is sourced by `03-install.sh` after `lib/config.sh`
+- [x] With no USB and no secrets files: module exits 0, `install-state.json` contains no `secrets.*` keys, install proceeds normally
+- [x] With a correct key and secrets files present: `install-state.json` contains `secrets.users.<name>` and `secrets.host` paths pointing to decrypted tmpfs files
+- [x] With a wrong passphrase: module exits non-zero with a clear error message before any disk operations
+- [x] Tmpfs is cleared after chroot exits regardless of success or failure
+- [x] BATS tests cover: no-op path, correct key path (fixture key + fixture secrets), wrong passphrase, tmpfs cleanup
+- [x] `.sops.yaml` template committed at repo root with `path_regex` covering `users/*/secrets.json` and `hosts/*/secrets.json`
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: d8fcd97, 38fcb0c.

@@ -20,17 +20,17 @@ disappear without discarding an already-typed passphrase.
 
 ## Acceptance criteria
 
-- [ ] While encryption is on and the passphrase is unset, Proceed emits the
+- [x] While encryption is on and the passphrase is unset, Proceed emits the
       blocked directive (`set passwords first ⚠`) instead of proceeding.
-- [ ] The Disks top-category row shows `⚠ 1 pw needed` under the same condition;
+- [x] The Disks top-category row shows `⚠ 1 pw needed` under the same condition;
       it clears once the passphrase is set (or encryption is off).
-- [ ] The Proceed gate aggregates both origins — Users (root + per-user
+- [x] The Proceed gate aggregates both origins — Users (root + per-user
       passwords) and Disks (passphrase) — so a block can come from either screen.
-- [ ] Toggling encryption off hides the `encryption password` row and removes the
+- [x] Toggling encryption off hides the `encryption password` row and removes the
       passphrase from the gate.
-- [ ] Toggling encryption off then on again shows `(set)` — the stored passphrase
+- [x] Toggling encryption off then on again shows `(set)` — the stored passphrase
       is retained, not cleared.
-- [ ] `tests/config/guided-controller.bats`: Proceed is blocked and the Disks top
+- [x] `tests/config/guided-controller.bats`: Proceed is blocked and the Disks top
       row shows `⚠ 1 pw needed` when encryption is on and the passphrase is unset;
       both clear when it is set; toggling encryption off clears the gate but a
       subsequent toggle-on still reads `(set)`.
@@ -39,3 +39,8 @@ disappear without discarding an already-typed passphrase.
 
 - Ticket 01 (Encryption passphrase: inline capture → manifest → back-end unlock)
   — needs the row, the `enc` target, and the manifest state to gate on.
+
+## Comments
+
+- 2026-09-27 audit: 13ea15f. Later: the Proceed gate was dropped for defaulted
+  secrets (ADR 0055, 8d3f617).

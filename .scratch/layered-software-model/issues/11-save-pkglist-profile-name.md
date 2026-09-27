@@ -25,14 +25,18 @@ emits only the genuine host delta is possible but is separate work.
 
 ## Acceptance criteria
 
-- [ ] The tool takes a profile name and writes into that profile's directory
-- [ ] Running it for `desktop` and `laptop` succeeds
-- [ ] An unknown profile name fails with an actionable message
-- [ ] Each output file carries a header marking it a drift snapshot and warning
+- [x] The tool takes a profile name and writes into that profile's directory
+- [x] Running it for `desktop` and `laptop` succeeds
+- [x] An unknown profile name fails with an actionable message
+- [x] Each output file carries a header marking it a drift snapshot and warning
       against replaying it into a profile
-- [ ] `install-pkglist.sh` reads the same location
-- [ ] The tools' documented behaviour matches what they do
+- [x] `install-pkglist.sh` reads the same location
+- [x] The tools' documented behaviour matches what they do
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 41a3593.

@@ -20,14 +20,14 @@ End-to-end demo: VM install lands with users created, firewalld installed at sys
 ## Acceptance criteria
 
 - [ ] profiles.sh bootstraps paru per user via `arch-chroot /mnt su - <username>` before any user programs are installed
-- [ ] User programs are installed via `arch-chroot /mnt su - <username>` running paru
-- [ ] Validation aborts the install if a user config references a program with `system: true`
-- [ ] Validation aborts the install if a user config references a non-existent program
-- [ ] `.os/programs/communication/teamspeak3/config.jsonc` exists with `system: false`
-- [ ] `.os/programs/communication/teamspeak3/install.sh` installs the package and copies the bundled icons + theme
-- [ ] `.os/programs/communication/teamspeak3/addons/` contains the bundled icons and theme files
-- [ ] `.pkglist/programs/communication/teamspeak3/` is unchanged
-- [ ] No first-boot scripts are dropped into user homes
+- [x] User programs are installed via `arch-chroot /mnt su - <username>` running paru
+- [x] Validation aborts the install if a user config references a program with `system: true`
+- [x] Validation aborts the install if a user config references a non-existent program
+- [x] `.os/programs/communication/teamspeak3/config.jsonc` exists with `system: false`
+- [x] `.os/programs/communication/teamspeak3/install.sh` installs the package and copies the bundled icons + theme
+- [x] `.os/programs/communication/teamspeak3/addons/` contains the bundled icons and theme files
+- [x] `.pkglist/programs/communication/teamspeak3/` is unchanged
+- [x] No first-boot scripts are dropped into user homes
 - [ ] VM install verified: first login as the user reveals teamspeak3 installed with icons + theme already in place
 
 ## Blocked by
@@ -49,3 +49,8 @@ Design is fully specified by the parent PRD and the four ADRs in `docs/adr/`. Th
 - Parent PRD: `.scratch/declarative-install-config/PRD.md`
 - Glossary: `CONTEXT.md`
 - ADRs: `docs/adr/0001..0004`
+
+- 2026-09-27 audit: b1a3f5a, 7bccec2, f778b82. Later: host/user config became
+  the unified Host/User Profile (ADR 0036); system flag became kind (ADR 0085);
+  OS_DIR renamed INSTALLER_DIR (ADR 0092). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

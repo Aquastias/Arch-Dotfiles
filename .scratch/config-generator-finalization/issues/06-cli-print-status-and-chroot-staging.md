@@ -34,15 +34,15 @@ to include the Shell Stdlib files added here.
 
 ## Acceptance criteria
 
-- [ ] CLI sources `lib/shell-stdlib.sh` at startup
-- [ ] All stderr writes in the CLI use `print_status` (error or
+- [x] CLI sources `lib/shell-stdlib.sh` at startup
+- [x] All stderr writes in the CLI use `print_status` (error or
       warning as appropriate)
 - [ ] Stdout writes are unchanged — `--dry-run` plan stays raw
       bytes; `--validate-only` happy path stays silent
-- [ ] `lib/shell-stdlib.sh` and `lib/shell/` are staged into the
+- [x] `lib/shell-stdlib.sh` and `lib/shell/` are staged into the
       chroot environment (verify by reading `lib/chroot.sh` or
       by adding the staging if absent)
-- [ ] `tests/audit.sh` covers any staging additions and passes
+- [x] `tests/audit.sh` covers any staging additions and passes
 - [ ] `tests/run.sh` still passes — the existing CLI bats keep
       working (stderr matchers may need updating for prefix
       changes)
@@ -50,3 +50,8 @@ to include the Shell Stdlib files added here.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: b44d3f7. Later: ADR 0134 (c8442fe) deleted the config
+  generator. Remaining unticked lines are suite/VM runs not re-verifiable now.

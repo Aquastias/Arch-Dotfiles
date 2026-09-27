@@ -30,17 +30,22 @@ while still working on the older fzf a lagging install ISO may ship.
 
 ## Acceptance criteria
 
-- [ ] In rich mode, editor/list screens render only data rows; add/remove/create
+- [x] In rich mode, editor/list screens render only data rows; add/remove/create
       are on `^A`/`^X` and emit the right dispatch actions (fzf-entry seam).
-- [ ] The `render` action string carries per-screen `change-footer` (context +
+- [x] The `render` action string carries per-screen `change-footer` (context +
       summary), `change-list-label` (breadcrumb), and `change-header` (nav keys)
       content (fzf-entry seam).
-- [ ] The version gate returns rich for a stubbed `fzf ≥ 0.62` and legacy below,
+- [x] The version gate returns rich for a stubbed `fzf ≥ 0.62` and legacy below,
       as a pure function (pure seam).
-- [ ] In legacy mode, action rows reappear in the lists and no footer/breadcrumb
+- [x] In legacy mode, action rows reappear in the lists and no footer/breadcrumb
       actions are emitted; all features remain reachable.
 - [ ] Full existing bats suite stays green.
 
 ## Blocked by
 
 - 05 — Freeform custom layouts.
+
+## Comments
+
+- 2026-09-27 audit: be92d03, d44ee3d, fc4b746 (chrome.bats). Remaining unticked
+  lines are suite/VM runs not re-verifiable now.

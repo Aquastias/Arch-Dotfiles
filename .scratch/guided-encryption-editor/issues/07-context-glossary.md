@@ -34,17 +34,21 @@ implementation detail — terms and their meanings only.
 
 ## Acceptance criteria
 
-- [ ] The Encryption Password Row entry is removed
-- [ ] An Encryption Editor entry is added in its place
-- [ ] The new entry describes the collapsed row and the editor it opens
-- [ ] The new entry records the hidden-while-off, value-retained behaviour
-- [ ] The new entry records the ≥8-character rule and names ZFS as the reason
-- [ ] The Guided Installer entry records the split between the two defaults
-- [ ] No entry mentions the removed Proceed gate as if it were current
-- [ ] No entry references the Users screen as a disk passphrase override surface
-- [ ] Entries contain no file paths, function names, or implementation detail
-- [ ] All lines are at most 80 characters
+- [x] The Encryption Password Row entry is removed
+- [x] An Encryption Editor entry is added in its place
+- [x] The new entry describes the collapsed row and the editor it opens
+- [x] The new entry records the hidden-while-off, value-retained behaviour
+- [x] The new entry records the ≥8-character rule and names ZFS as the reason
+- [x] The Guided Installer entry records the split between the two defaults
+- [x] No entry mentions the removed Proceed gate as if it were current
+- [x] No entry references the Users screen as a disk passphrase override surface
+- [x] Entries contain no file paths, function names, or implementation detail
+- [x] All lines are at most 80 characters
 
 ## Blocked by
 
 - .scratch/guided-encryption-editor/issues/05-remove-users-enc-row.md
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

@@ -88,3 +88,5 @@ The only piece not headless-testable is the literal interactive
 glue from automated tests); its producer `picker_build_assignment` is the
 same code the verified harness path runs, and is bats-covered
 (`tests/picker-assign.bats`). Closing.
+
+- 2026-09-27 audit: b5797d0 (ADR 0036).

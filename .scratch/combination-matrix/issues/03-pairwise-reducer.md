@@ -54,3 +54,5 @@ pursued (AC excludes it).
 single-value+heavy-constraint no-impossible-rows). Matrix suite 17/17,
 shellcheck clean. Constraint input format `[{"fs":"ext4","topology":"mirror"}]`
 is what the slice-04 generator will feed from the menu's fs↔topology rules.
+
+- 2026-09-27 audit: 33d04bc.

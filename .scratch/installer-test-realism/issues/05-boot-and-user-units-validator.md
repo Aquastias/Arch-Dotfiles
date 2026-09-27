@@ -51,3 +51,7 @@ four.
 ## Blocked by
 
 - Issue 01 (shares `tests/lib/validators.bash`).
+
+## Comments
+
+- 2026-09-27 audit: a587299.

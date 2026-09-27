@@ -71,3 +71,7 @@ finalize export are now gated on `command -v zpool` (`lib/chroot.sh`,
 ## Blocked by
 
 - `03` (ext4 plaintext root tracer)
+
+## Comments
+
+- 2026-09-27 audit: 0cdd498, 6d6a07f.

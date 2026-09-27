@@ -62,3 +62,5 @@ Tests: `tests/config/guided-history.bats` (6), +3 reset-granularity in
 Reset-all confirmed/declined, reset field/section pure ×2 + loop ×2). Full
 `.os` suite 1092 green; shellcheck clean. Multi-select pre-marking deferred
 to issues 06/07 (no multi-select field in the menu yet) — user-approved scope.
+
+- 2026-09-27 audit: 6408220.

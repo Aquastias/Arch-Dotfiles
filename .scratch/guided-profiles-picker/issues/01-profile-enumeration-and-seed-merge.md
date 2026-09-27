@@ -26,17 +26,21 @@ No menu, no fzf — just JSON/text in, JSON/text out.
 
 ## Acceptance criteria
 
-- [ ] Enumeration returns `desktop` and `laptop` from the real `hosts/` tree
-- [ ] Enumeration excludes `core` and everything under `vm/`
-- [ ] Enumeration is alphabetical and stable
-- [ ] Each entry carries its `//` header-comment text; a header-less fixture
+- [x] Enumeration returns `desktop` and `laptop` from the real `hosts/` tree
+- [x] Enumeration excludes `core` and everything under `vm/`
+- [x] Enumeration is alphabetical and stable
+- [x] Each entry carries its `//` header-comment text; a header-less fixture
       yields an empty/absent comment value (the caller renders the fallback)
-- [ ] Seed-merge over a seeded state yields a Config State whose fields equal the
+- [x] Seed-merge over a seeded state yields a Config State whose fields equal the
       profile's values, with untouched fields retaining the seed
-- [ ] Seed-merge introduces no device paths into the state
-- [ ] bats coverage over a fixture `hosts/` tree; behaviour-only assertions
+- [x] Seed-merge introduces no device paths into the state
+- [x] bats coverage over a fixture `hosts/` tree; behaviour-only assertions
       (emitted names/text/state), prior art `guided-seed.bats` / `guided-state.bats`
 
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: f54e28b.

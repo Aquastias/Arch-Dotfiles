@@ -21,10 +21,10 @@ slice-04 contract that production trees ship no fixture.
 
 ## Acceptance criteria
 
-- [ ] `tests/audit.sh` fails when any `_fixture/` exists under
+- [x] `tests/audit.sh` fails when any `_fixture/` exists under
       `.os/programs/`
-- [ ] Check passes on `main` as-is (post slice 04)
-- [ ] One commit, scoped to `audit.sh` only
+- [x] Check passes on `main` as-is (post slice 04)
+- [x] One commit, scoped to `audit.sh` only
 
 ## Blocked by
 
@@ -61,13 +61,13 @@ when one is found. The check sits alongside the existing
   offending path so the contributor sees exactly what to remove.
 
 **Acceptance criteria:**
-- [ ] `tests/audit.sh` fails when any `_fixture` directory exists
+- [x] `tests/audit.sh` fails when any `_fixture` directory exists
       under `.os/programs/` (verify by creating one in a scratch
       worktree and re-running)
-- [ ] `tests/audit.sh` passes on current `main` (post slice 04)
-- [ ] Check uses the same `_pass`/`_fail` helpers and section
+- [x] `tests/audit.sh` passes on current `main` (post slice 04)
+- [x] Check uses the same `_pass`/`_fail` helpers and section
       header style as the existing checks
-- [ ] One commit, scoped to `tests/audit.sh` only
+- [x] One commit, scoped to `tests/audit.sh` only
 
 **Out of scope:**
 - Renaming or restructuring existing audit sections
@@ -75,3 +75,5 @@ when one is found. The check sits alongside the existing
   concern; that tree is consumed by bats, not by the installer)
 - A pre-commit hook or CI wiring (audit.sh is already wired into
   `tests/run.sh`)
+
+- 2026-09-27 audit: 31d5561 (tests/audit.sh _fixture check).

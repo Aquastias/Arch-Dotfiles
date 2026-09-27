@@ -17,12 +17,12 @@ Update `.os/README.md` and `.os/REFERENCE.md` so the documented quick-start runs
 
 ## Acceptance criteria
 
-- [ ] `.os/install.sh` exists and is executable
-- [ ] It runs bootstrap, wipe, and main install in order, aborting on any failure
-- [ ] `01-bootstrap-zfs.sh`, `02-wipe.sh`, `03-install.sh` are still on disk and still individually runnable for debugging
+- [x] `.os/install.sh` exists and is executable
+- [x] It runs bootstrap, wipe, and main install in order, aborting on any failure
+- [x] `01-bootstrap-zfs.sh`, `02-wipe.sh`, `03-install.sh` are still on disk and still individually runnable for debugging
 - [ ] No temporary scripts remain in the installed system or `/mnt` after a successful install
-- [ ] `.os/README.md` quick-start documents `./install.sh` as the entry point
-- [ ] `.os/REFERENCE.md` updated to match
+- [x] `.os/README.md` quick-start documents `./install.sh` as the entry point
+- [x] `.os/REFERENCE.md` updated to match
 - [ ] VM install verified end-to-end through the single entry point
 
 ## Blocked by
@@ -44,3 +44,6 @@ Design is fully specified by the parent PRD and the four ADRs in `docs/adr/`. Th
 - Parent PRD: `.scratch/declarative-install-config/PRD.md`
 - Glossary: `CONTEXT.md`
 - ADRs: `docs/adr/0001..0004`
+
+- 2026-09-27 audit: b1a3f5a (install.sh single entry point). Remaining unticked
+  lines are suite/VM runs not re-verifiable now.

@@ -62,3 +62,5 @@ Tests: guided-menu (+6), guided-shell (+13), guided-emit (+1) = +20. Full
 suite **1178 bats**, shellcheck clean. fzf rendering stays smoke-only per the
 PRD; the replay path exercises the assembly deterministically. No VM-smoke
 line in this issue's acceptance.
+
+- 2026-09-27 audit: d20fa22.

@@ -155,3 +155,6 @@ power-cycles to the installed disk and confirms it boots.
   no by-id fallback). `FIXTURE_EXIT=125`. Confirms the fixture guards the
   real bug class. Clone + daemon torn down; real tree/GitHub untouched.
   All 6 ACs now met — issue done.
+
+- 2026-09-27 audit: b3729f6, cde8557, ad67b34, f3ba81d; KVM positive/negative
+  control recorded in 54f7704 and 9781344.

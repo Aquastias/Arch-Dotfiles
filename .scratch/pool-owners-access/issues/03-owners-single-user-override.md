@@ -19,15 +19,19 @@ leaving a pool inaccessible.
 
 ## Acceptance criteria
 
-- [ ] A data pool / storage group with `owners: ["<user>"]` is owned by
+- [x] A data pool / storage group with `owners: ["<user>"]` is owned by
       that user after install (`chown`, no ACL).
-- [ ] Omitting `owners` still defaults to the Primary User (slice 02
+- [x] Omitting `owners` still defaults to the Primary User (slice 02
       behavior unchanged).
-- [ ] An `owners` entry naming an undeclared user fails validation with
+- [x] An `owners` entry naming an undeclared user fails validation with
       a clear message before any disk is touched.
-- [ ] The Owners Resolver's single-user path and the validation are
+- [x] The Owners Resolver's single-user path and the validation are
       unit-tested.
 
 ## Blocked by
 
 - `issues/02-default-ownership-primary-user-symlinks.md`
+
+## Comments
+
+- 2026-09-27 audit: 3a3edd5.

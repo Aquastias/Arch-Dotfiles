@@ -23,15 +23,15 @@ shared artifacts the installer uses (no duplicated copies).
 
 ## Acceptance criteria
 
-- [ ] On a systemd-boot host: installs the hardened ESP Kernel Sync +
+- [x] On a systemd-boot host: installs the hardened ESP Kernel Sync +
       preflight + warn hook, fixes microcode to the present vendor,
       reconciles loader entries, drops the fallback when ESP <~1G.
-- [ ] On a GRUB host: pins the Primary Kernel default and applies
+- [x] On a GRUB host: pins the Primary Kernel default and applies
       per-vendor microcode + the warn hook.
-- [ ] `--dry-run` reports the exact changes and mutates nothing.
-- [ ] A second run is a no-op (idempotent).
-- [ ] The tool never repartitions or resizes the ESP.
-- [ ] The tool installs the same shared artifacts as the installer
+- [x] `--dry-run` reports the exact changes and mutates nothing.
+- [x] A second run is a no-op (idempotent).
+- [x] The tool never repartitions or resizes the ESP.
+- [x] The tool installs the same shared artifacts as the installer
       (single source, no drift).
 
 ## Blocked by
@@ -41,3 +41,7 @@ shared artifacts the installer uses (no duplicated copies).
 - Issue 05 (ESP Kernel Sync PreTransaction preflight)
 - Issue 06 (Stray Kernel warn hook)
 - Issue 07 (GRUB default-pin to Primary Kernel)
+
+## Comments
+
+- 2026-09-27 audit: 3b2dec6 (tools/harden-boot.sh; harden-boot.bats).

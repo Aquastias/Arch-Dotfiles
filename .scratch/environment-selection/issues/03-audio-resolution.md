@@ -19,12 +19,12 @@ Audio Resolution runs at config-load time, after the desktop value is normalised
 
 ## Acceptance criteria
 
-- [ ] `"desktop": "kde"` results in PipeWire stack in `packages.groups.audio`
-- [ ] `"desktop": "hyprland"` results in PipeWire stack in `packages.groups.audio`
-- [ ] `"desktop": ["kde", "hyprland"]` results in PipeWire stack in `packages.groups.audio` (not duplicated)
-- [ ] `"desktop": null` results in `packages.groups.audio` being empty — no audio packages in pacstrap
-- [ ] `"environment"` key omitted entirely results in empty audio group
-- [ ] BATS tests cover all four cases above
+- [x] `"desktop": "kde"` results in PipeWire stack in `packages.groups.audio`
+- [x] `"desktop": "hyprland"` results in PipeWire stack in `packages.groups.audio`
+- [x] `"desktop": ["kde", "hyprland"]` results in PipeWire stack in `packages.groups.audio` (not duplicated)
+- [x] `"desktop": null` results in `packages.groups.audio` being empty — no audio packages in pacstrap
+- [x] `"environment"` key omitted entirely results in empty audio group
+- [x] BATS tests cover all four cases above
 - [ ] Shellcheck passes on all modified scripts
 
 ## Blocked by
@@ -54,14 +54,19 @@ There is no `"audio"` config key. Audio is entirely derived from desktop selecti
 - BATS test file — new (or appended to the environment validation test file if co-located makes sense). Tests source the config module with fixture Install Configs in `$TEST_DIR`.
 
 **Acceptance criteria:**
-- [ ] Any non-empty desktop selection → `packages.groups.audio` contains `pipewire pipewire-pulse pipewire-alsa wireplumber`
-- [ ] `"desktop": null` → `packages.groups.audio` empty
-- [ ] `"environment"` key omitted → `packages.groups.audio` empty
-- [ ] Packages not duplicated when called multiple times
-- [ ] BATS tests cover all cases
+- [x] Any non-empty desktop selection → `packages.groups.audio` contains `pipewire pipewire-pulse pipewire-alsa wireplumber`
+- [x] `"desktop": null` → `packages.groups.audio` empty
+- [x] `"environment"` key omitted → `packages.groups.audio` empty
+- [x] Packages not duplicated when called multiple times
+- [x] BATS tests cover all cases
 - [ ] Shellcheck passes
 
 **Out of scope:**
 - PulseAudio or any audio framework other than PipeWire
 - Audio configuration beyond package installation (no ALSA config, no daemon config)
 - Per-user audio setup
+
+- 2026-09-27 audit: 5009860. Later: packages.groups.* became internal derived
+  sets (ADR 0056); envycontrol dropped for GPU Hardening (ADR 0053); greetd/SDDM
+  moved to Display Manager Adapters (ADR 0069). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

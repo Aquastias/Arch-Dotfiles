@@ -62,3 +62,5 @@ the unattended path validates only machine fields (no closed-schema
 rejection) and the runner loads software by hostname.
 
 Full suite green (1039/1039), shellcheck clean.
+
+- 2026-09-27 audit: d764243 (ADR 0036).

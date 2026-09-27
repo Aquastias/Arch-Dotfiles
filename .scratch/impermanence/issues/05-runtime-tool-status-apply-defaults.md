@@ -34,15 +34,20 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] `tools/impermanence.sh status` lists active Persist Mounts (curated vs extension) and per-dataset drift summary
-- [ ] `status` exits non-zero if any Rollback Dataset is missing `@blank`
-- [ ] `tools/impermanence.sh apply-defaults` reads the curated arrays from the chroot module
-- [ ] `apply-defaults` adds units for paths newly in the arrays, removes units for paths newly absent, leaves orphan data on `/persist` with a printed notice (no automatic data deletion)
-- [ ] `apply-defaults` rewrites `/usr/lib/impermanence/defaults.manifest` after the diff is applied
-- [ ] `apply-defaults` is idempotent (second run is a no-op)
-- [ ] `apply-defaults` does NOT touch the Persist Extensions under `/persist/etc/systemd/system/`
+- [x] `tools/impermanence.sh status` lists active Persist Mounts (curated vs extension) and per-dataset drift summary
+- [x] `status` exits non-zero if any Rollback Dataset is missing `@blank`
+- [x] `tools/impermanence.sh apply-defaults` reads the curated arrays from the chroot module
+- [x] `apply-defaults` adds units for paths newly in the arrays, removes units for paths newly absent, leaves orphan data on `/persist` with a printed notice (no automatic data deletion)
+- [x] `apply-defaults` rewrites `/usr/lib/impermanence/defaults.manifest` after the diff is applied
+- [x] `apply-defaults` is idempotent (second run is a no-op)
+- [x] `apply-defaults` does NOT touch the Persist Extensions under `/persist/etc/systemd/system/`
 - [ ] `tests/impermanence-tool.bats` covers both verbs' happy paths, idempotency, and the missing-`@blank` failure path
 
 ## Blocked by
 
 - `.scratch/impermanence/issues/04-runtime-tool-add-remove.md`
+
+## Comments
+
+- 2026-09-27 audit: 98220fa, c2ea85d, 11cc68e. Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

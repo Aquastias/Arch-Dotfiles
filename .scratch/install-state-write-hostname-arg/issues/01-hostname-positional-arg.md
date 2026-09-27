@@ -38,49 +38,54 @@ Single commit. `CONTEXT.md` is unaffected.
 
 ## Acceptance criteria
 
-- [ ] `install_state_write` accepts `<path>` and `<hostname>`
+- [x] `install_state_write` accepts `<path>` and `<hostname>`
       as two positional arguments; both required.
-- [ ] The function loads the merged Host Config internally via
+- [x] The function loads the merged Host Config internally via
       `load_host_config "$hostname"` with the existing
       `|| printf '{}'` fallback.
-- [ ] The `--arg hostname` line in the `jq` invocation uses
+- [x] The `--arg hostname` line in the `jq` invocation uses
       the passed-in `$hostname` arg, not the
       `$RESOLVED_HOSTNAME` global.
-- [ ] The sole call site (in the chroot module) calls
+- [x] The sole call site (in the chroot module) calls
       `install_state_write` with two positional arguments,
       passing `"$RESOLVED_HOSTNAME"` as the second.
-- [ ] The `INSTALL_STATE_HOST_JSON=...` setup line and its
+- [x] The `INSTALL_STATE_HOST_JSON=...` setup line and its
       `shellcheck disable=SC2034` comment are deleted at the
       call site.
-- [ ] The `INSTALL_STATE_HOST_JSON` global appears nowhere in
+- [x] The `INSTALL_STATE_HOST_JSON` global appears nowhere in
       the codebase (verified via grep).
-- [ ] `LAYOUT_OS_POOL_NAME` and `LAYOUT_ESP_PARTS` are still
+- [x] `LAYOUT_OS_POOL_NAME` and `LAYOUT_ESP_PARTS` are still
       read as globals inside the function body — not
       converted to arguments.
-- [ ] The function header docstring drops the "Required
+- [x] The function header docstring drops the "Required
       inputs (caller's scope)" block.
-- [ ] The rendered `install-state.json` is byte-identical to
+- [x] The rendered `install-state.json` is byte-identical to
       today's output for the same inputs (hostname + Host
       Config + Layout state).
-- [ ] `tests/install-state.bats` is updated: every test that
+- [x] `tests/install-state.bats` is updated: every test that
       previously pre-set `INSTALL_STATE_HOST_JSON` now passes
       the hostname positionally and uses a real fixture host
       directory under `tests/fixtures/` to exercise the
       `load_host_config` integration.
-- [ ] At least one new assertion covers the
+- [x] At least one new assertion covers the
       `|| printf '{}'` fallback path — when the host
       directory is absent the persist sub-object is empty.
-- [ ] Round-trip coverage
+- [x] Round-trip coverage
       (`install_state_load` reads what
       `install_state_write` wrote) is preserved.
-- [ ] Every assertion currently in
+- [x] Every assertion currently in
       `tests/install-state.bats` is preserved in the new
       structure.
-- [ ] `shellcheck` passes on every changed file.
+- [x] `shellcheck` passes on every changed file.
 - [ ] Full `bats` suite passes.
-- [ ] Single commit, conventional-commit style, capitalized
+- [x] Single commit, conventional-commit style, capitalized
       after the prefix.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 4912211 (ADR 0018). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

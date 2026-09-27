@@ -68,3 +68,5 @@ Layout suite 150/150.
 Suites: matrix 7/7, layout 150/150, no NEW reds. Pre-existing (clean-HEAD)
 reds unrelated: `guided-shell.bats` tests 20/22 (stale "other filesystems are
 reserved" — contradicted by the all-adapters-built reality).
+
+- 2026-09-27 audit: ee4d338.

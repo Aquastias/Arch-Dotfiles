@@ -67,3 +67,5 @@ the issue's own rule says `^[a-z0-9-]+$`. Confirmed with operator.
 7 new bats in `tests/kde-adapter.bats` (select, deselect, plasma-extras,
 3 malformed, 24-app regression lock). Full suite 673/673; shellcheck 0;
 audit 81/81.
+
+- 2026-09-27 audit: a3e8dab. Later: apps_list/apps_extra split (ADR 0087).

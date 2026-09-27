@@ -59,3 +59,7 @@ Make `matrix.sh run` a real orchestrator that never freezes the host:
 ## Blocked by
 
 - `.scratch/combination-matrix/issues/05-vm-profile-synthesizer-oracle-dispatch.md`
+
+## Comments
+
+- 2026-09-27 audit: 06005b9.

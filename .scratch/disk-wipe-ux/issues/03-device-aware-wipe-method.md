@@ -27,3 +27,7 @@ needlessly zero-filled (moot for SSDs, since discard is instant).
 ## Blocked by
 
 - `issues/01-live-medium-exclusion.md`
+
+## Comments
+
+- 2026-09-27 audit: cde5e7b.

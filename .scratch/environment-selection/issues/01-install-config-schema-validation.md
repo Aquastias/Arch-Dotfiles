@@ -17,18 +17,18 @@ Update the install summary (printed before the final confirmation prompt) to sho
 
 ## Acceptance criteria
 
-- [ ] `install.jsonc` has an `"environment"` key with `"desktop"` and `"gpu"` fields, documented with inline comments listing valid values
-- [ ] `"desktop": "kde"` passes validation
-- [ ] `"desktop": "hyprland"` passes validation
-- [ ] `"desktop": ["kde", "hyprland"]` passes validation
-- [ ] `"desktop": null` (or key omitted) passes validation — server install path
-- [ ] `"desktop": "gnome"` aborts before disk writes with an error naming the valid options
-- [ ] `"gpu": "auto"` passes validation
-- [ ] `"gpu": "amd"` / `"nvidia"` / `"intel"` each pass validation
-- [ ] `"gpu": ["amd", "nvidia"]` passes validation
-- [ ] `"gpu": "vulkan"` aborts before disk writes with an error naming the valid options
-- [ ] Install summary includes resolved desktop, GPU, and audio (PipeWire / none) lines
-- [ ] BATS tests cover all valid and invalid desktop/gpu values
+- [x] `install.jsonc` has an `"environment"` key with `"desktop"` and `"gpu"` fields, documented with inline comments listing valid values
+- [x] `"desktop": "kde"` passes validation
+- [x] `"desktop": "hyprland"` passes validation
+- [x] `"desktop": ["kde", "hyprland"]` passes validation
+- [x] `"desktop": null` (or key omitted) passes validation — server install path
+- [x] `"desktop": "gnome"` aborts before disk writes with an error naming the valid options
+- [x] `"gpu": "auto"` passes validation
+- [x] `"gpu": "amd"` / `"nvidia"` / `"intel"` each pass validation
+- [x] `"gpu": ["amd", "nvidia"]` passes validation
+- [x] `"gpu": "vulkan"` aborts before disk writes with an error naming the valid options
+- [x] Install summary includes resolved desktop, GPU, and audio (PipeWire / none) lines
+- [x] BATS tests cover all valid and invalid desktop/gpu values
 - [ ] Shellcheck passes on all modified scripts
 
 ## Blocked by
@@ -59,12 +59,12 @@ This is an additive change: `post_install.desktop` is not removed here (issue #0
 - BATS test file — new, lives alongside existing tests in `.os/tests/`. Covers all valid and invalid desktop/gpu combinations using fixture configs in a `$TEST_DIR` temp directory, matching the pattern in `configs.bats`.
 
 **Acceptance criteria:**
-- [ ] `"desktop": "kde"`, `"hyprland"`, `["kde","hyprland"]`, `null`, omitted — all pass validation
-- [ ] `"desktop": "gnome"` aborts before any disk writes, error names valid options
-- [ ] `"gpu": "amd"`, `"nvidia"`, `"intel"`, `"auto"`, `["amd","nvidia"]` — all pass validation
-- [ ] `"gpu": "vulkan"` aborts before any disk writes, error names valid options
-- [ ] Install summary includes desktop, GPU, and audio lines
-- [ ] BATS tests pass for all valid/invalid combinations
+- [x] `"desktop": "kde"`, `"hyprland"`, `["kde","hyprland"]`, `null`, omitted — all pass validation
+- [x] `"desktop": "gnome"` aborts before any disk writes, error names valid options
+- [x] `"gpu": "amd"`, `"nvidia"`, `"intel"`, `"auto"`, `["amd","nvidia"]` — all pass validation
+- [x] `"gpu": "vulkan"` aborts before any disk writes, error names valid options
+- [x] Install summary includes desktop, GPU, and audio lines
+- [x] BATS tests pass for all valid/invalid combinations
 - [ ] Shellcheck passes on all modified scripts
 
 **Out of scope:**
@@ -72,3 +72,8 @@ This is an additive change: `post_install.desktop` is not removed here (issue #0
 - Audio package resolution (issue #03)
 - Replacing the extras runner or touching `post_install.desktop` logic (issue #04)
 - Hyprland adapter (issue #05)
+
+- 2026-09-27 audit: 5009860. Later: packages.groups.* became internal derived
+  sets (ADR 0056); envycontrol dropped for GPU Hardening (ADR 0053); greetd/SDDM
+  moved to Display Manager Adapters (ADR 0069). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

@@ -37,3 +37,9 @@ This fixture is the canary for any future change that might disrupt the SOPS / a
 
 - `.scratch/impermanence/issues/01-core-impermanence.md`
 - `.scratch/impermanence/issues/03-pacman-resnapshot-hook.md`
+
+## Comments
+
+- 2026-09-27 audit: 1a85daf. Later: the testing-*.sh fixtures were replaced by
+  the profile-driven VM harness (ADR 0035, aa8169c). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

@@ -29,18 +29,22 @@ Scope:
 
 ## Acceptance criteria
 
-- [ ] With `topology=none` and 2+ leftover disks, each leftover prompts
+- [x] With `topology=none` and 2+ leftover disks, each leftover prompts
       fold vs own-pool independently (mixing allowed).
-- [ ] Choosing own-pool prompts a name (default `dataN`); the resulting
+- [x] Choosing own-pool prompts a name (default `dataN`); the resulting
       pool is single-disk `stripe` mounted at `/data/<name>` with a
       `<name>/data` dataset.
-- [ ] An entered name failing the name/uniqueness/mount rules is
+- [x] An entered name failing the name/uniqueness/mount rules is
       re-prompted or aborts with the standard message.
-- [ ] Folded leftovers still land in the Combined Data Pool.
-- [ ] Interactively-created pools are exported at finalize and import on
+- [x] Folded leftovers still land in the Combined Data Pool.
+- [x] Interactively-created pools are exported at finalize and import on
       boot like declarative ones.
 
 ## Blocked by
 
 - 01 — Declarative standalone data pool (single-disk, end-to-end)
 - 03 — Pool-name + uniqueness + mount validation
+
+## Comments
+
+- 2026-09-27 audit: 77757a6.

@@ -26,10 +26,10 @@ are preserved — files move only.
 
 ## Acceptance criteria
 
-- [ ] 4 ZFS files moved into `lib/zfs/` per the mapping
-- [ ] Every `source`/path reference updated repo-wide
-- [ ] All public function names unchanged
-- [ ] Tests relocated to mirrored `tests/zfs/` paths
+- [x] 4 ZFS files moved into `lib/zfs/` per the mapping
+- [x] Every `source`/path reference updated repo-wide
+- [x] All public function names unchanged
+- [x] Tests relocated to mirrored `tests/zfs/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
@@ -47,3 +47,6 @@ unchanged; ADR 0028/0031 preserved.
 
 4 zfs tests relocated to `tests/zfs/` with `../`→`../../` bump.
 Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean.
+
+- 2026-09-27 audit: 34e0b3c. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

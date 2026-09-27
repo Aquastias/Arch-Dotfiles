@@ -33,16 +33,20 @@ under-reports.
 
 ## Acceptance criteria
 
-- [ ] The guided baseline is loaded from Host Core, not hand-copied
-- [ ] `cups` renders as a selected System Program with no override dot
-- [ ] Seeding `desktop` shows `cups, grub`, matching what installs
-- [ ] The menu's effective view and the installer produce the same set for the
+- [x] The guided baseline is loaded from Host Core, not hand-copied
+- [x] `cups` renders as a selected System Program with no override dot
+- [x] Seeding `desktop` shows `cups, grub`, matching what installs
+- [x] The menu's effective view and the installer produce the same set for the
       same config
-- [ ] A value seeded from core carries no override dot until edited
-- [ ] Save Profile writes a delta over Host Core
-- [ ] Editing a core-inherited value marks it as an override
+- [x] A value seeded from core carries no override dot until edited
+- [x] Save Profile writes a delta over Host Core
+- [x] Editing a core-inherited value marks it as an override
 
 ## Blocked by
 
 - Layer Resolver
 - Host Core carries packages; apply the curation
+
+## Comments
+
+- 2026-09-27 audit: 37cf50b.

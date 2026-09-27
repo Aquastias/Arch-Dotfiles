@@ -33,14 +33,14 @@ existing caller invokes verification.
 
 ## Acceptance criteria
 
-- [ ] A public `iso_resolver_verify_sha256`-style function exists in
+- [x] A public `iso_resolver_verify_sha256`-style function exists in
       the resolver lib and returns 0 only when the file's sha256
       matches the published sum for its filename.
-- [ ] The sums-file fetch is an overridable seam (default: archive
+- [x] The sums-file fetch is an overridable seam (default: archive
       `sha256sums.txt`); no other resolver behavior changes.
-- [ ] On mismatch, missing line, or fetch failure the function exits
+- [x] On mismatch, missing line, or fetch failure the function exits
       non-zero with a clear message that names the file.
-- [ ] `iso-resolver.bats` gains 4 cases, stubbing the fetch seam the
+- [x] `iso-resolver.bats` gains 4 cases, stubbing the fetch seam the
       same way existing compat tests stub
       `_iso_resolver_fetch_arch_releases`:
       match → 0; mismatch → error names file; no line for filename →
@@ -50,3 +50,8 @@ existing caller invokes verification.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 07b4acb (iso-resolver.bats). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

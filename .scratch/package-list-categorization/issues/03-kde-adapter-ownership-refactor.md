@@ -46,24 +46,28 @@ New ADR:
 
 ## Acceptance criteria
 
-- [ ] `kde.sh` shell phase installs only `plasma-meta`,
+- [x] `kde.sh` shell phase installs only `plasma-meta`,
       `plasma-workspace`, `polkit-kde-agent`, `sddm`, `print-manager`.
-- [ ] `kde.sh` no longer references `cups`, `extra-cmake-modules`,
+- [x] `kde.sh` no longer references `cups`, `extra-cmake-modules`,
       `systemctl enable cups`, or the `extra:` field.
-- [ ] `install-kde.jsonc` no longer has an `extra` field.
-- [ ] `install-kde.jsonc:apps_list` gains `sddm-kcm: true`,
+- [x] `install-kde.jsonc` no longer has an `extra` field.
+- [x] `install-kde.jsonc:apps_list` gains `sddm-kcm: true`,
       `xdg-desktop-portal-kde: true`, `kimageformats5: true`.
-- [ ] `hosts/core/config.jsonc:packages.repo` contains
+- [x] `hosts/core/config.jsonc:packages.repo` contains
       `extra-cmake-modules`.
-- [ ] A fresh install on `hosts/desktop` with
+- [x] A fresh install on `hosts/desktop` with
       `environment.desktop=kde` results in the same installed package
       set as before this change (cups via System Program;
       extra-cmake-modules via host core; sddm-kcm and others via
       apps_list).
-- [ ] `docs/adr/0021-de-adapter-owns-de-packages.md` exists with
+- [x] `docs/adr/0021-de-adapter-owns-de-packages.md` exists with
       Context, Decision, Consequences sections.
 
 ## Blocked by
 
 - `.scratch/package-list-categorization/issues/01-migrate-kde-apps-to-adapter-config.md`
 - `.scratch/package-list-categorization/issues/02-cups-system-program.md`
+
+## Comments
+
+- 2026-09-27 audit: 68bceb1.

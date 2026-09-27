@@ -31,15 +31,15 @@ issue 07; this issue is verified by shellcheck, the dry-run, and bats.
 
 ## Acceptance criteria
 
-- [ ] `vm.sh --testing --profile <test-profile>` runs the full test flow
+- [x] `vm.sh --testing --profile <test-profile>` runs the full test flow
       path and propagates the installer exit code.
-- [ ] `--verify-boot` drives boot-verify using the profile's `verify`
+- [x] `--verify-boot` drives boot-verify using the profile's `verify`
       block (pools/mounts/by-id/owned, reorder, dirty-cache).
-- [ ] `flow-test.sh` exists under `vm/lib/`; `tests/vm/_harness.sh` is
+- [x] `flow-test.sh` exists under `vm/lib/`; `tests/vm/_harness.sh` is
       removed.
-- [ ] `sentinel-watcher.sh`, `seed-generator.sh`, `vm-pool-verify.sh`,
+- [x] `sentinel-watcher.sh`, `seed-generator.sh`, `vm-pool-verify.sh`,
       `reorder-disks.py` live under `vm/lib/`.
-- [ ] Their bats (`sentinel-watcher`, `seed-generator`, `vm-pool-verify`,
+- [x] Their bats (`sentinel-watcher`, `seed-generator`, `vm-pool-verify`,
       `vm-reorder-disks`) and `vm-fixtures-regenerate.bats` are under
       `tests/vm/`, rewired, and green.
 - [ ] A test profile run WITHOUT `--testing` builds a persistent VM of
@@ -50,3 +50,8 @@ issue 07; this issue is verified by shellcheck, the dry-run, and bats.
 ## Blocked by
 
 - `.scratch/vm-profile-harness/issues/01-profile-resolution-validation.md`
+
+## Comments
+
+- 2026-09-27 audit: b24c761 (ADR 0035). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

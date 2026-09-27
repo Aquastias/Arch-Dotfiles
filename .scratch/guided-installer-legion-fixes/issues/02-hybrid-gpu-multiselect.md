@@ -56,3 +56,7 @@ coverage: `gpu-resolution.bats` (amd+nvidia+envycontrol, auto→hybrid lspci),
 `guided-edits.bats` (replay parity), `guided-seed.bats` (default auto). Added
 one regression: toggling AMD then NVIDIA through their Display Labels yields
 `["amd","nvidia"]` (also guards the ticket-1 reverse lookup for gpu).
+
+## Comments
+
+- 2026-09-27 audit: fc4b241.

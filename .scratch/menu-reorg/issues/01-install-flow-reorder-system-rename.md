@@ -28,13 +28,13 @@ paths, defaults, shapes, emit, or resolver behaviour change.
 
 ## Acceptance criteria
 
-- [ ] hostname, timezone, fonts rows report `section == "System"` (not
+- [x] hostname, timezone, fonts rows report `section == "System"` (not
       "General").
-- [ ] `menu_categories` returns the sixteen categories in the install-flow order
+- [x] `menu_categories` returns the sixteen categories in the install-flow order
       above; `System` is first, `Advanced` last.
-- [ ] The System category summary mentions fonts; `menu_category_rows System`
+- [x] The System category summary mentions fonts; `menu_category_rows System`
       returns the hostname/timezone/fonts rows.
-- [ ] The top screen (`guided_ctl_list` at `top`) lists a `System — ` line, and
+- [x] The top screen (`guided_ctl_list` at `top`) lists a `System — ` line, and
       drilling `System` opens its fields; no `General` string remains in the
       menu model or its tests.
 - [ ] `guided-menu.bats` + `guided-controller.bats` updated (canonical-order
@@ -44,3 +44,9 @@ paths, defaults, shapes, emit, or resolver behaviour change.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: a7b1e0e, 429b173. Later: Services renamed Daemons and the
+  SYSTEM bucket renamed GENERAL (ADR 0086, f411c8e). Remaining unticked lines
+  are suite/VM runs not re-verifiable now.

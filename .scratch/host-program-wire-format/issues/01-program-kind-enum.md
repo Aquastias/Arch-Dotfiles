@@ -14,17 +14,21 @@ new value with no behaviour change to what installs.
 
 **Status:** done (commit 92fea73)
 
-- [ ] All 18 Program Configs carry `"kind": "host" | "user"`; no `"system"`
+- [x] All 18 Program Configs carry `"kind": "host" | "user"`; no `"system"`
       flag remains in any program config.
-- [ ] Registry build reads `kind`; an absent or out-of-set `kind` aborts at
+- [x] Registry build reads `kind`; an absent or out-of-set `kind` aborts at
       load naming the offending program (regression: a config still using
       `"system"` aborts).
-- [ ] `program_kind <name>` returns `host | user | none`; `program_names_of_kind
+- [x] `program_kind <name>` returns `host | user | none`; `program_names_of_kind
       host` enumerates Host Programs; all `== "system"` comparison sites move to
       `== "host"`.
-- [ ] The Guided host-program picker offers only `kind: host` programs and the
+- [x] The Guided host-program picker offers only `kind: host` programs and the
       User Editor picker only `kind: user`.
-- [ ] User → Host Program reconciliation (shadow / no-op / abort) and `requires`
+- [x] User → Host Program reconciliation (shadow / no-op / abort) and `requires`
       ordering pass under the new value.
-- [ ] The existing config, guided, and validation bats suites assert the new
+- [x] The existing config, guided, and validation bats suites assert the new
       value and stay green.
+
+## Comments
+
+- 2026-09-27 audit: 92fea73.

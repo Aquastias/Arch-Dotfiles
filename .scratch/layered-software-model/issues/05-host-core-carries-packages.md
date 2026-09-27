@@ -39,23 +39,28 @@ something else, and the catppuccin purge.
 
 ## Acceptance criteria
 
-- [ ] Host Core declares `packages.repo` and `packages.aur`
-- [ ] `hosts/laptop` has no packages block
-- [ ] `hosts/desktop` declares only its 34 delta packages
-- [ ] The three VM fixtures declare `packages.inherit: false`
-- [ ] `users/core` declares its programs; the two test users exclude them
-- [ ] The derived audio set covers the three hand-declared packages
-- [ ] The default login shell is `/bin/zsh`; root remains `/bin/bash`
-- [ ] Every package marked `drop` in CURATION.md is gone from every profile
-- [ ] Every package marked `derive` is declared nowhere
-- [ ] Regression tests resolve the committed `core`, `desktop` and `laptop`
+- [x] Host Core declares `packages.repo` and `packages.aur`
+- [x] `hosts/laptop` has no packages block
+- [x] `hosts/desktop` declares only its 34 delta packages
+- [x] The three VM fixtures declare `packages.inherit: false`
+- [x] `users/core` declares its programs; the two test users exclude them
+- [x] The derived audio set covers the three hand-declared packages
+- [x] The default login shell is `/bin/zsh`; root remains `/bin/bash`
+- [x] Every package marked `drop` in CURATION.md is gone from every profile
+- [x] Every package marked `derive` is declared nowhere
+- [x] Regression tests resolve the committed `core`, `desktop` and `laptop`
       profiles end-to-end and assert the final package sets
-- [ ] A test asserts no Program name appears in any package list
-- [ ] A test asserts no declared package duplicates something a derived set
+- [x] A test asserts no Program name appears in any package list
+- [x] A test asserts no declared package duplicates something a derived set
       already provides
-- [ ] The VM fixtures resolve to a lean set with no workstation userland
+- [x] The VM fixtures resolve to a lean set with no workstation userland
 
 ## Blocked by
 
 - Exclusivity validation replaces promotion
 - Layer Resolver
+
+## Comments
+
+- 2026-09-27 audit: ccaa822 (layered-profiles.bats). Later: every fleet package
+  moved into core (ADR 0114, b34e8da).

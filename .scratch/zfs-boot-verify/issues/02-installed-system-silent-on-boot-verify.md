@@ -161,3 +161,7 @@ Notes for future runs on this host:
   Guard leftover pool check when storage array undeclared`).
 - The negative control (revert the seeding fix / `zfs_import_dir` and
   confirm the fixture fails) is left to `01`.
+
+## Comments
+
+- 2026-09-27 audit: d9ea66b; recorded in 7fefa23/4fa47a4.

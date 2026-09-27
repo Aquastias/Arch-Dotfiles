@@ -26,15 +26,20 @@ makes `cups` available system-wide without duplicating the install.
 
 ## Acceptance criteria
 
-- [ ] `.os/programs/<existing-category>/cups/config.jsonc` exists with
+- [x] `.os/programs/<existing-category>/cups/config.jsonc` exists with
       `"system": true` and a display name.
-- [ ] `.os/programs/<existing-category>/cups/install.sh` installs
+- [x] `.os/programs/<existing-category>/cups/install.sh` installs
       `cups` via pacman and runs `systemctl enable cups.service`.
-- [ ] `hosts/core/config.jsonc:system_programs` includes `cups`.
-- [ ] A fresh install on any host has `cups.service` enabled at first
+- [x] `hosts/core/config.jsonc:system_programs` includes `cups`.
+- [x] A fresh install on any host has `cups.service` enabled at first
       boot.
-- [ ] `kde.sh` is unchanged.
+- [x] `kde.sh` is unchanged.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 68bceb1. Later: cups became a toggle-derived host program
+  (ADR 0079); categorized lists live on (ADR 0022).

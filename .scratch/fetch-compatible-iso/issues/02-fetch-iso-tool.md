@@ -40,17 +40,17 @@ clearly to the operator.
 
 - [ ] `.os/tools/fetch-iso.sh` runs end-to-end and leaves a verified
       compatible ISO in `~/Downloads` (default) or the given dir.
-- [ ] Missing `jq`/`curl` are installed via `sudo pacman -Sy`; the
+- [x] Missing `jq`/`curl` are installed via `sudo pacman -Sy`; the
       download itself runs without root.
-- [ ] Output directory defaults to `~/Downloads`, is overridable by a
+- [x] Output directory defaults to `~/Downloads`, is overridable by a
       positional arg, and is created if absent.
-- [ ] sha256 mismatch removes the file and exits non-zero with a
+- [x] sha256 mismatch removes the file and exits non-zero with a
       clear message; success prints the absolute path + flash hint
       (dd one-liner + Ventoy/Impression/Rufus mention).
-- [ ] No flashing is performed; resolver failures surface with clear
+- [x] No flashing is performed; resolver failures surface with clear
       errors.
 - [ ] VM harness behavior is unchanged.
-- [ ] The tool is sourceable (`main` guarded by `BASH_SOURCE == $0`)
+- [x] The tool is sourceable (`main` guarded by `BASH_SOURCE == $0`)
       and `tests/fetch-iso.bats` covers output-dir resolution
       (default + arg), checksum-mismatch cleanup, and happy-path
       orchestration with the resolver/verify functions stubbed.
@@ -58,3 +58,8 @@ clearly to the operator.
 ## Blocked by
 
 - Issue 01 (sha256 verification in the resolver lib).
+
+## Comments
+
+- 2026-09-27 audit: e447920 (tools/fetch-iso.sh; fetch-iso.bats). Remaining
+  unticked lines are suite/VM runs not re-verifiable now.

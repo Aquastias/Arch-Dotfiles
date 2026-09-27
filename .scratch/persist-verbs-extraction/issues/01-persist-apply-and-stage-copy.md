@@ -29,17 +29,22 @@ CLI surface is unchanged. Failure-rollback behavior is preserved
 
 ## Acceptance criteria
 
-- [ ] `persist_apply` and `persist_stage_in_copy` exist in
+- [x] `persist_apply` and `persist_stage_in_copy` exist in
       `lib/impermanence-common.sh`
-- [ ] Both functions are covered by bats tests in
+- [x] Both functions are covered by bats tests in
       `tests/impermanence-common.bats` (new file) or extension of an
       existing one — assertions against a temp `ROOT`, idempotency
       cases included
-- [ ] `tools/impermanence.sh::cmd_add` composes the two verbs;
+- [x] `tools/impermanence.sh::cmd_add` composes the two verbs;
       duplicated local helpers are removed
-- [ ] `tests/impermanence-tool.bats` `add` cases pass unmodified
+- [x] `tests/impermanence-tool.bats` `add` cases pass unmodified
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: a4fd1f5. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

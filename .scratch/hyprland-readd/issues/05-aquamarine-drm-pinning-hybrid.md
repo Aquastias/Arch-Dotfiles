@@ -19,13 +19,18 @@ non-hybrid hardware nothing is written.
 
 ## Acceptance criteria
 
-- [ ] Resolved GPU set is `amd`+`nvidia` → udev rule + `AQ_DRM_DEVICES` login-env
+- [x] Resolved GPU set is `amd`+`nvidia` → udev rule + `AQ_DRM_DEVICES` login-env
       pin written
-- [ ] Single-vendor GPU → neither is written
-- [ ] The pin lands in the system login environment (reaches SDDM and tuigreet)
-- [ ] Gate reads the `gpu` array from install-state (no new config key)
-- [ ] `hyprland-adapter.bats` covers hybrid-writes and non-hybrid-no-op and is green
+- [x] Single-vendor GPU → neither is written
+- [x] The pin lands in the system login environment (reaches SDDM and tuigreet)
+- [x] Gate reads the `gpu` array from install-state (no new config key)
+- [x] `hyprland-adapter.bats` covers hybrid-writes and non-hybrid-no-op and is green
 
 ## Blocked by
 
 - Hyprland-only install, end-to-end
+
+## Comments
+
+- 2026-09-27 audit: 6719e92. Later: seatd took over DRM master (ADR 0068,
+  4bfa02c).

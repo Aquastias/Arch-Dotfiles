@@ -40,24 +40,28 @@ The new keys join the profile's covered fields so Save/Export emit them.
 
 ## Acceptance criteria
 
-- [ ] `options.zswap.{enabled,compressor,max_pool_percent}` exist with defaults
+- [x] `options.zswap.{enabled,compressor,max_pool_percent}` exist with defaults
       `true` / `zstd` / `20`; existing swap keys and disk-swap creation are
       unchanged.
-- [ ] Accessors expose `zswap_enabled`, `zswap_compressor`,
+- [x] Accessors expose `zswap_enabled`, `zswap_compressor`,
       `zswap_max_pool_percent` from install state.
-- [ ] The cmdline module emits the full fragment when swap+zswap are on; reflects
+- [x] The cmdline module emits the full fragment when swap+zswap are on; reflects
       a custom compressor and percent; returns empty when zswap is off; returns
       empty when swap is off; never emits a `zswap.zpool` token.
-- [ ] The cmdline module is staged into the chroot and used by both adapters.
-- [ ] systemd-boot main and fallback entries carry the fragment.
-- [ ] GRUB default kernel command line carries the fragment.
-- [ ] The pre-install summary swap line reflects size and zswap state.
-- [ ] The three `options.zswap.*` keys survive a Save/Export/load round-trip; an
+- [x] The cmdline module is staged into the chroot and used by both adapters.
+- [x] systemd-boot main and fallback entries carry the fragment.
+- [x] GRUB default kernel command line carries the fragment.
+- [x] The pre-install summary swap line reflects size and zswap state.
+- [x] The three `options.zswap.*` keys survive a Save/Export/load round-trip; an
       existing profile without them still loads unchanged.
-- [ ] Bats cover the cmdline module, accessors, and profile round-trip (prior
+- [x] Bats cover the cmdline module, accessors, and profile round-trip (prior
       art: pure JSON-contract helper tests; install-config + profile-loader
       tests). Full bats suite green.
 
 ## Blocked by
 
 None - can start immediately (parallel to issue 01).
+
+## Comments
+
+- 2026-09-27 audit: f410adc; passing VM smoke recorded in cd5023f.

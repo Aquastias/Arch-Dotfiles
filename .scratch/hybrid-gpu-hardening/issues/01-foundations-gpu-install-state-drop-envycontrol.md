@@ -28,16 +28,21 @@ longer installs `envycontrol`.
 
 ## Acceptance criteria
 
-- [ ] `install-state.json` carries a `gpu` array populated from
+- [x] `install-state.json` carries a `gpu` array populated from
       `ENVIRONMENT_GPU`; a chroot module can read it back.
-- [ ] Round-trip is lossless for both the array (`[amd,nvidia]`) and
+- [x] Round-trip is lossless for both the array (`[amd,nvidia]`) and
       single-vendor shapes (bats test).
-- [ ] Resolving `[amd,nvidia]` yields a `GPU_PARU_PACKAGES` with **no**
+- [x] Resolving `[amd,nvidia]` yields a `GPU_PARU_PACKAGES` with **no**
       `envycontrol` (bats regression test).
-- [ ] `CONTEXT.md` GPU Resolution entry reflects the envycontrol removal.
+- [x] `CONTEXT.md` GPU Resolution entry reflects the envycontrol removal.
 - [ ] Existing environment-resolution and install-state tests still pass; no
       change to single-vendor / VM installs.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: af5222b. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

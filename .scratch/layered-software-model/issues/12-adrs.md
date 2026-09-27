@@ -39,15 +39,15 @@ through every front-end.
 
 ## Acceptance criteria
 
-- [ ] Three ADRs exist, numbered 0056–0058, following the repo's format
-- [ ] 0056 states it amends ADR 0007 and says why the original premise failed
-- [ ] 0056 records the rejected three-tier model and the reason
-- [ ] 0057 explains why neither existing merge rule could win outright
-- [ ] 0058 states the same-file-same-install invariant
-- [ ] CONTEXT.md is updated: Host Core, Host Package List, Guided Installer, and
+- [x] Three ADRs exist, numbered 0056–0058, following the repo's format
+- [x] 0056 states it amends ADR 0007 and says why the original premise failed
+- [x] 0056 records the rejected three-tier model and the reason
+- [x] 0057 explains why neither existing merge rule could win outright
+- [x] 0058 states the same-file-same-install invariant
+- [x] CONTEXT.md is updated: Host Core, Host Package List, Guided Installer, and
       System Program entries reflect the new model
-- [ ] CONTEXT.md gains entries for the Layer Resolver and Package Resolver
-- [ ] The "base packages vs core packages" flagged ambiguity in CONTEXT.md is
+- [x] CONTEXT.md gains entries for the Layer Resolver and Package Resolver
+- [x] The "base packages vs core packages" flagged ambiguity in CONTEXT.md is
       updated — ADR 0007's resolution no longer applies
 
 ## Blocked by
@@ -55,3 +55,7 @@ through every front-end.
 - Layer Resolver
 - Host Core carries packages; apply the curation
 - Menu reads Host Core via the Layer Resolver
+
+## Comments
+
+- 2026-09-27 audit: c68aa61 + ADRs 0056-0058.

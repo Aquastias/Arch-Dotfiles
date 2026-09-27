@@ -40,14 +40,14 @@ numbers continue from 0032.
 
 ## Acceptance criteria
 
-- [ ] 7 config files moved+renamed into `lib/config/` per the mapping
-- [ ] Every `source`/path reference to the old files updated repo-wide
-- [ ] All public function names unchanged (`install_config_*`, `cg_*`,
+- [x] 7 config files moved+renamed into `lib/config/` per the mapping
+- [x] Every `source`/path reference to the old files updated repo-wide
+- [x] All public function names unchanged (`install_config_*`, `cg_*`,
       `load_config`, `detect_mode`, `print_summary`,
       `generate_template`, layer/validation/categorized-list functions)
-- [ ] These modules' tests relocated to mirrored `tests/config/` paths
+- [x] These modules' tests relocated to mirrored `tests/config/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
-- [ ] New ADR added: `lib/` folder taxonomy + ≥2-file rule + root
+- [x] New ADR added: `lib/` folder taxonomy + ≥2-file rule + root
       singletons; historical ADRs untouched
 
 ## Blocked by
@@ -73,3 +73,6 @@ full relative paths. ADR 0032 records the taxonomy + ≥2-file rule.
 
 Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
 no stale old-path refs.
+
+- 2026-09-27 audit: 280acc2. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

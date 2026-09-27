@@ -135,3 +135,5 @@ correctly. Harness additions (committed): `single/guided-extras` profile +
 seed-generator `verify_extras`/`guided_extras` seams; the fixture HTTP server
 (Test Age Key) ported into the test flow (`_fixture_http_should_serve` +
 `_start_fixture_http_server`); `tests/vm/profiles/headless/secure.jsonc`.
+
+- 2026-09-27 audit: a263275.

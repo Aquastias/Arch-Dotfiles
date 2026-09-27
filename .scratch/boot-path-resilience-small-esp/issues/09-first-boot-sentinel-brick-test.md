@@ -20,16 +20,21 @@ required.
 
 ## Acceptance criteria
 
-- [ ] A first-boot check constrains/fills the ESP and plants a Stray
+- [x] A first-boot check constrains/fills the ESP and plants a Stray
       Kernel, then exercises the hardened hook.
-- [ ] The sentinel is emitted only when: the critical copy fails loudly
+- [x] The sentinel is emitted only when: the critical copy fails loudly
       on a full ESP, the prior image is preserved, and the Stray Kernel
       is reported by the warn hook.
-- [ ] The test fails (host sentinel timeout) if any guard does not fire.
-- [ ] Reuses the existing `firstboot-ok.service` sentinel + serial
+- [x] The test fails (host sentinel timeout) if any guard does not fire.
+- [x] Reuses the existing `firstboot-ok.service` sentinel + serial
       mechanism; no second reboot.
 
 ## Blocked by
 
 - Issue 04 (ESP Kernel Sync PostTransaction hardening)
 - Issue 06 (Stray Kernel warn hook)
+
+## Comments
+
+- 2026-09-27 audit: 54628ee (tests/vm/profiles/boot/resilience.jsonc + firstboot
+  check).

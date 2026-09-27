@@ -38,16 +38,20 @@ enable `nvidia-suspend` / `nvidia-resume` / `nvidia-hibernate`.
 
 ## Acceptance criteria
 
-- [ ] `_gpu_should_harden` returns true only for a list containing both amd and
+- [x] `_gpu_should_harden` returns true only for a list containing both amd and
       nvidia; false for `[amd]`, `[nvidia]`, `[intel]`, `[vm]`, and empty (bats).
-- [ ] Each generator's exact emitted text is asserted (modprobe conf, MODULES
+- [x] Each generator's exact emitted text is asserted (modprobe conf, MODULES
       line, udev rule, pacman hook).
-- [ ] The MODULES-line generator is idempotent: a second application adds no
+- [x] The MODULES-line generator is idempotent: a second application adds no
       duplicate nvidia entries (bats).
-- [ ] The module sources cleanly under a lib-only guard with no side effects,
+- [x] The module sources cleanly under a lib-only guard with no side effects,
       matching the `initcpio.sh` pattern.
-- [ ] Not referenced by `configure.sh` yet — real installs are unchanged.
+- [x] Not referenced by `configure.sh` yet — real installs are unchanged.
 
 ## Blocked by
 
 None - can start immediately (parallel to slice 01).
+
+## Comments
+
+- 2026-09-27 audit: b45a438.

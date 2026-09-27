@@ -38,23 +38,23 @@ stays template-less.
 
 ## Acceptance criteria
 
-- [ ] `vm.sh --profile <p> --print-config` emits the resolved
+- [x] `vm.sh --profile <p> --print-config` emits the resolved
       `install.jsonc` for a `host_profile`, an inline `install`, and a
       `"repo"` profile.
-- [ ] `host_profile` resolution matches what `picker_assemble_config`
+- [x] `host_profile` resolution matches what `picker_assemble_config`
       produces for the same host (single + multi, pinned + unpinned mode).
-- [ ] `"repo"` resolution is the committed `install.jsonc` with only
+- [x] `"repo"` resolution is the committed `install.jsonc` with only
       `system.hostname` patched.
-- [ ] Disk device paths derive from `hardware.disks` count (`/dev/sda`,
+- [x] Disk device paths derive from `hardware.disks` count (`/dev/sda`,
       `/dev/sdb`, …).
-- [ ] `--testing` flips path resolution to `tests/vm/profiles/`.
-- [ ] Validation rejects: no `name`, empty `disks`, two install sources,
+- [x] `--testing` flips path resolution to `tests/vm/profiles/`.
+- [x] Validation rejects: no `name`, empty `disks`, two install sources,
       zero install sources, template-less `host_profile` reference,
       malformed `verify.mounts`/`verify.owned`, out-of-range numerics —
       each with a distinct, human-readable message.
-- [ ] `arch-hyprland` and `arch-kde-hyprland` ship `install.template.jsonc`
+- [x] `arch-hyprland` and `arch-kde-hyprland` ship `install.template.jsonc`
       and now appear in `pick.sh`'s host enumeration.
-- [ ] `profile.sh` and `profile-validate.sh` are unit-tested per behavior
+- [x] `profile.sh` and `profile-validate.sh` are unit-tested per behavior
       (resolution across all three sources; one test per validation rule).
       Prior art: `tests/picker.bats`, `tests/config/validation-*.bats`.
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` are green.
@@ -62,3 +62,8 @@ stays template-less.
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: ffdc63f (ADR 0035). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

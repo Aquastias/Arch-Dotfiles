@@ -26,17 +26,17 @@ removed.
 
 ## Acceptance criteria
 
-- [ ] `edit_remove_persist` removes a directory from `persist.directories`.
-- [ ] `edit_remove_persist` is a no-op (rc 1, unchanged) on an absent entry
+- [x] `edit_remove_persist` removes a directory from `persist.directories`.
+- [x] `edit_remove_persist` is a no-op (rc 1, unchanged) on an absent entry
       or empty input.
-- [ ] Removing the last persist directory leaves an empty or absent list,
+- [x] Removing the last persist directory leaves an empty or absent list,
       consistent with how `edit_append_persist` seeds it.
-- [ ] In the Impermanence Editor, Enter on a persist-directory row removes
+- [x] In the Impermanence Editor, Enter on a persist-directory row removes
       that directory and re-renders the editor.
-- [ ] Removal leaves `options.impermanence.enabled` and other persist entries
+- [x] Removal leaves `options.impermanence.enabled` and other persist entries
       unchanged.
-- [ ] Removal is direct (no confirmation prompt).
-- [ ] Pure-edit bats cover `edit_remove_persist` (remove, no-op, last-entry),
+- [x] Removal is direct (no confirmation prompt).
+- [x] Pure-edit bats cover `edit_remove_persist` (remove, no-op, last-entry),
       modelled on the existing `edit_append_persist` tests; controller-seam bats
       cover the Enter-to-remove behaviour and re-render.
 
@@ -45,3 +45,7 @@ removed.
 - Ticket 01 — "Collapse impermanence + persist into one Impermanence Editor"
   (`issues/01-collapse-impermanence-editor.md`). The editor screen and its
   persist-directory rows must exist first.
+
+## Comments
+
+- 2026-09-27 audit: f700806.

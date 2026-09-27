@@ -64,3 +64,7 @@ regression-verified behavior-preserving). Commits: slice 1 `dd197b0`
 ## Blocked by
 
 - `01` (schema/validation), `02` (dispatch split)
+
+## Comments
+
+- 2026-09-27 audit: eb3910b, 4c64b0e, dd197b0.

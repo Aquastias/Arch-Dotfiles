@@ -55,19 +55,19 @@ deterministic given the same inputs, so it is snapshot-testable.
 
 ## Acceptance criteria
 
-- [ ] `tools/pick.sh` self-installs `fzf` and `jq` via `pacman -Sy
+- [x] `tools/pick.sh` self-installs `fzf` and `jq` via `pacman -Sy
       --noconfirm` at start; missing network fails with a clear
       message.
-- [ ] Host pick uses fzf single-select against the Host
+- [x] Host pick uses fzf single-select against the Host
       enumerator's output.
-- [ ] Disk pick uses fzf single-select with `--preview` wired to
+- [x] Disk pick uses fzf single-select with `--preview` wired to
       the Disk preview formatter.
-- [ ] Preview pane renders `lsblk`, `smartctl -i` (when available),
+- [x] Preview pane renders `lsblk`, `smartctl -i` (when available),
       and partition table for the focused disk.
-- [ ] End-to-end behaviour matches slice 1: a single-disk install
+- [x] End-to-end behaviour matches slice 1: a single-disk install
       produces the same `install.jsonc` content as before for the
       same picks.
-- [ ] bats tests cover the Disk preview formatter — snapshot-style
+- [x] bats tests cover the Disk preview formatter — snapshot-style
       assertions against a fixture by-id path and stubbed `lsblk` /
       `smartctl` outputs.
 - [ ] All slice-1 tests continue to pass; `tests/run.sh` and
@@ -76,3 +76,9 @@ deterministic given the same inputs, so it is snapshot-testable.
 ## Blocked by
 
 - `.scratch/pre-install-picker/issues/01-mvp-picker-end-to-end.md`
+
+## Comments
+
+- 2026-09-27 audit: a3872af. Later: the picker became the install.sh --profile
+  front-end (ADR 0036). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

@@ -69,3 +69,8 @@ consumes that and the host's system-program list.
 ## Blocked by
 
 - `02-variant-resolver.md`
+
+## Comments
+
+- 2026-09-27 audit: 0a09397. Later: the generator was deleted by ADR 0134
+  (c8442fe) in favour of per-program home/.

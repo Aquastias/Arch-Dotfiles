@@ -19,15 +19,15 @@ End-to-end demo: a VM install completes with users created and firewalld install
 
 ## Acceptance criteria
 
-- [ ] profiles.sh installs system programs after creating users, before unmounting
-- [ ] Programs are referenced by name only in host config; runner searches across categories under `.os/programs/`
-- [ ] Program reference resolution fails the install if the program directory doesn't exist
-- [ ] Program reference resolution fails the install if `config.jsonc` declares `system: false` for a host-config program
-- [ ] Each program install.sh receives `OS_DIR`, `PROGRAMS`, `SHELL_COMMONS` env vars
-- [ ] `base-devel` is part of the pacstrap base packages
-- [ ] `.os/programs/security/firewalld/config.jsonc` exists with `system: true`
-- [ ] `.os/programs/security/firewalld/install.sh` exists and installs + enables firewalld
-- [ ] `.pkglist/programs/security/firewalld/` is unchanged
+- [x] profiles.sh installs system programs after creating users, before unmounting
+- [x] Programs are referenced by name only in host config; runner searches across categories under `.os/programs/`
+- [x] Program reference resolution fails the install if the program directory doesn't exist
+- [x] Program reference resolution fails the install if `config.jsonc` declares `system: false` for a host-config program
+- [x] Each program install.sh receives `OS_DIR`, `PROGRAMS`, `SHELL_COMMONS` env vars
+- [x] `base-devel` is part of the pacstrap base packages
+- [x] `.os/programs/security/firewalld/config.jsonc` exists with `system: true`
+- [x] `.os/programs/security/firewalld/install.sh` exists and installs + enables firewalld
+- [x] `.pkglist/programs/security/firewalld/` is unchanged
 - [ ] VM install verified: firewalld installed, service enabled, system boots
 
 ## Blocked by
@@ -49,3 +49,8 @@ Design is fully specified by the parent PRD and the four ADRs in `docs/adr/`. Th
 - Parent PRD: `.scratch/declarative-install-config/PRD.md`
 - Glossary: `CONTEXT.md`
 - ADRs: `docs/adr/0001..0004`
+
+- 2026-09-27 audit: b1a3f5a, 7bccec2, f778b82. Later: host/user config became
+  the unified Host/User Profile (ADR 0036); system flag became kind (ADR 0085);
+  OS_DIR renamed INSTALLER_DIR (ADR 0092). Remaining unticked lines are suite/VM
+  runs not re-verifiable now.

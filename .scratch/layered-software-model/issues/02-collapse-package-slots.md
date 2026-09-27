@@ -32,17 +32,21 @@ to declare it, so any host that doesn't (all three VM fixtures) hits
 
 ## Acceptance criteria
 
-- [ ] `packages.groups` is gone from the schema, accessors, package collection,
+- [x] `packages.groups` is gone from the schema, accessors, package collection,
       and the install summary
-- [ ] `packages.extra` is gone from the schema, accessors, and package collection
-- [ ] The guided extra-packages row writes into a `packages.repo` category
-- [ ] Typing a package name in that row still results in it being installed
-- [ ] The GPU and audio derived buckets no longer live under `packages`
-- [ ] Authoring the derived bucket in a profile aborts at config load
-- [ ] A profile naming `packages.extra` or `packages.groups` aborts with the path
-- [ ] `stow` is in the Base Package List
-- [ ] `desktop` and `laptop` resolve to the same package set as before this change
+- [x] `packages.extra` is gone from the schema, accessors, and package collection
+- [x] The guided extra-packages row writes into a `packages.repo` category
+- [x] Typing a package name in that row still results in it being installed
+- [x] The GPU and audio derived buckets no longer live under `packages`
+- [x] Authoring the derived bucket in a profile aborts at config load
+- [x] A profile naming `packages.extra` or `packages.groups` aborts with the path
+- [x] `stow` is in the Base Package List
+- [x] `desktop` and `laptop` resolve to the same package set as before this change
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 43f6fe4.

@@ -26,3 +26,7 @@ Anchored by ADR 0099.
       gate a direct `vm.sh` run previously lacked.
 - [x] Seam-3 test: `host-capacity.bats` table-tests the cap, the serial-forcing
       rule, and the admit threshold with injected values (no host probing).
+
+## Comments
+
+- 2026-09-27 audit: 11f96f6 (host-capacity.bats).

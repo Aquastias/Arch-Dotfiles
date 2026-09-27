@@ -61,3 +61,8 @@ they render consistently with the rest of install output.
 ## Blocked by
 
 - `01-tracer-end-to-end-pipeline.md`
+
+## Comments
+
+- 2026-09-27 audit: 845b05b. Later: the generator was deleted by ADR 0134
+  (c8442fe) in favour of per-program home/.

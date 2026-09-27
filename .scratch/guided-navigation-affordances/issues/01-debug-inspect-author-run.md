@@ -29,22 +29,26 @@ The flag keeps the name `--debug` even though it means "skip install", not
 
 ## Acceptance criteria
 
-- [ ] `install.sh --debug` launches the guided menu on a box lacking the install
+- [x] `install.sh --debug` launches the guided menu on a box lacking the install
       toolchain, without attempting to pacman-install `pacstrap`/`mdadm`/etc.
-- [ ] Under `--debug`, bootstrap/wipe/install phases never run and no disk is
+- [x] Under `--debug`, bootstrap/wipe/install phases never run and no disk is
       touched, on all three front-ends (guided, `--profile`, positional config).
-- [ ] Under `--debug`, Save Profile and Export Config still write their
+- [x] Under `--debug`, Save Profile and Export Config still write their
       artifacts, and the `--profile` disk picker still runs for inspection.
-- [ ] `jq` (and `fzf` for interactive front-ends) are still ensured under
+- [x] `jq` (and `fzf` for interactive front-ends) are still ensured under
       `--debug`, so the menu can launch.
-- [ ] Without `--debug`, the full-toolchain preflight and install run exactly as
+- [x] Without `--debug`, the full-toolchain preflight and install run exactly as
       today (no behaviour change on the live CD).
-- [ ] Pure resolver maps parsed flags → (preflight tier, install-or-not); it is
+- [x] Pure resolver maps parsed flags → (preflight tier, install-or-not); it is
       unit-tested table-style (prior art: `tests/preflight.bats`) covering
       `--debug` and each non-debug front-end, asserting the install-withheld
       decision without executing the installer.
-- [ ] The flag site documents that `--debug` skips install, not logging.
+- [x] The flag site documents that `--debug` skips install, not logging.
 
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 8c5bccc (ADR 0063).

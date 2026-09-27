@@ -72,3 +72,5 @@ passes `verify.rollback`** (two-boot proof) at 40 GiB.
 **Deferred:** data-pool DISK baking (mixed-fs cells provision the extra disk but
 install root-only, disk unused); encrypted boot-verify (issue 07, install-only
 until the Console Answerer).
+
+- 2026-09-27 audit: 1e4b92e.

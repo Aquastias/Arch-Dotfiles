@@ -73,3 +73,5 @@ committed `main`, not local unpushed work.
 once this branch is pushed: `OS_DIR=.os bash .os/vm/vm.sh --guided --profile
 single/guided-secure` (optionally `REPO_URL=<fork>`), expecting
 `===INSTALLER-EXIT-0===`.
+
+- 2026-09-27 audit: ca227d8.

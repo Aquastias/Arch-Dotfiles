@@ -45,18 +45,22 @@ here; the guided view is rewired in a later ticket.
 
 ## Acceptance criteria
 
-- [ ] Additive keys concatenate and dedupe across layers
-- [ ] Replace keys are overwritten wholesale by the later layer
-- [ ] Every key in the classification table is covered by at least one test
-- [ ] `exclude` removes an entry the lower layer contributed
-- [ ] A later layer can re-add something an earlier layer excluded
-- [ ] `packages.inherit: false` yields no inherited packages
-- [ ] A profile with `packages.inherit: false` still inherits users and sysctl
-- [ ] The new keys are registered in the closed schema
-- [ ] An unknown key still aborts with its path (ADR 0036)
-- [ ] The config-load path resolves through this module
-- [ ] Committed profiles resolve to the same sets as before this change
+- [x] Additive keys concatenate and dedupe across layers
+- [x] Replace keys are overwritten wholesale by the later layer
+- [x] Every key in the classification table is covered by at least one test
+- [x] `exclude` removes an entry the lower layer contributed
+- [x] A later layer can re-add something an earlier layer excluded
+- [x] `packages.inherit: false` yields no inherited packages
+- [x] A profile with `packages.inherit: false` still inherits users and sysctl
+- [x] The new keys are registered in the closed schema
+- [x] An unknown key still aborts with its path (ADR 0036)
+- [x] The config-load path resolves through this module
+- [x] Committed profiles resolve to the same sets as before this change
 
 ## Blocked by
 
 - Collapse the package slots
+
+## Comments
+
+- 2026-09-27 audit: 1302abc.

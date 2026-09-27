@@ -42,16 +42,20 @@ regress this fix immediately.
 
 ## Acceptance criteria
 
-- [ ] `apps_list` contains exactly the 20 `kde-applications` entries
-- [ ] The `plasma-extras` category is gone
-- [ ] `sddm-kcm` installs with the Plasma shell
-- [ ] `xdg-desktop-portal-kde` and `kimageformats5` are removed
-- [ ] `pacmanlogviewer` and `octopi` are declared in Host Core
-- [ ] The adapter's `aur` block is removed
-- [ ] The five DE-tied relocations install with the shell, not as applications
-- [ ] A test asserts every `apps_list` entry has `kde-applications` in its groups
-- [ ] Selecting KDE installs no third-party pacman frontend
+- [x] `apps_list` contains exactly the 20 `kde-applications` entries
+- [x] The `plasma-extras` category is gone
+- [x] `sddm-kcm` installs with the Plasma shell
+- [x] `xdg-desktop-portal-kde` and `kimageformats5` are removed
+- [x] `pacmanlogviewer` and `octopi` are declared in Host Core
+- [x] The adapter's `aur` block is removed
+- [x] The five DE-tied relocations install with the shell, not as applications
+- [x] A test asserts every `apps_list` entry has `kde-applications` in its groups
+- [x] Selecting KDE installs no third-party pacman frontend
 
 ## Blocked by
 
 - Host Core carries packages; apply the curation
+
+## Comments
+
+- 2026-09-27 audit: ce9eda2.

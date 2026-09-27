@@ -21,13 +21,13 @@ undiscoverable `^A` shortcut, because `＋ Create user` was suppressed.
 
 ## Acceptance criteria
 
-- [ ] In rich chrome, the Users screen shows a visible `＋ Create user` row.
-- [ ] In rich chrome, every screen that has add/remove actions shows them as
+- [x] In rich chrome, the Users screen shows a visible `＋ Create user` row.
+- [x] In rich chrome, every screen that has add/remove actions shows them as
       visible rows (`＋ Add package/sysctl/SSH key`, `✗ remove group/pool`), and
       each screen shows a `← Back` row.
-- [ ] The `^A`/`^X`/`Esc` keybindings still perform the same actions.
-- [ ] Rich-chrome footer/breadcrumb/border behaviour is unchanged.
-- [ ] Existing guided bats expectations that asserted "no action rows in rich
+- [x] The `^A`/`^X`/`Esc` keybindings still perform the same actions.
+- [x] Rich-chrome footer/breadcrumb/border behaviour is unchanged.
+- [x] Existing guided bats expectations that asserted "no action rows in rich
       chrome" are updated to the new visible-rows behaviour (prior art:
       `tests/config/guided-chrome.bats`, `guided-users.bats`,
       `guided-profiles-menu.bats`, `guided-packages.bats`), driven headless via
@@ -36,3 +36,7 @@ undiscoverable `^A` shortcut, because `＋ Create user` was suppressed.
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 8c5bccc (ADR 0063).

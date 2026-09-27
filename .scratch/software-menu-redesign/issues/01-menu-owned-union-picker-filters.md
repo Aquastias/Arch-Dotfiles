@@ -32,3 +32,7 @@ stored slots are untouched (see ADR 0086, [[Menu-Owned Program]]).
       `power-profiles-daemon`, `tuned`) still holds via the unified set.
 - [x] Covered in `guided-controller.bats`, following the prior-art
       "picker omits the toggle-owned cups, keeps the rest" test.
+
+## Comments
+
+- 2026-09-27 audit: cdf71fd (guided-controller.bats).

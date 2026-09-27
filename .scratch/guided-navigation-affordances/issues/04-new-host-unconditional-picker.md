@@ -20,18 +20,18 @@ a consistent entry point.
 
 ## Acceptance criteria
 
-- [ ] The `Profiles ▸` row appears on the top screen even when hosts tree has
+- [x] The `Profiles ▸` row appears on the top screen even when hosts tree has
       no committed profiles.
-- [ ] Picker leads with a `＋ New host (start blank)` row, above any committed
+- [x] Picker leads with a `＋ New host (start blank)` row, above any committed
       profile rows.
-- [ ] Choosing `＋ New host` asks to confirm before discarding session work.
-- [ ] After confirming, Config State returns to the Host Core baseline AND
+- [x] Choosing `＋ New host` asks to confirm before discarding session work.
+- [x] After confirming, Config State returns to the Host Core baseline AND
       session-created users, their editor forms, the secret/password manifest
       overrides, and in-menu disk bindings are all cleared.
-- [ ] The reset is undoable (a single undo restores pre-reset session state).
-- [ ] Committed profile rows still seed as today; only the picker's presence and
+- [x] The reset is undoable (a single undo restores pre-reset session state).
+- [x] Committed profile rows still seed as today; only the picker's presence and
       the leading New-host row are added.
-- [ ] Covered headless via `guided_ctl_list` (picker present with zero profiles;
+- [x] Covered headless via `guided_ctl_list` (picker present with zero profiles;
       New-host row leads) and `guided_ctl_enter` (New-host triggers the full
       reset); prior art: `tests/config/guided-profiles-menu.bats`,
       `guided-history.bats`.
@@ -40,3 +40,8 @@ a consistent entry point.
 
 - `02-action-rows-always-visible` — the `＋ New host` and `← Back` rows must
   render as visible rows in rich chrome for this to be reachable/demoable.
+
+## Comments
+
+- 2026-09-27 audit: 8c5bccc (ADR 0063). Later: the New host row was relabelled
+  Reset to blank (fb862a6).

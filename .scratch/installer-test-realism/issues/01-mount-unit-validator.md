@@ -49,3 +49,7 @@ it does not exercise.
 ## Blocked by
 
 None - can start immediately (establishes the shared harness).
+
+## Comments
+
+- 2026-09-27 audit: 526f013.

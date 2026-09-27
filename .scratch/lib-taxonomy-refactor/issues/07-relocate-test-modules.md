@@ -26,10 +26,10 @@ duplicated harness logic into one shared harness.
 
 ## Acceptance criteria
 
-- [ ] 3 test-only modules relocated to `tests/vm/lib/`
-- [ ] No install-time code sources them from `lib/`
-- [ ] Test harness deduped to a single shared harness
-- [ ] All test sourcing updated to the new paths
+- [x] 3 test-only modules relocated to `tests/vm/lib/`
+- [x] No install-time code sources them from `lib/`
+- [x] Test harness deduped to a single shared harness
+- [x] All test sourcing updated to the new paths
 - [ ] Full bats + VM test suite passes unchanged
 
 ## Blocked by
@@ -57,3 +57,7 @@ merge, and the VM harness is **not runnable in this sandbox** (no
 libvirt/QEMU) so it can't be verified here. **Split out to issue 10**
 (`10-dedup-vm-harness.md`, `ready-for-human` — needs VM verification).
 Issue 07 is closed on the relocation; the dedup is tracked separately.
+
+- 2026-09-27 audit: 9942007, 003919d. Later: lib/guided-* folded into
+  lib/guided/ (698d487). Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

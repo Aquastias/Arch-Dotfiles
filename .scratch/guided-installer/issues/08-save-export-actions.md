@@ -68,3 +68,5 @@ loop offers Save/Export with the same disk gate as Proceed (Save needs none).
 guided-shell(+5).
 
 Tests: +10 → full suite **1235 bats**, shellcheck clean.
+
+- 2026-09-27 audit: 2e17cfb.

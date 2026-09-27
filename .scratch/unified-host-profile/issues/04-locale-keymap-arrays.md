@@ -58,3 +58,6 @@ required wire fields. Full suite green (1012).
 
 Carve-out: criterion #5 (Hyprland `kb_layout`) deferred to the VM-verified
 phase — see the unchecked box above.
+
+- 2026-09-27 audit: 621482f (ADR 0036). No Hyprland `kb_layout` write is in that
+  commit — that line left unticked.

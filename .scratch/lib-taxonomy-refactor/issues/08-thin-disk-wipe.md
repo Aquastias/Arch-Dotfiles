@@ -30,18 +30,23 @@ out of scope. Add an ADR for the Disk Wipe module extraction.
 
 ## Acceptance criteria
 
-- [ ] `lib/wipe/prior-state.sh` is a pure function over probed disk
+- [x] `lib/wipe/prior-state.sh` is a pure function over probed disk
       facts returning the set to wipe (no block-device I/O)
-- [ ] `02-wipe.sh` is a thin orchestrator; device-aware logic lives in
+- [x] `02-wipe.sh` is a thin orchestrator; device-aware logic lives in
       `lib/wipe/`
-- [ ] Live-medium exclusion preserved (multi-signal, not string match)
-- [ ] Install-driven wipe touches only the resolved target set
-- [ ] Pure tests: no-signature disk → already-blank; ZFS/LVM/MD label or
+- [x] Live-medium exclusion preserved (multi-signal, not string match)
+- [x] Install-driven wipe touches only the resolved target set
+- [x] Pure tests: no-signature disk → already-blank; ZFS/LVM/MD label or
       partition table → needs-wipe; resolved target set excludes the
       live medium
 - [ ] VM smoke tests still cover the real wipe path
-- [ ] ADR added for the Disk Wipe module extraction
+- [x] ADR added for the Disk Wipe module extraction
 
 ## Blocked by
 
 - Issue 04 (`04-wipe-folder-move.md`) — `lib/wipe/` must exist first
+
+## Comments
+
+- 2026-09-27 audit: 71aaec7. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

@@ -165,3 +165,7 @@ via the serial-driver approach.
 ## Blocked by
 
 - `07` (btrfs root boots)
+
+## Comments
+
+- 2026-09-27 audit: d9ad443, cacd394, 84f4913, 22f0da8, 9785f86.

@@ -31,16 +31,16 @@ All edits flow through the existing Config State write + autocommit path
 
 ## Acceptance criteria
 
-- [ ] The `zswap` row appears only when swap is on and toggles
+- [x] The `zswap` row appears only when swap is on and toggles
       `options.zswap.enabled`.
-- [ ] The `compressor` row appears only when zswap is on and cycles
+- [x] The `compressor` row appears only when zswap is on and cycles
       `zstd → lz4 → lzo`.
-- [ ] The `max pool %` row appears only when zswap is on and cycles
+- [x] The `max pool %` row appears only when zswap is on and cycles
       `5 / 10 / 20 / 40 / 60`.
-- [ ] When swap is off, none of the zswap rows are shown.
-- [ ] The swap row summary renders `off`; `<size> · zswap <compressor>` when
+- [x] When swap is off, none of the zswap rows are shown.
+- [x] The swap row summary renders `off`; `<size> · zswap <compressor>` when
       zswap on; `<size> · no zswap` when zswap off.
-- [ ] Controller bats cover the toggles, cycles, conditional visibility, and the
+- [x] Controller bats cover the toggles, cycles, conditional visibility, and the
       summary label (prior art: data-pools / pooledit controller tests). Full
       bats suite green.
 
@@ -48,3 +48,7 @@ All edits flow through the existing Config State write + autocommit path
 
 - `.scratch/swap-zswap-unified/issues/01-unified-swap-row-swapedit.md`
 - `.scratch/swap-zswap-unified/issues/02-zswap-activation-boot-layer.md`
+
+## Comments
+
+- 2026-09-27 audit: f52d2cf.

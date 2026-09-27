@@ -38,3 +38,7 @@ Record the decisions once the code lands (docs follow code, per the reporter).
 - `.scratch/guided-installer-legion-fixes/issues/02-hybrid-gpu-multiselect.md`
 - `.scratch/guided-installer-legion-fixes/issues/03-in-menu-credentials.md`
 - `.scratch/guided-installer-legion-fixes/issues/04-fzf-latency-fast-path.md`
+
+## Comments
+
+- 2026-09-27 audit: e133a87 + docs.

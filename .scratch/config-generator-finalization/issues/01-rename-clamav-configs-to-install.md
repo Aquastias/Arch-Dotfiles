@@ -25,15 +25,20 @@ prerequisite for the resolver gate change (slice 03).
 
 ## Acceptance criteria
 
-- [ ] `programs/security/clamav/configs/` no longer exists
-- [ ] `programs/security/clamav/install/` exists with the same
+- [x] `programs/security/clamav/configs/` no longer exists
+- [x] `programs/security/clamav/install/` exists with the same
       file contents as the previous `configs/`
-- [ ] `programs/security/clamav/install.sh` references
+- [x] `programs/security/clamav/install.sh` references
       `install/` (no remaining `configs/` references)
 - [ ] `tests/audit.sh` still passes
 - [ ] `tests/run.sh` still passes
-- [ ] One commit, scoped to clamav only
+- [x] One commit, scoped to clamav only
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 790b761. Later: ADR 0134 (c8442fe) deleted the config
+  generator. Remaining unticked lines are suite/VM runs not re-verifiable now.

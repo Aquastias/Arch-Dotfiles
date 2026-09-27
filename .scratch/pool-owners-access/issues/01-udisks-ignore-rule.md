@@ -19,14 +19,18 @@ udisks2 (servers).
 
 ## Acceptance criteria
 
-- [ ] On a booted install, ZFS member partitions no longer appear as
+- [x] On a booted install, ZFS member partitions no longer appear as
       mountable devices in a udisks2-backed file manager.
-- [ ] The rule is present regardless of whether a desktop environment
+- [x] The rule is present regardless of whether a desktop environment
       was selected.
-- [ ] A pure emitter produces the rule content; a unit test asserts it
+- [x] A pure emitter produces the rule content; a unit test asserts it
       targets `zfs_member` and sets the ignore flag.
-- [ ] No regression to existing chroot configuration.
+- [x] No regression to existing chroot configuration.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 4022565.

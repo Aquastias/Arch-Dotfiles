@@ -193,3 +193,5 @@ ran green end-to-end on the eterniox libvirt host:
 (Note: the run was interrupted once by a host reboot; on restart libvirtd
 hit the known eterniox fTPM systemd-CREDENTIALS failure — unrelated to this
 work — and was repaired before the clean `--recreate` re-run above.)
+
+- 2026-09-27 audit: 6d70b0a (ADR 0037) (ADR 0036).

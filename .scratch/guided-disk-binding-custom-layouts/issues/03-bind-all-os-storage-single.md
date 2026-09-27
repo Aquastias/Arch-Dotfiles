@@ -42,3 +42,7 @@ disappears everywhere.
 ## Blocked by
 
 - 02 — Bind real disks to a data pool (device-mode tracer).
+
+## Comments
+
+- 2026-09-27 audit: 4a91f42 (bind-all.bats).

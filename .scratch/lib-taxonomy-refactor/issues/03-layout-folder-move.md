@@ -29,13 +29,13 @@ validation (ADR 0014) are preserved — only the paths change.
 
 ## Acceptance criteria
 
-- [ ] 3 layout files moved into `lib/layout/` per the mapping
-- [ ] Every `source`/path reference updated, including the pre-validate
+- [x] 3 layout files moved into `lib/layout/` per the mapping
+- [x] Every `source`/path reference updated, including the pre-validate
       sourcing in `03-install.sh`
-- [ ] All public function names unchanged (`layout_validate`,
+- [x] All public function names unchanged (`layout_validate`,
       `layout_plan`, `layout_partition`, `layout_create_pools`,
       `layout_mount_esp`, `_layout_enter_phase`, `_layout_exit_phase`)
-- [ ] Tests relocated to mirrored `tests/layout/` paths
+- [x] Tests relocated to mirrored `tests/layout/` paths
 - [ ] Full bats suite passes unchanged (no behavior change)
 
 ## Blocked by
@@ -56,3 +56,6 @@ lifecycle (ADR 0016) and adapter-owns-validation (ADR 0014) preserved.
 3 layout tests relocated to `tests/layout/` with `../`→`../../` bump.
 Verified: bats **917/0**, `audit.sh` **82/82**, `shellcheck.sh` clean,
 no stale `lib/layout-` refs.
+
+- 2026-09-27 audit: cdbfee1. Later: lib/guided-* folded into lib/guided/
+  (698d487). Remaining unticked lines are suite/VM runs not re-verifiable now.

@@ -94,3 +94,5 @@ the Effective Config. Two issue-02 section-reset tests updated for the
 filesystem Host→Disks move. Tests: guided-menu(+5), guided-shell(+11). Full
 suite **1127 bats**, shellcheck clean. **Not yet VM-smoke-verified** (needs a
 push first — guest clones the public remote).
+
+- 2026-09-27 audit: 82e2b3c, a6be773.

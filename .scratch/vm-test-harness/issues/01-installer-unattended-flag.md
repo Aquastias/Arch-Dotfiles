@@ -25,14 +25,14 @@ The encryption passphrase collection is out of scope: it only runs when `options
 
 ## Acceptance criteria
 
-- [ ] Single entry point accepts `-y` / `--unattended` and propagates it to the numbered scripts
-- [ ] Numbered scripts also accept the flag directly (so each remains individually runnable in unattended mode)
-- [ ] In unattended mode, the wipe-step disk-exclude prompt is bypassed with the same outcome as pressing Enter
-- [ ] In unattended mode, the wipe-step "WIPE" confirmation is bypassed and the wipe proceeds
-- [ ] In unattended mode, the final `print_summary` "Proceed?" confirmation is bypassed and the install proceeds
-- [ ] In interactive mode (no flag), all three prompts behave exactly as today — no regression
-- [ ] `--help` (or equivalent) documents the flag
-- [ ] Shellcheck passes on every modified script
+- [x] Single entry point accepts `-y` / `--unattended` and propagates it to the numbered scripts
+- [x] Numbered scripts also accept the flag directly (so each remains individually runnable in unattended mode)
+- [x] In unattended mode, the wipe-step disk-exclude prompt is bypassed with the same outcome as pressing Enter
+- [x] In unattended mode, the wipe-step "WIPE" confirmation is bypassed and the wipe proceeds
+- [x] In unattended mode, the final `print_summary` "Proceed?" confirmation is bypassed and the install proceeds
+- [x] In interactive mode (no flag), all three prompts behave exactly as today — no regression
+- [x] `--help` (or equivalent) documents the flag
+- [x] Shellcheck passes on every modified script
 
 ## Blocked by
 
@@ -52,3 +52,6 @@ Design fully specified by parent PRD. The change is small, central, and surfaces
 **Reference material:**
 - Parent PRD: `.scratch/vm-test-harness/PRD.md`
 - Glossary: `CONTEXT.md`
+
+- 2026-09-27 audit: 1ac243a, e3ca02e, 8d1ce38. Later: replaced by the
+  profile-driven harness (ADR 0035, aa8169c).

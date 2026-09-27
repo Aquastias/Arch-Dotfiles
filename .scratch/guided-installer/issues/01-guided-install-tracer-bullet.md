@@ -102,3 +102,7 @@ built and committed; full bats + VM suites green (1073 tests).
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 10d574c, a79194e.

@@ -33,17 +33,21 @@ split between the two defaults against a later single-constant refactor.
 
 ## Acceptance criteria
 
-- [ ] The Users screen renders no `disk encryption` row when encryption is on
-- [ ] The Users screen renders no `disk encryption` row when encryption is off
-- [ ] Its enter handler is gone; no Users row routes to the passphrase capture
-- [ ] The root password row still renders and still opens its capture
-- [ ] Per-user password rows still render and still open their captures
-- [ ] The root shell row and the user editor rows are unchanged
-- [ ] Account rows report the account default, not the disk default
-- [ ] The passphrase remains editable from the Encryption Editor
-- [ ] A passphrase set before this change is still read at install time
-- [ ] No dead return-target branch is left behind for the disk passphrase
+- [x] The Users screen renders no `disk encryption` row when encryption is on
+- [x] The Users screen renders no `disk encryption` row when encryption is off
+- [x] Its enter handler is gone; no Users row routes to the passphrase capture
+- [x] The root password row still renders and still opens its capture
+- [x] Per-user password rows still render and still open their captures
+- [x] The root shell row and the user editor rows are unchanged
+- [x] Account rows report the account default, not the disk default
+- [x] The passphrase remains editable from the Encryption Editor
+- [x] A passphrase set before this change is still read at install time
+- [x] No dead return-target branch is left behind for the disk passphrase
 
 ## Blocked by
 
 - .scratch/guided-encryption-editor/issues/04-encryption-editor.md
+
+## Comments
+
+- 2026-09-27 audit: ca227d8.

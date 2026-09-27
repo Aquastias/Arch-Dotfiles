@@ -35,23 +35,27 @@ into the docker Program's install script rather than being stranded.
 
 ## Acceptance criteria
 
-- [ ] A `packages.repo` entry resolving to a `system: true` Program aborts at load
-- [ ] A `packages.repo` entry resolving to a `system: false` Program aborts at load
-- [ ] The same applies to `packages.aur` entries
-- [ ] The abort message names the offending path and the correct slot
-- [ ] A plain package name that matches no program directory passes
-- [ ] An empty or absent package list passes
-- [ ] Promotion is deleted, along with its tests
-- [ ] All three front-ends produce an identical Effective Config from an
+- [x] A `packages.repo` entry resolving to a `system: true` Program aborts at load
+- [x] A `packages.repo` entry resolving to a `system: false` Program aborts at load
+- [x] The same applies to `packages.aur` entries
+- [x] The abort message names the offending path and the correct slot
+- [x] A plain package name that matches no program directory passes
+- [x] An empty or absent package list passes
+- [x] Promotion is deleted, along with its tests
+- [x] All three front-ends produce an identical Effective Config from an
       identical profile
-- [ ] Typing a Program name in the guided extra-packages row reports it and
+- [x] Typing a Program name in the guided extra-packages row reports it and
       routes it to the correct slot before storing
-- [ ] `docker`, `virt-manager` and `teamspeak3` are removed from both hosts'
+- [x] `docker`, `virt-manager` and `teamspeak3` are removed from both hosts'
       `packages.repo`
-- [ ] `docker-compose` is installed by the docker Program
-- [ ] `desktop` and `laptop` still load and resolve
+- [x] `docker-compose` is installed by the docker Program
+- [x] `desktop` and `laptop` still load and resolve
 
 ## Blocked by
 
 - Program kind is authoritative
 - Collapse the package slots
+
+## Comments
+
+- 2026-09-27 audit: 41a3593.

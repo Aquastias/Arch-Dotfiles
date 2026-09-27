@@ -51,3 +51,5 @@ Host Core `system_programs` → `["cups"]`. `arch-secure` comment
 refreshed; `CONTEXT.md` System Program rule cross-references the sops
 exception. 9 new bats in `profiles-secrets.bats`; full suite 666/666;
 `sops/install.sh` untouched.
+
+- 2026-09-27 audit: c1d8354 (ADR 0025).

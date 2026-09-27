@@ -31,17 +31,22 @@ persisted data.
 
 ## Acceptance criteria
 
-- [ ] `persist_unapply` and `persist_restore_data` exist in
+- [x] `persist_unapply` and `persist_restore_data` exist in
       `lib/impermanence-common.sh`
-- [ ] Both functions are covered by bats tests; idempotency case
+- [x] Both functions are covered by bats tests; idempotency case
       (`persist_unapply` on a non-existent target is a no-op) is
       included
-- [ ] `tools/impermanence.sh::cmd_remove` composes the two verbs;
+- [x] `tools/impermanence.sh::cmd_remove` composes the two verbs;
       duplicated local helpers are removed
-- [ ] `tests/impermanence-tool.bats` `remove` cases (default and
+- [x] `tests/impermanence-tool.bats` `remove` cases (default and
       `--yes`) pass unmodified
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` pass
 
 ## Blocked by
 
 - `.scratch/persist-verbs-extraction/issues/01-persist-apply-and-stage-copy.md`
+
+## Comments
+
+- 2026-09-27 audit: 2a532b9. Remaining unticked lines are suite/VM runs not
+  re-verifiable now.

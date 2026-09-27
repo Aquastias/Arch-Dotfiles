@@ -20,17 +20,21 @@ Validation rejects a `@group` with no declared members.
 
 ## Acceptance criteria
 
-- [ ] A pool with `owners: ["alice", "@family"]` is writable by alice
+- [x] A pool with `owners: ["alice", "@family"]` is writable by alice
       and by every member of `family`, including files created by other
       members (default-ACL inheritance).
-- [ ] Adding a user to a named group grants access without re-running
+- [x] Adding a user to a named group grants access without re-running
       the installer.
-- [ ] Every user with access gets a `~/Disks/<pool>` symlink.
-- [ ] A `@group` with no declared members fails validation.
-- [ ] The Owners Resolver's ACL plan (entries, base owner, access-user
+- [x] Every user with access gets a `~/Disks/<pool>` symlink.
+- [x] A `@group` with no declared members fails validation.
+- [x] The Owners Resolver's ACL plan (entries, base owner, access-user
       set) is unit-tested across single-user, multi-user, single-group,
       and mixed cases.
 
 ## Blocked by
 
 - `issues/03-owners-single-user-override.md`
+
+## Comments
+
+- 2026-09-27 audit: 199496d, c00705d.

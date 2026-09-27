@@ -31,18 +31,23 @@ this issue is verified by shellcheck, the dry-run, and bats.
 
 ## Acceptance criteria
 
-- [ ] `vm.sh --profile <persistent-profile>` runs the full persistent
+- [x] `vm.sh --profile <persistent-profile>` runs the full persistent
       flow path (no `--testing`).
-- [ ] `core.sh` and `flow-persistent.sh` exist under `vm/lib/`;
+- [x] `core.sh` and `flow-persistent.sh` exist under `vm/lib/`;
       `_harness-core.sh` and `vm/_harness.sh` are removed (logic folded in).
-- [ ] Fixture staging lives in `core.sh`; `vm-harness-fixtures.bats` moved
+- [x] Fixture staging lives in `core.sh`; `vm-harness-fixtures.bats` moved
       to `tests/vm/` and rewired, still green.
-- [ ] Env vars override profile hardware/timeouts; timeout precedence is
+- [x] Env vars override profile hardware/timeouts; timeout precedence is
       env > profile > flow default.
-- [ ] `--recreate` and `--help` behave as before.
+- [x] `--recreate` and `--help` behave as before.
 - [ ] `tests/run.sh` and `tests/shellcheck.sh` are green (no real VM run
       required to merge).
 
 ## Blocked by
 
 - `.scratch/vm-profile-harness/issues/01-profile-resolution-validation.md`
+
+## Comments
+
+- 2026-09-27 audit: b24c761, aa8169c (ADR 0035). Remaining unticked lines are
+  suite/VM runs not re-verifiable now.

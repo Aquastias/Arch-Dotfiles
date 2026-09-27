@@ -107,3 +107,5 @@ the redesign). Fixed by suspending errexit + the inherited ERR trap across the
 best-effort replay edits, with a regression test. Commits `42462f5` + `4a6cd4c`.
 
 **The redesign v2 issues (02-05) are all done, VM-verified.**
+
+- 2026-09-27 audit: f2a0822, 67fe55d.

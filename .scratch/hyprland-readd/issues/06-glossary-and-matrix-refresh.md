@@ -17,11 +17,11 @@ Hyprland cells derived from the widened desktop enum — no hand-editing.
 
 ## Acceptance criteria
 
-- [ ] CONTEXT.md Display Manager entry describes the multi-valued rule (SDDM with
+- [x] CONTEXT.md Display Manager entry describes the multi-valued rule (SDDM with
       KDE; greetd+tuigreet for Hyprland-only)
-- [ ] CONTEXT.md Desktop Environment Adapter entry / "KDE only" note corrected
-- [ ] Install matrix regenerated and includes Hyprland cells
-- [ ] Matrix tests green
+- [x] CONTEXT.md Desktop Environment Adapter entry / "KDE only" note corrected
+- [x] Install matrix regenerated and includes Hyprland cells
+- [x] Matrix tests green
 
 ## Blocked by
 
@@ -29,3 +29,7 @@ Hyprland cells derived from the widened desktop enum — no hand-editing.
 - KDE + Hyprland co-install uses SDDM
 - Aquamarine DRM pinning on hybrid GPU
 - Impermanence uses a real display manager; remove autologin
+
+## Comments
+
+- 2026-09-27 audit: 6719e92.

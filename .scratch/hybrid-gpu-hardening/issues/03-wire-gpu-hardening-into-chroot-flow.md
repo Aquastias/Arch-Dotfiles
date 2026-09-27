@@ -34,16 +34,16 @@ display-manager change in this slice.
 
 ## Acceptance criteria
 
-- [ ] `gpu.sh` runs from `configure.sh` strictly before `initcpio.sh`.
-- [ ] On an `amd`+`nvidia` effective config, all artifacts exist before
+- [x] `gpu.sh` runs from `configure.sh` strictly before `initcpio.sh`.
+- [x] On an `amd`+`nvidia` effective config, all artifacts exist before
       `mkinitcpio -P`: modprobe conf present, MODULES line contains the four
       nvidia modules, udev rule + pacman hook installed, suspend/resume/hibernate
       services enabled.
 - [ ] On a single-vendor / VM config the module is a no-op — no GPU artifacts
       written, install output unchanged.
-- [ ] `CONTEXT.md` gains the Hybrid Graphics / GPU Hardening / Early KMS / RTD3
+- [x] `CONTEXT.md` gains the Hybrid Graphics / GPU Hardening / Early KMS / RTD3
       terms.
-- [ ] The manual on-Legion checklist is recorded (modeset=Y, prime-run → NVIDIA
+- [x] The manual on-Legion checklist is recorded (modeset=Y, prime-run → NVIDIA
       renderer, idle dGPU D3cold, clean suspend/resume, regen hook survives a
       driver/kernel upgrade).
 - [ ] An install-only run (e.g. a matrix cell / VM) still completes without
@@ -53,3 +53,8 @@ display-manager change in this slice.
 
 - `.scratch/hybrid-gpu-hardening/issues/01-foundations-gpu-install-state-drop-envycontrol.md`
 - `.scratch/hybrid-gpu-hardening/issues/02-gpu-configuration-module-pure-core.md`
+
+## Comments
+
+- 2026-09-27 audit: dd4e947, 9f31638. Remaining unticked lines are suite/VM runs
+  not re-verifiable now.

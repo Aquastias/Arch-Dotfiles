@@ -23,3 +23,7 @@ feels like archinstall's selector, and every pick is routed visibly.
 - [x] The interactive browser is not unit-tested (tty + live pacman DB, out of
       scope per spec); verify manually. Any pure helper it factors out (e.g. the
       routing over a confirmed pick list) is covered by ticket 03's tests.
+
+## Comments
+
+- 2026-09-27 audit: 32ee883.

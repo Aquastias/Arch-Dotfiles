@@ -35,15 +35,15 @@ The module must be sourceable in isolation and must not depend on libvirt.
 
 ## Acceptance criteria
 
-- [ ] A new module under `.os/lib/` exposes a single public function with the contract above
-- [ ] The generated `seed.iso` exists at the returned path
-- [ ] The generated `user-data` (verified by mounting the ISO or by exposing it as an internal artefact for tests) contains the literal repo URL and test hostname — no remaining placeholders
-- [ ] The generated `runcmd` redirects to `/dev/ttyS0` and ends with the sentinel + `poweroff`
-- [ ] The sentinel line format is exactly `===INSTALLER-EXIT-N===` (no surrounding text on that line)
-- [ ] If `cloud-localds` is missing, the function exits non-zero with a clear message (it does not attempt to install it)
-- [ ] Bats tests under `.os/tests/` cover: substitution correctness (URL + hostname appear), runcmd shape (redirect, sentinel, poweroff present), and missing-`cloud-localds` failure mode
-- [ ] All bats tests pass
-- [ ] Shellcheck passes
+- [x] A new module under `.os/lib/` exposes a single public function with the contract above
+- [x] The generated `seed.iso` exists at the returned path
+- [x] The generated `user-data` (verified by mounting the ISO or by exposing it as an internal artefact for tests) contains the literal repo URL and test hostname — no remaining placeholders
+- [x] The generated `runcmd` redirects to `/dev/ttyS0` and ends with the sentinel + `poweroff`
+- [x] The sentinel line format is exactly `===INSTALLER-EXIT-N===` (no surrounding text on that line)
+- [x] If `cloud-localds` is missing, the function exits non-zero with a clear message (it does not attempt to install it)
+- [x] Bats tests under `.os/tests/` cover: substitution correctness (URL + hostname appear), runcmd shape (redirect, sentinel, poweroff present), and missing-`cloud-localds` failure mode
+- [x] All bats tests pass
+- [x] Shellcheck passes
 
 ## Blocked by
 
@@ -62,3 +62,6 @@ Deep module. The cloud-init contract (exact runcmd shape, sentinel format) is th
 
 **Reference material:**
 - Parent PRD: `.scratch/vm-test-harness/PRD.md`
+
+- 2026-09-27 audit: 1ac243a, e3ca02e, 8d1ce38. Later: replaced by the
+  profile-driven harness (ADR 0035, aa8169c).

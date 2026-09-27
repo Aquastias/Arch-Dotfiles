@@ -19,12 +19,17 @@ Layout Adapter should be a thin variant over the shared non-ZFS root path.
 
 - [ ] A pure xfs install (plaintext) boots headless in a VM.
 - [ ] An encrypted xfs root boots (live/HITL verify acceptable).
-- [ ] The xfs adapter reuses the shared non-ZFS planner + emitters (no duplicated
+- [x] The xfs adapter reuses the shared non-ZFS planner + emitters (no duplicated
       partition/LUKS logic).
-- [ ] xfs is offered only as single-disk (no topology), enforced by the
+- [x] xfs is offered only as single-disk (no topology), enforced by the
       validation contract from issue 01.
-- [ ] bats covers the xfs `ROOT_CMDLINE`/`HOOKS` emitter variants.
+- [x] bats covers the xfs `ROOT_CMDLINE`/`HOOKS` emitter variants.
 
 ## Blocked by
 
 - `04` (LUKS / shared non-ZFS root plumbing)
+
+## Comments
+
+- 2026-09-27 audit: 222c3a2, 1140c6a. Remaining unticked lines are suite/VM runs
+  not re-verifiable now.

@@ -54,3 +54,5 @@ human confirms the diagrams read clearly ("explain it like I'm 5").
 - DEVIATION: CONTEXT.md keeps its one-long-line-per-entry convention
   (not 80-col wrapped) for consistency + grep-ability; ARCHITECTURE.md
   prose wrapped ≤80 per its own convention.
+
+- 2026-09-27 audit: d1d8a1f (ADR 0036).

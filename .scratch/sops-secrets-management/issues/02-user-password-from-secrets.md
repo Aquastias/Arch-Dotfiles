@@ -16,11 +16,15 @@ No changes to the secrets file schema — the `password` field is already define
 
 ## Acceptance criteria
 
-- [ ] When `install-state.json` has no `secrets.users.<username>` entry: user is created with password `12345` (existing behaviour unchanged)
-- [ ] When the entry is present but the decrypted file has no `password` field: falls back to `12345`
-- [ ] When `password` is present in the decrypted file: `chpasswd` receives that value
-- [ ] BATS tests cover: no secrets entry, secrets entry without password field, secrets entry with password field
+- [x] When `install-state.json` has no `secrets.users.<username>` entry: user is created with password `12345` (existing behaviour unchanged)
+- [x] When the entry is present but the decrypted file has no `password` field: falls back to `12345`
+- [x] When `password` is present in the decrypted file: `chpasswd` receives that value
+- [x] BATS tests cover: no secrets entry, secrets entry without password field, secrets entry with password field
 
 ## Blocked by
 
 - `.scratch/sops-secrets-management/issues/01-secrets-module.md`
+
+## Comments
+
+- 2026-09-27 audit: 0b71966, 01b71af.

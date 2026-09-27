@@ -54,3 +54,7 @@ chroot 349, 0 fail).
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 audit: 876f7e8 (per-group filesystem/encryption schema).

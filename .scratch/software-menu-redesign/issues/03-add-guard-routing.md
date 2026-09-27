@@ -37,3 +37,7 @@ name the managing control.
       stays satisfiable).
 - [x] Covered in `guided-packages.bats`, following the free-text add and
       exclude/provenance prior art.
+
+## Comments
+
+- 2026-09-27 audit: c60abf3.

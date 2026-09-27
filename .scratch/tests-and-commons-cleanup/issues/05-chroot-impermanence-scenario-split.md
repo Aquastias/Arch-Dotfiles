@@ -66,3 +66,5 @@ Measurement from issue 01 (post-parallelism, 24-core host):
 Threshold is ~5s; per triage note "if borderline, err on the side
 of closing (defer)". Closing as `wontfix`. Maintainer can reopen
 if the file grows past the threshold.
+
+- 2026-09-27 audit: wontfix, as recorded above.

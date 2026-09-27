@@ -84,3 +84,5 @@ halts** (`_console_capture_loop`), making boot-verify robust for multi-disk.
 Re-run of `single/guided-multi --verify-boot`: **INSTALLER-EXIT-0 →
 ===FIRSTBOOT-OK===** (automated). +2 bats (`tests/vm/console-capture.bats`).
 Full suite **1158 bats**, shellcheck clean.
+
+- 2026-09-27 audit: ba8a343, 1586aff.
