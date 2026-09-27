@@ -33,7 +33,7 @@ The program **owns the `yazi` package**, which must therefore **leave core
       new `yazi-program.bats` drift test (kitty/zsh precedent).
 - [x] `yazi-program.bats` also asserts the program shape and the
       `packages.shell` removal.
-- [x] VM check: yazi opens themed on a fresh box; follows a Noctalia palette
+- [ ] VM check: yazi opens themed on a fresh box; follows a Noctalia palette
       change (on next launch) on a compositor; stays Sapphire under KDE.
 
 ## Blocked by
@@ -42,4 +42,5 @@ None - can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).
+- 2026-09-27 audit: eca3e60 (yazi-program.bats). Later: single-source home/ (ADR
+  0134, ee417a5). VM check not recorded — left unticked.

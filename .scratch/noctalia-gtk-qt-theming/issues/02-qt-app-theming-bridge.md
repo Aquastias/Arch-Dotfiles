@@ -40,4 +40,5 @@ out of scope.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 9b177d9, ea8ddd9, e832b40 (ADR 0102/0108).
+- 2026-09-27 audit: 9b177d9, e832b40 (qt6ct.conf also seeded, ADR 0108), df87942
+  (points at the KColorScheme, ADR 0124).

@@ -8,18 +8,18 @@ statusline renders live.
 
 **Blocked by:** 04.
 
-**Status:** done
+**Status:** ready-for-agent
 
-- [x] `claude` is on PATH after a VM install
-- [x] The Bash sandbox starts (bwrap/socat present) and `failIfUnavailable`
+- [ ] `claude` is on PATH after a VM install
+- [ ] The Bash sandbox starts (bwrap/socat present) and `failIfUnavailable`
       does not abort a healthy box
-- [x] A `virsh`/`vm.sh` call succeeds *inside* the sandbox via the
+- [ ] A `virsh`/`vm.sh` call succeeds *inside* the sandbox via the
       `allowUnixSockets` libvirt rule (no manual sandbox-disable needed)
-- [x] The statusline renders (segments present) in a live session
-- [x] Reuses `vm-agent.sh`; prior art `flow-persistent.bats`, `vm-agent.bats`,
+- [ ] The statusline renders (segments present) in a live session
+- [ ] Reuses `vm-agent.sh`; prior art `flow-persistent.bats`, `vm-agent.bats`,
       `vm-cli.bats`
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
-  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).
+- 2026-09-27 audit: no VM behavioural test or recorded run found — criteria
+  unticked; only the bats seams (05/06) shipped.

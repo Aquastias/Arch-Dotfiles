@@ -16,7 +16,7 @@ inline variable. Lazy-loaded under a `<leader>r` (refactor) group.
 ## Acceptance criteria
 
 - [x] refactoring.nvim is declared and lazy-loads (zero startup cost).
-- [x] Extract-function, extract-variable and inline-variable work from a
+- [ ] Extract-function, extract-variable and inline-variable work from a
       selection in a supported language.
 - [x] `<leader>r` keymaps drive the refactors and register a which-key group.
 - [x] Seam A asserts the plugin, its lazy trigger and the maps.
@@ -27,5 +27,7 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 348bef4, d26f455, 01818f7 (select_refactor dropped). Seam A
+  = tests/config/nvim-program.bats. Runtime/Seam B checks not recorded (a
+  2026-09-27 host run was inconclusive — host lacks the program toolchain) —
+  those lines left unticked.

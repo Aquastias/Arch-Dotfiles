@@ -21,5 +21,5 @@ into Locales and does not get its own category. Independent of all locale work.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
-  d665bd8 (ADR 0076).
+- 2026-09-27 audit: 8be14fb. Later reversed: ADR 0081 renamed the category back
+  to System (GENERAL became the bucket name, ADR 0086).

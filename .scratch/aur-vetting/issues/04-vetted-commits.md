@@ -18,11 +18,16 @@ unattended signal. There is no bypass flag. See PRD stories 35, 37-44, 50.
 
 **Status:** done
 
-- [ ] Unpinned + unattended exits non-zero with a clear message.
-- [ ] Unpinned + interactive accept writes a pin row.
-- [ ] A bump-only diff auto-accepts and bumps the pin; a diff adding one
+- [x] Unpinned + unattended exits non-zero with a clear message.
+- [x] Unpinned + interactive accept writes a pin row.
+- [x] A bump-only diff auto-accepts and bumps the pin; a diff adding one
       extra line aborts when unattended.
-- [ ] An allowlisted suspicious finding passes at its commit and fails
+- [x] An allowlisted suspicious finding passes at its commit and fails
       again on a new commit.
-- [ ] No `AUR_VET=off` / `--no-vet` path exists (a bats test asserts that
+- [x] No `AUR_VET=off` / `--no-vet` path exists (a bats test asserts that
       both are rejected or ignored).
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against c8f4873, 21ef008
+  (tests/aur/pins.bats).

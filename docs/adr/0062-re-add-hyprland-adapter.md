@@ -11,7 +11,7 @@ Hyprland returns as a selectable `environment.desktop` value
 adapter. Display-manager selection follows the **pre-removal rule**: greetd +
 greetd-tuigreet (`tuigreet --cmd Hyprland`) when KDE is absent, SDDM when KDE is
 co-installed. `kde.sh` is unchanged (it always enables SDDM); the misdiagnosed
-`a5b429d` change that made greetd own the DM even alongside KDE is **not**
+`3ff7c22` change that made greetd own the DM even alongside KDE is **not**
 restored — the black screen that motivated it was the impermanence logind race,
 not an SDDM handoff failure (see ADR 0061), and it only occurred on a hybrid GPU,
 now forbidden under impermanence (see ADR 0060).

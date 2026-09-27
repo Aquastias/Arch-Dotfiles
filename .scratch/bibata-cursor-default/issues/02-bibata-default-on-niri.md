@@ -19,4 +19,6 @@ GTK/XWayland apps.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).
+- 2026-09-27 audit: 7598539, b436f92 (install-niri.jsonc aur, niri
+  environment.kdl xcursor node, noctalia-preset.sh ~/.icons/default;
+  niri-adapter.bats).

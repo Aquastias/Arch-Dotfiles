@@ -50,5 +50,5 @@ Resolver provenance → matrix Axis Registry classification.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
-  (ADR 0080).
+- 2026-09-27 audit: 411c257, 57dbacb (config/power.bats, matrix registry).
+  Later: category merged into Daemons (ADR 0081).

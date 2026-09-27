@@ -65,7 +65,7 @@ Built via red→green slices; 1453 non-vm bats, 0 fail. Not yet committed.
 - Validation: `_validation_impermanence` skips the zfs `<pool>/<path>` rule for
   non-zfs (btrfs persist is a path, no pool).
 
-Committed (local, UNPUSHED): `6f0b3fc` install-state FILESYSTEM, `629800b` btrfs
+Committed (local, UNPUSHED): `cacd394` install-state FILESYSTEM, `d9ad443` btrfs
 impermanence feature, `9698719` harness btrfs break-control.
 
 Harness ready: `_seed_generator_rollback_firstboot_block` now takes a `filesystem`
@@ -94,7 +94,7 @@ REMAINING (HITL — only open AC): run the live two-boot reboot test:
   `@etc@blank` → boot2 hook fails closed (emergency shell) → RED.
 - encrypted-single (`btrfs-encrypted.jsonc`): install-only → INSTALLER-EXIT-0,
   then boot by hand (`testtest`), manually do the two-boot probe/persist check.
-Mirrors the ZFS 4-VM validation (`87b08f6`); enc-multi blocked (issue 07). Agent
+Mirrors the ZFS 4-VM validation (`e4cb445`); enc-multi blocked (issue 07). Agent
 env can't `git push` (~/.ssh denied) — USER pushes; VMs via `git daemon` +
 `REPO_URL=git://192.168.122.1/.dotfiles`.
 
@@ -114,7 +114,7 @@ and blocked `multi-user.target`, so the rollback sentinel never fired → 600s
 timeout. ZFS never hit this because the archzfs initramfs hook mounts the whole
 dataset hierarchy (incl. `/etc`) under root before pivot.
 
-**Fix (`f1d1d84`):** added a `run_latehook` to the `btrfs-rollback` hook that
+**Fix (`84f4913`):** added a `run_latehook` to the `btrfs-rollback` hook that
 mounts each recreated rollback subvol under `/new_root` (subvol→mountpoint pairs
 baked from `ROLLBACK_DATASETS`) before `switch_root`, mirroring ZFS. systemd
 later adopts them from fstab. RED→GREEN bats test added
@@ -144,7 +144,7 @@ I prototyped a harness path to headless-verify an encrypted root: add `console=t
 via a verify block + a serial-console driver (one process owns the serial PTY and
 types the LUKS passphrase at the cryptsetup prompt). The passphrase-answering WORKS
 — boot1 unlocked `/dev/mapper/cryptroot`, reached multi-user with the REAL hostname
-and NO firstboot hang (the `f1d1d84` early-mount fix works under LUKS), and the
+and NO firstboot hang (the `84f4913` early-mount fix works under LUKS), and the
 `btrfs-rollback` hook ran on encrypted. BUT the encrypted btrfs-impermanence system
 **reboot-LOOPS** once `console=ttyS0` + serial input are active: 4-5 boots, the
 firstboot sentinel never lands its `===FIRSTBOOT-OK===`, `Failed to start Save
@@ -156,7 +156,7 @@ the headless agent. The prototype was discarded (not landed) to keep the suite
 clean; the approach is recorded here for a future follow-up. The rollback MECHANISM
 is proven on encrypted (hook runs, clean boot); the AC's live rollback proof is
 satisfied by the plaintext single+raid1 two-boot runs + controls.
-enc-multi still blocked by issue 07. `f1d1d84` PUSHED.
+enc-multi still blocked by issue 07. `84f4913` PUSHED.
 
 **Follow-up (deferred):** debug the encrypted btrfs-impermanence serial-console
 reboot loop (`console=ttyS0` + getty), then re-land headless encrypted boot-verify

@@ -34,7 +34,7 @@ fallback for the install pin.
       the exact version can't be fetched.
 - [x] bats cover the IgnorePkg editor, `archzfs_pin_candidates`, and the
       build-repo candidate fallback.
-- [x] Verified on the existing `arch-combined` VM (forced low ceiling → held;
+- [ ] Verified on the existing `arch-combined` VM (forced low ceiling → held;
       real ceiling → cleared).
 
 ## Blocked by
@@ -43,4 +43,5 @@ fallback for the install pin.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 55a0be4, 120b1ca, 4ddb538 (ADR 0139).
+- 2026-09-27 audit: 55a0be4 (lts-hold timer + boot/lts-hold.bats), 120b1ca (db
+  sync writable). VM verification not recorded — left unticked.

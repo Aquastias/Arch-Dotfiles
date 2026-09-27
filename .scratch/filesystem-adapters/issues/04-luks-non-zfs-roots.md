@@ -46,7 +46,7 @@ Pure cores landed + bats-green (TDD), VM-gated wiring still to do:
 
 VM-verified 2026-06-28: encrypted ext4 **install** reaches `INSTALLER-EXIT-0`
 (LUKS root format/open, cryptsetup, `[encrypt]` hook, crypttab written,
-`cryptdevice=…` boot entry). Commit slice 3 `569ec09`. Also fixed a gating gap
+`cryptdevice=…` boot entry). Commit slice 3 `6d6a07f`. Also fixed a gating gap
 the bootstrap-skip exposed: the ZFS hostid/zpool.cache/pacman.conf seed +
 finalize export are now gated on `command -v zpool` (`lib/chroot.sh`,
 `lib/finalize.sh`) — a non-ZFS root has none of them. New profile

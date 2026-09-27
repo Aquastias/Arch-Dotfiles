@@ -75,5 +75,6 @@ Anchor: ADR 0094 (curated config as stow-owned dotfile; partial-supersede of
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 63c1c48, 7cec055 (ADR 0094); stow delivery
-  superseded by skel seeding (ADR 0095).
+- 2026-09-27 audit: 6f35504, 6a6a8d3, 0662a9e (noctalia-stow.bats). Later:
+  delivery changed to /etc/skel seeding (ADR 0095, 7cec055); niri config split
+  into conf.d (ADR 0107).

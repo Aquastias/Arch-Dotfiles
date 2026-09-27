@@ -26,7 +26,7 @@ as the prompt already is.
 - [x] The root/context warning segments still read as red/yellow, now sourced
       from the terminal's ANSI palette.
 - [x] A test asserts `.p10k.zsh` carries no `#`-hex color on those segments.
-- [x] VM check: on a compositor the root/context segments track a Noctalia
+- [ ] VM check: on a compositor the root/context segments track a Noctalia
       palette change (on next shell); under KDE they stay Sapphire red/yellow.
 
 ## Blocked by
@@ -35,4 +35,4 @@ None - can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).
+- 2026-09-27 audit: eca3e60. VM check not recorded — left unticked.

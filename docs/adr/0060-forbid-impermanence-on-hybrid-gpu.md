@@ -11,7 +11,7 @@ graphical login hits a logind-session race — `pam_systemd` cannot register a
 session against the freshly mounted ZFS datasets, `XDG_RUNTIME_DIR` is never set,
 and `kwin_wayland` (or any compositor) dies "Could not create wayland socket" →
 black screen. This was verified on the hybrid laptop and was originally
-misdiagnosed as an SDDM DRM-master handoff failure (reverted commit `a5b429d`);
+misdiagnosed as an SDDM DRM-master handoff failure (reverted commit `3ff7c22`);
 the durable fix was disabling impermanence on that machine. The rule codifies
 that: impermanence is gated by hardware, not by desktop choice, so Hyprland and
 KDE remain freely selectable on any host while the known-bad

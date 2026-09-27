@@ -83,7 +83,7 @@ and a `===USER-OK===` boot-verify check (`id <u> && passwd -S <u> | grep -qw P`
 — the "can log in" proxy, written into the firstboot sentinel); `flow-guided.sh`
 reads `.guided_user`; `tests/vm/profiles/single/guided-user.jsonc` (carol,
 sudo=true, password hunter2, root r00tr00t). +3 render bats → **1225**. Commits
-`bd625d5` (core) + `2cce7fe` (harness).
+`32d59c7` (core) + `e3e10a9` (harness).
 
 `vm.sh --guided --profile single/guided-user --verify-boot` on KVM:
 **INSTALLER-EXIT-0** → reboot → **USER-OK** (carol exists, shell /bin/bash,

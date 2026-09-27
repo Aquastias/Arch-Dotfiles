@@ -23,5 +23,4 @@ KDE-owned.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
-  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).
+- 2026-09-27 audit: 0d89698 (resolver.bats display-manager source).

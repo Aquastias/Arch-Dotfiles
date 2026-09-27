@@ -39,5 +39,5 @@ green).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ef5f24a, ce126da, 39ca93f, 484aa2b, 23200d7
-  (ADR 0089); Core-Owned Program filter later removed in c1d30d0.
+- 2026-09-27 audit: 39ca93f, 484aa2b, 6fc1065. Later: core_owned_programs
+  removed (c1d30d0); reflector became Mirrors-owned (Menu-Owned, ADR 0089).

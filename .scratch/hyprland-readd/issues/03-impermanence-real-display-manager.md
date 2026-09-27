@@ -1,6 +1,6 @@
 # Impermanence uses a real display manager; remove autologin
 
-Status: done (847efdf)
+Status: done (6719e92)
 
 ## Parent
 

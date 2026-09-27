@@ -1,6 +1,6 @@
 # Unified swap row + swapedit sub-editor (enabled + size)
 
-Status: done (cc22d3f) — one swap row → swapedit (enabled+size); 1429 bats green
+Status: done (602ac3d) — one swap row → swapedit (enabled+size); 1429 bats green
 
 ## Parent
 

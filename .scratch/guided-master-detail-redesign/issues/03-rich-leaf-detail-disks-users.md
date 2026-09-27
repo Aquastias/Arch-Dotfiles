@@ -23,4 +23,4 @@ two leaves to their rich builders.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).
+- 2026-09-27 audit: 5c9b237 (guided detail.bats).

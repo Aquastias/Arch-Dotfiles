@@ -13,10 +13,10 @@ flip surfaced, both fixed + fixed-forward-verified:
 - `zfs-single-enc` (zfs-native `Enter passphrase for 'rpool'`): the post-install
   sentinel step imported rpool but never loaded the key → `cannot mount
   rpool/ROOT/arch: encryption key not loaded` → sentinel on empty /mnt → 125.
-  Fix `20b89c0` (zfs load-key -a). Re-run → INSTALLER-EXIT-0 → unlock →
+  Fix `9b1ed76` (zfs load-key -a). Re-run → INSTALLER-EXIT-0 → unlock →
   `===FIRSTBOOT-OK===`, Result=success.
 - `ext4-single-enc` (encrypt-hook `A password is required…`): the sentinel step
-  mounted the raw LUKS container. Fix `e90e509` (cryptsetup open before mount).
+  mounted the raw LUKS container. Fix `771c687` (cryptsetup open before mount).
   Re-run → `cryptsetup open … cryptroot` → mount mapper → INSTALLER-EXIT-0 →
   unlock → `===FIRSTBOOT-OK===`, Result=success.
 

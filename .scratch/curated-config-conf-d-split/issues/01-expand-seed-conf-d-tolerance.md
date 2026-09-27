@@ -36,5 +36,5 @@ so nothing breaks.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in a55e9d2, 8afa454, 43b421c, ad54241, 0178040
-  (ADR 0107).
+- 2026-09-27 audit: a55e9d2 (noctalia-preset.sh + chroot.sh conf.d staging;
+  adapter bats).

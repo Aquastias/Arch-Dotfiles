@@ -1,6 +1,6 @@
 # Migrate the Host Program wire format
 
-Status: done (implemented in commit 6c77e64; full test suite green)
+Status: done (implemented in commit 92fea73; full test suite green)
 
 ## Problem Statement
 

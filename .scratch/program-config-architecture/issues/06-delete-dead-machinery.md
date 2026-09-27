@@ -15,12 +15,12 @@ and the `.stow/` gitignore entry, and the `home/`-vs-repo-root drift test.
 
 ## Acceptance criteria
 
-- [ ] `lib/config/generator.sh` and `tools/generate-configs.sh` deleted, with no
+- [x] `lib/config/generator.sh` and `tools/generate-configs.sh` deleted, with no
       remaining references (matrix, tests, runner).
-- [ ] The `.stow/<user>` stow invocation and `.stow/` gitignore entry removed.
-- [ ] The drift test removed; no Program still relies on a repo-root config
+- [x] The `.stow/<user>` stow invocation and `.stow/` gitignore entry removed.
+- [x] The drift test removed; no Program still relies on a repo-root config
       copy.
-- [ ] Test suite green after removal.
+- [x] Test suite green after removal.
 
 ## Blocked by
 
@@ -28,3 +28,8 @@ and the `.stow/` gitignore entry, and the `home/`-vs-repo-root drift test.
 - `05-migrate-zsh.md`
 
 (The drift test guards exactly the Programs those migrate.)
+
+## Comments
+
+- 2026-09-27 audit: c8442fe, a4da628 (generator.sh + tools/generate-configs.sh
+  gone, .stow gitignore entry gone).

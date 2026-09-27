@@ -33,9 +33,9 @@ Anchored by ADR 0104 (amends ADR 0102).
 
 ## Comments
 
-- Done in `faadbe3`. GTK `settings.ini` removed from the payload and seeded by
+- Done in `0f297a6`. GTK `settings.ini` removed from the payload and seeded by
   `noctalia-preset.sh` into `/etc/skel`; drift guard rewritten to read the seed.
   noctalia-stow / niri / hyprland / conflict-detector suites green.
 
-- 2026-09-27 doc sync: shipped in 0f297a6, ea8ddd9, 0dfa81a (ADR 0104);
-  kcolorscheme stance later superseded by ADR 0123.
+- 2026-09-27 audit: 0f297a6. Later: 01's kcolorscheme drop superseded by ADR
+  0123 (5ecf40b) — kcolorscheme now on for every Noctalia box.

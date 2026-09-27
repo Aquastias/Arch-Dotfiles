@@ -26,5 +26,4 @@ already generates them via XDG autostart). Generation is idempotent.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in deaa594, db20d11, 0cc3ff5, 09d47f3, 1b28de0,
-  66bceb5 (ADR 0130/0131).
+- 2026-09-27 audit: 0cc3ff5 (noctalia-stow.bats).

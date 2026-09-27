@@ -17,15 +17,15 @@ object reshape).
 
 ## Acceptance criteria
 
-- [ ] Layer Resolver drops the lower layer's `.programs` before the fold when a
+- [x] Layer Resolver drops the lower layer's `.programs` before the fold when a
       user layer sets `programs_inherit: false`, mirroring the existing host
       `packages.inherit == false` handling; scoped to `.programs` only.
-- [ ] `groups`/`shell`/`sudo`/`ssh_authorized_keys` still fold normally under
+- [x] `groups`/`shell`/`sudo`/`ssh_authorized_keys` still fold normally under
       `programs_inherit: false`.
-- [ ] `programs_inherit` (bool, default true) accepted by the closed user
+- [x] `programs_inherit` (bool, default true) accepted by the closed user
       schema; `programs` as an object is rejected; unknown keys still abort.
-- [ ] Absent flag behaves exactly as today.
-- [ ] Resolver unit tests (bats): bare-user yields no inherited programs while
+- [x] Absent flag behaves exactly as today.
+- [x] Resolver unit tests (bats): bare-user yields no inherited programs while
       identity keys still inherit; absent flag unchanged; a user re-adding a
       program after a bare base still lands it. Prior art: the Layer Resolver
       classification/coverage test.
@@ -33,3 +33,7 @@ object reshape).
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 33cf3d8 (layer-resolver.bats programs_inherit cases).

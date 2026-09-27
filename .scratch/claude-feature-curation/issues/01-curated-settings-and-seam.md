@@ -41,4 +41,5 @@ Edits:
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).
+- 2026-09-27 audit: 17aee35, bd078d6 (claude-agent.bats incl. repo-root drift
+  guard; green 2026-09-27).

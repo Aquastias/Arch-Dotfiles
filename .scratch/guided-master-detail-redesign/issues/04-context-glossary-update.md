@@ -24,4 +24,4 @@ terminology only, no implementation detail — per the domain-modeling disciplin
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).
+- 2026-09-27 audit: 221aecd/5c9b237 glossary update; since re-synced.

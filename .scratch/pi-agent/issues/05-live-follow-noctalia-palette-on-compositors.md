@@ -23,10 +23,10 @@ Anchored by ADR 0128.
       pi's 53 tokens.
 - [x] The template runs only in niri/Hyprland sessions, never under KDE.
 - [x] `pi-agent.bats` asserts `config.toml` declares the pi user-template.
-- [x] On `arch-combined`, `session niri` + a Noctalia palette change repaints the
+- [ ] On `arch-combined`, `session niri` + a Noctalia palette change repaints the
       pi TUI; `session kde` leaves it on Catppuccin Mocha Sapphire.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
-  0f0aa6f, 747d14e (ADR 0127/0128).
+- 2026-09-27 audit: 259a7ff, 0f0aa6f (pi-agent.bats). VM check not recorded —
+  left unticked.

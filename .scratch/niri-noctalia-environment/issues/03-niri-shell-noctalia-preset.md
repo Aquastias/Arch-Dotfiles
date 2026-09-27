@@ -44,5 +44,5 @@ exist to extend).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
-  palette later changed by ADR 0101/0109.
+- 2026-09-27 audit: 554ee50. Later: niri_shell generalized to wayland_shell (ADR
+  0097, 1633205); install-niri.jsonc became install-noctalia.jsonc.

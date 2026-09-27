@@ -15,7 +15,7 @@ Anchored by ADR 0099.
 
 - [x] `--hold-on-fail` on the `--testing` flow skips `poweroff -f` when the cell
       exits non-zero (wired in vm.sh, env>profile>flag).
-- [x] A held test VM stays inspectable over serial (root autologin getty on
+- [ ] A held test VM stays inspectable over serial (root autologin getty on
       ttyS0; the flow prints the `virsh console` + cleanup commands).
 - [x] On a passing cell the flag is a no-op (poweroff still guarded by rc==0).
 - [x] Seam test: the rendered seed guards poweroff and adds the autologin shell

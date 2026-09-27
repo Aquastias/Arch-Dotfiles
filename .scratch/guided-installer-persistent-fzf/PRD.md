@@ -1,6 +1,6 @@
 # Guided Installer — persistent single-fzf controller (no flash)
 
-Status: done — all 4 slices built + merged to main + cutover complete (ddc1602);
+Status: done — all 4 slices built + merged to main + cutover complete (a943937);
 full suite green. Only the live fzf render + a VM spine smoke remain HITL/VM-gated.
 
 Decision of record: **ADR 0042** (Guided Installer renders through one
@@ -240,7 +240,7 @@ untestable part is the live fzf draw, exercised via the guided VM smoke.
 
 - A throwaway **stopgap** already shipped on branch
   `guided-persistent-fzf`: the category subloop now carries the same
-  `--header`/`--expect` toolbar (commits `acd49fa` ADR + `f9b5169` fix,
+  `--header`/`--expect` toolbar (commits `9245413` ADR + `6331c90` fix,
   guided-shell at 88 bats). The rewrite deletes that subloop, retiring the
   stopgap.
 - Suggested tracer-bullet slice order: **01 spine** — a minimal persistent

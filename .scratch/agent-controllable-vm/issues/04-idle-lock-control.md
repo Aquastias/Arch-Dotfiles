@@ -14,12 +14,13 @@ permanently disabled in the guest.
 
 - [x] `idle off` inhibits idle/suspend/DPMS (default while driving); `idle on`
       removes the inhibitor and normal locking resumes.
-- [x] `lock` locks the running session; `unlock` unlocks it — verified against a
+- [ ] `lock` locks the running session; `unlock` unlocks it — verified against a
       wlroots (Noctalia) session and a Plasma session.
 - [x] No guest config is permanently altered — the inhibitor is removable and
       lock/idle remain fully testable after `idle on`.
-- [x] Hand-verified on `arch-combined`.
+- [ ] Hand-verified on `arch-combined`.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).
+- 2026-09-27 audit: 24258ce (idle/lock/unlock). Hand-verification not recorded —
+  left unticked.

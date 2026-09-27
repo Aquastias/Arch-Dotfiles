@@ -18,11 +18,16 @@ See PRD stories 1-11, 46, 57, 58.
 
 **Status:** done
 
-- [ ] Runner bats: the rung invokes the vetter before `makepkg`; a vetter
+- [x] Runner bats: the rung invokes the vetter before `makepkg`; a vetter
       failure fails the rung and falls through the ladder.
-- [ ] Runner bats: AUR install with helper `yay` aborts with the refusal
+- [x] Runner bats: AUR install with helper `yay` aborts with the refusal
       message; with `paru` it proceeds.
-- [ ] A config guard asserts that both paru.conf files carry the hook line.
-- [ ] The vetter, data and store are present in the chroot before
+- [x] A config guard asserts that both paru.conf files carry the hook line.
+- [x] The vetter, data and store are present in the chroot before
       bootstrap (staging bats).
-- [ ] The Installer Stdlib is not sourced inside the chroot.
+- [x] The Installer Stdlib is not sourced inside the chroot.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against a9725a6, 17379d6
+  (tests/profiles/profiles-aur-vet.bats).

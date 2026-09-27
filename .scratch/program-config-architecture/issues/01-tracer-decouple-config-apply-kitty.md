@@ -25,20 +25,25 @@ A Program with no `home/` is package-only and never in the plan.
 
 ## Acceptance criteria
 
-- [ ] Config Apply Planner is a pure module: `(resolved programs, ships-home
+- [x] Config Apply Planner is a pure module: `(resolved programs, ships-home
       set, config_exclude) → ordered apply plan`, no filesystem writes.
-- [ ] `config_exclude[]` accepted by the closed user schema; unknown keys still
+- [x] `config_exclude[]` accepted by the closed user schema; unknown keys still
       abort; empty/absent `config_exclude` changes nothing.
-- [ ] Runner invokes the Planner per user and applies the plan into `$HOME`;
+- [x] Runner invokes the Planner per user and applies the plan into `$HOME`;
       `/etc/skel` and `/root` seeded from the same `home/` source.
-- [ ] `kitty` config lives only under its Program `home/`; the repo-root copy is
+- [x] `kitty` config lives only under its Program `home/`; the repo-root copy is
       deleted; `kitty` `install.sh` installs the package and does no `$HOME`
       config seeding.
-- [ ] With `kitty` selected → its config is applied; with `kitty` in
+- [x] With `kitty` selected → its config is applied; with `kitty` in
       `config_exclude` → package installs, no config applied.
-- [ ] Planner unit tests (bats): config-applied, excluded, and package-only
+- [x] Planner unit tests (bats): config-applied, excluded, and package-only
       cases; empty exclude applies all. Prior art: `tests/config/*.bats`.
 
 ## Blocked by
 
 - None — can start immediately.
+
+## Comments
+
+- 2026-09-27 audit: 33cf3d8 (lib/config/config-apply.sh; config-apply.bats),
+  ee417a5 (kitty).

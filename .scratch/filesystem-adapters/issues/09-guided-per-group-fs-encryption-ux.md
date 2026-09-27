@@ -39,23 +39,23 @@ now offers all four. Both front-ends updated (interactive persistent-fzf
 controller AND the headless `--guided` replay). 5 red→green slices, full suite
 1615 bats 0 fail, shellcheck clean:
 
-- **`5a954ef` Slice 1 — root-fs picker offers built adapters.** Dropped the
+- **`27cd44a` Slice 1 — root-fs picker offers built adapters.** Dropped the
   `(reserved)` placeholders: `_ctl_enum_options filesystem` +
   `_ctl_apply_enum` (controller) now list/commit any BUILT fs via
   `_ctl_built_root_filesystems`; the replay path's `_GUIDED_FS_ACTIVE` gets all
   four. Both kept in lockstep with `lib/layout/dispatch.sh` (source of truth).
-- **`2a902ff` Slice 2 — impermanence gating.** Already implemented in
+- **`63754fc` Slice 2 — impermanence gating.** Already implemented in
   `menu.sh` (row hidden for ext4/xfs; Slice 1 made it reachable); filled the
   xfs + zfs coverage gap.
-- **`a104ae5` Slice 3 — fs-conditional topology.** `_ctl_topologies_for_fs`
+- **`eeae4ee` Slice 3 — fs-conditional topology.** `_ctl_topologies_for_fs`
   (matches `_validation_topology_for_fs`): zfs mirror/raidz1/raidz2/stripe;
   btrfs single/raid0/raid1/raid10; ext4/xfs single. The pool editor's topology
   cycle follows the group's own filesystem (pool value → root → zfs).
-- **`41edbce` Slice 4 — per-group fs + encryption in the pool editor.** New
+- **`a226bfb` Slice 4 — per-group fs + encryption in the pool editor.** New
   `filesystem:`/`encryption:` rows in `pooledit`; `_ctl_pool_normalise_fs` pins
   ext4/xfs to single-disk (topology single, disk_count 1) and resets a stale
   topology on an fs change; the disks cycle is a no-op for ext4/xfs.
-- **`fc5dc9c` Slice 5 (AC4) — assembly validates.** Integration test: authoring
+- **`da3035f` Slice 5 (AC4) — assembly validates.** Integration test: authoring
   via the editor yields a Config State passing `_validation_group_filesystems` +
   `_validation_filesystem`; the pin is proven load-bearing (an ext4 group with
   disk_count 2 is rejected).

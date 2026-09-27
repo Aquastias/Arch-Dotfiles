@@ -26,4 +26,4 @@ removing a test").
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).
+- 2026-09-27 audit: c20ca15. Re-checked 2026-09-27: run.sh --full green.

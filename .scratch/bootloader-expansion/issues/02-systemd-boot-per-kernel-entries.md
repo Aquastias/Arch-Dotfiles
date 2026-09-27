@@ -26,9 +26,10 @@ with GRUB_DEFAULT pinned to the Primary — no change needed there.)
 - [x] `esp-kernel-sync` tests are extended to prove entries referencing several
       kernels mirror all of them, and a Stray Kernel still gets no entry and is
       never mirrored.
-- [x] A multi-kernel selection boots each selected kernel end-to-end in a VM.
+- [ ] A multi-kernel selection boots each selected kernel end-to-end in a VM.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
-  6019e48, 4f97379 (ADR 0077/0078).
+- 2026-09-27 audit: 363f791, 17f15b0 (lib/boot/loader-entries.sh;
+  loader-entries.bats, esp-kernel-sync.bats). VM multi-kernel boot not recorded
+  — left unticked.

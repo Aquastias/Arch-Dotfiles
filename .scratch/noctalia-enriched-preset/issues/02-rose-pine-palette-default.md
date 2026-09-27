@@ -18,5 +18,5 @@ of Noctalia's look is still self-generated on first run. The other four palettes
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
-  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.
+- 2026-09-27 audit: 10b2eab. Later superseded: default palette became Catppuccin
+  Mocha (ADR 0101) then Mocha Sapphire (ADR 0109).

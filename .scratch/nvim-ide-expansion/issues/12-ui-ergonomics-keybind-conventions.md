@@ -23,8 +23,8 @@ Small UI ergonomics plus the hybrid keybind convention:
 
 ## Acceptance criteria
 
-- [x] Indent guides render; no new plugin added for them.
-- [x] A terminal toggle and a buffer-delete keymap work.
+- [ ] Indent guides render; no new plugin added for them.
+- [ ] A terminal toggle and a buffer-delete keymap work.
 - [x] which-key shows the full set of `<leader>` group prefixes with the
       agreed convention.
 - [x] Seam A asserts snacks.indent enabled, the terminal/bufdelete maps and
@@ -36,5 +36,6 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 348bef4, d26f455. Seam A = tests/config/nvim-program.bats.
+  Runtime/Seam B checks not recorded (a 2026-09-27 host run was inconclusive —
+  host lacks the program toolchain) — those lines left unticked.

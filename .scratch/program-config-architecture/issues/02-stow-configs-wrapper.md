@@ -20,17 +20,22 @@ module split from the `stow` side effect so it is unit-testable.
 
 ## Acceptance criteria
 
-- [ ] Discovery/filter is a pure module: `(programs root, --except / positional
+- [x] Discovery/filter is a pure module: `(programs root, --except / positional
       args) → ordered list of Programs to stow`.
-- [ ] Bare run lists all Programs with a `home/`; `--except` subtracts;
+- [x] Bare run lists all Programs with a `home/`; `--except` subtracts;
       positional args select exactly the named subset; a Program without a
       `home/` never appears.
-- [ ] The wrapper stows each selected Program's `home/` into `$HOME` with
+- [x] The wrapper stows each selected Program's `home/` into `$HOME` with
       `--adopt --no-folding`; safe on empty and seeded `$HOME`.
-- [ ] Discovery/filter unit tests (bats): default-all, `--except`, subset, and
+- [x] Discovery/filter unit tests (bats): default-all, `--except`, subset, and
       no-`home/` cases.
 
 ## Blocked by
 
 - `01-tracer-decouple-config-apply-kitty.md` (establishes the `home/`
   convention and a migrated example).
+
+## Comments
+
+- 2026-09-27 audit: 2c9fed0 (stow-configs.sh; ca_stow_selection in
+  config-apply.bats).

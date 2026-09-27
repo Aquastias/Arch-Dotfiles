@@ -19,5 +19,6 @@ absent — so `tools/explain-packages.sh` and the Guided Installer's read-only
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6dfb331, 3918ff4, b34e8da, 11d0e5c, 96de292,
-  577586f (ADR 0111-0115).
+- 2026-09-27 audit: 6dfb331 (kde/niri/hyprland adapter bats,
+  environment-resolution/-validation.bats, resolver.bats,
+  config/pure-profiles.bats, guided-controller.bats).

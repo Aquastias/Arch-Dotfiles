@@ -25,4 +25,5 @@ to the repo `CLAUDE.md` agent-skills/docs section so a cold agent discovers it.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).
+- 2026-09-27 audit: 24258ce (docs/agents/vm-agent-control.md + CLAUDE.md
+  pointer).

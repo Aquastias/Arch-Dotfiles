@@ -22,11 +22,11 @@ before any UI exists: an Effective Config with `kind: manual` + a hand-written
 - [x] The ESP is mounted and the boot record is published so the installed
       system boots — no pool machinery involved.
 - [x] No `wipefs`/`--zap-all` of the whole disk occurs on the manual path.
-- [x] A VM case seeded with a hand-written manual config (scripted partition
+- [ ] A VM case seeded with a hand-written manual config (scripted partition
       table, no guided UI) installs and boots, verified via the existing VM
       harness / `vm/vm-pool-verify.bats` prior art.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
-  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).
+- 2026-09-27 audit: 9a41d8f, f2c2216 (layout/manual/root.sh, dispatch kind
+  branch; manual-dispatch.bats). The VM case was never added — tracked in 05.

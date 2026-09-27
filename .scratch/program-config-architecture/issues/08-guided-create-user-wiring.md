@@ -16,11 +16,11 @@ Profiles must stay closed-schema-valid and round-trip through the resolver.
 
 ## Acceptance criteria
 
-- [ ] Create-user form offers a `programs_inherit: false` toggle; a bare user
+- [x] Create-user form offers a `programs_inherit: false` toggle; a bare user
       created via Guided installs no Core programs.
-- [ ] Users screen offers a `config_exclude` surface; an excluded Program
+- [x] Users screen offers a `config_exclude` surface; an excluded Program
       installs its package but not its config.
-- [ ] Guided-emitted Profiles carrying either key pass closed-schema validation
+- [x] Guided-emitted Profiles carrying either key pass closed-schema validation
       and resolve correctly.
 - [ ] Guided fzf smoke / preview coverage updated for the new affordances.
 
@@ -28,3 +28,8 @@ Profiles must stay closed-schema-valid and round-trip through the resolver.
 
 - `01-tracer-decouple-config-apply-kitty.md` (`config_exclude` schema)
 - `03-programs-inherit-bareness.md` (`programs_inherit` schema)
+
+## Comments
+
+- 2026-09-27 audit: c8442fe (lib/guided/shell.sh bareness + config_exclude). The
+  python fzf smoke harness was removed (7430f73) — that line left unticked.

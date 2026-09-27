@@ -15,8 +15,8 @@ carries no dead config. Anchored by ADR 0104.
 
 ## Comments
 
-- Done in `faadbe3`. `xsettingsd.conf` (and its empty dir) removed; no
+- Done in `0f297a6`. `xsettingsd.conf` (and its empty dir) removed; no
   remaining references in installer code or tests.
 
-- 2026-09-27 doc sync: shipped in 0f297a6, ea8ddd9, 0dfa81a (ADR 0104);
-  kcolorscheme stance later superseded by ADR 0123.
+- 2026-09-27 audit: 0f297a6. Later: 01's kcolorscheme drop superseded by ADR
+  0123 (5ecf40b) — kcolorscheme now on for every Noctalia box.

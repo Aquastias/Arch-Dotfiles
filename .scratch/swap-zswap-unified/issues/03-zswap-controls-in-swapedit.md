@@ -1,6 +1,6 @@
 # zswap controls in swapedit + summary suffix
 
-Status: done (3c5ec75) — zswap toggle + compressor/% cycles + summary; 1447 bats
+Status: done (f52d2cf) — zswap toggle + compressor/% cycles + summary; 1447 bats
 
 ## Parent
 

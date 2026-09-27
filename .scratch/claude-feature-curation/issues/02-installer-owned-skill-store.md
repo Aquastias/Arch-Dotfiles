@@ -39,4 +39,5 @@ edit conflict — not a logical gate).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).
+- 2026-09-27 audit: 4a801f2 (npx skills bootstrap in install.sh; asserted in
+  claude-agent.bats).

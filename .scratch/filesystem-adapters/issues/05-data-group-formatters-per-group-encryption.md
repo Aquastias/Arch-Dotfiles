@@ -21,7 +21,7 @@ never-rolled-back path so it survives reboot.
 ## Acceptance criteria
 
 - [x] A ZFS root + ext4 data group installs; the ext4 disk mounts at its declared
-      mount on boot. (ext4 data path VM-verified; profiles 0c92f96/96ae769)
+      mount on boot. (ext4 data path VM-verified; profiles 9e80dac/5ebb1e2)
 - [x] xfs and btrfs data groups format and mount; btrfs data groups honor native
       topology (raid0/1/10). (**VM-verified 2026-06-29**: `data-pools/xfs` →
       `/data/tank0` xfs mounts at boot; `data-pools/btrfs` raid1 over 2 disks
@@ -36,7 +36,7 @@ never-rolled-back path so it survives reboot.
       FIRSTBOOT-OK, fully headless = no prompt. LUKS crypttab path: ext4-enc
       VM-verified earlier.)
 - [x] When root impermanence is on, the data-group keyfile is placed in a
-      persisted / never-rolled-back path. (`/etc/cryptsetup-keys.d` curated, 146d3ae)
+      persisted / never-rolled-back path. (`/etc/cryptsetup-keys.d` curated, 950d472)
 - [x] bats covers the crypttab / zfs-key-load emitter (per-group encryption →
       expected crypttab text + keyfile placement path; `false` round-trips).
       (`tests/layout/datacrypt.bats`; `tests/layout/zfs-datakey.bats`;

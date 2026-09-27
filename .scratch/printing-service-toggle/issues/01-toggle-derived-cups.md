@@ -42,4 +42,7 @@ default-installs-cups invariant). Both land together to keep CI green.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in fa4b5ed, ab99513 (ADR 0079).
+- 2026-09-27 audit: fa4b5ed (config/printing.bats, guided-menu.bats,
+  resolver/explain-packages bats), ab99513 (docs). Later: own category merged
+  into Daemons (ADR 0081); system_programs → host_programs (ADR 0085); Packages
+  picker replaced by Menu-Owned filtering (ADR 0086).

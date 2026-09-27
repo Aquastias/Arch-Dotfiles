@@ -16,9 +16,13 @@ See PRD stories 31-33, 51, 52.
 
 **Status:** done
 
-- [ ] A maintainer-change fixture aborts even with an otherwise clean,
+- [x] A maintainer-change fixture aborts even with an otherwise clean,
       bump-only diff.
-- [ ] Orphan-adoption and new-package fixtures produce suspicious findings.
-- [ ] An RPC-down fixture retries (sleep shadowed in tests), then aborts
+- [x] Orphan-adoption and new-package fixtures produce suspicious findings.
+- [x] An RPC-down fixture retries (sleep shadowed in tests), then aborts
       when unattended.
-- [ ] Tests never touch the real network.
+- [x] Tests never touch the real network.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 7716d32 (tests/aur/trust.bats).

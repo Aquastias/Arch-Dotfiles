@@ -1,6 +1,6 @@
 # Unified swap control + zswap (default on)
 
-Status: done — all 3 slices built + committed (cc22d3f, 094f277, 3c5ec75);
+Status: done — all 3 slices built + committed (602ac3d, f410adc, f52d2cf);
 1447 bats green. VM smoke PASSED (single/plain, 2026-06-27): unattended install
 of MY code → summary "Swap: true (auto = RAM × 2) · zswap (zstd)", systemd-boot
 entries written with the zswap fragment, installed disk booted to the first-boot

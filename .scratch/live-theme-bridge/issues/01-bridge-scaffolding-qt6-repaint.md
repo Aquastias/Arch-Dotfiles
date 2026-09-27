@@ -36,4 +36,5 @@ change needed).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).
+- 2026-09-27 audit: 6d9866c, 44ae23e (the bare touch became an atomic rewrite —
+  qt6ct watches its dir).

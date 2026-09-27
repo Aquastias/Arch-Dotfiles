@@ -30,8 +30,9 @@ piped harness password.
 - [x] `.installer/tests/vm/vm-agent.bats` (new, mirroring `vm-cli.bats`) asserts
       verb dispatch/usage and the pure session-env-discovery helper — no live VM
       provisioned.
-- [x] Hand-verified on the persistent `arch-combined` VM.
+- [ ] Hand-verified on the persistent `arch-combined` VM.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).
+- 2026-09-27 audit: 24258ce (CLI + vm-agent.bats). Hand-verification not
+  recorded — left unticked.

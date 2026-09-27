@@ -1,6 +1,6 @@
 # Spec: shared keybind vocabulary across niri and Hyprland
 
-Status: done (commit 5bc7669) — tickets 01-03 implemented. Open manual checks:
+Status: done (commit 1c5bc9d) — tickets 01-03 implemented. Open manual checks:
 `niri validate` on a niri box, and confirm hyprland.conf loads on next login.
 
 Related: ADR 0096 (this feature — shared keybinds + skel-seeded Hyprland

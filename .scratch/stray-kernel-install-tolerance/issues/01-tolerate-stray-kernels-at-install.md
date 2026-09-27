@@ -38,4 +38,4 @@ boot-harmless Stray Kernel no longer aborts the install.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 7fe4813, 0ed1a98, c19f639 (ADR 0138).
+- 2026-09-27 audit: 7fe4813, 0ed1a98, c19f639 (guard/stray bats).

@@ -29,7 +29,7 @@ Two documented scope changes from the original spec:
   with no unprivileged seam; its output is exercised by the VM smoke, not the
   validator tier. Recorded, not faked.
 
-Full suite: 1858 passing, 0 fails. Commits `a0227f1`→`1e2177d` on `main`
+Full suite: 1858 passing, 0 fails. Commits `33dbba2`→`8b48e4a` on `main`
 (test-only; unpushed).
 
 ## Problem Statement

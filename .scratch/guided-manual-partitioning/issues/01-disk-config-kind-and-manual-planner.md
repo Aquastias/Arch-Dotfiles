@@ -29,5 +29,5 @@ an assignment in yields a plan (or a named rejection) out.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
-  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).
+- 2026-09-27 audit: aac47b6 (layout/manual/plan.sh;
+  tests/layout/manual-plan.bats).

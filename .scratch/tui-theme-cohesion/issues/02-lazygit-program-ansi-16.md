@@ -35,7 +35,7 @@ The program **owns the `lazygit` package**, which must therefore **leave core
       `configs.bats`).
 - [x] `lazygit-program.bats` also asserts the program shape and the
       `packages.shell` removal.
-- [x] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
+- [ ] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
       change (on next launch) on a compositor; stays Sapphire under KDE.
 
 ## Blocked by
@@ -44,4 +44,6 @@ None - can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).
+- 2026-09-27 audit: eca3e60 (lazygit-program.bats). Later: single-source home/
+  (ADR 0134, ee417a5) made the drift guard moot. VM check not recorded — left
+  unticked.

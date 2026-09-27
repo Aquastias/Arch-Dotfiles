@@ -104,6 +104,6 @@ replay path (`guided_build`) `return 1`'d on an absent answer, which aborted
 under install.sh's `set -Eeuo pipefail` — so *every* headless guided install was
 broken (bats never caught it: no `set -e`, and no guided VM smoke had run since
 the redesign). Fixed by suspending errexit + the inherited ERR trap across the
-best-effort replay edits, with a regression test. Commits `32b4967` + `099e89b`.
+best-effort replay edits, with a regression test. Commits `42462f5` + `4a6cd4c`.
 
 **The redesign v2 issues (02-05) are all done, VM-verified.**

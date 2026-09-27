@@ -34,7 +34,7 @@ core and the reset verbs; the header advertises them.
 
 ## Comments
 
-**DONE `3d1ff23`.** `^Z`/`^Y`/`^R` wired as global fzf binds over a snapshot
+**DONE `8ad3ff9`.** `^Z`/`^Y`/`^R` wired as global fzf binds over a snapshot
 history (`$GUIDED_HIST_FILE`; `_ctl_autocommit` pushes one snapshot per change
 from the single `guided_ctl_list` choke point, so toggles/text/one-shots are all
 captured). `^R` = reset-all, itself undoable (no confirm needed). Covered by

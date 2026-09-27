@@ -18,10 +18,10 @@ assertions in `nvim-program.bats` that still reference retired plugins
 ## Acceptance criteria
 
 - [x] `nvim-emmet` and its keymap are removed from the config.
-- [x] Emmet still works via `emmet_language_server` (LSP present and enabled).
+- [ ] Emmet still works via `emmet_language_server` (LSP present and enabled).
 - [x] Seam A no longer asserts `nvim-emmet`, `neo-tree` or `fugitive`, and the
       roster assertions reflect the actual served plugins.
-- [x] Seam B: `:checkhealth` stays green.
+- [ ] Seam B: `:checkhealth` stays green.
 
 ## Blocked by
 
@@ -29,5 +29,6 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: e4d9c5e. Seam A = tests/config/nvim-program.bats.
+  Runtime/Seam B checks not recorded (a 2026-09-27 host run was inconclusive —
+  host lacks the program toolchain) — those lines left unticked.

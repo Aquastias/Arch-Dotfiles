@@ -24,7 +24,7 @@ Anchored by ADR 0099.
 - [x] Live ISO exposes a root autologin shell on `ttyS0`.
 - [x] Harness SSH key authorization is removed from the typed `curl|bash`
       payload (it now comes from the seed).
-- [x] SSH into the live ISO works even when the typed payload never executes
+- [ ] SSH into the live ISO works even when the typed payload never executes
       (guaranteed by the seed's content; end-to-end boot check stays CI/local).
 - [x] Install log remains a file; nothing streams it to serial.
 - [x] No change to installer-produced config semantics; a real install still

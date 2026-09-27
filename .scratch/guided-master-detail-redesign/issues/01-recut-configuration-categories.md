@@ -42,9 +42,11 @@ new groupings. Respect ADR 0071.
       (`menu_categories` / `menu_rows` JSON contract preserved).
 - [x] `guided-menu.bats` and `menu-enum.bats` are updated to assert the twelve
       categories, their order, and each field's new section — and pass.
-- [x] A `--guided` replay test proves an answer file written against the old
+- [ ] A `--guided` replay test proves an answer file written against the old
       section names still resolves every field (paths unchanged).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).
+- 2026-09-27 audit: 5c9b237 (guided-menu.bats, menu-enum.bats). No
+  old-answer-file replay test found — that line left unticked. Later: 12 → 14
+  categories in buckets (ADR 0081/0086).

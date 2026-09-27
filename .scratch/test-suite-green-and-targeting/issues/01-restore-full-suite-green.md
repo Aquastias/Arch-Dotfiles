@@ -28,4 +28,5 @@ binaries, or a network.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).
+- 2026-09-27 audit: 6cafaca. Re-checked 2026-09-27: run.sh --full exits 0 (3241
+  tests, 0 failures).

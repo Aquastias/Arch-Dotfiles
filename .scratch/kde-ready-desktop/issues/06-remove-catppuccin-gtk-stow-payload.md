@@ -23,5 +23,5 @@ later — this only removes it for now.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
-  6878699, 0bd152f, f43fabe (ADR 0087/0088).
+- 2026-09-27 audit: 6878699. Later: GTK theming moved to the Noctalia App
+  Theming Bridge (ADR 0102) and KDE session reset (ADR 0123).

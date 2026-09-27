@@ -24,11 +24,11 @@ is what runs.
 
 ## Acceptance criteria
 
-- [x] A forced-skew `arch-combined` recreation completes the install (clean exit
+- [ ] A forced-skew `arch-combined` recreation completes the install (clean exit
       sentinel; no `No ZFS kernel module` abort).
-- [x] `install.log` shows the lts pin firing (held back to the override version)
+- [ ] `install.log` shows the lts pin firing (held back to the override version)
       and the stray `linux` tolerated (guard warn, preset skipped).
-- [x] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
+- [ ] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
       initramfs.
 
 ## Blocked by
@@ -37,4 +37,6 @@ is what runs.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 7fe4813, 0ed1a98, c19f639 (ADR 0138).
+- 2026-09-27 audit: 8e200e3 (forced-skew override threaded into the guest). The
+  acceptance run is not recorded (ADR 0138 records none) — criteria left
+  unticked.

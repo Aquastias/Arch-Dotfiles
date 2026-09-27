@@ -20,9 +20,10 @@ SDDM-launched Hyprland session coverage is retained.
       greeter the install enables.
 - [x] SDDM-launched Hyprland stays covered (the compositor comes up —
       `===HYPR-SESSION-OK===`), and Plasma coverage is unchanged.
-- [x] The matrix run is green end to end.
+- [ ] The matrix run is green end to end.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
-  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).
+- 2026-09-27 audit: 0d89698 (seed-generator.sh session prober;
+  seed-generator.bats; env/kde-hyprland-* profiles). Matrix run not recorded —
+  left unticked.

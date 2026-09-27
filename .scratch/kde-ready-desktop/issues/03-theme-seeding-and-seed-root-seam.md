@@ -33,5 +33,5 @@ ticket 04 also consumes.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
-  6878699, 0bd152f, f43fabe (ADR 0087/0088).
+- 2026-09-27 audit: f8fdf38, 0bd152f. Later: Breeze-Dark heredocs replaced by
+  Captured Plasma Settings (ADR 0111, 6dfb331).

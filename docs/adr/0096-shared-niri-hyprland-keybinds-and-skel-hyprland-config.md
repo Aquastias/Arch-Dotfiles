@@ -59,7 +59,7 @@ preset so the media keys work out-of-box on that already-prepared desktop.
   niri has no scratchpad and the niri box ships no file manager. Workspace `10`
   (`Super+0`) is dropped; niri is dynamic and Hyprland's 10th is unused.
 - The niri "Important Hotkeys" overlay stays `skip-at-startup` (ADR-less, commit
-  `ce14c9e`); the now-populated overlay is still reachable via `Mod+Shift+/`.
+  `ede95ed`); the now-populated overlay is still reachable via `Mod+Shift+/`.
 - A fresh Hyprland box boots the curated keybinds but `Super+D`/`Super+E` no-op
   until the operator installs a launcher / file manager; `Super+Alt+L` works
   (hyprlock is in core).

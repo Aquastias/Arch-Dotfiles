@@ -110,7 +110,7 @@ pass. `headless/secure` installs + the encrypted root unlocks (`testtest`)
 - ❌ no SSH host keys; `/persist` holds only `root/`; curated Persist
   Mounts disabled/inactive; `rpool/ROOT/etc` never mounted.
 
-Surfaced + fixed one bug (systemd `.mount` naming, local commit `b4f2892`,
+Surfaced + fixed one bug (systemd `.mount` naming, local commit `ffa9364`,
 not pushed) and filed the remaining deeper defects against the owning
 slice: `.scratch/impermanence/issues/10-curated-etc-persist-not-
 restored.md`. Issue stays open — secure checklist not passing, so the PRD

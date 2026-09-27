@@ -1,6 +1,6 @@
 # Spec: Re-add Hyprland as an installer desktop option
 
-Status: done (847efdf)
+Status: done (6719e92)
 
 Relevant ADRs: 0062 (re-add Hyprland adapter), 0061 (impermanence uses a real
 display manager), 0060 (forbid impermanence on hybrid GPU), 0005 (DE adapter
@@ -120,7 +120,7 @@ brings bars, launchers, terminals, and theming via their own dotfiles.
   full resolved desktop set, not a config key: greetd + greetd-tuigreet
   (`tuigreet` launching Hyprland directly) when KDE is absent, SDDM when KDE is
   present. The KDE adapter is unchanged and always enables SDDM. The reverted
-  `a5b429d` behavior (greetd owning the DM even alongside KDE) is deliberately
+  `3ff7c22` behavior (greetd owning the DM even alongside KDE) is deliberately
   not restored. The rule reads the full desktop set passed to each adapter, so
   it is independent of adapter execution order.
 - **Direct-launch session override.** The adapter ships a wayland-session entry
@@ -214,6 +214,6 @@ stubs seam carries most of the feature.
   understanding.
 - The `AQ_DRM_DEVICES` mechanism and the `start-hyprland` direct-launch override
   can both be recovered from git history (the pre-removal adapter at the commit
-  before the removal, and the reverted `a5b429d` fix) rather than re-invented.
+  before the removal, and the reverted `3ff7c22` fix) rather than re-invented.
 - greetd-tuigreet, greetd, and `AQ_DRM_DEVICES` re-enter the project's
   vocabulary, reversing part of ADR 0050's vocabulary cleanup.

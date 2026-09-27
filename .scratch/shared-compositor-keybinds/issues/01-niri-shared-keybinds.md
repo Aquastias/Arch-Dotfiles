@@ -13,7 +13,7 @@ Launcher and lock keys spawn Noctalia (`noctalia msg …`).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** done (commit 5bc7669)
+**Status:** done (commit 1c5bc9d)
 
 - [x] The curated niri config carries the full shared + niri-only bind set from
       the ADR 0096 design table, in KDL dialect.
@@ -36,6 +36,6 @@ Launcher and lock keys spawn Noctalia (`noctalia msg …`).
 
 ## Comments
 
-Implemented in 5bc7669. One open verification: run
+Implemented in 1c5bc9d. One open verification: run
 `niri validate ~/.config/niri/config.kdl` on a niri box before relying on it —
 the build env has no `niri`.

@@ -28,5 +28,4 @@ font tickets reuse — "make the change easy, then make the easy change".
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
-  d665bd8 (ADR 0076).
+- 2026-09-27 audit: 77752e3.

@@ -19,12 +19,12 @@ overwrites in place. Anchored by ADR 0127.
 - [x] `.skill-lock.json` is committed alongside as the reproducible pin.
 - [x] The skills tree is seeded into `/etc/skel` and present in the stow tree.
 - [x] `pi-agent.bats` asserts the vendored skills + lockfile are present.
-- [x] On the `arch-combined` VM, pi discovers and loads the skills with no
+- [ ] On the `arch-combined` VM, pi discovers and loads the skills with no
       settings entry.
 - [x] Re-running `npx skills@latest add mattpocock/skills` in-repo overwrites the
       vendored skills (refresh works).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
-  0f0aa6f, 747d14e (ADR 0127/0128).
+- 2026-09-27 audit: 7c22c5d, 747d14e (skills-lock.json). VM check not recorded —
+  left unticked.

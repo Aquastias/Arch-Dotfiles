@@ -37,4 +37,4 @@ once `--full` is green).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).
+- 2026-09-27 audit: d2bd247 (select-changed.sh; tests/run-changed.bats).

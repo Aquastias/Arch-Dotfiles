@@ -1,6 +1,6 @@
 # Forbid impermanence on hybrid GPU
 
-Status: done (847efdf)
+Status: done (6719e92)
 
 ## Parent
 

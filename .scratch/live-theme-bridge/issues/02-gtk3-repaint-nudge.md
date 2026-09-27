@@ -30,4 +30,4 @@ via the portal. GTK4 was always relaunch-only for palette.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).
+- 2026-09-27 audit: 6d9866c, 44ae23e.

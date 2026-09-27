@@ -26,8 +26,10 @@ boot session is the first compositor in the desktop set.
       (correct sddm `[Autologin]` and greetd `[initial_session]` for each of
       niri/Hyprland/KDE), session-name→`.desktop` mapping, and default-session
       resolution.
-- [x] Hand-verified on `arch-combined` (niri↔KDE↔hyprland round-trip).
+- [ ] Hand-verified on `arch-combined` (niri↔KDE↔hyprland round-trip).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).
+- 2026-09-27 audit: 24258ce (session/logout/reboot), later ea195b8 (@blank bake
+  on impermanence guests), 51d7a0d (greeter verb). Hand-verification not
+  recorded — left unticked.

@@ -37,4 +37,5 @@ Scope is GTK3 and GTK4 only (Noctalia's native templates). GTK2 is out of scope.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 9b177d9, ea8ddd9, e832b40 (ADR 0102/0108).
+- 2026-09-27 audit: 9b177d9, ea8ddd9 (adw-gtk-theme, not adw-gtk3). Later: GTK
+  settings.ini seeded, not stowed (ADR 0104).

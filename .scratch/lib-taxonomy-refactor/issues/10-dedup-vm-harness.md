@@ -5,7 +5,7 @@ Status: done
 ## Parent
 
 `.scratch/lib-taxonomy-refactor/PRD.md` (split out of issue 07, whose
-module relocation is done — commit f25aba6)
+module relocation is done — commit 9942007)
 
 ## What to build
 

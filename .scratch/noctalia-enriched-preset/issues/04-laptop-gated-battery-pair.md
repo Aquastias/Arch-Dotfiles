@@ -22,5 +22,4 @@ The Package Resolver reflects the gate.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
-  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.
+- 2026-09-27 audit: 3f61836 (niri-adapter.bats).

@@ -25,5 +25,4 @@ that omit the key (greetd instead of SDDM).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
-  palette later changed by ADR 0101/0109.
+- 2026-09-27 audit: 554ee50 (ADR 0091 auto DM in environment.sh + resolver).

@@ -11,16 +11,21 @@ logged only. See ADR 0143.
 
 **Status:** done
 
-- [ ] Critical rules: base64/xxd output into a shell or eval; network tool
+- [x] Critical rules: base64/xxd output into a shell or eval; network tool
       in a `.install` scriptlet; persistence writes outside `$pkgdir`;
       `source=` host that is a paste site, Discord/Telegram CDN, raw IP or
       URL shortener.
-- [ ] Suspicious rules: network tools in
+- [x] Suspicious rules: network tools in
       prepare/build/package/pkgver; `SKIP` checksums on non-VCS sources;
       source owner differs from `url=`; `.SRCINFO` mismatch; obfuscation
       markers; `http://` sources; executable top-level PKGBUILD code.
-- [ ] Info rules: `-bin` package; `npm ci` / cargo / go fetches.
-- [ ] The defanged Chaos RAT fixture (attacker `source=` patch repo) and
+- [x] Info rules: `-bin` package; `npm ci` / cargo / go fetches.
+- [x] The defanged Chaos RAT fixture (attacker `source=` patch repo) and
       the chrome-reupload fixture (`curl | python`) abort.
-- [ ] The benign rust and electron fixtures pass.
-- [ ] Every rule has at least one positive and one negative bats case.
+- [x] The benign rust and electron fixtures pass.
+- [x] Every rule has at least one positive and one negative bats case.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 5763ab9, 21ef008
+  (tests/aur/rules.bats).

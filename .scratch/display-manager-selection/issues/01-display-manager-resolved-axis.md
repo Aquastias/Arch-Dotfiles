@@ -26,12 +26,13 @@ ticket lays the data spine and its guards.
       host-write / chroot-load schema list.
 - [x] The Layer Resolver treats `environment.display_manager` as a replace key
       (no new merge classification).
-- [x] Existing behavior is unchanged: the VM environment matrix stays green and
+- [ ] Existing behavior is unchanged: the VM environment matrix stays green and
       the Desktop Environment Adapters still enable their display managers.
 - [x] Resolution and validation are covered by the environment-resolution and
       environment-validation bats (prior art: the GPU `auto` cases).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
-  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).
+- 2026-09-27 audit: 0d89698 (environment-resolution/-validation.bats,
+  install-state.bats). Later: auto resolution made desktop-aware (ADR 0091,
+  74eb4fe, ba38e9d). VM matrix run not recorded — that line left unticked.

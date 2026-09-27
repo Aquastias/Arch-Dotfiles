@@ -39,5 +39,5 @@ own session and niri handles GPU selection itself.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
-  palette later changed by ADR 0101/0109.
+- 2026-09-27 audit: 554ee50 (niri adapter, niri-adapter.bats, resolver.bats,
+  seed-generator desktop-verify niri cell).

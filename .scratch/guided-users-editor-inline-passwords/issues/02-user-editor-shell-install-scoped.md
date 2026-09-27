@@ -1,6 +1,6 @@
 # User Editor screen: shell + enabled/remove, install-scoped
 
-Status: done (66bffea)
+Status: done (eaa977e)
 Type: AFK
 
 ## Parent

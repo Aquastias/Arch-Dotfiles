@@ -12,8 +12,13 @@ operator's host. See PRD stories 61-63.
 
 **Status:** done
 
-- [ ] Audit exits non-zero on an Indicator hit or artefact (bats with
+- [x] Audit exits non-zero on an Indicator hit or artefact (bats with
       fixture trees).
-- [ ] VM tests parse `verify.aur_audit` and `--verify-aur`; a failed audit
+- [x] VM tests parse `verify.aur_audit` and `--verify-aur`; a failed audit
       fails the VM run.
-- [ ] The desktop VM profile enables it; other profiles default to off.
+- [x] The desktop VM profile enables it; other profiles default to off.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 9fea5b5 (tests/aur/audit.bats,
+  vm/aur-audit-profiles.bats).

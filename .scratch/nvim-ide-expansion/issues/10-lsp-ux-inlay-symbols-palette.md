@@ -22,12 +22,12 @@ new dependencies):
 
 ## Acceptance criteria
 
-- [x] Inlay hints show by default and toggle off/on with `<leader>uh`.
-- [x] blink.cmp shows signature help while typing a call.
+- [ ] Inlay hints show by default and toggle off/on with `<leader>uh`.
+- [ ] blink.cmp shows signature help while typing a call.
 - [x] Document and workspace symbol pickers and a command palette are mapped.
 - [x] An organise-imports action is mapped and runs via the LSP.
 - [x] No new plugins are added for any of the above.
-- [x] Seam A asserts the inlay-hint default + toggle and the new maps; Seam B
+- [ ] Seam A asserts the inlay-hint default + toggle and the new maps; Seam B
       (probe) may assert inlay hints default on.
 
 ## Blocked by
@@ -36,5 +36,6 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 348bef4, d26f455. Seam A = tests/config/nvim-program.bats.
+  Runtime/Seam B checks not recorded (a 2026-09-27 host run was inconclusive —
+  host lacks the program toolchain) — those lines left unticked.

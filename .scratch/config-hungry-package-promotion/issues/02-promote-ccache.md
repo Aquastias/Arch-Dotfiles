@@ -33,5 +33,6 @@ on the Arch Wiki ccache page per `docs/agents/arch-wiki.md` and authored to
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ef5f24a, ce126da, 39ca93f, 484aa2b, 23200d7
-  (ADR 0089); Core-Owned Program filter later removed in c1d30d0.
+- 2026-09-27 audit: ce126da, 484aa2b. Later: core_owned_programs removed
+  (c1d30d0); VM fixtures drop core programs via packages.inherit:false
+  (87691a9).

@@ -18,13 +18,13 @@ in `install.sh`.
 
 ## Acceptance criteria
 
-- [ ] Each listed Program's config lives only under its `home/`; no repo-root
+- [x] Each listed Program's config lives only under its `home/`; no repo-root
       duplicate remains.
-- [ ] Each listed `install.sh` no longer seeds config into `$HOME` (package /
+- [x] Each listed `install.sh` no longer seeds config into `$HOME` (package /
       system setup only).
-- [ ] Each Program's config is applied by the Runner pass and by
+- [x] Each Program's config is applied by the Runner pass and by
       `./stow-configs`, and is skippable via `config_exclude` / `--except`.
-- [ ] `teamspeak3` static add-ons/themes stow from `home/`; the client lands
+- [x] `teamspeak3` static add-ons/themes stow from `home/`; the client lands
       styled without an `install.sh` copy.
 - [ ] VM harness confirms each Program installs and configures as before when
       not excluded.
@@ -32,3 +32,8 @@ in `install.sh`.
 ## Blocked by
 
 - `01-tracer-decouple-config-apply-kitty.md` (the apply pass must exist).
+
+## Comments
+
+- 2026-09-27 audit: ee417a5, c8442fe, 9345f1d. VM confirmation not recorded —
+  left unticked.

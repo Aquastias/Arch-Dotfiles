@@ -25,5 +25,5 @@ packaging/stow/settings drift cheaply. Modeled on `pi-agent.bats` /
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
-  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).
+- 2026-09-27 audit: 8d7adf8, 4039310 (tests/config/claude-agent.bats; green
+  2026-09-27).

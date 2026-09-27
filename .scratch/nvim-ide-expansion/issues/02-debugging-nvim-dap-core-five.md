@@ -33,7 +33,7 @@ mason-nvim-dap. PHP (xdebug) and Zig are out of scope.
       js-debug); no mason / mason-nvim-dap anywhere.
 - [x] Seam A asserts the plugins, the registry `dap` wiring, the Host Core
       packages and the `<leader>d` maps.
-- [x] Seam B: the adapter binaries resolve on PATH and `:checkhealth dap` is
+- [ ] Seam B: the adapter binaries resolve on PATH and `:checkhealth dap` is
       clean on the arch-combined VM.
 
 ## Blocked by
@@ -42,5 +42,7 @@ mason-nvim-dap. PHP (xdebug) and Zig are out of scope.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 90b5834, d26f455, aed55a1 (js-debug-dap via
+  vscode-js-debug-bin) (ADR 0140). Seam A = tests/config/nvim-program.bats.
+  Runtime/Seam B checks not recorded (a 2026-09-27 host run was inconclusive —
+  host lacks the program toolchain) — those lines left unticked.

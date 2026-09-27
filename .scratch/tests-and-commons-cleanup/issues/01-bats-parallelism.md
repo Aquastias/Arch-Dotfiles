@@ -39,7 +39,7 @@ None - can start immediately
 
 ### 2026-05-24 — measurement
 
-Landed in 4d13d60 (`run.sh` --jobs) + e701dde (`parallel` added to
+Landed in 2e6c862 (`run.sh` --jobs) + 4c2e8ae (`parallel` added to
 core packages). Re-measured on same 24-core host:
 
 - Full suite: 562 tests, **10.7s** wall (vs 57s baseline — 5.3× faster)

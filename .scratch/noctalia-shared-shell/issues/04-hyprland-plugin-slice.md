@@ -29,5 +29,4 @@ Hyprland, kept by explicit choice.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
-  b436f92 (ADR 0097).
+- 2026-09-27 audit: 51060f0 (hyprland-adapter.bats, resolver.bats).

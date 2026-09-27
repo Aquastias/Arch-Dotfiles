@@ -1,6 +1,6 @@
 # Spec: Served Neovim config (hand-rolled, Noctalia-aware)
 
-Status: done
+Status: ready-for-agent
 
 Anchors: ADR 0135 (hand-rolled nvim on lazy.nvim; system-package LSP),
 ADR 0136 (nvim follows Noctalia via its own base16 template; amends ADR 0132).

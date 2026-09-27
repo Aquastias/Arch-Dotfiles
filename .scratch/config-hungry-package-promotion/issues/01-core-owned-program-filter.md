@@ -28,5 +28,6 @@ behaviour change (an empty set filters nothing) and unblocks the promotions.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ef5f24a, ce126da, 39ca93f, 484aa2b, 23200d7
-  (ADR 0089); Core-Owned Program filter later removed in c1d30d0.
+- 2026-09-27 audit: ef5f24a. Later reverted: c1d30d0 removed the Core-Owned
+  Program concept (ADR 0089 base programs are now plain free-standing host
+  programs).

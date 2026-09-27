@@ -30,7 +30,7 @@ around them.
 - [x] Documented confirmation that git diff / less / ripgrep / fd render default
       ANSI with no change.
 - [x] neovim config is unchanged (rose-pine intact).
-- [x] VM check: htop and a `git diff` track a Noctalia palette change on a
+- [ ] VM check: htop and a `git diff` track a Noctalia palette change on a
       compositor and stay Sapphire under KDE.
 
 ## Blocked by
@@ -39,4 +39,6 @@ None - can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).
+- 2026-09-27 audit: eca3e60 (ADR 0132 records the confirmations). Later: neovim
+  replaced by the served config (ADR 0135/0136). VM check not recorded — left
+  unticked.

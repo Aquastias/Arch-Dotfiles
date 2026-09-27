@@ -38,4 +38,5 @@ Disposition table to carry into the ADR:
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).
+- 2026-09-27 audit: 4be4be1 (ADR 0142). Glossary term Claude Code Config added
+  2026-09-27.

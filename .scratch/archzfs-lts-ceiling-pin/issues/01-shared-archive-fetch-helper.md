@@ -36,5 +36,5 @@ implementation, DRY.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
-  (ADR 0137).
+- 2026-09-27 audit: 387d6b0 (lib/packages/archive.sh + archive.bats; module.sh
+  uses pkg_archive_url).

@@ -35,10 +35,10 @@ Independent of 02; may run in parallel.
 - [x] `hyprland-adapter.bats` fixtures/asserts and the Hyprland content greps in
       `noctalia-stow.bats` re-point at the part-file now holding each construct
       (autostart, cursor, IPC launcher/lock binds); niri asserts unchanged.
-- [x] `Hyprland --verify-config -c hyprland.lua` passes on the manifest +
+- [ ] `Hyprland --verify-config -c hyprland.lua` passes on the manifest +
       requires as one config; a fresh Hyprland box boots identically.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in a55e9d2, 8afa454, 43b421c, ad54241, 0178040
-  (ADR 0107).
+- 2026-09-27 audit: 43b421c. Hyprland --verify-config / fresh-box run not
+  recorded — left unticked.

@@ -22,7 +22,7 @@ lazy-loaded and each filling a distinct gap:
 ## Acceptance criteria
 
 - [x] All five plugins are declared and lazy-load on appropriate triggers.
-- [x] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
+- [ ] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
       and inline colour swatches each work.
 - [x] Seam A asserts each plugin and its lazy trigger.
 
@@ -32,5 +32,6 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 348bef4, d26f455. Seam A = tests/config/nvim-program.bats.
+  Runtime/Seam B checks not recorded (a 2026-09-27 host run was inconclusive —
+  host lacks the program toolchain) — those lines left unticked.

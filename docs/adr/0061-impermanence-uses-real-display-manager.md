@@ -5,7 +5,7 @@ Status: accepted
 ---
 
 The impermanence tty1 autologin (`_impermanence_setup_autologin`, commit
-`b3976cd`, which `exec`s `startplasma-wayland` from a passwordless tty1 login)
+`fc8f6e3`, which `exec`s `startplasma-wayland` from a passwordless tty1 login)
 and the superseded greetd-swap it replaced are removed. Impermanence hosts now
 get a real display-manager login like every other host — SDDM for KDE (and
 KDE+Hyprland), greetd+tuigreet for Hyprland-only — where the operator selects a

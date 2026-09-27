@@ -1,6 +1,6 @@
 # Spec: Noctalia as the shared niri/Hyprland shell
 
-Status: done (commits 358fb13, 02f52c6, 90fae9f, 73ed83e, 7812185, e8065a1).
+Status: done (commits 1633205, 5bdde0b, 00bf532, 51060f0, 7812185, b436f92).
 Bats green for every touched subsystem; VM boot-verify cell wired but not run
 here (needs a real VM).
 

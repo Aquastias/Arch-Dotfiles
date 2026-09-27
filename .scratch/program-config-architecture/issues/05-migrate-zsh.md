@@ -19,11 +19,11 @@ config-apply pass from the same `home/` source, not by `install.sh`.
 
 - [ ] `zsh` config lives only under its `home/`; all repo-root zsh files
       removed; the drift test's target no longer has a second author.
-- [ ] `install.sh` does not seed `$HOME` config; it warms the zinit cache via a
+- [x] `install.sh` does not seed `$HOME` config; it warms the zinit cache via a
       throwaway `ZDOTDIR` reading its own `home/`.
-- [ ] `/etc/skel` and `/root` receive the zsh config from the apply pass, from
+- [x] `/etc/skel` and `/root` receive the zsh config from the apply pass, from
       the single `home/` source.
-- [ ] `config_exclude: ["zsh"]` installs the tooling but applies no user config.
+- [x] `config_exclude: ["zsh"]` installs the tooling but applies no user config.
 - [ ] VM harness confirms a fresh user lands on a working, themed zsh with a
       warmed cache (no first-login plugin clone).
 
@@ -31,3 +31,9 @@ config-apply pass from the same `home/` source, not by `install.sh`.
 
 - `01-tracer-decouple-config-apply-kitty.md` (the apply pass + `/etc/skel` +
   `/root` seeding must exist).
+
+## Comments
+
+- 2026-09-27 audit: c8442fe. Repo-root zsh twins still exist (tracked in
+  .scratch/zsh-root-migration/) and no VM confirmation recorded — those lines
+  left unticked.

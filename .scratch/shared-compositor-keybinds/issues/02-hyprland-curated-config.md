@@ -15,7 +15,7 @@ the config is no longer an uncommitted stock file living outside the repo.
 the spec; use the same design table as ticket 01 so the two dialects stay in
 lockstep.)
 
-**Status:** done (commit 5bc7669)
+**Status:** done (commit 1c5bc9d)
 
 - [x] A curated `hyprland.conf` exists in the repo as a single stow-able source.
 - [x] Every shared bind matches the niri config's semantics on the same keys
@@ -36,5 +36,5 @@ lockstep.)
 
 ## Comments
 
-Implemented in 5bc7669. Open verification: confirm the config loads clean on
+Implemented in 1c5bc9d. Open verification: confirm the config loads clean on
 the next Hyprland session (no offline verifier exists).

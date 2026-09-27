@@ -35,7 +35,7 @@ window.
 
 ## Comments
 
-**DONE `35ac66c`.** Text fields type into fzf's own query line (an `enter`
+**DONE `d644fe6`.** Text fields type into fzf's own query line (an `enter`
 transform passes `{q}`, captured by `_ctl_apply_text`) — no `execute()`, no
 terminal drop. Per-screen `change-header`/`change-prompt` so every screen says
 how to go back. Verified by `guided-controller.bats` + a headless walk through

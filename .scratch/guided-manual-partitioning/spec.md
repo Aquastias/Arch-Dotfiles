@@ -1,6 +1,6 @@
 # Spec: Guided Manual Partitioning
 
-Status: done
+Status: ready-for-agent
 
 Relates to: ADR 0073 (guided manual partitioning disk-config kind),
 CONTEXT.md → **Manual Partitioning**. Amends ADR 0036's device-less invariant;

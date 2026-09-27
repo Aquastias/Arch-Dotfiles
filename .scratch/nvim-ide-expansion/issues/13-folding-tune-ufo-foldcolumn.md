@@ -17,10 +17,10 @@ readable foldtext (first line + `⋯ N lines`); `zK` to peek a closed fold; keep
 
 ## Acceptance criteria
 
-- [x] Files open unfolded; folds come from LSP, then treesitter, then indent.
-- [x] Fold summary shows the first line + line count; `zK` peeks a fold;
+- [ ] Files open unfolded; folds come from LSP, then treesitter, then indent.
+- [ ] Fold summary shows the first line + line count; `zK` peeks a fold;
       `zr`/`zm` fold incrementally alongside `zR`/`zM`.
-- [x] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
+- [ ] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
 - [x] Seam A asserts the ufo provider/foldlevel/foldtext config and the
       foldcolumn setting.
 
@@ -30,5 +30,7 @@ None — can start immediately.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
-  3420c46, 01818f7, aed55a1 (ADR 0140/0141).
+- 2026-09-27 audit: 348bef4, 3420c46 (fold markers by codepoint). Seam A =
+  tests/config/nvim-program.bats. Runtime/Seam B checks not recorded (a
+  2026-09-27 host run was inconclusive — host lacks the program toolchain) —
+  those lines left unticked.

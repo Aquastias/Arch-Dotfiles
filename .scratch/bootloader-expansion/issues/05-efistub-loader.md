@@ -29,10 +29,11 @@ the VM matrix axis entry.
       extra package set, esp-style, and ZFS support.
 - [x] The emit helper is a pure, unit-tested function covering multi-kernel and
       the load-options.
-- [x] The VM matrix boots an efistub install end-to-end with a multi-kernel
+- [ ] The VM matrix boots an efistub install end-to-end with a multi-kernel
       selection.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
-  6019e48, 4f97379 (ADR 0077/0078).
+- 2026-09-27 audit: 363f791, 17f15b0, 4f97379 (bootloader-efistub.sh, manifest
+  row, bats); 6019e48 adds tests/vm/profiles/single/efistub.jsonc but no
+  recorded VM boot — left unticked.

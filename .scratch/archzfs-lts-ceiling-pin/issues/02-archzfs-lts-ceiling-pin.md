@@ -63,5 +63,6 @@ backstop.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
-  (ADR 0137).
+- 2026-09-27 audit: 46b81d1 (archzfs-kernel.sh + bats,
+  ARCHZFS_LTS_CEILING_OVERRIDE), fixes 358f0a4, 1d57638; later 4ddb538 swaps
+  zfs-dkms for prebuilt zfs-linux-lts on pure-lts.

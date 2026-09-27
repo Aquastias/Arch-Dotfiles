@@ -14,6 +14,6 @@ Format-on-save and lint diagnostics follow project config per filetype.
       the project carrying the relevant config (e.g. `biome.json`).
 - [x] Program adds the formatter/linter packages (stylua, prettier, ruff; biome
       already present).
-- [x] Format-on-save produces the same output the CLI tool would; no format war
+- [ ] Format-on-save produces the same output the CLI tool would; no format war
       with the LSP.
-- [x] `:checkhealth` conform/lint sections show tools found; zero ERROR.
+- [ ] `:checkhealth` conform/lint sections show tools found; zero ERROR.

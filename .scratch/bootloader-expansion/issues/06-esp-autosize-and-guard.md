@@ -38,5 +38,5 @@ classification).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
-  6019e48, 4f97379 (ADR 0077/0078).
+- 2026-09-27 audit: 363f791, 9a3224b (lib/boot/esp-budget.sh; esp-budget.bats;
+  live Kernels/Disks warning).

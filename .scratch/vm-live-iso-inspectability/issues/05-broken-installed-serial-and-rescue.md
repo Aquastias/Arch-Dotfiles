@@ -22,9 +22,9 @@ Anchored by ADR 0099.
 - [x] `--rescue` re-inserts the install ISO + a fresh access seed on an existing
       VM and boots the live ISO with ticket-01's channels (`flow_rescue` +
       `_vm_insert_cdroms`).
-- [x] From a rescued live ISO the half-installed pool is importable — the flow
+- [ ] From a rescued live ISO the half-installed pool is importable — the flow
       prints the `zpool import` guidance.
-- [x] A booted-but-broken installed system remains SSH-reachable via the harness
+- [ ] A booted-but-broken installed system remains SSH-reachable via the harness
       key (unchanged — installer still enables ssh for the installed guest).
 - [x] Seam-1 test: the rendered payload patches `console=ttyS0,115200` onto the
       installed loader entries.

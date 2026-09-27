@@ -10,8 +10,12 @@ stories 46-49.
 
 **Status:** done
 
-- [ ] An accept without sudo fails cleanly; with sudo it writes the store.
-- [ ] `export` produces a repo-file diff containing only the new or changed
+- [x] An accept without sudo fails cleanly; with sudo it writes the store.
+- [x] `export` produces a repo-file diff containing only the new or changed
       rows.
-- [ ] The drift guard fails when the repo file and the seeded store
+- [x] The drift guard fails when the repo file and the seeded store
       diverge.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 11984fb (tests/aur/export.bats).

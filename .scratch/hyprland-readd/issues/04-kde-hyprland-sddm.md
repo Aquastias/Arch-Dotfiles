@@ -1,6 +1,6 @@
 # KDE + Hyprland co-install uses SDDM
 
-Status: done (847efdf)
+Status: done (6719e92)
 
 ## Parent
 

@@ -28,5 +28,4 @@ model only.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
-  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).
+- 2026-09-27 audit: c16f2e8, 62b6315, c485ed0 (guided/manual-menu.bats).

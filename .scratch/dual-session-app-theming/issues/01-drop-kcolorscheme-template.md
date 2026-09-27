@@ -25,8 +25,8 @@ compositor keeps Noctalia's base palette via the `qt` template and loses only
 
 ## Comments
 
-- Done in `faadbe3` (with tickets 02/03). `noctalia-stow.bats` green (24/24);
+- Done in `0f297a6` (with tickets 02/03). `noctalia-stow.bats` green (24/24);
   `config.toml` no longer lists `kcolorscheme`.
 
-- 2026-09-27 doc sync: shipped in 0f297a6, ea8ddd9, 0dfa81a (ADR 0104);
-  kcolorscheme stance later superseded by ADR 0123.
+- 2026-09-27 audit: 0f297a6. Later: 01's kcolorscheme drop superseded by ADR
+  0123 (5ecf40b) — kcolorscheme now on for every Noctalia box.

@@ -30,4 +30,5 @@ with 01/02 for the full combined-box story.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).
+- 2026-09-27 audit: acdd161 (kde-adapter.bats); VM verification recorded in ADR
+  0116. Later: reset widened and renamed kde-session-reset (ADR 0123, 5ecf40b).

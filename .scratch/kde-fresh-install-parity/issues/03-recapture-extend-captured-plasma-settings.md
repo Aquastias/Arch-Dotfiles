@@ -34,6 +34,4 @@ whole-file copy). Night light is finalized to follow sunrise/sunset offline.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 8a32898, 54ecfba, 41a2188, 378db0b, a96edbc,
-  e79ca17, 4352be4, dfc347d, 8f3795b, badf9e0, cd8f5a0, 840dfea, f598ff0 (ADR
-  0118-0121).
+- 2026-09-27 audit: e79ca17, badf9e0, 8f3795b (kde-adapter.bats).

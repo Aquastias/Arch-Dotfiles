@@ -19,4 +19,5 @@ the Breeze Dark look is unchanged.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).
+- 2026-09-27 audit: 7598539 (install-kde.jsonc aur, skel kcminputrc
+  cursorTheme/cursorSize 24, kde.sh ~/.icons/default; kde-adapter.bats).

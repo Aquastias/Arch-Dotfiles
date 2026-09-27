@@ -24,8 +24,8 @@ of them.
 ## Progress
 
 DONE + VM-verified 2026-06-28 (pure-ext4 install boots headless; ZFS path
-regression-verified behavior-preserving). Commits: slice 1 `1a6a922`
-(FS-agnostic boot path), slice 2 `82865d9` (ext4 adapter + gating).
+regression-verified behavior-preserving). Commits: slice 1 `dd197b0`
+(FS-agnostic boot path), slice 2 `4c64b0e` (ext4 adapter + gating).
 - [x] **Non-ZFS partition planner** (`lib/layout/nonzfs/plan.sh`) — ESP+swap+root
       remainder math + floor validation + partition slots
       (`tests/layout/nonzfs-plan.bats`).

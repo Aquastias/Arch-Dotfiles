@@ -17,10 +17,13 @@ Noctalia environment — the `hyprland.conf` rewrite)
 - [x] The seeded `hyprland.conf` sets `HYPRCURSOR_THEME=Bibata-Modern-Ice` +
       `HYPRCURSOR_SIZE=24` (primary) and keeps `XCURSOR_THEME` as the fallback.
 - [x] `~/.icons/default` is seeded to inherit `Bibata-Modern-Ice`.
-- [x] Setting `HYPRCURSOR_THEME` alone applies the cursor on a fresh login; if a
+- [ ] Setting `HYPRCURSOR_THEME` alone applies the cursor on a fresh login; if a
       nudge is required, an `exec-once` is added rather than a manual step.
 - [x] `hyprland-adapter.bats` asserts the hyprcursor env and the aur declaration.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).
+- 2026-09-27 audit: 7598539, b436f92 (install-hyprland.jsonc aur,
+  HYPRCURSOR_THEME/XCURSOR_THEME — now in .config/hypr/conf.d/environment.lua
+  after ADR 0105/0107 — plus hyprctl setcursor in autostart.lua). Fresh-login
+  behaviour not recorded — left unticked.

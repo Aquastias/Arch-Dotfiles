@@ -32,5 +32,6 @@ plugin bool off recovers the lean shell.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
-  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.
+- 2026-09-27 audit: 06ab093, a30056f (niri-adapter.bats, resolver.bats). Later:
+  bitwarden/mini-docker dropped (ADR 0094); set now in install-noctalia.jsonc
+  (ADR 0097).

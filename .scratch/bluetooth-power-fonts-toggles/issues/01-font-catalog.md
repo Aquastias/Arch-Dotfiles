@@ -54,5 +54,5 @@ package resolution incl. AUR routing → matrix Axis Registry classification.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
-  (ADR 0080).
+- 2026-09-27 audit: ec6e37a, 01a31ab (lib/config/fonts.bats, matrix registry
+  inert|light). Later: the General category was renamed System (ADR 0081).

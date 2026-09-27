@@ -31,10 +31,10 @@ fields, or defaults.
 
 ## Comments
 
-**DONE.** Per-screen headers/prompts + in-fzf Add-persist (`824ec4a`), then the
+**DONE.** Per-screen headers/prompts + in-fzf Add-persist (`399dcee`), then the
 HITL polish rounds: flicker-free toggles (reload-sync) + rounded installer
-border + verbose layout label (`fa06e04`); ASCII layout-graph **preview** pane
-(`ef8a8bf`); filterable keymap/locale/timezone big lists with a selection
-side-panel (`a490fda`); the data-pools editor (`153c57b`) reached under the
-layout option (`614e574`). Grew well past the original "headers + preview" scope
+border + verbose layout label (`1a3df41`); ASCII layout-graph **preview** pane
+(`f7d295f`); filterable keymap/locale/timezone big lists with a selection
+side-panel (`b16cd12`); the data-pools editor (`a93222b`) reached under the
+layout option (`ed77136`). Grew well past the original "headers + preview" scope
 via direct operator feedback. On main, full suite green.

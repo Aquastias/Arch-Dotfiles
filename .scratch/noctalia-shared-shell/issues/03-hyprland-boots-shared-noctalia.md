@@ -40,5 +40,5 @@ This supersedes ADR 0096's app-layer stance.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
-  b436f92 (ADR 0097).
+- 2026-09-27 audit: 00bf532 (hyprland-adapter.bats). Later: hyprland.conf became
+  Lua (ADR 0105) split into conf.d (ADR 0107).

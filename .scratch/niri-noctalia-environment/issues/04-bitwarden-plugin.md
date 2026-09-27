@@ -31,5 +31,5 @@ seeding, and `install-niri.jsonc` must exist).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
-  palette later changed by ADR 0101/0109.
+- 2026-09-27 audit: 554ee50, 9145785, b3903a1. Later removed: bitwarden dropped
+  from the default set (ADR 0094, 0662a9e).

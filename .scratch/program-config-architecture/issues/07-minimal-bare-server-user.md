@@ -26,15 +26,20 @@ Decision to make (recommended: option A):
 
 ## Acceptance criteria
 
-- [ ] The A-vs-B decision is recorded (comment on this issue or a short ADR).
-- [ ] `minimal` installs no workstation programs for any user (no `kitty`,
+- [x] The A-vs-B decision is recorded (comment on this issue or a short ADR).
+- [x] `minimal` installs no workstation programs for any user (no `kitty`,
       `yazi`, `virt-manager`, `searxng`/`podman`, `pi`, `claude`, `docker`,
       `teamspeak3`).
-- [ ] `minimal`'s user has only server-appropriate groups and no stray
+- [x] `minimal`'s user has only server-appropriate groups and no stray
       workstation `sudo`/group grants beyond what a server needs.
-- [ ] CONTEXT.md `Minimal Profile` entry updated to reflect the end-to-end
+- [x] CONTEXT.md `Minimal Profile` entry updated to reflect the end-to-end
       minimal state.
 
 ## Blocked by
 
 - `03-programs-inherit-bareness.md`
+
+## Comments
+
+- 2026-09-27 audit: c8442fe (users/server with programs_inherit:false). CONTEXT
+  Minimal Profile entry corrected in the 2026-09-27 doc sync.

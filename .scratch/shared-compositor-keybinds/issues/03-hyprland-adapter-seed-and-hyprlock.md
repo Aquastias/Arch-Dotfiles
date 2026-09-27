@@ -13,7 +13,7 @@ or playerctl — ADR 0096 Q15-a); `hyprlock` is the sole exception.
 
 **Blocked by:** Ticket 02 (needs the curated `hyprland.conf` to stage & seed).
 
-**Status:** done (commit 5bc7669)
+**Status:** done (commit 1c5bc9d)
 
 - [x] The Hyprland adapter seeds the curated `hyprland.conf` to
       `/etc/skel/.config/hypr/`, as a verbatim copy of the single repo source.
@@ -31,5 +31,5 @@ or playerctl — ADR 0096 Q15-a); `hyprlock` is the sole exception.
 
 ## Comments
 
-Implemented in 5bc7669. Fully covered by the hyprland-adapter bats suite (all
+Implemented in 1c5bc9d. Fully covered by the hyprland-adapter bats suite (all
 green); no open verification.

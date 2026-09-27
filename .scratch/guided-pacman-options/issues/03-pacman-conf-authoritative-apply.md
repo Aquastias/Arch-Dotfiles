@@ -32,4 +32,6 @@ existing chroot copy. See ADR 0074.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 30f1f0e (ADR 0074).
+- 2026-09-27 audit: 30f1f0e (pacman-apply.bats, guided-menu.bats,
+  install-config.bats, profile-loader.bats). Later: bools became in-place Cycle
+  Fields (ADR 0075, 83eb30f).

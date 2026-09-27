@@ -1,6 +1,6 @@
 # Hyprland-only install, end-to-end
 
-Status: done (847efdf)
+Status: done (6719e92)
 
 ## Parent
 

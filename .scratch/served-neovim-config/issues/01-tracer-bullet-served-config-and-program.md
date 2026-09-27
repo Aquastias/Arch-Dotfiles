@@ -17,9 +17,9 @@ slice cuts the whole path (program + config + theme + test) thin.
       the mandated `set -Eeuo pipefail` + trap shape and no `systemctl start`.
 - [x] Config is single-source under the program's `home/.config/nvim/`; no
       repo-root duplicate is introduced.
-- [x] nvim boots on `lazy.nvim` (not LazyVim, not `vim.pack`) on stable 0.12.x.
+- [ ] nvim boots on `lazy.nvim` (not LazyVim, not `vim.pack`) on stable 0.12.x.
 - [x] Default look is Catppuccin Mocha with a sapphire accent; `termguicolors`
       on; unused providers (perl/ruby/node) disabled so they do not warn.
 - [x] `nvim-program.bats` skeleton asserts the program shape and single-source
       config, cloned from `kitty-program.bats`/`pi-agent.bats`.
-- [x] Core `:checkhealth` (nvim, treesitter) reports zero ERROR.
+- [ ] Core `:checkhealth` (nvim, treesitter) reports zero ERROR.

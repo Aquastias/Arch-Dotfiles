@@ -22,10 +22,10 @@ tokens from the palette's `terminal_*` roles. Anchored by ADR 0128 / ADR 0109.
       and present in the stow tree.
 - [x] `settings.json` sets `theme: "noctalia"`.
 - [x] `pi-agent.bats` asserts the seeded accent `#74c7ec` and the `theme` key.
-- [x] On the `arch-combined` VM, the pi TUI renders Catppuccin Mocha Sapphire,
+- [ ] On the `arch-combined` VM, the pi TUI renders Catppuccin Mocha Sapphire,
       including under a KDE session.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
-  0f0aa6f, 747d14e (ADR 0127/0128).
+- 2026-09-27 audit: 1d53bad (pi-agent.bats). VM check not recorded — left
+  unticked.

@@ -22,5 +22,4 @@ a KDE-tied AUR tool living in the KDE adapter's `aur` block.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 63c1c48, 7cec055 (ADR 0094); stow delivery
-  superseded by skel seeding (ADR 0095).
+- 2026-09-27 audit: 0662a9e (octopi moved to install-kde.jsonc aur).

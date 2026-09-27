@@ -16,14 +16,19 @@ piped into a shell or interpreter. See PRD stories 12, 13, 17-19, 34, 53, 59,
 
 **Status:** done
 
-- [ ] The PKGBUILD is never sourced or run through `makepkg`; a bats test
+- [x] The PKGBUILD is never sourced or run through `makepkg`; a bats test
       proves top-level PKGBUILD code does not execute during vetting.
-- [ ] The rules live in a data file; adding a rule needs no code change.
-- [ ] The defanged Atomic Arch fixture (`npm install atomic-lockfile` in
+- [x] The rules live in a data file; adding a rule needs no code change.
+- [x] The defanged Atomic Arch fixture (`npm install atomic-lockfile` in
       build or `.install`) exits non-zero with a critical finding.
-- [ ] The `curl | sh` fixture exits non-zero.
-- [ ] The benign electron fixture (`npm ci` / bare `npm install`) exits 0,
+- [x] The `curl | sh` fixture exits non-zero.
+- [x] The benign electron fixture (`npm ci` / bare `npm install`) exits 0,
       with at most an info finding.
-- [ ] Findings output matches the one-line format; a critical finding
+- [x] Findings output matches the one-line format; a critical finding
       always aborts.
-- [ ] The no-python guard passes.
+- [x] The no-python guard passes.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 5763ab9 (hook + rules.tsv;
+  tests/aur/aur-vet.bats).

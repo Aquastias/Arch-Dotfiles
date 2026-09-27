@@ -16,10 +16,10 @@ empty, curated Persist Mounts not active. SOPS happens to still work only
 because its age key was baked into install-time state.
 
 A precursor systemd `.mount` naming bug was already fixed locally
-(commit `b4f2892`, NOT pushed). That fix is necessary but NOT sufficient;
+(commit `ffa9364`, NOT pushed). That fix is necessary but NOT sufficient;
 the defects below remain.
 
-## Symptoms (VM-observed, origin/main @530a9c6 + b4f2892)
+## Symptoms (VM-observed, origin/main @65b2d8e + ffa9364)
 
 - `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` → No such file.
 - `ls /persist` → only `root/`; `/persist/etc` does not exist.
@@ -79,7 +79,7 @@ persisted dirs exist on `/persist` when `@blank` is taken.
 
 ## Blocked by
 
-(none — but see the precursor naming fix, local commit `b4f2892`)
+(none — but see the precursor naming fix, local commit `ffa9364`)
 
 ## Comments
 
@@ -88,7 +88,7 @@ persisted dirs exist on `/persist` when `@blank` is taken.
 3/4 issue-07 gates pass (`single/plain`, `data-pools/reorder`,
 `desktop/kde`). `headless/secure` install + encrypted boot pass; the
 persistence checklist is what fails, per the symptoms above. Naming fix
-(`b4f2892`) verified to make `etc-ssh.mount` load; deeper causes 1 & 2
+(`ffa9364`) verified to make `etc-ssh.mount` load; deeper causes 1 & 2
 remain. bats suite 1010 green with the naming fix.
 
 ### 2026-06-12 — triage → ready-for-agent
@@ -149,7 +149,7 @@ after reboot:
   the staged content.
 - `imp_write_mount_unit` / Persist Mount naming — already corrected to the
   systemd `.mount` contract (`<esc>.mount`, not `persist-<esc>.mount`) in
-  **local commit `b4f2892` (NOT pushed)**; build on it / land it.
+  **local commit `ffa9364` (NOT pushed)**; build on it / land it.
 - ADR 0008 § Consequences says operators discover mounts via
   `systemctl list-units 'persist-*.mount'` — that glob is now wrong (the
   units are `<esc>.mount`; the `status` verb filters by `What=` under the
@@ -175,7 +175,7 @@ after reboot:
       (final boot proof runs through that human VM gate).
 
 **Out of scope:**
-- The systemd `.mount` naming fix itself (done in `b4f2892`).
+- The systemd `.mount` naming fix itself (done in `ffa9364`).
 - Redesigning the persist/rollback model — ADR 0008 stands; this is about
   conforming the implementation to it.
 - Non-`/etc` rolled-back paths beyond confirming they mount.
@@ -191,15 +191,15 @@ AFK agent typically can't run — leave that final tick to the human gate.
 Implemented Approach A + the issues each step exposed. Suite 1010→1008
 green throughout. **Local commits only (not pushed):**
 
-- `b4f2892` Name persist `.mount` units after `Where=` (systemd contract).
-- `0c81690` Create Rollback Datasets early (`canmount=on`) in the layout
+- `ffa9364` Name persist `.mount` units after `Where=` (systemd contract).
+- `dd1de98` Create Rollback Datasets early (`canmount=on`) in the layout
   phase (`imp_create_rollback_datasets`, called from `_create_os_datasets`;
   removed the late `canmount=noauto` creation from the Chroot Module). Fixes
   cause #1 — datasets now mount.
-- `b2d3bd7` `persist_stage_in_move`: move CONTENTS when the source is a
+- `4b336e1` `persist_stage_in_move`: move CONTENTS when the source is a
   mountpoint (`/root` is both a Rollback Dataset + curated dir → `mv`
   EBUSY).
-- `ca5ae0d` Create the Persist Dataset early too (`imp_create_persist_
+- `5a027a7` Create the Persist Dataset early too (`imp_create_persist_
   dataset`) so it lands in the zfs-list.cache + mounts before
   local-fs.target.
 
@@ -231,9 +231,9 @@ dataset's `@blank` with real install-time values. Proposed next step:
 
 Two more local commits (still NOT pushed); suite 1008 green:
 
-- `ca5ae0d` Create the Persist Dataset early too (`imp_create_persist_
+- `5a027a7` Create the Persist Dataset early too (`imp_create_persist_
   dataset`) → cached + mounts before local-fs.target.
-- `eacd50e` Freeze `CURATED_FILES` in `@blank` (COPY not MOVE — they stay in
+- `028e426` Freeze `CURATED_FILES` in `@blank` (COPY not MOVE — they stay in
   `/etc`) + `systemd-machine-id-setup` before `@blank`. Fixes the firstboot
   trigger: early-read files (machine-id/hostname/locale/fstab/…) are read by
   PID 1 before any `.mount`, so they can't be bind-restored.
@@ -285,10 +285,10 @@ The auto-activation cause was an **ordering cycle**:
 units' `After=systemd-tmpfiles-setup.service` + `Before=local-fs.target`
 formed a cycle → systemd dropped them (`inactive (dead)`, never started).
 
-- `d3f850e` Order the persist binds `After=zfs-mount.service` (not tmpfiles)
+- `f85aa23` Order the persist binds `After=zfs-mount.service` (not tmpfiles)
   → no cycle, and the datasets are mounted first. The mount auto-creates its
   own target dir, so tmpfiles isn't needed.
-- `e59e1a5` Bootstrap now STAGES (copies) `/etc/systemd/system` +
+- `29fcd98` Bootstrap now STAGES (copies) `/etc/systemd/system` +
   `/etc/tmpfiles.d` onto `/persist`, so the bind exposes install-time service
   enablements instead of covering them with an empty dir.
 
@@ -316,9 +316,9 @@ is resolved.**
 - `sshd.service` `inactive` is EXPECTED — it's socket-activated
   (`sshd.socket` listens; the service starts on connect).
 
-7 commits total (`b4f2892`..`e59e1a5`). bats green (1009). NOTE: as of
-2026-06-13 `origin/main` locally = `eacd50e`, i.e. the first 5 appear pushed
-externally; `d3f850e` + `e59e1a5` are local-only.
+7 commits total (`ffa9364`..`29fcd98`). bats green (1009). NOTE: as of
+2026-06-13 `origin/main` locally = `028e426`, i.e. the first 5 appear pushed
+externally; `f85aa23` + `29fcd98` are local-only.
 
 ### 2026-06-13 — sops-runtime auto-start fixed (vendor wants-symlink)
 
@@ -371,7 +371,7 @@ unless the VM gate shows otherwise.
 > *This was generated by AI during triage.*
 
 Ran the real gate: `vm.sh --profile headless/secure --recreate` on libvirt
-(KVM), cloning `origin/main` @ `49dce9f` (includes the fix). Fresh 2-disk
+(KVM), cloning `origin/main` @ `ec14f9e` (includes the fix). Fresh 2-disk
 mirror + ZFS native encryption + impermanence + SOPS. Install OK → encrypted
 root unlocked (`testtest`) → **booted CLEAN to `archlinux login:`** (no dbus
 loop, no firstboot). Logged in `vm-test`; evidence:

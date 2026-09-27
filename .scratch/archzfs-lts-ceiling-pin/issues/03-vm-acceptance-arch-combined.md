@@ -21,11 +21,11 @@ so this gate stays a real regression test.
 ## Acceptance criteria
 
 - [x] A full `arch-combined` VM recreation completes the install successfully.
-- [x] The install log shows the held-back `warn` (pin fired) when the mirror
+- [ ] The install log shows the held-back `warn` (pin fired) when the mirror
       exceeds the ceiling, or a clean silent no-op when mirror == ceiling.
-- [x] A recreation with the forced-skew override set to a fake-low ceiling still
+- [ ] A recreation with the forced-skew override set to a fake-low ceiling still
       completes: the pin holds `linux-lts` back and DKMS builds cleanly.
-- [x] No regression on the happy path — an install where mirror == ceiling
+- [ ] No regression on the happy path — an install where mirror == ceiling
       behaves as before.
 
 ## Blocked by
@@ -34,5 +34,6 @@ so this gate stays a real regression test.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
-  (ADR 0137).
+- 2026-09-27 audit: 8e200e3 threads the forced-skew override into the VM guest.
+  VM runs evidenced only by follow-up fixes (358f0a4, 1d57638); no recorded pass
+  — criteria left unticked.

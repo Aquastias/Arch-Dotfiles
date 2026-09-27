@@ -58,5 +58,7 @@ autostart → matrix Axis Registry classification.
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
-  (ADR 0080).
+- 2026-09-27 audit: 79db4f3, 57dbacb (config/bluetooth.bats, matrix registry).
+  Later: own category merged into Daemons (ADR 0081), system_programs renamed
+  host_programs (ADR 0085), Packages picker gave way to Menu-Owned filtering
+  (ADR 0086).

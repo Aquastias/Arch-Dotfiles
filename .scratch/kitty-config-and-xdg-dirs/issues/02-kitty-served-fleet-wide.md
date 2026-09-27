@@ -31,5 +31,5 @@ stows, ADR 0095).
 
 ## Comments
 
-- 2026-09-27 doc sync: shipped in deaa594, db20d11, 0cc3ff5, 09d47f3, 1b28de0,
-  66bceb5 (ADR 0130/0131).
+- 2026-09-27 audit: db20d11, b9390c8 (kitty-program.bats). Later: config moved
+  to the program's home/ (ADR 0134, ee417a5); the drift test became moot.

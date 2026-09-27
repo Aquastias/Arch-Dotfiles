@@ -15,11 +15,16 @@ a live fetch at runtime. See PRD stories 15, 16, 54-56.
 
 **Status:** done
 
-- [ ] Any npm/domain Indicator hit is critical.
-- [ ] A package-name hit inside the window is critical; outside the window
+- [x] Any npm/domain Indicator hit is critical.
+- [x] A package-name hit inside the window is critical; outside the window
       it is suspicious (the clock is overridable in tests).
-- [ ] Every Indicator line carries a source; a bats guard rejects lines
+- [x] Every Indicator line carries a source; a bats guard rejects lines
       without one.
-- [ ] The refresh command writes a reviewable diff to the repo and runs
+- [x] The refresh command writes a reviewable diff to the repo and runs
       nothing at vet time.
-- [ ] No lenucksi code is vendored (it is GPL-3 and Python); data only.
+- [x] No lenucksi code is vendored (it is GPL-3 and Python); data only.
+
+## Comments
+
+- 2026-09-27 audit: criteria checked against 8b32ec6, 072fd04
+  (tests/aur/indicators.bats).
