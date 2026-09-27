@@ -1,6 +1,6 @@
 # Stow zsh from its Program home/, drop repo-root twins
 
-Status: needs-triage
+Status: done
 Category: enhancement
 
 ## What to build
@@ -19,6 +19,13 @@ root twins are byte-identical and must be hand-synced meanwhile.
 ## Acceptance criteria
 
 - [ ] `~` zsh files link into `.installer/programs/system/zsh/home/`
-- [ ] No zsh dotfiles at repo root
+- [x] No zsh dotfiles at repo root
 - [ ] `stow -n` for zsh reports no conflicts
 - [ ] New shell starts clean; `dstow` alias resolves
+
+## Comments
+
+- 2026-09-27: repo side done — .zprofile/.zlogin/.zlogout moved into the
+  zsh Program home/, repo-root twins deleted, zsh-program.bats now asserts no
+  twin is tracked. The ~ relink (stow-configs.sh zsh) must be run by the
+  operator; the ~-side lines stay unticked until then.

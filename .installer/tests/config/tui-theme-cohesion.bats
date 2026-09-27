@@ -16,7 +16,7 @@ setup() {
 }
 
 @test "bat renders via the terminal ANSI palette (BAT_THEME=ansi)" {
-  grep -q 'export BAT_THEME="ansi"' "$REPO/.zsh/env/exports.zsh"
+  grep -q 'export BAT_THEME="ansi"' "$REPO/.installer/programs/system/zsh/home/.zsh/env/exports.zsh"
 }
 
 @test "neovim follows via its own template now, not rose-pine (ADR 0136)" {

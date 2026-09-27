@@ -32,4 +32,4 @@ Root-shell override accepted in [[ADR 0146]].
 
 ## Follow-up
 
-Repo-root zsh twins still exist — `.scratch/zsh-root-migration/`.
+Repo-root zsh twins removed in `.scratch/zsh-root-migration/` (2026-09-27).

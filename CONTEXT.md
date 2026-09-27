@@ -485,15 +485,15 @@ applies first, then the user profile per the ADR 0057 per-key classification
 `programs_exclude[]`; the two throwaway VM test users use it to drop the
 interactive userland (zsh, kitty, virt-manager, pi, claude, …).
 
-The default `shell` is **`/bin/zsh`**: the fleet shell config is zsh, served
-by the `zsh` [[User Program]] in User Core's `programs` (its `home/` payload —
-`.zshrc`, `.zshenv`, `.zsh/`, `.zsh_aliases`, `.p10k.zsh` — placed by the
-[[Config Apply Pass]], ADR 0134; live palette via the [[Zsh Theme Template]],
-ADR 0129). `zsh` itself is not declared as a package:
-`ensure_login_shell_installed` pacman-installs a user's login shell when the
-binary is missing. The program pre-warms the zinit plugin cache at install, so
-first login needs no network. The two throwaway VM test users
-(`users/vm/test`, `users/vm/data`) exclude zsh and stay on bash.
+The default `shell` is **`/bin/zsh`**: the fleet shell config is zsh, served by
+the `zsh` [[User Program]] in User Core's `programs` (its `home/` payload —
+`.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
+`.zsh_aliases`, `.p10k.zsh` — placed by the [[Config Apply Pass]], ADR 0134;
+live palette via the [[Zsh Theme Template]], ADR 0129). `zsh` itself is not
+declared as a package: `ensure_login_shell_installed` pacman-installs a user's
+login shell when the binary is missing. The program pre-warms the zinit plugin
+cache at install, so first login needs no network. The two throwaway VM test
+users (`users/vm/test`, `users/vm/data`) exclude zsh and stay on bash.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in
@@ -1917,14 +1917,12 @@ user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
 Layout groups files by destination path, not by program. Retired by ADR 0134:
 config now lives per-program in Program Config Trees (`home/`), applied by the
 Config Apply Pass and `stow-configs.sh`. The repo-root duplicates were removed
-program-by-program, except two leftovers: `.claude/settings.json` (a dev-sandbox
-bind-mount, kept in sync with the claude Program by a drift guard) and the
-zsh twins (`.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
-`.zsh_aliases`, `.p10k.zsh`) still linked from the operator's `~` — hand-synced
-until `.scratch/zsh-root-migration/` lands. `.claude` stays tracked
-**selectively** (ADR 0133): only `settings.json` / `scripts/statusline.sh` /
-`CLAUDE.md` were ever committed (the latter two now under the claude Program's
-`home/`); Claude Code's runtime state stays gitignored, never wholesale.
+program-by-program; the one leftover is `.claude/settings.json` (a dev-sandbox
+bind-mount, kept in sync with the claude Program by a drift guard). `.claude`
+stays tracked **selectively** (ADR 0133): only `settings.json` /
+`scripts/statusline.sh` / `CLAUDE.md` were ever committed (the latter two now
+under the claude Program's `home/`); Claude Code's runtime state stays
+gitignored, never wholesale.
 
 ### Program Config Tree
 A Program's user-side config under `.installer/programs/<category>/<name>/home/`

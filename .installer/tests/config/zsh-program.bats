@@ -11,10 +11,10 @@ setup() {
   HOMESEED="$PROG/home"
   SEED_FZF="$PROG/themes/noctalia.zsh"
   SEED_P10K="$PROG/themes/p10k-accent.zsh"
-  ZSHRC="$REPO/.zshrc"
-  P10KSRC="$REPO/.zsh/vendors/p10k/default.zsh"
-  ZSTYLE="$REPO/.zsh/zstyle/default.zsh"
-  ALIASES="$REPO/.zsh_aliases"
+  ZSHRC="$HOMESEED/.zshrc"
+  P10KSRC="$HOMESEED/.zsh/vendors/p10k/default.zsh"
+  ZSTYLE="$HOMESEED/.zsh/zstyle/default.zsh"
+  ALIASES="$HOMESEED/.zsh_aliases"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
   GI="$REPO/.gitignore"
   CT="$REPO/.config/noctalia/config.toml"
@@ -65,13 +65,12 @@ setup() {
   grep -q 'sudo chsh -s /usr/bin/zsh root' "$INSTALL"
 }
 
-@test "bundled home/ config is byte-identical to the repo root (drift)" {
+@test "home/ is the single zsh source: no repo-root twins remain" {
   [ -d "$HOMESEED" ]
-  # every seeded file matches its committed repo-root source, no drift
-  # (themes/ is generated/seed-only, excluded from the bundle)
-  diff -r -x themes "$REPO/.zsh" "$HOMESEED/.zsh"
-  for f in .zshrc .zshenv .zsh_aliases .p10k.zsh; do
-    diff -q "$REPO/$f" "$HOMESEED/$f"
+  for f in .zshrc .zshenv .zprofile .zlogin .zlogout .zsh_aliases \
+           .p10k.zsh .zsh; do
+    [ -e "$HOMESEED/$f" ]
+    [ -z "$(git -C "$REPO" ls-files -- "$f")" ]
   done
   # the generated theme dir is NOT bundled (seeded separately, gitignored)
   [ ! -e "$HOMESEED/.zsh/themes" ]
@@ -110,8 +109,8 @@ setup() {
 
 @test "generated theme is seed-only: gitignored, never in the stow tree" {
   grep -q '^\.zsh/themes/' "$GI"
-  [ ! -e "$REPO/.zsh/themes/noctalia.zsh" ]
-  [ ! -e "$REPO/.zsh/themes/p10k-accent.zsh" ]
+  [ ! -e "$HOMESEED/.zsh/themes/noctalia.zsh" ]
+  [ ! -e "$HOMESEED/.zsh/themes/p10k-accent.zsh" ]
 }
 
 # ── Noctalia live-follow wiring ──────────────────────────────────────────────
@@ -157,14 +156,14 @@ setup() {
 @test "nvm is lazy OMZ-only with NVM_DIR set — no eager init-nvm.sh source" {
   grep -q "zstyle ':omz:plugins:nvm' lazy yes" "$ZSTYLE"
   # NVM_DIR points the OMZ plugin at Arch's /usr/share/nvm (else nvm is absent)
-  grep -q 'export NVM_DIR="/usr/share/nvm"' "$REPO/.zsh/env/exports.zsh"
-  ! grep -rq '/usr/share/nvm/init-nvm.sh' "$REPO/.zsh" "$ZSHRC"
-  [ ! -e "$REPO/.zsh/vendors/nodejs" ]
+  grep -q 'export NVM_DIR="/usr/share/nvm"' "$HOMESEED/.zsh/env/exports.zsh"
+  ! grep -rq '/usr/share/nvm/init-nvm.sh' "$HOMESEED/.zsh" "$ZSHRC"
+  [ ! -e "$HOMESEED/.zsh/vendors/nodejs" ]
 }
 
 @test "dead config files are removed" {
-  [ ! -e "$REPO/.zsh/welcome" ]
-  [ ! -e "$REPO/.zsh/env/evals.zsh" ]
+  [ ! -e "$HOMESEED/.zsh/welcome" ]
+  [ ! -e "$HOMESEED/.zsh/env/evals.zsh" ]
 }
 
 @test "alias pruning: web + ckb-reload cut, anime + freshclam kept" {
@@ -188,7 +187,7 @@ setup() {
 }
 
 @test "eza follows ANSI-16 via an EZA_COLORS export (no hex)" {
-  local exp="$REPO/.zsh/env/exports.zsh"
+  local exp="$HOMESEED/.zsh/env/exports.zsh"
   grep -q 'export EZA_COLORS=' "$exp"
   # UI fields (perms/size/date/git) are set — not left on eza defaults
   grep -qE 'EZA_COLORS=.*(ur=|sn=|da=|gm=)' "$exp"
@@ -199,7 +198,7 @@ setup() {
 }
 
 @test "p10k context is ANSI red/yellow, not a hardcoded Catppuccin hex" {
-  local p10k="$REPO/.p10k.zsh"
+  local p10k="$HOMESEED/.p10k.zsh"
   # the two Catppuccin Mocha hexes are gone from the context segments
   ! grep -q "#f38ba8" "$p10k"
   ! grep -q "#fab387" "$p10k"
