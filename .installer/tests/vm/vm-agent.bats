@@ -107,7 +107,9 @@ _stub_io='
   w="$(grep -n 'zz-agent-autologin.conf' <<<"$output" | head -1 | cut -d: -f1)"
   b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
   r="$(grep -n '^reboot$' <<<"$output" | cut -d: -f1)"
-  [ -n "$w" ] && [ -n "$b" ] && [ -n "$r" ]
+  [ -n "$w" ]
+  [ -n "$b" ]
+  [ -n "$r" ]
   (( w < b && b < r ))
 }
 
@@ -118,6 +120,7 @@ _stub_io='
   w="$(grep -n 'rm -f /etc/sddm.conf.d/zz-agent-autologin.conf' <<<"$output" \
     | cut -d: -f1)"
   b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
-  [ -n "$w" ] && [ -n "$b" ]
+  [ -n "$w" ]
+  [ -n "$b" ]
   (( w < b ))
 }
