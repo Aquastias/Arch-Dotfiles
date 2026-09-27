@@ -1,0 +1,45 @@
+// VM test (ADR 0100): niri + Hyprland, both on the Noctalia work shell, with a
+// real graphical-login proof per session plus the wlroots QoL probes. SDDM is
+// pinned (not the KDE-free auto greetd) because the test prober drives logins
+// through SDDM Autologin; the DM choice does not change what the shell does.
+//
+// Per session the prober emits ===<TAG>-SESSION-OK===, then records
+// ===<TAG>-POLKIT-OK agents=<procs>=== (or -FAIL) and ===<TAG>-IDLE-OK=== (or
+// -FAIL). The host asserts the logins and only records the probe markers: they
+// answer the ADR-0100 polkit gate (does Noctalia's own agent register, and is
+// there ever a second one?).
+{
+  "name": "arch-zfs-test-env-wlroots-sessions",
+  "hardware": { "disks": [40], "ram_mb": 8192, "vcpus": 4 },
+  "timeouts": { "boot": 1200 },
+  "install": {
+    "system": {
+      "hostname": "vm-wlroots-sessions",
+      "locale":   "en_US.UTF-8",
+      "timezone": "UTC",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "environment": {
+      "desktop": ["niri", "hyprland"], "gpu": "auto",
+      "display_manager": "sddm", "wayland_shell": "noctalia"
+    },
+    "users":        ["aquastias"],
+    "post_install": { "backup": false, "security": false },
+    "mode":              "single",
+    "disk":              "/dev/sda",
+    "ashift":            12,
+    "os_size":           "32G",
+    "os_pool_name":      "rpool",
+    "storage_pool_name": "dpool",
+    "storage_mount":     "/data",
+    "storage_groups":    []
+  },
+  "verify": { "boot": true, "sessions": ["niri", "hyprland"] }
+}

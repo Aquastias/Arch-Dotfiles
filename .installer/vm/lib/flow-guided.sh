@@ -56,8 +56,12 @@ _flow_render_user_data() {
   # runs with no summed flat pick and no ACCEPT. Default false (flat-pick path).
   local bind_devices
   bind_devices="$(jq -r '.guided_bind // false' <<<"${INSTALL_CONFIG_CONTENT}")"
+  # guided_manual (ADR 0073): script a partition table, replay Manual
+  # Partitioning onto it (the cfdisk stand-in).
+  local manual
+  manual="$(jq -r '.guided_manual // false' <<<"${INSTALL_CONFIG_CONTENT}")"
   _seed_generator_render_guided_user_data \
     "$repo_url" "$hostname" "${DIRTY_CACHE}" "${VERIFY_BOOT}" \
     "$encryption" "$impermanence" "$layout" "$n_disks" "$guided_user" \
-    "$guided_extras" "$bind_devices"
+    "$guided_extras" "$bind_devices" "$manual"
 }

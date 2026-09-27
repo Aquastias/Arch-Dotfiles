@@ -25,10 +25,14 @@
 # =============================================================================
 set +e
 
-S=/usr/local/lib/desktop-verify
-TTY=/dev/ttyS0
-CONF=/etc/sddm.conf.d/zz-desktop-verify.conf
+# Paths are overridable only so tests/vm/desktop-verify.bats can drive it.
+S="${DESKTOP_VERIFY_STATE:-/usr/local/lib/desktop-verify}"
+TTY="${DESKTOP_VERIFY_TTY:-/dev/ttyS0}"
+CONF="${DESKTOP_VERIFY_CONF:-/etc/sddm.conf.d/zz-desktop-verify.conf}"
+RUNDIR="${DESKTOP_VERIFY_RUNDIR:-/run/user}"
+PROC="${DESKTOP_VERIFY_PROC:-/proc}"
 POLL_SECONDS="${DESKTOP_VERIFY_POLL_SECONDS:-180}"
+POLKIT_SECONDS="${DESKTOP_VERIFY_POLKIT_SECONDS:-60}"
 
 read -r -a SESSIONS < "$S/order"
 read -r -a TAGS < "$S/tags"
@@ -42,20 +46,21 @@ uid="$(id -u "$USER_NAME" 2>/dev/null)"
 
 # Diagnostic to the serial console the harness watches: what state this boot saw.
 printf '===SESSION-PROBE idx=%s count=%s session=%s user=%s uid=%s===\n' \
-  "$IDX" "${#SESSIONS[@]}" "$session" "$USER_NAME" "$uid" > "$TTY"
+  "$IDX" "${#SESSIONS[@]}" "$session" "$USER_NAME" "$uid" >> "$TTY"
 
 # The compositor process each session must spawn — strong "it really started"
 # evidence beyond a bare wayland socket. Matched on the SDDM session file name.
 case "$session" in
   plasma*)   proc=kwin_wayland ;;
   hyprland*) proc=Hyprland ;;
+  niri*)     proc=niri ;;
   *)         proc="" ;;
 esac
 
 ok=0
 i=0
 while [ "$i" -lt "$POLL_SECONDS" ]; do
-  if [ -n "$uid" ] && ls "/run/user/${uid}"/wayland-* >/dev/null 2>&1; then
+  if [ -n "$uid" ] && ls "${RUNDIR}/${uid}"/wayland-* >/dev/null 2>&1; then
     if [ -z "$proc" ] || pgrep -x "$proc" >/dev/null 2>&1; then
       ok=1
       break
@@ -65,22 +70,67 @@ while [ "$i" -lt "$POLL_SECONDS" ]; do
   sleep 1
 done
 
+# probe_polkit — which polkit agents registered this boot, by process name.
+# polkitd logs each registration; the bus name resolves to the agent's PID. Two
+# names here means two racing agents (ADR 0100 wants exactly one).
+probe_polkit() {
+  local names="" n pid comm agents="" j=0
+  local reg='^Registered Authentication Agent for .*'
+  reg+='(system bus name \([^ ,]*\).*'
+  while [ "$j" -lt "$POLKIT_SECONDS" ]; do
+    names="$(journalctl -b -u polkit --no-pager -o cat 2>/dev/null \
+      | sed -n "s/${reg}/\\1/p")"
+    [ -n "$names" ] && break
+    j=$((j + 1))
+    sleep 1
+  done
+  for n in $names; do
+    pid="$(busctl --system status "$n" 2>/dev/null | sed -n 's/^PID=//p')"
+    [ -n "$pid" ] || continue      # unregistered since (bus name gone)
+    comm="$(cat "$PROC/$pid/comm" 2>/dev/null)"
+    agents="${agents}${agents:+,}${comm:-pid$pid}"
+  done
+  if [ -n "$agents" ]; then
+    printf '===%s-POLKIT-OK agents=%s===\n' "$tag" "$agents" >> "$TTY"
+  else
+    printf '===%s-POLKIT-FAIL===\n' "$tag" >> "$TTY"
+  fi
+}
+
+# probe_idle — Noctalia owns idle in-process (ext-idle-notify), so "active" is
+# the shell running for the user with the seeded idle lock enabled.
+probe_idle() {
+  local home cfg
+  home="${DESKTOP_VERIFY_HOMEDIR:-$(getent passwd "$USER_NAME" | cut -d: -f6)}"
+  cfg="$home/.config/noctalia/config.toml"
+  if pgrep -u "$uid" -f noctalia >/dev/null 2>&1 \
+    && sed -n '/^\[idle\.behavior\.lock\]/,/^\[/p' "$cfg" 2>/dev/null \
+      | grep -q '^enabled = true'; then
+    printf '===%s-IDLE-OK===\n' "$tag" >> "$TTY"
+  else
+    printf '===%s-IDLE-FAIL===\n' "$tag" >> "$TTY"
+  fi
+}
+
 if [ "$ok" = 1 ]; then
-  printf '===%s-SESSION-OK===\n' "$tag" > "$TTY"
+  printf '===%s-SESSION-OK===\n' "$tag" >> "$TTY"
+  case "$tag" in
+  NIRI | HYPR) probe_polkit; probe_idle ;;
+  esac
 else
-  printf '===%s-SESSION-FAIL===\n' "$tag" > "$TTY"
+  printf '===%s-SESSION-FAIL===\n' "$tag" >> "$TTY"
 fi
 
 next=$((IDX + 1))
 if [ "$next" -lt "${#SESSIONS[@]}" ]; then
   printf '%s\n' "$next" > "$S/idx"
   sed -i "s|^Session=.*|Session=${SESSIONS[$next]}|" "$CONF"
-  printf '===SESSION-SWITCH-%s===\n' "${TAGS[$next]}" > "$TTY"
+  printf '===SESSION-SWITCH-%s===\n' "${TAGS[$next]}" >> "$TTY"
   sync
   sleep 2
   systemctl reboot
 else
-  printf '===SESSION-VERIFY-DONE===\n' > "$TTY"
+  printf '===SESSION-VERIFY-DONE===\n' >> "$TTY"
   sync
   sleep 2
   systemctl poweroff

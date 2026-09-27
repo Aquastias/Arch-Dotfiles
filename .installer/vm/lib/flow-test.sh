@@ -286,6 +286,10 @@ _run_boot_verify() {
     fi
     info "Session login verify OK: '${_sde}' (${_sok})."
   done
+  local _pm
+  while IFS= read -r _pm; do
+    info "wlroots probe (recorded): $_pm"
+  done < <(_seed_generator_probe_markers "$BOOT_LOG_FILE")
 
   # Per-desktop assertion (ADR 0062): the first-boot sentinel echoed each
   # requested desktop's OK/FAIL marker before FIRSTBOOT-OK. Require every one's

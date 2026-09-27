@@ -117,6 +117,15 @@ _seed_generator_session_marker() {
   [[ -n "$t" ]] && printf '===%s-SESSION-OK===' "$t"
 }
 
+# _seed_generator_probe_markers <boot-log> — the wlroots polkit/idle probe
+# markers the desktop-verify prober emitted (ADR 0100), one per line in log
+# order. Recorded by the host, not asserted: they answer the polkit gate.
+_seed_generator_probe_markers() {
+  local re='===(NIRI|HYPR)-(POLKIT|IDLE)-(OK|FAIL)( agents=[^ =]*)?==='
+  grep -oE "$re" "$1" 2>/dev/null
+  return 0
+}
+
 # _seed_generator_session_firstboot_block <user> <de>... — the graphical-login
 # verify block (ADR 0062). Mounts the freshly installed (ZFS-native-encrypted)
 # root from the live ISO and stages the TEST-ONLY session prober: the shipped
@@ -522,6 +531,7 @@ _seed_generator_render_guided_user_data() {
   local encryption="${5:-false}" impermanence="${6:-false}"
   local layout="${7:-single}" n_disks="${8:-1}" guided_user="${9:-}"
   local guided_extras="${10:-}" bind_devices="${11:-false}"
+  local manual="${12:-false}"
 
   local dirty_step=""
   [[ "$dirty_cache" == "true" ]] && \
@@ -587,7 +597,23 @@ _seed_generator_render_guided_user_data() {
   # list (disks=), and gates on a typed ACCEPT.
   local picker='source lib/picker.sh; source lib/live-medium.sh; set +e'
   local disk_step
-  if [[ "$layout" != "single" && "$bind_devices" == "true" ]]; then
+  if [[ "$manual" == "true" ]]; then
+    # Manual Partitioning case (ADR 0073): script the table the operator would
+    # draw in cfdisk — ESP, swap, root (partlabel `root`, which the boot-verify
+    # block mounts) — then replay manual_disk so the menu scans and assigns it.
+    disk_step="$(cat <<EOF
+&& GUIDED_DISK="\$(${picker}; picker_enum_disks "\$(live_medium_disks)" \\
+             | head -1)" \\
+        && sgdisk --zap-all "\$GUIDED_DISK" \\
+        && sgdisk -n1:0:+1G -t1:ef00 -c1:esp -n2:0:+2G -t2:8200 -c2:swap \\
+             -n3:0:0 -t3:8300 -c3:root "\$GUIDED_DISK" \\
+        && udevadm settle \\
+        && printf 'hostname=%s\\nmanual_disk=%s\\n' \\
+             '${hostname}' "\$GUIDED_DISK" > /root/guided-answers \\
+        && printf '${extra_answers}confirm=INSTALL\\n' >> /root/guided-answers
+EOF
+)"
+  elif [[ "$layout" != "single" && "$bind_devices" == "true" ]]; then
     # In-Menu Disk Binding replay (ADR 0047, issue 07): bind ALL resolved disks
     # to the OS pool via os_pool_devices — the bound assignment path (issue 04)
     # runs with no summed flat pick and no ACCEPT. Representative bound cell:

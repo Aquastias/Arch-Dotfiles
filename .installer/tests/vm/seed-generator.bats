@@ -561,3 +561,35 @@ teardown() {
   [ "$status" -eq 0 ]
   [[ ! "$output" =~ "aur-vet" ]]
 }
+
+# ── wlroots polkit/idle probe markers (ADR 0100, recorded not asserted) ─────
+
+@test "probe markers: extracts wlroots POLKIT/IDLE lines from a boot log" {
+  local log="$BATS_TEST_TMPDIR/boot.log"
+  printf '%s\n' 'noise' '===NIRI-SESSION-OK===' \
+    '===NIRI-POLKIT-OK agents=noctalia===' '===NIRI-IDLE-OK===' \
+    '[  3.1] kernel: ===HYPR-POLKIT-FAIL=== trailing' '===HYPR-IDLE-FAIL===' \
+    > "$log"
+  run _seed_generator_probe_markers "$log"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "===NIRI-POLKIT-OK agents=noctalia===" ]
+  [ "${lines[1]}" = "===NIRI-IDLE-OK===" ]
+  [ "${lines[2]}" = "===HYPR-POLKIT-FAIL===" ]
+  [ "${lines[3]}" = "===HYPR-IDLE-FAIL===" ]
+  [ "${#lines[@]}" -eq 4 ]
+}
+
+# ── guided manual partitioning case (ADR 0073) ──────────────────────────────
+
+@test "guided manual: scripts a labelled table, then replays manual_disk" {
+  run _seed_generator_render_guided_user_data "https://x/repo.git" vm-manual \
+    false true false false single 1 "" "" false true
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "sgdisk --zap-all" ]]
+  [[ "$output" =~ "-t1:ef00" ]]
+  [[ "$output" =~ "-t2:8200" ]]
+  [[ "$output" =~ "-c3:root" ]]
+  [[ "$output" =~ "udevadm settle" ]]
+  [[ "$output" =~ "manual_disk=" ]]
+  [[ ! "$output" =~ "\\ndisk=" ]]
+}

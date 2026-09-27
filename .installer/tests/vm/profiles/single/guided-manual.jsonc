@@ -1,0 +1,32 @@
+// VM test (ADR 0073): the Manual Partitioning escape hatch end to end. The seed
+// scripts an ESP + swap + root table with sgdisk (standing in for the
+// operator's cfdisk), then replays the guided menu with manual_disk= so it
+// scans and assigns that table; Proceed installs onto it without a wipe, and
+// boot-verify proves the machine boots. Manual is Guided-only, so this cell
+// runs the guided flow — the unattended config path rejects kind: manual.
+{
+  "name": "arch-zfs-test-guided-manual",
+  "hardware": { "disks": [20], "ram_mb": 8192, "vcpus": 2 },
+  "install": {
+    "system": {
+      "hostname": "vm-guided-manual",
+      "locale":   "en_US.UTF-8",
+      "timezone": "Europe/Bucharest",
+      "keymap":   "us"
+    },
+    "options": {
+      "kernel":     "lts",
+      "bootloader": "systemd-boot",
+      "encryption": false,
+      "swap":       true,
+      "swap_size":  "auto"
+    },
+    "post_install": {
+      "backup": false,
+      "security": false,
+      "desktop": { "kde": false }
+    },
+    "guided_manual": true
+  },
+  "verify": { "boot": true }
+}
