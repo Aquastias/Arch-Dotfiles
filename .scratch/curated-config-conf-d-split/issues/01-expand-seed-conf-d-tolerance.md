@@ -15,21 +15,26 @@ so nothing breaks.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `noctalia_preset_install` seeds the entry file and, when a sibling
+- [x] `noctalia_preset_install` seeds the entry file and, when a sibling
       `conf.d/` exists in the curated dir, the whole `conf.d/` tree into
       `/etc/skel`; when absent, it seeds only the entry file exactly as before.
-- [ ] The VM software-cursor override appends to the seeded
+- [x] The VM software-cursor override appends to the seeded
       `conf.d/environment.<ext>` when the tree is present, else to the seeded
       entry file (unchanged branch-by-extension: niri `debug{ … }`, Hyprland
       `hl.config({ cursor = … })`).
-- [ ] `chroot.sh` stages a `conf.d/` tree into the niri and Hyprland curated
+- [x] `chroot.sh` stages a `conf.d/` tree into the niri and Hyprland curated
       dirs when one is present in the repo, alongside the entry file; no-op when
       absent.
-- [ ] The adapter tests gain coverage proving the tree path: a fixture curated
+- [x] The adapter tests gain coverage proving the tree path: a fixture curated
       dir with a `conf.d/` seeds the tree to skel and lands the VM override in
       `conf.d/environment`.
-- [ ] Every pre-existing bats test (`niri-adapter`, `hyprland-adapter`,
+- [x] Every pre-existing bats test (`niri-adapter`, `hyprland-adapter`,
       `noctalia-stow`) stays green — no repo config changed, so the single-file
       path is unchanged.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in a55e9d2, 8afa454, 43b421c, ad54241, 0178040
+  (ADR 0107).

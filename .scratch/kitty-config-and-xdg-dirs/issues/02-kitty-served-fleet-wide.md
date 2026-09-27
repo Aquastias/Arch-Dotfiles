@@ -9,22 +9,27 @@ stows, ADR 0095).
 
 **Blocked by:** 01 (seeds the config tree ticket 01 produces).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A new `kind: user` [[User Program]] `system/kitty` seeds the full kitty
+- [x] A new `kind: user` [[User Program]] `system/kitty` seeds the full kitty
       config into the owning user's `$HOME` **and** `/etc/skel`, kept
       byte-identical to the repo stow tree.
-- [ ] The program seeds the default generated theme file (Catppuccin Mocha
+- [x] The program seeds the default generated theme file (Catppuccin Mocha
       Sapphire, ADR 0109) into `$HOME`, `/etc/skel`, and `/root`, so first boot
       and KDE (no template run) have color.
-- [ ] The program owns the `kitty` package + the Nerd font; `kitty` leaves core
+- [x] The program owns the `kitty` package + the Nerd font; `kitty` leaves core
       `packages.shell` (Program/package exclusivity, ADR 0115). The [[Wayland
       Shell Companion]] preset still lists kitty for the compositor terminal.
-- [ ] The program is registered in User Core `programs` so it reaches the fleet
+- [x] The program is registered in User Core `programs` so it reaches the fleet
       like the [[Pi Coding Agent]].
-- [ ] A drift test in `kitty-program.bats` (the zsh precedent lives in
+- [x] A drift test in `kitty-program.bats` (the zsh precedent lives in
       `zsh-program.bats`) asserts the seeded config equals the repo stow tree
       byte-for-byte.
-- [ ] `kitty-program.bats` asserts the program installs kitty + the Nerd font
+- [x] `kitty-program.bats` asserts the program installs kitty + the Nerd font
       and seeds the config + default theme; `configs.bats` covers the User Core
       `programs` list.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in deaa594, db20d11, 0cc3ff5, 09d47f3, 1b28de0,
+  66bceb5 (ADR 0130/0131).

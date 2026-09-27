@@ -27,14 +27,18 @@ Edits:
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Source `settings.json` sets all six disable/sync keys, model, effort, and
+- [x] Source `settings.json` sets all six disable/sync keys, model, effort, and
       both `DISABLE_*` env vars; still valid JSON with only documented keys
-- [ ] Repo-root `.claude/settings.json` is byte-identical to the source
-- [ ] `claude-agent.bats` asserts each new key/value via `jq`
-- [ ] `claude-agent.bats` has a drift-guard test (repo-root == source)
-- [ ] `bats .installer/tests/config/claude-agent.bats` passes
-- [ ] `no-python.sh` gate stays green; no non-jq/bash tooling introduced
-- [ ] Operator note recorded: reconcile a live machine's `acceptEdits`→`auto`
+- [x] Repo-root `.claude/settings.json` is byte-identical to the source
+- [x] `claude-agent.bats` asserts each new key/value via `jq`
+- [x] `claude-agent.bats` has a drift-guard test (repo-root == source)
+- [x] `bats .installer/tests/config/claude-agent.bats` passes
+- [x] `no-python.sh` gate stays green; no non-jq/bash tooling introduced
+- [x] Operator note recorded: reconcile a live machine's `acceptEdits`→`auto`
       by re-stowing from source (one-time, not a repo change)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Bluetooth Service toggle + Hyprland tray
 
@@ -35,23 +35,28 @@ autostart → matrix Axis Registry classification.
 
 ## Acceptance criteria
 
-- [ ] `options.bluetooth.enabled` renders as a Cycle Field in its own
+- [x] `options.bluetooth.enabled` renders as a Cycle Field in its own
       Bluetooth category; default `true`, normalised-out when true.
-- [ ] On → `bluetooth` program injected into `system_programs`; installs
+- [x] On → `bluetooth` program injected into `system_programs`; installs
       `bluez` + `bluez-utils` and enables `bluetooth.service`. Off → absent.
-- [ ] `bluetooth` is filtered from the Packages → system-programs picker.
-- [ ] Package Resolver / explain-packages reports the derived program as
+- [x] `bluetooth` is filtered from the Packages → system-programs picker.
+- [x] Package Resolver / explain-packages reports the derived program as
       `source=bluetooth`.
-- [ ] `blueman` installs only when Hyprland is selected; never on a KDE-only
+- [x] `blueman` installs only when Hyprland is selected; never on a KDE-only
       install.
-- [ ] `blueman`'s autostart carries `NotShowIn=KDE` (suppressed in KDE
+- [x] `blueman`'s autostart carries `NotShowIn=KDE` (suppressed in KDE
       sessions, shown in Hyprland sessions); coexists with BlueDevil on
       KDE+Hyprland without conflict.
-- [ ] `options.bluetooth.enabled` is classified `inert|light` in the matrix
+- [x] `options.bluetooth.enabled` is classified `inert|light` in the matrix
       Axis Registry.
-- [ ] `bluetooth.bats` (pure resolver spec) plus `guided-menu.bats` /
+- [x] `bluetooth.bats` (pure resolver spec) plus `guided-menu.bats` /
       `guided-controller.bats` extensions pass under `tests/run.sh --fast`.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
+  (ADR 0080).

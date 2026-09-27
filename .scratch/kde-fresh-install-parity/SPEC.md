@@ -1,6 +1,6 @@
 # Spec: Fresh KDE install matches the `arch-combined` reference box
 
-Status: ready-for-agent
+Status: done
 
 Related ADRs: 0110 (resolution autodetected), 0111 (KDE adapter seeds captured
 Plasma settings), 0112 (stock/pure KDE skips the look), **0118** (timezone

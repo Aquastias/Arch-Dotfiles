@@ -1,5 +1,8 @@
 # Test speed: fork-free include guards, not setup_file; a total-CPU metric
 
+Renumbered from a duplicate ADR 0078 (the other 0078 is per-kernel boot
+entries); older commits cite this decision as "ADR 0078".
+
 Amends ADR 0048 (installer test realism tiers). Its "Config-speed,
 tests-only" prescription — `setup_file` + `export -f` to source libs once
 per file — is **retracted**: measured, it makes the suite *slower*. The

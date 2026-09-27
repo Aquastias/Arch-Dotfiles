@@ -1,6 +1,6 @@
 # VM acceptance: arch-combined recreation must succeed
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -20,14 +20,19 @@ so this gate stays a real regression test.
 
 ## Acceptance criteria
 
-- [ ] A full `arch-combined` VM recreation completes the install successfully.
-- [ ] The install log shows the held-back `warn` (pin fired) when the mirror
+- [x] A full `arch-combined` VM recreation completes the install successfully.
+- [x] The install log shows the held-back `warn` (pin fired) when the mirror
       exceeds the ceiling, or a clean silent no-op when mirror == ceiling.
-- [ ] A recreation with the forced-skew override set to a fake-low ceiling still
+- [x] A recreation with the forced-skew override set to a fake-low ceiling still
       completes: the pin holds `linux-lts` back and DKMS builds cleanly.
-- [ ] No regression on the happy path — an install where mirror == ceiling
+- [x] No regression on the happy path — an install where mirror == ceiling
       behaves as before.
 
 ## Blocked by
 
 - `.scratch/archzfs-lts-ceiling-pin/issues/02-archzfs-lts-ceiling-pin.md`
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
+  (ADR 0137).

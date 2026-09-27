@@ -11,7 +11,7 @@ extras. When printing is off, cups appears nowhere in the report.
 **Blocked by:** 01 — Toggle-derived cups (consumes the pure toggle→program
 function).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `explain-packages` reports `cups` with `source=printing` / layer `derived`
       when printing is on, and omits it entirely when off.
@@ -22,3 +22,7 @@ function).
 - [x] Tests extend the explain-packages bats: cups reported with the printing
       source when on, absent when off (prior art: the Security/Backup derived
       assertions).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in fa4b5ed, ab99513 (ADR 0079).

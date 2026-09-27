@@ -1,7 +1,7 @@
 # Guided Installer: master-detail layout + moderate taxonomy re-cut
 
 ---
-Status: ready-for-agent
+Status: done
 ---
 
 Decision record: ADR 0071. Prototype:

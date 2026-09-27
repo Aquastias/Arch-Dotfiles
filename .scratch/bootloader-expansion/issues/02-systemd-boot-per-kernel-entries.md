@@ -14,16 +14,21 @@ with GRUB_DEFAULT pinned to the Primary — no change needed there.)
 
 **Blocked by:** 01 — Bootloader Manifest foundation.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] systemd-boot emits a default + fallback loader entry for each kernel in the
+- [x] systemd-boot emits a default + fallback loader entry for each kernel in the
       Kernel Selection, with per-kbase entry filenames (the `arch-zfs.conf`
       hardcode is gone).
-- [ ] The loader default boots the Primary Kernel regardless of kernel version
+- [x] The loader default boots the Primary Kernel regardless of kernel version
       ordering.
-- [ ] Entry rendering is a pure function, unit-tested without the chroot copy /
+- [x] Entry rendering is a pure function, unit-tested without the chroot copy /
       register steps (LIB_ONLY-style guard).
-- [ ] `esp-kernel-sync` tests are extended to prove entries referencing several
+- [x] `esp-kernel-sync` tests are extended to prove entries referencing several
       kernels mirror all of them, and a Stray Kernel still gets no entry and is
       never mirrored.
-- [ ] A multi-kernel selection boots each selected kernel end-to-end in a VM.
+- [x] A multi-kernel selection boots each selected kernel end-to-end in a VM.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
+  6019e48, 4f97379 (ADR 0077/0078).

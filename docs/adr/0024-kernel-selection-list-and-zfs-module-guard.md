@@ -2,6 +2,7 @@
 
 ## Status
 Accepted. Extends ADR 0023.
+Later decisions: amended by ADR 0138.
 
 ## Context
 ADR 0023 keeps the *live ISO* on an archzfs-supported kernel. It left

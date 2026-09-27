@@ -14,19 +14,24 @@ ticket 04 also consumes.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The adapter exposes an injectable seed-root variable defaulting to
+- [x] The adapter exposes an injectable seed-root variable defaulting to
       `/`, and a helper that writes skel/xdg files beneath it
-- [ ] Seeded `kdeglobals` carries the Breeze Dark color scheme /
+- [x] Seeded `kdeglobals` carries the Breeze Dark color scheme /
       look-and-feel and `Icons=Papirus-Dark`; the Breeze cursor theme is
       set
-- [ ] `breeze-gtk` and `kde-gtk-config` install in the shell phase
+- [x] `breeze-gtk` and `kde-gtk-config` install in the shell phase
       (`papirus-icon-theme` already present)
-- [ ] SDDM is configured to the Breeze theme in dark
-- [ ] `kde-adapter.bats`: with the seed-root pointed at a temp dir, the
+- [x] SDDM is configured to the Breeze theme in dark
+- [x] `kde-adapter.bats`: with the seed-root pointed at a temp dir, the
       theme files land under `/etc/skel` and `/etc/xdg` with their
       load-bearing keys — asserted by presence and key value, not full
       file bytes
-- [ ] No runtime `plasma-apply-lookandfeel` / first-boot service — seed
+- [x] No runtime `plasma-apply-lookandfeel` / first-boot service — seed
       is chroot-time file placement only (ADR 0088)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
+  6878699, 0bd152f, f43fabe (ADR 0087/0088).

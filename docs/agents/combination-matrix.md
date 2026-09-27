@@ -7,7 +7,7 @@ generator/adapter
 logic in `.installer/lib/matrix/*.sh`; Tier-1 assembly bats under
 `.installer/tests/matrix/`.
 
-## Test gates (ADR 0078)
+## Test gates (ADR 0145)
 
 `.installer/tests/run.sh` has three modes:
 

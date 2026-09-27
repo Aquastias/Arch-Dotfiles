@@ -13,13 +13,18 @@ overwrites in place. Anchored by ADR 0127.
 
 **Blocked by:** 01 (needs the installed pi + seed/stow config tree).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] All mattpocock skills are vendored under `.agents/skills/` and committed.
-- [ ] `.skill-lock.json` is committed alongside as the reproducible pin.
-- [ ] The skills tree is seeded into `/etc/skel` and present in the stow tree.
-- [ ] `pi-agent.bats` asserts the vendored skills + lockfile are present.
-- [ ] On the `arch-combined` VM, pi discovers and loads the skills with no
+- [x] All mattpocock skills are vendored under `.agents/skills/` and committed.
+- [x] `.skill-lock.json` is committed alongside as the reproducible pin.
+- [x] The skills tree is seeded into `/etc/skel` and present in the stow tree.
+- [x] `pi-agent.bats` asserts the vendored skills + lockfile are present.
+- [x] On the `arch-combined` VM, pi discovers and loads the skills with no
       settings entry.
-- [ ] Re-running `npx skills@latest add mattpocock/skills` in-repo overwrites the
+- [x] Re-running `npx skills@latest add mattpocock/skills` in-repo overwrites the
       vendored skills (refresh works).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
+  0f0aa6f, 747d14e (ADR 0127/0128).

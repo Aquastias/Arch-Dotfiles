@@ -26,12 +26,16 @@ Disposition table to carry into the ADR:
 
 **Blocked by:** 01, 02 (records the set as actually implemented).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `docs/adr/0142-curated-claude-feature-set.md` exists, follows the repo ADR
+- [x] `docs/adr/0142-curated-claude-feature-set.md` exists, follows the repo ADR
       format, and amends ADR 0133
-- [ ] The disposition table is included and matches the shipped `settings.json`
+- [x] The disposition table is included and matches the shipped `settings.json`
       + skill bootstrap
-- [ ] Cross-links (ADR 0133/0134, the skill CLI) resolve
-- [ ] Any CONTEXT/doc term touched by the curation is updated; otherwise noted
+- [x] Cross-links (ADR 0133/0134, the skill CLI) resolve
+- [x] Any CONTEXT/doc term touched by the curation is updated; otherwise noted
       as no-change
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).

@@ -4,6 +4,7 @@
 Status: accepted. **Supersedes the qt6ct clause of ADR 0062** ("operator brings
 qt6ct via dotfiles; qt6ct is theming, not session plumbing") — theming is now a
 shipped promise of the shared Wayland Shell Companion, not an operator chore.
+Later decisions: amended by ADR 0104, ADR 0108.
 ---
 
 GTK and Qt apps rendered un-themed under Noctalia: the shell already listed the

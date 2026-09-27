@@ -17,15 +17,20 @@ plugin bool off recovers the lean shell.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] All curated plugins seed + enable via the ticket-01 loop; each has an
+- [x] All curated plugins seed + enable via the ticket-01 loop; each has an
       `install-niri.jsonc` bool (default on).
-- [ ] Each plugin's system-tool dependency installs only when its bool is on;
+- [x] Each plugin's system-tool dependency installs only when its bool is on;
       dropped plugins install nothing.
-- [ ] The two source repos are pinned to one ref each; bumping is two SHAs.
-- [ ] The Package Resolver reports the enriched Noctalia preset set per
+- [x] The two source repos are pinned to one ref each; bumping is two SHAs.
+- [x] The Package Resolver reports the enriched Noctalia preset set per
       `install-niri.jsonc`.
-- [ ] Turning all plugin bools off reduces to the lean shell (+ palette).
-- [ ] `niri-adapter.bats` and `resolver.bats` assert the enabled set, the
+- [x] Turning all plugin bools off reduces to the lean shell (+ palette).
+- [x] `niri-adapter.bats` and `resolver.bats` assert the enabled set, the
       per-bool gating, and the absence of dropped plugins.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
+  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.

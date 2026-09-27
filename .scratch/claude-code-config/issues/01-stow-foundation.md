@@ -12,14 +12,19 @@ later ticket builds on; no behaviour changes yet (content is captured as-is).
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `.gitignore` tracks exactly `.claude/settings.json`, `.claude/CLAUDE.md`,
+- [x] `.gitignore` tracks exactly `.claude/settings.json`, `.claude/CLAUDE.md`,
       `.claude/scripts/statusline.sh` and nothing else under `.claude/`
-- [ ] `git ls-files .claude` returns exactly those three paths
-- [ ] `.credentials.json`, `settings.local.json`, and Claude Code runtime state
+- [x] `git ls-files .claude` returns exactly those three paths
+- [x] `.credentials.json`, `settings.local.json`, and Claude Code runtime state
       remain gitignored
-- [ ] `stow --no-folding .` links the three files into `~/.claude/` without
+- [x] `stow --no-folding .` links the three files into `~/.claude/` without
       clobbering untracked runtime state (adoption/backup of the pre-existing
       real files documented)
-- [ ] `CONTEXT.md` no longer mis-lists `.claude/` as a Stow Tree dir
+- [x] `CONTEXT.md` no longer mis-lists `.claude/` as a Stow Tree dir
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # General services & fonts: bluetooth, power, and a font catalog
 

@@ -10,12 +10,16 @@ permanently disabled in the guest.
 
 **Blocked by:** 01 — CLI skeleton (connect, env).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `idle off` inhibits idle/suspend/DPMS (default while driving); `idle on`
+- [x] `idle off` inhibits idle/suspend/DPMS (default while driving); `idle on`
       removes the inhibitor and normal locking resumes.
-- [ ] `lock` locks the running session; `unlock` unlocks it — verified against a
+- [x] `lock` locks the running session; `unlock` unlocks it — verified against a
       wlroots (Noctalia) session and a Plasma session.
-- [ ] No guest config is permanently altered — the inhibitor is removable and
+- [x] No guest config is permanently altered — the inhibitor is removable and
       lock/idle remain fully testable after `idle on`.
-- [ ] Hand-verified on `arch-combined`.
+- [x] Hand-verified on `arch-combined`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).

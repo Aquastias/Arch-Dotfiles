@@ -9,17 +9,22 @@ a per-machine `/login`; no token is ever seeded.
 **Blocked by:** 02, 03 (the seed payload must be byte-identical to the finalized
 repo `.claude/`).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `config.jsonc` (`kind: user`) and `install.sh` under
+- [x] `config.jsonc` (`kind: user`) and `install.sh` under
       `.installer/programs/dev/claude/`, following `PROGRAM_SPEC.md` and the
       `dev/pi` shape
-- [ ] Installs `claude-code`, `bubblewrap`, `socat`, `github-cli`, `ccusage`
+- [x] Installs `claude-code`, `bubblewrap`, `socat`, `github-cli`, `ccusage`
       via the AUR Helper (`--needed`)
-- [ ] Seeds the payload into `~/.claude/` (`cp -r`), payload byte-identical to
+- [x] Seeds the payload into `~/.claude/` (`cp -r`), payload byte-identical to
       the repo `.claude/` stow copy
-- [ ] `.credentials.json` never written by the installer; success message notes
+- [x] `.credentials.json` never written by the installer; success message notes
       `/login` on first run
-- [ ] `claude` appended to User Core `programs` (beside `pi`), so desktop +
+- [x] `claude` appended to User Core `programs` (beside `pi`), so desktop +
       laptop resolve it
-- [ ] Installer seeds only — never stows (ADR 0095)
+- [x] Installer seeds only — never stows (ADR 0095)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

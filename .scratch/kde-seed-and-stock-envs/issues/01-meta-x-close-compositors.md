@@ -7,15 +7,20 @@ half; amends ADR 0096's shared keybind vocabulary.)
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] niri `conf.d/keybinds.kdl` binds `Mod+X` to `close-window`; `Mod+Q` no
+- [x] niri `conf.d/keybinds.kdl` binds `Mod+X` to `close-window`; `Mod+Q` no
       longer bound to close.
-- [ ] Hyprland `conf.d/keybinds.lua` binds `SUPER + X` to `window.close()`;
+- [x] Hyprland `conf.d/keybinds.lua` binds `SUPER + X` to `window.close()`;
       `SUPER + Q` no longer bound to close.
-- [ ] The shared-vocabulary comments in both files reflect Meta+X as the close
+- [x] The shared-vocabulary comments in both files reflect Meta+X as the close
       key (compact comment style).
-- [ ] Compositor-adapter seed-root tests (`NIRI_SEED_ROOT`/`HYPR_SEED_ROOT`)
+- [x] Compositor-adapter seed-root tests (`NIRI_SEED_ROOT`/`HYPR_SEED_ROOT`)
       assert the seeded keybind file binds `Mod+X` to close and no longer binds
       `Mod+Q` to close.
-- [ ] Existing test suite stays green.
+- [x] Existing test suite stays green.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6dfb331, 3918ff4, b34e8da, 11d0e5c, 96de292,
+  577586f (ADR 0111-0115).

@@ -1,5 +1,7 @@
 # Guided in-menu disk binding + freeform custom layouts
 
+Later decisions: amended by ADR 0063.
+
 Give the Guided Installer's pool editor **In-Menu Disk Binding**: when real
 hardware is enumerable it binds actual `/dev/disk/by-id/*` devices per pool
 group (device-mode), and when authoring off-target it falls back to today's

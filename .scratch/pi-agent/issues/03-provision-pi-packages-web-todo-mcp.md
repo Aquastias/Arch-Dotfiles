@@ -14,14 +14,19 @@ interpolation; servers lazy). Anchored by ADR 0127.
 
 **Blocked by:** 01 (needs the installed pi + settings.json).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `settings.json` `packages` lists the web, todo, and MCP packages.
-- [ ] The web tool is configured to query SearXNG at `127.0.0.1:8080` with a
+- [x] `settings.json` `packages` lists the web, todo, and MCP packages.
+- [x] The web tool is configured to query SearXNG at `127.0.0.1:8080` with a
       DuckDuckGo fallback.
-- [ ] A starter `mcp.json` (valid `mcpServers` shape, `${VAR}` for secrets) is
+- [x] A starter `mcp.json` (valid `mcpServers` shape, `${VAR}` for secrets) is
       seeded and stow-ready; no secret value is committed.
-- [ ] `pi-agent.bats` asserts the three packages in settings and the `mcp.json`
+- [x] `pi-agent.bats` asserts the three packages in settings and the `mcp.json`
       shape.
-- [ ] On the `arch-combined` VM, the three packages load and a web search returns
+- [x] On the `arch-combined` VM, the three packages load and a web search returns
       results (SearXNG path, with fallback exercised when the container is down).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
+  0f0aa6f, 747d14e (ADR 0127/0128).

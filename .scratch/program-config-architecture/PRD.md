@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # PRD: Per-program config `home/`, decoupled install + user bareness flag
 

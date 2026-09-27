@@ -7,12 +7,17 @@ absent — so `tools/explain-packages.sh` and the Guided Installer's read-only
 
 **Blocked by:** 03 (`environment.stock` foundation — the resolved flag it reads).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `lib/packages/resolver.sh` omits the `kde-shell` app sets for a stock KDE
+- [x] `lib/packages/resolver.sh` omits the `kde-shell` app sets for a stock KDE
       config and reports the plasma shell only.
-- [ ] It omits the Noctalia [[Wayland Shell Companion]] preset sets for a stock
+- [x] It omits the Noctalia [[Wayland Shell Companion]] preset sets for a stock
       compositor config.
-- [ ] `tests/packages/resolver.bats` asserts both reductions.
-- [ ] `explain-packages` and the guided `derived` view reflect the reduction
+- [x] `tests/packages/resolver.bats` asserts both reductions.
+- [x] `explain-packages` and the guided `derived` view reflect the reduction
       (they consume the resolver, so no separate wiring — verify no drift).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6dfb331, 3918ff4, b34e8da, 11d0e5c, 96de292,
+  577586f (ADR 0111-0115).

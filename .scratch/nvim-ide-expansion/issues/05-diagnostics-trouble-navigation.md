@@ -1,6 +1,6 @@
 # 05 — Diagnostics & navigation: trouble + bracket motions
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -17,13 +17,18 @@ commands.
 
 ## Acceptance criteria
 
-- [ ] trouble.nvim is declared and lazy-loads; `<leader>x` opens the
+- [x] trouble.nvim is declared and lazy-loads; `<leader>x` opens the
       diagnostics list and the todo list.
-- [ ] `]d`/`[d` (diagnostics), `]h`/`[h` (git hunks) and `]t`/`[t` (todos)
+- [x] `]d`/`[d` (diagnostics), `]h`/`[h` (git hunks) and `]t`/`[t` (todos)
       navigation motions are mapped.
-- [ ] which-key shows the `<leader>x` group.
-- [ ] Seam A asserts the plugin, the `<leader>x` maps and the bracket motions.
+- [x] which-key shows the `<leader>x` group.
+- [x] Seam A asserts the plugin, the `<leader>x` maps and the bracket motions.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

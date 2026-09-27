@@ -12,21 +12,26 @@ ticket lays the data spine and its guards.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `environment.display_manager` is accepted by the closed Host Profile
+- [x] `environment.display_manager` is accepted by the closed Host Profile
       schema; an unknown value aborts at config load with its schema path.
-- [ ] Config-load resolution sets a concrete display manager: `auto` →
+- [x] Config-load resolution sets a concrete display manager: `auto` →
       `greetd` if `hyprland` is in the resolved desktop set, else `sddm`;
       `none` when the desktop set is empty; explicit `greetd`/`sddm` unchanged.
-- [ ] A concrete display manager with an empty desktop set aborts with an
+- [x] A concrete display manager with an empty desktop set aborts with an
       actionable message; `auto` with an empty desktop set resolves to `none`.
-- [ ] The resolved concrete value is threaded into Install State as a new
+- [x] The resolved concrete value is threaded into Install State as a new
       scalar field (modeled on the resolved GPU field) and kept in the
       host-write / chroot-load schema list.
-- [ ] The Layer Resolver treats `environment.display_manager` as a replace key
+- [x] The Layer Resolver treats `environment.display_manager` as a replace key
       (no new merge classification).
-- [ ] Existing behavior is unchanged: the VM environment matrix stays green and
+- [x] Existing behavior is unchanged: the VM environment matrix stays green and
       the Desktop Environment Adapters still enable their display managers.
-- [ ] Resolution and validation are covered by the environment-resolution and
+- [x] Resolution and validation are covered by the environment-resolution and
       environment-validation bats (prior art: the GPU `auto` cases).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
+  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).

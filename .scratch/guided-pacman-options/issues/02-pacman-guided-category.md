@@ -10,19 +10,23 @@ non-interactive guided runs configure them too. See ADR 0074.
 
 **Blocked by:** 01 — options.pacman.* config-state foundation.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A **Pacman** category appears in the top-level menu directly after
+- [x] A **Pacman** category appears in the top-level menu directly after
       "Mirrors & Repositories".
-- [ ] The category lists six rows with the agreed labels/defaults: ILoveCandy,
+- [x] The category lists six rows with the agreed labels/defaults: ILoveCandy,
       Color, VerbosePkgLists, DisableDownloadTimeout, NoProgressBar (toggles) and
       ParallelDownloads (numeric/text, default 5).
-- [ ] Each bool row uses the toggle editor; `ParallelDownloads` uses the
+- [x] Each bool row uses the toggle editor; `ParallelDownloads` uses the
       free-text/numeric editor (same kind as `esp size`).
-- [ ] Editing a row writes to `options.pacman.*` in the Config State; the value
+- [x] Editing a row writes to `options.pacman.*` in the Config State; the value
       survives save/replay (validates under ticket 01's schema).
-- [ ] An overridden row shows `●`; an untouched row shows its default with no `●`.
-- [ ] Replay editors set each of the six fields non-interactively.
-- [ ] Seam 1 bats assert the category placement, the six rows (labels, kinds,
+- [x] An overridden row shows `●`; an untouched row shows its default with no `●`.
+- [x] Replay editors set each of the six fields non-interactively.
+- [x] Seam 1 bats assert the category placement, the six rows (labels, kinds,
       defaults), and the override-flag behaviour. Prior art:
       `tests/config/guided-menu.bats`, `tests/config/menu-enum.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 30f1f0e (ADR 0074).

@@ -9,9 +9,14 @@ of Noctalia's look is still self-generated on first run. The other four palettes
 
 **Blocked by:** 01 (shares the `config.toml` seed writer).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `config.toml` in skel carries a `[theme]` table selecting Rosé Pine.
-- [ ] No other Noctalia look (bar layout, widgets, wallpaper) is seeded.
-- [ ] `niri-adapter.bats` asserts the `[theme]` key is present under
+- [x] `config.toml` in skel carries a `[theme]` table selecting Rosé Pine.
+- [x] No other Noctalia look (bar layout, widgets, wallpaper) is seeded.
+- [x] `niri-adapter.bats` asserts the `[theme]` key is present under
       `niri_shell=noctalia` and absent under `niri_shell=none`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
+  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.

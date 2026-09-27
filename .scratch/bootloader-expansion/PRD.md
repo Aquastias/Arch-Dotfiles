@@ -1,6 +1,6 @@
 # Bootloader expansion: five loaders, per-kernel entries, ESP auto-size, Abort
 
-Status: ready-for-agent
+Status: done
 
 Grows the Bootloader Module from two loaders to five, boots every selected
 kernel instead of only the Primary Kernel, makes `esp_size` compute itself from

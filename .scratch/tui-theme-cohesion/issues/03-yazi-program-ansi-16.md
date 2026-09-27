@@ -1,6 +1,6 @@
 # system/yazi program: seeded + stowable, follows ANSI-16
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -25,17 +25,21 @@ The program **owns the `yazi` package**, which must therefore **leave core
 
 ## Acceptance criteria
 
-- [ ] A `system/yazi` program exists (`kind: user`), installing the `yazi`
+- [x] A `system/yazi` program exists (`kind: user`), installing the `yazi`
       package and seeding `theme.toml` into `$HOME` and `/etc/skel`.
-- [ ] `yazi` is removed from core `packages.shell` (ADR 0115).
-- [ ] `theme.toml` colors are yazi named ANSI colors / `reset` only — no hex.
-- [ ] The repo stow copy and the seeded `home/` are byte-identical, guarded by a
+- [x] `yazi` is removed from core `packages.shell` (ADR 0115).
+- [x] `theme.toml` colors are yazi named ANSI colors / `reset` only — no hex.
+- [x] The repo stow copy and the seeded `home/` are byte-identical, guarded by a
       new `yazi-program.bats` drift test (kitty/zsh precedent).
-- [ ] `yazi-program.bats` also asserts the program shape and the
+- [x] `yazi-program.bats` also asserts the program shape and the
       `packages.shell` removal.
-- [ ] VM check: yazi opens themed on a fresh box; follows a Noctalia palette
+- [x] VM check: yazi opens themed on a fresh box; follows a Noctalia palette
       change (on next launch) on a compositor; stays Sapphire under KDE.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).

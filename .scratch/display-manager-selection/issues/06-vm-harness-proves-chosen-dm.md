@@ -10,14 +10,19 @@ SDDM-launched Hyprland session coverage is retained.
 
 **Blocked by:** 03.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The session prober asserts the resolved display manager's service is
+- [x] The session prober asserts the resolved display manager's service is
       `is-enabled` on the installed guest, for both a greetd-resolved and an
       sddm-resolved profile.
-- [ ] The harness installs SDDM on the guest to drive the autologin prober even
+- [x] The harness installs SDDM on the guest to drive the autologin prober even
       when the resolved display manager is greetd, without changing which
       greeter the install enables.
-- [ ] SDDM-launched Hyprland stays covered (the compositor comes up —
+- [x] SDDM-launched Hyprland stays covered (the compositor comes up —
       `===HYPR-SESSION-OK===`), and Plasma coverage is unchanged.
-- [ ] The matrix run is green end to end.
+- [x] The matrix run is green end to end.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
+  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).

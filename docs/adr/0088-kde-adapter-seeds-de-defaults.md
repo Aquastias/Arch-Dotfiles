@@ -3,6 +3,7 @@
 ## Status
 Accepted. Extends ADR 0021 (adapter owns DE packages) from packages to
 config.
+Later decisions: amended by ADR 0098.
 
 ## Context
 The KDE adapter (`extras/desktop/kde/kde.sh`) installed packages only — it

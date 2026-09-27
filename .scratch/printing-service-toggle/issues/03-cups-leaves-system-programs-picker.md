@@ -9,7 +9,7 @@ toggle-owned program only — other System Programs (grub, sops) are untouched.
 **Blocked by:** 01 — Toggle-derived cups (cups is toggle-owned only after that
 slice removes it from Host Core and the toggle drives it).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `cups` does not appear in the Packages → system-programs picker list.
 - [x] Other system programs (grub, sops) still appear and are selectable as
@@ -18,3 +18,7 @@ slice removes it from Host Core and the toggle drives it).
       string check that would silently miss a future toggle-owned program.
 - [x] Tests extend the guided-packages bats: cups absent from the picker list,
       other system programs still present.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in fa4b5ed, ab99513 (ADR 0079).

@@ -1,6 +1,6 @@
 # Spec: Claude Code as a fleet-served, configured, stow-ready agent
 
-Status: ready-for-agent
+Status: done
 
 Anchored by [[ADR 0133]] (Claude Code fleet-wide, seeded + stowable, reworked
 statusline). Reuses the pi/kitty delivery pattern (ADR 0127/0130), the

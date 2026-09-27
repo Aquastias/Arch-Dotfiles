@@ -1,6 +1,6 @@
 # 09 — Editing/nav ergonomics plugins
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -21,11 +21,16 @@ lazy-loaded and each filling a distinct gap:
 
 ## Acceptance criteria
 
-- [ ] All five plugins are declared and lazy-load on appropriate triggers.
-- [ ] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
+- [x] All five plugins are declared and lazy-load on appropriate triggers.
+- [x] Surround edits, tag auto-close/rename, sticky-scroll header, jump motion
       and inline colour swatches each work.
-- [ ] Seam A asserts each plugin and its lazy trigger.
+- [x] Seam A asserts each plugin and its lazy trigger.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

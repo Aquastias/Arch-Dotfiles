@@ -9,20 +9,25 @@ choices.
 
 **Blocked by:** 01 (the tracked file must exist to edit).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Attribution off: `attribution.commit` = `""`, `attribution.pr` = `""`,
+- [x] Attribution off: `attribution.commit` = `""`, `attribution.pr` = `""`,
       `attribution.sessionUrl: false`
-- [ ] Launch in auto mode: `permissions.defaultMode: "auto"`,
+- [x] Launch in auto mode: `permissions.defaultMode: "auto"`,
       `skipAutoPermissionPrompt: true`,
       `disableBypassPermissionsMode: "disable"`
-- [ ] Sandbox: `network.allowUnixSockets` includes the libvirt sockets
+- [x] Sandbox: `network.allowUnixSockets` includes the libvirt sockets
       (`/run/libvirt/libvirt-sock`, `…-sock-ro`), `failIfUnavailable: true`;
       existing `filesystem` block retained
-- [ ] Model `claude-opus-4-8`; `fallbackModel: ["claude-sonnet-5"]`;
+- [x] Model `claude-opus-4-8`; `fallbackModel: ["claude-sonnet-5"]`;
       `promptCacheTtl: 3600`
-- [ ] `cleanupPeriodDays: 30`, `feedbackSurveyRate: 0`,
+- [x] `cleanupPeriodDays: 30`, `feedbackSurveyRate: 0`,
       `preferredNotifChannel: "desktop"`, `autoUpdatesChannel: "stable"`,
       `emojiCompletionEnabled: false`
-- [ ] `voice.{enabled,mode}` and `voiceEnabled` seeded verbatim (unchanged)
-- [ ] `settings.local.json` and `.credentials.json` untouched
+- [x] `voice.{enabled,mode}` and `voiceEnabled` seeded verbatim (unchanged)
+- [x] `settings.local.json` and `.credentials.json` untouched
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

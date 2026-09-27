@@ -1,6 +1,6 @@
 # eza follows the terminal's 16 ANSI colors
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -23,17 +23,21 @@ Cover the fields `LS_COLORS` misses (permissions, size, date, user/group, git).
 
 ## Acceptance criteria
 
-- [ ] `EZA_COLORS` is exported from the `system/zsh` payload, in ANSI SGR codes
+- [x] `EZA_COLORS` is exported from the `system/zsh` payload, in ANSI SGR codes
       (no `38;5;` / `38;2;` hex).
-- [ ] eza's permission, size, date and git columns are themed by the export (not
+- [x] eza's permission, size, date and git columns are themed by the export (not
       left on eza defaults).
-- [ ] The export is delivered by both the seed (`/etc/skel` / `$HOME`) and the
+- [x] The export is delivered by both the seed (`/etc/skel` / `$HOME`) and the
       stow tree, byte-identical (rides the existing `system/zsh` delivery).
-- [ ] The existing zsh program test asserts the `EZA_COLORS` ANSI-16 export is
+- [x] The existing zsh program test asserts the `EZA_COLORS` ANSI-16 export is
       present.
-- [ ] VM check: a Noctalia palette change on a compositor repaints `eza` output
+- [x] VM check: a Noctalia palette change on a compositor repaints `eza` output
       on the next run; under KDE `eza` stays on Catppuccin Mocha Sapphire.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).

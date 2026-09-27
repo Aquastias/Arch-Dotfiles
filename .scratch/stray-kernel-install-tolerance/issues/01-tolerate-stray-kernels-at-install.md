@@ -1,6 +1,6 @@
 # Tolerate stray kernels at install time (guard + mkinitcpio)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -23,15 +23,19 @@ boot-harmless Stray Kernel no longer aborts the install.
 
 ## Acceptance criteria
 
-- [ ] Guard aborts when a kernel in `options.kernel` lacks `zfs.ko`.
-- [ ] Guard passes (warns, non-fatal) when only a stray kernel lacks `zfs.ko`.
-- [ ] Guard aborts on the selected kernel even when a stray is also missing.
-- [ ] `mkinitcpio -P` builds selected kernels' initramfs unchanged; no initramfs
+- [x] Guard aborts when a kernel in `options.kernel` lacks `zfs.ko`.
+- [x] Guard passes (warns, non-fatal) when only a stray kernel lacks `zfs.ko`.
+- [x] Guard aborts on the selected kernel even when a stray is also missing.
+- [x] `mkinitcpio -P` builds selected kernels' initramfs unchanged; no initramfs
       is built for a stray (its preset is removed first).
-- [ ] bats cover: the pure abort-set helper (`missing ∩ selected`), the guard's
+- [x] bats cover: the pure abort-set helper (`missing ∩ selected`), the guard's
       abort-vs-tolerate split, and the pure stray→preset-path helper.
-- [ ] Existing guard/stray tests updated to the selection-aware contract.
+- [x] Existing guard/stray tests updated to the selection-aware contract.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 7fe4813, 0ed1a98, c19f639 (ADR 0138).

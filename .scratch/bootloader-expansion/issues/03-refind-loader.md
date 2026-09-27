@@ -12,15 +12,20 @@ ESP-mirroring loaders.
 
 **Blocked by:** 01 — Bootloader Manifest foundation.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `refind` is a legal `options.bootloader` value, offered in the Guided
+- [x] `refind` is a legal `options.bootloader` value, offered in the Guided
       radiolist and accepted from a committed Host Profile.
-- [ ] The refind adapter installs refind, emits a `refind_linux.conf` with the
+- [x] The refind adapter installs refind, emits a `refind_linux.conf` with the
       correct root cmdline (ZFS and non-ZFS), and defaults to the Primary Kernel.
-- [ ] A manifest row declares refind's loader path, `refind` package, esp-style,
+- [x] A manifest row declares refind's loader path, `refind` package, esp-style,
       and ZFS support.
-- [ ] The VM matrix boots a refind install end-to-end; all selected kernels are
+- [x] The VM matrix boots a refind install end-to-end; all selected kernels are
       bootable via autodetect.
-- [ ] Tests cover the manifest row, package resolution (`refind`), the enum
+- [x] Tests cover the manifest row, package resolution (`refind`), the enum
       entry, and the config emission.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
+  6019e48, 4f97379 (ADR 0077/0078).

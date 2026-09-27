@@ -11,23 +11,29 @@ whole-file copy). Night light is finalized to follow sunrise/sunset offline.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The existing vendored skel `.config` files are refreshed verbatim from the
+- [x] The existing vendored skel `.config` files are refreshed verbatim from the
       live `arch-combined` box.
-- [ ] The captured set gains `kactivitymanagerdrc` (+ `kactivitymanagerd-statsrc`),
+- [x] The captured set gains `kactivitymanagerdrc` (+ `kactivitymanagerd-statsrc`),
       `powerdevilrc`, `mimeapps.list`, `plasma-welcomerc`, `kwinrulesrc`.
-- [ ] `powermanagementprofilesrc` remains the Plasma-6 migration stub;
+- [x] `powermanagementprofilesrc` remains the Plasma-6 migration stub;
       `powerdevilrc` carries the real power config.
-- [ ] The captured `appletsrc` carries the operator's favorites, launchers,
+- [x] The captured `appletsrc` carries the operator's favorites, launchers,
       Activity Pager, and per-widget settings (fixes "pager missing" / "widget
       settings lost").
-- [ ] `mimeapps.list` sets VLC as the default video handler.
-- [ ] The captured `kwinrc` sets `[NightColor] NightColorMode=Location` with
+- [x] `mimeapps.list` sets VLC as the default video handler.
+- [x] The captured `kwinrc` sets `[NightColor] NightColorMode=Location` with
       Râmnicu Vâlcea coordinates (≈ 45.10 N, 24.37 E) — sunrise/sunset compute
       offline and in a VM with no geoclue.
-- [ ] The EDID-keyed `kscreenrc` / `kwinoutputconfig.json` remain excluded
+- [x] The EDID-keyed `kscreenrc` / `kwinoutputconfig.json` remain excluded
       (ADR 0110).
-- [ ] Stock/pure KDE seeds none of this (ADR 0112).
-- [ ] `extras/kde-adapter.bats` asserts the new captured files land in the seed
+- [x] Stock/pure KDE seeds none of this (ADR 0112).
+- [x] `extras/kde-adapter.bats` asserts the new captured files land in the seed
       root, `kwinrc` carries the night-light keys, and pure KDE seeds nothing.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8a32898, 54ecfba, 41a2188, 378db0b, a96edbc,
+  e79ca17, 4352be4, dfc347d, 8f3795b, badf9e0, cd8f5a0, 840dfea, f598ff0 (ADR
+  0118-0121).

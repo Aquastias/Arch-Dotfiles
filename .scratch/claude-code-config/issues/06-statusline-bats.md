@@ -9,13 +9,18 @@ expected shape.
 
 **Blocked by:** 03.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Fixture payloads for: clean, dirty tree, near-limit, subscription, and
+- [x] Fixture payloads for: clean, dirty tree, near-limit, subscription, and
       API-billed states
-- [ ] Asserts the 5h-meter ↔ `$cost` swap keyed on billing type
-- [ ] Asserts the native cache-ratio segment (no transcript dependency)
-- [ ] Asserts `effort.level`, the dirty red dot (with leading space), and
+- [x] Asserts the 5h-meter ↔ `$cost` swap keyed on billing type
+- [x] Asserts the native cache-ratio segment (no transcript dependency)
+- [x] Asserts `effort.level`, the dirty red dot (with leading space), and
       +green / −red lines
-- [ ] Asserts emoji icons render (segment presence)
-- [ ] Passes with and without `ccusage` present (graceful-degrade path)
+- [x] Asserts emoji icons render (segment presence)
+- [x] Passes with and without `ccusage` present (graceful-degrade path)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

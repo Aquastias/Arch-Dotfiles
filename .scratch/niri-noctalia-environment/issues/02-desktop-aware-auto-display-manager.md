@@ -11,14 +11,19 @@ that omit the key (greetd instead of SDDM).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `auto` resolves to `greetd` for a KDE-free non-empty desktop set (Hyprland
+- [x] `auto` resolves to `greetd` for a KDE-free non-empty desktop set (Hyprland
       and/or niri), `sddm` when the set contains `kde`, `none` when empty.
-- [ ] Explicit `greetd`/`sddm` still pass through unchanged; the DM remains an
+- [x] Explicit `greetd`/`sddm` still pass through unchanged; the DM remains an
       overridable operator choice (no menu lock).
-- [ ] The rule lives in both the config-load resolution and the Package Resolver
+- [x] The rule lives in both the config-load resolution and the Package Resolver
       and is asserted **identical** in each — a change to one that misses the
       other is caught (prior art: the existing DM `auto` and GPU `auto` cases).
-- [ ] The resolver's display-manager derived set reports the greeter matching the
+- [x] The resolver's display-manager derived set reports the greeter matching the
       desktop-aware `auto` result.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
+  palette later changed by ADR 0101/0109.

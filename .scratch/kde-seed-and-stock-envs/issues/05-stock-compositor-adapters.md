@@ -7,14 +7,19 @@ Companion]], no seeded configs or keybinds. `stock` forces the existing
 
 **Blocked by:** 03 (`environment.stock` foundation — the env var this reads).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The niri and Hyprland adapters read `ENVIRONMENT_STOCK`; when set, they
+- [x] The niri and Hyprland adapters read `ENVIRONMENT_STOCK`; when set, they
       install the compositor + session file only and seed nothing (the
       `wayland_shell: none` behaviour), regardless of the resolved
       `wayland_shell` value.
-- [ ] When `ENVIRONMENT_STOCK` is unset/false, behaviour is the full
+- [x] When `ENVIRONMENT_STOCK` is unset/false, behaviour is the full
       Noctalia-seeded install (no regression), including the Meta+X keybind from
       ticket 01.
-- [ ] Compositor seed-root tests (`NIRI_SEED_ROOT`/`HYPR_SEED_ROOT`) assert that
+- [x] Compositor seed-root tests (`NIRI_SEED_ROOT`/`HYPR_SEED_ROOT`) assert that
       under stock nothing is seeded into skel.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6dfb331, 3918ff4, b34e8da, 11d0e5c, 96de292,
+  577586f (ADR 0111-0115).

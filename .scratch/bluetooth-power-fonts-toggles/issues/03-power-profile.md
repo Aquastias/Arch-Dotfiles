@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Power Profile selector
 
@@ -29,21 +29,26 @@ Resolver provenance → matrix Axis Registry classification.
 
 ## Acceptance criteria
 
-- [ ] `options.power.profile` renders as a choice of `none` /
+- [x] `options.power.profile` renders as a choice of `none` /
       `power-profiles-daemon` / `tuned` in its own Power category; default
       `power-profiles-daemon`, normalised-out when default.
-- [ ] `power-profiles-daemon` → installs ppd + enables its service; `tuned`
+- [x] `power-profiles-daemon` → installs ppd + enables its service; `tuned`
       → installs `tuned` + `tuned-ppd` + enables `tuned.service`; `none` →
       nothing injected.
-- [ ] Package Resolver / explain-packages reports the derived program as
+- [x] Package Resolver / explain-packages reports the derived program as
       `source=power`.
-- [ ] `options.power.profile` is classified `inert|light` in the matrix Axis
+- [x] `options.power.profile` is classified `inert|light` in the matrix Axis
       Registry.
-- [ ] Choice equal to the default normalises out; a saved profile stores
+- [x] Choice equal to the default normalises out; a saved profile stores
       only the delta.
-- [ ] `power.bats` (pure resolver spec) plus a `guided-menu.bats` extension
+- [x] `power.bats` (pure resolver spec) plus a `guided-menu.bats` extension
       pass under `tests/run.sh --fast`.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
+  (ADR 0080).

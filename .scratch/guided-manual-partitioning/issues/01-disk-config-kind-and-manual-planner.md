@@ -10,19 +10,24 @@ an assignment in yields a plan (or a named rejection) out.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `disk_config.kind` joins the closed host schema; absent kind resolves to
+- [x] `disk_config.kind` joins the closed host schema; absent kind resolves to
       `auto`; `manual` is accepted. Unknown keys still abort with their path.
-- [ ] `partitions[]` joins the schema, each entry `{ device, mountpoint, fs,
+- [x] `partitions[]` joins the schema, each entry `{ device, mountpoint, fs,
       format }`; `mountpoint` accepts `/`, `/boot/efi`, `/home`, `[swap]`, or
       empty/none; `fs` accepts ext4/xfs/btrfs/fat32; `format` is boolean.
-- [ ] Accessors: `install_config_disk_kind` (auto default) and
+- [x] Accessors: `install_config_disk_kind` (auto default) and
       `install_config_partition_*` (count, device, mountpoint, fs, format).
-- [ ] A pure planner/validator turns `partitions[]` into a format+mount plan
+- [x] A pure planner/validator turns `partitions[]` into a format+mount plan
       (what is `mkfs`'d, what is mounted where, what is `mkswap`'d).
-- [ ] Validation rejects: no root, no ESP, ESP not FAT32, duplicate `/`; each
+- [x] Validation rejects: no root, no ESP, ESP not FAT32, duplicate `/`; each
       error names the offending condition.
-- [ ] Partitions with no mountpoint are omitted from the plan (ignored).
-- [ ] Headless bats covers the plan cases and every rejection, modelled on
+- [x] Partitions with no mountpoint are omitted from the plan (ignored).
+- [x] Headless bats covers the plan cases and every rejection, modelled on
       `tests/layout/nonzfs-plan.bats`. The `auto` path is unchanged.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
+  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).

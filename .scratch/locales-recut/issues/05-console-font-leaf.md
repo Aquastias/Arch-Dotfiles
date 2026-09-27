@@ -10,22 +10,27 @@ parallel with 03/04.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `system.console_font` is a schema-validated Host Profile field: it joins the
+- [x] `system.console_font` is a schema-validated Host Profile field: it joins the
       closed-schema allowlist, the accessors, and install-state; an unknown value
       is rejected at load.
-- [ ] A `console font` leaf appears in **Locales**, default `default8x16`, with the
+- [x] A `console font` leaf appears in **Locales**, default `default8x16`, with the
       `●` flag tracking only real overrides.
-- [ ] `menu_enum_options` for the console-font leaf returns the locale-source font
+- [x] `menu_enum_options` for the console-font leaf returns the locale-source font
       list (from `/usr/share/kbd/consolefonts`), stubbable in tests.
-- [ ] An override is validated against the enumerated list (picker semantics like
+- [x] An override is validated against the enumerated list (picker semantics like
       `keyboard`); an off-list value is rejected rather than written.
-- [ ] The identity Chroot Configuration Module writes `FONT=<console_font>` into
+- [x] The identity Chroot Configuration Module writes `FONT=<console_font>` into
       `/etc/vconsole.conf` alongside `KEYMAP=`.
-- [ ] `CONSOLE_FONT` round-trips through install-state alongside
+- [x] `CONSOLE_FONT` round-trips through install-state alongside
       `LOCALE`/`KEYMAP`/`TIMEZONE`.
-- [ ] Tests: font enumeration + validation (stubbed source), the leaf row, the
+- [x] Tests: font enumeration + validation (stubbed source), the leaf row, the
       vconsole `FONT=` write, and the install-state round-trip. Prior art:
       `tests/config/menu-enum.bats`, `tests/chroot/chroot-configure.bats`,
       `tests/install-state.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
+  d665bd8 (ADR 0076).

@@ -12,24 +12,28 @@ change needed).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `noctalia-theme-bridge` exists as a curated `.local/bin` script, executable,
+- [x] `noctalia-theme-bridge` exists as a curated `.local/bin` script, executable,
       matching the `noctalia-*` glob so it is staged (both adapters) and seeded to
       `/etc/skel` with no installer edit.
-- [ ] The script watches Noctalia's generated color files
+- [x] The script watches Noctalia's generated color files
       (`qt6ct/colors/noctalia.conf`, `gtk-{3,4}.0/noctalia.css`) via `inotifywait`
       and reacts to every write (covers both the cycle tile and the Noctalia GUI).
-- [ ] On a color-file change it `touch`es the top-level `qt6ct.conf`; a running Qt
+- [x] On a color-file change it `touch`es the top-level `qt6ct.conf`; a running Qt
       app (pcmanfm-qt) repaints to the new palette without relaunch — verified by
       hand on the `arch-combined` VM.
-- [ ] niri's curated `autostart.kdl` and Hyprland's curated `autostart.lua` each
+- [x] niri's curated `autostart.kdl` and Hyprland's curated `autostart.lua` each
       spawn the bridge at compositor startup, beside `noctalia --daemon`.
-- [ ] `inotify-tools` is added to `noctalia_preset_packages`, grounded against the
+- [x] `inotify-tools` is added to `noctalia_preset_packages`, grounded against the
       Arch Wiki.
-- [ ] `noctalia-stow.bats` asserts the script is present + executable and the
+- [x] `noctalia-stow.bats` asserts the script is present + executable and the
       autostart line is wired on both adapters.
-- [ ] The resolver bats assert `inotify-tools` resolves under niri and hyprland
+- [x] The resolver bats assert `inotify-tools` resolves under niri and hyprland
       (part of the Noctalia preset base).
-- [ ] Runs only from the compositor autostart (never a Plasma session); writes
+- [x] Runs only from the compositor autostart (never a Plasma session); writes
       only compositor-private `qt6ct.conf` — no cross-session leak.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).

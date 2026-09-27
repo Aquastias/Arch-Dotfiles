@@ -16,16 +16,21 @@ plugin is deselectable in the Guided Installer.
 **Blocked by:** 01 — reuses the section-install path and resolver
 pattern established there, and edits the same adapter files.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `plugins` is a sibling Categorized-List section keyed by app,
+- [x] `plugins` is a sibling Categorized-List section keyed by app,
       parsed in bool mode
-- [ ] The adapter installs selected plugins; deselected (`false`) leaves
+- [x] The adapter installs selected plugins; deselected (`false`) leaves
       are not installed; a malformed section aborts with a pathed parser
       error
-- [ ] The Package Resolver emits `kde-plugins` (layer `derived`,
+- [x] The Package Resolver emits `kde-plugins` (layer `derived`,
       category `Environment`)
-- [ ] `kde-adapter.bats` covers select / deselect / malformed for
+- [x] `kde-adapter.bats` covers select / deselect / malformed for
       `plugins` plus a membership lock on the shipped section
-- [ ] All plugin packages resolve to the `extra` repo — no new AUR in
+- [x] All plugin packages resolve to the `extra` repo — no new AUR in
       the adapter
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
+  6878699, 0bd152f, f43fabe (ADR 0087/0088).

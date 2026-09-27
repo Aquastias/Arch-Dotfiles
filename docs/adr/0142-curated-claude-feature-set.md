@@ -5,7 +5,7 @@ Accepted — implemented. Amends ADR 0133's settings choices. The served
 `settings.json` (single source under the dev/claude program `home/`, ADR 0134)
 disables the unused feature surface and pins the current Opus; the Matt Pocock
 skill store is bootstrapped by the program's `install.sh`. Guarded by
-`.installer/tests/config/claude-agent.bats`. No `CONTEXT.md` term changed.
+`.installer/tests/config/claude-agent.bats`. Glossary: [[Claude Code Config]].
 
 ## Context
 Claude Code ships a large tooling surface, most of it unused here. A usage audit

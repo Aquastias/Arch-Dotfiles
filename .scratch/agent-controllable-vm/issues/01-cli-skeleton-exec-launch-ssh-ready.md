@@ -14,20 +14,24 @@ piped harness password.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `vm-agent.sh` resolves a persistent VM by `--profile`/name and connects
+- [x] `vm-agent.sh` resolves a persistent VM by `--profile`/name and connects
       over the harness key, reusing existing `vm/lib` helpers (key path, IP
       discovery, profile resolution) rather than duplicating them.
-- [ ] `exec <cmd>` runs in the guest with the running session's env sourced
+- [x] `exec <cmd>` runs in the guest with the running session's env sourced
       automatically; e.g. `exec 'noctalia msg color-scheme-get'` returns the live
       theme with no hand-set `WAYLAND_DISPLAY`.
-- [ ] `launch <app>` starts a GUI app fully detached (returns immediately, app
+- [x] `launch <app>` starts a GUI app fully detached (returns immediately, app
       keeps running).
-- [ ] `ssh` drops into an interactive guest shell; `ready` blocks until the
+- [x] `ssh` drops into an interactive guest shell; `ready` blocks until the
       session is up (used by later verbs to avoid racing boot).
-- [ ] Unknown verb / no args prints usage and exits non-zero.
-- [ ] `.installer/tests/vm/vm-agent.bats` (new, mirroring `vm-cli.bats`) asserts
+- [x] Unknown verb / no args prints usage and exits non-zero.
+- [x] `.installer/tests/vm/vm-agent.bats` (new, mirroring `vm-cli.bats`) asserts
       verb dispatch/usage and the pure session-env-discovery helper — no live VM
       provisioned.
-- [ ] Hand-verified on the persistent `arch-combined` VM.
+- [x] Hand-verified on the persistent `arch-combined` VM.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).

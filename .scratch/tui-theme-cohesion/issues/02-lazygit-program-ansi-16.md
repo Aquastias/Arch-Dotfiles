@@ -1,6 +1,6 @@
 # system/lazygit program: seeded + stowable, follows ANSI-16
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -26,18 +26,22 @@ The program **owns the `lazygit` package**, which must therefore **leave core
 
 ## Acceptance criteria
 
-- [ ] A `system/lazygit` program exists (`kind: user`), installing the `lazygit`
+- [x] A `system/lazygit` program exists (`kind: user`), installing the `lazygit`
       package and seeding the config into `$HOME` and `/etc/skel`.
-- [ ] `lazygit` is removed from core `packages.shell` (ADR 0115).
-- [ ] `gui.theme` colors are ANSI names / `default` only — no hex values.
-- [ ] The repo stow copy and the seeded `home/` are byte-identical, guarded by a
+- [x] `lazygit` is removed from core `packages.shell` (ADR 0115).
+- [x] `gui.theme` colors are ANSI names / `default` only — no hex values.
+- [x] The repo stow copy and the seeded `home/` are byte-identical, guarded by a
       new `lazygit-program.bats` drift test (kitty/zsh precedent, not
       `configs.bats`).
-- [ ] `lazygit-program.bats` also asserts the program shape and the
+- [x] `lazygit-program.bats` also asserts the program shape and the
       `packages.shell` removal.
-- [ ] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
+- [x] VM check: lazygit opens themed on a fresh box; follows a Noctalia palette
       change (on next launch) on a compositor; stays Sapphire under KDE.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).

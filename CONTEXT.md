@@ -458,7 +458,10 @@ cycle the User Editor uses). Stored at Config State `options.root_shell` (defaul
 and a saved profile like any host option; not gated (it always has a valid
 default). Applied in the chroot by `lib/chroot/password.sh` (`chsh` root plus a
 missing-shell package install, mirroring `create-user.sh`), so root can never be
-left with an unusable login shell (ADR 0054).
+left with an unusable login shell (ADR 0054). Caveat: when the `zsh` User
+Program is installed (User Core default), its install script later seeds
+`/root` with the static zsh theme + warmed zinit cache and `chsh`es root to zsh
+(red `root@host` prompt context), overriding a `bash`/`fish` choice (ADR 0146).
 
 ### User Core
 Declarative JSONC file at `.installer/users/core/profile.jsonc`. Declares the
@@ -468,17 +471,18 @@ Every User Profile is resolved over core by the [[Layer Resolver]] — core
 applies first, then the user profile per the ADR 0057 per-key classification
 (`groups`/`programs`/`ssh_authorized_keys` additive; `shell`/`sudo`/
 `user_services` replace). A user drops something core declares via
-`programs_exclude[]`; the two throwaway VM test users use it for `docker` and
-`virt-manager`.
+`programs_exclude[]`; the two throwaway VM test users use it to drop the
+interactive userland (zsh, kitty, virt-manager, pi, claude, …).
 
-The default `shell` is **`/bin/zsh`**: the entire tracked shell payload is zsh
-(18 files under `.zsh/` plus `.zshrc`, `.zshenv`, `.zprofile`, `.zsh_aliases`,
-`.p10k.zsh`) while `.bashrc`/`.bash_profile`/`.profile` are untracked, so a bash
-default landed a fresh install in a shell whose stowed config never loaded. Root
-stays `/bin/bash` (see [[Root Shell]]). Neither `zsh` nor `zinit` is declared as
-a package: `ensure_login_shell_installed` pacman-installs a user's login shell
-when the binary is missing, and the zinit config git-clones itself on first
-interactive shell — which means the first login after install needs network.
+The default `shell` is **`/bin/zsh`**: the fleet shell config is zsh, served
+by the `zsh` [[User Program]] in User Core's `programs` (its `home/` payload —
+`.zshrc`, `.zshenv`, `.zsh/`, `.zsh_aliases`, `.p10k.zsh` — placed by the
+[[Config Apply Pass]], ADR 0134; live palette via the [[Zsh Theme Template]],
+ADR 0129). `zsh` itself is not declared as a package:
+`ensure_login_shell_installed` pacman-installs a user's login shell when the
+binary is missing. The program pre-warms the zinit plugin cache at install, so
+first login needs no network. The two throwaway VM test users
+(`users/vm/test`, `users/vm/data`) exclude zsh and stay on bash.
 
 ### Primary User
 The first entry in a host's `users` array (`users[0]` in
@@ -1193,9 +1197,10 @@ The second coding agent shipped fleet-wide beside Claude Code (ADR 0127), placed
 in [[Host Core]] so it reaches desktop + laptop (and every other core-resolved
 host) like the obs-studio addition. Installed from the AUR prebuilt
 `pi-coding-agent-bin` as a [[User Program]]; its grep/find are ripgrep/fd-backed.
-The full `~/.pi/agent/` config is **both seeded into `/etc/skel` and stow-ready**
-at the repo root (`.pi/`) — seeded because the installer never stows (ADR 0095),
-stowed by the operator's own hand. Provider is Anthropic via Claude Max OAuth
+The full `~/.pi/agent/` config lives in the pi Program's `home/` (ADR 0134):
+copied into `$HOME` + `/etc/skel` by the [[Config Apply Pass]] at install,
+stowed day-2 by the operator via `stow-configs.sh` (the installer never stows,
+ADR 0095). Provider is Anthropic via Claude Max OAuth
 (`/login`, per machine); `~/.pi/agent/auth.json` (`0600`) holds the tokens and is
 **gitignored, never stowed or seeded** — secrets stay out of the repo. Skills are
 the full mattpocock set, **vendored** (copied) into `.agents/skills/` via the
@@ -1208,6 +1213,16 @@ hash), committed as the pin alongside the vendored tree. Pi's minimal core is to
 `mcpServers` JSON). Sub-agents and plan mode stay out — pi omits them by design
 and the vendored skills cover those workflows. _Avoid_: barebones pi, API-key
 auth, aliasing over `claude`.
+
+### Claude Code Config
+The fleet-served Claude Code setup: the `claude` [[User Program]] in User Core,
+whose `home/.claude/` ships a curated `settings.json`, `CLAUDE.md` and the
+`statusline.sh` (ADR 0133, single source per ADR 0134). The served settings
+disable unused surface (claude.ai connectors, Remote Control, Artifacts,
+Workflows, claude.ai skill sync, telemetry) and pin the current Opus; the
+program's install bootstraps the Matt Pocock skill store (ADR 0142). Runtime
+state and credentials are never tracked. _Avoid_: stowed `~/.claude`, claude.ai
+synced skills.
 
 ### Pi Theme Template
 The [[Wayland Shell Companion]]'s Noctalia user-template that makes the
@@ -1246,10 +1261,10 @@ stowing the generated outputs.
 
 ### Kitty Config
 The fleet terminal's config (`~/.config/kitty/`), delivered like the [[Pi
-Coding Agent]] (ADR 0130): **both seeded into `$HOME` + `/etc/skel`** by the
-`system/kitty` [[User Program]] (byte-identical to the repo stow tree by a drift
-test) **and stow-ready** at the repo root — seeded because the installer never
-stows (ADR 0095), stowed by the operator's own hand. The program **owns the
+Coding Agent]] (ADR 0130): its config lives in the
+`system/kitty` [[User Program]]'s `home/` (ADR 0134) — copied into `$HOME` +
+`/etc/skel` by the [[Config Apply Pass]], stowed day-2 via `stow-configs.sh`
+(the installer never stows, ADR 0095). The program **owns the
 `kitty` package** — Program/package exclusivity (ADR 0115) forced it out of core
 `packages.shell` — plus the `ttf-firacode-nerd` font, so `font_family FiraCode
 Nerd Font` keeps the Fira Code look with working Nerd glyphs; the [[Wayland
@@ -1284,7 +1299,8 @@ built-in `vim.pack` (ADR 0135). Targets **stable Neovim 0.12.x** (Arch `extra`).
 Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
 toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
 — **no `mason`**, reusing the declarative `language-servers` convention), while
-the config tree is seeded + stow-ready at the repo root. Roster: blink.cmp,
+the config tree lives in the program's `home/` (Config Apply Pass +
+`stow-configs.sh`, ADR 0134). Roster: blink.cmp,
 nvim-treesitter (+treesitter-context, +treesitter-textobjects — the latter a
 query-provider for mini.ai's `af`/`ac`), nvim-lspconfig, conform, nvim-lint,
 nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview, trouble, oil, snacks
@@ -1858,9 +1874,11 @@ user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
 Layout groups files by destination path, not by program. Retired by ADR 0134:
 config now lives per-program in Program Config Trees (`home/`), applied by the
 Config Apply Pass and `stow-configs.sh`. The repo-root duplicates were removed
-program-by-program; two files linger only because they are bind-mounts in the
-dev sandbox (`.zshrc`, `.claude/settings.json`) and their de-dup lands outside
-it — the programs are decoupled regardless. `.claude` stays tracked
+program-by-program, except two leftovers: `.claude/settings.json` (a dev-sandbox
+bind-mount, kept in sync with the claude Program by a drift guard) and the
+zsh twins (`.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
+`.zsh_aliases`, `.p10k.zsh`) still linked from the operator's `~` — hand-synced
+until `.scratch/zsh-root-migration/` lands. `.claude` stays tracked
 **selectively** (ADR 0133): only `settings.json` / `scripts/statusline.sh` /
 `CLAUDE.md` were ever committed (the latter two now under the claude Program's
 `home/`); Claude Code's runtime state stays gitignored, never wholesale.

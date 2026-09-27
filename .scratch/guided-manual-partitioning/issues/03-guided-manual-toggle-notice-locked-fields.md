@@ -10,18 +10,23 @@ model only.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A **Manual partitioning** toggle field on the Disks category sets
+- [x] A **Manual partitioning** toggle field on the Disks category sets
       `disk_config.kind` between `auto` and `manual`.
-- [ ] Turning it on fires a one-time confirm notice that explicitly enumerates
+- [x] Turning it on fires a one-time confirm notice that explicitly enumerates
       the disabled features: ZFS/pool layouts, encryption, impermanence, data
       pools / storage groups, managed swap, ESP size.
-- [ ] While manual is on, those Disks fields render **shown-but-locked** —
+- [x] While manual is on, those Disks fields render **shown-but-locked** —
       visible, dimmed, non-enterable (distinct from the hidden-for-ext4/xfs
       impermanence rule, ADR 0040).
-- [ ] Turning manual off restores the fields and their previously stored values;
+- [x] Turning manual off restores the fields and their previously stored values;
       auto↔manual toggling loses neither side's Config State.
-- [ ] Headless/pure bats at the guided menu seam covers the toggle, the lock
+- [x] Headless/pure bats at the guided menu seam covers the toggle, the lock
       state, restore-on-off, and the one-time notice, modelled on
       `tests/config/guided-custom-layout.bats` / `guided-disk-bind.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
+  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).

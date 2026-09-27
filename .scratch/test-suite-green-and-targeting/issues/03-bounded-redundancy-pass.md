@@ -11,15 +11,19 @@ catalogued supersessions and obvious duplicates — not a full 195-file audit.
 **Blocked by:** 01 (a green baseline is required to verify "still green after
 removing a test").
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `run.sh --full` is still green after the pass; the file/test count is
+- [x] `run.sh --full` is still green after the pass; the file/test count is
       lower.
-- [ ] Every removal is either a true duplicate of a surviving test or a fixture
+- [x] Every removal is either a true duplicate of a surviving test or a fixture
       fully covered by a named exhaustive/property successor — each with a stated
       justification.
-- [ ] No bug-class row in the regression catalog loses its guarding test; the
+- [x] No bug-class row in the regression catalog loses its guarding test; the
       catalog is updated where a guard's name changed.
-- [ ] Where behaviour was worth keeping but duplicated, tests are consolidated
+- [x] Where behaviour was worth keeping but duplicated, tests are consolidated
       rather than dropped, preserving the assertion.
-- [ ] No full 195-file audit and no removal of a unique bug-class are in scope.
+- [x] No full 195-file audit and no removal of a unique bug-class are in scope.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).

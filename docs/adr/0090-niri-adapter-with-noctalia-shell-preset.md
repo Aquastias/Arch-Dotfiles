@@ -3,6 +3,7 @@
 ---
 Status: accepted. Extends ADR 0005 (adapter pattern), ADR 0021/0062 (core-only
 adapters), ADR 0088 (adapter seeds /etc/skel).
+Later decisions: superseded by ADR 0093.
 ---
 
 niri joins as a third selectable `environment.desktop` value

@@ -1,5 +1,7 @@
 # Guided Installer captures credentials in the menu, not after it
 
+Later decisions: amended by ADR 0051.
+
 The Guided Installer collects the root and per-user passwords **inside** the
 persistent fzf, not in a post-menu prompt. A masked, confirmed prompt runs under
 an fzf `execute()` (which has a tty); because that subprocess cannot write the

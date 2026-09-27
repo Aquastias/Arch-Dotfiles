@@ -1,6 +1,6 @@
 # Ongoing archzfs LTS hold via IgnorePkg timer
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -25,18 +25,22 @@ fallback for the install pin.
 
 ## Acceptance criteria
 
-- [ ] During a skew, `pacman -Syu` holds `linux-lts`/headers and upgrades
+- [x] During a skew, `pacman -Syu` holds `linux-lts`/headers and upgrades
       everything else (non-blocking).
-- [ ] Hold clears automatically when archzfs catches up.
-- [ ] Timer never reinstalls the kernel; offline → hold state unchanged.
-- [ ] An operator's own `IgnorePkg` line survives set/clear.
-- [ ] Install pin falls back to the newest archive `linux-lts` <= ceiling when
+- [x] Hold clears automatically when archzfs catches up.
+- [x] Timer never reinstalls the kernel; offline → hold state unchanged.
+- [x] An operator's own `IgnorePkg` line survives set/clear.
+- [x] Install pin falls back to the newest archive `linux-lts` <= ceiling when
       the exact version can't be fetched.
-- [ ] bats cover the IgnorePkg editor, `archzfs_pin_candidates`, and the
+- [x] bats cover the IgnorePkg editor, `archzfs_pin_candidates`, and the
       build-repo candidate fallback.
-- [ ] Verified on the existing `arch-combined` VM (forced low ceiling → held;
+- [x] Verified on the existing `arch-combined` VM (forced low ceiling → held;
       real ceiling → cleared).
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 55a0be4, 120b1ca, 4ddb538 (ADR 0139).

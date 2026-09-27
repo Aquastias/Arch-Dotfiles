@@ -50,5 +50,16 @@ $ stow --no-folding .
 > `--no-folding` keeps directories like `~/.config/noctalia` as real dirs with
 > only the tracked files symlinked in, so apps that write runtime state next to
 > their config (e.g. Noctalia's `settings.toml`) never write back into this repo.
-> The installer's per-user stow step already runs with this flag.
+> The installer never stows (ADR 0095): it copies/seeds config at install time.
+
+Per-program configs (zsh, kitty, nvim, pi, claude, …) live in each Program's
+`.installer/programs/<cat>/<name>/home/` and are stowed separately (ADR 0134):
+
+```bash
+$ ./stow-configs.sh                 # every Program that ships a home/
+$ ./stow-configs.sh kitty zsh       # just these
+$ ./stow-configs.sh --except claude # all but these
+```
+
+(`dstow` is a zsh alias for `stow-configs.sh`.)
 

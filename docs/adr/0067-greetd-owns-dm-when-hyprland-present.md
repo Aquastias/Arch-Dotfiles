@@ -2,6 +2,7 @@
 
 ---
 Status: superseded by ADR 0068
+Later decisions: superseded by ADR 0069; amended by ADR 0070.
 ---
 
 ## Superseded (2026-08-23)

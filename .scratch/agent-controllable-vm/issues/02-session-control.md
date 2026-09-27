@@ -12,18 +12,22 @@ boot session is the first compositor in the desktop set.
 
 **Blocked by:** 01 — CLI skeleton (needs `ready`, connect, sudo).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `session kde` boots the VM into Plasma; `session niri` / `session hyprland`
+- [x] `session kde` boots the VM into Plasma; `session niri` / `session hyprland`
       boot the respective compositor — each waits until the session is actually
       up before returning.
-- [ ] Autologin is written to a CLI-owned drop-in (sddm or greetd per the
+- [x] Autologin is written to a CLI-owned drop-in (sddm or greetd per the
       resolved greeter), leaving the seeded DM config untouched.
-- [ ] `logout` terminates the session and a fresh session re-autologins without a
+- [x] `logout` terminates the session and a fresh session re-autologins without a
       full reboot; `reboot` restarts and waits ready.
-- [ ] Default boot session resolves to the first compositor in the desktop set.
-- [ ] `vm-agent.bats` asserts the pure logic: autologin-config generation
+- [x] Default boot session resolves to the first compositor in the desktop set.
+- [x] `vm-agent.bats` asserts the pure logic: autologin-config generation
       (correct sddm `[Autologin]` and greetd `[initial_session]` for each of
       niri/Hyprland/KDE), session-name→`.desktop` mapping, and default-session
       resolution.
-- [ ] Hand-verified on `arch-combined` (niri↔KDE↔hyprland round-trip).
+- [x] Hand-verified on `arch-combined` (niri↔KDE↔hyprland round-trip).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).

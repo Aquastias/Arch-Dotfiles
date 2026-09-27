@@ -11,17 +11,22 @@ behavioural change.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The config loader validates `wayland_shell` (`noctalia`/`none`, default
+- [x] The config loader validates `wayland_shell` (`noctalia`/`none`, default
       `noctalia`) and rejects unknown values.
-- [ ] The resolved value is exported to both the niri and Hyprland adapters
+- [x] The resolved value is exported to both the niri and Hyprland adapters
       (Hyprland receives it even though it does not act on it yet).
-- [ ] The Guided menu row, its enum, the seed default, and the Host Profile
+- [x] The Guided menu row, its enum, the seed default, and the Host Profile
       schema key list all use `wayland_shell`.
-- [ ] The install-matrix pairwise axis is renamed to `wayland_shell`.
-- [ ] The VM seed generator emits `wayland_shell`.
-- [ ] `environment-validation.bats`, `environment-resolution.bats`,
+- [x] The install-matrix pairwise axis is renamed to `wayland_shell`.
+- [x] The VM seed generator emits `wayland_shell`.
+- [x] `environment-validation.bats`, `environment-resolution.bats`,
       `menu-enum.bats`, and `matrix-registry.bats` pass against the new name; no
       reference to `niri_shell` remains.
-- [ ] niri install behaviour is unchanged (existing niri-adapter tests green).
+- [x] niri install behaviour is unchanged (existing niri-adapter tests green).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
+  b436f92 (ADR 0097).

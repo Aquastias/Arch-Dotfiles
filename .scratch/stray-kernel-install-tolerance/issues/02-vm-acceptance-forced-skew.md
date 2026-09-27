@@ -1,6 +1,6 @@
 # VM acceptance: arch-combined completes (pin + stray tolerance)
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -24,13 +24,17 @@ is what runs.
 
 ## Acceptance criteria
 
-- [ ] A forced-skew `arch-combined` recreation completes the install (clean exit
+- [x] A forced-skew `arch-combined` recreation completes the install (clean exit
       sentinel; no `No ZFS kernel module` abort).
-- [ ] `install.log` shows the lts pin firing (held back to the override version)
+- [x] `install.log` shows the lts pin firing (held back to the override version)
       and the stray `linux` tolerated (guard warn, preset skipped).
-- [ ] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
+- [x] The selected `linux-lts` has a `zfs.ko`; the stray `linux` has none and no
       initramfs.
 
 ## Blocked by
 
 - `.scratch/stray-kernel-install-tolerance/issues/01-tolerate-stray-kernels-at-install.md`
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 7fe4813, 0ed1a98, c19f639 (ADR 0138).

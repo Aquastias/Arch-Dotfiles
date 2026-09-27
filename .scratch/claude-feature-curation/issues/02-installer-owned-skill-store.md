@@ -27,12 +27,16 @@ placement proves wrong.
 **Blocked by:** 01 (shares the `claude-agent.bats` file; serialized to avoid an
 edit conflict — not a logical gate).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `install.sh` runs `npx skills@latest add mattpocock/skills` as the owning
+- [x] `install.sh` runs `npx skills@latest add mattpocock/skills` as the owning
       user, guarded against re-run/offline failure
-- [ ] `nodejs`/`npm` guaranteed present (added to deps if not already pulled)
-- [ ] Existing "install.sh does NOT seed config / never writes credentials"
+- [x] `nodejs`/`npm` guaranteed present (added to deps if not already pulled)
+- [x] Existing "install.sh does NOT seed config / never writes credentials"
       tests still pass (or are reconciled with documented rationale)
-- [ ] `claude-agent.bats` asserts the npx invocation + the npm/nodejs dep
-- [ ] `bats .installer/tests/config/claude-agent.bats` passes; no-python green
+- [x] `claude-agent.bats` asserts the npx invocation + the npm/nodejs dep
+- [x] `bats .installer/tests/config/claude-agent.bats` passes; no-python green
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 17aee35, 4a801f2, bd078d6 (ADR 0142).

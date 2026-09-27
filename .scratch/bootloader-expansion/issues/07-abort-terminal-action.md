@@ -10,13 +10,18 @@ having started the installer.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Guided Installer shows an **Abort** action row beside Proceed / Save /
+- [x] The Guided Installer shows an **Abort** action row beside Proceed / Save /
       Export.
-- [ ] Selecting Abort exits the menu cleanly and makes `install.sh` skip the
+- [x] Selecting Abort exits the menu cleanly and makes `install.sh` skip the
       back-end, leaving disks untouched.
-- [ ] Abort routes through the existing Esc cancel path (no new destructive or
+- [x] Abort routes through the existing Esc cancel path (no new destructive or
       rollback logic).
-- [ ] `guided-controller` / `guided-menu` tests assert the Abort row is emitted
+- [x] `guided-controller` / `guided-menu` tests assert the Abort row is emitted
       and maps to the cancel directive.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
+  6019e48, 4f97379 (ADR 0077/0078).

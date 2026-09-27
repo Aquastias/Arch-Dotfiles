@@ -1,6 +1,6 @@
 # Spec: Live Theme Bridge — repaint running apps on Noctalia theme change
 
-Status: ready-for-agent
+Status: done
 
 Anchored by **ADR 0116**. Extends the [[App Theming Bridge]] (ADR 0102/0104/
 0108) and uses the [[Wayland Shell Companion]] and [[Package Resolver]] glossary

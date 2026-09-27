@@ -7,14 +7,19 @@ the `plasma-meta` shell only, with no curated apps and no captured settings seed
 **Blocked by:** 02 (KDE captured-settings seed — the seed logic this skips), 03
 (`environment.stock` foundation — the env var this reads).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The KDE adapter reads `ENVIRONMENT_STOCK`; when set, it installs the
+- [x] The KDE adapter reads `ENVIRONMENT_STOCK`; when set, it installs the
       `plasma-meta` shell but skips `apps_list`, `apps_extra`, `plugins`, and
       `aur` (ADR 0087) and the entire captured/first-run seed (ADR 0088/0111).
-- [ ] When `ENVIRONMENT_STOCK` is unset/false, behaviour is the full opinionated
+- [x] When `ENVIRONMENT_STOCK` is unset/false, behaviour is the full opinionated
       install from ticket 02 (no regression).
-- [ ] `tests/extras/kde-adapter.bats` asserts the stock path: shell packages
+- [x] `tests/extras/kde-adapter.bats` asserts the stock path: shell packages
       installed, no captured seed files written to `KDE_SEED_ROOT`, no app sets.
-- [ ] Host daemons are unaffected — the Bluetooth service toggle still applies
+- [x] Host daemons are unaffected — the Bluetooth service toggle still applies
       under stock (ADR 0080).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6dfb331, 3918ff4, b34e8da, 11d0e5c, 96de292,
+  577586f (ADR 0111-0115).

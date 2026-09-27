@@ -19,20 +19,24 @@ The six keys (snake_case, matching `optional_repos` / `esp_size`):
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The closed-schema allowlist admits all six `options.pacman.*` paths; a
+- [x] The closed-schema allowlist admits all six `options.pacman.*` paths; a
       profile carrying them validates, and an unknown `options.pacman.*` key
       still aborts with its path.
-- [ ] Accessors expose each option (five bool, one scalar) returning the
+- [x] Accessors expose each option (five bool, one scalar) returning the
       operator value when set and the documented default otherwise.
-- [ ] Accessor read-paths and the closed-schema allowlist stay in lockstep — the
+- [x] Accessor read-paths and the closed-schema allowlist stay in lockstep — the
       existing schema drift guard passes with the new paths.
-- [ ] The guided seed sets `ilovecandy`, `color`, `verbose_pkg_lists` on and
+- [x] The guided seed sets `ilovecandy`, `color`, `verbose_pkg_lists` on and
       `parallel_downloads = 5`; the two opt-in flags remain off/unseeded.
-- [ ] If the combination-matrix registry gates operator-facing option paths, it
+- [x] If the combination-matrix registry gates operator-facing option paths, it
       carries `options.pacman.*` entries consistent with `options.optional_repos`.
-- [ ] Bats cover: profile validation (accept + reject), accessor reads +
+- [x] Bats cover: profile validation (accept + reject), accessor reads +
       defaults, and the seeded defaults. Prior art:
       `tests/config/install-config.bats`, `tests/config/guided-seed.bats`.
-- [ ] `CheckSpace` and `multilib` are NOT added — excluded by design (ADR 0074).
+- [x] `CheckSpace` and `multilib` are NOT added — excluded by design (ADR 0074).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 30f1f0e (ADR 0074).

@@ -15,20 +15,25 @@ pure prefactor.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A new Bootloader Manifest lib exposes, per loader, the EFI loader path,
+- [x] A new Bootloader Manifest lib exposes, per loader, the EFI loader path,
       package set, ESP-entry style, and a ZFS-support flag, as pure functions.
-- [ ] The secondary-ESP UEFI entry path in the orchestrator reads the loader
+- [x] The secondary-ESP UEFI entry path in the orchestrator reads the loader
       path from the manifest instead of branching on the loader name.
-- [ ] The package resolver and the package list both derive bootloader packages
+- [x] The package resolver and the package list both derive bootloader packages
       from the manifest instead of a `grub`-only branch.
-- [ ] `options.bootloader` is validated at profile load against the
+- [x] `options.bootloader` is validated at profile load against the
       `menu_enum_options options.bootloader` enum (the shared SSOT); an unknown
       value aborts with its dotted path.
-- [ ] The legal set is unchanged (`systemd-boot`, `grub`); existing installs and
+- [x] The legal set is unchanged (`systemd-boot`, `grub`); existing installs and
       tests behave identically.
-- [ ] New bats over the manifest functions assert each loader's path, packages,
+- [x] New bats over the manifest functions assert each loader's path, packages,
       esp-style, and zfs flag (prior art: `packages/kernel.bats`,
       `tests/grub-common.bats`); `menu-enum` and validation tests cover the
       closed-set rejection.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
+  6019e48, 4f97379 (ADR 0077/0078).

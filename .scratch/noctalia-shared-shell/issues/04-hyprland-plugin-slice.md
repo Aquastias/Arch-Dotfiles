@@ -12,17 +12,22 @@ Hyprland, kept by explicit choice.
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each candidate `hypr-*` id is confirmed present at the pinned community ref;
+- [x] Each candidate `hypr-*` id is confirmed present at the pinned community ref;
       missing ones are dropped and noted.
-- [ ] The `hyprland` slice in `install-noctalia.jsonc` lists the confirmed ids
+- [x] The `hyprland` slice in `install-noctalia.jsonc` lists the confirmed ids
       with their deps; the shared package map exposes them.
-- [ ] A Hyprland install vendors the `hyprland` slice (niri still vendors the
+- [x] A Hyprland install vendors the `hyprland` slice (niri still vendors the
       `niri` slice, unchanged).
-- [ ] The first-login one-shot enables the vendored slice on Hyprland.
-- [ ] The split stays clean: `hypr-*` are vendored/enabled only on Hyprland and
+- [x] The first-login one-shot enables the vendored slice on Hyprland.
+- [x] The split stays clean: `hypr-*` are vendored/enabled only on Hyprland and
       `niri-*` only on niri; neither slice's ids appear in the shared
       `config.toml`.
-- [ ] `hyprland-adapter.bats` asserts the slice is vendored; `resolver.bats`
+- [x] `hyprland-adapter.bats` asserts the slice is vendored; `resolver.bats`
       reports its deps.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
+  b436f92 (ADR 0097).

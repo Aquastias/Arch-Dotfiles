@@ -6,6 +6,7 @@ Hyprland config) — its keybind-parity vocabulary survives, relocated into the
 Noctalia-wired `hyprland.conf`. Extends ADR 0090 (niri adapter + Noctalia
 preset), 0093 (enriched plugin set), 0095 (skel-seed delivery). Amends ADR
 0062's Hyprland core-only for the *shell* layer only.
+Later decisions: amended by ADR 0100.
 ---
 
 ADR 0096 gave niri and Hyprland one keybind vocabulary but two different

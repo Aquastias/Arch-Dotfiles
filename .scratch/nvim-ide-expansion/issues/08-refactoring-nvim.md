@@ -1,6 +1,6 @@
 # 08 — Refactoring commands: refactoring.nvim
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -15,12 +15,17 @@ inline variable. Lazy-loaded under a `<leader>r` (refactor) group.
 
 ## Acceptance criteria
 
-- [ ] refactoring.nvim is declared and lazy-loads (zero startup cost).
-- [ ] Extract-function, extract-variable and inline-variable work from a
+- [x] refactoring.nvim is declared and lazy-loads (zero startup cost).
+- [x] Extract-function, extract-variable and inline-variable work from a
       selection in a supported language.
-- [ ] `<leader>r` keymaps drive the refactors and register a which-key group.
-- [ ] Seam A asserts the plugin, its lazy trigger and the maps.
+- [x] `<leader>r` keymaps drive the refactors and register a which-key group.
+- [x] Seam A asserts the plugin, its lazy trigger and the maps.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

@@ -8,22 +8,28 @@ the reference box reflects the real resolver behaviour. (ADR 0118)
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A new pure timezone resolver (modelled on the Printing Service resolver)
+- [x] A new pure timezone resolver (modelled on the Printing Service resolver)
       resolves: explicit/guided value → geo-IP autodetect → `Europe/Bucharest`.
-- [ ] Autodetect uses a bounded curl to `https://ipapi.co/timezone`, matching the
+- [x] Autodetect uses a bounded curl to `https://ipapi.co/timezone`, matching the
       existing `--connect-timeout 2 --max-time 8` idiom.
-- [ ] The resolved zone is validated against `/usr/share/zoneinfo`; an
+- [x] The resolved zone is validated against `/usr/share/zoneinfo`; an
       invalid/empty result falls back to `Europe/Bucharest`.
-- [ ] A failed/offline fetch falls back to `Europe/Bucharest` (installer stays
+- [x] A failed/offline fetch falls back to `Europe/Bucharest` (installer stays
       functional offline).
-- [ ] The network fetch is behind an injectable seam so tests never hit the
+- [x] The network fetch is behind an injectable seam so tests never hit the
       network.
-- [ ] The `system.timezone: "UTC"` pin is removed from the `arch-combined` Host
+- [x] The `system.timezone: "UTC"` pin is removed from the `arch-combined` Host
       Profile.
-- [ ] `config/timezone.bats` (structured like `config/printing.bats`) covers:
+- [x] `config/timezone.bats` (structured like `config/printing.bats`) covers:
       explicit wins; injected valid zone used; invalid/empty → fallback; offline
       → fallback.
-- [ ] Existing profile-loader / personal-profiles tests still pass with the pin
+- [x] Existing profile-loader / personal-profiles tests still pass with the pin
       removed.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8a32898, 54ecfba, 41a2188, 378db0b, a96edbc,
+  e79ca17, 4352be4, dfc347d, 8f3795b, badf9e0, cd8f5a0, 840dfea, f598ff0 (ADR
+  0118-0121).

@@ -1,5 +1,7 @@
 # VM provisioning unified behind a profile-driven harness
 
+Later decisions: amended by ADR 0036.
+
 The ~18 per-flavor VM scripts (`vm/vm-*.sh`, `tests/vm/testing-*.sh`),
 each a thin wrapper inlining a near-duplicate `install.jsonc`, are
 replaced by a single profile-driven harness `vm/vm.sh` plus JSONC **VM

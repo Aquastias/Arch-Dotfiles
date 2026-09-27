@@ -2,6 +2,7 @@
 
 ---
 Status: accepted
+Later decisions: superseded by ADR 0059; amended by ADR 0146.
 ---
 
 The Guided Installer now captures the **ZFS/LUKS encryption passphrase inline in

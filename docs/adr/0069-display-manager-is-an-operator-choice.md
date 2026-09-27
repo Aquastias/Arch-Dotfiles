@@ -3,6 +3,7 @@
 ---
 Status: accepted (supersedes ADR 0067's "greetd owns the DM whenever
 Hyprland is installed")
+Later decisions: superseded by ADR 0091.
 ---
 
 The display manager is now selected by the operator via

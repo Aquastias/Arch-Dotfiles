@@ -2,6 +2,7 @@
 
 ## Status
 Accepted.
+Later decisions: amended by ADR 0087, ADR 0096.
 
 ## Context
 Host configs and Desktop Environment Adapters both declared KDE

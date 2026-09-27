@@ -9,17 +9,22 @@ already generates them via XDG autostart). Generation is idempotent.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland Shell
+- [x] A seeded `noctalia-xdg-user-dirs` script (riding the [[Wayland Shell
       Companion]] preset's `.local/bin/noctalia-*` skel seed) runs
       `xdg-user-dirs-update` (standard set from the stock English defaults),
       then creates `~/Projects` and declares a non-standard `XDG_PROJECTS_DIR`.
       Idempotent.
-- [ ] Both compositor autostarts call it (niri + Hyprland), beside the shell
+- [x] Both compositor autostarts call it (niri + Hyprland), beside the shell
       daemon / [[Live Theme Bridge]] launch.
-- [ ] Run at login as the user, it reaches existing and new users alike — no
+- [x] Run at login as the user, it reaches existing and new users alike — no
       per-`$HOME` seed (the preset is skel-only, ADR 0095).
-- [ ] Scope is compositor-only; nothing new runs under KDE.
-- [ ] `noctalia-stow.bats` asserts the script's shape and the per-compositor
+- [x] Scope is compositor-only; nothing new runs under KDE.
+- [x] `noctalia-stow.bats` asserts the script's shape and the per-compositor
       autostart entries.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in deaa594, db20d11, 0cc3ff5, 09d47f3, 1b28de0,
+  66bceb5 (ADR 0130/0131).

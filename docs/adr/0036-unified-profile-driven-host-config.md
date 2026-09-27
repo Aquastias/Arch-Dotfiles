@@ -7,6 +7,7 @@ file split in ADR 0001 and ADR 0010 (the Pre-Install Picker is now the
 `install.sh --profile` front-end, not a separate `tools/pick.sh`); narrows
 ADR 0002's reach; amends ADR 0015 (open -> closed schema) and ADR 0035
 (VM `install: "repo"` redefined).
+Later decisions: amended by ADR 0039, ADR 0073.
 
 ## Context
 A machine is currently described by three files: `install.jsonc`

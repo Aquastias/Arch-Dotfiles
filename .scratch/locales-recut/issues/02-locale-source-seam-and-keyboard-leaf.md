@@ -9,19 +9,24 @@ font tickets reuse — "make the change easy, then make the easy change".
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A locale-source layer exists as a small set of functions callable by the
+- [x] A locale-source layer exists as a small set of functions callable by the
       Menu model; `locale_list_keymaps` returns the medium's keymaps in
       production and is stubbable/fixturable in tests (no live ISO required).
-- [ ] The `keyboard` leaf (path still `system.keymap`) appears in **Locales**
+- [x] The `keyboard` leaf (path still `system.keymap`) appears in **Locales**
       with that label; `keymap` as a label no longer shows.
-- [ ] `menu_enum_options` for the keyboard leaf returns the locale-source keymap
+- [x] `menu_enum_options` for the keyboard leaf returns the locale-source keymap
       list rather than a static list.
-- [ ] The interactive controller and the replay editors both pick the keyboard
+- [x] The interactive controller and the replay editors both pick the keyboard
       value from this list (no drift between the two front-ends).
-- [ ] The default keymap (`us`) is preserved when the operator does not touch it;
+- [x] The default keymap (`us`) is preserved when the operator does not touch it;
       the `●` override flag tracks only real overrides.
-- [ ] Tests stub the locale source and assert the enumerated keyboard list and
+- [x] Tests stub the locale source and assert the enumerated keyboard list and
       the leaf row. Prior art: `tests/config/menu-enum.bats`,
       `tests/config/guided-menu.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
+  d665bd8 (ADR 0076).

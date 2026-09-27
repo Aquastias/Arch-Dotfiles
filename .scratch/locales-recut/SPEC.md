@@ -1,6 +1,6 @@
 # Guided Installer: Locales category recut
 
-Status: ready-for-agent
+Status: done
 
 Recuts the Guided Installer's **Locales** Category into four leaves — `keyboard`,
 `language`, `encoding`, `console font` — with `language`/`encoding` as

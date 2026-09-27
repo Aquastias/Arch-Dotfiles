@@ -8,6 +8,7 @@ kept by confinement, not by excluding combined hosts. Facts traced live in the
 running `arch-combined` VM (niri session): a `builtin Gruvbox` set flipped the
 qt6ct base `#1e1e2e`→`#282828` and rewrote `gtk-{3,4}.0/noctalia.css`, proving
 file-following already works for any theme.
+Later decisions: corrected by ADR 0124; superseded by ADR 0123.
 
 **Verified end-to-end on the VM with screenshots + pixel sampling.** Two
 mechanism corrections came out of that testing and are folded in below: (a) the

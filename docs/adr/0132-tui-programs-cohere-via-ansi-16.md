@@ -4,6 +4,7 @@
 Status: accepted. Extends the theming cluster (ADR 0102/0116/0128/0129/0130);
 default palette per ADR 0109; program/package exclusivity ADR 0115;
 never-stow-a-runtime-rewritten-file per ADR 0104/0108. Neovim excluded.
+Later decisions: amended by ADR 0136.
 ---
 
 Kitty now ships following Noctalia (ADR 0130), but the rest of the fleet's

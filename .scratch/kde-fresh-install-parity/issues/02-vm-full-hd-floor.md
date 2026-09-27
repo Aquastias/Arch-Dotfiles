@@ -9,14 +9,20 @@ honouring ADR 0110)
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The shared kernel-cmdline composition appends
+- [x] The shared kernel-cmdline composition appends
       `video=Virtual-1:1920x1080` when install-time virtualization is detected
       (`systemd-detect-virt` inside the chroot).
-- [ ] On a bare-metal install the cmdline does NOT gain the `video=` option.
-- [ ] No `kscreenrc` / `kwinoutputconfig.json` or any monitor mode is seeded.
-- [ ] "At least" is a floor — a larger SPICE surface still scales up via
+- [x] On a bare-metal install the cmdline does NOT gain the `video=` option.
+- [x] No `kscreenrc` / `kwinoutputconfig.json` or any monitor mode is seeded.
+- [x] "At least" is a floor — a larger SPICE surface still scales up via
       preferred-mode autodetection.
-- [ ] `boot/loader-entries.bats` covers: virt-detect stubbed present → cmdline
+- [x] `boot/loader-entries.bats` covers: virt-detect stubbed present → cmdline
       contains `video=Virtual-1:1920x1080`; stubbed absent → it does not.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8a32898, 54ecfba, 41a2188, 378db0b, a96edbc,
+  e79ca17, 4352be4, dfc347d, 8f3795b, badf9e0, cd8f5a0, 840dfea, f598ff0 (ADR
+  0118-0121).

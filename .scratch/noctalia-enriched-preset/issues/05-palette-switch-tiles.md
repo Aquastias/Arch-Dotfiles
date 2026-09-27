@@ -15,11 +15,16 @@ so placing the "Cycle palette" tile in the CC is a one-time user step.
 **Blocked by:** 02, 03 (needs the seeded palette default and the
 `custom-shortcut` plugin installed).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A seeded script cycles the five palettes via `colorScheme set`.
-- [ ] The `custom-shortcut` tile is pre-wired to it via `[plugin_settings]`,
+- [x] A seeded script cycles the five palettes via `colorScheme set`.
+- [x] The `custom-shortcut` tile is pre-wired to it via `[plugin_settings]`,
       only when `custom-shortcut` is enabled.
-- [ ] The built-in `control_center.shortcuts` defaults are left untouched.
-- [ ] No `config-swap` plugin is involved.
-- [ ] `niri-adapter.bats` asserts the cycler + tile settings on, and absent off.
+- [x] The built-in `control_center.shortcuts` defaults are left untouched.
+- [x] No `config-swap` plugin is involved.
+- [x] `niri-adapter.bats` asserts the cycler + tile settings on, and absent off.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
+  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.

@@ -1,6 +1,6 @@
 # Spec: Dual-session app theming isolation (KDE + Noctalia compositors)
 
-Status: ready-for-agent
+Status: done
 
 Anchored by **ADR 0104** (amends ADR 0102). Uses the [[App Theming Bridge]],
 [[Wayland Shell Companion]], [[Desktop Environment Adapter]], and

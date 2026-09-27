@@ -8,11 +8,15 @@ the Breeze Dark look is unchanged.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `bibata-cursor-git` is declared in the KDE adapter's `aur` list and lands
+- [x] `bibata-cursor-git` is declared in the KDE adapter's `aur` list and lands
       via the paru pass when KDE is selected.
-- [ ] The seeded KDE input config sets the cursor theme to `Bibata-Modern-Ice`
+- [x] The seeded KDE input config sets the cursor theme to `Bibata-Modern-Ice`
       (replacing `breeze_cursors`), and `~/.icons/default` inherits it.
-- [ ] Cursor size is 24; the rest of the seeded Breeze Dark look is untouched.
-- [ ] `kde-adapter.bats` asserts the new cursor theme and the aur declaration.
+- [x] Cursor size is 24; the rest of the seeded Breeze Dark look is untouched.
+- [x] `kde-adapter.bats` asserts the new cursor theme and the aur declaration.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).

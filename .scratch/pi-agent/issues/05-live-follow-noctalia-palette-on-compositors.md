@@ -15,13 +15,18 @@ Anchored by ADR 0128.
 
 **Blocked by:** 04 (needs the seeded `noctalia.json` target + `theme: "noctalia"`).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `config.toml` declares `[theme.templates.user.pi]` rendering to
+- [x] `config.toml` declares `[theme.templates.user.pi]` rendering to
       `~/.pi/agent/themes/noctalia.json`.
-- [ ] The template input file maps the palette's Material + terminal roles to
+- [x] The template input file maps the palette's Material + terminal roles to
       pi's 53 tokens.
-- [ ] The template runs only in niri/Hyprland sessions, never under KDE.
-- [ ] `pi-agent.bats` asserts `config.toml` declares the pi user-template.
-- [ ] On `arch-combined`, `session niri` + a Noctalia palette change repaints the
+- [x] The template runs only in niri/Hyprland sessions, never under KDE.
+- [x] `pi-agent.bats` asserts `config.toml` declares the pi user-template.
+- [x] On `arch-combined`, `session niri` + a Noctalia palette change repaints the
       pi TUI; `session kde` leaves it on Catppuccin Mocha Sapphire.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
+  0f0aa6f, 747d14e (ADR 0127/0128).

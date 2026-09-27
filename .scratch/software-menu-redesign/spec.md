@@ -1,6 +1,6 @@
 # Software-options redesign: Menu-Owned Programs + Software area
 
-Status: ready-for-agent
+Status: done
 
 Reference: ADR 0086 (Menu-Owned Programs and the Software area redesign).
 Glossary: [[Menu-Owned Program]], [[Host Program]], [[User Program]],

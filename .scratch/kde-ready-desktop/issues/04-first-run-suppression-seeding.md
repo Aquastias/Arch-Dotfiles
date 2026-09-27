@@ -12,7 +12,7 @@ set only — not all ~45 apps (ADR Q4-B).
 **Blocked by:** 03 — reuses the seed-root variable and skel/xdg write
 helper it introduces.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] The Plasma Welcome Center autostart is hidden in the seeded skel
 - [x] Per-app first-run state is seeded **where a dependable Plasma-6
@@ -26,3 +26,8 @@ helper it introduces.
       value
 - [x] Only the curated apps are touched; no attempt at exhaustive
       per-app coverage
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
+  6878699, 0bd152f, f43fabe (ADR 0087/0088).

@@ -1,6 +1,6 @@
 # Spec: VM live-ISO inspectability on installer failure
 
-Status: ready-for-agent
+Status: done
 
 Anchored by ADR 0099 (VM inspectability seeded at boot, not by the installer
 payload).

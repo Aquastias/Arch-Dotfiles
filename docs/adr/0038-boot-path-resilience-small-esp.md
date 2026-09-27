@@ -4,6 +4,7 @@
 Accepted. Builds on ADR 0023 (single-source ZFS module install),
 ADR 0024 (Kernel Selection / Primary Kernel / ZFS Module Guard), and
 ADR 0030 (boot-time ZFS import).
+Later decisions: amended by ADR 0078.
 
 ## Context
 systemd-boot cannot read ZFS, so the kernel image and initramfs are

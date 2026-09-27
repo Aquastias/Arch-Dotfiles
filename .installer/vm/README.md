@@ -12,7 +12,7 @@ dev work — they survive across reboots.
 
 ## Quick start
 
-**Prerequisites:** `virt-install`, `virsh`, `cloud-localds`, `python3`,
+**Prerequisites:** `virt-install`, `virsh`, `cloud-localds`, `socat`,
 `nc`, `jq`, `libvirtd` running, user in `libvirt` group.
 
 ```bash

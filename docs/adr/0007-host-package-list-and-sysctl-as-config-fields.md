@@ -1,6 +1,7 @@
 # ADR 0007: Host package list and sysctl as config fields
 
 **Status:** Accepted
+Later decisions: amended by ADR 0056.
 
 ## Context
 

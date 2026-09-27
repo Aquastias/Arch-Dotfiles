@@ -11,6 +11,7 @@ the running `arch-combined` VM (Noctalia *was* generating
 `qt6ct/colors/noctalia.conf`; only `qt6ct.conf` — the file that points qt6ct at
 it — was missing), and the one-file fix was confirmed by before/after
 screenshots (Dolphin white → themed).
+Later decisions: superseded by ADR 0123.
 ---
 
 The App Theming Bridge (ADR 0102) was **wired but undelivered**. Every other

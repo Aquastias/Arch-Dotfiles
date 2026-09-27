@@ -2,7 +2,7 @@
 # Run the bats tests under .installer/tests/ (recursively, so folder-mirrored
 # subdirs like config/ are discovered). Vendors bats-core on first run.
 #
-# Modes (ADR 0046 two-tier + ADR 0078 gate split; --changed ADR 0103):
+# Modes (ADR 0046 two-tier + ADR 0145 gate split; --changed ADR 0103):
 #   run.sh                Full always-on tier: every bats file (default).
 #   run.sh --full         Same as no arg.
 #   run.sh --fast         Curated install-correctness subset for a pre-push
@@ -16,7 +16,7 @@
 #   run.sh --vm           On-demand VM smoke via matrix.sh (needs KVM). Errors
 #                         cleanly where /dev/kvm is absent.
 #
-# The <90 s wall target (ADR 0048/0078) is aspirational and only trustworthy
+# The <90 s wall target (ADR 0048/0145) is aspirational and only trustworthy
 # on an idle box; on a loaded dev box judge by total CPU, not wall.
 
 set -euo pipefail

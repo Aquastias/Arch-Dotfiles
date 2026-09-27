@@ -9,17 +9,22 @@ selecting SDDM in the menu installs SDDM.
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Environment category shows a `display manager` row with enum options
+- [x] The Environment category shows a `display manager` row with enum options
       `auto`, `greetd`, `sddm` (default `auto`) and Display Labels Auto /
       greetd / SDDM.
-- [ ] The row carries the standard override dot only when the operator changes
+- [x] The row carries the standard override dot only when the operator changes
       it; the Environment category summary names the display manager.
-- [ ] The selection is written to Config State under
+- [x] The selection is written to Config State under
       `environment.display_manager` and is carried by Proceed, Export, and Save
       Profile (a delta over Host Core).
-- [ ] The enum and Display Label come from the single shared source so the
+- [x] The enum and Display Label come from the single shared source so the
       interactive and replay front-ends cannot drift.
-- [ ] The guided-menu and menu-enum bats cover the row, its options, and its
+- [x] The guided-menu and menu-enum bats cover the row, its options, and its
       labels (prior art: the desktop/gpu row and enum cases).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
+  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).

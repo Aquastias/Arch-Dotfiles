@@ -1,6 +1,6 @@
 # Pin target linux-lts to the archzfs LTS ceiling
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -39,19 +39,19 @@ backstop.
 
 ## Acceptance criteria
 
-- [ ] `lib/packages/archzfs-kernel.sh` exists with the interface above; the LTS
+- [x] `lib/packages/archzfs-kernel.sh` exists with the interface above; the LTS
       ceiling is parsed from `zfs-linux-lts-*`, not `zfs-linux-*`.
-- [ ] When the mirror's `linux-lts` is at or below the ceiling, the collected
+- [x] When the mirror's `linux-lts` is at or below the ceiling, the collected
       package set is byte-identical to today (no-op pin, no warn).
-- [ ] When the mirror exceeds the ceiling, the pinned pair replaces the bare
+- [x] When the mirror exceeds the ceiling, the pinned pair replaces the bare
       tokens, the exact version is pre-seeded from the archive, and a held-back
       `warn` is logged naming both versions + the reason.
-- [ ] When the archzfs lookup is unreachable or yields no ceiling, the package
+- [x] When the archzfs lookup is unreachable or yields no ceiling, the package
       set keeps the bare tokens; the install proceeds unpinned (no hard-abort).
-- [ ] `linux-lts` and `linux-lts-headers` are always pinned to the same version.
-- [ ] A forced-skew override env var injects a fake-low ceiling.
-- [ ] Non-lts flavours are never rewritten; the bootstrap path is unchanged.
-- [ ] bats cover: `archzfs_pick_lts_version` (newest-≤-ceiling, equal-to-ceiling,
+- [x] `linux-lts` and `linux-lts-headers` are always pinned to the same version.
+- [x] A forced-skew override env var injects a fake-low ceiling.
+- [x] Non-lts flavours are never rewritten; the bootstrap path is unchanged.
+- [x] bats cover: `archzfs_pick_lts_version` (newest-≤-ceiling, equal-to-ceiling,
       none when all exceed, numeric ordering so `6.9 < 6.18`); `archzfs_lts_ceiling`
       parse via seam + override precedence; `archzfs_resolve_lts_pin` success and
       degradation; and `list.sh` wiring (pin replaces tokens on success, bare
@@ -60,3 +60,8 @@ backstop.
 ## Blocked by
 
 - `.scratch/archzfs-lts-ceiling-pin/issues/01-shared-archive-fetch-helper.md`
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
+  (ADR 0137).

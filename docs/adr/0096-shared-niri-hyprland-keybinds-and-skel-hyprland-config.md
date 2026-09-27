@@ -5,6 +5,7 @@
 Status: accepted. Amends the "operator brings all dotfiles" stance of ADR
 0021/0062 for the *config* layer only (apps stay operator-supplied). Extends
 ADR 0095's skel-seed delivery from niri to Hyprland.
+Later decisions: superseded by ADR 0097; amended by ADR 0113.
 ---
 
 The niri config (`.config/niri/config.kdl`) shipped near-empty — `Mod+Return`

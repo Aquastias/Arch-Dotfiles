@@ -39,7 +39,7 @@ current dev box, so VM rows do not run locally).
 | fstab syntax / field errors | `chroot/fstab-lint.bats` | ✓ |
 | user units invalid (`systemd-analyze verify --user`) | `profiles/user-units-validate.bats` | ✓ |
 | `jq` `getpath // empty` swallows `false` | `config/guided-state.bats` | ✓ |
-| emitter merges Host Core twice | `config/guided-emit.bats` | ✓ |
+| emitter merges Host Core twice | `guided/emit.bats` | ✓ |
 | `print_summary` unbound var — every fs×topology cell, `set -u` | `matrix/print-summary-setu.bats` (exhaustive) + `layout/layout-record.bats` (accessors) | |
 | leftover-pool predicate unbound var (single mode) | `zfs/pool-owners.bats` | ✓ |
 | 2026-05-31: `linux-headers` pulled from mirror/archive | `zfs/zfs-module.bats` | ✓ |

@@ -13,17 +13,21 @@ sessions stay symmetric with no leak.
 **Blocked by:** None — independent of the bridge (this is the KDE side); pairs
 with 01/02 for the full combined-box story.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `kde.sh` seeds `/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop`
+- [x] `kde.sh` seeds `/etc/skel/.config/autostart/kde-gtk-breeze-reset.desktop`
       (via `_seed_write`, beside `plasma-welcome.desktop`) that runs
       `gsettings set …interface gtk-theme Breeze` + `color-scheme prefer-dark`,
       `OnlyShowIn=KDE`, gsettings **inlined** in `Exec` (the systemd
       XDG-autostart generator mangles a `$HOME` script path).
-- [ ] Seeded **only on a combined box** (`ENVIRONMENT_DESKTOP` carries `niri` or
+- [x] Seeded **only on a combined box** (`ENVIRONMENT_DESKTOP` carries `niri` or
       `hyprland`); a **pure-KDE** box does NOT seed it (it would clobber the
       operator's own GTK theme every login).
-- [ ] `kde-adapter.bats` asserts both: combined box seeds the reset (Breeze +
+- [x] `kde-adapter.bats` asserts both: combined box seeds the reset (Breeze +
       `OnlyShowIn=KDE`); pure KDE does not.
-- [ ] Verified on the VM: niri(theme)→KDE shows all apps Breeze (Dolphin + GTK +
+- [x] Verified on the VM: niri(theme)→KDE shows all apps Breeze (Dolphin + GTK +
       Qt), kdeglobals Breeze, bridge not running; KDE→niri re-themes correctly.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).

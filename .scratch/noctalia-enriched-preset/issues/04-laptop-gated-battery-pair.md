@@ -10,12 +10,17 @@ The Package Resolver reflects the gate.
 
 **Blocked by:** 03.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Battery pair seeds when `/sys/class/power_supply/BAT*` is present, absent
+- [x] Battery pair seeds when `/sys/class/power_supply/BAT*` is present, absent
       when not.
-- [ ] The `laptop` bool overrides detection both ways.
-- [ ] `battery-threshold` is never seeded.
-- [ ] The Package Resolver reports the battery pair only when the gate is on.
-- [ ] `niri-adapter.bats` covers battery-present, battery-absent, and both
+- [x] The `laptop` bool overrides detection both ways.
+- [x] `battery-threshold` is never seeded.
+- [x] The Package Resolver reports the battery pair only when the gate is on.
+- [x] `niri-adapter.bats` covers battery-present, battery-absent, and both
       override directions.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
+  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.

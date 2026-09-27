@@ -15,24 +15,29 @@ grounded on its Arch Wiki page (Reflector, S.M.A.R.T., fwupd) per
 fixtures, `core_owned_programs`, and `layered-profiles.bats`; serialized to stay
 green).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `programs/system/reflector/`, `programs/system/smartmontools/`, and
+- [x] `programs/system/reflector/`, `programs/system/smartmontools/`, and
       `programs/system/fwupd/` each exist with `config.jsonc` (`kind: host`) and
       `install.sh`, matching `PROGRAM_SPEC.md`.
-- [ ] Each `install.sh` installs its package via `pacman --needed`; the shipped
+- [x] Each `install.sh` installs its package via `pacman --needed`; the shipped
       default config is left untouched (reflector.conf, smartd.conf, fwupd).
-- [ ] `config.jsonc` declares `system_services`: `["reflector.timer"]` (timer
+- [x] `config.jsonc` declares `system_services`: `["reflector.timer"]` (timer
       only — service is redundant), `["smartd.service"]`, and
       `["fwupd-refresh.timer"]` respectively.
-- [ ] All three removed from Host Core `packages.repo` (`system` group) and added
+- [x] All three removed from Host Core `packages.repo` (`system` group) and added
       to Host Core `host_programs` and `core_owned_programs`.
-- [ ] All three added to `host_programs_exclude` in the `arch-kde`,
+- [x] All three added to `host_programs_exclude` in the `arch-kde`,
       `arch-secure`, and `arch-data` VM fixtures.
-- [ ] `fwupd` is dropped from the `layered-profiles.bats` "core packages reach
+- [x] `fwupd` is dropped from the `layered-profiles.bats` "core packages reach
       both machines" repo assertion (now a Host Program).
-- [ ] Config-resolution tests assert the three are absent from resolved
+- [x] Config-resolution tests assert the three are absent from resolved
       `packages.repo` and present in resolved `host_programs` on desktop/laptop,
       and absent from the VM fixtures' resolved `host_programs`.
-- [ ] `core_owned_programs` test asserts it contains all three.
-- [ ] `tests/audit.sh` passes for the three folders; full bats suite green.
+- [x] `core_owned_programs` test asserts it contains all three.
+- [x] `tests/audit.sh` passes for the three folders; full bats suite green.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ef5f24a, ce126da, 39ca93f, 484aa2b, 23200d7
+  (ADR 0089); Core-Owned Program filter later removed in c1d30d0.

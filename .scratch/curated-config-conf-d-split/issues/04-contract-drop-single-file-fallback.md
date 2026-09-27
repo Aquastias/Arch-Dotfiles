@@ -11,15 +11,20 @@ no dead path. Pure cleanup — no behavior change for either compositor.
 **Blocked by:** 02 and 03 — both compositors must be on `conf.d/` before the
 fallback can be removed.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The single-file / entry-file-override fallback branch is removed from
+- [x] The single-file / entry-file-override fallback branch is removed from
       `noctalia_preset_install`; the seed unconditionally copies the entry file +
       `conf.d/` tree and appends the VM override to `conf.d/environment.<ext>`.
-- [ ] The `chroot.sh` "when present" guard around `conf.d/` staging is dropped
+- [x] The `chroot.sh` "when present" guard around `conf.d/` staging is dropped
       (or reduced to the single-source repo check), since the tree now always
       exists.
-- [ ] Any adapter-test fixture still exercising the single-file path is removed
+- [x] Any adapter-test fixture still exercising the single-file path is removed
       or converted to the tree path; the full bats suite stays green.
-- [ ] `niri validate` and `Hyprland --verify-config` still pass; a fresh box of
+- [x] `niri validate` and `Hyprland --verify-config` still pass; a fresh box of
       either compositor seeds and boots unchanged.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in a55e9d2, 8afa454, 43b421c, ad54241, 0178040
+  (ADR 0107).

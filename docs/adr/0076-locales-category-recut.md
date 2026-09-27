@@ -2,6 +2,7 @@
 
 Status: accepted (amends ADR 0071's category names — renames **System** to
 **General**; extends ADR 0039/0071's Locales section)
+Later decisions: amended by ADR 0080.
 
 The Guided Installer's **Locales** Category becomes four leaves — `keyboard`,
 `language`, `encoding`, `console font` — mirroring archinstall's Locales

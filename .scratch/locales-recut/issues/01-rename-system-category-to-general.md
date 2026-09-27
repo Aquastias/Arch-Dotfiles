@@ -8,13 +8,18 @@ into Locales and does not get its own category. Independent of all locale work.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The category holding `hostname` and `timezone` renders as **General** in
+- [x] The category holding `hostname` and `timezone` renders as **General** in
       the top-level category list and its preview.
-- [ ] No category named **System** appears anywhere in the menu surface.
-- [ ] **General** keeps the slot **System** held in the category order.
-- [ ] The **General Category** glossary term (CONTEXT.md) and ADR 0076 remain
+- [x] No category named **System** appears anywhere in the menu surface.
+- [x] **General** keeps the slot **System** held in the category order.
+- [x] The **General Category** glossary term (CONTEXT.md) and ADR 0076 remain
       consistent with the shipped name.
-- [ ] Menu/category tests assert the **General** name and the absence of
+- [x] Menu/category tests assert the **General** name and the absence of
       **System**. Prior art: `tests/config/guided-menu.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
+  d665bd8 (ADR 0076).

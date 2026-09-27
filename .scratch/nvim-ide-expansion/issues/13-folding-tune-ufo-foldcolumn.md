@@ -1,6 +1,6 @@
 # 13 — Folding tune: ufo provider chain + fold gutter
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -17,13 +17,18 @@ readable foldtext (first line + `⋯ N lines`); `zK` to peek a closed fold; keep
 
 ## Acceptance criteria
 
-- [ ] Files open unfolded; folds come from LSP, then treesitter, then indent.
-- [ ] Fold summary shows the first line + line count; `zK` peeks a fold;
+- [x] Files open unfolded; folds come from LSP, then treesitter, then indent.
+- [x] Fold summary shows the first line + line count; `zK` peeks a fold;
       `zr`/`zm` fold incrementally alongside `zR`/`zM`.
-- [ ] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
-- [ ] Seam A asserts the ufo provider/foldlevel/foldtext config and the
+- [x] A `foldcolumn=1` gutter shows clickable `▶`/`▼` markers.
+- [x] Seam A asserts the ufo provider/foldlevel/foldtext config and the
       foldcolumn setting.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

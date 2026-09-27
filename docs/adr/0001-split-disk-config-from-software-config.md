@@ -2,6 +2,7 @@
 
 ## Status
 Accepted
+Later decisions: superseded by ADR 0036.
 
 ## Context
 The original `install.jsonc` mixed disk/ZFS/locale concerns with user creation and package lists. A new declarative layer (host/user/program configs) was needed for software configuration.

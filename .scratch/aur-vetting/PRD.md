@@ -1,6 +1,6 @@
 # AUR Vetting
 
-Status: ready-for-agent
+Status: done
 
 Decision of record: **ADR 0143** (AUR Vetting via Vetted Commits), amending
 ADR 0052 (AUR Helper ladder; installs now refused under the `yay` rung).

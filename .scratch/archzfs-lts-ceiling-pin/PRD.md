@@ -1,6 +1,6 @@
 # PRD: Pin target linux-lts to the archzfs LTS ceiling
 
-Status: ready-for-agent
+Status: done
 
 Anchored by [[ADR 0137]] (Target linux-lts pinned to the archzfs LTS ceiling),
 extending [[ADR 0023]] (archzfs-Compatible ISO) and [[ADR 0024]] (Kernel

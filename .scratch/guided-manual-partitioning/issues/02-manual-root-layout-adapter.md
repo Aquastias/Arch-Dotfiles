@@ -11,17 +11,22 @@ before any UI exists: an Effective Config with `kind: manual` + a hand-written
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `dispatch.sh` gains a kind branch: `manual` sources the manual adapter;
+- [x] `dispatch.sh` gains a kind branch: `manual` sources the manual adapter;
       every filesystem × mode path is unchanged.
-- [ ] The adapter `mkfs`'s only partitions with `format=true`; keep-marked
+- [x] The adapter `mkfs`'s only partitions with `format=true`; keep-marked
       partitions are mounted with their existing data intact.
-- [ ] Each assigned partition mounts at its mountpoint under `MOUNT_ROOT`; a
+- [x] Each assigned partition mounts at its mountpoint under `MOUNT_ROOT`; a
       `[swap]` partition is `mkswap`'d + swapped on.
-- [ ] The ESP is mounted and the boot record is published so the installed
+- [x] The ESP is mounted and the boot record is published so the installed
       system boots — no pool machinery involved.
-- [ ] No `wipefs`/`--zap-all` of the whole disk occurs on the manual path.
-- [ ] A VM case seeded with a hand-written manual config (scripted partition
+- [x] No `wipefs`/`--zap-all` of the whole disk occurs on the manual path.
+- [x] A VM case seeded with a hand-written manual config (scripted partition
       table, no guided UI) installs and boots, verified via the existing VM
       harness / `vm/vm-pool-verify.bats` prior art.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
+  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).

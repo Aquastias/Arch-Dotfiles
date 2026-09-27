@@ -13,15 +13,19 @@ binaries, or a network.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `run.sh --full` exits 0 on an unprivileged box; the 18 failures are gone.
-- [ ] Each fix repairs the test harness (isolation/stubs) to the current SUT;
+- [x] `run.sh --full` exits 0 on an unprivileged box; the 18 failures are gone.
+- [x] Each fix repairs the test harness (isolation/stubs) to the current SUT;
       the SUT is changed only if a genuine product bug is found (and if so,
       that's called out).
-- [ ] No repaired test is deleted unless it is genuinely obsolete (with a stated
+- [x] No repaired test is deleted unless it is genuinely obsolete (with a stated
       reason); externals stay mocked (AUR helper, age, mount, zpool).
-- [ ] Each repaired test still fails when the behaviour it guards is broken
+- [x] Each repaired test still fails when the behaviour it guards is broken
       (a quick mutation check), so the repair didn't hollow it out.
-- [ ] The `--fast` set and the VM/[[Combination Matrix]] tier are untouched; the
+- [x] The `--fast` set and the VM/[[Combination Matrix]] tier are untouched; the
       VM tier remains out-of-band and out of the green bar.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).

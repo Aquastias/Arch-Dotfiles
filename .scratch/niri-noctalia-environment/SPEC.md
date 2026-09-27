@@ -1,6 +1,6 @@
 # Spec: niri desktop environment with an optional Noctalia work shell
 
-Status: ready-for-agent
+Status: done
 
 Related: ADR 0090 (this feature — niri adapter + Noctalia preset), ADR 0091
 (this feature — desktop-aware `auto` display manager). Builds on ADR 0005

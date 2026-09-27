@@ -1,6 +1,6 @@
 # Spec: Agent-Controllable VM + VM Agent Control CLI
 
-Status: ready-for-agent
+Status: done
 
 Anchored by **ADR 0117**. Uses the [[VM Harness]], [[VM Profile]],
 [[Agent-Controllable VM]] and [[VM Agent Control]] glossary terms. Respects ADR

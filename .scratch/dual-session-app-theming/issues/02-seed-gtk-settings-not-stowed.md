@@ -13,7 +13,7 @@ Anchored by ADR 0104 (amends ADR 0102).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `gtk-3.0/settings.ini` and `gtk-4.0/settings.ini` are removed from the
       stow payload so neither is symlinked into the repo.
@@ -36,3 +36,6 @@ Anchored by ADR 0104 (amends ADR 0102).
 - Done in `faadbe3`. GTK `settings.ini` removed from the payload and seeded by
   `noctalia-preset.sh` into `/etc/skel`; drift guard rewritten to read the seed.
   noctalia-stow / niri / hyprland / conflict-detector suites green.
+
+- 2026-09-27 doc sync: shipped in 0f297a6, ea8ddd9, 0dfa81a (ADR 0104);
+  kcolorscheme stance later superseded by ADR 0123.

@@ -10,18 +10,23 @@ encoding is generated correctly.
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An `encoding` leaf appears in **Locales**, rendering the charset suffix of
+- [x] An `encoding` leaf appears in **Locales**, rendering the charset suffix of
       the current `system.locale` (e.g. `UTF-8`).
-- [ ] The encoding option source takes the current `language` and returns only the
+- [x] The encoding option source takes the current `language` and returns only the
       charsets `/usr/share/i18n/SUPPORTED` pairs with it; an invalid
       language+encoding pair cannot be selected.
-- [ ] Editing `encoding` recomposes `system.locale` via the shared helper (exactly
+- [x] Editing `encoding` recomposes `system.locale` via the shared helper (exactly
       once; element-0 semantics preserved for arrays).
-- [ ] The identity module writes the `locale.gen` line with the charset derived
+- [x] The identity module writes the `locale.gen` line with the charset derived
       from the locale (not a hardcoded `UTF-8`), and `LANG` matching.
-- [ ] A non-UTF-8 encoding selection results in that locale being generated.
-- [ ] Tests: encoding enumeration filtered by language (stubbed source); identity
+- [x] A non-UTF-8 encoding selection results in that locale being generated.
+- [x] Tests: encoding enumeration filtered by language (stubbed source); identity
       module writes the derived charset + LANG. Prior art:
       `tests/config/menu-enum.bats`, `tests/chroot/chroot-configure.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
+  d665bd8 (ADR 0076).

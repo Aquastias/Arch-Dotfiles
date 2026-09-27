@@ -4,6 +4,7 @@
 Status: accepted. Supersedes ADR 0094's delivery mechanism (stow-at-install);
 keeps 0094's single-source-in-the-dotfiles-repo and its config *content*
 decisions intact.
+Later decisions: superseded by ADR 0107; amended by ADR 0134.
 ---
 
 ADR 0094 moved the curated `config.kdl` / `config.toml` / helper scripts out of

@@ -14,26 +14,30 @@ out of scope.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `qt6ct-kde` (AUR) resolves as a fleet theming dependency under **kde, niri
+- [x] `qt6ct-kde` (AUR) resolves as a fleet theming dependency under **kde, niri
       and hyprland** — declared in each wlroots adapter's `aur.theming`, unioned
       by the [[Package Resolver]] the same way the Bibata cursor is (ADR 0098) —
       no longer KDE-only. Reverses the qt6ct clause of ADR 0062 (per ADR 0102).
-- [ ] A stow-owned `qt6ct.conf` pre-selects Noctalia's generated `noctalia`
+- [x] A stow-owned `qt6ct.conf` pre-selects Noctalia's generated `noctalia`
       color scheme (`color_scheme_path` at `qt6ct/colors/noctalia.conf`,
       `custom_palette` on), so Qt is themed on first login without opening qt6ct.
-- [ ] The 14 static `qt6ct/colors/catppuccin-mocha-*.conf` files are removed —
+- [x] The 14 static `qt6ct/colors/catppuccin-mocha-*.conf` files are removed —
       Noctalia's `noctalia` scheme is the single source of Qt color.
-- [ ] `QT_QPA_PLATFORMTHEME=qt6ct` is set per-compositor — in niri's
+- [x] `QT_QPA_PLATFORMTHEME=qt6ct` is set per-compositor — in niri's
       `environment {}` and Hyprland's `env =` — never `environment.d` (Hyprland's
       `start-hyprland` session wouldn't see it; ADR 0070). Qt apps consult qt6ct
       on both compositors.
-- [ ] Seam 1 (`noctalia-stow.bats`) asserts the `qt6ct.conf` pre-seed shape, the
+- [x] Seam 1 (`noctalia-stow.bats`) asserts the `qt6ct.conf` pre-seed shape, the
       absence of the static `catppuccin-mocha-*.conf` files, and the
       per-compositor `QT_QPA_PLATFORMTHEME` env lines in `config.kdl` and
       `hyprland.conf`.
-- [ ] Seam 2 (`profiles-aur.bats`) asserts `qt6ct-kde` resolves under kde, niri
+- [x] Seam 2 (`profiles-aur.bats`) asserts `qt6ct-kde` resolves under kde, niri
       and hyprland (and not on a desktop-less host), replacing the old
       "kde-only / not under a non-kde DE" cases.
-- [ ] The full installer test suite is green.
+- [x] The full installer test suite is green.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 9b177d9, ea8ddd9, e832b40 (ADR 0102/0108).

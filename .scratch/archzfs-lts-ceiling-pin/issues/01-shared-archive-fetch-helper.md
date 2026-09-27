@@ -1,6 +1,6 @@
 # Extract a shared archive.archlinux.org fetch helper
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -21,15 +21,20 @@ implementation, DRY.
 
 ## Acceptance criteria
 
-- [ ] A shared archive-fetch primitive exists, taking a package name + exact
+- [x] A shared archive-fetch primitive exists, taking a package name + exact
       version and fetching/installing it from `archive.archlinux.org`.
-- [ ] `lib/zfs/module.sh` uses the shared primitive for its headers download;
+- [x] `lib/zfs/module.sh` uses the shared primitive for its headers download;
       the bootstrap DKMS path behaves exactly as before.
-- [ ] bats cover the helper: kernel-release → pacman package-version string
+- [x] bats cover the helper: kernel-release → pacman package-version string
       construction, archive URL layout, and the mirror-first / archive-fallback
       ordering.
-- [ ] No change to any install-time behavior beyond the internal refactor.
+- [x] No change to any install-time behavior beyond the internal refactor.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 387d6b0, 46b81d1, 8e200e3, 358f0a4, 1d57638
+  (ADR 0137).

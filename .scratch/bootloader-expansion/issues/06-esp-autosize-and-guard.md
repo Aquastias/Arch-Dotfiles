@@ -17,21 +17,26 @@ is never silently rewritten.
 **Blocked by:** 01 — Bootloader Manifest foundation (for the ESP-mirroring vs grub
 classification).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A pure ESP-budget function computes `need` from the kernel count, root
+- [x] A pure ESP-budget function computes `need` from the kernel count, root
       filesystem, and loader; a pure auto-size function returns
       `max(2G, roundup(need))`.
-- [ ] `esp_size: auto` is the default and resolves to a size that holds every
+- [x] `esp_size: auto` is the default and resolves to a size that holds every
       selected kernel's images; selecting all available kernels with fallbacks on
       a ZFS root yields an ESP large enough to hold them.
-- [ ] Auto-size is upward-only — it never returns below 2G — and `grub` skips the
+- [x] Auto-size is upward-only — it never returns below 2G — and `grub` skips the
       per-kernel term.
-- [ ] A too-small numeric `esp_size` pin is rejected at profile-load validation
+- [x] A too-small numeric `esp_size` pin is rejected at profile-load validation
       with an actionable message; the pin is never auto-bumped.
-- [ ] The same conflict is shown live on the Guided Kernels and Disks screens
+- [x] The same conflict is shown live on the Guided Kernels and Disks screens
       while selecting, not only at Proceed.
-- [ ] Tests cover the budget across kernel counts and filesystems, the
+- [x] Tests cover the budget across kernel counts and filesystems, the
       upward-only floor, the ZFS surcharge, the grub exemption, and the guard's
       rejection message (prior art: `packages/kernel.bats`,
       `packages/microcode.bats`).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 567480d, 201f53b, 363f791, 17f15b0, 9a3224b,
+  6019e48, 4f97379 (ADR 0077/0078).

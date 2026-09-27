@@ -1,6 +1,6 @@
 # Spec: KDE settings seed, stock environment variants, unified Meta+X close
 
-Status: ready-for-agent
+Status: done
 
 Traces to ADR 0110 (compositor resolution autodetected), ADR 0111 (KDE adapter
 seeds captured Plasma settings), ADR 0112 (stock environment variants), ADR 0113

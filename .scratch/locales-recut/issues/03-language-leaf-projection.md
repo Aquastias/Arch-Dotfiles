@@ -11,21 +11,26 @@ array tail (element 0 is edited, the rest untouched). No schema field is added �
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A `language` leaf appears in **Locales**, rendering the base of the current
+- [x] A `language` leaf appears in **Locales**, rendering the base of the current
       `system.locale` (e.g. `en_US` for `en_US.UTF-8`).
-- [ ] A shared compose/decompose helper in the Menu model round-trips
+- [x] A shared compose/decompose helper in the Menu model round-trips
       `system.locale` ↔ `{language, encoding}`; both guided front-ends use it (no
       drift).
-- [ ] `menu_enum_options` for the language leaf returns the locale-source language
+- [x] `menu_enum_options` for the language leaf returns the locale-source language
       list (`/usr/share/i18n/SUPPORTED`), stubbable in tests.
-- [ ] Editing `language` recomposes `system.locale` exactly once — the encoding
+- [x] Editing `language` recomposes `system.locale` exactly once — the encoding
       suffix is preserved and never doubled (no `en_US.UTF-8.UTF-8`).
-- [ ] When `system.locale` is an array, editing `language` changes element 0 and
+- [x] When `system.locale` is an array, editing `language` changes element 0 and
       leaves remaining entries intact.
-- [ ] Default locale (`en_US.UTF-8`) preserved when untouched; `●` tracks only
+- [x] Default locale (`en_US.UTF-8`) preserved when untouched; `●` tracks only
       real overrides.
-- [ ] Tests cover the helper round-trip (incl. a non-UTF-8 pair and an array) and
+- [x] Tests cover the helper round-trip (incl. a non-UTF-8 pair and an array) and
       the language row/enumeration. Prior art: `tests/config/menu-enum.bats`,
       `tests/config/guided-menu.bats`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8be14fb, 77752e3, b6b6cae, 9f0d54d, 1b01b8f,
+  d665bd8 (ADR 0076).

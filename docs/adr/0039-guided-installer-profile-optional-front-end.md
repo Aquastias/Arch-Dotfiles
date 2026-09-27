@@ -1,5 +1,7 @@
 # Guided Installer as a third, profile-optional front-end
 
+Later decisions: superseded by ADR 0055; amended by ADR 0071.
+
 The Single Entry Point gains a third front-end — the **Guided Installer**, an
 interactive fzf menu launched by bare `install.sh` — that builds an Effective
 Config from scratch (merged over Host Core) when no Host Profile exists yet. It

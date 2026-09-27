@@ -1,6 +1,6 @@
 # Spec: Noctalia owns GTK/Qt app theming (App Theming Bridge)
 
-Status: ready-for-agent
+Status: done
 
 Anchored by **ADR 0102**. Uses the [[App Theming Bridge]] and
 [[Wayland Shell Companion]] glossary terms.

@@ -20,24 +20,29 @@ adapter and the resolver; ships `cava: false`, `cliphist: false`.
 **Blocked by:** 01 — niri as a bare desktop (the adapter, enum, and menu must
 exist to extend).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `environment.niri_shell` is an optional schema field (`noctalia` default |
+- [x] `environment.niri_shell` is an optional schema field (`noctalia` default |
       `none`), validated at config load; an unknown value aborts with its path;
       it is exported to the chroot the way `ENVIRONMENT_DESKTOP` is (no Install
       State field).
-- [ ] Under `niri_shell=noctalia` the adapter installs `noctalia`, `kitty`,
+- [x] Under `niri_shell=noctalia` the adapter installs `noctalia`, `kitty`,
       `brightnessctl` and seeds the minimal `/etc/skel` `config.kdl` glue
       (autostart Noctalia, bind kitty + native screenshot); it seeds no theming.
-- [ ] Under `niri_shell=none` the adapter installs core only and seeds nothing.
-- [ ] `install-niri.jsonc` exists with `cava`/`cliphist` bools (off) and is read
+- [x] Under `niri_shell=none` the adapter installs core only and seeds nothing.
+- [x] `install-niri.jsonc` exists with `cava`/`cliphist` bools (off) and is read
       by the adapter and the Package Resolver; the resolver reports the Noctalia
       preset as a derived set keyed on `niri_shell` + the file.
-- [ ] The Guided Installer shows a `niri_shell` Environment row (enum, Display
+- [x] The Guided Installer shows a `niri_shell` Environment row (enum, Display
       Labels Noctalia / none, default `noctalia`, override dot on change); the
       Environment summary names the niri shell.
-- [ ] `environment.niri_shell` is registered as a matrix axis so
+- [x] `environment.niri_shell` is registered as a matrix axis so
       `matrix_registry_assert` stays green.
-- [ ] The niri adapter test is extended for both `niri_shell` values: preset
+- [x] The niri adapter test is extended for both `niri_shell` values: preset
       packages + skel `config.kdl` glue present under `noctalia`; nothing beyond
       core under `none`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 554ee50, 7fd8b7c, 554abf2 (ADR 0090); default
+  palette later changed by ADR 0101/0109.

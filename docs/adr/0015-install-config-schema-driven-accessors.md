@@ -2,6 +2,7 @@
 
 ## Status
 Accepted
+Later decisions: amended by ADR 0036.
 
 ## Context
 `lib/install-config.sh` exposed ~25 typed accessors

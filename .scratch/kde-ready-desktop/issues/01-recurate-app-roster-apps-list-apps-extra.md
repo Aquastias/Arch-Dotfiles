@@ -17,23 +17,28 @@ accurate. Both sections are deselectable in the Guided Installer.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `apps_extra` is a sibling Categorized-List section
+- [x] `apps_extra` is a sibling Categorized-List section
       (`{ category: { pkg: bool } }`) beside `apps_list`, parsed in bool
       mode by the Categorized List Parser
-- [ ] `apps_list` holds only group members plus the three documented
+- [x] `apps_list` holds only group members plus the three documented
       plasma-meta no-ops; every non-group KDE app lives in `apps_extra`
       (ADR 0087)
-- [ ] `haruna`/`merkuro` are placed by verified pacman group, not a
+- [x] `haruna`/`merkuro` are placed by verified pacman group, not a
       pre-assumed one
-- [ ] Pruned entries (`karbon`, `kclock`, `skanlite`, `arianna`,
+- [x] Pruned entries (`karbon`, `kclock`, `skanlite`, `arianna`,
       `kgpg`, `kompare`, `keditbookmarks`) appear in no section
-- [ ] The adapter installs `apps_extra` alongside `apps_list`; a
+- [x] The adapter installs `apps_extra` alongside `apps_list`; a
       malformed section aborts with a pathed parser error
-- [ ] The Package Resolver emits `kde-apps` and `kde-apps-extra`
+- [x] The Package Resolver emits `kde-apps` and `kde-apps-extra`
       (layer `derived`, category `Environment`)
-- [ ] `kde-adapter.bats`: the shipped-jsonc regression lock is rewritten
+- [x] `kde-adapter.bats`: the shipped-jsonc regression lock is rewritten
       to the new `apps_list` roster, with a sibling lock on `apps_extra`
       membership and a lock that the pruned entries appear nowhere
-- [ ] The adapter's `aur` block is unchanged (repo-only guarantee holds)
+- [x] The adapter's `aur` block is unchanged (repo-only guarantee holds)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
+  6878699, 0bd152f, f43fabe (ADR 0087/0088).

@@ -1,6 +1,6 @@
 # Spec: Pi coding agent as a fleet-served, themed, skill-equipped agent
 
-Status: ready-for-agent
+Status: done
 
 Anchored by [[ADR 0127]] (pi fleet-wide, seeded + stow-ready) and [[ADR 0128]]
 (pi follows Noctalia via user-template). Glossary: [[Pi Coding Agent]],

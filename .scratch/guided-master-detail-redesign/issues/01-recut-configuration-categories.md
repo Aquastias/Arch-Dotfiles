@@ -30,17 +30,21 @@ new groupings. Respect ADR 0071.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The top-level category list renders the twelve categories above, in this
+- [x] The top-level category list renders the twelve categories above, in this
       order.
-- [ ] Every current field surfaces under its new `section`; no field's dotted
+- [x] Every current field surfaces under its new `section`; no field's dotted
       path changes (`options.*` / `system.*` unchanged).
-- [ ] `sysctl` appears under Security; `ssh` + `age key url` are the only fields
+- [x] `sysctl` appears under Security; `ssh` + `age key url` are the only fields
       under Advanced; the old "Options" and "Host" categories are gone.
-- [ ] A category's `●` still folds the override flags of its member fields
+- [x] A category's `●` still folds the override flags of its member fields
       (`menu_categories` / `menu_rows` JSON contract preserved).
-- [ ] `guided-menu.bats` and `menu-enum.bats` are updated to assert the twelve
+- [x] `guided-menu.bats` and `menu-enum.bats` are updated to assert the twelve
       categories, their order, and each field's new section — and pass.
-- [ ] A `--guided` replay test proves an answer file written against the old
+- [x] A `--guided` replay test proves an answer file written against the old
       section names still resolves every field (paths unchanged).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).

@@ -1,6 +1,6 @@
 # Split curated niri/Hyprland configs into `conf.d/` part-files
 
-**Status:** ready-for-agent
+**Status:** done
 
 Anchored by ADR 0107 (supersedes the single-file delivery of ADR 0095/0105 and
 the seed leg of 0097; relocates the VM override of 0106). Keeps every content,

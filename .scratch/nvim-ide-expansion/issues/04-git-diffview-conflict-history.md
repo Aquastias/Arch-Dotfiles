@@ -1,6 +1,6 @@
 # 04 — Git: diffview (conflict resolver + file history)
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -18,13 +18,18 @@ group.
 
 ## Acceptance criteria
 
-- [ ] diffview.nvim is declared and lazy-loads on `:Diffview*` (zero startup
+- [x] diffview.nvim is declared and lazy-loads on `:Diffview*` (zero startup
       cost).
-- [ ] `<leader>g` keymaps open the diff/conflict view and file history.
-- [ ] A `<leader>g` keymap toggles gitsigns inline blame.
-- [ ] lazygit + gitsigns behaviour is unchanged.
-- [ ] Seam A asserts the plugin, its lazy trigger and the new maps.
+- [x] `<leader>g` keymaps open the diff/conflict view and file history.
+- [x] A `<leader>g` keymap toggles gitsigns inline blame.
+- [x] lazygit + gitsigns behaviour is unchanged.
+- [x] Seam A asserts the plugin, its lazy trigger and the new maps.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

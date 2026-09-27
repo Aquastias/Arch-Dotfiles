@@ -7,6 +7,7 @@ Exercised end-to-end in a full VM install: niri renders (via virgl — a Wayland
 compositor rejects software EGL, so the VM harness gives it an accel3d GPU), the
 palette + curated look apply, and the plugin set vendors + activates. That last
 step took a correction — see "Enabling vs vendoring" below.
+Later decisions: superseded by ADR 0094; amended by ADR 0101.
 ---
 
 ADR 0090 shipped the `noctalia` preset as a near-bare shell plus one plugin

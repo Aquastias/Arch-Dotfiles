@@ -3,6 +3,7 @@
 ---
 Status: accepted. Supersedes ADR 0050 (Hyprland removal); keeps ADR 0005's
 adapter pattern.
+Later decisions: superseded by ADR 0102; amended by ADR 0096, ADR 0097.
 ---
 
 Hyprland returns as a selectable `environment.desktop` value

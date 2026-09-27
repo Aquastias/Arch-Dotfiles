@@ -7,18 +7,23 @@ packaging/stow/settings drift cheaply. Modeled on `pi-agent.bats` /
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `dev/claude` program config validates and resolves into the desktop +
+- [x] `dev/claude` program config validates and resolves into the desktop +
       laptop effective config
-- [ ] `claude-code`, `bubblewrap`, `socat`, `github-cli`, `ccusage` resolve for
+- [x] `claude-code`, `bubblewrap`, `socat`, `github-cli`, `ccusage` resolve for
       those hosts
-- [ ] Stow tree carries the three tracked files, with pinned settings keys
+- [x] Stow tree carries the three tracked files, with pinned settings keys
       asserted (attribution empty, `defaultMode: auto`, libvirt socket,
       `claude-opus-4-8`)
-- [ ] `.gitignore` tracks exactly the three files and still excludes
+- [x] `.gitignore` tracks exactly the three files and still excludes
       `.credentials.json` + runtime state
-- [ ] Seed payload (`.installer/programs/dev/claude/`) is byte-identical to the
+- [x] Seed payload (`.installer/programs/dev/claude/`) is byte-identical to the
       stow copy (`.claude/`)
-- [ ] `CONTEXT.md` no longer lists `.claude/` as a Stow Tree dir
-- [ ] Lives under `.installer/tests/config/`
+- [x] `CONTEXT.md` no longer lists `.claude/` as a Stow Tree dir
+- [x] Lives under `.installer/tests/config/`
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

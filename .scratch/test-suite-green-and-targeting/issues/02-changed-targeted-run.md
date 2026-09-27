@@ -16,21 +16,25 @@ still runs the core.
 **Blocked by:** 01 (green baseline — `--changed` is only a trustworthy signal
 once `--full` is green).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `run.sh --changed` runs the tests mapped to the current `git diff` unioned
+- [x] `run.sh --changed` runs the tests mapped to the current `git diff` unioned
       with the `--fast` core, and prints what it selected (and why it widened).
-- [ ] A changed mirrored source dir runs its mirrored `tests/<x>/`; a changed
+- [x] A changed mirrored source dir runs its mirrored `tests/<x>/`; a changed
       root/`tools` script runs its mapped test(s).
-- [ ] A changed [[Broad-Blast Path]] (shared helper, fixture, the runner) and
+- [x] A changed [[Broad-Blast Path]] (shared helper, fixture, the runner) and
       any unmapped/unknown changed path both widen to `--full` (fail-safe).
-- [ ] An optional `<ref>` arg diffs against that base; untracked new source files
+- [x] An optional `<ref>` arg diffs against that base; untracked new source files
       are picked up; an empty/irrelevant diff still runs the core without error.
-- [ ] The path→test selection is a **pure function** of the changed-path list
+- [x] The path→test selection is a **pure function** of the changed-path list
       (no git call, no bats invocation inside it); the map + broad-blast list
       live in one place so a new source area is a one-line change.
-- [ ] A new bats seam tests the pure function directly — mirrored dir, root/tools
+- [x] A new bats seam tests the pure function directly — mirrored dir, root/tools
       map, broad-blast widen, unmapped widen, always-includes-core, empty-input,
       multi-path union/dedupe — mirroring `profiles-aur.bats`'s pure-resolver
       style (inputs in, resolved set asserted, externals never run).
-- [ ] `--fast` remains the pre-push safety gate; `--changed` augments it.
+- [x] `--fast` remains the pre-push safety gate; `--changed` augments it.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6cafaca, d2bd247, c20ca15 (ADR 0103).

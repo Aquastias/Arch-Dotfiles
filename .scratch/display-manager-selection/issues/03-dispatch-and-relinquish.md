@@ -14,19 +14,24 @@ a KDE-only machine.
 
 **Blocked by:** 01, 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Environment Runner invokes `extras/dm/<dm>/<dm>.sh` for the resolved
+- [x] The Environment Runner invokes `extras/dm/<dm>/<dm>.sh` for the resolved
       `display_manager`, after the desktop loop, with no greeter name hardcoded;
       dispatch is skipped when the resolved value is `none`.
-- [ ] The KDE adapter no longer installs or enables SDDM (`sddm-kcm` stays a KDE
+- [x] The KDE adapter no longer installs or enables SDDM (`sddm-kcm` stays a KDE
       application).
-- [ ] The Hyprland adapter no longer installs greetd/tuigreet nor writes the
+- [x] The Hyprland adapter no longer installs greetd/tuigreet nor writes the
       greeter config; it still writes the curated session files and enables
       seatd.
-- [ ] The VM environment matrix stays green: a KDE + Hyprland co-install greets
+- [x] The VM environment matrix stays green: a KDE + Hyprland co-install greets
       with greetd, a KDE-only install greets with SDDM (unchanged defaults via
       `auto`), and both desktops remain selectable at the greeter.
-- [ ] The environment-runner bats assert the DM adapter is dispatched after the
+- [x] The environment-runner bats assert the DM adapter is dispatched after the
       desktops and skipped on `none`; the updated KDE and Hyprland adapter bats
       assert neither touches a display manager.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in e06b6f1 + DM axis/adapters (ADR 0069); auto
+  resolution later superseded by ADR 0091 (74eb4fe, ba38e9d).

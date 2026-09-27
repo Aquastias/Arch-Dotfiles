@@ -1,6 +1,6 @@
 # PRD: Stray Kernel install-time tolerance
 
-Status: ready-for-agent
+Status: done
 
 Anchored by [[ADR 0138]] (Stray kernels tolerated at install time), amending
 [[ADR 0024]] (ZFS Module Guard) and building on [[ADR 0038]] (Stray Kernel).

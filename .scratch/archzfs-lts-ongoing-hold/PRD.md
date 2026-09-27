@@ -1,6 +1,6 @@
 # PRD: Ongoing archzfs LTS ceiling hold
 
-Status: ready-for-agent
+Status: done
 
 Anchored by [[ADR 0139]] (Ongoing archzfs LTS ceiling hold), extending
 [[ADR 0137]] (install-time pin).

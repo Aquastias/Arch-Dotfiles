@@ -1,6 +1,6 @@
 # Curated Claude Code feature set: disable unused tooling, pin Opus 5.5
 
-Status: ready-for-agent
+Status: done
 
 Curate the fleet-wide Claude Code config down to what the operator actually
 uses: disable unused built-in tooling, pin the current model, and make the

@@ -12,22 +12,27 @@ via the shared code path.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Preset logic lives in one shared module; the niri adapter sources it and
+- [x] Preset logic lives in one shared module; the niri adapter sources it and
       passes its compositor tag, curated config file(s), and plugin slice.
-- [ ] `install-noctalia.jsonc` replaces `install-niri.jsonc` with shared-core +
+- [x] `install-noctalia.jsonc` replaces `install-niri.jsonc` with shared-core +
       `niri` slice + `hyprland` slice; the shared package map exposes both slices.
-- [ ] The Package Resolver reads `install-noctalia.jsonc`; install and query
+- [x] The Package Resolver reads `install-noctalia.jsonc`; install and query
       cannot drift.
-- [ ] `config.toml`'s `[plugins].enabled` is reduced to the **shared-core
+- [x] `config.toml`'s `[plugins].enabled` is reduced to the **shared-core
       plugins only** — the `niri-*` slice ids are removed from it; niri still
       activates its slice via vendoring + the first-login one-shot (behaviour
       unchanged).
-- [ ] The drift guard equates the vendored set to the config's shared-core
+- [x] The drift guard equates the vendored set to the config's shared-core
       enabled list **plus** the active slice from `install-noctalia.jsonc`
       (`noctalia-stow.bats` green).
-- [ ] The module keeps the injectable seams (`*_SEED_ROOT`, `*_CURATED_DIR`,
+- [x] The module keeps the injectable seams (`*_SEED_ROOT`, `*_CURATED_DIR`,
       JSON override, battery glob) the adapter tests drive.
-- [ ] niri installs the same packages, vendors the same plugins, and seeds the
+- [x] niri installs the same packages, vendors the same plugins, and seeds the
       same files as before (`niri-adapter.bats` and `resolver.bats` green).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
+  b436f92 (ADR 0097).

@@ -8,11 +8,15 @@ GTK/XWayland apps.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `bibata-cursor-git` is declared in the niri adapter's `aur` list and lands
+- [x] `bibata-cursor-git` is declared in the niri adapter's `aur` list and lands
       via the paru pass when niri is selected.
-- [ ] The seeded niri config sets the Xcursor theme to `Bibata-Modern-Ice` at
+- [x] The seeded niri config sets the Xcursor theme to `Bibata-Modern-Ice` at
       size 24 via the native cursor node.
-- [ ] `~/.icons/default` is seeded to inherit `Bibata-Modern-Ice`.
-- [ ] `niri-adapter.bats` asserts the cursor node and the aur declaration.
+- [x] `~/.icons/default` is seeded to inherit `Bibata-Modern-Ice`.
+- [x] `niri-adapter.bats` asserts the cursor node and the aur declaration.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).

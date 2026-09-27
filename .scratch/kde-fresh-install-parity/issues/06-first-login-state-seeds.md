@@ -10,16 +10,22 @@ wallpaper, and the Plasma Welcome Center stays suppressed even after a
 captured `plasma-welcomerc`; at install the dynamic version write is last-wins,
 so order does not matter.)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An idempotent first-login autostart sets `@DEFAULT_AUDIO_SINK@` and
+- [x] An idempotent first-login autostart sets `@DEFAULT_AUDIO_SINK@` and
       `@DEFAULT_AUDIO_SOURCE@` to 100% via `wpctl` (no vendored device state).
-- [ ] The SDDM Breeze theme `Background` is set to the Horos wallpaper, in the
+- [x] The SDDM Breeze theme `Background` is set to the Horos wallpaper, in the
       KDE adapter's own SDDM drop-in (merges with the Display Manager Adapter's
       file, ADR 0069).
-- [ ] `plasma-welcomerc [General] LastSeenVersion` is written to the installed
+- [x] `plasma-welcomerc [General] LastSeenVersion` is written to the installed
       `plasma-welcome` version (`pacman -Q`) at install time; the `Hidden=true`
       autostart is retained.
-- [ ] `extras/kde-adapter.bats` asserts: the volume autostart `.desktop` is
+- [x] `extras/kde-adapter.bats` asserts: the volume autostart `.desktop` is
       written; the SDDM drop-in sets the Horos `Background`; `LastSeenVersion` is
       written from the stubbed `pacman -Q`.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 8a32898, 54ecfba, 41a2188, 378db0b, a96edbc,
+  e79ca17, 4352be4, dfc347d, 8f3795b, badf9e0, cd8f5a0, 840dfea, f598ff0 (ADR
+  0118-0121).

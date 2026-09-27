@@ -12,7 +12,7 @@ compositor keeps Noctalia's base palette via the `qt` template and loses only
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `kcolorscheme` is removed from the shared Noctalia `config.toml`
       `[theme.templates] builtin_ids`; `gtk3`/`gtk4`/`qt` remain.
@@ -27,3 +27,6 @@ compositor keeps Noctalia's base palette via the `qt` template and loses only
 
 - Done in `faadbe3` (with tickets 02/03). `noctalia-stow.bats` green (24/24);
   `config.toml` no longer lists `kcolorscheme`.
+
+- 2026-09-27 doc sync: shipped in 0f297a6, ea8ddd9, 0dfa81a (ADR 0104);
+  kcolorscheme stance later superseded by ADR 0123.

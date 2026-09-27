@@ -1,6 +1,6 @@
 # Ship the curated Noctalia+niri config as a stow-owned dotfile
 
-Status: ready-for-agent
+Status: done
 
 Anchoring decision: **ADR 0094** (curated Noctalia config as a stow-owned
 dotfile). Extends ADR 0090 (niri adapter + Noctalia preset), ADR 0093 (enriched

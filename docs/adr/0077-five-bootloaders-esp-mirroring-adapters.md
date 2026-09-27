@@ -2,6 +2,7 @@
 
 Status: accepted (extends ADR 0038's ESP Kernel Sync; generalizes the Bootloader
 Module / Bootloader Adapter seam)
+Later decisions: amended by ADR 0078.
 
 `options.bootloader` grows from `{systemd-boot, grub}` to a **closed set** of
 five — `systemd-boot`, `grub`, `efistub`, `limine`, `refind` (default

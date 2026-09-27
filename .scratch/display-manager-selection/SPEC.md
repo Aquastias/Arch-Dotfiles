@@ -1,6 +1,6 @@
 # Spec: Operator-selectable Display Manager
 
-Status: ready-for-agent
+Status: done
 
 Related: ADR 0069 (this feature), supersedes ADR 0067; builds on ADR 0068
 (seatd), ADR 0061 (impermanence DM alias), ADR 0005 (adapter pattern).

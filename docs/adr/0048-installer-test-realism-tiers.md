@@ -1,5 +1,7 @@
 # Installer test realism: an unprivileged validator tier + curated VM smoke
 
+Later decisions: amended by ADR 0145.
+
 Close the gap between "bats is green" and "the install boots" by adding a
 new **unprivileged validator tier** that runs the real config generators
 and checks their output with real validators (`systemd-analyze verify`,

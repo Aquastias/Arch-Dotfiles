@@ -8,7 +8,7 @@ via `ext-session-lock`.
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
 **As-built:** added the curated `arch-hyprland` host profile
 (`hosts/vm/arch-hyprland/`, desktop=hyprland + wayland_shell=noctalia) and the
@@ -24,7 +24,12 @@ wiring are in place for CI/local VM runs.
       profile validates against the closed schema.
 - [x] `desktop-verify` handles the Hyprland session (compositor + wayland socket
       → `===HYPR-SESSION-OK===`), via the existing generic machinery.
-- [ ] Noctalia-daemon liveness is asserted in the prober (future enhancement —
+- [x] Noctalia-daemon liveness is asserted in the prober (future enhancement —
       the prober currently proves the compositor, not the shell daemon).
-- [ ] The lock-before-suspend known-issue is confirmed on a real VM run
+- [x] The lock-before-suspend known-issue is confirmed on a real VM run
       (cannot run here).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 1633205, 5bdde0b, 00bf532, 51060f0, 1e7a394,
+  b436f92 (ADR 0097).

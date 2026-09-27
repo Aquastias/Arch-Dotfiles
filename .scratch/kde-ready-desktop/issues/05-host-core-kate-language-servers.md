@@ -15,11 +15,16 @@ guarantee is untouched (ADR 0088).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Host Core `packages.repo` gains the seven repo language servers
-- [ ] Host Core `packages.aur` gains `vscode-langservers-extracted`
-- [ ] No Nix server (`nil`/`nixd`) is declared
-- [ ] The Package Resolver / real-profile regression reports the servers
+- [x] Host Core `packages.repo` gains the seven repo language servers
+- [x] Host Core `packages.aur` gains `vscode-langservers-extracted`
+- [x] No Nix server (`nil`/`nixd`) is declared
+- [x] The Package Resolver / real-profile regression reports the servers
       with the correct repo vs aur layer
-- [ ] VM fixtures do not receive the servers (existing `inherit: false`)
+- [x] VM fixtures do not receive the servers (existing `inherit: false`)
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in b425758, 3ef89ef, f8fdf38, 0e5486a, 6af9f0e,
+  6878699, 0bd152f, f43fabe (ADR 0087/0088).

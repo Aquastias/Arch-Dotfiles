@@ -1,6 +1,6 @@
 # Spec: Noctalia enriched-by-default plugin preset with a Rosé Pine palette
 
-Status: ready-for-agent
+Status: done
 
 Related: ADR 0093 (this feature — enriched preset + Rosé Pine default). Extends
 and partly supersedes ADR 0090 (niri adapter + Noctalia preset; "glue only —

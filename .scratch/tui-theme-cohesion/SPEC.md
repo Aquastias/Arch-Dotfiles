@@ -1,6 +1,6 @@
 # Spec: TUI programs cohere via the terminal's 16 ANSI colors
 
-Status: ready-for-agent
+Status: done
 
 Traces to ADR 0132 (TUI programs cohere via the terminal's 16 ANSI colors).
 Glossary: [[ANSI-16 Following]], [[Kitty Theme Template]], [[Zsh Theme

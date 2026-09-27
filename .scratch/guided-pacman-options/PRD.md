@@ -1,6 +1,6 @@
 # Guided Installer: Pacman Options category
 
-Status: ready-for-agent
+Status: done
 
 Adds a dedicated **Pacman** Configuration Category to the Guided Installer,
 surfacing the pacman `[options]` block flags as toggle/text rows and applying

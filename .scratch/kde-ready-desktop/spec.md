@@ -1,6 +1,6 @@
 # Spec: A ready-to-use KDE loadout on first login
 
-Status: ready-for-agent
+Status: done
 
 Relates to: ADR 0087 (`apps_extra` section), ADR 0088 (adapter seeds DE
 config defaults). Extends ADR 0021 (adapter owns DE packages).

@@ -12,20 +12,24 @@ existing chroot copy. See ADR 0074.
 
 **Blocked by:** 01 — options.pacman.* config-state foundation.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A new apply step runs in `install_base` alongside `enable_optional_repos`,
+- [x] A new apply step runs in `install_base` alongside `enable_optional_repos`,
       before pacstrap, editing the host `/etc/pacman.conf` `[options]` block.
-- [ ] ON toggles produce their uncommented flag line; OFF toggles are commented
+- [x] ON toggles produce their uncommented flag line; OFF toggles are commented
       out / absent — even when the ISO shipped the flag enabled (authoritative).
-- [ ] `ParallelDownloads = N` reflects the operator's value.
-- [ ] `ILoveCandy` is appended when on and removed/commented when off (it is not
+- [x] `ParallelDownloads = N` reflects the operator's value.
+- [x] `ILoveCandy` is appended when on and removed/commented when off (it is not
       shipped in Arch's default `pacman.conf`).
-- [ ] `SigLevel`, `Include` lines, optional-repo blocks, and custom-repo blocks
+- [x] `SigLevel`, `Include` lines, optional-repo blocks, and custom-repo blocks
       are never modified by this step.
-- [ ] The step is idempotent — running it twice yields the same file.
-- [ ] The mutated host `pacman.conf` is inherited by the target (existing copy);
+- [x] The step is idempotent — running it twice yields the same file.
+- [x] The mutated host `pacman.conf` is inherited by the target (existing copy);
       no separate target-side pass is added.
-- [ ] Seam 2: a new bats runs the apply function against a fixture `[options]`
+- [x] Seam 2: a new bats runs the apply function against a fixture `[options]`
       block and asserts the resulting file for on/off/numeric/append cases plus
       idempotency and the untouched-lines guarantee.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 30f1f0e (ADR 0074).

@@ -10,6 +10,7 @@ this ADR assumed), so GTK apps under Plasma inherited Noctalia's accent; ADR
 0116 adds a combined-box-gated KDE autostart that reasserts Breeze. The rest of
 this ADR (drop `kcolorscheme` on combined boxes; `kdeglobals` stays Plasma-owned)
 is confirmed.
+Later decisions: superseded by ADR 0111, ADR 0123; amended by ADR 0108.
 ---
 
 A multi-desktop host (`kde+niri`, `kde+hyprland`, or all three) runs **every**

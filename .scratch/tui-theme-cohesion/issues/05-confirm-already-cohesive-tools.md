@@ -1,6 +1,6 @@
 # Confirm already-cohesive tools (htop, git/less/ripgrep/fd); neovim untouched
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -23,16 +23,20 @@ around them.
 
 ## Acceptance criteria
 
-- [ ] Documented confirmation that htop Default (`color_scheme=0`) follows the
+- [x] Documented confirmation that htop Default (`color_scheme=0`) follows the
       terminal ANSI palette, and that no `htoprc` is stowed or seeded.
-- [ ] A guard asserts no `htoprc` is present in the stow tree (never stow a
+- [x] A guard asserts no `htoprc` is present in the stow tree (never stow a
       runtime-rewritten file).
-- [ ] Documented confirmation that git diff / less / ripgrep / fd render default
+- [x] Documented confirmation that git diff / less / ripgrep / fd render default
       ANSI with no change.
-- [ ] neovim config is unchanged (rose-pine intact).
-- [ ] VM check: htop and a `git diff` track a Noctalia palette change on a
+- [x] neovim config is unchanged (rose-pine intact).
+- [x] VM check: htop and a `git diff` track a Noctalia palette change on a
       compositor and stay Sapphire under KDE.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).

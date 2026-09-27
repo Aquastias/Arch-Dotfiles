@@ -1,6 +1,6 @@
 # 02 — Debugging via nvim-dap (core-five, system adapters)
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -23,19 +23,24 @@ mason-nvim-dap. PHP (xdebug) and Zig are out of scope.
 
 ## Acceptance criteria
 
-- [ ] nvim-dap + dap-ui (+ nio) + dap-python + dap-go are declared and
+- [x] nvim-dap + dap-ui (+ nio) + dap-python + dap-go are declared and
       lazy-load (no startup cost when not debugging).
-- [ ] Debug adapters for python/go/rust/c/c++/js-ts are wired from the
+- [x] Debug adapters for python/go/rust/c/c++/js-ts are wired from the
       registry `dap` column; the dap-ui opens on session start.
-- [ ] `<leader>d` keymaps exist for the core debug actions and register a
+- [x] `<leader>d` keymaps exist for the core debug actions and register a
       which-key group.
-- [ ] Host Core declares the adapter packages (codelldb, debugpy, delve,
+- [x] Host Core declares the adapter packages (codelldb, debugpy, delve,
       js-debug); no mason / mason-nvim-dap anywhere.
-- [ ] Seam A asserts the plugins, the registry `dap` wiring, the Host Core
+- [x] Seam A asserts the plugins, the registry `dap` wiring, the Host Core
       packages and the `<leader>d` maps.
-- [ ] Seam B: the adapter binaries resolve on PATH and `:checkhealth dap` is
+- [x] Seam B: the adapter binaries resolve on PATH and `:checkhealth dap` is
       clean on the arch-combined VM.
 
 ## Blocked by
 
 - `01-language-registry-foundation` (provides the `dap` column).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

@@ -11,14 +11,18 @@ to the repo `CLAUDE.md` agent-skills/docs section so a cold agent discovers it.
 
 **Blocked by:** 02, 03, 04 (the doc describes the verbs those tickets deliver).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `docs/agents/vm-agent-control.md` documents all verbs (`session`, `shot`,
+- [x] `docs/agents/vm-agent-control.md` documents all verbs (`session`, `shot`,
       `exec`, `launch`, `logout`, `reboot`, `idle`, `lock`, `unlock`, `ssh`,
       `ready`) and the gotchas above.
-- [ ] The doc states the Qt=KDE-app (Dolphin) / GTK=any (nm-connection-editor)
+- [x] The doc states the Qt=KDE-app (Dolphin) / GTK=any (nm-connection-editor)
       convention.
-- [ ] `CLAUDE.md` gains a one-line pointer to the doc under the agent
+- [x] `CLAUDE.md` gains a one-line pointer to the doc under the agent
       skills/docs section.
-- [ ] The doc is sufficient to drive a cold agent through a full session-switch +
+- [x] The doc is sufficient to drive a cold agent through a full session-switch +
       screenshot without rediscovering the plumbing.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 24258ce, 51d7a0d (ADR 0117).

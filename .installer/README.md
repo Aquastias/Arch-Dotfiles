@@ -427,15 +427,19 @@ every boot without the USB.
 │   ├── live-medium.sh      # Live-medium detector (shared)
 │   ├── prompt.sh           # Interactive prompt helpers
 │   ├── finalize.sh         # Unmount + pool export
-│   ├── guided*.sh          # Guided Installer entry/controller/save
+│   ├── aur-helper.sh       # AUR Helper bootstrap ladder
+│   ├── guided/             # Guided Installer (controller, fzf-entry,
+│   │                       #   save, mask, …)
 │   ├── config/             # Schema, load, merge, validation, guided
 │   ├── layout/             # fs/mode-keyed dispatch (zfs/btrfs/ext4/
 │   │                       #   xfs/nonzfs) + core.sh + dispatch.sh
 │   │                       #   + data-pools.sh (standalone pools)
 │   ├── zfs/                # pools, module guard, verify, pool-owners
 │   ├── packages/           # list (collect+pacstrap), base (Base
-│   │                       #   Package List), kernel, microcode,
-│   │                       #   gpu, audio, filesystem, iso-resolver
+│   │                       #   Package List), resolver, kernel,
+│   │                       #   archzfs-kernel, archive, microcode,
+│   │                       #   gpu, audio, filesystem, niri,
+│   │                       #   iso-resolver
 │   ├── boot/               # esp-kernel-sync, stray-kernel, zswap
 │   ├── wipe/               # targets, method, execute, progress
 │   ├── profiles/           # runner + program-runner
@@ -453,10 +457,14 @@ every boot without the USB.
 │   ├── desktop/            # eterniox
 │   ├── laptop/
 │   ├── minimal/            # Desktop-less base install
-│   └── vm/                 # arch-kde, arch-secure, arch-data
+│   ├── {kde,hyprland,niri}-pure/  # Stock single-desktop (ADR 0112)
+│   └── vm/                 # VM fixtures (arch-combined, arch-kde,
+│                           #   arch-niri, arch-secure, …)
 │
 ├── users/                  # Per-user config
 │   ├── core/               # Shared base for all users
+│   ├── server/             # Bare headless admin user (ADR 0134)
+│   ├── vm/                 # VM test users (test/, data/)
 │   └── <username>/         # User-specific overrides
 │
 ├── programs/               # Self-contained installers
@@ -464,16 +472,20 @@ every boot without the USB.
 │   ├── backup/             # borg, zfs-auto-snapshot
 │   ├── bootloader/         # grub
 │   ├── communication/      # teamspeak3
-│   ├── dev/                # ccache
+│   ├── dev/                # ccache, claude, nvim, pi
 │   ├── gaming/             # gamemode
 │   ├── power/              # power-profiles-daemon, tuned
 │   ├── printing/           # cups
 │   ├── privacy/            # searxng
 │   ├── security/           # apparmor, clamav, firewalld,
 │   │                       # rkhunter, sops, ufw
-│   ├── system/             # bluetooth, fwupd, lact, reflector,
-│   │                       # smartmontools
+│   ├── system/             # bluetooth, fwupd, kitty, lact,
+│   │                       # lazygit, reflector, smartmontools,
+│   │                       # yazi, zsh
 │   └── virtualization/     # docker, podman, virt-manager
+│
+├── aur/                    # AUR Vetting: aur-vet, rules,
+│                           #   indicators, vetted commits (ADR 0143)
 │
 ├── extras/                 # In-chroot extras (DE + DM adapters)
 │   ├── desktop/            # kde/, hyprland/, niri/  (<de>/<de>.sh)
@@ -492,6 +504,7 @@ every boot without the USB.
 ├── tests/                  # BATS + VM integration tests
 │   ├── run.sh              # BATS runner
 │   ├── shellcheck.sh       # Code quality checks
+│   ├── no-python.sh        # No-Python gate
 │   ├── audit.sh
 │   ├── *.bats              # Unit + chroot test files
 │   ├── bats/               # Bundled BATS sources
@@ -499,6 +512,7 @@ every boot without the USB.
 │
 ├── vm/                     # Profile-driven VMs (vm.sh --profile)
 │   ├── vm.sh               # Single entry point (+ --testing)
+│   ├── vm-agent.sh         # VM Agent Control CLI (ADR 0117)
 │   ├── lib/                # core.sh + flow-{persistent,test,guided}
 │   │                       #   + seed/sentinel/console + verifiers
 │   ├── profiles/           # Persistent VM Profiles (desktop/, headless/)

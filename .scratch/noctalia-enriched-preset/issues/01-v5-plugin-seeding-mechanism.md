@@ -13,15 +13,20 @@ old v4 seeding path is removed.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A generic helper vendors a plugin folder at a pinned ref into skel
+- [x] A generic helper vendors a plugin folder at a pinned ref into skel
       `.local/share/noctalia/plugins/` and enables its id in `config.toml`.
-- [ ] `config.toml` carries `[plugins].auto_update = "none"`; no `settings.toml`
+- [x] `config.toml` carries `[plugins].auto_update = "none"`; no `settings.toml`
       is written into skel.
-- [ ] Bitwarden is seeded via the new path; the v4 `plugins.json` and
+- [x] Bitwarden is seeded via the new path; the v4 `plugins.json` and
       `.config/noctalia/plugins/bitwarden/` artifacts are no longer produced.
-- [ ] An offline/failed fetch skips that plugin with a warning; the install
+- [x] An offline/failed fetch skips that plugin with a warning; the install
       still succeeds.
-- [ ] `niri-adapter.bats` asserts the new on-disk layout and the absence of the
+- [x] `niri-adapter.bats` asserts the new on-disk layout and the absence of the
       v4 artifacts.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 16a1ec5, 10b2eab, 06ab093, 3f61836, 58c1323,
+  a30056f (ADR 0093); Rosé Pine default superseded by ADR 0101/0109.

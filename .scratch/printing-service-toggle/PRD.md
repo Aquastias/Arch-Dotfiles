@@ -1,6 +1,6 @@
 # Printing service toggle (toggle-derived CUPS)
 
-Status: ready-for-agent
+Status: done
 
 Reference: ADR 0079 (`docs/adr/0079-printing-service-toggle-derived-system-program.md`),
 CONTEXT.md glossary term **Printing Service (`options.printing.enabled`)**.

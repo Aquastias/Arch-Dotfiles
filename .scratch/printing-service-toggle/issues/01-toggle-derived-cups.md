@@ -16,7 +16,7 @@ default-installs-cups invariant). Both land together to keep CI green.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `options.printing.enabled` is accepted by the closed profile schema; an
       unknown neighbour key still aborts at load with its path.
@@ -39,3 +39,7 @@ default-installs-cups invariant). Both land together to keep CI green.
 - [x] Tests: a new pure-function bats spec (mirroring `config/post-install.bats`)
       covers on/off/unset; assembly bats assert cups presence/absence by toggle;
       schema-loader bats assert the key loads and typos still abort.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in fa4b5ed, ab99513 (ADR 0079).

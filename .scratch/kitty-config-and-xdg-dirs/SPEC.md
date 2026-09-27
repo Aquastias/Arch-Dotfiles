@@ -1,6 +1,6 @@
 # Spec: Kitty served + stowable + Noctalia-following, and XDG dirs on wl-roots
 
-Status: ready-for-agent
+Status: done
 
 Traces to ADR 0130 (kitty fleet-wide, seeded + stowable, follows Noctalia) and
 ADR 0131 (XDG user dirs generated on wl-roots sessions). Glossary: [[Kitty

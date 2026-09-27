@@ -3,6 +3,7 @@
 ---
 Status: accepted (amends ADR 0039's two-level category menu; scopes ADR
 0042's persistent-fzf controller)
+Later decisions: amended by ADR 0076, ADR 0081, ADR 0082.
 ---
 
 The Guided Installer adopts an archinstall-style **master-detail** presentation

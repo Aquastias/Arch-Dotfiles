@@ -2,6 +2,7 @@
 
 ---
 Status: accepted
+Later decisions: superseded by ADR 0114.
 ---
 
 **Host Core gains a `packages` object** (`repo` + `aur`, both Categorized

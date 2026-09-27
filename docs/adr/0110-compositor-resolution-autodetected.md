@@ -6,6 +6,7 @@ resolution into the niri/Hyprland configs. Reaffirms the "output is
 host-specific, kept out of the portable config" invariant behind ADR 0090's niri
 adapter and ADR 0096's shared keybinds; the seeded `hyprland.lua` (ADR 0105) and
 niri `config.kdl` (ADR 0094/0095) already ship autodetecting output.
+Later decisions: qualified by ADR 0119.
 ---
 
 The operator asked for the desktop to come up at their monitor's native

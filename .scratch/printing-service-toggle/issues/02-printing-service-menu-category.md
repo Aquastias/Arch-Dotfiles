@@ -10,7 +10,7 @@ default (on). The detail pane lists both values with the current one marked.
 
 **Blocked by:** 01 — Toggle-derived cups (needs the schema key to bind the row).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A root-level **Printing service** category appears in the top-level menu in
       canonical reading order, with a one-line summary.
@@ -22,3 +22,7 @@ default (on). The detail pane lists both values with the current one marked.
       marked).
 - [x] Tests extend the guided-menu bats: the category and its Cycle Field render
       with correct default and override-dot behaviour.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in fa4b5ed, ab99513 (ADR 0079).

@@ -9,19 +9,24 @@ branch, sandbox, plan, context, cache, 5-hour usage, duration, and churn.
 
 **Blocked by:** 01 (the tracked script must exist to rework).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 5-hour meter from `rate_limits.five_hour.used_percentage` + a `resets_at`
+- [x] 5-hour meter from `rate_limits.five_hour.used_percentage` + a `resets_at`
       countdown, colored (green<50/yellow<80/red); replaces the `$cost` segment
       on subscription plans, `$cost` retained on API plans
-- [ ] Cache-hit from `prompt_cache.hit_ratio` (transcript-tail block deleted)
-- [ ] `effort.level` shown beside the model
-- [ ] `cost.total_lines_added/removed` render green add / red delete
-- [ ] Red dot beside the branch when `git status --porcelain` is non-empty,
+- [x] Cache-hit from `prompt_cache.hit_ratio` (transcript-tail block deleted)
+- [x] `effort.level` shown beside the model
+- [x] `cost.total_lines_added/removed` render green add / red delete
+- [x] Red dot beside the branch when `git status --porcelain` is non-empty,
       with a space before the dot
-- [ ] Emoji icon set; colors on the ANSI-16 palette (ADR 0132)
-- [ ] `ccusage` burn detail as a second segment, refreshed at most every ~30s
+- [x] Emoji icon set; colors on the ANSI-16 palette (ADR 0132)
+- [x] `ccusage` burn detail as a second segment, refreshed at most every ~30s
       via an mtime-checked tmp cache; absent `ccusage`, the segment is empty and
       the native meter still renders
-- [ ] Existing sandbox / plan / branch / context-bar / duration segments
+- [x] Existing sandbox / plan / branch / context-bar / duration segments
       retained
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6521bc3, 2bb7784, 6e78829, 2711118, 8d7adf8,
+  0529dd6, 4039310, 88a7516, 1f74b30 (ADR 0133).

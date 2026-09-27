@@ -4,6 +4,7 @@
 Status: accepted. **Amends ADR 0093**, which set Rosé Pine as the default
 Noctalia palette — the enriched-plugin decision there is unchanged; only the
 default palette is superseded.
+Later decisions: superseded by ADR 0109.
 ---
 
 The default Noctalia look changes from Rosé Pine to **Catppuccin Mocha with a

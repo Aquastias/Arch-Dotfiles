@@ -10,26 +10,31 @@ Nerd-Font glyphs render, and the reviewed non-color knobs are applied.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `"kitty"` removed from the Noctalia `builtin_ids`, so the builtin's
+- [x] `"kitty"` removed from the Noctalia `builtin_ids`, so the builtin's
       config-rewriting `apply.sh` never clobbers the stowed `kitty.conf`.
-- [ ] A `[theme.templates.user.kitty]` declares a stowed static Mustache input
+- [x] A `[theme.templates.user.kitty]` declares a stowed static Mustache input
       (rides the preset's existing `templates/*` seed) mapping the palette's
       `terminal_*`/Material roles into kitty color, output to the generated
       theme file that `kitty.conf` includes.
-- [ ] `kitty.conf` includes the generated theme file **last**; the static
+- [x] `kitty.conf` includes the generated theme file **last**; the static
       Catppuccin theme files are deleted.
-- [ ] Every color knob the generated theme sets is stripped from the split
+- [x] Every color knob the generated theme sets is stripped from the split
       config part-files; only non-color knobs remain there.
-- [ ] Font family is the installed Nerd variant so p10k glyphs render; automatic
+- [x] Font family is the installed Nerd variant so p10k glyphs render; automatic
       bold; reviewed size.
-- [ ] Reviewed knobs applied: `LS_COLORS` env pass-through part-file dropped
+- [x] Reviewed knobs applied: `LS_COLORS` env pass-through part-file dropped
       from the include list; tab bar hidden for a single tab; window decorations
       session-aware (hidden on compositors via `KITTY_DECORATIONS`+`envinclude`,
       KDE keeps system titlebar/borders); active-window border follows the
       accent;
       `background_opacity 1.0` (opaque) and beam cursor kept.
-- [ ] The generated theme output is gitignored (seed-only, never stowed).
-- [ ] `noctalia-stow.bats` asserts the builtin drop, the user-template
+- [x] The generated theme output is gitignored (seed-only, never stowed).
+- [x] `noctalia-stow.bats` asserts the builtin drop, the user-template
       declaration, and the include wiring.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in deaa594, db20d11, 0cc3ff5, 09d47f3, 1b28de0,
+  66bceb5 (ADR 0130/0131).

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Promote config-hungry packages to Host Programs
 

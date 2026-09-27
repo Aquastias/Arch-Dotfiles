@@ -11,22 +11,27 @@ on the Arch Wiki ccache page per `docs/agents/arch-wiki.md` and authored to
 
 **Blocked by:** 01 — Core-Owned Program filter (needs `core_owned_programs`).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `programs/dev/ccache/` exists with `config.jsonc` (`kind: host`) and
+- [x] `programs/dev/ccache/` exists with `config.jsonc` (`kind: host`) and
       `install.sh`, both matching `PROGRAM_SPEC.md`.
-- [ ] `install.sh` installs `ccache` via `pacman --needed` and flips the
+- [x] `install.sh` installs `ccache` via `pacman --needed` and flips the
       `BUILDENV` `!ccache`→`ccache` in `/etc/makepkg.conf` idempotently
       (append-after-delete; converges whether the flag starts on or off).
-- [ ] `ccache` is removed from Host Core `packages.repo` (`dev` group) and added
+- [x] `ccache` is removed from Host Core `packages.repo` (`dev` group) and added
       to Host Core `host_programs`.
-- [ ] `ccache` is added to `core_owned_programs`, so it is filtered from both
+- [x] `ccache` is added to `core_owned_programs`, so it is filtered from both
       pickers and the host-programs row stays absent.
-- [ ] `ccache` is added to `host_programs_exclude` in `arch-kde`, `arch-secure`,
+- [x] `ccache` is added to `host_programs_exclude` in `arch-kde`, `arch-secure`,
       and `arch-data` VM fixtures.
-- [ ] Config-resolution tests assert `ccache` is absent from resolved
+- [x] Config-resolution tests assert `ccache` is absent from resolved
       `packages.repo` and present in resolved `host_programs` on desktop/laptop,
       and absent from the VM fixtures' resolved `host_programs`.
-- [ ] `core_owned_programs` test asserts it contains `ccache`.
-- [ ] `tests/audit.sh` passes (folder is `kind: host`, files present, reference
+- [x] `core_owned_programs` test asserts it contains `ccache`.
+- [x] `tests/audit.sh` passes (folder is `kind: host`, files present, reference
       resolves); full bats suite green.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ef5f24a, ce126da, 39ca93f, 484aa2b, 23200d7
+  (ADR 0089); Core-Owned Program filter later removed in c1d30d0.

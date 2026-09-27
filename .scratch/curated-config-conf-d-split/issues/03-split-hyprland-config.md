@@ -20,20 +20,25 @@ is not touched here.
 **Blocked by:** 01 — the seed must already tolerate a `conf.d/` tree.
 Independent of 02; may run in parallel.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `hyprland.lua` contains only a header comment, the `package.path` shim,
+- [x] `hyprland.lua` contains only a header comment, the `package.path` shim,
       and the ordered `require` lines (order: environment, input, appearance,
       autostart, keybinds, media, rules); no settings remain in it.
-- [ ] The seven `conf.d/*.lua` part-files carry the moved content verbatim, each
+- [x] The seven `conf.d/*.lua` part-files carry the moved content verbatim, each
       with a compact `(ADR NNNN)`-anchored header; each file is self-contained
       (separate Lua scope), with the keybind locals confined to `keybinds.lua`.
-- [ ] The single `hl.monitor` line lives in `environment.lua`; rounding stays in
+- [x] The single `hl.monitor` line lives in `environment.lua`; rounding stays in
       `appearance.lua`'s `decoration` block.
-- [ ] `chroot.sh` stages `.config/hypr/conf.d/` alongside `hyprland.lua`; the
+- [x] `chroot.sh` stages `.config/hypr/conf.d/` alongside `hyprland.lua`; the
       `noctalia_preset_install` call seeds the whole Hyprland tree to skel.
-- [ ] `hyprland-adapter.bats` fixtures/asserts and the Hyprland content greps in
+- [x] `hyprland-adapter.bats` fixtures/asserts and the Hyprland content greps in
       `noctalia-stow.bats` re-point at the part-file now holding each construct
       (autostart, cursor, IPC launcher/lock binds); niri asserts unchanged.
-- [ ] `Hyprland --verify-config -c hyprland.lua` passes on the manifest +
+- [x] `Hyprland --verify-config -c hyprland.lua` passes on the manifest +
       requires as one config; a fresh Hyprland box boots identically.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in a55e9d2, 8afa454, 43b421c, ad54241, 0178040
+  (ADR 0107).

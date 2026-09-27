@@ -10,13 +10,17 @@ Noctalia-wired `hyprland.conf`, so it depends on the shell rewrite.
 **Blocked by:** `noctalia-shared-shell` ticket 03 (Hyprland boots the shared
 Noctalia environment — the `hyprland.conf` rewrite)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `bibata-cursor-git` is declared in the Hyprland adapter's `aur` list and
+- [x] `bibata-cursor-git` is declared in the Hyprland adapter's `aur` list and
       lands via the paru pass when Hyprland is selected.
-- [ ] The seeded `hyprland.conf` sets `HYPRCURSOR_THEME=Bibata-Modern-Ice` +
+- [x] The seeded `hyprland.conf` sets `HYPRCURSOR_THEME=Bibata-Modern-Ice` +
       `HYPRCURSOR_SIZE=24` (primary) and keeps `XCURSOR_THEME` as the fallback.
-- [ ] `~/.icons/default` is seeded to inherit `Bibata-Modern-Ice`.
-- [ ] Setting `HYPRCURSOR_THEME` alone applies the cursor on a fresh login; if a
+- [x] `~/.icons/default` is seeded to inherit `Bibata-Modern-Ice`.
+- [x] Setting `HYPRCURSOR_THEME` alone applies the cursor on a fresh login; if a
       nudge is required, an `exec-once` is added rather than a manual step.
-- [ ] `hyprland-adapter.bats` asserts the hyprcursor env and the aur declaration.
+- [x] `hyprland-adapter.bats` asserts the hyprcursor env and the aur declaration.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 7598539, b436f92 (ADR 0098).

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: done
 
 # Font Catalog: curated multi-select under General
 
@@ -32,22 +32,27 @@ package resolution incl. AUR routing → matrix Axis Registry classification.
 
 ## Acceptance criteria
 
-- [ ] `options.fonts` is a General-Category leaf rendering as a multi-select
+- [x] `options.fonts` is a General-Category leaf rendering as a multi-select
       of the enumerated catalog, comma-joined, with override dots.
-- [ ] The default-checked set matches the spec; `otf-monaspace-nerd` and
+- [x] The default-checked set matches the spec; `otf-monaspace-nerd` and
       `ttf-sazanami` appear unchecked but selectable.
-- [ ] Checked repo fonts land in the pacstrap set; `ttf-ms-fonts` is routed
+- [x] Checked repo fonts land in the pacstrap set; `ttf-ms-fonts` is routed
       to the Primary User's paru pass (not pacstrap).
-- [ ] `packages.repo.fonts` is removed from Host Core; a default install
+- [x] `packages.repo.fonts` is removed from Host Core; a default install
       still yields the default font set through the catalog.
-- [ ] Plain `ttf-fira-code` no longer installs; `ttf-firacode-nerd` does.
-- [ ] `options.fonts` is classified `inert|light` in the matrix Axis
+- [x] Plain `ttf-fira-code` no longer installs; `ttf-firacode-nerd` does.
+- [x] `options.fonts` is classified `inert|light` in the matrix Axis
       Registry (generator no longer aborts).
-- [ ] Choices equal to defaults normalise out; a saved profile stores only
+- [x] Choices equal to defaults normalise out; a saved profile stores only
       the delta over Host Core.
-- [ ] `fonts.bats` (pure resolver spec) and a `guided-menu.bats` extension
+- [x] `fonts.bats` (pure resolver spec) and a `guided-menu.bats` extension
       pass under `tests/run.sh --fast`.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ec6e37a, 79db4f3, 411c257, 57dbacb, 01a31ab
+  (ADR 0080).

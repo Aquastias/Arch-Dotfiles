@@ -15,15 +15,19 @@ via the portal. GTK4 was always relaunch-only for palette.
 
 **Blocked by:** 01 — Live Theme Bridge scaffolding + Qt6 live-repaint.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] On a color-file change the bridge performs a `gsettings` `gtk-theme`
+- [x] On a color-file change the bridge performs a `gsettings` `gtk-theme`
       read-toggle-restore: read the current name, set a transient alternate, then
       restore the original — never hardcoding `adw-gtk3-dark` (which would
       override Noctalia's light-mode choice).
-- [ ] No new persistent write Plasma reads-and-does-not-reset: the toggle touches
+- [x] No new persistent write Plasma reads-and-does-not-reset: the toggle touches
       only shared theme-name/dconf that `kde-gtk-config` reasserts to Breeze on
       Plasma login — Plasma stays deterministically Breeze on a combined box.
-- [ ] Docs state GTK palette is relaunch-only on native Wayland (ADR 0116 /
+- [x] Docs state GTK palette is relaunch-only on native Wayland (ADR 0116 /
       spec / `CONTEXT.md`); no brittle app-restart hack is attempted.
-- [ ] Dark/light on libadwaita keeps following live via the portal (unchanged).
+- [x] Dark/light on libadwaita keeps following live via the portal (unchanged).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 6d9866c, 44ae23e, acdd161 (ADR 0116).

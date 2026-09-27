@@ -1,6 +1,6 @@
 # Neovim IDE Expansion
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 ADRs: 0135, 0136, 0140, 0141
 

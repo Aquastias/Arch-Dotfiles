@@ -11,13 +11,17 @@ terminology only, no implementation detail — per the domain-modeling disciplin
 
 **Blocked by:** 01, 02, 03 — the glossary must track what actually shipped.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Guided Installer entry names the twelve categories in archinstall order,
+- [x] The Guided Installer entry names the twelve categories in archinstall order,
       not the old eight.
-- [ ] The entry describes the always-on detail pane (parent column + live detail
+- [x] The entry describes the always-on detail pane (parent column + live detail
       at every level) and drill-down navigation.
-- [ ] The entry stays terminology-only — no file paths, function names, or
+- [x] The entry stays terminology-only — no file paths, function names, or
       implementation detail.
-- [ ] References to the retired "Host" / "Options" categories are removed or
+- [x] References to the retired "Host" / "Options" categories are removed or
       corrected wherever they appear in the entry.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).

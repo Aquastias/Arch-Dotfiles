@@ -10,21 +10,26 @@ Export.
 
 **Blocked by:** 02, 03.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The operator picks the target disk; the live install medium is excluded
+- [x] The operator picks the target disk; the live install medium is excluded
       via the shared Live-Medium Detector.
-- [ ] The installer launches `cfdisk` on the chosen disk, then re-reads the
+- [x] The installer launches `cfdisk` on the chosen disk, then re-reads the
       partition table (`lsblk`) on exit.
-- [ ] Each partition renders as an assignment row: mountpoint (`/`, `/boot/efi`,
+- [x] Each partition renders as an assignment row: mountpoint (`/`, `/boot/efi`,
       `/home`, `[swap]`, or none), filesystem (ext4/xfs/btrfs/fat32), and
       format-or-keep.
-- [ ] ESP (`ef00`) and swap (`8200`) partitions pre-fill their mountpoint from
+- [x] ESP (`ef00`) and swap (`8200`) partitions pre-fill their mountpoint from
       the partition type; the operator can override.
-- [ ] The assignment writes `partitions[]` into Config State; Proceed assembles
+- [x] The assignment writes `partitions[]` into Config State; Proceed assembles
       the Effective Config and installs via the 02 adapter.
-- [ ] Manual exposes **no Save Profile and no Export** action; the assignment is
+- [x] Manual exposes **no Save Profile and no Export** action; the assignment is
       transient and never reaches a committed or exported artifact (ADR 0036).
-- [ ] The pure parts of the assignment flow (row model, type pre-fill, Config
+- [x] The pure parts of the assignment flow (row model, type pre-fill, Config
       State write) are covered in bats; the `cfdisk`/`lsblk` steps are exercised
       in the VM case (ticket 05).
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in aac47b6, 9a41d8f, c16f2e8, 962cab1, efa5b5a,
+  62b6315, c485ed0, 742f4e8, f2c2216 (ADR 0073).

@@ -1,6 +1,6 @@
 # Spec: Full-suite green + change-targeted test runs
 
-Status: ready-for-agent
+Status: done
 
 Anchored by **ADR 0103** (builds on ADR 0046/0048/0078). Uses the
 [[Change-Targeted Run]], [[Broad-Blast Path]], [[Install-Correctness Core]],

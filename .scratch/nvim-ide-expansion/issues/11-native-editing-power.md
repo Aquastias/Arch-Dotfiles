@@ -1,6 +1,6 @@
 # 11 — Native editing power & structural selection
 
-Status: ready-for-agent
+Status: done
 Labels: ready-for-agent
 
 ## Parent
@@ -24,15 +24,20 @@ plugins:
 
 ## Acceptance criteria
 
-- [ ] `cn`/`cN` + `.` change repeated words; the visual variant changes a
+- [x] `cn`/`cN` + `.` change repeated words; the visual variant changes a
       selection's occurrences; visual-block editing works.
-- [ ] `af`/`ac` operate on function/class definitions via mini.ai + treesitter.
-- [ ] Incremental selection grows/shrinks by syntax node.
-- [ ] `gc` comments correctly in JSX/Vue/Svelte embedded regions.
-- [ ] No multi-cursor plugin is added.
-- [ ] Seam A asserts the multi-cursor maps, the mini.ai treesitter wiring, the
+- [x] `af`/`ac` operate on function/class definitions via mini.ai + treesitter.
+- [x] Incremental selection grows/shrinks by syntax node.
+- [x] `gc` comments correctly in JSX/Vue/Svelte embedded regions.
+- [x] No multi-cursor plugin is added.
+- [x] Seam A asserts the multi-cursor maps, the mini.ai treesitter wiring, the
       incremental-selection maps and the context-comment setup.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in ce255e1, 90b5834, e4d9c5e, 348bef4, d26f455,
+  3420c46, 01818f7, aed55a1 (ADR 0140/0141).

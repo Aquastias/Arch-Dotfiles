@@ -23,19 +23,23 @@ chrome, no card/footer clutter.
 **Blocked by:** 01 — the parent-column siblings and the reflector-note placement
 follow the final twelve-category taxonomy.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The preview pane is populated on every category and every field screen (no
+- [x] The preview pane is populated on every category and every field screen (no
       screen falls back to a hidden/empty pane).
-- [ ] Highlighting an item renders its sibling set as a parent column, greyed,
+- [x] Highlighting an item renders its sibling set as a parent column, greyed,
       with the current item marked.
-- [ ] A category previews a `key: value` summary of its fields with `●` dots on
+- [x] A category previews a `key: value` summary of its fields with `●` dots on
       overridden fields.
-- [ ] A leaf field previews its current value and, for an enumerable field, the
+- [x] A leaf field previews its current value and, for an enumerable field, the
       `menu_enum_options` set; a free-text field previews its value + short help.
-- [ ] The Mirrors & Repositories detail includes the reflector note; no reflector
+- [x] The Mirrors & Repositories detail includes the reflector note; no reflector
       behaviour or field path changes.
-- [ ] The render is a pure function driven by (state, nav location) with no tty.
-- [ ] A new headless bats suite (styled on the existing `_ctl_layout_graph` /
+- [x] The render is a pure function driven by (state, nav location) with no tty.
+- [x] A new headless bats suite (styled on the existing `_ctl_layout_graph` /
       `_ctl_breadcrumb` tests) asserts the parent column, category detail, leaf
       value+options, and the reflector note — and passes.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in 5c9b237, 7b2ac05, a61c176 (ADR 0071).

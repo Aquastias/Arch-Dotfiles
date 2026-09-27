@@ -20,16 +20,21 @@ tickets extend. Anchored by ADR 0127.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `dev/pi` program config validates and resolves into the desktop and laptop
+- [x] `dev/pi` program config validates and resolves into the desktop and laptop
       profiles.
-- [ ] `pi-coding-agent-bin` plus `git`/`ripgrep`/`fd` resolve into the Host Core
+- [x] `pi-coding-agent-bin` plus `git`/`ripgrep`/`fd` resolve into the Host Core
       package set.
-- [ ] `settings.json` with the pinned keys is seeded into `/etc/skel` and present
+- [x] `settings.json` with the pinned keys is seeded into `/etc/skel` and present
       in the repo-root `.pi/` stow tree.
-- [ ] `.gitignore` excludes `~/.pi/agent/auth.json`; it is never seeded or stowed.
-- [ ] The installer does not stow the config (seed-only).
-- [ ] New `pi-agent.bats` (modeled on `noctalia-stow.bats`) asserts the above
+- [x] `.gitignore` excludes `~/.pi/agent/auth.json`; it is never seeded or stowed.
+- [x] The installer does not stow the config (seed-only).
+- [x] New `pi-agent.bats` (modeled on `noctalia-stow.bats`) asserts the above
       static facts.
-- [ ] On the `arch-combined` VM, `pi` is on PATH and launches.
+- [x] On the `arch-combined` VM, `pi` is on PATH and launches.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in bf272c2, 7c22c5d, 77f0ae9, 1d53bad, 259a7ff,
+  0f0aa6f, 747d14e (ADR 0127/0128).

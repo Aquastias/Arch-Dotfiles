@@ -4,6 +4,7 @@
 Status: accepted. Reuses the pi/kitty delivery pattern (ADR 0127/0130) and the
 seed-never-stow contract (ADR 0095); statusline colors fold into ANSI-16
 cohesion (ADR 0132).
+Later decisions: amended by ADR 0142.
 ---
 
 Claude Code is the fleet's coding agent but was **never provisioned by the

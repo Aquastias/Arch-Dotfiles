@@ -1,6 +1,6 @@
 # p10k: root/context hexes → ANSI red/yellow
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
@@ -21,14 +21,18 @@ as the prompt already is.
 
 ## Acceptance criteria
 
-- [ ] `.p10k.zsh` contains no hardcoded Catppuccin hex values (root/context
+- [x] `.p10k.zsh` contains no hardcoded Catppuccin hex values (root/context
       segments now use ANSI color indices for red/yellow).
-- [ ] The root/context warning segments still read as red/yellow, now sourced
+- [x] The root/context warning segments still read as red/yellow, now sourced
       from the terminal's ANSI palette.
-- [ ] A test asserts `.p10k.zsh` carries no `#`-hex color on those segments.
-- [ ] VM check: on a compositor the root/context segments track a Noctalia
+- [x] A test asserts `.p10k.zsh` carries no `#`-hex color on those segments.
+- [x] VM check: on a compositor the root/context segments track a Noctalia
       palette change (on next shell); under KDE they stay Sapphire red/yellow.
 
 ## Blocked by
 
 None - can start immediately.
+
+## Comments
+
+- 2026-09-27 doc sync: shipped in eca3e60, db0b4b5 (ADR 0132).
