@@ -271,15 +271,16 @@ and the ESP-size field — which stay **shown-but-locked** on the Disks screen s
 the operator sees what was given up. The operator partitions by hand (cfdisk,
 where swap is a partition they cut for themselves), then assigns each resulting
 partition a mountpoint (or `[swap]`) and a format-or-keep choice; a viable
-install requires exactly one ESP and one root. Reversible and non-destructive to Config
-State like every other guided choice — auto↔manual toggles without losing either
-side's overrides — and its partition assignment is **transient**, never reaching
-a committed or exported artifact, mirroring the device-less invariant (ADR 0036).
-Because a hand-drawn table cannot be replayed from a committed file, manual is
-**Proceed-only**: no Save Profile, no Export, and it never appears on the
-`--profile` Pre-Install Picker or the unattended `install.sh <config-file>` path.
-Distinct from the predefined (auto) layouts, whose pool skeleton is the
-installer's default.
+install requires exactly one ESP and one root. The install never wipes the disk:
+a manual config resolves no wipe targets, so the table survives. Reversible and
+non-destructive to Config State like every other guided choice — auto↔manual
+toggles without losing either side's overrides — and its partition assignment is
+**transient**, never reaching a committed or exported artifact, mirroring the
+device-less invariant (ADR 0036). Because a hand-drawn table cannot be replayed
+from a committed file, manual is **Proceed-only**: no Save Profile, no Export,
+and it never appears on the `--profile` Pre-Install Picker or the unattended
+`install.sh <config-file>` path. Distinct from the predefined (auto) layouts,
+whose pool skeleton is the installer's default.
 
 ### Host Core
 Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the
@@ -1661,19 +1662,21 @@ add keys (they deep-merge per the core merge rules) but cannot remove keys
 declared in core.
 
 ### Security & Backup Extras
-The `post_install.security` and `post_install.backup` objects in a Host
-Profile — the host's hardening and backup tool selection, authored by hand or by
-the Guided Installer's Security / Backup categories. `security` picks one
-firewall (`firewalld` | `ufw` | none; the two are mutually exclusive) plus
-`clamav` (antivirus), `rkhunter` (rootkit scanner), and `apparmor` (MAC);
-`backup` picks `zfs-auto-snapshot` and/or `borg`. The selected tools are
-paru-based User Programs (`kind: user`; paru refuses root), so they are
-**not** installed as Host Programs — the Runner unions the resolved program
-names into the **Primary User's** paru pass (the seam host AUR packages already
-use), and each tool's existing Program Install Script runs unchanged. Supersedes
-the former boolean `post_install.*` extras, which dispatched to never-shipped
-`extras/security.sh` / `extras/backup.sh` (ADR 0041). A host with no users
-cannot carry these — the Guided Installer aborts at the terminal action.
+The `post_install.security` and `post_install.backup` objects in a Host Profile
+— the host's hardening and backup tool selection, authored by hand or by the
+Guided Installer's Security / Backup categories. `security` picks one firewall
+(`firewalld` | `ufw` | none; the two are mutually exclusive) plus `clamav`
+(antivirus), `rkhunter` (rootkit scanner), and `apparmor` (MAC); `backup` picks
+`zfs-auto-snapshot` and/or `borg`. `zfs-auto-snapshot` resolves only when the
+install has ZFS somewhere (a ZFS-less root drops it rather than pulling ZFS from
+the AUR). The selected tools are paru-based User Programs (`kind: user`; paru
+refuses root), so they are **not** installed as Host Programs — the Runner
+unions the resolved program names into the **Primary User's** paru pass (the
+seam host AUR packages already use), and each tool's existing Program Install
+Script runs unchanged. Supersedes the former boolean `post_install.*` extras,
+which dispatched to never-shipped `extras/security.sh` / `extras/backup.sh` (ADR
+0041). A host with no users cannot carry these — the Guided Installer aborts at
+the terminal action.
 
 ### Tools
 `.installer/tools/`. Utility scripts for managing a running system or preparing

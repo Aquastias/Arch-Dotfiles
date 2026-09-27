@@ -3,6 +3,8 @@
 ---
 Status: accepted (amends ADR 0036's "a profile declares the full pool skeleton"
 premise; sits beside the ADR 0034/0040/0043 layout adapters)
+VM-verified 2026-09-27 by the guided `single/guided-manual` cell (scripted
+table, no wipe, install, boot).
 ---
 
 The Guided Installer gains a **Manual partitioning** on/off toggle on the
