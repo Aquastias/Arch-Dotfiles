@@ -6,7 +6,8 @@
 // runs the guided flow — the unattended config path rejects kind: manual.
 {
   "name": "arch-zfs-test-guided-manual",
-  "hardware": { "disks": [20], "ram_mb": 8192, "vcpus": 2 },
+  "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 2 },
+  "timeouts": { "install": 5400, "boot": 1200 },
   "install": {
     "system": {
       "hostname": "vm-guided-manual",
