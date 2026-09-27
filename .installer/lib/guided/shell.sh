@@ -53,6 +53,9 @@ declare -F hist_new >/dev/null 2>&1 \
 # shellcheck source=../config/skeleton.sh
 declare -F skeleton_preset >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/skeleton.sh"
+# shellcheck source=../config/manual-partition.sh
+declare -F manual_scan_and_store >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../config/manual-partition.sh"
 # shellcheck source=../picker.sh
 declare -F picker_enum_disks >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../picker.sh"
@@ -224,6 +227,18 @@ _guided_edit_keymap() {
 
 # _guided_edit_disk — resolve the single install disk (Disks ▸ ZFS ▸ single).
 _guided_edit_disk() { _GUIDED_DISK="$(guided_pick_disk disk)"; }
+
+# _guided_edit_manual — replay-only Manual Partitioning (ADR 0073): the
+# `manual_disk` answer names a disk whose table was drawn beforehand (the VM
+# case scripts it in place of the operator's cfdisk). Switches the disk kind to
+# manual and stores the scanned assignment; that disk is also the install disk.
+_guided_edit_manual() {
+  local d="${_GUIDED_ANSWERS[manual_disk]-}"
+  [[ -n "$d" ]] || return 1
+  _GUIDED_STATE="$(edit_set_scalar "$_GUIDED_STATE" disk_config.kind manual)"
+  _GUIDED_STATE="$(manual_scan_and_store "$_GUIDED_STATE" "$d")" || return 1
+  _GUIDED_DISK="$d"
+}
 
 # Disk layout presets (issue 04): the named ZFS shapes the operator picks before
 # disks are resolved. single keeps the one-disk path; the rest author a
@@ -1262,6 +1277,7 @@ guided_build() {
     _guided_edit_keymap
     _guided_edit_layout
     _guided_edit_bound_devices
+    _guided_edit_manual
     _guided_edit_filesystem
     _guided_edit_encryption
     _guided_edit_impermanence
@@ -1293,8 +1309,9 @@ guided_build() {
     _guided_create_user
     _guided_set_root_password
     # The single path resolves its one disk here; multi collects N at accept.
-    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" ]] \
-      || _guided_edit_disk
+    # Manual replay already set it (its manual_disk is the install disk).
+    [[ "$(cfgstate_get "$(_guided_effective)" mode)" == "multi" \
+      || -n "$_GUIDED_DISK" ]] || _guided_edit_disk
     ((_had_errexit)) && set -e
     eval "${_err_trap:-:}"
   else
@@ -1389,7 +1406,10 @@ guided_build() {
   mode="$(cfgstate_get "$(_guided_effective)" mode)"
   section "Review" >&2
   printf '  Host:        %s\n' "${hostname:-(prompted at install)}" >&2
-  if [[ "$mode" == "multi" ]]; then
+  if manual_kind_active "$_GUIDED_STATE"; then
+    printf '  MANUAL:      your partitions on %s (no wipe)\n' \
+      "$(jq -r '.disk // ""' <<<"$assignment")" >&2
+  elif [[ "$mode" == "multi" ]]; then
     printf '  WILL ERASE:  the disks in the layout above\n' >&2
   else
     # Read the resolved disk from the assignment, not $_GUIDED_DISK: the in-menu

@@ -16,11 +16,13 @@ declare -F jsonc_strip >/dev/null 2>&1 \
 
 # wipe_resolve_targets CONFIG_FILE → target device paths, one per line,
 # deduplicated (a disk reused across sections is emitted once). `unique` also
-# sorts; order is immaterial to a wipe set.
+# sorts; order is immaterial to a wipe set. A manual disk_config resolves to
+# nothing: the operator's hand-drawn table must survive (ADR 0073).
 wipe_resolve_targets() {
   jsonc_strip "$1" | jq -r '
+    if (.disk_config.kind // "auto") == "manual" then empty else
     [ (.disk // empty),
       (.os_pool.disks // [])[],
       (.storage_groups[]?.disks // [])[],
-      (.data_pools[]?.disks // [])[] ] | unique | .[]'
+      (.data_pools[]?.disks // [])[] ] | unique | .[] end'
 }

@@ -65,3 +65,12 @@ write_cfg() { printf '%s\n' "$1" > "$CFG"; }
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "manual disk_config: no wipe targets (the hand-drawn table survives)" {
+  write_cfg '{"disk":"/dev/sda","disk_config":{"kind":"manual",
+    "partitions":[{"device":"/dev/sda2","mountpoint":"/","fs":"ext4",
+    "format":true}]}}'
+  run wipe_resolve_targets "$CFG"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

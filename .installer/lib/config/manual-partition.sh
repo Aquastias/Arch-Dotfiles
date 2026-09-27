@@ -177,9 +177,16 @@ manual_lsblk_json() {
 # per-partition edits are then driven by the fzf sub-screen through
 # manual_set_field. VM-verified end to end (the manual matrix case).
 manual_partition_flow() {
-  local state="$1" disk="$2" parts
-  cfdisk "$disk"
-  parts="$(manual_scan_partitions "$(manual_lsblk_json "$disk")")"
+  cfdisk "$2"
+  manual_scan_and_store "$1" "$2"
+}
+
+# manual_scan_and_store <state> <disk> — read <disk>'s existing table, seed the
+# assignment and store it (the cfdisk-free half of the flow). The headless
+# replay drives this directly on a scripted table (the VM manual case).
+manual_scan_and_store() {
+  local parts
+  parts="$(manual_scan_partitions "$(manual_lsblk_json "$2")")"
   parts="$(manual_autoassign_root "$parts")"
-  manual_store_partitions "$state" "$parts"
+  manual_store_partitions "$1" "$parts"
 }

@@ -1125,3 +1125,50 @@ JSONC
   effective="$(guided_build 2>/dev/null)"
   echo "$effective" | jq -e '.system.hostname == "override"'   # answer wins
 }
+
+# ── manual partitioning replay (ADR 0073): a scripted table replaces cfdisk
+
+@test "guided_build: manual_disk replays Manual Partitioning onto that disk" {
+  source "$BATS_TEST_DIRNAME/../../lib/config/manual-partition.sh"
+  local lsblk="$TEST_DIR/lsblk"
+  cat > "$lsblk" <<'SH'
+#!/usr/bin/env bash
+cat <<'J'
+{"blockdevices":[{"path":"/dev/vda","type":"disk","children":[
+ {"path":"/dev/vda1","type":"part","fstype":null,
+  "parttype":"c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+  "parttypename":"EFI System"},
+ {"path":"/dev/vda2","type":"part","fstype":null,
+  "parttype":"0657fd6d-a4ab-43c4-84e5-0933c84b4f4f",
+  "parttypename":"Linux swap"},
+ {"path":"/dev/vda3","type":"part","fstype":null,
+  "parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4",
+  "parttypename":"Linux filesystem"}]}]}
+J
+SH
+  chmod +x "$lsblk"
+  export MANUAL_LSBLK_CMD="$lsblk"
+  guided_load_replay "$(write_answers hostname=box manual_disk=/dev/vda \
+    confirm=INSTALL)"
+  run guided_build 2>/dev/null
+  [ "$status" -eq 0 ]
+  local cfg; cfg="$(printf '%s\n' "$output" | sed -n '/^{/,$p')"
+  [ "$(jq -r .disk_config.kind <<<"$cfg")" = "manual" ]
+  [ "$(jq -r '.disk_config.partitions[]
+    | select(.mountpoint == "/") | .device' <<<"$cfg")" = "/dev/vda3" ]
+  [ "$(jq -r '.disk_config.partitions[]
+    | select(.mountpoint == "/boot/efi") | .device' <<<"$cfg")" = "/dev/vda1" ]
+}
+
+@test "guided_build: the manual review says the table is kept, not erased" {
+  source "$BATS_TEST_DIRNAME/../../lib/config/manual-partition.sh"
+  manual_lsblk_json() { printf '%s' '{"blockdevices":[{"path":"/dev/vda",
+    "type":"disk","children":[{"path":"/dev/vda1","type":"part",
+    "fstype":null,"parttype":"0fc63daf-8483-4772-8e79-3d69d8477de4",
+    "parttypename":"Linux filesystem"}]}]}'; }
+  guided_load_replay "$(write_answers hostname=box manual_disk=/dev/vda \
+    confirm=INSTALL)"
+  run guided_build
+  [[ "$output" != *"WILL ERASE"* ]]
+  [[ "$output" == *"no wipe"* ]]
+}
