@@ -165,7 +165,11 @@ layout_mount_esp() {
   [[ "$_MANUAL_ESP_FORMAT" == "true" ]] \
     && mkfs.fat -F32 -n EFI "$_MANUAL_ESP_DEV"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
-  mount "$_MANUAL_ESP_DEV" "${MOUNT_ROOT}/boot/efi"
+  # Load vfat and name the type: the live ISO may not have the module loaded,
+  # and auto-probing then fails (VM case: "Can't find a SQUASHFS superblock").
+  modprobe vfat 2>/dev/null || true
+  udevadm settle 2>/dev/null || true
+  mount -t vfat "$_MANUAL_ESP_DEV" "${MOUNT_ROOT}/boot/efi"
   info "ESP: $_MANUAL_ESP_DEV → /boot/efi"
   _layout_exit_phase esp
 }
