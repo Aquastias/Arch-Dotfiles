@@ -774,3 +774,56 @@ STUB
     [ "$status" -ne 0 ]
   fi
 }
+
+# ── profile lookup (ADR 0020: profile name ≠ hostname) ──────────────────────
+
+# A real host: profile dir `desktop`, machine hostname pinned to `eterniox`.
+seed_pinned_profile() {
+  mkdir -p "$IMPERMANENCE_HOSTS_DIR/desktop"
+  cat > "$IMPERMANENCE_HOSTS_DIR/desktop/profile.jsonc" <<'JSONC'
+{
+  // hostname differs from the profile directory name
+  "system": { "hostname": "eterniox" },
+  "persist": {
+    "directories": ["/home"],
+    "files": []
+  }
+}
+JSONC
+}
+
+@test "profile lookup: finds the profile whose system.hostname pins it" {
+  seed_pinned_profile
+  export IMPERMANENCE_HOSTNAME="eterniox"
+  seed_live_file /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  grep -qF '"/etc/foo.conf"' "$IMPERMANENCE_HOSTS_DIR/desktop/profile.jsonc"
+}
+
+@test "profile lookup: IMPERMANENCE_PROFILE names the profile explicitly" {
+  seed_pinned_profile
+  export IMPERMANENCE_HOSTNAME="unrelated" IMPERMANENCE_PROFILE="desktop"
+  seed_live_file /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  grep -qF '"/etc/foo.conf"' "$IMPERMANENCE_HOSTS_DIR/desktop/profile.jsonc"
+}
+
+@test "profile lookup: falls back to hosts/vm/<name>" {
+  mkdir -p "$IMPERMANENCE_HOSTS_DIR/vm"
+  mv "$IMPERMANENCE_HOSTS_DIR/testhost" "$IMPERMANENCE_HOSTS_DIR/vm/testhost"
+  seed_live_file /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  grep -qF '"/etc/foo.conf"' "$IMPERMANENCE_HOSTS_DIR/vm/testhost/profile.jsonc"
+}
+
+@test "profile lookup: no matching profile aborts before any change" {
+  export IMPERMANENCE_HOSTNAME="ghost"
+  seed_live_file /etc/foo.conf
+  run "$TOOL" add /etc/foo.conf
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"IMPERMANENCE_PROFILE"* ]]
+  [[ "$output" == *"testhost"* ]]
+  local esc; esc="$(systemd-escape --path /etc/foo.conf)"
+  [ ! -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount" ]
+  [ ! -e "$IMPERMANENCE_MOUNT/etc/foo.conf" ]
+}

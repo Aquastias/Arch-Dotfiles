@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tools/impermanence.sh — operator CLI for Persist Extensions.
 #
-# Verbs: add <path>, remove [--yes] <path>.
+# Verbs: add <path>, remove [--yes] <path>, status, apply-defaults.
 # Host config is the source of truth; the tool edits jsonc first, then
 # materializes mount unit + tmpfiles + data move to match.
 #
@@ -9,6 +9,9 @@
 #   IMPERMANENCE_ROOT       default empty; prefixes live-fs paths
 #   IMPERMANENCE_MOUNT      default /persist
 #   IMPERMANENCE_MANIFEST   default /usr/lib/impermanence/defaults.manifest
+#   IMPERMANENCE_PROFILE    Host Profile name (hosts/<name>/); default: the
+#                           profile whose system.hostname (or dir name) is
+#                           IMPERMANENCE_HOSTNAME
 #   IMPERMANENCE_HOSTNAME   default $(hostname)
 #   IMPERMANENCE_HOSTS_DIR  default <repo>/.installer/hosts
 
@@ -93,16 +96,45 @@ unit_path() {
   echo "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/$esc.mount"
 }
 
-# The host's unified profile.jsonc — persist paths live under .persist.*
-# (the same schema the legacy config.jsonc carried, ADR 0036).
+# The host's profile.jsonc (persist paths under .persist.*). Profile name and
+# hostname are decoupled (ADR 0020): `desktop` installs hostname `eterniox`, so
+# match system.hostname, defaulting to the dir name as the installer does.
 host_profile_file() {
-  echo "$IMPERMANENCE_HOSTS_DIR/$IMPERMANENCE_HOSTNAME/profile.jsonc"
+  local d="$IMPERMANENCE_HOSTS_DIR" f h
+  if [[ -n "${IMPERMANENCE_PROFILE:-}" ]]; then
+    for f in "$d/$IMPERMANENCE_PROFILE/profile.jsonc" \
+             "$d/vm/$IMPERMANENCE_PROFILE/profile.jsonc"; do
+      [[ -f "$f" ]] && { echo "$f"; return 0; }
+    done
+    return 1
+  fi
+  for f in "$d"/*/profile.jsonc "$d"/vm/*/profile.jsonc; do
+    [[ -f "$f" ]] || continue
+    h="$(jsonc_read_opt "$f" .system.hostname)"
+    [[ -n "$h" ]] || h="$(basename "$(dirname "$f")")"
+    [[ "$h" == "$IMPERMANENCE_HOSTNAME" ]] && { echo "$f"; return 0; }
+  done
+  return 1
+}
+
+# Abort before any change when no profile matches: recording the path is what
+# makes the persist survive a reinstall, so never skip it silently.
+require_host_profile() {
+  host_profile_file >/dev/null && return 0
+  local p want="hostname \"$IMPERMANENCE_HOSTNAME\""
+  [[ -n "${IMPERMANENCE_PROFILE:-}" ]] && want="\"$IMPERMANENCE_PROFILE\""
+  echo "impermanence: no Host Profile for $want" >&2
+  echo "Set IMPERMANENCE_PROFILE to one of:" >&2
+  for p in "$IMPERMANENCE_HOSTS_DIR"/*/profile.jsonc \
+           "$IMPERMANENCE_HOSTS_DIR"/vm/*/profile.jsonc; do
+    [[ -f "$p" ]] && echo "  $(basename "$(dirname "$p")")" >&2
+  done
+  exit 2
 }
 
 declare_in_host_profile() {
   local target="$1" kind="$2" cfg sel
   cfg="$(host_profile_file)"
-  [[ -f "$cfg" ]] || return 0
   [[ "$kind" == d ]] && sel='.persist.directories' || sel='.persist.files'
   jsonc_append_to_array "$cfg" "$sel" "$target"
 }
@@ -110,7 +142,6 @@ declare_in_host_profile() {
 undeclare_in_host_profile() {
   local target="$1" cfg
   cfg="$(host_profile_file)"
-  [[ -f "$cfg" ]] || return 0
   jsonc_remove_from_array "$cfg" '.persist.files' "$target"
   jsonc_remove_from_array "$cfg" '.persist.directories' "$target"
 }
@@ -127,6 +158,7 @@ cmd_add() {
   require_not_curated "$target"
   require_exists "$target"
   require_not_symlink "$target"
+  require_host_profile
   unit="$(unit_path "$target")"
   if [[ -f "$unit" ]]; then
     echo "impermanence: '$target' is already persisted; no-op"
@@ -164,6 +196,7 @@ cmd_remove() {
   require_absolute "$target"
   require_no_trailing_slash "$target"
   require_not_curated "$target"
+  require_host_profile
   local unit; unit="$(unit_path "$target")"
   if [[ ! -f "$unit" ]]; then
     echo "impermanence: '$target' is not persisted; no-op"

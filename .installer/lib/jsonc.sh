@@ -54,6 +54,12 @@ jsonc_append_to_array() {
           print base "]" tc
           next
         }
+        # One-line non-empty array: insert before its closing bracket.
+        if (match($0, /\][^\]]*$/)) {
+          head = rstrip(substr($0, 1, RSTART - 1))
+          print head ", \"" val "\"" substr($0, RSTART)
+          next
+        }
         print; state = 1; n = 0; next
       }
       print; next
@@ -74,7 +80,33 @@ jsonc_append_to_array() {
       }
       items[++n] = $0; next
     }
-  ' "$file" > "$tmp"
+    # An array never closed on its own line would drop every buffered line.
+    END { if (state == 1) exit 3 }
+  ' "$file" > "$tmp" || : > "$tmp"
+  # No such array: create it as the first member of its parent object, when
+  # that object opens on its own line (e.g. a profile with no persist.files).
+  local parent="${selector%.*}"; parent="${parent##*.}"
+  if [[ -s "$tmp" && -n "$parent" ]] && ! grep -qF "\"$value\"" "$tmp"; then
+    awk -v parent="$parent" -v key="$key" -v val="$value" '
+      pend {
+        c = ($0 ~ /^[[:space:]]*}/) ? "" : ","
+        print ind "\"" key "\": [\"" val "\"]" c
+        pend = 0
+      }
+      { print }
+      $0 ~ "^[[:space:]]*\"" parent "\"[[:space:]]*:" \
+        && $0 ~ /\{[[:space:]]*$/ {
+        match($0, /^[[:space:]]*/); ind = substr($0, 1, RLENGTH) "  "
+        pend = 1
+      }
+    ' "$file" > "$tmp"
+  fi
+  grep -qF "\"$value\"" "$tmp" || {
+    rm -f "$tmp"
+    echo "jsonc: cannot append to ${selector} in ${file}" \
+         "(missing or unsupported array); file left unchanged" >&2
+    return 1
+  }
   mv "$tmp" "$file"
 }
 
@@ -92,7 +124,23 @@ jsonc_remove_from_array() {
     BEGIN { state = 0; n = 0 }
     state == 0 {
       pat = "^[[:space:]]*\"" key "\"[[:space:]]*:[[:space:]]*\\["
-      if (match($0, pat)) { print; state = 1; n = 0; next }
+      if (match($0, pat)) {
+        pre = substr($0, 1, RSTART + RLENGTH - 1)
+        tail = substr($0, RSTART + RLENGTH)
+        # One-line array: rebuild its element list without VAL.
+        if (match(tail, /\][^\]]*$/)) {
+          post = substr(tail, RSTART)
+          k = split(substr(tail, 1, RSTART - 1), parts, ",")
+          out = ""
+          for (i = 1; i <= k; i++) {
+            p = parts[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", p)
+            if (p == "" || p == "\"" val "\"") continue
+            out = out (out == "" ? "" : ", ") p
+          }
+          print pre out post; next
+        }
+        print; state = 1; n = 0; next
+      }
       print; next
     }
     state == 1 {
@@ -113,6 +161,12 @@ jsonc_remove_from_array() {
       }
       items[++n] = $0; next
     }
-  ' "$file" > "$tmp"
+    END { if (state == 1) exit 3 }
+  ' "$file" > "$tmp" || {
+    rm -f "$tmp"
+    echo "jsonc: cannot remove from ${selector} in ${file}" \
+         "(unterminated array); file left unchanged" >&2
+    return 1
+  }
   mv "$tmp" "$file"
 }

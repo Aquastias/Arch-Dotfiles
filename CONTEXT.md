@@ -1897,17 +1897,18 @@ closes this leak.
 
 ### Impermanence Tool
 `.installer/tools/impermanence.sh`. Runtime utility for managing Persist
-Extensions on
-a system where Impermanence is enabled. Verbs: `add <path>` (writes the path
-into the host's `persist.directories` or `persist.files` in
-`hosts/<hostname>/profile.jsonc`, copies current data onto the Persist Dataset,
-generates the Persist Mount + its `local-fs.target.wants` link under
-`/usr/lib/systemd/system/`, daemon-reloads, starts it); `remove <path>`
-(reverses); `status` (lists active Persist Mounts and runs `zfs diff` against
-`@blank` for each Rollback Dataset); `apply-defaults` (regenerates Curated
-Persist Defaults' unit files under `/usr/lib/systemd/system/` from the installer's current curated
-list, used after pulling an updated dotfiles repo). Does not edit Curated
-Persist Defaults directly — those are vendor-shipped.
+Extensions on a system where Impermanence is enabled. Verbs: `add <path>`
+(writes the path into the host's `persist.directories` or `persist.files` in its
+Host Profile — the one whose `system.hostname` (or directory name) matches the
+machine, or `IMPERMANENCE_PROFILE`; it aborts before any change when none
+matches — copies current data onto the Persist Dataset, generates the Persist
+Mount + its `local-fs.target.wants` link under `/usr/lib/systemd/system/`,
+daemon-reloads, starts it); `remove <path>` (reverses); `status` (lists active
+Persist Mounts and runs `zfs diff` against `@blank` for each Rollback Dataset);
+`apply-defaults` (regenerates Curated Persist Defaults' unit files under
+`/usr/lib/systemd/system/` from the installer's current curated list, used after
+pulling an updated dotfiles repo). Does not edit Curated Persist Defaults
+directly — those are vendor-shipped.
 
 ### Stow Tree
 Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose

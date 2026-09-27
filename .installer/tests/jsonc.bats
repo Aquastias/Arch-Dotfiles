@@ -195,3 +195,65 @@ write_file() {
   [ "$status" -eq 0 ]
   grep -qE '"/etc/bar"' "$f"
 }
+
+# ── inline arrays + missing keys (the real desktop profile's shape) ─────────
+
+# Mirrors hosts/desktop: a one-line non-empty array and no "files" key.
+write_inline_profile() {
+  write_file "$TEST_DIR/p.jsonc" '{
+  "persist": {
+    "directories": ["/home", "/var/lib/docker"]
+  }
+}'
+}
+
+@test "jsonc_append_to_array: appends to a one-line non-empty array" {
+  write_inline_profile
+  jsonc_append_to_array "$TEST_DIR/p.jsonc" .persist.directories /etc/wg
+  run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
+  [ "$output" = '["/home","/var/lib/docker","/etc/wg"]' ]
+}
+
+@test "jsonc_append_to_array: a missing array is created under its parent" {
+  write_inline_profile
+  jsonc_append_to_array "$TEST_DIR/p.jsonc" .persist.files /etc/foo
+  run jq -c .persist < <(jsonc_strip "$TEST_DIR/p.jsonc")
+  local want='{"files":["/etc/foo"],"directories":["/home","/var/lib/docker"]}'
+  [ "$output" = "$want" ]
+}
+
+@test "jsonc_append_to_array: a missing parent fails and leaves the file" {
+  write_file "$TEST_DIR/p.jsonc" '{
+  "system": {}
+}'
+  cp "$TEST_DIR/p.jsonc" "$TEST_DIR/orig"
+  run jsonc_append_to_array "$TEST_DIR/p.jsonc" .persist.files /etc/foo
+  [ "$status" -ne 0 ]
+  cmp "$TEST_DIR/p.jsonc" "$TEST_DIR/orig"
+}
+
+@test "jsonc_append_to_array: an unterminated array never truncates" {
+  write_file "$TEST_DIR/p.jsonc" '{
+  "files": [
+    "/a"
+}'
+  cp "$TEST_DIR/p.jsonc" "$TEST_DIR/orig"
+  run jsonc_append_to_array "$TEST_DIR/p.jsonc" .files /b
+  [ "$status" -ne 0 ]
+  cmp "$TEST_DIR/p.jsonc" "$TEST_DIR/orig"
+}
+
+@test "jsonc_remove_from_array: removes from a one-line array" {
+  write_inline_profile
+  jsonc_remove_from_array "$TEST_DIR/p.jsonc" .persist.directories \
+    /var/lib/docker
+  run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
+  [ "$output" = '["/home"]' ]
+}
+
+@test "jsonc_remove_from_array: removes the first of a one-line array" {
+  write_inline_profile
+  jsonc_remove_from_array "$TEST_DIR/p.jsonc" .persist.directories /home
+  run jq -c '.persist.directories' < <(jsonc_strip "$TEST_DIR/p.jsonc")
+  [ "$output" = '["/var/lib/docker"]' ]
+}
