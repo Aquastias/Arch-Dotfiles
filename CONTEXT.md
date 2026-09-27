@@ -1749,12 +1749,12 @@ state surviving across reboots when Impermanence is enabled. Name and mountpoint
 configurable via `options.impermanence.dataset` and `options.impermanence.mount`
 in the Host Profile. Must live on the same pool as `rpool/ROOT/arch` so the
 early-boot bind-mounts complete before `local-fs.target`. Holds the Persist
-Payload (operator-editable `.mount` units + tmpfiles snippets) plus the actual
-data of every persisted path.
+Payload (tmpfiles snippets; the `.mount` units moved to `/usr/lib`, ADR 0144)
+plus the actual data of every persisted path.
 
 ### Rollback Datasets
 The set of ZFS datasets reverted to their Blank Snapshot on every boot when
-Impermanence is enabled: `rpool/ROOT/etc` (`/etc`), `rpool/ROOT/root` (`/root`),
+Impermanence is enabled: `rpool/ROOT/etc` (`/etc`),
 `rpool/ROOT/opt` (`/opt`), `rpool/ROOT/srv` (`/srv`), `rpool/ROOT/usrlocal`
 (`/usr/local`). Deliberately excludes `rpool/ROOT/arch` (so pacman writes to
 `/usr` survive reboots without re-snapshot), `rpool/home`, `rpool/var`,
@@ -1791,16 +1791,18 @@ and `/etc/tmpfiles.d/` as empty directories at early boot.
 (non-rolled-back) so it persists across reboots without snapshot manipulation.
 
 ### Persist Mount
-`.mount` unit named `persist-<slug>.mount`, one per persisted path. Each unit
-bind-mounts `/persist/<path>` over `<path>` early in boot. Ordered
-`After=systemd-tmpfiles-setup.service` and `Before=local-fs.target` with
+`.mount` unit named after its mount point (`<esc>.mount`, e.g.
+`etc-ssh.mount`), one per persisted path. Each unit bind-mounts
+`/persist/<path>` over `<path>` early in boot. Ordered after the rollback
+container mounts and `Before=local-fs.target` with
 `RequiredBy=local-fs.target` so a failed bind cascades to emergency. Curated
-Persist Defaults ship as units under `/usr/lib/systemd/system/` (vendor-owned,
-snapshot-immune); host-declared Persist Extensions ship as units under
-`/persist/etc/systemd/system/` (operator-editable). Live data is staged onto the
-Persist Dataset before the unit activates — moved at install time (the live path
-will be reset on next boot), copied at runtime (the bind mount activates
-immediately and covers the original).
+Persist Defaults and host-declared Persist Extensions both ship as units (plus
+`local-fs.target.wants` links) under `/usr/lib/systemd/system/` — never rolled
+back and visible to PID 1's boot transaction, which a unit under the
+bind-mounted `/etc/systemd/system` is not (ADR 0144). Live data is staged onto
+the Persist Dataset before the unit activates — moved at install time (the
+live path will be reset on next boot), copied at runtime (the bind mount
+activates immediately and covers the original).
 
 ### Curated Persist Defaults
 Fixed list of system-identity paths the installer always persists when
@@ -1817,7 +1819,7 @@ hostname, network connections, fstab. Shipped as Persist Mount units under
 `persist` object in a Host Profile or Host Core with two arrays: `directories`
 and `files`. Each entry is an absolute path. Deep-merged across Host Core and
 the specific Host Profile per the standard merge rules. Translated by the
-installer into Persist Mount units under `/persist/etc/systemd/system/` and
+installer into Persist Mount units under `/usr/lib/systemd/system/` and
 tmpfiles entries placed under `/persist/etc/tmpfiles.d/`. Only meaningful when
 `options.impermanence.enabled=true`. Validation warns on paths already covered
 by an always-persistent dataset (`/home`, `/var`, `/var/log`, `/var/cache`,
@@ -1841,10 +1843,11 @@ Extensions on
 a system where Impermanence is enabled. Verbs: `add <path>` (writes the path
 into the host's `persist.directories` or `persist.files` in
 `hosts/<hostname>/profile.jsonc`, copies current data onto the Persist Dataset,
-generates the Persist Mount, daemon-reloads); `remove <path>` (reverses);
-`status` (lists active Persist Mounts and runs `zfs diff` against `@blank` for
-each Rollback Dataset); `apply-defaults` (regenerates Curated Persist Defaults'
-unit files under `/usr/lib/systemd/system/` from the installer's current curated
+generates the Persist Mount + its `local-fs.target.wants` link under
+`/usr/lib/systemd/system/`, daemon-reloads, starts it); `remove <path>`
+(reverses); `status` (lists active Persist Mounts and runs `zfs diff` against
+`@blank` for each Rollback Dataset); `apply-defaults` (regenerates Curated
+Persist Defaults' unit files under `/usr/lib/systemd/system/` from the installer's current curated
 list, used after pulling an updated dotfiles repo). Does not edit Curated
 Persist Defaults directly — those are vendor-shipped.
 

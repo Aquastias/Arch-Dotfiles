@@ -2,7 +2,8 @@
 
 When btrfs becomes a root filesystem (ADR 0043), its impermanence reuses the
 existing ZFS design — a **partial, per-path rollback** of a curated set of
-subtrees (`etc/opt/root/srv/usrlocal`) plus a bind-mounted Persist overlay and a
+subtrees (`etc/opt/srv/usrlocal`; `root` dropped by ADR 0144) plus a
+bind-mounted Persist overlay and a
 PostTransaction re-snapshot — rather than the canonical btrfs "erase your
 darlings" that wipes the *entire* root subvolume to a blank snapshot every boot.
 

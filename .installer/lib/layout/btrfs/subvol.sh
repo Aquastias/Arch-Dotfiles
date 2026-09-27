@@ -38,7 +38,7 @@ _btrfs_impermanence_on() {
 }
 
 # The full subvol layout the create/mount loop + fstab iterate: the base OS
-# subvols, plus the curated rollback subvols (@etc/@root/@opt/@srv/@usrlocal)
+# subvols, plus the curated rollback subvols (@etc/@opt/@srv/@usrlocal)
 # when impermanence is on so they are created+mounted before pacstrap AND land
 # in fstab (the impermanence bind units order After= these subvol mounts).
 _btrfs_root_subvols_all() {

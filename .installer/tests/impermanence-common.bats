@@ -82,10 +82,10 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -qE "^After=usr-local\.mount$" "$u"
 }
 
-@test "imp_mount_after_unit: btrfs /root maps to root.mount (own subvol)" {
+@test "imp_mount_after_unit: btrfs /root lives on @ → -.mount (no subvol)" {
   export FILESYSTEM=btrfs
   run imp_mount_after_unit /root
-  [ "$output" = "root.mount" ]
+  [ "$output" = "-.mount" ]
 }
 
 @test "imp_mount_after_unit: btrfs path off every rollback subvol → root mount" {
@@ -115,7 +115,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   : > "$CALLS"
   imp_create_rollback_datasets rpool
   local entry ds mp
-  for entry in etc:/etc root:/root opt:/opt srv:/srv usrlocal:/usr/local; do
+  for entry in etc:/etc opt:/opt srv:/srv usrlocal:/usr/local; do
     ds="rpool/ROOT/${entry%%:*}"; mp="${entry#*:}"
     grep -qE "^zfs create .*mountpoint=$mp .*$ds\$" "$CALLS" \
       || { echo "missing create for $ds at $mp"; cat "$CALLS"; return 1; }
@@ -145,7 +145,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   run imp_btrfs_rollback_subvols
   [ "$status" -eq 0 ]
   [[ "$output" =~ "@etc /etc" ]]
-  [[ "$output" =~ "@root /root" ]]
+  [[ "$output" != *"@root "* ]]   # /root is persisted, not rolled back
   [[ "$output" =~ "@opt /opt" ]]
   [[ "$output" =~ "@srv /srv" ]]
   [[ "$output" =~ "@usrlocal /usr/local" ]]
@@ -172,9 +172,9 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 # ── persist_apply ───────────────────────────────────────────────────────────
 
-@test "persist_apply: writes mount unit under \$IMPERMANENCE_MOUNT/etc/systemd/system" {
+@test "persist_apply: writes mount unit under /usr/lib/systemd/system" {
   persist_apply /etc/foo.conf f
-  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount" ]
+  [ -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/etc-foo.conf.mount" ]
 }
 
 @test "persist_apply file: appends 'f 0644' tmpfiles entry under \$IMPERMANENCE_MOUNT/etc/tmpfiles.d" {
@@ -242,9 +242,37 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -qxF "systemctl daemon-reload" "$CALLS"
 }
 
+@test "persist_unapply: removes the local-fs.target.wants link" {
+  local sys="$IMPERMANENCE_ROOT/usr/lib/systemd/system"
+  persist_apply /etc/foo.conf f
+  imp_link_wants /etc/foo.conf "$sys/local-fs.target.wants"
+  persist_unapply /etc/foo.conf
+  [ ! -L "$sys/local-fs.target.wants/etc-foo.conf.mount" ]
+}
+
+@test "persist_unapply: also clears a legacy /persist/etc/systemd/system unit" {
+  local legacy="$IMPERMANENCE_MOUNT/etc/systemd/system"
+  mkdir -p "$legacy/local-fs.target.wants"
+  : > "$legacy/etc-foo.conf.mount"
+  ln -s ../etc-foo.conf.mount "$legacy/local-fs.target.wants/etc-foo.conf.mount"
+  persist_unapply /etc/foo.conf
+  [ ! -f "$legacy/etc-foo.conf.mount" ]
+  [ ! -L "$legacy/local-fs.target.wants/etc-foo.conf.mount" ]
+}
+
+# A bind over /root would share root.mount with the rollback dataset's own
+# mount unit and lose to it, so /root is persisted, never rolled back.
+@test "ROLLBACK_DATASETS: /root is not a rollback path (curated persist)" {
+  local entry
+  for entry in "${ROLLBACK_DATASETS[@]}"; do
+    [[ "${entry#*:}" != /root ]]
+  done
+  printf '%s\n' "${CURATED_DIRS[@]}" | grep -qx /root
+}
+
 @test "persist_unapply: removes the mount unit file" {
   persist_apply /etc/foo.conf f
-  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount"
+  unit="$IMPERMANENCE_ROOT/usr/lib/systemd/system/etc-foo.conf.mount"
   [ -f "$unit" ]
   persist_unapply /etc/foo.conf
   [ ! -f "$unit" ]
@@ -323,8 +351,8 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "persist_stage_in_move: mountpoint source moves CONTENTS, leaves dir" {
-  # /root is both a Rollback Dataset (mountpoint) and a curated dir; the
-  # mountpoint itself can't be mv'd, so its contents move and the dir stays.
+  # A curated dir that is itself a mountpoint (any dataset/subvol mount);
+  # the mountpoint can't be mv'd, so its contents move and the dir stays.
   mountpoint() { [[ "$2" == "$IMPERMANENCE_ROOT/root" ]]; }
   mkdir -p "$IMPERMANENCE_ROOT/root/.config"
   printf 'x\n' > "$IMPERMANENCE_ROOT/root/.bashrc"
@@ -342,7 +370,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   local alt="$TEST_DIR/alt-units"
   persist_apply /etc/foo.conf f "$alt"
   [ -f "$alt/etc-foo.conf.mount" ]
-  [ ! -f "$IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount" ]
+  [ ! -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/etc-foo.conf.mount" ]
 }
 
 @test "persist_apply: optional tmpfiles_file overrides default location" {

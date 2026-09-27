@@ -384,10 +384,10 @@ teardown() {
 
 # ── rollback firstboot block (impermanence rollback proof, ADR 0044) ──────────
 
-@test "rollback block: boot1 writes probe to /root + phase to /persist, reboots" {
+@test "rollback block: boot1 writes probe to /opt + phase to /persist, reboots" {
   run _seed_generator_rollback_firstboot_block
   [ "$status" -eq 0 ]
-  [[ "$output" == *": > /root/.rollback-probe"* ]]
+  [[ "$output" == *": > /opt/.rollback-probe"* ]]
   [[ "$output" == *": > /persist/.rollback-phase"* ]]
   [[ "$output" == *"systemctl --no-block reboot"* ]]
 }
@@ -395,7 +395,7 @@ teardown() {
 @test "rollback block: boot2 emits the marker only when probe gone + phase survives" {
   run _seed_generator_rollback_firstboot_block
   [ "$status" -eq 0 ]
-  [[ "$output" == *"[ ! -e /root/.rollback-probe ] && [ -e /persist/.rollback-phase ]"* ]]
+  [[ "$output" == *"[ ! -e /opt/.rollback-probe ] && [ -e /persist/.rollback-phase ]"* ]]
   [[ "$output" == *"===FIRSTBOOT-OK==="* ]]
 }
 

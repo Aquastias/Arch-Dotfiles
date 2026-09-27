@@ -1,5 +1,5 @@
 // VM test (issue 08, ADR 0044): btrfs root impermanence — single disk, plaintext.
-// The curated rollback SUBVOLS (@etc/@root/@opt/@srv/@usrlocal) revert to their
+// The curated rollback SUBVOLS (@etc/@opt/@srv/@usrlocal) revert to their
 // @blank on every boot via the btrfs-rollback initramfs hook; /persist (a plain
 // dir on the never-rolled-back @) holds curated state. verify.rollback drives the
 // stateful two-boot sentinel (boot1 writes a probe to /root + a phase flag to

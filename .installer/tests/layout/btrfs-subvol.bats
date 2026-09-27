@@ -61,7 +61,7 @@ setup() {
 }
 
 # ── impermanence: rollback subvols fold into the layout (issue 08, ADR 0044) ──
-# When impermanence is enabled the curated rollback subvols (@etc/@root/@opt/
+# When impermanence is enabled the curated rollback subvols (@etc/@opt/
 # @srv/@usrlocal) join the base layout so the create+mount loop populates them
 # before pacstrap AND fstab mounts them at boot (the bind units order After=
 # these). The gate is the install_config accessor, guarded so the pure base
@@ -71,7 +71,8 @@ setup() {
   install_config_impermanence_enabled() { echo true; }
   run btrfs_root_fstab "UUID=DEAD-BEEF"
   [ "$status" -eq 0 ]
-  [ "${#lines[@]}" -eq 10 ]
+  [ "${#lines[@]}" -eq 9 ]
+  ! [[ "$output" =~ "subvol=@root" ]]
   [[ "$output" =~ "UUID=DEAD-BEEF  /etc  btrfs  rw,relatime,subvol=@etc  0 0" ]]
   [[ "$output" =~ "UUID=DEAD-BEEF  /usr/local  btrfs  rw,relatime,subvol=@usrlocal  0 0" ]]
 }

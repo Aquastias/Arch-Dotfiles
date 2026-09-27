@@ -9,7 +9,7 @@
 // install and `age --decrypt` prompts on /dev/tty — type `test` when asked.
 //
 // Manual post-reboot checklist (log in as test / vmtest):
-//   - zfs list -t snapshot rpool | grep @blank — 5 datasets with @blank
+//   - zfs list -t snapshot rpool | grep @blank — 4 datasets with @blank
 //   - mount | grep /persist — Persist Dataset mounted
 //   - systemctl status sops-runtime.service — green, decrypted on boot
 //   - ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub — identical across reboot

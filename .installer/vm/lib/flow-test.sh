@@ -111,7 +111,7 @@ HOLD
       # VM_ROLLBACK_FS selects the rollback mechanics (zfs datasets vs btrfs
       # subvols, ADR 0044); default zfs keeps the existing runs unchanged.
       boot_block="$(_seed_generator_rollback_firstboot_block \
-        "${VM_ROLLBACK_PROBE_DIR:-/root}" "${VM_ROLLBACK_BREAK_BLANK:-false}" \
+        "${VM_ROLLBACK_PROBE_DIR:-/opt}" "${VM_ROLLBACK_BREAK_BLANK:-false}" \
         "${VM_ROLLBACK_FS:-zfs}")"
     elif [[ "${VM_VERIFY_RESILIENCE}" == "true" ]]; then
       boot_block="$(_seed_generator_esp_resilience_firstboot_block)"

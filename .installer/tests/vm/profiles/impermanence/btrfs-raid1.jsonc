@@ -1,7 +1,7 @@
 // VM test (issue 08, ADR 0044): btrfs raid1 root impermanence — 2 disks,
 // plaintext. The multi btrfs Root Adapter mkfs.btrfs -d raid1 -m raid1 over both
 // root partitions and boots @ via the `btrfs` initramfs scan hook; impermanence
-// adds the curated rollback subvols (@etc/@root/@opt/@srv/@usrlocal) + the
+// adds the curated rollback subvols (@etc/@opt/@srv/@usrlocal) + the
 // btrfs-rollback hook on top. verify.rollback drives the two-boot sentinel; the
 // harness `btrfs device scan`s before the seed mount so the raid assembles in the
 // live ISO. Multi-disk btrfs is plaintext only (the classic encrypt hook opens

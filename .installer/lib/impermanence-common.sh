@@ -26,12 +26,13 @@ CURATED_DIRS=(
   /root
 )
 
-# Rollback Datasets — dataset suffix → mountpoint.
+# Rollback Datasets — dataset suffix → mountpoint. No /root: it is a Curated
+# Persist Default, and a bind over a rolled-back /root shares root.mount with
+# the dataset's own mount unit and loses (ADR 0144).
 # shellcheck disable=SC2034 # consumed by chroot/impermanence.sh, validation.sh,
 # tools/impermanence.sh
 ROLLBACK_DATASETS=(
   "etc:/etc"
-  "root:/root"
   "opt:/opt"
   "srv:/srv"
   "usrlocal:/usr/local"
@@ -64,7 +65,7 @@ imp_create_persist_dataset() {
 }
 
 # Create the Rollback Datasets EARLY (before the OS) so pacstrap writes /etc,
-# /root, /opt, /srv, /usr/local onto them AND they land in zfs-list.cache for
+# /opt, /srv, /usr/local onto them AND they land in zfs-list.cache for
 # zfs-mount-generator. canmount=on is REQUIRED: `zfs mount -a` and the generator
 # both SKIP canmount=noauto, so a noauto dataset never mounts and @blank rollback
 # no-ops. Creating them late would mount an empty dataset over a populated path.
@@ -161,9 +162,12 @@ imp_link_wants() {
 # persist_activate when the running system should pick the unit up
 # immediately (runtime). Install-time callers skip persist_activate because
 # the system is not running.
+# Units default to /usr/lib: PID 1 plans boot before the /etc/systemd/system
+# bootstrap bind exists, so a unit (or wants link) only on /persist never
+# mounts at boot (ADR 0144).
 persist_apply() {
   local target="$1" kind="$2"
-  local units="${3:-$IMPERMANENCE_MOUNT/etc/systemd/system}"
+  local units="${3:-${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system}"
   local conf="${4:-$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf}"
   imp_write_mount_unit "$target" "$units"
   local mode entry
@@ -201,16 +205,19 @@ persist_stage_in_copy() {
 # Tear down the Persist Mount for $target: stop the unit, remove the unit
 # file, remove the tmpfiles entry, daemon-reload. No data movement; pair
 # with persist_restore_data when the runtime caller wants `--yes` semantics.
-# Idempotent: no-op when the unit file is absent.
+# Idempotent. Also clears a legacy unit + wants link under
+# /persist/etc/systemd/system (pre-ADR 0144 extensions).
 persist_unapply() {
-  local target="$1" esc unit conf tmp
+  local target="$1" esc dir found=0 conf tmp
   esc="$(systemd-escape --path "$target")"
-  unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
-  if [[ -f "$unit" ]]; then
-    systemctl stop "$esc.mount"
-    rm -f "$unit"
-    systemctl daemon-reload
-  fi
+  for dir in "${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system" \
+             "$IMPERMANENCE_MOUNT/etc/systemd/system"; do
+    rm -f "$dir/local-fs.target.wants/$esc.mount"
+    [[ -f "$dir/$esc.mount" ]] || continue
+    ((found)) || systemctl stop "$esc.mount"
+    rm -f "$dir/$esc.mount"; found=1
+  done
+  ((found)) && systemctl daemon-reload
   conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
   if [[ -f "$conf" ]]; then
     tmp="$(mktemp)"
@@ -245,10 +252,9 @@ persist_restore_data() {
 # the move is safe and avoids leaving a duplicate. Missing source is a
 # no-op (curated lists include paths not present on every host).
 #
-# When $target is itself a mountpoint (e.g. /root, which is both a Rollback
-# Dataset and a Curated Persist Default), the mountpoint directory can't be
-# mv'd (EBUSY "Device or resource busy"). Move its CONTENTS instead and leave
-# the now-empty mountpoint for the @blank snapshot + bind mount to cover.
+# When $target is itself a mountpoint (a dataset/subvol mounted there), the
+# mountpoint directory can't be mv'd (EBUSY "Device or resource busy"). Move
+# its CONTENTS instead and leave the now-empty mountpoint for the bind to cover.
 persist_stage_in_move() {
   local target="$1"
   local live_root="${2:-${IMPERMANENCE_ROOT:-}}"

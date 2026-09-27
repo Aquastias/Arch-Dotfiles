@@ -378,7 +378,7 @@ BLOCK
 
 # Render the IMPERMANENCE ROLLBACK first-boot verify block (ADR 0044). A
 # stateful two-phase sentinel that proves the boot-time @blank rollback works:
-#   boot1 — write a probe to <probe_dir> (a Rollback Dataset path; default /root)
+#   boot1 — write a probe to <probe_dir> (a Rollback Dataset path; default /opt)
 #           AND a phase flag to /persist (the never-rolled-back Persist Dataset),
 #           then reboot.
 #   boot2 — the initramfs zfs-rollback hook reverts <probe_dir> to @blank; the
@@ -389,7 +389,7 @@ BLOCK
 # not vacuous. The unit + its wants symlink live under /usr/lib/systemd/system
 # (the root dataset, never rolled back — [[impermanence-service-enable]]) so they
 # survive BOTH boots; phase 2 self-disables. Test-only — never production.
-# Args: [probe_dir] (default /root) [break_blank] (default false) [filesystem]
+# Args: [probe_dir] (default /opt) [break_blank] (default false) [filesystem]
 # (default zfs). With break_blank=true, boot1 also destroys the @blank for the
 # /etc rollback container so boot2's initramfs rollback hook fails closed (missing
 # @blank → emergency shell) → no marker → host RED: the hook-level fault control
@@ -400,7 +400,7 @@ BLOCK
 # from the GPT partlabel 'root' (plaintext rollback VMs only). Paths carry no
 # spaces (no quoting needed in the single-quoted ExecStart printf arg).
 _seed_generator_rollback_firstboot_block() {
-  local probe_dir="${1:-/root}" break_blank="${2:-false}" filesystem="${3:-zfs}"
+  local probe_dir="${1:-/opt}" break_blank="${2:-false}" filesystem="${3:-zfs}"
   local m="$SEED_GENERATOR_FIRSTBOOT_MARKER"
   local break_step=""
   if [[ "$break_blank" == "true" ]]; then

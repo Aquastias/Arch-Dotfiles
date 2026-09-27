@@ -7,7 +7,7 @@
 // http://192.168.122.1:9876/key.age; type `test` at the age prompt.
 //
 // Manual post-reboot checklist (log in as aquastias):
-//   - zfs list -t snapshot rpool | grep @blank — 5 datasets with @blank
+//   - zfs list -t snapshot rpool | grep @blank — 4 datasets with @blank
 //   - mount | grep /persist — Persist Dataset mounted
 //   - systemctl status sops-runtime.service — green, decrypted on boot
 //   - ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub — same across reboot

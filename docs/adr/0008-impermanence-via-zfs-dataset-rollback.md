@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Extended by ADR-0044 (2026-07-03): btrfs roots reuse this same
+Accepted. Amended by ADR-0144: Persist Mount units (extensions too) live in
+`/usr/lib/systemd/system`, and `rpool/ROOT/root` is no longer rolled back.
+Extended by ADR-0044 (2026-07-03): btrfs roots reuse this same
 per-path rollback model (curated subtree set + Persist overlay +
 PostTransaction re-snapshot), mirrored as per-subvolume rollback rather
 than ZFS dataset rollback. The decision below is unchanged for ZFS.

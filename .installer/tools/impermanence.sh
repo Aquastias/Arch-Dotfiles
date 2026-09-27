@@ -90,7 +90,7 @@ path_kind() {
 unit_path() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
-  echo "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+  echo "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/$esc.mount"
 }
 
 # The host's unified profile.jsonc — persist paths live under .persist.*
@@ -137,6 +137,8 @@ cmd_add() {
   if ! (
     persist_stage_in_copy "$target" &&
     persist_apply "$target" "$kind" &&
+    imp_link_wants "$target" \
+      "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants" &&
     persist_activate "$target"
   ); then
     persist_unapply "$target"
@@ -187,8 +189,13 @@ cmd_status() {
     what="$(systemctl show -p What --value "$unit")"
     [[ "$what" == "$IMPERMANENCE_MOUNT"/* ]] || continue
     fp="$(systemctl show -p FragmentPath --value "$unit")"
+    # Extensions and curated units both live in /usr/lib (ADR 0144); the
+    # curated manifest tells them apart. A /persist fragment is a legacy
+    # extension.
     case "$fp" in
-      /usr/lib/*)              label="curated" ;;
+      /usr/lib/*)
+        if grep -qxF "${what#"$IMPERMANENCE_MOUNT"}" "$IMPERMANENCE_MANIFEST" \
+             2>/dev/null; then label="curated"; else label="extension"; fi ;;
       "$IMPERMANENCE_MOUNT"/*) label="extension" ;;
       *)                       label="unknown" ;;
     esac

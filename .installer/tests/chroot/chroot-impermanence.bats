@@ -321,7 +321,7 @@ seed_curated() {
 @test "enabled: zfs snapshot ds@blank for every Rollback Dataset" {
   run_enabled
   local ds
-  for ds in etc root opt srv usrlocal; do
+  for ds in etc opt srv usrlocal; do
     grep -qE "^zfs snapshot rpool/ROOT/$ds@blank$" "$CALLS" \
       || { echo "missing snapshot for rpool/ROOT/$ds"; return 1; }
   done
@@ -405,7 +405,7 @@ seed_curated() {
 @test "enabled: runtime hook has hardcoded Rollback Dataset list" {
   run_enabled
   local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ds
-  for ds in etc root opt srv usrlocal; do
+  for ds in etc opt srv usrlocal; do
     grep -qE "rpool/ROOT/$ds" "$f" \
       || { echo "missing rpool/ROOT/$ds in runtime hook"; return 1; }
   done
@@ -436,7 +436,7 @@ seed_curated() {
   local f="$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" pair
   grep -qE "mount -t zfs" "$f"
   grep -q "/new_root" "$f"
-  for pair in rpool/ROOT/etc=/etc rpool/ROOT/root=/root \
+  for pair in rpool/ROOT/etc=/etc \
               rpool/ROOT/opt=/opt rpool/ROOT/srv=/srv \
               rpool/ROOT/usrlocal=/usr/local; do
     grep -qF "$pair" "$f" || { echo "missing early-mount pair $pair"; return 1; }
@@ -473,7 +473,7 @@ seed_curated() {
   export -f btrfs mount umount findmnt
   _impermanence_snapshot_blank
   local n
-  for n in etc root opt srv usrlocal; do
+  for n in etc opt srv usrlocal; do
     grep -qE "^btrfs subvolume snapshot -r .*/@$n .*/@$n@blank$" "$CALLS" \
       || { echo "missing @blank for @$n"; cat "$CALLS"; return 1; }
   done
@@ -527,7 +527,7 @@ seed_curated() {
   [ -f "$f" ]
   grep -qE "subvolume delete"   "$f"
   grep -qE "subvolume snapshot" "$f"
-  for n in etc root opt srv usrlocal; do
+  for n in etc opt srv usrlocal; do
     grep -qE "@$n" "$f" || { echo "missing @$n in hook"; return 1; }
   done
 }
@@ -559,7 +559,7 @@ seed_curated() {
   local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" pair
   grep -qE "^run_latehook\(\)" "$f"
   grep -q "/new_root" "$f"
-  for pair in @etc:/etc @root:/root @opt:/opt @srv:/srv @usrlocal:/usr/local; do
+  for pair in @etc:/etc @opt:/opt @srv:/srv @usrlocal:/usr/local; do
     grep -qF "$pair" "$f" || { echo "missing early-mount pair $pair"; return 1; }
   done
 }
@@ -571,12 +571,12 @@ seed_curated() {
   [ ! -f "$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" ]
 }
 
-# ── slice 2 cycle 1 (tracer): one extension dir → .mount under /persist ─────
+# ── slice 2 cycle 1 (tracer): one extension dir → .mount under /usr/lib ─────
 
-@test "extension dir: writes .mount unit under /persist/etc/systemd/system" {
+@test "extension dir: writes .mount unit under /usr/lib/systemd/system" {
   PERSIST_DIRECTORIES=("/etc/wireguard")
   run_enabled
-  local u="$FAKEROOT/persist/etc/systemd/system/etc-wireguard.mount"
+  local u="$FAKEROOT/usr/lib/systemd/system/etc-wireguard.mount"
   [ -f "$u" ]
   grep -qE "^What=/persist/etc/wireguard$" "$u"
   grep -qE "^Where=/etc/wireguard$" "$u"
@@ -596,7 +596,7 @@ seed_curated() {
   local conf="$FAKEROOT/persist/etc/tmpfiles.d/impermanence-extensions.conf"
   local esc unit
   esc="$(systemd-escape --path /etc/foo.conf)"
-  unit="$FAKEROOT/persist/etc/systemd/system/$esc.mount"
+  unit="$FAKEROOT/usr/lib/systemd/system/$esc.mount"
   grep -qE "^f /etc/foo\.conf " "$conf"
   [ -f "$unit" ]
   grep -qE "^Where=/etc/foo\.conf$" "$unit"
@@ -610,11 +610,11 @@ seed_curated() {
   if grep -qE "^f /etc/wireguard " "$conf"; then return 1; fi
 }
 
-@test "extension: .wants symlink under /persist/.../local-fs.target.wants" {
+@test "extension: .wants symlink under /usr/lib/.../local-fs.target.wants" {
   PERSIST_DIRECTORIES=("/etc/wireguard")
   PERSIST_FILES=("/etc/foo.conf")
   run_enabled
-  local w="$FAKEROOT/persist/etc/systemd/system/local-fs.target.wants"
+  local w="$FAKEROOT/usr/lib/systemd/system/local-fs.target.wants"
   local esc1 esc2
   esc1="$(systemd-escape --path /etc/wireguard)"
   esc2="$(systemd-escape --path /etc/foo.conf)"
@@ -724,10 +724,10 @@ seed_curated() {
   head -1 "$f" | grep -qE "^#!.*bash"
 }
 
-@test "resnapshot helper: references all 5 Rollback Datasets" {
+@test "resnapshot helper: references every Rollback Dataset" {
   run_enabled
   local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh" ds
-  for ds in etc root opt srv usrlocal; do
+  for ds in etc opt srv usrlocal; do
     grep -qE "rpool/ROOT/$ds" "$f" \
       || { echo "missing rpool/ROOT/$ds in helper"; return 1; }
   done
@@ -765,7 +765,7 @@ logger() { :; }
 source "$f"
 SUBSHELL
   local ds
-  for ds in etc root opt srv usrlocal; do
+  for ds in etc opt srv usrlocal; do
     grep -qE "zfs destroy rpool/ROOT/$ds@blank" "$log" \
       || { echo "no destroy for $ds"; cat "$log"; return 1; }
     grep -qE "zfs snapshot rpool/ROOT/$ds@blank" "$log" \
@@ -793,7 +793,7 @@ echo "exit=\$status" >> "$log"
 SUBSHELL
   grep -qE "exit=0$" "$log"
   local ds
-  for ds in etc root opt srv usrlocal; do
+  for ds in etc opt srv usrlocal; do
     grep -qE "zfs snapshot rpool/ROOT/$ds@blank" "$log" \
       || { echo "no snapshot for $ds"; cat "$log"; return 1; }
   done
@@ -865,11 +865,11 @@ SUBSHELL
   ! grep -qE "^[^#]*zfs " "$f"
 }
 
-@test "btrfs resnapshot helper: references all 5 rollback subvols" {
+@test "btrfs resnapshot helper: references every rollback subvol" {
   export FILESYSTEM=btrfs
   run_enabled
   local f="$FAKEROOT/usr/lib/impermanence/resnapshot.sh" n
-  for n in etc root opt srv usrlocal; do
+  for n in etc opt srv usrlocal; do
     grep -qE "@$n" "$f" || { echo "missing @$n"; return 1; }
   done
 }
@@ -889,7 +889,7 @@ logger()  { :; }
 source "$f"
 SUBSHELL
   local n
-  for n in etc root opt srv usrlocal; do
+  for n in etc opt srv usrlocal; do
     grep -qE "btrfs subvolume snapshot -r .*/@$n .*/@$n@blank" "$log" \
       || { echo "no snapshot for @$n"; cat "$log"; return 1; }
   done
@@ -1035,4 +1035,22 @@ _seed_enablements() {
   ! grep -qF "nobody" "$u"
   [ -L "$FAKEROOT/usr/lib/systemd/system/multi-user.target.wants/impermanence-user-linger.service" ]
   [ -f "$FAKEROOT/var/lib/systemd/linger/aquastias" ]
+}
+
+# ── machine-id-commit skip (ADR 0144) ───────────────────────────────────────
+# /etc/machine-id is a persist bind (a mount point), so the stock
+# systemd-machine-id-commit.service runs and fails every boot ("not on a
+# temporary file system"). A /usr drop-in skips it via a negated condition.
+
+@test "enabled: drop-in skips systemd-machine-id-commit on the bound id" {
+  run_enabled
+  local d="$FAKEROOT/usr/lib/systemd/system/systemd-machine-id-commit.service.d"
+  grep -qxF "ConditionPathIsMountPoint=!/etc/machine-id" "$d/impermanence.conf"
+}
+
+@test "disabled: no machine-id-commit drop-in" {
+  export IMPERMANENCE_ENABLED=false
+  impermanence_apply
+  local d="$FAKEROOT/usr/lib/systemd/system"
+  [ ! -e "$d/systemd-machine-id-commit.service.d" ]
 }

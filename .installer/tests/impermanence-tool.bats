@@ -24,7 +24,6 @@ setup() {
   # All Rollback Datasets @blank present by default.
   cat > "$MOCK_STATE/zfs-snapshots" <<EOF
 rpool/ROOT/etc@blank
-rpool/ROOT/root@blank
 rpool/ROOT/opt@blank
 rpool/ROOT/srv@blank
 rpool/ROOT/usrlocal@blank
@@ -208,19 +207,28 @@ seed_live_dir() {
   echo "live-data" > "$IMPERMANENCE_ROOT$path/marker"
 }
 
-@test "add file: writes persist mount unit under /persist/etc/systemd/system" {
+@test "add file: writes persist mount unit under /usr/lib/systemd/system" {
   seed_live_file /etc/foo.conf
   run "$TOOL" add /etc/foo.conf
   [ "$status" -eq 0 ]
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  [ -f "$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount" ]
+  [ -f "$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount" ]
+}
+
+@test "add: links the unit into /usr/lib local-fs.target.wants" {
+  seed_live_file /etc/foo.conf
+  "$TOOL" add /etc/foo.conf
+  local esc; esc="$(systemd-escape --path /etc/foo.conf)"
+  local w="$IMPERMANENCE_ROOT/usr/lib/systemd/system/local-fs.target.wants"
+  [ -L "$w/$esc.mount" ]
+  [ "$(readlink "$w/$esc.mount")" = "../$esc.mount" ]
 }
 
 @test "add file: mount unit binds /persist<path> over <path>" {
   seed_live_file /etc/foo.conf
   "$TOOL" add /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+  local unit="$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount"
   grep -qE "^What=$IMPERMANENCE_MOUNT/etc/foo.conf$" "$unit"
   grep -qE "^Where=/etc/foo.conf$" "$unit"
 }
@@ -346,7 +354,7 @@ seed_persisted_file() {
 @test "remove: deletes the persist mount unit file" {
   seed_persisted_file /etc/foo.conf
   local esc; esc="$(systemd-escape --path /etc/foo.conf)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+  local unit="$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount"
   [ -f "$unit" ]
   "$TOOL" remove /etc/foo.conf
   [ ! -f "$unit" ]
@@ -446,7 +454,8 @@ EOF
 
 # ── slice 5 cycle 3: status labels curated vs extension ─────────────────────
 
-@test "status: labels curated unit (FragmentPath under /usr/lib/)" {
+@test "status: labels curated unit (/usr/lib + in the curated manifest)" {
+  echo /etc/ssh > "$IMPERMANENCE_MANIFEST"
   cat > "$MOCK_STATE/list-units" <<EOF
 etc-ssh.mount loaded active mounted /etc/ssh
 EOF
@@ -461,7 +470,7 @@ EOF
     || [[ "$output" == *"etc-ssh.mount"*"curated"* ]]
 }
 
-@test "status: labels extension unit (FragmentPath under Persist Dataset)" {
+@test "status: labels extension unit (/usr/lib, not in the manifest)" {
   cat > "$MOCK_STATE/list-units" <<EOF
 etc-foo.conf.mount loaded active mounted /etc/foo.conf
 EOF
@@ -469,7 +478,7 @@ EOF
 etc-foo.conf.mount $IMPERMANENCE_MOUNT/etc/foo.conf
 EOF
   cat > "$MOCK_STATE/fragment-paths" <<EOF
-etc-foo.conf.mount $IMPERMANENCE_MOUNT/etc/systemd/system/etc-foo.conf.mount
+etc-foo.conf.mount /usr/lib/systemd/system/etc-foo.conf.mount
 EOF
   run "$TOOL" status
   [[ "$output" == *"extension"*"etc-foo.conf.mount"* ]] \
@@ -490,7 +499,7 @@ EOF
   # etc has 2 lines of diff
   echo "$output" | grep -E "rpool/ROOT/etc.* 2 " >/dev/null
   # other datasets have 0
-  echo "$output" | grep -E "rpool/ROOT/root.* 0 " >/dev/null
+  echo "$output" | grep -E "rpool/ROOT/opt.* 0 " >/dev/null
 }
 
 # ── slice 5 cycle 5: status fails on missing @blank ─────────────────────────
@@ -652,8 +661,8 @@ seed_all_curated_live() {
 
 # ── slice 5 cycle 11: apply-defaults ignores Persist Extensions ─────────────
 
-@test "apply-defaults: does not touch extension units under /persist/" {
-  local ext_dir="$IMPERMANENCE_MOUNT/etc/systemd/system"
+@test "apply-defaults: does not touch extension units under /usr/lib" {
+  local ext_dir="$IMPERMANENCE_ROOT/usr/lib/systemd/system"
   mkdir -p "$ext_dir"
   echo "EXT-CONTENT" > "$ext_dir/etc-foo.conf.mount"
   seed_all_curated_live
@@ -672,7 +681,7 @@ seed_all_curated_live() {
   grep -qx "f /etc/extfoo 0644 root root - -" "$ext_tmp"
 }
 
-@test "apply-defaults: removes stale extension unit when path becomes curated" {
+@test "apply-defaults: drops a stale legacy /persist unit on becoming curated" {
   : > "$IMPERMANENCE_MANIFEST"
   seed_all_curated_live
   local ext_dir="$IMPERMANENCE_MOUNT/etc/systemd/system"
@@ -718,7 +727,7 @@ seed_all_curated_live() {
   # default fixture: no zfs-diff-* files staged → all datasets show 0
   run "$TOOL" status
   [ "$status" -eq 0 ]
-  for ds in rpool/ROOT/etc rpool/ROOT/root rpool/ROOT/opt \
+  for ds in rpool/ROOT/etc rpool/ROOT/opt \
             rpool/ROOT/srv rpool/ROOT/usrlocal; do
     echo "$output" | grep -qE "^$ds: 0 paths changed " \
       || { echo "missing clean line for $ds in: $output"; return 1; }
@@ -754,9 +763,11 @@ STUB
   run "$TOOL" add /var/lib/foo
   [ "$status" -ne 0 ]
   local esc; esc="$(systemd-escape --path /var/lib/foo)"
-  local unit="$IMPERMANENCE_MOUNT/etc/systemd/system/$esc.mount"
+  local unit="$IMPERMANENCE_ROOT/usr/lib/systemd/system/$esc.mount"
   local conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
   [ ! -f "$unit" ]
+  local w="$IMPERMANENCE_ROOT/usr/lib/systemd/system/local-fs.target.wants"
+  [ ! -L "$w/$esc.mount" ]
   [ ! -e "$IMPERMANENCE_MOUNT/var/lib/foo" ]
   if [ -f "$conf" ]; then
     run grep -F "/var/lib/foo" "$conf"

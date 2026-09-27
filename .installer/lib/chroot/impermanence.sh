@@ -99,8 +99,11 @@ _impermanence_init_machine_id() {
   fi
 }
 
+# Units + wants go to /usr/lib like the curated ones: PID 1 plans boot before
+# the /etc/systemd/system bootstrap bind, so /persist units never mount (ADR
+# 0144). tmpfiles entries stay on /persist (tmpfiles runs after local-fs).
 _impermanence_apply_extensions() {
-  local units="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/systemd/system"
+  local units="${ROOT:-}/usr/lib/systemd/system"
   local wants="$units/local-fs.target.wants"
   local conf="${ROOT:-}${IMPERMANENCE_MOUNT}/etc/tmpfiles.d/impermanence-extensions.conf"
   mkdir -p "$(dirname "$conf")"
@@ -126,6 +129,15 @@ _impermanence_apply_extensions() {
       info "impermanence: skip missing extension source $target"
     fi
   done
+}
+
+# /etc/machine-id is a persist bind (a mount point), so the stock commit
+# service runs and fails every boot; its id is already frozen in @blank.
+_impermanence_skip_machine_id_commit() {
+  local d="${ROOT:-}/usr/lib/systemd/system/systemd-machine-id-commit.service.d"
+  mkdir -p "$d"
+  printf '[Unit]\nConditionPathIsMountPoint=!/etc/machine-id\n' \
+    > "$d/impermanence.conf"
 }
 
 _impermanence_write_bootstrap() {
@@ -488,9 +500,8 @@ HOOK
 # /etc one is not. So mirror every install-time enablement onto /usr/lib. COPY
 # (leave the /etc symlinks in place) — the persist bind still exposes them
 # post-boot; the /usr copy is what the boot transaction actually honours. Only
-# mirror units that ship a real file under /usr/lib/systemd/system (skips
-# impermanence's own local-fs.target.wants/*.mount, whose units live on the
-# Persist Dataset, and any operator unit that exists only under /etc).
+# mirror units that ship a real file under /usr/lib/systemd/system (skips any
+# operator unit that exists only under /etc).
 _impermanence_relocate_enablements() {
   local sys="${ROOT:-}/usr/lib/systemd/system"
   local etc="${ROOT:-}/etc/systemd/system"
@@ -639,6 +650,7 @@ impermanence_apply() {
   for step in \
     _impermanence_write_manifest \
     _impermanence_init_machine_id \
+    _impermanence_skip_machine_id_commit \
     _impermanence_relocate_enablements \
     _impermanence_apply_curated \
     _impermanence_write_bootstrap \
