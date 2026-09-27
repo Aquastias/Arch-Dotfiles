@@ -107,6 +107,14 @@ agent_autologin_config() {
   esac
 }
 
+# agent_bake_blank_cmd — guest command that re-takes @blank on an impermanence
+# guest (no-op elsewhere). Its /etc rolls back on boot, so an autologin edit
+# not baked into @blank is lost on the reboot (ADR 0144).
+agent_bake_blank_cmd() {
+  local h=/usr/lib/impermanence/resnapshot.sh
+  printf "sh -c '[ ! -x %s ] || %s'\n" "$h" "$h"
+}
+
 # agent_shot_tool <compositor> — screenshot tool for the running compositor.
 agent_shot_tool() {
   case "$1" in
@@ -316,6 +324,7 @@ SH
       _sudo "bash /tmp/vm-agent-greetd.sh"
       _ssh "rm -f /tmp/vm-agent-greetd.sh /tmp/vm-agent-greetd-block" || true ;;
   esac
+  _sudo "$(agent_bake_blank_cmd)"
   verb_reboot
 }
 
@@ -346,6 +355,7 @@ SH
       _sudo "bash /tmp/vm-agent-greetd-degreet.sh"
       _ssh "rm -f /tmp/vm-agent-greetd-degreet.sh" || true ;;
   esac
+  _sudo "$(agent_bake_blank_cmd)"
   _sudo "systemctl restart display-manager" || _sudo "systemctl reboot" || true
   info "$dm greeter shown — log in at the console (agent desktop control needs \
 'session <de>' to re-arm autologin)."

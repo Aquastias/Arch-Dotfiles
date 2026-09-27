@@ -32,6 +32,11 @@ Example: `vm-agent.sh session kde && vm-agent.sh shot /tmp/kde.png`.
 
 ## Gotchas it handles (and you must remember when going raw)
 
+- **Impermanence guests:** `/etc` rolls back to `@blank` on every boot, so an
+  autologin edit is lost on reboot. `session`/`greeter` re-take `@blank` via
+  `/usr/lib/impermanence/resnapshot.sh` after editing (ADR 0144). Editing
+  `/etc` by hand? Run that helper too, or the change dies on reboot.
+
 - **Sandbox:** its `virsh`/`ssh` hit the libvirt socket the command sandbox
   blocks. On `libvirt unreachable (sandbox?)`, retry with the sandbox disabled
   (`docs/agents/vm-sandbox.md`).

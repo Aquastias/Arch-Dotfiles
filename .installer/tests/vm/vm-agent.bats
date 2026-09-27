@@ -79,3 +79,45 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   _call "agent_shot_tool niri";         [ "$output" = "grim" ]
   _call "agent_shot_tool Hyprland";     [ "$output" = "grim" ]
 }
+
+# Impermanence guests roll /etc back to @blank on boot, so the autologin
+# change must be baked into @blank before the reboot or it is lost.
+@test "agent_bake_blank_cmd runs the resnapshot helper only when present" {
+  _call "agent_bake_blank_cmd"
+  [[ "$output" == *"/usr/lib/impermanence/resnapshot.sh"* ]]
+  [[ "$output" == *"-x /usr/lib/impermanence/resnapshot.sh"* ]]
+  # one argv for sudo: a bare `||` would run the helper outside sudo
+  [[ "$output" == "sh -c '"* ]]
+}
+
+# _stub_io — replace every guest-touching helper with a logger to $LOG.
+_stub_io='
+  LOG="$BATS_TEST_TMPDIR/io.log"; : > "$LOG"
+  _guest_dm()   { echo sddm; }
+  _stage()      { cat >/dev/null; echo "stage $1" >> "$LOG"; }
+  _sudo()       { echo "sudo $*" >> "$LOG"; }
+  _ssh()        { echo "ssh $*" >> "$LOG"; }
+  verb_reboot() { echo reboot >> "$LOG"; }
+  info()        { :; }'
+
+@test "session bakes @blank after writing autologin, before reboot" {
+  run bash -c "source '$AGENT'; $_stub_io; verb_session kde; cat \"\$LOG\""
+  [ "$status" -eq 0 ]
+  local w b r
+  w="$(grep -n 'zz-agent-autologin.conf' <<<"$output" | head -1 | cut -d: -f1)"
+  b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
+  r="$(grep -n '^reboot$' <<<"$output" | cut -d: -f1)"
+  [ -n "$w" ] && [ -n "$b" ] && [ -n "$r" ]
+  (( w < b && b < r ))
+}
+
+@test "greeter bakes @blank after removing autologin" {
+  run bash -c "source '$AGENT'; $_stub_io; verb_greeter; cat \"\$LOG\""
+  [ "$status" -eq 0 ]
+  local w b
+  w="$(grep -n 'rm -f /etc/sddm.conf.d/zz-agent-autologin.conf' <<<"$output" \
+    | cut -d: -f1)"
+  b="$(grep -n 'resnapshot.sh' <<<"$output" | head -1 | cut -d: -f1)"
+  [ -n "$w" ] && [ -n "$b" ]
+  (( w < b ))
+}
