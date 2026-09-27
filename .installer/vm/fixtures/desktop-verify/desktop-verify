@@ -94,7 +94,22 @@ probe_polkit() {
     printf '===%s-POLKIT-OK agents=%s===\n' "$tag" "$agents" >> "$TTY"
   else
     printf '===%s-POLKIT-FAIL===\n' "$tag" >> "$TTY"
+    polkit_diag
   fi
+}
+
+# polkit_diag — on FAIL, say why: the seeded setting, polkitd's own log, and
+# what Noctalia logged about its agent.
+polkit_diag() {
+  local home; home="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+  {
+    printf 'POLKIT-DIAG cfg: %s\n' "$(grep -h 'polkit_agent' \
+      "$home/.config/noctalia/config.toml" 2>/dev/null || echo none)"
+    journalctl -b -u polkit --no-pager -o cat 2>/dev/null | tail -5 \
+      | sed 's/^/POLKIT-DIAG polkitd: /'
+    grep -ih 'polkit\|auth.*agent' "$home/.cache/noctalia/noctalia.log" \
+      2>/dev/null | tail -8 | sed 's/^/POLKIT-DIAG noctalia: /'
+  } >> "$TTY"
 }
 
 # probe_idle — Noctalia owns idle in-process (ext-idle-notify), so "active" is
