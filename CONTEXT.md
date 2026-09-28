@@ -1387,6 +1387,28 @@ stowed. _Avoid_: ANSI-16 following for nvim (heavy app → own template), parsin
 kitty's `noctalia.conf`, a full 53-role map (base16 suffices), defaulting the
 toggle on.
 
+### VSCodium Config
+The opt-in GUI-editor twin of [[Neovim Config]] (ADR 0148): the `dev/vscodium`
+[[User Program]] (not in User Core) serving `vscodium-bin` with extensions from
+**Open VSX** only — never the MS Marketplace patch. **Parity** with the Neovim
+Config means *feature* parity (same languages, formatters, linters, debuggers)
+plus *key* parity via VSCodeVim wherever a VSCodium command backs the nvim
+mapping; nvim-only features with no honest equivalent are listed, not faked.
+Extensions drive the **same system-package toolchain** (Host Core
+`language-servers`/`dev`) wherever they accept a binary path; bundled servers
+are the listed exception. Settings/keybindings live in the program's `home/`
+(Config Apply Pass, user + `/etc/skel`); extensions install per owning user.
+Look is static Catppuccin Mocha + sapphire (no Noctalia follow yet). Kept in
+step with the [[Language Registry]] by the [[Editor Coverage Map]].
+_Avoid_: "VS Code" (the MS build), marketplace, synced/host-captured settings.
+
+### Editor Coverage Map
+The [[VSCodium Config]]'s answer to "what covers language X": one entry per
+[[Language Registry]] row naming the extension(s) that provide it, or an
+explicit *n/a*. A test fails when its keys differ from the Registry's, so a
+language added to nvim cannot silently go missing in VSCodium. _Avoid_: an
+extension list with no Registry link.
+
 ### ANSI-16 Following
 The cohesion mechanism for shipped terminal CLIs/TUIs that are **not** Noctalia
 templates (ADR 0132). Instead of a per-app [[Pi Theme Template]]-style hex
