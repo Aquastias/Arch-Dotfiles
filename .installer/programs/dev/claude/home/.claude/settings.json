@@ -30,7 +30,12 @@
       "Bash(virsh:*)",
       "Bash(git branch:*)",
       "Bash(.installer/vm/vm-agent.sh:*)",
-      "Bash(.installer/vm/vm.sh:*)"
+      "Bash(.installer/vm/vm.sh:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
