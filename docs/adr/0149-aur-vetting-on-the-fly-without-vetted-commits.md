@@ -89,5 +89,6 @@ something new". Both can be recomputed at build time without stored state.
   `ccusage`, `claude-code` and `qt-sudo` included. Needed one allowlist row
   (`vscodium-bin suid`, the Electron `chrome-sandbox`) and two fixes from the
   first VM run: a plain `pkgdesc=` is prose and skipped by code rules, and
-  `sudo-in-pkg` needs `sudo` in command position. Stale AUR repos of official packages (`kitty`,
-  `borgmatic`, `apparmor`) abort, but paru never builds those from the AUR.
+  `sudo-in-pkg` needs `sudo` in command position. Stale AUR repos of
+  official packages (`kitty`, `borgmatic`, `apparmor`) abort, but paru never
+  builds those from the AUR.
