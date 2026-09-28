@@ -1389,8 +1389,9 @@ toggle on.
 
 ### VSCodium Config
 The opt-in GUI-editor twin of [[Neovim Config]] (ADR 0148): the `dev/vscodium`
-[[User Program]] (not in User Core) serving `vscodium-bin` with extensions from
-**Open VSX** only — never the MS Marketplace patch. **Parity** with the Neovim
+[[User Program]] (not in User Core; Host Core serves no VSCodium) serving
+`vscodium-bin` with extensions from **Open VSX** only — never the MS
+Marketplace patch. **Parity** with the Neovim
 Config means *feature* parity (same languages, formatters, linters, debuggers)
 plus *key* parity via VSCodeVim wherever a VSCodium command backs the nvim
 mapping; nvim-only features with no honest equivalent are listed, not faked.

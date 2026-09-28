@@ -13,7 +13,7 @@ Registry key → extension ID(s) or `n/a` + reason.
 
 **Blocked by:** 02 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Coverage Map test: Registry keys (awk-extracted, no Lua runtime) ==
       Coverage Map keys; every non-n/a ID is in the extension list
@@ -23,7 +23,7 @@ Registry key → extension ID(s) or `n/a` + reason.
       formatter for its filetypes
 - [x] Vue server path form (dir vs entry) settled; phpactor bundling settled;
       both noted in ADR 0148 if it changes anything
-- [ ] VM: format on save in a TS and a Rust file; language servers in use are
+- [x] VM: format on save in a TS and a Rust file; language servers in use are
       the `/usr/bin` ones (process list)
 
 ## Comments

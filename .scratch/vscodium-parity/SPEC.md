@@ -1,6 +1,6 @@
 # Spec: VSCodium as an opt-in parity twin of the Neovim Config
 
-Status: ready-for-agent
+Status: done
 
 Anchors: ADR 0148 (this decision), ADR 0134 (program `home/` + Config Apply),
 ADR 0135/0140 (system-package toolchain, no mason), ADR 0141 (Language
@@ -240,3 +240,13 @@ verified in a VM.
   VM check should note whether that network step succeeds.
 - Vue server path form (dir vs entry file) and whether the phpactor extension
   bundles its own binary are unverified; settle in the relevant ticket.
+
+## Outcome (post-implementation)
+
+- Story 15 (biome lints only with `biome.json`) is not achievable: the biome
+  extension has no lint-only switch. VSCodium formats everywhere and lints
+  with biome defaults; recorded in ADR 0148 Behaviour differences.
+- Scope grew by one Host Core change: `vscodium-bin` + `vscodium-marketplace`
+  left Host Core `packages.aur.misc` (they made VSCodium fleet-wide with the
+  MS Marketplace patch), so the program is the only source.
+- Debug start is `<leader>dl`; `<leader>dc` only continues (ADR 0148).

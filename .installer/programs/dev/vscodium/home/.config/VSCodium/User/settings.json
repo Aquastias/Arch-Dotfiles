@@ -4,6 +4,7 @@
   "workbench.iconTheme": "catppuccin-mocha",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
   "window.titleBarStyle": "custom",
 
   "editor.fontFamily": "FiraCode Nerd Font",

@@ -8,12 +8,12 @@ dr/dl/dt/du`.
 
 **Blocked by:** 03 (Languages), 04 (Keymaps).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Debug extensions in the list; Coverage Map entries updated where the
       debugger is part of a language's coverage
 - [x] Static bats: `<leader>d*` bindings present; go dlv path is the system one
-- [ ] VM: a breakpoint hit in at least one language (Python or Go); note
+- [x] VM: a breakpoint hit in at least one language (Python or Go); note
       whether codelldb's first-run download succeeds
 
 ## Comments

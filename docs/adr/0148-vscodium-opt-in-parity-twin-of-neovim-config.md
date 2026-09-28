@@ -1,10 +1,13 @@
 # ADR 0148: VSCodium as an opt-in parity twin of the Neovim Config
 
 ## Status
-Accepted — pending implementation. Adds the `dev/vscodium` [[User Program]]
-([[VSCodium Config]]) and the [[Editor Coverage Map]] test. Leans on ADR 0134
-(program `home/` + Config Apply), ADR 0135/0140 (system-package toolchain, no
-mason) and ADR 0141 ([[Language Registry]]).
+Accepted — implemented. Adds the `dev/vscodium` [[User Program]]
+([[VSCodium Config]]) and the [[Editor Coverage Map]] test. VM-verified on a
+fresh `arch-combined` install (niri): all extensions, system servers in use,
+format on save (biome, rustfmt), `gs*` surround, leader keys, a debugpy
+breakpoint, sapphire accent. Leans on ADR 0134 (program `home/` + Config
+Apply), ADR 0135/0140 (system-package toolchain, no mason) and ADR 0141
+([[Language Registry]]).
 
 ## Context
 The fleet serves exactly one editor, the hand-rolled [[Neovim Config]]. The
@@ -51,17 +54,17 @@ does, without becoming a second, drifting source of truth for the toolchain.
 - **Motions/keys:** `vim.sneak` on `s`/`S` stands in for flash; easymotion is
   off (its `<leader><leader>` prefix collides with nvim's smart picker).
   `gs*` is remapped onto VSCodeVim surround (`<plugys>`/`<plugds>`/
-  `<plugcs>`) if the VM proves it works, else `ys/ds/cs` is a listed
-  difference. `<leader>uC` opens the theme picker over five installed
-  palettes (catppuccin, rose-pine, tokyonight, gruvbox, nord). `-` reveals the
-  file in the explorer (oil stand-in); `<leader>gg` runs `lazygit` in the
-  integrated terminal.
+  `<plugcs>`), VM-verified (`gsa`, `gsd`, `gsr`). `<leader>uC` opens the
+  theme picker over five installed palettes (catppuccin, rose-pine,
+  tokyonight, gruvbox, nord). `-` reveals the file in the explorer (oil
+  stand-in); `<leader>gg` runs `lazygit` in the integrated terminal.
 
 ### Bundled / downloaded exceptions
 No system-path setting exists, so these use the extension's own copy:
 tailwindcss, yaml, bash-ide server, basedpyright (resolves the Python
 package, not the PATH binary), debugpy, js-debug (built into VSCodium), and
-codelldb (the extension downloads its adapter from GitHub on first debug).
+codelldb (the extension downloads its platform adapter from GitHub the first
+time VSCodium activates it).
 The TypeScript/JavaScript, JSON, CSS, HTML and emmet language features are
 VSCodium built-ins — the same servers nvim gets from
 `typescript-language-server`/`vscode-langservers-extracted`, but VSCodium's
@@ -107,7 +110,10 @@ thunder-client, docker, githistory, eslint-only duplicates.
 ## Consequences
 - A new Registry row fails the coverage test until VSCodium covers it (or
   marks it *n/a*) — intended friction.
-- First Rust/C debug session needs network (codelldb download).
+- codelldb needs network the first time VSCodium starts (adapter download).
+- VSCodium's workspace trust stays on (upstream default): a first-opened
+  folder is in Restricted Mode, with most extensions off, until trusted.
+  nvim has no such gate; the prompt is kept as a deliberate safety net.
 - Toolchain needs no Host Core addition: `rust-analyzer → rust-src → rust`
   (rustfmt) and `zls → zig` (zig fmt) already pull both toolchains in.
 - Host Core **drops** `vscodium-bin` and `vscodium-marketplace` from

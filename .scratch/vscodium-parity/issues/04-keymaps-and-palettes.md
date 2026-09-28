@@ -15,15 +15,15 @@ five nvim palettes.
 
 **Blocked by:** 02 (Tracer).
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Static bats: sneak on, easymotion off, surround on, leader Space; the
       five palettes' extension IDs listed; each mapped leader key present
 - [x] The four extra palettes confirmed on Open VSX (drop + note in ADR 0148
       if one is missing)
-- [ ] VM: `gs*` surround remap works — else fall back to `ys/ds/cs` and
+- [x] VM: `gs*` surround remap works — else fall back to `ys/ds/cs` and
       record the difference in ADR 0148
-- [ ] VM: spot-check `<leader>ff`, `<leader>gg`, `<leader>uC`, `-`
+- [x] VM: spot-check `<leader>ff`, `<leader>gg`, `<leader>uC`, `-`
 
 ## Comments
 

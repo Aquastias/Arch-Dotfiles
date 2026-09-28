@@ -114,6 +114,8 @@ ext_ids() { grep -vE '^[[:space:]]*(#|$)' "$EXTS"; }
   [ "$(setting '."workbench.sideBar.location"')" = '"right"' ]
   [ "$(setting '."workbench.startupEditor"')" = '"none"' ]
   [ "$(setting '."editor.stickyScroll.enabled"')" = 'true' ]
+  [ "$(setting '."workbench.secondarySideBar.defaultVisibility"')" \
+    = '"hidden"' ]
 }
 
 @test "VSCodeVim basics: Space leader, jj, clipboard, C-a/f/p passed" {
