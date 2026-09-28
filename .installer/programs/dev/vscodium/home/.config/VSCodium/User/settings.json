@@ -1,0 +1,37 @@
+{
+  "workbench.colorTheme": "Catppuccin Mocha",
+  "catppuccin.accentColor": "sapphire",
+  "workbench.iconTheme": "catppuccin-mocha",
+  "workbench.sideBar.location": "right",
+  "workbench.startupEditor": "none",
+  "window.titleBarStyle": "custom",
+
+  "editor.fontFamily": "FiraCode Nerd Font",
+  "editor.fontSize": 12,
+  "editor.fontLigatures": true,
+  "terminal.integrated.fontFamily": "FiraCode Nerd Font",
+  "terminal.integrated.minimumContrastRatio": 1,
+
+  "editor.lineNumbers": "relative",
+  "editor.cursorSurroundingLines": 8,
+  "editor.stickyScroll.enabled": true,
+  "editor.semanticHighlighting.enabled": true,
+  "editor.linkedEditing": true,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+
+  "vim.leader": "<space>",
+  "vim.useSystemClipboard": true,
+  "vim.useCtrlKeys": true,
+  "vim.hlsearch": true,
+  "vim.incsearch": true,
+  "vim.handleKeys": {
+    "<C-a>": false,
+    "<C-f>": false,
+    "<C-p>": false
+  },
+  "vim.insertModeKeyBindings": [
+    { "before": ["j", "j"], "after": ["<Esc>"] }
+  ],
+  "extensions.experimental.affinity": { "vscodevim.vim": 1 }
+}

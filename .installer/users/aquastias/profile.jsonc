@@ -5,8 +5,8 @@
 // No `shell`: User Core's /bin/zsh is the default now that the tracked shell
 // payload is entirely zsh, so declaring bash here would land this user in a
 // shell whose stowed config never loads. `virt-manager`, `podman` and `searxng`
-// are inherited from User Core; only `docker` (aquastias-specific) and
-// `teamspeak3` are declared here.
+// are inherited from User Core; only `docker` (aquastias-specific),
+// `teamspeak3` and the opt-in `vscodium` (ADR 0148) are declared here.
 {
   "sudo": true,
   "groups": ["docker", "libvirt", "kvm"],
@@ -15,7 +15,8 @@
   // installed via this user's paru pass (ADR 0041).
   "programs": [
     "docker",
-    "teamspeak3"
+    "teamspeak3",
+    "vscodium"
   ],
   "ssh_authorized_keys": [],
   "git": {

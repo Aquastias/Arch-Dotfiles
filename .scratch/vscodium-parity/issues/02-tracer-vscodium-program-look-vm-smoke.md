@@ -15,13 +15,18 @@ through). vscodium joins the stow opt-in set.
 
 **Status:** ready-for-agent
 
-- [ ] Program metadata (`kind: user`) + install.sh with mandated shape; not in
+- [x] Program metadata (`kind: user`) + install.sh with mandated shape; not in
       User Core; install.sh does not seed `home/`
-- [ ] Extension data file (one ID per line, comments allowed) drives
+- [x] Extension data file (one ID per line, comments allowed) drives
       `codium --install-extension`; never uninstalls
-- [ ] New static bats: program shape, settings/keybindings parse (JSONC
+- [x] New static bats: program shape, settings/keybindings parse (JSONC
       helper), look values, no MS Marketplace reference in the program
-- [ ] vscodium in the stow opt-in set; `./stow-configs.sh` (no args) skips it
+- [x] vscodium in the stow opt-in set; `./stow-configs.sh` (no args) skips it
 - [ ] VM (vm-agent): install with vscodium selected; `--list-extensions`
       matches; themed screenshot; result noted in Comments
-- [ ] Host VSCodium untouched
+- [x] Host VSCodium untouched
+
+## Comments
+
+- Static slice done; `aquastias` user opts in (users/aquastias). arch-combined
+  disk was gone, so the VM smoke runs in the single fresh install of ticket 06.

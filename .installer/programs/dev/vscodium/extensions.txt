@@ -1,0 +1,9 @@
+# VSCodium extensions (ADR 0148): Open VSX IDs, one per line, unpinned.
+# install.sh adds these for the owning user and never removes any.
+
+# Editing
+vscodevim.vim
+
+# Look
+catppuccin.catppuccin-vsc
+catppuccin.catppuccin-vsc-icons
