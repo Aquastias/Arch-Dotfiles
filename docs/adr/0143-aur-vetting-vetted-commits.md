@@ -1,7 +1,8 @@
 # ADR 0143: AUR Vetting via Vetted Commits
 
 ## Status
-Accepted — implemented (`.installer/aur/`). Adds the [[AUR Vetting]],
+Accepted — implemented (`.installer/aur/`). Vetted Commits superseded by
+ADR 0149 (on-the-fly vetting); the rest stands. Adds the [[AUR Vetting]],
 [[Vetted Commit]] and [[Indicator]] terms to `CONTEXT.md`. Amends ADR 0052:
 the `yay` fallback rung still bootstraps, but AUR builds refuse to run under
 it.

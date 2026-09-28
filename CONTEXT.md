@@ -707,13 +707,17 @@ repo-only installs and the AUR pass refuses.
 
 ### AUR Vetting
 The pre-build review every AUR package (and each AUR dependency, recursively)
-must pass before it is built — installer and booted system alike. Flags
-Indicators, heuristic red flags and trust signals; guarantees nothing, since
-fetched sources stay opaque. _Avoid_: PKGBUILD audit, AUR gate, malware scan.
+must pass before it is built — installer and booted system alike. Stateless
+since ADR 0149: each build is scanned as it is then (clone, previous commit,
+AUR RPC); nothing is pinned or re-approved later. Flags Indicators, heuristic
+red flags, [[Gained Finding]]s and trust signals; guarantees nothing, since
+fetched sources stay opaque. _Avoid_: PKGBUILD audit, AUR gate, malware scan,
+Vetted Commit (retired by ADR 0149).
 
-### Vetted Commit
-The AUR git commit of a package last reviewed and accepted, recorded in the
-repo. Any newer commit is re-vetted as a diff against it.
+### Gained Finding
+An [[AUR Vetting]] finding present in a package's newest AUR commit but not in
+the one before it — the shape of an injected line. Escalated one severity
+tier (ADR 0149).
 
 ### Indicator
 A known-bad marker from a past AUR incident (package, domain, command) kept in
