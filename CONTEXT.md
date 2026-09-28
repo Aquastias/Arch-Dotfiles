@@ -715,9 +715,9 @@ fetched sources stay opaque. _Avoid_: PKGBUILD audit, AUR gate, malware scan,
 Vetted Commit (retired by ADR 0149).
 
 ### Gained Finding
-An [[AUR Vetting]] finding present in a package's newest AUR commit but not in
-the one before it — the shape of an injected line. Escalated one severity
-tier (ADR 0149).
+An [[AUR Vetting]] rule that fires more often in a file of a package's newest
+AUR commit than in the commit before it — the shape of an injected line.
+Escalated one severity tier (ADR 0149).
 
 ### Indicator
 A known-bad marker from a past AUR incident (package, domain, command) kept in

@@ -24,7 +24,7 @@ named-pip-gem	critical	code	(^|[^[:alnum:]_-])(pip3?[[:space:]]+install\
 		named pip/gem install from the network
 pipe-to-shell	critical	code	(curl|wget)[^|]*[|][[:space:]]*\
 	(sudo[[:space:]]+)?((ba|z|da|k)?sh|python[0-9.]*|perl|ruby|node|bun)\
-	([[:space:]]|$)	download piped into a shell or interpreter
+	([[:space:]);`]|$)	download piped into a shell or interpreter
 exec-download	critical	code	((ba|z|da|k)?sh|eval|source|[.])[[:space:]]+\
 	(-c[[:space:]]+)?["']?(<[(]|[$][(])[[:space:]]*(curl|wget)\
 		download executed via substitution
@@ -118,7 +118,8 @@ kmod-modprobe	suspicious	code	(^|[^[:alnum:]_-])modprobe[[:space:]]\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 ld-preload	suspicious	code	(^|[^[:alnum:]_])LD_PRELOAD=\
 		library preload in a command
-sudo-in-pkg	suspicious	code	(^|[^[:alnum:]_-])sudo[[:space:]]\
+sudo-in-pkg	suspicious	code	(^|[;&|(`]|[$][(]|(then|do|else)[[:space:]])\
+	[[:space:]]*sudo[[:space:]]\
 		sudo inside a package function or scriptlet\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 suid	suspicious	code	chmod[[:space:]]+(-[^[:space:]]+[[:space:]]+)*\

