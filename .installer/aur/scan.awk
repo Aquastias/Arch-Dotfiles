@@ -157,7 +157,7 @@ function indicators_line(l,   k, low, code) {
 }
 # The package itself is listed: critical when any candidate day (a commit's,
 # or the AUR's server-side LastModified) falls inside the campaign window,
-# else suspicious until pinned (ADR 0143).
+# else suspicious until allowlisted (ADR 0143/0149).
 function indicators_pkgbase(   c, k, nd, d) {
   if (!(pkgbase in ipkg)) return
   c = ipkg[pkgbase]

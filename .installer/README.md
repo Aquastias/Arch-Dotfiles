@@ -485,7 +485,7 @@ every boot without the USB.
 │   └── virtualization/     # docker, podman, virt-manager
 │
 ├── aur/                    # AUR Vetting: aur-vet, rules,
-│                           #   indicators, vetted commits (ADR 0143)
+│                           #   indicators, allowlist (ADR 0143/0149)
 │
 ├── extras/                 # In-chroot extras (DE + DM adapters)
 │   ├── desktop/            # kde/, hyprland/, niri/  (<de>/<de>.sh)

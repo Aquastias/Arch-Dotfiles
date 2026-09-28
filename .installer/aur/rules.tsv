@@ -1,9 +1,9 @@
 # AUR Vetting rule catalogue (ADR 0143). One rule per record, TAB-separated:
 #   id  severity  scope  ERE  description  [unless-ERE]
-# severity: critical (always aborts) | suspicious (aborts unless allowlisted
-# for the Vetted Commit) | info (logged). A trailing backslash continues a
-# record on the next line, dropping exactly one leading TAB (so a line
-# opening with two TABs starts the next field).
+# severity: critical (always aborts) | suspicious (asks, or aborts unattended,
+# unless allowlisted for the package) | info (logged). A trailing backslash
+# continues a record on the next line, dropping exactly one leading TAB (so a
+# line opening with two TABs starts the next field).
 # Scopes:
 #   code     every tracked text file but .SRCINFO, minus comments and
 #            PKGBUILD checksum arrays
@@ -111,8 +111,6 @@ indicator-pkgbase	critical	builtin	-	package compromised in this window
 indicator-pkgbase-past	suspicious	builtin	-	package listed in a past campaign
 
 # ── Trust signals (AUR RPC; evaluated by aur-vet, not scan.awk) ─────────────
-trust-maintainer-changed	critical	trust	-\
-		maintainer differs from the one recorded with the Vetted Commit
 trust-adopted	suspicious	trust	-\
 		maintainer is not the submitter and it changed <14 days ago
 trust-new	suspicious	trust	-	first submitted <14 days ago
@@ -125,5 +123,3 @@ trust-low-votes	info	trust	-	fewer than 3 votes
 nul-in-script	critical	builtin	-\
 		NUL byte in a sourced file hides it from review (bash still runs it)
 binary-file	suspicious	builtin	-	binary file in the AUR repo
-trust-maintainer-unrecorded	suspicious	trust	-\
-		pin has no recorded maintainer to compare against

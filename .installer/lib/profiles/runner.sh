@@ -61,7 +61,7 @@ readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 # vetter by absolute path, so nothing earlier on a user's PATH stands in.
 : "${_PROFILES_AUR_VET_BIN:=/usr/local/bin/aur-vet}"
 readonly -a _AUR_VET_SHARE_FILES=(
-  scan.awk bump-only.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
+  scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
 )
 # Paths (relative to the runtime root) that constitute a valid staged tree.
 # Both _profiles_stage_runtime and validate_staging iterate this array so the
@@ -123,11 +123,11 @@ _profiles_stage_runtime() {
 
 
 # Install AUR Vetting into the target (ADR 0143): the command on PATH, its
-# engine + data under /usr/local/share/aur-vet, and the root-owned pin store
-# /etc/aur-vet seeded from the repo's Vetted Commits, plus the login check
-# /etc/profile.d/aur-vet.sh (`aur-vet doctor`). Runs before any AUR
-# Helper bootstrap, so the very first AUR build is vetted. Mandatory — not a
-# Program, never toggled.
+# engine + data under /usr/local/share/aur-vet, and the root-owned
+# allowlist /etc/aur-vet/allow.tsv seeded from the repo (ADR 0149), plus the
+# login check /etc/profile.d/aur-vet.sh (`aur-vet doctor`). Runs before any
+# AUR Helper bootstrap, so the very first AUR build is vetted. Mandatory —
+# not a Program, never toggled.
 _profiles_install_aur_vet() {
   local src="${INSTALLER_DIR}/aur" root="${MOUNT_ROOT}" f
   install -Dm0755 "$src/aur-vet" "${root}${_PROFILES_AUR_VET_BIN}"
@@ -135,7 +135,7 @@ _profiles_install_aur_vet() {
   for f in "${_AUR_VET_SHARE_FILES[@]}"; do
     install -m0644 "$src/$f" "$root/usr/local/share/aur-vet/$f"
   done
-  install -m0644 "$src/vetted.tsv" "$src/allow.tsv" "$root/etc/aur-vet/"
+  install -m0644 "$src/allow.tsv" "$root/etc/aur-vet/"
   install -Dm0644 "$src/profile.d-aur-vet.sh" "$root/etc/profile.d/aur-vet.sh"
 }
 
@@ -375,8 +375,8 @@ _profiles_detect_user_helper() {
 # One rung of the bootstrap ladder: build+install <aur-pkg> as <user> in the
 # chroot via git clone + AUR Vetting + makepkg. The helper package is the
 # first AUR build, so it is vetted like any other (ADR 0143); the full clone
-# lets a newer HEAD be diffed against its Vetted Commit. Returns the rung's
-# status. Wrapped in _retry by the ladder and stubbed in unit tests.
+# keeps HEAD~1 for the Gained Finding comparison (ADR 0149). Returns the
+# rung's status. Wrapped in _retry by the ladder and stubbed in unit tests.
 _profiles_bootstrap_rung() {
   local user="$1" pkg="$2"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" \

@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
 # =============================================================================
-# aur-vet — AUR Vetting (ADR 0143)
+# aur-vet — AUR Vetting (ADR 0143, on the fly since ADR 0149)
 # =============================================================================
 # Pre-build review of AUR package bases. Text-only (awk/grep): the PKGBUILD
 # is never sourced or run, so the review can't execute attacker code.
 #
 #   aur-vet                    hook: paru PreBuildCommand contract (cwd = the
 #                              AUR clone, $PKGBASE set; non-zero aborts)
-#   aur-vet seed [--list] [pkg...]
-#                              bulk-review declared AUR packages + AUR deps
 #   aur-vet export [--check] [repo-aur-dir]
-#                              merge the booted pin store into the repo
-#   aur-vet repin <pkgbase>    accept a legit maintainer transfer (sudo)
+#                              merge the booted allowlist into the repo
 #   aur-vet doctor             warn when a paru.conf drops the hook
 #   aur-vet audit              scan installed foreign packages (VMs only)
 #   aur-vet refresh-indicators pull community Indicator lists for review
 #
 # Exit: 0 pass · 1 abort (findings or policy) · 2 usage/environment error.
 # SELF-CONTAINED: installed onto PATH and staged into the chroot, so it
-# sources no Installer/Shell Stdlib (seed alone reads the repo checkout).
+# sources no Installer/Shell Stdlib. Stateless: each build is decided from
+# the clone as it is (ADR 0149); only the allowlist is stored.
 # =============================================================================
 set -euo pipefail
 
@@ -31,15 +29,14 @@ _SELF_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 # can only refuse prompts, never skip review.
 if [[ ! -f "$_SELF_DIR/scan.awk" ]]; then
   unset AUR_VET_DATA AUR_VET_STORE AUR_VET_RPC_FIXTURE_DIR AUR_VET_NOW \
-    AUR_VET_SUDO AUR_VET_INTERACTIVE AUR_VET_RETRY_DELAYS AUR_VET_GIT_BASE \
-    AUR_VET_REPO AUR_VET_AUDIT_ROOT AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL \
-    AUR_VET_ETC_PARU_CONF
+    AUR_VET_SUDO AUR_VET_INTERACTIVE AUR_VET_RETRY_DELAYS AUR_VET_AUDIT_ROOT \
+    AUR_VET_ARCH_LIST_URL AUR_VET_NPM_LIST_URL AUR_VET_ETC_PARU_CONF
 fi
 
 _say() { printf 'aur-vet: %s\n' "$*" >&2; }
 _die() { _say "$*"; exit 2; }
 
-# Data (rules/indicators) and the pin store sit beside the script in the repo;
+# Data (rules/indicators) and the allowlist sit beside the script in the repo;
 # the installed copy reads the system locations.
 _data_dir() {
   if [[ -n "${AUR_VET_DATA:-}" ]]; then printf '%s' "$AUR_VET_DATA"
@@ -115,13 +112,12 @@ _refresh_indicators() {
   _say "added ${count} indicator(s) to ${ind} — review the diff, then commit"
 }
 
-# ── Pin store (Vetted Commits) ──────────────────────────────────────────────
-# vetted.tsv: pkgbase commit maintainer date note — one row per package.
-# allow.tsv:  pkgbase commit rule note — suspicious findings accepted for
-# exactly that commit (ADR 0143).
+# ── Allowlist (ADR 0149) ────────────────────────────────────────────────────
+# allow.tsv: pkgbase rule note — a suspicious rule accepted for a package at
+# any version. The only stored state; nothing is pinned.
 _store_dir() {
   if [[ -n "${AUR_VET_STORE:-}" ]]; then printf '%s' "$AUR_VET_STORE"
-  elif [[ -f "$_SELF_DIR/vetted.tsv" ]]; then printf '%s' "$_SELF_DIR"
+  elif [[ -f "$_SELF_DIR/allow.tsv" ]]; then printf '%s' "$_SELF_DIR"
   else printf '%s' /etc/aur-vet; fi
 }
 
@@ -136,25 +132,18 @@ _unattended() {
 
 _today() { date -u -d "@${AUR_VET_NOW:-$(date +%s)}" +%F; }
 
-# Print "<commit>\t<maintainer>" of <pkgbase>'s Vetted Commit, if any.
-_pin_of() {
-  local f; f="$(_store_dir)/vetted.tsv"
-  [[ -r "$f" ]] || return 0
-  awk -F'\t' -v b="$1" '$1 == b { r = $2 "\t" $3 } END { if (r) print r }' "$f"
-}
-
+# Is suspicious <rule> accepted for <pkgbase>?
 _allowed() {
   local f; f="$(_store_dir)/allow.tsv"
   [[ -r "$f" ]] || return 1
-  awk -F'\t' -v b="$1" -v c="$2" -v r="$3" \
-    '$1 == b && $2 == c && $3 == r { hit = 1 } END { exit !hit }' "$f"
+  awk -F'\t' -v b="$1" -v r="$2" \
+    '$1 == b && $2 == r { hit = 1 } END { exit !hit }' "$f"
 }
 
 # Replace <file>'s content with stdin. A writable store (repo, tests) is
 # rewritten in place via a temp file in its own dir, so a failed write leaves
 # the old file intact. The booted store is root-owned, so user-level malware
-# can't forge pins (ADR 0143): writes go through sudo — non-interactive when
-# unattended, where the installer's temporary NOPASSWD grant carries them.
+# can't forge allowlist rows (ADR 0143): writes go through sudo.
 _store_put() {
   local file="$1" tmp
   if [[ -w "$(dirname "$file")" ]]; then
@@ -165,34 +154,14 @@ _store_put() {
     return 0
   fi
   local sudo="${AUR_VET_SUDO:-sudo}"
-  local -a flags=()
-  _unattended && flags=(-n)
   tmp="$(mktemp)"
   cat > "$tmp"
   if ! command -v "$sudo" >/dev/null 2>&1 \
-     || ! "$sudo" "${flags[@]}" install -m0644 "$tmp" "$file"; then
+     || ! "$sudo" install -m0644 "$tmp" "$file"; then
     command rm -f "$tmp"
-    _die "pin store not writable: ${file} (needs sudo)"
+    _die "allowlist not writable: ${file} (needs sudo)"
   fi
   command rm -f "$tmp"
-}
-
-# Record <pkgbase> <commit> <maintainer> <note>; <old> carries its allowlist
-# rows to the new commit (bump-only: the flagged lines did not change).
-_set_pin() {
-  local base="$1" commit="$2" maint="$3" note="$4" carry="${5:-}"
-  local store; store="$(_store_dir)"
-  local vf="$store/vetted.tsv" af="$store/allow.tsv"
-  [[ -e "$vf" ]] || : > "$vf" 2>/dev/null || true
-  {
-    awk -F'\t' -v b="$base" '$1 != b' "$vf" 2>/dev/null || true
-    printf '%s\t%s\t%s\t%s\t%s\n' "$base" "$commit" "$maint" "$(_today)" \
-      "$note"
-  } | _store_put "$vf"
-  if [[ -n "$carry" && -r "$af" ]]; then
-    awk -F'\t' -v OFS='\t' -v b="$base" -v o="$carry" -v n="$commit" \
-      '{ print } $1 == b && $2 == o { $2 = n; print }' "$af" | _store_put "$af"
-  fi
 }
 
 _allow_add() {
@@ -200,34 +169,16 @@ _allow_add() {
   { cat "$af" 2>/dev/null || true; printf '%s\n' "$@"; } | _store_put "$af"
 }
 
-# ── Diff classification ─────────────────────────────────────────────────────
-# Bump-only: only PKGBUILD/.SRCINFO changed, each line a version bump
-# (bump-only.awk).
-_bump_only() {
-  local dir="$1" old="$2" new="$3" n
-  while IFS= read -r n; do
-    [[ "$n" == PKGBUILD || "$n" == .SRCINFO ]] || return 1
-  done < <(git -C "$dir" diff --name-only "$old" "$new")
-  git -C "$dir" diff -U0 "$old" "$new" -- PKGBUILD .SRCINFO \
-    | awk -f "$(_lib_dir)/bump-only.awk"
-}
-
-# ── Review output ───────────────────────────────────────────────────────────
-_review_full() {
-  local dir="$1" f
-  while IFS= read -r -d '' f; do
-    if ! LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null; then
-      printf '==> %s (binary, %s bytes) <==\n' "$f" "$(wc -c < "$dir/$f")"
-      continue
-    fi
-    printf '==> %s <==\n' "$f"
-    cat -n "$dir/$f"
-  done < <(git -C "$dir" ls-files -z) >&2
-}
-
-_review_diff() {
-  git -C "$1" --no-pager diff --stat "$2" "$3" >&2
-  git -C "$1" --no-pager diff "$2" "$3" >&2
+# One answer to a suspicious finding: n (abort), y (once) or a (always).
+_choose() {
+  local ans
+  printf 'aur-vet: %s [n/y/a] ' "$1" >&2
+  read -r ans || ans=n
+  case "${ans,,}" in
+    y | yes) printf y ;;
+    a | always) printf a ;;
+    *) printf n ;;
+  esac
 }
 
 _ask() {
@@ -236,6 +187,7 @@ _ask() {
   read -r ans || return 1
   [[ "$ans" == [yY] || "$ans" == [yY][eE][sS] ]]
 }
+
 # ── Trust signals (AUR RPC) ─────────────────────────────────────────────────
 _RPC_URL="https://aur.archlinux.org/rpc/v5/info"
 _TRUST_WINDOW=$((14 * 86400))
@@ -281,10 +233,10 @@ _rpc_for() {
 }
 
 # Trust findings (scan TSV shape, file "AUR") from the RPC <json> for
-# <pkgbase>, against the pin's <maintainer> (<pinned> 1|0), plus a
-# `meta maintainer` row with the AUR's current one.
+# <pkgbase>. Server-side fields only: git author/committer is attacker-set
+# (ADR 0149).
 _trust() {
-  local json="$1" base="$2" pmaint="$3" pinned="$4" r
+  local json="$1" base="$2" r
   local -A sev=() desc=()
   local id s d
   while IFS=$'\t' read -r id s d; do sev[$id]="$s"; desc[$id]="$d"
@@ -301,15 +253,8 @@ _trust() {
     .Maintainer // "", .Submitter // "", .FirstSubmitted // 0,
     .LastModified // 0, .OutOfDate // "", .NumVotes // 0]
     | map(tostring) | join("\u001f")' <<<"$r")
-  printf 'meta\tmaintainer\tAUR\t0\t%s\n' "$maint"
   now="${AUR_VET_NOW:-$(date +%s)}"
-  if ((pinned)) && [[ -z "$pmaint" && -n "$maint" ]]; then
-    _t trust-maintainer-unrecorded "now ${maint}"
-  fi
-  if ((pinned)) && [[ -n "$pmaint" && "$maint" != "$pmaint" ]]; then
-    _t trust-maintainer-changed "${pmaint} -> ${maint:-orphan}"
-  fi
-  if ((!pinned)) && [[ -n "$maint" && -n "$sub" && "$maint" != "$sub" ]] \
+  if [[ -n "$maint" && -n "$sub" && "$maint" != "$sub" ]] \
      && ((now - last < _TRUST_WINDOW)); then
     _t trust-adopted "${sub} -> ${maint}"
   fi
@@ -320,186 +265,49 @@ _trust() {
   return 0
 }
 
-# ── seed ────────────────────────────────────────────────────────────────────
-# One-time bulk review: every AUR package the repo declares plus its AUR
-# dependencies, each through the hook's interactive review, pinned on
-# accept. Operator-side (needs the repo checkout); resumable — bases that
-# already have a pin are skipped.
-_seed_repo() { printf '%s' "${AUR_VET_REPO:-$_SELF_DIR/..}"; }
-
-# Every AUR name the repo declares, one per line (repeats allowed): host
-# packages.aur, DE adapter `aur` lists, AUR fonts, and each name after
-# `${AUR_HELPER} -S` in a User Program (its repo names drop out at the RPC),
-# plus the AUR Helper bootstrap ladder (the very first AUR builds).
-_declared_aur() {
-  local repo f; repo="$(_seed_repo)"
-  [[ -d "$repo/hosts" ]] \
-    || _die "seed: no installer repo at ${repo} — pass package names"
-  # shellcheck source=../lib/aur-helper.sh
-  source "$repo/lib/aur-helper.sh"
-  printf '%s\n' "${_AUR_HELPER_LADDER[@]}"
-  # shellcheck source=../lib/jsonc.sh
-  source "$repo/lib/jsonc.sh"
-  # Categorized List leaves: string arrays (hosts) or { name: true } toggles
-  # (adapters); a false toggle is off.
-  local leaves='def leaves: if type == "array" then .[] | strings
-    elif type == "object" then to_entries[]
-      | if .value == true then .key else (.value | leaves) end
-    else empty end; leaves'
-  for f in "$repo"/hosts/*/profile.jsonc "$repo"/hosts/*/*/profile.jsonc; do
-    [[ -f "$f" ]] || continue
-    jsonc_strip "$f" | jq -r ".packages.aur // {} | $leaves"
-  done
-  for f in "$repo"/extras/desktop/*/install-*.jsonc; do
-    [[ -f "$f" ]] && jsonc_strip "$f" | jq -r ".aur // {} | $leaves"
-  done
-  sed -n 's/^[[:space:]]*"\([^|"]*\)|aur|[a-z]*"$/\1/p' \
-    "$repo/lib/config/fonts.sh" 2>/dev/null || true
-  for f in "$repo"/programs/*/*/install.sh; do
-    [[ -f "$f" ]] || continue
-    awk '
-      /\\$/ { held = held substr($0, 1, length($0) - 1) " "; next }
-      { l = held $0; held = "" }
-      l ~ /[$][{]?AUR_HELPER[}]?/ {
-        sub(/.*[$][{]?AUR_HELPER[}]?/, "", l); sub(/[;&|#].*/, "", l)
-        n = split(l, t, /[[:space:]]+/)
-        for (i = 1; i <= n; i++)
-          if (t[i] ~ /^[a-z0-9@_+][a-z0-9@._+-]*$/) print t[i]
-      }' "$f"
-  done
-}
-
-# RPC `info` results for <names...> as {"results": [...]}, 100 per request
-# with retries. Fixture mode serves <name>.json per queried name.
-_rpc_query() {
-  if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
-    local n
-    for n; do cat "$AUR_VET_RPC_FIXTURE_DIR/$n.json" 2>/dev/null || true; done \
-      | jq -s '{ results: [.[].results[]] }'
-    return
-  fi
-  local -a all=("$@") chunk
-  local i q parts=""
-  for ((i = 0; i < ${#all[@]}; i += 100)); do
-    chunk=("${all[@]:i:100}")
-    q="$(printf 'arg%%5B%%5D=%s&' "${chunk[@]//+/%2B}")"
-    parts+="$(_rpc_retry curl -fsS --max-time 30 "${_RPC_URL}?${q%&}")" \
-      || return 1
-    parts+=$'\n'
-  done
-  jq -s '{ results: [.[].results[]] }' <<<"$parts"
-}
-
-# Package bases for <names...> plus their AUR depends/makedepends/
-# checkdepends, recursively, in discovery order. Names the AUR doesn't know
-# (repo packages) drop out; so do virtual deps only an AUR provider supplies
-# — the paru hook still vets those at install time.
-_seed_resolve() {
-  local -A seen_name=() seen_base=()
-  local -a queue=() next=()
-  local n b deps json
-  for n; do
-    [[ -n "${seen_name[$n]:-}" ]] && continue
-    seen_name[$n]=1; queue+=("$n")
-  done
-  while ((${#queue[@]})); do
-    json="$(_rpc_query "${queue[@]}")" || _die "seed: AUR RPC unreachable"
-    next=()
-    while IFS=$'\t' read -r b deps; do
-      [[ -n "$b" && -z "${seen_base[$b]:-}" ]] \
-        && { seen_base[$b]=1; printf '%s\n' "$b"; }
-      for n in $deps; do
-        n="${n%%[<>=]*}"
-        [[ -n "${seen_name[$n]:-}" ]] && continue
-        seen_name[$n]=1; next+=("$n")
-      done
-    done < <(jq -r '.results[] | [.PackageBase, ((.Depends // [])
-      + (.MakeDepends // []) + (.CheckDepends // []) | join(" "))] | @tsv' \
-      <<<"$json")
-    queue=("${next[@]+"${next[@]}"}")
-  done
-}
-
-_seed() {
-  local list=0
-  [[ "${1:-}" == --list ]] && { list=1; shift; }
-  local -a names=() bases=()
-  if (($#)); then names=("$@")
-  else mapfile -t names < <(_declared_aur | sort -u); fi
-  ((${#names[@]})) || { _say "seed: nothing declared"; return 0; }
-  mapfile -t bases < <(_seed_resolve "${names[@]}")
-  if ((list)); then
-    ((${#bases[@]} == 0)) || printf '%s\n' "${bases[@]}"
-    return 0
-  fi
-  local work b ok=0 skipped=0
-  local -a rejected=()
-  work="$(mktemp -d)"
-  # shellcheck disable=SC2064  # expand now: $work is local
-  trap "rm -rf '$work'" EXIT
-  for b in "${bases[@]}"; do
-    if [[ -n "$(_pin_of "$b")" ]]; then skipped=$((skipped + 1)); continue; fi
-    if ! git clone -q "${AUR_VET_GIT_BASE:-https://aur.archlinux.org}/$b.git" \
-         "$work/$b"; then
-      rejected+=("${b}(clone failed)"); continue
-    fi
-    if (cd "$work/$b" && PKGBASE="$b" _hook); then ok=$((ok + 1))
-    else rejected+=("$b"); fi
-  done
-  _say "seed: pinned ${ok}, skipped ${skipped} (already pinned)"
-  if ((${#rejected[@]})); then
-    _say "seed: rejected: ${rejected[*]}"
-    return 1
-  fi
-}
-
 # ── export ──────────────────────────────────────────────────────────────────
-# Merge the booted store back into the repo pin files (default: the dotfiles
-# checkout) for the operator to commit: a store row replaces the repo row of
-# the same pkgbase, new ones append, repo comments stay; allowlist rows
-# union. `--check` only reports drift (exit 1).
+# Merge the booted allowlist back into the repo copy (default: the dotfiles
+# checkout) for the operator to commit: rows union on pkgbase + rule, repo
+# comments stay. `--check` only reports drift (exit 1).
 _export() {
   local check=0
   [[ "${1:-}" == --check ]] && { check=1; shift; }
   local repo="${1:-$HOME/.dotfiles/.installer/aur}"
-  local src="${AUR_VET_STORE:-/etc/aur-vet}" f new drift=0
-  [[ -f "$repo/vetted.tsv" ]] || _die "export: no pin file at ${repo}"
-  for f in vetted allow; do
-    [[ -r "$src/$f.tsv" ]] || continue
-    new="$(_export_merge "$f" "$src/$f.tsv" "$repo/$f.tsv")"
-    local changes
-    changes="$(diff <(cat "$repo/$f.tsv" 2>/dev/null) <(printf '%s\n' "$new") \
-      | sed -n 's/^> /+ /p; s/^< /- /p')" || true
-    [[ -z "$changes" ]] && continue
-    drift=1
-    printf '%s.tsv:\n%s\n' "$f" "$changes"
-    ((check)) || printf '%s\n' "$new" > "$repo/$f.tsv"
-  done
-  if ((check)); then
-    ((drift)) && { _say "export: drift between ${src} and ${repo}"; return 1; }
-    _say "export: ${src} and ${repo} in sync"
+  local src="${AUR_VET_STORE:-/etc/aur-vet}" new changes
+  [[ -f "$repo/allow.tsv" ]] || _die "export: no allowlist at ${repo}"
+  if [[ ! -r "$src/allow.tsv" ]]; then
+    _say "export: no allowlist at ${src} — nothing to export"
     return 0
   fi
-  if ((drift)); then
-    _say "export: updated ${repo} — review the diff, then commit"
-  else
-    _say "export: nothing to export"
+  new="$(_export_merge "$src/allow.tsv" "$repo/allow.tsv")"
+  changes="$(diff "$repo/allow.tsv" <(printf '%s\n' "$new") \
+    | sed -n 's/^> /+ /p; s/^< /- /p')" || true
+  if [[ -z "$changes" ]]; then
+    if ((check)); then _say "export: ${src} and ${repo} in sync"
+    else _say "export: nothing to export"; fi
+    return 0
   fi
+  printf 'allow.tsv:\n%s\n' "$changes"
+  if ((check)); then
+    _say "export: drift between ${src} and ${repo}"
+    return 1
+  fi
+  printf '%s\n' "$new" > "$repo/allow.tsv"
+  _say "export: updated ${repo} — review the diff, then commit"
 }
 
-# <kind> <store-file> <repo-file> → the merged repo file on stdout.
+# <store-file> <repo-file> → the merged repo allowlist on stdout.
 _export_merge() {
-  awk -F'\t' -v kind="$1" '
-    function key() { return kind == "vetted" ? $1 : $1 FS $2 FS $3 }
+  awk -F'\t' '
     FNR == NR {
       if ($0 ~ /^#/ || !NF) next
-      k = key(); if (!(k in s)) order[++n] = k
+      k = $1 FS $2; if (!(k in s)) order[++n] = k
       s[k] = $0; next
     }
     /^#/ || !NF { print; next }
-    { k = key(); if (k in s) { print s[k]; done[k] = 1 } else print }
+    { k = $1 FS $2; if (k in s) { print s[k]; done[k] = 1 } else print }
     END { for (i = 1; i <= n; i++) if (!(order[i] in done)) print s[order[i]] }
-  ' "$2" "${3}" 2>/dev/null || cat "$2"
+  ' "$1" "$2"
 }
 
 # ── audit ───────────────────────────────────────────────────────────────────
@@ -562,81 +370,6 @@ _audit() {
   _say "audit: clean"
 }
 
-# ── repin ───────────────────────────────────────────────────────────────────
-# Accept a legit maintainer transfer — the one critical the hook never lets
-# through (ADR 0143). Deliberate and interactive only: a fresh AUR clone is
-# evaluated like the hook does, the transition + diff since the Vetted Commit
-# are shown, and you type the new maintainer's name (case-insensitive; the
-# commit prefix when the name is outside the AUR's [A-Za-z0-9._-]). Any other
-# critical, or an unreachable RPC, still refuses.
-_repin() {
-  local base="${1:-}"
-  [[ -n "$base" ]] || _die "usage: aur-vet repin <pkgbase>"
-  _unattended && _die "repin is interactive — run it from a terminal"
-  local pin pcommit="" pmaint=""
-  pin="$(_pin_of "$base")"
-  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
-  if [[ -z "$pcommit" ]]; then
-    _say "${base}: no Vetted Commit to repin — review it via the hook"
-    return 1
-  fi
-  local work dir head
-  work="$(mktemp -d)"
-  # shellcheck disable=SC2064  # expand now: $work is local
-  trap "rm -rf '$work'" EXIT
-  dir="$work/$base"
-  git clone -q "${AUR_VET_GIT_BASE:-https://aur.archlinux.org}/$base.git" \
-    "$dir" || _die "${base}: clone failed"
-  head="$(git -C "$dir" rev-parse HEAD)"
-  local at="${base} @${head:0:12}"
-
-  _evaluate "$dir" "$base" "$pcommit" "$pmaint"
-  if ((_E_RPC_DOWN)); then
-    _say "${at}: ABORT — AUR RPC unreachable (no maintainer to record)"
-    return 1
-  fi
-  local id
-  for id in "${!_E_CRIT[@]}"; do
-    [[ "$id" == trust-maintainer-changed ]] && continue
-    _say "${at}: ABORT (${_E_TALLY}) — repin clears only a maintainer change"
-    return 1
-  done
-
-  local modified="unknown"
-  [[ -n "$_E_MODIFIED" ]] && modified="$(date -u -d "@$_E_MODIFIED" +%F)"
-  _say "${at}: maintainer ${pmaint:-none} -> ${_E_MAINT:-orphan}" \
-    "(AUR LastModified ${modified})"
-  if git -C "$dir" cat-file -e "${pcommit}^{commit}" 2>/dev/null; then
-    _review_diff "$dir" "$pcommit" "$head"
-  else
-    _say "Vetted Commit ${pcommit:0:12} not in history — full review"
-    _review_full "$dir"
-  fi
-
-  local want="$_E_MAINT" prompt ans
-  if [[ "$want" =~ ^[A-Za-z0-9._-]+$ ]]; then
-    prompt="Type the new maintainer's name (${want}) to accept:"
-  else
-    want="${head:0:8}"
-    prompt="Type the first 8 characters of ${head:0:12} to accept:"
-  fi
-  printf 'aur-vet: %s ' "$prompt" >&2
-  read -r ans || ans=""
-  if [[ "${ans,,}" != "${want,,}" ]]; then
-    _say "${at}: ABORT — confirmation did not match; pin unchanged"
-    return 1
-  fi
-  _set_pin "$base" "$head" "$_E_MAINT" repinned
-  local -a rows=()
-  for id in "${!_E_SUSP[@]}"; do
-    _allowed "$base" "$head" "$id" && continue
-    rows+=("$(printf '%s\t%s\t%s\trepinned %s' \
-      "$base" "$head" "$id" "$(_today)")")
-  done
-  ((${#rows[@]} == 0)) || _allow_add "${rows[@]}"
-  _say "${at}: repinned to maintainer ${_E_MAINT:-orphan}"
-}
-
 # ── doctor ──────────────────────────────────────────────────────────────────
 # Login check (/etc/profile.d/aur-vet.sh): paru reads $PARU_CONF or the
 # user's own paru.conf *instead of* /etc/paru.conf, so any of them without
@@ -660,27 +393,23 @@ _doctor() {
 }
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
-# Scan + trust one clone and print its findings. Shared by the hook and
-# repin; results land in _E_* globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY,
-# _E_RPC_DOWN, _E_MAINT (the AUR's current maintainer), _E_MODIFIED.
+# Scan + trust one clone and print its findings. Results land in _E_*
+# globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY, _E_RPC_DOWN.
 _evaluate() {
-  local dir="$1" base="$2" pcommit="$3" pmaint="$4"
+  local dir="$1" base="$2" modified=""
   declare -gA _E_CRIT=() _E_SUSP=()
-  _E_RPC_DOWN=0; _E_MAINT="$pmaint"; _E_MODIFIED=""
+  _E_RPC_DOWN=0
   # One RPC answer feeds both the trust signals and the Indicator window.
   local json=""
   json="$(_rpc_for "$dir" "$base")" || _E_RPC_DOWN=1
   if ((!_E_RPC_DOWN)); then
-    _E_MODIFIED="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
+    modified="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
       == $b)][0].LastModified // empty' <<<"$json")"
   fi
   # Fail closed: an engine error must abort, never read as "no findings".
   local out trust=""
-  out="$(_scan "$dir" "$base" "$_E_MODIFIED")" || _die "${base}: scan failed"
-  if ((!_E_RPC_DOWN)); then
-    trust="$(_trust "$json" "$base" "$pmaint" \
-      "$([[ -n "$pcommit" ]] && echo 1 || echo 0)")"
-  fi
+  out="$(_scan "$dir" "$base" "$modified")" || _die "${base}: scan failed"
+  ((_E_RPC_DOWN)) || trust="$(_trust "$json" "$base")"
   [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
   local -a findings=()
   [[ -n "$out" ]] && mapfile -t findings <<<"$out"
@@ -688,7 +417,6 @@ _evaluate() {
   local row sev id file ln desc crit=0 susp=0 info=0
   for row in "${findings[@]}"; do
     IFS=$'\t' read -r sev id file ln desc <<<"$row"
-    if [[ "$sev" == meta ]]; then _E_MAINT="$desc"; continue; fi
     _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
     case "$sev" in
       critical) crit=$((crit + 1)); _E_CRIT["$id"]=1 ;;
@@ -699,6 +427,8 @@ _evaluate() {
   _E_TALLY="${crit} critical, ${susp} suspicious, ${info} info"
 }
 
+# Decide one build on the spot (ADR 0149): critical aborts; suspicious rules
+# not allowlisted for this package ask n/y/a, or abort unattended.
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
   git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
@@ -706,92 +436,55 @@ _hook() {
   local head; head="$(git -C "$dir" rev-parse HEAD)"
   local at="${base} @${head:0:12}"
 
-  # The pin decides both the review mode and the maintainer to compare.
-  local pin pcommit="" pmaint=""
-  pin="$(_pin_of "$base")"
-  [[ -n "$pin" ]] && IFS=$'\t' read -r pcommit pmaint <<<"$pin"
-
-  _evaluate "$dir" "$base" "$pcommit" "$pmaint"
-  local tally="$_E_TALLY" rpc_down="$_E_RPC_DOWN" rpc_maint="$_E_MAINT" id
-  local -A suspicious=()
-  for id in "${!_E_SUSP[@]}"; do suspicious["$id"]=1; done
+  _evaluate "$dir" "$base"
+  local tally="$_E_TALLY" id
   _abort() { _say "${at}: ABORT (${tally}) — $1"; }
   if ((${#_E_CRIT[@]})); then
     _abort "critical findings always abort"
-    [[ -n "${_E_CRIT[trust-maintainer-changed]:-}" ]] \
-      && _say "legit maintainer transfer? review it: sudo aur-vet repin ${base}"
     return 1
   fi
-  if ((rpc_down)); then
+  if ((_E_RPC_DOWN)); then
     if _unattended; then _abort "AUR RPC unreachable"; return 1; fi
     _ask "AUR RPC unreachable — continue without trust signals?" \
       || { _abort "AUR RPC unreachable"; return 1; }
   fi
 
-  # What the pin says about this commit. Writes are deferred to the verdict.
-  local review="" reason="" carry=""
-  if [[ -z "$pcommit" ]]; then
-    review="full"; reason="unpinned: no Vetted Commit"
-  elif [[ "$pcommit" == "$head" ]]; then
-    :
-  elif ! git -C "$dir" cat-file -e "${pcommit}^{commit}" 2>/dev/null; then
-    review="full"; reason="Vetted Commit ${pcommit:0:12} not in history"
-  elif _bump_only "$dir" "$pcommit" "$head"; then
-    carry="$pcommit"
-  else
-    review="diff"; reason="changed since Vetted Commit ${pcommit:0:12}"
-  fi
-
   local -a unallowed=()
-  for id in "${!suspicious[@]}"; do
-    _allowed "$base" "$head" "$id" \
-      || { [[ -n "$carry" ]] && _allowed "$base" "$carry" "$id"; } \
-      || unallowed+=("$id")
+  for id in "${!_E_SUSP[@]}"; do
+    _allowed "$base" "$id" || unallowed+=("$id")
   done
-  if [[ -z "$review" ]] && ((${#unallowed[@]})); then
-    reason="suspicious findings not allowlisted: ${unallowed[*]}"
-  fi
-
-  if [[ -z "$reason" ]]; then
-    if [[ -n "$carry" ]]; then
-      _set_pin "$base" "$head" "$pmaint" bump-only "$carry"
-      _say "${at}: bump-only diff since ${carry:0:12} — auto-accepted"
-    fi
+  if ((${#unallowed[@]} == 0)); then
     _say "${at}: PASS (${tally})"
     return 0
   fi
 
+  local reason="suspicious findings not allowlisted: ${unallowed[*]}"
   if _unattended; then
-    _abort "${reason} (review interactively to accept)"
+    _abort "${reason} (answer interactively to accept)"
     return 1
   fi
   _say "${at}: ${reason}"
-  case "$review" in
-    full) _review_full "$dir" ;;
-    diff) _review_diff "$dir" "$pcommit" "$head" ;;
+  local q="Build ${at}? n = abort, y = once, a = always for ${base}"
+  case "$(_choose "$q")" in
+    y) _say "${at}: PASS (${tally}) — accepted once" ;;
+    a)
+      local -a rows=()
+      for id in "${unallowed[@]}"; do
+        rows+=("$(printf '%s\t%s\treviewed %s' "$base" "$id" "$(_today)")")
+      done
+      _allow_add "${rows[@]}"
+      _say "${at}: PASS (${tally}) — allowlisted for ${base}: ${unallowed[*]}"
+      ;;
+    *) _abort "rejected"; return 1 ;;
   esac
-  if ! _ask "Accept ${at} as the Vetted Commit?"; then
-    _abort "rejected"
-    return 1
-  fi
-  _set_pin "$base" "$head" "$rpc_maint" reviewed
-  local -a rows=()
-  for id in "${unallowed[@]}"; do
-    rows+=("$(printf '%s\t%s\t%s\treviewed %s' \
-      "$base" "$head" "$id" "$(_today)")")
-  done
-  ((${#rows[@]} == 0)) || _allow_add "${rows[@]}"
-  _say "${at}: PASS (${tally}) — accepted and pinned"
 }
 
 case "${1:-}" in
   "") _hook ;;
   refresh-indicators) _refresh_indicators ;;
-  seed) shift; _seed "$@" ;;
   export) shift; _export "$@" ;;
   audit) _audit ;;
-  repin) shift; _repin "$@" ;;
   doctor) _doctor ;;
-  -h | --help) sed -n '5,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  -h | --help) sed -n '5,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

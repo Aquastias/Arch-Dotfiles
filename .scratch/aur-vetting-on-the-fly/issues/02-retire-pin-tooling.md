@@ -9,10 +9,10 @@ and the [[AUR Helper]] notes drop pin wording.
 
 **Blocked by:** 01 (Tracer — stateless hook).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `vetted.tsv`, `seed`, `repin` and their tests removed
-- [ ] `export` / `export --check` cover the allowlist only, tested
-- [ ] Profiles AUR-vet bats: no pin store seeded; vetter + data + allowlist
+- [x] `vetted.tsv`, `seed`, `repin` and their tests removed
+- [x] `export` / `export --check` cover the allowlist only, tested
+- [x] Profiles AUR-vet bats: no pin store seeded; vetter + data + allowlist
       root-owned; hook present; yay refusal intact
-- [ ] No remaining pin references outside ADR 0143 history
+- [x] No remaining pin references outside ADR 0143 history

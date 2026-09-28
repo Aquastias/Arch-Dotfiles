@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# AUR Vetting in the Runner (ADR 0143): the vetter + data + seeded pin store
+# AUR Vetting in the Runner (ADR 0143/0149): the vetter + data + allowlist
 # land in the target before the AUR Helper bootstrap; each bootstrap rung
 # vets its clone before makepkg; paru carries the PreBuildCommand hook; AUR
 # builds refuse to run under yay.
@@ -22,15 +22,14 @@ teardown() { rm -rf "$T"; }
 
 # ── install into the target ─────────────────────────────────────────────────
 
-@test "install: vetter, engine, data and seeded store land in the target" {
+@test "install: vetter, engine, data and seeded allowlist land in the target" {
   _profiles_install_aur_vet
   [ -x "$MOUNT_ROOT/usr/local/bin/aur-vet" ]
   local f
-  for f in scan.awk bump-only.awk rules.tsv indicators.tsv campaigns.tsv \
-           sources.tsv; do
+  for f in scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv; do
     [ -f "$MOUNT_ROOT/usr/local/share/aur-vet/$f" ]
   done
-  cmp -s "$INSTALLER_DIR/aur/vetted.tsv" "$MOUNT_ROOT/etc/aur-vet/vetted.tsv"
+  [ ! -e "$MOUNT_ROOT/etc/aur-vet/vetted.tsv" ]   # no pin store (ADR 0149)
   cmp -s "$INSTALLER_DIR/aur/allow.tsv" "$MOUNT_ROOT/etc/aur-vet/allow.tsv"
 }
 
@@ -73,7 +72,7 @@ SH
   grep -q "aur-vet UNATTENDED=1 PKGBASE=paru-bin" "$CALLS"
 }
 
-@test "rung: a full clone, so a Vetted Commit diff is possible" {
+@test "rung: a full clone, so the previous commit is there to compare" {
   _fake_rung_env 0
   run _profiles_bootstrap_rung alice paru
   ! grep -q -- "--depth" "$CALLS"
@@ -152,11 +151,11 @@ SH
 
 @test "install: the installed vetter ignores test-only env overrides" {
   _profiles_install_aur_vet
-  mkdir -p "$T/fake-store"; : > "$T/fake-store/vetted.tsv"
+  mkdir -p "$T/fake-store"; : > "$T/fake-store/allow.tsv"
   run env AUR_VET_STORE="$T/fake-store" AUR_VET_DATA="$T/nope" \
     bash -c 'cd /tmp && "$1" export --check "$2"' _ \
     "$MOUNT_ROOT/usr/local/bin/aur-vet" "$T/fake-store"
-  [[ "$output" == *"/etc/aur-vet and"* ]]   # the system store, not ours
+  [[ "$output" == *"/etc/aur-vet"* ]]   # the system store, not ours
 }
 
 @test "paru.conf: a missing system paru.conf is created with the hook" {

@@ -1,6 +1,6 @@
 # bats `load` helper for the aur-vet suites (ADR 0143). Builds fixture AUR
 # clones as real git repos — the shape paru hands PreBuildCommand — and runs
-# the real command against an isolated data dir and pin store.
+# the real command against an isolated data dir and allowlist store.
 
 AUR_VET_SRC="$BATS_TEST_DIRNAME/../../aur"
 AUR_VET_FIXTURES="$BATS_TEST_DIRNAME/../fixtures/aur"
@@ -12,8 +12,8 @@ aurvet_setup() {
   export AUR_VET_DATA="$T/data" AUR_VET_STORE="$T/store"
   mkdir -p "$AUR_VET_DATA" "$AUR_VET_STORE"
   cp "$AUR_VET_SRC"/*.tsv "$AUR_VET_DATA/"
-  # An empty store: fixtures opt into pins explicitly.
-  : > "$AUR_VET_STORE/vetted.tsv"; : > "$AUR_VET_STORE/allow.tsv"
+  # An empty allowlist: fixtures opt into accepted rules explicitly.
+  : > "$AUR_VET_STORE/allow.tsv"
   export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
   # Trust signals come from fixtures, never the network; retries never wait.
   export AUR_VET_RPC_FIXTURE_DIR="$T/rpc" AUR_VET_RETRY_DELAYS=0,0
@@ -107,13 +107,6 @@ aurvet_case() {
   printf '%s\n' "$dir"
 }
 
-# Pin <dir>'s HEAD as the Vetted Commit for <pkgbase> (default: dir name).
-aurvet_pin() {
-  local dir="$1" base="${2:-$(basename "$1")}" maint="${3-fixture-maintainer}"
-  printf '%s\t%s\t%s\t2026-01-01\ttest\n' "$base" \
-    "$(git -C "$dir" rev-parse HEAD)" "$maint" >> "$AUR_VET_STORE/vetted.tsv"
-}
-
 # Commit a change in <dir>: <file> gets <sed-expr> applied.
 aurvet_commit() {
   local dir="$1" file="$2" expr="$3"
@@ -127,13 +120,6 @@ aurvet_hook_answer() {
   _aurvet_default_rpc "$base"
   run bash -c 'cd "$1" && printf "%s\n" "$4" | AUR_VET_INTERACTIVE=1 \
     PKGBASE="$2" "$3"' _ "$dir" "$base" "$AUR_VET_SRC/aur-vet" "$answer"
-}
-
-# aurvet_clone + pin its HEAD: a reviewed package, so only findings decide.
-aurvet_clone_pinned() {
-  local d; d="$(aurvet_clone "$@")"
-  aurvet_pin "$d" "$1"
-  printf '%s\n' "$d"
 }
 
 # AUR RPC fixture for <pkgbase> (ADR 0143): one `info` result. Args are
@@ -152,12 +138,4 @@ aurvet_rpc() {
   done
   jq -n --argjson r "$j" '{ resultcount: 1, results: [$r], type: "multiinfo",
     version: 5 }' > "$AUR_VET_RPC_FIXTURE_DIR/$base.json"
-}
-
-# Publish fixture <name> as a local AUR git remote at
-# $AUR_VET_GIT_BASE/<name>.git (seed clones from there).
-aurvet_remote() {
-  local src; src="$(aurvet_clone "$1")"
-  mkdir -p "$AUR_VET_GIT_BASE"
-  command mv "$src" "$AUR_VET_GIT_BASE/$1.git"
 }

@@ -37,6 +37,6 @@ _aur_helper_repo_cmd() {
 }
 
 # The AUR Helper bootstrap ladder (ADR 0052), in rung order. These are the
-# first AUR builds, so `aur-vet seed` reviews them like any declared package.
-# (declare, not readonly: runner.sh and seed may both source this file.)
+# first AUR builds; the hook vets them like any other (ADR 0149).
+# (declare, not readonly: this file may be sourced more than once.)
 declare -ga _AUR_HELPER_LADDER=(paru paru-bin yay-bin)

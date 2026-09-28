@@ -10,15 +10,15 @@ package + rule. The bump-only engine and the maintainer-pin rules go.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Hook passes a clean unpinned package and a clean changed package with
+- [x] Hook passes a clean unpinned package and a clean changed package with
       no pin store present
-- [ ] Critical aborts; suspicious prompts n/y/a; unattended suspicious aborts
-- [ ] `a` appends `pkgbase rule note` to the root-owned allowlist; the row
+- [x] Critical aborts; suspicious prompts n/y/a; unattended suspicious aborts
+- [x] `a` appends `pkgbase rule note` to the root-owned allowlist; the row
       applies to a later commit of that package
-- [ ] Allowlist format drops the commit column; repo rows converted
-- [ ] bump-only engine, `trust-maintainer-changed`,
+- [x] Allowlist format drops the commit column; repo rows converted
+- [x] bump-only engine, `trust-maintainer-changed`,
       `trust-maintainer-unrecorded` removed
-- [ ] Pins bats rewritten as stateless cases; incident fixtures abort,
+- [x] Pins bats rewritten as stateless cases; incident fixtures abort,
       benign fixtures pass
