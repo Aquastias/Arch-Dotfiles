@@ -40,3 +40,9 @@ arcticicestudio.nord-visual-studio-code
 Gruntfuggly.todo-tree
 mhutchie.git-graph
 streetsidesoftware.code-spell-checker
+
+# Debuggers — nvim-dap parity: debugpy (python), codelldb (rust/c/cpp); Go
+# debugs via golang.go + system dlv, JS/TS via VSCodium's built-in js-debug.
+ms-python.python
+ms-python.debugpy
+vadimcn.vscode-lldb

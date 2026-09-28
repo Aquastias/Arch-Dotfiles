@@ -72,6 +72,11 @@ biome: nvim lints with biome only when a `biome.json` exists; the biome
 extension has no lint-only switch (`biome.requireConfiguration` disables
 formatting too), so VSCodium formats everywhere and lints with biome's
 recommended rules even without a config.
+Debug start: nvim-dap's `<leader>dc` both starts and continues; VSCodium's
+`workbench.action.debug.continue` only continues a paused session, so
+`<leader>dl` (nvim: run last) starts the selected launch config and `dc`
+continues. Rust/C launch configs come from codelldb (e.g. from `Cargo.toml`)
+instead of nvim's executable-path prompt.
 
 ### Parity gaps (nvim-only)
 harpoon (only a <2k-download Open VSX port), undotree (none on Open VSX),

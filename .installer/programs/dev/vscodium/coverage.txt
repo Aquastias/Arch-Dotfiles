@@ -1,12 +1,15 @@
 # Editor Coverage Map (ADR 0148): one row per Language Registry key (nvim
 # languages.lua, ADR 0141) → the VSCodium extension(s) covering it, or
-# `n/a <reason>`. vscodium-program.bats fails when the keys drift apart.
+# `n/a <reason>`; a key may span rows. vscodium-program.bats fails when the
+# key sets drift apart.
 lua         sumneko.lua JohnnyMorganz.stylua
 python      detachhead.basedpyright charliermarsh.ruff
+python      ms-python.python ms-python.debugpy
 nix         jnoortheen.nix-ide
 php         phpactor.vscode-phpactor
 svelte      svelte.svelte-vscode esbenp.prettier-vscode
 vue         Vue.volar esbenp.prettier-vscode
+# typescript: + VSCodium's built-in TS server and js-debug
 typescript  biomejs.biome
 json        biomejs.biome
 css         biomejs.biome
@@ -16,10 +19,10 @@ markdown    esbenp.prettier-vscode
 bash        mads-hartmann.bash-ide-vscode
 http        humao.rest-client
 go          golang.go
-rust        rust-lang.rust-analyzer
+rust        rust-lang.rust-analyzer vadimcn.vscode-lldb
 zig         ziglang.vscode-zig
-c           llvm-vs-code-extensions.vscode-clangd
-cpp         llvm-vs-code-extensions.vscode-clangd
+c           llvm-vs-code-extensions.vscode-clangd vadimcn.vscode-lldb
+cpp         llvm-vs-code-extensions.vscode-clangd vadimcn.vscode-lldb
 tailwind    bradlc.vscode-tailwindcss
 emmet       n/a built into VSCodium
 eslint      dbaeumer.vscode-eslint

@@ -166,7 +166,7 @@ registry_formatters() {
 
 # coverage_keys → the Editor Coverage Map's language keys.
 coverage_keys() {
-  grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" | awk '{print $1}'
+  grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" | awk '{print $1}' | sort -u
 }
 
 @test "the Registry parse sees the languages nvim wires (sanity)" {
@@ -398,4 +398,36 @@ V=vim.visualModeKeyBindingsNonRecursive
   ext_ids | grep -qx 'Gruntfuggly.todo-tree'
   ext_ids | grep -qx 'mhutchie.git-graph'
   ext_ids | grep -qx 'streetsidesoftware.code-spell-checker'
+}
+
+# ── debugging parity with nvim-dap (ADR 0140/0148) ───────────────────────────
+
+@test "debug keys match nvim's <leader>d* maps" {
+  [ "$(bind "$N" '<leader>' d b)" = 'editor.debug.action.toggleBreakpoint' ]
+  [ "$(bind "$N" '<leader>' d B)" \
+    = 'editor.debug.action.conditionalBreakpoint' ]
+  [ "$(bind "$N" '<leader>' d c)" = 'workbench.action.debug.continue' ]
+  [ "$(bind "$N" '<leader>' d l)" = 'workbench.action.debug.start' ]
+  [ "$(bind "$N" '<leader>' d i)" = 'workbench.action.debug.stepInto' ]
+  [ "$(bind "$N" '<leader>' d o)" = 'workbench.action.debug.stepOver' ]
+  [ "$(bind "$N" '<leader>' d O)" = 'workbench.action.debug.stepOut' ]
+  [ "$(bind "$N" '<leader>' d r)" = 'workbench.debug.action.toggleRepl' ]
+  [ "$(bind "$N" '<leader>' d t)" = 'workbench.action.debug.stop' ]
+  [ "$(bind "$N" '<leader>' d u)" = 'workbench.view.debug' ]
+}
+
+@test "every nvim dap target has a debugger (Registry dap column)" {
+  # python → debugpy, go → golang.go (system dlv), rust/c/cpp → codelldb;
+  # js/ts use VSCodium's built-in js-debug.
+  ext_ids | grep -qx 'ms-python.python'
+  ext_ids | grep -qx 'ms-python.debugpy'
+  ext_ids | grep -qx 'vadimcn.vscode-lldb'
+  grep -E '^python[[:space:]]' "$COVERAGE" | grep -q 'ms-python.debugpy'
+  grep -E '^rust[[:space:]]' "$COVERAGE" | grep -q 'vadimcn.vscode-lldb'
+  grep -E '^c[[:space:]]' "$COVERAGE" | grep -q 'vadimcn.vscode-lldb'
+  grep -E '^cpp[[:space:]]' "$COVERAGE" | grep -q 'vadimcn.vscode-lldb'
+}
+
+@test "ms-python.python does not add a second Python language server" {
+  [ "$(setting '."python.languageServer"')" = '"None"' ]
 }

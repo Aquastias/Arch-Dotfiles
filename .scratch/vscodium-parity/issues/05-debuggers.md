@@ -10,8 +10,14 @@ dr/dl/dt/du`.
 
 **Status:** ready-for-agent
 
-- [ ] Debug extensions in the list; Coverage Map entries updated where the
+- [x] Debug extensions in the list; Coverage Map entries updated where the
       debugger is part of a language's coverage
-- [ ] Static bats: `<leader>d*` bindings present; go dlv path is the system one
+- [x] Static bats: `<leader>d*` bindings present; go dlv path is the system one
 - [ ] VM: a breakpoint hit in at least one language (Python or Go); note
       whether codelldb's first-run download succeeds
+
+## Comments
+
+- Static slice done. `dc` continues only; `dl` starts (ADR 0148 Behaviour
+  differences). python.languageServer None avoids a 2nd server beside
+  basedpyright. Breakpoint check runs in ticket 06 (VM).

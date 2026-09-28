@@ -46,6 +46,7 @@
   "phpactor.path": "/usr/bin/phpactor",
   "svelte.language-server.ls-path": "/usr/bin/svelteserver",
   "vue.server.path": "/usr/lib/node_modules/@vue/language-server",
+  "python.languageServer": "None",
 
   "[lua]": { "editor.defaultFormatter": "JohnnyMorganz.stylua" },
   "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
@@ -214,6 +215,44 @@
       "before": ["<leader>", "R", "c"],
       "commands": ["rest-client.copy-request-as-curl"]
     },
+    {
+      "before": ["<leader>", "d", "b"],
+      "commands": ["editor.debug.action.toggleBreakpoint"]
+    },
+    {
+      "before": ["<leader>", "d", "B"],
+      "commands": ["editor.debug.action.conditionalBreakpoint"]
+    },
+    {
+      "before": ["<leader>", "d", "c"],
+      "commands": ["workbench.action.debug.continue"]
+    },
+    {
+      "before": ["<leader>", "d", "l"],
+      "commands": ["workbench.action.debug.start"]
+    },
+    {
+      "before": ["<leader>", "d", "i"],
+      "commands": ["workbench.action.debug.stepInto"]
+    },
+    {
+      "before": ["<leader>", "d", "o"],
+      "commands": ["workbench.action.debug.stepOver"]
+    },
+    {
+      "before": ["<leader>", "d", "O"],
+      "commands": ["workbench.action.debug.stepOut"]
+    },
+    {
+      "before": ["<leader>", "d", "r"],
+      "commands": ["workbench.debug.action.toggleRepl"]
+    },
+    {
+      "before": ["<leader>", "d", "t"],
+      "commands": ["workbench.action.debug.stop"]
+    },
+    { "before": ["<leader>", "d", "u"], "commands": ["workbench.view.debug"] },
+
     {
       "before": ["<leader>", "r", "i"],
       "commands": [
