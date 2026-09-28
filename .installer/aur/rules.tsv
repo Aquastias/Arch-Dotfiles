@@ -51,6 +51,38 @@ etc-persistence	critical	code	(^|[[:space:]>=(])["']?(/etc/(profile[.]d\
 	|cron[.][a-z]+|crontab)|/var/spool/cron)|(^|[;&|][[:space:]]*)crontab\
 	([[:space:]]|$)	cron/profile.d persistence outside $pkgdir\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+cred-access	critical	code	(~|[$][{]?HOME[}]?|/home/[^/[:space:]]+|/root)/\
+	([.](ssh|gnupg|aws|kube|netrc|git-credentials|npmrc|pypirc\
+	|password-store|mozilla)|[.]docker/config[.]json|[.]local/share/keyrings\
+	|[.]config/(gh|google-chrome|chromium|BraveSoftware|discord|Signal))\
+	|/etc/g?shadow([[:space:]"']|$)	reads credentials, keys or browser data\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+exfil-upload	critical	code	(^|[^[:alnum:]_-])curl[[:space:]][^|;&]*\
+	(-[dF]|--data(-binary|-raw|-urlencode)?|--form)[[:space:]=]+[^[:space:]]*@\
+	|(^|[^[:alnum:]_-])curl[[:space:]][^|;&]*(-T|--upload-file)[[:space:]=]\
+	|(^|[^[:alnum:]_-])wget[[:space:]][^|;&]*--post-(file|data)\
+		uploads a file or data to a server
+exfil-webhook	critical	code	discord(app)?[.]com/api/webhooks\
+	|api[.]telegram[.]org/bot|hooks[.]slack[.]com/services\
+	|outlook[.]office[.]com/webhook|webhook[.]site/	chat/webhook exfiltration
+exfil-dns	critical	code	(^|[^[:alnum:]_-])(dig|nslookup|host|drill)\
+	[[:space:]][^;&|]*([$][(]|`)	DNS query built from command output
+revshell	critical	code	(^|[^[:alnum:]_-])n(c|cat|etcat)\
+	([[:space:]][^|;&]*)?[[:space:]]-[ec][[:space:]]\
+	|socat[[:space:]][^|;&]*(exec|system):\
+	|mkfifo[[:space:]][^;]*;[^;]*[|][^;]*n(c|cat)[[:space:]]\
+	|socket[.]socket[(]|fsockopen[(]|TCPSocket[.](new|open)|IO::Socket::INET\
+	|[>]&?[[:space:]]*/dev/(tcp|udp)/	reverse shell
+kmod-insmod	critical	code	(^|[^[:alnum:]_-])insmod[[:space:]]\
+		loads a kernel module from a file
+bpf-pin	critical	code	/sys/fs/bpf|bpftool[[:space:]]+(prog|map)\
+	[[:space:]]+(load|pin|create)	loads or pins eBPF (Atomic Arch rootkit)
+ld-preload-file	critical	code	/etc/ld[.]so[.]preload\
+		global library preload (rootkit hook)
+miner	critical	code	(^|[^[:alnum:]_-])(xmrig|xmr-stak|minerd|cpuminer)\
+	([[:space:]]|$|[-.])|stratum[+](tcp|ssl|tls)://\
+	|(^|[^[:alnum:]])4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}([^[:alnum:]]|$)\
+		cryptominer, mining pool or Monero wallet
 bad-source-host	critical	source	://([^/]*[.])?(pastebin[.]com|paste[.]ee\
 	|hastebin[.]com|ghostbin[.][a-z]+|rentry[.](co|org)|transfer[.]sh\
 	|temp[.]sh|0x0[.]st|termbin[.]com|catsh[.]zip|cdn[.]discordapp[.]com\
@@ -61,6 +93,11 @@ raw-ip-source	critical	source	://[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+([:/]|$)\
 		source from a raw IP address
 
 # ── suspicious ──────────────────────────────────────────────────────────────
+kmod-modprobe	suspicious	code	(^|[^[:alnum:]_-])modprobe[[:space:]]\
+		loads a kernel module\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+ld-preload	suspicious	code	(^|[^[:alnum:]_])LD_PRELOAD=\
+		library preload in a command
 build-network	suspicious	build	(^|[^[:alnum:]_.-])(curl|wget|nc|ncat|socat\
 	|aria2c)([[:space:]]|$)|/dev/(tcp|udp)/|git[[:space:]]+clone\
 		network fetch outside source=

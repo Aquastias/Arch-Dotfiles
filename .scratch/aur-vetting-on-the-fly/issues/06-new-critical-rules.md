@@ -11,8 +11,14 @@ addresses). Research: `.scratch/aur-vetting-on-the-fly/research.md`.
 
 **Blocked by:** 05 (Obfuscation stripping).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] ≥1 positive and ≥1 negative rule-case row per new rule
-- [ ] Benign fixtures (electron `npm ci`, rust, benign-dep) still pass
-- [ ] Rule rows keep the 80-column continuation convention
+- [x] ≥1 positive and ≥1 negative rule-case row per new rule
+- [x] Benign fixtures (electron `npm ci`, rust, benign-dep) still pass
+- [x] Rule rows keep the 80-column continuation convention
+
+## Comments
+
+- `modprobe` and `LD_PRELOAD=` landed suspicious, not critical: both occur
+  in legit packages (kernel-module scriptlets, `check()` hooks). `insmod`
+  and `/etc/ld.so.preload` stay critical. Recorded in ADR 0149 at close-out.
