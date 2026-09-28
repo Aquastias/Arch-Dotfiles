@@ -17,10 +17,16 @@ five nvim palettes.
 
 **Status:** ready-for-agent
 
-- [ ] Static bats: sneak on, easymotion off, surround on, leader Space; the
+- [x] Static bats: sneak on, easymotion off, surround on, leader Space; the
       five palettes' extension IDs listed; each mapped leader key present
-- [ ] The four extra palettes confirmed on Open VSX (drop + note in ADR 0148
+- [x] The four extra palettes confirmed on Open VSX (drop + note in ADR 0148
       if one is missing)
 - [ ] VM: `gs*` surround remap works — else fall back to `ys/ds/cs` and
       record the difference in ADR 0148
 - [ ] VM: spot-check `<leader>ff`, `<leader>gg`, `<leader>uC`, `-`
+
+## Comments
+
+- Static slice done; all four palettes on Open VSX. Command IDs checked
+  against the vscodium-bin 1.135 workbench (read-only). Unmapped keys listed
+  in ADR 0148. Surround + spot-checks run in ticket 06 (VM).

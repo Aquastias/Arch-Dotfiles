@@ -79,7 +79,11 @@ orgmode (agenda-driven; no faithful extension), which-key menu (plain leader
 bindings instead; the whichkey extension is a second keymap source),
 Noctalia follow / `<leader>uN` (static theme; possible follow-up), inline
 diagnostic virtual text (hover + `]d`/`[d` + Problems instead), oil's
-buffer-editing of directories.
+buffer-editing of directories. Unmapped nvim keys (no VSCodium command backs
+them): `<leader>uh` (no inlay-hint toggle command), `]t`/`[t` (todo-tree has
+no next/prev), `<leader>xX/xq/xl/xs`, `<leader>fh`, `<leader>Ra/Rn/Rp/Ri`,
+`<leader>rw`, `cn`/`cN`, `<leader>cx`, `<leader><cr>`, mini.ai's treesitter
+`af`/`ac`/`ao` textobjects. Folds (`zR/zM/zr/zm`) are VSCodeVim built-ins.
 
 ### Kept despite Open VSX lag
 rest-client (kulala stand-in; same `.http` format — upstream active but last

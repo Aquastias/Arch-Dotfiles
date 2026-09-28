@@ -267,3 +267,135 @@ EOF_
   [ "$(setting '."go.toolsManagement.checkForUpdates"')" = '"off"' ]
   [ "$(setting '."zig.zls.enabled"')" = '"on"' ]
 }
+
+# ── key parity with the Neovim Config (ADR 0148) ─────────────────────────────
+
+# bind <setting> <keys…> → the first command bound to that key sequence (or
+# its `after` keys, space-joined). `SPC` stands for the space key.
+bind() {
+  local s="$1"; shift
+  local before; before="$(printf '%s\n' "$@" | sed 's/^SPC$/ /' | jq -R . \
+    | jq -sc .)"
+  setting ".\"$s\"" | jq -r --argjson b "$before" '
+    [ .[] | select(.before == $b) ][0]
+    | if . == null then "UNBOUND"
+      elif .commands then (.commands[0] | if type == "object"
+        then "\(.command) \(.args | tojson)" else . end)
+      else (.after | join(" ")) end'
+}
+N=vim.normalModeKeyBindingsNonRecursive
+V=vim.visualModeKeyBindingsNonRecursive
+
+@test "motions: sneak on s/S, easymotion off, surround on" {
+  [ "$(setting '."vim.sneak"')" = 'true' ]
+  [ "$(setting '."vim.easymotion"')" = 'false' ]
+  [ "$(setting '."vim.surround"')" = 'true' ]
+}
+
+@test "surround rides nvim's gs* keys (mini.surround)" {
+  [ "$(bind "$N" g s a)" = '<plugys>' ]
+  [ "$(bind "$N" g s d)" = '<plugds>' ]
+  [ "$(bind "$N" g s r)" = '<plugcs>' ]
+}
+
+@test "find/search leader keys match nvim's snacks + grug-far maps" {
+  [ "$(bind "$N" '<leader>' SPC)" = 'workbench.action.quickOpen' ]
+  [ "$(bind "$N" '<leader>' f f)" = 'workbench.action.quickOpen' ]
+  [ "$(bind "$N" '<leader>' f g)" = 'workbench.action.findInFiles' ]
+  [ "$(bind "$N" '<leader>' f b)" = 'workbench.action.showAllEditors' ]
+  [ "$(bind "$N" '<leader>' f r)" = 'workbench.action.openRecent' ]
+  [ "$(bind "$N" '<leader>' s s)" = 'workbench.action.gotoSymbol' ]
+  [ "$(bind "$N" '<leader>' s S)" = 'workbench.action.showAllSymbols' ]
+  [ "$(bind "$N" '<leader>' s c)" = 'workbench.action.showCommands' ]
+  [ "$(bind "$N" '<leader>' s k)" = 'workbench.action.openGlobalKeybindings' ]
+  [ "$(bind "$N" '<leader>' s r)" = 'workbench.action.replaceInFiles' ]
+}
+
+@test "LSP keys match nvim's gr*/K + <leader>co" {
+  [ "$(bind "$N" g r n)" = 'editor.action.rename' ]
+  [ "$(bind "$N" g r a)" = 'editor.action.quickFix' ]
+  [ "$(bind "$N" g r r)" = 'editor.action.goToReferences' ]
+  [ "$(bind "$N" g r i)" = 'editor.action.goToImplementation' ]
+  [ "$(bind "$N" g r d)" = 'editor.action.revealDefinition' ]
+  [ "$(bind "$N" K)" = 'editor.action.showHover' ]
+  [ "$(bind "$N" '<leader>' c o)" = 'editor.action.organizeImports' ]
+}
+
+@test "jumps + trouble keys: ]d/[d, ]h/[h, <leader>xx/xt" {
+  [ "$(bind "$N" ']' d)" = 'editor.action.marker.next' ]
+  [ "$(bind "$N" '[' d)" = 'editor.action.marker.prev' ]
+  [ "$(bind "$N" ']' h)" = 'workbench.action.editor.nextChange' ]
+  [ "$(bind "$N" '[' h)" = 'workbench.action.editor.previousChange' ]
+  [ "$(bind "$N" '<leader>' x x)" = 'workbench.actions.view.problems' ]
+  [ "$(bind "$N" '<leader>' x t)" = 'todo-tree-view.focus' ]
+}
+
+@test "git keys: lazygit in terminal, diff, file/repo history, blame" {
+  [ "$(bind "$N" '<leader>' g g)" = 'workbench.action.terminal.new' ]
+  setting ".\"$N\"" | jq -e 'any(.[]; .before == ["<leader>","g","g"]
+    and any(.commands[] | objects; .args.text == "lazygit\n"))'
+  [ "$(bind "$N" '<leader>' g d)" = 'git.openChange' ]
+  [ "$(bind "$N" '<leader>' g h)" = 'timeline.focus' ]
+  [ "$(bind "$N" '<leader>' g H)" = 'git-graph.view' ]
+  [ "$(bind "$N" '<leader>' g t)" = 'git.blame.toggleEditorDecoration' ]
+}
+
+@test "explorer, buffers, windows, basics match nvim" {
+  [ "$(bind "$N" -)" = 'workbench.files.action.showActiveFileInExplorer' ]
+  [ "$(bind "$N" '<leader>' e)" = 'workbench.view.explorer' ]
+  [ "$(bind "$N" '<Tab>')" = 'workbench.action.nextEditor' ]
+  [ "$(bind "$N" '<S-Tab>')" = 'workbench.action.previousEditor' ]
+  [ "$(bind "$N" '<leader>' b d)" = 'workbench.action.closeActiveEditor' ]
+  [ "$(bind "$N" '<C-h>')" = 'workbench.action.navigateLeft' ]
+  [ "$(bind "$N" '<C-j>')" = 'workbench.action.navigateDown' ]
+  [ "$(bind "$N" '<C-k>')" = 'workbench.action.navigateUp' ]
+  [ "$(bind "$N" '<C-l>')" = 'workbench.action.navigateRight' ]
+  [ "$(bind "$N" '<leader>' w)" = 'workbench.action.files.save' ]
+  [ "$(bind "$N" '<leader>' q)" = 'workbench.action.closeActiveEditor' ]
+  [ "$(bind "$N" '<Esc>')" = ':nohl' ]
+  [ "$(bind "$N" '<leader>' y p)" = 'copyFilePath' ]
+}
+
+@test "UI, REST and refactor keys match nvim" {
+  [ "$(bind "$N" '<leader>' u C)" = 'workbench.action.selectTheme' ]
+  [ "$(bind "$N" '<leader>' R s)" = 'rest-client.request' ]
+  [ "$(bind "$N" '<leader>' R c)" = 'rest-client.copy-request-as-curl' ]
+  [ "$(bind "$V" '<leader>' r e)" \
+    = 'editor.action.codeAction {"kind":"refactor.extract"}' ]
+  [ "$(bind "$V" '<leader>' r v)" \
+    = 'editor.action.codeAction {"kind":"refactor.extract"}' ]
+  [ "$(bind "$V" '<leader>' r f)" \
+    = 'editor.action.codeAction {"kind":"refactor.move"}' ]
+  [ "$(bind "$N" '<leader>' r i)" \
+    = 'editor.action.codeAction {"kind":"refactor.inline"}' ]
+}
+
+@test "visual keys: J/K move, </> keep selection, <leader>p keeps register" {
+  [ "$(bind "$V" J)" = 'editor.action.moveLinesDownAction' ]
+  [ "$(bind "$V" K)" = 'editor.action.moveLinesUpAction' ]
+  [ "$(bind "$V" '>')" = 'editor.action.indentLines' ]
+  [ "$(bind "$V" '<')" = 'editor.action.outdentLines' ]
+  [ "$(bind "$V" '<leader>' p)" = '" _ d P' ]
+  [ "$(bind "$N" '<C-space>')" = 'editor.action.smartSelect.expand' ]
+  [ "$(bind "$V" '<BS>')" = 'editor.action.smartSelect.shrink' ]
+}
+
+@test "native chords: <C-/> toggles the terminal, ctrl+alt+v toggles vim" {
+  jsonc_strip "$KEYS" | jq -e 'any(.[]; .key == "ctrl+/"
+    and .command == "workbench.action.terminal.toggleTerminal")'
+  jsonc_strip "$KEYS" | jq -e 'any(.[]; .command == "toggleVim")'
+}
+
+@test "the five nvim palettes are installed for <leader>uC" {
+  ext_ids | grep -qx 'catppuccin.catppuccin-vsc'
+  ext_ids | grep -qx 'mvllow.rose-pine'
+  ext_ids | grep -qx 'enkia.tokyo-night'
+  ext_ids | grep -qx 'jdinhlife.gruvbox'
+  ext_ids | grep -qx 'arcticicestudio.nord-visual-studio-code'
+}
+
+@test "kept extras: todo-tree, git-graph, spell checker (ADR 0148)" {
+  ext_ids | grep -qx 'Gruntfuggly.todo-tree'
+  ext_ids | grep -qx 'mhutchie.git-graph'
+  ext_ids | grep -qx 'streetsidesoftware.code-spell-checker'
+}

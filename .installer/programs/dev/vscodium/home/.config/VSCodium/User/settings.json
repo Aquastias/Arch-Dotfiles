@@ -75,8 +75,189 @@
     "<C-f>": false,
     "<C-p>": false
   },
+  "vim.sneak": true,
+  "vim.easymotion": false,
+  "vim.surround": true,
   "vim.insertModeKeyBindings": [
     { "before": ["j", "j"], "after": ["<Esc>"] }
+  ],
+  "vim.normalModeKeyBindingsNonRecursive": [
+    { "before": ["g", "s", "a"], "after": ["<plugys>"] },
+    { "before": ["g", "s", "d"], "after": ["<plugds>"] },
+    { "before": ["g", "s", "r"], "after": ["<plugcs>"] },
+
+    { "before": ["<leader>", " "], "commands": ["workbench.action.quickOpen"] },
+    {
+      "before": ["<leader>", "f", "f"],
+      "commands": ["workbench.action.quickOpen"]
+    },
+    {
+      "before": ["<leader>", "f", "g"],
+      "commands": ["workbench.action.findInFiles"]
+    },
+    {
+      "before": ["<leader>", "f", "b"],
+      "commands": ["workbench.action.showAllEditors"]
+    },
+    {
+      "before": ["<leader>", "f", "r"],
+      "commands": ["workbench.action.openRecent"]
+    },
+    {
+      "before": ["<leader>", "s", "s"],
+      "commands": ["workbench.action.gotoSymbol"]
+    },
+    {
+      "before": ["<leader>", "s", "S"],
+      "commands": ["workbench.action.showAllSymbols"]
+    },
+    {
+      "before": ["<leader>", "s", "c"],
+      "commands": ["workbench.action.showCommands"]
+    },
+    {
+      "before": ["<leader>", "s", "k"],
+      "commands": ["workbench.action.openGlobalKeybindings"]
+    },
+    {
+      "before": ["<leader>", "s", "r"],
+      "commands": ["workbench.action.replaceInFiles"]
+    },
+
+    { "before": ["g", "r", "n"], "commands": ["editor.action.rename"] },
+    { "before": ["g", "r", "a"], "commands": ["editor.action.quickFix"] },
+    { "before": ["g", "r", "r"], "commands": ["editor.action.goToReferences"] },
+    {
+      "before": ["g", "r", "i"],
+      "commands": ["editor.action.goToImplementation"]
+    },
+    {
+      "before": ["g", "r", "d"],
+      "commands": ["editor.action.revealDefinition"]
+    },
+    { "before": ["K"], "commands": ["editor.action.showHover"] },
+    {
+      "before": ["<leader>", "c", "o"],
+      "commands": ["editor.action.organizeImports"]
+    },
+
+    { "before": ["]", "d"], "commands": ["editor.action.marker.next"] },
+    { "before": ["[", "d"], "commands": ["editor.action.marker.prev"] },
+    {
+      "before": ["]", "h"],
+      "commands": ["workbench.action.editor.nextChange"]
+    },
+    {
+      "before": ["[", "h"],
+      "commands": ["workbench.action.editor.previousChange"]
+    },
+    {
+      "before": ["<leader>", "x", "x"],
+      "commands": ["workbench.actions.view.problems"]
+    },
+    { "before": ["<leader>", "x", "t"], "commands": ["todo-tree-view.focus"] },
+
+    {
+      "before": ["<leader>", "g", "g"],
+      "commands": [
+        "workbench.action.terminal.new",
+        {
+          "command": "workbench.action.terminal.sendSequence",
+          "args": { "text": "lazygit\n" }
+        }
+      ]
+    },
+    { "before": ["<leader>", "g", "d"], "commands": ["git.openChange"] },
+    { "before": ["<leader>", "g", "h"], "commands": ["timeline.focus"] },
+    { "before": ["<leader>", "g", "H"], "commands": ["git-graph.view"] },
+    {
+      "before": ["<leader>", "g", "t"],
+      "commands": ["git.blame.toggleEditorDecoration"]
+    },
+
+    {
+      "before": ["-"],
+      "commands": ["workbench.files.action.showActiveFileInExplorer"]
+    },
+    { "before": ["<leader>", "e"], "commands": ["workbench.view.explorer"] },
+    { "before": ["<Tab>"], "commands": ["workbench.action.nextEditor"] },
+    { "before": ["<S-Tab>"], "commands": ["workbench.action.previousEditor"] },
+    {
+      "before": ["<leader>", "b", "d"],
+      "commands": ["workbench.action.closeActiveEditor"]
+    },
+    { "before": ["<C-h>"], "commands": ["workbench.action.navigateLeft"] },
+    { "before": ["<C-j>"], "commands": ["workbench.action.navigateDown"] },
+    { "before": ["<C-k>"], "commands": ["workbench.action.navigateUp"] },
+    { "before": ["<C-l>"], "commands": ["workbench.action.navigateRight"] },
+    {
+      "before": ["<leader>", "w"],
+      "commands": ["workbench.action.files.save"]
+    },
+    {
+      "before": ["<leader>", "q"],
+      "commands": ["workbench.action.closeActiveEditor"]
+    },
+    { "before": ["<Esc>"], "commands": [":nohl"] },
+    { "before": ["<leader>", "y", "p"], "commands": ["copyFilePath"] },
+    {
+      "before": ["<C-space>"],
+      "commands": ["editor.action.smartSelect.expand"]
+    },
+
+    {
+      "before": ["<leader>", "u", "C"],
+      "commands": ["workbench.action.selectTheme"]
+    },
+    { "before": ["<leader>", "R", "s"], "commands": ["rest-client.request"] },
+    {
+      "before": ["<leader>", "R", "c"],
+      "commands": ["rest-client.copy-request-as-curl"]
+    },
+    {
+      "before": ["<leader>", "r", "i"],
+      "commands": [
+        {
+          "command": "editor.action.codeAction",
+          "args": { "kind": "refactor.inline" }
+        }
+      ]
+    }
+  ],
+  "vim.visualModeKeyBindingsNonRecursive": [
+    { "before": ["J"], "commands": ["editor.action.moveLinesDownAction"] },
+    { "before": ["K"], "commands": ["editor.action.moveLinesUpAction"] },
+    { "before": [">"], "commands": ["editor.action.indentLines"] },
+    { "before": ["<"], "commands": ["editor.action.outdentLines"] },
+    { "before": ["<leader>", "p"], "after": ["\"", "_", "d", "P"] },
+    { "before": ["<BS>"], "commands": ["editor.action.smartSelect.shrink"] },
+    {
+      "before": ["<leader>", "r", "e"],
+      "commands": [
+        {
+          "command": "editor.action.codeAction",
+          "args": { "kind": "refactor.extract" }
+        }
+      ]
+    },
+    {
+      "before": ["<leader>", "r", "v"],
+      "commands": [
+        {
+          "command": "editor.action.codeAction",
+          "args": { "kind": "refactor.extract" }
+        }
+      ]
+    },
+    {
+      "before": ["<leader>", "r", "f"],
+      "commands": [
+        {
+          "command": "editor.action.codeAction",
+          "args": { "kind": "refactor.move" }
+        }
+      ]
+    }
   ],
   "extensions.experimental.affinity": { "vscodevim.vim": 1 }
 }

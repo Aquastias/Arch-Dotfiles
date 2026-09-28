@@ -29,3 +29,14 @@ ziglang.vscode-zig
 llvm-vs-code-extensions.vscode-clangd
 bradlc.vscode-tailwindcss
 dbaeumer.vscode-eslint
+
+# Palettes — the five nvim offers, picked with <leader>uC
+mvllow.rose-pine
+enkia.tokyo-night
+jdinhlife.gruvbox
+arcticicestudio.nord-visual-studio-code
+
+# Kept extras (ADR 0148)
+Gruntfuggly.todo-tree
+mhutchie.git-graph
+streetsidesoftware.code-spell-checker
