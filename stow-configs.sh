@@ -12,6 +12,10 @@
 #   ./stow-configs.sh kitty zsh       # stow exactly these
 #   ./stow-configs.sh --except claude # stow everything but claude's config
 #
+# Programs marked `"stow_opt_in": true` in their config.jsonc (e.g. vscodium,
+# ADR 0148) are skipped by the no-name sweep and stow only when named, so a
+# host's own app config is never adopted into the repo.
+#
 # `--adopt` makes it safe whether $HOME is empty (fresh clone) or already
 # installer-seeded (same bytes, single source): it flips real files to symlinks
 # without changing content.
@@ -25,7 +29,7 @@ PROGRAMS="${REPO}/.installer/programs"
 source "${REPO}/.installer/lib/config/config-apply.sh"
 
 usage() {
-  sed -n '4,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -56,7 +60,8 @@ _json_arr() {
 ships="$(ca_ships_home_list "$PROGRAMS")"
 selection="$(ca_stow_selection "$ships" \
   "$(_json_arr "${except[@]+"${except[@]}"}")" \
-  "$(_json_arr "${only[@]+"${only[@]}"}")")"
+  "$(_json_arr "${only[@]+"${only[@]}"}")" \
+  "$(ca_stow_opt_in_list "$PROGRAMS")")"
 
 count=0
 while IFS= read -r name; do

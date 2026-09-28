@@ -9,11 +9,11 @@ unaffected.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Pure selection takes an opt-in set: opt-in names dropped from the
+- [x] Pure selection takes an opt-in set: opt-in names dropped from the
       no-arg selection
-- [ ] Opt-in names kept when passed positionally; `--except` behaviour
+- [x] Opt-in names kept when passed positionally; `--except` behaviour
       unchanged
-- [ ] config-apply bats covers all three cases; existing cases stay green
-- [ ] Wrapper usage text documents the opt-in rule
+- [x] config-apply bats covers all three cases; existing cases stay green
+- [x] Wrapper usage text documents the opt-in rule

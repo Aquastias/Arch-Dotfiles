@@ -17,6 +17,8 @@
 #   ca_plan <programs-json> <ships-home-json> <exclude-json>  → plan (array)
 #   ca_ships_home_list <programs-root>                        → names (array)
 #   ca_home_dir <programs-root> <name>                        → abs home/ path
+#   ca_stow_selection <ships> <except> <only> [<opt-in>]      → names (array)
+#   ca_stow_opt_in_list <programs-root>                       → names (array)
 # =============================================================================
 
 # ca_plan <programs-json> <ships-home-json> <exclude-json>
@@ -47,17 +49,38 @@ ca_plan() {
 #   only-json:    an explicit positional subset; when non-empty it wins over
 #                 `except`, keeps its own order, and drops any name that ships
 #                 no home.
+#   opt-in-json:  programs marked `stow_opt_in` (optional, default []): skipped
+#                 by the no-arg sweep, stowed only when named — so a host's
+#                 own app config is never adopted (ADR 0148).
 #   → ordered JSON array of program names to stow. Pure.
 ca_stow_selection() {
   jq -n \
     --argjson ships "$1" \
     --argjson excl  "$2" \
-    --argjson only  "$3" '
+    --argjson only  "$3" \
+    --argjson optin "${4:-[]}" '
       if ($only | length) > 0
       then [ $only[]  | . as $p | select($ships | index($p)) | $p ]
-      else [ $ships[] | . as $p | select(($excl | index($p)) | not) | $p ]
+      else [ $ships[] | . as $p
+             | select(($excl | index($p)) | not)
+             | select(($optin | index($p)) | not) | $p ]
       end
     '
+}
+
+# ca_stow_opt_in_list <programs-root> — JSON array of every program whose
+# config.jsonc sets `"stow_opt_in": true`.
+ca_stow_opt_in_list() {
+  local root="$1" f
+  [[ -d "$root" ]] || { printf '[]\n'; return 0; }
+  {
+    for f in "$root"/*/*/config.jsonc; do
+      [[ -f "$f" ]] || continue
+      sed '/^[[:space:]]*\/\//d' "$f" \
+        | grep -Eq '"stow_opt_in"[[:space:]]*:[[:space:]]*true' || continue
+      basename "$(dirname "$f")"
+    done
+  } | jq -R . | jq -s -c 'unique'
 }
 
 # ca_ships_home_list <programs-root> — JSON array of every program name (the

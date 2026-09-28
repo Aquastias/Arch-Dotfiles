@@ -102,3 +102,35 @@ select_() { ca_stow_selection "$1" "$2" "$3" | jq -c .; }
   run select_ '["kitty","zsh"]' '["ccache"]' '[]'
   echo "$output" | jq -e '. == ["kitty","zsh"]'
 }
+
+# ── stow opt-in (ADR 0148): a program marked `stow_opt_in` is never swept up
+# by the no-arg run — a host's own app config must not be adopted — but still
+# stows when named explicitly.
+select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
+
+@test "selection: an opt-in program is skipped when no names are given" {
+  run select4_ '["kitty","vscodium","zsh"]' '[]' '[]' '["vscodium"]'
+  echo "$output" | jq -e '. == ["kitty","zsh"]'
+}
+
+@test "selection: an opt-in program stows when named positionally" {
+  run select4_ '["kitty","vscodium","zsh"]' '[]' '["vscodium"]' '["vscodium"]'
+  echo "$output" | jq -e '. == ["vscodium"]'
+}
+
+@test "selection: --except still subtracts alongside the opt-in skip" {
+  run select4_ '["kitty","vscodium","zsh"]' '["zsh"]' '[]' '["vscodium"]'
+  echo "$output" | jq -e '. == ["kitty"]'
+}
+
+@test "opt_in_list: names programs whose config.jsonc sets stow_opt_in" {
+  root="$BATS_TEST_TMPDIR/programs"
+  mkdir -p "$root/dev/vscodium/home" "$root/system/kitty/home"
+  printf '// c\n{ "name": "vscodium", "stow_opt_in": true }\n' \
+    >"$root/dev/vscodium/config.jsonc"
+  printf '{ "name": "kitty" }\n' >"$root/system/kitty/config.jsonc"
+  run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
+               ca_stow_opt_in_list '$root'"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '. == ["vscodium"]'
+}

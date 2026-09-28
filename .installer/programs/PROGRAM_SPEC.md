@@ -98,7 +98,8 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
   "requires":  ["podman"],                          // ordered before this one
   "conflicts": ["ufw"],                             // cannot coexist
   "system_services": ["foo.service", "bar.timer"],  // enabled by runner
-  "user_services":   ["baz.service"]                // enabled per-user
+  "user_services":   ["baz.service"],               // enabled per-user
+  "stow_opt_in":     true                           // stow only when named
 }
 ```
 
@@ -119,6 +120,10 @@ Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
   with the package.
 - `user_services[]` — user units the runner symlinks into each owning user's
   `~/.config/systemd/user/default.target.wants/`.
+- `stow_opt_in` — `./stow-configs.sh` with no names skips this program's
+  `home/`; it stows only when named. For apps an operator host likely already
+  configures by hand (vscodium, ADR 0148). Install-time Config Apply is
+  unaffected.
 
 Declare `requires`/`conflicts` the moment a genuine cross-Program relation
 exists — before writing `install.sh` — so the fail-fast check, not a mid-install
