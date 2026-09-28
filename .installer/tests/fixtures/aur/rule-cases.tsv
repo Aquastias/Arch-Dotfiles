@@ -219,3 +219,4 @@ hidden-install	-	path	x.install::post_install() { :; }
 missing-ref	+	srcinfo	source = fix.patch
 missing-ref	+	top	install=gone.install
 missing-ref	-	install	true
+weak-checksums	-	sums	md5:SKIP

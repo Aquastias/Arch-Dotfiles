@@ -10,3 +10,4 @@ swift-bin	trust-adopted	reviewed 2026-09-26
 vscodium-bin	toplevel-code	reviewed 2026-09-26
 zen-browser-bin	trust-adopted	reviewed 2026-09-26
 vscodium	toplevel-code	reviewed 2026-09-26
+vscodium-bin	suid	reviewed 2026-09-29 (chrome-sandbox 4755, Electron)

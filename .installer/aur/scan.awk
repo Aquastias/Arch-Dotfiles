@@ -324,8 +324,10 @@ function repo_file(p) {
 }
 
 # Checksum families present in the PKGBUILD: MD5/SHA1/CRC alone is weak.
+# Only a real digest counts — md5sums=('SKIP') (VCS sources) checks nothing.
 function sums_kind(l) {
-  if (l ~ /^[[:space:]]*(md5|sha1|ck)sums(_[[:alnum:]_]+)?=/) sums_weak = 1
+  if (l ~ /^[[:space:]]*(md5|sha1|ck)sums(_[[:alnum:]_]+)?=/ \
+      && l ~ /[0-9a-fA-F]{8}/) sums_weak = 1
   if (l ~ /^[[:space:]]*(sha224|sha256|sha384|sha512|b2)sums(_[[:alnum:]_]+)?=/)
     sums_strong = 1
 }

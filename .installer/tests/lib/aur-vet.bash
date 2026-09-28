@@ -99,8 +99,9 @@ aurvet_case() {
     path) # "<relpath>::<content>": a tracked file at that path
       mkdir -p "$dir/$(dirname "${text%%::*}")"
       printf '%s\n' "${text#*::}" > "$dir/${text%%::*}" ;;
-    sums) # swap the checksum algorithm (e.g. md5) in PKGBUILD + .SRCINFO
-      sed -i "s/sha256sums/${text}sums/" "$pb" "$si" ;;
+    sums) # "<algo>[:SKIP]": swap the sha256 algorithm (and digest)
+      sed -i "s/sha256sums/${text%%:*}sums/" "$pb" "$si"
+      [[ "$text" == *:SKIP ]] && sed -i "s/2\{64\}/SKIP/" "$pb" "$si" ;;
     srcinfo) _aurvet_ins "$si" '^\tsource = ' "	$text" ;;
     nulpkgbuild) printf '# \0\n' >> "$pb" ;;
     pkgbase) ;;

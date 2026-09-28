@@ -64,3 +64,22 @@ _inject() {
   aurvet_hook "$d"
   [ ! -e "$AUR_VET_TEST_MARKER" ]
 }
+
+@test "gained: a version bump that rewrites a flagged line is not a gain" {
+  # The flagged source URL carries the version; a bump changes its text but
+  # not what fires. (basedpyright: source-owner, allowlisted, went critical.)
+  local d; d="$(aurvet_case source "https://github.com/other/rulecase/v1.tgz" g)"
+  sed -i 's#other/rulecase/v1#other/rulecase/v2#' "$d/PKGBUILD" "$d/.SRCINFO"
+  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am bump
+  printf 'rulecase\tsource-owner\treviewed\n' >> "$AUR_VET_STORE/allow.tsv"
+  aurvet_hook "$d" rulecase
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"gained"* ]]
+}
+
+@test "gained: a second copy of an existing finding is a gain" {
+  local d; d="$(aurvet_clone rust-benign)"
+  _inject "$d" '^build[(]' '  cargo fetch --locked'
+  aurvet_hook "$d"
+  [[ "$output" == *"SUSPICIOUS lang-fetch"* ]]
+}
