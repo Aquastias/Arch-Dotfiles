@@ -54,12 +54,14 @@ _lib_dir() {
 # <pkgbase>, with the campaign-window <days>, on stdout: TSV from scan.awk
 # (severity id file line description).
 _scan_tree() {
-  local root="$1" base="$2" days="$3" data bins="" f; data="$(_data_dir)"
+  local root="$1" base="$2" days="$3" data bins="" all="" f
+  data="$(_data_dir)"
   local -a files=()
   for f in rules indicators campaigns; do
     [[ -r "$data/$f.tsv" ]] || _die "missing data file: $data/$f.tsv"
   done
   while IFS= read -r -d '' f; do
+    all+="${f}"$'\037'
     [[ -s "$root/$f" ]] || continue
     # Text files are scanned; the rest are reported by name, never skipped.
     if LC_ALL=C grep -Iq . "$root/$f" 2>/dev/null; then files+=("$root/$f")
@@ -67,7 +69,7 @@ _scan_tree() {
   done
   awk -v root="$root" -v pkgbase="$base" -v days="$days" \
     -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
-    -v campaigns="$data/campaigns.tsv" -v binaries="$bins" \
+    -v campaigns="$data/campaigns.tsv" -v binaries="$bins" -v tracked="$all" \
     -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
 }
 

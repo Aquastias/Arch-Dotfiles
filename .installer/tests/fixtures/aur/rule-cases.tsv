@@ -3,7 +3,8 @@
 # (PKGBUILD top level), file (extra helper.sh), source / source-skip (an
 # extra source, real / SKIP sum), nosrcinfo (drop .SRCINFO), pkgbase,
 # heredoc / shheredoc (a `cat` / `sh` heredoc body in post_install).
-# @BLOB@ expands to a 120-char base64 run.
+# @BLOB@ expands to a 120-char base64 run. path ("<relpath>::<content>"),
+# sums (swap the sha256 algorithm, e.g. md5), srcinfo (a .SRCINFO-only line).
 named-pkg-install	+	build	npm install atomic-lockfile
 named-pkg-install	+	build	bun add js-digest
 named-pkg-install	+	install	yarn add lockfile-js
@@ -153,3 +154,68 @@ ld-preload	-	build	export LD_LIBRARY_PATH="$srcdir/lib"
 miner	+	file	./xmrig -o stratum+tcp://pool.x.example:3333 -u w
 miner	+	build	W=44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A
 miner	-	build	cmake -DWITH_STRATUM=OFF ..
+sudo-in-pkg	+	build	sudo make install
+sudo-in-pkg	-	build	install -Dm644 sudoers.5 "$pkgdir/usr/share/man/man5/"
+suid	+	build	chmod 4755 "$pkgdir/usr/bin/rulecase"
+suid	+	build	install -Dm4755 x "$pkgdir/usr/bin/x"
+suid	+	file	chmod u+s /usr/bin/rulecase
+suid	-	build	chmod 755 "$pkgdir/usr/bin/rulecase"
+suid	-	build	install -Dm0755 x "$pkgdir/usr/bin/x"
+setcap	+	install	setcap cap_net_raw+ep /usr/bin/rulecase
+setcap	-	build	install -Dm644 setcap.conf "$pkgdir/etc/x/setcap.conf"
+sudoers	+	install	echo "x ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/x
+sudoers	+	build	cp x /etc/doas.conf
+sudoers	-	build	install -Dm440 x "$pkgdir/etc/sudoers.d/x"
+pam-tamper	+	install	sed -i '1i auth sufficient pam_permit.so' /etc/pam.d/sudo
+pam-tamper	-	build	install -Dm644 x.pam "$pkgdir/etc/pam.d/x"
+pacman-tamper	+	install	sed -i 's/Required/Never/' /etc/pacman.conf
+pacman-tamper	+	file	echo 'SigLevel = Never' >> x
+pacman-tamper	-	build	install -Dm644 x.hook "$pkgdir/usr/share/libalpm/hooks/x.hook"
+keyring-tamper	+	install	pacman-key --lsign-key ABCD
+keyring-tamper	+	install	pacman-key -r ABCD
+keyring-tamper	-	build	echo "pacman-key is not needed"
+gpg-import	+	build	gpg --recv-keys ABCD
+gpg-import	-	build	gpg --verify x.sig x
+ca-trust	+	install	trust anchor /tmp/evil.crt
+ca-trust	+	install	update-ca-trust
+ca-trust	-	build	install -Dm644 ca.crt "$pkgdir/usr/share/doc/x/ca.crt"
+security-off	+	install	systemctl disable --now firewalld
+security-off	+	install	ufw disable
+security-off	+	build	iptables -F
+security-off	-	install	echo "enable apparmor for full protection"
+meta-core-pkg	+	top	provides=('sudo')
+meta-core-pkg	+	top	replaces=(pacman)
+meta-core-pkg	-	top	provides=('libfoo.so')
+meta-core-pkg	-	top	conflicts=('linux-firmware-git')
+meta-epoch	+	top	epoch=1
+meta-epoch	-	top	_epoch_note=1
+meta-install-path	+	top	install=/etc/x.install
+meta-install-path	+	top	install=../x.install
+meta-install-path	-	top	install=rulecase.install
+meta-backup	+	top	backup=('etc/pam.d/sudo')
+meta-backup	-	top	backup=('etc/rulecase/rulecase.conf')
+weak-checksums	+	sums	md5
+weak-checksums	+	sums	sha1
+weak-checksums	-	sums	b2
+tmp-exec	+	install	chmod +x /tmp/x && /tmp/x
+tmp-exec	+	install	sh /dev/shm/.p
+tmp-exec	-	build	rm -rf /tmp/rulecase-cache
+detach	+	install	nohup /usr/lib/x/agent &
+detach	+	install	setsid -f x
+detach	-	build	./configure --disable-nohup-check
+herestring-exec	+	build	bash <<< "$payload"
+herestring-exec	+	file	python3 - <<< "$code"
+herestring-exec	-	build	read -r a b <<< "$pkgver"
+printf-assembly	+	build	c=$(printf '\x63url'); $c x
+printf-assembly	-	build	pkgver=$(printf "r%s" 1)
+disguised-script	+	path	assets/logo.png::#!/bin/sh
+disguised-script	+	path	lib/libx.so::echo hi
+disguised-script	-	path	assets/logo.svg::<svg/>
+editor-autoexec	+	path	.envrc::export X=1
+editor-autoexec	+	path	.vscode/tasks.json::{}
+editor-autoexec	-	path	docs/README.md::hi
+hidden-install	+	path	.x.install::post_install() { :; }
+hidden-install	-	path	x.install::post_install() { :; }
+missing-ref	+	srcinfo	source = fix.patch
+missing-ref	+	top	install=gone.install
+missing-ref	-	install	true

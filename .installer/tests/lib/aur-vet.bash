@@ -96,6 +96,12 @@ aurvet_case() {
         "	source = https://github.com/rulecase/p.tgz"
       _aurvet_ins "$si" '^\tsha256sums = ' "	sha256sums = SKIP" ;;
     binary) printf '\x89PNG\0\1' > "$dir/icon.png" ;;
+    path) # "<relpath>::<content>": a tracked file at that path
+      mkdir -p "$dir/$(dirname "${text%%::*}")"
+      printf '%s\n' "${text#*::}" > "$dir/${text%%::*}" ;;
+    sums) # swap the checksum algorithm (e.g. md5) in PKGBUILD + .SRCINFO
+      sed -i "s/sha256sums/${text}sums/" "$pb" "$si" ;;
+    srcinfo) _aurvet_ins "$si" '^\tsource = ' "	$text" ;;
     nulpkgbuild) printf '# \0\n' >> "$pb" ;;
     pkgbase) ;;
     *) echo "unknown placement: $placement" >&2; return 1 ;;

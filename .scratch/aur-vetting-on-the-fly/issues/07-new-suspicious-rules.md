@@ -14,9 +14,14 @@ builtins.
 
 **Blocked by:** 05 (Obfuscation stripping).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] ≥1 positive and ≥1 negative case per new rule (rule-case rows or
+- [x] ≥1 positive and ≥1 negative case per new rule (rule-case rows or
       fixture cases for builtins)
-- [ ] Severity per the spec's guideline
-- [ ] Benign fixtures still pass
+- [x] Severity per the spec's guideline
+- [x] Benign fixtures still pass
+
+## Comments
+
+- `epoch` landed info, not suspicious: common in legit packages (noise).
+- Missing checksums are left to makepkg (it refuses a source without one).

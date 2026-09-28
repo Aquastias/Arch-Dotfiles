@@ -73,6 +73,7 @@ FNR == 1 {
   infn = 0; bfn = 0; depth = 0; braced = 0; inarr = 0; arrsums = 0
   hd_end = ""; hd_inert = 0
   if (kind == "srcinfo") have_srcinfo = 1
+  repo_file(f)
 }
 {
   line = $0
@@ -85,6 +86,7 @@ FNR == 1 {
     # Hosts are extracted at END, after top-level variables are known.
     if (!comment) { npb++; pbl[npb] = line; pbln[npb] = FNR }
     if (curtop) emit("toplevel-code", f, FNR)
+    if (!comment) sums_kind(line)
   }
   if (kind == "srcinfo") srcinfo_collect(line)
   curbuild = (kind == "pkgbuild" && infn && bfn)
@@ -116,7 +118,10 @@ END {
   binaries_emit()
   if (pkgbase ~ /-bin$/) emit("bin-package", "PKGBUILD", 0)
   indicators_pkgbase()
+  if (sums_weak && !sums_strong) emit("weak-checksums", "PKGBUILD", 0)
+  refs_check()
   if (!have_srcinfo) { emit("srcinfo-missing", ".SRCINFO", 0); exit }
+  local_sources_check()
   pkgbuild_hosts()
   for (h in pbhost)
     if (!(h in sihost)) emit("srcinfo-mismatch", "PKGBUILD", pbhost[h])
@@ -306,6 +311,54 @@ function forge_owner(u,   h, o) {
 # Files grep -I calls binary are never text-scanned. A NUL in a file bash
 # sources (PKGBUILD, .install, scripts) hides code from review — and from
 # `git diff` — so it is critical; other binaries (icons) are suspicious.
+# ── Repo-shape checks (ADR 0149) ────────────────────────────────────────────
+# A tracked text file that should not be one, or should not be there.
+function repo_file(p) {
+  if (p ~ /\.(png|jpe?g|gif|ico|bmp|webp|so(\.[0-9]+)*|a|o|ko|ttf|otf\
+|woff2?|zip|gz|xz|zst|bz2|7z|tar|mp3|mp4|ogg|pdf)$/)
+    emit("disguised-script", p, 1)
+  if (p ~ /(^|\/)(\.envrc|\.exrc|\.nvimrc|\.nvim\.lua|\.vscode\/(tasks|settings\
+|launch)\.json|\.devcontainer\/[^\/]+|\.idea\/runConfigurations\/[^\/]+)$/)
+    emit("editor-autoexec", p, 1)
+  if (p ~ /(^|\/)\.[^\/]*\.install$/) emit("hidden-install", p, 1)
+}
+
+# Checksum families present in the PKGBUILD: MD5/SHA1/CRC alone is weak.
+function sums_kind(l) {
+  if (l ~ /^[[:space:]]*(md5|sha1|ck)sums(_[[:alnum:]_]+)?=/) sums_weak = 1
+  if (l ~ /^[[:space:]]*(sha224|sha256|sha384|sha512|b2)sums(_[[:alnum:]_]+)?=/)
+    sums_strong = 1
+}
+
+# Is <p> a tracked path of the clone? (tracked: \037-joined, from aur-vet)
+function is_tracked(p,   k, n, t) {
+  if (!tracked_n) {
+    n = split(tracked, t, "\037")
+    for (k = 1; k <= n; k++) if (t[k] != "") have_path[t[k]] = 1
+    tracked_n = 1
+  }
+  return (p in have_path)
+}
+
+# install= names a scriptlet that must be a dot-free file in the repo.
+function refs_check(   v, b) {
+  if (!("install" in pvar)) return
+  v = expand(pvar["install"])
+  if (v == "" || v ~ /[$]/) return
+  b = v; sub(/.*\//, "", b)
+  if (b ~ /^\./) emit("hidden-install", "PKGBUILD", 0, v)
+  if (v !~ /^\// && !is_tracked(v)) emit("missing-ref", "PKGBUILD", 0, v)
+}
+
+# A local (non-URL) source must be tracked in the repo.
+function local_sources_check(   k, u) {
+  for (k = 1; k <= srcall; k++) {
+    u = srcurl[k]
+    if (u == "" || u ~ /:\/\// || u ~ /^[[:alnum:]]+[+]/) continue
+    if (!is_tracked(u)) emit("missing-ref", ".SRCINFO", srcline[k], u)
+  }
+}
+
 function binaries_emit(   k, nb, bn) {
   nb = split(binaries, bn, "\037")
   for (k = 1; k <= nb; k++) {

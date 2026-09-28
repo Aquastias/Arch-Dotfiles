@@ -83,6 +83,26 @@ miner	critical	code	(^|[^[:alnum:]_-])(xmrig|xmr-stak|minerd|cpuminer)\
 	([[:space:]]|$|[-.])|stratum[+](tcp|ssl|tls)://\
 	|(^|[^[:alnum:]])4[0-9AB][1-9A-HJ-NP-Za-km-z]{93}([^[:alnum:]]|$)\
 		cryptominer, mining pool or Monero wallet
+sudoers	critical	code	(^|[[:space:]>=(])["']?/etc/(sudoers\
+	|doas[.]conf)|NOPASSWD\
+		edits sudo/doas privileges
+pam-tamper	critical	code	(^|[[:space:]>=(])["']?/etc/pam[.]d/\
+		edits live PAM config outside $pkgdir
+pacman-tamper	critical	code	SigLevel[^=#]*=[^#]*(Never|TrustAll)\
+	|(^|[[:space:]>=(])["']?/etc/pacman[.](conf|d/)\
+		weakens or edits pacman's own config
+keyring-tamper	critical	code	pacman-key[[:space:]]+([^|;&]*[[:space:]])?\
+	--?(lsign(-key)?|add|recv-keys?|r|a|populate)([[:space:]]|$)\
+		changes pacman's trusted keys
+ca-trust	critical	code	trust[[:space:]]+anchor|update-ca-trust\
+	|(^|[[:space:]>=(])["']?/(etc|usr/share)/ca-certificates/trust-source\
+		injects a trusted CA
+security-off	critical	code	setenforce[[:space:]]+0\
+	|aa-(teardown|disable|complain)([[:space:]]|$)|ufw[[:space:]]+disable\
+	|systemctl[[:space:]]+([^|;&]*[[:space:]])?(disable|stop|mask)[[:space:]]\
+	[^|;&]*(apparmor|firewalld|ufw|nftables|iptables|auditd|clamav|fail2ban)\
+	|(iptables|nft)[[:space:]]+(-F|flush)	disables a security control\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 bad-source-host	critical	source	://([^/]*[.])?(pastebin[.]com|paste[.]ee\
 	|hastebin[.]com|ghostbin[.][a-z]+|rentry[.](co|org)|transfer[.]sh\
 	|temp[.]sh|0x0[.]st|termbin[.]com|catsh[.]zip|cdn[.]discordapp[.]com\
@@ -98,6 +118,38 @@ kmod-modprobe	suspicious	code	(^|[^[:alnum:]_-])modprobe[[:space:]]\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 ld-preload	suspicious	code	(^|[^[:alnum:]_])LD_PRELOAD=\
 		library preload in a command
+sudo-in-pkg	suspicious	code	(^|[^[:alnum:]_-])sudo[[:space:]]\
+		sudo inside a package function or scriptlet\
+		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
+suid	suspicious	code	chmod[[:space:]]+(-[^[:space:]]+[[:space:]]+)*\
+	([ugoa]*[+][rwxt]*s|0?[2467][0-7]{3})([[:space:]]|$)\
+	|install[[:space:]][^;&|]*-[[:alpha:]]*m[[:space:]]*0?[2467][0-7]{3}\
+		sets a SUID/SGID bit
+setcap	suspicious	code	(^|[^[:alnum:]_-])setcap[[:space:]]\
+		grants file capabilities
+gpg-import	suspicious	code	(^|[^[:alnum:]_-])gpg2?[[:space:]][^|;&]*\
+	--(recv-keys?|import|keyserver)	imports GPG keys at build time
+meta-core-pkg	suspicious	code	^[[:space:]]*(provides|replaces|conflicts)\
+	(_[[:alnum:]_]+)?=[(]([^)]*['"[:space:]])?(glibc|pacman|systemd|sudo|openssh\
+	|linux|coreutils|bash|shadow|pam|openssl|ca-certificates|gnupg\
+	|archlinux-keyring|filesystem|util-linux|polkit|apparmor|firewalld|ufw)\
+	([<>=:'"[:space:])]|$)	provides/replaces/conflicts a core package
+meta-install-path	suspicious	code	^[[:space:]]*install=["']?(/|[.][.]/|~)\
+		install= scriptlet outside the package repo
+meta-backup	suspicious	code	^[[:space:]]*backup=[(].*etc/(sudoers|pam[.]d\
+	|pacman[.]conf|ld[.]so|g?shadow|passwd|group|ssh/sshd_config|profile\
+	|environment|security/)	backup= claims a security-sensitive file
+tmp-exec	suspicious	code	chmod[[:space:]][^;&|]*[[:space:]]\
+	["']?/(tmp|var/tmp|dev/shm)/|(^|[;&|][[:space:]]*|(sh|bash|exec|source)\
+	[[:space:]]+)["']?/(tmp|var/tmp|dev/shm)/[^[:space:]/]\
+		runs something from a temp dir
+detach	suspicious	code	(^|[^[:alnum:]_-])(nohup|setsid|disown)\
+	([[:space:]]|$)	detaches a background process
+herestring-exec	suspicious	code	(^|[^[:alnum:]_-])((ba|z|da)?sh\
+	|python[0-9.]*|perl|eval|source)[[:space:]]+(-[^[:space:]]*[[:space:]]+)*<<<\
+		interpreter fed a here-string
+printf-assembly	suspicious	code	[$][(][[:space:]]*printf[[:space:]]\
+	[^)]*\\(x[0-9a-fA-F]|[0-7]{3})	command assembled from printf escapes
 build-network	suspicious	build	(^|[^[:alnum:]_.-])(curl|wget|nc|ncat|socat\
 	|aria2c)([[:space:]]|$)|/dev/(tcp|udp)/|git[[:space:]]+clone\
 		network fetch outside source=
@@ -126,6 +178,14 @@ decode-pipe	suspicious	code	(printf[[:space:]]+["']?%b|echo[[:space:]]+-e)\
 	[^|]*[|][[:space:]]*((ba|z|da)?sh|eval)	escaped string fed to a shell
 eval-subst	suspicious	code	eval[[:space:]]+["']?[$][(]\
 		eval of a command substitution
+weak-checksums	suspicious	builtin	-	only MD5/SHA1/CRC checksums
+disguised-script	suspicious	builtin	-\
+		text under a media/library/archive extension
+editor-autoexec	suspicious	builtin	-\
+		editor/direnv file that runs code when opened
+hidden-install	suspicious	builtin	-	dot-prefixed .install scriptlet
+missing-ref	suspicious	builtin	-\
+		install=/source= file missing from the repo
 srcinfo-missing	suspicious	builtin	-	no .SRCINFO in the clone
 srcinfo-mismatch	suspicious	builtin	-	PKGBUILD URL host absent from .SRCINFO
 skip-checksum	suspicious	builtin	-	SKIP checksum on a non-VCS remote source
@@ -133,6 +193,8 @@ source-owner	suspicious	builtin	-	forge source owner absent from url=
 toplevel-code	suspicious	builtin	-	PKGBUILD runs code at parse time
 
 # ── info ────────────────────────────────────────────────────────────────────
+meta-epoch	info	code	^[[:space:]]*epoch=[1-9]\
+		epoch forces the version ordering
 lockfile-install	info	code	(^|[^[:alnum:]_-])(npm[[:space:]]+(ci|install)\
 	|(yarn|pnpm|bun)[[:space:]]+install)([[:space:]]|$)\
 		lockfile-driven package-manager install
