@@ -23,7 +23,14 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git branch:*)",
+      "Bash(.installer/vm/vm-agent.sh:*)",
+      "Bash(.installer/vm/vm.sh:*)",
+      "Bash(virsh:*)",
+      "Bash(git branch:*)",
+      "Bash(.installer/vm/vm-agent.sh:*)",
+      "Bash(.installer/vm/vm.sh:*)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
@@ -40,11 +47,7 @@
     ],
     "defaultMode": "auto",
     "disableBypassPermissionsMode": "disable",
-    "additionalDirectories": [
-      "~/.dotfiles",
-      "~/.claude",
-      "~/Projects"
-    ]
+    "additionalDirectories": ["~/.dotfiles", "~/.claude", "~/Projects"]
   },
   "skipAutoPermissionPrompt": true,
   "model": "claude-opus-5-5",
@@ -64,15 +67,8 @@
     "failIfUnavailable": true,
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
-      "allowWrite": [
-        "~/.dotfiles",
-        "~/.claude",
-        "~/Projects",
-        "/tmp"
-      ],
-      "denyWrite": [
-        "/"
-      ],
+      "allowWrite": ["~/.dotfiles", "~/.claude", "~/Projects", "/tmp"],
+      "denyWrite": ["/"],
       "denyRead": [
         "~/.ssh",
         "~/.gnupg",
