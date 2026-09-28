@@ -8,7 +8,7 @@ is Accepted and the PRD is done.
 
 **Blocked by:** 02, 03, 04
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Every matrix cell passes on both compositors; evidence in
       `## Comments`. (All but Hyprland after-close, waiting for 0.57.)
@@ -52,3 +52,6 @@ is Accepted and the PRD is done.
     not set in the repo, a decision for the operator.
 - Menus: all 4 apps pass on both compositors. Remaining: Hyprland
   after-close once 0.57 lands.
+- 2026-09-28 closed by the operator. Hyprland after-close waits for 0.57
+  (hyprwm/Hyprland#16117); the prober's `keep=xfail` turns into a hard check
+  once 0.57 is installed, so no ticket needs to stay open for it.

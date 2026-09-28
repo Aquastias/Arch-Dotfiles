@@ -1,6 +1,6 @@
 # wlroots sessions: cross-toolkit clipboard + menus that keep focus
 
-Status: ready-for-agent
+Status: done
 
 Based on ADR 0147 (click-to-focus on both compositors, Noctalia's clipboard
 keep-alive). Uses the [[Wayland Shell Companion]] / [[Desktop Environment
