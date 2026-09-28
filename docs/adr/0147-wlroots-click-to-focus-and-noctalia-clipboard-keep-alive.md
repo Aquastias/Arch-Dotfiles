@@ -2,8 +2,7 @@
 
 ## Status
 Accepted, 2026-09-28. Verified in the VM (`.scratch/wlroots-clipboard-focus/`).
-Still open: menus on niri (no pointer injector there), and keeping the
-clipboard after close on Hyprland once 0.57 ships.
+Still open: keeping the clipboard after close on Hyprland once 0.57 ships.
 Applies to both wlroots compositors (niri, Hyprland) of the
 [[Wayland Shell Companion]]. Extends ADR 0100 (Noctalia owns the QoL layer).
 

@@ -15,9 +15,9 @@ still close.
 - [x] Static guard: niri curated config has no `focus-follows-mouse`.
 - [x] Popup window rules only if 01's evidence requires them, grounded in
       the Hyprland/Arch wiki.
-- [ ] vm-agent run: File menu, context menu, submenu open and an item can be
+- [x] vm-agent run: File menu, context menu, submenu open and an item can be
       selected in Chromium, VSCodium, a Qt app and a GTK app on both
-      compositors; evidence in `## Comments`. (Hyprland done; niri → ticket 05.)
+      compositors; evidence in `## Comments`. (both: ticket 03 + 05 comments.)
 
 ## Comments
 
