@@ -6,7 +6,7 @@
 # extensions only.
 
 setup() {
-  REPO="$BATS_TEST_DIRNAME/../../.."        # .installer/tests/config → repo root
+  REPO="$BATS_TEST_DIRNAME/../../.."   # .installer/tests/config → repo root
   PROG="$REPO/.installer/programs/dev/vscodium"
   CFG="$PROG/config.jsonc"
   INSTALL="$PROG/install.sh"
@@ -15,6 +15,10 @@ setup() {
   SETTINGS="$USERDIR/settings.json"
   KEYS="$USERDIR/keybindings.json"
   UCORE="$REPO/.installer/users/core/profile.jsonc"
+  HOSTCORE="$REPO/.installer/hosts/core/profile.jsonc"
+  COVERAGE="$PROG/coverage.txt"
+  LANGS="$REPO/.installer/programs/dev/nvim/home/.config/nvim/lua/config"
+  LANGS="$LANGS/languages.lua"             # the Language Registry
   # shellcheck source=../../lib/jsonc.sh
   source "$REPO/.installer/lib/jsonc.sh"
 }
@@ -129,4 +133,137 @@ ext_ids() { grep -vE '^[[:space:]]*(#|$)' "$EXTS"; }
   ca_stow_opt_in_list "$root" | jq -e 'index("vscodium") != null'
   ca_stow_selection "$(ca_ships_home_list "$root")" '[]' '[]' \
     "$(ca_stow_opt_in_list "$root")" | jq -e 'index("vscodium") == null'
+}
+
+# ── languages on the system toolchain (ADR 0148) ─────────────────────────────
+
+# registry_keys → the Language Registry's language keys (ADR 0141), read from
+# nvim's languages.lua with awk — no Lua runtime.
+registry_keys() {
+  awk '/^local registry = \{/ { on = 1; next }
+       on && /^}/ { exit }
+       on && match($0, /^  [a-z_]+ = /) {
+         k = substr($0, 3); sub(/ = .*/, "", k); print k }' \
+    "$LANGS"
+}
+
+# registry_formatters → "<ft> <formatter>" per Registry filetype that formats.
+registry_formatters() {
+  awk '/^local registry = \{/ { on = 1; next }
+       on && /^}/ { exit }
+       on && /^  [a-z_]+ = / { ft = ""; fmt = "" }
+       on && /ft = \{/ { s = $0; sub(/.*ft = \{/, "", s); sub(/\}.*/, "", s)
+                         ft = s }
+       on && /formatter = \{/ { s = $0; sub(/.*formatter = \{/, "", s)
+                                sub(/\}.*/, "", s); fmt = s }
+       on && ft != "" && fmt != "" {
+         gsub(/[" ]/, "", ft); gsub(/[" ]/, "", fmt)
+         n = split(ft, fts, ","); split(fmt, f, ",")
+         for (i = 1; i <= n; i++) if (fts[i] != "") print fts[i], f[1]
+         ft = ""; fmt = "" }' \
+    "$LANGS"
+}
+
+# coverage_keys → the Editor Coverage Map's language keys.
+coverage_keys() {
+  grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" | awk '{print $1}'
+}
+
+@test "the Registry parse sees the languages nvim wires (sanity)" {
+  run registry_keys
+  [[ " ${lines[*]} " == *" lua "* ]]
+  [[ " ${lines[*]} " == *" typescript "* ]]
+  [[ " ${lines[*]} " == *" typst "* ]]
+  [ "${#lines[@]}" -ge 20 ]
+}
+
+@test "Editor Coverage Map keys == Language Registry keys (ADR 0148)" {
+  diff <(registry_keys | sort) <(coverage_keys | sort)
+}
+
+@test "every Coverage Map extension is in the extension list" {
+  local ids
+  ids="$(grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" \
+    | awk '$2 != "n/a" { for (i = 2; i <= NF; i++) print $i }')"
+  [ -n "$ids" ]
+  local id
+  while IFS= read -r id; do
+    ext_ids | grep -qx "$id" || { echo "missing from list: $id"; false; }
+  done <<<"$ids"
+}
+
+@test "an n/a Coverage Map row states a reason" {
+  run awk '!/^[[:space:]]*(#|$)/ && $2 == "n/a" && NF < 3' "$COVERAGE"
+  [ -z "$output" ]
+}
+
+# Formatter name (Registry) → the VSCodium extension that formats with it.
+# Independent of the settings: this is the ADR 0148 parity contract.
+fmt_ext() {
+  case "$1" in
+  stylua) echo JohnnyMorganz.stylua ;;
+  ruff_format) echo charliermarsh.ruff ;;
+  biome) echo biomejs.biome ;;
+  prettier) echo esbenp.prettier-vscode ;;
+  gofmt) echo golang.go ;;
+  rustfmt) echo rust-lang.rust-analyzer ;;
+  zigfmt) echo ziglang.vscode-zig ;;
+  *) echo "UNMAPPED:$1" ;;
+  esac
+}
+
+@test "each Registry formatter is the VSCodium default for its filetypes" {
+  local ft fmt want got
+  run registry_formatters
+  [ "${#lines[@]}" -ge 15 ]
+  while read -r ft fmt; do
+    want="$(fmt_ext "$fmt")"
+    got="$(setting ".\"[$ft]\".\"editor.defaultFormatter\"" | jq -r .)"
+    [ "$got" = "$want" ] || { echo "$ft: want $want got $got"; false; }
+  done < <(registry_formatters)
+}
+
+@test "save behaves as nvim: format on save, no code actions, no autosave" {
+  [ "$(setting '."editor.formatOnSave"')" = 'true' ]
+  setting '."editor.codeActionsOnSave" // {}' | jq -e 'length == 0'
+  [ "$(setting '."files.autoSave" // "off"')" = '"off"' ]
+}
+
+# System path settings → the package providing that path. Each package must be
+# declared by Host Core, be a dependency of one it declares (rust ← rust-src ←
+# rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor).
+@test "toolchain path settings point at Host Core system binaries" {
+  local key path pkg
+  while read -r key path pkg; do
+    got="$(setting ".$key" | jq -r 'if type == "array" then .[0] else . end')"
+    [ "$got" = "$path" ] || { echo "$key: want $path got $got"; false; }
+    if [ "$pkg" = "@nvim" ]; then
+      grep -q 'needed phpactor' "$REPO/.installer/programs/dev/nvim/install.sh"
+    else
+      grep -q "\"$pkg\"" "$HOSTCORE" \
+        || { echo "$pkg not in Host Core"; false; }
+    fi
+  done <<'EOF_'
+"rust-analyzer.server.path" /usr/bin/rust-analyzer rust-analyzer
+"go.alternateTools".gopls /usr/bin/gopls gopls
+"go.alternateTools".dlv /usr/bin/dlv delve
+"ruff.path" /usr/bin/ruff ruff
+"biome.lsp.bin" /usr/bin/biome biome
+"prettier.prettierPath" /usr/lib/node_modules/prettier prettier
+"stylua.styluaPath" /usr/bin/stylua stylua
+"Lua.misc.executablePath" /usr/bin/lua-language-server lua-language-server
+"clangd.path" /usr/bin/clangd clang
+"zig.path" /usr/bin/zig zls
+"zig.zls.path" /usr/bin/zls zls
+"nix.serverPath" /usr/bin/nixd nixd
+"phpactor.path" /usr/bin/phpactor @nvim
+"svelte.language-server.ls-path" /usr/bin/svelteserver svelte-language-server
+"vue.server.path" /usr/lib/node_modules/@vue/language-server vue-language-server
+EOF_
+}
+
+@test "managed tool downloads are off (Go tools, zig/zls)" {
+  [ "$(setting '."go.toolsManagement.autoUpdate"')" = 'false' ]
+  [ "$(setting '."go.toolsManagement.checkForUpdates"')" = '"off"' ]
+  [ "$(setting '."zig.zls.enabled"')" = '"on"' ]
 }

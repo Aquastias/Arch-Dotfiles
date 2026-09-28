@@ -39,12 +39,15 @@ does, without becoming a second, drifting source of truth for the toolchain.
   or overwritten by the repo.
 - **Behaviour follows nvim over the old host config:** format on save only (no
   biome fix-all/organize-imports on save, no autosave — autosave-after-delay
-  skips format-on-save); organize imports on `<leader>co`; biome only lints
-  with a `biome.json`. Look: static Catppuccin Mocha + sapphire accent, no
-  black overrides, `catppuccin-mocha` icons (fixed across palettes, like
-  devicons), `FiraCode Nerd Font` 12 with ligatures (the font `lib/config/fonts.sh`
-  seeds). Kept host preferences: sidebar right, `jj` escape,
-  `<C-a/f/p>` passed through, system clipboard.
+  skips format-on-save); organize imports on `<leader>co`. Look: static
+  Catppuccin Mocha + sapphire accent, no black overrides, `catppuccin-mocha`
+  icons (fixed across palettes, like devicons), `FiraCode Nerd Font` 12 with
+  ligatures (the font `lib/config/fonts.sh` seeds). Kept host preferences:
+  sidebar right, `jj` escape, `<C-a/f/p>` passed through, system clipboard.
+- **Server paths** (settled in ticket 03): Vue's `vue.server.path` takes the
+  `@vue/language-server` module dir; svelte's `ls-path` takes Arch's
+  `svelteserver` (a symlink to the package's `bin/server.js`); phpactor's
+  `phpactor.path` takes the binary the `dev/nvim` program installs.
 - **Motions/keys:** `vim.sneak` on `s`/`S` stands in for flash; easymotion is
   off (its `<leader><leader>` prefix collides with nvim's smart picker).
   `gs*` is remapped onto VSCodeVim surround (`<plugys>`/`<plugds>`/
@@ -59,6 +62,16 @@ No system-path setting exists, so these use the extension's own copy:
 tailwindcss, yaml, bash-ide server, basedpyright (resolves the Python
 package, not the PATH binary), debugpy, js-debug (built into VSCodium), and
 codelldb (the extension downloads its adapter from GitHub on first debug).
+The TypeScript/JavaScript, JSON, CSS, HTML and emmet language features are
+VSCodium built-ins — the same servers nvim gets from
+`typescript-language-server`/`vscode-langservers-extracted`, but VSCodium's
+own copies.
+
+### Behaviour differences
+biome: nvim lints with biome only when a `biome.json` exists; the biome
+extension has no lint-only switch (`biome.requireConfiguration` disables
+formatting too), so VSCodium formats everywhere and lints with biome's
+recommended rules even without a config.
 
 ### Parity gaps (nvim-only)
 harpoon (only a <2k-download Open VSX port), undotree (none on Open VSX),

@@ -1,0 +1,29 @@
+# Editor Coverage Map (ADR 0148): one row per Language Registry key (nvim
+# languages.lua, ADR 0141) → the VSCodium extension(s) covering it, or
+# `n/a <reason>`. vscodium-program.bats fails when the keys drift apart.
+lua         sumneko.lua JohnnyMorganz.stylua
+python      detachhead.basedpyright charliermarsh.ruff
+nix         jnoortheen.nix-ide
+php         phpactor.vscode-phpactor
+svelte      svelte.svelte-vscode esbenp.prettier-vscode
+vue         Vue.volar esbenp.prettier-vscode
+typescript  biomejs.biome
+json        biomejs.biome
+css         biomejs.biome
+html        esbenp.prettier-vscode
+yaml        redhat.vscode-yaml esbenp.prettier-vscode
+markdown    esbenp.prettier-vscode
+bash        mads-hartmann.bash-ide-vscode
+http        humao.rest-client
+go          golang.go
+rust        rust-lang.rust-analyzer
+zig         ziglang.vscode-zig
+c           llvm-vs-code-extensions.vscode-clangd
+cpp         llvm-vs-code-extensions.vscode-clangd
+tailwind    bradlc.vscode-tailwindcss
+emmet       n/a built into VSCodium
+eslint      dbaeumer.vscode-eslint
+vimdoc      n/a nvim help parser, nothing to edit in VSCodium
+regex       n/a built-in regex highlighting
+latex       n/a nvim parser only (render-markdown math); built-in grammar
+typst       n/a nvim parser only, no language server wired in nvim

@@ -15,13 +15,19 @@ Registry key → extension ID(s) or `n/a` + reason.
 
 **Status:** ready-for-agent
 
-- [ ] Coverage Map test: Registry keys (awk-extracted, no Lua runtime) ==
+- [x] Coverage Map test: Registry keys (awk-extracted, no Lua runtime) ==
       Coverage Map keys; every non-n/a ID is in the extension list
-- [ ] Test: every path setting resolves to a binary a Host Core package
+- [x] Test: every path setting resolves to a binary a Host Core package
       provides
-- [ ] Test: each Registry formatter has the matching VSCodium default
+- [x] Test: each Registry formatter has the matching VSCodium default
       formatter for its filetypes
-- [ ] Vue server path form (dir vs entry) settled; phpactor bundling settled;
+- [x] Vue server path form (dir vs entry) settled; phpactor bundling settled;
       both noted in ADR 0148 if it changes anything
 - [ ] VM: format on save in a TS and a Rust file; language servers in use are
       the `/usr/bin` ones (process list)
+
+## Comments
+
+- Static slice done. Vue = module dir, svelte = /usr/bin/svelteserver,
+  phpactor = binary path. biome lint-only-with-config not possible (ADR 0148
+  Behaviour differences). VM checks run in ticket 06.

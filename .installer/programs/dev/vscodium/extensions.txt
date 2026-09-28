@@ -7,3 +7,25 @@ vscodevim.vim
 # Look
 catppuccin.catppuccin-vsc
 catppuccin.catppuccin-vsc-icons
+
+# Languages — one per Editor Coverage Map row (coverage.txt); servers point at
+# the Host Core system binaries in settings.json where a path setting exists.
+sumneko.lua
+JohnnyMorganz.stylua
+detachhead.basedpyright
+charliermarsh.ruff
+jnoortheen.nix-ide
+phpactor.vscode-phpactor
+svelte.svelte-vscode
+Vue.volar
+biomejs.biome
+esbenp.prettier-vscode
+redhat.vscode-yaml
+mads-hartmann.bash-ide-vscode
+humao.rest-client
+golang.go
+rust-lang.rust-analyzer
+ziglang.vscode-zig
+llvm-vs-code-extensions.vscode-clangd
+bradlc.vscode-tailwindcss
+dbaeumer.vscode-eslint
