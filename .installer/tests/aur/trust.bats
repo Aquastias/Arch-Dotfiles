@@ -75,3 +75,42 @@ _days_ago() { echo $(($(date +%s) - $1 * 86400)); }
   aurvet_hook "$d" 123pan-bin
   [[ "$output" == *"CRITICAL indicator-pkgbase "* ]]
 }
+
+# ── probable adoption (ADR 0149): AUR server fields, never git authors ──────
+
+@test "adoption: recent adoption alone is suspicious" {
+  local d; d="$(aurvet_clone electron-benign)"
+  aurvet_rpc electron-benign Maintainer='"adopter"' Submitter='"original"' \
+    LastModified="$(_days_ago 2)"
+  aurvet_hook "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"SUSPICIOUS trust-adopted"* ]]
+  [[ "$output" != *"CRITICAL"* ]]
+}
+
+@test "adoption: recent adoption + a gained finding is critical" {
+  local d; d="$(aurvet_clone rust-benign)"
+  aurvet_commit "$d" PKGBUILD 's/^build() {$/build() {\n  npx x/'
+  aurvet_rpc rust-benign Maintainer='"adopter"' Submitter='"original"' \
+    LastModified="$(_days_ago 2)"
+  aurvet_hook "$d"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"CRITICAL trust-adopted"* ]]
+}
+
+@test "adoption: an adoption older than 14 days is no finding" {
+  aurvet_rpc electron-benign Maintainer='"adopter"' Submitter='"original"' \
+    LastModified="$(_days_ago 30)"
+  aurvet_hook "$(aurvet_clone electron-benign)"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"trust-adopted"* ]]
+}
+
+@test "adoption: spoofed git authors never count as a maintainer change" {
+  local d; d="$(aurvet_clone electron-benign trusted-old-maintainer)"
+  git -C "$d" -c user.name=evil -c user.email=evil@aur commit -q \
+    --allow-empty -m "looks routine"
+  aurvet_hook "$d"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"trust-"*"evil"* ]]
+}

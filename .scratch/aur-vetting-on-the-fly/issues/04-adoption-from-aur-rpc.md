@@ -7,9 +7,9 @@ critical together with a [[Gained Finding]] (ADR 0149).
 
 **Blocked by:** 03 (Gained findings).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] RPC fixture: recent adoption alone → suspicious
-- [ ] Recent adoption + gained finding → critical
-- [ ] Old adoption (> 14 days) → no adoption finding
-- [ ] No trust decision reads git author/committer
+- [x] RPC fixture: recent adoption alone → suspicious
+- [x] Recent adoption + gained finding → critical
+- [x] Old adoption (> 14 days) → no adoption finding
+- [x] No trust decision reads git author/committer

@@ -480,6 +480,11 @@ _evaluate() {
         suspicious) sev=critical ;;
       esac
     fi
+    # A probable adoption that also gained something is the Atomic Arch
+    # takeover shape (ADR 0149). Trust rows come last, after every gain.
+    if [[ "$id" == trust-adopted ]] && ((_E_GAINED)); then
+      sev=critical; tag=" (adopted and gained a finding)"
+    fi
     _say "$(printf '%s %s %s:%s %s%s' "${sev^^}" "$id" "$file" "$ln" \
       "$desc" "$tag")"
     case "$sev" in
