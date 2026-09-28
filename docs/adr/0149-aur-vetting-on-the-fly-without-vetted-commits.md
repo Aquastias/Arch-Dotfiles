@@ -1,7 +1,8 @@
 # ADR 0149: AUR Vetting on the fly, without Vetted Commits
 
 ## Status
-Accepted — pending implementation. Supersedes ADR 0143's Vetted Commits (the
+Accepted — implemented; VM-verified (unattended `arch-combined` install,
+`claude` included). Supersedes ADR 0143's Vetted Commits (the
 pin store, bump-only auto-accept, `repin`/`seed`/`export`, the
 maintainer-changed rule). Keeps ADR 0143's seams (paru `PreBuildCommand`,
 bootstrap rung, yay refusal), text-only analysis, rules-as-data, Indicators,

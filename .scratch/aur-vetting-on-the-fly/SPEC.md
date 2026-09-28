@@ -1,6 +1,6 @@
 # Spec: AUR Vetting on the fly (no Vetted Commits)
 
-Status: ready-for-agent
+Status: done
 
 Anchors: ADR 0149 (this decision), ADR 0143 (AUR Vetting; its seams, rules
 engine and no-bypass stand), ADR 0052 (AUR Helper ladder). Research:
