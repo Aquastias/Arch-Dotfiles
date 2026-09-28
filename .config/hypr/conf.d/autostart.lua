@@ -22,4 +22,8 @@ hl.on("hyprland.start", function()
     hl.exec_cmd('sh -c "gsettings set org.gnome.desktop.interface cursor-theme '
       .. 'Bibata-Modern-Ice; gsettings set org.gnome.desktop.interface '
       .. 'cursor-size 24"')
+    -- Middle-click paste for GTK (ADR 0147): gsettings-desktop-schemas 50
+    -- defaults gtk-enable-primary-paste off; Qt/Chromium keep it on.
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface "
+      .. "gtk-enable-primary-paste true")
 end)

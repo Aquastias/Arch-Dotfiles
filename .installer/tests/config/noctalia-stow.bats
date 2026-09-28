@@ -68,6 +68,24 @@ setup() {
   sed -n '/^\[shell\]/,/^\[/p' "$CT" | grep -q '^polkit_agent = true'
 }
 
+@test "config.toml pins Noctalia's clipboard keep-alive (ADR 0147)" {
+  sed -n '/^\[shell\]/,/^\[/p' "$CT" \
+    | grep -q '^clipboard_keep_from_closed_apps = true'
+}
+
+@test "hypr is click-to-focus; niri adds no focus-follows-mouse (ADR 0147)" {
+  local in="$REPO/.config/hypr/conf.d/input.lua"
+  grep -q '^ *follow_mouse = 2,' "$in"
+  grep -q '^ *float_switch_override_focus = 0,' "$in"
+  grep -q '^ *anr_missed_pings = 15,' "$in"
+  ! grep -rq 'focus-follows-mouse' "$REPO/.config/niri"
+}
+
+@test "both compositors re-enable GTK middle-click paste (ADR 0147)" {
+  grep -q 'gtk-enable-primary-paste" "true"' "$NAUTO"
+  grep -q 'gtk-enable-primary-paste true' "$HAUTO"
+}
+
 @test "config.toml points the default wallpaper at the packaged asset" {
   grep -q '^path = "/usr/share/noctalia/assets/noctalia-wallpaper.png"' "$CT"
 }

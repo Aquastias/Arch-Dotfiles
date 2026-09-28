@@ -132,8 +132,8 @@ Both wlroots sessions behave the same way and predictably:
 - **Noctalia #3793**: if the "history has it, `wl-paste` says empty" failure
   reproduces on the shipped Noctalia, record it and track it upstream; do
   not add a second clipboard owner.
-- **Chromium in the VM**: Chromium is installed only in the test VM, not in
-  any host profile.
+- **Chromium ships on hosts**: core's `mermaid-cli` depends on `chromium`
+  (corrected by ticket 01; this spec first said test-only).
 - **Package/config decisions** trace to the Arch Wiki (clipboard, Chromium
   Wayland, Hyprland/niri input pages), fetched at implementation time, per
   repo rules.
@@ -175,8 +175,6 @@ Both wlroots sessions behave the same way and predictably:
 
 - Keeping the primary selection alive after the source app closes.
 - Clipboard history UX (cliphist, Noctalia history panel settings).
-- Adding `mermaid-cli` (and so `chromium`) to a host profile. That is a
-  separate curation ticket.
 - KDE Plasma sessions (Klipper already keeps the clipboard alive; KWin's focus
   model is untouched).
 - Focus-follows-mouse as an option or toggle.
@@ -191,3 +189,10 @@ Both wlroots sessions behave the same way and predictably:
 - Relevant upstream refs: Noctalia shell config docs
   (`clipboard_keep_from_closed_apps`), Noctalia #3793, Hyprland wiki
   "Clipboard Managers".
+
+## Comments
+
+- 2026-09-28: tickets 01–03 done, 04 wontfix, 05 open (niri menus;
+  Hyprland after-close waits for 0.57, hyprwm/Hyprland#16117). VM results
+  added to ADR 0147: the Hyprland `float_switch_override_focus` and ANR
+  findings, and GTK primary paste turned back on.

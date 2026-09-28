@@ -32,6 +32,8 @@ CONF="${DESKTOP_VERIFY_CONF:-/etc/sddm.conf.d/zz-desktop-verify.conf}"
 RUNDIR="${DESKTOP_VERIFY_RUNDIR:-/run/user}"
 POLL_SECONDS="${DESKTOP_VERIFY_POLL_SECONDS:-180}"
 POLKIT_SECONDS="${DESKTOP_VERIFY_POLKIT_SECONDS:-60}"
+CLIP_SECONDS="${DESKTOP_VERIFY_CLIP_SECONDS:-10}"
+CLIP_SETTLE="${DESKTOP_VERIFY_CLIP_SETTLE:-2}"
 
 read -r -a SESSIONS < "$S/order"
 read -r -a TAGS < "$S/tags"
@@ -130,10 +132,57 @@ probe_idle() {
   fi
 }
 
+# as_user <cmd…> — run a command as the login user inside its Wayland session.
+as_user() {
+  local home s sock=""
+  home="${DESKTOP_VERIFY_HOMEDIR:-$(getent passwd "$USER_NAME" | cut -d: -f6)}"
+  for s in "${RUNDIR}/${uid}"/wayland-*; do
+    [[ "$s" == *.lock ]] || { sock="${s##*/}"; break; }
+  done
+  runuser -u "$USER_NAME" -- env HOME="$home" \
+    XDG_RUNTIME_DIR="${RUNDIR}/${uid}" WAYLAND_DISPLAY="$sock" "$@"
+}
+
+# hypr_keep_broken — Hyprland < 0.57 never tells data-control clients the
+# selection died with its owner, so Noctalia can't adopt it (fixed upstream by
+# hyprwm/Hyprland#16117; ADR 0147). Only then is a keep miss expected.
+hypr_keep_broken() {
+  local v
+  [ "$tag" = HYPR ] || return 1
+  v="$(pacman -Q hyprland 2>/dev/null | awk '{print $2}')"
+  [ -n "$v" ] && [ "$(vercmp "$v" 0.57)" -lt 0 ]
+}
+
+# probe_clipboard — ADR 0147: the regular clipboard pastes live and survives
+# its owner closing (Noctalia adopts it), and primary pastes live. The owner is
+# kitty, a real client, for both selections: Noctalia never adopts a
+# data-control source like wl-copy, and Hyprland 0.56 drops wl-copy's primary
+# (both VM-observed), so wl-copy can't stand in for the app.
+probe_clipboard() {
+  local tok="dvclip$$" live=fail pri=fail keep=fail
+  as_user kitty --class=dvclip sh -c "printf %s $tok | kitten clipboard;
+    printf %s ${tok}p | kitten clipboard --use-primary;
+    sleep 120" >/dev/null 2>&1 &
+  sleep "$CLIP_SECONDS"
+  [ "$(as_user wl-paste -n 2>/dev/null)" = "$tok" ] && live=ok
+  [ "$(as_user wl-paste -p -n 2>/dev/null)" = "${tok}p" ] && pri=ok
+  pkill -u "$uid" -f -- '--class=dvclip' >/dev/null 2>&1
+  sleep "$CLIP_SETTLE"
+  [ "$(as_user wl-paste -n 2>/dev/null)" = "$tok" ] && keep=ok
+  if [ "$live$pri$keep" = okokok ]; then
+    printf '===%s-CLIPBOARD-OK===\n' "$tag" >> "$TTY"
+  elif [ "$live$pri" = okok ] && hypr_keep_broken; then
+    printf '===%s-CLIPBOARD-OK keep=xfail===\n' "$tag" >> "$TTY"
+  else
+    printf '===%s-CLIPBOARD-FAIL live=%s primary=%s keep=%s===\n' \
+      "$tag" "$live" "$pri" "$keep" >> "$TTY"
+  fi
+}
+
 if [ "$ok" = 1 ]; then
   printf '===%s-SESSION-OK===\n' "$tag" >> "$TTY"
   case "$tag" in
-  NIRI | HYPR) probe_polkit; probe_idle ;;
+  NIRI | HYPR) probe_polkit; probe_idle; probe_clipboard ;;
   esac
 else
   printf '===%s-SESSION-FAIL===\n' "$tag" >> "$TTY"

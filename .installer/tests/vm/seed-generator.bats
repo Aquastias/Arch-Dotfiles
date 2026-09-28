@@ -579,6 +579,17 @@ teardown() {
   [ "${#lines[@]}" -eq 4 ]
 }
 
+@test "probe markers: extracts CLIPBOARD lines with their fields (ADR 0147)" {
+  local log="$BATS_TEST_TMPDIR/boot.log"
+  printf '%s\n' '===NIRI-CLIPBOARD-OK===' '===HYPR-CLIPBOARD-OK keep=xfail===' \
+    '===HYPR-CLIPBOARD-FAIL live=ok primary=ok keep=fail===' > "$log"
+  run _seed_generator_probe_markers "$log"
+  [ "${lines[0]}" = "===NIRI-CLIPBOARD-OK===" ]
+  [ "${lines[1]}" = "===HYPR-CLIPBOARD-OK keep=xfail===" ]
+  [ "${lines[2]}" = "===HYPR-CLIPBOARD-FAIL live=ok primary=ok keep=fail===" ]
+  [ "${#lines[@]}" -eq 3 ]
+}
+
 # ── guided manual partitioning case (ADR 0073) ──────────────────────────────
 
 @test "guided manual: scripts a labelled table, then replays manual_disk" {

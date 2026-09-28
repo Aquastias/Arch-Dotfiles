@@ -9,12 +9,32 @@ still close.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Hyprland curated input config is click-to-focus; static guard.
-- [ ] Static guard: niri curated config has no `focus-follows-mouse`.
-- [ ] Popup window rules only if 01's evidence requires them, grounded in
+- [x] Hyprland curated input config is click-to-focus; static guard.
+- [x] Static guard: niri curated config has no `focus-follows-mouse`.
+- [x] Popup window rules only if 01's evidence requires them, grounded in
       the Hyprland/Arch wiki.
 - [ ] vm-agent run: File menu, context menu, submenu open and an item can be
       selected in Chromium, VSCodium, a Qt app and a GTK app on both
-      compositors; evidence in `## Comments`.
+      compositors; evidence in `## Comments`. (Hyprland done; niri → ticket 05.)
+
+## Comments
+
+- 2026-09-28: Hyprland `input.lua`: `follow_mouse = 2`,
+  `float_switch_override_focus = 0`, `misc.anr_missed_pings = 15` (Hyprland
+  wiki config-options: defaults 1 / 1 / 5). Stow guard, plus a guard that
+  niri has no `focus-follows-mouse`. VM (Hyprland, applied live via `hyprctl
+  eval`, ydotool pointer, kitty as the window crossed):
+  - kwrite: File → File Actions submenu stays open across kitty; File → New
+    runs (title Welcome → Untitled).
+  - VSCodium: ≡ → File submenu stays open across kitty; New Text File runs
+    (Untitled-1).
+  - Chromium: right-click context menu stays open across kitty; Save as…
+    opens the portal dialog.
+  - GTK (zenity, floating): the context menu lost focus to kitty until
+    `float_switch_override_focus = 0`; after that, Paste lands the token.
+  - Before the change (`follow_mouse = 1`): VSCodium's menu closed when the
+    pointer crossed kwrite (repro).
+  - niri not pointer-driven (ydotool ignored, wlrctl build declined). niri
+    is click-to-focus by default, so hover can't move focus.

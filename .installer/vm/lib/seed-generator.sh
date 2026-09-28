@@ -117,11 +117,12 @@ _seed_generator_session_marker() {
   [[ -n "$t" ]] && printf '===%s-SESSION-OK===' "$t"
 }
 
-# _seed_generator_probe_markers <boot-log> — the wlroots polkit/idle probe
-# markers the desktop-verify prober emitted (ADR 0100), one per line in log
-# order. Recorded by the host, not asserted: they answer the polkit gate.
+# _seed_generator_probe_markers <boot-log> — the wlroots polkit/idle (ADR 0100)
+# and clipboard (ADR 0147) probe markers the desktop-verify prober emitted, one
+# per line in log order. Recorded by the host, not asserted.
 _seed_generator_probe_markers() {
-  local re='===(NIRI|HYPR)-(POLKIT|IDLE)-(OK|FAIL)( agents=[^ =]*)?==='
+  local re='===(NIRI|HYPR)-(POLKIT|IDLE|CLIPBOARD)-(OK|FAIL)'
+  re+='( [a-z]+=[^ =]*)*==='
   grep -oE "$re" "$1" 2>/dev/null
   return 0
 }

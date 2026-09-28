@@ -9,7 +9,7 @@ cause, close as `wontfix`, citing 01's evidence.
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] Decision (do / wontfix) stated with a reference to 01's evidence.
 - [ ] If done: flags seeded to skel + stowable; guards next to the existing
@@ -18,3 +18,9 @@ cause, close as `wontfix`, citing 01's evidence.
       asserting it.
 - [ ] If done: vm-agent run shows cross-toolkit paste now passes on the
       affected compositor.
+
+## Comments
+
+- 2026-09-28 wontfix: ticket 01 found no XWayland path. Chromium and
+  VSCodium are native Wayland on both compositors (niri has no XWayland;
+  Hyprland `xwayland: 0`).
