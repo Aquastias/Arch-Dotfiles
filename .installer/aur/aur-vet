@@ -50,30 +50,73 @@ _lib_dir() {
   else printf '%s' /usr/local/share/aur-vet; fi
 }
 
-# Findings for the clone at <dir> <pkgbase> [<AUR LastModified epoch>] on
-# stdout: TSV from scan.awk (severity id file line description).
-_scan() {
-  local dir="$1" base="$2" data days bins=""; data="$(_data_dir)"
+# Findings for the tree at <root> (paths NUL-separated on stdin) of
+# <pkgbase>, with the campaign-window <days>, on stdout: TSV from scan.awk
+# (severity id file line description).
+_scan_tree() {
+  local root="$1" base="$2" days="$3" data bins="" f; data="$(_data_dir)"
   local -a files=()
-  local f
   for f in rules indicators campaigns; do
     [[ -r "$data/$f.tsv" ]] || _die "missing data file: $data/$f.tsv"
   done
   while IFS= read -r -d '' f; do
-    [[ -s "$dir/$f" ]] || continue
+    [[ -s "$root/$f" ]] || continue
     # Text files are scanned; the rest are reported by name, never skipped.
-    if LC_ALL=C grep -Iq . "$dir/$f" 2>/dev/null; then files+=("$dir/$f")
+    if LC_ALL=C grep -Iq . "$root/$f" 2>/dev/null; then files+=("$root/$f")
     else bins+="${f}"$'\037'; fi
-  done < <(git -C "$dir" ls-files -z)
-  # Days that may place the package in a campaign window: every commit's
-  # author + committer day, and the AUR's own LastModified (<modified>,
-  # server-side). Backdating a commit can't hide an in-window one.
-  days="$(TZ=UTC git -C "$dir" log --format='%ad %cd' --date=format-local:%F)"
-  [[ -n "${3:-}" ]] && days+=" $(date -u -d "@$3" +%F)"
-  awk -v root="$dir" -v pkgbase="$base" -v days="${days//$'\n'/ }" \
+  done
+  awk -v root="$root" -v pkgbase="$base" -v days="$days" \
     -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
     -v campaigns="$data/campaigns.tsv" -v binaries="$bins" \
     -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
+}
+
+# Days that may place the clone at <dir> in a campaign window: every
+# commit's author + committer day, and the AUR's own LastModified epoch
+# <modified> (server-side). Backdating a commit can't hide an in-window one.
+_days() {
+  local days
+  days="$(TZ=UTC git -C "$1" log --format='%ad %cd' --date=format-local:%F)"
+  [[ -n "${2:-}" ]] && days+=" $(date -u -d "@$2" +%F)"
+  printf '%s' "${days//$'\n'/ }"
+}
+
+# Findings for the clone at <dir> <pkgbase> [<AUR LastModified epoch>].
+_scan() {
+  git -C "$1" ls-files -z | _scan_tree "$1" "$2" "$(_days "$1" "${3:-}")"
+}
+
+# Finding keys (see _finding_key) of the clone's previous commit (HEAD~1),
+# one per line. Its tree is extracted from the git objects into a temp dir
+# — written, never checked out, sourced or run. Fails when there is no
+# previous commit.
+_prev_keys() {
+  local dir="$1" base="$2" days="$3" tmp out rc=0
+  git -C "$dir" rev-parse -q --verify 'HEAD~1^{commit}' >/dev/null 2>&1 \
+    || return 1
+  tmp="$(mktemp -d)"
+  if git -C "$dir" archive HEAD~1 | tar -x -C "$tmp" \
+     && out="$(git -C "$dir" ls-tree -r -z --name-only HEAD~1 \
+       | _scan_tree "$tmp" "$base" "$days")"; then
+    local sev id file ln desc
+    [[ -n "$out" ]] && while IFS=$'\t' read -r sev id file ln desc; do
+      _finding_key "$tmp" "$id" "$file" "$ln"; printf '\n'
+    done <<<"$out"
+  else
+    rc=2
+  fi
+  command rm -rf "$tmp"
+  ((rc == 0)) || _die "${base}: scan of the previous commit failed"
+}
+
+# Identity of a finding row <file> <line> under <root>: rule + file + the
+# flagged line's text, so a finding that only moved lines keeps its key.
+_finding_key() {
+  local root="$1" id="$2" file="$3" ln="$4" text=""
+  ((ln > 0)) && [[ -r "$root/$file" ]] \
+    && text="$(sed -n "${ln}{s/^[[:space:]]*//;s/[[:space:]]*\$//;p;q}" \
+      "$root/$file")"
+  printf '%s\037%s\037%s' "$id" "$file" "$text"
 }
 
 
@@ -398,7 +441,7 @@ _doctor() {
 _evaluate() {
   local dir="$1" base="$2" modified=""
   declare -gA _E_CRIT=() _E_SUSP=()
-  _E_RPC_DOWN=0
+  _E_RPC_DOWN=0; _E_GAINED=0
   # One RPC answer feeds both the trust signals and the Indicator window.
   local json=""
   json="$(_rpc_for "$dir" "$base")" || _E_RPC_DOWN=1
@@ -407,17 +450,38 @@ _evaluate() {
       == $b)][0].LastModified // empty' <<<"$json")"
   fi
   # Fail closed: an engine error must abort, never read as "no findings".
-  local out trust=""
+  local out keys="" trust="" has_prev=1
   out="$(_scan "$dir" "$base" "$modified")" || _die "${base}: scan failed"
+  keys="$(_prev_keys "$dir" "$base" "$(_days "$dir" "$modified")")" \
+    || has_prev=0
   ((_E_RPC_DOWN)) || trust="$(_trust "$json" "$base")"
-  [[ -n "$trust" ]] && out+="${out:+$'\n'}${trust}"
+
+  # Keys of the previous commit's findings; one missing there is gained.
+  local -A before=()
+  local row sev id file ln desc k
+  if [[ -n "$keys" ]]; then
+    while IFS= read -r k; do before["$k"]=1; done <<<"$keys"
+  fi
+
   local -a findings=()
   [[ -n "$out" ]] && mapfile -t findings <<<"$out"
-
-  local row sev id file ln desc crit=0 susp=0 info=0
+  [[ -n "$trust" ]] && mapfile -t -O "${#findings[@]}" findings <<<"$trust"
+  local crit=0 susp=0 info=0 tag
   for row in "${findings[@]}"; do
     IFS=$'\t' read -r sev id file ln desc <<<"$row"
-    _say "$(printf '%s %s %s:%s %s' "${sev^^}" "$id" "$file" "$ln" "$desc")"
+    tag=""
+    # A Gained Finding climbs one tier (ADR 0149); trust rows have no past.
+    if ((has_prev)) && [[ "$file" != AUR ]] \
+       && [[ -z "${before["$(_finding_key "$dir" "$id" "$file" "$ln")"]:-}" ]]
+    then
+      _E_GAINED=1; tag=" (gained since the previous commit)"
+      case "$sev" in
+        info) sev=suspicious ;;
+        suspicious) sev=critical ;;
+      esac
+    fi
+    _say "$(printf '%s %s %s:%s %s%s' "${sev^^}" "$id" "$file" "$ln" \
+      "$desc" "$tag")"
     case "$sev" in
       critical) crit=$((crit + 1)); _E_CRIT["$id"]=1 ;;
       suspicious) susp=$((susp + 1)); _E_SUSP["$id"]=1 ;;

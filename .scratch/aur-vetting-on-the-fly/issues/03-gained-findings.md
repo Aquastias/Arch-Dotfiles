@@ -9,10 +9,10 @@ is scanned without comparison.
 
 **Blocked by:** 01 (Tracer — stateless hook).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Two-commit fixture: a finding added in `HEAD` is escalated
-- [ ] A finding in both commits keeps its tier
-- [ ] Single-commit package scans normally
-- [ ] Atomic Arch fixture (injected line) aborts via escalation or its own
+- [x] Two-commit fixture: a finding added in `HEAD` is escalated
+- [x] A finding in both commits keeps its tier
+- [x] Single-commit package scans normally
+- [x] Atomic Arch fixture (injected line) aborts via escalation or its own
       critical rule
