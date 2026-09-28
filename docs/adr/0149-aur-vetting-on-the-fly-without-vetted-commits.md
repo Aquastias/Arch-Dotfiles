@@ -43,9 +43,11 @@ something new". Both can be recomputed at build time without stored state.
   checksums), evasion (`/tmp` exec, `nohup`/`setsid`, here-string exec,
   `printf` assembly) and repo oddities (scripts behind media/library
   extensions, editor auto-exec files, hidden `.install`, missing files).
-- **Removed:** `vetted.tsv`, `aur-vet seed`/`export`/`repin`, the root pin
-  store `/etc/aur-vet/vetted.tsv`, `bump-only.awk`, and the rules
-  `trust-maintainer-changed` / `trust-maintainer-unrecorded`.
+- **Removed:** `vetted.tsv`, `aur-vet seed`/`repin`, the root pin store
+  `/etc/aur-vet/vetted.tsv`, `bump-only.awk`, and the rules
+  `trust-maintainer-changed` / `trust-maintainer-unrecorded`. `aur-vet
+  export` stays for the allowlist only: an "always allow" answer lands in the
+  root-owned `/etc/aur-vet/allow.tsv` and export merges it into the repo.
 
 ## Considered Options
 - **Auto-accept clean diffs, keep pins** — still a state file and a review
