@@ -6,9 +6,9 @@
 # is decoupled from package install: `install.sh` installs the package, this
 # module (via the Runner pass and `./stow-configs.sh`) applies the config.
 #
-# `ca_plan` is pure (JSON in, JSON out). `ca_ships_home_list` / `ca_home_dir`
-# walk the programs tree — a Program ships config iff it has a `home/` dir
-# (discovery by convention, no registry).
+# `ca_plan` is pure (JSON in, JSON out). `ca_ships_home_list`, `ca_home_dir`
+# and `ca_stow_opt_in_list` walk the programs tree — a Program ships config iff
+# it has a `home/` dir (discovery by convention, no registry).
 #
 # Apply rule (from the design prototype):
 #   apply(program) = selected && ships_home(program) && !config_exclude(program)
@@ -20,6 +20,9 @@
 #   ca_stow_selection <ships> <except> <only> [<opt-in>]      → names (array)
 #   ca_stow_opt_in_list <programs-root>                       → names (array)
 # =============================================================================
+
+# shellcheck source=../jsonc.sh
+source "${BASH_SOURCE[0]%/*}/../jsonc.sh"
 
 # ca_plan <programs-json> <ships-home-json> <exclude-json>
 #   programs-json:    array of program names selected for a user.
@@ -49,9 +52,8 @@ ca_plan() {
 #   only-json:    an explicit positional subset; when non-empty it wins over
 #                 `except`, keeps its own order, and drops any name that ships
 #                 no home.
-#   opt-in-json:  programs marked `stow_opt_in` (optional, default []): skipped
-#                 by the no-arg sweep, stowed only when named — so a host's
-#                 own app config is never adopted (ADR 0148).
+#   opt-in-json:  `stow_opt_in` programs (optional, default []): dropped from
+#                 the no-arg sweep, kept when named (ADR 0148).
 #   → ordered JSON array of program names to stow. Pure.
 ca_stow_selection() {
   jq -n \
@@ -76,8 +78,7 @@ ca_stow_opt_in_list() {
   {
     for f in "$root"/*/*/config.jsonc; do
       [[ -f "$f" ]] || continue
-      sed '/^[[:space:]]*\/\//d' "$f" \
-        | grep -Eq '"stow_opt_in"[[:space:]]*:[[:space:]]*true' || continue
+      [[ "$(jsonc_read_opt "$f" .stow_opt_in)" == true ]] || continue
       basename "$(dirname "$f")"
     done
   } | jq -R . | jq -s -c 'unique'

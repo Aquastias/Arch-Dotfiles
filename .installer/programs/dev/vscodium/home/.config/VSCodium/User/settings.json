@@ -11,6 +11,8 @@
   "editor.fontSize": 12,
   "editor.fontLigatures": true,
   "terminal.integrated.fontFamily": "FiraCode Nerd Font",
+  "terminal.integrated.fontSize": 12,
+  "terminal.integrated.fontLigatures.enabled": true,
   "terminal.integrated.minimumContrastRatio": 1,
 
   "editor.lineNumbers": "relative",
@@ -188,10 +190,6 @@
       "before": ["<leader>", "b", "d"],
       "commands": ["workbench.action.closeActiveEditor"]
     },
-    { "before": ["<C-h>"], "commands": ["workbench.action.navigateLeft"] },
-    { "before": ["<C-j>"], "commands": ["workbench.action.navigateDown"] },
-    { "before": ["<C-k>"], "commands": ["workbench.action.navigateUp"] },
-    { "before": ["<C-l>"], "commands": ["workbench.action.navigateRight"] },
     {
       "before": ["<leader>", "w"],
       "commands": ["workbench.action.files.save"]

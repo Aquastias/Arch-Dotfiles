@@ -90,8 +90,16 @@ diagnostic virtual text (hover + `]d`/`[d` + Problems instead), oil's
 buffer-editing of directories. Unmapped nvim keys (no VSCodium command backs
 them): `<leader>uh` (no inlay-hint toggle command), `]t`/`[t` (todo-tree has
 no next/prev), `<leader>xX/xq/xl/xs`, `<leader>fh`, `<leader>Ra/Rn/Rp/Ri`,
-`<leader>rw`, `cn`/`cN`, `<leader>cx`, `<leader><cr>`, mini.ai's treesitter
-`af`/`ac`/`ao` textobjects. Folds (`zR/zM/zr/zm`) are VSCodeVim built-ins.
+`<leader>rw`, `<leader>rb`, `cn`/`cN`, `<leader>cx`, `<leader><cr>`,
+`<leader>gl/gs/gb/gL/gB/gx` (snacks git pickers, gitbrowse, diffview close),
+centred `<C-d>/<C-u>/n/N`, mini.ai's treesitter `af`/`ac`/`ao` textobjects.
+Folds (`zR/zM/zr/zm`) are VSCodeVim built-ins.
+Loose matches: `<leader>gd` diffs the current file (`git.openChange`), not
+the whole repo like `DiffviewOpen`; `<leader>re`/`rv` both open the generic
+extract code-action menu (the server offers function/variable there);
+`<leader>rf` opens the move code actions (e.g. move to file). `<C-h/j/k/l>`
+are native chords, so they also leave the explorer and lists (VM-verified);
+the terminal keeps them (`ctrl+l` clears it).
 
 ### Kept despite Open VSX lag
 rest-client (kulala stand-in; same `.http` format — upstream active but last

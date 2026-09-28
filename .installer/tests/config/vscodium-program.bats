@@ -26,8 +26,11 @@ setup() {
 # setting <jq-path> → the settings.json value (JSON-encoded).
 setting() { jsonc_strip "$SETTINGS" | jq -c "$1"; }
 
+# data_rows FILE → the rows of a data file, `#` comments and blanks dropped.
+data_rows() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
+
 # ext_ids → the extension list, comments and blanks dropped.
-ext_ids() { grep -vE '^[[:space:]]*(#|$)' "$EXTS"; }
+ext_ids() { data_rows "$EXTS"; }
 
 # ── program definition ───────────────────────────────────────────────────────
 
@@ -52,8 +55,10 @@ ext_ids() { grep -vE '^[[:space:]]*(#|$)' "$EXTS"; }
 
 @test "install.sh installs vscodium-bin and does NOT seed home/ (ADR 0134)" {
   grep -q -- '--needed vscodium-bin' "$INSTALL"
-  ! grep -q '/home/\.' "$INSTALL"
-  ! grep -q 'etc/skel' "$INSTALL"
+  # No code line touches home/, the VSCodium config dir, /etc/skel or /root.
+  run bash -c "grep -vE '^[[:space:]]*#' '$INSTALL' \
+    | grep -E 'home/|\.config/VSCodium|etc/skel|/root'"
+  [ -z "$output" ]
 }
 
 @test "install.sh installs the extension list, additive only" {
@@ -108,6 +113,8 @@ ext_ids() { grep -vE '^[[:space:]]*(#|$)' "$EXTS"; }
   [ "$(setting '."terminal.integrated.fontFamily"')" = '"FiraCode Nerd Font"' ]
   [ "$(setting '."editor.fontSize"')" = '12' ]
   [ "$(setting '."editor.fontLigatures"')" = 'true' ]
+  [ "$(setting '."terminal.integrated.fontSize"')" = '12' ]
+  [ "$(setting '."terminal.integrated.fontLigatures.enabled"')" = 'true' ]
 }
 
 @test "layout: sidebar right, no startup editor, sticky scroll" {
@@ -168,7 +175,7 @@ registry_formatters() {
 
 # coverage_keys → the Editor Coverage Map's language keys.
 coverage_keys() {
-  grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" | awk '{print $1}' | sort -u
+  data_rows "$COVERAGE" | awk '{print $1}' | sort -u
 }
 
 @test "the Registry parse sees the languages nvim wires (sanity)" {
@@ -185,7 +192,7 @@ coverage_keys() {
 
 @test "every Coverage Map extension is in the extension list" {
   local ids
-  ids="$(grep -vE '^[[:space:]]*(#|$)' "$COVERAGE" \
+  ids="$(data_rows "$COVERAGE" \
     | awk '$2 != "n/a" { for (i = 2; i <= NF; i++) print $i }')"
   [ -n "$ids" ]
   local id
@@ -195,7 +202,8 @@ coverage_keys() {
 }
 
 @test "an n/a Coverage Map row states a reason" {
-  run awk '!/^[[:space:]]*(#|$)/ && $2 == "n/a" && NF < 3' "$COVERAGE"
+  run bash -c "$(declare -f data_rows); data_rows '$COVERAGE' \
+    | awk '\$2 == \"n/a\" && NF < 3'"
   [ -z "$output" ]
 }
 
@@ -348,10 +356,6 @@ V=vim.visualModeKeyBindingsNonRecursive
   [ "$(bind "$N" '<Tab>')" = 'workbench.action.nextEditor' ]
   [ "$(bind "$N" '<S-Tab>')" = 'workbench.action.previousEditor' ]
   [ "$(bind "$N" '<leader>' b d)" = 'workbench.action.closeActiveEditor' ]
-  [ "$(bind "$N" '<C-h>')" = 'workbench.action.navigateLeft' ]
-  [ "$(bind "$N" '<C-j>')" = 'workbench.action.navigateDown' ]
-  [ "$(bind "$N" '<C-k>')" = 'workbench.action.navigateUp' ]
-  [ "$(bind "$N" '<C-l>')" = 'workbench.action.navigateRight' ]
   [ "$(bind "$N" '<leader>' w)" = 'workbench.action.files.save' ]
   [ "$(bind "$N" '<leader>' q)" = 'workbench.action.closeActiveEditor' ]
   [ "$(bind "$N" '<Esc>')" = ':nohl' ]
@@ -439,4 +443,20 @@ V=vim.visualModeKeyBindingsNonRecursive
   # --install-extension at the MS Marketplace instead of Open VSX.
   ! grep -q '"vscodium-bin"' "$HOSTCORE"
   ! grep -q '"vscodium-marketplace"' "$HOSTCORE"
+}
+
+@test "window nav <C-h/j/k/l> are native chords, normal mode + lists only" {
+  # Native (keybindings.json), not VSCodeVim, so they also leave the explorer
+  # and lists; like nvim, off in insert/visual and in the terminal (an input).
+  local key cmd w="!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  while read -r key cmd; do
+    jsonc_strip "$KEYS" | jq -e --arg k "$key" --arg c "$cmd" --arg w "$w" \
+      'any(.[]; .key == $k and .command == $c and .when == $w)'
+  done <<'EOF_'
+ctrl+h workbench.action.navigateLeft
+ctrl+j workbench.action.navigateDown
+ctrl+k workbench.action.navigateUp
+ctrl+l workbench.action.navigateRight
+EOF_
+  setting ".\"$N\"" | jq -e 'all(.[]; .before != ["<C-h>"])'
 }

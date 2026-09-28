@@ -1,13 +1,9 @@
 // Program metadata for vscodium.
 //
 // kind=user → installed by the profile runner inside the chroot as the owning
-// user via paru (vscodium-bin is AUR). The VSCodium Config is the opt-in parity
-// twin of the Neovim Config (ADR 0148): same languages on the same Host Core
-// system toolchain, extensions from Open VSX only. settings/keybindings (home/)
-// are applied by the Runner's Config Apply pass (ADR 0134); install.sh installs
-// the package + extensions.txt for the owning user. stow_opt_in: a no-name
-// ./stow-configs.sh never sweeps an operator host's own VSCodium into the repo.
-// Bundled-server exceptions and nvim-only gaps: see ADR 0148.
+// user via paru (vscodium-bin is AUR). The opt-in parity twin of the Neovim
+// Config (ADR 0148); install.sh adds the package + extensions, Config Apply
+// places home/ (ADR 0134).
 
 {
   "name": "vscodium",

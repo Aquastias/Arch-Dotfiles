@@ -1,4 +1,24 @@
 [
   { "key": "ctrl+alt+v", "command": "toggleVim" },
-  { "key": "ctrl+/", "command": "workbench.action.terminal.toggleTerminal" }
+  { "key": "ctrl+/", "command": "workbench.action.terminal.toggleTerminal" },
+  {
+    "key": "ctrl+h",
+    "command": "workbench.action.navigateLeft",
+    "when": "!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  },
+  {
+    "key": "ctrl+j",
+    "command": "workbench.action.navigateDown",
+    "when": "!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  },
+  {
+    "key": "ctrl+k",
+    "command": "workbench.action.navigateUp",
+    "when": "!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "workbench.action.navigateRight",
+    "when": "!inputFocus || editorTextFocus && vim.mode == 'Normal'"
+  }
 ]

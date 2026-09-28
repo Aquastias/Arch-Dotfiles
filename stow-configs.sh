@@ -12,9 +12,7 @@
 #   ./stow-configs.sh kitty zsh       # stow exactly these
 #   ./stow-configs.sh --except claude # stow everything but claude's config
 #
-# Programs marked `"stow_opt_in": true` in their config.jsonc (e.g. vscodium,
-# ADR 0148) are skipped by the no-name sweep and stow only when named, so a
-# host's own app config is never adopted into the repo.
+# `stow_opt_in` programs (PROGRAM_SPEC, ADR 0148) stow only when named.
 #
 # `--adopt` makes it safe whether $HOME is empty (fresh clone) or already
 # installer-seeded (same bytes, single source): it flips real files to symlinks
@@ -29,7 +27,7 @@ PROGRAMS="${REPO}/.installer/programs"
 source "${REPO}/.installer/lib/config/config-apply.sh"
 
 usage() {
-  sed -n '4,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '5,/^# ====/{/^# ====/d;p}' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 

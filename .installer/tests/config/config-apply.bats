@@ -103,9 +103,7 @@ select_() { ca_stow_selection "$1" "$2" "$3" | jq -c .; }
   echo "$output" | jq -e '. == ["kitty","zsh"]'
 }
 
-# ── stow opt-in (ADR 0148): a program marked `stow_opt_in` is never swept up
-# by the no-arg run — a host's own app config must not be adopted — but still
-# stows when named explicitly.
+# ── stow opt-in (ADR 0148) ──────────────────────────────────────────────────
 select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
 
 @test "selection: an opt-in program is skipped when no names are given" {
@@ -133,4 +131,16 @@ select4_() { ca_stow_selection "$1" "$2" "$3" "$4" | jq -c .; }
                ca_stow_opt_in_list '$root'"
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '. == ["vscodium"]'
+}
+
+@test "opt_in_list: reads JSONC — key on its own line, false stays out" {
+  root="$BATS_TEST_TMPDIR/programs"
+  mkdir -p "$root/dev/a/home" "$root/dev/b/home"
+  printf '{\n  "name": "a", // c\n  "stow_opt_in":\n    true\n}\n' \
+    >"$root/dev/a/config.jsonc"
+  printf '{ "name": "b", "stow_opt_in": false }\n' >"$root/dev/b/config.jsonc"
+  run bash -c "source '$BATS_TEST_DIRNAME/../../lib/config/config-apply.sh'
+               ca_stow_opt_in_list '$root'"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '. == ["a"]'
 }
