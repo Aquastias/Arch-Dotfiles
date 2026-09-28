@@ -169,8 +169,8 @@
         // extraction still works, and adds .rar creation (mktarrar).
         "rar",
         "runelite",
-        "vscodium-bin",
-        "vscodium-marketplace",
+        // VSCodium is the opt-in dev/vscodium program, Open VSX only (ADR
+        // 0148): no vscodium-bin here, never the vscodium-marketplace patch.
         "zen-browser-bin"
       ],
       "language-servers": [

@@ -428,6 +428,13 @@ V=vim.visualModeKeyBindingsNonRecursive
   grep -E '^cpp[[:space:]]' "$COVERAGE" | grep -q 'vadimcn.vscode-lldb'
 }
 
-@test "ms-python.python does not add a second Python language server" {
+@test "the Python extension adds no second language server (basedpyright)" {
   [ "$(setting '."python.languageServer"')" = '"None"' ]
+}
+
+@test "Host Core serves no VSCodium and no MS Marketplace patch (ADR 0148)" {
+  # The program owns vscodium-bin (opt-in); vscodium-marketplace would point
+  # --install-extension at the MS Marketplace instead of Open VSX.
+  ! grep -q '"vscodium-bin"' "$HOSTCORE"
+  ! grep -q '"vscodium-marketplace"' "$HOSTCORE"
 }

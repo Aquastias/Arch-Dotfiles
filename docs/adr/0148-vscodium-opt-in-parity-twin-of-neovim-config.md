@@ -108,5 +108,10 @@ thunder-client, docker, githistory, eslint-only duplicates.
 - A new Registry row fails the coverage test until VSCodium covers it (or
   marks it *n/a*) — intended friction.
 - First Rust/C debug session needs network (codelldb download).
-- No Host Core change: `rust-analyzer → rust-src → rust` (rustfmt) and
-  `zls → zig` (zig fmt) already pull both toolchains in.
+- Toolchain needs no Host Core addition: `rust-analyzer → rust-src → rust`
+  (rustfmt) and `zls → zig` (zig fmt) already pull both toolchains in.
+- Host Core **drops** `vscodium-bin` and `vscodium-marketplace` from
+  `packages.aur.misc` (found during implementation): every host used to get
+  VSCodium plus the Marketplace patch, which would have pointed
+  `--install-extension` at the MS Marketplace and made VSCodium fleet-wide.
+  The program now owns the package; a host gets VSCodium only by opting in.

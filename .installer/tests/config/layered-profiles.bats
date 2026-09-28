@@ -82,7 +82,7 @@ core_repo() { jsonc_strip "$INSTALLER_DIR/hosts/core/profile.jsonc" \
   local p
   # ttf-ms-fonts left the core AUR list for the options.fonts Font Catalog (ADR
   # 0080) — it is routed to the paru pass by the font resolver, not packages.aur.
-  for p in vscodium-bin zen-browser-bin runelite; do
+  for p in rar zen-browser-bin runelite; do
     grep -qx "$p" <<<"$d" || { echo "desktop missing core aur: $p"; return 1; }
     grep -qx "$p" <<<"$l" || { echo "laptop missing core aur: $p"; return 1; }
   done

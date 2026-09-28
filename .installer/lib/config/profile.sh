@@ -253,7 +253,7 @@ _PROFILE_SCHEMA_user=(
 # (e.g. firewalld vs ufw). Symmetric — one side declaring is enough. Enforced
 # at validate_install_context, before any side effect.
 _PROFILE_SCHEMA_program=( "name" "kind" "description" "requires[]" \
-  "conflicts[]" "system_services[]" "user_services[]" )
+  "conflicts[]" "system_services[]" "user_services[]" "stow_opt_in" )
 
 # validate_config_schema <kind> <json> — kind ∈ {host, user, program}.
 # Emits nothing and returns 0 when every key is enumerated; otherwise calls
