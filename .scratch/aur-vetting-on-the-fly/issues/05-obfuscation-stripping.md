@@ -7,10 +7,10 @@ dodge them (ADR 0149). Findings still report the original line.
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Rule-case rows: `cu""rl … | sh`, `'c'url … | sh`, `c\url … | sh`,
+- [x] Rule-case rows: `cu""rl … | sh`, `'c'url … | sh`, `c\url … | sh`,
       `curl${IFS}…|sh` fire pipe-to-shell
-- [ ] Negative rows: ordinary quoted strings don't create false findings
-- [ ] Reported text is the original line
-- [ ] Existing rule cases stay green
+- [x] Negative rows: ordinary quoted strings don't create false findings
+- [x] Reported text is the original line
+- [x] Existing rule cases stay green

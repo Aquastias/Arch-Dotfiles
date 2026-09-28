@@ -103,8 +103,8 @@ FNR == 1 {
       if (kind != "srcinfo" || !is_source(line)) continue
       subj = source_url(line)
     } else continue
-    if (subj !~ rre[i]) continue
-    if (runless[i] != "" && subj ~ runless[i]) continue
+    # The line as written, or its de-obfuscated twin (ADR 0149).
+    if (!hits(subj, i) && (s == "source" || !hits(norm(subj), i))) continue
     printf "%s\t%s\t%s\t%d\t%s\n", rsev[i], rid[i], f, FNR, rdesc[i]
   }
   indicators_line(line)
@@ -131,6 +131,25 @@ END {
     if (o != "" && index(tolower(siurl), o) == 0)
       emit("source-owner", ".SRCINFO", srcline[k])
   }
+}
+
+# Does rule <i> fire on <s> (its ERE matches and its unless-ERE doesn't)?
+function hits(s, i) {
+  return s ~ rre[i] && !(runless[i] != "" && s ~ runless[i])
+}
+
+# De-obfuscated twin of a line (ADR 0149): quote characters dropped
+# (cu""rl, 'c'url), a backslash before a letter dropped (c\url) and
+# ${IFS…} / $IFS read as a space. Only ever matched, never reported.
+function norm(s,   out) {
+  gsub(/["']/, "", s)
+  gsub(/[$][{]IFS[^}]*[}]|[$]IFS/, " ", s)
+  out = ""
+  while (match(s, /\\[[:alpha:]]/)) {
+    out = out substr(s, 1, RSTART - 1)
+    s = substr(s, RSTART + 1)
+  }
+  return out s
 }
 
 function emit(id, file, ln, detail) {

