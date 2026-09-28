@@ -78,6 +78,8 @@ setup() {
   grep -q '^ *follow_mouse = 2,' "$in"
   grep -q '^ *float_switch_override_focus = 0,' "$in"
   grep -q '^ *anr_missed_pings = 15,' "$in"
+  grep -q '^ *no_update_news = true,' "$in"
+  grep -q '^ *no_donation_nag = true,' "$in"
   ! grep -rq 'focus-follows-mouse' "$REPO/.config/niri"
 }
 

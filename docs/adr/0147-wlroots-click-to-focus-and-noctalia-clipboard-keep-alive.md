@@ -41,6 +41,10 @@ There are two bugs on the wlroots sessions:
   `misc:anr_missed_pings = 15` (3× the default 5; the wiki allows 1–20), so
   apps that are only slow to start don't steal focus, while really hung apps
   still get the dialog.
+- **Hyprland's update-news and donation popups are off.**
+  `ecosystem.no_update_news` / `no_donation_nag = true`: in the VM the
+  "updated to 0.56.2" popup took focus after a config reload. Release notes
+  stay on GitHub.
 - **Noctalia keeps the clipboard alive.** Set
   `[shell] clipboard_keep_from_closed_apps = true` explicitly in the curated
   `config.toml` (already upstream's default; setting it pins it). No new

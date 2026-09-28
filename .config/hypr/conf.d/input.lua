@@ -19,4 +19,9 @@ hl.config({
     misc = {
         anr_missed_pings = 15,
     },
+    -- The update-news and donation popups also take focus (ADR 0147).
+    ecosystem = {
+        no_update_news = true,
+        no_donation_nag = true,
+    },
 })
