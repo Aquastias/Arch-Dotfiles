@@ -90,6 +90,7 @@
       "dev": [
         "biome",
         "go",
+        "kdlfmt",
         "mermaid-cli",
         "nvm",
         "php",
@@ -97,7 +98,9 @@
         "python-pip",
         "python-pipx",
         "ruff",
+        "shfmt",
         "stylua",
+        "taplo-cli",
         "tree-sitter-cli"
       ],
       "language-servers": [
@@ -180,6 +183,7 @@
         "codelldb-bin",
         "emmet-language-server",
         "nixd",
+        "nixfmt",
         "vscode-js-debug-bin",
         "vscode-langservers-extracted"
       ]

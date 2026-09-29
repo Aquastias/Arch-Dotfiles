@@ -6,6 +6,7 @@ claude-code	skip-checksum	reviewed 2026-09-26
 nixd	trust-adopted	reviewed 2026-09-26
 octopi	toplevel-code	reviewed 2026-09-26
 phpactor	srcinfo-mismatch	reviewed 2026-09-26
+php-codesniffer	skip-checksum	reviewed 2026-09-29 (SKIP only on .asc sigs)
 swift-bin	trust-adopted	reviewed 2026-09-26
 vscodium-bin	toplevel-code	reviewed 2026-09-26
 zen-browser-bin	trust-adopted	reviewed 2026-09-26

@@ -1371,7 +1371,10 @@ is wired for X" is answered in one place. Data, not behaviour — each consumer
 still maps a row into its own plugin shape (`vim.lsp.enable`, conform's
 `formatters_by_ft`, nvim-lint's `linters_by_ft`, dap `adapters`/
 `configurations`). Debug adapters resolve to **system-package binaries**
-(codelldb/debugpy/delve/js-debug), never `mason` (ADR 0140). _Avoid_:
+(codelldb/debugpy/delve/js-debug), never `mason` (ADR 0140). Every language
+in use has a formatter. A row with `format_on_save = false` (shell/kdl/toml)
+formats on `<leader>cf` only, so hand-formatted repo files aren't rewritten on
+save (ADR 0151). _Avoid_:
 per-plugin inline language lists, duplicating a language across the four specs,
 `mason`/`mason-nvim-dap`.
 

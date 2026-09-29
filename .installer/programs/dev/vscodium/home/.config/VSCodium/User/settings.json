@@ -47,6 +47,16 @@
   "nix.enableLanguageServer": true,
   "nix.serverPath": "/usr/bin/nixd",
   "phpactor.path": "/usr/bin/phpactor",
+  "nix.formatterPath": "/usr/bin/nixfmt",
+  "bashIde.shfmt.path": "/usr/bin/shfmt",
+  "phpsab.executablePathCBF": "/usr/bin/phpcbf",
+  "phpsab.executablePathCS": "/usr/bin/phpcs",
+  "phpsab.standard": "PSR12",
+  "phpsab.snifferEnable": false,
+  "customLocalFormatters.formatters": [
+    { "command": "xmllint --format -", "languages": ["xml"] },
+    { "command": "kdlfmt format -", "languages": ["kdl"] }
+  ],
   "svelte.language-server.ls-path": "/usr/bin/svelteserver",
   "vue.server.path": "/usr/lib/node_modules/@vue/language-server",
   "python.languageServer": "None",
@@ -60,6 +70,8 @@
   "[json]": { "editor.defaultFormatter": "biomejs.biome" },
   "[jsonc]": { "editor.defaultFormatter": "biomejs.biome" },
   "[css]": { "editor.defaultFormatter": "biomejs.biome" },
+  "[scss]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[less]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[svelte]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[vue]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
@@ -68,6 +80,27 @@
   "[go]": { "editor.defaultFormatter": "golang.go" },
   "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
   "[zig]": { "editor.defaultFormatter": "ziglang.vscode-zig" },
+  "[c]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "[nix]": { "editor.defaultFormatter": "jnoortheen.nix-ide" },
+  "[php]": { "editor.defaultFormatter": "ValeryanM.vscode-phpsab" },
+  "[xml]": { "editor.defaultFormatter": "jkillian.custom-local-formatters" },
+  "[shellscript]": {
+    "editor.defaultFormatter": "mads-hartmann.bash-ide-vscode",
+    "editor.formatOnSave": false
+  },
+  "[kdl]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters",
+    "editor.formatOnSave": false
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml",
+    "editor.formatOnSave": false
+  },
 
   "vim.leader": "<space>",
   "vim.useSystemClipboard": true,

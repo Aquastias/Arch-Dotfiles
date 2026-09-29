@@ -243,6 +243,30 @@ setup() {
   grep -q 'prettier' "$R"
 }
 
+@test "every language in use has a formatter (ADR 0151)" {
+  local R="$NVIM/lua/config/languages.lua" f
+  for f in shfmt clang_format nixfmt phpcbf xmllint kdlfmt taplo; do
+    grep -q "\"$f\"" "$R" || { echo "missing $f"; false; }
+  done
+  grep -q '"scss", "less"' "$R"
+  local H="$REPO/.installer/hosts/core/profile.jsonc"
+  for f in shfmt taplo-cli kdlfmt nixfmt; do
+    grep -q "\"$f\"" "$H" || { echo "$f not in Host Core"; false; }
+  done
+  grep -q 'needed php-codesniffer' "$INSTALL"
+}
+
+@test "shell/kdl/toml format on <leader>cf only, not on save (ADR 0151)" {
+  local R="$NVIM/lua/config/languages.lua"
+  [ "$(grep -c 'format_on_save = false' "$R")" -eq 3 ]
+  grep -q 'manual_format_fts()' "$NVIM/lua/plugins/conform.lua"
+}
+
+@test "rest.nvim formats html/xml responses too" {
+  grep -q 'prettier --parser html' "$NVIM/lua/plugins/rest.lua"
+  grep -q 'xmllint --format -' "$NVIM/lua/plugins/rest.lua"
+}
+
 @test "linting via nvim-lint, linters from the registry" {
   grep -q 'mfussenegger/nvim-lint' "$NVIM/lua/plugins/lint.lua"
   grep -q 'linters_by_ft()' "$NVIM/lua/plugins/lint.lua"
@@ -452,7 +476,7 @@ setup() {
 }
 
 @test "rest.nvim pretty-prints JSON responses with jq" {
-  grep -q 'formatprg = "jq"' "$NVIM/lua/plugins/rest.lua"
+  grep -q 'json = "jq"' "$NVIM/lua/plugins/rest.lua"
 }
 
 # ── IDE expansion: grug-far find & replace (ticket 07) ───────────────────────

@@ -218,7 +218,21 @@ fmt_ext() {
   gofmt) echo golang.go ;;
   rustfmt) echo rust-lang.rust-analyzer ;;
   zigfmt) echo ziglang.vscode-zig ;;
+  clang_format) echo llvm-vs-code-extensions.vscode-clangd ;;
+  nixfmt) echo jnoortheen.nix-ide ;;
+  phpcbf) echo ValeryanM.vscode-phpsab ;;
+  shfmt) echo mads-hartmann.bash-ide-vscode ;;
+  taplo) echo tamasfe.even-better-toml ;;
+  xmllint | kdlfmt) echo jkillian.custom-local-formatters ;;
   *) echo "UNMAPPED:$1" ;;
+  esac
+}
+
+# nvim filetype → VSCodium language id (they differ only for shell).
+vsc_lang() {
+  case "$1" in
+  sh | bash | zsh) echo shellscript ;;
+  *) echo "$1" ;;
   esac
 }
 
@@ -228,7 +242,7 @@ fmt_ext() {
   [ "${#lines[@]}" -ge 15 ]
   while read -r ft fmt; do
     want="$(fmt_ext "$fmt")"
-    got="$(setting ".\"[$ft]\".\"editor.defaultFormatter\"" | jq -r .)"
+    got="$(setting ".\"[$(vsc_lang "$ft")]\".\"editor.defaultFormatter\"" | jq -r .)"
     [ "$got" = "$want" ] || { echo "$ft: want $want got $got"; false; }
   done < <(registry_formatters)
 }
@@ -239,16 +253,29 @@ fmt_ext() {
   [ "$(setting '."files.autoSave" // "off"')" = '"off"' ]
 }
 
+# nvim's manual-only formatters (format_on_save = false, ADR 0151) skip save
+# in VSCodium too.
+@test "manual-only formatters skip format on save in both editors" {
+  local ft
+  for ft in shellscript kdl toml; do
+    [ "$(setting ".\"[$ft]\".\"editor.formatOnSave\"")" = false ] \
+      || { echo "$ft formats on save"; false; }
+  done
+  [ "$(grep -c "format_on_save = false" "$LANGS")" -eq 3 ]
+}
+
 # System path settings → the package providing that path. Each package must be
 # declared by Host Core, be a dependency of one it declares (rust ← rust-src ←
-# rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor).
+# rust-analyzer, zig ← zls), or be installed by dev/nvim (phpactor,
+# php-codesniffer).
 @test "toolchain path settings point at Host Core system binaries" {
   local key path pkg
   while read -r key path pkg; do
     got="$(setting ".$key" | jq -r 'if type == "array" then .[0] else . end')"
     [ "$got" = "$path" ] || { echo "$key: want $path got $got"; false; }
-    if [ "$pkg" = "@nvim" ]; then
-      grep -q 'needed phpactor' "$REPO/.installer/programs/dev/nvim/install.sh"
+    if [[ "$pkg" == @nvim:* ]]; then
+      grep -q "needed ${pkg#@nvim:}" \
+        "$REPO/.installer/programs/dev/nvim/install.sh"
     else
       grep -q "\"$pkg\"" "$HOSTCORE" \
         || { echo "$pkg not in Host Core"; false; }
@@ -266,7 +293,11 @@ fmt_ext() {
 "zig.path" /usr/bin/zig zls
 "zig.zls.path" /usr/bin/zls zls
 "nix.serverPath" /usr/bin/nixd nixd
-"phpactor.path" /usr/bin/phpactor @nvim
+"phpactor.path" /usr/bin/phpactor @nvim:phpactor
+"nix.formatterPath" /usr/bin/nixfmt nixfmt
+"bashIde.shfmt.path" /usr/bin/shfmt shfmt
+"phpsab.executablePathCBF" /usr/bin/phpcbf @nvim:php-codesniffer
+"phpsab.executablePathCS" /usr/bin/phpcs @nvim:php-codesniffer
 "svelte.language-server.ls-path" /usr/bin/svelteserver svelte-language-server
 "vue.server.path" /usr/lib/node_modules/@vue/language-server vue-language-server
 EOF_

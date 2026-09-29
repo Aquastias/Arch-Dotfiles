@@ -29,6 +29,10 @@ ziglang.vscode-zig
 llvm-vs-code-extensions.vscode-clangd
 bradlc.vscode-tailwindcss
 dbaeumer.vscode-eslint
+ValeryanM.vscode-phpsab
+tamasfe.even-better-toml
+v1hz.kdl
+jkillian.custom-local-formatters
 
 # Palettes — the five nvim offers, picked with <leader>uC
 mvllow.rose-pine

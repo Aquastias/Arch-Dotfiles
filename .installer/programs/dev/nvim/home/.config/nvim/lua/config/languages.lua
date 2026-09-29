@@ -11,6 +11,8 @@
 --   formatter conform formatter(s), keyed onto every ft above
 --   linter    nvim-lint linter(s), keyed onto every ft above
 --   dap       debug-adapter key (see dap.lua; ADR 0140), core-five only
+--   format_on_save  false = formatter runs on <leader>cf only (hand-formatted
+--             repo files the formatter would rewrite; ADR 0151)
 --
 -- clangd (c/cpp) and the cross-cutting web servers (tailwind/emmet/eslint) get
 -- their own rows; the lsp consumer de-dupes, so a server named twice enables
@@ -29,8 +31,8 @@ local registry = {
     linter = { "ruff" },
     dap = "python",
   },
-  nix = { lsp = "nixd" },
-  php = { lsp = "phpactor" },
+  nix = { lsp = "nixd", ft = { "nix" }, formatter = { "nixfmt" } },
+  php = { lsp = "phpactor", ft = { "php" }, formatter = { "phpcbf" } },
   svelte = {
     lsp = "svelte",
     ts = { "svelte" },
@@ -64,6 +66,8 @@ local registry = {
     ft = { "css" },
     formatter = { "biome" },
   },
+  scss = { ft = { "scss", "less" }, formatter = { "prettier" } },
+  xml = { ft = { "xml" }, formatter = { "xmllint" } },
   html = {
     lsp = "html",
     ts = { "html" },
@@ -81,7 +85,15 @@ local registry = {
     ft = { "markdown" },
     formatter = { "prettier" },
   },
-  bash = { lsp = "bashls", ts = { "bash" } },
+  bash = {
+    lsp = "bashls",
+    ts = { "bash" },
+    ft = { "sh", "bash", "zsh" },
+    formatter = { "shfmt" },
+    format_on_save = false,
+  },
+  kdl = { ft = { "kdl" }, formatter = { "kdlfmt" }, format_on_save = false },
+  toml = { ft = { "toml" }, formatter = { "taplo" }, format_on_save = false },
   -- .http/.rest API files (rest.nvim); no LSP, just the parser + filetype.
   http = { ts = { "http" } },
   go = { lsp = "gopls", ft = { "go" }, formatter = { "gofmt" }, dap = "go" },
@@ -92,8 +104,18 @@ local registry = {
     dap = "rust",
   },
   zig = { lsp = "zls", ft = { "zig" }, formatter = { "zigfmt" } },
-  c = { lsp = "clangd", ft = { "c" }, dap = "c" },
-  cpp = { lsp = "clangd", ft = { "cpp" }, dap = "cpp" },
+  c = {
+    lsp = "clangd",
+    ft = { "c" },
+    formatter = { "clang_format" },
+    dap = "c",
+  },
+  cpp = {
+    lsp = "clangd",
+    ft = { "cpp" },
+    formatter = { "clang_format" },
+    dap = "cpp",
+  },
   -- Cross-cutting web servers (attach by their own lspconfig filetypes).
   tailwind = { lsp = "tailwindcss" },
   emmet = { lsp = "emmet_language_server" },
@@ -159,6 +181,19 @@ end
 
 function M.linters_by_ft()
   return by_ft("linter")
+end
+
+-- filetypes whose formatter is manual-only (format_on_save set to false).
+function M.manual_format_fts()
+  local out = {}
+  for _, spec in pairs(registry) do
+    if spec.format_on_save == false then
+      for _, ft in ipairs(spec.ft or {}) do
+        out[ft] = true
+      end
+    end
+  end
+  return out
 end
 
 -- adapter key -> filetypes it debugs, so dap.lua reads ft from the registry

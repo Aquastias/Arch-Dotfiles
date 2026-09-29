@@ -15,10 +15,15 @@ return {
   init = function()
     -- rest.nvim only runs on the http ft; fold .rest files into it.
     vim.filetype.add({ extension = { http = "http", rest = "http" } })
-    -- rest.nvim pretty-prints JSON responses via the json ft's formatprg.
+    -- rest.nvim pretty-prints responses via each ft's formatprg ('gq').
+    local prg = {
+      json = "jq",
+      html = "prettier --parser html",
+      xml = "xmllint --format -",
+    }
     vim.api.nvim_create_autocmd("FileType", {
-      pattern = "json",
-      callback = function(ev) vim.bo[ev.buf].formatprg = "jq" end,
+      pattern = vim.tbl_keys(prg),
+      callback = function(ev) vim.bo[ev.buf].formatprg = prg[ev.match] end,
     })
   end,
 }
