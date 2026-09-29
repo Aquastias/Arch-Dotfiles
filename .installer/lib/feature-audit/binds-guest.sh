@@ -165,9 +165,14 @@ fa_bsetup() {
       Hyprland) _fa_hl 'hl.dsp.window.float({ action = "toggle" })' ;;
     esac
   fi
-  if [[ "$needs" == *ws2win* && "$comp" == Hyprland ]]; then
-    _fa_hl "hl.dsp.window.move({ workspace = 2, silent = true })"
-    _fa_hl "hl.dsp.focus({ workspace = 1 })"   # silent may still follow
+  # ws2win: one test window on workspace 2, focus back on 1
+  if [[ "$needs" == *ws2win* ]]; then
+    case "$comp" in
+      niri) _fa_act move-column-to-workspace 2; _fa_act focus-workspace 1 ;;
+      Hyprland)
+        _fa_hl "hl.dsp.window.move({ workspace = 2, silent = true })"
+        _fa_hl "hl.dsp.focus({ workspace = 1 })" ;;
+    esac
   fi
   if [[ "$needs" == *workspace2* ]]; then
     case "$comp" in

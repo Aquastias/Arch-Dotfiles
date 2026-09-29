@@ -44,16 +44,20 @@
 
     { "action": "focus-workspace *", "effect": "workspace",
       "arg": "{arg}" },
+    // moving to the workspace a column is already on changes nothing
+    { "action": "move-column-to-workspace 1", "effect": "layout-changes",
+      "needs": "ws2win workspace2" },
     { "action": "move-column-to-workspace *", "effect": "layout-changes" },
     { "action": "focus-workspace-down", "effect": "workspace-changes" },
     { "action": "focus-workspace-up", "effect": "workspace-changes",
       "needs": "workspace2" },
     { "action": "move-column-to-workspace-down", "effect": "layout-changes" },
     { "action": "move-column-to-workspace-up", "effect": "layout-changes",
-      "needs": "workspace2" },
-    { "action": "move-workspace-down", "effect": "workspace-changes" },
+      "needs": "ws2win workspace2" },
+    { "action": "move-workspace-down", "effect": "workspace-changes",
+      "needs": "ws2win" },
     { "action": "move-workspace-up", "effect": "workspace-changes",
-      "needs": "workspace2" },
+      "needs": "ws2win workspace2" },
 
     { "action": "screenshot", "effect": "screen-changes",
       "recovery": "escape" },
@@ -72,8 +76,11 @@
       "needs": "stack" },
     { "action": "toggle-column-tabbed-display", "effect": "layout-changes",
       "needs": "stack" },
-    { "action": "consume-or-expel-window-*", "effect": "layout-changes" },
-    { "action": "consume-window-into-column", "effect": "layout-changes" },
+    { "action": "consume-or-expel-window-left", "effect": "layout-changes" },
+    { "action": "consume-or-expel-window-right", "effect": "layout-changes",
+      "needs": "dir:right" },
+    { "action": "consume-window-into-column", "effect": "layout-changes",
+      "needs": "dir:right" },
     { "action": "expel-window-from-column", "effect": "layout-changes",
       "needs": "stack" },
 
@@ -86,6 +93,9 @@
     { "action": "toggle-keyboard-shortcuts-inhibit", "effect": "unverifiable",
       "reason": "no shortcut-inhibiting client in the VM" },
 
+    // raising a volume already at the 1.0 cap changes nothing: lower first
+    { "chord": "XF86AudioRaiseVolume", "effect": "audio-changes",
+      "pre": ["XF86AudioLowerVolume"] },
     { "action": "spawn-sh \"wpctl *\"", "effect": "audio-changes" },
     { "action": "spawn \"brightnessctl\"*", "effect": "unverifiable",
       "reason": "no backlight device in a VM" },
