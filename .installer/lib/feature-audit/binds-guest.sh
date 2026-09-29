@@ -170,7 +170,6 @@ fa_bsetup() {
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
   fi
-  [[ -n "$dir" ]] && _fa_focus_for_dir "$comp" "$dir"
   local tok
   for tok in $needs; do
     case "$tok" in
@@ -184,11 +183,11 @@ fa_bsetup() {
       maximized)
         [[ "$comp" == kwin_wayland ]] && _fa_kwin_run \
           "workspace.activeWindow.setMaximize(true, true);" ;;
-      launch:*) setsid -f "${tok#launch:}" >/dev/null 2>&1; sleep 4
-        [[ -n "$dir" ]] || _fa_focus_for_dir "$comp" right ;;
+      launch:*) setsid -f "${tok#launch:}" >/dev/null 2>&1; sleep 4 ;;
       clip:*) printf '%s' "${tok#clip:}" | wl-copy >/dev/null 2>&1 ;;
     esac
   done
+  [[ -n "$dir" ]] && _fa_focus_for_dir "$comp" "$dir"
   # a workspace-N bind must start somewhere else to prove it moved (niri
   # clamps N to the last workspace, so only `1` needs to start further down)
   if [[ "$effect" == workspace && "$arg" == 1 ]]; then

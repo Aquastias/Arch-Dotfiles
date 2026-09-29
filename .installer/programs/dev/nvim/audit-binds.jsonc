@@ -1,0 +1,105 @@
+// Feature Audit keymap expectations for nvim (ADR 0152) — one per keymap the
+// shipped config declares (parsed by lib/feature-audit/binds-nvim.awk; a
+// chord match wins over an action glob, actions are "<modes> <desc>"). Each
+// bind runs in a fresh headless nvim on a 40-line Lua buffer
+// (audit-fixtures/key.lua). Effects: runs (no error) | window-opens |
+// buffer-changes | text-changes | cursor-moves | quits | lua (arg = expr).
+// needs: lsp = wait for lua_ls to attach first.
+{
+  "expect": [
+    // ── core ──
+    { "chord": "<Esc>", "effect": "lua", "arg": "vim.v.hlsearch == 0" },
+    { "chord": "<leader>w", "effect": "runs" },
+    { "chord": "<leader>q", "effect": "quits" },
+    { "action": "n Go to * window", "effect": "runs" },
+    { "chord": "<Esc><Esc>", "effect": "mode", "arg": "n" },
+    { "chord": "<leader>uC", "effect": "window-opens" },
+    { "chord": "<leader>uN", "effect": "runs" },
+    { "chord": "<leader>uh", "effect": "runs", "needs": "lsp" },
+    { "action": "n * buffer", "effect": "runs" },
+    { "action": "v Move selection *", "effect": "text-changes" },
+    { "chord": "J", "action": "n Join line, keep cursor",
+      "effect": "text-changes" },
+    { "action": "v Indent *, keep selection", "effect": "text-changes" },
+    { "action": "n Half page *", "effect": "cursor-moves" },
+    { "action": "n * match (centered)", "effect": "cursor-moves" },
+    { "chord": "<leader>p", "effect": "text-changes" },
+    { "chord": "<leader>rw", "effect": "mode", "arg": "c" },
+    { "chord": "<leader>cx", "effect": "runs" },
+    { "chord": "<leader>yp", "effect": "lua",
+      "arg": "vim.fn.getreg('+') ~= '' or vim.fn.getreg('\"') ~= ''" },
+    { "chord": "<leader><cr>", "effect": "runs" },
+    { "action": "* Change * (. repeats)", "effect": "mode", "arg": "i" },
+    { "action": "n * diagnostic", "effect": "runs" },
+
+    // ── lsp (buffer-local on LspAttach) ──
+    { "chord": "K", "action": "n Hover", "effect": "window-opens",
+      "needs": "lsp" },
+    { "chord": "grn", "effect": "window-opens", "needs": "lsp" },
+    { "chord": "gra", "effect": "runs", "needs": "lsp" },
+    { "chord": "grr", "effect": "runs", "needs": "lsp" },
+    { "chord": "gri", "effect": "runs", "needs": "lsp" },
+    { "chord": "grd", "effect": "runs", "needs": "lsp" },
+    { "chord": "<leader>co", "effect": "runs", "needs": "lsp" },
+    { "chord": "<leader>cf", "effect": "runs" },
+
+    // ── pickers / panels (snacks, trouble, harpoon, undotree, diffview) ──
+    { "chord": "<leader><space>", "effect": "window-opens" },
+    { "action": "n Find files", "effect": "window-opens" },
+    { "action": "n Grep", "effect": "window-opens" },
+    { "action": "n Buffers", "effect": "window-opens" },
+    { "action": "n Recent files", "effect": "window-opens" },
+    { "action": "n Help pages", "effect": "window-opens" },
+    { "action": "n Symbols (*)", "effect": "window-opens", "needs": "lsp" },
+    { "action": "n Commands (palette)", "effect": "window-opens" },
+    { "action": "n Keymaps", "effect": "window-opens" },
+    { "action": "n Explorer (snacks)", "effect": "window-opens" },
+    { "action": "n,t Toggle terminal", "effect": "window-opens" },
+    { "chord": "<leader>bd", "effect": "runs" },
+    { "chord": "<leader>gg", "effect": "window-opens" },
+    { "chord": "<leader>gl", "effect": "window-opens" },
+    { "action": "n Git*", "effect": "runs" },
+    { "action": "n,v Git browse (open remote)", "effect": "runs" },
+    { "chord": "<leader>gL", "effect": "window-opens" },
+    { "action": "n * git hunk", "effect": "runs" },
+    { "action": "n Diff/conflicts", "effect": "runs" },
+    { "action": "n * history", "effect": "runs" },
+    { "action": "n Diffview close", "effect": "runs" },
+    { "action": "n Harpoon add", "effect": "runs" },
+    { "action": "n Harpoon menu", "effect": "window-opens" },
+    { "chord": "<leader>U", "effect": "window-opens" },
+    { "action": "n Diags", "effect": "window-opens" },
+    { "action": "n Buffer diagnostics", "effect": "window-opens" },
+    { "action": "n Loclist", "effect": "runs" },
+    { "action": "n Quickfix", "effect": "runs" },
+    { "action": "n Symbols", "effect": "runs", "needs": "lsp" },
+    { "action": "n Todo list", "effect": "window-opens" },
+    { "action": "n * todo comment", "effect": "runs" },
+
+    // ── oil / grug-far / rest ──
+    { "chord": "-", "effect": "buffer-changes" },
+    { "chord": "<leader>-", "effect": "window-opens" },
+    { "action": "n Search & replace (project)", "effect": "window-opens" },
+    { "action": "v Search & replace (selection)", "effect": "window-opens" },
+    { "action": "n REST: *", "effect": "runs" },
+
+    // ── refactoring / treesitter / flash / folds ──
+    { "action": "* Extract *", "effect": "runs" },
+    { "action": "n,x Inline variable", "effect": "runs" },
+    { "action": "n,x Expand selection (treesitter)", "effect": "mode",
+      "arg": "v" },
+    { "action": "x Shrink selection (treesitter)", "effect": "runs" },
+    { "action": "n,x,o Flash*", "effect": "runs" },
+    { "action": "o Remote Flash", "effect": "runs" },
+    { "action": "o,x Treesitter Search", "effect": "runs" },
+    { "action": "c Toggle Flash Search", "effect": "runs" },
+    { "action": "n * folds*", "effect": "runs" },
+    { "action": "n Peek fold", "effect": "runs" },
+
+    // ── debugging (nvim-dap, ADR 0140) ──
+    { "action": "n Debug: Toggle breakpoint", "effect": "lua",
+      "arg": "#require('dap.breakpoints').get()[vim.api.nvim_get_current_buf()] > 0" },
+    { "action": "n Debug: Toggle UI", "effect": "window-opens" },
+    { "action": "n Debug: *", "effect": "runs" }
+  ]
+}

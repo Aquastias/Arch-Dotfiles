@@ -97,7 +97,7 @@
 
     // ── apps ──
     { "action": "krusader/bring_main_window_to_top", "effect": "focus-changes",
-      "needs": "launch:krusader" },
+      "needs": "launch:krusader dir:right" },
 
     // ── audio / power / media ──
     { "action": "kmix/*", "effect": "audio-changes" },

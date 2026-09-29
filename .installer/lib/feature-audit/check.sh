@@ -120,6 +120,15 @@ _fa_check_programs() {
     grep -qxF "program:$n" <<<"$covered" && continue
     echo "coverage: program $n has no audit probe (audit.sh)"
   done
+  # every desktop environment ships a session probe too
+  local ext="${FEATURE_AUDIT_EXTRAS_DIR:-$INSTALLER_DIR/extras/desktop}"
+  for d in "$ext"/*/; do
+    n="${d%/}"; n="${n##*/}"
+    compgen -G "$d/install-*.jsonc" >/dev/null || continue
+    [[ -f "$d/audit.sh" ]] && continue
+    grep -qxF "desktop:$n" <<<"$covered" && continue
+    echo "coverage: desktop $n has no audit probe (audit.sh)"
+  done
 }
 
 # _fa_check_binds — every shipped keybind (parsed from the real configs) has

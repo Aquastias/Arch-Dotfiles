@@ -98,3 +98,39 @@ J
   run fa_binds_plan hyprland "$FIX/hypr-binds.lua" "$BATS_TEST_TMPDIR/b.jsonc"
   jq -e 'select(.chord == "Super+2") | .arg == "2"' <<<"$output"
 }
+
+@test "nvim parser: map/keymap.set calls and lazy keys specs" {
+  run fa_binds_parse nvim "$FIX/nvim-keys.lua"
+  [ "$status" -eq 0 ]
+  grep -qxF $'nvim\t<leader>w\tn Write buffer' <<<"$output"
+  grep -qxF $'nvim\t<C-/>\tn,t Toggle terminal' <<<"$output"
+  grep -qxF $'nvim\tJ\tv Move selection down' <<<"$output"
+  grep -qxF $'nvim\t<leader>xx\tn Diags' <<<"$output"
+  grep -qxF $'nvim\ts\tn,x Flash' <<<"$output"
+  # a dynamically built lhs is left to the live keymap dump
+  ! grep -q $'\t<leader>\t' <<<"$output"
+  [ "$(wc -l <<<"$output")" -eq 5 ]
+}
+
+@test "program sources: nvim binds are driven by the nvim probe" {
+  run fa_binds_program_sources nvim
+  [ "$output" = nvim ]
+  run fa_binds_session nvim
+  [ "$output" = "-" ]
+}
+
+@test "kitty parser: map lines, kitty_mod = Ctrl+Shift" {
+  run fa_binds_parse kitty "$FIX/kitty-keys.conf"
+  [ "$status" -eq 0 ]
+  grep -qxF $'kitty\tCtrl+Shift+t\tnew_tab_with_cwd' <<<"$output"
+  grep -qxF $'kitty\tCtrl+Alt+enter\tlaunch --cwd=current' <<<"$output"
+  [ "$(wc -l <<<"$output")" -eq 2 ]
+}
+
+@test "zsh parser: explicit bindkey lines, not keymap switches" {
+  run fa_binds_parse zsh "$FIX/zshrc"
+  [ "$status" -eq 0 ]
+  grep -qxF $'zsh\t^[[1;5C\tmain forward-word' <<<"$output"
+  grep -qxF $'zsh\t^R\tviins history-incremental-search-backward' <<<"$output"
+  [ "$(wc -l <<<"$output")" -eq 2 ]
+}

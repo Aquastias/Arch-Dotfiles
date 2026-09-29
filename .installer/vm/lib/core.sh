@@ -205,6 +205,12 @@ _vm_create() {
     disk_args+=(--disk \
       "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
   done
+  # VM_PM (Feature Audit, ADR 0152): expose ACPI S3/S4 so a guest suspend
+  # can be woken by `virsh dompmwakeup`.
+  local -a pm_args=()
+  # shellcheck disable=SC2054 # one virt-install --pm value
+  [[ -n "${VM_PM:-}" ]] \
+    && pm_args=(--pm suspend_to_mem.enabled=on,suspend_to_disk.enabled=on)
   local disk_summary
   disk_summary="$(printf '%sG ' "${VM_DISK_SIZES[@]}")"
   info "Creating VM '${VM_NAME}'" \
@@ -222,6 +228,7 @@ _vm_create() {
     --network       network=default \
     "${FLOW_GRAPHICS_ARGS[@]}" \
     --console       pty,target_type=serial \
+    "${pm_args[@]}" \
     --noautoconsole \
     --noreboot
 }

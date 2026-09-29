@@ -16,12 +16,15 @@ fa_fail() { printf 'FAIL %s %s\n' "$1" "${*:2}"; }
 fa_skip() { printf 'SKIP %s %s\n' "$1" "${*:2}"; }
 
 # fa_check <id> <msg> <cmd…> — PASS when cmd succeeds, else FAIL with the
-# command's first output line appended (the "why" for the fixing agent).
+# command's most telling output line (first error-shaped, else last) as the
+# "why" for the fixing agent.
 fa_check() {
-  local id="$1" msg="$2" out
+  local id="$1" msg="$2" out why
   shift 2
-  if out="$("$@" 2>&1)"; then fa_pass "$id" "$msg"
-  else fa_fail "$id" "$msg: $(head -1 <<<"$out")"; fi
+  if out="$("$@" 2>&1)"; then fa_pass "$id" "$msg"; return; fi
+  why="$(grep -iE -m1 'error|fail|denied|not |cannot|can.t|missing|invalid' \
+    <<<"$out")" || why="$(tail -1 <<<"$out")"
+  fa_fail "$id" "$msg${why:+: $why}"
 }
 
 # fa_installed <pkg> — the package is installed.

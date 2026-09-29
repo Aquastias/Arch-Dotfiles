@@ -29,11 +29,18 @@
 
 FA_REPO_ROOT="${FA_REPO_ROOT:-$(cd "$INSTALLER_DIR/.." && pwd)}"
 
-# Registry: source → "session|config-glob|expectations" (repo-relative).
+# Registry: source → "session|config-glob|expectations|program" (paths
+# repo-relative). A compositor source (session set) runs in the keybinds
+# phase; a program source (session `-`) is staged to that program's probe as
+# `binds-plan.jsonl` and driven by it; session `*` = an app bind sent as real
+# input in the first compositor session. `find:<dir>:<name>` walks a tree.
 declare -gA FA_BIND_SOURCES=(
   [niri]="niri|.config/niri/conf.d/*.kdl|.installer/extras/desktop/niri/audit-binds.jsonc"
   [hyprland]="hyprland|.config/hypr/conf.d/*.lua|.installer/extras/desktop/hyprland/audit-binds.jsonc"
   [kde]="kde|.installer/extras/desktop/kde/skel/.config/kglobalshortcutsrc|.installer/extras/desktop/kde/audit-binds.jsonc"
+  [nvim]="-|find:.installer/programs/dev/nvim/home/.config/nvim:*.lua|.installer/programs/dev/nvim/audit-binds.jsonc|nvim"
+  [kitty]="*|.installer/programs/system/kitty/home/.config/kitty/conf/*.conf|.installer/programs/system/kitty/audit-binds.jsonc"
+  [zsh]="-|find:.installer/programs/system/zsh/home:.z*|.installer/programs/system/zsh/audit-binds.jsonc|zsh"
 )
 
 fa_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
@@ -53,6 +60,11 @@ fa_binds_expect_file() {
 # _fa_binds_files <src> — the shipped config files for a source.
 _fa_binds_files() {
   local g; g="$(_fa_binds_field "$1" 2)" || return 1
+  if [[ "$g" == find:* ]]; then
+    g="${g#find:}"
+    find "$FA_REPO_ROOT/${g%%:*}" -name "${g#*:}" -type f | sort
+    return
+  fi
   # shellcheck disable=SC2086 # intentional glob expansion
   ls -1 "$FA_REPO_ROOT"/$g 2>/dev/null
 }
@@ -180,6 +192,46 @@ _fa_parse_kde() {
     }
   ' "$@"
 }
+
+# _fa_parse_nvim <lua…> — see binds-nvim.awk.
+_fa_parse_nvim() {
+  local f
+  for f in "$@"; do
+    awk -f "$INSTALLER_DIR/lib/feature-audit/binds-nvim.awk" "$f"
+  done
+}
+
+# _fa_parse_kitty <conf…> — `map <keys> <action>`; kitty_mod is ctrl+shift
+# (kitty's default; the curated config does not rebind it).
+_fa_parse_kitty() {
+  awk '
+    /^[ \t]*map[ \t]/ {
+      k = $2; sub(/^[ \t]*map[ \t]+[^ \t]+[ \t]+/, "")
+      gsub(/kitty_mod/, "ctrl+shift", k)
+      n = split(k, p, "+"); o = ""
+      for (i = 1; i <= n; i++) {
+        t = p[i]
+        if (t == "ctrl") t = "Ctrl"; else if (t == "shift") t = "Shift"
+        else if (t == "alt") t = "Alt"; else if (t == "super") t = "Super"
+        o = o (o == "" ? "" : "+") t
+      }
+      printf "kitty\t%s\t%s\n", o, $0
+    }' "$@"
+}
+
+# _fa_parse_zsh <rc…> — explicit `bindkey [-M map] <seq> <widget>` lines
+# (a bare `bindkey -e/-v` keymap switch is not a bind).
+_fa_parse_zsh() {
+  awk '
+    { sub(/[ \t]+#.*$/, "") }
+    /^[ \t]*bindkey[ \t]/ {
+      m = "main"; i = 2
+      if ($2 == "-M") { m = $3; i = 4 }
+      if ($i ~ /^-/ || NF < i + 1) next
+      s = $i; gsub(/^[\x27"]|[\x27"]$/, "", s)
+      printf "zsh\t%s\t%s %s\n", s, m, $(i + 1)
+    }' "$@"
+}
 # fa_binds_parse <src> <file…>
 fa_binds_parse() {
   local src="$1"; shift
@@ -187,6 +239,9 @@ fa_binds_parse() {
     niri) _fa_parse_niri "$@" ;;
     hyprland) _fa_parse_hyprland "$@" ;;
     kde) _fa_parse_kde "$@" ;;
+    nvim) _fa_parse_nvim "$@" ;;
+    kitty) _fa_parse_kitty "$@" ;;
+    zsh) _fa_parse_zsh "$@" ;;
     *) echo "feature-audit: no bind parser for '$src'" >&2; return 1 ;;
   esac
 }
@@ -230,4 +285,13 @@ fa_binds_plan() {
 fa_binds_untested() {
   fa_binds_plan "$@" | jq -r 'select(.effect == null)
     | "\(.source)\t\(.chord)\t\(.action)"'
+}
+
+# fa_binds_program_sources <program> — bind sources a program's probe drives.
+fa_binds_program_sources() {
+  local s
+  for s in $(fa_binds_sources); do
+    [[ "$(_fa_binds_field "$s" 4)" == "$1" ]] && printf '%s\n' "$s"
+  done
+  return 0
 }

@@ -1,0 +1,14 @@
+// Feature Audit keybind expectations for kitty (ADR 0152): the shipped
+// conf/*.conf `map` lines, sent as real keyboard input into a focused kitty
+// in the first compositor session. A new tab/split redraws kitty (screen),
+// a new OS window is a new compositor window.
+{
+  "expect": [
+    { "action": "new_tab_with_cwd", "effect": "screen-changes",
+      "needs": "launch:kitty" },
+    { "action": "new_window_with_cwd", "effect": "screen-changes",
+      "needs": "launch:kitty" },
+    { "action": "new_os_window_with_cwd", "effect": "window-opens",
+      "arg": "kitty", "needs": "launch:kitty" }
+  ]
+}

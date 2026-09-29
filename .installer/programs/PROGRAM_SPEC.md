@@ -377,6 +377,8 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   loaded *and does its job*, a config parses with no startup warnings. Real
   hardware-only parts get `fa_skip` with the reason; the manifest's
   `unverifiable` list names them.
+- **Timeout:** 600 s per account unless the probe declares
+  `# audit-timeout: <sec>` in its header.
 - **Fixtures:** optional `audit-fixtures/` next to `audit.sh`, staged as
   `$FA_DIR/audit-fixtures/`.
 - **Keybinds:** a program that ships keybinds also ships

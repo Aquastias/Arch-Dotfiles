@@ -36,12 +36,14 @@ Usage: feature-audit.sh <command> [args]
 Commands:
   check             Manifest + coverage checks, no VM: one Finding per
                     line, exit 1 on any.
-  run [--variant X | --from X] [--keep]
+  run [--variant X | --from X] [--keep] [--reuse]
                     Live Audit Run: install each Audit Variant in turn
                     (one VM), collect, then report into
                     .installer/.audit-runs/<ts>/. --variant runs one,
                     --from resumes at one, --keep holds the last VM.
-                    Needs libvirt (run with the sandbox off).
+                    --reuse audits the kept VM of one variant as it stands
+                    (no reinstall) — iterate on later phases or re-check a
+                    fix. Needs libvirt (run with the sandbox off).
   report <run-dir>  Judge a run folder's raw artifacts into Findings:
                     writes findings.md + findings.jsonl there. Exit 1 on
                     any Finding, 2 on usage error.

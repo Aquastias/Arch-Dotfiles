@@ -1,0 +1,4 @@
+// Feature Audit keybind expectations for zsh (ADR 0152): explicit `bindkey`
+// lines in the shipped rc files (none today: the config only selects the
+// emacs keymap). The zsh probe proves each planned bind is live.
+{ "expect": [] }

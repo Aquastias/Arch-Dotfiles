@@ -10,8 +10,13 @@ case "$sh" in
   *)     fa_fail zsh-login-shell "login shell is '$sh', not zsh" ;;
 esac
 
-fa_check zsh-startup "interactive zsh starts with no stderr" \
-  fa_no_stderr zsh -i -c exit
+# a real pty: zle and p10k need a terminal, as in kitty
+_fa_zsh_startup() {
+  local out
+  out="$(script -qec "zsh -i -c exit" /dev/null 2>&1 | tr -d "\r")"
+  ! grep -iE "error|not found|can.t|warning|no such" <<<"$out"
+}
+fa_check zsh-startup "interactive zsh starts with no errors" _fa_zsh_startup
 
 # zinit plugins load from the pre-warmed cache (offline-safe) and are live.
 _fa_zsh_fn() { zsh -i -c "(( \$+functions[$1] ))" 2>/dev/null; }
@@ -29,3 +34,14 @@ fa_check zsh-command-not-found "pkgfile database built" \
   pkgfile --list pacman
 fa_as_root && fa_check zsh-pkgfile-timer "pkgfile-update.timer enabled" \
   systemctl is-enabled --quiet pkgfile-update.timer
+
+# every planned bind (audit-binds.jsonc / explicit bindkey lines) is live
+fa_check zsh-emacs-keymap "emacs keymap selected (bindkey -e)" \
+  sh -c "script -qec 'zsh -i -c \"bindkey -lL main\"' /dev/null | grep -q emacs"
+if [[ -s "$FA_DIR/binds-plan.jsonl" ]]; then
+  while IFS=$'\t' read -r seq map widget; do
+    fa_check "bind-zsh-$seq" "$seq → $widget in $map" sh -c \
+      "script -qec 'zsh -i -c \"bindkey -M $map \\\"$seq\\\"\"' /dev/null | grep -qw '$widget'"
+  done < <(jq -r '[.chord, (.action | split(" ") | .[0], .[1])] | @tsv' \
+             "$FA_DIR/binds-plan.jsonl")
+fi

@@ -193,3 +193,19 @@ fake_programs() {
   [[ "$output" == *"coverage: niri bind Mod+Return (spawn \"kitty\") has no audit expectation"* ]]
   [[ "$output" != *"Mod+Shift+E"* ]]
 }
+
+@test "programs: a desktop environment without audit.sh is a Finding" {
+  export FEATURE_AUDIT_CHECKS="programs"
+  fake_programs
+  echo 'fa_pass x y' > "$FAKE/programs/system/lact/audit.sh"
+  export FEATURE_AUDIT_EXTRAS_DIR="$FAKE/extras"
+  mkdir -p "$FAKE/extras/niri" "$FAKE/extras/kde"
+  echo '{}' > "$FAKE/extras/niri/install-niri.jsonc"
+  echo '{}' > "$FAKE/extras/kde/install-kde.jsonc"
+  echo 'fa_pass x y' > "$FAKE/extras/kde/audit.sh"
+  manifest '[{"id":"base"}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"desktop niri has no audit probe"* ]]
+  [[ "$output" != *"desktop kde"* ]]
+}

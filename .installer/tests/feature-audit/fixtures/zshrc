@@ -1,0 +1,3 @@
+bindkey -e
+bindkey '^[[1;5C' forward-word   # ctrl-right
+bindkey -M viins '^R' history-incremental-search-backward

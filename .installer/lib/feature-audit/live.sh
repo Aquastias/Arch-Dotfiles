@@ -30,8 +30,14 @@ FA_ANSWER_PID=""
 fa_runs_root() { printf '%s\n' "${FEATURE_AUDIT_RUNS:-$INSTALLER_DIR/.audit-runs}"; }
 
 # fa_agent <verb> [args…] — VM Agent Control on the audit VM as its user.
+# stdin reaches the guest only for a stdin-script `sudo`; every other call
+# gets /dev/null, or ssh would swallow the caller's `while read` input.
 fa_agent() {
-  bash "$FA_AGENT" --vm "$VM_NAME" --user "$FA_USER" "$@"
+  if [[ "$1" == sudo && $# -eq 1 ]]; then
+    bash "$FA_AGENT" --vm "$VM_NAME" --user "$FA_USER" "$@"
+  else
+    bash "$FA_AGENT" --vm "$VM_NAME" --user "$FA_USER" "$@" </dev/null
+  fi
 }
 
 # fa_fatal <phase-dir> <message> — record a fatal Finding for this phase.
@@ -260,6 +266,63 @@ fa_phase_boot2() {
   fa_collect "$dir"
 }
 
+# fa_phase_power <variant-dir> — ACPI suspend-to-RAM and wake (the VM is
+# created with S3/S4, VM_PM): the guest suspends itself, the host waits for
+# `pmsuspended`, wakes it and proves it came back. Hibernation needs a
+# resume device the guest may not have; the probe says why when skipped.
+fa_phase_power() {
+  local dir="$1/power" out since st=""
+  out="$dir/probe-power@root.probe"
+  mkdir -p "$dir"
+  since="$(fa_guest_now)"
+  fa_agent sudo "systemd-run --on-active=5 systemctl suspend" >/dev/null 2>&1
+  for _ in $(seq 30); do
+    st="$(virsh domstate "$VM_NAME" 2>/dev/null)"
+    [[ "$st" == pmsuspended ]] && break
+    sleep 2
+  done
+  if [[ "$st" != pmsuspended ]]; then
+    echo "FAIL power-suspend guest never reached S3 (domstate: $st)" >> "$out"
+  else
+    echo "PASS power-suspend guest entered S3" >> "$out"
+    virsh dompmwakeup "$VM_NAME" >/dev/null 2>&1
+    if fa_wait_ssh 180; then
+      echo "PASS power-resume guest woke and answers SSH" >> "$out"
+    else
+      echo "FAIL power-resume guest did not come back from S3" >> "$out"
+      return 1
+    fi
+  fi
+  fa_agent sudo "sh -c 'swapon --show=NAME --noheadings; \
+    cat /sys/power/state /sys/power/disk'" > "$dir/power-state.txt" 2>&1
+  if grep -qw disk "$dir/power-state.txt" \
+     && fa_agent sudo "sh -c 'grep -q resume= /proc/cmdline'" >/dev/null 2>&1
+  then
+    # S4: the VM powers off; starting it again must RESUME (same boot id)
+    local bid; bid="$(fa_agent sudo cat /proc/sys/kernel/random/boot_id)"
+    fa_agent sudo "systemd-run --on-active=5 systemctl hibernate" \
+      >/dev/null 2>&1
+    for _ in $(seq 90); do
+      [[ "$(virsh domstate "$VM_NAME" 2>/dev/null)" == "shut off" ]] && break
+      sleep 2
+    done
+    fa_serial_stop   # capture ended with the power-off; unlock needs it back
+    virsh start "$VM_NAME" >/dev/null 2>&1
+    fa_serial_start "$dir/serial.txt"
+    if ! fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC"; then
+      echo "FAIL power-hibernate no SSH after resume" >> "$out"; return 1
+    fi
+    if [[ "$(fa_agent sudo cat /proc/sys/kernel/random/boot_id)" == "$bid" ]]
+    then echo "PASS power-hibernate resumed from S4" >> "$out"
+    else echo "FAIL power-hibernate booted fresh instead of resuming" >> "$out"
+    fi
+  else
+    echo "SKIP power-hibernate no resume device configured" \
+      "(ZFS swap on a zvol cannot hibernate)" >> "$out"
+  fi
+  fa_collect "$dir" "$since"
+}
+
 # fa_phase_upgrade <variant-dir> — full upgrade, reboot, collect.
 fa_phase_upgrade() {
   local dir="$1/upgrade"
@@ -300,7 +363,7 @@ SH
 # fa_phase_sessions <variant-dir> <cfg> — log into each compositor of the set
 # (one phase dir per desktop), collect its window, screenshot it.
 fa_phase_sessions() {
-  local vdir="$1" cfg="$2" de dir since
+  local vdir="$1" cfg="$2" de dir since app
   while IFS= read -r de; do
     [[ -n "$de" ]] || continue
     dir="$vdir/sessions-$de"
@@ -319,6 +382,19 @@ fa_phase_sessions() {
     fa_collect "$dir" "$since"
     _fa_session_logs_script "$FA_USER" | fa_agent sudo >/dev/null 2>&1 \
       && fa_pull_into /tmp/fa-logs "$dir" || true
+    # desktop probes (extras/desktop/<de>/audit.sh) in this very session
+    if [[ -f "$INSTALLER_DIR/extras/desktop/$de/audit.sh" ]] \
+       && fa_stage_probes "$cfg" "$INSTALLER_DIR/extras/desktop/$de"; then
+      fa_run_probes "$dir" "sessions-$de" 1 "$cfg" "$FA_USER"
+    fi
+    # toolkit screenshots for visual review (ADR 0117: Qt → Dolphin, GTK →
+    # nm-connection-editor)
+    for app in dolphin nm-connection-editor; do
+      fa_agent launch "$app" >/dev/null 2>&1 || continue
+      sleep 5
+      fa_agent shot "$dir/screens/$de-$app.png" >> "$dir/agent.txt" 2>&1
+      fa_agent sudo "pkill -x $app" >/dev/null 2>&1 || true
+    done
   done < <(fa_desktops "$cfg")
 }
 
@@ -345,7 +421,12 @@ fa_stage_probes() {
     mkdir -p "$tmp/fa-probes/$n"
     cp "$d/audit.sh" "$tmp/fa-probes/$n/"
     [[ -f "$d/audit-binds.jsonc" ]] && cp "$d/audit-binds.jsonc" "$tmp/fa-probes/$n/"
-    [[ -d "$d/audit-fixtures" ]] && cp -r "$d/audit-fixtures" "$tmp/fa-probes/$n/"
+    [[ -d "$d/audit-fixtures" ]] && cp -rL "$d/audit-fixtures" "$tmp/fa-probes/$n/"
+    # program-driven keybinds (nvim …): the matched plan rides along
+    local s
+    for s in $(fa_binds_program_sources "$n"); do
+      fa_binds_plan "$s" >> "$tmp/fa-probes/$n/binds-plan.jsonl"
+    done
   done
   fa_agent sudo "rm -rf /tmp/fa-probes" >/dev/null 2>&1 || true
   fa_agent push "$tmp/fa-probes" /tmp >/dev/null 2>&1
@@ -371,16 +452,18 @@ for d in "$P"/*/; do
   n="$(basename "$d")"; [ -f "$d/audit.sh" ] || continue
   for a in $ACCOUNTS; do
     out="$O/probe-$n@$a.probe"; err="$O/probe-$n@$a.err.lines"
+    to="$(sed -n "s/^# audit-timeout: *//p" "$d/audit.sh" | head -1)"
+    to="${to:-600}"
     h="$(getent passwd "$a" | cut -d: -f6)"
     common=(FA_USER="$a" FA_HOME="$h" FA_ONLINE="$ONLINE" FA_PHASE="$PHASE"
             FA_SESSION="$sess" FA_DIR="$d" FA_CONFIG="$P/config.json")
     if [ "$a" = root ]; then
-      env "${common[@]}" FA_IS_ROOT=1 timeout 600 \
+      env "${common[@]}" FA_IS_ROOT=1 timeout "$to" \
         bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
     else
       uid="$(id -u "$a")"; rt="/run/user/$uid"
       wd="$(ls "$rt" 2>/dev/null | grep -E '^wayland-[0-9]+$' | head -1)"
-      timeout 600 runuser -u "$a" -- env -i HOME="$h" USER="$a" \
+      timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
         LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
         PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
         XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" \
@@ -388,18 +471,22 @@ for d in "$P"/*/; do
         bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
     fi
     rc=$?
-    [ "$rc" = 124 ] && echo "FAIL probe-timeout $n timed out after 600s" >> "$out"
+    [ "$rc" = 124 ] && echo "FAIL probe-timeout $n timed out after ${to}s" >> "$out"
   done
 done
 chmod -R a+rX "$O"
 SH
 }
 
-# fa_run_probes <phase-dir> <phase> <online> <cfg> — stage, run, pull.
+# fa_run_probes <phase-dir> <phase> <online> <cfg> [account…] — run the
+# staged probes (default accounts: root + every variant user), pull output.
 fa_run_probes() {
-  local dir="$1" phase="$2" online="$3" cfg="$4"
-  local -a accts; mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg")
-  _fa_probe_runner_script "$phase" "$online" root "${accts[@]}" \
+  local dir="$1" phase="$2" online="$3" cfg="$4"; shift 4
+  local -a accts=("$@")
+  if ((${#accts[@]} == 0)); then
+    mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg"); accts=(root "${accts[@]}")
+  fi
+  _fa_probe_runner_script "$phase" "$online" "${accts[@]}" \
     | fa_agent sudo >/dev/null 2>&1 \
     || { fa_fatal "$dir" "probe runner failed in the guest"; return 1; }
   fa_pull_into /tmp/fa-probe-out "$dir" \
@@ -549,7 +636,8 @@ _fa_bind_one() {
 # fa_phase_keybinds <variant-dir> <cfg> — per compositor of the set, every
 # shipped bind as real keyboard input; session-ending binds last.
 fa_phase_keybinds() {
-  local vdir="$1" cfg="$2" de src dir since out row
+  local vdir="$1" cfg="$2" de src dir since out row first=""
+  first="$(fa_desktops "$cfg" | head -1)"
   while IFS= read -r de; do
     [[ -n "$de" ]] || continue
     dir="$vdir/keybinds-$de"; mkdir -p "$dir"
@@ -561,7 +649,10 @@ fa_phase_keybinds() {
     fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" /tmp \
       >/dev/null 2>&1
     for src in $(fa_binds_sources); do
-      [[ "$(fa_binds_session "$src")" == "$de" ]] || continue
+      # app sources (session `*`) run once, in the first session
+      case "$(fa_binds_session "$src")" in
+        "$de") ;;  "*") [[ "$de" == "$first" ]] || continue ;;  *) continue ;;
+      esac
       out="$dir/probe-binds-$src@$FA_USER.probe"
       while IFS= read -r row; do
         _fa_bind_one "$row" "$de" >> "$out"
@@ -578,6 +669,7 @@ fa_install() {
   local dir="$1/install" prof="$2" rc
   mkdir -p "$dir"
   VM_ARTIFACT_DIR="$dir" VM_HOLD_FOR_LOG_PULL=1 VM_SKIP_FINAL_BOOT=1 \
+    VM_PM=1 \
     REPO_URL="$FA_REPO_URL" \
     bash "$INSTALLER_DIR/vm/vm.sh" --profile "$prof" --recreate \
     > "$dir/harness.txt" 2>&1 || true
@@ -636,21 +728,32 @@ fa_run_variant() {
     --arg at "$(date -Is)" '{variant:$id, commit:$sha, started:$at}' \
     > "$dir/variant.json"
 
-  fa_install "$dir" "$prof" || return 1
-  fa_boot "$dir/boot1" || return 1
+  if [[ -n "${FA_REUSE:-}" ]]; then
+    # --reuse: audit the already-installed VM as it stands (iterate on the
+    # later phases or re-check a fix without a reinstall)
+    mkdir -p "$dir/boot1"
+    _vm_running || virsh start "$VM_NAME" >/dev/null 2>&1
+    fa_serial_start "$dir/boot1/serial.txt"
+    fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" \
+      || { fa_fatal "$dir/boot1" "reused VM never reached SSH"; return 1; }
+  else
+    fa_install "$dir" "$prof" || return 1
+    fa_boot "$dir/boot1" || return 1
+  fi
   fa_collect "$dir/boot1"
   _fa_phase_on sessions && fa_phase_sessions "$dir" "$cfg"
   _fa_phase_on probes && declare -F fa_phase_probes >/dev/null \
     && fa_phase_probes "$dir" "$cfg"
   _fa_phase_on keybinds && declare -F fa_phase_keybinds >/dev/null \
     && fa_phase_keybinds "$dir" "$cfg"
+  _fa_phase_on power && fa_phase_power "$dir"
   _fa_phase_on timers && fa_phase_timers "$dir"
   if _fa_phase_on boot2; then fa_phase_boot2 "$dir" "$cfg" || return 1; fi
   if _fa_phase_on upgrade; then fa_phase_upgrade "$dir" || return 1; fi
   fa_serial_stop
 }
 
-# fa_run [--variant X] [--from X] [--keep] — the Audit Run.
+# fa_run [--variant X] [--from X] [--keep] [--reuse] — the Audit Run.
 fa_run() {
   local only="" from="" keep=0
   while (($#)); do
@@ -658,6 +761,7 @@ fa_run() {
       --variant) only="${2:?}"; shift 2 ;;
       --from)    from="${2:?}"; shift 2 ;;
       --keep)    keep=1; shift ;;
+      --reuse)   FA_REUSE=1; keep=1; shift ;;
       *) echo "feature-audit: unknown run option '$1'" >&2; return 2 ;;
     esac
   done
@@ -682,7 +786,9 @@ fa_run() {
   mkdir -p "$run/audit/check"
   fa_check > "$run/audit/check/check.lines" \
     || warn "check found problems (recorded as Findings); running anyway."
-  FA_REPO_URL="$(fa_stage_repo)"
+  [[ -n "${FA_REUSE:-}" && ${#ids[@]} -ne 1 ]] \
+    && { echo "feature-audit: --reuse needs one --variant" >&2; return 2; }
+  [[ -n "${FA_REUSE:-}" ]] || FA_REPO_URL="$(fa_stage_repo)"
   local i n=${#ids[@]}
   for ((i = 0; i < n; i++)); do
     fa_run_variant "${ids[i]}" "$run" || true
