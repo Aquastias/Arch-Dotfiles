@@ -19,7 +19,8 @@ setup() {
   grep -qxF $'niri\tMod+D\tspawn-sh "noctalia msg panel-toggle launcher"' \
     <<<"$output"
   grep -qxF $'niri\tMod+1\tfocus-workspace 1' <<<"$output"
-  grep -qxF $'niri\tXF86AudioMute\tspawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"' \
+  local mute='spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"'
+  grep -qxF "niri"$'\t'"XF86AudioMute"$'\t'"$mute" \
     <<<"$output"
 }
 
@@ -66,7 +67,8 @@ J
   grep -qxF $'hyprland\tSuper+1\tfocus({ workspace = 1 })' <<<"$output"
   grep -qxF $'hyprland\tSuper+2\tfocus({ workspace = 2 })' <<<"$output"
   grep -qxF $'hyprland\tSuper+mouse:272\twindow.drag()' <<<"$output"
-  grep -qxF $'hyprland\tXF86AudioMute\texec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")' <<<"$output"
+  grep -qxF $'hyprland\tXF86AudioMute\texec_cmd("wpctl mute")' \
+    <<<"$output"
   [ "$(wc -l <<<"$output")" -eq 8 ]
 }
 

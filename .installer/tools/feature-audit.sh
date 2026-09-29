@@ -59,7 +59,7 @@ main() {
       # shellcheck source=../lib/feature-audit/live.sh
       source "$INSTALLER_DIR/lib/feature-audit/live.sh"
       fa_run "$@" ;;
-    check) fa_check ;;
+    check) fa_audit_check ;;
     report)
       [[ $# -eq 1 ]] || { usage >&2; exit 2; }
       fa_report "$1" ;;

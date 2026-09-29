@@ -96,6 +96,13 @@ blocks the socket, retry with the sandbox disabled (docs/agents/vm-sandbox.md)."
 # =============================================================================
 # VM STATE PREDICATES
 # =============================================================================
+# Current DHCP lease of the domain's first NIC, or empty if none yet.
+_vm_ip_now() {
+  virsh domifaddr "$VM_NAME" 2>/dev/null \
+    | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' \
+    | head -1
+}
+
 _vm_exists()  { virsh dominfo "$VM_NAME" >/dev/null 2>&1; }
 _vm_running() {
   [[ "$(virsh domstate "$VM_NAME" 2>/dev/null || true)" == "running" ]]

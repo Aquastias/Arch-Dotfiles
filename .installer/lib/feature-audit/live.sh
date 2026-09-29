@@ -66,16 +66,11 @@ fa_stage_repo() {
     "$HTTP_PORT"
 }
 
-_fa_vm_ip() {
-  virsh domifaddr "$VM_NAME" 2>/dev/null \
-    | awk 'NR>2 { split($4,a,"/"); if (a[1] ~ /^[0-9]/) print a[1] }' | head -1
-}
-
 # fa_wait_ssh <timeout> — until the guest's sshd answers for the audit user.
 fa_wait_ssh() {
   local t="$1" e=0 ip
   while ((e < t)); do
-    ip="$(_fa_vm_ip)"
+    ip="$(_vm_ip_now)"
     if [[ -n "$ip" ]] && fa_agent sudo true >/dev/null 2>&1; then
       return 0
     fi
@@ -104,12 +99,22 @@ fa_serial_stop() {
   FA_ANSWER_PID=""
 }
 
+# fa_vm_start <phase-dir> — power the domain on behind the host-capacity
+# guard (ADR 0099); a refusal is this variant's fatal, not the run's.
+fa_vm_start() {
+  if ! ( _vm_capacity_preflight ) >/dev/null 2>&1; then
+    fa_fatal "$1" "host capacity: ${VM_RAM_MB:-?} MiB VM refused"
+    return 1
+  fi
+  virsh start "$VM_NAME" >/dev/null 2>&1 || true
+}
+
 # fa_boot <phase-dir> — power on the installed system and wait for SSH.
 fa_boot() {
   local dir="$1"
   mkdir -p "$dir"
-  virsh start "$VM_NAME" >/dev/null 2>&1 || true
-  fa_serial_start "$dir/serial.txt"
+  fa_vm_start "$dir" || return 1
+  fa_serial_start "$dir/serial.log"
   fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
     fa_fatal "$dir" \
       "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
@@ -148,8 +153,14 @@ for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
   systemctl --user -M "$u@" --failed --plain --no-legend --no-pager \
     > "$o/failed-units-user-$u.lines" 2>/dev/null || true
 done
-journalctl "${win[@]}" -p warning --no-pager -q -o short \
+# system journal (services + kernel) and each user's own, as separate sources
+journalctl "${win[@]}" --system -p warning --no-pager -q -o short \
   > "$o/journal.lines" 2>&1
+for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
+  n="$(id -nu "$u" 2>/dev/null)" || continue
+  journalctl "${win[@]}" _UID="$u" -p warning --no-pager -q -o short \
+    > "$o/journal-user-$n.lines" 2>&1
+done
 cw=(); [ -n "$SINCE" ] && cw=(--since "@$SINCE")
 coredumpctl list "${cw[@]}" --no-legend --no-pager -q \
   > "$o/coredumps.lines" 2>/dev/null || true
@@ -231,27 +242,28 @@ SH
 
 # _fa_boot2_check_script <user> <impermanent> <sops> — the reboot proofs.
 _fa_boot2_check_script() {
+  cat "$INSTALLER_DIR/lib/feature-audit/probe-lib.sh"
   printf 'U=%q IMP=%q SOPS=%q\n' "$1" "$2" "$3"
   cat <<'SH'
 set -u
-p() { echo "PASS $1 $2"; }; f() { echo "FAIL $1 $2"; }
+
 h="$(getent passwd "$U" | cut -d: -f6)"
 if [ "$IMP" = true ]; then
   [ -e /etc/fa-rollback-probe ] \
-    && f rollback "/etc marker survived reboot (root not rolled back)" \
-    || p rollback "/etc rolled back"
+    && fa_fail rollback "/etc marker survived reboot (not rolled back)" \
+    || fa_pass rollback "/etc rolled back"
 fi
-[ -e "$h/.fa-persist-probe" ] && p home-persist "home kept" \
-  || f home-persist "home marker lost on reboot"
+[ -e "$h/.fa-persist-probe" ] && fa_pass home-persist "home kept" \
+  || fa_fail home-persist "home marker lost on reboot"
 now="$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
   | awk '{print $2}')"
 [ -n "$now" ] && [ "$now" = "$(cat "$h/.fa-hostkey" 2>/dev/null)" ] \
-  && p ssh-hostkey "host key stable" \
-  || f ssh-hostkey "ssh host key changed across reboot"
+  && fa_pass ssh-hostkey "host key stable" \
+  || fa_fail ssh-hostkey "ssh host key changed across reboot"
 if [ "$SOPS" = true ]; then
   systemctl is-active --quiet sops-runtime.service \
-    && p sops-runtime "decrypted on boot" \
-    || f sops-runtime "sops-runtime.service not active after reboot"
+    && fa_pass sops-runtime "decrypted on boot" \
+    || fa_fail sops-runtime "sops-runtime.service not active after reboot"
 fi
 rm -f "$h/.fa-persist-probe" "$h/.fa-hostkey" /etc/fa-rollback-probe
 SH
@@ -312,8 +324,8 @@ fa_phase_power() {
       sleep 2
     done
     fa_serial_stop   # capture ended with the power-off; unlock needs it back
-    virsh start "$VM_NAME" >/dev/null 2>&1
-    fa_serial_start "$dir/serial.txt"
+    fa_vm_start "$dir" || return 1
+    fa_serial_start "$dir/serial.log"
     if ! fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC"; then
       echo "FAIL power-hibernate no SSH after resume" >> "$out"; return 1
     fi
@@ -729,7 +741,7 @@ fa_run_guided() {
     | jq -r .name)"
   mkdir -p "$dir/install" "$dir/boot1"
   LOG_FILE="$dir/install/installer.log" \
-    BOOT_LOG_FILE="$dir/boot1/serial.txt" REPO_URL="$FA_REPO_URL" \
+    BOOT_LOG_FILE="$dir/boot1/serial.log" REPO_URL="$FA_REPO_URL" \
     bash "$INSTALLER_DIR/vm/vm.sh" --guided --profile "$ref" --verify-boot \
     --recreate > "$dir/install/harness.txt" 2>&1 || rc=$?
   ((rc == 0)) || fa_fatal "$dir/install" \
@@ -743,28 +755,32 @@ _fa_phase_on() { [[ " ${FEATURE_AUDIT_SKIP:-} " != *" $1 "* ]]; }
 
 # fa_run_variant <id> <run-dir> — every phase for one variant.
 fa_run_variant() {
-  local id="$1" run="$2" dir prof cfg
+  local id="$1" run="$2" dir prof cfg v
   dir="$run/$id"
   mkdir -p "$dir"
   section "Audit Variant: $id"
+  v="$(fa_variant_json "$id")"
+  jq --arg sha "$(git -C "$INSTALLER_DIR" rev-parse HEAD)" \
+    --arg at "$(date -Is)" \
+    '{variant: .id, adrs: (.adrs // []), commit: $sha, started: $at}' \
+    <<<"$v" > "$dir/variant.json"
   local guided
-  guided="$(fa_variant_json "$id" | jq -r '.guided // empty')"
+  guided="$(jq -r '.guided // empty' <<<"$v")"
   if [[ -n "$guided" ]]; then fa_run_guided "$dir" "$guided"; return; fi
   prof="$dir/vm-profile.json"
   fa_variant_vm_profile "$id" > "$prof" \
     || { fa_fatal "$dir/install" "variant does not resolve"; return 1; }
   cfg="$(fa_variant_config "$id")" || cfg='{}'
   FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$cfg")"
-  jq -n --arg id "$id" --arg sha "$(git -C "$INSTALLER_DIR" rev-parse HEAD)" \
-    --arg at "$(date -Is)" '{variant:$id, commit:$sha, started:$at}' \
-    > "$dir/variant.json"
+  VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$prof")"   # capacity preflight
+  export VM_RAM_MB
 
   if [[ -n "${FA_REUSE:-}" ]]; then
     # --reuse: audit the already-installed VM as it stands (iterate on the
     # later phases or re-check a fix without a reinstall)
     mkdir -p "$dir/boot1"
-    _vm_running || virsh start "$VM_NAME" >/dev/null 2>&1
-    fa_serial_start "$dir/boot1/serial.txt"
+    _vm_running || fa_vm_start "$dir/boot1" || return 1
+    fa_serial_start "$dir/boot1/serial.log"
     fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" \
       || { fa_fatal "$dir/boot1" "reused VM never reached SSH"; return 1; }
   else
@@ -815,7 +831,7 @@ fa_run() {
   mkdir -p "$run"
   info "Audit Run → $run"
   mkdir -p "$run/audit/check"
-  fa_check > "$run/audit/check/check.lines" \
+  fa_audit_check > "$run/audit/check/check.lines" \
     || warn "check found problems (recorded as Findings); running anyway."
   [[ -n "${FA_REUSE:-}" && ${#ids[@]} -ne 1 ]] \
     && { echo "feature-audit: --reuse needs one --variant" >&2; return 2; }
@@ -823,6 +839,7 @@ fa_run() {
   local i n=${#ids[@]}
   for ((i = 0; i < n; i++)); do
     fa_run_variant "${ids[i]}" "$run" || true
+    fa_report "$run" >/dev/null || true   # findings so far, per variant
     fa_serial_stop
     if ((keep && i == n - 1)); then
       info "Keeping VM '$VM_NAME' for inspection (--keep)."

@@ -382,9 +382,9 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
 - **Fixtures:** optional `audit-fixtures/` next to `audit.sh`, staged as
   `$FA_DIR/audit-fixtures/`.
 - **Keybinds:** a program that ships keybinds also ships
-  `audit-binds.jsonc` — one expectation per shipped bind (see
-  `lib/feature-audit/binds/`); a parsed bind with no expectation is a
-  Finding.
+  `audit-binds.jsonc` — one expectation per shipped bind (format:
+  `lib/feature-audit/binds.sh`; register the source there); a parsed bind
+  with no expectation is a Finding.
 
 Start from `programs/system/zsh/audit.sh`:
 

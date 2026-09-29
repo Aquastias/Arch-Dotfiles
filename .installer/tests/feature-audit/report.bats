@@ -55,7 +55,7 @@ jsonl() { cat "$RUN/findings.jsonl"; }
 
 @test ".lines source: every non-empty line is a finding" {
   art base boot1 failed-units-system.lines "tuned.service loaded failed" ""
-  art base boot1 coredumps.lines "Mon 2026-09-28 10:00 1234 1000 SIGSEGV /usr/bin/foo"
+  art base boot1 coredumps.lines "Mon 2026-09-28 10:00 1234 SIGSEGV /usr/bin/f"
   report
   [ "$status" -ne 0 ]
   [ "$(jsonl | wc -l)" -eq 2 ]
@@ -211,4 +211,21 @@ EOF
   report
   [ "$(jsonl | wc -l)" -eq 1 ]
   jsonl | jq -e '.excerpt == "error: failed to prepare transaction"' >/dev/null
+}
+
+@test "runtime fetch is judged per account, not across users" {
+  art base probes-offline probe-nvim@alice.probe "FAIL nvim-x broke offline"
+  art base probes-online probe-nvim@alice.probe "FAIL nvim-x broke offline"
+  art base probes-online probe-nvim@bob.probe "PASS nvim-x ok"
+  report
+  jsonl | jq -e 'select(.check == "nvim-x") | .source == "probe"' >/dev/null
+  ! jsonl | jq -e 'select(.source == "runtime-fetch")' >/dev/null
+}
+
+@test "findings carry the ADRs their variants cover (variant.json)" {
+  mkdir -p "$RUN/grub"
+  echo '{"variant":"grub","adrs":["0038","0078"]}' > "$RUN/grub/variant.json"
+  art grub install installer.log "[ERROR] esp too small"
+  report
+  jsonl | jq -e '.adrs == ["0038","0078"]' >/dev/null
 }

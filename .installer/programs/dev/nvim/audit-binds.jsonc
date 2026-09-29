@@ -100,7 +100,7 @@
 
     // ── debugging (nvim-dap, ADR 0140) ──
     { "action": "n Debug: Toggle breakpoint", "effect": "lua",
-      "arg": "#require('dap.breakpoints').get()[vim.api.nvim_get_current_buf()] > 0" },
+      "arg": "#require('dap.breakpoints').get()[vim.fn.bufnr()] > 0" },
     { "action": "n Debug: Toggle UI", "effect": "window-opens" },
     { "action": "n Debug: Conditional breakpoint", "effect": "unverifiable",
       "reason": "prompts for a breakpoint condition" },

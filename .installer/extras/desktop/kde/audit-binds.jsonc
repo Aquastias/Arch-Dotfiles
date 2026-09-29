@@ -104,7 +104,8 @@
     { "action": "org_kde_powerdevil/powerProfile", "effect": "screen-changes",
       "recovery": "escape" },
     { "action": "org_kde_powerdevil/*", "effect": "unverifiable",
-      "reason": "no backlight/keyboard light in a VM; power/sleep keys would stop the audit VM" },
+      "reason": "no backlight or keyboard light in a VM; power/sleep keys
+        would stop the audit VM" },
     { "action": "mediacontrol/*", "effect": "unverifiable",
       "reason": "no MPRIS player running in the audit session" },
     { "action": "kaccess/Toggle Screen Reader On and Off",

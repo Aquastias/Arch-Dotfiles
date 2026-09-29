@@ -32,3 +32,7 @@ Run). Fixed in the fix session, with the run's `findings.md`.
   serial (ADR 0099 routes the installed console there) with nothing answering
   it; the box hangs at the prompt until someone types the passphrase. The
   Feature Audit runs its own Console Answerer; a hand-driven debug VM does not.
+- **`.claude/settings.json` drifted from its seed.** `tests/config/
+  claude-agent.bats` "repo-root .claude/settings.json stays identical to the
+  source (ADR 0142)" fails on committed state: the repo-root file differs
+  from `programs/dev/claude/home/.claude/settings.json` (line 5).

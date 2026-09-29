@@ -100,6 +100,7 @@ _fa_candidates() {
       src = base; sub(/\.[^.]*$/, "", src); prog = ""
       if (src ~ /^probe-/) {
         prog = src; sub(/^probe-/, "", prog); sub(/@.*$/, "", prog)
+        acct = src; sub(/^[^@]*@/, "", acct); sub(/\..*$/, "", acct)
         src = (src ~ /\.err$/) ? "probe-stderr" : "probe"
       }
       g = src SUBSEP prog
@@ -117,7 +118,7 @@ _fa_candidates() {
       } else if (kind == "probe") {
         if (line ~ /^PASS / && ph == "probes-online") {
           c = line; sub(/^PASS /, "", c); sub(/ .*$/, "", c)
-          onpass[prog, c, var] = 1
+          onpass[prog, c, var, acct] = 1
         }
         if (line ~ /^FAIL /) {
           chk = line; sub(/^FAIL /, "", chk); sub(/ .*$/, "", chk)
@@ -125,6 +126,7 @@ _fa_candidates() {
             # judged at END: passes online too ⇒ a runtime fetch
             nd++; dsrc[nd] = src; dprog[nd] = prog; dchk[nd] = chk
             dline[nd] = line; drel[nd] = rel; dvar[nd] = var; dph[nd] = ph
+            dacct[nd] = acct
           } else add(src, prog, chk, line, rel)
         }
       }
@@ -132,7 +134,7 @@ _fa_candidates() {
     END {
       for (d = 1; d <= nd; d++) {
         var = dvar[d]; ph = dph[d]
-        if ((dprog[d], dchk[d], var) in onpass) {
+        if ((dprog[d], dchk[d], var, dacct[d]) in onpass) {
           add("runtime-fetch", dprog[d], dchk[d], "offline only: " dline[d],
               drel[d])
           tot["runtime-fetch" SUBSEP dprog[d]] = tot[dsrc[d] SUBSEP dprog[d]]
@@ -158,14 +160,15 @@ fa_report() {
   _fa_noise_tsv > "$FA_NOISE_TSV"
   # stable sort: phase rank, then source; first-seen order within a group
   _fa_candidates "$run" | sort -s -t$'\t' -k1,1 -k2,2 \
-    | jq -R -c --arg run "$run" '
+    | jq -R -c --arg run "$run" --argjson va "$(_fa_variant_adrs "$run")" '
         split("\t") as $f
         | { phase: ($f[4] | split(",")[0]), phases: ($f[4] | split(",")),
             source: $f[1], program: (if $f[2] == "" then null else $f[2] end),
             check: (if $f[3] == "" then null else $f[3] end),
             variants: ($f[5] | split(",")), count: ($f[6] | tonumber),
             total: ($f[7] | tonumber), excerpt: $f[8],
-            logs: ($f[9] | split(",") | map($run + "/" + .)), adrs: [],
+            logs: ($f[9] | split(",") | map($run + "/" + .)),
+            adrs: ([($f[5] | split(","))[] | $va[.] // [] | .[]] | unique),
             repro: ("tools/feature-audit.sh run --variant "
                     + ($f[5] | split(",")[0]) + " --keep") }' \
     | jq -c -s 'to_entries | map(.value + {id: ("F" + ((.key + 1)
@@ -220,4 +223,13 @@ _fa_render_visual() {
   echo "unthemed Qt/GTK app, missing bar/wallpaper) as a finding."
   echo
   printf -- '- %s\n' "${shots[@]}"
+}
+
+# _fa_variant_adrs <run-dir> — {variant: [adr…]} from each variant.json, so a
+# Finding names the ADRs its variants exist to cover.
+_fa_variant_adrs() {
+  local -a vs
+  mapfile -t vs < <(find "$1" -mindepth 2 -maxdepth 2 -name variant.json)
+  ((${#vs[@]})) || { echo '{}'; return; }
+  jq -s -c 'map({(.variant): (.adrs // [])}) | add' "${vs[@]}"
 }

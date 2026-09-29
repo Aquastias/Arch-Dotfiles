@@ -30,7 +30,8 @@ cfg() {
 }
 
 @test "valid manifest: check exits 0" {
-  manifest '[{"id":"base"},{"id":"limine","patch":{"options":{"bootloader":"limine"}}}]'
+  manifest '[{"id":"base"},
+    {"id":"limine","patch":{"options":{"bootloader":"limine"}}}]'
   run bash "$TOOL" check
   [ "$status" -eq 0 ]
 }
@@ -43,7 +44,8 @@ cfg() {
 }
 
 @test "patch applies before assembly: derived power daemon follows it" {
-  manifest '[{"id":"ppd","patch":{"options":{"power":{"profile":"power-profiles-daemon"}}}}]'
+  manifest '[{"id":"ppd",
+    "patch":{"options":{"power":{"profile":"power-profiles-daemon"}}}}]'
   run cfg ppd
   jq -e '(.host_programs | index("power-profiles-daemon"))
     and (.host_programs | index("tuned") | not)' <<<"$output"
@@ -115,7 +117,8 @@ cfg() {
 
 @test "features: a variant enabling the value covers it" {
   export FEATURE_AUDIT_CHECKS="features"
-  manifest '[{"id":"base"},{"id":"grub","patch":{"options":{"bootloader":"grub"}}}]'
+  manifest '[{"id":"base"},
+    {"id":"grub","patch":{"options":{"bootloader":"grub"}}}]'
   run bash "$TOOL" check
   [[ "$output" != *"feature options.bootloader=grub"* ]]
 }
@@ -146,7 +149,8 @@ fake_programs() {
   FAKE="$BATS_TEST_TMPDIR/root"
   mkdir -p "$FAKE/programs/system/zsh" "$FAKE/programs/system/lact"
   echo '{"name":"zsh","kind":"user"}' > "$FAKE/programs/system/zsh/config.jsonc"
-  echo '{"name":"lact","kind":"host"}' > "$FAKE/programs/system/lact/config.jsonc"
+  echo '{"name":"lact","kind":"host"}' \
+    > "$FAKE/programs/system/lact/config.jsonc"
   echo 'fa_pass x y' > "$FAKE/programs/system/zsh/audit.sh"
   export FEATURE_AUDIT_PROGRAMS_DIR="$FAKE/programs"
 }
@@ -190,7 +194,8 @@ fake_programs() {
   manifest '[{"id":"base"}]'
   run bash "$TOOL" check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"coverage: niri bind Mod+Return (spawn \"kitty\") has no audit expectation"* ]]
+  [[ "$output" == *"coverage: niri bind Mod+Return (spawn \"kitty\")"* ]]
+  [[ "$output" == *"has no audit expectation"* ]]
   [[ "$output" != *"Mod+Shift+E"* ]]
 }
 

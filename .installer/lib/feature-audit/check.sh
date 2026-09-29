@@ -10,7 +10,7 @@
 # tests can exercise one family against fixture data.
 #
 # Public API:
-#   fa_check   → Finding lines on stdout; 1 if any
+#   fa_audit_check   → Finding lines on stdout; 1 if any
 # =============================================================================
 
 _fa_check_on() {
@@ -144,7 +144,7 @@ _fa_check_binds() {
   done
 }
 
-fa_check() {
+fa_audit_check() {
   local out
   out="$(
     _fa_check_on manifest && _fa_check_manifest
