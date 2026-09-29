@@ -1,7 +1,8 @@
 # ADR 0150: rest.nvim replaces kulala, with system luarocks
 
 ## Status
-Accepted — implemented; not yet VM-verified. Replaces kulala.nvim from the
+Accepted — implemented; VM-verified (`arch-combined`: rocks install,
+`:Rest run` 200, `.rest`→http, healthcheck OK). Replaces kulala.nvim from the
 ADR 0135 roster and reverses its `rocks = { enabled = false }` line.
 
 ## Context
@@ -34,5 +35,5 @@ ADR 0148) still needs a Neovim client.
 - rest.nvim upstream is slow (last push 2025-12). If it stalls, revisit.
 - rest.nvim has no run-all or next/prev-request maps; kulala's
   `Ra`/`Rn`/`Rp`/`Ri` are gone.
-- The tree-sitter-http rock and the nvim-treesitter `http` parser both land
-  on the rtp. The first one found wins.
+- The tree-sitter-http rock is installed but the parser Neovim loads is
+  nvim-treesitter's (`site/parser/http.so`, VM-checked).
