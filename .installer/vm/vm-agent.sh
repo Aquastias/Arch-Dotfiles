@@ -22,6 +22,8 @@
 #   idle <on|off>            toggle a removable idle/suspend/DPMS inhibitor
 #   lock | unlock            loginctl lock-session / unlock-session
 #   shot [file]              screenshot (grim on wlroots, spectacle on KDE) →host
+#   pull <guest-path> <dir>  copy a guest file/dir (as root) into <dir>
+#   sudo [cmd…]              run cmd (or stdin script) as root
 #
 # SSH uses the harness key (vm/.vm-cache/harness_ed25519, same as the persistent
 # flow). Privileged guest steps pipe the harness sudo password (default 12345,
@@ -49,7 +51,7 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  sed -n '4,33p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 # ── pure helpers (unit-tested; no libvirt, no SSH) ───────────────────────────
@@ -122,6 +124,15 @@ agent_shot_tool() {
     niri|Hyprland) printf 'grim\n' ;;
     *) return 1 ;;
   esac
+}
+
+# agent_pull_cmd <abs-guest-path> — guest command streaming the path as a tar
+# (relative to its parent) so `pull` lands it under the host dir by basename.
+agent_pull_cmd() {
+  local p="${1%/}"
+  [[ "$p" == /* && "$p" != / ]] || return 1
+  printf "tar -C '%s' -cf - '%s'\n" "${p%/*}" "${p##*/}" \
+    | sed "s|-C ''|-C '/'|"
 }
 
 # _remote_env_fn — a guest-side bash fragment defining _agent_load_env, which
@@ -384,6 +395,27 @@ verb_idle() {
   esac
 }
 
+
+# pull <abs-guest-path> <host-dir> — copy a guest file/dir (read as root, so
+# root-only logs work) into <host-dir>/<basename> (Feature Audit, ADR 0152).
+verb_pull() {
+  local src="${1:-}" dest="${2:-}" cmd
+  cmd="$(agent_pull_cmd "$src")" || die "pull needs an absolute guest path"
+  [[ -n "$dest" ]] || die "pull needs a host dir"
+  mkdir -p "$dest"
+  _sudo "$cmd" | tar -C "$dest" -xf - || die "pull failed: $src"
+}
+
+# sudo [cmd…] — run a command as root; with no args, run stdin as a root bash
+# script (staged, since stdin also carries the sudo password).
+verb_sudo() {
+  if (($#)); then _sudo "$*"; return; fi
+  local s="/tmp/vm-agent-sudo.$$.sh"
+  _stage "$s"
+  _sudo "bash $s"; local rc=$?
+  _ssh "rm -f $s" || true
+  return "$rc"
+}
 verb_lock()   { _sudo "loginctl lock-sessions";   info "locked."; }
 verb_unlock() { _sudo "loginctl unlock-sessions"; info "unlocked."; }
 
@@ -433,7 +465,8 @@ main() {
   VM_NAME="$(agent_resolve_name "$sel_kind" "$sel_ref")"
 
   case "$verb" in
-    exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot) ;;
+    exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\
+    |pull|sudo) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;
   esac
 

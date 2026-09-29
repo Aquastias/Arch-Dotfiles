@@ -124,3 +124,23 @@ _stub_io='
   [ -n "$b" ]
   (( w < b ))
 }
+
+# ── Feature Audit verbs (ADR 0152) ───────────────────────────────────────────
+
+@test "pull: guest tar streams the path's basename from its parent" {
+  _call "agent_pull_cmd /var/log/journal"
+  [ "$status" -eq 0 ]
+  [ "$output" = "tar -C '/var/log' -cf - 'journal'" ]
+}
+
+@test "pull: a relative guest path is rejected" {
+  _call "agent_pull_cmd var/log"
+  [ "$status" -ne 0 ]
+}
+
+@test "pull and sudo are known verbs (dispatch past the verb check)" {
+  run bash "$AGENT" --vm no-such-vm-xyz pull /x "$BATS_TEST_TMPDIR"
+  [[ "$output" != *"unknown verb"* ]]
+  run bash "$AGENT" --vm no-such-vm-xyz sudo true
+  [[ "$output" != *"unknown verb"* ]]
+}

@@ -22,16 +22,24 @@ export INSTALLER_DIR
 source "$INSTALLER_DIR/lib/jsonc.sh"
 # shellcheck source=../lib/feature-audit/report.sh
 source "$INSTALLER_DIR/lib/feature-audit/report.sh"
+# shellcheck source=../lib/feature-audit/manifest.sh
+source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
 
 usage() {
-  cat <<'EOF'
+  cat <<'EOF2'
 Usage: feature-audit.sh <command> [args]
 
 Commands:
+  run [--variant X | --from X] [--keep]
+                    Live Audit Run: install each Audit Variant in turn
+                    (one VM), collect, then report into
+                    .installer/.audit-runs/<ts>/. --variant runs one,
+                    --from resumes at one, --keep holds the last VM.
+                    Needs libvirt (run with the sandbox off).
   report <run-dir>  Judge a run folder's raw artifacts into Findings:
                     writes findings.md + findings.jsonl there. Exit 1 on
                     any Finding, 2 on usage error.
-EOF
+EOF2
 }
 
 main() {
@@ -39,6 +47,10 @@ main() {
   [[ -n "$cmd" ]] || { usage >&2; exit 2; }
   shift
   case "$cmd" in
+    run)
+      # shellcheck source=../lib/feature-audit/live.sh
+      source "$INSTALLER_DIR/lib/feature-audit/live.sh"
+      fa_run "$@" ;;
     report)
       [[ $# -eq 1 ]] || { usage >&2; exit 2; }
       fa_report "$1" ;;

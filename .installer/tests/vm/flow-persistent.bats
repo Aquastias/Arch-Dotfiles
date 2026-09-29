@@ -150,3 +150,22 @@ teardown() { rm -rf "$CACHE_DIR"; }
   _harness_ensure_key
   diff "$CACHE_DIR/harness_ed25519.pub" "$CACHE_DIR/first.pub"
 }
+
+@test "render: holds for a host log pull before poweroff when asked" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  VM_HOLD_FOR_LOG_PULL=1 run _render_installer_script https://example/repo.git \
+    'k' aquastias
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'/root/.log-pulled'* ]]
+  # the hold sits before poweroff
+  local hold pow
+  hold="$(grep -n 'log-pulled' <<<"$output" | head -1 | cut -d: -f1)"
+  pow="$(grep -n '^  poweroff' <<<"$output" | cut -d: -f1)"
+  [ "$hold" -lt "$pow" ]
+}
+
+@test "render: no log-pull hold by default" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [[ "$output" != *'log-pulled'* ]]
+}

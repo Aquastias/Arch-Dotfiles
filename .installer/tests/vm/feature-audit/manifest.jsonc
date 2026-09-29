@@ -1,0 +1,21 @@
+// Audit Manifest (ADR 0152): the Feature Audit's max-feature base and the
+// Audit Variants that reach what the base cannot. Variant kinds:
+//   { "id" }                   the base itself
+//   { "id", "patch": {...} }   base host profile deep-merged with the patch
+//   { "id", "host": "<h>" }    a real host as-is ("hardware" required)
+//   { "id", "guided": "<p>" }  a guided install (tests/vm/profiles ref)
+// "adrs" lists the ADRs a variant exists to cover. "unverifiable" marks what
+// no VM can prove (feature or program:<name>) — each needs a reason and
+// maintainer review.
+{
+  "vm_name": "arch-audit",
+  "base": {
+    "host": "arch-audit",
+    "hardware": { "disks": [60, 60, 20], "ram_mb": 10240, "vcpus": 8 },
+    "fixtures": ["fixtures/key.age"]
+  },
+  "variants": [
+    { "id": "base", "adrs": ["0036", "0046", "0104", "0117", "0152"] }
+  ],
+  "unverifiable": []
+}

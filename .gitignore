@@ -28,3 +28,4 @@
 .config/kitty/themes/
 # Nvim theme file is Noctalia-generated/seed-only — never stowed (ADR 0136)
 .installer/programs/dev/nvim/home/.config/nvim/themes/
+.installer/.audit-runs/

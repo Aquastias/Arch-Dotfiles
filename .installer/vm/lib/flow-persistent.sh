@@ -136,6 +136,13 @@ _render_installer_script() {
   local skew_line=""
   [[ -n "${ARCHZFS_LTS_CEILING_OVERRIDE:-}" ]] \
     && skew_line="export ARCHZFS_LTS_CEILING_OVERRIDE='${ARCHZFS_LTS_CEILING_OVERRIDE}'"
+  # Feature Audit (ADR 0152): a clean install powers off right after the
+  # sentinel, taking /root/install.log with it, so wait (bounded) for the host
+  # to pull the log over the seed's SSH before powering off.
+  local hold_line=""
+  # shellcheck disable=SC2016 # expands in the guest, not here
+  [[ -n "${VM_HOLD_FOR_LOG_PULL:-}" ]] \
+    && hold_line='for _ in $(seq 300); do [ -f /root/.log-pulled ] && break; sleep 1; done'
   cat <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -190,6 +197,7 @@ printf '%d\n' "\$rc" > /root/.install-exit
 # matched and the host waited the full timeout on a successful install.
 printf '\r\n===INSTALLER-EXIT-%d===\r\n' "\$rc" > /dev/ttyS0
 sync
+${hold_line}
 if [ "\$rc" -eq 0 ]; then
   # Route the INSTALLED kernel + LUKS/zfs unlock prompt to serial so a
   # broken boot of this debug VM is never silent (ADR 0099). install.sh has
@@ -331,6 +339,24 @@ _wait_for_ssh() {
   sleep 5  # let tty1 auto-login settle
 }
 
+# _flow_export_install_artifacts <ip> <rc> <console-log> — Feature Audit hook
+# (VM_ARTIFACT_DIR): pull the live ISO's install log over the seed's root SSH,
+# then release the payload's log-pull hold; record the exit code + serial.
+_flow_export_install_artifacts() {
+  local ip="$1" rc="$2" console="$3" dir="$VM_ARTIFACT_DIR" key
+  key="$(_harness_key_path)"
+  mkdir -p "$dir"
+  printf '%s\n' "$rc" > "$dir/install-rc"
+  cp -f "$console" "$dir/install-serial.txt" 2>/dev/null || true
+  local -a o=(-i "$key" -o StrictHostKeyChecking=no
+              -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10
+              -o LogLevel=ERROR)
+  ssh "${o[@]}" "root@${ip}" 'cat /root/install.log' \
+    > "$dir/installer.log" 2>/dev/null \
+    || warn "Could not pull /root/install.log from the live ISO."
+  ssh "${o[@]}" "root@${ip}" 'touch /root/.log-pulled' 2>/dev/null || true
+}
+
 _wait_for_poweroff() {
   local elapsed=0
   info "Waiting for installer to finish" \
@@ -412,6 +438,8 @@ flow_run() {
   set -e
   _stop_console_capture
   _stop_http_server
+  [[ -n "${VM_ARTIFACT_DIR:-}" ]] \
+    && _flow_export_install_artifacts "$vm_ip" "$rc" "$console_log"
 
   if ((rc != 0)); then
     # Failure (installer exit N) or timeout (124): HOLD the live ISO up. Never
@@ -435,6 +463,9 @@ flow_run() {
   # Eject the install ISO + seed so the reboot lands on the installed disk's
   # systemd-boot entry, not the live ISO (the domain boots --boot cdrom,hd).
   _vm_eject_cdroms
+  # Feature Audit boots the installed system itself, with its own serial
+  # capture + unlock answerer, so the first boot is observed (ADR 0152).
+  [[ -n "${VM_SKIP_FINAL_BOOT:-}" ]] && return 0
   _vm_boot
 
   _report_ssh_access
