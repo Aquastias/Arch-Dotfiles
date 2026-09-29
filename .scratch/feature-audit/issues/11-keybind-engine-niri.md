@@ -10,10 +10,10 @@ with no expectation ("untested bind").
 
 **Blocked by:** 08, 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `key` / `mouse` verbs + pure-function bats
-- [ ] niri parser bats against a fixture config
-- [ ] Every shipped niri bind has an expectation; unmatched → Finding
-- [ ] Failed effect → Finding with bind + expected effect
-- [ ] Session-ending binds last; recovery restores the session
+- [x] `key` / `mouse` verbs + pure-function bats
+- [x] niri parser bats against a fixture config
+- [x] Every shipped niri bind has an expectation; unmatched → Finding
+- [x] Failed effect → Finding with bind + expected effect
+- [x] Session-ending binds last; recovery restores the session

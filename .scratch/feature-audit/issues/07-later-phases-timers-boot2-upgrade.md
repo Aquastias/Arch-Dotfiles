@@ -7,10 +7,10 @@ reboot (`upgrade`). Each phase collected and tagged.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Timer units started; failures collected as Findings
-- [ ] Soak duration configurable, default 10 min
-- [ ] boot2 checks rollback/persist/SOPS; failures are Findings
-- [ ] Upgrade phase collects pacman/hook output + post-reboot signals,
+- [x] Timer units started; failures collected as Findings
+- [x] Soak duration configurable, default 10 min
+- [x] boot2 checks rollback/persist/SOPS; failures are Findings
+- [x] Upgrade phase collects pacman/hook output + post-reboot signals,
       tagged `phase=upgrade`

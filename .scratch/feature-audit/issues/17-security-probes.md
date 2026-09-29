@@ -6,7 +6,7 @@ rkhunter (check runs), sops (runtime secrets decrypted).
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One probe per program; firewall probe covers both variants
-- [ ] Real run passes or yields Findings
+- [x] One probe per program; firewall probe covers both variants
+- [x] Real run passes or yields Findings

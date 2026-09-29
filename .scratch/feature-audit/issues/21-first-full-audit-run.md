@@ -6,8 +6,12 @@ clean). ADR 0152 status updated when clean.
 
 **Blocked by:** 05, 06, 07, 10, 20
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] `check` clean before run
 - [ ] Every variant attempted; fatal aborts recorded as Findings
 - [ ] `findings.md` + `findings.jsonl` + raw logs + gallery produced
+
+## Comments
+
+- First full run started after the tool landed (all 18 variants, `--keep`).

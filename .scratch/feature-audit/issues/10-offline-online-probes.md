@@ -6,9 +6,9 @@ fails offline but passes online is a "runtime fetch" Finding.
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `net on|off` verb + pure-function bats
-- [ ] Probe env exposes online state
-- [ ] Offline-FAIL + online-PASS → runtime-fetch Finding (bats fixture)
-- [ ] Network restored before later phases
+- [x] `net on|off` verb + pure-function bats
+- [x] Probe env exposes online state
+- [x] Offline-FAIL + online-PASS → runtime-fetch Finding (bats fixture)
+- [x] Network restored before later phases

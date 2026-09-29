@@ -11,14 +11,14 @@ gitignored timestamped run folder. Adds VM Agent Control `pull`.
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `arch-audit` host passes the Profile Loader + harness validation
-- [ ] Manifest (JSONC, tests VM tree) lists the base variant with ADRs
-- [ ] `run` installs base unattended, one VM, host-capacity guard
-- [ ] Collected: installer log (serial + on-disk), `systemctl --failed`
+- [x] `arch-audit` host passes the Profile Loader + harness validation
+- [x] Manifest (JSONC, tests VM tree) lists the base variant with ADRs
+- [x] `run` installs base unattended, one VM, host-capacity guard
+- [x] Collected: installer log (serial + on-disk), `systemctl --failed`
       system/user, journal ≥ warning system/user, coredumps, kernel
       errors — all tagged `install`/`boot1`
-- [ ] `vm-agent pull` verb + pure-function bats
-- [ ] Run folder gitignored; `run` ends with `report`, same exit rule
-- [ ] One real run completes on the base and yields a findings list
+- [x] `vm-agent pull` verb + pure-function bats
+- [x] Run folder gitignored; `run` ends with `report`, same exit rule
+- [x] One real run completes on the base and yields a findings list

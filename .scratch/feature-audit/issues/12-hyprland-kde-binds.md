@@ -5,8 +5,8 @@ the keybind engine.
 
 **Blocked by:** 11
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Parser bats per format against fixture configs
-- [ ] Every shipped bind has an expectation
-- [ ] Keybinds phase covers both sessions on a real run
+- [x] Parser bats per format against fixture configs
+- [x] Every shipped bind has an expectation
+- [x] Keybinds phase covers both sessions on a real run

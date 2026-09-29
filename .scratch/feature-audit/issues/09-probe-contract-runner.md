@@ -10,11 +10,11 @@ them `unverifiable` (new manifest section). First probes: zsh, kitty.
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Contract documented in the program spec
-- [ ] Probes run per user + root; tagged by program/user
-- [ ] FAIL / stderr → Findings; SKIP counted, not a Finding
-- [ ] Missing probe → `check` Finding; `unverifiable` requires reason
-- [ ] zsh + kitty probes pass on a real run
-- [ ] Bats: coverage gap + probe-output parsing via fixtures
+- [x] Contract documented in the program spec
+- [x] Probes run per user + root; tagged by program/user
+- [x] FAIL / stderr → Findings; SKIP counted, not a Finding
+- [x] Missing probe → `check` Finding; `unverifiable` requires reason
+- [x] zsh + kitty probes pass on a real run
+- [x] Bats: coverage gap + probe-output parsing via fixtures

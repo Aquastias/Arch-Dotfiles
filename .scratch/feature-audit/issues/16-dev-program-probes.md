@@ -5,6 +5,6 @@ present and valid, launch clean, curated features loaded).
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One probe per program; real run passes or yields Findings
+- [x] One probe per program; real run passes or yields Findings

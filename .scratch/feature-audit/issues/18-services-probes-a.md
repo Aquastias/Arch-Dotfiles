@@ -7,8 +7,8 @@ smartmontools (SATA disk), fwupd (devices + refresh).
 
 **Blocked by:** 03, 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Host `ippeveprinter` started/stopped by the run
-- [ ] Suspend/resume proven; hibernate proven or `unverifiable` + reason
-- [ ] One probe per program; real run passes or yields Findings
+- [x] Host `ippeveprinter` started/stopped by the run
+- [x] Suspend/resume proven; hibernate proven or `unverifiable` + reason
+- [x] One probe per program; real run passes or yields Findings

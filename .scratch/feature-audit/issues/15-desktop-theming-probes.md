@@ -7,8 +7,8 @@ KDE settings/favorites, wlroots clipboard keep-alive.
 
 **Blocked by:** 08, 09
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each checkable theming state a probe check
-- [ ] App launches screenshotted into visual review
-- [ ] Runs in every compositor session of the variant
+- [x] Each checkable theming state a probe check
+- [x] App launches screenshotted into visual review
+- [x] Runs in every compositor session of the variant

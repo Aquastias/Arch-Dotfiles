@@ -7,9 +7,9 @@ section listing screenshots for the fixing agent.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each compositor session started; failure to start is a Finding
-- [ ] User journal + compositor log per session, tagged `sessions`
-- [ ] Screenshot per session in the run folder
-- [ ] `findings.md` visual-review section; bats via fixture run folder
+- [x] Each compositor session started; failure to start is a Finding
+- [x] User journal + compositor log per session, tagged `sessions`
+- [x] Screenshot per session in the run folder
+- [x] `findings.md` visual-review section; bats via fixture run folder

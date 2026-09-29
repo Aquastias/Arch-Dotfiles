@@ -10,10 +10,10 @@ install/boot failure into a Finding then continues.
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Bad patch / invalid resolved config → `check` Finding, non-zero
-- [ ] Each listed variant resolves; manifest cites ADRs per variant
-- [ ] `--variant X` runs one; `--from X` resumes; `--keep` holds last VM
-- [ ] Fatal abort recorded (phase + log path), run continues
-- [ ] Bats for resolution/validation via fixture manifests
+- [x] Bad patch / invalid resolved config → `check` Finding, non-zero
+- [x] Each listed variant resolves; manifest cites ADRs per variant
+- [x] `--variant X` runs one; `--from X` resumes; `--keep` holds last VM
+- [x] Fatal abort recorded (phase + log path), run continues
+- [x] Bats for resolution/validation via fixture manifests

@@ -6,9 +6,9 @@ definitions (not a hand list), so new features cannot go unaudited.
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Feature set derived from the installer's option sources
-- [ ] Unenabled feature → Finding naming it
-- [ ] `unverifiable` manifest entries satisfy coverage with a reason
-- [ ] Bats: fixture adds an option → gap Finding; drift guard in suite
+- [x] Feature set derived from the installer's option sources
+- [x] Unenabled feature → Finding naming it
+- [x] `unverifiable` manifest entries satisfy coverage with a reason
+- [x] Bats: fixture adds an option → gap Finding; drift guard in suite

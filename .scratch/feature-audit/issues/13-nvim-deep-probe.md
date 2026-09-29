@@ -7,9 +7,9 @@ formatter runs, DAP adapter starts on a sample file. nvim keymap parser
 
 **Blocked by:** 11
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Sample fixture file per registry language
-- [ ] Plugin load / checkhealth / LSP / formatter / DAP each a check
-- [ ] Keymap parser bats; every keymap has an expectation
-- [ ] Passes offline or yields runtime-fetch Findings
+- [x] Sample fixture file per registry language
+- [x] Plugin load / checkhealth / LSP / formatter / DAP each a check
+- [x] Keymap parser bats; every keymap has an expectation
+- [x] Passes offline or yields runtime-fetch Findings
