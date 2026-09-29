@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# =============================================================================
+# tools/feature-audit.sh — Feature Audit entry point (ADR 0152)
+# =============================================================================
+# Installs the max-feature base + Audit Variants one VM at a time, collects
+# every error-shaped signal from install to the final upgrade reboot, and
+# judges it into Findings. Manual only (multi-hour, needs libvirt).
+#
+#   feature-audit.sh check             Manifest + coverage, no VM.
+#   feature-audit.sh run [opts]        Live Audit Run (runs check first).
+#   feature-audit.sh report <run-dir>  Raw artifacts → Findings, no VM.
+#
+# Logic lives in lib/feature-audit/ so it is unit-testable without the driver.
+# =============================================================================
+set -euo pipefail
+
+SELF_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+INSTALLER_DIR="${INSTALLER_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
+export INSTALLER_DIR
+
+# shellcheck source=../lib/jsonc.sh
+source "$INSTALLER_DIR/lib/jsonc.sh"
+# shellcheck source=../lib/feature-audit/report.sh
+source "$INSTALLER_DIR/lib/feature-audit/report.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: feature-audit.sh <command> [args]
+
+Commands:
+  report <run-dir>  Judge a run folder's raw artifacts into Findings:
+                    writes findings.md + findings.jsonl there. Exit 1 on
+                    any Finding, 2 on usage error.
+EOF
+}
+
+main() {
+  local cmd="${1:-}"
+  [[ -n "$cmd" ]] || { usage >&2; exit 2; }
+  shift
+  case "$cmd" in
+    report)
+      [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+      fa_report "$1" ;;
+    --help | -h) usage ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
+main "$@"

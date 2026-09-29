@@ -36,7 +36,7 @@ _FAST_CORE_TOKENS=(
 
 # Source subdirs mirrored 1:1 onto a tests/ subdir (tests/<name>/).
 _MIRRORED_DIRS=(boot chroot config guided layout matrix packages profiles shell
-                wipe zfs extras vm aur)
+                wipe zfs extras vm aur feature-audit)
 
 # Broad-Blast Paths: a change here can affect ~any test — widen to --full.
 _changed_is_broad_blast() {
@@ -74,6 +74,7 @@ _changed_root_map() {
     .installer/tests/no-python.sh) echo "no-python.bats" ;;
     .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
     .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;
+    .installer/tools/feature-audit.sh) echo "feature-audit" ;;
     .installer/tools/harden-boot.sh) echo "harden-boot.bats" ;;
     .installer/tools/impermanence.sh) echo "impermanence-tool.bats" ;;
     .installer/tools/install-pkglist.sh)

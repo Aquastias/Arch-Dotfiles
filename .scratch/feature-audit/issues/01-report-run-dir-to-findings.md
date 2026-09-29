@@ -10,17 +10,17 @@ on any Finding. Pure: no VM. Establishes the entry point and its lib area.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Entry point with `report` subcommand + usage; lib area sourced by it
-- [ ] Known Noise file committed (empty); entries = regex, optional
+- [x] Entry point with `report` subcommand + usage; lib area sourced by it
+- [x] Known Noise file committed (empty); entries = regex, optional
       scope (source/phase), reason/ADR
-- [ ] Finding fields: id, key, variants, phase, source, program, adrs,
+- [x] Finding fields: id, key, variants, phase, source, program, adrs,
       excerpt, count/total, log paths, repro
-- [ ] Same Finding in N variants → one entry listing variants
-- [ ] Intermittent Finding shows frequency (e.g. 2/3)
-- [ ] `findings.md` grouped by phase then source; `findings.jsonl` one per
+- [x] Same Finding in N variants → one entry listing variants
+- [x] Intermittent Finding shows frequency (e.g. 2/3)
+- [x] `findings.md` grouped by phase then source; `findings.jsonl` one per
       line
-- [ ] Exit 0 on clean run dir, non-zero on any Finding
-- [ ] Bats with fixture run folders cover all of the above; mirrors dir
+- [x] Exit 0 on clean run dir, non-zero on any Finding
+- [x] Bats with fixture run folders cover all of the above; mirrors dir
       layout for Change-Targeted Runs

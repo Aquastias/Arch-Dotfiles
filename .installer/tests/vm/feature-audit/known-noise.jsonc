@@ -1,0 +1,4 @@
+// Known Noise (ADR 0152): expected log lines that are not Findings.
+// Entry: { "regex": ERE, "source"?: str, "phase"?: str, "reason": str }.
+// Every entry needs maintainer approval; reason cites the why or ADR.
+[]
