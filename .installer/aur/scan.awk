@@ -319,9 +319,6 @@ function forge_owner(u,   h, o) {
   return tolower(o)
 }
 
-# Files grep -I calls binary are never text-scanned. A NUL in a file bash
-# sources (PKGBUILD, .install, scripts) hides code from review — and from
-# `git diff` — so it is critical; other binaries (icons) are suspicious.
 # ── Repo-shape checks (ADR 0149) ────────────────────────────────────────────
 # A tracked text file that should not be one, or should not be there.
 function repo_file(p) {
@@ -382,6 +379,9 @@ function local_sources_check(   k, u) {
   }
 }
 
+# Files grep -I calls binary are never text-scanned. A NUL in a file bash
+# sources (PKGBUILD, .install, scripts) hides code from review — and from
+# `git diff` — so it is critical; other binaries (icons) are suspicious.
 function binaries_emit(   k, nb, bn) {
   nb = split(binaries, bn, "\037")
   for (k = 1; k <= nb; k++) {

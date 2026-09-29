@@ -117,7 +117,6 @@ _prev_keys() {
 # line, a new line moves the rest — so only a rise in the count is a gain.
 _finding_key() { printf '%s\037%s' "$1" "$2"; }
 
-
 # ── refresh-indicators ──────────────────────────────────────────────────────
 # Pull the official Arch Atomic Arch list and lenucksi's npm list, append the
 # names not yet held, tagged with their source key, and print them for review.
@@ -452,7 +451,7 @@ _doctor() {
 
 # ── Hook mode ───────────────────────────────────────────────────────────────
 # Scan + trust one clone and print its findings. Results land in _E_*
-# globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY, _E_RPC_DOWN.
+# globals: _E_CRIT / _E_SUSP (id → 1), _E_TALLY, _E_RPC_DOWN, _E_GAINED.
 _evaluate() {
   local dir="$1" base="$2" modified=""
   declare -gA _E_CRIT=() _E_SUSP=()
@@ -587,6 +586,7 @@ case "${1:-}" in
   export) shift; _export "$@" ;;
   audit) _audit ;;
   doctor) _doctor ;;
-  -h | --help) sed -n '5,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+  -h | --help) sed -n '5,/^# ====/{/^# ====/d;p}' "${BASH_SOURCE[0]}" \
+    | sed 's/^# \{0,1\}//' ;;
   *) _die "unknown command: $1" ;;
 esac

@@ -6,6 +6,9 @@ AUR_VET_SRC="$BATS_TEST_DIRNAME/../../aur"
 AUR_VET_FIXTURES="$BATS_TEST_DIRNAME/../fixtures/aur"
 # The Atomic Arch deps payload hash (indicators.tsv, ioctl).
 _AURVET_PAYLOAD=6144d433f8a0316869877b5f834c801251bbb936e5f1577c5680878c7443c98b
+# A Monero wallet address (95 chars), for the miner rule.
+_AURVET_XMR=44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3
+_AURVET_XMR+=XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A
 
 aurvet_setup() {
   T="$(mktemp -d)"
@@ -55,6 +58,7 @@ _aurvet_default_rpc() {
 aurvet_case() {
   local placement="$1" text="$2" dir="$T/clone/${3:-case}"
   text="${text//@BLOB@/$(printf 'QUJD%.0s' {1..30})}"
+  text="${text//@XMR@/$_AURVET_XMR}"
   text="${text//@PAYLOAD@/$_AURVET_PAYLOAD}"
   local when=""
   [[ "$placement" == pkgbase && "$text" == *@* ]] && when="${text#*@}"

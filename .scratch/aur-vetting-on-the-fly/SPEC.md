@@ -147,9 +147,10 @@ spellings (`cu""rl`, `${IFS}`) are normalised before matching.
   (0 pass, 1 abort, 2 usage/environment).
 - **Gained finding**: the rules engine runs on the working tree of `HEAD`
   and of `HEAD~1` (materialised from the clone's git objects, never by
-  checking out or sourcing). A finding keyed by rule + normalised matched
-  text present only in `HEAD` is escalated one tier (info → suspicious,
-  suspicious → critical). No `HEAD~1` → no comparison.
+  checking out or sourcing). When a rule fires more often in a file of
+  `HEAD` than of `HEAD~1`, its findings there climb one tier (info →
+  suspicious, suspicious → critical) — counted per rule + file, as shipped
+  (ADR 0149). No `HEAD~1` → no comparison; a failed `HEAD~1` scan aborts.
 - **Probable adoption**: `trust-adopted` applies to every package (not only
   unpinned ones): `Maintainer ≠ Submitter` and `LastModified` within 14
   days → suspicious; with any gained finding → critical. Git author and

@@ -93,3 +93,13 @@ something new". Both can be recomputed at build time without stored state.
   `sudo-in-pkg` needs `sudo` in command position. Stale AUR repos of
   official packages (`kitty`, `borgmatic`, `apparmor`) abort, but paru never
   builds those from the AUR.
+- Known limit: a gain is measured against `HEAD~1` only. An attacker who
+  follows the malicious commit with one cosmetic commit, and gets both
+  pulled in one update, hides the gain; the rules still see the line itself.
+  Closing this needs stored state — the trade ADR 0149 declines.
+- Post-review hardening (2026-09-29): a plain `pkgdesc=` is one quoted
+  value with at most a comment (text after it is code); a failed `HEAD~1`
+  scan aborts instead of skipping the gain check; RPC numbers are checked
+  before arithmetic; the RPC name is AUR-charset-only and curl runs with
+  `-g`; clone paths reach the engine via the environment (no `awk -v`
+  escapes) and the clone root is a plain prefix, not a regex.

@@ -68,8 +68,8 @@ _inject() {
 @test "gained: a version bump that rewrites a flagged line is not a gain" {
   # The flagged source URL carries the version; a bump changes its text but
   # not what fires. (basedpyright: source-owner, allowlisted, went critical.)
-  local d; d="$(aurvet_case source "https://github.com/other/rulecase/v1.tgz" g)"
-  sed -i 's#other/rulecase/v1#other/rulecase/v2#' "$d/PKGBUILD" "$d/.SRCINFO"
+  local d; d="$(aurvet_case source "https://github.com/other/rc/v1.tgz" g)"
+  sed -i 's#other/rc/v1#other/rc/v2#' "$d/PKGBUILD" "$d/.SRCINFO"
   git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am bump
   printf 'rulecase\tsource-owner\treviewed\n' >> "$AUR_VET_STORE/allow.tsv"
   aurvet_hook "$d" rulecase
