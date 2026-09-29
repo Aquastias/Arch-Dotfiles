@@ -2115,6 +2115,35 @@ the Effective Config via the config seam. The covered set is recorded as a
 committed **Matrix Manifest** (one line per cell); VM Profiles are materialized
 on demand, never committed.
 
+### Feature Audit
+The live, deep audit that installs max-feature VMs and treats any unexplained
+error from install through every boot, session, program, plugin and keybind as
+a [[Finding]]. Complements the [[Combination Matrix]]: the matrix proves storage
+combinations install and boot; the Feature Audit proves every shipped feature
+works. _Avoid_: audit (alone — that is the static `tests/audit.sh`), soak.
+
+### Audit Variant
+One install of the [[Feature Audit]]: the max-feature base, or the base with one
+mutually-exclusive feature swapped (e.g. grub for systemd-boot) to reach what
+the base cannot. Variants run one VM at a time.
+
+### Audit Manifest
+The committed list of [[Audit Variant]]s, each citing the ADRs it covers and
+marking features no VM can verify as `unverifiable` with a reason. A feature no
+variant enables is itself a failure.
+
+### Known Noise
+A committed allowlist of expected log lines, each with its reason or ADR; the
+only way an error-shaped line stops being a [[Finding]].
+
+### Finding
+An error, warning, failed unit, or failed feature probe from an [[Audit Run]]
+not matched by [[Known Noise]].
+
+### Audit Run
+One execution of the [[Feature Audit]] across some or all [[Audit Variant]]s,
+producing raw logs plus an agent-ready list of [[Finding]]s.
+
 ### Change-Targeted Run
 `run.sh --changed [<ref>]` — runs only the tests for the code that actually
 changed, instead of every bats file (221 today) or the fixed `--fast` set (ADR
