@@ -214,3 +214,18 @@ fake_programs() {
   [[ "$output" == *"desktop niri has no audit probe"* ]]
   [[ "$output" != *"desktop kde"* ]]
 }
+
+@test "binds: an unparseable expectations file is a Finding" {
+  export FEATURE_AUDIT_CHECKS="binds"
+  export FA_REPO_ROOT="$BATS_TEST_TMPDIR/repo"
+  mkdir -p "$FA_REPO_ROOT/.config/niri/conf.d" \
+    "$FA_REPO_ROOT/.installer/extras/desktop/niri"
+  cp "$BATS_TEST_DIRNAME/fixtures/niri-binds.kdl" \
+    "$FA_REPO_ROOT/.config/niri/conf.d/"
+  printf '{"expect":[{"action":"quit",\n"effect":"sess\nion-ends"}]}\n' \
+    > "$FA_REPO_ROOT/.installer/extras/desktop/niri/audit-binds.jsonc"
+  manifest '[{"id":"base"}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"niri"*"audit-binds.jsonc"*"not valid"* ]]
+}

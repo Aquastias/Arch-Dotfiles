@@ -272,7 +272,9 @@ fa_binds_plan() {
     rows="$(fa_binds_rows "$src")" || return 1
   fi
   local ej='{"expect":[]}'
-  [[ -f "$exp" ]] && ej="$(jsonc_strip "$exp" | jq -c .)"
+  if [[ -f "$exp" ]] && ! ej="$(jsonc_strip "$exp" | jq -c . 2>/dev/null)"; then
+    echo "feature-audit: $exp is not valid JSONC" >&2; return 1
+  fi
   jq -R -c --argjson e "$ej" \
     -f "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" <<<"$rows"
 }

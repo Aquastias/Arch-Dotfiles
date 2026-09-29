@@ -135,8 +135,14 @@ _fa_check_programs() {
 # _fa_check_binds — every shipped keybind (parsed from the real configs) has
 # a declared, testable expectation.
 _fa_check_binds() {
-  local src chord action
+  local src chord action exp
   for src in $(fa_binds_sources); do
+    exp="$(fa_binds_expect_file "$src")"
+    if [[ -f "$exp" ]] && ! jsonc_strip "$exp" | jq -e . >/dev/null 2>&1
+    then
+      echo "coverage: $src expectations ${exp#"$FA_REPO_ROOT"/} not valid JSONC"
+      continue
+    fi
     while IFS=$'\t' read -r _ chord action; do
       [[ -n "$chord" ]] || continue
       echo "coverage: $src bind $chord ($action) has no audit expectation"
