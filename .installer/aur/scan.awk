@@ -91,8 +91,10 @@ FNR == 1 {
   if (kind == "srcinfo") srcinfo_collect(line)
   curbuild = (kind == "pkgbuild" && infn && bfn)
   # A plain pkgdesc is prose, never run: words like "sudo" or "nohup" in it
-  # are no finding. One with $( or backticks runs at parse time: scanned.
-  plaindesc = (line ~ /^[[:space:]]*pkgdesc=/ && line !~ /[$][(]|`/)
+  # are no finding. Only one quoted value (no $( or backtick) and at most a
+  # comment after it counts — anything else on the line is code (ADR 0149).
+  plaindesc = (line ~ /^[[:space:]]*pkgdesc=("[^"`]*"|'[^']*')\
+[[:space:]]*(#.*)?$/ && line !~ /[$][(]/)
   for (i = 1; i <= n; i++) {
     s = rscope[i]
     if (s == "code") {

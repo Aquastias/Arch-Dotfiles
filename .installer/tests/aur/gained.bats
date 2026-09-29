@@ -83,3 +83,13 @@ _inject() {
   aurvet_hook "$d"
   [[ "$output" == *"SUSPICIOUS lang-fetch"* ]]
 }
+
+@test "gained: an unreadable previous commit aborts, never skips the check" {
+  local d; d="$(aurvet_clone rust-benign)"
+  aurvet_commit "$d" PKGBUILD 's/^pkgdesc="Fixture"/pkgdesc="Fixture 2"/'
+  local blob; blob="$(git -C "$d" rev-parse HEAD~1:PKGBUILD)"
+  command rm -f "$d/.git/objects/${blob:0:2}/${blob:2}"
+  aurvet_hook "$d"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"previous commit"* ]]
+}

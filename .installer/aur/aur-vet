@@ -78,15 +78,14 @@ _scan_tree() {
 # <modified> (server-side). Backdating a commit can't hide an in-window one.
 _days() {
   local days
-  days="$(TZ=UTC git -C "$1" log --format='%ad %cd' --date=format-local:%F)"
+  days="$(TZ=UTC git -C "$1" log --format='%ad %cd' --date=format-local:%F)" \
+    || return 1
   [[ -n "${2:-}" ]] && days+=" $(date -u -d "@$2" +%F)"
   printf '%s' "${days//$'\n'/ }"
 }
 
-# Findings for the clone at <dir> <pkgbase> [<AUR LastModified epoch>].
-_scan() {
-  git -C "$1" ls-files -z | _scan_tree "$1" "$2" "$(_days "$1" "${3:-}")"
-}
+# Findings for the clone at <dir> <pkgbase>, with campaign-window <days>.
+_scan() { git -C "$1" ls-files -z | _scan_tree "$1" "$2" "$3"; }
 
 # Finding keys (see _finding_key) of the clone's previous commit (HEAD~1),
 # one per line. Its tree is extracted from the git objects into a temp dir
@@ -448,9 +447,17 @@ _evaluate() {
   fi
   # Fail closed: an engine error must abort, never read as "no findings".
   local out keys="" trust="" has_prev=1
-  out="$(_scan "$dir" "$base" "$modified")" || _die "${base}: scan failed"
-  keys="$(_prev_keys "$dir" "$base" "$(_days "$dir" "$modified")")" \
-    || has_prev=0
+  local days rc=0
+  days="$(_days "$dir" "$modified")" || _die "${base}: git log failed"
+  out="$(_scan "$dir" "$base" "$days")" || _die "${base}: scan failed"
+  # Exit 1 = no previous commit (no comparison); anything else is a failed
+  # scan and aborts — never a silent skip of the gain check.
+  keys="$(_prev_keys "$dir" "$base" "$days")" || rc=$?
+  case "$rc" in
+    0) ;;
+    1) has_prev=0 ;;
+    *) _die "${base}: scan of the previous commit failed" ;;
+  esac
   ((_E_RPC_DOWN)) || trust="$(_trust "$json" "$base")"
 
   # Per-key counts in the previous commit and now; a rise is a gain.
