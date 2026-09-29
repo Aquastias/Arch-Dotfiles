@@ -60,7 +60,7 @@ _refresh() {
 
 @test "refresh: drops names outside the AUR charset and is idempotent" {
   _refresh
-  ! grep -q 'bad' "$AUR_VET_DATA/indicators.tsv"
+  [ -z "$(awk -F'\t' '$2 ~ /^bad/' "$AUR_VET_DATA/indicators.tsv")" ]
   _refresh
   [[ "$output" == *"added 0"* ]]
 }
