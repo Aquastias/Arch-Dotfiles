@@ -448,7 +448,11 @@ setup() {
 @test "lazy rocks use system luarocks, never hererocks (ADR 0150)" {
   grep -q 'rocks = { enabled = true, hererocks = false }' \
     "$NVIM/lua/config/lazy.lua"
-  grep -q 'luarocks lua51' "$INSTALL"
+  grep -q 'luarocks lua51 jq' "$INSTALL"
+}
+
+@test "rest.nvim pretty-prints JSON responses with jq" {
+  grep -q 'formatprg = "jq"' "$NVIM/lua/plugins/rest.lua"
 }
 
 # ── IDE expansion: grug-far find & replace (ticket 07) ───────────────────────

@@ -34,8 +34,8 @@ ${AUR_HELPER} -S --noconfirm --needed phpactor
 # lazy.nvim installs rest.nvim's rock deps with system luarocks against Lua 5.1
 # (hererocks is off: Python bootstrap). Installed here, not Host Core, so
 # `packages.inherit: false` hosts get them too (ADR 0150).
-print_status info "Installing luarocks + lua51 (rest.nvim rocks)..."
-${AUR_HELPER} -S --noconfirm --needed luarocks lua51
+print_status info "Installing luarocks + lua51 (rest.nvim rocks) + jq..."
+${AUR_HELPER} -S --noconfirm --needed luarocks lua51 jq
 
 print_status info "Installing Swift toolchain (sourcekit-lsp) — best-effort..."
 if ${AUR_HELPER} -S --noconfirm --needed swift-bin; then

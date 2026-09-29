@@ -23,6 +23,8 @@ ADR 0148) still needs a Neovim client.
 - **System `luarocks` + `lua51`** (Arch Wiki: Lua → Modules; package-only)
   are installed by the nvim program's `install.sh`, not Host Core, so hosts
   with `packages.inherit: false` get them too.
+- **jq** (extra, package-only) is the json `formatprg`, so rest.nvim
+  pretty-prints JSON responses. html/xml stay unformatted.
 
 ## Considered Options
 - **Pin a kulala copy:** rejected as an unvetted third-party source.
