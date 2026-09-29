@@ -359,6 +359,21 @@ _profiles_revoke_temp_sudo() {
   rm -f "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
 }
 
+# Stop <user>'s gpg daemons before leaving the chroot. paru's key fetch starts
+# keyboxd, which holds public-keys.d/pubring.db.lock stamped with the ISO
+# hostname; it dies with the ISO, and gpg on the installed host can't prove a
+# foreign-host lock stale, so every later --recv-keys fails. A clean kill drops
+# the lock; the sweep catches one a daemon left anyway (no daemon runs after).
+_profiles_quiesce_gpg() {
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$1" <<'CHROOT_GPG'
+USER_NAME="$1"
+GNUPG="$(getent passwd "$USER_NAME" | cut -d: -f6)/.gnupg"
+[ -d "$GNUPG" ] || exit 0
+su - "$USER_NAME" -c 'gpgconf --kill all' >/dev/null 2>&1 || true
+find "$GNUPG" -type f \( -name '.#lk*' -o -name '*.lock' \) -delete
+CHROOT_GPG
+}
+
 # Probe the AUR Helper already installed for <user> inside the chroot. Prints
 # `paru`/`yay` (paru preferred) and returns 0 when one exists; non-zero and no
 # output when neither does. The in-chroot mirror of _profiles_detect_helper.
@@ -967,6 +982,7 @@ run_profiles() {
         ;;
       esac
     done
+    _profiles_quiesce_gpg "$u"
     _profiles_revoke_temp_sudo
   done
 
