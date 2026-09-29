@@ -49,6 +49,9 @@
       "arg": "{num}" },
     { "action": "window.move({ workspace = \"special:magic\" })",
       "effect": "layout-changes" },
+    // moving to the workspace a window is already on changes nothing
+    { "action": "window.move({ workspace = 1 })", "effect": "layout-changes",
+      "needs": "ws2win workspace2" },
     { "action": "window.move({ workspace = *", "effect": "layout-changes" },
     { "action": "workspace.toggle_special(\"magic\")",
       "effect": "screen-changes", "recovery": "toggle" },
