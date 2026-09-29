@@ -144,12 +144,15 @@ agent_pull_cmd() {
 # while host↔guest SSH stays up: drop the default route (saved) / put it back.
 # A link-down would sever the very SSH channel driving the guest.
 agent_net_cmd() {
-  local saved=/run/vm-agent-default-route
+  local s=/run/vm-agent-default-route
   case "$1" in
-    off) printf '%s\n' "sh -c '[ -s $saved ] || ip route show default > $saved; ip route del default 2>/dev/null; true'" ;;
-    on)  printf '%s\n' "sh -c '[ -s $saved ] && while read -r r; do ip route replace \$r; done < $saved; rm -f $saved; true'" ;;
+    off) printf '%s' "sh -c '[ -s $s ] || ip route show default > $s;" \
+           " ip route del default 2>/dev/null; true'" ;;
+    on)  printf '%s' "sh -c '[ -s $s ] && while read -r r;" \
+           " do ip route replace \$r; done < $s; rm -f $s; true'" ;;
     *) return 1 ;;
   esac
+  printf '\n'
 }
 
 # agent_key_qcodes <chord> — xkb-style chord (Mod+Shift+Return) → QEMU qcodes

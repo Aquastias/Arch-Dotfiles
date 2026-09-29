@@ -105,7 +105,8 @@ _fa_shot_hash() {
 }
 
 _fa_audio() {
-  { wpctl get-volume @DEFAULT_AUDIO_SINK@; wpctl get-volume @DEFAULT_AUDIO_SOURCE@; } \
+  { wpctl get-volume @DEFAULT_AUDIO_SINK@
+    wpctl get-volume @DEFAULT_AUDIO_SOURCE@; } \
     2>/dev/null | tr '\n' ' '
 }
 

@@ -4,27 +4,37 @@
 # the user's real config, headless: plugins load, :checkhealth is clean, every
 # Language Registry toolchain works (ADR 0141), and every shipped keymap does
 # what its expectation says (audit-binds.jsonc, one fresh nvim per bind).
+# The lua side reports through $FA_OUT: headless nvim prints its own
+# messages on stdout.
 fa_require_pkg nvim neovim || return 0
 fa_as_user || return 0
 export TERM=xterm-256color
 fx="$FA_DIR/audit-fixtures"
+o="$(mktemp)"
 
-if ! timeout 900 nvim --headless -c "luafile $fx/probe.lua" 2>/tmp/fa-nvim.err
-then
-  fa_fail nvim-probe "headless probe did not finish: $(head -1 /tmp/fa-nvim.err)"
+if FA_OUT="$o" timeout 900 nvim --headless -c "luafile $fx/probe.lua" \
+     >/dev/null 2>/tmp/fa-nvim.err; then
+  cat "$o"
+else
+  cat "$o"
+  fa_fail nvim-probe \
+    "headless probe did not finish: $(head -1 /tmp/fa-nvim.err)"
 fi
 
-[[ -f "$FA_DIR/binds-plan.jsonl" ]] || { fa_skip nvim-binds "no plan staged"; return 0; }
+if [[ ! -f "$FA_DIR/binds-plan.jsonl" ]]; then
+  fa_skip nvim-binds "no plan staged"; rm -f "$o"; return 0
+fi
 while IFS=$'\t' read -r key mode effect arg needs; do
   id="bind-nvim-$key"
   if [[ "$effect" == unverifiable ]]; then
     fa_skip "$id" "unverifiable: $arg"; continue
   fi
-  res="$(FA_KEY="$key" FA_MODE="$mode" FA_EFFECT="$effect" FA_ARG="$arg" \
-    FA_ID="$id" FA_NEEDS="$needs" timeout 40 \
-    nvim --headless -c "luafile $fx/key.lua" 2>/dev/null)"
+  : > "$o"
+  FA_KEY="$key" FA_MODE="$mode" FA_EFFECT="$effect" FA_ARG="$arg" \
+    FA_ID="$id" FA_NEEDS="$needs" FA_OUT="$o" timeout 40 \
+    nvim --headless -c "luafile $fx/key.lua" >/dev/null 2>&1
   rc=$?
-  if [[ -n "$res" ]]; then printf '%s\n' "$res"
+  if [[ -s "$o" ]]; then cat "$o"
   elif [[ "$effect" == quits && "$rc" == 0 ]]; then fa_pass "$id" "quit nvim"
   elif [[ "$rc" == 124 ]]; then
     fa_fail "$id" "hung (a prompt waiting for input?)"
@@ -32,3 +42,4 @@ while IFS=$'\t' read -r key mode effect arg needs; do
 done < <(jq -r '[.chord, (.action | split(" ")[0] | split(",")[0]),
                  (.effect // "none"), (.arg // .reason // ""),
                  (.needs // "")] | @tsv' "$FA_DIR/binds-plan.jsonl")
+rm -f "$o"

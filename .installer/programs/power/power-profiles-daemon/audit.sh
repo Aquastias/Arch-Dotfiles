@@ -7,7 +7,8 @@ fa_check ppd-active "power-profiles-daemon.service active" \
   fa_unit_active power-profiles-daemon
 _fa_ppd_switch() {
   local was; was="$(powerprofilesctl get)" || return 1
-  powerprofilesctl set power-saver && [ "$(powerprofilesctl get)" = power-saver ] \
+  powerprofilesctl set power-saver \
+    && [ "$(powerprofilesctl get)" = power-saver ] \
     && powerprofilesctl set "$was"
 }
 fa_check ppd-switch "profiles switch and read back" _fa_ppd_switch

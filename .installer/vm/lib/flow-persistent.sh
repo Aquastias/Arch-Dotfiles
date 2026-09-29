@@ -142,7 +142,9 @@ _render_installer_script() {
   local hold_line=""
   # shellcheck disable=SC2016 # expands in the guest, not here
   [[ -n "${VM_HOLD_FOR_LOG_PULL:-}" ]] \
-    && hold_line='for _ in $(seq 300); do [ -f /root/.log-pulled ] && break; sleep 1; done'
+    && hold_line='for _ in $(seq 300); do
+  [ -f /root/.log-pulled ] && break; sleep 1
+done'
   cat <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -151,7 +153,12 @@ set -x
 # still reach the host as a sentinel, or it waits out the whole install
 # timeout on a shell that is already gone.
 rm -f /root/.install-exit
-trap 'rc=\$?; [ -f /root/.install-exit ] || printf "\r\n===INSTALLER-EXIT-%d===\r\n" "\$((rc ? rc : 98))" > /dev/ttyS0' EXIT
+_early_exit() {
+  rc=\$?
+  [ -f /root/.install-exit ] && return
+  printf '\r\n===INSTALLER-EXIT-%d===\r\n' "\$((rc ? rc : 98))" > /dev/ttyS0
+}
+trap _early_exit EXIT
 # The harness key + serial autologin are authorized by the cloud-init seed at
 # first boot (ADR 0099), independent of this payload — so a failure before this
 # script even runs still leaves the live ISO reachable. This payload only clones

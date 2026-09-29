@@ -4,7 +4,8 @@
 -- before/after snapshot. Env: FA_KEY FA_MODE FA_EFFECT FA_ARG FA_ID
 -- FA_NEEDS (lsp = wait for a client to attach first).
 local lhs, mode = os.getenv("FA_KEY"), os.getenv("FA_MODE") or "n"
-local effect, arg, id = os.getenv("FA_EFFECT"), os.getenv("FA_ARG") or "", os.getenv("FA_ID")
+local effect, id = os.getenv("FA_EFFECT"), os.getenv("FA_ID")
+local arg = os.getenv("FA_ARG") or ""
 local errors = {}
 local orig = vim.notify
 vim.notify = function(m, l, o)
@@ -21,7 +22,9 @@ pcall(vim.cmd, "normal! /word\r")   -- a search, for n/N and <Esc>
 vim.api.nvim_win_set_cursor(0, { 10, 6 })
 vim.wait(300)
 if (os.getenv("FA_NEEDS") or ""):find("lsp") then
-  vim.wait(15000, function() return #vim.lsp.get_clients({ bufnr = 0 }) > 0 end, 200)
+  vim.wait(15000, function()
+    return #vim.lsp.get_clients({ bufnr = 0 }) > 0
+  end, 200)
   vim.wait(500)
 end
 local function snap()
@@ -32,11 +35,13 @@ local function snap()
     cur = table.concat(vim.api.nvim_win_get_cursor(0), ","),
     mode = vim.api.nvim_get_mode().mode, hl = vim.v.hlsearch }
 end
-local prefix = ({ v = "V", x = "V", o = "d", t = "", i = "i", c = ":" })[mode] or ""
+local prefix = ({ v = "V", x = "V", o = "d", i = "i", c = ":" })[mode]
+  or ""
 if mode == "t" then vim.cmd("terminal") vim.wait(500) vim.cmd("startinsert") end
 local b = snap()
 vim.v.errmsg = ""
-local ok, err = pcall(vim.api.nvim_feedkeys, vim.keycode(prefix .. lhs), "mx", false)
+local ok, err = pcall(vim.api.nvim_feedkeys, vim.keycode(prefix .. lhs),
+  "mx", false)
 vim.wait(1500)
 local a = snap()
 local em = vim.v.errmsg
@@ -54,8 +59,15 @@ local function judge()
   return false
 end
 local line
-if bad then line = ("FAIL %s error: %s"):format(id, (tostring(bad):gsub("\n", " ")))
+if bad then
+  line = ("FAIL %s error: %s"):format(id, (tostring(bad):gsub("\n", " ")))
 elseif judge() then line = ("PASS %s %s"):format(id, effect)
-else line = ("FAIL %s expected %s%s, not observed"):format(id, effect, arg ~= "" and (" " .. arg) or "") end
-io.stdout:write(line .. "\n")
+else
+  line = ("FAIL %s expected %s%s, not observed"):format(id, effect,
+    arg ~= "" and (" " .. arg) or "")
+end
+-- stdout carries nvim's own messages in headless mode: report via a file
+local fh_out = io.open(os.getenv("FA_OUT"), "a")
+fh_out:write(line .. "\n")
+fh_out:close()
 vim.cmd("qa!")

@@ -21,8 +21,12 @@
 #   fa_validate_config <cfg-json>     → 0 iff validate_install_context passes
 # =============================================================================
 
+# committed audit data (manifest, Known Noise), INSTALLER_DIR-relative
+FA_DATA=tests/vm/feature-audit
+
 fa_manifest_path() {
-  printf '%s\n' "${FEATURE_AUDIT_MANIFEST:-$INSTALLER_DIR/tests/vm/feature-audit/manifest.jsonc}"
+  local def="$INSTALLER_DIR/$FA_DATA/manifest.jsonc"
+  printf '%s\n' "${FEATURE_AUDIT_MANIFEST:-$def}"
 }
 
 fa_manifest_json() { jsonc_strip "$(fa_manifest_path)" | jq -c .; }

@@ -10,11 +10,12 @@ case "$sh" in
   *)     fa_fail zsh-login-shell "login shell is '$sh', not zsh" ;;
 esac
 
-# a real pty: zle and p10k need a terminal, as in kitty
+# _fa_zi <cmd> — run <cmd> in an interactive zsh on a real pty (zle and p10k
+# need a terminal, as in kitty); prints its output.
+_fa_zi() { script -qec "zsh -i -c '$1'" /dev/null 2>&1 | tr -d '\r'; }
+
 _fa_zsh_startup() {
-  local out
-  out="$(script -qec "zsh -i -c exit" /dev/null 2>&1 | tr -d "\r")"
-  ! grep -iE "error|not found|can.t|warning|no such" <<<"$out"
+  ! _fa_zi exit | grep -iE "error|not found|can.t|warning|no such"
 }
 fa_check zsh-startup "interactive zsh starts with no errors" _fa_zsh_startup
 
@@ -35,13 +36,14 @@ fa_check zsh-command-not-found "pkgfile database built" \
 fa_as_root && fa_check zsh-pkgfile-timer "pkgfile-update.timer enabled" \
   systemctl is-enabled --quiet pkgfile-update.timer
 
-# every planned bind (audit-binds.jsonc / explicit bindkey lines) is live
-fa_check zsh-emacs-keymap "emacs keymap selected (bindkey -e)" \
-  sh -c "script -qec 'zsh -i -c \"bindkey -lL main\"' /dev/null | grep -q emacs"
+# keymap + every planned bind (audit-binds.jsonc / explicit bindkey lines)
+_fa_zsh_emacs() { _fa_zi 'bindkey -lL main' | grep -q emacs; }
+fa_check zsh-emacs-keymap "emacs keymap selected (bindkey -e)" _fa_zsh_emacs
+_fa_zsh_bound() { _fa_zi "bindkey -M $1 \"$2\"" | grep -qw "$3"; }
 if [[ -s "$FA_DIR/binds-plan.jsonl" ]]; then
   while IFS=$'\t' read -r seq map widget; do
-    fa_check "bind-zsh-$seq" "$seq → $widget in $map" sh -c \
-      "script -qec 'zsh -i -c \"bindkey -M $map \\\"$seq\\\"\"' /dev/null | grep -qw '$widget'"
+    fa_check "bind-zsh-$seq" "$seq → $widget in $map" \
+      _fa_zsh_bound "$map" "$seq" "$widget"
   done < <(jq -r '[.chord, (.action | split(" ") | .[0], .[1])] | @tsv' \
              "$FA_DIR/binds-plan.jsonl")
 fi

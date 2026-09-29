@@ -4,16 +4,22 @@
 -- and every Language Registry (ADR 0141) row's LSP attaches, parser loads,
 -- formatter/linter/debug adapter is available — offline.
 local out = {}
-local function emit(s, id, msg) out[#out + 1] = s .. " " .. id .. " " .. (msg or "") end
+local function emit(s, id, msg)
+  out[#out + 1] = s .. " " .. id .. " " .. (msg or "")
+end
 local function pass(id, m) emit("PASS", id, m) end
-local function fail(id, m) emit("FAIL", id, (tostring(m or "")):gsub("\n", " ")) end
+local function fail(id, m)
+  emit("FAIL", id, (tostring(m or "")):gsub("\n", " "))
+end
 local function skip(id, m) emit("SKIP", id, m) end
 
 -- capture error notifications raised while loading/probing
 local errors = {}
 local orig_notify = vim.notify
 vim.notify = function(msg, level, o)
-  if level and level >= vim.log.levels.ERROR then errors[#errors + 1] = tostring(msg) end
+  if level and level >= vim.log.levels.ERROR then
+    errors[#errors + 1] = tostring(msg)
+  end
   return orig_notify(msg, level, o)
 end
 
@@ -56,10 +62,14 @@ else
   local names = {}
   for name, p in pairs(lazy_cfg.plugins) do
     names[#names + 1] = name
-    if not (p._ and p._.installed) then fail("nvim-plugin-" .. name, "not installed") end
+    if not (p._ and p._.installed) then
+      fail("nvim-plugin-" .. name, "not installed")
+    end
   end
   local before = #errors
-  local ok, err = pcall(function() require("lazy").load({ plugins = names }) end)
+  local ok, err = pcall(function()
+    require("lazy").load({ plugins = names })
+  end)
   if not ok then fail("nvim-plugins-load", err)
   elseif #errors > before then fail("nvim-plugins-load", errors[before + 1])
   else pass("nvim-plugins-load", #names .. " plugins loaded") end
@@ -70,13 +80,15 @@ local ok_reg, langs = pcall(require, "config.languages")
 if not ok_reg then fail("nvim-registry", langs) else
   for _, p in ipairs(langs.parsers()) do
     local ok = pcall(vim.treesitter.language.add, p)
-    if ok then pass("nvim-ts-" .. p, "parser loads") else fail("nvim-ts-" .. p, "parser missing") end
+    if ok then pass("nvim-ts-" .. p, "parser loads")
+    else fail("nvim-ts-" .. p, "parser missing") end
   end
   for _, s in ipairs(langs.servers()) do
     local cfg = vim.lsp.config[s]
     if not cfg then fail("nvim-lsp-" .. s, "no lsp config")
     elseif not exe(cfg.cmd) then
-      fail("nvim-lsp-" .. s, "server binary not found: " .. vim.inspect(cfg.cmd))
+      fail("nvim-lsp-" .. s,
+        "server binary not found: " .. vim.inspect(cfg.cmd))
     else
       local ft = (cfg.filetypes or {})[1]
       local buf = ft and sample(ft)
@@ -86,7 +98,9 @@ if not ok_reg then fail("nvim-registry", langs) else
           return #vim.lsp.get_clients({ bufnr = buf, name = s }) > 0
         end, 200)
         if ok then pass("nvim-lsp-" .. s, "attached on " .. ft)
-        else fail("nvim-lsp-" .. s, "did not attach to a " .. ft .. " buffer") end
+        else
+          fail("nvim-lsp-" .. s, "did not attach to a " .. ft .. " buffer")
+        end
       end
     end
   end
@@ -94,11 +108,12 @@ if not ok_reg then fail("nvim-registry", langs) else
   for ft, fmts in pairs(langs.formatters_by_ft()) do
     local buf = sample(ft)
     for _, f in ipairs(fmts) do
-      if not ok_c or not buf then skip("nvim-fmt-" .. f .. "-" .. ft, "no conform/sample")
+      local id = "nvim-fmt-" .. f .. "-" .. ft
+      if not ok_c or not buf then skip(id, "no conform/sample")
       else
         local info = conform.get_formatter_info(f, buf)
-        if info.available then pass("nvim-fmt-" .. f .. "-" .. ft, "available")
-        else fail("nvim-fmt-" .. f .. "-" .. ft, info.available_msg or "unavailable") end
+        if info.available then pass(id, "available")
+        else fail(id, info.available_msg or "unavailable") end
       end
     end
   end
@@ -109,16 +124,18 @@ if not ok_reg then fail("nvim-registry", langs) else
       if type(d) == "function" then d = d() end
       if not d then fail("nvim-lint-" .. l, "linter not defined")
       elseif exe(d.cmd) then pass("nvim-lint-" .. l, "available")
-      else fail("nvim-lint-" .. l, "binary not found: " .. vim.inspect(d.cmd)) end
+      else
+        fail("nvim-lint-" .. l, "binary not found: " .. vim.inspect(d.cmd))
+      end
     end
   end
   local ok_d, dap = pcall(require, "dap")
   for _, a in ipairs(langs.adapters()) do
     if not ok_d then fail("nvim-dap-" .. a, "nvim-dap not loadable") else
-      local found
-      for name, ad in pairs(dap.adapters) do
-        if name:find(a, 1, true) or (a == "js" and name == "pwa-node") then found = ad end
-      end
+      -- registry key → the adapter dap.lua registers for it (ADR 0140)
+      local name = ({ rust = "codelldb", c = "codelldb", cpp = "codelldb",
+        js = "pwa-node" })[a] or a
+      local found = dap.adapters[name]
       if not found then fail("nvim-dap-" .. a, "no adapter registered")
       elseif type(found) == "table" and found.command and not exe(found.command)
         and not (found.executable and exe(found.executable.command)) then
@@ -152,7 +169,8 @@ local cfgdir = vim.fn.stdpath("config")
 for _, m in ipairs({ "n", "v", "x", "o", "i", "t", "c" }) do
   for _, km in ipairs(vim.api.nvim_get_keymap(m)) do
     local src = km.callback and debug.getinfo(km.callback, "S").source or ""
-    if (km.desc and km.desc ~= "") and (src:find(cfgdir, 1, true) or src == "") then
+    local ours = src:find(cfgdir, 1, true) or src == ""
+    if km.desc and km.desc ~= "" and ours then
       local k = vim.fn.keytrans(vim.keycode(km.lhs))
       if not plan[k] and km.lhs:sub(1, 5) ~= "<Plug" then
         plan[k] = true
@@ -162,5 +180,8 @@ for _, m in ipairs({ "n", "v", "x", "o", "i", "t", "c" }) do
   end
 end
 
-io.stdout:write(table.concat(out, "\n") .. "\n")
+-- stdout carries nvim's own messages in headless mode: report via a file
+local fh_out = io.open(os.getenv("FA_OUT"), "w")
+fh_out:write(table.concat(out, "\n") .. "\n")
+fh_out:close()
 vim.cmd("qa!")

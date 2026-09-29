@@ -27,12 +27,21 @@ first login, a plugin, a keybind, a timer, an upgrade.
   itself a Finding. Binds are tested by real keyboard/mouse input.
 - **Offline-first**: probes run once with guest network cut; a feature that
   only works online after install is a Finding ("runtime fetch").
-- **Emulate the maximum libvirt allows**: Secure Boot, swtpm TPM, a SATA
-  disk for SMART, a host `ippeveprinter` for cups, S3/S4 via `virsh
-  dompmsuspend`. The rest (bluetooth, lact/real GPUs, fwupd updates, laptop
-  battery/lid, teamspeak connect) is `unverifiable` in the Audit Manifest,
+- **Emulate the maximum libvirt allows** for what the installer ships:
+  SATA disks for SMART, a real IPP Everywhere job (the guest's own
+  `ippeveprinter`), ACPI S3 suspend/wake and S4 resume (VM created with
+  `--pm`). Secure Boot and TPM were planned but dropped: the installer ships
+  neither (no signing, no `cryptenroll`), so emulating them proves nothing.
+  The rest (bluetooth, lact/real GPUs, fwupd updates, laptop battery/lid,
+  teamspeak connect) is `unverifiable` in the Audit Manifest,
   user-reviewed before the first run; still probed as far as the VM allows
   (service/app starts clean).
+- **The guest audits committed HEAD**: the run serves the local repo as a
+  dumb-HTTP bare clone on the harness HTTP root, so no push is needed and
+  uncommitted changes are not audited.
+- **nvim keymaps** go through nvim's own input queue (headless, one fresh
+  nvim per bind, the user's real config); the terminal layer is proven by
+  kitty's binds, sent as real keyboard input like the compositors'.
 - Output: `findings.md` (agent-ready) + `findings.jsonl` + raw logs and a
   screenshot gallery for visual review, under a gitignored run directory.
   Manual only; bats covers just the manifest coverage check.

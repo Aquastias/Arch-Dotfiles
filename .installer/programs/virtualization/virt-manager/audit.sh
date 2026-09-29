@@ -6,7 +6,9 @@ if fa_as_root; then
   fa_check kvm-device "/dev/kvm present (nested virt)" test -e /dev/kvm
   return 0
 fi
-id -nG | grep -qw libvirt || { fa_skip libvirt-user "$FA_USER not in libvirt"; return 0; }
+if ! id -nG | grep -qw libvirt; then
+  fa_skip libvirt-user "$FA_USER not in libvirt"; return 0
+fi
 fa_check virsh-system "qemu:///system reachable as a libvirt user" \
   virsh -c qemu:///system list --all
 fa_check virsh-net "a default network is defined" \

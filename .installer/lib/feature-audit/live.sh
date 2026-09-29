@@ -27,7 +27,9 @@ export CACHE_DIR
 FA_AGENT="$INSTALLER_DIR/vm/vm-agent.sh"
 FA_ANSWER_PID=""
 
-fa_runs_root() { printf '%s\n' "${FEATURE_AUDIT_RUNS:-$INSTALLER_DIR/.audit-runs}"; }
+fa_runs_root() {
+  printf '%s\n' "${FEATURE_AUDIT_RUNS:-$INSTALLER_DIR/.audit-runs}"
+}
 
 # fa_agent <verb> [args…] — VM Agent Control on the audit VM as its user.
 # stdin reaches the guest only for a stdin-script `sudo`; every other call
@@ -109,7 +111,8 @@ fa_boot() {
   virsh start "$VM_NAME" >/dev/null 2>&1 || true
   fa_serial_start "$dir/serial.txt"
   fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
-    fa_fatal "$dir" "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
+    fa_fatal "$dir" \
+      "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
   sleep "$FA_SETTLE_SEC"
@@ -217,7 +220,9 @@ _fa_boot2_prep_script() {
 set -u
 echo fa > /etc/fa-rollback-probe
 h="$(getent passwd "$U" | cut -d: -f6)"
-[ -n "$h" ] && { echo fa > "$h/.fa-persist-probe"; chown "$U" "$h/.fa-persist-probe"; }
+if [ -n "$h" ]; then
+  echo fa > "$h/.fa-persist-probe"; chown "$U" "$h/.fa-persist-probe"
+fi
 ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
   | awk '{print $2}' > /var/tmp/fa-hostkey
 cp /var/tmp/fa-hostkey "$h/.fa-hostkey" 2>/dev/null || true
@@ -420,8 +425,10 @@ fa_stage_probes() {
     n="${d##*/}"
     mkdir -p "$tmp/fa-probes/$n"
     cp "$d/audit.sh" "$tmp/fa-probes/$n/"
-    [[ -f "$d/audit-binds.jsonc" ]] && cp "$d/audit-binds.jsonc" "$tmp/fa-probes/$n/"
-    [[ -d "$d/audit-fixtures" ]] && cp -rL "$d/audit-fixtures" "$tmp/fa-probes/$n/"
+    [[ -f "$d/audit-binds.jsonc" ]] \
+      && cp "$d/audit-binds.jsonc" "$tmp/fa-probes/$n/"
+    [[ -d "$d/audit-fixtures" ]] \
+      && cp -rL "$d/audit-fixtures" "$tmp/fa-probes/$n/"
     # program-driven keybinds (nvim …): the matched plan rides along
     local s
     for s in $(fa_binds_program_sources "$n"); do
@@ -471,7 +478,8 @@ for d in "$P"/*/; do
         bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
     fi
     rc=$?
-    [ "$rc" = 124 ] && echo "FAIL probe-timeout $n timed out after ${to}s" >> "$out"
+    [ "$rc" = 124 ] \
+      && echo "FAIL probe-timeout $n timed out after ${to}s" >> "$out"
   done
 done
 chmod -R a+rX "$O"
@@ -484,11 +492,13 @@ fa_run_probes() {
   local dir="$1" phase="$2" online="$3" cfg="$4"; shift 4
   local -a accts=("$@")
   if ((${#accts[@]} == 0)); then
-    mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg"); accts=(root "${accts[@]}")
+    mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg")
+    accts=(root "${accts[@]}")
   fi
+  # a failed runner still leaves every finished probe's output: pull it
   _fa_probe_runner_script "$phase" "$online" "${accts[@]}" \
     | fa_agent sudo >/dev/null 2>&1 \
-    || { fa_fatal "$dir" "probe runner failed in the guest"; return 1; }
+    || fa_fatal "$dir" "probe runner failed in the guest"
   fa_pull_into /tmp/fa-probe-out "$dir" \
     || fa_fatal "$dir" "could not pull probe output"
 }
@@ -585,7 +595,8 @@ _fa_mouse_chord() {
 _fa_bind_one() {
   local row="$1" de="$2" chord effect arg needs rec id b a t rc sdir
   chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
-  arg="$(jq -r '.arg // ""' <<<"$row")"; needs="$(jq -r '.needs // ""' <<<"$row")"
+  arg="$(jq -r '.arg // ""' <<<"$row")"
+  needs="$(jq -r '.needs // ""' <<<"$row")"
   rec="$(jq -r '.recovery // ""' <<<"$row")"
   id="bind-$(jq -r .source <<<"$row")-$chord"
   if [[ "$effect" == unverifiable ]]; then
@@ -627,7 +638,8 @@ _fa_bind_one() {
   case "$rc" in
     0) echo "PASS $id $effect" ;;
     3) echo "SKIP $id $effect not observable here (no audio device)" ;;
-    *) echo "FAIL $id ($(jq -r .action <<<"$row")) expected $effect${arg:+ $arg}, not observed" ;;
+    *) echo "FAIL $id ($(jq -r .action <<<"$row")) expected" \
+         "$effect${arg:+ $arg}, not observed" ;;
   esac
   [[ -n "$rec" ]] && _fa_bind_recover "$rec" "$chord" "$de"
   fa_gexec fa_bteardown >/dev/null
@@ -676,7 +688,8 @@ fa_install() {
   rc="$(cat "$dir/install-rc" 2>/dev/null || echo none)"
   case "$rc" in
     0) return 0 ;;
-    none) fa_fatal "$dir" "installer never reported an exit (see harness.txt)" ;;
+    none) fa_fatal "$dir" \
+            "installer never reported an exit (see harness.txt)" ;;
     124) fa_fatal "$dir" "installer timed out" ;;
     *) fa_fatal "$dir" "installer exited $rc" ;;
   esac

@@ -45,7 +45,8 @@ _fa_check_manifest() {
 
 # Menu fields that are identity/cosmetics, not features (hostname, locales,
 # mirrors, pacman look, free text) — outside audit coverage.
-_FA_FEATURE_SKIP='^(system\.|__|options\.mirror_|options\.optional_repos|options\.custom_repositories|options\.pacman\.|sysctl$|users$|options\.age_key_url$)'
+_FA_FEATURE_SKIP='^(system\.|__|sysctl$|users$|options\.(mirror_|'
+_FA_FEATURE_SKIP+='optional_repos|custom_repositories|pacman\.|age_key_url$))'
 
 # _fa_feature_values — every required `path=value`, derived from the menu's
 # own fields + option sets (never a hand list): enum → each option, bool →

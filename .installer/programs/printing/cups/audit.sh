@@ -15,7 +15,9 @@ _fa_cups_print() {
   then
     id="$(echo "Feature Audit test page" | lp -d fa-audit | awk '{print $4}')"
     for _ in $(seq 60); do
-      lpstat -W completed -o fa-audit 2>/dev/null | grep -q "$id" && { rc=0; break; }
+      if lpstat -W completed -o fa-audit 2>/dev/null | grep -q "$id"; then
+        rc=0; break
+      fi
       sleep 1
     done
     ((rc == 0)) || lpstat -l -o fa-audit

@@ -25,7 +25,9 @@
     { "id": "efistub", "patch": { "options": { "bootloader": "efistub" } },
       "adrs": ["0078"] },
     { "id": "kernels",
-      "patch": { "options": { "kernel": ["lts", "default", "hardened", "zen"] } },
+      "patch": {
+        "options": { "kernel": ["lts", "default", "hardened", "zen"] }
+      },
       "adrs": ["0137", "0138", "0139"] },
     { "id": "ufw",
       "patch": { "post_install": { "security": { "firewall": "ufw" } } },
@@ -83,11 +85,31 @@
       "adrs": ["0039", "0073"] }
   ],
   "unverifiable": [
+    // menu values no VM can hold
     { "feature": "environment.gpu=amd",
       "reason": "no AMD GPU in libvirt; virtio-gpu only" },
     { "feature": "environment.gpu=nvidia",
       "reason": "no NVIDIA GPU in libvirt; virtio-gpu only" },
     { "feature": "environment.gpu=intel",
-      "reason": "no Intel GPU in libvirt; virtio-gpu only" }
+      "reason": "no Intel GPU in libvirt; virtio-gpu only" },
+    // hardware-bound parts of probed programs (the rest of each is probed)
+    { "feature": "hw:bluetooth-adapter",
+      "reason": "no Bluetooth controller in libvirt; bluez wiring probed" },
+    { "feature": "hw:lact-gpu-tuning",
+      "reason": "no AMD/NVIDIA GPU; lactd start probed" },
+    { "feature": "hw:fwupd-update",
+      "reason": "no updatable firmware devices; device list + refresh probed" },
+    { "feature": "hw:laptop-battery-lid",
+      "reason": "QEMU has no battery or lid switch; power daemon probed" },
+    { "feature": "hw:smartd-daemon",
+      "reason": "smartd skips VMs (ConditionVirtualization=no); SMART probed" },
+    { "feature": "hw:teamspeak3-connect",
+      "reason": "needs a TeamSpeak server; client launch probed" },
+    { "feature": "hw:media-brightness-keys",
+      "reason": "no backlight or MPRIS player; those keybinds are SKIPs" },
+    { "feature": "hw:multi-monitor",
+      "reason": "one virtual monitor; monitor-focus/move keybinds are SKIPs" },
+    { "feature": "hw:secure-boot-tpm",
+      "reason": "the installer ships no Secure Boot signing or TPM enrolment" }
   ]
 }

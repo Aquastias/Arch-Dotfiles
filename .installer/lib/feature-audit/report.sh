@@ -25,7 +25,8 @@ FA_PHASES=(check install boot1 sessions probes-offline probes-online keybinds
            power timers boot2 upgrade)
 
 fa_known_noise_path() {
-  printf '%s\n' "${FEATURE_AUDIT_KNOWN_NOISE:-$INSTALLER_DIR/tests/vm/feature-audit/known-noise.jsonc}"
+  local def="$INSTALLER_DIR/tests/vm/feature-audit/known-noise.jsonc"
+  printf '%s\n' "${FEATURE_AUDIT_KNOWN_NOISE:-$def}"
 }
 
 # _fa_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase` rows.
@@ -44,7 +45,10 @@ _fa_candidates() {
   mapfile -t files < <(find "$run" -mindepth 3 -maxdepth 3 -type f \
     \( -name '*.log' -o -name '*.lines' -o -name '*.probe' \) | sort)
   ((${#files[@]})) || return 0
-  awk -v run="$run/" -v phases="$phases" -F'\t' '
+  # an error-shaped word, not part of a name (libgpg-error, perl-error)
+  local errre='(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|'
+  errre+='failure|fatal|critical)([^a-z0-9_-]|$)'
+  awk -v run="$run/" -v phases="$phases" -v errre="$errre" -F'\t' '
     function clean(s) {
       gsub(/\033\[[0-9;]*[A-Za-z]/, "", s); gsub(/\t/, " ", s)
       gsub(/\r/, "", s)
@@ -106,7 +110,7 @@ _fa_candidates() {
       if (line ~ /^[[:space:]]*$/) next
       if (kind == "log") {
         l = tolower(line)
-        if (l ~ /(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|failure|fatal|critical)([^a-z0-9_-]|$)/)
+        if (l ~ errre)
           add(src, prog, "", line, rel)
       } else if (kind == "lines") {
         add(src, prog, "", line, rel)
@@ -145,7 +149,9 @@ _fa_candidates() {
 
 fa_report() {
   local run="${1%/}"
-  [[ -d "$run" ]] || { echo "feature-audit: no run folder: $run" >&2; return 2; }
+  if [[ ! -d "$run" ]]; then
+    echo "feature-audit: no run folder: $run" >&2; return 2
+  fi
   local jsonl="$run/findings.jsonl" md="$run/findings.md"
   rm -f "$jsonl" "$md"
   FA_NOISE_TSV="$(mktemp)"

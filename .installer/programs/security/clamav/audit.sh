@@ -14,7 +14,8 @@ fa_check clamav-signatures "virus definitions present" \
 # The real proof: the daemon flags the EICAR test string.
 _fa_eicar() {
   local f; f="$(mktemp /tmp/fa-eicar.XXXX)"
-  printf '%s' 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > "$f"
+  printf '%s%s' 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD' \
+    '-ANTIVIRUS-TEST-FILE!$H+H*' > "$f"
   clamdscan --fdpass --no-summary "$f" 2>&1 | grep -q FOUND; local rc=$?
   rm -f "$f"; return "$rc"
 }

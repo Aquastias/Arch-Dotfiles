@@ -12,6 +12,7 @@ fa_check zfs-snap-tag "zfs-snapshot-tag.service enabled" \
 # The real proof: a frequent run takes a snapshot.
 _fa_zfs_snap() {
   systemctl start zfs-auto-snapshot-frequent.service \
-    && zfs list -H -t snapshot -o name | grep -qE '@(znap|zfs-auto-snap)_.*frequent'
+    && zfs list -H -t snapshot -o name \
+      | grep -qE '@(znap|zfs-auto-snap)_.*frequent'
 }
 fa_check zfs-snap-takes "a frequent run creates a snapshot" _fa_zfs_snap

@@ -5,4 +5,5 @@ fa_as_user || return 0
 fa_check claude-runs "claude --version" claude --version
 fa_check claude-settings "seeded settings.json is valid JSON" \
   jq -e . "$FA_HOME/.claude/settings.json"
-fa_check claude-md "seeded CLAUDE.md present" test -s "$FA_HOME/.claude/CLAUDE.md"
+fa_check claude-md "seeded CLAUDE.md present" \
+  test -s "$FA_HOME/.claude/CLAUDE.md"

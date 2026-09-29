@@ -134,3 +134,12 @@ J
   grep -qxF $'zsh\t^R\tviins history-incremental-search-backward' <<<"$output"
   [ "$(wc -l <<<"$output")" -eq 2 ]
 }
+
+@test "plan: a source with no binds plans nothing, without error" {
+  : > "$BATS_TEST_TMPDIR/empty.zshrc"
+  echo '{ "expect": [] }' > "$BATS_TEST_TMPDIR/b.jsonc"
+  run fa_binds_plan zsh "$BATS_TEST_TMPDIR/empty.zshrc" \
+    "$BATS_TEST_TMPDIR/b.jsonc"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

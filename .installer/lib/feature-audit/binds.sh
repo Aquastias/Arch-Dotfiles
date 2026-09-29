@@ -29,19 +29,22 @@
 
 FA_REPO_ROOT="${FA_REPO_ROOT:-$(cd "$INSTALLER_DIR/.." && pwd)}"
 
-# Registry: source → "session|config-glob|expectations|program" (paths
-# repo-relative). A compositor source (session set) runs in the keybinds
-# phase; a program source (session `-`) is staged to that program's probe as
-# `binds-plan.jsonl` and driven by it; session `*` = an app bind sent as real
-# input in the first compositor session. `find:<dir>:<name>` walks a tree.
+# Registry: source → "session|config|owner" (repo-relative). The owner dir
+# holds the source's audit-binds.jsonc. A compositor source (session set)
+# runs in the keybinds phase; a program source (session `-`) is staged to
+# that program's probe as `binds-plan.jsonl` and driven by it; session `*` is
+# an app bind sent as real input in the first compositor session.
+# `find:<dir>:<name>` walks a tree.
+_X=.installer/extras/desktop _P=.installer/programs
 declare -gA FA_BIND_SOURCES=(
-  [niri]="niri|.config/niri/conf.d/*.kdl|.installer/extras/desktop/niri/audit-binds.jsonc"
-  [hyprland]="hyprland|.config/hypr/conf.d/*.lua|.installer/extras/desktop/hyprland/audit-binds.jsonc"
-  [kde]="kde|.installer/extras/desktop/kde/skel/.config/kglobalshortcutsrc|.installer/extras/desktop/kde/audit-binds.jsonc"
-  [nvim]="-|find:.installer/programs/dev/nvim/home/.config/nvim:*.lua|.installer/programs/dev/nvim/audit-binds.jsonc|nvim"
-  [kitty]="*|.installer/programs/system/kitty/home/.config/kitty/conf/*.conf|.installer/programs/system/kitty/audit-binds.jsonc"
-  [zsh]="-|find:.installer/programs/system/zsh/home:.z*|.installer/programs/system/zsh/audit-binds.jsonc|zsh"
+  [niri]="niri|.config/niri/conf.d/*.kdl|$_X/niri"
+  [hyprland]="hyprland|.config/hypr/conf.d/*.lua|$_X/hyprland"
+  [kde]="kde|$_X/kde/skel/.config/kglobalshortcutsrc|$_X/kde"
+  [nvim]="-|find:$_P/dev/nvim/home/.config/nvim:*.lua|$_P/dev/nvim"
+  [kitty]="*|$_P/system/kitty/home/.config/kitty/conf/*.conf|$_P/system/kitty"
+  [zsh]="-|find:$_P/system/zsh/home:.z*|$_P/system/zsh"
 )
+unset _X _P
 
 fa_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
 
@@ -54,7 +57,8 @@ _fa_binds_field() {
 fa_binds_session() { _fa_binds_field "$1" 1; }
 
 fa_binds_expect_file() {
-  printf '%s/%s\n' "$FA_REPO_ROOT" "$(_fa_binds_field "$1" 3)"
+  printf '%s/%s/audit-binds.jsonc\n' "$FA_REPO_ROOT" \
+    "$(_fa_binds_field "$1" 3)"
 }
 
 # _fa_binds_files <src> — the shipped config files for a source.
@@ -133,7 +137,9 @@ _fa_parse_hyprland() {
       for (i = 1; i <= length(s); i++) {
         c = substr(s, i, 1)
         if (c == "\"") q = !q
-        if (c == "," && !q) { key = substr(s, 1, i - 1); rest = substr(s, i + 1); break }
+        if (c == "," && !q) {
+          key = substr(s, 1, i - 1); rest = substr(s, i + 1); break
+        }
       }
       rest = trim(rest); sub(/^hl\.dsp\./, "", rest)
       q = 0; d = 0; disp = rest
@@ -248,7 +254,9 @@ fa_binds_parse() {
 
 fa_binds_rows() {
   local -a files; mapfile -t files < <(_fa_binds_files "$1")
-  ((${#files[@]})) || { echo "feature-audit: no config for '$1'" >&2; return 1; }
+  if ((${#files[@]} == 0)); then
+    echo "feature-audit: no config for '$1'" >&2; return 1
+  fi
   fa_binds_parse "$1" "${files[@]}"
 }
 
@@ -268,7 +276,7 @@ fa_binds_plan() {
   jq -R -c --argjson e "$ej" '
     def glob2re: gsub("(?<c>[.+?^$()\\[\\]{}|\\\\])"; "\\\(.c)")
                  | gsub("\\*"; ".*") | "^" + . + "$";
-    split("\t") as [$s, $chord, $act]
+    select(length > 0) | split("\t") as [$s, $chord, $act]
     | ($act | capture("^[^ ]+ +(?<a>.*)$").a // "" | gsub("^\"|\"$"; ""))
         as $arg
     | ([$e.expect[] | select(.chord == $chord)]
@@ -277,7 +285,8 @@ fa_binds_plan() {
     | { source: $s, chord: $chord, action: $act }
       + (if $m then ($m | del(.chord, .action))
            + { arg: (($m.arg // "") | gsub("\\{arg\\}"; $arg)
-                     | gsub("\\{num\\}"; ($act | capture("(?<n>[0-9]+)").n // ""))) }
+                     | gsub("\\{num\\}";
+                            ($act | capture("(?<n>[0-9]+)").n // ""))) }
          else { effect: null } end)
   ' <<<"$rows"
 }
@@ -289,9 +298,11 @@ fa_binds_untested() {
 
 # fa_binds_program_sources <program> — bind sources a program's probe drives.
 fa_binds_program_sources() {
-  local s
+  local s o
   for s in $(fa_binds_sources); do
-    [[ "$(_fa_binds_field "$s" 4)" == "$1" ]] && printf '%s\n' "$s"
+    o="$(_fa_binds_field "$s" 3)"
+    [[ "$o" == .installer/programs/*/"$1" \
+       && "$(fa_binds_session "$s")" == - ]] && printf '%s\n' "$s"
   done
   return 0
 }
