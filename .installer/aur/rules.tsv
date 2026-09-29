@@ -53,8 +53,8 @@ etc-persistence	critical	code	(^|[[:space:]>=(])["']?(/etc/(profile[.]d\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 cred-access	critical	code	(~|[$][{]?HOME[}]?|/home/[^/[:space:]]+|/root)/\
 	([.](ssh|gnupg|aws|kube|netrc|git-credentials|npmrc|pypirc\
-	|password-store|mozilla)|[.]docker/config[.]json|[.]local/share/keyrings\
-	|[.]config/(gh|google-chrome|chromium|BraveSoftware|discord|Signal))\
+	|password-store|mozilla|azure)|[.]docker/config[.]json|[.]local/share/keyrings\
+	|[.]config/(gh|gcloud|google-chrome|chromium|BraveSoftware|discord|Signal))\
 	|/etc/g?shadow([[:space:]"']|$)	reads credentials, keys or browser data\
 		^[[:space:]]*(echo|printf|msg[0-9]*|warning|plain|note)[[:space:]][^>|]*$
 exfil-upload	critical	code	(^|[^[:alnum:]_-])curl[[:space:]][^|;&]*\
@@ -62,6 +62,12 @@ exfil-upload	critical	code	(^|[^[:alnum:]_-])curl[[:space:]][^|;&]*\
 	|(^|[^[:alnum:]_-])curl[[:space:]][^|;&]*(-T|--upload-file)[[:space:]=]\
 	|(^|[^[:alnum:]_-])wget[[:space:]][^|;&]*--post-(file|data)\
 		uploads a file or data to a server
+env-dump	critical	code	(^|[;&|(]|[$][(])[[:space:]]*(printenv|env)\
+	[[:space:]]*([|>)]|$)|/proc/[^[:space:]/]+/environ\
+		dumps the environment (secrets, tokens)
+exfil-nc	critical	code	[|][[:space:]]*n(c|cat|etcat)[[:space:]]\
+	|(^|[^[:alnum:]_-])n(c|cat|etcat)[[:space:]][^|;&]*<[[:space:]]*[^<&[:space:]]\
+		sends data over raw netcat
 exfil-webhook	critical	code	discord(app)?[.]com/api/webhooks\
 	|api[.]telegram[.]org/bot|hooks[.]slack[.]com/services\
 	|outlook[.]office[.]com/webhook|webhook[.]site/	chat/webhook exfiltration
@@ -71,7 +77,8 @@ revshell	critical	code	(^|[^[:alnum:]_-])n(c|cat|etcat)\
 	([[:space:]][^|;&]*)?[[:space:]]-[ec][[:space:]]\
 	|socat[[:space:]][^|;&]*(exec|system):\
 	|mkfifo[[:space:]][^;]*;[^;]*[|][^;]*n(c|cat)[[:space:]]\
-	|socket[.]socket[(]|fsockopen[(]|TCPSocket[.](new|open)|IO::Socket::INET\
+	|socket[.]socket[(]|socket[(][^)]*[PA]F_INET|fsockopen[(]\
+	|TCPSocket[.](new|open)|IO::Socket::INET\
 	|[>]&?[[:space:]]*/dev/(tcp|udp)/	reverse shell
 kmod-insmod	critical	code	(^|[^[:alnum:]_-])insmod[[:space:]]\
 		loads a kernel module from a file
