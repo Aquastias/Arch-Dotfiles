@@ -334,13 +334,23 @@ function repo_file(p) {
   if (p ~ /(^|\/)\.[^\/]*\.install$/) emit("hidden-install", p, 1)
 }
 
-# Checksum families present in the PKGBUILD: MD5/SHA1/CRC alone is weak.
-# Only a real digest counts — md5sums=('SKIP') (VCS sources) checks nothing.
-function sums_kind(l) {
-  if (l ~ /^[[:space:]]*(md5|sha1|ck)sums(_[[:alnum:]_]+)?=/ \
-      && l ~ /[0-9a-fA-F]{8}/) sums_weak = 1
-  if (l ~ /^[[:space:]]*(sha224|sha256|sha384|sha512|b2)sums(_[[:alnum:]_]+)?=/)
-    sums_strong = 1
+# Checksum families that verify something in the PKGBUILD: MD5/SHA1/CRC
+# alone is weak. Arrays are followed across lines; only a real digest counts
+# — md5sums=('SKIP') (VCS sources) and sha256sums=('SKIP') check nothing.
+function sums_kind(l,   fam, rest) {
+  if (match(l, /^[[:space:]]*[[:alnum:]]+sums(_[[:alnum:]_]+)?[+]?=/)) {
+    fam = substr(l, RSTART, RLENGTH); sub(/^[[:space:]]*/, "", fam)
+    sub(/sums.*/, "", fam)
+    sums_fam = fam; rest = substr(l, RSTART + RLENGTH)
+  } else if (sums_fam == "") return
+  else rest = l
+  if (rest ~ /[0-9a-fA-F]{8}/) {
+    if (sums_fam ~ /^(md5|sha1|ck)$/) sums_weak = 1
+    else sums_strong = 1
+  }
+  # The array ends at ")"; a line that neither opens nor continues it ends too.
+  if (rest ~ /[)]/) sums_fam = ""
+  else if (rest !~ /[(]/ && rest !~ /^[[:space:]]*['"]/) sums_fam = ""
 }
 
 # Is <p> a tracked path of the clone? (tracked: \037-joined, from aur-vet)

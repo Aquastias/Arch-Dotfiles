@@ -71,3 +71,21 @@ _cases() { grep -v '^#' "$AUR_VET_FIXTURES/rule-cases.tsv"; }
   [[ "$output" == *"INFO lockfile-install PKGBUILD:15"* ]]
   [[ "$output" != *CRITICAL* && "$output" != *SUSPICIOUS* ]]
 }
+
+# weak-checksums reads whole arrays and counts only real digests.
+@test "rules: a multi-line MD5 array is weak-checksums" {
+  local d; d="$(aurvet_case sums md5 w1)"
+  sed -i "s/^md5sums=('\\(2*\\)')$/md5sums=(\\n  '\\1'\\n)/" "$d/PKGBUILD"
+  grep -q "^md5sums=($" "$d/PKGBUILD"
+  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am ml
+  aurvet_hook "$d" rulecase
+  [[ "$output" == *" weak-checksums "* ]]
+}
+
+@test "rules: a real MD5 beside a SKIP-only sha256 is weak-checksums" {
+  local d; d="$(aurvet_case sums md5 w2)"
+  printf "sha256sums=('SKIP')\n" >> "$d/PKGBUILD"
+  git -C "$d" -c user.name=m -c user.email=m@aur commit -q -am skip
+  aurvet_hook "$d" rulecase
+  [[ "$output" == *" weak-checksums "* ]]
+}
