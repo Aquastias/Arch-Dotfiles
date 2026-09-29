@@ -330,18 +330,28 @@ _export() {
   new="$(_export_merge "$src/allow.tsv" "$repo/allow.tsv")"
   changes="$(diff "$repo/allow.tsv" <(printf '%s\n' "$new") \
     | sed -n 's/^> /+ /p; s/^< /- /p')" || true
-  if [[ -z "$changes" ]]; then
+  # --check is two-way: a repo row the store lacks is drift too.
+  local stale=""
+  ((check)) && stale="$(_export_stale "$src/allow.tsv" "$repo/allow.tsv")"
+  [[ -n "$stale" ]] && printf 'only in the repo:\n%s\n' "$stale"
+  if [[ -z "$changes" && -z "$stale" ]]; then
     if ((check)); then _say "export: ${src} and ${repo} in sync"
     else _say "export: nothing to export"; fi
     return 0
   fi
-  printf 'allow.tsv:\n%s\n' "$changes"
+  [[ -n "$changes" ]] && printf 'allow.tsv:\n%s\n' "$changes"
   if ((check)); then
     _say "export: drift between ${src} and ${repo}"
     return 1
   fi
   printf '%s\n' "$new" > "$repo/allow.tsv"
   _say "export: updated ${repo} — review the diff, then commit"
+}
+
+# <store-file> <repo-file> → repo rows (pkgbase + rule) the store lacks.
+_export_stale() {
+  awk -F'\t' 'FNR == NR { if ($0 !~ /^#/ && NF) s[$1 FS $2]; next }
+    $0 !~ /^#/ && NF && !(($1 FS $2) in s) { print "  " $1 " " $2 }' "$1" "$2"
 }
 
 # <store-file> <repo-file> → the merged repo allowlist on stdout.

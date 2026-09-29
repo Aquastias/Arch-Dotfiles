@@ -69,3 +69,10 @@ teardown() { chmod -R u+w "$T" 2>/dev/null || true; aurvet_teardown; }
   run "$AUR_VET_SRC/aur-vet" export --check "$REPO"
   [ "$status" -eq 0 ]
 }
+
+@test "export --check reports a repo row missing from the store" {
+  printf 'new-pkg\ttoplevel-code\tr\n' > "$AUR_VET_STORE/allow.tsv"
+  run "$AUR_VET_SRC/aur-vet" export --check "$REPO"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"only in the repo"*"old-pkg"* ]]
+}
