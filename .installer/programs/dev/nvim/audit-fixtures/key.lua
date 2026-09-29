@@ -1,41 +1,69 @@
 -- Feature Audit nvim keybind runner (ADR 0152): one bind per fresh headless
 -- nvim, in the user's real config. The key goes through nvim's own input
 -- queue (mappings, <leader>, remaps) and the declared effect is judged from a
--- before/after snapshot. Env: FA_KEY FA_MODE FA_EFFECT FA_ARG FA_ID
--- FA_NEEDS (lsp = wait for a client to attach first).
+-- before/after snapshot. Env: FA_KEY FA_MODE FA_EFFECT FA_ARG FA_ID FA_OUT
+-- FA_NEEDS (lsp = wait for a client; ft:<x> = a <x> sample instead of Lua).
+-- The sample lives in a throwaway git repo (git maps need one) and has
+-- foldable blocks (fold maps need them).
 local lhs, mode = os.getenv("FA_KEY"), os.getenv("FA_MODE") or "n"
 local effect, id = os.getenv("FA_EFFECT"), os.getenv("FA_ID")
 local arg = os.getenv("FA_ARG") or ""
+local needs = os.getenv("FA_NEEDS") or ""
 local errors = {}
 local orig = vim.notify
 vim.notify = function(m, l, o)
   if l and l >= vim.log.levels.ERROR then errors[#errors + 1] = tostring(m) end
   return orig(m, l, o)
 end
-local f = vim.fn.tempname() .. ".lua"
-local fh = io.open(f, "w")
-for i = 1, 40 do fh:write(("local v%d = %d -- word%d\n"):format(i, i, i)) end
-fh:close()
-vim.cmd("edit " .. f)
-vim.api.nvim_win_set_cursor(0, { 10, 6 })
+
+local repo = vim.fn.tempname()
+vim.fn.mkdir(repo, "p")
+local ft = needs:match("ft:(%w+)")
+local f, body
+if ft == "http" then
+  f = repo .. "/sample.http"
+  body = { "GET http://127.0.0.1:9/fa-audit", "" }
+else
+  f = repo .. "/sample.lua"
+  body = {}
+  for i = 1, 6 do
+    body[#body + 1] = ("local function f%d(x) -- word%d"):format(i, i)
+    for j = 1, 4 do
+      body[#body + 1] = ("  local v%d = x + %d -- word"):format(j, j)
+    end
+    body[#body + 1] = "  return x"
+    body[#body + 1] = "end"
+  end
+end
+vim.fn.writefile(body, f)
+vim.fn.system({ "git", "-C", repo, "init", "-q" })
+vim.fn.system({ "git", "-C", repo, "add", "." })
+vim.fn.system({ "git", "-C", repo, "-c", "user.name=fa", "-c",
+  "user.email=fa@audit", "commit", "-qm", "fa" })
+vim.fn.writefile(vim.list_extend(vim.deepcopy(body), { "-- edit" }), f)
+vim.cmd("cd " .. vim.fn.fnameescape(repo))
+vim.cmd("edit " .. vim.fn.fnameescape(f))
+vim.api.nvim_win_set_cursor(0, { 3, 8 })
 pcall(vim.cmd, "normal! /word\r")   -- a search, for n/N and <Esc>
-vim.api.nvim_win_set_cursor(0, { 10, 6 })
+vim.api.nvim_win_set_cursor(0, { 3, 8 })
 vim.wait(300)
-if (os.getenv("FA_NEEDS") or ""):find("lsp") then
+if needs:find("lsp") then
   vim.wait(15000, function()
     return #vim.lsp.get_clients({ bufnr = 0 }) > 0
   end, 200)
   vim.wait(500)
 end
+
 local function snap()
   local wins = vim.api.nvim_tabpage_list_wins(0)
   return { wins = #wins, tabs = #vim.api.nvim_list_tabpages(),
     buf = vim.api.nvim_get_current_buf(), ft = vim.bo.filetype,
     text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n"),
     cur = table.concat(vim.api.nvim_win_get_cursor(0), ","),
-    mode = vim.api.nvim_get_mode().mode, hl = vim.v.hlsearch }
+    mode = vim.api.nvim_get_mode().mode }
 end
-local prefix = ({ v = "V", x = "V", o = "d", i = "i", c = ":" })[mode]
+-- visual maps act on a word selection; operator-pending maps follow `d`
+local prefix = ({ v = "viw", x = "viw", o = "d", i = "i", c = ":" })[mode]
   or ""
 if mode == "t" then vim.cmd("terminal") vim.wait(500) vim.cmd("startinsert") end
 local b = snap()
@@ -54,7 +82,9 @@ local function judge()
   if effect == "cursor-moves" then return a.cur ~= b.cur or a.buf ~= b.buf end
   if effect == "mode" then return a.mode:sub(1, 1) == arg end
   if effect == "lua" then
-    local fn = load("return " .. arg); local k, v = pcall(fn); return k and v
+    local fn = load("return " .. arg)
+    local k, v = pcall(fn)
+    return k and v
   end
   return false
 end

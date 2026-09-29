@@ -433,6 +433,8 @@ fa_stage_probes() {
     local s
     for s in $(fa_binds_program_sources "$n"); do
       fa_binds_plan "$s" >> "$tmp/fa-probes/$n/binds-plan.jsonl"
+      # the probe plans binds only its live dump sees with the same matcher
+      cp "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" "$tmp/fa-probes/$n/"
     done
   done
   fa_agent sudo "rm -rf /tmp/fa-probes" >/dev/null 2>&1 || true

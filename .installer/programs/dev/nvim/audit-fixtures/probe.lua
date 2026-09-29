@@ -158,7 +158,10 @@ if ok_h then
   if next(seen) == nil then pass("nvim-health", "no ERROR in :checkhealth") end
 end
 
--- 4. every live user keymap is in the audit plan (untested binds)
+-- 4. keymaps the config defines at runtime but the static parse cannot see
+-- (a loop-built `"<leader>" .. i`, maps set inside plugin setup callbacks):
+-- written as bind rows to $FA_LIVE for audit.sh to plan + test. Only maps
+-- whose defining script / callback lives in the config dir count.
 local plan = {}
 local pf = os.getenv("FA_DIR") .. "/binds-plan.jsonl"
 for line in io.lines(pf) do
@@ -166,19 +169,26 @@ for line in io.lines(pf) do
   if ok and r.chord then plan[vim.fn.keytrans(vim.keycode(r.chord))] = true end
 end
 local cfgdir = vim.fn.stdpath("config")
+local function origin(km)
+  if km.callback then
+    return ((debug.getinfo(km.callback, "S").source or "")
+      :gsub("^@", ""))
+  end
+  local si = km.sid and km.sid > 0 and vim.fn.getscriptinfo({ sid = km.sid })
+  return si and si[1] and si[1].name or ""
+end
+local live = io.open(os.getenv("FA_LIVE"), "w")
 for _, m in ipairs({ "n", "v", "x", "o", "i", "t", "c" }) do
   for _, km in ipairs(vim.api.nvim_get_keymap(m)) do
-    local src = km.callback and debug.getinfo(km.callback, "S").source or ""
-    local ours = src:find(cfgdir, 1, true) or src == ""
-    if km.desc and km.desc ~= "" and ours then
-      local k = vim.fn.keytrans(vim.keycode(km.lhs))
-      if not plan[k] and km.lhs:sub(1, 5) ~= "<Plug" then
-        plan[k] = true
-        fail("nvim-untested-bind", m .. " " .. km.lhs .. " (" .. km.desc .. ")")
-      end
+    local k = vim.fn.keytrans(vim.keycode(km.lhs))
+    if not plan[k] and km.lhs:sub(1, 5) ~= "<Plug"
+      and origin(km):find(cfgdir, 1, true) then
+      plan[k] = true
+      live:write(("nvim\t%s\t%s %s\n"):format(km.lhs, m, km.desc or ""))
     end
   end
 end
+live:close()
 
 -- stdout carries nvim's own messages in headless mode: report via a file
 local fh_out = io.open(os.getenv("FA_OUT"), "w")

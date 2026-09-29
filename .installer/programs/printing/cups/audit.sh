@@ -8,7 +8,8 @@ fa_check cups-scheduler "cups scheduler running" \
   sh -c 'lpstat -r | grep -q "is running"'
 _fa_cups_print() {
   local pid id rc=1
-  ippeveprinter -p 8631 -f text/plain,application/pdf fa-audit \
+  # -r off: no DNS-SD (the guest runs no avahi; ippeveprinter asserts)
+  ippeveprinter -r off -p 8631 -f text/plain,application/pdf fa-audit \
     >/tmp/fa-ippeve.log 2>&1 &
   pid=$!; sleep 3
   if lpadmin -p fa-audit -E -v ipp://localhost:8631/ipp/print -m everywhere

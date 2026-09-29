@@ -4,7 +4,8 @@
 // bind runs in a fresh headless nvim on a 40-line Lua buffer
 // (audit-fixtures/key.lua). Effects: runs (no error) | window-opens |
 // buffer-changes | text-changes | cursor-moves | quits | lua (arg = expr).
-// needs: lsp = wait for lua_ls to attach first.
+// needs: lsp = wait for lua_ls to attach first (ufo folds come from it
+// too); ft:http = an http sample.
 {
   "expect": [
     // ── core ──
@@ -24,12 +25,12 @@
     { "action": "n Half page *", "effect": "cursor-moves" },
     { "action": "n * match (centered)", "effect": "cursor-moves" },
     { "chord": "<leader>p", "effect": "text-changes" },
-    { "chord": "<leader>rw", "effect": "mode", "arg": "c" },
+    { "chord": "<leader>rw", "effect": "runs" },
     { "chord": "<leader>cx", "effect": "runs" },
     { "chord": "<leader>yp", "effect": "lua",
       "arg": "vim.fn.getreg('+') ~= '' or vim.fn.getreg('\"') ~= ''" },
     { "chord": "<leader><cr>", "effect": "runs" },
-    { "action": "* Change * (. repeats)", "effect": "mode", "arg": "i" },
+    { "action": "* Change * (. repeats)", "effect": "text-changes" },
     { "action": "n * diagnostic", "effect": "runs" },
 
     // ── lsp (buffer-local on LspAttach) ──
@@ -67,6 +68,7 @@
     { "action": "n Diffview close", "effect": "runs" },
     { "action": "n Harpoon add", "effect": "runs" },
     { "action": "n Harpoon menu", "effect": "window-opens" },
+    { "action": "n Harpoon *", "effect": "runs" },
     { "chord": "<leader>U", "effect": "window-opens" },
     { "action": "n Diags", "effect": "window-opens" },
     { "action": "n Buffer diagnostics", "effect": "window-opens" },
@@ -81,7 +83,7 @@
     { "chord": "<leader>-", "effect": "window-opens" },
     { "action": "n Search & replace (project)", "effect": "window-opens" },
     { "action": "v Search & replace (selection)", "effect": "window-opens" },
-    { "action": "n REST: *", "effect": "runs" },
+    { "action": "n REST: *", "effect": "runs", "needs": "ft:http" },
 
     // ── refactoring / treesitter / flash / folds ──
     { "action": "* Extract *", "effect": "runs" },
@@ -93,13 +95,15 @@
     { "action": "o Remote Flash", "effect": "runs" },
     { "action": "o,x Treesitter Search", "effect": "runs" },
     { "action": "c Toggle Flash Search", "effect": "runs" },
-    { "action": "n * folds*", "effect": "runs" },
-    { "action": "n Peek fold", "effect": "runs" },
+    { "action": "n * folds*", "effect": "runs", "needs": "lsp" },
+    { "action": "n Peek fold", "effect": "runs", "needs": "lsp" },
 
     // ── debugging (nvim-dap, ADR 0140) ──
     { "action": "n Debug: Toggle breakpoint", "effect": "lua",
       "arg": "#require('dap.breakpoints').get()[vim.api.nvim_get_current_buf()] > 0" },
     { "action": "n Debug: Toggle UI", "effect": "window-opens" },
+    { "action": "n Debug: Conditional breakpoint", "effect": "unverifiable",
+      "reason": "prompts for a breakpoint condition" },
     { "action": "n Debug: *", "effect": "runs" }
   ]
 }

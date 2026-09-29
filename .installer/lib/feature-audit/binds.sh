@@ -273,22 +273,8 @@ fa_binds_plan() {
   fi
   local ej='{"expect":[]}'
   [[ -f "$exp" ]] && ej="$(jsonc_strip "$exp" | jq -c .)"
-  jq -R -c --argjson e "$ej" '
-    def glob2re: gsub("(?<c>[.+?^$()\\[\\]{}|\\\\])"; "\\\(.c)")
-                 | gsub("\\*"; ".*") | "^" + . + "$";
-    select(length > 0) | split("\t") as [$s, $chord, $act]
-    | ($act | capture("^[^ ]+ +(?<a>.*)$").a // "" | gsub("^\"|\"$"; ""))
-        as $arg
-    | ([$e.expect[] | select(.chord == $chord)]
-       + [$e.expect[] | select(.action and (.chord | not))
-          | select(. as $x | $act | test($x.action | glob2re))])[0] as $m
-    | { source: $s, chord: $chord, action: $act }
-      + (if $m then ($m | del(.chord, .action))
-           + { arg: (($m.arg // "") | gsub("\\{arg\\}"; $arg)
-                     | gsub("\\{num\\}";
-                            ($act | capture("(?<n>[0-9]+)").n // ""))) }
-         else { effect: null } end)
-  ' <<<"$rows"
+  jq -R -c --argjson e "$ej" \
+    -f "$INSTALLER_DIR/lib/feature-audit/binds-plan.jq" <<<"$rows"
 }
 
 fa_binds_untested() {
