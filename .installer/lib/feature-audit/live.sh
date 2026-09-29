@@ -441,11 +441,24 @@ _fa_comp_proc() {
     kde) echo kwin_wayland ;; esac
 }
 
+# _fa_send <chord | click:x,y> — one step of a bind's `pre`/`then` list.
+_fa_send() {
+  case "$1" in
+    click:*)
+      local xy="${1#click:}"
+      fa_agent mouse move "${xy%,*}" "${xy#*,}" >/dev/null 2>&1
+      fa_agent mouse btn left down >/dev/null 2>&1
+      fa_agent mouse btn left up >/dev/null 2>&1 ;;
+    *) fa_agent key "$1" >/dev/null 2>&1 ;;
+  esac
+}
+
 # _fa_bind_recover <recovery> <chord> <desktop>
 _fa_bind_recover() {
   case "$1" in
     escape)  fa_agent key Escape >/dev/null 2>&1 ;;
     toggle)  fa_agent key "$2" >/dev/null 2>&1 ;;
+    key:*)   fa_agent key "${1#key:}" >/dev/null 2>&1 ;;
     unlock)  fa_agent unlock >/dev/null 2>&1 ;;
     session) fa_agent session "$3" >/dev/null 2>&1
              fa_agent idle off >/dev/null 2>&1
@@ -453,6 +466,31 @@ _fa_bind_recover() {
                /tmp >/dev/null 2>&1 ;;
   esac
   sleep 1
+}
+
+# _fa_mouse_chord <Mods+mouse_down|mouse_up|mouse:272|mouse:273> — hold the
+# modifiers, then wheel (mouse_down/up) or drag from screen centre with the
+# left (272) / right (273) button: real pointer input, like a hand would.
+_fa_mouse_chord() {
+  local chord="$1" mods btn
+  mods="${chord%+mouse*}"; btn="${chord##*+}"
+  [[ "$mods" == "$chord" ]] && mods=""
+  [[ -n "$mods" ]] && { fa_agent keydown "$mods" >/dev/null 2>&1 || return 1; }
+  case "$btn" in
+    mouse_down) fa_agent mouse wheel down ;;
+    mouse_up)   fa_agent mouse wheel up ;;
+    mouse:272|mouse:273)
+      local b=left; [[ "$btn" == mouse:273 ]] && b=right
+      fa_agent mouse move 16384 16384 && sleep 0.2 \
+        && fa_agent mouse btn "$b" down && sleep 0.2 \
+        && fa_agent mouse move 18000 17500 && sleep 0.2 \
+        && fa_agent mouse move 20000 19000 && sleep 0.2 \
+        && fa_agent mouse btn "$b" up ;;
+    *) [[ -n "$mods" ]] && fa_agent keyup "$mods" >/dev/null 2>&1
+       return 1 ;;
+  esac >/dev/null 2>&1
+  [[ -n "$mods" ]] && fa_agent keyup "$mods" >/dev/null 2>&1
+  return 0
 }
 
 # _fa_bind_one <plan-row-json> <desktop> — one bind as real input; prints its
@@ -470,12 +508,18 @@ _fa_bind_one() {
   sdir="Pictures/Screenshots"
   [[ "$effect" == file-created ]] && sdir="$arg"
   fa_gexec fa_bsetup "$needs" "$effect" "$arg" >/dev/null
+  while IFS= read -r t; do
+    [[ -n "$t" ]] && { _fa_send "$t"; sleep 1; }
+  done < <(jq -r '.pre[]?' <<<"$row")
   b="$(fa_gexec fa_bstate "$sdir")"
-  if ! fa_agent key "$chord" >/dev/null 2>&1; then
+  if [[ "$chord" == *mouse* ]]; then
+    _fa_mouse_chord "$chord" \
+      || { echo "SKIP $id mouse chord not injectable"; return; }
+  elif ! fa_agent key "$chord" >/dev/null 2>&1; then
     echo "SKIP $id key not injectable by QEMU"; fa_gexec fa_bteardown; return
   fi
   while IFS= read -r t; do
-    [[ -n "$t" ]] && { sleep 1; fa_agent key "$t" >/dev/null 2>&1; }
+    [[ -n "$t" ]] && { sleep 1; _fa_send "$t"; }
   done < <(jq -r '.then[]?' <<<"$row")
   if [[ "$effect" == session-ends ]]; then
     local p; p="$(_fa_comp_proc "$de")"

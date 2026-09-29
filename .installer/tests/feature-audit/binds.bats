@@ -55,3 +55,46 @@ J
   grep -q 'Mod+Return' <<<"$output"
   ! grep -q 'Mod+1' <<<"$output"
 }
+
+@test "hyprland parser: locals, concatenation, for-loops, opts" {
+  run fa_binds_parse hyprland "$FIX/hypr-binds.lua"
+  [ "$status" -eq 0 ]
+  grep -qxF $'hyprland\tSuper+Return\texec_cmd("kitty")' <<<"$output"
+  grep -qxF $'hyprland\tSuper+Shift+E\texit()' <<<"$output"
+  grep -qxF $'hyprland\tCtrl+Alt+Delete\texit()' <<<"$output"
+  grep -qxF $'hyprland\tSuper+left\tfocus({ direction = "left" })' <<<"$output"
+  grep -qxF $'hyprland\tSuper+1\tfocus({ workspace = 1 })' <<<"$output"
+  grep -qxF $'hyprland\tSuper+2\tfocus({ workspace = 2 })' <<<"$output"
+  grep -qxF $'hyprland\tSuper+mouse:272\twindow.drag()' <<<"$output"
+  grep -qxF $'hyprland\tXF86AudioMute\texec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")' <<<"$output"
+  [ "$(wc -l <<<"$output")" -eq 8 ]
+}
+
+@test "kde parser: every active shortcut of every component, none skipped" {
+  run fa_binds_parse kde "$FIX/kglobalshortcutsrc"
+  [ "$status" -eq 0 ]
+  grep -qxF $'kde\tAlt+F4\tkwin/Window Close' <<<"$output"
+  grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
+  grep -qxF $'kde\tMeta+W\tkwin/Overview' <<<"$output"
+  grep -qxF $'kde\tMeta+Plus\tkwin/view_zoom_in' <<<"$output"
+  grep -qxF $'kde\tMeta+=\tkwin/view_zoom_in' <<<"$output"
+  grep -qxF $'kde\tMeta\tplasmashell/activate application launcher' <<<"$output"
+  ! grep -q 'Cycle Overview' <<<"$output"
+  [ "$(wc -l <<<"$output")" -eq 7 ]
+}
+
+@test "hyprland + kde: shipped configs parse" {
+  run fa_binds_rows hyprland
+  [ "$status" -eq 0 ]
+  grep -qxF $'hyprland\tSuper+X\twindow.close()' <<<"$output"
+  run fa_binds_rows kde
+  [ "$status" -eq 0 ]
+  grep -qxF $'kde\tMeta+X\tkwin/Window Close' <<<"$output"
+}
+
+@test "plan: {num} substitutes the action's first number" {
+  echo '{ "expect": [ { "action": "focus({ workspace = *", "effect":
+    "workspace", "arg": "{num}" } ] }' > "$BATS_TEST_TMPDIR/b.jsonc"
+  run fa_binds_plan hyprland "$FIX/hypr-binds.lua" "$BATS_TEST_TMPDIR/b.jsonc"
+  jq -e 'select(.chord == "Super+2") | .arg == "2"' <<<"$output"
+}

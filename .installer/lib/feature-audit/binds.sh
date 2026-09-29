@@ -15,7 +15,8 @@
 #         "session_ending": bool, "recovery": "session|unlock",
 #         "reason": "<why>"  // effect "unverifiable" only
 #       } ] }
-# A chord match wins over an action glob; `{arg}` is the action's argument.
+# A chord match wins over an action glob; `{arg}` is the action's argument,
+# `{num}` its first number.
 #
 # Public API:
 #   fa_binds_sources                 → registered source ids
@@ -31,6 +32,8 @@ FA_REPO_ROOT="${FA_REPO_ROOT:-$(cd "$INSTALLER_DIR/.." && pwd)}"
 # Registry: source → "session|config-glob|expectations" (repo-relative).
 declare -gA FA_BIND_SOURCES=(
   [niri]="niri|.config/niri/conf.d/*.kdl|.installer/extras/desktop/niri/audit-binds.jsonc"
+  [hyprland]="hyprland|.config/hypr/conf.d/*.lua|.installer/extras/desktop/hyprland/audit-binds.jsonc"
+  [kde]="kde|.installer/extras/desktop/kde/skel/.config/kglobalshortcutsrc|.installer/extras/desktop/kde/audit-binds.jsonc"
 )
 
 fa_binds_sources() { printf '%s\n' "${!FA_BIND_SOURCES[@]}" | sort; }
@@ -83,11 +86,107 @@ _fa_parse_niri() {
   ' "$@"
 }
 
+
+# _fa_parse_hyprland <file…> — Lua `hl.bind(<key expr>, hl.dsp.<disp>(…))`:
+# string locals, `..` concatenation and `for i = a, b do … end` are evaluated
+# (a static read of what the compositor would register).
+_fa_parse_hyprland() {
+  awk '
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    function ev(e,   n, p, i, t, o) {
+      n = split(e, p, /[ \t]*\.\.[ \t]*/); o = ""
+      for (i = 1; i <= n; i++) {
+        t = trim(p[i])
+        if (t ~ /^".*"$/) o = o substr(t, 2, length(t) - 2)
+        else if (t in loc) o = o loc[t]
+        else o = o t
+      }
+      return o
+    }
+    function chord(k,   n, p, i, t, u, o) {
+      n = split(k, p, /[ \t]*\+[ \t]*/); o = ""
+      for (i = 1; i <= n; i++) {
+        t = trim(p[i]); u = toupper(t)
+        if (u == "SUPER" || u == "MOD4" || u == "WIN") t = "Super"
+        else if (u == "CTRL" || u == "CONTROL") t = "Ctrl"
+        else if (u == "SHIFT") t = "Shift"
+        else if (u == "ALT") t = "Alt"
+        o = o (o == "" ? "" : "+") t
+      }
+      return o
+    }
+    function bind(s,   i, c, q, key, rest, d, disp, n) {
+      sub(/^.*hl\.bind\(/, "", s)
+      q = 0; key = ""
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "\"") q = !q
+        if (c == "," && !q) { key = substr(s, 1, i - 1); rest = substr(s, i + 1); break }
+      }
+      rest = trim(rest); sub(/^hl\.dsp\./, "", rest)
+      q = 0; d = 0; disp = rest
+      for (i = 1; i <= length(rest); i++) {
+        c = substr(rest, i, 1)
+        if (c == "\"") q = !q
+        if (q) continue
+        if (c == "(") d++
+        if (c == ")" && --d == 0) { disp = substr(rest, 1, i); break }
+      }
+      for (n in loc)
+        disp = gensub("\\(" n "\\)", "(\"" loc[n] "\")", "g", disp)
+      printf "hyprland\t%s\t%s\n", chord(ev(key)), disp
+    }
+    /^[ \t]*--/ { next }
+    { sub(/[ \t]+--[ \t].*$/, "") }
+    /^[ \t]*local [A-Za-z_]+[ \t]*=[ \t]*"/ {
+      n = $0; sub(/^[ \t]*local[ \t]+/, "", n); v = n
+      sub(/[ \t]*=.*$/, "", n); sub(/^[^"]*"/, "", v); sub(/".*$/, "", v)
+      loc[n] = v; next
+    }
+    /^[ \t]*for [A-Za-z_]+[ \t]*=[ \t]*[0-9]+[ \t]*,[ \t]*[0-9]+[ \t]*do/ {
+      lv = $2; a = $4; sub(/,/, "", a); b = $5
+      if (b == "") { split($4, ab, ","); a = ab[1]; b = ab[2] }
+      a = gensub(/[^0-9]/, "", "g", a); b = gensub(/[^0-9]/, "", "g", b)
+      inl = 1; nb = 0; next
+    }
+    inl && /^[ \t]*end[ \t]*$/ {
+      for (v = a + 0; v <= b + 0; v++)
+        for (j = 1; j <= nb; j++)
+          bind(gensub("([^A-Za-z_\"])" lv "([^A-Za-z_\"]|$)", "\\1" v "\\2",
+                      "g", buf[j]))
+      inl = 0; next
+    }
+    inl { if ($0 ~ /hl\.bind\(/) buf[++nb] = $0; next }
+    /hl\.bind\(/ { bind($0) }
+  ' "$@"
+}
+
+# _fa_parse_kde <kglobalshortcutsrc…> — `Action=Active\tAlt,Default,Label`
+# per [component]; every active shortcut (not `none`) is a row.
+_fa_parse_kde() {
+  awk '
+    /^\[/ { g = substr($0, 2, length($0) - 2); next }
+    /^_k_friendly_name=/ { next }
+    index($0, "=") {
+      name = substr($0, 1, index($0, "=") - 1)
+      a = substr($0, index($0, "=") + 1); sub(/,.*$/, "", a)
+      if (a == "none" || a == "") next
+      n = split(a, ks, /\\t/)
+      for (i = 1; i <= n; i++) {
+        k = ks[i]
+        if (k ~ /\+\+$/) k = substr(k, 1, length(k) - 2) "+Plus"
+        if (k != "" && k != "none") printf "kde\t%s\t%s/%s\n", k, g, name
+      }
+    }
+  ' "$@"
+}
 # fa_binds_parse <src> <file…>
 fa_binds_parse() {
   local src="$1"; shift
   case "$src" in
     niri) _fa_parse_niri "$@" ;;
+    hyprland) _fa_parse_hyprland "$@" ;;
+    kde) _fa_parse_kde "$@" ;;
     *) echo "feature-audit: no bind parser for '$src'" >&2; return 1 ;;
   esac
 }
@@ -122,7 +221,8 @@ fa_binds_plan() {
           | select(. as $x | $act | test($x.action | glob2re))])[0] as $m
     | { source: $s, chord: $chord, action: $act }
       + (if $m then ($m | del(.chord, .action))
-           + { arg: (($m.arg // "") | gsub("\\{arg\\}"; $arg)) }
+           + { arg: (($m.arg // "") | gsub("\\{arg\\}"; $arg)
+                     | gsub("\\{num\\}"; ($act | capture("(?<n>[0-9]+)").n // ""))) }
          else { effect: null } end)
   ' <<<"$rows"
 }

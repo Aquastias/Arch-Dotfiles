@@ -1,0 +1,9 @@
+[kwin]
+_k_friendly_name=KWin
+Window Close=Alt+F4\tMeta+X,Alt+F4\tMeta+X,Close Window
+Overview=Meta+W,Meta+W,Toggle Overview
+Cycle Overview=none,none,Cycle
+view_zoom_in=Meta++\tMeta+=,Meta++\tMeta+=,Zoom In
+
+[plasmashell]
+activate application launcher=Meta\tAlt+F1,Meta\tAlt+F1,Activate Launcher

@@ -1,7 +1,8 @@
 // Feature Audit keybind expectations for niri (ADR 0152) — one per bind the
 // shipped .config/niri/conf.d/*.kdl declares (a chord match wins over an
 // action glob). Effects and fields: lib/feature-audit/binds.sh +
-// binds-guest.sh. `needs` stages the scene (stack, floating, workspace2);
+// binds-guest.sh. `needs` stages the scene (stack, floating, workspace2,
+// dir:<d> = focus a window with a neighbour in <d>, windows:<n>);
 // `then` keys are sent after the bind (e.g. confirming niri's quit dialog);
 // `recovery` restores the session after an effect that leaves UI behind.
 {
@@ -24,13 +25,22 @@
     { "action": "switch-focus-between-floating-and-tiling",
       "effect": "focus-changes", "needs": "floating" },
 
-    { "action": "focus-column-*", "effect": "focus-changes" },
-    { "action": "focus-window-*", "effect": "focus-changes",
-      "needs": "stack" },
-    { "action": "move-column-left", "effect": "layout-changes" },
-    { "action": "move-column-right", "effect": "layout-changes" },
-    { "action": "move-window-*", "effect": "layout-changes",
-      "needs": "stack" },
+    { "action": "focus-column-left", "effect": "focus-changes",
+      "needs": "dir:left" },
+    { "action": "focus-column-right", "effect": "focus-changes",
+      "needs": "dir:right" },
+    { "action": "focus-window-up", "effect": "focus-changes",
+      "needs": "stack dir:up" },
+    { "action": "focus-window-down", "effect": "focus-changes",
+      "needs": "stack dir:down" },
+    { "action": "move-column-left", "effect": "layout-changes",
+      "needs": "dir:left" },
+    { "action": "move-column-right", "effect": "layout-changes",
+      "needs": "dir:right" },
+    { "action": "move-window-up", "effect": "layout-changes",
+      "needs": "stack dir:up" },
+    { "action": "move-window-down", "effect": "layout-changes",
+      "needs": "stack dir:down" },
 
     { "action": "focus-workspace *", "effect": "workspace",
       "arg": "{arg}" },

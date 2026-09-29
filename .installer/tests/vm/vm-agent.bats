@@ -214,3 +214,35 @@ _stub_io='
   _call "agent_mouse_qmp spin 1"
   [ "$status" -ne 0 ]
 }
+
+@test "key: KDE-style key names map to qcodes" {
+  _call "agent_key_qcodes 'Meta+PgUp'"
+  [ "$output" = "meta_l pgup" ]
+  _call "agent_key_qcodes 'Meta+Ctrl+Esc'"
+  [ "$output" = "meta_l ctrl esc" ]
+  _call "agent_key_qcodes 'Volume Down'"
+  [ "$output" = "volumedown" ]
+  _call "agent_key_qcodes 'Meta+Volume Mute'"
+  [ "$output" = "meta_l audiomute" ]
+  _call "agent_key_qcodes 'Media Play'"
+  [ "$output" = "audioplay" ]
+  _call "agent_key_qcodes 'Meta+Plus'"
+  [ "$output" = "meta_l shift equal" ]
+  _call "agent_key_qcodes 'Alt+~'"
+  [ "$output" = "alt shift grave_accent" ]
+  _call "agent_key_qcodes 'Meta+\`'"
+  [ "$output" = "meta_l grave_accent" ]
+  _call "agent_key_qcodes 'Meta+='"
+  [ "$output" = "meta_l equal" ]
+  _call "agent_key_qcodes 'Meta+-'"
+  [ "$output" = "meta_l minus" ]
+  _call "agent_key_qcodes 'Meta'"
+  [ "$output" = "meta_l" ]
+}
+
+@test "keydown/keyup are known verbs" {
+  run bash "$AGENT" --vm no-such-vm-xyz keydown Super
+  [[ "$output" != *"unknown verb"* ]]
+  run bash "$AGENT" --vm no-such-vm-xyz keyup Super
+  [[ "$output" != *"unknown verb"* ]]
+}

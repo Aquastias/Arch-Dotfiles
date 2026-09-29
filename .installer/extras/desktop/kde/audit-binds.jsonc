@@ -1,0 +1,116 @@
+// Feature Audit keybind expectations for KDE Plasma (ADR 0152) — one per
+// active shortcut in the shipped skel kglobalshortcutsrc (actions are
+// `<component>/<Action>`; a chord match wins over an action glob). Same
+// vocabulary as extras/desktop/niri/audit-binds.jsonc, plus `pre` (chords
+// sent before the snapshot) and `then` items `click:x,y` (0..32767 absolute).
+// Desktops are a 2×2 grid (skel kwinrc Rows=2), so up/left moves start at 4.
+{
+  "expect": [
+    // ── kwin: windows ──
+    { "action": "kwin/Window Close", "effect": "window-closes" },
+    { "action": "kwin/Window Maximize", "effect": "layout-changes",
+      "needs": "dir:right" },
+    { "action": "kwin/Window Minimize", "effect": "layout-changes" },
+    { "action": "kwin/Window Restore", "effect": "layout-changes",
+      "needs": "maximized" },
+    { "action": "kwin/Window Quick Tile *", "effect": "layout-changes" },
+    { "action": "kwin/Window Operations Menu", "effect": "screen-changes",
+      "recovery": "escape" },
+    { "action": "kwin/Kill Window", "effect": "window-closes",
+      "needs": "dir:right", "then": ["click:8000,16384"] },
+    { "action": "kwin/Switch Window Left", "effect": "focus-changes",
+      "needs": "dir:left" },
+    { "action": "kwin/Switch Window Right", "effect": "focus-changes",
+      "needs": "dir:right" },
+    { "action": "kwin/Switch Window Up", "effect": "focus-changes",
+      "needs": "dir:up" },
+    { "action": "kwin/Switch Window Down", "effect": "focus-changes",
+      "needs": "dir:down" },
+    { "action": "kwin/Walk Through Windows*", "effect": "focus-changes" },
+    { "action": "kwin/Activate Window Demanding Attention",
+      "effect": "unverifiable",
+      "reason": "no window demands attention in the audit session" },
+    { "action": "kwin/Window to * Screen", "effect": "unverifiable",
+      "reason": "one virtual monitor in the VM" },
+
+    // ── kwin: desktops (2×2 grid) ──
+    { "action": "kwin/Switch to Desktop *", "effect": "workspace",
+      "arg": "{num}" },
+    { "action": "kwin/Switch One Desktop to the Right",
+      "effect": "workspace-changes", "needs": "desktop:1" },
+    { "action": "kwin/Switch One Desktop Down",
+      "effect": "workspace-changes", "needs": "desktop:1" },
+    { "action": "kwin/Switch One Desktop to the Left",
+      "effect": "workspace-changes", "needs": "desktop:4" },
+    { "action": "kwin/Switch One Desktop Up",
+      "effect": "workspace-changes", "needs": "desktop:4" },
+    { "action": "kwin/Window One Desktop to the Right",
+      "effect": "layout-changes", "needs": "desktop:1" },
+    { "action": "kwin/Window One Desktop Down",
+      "effect": "layout-changes", "needs": "desktop:1" },
+    { "action": "kwin/Window One Desktop to the Left",
+      "effect": "layout-changes", "needs": "desktop:4 launch:kitty" },
+    { "action": "kwin/Window One Desktop Up",
+      "effect": "layout-changes", "needs": "desktop:4 launch:kitty" },
+
+    // ── kwin: effects / overlays ──
+    { "action": "kwin/Overview", "effect": "screen-changes",
+      "recovery": "toggle" },
+    { "action": "kwin/Grid View", "effect": "screen-changes",
+      "recovery": "toggle" },
+    { "action": "kwin/Edit Tiles", "effect": "screen-changes",
+      "recovery": "toggle" },
+    { "action": "kwin/Show Desktop", "effect": "layout-changes",
+      "recovery": "toggle" },
+    { "action": "kwin/view_zoom_in", "effect": "screen-changes",
+      "recovery": "key:Meta+0" },
+    { "action": "kwin/view_zoom_out", "effect": "screen-changes",
+      "pre": ["Meta+="], "recovery": "key:Meta+0" },
+    { "action": "kwin/view_actual_size", "effect": "screen-changes",
+      "pre": ["Meta+="] },
+    { "action": "kwin/MoveMouseTo*", "effect": "unverifiable",
+      "reason": "pointer position is not part of the snapshot" },
+    { "action": "kwin/disableInputCapture", "effect": "unverifiable",
+      "reason": "no input-capture portal session in the VM" },
+
+    // ── session ──
+    { "action": "ksmserver/Lock Session", "effect": "screen-changes",
+      "recovery": "unlock" },
+    { "action": "ksmserver/Log Out", "effect": "screen-changes",
+      "recovery": "escape" },
+
+    // ── plasmashell ──
+    { "action": "plasmashell/activate application launcher",
+      "effect": "screen-changes", "recovery": "escape" },
+    { "action": "plasmashell/activate task manager entry *",
+      "effect": "window-changes" },
+    { "action": "plasmashell/clipboard_action", "effect": "screen-changes",
+      "needs": "clip:https://archlinux.org", "recovery": "escape" },
+    { "action": "plasmashell/show-on-mouse-pos", "effect": "screen-changes",
+      "needs": "clip:fa-audit", "recovery": "escape" },
+    { "action": "plasmashell/cycle-panels", "effect": "screen-changes",
+      "recovery": "escape" },
+    { "action": "plasmashell/manage activities", "effect": "screen-changes",
+      "recovery": "escape" },
+    { "action": "plasmashell/show dashboard", "effect": "screen-changes",
+      "recovery": "toggle" },
+
+    // ── apps ──
+    { "action": "krusader/bring_main_window_to_top", "effect": "focus-changes",
+      "needs": "launch:krusader" },
+
+    // ── audio / power / media ──
+    { "action": "kmix/*", "effect": "audio-changes" },
+    { "action": "org_kde_powerdevil/powerProfile", "effect": "screen-changes",
+      "recovery": "escape" },
+    { "action": "org_kde_powerdevil/*", "effect": "unverifiable",
+      "reason": "no backlight/keyboard light in a VM; power/sleep keys would stop the audit VM" },
+    { "action": "mediacontrol/*", "effect": "unverifiable",
+      "reason": "no MPRIS player running in the audit session" },
+    { "action": "kaccess/Toggle Screen Reader On and Off",
+      "effect": "unverifiable",
+      "reason": "speech output is not observable in a VM" },
+    { "action": "KDE Keyboard Layout Switcher/*", "effect": "unverifiable",
+      "reason": "one keyboard layout configured (us)" }
+  ]
+}

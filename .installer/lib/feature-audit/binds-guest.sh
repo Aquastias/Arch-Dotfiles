@@ -9,8 +9,9 @@
 # (`hyprctl`), KDE (KWin D-Bus + spectacle).
 #
 # Effects: window-opens <app-re> | window-closes | workspace <n> |
-#   workspace-changes | focus-changes | layout-changes | screen-changes |
-#   file-created <dir> | audio-changes | session-ends
+#   workspace-changes | focus-changes | layout-changes | window-changes
+#   (focus or layout) | screen-changes | file-created <dir> | audio-changes |
+#   session-ends
 # =============================================================================
 
 FA_BIND_CLASS=fa-bind
@@ -78,9 +79,9 @@ _fa_workspace() {
             (map(select(.is_focused))[0]) as $f
             | {idx: $f.idx, id: $f.id,
                count: (map(select(.output == $f.output)) | length)}' ;;
-    Hyprland) hyprctl -j activeworkspace 2>/dev/null | jq -c --argjson n \
-            "$(hyprctl -j workspaces 2>/dev/null | jq length)" \
-            '{idx: .id, id: .id, count: $n}' ;;
+    # Hyprland creates a numbered workspace on demand: no clamp
+    Hyprland) hyprctl -j activeworkspace 2>/dev/null \
+            | jq -c '{idx: .id, id: .id, count: 99}' ;;
     kwin_wayland)
       local c n
       c="$(qdbus6 org.kde.KWin /KWin org.kde.KWin.currentDesktop 2>/dev/null)"
@@ -126,7 +127,7 @@ fa_bstate() {
 # windows on the first workspace (+ a stack / floating / 2nd workspace when
 # the bind needs one). Best-effort; the effect check is the judge.
 fa_bsetup() {
-  local needs="$1" effect="$2" arg="${3:-}" comp n
+  local needs="$1" effect="$2" arg="${3:-}" comp n want=2 dir=""
   comp="$(_fa_comp)"
   _fa_act() {
     case "$comp" in
@@ -134,6 +135,10 @@ fa_bsetup() {
       Hyprland) hyprctl dispatch "$@" >/dev/null 2>&1 ;;
     esac
   }
+  [[ "$needs" =~ windows:([0-9]+) ]] && want="${BASH_REMATCH[1]}"
+  [[ "$needs" =~ dir:([a-z]+) ]] && dir="${BASH_REMATCH[1]}"
+  # Hyprland's dwindle needs a third window for a vertical neighbour
+  [[ -n "$dir" && "$comp" == Hyprland && "$want" -lt 3 ]] && want=3
   case "$comp" in
     niri) _fa_act focus-workspace 1 ;;
     Hyprland) _fa_act workspace 1 ;;
@@ -142,36 +147,120 @@ fa_bsetup() {
   esac
   n="$(_fa_windows | jq --arg c "$FA_BIND_CLASS" '[.[] | select(.app == $c)]
     | length')"
-  while ((n < 2)); do
+  while ((n < want)); do
     setsid -f kitty --class "$FA_BIND_CLASS" >/dev/null 2>&1
     sleep 1.5; n=$((n + 1))
   done
-  case "$needs" in
-    *stack*) [[ "$comp" == niri ]] && _fa_act consume-window-into-column ;;
-  esac
-  case "$needs" in
-    *floating*)
-      case "$comp" in
-        niri) _fa_act toggle-window-floating ;;
-        Hyprland) _fa_act togglefloating ;;
-      esac ;;
-  esac
-  case "$needs" in
-    *workspace2*)
-      case "$comp" in
-        niri) _fa_act focus-workspace 2 ;;
-        Hyprland) _fa_act workspace 2 ;;
-      esac ;;
-  esac
+  [[ "$needs" == *stack* && "$comp" == niri ]] \
+    && _fa_act consume-window-into-column
+  if [[ "$needs" == *floating* ]]; then
+    case "$comp" in
+      niri) _fa_act toggle-window-floating ;;
+      Hyprland) _fa_act togglefloating ;;
+    esac
+  fi
+  if [[ "$needs" == *ws2win* && "$comp" == Hyprland ]]; then
+    _fa_act movetoworkspacesilent 2
+  fi
+  if [[ "$needs" == *workspace2* ]]; then
+    case "$comp" in
+      niri) _fa_act focus-workspace 2 ;;
+      Hyprland) _fa_act workspace 2 ;;
+      kwin_wayland) qdbus6 org.kde.KWin /KWin \
+        org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
+    esac
+  fi
+  [[ -n "$dir" ]] && _fa_focus_for_dir "$comp" "$dir"
+  local tok
+  for tok in $needs; do
+    case "$tok" in
+      desktop:*)          # start on workspace/desktop N (grid navigation)
+        case "$comp" in
+          niri) _fa_act focus-workspace "${tok#desktop:}" ;;
+          Hyprland) _fa_act workspace "${tok#desktop:}" ;;
+          kwin_wayland) qdbus6 org.kde.KWin /KWin \
+            org.kde.KWin.setCurrentDesktop "${tok#desktop:}" >/dev/null 2>&1 ;;
+        esac ;;
+      maximized)
+        [[ "$comp" == kwin_wayland ]] && _fa_kwin_run \
+          "workspace.activeWindow.setMaximize(true, true);" ;;
+      launch:*) setsid -f "${tok#launch:}" >/dev/null 2>&1; sleep 4
+        [[ -n "$dir" ]] || _fa_focus_for_dir "$comp" right ;;
+      clip:*) printf '%s' "${tok#clip:}" | wl-copy >/dev/null 2>&1 ;;
+    esac
+  done
   # a workspace-N bind must start somewhere else to prove it moved (niri
   # clamps N to the last workspace, so only `1` needs to start further down)
   if [[ "$effect" == workspace && "$arg" == 1 ]]; then
     case "$comp" in
       niri) _fa_act focus-workspace-down ;;
       Hyprland) _fa_act workspace 10 ;;
+      kwin_wayland) qdbus6 org.kde.KWin /KWin \
+        org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
   fi
   sleep 0.5
+}
+
+# _fa_focus_for_dir <comp> <dir> — focus a test window that HAS a neighbour
+# in <dir>, so a directional focus/move bind can prove it did something.
+_fa_focus_for_dir() {
+  local comp="$1" dir="$2" pick
+  case "$comp" in
+    niri)
+      case "$dir" in
+        right) _fa_act focus-column-first ;;
+        left)  _fa_act focus-column-last ;;
+        up)    _fa_act focus-window-bottom ;;
+        down)  _fa_act focus-window-top ;;
+      esac ;;
+    Hyprland)
+      # dwindle with 3 windows: A left half, B top-right, C bottom-right
+      pick="$(hyprctl -j clients 2>/dev/null | jq -r --arg c "$FA_BIND_CLASS" \
+        --arg d "$dir" '[.[] | select(.class == $c and .workspace.id == 1)]
+        | (map(.size[1]) | max) as $H
+        | (if $d == "right" then min_by(.at[0])
+           elif $d == "left" then max_by(.at[0])
+           elif $d == "up" then max_by(.at[1])
+           else (map(select(.size[1] < $H)) | min_by(.at[1])) end)
+        | .address // empty')"
+      [[ -n "$pick" ]] && _fa_act focuswindow "address:$pick" ;;
+    kwin_wayland) _fa_kwin_arrange "$dir" ;;
+  esac
+}
+
+# _fa_kwin_run <js> — run a one-shot KWin script (no JSON IPC on KDE).
+_fa_kwin_run() {
+  local js id name="fa-kwin-$$-$RANDOM"
+  js="$(mktemp --suffix=.js)"
+  printf '%s\n' "$1" > "$js"
+  id="$(qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript \
+    "$js" "$name" 2>/dev/null)"
+  qdbus6 org.kde.KWin "/Scripting/Script${id}" org.kde.kwin.Script.run \
+    >/dev/null 2>&1
+  sleep 0.5
+  qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript \
+    "$name" >/dev/null 2>&1
+  rm -f "$js"
+}
+
+# _fa_kwin_arrange <dir> — tile the two test windows side by side (left/
+# right) or stacked (up/down) and focus the one with a neighbour in <dir>.
+_fa_kwin_arrange() {
+  _fa_kwin_run "
+var ws = workspace.windowList().filter(function (w) {
+  return w.resourceClass == '$FA_BIND_CLASS'; });
+if (ws.length >= 2) {
+  var a = workspace.clientArea(KWin.MaximizeArea, workspace.activeScreen,
+                               workspace.currentDesktop);
+  var d = '$1', h = (d == 'left' || d == 'right');
+  ws[0].frameGeometry = {x: a.x, y: a.y,
+    width: h ? a.width / 2 : a.width, height: h ? a.height : a.height / 2};
+  ws[1].frameGeometry = {x: h ? a.x + a.width / 2 : a.x,
+    y: h ? a.y : a.y + a.height / 2,
+    width: h ? a.width / 2 : a.width, height: h ? a.height : a.height / 2};
+  workspace.activeWindow = (d == 'right' || d == 'down') ? ws[0] : ws[1];
+}"
 }
 
 # fa_bteardown — drop the scene's leftovers (floating/stack states and the
@@ -196,6 +285,8 @@ fa_beval() {
         '$a.ws.id != $b.ws.id or $a.ws.idx != $b.ws.idx' ;;
     focus-changes) jq -e -n --argjson b "$b" --argjson a "$a" \
         '$a.focused != $b.focused' ;;
+    window-changes) jq -e -n --argjson b "$b" --argjson a "$a" \
+        '$a.layout != $b.layout or $a.focused != $b.focused' ;;
     layout-changes) jq -e -n --argjson b "$b" --argjson a "$a" \
         '$a.layout != $b.layout' ;;
     screen-changes) jq -e -n --argjson b "$b" --argjson a "$a" \

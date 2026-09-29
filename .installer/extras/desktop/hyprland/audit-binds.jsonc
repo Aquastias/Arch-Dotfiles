@@ -1,0 +1,68 @@
+// Feature Audit keybind expectations for Hyprland (ADR 0152) — one per bind
+// the shipped .config/hypr/conf.d/*.lua registers (a chord match wins over an
+// action glob). Same vocabulary as extras/desktop/niri/audit-binds.jsonc;
+// mouse chords (Super+mouse:272 drag, Super+mouse_down wheel) are sent as
+// real pointer input with the modifier held.
+{
+  "expect": [
+    { "action": "exec_cmd(\"kitty\")", "effect": "window-opens",
+      "arg": "kitty" },
+    { "action": "exec_cmd(\"pcmanfm-qt\")", "effect": "window-opens",
+      "arg": "pcmanfm" },
+    { "action": "window.close()", "effect": "window-closes" },
+    { "action": "exec_cmd(\"noctalia msg panel-toggle launcher\")",
+      "effect": "screen-changes", "recovery": "escape" },
+    { "action": "exec_cmd(\"noctalia msg session lock\")",
+      "effect": "screen-changes", "recovery": "unlock" },
+    { "action": "exit()", "effect": "session-ends", "session_ending": true,
+      "recovery": "session" },
+
+    { "action": "window.fullscreen()", "effect": "layout-changes" },
+    { "action": "window.fullscreen({ mode = \"maximized\" })",
+      "effect": "layout-changes" },
+    { "action": "window.float({ action = \"toggle\" })",
+      "effect": "layout-changes" },
+    { "action": "window.pseudo()", "effect": "layout-changes",
+      "needs": "floating" },
+
+    { "action": "focus({ direction = \"left\" })", "effect": "focus-changes",
+      "needs": "dir:left" },
+    { "action": "focus({ direction = \"right\" })", "effect": "focus-changes",
+      "needs": "dir:right" },
+    { "action": "focus({ direction = \"up\" })", "effect": "focus-changes",
+      "needs": "dir:up" },
+    { "action": "focus({ direction = \"down\" })", "effect": "focus-changes",
+      "needs": "dir:down" },
+    { "action": "window.move({ direction = \"left\" })",
+      "effect": "layout-changes", "needs": "dir:left" },
+    { "action": "window.move({ direction = \"right\" })",
+      "effect": "layout-changes", "needs": "dir:right" },
+    { "action": "window.move({ direction = \"up\" })",
+      "effect": "layout-changes", "needs": "dir:up" },
+    { "action": "window.move({ direction = \"down\" })",
+      "effect": "layout-changes", "needs": "dir:down" },
+
+    { "action": "focus({ workspace = \"e+1\" })",
+      "effect": "workspace-changes", "needs": "ws2win" },
+    { "action": "focus({ workspace = \"e-1\" })",
+      "effect": "workspace-changes", "needs": "ws2win workspace2" },
+    { "action": "focus({ workspace = *", "effect": "workspace",
+      "arg": "{num}" },
+    { "action": "window.move({ workspace = \"special:magic\" })",
+      "effect": "layout-changes" },
+    { "action": "window.move({ workspace = *", "effect": "layout-changes" },
+    { "action": "workspace.toggle_special(\"magic\")",
+      "effect": "screen-changes", "recovery": "toggle" },
+
+    { "action": "window.drag()", "effect": "layout-changes",
+      "needs": "floating" },
+    { "action": "window.resize()", "effect": "layout-changes",
+      "needs": "floating" },
+
+    { "action": "exec_cmd(\"wpctl *", "effect": "audio-changes" },
+    { "action": "exec_cmd(\"brightnessctl *", "effect": "unverifiable",
+      "reason": "no backlight device in a VM" },
+    { "action": "exec_cmd(\"playerctl *", "effect": "unverifiable",
+      "reason": "no MPRIS player running in the audit session" }
+  ]
+}

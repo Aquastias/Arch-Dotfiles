@@ -27,6 +27,7 @@
 #   push <host-path> <dir>   copy a host file/dir into a guest dir (as user)
 #   net <on|off>             cut/restore guest internet (SSH stays up)
 #   key <chord> [hold-ms]    press a chord as real keyboard input (QMP)
+#   keydown|keyup <chord>    hold / release a chord (wraps pointer input)
 #   mouse move|btn|wheel …  real pointer input (QMP, absolute 0..32767)
 #
 # SSH uses the harness key (vm/.vm-cache/harness_ed25519, same as the persistent
@@ -55,7 +56,7 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  sed -n '4,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,37p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 # ── pure helpers (unit-tested; no libvirt, no SSH) ───────────────────────────
@@ -158,23 +159,29 @@ agent_key_qcodes() {
   local tok q; local -a qs=()
   local IFS=+
   for tok in $1; do
+    tok="${tok// /}"
     case "${tok,,}" in
       mod|super|meta|win|logo) q=meta_l ;;
       ctrl|control) q=ctrl ;;  shift) q="shift" ;;  alt) q=alt ;;
       return|enter) q=ret ;;  escape|esc) q=esc ;;  space) q=spc ;;
       tab) q=tab ;;  backspace) q=backspace ;;  delete) q=delete ;;
       left|right|up|down|home|end|insert) q="${tok,,}" ;;
-      page_up|prior|pageup) q=pgup ;;  page_down|next|pagedown) q=pgdn ;;
+      page_up|prior|pageup|pgup) q=pgup ;;
+      page_down|next|pagedown|pgdown|pgdn) q=pgdn ;;
       print) q=print ;;  minus) q=minus ;;  equal) q=equal ;;
       bracketleft) q=bracket_left ;;  bracketright) q=bracket_right ;;
       comma) q=comma ;;  period) q="dot" ;;  slash) q=slash ;;
       backslash) q=backslash ;;  semicolon) q=semicolon ;;
       apostrophe) q=apostrophe ;;  grave) q=grave_accent ;;
-      xf86audioraisevolume) q=volumeup ;;
-      xf86audiolowervolume) q=volumedown ;;
-      xf86audiomute) q=audiomute ;;  xf86audioplay) q=audioplay ;;
-      xf86audionext) q=audionext ;;  xf86audioprev) q=audioprev ;;
-      xf86audiostop) q=audiostop ;;
+      xf86audioraisevolume|volumeup) q=volumeup ;;
+      xf86audiolowervolume|volumedown) q=volumedown ;;
+      xf86audiomute|volumemute) q=audiomute ;;
+      xf86audioplay|mediaplay) q=audioplay ;;
+      xf86audionext|medianext) q=audionext ;;
+      xf86audioprev|mediaprevious) q=audioprev ;;
+      xf86audiostop|mediastop) q=audiostop ;;
+      plus) q="shift equal" ;;  '~'|asciitilde) q="shift grave_accent" ;;
+      '`') q=grave_accent ;;  '=') q=equal ;;  '-') q=minus ;;
       [a-z0-9]) q="${tok,,}" ;;
       f[0-9]|f1[0-2]) q="${tok,,}" ;;
       *) return 1 ;;
@@ -542,6 +549,19 @@ verb_mouse() {
   virsh qemu-monitor-command "$VM_NAME" "$j" >/dev/null \
     || die "mouse event failed"
 }
+
+# keydown <chord> / keyup <chord> — hold / release a chord, to wrap pointer
+# input (Super+drag, Super+wheel binds).
+verb_keydown() {
+  local c; c="$(agent_key_qcodes "${1:-}")" || die "keydown: not injectable"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp down "$c")" \
+    >/dev/null || die "keydown failed"
+}
+verb_keyup() {
+  local c; c="$(agent_key_qcodes "${1:-}")" || die "keyup: not injectable"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp up "$c")" \
+    >/dev/null || die "keyup failed"
+}
 verb_lock()   { _sudo "loginctl lock-sessions";   info "locked."; }
 verb_unlock() { _sudo "loginctl unlock-sessions"; info "unlocked."; }
 
@@ -592,7 +612,7 @@ main() {
 
   case "$verb" in
     exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\
-    |pull|push|sudo|net|key|mouse) ;;
+    |pull|push|sudo|net|key|keydown|keyup|mouse) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;
   esac
 
