@@ -144,3 +144,28 @@ _stub_io='
   run bash "$AGENT" --vm no-such-vm-xyz sudo true
   [[ "$output" != *"unknown verb"* ]]
 }
+
+@test "net off: drops the default route, saving it for restore" {
+  _call "agent_net_cmd off"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ip route show default"* ]]
+  [[ "$output" == *"ip route del default"* ]]
+}
+
+@test "net on: restores the saved default route" {
+  _call "agent_net_cmd on"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ip route replace"* ]]
+}
+
+@test "net: only on|off" {
+  _call "agent_net_cmd sideways"
+  [ "$status" -ne 0 ]
+}
+
+@test "push and net are known verbs" {
+  run bash "$AGENT" --vm no-such-vm-xyz push "$BATS_TEST_TMPDIR" /tmp/x
+  [[ "$output" != *"unknown verb"* ]]
+  run bash "$AGENT" --vm no-such-vm-xyz net off
+  [[ "$output" != *"unknown verb"* ]]
+}

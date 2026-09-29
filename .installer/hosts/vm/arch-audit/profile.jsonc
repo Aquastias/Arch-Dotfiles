@@ -2,8 +2,9 @@
 // (ADR 0152). Every feature one install can hold at once: the three
 // compositors + Noctalia, ZFS native encryption on a 2-disk mirror, a data
 // storage group, impermanence, SOPS (Test Age Key via age_key_url, host
-// secrets.json), every post_install selection, printing, bluetooth and the
-// non-default power daemon. Audit Variants patch this to reach the other side
+// secrets.json), every post_install selection, printing, bluetooth and
+// power-profiles-daemon (tuned conflicts with the ppd Plasma pulls, so it
+// is a variant). Audit Variants patch this to reach the other side
 // of each mutually-exclusive choice (bootloader, firewall, power daemon, ...).
 {
   "system": {
@@ -29,7 +30,16 @@
 
     "printing":  { "enabled": true },
     "bluetooth": { "enabled": true },
-    "power":     { "profile": "tuned" }
+    "power":     { "profile": "power-profiles-daemon" },
+    "ssh":       { "enabled": true },
+
+    // every Font Catalog token (ADR 0080)
+    "fonts": [
+      "noto-fonts", "noto-fonts-emoji", "noto-fonts-cjk", "noto-fonts-extra",
+      "ttf-liberation", "ttf-dejavu", "ttf-ms-fonts",
+      "ttf-jetbrains-mono-nerd", "ttf-iosevka-nerd", "ttf-firacode-nerd",
+      "otf-monaspace-nerd", "ttf-sazanami"
+    ]
   },
 
   "environment": {
@@ -67,9 +77,5 @@
       "disk_count": 1
     }
   ],
-  "data_pools": [],
-
-  "persist": {
-    "directories": ["/home", "/var/lib/docker", "/var/lib/libvirt"]
-  }
+  "data_pools": []
 }

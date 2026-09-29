@@ -15,7 +15,79 @@
     "fixtures": ["fixtures/key.age"]
   },
   "variants": [
-    { "id": "base", "adrs": ["0036", "0046", "0104", "0117", "0152"] }
+    { "id": "base", "adrs": ["0036", "0046", "0104", "0117", "0152"] },
+    { "id": "grub", "patch": { "options": { "bootloader": "grub" } },
+      "adrs": ["0038", "0078"] },
+    { "id": "limine", "patch": { "options": { "bootloader": "limine" } },
+      "adrs": ["0078"] },
+    { "id": "refind", "patch": { "options": { "bootloader": "refind" } },
+      "adrs": ["0078"] },
+    { "id": "efistub", "patch": { "options": { "bootloader": "efistub" } },
+      "adrs": ["0078"] },
+    { "id": "kernels",
+      "patch": { "options": { "kernel": ["lts", "default", "hardened", "zen"] } },
+      "adrs": ["0137", "0138", "0139"] },
+    { "id": "ufw",
+      "patch": { "post_install": { "security": { "firewall": "ufw" } } },
+      "adrs": ["0115"] },
+    // independent choices sharing one install: the non-default power daemon
+    // and an explicit (not auto-resolved) sddm
+    { "id": "tuned",
+      "patch": {
+        "options": { "power": { "profile": "tuned" } },
+        "environment": { "display_manager": "sddm" }
+      },
+      "adrs": ["0069", "0080", "0091"] },
+    { "id": "greetd",
+      "patch": { "environment": { "display_manager": "greetd" } },
+      "adrs": ["0069", "0091"] },
+    { "id": "no-shell",
+      "patch": { "environment": { "wayland_shell": "none" } },
+      "adrs": ["0090", "0097"] },
+    // every service toggle off: the "not installed" side must be clean too
+    { "id": "services-off",
+      "patch": {
+        "options": {
+          "printing": { "enabled": false }, "bluetooth": { "enabled": false },
+          "power": { "profile": "none" }
+        },
+        "post_install": {
+          "security": { "firewall": "none", "antivirus": false,
+                        "rootkit": false, "apparmor": false },
+          "backup": { "zfs_auto_snapshot": false, "borg": false }
+        }
+      },
+      "adrs": ["0041", "0079", "0080"] },
+    { "id": "kde-pure", "host": "kde-pure",
+      "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+      "adrs": ["0112"] },
+    { "id": "niri-pure", "host": "niri-pure",
+      "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+      "adrs": ["0112"] },
+    { "id": "hyprland-pure", "host": "hyprland-pure",
+      "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },
+      "adrs": ["0112"] },
+    { "id": "minimal", "host": "minimal",
+      "hardware": { "disks": [40], "ram_mb": 4096, "vcpus": 4 },
+      "adrs": ["0034"] },
+    { "id": "desktop", "host": "desktop",
+      "hardware": { "disks": [60, 60, 20, 20, 20], "ram_mb": 10240,
+                    "vcpus": 8 },
+      "adrs": ["0036", "0114"] },
+    { "id": "laptop", "host": "laptop",
+      "hardware": { "disks": [80], "ram_mb": 10240, "vcpus": 8 },
+      "adrs": ["0036", "0114"] },
+    // the menu-driven path; manual partitioning is guided-only (ADR 0073)
+    { "id": "guided", "guided": "single/guided-manual",
+      "covers": ["disk_config.kind=manual"],
+      "adrs": ["0039", "0073"] }
   ],
-  "unverifiable": []
+  "unverifiable": [
+    { "feature": "environment.gpu=amd",
+      "reason": "no AMD GPU in libvirt; virtio-gpu only" },
+    { "feature": "environment.gpu=nvidia",
+      "reason": "no NVIDIA GPU in libvirt; virtio-gpu only" },
+    { "feature": "environment.gpu=intel",
+      "reason": "no Intel GPU in libvirt; virtio-gpu only" }
+  ]
 }

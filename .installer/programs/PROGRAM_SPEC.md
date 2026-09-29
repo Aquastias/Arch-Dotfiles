@@ -345,6 +345,53 @@ Before emitting output, verify:
 - [ ] Kernel params (if any) patch both GRUB and systemd-boot
 - [ ] Script ends with `print_status success`
 - [ ] `set -Eeuo pipefail` and `trap` are the first two non-comment lines
+- [ ] `audit.sh` probe ships beside `install.sh` (Feature Audit, ADR 0152)
+
+---
+
+## Audit probe (`audit.sh`, `audit-binds.jsonc`) — Feature Audit
+
+Every program ships an `audit.sh` (ADR 0152): the Feature Audit's proof the
+program *works* on an installed system, not just that it installed.
+`tools/feature-audit.sh check` fails on a program without one (unless the
+Audit Manifest marks `program:<name>` unverifiable, with a reason).
+
+- **Where it runs:** in the installed guest, sourced (not executed) by the
+  audit's probe runner, once per account — root and every user of the
+  variant — in two phases: guest internet **cut**, then restored. A check that
+  fails offline but passes online is a "runtime fetch" Finding (the program
+  was not fully set up at install).
+- **Output:** one line per check, `PASS|FAIL|SKIP <check-id> <message>`.
+  FAIL and any stderr are Findings; SKIP is not. Exit code is ignored.
+  Check ids are `<program>-<what>`, stable across runs.
+- **Helpers** (`lib/feature-audit/probe-lib.sh`, pre-sourced):
+  `fa_pass/fa_fail/fa_skip`, `fa_check <id> <msg> <cmd…>`,
+  `fa_require_pkg <probe> <pkg> || return 0` (SKIP when the program is not in
+  this variant), `fa_as_root`/`fa_as_user`, `fa_cfg <jq>`,
+  `fa_unit_active`, `fa_no_stderr <cmd…>`.
+- **Env:** `FA_USER FA_HOME FA_IS_ROOT FA_ONLINE FA_PHASE FA_SESSION`
+  (`niri|Hyprland|kwin_wayland|none`) `FA_DIR` (this probe's staged dir)
+  `FA_CONFIG` (the variant's Effective Config); a user run also carries the
+  live session's `WAYLAND_DISPLAY`/`DBUS_SESSION_BUS_ADDRESS`.
+- **Depth:** prove behaviour — a service is active *and answers*, a plugin is
+  loaded *and does its job*, a config parses with no startup warnings. Real
+  hardware-only parts get `fa_skip` with the reason; the manifest's
+  `unverifiable` list names them.
+- **Fixtures:** optional `audit-fixtures/` next to `audit.sh`, staged as
+  `$FA_DIR/audit-fixtures/`.
+- **Keybinds:** a program that ships keybinds also ships
+  `audit-binds.jsonc` — one expectation per shipped bind (see
+  `lib/feature-audit/binds/`); a parsed bind with no expectation is a
+  Finding.
+
+Start from `programs/system/zsh/audit.sh`:
+
+```bash
+# shellcheck shell=bash
+fa_require_pkg zsh zsh || return 0
+fa_check zsh-startup "interactive zsh starts with no stderr" \
+  fa_no_stderr zsh -i -c exit
+```
 
 ---
 

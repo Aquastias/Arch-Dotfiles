@@ -11,6 +11,8 @@
 #   *.lines  pre-filtered signal (journal ≥ warning, failed units, coredumps,
 #            kernel errors, probe stderr): every non-empty line is a Finding
 #   *.probe  probe output `PASS|FAIL|SKIP <check> <msg>`: FAIL is a Finding
+#            (a probes-offline FAIL whose check PASSes in probes-online is a
+#            "runtime-fetch" Finding: the feature needs network after install)
 # Probe artifacts are named `probe-<program>@<user>.probe` (stderr:
 # `…@<user>.err.lines`); program names may hold `-`, never `@`.
 #
@@ -19,7 +21,7 @@
 # =============================================================================
 
 # Phase order for grouping; unknown phases sort last.
-FA_PHASES=(install boot1 sessions probes-offline probes-online keybinds
+FA_PHASES=(check install boot1 sessions probes-offline probes-online keybinds
            timers boot2 upgrade)
 
 fa_known_noise_path() {
@@ -81,6 +83,8 @@ _fa_candidates() {
     }
     function prank(p,   i) {
       for (i = 1; i <= np0; i++) if (pl[i] == p) return i
+      sub(/-.*$/, "", p)   # per-desktop phases (sessions-kde) rank as sessions
+      for (i = 1; i <= np0; i++) if (pl[i] == p) return i
       return 99
     }
     BEGIN { np0 = split(phases, pl, " ") }
@@ -102,18 +106,34 @@ _fa_candidates() {
       if (line ~ /^[[:space:]]*$/) next
       if (kind == "log") {
         l = tolower(line)
-        if (l ~ /(^|[^a-z])(error|errors|warn|warning|failed|failure|fatal|critical)([^a-z]|$)/)
+        if (l ~ /(^|[^a-z0-9_./-])(err|error|errors|warn|warning|failed|failure|fatal|critical)([^a-z0-9_-]|$)/)
           add(src, prog, "", line, rel)
       } else if (kind == "lines") {
         add(src, prog, "", line, rel)
       } else if (kind == "probe") {
+        if (line ~ /^PASS / && ph == "probes-online") {
+          c = line; sub(/^PASS /, "", c); sub(/ .*$/, "", c)
+          onpass[prog, c, var] = 1
+        }
         if (line ~ /^FAIL /) {
           chk = line; sub(/^FAIL /, "", chk); sub(/ .*$/, "", chk)
-          add(src, prog, chk, line, rel)
+          if (ph == "probes-offline") {
+            # judged at END: passes online too ⇒ a runtime fetch
+            nd++; dsrc[nd] = src; dprog[nd] = prog; dchk[nd] = chk
+            dline[nd] = line; drel[nd] = rel; dvar[nd] = var; dph[nd] = ph
+          } else add(src, prog, chk, line, rel)
         }
       }
     }
     END {
+      for (d = 1; d <= nd; d++) {
+        var = dvar[d]; ph = dph[d]
+        if ((dprog[d], dchk[d], var) in onpass) {
+          add("runtime-fetch", dprog[d], dchk[d], "offline only: " dline[d],
+              drel[d])
+          tot["runtime-fetch" SUBSEP dprog[d]] = tot[dsrc[d] SUBSEP dprog[d]]
+        } else add(dsrc[d], dprog[d], dchk[d], dline[d], drel[d])
+      }
       for (i = 1; i <= nk; i++) { k = order[i]
         printf "%02d\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%s\t%s\n", rank[k], ksrc[k],
           kprog[k], kchk[k], phs[k], vars[k], cnt[k],
@@ -146,17 +166,20 @@ fa_report() {
         | tostring | (("000" + .) | .[-3:])))}) | .[]' > "$jsonl"
   rm -f "$FA_NOISE_TSV"
   [[ -s "$jsonl" ]] || : > "$jsonl"
-  _fa_render_md "$jsonl" > "$md"
+  _fa_render_md "$jsonl" "$run" > "$md"
   [[ -s "$jsonl" ]] && return 1
   return 0
 }
 
-# _fa_render_md <jsonl> — agent-ready findings list.
+# _fa_render_md <jsonl> <run-dir> — agent-ready findings list + the
+# screenshots a script cannot judge (theming), for the fixing agent to view.
 _fa_render_md() {
-  local jsonl="$1" n; n="$(grep -c . "$jsonl" || true)"
+  local jsonl="$1" run="$2" n; n="$(grep -c . "$jsonl" || true)"
   echo "# Feature Audit findings"
   echo
-  if [[ "$n" -eq 0 ]]; then echo "No findings."; return 0; fi
+  if [[ "$n" -eq 0 ]]; then
+    echo "No findings."; _fa_render_visual "$run"; return 0
+  fi
   echo "$n finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
   echo "\`--keep\`, then inspect the listed log on the held VM."
@@ -175,4 +198,20 @@ _fa_render_md() {
         ) | join("\n"))
       ) | join("\n"))
   ' "$jsonl"
+  _fa_render_visual "$run"
+}
+
+# _fa_render_visual <run-dir> — screenshots for visual review (theming,
+# layout): the fixing agent opens each and judges it.
+_fa_render_visual() {
+  local run="$1"; local -a shots
+  mapfile -t shots < <(find "$run" -name '*.png' | sort)
+  ((${#shots[@]})) || return 0
+  echo
+  echo "## Visual review"
+  echo
+  echo "Open each screenshot; report theming/layout breakage (wrong colours,"
+  echo "unthemed Qt/GTK app, missing bar/wallpaper) as a finding."
+  echo
+  printf -- '- %s\n' "${shots[@]}"
 }

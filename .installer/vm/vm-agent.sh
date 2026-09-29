@@ -24,6 +24,8 @@
 #   shot [file]              screenshot (grim on wlroots, spectacle on KDE) →host
 #   pull <guest-path> <dir>  copy a guest file/dir (as root) into <dir>
 #   sudo [cmd…]              run cmd (or stdin script) as root
+#   push <host-path> <dir>   copy a host file/dir into a guest dir (as user)
+#   net <on|off>             cut/restore guest internet (SSH stays up)
 #
 # SSH uses the harness key (vm/.vm-cache/harness_ed25519, same as the persistent
 # flow). Privileged guest steps pipe the harness sudo password (default 12345,
@@ -51,7 +53,7 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  sed -n '4,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 # ── pure helpers (unit-tested; no libvirt, no SSH) ───────────────────────────
@@ -133,6 +135,18 @@ agent_pull_cmd() {
   [[ "$p" == /* && "$p" != / ]] || return 1
   printf "tar -C '%s' -cf - '%s'\n" "${p%/*}" "${p##*/}" \
     | sed "s|-C ''|-C '/'|"
+}
+
+# agent_net_cmd <on|off> — guest (root) command cutting/restoring internet
+# while host↔guest SSH stays up: drop the default route (saved) / put it back.
+# A link-down would sever the very SSH channel driving the guest.
+agent_net_cmd() {
+  local saved=/run/vm-agent-default-route
+  case "$1" in
+    off) printf '%s\n' "sh -c '[ -s $saved ] || ip route show default > $saved; ip route del default 2>/dev/null; true'" ;;
+    on)  printf '%s\n' "sh -c '[ -s $saved ] && while read -r r; do ip route replace \$r; done < $saved; rm -f $saved; true'" ;;
+    *) return 1 ;;
+  esac
 }
 
 # _remote_env_fn — a guest-side bash fragment defining _agent_load_env, which
@@ -416,6 +430,24 @@ verb_sudo() {
   _ssh "rm -f $s" || true
   return "$rc"
 }
+
+# push <host-path> <guest-dir> — copy a host file/dir into a user-writable
+# guest dir (as the agent user); the inverse of pull.
+verb_push() {
+  local src="${1:-}" dest="${2:-}"
+  [[ -e "$src" && -n "$dest" ]] || die "push needs <host-path> <guest-dir>"
+  tar -C "$(dirname "$src")" -cf - "$(basename "$src")" \
+    | _ssh "mkdir -p '$dest' && tar -C '$dest' -xf -" \
+    || die "push failed: $src"
+}
+
+# net <on|off> — cut/restore the guest's internet, keeping SSH (Feature
+# Audit offline probes, ADR 0152).
+verb_net() {
+  local cmd; cmd="$(agent_net_cmd "${1:-}")" || die "net needs on|off"
+  _sudo "$cmd"
+  info "network ${1}."
+}
 verb_lock()   { _sudo "loginctl lock-sessions";   info "locked."; }
 verb_unlock() { _sudo "loginctl unlock-sessions"; info "unlocked."; }
 
@@ -466,7 +498,7 @@ main() {
 
   case "$verb" in
     exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\
-    |pull|sudo) ;;
+    |pull|push|sudo|net) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;
   esac
 

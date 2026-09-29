@@ -123,39 +123,308 @@ fa_reboot() {
   sleep "$FA_SETTLE_SEC"
 }
 
-# _fa_collect_script — guest-side (root) signal collector for the current
-# boot. Writes report-ready artifacts into /tmp/fa-collect.
+# _fa_collect_script [since-epoch] — guest-side (root) signal collector.
+# With a since-epoch only that window's journal/coredumps are taken, so an
+# in-boot phase reports its own lines, not the whole boot's again.
 _fa_collect_script() {
+  printf 'SINCE=%q\n' "${1:-}"
   cat <<'SH'
 set -u
 o=/tmp/fa-collect
 rm -rf "$o"; mkdir -p "$o"
+win=(-b); [ -n "$SINCE" ] && win=(-b --since "@$SINCE")
 systemctl --failed --plain --no-legend --no-pager \
   > "$o/failed-units-system.lines" 2>&1
 for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
   systemctl --user -M "$u@" --failed --plain --no-legend --no-pager \
     > "$o/failed-units-user-$u.lines" 2>/dev/null || true
 done
-journalctl -b -p warning --no-pager -q -o short > "$o/journal.lines" 2>&1
-coredumpctl list --no-legend --no-pager -q > "$o/coredumps.lines" 2>/dev/null \
-  || true
+journalctl "${win[@]}" -p warning --no-pager -q -o short \
+  > "$o/journal.lines" 2>&1
+cw=(); [ -n "$SINCE" ] && cw=(--since "@$SINCE")
+coredumpctl list "${cw[@]}" --no-legend --no-pager -q \
+  > "$o/coredumps.lines" 2>/dev/null || true
 chmod -R a+rX "$o"
 SH
 }
 
-# fa_collect <phase-dir> — harvest the current boot's signals.
-fa_collect() {
-  local dir="$1" tmp
-  mkdir -p "$dir"
-  _fa_collect_script | fa_agent sudo >/dev/null 2>&1 \
-    || { fa_fatal "$dir" "collector failed to run in the guest"; return 1; }
-  tmp="$(mktemp -d)"
-  if fa_agent pull /tmp/fa-collect "$tmp" >/dev/null 2>&1; then
-    cp -f "$tmp"/fa-collect/* "$dir"/ 2>/dev/null || true
-  else
-    fa_fatal "$dir" "could not pull collected artifacts"
+# fa_guest_now — the guest's epoch (phase windows are guest-clock based).
+fa_guest_now() { fa_agent sudo date +%s 2>/dev/null | tr -dc 0-9; }
+
+# fa_pull_into <guest-dir> <host-dir> — pull a guest dir's files flat.
+fa_pull_into() {
+  local tmp; tmp="$(mktemp -d)"
+  if fa_agent pull "$1" "$tmp" >/dev/null 2>&1; then
+    mkdir -p "$2"
+    cp -rf "$tmp/${1##*/}/." "$2/" 2>/dev/null || true
+    rm -rf "$tmp"; return 0
   fi
+  rm -rf "$tmp"; return 1
+}
+
+# fa_collect <phase-dir> [since-epoch] — harvest signals for the phase.
+fa_collect() {
+  local dir="$1"
+  mkdir -p "$dir"
+  _fa_collect_script "${2:-}" | fa_agent sudo >/dev/null 2>&1 \
+    || { fa_fatal "$dir" "collector failed to run in the guest"; return 1; }
+  fa_pull_into /tmp/fa-collect "$dir" \
+    || fa_fatal "$dir" "could not pull collected artifacts"
+}
+
+# ── later phases (feature-audit/07) ──────────────────────────────────────────
+
+# _fa_timers_script — start every enabled timer's unit once (bounded), so
+# delayed work (reflector, freshclam, snapshots, fwupd) fails now, not later.
+_fa_timers_script() {
+  cat <<'SH'
+set -u
+for t in $(systemctl list-timers --all --no-legend --plain \
+    | awk '{for (i=1;i<=NF;i++) if ($i ~ /\.timer$/) {print $i; break}}'); do
+  u="$(systemctl show -p Unit --value "$t")"
+  [ -n "$u" ] || continue
+  if timeout 900 systemctl start "$u" >/dev/null 2>&1; then
+    echo "PASS timer-$t started $u"
+  else
+    echo "FAIL timer-$t $u failed or timed out"
+  fi
+done
+SH
+}
+
+# fa_phase_timers <variant-dir> — force timers, soak, collect.
+fa_phase_timers() {
+  local dir="$1/timers" since
+  mkdir -p "$dir"
+  since="$(fa_guest_now)"
+  _fa_timers_script | fa_agent sudo > "$dir/probe-timers@root.probe" 2>&1 \
+    || true
+  sleep "${FA_SOAK_SEC:-600}"
+  fa_collect "$dir" "$since"
+}
+
+# _fa_boot2_prep_script <user> — plant rollback/persistence markers and
+# record identity that must survive the reboot.
+_fa_boot2_prep_script() {
+  printf 'U=%q\n' "$1"
+  cat <<'SH'
+set -u
+echo fa > /etc/fa-rollback-probe
+h="$(getent passwd "$U" | cut -d: -f6)"
+[ -n "$h" ] && { echo fa > "$h/.fa-persist-probe"; chown "$U" "$h/.fa-persist-probe"; }
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
+  | awk '{print $2}' > /var/tmp/fa-hostkey
+cp /var/tmp/fa-hostkey "$h/.fa-hostkey" 2>/dev/null || true
+SH
+}
+
+# _fa_boot2_check_script <user> <impermanent> <sops> — the reboot proofs.
+_fa_boot2_check_script() {
+  printf 'U=%q IMP=%q SOPS=%q\n' "$1" "$2" "$3"
+  cat <<'SH'
+set -u
+p() { echo "PASS $1 $2"; }; f() { echo "FAIL $1 $2"; }
+h="$(getent passwd "$U" | cut -d: -f6)"
+if [ "$IMP" = true ]; then
+  [ -e /etc/fa-rollback-probe ] \
+    && f rollback "/etc marker survived reboot (root not rolled back)" \
+    || p rollback "/etc rolled back"
+fi
+[ -e "$h/.fa-persist-probe" ] && p home-persist "home kept" \
+  || f home-persist "home marker lost on reboot"
+now="$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null \
+  | awk '{print $2}')"
+[ -n "$now" ] && [ "$now" = "$(cat "$h/.fa-hostkey" 2>/dev/null)" ] \
+  && p ssh-hostkey "host key stable" \
+  || f ssh-hostkey "ssh host key changed across reboot"
+if [ "$SOPS" = true ]; then
+  systemctl is-active --quiet sops-runtime.service \
+    && p sops-runtime "decrypted on boot" \
+    || f sops-runtime "sops-runtime.service not active after reboot"
+fi
+rm -f "$h/.fa-persist-probe" "$h/.fa-hostkey" /etc/fa-rollback-probe
+SH
+}
+
+# fa_phase_boot2 <variant-dir> <cfg> — reboot and prove what must survive.
+fa_phase_boot2() {
+  local dir="$1/boot2" cfg="$2" imp sops
+  mkdir -p "$dir"
+  imp="$(jq -r '.options.impermanence.enabled // false' <<<"$cfg")"
+  sops="$(jq -r 'if (.options.age_key_url // "") != "" then true
+                 else false end' <<<"$cfg")"
+  _fa_boot2_prep_script "$FA_USER" | fa_agent sudo >/dev/null 2>&1 || true
+  fa_reboot "$dir" || return 1
+  _fa_boot2_check_script "$FA_USER" "$imp" "$sops" \
+    | fa_agent sudo > "$dir/probe-boot@root.probe" 2>&1 || true
+  fa_collect "$dir"
+}
+
+# fa_phase_upgrade <variant-dir> — full upgrade, reboot, collect.
+fa_phase_upgrade() {
+  local dir="$1/upgrade"
+  mkdir -p "$dir"
+  fa_agent sudo "pacman -Syu --noconfirm 2>&1" > "$dir/pacman.log" 2>&1 \
+    || fa_fatal "$dir" "pacman -Syu failed (see pacman.log)"
+  fa_reboot "$dir" || return 1
+  fa_collect "$dir"
+}
+
+# ── sessions (feature-audit/08) ──────────────────────────────────────────────
+
+# fa_desktops <cfg> — the variant's desktop set, one per line.
+fa_desktops() {
+  jq -r '.environment.desktop // [] | if type == "string" then [.] else . end
+    | .[]' <<<"$1"
+}
+
+# _fa_session_logs_script <user> — compositor/session logs the journal lacks
+# (Hyprland's own log, the DM's wayland-session log) into /tmp/fa-logs.
+_fa_session_logs_script() {
+  printf 'U=%q\n' "$1"
+  cat <<'SH'
+set -u
+o=/tmp/fa-logs; rm -rf "$o"; mkdir -p "$o"
+uid="$(id -u "$U")"; h="$(getent passwd "$U" | cut -d: -f6)"
+for f in /run/user/"$uid"/hypr/*/hyprland.log; do
+  [ -f "$f" ] && cp "$f" "$o/hyprland.log"
+done
+[ -f "$h/.local/share/sddm/wayland-session.log" ] \
+  && cp "$h/.local/share/sddm/wayland-session.log" "$o/wayland-session.log"
+[ -f "$h/.local/share/sddm/xorg-session.log" ] \
+  && cp "$h/.local/share/sddm/xorg-session.log" "$o/xorg-session.log"
+chmod -R a+rX "$o"
+SH
+}
+
+# fa_phase_sessions <variant-dir> <cfg> — log into each compositor of the set
+# (one phase dir per desktop), collect its window, screenshot it.
+fa_phase_sessions() {
+  local vdir="$1" cfg="$2" de dir since
+  while IFS= read -r de; do
+    [[ -n "$de" ]] || continue
+    dir="$vdir/sessions-$de"
+    mkdir -p "$dir/screens"
+    since="$(fa_guest_now)"
+    if ! fa_agent session "$de" > "$dir/agent.txt" 2>&1; then
+      echo "session $de did not become ready (see agent.txt)" \
+        >> "$dir/session-start.lines"
+      fa_collect "$dir" "$since"
+      continue
+    fi
+    fa_agent idle off >/dev/null 2>&1 || true
+    sleep "${FA_SESSION_SETTLE_SEC:-45}"
+    fa_agent shot "$dir/screens/session-$de.png" >> "$dir/agent.txt" 2>&1 \
+      || echo "session $de: screenshot failed" >> "$dir/session-start.lines"
+    fa_collect "$dir" "$since"
+    _fa_session_logs_script "$FA_USER" | fa_agent sudo >/dev/null 2>&1 \
+      && fa_pull_into /tmp/fa-logs "$dir" || true
+  done < <(fa_desktops "$cfg")
+}
+
+# ── probes (feature-audit/09, 10) ────────────────────────────────────────────
+
+# fa_probe_dirs — every program dir shipping an audit probe.
+fa_probe_dirs() {
+  local d
+  for d in "$INSTALLER_DIR"/programs/*/*/; do
+    [[ -f "$d/audit.sh" ]] && printf '%s\n' "${d%/}"
+  done
+}
+
+# fa_stage_probes <cfg> <dir…> — push probes + helper lib + the variant's
+# config to the guest's /tmp/fa-probes.
+fa_stage_probes() {
+  local cfg="$1" tmp d n; shift
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/fa-probes"
+  cp "$INSTALLER_DIR/lib/feature-audit/probe-lib.sh" "$tmp/fa-probes/_lib.sh"
+  printf '%s\n' "$cfg" > "$tmp/fa-probes/config.json"
+  for d in "$@"; do
+    n="${d##*/}"
+    mkdir -p "$tmp/fa-probes/$n"
+    cp "$d/audit.sh" "$tmp/fa-probes/$n/"
+    [[ -f "$d/audit-binds.jsonc" ]] && cp "$d/audit-binds.jsonc" "$tmp/fa-probes/$n/"
+    [[ -d "$d/audit-fixtures" ]] && cp -r "$d/audit-fixtures" "$tmp/fa-probes/$n/"
+  done
+  fa_agent sudo "rm -rf /tmp/fa-probes" >/dev/null 2>&1 || true
+  fa_agent push "$tmp/fa-probes" /tmp >/dev/null 2>&1
+  local rc=$?
   rm -rf "$tmp"
+  return "$rc"
+}
+
+# _fa_probe_runner_script <phase> <online> <accounts…> — run every staged
+# probe once per account (root + each variant user), in that user's session
+# env when one is live, into /tmp/fa-probe-out.
+_fa_probe_runner_script() {
+  printf 'PHASE=%q ONLINE=%q ACCOUNTS=%q\n' "$1" "$2" "${*:3}"
+  cat <<'SH'
+set -u
+P=/tmp/fa-probes; O=/tmp/fa-probe-out
+rm -rf "$O"; mkdir -p "$O"
+sess=none
+for c in niri Hyprland kwin_wayland; do
+  pgrep -x "$c" >/dev/null 2>&1 && { sess="$c"; break; }
+done
+for d in "$P"/*/; do
+  n="$(basename "$d")"; [ -f "$d/audit.sh" ] || continue
+  for a in $ACCOUNTS; do
+    out="$O/probe-$n@$a.probe"; err="$O/probe-$n@$a.err.lines"
+    h="$(getent passwd "$a" | cut -d: -f6)"
+    common=(FA_USER="$a" FA_HOME="$h" FA_ONLINE="$ONLINE" FA_PHASE="$PHASE"
+            FA_SESSION="$sess" FA_DIR="$d" FA_CONFIG="$P/config.json")
+    if [ "$a" = root ]; then
+      env "${common[@]}" FA_IS_ROOT=1 timeout 600 \
+        bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
+    else
+      uid="$(id -u "$a")"; rt="/run/user/$uid"
+      wd="$(ls "$rt" 2>/dev/null | grep -E '^wayland-[0-9]+$' | head -1)"
+      timeout 600 runuser -u "$a" -- env -i HOME="$h" USER="$a" \
+        LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
+        PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
+        XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" \
+        WAYLAND_DISPLAY="$wd" "${common[@]}" FA_IS_ROOT=0 \
+        bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
+    fi
+    rc=$?
+    [ "$rc" = 124 ] && echo "FAIL probe-timeout $n timed out after 600s" >> "$out"
+  done
+done
+chmod -R a+rX "$O"
+SH
+}
+
+# fa_run_probes <phase-dir> <phase> <online> <cfg> — stage, run, pull.
+fa_run_probes() {
+  local dir="$1" phase="$2" online="$3" cfg="$4"
+  local -a accts; mapfile -t accts < <(jq -r '.users[]?' <<<"$cfg")
+  _fa_probe_runner_script "$phase" "$online" root "${accts[@]}" \
+    | fa_agent sudo >/dev/null 2>&1 \
+    || { fa_fatal "$dir" "probe runner failed in the guest"; return 1; }
+  fa_pull_into /tmp/fa-probe-out "$dir" \
+    || fa_fatal "$dir" "could not pull probe output"
+}
+
+# fa_phase_probes <variant-dir> <cfg> — every program probe offline (guest
+# internet cut, SSH kept), then online: a check that only passes online is a
+# runtime fetch (the feature was not fully set up at install).
+fa_phase_probes() {
+  local vdir="$1" cfg="$2" since
+  local -a dirs; mapfile -t dirs < <(fa_probe_dirs)
+  ((${#dirs[@]})) || return 0
+  fa_stage_probes "$cfg" "${dirs[@]}" \
+    || { fa_fatal "$vdir/probes-offline" "could not stage probes"; return 1; }
+  since="$(fa_guest_now)"
+  fa_agent net off >/dev/null 2>&1 \
+    || fa_fatal "$vdir/probes-offline" "could not cut guest network"
+  fa_run_probes "$vdir/probes-offline" probes-offline 0 "$cfg"
+  fa_agent net on >/dev/null 2>&1 \
+    || fa_fatal "$vdir/probes-offline" "could not restore guest network"
+  fa_collect "$vdir/probes-offline" "$since"
+  since="$(fa_guest_now)"
+  fa_run_probes "$vdir/probes-online" probes-online 1 "$cfg"
+  fa_collect "$vdir/probes-online" "$since"
 }
 
 # fa_install <variant-dir> <vm-profile-file> — install through the persistent
@@ -182,12 +451,37 @@ fa_destroy_vm() {
   VM_NAME="$VM_NAME" _vm_destroy_undefine >/dev/null 2>&1 || true
 }
 
+# fa_run_guided <variant-dir> <profile-ref> — the menu-driven path runs the
+# disposable guided test flow (install + boot-verify), not the persistent one:
+# the guest assembles its config from replayed menu answers. Only the install
+# and boot phases apply; it is not agent-controllable.
+fa_run_guided() {
+  local dir="$1" ref="$2" gname rc=0
+  gname="$(jsonc_strip "$INSTALLER_DIR/tests/vm/profiles/$ref.jsonc" \
+    | jq -r .name)"
+  mkdir -p "$dir/install" "$dir/boot1"
+  LOG_FILE="$dir/install/installer.log" \
+    BOOT_LOG_FILE="$dir/boot1/serial.txt" REPO_URL="$FA_REPO_URL" \
+    bash "$INSTALLER_DIR/vm/vm.sh" --guided --profile "$ref" --verify-boot \
+    --recreate > "$dir/install/harness.txt" 2>&1 || rc=$?
+  ((rc == 0)) || fa_fatal "$dir/install" \
+    "guided install or boot-verify failed (vm.sh exit $rc; see harness.txt)"
+  VM_NAME="$gname" _vm_destroy_undefine >/dev/null 2>&1 || true
+}
+
+# _fa_phase_on <phase> — FEATURE_AUDIT_SKIP (space list) drops phases, for a
+# quick partial run while iterating on one phase.
+_fa_phase_on() { [[ " ${FEATURE_AUDIT_SKIP:-} " != *" $1 "* ]]; }
+
 # fa_run_variant <id> <run-dir> — every phase for one variant.
 fa_run_variant() {
   local id="$1" run="$2" dir prof cfg
   dir="$run/$id"
   mkdir -p "$dir"
   section "Audit Variant: $id"
+  local guided
+  guided="$(fa_variant_json "$id" | jq -r '.guided // empty')"
+  if [[ -n "$guided" ]]; then fa_run_guided "$dir" "$guided"; return; fi
   prof="$dir/vm-profile.json"
   fa_variant_vm_profile "$id" > "$prof" \
     || { fa_fatal "$dir/install" "variant does not resolve"; return 1; }
@@ -200,6 +494,14 @@ fa_run_variant() {
   fa_install "$dir" "$prof" || return 1
   fa_boot "$dir/boot1" || return 1
   fa_collect "$dir/boot1"
+  _fa_phase_on sessions && fa_phase_sessions "$dir" "$cfg"
+  _fa_phase_on probes && declare -F fa_phase_probes >/dev/null \
+    && fa_phase_probes "$dir" "$cfg"
+  _fa_phase_on keybinds && declare -F fa_phase_keybinds >/dev/null \
+    && fa_phase_keybinds "$dir" "$cfg"
+  _fa_phase_on timers && fa_phase_timers "$dir"
+  if _fa_phase_on boot2; then fa_phase_boot2 "$dir" "$cfg" || return 1; fi
+  if _fa_phase_on upgrade; then fa_phase_upgrade "$dir" || return 1; fi
   fa_serial_stop
 }
 
@@ -232,6 +534,9 @@ fa_run() {
   local run; run="$(fa_runs_root)/$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$run"
   info "Audit Run → $run"
+  mkdir -p "$run/audit/check"
+  fa_check > "$run/audit/check/check.lines" \
+    || warn "check found problems (recorded as Findings); running anyway."
   FA_REPO_URL="$(fa_stage_repo)"
   local i n=${#ids[@]}
   for ((i = 0; i < n; i++)); do

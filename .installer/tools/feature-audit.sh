@@ -22,6 +22,8 @@ export INSTALLER_DIR
 source "$INSTALLER_DIR/lib/jsonc.sh"
 # shellcheck source=../lib/feature-audit/report.sh
 source "$INSTALLER_DIR/lib/feature-audit/report.sh"
+# shellcheck source=../lib/feature-audit/check.sh
+source "$INSTALLER_DIR/lib/feature-audit/check.sh"
 # shellcheck source=../lib/feature-audit/manifest.sh
 source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
 
@@ -30,6 +32,8 @@ usage() {
 Usage: feature-audit.sh <command> [args]
 
 Commands:
+  check             Manifest + coverage checks, no VM: one Finding per
+                    line, exit 1 on any.
   run [--variant X | --from X] [--keep]
                     Live Audit Run: install each Audit Variant in turn
                     (one VM), collect, then report into
@@ -51,6 +55,7 @@ main() {
       # shellcheck source=../lib/feature-audit/live.sh
       source "$INSTALLER_DIR/lib/feature-audit/live.sh"
       fa_run "$@" ;;
+    check) fa_check ;;
     report)
       [[ $# -eq 1 ]] || { usage >&2; exit 2; }
       fa_report "$1" ;;

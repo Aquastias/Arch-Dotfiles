@@ -155,3 +155,60 @@ EOF
   run bash "$TOOL" report "$BATS_TEST_TMPDIR/nope"
   [ "$status" -eq 2 ]
 }
+
+@test "log kind: bracketed [ERR]/[CRITICAL] compositor lines are findings" {
+  art base sessions-hyprland hyprland.log "[LOG] ok" "[ERR] shader compile" \
+    "[CRITICAL] oops" "[INFO] all good"
+  report
+  [ "$(jsonl | wc -l)" -eq 2 ]
+}
+
+@test "per-desktop session phases group under sessions order" {
+  art base upgrade journal.lines "Sep 29 10:00:01 h a[1]: late"
+  art base sessions-kde journal.lines "Sep 29 10:00:01 h b[1]: kde"
+  art base boot1 journal.lines "Sep 29 10:00:01 h c[1]: early"
+  report
+  jsonl | jq -r .phase | tr '\n' ' ' | grep -q '^boot1 sessions-kde upgrade $'
+}
+
+@test "screenshots are listed in a visual-review section" {
+  mkdir -p "$RUN/base/sessions-kde/screens"
+  : > "$RUN/base/sessions-kde/screens/session-kde.png"
+  art base boot1 journal.lines ""
+  report
+  grep -q '^## Visual review' "$RUN/findings.md"
+  grep -q 'base/sessions-kde/screens/session-kde.png' "$RUN/findings.md"
+}
+
+@test "visual review also follows a non-empty findings list" {
+  mkdir -p "$RUN/base/sessions-kde/screens"
+  : > "$RUN/base/sessions-kde/screens/session-kde.png"
+  art base install installer.log "[ERROR] x"
+  report
+  grep -q '^## Visual review' "$RUN/findings.md"
+}
+
+@test "offline FAIL + online PASS of one check → a runtime-fetch finding" {
+  art base probes-offline probe-nvim@aquastias.probe \
+    "FAIL nvim-treesitter parser download failed" "FAIL nvim-lsp broken"
+  art base probes-online probe-nvim@aquastias.probe \
+    "PASS nvim-treesitter ok" "FAIL nvim-lsp broken"
+  report
+  [ "$(jsonl | wc -l)" -eq 2 ]
+  jsonl | jq -e 'select(.source == "runtime-fetch")
+    | .program == "nvim" and .check == "nvim-treesitter"
+      and (.excerpt | contains("parser download failed"))' >/dev/null
+  # the genuinely broken check stays a plain probe finding
+  jsonl | jq -e 'select(.source == "probe") | .check == "nvim-lsp"' >/dev/null
+}
+
+@test "log kind: package names containing error/warn are not findings" {
+  art base install installer.log \
+    "multilib/lib32-libgpg-error   1.61-1   0.16 MiB" \
+    " perl-error-0.17030-3-any downloading..." \
+    "installing libgpg-error..." \
+    "error: failed to prepare transaction"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e '.excerpt == "error: failed to prepare transaction"' >/dev/null
+}
