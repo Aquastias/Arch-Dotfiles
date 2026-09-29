@@ -5,7 +5,12 @@ and reviewed/approved by the maintainer before the first full run.
 
 **Blocked by:** 12, 13, 14, 15, 16, 17, 18, 19
 
-**Status:** ready-for-human
+**Status:** done
 
-- [ ] Every entry has feature/program + reason
-- [ ] Maintainer approved each entry
+- [x] Every entry has feature/program + reason
+- [x] Maintainer approved each entry
+
+## Comments
+
+- Maintainer approved the list as committed in the Audit Manifest (GPU
+  values, hw:* parts, Secure Boot/TPM not shipped).
