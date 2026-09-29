@@ -17,8 +17,9 @@ require("lazy").setup({
   install = { colorscheme = { "catppuccin" } },
   checker = { enabled = false },
   change_detection = { notify = false },
-  -- No plugin needs luarocks; disabling it keeps :checkhealth clean (ADR 0135).
-  rocks = { enabled = false },
+  -- rest.nvim pulls its deps as rocks. System luarocks, never hererocks
+  -- (a Python bootstrap) (ADR 0150).
+  rocks = { enabled = true, hererocks = false },
   performance = {
     rtp = {
       disabled_plugins = {

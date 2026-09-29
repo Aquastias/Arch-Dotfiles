@@ -82,7 +82,7 @@ local registry = {
     formatter = { "prettier" },
   },
   bash = { lsp = "bashls", ts = { "bash" } },
-  -- .http/.rest API files (kulala); no LSP, just the parser + filetype.
+  -- .http/.rest API files (rest.nvim); no LSP, just the parser + filetype.
   http = { ts = { "http" } },
   go = { lsp = "gopls", ft = { "go" }, formatter = { "gofmt" }, dap = "go" },
   rust = {

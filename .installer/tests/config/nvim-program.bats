@@ -433,15 +433,22 @@ setup() {
   grep -q '"]t"' "$NVIM/lua/plugins/todo-comments.lua"
 }
 
-# ── IDE expansion: kulala API testing (ticket 06) ────────────────────────────
+# ── IDE expansion: API testing (ticket 06; rest.nvim, ADR 0150) ──────────────
 
-@test "kulala is declared, lazy on http ft, mapped under <leader>R" {
-  local K="$NVIM/lua/plugins/kulala.lua"
+@test "rest.nvim is declared, lazy on http ft, mapped under <leader>R" {
+  local K="$NVIM/lua/plugins/rest.lua"
   [ -f "$K" ]
-  grep -q 'mistweaverco/kulala.nvim' "$K"
-  grep -qE '^\s*ft = \{' "$K"
+  grep -q 'rest-nvim/rest.nvim' "$K"
+  grep -qE '^\s*ft = "http"' "$K"
   grep -q '"<leader>Rs"' "$K"
   grep -q 'filetype.add' "$K"
+  [ ! -f "$NVIM/lua/plugins/kulala.lua" ]
+}
+
+@test "lazy rocks use system luarocks, never hererocks (ADR 0150)" {
+  grep -q 'rocks = { enabled = true, hererocks = false }' \
+    "$NVIM/lua/config/lazy.lua"
+  grep -q 'luarocks lua51' "$INSTALL"
 }
 
 # ── IDE expansion: grug-far find & replace (ticket 07) ───────────────────────

@@ -1340,11 +1340,13 @@ nvim-treesitter (+treesitter-context, +treesitter-textobjects — the latter a
 query-provider for mini.ai's `af`/`ac`), nvim-lspconfig, conform, nvim-lint,
 nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview, trouble, oil, snacks
 (picker/dashboard/notifier/explorer/indent/input/image/lazygit), grug-far,
-kulala, flash, lualine, bufferline, harpoon, which-key, mini.ai/mini.pairs/
+rest.nvim, flash, lualine, bufferline, harpoon, which-key, mini.ai/mini.pairs/
 mini.surround, nvim-ts-autotag, nvim-ts-context-commentstring (context-aware
 `gc`), nvim-highlight-colors, refactoring.nvim, nvim-ufo, render-markdown,
 todo-comments, undotree, orgmode
-— **no noice, no `mason`, no multicursor plugin**. Editor UX adds native
+— **no noice, no `mason`, no multicursor plugin**. rest.nvim (kulala went
+private) pulls rock deps via lazy + **system luarocks**, no hererocks
+(ADR 0150). Editor UX adds native
 **inlay hints** (default on, `<leader>uh`) + blink **signature help** and
 **native multi-cursor** (`cn`/`cN` + visual-block). Debugging is **nvim-dap**,
 adapters as **system packages** (ADR 0140); the per-language toolchain
