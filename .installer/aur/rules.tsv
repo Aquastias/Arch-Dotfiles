@@ -89,14 +89,17 @@ sudoers	critical	code	(^|[[:space:]>=(])["']?/etc/(sudoers\
 pam-tamper	critical	code	(^|[[:space:]>=(])["']?/etc/pam[.]d/\
 		edits live PAM config outside $pkgdir
 pacman-tamper	critical	code	SigLevel[^=#]*=[^#]*(Never|TrustAll)\
-	|(^|[[:space:]>=(])["']?/etc/pacman[.](conf|d/)\
-		weakens or edits pacman's own config
+	|(sed[[:space:]]+(-[^[:space:]]+[[:space:]]+)*-i[^|;&]*|>>?[[:space:]]*\
+	|tee[[:space:]]+([^|;&]*[[:space:]])?|(cp|mv|install|ln)[[:space:]]\
+	[^|;&]*[[:space:]])["']?/etc/pacman[.](conf|d/)\
+		weakens or writes pacman's own config
 keyring-tamper	critical	code	pacman-key[[:space:]]+([^|;&]*[[:space:]])?\
 	--?(lsign(-key)?|add|recv-keys?|r|a|populate)([[:space:]]|$)\
 		changes pacman's trusted keys
-ca-trust	critical	code	trust[[:space:]]+anchor|update-ca-trust\
-	|(^|[[:space:]>=(])["']?/(etc|usr/share)/ca-certificates/trust-source\
-		injects a trusted CA
+ca-trust	critical	code	trust[[:space:]]+anchor\
+	|(>>?[[:space:]]*|tee[[:space:]]+([^|;&]*[[:space:]])?\
+	|(cp|mv|install|ln)[[:space:]][^|;&]*[[:space:]])["']?\
+	/(etc|usr/share)/ca-certificates/trust-source	injects a trusted CA
 security-off	critical	code	setenforce[[:space:]]+0\
 	|aa-(teardown|disable|complain)([[:space:]]|$)|ufw[[:space:]]+disable\
 	|systemctl[[:space:]]+([^|;&]*[[:space:]])?(disable|stop|mask)[[:space:]]\
