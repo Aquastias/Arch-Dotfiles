@@ -147,6 +147,11 @@ _render_installer_script() {
 #!/usr/bin/env bash
 set -euo pipefail
 set -x
+# A death before install.sh runs (bad clone, pacman error, a payload bug) must
+# still reach the host as a sentinel, or it waits out the whole install
+# timeout on a shell that is already gone.
+rm -f /root/.install-exit
+trap 'rc=\$?; [ -f /root/.install-exit ] || printf "\r\n===INSTALLER-EXIT-%d===\r\n" "\$((rc ? rc : 98))" > /dev/ttyS0' EXIT
 # The harness key + serial autologin are authorized by the cloud-init seed at
 # first boot (ADR 0099), independent of this payload — so a failure before this
 # script even runs still leaves the live ISO reachable. This payload only clones

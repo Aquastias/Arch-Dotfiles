@@ -168,3 +168,28 @@ fake_programs() {
   run bash "$TOOL" check
   [ "$status" -eq 0 ]
 }
+
+# ── keybind coverage (feature-audit/11) ──────────────────────────────────────
+
+@test "binds: every shipped bind of a registered source has an expectation" {
+  export FEATURE_AUDIT_CHECKS="binds"
+  manifest '[{"id":"base"}]'
+  run bash "$TOOL" check
+  [[ "$output" != *"coverage: niri bind"* ]]
+}
+
+@test "binds: a bind with no expectation is a Finding" {
+  export FEATURE_AUDIT_CHECKS="binds"
+  export FA_REPO_ROOT="$BATS_TEST_TMPDIR/repo"
+  mkdir -p "$FA_REPO_ROOT/.config/niri/conf.d" \
+    "$FA_REPO_ROOT/.installer/extras/desktop/niri"
+  cp "$BATS_TEST_DIRNAME/fixtures/niri-binds.kdl" \
+    "$FA_REPO_ROOT/.config/niri/conf.d/"
+  echo '{"expect":[{"action":"quit","effect":"session-ends"}]}' \
+    > "$FA_REPO_ROOT/.installer/extras/desktop/niri/audit-binds.jsonc"
+  manifest '[{"id":"base"}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"coverage: niri bind Mod+Return (spawn \"kitty\") has no audit expectation"* ]]
+  [[ "$output" != *"Mod+Shift+E"* ]]
+}

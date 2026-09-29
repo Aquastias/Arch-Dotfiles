@@ -1,0 +1,85 @@
+// Feature Audit keybind expectations for niri (ADR 0152) — one per bind the
+// shipped .config/niri/conf.d/*.kdl declares (a chord match wins over an
+// action glob). Effects and fields: lib/feature-audit/binds.sh +
+// binds-guest.sh. `needs` stages the scene (stack, floating, workspace2);
+// `then` keys are sent after the bind (e.g. confirming niri's quit dialog);
+// `recovery` restores the session after an effect that leaves UI behind.
+{
+  "expect": [
+    { "action": "spawn \"kitty\"", "effect": "window-opens", "arg": "kitty" },
+    { "action": "spawn \"pcmanfm-qt\"", "effect": "window-opens",
+      "arg": "pcmanfm" },
+    { "action": "close-window", "effect": "window-closes" },
+    { "action": "spawn-sh \"noctalia msg panel-toggle launcher\"",
+      "effect": "screen-changes", "recovery": "escape" },
+    { "action": "spawn-sh \"noctalia msg session lock\"",
+      "effect": "screen-changes", "recovery": "unlock" },
+    { "action": "quit", "effect": "session-ends", "then": ["Return"],
+      "session_ending": true, "recovery": "session" },
+    { "action": "show-hotkey-overlay", "effect": "screen-changes",
+      "recovery": "escape" },
+
+    { "action": "fullscreen-window", "effect": "layout-changes" },
+    { "action": "toggle-window-floating", "effect": "layout-changes" },
+    { "action": "switch-focus-between-floating-and-tiling",
+      "effect": "focus-changes", "needs": "floating" },
+
+    { "action": "focus-column-*", "effect": "focus-changes" },
+    { "action": "focus-window-*", "effect": "focus-changes",
+      "needs": "stack" },
+    { "action": "move-column-left", "effect": "layout-changes" },
+    { "action": "move-column-right", "effect": "layout-changes" },
+    { "action": "move-window-*", "effect": "layout-changes",
+      "needs": "stack" },
+
+    { "action": "focus-workspace *", "effect": "workspace",
+      "arg": "{arg}" },
+    { "action": "move-column-to-workspace *", "effect": "layout-changes" },
+    { "action": "focus-workspace-down", "effect": "workspace-changes" },
+    { "action": "focus-workspace-up", "effect": "workspace-changes",
+      "needs": "workspace2" },
+    { "action": "move-column-to-workspace-down", "effect": "layout-changes" },
+    { "action": "move-column-to-workspace-up", "effect": "layout-changes",
+      "needs": "workspace2" },
+    { "action": "move-workspace-down", "effect": "workspace-changes" },
+    { "action": "move-workspace-up", "effect": "workspace-changes",
+      "needs": "workspace2" },
+
+    { "action": "screenshot", "effect": "screen-changes",
+      "recovery": "escape" },
+    { "action": "screenshot-screen", "effect": "file-created",
+      "arg": "Pictures/Screenshots" },
+    { "action": "screenshot-window", "effect": "file-created",
+      "arg": "Pictures/Screenshots" },
+
+    { "action": "toggle-overview", "effect": "screen-changes",
+      "recovery": "toggle" },
+    { "action": "switch-preset-column-width*", "effect": "layout-changes" },
+    { "action": "maximize-window-to-edges", "effect": "layout-changes" },
+    { "action": "center-column", "effect": "screen-changes" },
+    { "action": "set-column-width *", "effect": "layout-changes" },
+    { "action": "set-window-height *", "effect": "layout-changes",
+      "needs": "stack" },
+    { "action": "toggle-column-tabbed-display", "effect": "layout-changes",
+      "needs": "stack" },
+    { "action": "consume-or-expel-window-*", "effect": "layout-changes" },
+    { "action": "consume-window-into-column", "effect": "layout-changes" },
+    { "action": "expel-window-from-column", "effect": "layout-changes",
+      "needs": "stack" },
+
+    { "action": "focus-monitor-*", "effect": "unverifiable",
+      "reason": "one virtual monitor in the VM" },
+    { "action": "move-column-to-monitor-*", "effect": "unverifiable",
+      "reason": "one virtual monitor in the VM" },
+    { "action": "power-off-monitors", "effect": "unverifiable",
+      "reason": "DPMS state is not observable over grim in a VM" },
+    { "action": "toggle-keyboard-shortcuts-inhibit", "effect": "unverifiable",
+      "reason": "no shortcut-inhibiting client in the VM" },
+
+    { "action": "spawn-sh \"wpctl *\"", "effect": "audio-changes" },
+    { "action": "spawn \"brightnessctl\"*", "effect": "unverifiable",
+      "reason": "no backlight device in a VM" },
+    { "action": "spawn-sh \"playerctl *\"", "effect": "unverifiable",
+      "reason": "no MPRIS player running in the audit session" }
+  ]
+}

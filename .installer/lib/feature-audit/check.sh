@@ -17,7 +17,7 @@ _fa_check_on() {
   [[ " ${FEATURE_AUDIT_CHECKS:-$FA_CHECK_FAMILIES} " == *" $1 "* ]]
 }
 
-FA_CHECK_FAMILIES="manifest features programs"
+FA_CHECK_FAMILIES="manifest features programs binds"
 
 # _fa_check_manifest — every variant resolves to a valid Effective Config.
 _fa_check_manifest() {
@@ -122,12 +122,25 @@ _fa_check_programs() {
   done
 }
 
+# _fa_check_binds — every shipped keybind (parsed from the real configs) has
+# a declared, testable expectation.
+_fa_check_binds() {
+  local src chord action
+  for src in $(fa_binds_sources); do
+    while IFS=$'\t' read -r _ chord action; do
+      [[ -n "$chord" ]] || continue
+      echo "coverage: $src bind $chord ($action) has no audit expectation"
+    done < <(fa_binds_untested "$src" 2>&1)
+  done
+}
+
 fa_check() {
   local out
   out="$(
     _fa_check_on manifest && _fa_check_manifest
     _fa_check_on features && _fa_check_features
     _fa_check_on programs && _fa_check_programs
+    _fa_check_on binds && _fa_check_binds
     true
   )"
   [[ -z "$out" ]] && return 0

@@ -26,6 +26,8 @@
 #   sudo [cmd…]              run cmd (or stdin script) as root
 #   push <host-path> <dir>   copy a host file/dir into a guest dir (as user)
 #   net <on|off>             cut/restore guest internet (SSH stays up)
+#   key <chord> [hold-ms]    press a chord as real keyboard input (QMP)
+#   mouse move|btn|wheel …  real pointer input (QMP, absolute 0..32767)
 #
 # SSH uses the harness key (vm/.vm-cache/harness_ed25519, same as the persistent
 # flow). Privileged guest steps pipe the harness sudo password (default 12345,
@@ -53,7 +55,7 @@ die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
 
 usage() {
-  sed -n '4,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '4,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 # ── pure helpers (unit-tested; no libvirt, no SSH) ───────────────────────────
@@ -145,6 +147,76 @@ agent_net_cmd() {
   case "$1" in
     off) printf '%s\n' "sh -c '[ -s $saved ] || ip route show default > $saved; ip route del default 2>/dev/null; true'" ;;
     on)  printf '%s\n' "sh -c '[ -s $saved ] && while read -r r; do ip route replace \$r; done < $saved; rm -f $saved; true'" ;;
+    *) return 1 ;;
+  esac
+}
+
+# agent_key_qcodes <chord> — xkb-style chord (Mod+Shift+Return) → QEMU qcodes
+# in press order. Mod/Super/Meta/Win are the logo key. Fails on a key QEMU
+# cannot inject (brightness, mic-mute, ...), so a caller can mark it SKIP.
+agent_key_qcodes() {
+  local tok q; local -a qs=()
+  local IFS=+
+  for tok in $1; do
+    case "${tok,,}" in
+      mod|super|meta|win|logo) q=meta_l ;;
+      ctrl|control) q=ctrl ;;  shift) q="shift" ;;  alt) q=alt ;;
+      return|enter) q=ret ;;  escape|esc) q=esc ;;  space) q=spc ;;
+      tab) q=tab ;;  backspace) q=backspace ;;  delete) q=delete ;;
+      left|right|up|down|home|end|insert) q="${tok,,}" ;;
+      page_up|prior|pageup) q=pgup ;;  page_down|next|pagedown) q=pgdn ;;
+      print) q=print ;;  minus) q=minus ;;  equal) q=equal ;;
+      bracketleft) q=bracket_left ;;  bracketright) q=bracket_right ;;
+      comma) q=comma ;;  period) q="dot" ;;  slash) q=slash ;;
+      backslash) q=backslash ;;  semicolon) q=semicolon ;;
+      apostrophe) q=apostrophe ;;  grave) q=grave_accent ;;
+      xf86audioraisevolume) q=volumeup ;;
+      xf86audiolowervolume) q=volumedown ;;
+      xf86audiomute) q=audiomute ;;  xf86audioplay) q=audioplay ;;
+      xf86audionext) q=audionext ;;  xf86audioprev) q=audioprev ;;
+      xf86audiostop) q=audiostop ;;
+      [a-z0-9]) q="${tok,,}" ;;
+      f[0-9]|f1[0-2]) q="${tok,,}" ;;
+      *) return 1 ;;
+    esac
+    qs+=("$q")
+  done
+  local IFS=' '
+  printf '%s\n' "${qs[*]}"
+}
+
+# agent_key_qmp <down|up> "<qcodes>" — the QMP input-send-event batch;
+# releases go in reverse so modifiers are held around the key.
+agent_key_qmp() {
+  local dir="$1" codes="$2"
+  jq -cn --arg d "$dir" --arg c "$codes" '
+    ($c | split(" ") | if $d == "up" then reverse else . end) as $k
+    | { execute: "input-send-event",
+        arguments: { events: [ $k[] | { type: "key",
+          data: { down: ($d == "down"),
+                  key: { type: "qcode", data: . } } } ] } }'
+}
+
+# agent_mouse_qmp move <x> <y> | btn <left|right|middle> <down|up>
+#   | wheel <up|down> — QMP pointer events (absolute tablet, 0..32767).
+agent_mouse_qmp() {
+  case "$1" in
+    move)
+      jq -cn --argjson x "$2" --argjson y "$3" '{ execute: "input-send-event",
+        arguments: { events: [
+          { type: "abs", data: { axis: "x", value: $x } },
+          { type: "abs", data: { axis: "y", value: $y } } ] } }' ;;
+    btn)
+      [[ "$2" =~ ^(left|right|middle)$ && "$3" =~ ^(down|up)$ ]] || return 1
+      jq -cn --arg b "$2" --arg d "$3" '{ execute: "input-send-event",
+        arguments: { events: [ { type: "btn",
+          data: { down: ($d == "down"), button: $b } } ] } }' ;;
+    wheel)
+      [[ "$2" =~ ^(up|down)$ ]] || return 1
+      jq -cn --arg b "wheel-$2" '{ execute: "input-send-event",
+        arguments: { events: [
+          { type: "btn", data: { down: true, button: $b } },
+          { type: "btn", data: { down: false, button: $b } } ] } }' ;;
     *) return 1 ;;
   esac
 }
@@ -448,6 +520,28 @@ verb_net() {
   _sudo "$cmd"
   info "network ${1}."
 }
+
+# key <chord> [hold-ms] — press a chord as real keyboard input (QMP
+# input-send-event: modifiers held around the key), so compositor binds see
+# exactly what a human's keyboard sends (Feature Audit keybinds, ADR 0152).
+verb_key() {
+  local codes
+  codes="$(agent_key_qcodes "${1:-}")" \
+    || die "key: '${1:-}' is not injectable by QEMU"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp down "$codes")" \
+    >/dev/null || die "key press failed"
+  sleep "$(awk -v m="${2:-120}" 'BEGIN { printf "%.3f", m / 1000 }')"
+  virsh qemu-monitor-command "$VM_NAME" "$(agent_key_qmp up "$codes")" \
+    >/dev/null || die "key release failed"
+}
+
+# mouse move <x> <y> | btn <b> <down|up> | wheel <up|down> — real pointer
+# input via QMP (absolute coordinates 0..32767).
+verb_mouse() {
+  local j; j="$(agent_mouse_qmp "$@")" || die "mouse: bad arguments"
+  virsh qemu-monitor-command "$VM_NAME" "$j" >/dev/null \
+    || die "mouse event failed"
+}
 verb_lock()   { _sudo "loginctl lock-sessions";   info "locked."; }
 verb_unlock() { _sudo "loginctl unlock-sessions"; info "unlocked."; }
 
@@ -498,7 +592,7 @@ main() {
 
   case "$verb" in
     exec|launch|ssh|ready|session|greeter|logout|reboot|idle|lock|unlock|shot\
-    |pull|push|sudo|net) ;;
+    |pull|push|sudo|net|key|mouse) ;;
     *) usage >&2; die "unknown verb '$verb'" ;;
   esac
 

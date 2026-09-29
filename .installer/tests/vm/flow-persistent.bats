@@ -169,3 +169,12 @@ teardown() { rm -rf "$CACHE_DIR"; }
   run _render_installer_script https://example/repo.git 'k' aquastias
   [[ "$output" != *'log-pulled'* ]]
 }
+
+@test "render: an early payload death still emits an exit sentinel" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  # an EXIT trap reports a failure before install.sh even ran (bad clone,
+  # pacman error), so the host never waits out the full install timeout
+  [[ "$output" == *"trap "*"INSTALLER-EXIT-"*" EXIT"* ]]
+  [[ "$output" == *'rm -f /root/.install-exit'* ]]
+}

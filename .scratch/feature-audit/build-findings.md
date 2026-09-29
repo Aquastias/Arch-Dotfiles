@@ -25,3 +25,5 @@ Run). Fixed in the fix session, with the run's `findings.md`.
   visible.
 - **Noctalia plugin `eyecare` fetch fails at install** ("fetch failed
   (offline?) — skipped") with network up.
+- **Static audit fails on two VM hosts.** `tests/audit.sh`: `arch-secure` →
+  user `test` and `arch-data` → user `data` not found in `users/`.

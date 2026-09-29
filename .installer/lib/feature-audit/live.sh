@@ -49,7 +49,7 @@ fa_stage_repo() {
   top="$(git -C "$INSTALLER_DIR" rev-parse --show-toplevel)"
   dst="$CACHE_DIR/feature-audit-repo.git"
   [[ -z "$(git -C "$top" status --porcelain --untracked-files=no)" ]] \
-    || warn "Uncommitted changes are NOT audited (the guest clones HEAD)."
+    || warn "Uncommitted changes are NOT audited (the guest clones HEAD)." >&2
   rm -rf "$dst"
   git clone -q --bare "$top" "$dst"
   git -C "$dst" repack -a -d -q
@@ -425,6 +425,107 @@ fa_phase_probes() {
   since="$(fa_guest_now)"
   fa_run_probes "$vdir/probes-online" probes-online 1 "$cfg"
   fa_collect "$vdir/probes-online" "$since"
+}
+
+# ── keybinds (feature-audit/11+) ─────────────────────────────────────────────
+
+# fa_gexec <fn> [args…] — run a binds-guest.sh function in the live session.
+fa_gexec() {
+  local cmd="source /tmp/fa-binds-guest.sh;" a
+  for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
+  fa_agent exec "$cmd" 2>/dev/null
+}
+
+_fa_comp_proc() {
+  case "$1" in niri) echo niri ;; hyprland) echo Hyprland ;;
+    kde) echo kwin_wayland ;; esac
+}
+
+# _fa_bind_recover <recovery> <chord> <desktop>
+_fa_bind_recover() {
+  case "$1" in
+    escape)  fa_agent key Escape >/dev/null 2>&1 ;;
+    toggle)  fa_agent key "$2" >/dev/null 2>&1 ;;
+    unlock)  fa_agent unlock >/dev/null 2>&1 ;;
+    session) fa_agent session "$3" >/dev/null 2>&1
+             fa_agent idle off >/dev/null 2>&1
+             fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" \
+               /tmp >/dev/null 2>&1 ;;
+  esac
+  sleep 1
+}
+
+# _fa_bind_one <plan-row-json> <desktop> — one bind as real input; prints its
+# PASS/FAIL/SKIP line.
+_fa_bind_one() {
+  local row="$1" de="$2" chord effect arg needs rec id b a t rc sdir
+  chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
+  arg="$(jq -r '.arg // ""' <<<"$row")"; needs="$(jq -r '.needs // ""' <<<"$row")"
+  rec="$(jq -r '.recovery // ""' <<<"$row")"
+  id="bind-$(jq -r .source <<<"$row")-$chord"
+  if [[ "$effect" == unverifiable ]]; then
+    echo "SKIP $id unverifiable: $(jq -r '.reason // "no reason"' <<<"$row")"
+    return
+  fi
+  sdir="Pictures/Screenshots"
+  [[ "$effect" == file-created ]] && sdir="$arg"
+  fa_gexec fa_bsetup "$needs" "$effect" "$arg" >/dev/null
+  b="$(fa_gexec fa_bstate "$sdir")"
+  if ! fa_agent key "$chord" >/dev/null 2>&1; then
+    echo "SKIP $id key not injectable by QEMU"; fa_gexec fa_bteardown; return
+  fi
+  while IFS= read -r t; do
+    [[ -n "$t" ]] && { sleep 1; fa_agent key "$t" >/dev/null 2>&1; }
+  done < <(jq -r '.then[]?' <<<"$row")
+  if [[ "$effect" == session-ends ]]; then
+    local p; p="$(_fa_comp_proc "$de")"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      fa_agent sudo "pgrep -x $p" >/dev/null 2>&1 || break
+      sleep 1
+    done
+    if fa_agent sudo "pgrep -x $p" >/dev/null 2>&1; then
+      echo "FAIL $id ($(jq -r .action <<<"$row")) did not end the session"
+    else echo "PASS $id session ended"; fi
+    _fa_bind_recover "${rec:-session}" "$chord" "$de"
+    return
+  fi
+  sleep 1.5
+  a="$(fa_gexec fa_bstate "$sdir")"
+  rc=0
+  fa_gexec fa_beval "$effect" "$arg" "$b" "$a" >/dev/null || rc=$?
+  case "$rc" in
+    0) echo "PASS $id $effect" ;;
+    3) echo "SKIP $id $effect not observable here (no audio device)" ;;
+    *) echo "FAIL $id ($(jq -r .action <<<"$row")) expected $effect${arg:+ $arg}, not observed" ;;
+  esac
+  [[ -n "$rec" ]] && _fa_bind_recover "$rec" "$chord" "$de"
+  fa_gexec fa_bteardown >/dev/null
+}
+
+# fa_phase_keybinds <variant-dir> <cfg> — per compositor of the set, every
+# shipped bind as real keyboard input; session-ending binds last.
+fa_phase_keybinds() {
+  local vdir="$1" cfg="$2" de src dir since out row
+  while IFS= read -r de; do
+    [[ -n "$de" ]] || continue
+    dir="$vdir/keybinds-$de"; mkdir -p "$dir"
+    since="$(fa_guest_now)"
+    fa_agent session "$de" > "$dir/agent.txt" 2>&1 || {
+      echo "keybinds: session $de not ready" >> "$dir/session-start.lines"
+      continue; }
+    fa_agent idle off >/dev/null 2>&1 || true
+    fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" /tmp \
+      >/dev/null 2>&1
+    for src in $(fa_binds_sources); do
+      [[ "$(fa_binds_session "$src")" == "$de" ]] || continue
+      out="$dir/probe-binds-$src@$FA_USER.probe"
+      while IFS= read -r row; do
+        _fa_bind_one "$row" "$de" >> "$out"
+      done < <(fa_binds_plan "$src" | jq -c 'select(.effect != null)' \
+                 | jq -s -c 'sort_by(.session_ending // false) | .[]')
+    done
+    fa_collect "$dir" "$since"
+  done < <(fa_desktops "$cfg")
 }
 
 # fa_install <variant-dir> <vm-profile-file> — install through the persistent

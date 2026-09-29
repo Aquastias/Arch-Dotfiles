@@ -169,3 +169,48 @@ _stub_io='
   run bash "$AGENT" --vm no-such-vm-xyz net off
   [[ "$output" != *"unknown verb"* ]]
 }
+
+@test "key: chord → QMP qcodes (modifiers first, Mod = Super)" {
+  _call "agent_key_qcodes 'Mod+Shift+Return'"
+  [ "$status" -eq 0 ]
+  [ "$output" = "meta_l shift ret" ]
+  _call "agent_key_qcodes 'Ctrl+Alt+Delete'"
+  [ "$output" = "ctrl alt delete" ]
+  _call "agent_key_qcodes 'Super+Page_Down'"
+  [ "$output" = "meta_l pgdn" ]
+  _call "agent_key_qcodes 'Mod+BracketLeft'"
+  [ "$output" = "meta_l bracket_left" ]
+  _call "agent_key_qcodes 'XF86AudioRaiseVolume'"
+  [ "$output" = "volumeup" ]
+  _call "agent_key_qcodes 'Mod+slash'"
+  [ "$output" = "meta_l slash" ]
+}
+
+@test "key: a key QEMU cannot inject is rejected" {
+  _call "agent_key_qcodes 'XF86MonBrightnessUp'"
+  [ "$status" -ne 0 ]
+}
+
+@test "key: QMP event batch presses then releases in reverse" {
+  _call "agent_key_qmp down 'meta_l shift'"
+  [ "$status" -eq 0 ]
+  jq -e '.execute == "input-send-event"
+    and ([.arguments.events[] | .data.down] | all)
+    and [.arguments.events[].data.key.data] == ["meta_l","shift"]' <<<"$output"
+  _call "agent_key_qmp up 'meta_l shift'"
+  jq -e '[.arguments.events[].data.key.data] == ["shift","meta_l"]
+    and ([.arguments.events[] | .data.down] | any | not)' <<<"$output"
+}
+
+@test "mouse: move/btn/wheel → QMP events" {
+  _call "agent_mouse_qmp move 100 200"
+  jq -e '[.arguments.events[].data.axis] == ["x","y"]
+    and [.arguments.events[].data.value] == [100,200]' <<<"$output"
+  _call "agent_mouse_qmp btn left down"
+  jq -e '.arguments.events[0].data == {"down":true,"button":"left"}' \
+    <<<"$output"
+  _call "agent_mouse_qmp wheel up"
+  jq -e '.arguments.events[0].data.button == "wheel-up"' <<<"$output"
+  _call "agent_mouse_qmp spin 1"
+  [ "$status" -ne 0 ]
+}

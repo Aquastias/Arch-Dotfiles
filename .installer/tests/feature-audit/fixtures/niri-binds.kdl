@@ -1,0 +1,15 @@
+// comment { with braces }
+input { keyboard { xkb { layout "us"; } } }
+binds {
+    // a comment line
+    Mod+Return hotkey-overlay-title="Terminal: kitty" { spawn "kitty"; }
+    Mod+D hotkey-overlay-title="App Launcher" {
+        spawn-sh "noctalia msg panel-toggle launcher";
+    }
+    Mod+1 { focus-workspace 1; }
+    XF86AudioMute        allow-when-locked=true {
+        spawn-sh "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle";
+    }
+    Mod+Shift+E hotkey-overlay-title="Quit niri" { quit; }
+}
+window-rule { match app-id="x"; }
