@@ -39,6 +39,17 @@ first login, a plugin, a keybind, a timer, an upgrade.
 - **The guest audits committed HEAD**: the run serves the local repo as a
   dumb-HTTP bare clone on the harness HTTP root, so no push is needed and
   uncommitted changes are not audited.
+- **Keys are QMP `input-send-event`**, not `virsh send-key`: a chord's
+  modifiers must stay held around the key (and around pointer input for
+  Super+drag / Super+wheel binds), which send-key cannot express.
+- **Power is its own phase** (S3 wake + S4 resume need the host to wake or
+  restart the VM), and **desktop probes run inside each session phase**.
+- **Iteration aids:** `run --reuse` audits a kept VM without reinstalling
+  and `FEATURE_AUDIT_SKIP` drops phases; both are for re-checking fixes, a
+  full Audit Run never uses them.
+- **Base power daemon is power-profiles-daemon**; `tuned` is a variant, as it
+  conflicts with the ppd Plasma pulls (a real install abort the first run
+  found).
 - **nvim keymaps** go through nvim's own input queue (headless, one fresh
   nvim per bind, the user's real config); the terminal layer is proven by
   kitty's binds, sent as real keyboard input like the compositors'.

@@ -30,7 +30,8 @@ local ext = {
   bash = "sh", zsh = "zsh", nix = "nix", php = "php", svelte = "svelte",
   vue = "vue", html = "html", css = "css", scss = "scss", less = "less",
   yaml = "yaml", toml = "toml", markdown = "md", zig = "zig", kdl = "kdl",
-  xml = "xml", http = "http", astro = "astro",
+  xml = "xml", http = "http", astro = "astro", tex = "tex", typst = "typ",
+  dockerfile = "Dockerfile", make = "mk", cmake = "cmake", sql = "sql",
 }
 local body = {
   lua = "local x = 1\nreturn x\n", python = "x = 1\nprint(x)\n",
@@ -112,8 +113,15 @@ if not ok_reg then fail("nvim-registry", langs) else
       if not ok_c or not buf then skip(id, "no conform/sample")
       else
         local info = conform.get_formatter_info(f, buf)
-        if info.available then pass(id, "available")
-        else fail(id, info.available_msg or "unavailable") end
+        if not info.available then
+          fail(id, info.available_msg or "unavailable")
+        else
+          -- really format the sample: a present-but-broken tool fails here
+          local ok, e = pcall(conform.format, { bufnr = buf,
+            formatters = { f }, async = false, timeout_ms = 10000 })
+          if ok then pass(id, "formats a " .. ft .. " sample")
+          else fail(id, "format failed: " .. tostring(e)) end
+        end
       end
     end
   end
