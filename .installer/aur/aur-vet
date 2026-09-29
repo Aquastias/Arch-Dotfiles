@@ -67,9 +67,11 @@ _scan_tree() {
     if LC_ALL=C grep -Iq . "$root/$f" 2>/dev/null; then files+=("$root/$f")
     else bins+="${f}"$'\037'; fi
   done
-  awk -v root="$root" -v pkgbase="$base" -v days="$days" \
-    -v rules="$data/rules.tsv" -v indicators="$data/indicators.tsv" \
-    -v campaigns="$data/campaigns.tsv" -v binaries="$bins" -v tracked="$all" \
+  # Clone-derived strings go through the environment: awk -v would expand
+  # backslash escapes in file names.
+  AV_ROOT="$root" AV_PKGBASE="$base" AV_DAYS="$days" AV_BINARIES="$bins" \
+  AV_TRACKED="$all" awk -v rules="$data/rules.tsv" \
+    -v indicators="$data/indicators.tsv" -v campaigns="$data/campaigns.tsv" \
     -f "$(_lib_dir)/scan.awk" "${files[@]+"${files[@]}"}" </dev/null
 }
 
@@ -229,6 +231,8 @@ _ask() {
 
 # ── Trust signals (AUR RPC) ─────────────────────────────────────────────────
 _RPC_URL="https://aur.archlinux.org/rpc/v5/info"
+# An AUR package name (aurweb): lowercase alnum and @._+-, nothing else.
+_AUR_NAME='[a-z0-9@._+-]+'
 _TRUST_WINDOW=$((14 * 86400))
 
 # One RPC `info` answer for <pkgbase> (queried by <pkgname>), valid JSON or
@@ -238,7 +242,7 @@ _rpc_fetch() {
   if [[ -n "${AUR_VET_RPC_FIXTURE_DIR:-}" ]]; then
     out="$(cat "$AUR_VET_RPC_FIXTURE_DIR/$1.json" 2>/dev/null)" || return 1
   else
-    out="$(curl -fsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}")" \
+    out="$(curl -gfsS --max-time 20 "${_RPC_URL}?arg%5B%5D=${2//+/%2B}")" \
       || return 1
   fi
   jq -e '.results | type == "array"' >/dev/null 2>&1 <<<"$out" || return 1
@@ -268,7 +272,9 @@ _rpc_for() {
   local name
   name="$(awk -F' = ' '/^pkgname = / { print $2; exit }' \
     "$1/.SRCINFO" 2>/dev/null)"
-  _rpc_info "$2" "${name:-$2}"
+  # .SRCINFO is attacker text: only an AUR-shaped name may reach the URL.
+  [[ "$name" =~ ^$_AUR_NAME$ ]] || name="$2"
+  _rpc_info "$2" "$name"
 }
 
 # Trust findings (scan TSV shape, file "AUR") from the RPC <json> for
@@ -292,6 +298,9 @@ _trust() {
     .Maintainer // "", .Submitter // "", .FirstSubmitted // 0,
     .LastModified // 0, .OutOfDate // "", .NumVotes // 0]
     | map(tostring) | join("\u001f")' <<<"$r")
+  # Numbers only: these reach shell arithmetic, and the RPC is untrusted.
+  [[ "$first" =~ ^[0-9]+$ && "$last" =~ ^[0-9]+$ && "$votes" =~ ^[0-9]+$ ]] \
+    || _die "${base}: AUR RPC answer malformed"
   now="${AUR_VET_NOW:-$(date +%s)}"
   if [[ -n "$maint" && -n "$sub" && "$maint" != "$sub" ]] \
      && ((now - last < _TRUST_WINDOW)); then
@@ -444,6 +453,8 @@ _evaluate() {
   if ((!_E_RPC_DOWN)); then
     modified="$(jq -r --arg b "$base" '[.results[] | select(.PackageBase
       == $b)][0].LastModified // empty' <<<"$json")"
+    [[ -z "$modified" || "$modified" =~ ^[0-9]+$ ]] \
+      || _die "${base}: AUR RPC answer malformed"
   fi
   # Fail closed: an engine error must abort, never read as "no findings".
   local out keys="" trust="" has_prev=1
@@ -458,7 +469,9 @@ _evaluate() {
     1) has_prev=0 ;;
     *) _die "${base}: scan of the previous commit failed" ;;
   esac
-  ((_E_RPC_DOWN)) || trust="$(_trust "$json" "$base")"
+  if ((!_E_RPC_DOWN)); then
+    trust="$(_trust "$json" "$base")" || _die "${base}: trust check failed"
+  fi
 
   # Per-key counts in the previous commit and now; a rise is a gain.
   local -A before=() now=()
@@ -509,6 +522,7 @@ _evaluate() {
 # not allowlisted for this package ask n/y/a, or abort unattended.
 _hook() {
   local dir="$PWD" base="${PKGBASE:-$(basename "$PWD")}"
+  [[ "$base" =~ ^$_AUR_NAME$ ]] || _die "invalid package base: ${base}"
   git -C "$dir" rev-parse -q --verify HEAD >/dev/null 2>&1 \
     || _die "${base}: not an AUR git clone: ${dir}"
   local head; head="$(git -C "$dir" rev-parse HEAD)"

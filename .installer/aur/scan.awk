@@ -12,6 +12,10 @@
 # =============================================================================
 BEGIN {
   FS = "\t"
+  # Clone-derived inputs come via the environment (aur-vet _scan_tree).
+  root = ENVIRON["AV_ROOT"]; pkgbase = ENVIRON["AV_PKGBASE"]
+  days = ENVIRON["AV_DAYS"]; binaries = ENVIRON["AV_BINARIES"]
+  tracked = ENVIRON["AV_TRACKED"]
   nr = load(rules, rec)
   for (k = 1; k <= nr; k++) {
     if (split(rec[k], c, "\t") < 5) continue
@@ -67,7 +71,9 @@ function load(path, out,   line, held, t, r, cnt) {
 
 # ── per file ────────────────────────────────────────────────────────────────
 FNR == 1 {
-  f = FILENAME; sub("^" root "/", "", f)
+  # A plain prefix, not a regex: a clone path may hold "+" (gtk+-style names).
+  f = FILENAME
+  if (index(f, root "/") == 1) f = substr(f, length(root) + 2)
   kind = (f == "PKGBUILD") ? "pkgbuild" : (f ~ /\.install$/) ? "install" \
        : (f == ".SRCINFO") ? "srcinfo" : "other"
   infn = 0; bfn = 0; depth = 0; braced = 0; inarr = 0; arrsums = 0
