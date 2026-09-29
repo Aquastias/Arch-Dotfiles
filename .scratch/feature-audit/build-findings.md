@@ -27,3 +27,8 @@ Run). Fixed in the fix session, with the run's `findings.md`.
   (offline?) — skipped") with network up.
 - **Static audit fails on two VM hosts.** `tests/audit.sh`: `arch-secure` →
   user `test` and `arch-data` → user `data` not found in `users/`.
+- **VM Agent Control cannot reboot an encrypted persistent VM.** `vm-agent
+  session|reboot` waits for the compositor, but the ZFS unlock prompt sits on
+  serial (ADR 0099 routes the installed console there) with nothing answering
+  it; the box hangs at the prompt until someone types the passphrase. The
+  Feature Audit runs its own Console Answerer; a hand-driven debug VM does not.

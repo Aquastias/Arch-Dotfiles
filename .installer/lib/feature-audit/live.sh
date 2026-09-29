@@ -472,11 +472,15 @@ for d in "$P"/*/; do
     else
       uid="$(id -u "$a")"; rt="/run/user/$uid"
       wd="$(ls "$rt" 2>/dev/null | grep -E '^wayland-[0-9]+$' | head -1)"
+      # compositor IPC for the probes (niri msg / hyprctl)
+      ns="$(ls "$rt"/niri.*.sock 2>/dev/null | head -1)"
+      his="$(ls "$rt/hypr" 2>/dev/null | head -1)"
       timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
         LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
         PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
         XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" \
-        WAYLAND_DISPLAY="$wd" "${common[@]}" FA_IS_ROOT=0 \
+        WAYLAND_DISPLAY="$wd" NIRI_SOCKET="$ns" \
+        HYPRLAND_INSTANCE_SIGNATURE="$his" "${common[@]}" FA_IS_ROOT=0 \
         bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
     fi
     rc=$?
@@ -528,9 +532,17 @@ fa_phase_probes() {
 
 # ── keybinds (feature-audit/11+) ─────────────────────────────────────────────
 
+# fa_push_binds_lib — stage binds-guest.sh (the guest half of the keybind
+# engine) where fa_gexec sources it.
+fa_push_binds_lib() {
+  fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" \
+    /tmp/fa-binds >/dev/null 2>&1
+}
+
 # fa_gexec <fn> [args…] — run a binds-guest.sh function in the live session.
 fa_gexec() {
-  local cmd="source /tmp/fa-binds-guest.sh;" a
+  # vm-agent exec runs under set -e; the guest helpers branch on tests
+  local cmd="set +e; source /tmp/fa-binds/binds-guest.sh;" a
   for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
   fa_agent exec "$cmd" 2>/dev/null
 }
@@ -561,8 +573,8 @@ _fa_bind_recover() {
     unlock)  fa_agent unlock >/dev/null 2>&1 ;;
     session) fa_agent session "$3" >/dev/null 2>&1
              fa_agent idle off >/dev/null 2>&1
-             fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" \
-               /tmp >/dev/null 2>&1 ;;
+             fa_push_binds_lib
+             fa_gexec fa_bbaseline >/dev/null ;;
   esac
   sleep 1
 }
@@ -574,7 +586,11 @@ _fa_mouse_chord() {
   local chord="$1" mods btn
   mods="${chord%+mouse*}"; btn="${chord##*+}"
   [[ "$mods" == "$chord" ]] && mods=""
-  [[ -n "$mods" ]] && { fa_agent keydown "$mods" >/dev/null 2>&1 || return 1; }
+  fa_agent mouse move 16384 16384 >/dev/null 2>&1
+  if [[ -n "$mods" ]]; then
+    fa_agent keydown "$mods" >/dev/null 2>&1 || return 1
+    sleep 0.3   # the compositor must see the modifier held first
+  fi
   case "$btn" in
     mouse_down) fa_agent mouse wheel down ;;
     mouse_up)   fa_agent mouse wheel up ;;
@@ -660,8 +676,8 @@ fa_phase_keybinds() {
       echo "keybinds: session $de not ready" >> "$dir/session-start.lines"
       continue; }
     fa_agent idle off >/dev/null 2>&1 || true
-    fa_agent push "$INSTALLER_DIR/lib/feature-audit/binds-guest.sh" /tmp \
-      >/dev/null 2>&1
+    fa_push_binds_lib
+    fa_gexec fa_bbaseline >/dev/null
     for src in $(fa_binds_sources); do
       # app sources (session `*`) run once, in the first session
       case "$(fa_binds_session "$src")" in

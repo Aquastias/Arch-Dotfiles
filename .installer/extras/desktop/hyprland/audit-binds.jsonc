@@ -22,8 +22,7 @@
       "effect": "layout-changes" },
     { "action": "window.float({ action = \"toggle\" })",
       "effect": "layout-changes" },
-    { "action": "window.pseudo()", "effect": "layout-changes",
-      "needs": "floating" },
+    { "action": "window.pseudo()", "effect": "layout-changes" },
 
     { "action": "focus({ direction = \"left\" })", "effect": "focus-changes",
       "needs": "dir:left" },

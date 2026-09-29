@@ -127,13 +127,16 @@ fa_bstate() {
 # fa_bsetup <needs> <effect> <arg> — reset to a known scene before a bind: test
 # windows on the first workspace (+ a stack / floating / 2nd workspace when
 # the bind needs one). Best-effort; the effect check is the judge.
+# _fa_hl <lua> — a Hyprland dispatch. The shipped config is Lua, where
+# `hyprctl dispatch` evaluates Lua: legacy dispatcher names fail.
+_fa_hl() { hyprctl dispatch "$1" >/dev/null 2>&1; }
+
 fa_bsetup() {
   local needs="$1" effect="$2" arg="${3:-}" comp n want=2 dir=""
   comp="$(_fa_comp)"
   _fa_act() {
     case "$comp" in
       niri) niri msg action "$@" >/dev/null 2>&1 ;;
-      Hyprland) hyprctl dispatch "$@" >/dev/null 2>&1 ;;
     esac
   }
   [[ "$needs" =~ windows:([0-9]+) ]] && want="${BASH_REMATCH[1]}"
@@ -142,31 +145,34 @@ fa_bsetup() {
   [[ -n "$dir" && "$comp" == Hyprland && "$want" -lt 3 ]] && want=3
   case "$comp" in
     niri) _fa_act focus-workspace 1 ;;
-    Hyprland) _fa_act workspace 1 ;;
+    Hyprland) _fa_hl "hl.dsp.focus({ workspace = 1 })" ;;
     kwin_wayland) qdbus6 org.kde.KWin /KWin org.kde.KWin.setCurrentDesktop 1 \
       >/dev/null 2>&1 ;;
   esac
-  n="$(_fa_windows | jq --arg c "$FA_BIND_CLASS" '[.[] | select(.app == $c)]
-    | length')"
+  # test windows on the (now current) first workspace only
+  n="$(_fa_windows | jq --arg c "$FA_BIND_CLASS" \
+    --argjson w "$(_fa_workspace | jq .id)" \
+    '[.[] | select(.app == $c and .ws == $w)] | length')"
   while ((n < want)); do
     setsid -f kitty --class "$FA_BIND_CLASS" >/dev/null 2>&1
     sleep 1.5; n=$((n + 1))
   done
   [[ "$needs" == *stack* && "$comp" == niri ]] \
-    && _fa_act consume-window-into-column
+    && _fa_act consume-or-expel-window-left   # focused joins the left column
   if [[ "$needs" == *floating* ]]; then
     case "$comp" in
       niri) _fa_act toggle-window-floating ;;
-      Hyprland) _fa_act togglefloating ;;
+      Hyprland) _fa_hl 'hl.dsp.window.float({ action = "toggle" })' ;;
     esac
   fi
   if [[ "$needs" == *ws2win* && "$comp" == Hyprland ]]; then
-    _fa_act movetoworkspacesilent 2
+    _fa_hl "hl.dsp.window.move({ workspace = 2, silent = true })"
+    _fa_hl "hl.dsp.focus({ workspace = 1 })"   # silent may still follow
   fi
   if [[ "$needs" == *workspace2* ]]; then
     case "$comp" in
       niri) _fa_act focus-workspace 2 ;;
-      Hyprland) _fa_act workspace 2 ;;
+      Hyprland) _fa_hl "hl.dsp.focus({ workspace = 2 })" ;;
       kwin_wayland) qdbus6 org.kde.KWin /KWin \
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
@@ -177,7 +183,7 @@ fa_bsetup() {
       desktop:*)          # start on workspace/desktop N (grid navigation)
         case "$comp" in
           niri) _fa_act focus-workspace "${tok#desktop:}" ;;
-          Hyprland) _fa_act workspace "${tok#desktop:}" ;;
+          Hyprland) _fa_hl "hl.dsp.focus({ workspace = ${tok#desktop:} })" ;;
           kwin_wayland) qdbus6 org.kde.KWin /KWin \
             org.kde.KWin.setCurrentDesktop "${tok#desktop:}" >/dev/null 2>&1 ;;
         esac ;;
@@ -194,7 +200,7 @@ fa_bsetup() {
   if [[ "$effect" == workspace && "$arg" == 1 ]]; then
     case "$comp" in
       niri) _fa_act focus-workspace-down ;;
-      Hyprland) _fa_act workspace 10 ;;
+      Hyprland) _fa_hl "hl.dsp.focus({ workspace = 10 })" ;;
       kwin_wayland) qdbus6 org.kde.KWin /KWin \
         org.kde.KWin.setCurrentDesktop 2 >/dev/null 2>&1 ;;
     esac
@@ -224,7 +230,8 @@ _fa_focus_for_dir() {
            elif $d == "up" then max_by(.at[1])
            else (map(select(.size[1] < $H)) | min_by(.at[1])) end)
         | .address // empty')"
-      [[ -n "$pick" ]] && _fa_act focuswindow "address:$pick" ;;
+      [[ -n "$pick" ]] \
+        && _fa_hl "hl.dsp.focus({ window = \"address:$pick\" })" ;;
     kwin_wayland) _fa_kwin_arrange "$dir" ;;
   esac
 }
@@ -263,10 +270,32 @@ if (ws.length >= 2) {
 }"
 }
 
-# fa_bteardown — drop the scene's leftovers (floating/stack states and the
-# test windows themselves are recreated per bind).
+# fa_bbaseline — remember the windows open before the keybind phase, so
+# teardown can close whatever a bind opened (launchers, task entries, …).
+fa_bbaseline() {
+  mkdir -p /tmp/fa-binds
+  _fa_windows | jq -r '.[].id | tostring' > /tmp/fa-binds/baseline
+}
+
+# fa_bteardown — drop the scene: the test windows (recreated per bind) and
+# every window a bind opened since the baseline.
 fa_bteardown() {
+  local comp id
   pkill -f -- "--class $FA_BIND_CLASS" >/dev/null 2>&1 || true
+  comp="$(_fa_comp)"
+  [[ -f /tmp/fa-binds/baseline ]] || { sleep 0.5; return 0; }
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
+    case "$comp" in
+      niri) niri msg action close-window --id "$id" >/dev/null 2>&1 ;;
+      Hyprland) _fa_hl "hl.dsp.window.close({ window = \"address:$id\" })" ;;
+      kwin_wayland) _fa_kwin_run "workspace.windowList().forEach(
+        function (w) { if (w.internalId.toString() == '$id')
+          w.closeWindow(); });" ;;
+    esac
+  done < <(_fa_windows | jq -r --rawfile b /tmp/fa-binds/baseline '
+    ($b | split("\n")) as $k
+    | .[] | (.id | tostring) as $i | select($k | index($i) | not) | $i')
   sleep 0.5
 }
 
