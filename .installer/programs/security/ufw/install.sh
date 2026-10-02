@@ -24,6 +24,9 @@ ${AUR_HELPER} -S --noconfirm --needed ufw
 
 print_status info "Resetting UFW to defaults..."
 sudo ufw --force reset
+# ufw warns on every call while its rule files are world-readable: keep them
+# root-only (reset just re-copied them).
+sudo chmod 0640 /etc/ufw/*.rules
 
 print_status info "Setting default policies..."
 sudo ufw default deny incoming
