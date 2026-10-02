@@ -273,3 +273,12 @@ noise() {
   run bash "$TOOL" check
   [ "$status" -eq 0 ]
 }
+
+@test "noise: an array regex is validated as its joined whole" {
+  export FEATURE_AUDIT_CHECKS="noise"
+  manifest '[{"id":"base"}]'
+  noise '[{"regex":["^(ok","|bad"],"reason":"r"}]'
+  run bash "$TOOL" check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"ok|bad"* ]]
+}

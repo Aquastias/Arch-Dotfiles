@@ -160,7 +160,7 @@ _fa_check_noise() {
   ids="$(jq -c '[.variants[].id]' <<<"$m")"
   jsonc_strip "$f" | jq -r --argjson ids "$ids" '
     if type != "array" then "noise: not a JSON array" else .[] |
-      (.regex // "?") as $r |
+      (.regex // "?" | if type == "array" then join("") else . end) as $r |
       (if (.reason // "") == "" then "noise: \($r) has no reason"
        else empty end),
       (if .variants == null then empty
@@ -174,7 +174,8 @@ _fa_check_noise() {
     # via ENVIRON: awk -v would process the regex's backslash escapes
     R="$re" awk 'BEGIN { if ("" ~ ENVIRON["R"]) {} }' 2>/dev/null \
       || echo "noise: invalid regex $re"
-  done < <(jsonc_strip "$f" | jq -r '.[]?.regex // empty' 2>/dev/null)
+  done < <(jsonc_strip "$f" | jq -r '.[]?.regex // empty
+    | if type == "array" then join("") else . end' 2>/dev/null)
 }
 
 fa_audit_check() {

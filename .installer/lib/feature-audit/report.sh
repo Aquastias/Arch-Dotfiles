@@ -30,11 +30,13 @@ fa_known_noise_path() {
 }
 
 # _fa_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase<TAB>variants`
-# rows (variants comma-joined; empty = every variant).
+# rows (variants comma-joined; empty = every variant; an array regex is one
+# regex split across lines and concatenated, so the file keeps 80 columns).
 _fa_noise_tsv() {
   local f; f="$(fa_known_noise_path)"
   [[ -f "$f" ]] || return 0
-  jsonc_strip "$f" | jq -r '.[] | [.regex, (.source // ""), (.phase // ""),
+  jsonc_strip "$f" | jq -r '.[] | [(.regex | if type == "array"
+      then join("") else . end), (.source // ""), (.phase // ""),
     ((.variants // []) | join(","))]
     | join("\t")'  # not @tsv: it escapes the regexes' backslashes
 }

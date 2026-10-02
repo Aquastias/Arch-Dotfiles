@@ -323,3 +323,14 @@ EOF2
   report
   [ "$status" -eq 2 ]
 }
+
+@test "known noise regex may be an array of concatenated pieces (80 cols)" {
+  cat > "$NOISE" <<'EOF2'
+[ { "regex": ["^(alpha\\[[0-9]+\\]: one|", "beta: two)"], "reason": "r" } ]
+EOF2
+  art base boot1 journal.lines "alpha[1]: one thing" "beta: two things" \
+    "gamma: failed"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e '.excerpt | startswith("gamma")' >/dev/null
+}
