@@ -84,6 +84,8 @@ _changed_root_map() {
       echo "wipe-live-medium.bats wipe-prior-install-state.bats" \
            "wipe-probe.bats wipe-select.bats" ;;
     .installer/programs/security/sops*) echo "sops.bats" ;;
+    .installer/programs/*/*/services/*)
+      echo "programs/unit-exec-paths.bats profiles/user-units-validate.bats" ;;
     *) return 1 ;;
   esac
 }

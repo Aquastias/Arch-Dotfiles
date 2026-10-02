@@ -3,7 +3,7 @@ Description=Run daily rkhunter scan
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/rkhunter_scan.sh
+ExecStart=/usr/local/lib/rkhunter/rkhunter_scan.sh
 
 Environment=DISPLAY=:0
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
