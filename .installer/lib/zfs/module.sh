@@ -139,7 +139,7 @@ zfs_install_dkms() {
   local kver="$1"
 
   info "Falling back to DKMS build for kernel ${kver} ..."
-  warn "This will take 5–30 minutes depending on CPU speed."
+  info "This will take 5–30 minutes depending on CPU speed."
   info "cowspace has been pre-expanded for this build (~900 MB needed)."
 
   # ── Locate kernel headers for the EXACT running kernel ──────────────────────
