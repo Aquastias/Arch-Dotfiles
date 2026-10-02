@@ -10,8 +10,8 @@ setup() {
 
 # ── need estimate ────────────────────────────────────────────────────────────
 
-@test "esp_budget_need_mib: grub is exempt (tiny fixed ESP)" {
-  [ "$(esp_budget_need_mib 4 zfs grub)" -eq 512 ]
+@test "esp_budget_need_mib: grub is exempt (fixed 1G floor ESP)" {
+  [ "$(esp_budget_need_mib 4 zfs grub)" -eq 1024 ]
 }
 
 @test "esp_budget_need_mib: four ZFS kernels ≈ 1.9G (systemd-boot)" {
@@ -39,8 +39,8 @@ setup() {
   [ "$(esp_budget_auto_size 5 zfs systemd-boot)" = "2304M" ]
 }
 
-@test "esp_budget_auto_size: grub takes the fixed small ESP" {
-  [ "$(esp_budget_auto_size 5 zfs grub)" = "512M" ]
+@test "esp_budget_auto_size: grub takes the fixed 1G floor ESP" {
+  [ "$(esp_budget_auto_size 5 zfs grub)" = "1G" ]
 }
 
 @test "esp_budget_auto_size: efistub/limine/refind size like systemd-boot" {

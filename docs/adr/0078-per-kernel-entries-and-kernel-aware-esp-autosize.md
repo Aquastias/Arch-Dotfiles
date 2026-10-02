@@ -2,7 +2,8 @@
 
 Status: accepted (amends ADR 0038 — lifts its primary-only entry rule and its
 static `esp_size` default; amends ADR 0077 — supersedes its "keep primary-only"
-line and makes the efistub secondary-ESP entry concrete)
+line and makes the efistub secondary-ESP entry concrete); amended 2026-10-02
+(grub auto ESP = the 1G floor)
 
 Every Bootloader Adapter now boots **every selected kernel**, not just the
 Primary. The Kernel Selection already lands in install-state as the ordered
@@ -103,3 +104,14 @@ ADR 0038 was written to prevent.
   Guided live Kernels / Disks checks — the single source of the `need` estimate.
 - Implementation TODO: pin the real compressed `zfs.ko`-in-initramfs surcharge
   by measurement; ~30M/kernel is the working budget until then.
+
+## Amendment (2026-10-02): grub's auto ESP is the 1G floor
+
+The first full Audit Run found grub uninstallable: `auto` resolved grub's
+"fixed small ESP" to 512M, and the absolute 1G floor (ADR 0038) rejected
+it at validation. The two rules above contradicted each other. The floor
+wins: grub's `auto` ESP is now 1G. grub stays exempt from the per-kernel
+budget (it still reads `/boot` natively); only its fixed size moves.
+Rejected: exempting grub from the floor — a second, loader-specific rule
+for a 512M saving. An existing ESP cannot easily grow later, so the floor
+stays the one rule for every loader.

@@ -123,12 +123,12 @@ write_config() {
   [ "$output" = "2304M" ]
 }
 
-@test "layout_resolve_esp_size: auto gives grub a fixed small ESP (ADR 0078)" {
+@test "layout_resolve_esp_size: auto gives grub the fixed 1G floor (ADR 0078)" {
   write_config '{"filesystem":"zfs","options":{"esp_size":"auto",
     "bootloader":"grub","kernel":["lts","zen"]}}'
   run layout_resolve_esp_size
   [ "$status" -eq 0 ]
-  [ "$output" = "512M" ]
+  [ "$output" = "1G" ]
 }
 
 @test "layout_validate_esp_size: pinned 1G too small for 4 kernels aborts" {
@@ -143,6 +143,12 @@ write_config() {
 @test "layout_validate_esp_size: auto never triggers the budget guard" {
   write_config '{"filesystem":"zfs","options":{"esp_size":"auto",
     "kernel":["lts","default","hardened","zen"]}}'
+  run layout_validate_esp_size
+  [ "$status" -eq 0 ]
+}
+
+@test "layout_validate_esp_size: grub + auto clears the 1G floor" {
+  write_config '{"options":{"esp_size":"auto","bootloader":"grub"}}'
   run layout_validate_esp_size
   [ "$status" -eq 0 ]
 }

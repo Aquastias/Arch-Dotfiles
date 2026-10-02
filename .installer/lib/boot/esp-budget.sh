@@ -8,7 +8,7 @@
 # is partitioned before any initramfs is built, so it uses a per-kernel budget,
 # not real file sizes; ADR 0038's runtime PreTransaction preflight stays the
 # truth-time backstop. Only ESP-mirroring loaders count kernels; grub reads
-# /boot natively and takes a fixed small ESP.
+# /boot natively and takes the fixed 1G floor (ADR 0038 floor is absolute).
 #
 # Measured budget (raw layout, ADR 0078): vmlinuz ~16M, default initramfs ~54M,
 # fallback initramfs ~205M, zfs module ~+30M/kernel. Pure: no disk or state.
@@ -20,7 +20,7 @@ _ESP_BUDGET_DEFAULT_MIB=54
 _ESP_BUDGET_FALLBACK_MIB=205
 _ESP_BUDGET_ZFS_MIB=30          # zfs module surcharge per kernel (zfs root)
 _ESP_BUDGET_TRANSIENT_MIB=205   # one fallback temp-then-rename during a sync
-_ESP_BUDGET_GRUB_MIB=512        # grub's tiny fixed ESP (kernels stay on /boot)
+_ESP_BUDGET_GRUB_MIB=1024       # grub: kernels stay on /boot; 1G floor wins
 _ESP_BUDGET_FLOOR_MIB=2048      # ADR 0038's 2G default — auto never goes below
 
 # esp_budget_need_mib <kernel_count> <fs> <loader> — estimated ESP need in MiB.
@@ -45,7 +45,7 @@ _esp_mib_to_size() {
 }
 
 # esp_budget_auto_size <kernel_count> <fs> <loader> — the resolved esp_size
-# string. grub → its fixed small ESP; ESP-mirroring loaders → the need rounded
+# string. grub → the fixed 1G floor; ESP-mirroring loaders → the need rounded
 # up to 256 MiB, never below the 2G floor (upward-only).
 esp_budget_auto_size() {
   local n="$1" fs="$2" loader="$3" need mib
