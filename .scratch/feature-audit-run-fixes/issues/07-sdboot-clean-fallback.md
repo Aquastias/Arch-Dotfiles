@@ -6,7 +6,12 @@ into the loader entry; fallback entries are valid and boot. Fixes the logind
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] loader-entries.bats: noisy staging still yields a clean entry
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+
+## Comments
+
+mkinitcpio stdout leaked into the captured fallback name; staging extracted
+to lib/boot/esp-stage.sh (02c769b).

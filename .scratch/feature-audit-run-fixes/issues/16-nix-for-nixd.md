@@ -6,6 +6,11 @@ coredumps (F550-F552 etc.).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+
+## Comments
+
+nix was already installed; root cause /nix/store missing (worker aborts). New
+nix host program: nix-daemon + tmpfiles store (43822af).

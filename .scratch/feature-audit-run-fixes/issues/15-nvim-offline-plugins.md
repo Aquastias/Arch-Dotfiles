@@ -7,7 +7,13 @@ Findings.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
 probes-offline)
+
+## Comments
+
+lazy-lock.json committed; Lazy! restore at install for user and root from a
+writable copy (58d860d, 6d33cac); orgmode grammar built at install (e9f29e3).
+/etc/skel not staged: plugins would be copied per new user; deliberate.

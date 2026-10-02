@@ -5,8 +5,13 @@ the Console Answerer sees and answers the ZFS unlock prompt. Fixes F258.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] seed-generator.bats: console=ttyS0 for each of the five loaders
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (efistub,
 limine, refind)
+
+## Comments
+
+Test-only INSTALL_EXTRA_CMDLINE=console=ttyS0 appended to every non-grub
+adapter's DEFAULT_OPTS, exported by both VM flows (724a0cd).

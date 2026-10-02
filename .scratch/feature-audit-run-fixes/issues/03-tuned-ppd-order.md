@@ -6,7 +6,13 @@ prompt aborts the install (ADR 0080). Arch Wiki-grounded. Fixes F002 (tuned).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Arch Wiki page cited
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (tuned)
+
+## Comments
+
+Root cause: Noctalia plugin deps hard-listed power-profiles-daemon; dropped,
+power.profile owns the daemon (9f8d31c). Also paccache --noconfirm hook fix
+(b05eb61).

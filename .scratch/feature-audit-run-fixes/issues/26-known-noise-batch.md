@@ -8,7 +8,11 @@ pass, then committed.
 
 **Blocked by:** 08, 09, 11, 20, 21, 22, 23, 24, 25
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Maintainer approval recorded
 - [ ] check passes with the new entries
+
+## Comments
+
+Approved batch committed (9c0b6a2, 9ff2684).

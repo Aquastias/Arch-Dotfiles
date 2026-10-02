@@ -7,7 +7,12 @@ F587, ts3 coredumps.
 
 **Blocked by:** 12
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Root cause noted in Comments
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+
+## Comments
+
+Root cause: launcher forces -platform xcb; the probe runner gave no
+DISPLAY/XAUTHORITY. Verified launching on the held VM (29b7e08).

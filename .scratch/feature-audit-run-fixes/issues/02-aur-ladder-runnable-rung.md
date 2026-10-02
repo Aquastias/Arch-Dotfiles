@@ -7,9 +7,14 @@ libalpm.so.15). Amends ADR 0052.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] profiles-bootstrap.bats: non-running helper drops to next rung
 - [ ] profiles-bootstrap.bats: bootstrap build env set for rung 1
 - [ ] ADR 0052 amended
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (minimal)
+
+## Comments
+
+Rung counts only if the helper runs; lean source build (f84a402); ADR 0052
+amended. Live run: minimal landed source paru.

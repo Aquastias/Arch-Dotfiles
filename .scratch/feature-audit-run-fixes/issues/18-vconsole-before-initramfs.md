@@ -6,7 +6,13 @@ vconsole journal Findings.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Install log has no sd-vconsole 'not found' warning
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base)
+
+## Comments
+
+Install warning is pacstrap's throwaway image (Known Noise). Boot failure on
+greetd/pure: early KMS via the kms hook, except NVIDIA (31d2831, ef153af);
+ADR 0043 amended.

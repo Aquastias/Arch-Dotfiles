@@ -8,7 +8,7 @@ services-off (F591-F595), xdg dirs on stock (F379-F384), smartd on kde-pure
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] New probe-lib bats: fixture profiles (stock, no shell, services off) →
 SKIP; base → runs
@@ -16,3 +16,8 @@ SKIP; base → runs
 - [ ] ADR 0152 amended
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone
 (services-off, hyprland-pure, kde-pure)
+
+## Comments
+
+Probe Gate: program-level (gate.sh) + check-level (probe-lib); skips listed
+in findings.md; ADR 0152 amended (dfe4369).

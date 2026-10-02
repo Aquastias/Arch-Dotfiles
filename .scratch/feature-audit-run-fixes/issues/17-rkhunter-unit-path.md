@@ -6,7 +6,12 @@ Findings.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done (pending the full Audit Run, ticket 27)
 
 - [ ] Re-checked with `run --variant`/`--reuse`; its Findings gone (base
 timers)
+
+## Comments
+
+Unit path fixed + exec-path test (a5d1601); the scan also needed the whole
+Shell Stdlib staged (f8b5ffb).
