@@ -88,3 +88,15 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
   [ "$status" -eq 0 ]
   [[ "$output" == *"export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'"* ]]
 }
+
+@test "http: serves when REPO_URL is on the harness HTTP root" {
+  # The guided Audit Variant clones the audit's dumb-HTTP repo; with no
+  # fixtures declared nothing was served (Audit Run 20260929, exit 128).
+  LIBVIRT_GATEWAY=192.168.122.1 HTTP_PORT=9876
+  REPO_URL=http://192.168.122.1:9876/feature-audit-repo.git
+  run _flow_repo_on_http_root
+  [ "$status" -eq 0 ]
+  REPO_URL=https://github.com/x/y.git
+  run _flow_repo_on_http_root
+  [ "$status" -ne 0 ]
+}

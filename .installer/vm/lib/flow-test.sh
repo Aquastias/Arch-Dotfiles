@@ -202,8 +202,15 @@ _stop_console_answerer() {
 # gateway, so the in-guest Secrets Module can fetch the Test Age Key
 # (http://<gateway>:<port>/key.age) during a secure install. No-op when the
 # profile declares no fixtures. Static files via serve-http.sh (socat, no python).
+# _flow_repo_on_http_root — true when REPO_URL is served from this flow's own
+# HTTP root (the Feature Audit's dumb-HTTP repo, ADR 0152), so the server must
+# run even with no fixtures declared.
+_flow_repo_on_http_root() {
+  [[ "${REPO_URL:-}" == "http://${LIBVIRT_GATEWAY}:${HTTP_PORT}/"* ]]
+}
+
 _start_fixture_http_server() {
-  _fixture_http_should_serve || return 0
+  _fixture_http_should_serve || _flow_repo_on_http_root || return 0
   _stage_fixture_files
   "${FLOW_TEST_DIR}/serve-http.sh" "${CACHE_DIR}" "${LIBVIRT_GATEWAY}" \
     "${HTTP_PORT}" >/dev/null 2>&1 &

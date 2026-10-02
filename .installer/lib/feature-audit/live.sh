@@ -742,6 +742,7 @@ fa_run_guided() {
   mkdir -p "$dir/install" "$dir/boot1"
   LOG_FILE="$dir/install/installer.log" \
     BOOT_LOG_FILE="$dir/boot1/serial.log" REPO_URL="$FA_REPO_URL" \
+    CACHE_DIR="$CACHE_DIR" \
     bash "$INSTALLER_DIR/vm/vm.sh" --guided --profile "$ref" --verify-boot \
     --recreate > "$dir/install/harness.txt" 2>&1 || rc=$?
   ((rc == 0)) || fa_fatal "$dir/install" \
