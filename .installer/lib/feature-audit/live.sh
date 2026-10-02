@@ -204,7 +204,10 @@ for t in $(systemctl list-timers --all --no-legend --plain \
   u="$(systemctl show -p Unit --value "$t")"
   [ -n "$u" ] || continue
   if timeout 900 systemctl start "$u" >/dev/null 2>&1; then
-    echo "PASS timer-$t started $u"
+    # a unit Condition* skip also "starts" fine: say it never ran
+    if [ "$(systemctl show -p ConditionResult --value "$u")" = no ]; then
+      echo "SKIP timer-$t $u skipped: its unit condition is unmet"
+    else echo "PASS timer-$t started $u"; fi
   else
     echo "FAIL timer-$t $u failed or timed out"
   fi
