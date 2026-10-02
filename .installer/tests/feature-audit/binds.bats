@@ -145,3 +145,24 @@ J
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "plan: a chord+action expectation holds only for that action" {
+  # Regression (Audit Run 20260929): {chord K, action "n Hover"} also claimed
+  # visual-mode K (Move selection up) and judged it as an LSP hover.
+  cat > "$BATS_TEST_TMPDIR/k.lua" <<'L'
+vim.keymap.set("n", "K", vim.lsp.buf.hover, { desc = "Hover" })
+vim.keymap.set("v", "K", ":m '<-2<cr>gv=gv", { desc = "Move selection up" })
+L
+  cat > "$BATS_TEST_TMPDIR/b.jsonc" <<'J'
+{ "expect": [
+  { "chord": "K", "action": "n Hover", "effect": "window-opens" },
+  { "action": "v Move selection *", "effect": "text-changes" }
+] }
+J
+  run fa_binds_plan nvim "$BATS_TEST_TMPDIR/k.lua" "$BATS_TEST_TMPDIR/b.jsonc"
+  [ "$status" -eq 0 ]
+  jq -e 'select(.action == "n Hover") | .effect == "window-opens"' \
+    <<<"$output"
+  jq -e 'select(.action == "v Move selection up") | .effect == "text-changes"' \
+    <<<"$output"
+}

@@ -11,9 +11,16 @@ fa_as_user || return 0
 export TERM=xterm-256color
 fx="$FA_DIR/audit-fixtures"
 o="$(mktemp)" live="$(mktemp)"
+# Run the lua after VimEnter, as a user's keypress would be: -c runs before
+# it, so VeryLazy plugins (bufferline) were never loaded.
+# _fa_nvim <timeout> <lua-file> (env passes through to nvim)
+_fa_nvim() {
+  timeout "$1" nvim --headless -c "autocmd VimEnter * ++once lua
+    vim.schedule(function() vim.cmd.luafile('$2') end)"
+}
 
-if FA_OUT="$o" FA_LIVE="$live" timeout 900 \
-     nvim --headless -c "luafile $fx/probe.lua" >/dev/null 2>/tmp/fa-nvim.err
+if FA_OUT="$o" FA_LIVE="$live" \
+     _fa_nvim 900 "$fx/probe.lua" >/dev/null 2>/tmp/fa-nvim.err
 then cat "$o"
 else
   cat "$o"
@@ -31,7 +38,8 @@ _fa_live_plan() {
     "$FA_DIR/audit-binds.jsonc" | jq -c .)"
   jq -R -c --argjson e "$ej" -f "$FA_DIR/binds-plan.jq" < "$live"
 }
-while IFS=$'\t' read -r key mode effect arg needs; do
+# \x1f, not a tab: IFS whitespace collapses an empty field and shifts the rest
+while IFS=$'\x1f' read -r key mode effect arg needs; do
   id="bind-nvim-$key"
   case "$effect" in
     none) fa_fail nvim-untested-bind "$mode $key has no audit expectation"
@@ -40,8 +48,8 @@ while IFS=$'\t' read -r key mode effect arg needs; do
   esac
   : > "$o"
   FA_KEY="$key" FA_MODE="$mode" FA_EFFECT="$effect" FA_ARG="$arg" \
-    FA_ID="$id" FA_NEEDS="$needs" FA_OUT="$o" timeout 40 \
-    nvim --headless -c "luafile $fx/key.lua" >/dev/null 2>&1
+    FA_ID="$id" FA_NEEDS="$needs" FA_OUT="$o" \
+    _fa_nvim 40 "$fx/key.lua" >/dev/null 2>&1
   rc=$?
   if [[ -s "$o" ]]; then cat "$o"
   elif [[ "$effect" == quits && "$rc" == 0 ]]; then fa_pass "$id" "quit nvim"
@@ -51,5 +59,5 @@ while IFS=$'\t' read -r key mode effect arg needs; do
 done < <({ cat "$FA_DIR/binds-plan.jsonl"; _fa_live_plan; } \
   | jq -r '[.chord, (.action | split(" ")[0] | split(",")[0]),
             (.effect // "none"), (.arg // .reason // ""),
-            (.needs // "")] | @tsv')
+            (.needs // "")] | join("\u001f")')
 rm -f "$o" "$live"

@@ -4,7 +4,7 @@
 -- before/after snapshot. Env: FA_KEY FA_MODE FA_EFFECT FA_ARG FA_ID FA_OUT
 -- FA_NEEDS (lsp = wait for a client; ft:<x> = a <x> sample instead of Lua).
 -- The sample lives in a throwaway git repo (git maps need one) and has
--- foldable blocks (fold maps need them).
+-- foldable blocks (fold maps need them) and a remote (git-browse maps).
 local lhs, mode = os.getenv("FA_KEY"), os.getenv("FA_MODE") or "n"
 local effect, id = os.getenv("FA_EFFECT"), os.getenv("FA_ID")
 local arg = os.getenv("FA_ARG") or ""
@@ -40,6 +40,10 @@ vim.fn.system({ "git", "-C", repo, "init", "-q" })
 vim.fn.system({ "git", "-C", repo, "add", "." })
 vim.fn.system({ "git", "-C", repo, "-c", "user.name=fa", "-c",
   "user.email=fa@audit", "commit", "-qm", "fa" })
+-- a remote for the git-browse maps; the opener is stubbed (no browser)
+vim.fn.system({ "git", "-C", repo, "remote", "add", "origin",
+  "https://github.com/fa/audit.git" })
+vim.ui.open = function(url) vim.g.fa_opened = url end
 vim.fn.writefile(vim.list_extend(vim.deepcopy(body), { "-- edit" }), f)
 vim.cmd("cd " .. vim.fn.fnameescape(repo))
 vim.cmd("edit " .. vim.fn.fnameescape(f))
@@ -72,7 +76,12 @@ local ok, err = pcall(vim.api.nvim_feedkeys, vim.keycode(prefix .. lhs),
   "mx", false)
 vim.wait(1500)
 local a = snap()
+-- an error the user would see: `silent!` (gitsigns' foldopen!) still sets
+-- v:errmsg but never reaches the message history
 local em = vim.v.errmsg
+if em ~= "" and not vim.fn.execute("messages"):find(em, 1, true) then
+  em = ""
+end
 local bad = (not ok and tostring(err)) or errors[1] or (em ~= "" and em) or nil
 local function judge()
   if effect == "runs" then return true end

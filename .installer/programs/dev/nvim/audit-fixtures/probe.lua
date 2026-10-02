@@ -41,6 +41,13 @@ local body = {
   php = "<?php\necho 1;\n", html = "<!doctype html>\n<p>x</p>\n",
 }
 local dir = vim.fn.tempname(); vim.fn.mkdir(dir, "p")
+-- a project root, as servers that only attach inside one need (phpactor:
+-- composer.json/.git, eslint: an eslint config)
+vim.fn.system({ "git", "-C", dir, "init", "-q" })
+for f, s in pairs({ ["composer.json"] = "{}\n",
+  ["eslint.config.js"] = "export default [];\n" }) do
+  local fh = io.open(dir .. "/" .. f, "w"); fh:write(s); fh:close()
+end
 local function sample(ft)
   local e = ext[ft]; if not e then return nil end
   local f = dir .. "/sample." .. e
@@ -153,14 +160,22 @@ if not ok_reg then fail("nvim-registry", langs) else
   end
 end
 
--- 3. :checkhealth — every ERROR line is a finding
+-- 3. :checkhealth — every ERROR line is a finding, except the ones only a
+-- headless probe sees: the dashboard sets up on a bare UI start, and the
+-- image check asks this TTY (not kitty) for the graphics protocol.
+local headless_only = { "setup did not run", "kitty graphics protocol" }
 local ok_h = pcall(vim.cmd, "silent checkhealth")
 if ok_h then
   local seen = {}
   for _, l in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
     if l:match("ERROR") and not seen[l] then
       seen[l] = true
-      fail("nvim-health", (l:gsub("^%s*[-*]?%s*", "")))
+      local msg, hl = (l:gsub("^%s*[-*]?%s*", "")), false
+      for _, p in ipairs(headless_only) do
+        hl = hl or msg:find(p, 1, true) ~= nil
+      end
+      if hl then skip("nvim-health", "headless only: " .. msg)
+      else fail("nvim-health", msg) end
     end
   end
   if next(seen) == nil then pass("nvim-health", "no ERROR in :checkhealth") end

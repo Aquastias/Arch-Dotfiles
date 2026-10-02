@@ -7,7 +7,10 @@ def glob2re: gsub("(?<c>[.+?^$()\\[\\]{}|\\\\])"; "\\\(.c)")
 select(length > 0) | split("\t") as [$s, $chord, $act]
 | ($act | capture("^[^ ]+ +(?<a>.*)$").a // "" | gsub("^\"|\"$"; ""))
     as $arg
-| ([$e.expect[] | select(.chord == $chord)]
+| ([$e.expect[] | select(.chord == $chord)
+    # with an action too, the chord holds only for that action (mode)
+    | select(. as $x | ($x.action | not)
+             or ($act | test($x.action | glob2re)))]
    + [$e.expect[] | select(.action and (.chord | not))
       | select(. as $x | $act | test($x.action | glob2re))])[0] as $m
 | { source: $s, chord: $chord, action: $act }

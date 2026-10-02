@@ -60,7 +60,8 @@
     { "chord": "<leader>gg", "effect": "window-opens" },
     { "chord": "<leader>gl", "effect": "window-opens" },
     { "action": "n Git*", "effect": "runs" },
-    { "action": "n,v Git browse (open remote)", "effect": "runs" },
+    { "action": "n,v Git browse (open remote)", "effect": "lua",
+      "arg": "vim.g.fa_opened ~= nil" },
     { "chord": "<leader>gL", "effect": "window-opens" },
     { "action": "n * git hunk", "effect": "runs" },
     { "action": "n Diff/conflicts", "effect": "runs" },
@@ -87,7 +88,7 @@
 
     // ── refactoring / treesitter / flash / folds ──
     { "action": "* Extract *", "effect": "runs" },
-    { "action": "n,x Inline variable", "effect": "runs" },
+    { "action": "n,x Inline *", "effect": "runs" },
     { "action": "n,x Expand selection (treesitter)", "effect": "mode",
       "arg": "v" },
     { "action": "x Shrink selection (treesitter)", "effect": "runs" },
