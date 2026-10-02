@@ -87,6 +87,17 @@ _noc_seed_plugin() {
   rm -rf "$tmp"
 }
 
+# _noc_vendor_plugin <repo> <ref> <sub> — _noc_seed_plugin with a shallow retry
+# (3 tries, 5s/15s apart): a network blip must not drop the plugin.
+_noc_vendor_plugin() {
+  local try
+  for try in 1 2 3; do
+    _noc_seed_plugin "$@" && return 0
+    ((try < 3)) && sleep $((try == 1 ? 5 : 15))
+  done
+  return 1
+}
+
 # _noc_collect_plugins <plugin-list-fn> — append each plugin the list-fn names
 # that is enabled (per its install-noctalia.jsonc bool) plus its tool deps to
 # the _enabled_pls / _all_deps accumulators (ADR 0093).
@@ -509,7 +520,7 @@ EOF
   local _pl
   for _pl in "${_enabled_pls[@]:-}"; do
     [[ -n "$_pl" ]] || continue
-    if _noc_seed_plugin "$NOC_COMMUNITY_REPO" "$NOC_COMMUNITY_REF" "$_pl"
+    if _noc_vendor_plugin "$NOC_COMMUNITY_REPO" "$NOC_COMMUNITY_REF" "$_pl"
     then info "Plugin $_pl vendored."
     else warn "Plugin $_pl fetch failed (offline?) — skipped."; fi
   done
