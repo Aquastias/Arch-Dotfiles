@@ -2140,6 +2140,11 @@ only way an error-shaped line stops being a [[Finding]].
 An error, warning, failed unit, or failed feature probe from an [[Audit Run]]
 not matched by [[Known Noise]].
 
+### Probe Gate
+The Host Profile conditions a probe check declares it needs (a shell, a
+non-stock config, a service enabled). On an [[Audit Variant]] that lacks them
+the check is reported skipped — never passed, never a [[Finding]].
+
 ### Audit Run
 One execution of the [[Feature Audit]] across some or all [[Audit Variant]]s,
 producing raw logs plus an agent-ready list of [[Finding]]s.
