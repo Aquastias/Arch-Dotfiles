@@ -274,7 +274,8 @@ _agent_load_env() {
     case "$kv" in
       XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DBUS_SESSION_BUS_ADDRESS=*|\
 DISPLAY=*|XAUTHORITY=*|XDG_CURRENT_DESKTOP=*|\
-XDG_SESSION_TYPE=*|NIRI_SOCKET=*|HYPRLAND_INSTANCE_SIGNATURE=*) export "$kv" ;;
+XDG_SESSION_TYPE=*|NIRI_SOCKET=*|HYPRLAND_INSTANCE_SIGNATURE=*|\
+LANG=*|LANGUAGE=*|LC_*=*) export "$kv" ;;
     esac
   done < "/proc/$src/environ" 2>/dev/null || true
   # Fallbacks so a server-only source still yields a usable env.
@@ -285,6 +286,10 @@ XDG_SESSION_TYPE=*|NIRI_SOCKET=*|HYPRLAND_INSTANCE_SIGNATURE=*) export "$kv" ;;
     [ -n "$sock" ] && export WAYLAND_DISPLAY="${sock##*/}"
   fi
   : "${DBUS_SESSION_BUS_ADDRESS:=unix:path=$XDG_RUNTIME_DIR/bus}"
+  # the system locale when the client carried none (Qt falls back to C)
+  if [ -z "${LANG:-}" ] && [ -r /etc/locale.conf ]; then
+    set -a; . /etc/locale.conf; set +a
+  fi
   export DBUS_SESSION_BUS_ADDRESS GDK_BACKEND=wayland
   # Qt platform theme is fleet-set per-compositor for wlroots (ADR 0102); KDE
   # uses its own (plasma-integration), so only default it under niri/Hyprland.

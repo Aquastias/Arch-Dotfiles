@@ -57,6 +57,14 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   [[ "$output" == *"ServerAliveInterval="* ]]
 }
 
+@test "session env carries the locale (no Qt locale-C fallback)" {
+  # Agent-launched Qt apps logged "Detected locale C" (Audit Run 20260929):
+  # the session env import dropped LANG/LC_*.
+  _call '_remote_env_fn'
+  [[ "$output" == *"LANG=*"* ]]
+  [[ "$output" == *"LC_*=*"* ]]
+}
+
 @test "session -> .desktop mapping" {
   _call "agent_session_desktop niri";     [ "$output" = "niri.desktop" ]
   _call "agent_session_desktop hyprland"; [ "$output" = "hyprland.desktop" ]
