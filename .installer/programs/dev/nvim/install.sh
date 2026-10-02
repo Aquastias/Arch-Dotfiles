@@ -71,13 +71,17 @@ sudo chown -R root:root /root/.config/nvim
 _org="lua local p = require('orgmode.utils.treesitter.install').install()"
 _org+=" if p then p:wait(300000) end"
 _restore=(--headless "+Lazy! restore" "+Lazy! load orgmode" "+$_org" +qa)
+# lazy rewrites lazy-lock.json on restore; the staged tree is read-only, so
+# restore from a throwaway copy.
+_cfg="$(mktemp -d)"
+cp -r "${SELF}/home/.config/nvim" "$_cfg/"
 print_status info "Installing Neovim plugins (lazy-lock.json)..."
-XDG_CONFIG_HOME="${SELF}/home/.config" nvim "${_restore[@]}" \
+XDG_CONFIG_HOME="$_cfg" nvim "${_restore[@]}" \
   || print_status warning "Neovim plugin restore failed for" \
   "${USER}; lazy.nvim installs them on first launch (needs network)."
-sudo -H env XDG_CONFIG_HOME="${SELF}/home/.config" \
-  nvim "${_restore[@]}" \
+sudo -H env XDG_CONFIG_HOME="$_cfg" nvim "${_restore[@]}" \
   || print_status warning "Neovim plugin restore failed for root."
+sudo rm -rf "$_cfg"
 
 print_status success "Neovim staged." \
   "Config applied by the Runner pass; LSP toolchain from Host Core."
