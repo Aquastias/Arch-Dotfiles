@@ -12,9 +12,16 @@ fa_check kde-portal "xdg-desktop-portal-kde answers" \
     /org/freedesktop/portal/desktop org.freedesktop.DBus.Peer Ping
 [[ "$(fa_cfg '.environment.stock // false')" == true ]] && return 0
 
+# the palette Plasma renders, not the ColorScheme key: Noctalia leaves that key
+# at BreezeDark while rewriting the colours, and a fresh Plasma writes neither
+# (Breeze defaults apply)
 _fa_kde_scheme() {
-  [[ "$(kreadconfig6 --file kdeglobals --group General \
-        --key ColorScheme)" == BreezeDark ]]
+  local want got
+  want="$(kreadconfig6 --file /usr/share/color-schemes/BreezeDark.colors \
+    --group Colors:Window --key BackgroundNormal)"
+  got="$(kreadconfig6 --file kdeglobals --group Colors:Window \
+    --key BackgroundNormal)"
+  [[ -z "$got" || "$got" == "$want" ]]
 }
 _fa_kde_desktops() {
   [[ "$(qdbus6 org.kde.KWin /VirtualDesktopManager \
