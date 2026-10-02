@@ -242,6 +242,7 @@ setup_writer_globals() {
   install_config_impermanence_enabled() { echo "false"; }
   install_config_impermanence_dataset() { echo "rpool/persist"; }
   install_config_impermanence_mount()   { echo "/persist"; }
+  install_config_apparmor_enabled()     { echo "${MOCK_APPARMOR:-true}"; }
   LAYOUT_OS_POOL_NAME="rpool"
   LAYOUT_ROOT_CMDLINE="root=ZFS=rpool/ROOT/arch zfs_import_dir=/dev/disk/by-id"
   LAYOUT_HOOKS="base udev autodetect modconf block keyboard zfs filesystems"
@@ -505,4 +506,13 @@ setup_writer_globals() {
 @test "activates_sops: false when state file is missing" {
   run install_state_activates_sops "$TEST_DIR/nope.json"
   [ "$status" -ne 0 ]
+}
+
+@test "install_state_write: .apparmor carries the Security Extras selection" {
+  setup_writer_globals
+  install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.apparmor | type' "$STATE")" = "boolean" ]
+  [ "$(jq -r '.apparmor' "$STATE")" = "true" ]
+  MOCK_APPARMOR=false install_state_write "$STATE" "host-a"
+  [ "$(jq -r '.apparmor' "$STATE")" = "false" ]
 }

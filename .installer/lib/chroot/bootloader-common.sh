@@ -24,6 +24,7 @@ install_state_load "$STATE"
 _bl_src kernel.sh         ../packages/kernel.sh
 _bl_src microcode.sh      ../packages/microcode.sh
 _bl_src zswap.sh          ../boot/zswap.sh
+_bl_src lsm.sh            ../boot/lsm.sh
 _bl_src vm-video.sh       ../boot/vm-video.sh
 _bl_src esp-stage.sh      ../boot/esp-stage.sh
 _bl_src loader-entries.sh ../boot/loader-entries.sh
@@ -47,6 +48,8 @@ MICROCODE_IMGS="${MICROCODE_IMGS% }"
 # root= cmdline + rw + optional zswap fragment; desktop installs boot quietly so
 # the greeter VT stays clean (fallback entries stay verbose).
 ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
+# AppArmor's LSM order (installer-owned, so every loader carries it).
+LSM_CMDLINE="$(lsm_cmdline_params "$(cat "$STATE")")"
 # VM Full-HD floor (ADR 0119): pin a video= mode when installing inside a VM so
 # the guest's virtual panel does not come up sub-FHD. Bare metal emits nothing —
 # resolution stays autodetected (ADR 0110). systemd-detect-virt exits non-zero
@@ -57,6 +60,7 @@ ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
 VM_VIDEO_CMDLINE="$(vm_video_cmdline_params \
   "$(systemd-detect-virt 2>/dev/null || echo none)")"
 DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}\
+${LSM_CMDLINE:+ ${LSM_CMDLINE}}\
 ${VM_VIDEO_CMDLINE:+ ${VM_VIDEO_CMDLINE}}\
 ${INSTALL_EXTRA_CMDLINE:+ ${INSTALL_EXTRA_CMDLINE}}"
 QUIET_CMDLINE=""

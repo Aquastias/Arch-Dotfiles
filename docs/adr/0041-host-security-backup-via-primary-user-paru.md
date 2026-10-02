@@ -39,3 +39,18 @@ tool's existing Program Install Script runs unchanged.
   Partitioning) drops `zfs-auto-snapshot` at resolve time (2026-09-27): it
   would pull ZFS in from the AUR. The guided Backup screen mirrors this — the
   toggle is shown-but-locked as "off (no ZFS)" and edits are a no-op.
+
+## Amendment (2026-10-02): AppArmor's kernel parameter is installer-owned
+
+The apparmor program patched kernel parameters into grub and systemd-boot
+only; ADR 0077 later added efistub, limine and refind, which it silently
+skipped, so AppArmor stayed off on them (found by the first full Audit
+Run). The `lsm=` parameter now comes from the installer: the Install State
+carries whether AppArmor is selected, and every Bootloader Adapter appends
+the fragment (`lib/boot/lsm.sh`, like zswap). The program only installs and
+enables the service. Per the Arch Wiki, `lsm=` alone is set —
+`apparmor=1 security=apparmor` were redundant (the kernel warned that
+`security=` is superseded).
+
+Rejected: teaching the program each loader's config (efistub keeps its
+cmdline in NVRAM; every new loader would silently miss it again).

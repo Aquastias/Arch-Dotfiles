@@ -48,6 +48,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/boot/stray-kernel.sh|stray-kernel.sh"
   "lib/boot/lts-hold.sh|lts-hold.sh"
   "lib/boot/zswap.sh|zswap.sh"
+  "lib/boot/lsm.sh|lsm.sh"
   "lib/boot/vm-video.sh|vm-video.sh"
   "lib/boot/esp-stage.sh|esp-stage.sh"
   "lib/zfs/verify.sh|verify.sh"

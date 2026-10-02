@@ -252,54 +252,11 @@ in the user config (`groups: [...]`) and applied by the profile runner.
 
 ### Kernel parameters
 
-If the program requires kernel parameters (e.g. AppArmor, IOMMU), patch both
-bootloaders — the active one is not known at install time:
-
-```bash
-PARAMS_TO_ADD=("param1=value" "param2")
-
-_inject_params_into_options_line() {
-  local file="$1" current new param
-  current=$(grep "^options " "$file" | sed 's/^options //')
-  new="$current"
-  for param in "${PARAMS_TO_ADD[@]}"; do
-    [[ "$new" != *"$param"* ]] && new="$new $param"
-  done
-  if [[ "$new" != "$current" ]]; then
-    sudo sed -i "s|^options .*|options $new|" "$file"
-    return 0
-  fi
-  return 1
-}
-
-GRUB_DEFAULT_FILE="/etc/default/grub"
-SBOOT_ENTRIES_DIR="/boot/efi/loader/entries"
-
-if [[ -f "$GRUB_DEFAULT_FILE" ]]; then
-  current=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT=" \
-    "$GRUB_DEFAULT_FILE" | cut -d'"' -f2)
-  new="$current"
-  for param in "${PARAMS_TO_ADD[@]}"; do
-    [[ "$new" != *"$param"* ]] && new="$new $param"
-  done
-  if [[ "$new" != "$current" ]]; then
-    sudo sed -i \
-      "s|^GRUB_CMDLINE_LINUX_DEFAULT=\".*\"|"\
-      "GRUB_CMDLINE_LINUX_DEFAULT=\"$new\"|" \
-      "$GRUB_DEFAULT_FILE"
-    command -v grub-mkconfig &>/dev/null && \
-      sudo grub-mkconfig -o /boot/grub/grub.cfg
-  fi
-elif [[ -d "$SBOOT_ENTRIES_DIR" ]]; then
-  while IFS= read -r -d '' entry; do
-    grep -q "^options " "$entry" && \
-      _inject_params_into_options_line "$entry" || true
-  done < <(find "$SBOOT_ENTRIES_DIR" -name "*.conf" -print0)
-else
-  print_status warning "No bootloader config found;" \
-    "skipping kernel param injection."
-fi
-```
+Programs never patch bootloader configs: five loaders exist (grub,
+systemd-boot, efistub, limine, refind) and efistub keeps its cmdline in
+NVRAM. A kernel parameter a program needs (e.g. AppArmor's `lsm=`) is
+installer-owned: a pure fragment in `lib/boot/` (like `lsm.sh`, `zswap.sh`)
+derived from the Install State, appended by every Bootloader Adapter.
 
 ### Conflict detection
 
@@ -342,7 +299,7 @@ Before emitting output, verify:
 - [ ] Every config value matches the Arch Wiki recommendation exactly
 - [ ] Files written with `tee`, ownership/permissions set explicitly
 - [ ] Groups created with `getent group ... || groupadd`, users not added
-- [ ] Kernel params (if any) patch both GRUB and systemd-boot
+- [ ] Kernel params (if any) come from a `lib/boot/` fragment, not install.sh
 - [ ] Script ends with `print_status success`
 - [ ] `set -Eeuo pipefail` and `trap` are the first two non-comment lines
 - [ ] `audit.sh` probe ships beside `install.sh` (Feature Audit, ADR 0152)

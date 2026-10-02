@@ -517,3 +517,15 @@ set_path_cfg() {
   [ "$(install_config_pacman_ilovecandy)" = "false" ]
   [ "$(install_config_pacman_parallel_downloads)" = "10" ]
 }
+
+@test "apparmor_enabled: follows the resolved Security Extras selection" {
+  write_cfg '{"post_install":{"security":{"apparmor":true}}}'
+  [ "$(install_config_apparmor_enabled)" = "true" ]
+  write_cfg '{"post_install":{"security":{"apparmor":false}}}'
+  [ "$(install_config_apparmor_enabled)" = "false" ]
+  write_cfg '{}'
+  [ "$(install_config_apparmor_enabled)" = "false" ]
+  # a legacy bool security block is off, never a jq error
+  write_cfg '{"post_install":{"security":true}}'
+  [ "$(install_config_apparmor_enabled)" = "false" ]
+}

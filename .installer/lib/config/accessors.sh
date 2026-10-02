@@ -139,6 +139,19 @@ install_config_encryption_enabled() {
   install_config_get encryption_enabled
 }
 
+# AppArmor is selected iff the resolved Security & Backup Extras (ADR 0041)
+# hold it — the same rule that installs the program — so the LSM cmdline
+# (lib/boot/lsm.sh) and the package always agree. Absent / legacy = off.
+install_config_apparmor_enabled() {
+  declare -F post_install_programs >/dev/null 2>&1 \
+    || source "${BASH_SOURCE[0]%/*}/post-install.sh"
+  if post_install_programs \
+       "$(jsonc_strip "$CONFIG_FILE" | jq -c '.post_install // {}')" \
+     | grep -qx apparmor; then
+    printf 'true\n'
+  else printf 'false\n'; fi
+}
+
 # Timezone is resolved, not read raw (ADR 0118): an explicit/guided value wins,
 # else geo-IP autodetect, else Europe/Bucharest. A hand-written special (no
 # schema row) because it breaks the pure-default mould. The Timezone resolver is

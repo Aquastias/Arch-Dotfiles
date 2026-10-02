@@ -121,6 +121,7 @@ install_state_write() {
     --arg     zswap_comp  "$(install_config_zswap_compressor)"       \
     --argjson zswap_pct   "$(install_config_zswap_max_pool_percent)" \
     --argjson esp_count   "${#LAYOUT_ESP_PARTS[@]}"                  \
+    --argjson apparmor    "$(install_config_apparmor_enabled)"        \
     --argjson imp_enabled "$(install_config_impermanence_enabled)"   \
     --arg     imp_dataset "$(install_config_impermanence_dataset)"   \
     --arg     imp_mount   "$(install_config_impermanence_mount)"     \
@@ -141,6 +142,7 @@ install_state_write() {
       swap:$swap,
       zswap: { enabled:$zswap_on, compressor:$zswap_comp,
         max_pool_percent:$zswap_pct },
+      apparmor:$apparmor,
       esp_count:$esp_count,
       impermanence: { enabled:$imp_enabled, dataset:$imp_dataset,
         mount:$imp_mount },
