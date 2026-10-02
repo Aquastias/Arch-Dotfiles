@@ -25,6 +25,7 @@ _bl_src kernel.sh         ../packages/kernel.sh
 _bl_src microcode.sh      ../packages/microcode.sh
 _bl_src zswap.sh          ../boot/zswap.sh
 _bl_src vm-video.sh       ../boot/vm-video.sh
+_bl_src esp-stage.sh      ../boot/esp-stage.sh
 _bl_src loader-entries.sh ../boot/loader-entries.sh
 
 ESP="/boot/efi"
@@ -62,25 +63,9 @@ QUIET_CMDLINE=""
 [[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
   && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"
 
-# blcommon_stage_kernel <kbase> — copy vmlinuz + default initramfs onto the ESP,
-# generate + copy the fallback initramfs when the preset did not. Prints the
-# fallback image name when it exists (so the caller renders a fallback entry),
-# nothing otherwise.
-blcommon_stage_kernel() {
-  local kbase="$1"
-  local initramfs="initramfs-${kbase}.img"
-  local initramfs_fb="initramfs-${kbase}-fallback.img"
-  cp "/boot/vmlinuz-${kbase}" "$ESP/"
-  cp "/boot/${initramfs}"     "$ESP/"
-  if [[ ! -f "/boot/${initramfs_fb}" ]]; then
-    mkinitcpio -p "$kbase" -S autodetect 2>/dev/null \
-      || mkinitcpio -g "/boot/${initramfs_fb}" 2>/dev/null || true
-  fi
-  if [[ -f "/boot/${initramfs_fb}" ]]; then
-    cp "/boot/${initramfs_fb}" "$ESP/"
-    printf '%s\n' "$initramfs_fb"
-  fi
-}
+# blcommon_stage_kernel <kbase> — esp_stage_kernel onto this ESP: prints only
+# the fallback image name (or nothing) for the caller's entry.
+blcommon_stage_kernel() { esp_stage_kernel "$1" "$ESP"; }
 
 # blcommon_esp_disk_part [<esp-mount>] — print "<disk> <part>" for the ESP's
 # backing device, for efibootmgr --disk/--part. nvme/mmc use a `p<N>` partition
