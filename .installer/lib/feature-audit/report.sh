@@ -56,7 +56,19 @@ _fa_candidates() {
       sub(/^[A-Z][a-z][a-z] [ 0-9][0-9] [0-9:][0-9:]+ [^ ]+ /, "", s)
       return s
     }
+    # hexnorm: a run of 6+ hex chars holding a digit (mount ids, unit
+    # instance hashes) is volatile; a hex-only English word is not.
+    function hexnorm(s,   out, t) {
+      out = ""
+      while (match(s, /[0-9a-fA-F]{6,}/)) {
+        t = substr(s, RSTART, RLENGTH)
+        out = out substr(s, 1, RSTART - 1) (t ~ /[0-9]/ ? "H" : t)
+        s = substr(s, RSTART + RLENGTH)
+      }
+      return out s
+    }
     function norm(s) {
+      s = hexnorm(s)
       gsub(/\[[0-9]+\]/, "[N]", s)
       gsub(/0x[0-9a-fA-F]+/, "0xN", s)
       gsub(/[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}/, "UUID", s)
@@ -109,9 +121,12 @@ _fa_candidates() {
     {
       line = clean($0)
       if (line ~ /^[[:space:]]*$/) next
+      # a whitespace-led line continues the previous journal entry (wrapped
+      # text, stack frames): the entry is one Finding, keyed by its head
+      if (kind == "lines" && $0 ~ /^[[:space:]]/) next
       if (kind == "log") {
         l = tolower(line)
-        if (l ~ errre)
+        if (l ~ errre && l !~ / is up to date -- skipping$/)
           add(src, prog, "", line, rel)
       } else if (kind == "lines") {
         add(src, prog, "", line, rel)
@@ -171,8 +186,9 @@ fa_report() {
             adrs: ([($f[5] | split(","))[] | $va[.] // [] | .[]] | unique),
             repro: ("tools/feature-audit.sh run --variant "
                     + ($f[5] | split(",")[0]) + " --keep") }' \
-    | jq -c -s 'to_entries | map(.value + {id: ("F" + ((.key + 1)
-        | tostring | (("000" + .) | .[-3:])))}) | .[]' > "$jsonl"
+    | jq -c -s '([length, 999] | max | tostring | length) as $w
+        | to_entries | map(.value + {id: ("F" + ((.key + 1) | tostring
+        | ("0" * $w + .) | .[-$w:]))}) | .[]' > "$jsonl"
   rm -f "$FA_NOISE_TSV"
   [[ -s "$jsonl" ]] || : > "$jsonl"
   _fa_render_md "$jsonl" "$run" > "$md"

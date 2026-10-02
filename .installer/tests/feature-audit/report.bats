@@ -229,3 +229,54 @@ EOF
   report
   jsonl | jq -e '.adrs == ["0038","0078"]' >/dev/null
 }
+
+# ── one journal entry, one Finding (Audit Run 20260929 inflation) ───────────
+
+@test ".lines: whitespace-led continuation lines fold into their entry" {
+  art base boot2 journal-user-aquastias.lines \
+    'Sep 29 17:42:45 h spectacle[2538]: Detected locale "C", not UTF-8.' \
+    '                                    Qt depends on a UTF-8 locale.' \
+    '                                    See the locale(1) manual'
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e '.excerpt | startswith("spectacle")' >/dev/null
+}
+
+@test "dedup normalises hex ids: busy unmounts differing by hash merge" {
+  art base boot1 serial.lines \
+    '[  1.2] (sd-umoun: Failed to unmount /run/shutdown/mounts/a3f9c01e: busy' \
+    '[  3.4] (sd-umoun: Failed to unmount /run/shutdown/mounts/9bd4e2ff7a: busy'
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+}
+
+@test "dedup keeps hex-free words distinct (no false merge)" {
+  art base boot1 journal.lines 'x: failed to load facade' \
+    'x: failed to load decade'
+  report
+  [ "$(jsonl | wc -l)" -eq 2 ]
+}
+
+@test "installer log: pacman 'is up to date -- skipping' is not a finding" {
+  art base install installer.log \
+    "warning: zoxide-0.9.8-1 is up to date -- skipping"
+  report
+  [ "$status" -eq 0 ]
+  [ ! -s "$RUN/findings.jsonl" ]
+}
+
+@test "ids stay unique past 999 and match between md and jsonl" {
+  local -a l=(); local i w
+  # distinct names that survive normalisation: digits spelled as g..p
+  for ((i = 0; i < 1001; i++)); do
+    w="$(tr 0-9 g-p <<<"$i")"; l+=("unit-$w failed")
+  done
+  art base boot1 journal.lines "${l[@]}"
+  report
+  local n; n="$(jsonl | wc -l)"
+  [ "$n" -gt 999 ]
+  [ "$(jsonl | jq -r .id | sort -u | wc -l)" -eq "$n" ]
+  jsonl | jq -e 'select(.id == "F0001")' >/dev/null
+  [ "$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u | wc -l)" \
+    -eq "$n" ]
+}
