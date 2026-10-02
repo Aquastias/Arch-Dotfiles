@@ -64,6 +64,22 @@ teardown() { rm -rf "$TEST_DIR"; }
   ]
 }
 
+# ── early KMS (Arch default `kms` hook since mkinitcpio v33) ─────────────────
+
+@test "hooks line: kms goes right after the module hook when wanted" {
+  run _initcpio_hooks_line \
+    "base udev autodetect modconf block keyboard zfs filesystems" true true
+  [ "$output" = \
+    "HOOKS=(base udev autodetect kmod kms block keyboard zfs filesystems)" ]
+}
+
+@test "wants_kms: in-tree GPUs yes; proprietary NVIDIA no (wiki: MODULES)" {
+  run _initcpio_wants_kms amd;          [ "$output" = true ]
+  run _initcpio_wants_kms intel;        [ "$output" = true ]
+  run _initcpio_wants_kms;              [ "$output" = true ]
+  run _initcpio_wants_kms amd nvidia;   [ "$output" = false ]
+}
+
 # ── _initcpio_udev_override (pure emitter) ───────────────────────────────────
 # Shadows /usr/lib/initcpio/hooks/udev so the initramfs settle is bounded
 # instead of the unbounded default — a slow device can't stall boot past the

@@ -29,10 +29,25 @@ source "$_KERNEL_SH"
 # only resolves the `modconf` placeholder token to `kmod` on modern mkinitcpio
 # (>= 0.16, Arch 2023+ renamed the hook), which is a runtime fact knowable only
 # in the chroot.
+# <kms> true adds the `kms` hook after it (early KMS, Arch's default since
+# mkinitcpio v33): the GPU console comes up in the initramfs, not after a
+# graphical session already holds tty1 (systemd-vconsole-setup then fails).
 _initcpio_hooks_line() {
-  local hooks="$1" kmod_present="$2"
-  [[ "$kmod_present" == "true" ]] && hooks="${hooks//modconf/kmod}"
+  local hooks="$1" kmod_present="$2" kms="${3:-false}" mod=modconf
+  if [[ "$kmod_present" == "true" ]]; then
+    hooks="${hooks//modconf/kmod}"; mod=kmod
+  fi
+  [[ "$kms" == true ]] && hooks="${hooks//" $mod "/" $mod kms "}"
   printf 'HOOKS=(%s)\n' "$hooks"
+}
+
+# _initcpio_wants_kms <gpu…> — true unless the proprietary NVIDIA driver is
+# in the set: its out-of-tree modules go in MODULES (ADR 0053), and the `kms`
+# hook would pull in nouveau (Arch Wiki: Kernel mode setting, NVIDIA).
+_initcpio_wants_kms() {
+  local g
+  for g in "$@"; do [[ "$g" == nvidia ]] && { echo false; return; }; done
+  echo true
 }
 
 # Pure helper: emit the override for the initramfs `udev` runtime hook. It
@@ -84,7 +99,8 @@ else
     KMOD_PRESENT="false"
 fi
 # shellcheck disable=SC2153 # HOOKS is exported by install_state_load, not a typo
-_hooks_line="$(_initcpio_hooks_line "$HOOKS" "$KMOD_PRESENT")"
+_hooks_line="$(_initcpio_hooks_line "$HOOKS" "$KMOD_PRESENT" \
+  "$(_initcpio_wants_kms "${GPU[@]}")")"
 sed -i "s|^HOOKS=.*|${_hooks_line}|" /etc/mkinitcpio.conf
 unset _hooks_line
 

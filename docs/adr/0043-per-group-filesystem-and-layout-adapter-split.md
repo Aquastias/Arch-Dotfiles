@@ -76,3 +76,13 @@ therefore mix filesystems by group — e.g. a ZFS root with an ext4 data disk.
   the tracer bullet that isolates the shared non-ZFS boot/LUKS/`root=`/swap
   plumbing with zero filesystem cleverness — then xfs root (same shape, different
   mkfs), then btrfs root + impermanence on top.
+
+## Amendment (2026-10-02): early KMS
+
+The chroot now adds Arch's default `kms` hook (mkinitcpio v33+) after the
+module hook, unless the GPU set includes the proprietary NVIDIA driver,
+whose modules go in MODULES (ADR 0053; `kms` would pull in nouveau). Without
+it the GPU console came up only after greetd's graphical session held tty1,
+and systemd-vconsole-setup failed (first full Audit Run, greetd and pure
+variants). Adapters still own the hook list; `kms` is resolved in the chroot
+like `modconf` → `kmod`.
