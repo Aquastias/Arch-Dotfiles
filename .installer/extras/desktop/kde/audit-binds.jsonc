@@ -60,7 +60,8 @@
       "recovery": "toggle" },
     { "action": "kwin/Edit Tiles", "effect": "screen-changes",
       "recovery": "toggle" },
-    { "action": "kwin/Show Desktop", "effect": "layout-changes",
+    // KWin 6 peeks at the desktop without minimizing, so no layout change
+    { "action": "kwin/Show Desktop", "effect": "screen-changes",
       "recovery": "toggle" },
     { "action": "kwin/view_zoom_in", "effect": "screen-changes",
       "recovery": "key:Meta+0" },
@@ -82,6 +83,15 @@
     // ── plasmashell ──
     { "action": "plasmashell/activate application launcher",
       "effect": "screen-changes", "recovery": "escape" },
+    // entries 1-6 are the 5 pinned launchers + the test windows; 7+ need
+    // more distinct apps running (teardown closes them after each bind)
+    { "chord": "Meta+7", "action": "plasmashell/activate task manager entry 7",
+      "effect": "window-changes", "needs": "launch:kcalc" },
+    { "chord": "Meta+8", "action": "plasmashell/activate task manager entry 8",
+      "effect": "window-changes", "needs": "launch:kcalc launch:kate" },
+    { "chord": "Meta+9", "action": "plasmashell/activate task manager entry 9",
+      "effect": "window-changes",
+      "needs": "launch:kcalc launch:kate launch:okular" },
     { "action": "plasmashell/activate task manager entry *",
       "effect": "window-changes" },
     { "action": "plasmashell/clipboard_action", "effect": "screen-changes",
