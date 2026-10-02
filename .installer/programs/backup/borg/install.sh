@@ -6,9 +6,12 @@
 # INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo
 # granted.
 #
-# Installs borgbackup + Vorta GUI + borgmatic via paru, writes a starter
-# borgmatic config for the first regular user, and enables the borgmatic
-# daily timer. Repo init and passphrase setup must be done post-boot.
+# Installs borgbackup + Vorta GUI + borgmatic via paru, ships a starter
+# system config as /etc/borgmatic/config.yaml.example, and enables the daily
+# borgmatic.timer gated on the real /etc/borgmatic/config.yaml: until the
+# operator inits a repo and writes that file, each run is skipped, not failed;
+# after it, backups start with no extra step. (The system unit reads /etc,
+# and the sources include /etc + /var/log, which need root.)
 # =============================================================================
 
 set -Eeuo pipefail
@@ -19,49 +22,42 @@ print_status info "Installing borgbackup, vorta, and borgmatic..."
 # longer resolves ("could not find all required packages").
 ${AUR_HELPER} -S --noconfirm --needed borgbackup vorta borgmatic
 
-FIRST_USER="$(awk -F: '$3>=1000 && $3<65534{print $1; exit}' \
-  /etc/passwd || true)"
-
-if [[ -n "$FIRST_USER" ]]; then
-  cfg_dir="/home/${FIRST_USER}/.config/borgmatic"
-  sudo install -d -o "$FIRST_USER" -g "$FIRST_USER" -m 700 "$cfg_dir"
-  sudo tee "${cfg_dir}/config.yaml" >/dev/null <<'BORGCFG'
-# Borgmatic configuration — edit before first use.
+# Current (flat, borgmatic >= 1.8) schema: `borgmatic config validate`.
+sudo install -d -o root -g root -m 755 /etc/borgmatic
+sudo tee /etc/borgmatic/config.yaml.example >/dev/null <<'BORGCFG'
+# borgmatic starter config: edit, init the repo, then save as config.yaml
+# (the daily timer skips until /etc/borgmatic/config.yaml exists).
 # Documentation: https://torsion.org/borgmatic/
-
-location:
-    source_directories:
-        - /home
-        - /etc
-        - /var/log
-
-    repositories:
-        - path: /mnt/backup/borg
-          label: local
-
-storage:
-    encryption_passcommand: cat /etc/borg-passphrase
-    compression: lz4
-
-retention:
-    keep_hourly: 24
-    keep_daily: 7
-    keep_weekly: 4
-    keep_monthly: 6
-
-consistency:
-    checks:
-        - name: repository
-        - name: archives
-          frequency: 2 weeks
+source_directories:
+    - /home
+    - /etc
+    - /var/log
+repositories:
+    - path: /mnt/backup/borg
+      label: local
+encryption_passcommand: cat /etc/borg-passphrase
+compression: lz4
+keep_hourly: 24
+keep_daily: 7
+keep_weekly: 4
+keep_monthly: 6
+checks:
+    - name: repository
+    - name: archives
+      frequency: 2 weeks
 BORGCFG
-  sudo chown "${FIRST_USER}:${FIRST_USER}" "${cfg_dir}/config.yaml"
-  sudo chmod 600 "${cfg_dir}/config.yaml"
-  print_status info "Borgmatic config written to ${cfg_dir}/config.yaml"
-fi
+print_status info "Starter config: /etc/borgmatic/config.yaml.example"
+
+sudo install -d -o root -g root -m 755 /etc/systemd/system/borgmatic.service.d
+sudo tee /etc/systemd/system/borgmatic.service.d/10-require-config.conf \
+  >/dev/null <<'DROPIN'
+# Skip (not fail) until the operator writes the real config.
+[Unit]
+ConditionPathExists=/etc/borgmatic/config.yaml
+DROPIN
 
 print_status info "Enabling borgmatic daily timer..."
 sudo systemctl enable borgmatic.timer
 
 print_status success "Borg staged." \
-  "Next steps: init repo, set passphrase, run borgmatic."
+  "Next steps: init repo, set passphrase, save config.yaml from the example."
