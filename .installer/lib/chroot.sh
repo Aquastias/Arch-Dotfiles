@@ -204,7 +204,7 @@ Target = *
 [Action]
 Description = Cleaning pacman cache (keeping last 2 versions)...
 When = PostTransaction
-Exec = /usr/bin/paccache -rk2 --noconfirm
+Exec = /usr/bin/paccache -rk2
 HOOK
   info "paccache auto-cleanup hook installed."
 }
