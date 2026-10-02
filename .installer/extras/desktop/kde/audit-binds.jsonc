@@ -108,7 +108,9 @@
       "recovery": "toggle" },
 
     // ── apps ──
-    { "action": "krusader/bring_main_window_to_top", "effect": "focus-changes",
+    // a raise, not an activation: on Wayland KWin's focus-stealing prevention
+    // raises the window without moving keyboard focus
+    { "action": "krusader/bring_main_window_to_top", "effect": "screen-changes",
       "needs": "launch:krusader dir:right" },
 
     // ── audio / power / media ──
