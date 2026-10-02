@@ -495,8 +495,9 @@ for d in "$P"/*/; do
       cl="$(pgrep -u "$a" -x 'plasmashell|noctalia|waybar' | head -1)"
       dsp=""; xa=""
       if [ -n "$cl" ]; then
-        dsp="$(tr '\0' '\n' < "/proc/$cl/environ" | sed -n 's/^DISPLAY=//p')"
-        xa="$(tr '\0' '\n' < "/proc/$cl/environ" | sed -n 's/^XAUTHORITY=//p')"
+        env_="$(tr '\0' '\n' < "/proc/$cl/environ")"
+        dsp="$(sed -n 's/^DISPLAY=//p' <<<"$env_")"
+        xa="$(sed -n 's/^XAUTHORITY=//p' <<<"$env_")"
       fi
       timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
         LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \

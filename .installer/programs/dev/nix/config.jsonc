@@ -10,6 +10,6 @@
 {
   "name": "nix",
   "kind": "host",
-  "description": "Nix package manager with nix-daemon and an initialised store.",
+  "description": "Nix with nix-daemon and an initialised store.",
   "system_services": ["nix-daemon.service"]
 }

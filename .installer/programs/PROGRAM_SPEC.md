@@ -46,10 +46,13 @@ command_exists "name"            # → true if name is on PATH
 package_installed "pkg"          # → true if pkg installed (pacman -Qi)
 check_root                       # → exits 1 if not running as root
 send_user_notification "user" "title" "body"  # → notify-send as $user
+stage_shell_stdlib [dest]        # → whole stdlib to <dest> (/usr/local/lib)
+                                 #   for scripts units run after boot
 ```
 
 Helpers live in `lib/shell/` (`output.sh`, `commands.sh`, `permissions.sh`,
-`packages.sh`, `notifications.sh`), sourced via the `shell-stdlib.sh` facade.
+`packages.sh`, `notifications.sh`, `runtime.sh`), sourced via the
+`shell-stdlib.sh` facade.
 
 ---
 

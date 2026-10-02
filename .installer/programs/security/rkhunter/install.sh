@@ -50,7 +50,7 @@ sudo install -o root -g root -m 644 \
 # Stage shell-stdlib.sh for post-boot use by rkhunter_scan.sh. The runtime
 # script sources from this fixed path because $SHELL_COMMONS is only set
 # during install.
-print_status info "Staging shell-stdlib.sh at /usr/local/lib/shell-stdlib.sh..."
+print_status info "Staging the Shell Stdlib under /usr/local/lib..."
 sudo install -d -o root -g root -m 755 /usr/local/lib /usr/local/lib/rkhunter
 stage_shell_stdlib /usr/local/lib
 sudo install -o root -g root -m 755 \
