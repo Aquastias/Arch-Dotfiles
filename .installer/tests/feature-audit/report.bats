@@ -280,3 +280,15 @@ EOF
   [ "$(grep -o '^- \*\*F[0-9]*\*\*' "$RUN/findings.md" | sort -u | wc -l)" \
     -eq "$n" ]
 }
+
+@test "known noise scoped to variants mutes only there" {
+  cat > "$NOISE" <<'EOF2'
+[ { "regex": "No config file found", "variants": ["hyprland-pure"],
+    "reason": "stock Hyprland generates its config (ADR 0112)" } ]
+EOF2
+  art hyprland-pure sessions-hyprland hyprland.lines "No config file found"
+  art base sessions-hyprland hyprland.lines "No config file found"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e '.variants == ["base"]' >/dev/null
+}

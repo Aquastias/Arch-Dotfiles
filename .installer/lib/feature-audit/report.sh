@@ -29,12 +29,13 @@ fa_known_noise_path() {
   printf '%s\n' "${FEATURE_AUDIT_KNOWN_NOISE:-$def}"
 }
 
-# _fa_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase` rows.
+# _fa_noise_tsv — Known Noise as `regex<TAB>source<TAB>phase<TAB>variants`
+# rows (variants comma-joined; empty = every variant).
 _fa_noise_tsv() {
   local f; f="$(fa_known_noise_path)"
   [[ -f "$f" ]] || return 0
-  jsonc_strip "$f" | jq -r '.[] | [.regex, (.source // ""), (.phase // "")]
-    | @tsv'
+  jsonc_strip "$f" | jq -r '.[] | [.regex, (.source // ""), (.phase // ""),
+    ((.variants // []) | join(","))] | @tsv'
 }
 
 # _fa_candidates <run-dir> — one aggregated Finding per line (TSV):
@@ -78,6 +79,7 @@ _fa_candidates() {
     function noisy(line, src, ph,   i) {
       for (i = 1; i <= nn; i++)
         if ((ns[i] == "" || ns[i] == src) && (np[i] == "" || np[i] == ph) \
+            && (nv[i] == "" || index("," nv[i] ",", "," var ",")) \
             && line ~ nr[i]) return 1
       return 0
     }
@@ -104,7 +106,8 @@ _fa_candidates() {
       return 99
     }
     BEGIN { np0 = split(phases, pl, " ") }
-    FILENAME == noisef { nn++; nr[nn] = $1; ns[nn] = $2; np[nn] = $3; next }
+    FILENAME == noisef { nn++; nr[nn] = $1; ns[nn] = $2; np[nn] = $3
+                        nv[nn] = $4; next }
     FNR == 1 {
       rel = substr(FILENAME, length(run) + 1)
       split(rel, parts, "/"); var = parts[1]; ph = parts[2]; base = parts[3]

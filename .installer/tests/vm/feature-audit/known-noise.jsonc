@@ -1,4 +1,5 @@
 // Known Noise (ADR 0152): expected log lines that are not Findings.
-// Entry: { "regex": ERE, "source"?: str, "phase"?: str, "reason": str }.
+// Entry: { "regex": ERE, "source"?: str, "phase"?: str, "variants"?: [id],
+//         "reason": str } (variants: Audit Variant ids; absent = all).
 // Every entry needs maintainer approval; reason cites the why or ADR.
 []

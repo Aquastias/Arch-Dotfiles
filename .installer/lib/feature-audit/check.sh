@@ -17,7 +17,7 @@ _fa_check_on() {
   [[ " ${FEATURE_AUDIT_CHECKS:-$FA_CHECK_FAMILIES} " == *" $1 "* ]]
 }
 
-FA_CHECK_FAMILIES="manifest features programs binds"
+FA_CHECK_FAMILIES="manifest features programs binds noise"
 
 # _fa_check_manifest — every variant resolves to a valid Effective Config.
 _fa_check_manifest() {
@@ -150,6 +150,32 @@ _fa_check_binds() {
   done
 }
 
+# _fa_check_noise — every Known Noise entry has a valid regex and a reason, and
+# its optional variants scope names real manifest variants.
+_fa_check_noise() {
+  local f m ids re
+  f="$(fa_known_noise_path)"
+  [[ -f "$f" ]] || return 0
+  m="$(fa_manifest_json)" || return 0
+  ids="$(jq -c '[.variants[].id]' <<<"$m")"
+  jsonc_strip "$f" | jq -r --argjson ids "$ids" '
+    if type != "array" then "noise: not a JSON array" else .[] |
+      (.regex // "?") as $r |
+      (if (.reason // "") == "" then "noise: \($r) has no reason"
+       else empty end),
+      (if .variants == null then empty
+       elif (.variants | type) != "array"
+       then "noise: \($r) variants not an array"
+       else .variants[] | select(. as $v | $ids | index($v) | not)
+         | "noise: \($r) names unknown variant \(.)" end)
+    end' 2>/dev/null || echo "noise: not valid JSONC"
+  while IFS= read -r re; do
+    # the report matches with awk, so awk judges the regex (bad one: exit 2)
+    awk -v r="$re" 'BEGIN { if ("" ~ r) {} }' 2>/dev/null \
+      || echo "noise: invalid regex $re"
+  done < <(jsonc_strip "$f" | jq -r '.[]?.regex // empty' 2>/dev/null)
+}
+
 fa_audit_check() {
   local out
   out="$(
@@ -157,6 +183,7 @@ fa_audit_check() {
     _fa_check_on features && _fa_check_features
     _fa_check_on programs && _fa_check_programs
     _fa_check_on binds && _fa_check_binds
+    _fa_check_on noise && _fa_check_noise
     true
   )"
   [[ -z "$out" ]] && return 0

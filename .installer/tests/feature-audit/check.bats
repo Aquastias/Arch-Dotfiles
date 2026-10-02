@@ -229,3 +229,39 @@ fake_programs() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"niri"*"audit-binds.jsonc"*"not valid"* ]]
 }
+
+# ── Known Noise schema ──────────────────────────────────────────────────────
+
+# noise <json> — write the Known Noise file the check reads.
+noise() {
+  export FEATURE_AUDIT_KNOWN_NOISE="$BATS_TEST_TMPDIR/noise.jsonc"
+  printf '%s\n' "$1" > "$FEATURE_AUDIT_KNOWN_NOISE"
+}
+
+@test "noise: entry scoped to known variants passes" {
+  export FEATURE_AUDIT_CHECKS="noise"
+  manifest '[{"id":"base"},{"id":"limine","patch":{}}]'
+  noise '[{"regex":"x","variants":["limine"],"reason":"r"}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 0 ]
+}
+
+@test "noise: unknown variant id is a finding" {
+  export FEATURE_AUDIT_CHECKS="noise"
+  manifest '[{"id":"base"}]'
+  noise '[{"regex":"x","variants":["nope"],"reason":"r"}]'
+  run bash "$TOOL" check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *nope* ]]
+}
+
+@test "noise: variants not an array, missing reason, bad regex are findings" {
+  export FEATURE_AUDIT_CHECKS="noise"
+  manifest '[{"id":"base"}]'
+  noise '[{"regex":"x","variants":"base","reason":"r"},
+          {"regex":"y"},
+          {"regex":"(","reason":"r"}]'
+  run bash "$TOOL" check
+  [ "$status" -ne 0 ]
+  [ "$(grep -c '^noise:' <<<"$output")" -eq 3 ]
+}
