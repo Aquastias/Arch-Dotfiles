@@ -66,12 +66,17 @@ sudo chown -R root:root /root/.config/nvim
 # had no plugins (Feature Audit runtime fetch). Restore now, for the user and
 # root (both get this config), from the staged config: Config Apply copies
 # home/ only after this script. Builds (parsers, rocks) run here too.
+# orgmode builds its own tree-sitter grammar on first use (a clone + compile):
+# do it here too, waiting on its promise.
+_org="lua local p = require('orgmode.utils.treesitter.install').install()"
+_org+=" if p then p:wait(300000) end"
+_restore=(--headless "+Lazy! restore" "+Lazy! load orgmode" "+$_org" +qa)
 print_status info "Installing Neovim plugins (lazy-lock.json)..."
-XDG_CONFIG_HOME="${SELF}/home/.config" nvim --headless "+Lazy! restore" +qa \
+XDG_CONFIG_HOME="${SELF}/home/.config" nvim "${_restore[@]}" \
   || print_status warning "Neovim plugin restore failed for" \
   "${USER}; lazy.nvim installs them on first launch (needs network)."
 sudo -H env XDG_CONFIG_HOME="${SELF}/home/.config" \
-  nvim --headless "+Lazy! restore" +qa \
+  nvim "${_restore[@]}" \
   || print_status warning "Neovim plugin restore failed for root."
 
 print_status success "Neovim staged." \
