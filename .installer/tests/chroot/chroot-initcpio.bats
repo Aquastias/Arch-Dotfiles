@@ -73,6 +73,22 @@ teardown() { rm -rf "$TEST_DIR"; }
     "HOOKS=(base udev autodetect kmod kms block keyboard zfs filesystems)" ]
 }
 
+@test "hooks line: an adapter's own kms is not duplicated" {
+  run _initcpio_hooks_line \
+    "base udev autodetect microcode modconf kms block keyboard filesystems fsck" \
+    true true
+  [ "$output" = \
+"HOOKS=(base udev autodetect microcode kmod kms block keyboard filesystems fsck)" ]
+}
+
+@test "hooks line: NVIDIA (kms false) strips an adapter's kms" {
+  run _initcpio_hooks_line \
+    "base udev autodetect microcode modconf kms block keyboard filesystems fsck" \
+    true false
+  [ "$output" = \
+    "HOOKS=(base udev autodetect microcode kmod block keyboard filesystems fsck)" ]
+}
+
 @test "wants_kms: in-tree GPUs yes; proprietary NVIDIA no (wiki: MODULES)" {
   run _initcpio_wants_kms amd;          [ "$output" = true ]
   run _initcpio_wants_kms intel;        [ "$output" = true ]

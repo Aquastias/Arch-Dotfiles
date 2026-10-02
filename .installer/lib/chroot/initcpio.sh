@@ -29,14 +29,18 @@ source "$_KERNEL_SH"
 # only resolves the `modconf` placeholder token to `kmod` on modern mkinitcpio
 # (>= 0.16, Arch 2023+ renamed the hook), which is a runtime fact knowable only
 # in the chroot.
-# <kms> true adds the `kms` hook after it (early KMS, Arch's default since
-# mkinitcpio v33): the GPU console comes up in the initramfs, not after a
-# graphical session already holds tty1 (systemd-vconsole-setup then fails).
+# <kms> true puts the `kms` hook right after it, false removes it (early KMS,
+# Arch's default since mkinitcpio v33): the GPU console comes up in the
+# initramfs, not after a graphical session already holds tty1
+# (systemd-vconsole-setup then fails).
 _initcpio_hooks_line() {
   local hooks="$1" kmod_present="$2" kms="${3:-false}" mod=modconf
   if [[ "$kmod_present" == "true" ]]; then
     hooks="${hooks//modconf/kmod}"; mod=kmod
   fi
+  # the chroot owns `kms`: drop any the adapter listed, then add it once
+  hooks=" $hooks "; hooks="${hooks// kms / }"
+  hooks="${hooks# }"; hooks="${hooks% }"
   [[ "$kms" == true ]] && hooks="${hooks//" $mod "/" $mod kms "}"
   printf 'HOOKS=(%s)\n' "$hooks"
 }
