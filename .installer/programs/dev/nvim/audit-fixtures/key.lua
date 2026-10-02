@@ -21,8 +21,24 @@ vim.fn.mkdir(repo, "p")
 local ft = needs:match("ft:(%w+)")
 local f, body
 if ft == "http" then
+  -- a loopback responder in this nvim (vim.wait drives its loop), so a REST
+  -- request really answers instead of failing on a closed port
+  local srv = vim.uv.new_tcp()
+  srv:bind("127.0.0.1", 0)
+  srv:listen(8, function()
+    local c = vim.uv.new_tcp()
+    srv:accept(c)
+    c:read_start(function(_, data)
+      if data then
+        c:write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+          .. "Content-Length: 11\r\nConnection: close\r\n\r\n{\"ok\":true}",
+          function() c:close() end)
+      end
+    end)
+  end)
   f = repo .. "/sample.http"
-  body = { "GET http://127.0.0.1:9/fa-audit", "" }
+  body = { ("GET http://127.0.0.1:%d/fa-audit"):format(srv:getsockname().port),
+    "" }
 else
   f = repo .. "/sample.lua"
   body = {}
