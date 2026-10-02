@@ -8,8 +8,9 @@
 #
 # Checks podman is installed, seeds ~/.config/searxng/settings.yml with a
 # fresh secret key, and enables user linger via /var/lib/systemd/linger so
-# the quadlet services start at boot without a login session. Container images
-# are pulled on first start — podman is not running in the chroot.
+# the quadlet services (home/, applied by Config Apply) start at boot without
+# a login session. Container images are pulled on first start — podman is not
+# running in the chroot.
 # =============================================================================
 
 set -Eeuo pipefail
