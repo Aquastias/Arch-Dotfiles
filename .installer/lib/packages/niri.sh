@@ -106,8 +106,9 @@ noctalia_laptop_plugins() {
 # recorder and the system AUR helper cover these), and heavyweight optional
 # integrations (gimp, mpv, a second recorder/annotator), and hyprpicker
 # (dropped with color_picker per ADR 0093 — screen-toolkit picks via slurp+grim).
-# --needed dedups shared tools (upower, power-profiles-daemon, xdg-utils,
-# procps-ng).
+# --needed dedups shared tools (upower, xdg-utils, procps-ng). The power
+# daemon is never a plugin dep: options.power.profile owns it (ADR 0080), and
+# a hard ppd here conflicts with tuned-ppd and overrides `profile: none`.
 noctalia_plugin_deps() {
   case "$1" in
     keymap)           printf '%s\n' xdg-utils ;;
@@ -118,7 +119,7 @@ noctalia_plugin_deps() {
     arch-updater)     printf '%s\n' pacman-contrib flatpak less xdg-utils ;;
     audio-switcher)   printf '%s\n' libpulse bluez-utils ;;
     procmon)          printf '%s\n' procps-ng ;;
-    gamer-mode)       printf '%s\n' procps-ng power-profiles-daemon ;;
+    gamer-mode)       printf '%s\n' procps-ng ;;
     drive-health)     printf '%s\n' smartmontools ;;
     eyecare)          printf '%s\n' libcanberra libpulse alsa-utils ;;
     file-search)      printf '%s\n' fzf xdg-utils ;;
@@ -133,8 +134,7 @@ noctalia_plugin_deps() {
     # needs just hyprland itself (the adapter's core).
     hypr-submap)        printf '%s\n' socat ;;
     hypr-screen-mirror) printf '%s\n' socat ;;
-    battery-power-management)
-      printf '%s\n' power-profiles-daemon upower ;;
+    battery-power-management) printf '%s\n' upower ;;
     battery-widget)   printf '%s\n' upower ;;
     *) : ;; # cat, custom-shortcut, todo, wallpaper-switcher, niri-*,
             # hypr-layout-switcher (hyprctl⊂hyprland), portctl (ss⊂iproute2),
