@@ -262,6 +262,10 @@ EOF
 # a niri/Hyprland session left the shared theme/cursor state Noctalia-colored.
 gsettings set org.gnome.desktop.interface gtk-theme Breeze
 gsettings set org.gnome.desktop.interface color-scheme prefer-dark
+# Noctalia rewrites the palette but leaves ColorScheme=BreezeDark, and
+# plasma-apply-colorscheme no-ops on a scheme it thinks is "already set":
+# drop the stale key so the Breeze palette is really written back.
+kwriteconfig6 --file kdeglobals --group General --key ColorScheme --delete
 plasma-apply-colorscheme BreezeDark
 c=$(kreadconfig6 --file kcminputrc --group Mouse --key cursorTheme)
 [ -n "$c" ] && gsettings set org.gnome.desktop.interface cursor-theme "$c"
