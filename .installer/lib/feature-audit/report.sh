@@ -22,7 +22,7 @@
 
 # Phase order for grouping; unknown phases sort last.
 FA_PHASES=(check install boot1 sessions probes-offline probes-online keybinds
-           power timers boot2 upgrade)
+           timers boot2 upgrade power)
 
 fa_known_noise_path() {
   local def="$INSTALLER_DIR/tests/vm/feature-audit/known-noise.jsonc"

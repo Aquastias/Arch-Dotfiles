@@ -827,10 +827,12 @@ fa_run_variant() {
     && fa_phase_probes "$dir" "$cfg"
   _fa_phase_on keybinds && declare -F fa_phase_keybinds >/dev/null \
     && fa_phase_keybinds "$dir" "$cfg"
-  _fa_phase_on power && fa_phase_power "$dir"
   _fa_phase_on timers && fa_phase_timers "$dir"
   if _fa_phase_on boot2; then fa_phase_boot2 "$dir" "$cfg" || return 1; fi
   if _fa_phase_on upgrade; then fa_phase_upgrade "$dir" || return 1; fi
+  # last: a QEMU virtio-gpu guest can come back from S3 with its compositor
+  # / seatd wedged, which would hang every later reboot (base, 20261002)
+  _fa_phase_on power && fa_phase_power "$dir"
   fa_serial_stop
 }
 
