@@ -31,7 +31,10 @@ ${AUR_HELPER} -S --noconfirm --needed \
 # Non-fatal: a box that is offline or lacks npx still installs cleanly.
 print_status info "Bootstrapping Matt Pocock skill store..."
 if command -v npx >/dev/null 2>&1; then
-  npx --yes skills@latest add mattpocock/skills \
+  # -g -s '*' -a claude-code -y: the CLI otherwise prompts and, with no TTY,
+  # installs nothing
+  npx --yes skills@latest add mattpocock/skills -g -s '*' -a claude-code -y \
+    </dev/null \
     || print_status warn "skill-store bootstrap failed; run it manually later."
 else
   print_status warn "npx unavailable; skipping skill-store bootstrap."
