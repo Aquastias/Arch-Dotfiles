@@ -252,6 +252,9 @@ write_config() {
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^pipewire$"
   echo "$output" | grep -q "^wireplumber$"
+  # pipewire's optdepend for realtime scheduling; absent, every PipeWire
+  # client logs "mod.rt: RTKit error" (Audit Run 20261002)
+  echo "$output" | grep -q "^rtkit$"
 }
 
 # ── universal infrastructure ──────────────────────────────────────────────────

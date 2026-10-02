@@ -12,9 +12,10 @@
 [[ -n "${_AUDIO_SH_SOURCED:-}" ]] && return 0
 _AUDIO_SH_SOURCED=1
 
-# audio_packages — the PipeWire stack, one package per line.
+# audio_packages — the PipeWire stack, one package per line. rtkit is
+# pipewire's optdepend for realtime priority (D-Bus activated, no service).
 audio_packages() {
   printf '%s\n' \
     pipewire pipewire-pulse pipewire-alsa wireplumber \
-    gst-plugin-pipewire pipewire-jack libpulse
+    gst-plugin-pipewire pipewire-jack libpulse rtkit
 }

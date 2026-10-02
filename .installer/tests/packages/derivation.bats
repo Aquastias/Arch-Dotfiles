@@ -59,9 +59,10 @@ res_src() { pkgres_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort 
 # ── unit: audio ─────────────────────────────────────────────────────────────
 
 @test "audio_packages: the PipeWire stack" {
-  [ "$(audio_packages | wc -l)" -eq 7 ]
+  [ "$(audio_packages | wc -l)" -eq 8 ]
   audio_packages | grep -qx pipewire
   audio_packages | grep -qx libpulse
+  audio_packages | grep -qx rtkit
 }
 
 # ── unit: filesystem ────────────────────────────────────────────────────────
