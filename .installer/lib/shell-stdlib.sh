@@ -22,5 +22,7 @@ source "${_STDLIB_DIR}/permissions.sh"
 source "${_STDLIB_DIR}/packages.sh"
 # shellcheck source=./shell/notifications.sh
 source "${_STDLIB_DIR}/notifications.sh"
+# shellcheck source=./shell/runtime.sh
+source "${_STDLIB_DIR}/runtime.sh"
 
 unset _STDLIB_DIR

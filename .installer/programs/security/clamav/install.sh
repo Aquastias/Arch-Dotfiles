@@ -56,8 +56,7 @@ sudo install -o root -g root -m 644 \
 print_status info "Staging shell-stdlib.sh and daily-scan helper" \
   "under /usr/local/lib..."
 sudo install -d -o root -g root -m 755 /usr/local/lib /usr/local/lib/clamav
-sudo install -o root -g root -m 644 \
-  "${SHELL_COMMONS}/shell-stdlib.sh" /usr/local/lib/shell-stdlib.sh
+stage_shell_stdlib /usr/local/lib
 sudo install -o root -g root -m 644 \
   "$CLAMAV_PROG_DIR/clamav_exclude_list.json" \
   /usr/local/lib/clamav/clamav_exclude_list.json

@@ -52,8 +52,7 @@ sudo install -o root -g root -m 644 \
 # during install.
 print_status info "Staging shell-stdlib.sh at /usr/local/lib/shell-stdlib.sh..."
 sudo install -d -o root -g root -m 755 /usr/local/lib /usr/local/lib/rkhunter
-sudo install -o root -g root -m 644 \
-  "${SHELL_COMMONS}/shell-stdlib.sh" /usr/local/lib/shell-stdlib.sh
+stage_shell_stdlib /usr/local/lib
 sudo install -o root -g root -m 755 \
   "$RKHUNTER_SCRIPTS/rkhunter_scan.sh" \
   /usr/local/lib/rkhunter/rkhunter_scan.sh
