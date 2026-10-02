@@ -64,6 +64,21 @@ usage() {
 # agent_key_path — the harness SSH key, identical to flow-persistent's.
 agent_key_path() { printf '%s\n' "${CACHE_DIR}/harness_ed25519"; }
 
+# agent_ssh_mux_opts <dir> — client ssh options that ride a shared master
+# connection when one is up (else ssh connects directly). ufw's `limit ssh`
+# rejects a 6th connection in 30s, and the harness runs one command per call.
+# ServerAlive drops a master whose guest rebooted.
+agent_ssh_mux_opts() {
+  printf -- '-o\n%s\n' "ControlPath=$1/%C" ServerAliveInterval=5 \
+    ServerAliveCountMax=2
+}
+
+# _agent_mux_dir — private socket dir for agent_ssh_mux_opts.
+_agent_mux_dir() {
+  local d="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/vm-agent-mux"
+  mkdir -p "$d" && chmod 700 "$d" && printf '%s\n' "$d"
+}
+
 # agent_resolve_name <selector> — VM domain name from a --profile ref (read
 # .name from the profile jsonc) or a bare --vm name (verbatim).
 agent_resolve_name() {
@@ -300,7 +315,15 @@ _preflight() {
 _ssh() {
   local ip; ip="$(_vm_ip)"
   [[ -n "$ip" ]] || die "no DHCP lease for '$VM_NAME' yet"
-  ssh -i "$(agent_key_path)" -o StrictHostKeyChecking=no \
+  local -a mux; mapfile -t mux < <(agent_ssh_mux_opts "$(_agent_mux_dir)")
+  # The master is started detached with stdio on /dev/null: one forked by a
+  # client (ControlMaster=auto) keeps the caller's stderr open and hangs $(…).
+  ssh "${mux[@]}" -O check "$AGENT_USER@$ip" >/dev/null 2>&1 \
+    || ssh -i "$(agent_key_path)" "${mux[@]}" -fN -o ControlMaster=yes \
+      -o ControlPersist=60 -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR \
+      "$AGENT_USER@$ip" </dev/null >/dev/null 2>&1 || true
+  ssh -i "$(agent_key_path)" "${mux[@]}" -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR \
     "$AGENT_USER@$ip" "$@"
 }

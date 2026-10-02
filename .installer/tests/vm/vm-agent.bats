@@ -48,6 +48,15 @@ _call() { run bash -c "source '$AGENT'; $1"; }
   [ "$output" = "/x/.vm-cache/harness_ed25519" ]
 }
 
+@test "agent_ssh_mux_opts: one multiplexed connection per guest" {
+  # ufw's `limit ssh` rejects a 6th connection in 30s; one TCP connection
+  # per command tripped it (Audit Run 20260929, ufw variant).
+  _call 'agent_ssh_mux_opts /run/mux'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ControlPath=/run/mux/%C"* ]]
+  [[ "$output" == *"ServerAliveInterval="* ]]
+}
+
 @test "session -> .desktop mapping" {
   _call "agent_session_desktop niri";     [ "$output" = "niri.desktop" ]
   _call "agent_session_desktop hyprland"; [ "$output" = "hyprland.desktop" ]
