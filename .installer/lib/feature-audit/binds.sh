@@ -14,6 +14,7 @@
 #         "effect": "<effect>", "arg": "<text|{arg}>",
 #         "session_ending": bool, "recovery": "session|unlock",
 #         "reason": "<why>"  // effect "unverifiable" only
+#         "settle": <seconds>  // wait before judging (default 1.5)
 #       } ] }
 # A chord match wins over an action glob; `{arg}` is the action's argument,
 # `{num}` its first number.

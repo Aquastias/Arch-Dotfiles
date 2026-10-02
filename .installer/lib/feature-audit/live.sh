@@ -645,11 +645,12 @@ _fa_mouse_chord() {
 # _fa_bind_one <plan-row-json> <desktop> — one bind as real input; prints its
 # PASS/FAIL/SKIP line.
 _fa_bind_one() {
-  local row="$1" de="$2" chord effect arg needs rec id b a t rc sdir
+  local row="$1" de="$2" chord effect arg needs rec settle id b a t rc sdir
   chord="$(jq -r .chord <<<"$row")"; effect="$(jq -r .effect <<<"$row")"
   arg="$(jq -r '.arg // ""' <<<"$row")"
   needs="$(jq -r '.needs // ""' <<<"$row")"
   rec="$(jq -r '.recovery // ""' <<<"$row")"
+  settle="$(jq -r '.settle // 1.5' <<<"$row")"
   id="bind-$(jq -r .source <<<"$row")-$chord"
   if [[ "$effect" == unverifiable ]]; then
     echo "SKIP $id unverifiable: $(jq -r '.reason // "no reason"' <<<"$row")"
@@ -683,7 +684,7 @@ _fa_bind_one() {
     _fa_bind_recover "${rec:-session}" "$chord" "$de"
     return
   fi
-  sleep 1.5
+  sleep "$settle"
   a="$(fa_gexec fa_bstate "$sdir")"
   rc=0
   fa_gexec fa_beval "$effect" "$arg" "$b" "$a" >/dev/null || rc=$?

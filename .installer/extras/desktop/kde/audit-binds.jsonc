@@ -84,16 +84,18 @@
     { "action": "plasmashell/activate application launcher",
       "effect": "screen-changes", "recovery": "escape" },
     // entries 1-6 are the 5 pinned launchers + the test windows; 7+ need
-    // more distinct apps running (teardown closes them after each bind)
+    // more distinct apps running (teardown closes them after each bind). A
+    // pinned launcher cold-starts its app (a browser), hence the settle.
     { "chord": "Meta+7", "action": "plasmashell/activate task manager entry 7",
-      "effect": "window-changes", "needs": "launch:kcalc" },
+      "effect": "window-changes", "needs": "launch:kcalc", "settle": 6 },
     { "chord": "Meta+8", "action": "plasmashell/activate task manager entry 8",
-      "effect": "window-changes", "needs": "launch:kcalc launch:kate" },
+      "effect": "window-changes", "needs": "launch:kcalc launch:kate",
+      "settle": 6 },
     { "chord": "Meta+9", "action": "plasmashell/activate task manager entry 9",
       "effect": "window-changes",
-      "needs": "launch:kcalc launch:kate launch:okular" },
+      "needs": "launch:kcalc launch:kate launch:okular", "settle": 6 },
     { "action": "plasmashell/activate task manager entry *",
-      "effect": "window-changes" },
+      "effect": "window-changes", "settle": 6 },
     { "action": "plasmashell/clipboard_action", "effect": "screen-changes",
       "needs": "clip:https://archlinux.org", "recovery": "escape" },
     { "action": "plasmashell/show-on-mouse-pos", "effect": "screen-changes",
