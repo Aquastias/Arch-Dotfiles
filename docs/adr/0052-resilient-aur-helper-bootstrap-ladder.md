@@ -96,3 +96,12 @@ failed and the install aborted after the ladder had "succeeded".
 Rejected: dropping the source rung for `-bin` only (the original Considered
 Options still hold, and `-bin` is exactly what went stale); temporary swap
 during bootstrap (mutates system state for one build).
+
+## Amendment (2026-10-02): the AUR pre-flight is removed
+
+The `paru -Sp` pre-flight before the AUR pass could never do its job:
+paru's print mode hands AUR targets to pacman, which answers "target not
+found", so it never resolved a conflict and warned on every install (Audit
+Run 20261002). It is gone; a real provider conflict surfaces through the
+install's ERR trap. Rejected: rebuilding it from .SRCINFO + `pacman -Sp` of
+the repo deps — more code for a hint that never fired.

@@ -473,12 +473,9 @@ _profiles_bootstrap_helper() {
 
 # Resolve + install an AUR set for a user with their <helper>. AUR builds
 # need paru: its PreBuildCommand runs AUR Vetting per package base, and yay
-# has no such hook, so the yay fallback rung refuses here (ADR 0143). A
-# print-only pre-flight pass runs first in the real installed environment,
-# so a provider/conflict failure — a virtual dep (e.g. libjpeg6) whose
-# default provider conflicts with an already installed package — aborts
-# *before* any download, with an actionable hint, instead of the bare ERR-trap
-# line number. The real install streams live, the hook unattended.
+# has no such hook, so the yay fallback rung refuses here (ADR 0143). The
+# install streams live, the hook unattended. (No `paru -Sp` pre-flight: it
+# cannot resolve AUR targets, so it never caught a conflict — ADR 0052.)
 _profiles_aur_install() {
   local user="$1" helper="$2"; shift 2
   local -a pkgs=("$@")
@@ -487,42 +484,12 @@ _profiles_aur_install() {
     || error "AUR install for ${user} landed on ${helper}: vetting needs paru" \
              "(ADR 0143) — retry once the paru rung can bootstrap."
 
-  info "Pre-flight resolving AUR set for ${user}..."
-  local out rc=0
-  out="$(arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-    "paru -Sp --noconfirm --needed ${pkgs[*]}" 2>&1)" || rc=$?
-  if ((rc != 0)); then
-    if grep -qE "conflicting packages|Conflicts found" <<< "$out"; then
-      _profiles_aur_conflict_report "$out"
-      error "AUR pre-flight found an unresolvable conflict for ${user}." \
-            "Pin a non-conflicting provider, then re-run."
-    fi
-    # Non-conflict failure (e.g. transient resolver hiccup): warn, let the
-    # real pass surface it through the normal ERR trap.
-    warn "AUR pre-flight returned non-zero with no conflict signature;" \
-         "proceeding to install."
-    printf '%s\n' "$out" >&2
-  fi
-
   # The real install hits aur.archlinux.org/rpc to resolve deps; a transient
   # RPC/network blip there must not abort the whole install (ADR 0052). Retry
   # with backoff — --needed keeps it idempotent, so a re-run skips what landed.
   # A genuine build/conflict failure still aborts after the last try.
   _retry 3 "5,15" -- arch-chroot "$MOUNT_ROOT" su - "$user" -c \
     "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed ${pkgs[*]}"
-}
-
-# Surface a provider conflict from captured paru resolution output. The output
-# already holds the provider menus, the 'Conflicts found:' block, and the
-# 'can not install conflicting packages' error — print it, framed by guidance.
-_profiles_aur_conflict_report() {
-  local out="$1"
-  warn "AUR provider conflict: a package's default provider conflicts with" \
-       "an already-installed package, and paru can not confirm conflicts" \
-       "under --noconfirm. Resolver output follows:"
-  printf '%s\n' "$out" >&2
-  warn "Fix: pin a non-conflicting provider in the host's packages.aur" \
-       "(e.g. 'libjpeg6-turbo' to satisfy a 'libjpeg6' dependency)."
 }
 
 # One chroot run of a user program's install.sh. Factored out of

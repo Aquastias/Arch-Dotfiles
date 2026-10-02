@@ -3,8 +3,8 @@
 # lib/profiles/runner.sh. The chroot-executing rung (_profiles_bootstrap_rung)
 # and the chroot helper probe (_profiles_detect_user_helper) are stubbed, so
 # these assert the pure orchestration: rung ordering, which helper the winning
-# rung resolves to, all-rungs-fail abort, the skip path, and the paru-only
-# pre-flight gate. No paru, no arch-chroot.
+# rung resolves to, all-rungs-fail abort, the skip path, and the AUR pass
+# (real install only, retried). No paru, no arch-chroot.
 
 setup() {
   T="$(mktemp -d)"
@@ -123,13 +123,16 @@ teardown() { rm -rf "$T"; }
   [ -z "$output" ]
 }
 
-# ── AUR pass pre-flight gate ────────────────────────────────────────────────
+# ── AUR pass ────────────────────────────────────────────────────────────────
 
-@test "aur_install: paru runs the pre-flight then the real install" {
+@test "aur_install: paru runs only the real install (no -Sp pre-flight)" {
+  # paru -Sp cannot resolve AUR targets ("target not found"), so the old
+  # pre-flight never caught a conflict and warned on every install (Audit Run
+  # 20261002). A real conflict surfaces through the install's ERR trap.
   : > "$T/calls"
   arch-chroot() { echo "$*" >> "$T/calls"; }
   _profiles_aur_install alice paru pkg1 pkg2
-  grep -q -- "-Sp" "$T/calls"                          # pre-flight ran
+  [ -z "$(grep -- "-Sp" "$T/calls")" ]
   grep -q "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed pkg1 pkg2" \
     "$T/calls"
 }
@@ -139,7 +142,6 @@ teardown() { rm -rf "$T"; }
   # kind of aur.archlinux.org/rpc blip that used to abort the whole install.
   echo 0 > "$T/n"
   arch-chroot() {
-    [[ "$*" == *"-Sp"* ]] && return 0                  # pre-flight ok
     local n; n=$(< "$T/n"); echo $((n + 1)) > "$T/n"
     (( n >= 2 ))                                        # succeed on 3rd try
   }
