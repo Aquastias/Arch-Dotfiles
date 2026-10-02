@@ -79,10 +79,12 @@ binds {
     Mod+Ctrl+8 { move-column-to-workspace 8; }
     Mod+Ctrl+9 { move-column-to-workspace 9; }
 
-    // Screenshots — niri's built-in capture (no extra tooling).
-    Print      { screenshot; }
-    Ctrl+Print { screenshot-screen; }
-    Alt+Print  { screenshot-window; }
+    // Screenshots — niri's built-in capture (no extra tooling). Not Alt+Print:
+    // Alt+PrtSc is SysRq, and the kernel's magic-SysRq filter (Arch default
+    // kernel.sysrq=16) swallows it before niri sees it.
+    Print       { screenshot; }
+    Ctrl+Print  { screenshot-screen; }
+    Shift+Print { screenshot-window; }
 
     // ── niri-only power features (on keys Hyprland leaves free, ADR 0096) ──
     Mod+O repeat=false hotkey-overlay-title="Overview" { toggle-overview; }
