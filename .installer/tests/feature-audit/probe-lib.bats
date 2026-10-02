@@ -68,3 +68,23 @@ cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   run fa_selected_programs "$c"
   [[ "$output" != *apparmor* ]]
 }
+
+# ── bind gate (host) ────────────────────────────────────────────────────────
+
+@test "fa_bind_gate: stock install skips every bind source" {
+  run fa_bind_gate kde '{"environment":{"desktop":["kde"],"stock":true}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *stock* ]]
+}
+
+@test "fa_bind_gate: no shell skips niri/Hyprland, not KDE" {
+  local c='{"environment":{"wayland_shell":"none"}}'
+  run fa_bind_gate niri "$c";     [ "$status" -eq 0 ]
+  run fa_bind_gate hyprland "$c"; [ "$status" -eq 0 ]
+  run fa_bind_gate kde "$c";      [ "$status" -ne 0 ]; [ -z "$output" ]
+}
+
+@test "fa_bind_gate: curated base with a shell runs every session" {
+  local c='{"environment":{"wayland_shell":"noctalia"}}'
+  run fa_bind_gate niri "$c"; [ "$status" -ne 0 ]; [ -z "$output" ]
+}

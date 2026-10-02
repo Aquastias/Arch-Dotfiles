@@ -691,7 +691,7 @@ _fa_bind_one() {
 # fa_phase_keybinds <variant-dir> <cfg> — per compositor of the set, every
 # shipped bind as real keyboard input; session-ending binds last.
 fa_phase_keybinds() {
-  local vdir="$1" cfg="$2" de src dir since out row first=""
+  local vdir="$1" cfg="$2" de src dir since out row first="" why
   first="$(fa_desktops "$cfg" | head -1)"
   while IFS= read -r de; do
     [[ -n "$de" ]] || continue
@@ -709,6 +709,13 @@ fa_phase_keybinds() {
         "$de") ;;  "*") [[ "$de" == "$first" ]] || continue ;;  *) continue ;;
       esac
       out="$dir/probe-binds-$src@$FA_USER.probe"
+      # Probe Gate: binds this variant does not deploy are SKIPped, not judged
+      if why="$(fa_bind_gate "$de" "$cfg")"; then
+        fa_binds_plan "$src" | jq -r --arg w "$why" \
+          'select(.effect != null) | "SKIP bind-\(.source)-\(.chord) \($w)"' \
+          >> "$out"
+        continue
+      fi
       while IFS= read -r row; do
         _fa_bind_one "$row" "$de" >> "$out"
       done < <(fa_binds_plan "$src" | jq -c 'select(.effect != null)' \

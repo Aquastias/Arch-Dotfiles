@@ -9,6 +9,7 @@
 # Public API:
 #   fa_selected_programs <cfg-json>         → selected program names, sorted
 #   fa_probe_gate_split <selected> <dir…>   → "run<TAB>dir" | "skip<TAB>name"
+#   fa_bind_gate <desktop> <cfg-json>       → skip reason (rc 0) or rc 1
 # =============================================================================
 
 # fa_selected_programs <cfg-json> — host programs (incl. toggle-derived), every
@@ -40,4 +41,21 @@ fa_probe_gate_split() {
     if [[ "$sel" == *$'\n'"$n"$'\n'* ]]; then printf 'run\t%s\n' "$d"
     else printf 'skip\t%s\n' "$n"; fi
   done
+}
+
+# fa_bind_gate <session-desktop> <cfg-json> — why this variant cannot judge
+# binds in <session-desktop> (rc 0, reason on stdout), or rc 1 to run them.
+# The bind scenes drive our curated compositor setup: a stock install ships
+# none (ADR 0112), and a shell-less niri/Hyprland is the bare compositor with
+# no seeded config.
+fa_bind_gate() {
+  local de="$1" cfg="$2"
+  if [[ "$(jq -r '.environment.stock // false' <<<"$cfg")" == true ]]; then
+    echo "stock install: our binds are not deployed (ADR 0112)"; return 0
+  fi
+  if [[ "$de" == niri || "$de" == hyprland ]] && [[ "$(jq -r \
+       '.environment.wayland_shell // "noctalia"' <<<"$cfg")" == none ]]; then
+    echo "no Wayland shell: bare $de, no seeded config"; return 0
+  fi
+  return 1
 }
