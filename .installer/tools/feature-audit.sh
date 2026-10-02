@@ -24,6 +24,8 @@ source "$INSTALLER_DIR/lib/jsonc.sh"
 source "$INSTALLER_DIR/lib/feature-audit/report.sh"
 # shellcheck source=../lib/feature-audit/binds.sh
 source "$INSTALLER_DIR/lib/feature-audit/binds.sh"
+# shellcheck source=../lib/feature-audit/gate.sh
+source "$INSTALLER_DIR/lib/feature-audit/gate.sh"
 # shellcheck source=../lib/feature-audit/check.sh
 source "$INSTALLER_DIR/lib/feature-audit/check.sh"
 # shellcheck source=../lib/feature-audit/manifest.sh

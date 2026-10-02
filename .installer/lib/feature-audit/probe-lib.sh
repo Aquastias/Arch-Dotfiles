@@ -55,3 +55,28 @@ fa_no_stderr() {
   err="$("$@" 2>&1 >/dev/null)" || { printf '%s\n' "$err"; return 1; }
   [[ -z "$err" ]] || { printf '%s\n' "$err"; return 1; }
 }
+
+# ── Probe Gate (ADR 0152): conditions a check needs from the Host Profile ──
+# fa_gate <id> <reason> <cmd…> — when cmd fails the variant lacks what the
+# check needs: SKIP it with <reason> and return 1, so `fa_gate … || return 0`
+# (whole probe) or `if fa_gate …; then fa_check …; fi` (one check).
+fa_gate() {
+  local id="$1" reason="$2"; shift 2
+  "$@" >/dev/null 2>&1 && return 0
+  fa_skip "$id" "$reason"
+  return 1
+}
+
+# fa_stock — the variant is an upstream-stock install (Pure Profiles, ADR
+# 0112): our curated desktop config and userland are not deployed.
+fa_stock() { [[ "$(fa_cfg '.environment.stock // false')" == true ]]; }
+
+# fa_curated — our curated desktop config and userland are deployed.
+fa_curated() { ! fa_stock; }
+
+# fa_has_shell — a Wayland shell is deployed: not stock, not `none` (absent
+# = the product default, noctalia).
+fa_has_shell() {
+  fa_curated \
+    && [[ "$(fa_cfg '.environment.wayland_shell // "noctalia"')" != none ]]
+}

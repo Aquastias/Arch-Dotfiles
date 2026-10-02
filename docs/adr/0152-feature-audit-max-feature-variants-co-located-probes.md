@@ -1,7 +1,8 @@
 # ADR 0152: Feature Audit: max-feature variants, probes, offline-first
 
 ## Status
-Accepted — design only; not yet implemented.
+Accepted — design only; not yet implemented. Amended 2026-10-02 (Probe
+Gate; variant-scoped Known Noise).
 
 ## Context
 The Combination Matrix (ADR 0046) proves storage combinations install and
@@ -62,3 +63,23 @@ first login, a plugin, a keybind, a timer, an upgrade.
   combinatorial; the audit needs desktops and breadth, not combinations.
 - A central probe library: new programs would ship silently untested.
 - Hand-picked keybind subset: untested binds would accumulate.
+
+## Amendment (2026-10-02): Probe Gate and variant-scoped Known Noise
+
+The first full Audit Run judged variants by features they do not ship:
+apparmor/bluetooth on `services-off`, our binds and userland on the Pure
+Profiles, Noctalia on `no-shell`. Those FAILs drowned the real ones.
+
+- **Probe Gate**: a check declares the Host Profile conditions it needs;
+  on a variant lacking them it is reported SKIP with the reason — never
+  PASS, never a Finding. Program level: the runner resolves the variant's
+  selected programs (host, user, Security & Backup Extras) and skips the
+  probes of the rest. Check level: probe-lib gates (`fa_gate`,
+  `fa_stock`, `fa_curated`, `fa_has_shell`). Every skip is listed in
+  `findings.md`, so a gate never hides a gap silently.
+- **Known Noise `variants`**: an entry may name the Audit Variants it holds
+  for (stock behaviour on a Pure Profile is noise there and still a Finding
+  on the base). `check` rejects unknown variant ids.
+
+Rejected: asserting stock compositors' own binds on Pure Profiles — they
+prove upstream defaults, not anything this repo ships (ADR 0112).

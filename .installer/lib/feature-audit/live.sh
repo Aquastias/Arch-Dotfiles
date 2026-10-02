@@ -525,8 +525,21 @@ fa_run_probes() {
 # internet cut, SSH kept), then online: a check that only passes online is a
 # runtime fetch (the feature was not fully set up at install).
 fa_phase_probes() {
-  local vdir="$1" cfg="$2" since
-  local -a dirs; mapfile -t dirs < <(fa_probe_dirs)
+  local vdir="$1" cfg="$2" since sel kind d ph
+  local -a dirs all skips=()
+  mapfile -t all < <(fa_probe_dirs)
+  # Probe Gate: a program this variant does not select is SKIPped, not judged
+  sel="$(fa_selected_programs "$cfg")"
+  while IFS=$'\t' read -r kind d; do
+    if [[ "$kind" == run ]]; then dirs+=("$d"); else skips+=("$d"); fi
+  done < <(fa_probe_gate_split "$sel" "${all[@]}")
+  for ph in probes-offline probes-online; do
+    mkdir -p "$vdir/$ph"
+    for d in "${skips[@]}"; do
+      printf 'SKIP %s-selected not selected in this variant (Probe Gate)\n' \
+        "$d" > "$vdir/$ph/probe-$d@gate.probe"
+    done
+  done
   ((${#dirs[@]})) || return 0
   fa_stage_probes "$cfg" "${dirs[@]}" \
     || { fa_fatal "$vdir/probes-offline" "could not stage probes"; return 1; }

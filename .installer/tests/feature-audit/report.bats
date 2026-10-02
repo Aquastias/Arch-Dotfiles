@@ -292,3 +292,14 @@ EOF2
   [ "$(jsonl | wc -l)" -eq 1 ]
   jsonl | jq -e '.variants == ["base"]' >/dev/null
 }
+
+@test "skipped checks are listed in findings.md, never findings" {
+  art base probes-offline probe-apparmor@gate.probe \
+    "SKIP apparmor-selected not selected in this variant (Probe Gate)"
+  art base probes-offline probe-zsh@aquastias.probe "FAIL zsh-x broken"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  grep -q '^## Skipped checks' "$RUN/findings.md"
+  grep -q 'apparmor-selected.*not selected in this variant.*base' \
+    "$RUN/findings.md"
+}

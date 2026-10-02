@@ -366,9 +366,12 @@ Audit Manifest marks `program:<name>` unverifiable, with a reason).
   Check ids are `<program>-<what>`, stable across runs.
 - **Helpers** (`lib/feature-audit/probe-lib.sh`, pre-sourced):
   `fa_pass/fa_fail/fa_skip`, `fa_check <id> <msg> <cmd…>`,
-  `fa_require_pkg <probe> <pkg> || return 0` (SKIP when the program is not in
-  this variant), `fa_as_root`/`fa_as_user`, `fa_cfg <jq>`,
-  `fa_unit_active`, `fa_no_stderr <cmd…>`.
+  `fa_require_pkg <probe> <pkg> || return 0` (SKIP when the package is
+  absent), `fa_as_root`/`fa_as_user`, `fa_cfg <jq>`, `fa_unit_active`,
+  `fa_no_stderr <cmd…>`, and the Probe Gate: `fa_gate <id> <reason> <cmd…>`
+  (SKIP with a reason when the variant lacks what the check needs) with
+  `fa_stock` / `fa_curated` / `fa_has_shell`. A program the variant does not
+  select is skipped by the runner before its probe runs.
 - **Env:** `FA_USER FA_HOME FA_IS_ROOT FA_ONLINE FA_PHASE FA_SESSION`
   (`niri|Hyprland|kwin_wayland|none`) `FA_DIR` (this probe's staged dir)
   `FA_CONFIG` (the variant's Effective Config); a user run also carries the

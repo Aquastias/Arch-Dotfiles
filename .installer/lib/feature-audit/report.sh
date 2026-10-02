@@ -206,7 +206,8 @@ _fa_render_md() {
   echo "# Feature Audit findings"
   echo
   if [[ "$n" -eq 0 ]]; then
-    echo "No findings."; _fa_render_visual "$run"; return 0
+    echo "No findings."; _fa_render_skips "$run"
+    _fa_render_visual "$run"; return 0
   fi
   echo "$n finding(s). Fix each, or propose a Known Noise entry (regex +"
   echo "reason) for maintainer approval. Repro: rerun the variant with"
@@ -226,7 +227,32 @@ _fa_render_md() {
         ) | join("\n"))
       ) | join("\n"))
   ' "$jsonl"
+  _fa_render_skips "$run"
   _fa_render_visual "$run"
+}
+
+# _fa_render_skips <run-dir> — every SKIPped probe check (Probe Gate, ADR 0152)
+# with its reason and variants: never a Finding, but never silent either.
+_fa_render_skips() {
+  local run="$1"; local -a probes
+  mapfile -t probes < <(find "$run" -mindepth 3 -maxdepth 3 -name '*.probe' \
+    | sort)
+  ((${#probes[@]})) || return 0
+  awk -v run="$run/" '
+    /^SKIP / {
+      rel = substr(FILENAME, length(run) + 1); split(rel, p, "/")
+      k = substr($0, 6)
+      if (!(k in v)) { order[++n] = k; v[k] = "" }
+      if (index("," v[k] ",", "," p[1] ",") == 0)
+        v[k] = v[k] (v[k] == "" ? "" : ",") p[1]
+    }
+    END {
+      if (!n) exit
+      print "\n## Skipped checks\n"
+      print "Gated off by the variant (Probe Gate) or not provable here."
+      print ""
+      for (i = 1; i <= n; i++) printf "- %s [%s]\n", order[i], v[order[i]]
+    }' "${probes[@]}"
 }
 
 # _fa_render_visual <run-dir> — screenshots for visual review (theming,
