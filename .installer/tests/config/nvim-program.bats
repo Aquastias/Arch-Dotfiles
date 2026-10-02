@@ -495,8 +495,8 @@ setup() {
   local R="$NVIM/lua/plugins/refactoring.lua"
   [ -f "$R" ]
   grep -q 'ThePrimeagen/refactoring.nvim' "$R"
-  grep -q 'Extract Function' "$R"
-  grep -q 'Inline Variable' "$R"
+  grep -q 'extract_func' "$R"
+  grep -q 'inline_var' "$R"
   grep -q '"<leader>re"' "$R"
 }
 
