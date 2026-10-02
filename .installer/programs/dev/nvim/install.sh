@@ -12,7 +12,8 @@
 # installs the ONE best-effort exception: Swift's sourcekit-lsp, which ships
 # with the AUR swift-bin toolchain (AUR-only, heavy). It is attempted but never
 # fails the install — a missing Swift is an optional gap, not a broken editor
-# (ADR 0135/0136).
+# (ADR 0135/0136). It also installs the plugins pinned by lazy-lock.json, so
+# the editor works offline from first launch.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -59,6 +60,19 @@ sudo cp "${SELF}/themes/noctalia.lua" \
 sudo mkdir -p /root/.config/nvim/themes
 sudo cp "${SELF}/themes/noctalia.lua" /root/.config/nvim/themes/noctalia.lua
 sudo chown -R root:root /root/.config/nvim
+
+# ── plugins at install, pinned by the committed lazy-lock.json ──────────────
+# lazy.nvim would fetch every plugin on first launch, so an offline first boot
+# had no plugins (Feature Audit runtime fetch). Restore now, for the user and
+# root (both get this config), from the staged config: Config Apply copies
+# home/ only after this script. Builds (parsers, rocks) run here too.
+print_status info "Installing Neovim plugins (lazy-lock.json)..."
+XDG_CONFIG_HOME="${SELF}/home/.config" nvim --headless "+Lazy! restore" +qa \
+  || print_status warning "Neovim plugin restore failed for" \
+  "${USER}; lazy.nvim installs them on first launch (needs network)."
+sudo -H env XDG_CONFIG_HOME="${SELF}/home/.config" \
+  nvim --headless "+Lazy! restore" +qa \
+  || print_status warning "Neovim plugin restore failed for root."
 
 print_status success "Neovim staged." \
   "Config applied by the Runner pass; LSP toolchain from Host Core."
