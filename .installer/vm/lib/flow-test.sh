@@ -149,6 +149,7 @@ runcmd:
         && cd /root/dotfiles/.installer \\
         && export INSTALL_ENC_PASSPHRASE='testtest' \\
         && export SECRETS_AGE_PASSPHRASE='test' \\
+        && export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200' \\
         && ${dirty_step}./install.sh --unattended install.jsonc
     }
     rc=\$?

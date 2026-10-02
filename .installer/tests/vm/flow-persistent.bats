@@ -178,3 +178,14 @@ teardown() { rm -rf "$CACHE_DIR"; }
   [[ "$output" == *"INSTALLER-EXIT-"*"trap _early_exit EXIT"* ]]
   [[ "$output" == *'rm -f /root/.install-exit'* ]]
 }
+
+@test "render: exports a serial console cmdline for every loader" {
+  # efistub/limine/refind boots went dark on serial, so the Console Answerer
+  # never saw the unlock prompt (Audit Run 20260929). The installer appends
+  # INSTALL_EXTRA_CMDLINE to every adapter's DEFAULT_OPTS.
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"],"options":{}}'
+  run _render_installer_script https://example/repo.git \
+    'ssh-ed25519 AAAAKEY test' aquastias
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'"* ]]
+}

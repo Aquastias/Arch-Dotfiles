@@ -51,10 +51,13 @@ ZSWAP_CMDLINE="$(zswap_cmdline_params "$(cat "$STATE")")"
 # resolution stays autodetected (ADR 0110). systemd-detect-virt exits non-zero
 # and prints nothing on bare metal; `|| echo none` normalises that to the empty
 # fragment. Applied to every entry (default + fallback) so recovery is FHD too.
+# INSTALL_EXTRA_CMDLINE is test-only: the VM harness sets console=ttyS0 so the
+# Console Answerer sees every loader's unlock prompt (ADR 0152).
 VM_VIDEO_CMDLINE="$(vm_video_cmdline_params \
   "$(systemd-detect-virt 2>/dev/null || echo none)")"
 DEFAULT_OPTS="${ROOT_CMDLINE} rw${ZSWAP_CMDLINE:+ ${ZSWAP_CMDLINE}}\
-${VM_VIDEO_CMDLINE:+ ${VM_VIDEO_CMDLINE}}"
+${VM_VIDEO_CMDLINE:+ ${VM_VIDEO_CMDLINE}}\
+${INSTALL_EXTRA_CMDLINE:+ ${INSTALL_EXTRA_CMDLINE}}"
 QUIET_CMDLINE=""
 [[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
   && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"

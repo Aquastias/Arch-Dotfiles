@@ -81,3 +81,10 @@ _boot_verify_with_log() { # <log content>: run the marker assertions only
     "$BATS_TEST_DIRNAME/../../vm/lib/flow-persistent.sh"
   [ "$status" -eq 1 ]
 }
+
+@test "seed: exports a serial console cmdline for every loader" {
+  HOLD_ON_FAIL=false
+  run _flow_render_user_data https://example/repo.git
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'"* ]]
+}
