@@ -382,9 +382,28 @@ _profiles_detect_user_helper() {
   # shellcheck disable=SC2016  # $h is expanded by the chroot's shell, not here.
   arch-chroot "$MOUNT_ROOT" su - "$user" -c '
     for h in paru yay; do
-      if command -v "$h" >/dev/null 2>&1; then echo "$h"; exit 0; fi
+      if "$h" --version >/dev/null 2>&1; then echo "$h"; exit 0; fi
     done
     exit 1'
+}
+
+# _profiles_helper_runs <user> <helper> — rc 0 when <helper> executes for <user>
+# in the chroot. A package can install yet not run (paru-bin linked against an
+# older libalpm than the system pacman), so a rung only counts once this passes.
+_profiles_helper_runs() {
+  local user="$1" helper="$2"
+  arch-chroot "$MOUNT_ROOT" su - "$user" -c "${helper} --version" \
+    >/dev/null 2>&1
+}
+
+# _profiles_rung_build_env <pkg> — env assignments for building <pkg>'s rung.
+# The source rung's release profile (LTO, one codegen unit) gets OOM-killed on
+# a 4G host; Cargo env overrides the manifest profile, so the bootstrap builds
+# without LTO on two jobs. -bin rungs compile nothing and get no overrides.
+_profiles_rung_build_env() {
+  [[ "$1" == paru ]] || return 0
+  printf '%s\n' CARGO_PROFILE_RELEASE_LTO=false \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_BUILD_JOBS=2
 }
 
 # One rung of the bootstrap ladder: build+install <aur-pkg> as <user> in the
@@ -394,10 +413,11 @@ _profiles_detect_user_helper() {
 # rung's status. Wrapped in _retry by the ladder and stubbed in unit tests.
 _profiles_bootstrap_rung() {
   local user="$1" pkg="$2"
+  local env; env="$(_profiles_rung_build_env "$pkg" | paste -sd' ')"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" \
-    "$_PROFILES_AUR_VET_BIN" <<'CHROOT_RUNG'
+    "$_PROFILES_AUR_VET_BIN" "$env" <<'CHROOT_RUNG'
 set -e
-USER_NAME="$1"; PKG="$2"; VET="$3"
+USER_NAME="$1"; PKG="$2"; VET="$3"; BUILD_ENV="$4"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
 BUILD="${HOME_DIR}/.aur-helper-bootstrap"
 rm -rf "$BUILD"
@@ -406,7 +426,7 @@ su - "$USER_NAME" -c "
   git clone https://aur.archlinux.org/${PKG}.git '${BUILD}'
   cd '${BUILD}'
   AUR_VET_UNATTENDED=1 PKGBASE='${PKG}' '${VET}'
-  makepkg -si --noconfirm
+  env ${BUILD_ENV} makepkg -si --noconfirm
 "
 rm -rf "$BUILD"
 CHROOT_RUNG
@@ -436,6 +456,11 @@ _profiles_bootstrap_helper() {
         yay-bin) landed=yay ;;
         *)       landed=paru ;;
       esac
+      if ! _profiles_helper_runs "$user" "$landed"; then
+        warn "AUR-helper rung '${pkg}' installed but ${landed} does not run" \
+             "for ${user}; trying next rung." >&2
+        continue
+      fi
       info "AUR helper bootstrapped via ${pkg} (${landed}) for ${user}" >&2
       printf '%s\n' "$landed"
       return 0

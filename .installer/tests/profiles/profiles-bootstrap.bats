@@ -19,6 +19,8 @@ setup() {
 
   # Never wait during retry backoff.
   sleep() { :; }
+  # Landed helpers run unless a test says otherwise.
+  _profiles_helper_runs() { return 0; }
 }
 
 teardown() { rm -rf "$T"; }
@@ -93,6 +95,32 @@ teardown() { rm -rf "$T"; }
   [ "$st" -eq 0 ]
   [ "$h" = paru ]
   [ ! -f "$T/rung" ]           # no rung executed
+}
+
+@test "ladder: a rung whose helper does not run drops to the next rung" {
+  # Regression (Audit Run 20260929): paru-bin installed but linked an old
+  # libalpm, so every later `paru` call failed. A rung only counts if the
+  # helper it landed actually runs.
+  _profiles_detect_user_helper() { return 1; }
+  _profiles_bootstrap_rung() { [[ "$2" != paru ]]; }   # source rung fails
+  _profiles_helper_runs() { [[ "$2" == yay ]]; }       # paru-bin is broken
+  local h st
+  h="$(_profiles_bootstrap_helper alice 2>/dev/null)"; st=$?
+  [ "$st" -eq 0 ]
+  [ "$h" = yay ]
+}
+
+@test "rung build env: source paru builds without LTO, few jobs" {
+  run _profiles_rung_build_env paru
+  [ "$status" -eq 0 ]
+  [[ "$output" == *CARGO_PROFILE_RELEASE_LTO=false* ]]
+  [[ "$output" == *CARGO_BUILD_JOBS=2* ]]
+}
+
+@test "rung build env: -bin rungs get no build overrides" {
+  run _profiles_rung_build_env paru-bin
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 # ── AUR pass pre-flight gate ────────────────────────────────────────────────

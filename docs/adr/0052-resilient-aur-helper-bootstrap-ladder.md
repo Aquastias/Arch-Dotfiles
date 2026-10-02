@@ -3,7 +3,8 @@
 ---
 Status: accepted — amended by ADR 0143 (AUR Vetting: every rung is vetted
 before makepkg; AUR builds refuse to run under the `yay` rung, which is
-repo-only for User Programs)
+repo-only for User Programs); amended 2026-10-02 (a rung counts only if its
+helper runs; low-memory source build)
 ---
 
 The per-user AUR-helper bootstrap no longer aborts the install on a transient
@@ -76,3 +77,22 @@ ERR trap, without the pretty pre-download report.
   correctness on yay is unchanged, only the pre-download nicety is absent.
 - The abort contract is preserved: a total AUR/GitHub outage still fails the
   install cleanly, just after ~40s of laddered attempts instead of one shot.
+
+## Amendment (2026-10-02): a rung counts only if its helper runs
+
+The first full Audit Run's Minimal Profile (4G RAM) showed two holes. The
+source rung's release build (LTO, one codegen unit) was OOM-killed; the
+ladder then landed `paru-bin`, which installed fine but was linked against
+an older `libalpm` than the system pacman, so every later `paru` call
+failed and the install aborted after the ladder had "succeeded".
+
+- **A rung counts only once its helper runs** (`<helper> --version` as the
+  user). An installed-but-broken helper drops to the next rung, and the
+  already-present check applies the same test.
+- **The source rung builds lean**: Cargo env overrides (LTO off, 16
+  codegen units, 2 jobs) for the bootstrap build only, so rung 1 fits a
+  4G host. The ladder's shape and order are unchanged.
+
+Rejected: dropping the source rung for `-bin` only (the original Considered
+Options still hold, and `-bin` is exactly what went stale); temporary swap
+during bootstrap (mutates system state for one build).
