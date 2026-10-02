@@ -35,7 +35,8 @@ _fa_noise_tsv() {
   local f; f="$(fa_known_noise_path)"
   [[ -f "$f" ]] || return 0
   jsonc_strip "$f" | jq -r '.[] | [.regex, (.source // ""), (.phase // ""),
-    ((.variants // []) | join(","))] | @tsv'
+    ((.variants // []) | join(","))]
+    | join("\t")'  # not @tsv: it escapes the regexes' backslashes
 }
 
 # _fa_candidates <run-dir> — one aggregated Finding per line (TSV):

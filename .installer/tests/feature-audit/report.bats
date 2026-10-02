@@ -303,3 +303,23 @@ EOF2
   grep -q 'apparmor-selected.*not selected in this variant.*base' \
     "$RUN/findings.md"
 }
+
+@test "known noise regex with backslash escapes matches literally" {
+  # @tsv doubled every backslash, so \( reached awk as \\( (Audit Run 20261002)
+  cat > "$NOISE" <<'EOF2'
+[ { "regex": "^\\(sd-umoun\\[[0-9]+\\]: Failed to unmount", "reason": "r" } ]
+EOF2
+  art base boot1 serial.lines '(sd-umoun[42]: Failed to unmount /run/x: busy'
+  report
+  [ "$status" -eq 0 ]
+  [ ! -s "$RUN/findings.jsonl" ]
+}
+
+@test "a broken judge fails loudly, never a silent zero" {
+  cat > "$NOISE" <<'EOF2'
+[ { "regex": "(unbalanced", "reason": "r" } ]
+EOF2
+  art base boot1 journal.lines "x: failed"
+  report
+  [ "$status" -eq 2 ]
+}

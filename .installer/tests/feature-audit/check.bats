@@ -265,3 +265,11 @@ noise() {
   [ "$status" -ne 0 ]
   [ "$(grep -c '^noise:' <<<"$output")" -eq 3 ]
 }
+
+@test "noise: a valid regex with backslash escapes passes" {
+  export FEATURE_AUDIT_CHECKS="noise"
+  manifest '[{"id":"base"}]'
+  noise '[{"regex":"^\\(sd-umoun\\[[0-9]+\\]: x","reason":"r"}]'
+  run bash "$TOOL" check
+  [ "$status" -eq 0 ]
+}

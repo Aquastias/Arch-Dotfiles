@@ -171,7 +171,8 @@ _fa_check_noise() {
     end' 2>/dev/null || echo "noise: not valid JSONC"
   while IFS= read -r re; do
     # the report matches with awk, so awk judges the regex (bad one: exit 2)
-    awk -v r="$re" 'BEGIN { if ("" ~ r) {} }' 2>/dev/null \
+    # via ENVIRON: awk -v would process the regex's backslash escapes
+    R="$re" awk 'BEGIN { if ("" ~ ENVIRON["R"]) {} }' 2>/dev/null \
       || echo "noise: invalid regex $re"
   done < <(jsonc_strip "$f" | jq -r '.[]?.regex // empty' 2>/dev/null)
 }
