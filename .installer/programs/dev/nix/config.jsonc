@@ -1,0 +1,15 @@
+// Program metadata for nix.
+//
+// kind=host → installed by the profile runner inside arch-chroot as root via
+// pacman. Arch Wiki (Nix): install nix and enable nix-daemon.service. Host
+// Core ships nixd (Nix LSP) and nixfmt, so nix must be usable: install.sh
+// also creates /nix/store (the package does not, and every user-side tool —
+// nixd's evaluator included — aborts on a missing store before it ever
+// reaches the daemon). No channel is added: that is the operator's choice.
+
+{
+  "name": "nix",
+  "kind": "host",
+  "description": "Nix package manager with nix-daemon and an initialised store.",
+  "system_services": ["nix-daemon.service"]
+}

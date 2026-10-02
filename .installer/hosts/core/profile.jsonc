@@ -35,6 +35,7 @@
     "fwupd",
     "gamemode",
     "lact",
+    "nix",
     "smartmontools"
   ],
   "sysctl": {
