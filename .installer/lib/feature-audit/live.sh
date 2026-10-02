@@ -487,11 +487,20 @@ for d in "$P"/*/; do
       # compositor IPC for the probes (niri msg / hyprctl)
       ns="$(ls "$rt"/niri.*.sock 2>/dev/null | head -1)"
       his="$(ls "$rt/hypr" 2>/dev/null | head -1)"
+      # X11 apps (Xwayland) need the session's DISPLAY + XAUTHORITY: read them
+      # from its shell client, as a real launch would inherit them
+      cl="$(pgrep -u "$a" -x 'plasmashell|noctalia|waybar' | head -1)"
+      dsp=""; xa=""
+      if [ -n "$cl" ]; then
+        dsp="$(tr '\0' '\n' < "/proc/$cl/environ" | sed -n 's/^DISPLAY=//p')"
+        xa="$(tr '\0' '\n' < "/proc/$cl/environ" | sed -n 's/^XAUTHORITY=//p')"
+      fi
       timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
         LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
         PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
         XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" \
         WAYLAND_DISPLAY="$wd" NIRI_SOCKET="$ns" \
+        DISPLAY="$dsp" XAUTHORITY="$xa" \
         HYPRLAND_INSTANCE_SIGNATURE="$his" "${common[@]}" FA_IS_ROOT=0 \
         bash -c ". '$P/_lib.sh'; . '$d/audit.sh'" > "$out" 2> "$err"
     fi
