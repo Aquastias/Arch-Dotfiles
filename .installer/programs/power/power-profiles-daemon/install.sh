@@ -15,7 +15,8 @@ set -Eeuo pipefail
 trap 'echo "[power-profiles-daemon] error on line $LINENO" >&2' ERR
 
 print_status info "Installing power-profiles-daemon..."
-pacman -S --noconfirm --needed power-profiles-daemon
+# python-gobject: powerprofilesctl's optdep; a bare host (minimal) lacks it.
+pacman -S --noconfirm --needed power-profiles-daemon python-gobject
 
 print_status info "Enabling power-profiles-daemon.service..."
 systemctl enable power-profiles-daemon.service
