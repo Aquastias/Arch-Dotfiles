@@ -291,17 +291,20 @@ _chroot_seed_zpool_cache() {
 configure_system() {
   section "Configuring System (arch-chroot)"
 
+  # pacstrap read the HOST pacman.conf (Optional Repositories, ADR 0072;
+  # Pacman Options, ADR 0074; archzfs on ZFS); the target inherits it on
+  # every layout, or a non-ZFS install loses e.g. [multilib].
+  cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
+
   # ── Seed ZFS state into the new root (ZFS only) ───────────────────────────
   # The pool cache and hostid must exist in the new system before the initramfs
-  # is built, otherwise the ZFS hook cannot import the pool at boot. The archzfs
-  # repo config is copied so the new system can update ZFS packages. A pure
-  # non-ZFS install has no zpool / hostid / archzfs repo to seed (ADR 0043).
+  # is built, otherwise the ZFS hook cannot import the pool at boot. A pure
+  # non-ZFS install has no zpool / hostid to seed (ADR 0043).
   if command_exists zpool; then
     local _pools=()
     mapfile -t _pools < <(zpool list -H -o name)
     _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
     cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
-    cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
   fi
 
   # ── Copy extras/ scripts for execution inside chroot ──────────────────────
