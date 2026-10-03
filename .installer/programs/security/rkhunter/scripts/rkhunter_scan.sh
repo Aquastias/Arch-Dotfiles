@@ -15,8 +15,15 @@ SYSTEM_LOG="/var/log/rkhunter.log"
 
 echo "=== RKHunter Desktop Scan: $(date) ===" | tee -a "$SYSTEM_LOG"
 
-# Update definitions and database
-rkhunter --update >>"$SYSTEM_LOG" 2>&1
+# Update definitions, then the database. --update exits 2 when it installed
+# updates and 1 on a download error (rkhunter(8)); neither may stop the
+# scan, so an offline machine still scans on the data it has.
+rc=0
+rkhunter --update --nocolors >>"$SYSTEM_LOG" 2>&1 || rc=$?
+if (( rc == 1 )); then
+  echo "rkhunter --update: download failed; scanning on existing data." \
+    | tee -a "$SYSTEM_LOG"
+fi
 rkhunter --propupd -q >>"$SYSTEM_LOG" 2>&1
 
 # Run the scan
