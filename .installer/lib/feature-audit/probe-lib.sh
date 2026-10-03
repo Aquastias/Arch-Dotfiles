@@ -56,6 +56,17 @@ fa_no_stderr() {
   [[ -z "$err" ]] || { printf '%s\n' "$err"; return 1; }
 }
 
+# fa_no_stderr_but <ere> <cmd…> — fa_no_stderr, tolerating stderr lines that
+# match <ere> (a known-benign line the variant explains, never a blanket pass).
+fa_no_stderr_but() {
+  local ere="$1" err rc=0; shift
+  err="$("$@" 2>&1 >/dev/null)" || rc=$?
+  err="$(grep -vE -- "$ere" <<< "$err")"
+  ((rc == 0)) && [[ -z "$err" ]] && return 0
+  [[ -z "$err" ]] || printf '%s\n' "$err"
+  return 1
+}
+
 # ── Probe Gate (ADR 0152): conditions a check needs from the Host Profile ──
 # fa_gate <id> <reason> <cmd…> — when cmd fails the variant lacks what the
 # check needs: SKIP it with <reason> and return 1, so `fa_gate … || return 0`

@@ -12,6 +12,14 @@ if [[ "$FA_SESSION" == none || -z "${WAYLAND_DISPLAY:-}" ]]; then
   fa_skip kitty-launch "no live session"
   return 0
 fi
-# A real window: config errors surface on stderr at startup.
-fa_check kitty-launch "kitty opens a window with no config errors" \
-  fa_no_stderr timeout 20 kitty --class fa-probe-kitty -e sh -c 'sleep 3'
+# A real window: config errors surface on stderr at startup. With no Wayland
+# shell there is no notification daemon, so kitty's startup query of its
+# capabilities fails: tolerate exactly that line there.
+_kitty=(timeout 20 kitty --class fa-probe-kitty -e sh -c 'sleep 3')
+if fa_has_shell; then
+  fa_check kitty-launch "kitty opens a window with no config errors" \
+    fa_no_stderr "${_kitty[@]}"
+else
+  fa_check kitty-launch "kitty opens a window with no config errors" \
+    fa_no_stderr_but '\[glfw error [0-9]+\]: Notify: ' "${_kitty[@]}"
+fi

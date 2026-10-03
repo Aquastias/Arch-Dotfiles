@@ -88,3 +88,19 @@ cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   local c='{"environment":{"wayland_shell":"noctalia"}}'
   run fa_bind_gate niri "$c"; [ "$status" -ne 0 ]; [ -z "$output" ]
 }
+
+# ── stderr judging ──────────────────────────────────────────────────────────
+
+@test "fa_no_stderr_but: only lines matching the ERE are tolerated" {
+  run fa_no_stderr_but 'Notify:' sh -c 'echo "glfw Notify: no server" >&2'
+  [ "$status" -eq 0 ]
+  run fa_no_stderr_but 'Notify:' \
+    sh -c 'echo "glfw Notify: x" >&2; echo "bad config key" >&2'
+  [ "$status" -eq 1 ]
+  [ "$output" = "bad config key" ]
+}
+
+@test "fa_no_stderr_but: a failing command still fails" {
+  run fa_no_stderr_but 'Notify:' false
+  [ "$status" -eq 1 ]
+}
