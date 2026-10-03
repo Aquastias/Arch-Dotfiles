@@ -105,3 +105,13 @@ found", so it never resolved a conflict and warned on every install (Audit
 Run 20261002). It is gone; a real provider conflict surfaces through the
 install's ERR trap. Rejected: rebuilding it from .SRCINFO + `pacman -Sp` of
 the repo deps — more code for a hint that never fired.
+
+## Amendment (2026-10-04): unreachable AUR sources skip, not abort
+
+An upstream source host down for longer than the retries (codeberg 503 on
+`bolt-launcher`, Audit Run 20261003) ended a whole install over one
+package. When the retried batch still fails, the AUR pass now retries per
+package: a package whose sources are unreachable (download/RPC 5xx/DNS/
+connect errors) is skipped with a warning naming it; any other failure still
+aborts. pacstrap is retried the same way (`_retry`, now in the Installer
+Stdlib). Rejected: skipping any failing package (hides real build breaks).
