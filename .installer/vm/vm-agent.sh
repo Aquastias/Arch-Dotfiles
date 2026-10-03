@@ -599,6 +599,10 @@ verb_unlock() { _sudo "loginctl unlock-sessions"; info "unlocked."; }
 verb_shot() {
   local out="${1:-vm-agent-shot.png}"
   local guest_png="/tmp/vm-agent-shot.$$.png"
+  # Shell-less wlroots hosts ship no grim; it is our capture tool, not the
+  # product's, so bring it (the host screendump has no surface under GL).
+  _ssh "command -v grim >/dev/null" \
+    || _sudo "pacman -S --noconfirm --needed grim" >/dev/null 2>&1 || true
   # Detect compositor, wake the display, capture with the right tool.
   _in_session "
     (command -v noctalia >/dev/null && noctalia msg dpms-on) 2>/dev/null || true
