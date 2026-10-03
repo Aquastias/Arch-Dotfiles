@@ -245,5 +245,20 @@
               "Virtual modifier .* multiply defined)|",
               "Errors from xkbcomp are not fatal|xcb_connect\\(\\) failed)"],
     "source": "wayland-session",
-    "reason": "Xwayland xkbcomp: keysyms newer than xkeyboard-config" }
+    "reason": "Xwayland xkbcomp: keysyms newer than xkeyboard-config" },
+  // ── serial console at shutdown (approved 2026-10-04) ──
+  { "regex": "\\[FAILED\\] Failed unmounting /(etc|var|var/log)\\.$",
+    "source": "serial",
+    "reason": "busy ZFS impermanence datasets; systemd-shutdown ends them" },
+  { "regex": "ata[0-9]+\\.00: Check power mode failed \\(err_mask=",
+    "source": "serial",
+    "reason": "QEMU AHCI disks answer no CHECK POWER MODE at shutdown" },
+  { "regex": ["\\[drm:virtio_gpu_cmd_get_capset_info_cb \\[virtio_gpu\\]\\] ",
+              "\\*ERROR\\* invalid capset memory"],
+    "source": "serial", "reason": "QEMU virgl capset query at shutdown" },
+  // ── no Wayland shell, no notification daemon ──
+  { "regex": ["dbus-:[0-9.]+-org\\.freedesktop\\.Notifications@[0-9]+",
+              "\\.service: Failed with result"],
+    "variants": ["no-shell"],
+    "reason": "Plasma Notifications activated outside Plasma: no daemon" }
 ]
