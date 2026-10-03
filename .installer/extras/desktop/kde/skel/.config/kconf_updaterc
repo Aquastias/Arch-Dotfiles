@@ -1,0 +1,4 @@
+# Plasma's migrate-calendar-to-plugin-id.py char-splits plugin ids already in
+# id form (`list += str`); appletsrc ships ids, so mark it done.
+[migrate-calendar-to-plugin-id.upd]
+done=migrate-calendar-plugins

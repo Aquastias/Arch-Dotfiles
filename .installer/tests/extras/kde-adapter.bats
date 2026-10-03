@@ -783,3 +783,19 @@ JSON
   ! jsonc_strip "$core" | jq -e '[.packages.aur | to_entries[].value[]]
     | index("octopi")'
 }
+
+@test "calendar plugins survive Plasma's broken id migration (Audit 20261003)" {
+  # migrate-calendar-to-plugin-id.py does `list += str` on entries already in
+  # id form, char-splitting them on first login. Seed the skel as already
+  # migrated so kconf_update skips it.
+  cat > "$KDE_JSON" <<'JSON'
+{"shell":true,"apps":false,"apps_list":{}}
+JSON
+  KDE_SEED_ROOT="$TEST_DIR/seed" run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  local d="$TEST_DIR/seed/etc/skel/.config"
+  grep -qx 'enabledCalendarPlugins=astronomicalevents,holidaysevents' \
+    "$d/plasma-org.kde.plasma.desktop-appletsrc"
+  grep -A2 -Fx '[migrate-calendar-to-plugin-id.upd]' "$d/kconf_updaterc" \
+    | grep -qx 'done=migrate-calendar-plugins'
+}
