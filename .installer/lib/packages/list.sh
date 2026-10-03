@@ -429,7 +429,9 @@ install_base() {
   # to pacstrap. Package names never contain whitespace, so even unquoted
   # would be safe — quoted is the shellcheck-clean idiom (no SC2068 disable
   # needed).
-  pacstrap -K "${MOUNT_ROOT}" --needed "${pkgs[@]}"
+  # Retried: one mirror/CDN blip (e.g. a GitHub-hosted archzfs file) must not
+  # end a whole install; --needed makes a re-run resume, not redo.
+  _retry 3 "10,30" -- pacstrap -K "${MOUNT_ROOT}" --needed "${pkgs[@]}"
 
   # archzfs LTS ceiling pin (ADR 0137): the temporary [archzfs-lts-pin] local
   # repo was only needed for this pacstrap transaction. Remove it now from both

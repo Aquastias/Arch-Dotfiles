@@ -86,6 +86,29 @@ pick_option() {
 # command_exists (one helper per world; see docs/agents/shell-commons.md).
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 
+# Generic retry-with-backoff (ADR 0052). Runs the command; on failure sleeps the
+# next backoff value and retries, up to <attempts> total tries. Returns the
+# command's last exit status. `attempts` counts *total* tries, so the number of
+# sleeps is attempts-1; backoff is a CSV of per-gap seconds (missing → 0). The
+# bootstrap ladder calls `_retry 3 "3,10"` — one initial try plus two retries,
+# sleeping 3s then 10s (~13s worst case per rung).
+#   _retry <attempts> <backoff-csv> -- cmd [args...]
+_retry() {
+  local attempts="$1" backoff_csv="$2"; shift 2
+  [[ "${1:-}" == "--" ]] && shift
+  local -a backoff=()
+  IFS=',' read -ra backoff <<< "$backoff_csv"
+  local n=0 rc=0
+  while :; do
+    n=$((n + 1))
+    # `&& return 0 || rc=$?` captures the command's own status (an `if` around
+    # it would swallow it) while staying set -e-safe.
+    "$@" && return 0 || rc=$?
+    (( n >= attempts )) && return "$rc"
+    sleep "${backoff[n-1]:-0}"
+  done
+}
+
 # ── Config accessors ──────────────────────────────────────────────────────────
 # Both functions require CONFIG_FILE to be set before use.
 

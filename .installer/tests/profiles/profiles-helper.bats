@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the AUR-helper foundations in lib/profiles/runner.sh (ADR 0052):
+# Tests for the AUR-helper foundations (ADR 0052), runner.sh + common.sh:
 #   _retry                  — generic retry-with-backoff wrapper
 #   _profiles_detect_helper — resolve paru|yay from PATH ($AUR_HELPER value)
 #
