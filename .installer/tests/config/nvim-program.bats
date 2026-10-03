@@ -595,3 +595,12 @@ setup() {
 @test "lsp advertises foldingRange for ufo's LSP provider" {
   grep -q 'foldingRange' "$NVIM/lua/plugins/lsp.lua"
 }
+
+@test "the program installs neovim itself before the plugin restore" {
+  # Regression (Audit Run 20261003): pure variants (packages.inherit false)
+  # had no nvim, so the restore died "nvim: command not found".
+  local ins rst
+  ins="$(grep -n -- '--needed neovim git' "$INSTALL" | cut -d: -f1)"
+  rst="$(grep -n 'nvim "\${_restore' "$INSTALL" | head -1 | cut -d: -f1)"
+  [ -n "$ins" ] && [ -n "$rst" ] && (( ins < rst ))
+}
