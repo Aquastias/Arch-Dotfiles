@@ -18,7 +18,7 @@ setup() {
 }
 
 @test "bootloader_efi_loader: grub" {
-  [ "$(bootloader_efi_loader grub)" = '\EFI\GRUB\grubx64.efi' ]
+  [ "$(bootloader_efi_loader grub)" = '\EFI\BOOT\BOOTX64.EFI' ]
 }
 
 @test "bootloader_efi_loader: limine and refind" {

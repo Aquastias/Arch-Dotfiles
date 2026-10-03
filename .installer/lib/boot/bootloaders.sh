@@ -44,7 +44,7 @@ bootloader_is_valid() {
 bootloader_efi_loader() {
   case "$1" in
   systemd-boot) printf '%s\n' '\EFI\systemd\systemd-bootx64.efi' ;;
-  grub)         printf '%s\n' '\EFI\GRUB\grubx64.efi' ;;
+  grub)         printf '%s\n' '\EFI\BOOT\BOOTX64.EFI' ;;  # --removable
   limine)       printf '%s\n' '\EFI\limine\limine_x64.efi' ;;
   refind)       printf '%s\n' '\EFI\refind\refind_x64.efi' ;;
   efistub)      : ;;
