@@ -504,14 +504,17 @@ for d in "$P"/*/; do
       ns="$(ls "$rt"/niri.*.sock 2>/dev/null | head -1)"
       his="$(ls "$rt/hypr" 2>/dev/null | head -1)"
       # X11 apps (Xwayland) need the session's DISPLAY + XAUTHORITY: read them
-      # from its shell client, as a real launch would inherit them
+      # from its shell client, as a real launch would inherit them; with no
+      # shell, from the user manager the compositor imported them into
       cl="$(pgrep -u "$a" -x 'plasmashell|noctalia|waybar' | head -1)"
-      dsp=""; xa=""
       if [ -n "$cl" ]; then
         env_="$(tr '\0' '\n' < "/proc/$cl/environ")"
-        dsp="$(sed -n 's/^DISPLAY=//p' <<<"$env_")"
-        xa="$(sed -n 's/^XAUTHORITY=//p' <<<"$env_")"
+      else
+        env_="$(runuser -u "$a" -- env XDG_RUNTIME_DIR="$rt" \
+          systemctl --user show-environment 2>/dev/null)"
       fi
+      dsp="$(sed -n 's/^DISPLAY=//p' <<<"$env_")"
+      xa="$(sed -n 's/^XAUTHORITY=//p' <<<"$env_")"
       timeout "$to" runuser -u "$a" -- env -i HOME="$h" USER="$a" \
         LOGNAME="$a" SHELL="$(getent passwd "$a" | cut -d: -f7)" \
         PATH=/usr/local/bin:/usr/bin:/bin LANG=en_US.UTF-8 \
