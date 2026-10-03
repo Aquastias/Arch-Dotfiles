@@ -30,7 +30,7 @@ declare -F esp_budget_auto_size >/dev/null 2>&1 \
 _layout_kernel_count() { install_config_kernels | grep -c .; }
 
 # Reads .options.esp_size. The default `auto` is resolved to a kernel-and-fs
-# aware size (upward-only from the 2G floor; grub takes a fixed small ESP) via
+# aware size (upward-only from the 2G floor) via
 # the ESP budget model (ADR 0078); an explicit numeric pin is returned as-is.
 layout_resolve_esp_size() {
   local raw; raw="$(install_config_esp_size)"

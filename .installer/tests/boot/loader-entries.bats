@@ -62,6 +62,23 @@ setup() {
   [ "$(grep -c 'module_path' <<<"$output")" -eq 1 ]
 }
 
+# ── grub ─────────────────────────────────────────────────────────────────────
+
+@test "grub_entry: menuentry with ESP-root kernel, microcode first, cmdline" {
+  run grub_entry "Arch Linux (linux-lts)" linux-lts "amd-ucode.img" \
+    initramfs-linux-lts.img "root=ZFS=rpool rw"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"menuentry 'Arch Linux (linux-lts)' {"* ]]
+  [[ "$output" == *'linux /vmlinuz-linux-lts root=ZFS=rpool rw'* ]]
+  [[ "$output" == *'initrd /amd-ucode.img /initramfs-linux-lts.img'* ]]
+}
+
+@test "grub_entry: empty microcode loads just the initramfs" {
+  run grub_entry "t" linux "" initramfs-linux.img "root=x rw"
+  [[ "$output" == *$'\n    initrd /initramfs-linux.img\n'* ]]
+}
+
+
 # ── refind ───────────────────────────────────────────────────────────────────
 
 @test "refind_linux_conf: one quoted sub-entry carrying the cmdline" {

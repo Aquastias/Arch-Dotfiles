@@ -3,9 +3,9 @@
 # PROGRAM_SPEC.md). Only the grub variant selects it.
 fa_require_pkg grub grub || return 0
 fa_as_root || return 0
-fa_check grub-cfg "grub.cfg generated" test -s /boot/grub/grub.cfg
-fa_check grub-os-prober "os-prober enabled" \
-  grep -q '^GRUB_DISABLE_OS_PROBER=false' /etc/default/grub
+fa_check grub-cfg "grub.cfg rendered on the ESP" test -s /boot/efi/grub/grub.cfg
+fa_check grub-entries "an entry per staged kernel" \
+  sh -c 'for k in /boot/efi/vmlinuz-*; do
+    grep -q "linux /${k##*/} " /boot/efi/grub/grub.cfg || exit 1; done'
 fa_check grub-efi "GRUB EFI binary installed" \
-  sh -c 'ls /efi/EFI/*/grubx64.efi /boot/EFI/*/grubx64.efi 2>/dev/null \
-    | grep -q .'
+  test -s /boot/efi/EFI/BOOT/BOOTX64.EFI

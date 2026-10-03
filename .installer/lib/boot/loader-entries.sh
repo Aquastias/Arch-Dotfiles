@@ -3,16 +3,15 @@
 # lib/boot/loader-entries.sh — pure boot-entry renderers (ADR 0078)
 # =============================================================================
 # One pure function per loader that needs explicit per-kernel entries
-# (systemd-boot, limine, efistub). Each takes the resolved inputs for ONE
+# (systemd-boot, limine, efistub, grub). Each takes the resolved inputs for ONE
 # kernel — the package base (kbase), a title, the microcode initrd line(s), the
 # initramfs image, and the options/cmdline — and prints that loader's entry
 # text. The Bootloader Adapter loops the ordered KERNELS array and feeds each
 # kernel through here, so multi-kernel entry text is unit-tested in isolation
 # while the impure chroot copy/register glue stays in the adapter.
 #
-# Pure: string-in / string-out, no disk or state access. grub and refind are
-# absent — they discover kernels natively (grub-mkconfig / refind autodetect)
-# and need no per-kernel entry rendered here.
+# Pure: string-in / string-out, no disk or state access. refind is absent: it
+# autodetects the kernels and needs no per-kernel entry rendered here.
 # =============================================================================
 
 # sdboot_entry <title> <kbase> <microcode_initrds> <initrd_img> <options>
@@ -46,6 +45,20 @@ limine_entry() {
   done <<< "$microcode"
   printf '    module_path: boot():/%s\n' "$initrd"
   printf '    cmdline: %s\n' "$cmdline"
+}
+
+# grub_entry <label> <kbase> <microcode_imgs> <initrd_img> <cmdline>
+# A grub.cfg menuentry. The kernels sit at the ESP root, which is GRUB's root
+# (its prefix lives on the ESP), so paths are bare. <microcode_imgs> is the
+# space-separated image list (MICROCODE_IMGS), loaded before the initramfs.
+grub_entry() {
+  local label="$1" kbase="$2" microcode="$3" initrd="$4" cmdline="$5" m
+  local imgs=""
+  for m in $microcode; do imgs+="/$m "; done
+  printf "menuentry '%s' {\n" "$label"
+  printf '    linux /vmlinuz-%s %s\n' "$kbase" "$cmdline"
+  printf '    initrd %s/%s\n' "$imgs" "$initrd"
+  printf '}\n'
 }
 
 # refind_linux_conf <cmdline> — the refind_linux.conf placed beside the kernels

@@ -1,8 +1,9 @@
 #!/usr/bin/env bats
 # Tests for .installer/lib/boot/esp-budget.sh — the pre-install ESP budget model
 # (ADR 0078). Pure arithmetic: estimate how much ESP an ESP-mirroring loader
-# needs to hold every selected kernel's images (grub is exempt — it reads /boot
-# natively), size it upward-only from the 2G floor, and check a pinned esp_size.
+# needs to hold every selected kernel's images (grub too: its kernels live on
+# the ESP since 2026-10-04), size it upward-only from the 2G floor, and check
+# a pinned esp_size.
 
 setup() {
   source "$BATS_TEST_DIRNAME/../../lib/boot/esp-budget.sh"
@@ -10,8 +11,8 @@ setup() {
 
 # ── need estimate ────────────────────────────────────────────────────────────
 
-@test "esp_budget_need_mib: grub is exempt (fixed 1G floor ESP)" {
-  [ "$(esp_budget_need_mib 4 zfs grub)" -eq 1024 ]
+@test "esp_budget_need_mib: grub counts kernels like systemd-boot" {
+  [ "$(esp_budget_need_mib 4 zfs grub)" -eq 1910 ]
 }
 
 @test "esp_budget_need_mib: four ZFS kernels ≈ 1.9G (systemd-boot)" {
@@ -39,8 +40,8 @@ setup() {
   [ "$(esp_budget_auto_size 5 zfs systemd-boot)" = "2304M" ]
 }
 
-@test "esp_budget_auto_size: grub takes the fixed 1G floor ESP" {
-  [ "$(esp_budget_auto_size 5 zfs grub)" = "1G" ]
+@test "esp_budget_auto_size: grub sizes like systemd-boot" {
+  [ "$(esp_budget_auto_size 5 zfs grub)" = "2304M" ]
 }
 
 @test "esp_budget_auto_size: efistub/limine/refind size like systemd-boot" {
@@ -59,8 +60,8 @@ setup() {
   esp_budget_fits_mib 2048 4 zfs systemd-boot
 }
 
-@test "esp_budget_fits_mib: grub is always exempt (tiny ESP passes)" {
-  esp_budget_fits_mib 256 5 zfs grub
+@test "esp_budget_fits_mib: grub is no longer exempt (tiny ESP fails)" {
+  ! esp_budget_fits_mib 256 5 zfs grub
 }
 
 # ── fits by size string (the Guided live check) ──────────────────────────────

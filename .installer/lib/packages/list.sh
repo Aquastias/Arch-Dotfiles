@@ -73,9 +73,8 @@ collect_packages() {
 
   # ── Bootloader selection ──────────────────────────────────────────────────
   # Extra package(s) come from the Bootloader Manifest (ADR 0077). Today:
-  # systemd-boot adds nothing, grub adds grub (it ships zfs.mod and boots ZFS
-  # pools natively — grub-mkconfig runs with ZPOOL_VDEV_NAME_PATH=YES in the
-  # adapter). efibootmgr (base) registers UEFI entries for both.
+  # systemd-boot adds nothing, grub adds grub (booted from the ESP like the
+  # others, ADR 0078). efibootmgr (base) registers UEFI entries for both.
   local bootloader
   bootloader="$(install_config_bootloader)"
   local bootloader_pkgs=()

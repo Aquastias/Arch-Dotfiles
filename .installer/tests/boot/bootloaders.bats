@@ -75,8 +75,8 @@ setup() {
   [ "$(bootloader_esp_mirrors systemd-boot)" = "yes" ]
 }
 
-@test "bootloader_esp_mirrors: grub reads /boot natively (no ESP mirror)" {
-  [ "$(bootloader_esp_mirrors grub)" = "no" ]
+@test "bootloader_esp_mirrors: grub boots kernels from the ESP" {
+  [ "$(bootloader_esp_mirrors grub)" = "yes" ]
 }
 
 @test "bootloader_esp_style: efistub has no loader binary" {

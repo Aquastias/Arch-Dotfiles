@@ -83,14 +83,15 @@ bootloader_esp_style() {
 
 # bootloader_esp_mirrors <name> — `yes` for an ESP-mirroring loader (boots the
 # kernel the ESP Kernel Sync copies onto the FAT ESP; counts toward the ESP
-# budget), `no` for grub (reads /boot natively, tiny ESP) (ADR 0077/0078).
+# budget). Every loader does since grub moved its kernels to the ESP
+# (ADR 0077/0078).
 bootloader_esp_mirrors() {
   case "$1" in
   systemd-boot) printf '%s\n' yes ;;
   efistub)      printf '%s\n' yes ;;
   limine)       printf '%s\n' yes ;;
   refind)       printf '%s\n' yes ;;
-  grub)         printf '%s\n' no ;;
+  grub)         printf '%s\n' yes ;;
   *) _bootloader_unknown esp_mirrors "$1"; return 1 ;;
   esac
 }

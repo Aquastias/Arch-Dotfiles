@@ -63,7 +63,7 @@ _staged_basenames() {
   _chroot_stage "$TEST_DIR/lc" "${_CHROOT_STAGE_LIBCHROOT[@]}"
   [ -f "$TEST_DIR/lc/install-state.sh" ]
   [ -f "$TEST_DIR/lc/kernel.sh" ]
-  [ -f "$TEST_DIR/lc/grub-common.sh" ]
+  [ -f "$TEST_DIR/lc/esp-stage.sh" ]
 }
 
 # ── lockstep: staged-sibling sources in lib/chroot/* ⊆ the manifest ──────────

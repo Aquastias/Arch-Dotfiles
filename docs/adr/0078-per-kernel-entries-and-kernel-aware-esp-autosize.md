@@ -115,3 +115,17 @@ budget (it still reads `/boot` natively); only its fixed size moves.
 Rejected: exempting grub from the floor — a second, loader-specific rule
 for a 512M saving. An existing ESP cannot easily grow later, so the floor
 stays the one rule for every loader.
+
+## Amendment (2026-10-04): grub boots from the ESP; no exemption
+
+grub never installed (Audit Run 20261003): `grub-install` cannot read the
+rpool. Per the Arch Wiki, GRUB reads a ZFS `/boot` only on a pool created
+with `-o compatibility=grub2`, and it cannot read native encryption at all.
+grub now boots like limine: kernels, initramfs and microcode are staged on
+the ESP, its modules live there (`--boot-directory` on the ESP), and the
+adapter renders `grub.cfg` per kernel (Primary first, `default=0`), kept
+current by the ESP Kernel Sync hooks. No `grub-mkconfig` (it probes the ZFS
+root), so no os-prober. grub therefore joins the ESP-mirroring loaders and
+the per-kernel budget; the 2026-10-02 "grub = 1G" rule and the exemption
+above are superseded. Rejected: a grub2-compatible rpool (drops pool
+features and still forbids encryption); dropping grub.

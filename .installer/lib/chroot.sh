@@ -55,7 +55,6 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/packages/archzfs-kernel.sh|archzfs-kernel.sh"
   "lib/packages/archive.sh|archive.sh"
   "lib/impermanence-common.sh|impermanence-common.sh"
-  "lib/grub-common.sh|grub-common.sh"
 )
 
 # Staged into /root/lib so extras/ scripts can source them (structure kept).
