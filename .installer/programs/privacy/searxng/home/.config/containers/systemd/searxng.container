@@ -1,11 +1,14 @@
 [Unit]
 Description=SearXNG metasearch engine
-After=network.target valkey.service
+After=network.target
 
 [Container]
 Image=docker.io/searxng/searxng:latest
 Network=searxng.network
 PublishPort=127.0.0.1:8080:8080
+# Run as the image's searxng (977) mapped to us: the config reads as
+# searxng-owned, so the entrypoint skips its chown of the :ro mount.
+UserNS=keep-id:uid=977,gid=977
 Volume=%h/.config/searxng:/etc/searxng:ro
 Environment=SEARXNG_BASE_URL=http://localhost:8080/
 

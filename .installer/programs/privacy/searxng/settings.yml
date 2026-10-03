@@ -1,9 +1,15 @@
 # see https://docs.searxng.org/admin/settings/settings.html#settings-use-default-settings
-use_default_settings: true
+use_default_settings:
+  engines:
+    # Tor-only (onions) engines: they fail to load without a Tor proxy.
+    remove:
+      - ahmia
+      - torch
 server:
-  # base_url is defined in the SEARXNG_BASE_URL environment variable, see .env and docker-compose.yml
+  # base_url is defined in the SEARXNG_BASE_URL environment variable (quadlet)
   secret_key: "ultrasecretkey"  # change this!
-  limiter: true  # can be disabled for a private instance
+  # Private 127.0.0.1 instance: no limiter, no KV store (upstream default).
+  limiter: false
   image_proxy: true
   method: 'GET'
 ui:
@@ -11,5 +17,3 @@ ui:
   theme_args.simple_style: 'dark'
   hotkeys: 'vim'
   static_use_hash: true
-redis:
-  url: redis://valkey:6379/0

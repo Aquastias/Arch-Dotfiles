@@ -15,6 +15,5 @@ if ! command -v podman &>/dev/null; then
 fi
 
 podman pull docker.io/searxng/searxng:latest
-podman pull docker.io/valkey/valkey:alpine
 
-systemctl --user restart valkey.service searxng.service
+systemctl --user restart searxng.service
