@@ -17,9 +17,10 @@ case "\$1" in
 esac
 STUB
   chmod +x "$T/bin/rkhunter"
+  local S=rkhunter_scan.sh
   sed -e "s|/usr/local/lib/shell-stdlib.sh|$T/stdlib.sh|" \
     -e "s|SYSTEM_LOG=\"/var/log/rkhunter.log\"|SYSTEM_LOG=\"$T/log\"|" \
-    "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/rkhunter_scan.sh" \
+    "$BATS_TEST_DIRNAME/../../programs/security/rkhunter/scripts/${S}" \
     > "$T/scan.sh"
 }
 
