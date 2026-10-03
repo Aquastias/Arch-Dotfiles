@@ -150,6 +150,36 @@ teardown() { rm -rf "$T"; }
   [ "$(< "$T/n")" -eq 3 ]                               # retried to success
 }
 
+@test "aur_install: an unreachable source skips just that package, warns" {
+  # Regression (Audit Run 20261003): codeberg 503'd through every retry and
+  # one package's sources ended the whole install.
+  arch-chroot() {
+    case "$*" in
+      *"--needed pkg1 pkg2"*) return 1 ;;                 # batch fails
+      *"--needed pkg2"*) echo "error: failed to download sources for" \
+                           "'pkg2-1-1':"; return 1 ;;
+      *) return 0 ;;
+    esac
+  }
+  run _profiles_aur_install alice paru pkg1 pkg2
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"skipped for alice: pkg2"* ]]
+}
+
+@test "aur_install: a package failing for another reason still aborts" {
+  arch-chroot() {
+    case "$*" in
+      *"--needed pkg1 pkg2"*) return 1 ;;
+      *"--needed pkg2"*) echo "==> ERROR: A failure occurred in build()."
+                         return 1 ;;
+      *) return 0 ;;
+    esac
+  }
+  run _profiles_aur_install alice paru pkg1 pkg2
+  [ "$status" -ne 0 ]
+}
+
+
 # ── user-program install retry ──────────────────────────────────────────────
 
 @test "userprog: heredoc is re-fed on every retry (not EOF after try one)" {

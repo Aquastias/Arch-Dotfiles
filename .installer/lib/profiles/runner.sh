@@ -467,8 +467,39 @@ _profiles_aur_install() {
   # RPC/network blip there must not abort the whole install (ADR 0052). Retry
   # with backoff — --needed keeps it idempotent, so a re-run skips what landed.
   # A genuine build/conflict failure still aborts after the last try.
-  _retry 3 "5,15" -- arch-chroot "$MOUNT_ROOT" su - "$user" -c \
-    "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed ${pkgs[*]}"
+  _retry 3 "5,15" -- _profiles_aur_paru "$user" /dev/null "${pkgs[@]}" \
+    && return 0
+
+  # The batch still fails: isolate it per package. A package whose sources
+  # are unreachable (an upstream outage, not ours) is skipped with a warning;
+  # any other failure aborts as before. --needed makes landed ones no-ops.
+  local p log; log="$(mktemp)"
+  local -a skipped=()
+  for p in "${pkgs[@]}"; do
+    _retry 2 "30" -- _profiles_aur_paru "$user" "$log" "$p" && continue
+    if grep -qE "$_PROFILES_AUR_UNREACHABLE" "$log"; then
+      skipped+=("$p"); continue
+    fi
+    rm -f "$log"
+    error "AUR install of ${p} for ${user} failed (see the output above)."
+  done
+  rm -f "$log"
+  ((${#skipped[@]} == 0)) || warn "AUR sources unreachable; skipped for" \
+    "${user}: ${skipped[*]} (later: paru -S ${skipped[*]})."
+}
+
+# Source-fetch failures that mean "upstream down", not "package broken".
+_PROFILES_AUR_UNREACHABLE='failed to download sources'
+_PROFILES_AUR_UNREACHABLE+='|RPC failed; HTTP 5[0-9]{2}'
+_PROFILES_AUR_UNREACHABLE+='|Could not resolve host|Failed to connect to'
+
+# _profiles_aur_paru <user> <log> <pkg…> — one unattended paru install,
+# streamed live and copied to <log> for the unreachable-source check.
+_profiles_aur_paru() {
+  local user="$1" log="$2"; shift 2
+  arch-chroot "$MOUNT_ROOT" su - "$user" -c \
+    "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed $*" 2>&1 | tee "$log"
+  return "${PIPESTATUS[0]}"
 }
 
 # One chroot run of a user program's install.sh. Factored out of
