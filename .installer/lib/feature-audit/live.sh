@@ -106,7 +106,18 @@ fa_vm_start() {
     fa_fatal "$1" "host capacity: ${VM_RAM_MB:-?} MiB VM refused"
     return 1
   fi
-  virsh start "$VM_NAME" >/dev/null 2>&1 || true
+  mkdir -p "$1"
+  # "already running" is fine; any error is kept as boot-fatal evidence.
+  virsh start "$VM_NAME" >/dev/null 2>"$1/virsh-start.err" || true
+  [[ -s "$1/virsh-start.err" ]] || rm -f "$1/virsh-start.err"
+}
+
+# fa_boot_evidence <phase-dir> — on a boot fatal, keep what the host still
+# sees: the domain state and the VGA console (the serial log can be empty).
+fa_boot_evidence() {
+  mkdir -p "$1"
+  virsh domstate --reason "$VM_NAME" > "$1/domstate.txt" 2>&1 || true
+  virsh screenshot "$VM_NAME" "$1/console.png" >/dev/null 2>&1 || true
 }
 
 # fa_boot <phase-dir> — power on the installed system and wait for SSH.
@@ -116,6 +127,7 @@ fa_boot() {
   fa_vm_start "$dir" || return 1
   fa_serial_start "$dir/serial.log"
   fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
+    fa_boot_evidence "$dir"
     fa_fatal "$dir" \
       "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
@@ -131,6 +143,7 @@ fa_reboot() {
   fa_agent sudo systemctl reboot >/dev/null 2>&1 || true
   sleep 15
   fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
+    fa_boot_evidence "$dir"
     fa_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
