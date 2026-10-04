@@ -29,11 +29,7 @@ efibootmgr --create --disk "$_efi_disk" --part "$_efi_part" --label "Limine" \
 # default + fallback entry. Mirror every kernel's images onto the ESP.
 CONF="$ESP/limine.conf"
 printf 'timeout: 4\n\n' > "$CONF"
-_ordered=("$PRIMARY_KBASE")
-for _tok in "${KERNELS[@]}"; do
-  _kb="$(kernel_pkg "$_tok")"
-  [[ "$_kb" == "$PRIMARY_KBASE" ]] || _ordered+=("$_kb")
-done
+mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
   _fb="$(blcommon_stage_kernel "$_kb")"
   limine_entry "Arch Linux (${_kb})" "$_kb" "$MICROCODE_INITRDS" \

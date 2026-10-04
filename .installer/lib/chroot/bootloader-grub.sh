@@ -26,11 +26,7 @@ grub-install --target=x86_64-efi --efi-directory="$ESP" \
 # (ADR 0038).
 CONF="$ESP/grub/grub.cfg"
 printf 'set timeout=4\nset default=0\n\n' > "$CONF"
-_ordered=("$PRIMARY_KBASE")
-for _tok in "${KERNELS[@]}"; do
-  _kb="$(kernel_pkg "$_tok")"
-  [[ "$_kb" == "$PRIMARY_KBASE" ]] || _ordered+=("$_kb")
-done
+mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
   _fb="$(blcommon_stage_kernel "$_kb")"
   grub_entry "Arch Linux (${_kb})" "$_kb" "$MICROCODE_IMGS" \

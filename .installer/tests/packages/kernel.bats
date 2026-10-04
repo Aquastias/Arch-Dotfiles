@@ -28,3 +28,10 @@ setup() {
   run kernel_pkg frobnicate
   [ "$status" -ne 0 ]
 }
+
+@test "kernel_bases_primary_first: Primary first, the rest in order, deduped" {
+  run kernel_bases_primary_first lts default lts zen
+  [ "$output" = $'linux-lts\nlinux\nlinux-zen' ]
+  run kernel_bases_primary_first zen lts
+  [ "$output" = $'linux-zen\nlinux-lts' ]
+}

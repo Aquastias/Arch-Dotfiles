@@ -59,3 +59,17 @@ kernel_pkg() {
 kernel_headers_pkg() {
   printf '%s-headers\n' "$(kernel_pkg "$1")"
 }
+
+# kernel_bases_primary_first <primary-token> <token…> — the package bases to
+# boot, Primary Kernel first (the default entry, ADR 0038), then the rest of
+# the Kernel Selection in order, each once. Loaders rendering per-kernel
+# entries (limine, grub) iterate this.
+kernel_bases_primary_first() {
+  local primary t kb
+  primary="$(kernel_pkg "$1")"; shift
+  printf '%s\n' "$primary"
+  for t in "$@"; do
+    kb="$(kernel_pkg "$t")"
+    [[ "$kb" == "$primary" ]] || printf '%s\n' "$kb"
+  done | awk '!seen[$0]++'
+}
