@@ -16,3 +16,7 @@ clears the absolute 1G floor (ADR 0038) and installs. Fixes jsonl F001, F002
 ## Comments
 
 Grub auto ESP = 1G floor (c7fbe4b); ADR 0078 amended.
+
+**2026-10-04 — superseded** by GRUB booting from the ESP (ticket 27
+comments, ADR 0078 amendment 2026-10-04): grub now uses the per-kernel ESP
+budget like every loader; the 1G rule is gone.

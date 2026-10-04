@@ -16,3 +16,8 @@ vconsole journal Findings.
 Install warning is pacstrap's throwaway image (Known Noise). Boot failure on
 greetd/pure: early KMS via the kms hook, except NVIDIA (31d2831, ef153af);
 ADR 0043 amended.
+
+**2026-10-04 — superseded**: the kms hook alone did not end the failure.
+Root cause: fbcon's deferred takeover restarts vconsole-setup when tty1 is
+first written, racing a session on tty1 → greetd on VT 2 (ticket 27
+comments).
