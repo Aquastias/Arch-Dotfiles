@@ -902,7 +902,7 @@ fa_cache_harvest() {
   local c ok=1; c="$(fa_cache_dir)"
   mkdir -p "$c/pkg" "$c/aur"
   fa_agent sudo <<'SH' | tar -xf - -C "$c/pkg" || ok=0
-tar -C /var/cache/pacman/pkg -cf - --wildcards '*.pkg.tar.zst'
+cd /var/cache/pacman/pkg && tar -cf - ./*.pkg.tar.zst
 SH
   ((PIPESTATUS[0] == 0)) || ok=0
   fa_agent sudo <<'SH' | tar -xf - -C "$c/aur" || ok=0
