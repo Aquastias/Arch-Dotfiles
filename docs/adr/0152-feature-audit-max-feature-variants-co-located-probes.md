@@ -83,3 +83,31 @@ Profiles, Noctalia on `no-shell`. Those FAILs drowned the real ones.
 
 Rejected: asserting stock compositors' own binds on Pure Profiles — they
 prove upstream defaults, not anything this repo ships (ADR 0112).
+
+## Amendment (2026-10-04): a full run in one night
+
+A full run took ~25h: 18 variants in series, each a from-scratch install
+(31 AUR builds) and every phase, plus ~25 min of fixed sleeps per variant.
+Three changes, still one VM at a time:
+
+- **Variant Phases**: a variant declares the phases its change can affect
+  (manifest `phases`; absent = all; install + boot1 always run). Base and
+  the real/pure hosts run all; e.g. bootloader variants run boot2 + upgrade.
+  A skipped phase is a SKIP in `findings.md`, and `check` (family `phases`)
+  fails if any phase, installed desktop's binds or selected program's probe
+  no longer runs in some variant.
+- **Audit Cache**: base installs uncached (real mirrors, AUR builds, AUR
+  Vetting), keeping its packages; the harness harvests them after boot1 —
+  repo packages as a pacman `CacheServer`, built AUR packages as an
+  `[audit-aur]` repo — and points every later install of the run at them
+  (test-only installer env; the installed `pacman.conf` is stripped back to
+  shipped). Wiped when a run installs base again. If base never boots,
+  the rest install uncached.
+- **Readiness waits**: boot settle, session settle and the timer soak wait
+  for the guest to be quiet (no jobs, nothing activating, shell up), with
+  the old fixed values as caps.
+
+Rejected: parallel VMs for now (they share the virgl GPU that already
+stalls; revisit if a run misses ~10h); batching nvim binds into one nvim
+(per-bind isolation keeps failures attributable); a persistent cross-run
+cache (staleness for no gain, base installs uncached anyway).
