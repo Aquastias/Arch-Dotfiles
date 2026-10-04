@@ -135,3 +135,31 @@ teardown() { rm -rf "$T"; }
   [ "$(cat "$T/n")" -eq 3 ]        # not done at call 1: waited for down
   [ ! -e "$T/virsh.log" ]
 }
+
+@test "fa_boot: a silent boot (empty serial) is retried once, recorded" {
+  # Audit Run 20261003: base and niri-pure never printed a byte, not even
+  # firmware, while identical variants booted fine
+  echo 0 > "$T/n"
+  fa_vm_start() { :; }
+  fa_serial_start() { printf 'Connected to domain\n' > "$1"; }
+  fa_serial_stop() { :; }
+  fa_wait_ssh() { local n; n=$(($(cat "$T/n") + 1)); echo $n > "$T/n"
+    ((n >= 2)); }
+  fa_wait_until() { :; }
+  virsh() { echo "virsh $*" >> "$T/virsh.log"; }
+  fa_boot "$T/boot1"
+  grep -q 'virsh destroy' "$T/virsh.log"
+  grep -q 'silent' "$T/boot1/vm-retry.txt"
+  [ ! -e "$T/boot1/fatal.lines" ]
+}
+
+@test "fa_boot: a boot that printed but never reached SSH is not retried" {
+  fa_vm_start() { :; }
+  fa_serial_start() { printf 'BdsDxe: loading Boot0003\n' > "$1"; }
+  fa_wait_ssh() { return 1; }
+  fa_boot_evidence() { :; }
+  virsh() { echo "virsh $*" >> "$T/virsh.log"; }
+  ! fa_boot "$T/boot1"
+  [ ! -e "$T/boot1/vm-retry.txt" ]
+  grep -q 'never reached SSH' "$T/boot1/fatal.lines"
+}

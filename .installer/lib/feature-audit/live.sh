@@ -144,17 +144,37 @@ _FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
 
 # fa_boot <phase-dir> — power on the installed system and wait for SSH.
 fa_boot() {
-  local dir="$1"
+  local dir="$1" up=1
   mkdir -p "$dir"
   fa_vm_start "$dir" || return 1
   fa_serial_start "$dir/serial.log"
-  fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
-    fa_boot_evidence "$dir"
-    fa_fatal "$dir" \
-      "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
-    return 1
-  }
+  fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || up=0
+  if ((!up)) && _fa_boot_silent "$dir"; then
+    # not even firmware output: a domain-start glitch, not the install —
+    # power-cycle once (base + niri-pure, 20261003)
+    echo "silent boot (no serial output); power-cycled once" \
+      >> "$dir/vm-retry.txt"
+    fa_serial_stop
+    virsh destroy "$VM_NAME" >/dev/null 2>&1 || true
+    fa_vm_start "$dir" || return 1
+    fa_serial_start "$dir/serial.log"
+    up=1; fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || up=0
+  fi
+  ((up)) || { _fa_boot_fatal "$dir"; return 1; }
   fa_wait_until "$FA_SETTLE_SEC" "$_FA_SETTLED"
+}
+
+# _fa_boot_silent <phase-dir> — the serial capture holds no guest output.
+_fa_boot_silent() {
+  ! grep -q -v -e '^Script ' -e '^Connected to domain' -e '^Escape character' \
+    -e '^\s*$' "$1/serial.log" 2>/dev/null
+}
+
+_fa_boot_fatal() {
+  fa_boot_evidence "$1"
+  fa_fatal "$1" \
+    "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
+  return 1
 }
 
 _FA_BOOT_ID=/proc/sys/kernel/random/boot_id
