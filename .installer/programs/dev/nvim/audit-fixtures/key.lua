@@ -86,6 +86,12 @@ end
 local prefix = ({ v = "viw", x = "viw", o = "d", i = "i", c = ":" })[mode]
   or ""
 if mode == "t" then vim.cmd("terminal") vim.wait(500) vim.cmd("startinsert") end
+-- a visual paste reads the register: with clipboard=unnamedplus that is the
+-- live session clipboard, which varies run to run; judge a known one
+if prefix == "viw" then
+  vim.o.clipboard = ""
+  vim.fn.setreg('"', "fa-audit-paste")
+end
 local b = snap()
 vim.v.errmsg = ""
 local ok, err = pcall(vim.api.nvim_feedkeys, vim.keycode(prefix .. lhs),

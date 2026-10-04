@@ -605,3 +605,10 @@ setup() {
   rst="$(grep -n 'nvim "\${_restore' "$INSTALL" | head -1 | cut -d: -f1)"
   [ -n "$ins" ] && [ -n "$rst" ] && (( ins < rst ))
 }
+
+@test "audit fixture: visual binds paste a known register, not the clipboard" {
+  # kde-pure 20261004: <leader>p ("_dP) flaked on the session clipboard
+  local K="$BATS_TEST_DIRNAME/../../programs/dev/nvim/audit-fixtures/key.lua"
+  grep -q 'vim.o.clipboard = ""' "$K"
+  grep -q "setreg('\"', \"fa-audit-paste\")" "$K"
+}
