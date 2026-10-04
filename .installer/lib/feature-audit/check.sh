@@ -17,7 +17,7 @@ _fa_check_on() {
   [[ " ${FEATURE_AUDIT_CHECKS:-$FA_CHECK_FAMILIES} " == *" $1 "* ]]
 }
 
-FA_CHECK_FAMILIES="manifest features programs binds noise"
+FA_CHECK_FAMILIES="manifest features programs binds phases noise"
 
 # _fa_check_manifest — every variant resolves to a valid Effective Config.
 _fa_check_manifest() {
@@ -150,6 +150,46 @@ _fa_check_binds() {
   done
 }
 
+# _fa_check_phases — Variant Phases name real phases, and skipping never
+# loses coverage: every phase, every installed desktop's binds and every
+# selected program's probe still run in some variant.
+_fa_check_phases() {
+  local m id ph p cfg de
+  m="$(fa_manifest_json)" || return
+  local -A ran=() want_de=() bound_de=() want_prog=() probed=()
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
+    ph="$(fa_variant_phases "$id")"
+    for p in $ph; do
+      [[ " $FA_VARIANT_PHASES_ALL " == *" $p "* ]] \
+        || echo "manifest: variant $id declares unknown phase $p"
+      ran[$p]=1
+    done
+    cfg="$(fa_variant_config "$id" 2>/dev/null)" || continue
+    for de in $(jq -r '.environment.desktop // [] | if type == "string"
+        then [.] else . end | .[]' <<<"$cfg"); do
+      want_de[$de]=1
+      [[ " $ph " == *" keybinds "* ]] && bound_de[$de]=1
+    done
+    while IFS= read -r p; do
+      [[ -n "$p" ]] || continue
+      want_prog[$p]=1
+      [[ " $ph " == *" probes "* ]] && probed[$p]=1
+    done < <(fa_selected_programs "$cfg" 2>/dev/null)
+  done < <(jq -r '.variants[] | select(.guided | not) | .id' <<<"$m")
+  for p in $FA_VARIANT_PHASES_ALL; do
+    [[ -n "${ran[$p]:-}" ]] || echo "coverage: phase $p runs in no variant"
+  done
+  for de in "${!want_de[@]}"; do
+    [[ -n "${bound_de[$de]:-}" ]] \
+      || echo "coverage: desktop $de binds run in no variant"
+  done
+  for p in "${!want_prog[@]}"; do
+    [[ -n "${probed[$p]:-}" ]] \
+      || echo "coverage: program $p probed in no variant"
+  done | sort
+}
+
 # _fa_check_noise — every Known Noise entry has a valid regex and a reason, and
 # its optional variants scope names real manifest variants.
 _fa_check_noise() {
@@ -185,6 +225,7 @@ fa_audit_check() {
     _fa_check_on features && _fa_check_features
     _fa_check_on programs && _fa_check_programs
     _fa_check_on binds && _fa_check_binds
+    _fa_check_on phases && _fa_check_phases
     _fa_check_on noise && _fa_check_noise
     true
   )"

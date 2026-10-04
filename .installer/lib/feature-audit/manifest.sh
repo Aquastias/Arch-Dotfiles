@@ -37,6 +37,19 @@ fa_variant_json() {
   fa_manifest_json | jq -ce --arg id "$1" '.variants[] | select(.id == $id)'
 }
 
+# The phases a variant may declare (install + boot1 always run). Order is
+# the run order.
+FA_VARIANT_PHASES_ALL="sessions probes keybinds timers boot2 upgrade power"
+
+# fa_variant_phases <id> — the variant's Variant Phases (manifest `phases`),
+# space-separated; every phase when it declares none.
+fa_variant_phases() {
+  local v
+  v="$(fa_variant_json "$1")" || return 1
+  jq -r --arg all "$FA_VARIANT_PHASES_ALL" \
+    '(.phases // ($all | split(" "))) | join(" ")' <<<"$v"
+}
+
 # fa_variant_host_core <id> — "true" unless the variant's Host Profile sets
 # packages.inherit false (a pure host gets no Host Core packages). The probes
 # read it as the Host Core gate (Probe Gate).

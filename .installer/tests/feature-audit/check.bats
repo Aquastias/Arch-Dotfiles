@@ -282,3 +282,55 @@ noise() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"ok|bad"* ]]
 }
+
+# ── Variant Phases (ADR 0152) ───────────────────────────────────────────────
+
+phases_of() {
+  bash -c "source '$INSTALLER_DIR/lib/jsonc.sh'
+    source '$INSTALLER_DIR/lib/feature-audit/manifest.sh'
+    INSTALLER_DIR='$INSTALLER_DIR' fa_variant_phases '$1'"
+}
+
+@test "fa_variant_phases: declared list, or every phase when absent" {
+  manifest '[{"id":"base"},
+    {"id":"limine","patch":{"options":{"bootloader":"limine"}},
+     "phases":["boot2","upgrade"]}]'
+  run phases_of limine
+  [ "$output" = "boot2 upgrade" ]
+  run phases_of base
+  [ "$output" = "sessions probes keybinds timers boot2 upgrade power" ]
+}
+
+@test "phases: an unknown phase name is a finding" {
+  export FEATURE_AUDIT_CHECKS="phases"
+  manifest '[{"id":"base"},{"id":"x","phases":["bogus"]}]'
+  run bash "$TOOL" check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"variant x declares unknown phase bogus"* ]]
+}
+
+@test "phases: a phase no variant runs is a coverage finding" {
+  export FEATURE_AUDIT_CHECKS="phases"
+  manifest '[{"id":"a","phases":["boot2"]},{"id":"b","phases":["upgrade"]}]'
+  run bash "$TOOL" check
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"coverage: phase timers runs in no variant"* ]]
+}
+
+@test "phases: a desktop whose binds no variant tests is a finding" {
+  export FEATURE_AUDIT_CHECKS="phases"
+  # base (arch-audit) has kde/niri/hyprland but skips keybinds; only a
+  # no-desktop variant runs them
+  manifest '[{"id":"base","phases":["sessions","probes","timers","boot2",
+    "upgrade","power"]},{"id":"min","host":"minimal"}]'
+  run bash "$TOOL" check
+  [[ "$output" == *"coverage: desktop kde binds run in no variant"* ]]
+}
+
+@test "phases: a program probed in no variant's probes phase is a finding" {
+  export FEATURE_AUDIT_CHECKS="phases"
+  manifest '[{"id":"base","phases":["sessions","keybinds","timers","boot2",
+    "upgrade","power"]},{"id":"min","host":"minimal"}]'
+  run bash "$TOOL" check
+  [[ "$output" == *"coverage: program borg probed in no variant"* ]]
+}

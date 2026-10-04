@@ -4,7 +4,8 @@
 //   { "id", "patch": {...} }   base host profile deep-merged with the patch
 //   { "id", "host": "<h>" }    a real host as-is ("hardware" required)
 //   { "id", "guided": "<p>" }  a guided install (tests/vm/profiles ref)
-// "adrs" lists the ADRs a variant exists to cover. "unverifiable" marks what
+// "adrs" lists the ADRs a variant exists to cover. "phases" are its Variant
+// Phases (absent = all; install + boot1 always run). "unverifiable" marks what
 // no VM can prove (feature or program:<name>) — each needs a reason and
 // maintainer review.
 //
@@ -24,20 +25,26 @@
   "variants": [
     { "id": "base", "adrs": ["0036", "0046", "0104", "0117", "0152"] },
     { "id": "grub", "patch": { "options": { "bootloader": "grub" } },
+      "phases": ["boot2", "upgrade"],
       "adrs": ["0038", "0078"] },
     { "id": "limine", "patch": { "options": { "bootloader": "limine" } },
+      "phases": ["boot2", "upgrade"],
       "adrs": ["0078"] },
     { "id": "refind", "patch": { "options": { "bootloader": "refind" } },
+      "phases": ["boot2", "upgrade"],
       "adrs": ["0078"] },
     { "id": "efistub", "patch": { "options": { "bootloader": "efistub" } },
+      "phases": ["boot2", "upgrade"],
       "adrs": ["0078"] },
     { "id": "kernels",
       "patch": {
         "options": { "kernel": ["lts", "default", "hardened", "zen"] }
       },
+      "phases": ["boot2", "upgrade"],
       "adrs": ["0137", "0138", "0139"] },
     { "id": "ufw",
       "patch": { "post_install": { "security": { "firewall": "ufw" } } },
+      "phases": ["probes", "timers", "boot2"],
       "adrs": ["0115"] },
     // independent choices sharing one install: the non-default power daemon
     // and an explicit (not auto-resolved) sddm
@@ -46,12 +53,15 @@
         "options": { "power": { "profile": "tuned" } },
         "environment": { "display_manager": "sddm" }
       },
+      "phases": ["sessions", "probes", "timers", "power"],
       "adrs": ["0069", "0080", "0091"] },
     { "id": "greetd",
       "patch": { "environment": { "display_manager": "greetd" } },
+      "phases": ["sessions", "keybinds", "boot2"],
       "adrs": ["0069", "0091"] },
     { "id": "no-shell",
       "patch": { "environment": { "wayland_shell": "none" } },
+      "phases": ["sessions", "probes", "keybinds"],
       "adrs": ["0090", "0097"] },
     // every service toggle off: the "not installed" side must be clean too
     { "id": "services-off",
@@ -66,6 +76,7 @@
           "backup": { "zfs_auto_snapshot": false, "borg": false }
         }
       },
+      "phases": ["probes", "timers", "boot2", "power"],
       "adrs": ["0041", "0079", "0080"] },
     { "id": "kde-pure", "host": "kde-pure",
       "hardware": { "disks": [60], "ram_mb": 8192, "vcpus": 4 },

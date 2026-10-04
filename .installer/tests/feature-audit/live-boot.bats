@@ -55,3 +55,18 @@ teardown() { rm -rf "$T"; }
   [ ! -e "$T/virsh.log" ]
   [ ! -e "$T/boot2/vm-reset.txt" ]
 }
+
+@test "fa_phase_wanted: an undeclared phase is skipped and recorded" {
+  FA_VARIANT_PHASES="boot2 upgrade"
+  ! fa_phase_wanted "$T/v" keybinds
+  grep -qx 'SKIP phase-keybinds not in this variant'"'"'s Variant Phases' \
+    "$T/v/keybinds/phase@gate.probe"
+  fa_phase_wanted "$T/v" boot2
+  [ ! -e "$T/v/boot2" ]
+}
+
+@test "fa_phase_wanted: FEATURE_AUDIT_SKIP drops a phase silently" {
+  FA_VARIANT_PHASES="boot2 upgrade" FEATURE_AUDIT_SKIP="boot2"
+  ! fa_phase_wanted "$T/v" boot2
+  [ ! -e "$T/v/boot2" ]
+}

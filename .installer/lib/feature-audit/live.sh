@@ -820,9 +820,20 @@ fa_run_guided() {
   VM_NAME="$gname" _vm_destroy_undefine >/dev/null 2>&1 || true
 }
 
-# _fa_phase_on <phase> — FEATURE_AUDIT_SKIP (space list) drops phases, for a
-# quick partial run while iterating on one phase.
-_fa_phase_on() { [[ " ${FEATURE_AUDIT_SKIP:-} " != *" $1 "* ]]; }
+# fa_phase_wanted <variant-dir> <phase> — run this phase? FEATURE_AUDIT_SKIP
+# (space list) drops phases silently, for a quick partial run while
+# iterating; a phase outside the variant's Variant Phases is recorded as a
+# SKIP (never passed, never silent).
+fa_phase_wanted() {
+  local dir="$1" p="$2"
+  [[ " ${FEATURE_AUDIT_SKIP:-} " != *" $p "* ]] || return 1
+  [[ -z "${FA_VARIANT_PHASES:-}" \
+     || " $FA_VARIANT_PHASES " == *" $p "* ]] && return 0
+  mkdir -p "$dir/$p"
+  echo "SKIP phase-$p not in this variant's Variant Phases" \
+    > "$dir/$p/phase@gate.probe"
+  return 1
+}
 
 # fa_run_variant <id> <run-dir> — every phase for one variant.
 fa_run_variant() {
@@ -846,6 +857,7 @@ fa_run_variant() {
   cfg="$(jq -c --argjson hc "$(fa_variant_host_core "$id" || echo true)" \
     '. + {_audit: {host_core: $hc}}' <<<"$cfg")"
   FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$cfg")"
+  FA_VARIANT_PHASES="$(fa_variant_phases "$id")"
   VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$prof")"   # capacity preflight
   export VM_RAM_MB
 
@@ -862,17 +874,18 @@ fa_run_variant() {
     fa_boot "$dir/boot1" || return 1
   fi
   fa_collect "$dir/boot1"
-  _fa_phase_on sessions && fa_phase_sessions "$dir" "$cfg"
-  _fa_phase_on probes && declare -F fa_phase_probes >/dev/null \
-    && fa_phase_probes "$dir" "$cfg"
-  _fa_phase_on keybinds && declare -F fa_phase_keybinds >/dev/null \
-    && fa_phase_keybinds "$dir" "$cfg"
-  _fa_phase_on timers && fa_phase_timers "$dir"
-  if _fa_phase_on boot2; then fa_phase_boot2 "$dir" "$cfg" || return 1; fi
-  if _fa_phase_on upgrade; then fa_phase_upgrade "$dir" || return 1; fi
+  fa_phase_wanted "$dir" sessions && fa_phase_sessions "$dir" "$cfg"
+  fa_phase_wanted "$dir" probes && fa_phase_probes "$dir" "$cfg"
+  fa_phase_wanted "$dir" keybinds && fa_phase_keybinds "$dir" "$cfg"
+  fa_phase_wanted "$dir" timers && fa_phase_timers "$dir"
+  if fa_phase_wanted "$dir" boot2; then
+    fa_phase_boot2 "$dir" "$cfg" || return 1
+  fi
+  if fa_phase_wanted "$dir" upgrade; then fa_phase_upgrade "$dir" || return 1
+  fi
   # last: a QEMU virtio-gpu guest can come back from S3 with its compositor
   # / seatd wedged, which would hang every later reboot (base, 20261002)
-  _fa_phase_on power && fa_phase_power "$dir"
+  fa_phase_wanted "$dir" power && fa_phase_power "$dir"
   fa_serial_stop
 }
 
