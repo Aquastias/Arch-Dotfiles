@@ -2145,6 +2145,18 @@ The Host Profile conditions a probe check declares it needs (a shell, a
 non-stock config, a service enabled). On an [[Audit Variant]] that lacks them
 the check is reported skipped — never passed, never a [[Finding]].
 
+### Variant Phases
+The phases an [[Audit Variant]] declares it runs — the ones its change can
+affect. The rest are reported skipped, never passed; every phase, probe and
+bind set must still run in some variant.
+_Avoid_: partial audit.
+
+### Audit Cache
+The per-[[Audit Run]] host package cache (repo packages plus the base
+variant's built AUR packages) that the uncached base variant fills and the
+other [[Audit Variant]]s install from; wiped at the next run.
+_Avoid_: package mirror.
+
 ### Audit Run
 One execution of the [[Feature Audit]] across some or all [[Audit Variant]]s,
 producing raw logs plus an agent-ready list of [[Finding]]s.
