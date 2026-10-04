@@ -37,6 +37,20 @@ fa_variant_json() {
   fa_manifest_json | jq -ce --arg id "$1" '.variants[] | select(.id == $id)'
 }
 
+# fa_variant_host_core <id> — "true" unless the variant's Host Profile sets
+# packages.inherit false (a pure host gets no Host Core packages). The probes
+# read it as the Host Core gate (Probe Gate).
+fa_variant_host_core() {
+  local m v h f
+  m="$(fa_manifest_json)"
+  v="$(fa_variant_json "$1")" || return 1
+  h="$(jq -r --argjson v "$v" '$v.host // .base.host' <<<"$m")"
+  # VM hosts live under hosts/vm/ (the installer's own fallback)
+  f="$INSTALLER_DIR/hosts/$h/profile.jsonc"
+  [[ -f "$f" ]] || f="$INSTALLER_DIR/hosts/vm/$h/profile.jsonc"
+  jsonc_strip "$f" | jq -r '.packages.inherit != false'
+}
+
 # fa_variant_vm_profile <id> — the VM Profile vm.sh provisions. The base and
 # real hosts go through host_profile (the real Profile Loader); a patched
 # variant carries its resolved config inline.

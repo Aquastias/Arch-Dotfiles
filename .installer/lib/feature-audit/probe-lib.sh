@@ -91,3 +91,7 @@ fa_has_shell() {
   fa_curated \
     && [[ "$(fa_cfg '.environment.wayland_shell // "noctalia"')" != none ]]
 }
+
+# fa_host_core — the variant inherits Host Core packages (the run stamps
+# `_audit.host_core`; absent = the product default, inherited).
+fa_host_core() { [[ "$(fa_cfg '._audit.host_core')" != false ]]; }

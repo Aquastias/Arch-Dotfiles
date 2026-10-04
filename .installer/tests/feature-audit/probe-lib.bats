@@ -104,3 +104,21 @@ cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
   run fa_no_stderr_but 'Notify:' false
   [ "$status" -eq 1 ]
 }
+
+# ── Host Core gate ──────────────────────────────────────────────────────────
+
+@test "fa_host_core: true unless the variant opts out of Host Core" {
+  cfg '{}'
+  fa_host_core
+  cfg '{"_audit":{"host_core":true}}'
+  fa_host_core
+  cfg '{"_audit":{"host_core":false}}'
+  ! fa_host_core
+}
+
+@test "fa_variant_host_core: pure hosts don't inherit, the base does" {
+  source "$INSTALLER_DIR/lib/jsonc.sh"
+  source "$INSTALLER_DIR/lib/feature-audit/manifest.sh"
+  [ "$(fa_variant_host_core kde-pure)" = false ]
+  [ "$(fa_variant_host_core base)" = true ]
+}

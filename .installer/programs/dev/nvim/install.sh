@@ -34,11 +34,12 @@ ${AUR_HELPER} -S --noconfirm --needed phpactor
 # phpcbf (PHP formatter) needs php too, so it rides the same step.
 ${AUR_HELPER} -S --noconfirm --needed php-codesniffer
 
-# The editor itself (+ git, which lazy clones with): Host Core places it,
-# but a `packages.inherit: false` host would reach the plugin restore below
-# with no nvim.
-print_status info "Installing neovim + git..."
-${AUR_HELPER} -S --noconfirm --needed neovim git
+# The editor and what its plugin restore builds with (git for lazy clones,
+# tree-sitter-cli for parsers and the tree-sitter-http rock): Host Core places
+# them, but a `packages.inherit: false` host would reach the restore below
+# without them.
+print_status info "Installing neovim + git + tree-sitter-cli..."
+${AUR_HELPER} -S --noconfirm --needed neovim git tree-sitter-cli
 
 # lazy.nvim installs rest.nvim's rock deps with system luarocks against Lua 5.1
 # (hererocks is off: Python bootstrap). Installed here, not Host Core, so

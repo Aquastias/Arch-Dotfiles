@@ -9,6 +9,8 @@
 fa_require_pkg nvim neovim || return 0
 fa_as_user || return 0
 export TERM=xterm-256color
+# probe.lua SKIPs the Host Core toolchain where it is not inherited
+fa_host_core && export FA_HOST_CORE=1 || export FA_HOST_CORE=0
 fx="$FA_DIR/audit-fixtures"
 o="$(mktemp)" live="$(mktemp)"
 # Run the lua after VimEnter, as a user's keypress would be: -c runs before

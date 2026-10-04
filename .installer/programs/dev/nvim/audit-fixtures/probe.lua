@@ -12,6 +12,8 @@ local function fail(id, m)
   emit("FAIL", id, (tostring(m or "")):gsub("\n", " "))
 end
 local function skip(id, m) emit("SKIP", id, m) end
+-- audit.sh sets FA_HOST_CORE=0 on a host not inheriting Host Core packages
+local host_core = os.getenv("FA_HOST_CORE") ~= "0"
 
 -- capture error notifications raised while loading/probing
 local errors = {}
@@ -91,6 +93,11 @@ if not ok_reg then fail("nvim-registry", langs) else
     if ok then pass("nvim-ts-" .. p, "parser loads")
     else fail("nvim-ts-" .. p, "parser missing") end
   end
+  -- The toolchain is Host Core (ADR 0135): a host that does not inherit it
+  -- (packages.inherit: false) has none of it by design (Probe Gate).
+  if not host_core then
+    skip("nvim-toolchain", "Host Core not inherited (packages.inherit false)")
+  else
   for _, s in ipairs(langs.servers()) do
     local cfg = vim.lsp.config[s]
     if not cfg then fail("nvim-lsp-" .. s, "no lsp config")
@@ -158,6 +165,7 @@ if not ok_reg then fail("nvim-registry", langs) else
       else pass("nvim-dap-" .. a, "adapter registered") end
     end
   end
+  end
 end
 
 -- 3. :checkhealth — every ERROR line is a finding, except the ones only a
@@ -175,6 +183,7 @@ if ok_h then
         hl = hl or msg:find(p, 1, true) ~= nil
       end
       if hl then skip("nvim-health", "headless only: " .. msg)
+      elseif not host_core then skip("nvim-health", "no Host Core: " .. msg)
       else fail("nvim-health", msg) end
     end
   end

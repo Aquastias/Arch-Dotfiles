@@ -842,6 +842,9 @@ fa_run_variant() {
   fa_variant_vm_profile "$id" > "$prof" \
     || { fa_fatal "$dir/install" "variant does not resolve"; return 1; }
   cfg="$(fa_variant_config "$id")" || cfg='{}'
+  # the Host Core gate the probes read (fa_host_core)
+  cfg="$(jq -c --argjson hc "$(fa_variant_host_core "$id" || echo true)" \
+    '. + {_audit: {host_core: $hc}}' <<<"$cfg")"
   FA_USER="$(jq -r '.users[0] // "aquastias"' <<<"$cfg")"
   VM_RAM_MB="$(jq -r '.hardware.ram_mb' "$prof")"   # capacity preflight
   export VM_RAM_MB

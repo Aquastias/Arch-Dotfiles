@@ -600,7 +600,8 @@ setup() {
   # Regression (Audit Run 20261003): pure variants (packages.inherit false)
   # had no nvim, so the restore died "nvim: command not found".
   local ins rst
-  ins="$(grep -n -- '--needed neovim git' "$INSTALL" | cut -d: -f1)"
+  local pkgs='--needed neovim git tree-sitter-cli'
+  ins="$(grep -n -- "$pkgs" "$INSTALL" | cut -d: -f1)"
   rst="$(grep -n 'nvim "\${_restore' "$INSTALL" | head -1 | cut -d: -f1)"
   [ -n "$ins" ] && [ -n "$rst" ] && (( ins < rst ))
 }
