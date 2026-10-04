@@ -388,7 +388,10 @@ verb_exec() {
 
 verb_launch() {
   (($#)) || die "launch needs an app"
-  _in_session "setsid -f $* </dev/null >/dev/null 2>&1"
+  # A missing app fails here, not as a silent no-op the caller screenshots.
+  _in_session "command -v $1 >/dev/null \
+    || { echo 'vm-agent: $1 not installed' >&2; exit 5; }
+    setsid -f $* </dev/null >/dev/null 2>&1" || die "cannot launch $1"
   info "launched: $*"
 }
 
