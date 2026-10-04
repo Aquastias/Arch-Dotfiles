@@ -20,7 +20,8 @@ if [[ "${1:-}" == "--handle" ]]; then
   reqpath="${reqpath%%\?*}"; reqpath="${reqpath#/}"     # strip query + leading /
   file="${SERVE_DIR:-.}/${reqpath}"
   if [[ -n "$reqpath" && "$reqpath" != *..* && -f "$file" ]]; then
-    size="$(stat -c%s "$file" 2>/dev/null || echo 0)"
+    # -L: a symlink (repo-add's .db) must report its target's length
+    size="$(stat -L -c%s "$file" 2>/dev/null || echo 0)"
     printf 'HTTP/1.0 200 OK\r\nContent-Length: %s\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n' "$size"
     cat "$file"
   else

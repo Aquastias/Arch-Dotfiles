@@ -902,7 +902,10 @@ fa_cache_harvest() {
   local c ok=1; c="$(fa_cache_dir)"
   mkdir -p "$c/pkg" "$c/aur"
   fa_agent sudo <<'SH' | tar -xf - -C "$c/pkg" || ok=0
-cd /var/cache/pacman/pkg && tar -cf - ./*.pkg.tar.zst
+# with its .sig: a cache hit lacking one fails the whole transaction
+cd /var/cache/pacman/pkg && for p in *.pkg.tar.zst; do
+  [ -f "$p.sig" ] && printf '%s\n%s\n' "$p" "$p.sig"
+done | tar -cf - -T -
 SH
   ((PIPESTATUS[0] == 0)) || ok=0
   fa_agent sudo <<'SH' | tar -xf - -C "$c/aur" || ok=0
