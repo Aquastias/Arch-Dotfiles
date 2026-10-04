@@ -914,8 +914,9 @@ SH
     repo-add -q "$c/aur/audit-aur.db.tar.gz" "$c/aur"/*.pkg.tar.zst || ok=0
   fi
   if ((!ok)); then
+    # the guest keeps its cache, so a manual retry can still harvest it
     warn "Audit Cache harvest failed; later variants install uncached."
-    rm -rf "$c"
+    rm -rf "$c"; return 0
   fi
   printf '%s\n' 'rm -f /var/cache/pacman/pkg/*.pkg.tar.zst' | fa_agent sudo \
     >/dev/null 2>&1 || true
