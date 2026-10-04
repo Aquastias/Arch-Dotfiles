@@ -260,5 +260,13 @@
   { "regex": ["dbus-:[0-9.]+-org\\.freedesktop\\.Notifications@[0-9]+",
               "\\.service: Failed with result"],
     "variants": ["no-shell"],
-    "reason": "Plasma Notifications activated outside Plasma: no daemon" }
+    "reason": "Plasma Notifications activated outside Plasma: no daemon" },
+  // ── approved 2026-10-04 (2) ──
+  { "regex": ["searx\\.botdetection: X-Forwarded-For nor X-Real-IP ",
+              "header is set!$"],
+    "reason": "upstream logs it once for direct (no proxy) private access" },
+  { "regex": ["cc_resizefs\\.py\\[WARNING\\]: Device '/dev/airootfs' ",
+              "did not exist"],
+    "source": "installer", "variants": ["guided"],
+    "reason": "the live ISO's own cloud-init, before our installer runs" }
 ]
