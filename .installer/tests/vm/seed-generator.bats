@@ -604,3 +604,22 @@ teardown() {
   [[ "$output" =~ "manual_disk=" ]]
   [[ ! "$output" =~ "\\ndisk=" ]]
 }
+
+# ── harness env passthrough (Audit Cache, ADR 0152) ─────────────────────────
+
+@test "env exports: VM_INSTALL_ENV becomes plain or chained exports" {
+  VM_INSTALL_ENV="INSTALL_PKG_CACHE_KEEP=1 INSTALL_AUDIT_AUR_REPO=http://g/a"
+  run _seed_generator_env_exports plain
+  [ "${lines[0]}" = "export INSTALL_PKG_CACHE_KEEP='1'" ]
+  [ "${lines[1]}" = "export INSTALL_AUDIT_AUR_REPO='http://g/a'" ]
+  run _seed_generator_env_exports chain
+  local want=" && export INSTALL_PKG_CACHE_KEEP='1'"
+  want+=" && export INSTALL_AUDIT_AUR_REPO='http://g/a'"
+  [ "$output" = "$want" ]
+}
+
+@test "env exports: empty VM_INSTALL_ENV emits nothing" {
+  VM_INSTALL_ENV=""
+  run _seed_generator_env_exports chain
+  [ -z "$output" ]
+}

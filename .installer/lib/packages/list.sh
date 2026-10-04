@@ -401,6 +401,7 @@ install_base() {
   # before pacstrap, so Color / ParallelDownloads / ILoveCandy act during base
   # install too and the target inherits them via chroot.sh's pacman.conf copy.
   apply_pacman_options
+  apply_audit_cache        # test-only (Feature Audit); no-op otherwise
 
   # ZFS reports space in a way pacman's CheckSpace can't read — disable it so
   # pacstrap (and later upgrades) don't abort with a false "too full".
@@ -445,16 +446,20 @@ install_base() {
   # Clean the package cache inside the new root — downloaded .pkg.tar.zst
   # files are no longer needed after install and take ~500 MB–1.5 GB.
   # Keep 0 cached versions (keep=0 removes everything).
-  info "Cleaning pacman package cache..."
-  # Remove all cached packages directly — no need to enter chroot.
-  # paccache would work too but requires the chroot to be fully set up.
-  rm -f "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.zst \
-    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz \
-    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz \
-    "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
-  info "Package cache cleared" \
-       "($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null \
-          | cut -f1) remaining)."
+  # Test-only INSTALL_PKG_CACHE_KEEP: the Feature Audit harvests the base
+  # variant's packages into the Audit Cache, then clears them itself.
+  if [[ -z "${INSTALL_PKG_CACHE_KEEP:-}" ]]; then
+    info "Cleaning pacman package cache..."
+    # Remove all cached packages directly — no need to enter chroot.
+    # paccache would work too but requires the chroot to be fully set up.
+    rm -f "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.zst \
+      "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.xz \
+      "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar.gz \
+      "${MOUNT_ROOT}/var/cache/pacman/pkg/"*.pkg.tar 2>/dev/null || true
+    info "Package cache cleared" \
+         "($(du -sh "${MOUNT_ROOT}/var/cache/pacman/pkg/" 2>/dev/null \
+            | cut -f1) remaining)."
+  fi
 
   # Configure pacman to keep only 1 cached version going forward
   # (prevents cache from growing unbounded after updates)
@@ -472,4 +477,49 @@ install_base() {
   arch-chroot "${MOUNT_ROOT}" pacman-key --populate archlinux
 
   info "Base system installed."
+}
+
+# ── Audit Cache (ADR 0152) — test-only, never set by a real install ─────────
+# The Feature Audit harness serves the base variant's packages: a CacheServer
+# per repo (tried before the mirrors, a miss falls through) and its built AUR
+# packages as [audit-aur]. strip_audit_cache leaves the installed system's
+# pacman.conf as shipped.
+_AUDIT_AUR_REPO=audit-aur
+
+# apply_audit_cache [<conf>] — no-op unless INSTALL_PKG_CACHE_SERVER /
+# INSTALL_AUDIT_AUR_REPO are set.
+apply_audit_cache() {
+  local conf="${1:-/etc/pacman.conf}" tmp
+  if [[ -n "${INSTALL_PKG_CACHE_SERVER:-}" ]]; then
+    tmp="$(mktemp)"
+    awk -v u="$INSTALL_PKG_CACHE_SERVER" '{ print }
+      /^\[/ && $0 != "[options]" { print "CacheServer = " u }' \
+      "$conf" > "$tmp" && cat "$tmp" > "$conf"
+    rm -f "$tmp"
+  fi
+  if [[ -n "${INSTALL_AUDIT_AUR_REPO:-}" ]]; then
+    printf '\n[%s]\nSigLevel = Optional TrustAll\nServer = %s\n' \
+      "$_AUDIT_AUR_REPO" "$INSTALL_AUDIT_AUR_REPO" >> "$conf"
+  fi
+  return 0
+}
+
+# strip_audit_cache [<conf>] — drop every CacheServer line and the
+# [audit-aur] section (with the blank line that introduced it).
+strip_audit_cache() {
+  local conf="${1:-/etc/pacman.conf}" tmp
+  [[ -f "$conf" ]] || return 0
+  tmp="$(mktemp)"
+  awk -v r="[$_AUDIT_AUR_REPO]" '
+    /^CacheServer = / { next }
+    { l[++n] = $0 }
+    END {
+      for (i = 1; i <= n; i++) {
+        if (l[i] == r) { if (o && out[o] == "") o--; skip = 1; continue }
+        if (skip && l[i] ~ /^\[/) skip = 0
+        if (!skip) out[++o] = l[i]
+      }
+      for (i = 1; i <= o; i++) print out[i]
+    }' "$conf" > "$tmp" && cat "$tmp" > "$conf"
+  rm -f "$tmp"
 }

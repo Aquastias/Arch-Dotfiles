@@ -99,3 +99,18 @@ teardown() { rm -rf "$T"; }
     '{"environment":{"wayland_shell":"none"}}')" ]
   [ -z "$(_fa_session_client niri '{"environment":{"stock":true}}')" ]
 }
+
+# ── Audit Cache (ADR 0152) ───────────────────────────────────────────────────
+
+@test "fa_cache_install_env: base keeps its packages; others use the cache" {
+  CACHE_DIR="$T/c"; LIBVIRT_GATEWAY=gw HTTP_PORT=1
+  [ "$(fa_cache_install_env base)" = "INSTALL_PKG_CACHE_KEEP=1" ]
+  [ -z "$(fa_cache_install_env limine)" ]          # no cache harvested yet
+  mkdir -p "$T/c/audit-cache/pkg" "$T/c/audit-cache/aur"
+  touch "$T/c/audit-cache/pkg/a-1-1-x86_64.pkg.tar.zst"
+  [ "$(fa_cache_install_env limine)" \
+    = "INSTALL_PKG_CACHE_SERVER=http://gw:1/audit-cache/pkg" ]
+  touch "$T/c/audit-cache/aur/audit-aur.db"
+  [[ "$(fa_cache_install_env limine)" \
+    == *" INSTALL_AUDIT_AUR_REPO=http://gw:1/audit-cache/aur" ]]
+}

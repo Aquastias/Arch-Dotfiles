@@ -200,6 +200,8 @@ main() {
 
   # ── Profiles runner (host/user configs) ───────────────────────────────────
   run_profiles
+  # the Audit Cache (test-only) served the install; ship pacman.conf as is
+  strip_audit_cache "${MOUNT_ROOT:-/mnt}/etc/pacman.conf"
 
   # Wipe the staged plaintext guided passwords now the Runner has consumed them.
   guided_secrets_cleanup

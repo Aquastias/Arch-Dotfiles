@@ -497,7 +497,7 @@ runcmd:
       pacman -Sy --noconfirm --needed git \\
         && rm -rf /root/dotfiles \\
         && git clone ${repo_url} /root/dotfiles \\
-        && cd /root/dotfiles/.installer \\
+        && cd /root/dotfiles/.installer$(_seed_generator_env_exports chain) \\
         && sed -i \
   's|"hostname"[[:space:]]*:[[:space:]]*"[^"]*"|"hostname": "${hostname}"|' \
   install.jsonc \\
@@ -657,7 +657,7 @@ runcmd:
       pacman -Sy --noconfirm --needed git \\
         && rm -rf /root/dotfiles \\
         && git clone ${repo_url} /root/dotfiles \\
-        && cd /root/dotfiles/.installer \\
+        && cd /root/dotfiles/.installer$(_seed_generator_env_exports chain) \\
         ${disk_step} \\
         && cat /root/guided-answers \\
         && ${dirty_step}./install.sh --guided /root/guided-answers
@@ -710,4 +710,18 @@ seed_generator_build() {
   }
 
   printf '%s\n' "$seed_iso"
+}
+
+# _seed_generator_env_exports <plain|chain> — the harness's extra test-only
+# install env (VM_INSTALL_ENV, space-separated K=V; e.g. the Feature Audit's
+# Audit Cache, ADR 0152) as the generated script's exports: `plain` lines,
+# or inline ` && export` links appended to an `&&` install chain.
+_seed_generator_env_exports() {
+  local kv
+  for kv in ${VM_INSTALL_ENV:-}; do
+    case "$1" in
+      plain) printf "export %s='%s'\n" "${kv%%=*}" "${kv#*=}" ;;
+      chain) printf " && export %s='%s'" "${kv%%=*}" "${kv#*=}" ;;
+    esac
+  done
 }

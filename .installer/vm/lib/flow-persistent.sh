@@ -192,6 +192,7 @@ export SECRETS_AGE_PASSPHRASE='test'
 # Route every loader's installed kernel console to serial (efistub's cmdline
 # lives in NVRAM, so it can't be patched after install like grub.cfg).
 export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'
+$(_seed_generator_env_exports plain)
 # Forced-skew gate (ADR 0137): fake-low archzfs LTS ceiling, host-injected. A
 # blank line when unset — the happy path is untouched.
 ${skew_line}

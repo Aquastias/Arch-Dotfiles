@@ -819,10 +819,51 @@ fa_phase_keybinds() {
 
 # fa_install <variant-dir> <vm-profile-file> — install through the persistent
 # flow; 0 iff the installer exited 0.
+# ── Audit Cache (ADR 0152) ───────────────────────────────────────────────────
+# The uncached base variant fills it (repo packages + its built AUR packages
+# as the [audit-aur] repo); every later install of the run is pointed at it
+# through the harness HTTP root. Base still exercises the real mirrors, AUR
+# builds and AUR Vetting.
+
+fa_cache_dir() { printf '%s\n' "$CACHE_DIR/audit-cache"; }
+
+# fa_cache_install_env <variant-id> — the test-only install env (K=V list).
+fa_cache_install_env() {
+  local c url
+  c="$(fa_cache_dir)"
+  url="http://$LIBVIRT_GATEWAY:$HTTP_PORT/audit-cache"
+  if [[ "$1" == base ]]; then echo INSTALL_PKG_CACHE_KEEP=1; return; fi
+  compgen -G "$c/pkg/*.pkg.tar.zst" >/dev/null || return 0
+  printf '%s' "INSTALL_PKG_CACHE_SERVER=$url/pkg"
+  [[ -e "$c/aur/audit-aur.db" ]] \
+    && printf ' %s' "INSTALL_AUDIT_AUR_REPO=$url/aur"
+  echo
+}
+
+# fa_cache_harvest — after base's boot1: copy its kept repo packages and
+# its built AUR packages to the host, index the AUR ones as [audit-aur], then
+# clear the guest's pacman cache (the shipped state the install would leave).
+fa_cache_harvest() {
+  local c; c="$(fa_cache_dir)"
+  mkdir -p "$c/pkg" "$c/aur"
+  fa_agent sudo <<'SH' | tar -xf - -C "$c/pkg"
+tar -C /var/cache/pacman/pkg -cf - --wildcards '*.pkg.tar.zst'
+SH
+  fa_agent sudo <<'SH' | tar -xf - -C "$c/aur"
+cd / && find home root -path '*/.cache/paru/clone/*' -name '*.pkg.tar.zst' \
+  ! -name '*-debug-*' | tar -cf - -T - --transform 's|.*/||'
+SH
+  compgen -G "$c/aur/*.pkg.tar.zst" >/dev/null \
+    && repo-add -q "$c/aur/audit-aur.db.tar.gz" "$c/aur"/*.pkg.tar.zst
+  printf '%s\n' 'rm -f /var/cache/pacman/pkg/*.pkg.tar.zst' | fa_agent sudo \
+    >/dev/null 2>&1 || true
+}
+
 fa_install() {
   local dir="$1/install" prof="$2" rc
   mkdir -p "$dir"
-  VM_ARTIFACT_DIR="$dir" VM_HOLD_FOR_LOG_PULL=1 VM_SKIP_FINAL_BOOT=1 \
+  VM_INSTALL_ENV="$(fa_cache_install_env "${3:-}")" \
+    VM_ARTIFACT_DIR="$dir" VM_HOLD_FOR_LOG_PULL=1 VM_SKIP_FINAL_BOOT=1 \
     VM_PM=1 \
     REPO_URL="$FA_REPO_URL" \
     bash "$INSTALLER_DIR/vm/vm.sh" --profile "$prof" --recreate \
@@ -854,7 +895,7 @@ fa_run_guided() {
   mkdir -p "$dir/install" "$dir/boot1"
   LOG_FILE="$dir/install/installer.log" \
     BOOT_LOG_FILE="$dir/boot1/serial.log" REPO_URL="$FA_REPO_URL" \
-    CACHE_DIR="$CACHE_DIR" \
+    CACHE_DIR="$CACHE_DIR" VM_INSTALL_ENV="$(fa_cache_install_env guided)" \
     bash "$INSTALLER_DIR/vm/vm.sh" --guided --profile "$ref" --verify-boot \
     --recreate > "$dir/install/harness.txt" 2>&1 || rc=$?
   ((rc == 0)) || fa_fatal "$dir/install" \
@@ -912,8 +953,9 @@ fa_run_variant() {
     fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" \
       || { fa_fatal "$dir/boot1" "reused VM never reached SSH"; return 1; }
   else
-    fa_install "$dir" "$prof" || return 1
+    fa_install "$dir" "$prof" "$id" || return 1
     fa_boot "$dir/boot1" || return 1
+    [[ "$id" == base ]] && fa_cache_harvest
   fi
   fa_collect "$dir/boot1"
   fa_phase_wanted "$dir" sessions && fa_phase_sessions "$dir" "$cfg"
@@ -968,6 +1010,8 @@ fa_run() {
     && { echo "feature-audit: --reuse needs one --variant" >&2; return 2; }
   [[ -n "${FA_REUSE:-}" ]] || FA_REPO_URL="$(fa_stage_repo)"
   local i n=${#ids[@]}
+  # a run that installs base refills the Audit Cache from scratch
+  [[ " ${ids[*]} " == *" base "* ]] && rm -rf "$(fa_cache_dir)"
   for ((i = 0; i < n; i++)); do
     fa_run_variant "${ids[i]}" "$run" || true
     fa_report "$run" >/dev/null || true   # findings so far, per variant
