@@ -43,12 +43,23 @@ _sessions_dir="$WAYLAND_SESSIONS_DIR"
 mkdir -p "${ROOT}${GREETD_CONF_DIR}"
 cat > "${ROOT}${GREETD_CONF_DIR}/config.toml" <<TOML
 [terminal]
-vt = 1
+vt = 2
 
 [default_session]
 command = "tuigreet --remember --remember-session --sessions ${_sessions_dir}"
 user = "greeter"
 TOML
+
+# VT 2, not 1: fbcon defers its takeover until tty1 is first written, and
+# that restarts vconsole-setup, which raced a session grabbing tty1 (EINVAL
+# on the font op). On tty2 it never contends; greetd(5) wants the VT's getty
+# conflicted, as the packaged unit does for tty1.
+mkdir -p "${ROOT}/etc/systemd/system/greetd.service.d"
+cat > "${ROOT}/etc/systemd/system/greetd.service.d/10-vt2.conf" <<'UNIT'
+[Unit]
+After=getty@tty2.service
+Conflicts=getty@tty2.service
+UNIT
 
 systemctl enable greetd
 info "greetd + tuigreet enabled (sessions: ${_sessions_dir})."

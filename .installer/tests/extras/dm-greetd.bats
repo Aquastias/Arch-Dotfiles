@@ -65,3 +65,14 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   grep -q -- "--sessions /usr/share/wayland-sessions" "$CONF"
 }
+
+@test "greetd runs on VT 2, owning tty2's getty, leaving tty1 a text VT" {
+  # Audit Run 20261004: fbcon's deferred takeover restarts vconsole-setup
+  # when tty1 is first written; a session on tty1 raced it (EINVAL).
+  run bash "$ADAPTER"
+  [ "$status" -eq 0 ]
+  grep -qx 'vt = 2' "$CONF"
+  local d="$ROOT/etc/systemd/system/greetd.service.d/10-vt2.conf"
+  grep -qx 'Conflicts=getty@tty2.service' "$d"
+  grep -qx 'After=getty@tty2.service' "$d"
+}
