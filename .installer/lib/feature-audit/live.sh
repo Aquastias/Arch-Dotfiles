@@ -224,11 +224,29 @@ fa_reboot() {
   fa_wait_until "$FA_SETTLE_SEC" "$(_fa_settled)"
 }
 
+# _FA_FOLD_HUNG_TASKS — awk: join a kernel hung-task report (header … </TASK>)
+# into one journal line, so Known Noise can judge it whole by its stack (a
+# virgl stall vs a real hang); every other line passes through.
+_FA_FOLD_HUNG_TASKS='
+  / kernel: INFO: task .* blocked for more than / {
+    if (on) print b
+    b = $0; on = 1; next
+  }
+  on && / kernel: / {
+    l = $0; sub(/^.* kernel: +/, "", l); b = b " | " l
+    if (l ~ /^<\/TASK>/) { print b; on = 0 }
+    next
+  }
+  on { print b; on = 0 }
+  { print }
+  END { if (on) print b }'
+
 # _fa_collect_script [since-epoch] — guest-side (root) signal collector.
 # With a since-epoch only that window's journal/coredumps are taken, so an
 # in-boot phase reports its own lines, not the whole boot's again.
 _fa_collect_script() {
   printf 'SINCE=%q\n' "${1:-}"
+  printf 'FOLD=%q\n' "$_FA_FOLD_HUNG_TASKS"
   cat <<'SH'
 set -u
 o=/tmp/fa-collect
@@ -241,8 +259,8 @@ for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}'); do
     > "$o/failed-units-user-$u.lines" 2>/dev/null || true
 done
 # system journal (services + kernel) and each user's own, as separate sources
-journalctl "${win[@]}" --system -p warning --no-pager -q -o short \
-  > "$o/journal.lines" 2>&1
+journalctl "${win[@]}" --system -p warning --no-pager -q -o short 2>&1 \
+  | awk "$FOLD" > "$o/journal.lines"
 for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
   n="$(id -nu "$u" 2>/dev/null)" || continue
   journalctl "${win[@]}" _UID="$u" -p warning --no-pager -q -o short \

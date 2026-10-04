@@ -171,3 +171,18 @@ teardown() { rm -rf "$T"; }
   [[ "$(_fa_settled)" == *"systemctl --user -M alice@ list-jobs"* ]]
   [[ "$(_fa_settled)" == *"systemctl list-jobs"* ]]
 }
+
+@test "hung-task fold: one kernel report becomes one line, others untouched" {
+  printf '%s\n' \
+    'Oct 04 02:40:08 h kernel: INFO: task noctalia:1881 blocked for more than 122 seconds.' \
+    'Oct 04 02:40:08 h kernel:       Tainted: P OE 6.18.54-2-lts #1' \
+    'Oct 04 02:40:08 h kernel: Call Trace:' \
+    'Oct 04 02:40:08 h kernel:  <TASK>' \
+    'Oct 04 02:40:08 h kernel:  virtio_gpu_queue_ctrl_sgs+0x135/0x300 [virtio_gpu]' \
+    'Oct 04 02:40:08 h kernel:  </TASK>' \
+    'Oct 04 02:41:00 h sshd[1]: unrelated warning' > "$T/j"
+  awk "$_FA_FOLD_HUNG_TASKS" "$T/j" > "$T/out"
+  [ "$(wc -l < "$T/out")" -eq 2 ]
+  grep -q 'INFO: task noctalia.*virtio_gpu_queue_ctrl_sgs' "$T/out"
+  grep -qx 'Oct 04 02:41:00 h sshd\[1\]: unrelated warning' "$T/out"
+}
