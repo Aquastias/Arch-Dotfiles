@@ -58,9 +58,11 @@ fa_variant_host_core() {
   m="$(fa_manifest_json)"
   v="$(fa_variant_json "$1")" || return 1
   h="$(jq -r --argjson v "$v" '$v.host // .base.host' <<<"$m")"
-  # VM hosts live under hosts/vm/ (the installer's own fallback)
-  f="$INSTALLER_DIR/hosts/$h/profile.jsonc"
-  [[ -f "$f" ]] || f="$INSTALLER_DIR/hosts/vm/$h/profile.jsonc"
+  [[ "$(type -t profile_dir)" == function ]] || {
+    # shellcheck source=../config/profile.sh
+    source "$INSTALLER_DIR/lib/config/profile.sh"
+  }
+  f="$(profile_dir hosts "$h")/profile.jsonc"
   jsonc_strip "$f" | jq -r '.packages.inherit != false'
 }
 

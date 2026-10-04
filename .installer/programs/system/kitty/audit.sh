@@ -16,10 +16,7 @@ fi
 # shell there is no notification daemon, so kitty's startup query of its
 # capabilities fails: tolerate exactly that line there.
 _kitty=(timeout 20 kitty --class fa-probe-kitty -e sh -c 'sleep 3')
-if fa_has_shell; then
-  fa_check kitty-launch "kitty opens a window with no config errors" \
-    fa_no_stderr "${_kitty[@]}"
-else
-  fa_check kitty-launch "kitty opens a window with no config errors" \
-    fa_no_stderr_but '\[glfw error [0-9]+\]: Notify: ' "${_kitty[@]}"
-fi
+_judge=(fa_no_stderr)
+fa_has_shell || _judge=(fa_no_stderr_but '\[glfw error [0-9]+\]: Notify: ')
+fa_check kitty-launch "kitty opens a window with no config errors" \
+  "${_judge[@]}" "${_kitty[@]}"

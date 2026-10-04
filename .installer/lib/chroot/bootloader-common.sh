@@ -2,13 +2,12 @@
 # =============================================================================
 # lib/chroot/bootloader-common.sh — shared ESP-mirroring adapter preamble
 # =============================================================================
-# Sourced by every ESP-mirroring Bootloader Adapter (systemd-boot, efistub,
-# limine, refind) AFTER chroot-common, with STATE set. grub does NOT use it
-# (it reads /boot natively and needs no ESP mirror). Sources the kernel /
-# microcode / zswap / entry-renderer libs and computes the values every
-# ESP-mirroring adapter needs, plus the ESP staging + ESP Kernel Sync hook
-# installation they all repeat (ADR 0038/0077/0078). Requires _LIB_DIR + STATE
-# set by the caller.
+# Sourced by every Bootloader Adapter that boots kernels staged on the ESP
+# (systemd-boot, efistub, limine, refind, grub) AFTER chroot-common, with
+# STATE set. Sources the kernel / microcode / zswap / entry-renderer libs and
+# computes the values every ESP-mirroring adapter needs, plus the ESP staging
+# + ESP Kernel Sync hook installation they all repeat (ADR 0038/0077/0078).
+# Requires _LIB_DIR + STATE set by the caller.
 # =============================================================================
 
 # _bl_src <staged-name> <dev-relpath> — source a lib whether staged flat into

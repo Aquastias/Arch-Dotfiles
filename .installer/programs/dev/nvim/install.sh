@@ -7,9 +7,10 @@
 #
 # The Neovim config (home/) is applied by the Runner's Config Apply pass, not
 # here (ADR 0134). The LSP/formatter toolchain is declared in Host Core
-# language-servers as bare packages (editor-agnostic, no mason — ADR 0135), so
-# the base install already places it. This program only stages the config and
-# installs the ONE best-effort exception: Swift's sourcekit-lsp, which ships
+# language-servers as bare packages (editor-agnostic, no mason — ADR 0135); a
+# host not inheriting Host Core has none of it, by design. This program
+# installs the editor and what its plugin restore builds with, plus ONE
+# best-effort exception: Swift's sourcekit-lsp, which ships
 # with the AUR swift-bin toolchain (AUR-only, heavy). It is attempted but never
 # fails the install — a missing Swift is an optional gap, not a broken editor
 # (ADR 0135/0136). It also installs the plugins pinned by lazy-lock.json, so

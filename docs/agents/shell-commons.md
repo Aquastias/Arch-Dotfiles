@@ -25,9 +25,11 @@ a helper lives in the world of its callers, never shared across.
 Split for an execution-context reason, not accidental drift. Leave them be:
 
 - `lib/chroot/chroot-common.sh` — `common.sh` can't be sourced in the chroot.
-- `lib/grub-common.sh`, `lib/chroot/bootloader-common.sh` — staged
+- `lib/chroot/bootloader-common.sh` — staged
   self-contained into runtime trees; function-only, no side effects, plain
   `echo` (no stdlib available).
+- `lib/grub-common.sh` — legacy-GRUB re-pin for `tools/harden-boot.sh` only
+  (fresh installs boot GRUB from the ESP, ADR 0078).
 - `lib/impermanence-common.sh` — shared install-time **and** runtime.
 - `lib/layout/core.sh`, `lib/layout/zfs/common.sh` — layout spine (ADR 0043).
 - `lib/chroot/extras-common.sh` — DE-extras adapters; own `info/section`.

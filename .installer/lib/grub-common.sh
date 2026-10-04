@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/grub-common.sh — /etc/default/grub for a GRUB that reads /boot on ZFS
+# lib/grub-common.sh — legacy: /etc/default/grub for a /boot-on-ZFS GRUB
 # =============================================================================
 # Only tools/harden-boot.sh uses this now, to re-pin the default entry on an
 # existing grub-mkconfig install. Fresh installs boot GRUB from the ESP with a

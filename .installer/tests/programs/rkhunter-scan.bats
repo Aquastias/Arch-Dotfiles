@@ -37,3 +37,9 @@ teardown() { rm -rf "$T"; }
   [ "$status" -eq 0 ]
   [ -f "$T/ran" ]
 }
+
+@test "any other --update failure still fails the scan" {
+  UPDATE_RC=3 PATH="$T/bin:$PATH" run bash "$T/scan.sh"
+  [ "$status" -eq 3 ]
+  [ ! -f "$T/ran" ]
+}

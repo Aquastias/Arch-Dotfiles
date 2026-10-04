@@ -678,3 +678,9 @@ write_jsonc() {
   run validate_config_schema host "$eff"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
+
+@test "profile_dir: a real host, else its hosts/vm/ fallback" {
+  mkdir -p "$INSTALLER_DIR/hosts/desk" "$INSTALLER_DIR/hosts/vm/box"
+  [ "$(profile_dir hosts desk)" = "$INSTALLER_DIR/hosts/desk" ]
+  [ "$(profile_dir hosts box)" = "$INSTALLER_DIR/hosts/vm/box" ]
+}

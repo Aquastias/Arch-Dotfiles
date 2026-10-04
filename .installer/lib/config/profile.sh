@@ -58,6 +58,15 @@ load_user_profile() { _profile_load users "$1"; }
 
 # Shared loader — merge <kind>/core/profile.jsonc with <kind>/<name>/
 # profile.jsonc. VM hosts/users live under <kind>/vm/<name>/ (fallback).
+# profile_dir <kind> <name> — a profile's directory: <kind>/<name>, else the
+# VM fixture under <kind>/vm/<name>. The one lookup every profile file reader
+# (profile.jsonc, secrets.json) shares.
+profile_dir() {
+  local d="${INSTALLER_DIR}/$1/$2"
+  [[ -d "$d" ]] || d="${INSTALLER_DIR}/$1/vm/$2"
+  printf '%s\n' "$d"
+}
+
 _profile_load() {
   local kind="$1" name="$2"
 
@@ -71,8 +80,7 @@ _profile_load() {
   fi
 
   local core_file="${INSTALLER_DIR}/${kind}/core/profile.jsonc"
-  local spec_file="${INSTALLER_DIR}/${kind}/${name}/profile.jsonc"
-  [[ -f "$spec_file" ]] || spec_file="${INSTALLER_DIR}/${kind}/vm/${name}/profile.jsonc"
+  local spec_file; spec_file="$(profile_dir "$kind" "$name")/profile.jsonc"
 
   if [[ ! -f "$core_file" ]]; then
     echo "profile: missing ${kind%s} core profile: ${core_file}" >&2

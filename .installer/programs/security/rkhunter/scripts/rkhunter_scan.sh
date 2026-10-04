@@ -23,6 +23,9 @@ rkhunter --update --nocolors >>"$SYSTEM_LOG" 2>&1 || rc=$?
 if (( rc == 1 )); then
   echo "rkhunter --update: download failed; scanning on existing data." \
     | tee -a "$SYSTEM_LOG"
+elif (( rc > 2 )); then
+  echo "rkhunter --update failed (exit $rc)." | tee -a "$SYSTEM_LOG"
+  exit "$rc"
 fi
 rkhunter --propupd -q >>"$SYSTEM_LOG" 2>&1
 
