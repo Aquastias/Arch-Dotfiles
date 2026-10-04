@@ -135,13 +135,33 @@ fa_boot() {
   sleep "$FA_SETTLE_SEC"
 }
 
+_FA_BOOT_ID=/proc/sys/kernel/random/boot_id
+
+# fa_await_new_boot <phase-dir> <old-boot-id> — wait for the guest to come
+# back as a new boot. The VM's virgl GPU can stall, leaving GPU clients in D
+# state so shutdown never ends (a host artefact, not the product): after the
+# grace, hard-reset the domain and record it in vm-reset.txt.
+fa_await_new_boot() {
+  local dir="$1" old="$2" id e=0
+  while ((e < ${FA_SHUTDOWN_GRACE_SEC:-240})); do
+    sleep 10; e=$((e + 10))
+    id="$(fa_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || id=""
+    [[ -n "$id" && "$id" != "$old" ]] && return 0
+  done
+  virsh reset "$VM_NAME" >/dev/null 2>&1 || true
+  mkdir -p "$dir"
+  printf 'reboot wedged in shutdown for %ss (virgl GPU stall); reset\n' \
+    "${FA_SHUTDOWN_GRACE_SEC:-240}" >> "$dir/vm-reset.txt"
+}
+
 # fa_reboot <phase-dir> — guest reboot, wait for SSH, settle. The serial
 # capture + answerer keep running across the reboot.
 fa_reboot() {
-  local dir="$1"
+  local dir="$1" old
   mkdir -p "$dir"
+  old="$(fa_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || old=""
   fa_agent sudo systemctl reboot >/dev/null 2>&1 || true
-  sleep 15
+  fa_await_new_boot "$dir" "$old"
   fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || {
     fa_boot_evidence "$dir"
     fa_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"

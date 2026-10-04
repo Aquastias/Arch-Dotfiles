@@ -33,3 +33,25 @@ teardown() { rm -rf "$T"; }
   grep -q 'running (booted)' "$T/boot1/domstate.txt"
   [ -s "$T/boot1/console.png" ]
 }
+
+@test "fa_await_new_boot: a reboot wedged in shutdown is reset, recorded" {
+  # Audit Run 20261004: virgl stalls left GPU clients in D state, so the
+  # guest never finished shutting down and the variant went fatal.
+  FA_SHUTDOWN_GRACE_SEC=10
+  fa_agent() { echo old-id; }           # still the old boot
+  sleep() { :; }
+  virsh() { echo "virsh $*" >> "$T/virsh.log"; }
+  fa_await_new_boot "$T/boot2" old-id
+  grep -q 'virsh reset arch-audit' "$T/virsh.log"
+  grep -q 'shutdown' "$T/boot2/vm-reset.txt"
+}
+
+@test "fa_await_new_boot: a clean reboot is left alone" {
+  FA_SHUTDOWN_GRACE_SEC=10
+  fa_agent() { echo new-id; }
+  sleep() { :; }
+  virsh() { echo "virsh $*" >> "$T/virsh.log"; }
+  fa_await_new_boot "$T/boot2" old-id
+  [ ! -e "$T/virsh.log" ]
+  [ ! -e "$T/boot2/vm-reset.txt" ]
+}

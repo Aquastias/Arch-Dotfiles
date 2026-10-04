@@ -51,6 +51,7 @@ AGENT_PROFILE_DEFAULT="${VM_AGENT_PROFILE:-desktop/combined}"
 AGENT_USER="${VM_AGENT_USER:-aquastias}"
 AGENT_SUDO_PW="${VM_AGENT_SUDO_PW:-12345}"
 AGENT_READY_TIMEOUT="${VM_AGENT_READY_TIMEOUT:-180}"
+AGENT_SHUTDOWN_GRACE="${VM_AGENT_SHUTDOWN_GRACE:-240}"
 
 die() { echo "vm-agent: $*" >&2; exit 1; }
 info() { echo "vm-agent: $*" >&2; }
@@ -412,10 +413,16 @@ verb_reboot() {
   old="$(_ssh "cat $boot" 2>/dev/null)" || old=""
   info "rebooting '$VM_NAME'…"
   _sudo systemctl reboot || true
-  # Wait for the NEW boot: a fixed sleep could still see the old session.
-  while ((elapsed < AGENT_READY_TIMEOUT)); do
+  # Wait for the NEW boot: a fixed sleep could still see the old session. A
+  # virgl GPU stall can wedge shutdown (D-state GPU clients): past the grace,
+  # hard-reset the domain once.
+  while ((elapsed < AGENT_READY_TIMEOUT + AGENT_SHUTDOWN_GRACE)); do
     id="$(_ssh "cat $boot" 2>/dev/null)" || id=""
     [[ -n "$id" && "$id" != "$old" ]] && break
+    if ((elapsed == AGENT_SHUTDOWN_GRACE)); then
+      info "shutdown wedged ${elapsed}s (virgl stall?) — resetting the VM…"
+      virsh reset "$VM_NAME" >/dev/null 2>&1 || true
+    fi
     sleep 5; elapsed=$((elapsed + 5))
   done
   verb_ready

@@ -285,3 +285,13 @@ _stub_io='
   [ "$status" -eq 0 ]
   [[ "$output" == *ready-after-3* ]]
 }
+
+@test "reboot resets a guest wedged in shutdown after the grace" {
+  run bash -c "source '$AGENT'; VM_NAME=t; AGENT_SHUTDOWN_GRACE=10
+    _sudo() { :; }; info() { :; }; sleep() { :; }
+    _ssh() { echo old; }
+    virsh() { echo \"virsh \$*\" >> \"\$BATS_TEST_TMPDIR/v\"; }
+    verb_ready() { :; }
+    verb_reboot"
+  grep -qx 'virsh reset t' "$BATS_TEST_TMPDIR/v"
+}
