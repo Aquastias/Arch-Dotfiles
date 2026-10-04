@@ -70,3 +70,32 @@ teardown() { rm -rf "$T"; }
   ! fa_phase_wanted "$T/v" boot2
   [ ! -e "$T/v/boot2" ]
 }
+
+# ── readiness waits (cap, not fixed sleeps) ─────────────────────────────────
+
+@test "fa_wait_until: returns once the check holds twice, well before cap" {
+  echo 0 > "$T/n"
+  fa_agent() { local n; n=$(($(cat "$T/n") + 1)); echo $n > "$T/n"
+    ((n >= 3)); }
+  sleep() { echo "$1" >> "$T/slept"; }
+  fa_wait_until 90 'true'
+  [ "$(cat "$T/n")" -eq 4 ]                      # fail, fail, ok, ok
+  [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -lt 90 ]
+}
+
+@test "fa_wait_until: never ready → stops at the cap" {
+  fa_agent() { return 1; }
+  sleep() { echo "$1" >> "$T/slept"; }
+  fa_wait_until 30 'false'
+  [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -eq 30 ]
+}
+
+@test "_fa_session_client: the shell process a session should bring up" {
+  [ "$(_fa_session_client kde '{}')" = plasmashell ]
+  [ "$(_fa_session_client niri '{}')" = noctalia ]
+  [ "$(_fa_session_client niri \
+    '{"environment":{"wayland_shell":"waybar"}}')" = waybar ]
+  [ -z "$(_fa_session_client hyprland \
+    '{"environment":{"wayland_shell":"none"}}')" ]
+  [ -z "$(_fa_session_client niri '{"environment":{"stock":true}}')" ]
+}

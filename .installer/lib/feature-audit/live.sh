@@ -120,6 +120,27 @@ fa_boot_evidence() {
   virsh screenshot "$VM_NAME" "$1/console.png" >/dev/null 2>&1 || true
 }
 
+# fa_wait_until <cap-sec> <guest-check> — poll a root shell check on the
+# guest every 5s; return once it holds twice in a row, or at the cap. The
+# readiness form of a fixed settle: a quiet guest is judged at once, a busy
+# one still gets the old full wait.
+fa_wait_until() {
+  local cap="$1" check="$2" e=0 ok=0
+  while ((e < cap)); do
+    if printf '%s\n' "$check" | fa_agent sudo >/dev/null 2>&1; then
+      ok=$((ok + 1)); ((ok >= 2)) && return 0
+    else ok=0; fi
+    sleep 5; e=$((e + 5))
+  done
+}
+
+# Settled: no systemd job queued and the boot has left `starting`.
+_FA_SETTLED='[ -z "$(systemctl list-jobs --no-legend)" ] &&
+  ! systemctl is-system-running 2>/dev/null | grep -qx starting'
+# …and no unit still activating (the timer soak's delayed work).
+_FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
+  --no-legend)" ]'
+
 # fa_boot <phase-dir> — power on the installed system and wait for SSH.
 fa_boot() {
   local dir="$1"
@@ -132,7 +153,7 @@ fa_boot() {
       "installed system never reached SSH (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
-  sleep "$FA_SETTLE_SEC"
+  fa_wait_until "$FA_SETTLE_SEC" "$_FA_SETTLED"
 }
 
 _FA_BOOT_ID=/proc/sys/kernel/random/boot_id
@@ -167,7 +188,7 @@ fa_reboot() {
     fa_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
-  sleep "$FA_SETTLE_SEC"
+  fa_wait_until "$FA_SETTLE_SEC" "$_FA_SETTLED"
 }
 
 # _fa_collect_script [since-epoch] — guest-side (root) signal collector.
@@ -255,7 +276,8 @@ fa_phase_timers() {
   since="$(fa_guest_now)"
   _fa_timers_script | fa_agent sudo > "$dir/probe-timers@root.probe" 2>&1 \
     || true
-  sleep "${FA_SOAK_SEC:-600}"
+  # soak: delayed work the forced timers queued finishes (or fails) now
+  fa_wait_until "${FA_SOAK_SEC:-600}" "$_FA_SETTLED && $_FA_NONE_ACTIVATING"
   fa_collect "$dir" "$since"
 }
 
@@ -413,6 +435,25 @@ chmod -R a+rX "$o"
 SH
 }
 
+# _fa_session_client <desktop> <cfg> — the shell process a session brings up
+# (empty: none expected, a stock or shell-less wlroots session).
+_fa_session_client() {
+  [[ "$1" == kde ]] && { echo plasmashell; return; }
+  jq -r 'if .environment.stock == true then empty
+    else (.environment.wayland_shell // "noctalia")
+      | select(. != "none") end' <<<"$2"
+}
+
+# _fa_session_settled <user> <client> — guest check: the shell client (if
+# any) runs and the user manager has no job queued.
+_fa_session_settled() {
+  local u="$1" c="$2"
+  printf '%s' "${c:+pgrep -u $u -x $c >/dev/null && }"
+  printf '[ -z "$(runuser -u %s -- env XDG_RUNTIME_DIR=/run/user/$(id -u %s)' \
+    "$u" "$u"
+  printf ' systemctl --user list-jobs --no-legend)" ]'
+}
+
 # fa_phase_sessions <variant-dir> <cfg> — log into each compositor of the set
 # (one phase dir per desktop), collect its window, screenshot it.
 fa_phase_sessions() {
@@ -429,7 +470,8 @@ fa_phase_sessions() {
       continue
     fi
     fa_agent idle off >/dev/null 2>&1 || true
-    sleep "${FA_SESSION_SETTLE_SEC:-45}"
+    fa_wait_until "${FA_SESSION_SETTLE_SEC:-45}" "$(_fa_session_settled \
+      "$FA_USER" "$(_fa_session_client "$de" "$cfg")")"
     fa_agent shot "$dir/screens/session-$de.png" >> "$dir/agent.txt" 2>&1 \
       || echo "session $de: screenshot failed" >> "$dir/session-start.lines"
     fa_collect "$dir" "$since"
