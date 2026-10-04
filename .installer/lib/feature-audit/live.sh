@@ -142,6 +142,16 @@ _FA_SETTLED='[ -z "$(systemctl list-jobs --no-legend)" ] &&
 _FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
   --no-legend)" ]'
 
+# _fa_settled — the settle check: the system is settled and, with linger,
+# so is the audit user's manager (a first container pull runs there).
+_fa_settled() {
+  printf '%s' "$_FA_SETTLED"
+  if [[ -n "${FA_USER:-}" ]]; then
+    printf ' && [ -z "$(systemctl --user -M %s@ list-jobs --no-legend %s)" ]' \
+      "$FA_USER" '2>/dev/null'
+  fi
+}
+
 # fa_boot <phase-dir> — power on the installed system and wait for SSH.
 fa_boot() {
   local dir="$1" up=1
@@ -161,7 +171,7 @@ fa_boot() {
     up=1; fa_wait_ssh "$FA_BOOT_TIMEOUT_SEC" || up=0
   fi
   ((up)) || { _fa_boot_fatal "$dir"; return 1; }
-  fa_wait_until "$FA_SETTLE_SEC" "$_FA_SETTLED"
+  fa_wait_until "$FA_SETTLE_SEC" "$(_fa_settled)"
 }
 
 # _fa_boot_silent <phase-dir> — the serial capture holds no guest output.
@@ -211,7 +221,7 @@ fa_reboot() {
     fa_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
-  fa_wait_until "$FA_SETTLE_SEC" "$_FA_SETTLED"
+  fa_wait_until "$FA_SETTLE_SEC" "$(_fa_settled)"
 }
 
 # _fa_collect_script [since-epoch] — guest-side (root) signal collector.
@@ -300,7 +310,7 @@ fa_phase_timers() {
   _fa_timers_script | fa_agent sudo > "$dir/probe-timers@root.probe" 2>&1 \
     || true
   # soak: delayed work the forced timers queued finishes (or fails) now
-  fa_wait_until "${FA_SOAK_SEC:-600}" "$_FA_SETTLED && $_FA_NONE_ACTIVATING"
+  fa_wait_until "${FA_SOAK_SEC:-600}" "$(_fa_settled) && $_FA_NONE_ACTIVATING"
   fa_collect "$dir" "$since"
 }
 

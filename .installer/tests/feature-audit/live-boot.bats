@@ -163,3 +163,11 @@ teardown() { rm -rf "$T"; }
   [ ! -e "$T/boot1/vm-retry.txt" ]
   grep -q 'never reached SSH' "$T/boot1/fatal.lines"
 }
+
+@test "_fa_settled: also waits on the audit user's manager (linger jobs)" {
+  # kde-pure 20261004: searxng's first image pull (a linger user job) was
+  # still running when probes-offline cut the network
+  FA_USER=alice
+  [[ "$(_fa_settled)" == *"systemctl --user -M alice@ list-jobs"* ]]
+  [[ "$(_fa_settled)" == *"systemctl list-jobs"* ]]
+}

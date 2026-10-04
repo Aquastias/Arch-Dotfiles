@@ -32,3 +32,10 @@ setup() {
   [ -f "$S/limiter.toml" ]
   grep -q 'limiter.toml' "$S/install.sh"
 }
+
+@test "an offline first start keeps retrying until the image can be pulled" {
+  # kde-pure 20261004: three quick pull failures hit the start limit and
+  # searxng never came up (a laptop booting before its Wi-Fi would too)
+  grep -qx 'StartLimitIntervalSec=0' "$Q/searxng.container"
+  grep -qx 'RestartSec=30' "$Q/searxng.container"
+}

@@ -1,6 +1,9 @@
 [Unit]
 Description=SearXNG metasearch engine
 After=network.target
+# Retry forever: a first start before the network is up (offline boot) must
+# still pull the image once it is.
+StartLimitIntervalSec=0
 
 [Container]
 Image=docker.io/searxng/searxng:latest
@@ -16,6 +19,7 @@ Environment=SEARXNG_BASE_URL=http://localhost:8080/
 # The first start pulls the image: quadlet's 90s default is too short.
 TimeoutStartSec=900
 Restart=on-failure
+RestartSec=30
 
 [Install]
 WantedBy=default.target
