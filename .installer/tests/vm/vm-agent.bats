@@ -263,3 +263,25 @@ _stub_io='
   run bash "$AGENT" --vm no-such-vm-xyz keyup Super
   [[ "$output" != *"unknown verb"* ]]
 }
+
+# Ready means the user's compositor serves Wayland, not merely that its
+# process exists (Audit Run 20261004: a Ctrl+Alt+Delete bind sent while
+# Hyprland was still starting hit the text VT and rebooted the guest).
+@test "agent_ready_check: the user's compositor AND its Wayland socket" {
+  _call "agent_ready_check alice"
+  [[ "$output" == *"pgrep -u alice -x"* ]]
+  [[ "$output" == *'wayland-[0-9]'* ]]
+  [[ "$output" == *"&&"* ]]
+}
+
+@test "reboot waits for a new boot id before checking readiness" {
+  run bash -c "source '$AGENT'; _sudo() { :; }; info() { :; }
+    c=\"\$BATS_TEST_TMPDIR/n\"; echo 0 > \"\$c\"
+    _ssh() { n=\$((\$(cat \"\$c\") + 1)); echo \$n > \"\$c\"
+      [ \$n -le 2 ] && echo old || echo new; }
+    verb_ready() { echo ready-after-\$(cat \"\$c\"); }
+    sleep() { :; }
+    verb_reboot"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *ready-after-3* ]]
+}

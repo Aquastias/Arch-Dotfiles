@@ -369,12 +369,20 @@ _guest_dm() {
 
 # ── verbs ────────────────────────────────────────────────────────────────────
 
+# agent_ready_check <user> — guest shell test for a usable session: the
+# user's compositor runs AND serves its Wayland socket. A bare process can
+# predate its VT takeover; input sent then lands on the text console, where
+# Ctrl+Alt+Del reboots the box. The user filter skips an SDDM greeter's kwin.
+agent_ready_check() {
+  printf '%s' "pgrep -u $1 -x 'niri|Hyprland|kwin_wayland' >/dev/null 2>&1 \
+&& ls /run/user/\$(id -u $1)/wayland-[0-9] >/dev/null 2>&1"
+}
+
 verb_ready() {
   local timeout="${1:-$AGENT_READY_TIMEOUT}" elapsed=0
   info "waiting for a session on '$VM_NAME' (≤${timeout}s)…"
   while ((elapsed < timeout)); do
-    if _ssh 'pgrep -x niri >/dev/null 2>&1 || pgrep -x Hyprland \
-      >/dev/null 2>&1 || pgrep -x kwin_wayland >/dev/null 2>&1' 2>/dev/null
+    if _ssh "$(agent_ready_check "$AGENT_USER")" 2>/dev/null
     then info "session up."; return 0; fi
     sleep 5; elapsed=$((elapsed + 5))
   done
@@ -400,9 +408,16 @@ verb_ssh() {
 }
 
 verb_reboot() {
+  local boot=/proc/sys/kernel/random/boot_id old id elapsed=0
+  old="$(_ssh "cat $boot" 2>/dev/null)" || old=""
   info "rebooting '$VM_NAME'…"
   _sudo systemctl reboot || true
-  sleep 8
+  # Wait for the NEW boot: a fixed sleep could still see the old session.
+  while ((elapsed < AGENT_READY_TIMEOUT)); do
+    id="$(_ssh "cat $boot" 2>/dev/null)" || id=""
+    [[ -n "$id" && "$id" != "$old" ]] && break
+    sleep 5; elapsed=$((elapsed + 5))
+  done
   verb_ready
 }
 
