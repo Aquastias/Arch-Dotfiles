@@ -275,7 +275,7 @@ _stub_io='
 }
 
 @test "reboot waits for a new boot id before checking readiness" {
-  run bash -c "source '$AGENT'; _sudo() { :; }; info() { :; }
+  run bash -c "source '$AGENT'; VM_NAME=t; _sudo() { :; }; info() { :; }
     c=\"\$BATS_TEST_TMPDIR/n\"; echo 0 > \"\$c\"
     _ssh() { n=\$((\$(cat \"\$c\") + 1)); echo \$n > \"\$c\"
       [ \$n -le 2 ] && echo old || echo new; }
