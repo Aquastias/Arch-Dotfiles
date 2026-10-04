@@ -398,8 +398,9 @@ verb_exec() {
 verb_launch() {
   (($#)) || die "launch needs an app"
   # A missing app fails here, not as a silent no-op the caller screenshots.
-  _in_session "command -v $1 >/dev/null \
-    || { echo 'vm-agent: $1 not installed' >&2; exit 5; }
+  local app; app="$(printf '%q' "$1")"
+  _in_session "command -v $app >/dev/null \
+    || { echo vm-agent: $app not installed >&2; exit 5; }
     setsid -f $* </dev/null >/dev/null 2>&1" || die "cannot launch $1"
   info "launched: $*"
 }
@@ -409,19 +410,22 @@ verb_ssh() {
 }
 
 verb_reboot() {
-  local boot=/proc/sys/kernel/random/boot_id old id elapsed=0
+  local boot=/proc/sys/kernel/random/boot_id old id elapsed=0 down=0 reset=0
   old="$(_ssh "cat $boot" 2>/dev/null)" || old=""
   info "rebooting '$VM_NAME'…"
   _sudo systemctl reboot || true
-  # Wait for the NEW boot: a fixed sleep could still see the old session. A
-  # virgl GPU stall can wedge shutdown (D-state GPU clients): past the grace,
-  # hard-reset the domain once.
+  # Wait for the NEW boot: a fixed sleep could still see the old session (an
+  # unknown old id is trusted only once the guest went down). A virgl GPU
+  # stall can wedge shutdown (D-state GPU clients): past the grace, hard-reset
+  # the domain once.
   while ((elapsed < AGENT_READY_TIMEOUT + AGENT_SHUTDOWN_GRACE)); do
-    id="$(_ssh "cat $boot" 2>/dev/null)" || id=""
-    [[ -n "$id" && "$id" != "$old" ]] && break
-    if ((elapsed == AGENT_SHUTDOWN_GRACE)); then
+    id="$(_ssh "cat $boot" 2>/dev/null)" || { id=""; down=1; }
+    if [[ -n "$id" && "$id" != "$old" ]] && { [[ -n "$old" ]] || ((down)); }
+    then break; fi
+    if ((!reset && elapsed >= AGENT_SHUTDOWN_GRACE)); then
       info "shutdown wedged ${elapsed}s (virgl stall?) — resetting the VM…"
       virsh reset "$VM_NAME" >/dev/null 2>&1 || true
+      reset=1
     fi
     sleep 5; elapsed=$((elapsed + 5))
   done

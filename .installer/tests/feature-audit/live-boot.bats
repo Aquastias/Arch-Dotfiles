@@ -122,3 +122,16 @@ teardown() { rm -rf "$T"; }
   fa_wait_until 30 'false'
   [ "$(wc -l < "$T/calls")" -le 2 ]
 }
+
+@test "fa_await_new_boot: unknown old id waits for the guest to go down" {
+  # review: with old="" the old boot's own id counted as "new"
+  FA_SHUTDOWN_GRACE_SEC=100
+  echo 0 > "$T/n"
+  fa_agent() { local n; n=$(($(cat "$T/n") + 1)); echo $n > "$T/n"
+    case $n in 1) echo oldboot ;; 2) return 1 ;; *) echo newboot ;; esac; }
+  sleep() { :; }
+  virsh() { echo "virsh $*" >> "$T/virsh.log"; }
+  fa_await_new_boot "$T/b" ""
+  [ "$(cat "$T/n")" -eq 3 ]        # not done at call 1: waited for down
+  [ ! -e "$T/virsh.log" ]
+}

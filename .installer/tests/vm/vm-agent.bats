@@ -295,3 +295,13 @@ _stub_io='
     verb_reboot"
   grep -qx 'virsh reset t' "$BATS_TEST_TMPDIR/v"
 }
+
+@test "reboot resets even when the grace is not a multiple of the step" {
+  run bash -c "source '$AGENT'; VM_NAME=t; AGENT_SHUTDOWN_GRACE=12
+    _sudo() { :; }; info() { :; }; sleep() { :; }
+    _ssh() { echo old; }
+    virsh() { echo \"virsh \$*\" >> \"\$BATS_TEST_TMPDIR/v\"; }
+    verb_ready() { :; }
+    verb_reboot"
+  [ "$(grep -cx 'virsh reset t' "$BATS_TEST_TMPDIR/v")" -eq 1 ]
+}

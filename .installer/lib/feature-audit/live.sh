@@ -164,11 +164,13 @@ _FA_BOOT_ID=/proc/sys/kernel/random/boot_id
 # state so shutdown never ends (a host artefact, not the product): after the
 # grace, hard-reset the domain and record it in vm-reset.txt.
 fa_await_new_boot() {
-  local dir="$1" old="$2" id e=0
+  local dir="$1" old="$2" id e=0 down=0
   while ((e < ${FA_SHUTDOWN_GRACE_SEC:-240})); do
     sleep 10; e=$((e + 10))
-    id="$(fa_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || id=""
-    [[ -n "$id" && "$id" != "$old" ]] && return 0
+    id="$(fa_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || { id=""; down=1; }
+    # an unknown old id: trust an id only once the guest has been down
+    if [[ -n "$id" && "$id" != "$old" ]] && { [[ -n "$old" ]] || ((down)); }
+    then return 0; fi
   done
   virsh reset "$VM_NAME" >/dev/null 2>&1 || true
   mkdir -p "$dir"
