@@ -1,0 +1,3 @@
+# SearXNG botdetection config. The limiter is off (private 127.0.0.1
+# instance, settings.yml), so upstream defaults suffice; the file exists so
+# searxng does not warn that it is missing.

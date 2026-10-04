@@ -6,8 +6,8 @@
 # INSTALLER_DIR, PROGRAMS, SHELL_COMMONS pre-exported and temp NOPASSWD sudo
 # granted.
 #
-# Checks podman is installed, seeds ~/.config/searxng/settings.yml with a
-# fresh secret key, and enables user linger via /var/lib/systemd/linger so
+# Checks podman is installed, seeds ~/.config/searxng (settings.yml with a
+# fresh secret key, limiter.toml), and enables user linger so
 # the quadlet services (home/, applied by Config Apply) start at boot without
 # a login session. Container images are pulled on first start — podman is not
 # running in the chroot.
@@ -27,22 +27,15 @@ cp "${PROGRAMS}/privacy/searxng/settings.yml" \
   "${HOME}/.config/searxng/settings.yml"
 sed -i "s|ultrasecretkey|$(openssl rand -hex 32)|g" \
   "${HOME}/.config/searxng/settings.yml"
-print_status info "Seeded ~/.config/searxng/settings.yml."
+cp "${PROGRAMS}/privacy/searxng/limiter.toml" "${HOME}/.config/searxng/"
+print_status info "Seeded ~/.config/searxng/{settings.yml,limiter.toml}."
 
 sudo mkdir -p /var/lib/systemd/linger
 sudo touch "/var/lib/systemd/linger/${USER}"
 print_status info "Linger enabled for ${USER}."
-
-# Podman's user generator injects podman-user-wait-network-online.service into
-# every rootless container unit, gating the whole user session on the system
-# network-online.target (~8s) and stalling the desktop right after login.
-# searxng only Wants it, so masking is safe: the container starts immediately
-# and its own Restart handles the brief pre-network window.
-mkdir -p "${HOME}/.config/systemd/user"
-ln -sf /dev/null \
-  "${HOME}/.config/systemd/user/podman-user-wait-network-online.service"
-print_status info "Masked podman-user-wait-network-online (boot no longer" \
-  "waits on network)."
+# podman-user-wait-network-online stays on: with linger the user manager
+# starts at boot, so it delays only these containers, not the desktop, and
+# keeps searxng's startup network check from crash-looping before the net.
 
 print_status success "SearXNG staged." \
   "Quadlet units start on first boot; containers pulled then."

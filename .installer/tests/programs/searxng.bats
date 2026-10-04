@@ -22,3 +22,13 @@ setup() {
   grep -q -- '- ahmia' "$S/settings.yml"
   grep -q -- '- torch' "$S/settings.yml"
 }
+
+@test "boot: waits for the network, allows a slow first pull, no warning" {
+  # Audit Run 20261004: the masked network wait crash-looped searxng's
+  # startup network check; the first pull outran the 90s start timeout.
+  [ -z "$(grep -n 'podman-user-wait-network-online' "$S/install.sh" \
+    | grep 'ln -s')" ]
+  grep -qx 'TimeoutStartSec=900' "$Q/searxng.container"
+  [ -f "$S/limiter.toml" ]
+  grep -q 'limiter.toml' "$S/install.sh"
+}
