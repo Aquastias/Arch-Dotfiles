@@ -155,6 +155,7 @@ _fa_check_binds() {
 # selected program's probe still run in some variant.
 _fa_check_phases() {
   local m id ph p cfg de
+  local root="${FEATURE_AUDIT_PROGRAMS_DIR:-$INSTALLER_DIR/programs}"
   m="$(fa_manifest_json)" || return
   local -A ran=() want_de=() bound_de=() want_prog=() probed=()
   while IFS= read -r id; do
@@ -173,6 +174,8 @@ _fa_check_phases() {
     done
     while IFS= read -r p; do
       [[ -n "$p" ]] || continue
+      # only programs that ship a probe have one to run
+      compgen -G "$root/*/$p/audit.sh" >/dev/null || continue
       want_prog[$p]=1
       [[ " $ph " == *" probes "* ]] && probed[$p]=1
     done < <(fa_selected_programs "$cfg" 2>/dev/null)

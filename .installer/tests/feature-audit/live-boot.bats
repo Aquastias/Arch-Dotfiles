@@ -77,7 +77,7 @@ teardown() { rm -rf "$T"; }
   echo 0 > "$T/n"
   fa_agent() { local n; n=$(($(cat "$T/n") + 1)); echo $n > "$T/n"
     ((n >= 3)); }
-  sleep() { echo "$1" >> "$T/slept"; }
+  sleep() { SECONDS=$((SECONDS + $1)); echo "$1" >> "$T/slept"; }
   fa_wait_until 90 'true'
   [ "$(cat "$T/n")" -eq 4 ]                      # fail, fail, ok, ok
   [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -lt 90 ]
@@ -85,7 +85,7 @@ teardown() { rm -rf "$T"; }
 
 @test "fa_wait_until: never ready → stops at the cap" {
   fa_agent() { return 1; }
-  sleep() { echo "$1" >> "$T/slept"; }
+  sleep() { SECONDS=$((SECONDS + $1)); echo "$1" >> "$T/slept"; }
   fa_wait_until 30 'false'
   [ "$(awk "{s+=\$1} END {print s}" "$T/slept")" -eq 30 ]
 }
@@ -112,5 +112,13 @@ teardown() { rm -rf "$T"; }
     = "INSTALL_PKG_CACHE_SERVER=http://gw:1/audit-cache/pkg" ]
   touch "$T/c/audit-cache/aur/audit-aur.db"
   [[ "$(fa_cache_install_env limine)" \
-    == *" INSTALL_AUDIT_AUR_REPO=http://gw:1/audit-cache/aur" ]]
+    == *" INSTALL_AUDIT_AUR_URL=http://gw:1/audit-cache/aur" ]]
+}
+
+@test "fa_wait_until: a slow guest check still counts toward the cap" {
+  # each check eats 20s of wall clock; a sleep-only count would allow ~6
+  fa_agent() { SECONDS=$((SECONDS + 20)); echo x >> "$T/calls"; return 1; }
+  sleep() { :; }
+  fa_wait_until 30 'false'
+  [ "$(wc -l < "$T/calls")" -le 2 ]
 }

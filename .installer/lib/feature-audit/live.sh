@@ -125,18 +125,19 @@ fa_boot_evidence() {
 # readiness form of a fixed settle: a quiet guest is judged at once, a busy
 # one still gets the old full wait.
 fa_wait_until() {
-  local cap="$1" check="$2" e=0 ok=0
-  while ((e < cap)); do
-    if printf '%s\n' "$check" | fa_agent sudo >/dev/null 2>&1; then
+  local cap="$1" check="$2" end=$((SECONDS + $1)) ok=0
+  # wall clock, not the sleeps: a slow guest check counts toward the cap
+  while ((SECONDS < end)); do
+    if fa_agent sudo <<<"$check" >/dev/null 2>&1; then
       ok=$((ok + 1)); ((ok >= 2)) && return 0
     else ok=0; fi
-    sleep 5; e=$((e + 5))
+    sleep 5
   done
 }
 
 # Settled: no systemd job queued and the boot has left `starting`.
 _FA_SETTLED='[ -z "$(systemctl list-jobs --no-legend)" ] &&
-  ! systemctl is-system-running 2>/dev/null | grep -qx starting'
+  ! systemctl is-system-running 2>/dev/null | grep -qxE "starting|initializing"'
 # …and no unit still activating (the timer soak's delayed work).
 _FA_NONE_ACTIVATING='[ -z "$(systemctl list-units --state=activating \
   --no-legend)" ]'
@@ -817,13 +818,13 @@ fa_phase_keybinds() {
   done < <(fa_desktops "$cfg")
 }
 
-# fa_install <variant-dir> <vm-profile-file> — install through the persistent
-# flow; 0 iff the installer exited 0.
 # ── Audit Cache (ADR 0152) ───────────────────────────────────────────────────
 # The uncached base variant fills it (repo packages + its built AUR packages
 # as the [audit-aur] repo); every later install of the run is pointed at it
 # through the harness HTTP root. Base still exercises the real mirrors, AUR
 # builds and AUR Vetting.
+
+FA_CACHE_SOURCE=base   # the variant that installs uncached and fills it
 
 fa_cache_dir() { printf '%s\n' "$CACHE_DIR/audit-cache"; }
 
@@ -832,33 +833,47 @@ fa_cache_install_env() {
   local c url
   c="$(fa_cache_dir)"
   url="http://$LIBVIRT_GATEWAY:$HTTP_PORT/audit-cache"
-  if [[ "$1" == base ]]; then echo INSTALL_PKG_CACHE_KEEP=1; return; fi
+  if [[ "$1" == "$FA_CACHE_SOURCE" ]]; then
+    echo INSTALL_PKG_CACHE_KEEP=1; return
+  fi
   compgen -G "$c/pkg/*.pkg.tar.zst" >/dev/null || return 0
   printf '%s' "INSTALL_PKG_CACHE_SERVER=$url/pkg"
   [[ -e "$c/aur/audit-aur.db" ]] \
-    && printf ' %s' "INSTALL_AUDIT_AUR_REPO=$url/aur"
+    && printf ' %s' "INSTALL_AUDIT_AUR_URL=$url/aur"
   echo
 }
 
 # fa_cache_harvest — after base's boot1: copy its kept repo packages and
 # its built AUR packages to the host, index the AUR ones as [audit-aur], then
 # clear the guest's pacman cache (the shipped state the install would leave).
+# A failed copy drops the cache: the rest install uncached, never from a
+# partial set.
 fa_cache_harvest() {
-  local c; c="$(fa_cache_dir)"
+  local c ok=1; c="$(fa_cache_dir)"
   mkdir -p "$c/pkg" "$c/aur"
-  fa_agent sudo <<'SH' | tar -xf - -C "$c/pkg"
+  fa_agent sudo <<'SH' | tar -xf - -C "$c/pkg" || ok=0
 tar -C /var/cache/pacman/pkg -cf - --wildcards '*.pkg.tar.zst'
 SH
-  fa_agent sudo <<'SH' | tar -xf - -C "$c/aur"
+  ((PIPESTATUS[0] == 0)) || ok=0
+  fa_agent sudo <<'SH' | tar -xf - -C "$c/aur" || ok=0
 cd / && find home root -path '*/.cache/paru/clone/*' -name '*.pkg.tar.zst' \
   ! -name '*-debug-*' | tar -cf - -T - --transform 's|.*/||'
 SH
-  compgen -G "$c/aur/*.pkg.tar.zst" >/dev/null \
-    && repo-add -q "$c/aur/audit-aur.db.tar.gz" "$c/aur"/*.pkg.tar.zst
+  ((PIPESTATUS[0] == 0)) || ok=0
+  if compgen -G "$c/aur/*.pkg.tar.zst" >/dev/null; then
+    repo-add -q "$c/aur/audit-aur.db.tar.gz" "$c/aur"/*.pkg.tar.zst || ok=0
+  fi
+  if ((!ok)); then
+    warn "Audit Cache harvest failed; later variants install uncached."
+    rm -rf "$c"
+  fi
   printf '%s\n' 'rm -f /var/cache/pacman/pkg/*.pkg.tar.zst' | fa_agent sudo \
     >/dev/null 2>&1 || true
 }
 
+# fa_install <variant-dir> <vm-profile-file> [<variant-id>] — install through
+# the persistent flow (Audit Cache env per variant); 0 iff the installer
+# exited 0.
 fa_install() {
   local dir="$1/install" prof="$2" rc
   mkdir -p "$dir"
@@ -955,7 +970,7 @@ fa_run_variant() {
   else
     fa_install "$dir" "$prof" "$id" || return 1
     fa_boot "$dir/boot1" || return 1
-    [[ "$id" == base ]] && fa_cache_harvest
+    [[ "$id" == "$FA_CACHE_SOURCE" ]] && fa_cache_harvest
   fi
   fa_collect "$dir/boot1"
   fa_phase_wanted "$dir" sessions && fa_phase_sessions "$dir" "$cfg"
@@ -965,7 +980,8 @@ fa_run_variant() {
   if fa_phase_wanted "$dir" boot2; then
     fa_phase_boot2 "$dir" "$cfg" || return 1
   fi
-  if fa_phase_wanted "$dir" upgrade; then fa_phase_upgrade "$dir" || return 1
+  if fa_phase_wanted "$dir" upgrade; then
+    fa_phase_upgrade "$dir" || return 1
   fi
   # last: a QEMU virtio-gpu guest can come back from S3 with its compositor
   # / seatd wedged, which would hang every later reboot (base, 20261002)
@@ -1010,8 +1026,8 @@ fa_run() {
     && { echo "feature-audit: --reuse needs one --variant" >&2; return 2; }
   [[ -n "${FA_REUSE:-}" ]] || FA_REPO_URL="$(fa_stage_repo)"
   local i n=${#ids[@]}
-  # a run that installs base refills the Audit Cache from scratch
-  [[ " ${ids[*]} " == *" base "* ]] && rm -rf "$(fa_cache_dir)"
+  # the Audit Cache is per run: never reused from an earlier one
+  [[ -n "${FA_REUSE:-}" ]] || rm -rf "$(fa_cache_dir)"
   for ((i = 0; i < n; i++)); do
     fa_run_variant "${ids[i]}" "$run" || true
     fa_report "$run" >/dev/null || true   # findings so far, per variant

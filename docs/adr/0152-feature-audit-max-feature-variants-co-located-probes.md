@@ -101,8 +101,8 @@ Three changes, still one VM at a time:
   repo packages as a pacman `CacheServer`, built AUR packages as an
   `[audit-aur]` repo — and points every later install of the run at them
   (test-only installer env; the installed `pacman.conf` is stripped back to
-  shipped). Wiped when a run installs base again. If base never boots,
-  the rest install uncached.
+  shipped). Every run starts empty; if base never boots or the harvest
+  fails, the rest install uncached (never from a partial set).
 - **Readiness waits**: boot settle, session settle and the timer soak wait
   for the guest to be quiet (no jobs, nothing activating, shell up), with
   the old fixed values as caps.

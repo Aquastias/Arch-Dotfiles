@@ -30,13 +30,13 @@ teardown() { rm -rf "$T"; }
 }
 
 @test "the AUR cache becomes an [audit-aur] repo" {
-  INSTALL_AUDIT_AUR_REPO=http://gw/a apply_audit_cache "$C"
+  INSTALL_AUDIT_AUR_URL=http://gw/a apply_audit_cache "$C"
   grep -A2 -x '\[audit-aur\]' "$C" | grep -qx 'Server = http://gw/a'
   grep -A2 -x '\[audit-aur\]' "$C" | grep -qx 'SigLevel = Optional TrustAll'
 }
 
 @test "strip restores the shipped pacman.conf" {
-  INSTALL_PKG_CACHE_SERVER=http://gw/c INSTALL_AUDIT_AUR_REPO=http://gw/a \
+  INSTALL_PKG_CACHE_SERVER=http://gw/c INSTALL_AUDIT_AUR_URL=http://gw/a \
     apply_audit_cache "$C"
   strip_audit_cache "$C"
   cmp -s "$C" "$T/orig"

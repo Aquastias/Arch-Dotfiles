@@ -487,7 +487,7 @@ install_base() {
 _AUDIT_AUR_REPO=audit-aur
 
 # apply_audit_cache [<conf>] — no-op unless INSTALL_PKG_CACHE_SERVER /
-# INSTALL_AUDIT_AUR_REPO are set.
+# INSTALL_AUDIT_AUR_URL are set.
 apply_audit_cache() {
   local conf="${1:-/etc/pacman.conf}" tmp
   if [[ -n "${INSTALL_PKG_CACHE_SERVER:-}" ]]; then
@@ -497,9 +497,9 @@ apply_audit_cache() {
       "$conf" > "$tmp" && cat "$tmp" > "$conf"
     rm -f "$tmp"
   fi
-  if [[ -n "${INSTALL_AUDIT_AUR_REPO:-}" ]]; then
+  if [[ -n "${INSTALL_AUDIT_AUR_URL:-}" ]]; then
     printf '\n[%s]\nSigLevel = Optional TrustAll\nServer = %s\n' \
-      "$_AUDIT_AUR_REPO" "$INSTALL_AUDIT_AUR_REPO" >> "$conf"
+      "$_AUDIT_AUR_REPO" "$INSTALL_AUDIT_AUR_URL" >> "$conf"
   fi
   return 0
 }

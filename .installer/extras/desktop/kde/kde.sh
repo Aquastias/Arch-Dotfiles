@@ -376,13 +376,11 @@ fi
 # CLEAN CACHE
 # =============================================================================
 section "Cleaning Package Cache"
-# Try paccache first; fall back to a glob-based delete. Both branches end in
-# `|| true` to make the section idempotent under `set -e`. Wrapped in an
-# explicit if/else to avoid the SC2015 A && B || C antipattern.
-# Test-only INSTALL_PKG_CACHE_KEEP: the Feature Audit harvests the cache.
-if [[ -n "${INSTALL_PKG_CACHE_KEEP:-}" ]]; then
-  :
-elif ! paccache -rk0 --noconfirm 2>/dev/null; then
+# Try paccache first; fall back to a glob-based delete (`|| true`: idempotent
+# under `set -e`). Skipped under the test-only INSTALL_PKG_CACHE_KEEP: the
+# Feature Audit harvests the cache (Audit Cache, ADR 0152).
+if [[ -z "${INSTALL_PKG_CACHE_KEEP:-}" ]] \
+   && ! paccache -rk0 --noconfirm 2>/dev/null; then
   rm -f /var/cache/pacman/pkg/*.pkg.tar.zst \
     /var/cache/pacman/pkg/*.pkg.tar.xz 2>/dev/null || true
 fi
