@@ -278,5 +278,19 @@
   { "regex": ["^ *- curl error [0-9]+ while downloading ",
               "https://repo\\.packagist\\.org/"],
     "source": "installer",
-    "reason": "composer's own retried fetch in an AUR build that succeeded" }
+    "reason": "composer's own retried fetch in an AUR build that succeeded" },
+  // ── approved 2026-10-05 ──
+  { "regex": "^Installation finished\\. No error reported\\.$",
+    "source": "installer", "reason": "grub-install's own success line" },
+  { "regex": "^╭ Warning ─+╮$", "source": "installer",
+    "reason": "pnpm's advisory box inside an AUR build (basedpyright)" },
+  { "regex": ["NetworkManager\\[[0-9]+\\]: <warn> .* ",
+              "device \\(veth[0-9a-f]+\\)",
+              ": connectivity: .*rp_filter.* is set to \"1\""],
+    "reason": "podman veth interfaces; NM's connectivity hint only" },
+  { "regex": ["(systemd-searxng|searxng)\\[[0-9]+\\]: |searxng\\.service|",
+              "podman-user-wait-network-online|",
+              "aardvark-dns\\[[0-9]+\\]: .*Network is unreachable"],
+    "phase": "probes-offline",
+    "reason": "a metasearch engine with the network cut on purpose" }
 ]
