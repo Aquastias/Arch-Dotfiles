@@ -17,14 +17,17 @@ _NIRI_SH_SOURCED=1
 # (ADR 0021/0062/0090). niri ships its own session file + niri-session and pulls
 # seatd; seatd is listed explicitly so the adapter enables it and the resolver
 # reports it. The GNOME portal is for screencasting; the GTK portal is the
-# fallback both are wired to by the packaged niri-portals.conf.
+# fallback both are wired to by the packaged niri-portals.conf. niri has no
+# Xwayland of its own: xwayland-satellite runs X11 apps, no config needed
+# (Arch Wiki: Niri#XWayland).
 niri_core_packages() {
   printf '%s\n' \
     niri \
     seatd \
     xdg-desktop-portal-gnome \
     xdg-desktop-portal-gtk \
-    wl-clipboard
+    wl-clipboard \
+    xwayland-satellite
 }
 
 # noctalia_preset_packages — the non-negotiable base of the Noctalia work preset

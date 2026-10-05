@@ -22,3 +22,9 @@ setup() {
   run noctalia_plugin_deps battery-power-management
   [ "$output" = upower ]
 }
+
+@test "niri core runs X11 apps: xwayland-satellite (Arch Wiki: Niri#XWayland)" {
+  # Audit Run 20261004: teamspeak3 aborted on niri — no Xwayland at all
+  source "$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
+  niri_core_packages | grep -qx xwayland-satellite
+}
