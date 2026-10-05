@@ -1,0 +1,12 @@
+# Starts searxng 30s after the user manager is up instead of from
+# default.target: NetworkManager-wait-online is masked (base-services.sh), so
+# a default.target start pulls before the link is up, and waiting there would
+# hold the user manager (and a login). The unit retries pulls forever anyway.
+[Unit]
+Description=Start SearXNG once the network is likely up
+
+[Timer]
+OnStartupSec=30
+
+[Install]
+WantedBy=timers.target

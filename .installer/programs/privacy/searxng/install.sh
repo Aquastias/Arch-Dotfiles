@@ -7,10 +7,10 @@
 # granted.
 #
 # Checks podman is installed, seeds ~/.config/searxng (settings.yml with a
-# fresh secret key, limiter.toml), and enables user linger so
-# the quadlet services (home/, applied by Config Apply) start at boot without
-# a login session. Container images are pulled on first start — podman is not
-# running in the chroot.
+# fresh secret key, limiter.toml), enables user linger and the searxng user
+# timer, so the quadlet service (home/, applied by Config Apply) runs at boot
+# without a login session. Container images are pulled on first start —
+# podman is not running in the chroot.
 # =============================================================================
 
 set -Eeuo pipefail
@@ -33,12 +33,18 @@ print_status info "Seeded ~/.config/searxng/{settings.yml,limiter.toml}."
 sudo mkdir -p /var/lib/systemd/linger
 sudo touch "/var/lib/systemd/linger/${USER}"
 print_status info "Linger enabled for ${USER}."
+
+# searxng.timer (home/, placed by Config Apply after this script) starts the
+# container; enable it offline, as `systemctl --user enable` would.
+mkdir -p "${HOME}/.config/systemd/user/timers.target.wants"
+ln -sf ../searxng.timer \
+  "${HOME}/.config/systemd/user/timers.target.wants/searxng.timer"
 # podman-user-wait-network-online only polls network-online.target, which no
 # system service pulls in on a pure or services-off host (it would time out
 # at every boot): pull it in here.
 sudo systemctl add-wants multi-user.target network-online.target
 # podman-user-wait-network-online stays on: with linger the user manager
-# starts at boot, so it delays only these containers, not the desktop, and
+# starts at boot, so it delays only this container (timer-started), and
 # keeps searxng's startup network check from crash-looping before the net.
 
 print_status success "SearXNG staged." \

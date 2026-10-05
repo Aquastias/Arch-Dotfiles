@@ -46,3 +46,14 @@ setup() {
   grep -q 'systemctl add-wants multi-user.target network-online.target' \
     "$S/install.sh"
 }
+
+@test "started by a user timer, never by default.target (no login stall)" {
+  # Audit Run 20261004: NM wait-online is masked (base-services.sh), so a
+  # default.target start pulled before the link was up; waiting in the unit
+  # would hold the user manager's startup (and a login) instead
+  ! grep -q 'WantedBy=default.target' "$Q/searxng.container"
+  local t="$S/home/.config/systemd/user/searxng.timer"
+  grep -qx 'OnStartupSec=30' "$t"
+  grep -qx 'WantedBy=timers.target' "$t"
+  grep -q 'timers.target.wants/searxng.timer' "$S/install.sh"
+}

@@ -20,6 +20,3 @@ Environment=SEARXNG_BASE_URL=http://localhost:8080/
 TimeoutStartSec=900
 Restart=on-failure
 RestartSec=30
-
-[Install]
-WantedBy=default.target
