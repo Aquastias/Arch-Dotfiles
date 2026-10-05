@@ -289,6 +289,7 @@
               ": connectivity: .*rp_filter.* is set to \"1\""],
     "reason": "podman veth interfaces; NM's connectivity hint only" },
   { "regex": ["(systemd-searxng|searxng)\\[[0-9]+\\]: |searxng\\.service|",
+              "SearXNG metasearch engine|",
               "podman-user-wait-network-online|",
               "aardvark-dns\\[[0-9]+\\]: .*Network is unreachable"],
     "phase": "probes-offline",

@@ -10,10 +10,11 @@ trap 'echo "Error on line $LINENO"' ERR
 source "/usr/local/lib/shell-stdlib.sh"
 
 check_root
-# From a timer there is no SUDO_USER: notify the active seat0 user, if any.
+# From a timer there is no SUDO_USER: notify the seat0 user session, if any
+# (class user — never a greeter's account).
 # A notification is best effort (`|| true` below): it never fails the scan.
 : "${SUDO_USER:=$(loginctl list-sessions --no-legend 2>/dev/null \
-  | awk '$4 == "seat0" { print $3; exit }')}"
+  | awk '$4 == "seat0" && $6 == "user" { print $3; exit }')}"
 export SUDO_USER
 
 SYSTEM_LOG="/var/log/rkhunter.log"
