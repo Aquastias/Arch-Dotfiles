@@ -102,3 +102,28 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | head -1)" = "/mnt/data/sub" ]
 }
+
+# ── a busy pool (Audit Run 20261004: greetd/tuned never imported at boot) ────
+
+@test "a busy rpool is retried, then its users killed, then forced" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  zpool() { printf 'zpool %s\n' "$*" >> "$CALLS"
+    [[ "$*" == "export -f rpool" ]]; }      # only the forced export works
+  fuser() { printf 'fuser %s\n' "$*" >> "$CALLS"; }
+  sleep() { :; }
+  warn() { echo "WARN $*" >> "$CALLS"; }
+  finalize >/dev/null
+  grep -q '^fuser -km' "$CALLS"
+  grep -qx 'zpool export -f rpool' "$CALLS"
+  [ "$(grep -c '^zpool export rpool$' "$CALLS")" -ge 2 ]
+  ! grep -q 'Could not export' "$CALLS"
+}
+
+@test "a pool that exports at once is neither killed nor forced" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  fuser() { printf 'fuser %s\n' "$*" >> "$CALLS"; }
+  finalize >/dev/null
+  ! grep -q '^fuser\|export -f' "$CALLS"
+}

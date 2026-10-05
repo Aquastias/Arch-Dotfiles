@@ -50,7 +50,7 @@ finalize() {
     # clean last_txg and clears the active flag so they import without -f.
     zfs umount -a 2>/dev/null || true
     local rp="${LAYOUT_OS_POOL_NAME}"
-    zpool export "${rp}" 2>/dev/null || warn "Could not export ${rp} cleanly."
+    _finalize_export_pool "${rp}" || warn "Could not export ${rp} cleanly."
     local dp
     for dp in "${LAYOUT_DATA_POOL_NAMES[@]}"; do
       zpool export "${dp}" 2>/dev/null || true
@@ -89,4 +89,19 @@ finalize() {
   echo -e "  ${DIM}ZFS encryption passphrase is required at every boot" \
           "(if encryption was enabled).${NC}"
   echo ""
+}
+
+# _finalize_export_pool <pool> — export, so the first boot imports without
+# -f. A pool left imported (a live-ISO process still holding the target)
+# fails the initramfs import (greetd/tuned, Audit Run 20261004): retry,
+# then kill the target's users, then force.
+_finalize_export_pool() {
+  local p="$1" i
+  for i in 1 2 3; do
+    zpool export "$p" 2>/dev/null && return 0
+    sleep 2; zfs umount -a 2>/dev/null || true
+  done
+  fuser -km "${MOUNT_ROOT}" >/dev/null 2>&1 || true
+  sleep 1
+  zpool export "$p" 2>/dev/null || zpool export -f "$p" 2>/dev/null
 }
