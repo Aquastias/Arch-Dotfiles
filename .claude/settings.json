@@ -2,7 +2,8 @@
   "env": {
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "DISABLE_TELEMETRY": "1",
-    "DISABLE_ERROR_REPORTING": "1"
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_CODE_AUTO_MODE_SERVER": "0"
   },
   "permissions": {
     "allow": [
@@ -23,7 +24,15 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(.installer/vm/vm-agent.sh:*)",
+      "Bash(.installer/vm/vm.sh:*)",
+      "Bash(virsh:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh api:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
@@ -40,11 +49,7 @@
     ],
     "defaultMode": "auto",
     "disableBypassPermissionsMode": "disable",
-    "additionalDirectories": [
-      "~/.dotfiles",
-      "~/.claude",
-      "~/Projects"
-    ]
+    "additionalDirectories": ["~/.dotfiles", "~/.claude", "~/Projects"]
   },
   "skipAutoPermissionPrompt": true,
   "model": "claude-opus-5-5",
@@ -64,15 +69,8 @@
     "failIfUnavailable": true,
     "autoAllowBashIfSandboxed": true,
     "filesystem": {
-      "allowWrite": [
-        "~/.dotfiles",
-        "~/.claude",
-        "~/Projects",
-        "/tmp"
-      ],
-      "denyWrite": [
-        "/"
-      ],
+      "allowWrite": ["~/.dotfiles", "~/.claude", "~/Projects", "/tmp"],
+      "denyWrite": ["/"],
       "denyRead": [
         "~/.ssh",
         "~/.gnupg",
