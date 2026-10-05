@@ -450,10 +450,31 @@ fa_phase_power() {
 }
 
 # fa_phase_upgrade <variant-dir> — full upgrade, reboot, collect.
+# fa_upgrade_run <dir> — `pacman -Syu` as a transient unit on the guest, so
+# its own post-transaction service restarts (which can drop SSH) cannot fake
+# a failure: poll the unit, judge its exit status, keep its journal.
+fa_upgrade_run() {
+  local dir="$1" u=fa-upgrade e=0 st
+  mkdir -p "$dir"
+  fa_agent sudo "systemd-run --unit=$u --collect -p RemainAfterExit=yes \
+    pacman -Syu --noconfirm" >/dev/null 2>&1 || true
+  while ((e < 3600)); do
+    sleep 10; e=$((e + 10))
+    fa_agent sudo "systemctl is-active --quiet $u" >/dev/null 2>&1 || break
+    st="$(fa_agent sudo "systemctl show -p SubState --value $u" 2>/dev/null)"
+    [[ "$st" == exited ]] && break
+  done
+  fa_agent sudo "journalctl -u $u --no-pager -o cat" > "$dir/pacman.log" 2>&1
+  st="$(fa_agent sudo "systemctl show -p ExecMainStatus --value $u" \
+    2>/dev/null)"
+  fa_agent sudo "systemctl stop $u" >/dev/null 2>&1 || true
+  [[ "$st" == 0 ]]
+}
+
 fa_phase_upgrade() {
   local dir="$1/upgrade"
   mkdir -p "$dir"
-  fa_agent sudo "pacman -Syu --noconfirm 2>&1" > "$dir/pacman.log" 2>&1 \
+  fa_upgrade_run "$dir" \
     || fa_fatal "$dir" "pacman -Syu failed (see pacman.log)"
   fa_reboot "$dir" || return 1
   fa_collect "$dir"

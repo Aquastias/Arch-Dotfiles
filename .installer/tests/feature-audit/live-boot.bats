@@ -184,3 +184,26 @@ teardown() { rm -rf "$T"; }
   grep -q 'INFO: task noctalia.*virtio_gpu_queue_ctrl_sgs' "$T/out"
   grep -qx 'Oct 04 02:41:00 h sshd\[1\]: unrelated warning' "$T/out"
 }
+
+@test "upgrade: judged by the guest unit's result, not the SSH session" {
+  # efistub 20261004: pacman's restart-marked hook dropped SSH mid-upgrade
+  fa_agent() {
+    case "$*" in
+      *systemd-run*) return 255 ;;                 # session died mid-run
+      *is-active*) return 1 ;;                     # unit finished
+      *ExecMainStatus*) echo 0 ;;                  # …successfully
+      *journalctl*) echo "upgraded 3 packages" ;;
+    esac
+  }
+  sleep() { :; }
+  fa_upgrade_run "$T/up"
+  grep -q 'upgraded 3 packages' "$T/up/pacman.log"
+  [ ! -e "$T/up/fatal.lines" ]
+}
+
+@test "upgrade: a failed pacman run is still fatal" {
+  fa_agent() { case "$*" in *ExecMainStatus*) echo 1 ;;
+    *is-active*) return 1 ;; esac; }
+  sleep() { :; }
+  ! fa_upgrade_run "$T/up"
+}
