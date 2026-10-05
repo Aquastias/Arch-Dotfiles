@@ -33,6 +33,10 @@ print_status info "Seeded ~/.config/searxng/{settings.yml,limiter.toml}."
 sudo mkdir -p /var/lib/systemd/linger
 sudo touch "/var/lib/systemd/linger/${USER}"
 print_status info "Linger enabled for ${USER}."
+# podman-user-wait-network-online only polls network-online.target, which no
+# system service pulls in on a pure or services-off host (it would time out
+# at every boot): pull it in here.
+sudo systemctl add-wants multi-user.target network-online.target
 # podman-user-wait-network-online stays on: with linger the user manager
 # starts at boot, so it delays only these containers, not the desktop, and
 # keeps searxng's startup network check from crash-looping before the net.

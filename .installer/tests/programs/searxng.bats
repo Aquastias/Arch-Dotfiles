@@ -39,3 +39,10 @@ setup() {
   grep -qx 'StartLimitIntervalSec=0' "$Q/searxng.container"
   grep -qx 'RestartSec=30' "$Q/searxng.container"
 }
+
+@test "network-online.target is pulled in for podman's user-level wait" {
+  # Audit Run 20261004: on pure / services-off hosts no system service wants
+  # the target, so the wait polled it until it timed out at every boot
+  grep -q 'systemctl add-wants multi-user.target network-online.target' \
+    "$S/install.sh"
+}
