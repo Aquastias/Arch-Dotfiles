@@ -48,9 +48,11 @@ while IFS=$'\x1f' read -r key mode effect arg needs; do
           continue ;;
     unverifiable) fa_skip "$id" "unverifiable: $arg"; continue ;;
   esac
-  # an LSP bind needs a server, i.e. the Host Core toolchain (Probe Gate)
-  if [[ "$needs" == *lsp* && "$FA_HOST_CORE" == 0 ]]; then
-    fa_skip "$id" "needs an LSP: Host Core not inherited"; continue
+  # an LSP bind needs a server, a host-core one a Host Core tool (rg…):
+  # neither is on a host not inheriting Host Core (Probe Gate)
+  if [[ "$needs" == *lsp* || "$needs" == *host-core* ]] \
+     && [[ "$FA_HOST_CORE" == 0 ]]; then
+    fa_skip "$id" "needs $needs: Host Core not inherited"; continue
   fi
   : > "$o"
   FA_KEY="$key" FA_MODE="$mode" FA_EFFECT="$effect" FA_ARG="$arg" \

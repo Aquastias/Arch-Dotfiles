@@ -5,7 +5,8 @@
 // (audit-fixtures/key.lua). Effects: runs (no error) | window-opens |
 // buffer-changes | text-changes | cursor-moves | quits | lua (arg = expr).
 // needs: lsp = wait for lua_ls to attach first (ufo folds come from it
-// too); ft:http = an http sample.
+// too); ft:http = an http sample; host-core = a Host Core tool (rg),
+// skipped where Host Core is not inherited.
 {
   "expect": [
     // ── core ──
@@ -76,7 +77,9 @@
     { "action": "n Loclist", "effect": "runs" },
     { "action": "n Quickfix", "effect": "runs" },
     { "action": "n Symbols", "effect": "runs", "needs": "lsp" },
-    { "action": "n Todo list", "effect": "window-opens" },
+    // trouble's todo source searches with rg (Host Core)
+    { "action": "n Todo list", "effect": "window-opens",
+      "needs": "host-core" },
     { "action": "n * todo comment", "effect": "runs" },
 
     // ── oil / grug-far / rest ──
