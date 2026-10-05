@@ -96,12 +96,18 @@ finalize() {
 # fails the initramfs import (greetd/tuned, Audit Run 20261004): retry,
 # then kill the target's users, then force.
 _finalize_export_pool() {
-  local p="$1" i
+  local p="$1" i m src
   for i in 1 2 3; do
     zpool export "$p" 2>/dev/null && return 0
     sleep 2; zfs umount -a 2>/dev/null || true
   done
-  fuser -km "${MOUNT_ROOT}" >/dev/null 2>&1 || true
+  # kill only users of this pool's datasets still mounted — never `-m` a path
+  # that is no longer a mountpoint (that is the live ISO's root: the
+  # installer itself)
+  while read -r m src; do
+    [[ "$src" == "$p" || "$src" == "$p/"* ]] || continue
+    fuser -km "$m" >/dev/null 2>&1 || true
+  done < <(findmnt -rn -t zfs -o TARGET,SOURCE 2>/dev/null)
   sleep 1
   zpool export "$p" 2>/dev/null || zpool export -f "$p" 2>/dev/null
 }

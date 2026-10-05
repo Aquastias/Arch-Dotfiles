@@ -111,6 +111,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   zpool() { printf 'zpool %s\n' "$*" >> "$CALLS"
     [[ "$*" == "export -f rpool" ]]; }      # only the forced export works
   fuser() { printf 'fuser %s\n' "$*" >> "$CALLS"; }
+  findmnt() { echo '/mnt rpool/ROOT/arch'; }
   sleep() { :; }
   warn() { echo "WARN $*" >> "$CALLS"; }
   finalize >/dev/null
@@ -126,4 +127,19 @@ teardown() { rm -rf "$TEST_DIR"; }
   fuser() { printf 'fuser %s\n' "$*" >> "$CALLS"; }
   finalize >/dev/null
   ! grep -q '^fuser\|export -f' "$CALLS"
+}
+
+@test "the kill step only touches the pool's own mounts, never the ISO root" {
+  # laptop 20261005: `fuser -km /mnt` after /mnt was unmounted hit the live
+  # ISO's root filesystem and killed the installer itself
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  zpool() { printf 'zpool %s\n' "$*" >> "$CALLS"
+    [[ "$*" == "export -f rpool" ]]; }
+  findmnt() { printf '%s\n' "/mnt/home rpool/home" "/ airootfs"; }
+  fuser() { printf 'fuser %s\n' "$*" >> "$CALLS"; }
+  sleep() { :; }
+  finalize >/dev/null
+  grep -qx 'fuser -km /mnt/home' "$CALLS"
+  ! grep -q 'fuser -km /mnt$\|fuser -km /$' "$CALLS"
 }
