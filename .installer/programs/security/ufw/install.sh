@@ -23,9 +23,11 @@ print_status info "Installing UFW..."
 ${AUR_HELPER} -S --noconfirm --needed ufw
 
 print_status info "Resetting UFW to defaults..."
+# ufw warns on every call while its rule files are world-readable (the
+# package ships them 0644; reset checks them too): root-only before and after
+sudo chmod 0640 /etc/ufw/*.rules
 sudo ufw --force reset
-# ufw warns on every call while its rule files are world-readable: keep them
-# root-only (reset just re-copied them).
+# reset re-copied them 0644
 sudo chmod 0640 /etc/ufw/*.rules
 
 print_status info "Setting default policies..."
