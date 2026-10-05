@@ -217,8 +217,37 @@ setup() {
 @test "the plugin-enable one-shot is executable, [local]-scoped, run-once" {
   [ -x "$ENABLE" ]
   grep -q 'msg plugins enable' "$ENABLE"
-  grep -q '\[local\]' "$ENABLE"
   grep -q 'installer-plugins-enabled' "$ENABLE"   # the run-once guard
+}
+
+# `plugins list` runs on Noctalia's main loop and waits on the plugin-source
+# lock its startup export worker holds for minutes on a fresh install: the
+# shell (and its ScreenSaver/Notifications names) froze. The one-shot reads
+# the vendored ids from disk and only ever calls `enable`.
+@test "the plugin-enable one-shot enables vendored ids without plugins list" {
+  local t="$BATS_TEST_TMPDIR"
+  mkdir -p "$t/bin" "$t/data/noctalia/plugins/a" "$t/data/noctalia/plugins/b"
+  printf 'id = "x/a"\nname = "A"\n' > "$t/data/noctalia/plugins/a/plugin.toml"
+  printf '  id="y/b"\n' > "$t/data/noctalia/plugins/b/plugin.toml"
+  # stub: not running for the first call, then logs every msg
+  cat > "$t/bin/noctalia" <<EOF
+#!/bin/sh
+echo "\$*" >> "$t/calls"
+[ -f "$t/up" ] && exit 0
+: > "$t/up"; echo "error: noctalia is not running" >&2; exit 1
+EOF
+  cat > "$t/bin/sleep" <<'EOF'
+#!/bin/sh
+EOF
+  chmod +x "$t/bin/noctalia" "$t/bin/sleep"
+  PATH="$t/bin:$PATH" XDG_DATA_HOME="$t/data" XDG_STATE_HOME="$t/state" \
+    run "$ENABLE"
+  [ "$status" -eq 0 ]
+  run grep -c 'plugins list' "$t/calls"
+  [ "$output" = 0 ]
+  grep -qx 'msg plugins enable x/a' "$t/calls"
+  grep -qx 'msg plugins enable y/b' "$t/calls"
+  [ -f "$t/state/noctalia/installer-plugins-enabled" ]
 }
 
 # Live Theme Bridge (ADR 0116): the runtime half of the App Theming Bridge —

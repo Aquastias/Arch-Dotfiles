@@ -110,6 +110,13 @@ vendored/toggled-on set — then guards itself to run once. Enabling ≠ placing
 bar/Control-Center **widget placement stays the user's** (like the excluded
 host-bound lockscreen geometry).
 
+**Amended (2026-10):** the one-shot reads the vendored ids from each
+`plugin.toml` and never calls `noctalia msg plugins list`. In v5.2.1 that IPC
+runs on the main loop and waits on the plugin-source lock, which the startup
+export worker holds for minutes on a fresh install (upstream bug). The frozen
+shell stalled `xdg-desktop-portal-gtk`, which calls Noctalia's ScreenSaver at
+startup. The first `enable` doubles as the IPC wait.
+
 ## Considered alternatives
 
 - **A separate `noctalia-enriched` variant** — rejected: two presets to test and
