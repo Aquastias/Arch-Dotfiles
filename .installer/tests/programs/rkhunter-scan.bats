@@ -43,3 +43,13 @@ teardown() { rm -rf "$T"; }
   [ "$status" -eq 3 ]
   [ ! -f "$T/ran" ]
 }
+
+@test "a failed desktop notification never fails the scan" {
+  # Audit Run 20261004: from the timer SUDO_USER is unset, the stdlib
+  # notifier returns 1, and set -e killed a scan that had already run
+  sed -i 's|send_user_notification() { :; }|send_user_notification() { return 1; }|' \
+    "$T/stdlib.sh"
+  UPDATE_RC=0 PATH="$T/bin:$PATH" run bash "$T/scan.sh"
+  [ "$status" -eq 0 ]
+  [ -f "$T/ran" ]
+}

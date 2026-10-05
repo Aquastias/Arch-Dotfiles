@@ -4,6 +4,11 @@
 # here so this script can run post-boot without $SHELL_COMMONS exported.
 # shellcheck source=/dev/null
 source "/usr/local/lib/shell-stdlib.sh"
+# From a timer there is no SUDO_USER: notify the active seat0 user, if any.
+# A notification is best effort (`|| true` below): it never fails the scan.
+: "${SUDO_USER:=$(loginctl list-sessions --no-legend 2>/dev/null \
+  | awk '$4 == "seat0" { print $3; exit }')}"
+export SUDO_USER
 
 # === Configuration ===
 SCAN_DIR="/home"
@@ -59,7 +64,7 @@ if [[ "$EXIT_ON_FIRST_INFECTION" == true ]]; then
             "[WARNING] ClamAV Alert" \
             "Infection detected: $THREAT" \
             "clamav" \
-            "ClamAV Daily Scan"
+            "ClamAV Daily Scan" || true
 
           echo "[WARNING] Infection detected: $THREAT" >>"$LOG_FILE"
 
@@ -85,7 +90,7 @@ else
       "Scan completed: $INFECTED_COUNT infected file(s) found." \
       "Check latest log: $LOG_FILE" \
       "clamav" \
-      "ClamAV Daily Scan"
+      "ClamAV Daily Scan" || true
   else
     echo -e "\n[INFO] No infections found." >>"$LOG_FILE"
   fi

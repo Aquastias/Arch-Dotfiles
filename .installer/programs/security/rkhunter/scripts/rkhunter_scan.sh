@@ -10,6 +10,11 @@ trap 'echo "Error on line $LINENO"' ERR
 source "/usr/local/lib/shell-stdlib.sh"
 
 check_root
+# From a timer there is no SUDO_USER: notify the active seat0 user, if any.
+# A notification is best effort (`|| true` below): it never fails the scan.
+: "${SUDO_USER:=$(loginctl list-sessions --no-legend 2>/dev/null \
+  | awk '$4 == "seat0" { print $3; exit }')}"
+export SUDO_USER
 
 SYSTEM_LOG="/var/log/rkhunter.log"
 
@@ -45,7 +50,7 @@ if [ -n "$WARNINGS" ]; then
     "security-medium" \
     "RKHunter Scan" \
     15000 \
-    "rkhunter"
+    "rkhunter" || true
 else
   print_status success "No warnings found." | tee -a "$SYSTEM_LOG"
   send_user_notification \
@@ -54,5 +59,5 @@ else
     "security-high" \
     "RKHunter Scan" \
     15000 \
-    "rkhunter"
+    "rkhunter" || true
 fi
