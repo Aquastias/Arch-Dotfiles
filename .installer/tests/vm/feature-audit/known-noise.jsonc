@@ -293,5 +293,9 @@
               "podman-user-wait-network-online|",
               "aardvark-dns\\[[0-9]+\\]: .*Network is unreachable"],
     "phase": "probes-offline",
-    "reason": "a metasearch engine with the network cut on purpose" }
+    "reason": "a metasearch engine with the network cut on purpose" },
+  // ── approved 2026-10-05 (2) ──
+  { "regex": ["xwayland-satell(ite)?\\[[0-9]+\\]: .*No last focused toplevel, ",
+              "cannot focus window"],
+    "reason": "xwayland-satellite focus chatter; the X11 app itself runs" }
 ]
