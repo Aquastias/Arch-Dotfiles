@@ -297,5 +297,13 @@
   // ── approved 2026-10-05 (2) ──
   { "regex": ["xwayland-satell(ite)?\\[[0-9]+\\]: .*No last focused toplevel, ",
               "cannot focus window"],
-    "reason": "xwayland-satellite focus chatter; the X11 app itself runs" }
+    "reason": "xwayland-satellite focus chatter; the X11 app itself runs" },
+  // ── approved 2026-10-06 ──
+  { "regex": ["\\[WARN\\] +Plugin [^ ]+ fetch failed \\(offline\\?\\) ",
+              "— skipped\\.$"],
+    "source": "installer",
+    "reason": "a network outage through all 3 plugin fetch retries" },
+  { "regex": ["kdeconnectd\\[[0-9]+\\]: Failed to send mDNS query: ",
+              "Cannot assign requested address"],
+    "reason": "kdeconnectd mDNS probe on the VM's network" }
 ]
