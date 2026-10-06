@@ -101,10 +101,14 @@ _retry() {
   local n=0 rc=0
   while :; do
     n=$((n + 1))
+    # stderr markers: the Feature Audit folds a recovered attempt's errors
+    # (ADR 0152); no error-shaped words, so the markers are never Findings
+    echo "[ATTEMPT] $n/$attempts $1" >&2
     # `&& return 0 || rc=$?` captures the command's own status (an `if` around
     # it would swallow it) while staying set -e-safe.
     "$@" && return 0 || rc=$?
     (( n >= attempts )) && return "$rc"
+    echo "[RETRY] attempt $n/$attempts of $1 returned $rc; trying again" >&2
     sleep "${backoff[n-1]:-0}"
   done
 }

@@ -108,10 +108,16 @@ _fa_candidates() {
       for (i = 1; i <= np0; i++) if (pl[i] == p) return i
       return 99
     }
+    # flush — keep held attempt errors that no [RETRY] superseded
+    function flush(   i) {
+      for (i = 1; i <= nh; i++) add(hsrc, hprog, "", hl[i], hr[i])
+      nh = 0; inatt = 0
+    }
     BEGIN { np0 = split(phases, pl, " ") }
     FILENAME == noisef { nn++; nr[nn] = $1; ns[nn] = $2; np[nn] = $3
                         nv[nn] = $4; next }
     FNR == 1 {
+      flush()
       rel = substr(FILENAME, length(run) + 1)
       split(rel, parts, "/"); var = parts[1]; ph = parts[2]; base = parts[3]
       kind = base; sub(/^.*\./, "", kind)
@@ -131,9 +137,16 @@ _fa_candidates() {
       # text, stack frames): the entry is one Finding, keyed by its head
       if (kind == "lines" && $0 ~ /^[[:space:]]/) next
       if (kind == "log") {
+        # _retry markers: hold the errors of an attempt; a [RETRY] (a later
+        # attempt follows) drops them, any other end keeps them
+        if (line ~ /^\[ATTEMPT\] /) { flush(); inatt = 1; next }
+        if (line ~ /^\[RETRY\] /) { nh = 0; inatt = 0; next }
         l = tolower(line)
-        if (l ~ errre && l !~ / is up to date -- skipping$/)
-          add(src, prog, "", line, rel)
+        if (l ~ errre && l !~ / is up to date -- skipping$/) {
+          if (inatt) { hl[++nh] = line; hr[nh] = rel
+                      hsrc = src; hprog = prog }
+          else add(src, prog, "", line, rel)
+        }
       } else if (kind == "lines") {
         add(src, prog, "", line, rel)
       } else if (kind == "probe") {
@@ -153,6 +166,7 @@ _fa_candidates() {
       }
     }
     END {
+      flush()
       for (d = 1; d <= nd; d++) {
         var = dvar[d]; ph = dph[d]
         if ((dprog[d], dchk[d], var, dacct[d]) in onpass) {

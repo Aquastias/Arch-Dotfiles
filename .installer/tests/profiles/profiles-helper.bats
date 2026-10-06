@@ -71,6 +71,19 @@ _record_sleep() { printf '%s\n' "$1" >> "$SLEEPS_FILE"; }
   [ "$(cat "$SLEEPS_FILE")" = "$(printf '2\n0\n0')" ]
 }
 
+
+@test "_retry: marks attempts and retried failures on stderr, not stdout" {
+  sleep() { :; }
+  printf '0' > "$TEST_DIR/ctr"
+  _retry 3 "3,10" -- _flaky 1 "$TEST_DIR/ctr" \
+    > "$TEST_DIR/out" 2> "$TEST_DIR/err"
+  [ ! -s "$TEST_DIR/out" ]
+  grep -qx '\[ATTEMPT\] 1/3 _flaky' "$TEST_DIR/err"
+  grep -q '^\[RETRY\] attempt 1/3 of _flaky returned 1' "$TEST_DIR/err"
+  grep -qx '\[ATTEMPT\] 2/3 _flaky' "$TEST_DIR/err"
+  [ "$(grep -c '^\[RETRY\]' "$TEST_DIR/err")" -eq 1 ]
+}
+
 # ── _profiles_detect_helper ─────────────────────────────────────────────────
 
 # Put fake helper executables on an isolated PATH.

@@ -334,3 +334,30 @@ EOF2
   [ "$(jsonl | wc -l)" -eq 1 ]
   jsonl | jq -e '.excerpt | startswith("gamma")' >/dev/null
 }
+
+# _retry marks each attempt; a failed attempt a later one recovered is folded
+# (hyprland-pure 20261006: archzfs size mismatch, pacstrap retry installed)
+@test "installer log: a recovered attempt's errors are not findings" {
+  art base install installer.log \
+    "[ATTEMPT] 1/3 pacstrap" \
+    "error: failed retrieving file 'zfs-utils.pkg.tar.zst'" \
+    "==> ERROR: Failed to install packages to new root" \
+    "[RETRY] attempt 1/3 of pacstrap returned 1; trying again" \
+    "[ATTEMPT] 2/3 pacstrap" \
+    "installing zfs-utils..." \
+    "[WARN]  later, outside the attempt"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e 'select(.excerpt == "[WARN]  later, outside the attempt")' \
+    >/dev/null
+}
+
+@test "installer log: the last attempt's errors stay findings" {
+  art base install installer.log \
+    "[ATTEMPT] 1/2 pacstrap" "error: one" \
+    "[RETRY] attempt 1/2 of pacstrap returned 1; trying again" \
+    "[ATTEMPT] 2/2 pacstrap" "error: two"
+  report
+  [ "$(jsonl | wc -l)" -eq 1 ]
+  jsonl | jq -e 'select(.excerpt == "error: two")' >/dev/null
+}
