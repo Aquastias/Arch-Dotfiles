@@ -91,23 +91,44 @@ finalize() {
   echo ""
 }
 
+# _finalize_chrooted_pids — pids whose root is the install target: arch-chroot
+# leftovers (gpg-agent…) that hold the pool with no mount for fuser to see.
+_finalize_chrooted_pids() {
+  local d r
+  for d in "${FINALIZE_PROC:-/proc}"/[0-9]*; do
+    r="$(readlink "$d/root" 2>/dev/null)" || continue
+    [[ "$r" == "$MOUNT_ROOT" || "$r" == "$MOUNT_ROOT/"* ]] \
+      && echo "${d##*/}"
+  done
+  return 0
+}
+
 # _finalize_export_pool <pool> — export, so the first boot imports without
 # -f. A pool left imported (a live-ISO process still holding the target)
 # fails the initramfs import (greetd/tuned, Audit Run 20261004): retry,
-# then kill the target's users, then force.
+# then kill the target's users, retry, then force; log why on failure.
 _finalize_export_pool() {
-  local p="$1" i m src
+  local p="$1" i m src pid err
   for i in 1 2 3; do
     zpool export "$p" 2>/dev/null && return 0
     sleep 2; zfs umount -a 2>/dev/null || true
   done
   # kill only users of this pool's datasets still mounted — never `-m` a path
   # that is no longer a mountpoint (that is the live ISO's root: the
-  # installer itself)
+  # installer itself). `|| true`: no match is rc 1, and set -E carries the
+  # installer's ERR trap into the substitution (refind/ufw 20261006)
   while read -r m src; do
     [[ "$src" == "$p" || "$src" == "$p/"* ]] || continue
     fuser -km "$m" >/dev/null 2>&1 || true
-  done < <(findmnt -rn -t zfs -o TARGET,SOURCE 2>/dev/null)
-  sleep 1
-  zpool export "$p" 2>/dev/null || zpool export -f "$p" 2>/dev/null
+  done < <(findmnt -rn -t zfs -o TARGET,SOURCE 2>/dev/null || true)
+  for pid in $(_finalize_chrooted_pids); do
+    kill -KILL "$pid" 2>/dev/null || true
+  done
+  for i in 1 2 3; do
+    sleep 2; zfs umount -a 2>/dev/null || true
+    zpool export "$p" 2>/dev/null && return 0
+  done
+  err="$(zpool export -f "$p" 2>&1)" && return 0
+  warn "zpool export ${p}: ${err:-failed}"
+  return 1
 }

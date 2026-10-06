@@ -143,3 +143,49 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -qx 'fuser -km /mnt/home' "$CALLS"
   ! grep -q 'fuser -km /mnt$\|fuser -km /$' "$CALLS"
 }
+
+@test "no zfs mounts left does not fire the installer's ERR trap" {
+  # refind/ufw 20261006: findmnt (rc 1, nothing matched) in the kill step's
+  # process substitution tripped the inherited ERR trap: "Installer failed"
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  zpool() { [[ "$*" == "export -f rpool" ]]; }
+  findmnt() { return 1; }
+  sleep() { :; }
+  set -E
+  trap 'echo TRAP >> "$CALLS"' ERR
+  finalize >/dev/null
+  trap - ERR
+  ! grep -q TRAP "$CALLS"
+}
+
+@test "processes chrooted into the target are killed before the retry" {
+  # an arch-chroot leftover (gpg-agent…) holds the pool with no mount to fuser
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  mkdir -p "$MOUNT_ROOT" "$TEST_DIR/proc/41" "$TEST_DIR/proc/42"
+  ln -s "$MOUNT_ROOT" "$TEST_DIR/proc/41/root"
+  ln -s / "$TEST_DIR/proc/42/root"
+  FINALIZE_PROC="$TEST_DIR/proc"
+  zpool() { printf 'zpool %s\n' "$*" >> "$CALLS"
+    grep -q '^kill' "$CALLS"; }             # exports once the holder is gone
+  kill() { printf 'kill %s\n' "$*" >> "$CALLS"; }
+  findmnt() { return 1; }
+  sleep() { :; }
+  finalize >/dev/null
+  grep -qx 'kill -KILL 41' "$CALLS"
+  ! grep -q 'kill -KILL 42' "$CALLS"
+  ! grep -q 'export -f' "$CALLS"
+}
+
+@test "a pool that never exports logs zpool's reason" {
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  zpool() { echo "cannot export 'rpool': pool is busy" >&2; return 1; }
+  findmnt() { return 1; }
+  sleep() { :; }
+  warn() { echo "WARN $*" >> "$CALLS"; }
+  finalize >/dev/null 2>&1
+  grep -q "WARN .*pool is busy" "$CALLS"
+  grep -q "WARN Could not export rpool" "$CALLS"
+}
