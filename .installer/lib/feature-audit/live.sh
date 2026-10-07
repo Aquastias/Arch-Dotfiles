@@ -294,10 +294,18 @@ fa_pull_into() {
 
 # fa_collect <phase-dir> [since-epoch] — harvest signals for the phase.
 fa_collect() {
-  local dir="$1"
+  local dir="$1" err="$1/collector-err.txt"
   mkdir -p "$dir"
-  _fa_collect_script "${2:-}" | fa_agent sudo >/dev/null 2>&1 \
-    || { fa_fatal "$dir" "collector failed to run in the guest"; return 1; }
+  # one retry once SSH answers: a lone failure right after boot (refind
+  # 20261007) is not the guest's fault; stderr kept as the evidence
+  if ! _fa_collect_script "${2:-}" | fa_agent sudo >/dev/null 2>"$err"; then
+    fa_wait_ssh 120 || true
+    _fa_collect_script "${2:-}" | fa_agent sudo >/dev/null 2>>"$err" || {
+      fa_fatal "$dir" "collector failed to run in the guest: $(tail -1 "$err")"
+      return 1
+    }
+  fi
+  [[ -s "$err" ]] || rm -f "$err"
   fa_pull_into /tmp/fa-collect "$dir" \
     || fa_fatal "$dir" "could not pull collected artifacts"
 }

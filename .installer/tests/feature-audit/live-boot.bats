@@ -261,3 +261,30 @@ teardown() { rm -rf "$T"; }
   [ "$(paste -sd' ' "$T/seq")" = "run probes-offline collect probes-offline \
 reset run probes-online collect probes-online" ]
 }
+
+@test "fa_collect: a failed collector is retried once, its stderr kept" {
+  # refind 20261007: boot1's collector failed once, stderr discarded
+  echo 0 > "$T/n"
+  fa_agent() {
+    case "$1" in
+      sudo) cat >/dev/null; local n; n=$(($(cat "$T/n") + 1))
+        echo $n > "$T/n"; ((n >= 2)) && return 0
+        echo "sudo: unable to resolve host" >&2; return 1 ;;
+    esac
+  }
+  fa_pull_into() { :; }
+  fa_wait_ssh() { :; }
+  fa_collect "$T/boot1"
+  [ "$(cat "$T/n")" -eq 2 ]
+  [ ! -e "$T/boot1/fatal.lines" ]
+  grep -q 'unable to resolve host' "$T/boot1/collector-err.txt"
+}
+
+@test "fa_collect: a collector failing twice is fatal with its error" {
+  fa_agent() { cat >/dev/null; echo "boom here" >&2; return 1; }
+  fa_pull_into() { :; }
+  fa_wait_ssh() { :; }
+  ! fa_collect "$T/boot1"
+  grep -q 'collector failed to run in the guest: boom here' \
+    "$T/boot1/fatal.lines"
+}
