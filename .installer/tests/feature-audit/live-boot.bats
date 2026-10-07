@@ -207,3 +207,57 @@ teardown() { rm -rf "$T"; }
   sleep() { :; }
   ! fa_upgrade_run "$T/up"
 }
+
+@test "upgrade: SSH refused mid-run keeps waiting for the unit" {
+  # kernels 20261006: sshd was down (a pacman hook) at the first poll; the
+  # loop took that for "unit finished" and judged the upgrade failed
+  echo 0 > "$T/n"
+  fa_agent() {
+    case "$*" in
+      *is-active*) local n; n=$(($(cat "$T/n") + 1)); echo $n > "$T/n"
+        ((n <= 2)) && return 255                   # sshd restarting
+        ((n == 3)) && return 0                     # still running
+        return 3 ;;                                # finished
+      *SubState*) echo running ;;
+      *ExecMainStatus*) echo 0 ;;
+      *journalctl*) echo "upgraded 9 packages" ;;
+    esac
+  }
+  fa_wait_ssh() { :; }
+  sleep() { :; }
+  fa_upgrade_run "$T/up"
+  [ "$(cat "$T/n")" -eq 4 ]
+  grep -q 'upgraded 9 packages' "$T/up/pacman.log"
+}
+
+@test "fa_reboot: after a reset the wedged boot's journal is kept" {
+  FA_SHUTDOWN_GRACE_SEC=10 FA_BOOT_TIMEOUT_SEC=1 FA_SETTLE_SEC=1
+  fa_agent() {
+    case "$*" in
+      *journalctl*-b\ -1*) echo "wedged boot tail" ;;
+      *) echo old-id ;;
+    esac
+  }
+  sleep() { :; }
+  virsh() { :; }
+  fa_wait_ssh() { :; }
+  fa_wait_until() { :; }
+  fa_reboot "$T/boot2"
+  grep -q 'shutdown' "$T/boot2/vm-reset.txt"
+  grep -q 'wedged boot tail' "$T/boot2/prev-boot-journal.txt"
+}
+
+@test "probes: offline failures are collected, then reset before online" {
+  fa_probe_dirs() { echo zsh; }
+  fa_selected_programs() { :; }
+  fa_probe_gate_split() { printf 'run\tzsh\n'; }
+  fa_stage_probes() { :; }
+  fa_guest_now() { echo 0; }
+  fa_run_probes() { echo "run $2" >> "$T/seq"; }
+  fa_collect() { echo "collect ${1##*/}" >> "$T/seq"; }
+  fa_agent() { [[ "$*" == *reset-failed* ]] && echo reset >> "$T/seq"
+    return 0; }
+  fa_phase_probes "$T/v" '{}'
+  [ "$(paste -sd' ' "$T/seq")" = "run probes-offline collect probes-offline \
+reset run probes-online collect probes-online" ]
+}

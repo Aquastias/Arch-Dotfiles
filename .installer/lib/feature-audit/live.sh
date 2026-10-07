@@ -195,6 +195,7 @@ _FA_BOOT_ID=/proc/sys/kernel/random/boot_id
 # grace, hard-reset the domain and record it in vm-reset.txt.
 fa_await_new_boot() {
   local dir="$1" old="$2" id e=0 down=0
+  _FA_DID_RESET=0
   while ((e < ${FA_SHUTDOWN_GRACE_SEC:-240})); do
     sleep 10; e=$((e + 10))
     id="$(fa_agent sudo cat "$_FA_BOOT_ID" 2>/dev/null)" || { id=""; down=1; }
@@ -203,6 +204,7 @@ fa_await_new_boot() {
     then return 0; fi
   done
   virsh reset "$VM_NAME" >/dev/null 2>&1 || true
+  _FA_DID_RESET=1
   mkdir -p "$dir"
   printf 'reboot wedged in shutdown for %ss (virgl GPU stall); reset\n' \
     "${FA_SHUTDOWN_GRACE_SEC:-240}" >> "$dir/vm-reset.txt"
@@ -221,6 +223,9 @@ fa_reboot() {
     fa_fatal "$dir" "no SSH after reboot (${FA_BOOT_TIMEOUT_SEC}s)"
     return 1
   }
+  # the wedged boot's last words, for the cause of a stall
+  ((_FA_DID_RESET)) && fa_agent sudo "journalctl -b -1 -n 300 --no-pager" \
+    > "$dir/prev-boot-journal.txt" 2>&1
   fa_wait_until "$FA_SETTLE_SEC" "$(_fa_settled)"
 }
 
@@ -454,16 +459,22 @@ fa_phase_power() {
 # its own post-transaction service restarts (which can drop SSH) cannot fake
 # a failure: poll the unit, judge its exit status, keep its journal.
 fa_upgrade_run() {
-  local dir="$1" u=fa-upgrade e=0 st
+  local dir="$1" u=fa-upgrade e=0 st rc
   mkdir -p "$dir"
   fa_agent sudo "systemd-run --unit=$u --collect -p RemainAfterExit=yes \
     pacman -Syu --noconfirm" >/dev/null 2>&1 || true
   while ((e < 3600)); do
     sleep 10; e=$((e + 10))
-    fa_agent sudo "systemctl is-active --quiet $u" >/dev/null 2>&1 || break
+    rc=0; fa_agent sudo "systemctl is-active --quiet $u" >/dev/null 2>&1 \
+      || rc=$?
+    # 255: ssh itself failed (a hook restarting sshd, kernels 20261006) —
+    # the unit is not known to be done: keep polling
+    ((rc == 255)) && continue
+    ((rc == 0)) || break
     st="$(fa_agent sudo "systemctl show -p SubState --value $u" 2>/dev/null)"
     [[ "$st" == exited ]] && break
   done
+  fa_wait_ssh 300 || true
   fa_agent sudo "journalctl -u $u --no-pager -o cat" > "$dir/pacman.log" 2>&1
   st="$(fa_agent sudo "systemctl show -p ExecMainStatus --value $u" \
     2>/dev/null)"
@@ -713,6 +724,9 @@ fa_phase_probes() {
   fa_agent net on >/dev/null 2>&1 \
     || fa_fatal "$vdir/probes-offline" "could not restore guest network"
   fa_collect "$vdir/probes-offline" "$since"
+  # a unit that failed with the network cut on purpose (a timer firing in
+  # the window, hyprland-pure 20261006) is judged offline, not again online
+  fa_agent sudo "systemctl reset-failed" >/dev/null 2>&1 || true
   since="$(fa_guest_now)"
   fa_run_probes "$vdir/probes-online" probes-online 1 "$cfg"
   fa_collect "$vdir/probes-online" "$since"
