@@ -138,8 +138,7 @@
   { "regex": ["^avahi-daemon\\[[0-9]+\\]: (WARNING: No NSS support for ",
               "mDNS|\\*\\*\\* WARNING: Detected another IPv[46] mDNS stack|",
               "Missed message)"],
-    "phase": "probes-online",
-    "reason": "avahi socket-activated by the cups probe's ippeveprinter" },
+    "reason": "avahi's own startup warnings, whatever socket-activates it" },
 
   // ── harness artefacts ──
   { "regex": ["^pkexec\\[[0-9]+\\]: .*Not authorized ",
@@ -305,5 +304,10 @@
     "reason": "a network outage through all 3 plugin fetch retries" },
   { "regex": ["kdeconnectd\\[[0-9]+\\]: Failed to send mDNS query: ",
               "Cannot assign requested address"],
-    "reason": "kdeconnectd mDNS probe on the VM's network" }
+    "reason": "kdeconnectd mDNS probe on the VM's network" },
+  // ── approved 2026-10-07 ──
+  { "regex": ["pkgfile-update\\.service|",
+              "Failed to start pkgfile database update"],
+    "phase": "probes-offline",
+    "reason": "its daily timer fired while the network was cut on purpose" }
 ]
