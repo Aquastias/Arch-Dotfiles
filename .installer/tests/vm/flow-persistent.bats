@@ -56,7 +56,7 @@ teardown() { rm -rf "$CACHE_DIR"; }
     'ssh-ed25519 AAAALIVE k' aquastias
   [ "$status" -eq 0 ]
   # Install output captured to a retrievable file (never streamed to serial).
-  [[ "$output" == *'tee /root/install.log'* ]]
+  [[ "$output" == *'tee -a /root/install.log'* ]]
 }
 
 @test "render: no longer authorizes the live-ISO key (the seed does — ADR 0099)" {
@@ -188,4 +188,36 @@ teardown() { rm -rf "$CACHE_DIR"; }
     'ssh-ed25519 AAAAKEY test' aquastias
   [ "$status" -eq 0 ]
   [[ "$output" == *"export INSTALL_EXTRA_CMDLINE='console=ttyS0,115200'"* ]]
+}
+
+# tuned 20261008: the live ISO named SATA disks out of port order (sdb was
+# the 20G disk), so a "/dev/sda","/dev/sdb" mirror landed on the wrong disk
+@test "pin_disks: maps /dev/sdX to the port's by-id path when present" {
+  local d="$BATS_TEST_TMPDIR" b
+  b="$d/by-id/ata-QEMU_HARDDISK_vmdisk"
+  mkdir -p "$d/by-id"
+  touch "${b}0" "${b}1"
+  echo '{"os_pool":{"disks":["/dev/sda","/dev/sdb"]},"x":["/dev/sdc"]}' \
+    > "$d/c.json"
+  eval "$(_flow_pin_disks_fn)"
+  pin_disks "$d/c.json" "$d/by-id"
+  run jq -r '[.os_pool.disks[], .x[]] | join(" ")' "$d/c.json"
+  [ "$output" = "${b}0 ${b}1 /dev/sdc" ]
+}
+
+@test "render: pins disks before the installer runs" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [[ "$output" == *'pin_disks install.jsonc'* ]]
+}
+
+# ufw 20261008: the preamble (pacman/git) died before install.sh, leaving
+# no log to pull; its output now lands in the log, its fetches are retried
+@test "render: the preamble is logged and its fetches retried" {
+  INSTALL_CONFIG_CONTENT='{"users":["aquastias"]}'
+  run _render_installer_script https://example/repo.git 'k' aquastias
+  [[ "$output" == *'> >(tee -a /root/install.log) 2>&1'* ]]
+  [[ "$output" == *'_try pacman -Sy --noconfirm --needed git jq'* ]]
+  [[ "$output" == *'_try _clone'* ]]
+  [[ "$output" == *'tee -a /root/install.log'* ]]
 }

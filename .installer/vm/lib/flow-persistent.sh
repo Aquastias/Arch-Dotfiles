@@ -123,6 +123,25 @@ _flow_build_seed() {
   printf '%s\n' "${seed_iso}"
 }
 
+# _flow_pin_disks_fn — print a guest-side `pin_disks <config> [by-id-dir]`:
+# each config string /dev/sdX becomes the by-id path of the disk the harness
+# put on that port (serial vmdisk<i>, _vm_create). The live ISO may name SATA
+# disks out of port order (tuned 20261008: sdb was the 20G disk). An older VM
+# without the serials keeps its /dev/sdX.
+_flow_pin_disks_fn() {
+  cat <<'FN'
+pin_disks() {
+  local c="$1" d="${2:-/dev/disk/by-id}" i=0 l p
+  for l in a b c d e f g h; do
+    p="$d/ata-QEMU_HARDDISK_vmdisk$i"; i=$((i + 1))
+    [ -e "$p" ] || continue
+    jq --arg a "/dev/sd$l" --arg b "$p" \
+      'walk(if . == $a then $b else . end)' "$c" > "$c.n" && mv "$c.n" "$c"
+  done
+}
+FN
+}
+
 # =============================================================================
 # INSTALLER SCRIPT (served over HTTP, launched via send-key)
 # =============================================================================
@@ -159,6 +178,22 @@ _early_exit() {
   printf '\r\n===INSTALLER-EXIT-%d===\r\n' "\$((rc ? rc : 98))" > /dev/ttyS0
 }
 trap _early_exit EXIT
+# The preamble's output goes to the pulled log too: a death here (ufw
+# 20261008) otherwise leaves nothing to read. Restored before install.sh.
+exec 3>&1 4>&2 > >(tee -a /root/install.log) 2>&1
+# network steps retried (a mirror/GitHub blip); _retry's markers, so the
+# Feature Audit folds a recovered attempt (ADR 0152)
+_try() {
+  local i rc
+  for i in 1 2 3; do
+    echo "[ATTEMPT] \$i/3 \$1"
+    "\$@" && return 0
+    rc=\$?; [ "\$i" = 3 ] && return "\$rc"
+    echo "[RETRY] attempt \$i/3 of \$1 returned \$rc; trying again"
+    sleep \$((i * 10))
+  done
+}
+_clone() { rm -rf /root/dotfiles; git clone ${repo_url} /root/dotfiles; }
 # The harness key + serial autologin are authorized by the cloud-init seed at
 # first boot (ADR 0099), independent of this payload — so a failure before this
 # script even runs still leaves the live ISO reachable. This payload only clones
@@ -166,11 +201,12 @@ trap _early_exit EXIT
 pacman-key --init
 pacman-key --populate archlinux
 # jq patches the config (below) before the installer's own toolchain preflight.
-pacman -Sy --noconfirm --needed git jq
-rm -rf /root/dotfiles
-git clone ${repo_url} /root/dotfiles
+_try pacman -Sy --noconfirm --needed git jq
+_try _clone
 printf '%s' '${config_b64}' | base64 -d > /root/dotfiles/.installer/install.jsonc
 cd /root/dotfiles/.installer
+$(_flow_pin_disks_fn)
+pin_disks install.jsonc
 # Persistent debug VMs only: enable sshd + authorize the harness key so the host
 # can SSH into the installed guest to diagnose the desktop. The clone is
 # disposable, so patching the committed profile in place never leaks upstream.
@@ -202,8 +238,9 @@ ${skew_line}
 # live ISO up (no poweroff) so the log at /root/install.log is inspectable over
 # the seed's SSH + serial channels (ADR 0099). Only a clean install powers off,
 # so the flow reboots into the installed system.
+exec 1>&3 2>&4 3>&- 4>&-
 set +e
-./install.sh --unattended install.jsonc 2>&1 | tee /root/install.log
+./install.sh --unattended install.jsonc 2>&1 | tee -a /root/install.log
 rc=\${PIPESTATUS[0]}
 set -e
 printf '%d\n' "\$rc" > /root/.install-exit

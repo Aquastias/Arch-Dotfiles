@@ -62,3 +62,15 @@ virsh_stub_two_cdroms() {
   grep -q '^insert sda /isos/arch.iso$' "$CALLS"
   ! grep -q 'sdb' "$CALLS"
 }
+
+# tuned 20261008: each data disk carries a port serial, so the payload can
+# pin /dev/sdX to /dev/disk/by-id/ata-QEMU_HARDDISK_vmdisk<i>
+@test "_vm_create: every data disk gets the vmdisk<i> serial" {
+  virt-install() { printf '%s\n' "$@" > "$CALLS"; }
+  CACHE_DIR=/c VM_DISK_SIZES=(60 60 20) VM_RAM_MB=1 VM_VCPUS=1
+  FLOW_GRAPHICS_ARGS=()
+  _vm_create /iso /seed
+  grep -q '^path=/c/rescuevm-disk0.qcow2,.*,serial=vmdisk0$' "$CALLS"
+  grep -q '^path=/c/rescuevm-disk2.qcow2,.*,serial=vmdisk2$' "$CALLS"
+  ! grep -q 'device=cdrom.*serial=' "$CALLS"
+}

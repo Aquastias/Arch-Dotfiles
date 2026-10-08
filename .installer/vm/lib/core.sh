@@ -209,8 +209,10 @@ _vm_create() {
   local disk_args=() i
   for i in "${!VM_DISK_SIZES[@]}"; do
     local disk_path="${CACHE_DIR}/${VM_NAME}-disk${i}.qcow2"
-    disk_args+=(--disk \
-      "path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2,bus=sata")
+    # serial: a stable by-id name per port — the live ISO may name SATA
+    # disks out of order (flow-persistent's pin_disks, tuned 20261008)
+    local spec="path=${disk_path},size=${VM_DISK_SIZES[$i]},format=qcow2"
+    disk_args+=(--disk "${spec},bus=sata,serial=vmdisk${i}")
   done
   # VM_PM (Feature Audit, ADR 0152): expose ACPI S3/S4 so a guest suspend
   # can be woken by `virsh dompmwakeup`.
