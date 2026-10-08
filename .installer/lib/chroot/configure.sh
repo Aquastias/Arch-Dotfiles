@@ -123,6 +123,8 @@ if command -v zpool >/dev/null 2>&1; then
     # remove the dep on systemd 260). The initramfs stays the authoritative
     # importer (ADR 0030).
     zfs_import_write_settle_overrides ""
+    # retry a crashed `zfs mount -a` (no-shell 20261007)
+    zfs_write_mount_restart_dropin ""
 
     # ── Ongoing archzfs LTS ceiling hold (ADR 0139) ─────────────────────────
     # When linux-lts is selected, install a systemd timer that holds linux-lts

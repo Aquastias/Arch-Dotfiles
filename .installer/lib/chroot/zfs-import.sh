@@ -104,3 +104,21 @@ zfs_write_list_cache() {
 name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encroot,keylocation,org.openzfs.systemd:requires,org.openzfs.systemd:requires-mounts-for,org.openzfs.systemd:before,org.openzfs.systemd:after,org.openzfs.systemd:wanted-by,org.openzfs.systemd:required-by,org.openzfs.systemd:nofail,org.openzfs.systemd:ignore \
     "$pool" 2>/dev/null > "${dir}/${pool}" || true
 }
+
+# zfs_write_mount_restart_dropin [root] — retry zfs-mount.service on failure:
+# `zfs mount -a` aborted once in libzfs's parallel mount (no-shell 20261007,
+# fnvlist_lookup_string), leaving datasets unmounted for the whole boot. A
+# oneshot allows Restart=on-failure (systemd.service(5)); bounded to 3 starts.
+zfs_write_mount_restart_dropin() {
+  local d="${1:-}/etc/systemd/system/zfs-mount.service.d"
+  mkdir -p "$d"
+  cat > "$d/10-restart.conf" <<'UNIT'
+[Unit]
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Restart=on-failure
+RestartSec=2
+UNIT
+}

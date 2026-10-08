@@ -157,3 +157,20 @@ CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid
   zfs_write_list_cache rpool "$dir"
   [ -f "$dir/rpool" ]
 }
+
+# no-shell 20261007: `zfs mount -a` aborted once in libzfs (a parallel-mount
+# race); a retry mounts what the crash left unmounted
+@test "mount_restart_dropin: zfs-mount retries on failure, bounded" {
+  local r="$BATS_TEST_TMPDIR/root"
+  zfs_write_mount_restart_dropin "$r"
+  local f="$r/etc/systemd/system/zfs-mount.service.d/10-restart.conf"
+  grep -qx 'Restart=on-failure' "$f"
+  grep -qx 'RestartSec=2' "$f"
+  grep -qx 'StartLimitBurst=3' "$f"
+  sed -n '/^\[Unit\]/,/^\[/p' "$f" | grep -q '^StartLimitBurst='
+}
+
+@test "configure enables the zfs-mount restart drop-in" {
+  grep -q 'zfs_write_mount_restart_dropin ""' \
+    "$BATS_TEST_DIRNAME/../../lib/chroot/configure.sh"
+}
