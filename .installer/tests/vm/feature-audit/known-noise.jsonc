@@ -16,7 +16,6 @@
   { "regex": ["^==> WARNING: (Possibly missing firmware|",
               "Using existing \\$srcdir|",
               "Package contains reference to \\$srcdir)"],
-    "source": "installer",
     "reason": "mkinitcpio/makepkg advisories (firmware for absent hardware)" },
   { "regex": "^==> WARNING: sd-vconsole: \"/etc/vconsole.conf\" not found",
     "source": "installer",
@@ -309,5 +308,16 @@
   { "regex": ["pkgfile-update\\.service|",
               "Failed to start pkgfile database update"],
     "phase": "probes-offline",
-    "reason": "its daily timer fired while the network was cut on purpose" }
+    "reason": "its daily timer fired while the network was cut on purpose" },
+  // ── approved 2026-10-08 ──
+  { "regex": ["SIGABRT present /usr/bin/zfs |",
+              "systemd-coredump\\[[0-9]+\\]: Process [0-9]+ \\(zfs\\) ",
+              "of user 0 dumped core\\.|",
+              "zfs-mount\\.service: (Main process exited, code=dumped, ",
+              "status=6/ABRT|Failed with result 'core-dump')|",
+              "Failed to start Mount ZFS filesystems\\."],
+    "reason": "libzfs mount abort (upstream); retried: a failed unit is kept" },
+  { "regex": ["systemd-searxng\\[[0-9]+\\]: .*",
+              "https://cdn\\.jsdelivr\\.net/gh/clearurls/"],
+    "reason": "SearXNG upstream tracker-pattern URL 404s; it still runs" }
 ]
