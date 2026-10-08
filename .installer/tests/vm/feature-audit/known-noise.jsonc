@@ -319,5 +319,9 @@
     "reason": "libzfs mount abort (upstream); retried: a failed unit is kept" },
   { "regex": ["systemd-searxng\\[[0-9]+\\]: .*",
               "https://cdn\\.jsdelivr\\.net/gh/clearurls/"],
-    "reason": "SearXNG upstream tracker-pattern URL 404s; it still runs" }
+    "reason": "SearXNG upstream tracker-pattern URL 404s; it still runs" },
+  // ── approved 2026-10-08 (2) ──
+  { "regex": "^\\[FAILED\\] Failed to start Network Time Synchronization\\.$",
+    "phase": "boot1",
+    "reason": "a first-boot timesyncd start its restart recovered at once" }
 ]
