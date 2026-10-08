@@ -189,3 +189,25 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -q "WARN .*pool is busy" "$CALLS"
   grep -q "WARN Could not export rpool" "$CALLS"
 }
+
+@test "a busy pool names its holders: open files under the target, zvols" {
+  # laptop 20261008: still busy after the chroot kill; the log said nothing
+  LAYOUT_OS_POOL_NAME=rpool
+  LAYOUT_DATA_POOL_NAMES=()
+  mkdir -p "$MOUNT_ROOT" "$TEST_DIR/proc/7/fd" "$TEST_DIR/proc/8/fd"
+  echo gpg-agent > "$TEST_DIR/proc/7/comm"
+  ln -s "$MOUNT_ROOT/root/.gnupg/S" "$TEST_DIR/proc/7/fd/3"
+  ln -s / "$TEST_DIR/proc/7/root"
+  echo swapper > "$TEST_DIR/proc/8/comm"
+  ln -s /dev/zd0 "$TEST_DIR/proc/8/fd/4"
+  ln -s / "$TEST_DIR/proc/8/root"
+  FINALIZE_PROC="$TEST_DIR/proc"
+  zpool() { echo "cannot export 'rpool': pool is busy" >&2; return 1; }
+  findmnt() { return 1; }
+  kill() { :; }
+  sleep() { :; }
+  warn() { echo "WARN $*" >> "$CALLS"; }
+  finalize >/dev/null 2>&1
+  grep -q "WARN holder: 7 gpg-agent .*$MOUNT_ROOT/root/.gnupg/S" "$CALLS"
+  grep -q "WARN holder: 8 swapper .*/dev/zd0" "$CALLS"
+}

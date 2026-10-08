@@ -103,6 +103,21 @@ _finalize_chrooted_pids() {
   return 0
 }
 
+# _finalize_holders — "<pid> <comm> <path>" for each open file, cwd or root
+# under the install target or on a zvol: what keeps a pool busy (laptop
+# 20261008 stayed busy after the chroot kill, and the log never said why).
+_finalize_holders() {
+  local d l t
+  for d in "${FINALIZE_PROC:-/proc}"/[0-9]*; do
+    for l in "$d"/cwd "$d"/root "$d"/fd/*; do
+      t="$(readlink "$l" 2>/dev/null)" || continue
+      [[ "$t" == "$MOUNT_ROOT"/* || "$t" == /dev/zd* ]] || continue
+      echo "${d##*/} $(cat "$d/comm" 2>/dev/null) $t"
+    done
+  done
+  return 0
+}
+
 # _finalize_export_pool <pool> — export, so the first boot imports without
 # -f. A pool left imported (a live-ISO process still holding the target)
 # fails the initramfs import (greetd/tuned, Audit Run 20261004): retry,
@@ -130,5 +145,6 @@ _finalize_export_pool() {
   done
   err="$(zpool export -f "$p" 2>&1)" && return 0
   warn "zpool export ${p}: ${err:-failed}"
+  _finalize_holders | while IFS= read -r h; do warn "holder: $h"; done
   return 1
 }
