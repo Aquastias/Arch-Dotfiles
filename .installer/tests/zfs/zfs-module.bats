@@ -59,3 +59,18 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -q -- "--kernelsourcedir ${ZFS_MODULES_DIR}/7.0.3-arch1-1/build" "$CALLS"
   grep -q "dkms install -m zfs -v 2.4.2 -k 7.0.3-arch1-1" "$CALLS"
 }
+
+# limine/refind 20261008: the GitHub-hosted archzfs repo blipped (a db/asset
+# size mismatch) twice in a row; three refreshed tries ride it out
+@test "zfs_install_dkms: a blipping archzfs fetch is retried, db refreshed" {
+  mkdir -p "$ZFS_MODULES_DIR/7.0.3-arch1-1/build"
+  echo 0 > "$TEST_DIR/n"
+  pacman() { echo "pacman $*" >> "$CALLS"
+    if [[ "$*" == "-S --noconfirm --needed dkms zfs-dkms zfs-utils" ]]; then
+      local n; n=$(($(cat "$TEST_DIR/n") + 1)); echo $n > "$TEST_DIR/n"
+      ((n >= 3)); return; fi; }
+  sleep() { :; }
+  zfs_install_dkms 7.0.3-arch1-1 >/dev/null
+  [ "$(cat "$TEST_DIR/n")" -eq 3 ]
+  [ "$(grep -c '^pacman -Syy --noconfirm$' "$CALLS")" -eq 2 ]
+}

@@ -64,7 +64,7 @@ zfs_add_archzfs_repo() {
   # -Sy alone (no -u) is safe here because we only need the keyring,
   # not a full upgrade.
   info "Updating archlinux-keyring..."
-  pacman -Sy --noconfirm archlinux-keyring
+  _retry 3 "10,30" -- pacman -Sy --noconfirm archlinux-keyring
 
   # ── archzfs repository setup ──────────────────────────────────────────────
   # IMPORTANT: archzfs.com went stale in early 2026. The project moved to
@@ -117,7 +117,17 @@ EOF
   fi
 
   info "Syncing pacman package databases..."
-  pacman -Sy --noconfirm # refresh db after adding archzfs
+  _retry 3 "10,30" -- pacman -Sy --noconfirm # refresh db after adding archzfs
+}
+
+# _zfs_dkms_pkgs_try — one archzfs package install; on failure, drop a stale
+# testing repo and force-refresh the dbs for the next try (zfs_install_dkms).
+_zfs_dkms_pkgs_try() {
+  pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils && return 0
+  local rc=$?
+  _remove_stale_archzfs_testing
+  pacman -Syy --noconfirm || true
+  return "$rc"
 }
 
 zfs_install_dkms() {
@@ -198,15 +208,13 @@ zfs_install_dkms() {
   # Install the DKMS framework and the ZFS source package.
   # Install DKMS framework and ZFS source package from the archzfs GitHub repo.
   info "Installing dkms + zfs-dkms from archzfs ..."
-  if ! pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils 2>/dev/null; then
-    warn "zfs-dkms install failed. Retrying after cleanup ..."
-    _remove_stale_archzfs_testing
-    pacman -Sy --noconfirm # refresh DB after cleanup
-    pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils ||
-      error "Failed to install zfs-dkms from archzfs.
+  # The GitHub-hosted repo blips (timeouts, a db/asset size mismatch, Audit
+  # Run 20261008): clean up, force-refresh, retry; _retry's markers let the
+  # Feature Audit fold a recovered attempt (ADR 0152)
+  _retry 3 "10,30" -- _zfs_dkms_pkgs_try ||
+    error "Failed to install zfs-dkms from archzfs.
   Check: pacman -Ss zfs-dkms
   Check: df -h /run/archiso/cowspace  (need ~900 MB free)"
-  fi
 
   # Determine the ZFS version from the installed source directory.
   # zfs-dkms always installs its source to /usr/src/zfs-<version>/.
