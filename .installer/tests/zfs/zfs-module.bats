@@ -74,3 +74,13 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$(cat "$TEST_DIR/n")" -eq 3 ]
   [ "$(grep -c '^pacman -Syy --noconfirm$' "$CALLS")" -eq 2 ]
 }
+
+@test "zfs_install_dkms: the live ISO's failing initcpio hook stays quiet" {
+  # 20261008 regression: 17/18 installs logged pacman's harmless hook error
+  mkdir -p "$ZFS_MODULES_DIR/7.0.3-arch1-1/build"
+  pacman() { [[ "$1" == -S ]] && echo "error: command failed to execute" >&2
+    return 0; }
+  run zfs_install_dkms 7.0.3-arch1-1
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"command failed to execute"* ]]
+}

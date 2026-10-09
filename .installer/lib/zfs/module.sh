@@ -123,7 +123,10 @@ EOF
 # _zfs_dkms_pkgs_try — one archzfs package install; on failure, drop a stale
 # testing repo and force-refresh the dbs for the next try (zfs_install_dkms).
 _zfs_dkms_pkgs_try() {
-  pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils && return 0
+  # stderr hidden as before: the live ISO has no /boot/vmlinuz-*, so
+  # pacman's mkinitcpio hook always fails harmlessly here (20261008)
+  pacman -S --noconfirm --needed dkms zfs-dkms zfs-utils 2>/dev/null \
+    && return 0
   local rc=$?
   _remove_stale_archzfs_testing
   pacman -Syy --noconfirm || true
