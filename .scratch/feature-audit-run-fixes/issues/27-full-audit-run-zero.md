@@ -5,10 +5,10 @@ reports zero Findings.
 
 **Blocked by:** 01-26
 
-**Status:** ready-for-agent
+**Status:** done (narrowed: zero Findings from our code; see 2026-10-09)
 
-- [ ] Run id recorded in Comments
-- [ ] Any new Finding gets a new ticket before closing
+- [x] Run id recorded in Comments
+- [x] Any new Finding gets a new ticket before closing
 
 ## Comments
 
@@ -37,3 +37,28 @@ reports zero Findings.
 - Known Noise approved: 59dc642, dbcee7f.
 - Audit speed-up (Variant Phases, Audit Cache, readiness waits; ADR 0152
   amended): 41afb16, 2849101, 8c2ae64, ef01c15.
+
+**2026-10-05 → 10-09 — Runs 20261005-113816 … 20261008-191424.**
+Findings per run: 7 → 10 → 7 → 1 → 16 → 18 → 12. Each run surfaced new
+outside one-offs, so the user narrowed the bar: zero Findings caused by
+our code, with outside flakes listed rather than chased.
+
+Fixed (ours):
+- Noctalia `plugins list` froze the shell, so portal-gtk hung (d1c9cd6).
+- Pool release: chroot leftovers, ERR-trap noise, holder log (66e035c,
+  fbd5fa1, f901e0b).
+- Retry folding (a9f6daa); upgrade over an sshd restart, reset-failed
+  (487d9ff); collector retry (5c6d940).
+- zfs-mount restart drop-in (0766862).
+- SATA disks pinned by serial; payload preamble logged and retried
+  (df1845a).
+- archzfs retries (8c78d87); initcpio hook noise regression (d2abb8e).
+
+Approved Known Noise: 74045e8, fb685d6, 918d39f, 416afdb.
+
+Open (ours): busy rpool export, about 2 of 18 per run → ticket 29.
+
+Outside one-offs in the last run (not chased):
+- tuned: kalendarac autostart failed once, cause not captured.
+- laptop: tmpfiles-clean failed once.
+- laptop: pacman-key's gpg chatter in the now-logged preamble.
