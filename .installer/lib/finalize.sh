@@ -106,14 +106,34 @@ _finalize_chrooted_pids() {
 # _finalize_holders — "<pid> <comm> <path>" for each open file, cwd or root
 # under the install target or on a zvol: what keeps a pool busy (laptop
 # 20261008 stayed busy after the chroot kill, and the log never said why).
+# With <pool>, also the kernel-side holders no file points at (efistub/ufw
+# 20261008): the pool's mounts alive in another mount namespace (once per
+# namespace) and zvols held by a kernel device.
 _finalize_holders() {
-  local d l t
-  for d in "${FINALIZE_PROC:-/proc}"/[0-9]*; do
+  local p="${1:-}" pr="${FINALIZE_PROC:-/proc}" d l t ns self z
+  local -A seen=()
+  self="$(readlink "$pr/self/ns/mnt" 2>/dev/null)" || self=""
+  for d in "$pr"/[0-9]*; do
     for l in "$d"/cwd "$d"/root "$d"/fd/*; do
       t="$(readlink "$l" 2>/dev/null)" || continue
       [[ "$t" == "$MOUNT_ROOT"/* || "$t" == /dev/zd* ]] || continue
       echo "${d##*/} $(cat "$d/comm" 2>/dev/null) $t"
     done
+    [[ -n "$p" ]] || continue
+    ns="$(readlink "$d/ns/mnt" 2>/dev/null)" || continue
+    [[ "$ns" != "$self" && -z "${seen[$ns]:-}" ]] || continue
+    seen[$ns]=1
+    awk -v p="$p" -v pid="${d##*/}" -v c="$(cat "$d/comm" 2>/dev/null)" '
+      { for (i = 1; i <= NF; i++) if ($i == "-") break
+        s = $(i + 2) }
+      $(i + 1) == "zfs" && (s == p || index(s, p "/") == 1 \
+        || index(s, p "@") == 1) { print pid, c, "mount-ns", $5, s }
+    ' "$d/mountinfo" 2>/dev/null
+  done
+  [[ -n "$p" ]] || return 0
+  for z in "${FINALIZE_SYS:-/sys}"/block/zd*/holders/*; do
+    [[ -e "$z" ]] || continue
+    t="${z%/holders/*}"; echo "${t##*/} held by ${z##*/}"
   done
   return 0
 }
@@ -145,6 +165,6 @@ _finalize_export_pool() {
   done
   err="$(zpool export -f "$p" 2>&1)" && return 0
   warn "zpool export ${p}: ${err:-failed}"
-  _finalize_holders | while IFS= read -r h; do warn "holder: $h"; done
+  _finalize_holders "$p" | while IFS= read -r h; do warn "holder: $h"; done
   return 1
 }

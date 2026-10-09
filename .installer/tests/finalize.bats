@@ -211,3 +211,19 @@ teardown() { rm -rf "$TEST_DIR"; }
   grep -q "WARN holder: 7 gpg-agent .*$MOUNT_ROOT/root/.gnupg/S" "$CALLS"
   grep -q "WARN holder: 8 swapper .*/dev/zd0" "$CALLS"
 }
+
+@test "a busy pool also names namespace mounts and zvol kernel holders" {
+  # efistub/ufw 20261008: busy, yet no process file/cwd/root held it
+  mkdir -p "$TEST_DIR/proc/9" "$TEST_DIR/sys/block/zd0/holders/dm-0"
+  echo resolved > "$TEST_DIR/proc/9/comm"
+  mkdir -p "$TEST_DIR/proc/9/ns" "$TEST_DIR/proc/self/ns"
+  ln -s "mnt:[2]" "$TEST_DIR/proc/9/ns/mnt"
+  ln -s "mnt:[1]" "$TEST_DIR/proc/self/ns/mnt"
+  printf '%s\n' "36 1 0:5 / /run rw - tmpfs tmpfs rw" \
+    "90 36 0:44 / /mnt/home rw - zfs rpool/home rw" \
+    > "$TEST_DIR/proc/9/mountinfo"
+  FINALIZE_PROC="$TEST_DIR/proc" FINALIZE_SYS="$TEST_DIR/sys"
+  run _finalize_holders rpool
+  [[ "$output" == *"9 resolved mount-ns /mnt/home rpool/home"* ]]
+  [[ "$output" == *"zd0 held by dm-0"* ]]
+}
