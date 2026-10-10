@@ -790,6 +790,43 @@ Program Runner (not by the install.sh itself), so program scripts get its
 helpers (`print_status`, `command_exists`, package/permission/notification
 helpers) without their own source line.
 
+### Readability Rules
+The naming, size, flow, and tool conventions every `.installer/` change
+follows (ADR 0153), written down in `docs/agents/readability.md`. A function's
+name tells you its file (its **Prefix**) and whether it acts, tests, or
+prints.
+_Avoid_: style guide, coding standards (too broad — Comment Style is separate)
+
+### Prefix
+The leading word(s) of a function name, naming the file that defines it
+(`history_` → `config/history.sh`). A directory exposing one public API
+lends its name to public functions instead (`feature_audit_`). Leading `_`
+marks file-private. _Avoid_: namespace, module tag
+
+### Prefix Map
+The approved old→new Prefix table (`fa_` → `feature_audit_`, `_ctl_` →
+`_controller_`, …) that the readability refactor applies (ADR 0153).
+
+### Interface Function
+A function defined under the same name by every implementation of one
+role, so whichever module is sourced answers the call — e.g. each
+filesystem's Root Layout Adapter defines `root_adapter_mkfs`. Named after
+its glossary role, not its file (the one exception to Prefix).
+_Avoid_: hook, callback, polymorphic function
+
+### Tool Tiers
+Which external commands installer code may call (ADR 0153): **core** (`jq`
+for JSON, `awk` for text, `grep` to filter, `sort`, file ops), **sed `-i`
+only**, and **replace** (`cut`, `tr`, `head`, `tail`, `wc`, … — rewrite with
+a core tool or a bash builtin).
+
+### Readability Lint
+`.installer/tests/readability.sh` — checks the Readability Rules,
+Tool Tiers, and linked ADR mentions in docs. Works as a ratchet against the
+**Readability Baseline**: the list of violations that existed when the
+lint landed. New violations fail; the baseline may only shrink.
+_Avoid_: style check, linter (unqualified)
+
 ### Program Install Script
 `install.sh` inside each `.installer/programs/<category>/<name>/`. Source of
 truth for

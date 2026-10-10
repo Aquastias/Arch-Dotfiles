@@ -1,0 +1,14 @@
+# 22: Leftover tests + Baseline zero
+
+**What to build:** Remaining test helpers and bats files follow the
+Readability Rules, the Readability Baseline is empty and removed, and the lint
+runs strict: any violation anywhere fails. ADR 0153 status → implemented.
+
+**Blocked by:** 06–21 (every area ticket)
+
+**Status:** ready-for-agent
+
+- [ ] Test helpers/bats renamed; `@test` titles left free text
+- [ ] Baseline removed; lint strict; suite green
+- [ ] Full VM install + guided-flow run green
+- [ ] ADR 0153 status updated

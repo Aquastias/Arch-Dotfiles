@@ -1,0 +1,28 @@
+# 05: Pilot: install entry script + direct libs
+
+**What to build:** The install entry script opens with a `main()` reading
+as the install's table of contents, and the libs it sources directly follow
+every Readability Rule. `ARCHITECTURE.md` links to the `main()` instead
+of restating the flow. Ends with an owner style review; the readability
+doc is adjusted to what's agreed before 06–21 start.
+
+**Blocked by:** 02 — Prefix Map; 03 — Commons path helpers
+
+**Status:** ready-for-agent
+
+- [ ] Renames per the Prefix Map applied to every definition here and
+      every caller repo-wide (incl. bats/helpers); frozen interface untouched
+- [ ] Locals/globals follow the Readability Rules; no non-acronym
+      abbreviations left
+- [ ] Replace-tier tools gone; `sed` only in-place; consecutive `jq` reads
+      merged where it stays short
+- [ ] Files ≤ 500 lines, touched functions ≤ ~50 lines / ≤ 3 nesting
+- [ ] Lib headers carry `Used by:`
+- [ ] Baseline entries for this area deleted (lint fails if any linger)
+- [ ] Separate rename / tools / split commits; shellcheck, bats, `audit.sh`,
+      Readability Lint green on each
+- [ ] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
+      filed as separate tickets
+- [ ] Full VM install green at ticket close
+- [ ] `main()` outline at top; `ARCHITECTURE.md` links to it
+- [ ] Owner style review done; doc updated with outcomes
