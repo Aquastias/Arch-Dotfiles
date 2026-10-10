@@ -419,3 +419,17 @@ RULES
   check_repo
   [ "$status" -eq 0 ]
 }
+
+@test "readlink reading a link target is fine; readlink -f is replace-tier" {
+  make_repo
+  cat > .installer/a.sh <<'SH'
+link_targets() {
+  readlink /proc/self/root
+  readlink -f ./relative
+}
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool: .installer/a.sh:3: readlink"* ]]
+  [[ "$output" != *"a.sh:2"* ]]
+}

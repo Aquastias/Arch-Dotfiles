@@ -513,7 +513,6 @@ function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_swap_mib
 function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_swap_tail
 function-name	.installer/lib/layout/zfs/data.sh	zfs_data_pool_enc_opts
 function-name	.installer/lib/layout/zfs/multi.sh	create_multi_dpool
-function-name	.installer/lib/layout/zfs/multi.sh	mount_multi_esps
 function-name	.installer/lib/live-medium.sh	_lm_arch_label_parts
 function-name	.installer/lib/live-medium.sh	_lm_boot_part
 function-name	.installer/lib/live-medium.sh	_lm_iso9660_parts
@@ -4165,7 +4164,6 @@ tool	.installer/lib/chroot/impermanence.sh	_impermanence_apply_extensions:dirnam
 tool	.installer/lib/chroot/impermanence.sh	_impermanence_init_machine_id:tr
 tool	.installer/lib/chroot/impermanence.sh	_impermanence_relocate_enablements:basename
 tool	.installer/lib/chroot/impermanence.sh	_impermanence_relocate_enablements:basename
-tool	.installer/lib/chroot/impermanence.sh	_impermanence_relocate_enablements:readlink
 tool	.installer/lib/chroot/initcpio.sh	-:dirname
 tool	.installer/lib/chroot/noctalia-preset.sh	_noc_seed_plugin:dirname
 tool	.installer/lib/chroot/noctalia-preset.sh	_noc_seed_plugin:head
@@ -4213,10 +4211,6 @@ tool	.installer/lib/feature-audit/live.sh	fa_collect:tail
 tool	.installer/lib/feature-audit/live.sh	fa_phase_keybinds:head
 tool	.installer/lib/feature-audit/live.sh	-:tr
 tool	.installer/lib/feature-audit/probe-lib.sh	fa_check:tail
-tool	.installer/lib/finalize.sh	_finalize_chrooted_pids:readlink
-tool	.installer/lib/finalize.sh	_finalize_holders:readlink
-tool	.installer/lib/finalize.sh	_finalize_holders:readlink
-tool	.installer/lib/finalize.sh	_finalize_holders:readlink
 tool	.installer/lib/guided/controller.sh	_ctl_pkg_derived_names:cut
 tool	.installer/lib/guided/controller.sh	_ctl_pkg_derived_names:cut
 tool	.installer/lib/guided/controller.sh	_ctl_pkg_derived_names:head
@@ -4361,14 +4355,10 @@ tool	.installer/tests/chroot/chroot-impermanence.bats	@test enabled: runtime hoo
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test enabled: runtime hook early-mounts /var and /var/log (var first):cut
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test enabled: runtime hook early-mounts /var and /var/log (var first):head
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test enabled: runtime hook early-mounts /var and /var/log (var first):head
-tool	.installer/tests/chroot/chroot-impermanence.bats	@test enabled: wants symlinks point to ../<unit>.mount (relative):readlink
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test extension: mv occurs before zfs snapshot:cut
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test extension: mv occurs before zfs snapshot:cut
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test extension: mv occurs before zfs snapshot:head
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test extension: mv occurs before zfs snapshot:tail
-tool	.installer/tests/chroot/chroot-impermanence.bats	@test extension: .wants symlink under /usr/lib/.../local-fs.target.wants:readlink
-tool	.installer/tests/chroot/chroot-impermanence.bats	@test relocate: mirrored wants symlink is relative (../<unit>):readlink
-tool	.installer/tests/chroot/chroot-impermanence.bats	@test relocate: mirrors the display-manager.service alias onto /usr/lib:readlink
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test resnapshot helper: destroy precedes snapshot in script:cut
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test resnapshot helper: destroy precedes snapshot in script:cut
 tool	.installer/tests/chroot/chroot-impermanence.bats	@test resnapshot helper: destroy precedes snapshot in script:head
@@ -4403,7 +4393,6 @@ tool	.installer/tests/config/profile-loader.bats	write_jsonc:dirname
 tool	.installer/tests/config/vscodium-program.bats	@test extension list has no duplicates (case-insensitive):tr
 tool	.installer/tests/config/vscodium-program.bats	@test extension list has no duplicates (case-insensitive):uniq
 tool	.installer/tests/extras/kde-adapter.bats	@test shipped apps_list matches the curated roster:wc
-tool	.installer/tests/extras/niri-adapter.bats	@test curates the packaged niri session into the shared /usr/local dir:readlink
 tool	.installer/tests/feature-audit/binds.bats	@test hyprland parser: locals, concatenation, for-loops, opts:wc
 tool	.installer/tests/feature-audit/binds.bats	@test kde parser: every active shortcut of every component, none skipped:wc
 tool	.installer/tests/feature-audit/binds.bats	@test kitty parser: map lines, kitty_mod = Ctrl+Shift:wc
@@ -4454,7 +4443,6 @@ tool	.installer/tests/impermanence-common.bats	@test persist_unapply: removes th
 tool	.installer/tests/impermanence-tool.bats	seed_all_curated_live:dirname
 tool	.installer/tests/impermanence-tool.bats	seed_live_file:dirname
 tool	.installer/tests/impermanence-tool.bats	setup:dirname
-tool	.installer/tests/impermanence-tool.bats	@test add: links the unit into /usr/lib local-fs.target.wants:readlink
 tool	.installer/tests/impermanence-tool.bats	@test add: preserves existing tmpfiles entries (append-only):dirname
 tool	.installer/tests/impermanence-tool.bats	@test apply-defaults: does not touch extension tmpfiles under /persist/:dirname
 tool	.installer/tests/impermanence-tool.bats	@test apply-defaults: removes stale extension tmpfiles entry when path becomes curated:dirname
@@ -4524,7 +4512,6 @@ tool	.installer/tests/profiles/profiles-secrets.bats	@test _profiles_create_user
 tool	.installer/tests/profiles/user-units-validate.bats	@test regression: a unit with an unknown directive is rejected:head
 tool	.installer/tests/run.sh	-:dirname
 tool	.installer/tests/shellcheck.sh	-:dirname
-tool	.installer/tests/sops.bats	@test sops_enable_runtime enables via /usr/lib vendor wants-symlink:readlink
 tool	.installer/tests/vm/claude-behavior.sh	-:dirname
 tool	.installer/tests/vm/flow-persistent.bats	@test render: holds for a host log pull before poweroff when asked:cut
 tool	.installer/tests/vm/flow-persistent.bats	@test render: holds for a host log pull before poweroff when asked:cut
@@ -4543,7 +4530,6 @@ tool	.installer/tests/vm/vm-agent.bats	@test session bakes @blank after writing 
 tool	.installer/tests/vm/vm-fixtures-regenerate.bats	@test regenerate.sh re-keys every hosts/vm/*/secrets.json fixture:dirname
 tool	.installer/tests/vm/vm-reorder-disks.bats	_src_for:head
 tool	.installer/tests/vm/vm-reorder-disks.bats	_src_for:head
-tool	.installer/tests/zfs/pool-owners.bats	@test pool_owners_apply_mount: chown path links ~/Disks/<pool> to the mount:readlink
 tool	.installer/tools/explain-packages.sh	-:basename
 tool	.installer/tools/explain-packages.sh	-:cut
 tool	.installer/tools/explain-packages.sh	-:cut

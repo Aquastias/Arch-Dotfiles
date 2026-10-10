@@ -54,12 +54,21 @@ One tool per job. Never trade readability for one fewer binary.
   multi-step text work), `grep` (filtering), `sort`, file ops (`mkdir cp mv rm
   ln find mktemp`).
 - **`sed`:** in-place edits (`sed -i`) only; other transforms go to `awk`.
-- **Replace:** `cut tr head tail wc paste comm uniq column bc xargs realpath
-  readlink` → a core tool or builtin (`mapfile`, `${#array[@]}`, `printf`).
+- **Replace:** `cut tr head tail wc paste comm uniq column bc xargs realpath`
+  and `readlink -f/-e/-m` → a core tool or builtin (`mapfile`,
+  `${#array[@]}`, `printf`). Plain `readlink <link>` (reading a symlink's
+  target, e.g. under `/proc`) has no builtin twin and is fine.
   `basename`/`dirname` → `parent_directory` / `base_name`, defined in every
   Commons world (Installer Stdlib, chroot common, Shell Stdlib). Before any
-  stdlib is sourced — a script locating its own directory — use the existing
-  idiom `"${BASH_SOURCE[0]%/*}"`.
+  stdlib is sourced — a script locating its own directory — strip the name
+  with `"${BASH_SOURCE[0]%/*}"`, but guard a path with no slash first (`bash
+  03-install.sh` would otherwise `cd` into the file name):
+
+  ```bash
+  script_path="${BASH_SOURCE[0]}"
+  [[ "$script_path" == */* ]] || script_path="./$script_path"
+  SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
+  ```
 - Merge consecutive `jq` reads of one input into one program when the result
   stays short or is factored with named `def`s.
 

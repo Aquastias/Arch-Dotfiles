@@ -31,7 +31,7 @@ BEGIN {
         "desk pct prev priv pub ref refs recs val var vars str tmp dir dirs " \
         "msg msgs cmd cmds err errs arg args kver zver uidx aidx vdir kdir " \
         "idir hdir cpath mpath fval jval tval lkey ltype ltopo dtype dtot " \
-        "dtopo dname dpool ddisk dsrc gname bpkg bsrc bdst fsrc fdst esps " \
+        "dtopo dname dpool ddisk dsrc gname bpkg bsrc bdst fsrc fdst " \
         "mcur mnew peff ueff beff deff penc pcat pcell pslot bslot suuid " \
         "wpid gexec impon impen errre eopts accts asgn asg adrs bgid buid " \
         "nzroot biglist", list, " ")
@@ -255,6 +255,10 @@ function check_commands(code, line, exempt,   count, n, word, peak) {
     if (word in block_opener) { depth++; if (depth > peak) peak = depth }
     else if (word in block_closer) depth--
     if (exempt) continue
+    # readlink reading a link target has no builtin twin; only path
+    # canonicalisation (-f/-e/-m, like realpath) is replace-tier.
+    if (word == "readlink" && segment[n] !~ /(^|[ \t])-[A-Za-z]*[fem]/)
+      continue
     if (word in replace_tier)
       emit("tool", line, current_function() ":" word, word)
     else if (word == "sed" && \
