@@ -2,7 +2,9 @@
 
 Config-altitude view of the installer: the end-to-end flow, what each
 config knob changes, and how the layered configs merge. Module-altitude
-view (which `lib/` file calls what) lives in [README §1](README.md).
+view (which `lib/` file calls what) lives in [README §1](README.md). The
+install itself, phase by phase, is `main()` at the top of
+[03-install.sh](03-install.sh) — read it first.
 Term definitions: `../CONTEXT.md`. Decisions: `../docs/adr/`.
 
 ## Legend
@@ -79,7 +81,7 @@ flowchart TD
     I2["02-wipe.sh<br/>(target disks only)"]:::act
     subgraph M["03-install.sh main()"]
       direction TB
-      M1["load_config<br/>filesystem × mode"]:::act
+      M1["lifecycle_load_config<br/>filesystem × mode"]:::act
       M2["source fs adapter<br/>+ validate"]:::act
       M3{"plan + summary<br/>proceed?"}:::dec
       M4["collect_enc_passphrase<br/>if encryption"]:::opt
@@ -166,7 +168,7 @@ flowchart LR
   d_sy["host sysctl"]:::cProf
   d_se["secrets.json + age key<br/>USB / age_key_url"]:::cSec
 
-  ph_lay["detect_mode +<br/>layout dispatch<br/>(fs × mode adapter)"]:::ph
+  ph_lay["lifecycle_detect_mode +<br/>layout dispatch<br/>(fs × mode adapter)"]:::ph
   ph_enc["collect_passphrase +<br/>zfs -O encryption"]:::ph
   ph_pk["packages.collect +<br/>zfs-dkms / kernel"]:::ph
   ph_g["ZFS Module Guard"]:::ph

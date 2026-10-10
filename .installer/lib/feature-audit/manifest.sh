@@ -142,8 +142,8 @@ fa_validate_config() {
       # shellcheck source=/dev/null
       source "$INSTALLER_DIR/$m"
     done
-    load_config >/dev/null 2>&1
-    detect_mode >/dev/null 2>&1
+    lifecycle_load_config >/dev/null 2>&1
+    lifecycle_detect_mode >/dev/null 2>&1
     # shellcheck source=/dev/null
     source "$(root_adapter_source "$INSTALLER_DIR" \
       "$(install_config_filesystem)" "$INSTALL_MODE")"

@@ -2,16 +2,19 @@
 # =============================================================================
 # lib/config/lifecycle.sh — Configuration management
 # =============================================================================
-# Sourced by 03-install.sh.
+# Used by: 03-install.sh, lib/feature-audit/manifest.sh.
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   load_config        — validates the config file exists and is valid JSON
-#   detect_mode        — sets INSTALL_MODE from config or auto-detects
-#   print_summary      — prints the installation plan and asks for confirmation
+#   lifecycle_load_config    — validates the config file exists and is valid
+#                              JSON
+#   lifecycle_detect_mode    — sets INSTALL_MODE from config or auto-detects
+#   lifecycle_print_summary  — prints the installation plan and asks for
+#                              confirmation
 #
 # Adding a new mode:
-#   1. add an entry to _CONFIG_MODE_SIG below (mode → defining JSON path),
+#   1. add an entry to _LIFECYCLE_MODE_SIGNATURES below (mode → defining JSON
+#      path),
 #   2. drop a lib/layout/<mode>.sh implementing the layout interface.
 # =============================================================================
 
@@ -31,16 +34,15 @@ RESOLVED_HOSTNAME=""
 # shellcheck disable=SC2034 # consumed by validation.sh, profiles.sh, chroot.sh
 RESOLVED_HOST_PROFILE=""
 
-
 # =============================================================================
 # MODE SIGNATURES — single source of truth for valid modes
 # =============================================================================
 # Each mode is defined by a "signature": a JSON path that must be present and
-# non-empty. If multiple signatures match, detect_mode() errors — set 'mode'
-# explicitly instead. validate_install_context() dispatches
+# non-empty. If multiple signatures match, lifecycle_detect_mode() errors — set
+# 'mode' explicitly instead. validate_install_context() dispatches
 # to _validation_<mode>().
 
-declare -gA _CONFIG_MODE_SIG=(
+declare -gA _LIFECYCLE_MODE_SIGNATURES=(
   [single]=".disk"
   [multi]=".os_pool.disks"
 )
@@ -49,7 +51,7 @@ declare -gA _CONFIG_MODE_SIG=(
 # CONFIG LOADING
 # =============================================================================
 
-load_config() {
+lifecycle_load_config() {
   section "Loading Configuration"
   if [[ ! -f "$CONFIG_FILE" ]]; then
     error "Config not found: $CONFIG_FILE" \
@@ -67,46 +69,46 @@ load_config() {
 # =============================================================================
 # MODE DETECTION
 # =============================================================================
-# Picks the mode by signature presence in the config. Returns 0 if the given
-# mode's JSON-path signature resolves to a non-null, non-empty value.
 
-# Returns 0 if the given mode's signature is satisfied by the current config.
-_config_mode_matches() {
+# Returns 0 if the given mode's JSON-path signature resolves to a non-null,
+# non-empty value in the current config.
+_lifecycle_mode_matches() {
   local mode="$1"
-  local sig="${_CONFIG_MODE_SIG[$mode]:-}"
-  [[ -n "$sig" ]] || return 1
+  local signature="${_LIFECYCLE_MODE_SIGNATURES[$mode]:-}"
+  [[ -n "$signature" ]] || return 1
 
-  if [[ "$sig" == *.disks ]]; then
-    local cnt
-    cnt="$(jsonc_strip "$CONFIG_FILE" | jq "${sig} | length // 0")"
-    ((cnt >= 1))
+  if [[ "$signature" == *.disks ]]; then
+    local disk_count
+    disk_count="$(jsonc_strip "$CONFIG_FILE" | jq "${signature} | length // 0")"
+    ((disk_count >= 1))
   else
-    local v
-    v="$(cfgo "$sig")"
-    [[ -n "$v" ]]
+    local value
+    value="$(cfgo "$signature")"
+    [[ -n "$value" ]]
   fi
 }
 
-detect_mode() {
+lifecycle_detect_mode() {
   section "Detecting Install Mode"
 
-  local cfg_mode
-  cfg_mode="$(cfgo '.mode')"
+  local configured_mode
+  configured_mode="$(cfgo '.mode')"
 
-  if [[ -n "$cfg_mode" ]]; then
-    [[ -v "_CONFIG_MODE_SIG[$cfg_mode]" ]] ||
-      error "Unknown mode '${cfg_mode}'. Valid: ${!_CONFIG_MODE_SIG[*]}."
-    INSTALL_MODE="$cfg_mode"
+  if [[ -n "$configured_mode" ]]; then
+    [[ -v "_LIFECYCLE_MODE_SIGNATURES[$configured_mode]" ]] ||
+      error "Unknown mode '${configured_mode}'." \
+            "Valid: ${!_LIFECYCLE_MODE_SIGNATURES[*]}."
+    INSTALL_MODE="$configured_mode"
     info "Mode from config: ${INSTALL_MODE}"
     return
   fi
 
   # Auto-detect: collect every mode whose signature is satisfied. Ambiguity
   # (two signatures match) is an explicit error — callers must set 'mode'.
-  local m matched=()
-  for m in $(echo "${!_CONFIG_MODE_SIG[@]}" | tr ' ' '\n' | sort); do
-    _config_mode_matches "$m" && matched+=("$m")
-  done
+  local mode matched=()
+  while IFS= read -r mode; do
+    _lifecycle_mode_matches "$mode" && matched+=("$mode")
+  done < <(printf '%s\n' "${!_LIFECYCLE_MODE_SIGNATURES[@]}" | sort)
 
   if ((${#matched[@]} > 1)); then
     error "Ambiguous config: signatures for [${matched[*]}] all match." \
@@ -120,161 +122,191 @@ detect_mode() {
   fi
 
   error "Cannot auto-detect mode." \
-        "Set 'mode' to one of: ${!_CONFIG_MODE_SIG[*]}."
+        "Set 'mode' to one of: ${!_LIFECYCLE_MODE_SIGNATURES[*]}."
 }
-
 
 # =============================================================================
 # SUMMARY & CONFIRMATION
 # =============================================================================
 
-
-print_summary() {
+lifecycle_print_summary() {
   section "Installation Plan"
 
   if [[ "$INSTALL_MODE" == "single" ]]; then
-    local d
-    d="$(cfgo '.disk')"
-    local sz
-    sz="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-    local rp dp mnt
-    rp="$(install_config_os_pool_name)"
-    dp="$(install_config_storage_pool_name)"
-    mnt="$(install_config_storage_mount)"
-    echo -e "\n  ${BOLD}Mode: single-disk${NC}"
-    printf "    %-16s %s\n" "Disk:" "$d  ($sz)"
-    printf "    %-16s %s\n" "OS pool:" "$rp  (no RAID, single partition)"
-    printf "    %-16s %s\n" "Storage:" "$dp → $mnt"
-
-  else # multi
-    local op
-    op="$(cfg '.os_pool.pool_name')"
-    echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
-
-    # The detailed multi summary below reads the ZFS multi adapter's internal
-    # state (topology / storage groups / standalone pools). A non-ZFS (btrfs)
-    # multi root has none of that — print a simple topology + disk list instead.
-    if [[ "$(install_config_filesystem)" != "zfs" ]]; then
-      local _nztopo
-      _nztopo="$(cfgo '.os_pool.topology')"
-      [[ -z "$_nztopo" ]] && _nztopo=single
-      echo -e "  ${BOLD}Root: $(install_config_filesystem) (${_nztopo})${NC}"
-      local d
-      while IFS= read -r d; do
-        local s
-        s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-        printf "    %s  (%s)\n" "$d" "$s"
-      done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
-    else
-    local _ostopo _osdisk
-    _ostopo="$(layout_os_topology)"
-    _osdisk="$(layout_os_disk)"
-    echo -e "  ${BOLD}OS pool: ${op}${NC}" \
-            " topology: ${_ostopo}"
-
-    if [[ "$_ostopo" == "none" ]]; then
-      local s
-      s="$(lsblk -dno SIZE "$_osdisk" 2>/dev/null || echo '?')"
-      printf "    OS disk  : %s  (%s)\n" "$_osdisk" "$s"
-      local _left
-      _left="$(layout_leftover_disks | paste -sd' ' -)"
-      [[ -n "$_left" ]] &&
-        printf "    → dpool  : %s\n" "$_left"
-    else
-      while IFS= read -r d; do
-        local s
-        s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-        printf "    %s  (%s)\n" "$d" "$s"
-      done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
-    fi
-
-    local sg
-    sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
-    local has_left=false
-    layout_has_leftover && has_left=true
-
-    if ((sg > 0)) || $has_left; then
-      echo -e "\n  ${BOLD}Data pool: dpool${NC}"
-      for ((i = 0; i < sg; i++)); do
-        local gn
-        gn="$(cfg ".storage_groups[$i].name")"
-        local gm
-        gm="$(cfg ".storage_groups[$i].mount")"
-        local gt; gt="$(layout_group_topology "$gn")"; gt="${gt:-?}"
-        printf "    '%-12s  → %-20s  topology: %s\n" "${gn}'" "$gm" "$gt"
-      done
-      if $has_left; then
-        local lt; lt="$(layout_group_topology _leftover)"
-        printf "    '%-12s  → %-20s  topology: %s\n" \
-          "extra (auto)'" "/data/extra" \
-          "${lt:-independent}"
-      fi
-    fi
-
-    local _dpn_all
-    _dpn_all="$(layout_data_pool_names)"
-    if [[ -n "$_dpn_all" ]]; then
-      echo -e "\n  ${BOLD}Standalone data pools:${NC}"
-      local dpn
-      while IFS= read -r dpn; do
-        printf "    '%-12s  → %-20s  topology: %s\n" \
-          "${dpn}'" "$(layout_data_pool_mount "$dpn")" \
-          "$(layout_data_pool_topo "$dpn")"
-      done <<<"$_dpn_all"
-    fi
-    fi # zfs vs non-zfs multi summary
+    _lifecycle_print_single_disk_plan
+  else
+    _lifecycle_print_multi_disk_plan
   fi
 
-  # Packages — one line per packages.repo category (the sole authored repo
-  # slot now that extra/groups are gone).
-  echo ""
-  echo -e "  ${BOLD}Packages:${NC}"
-  local _cat _names
-  while IFS=$'\t' read -r _cat _names; do
-    [[ -n "$_names" ]] && printf "    %s: %s\n" "$_cat" "$_names"
-  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
-    (.packages.repo // {}) | to_entries[]
-    | select(.value | type == "array")
-    | "\(.key)\t\(.value | join(", "))"')
+  _lifecycle_print_packages
 
-  # Environment
   echo ""
   echo -e "  ${BOLD}Environment:${NC}"
   print_environment_summary
 
-  # Security & Backup Extras (ADR 0041) — the resolved program list installed
-  # via the Primary User's paru pass. Empty when nothing is selected.
-  local _pi _extras
-  _pi="$(jsonc_strip "$CONFIG_FILE" | jq -c '.post_install // {}')"
-  _extras="$(post_install_programs "$_pi" "$(install_config_any_zfs)" \
-    | paste -sd ', ')"
+  _lifecycle_print_extras
+  _lifecycle_print_settings
+  echo ""
+  warn "ALL DATA ON THE LISTED DISKS WILL BE PERMANENTLY DESTROYED."
+  confirm "Proceed with installation?"
+}
+
+# _lifecycle_disk_size <disk> — the disk's size as lsblk prints it, or "?".
+_lifecycle_disk_size() {
+  lsblk -dno SIZE "$1" 2>/dev/null || echo '?'
+}
+
+# _lifecycle_print_os_disks — one "<disk>  (<size>)" line per OS-pool disk.
+_lifecycle_print_os_disks() {
+  local disk
+  while IFS= read -r disk; do
+    printf "    %s  (%s)\n" "$disk" "$(_lifecycle_disk_size "$disk")"
+  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
+}
+
+_lifecycle_print_single_disk_plan() {
+  local disk os_pool storage_pool storage_mount
+  disk="$(cfgo '.disk')"
+  os_pool="$(install_config_os_pool_name)"
+  storage_pool="$(install_config_storage_pool_name)"
+  storage_mount="$(install_config_storage_mount)"
+  echo -e "\n  ${BOLD}Mode: single-disk${NC}"
+  printf "    %-16s %s\n" "Disk:" "$disk  ($(_lifecycle_disk_size "$disk"))"
+  printf "    %-16s %s\n" "OS pool:" "$os_pool  (no RAID, single partition)"
+  printf "    %-16s %s\n" "Storage:" "$storage_pool → $storage_mount"
+}
+
+_lifecycle_print_multi_disk_plan() {
+  local os_pool_name
+  os_pool_name="$(cfg '.os_pool.pool_name')"
+  echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
+
+  # The detailed multi summary reads the ZFS multi adapter's internal state
+  # (topology / storage groups / standalone pools). A non-ZFS (btrfs) multi
+  # root has none of that — print a simple topology + disk list instead.
+  if [[ "$(install_config_filesystem)" != "zfs" ]]; then
+    local topology
+    topology="$(cfgo '.os_pool.topology')"
+    [[ -z "$topology" ]] && topology=single
+    echo -e "  ${BOLD}Root: $(install_config_filesystem) (${topology})${NC}"
+    _lifecycle_print_os_disks
+    return 0
+  fi
+
+  _lifecycle_print_zfs_os_pool "$os_pool_name"
+  _lifecycle_print_zfs_data_pool
+  _lifecycle_print_standalone_data_pools
+}
+
+_lifecycle_print_zfs_os_pool() {
+  local os_pool_name="$1" os_topology os_disk
+  os_topology="$(layout_os_topology)"
+  os_disk="$(layout_os_disk)"
+  echo -e "  ${BOLD}OS pool: ${os_pool_name}${NC}" \
+          " topology: ${os_topology}"
+
+  if [[ "$os_topology" != "none" ]]; then
+    _lifecycle_print_os_disks
+    return 0
+  fi
+  printf "    OS disk  : %s  (%s)\n" "$os_disk" \
+    "$(_lifecycle_disk_size "$os_disk")"
+  local leftover_disks joined
+  mapfile -t leftover_disks < <(layout_leftover_disks)
+  joined="${leftover_disks[*]}"
+  [[ -n "$joined" ]] &&
+    printf "    → dpool  : %s\n" "$joined"
+  return 0
+}
+
+_lifecycle_print_zfs_data_pool() {
+  local storage_group_count has_leftover=false
+  storage_group_count="$(jsonc_strip "$CONFIG_FILE" \
+    | jq '.storage_groups | length')"
+  layout_has_leftover && has_leftover=true
+  ((storage_group_count > 0)) || $has_leftover || return 0
+
+  echo -e "\n  ${BOLD}Data pool: dpool${NC}"
+  local i group_name group_mount group_topology
+  for ((i = 0; i < storage_group_count; i++)); do
+    group_name="$(cfg ".storage_groups[$i].name")"
+    group_mount="$(cfg ".storage_groups[$i].mount")"
+    group_topology="$(layout_group_topology "$group_name")"
+    printf "    '%-12s  → %-20s  topology: %s\n" \
+      "${group_name}'" "$group_mount" "${group_topology:-?}"
+  done
+  if $has_leftover; then
+    local leftover_topology
+    leftover_topology="$(layout_group_topology _leftover)"
+    printf "    '%-12s  → %-20s  topology: %s\n" \
+      "extra (auto)'" "/data/extra" "${leftover_topology:-independent}"
+  fi
+}
+
+_lifecycle_print_standalone_data_pools() {
+  local data_pool_names data_pool
+  data_pool_names="$(layout_data_pool_names)"
+  [[ -n "$data_pool_names" ]] || return 0
+  echo -e "\n  ${BOLD}Standalone data pools:${NC}"
+  while IFS= read -r data_pool; do
+    printf "    '%-12s  → %-20s  topology: %s\n" \
+      "${data_pool}'" "$(layout_data_pool_mount "$data_pool")" \
+      "$(layout_data_pool_topo "$data_pool")"
+  done <<<"$data_pool_names"
+}
+
+# Packages — one line per packages.repo category (the sole authored repo
+# slot now that extra/groups are gone).
+_lifecycle_print_packages() {
+  echo ""
+  echo -e "  ${BOLD}Packages:${NC}"
+  local category names
+  while IFS=$'\t' read -r category names; do
+    [[ -n "$names" ]] && printf "    %s: %s\n" "$category" "$names"
+  done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
+    (.packages.repo // {}) | to_entries[]
+    | select(.value | type == "array")
+    | "\(.key)\t\(.value | join(", "))"')
+}
+
+# Security & Backup Extras (ADR 0041) — the resolved program list installed
+# via the Primary User's paru pass. Empty when nothing is selected.
+_lifecycle_print_extras() {
+  local post_install_json extras
+  post_install_json="$(jsonc_strip "$CONFIG_FILE" \
+    | jq -c '.post_install // {}')"
+  # Joined the way `paste -sd ', '` always did: the separators alternate
+  # "," then " " (bug filed separately — the intent was ", ").
+  extras="$(post_install_programs "$post_install_json" \
+      "$(install_config_any_zfs)" \
+    | awk '{ printf "%s%s", (NR == 1 ? "" : (NR % 2 == 0 ? "," : " ")), $0 }
+           END { if (NR) print "" }')"
   echo ""
   echo -e "  ${BOLD}Security & Backup Extras:${NC}"
-  printf "    %-12s %s\n" "install:" "${_extras:-(none)}"
+  printf "    %-12s %s\n" "install:" "${extras:-(none)}"
+}
 
+_lifecycle_print_settings() {
   echo ""
-  local enc; enc="$(install_config_encryption_enabled)"
-  local swap _zswap
-  swap="$(install_config_swap_enabled)"
-  if [[ "$swap" == "true" && "$(install_config_zswap_enabled)" == "true" ]]; then
-    _zswap="  ·  zswap ($(install_config_zswap_compressor))"
-  else
-    _zswap=""
+  local encryption swap_enabled zswap_note hostname dotfiles_repo
+  encryption="$(install_config_encryption_enabled)"
+  swap_enabled="$(install_config_swap_enabled)"
+  zswap_note=""
+  if [[ "$swap_enabled" == "true" \
+        && "$(install_config_zswap_enabled)" == "true" ]]; then
+    zswap_note="  ·  zswap ($(install_config_zswap_compressor))"
   fi
-  local _hn
-  _hn="$(install_config_hostname)"
-  _hn="${_hn:-(prompted during install)}"
-  printf "  %-16s %s\n" "Hostname:" "$_hn"
+  hostname="$(install_config_hostname)"
+  hostname="${hostname:-(prompted during install)}"
+  printf "  %-16s %s\n" "Hostname:" "$hostname"
   # Resolved, not raw (ADR 0118): shows the value that will actually apply
   # (explicit/guided → geo-IP autodetect → Europe/Bucharest), and never aborts
   # on an absent field the way the required-field cfg reader would.
   printf "  %-16s %s\n" "Timezone:" "$(install_config_timezone)"
-  printf "  %-16s %s\n" "Encryption:" "$enc"
-  printf "  %-16s %s\n" "Swap:" "$swap  (auto = RAM × 2)$_zswap"
-  local _dr
-  _dr="$(install_config_dotfiles_repo)"
-  [[ -n "$_dr" ]] && printf "  %-16s %s\n" "Dotfiles:" "$_dr"
-  echo ""
-  warn "ALL DATA ON THE LISTED DISKS WILL BE PERMANENTLY DESTROYED."
-  confirm "Proceed with installation?"
+  printf "  %-16s %s\n" "Encryption:" "$encryption"
+  printf "  %-16s %s\n" "Swap:" "$swap_enabled  (auto = RAM × 2)$zswap_note"
+  dotfiles_repo="$(install_config_dotfiles_repo)"
+  [[ -n "$dotfiles_repo" ]] && \
+    printf "  %-16s %s\n" "Dotfiles:" "$dotfiles_repo"
+  return 0
 }

@@ -30,7 +30,6 @@ file-length	.installer/vm/vm-agent.sh	-
 function-length	.installer/01-bootstrap-zfs.sh	check_internet
 function-length	.installer/02-wipe.sh	main
 function-length	.installer/02-wipe.sh	reset_prior_install_state
-function-length	.installer/03-install.sh	main
 function-length	.installer/lib/boot/esp-kernel-sync.sh	_esp_kernel_sync_run
 function-length	.installer/lib/chroot/impermanence.sh	_impermanence_graphical_session_fix
 function-length	.installer/lib/chroot/impermanence.sh	_impermanence_write_rollback_hook_btrfs
@@ -40,7 +39,6 @@ function-length	.installer/lib/chroot.sh	configure_system
 function-length	.installer/lib/chroot.sh	write_esp_mirror_hook
 function-length	.installer/lib/config/categorized-list.sh	categorized_list_parse
 function-length	.installer/lib/config/environment.sh	_resolve_env_validate
-function-length	.installer/lib/config/lifecycle.sh	print_summary
 function-length	.installer/lib/config/menu.sh	menu_rows
 function-length	.installer/lib/config/seed.sh	_cfgstate_computed_defaults
 function-length	.installer/lib/config/validation.sh	_validation_preflight_programs
@@ -51,7 +49,6 @@ function-length	.installer/lib/feature-audit/live.sh	fa_phase_power
 function-length	.installer/lib/feature-audit/live.sh	_fa_probe_runner_script
 function-length	.installer/lib/feature-audit/live.sh	fa_run_variant
 function-length	.installer/lib/feature-audit/report.sh	_fa_candidates
-function-length	.installer/lib/finalize.sh	finalize
 function-length	.installer/lib/guided/controller.sh	_ctl_enter_category
 function-length	.installer/lib/guided/controller.sh	_ctl_enter_pkgbrowse
 function-length	.installer/lib/guided/controller.sh	_ctl_enter_pooledit
@@ -109,7 +106,6 @@ function-length	.installer/vm/vm.sh	main
 function-name	.installer/02-wipe.sh	parse_args
 function-name	.installer/02-wipe.sh	_wipe_mounts_under_mnt
 function-name	.installer/02-wipe.sh	_wipe_pools_altroot_mnt
-function-name	.installer/03-install.sh	parse_args
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_xdg_dir
@@ -989,29 +985,6 @@ local-name	.installer/lib/config/layers.sh	resolve_program:d
 local-name	.installer/lib/config/layers.sh	resolve_program:rel
 local-name	.installer/lib/config/layers.sh	validate_program:dir
 local-name	.installer/lib/config/layers.sh	validate_program:rel
-local-name	.installer/lib/config/lifecycle.sh	_config_mode_matches:cnt
-local-name	.installer/lib/config/lifecycle.sh	_config_mode_matches:v
-local-name	.installer/lib/config/lifecycle.sh	detect_mode:cfg_mode
-local-name	.installer/lib/config/lifecycle.sh	detect_mode:m
-local-name	.installer/lib/config/lifecycle.sh	detect_mode:m
-local-name	.installer/lib/config/lifecycle.sh	print_summary:d
-local-name	.installer/lib/config/lifecycle.sh	print_summary:d
-local-name	.installer/lib/config/lifecycle.sh	print_summary:dp
-local-name	.installer/lib/config/lifecycle.sh	print_summary:_dr
-local-name	.installer/lib/config/lifecycle.sh	print_summary:enc
-local-name	.installer/lib/config/lifecycle.sh	print_summary:gm
-local-name	.installer/lib/config/lifecycle.sh	print_summary:gn
-local-name	.installer/lib/config/lifecycle.sh	print_summary:gt
-local-name	.installer/lib/config/lifecycle.sh	print_summary:_hn
-local-name	.installer/lib/config/lifecycle.sh	print_summary:lt
-local-name	.installer/lib/config/lifecycle.sh	print_summary:mnt
-local-name	.installer/lib/config/lifecycle.sh	print_summary:op
-local-name	.installer/lib/config/lifecycle.sh	print_summary:rp
-local-name	.installer/lib/config/lifecycle.sh	print_summary:s
-local-name	.installer/lib/config/lifecycle.sh	print_summary:s
-local-name	.installer/lib/config/lifecycle.sh	print_summary:s
-local-name	.installer/lib/config/lifecycle.sh	print_summary:sg
-local-name	.installer/lib/config/lifecycle.sh	print_summary:sz
 local-name	.installer/lib/config/locale-parts.sh	locale_compose:enc
 local-name	.installer/lib/config/locale-source.sh	locale_list_encodings:f
 local-name	.installer/lib/config/locale-source.sh	locale_list_languages:f
@@ -1280,27 +1253,6 @@ local-name	.installer/lib/feature-audit/report.sh	_fa_noise_tsv:f
 local-name	.installer/lib/feature-audit/report.sh	_fa_render_md:n
 local-name	.installer/lib/feature-audit/report.sh	fa_report:md
 local-name	.installer/lib/feature-audit/report.sh	_fa_variant_adrs:vs
-local-name	.installer/lib/finalize.sh	_finalize_chrooted_pids:d
-local-name	.installer/lib/finalize.sh	_finalize_chrooted_pids:d
-local-name	.installer/lib/finalize.sh	_finalize_chrooted_pids:r
-local-name	.installer/lib/finalize.sh	finalize:dp
-local-name	.installer/lib/finalize.sh	finalize:dp
-local-name	.installer/lib/finalize.sh	_finalize_export_pool:err
-local-name	.installer/lib/finalize.sh	_finalize_export_pool:m
-local-name	.installer/lib/finalize.sh	_finalize_export_pool:p
-local-name	.installer/lib/finalize.sh	_finalize_export_pool:src
-local-name	.installer/lib/finalize.sh	_finalize_holders:d
-local-name	.installer/lib/finalize.sh	_finalize_holders:d
-local-name	.installer/lib/finalize.sh	_finalize_holders:l
-local-name	.installer/lib/finalize.sh	_finalize_holders:l
-local-name	.installer/lib/finalize.sh	_finalize_holders:ns
-local-name	.installer/lib/finalize.sh	_finalize_holders:p
-local-name	.installer/lib/finalize.sh	_finalize_holders:pr
-local-name	.installer/lib/finalize.sh	_finalize_holders:t
-local-name	.installer/lib/finalize.sh	_finalize_holders:z
-local-name	.installer/lib/finalize.sh	_finalize_holders:z
-local-name	.installer/lib/finalize.sh	finalize:_mp
-local-name	.installer/lib/finalize.sh	finalize:rp
 local-name	.installer/lib/globals.sh	layout_data_pool_topo:_LAYOUT_IMPL_DATA_POOL_TOPO
 local-name	.installer/lib/guided/controller.sh	-:cfgstate_get
 local-name	.installer/lib/guided/controller.sh	-:cfgstate_host_core
@@ -2804,7 +2756,7 @@ local-name	.installer/tests/matrix/matrix-synth.bats	@test verify: encrypted imp
 local-name	.installer/tests/matrix/matrix-synth.bats	@test verify: impermanent cell → boot + rollback (two-boot proof):v
 local-name	.installer/tests/matrix/matrix-synth.bats	@test verify: plain cell → first-boot sentinel only:v
 local-name	.installer/tests/matrix/print-summary-setu.bats	_summary_unbound:cfg
-local-name	.installer/tests/matrix/print-summary-setu.bats	@test print_summary is set-u-clean for the none+leftover model branch:cfg
+local-name	.installer/tests/matrix/print-summary-setu.bats	@test lifecycle_print_summary is set-u-clean for the none+leftover branch:cfg
 local-name	.installer/tests/packages/archzfs-kernel.bats	@test build_repo: exact missing → uses closest available compatible:dir
 local-name	.installer/tests/packages/archzfs-kernel.bats	@test build_repo: exact version fetches → pins to it:dir
 local-name	.installer/tests/packages/archzfs-kernel.bats	@test build_repo: fetch logs never leak into the captured version (spec):dir
@@ -3115,7 +3067,6 @@ local-name	.installer/vm/vm-agent.sh	verb_session:dm
 local-name	.installer/vm/vm-agent.sh	verb_sudo:s
 local-name	.installer/vm/vm.sh	main:hosts_dir
 local-name	.installer/vm/vm.sh	main:profile_ref
-nesting	.installer/lib/config/lifecycle.sh	print_summary
 nesting	.installer/lib/guided/controller.sh	guided_ctl_list
 nesting	.installer/lib/matrix/generator.sh	matrix_tier1_cells
 nesting	.installer/lib/matrix/pairwise.sh	matrix_pairwise
@@ -3293,10 +3244,6 @@ prefix	.installer/lib/config/layers.sh	resolve_program
 prefix	.installer/lib/config/layers.sh	validate_package_program_exclusivity
 prefix	.installer/lib/config/layers.sh	validate_program
 prefix	.installer/lib/config/layers.sh	validate_programs
-prefix	.installer/lib/config/lifecycle.sh	_config_mode_matches
-prefix	.installer/lib/config/lifecycle.sh	detect_mode
-prefix	.installer/lib/config/lifecycle.sh	load_config
-prefix	.installer/lib/config/lifecycle.sh	print_summary
 prefix	.installer/lib/config/locale-parts.sh	locale_compose
 prefix	.installer/lib/config/locale-parts.sh	locale_encoding
 prefix	.installer/lib/config/locale-parts.sh	locale_language
@@ -4125,8 +4072,6 @@ tool	.installer/02-wipe.sh	_wipe_probe_disk:tail
 tool	.installer/02-wipe.sh	_wipe_probe_disk:tr
 tool	.installer/02-wipe.sh	_wipe_probe_disk:wc
 tool	.installer/02-wipe.sh	_wipe_probe_disk:wc
-tool	.installer/03-install.sh	-:dirname
-tool	.installer/03-install.sh	parse_args:basename
 tool	.installer/extras/desktop/audit-wlroots.sh	_fa_qt_env:head
 tool	.installer/extras/desktop/audit-wlroots.sh	_fa_qt_env:tr
 tool	.installer/extras/desktop/hyprland/audit-fixtures/audit-wlroots.sh	_fa_qt_env:head
@@ -4192,9 +4137,6 @@ tool	.installer/lib/config/layers.sh	configs_build_registry:basename
 tool	.installer/lib/config/layers.sh	configs_build_registry:dirname
 tool	.installer/lib/config/layers.sh	resolve_program:basename
 tool	.installer/lib/config/layers.sh	resolve_program:dirname
-tool	.installer/lib/config/lifecycle.sh	detect_mode:tr
-tool	.installer/lib/config/lifecycle.sh	print_summary:paste
-tool	.installer/lib/config/lifecycle.sh	print_summary:paste
 tool	.installer/lib/config/manual-partition.sh	manual_target_disk:head
 tool	.installer/lib/config/manual-partition.sh	manual_target_disk:readlink
 tool	.installer/lib/config/profile.sh	_validate_bootloader:paste

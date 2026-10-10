@@ -21,7 +21,7 @@
 
 # shellcheck disable=SC2034  # all vars consumed by other sourced modules
 
-# "single" | "multi" — set by detect_mode() in config.sh
+# "single" | "multi" — set by lifecycle_detect_mode() in config/lifecycle.sh
 INSTALL_MODE=""
 PICK_RESULT=""           # last result from pick_option() in common.sh
 

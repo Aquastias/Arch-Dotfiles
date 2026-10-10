@@ -26,3 +26,10 @@ doc is adjusted to what's agreed before 06–21 start.
 - [ ] Full VM install green at ticket close
 - [ ] `main()` outline at top; `ARCHITECTURE.md` links to it
 - [ ] Owner style review done; doc updated with outcomes
+
+## Comments
+
+- Pilot scoped to 03-install.sh + lib/config/lifecycle.sh + lib/finalize.sh
+  (03-install sources 24 libs; all of them would swallow tickets 06-14).
+  Summary output verified byte-identical across all 360 matrix cells.
+  Awaiting owner style review; VM install not run yet.
