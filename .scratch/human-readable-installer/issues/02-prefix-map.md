@@ -17,3 +17,8 @@ lint's Prefix rule switches on, existing mismatches baselined.
 - [ ] Owner approved
 - [ ] Prefix rule + fixture tests (wrong/missing Prefix caught; Interface
       Function allowed); baseline updated; suite green
+
+## Comments
+
+- Draft map written to `docs/agents/readability.md` (Prefix Map). Waiting on
+  owner approval; Prefix lint rule lands after.

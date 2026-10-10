@@ -112,7 +112,197 @@ exceptions (a `head` that cuts a stream on purpose), never to dodge a rename.
 
 ## Prefix Map
 
-Pending approval (ticket 02 of `.scratch/human-readable-installer/`).
+**Status: draft — pending owner approval** (ticket 02 of
+`.scratch/human-readable-installer/`). Area tickets apply it; the lint's
+Prefix rule switches on once approved.
+
+### Rules behind the map
+
+1. **File stem.** Public `<stem>_`, private `_<stem>_` (`-` → `_`).
+2. **Directory API.** A directory whose files serve one public API lends its
+   name to every public function; private ones keep `_<stem>_`. Directory APIs:
+   `feature-audit/` → `feature_audit_`, `guided/` → `guided_`, `layout/` →
+   `layout_`, `matrix/` → `matrix_`, `wipe/` → `wipe_`, `zfs/` → `zfs_`,
+   `vm/lib/` → `vm_`.
+3. **Rename the file, not the functions,** when its functions already share a
+   readable name (`accessors.sh` holds `install_config_*` →
+   `install-config.sh`).
+4. **Exempt from a Prefix** (names must still be words):
+   - executables, never sourced — entry scripts, `install.sh`, `tools/*.sh`,
+     `vm/vm.sh`, `vm/vm-agent.sh`, `tests/*.sh`, program `scripts/`;
+   - the stdlibs — `lib/common.sh`, `lib/chroot/chroot-common.sh`,
+     `lib/chroot/extras-common.sh`, `lib/shell/*.sh` — they are the base
+     vocabulary (`info`, `confirm`, `parent_directory`);
+   - a function named exactly its stem (`jsonc`, `finalize`);
+   - bats files (test-local helpers);
+   - frozen external contracts: mkinitcpio hook API (`run_hook`,
+     `run_latehook`, `build`, `help`).
+5. **Interface Functions** keep one shared name across backends (below).
+6. **Stem clash** (two files, same stem, both public): qualify with the
+   parent directory. Private clashes are harmless.
+
+### Interface Functions
+
+- Layout interface (Layout Module / Root Layout Adapter, already in
+  `CONTEXT.md`): `layout_validate`, `layout_plan`, `layout_partition`,
+  `layout_create_pools`, `layout_mount_esp`; hooks `_layout_plan_mode`,
+  `_layout_os_disks`, `_layout_publish_boot` — names kept.
+- Root filesystem hooks: `_root_mkfs` → `root_adapter_mkfs`, `_root_fstype`
+  → `root_adapter_fstype`.
+- Data Group Formatter: `_data_mkfs` → `data_formatter_mkfs`,
+  `data_group_create` → `data_formatter_create_group`.
+- VM flow (one flow sourced per run): `flow_run`, `_flow_build_seed`,
+  `_flow_render_user_data` — names kept.
+- Feature Audit probes (`programs/*/*/audit.sh`, `extras/**/audit*.sh`):
+  `_fa_*` → `_probe_*`.
+
+### Stdlib renames (words, no Prefix)
+
+- `cfg` → `config_required`, `cfgo` → `config_optional` (Installer Stdlib).
+- `lib/preflight.sh` `command_exists` duplicate → dropped (stdlib's).
+- `lib/packages/kernel.sh` `error` duplicate → dropped (stdlib's).
+
+### Per file
+
+Format: `file`: today → public / private. `=` means unchanged.
+
+lib/
+- `aur-helper.sh`: `_aur_`, `_profiles_` → `aur_helper_` / `_aur_helper_`
+- `chroot.sh`: `write_*`, `configure_system`, `collect_passwords`,
+  `apply_impermanence`, `_chroot_`, `_resolve_` → `chroot_` / `_chroot_`
+- `finalize.sh`: `finalize`, `_finalize_` → `=`
+- `globals.sh`: `layout_*` accessors → move to `layout/state.sh`, names kept
+- `grub-common.sh`: `_grub_` → `_grub_common_`
+- `impermanence-common.sh`: `imp_`, `persist_` → `impermanence_common_`
+- `install-state.sh`, `jsonc.sh`, `picker.sh`, `prompt.sh`, `secrets.sh`,
+  `preflight.sh` → `=`
+- `live-medium.sh`: `_lm_`, `is_live_medium`, `live_medium_` →
+  `live_medium_` / `_live_medium_`
+
+lib/boot/
+- `bootloaders.sh` → rename `bootloader.sh`; `bootloader_` kept
+- `esp-budget.sh`: `esp_` → `esp_budget_`
+- `esp-kernel-sync.sh`: `esp_` → `esp_kernel_sync_`
+- `esp-stage.sh`: `esp_` → `esp_stage_`
+- `loader-entries.sh`: `sdboot_entry`, `grub_entry`, … →
+  `loader_entries_<bootloader>` (`loader_entries_systemd_boot`)
+- `lts-hold.sh`: `lts_`, `_lts_` → `lts_hold_`
+- `stray-kernel.sh`: `stray_` → `stray_kernel_`
+- `vm-video.sh`: `vm_` → `vm_video_`
+- `lsm.sh`, `zswap.sh` → `=`
+
+lib/chroot/ (Chroot Configuration Modules; per-file stems)
+- `base-services.sh`: `enable_*_services` → `base_services_`
+- `bootloader-common.sh`: `blcommon_`, `_bl_` → `bootloader_common_`
+- `create-user.sh`: `filter_existing_groups` → `create_user_`
+- `gpu.sh`: `_gpu_` → `=` (private only)
+- `impermanence.sh`: `_impermanence_`, `_imp_` → `_impermanence_`; hook API
+  frozen
+- `initcpio.sh`: `_initcpio_` → `=`; hook API frozen
+- `noctalia-preset.sh`: `noctalia_`, `_noc_` → `noctalia_preset_`
+- `udisks.sh` → `=`
+- `zfs-import.sh`: `zfs_import_`, `zfs_write_` → `zfs_import_`
+
+lib/config/ (per-file stems)
+- `accessors.sh` → rename `install-config.sh`; `install_config_` kept
+- `categorized-list.sh`: `categorized_` → `categorized_list_`
+- `config-apply.sh`: `ca_` → `config_apply_`
+- `edits.sh` → rename `edit.sh`; `edit_` kept
+- `emit.sh`: `guided_*_delta`, `guided_user_profile`, `emit_effective` →
+  `emit_`
+- `environment.sh`: `resolve_environment`, `print_environment_summary`,
+  `_resolve_env_`, `_gpu_` → `environment_` / `_environment_`
+- `history.sh`: `hist_` → `history_`
+- `layer-resolver.sh`: `layer_` → `layer_resolver_`
+- `layers.sh` (program registry) → rename `program-registry.sh`;
+  `program_registry_`
+- `lifecycle.sh`: `load_config`, `detect_mode`, `print_summary` →
+  `lifecycle_`
+- `locale-parts.sh`: `locale_` → `locale_parts_`
+- `locale-source.sh`: `locale_` → `locale_source_`
+- `manual-partition.sh`: `manual_` → `manual_partition_`
+- `menu-owned.sh`: `*_owned_programs`, `menu_owned_` → `menu_owned_`
+- `nav.sh` → rename `navigation.sh`; `nav_` → `navigation_`
+- `post-install.sh`: `post_` → `post_install_`
+- `profile.sh` (Profile Loader) → rename `profile-loader.sh`;
+  `profile_loader_`
+- `seed.sh` + `state.sh` (`cfgstate_`) → merge into `config-state.sh`;
+  `config_state_`
+- `store.sh` (`cfgstore_`) → rename `config-store.sh`; `config_store_`
+- `validation.sh`: `validate_`, `_validation_` → `validation_`
+- `bluetooth.sh`, `display.sh`, `fonts.sh`, `menu.sh`, `mirrors.sh`,
+  `power.sh`, `printing.sh`, `profiles.sh`, `skeleton.sh`, `timezone.sh` → `=`
+
+lib/feature-audit/ (directory API `feature_audit_`)
+- public `fa_` → `feature_audit_`; private `_fa_` → `_<stem>_`
+  (`_live_`, `_binds_`, `_binds_guest_`, `_check_`, `_report_`,
+  `_manifest_`, `_probe_lib_`)
+
+lib/guided/ (directory API `guided_`)
+- `controller.sh`: `_ctl_` → `_controller_` (split first, ticket 15)
+- `shell.sh`: `_guided_` → `_guided_shell_` (`_shell_` would read as the
+  Shell Stdlib)
+- `mask.sh`, `rows.sh`, `save.sh`, `secrets.sh`, `secrets-file.sh`,
+  `userforms.sh`, `fzf-entry.sh` (`_entry_` → `_fzf_entry_`) → `guided_`
+
+lib/layout/ (directory API `layout_`, plus Interface Functions)
+- `core.sh`: `_layout_` → `_core_`; `parse_size_to_*`, `nonzfs_plan_field`
+  → `layout_`
+- `data-pools.sh`: `resolve_data_pools`, … → `layout_` / `_data_pools_`
+- `dispatch.sh`: `root_adapter_source`, … → `=`
+- `zfs/multi.sh`: `suggest_*`, `resolve_*`, `create_multi_*`, … → `layout_`
+  / `_zfs_multi_`
+- `zfs/single.sh`: `calculate_single_disk_layout`, … → `layout_` /
+  `_zfs_single_`
+- `nonzfs/root.sh`: `_nzroot_`, `_nonzfs_` → `_nonzfs_root_`
+- `nonzfs/*.sh`, `btrfs/*.sh`, `manual/*.sh`: public → `layout_`; private
+  `_<fs>_<stem>_` (`_btrfs_subvol_`, `_manual_plan_`)
+
+lib/matrix/ (directory API `matrix_`)
+- private `_matrix_` → `_<stem>_`; `pairwise.sh` `_pw_` → `_pairwise_`
+
+lib/packages/ (per-file stems)
+- `archive.sh`: `kver_to_pkgver`, `pkg_*` → `archive_`
+- `archzfs-kernel.sh`: `archzfs_`, `_archzfs_`, `_mirror_` →
+  `archzfs_kernel_`
+- `filesystem.sh`: `fs_`, `luks_userland_packages` → `filesystem_`
+- `list.sh` → rename `package-list.sh`; `package_list_`
+- `niri.sh`: `niri_`, `noctalia_` → `niri_` (?) — or split a
+  `noctalia.sh`
+- `resolver.sh` (Package Resolver) → rename `package-resolver.sh`;
+  `pkgres_` → `package_resolver_`
+- `audio.sh`, `base.sh`, `gpu.sh`, `iso-resolver.sh`, `kernel.sh`,
+  `microcode.sh` → `=`
+
+lib/profiles/
+- `runner.sh` (Runner): `_profiles_`, `run_`, `resolve_` → `runner_` /
+  `_runner_`
+
+lib/wipe/ (directory API `wipe_`)
+- `teardown_*`, `run_parallel_wipe`, `progress_*` → `wipe_`; private
+  `_<stem>_`
+
+lib/zfs/ (directory API `zfs_`)
+- `pools.sh`: `install_zfs_tools_if_needed`, `ram_gib`,
+  `collect_enc_passphrase`, `build_*`, … → `zfs_` / `_pools_`
+- `pool-owners.sh`: `pool_`, `_pool_` → `zfs_pool_owners_` /
+  `_pool_owners_`
+- `module.sh`, `verify.sh`: `zfs_` kept; private `_<stem>_`
+
+vm/lib/ (directory API `vm_`)
+- `core.sh`: `_vm_`, `_ensure_`, … → `_core_`; `core_resolve_iso` →
+  `vm_resolve_iso`
+- `console-answerer.sh`, `host-capacity.sh`, `profile.sh`,
+  `profile-validate.sh`, `seed-generator.sh`, `sentinel-watcher.sh`,
+  `esp-resilience-verify.sh`: public → `vm_<stem>_`, private `_<stem>_`
+- `vm-pool-verify.sh`: `vm_pool_*` → `=`
+
+extras/desktop/ (Desktop Environment Adapters)
+- `hyprland/hyprland.sh`: `_hypr_` → `_hyprland_`
+- `kde/kde.sh`: `_seed_write`, `link` → `_kde_`
+
+tests/lib/
+- `aur-vet.bash`: `aurvet_` → `aur_vet_`; `validators.bash` → `=`
 
 <!-- ADR links: generated by readability.sh --fix-adr-links -->
 [ADR 0153]: ../../docs/adr/0153-human-readable-installer-code.md
