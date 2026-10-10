@@ -703,7 +703,7 @@ longer aborts the install. The landed helper's name is the **`$AUR_HELPER`**
 value: the Runner exports it (per user) into each User Program's `install.sh`
 alongside `INSTALLER_DIR` / `PROGRAMS` / `SHELL_COMMONS`, resolving it once at
 bootstrap. The "paru preferred, yay fallback" rule lives in one place —
-`_profiles_detect_helper` (`lib/aur-helper.sh`), shared with the standalone
+`aur_helper_detect` (`lib/aur-helper.sh`), shared with the standalone
 `tools/install-pkglist.sh`. Only exhausting all three rungs aborts, cleanly.
 Resolution is per user. Under [[AUR Vetting]] ([ADR 0143]) only `paru` builds
 from the AUR — its `PreBuildCommand` runs the vetter — so a user left on `yay`

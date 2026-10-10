@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lib/chroot/create-user.sh — Create or update a system user.
 # Args: NAME LOGIN_SHELL GROUPS_CSV PASSWORD [SECRETS_FILE]
-# Run inside arch-chroot by profiles.sh::_profiles_create_user().
+# Run inside arch-chroot by profiles.sh::runner_create_user().
 set -Eeuo pipefail
 # shellcheck source=./chroot-common.sh
 # Like dirname: a path with no slash means the current directory.
@@ -18,7 +18,7 @@ FULLNAME="${USER_FULLNAME:-}"
 
 # Groups like docker/libvirt/kvm are created by their packages, installed
 # later.  Filter to only groups that currently exist; the remainder are
-# applied by _profiles_apply_user_groups after program installation.
+# applied by runner_apply_user_groups after program installation.
 create_user_existing_groups() {
   local csv="$1" existing="" group
   IFS=',' read -ra _ALL <<< "$csv"

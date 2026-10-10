@@ -54,7 +54,7 @@ function-length	.installer/lib/packages/list.sh	collect_packages
 function-length	.installer/lib/packages/list.sh	install_base
 function-length	.installer/lib/packages/resolver.sh	_pkgres_de_packages
 function-length	.installer/lib/packages/resolver.sh	pkgres_resolve
-function-length	.installer/lib/profiles/runner.sh	run_profiles
+function-length	.installer/lib/profiles/runner.sh	runner_run_profiles
 function-length	.installer/lib/secrets.sh	secrets_load
 function-length	.installer/lib/wipe/execute.sh	run_parallel_wipe
 function-length	.installer/tests/extras/hyprland-adapter.bats	setup
@@ -81,7 +81,6 @@ function-name	.installer/extras/desktop/kde/audit.sh	_fa_kde_scheme
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-function-name	.installer/lib/aur-helper.sh	_aur_helper_repo_cmd
 function-name	.installer/lib/config/accessors.sh	install_config_partition_fs
 function-name	.installer/lib/config/config-apply.sh	ca_home_dir
 function-name	.installer/lib/config/config-apply.sh	ca_plan
@@ -451,9 +450,6 @@ function-name	.installer/lib/packages/list.sh	reflector_country_args
 function-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages
 function-name	.installer/lib/packages/resolver.sh	_pkgres_noc_bool
 function-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps
-function-name	.installer/lib/profiles/runner.sh	_profiles_config_plan_rels
-function-name	.installer/lib/profiles/runner.sh	_profiles_names_to_rels
-function-name	.installer/lib/profiles/runner.sh	_profiles_seed_skel_root
 function-name	.installer/lib/wipe/progress.sh	progress_pct
 function-name	.installer/lib/wipe/progress.sh	_progress_si
 function-name	.installer/programs/backup/borg/audit.sh	_fa_borg_roundtrip
@@ -586,8 +582,6 @@ local-name	.installer/extras/desktop/kde/kde.sh	_seed_write:dst
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	-:d
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env:p
 local-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir:p
-local-name	.installer/lib/aur-helper.sh	_profiles_detect_helper:h
-local-name	.installer/lib/aur-helper.sh	_profiles_detect_helper:h
 local-name	.installer/lib/config/accessors.sh	install_config_any_nonzfs_luks:n
 local-name	.installer/lib/config/accessors.sh	install_config_any_zfs:n
 local-name	.installer/lib/config/accessors.sh	install_config_data_pool_ashift:v
@@ -1468,84 +1462,6 @@ local-name	.installer/lib/packages/resolver.sh	pkgres_source_origin:e
 local-name	.installer/lib/packages/resolver.sh	pkgres_unresolved:cfg
 local-name	.installer/lib/packages/resolver.sh	_pkgres_user_shells:cfg
 local-name	.installer/lib/packages/resolver.sh	_pkgres_user_shells:u
-local-name	.installer/lib/profiles/runner.sh	-:ca_plan
-local-name	.installer/lib/profiles/runner.sh	_profiles_apply_user_config:rels
-local-name	.installer/lib/profiles/runner.sh	_profiles_aur_install:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_aur_install:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_aur_install:pkgs
-local-name	.installer/lib/profiles/runner.sh	_profiles_bootstrap_helper:pkg
-local-name	.installer/lib/profiles/runner.sh	_profiles_bootstrap_helper:pkg
-local-name	.installer/lib/profiles/runner.sh	_profiles_bootstrap_rung:pkg
-local-name	.installer/lib/profiles/runner.sh	_profiles_create_user:sec_path
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_profile_user_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_profile_user_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_profile_user_services:svcs
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_system_services:prog
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_system_services:rel
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_system_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_system_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_system_services:svcs
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_user_services:prog
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_user_services:rel
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_user_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_user_services:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_enable_user_services:svcs
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_aur_vet:f
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_aur_vet:f
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_aur_vet:src
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_host_program:prog
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_host_program:rel
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_user_program:h
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_user_program:prog
-local-name	.installer/lib/profiles/runner.sh	_profiles_install_user_program:rel
-local-name	.installer/lib/profiles/runner.sh	_profiles_names_to_rels:rel
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_aur:de
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_aur:de
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install:e
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install:e
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install:_ex
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_user_secrets:chroot_dir
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_user_unit:f
-local-name	.installer/lib/profiles/runner.sh	_profiles_resolve_user_unit:svc
-local-name	.installer/lib/profiles/runner.sh	_profiles_seed_skel_root:rels
-local-name	.installer/lib/profiles/runner.sh	_profiles_sops_selection:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_sops_selection:p
-local-name	.installer/lib/profiles/runner.sh	_profiles_sops_selection:progs
-local-name	.installer/lib/profiles/runner.sh	_profiles_stage_runtime:f
-local-name	.installer/lib/profiles/runner.sh	_profiles_stage_runtime:f
-local-name	.installer/lib/profiles/runner.sh	_profiles_wire_paru_hook:conf
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_all_user_progs
-local-name	.installer/lib/profiles/runner.sh	run_profiles:prog
-local-name	.installer/lib/profiles/runner.sh	run_profiles:prog
-local-name	.installer/lib/profiles/runner.sh	run_profiles:prog
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_sec_active
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_skel_plan
-local-name	.installer/lib/profiles/runner.sh	run_profiles:sys_progs
-local-name	.installer/lib/profiles/runner.sh	run_profiles:u
-local-name	.installer/lib/profiles/runner.sh	run_profiles:u
-local-name	.installer/lib/profiles/runner.sh	run_profiles:u
-local-name	.installer/lib/profiles/runner.sh	run_profiles:u
-local-name	.installer/lib/profiles/runner.sh	run_profiles:u
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_uidx
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_uj
-local-name	.installer/lib/profiles/runner.sh	run_profiles:_uj
-local-name	.installer/lib/profiles/runner.sh	run_profiles:uj
-local-name	.installer/lib/secrets.sh	_secrets_find_key_device:mp
-local-name	.installer/lib/secrets.sh	_secrets_find_key_device:mp
-local-name	.installer/lib/secrets.sh	_secrets_install_tools:pkgs
-local-name	.installer/lib/secrets.sh	secrets_load:age_enc
-local-name	.installer/lib/secrets.sh	secrets_load:host_sec
-local-name	.installer/lib/secrets.sh	secrets_load:u
-local-name	.installer/lib/secrets.sh	secrets_load:uf
-local-name	.installer/lib/secrets.sh	secrets_load:_url_tmp
-local-name	.installer/lib/secrets.sh	secrets_load:user_secs
-local-name	.installer/lib/secrets.sh	secrets_persist_state:enc
-local-name	.installer/lib/secrets.sh	secrets_print_machine_key:pub_key
-local-name	.installer/lib/shell/output.sh	print_status:NC
-local-name	.installer/lib/shell/runtime.sh	stage_shell_stdlib:m
-local-name	.installer/lib/shell/runtime.sh	stage_shell_stdlib:m
 local-name	.installer/lib/wipe/execute.sh	run_parallel_wipe:n
 local-name	.installer/lib/wipe/execute.sh	teardown_lvm:vg
 local-name	.installer/lib/wipe/execute.sh	teardown_mdraid:md
@@ -2257,14 +2173,14 @@ local-name	.installer/tests/profiles/profiles-bootstrap.bats	@test ladder: rung 
 local-name	.installer/tests/profiles/profiles-bootstrap.bats	@test ladder: skips bootstrap when a helper already exists:h
 local-name	.installer/tests/profiles/profiles-bootstrap.bats	@test ladder: skips bootstrap when a helper already exists:st
 local-name	.installer/tests/profiles/profiles-gpg-quiesce.bats	@test kills the user's gpg daemons and sweeps install-time dotlocks:kd
-local-name	.installer/tests/profiles/profiles-gpg-quiesce.bats	@test run_profiles quiesces gpg before revoking the temp sudo:R
+local-name	.installer/tests/profiles/profiles-gpg-quiesce.bats	@test runner_run_profiles quiesces gpg before revoking the temp sudo:R
 local-name	.installer/tests/profiles/profiles-helper.bats	_flaky:fail_n
 local-name	.installer/tests/profiles/profiles-helper.bats	_flaky:n
 local-name	.installer/tests/profiles/profiles-helper.bats	_stub_helpers:h
 local-name	.installer/tests/profiles/profiles-helper.bats	_stub_helpers:h
-local-name	.installer/tests/profiles/profiles-secrets.bats	@test _profiles_create_user omits secrets arg when user has no entry:last_arg
-local-name	.installer/tests/profiles/profiles-secrets.bats	@test _profiles_create_user passes secrets path as 5th arg when present:host_sec
 local-name	.installer/tests/profiles/profiles-secrets.bats	@test returns chroot path and stages file when user secrets present:host_sec
+local-name	.installer/tests/profiles/profiles-secrets.bats	@test runner_create_user omits secrets arg when user has no entry:last_arg
+local-name	.installer/tests/profiles/profiles-secrets.bats	@test runner_create_user passes secrets path as 5th arg when present:host_sec
 local-name	.installer/tests/profiles/profiles-secrets.bats	@test stages user secrets from .guided_passwords.users (no SOPS):usr_sec
 local-name	.installer/tests/profiles/user-units-validate.bats	@test every shipped user .service passes structural verify --user:u
 local-name	.installer/tests/profiles/user-units-validate.bats	@test regression: a unit with an unknown directive is rejected:src
@@ -2486,7 +2402,6 @@ prefix	.installer/extras/desktop/kde/kde.sh	_seed_write
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 prefix	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-prefix	.installer/lib/aur-helper.sh	_profiles_detect_helper
 prefix	.installer/lib/config/accessors.sh	install_config_any_nonzfs_luks
 prefix	.installer/lib/config/accessors.sh	install_config_any_zfs
 prefix	.installer/lib/config/accessors.sh	install_config_apparmor_enabled
@@ -3060,43 +2975,6 @@ prefix	.installer/lib/packages/resolver.sh	pkgres_source_origin
 prefix	.installer/lib/packages/resolver.sh	pkgres_sources
 prefix	.installer/lib/packages/resolver.sh	pkgres_unresolved
 prefix	.installer/lib/packages/resolver.sh	_pkgres_user_shells
-prefix	.installer/lib/profiles/runner.sh	_profiles_apply_sysctl
-prefix	.installer/lib/profiles/runner.sh	_profiles_apply_user_config
-prefix	.installer/lib/profiles/runner.sh	_profiles_apply_user_groups
-prefix	.installer/lib/profiles/runner.sh	_profiles_aur_install
-prefix	.installer/lib/profiles/runner.sh	_profiles_aur_paru
-prefix	.installer/lib/profiles/runner.sh	_profiles_bootstrap_helper
-prefix	.installer/lib/profiles/runner.sh	_profiles_bootstrap_rung
-prefix	.installer/lib/profiles/runner.sh	_profiles_cleanup
-prefix	.installer/lib/profiles/runner.sh	_profiles_clone_dotfiles
-prefix	.installer/lib/profiles/runner.sh	_profiles_config_plan_rels
-prefix	.installer/lib/profiles/runner.sh	_profiles_create_user
-prefix	.installer/lib/profiles/runner.sh	_profiles_detect_user_helper
-prefix	.installer/lib/profiles/runner.sh	_profiles_enable_profile_user_services
-prefix	.installer/lib/profiles/runner.sh	_profiles_enable_system_services
-prefix	.installer/lib/profiles/runner.sh	_profiles_enable_user_services
-prefix	.installer/lib/profiles/runner.sh	_profiles_grant_temp_sudo
-prefix	.installer/lib/profiles/runner.sh	_profiles_helper_runs
-prefix	.installer/lib/profiles/runner.sh	_profiles_host_uses_secrets
-prefix	.installer/lib/profiles/runner.sh	_profiles_install_aur_vet
-prefix	.installer/lib/profiles/runner.sh	_profiles_install_host_program
-prefix	.installer/lib/profiles/runner.sh	_profiles_install_user_program
-prefix	.installer/lib/profiles/runner.sh	_profiles_names_to_rels
-prefix	.installer/lib/profiles/runner.sh	_profiles_quiesce_gpg
-prefix	.installer/lib/profiles/runner.sh	_profiles_resolve_aur
-prefix	.installer/lib/profiles/runner.sh	_profiles_resolve_post_install
-prefix	.installer/lib/profiles/runner.sh	_profiles_resolve_user_secrets
-prefix	.installer/lib/profiles/runner.sh	_profiles_resolve_user_unit
-prefix	.installer/lib/profiles/runner.sh	_profiles_revoke_temp_sudo
-prefix	.installer/lib/profiles/runner.sh	_profiles_rung_build_env
-prefix	.installer/lib/profiles/runner.sh	_profiles_seed_skel_root
-prefix	.installer/lib/profiles/runner.sh	_profiles_sops_selection
-prefix	.installer/lib/profiles/runner.sh	_profiles_stage_runtime
-prefix	.installer/lib/profiles/runner.sh	_profiles_userprog_chroot
-prefix	.installer/lib/profiles/runner.sh	_profiles_wire_paru_hook
-prefix	.installer/lib/profiles/runner.sh	_profiles_write_authorized_keys
-prefix	.installer/lib/profiles/runner.sh	resolve_user_groups
-prefix	.installer/lib/profiles/runner.sh	run_profiles
 prefix	.installer/lib/wipe/execute.sh	run_parallel_wipe
 prefix	.installer/lib/wipe/execute.sh	teardown_lvm
 prefix	.installer/lib/wipe/execute.sh	teardown_mdraid
@@ -3333,9 +3211,9 @@ tool	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:tr
 tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_pick_compatible_release:tail
 tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_resolve_url:head
 tool	.installer/lib/packages/list.sh	install_base:cut
-tool	.installer/lib/profiles/runner.sh	_profiles_bootstrap_rung:paste
-tool	.installer/lib/profiles/runner.sh	_profiles_resolve_user_unit:head
-tool	.installer/lib/profiles/runner.sh	_profiles_stage_runtime:dirname
+tool	.installer/lib/profiles/runner.sh	_runner_bootstrap_rung:paste
+tool	.installer/lib/profiles/runner.sh	_runner_resolve_user_unit:head
+tool	.installer/lib/profiles/runner.sh	runner_stage_runtime:dirname
 tool	.installer/lib/secrets.sh	_secrets_find_key_device:head
 tool	.installer/lib/secrets.sh	secrets_persist_state:dirname
 tool	.installer/lib/shell-stdlib.sh	-:dirname
@@ -3562,7 +3440,7 @@ tool	.installer/tests/profiles/profiles-dotfiles.bats	@test makes the clone scri
 tool	.installer/tests/profiles/profiles-dotfiles.bats	@test makes the clone script readable before running it as the user:cut
 tool	.installer/tests/profiles/profiles-dotfiles.bats	@test makes the clone script readable before running it as the user:head
 tool	.installer/tests/profiles/profiles-dotfiles.bats	@test makes the clone script readable before running it as the user:head
-tool	.installer/tests/profiles/profiles-secrets.bats	@test _profiles_create_user omits secrets arg when user has no entry:tail
+tool	.installer/tests/profiles/profiles-secrets.bats	@test runner_create_user omits secrets arg when user has no entry:tail
 tool	.installer/tests/profiles/user-units-validate.bats	@test regression: a unit with an unknown directive is rejected:head
 tool	.installer/tests/run.sh	-:dirname
 tool	.installer/tests/shellcheck.sh	-:dirname

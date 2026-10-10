@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for profiles.sh secrets wire-up (_profiles_resolve_user_secrets)
+# Tests for profiles.sh secrets wire-up (_runner_resolve_user_secrets)
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -21,7 +21,7 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── _profiles_resolve_user_secrets ────────────────────────────────────────────
+# ── _runner_resolve_user_secrets ────────────────────────────────────────────
 
 @test "returns chroot path and stages file when user secrets present" {
   local host_sec="$TEST_DIR/alice-secrets.json"
@@ -29,16 +29,16 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_sec" \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_resolve_user_secrets "alice"
+  run _runner_resolve_user_secrets "alice"
   [ "$status" -eq 0 ]
-  [ "$output" = "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" ]
-  [ -f "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" ]
+  [ "$output" = "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
+  [ -f "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
 }
 
 @test "returns empty when user has no secrets entry" {
   printf '{"secrets":{"users":{}}}\n' > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_resolve_user_secrets "alice"
+  run _runner_resolve_user_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
@@ -51,11 +51,11 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"guided_passwords":{"users":{"alice":"%s"}}}\n' "$usr_sec" \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_resolve_user_secrets "alice"
+  run _runner_resolve_user_secrets "alice"
   [ "$status" -eq 0 ]
-  [ "$output" = "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" ]
+  [ "$output" = "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
   [ "$(jq -r '.password' \
-      "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json")" \
+      "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json")" \
     = "12345" ]
 }
 
@@ -63,81 +63,81 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"secrets":{"users":{"alice":"/nonexistent/alice-secrets.json"}}}\n' \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_resolve_user_secrets "alice"
+  run _runner_resolve_user_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "returns empty when install-state.json absent" {
-  run _profiles_resolve_user_secrets "alice"
+  run _runner_resolve_user_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
-# ── _profiles_host_uses_secrets ───────────────────────────────────────────────
+# ── _runner_host_uses_secrets ───────────────────────────────────────────────
 
-@test "_profiles_host_uses_secrets is false for empty install-state" {
+@test "_runner_host_uses_secrets is false for empty install-state" {
   printf '{}\n' > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  run _runner_host_uses_secrets "$MOUNT_ROOT/install-state.json"
   [ "$status" -eq 1 ]
 }
 
-@test "_profiles_host_uses_secrets is true when .secrets.host is set" {
+@test "_runner_host_uses_secrets is true when .secrets.host is set" {
   printf '{"secrets":{"host":"/run/x/host-secrets.json"}}\n' \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  run _runner_host_uses_secrets "$MOUNT_ROOT/install-state.json"
   [ "$status" -eq 0 ]
 }
 
-@test "_profiles_host_uses_secrets is true when .secrets.users non-empty" {
+@test "_runner_host_uses_secrets is true when .secrets.users non-empty" {
   printf '{"secrets":{"users":{"alice":"/run/x/alice.json"}}}\n' \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  run _runner_host_uses_secrets "$MOUNT_ROOT/install-state.json"
   [ "$status" -eq 0 ]
 }
 
-@test "_profiles_host_uses_secrets is false for empty .secrets.users map" {
+@test "_runner_host_uses_secrets is false for empty .secrets.users map" {
   printf '{"secrets":{"users":{}}}\n' > "$MOUNT_ROOT/install-state.json"
 
-  run _profiles_host_uses_secrets "$MOUNT_ROOT/install-state.json"
+  run _runner_host_uses_secrets "$MOUNT_ROOT/install-state.json"
   [ "$status" -eq 1 ]
 }
 
-@test "_profiles_host_uses_secrets is false when state file is missing" {
-  run _profiles_host_uses_secrets "$MOUNT_ROOT/nonexistent.json"
+@test "_runner_host_uses_secrets is false when state file is missing" {
+  run _runner_host_uses_secrets "$MOUNT_ROOT/nonexistent.json"
   [ "$status" -eq 1 ]
 }
 
-# ── _profiles_sops_selection ──────────────────────────────────────────────────
+# ── _runner_sops_selection ──────────────────────────────────────────────────
 
-@test "_profiles_sops_selection appends sops when active and absent" {
-  run _profiles_sops_selection 1 cups base
+@test "_runner_sops_selection appends sops when active and absent" {
+  run _runner_sops_selection 1 cups base
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'cups\nbase\nsops')" ]
 }
 
-@test "_profiles_sops_selection dedupes when sops already declared" {
-  run _profiles_sops_selection 1 sops cups
+@test "_runner_sops_selection dedupes when sops already declared" {
+  run _runner_sops_selection 1 sops cups
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'sops\ncups')" ]
 }
 
-@test "_profiles_sops_selection leaves list untouched when inactive" {
-  run _profiles_sops_selection 0 cups base
+@test "_runner_sops_selection leaves list untouched when inactive" {
+  run _runner_sops_selection 0 cups base
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'cups\nbase')" ]
 }
 
-@test "_profiles_sops_selection yields just sops when active and list empty" {
-  run _profiles_sops_selection 1
+@test "_runner_sops_selection yields just sops when active and list empty" {
+  run _runner_sops_selection 1
   [ "$status" -eq 0 ]
   [ "$output" = "sops" ]
 }
 
-# ── _profiles_create_user wire-up ─────────────────────────────────────────────
+# ── runner_create_user wire-up ─────────────────────────────────────────────
 
 _setup_archroot_capture() {
   printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$@" > "%s/archroot_args"\n' \
@@ -145,25 +145,25 @@ _setup_archroot_capture() {
   chmod +x "$TEST_DIR/bin/arch-chroot"
 }
 
-@test "_profiles_create_user passes secrets path as 5th arg when present" {
+@test "runner_create_user passes secrets path as 5th arg when present" {
   _setup_archroot_capture
   local host_sec="$TEST_DIR/alice-secrets.json"
   printf '{"password":"s3cr3t"}\n' > "$host_sec"
   printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_sec" \
     > "$MOUNT_ROOT/install-state.json"
 
-  _profiles_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
-  grep -qF "${_PROFILES_RUNTIME_DIR}/secrets/alice-secrets.json" \
+  runner_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
+  grep -qF "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" \
     "$TEST_DIR/archroot_args"
 }
 
-@test "_profiles_create_user omits secrets arg when user has no entry" {
+@test "runner_create_user omits secrets arg when user has no entry" {
   _setup_archroot_capture
   printf '{"secrets":{"users":{}}}\n' > "$MOUNT_ROOT/install-state.json"
 
-  _profiles_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
+  runner_create_user "alice" '{"shell":"/bin/bash","sudo":false}'
   # last arg should be the default password, not a path
   local last_arg
   last_arg="$(tail -1 "$TEST_DIR/archroot_args")"
-  [ "$last_arg" = "$_PROFILES_DEFAULT_PASSWORD" ]
+  [ "$last_arg" = "$_RUNNER_DEFAULT_PASSWORD" ]
 }

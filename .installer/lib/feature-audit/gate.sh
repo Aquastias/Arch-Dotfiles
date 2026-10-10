@@ -20,7 +20,7 @@ fa_selected_programs() {
     # shellcheck source=../config/profile.sh
     source "$INSTALLER_DIR/lib/config/profile.sh"
   }
-  [[ "$(type -t _profiles_resolve_post_install)" == function ]] || {
+  [[ "$(type -t runner_resolve_post_install)" == function ]] || {
     # shellcheck source=../profiles/runner.sh
     source "$INSTALLER_DIR/lib/profiles/runner.sh"
   }
@@ -29,7 +29,7 @@ fa_selected_programs() {
     for u in $(jq -r '.users[]?' <<<"$cfg"); do
       load_user_profile "$u" | jq -r '.programs[]?'
     done
-    _profiles_resolve_post_install "$(jq -c '.post_install // {}' <<<"$cfg")"
+    runner_resolve_post_install "$(jq -c '.post_install // {}' <<<"$cfg")"
   } | sort -u
 }
 

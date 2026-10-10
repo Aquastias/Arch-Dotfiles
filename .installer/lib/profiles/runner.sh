@@ -6,7 +6,7 @@
 # Requires: lib/common.sh and lib/config/layers.sh already sourced.
 #
 # Public API:
-#   run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
+#   runner_run_profiles  Entry point. Reads merged host config for $RESOLVED_HOST_PROFILE,
 #                 creates users, installs Host Programs, bootstraps paru per
 #                 user, installs user programs, then cleans up the staged tree.
 #
@@ -40,10 +40,10 @@ declare -F post_install_programs >/dev/null 2>&1 \
 declare -F install_state_credential_path >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../install-state.sh"
 
-# AUR Helper resolution rule (_profiles_detect_helper), shared with
+# AUR Helper resolution rule (aur_helper_detect), shared with
 # tools/install-pkglist.sh so it has a single definition (ADR 0052).
 # shellcheck source=../aur-helper.sh
-declare -F _profiles_detect_helper >/dev/null 2>&1 \
+declare -F aur_helper_detect >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../aur-helper.sh"
 # shellcheck source=../config/fonts.sh
 declare -F fonts_aur_packages >/dev/null 2>&1 \
@@ -51,20 +51,20 @@ declare -F fonts_aur_packages >/dev/null 2>&1 \
 # Config Apply Planner (ADR 0134): decides which selected programs' home/ config
 # to copy for a user, honoring config_exclude. Decoupled from package install.
 # shellcheck source=../config/config-apply.sh
-declare -F ca_plan >/dev/null 2>&1 \
+declare -F config_apply_plan >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/config-apply.sh"
 
-readonly _PROFILES_DEFAULT_PASSWORD="12345"
-readonly _PROFILES_RUNTIME_DIR="/var/tmp/.installer-runtime"
-readonly _PROFILES_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
+readonly _RUNNER_DEFAULT_PASSWORD="12345"
+readonly _RUNNER_RUNTIME_DIR="/var/tmp/.installer-runtime"
+readonly _RUNNER_SUDO_DROPIN="/etc/sudoers.d/01-profiles-runner"
 # AUR Vetting (ADR 0143). The rungs and paru's PreBuildCommand call the
 # vetter by absolute path, so nothing earlier on a user's PATH stands in.
-: "${_PROFILES_AUR_VET_BIN:=/usr/local/bin/aur-vet}"
+: "${_RUNNER_AUR_VET_BIN:=/usr/local/bin/aur-vet}"
 readonly -a _AUR_VET_SHARE_FILES=(
   scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv
 )
 # Paths (relative to the runtime root) that constitute a valid staged tree.
-# Both _profiles_stage_runtime and validate_staging iterate this array so the
+# Both runner_stage_runtime and validate_staging iterate this array so the
 # contract lives in one place.
 readonly -a _STAGED_RUNTIME_FILES=(
   "lib/shell-stdlib.sh"
@@ -80,8 +80,8 @@ readonly -a _STAGED_RUNTIME_FILES=(
 
 # Stage program tree + Shell Stdlib + program runner inside the chroot so
 # install.sh scripts can run via arch-chroot with stable, predictable paths.
-_profiles_stage_runtime() {
-  local target="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
+runner_stage_runtime() {
+  local target="${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}"
   rm -rf "$target"
   mkdir -p "$target/lib"
   if [[ -d "${INSTALLER_DIR}/programs" ]]; then
@@ -89,10 +89,10 @@ _profiles_stage_runtime() {
   else
     mkdir -p "$target/programs"
   fi
-  local f
-  for f in "${_STAGED_RUNTIME_FILES[@]}"; do
-    mkdir -p "$(dirname "$target/${f}")"
-    cp -r "${INSTALLER_DIR}/${f}" "$target/${f}"
+  local file
+  for file in "${_STAGED_RUNTIME_FILES[@]}"; do
+    mkdir -p "$(dirname "$target/${file}")"
+    cp -r "${INSTALLER_DIR}/${file}" "$target/${file}"
   done
   chmod +x "$target/lib/profiles/program-runner.sh"
   find "$target/programs" -name '*.sh' -exec chmod +x {} \;
@@ -106,15 +106,15 @@ _profiles_stage_runtime() {
 # login check /etc/profile.d/aur-vet.sh (`aur-vet doctor`). Runs before any
 # AUR Helper bootstrap, so the very first AUR build is vetted. Mandatory —
 # not a Program, never toggled.
-_profiles_install_aur_vet() {
-  local src="${INSTALLER_DIR}/aur" root="${MOUNT_ROOT}" f
-  install -Dm0755 "$src/aur-vet" "${root}${_PROFILES_AUR_VET_BIN}"
+_runner_install_aur_vet() {
+  local source_path="${INSTALLER_DIR}/aur" root="${MOUNT_ROOT}" file
+  install -Dm0755 "$source_path/aur-vet" "${root}${_RUNNER_AUR_VET_BIN}"
   install -d -m0755 "$root/usr/local/share/aur-vet" "$root/etc/aur-vet"
-  for f in "${_AUR_VET_SHARE_FILES[@]}"; do
-    install -m0644 "$src/$f" "$root/usr/local/share/aur-vet/$f"
+  for file in "${_AUR_VET_SHARE_FILES[@]}"; do
+    install -m0644 "$source_path/$file" "$root/usr/local/share/aur-vet/$file"
   done
-  install -m0644 "$src/allow.tsv" "$root/etc/aur-vet/"
-  install -Dm0644 "$src/profile.d-aur-vet.sh" "$root/etc/profile.d/aur-vet.sh"
+  install -m0644 "$source_path/allow.tsv" "$root/etc/aur-vet/"
+  install -Dm0644 "$source_path/profile.d-aur-vet.sh" "$root/etc/profile.d/aur-vet.sh"
 }
 
 # Point paru's PreBuildCommand at the vetter in <conf> (a system or per-user
@@ -124,28 +124,28 @@ _profiles_install_aur_vet() {
 # paru.conf *instead of* /etc/paru.conf, so each one must carry the hook
 # (ADR 0143). Idempotent; a missing file is a no-op unless `create` is passed
 # (the system paru.conf).
-_profiles_wire_paru_hook() {
-  local conf="$1" line="PreBuildCommand = ${_PROFILES_AUR_VET_BIN}"
-  [[ "${2:-}" == create && ! -f "$conf" ]] && : > "$conf"
-  [[ -f "$conf" ]] || return 0
+_runner_wire_paru_hook() {
+  local config_file="$1" line="PreBuildCommand = ${_RUNNER_AUR_VET_BIN}"
+  [[ "${2:-}" == create && ! -f "$config_file" ]] && : > "$config_file"
+  [[ -f "$config_file" ]] || return 0
   awk -v hook="$line" '
     /^[[:space:]]*#?[[:space:]]*PreBuildCommand[[:space:]]*=/ { next }
     { print }
     /^\[bin\][[:space:]]*$/ && !done { print hook; done = 1 }
-    END { if (!done) { print ""; print "[bin]"; print hook } }' "$conf" \
-    > "${conf}.new"
-  cat "${conf}.new" > "$conf"
-  rm -f "${conf}.new"
+    END { if (!done) { print ""; print "[bin]"; print hook } }' "$config_file" \
+    > "${config_file}.new"
+  cat "${config_file}.new" > "$config_file"
+  rm -f "${config_file}.new"
 }
 
 # Remove the staged runtime tree and any leftover sudoers drop-ins.
 # Idempotent — safe to call from finalize and from error traps.
-_profiles_cleanup() {
-  rm -rf "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
-  rm -f "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
+_runner_cleanup() {
+  rm -rf "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}"
+  rm -f "${MOUNT_ROOT}${_RUNNER_SUDO_DROPIN}"
 }
 
-resolve_user_groups() {
+runner_resolve_user_groups() {
   local json="$1"
   printf '%s' "$json" | jq -r '
     (.groups // []) +
@@ -158,7 +158,7 @@ resolve_user_groups() {
 # True (0) iff install-state at <path> records a SOPS secret. Thin delegator
 # to the Install State gate (the .secrets-only rule + ADR 0025 invariant live
 # there, beside the keys they read). Drives implicit sops activation below.
-_profiles_host_uses_secrets() {
+_runner_host_uses_secrets() {
   install_state_activates_sops "$1"
 }
 
@@ -166,21 +166,21 @@ _profiles_host_uses_secrets() {
 # `sops` appended when <active> is "1" and `sops` is not already present.
 # Dedupes against declared programs; leaves the list untouched when inactive.
 # Args: <active 0|1> [prog...].
-_profiles_sops_selection() {
+_runner_sops_selection() {
   local active="$1"; shift
-  local -a progs=("$@")
+  local -a programs=("$@")
   if [[ "$active" == "1" ]]; then
-    local p has=0
-    for p in "${progs[@]+"${progs[@]}"}"; do
-      [[ "$p" == "sops" ]] && has=1
+    local program has=0
+    for program in "${programs[@]+"${programs[@]}"}"; do
+      [[ "$program" == "sops" ]] && has=1
     done
-    ((has)) || progs+=("sops")
+    ((has)) || programs+=("sops")
   fi
   # `|| return 0`, not `&& printf`: with no programs the arithmetic is false
   # (exit 1), which would trip the install's ERR trap when this feeds a
   # `mapfile < <(...)` — a host with zero host_programs is valid (empty list).
-  ((${#progs[@]})) || return 0
-  printf '%s\n' "${progs[@]}"
+  ((${#programs[@]})) || return 0
+  printf '%s\n' "${programs[@]}"
 }
 
 # Pure list-shaper for the Security & Backup Extras (M4, ADR 0041). Resolves the
@@ -189,24 +189,24 @@ _profiles_sops_selection() {
 # declared order), then the resolved extras not already present (resolver
 # canonical order), so a tool declared in both installs once. One per line; the
 # whole list empty (no output) is valid. Args: <post_install_json> [uprog...].
-_profiles_resolve_post_install() {
+runner_resolve_post_install() {
   local pi_json="$1"; shift
   local -a out=("$@")
   local -a extras=()
-  local _ex
+  local _extras_text
   local _zfs=true
   declare -F install_config_any_zfs >/dev/null \
     && _zfs="$(install_config_any_zfs)"
-  _ex="$(post_install_programs "$pi_json" "$_zfs")" || return 1
-  [[ -n "$_ex" ]] && mapfile -t extras <<< "$_ex"
+  _extras_text="$(post_install_programs "$pi_json" "$_zfs")" || return 1
+  [[ -n "$_extras_text" ]] && mapfile -t extras <<< "$_extras_text"
 
-  local e p has
-  for e in "${extras[@]+"${extras[@]}"}"; do
+  local extra program has
+  for extra in "${extras[@]+"${extras[@]}"}"; do
     has=0
-    for p in "${out[@]+"${out[@]}"}"; do
-      [[ "$p" == "$e" ]] && { has=1; break; }
+    for program in "${out[@]+"${out[@]}"}"; do
+      [[ "$program" == "$extra" ]] && { has=1; break; }
     done
-    ((has)) || out+=("$e")
+    ((has)) || out+=("$extra")
   done
   ((${#out[@]})) || return 0
   printf '%s\n' "${out[@]}"
@@ -219,7 +219,7 @@ _profiles_resolve_post_install() {
 # adapter `aur` field contributes nothing. Parses are captured by command
 # substitution (not process substitution) so a parser error() abort propagates
 # here rather than being swallowed. Args: <host_json> [desktop...].
-_profiles_resolve_aur() {
+_runner_resolve_aur() {
   local host_json="$1"; shift
   local -a out=()
   local parsed
@@ -232,9 +232,9 @@ _profiles_resolve_aur() {
     [[ -n "$parsed" ]] && mapfile -t -O "${#out[@]}" out <<< "$parsed"
   fi
 
-  local de adapter aur_json
-  for de in "$@"; do
-    adapter="${INSTALLER_DIR}/extras/desktop/${de}/install-${de}.jsonc"
+  local desktop adapter aur_json
+  for desktop in "$@"; do
+    adapter="${INSTALLER_DIR}/extras/desktop/${desktop}/install-${desktop}.jsonc"
     [[ -f "$adapter" ]] || continue
     aur_json="$(jsonc_strip "$adapter" | jq -c '.aur // empty')"
     [[ -n "$aur_json" ]] || continue
@@ -246,7 +246,7 @@ _profiles_resolve_aur() {
   printf '%s\n' "${out[@]}" | sort -u
 }
 
-_profiles_resolve_user_secrets() {
+_runner_resolve_user_secrets() {
   local name="$1"
   local host_state="${MOUNT_ROOT}/install-state.json"
   [[ -f "$host_state" ]] || return 0
@@ -255,22 +255,22 @@ _profiles_resolve_user_secrets() {
   # module — the schema's owner — not re-encoded here.
   raw_path="$(install_state_credential_path "$host_state" user "$name")"
   [[ -n "$raw_path" && -f "$raw_path" ]] || return 0
-  local chroot_dir="${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/secrets"
-  mkdir -p "$chroot_dir"
-  cp "$raw_path" "${chroot_dir}/${name}-secrets.json"
-  printf '%s' "${_PROFILES_RUNTIME_DIR}/secrets/${name}-secrets.json"
+  local chroot_directory="${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/secrets"
+  mkdir -p "$chroot_directory"
+  cp "$raw_path" "${chroot_directory}/${name}-secrets.json"
+  printf '%s' "${_RUNNER_RUNTIME_DIR}/secrets/${name}-secrets.json"
 }
 
-_profiles_create_user() {
+runner_create_user() {
   local name="$1" json="$2" fullname="${3:-}"
   local shell sudo_flag groups_csv
   shell="$(printf '%s' "$json" | jq -r '.shell // "/bin/bash"')"
   sudo_flag="$(printf '%s' "$json" | jq -r '.sudo // false')"
-  groups_csv="$(resolve_user_groups "$json")"
+  groups_csv="$(runner_resolve_user_groups "$json")"
   info "Creating user: ${name}" \
        "(shell=${shell}, sudo=${sudo_flag}, groups=${groups_csv:-<none>})"
-  local sec_path
-  sec_path="$(_profiles_resolve_user_secrets "$name")"
+  local secret_path
+  secret_path="$(_runner_resolve_user_secrets "$name")"
   # Primary User display name → GECOS (ADR 0121). Passed as a chroot env var
   # (arch-chroot strips the host env, and adding a positional arg would collide
   # with the optional secrets path); create-user.sh reads USER_FULLNAME. An
@@ -279,16 +279,16 @@ _profiles_create_user() {
   [[ -n "$fullname" ]] && env_pfx=(env "USER_FULLNAME=$fullname")
   arch-chroot "$MOUNT_ROOT" "${env_pfx[@]}" \
     /usr/bin/bash /root/lib-chroot/create-user.sh \
-    "$name" "$shell" "$groups_csv" "$_PROFILES_DEFAULT_PASSWORD" \
-    ${sec_path:+"$sec_path"}
+    "$name" "$shell" "$groups_csv" "$_RUNNER_DEFAULT_PASSWORD" \
+    ${secret_path:+"$secret_path"}
 }
 
 # Re-apply the full group list for a user. Run after all programs are installed
 # so package-created groups (docker, libvirt, kvm, …) now exist in the chroot.
-_profiles_apply_user_groups() {
+runner_apply_user_groups() {
   local name="$1" json="$2"
   local groups_csv
-  groups_csv="$(resolve_user_groups "$json")"
+  groups_csv="$(runner_resolve_user_groups "$json")"
   [[ -z "$groups_csv" ]] && return 0
   info "Reconciling groups for user: ${name}  (groups=${groups_csv})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
@@ -311,30 +311,30 @@ usermod -aG "$existing" "$NAME"
 CHROOT_GROUPS
 }
 
-_profiles_install_host_program() {
-  local prog="$1"
-  local rel
-  rel="$(resolve_program "$prog")"
-  info "Installing Host Program: ${prog}  (.installer/programs/${rel})"
+_runner_install_host_program() {
+  local program="$1"
+  local relative_path
+  relative_path="$(resolve_program "$program")"
+  info "Installing Host Program: ${program}  (.installer/programs/${relative_path})"
   arch-chroot "$MOUNT_ROOT" /usr/bin/env \
-    INSTALLER_DIR="${_PROFILES_RUNTIME_DIR}" \
-    PROGRAMS="${_PROFILES_RUNTIME_DIR}/programs" \
-    SHELL_COMMONS="${_PROFILES_RUNTIME_DIR}/lib" \
-    /usr/bin/bash "${_PROFILES_RUNTIME_DIR}/lib/profiles/program-runner.sh" \
-    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh"
+    INSTALLER_DIR="${_RUNNER_RUNTIME_DIR}" \
+    PROGRAMS="${_RUNNER_RUNTIME_DIR}/programs" \
+    SHELL_COMMONS="${_RUNNER_RUNTIME_DIR}/lib" \
+    /usr/bin/bash "${_RUNNER_RUNTIME_DIR}/lib/profiles/program-runner.sh" \
+    "${_RUNNER_RUNTIME_DIR}/programs/${relative_path}/install.sh"
 }
 
 # Temporarily grant NOPASSWD sudo to a user. Required for paru/makepkg to
 # install built packages via pacman during the chroot install.
-_profiles_grant_temp_sudo() {
+_runner_grant_temporary_sudo() {
   local user="$1"
   printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$user" \
-    >"${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
-  chmod 440 "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
+    >"${MOUNT_ROOT}${_RUNNER_SUDO_DROPIN}"
+  chmod 440 "${MOUNT_ROOT}${_RUNNER_SUDO_DROPIN}"
 }
 
-_profiles_revoke_temp_sudo() {
-  rm -f "${MOUNT_ROOT}${_PROFILES_SUDO_DROPIN}"
+_runner_revoke_temporary_sudo() {
+  rm -f "${MOUNT_ROOT}${_RUNNER_SUDO_DROPIN}"
 }
 
 # Stop <user>'s gpg daemons before leaving the chroot. paru's key fetch starts
@@ -342,7 +342,7 @@ _profiles_revoke_temp_sudo() {
 # hostname; it dies with the ISO, and gpg on the installed host can't prove a
 # foreign-host lock stale, so every later --recv-keys fails. A clean kill drops
 # the lock; the sweep catches one a daemon left anyway (no daemon runs after).
-_profiles_quiesce_gpg() {
+_runner_quiesce_gpg() {
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$1" <<'CHROOT_GPG'
 USER_NAME="$1"
 GNUPG="$(getent passwd "$USER_NAME" | cut -d: -f6)/.gnupg"
@@ -354,8 +354,8 @@ CHROOT_GPG
 
 # Probe the AUR Helper already installed for <user> inside the chroot. Prints
 # `paru`/`yay` (paru preferred) and returns 0 when one exists; non-zero and no
-# output when neither does. The in-chroot mirror of _profiles_detect_helper.
-_profiles_detect_user_helper() {
+# output when neither does. The in-chroot mirror of aur_helper_detect.
+_runner_detect_user_helper() {
   local user="$1"
   # shellcheck disable=SC2016  # $h is expanded by the chroot's shell, not here.
   arch-chroot "$MOUNT_ROOT" su - "$user" -c '
@@ -365,20 +365,20 @@ _profiles_detect_user_helper() {
     exit 1'
 }
 
-# _profiles_helper_runs <user> <helper> — rc 0 when <helper> executes for <user>
+# _runner_helper_runs <user> <helper> — rc 0 when <helper> executes for <user>
 # in the chroot. A package can install yet not run (paru-bin linked against an
 # older libalpm than the system pacman), so a rung only counts once this passes.
-_profiles_helper_runs() {
+_runner_helper_runs() {
   local user="$1" helper="$2"
   arch-chroot "$MOUNT_ROOT" su - "$user" -c "${helper} --version" \
     >/dev/null 2>&1
 }
 
-# _profiles_rung_build_env <pkg> — env assignments for building <pkg>'s rung.
+# _runner_rung_build_env <pkg> — env assignments for building <pkg>'s rung.
 # The source rung's release profile (LTO, one codegen unit) gets OOM-killed on
 # a 4G host; Cargo env overrides the manifest profile, so the bootstrap builds
 # without LTO on two jobs. -bin rungs compile nothing and get no overrides.
-_profiles_rung_build_env() {
+_runner_rung_build_env() {
   [[ "$1" == paru ]] || return 0
   printf '%s\n' CARGO_PROFILE_RELEASE_LTO=false \
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_BUILD_JOBS=2
@@ -389,11 +389,11 @@ _profiles_rung_build_env() {
 # first AUR build, so it is vetted like any other (ADR 0143); the full clone
 # keeps HEAD~1 for the Gained Finding comparison (ADR 0149). Returns the
 # rung's status. Wrapped in _retry by the ladder and stubbed in unit tests.
-_profiles_bootstrap_rung() {
-  local user="$1" pkg="$2"
-  local env; env="$(_profiles_rung_build_env "$pkg" | paste -sd' ')"
-  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$pkg" \
-    "$_PROFILES_AUR_VET_BIN" "$env" <<'CHROOT_RUNG'
+_runner_bootstrap_rung() {
+  local user="$1" package="$2"
+  local env; env="$(_runner_rung_build_env "$package" | paste -sd' ')"
+  arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- "$user" "$package" \
+    "$_RUNNER_AUR_VET_BIN" "$env" <<'CHROOT_RUNG'
 set -e
 USER_NAME="$1"; PKG="$2"; VET="$3"; BUILD_ENV="$4"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -415,35 +415,35 @@ CHROOT_RUNG
 # to the next (different) endpoint. Prints the landed helper's name (`paru`/`yay`)
 # on stdout; logs go to stderr so the name is cleanly capturable. Skips when the
 # user already has a helper. Aborts the install only if every rung fails.
-_profiles_bootstrap_helper() {
+_runner_bootstrap_helper() {
   local user="$1"
   local existing
-  if existing="$(_profiles_detect_user_helper "$user")"; then
+  if existing="$(_runner_detect_user_helper "$user")"; then
     info "AUR helper already present for ${user}: ${existing}" >&2
     printf '%s\n' "$existing"
     return 0
   fi
   info "Bootstrapping AUR helper for user: ${user}" >&2
-  local pkg landed
-  for pkg in "${_AUR_HELPER_LADDER[@]}"; do
+  local package landed
+  for package in "${_AUR_HELPER_LADDER[@]}"; do
     # Rung stdout (git clone + makepkg build log) → stderr, so it stays visible
     # on the terminal but never contaminates this function's stdout, which
     # carries only the resolved helper name for the caller's capture.
-    if _retry 3 "3,10" -- _profiles_bootstrap_rung "$user" "$pkg" >&2; then
-      case "$pkg" in
+    if _retry 3 "3,10" -- _runner_bootstrap_rung "$user" "$package" >&2; then
+      case "$package" in
         yay-bin) landed=yay ;;
         *)       landed=paru ;;
       esac
-      if ! _profiles_helper_runs "$user" "$landed"; then
-        warn "AUR-helper rung '${pkg}' installed but ${landed} does not run" \
+      if ! _runner_helper_runs "$user" "$landed"; then
+        warn "AUR-helper rung '${package}' installed but ${landed} does not run" \
              "for ${user}; trying next rung." >&2
         continue
       fi
-      info "AUR helper bootstrapped via ${pkg} (${landed}) for ${user}" >&2
+      info "AUR helper bootstrapped via ${package} (${landed}) for ${user}" >&2
       printf '%s\n' "$landed"
       return 0
     fi
-    warn "AUR-helper rung '${pkg}' failed for ${user}; trying next rung." >&2
+    warn "AUR-helper rung '${package}' failed for ${user}; trying next rung." >&2
   done
   error "All AUR-helper bootstrap rungs failed for ${user}" \
         "(paru, paru-bin, yay-bin) — upstream AUR/GitHub may be unavailable."
@@ -454,11 +454,11 @@ _profiles_bootstrap_helper() {
 # has no such hook, so the yay fallback rung refuses here (ADR 0143). The
 # install streams live, the hook unattended. (No `paru -Sp` pre-flight: it
 # cannot resolve AUR targets, so it never caught a conflict — ADR 0052.)
-_profiles_aur_install() {
+_runner_aur_install() {
   local user="$1" helper="$2"; shift 2
-  local -a pkgs=("$@")
-  ((${#pkgs[@]} > 0)) || return 0
-  _aur_helper_vets_aur "$helper" \
+  local -a packages=("$@")
+  ((${#packages[@]} > 0)) || return 0
+  aur_helper_vets_aur "$helper" \
     || error "AUR install for ${user} landed on ${helper}: vetting needs paru" \
              "(ADR 0143) — retry once the paru rung can bootstrap."
 
@@ -466,21 +466,21 @@ _profiles_aur_install() {
   # RPC/network blip there must not abort the whole install (ADR 0052). Retry
   # with backoff — --needed keeps it idempotent, so a re-run skips what landed.
   # A genuine build/conflict failure still aborts after the last try.
-  _retry 3 "5,15" -- _profiles_aur_paru "$user" /dev/null "${pkgs[@]}" \
+  _retry 3 "5,15" -- _runner_aur_paru "$user" /dev/null "${packages[@]}" \
     && return 0
 
   # The batch still fails: isolate it per package. A package whose sources
   # are unreachable (an upstream outage, not ours) is skipped with a warning;
   # any other failure aborts as before. --needed makes landed ones no-ops.
-  local p log; log="$(mktemp)"
+  local package log; log="$(mktemp)"
   local -a skipped=()
-  for p in "${pkgs[@]}"; do
-    _retry 2 "30" -- _profiles_aur_paru "$user" "$log" "$p" && continue
-    if grep -qE "$_PROFILES_AUR_UNREACHABLE" "$log"; then
-      skipped+=("$p"); continue
+  for package in "${packages[@]}"; do
+    _retry 2 "30" -- _runner_aur_paru "$user" "$log" "$package" && continue
+    if grep -qE "$_RUNNER_AUR_UNREACHABLE" "$log"; then
+      skipped+=("$package"); continue
     fi
     rm -f "$log"
-    error "AUR install of ${p} for ${user} failed (see the output above)."
+    error "AUR install of ${package} for ${user} failed (see the output above)."
   done
   rm -f "$log"
   ((${#skipped[@]} == 0)) || warn "AUR sources unreachable; skipped for" \
@@ -488,13 +488,13 @@ _profiles_aur_install() {
 }
 
 # Source-fetch failures that mean "upstream down", not "package broken".
-_PROFILES_AUR_UNREACHABLE='failed to download sources'
-_PROFILES_AUR_UNREACHABLE+='|RPC failed; HTTP 5[0-9]{2}'
-_PROFILES_AUR_UNREACHABLE+='|Could not resolve host|Failed to connect to'
+_RUNNER_AUR_UNREACHABLE='failed to download sources'
+_RUNNER_AUR_UNREACHABLE+='|RPC failed; HTTP 5[0-9]{2}'
+_RUNNER_AUR_UNREACHABLE+='|Could not resolve host|Failed to connect to'
 
-# _profiles_aur_paru <user> <log> <pkg…> — one unattended paru install,
+# _runner_aur_paru <user> <log> <pkg…> — one unattended paru install,
 # streamed live and copied to <log> for the unreachable-source check.
-_profiles_aur_paru() {
+_runner_aur_paru() {
   local user="$1" log="$2"; shift 2
   arch-chroot "$MOUNT_ROOT" su - "$user" -c \
     "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed $*" 2>&1 | tee "$log"
@@ -502,11 +502,11 @@ _profiles_aur_paru() {
 }
 
 # One chroot run of a user program's install.sh. Factored out of
-# _profiles_install_user_program so _retry can re-invoke it: the heredoc feeding
+# _runner_install_user_program so _retry can re-invoke it: the heredoc feeding
 # `bash -s` is consumed as stdin per call, so it must live in a function the
 # retry loop re-enters (a heredoc on the _retry line would EOF after try one).
 # Args: <user> <runtime-dir> <install-sh-path> <helper>.
-_profiles_userprog_chroot() {
+_runner_user_program_chroot() {
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
     "$1" "$2" "$3" "$4" <<'CHROOT_USERPROG'
 set -e
@@ -522,30 +522,30 @@ su - "$USER_NAME" -c "
 CHROOT_USERPROG
 }
 
-_profiles_install_user_program() {
-  local user="$1" prog="$2" helper="$3"
-  local rel
-  rel="$(resolve_program "$prog")"
-  info "Installing user program: ${prog}  (user=${user}, .installer/programs/${rel})"
+_runner_install_user_program() {
+  local user="$1" program="$2" helper="$3"
+  local relative_path
+  relative_path="$(resolve_program "$program")"
+  info "Installing user program: ${program}  (user=${user}, .installer/programs/${relative_path})"
   # Under yay (no vetting hook, ADR 0143) the helper is repo-only: a program's
   # repo packages still install, an AUR-only one fails instead of building
   # unvetted.
-  local h; h="$(_aur_helper_repo_cmd "$helper")"
+  local helper; helper="$(aur_helper_repo_command "$helper")"
   # AUR_HELPER is the helper the ladder landed for this user (ADR 0052), passed
-  # in from run_profiles rather than re-detected here; program install.sh
+  # in from runner_run_profiles rather than re-detected here; program install.sh
   # scripts install via ${AUR_HELPER} -S. Those scripts hit aur.archlinux.org/rpc
   # too, so retry the whole run on a transient blip (ADR 0052) — the scripts are
   # idempotent (`-S --needed`, config overwrite, `systemctl enable`), so a re-run
   # after a partial pass is safe. A genuine failure still aborts after last try.
-  _retry 3 "5,15" -- _profiles_userprog_chroot \
+  _retry 3 "5,15" -- _runner_user_program_chroot \
     "$user" \
-    "${_PROFILES_RUNTIME_DIR}" \
-    "${_PROFILES_RUNTIME_DIR}/programs/${rel}/install.sh" \
-    "$h"
+    "${_RUNNER_RUNTIME_DIR}" \
+    "${_RUNNER_RUNTIME_DIR}/programs/${relative_path}/install.sh" \
+    "$helper"
 }
 
 
-_profiles_write_authorized_keys() {
+_runner_write_authorized_keys() {
   local user="$1" json="$2"
   local -a keys=()
   mapfile -t keys < <(printf '%s' "$json" \
@@ -570,36 +570,36 @@ chown -R "${USER_NAME}:${USER_NAME}" "${HOME_DIR}/.ssh"
 CHROOT_AUTHKEYS
 }
 
-_profiles_enable_system_services() {
-  local prog="$1"
-  local rel config_file
-  rel="$(resolve_program "$prog")"
-  config_file="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
-  local -a svcs=()
-  mapfile -t svcs < <(jsonc_strip "$config_file" \
+_runner_enable_system_services() {
+  local program="$1"
+  local relative_path config_file
+  relative_path="$(resolve_program "$program")"
+  config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
+  local -a services=()
+  mapfile -t services < <(jsonc_strip "$config_file" \
     | jq -r '.system_services[]?' 2>/dev/null)
-  ((${#svcs[@]} > 0)) || return 0
-  local svc
-  for svc in "${svcs[@]}"; do
-    info "Enabling system service: ${svc}"
-    arch-chroot "$MOUNT_ROOT" systemctl enable "$svc"
+  ((${#services[@]} > 0)) || return 0
+  local service
+  for service in "${services[@]}"; do
+    info "Enabling system service: ${service}"
+    arch-chroot "$MOUNT_ROOT" systemctl enable "$service"
   done
 }
 
-_profiles_enable_user_services() {
-  local user="$1" prog="$2"
-  local rel config_file
-  rel="$(resolve_program "$prog")"
-  config_file="${INSTALLER_DIR}/programs/${rel}/config.jsonc"
-  local -a svcs=()
-  mapfile -t svcs < <(jsonc_strip "$config_file" \
+_runner_enable_user_services() {
+  local user="$1" program="$2"
+  local relative_path config_file
+  relative_path="$(resolve_program "$program")"
+  config_file="${INSTALLER_DIR}/programs/${relative_path}/config.jsonc"
+  local -a services=()
+  mapfile -t services < <(jsonc_strip "$config_file" \
     | jq -r '.user_services[]?' 2>/dev/null)
-  ((${#svcs[@]} > 0)) || return 0
-  local svc
-  for svc in "${svcs[@]}"; do
-    info "Enabling user service: ${svc}  (user=${user})"
+  ((${#services[@]} > 0)) || return 0
+  local service
+  for service in "${services[@]}"; do
+    info "Enabling user service: ${service}  (user=${user})"
     arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-      "$user" "$svc" <<'CHROOT_USERSVC'
+      "$user" "$service" <<'CHROOT_USERSVC'
 set -e
 USER_NAME="$1"; SVC="$2"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -617,42 +617,42 @@ CHROOT_USERSVC
   done
 }
 
-# _profiles_resolve_user_unit <svc> <search_dir...>
+# _runner_resolve_user_unit <svc> <search_dir...>
 # Echo the path to <svc>.service found in the given roots, or return 1 (no
 # output) when absent. Pure: searches the given dirs only.
-_profiles_resolve_user_unit() {
-  local svc="$1"; shift
-  local f
-  f="$(find "$@" -name "${svc}.service" 2>/dev/null | head -1)"
-  [[ -n "$f" ]] || return 1
-  printf '%s\n' "$f"
+_runner_resolve_user_unit() {
+  local service="$1"; shift
+  local unit_file
+  unit_file="$(find "$@" -name "${service}.service" 2>/dev/null | head -1)"
+  [[ -n "$unit_file" ]] || return 1
+  printf '%s\n' "$unit_file"
 }
 
-# _profiles_enable_profile_user_services <user> <user_json>
+# _runner_enable_profile_user_services <user> <user_json>
 # Enable a user profile's user_services[] — the offline equivalent of
 # `systemctl --user enable`: a symlink into the user's
 # default.target.wants. Runs after the user's programs + dotfiles are placed.
 # A listed unit that isn't installed aborts with an actionable message (the
 # per-program list, by contrast, skips a missing unit).
-_profiles_enable_profile_user_services() {
+_runner_enable_profile_user_services() {
   local user="$1" json="$2"
-  local -a svcs=()
-  mapfile -t svcs < <(printf '%s' "$json" | jq -r '.user_services[]?')
-  ((${#svcs[@]} > 0)) || return 0
-  local svc
-  for svc in "${svcs[@]}"; do
-    if ! _profiles_resolve_user_unit "$svc" \
+  local -a services=()
+  mapfile -t services < <(printf '%s' "$json" | jq -r '.user_services[]?')
+  ((${#services[@]} > 0)) || return 0
+  local service
+  for service in "${services[@]}"; do
+    if ! _runner_resolve_user_unit "$service" \
          "${MOUNT_ROOT}/usr/lib/systemd/user" \
          "${MOUNT_ROOT}/usr/local/lib/systemd/user" \
          "${MOUNT_ROOT}/etc/systemd/user" >/dev/null; then
-      error "User '${user}' lists user_service '${svc}', but no" \
-            "${svc}.service unit is installed. Declare the program that" \
+      error "User '${user}' lists user_service '${service}', but no" \
+            "${service}.service unit is installed. Declare the program that" \
             "provides it before this entry, or fix the name."
       return 1
     fi
-    info "Enabling user service: ${svc}  (user=${user})"
+    info "Enabling user service: ${service}  (user=${user})"
     arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-      "$user" "$svc" <<'CHROOT_PROFILE_USERSVC'
+      "$user" "$service" <<'CHROOT_PROFILE_USERSVC'
 set -e
 USER_NAME="$1"; SVC="$2"
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -666,7 +666,7 @@ CHROOT_PROFILE_USERSVC
   done
 }
 
-_profiles_clone_dotfiles() {
+_runner_clone_dotfiles() {
   local user="$1" repo="$2"
   [[ -n "$repo" ]] || return 0
   info "Cloning dotfiles for user: ${user}  (${repo})"
@@ -697,7 +697,7 @@ CHROOT_DOTFILES
 }
 
 
-_profiles_apply_sysctl() {
+_runner_apply_sysctl() {
   local host_json="$1"
   local sysctl_json
   sysctl_json="$(printf '%s' "$host_json" \
@@ -720,23 +720,23 @@ _profiles_apply_sysctl() {
 # (cleaned up post-install), so symlinks would dangle. `./stow-configs.sh` is the
 # operator's day-2 symlink from the persistent clone; both read the one source.
 
-# _profiles_names_to_rels <names-json> — map a JSON array of program names to
+# _runner_names_to_relative_paths <names-json> — map a JSON array of program names to
 # their "<cat>/<name>" rel paths (one per line), skipping any that do not
 # resolve. Shared by the plan and the skel/root seed so the walk lives once.
-_profiles_names_to_rels() {
-  local name rel
+_runner_names_to_relative_paths() {
+  local name relative_path
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
-    rel="$(resolve_program "$name" 2>/dev/null)" || continue
-    printf '%s\n' "$rel"
+    relative_path="$(resolve_program "$name" 2>/dev/null)" || continue
+    printf '%s\n' "$relative_path"
   done < <(jq -r '.[]' <<<"$1")
 }
 
-# _profiles_config_plan_rels <user-json> <ships-home-json> <sys-progs-json>
+# _runner_config_plan_relative_paths <user-json> <ships-home-json> <sys-progs-json>
 #   → the ordered "<cat>/<name>" rel paths whose home/ config applies for this
 #   user: (user programs ∪ host programs) that ship a home/ and are not in the
 #   user's config_exclude. Pure planning delegated to ca_plan.
-_profiles_config_plan_rels() {
+_runner_config_plan_relative_paths() {
   local user_json="$1" ships="$2" sysprogs="$3"
   local selected exclude plan
   selected="$(jq -c -n \
@@ -744,23 +744,23 @@ _profiles_config_plan_rels() {
     --argjson s "$sysprogs" '$s + $u')"
   exclude="$(jq -c '.config_exclude // []' <<<"$user_json")"
   plan="$(ca_plan "$selected" "$ships" "$exclude")"
-  _profiles_names_to_rels "$plan"
+  _runner_names_to_relative_paths "$plan"
 }
 
-# _profiles_seed_skel_root <selected-home-json> — copy the config of each
+# _runner_seed_skeleton_root <selected-home-json> — copy the config of each
 # home/-shipping program SELECTED on this host into /etc/skel and /root (the
 # machine default, ADR 0095). Scoped to the host's selection (not the whole
 # catalog) so a program no user installs never leaves a dangling config under
 # /root; not config_exclude-aware, since skel/root is the shared fallback for
 # later-created users and for root, which never receives /etc/skel.
-_profiles_seed_skel_root() {
+_runner_seed_skeleton_root() {
   local selected="$1"
-  local -a rels=()
-  mapfile -t rels < <(_profiles_names_to_rels "$selected")
-  ((${#rels[@]})) || return 0
-  info "Config Apply: seeding /etc/skel + /root from ${#rels[@]} home/ tree(s)"
+  local -a relative_paths=()
+  mapfile -t relative_paths < <(_runner_names_to_relative_paths "$selected")
+  ((${#relative_paths[@]})) || return 0
+  info "Config Apply: seeding /etc/skel + /root from ${#relative_paths[@]} home/ tree(s)"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-    "$_PROFILES_RUNTIME_DIR" "${rels[@]}" <<'CHROOT_SKEL'
+    "$_RUNNER_RUNTIME_DIR" "${relative_paths[@]}" <<'CHROOT_SKEL'
 set -e
 RT="$1"; shift
 mkdir -p /etc/skel
@@ -774,19 +774,19 @@ chown -R root:root /root
 CHROOT_SKEL
 }
 
-# _profiles_apply_user_config <user> <user-json> <ships-json> <sys-progs-json>
+# _runner_apply_user_config <user> <user-json> <ships-json> <sys-progs-json>
 #   Copy the user's planned home/ trees into their $HOME, then chown to them
 #   (cp -a from the root-owned staged tree would otherwise land root-owned).
-_profiles_apply_user_config() {
+_runner_apply_user_config() {
   local user="$1" user_json="$2" ships="$3" sysprogs="$4"
-  local -a rels=()
-  mapfile -t rels < <(_profiles_config_plan_rels "$user_json" "$ships" \
+  local -a relative_paths=()
+  mapfile -t relative_paths < <(_runner_config_plan_relative_paths "$user_json" "$ships" \
     "$sysprogs")
-  ((${#rels[@]})) || { info "User '${user}': no home/ config to apply."; \
+  ((${#relative_paths[@]})) || { info "User '${user}': no home/ config to apply."; \
     return 0; }
-  info "User '${user}': applying ${#rels[@]} program config tree(s) to \$HOME"
+  info "User '${user}': applying ${#relative_paths[@]} program config tree(s) to \$HOME"
   arch-chroot "$MOUNT_ROOT" /usr/bin/bash -s -- \
-    "$user" "$_PROFILES_RUNTIME_DIR" "${rels[@]}" <<'CHROOT_APPLYCFG'
+    "$user" "$_RUNNER_RUNTIME_DIR" "${relative_paths[@]}" <<'CHROOT_APPLYCFG'
 set -e
 USER_NAME="$1"; RT="$2"; shift 2
 HOME_DIR="$(getent passwd "$USER_NAME" | cut -d: -f6)"
@@ -803,7 +803,7 @@ CHROOT_APPLYCFG
 # PUBLIC ENTRY POINT
 # =============================================================================
 
-run_profiles() {
+runner_run_profiles() {
   section "Profiles Runner"
 
   local profile="${RESOLVED_HOST_PROFILE:-}"
@@ -841,36 +841,36 @@ run_profiles() {
   fi
   info "Loaded effective config for: ${profile}"
 
-  _profiles_apply_sysctl "$host_json"
+  _runner_apply_sysctl "$host_json"
 
-  local -a users sys_progs
+  local -a users system_programs
   mapfile -t users < <(printf '%s' "$host_json" | jq -r '.users[]?')
-  mapfile -t sys_progs < <(printf '%s' "$host_json" \
+  mapfile -t system_programs < <(printf '%s' "$host_json" \
     | jq -r '.host_programs[]?')
 
   # Implicit sops activation (ADR 0025): sops is not declared in any host
   # config; the Runner selects it through the normal system-program path
   # only when install-state records secrets, deduped against declarations.
-  local _sec_active=0
-  if _profiles_host_uses_secrets "${MOUNT_ROOT}/install-state.json"; then
-    _sec_active=1
+  local _secrets_active=0
+  if _runner_host_uses_secrets "${MOUNT_ROOT}/install-state.json"; then
+    _secrets_active=1
   fi
-  mapfile -t sys_progs < <(_profiles_sops_selection "$_sec_active" \
-    "${sys_progs[@]+"${sys_progs[@]}"}")
+  mapfile -t system_programs < <(_runner_sops_selection "$_secrets_active" \
+    "${system_programs[@]+"${system_programs[@]}"}")
 
   # Pre-load user profiles for install execution.
   # Program contract validation was done by validate_install_context.
   declare -A USER_JSONS=()
-  local u
-  for u in "${users[@]}"; do
-    local uj urc=0
-    uj="$(load_user_profile "$u" 2>/dev/null)" || urc=$?
+  local user
+  for user in "${users[@]}"; do
+    local user_json urc=0
+    user_json="$(load_user_profile "$user" 2>/dev/null)" || urc=$?
     case "$urc" in
-    0 | 1) USER_JSONS["$u"]="$uj" ;;
+    0 | 1) USER_JSONS["$user"]="$user_json" ;;
     2) error "Users core profile could not be loaded." ;;
-    3) error "User '${u}' is named 'core' (reserved)." ;;
+    3) error "User '${user}' is named 'core' (reserved)." ;;
     *) error "Unexpected return code ${urc} from" \
-             "load_user_profile for '${u}'." ;;
+             "load_user_profile for '${user}'." ;;
     esac
   done
 
@@ -878,28 +878,28 @@ run_profiles() {
   dotfiles_repo="$(install_config_dotfiles_repo)"
 
   # ── Stage runtime, validate it, create users, install programs ───────────
-  _profiles_stage_runtime
-  validate_staging "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}"
-  _profiles_install_aur_vet
+  runner_stage_runtime
+  validate_staging "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}"
+  _runner_install_aur_vet
 
   # The Primary User (first in the list) gets the display name; the rest do not
   # (ADR 0121 — avatar/name is scoped to the Primary User).
-  local _primary_fullname _uidx=0
+  local _primary_fullname _user_index=0
   _primary_fullname="$(install_config_fullname)"
-  for u in "${users[@]}"; do
-    if [[ $_uidx -eq 0 ]]; then
-      _profiles_create_user "$u" "${USER_JSONS[$u]}" "$_primary_fullname"
+  for user in "${users[@]}"; do
+    if [[ $_user_index -eq 0 ]]; then
+      runner_create_user "$user" "${USER_JSONS[$user]}" "$_primary_fullname"
     else
-      _profiles_create_user "$u" "${USER_JSONS[$u]}"
+      runner_create_user "$user" "${USER_JSONS[$user]}"
     fi
-    _profiles_write_authorized_keys "$u" "${USER_JSONS[$u]}"
-    _uidx=$((_uidx + 1))
+    _runner_write_authorized_keys "$user" "${USER_JSONS[$user]}"
+    _user_index=$((_user_index + 1))
   done
 
-  local prog
-  for prog in "${sys_progs[@]}"; do
-    _profiles_install_host_program "$prog"
-    _profiles_enable_system_services "$prog"
+  local program
+  for program in "${system_programs[@]}"; do
+    _runner_install_host_program "$program"
+    _runner_enable_system_services "$program"
   done
 
   # Resolve the AUR set: host packages.aur ∪ each desktop adapter's `aur`
@@ -907,13 +907,13 @@ run_profiles() {
   # Aborts here on a malformed list (resolver propagates the parser error).
   local -a host_aur=()
   local _aur_out
-  _aur_out="$(_profiles_resolve_aur "$host_json" \
+  _aur_out="$(_runner_resolve_aur "$host_json" \
     "${ENVIRONMENT_DESKTOP[@]+"${ENVIRONMENT_DESKTOP[@]}"}")"
   [[ -n "$_aur_out" ]] && mapfile -t host_aur <<< "$_aur_out"
 
   # Font Catalog (ADR 0080): AUR fonts (today ttf-ms-fonts) ride the paru pass
   # too — options.fonts is the single font home, so its AUR members union in
-  # here rather than living in packages.aur. Kept out of _profiles_resolve_aur
+  # here rather than living in packages.aur. Kept out of _runner_resolve_aur
   # (whose contract is host ∪ adapters) so that resolver stays font-agnostic.
   # Absent options.fonts ⇒ the catalog defaults.
   local _fonts_aur
@@ -927,15 +927,15 @@ run_profiles() {
   local _pi_json
   _pi_json="$(printf '%s' "$host_json" | jq -c '.post_install // {}')"
 
-  for u in "${users[@]}"; do
+  for user in "${users[@]}"; do
     local -a uprogs=()
-    mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$u]}" \
+    mapfile -t uprogs < <(printf '%s' "${USER_JSONS[$user]}" \
       | jq -r '.programs[]?')
 
     # The Primary User also installs the host Security & Backup Extras; a tool
     # declared in both their programs and the selection installs once.
-    if [[ "${u}" == "${users[0]}" ]]; then
-      mapfile -t uprogs < <(_profiles_resolve_post_install "$_pi_json" \
+    if [[ "${user}" == "${users[0]}" ]]; then
+      mapfile -t uprogs < <(runner_resolve_post_install "$_pi_json" \
         "${uprogs[@]+"${uprogs[@]}"}")
     fi
 
@@ -943,88 +943,88 @@ run_profiles() {
     # primary user and there are host/GPU AUR packages to install.
     local needs_paru=0
     ((${#uprogs[@]} > 0)) && needs_paru=1
-    [[ "${u}" == "${users[0]}" ]] \
+    [[ "${user}" == "${users[0]}" ]] \
       && ((${#host_aur[@]} + ${#GPU_PARU_PACKAGES[@]} > 0)) \
       && needs_paru=1
     ((needs_paru)) || continue
 
-    _profiles_grant_temp_sudo "$u"
+    _runner_grant_temporary_sudo "$user"
     local _helper
-    _helper="$(_profiles_bootstrap_helper "$u")"
+    _helper="$(_runner_bootstrap_helper "$user")"
     [[ "$_helper" == paru ]] \
-      && _profiles_wire_paru_hook "${MOUNT_ROOT}/etc/paru.conf" create
+      && _runner_wire_paru_hook "${MOUNT_ROOT}/etc/paru.conf" create
     # Install host AUR packages and GPU AUR packages for the primary user.
-    if [[ "${u}" == "${users[0]}" ]]; then
+    if [[ "${user}" == "${users[0]}" ]]; then
       local -a primary_aur=(
         "${host_aur[@]+"${host_aur[@]}"}"
         "${GPU_PARU_PACKAGES[@]+"${GPU_PARU_PACKAGES[@]}"}"
       )
       if ((${#primary_aur[@]} > 0)); then
-        info "Installing AUR packages for ${u}: ${#primary_aur[@]} packages"
-        _profiles_aur_install "$u" "$_helper" "${primary_aur[@]}"
+        info "Installing AUR packages for ${user}: ${#primary_aur[@]} packages"
+        _runner_aur_install "$user" "$_helper" "${primary_aur[@]}"
       fi
     fi
-    for prog in "${uprogs[@]}"; do
+    for program in "${uprogs[@]}"; do
       # Reconcile the reference (ADR 0036): a system:false program installs
       # at user level; a Host Program the host already installs is a no-op;
       # a Host Program no host installs aborts (reconcile prints why).
       local _action
-      _action="$(reconcile_user_program "$prog" \
-        "${sys_progs[@]+"${sys_progs[@]}"}")" \
-        || error "User '${u}': cannot reconcile program '${prog}'."
+      _action="$(reconcile_user_program "$program" \
+        "${system_programs[@]+"${system_programs[@]}"}")" \
+        || error "User '${user}': cannot reconcile program '${program}'."
       case "$_action" in
       user)
-        _profiles_install_user_program "$u" "$prog" "$_helper"
-        _profiles_enable_user_services "$u" "$prog"
+        _runner_install_user_program "$user" "$program" "$_helper"
+        _runner_enable_user_services "$user" "$program"
         ;;
       noop)
-        info "User '${u}': '${prog}' already installed by the host" \
+        info "User '${user}': '${program}' already installed by the host" \
              "— skipping user-level install."
         ;;
       esac
     done
-    _profiles_quiesce_gpg "$u"
-    _profiles_revoke_temp_sudo
+    _runner_quiesce_gpg "$user"
+    _runner_revoke_temporary_sudo
   done
 
   # ── Config Apply pass (ADR 0134) ─────────────────────────────────────────
   # Copy each selected program's home/ into $HOME (honoring config_exclude) and
   # seed the machine default into /etc/skel + /root. Runs while the staged
-  # programs tree still exists (before _profiles_cleanup).
+  # programs tree still exists (before _runner_cleanup).
   local _ships_home _sysprogs_json
   _ships_home="$(ca_ships_home_list \
-    "${MOUNT_ROOT}${_PROFILES_RUNTIME_DIR}/programs")"
-  _sysprogs_json="$(printf '%s\n' "${sys_progs[@]+"${sys_progs[@]}"}" \
+    "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/programs")"
+  _sysprogs_json="$(printf '%s\n' "${system_programs[@]+"${system_programs[@]}"}" \
     | jq -R . | jq -s -c 'map(select(length > 0))')"
   # Seed /etc/skel + /root from the host's SELECTED home-shippers only
   # (host_programs ∪ every user's programs), so an unselected program never
   # leaves a dangling config under /root. No config_exclude here — it is the
   # machine default, shared across users.
-  local _all_user_progs='[]' _uj _skel_plan
-  for _uj in "${USER_JSONS[@]}"; do
-    _all_user_progs="$(jq -c -n --argjson a "$_all_user_progs" \
-      --argjson b "$(jq -c '.programs // []' <<<"$_uj")" '$a + $b')"
+  local _all_user_programs='[]' _user_json _skeleton_plan
+  for _user_json in "${USER_JSONS[@]}"; do
+    _all_user_programs="$(jq -c -n --argjson a "$_all_user_programs" \
+      --argjson b "$(jq -c '.programs // []' <<<"$_user_json")" '$a + $b')"
   done
-  _skel_plan="$(ca_plan \
-    "$(jq -c -n --argjson s "$_sysprogs_json" --argjson u "$_all_user_progs" \
+  _skeleton_plan="$(ca_plan \
+    "$(jq -c -n --argjson s "$_sysprogs_json" --argjson u "$_all_user_programs" \
       '$s + $u')" "$_ships_home" '[]')"
-  _profiles_seed_skel_root "$_skel_plan"
+  _runner_seed_skeleton_root "$_skeleton_plan"
 
   # Re-apply full group memberships now that package-created groups exist.
   # Then apply per-user config, clone dotfiles, and enable user services.
-  for u in "${users[@]}"; do
-    _profiles_apply_user_groups "$u" "${USER_JSONS[$u]}"
-    _profiles_apply_user_config "$u" "${USER_JSONS[$u]}" "$_ships_home" \
+  for user in "${users[@]}"; do
+    runner_apply_user_groups "$user" "${USER_JSONS[$user]}"
+    _runner_apply_user_config "$user" "${USER_JSONS[$user]}" "$_ships_home" \
       "$_sysprogs_json"
-    _profiles_clone_dotfiles "$u" "$dotfiles_repo"
+    _runner_clone_dotfiles "$user" "$dotfiles_repo"
     # A per-user paru.conf replaces /etc/paru.conf, so it must carry the hook
     # too (ADR 0143).
-    _profiles_wire_paru_hook "${MOUNT_ROOT}/home/${u}/.config/paru/paru.conf"
+    _runner_wire_paru_hook "${MOUNT_ROOT}/home/${user}/.config/paru/paru.conf"
     # user_services run last — after the user's programs + dotfiles placed
     # the providing units, so a missing unit is a real error.
-    _profiles_enable_profile_user_services "$u" "${USER_JSONS[$u]}"
+    _runner_enable_profile_user_services "$user" "${USER_JSONS[$user]}"
   done
 
-  _profiles_cleanup
+  _runner_cleanup
   info "Profiles runner complete."
 }

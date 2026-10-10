@@ -90,7 +90,7 @@ flowchart TD
       M7["install_base (pacstrap)"]:::act
       M8["zfs_verify (Module Guard)<br/>if any ZFS"]:::act
       M9["chroot_configure_system (chroot)"]:::act
-      M10["run_profiles<br/>users + programs + DE"]:::act
+      M10["runner_run_profiles<br/>users + programs + DE"]:::act
       M11["chroot_apply_impermanence<br/>if impermanence"]:::opt
       M12["print machine age key<br/>if secrets"]:::opt
       M13["finalize: unmount + export"]:::act
@@ -177,7 +177,7 @@ flowchart LR
   ph_ex["extras.sh runner"]:::ph
   ph_im["chroot/impermanence.sh"]:::ph
   ph_id["chroot/identity.sh"]:::ph
-  ph_pr["run_profiles"]:::ph
+  ph_pr["runner_run_profiles"]:::ph
   ph_se["secrets_load (tmpfs)"]:::ph
   ph_so["sops program<br/>ssh-to-age key"]:::ph
 

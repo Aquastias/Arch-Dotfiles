@@ -23,7 +23,7 @@ function print_status() {
 
   local RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[0;33m'
   local BLUE='\033[0;34m' MAGENTA='\033[0;35m' CYAN='\033[0;36m'
-  local WHITE='\033[0;37m' NC='\033[0m'
+  local WHITE='\033[0;37m' RESET='\033[0m'
 
   local color_code="" prefix=""
 
@@ -41,11 +41,11 @@ function print_status() {
     magenta) color_code="$MAGENTA" ;;
     cyan)    color_code="$CYAN"    ;;
     white)   color_code="$WHITE"   ;;
-    *)       color_code="$NC"      ;;
+    *)       color_code="$RESET"      ;;
     esac
     ;;
-  *) color_code="$NC" ;;
+  *) color_code="$RESET" ;;
   esac
 
-  echo -e "${color_code}${prefix:+$prefix }$message${NC}"
+  echo -e "${color_code}${prefix:+$prefix }$message${RESET}"
 }

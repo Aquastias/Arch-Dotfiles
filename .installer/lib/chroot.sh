@@ -431,7 +431,7 @@ _chroot_stage_configuration_module() {
 
 # chroot_apply_impermanence
 # Runs the impermanence Chroot Configuration Module from the host after
-# run_profiles. Kept out of configure.sh because it moves /root into the
+# runner_run_profiles. Kept out of configure.sh because it moves /root into the
 # persist dataset, which would erase /root/lib-chroot/ before the Profiles
 # Runner can read it.
 chroot_apply_impermanence() {

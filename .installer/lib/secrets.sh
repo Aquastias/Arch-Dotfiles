@@ -18,46 +18,46 @@ _SECRETS_USER_NAMES=()
 
 # Arch ISO ships neither age nor sops; install them on demand.
 _secrets_install_tools() {
-  local -a pkgs=()
-  command_exists age  || pkgs+=("age")
-  command_exists sops || pkgs+=("sops")
-  [[ ${#pkgs[@]} -eq 0 ]] && return 0
-  echo "[secrets] installing on live ISO: ${pkgs[*]}" >&2
-  pacman -Sy --noconfirm --needed "${pkgs[@]}" >&2
+  local -a packages=()
+  command_exists age  || packages+=("age")
+  command_exists sops || packages+=("sops")
+  [[ ${#packages[@]} -eq 0 ]] && return 0
+  echo "[secrets] installing on live ISO: ${packages[*]}" >&2
+  pacman -Sy --noconfirm --needed "${packages[@]}" >&2
 }
 
 secrets_load() {
   local profile="$1"
 
-  local host_sec="${INSTALLER_DIR}/hosts/${profile}/secrets.json"
+  local host_secrets="${INSTALLER_DIR}/hosts/${profile}/secrets.json"
   # VM hosts live under hosts/vm/<name>/ (fallback mirrors _profile_load).
-  [[ -f "$host_sec" ]] \
-    || host_sec="${INSTALLER_DIR}/hosts/vm/${profile}/secrets.json"
-  local -a user_secs=() user_names=()
+  [[ -f "$host_secrets" ]] \
+    || host_secrets="${INSTALLER_DIR}/hosts/vm/${profile}/secrets.json"
+  local -a user_secrets=() user_names=()
 
-  # Scope user secrets to the users this host declares (mirrors run_profiles'
+  # Scope user secrets to the users this host declares (mirrors runner_run_profiles'
   # .users[]), not every users/*/secrets.json in the repo. Otherwise a
   # committed fixture such as users/vm/test/secrets.json would force every
   # host to demand an age key. When load_profile is unavailable (unit
   # tests sourcing this file standalone) no users are scoped in.
-  local host_json="" u uf
+  local host_json="" user user_file
   if host_json="$(load_profile "$profile" 2>/dev/null)"; then
-    while IFS= read -r u; do
-      [[ -n "$u" ]] || continue
+    while IFS= read -r user; do
+      [[ -n "$user" ]] || continue
       # VM users live under users/vm/<name>/ (fallback mirrors _profile_load).
-      uf="${INSTALLER_DIR}/users/${u}/secrets.json"
-      [[ -f "$uf" ]] || uf="${INSTALLER_DIR}/users/vm/${u}/secrets.json"
-      [[ -f "$uf" ]] && { user_secs+=("$uf"); user_names+=("$u"); }
+      user_file="${INSTALLER_DIR}/users/${user}/secrets.json"
+      [[ -f "$user_file" ]] || user_file="${INSTALLER_DIR}/users/vm/${user}/secrets.json"
+      [[ -f "$user_file" ]] && { user_secrets+=("$user_file"); user_names+=("$user"); }
     done < <(printf '%s' "$host_json" | jq -r '.users[]?')
   fi
 
   local has_host=0
-  [[ -f "$host_sec" ]] && has_host=1
+  [[ -f "$host_secrets" ]] && has_host=1
 
   # Gate: nothing to decrypt for this host → skip without installing age/sops
   # or requiring an age key. Secrets tooling runs only where the host or one
   # of its declared users ships an encrypted secrets.json.
-  if [[ $has_host -eq 0 && ${#user_secs[@]} -eq 0 ]]; then
+  if [[ $has_host -eq 0 && ${#user_secrets[@]} -eq 0 ]]; then
     echo "[secrets] no secrets for host '${profile}' —" \
          "skipping (age/sops not installed)" >&2
     return 0
@@ -66,22 +66,22 @@ secrets_load() {
   # Something to decrypt → install age + sops on the live ISO on demand.
   _secrets_install_tools || return 1
 
-  local age_enc=""
-  local _url_tmp=""
+  local encrypted_age_key=""
+  local _downloaded_key=""
 
   if [[ -n "${SECRETS_KEY_DEVICE:-}" ]]; then
-    age_enc="${SECRETS_KEY_DEVICE}/age/key.age"
+    encrypted_age_key="${SECRETS_KEY_DEVICE}/age/key.age"
   elif key_device="$(_secrets_find_key_device 2>/dev/null)"; then
-    age_enc="${key_device}/age/key.age"
+    encrypted_age_key="${key_device}/age/key.age"
   elif [[ -n "${SECRETS_KEY_URL:-}" ]]; then
-    _url_tmp="$(mktemp --suffix=.age)"
+    _downloaded_key="$(mktemp --suffix=.age)"
     echo "[secrets] downloading age key from ${SECRETS_KEY_URL}" >&2
-    if ! curl -fsSL "$SECRETS_KEY_URL" -o "$_url_tmp"; then
+    if ! curl -fsSL "$SECRETS_KEY_URL" -o "$_downloaded_key"; then
       echo "[secrets] failed to download age key" >&2
-      rm -f "$_url_tmp"
+      rm -f "$_downloaded_key"
       return 1
     fi
-    age_enc="$_url_tmp"
+    encrypted_age_key="$_downloaded_key"
   else
     echo "[secrets] no key source —" \
          "plug in USB or set options.age_key_url in the host profile" >&2
@@ -98,34 +98,34 @@ secrets_load() {
     # the tty, not stdin, so feed it through a pty via util-linux `script`
     # (mirrors vm/fixtures/regenerate.sh). Operator installs leave
     # SECRETS_AGE_PASSPHRASE unset and are prompted by age as before.
-    script -qc "age -d -o '$age_key' '$age_enc'" /dev/null \
+    script -qc "age -d -o '$age_key' '$encrypted_age_key'" /dev/null \
       <<< "${SECRETS_AGE_PASSPHRASE}"$'\n' >/dev/null 2>&1 || _age_rc=$?
   else
-    age --decrypt -o "$age_key" "$age_enc" || _age_rc=$?
+    age --decrypt -o "$age_key" "$encrypted_age_key" || _age_rc=$?
   fi
   if (( _age_rc != 0 )); then
     echo "[secrets] age --decrypt failed —" \
          "wrong passphrase, corrupt key, or missing 'age' binary" >&2
-    rm -f "$_url_tmp"
+    rm -f "$_downloaded_key"
     secrets_cleanup
     return 1
   fi
-  rm -f "$_url_tmp"
+  rm -f "$_downloaded_key"
   chmod 600 "$age_key"
 
   if [[ $has_host -eq 1 ]]; then
     local out="${_SECRETS_TMPFS}/host-secrets.json"
-    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$host_sec" > "$out"; then
+    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$host_secrets" > "$out"; then
       secrets_cleanup
       return 1
     fi
     chmod 600 "$out"
   fi
 
-  for i in "${!user_secs[@]}"; do
+  for i in "${!user_secrets[@]}"; do
     local out="${_SECRETS_TMPFS}/${user_names[$i]}-secrets.json"
     if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt \
-         "${user_secs[$i]}" > "$out"; then
+         "${user_secrets[$i]}" > "$out"; then
       secrets_cleanup
       return 1
     fi
@@ -143,19 +143,19 @@ secrets_persist_state() {
   [[ -z "${_SECRETS_TMPFS:-}" ]] && return 0
 
   local state="${INSTALL_STATE:-/mnt/install-state.json}"
-  local enc
+  local encoded_path
   mkdir -p "$(dirname "$state")"
   [[ -f "$state" ]] || echo '{}' > "$state"
 
   install_state_update "$state" '.secrets' '{}'
   if [[ "${_SECRETS_HAS_HOST:-0}" -eq 1 ]]; then
-    enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
-    install_state_update "$state" '.secrets.host' "$enc"
+    encoded_path="$(jq -nR --arg v "${_SECRETS_TMPFS}/host-secrets.json" '$v')"
+    install_state_update "$state" '.secrets.host' "$encoded_path"
   fi
   local name
   for name in "${_SECRETS_USER_NAMES[@]+"${_SECRETS_USER_NAMES[@]}"}"; do
-    enc="$(jq -nR --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" '$v')"
-    install_state_update "$state" ".secrets.users[\"$name\"]" "$enc"
+    encoded_path="$(jq -nR --arg v "${_SECRETS_TMPFS}/${name}-secrets.json" '$v')"
+    install_state_update "$state" ".secrets.users[\"$name\"]" "$encoded_path"
   done
 }
 
@@ -167,10 +167,10 @@ _secrets_find_key_device() {
     echo "[secrets] no removable device found" >&2
     return 1
   fi
-  local mp
-  for mp in "/run/media" "/media" "/mnt"; do
-    if [[ -f "${mp}/${dev}/age/key.age" ]]; then
-      printf '%s' "${mp}/${dev}"
+  local mountpoint
+  for mountpoint in "/run/media" "/media" "/mnt"; do
+    if [[ -f "${mountpoint}/${dev}/age/key.age" ]]; then
+      printf '%s' "${mountpoint}/${dev}"
       return 0
     fi
   done
@@ -193,17 +193,17 @@ secrets_print_machine_key() {
   local key_file="${MOUNT_ROOT:-/mnt}/etc/secrets/age/keys.txt"
   [[ -f "$key_file" ]] || return 0
 
-  local pub_key=""
+  local public_key=""
   if command_exists age-keygen; then
-    pub_key="$(age-keygen -y "$key_file" 2>/dev/null)" || true
+    public_key="$(age-keygen -y "$key_file" 2>/dev/null)" || true
   fi
-  if [[ -z "$pub_key" ]]; then
-    pub_key="$(grep '^# public key:' "$key_file" | awk '{print $NF}')" || true
+  if [[ -z "$public_key" ]]; then
+    public_key="$(grep '^# public key:' "$key_file" | awk '{print $NF}')" || true
   fi
-  [[ -n "$pub_key" ]] || return 0
+  [[ -n "$public_key" ]] || return 0
 
   echo ""
-  echo "==> Machine age public key: ${pub_key}"
+  echo "==> Machine age public key: ${public_key}"
   echo "==> Run: sops updatekeys" \
        ".installer/users/*/secrets.json .installer/hosts/*/secrets.json"
   echo "==> Then update .sops.yaml to include this key and commit."

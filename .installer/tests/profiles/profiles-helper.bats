@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for the AUR-helper foundations (ADR 0052), runner.sh + common.sh:
 #   _retry                  — generic retry-with-backoff wrapper
-#   _profiles_detect_helper — resolve paru|yay from PATH ($AUR_HELPER value)
+#   aur_helper_detect — resolve paru|yay from PATH ($AUR_HELPER value)
 #
 # Both are pure: no paru, no chroot. _retry's sleep is shadowed by a test
 # function that records the backoff sequence, so tests run instantly.
@@ -84,7 +84,7 @@ _record_sleep() { printf '%s\n' "$1" >> "$SLEEPS_FILE"; }
   [ "$(grep -c '^\[RETRY\]' "$TEST_DIR/err")" -eq 1 ]
 }
 
-# ── _profiles_detect_helper ─────────────────────────────────────────────────
+# ── aur_helper_detect ─────────────────────────────────────────────────
 
 # Put fake helper executables on an isolated PATH.
 _stub_helpers() {
@@ -94,33 +94,33 @@ _stub_helpers() {
   PATH="$bin"
 }
 
-@test "_profiles_detect_helper: only paru → paru" {
+@test "aur_helper_detect: only paru → paru" {
   local saved="$PATH"; _stub_helpers paru
-  run _profiles_detect_helper
+  run aur_helper_detect
   PATH="$saved"
   [ "$status" -eq 0 ]
   [ "$output" = "paru" ]
 }
 
-@test "_profiles_detect_helper: only yay → yay" {
+@test "aur_helper_detect: only yay → yay" {
   local saved="$PATH"; _stub_helpers yay
-  run _profiles_detect_helper
+  run aur_helper_detect
   PATH="$saved"
   [ "$status" -eq 0 ]
   [ "$output" = "yay" ]
 }
 
-@test "_profiles_detect_helper: both present → paru (preferred)" {
+@test "aur_helper_detect: both present → paru (preferred)" {
   local saved="$PATH"; _stub_helpers paru yay
-  run _profiles_detect_helper
+  run aur_helper_detect
   PATH="$saved"
   [ "$status" -eq 0 ]
   [ "$output" = "paru" ]
 }
 
-@test "_profiles_detect_helper: neither present → non-zero, no output" {
+@test "aur_helper_detect: neither present → non-zero, no output" {
   local saved="$PATH"; _stub_helpers   # empty bin dir
-  run _profiles_detect_helper
+  run aur_helper_detect
   PATH="$saved"
   [ "$status" -ne 0 ]
   [ -z "$output" ]
@@ -128,12 +128,12 @@ _stub_helpers() {
 
 # ── AUR Vetting helper policy (ADR 0143) ────────────────────────────────────
 
-@test "_aur_helper_vets_aur: only paru carries the vetting hook" {
-  _aur_helper_vets_aur paru
-  ! _aur_helper_vets_aur yay
+@test "aur_helper_vets_aur: only paru carries the vetting hook" {
+  aur_helper_vets_aur paru
+  ! aur_helper_vets_aur yay
 }
 
-@test "_aur_helper_repo_cmd: yay is repo-only, paru unchanged" {
-  [ "$(_aur_helper_repo_cmd yay)" = "yay --repo" ]
-  [ "$(_aur_helper_repo_cmd paru)" = "paru" ]
+@test "aur_helper_repo_command: yay is repo-only, paru unchanged" {
+  [ "$(aur_helper_repo_command yay)" = "yay --repo" ]
+  [ "$(aur_helper_repo_command paru)" = "paru" ]
 }

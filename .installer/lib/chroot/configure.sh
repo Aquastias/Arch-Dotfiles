@@ -227,7 +227,7 @@ bash /root/lib-chroot/extras.sh
 # Impermanence is intentionally NOT invoked here — it moves /root into the
 # persist dataset, which would erase /root/lib-chroot/ before the Profiles
 # Runner can use it. chroot_apply_impermanence() runs it from the host after
-# run_profiles. See ADRs 0001 and 0004.
+# runner_run_profiles. See ADRs 0001 and 0004.
 
 echo ""
 echo "[CHROOT] Configuration complete."

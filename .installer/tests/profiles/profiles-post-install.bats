@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Tests for the Runner's Security & Backup Extras union — M4, ADR 0041
-# (_profiles_resolve_post_install in lib/profiles/runner.sh).
+# (runner_resolve_post_install in lib/profiles/runner.sh).
 #
 # Pure list-shaper: resolves the host post_install.{security,backup} object to
 # its Program names (via post_install_programs), then unions them into the
@@ -19,33 +19,33 @@ setup() {
 }
 
 @test "a tool in both post_install and the user's programs installs once" {
-  run _profiles_resolve_post_install "$(post_install_default)" firewalld docker
+  run runner_resolve_post_install "$(post_install_default)" firewalld docker
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' firewalld docker clamav rkhunter apparmor \
     zfs-auto-snapshot borg)" ]
 }
 
 @test "no user programs → the resolved extras in canonical order" {
-  run _profiles_resolve_post_install '{"security":{"firewall":"ufw","rootkit":true}}'
+  run runner_resolve_post_install '{"security":{"firewall":"ufw","rootkit":true}}'
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' ufw rkhunter)" ]
 }
 
 @test "empty post_install passes the user's programs through unchanged" {
-  run _profiles_resolve_post_install '{}' docker searxng
+  run runner_resolve_post_install '{}' docker searxng
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' docker searxng)" ]
 }
 
 @test "empty selection and no users → empty list" {
-  run _profiles_resolve_post_install '{}'
+  run runner_resolve_post_install '{}'
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "a ZFS-less install never routes zfs-auto-snapshot to the paru pass" {
   install_config_any_zfs() { printf 'false\n'; }
-  run _profiles_resolve_post_install '{"backup":{"zfs_auto_snapshot":true,
+  run runner_resolve_post_install '{"backup":{"zfs_auto_snapshot":true,
     "borg":true}}'
   [ "$status" -eq 0 ]
   [ "$output" = "borg" ]

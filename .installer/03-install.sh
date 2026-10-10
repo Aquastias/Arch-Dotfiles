@@ -139,7 +139,7 @@ install_system() {
 }
 
 configure_users_and_programs() {
-  run_profiles
+  runner_run_profiles
   # the Audit Cache (test-only) served the install; ship pacman.conf as is
   strip_audit_cache "${MOUNT_ROOT:-/mnt}/etc/pacman.conf"
 

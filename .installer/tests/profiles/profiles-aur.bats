@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for the Runner AUR merge — _profiles_resolve_aur in lib/profiles/runner.sh.
+# Tests for the Runner AUR merge — _runner_resolve_aur in lib/profiles/runner.sh.
 #
 # Pure resolver: unions host packages.aur (categorized string mode) with each
 # desktop adapter's `aur` field (categorized bool mode), read from
@@ -32,7 +32,7 @@ _adapter() {
 @test "adapter-declared AUR package appears in the resolved set" {
   _adapter kde '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
 
-  run _profiles_resolve_aur '{}' kde
+  run _runner_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   grep -qx "qt6ct-kde" <<< "$output"
 }
@@ -41,7 +41,7 @@ _adapter() {
   _adapter kde '{"aur":{}}'
   local host='{"packages":{"aur":{"misc":["brave-bin","ani-cli-git"]}}}'
 
-  run _profiles_resolve_aur "$host" kde
+  run _runner_resolve_aur "$host" kde
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'ani-cli-git\nbrave-bin')" ]
 }
@@ -51,7 +51,7 @@ _adapter() {
   _adapter stub-de '{"aur":{"qt-theming":{"qt6ct-kde":true}}}'
   local host='{"packages":{"aur":{"misc":["brave-bin","qt6ct-kde"]}}}'
 
-  run _profiles_resolve_aur "$host" kde stub-de
+  run _runner_resolve_aur "$host" kde stub-de
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf 'brave-bin\nkde-pkg\nqt6ct-kde')" ]
 }
@@ -59,13 +59,13 @@ _adapter() {
 @test "adapter without an aur field contributes nothing, no error" {
   _adapter kde '{"shell":true,"apps":true}'
 
-  run _profiles_resolve_aur '{}' kde
+  run _runner_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "missing adapter file contributes nothing, no error" {
-  run _profiles_resolve_aur '{}' nonexistent-de
+  run _runner_resolve_aur '{}' nonexistent-de
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
@@ -73,7 +73,7 @@ _adapter() {
 @test "malformed adapter aur aborts with parser error" {
   _adapter kde '{"aur":{"x":{"p":"yes"}}}'
 
-  run _profiles_resolve_aur '{}' kde
+  run _runner_resolve_aur '{}' kde
   [ "$status" -ne 0 ]
   [[ "$output" == *"aur.x.p"* ]]
   [[ "$output" == *"expected boolean leaf"* ]]
@@ -96,7 +96,7 @@ _adapter() {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
   local de
   for de in kde niri hyprland; do
-    run _profiles_resolve_aur '{}' "$de"
+    run _runner_resolve_aur '{}' "$de"
     [ "$status" -eq 0 ]
     grep -qx "qt6ct-kde" <<< "$output" \
       || { echo "qt6ct-kde missing under $de"; return 1; }
@@ -105,7 +105,7 @@ _adapter() {
 
 @test "qt6ct-kde does not resolve on a desktop-less host (App Theming Bridge)" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
-  run _profiles_resolve_aur '{}'          # no desktops
+  run _runner_resolve_aur '{}'          # no desktops
   [ "$status" -eq 0 ]
   ! grep -qx "qt6ct-kde" <<< "$output"
 }
@@ -119,7 +119,7 @@ _adapter() {
 
 @test "octopi resolves under kde via the real adapter" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # resolve against the shipped adapters
-  run _profiles_resolve_aur '{}' kde
+  run _runner_resolve_aur '{}' kde
   [ "$status" -eq 0 ]
   grep -qx "octopi" <<< "$output"
 }
@@ -140,7 +140,7 @@ _adapter() {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."   # the shipped adapters
   local de
   for de in kde niri hyprland; do
-    run _profiles_resolve_aur '{}' "$de"
+    run _runner_resolve_aur '{}' "$de"
     [ "$status" -eq 0 ]
     grep -qx "bibata-cursor-git" <<< "$output" \
       || { echo "bibata missing under $de"; return 1; }
@@ -149,7 +149,7 @@ _adapter() {
 
 @test "bibata-cursor-git does not resolve on a desktop-less host (ADR 0098)" {
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
-  run _profiles_resolve_aur '{}'          # no desktops
+  run _runner_resolve_aur '{}'          # no desktops
   [ "$status" -eq 0 ]
   ! grep -qx "bibata-cursor-git" <<< "$output"
 }

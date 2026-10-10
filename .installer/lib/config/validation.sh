@@ -539,7 +539,7 @@ validate_install_context() {
 }
 
 # Verify the staged runtime tree at <dir> is complete.
-# Called from profiles.sh after _profiles_stage_runtime.
+# Called from profiles.sh after runner_stage_runtime.
 validate_staging() {
   local target="$1"
   [[ -d "$target/programs" ]] ||

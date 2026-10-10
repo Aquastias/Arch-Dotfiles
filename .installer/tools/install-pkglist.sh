@@ -40,7 +40,7 @@ fi
 
 # Resolve the AUR Helper (ADR 0052) via the shared rule: paru preferred, yay the
 # fallback. Runs on a booted system, so it reads the real PATH.
-if ! helper="$(_profiles_detect_helper)"; then
+if ! helper="$(aur_helper_detect)"; then
   echo "no AUR helper found (paru or yay) — install one first" >&2
   exit 1
 fi
@@ -58,13 +58,13 @@ _pkgs() {
 # AUR builds need paru: its PreBuildCommand runs AUR Vetting, yay has no such
 # hook (ADR 0143). Under yay the repo pass is repo-only and the AUR pass is
 # refused rather than built unvetted.
-read -ra repo_helper <<<"$(_aur_helper_repo_cmd "$helper")"
+read -ra repo_helper <<<"$(aur_helper_repo_command "$helper")"
 
 echo "Installing repo packages for profile ${profile}..."
 _pkgs "$repo_list" | "${repo_helper[@]}" -S --needed -
 
 if [[ -f "$aur_list" ]] && [[ -n "$(_pkgs "$aur_list")" ]]; then
-  if ! _aur_helper_vets_aur "$helper"; then
+  if ! aur_helper_vets_aur "$helper"; then
     echo "AUR packages need paru: vetting needs paru (ADR 0143)." >&2
     exit 1
   fi
