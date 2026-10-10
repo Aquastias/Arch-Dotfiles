@@ -17,7 +17,11 @@ _on_error() {
 }
 
 # ── Source shared helpers (colours, info/warn/error/section, jsonc, etc.) ─────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# (The stdlib is not loaded yet; a bare `bash 01-bootstrap-zfs.sh` has no
+# slash to strip.)
+script_path="${BASH_SOURCE[0]}"
+[[ "$script_path" == */* ]] || script_path="./$script_path"
+SCRIPT_DIR="$(cd "${script_path%/*}" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 # Shared ZFS module install/load — the SAME code 03-install.sh's fallback uses.
@@ -26,6 +30,41 @@ source "${SCRIPT_DIR}/lib/zfs/module.sh"
 # Config accessors — for the any-ZFS gate below (install_config_any_zfs).
 # shellcheck source=lib/config/accessors.sh
 source "${SCRIPT_DIR}/lib/config/accessors.sh"
+
+# =============================================================================
+# MAIN — the bootstrap, step by step
+# =============================================================================
+
+main() {
+  # Skip the whole ZFS bootstrap for a pure non-ZFS install (ADR 0043): no
+  # archzfs repo, userland, or module when no group is ZFS. 03 re-runs the
+  # generic root/UEFI/internet pre-flight, so nothing is lost. <config> from
+  # install.sh.
+  local config_file="${1:-}"
+  if [[ -n "$config_file" && -f "$config_file" ]]; then
+    export CONFIG_FILE="$config_file"
+    if [[ "$(install_config_any_zfs)" != "true" ]]; then
+      info "No ZFS group in the config — skipping ZFS bootstrap (ADR 0043)."
+      return 0
+    fi
+  fi
+
+  echo -e "\n${CYAN}${BOLD}  ZFS Bootstrap — Arch Linux Live ISO${NC}"
+  echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"
+
+  check_root
+  check_uefi
+  check_live_env
+  check_internet
+  check_ram       # hard RAM floor — errors if < 1 GB
+  expand_cowspace # remount cowspace larger BEFORE any pacman installs
+  sync_clock
+  zfs_add_archzfs_repo
+  install_zfs
+  zfs_load_module
+  setup_hostid
+  print_summary
+}
 
 # =============================================================================
 # PRE-FLIGHT CHECKS
@@ -51,59 +90,21 @@ check_live_env() {
   else
     warn "Could not confirm Arch ISO environment."
     warn "This script is designed for the official Arch Linux ISO."
-    read -rp "$(echo -e "${YELLOW}[?]${NC} Continue anyway? [y/N]: ")" _ans
-    [[ "${_ans,,}" == "y" ]] || error "Aborted."
+    local answer
+    read -rp "$(echo -e "${YELLOW}[?]${NC} Continue anyway? [y/N]: ")" answer
+    [[ "${answer,,}" == "y" ]] || error "Aborted."
   fi
 }
 
 check_internet() {
   section "Network"
-
-  # Wait briefly for DHCP: the ISO brings up networking in the background, so
-  # an immediate run races it. Poll for a default route, not a fixed sleep.
-  local waited=0
-  while ((waited < 10)); do
-    if ip route show default &>/dev/null; then
-      break
-    fi
-    info "Waiting for default route... (${waited}s)"
-    sleep 1
-    ((waited++))
-  done
+  _wait_for_default_route
 
   # Test connectivity via TCP (curl), not ping: ICMP is often blocked, TCP
   # connect returns on SYN-ACK, and all three hosts run in parallel.
   info "Testing internet connectivity..."
-
-  local ok=false tmpdir
-  tmpdir="$(mktemp -d)"
-
-  # Fire all checks in parallel; first success writes a flag file
-  local host
-  for host in 8.8.8.8 1.1.1.1 archlinux.org; do
-    (
-      if curl -s --max-time 3 --connect-timeout 3 \
-        -o /dev/null "http://${host}" 2>/dev/null; then
-        touch "${tmpdir}/ok"
-      fi
-    ) &
-  done
-
-  # Wait up to 5 seconds for any parallel check to succeed
-  local elapsed=0
-  while ((elapsed < 5)); do
-    if [[ -f "${tmpdir}/ok" ]]; then
-      ok=true
-      break
-    fi
-    sleep 0.5
-    ((elapsed++)) || true
-  done
-
-  wait 2>/dev/null || true
-  rm -rf "${tmpdir}"
-
-  $ok || error "No internet connection detected.
+  _any_host_reachable 8.8.8.8 1.1.1.1 archlinux.org \
+    || error "No internet connection detected.
   Ethernet : should work automatically via DHCP.
   Wi-Fi    : run 'iwctl', then:
                device list
@@ -111,6 +112,44 @@ check_internet() {
   Check route: ip route show default"
 
   info "Internet connection OK."
+}
+
+# Wait briefly for DHCP: the ISO brings up networking in the background, so
+# an immediate run races it. Poll for a default route, not a fixed sleep.
+_wait_for_default_route() {
+  local waited=0
+  while ((waited < 10)); do
+    ip route show default &>/dev/null && break
+    info "Waiting for default route... (${waited}s)"
+    sleep 1
+    ((waited++))
+  done
+}
+
+# _any_host_reachable <host>... — 0 if any host answers HTTP within ~5s. All
+# checks fire in parallel; the first success writes a flag file.
+_any_host_reachable() {
+  local flag_directory host reachable=1 elapsed=0
+  flag_directory="$(mktemp -d)"
+  for host in "$@"; do
+    (
+      if curl -s --max-time 3 --connect-timeout 3 \
+        -o /dev/null "http://${host}" 2>/dev/null; then
+        touch "${flag_directory}/ok"
+      fi
+    ) &
+  done
+  while ((elapsed < 5)); do
+    if [[ -f "${flag_directory}/ok" ]]; then
+      reachable=0
+      break
+    fi
+    sleep 0.5
+    ((elapsed++)) || true
+  done
+  wait 2>/dev/null || true
+  rm -rf "${flag_directory}"
+  return "$reachable"
 }
 
 check_ram() {
@@ -145,13 +184,13 @@ expand_cowspace() {
     return
   fi
 
-  local cow_total_mb cow_avail_mb total_ram_mb
-  cow_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
-  cow_avail_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $4}')"
+  local cowspace_total_mb cowspace_available_mb total_ram_mb
+  cowspace_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
+  cowspace_available_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $4}')"
   total_ram_mb="$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo)"
 
-  info "cowspace current size : ${cow_total_mb} MB"
-  info "cowspace available    : ${cow_avail_mb} MB"
+  info "cowspace current size : ${cowspace_total_mb} MB"
+  info "cowspace available    : ${cowspace_available_mb} MB"
 
   # Target 75% of RAM, floored at 1024 MB, capped at RAM-512 (leaves ~512 MB
   # for kernel + processes).
@@ -160,21 +199,21 @@ expand_cowspace() {
   local cap=$((total_ram_mb - 512))
   ((target_mb > cap && cap > 512)) && target_mb=$cap
 
-  if ((cow_total_mb >= target_mb)); then
-    info "cowspace is already ${cow_total_mb} MB — no expansion needed."
+  if ((cowspace_total_mb >= target_mb)); then
+    info "cowspace is already ${cowspace_total_mb} MB — no expansion needed."
     return
   fi
 
-  info "Expanding cowspace: ${cow_total_mb} MB → ${target_mb} MB ..."
+  info "Expanding cowspace: ${cowspace_total_mb} MB → ${target_mb} MB ..."
   # remount,size= resizes the tmpfs in place — no data lost, overlay stays up.
   mount -o remount,size="${target_mb}M" /run/archiso/cowspace ||
     error "Failed to expand cowspace.
   This should not happen on the official Arch ISO.
   Try rebooting with  cow_spacesize=2G  on the kernel cmdline as a workaround."
 
-  local new_total_mb
-  new_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
-  info "cowspace expanded to ${new_total_mb} MB."
+  local expanded_total_mb
+  expanded_total_mb="$(df -m /run/archiso/cowspace | awk 'NR==2{print $2}')"
+  info "cowspace expanded to ${expanded_total_mb} MB."
 }
 
 # =============================================================================
@@ -200,9 +239,9 @@ sync_clock() {
 install_zfs() {
   section "Installing ZFS"
 
-  local kver
-  kver="$(uname -r)"
-  info "Running kernel: ${kver}"
+  local kernel_version
+  kernel_version="$(uname -r)"
+  info "Running kernel: ${kernel_version}"
 
   # Idempotent — skip if already loaded
   if lsmod | grep -q '^zfs '; then
@@ -214,7 +253,7 @@ install_zfs() {
   _remove_stale_archzfs_testing
 
   # Always DKMS on the live ISO — compiles against the exact running kernel
-  zfs_install_dkms "$kver"
+  zfs_install_dkms "$kernel_version"
 }
 
 # =============================================================================
@@ -244,7 +283,7 @@ print_summary() {
   echo ""
   printf "  %-22s %s\n" "Kernel:" "$(uname -r)"
   printf "  %-22s %s\n" "ZFS version:" \
-    "$(zfs version 2>/dev/null | head -1 || echo 'unknown')"
+    "$(zfs version 2>/dev/null | awk 'NR == 1' || echo 'unknown')"
   printf "  %-22s %s\n" "hostid:" "$(hostid)"
   printf "  %-22s %s\n" "Time:" "$(date)"
   echo ""
@@ -255,41 +294,6 @@ print_summary() {
   echo -e "  ${DIM}   03-install.sh         " \
           "(edit install.json first, then run)${NC}"
   echo ""
-}
-
-# =============================================================================
-# MAIN
-# =============================================================================
-
-main() {
-  # Skip the whole ZFS bootstrap for a pure non-ZFS install (ADR 0043): no
-  # archzfs repo, userland, or module when no group is ZFS. 03 re-runs the
-  # generic root/UEFI/internet pre-flight, so nothing is lost. <config> from
-  # install.sh.
-  local cfg="${1:-}"
-  if [[ -n "$cfg" && -f "$cfg" ]]; then
-    export CONFIG_FILE="$cfg"
-    if [[ "$(install_config_any_zfs)" != "true" ]]; then
-      info "No ZFS group in the config — skipping ZFS bootstrap (ADR 0043)."
-      return 0
-    fi
-  fi
-
-  echo -e "\n${CYAN}${BOLD}  ZFS Bootstrap — Arch Linux Live ISO${NC}"
-  echo -e "${DIM}  ─────────────────────────────────────────────────${NC}\n"
-
-  check_root
-  check_uefi
-  check_live_env
-  check_internet
-  check_ram       # hard RAM floor — errors if < 1 GB
-  expand_cowspace # remount cowspace larger BEFORE any pacman installs
-  sync_clock
-  zfs_add_archzfs_repo
-  install_zfs
-  zfs_load_module
-  setup_hostid
-  print_summary
 }
 
 main "$@"

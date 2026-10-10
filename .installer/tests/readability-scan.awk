@@ -19,7 +19,8 @@ BEGIN {
 
   # Short name tokens that are words or well-known acronyms, not shorthand.
   split("i j rc x y is to in on of by no at as if up so it or an do go me " \
-        "my we us be os vm id ip ok ui qt pi jq mv cp rm ln su sh dd", list, \
+        "my we us be os vm id ip ok ui qt pi jq mv cp rm ln su sh dd mb kb gb tb", \
+        list, \
         " ")
   for (n in list) allowed_short[list[n]] = 1
 
@@ -39,7 +40,7 @@ BEGIN {
 
   # Replace-tier tools (Tool Tiers): rewrite with jq/awk/grep or a builtin.
   split("cut tr head tail wc paste comm uniq column bc xargs realpath " \
-        "readlink basename dirname", list, " ")
+        "basename dirname", list, " ")
   for (n in list) replace_tier[list[n]] = 1
 
   # Words that may precede the real command in a segment.
@@ -255,10 +256,6 @@ function check_commands(code, line, exempt,   count, n, word, peak) {
     if (word in block_opener) { depth++; if (depth > peak) peak = depth }
     else if (word in block_closer) depth--
     if (exempt) continue
-    # readlink reading a link target has no builtin twin; only path
-    # canonicalisation (-f/-e/-m, like realpath) is replace-tier.
-    if (word == "readlink" && segment[n] !~ /(^|[ \t])-[A-Za-z]*[fem]/)
-      continue
     if (word in replace_tier)
       emit("tool", line, current_function() ":" word, word)
     else if (word == "sed" && \
@@ -382,7 +379,7 @@ FNR == 1 {
   # Heredoc opener (not a here-string): body starts on the next line.
   if (!starts_in_quote && \
       match(raw, /<<-?[ \t]*['"\\]?[A-Za-z_][A-Za-z0-9_]*/) && \
-      substr(raw, RSTART, 3) != "<<<") {
+      substr(raw, RSTART, 3) != "<<<" && substr(raw, RSTART - 1, 1) != "<") {
     opener = substr(raw, RSTART, RLENGTH)
     heredoc_strip = (opener ~ /^<<-/)
     sub(/^<<-?[ \t]*['"\\]?/, "", opener)

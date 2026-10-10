@@ -60,6 +60,6 @@ layout_data_pool_mount() {
   printf '%s' "${_LAYOUT_IMPL_DATA_POOL_MOUNT[$1]:-}"
 }
 layout_data_pool_topology() {
-  declare -p _LAYOUT_IMPL_DATA_POOL_TOPO &>/dev/null || return 0
-  printf '%s' "${_LAYOUT_IMPL_DATA_POOL_TOPO[$1]:-}"
+  declare -p _LAYOUT_IMPL_DATA_POOL_TOPOLOGY &>/dev/null || return 0
+  printf '%s' "${_LAYOUT_IMPL_DATA_POOL_TOPOLOGY[$1]:-}"
 }

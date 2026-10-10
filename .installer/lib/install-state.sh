@@ -48,25 +48,75 @@ _INSTALL_STATE_SCHEMA=(
 # Sources every schema field as a shell variable. Returns 1 (no exit) on
 # missing file or missing field, with field name on stderr.
 install_state_load() {
-  local path="$1" spec var jq_path type value
+  local path="$1" spec variable jq_path type value
   [[ -f "$path" ]] || {
     echo "[install-state] missing file: $path" >&2; return 1
   }
   for spec in "${_INSTALL_STATE_SCHEMA[@]}"; do
-    IFS='|' read -r var jq_path type <<< "$spec"
+    IFS='|' read -r variable jq_path type <<< "$spec"
     if ! _install_state_has_path "$path" "$jq_path"; then
       echo "[install-state] missing field: $jq_path" >&2
       return 1
     fi
     if [[ "$type" == "array" ]]; then
-      mapfile -t "$var" < <(jq -r "${jq_path}[]" "$path")
-      export "${var?}"
+      mapfile -t "$variable" < <(jq -r "${jq_path}[]" "$path")
+      export "${variable?}"
     else
       value="$(jq -r "$jq_path" "$path")"
-      printf -v "$var" '%s' "$value"
-      export "${var?}"
+      printf -v "$variable" '%s' "$value"
+      export "${variable?}"
     fi
   done
+}
+
+# The install-state.json shape. Keys are read by the chroot modules — frozen.
+_INSTALL_STATE_TEMPLATE='{
+  hostname:$hostname, timezone:$timezone,
+  locale:$locale, locales:$locales,
+  keymap:$keymap, keymaps:$keymaps,
+  console_font:$console_font,
+  kernel:$kernel, kernels:$kernels,
+  bootloader:$bootloader,
+  root_shell:$root_shell,
+  filesystem:$filesystem,
+  ssh:          { enabled:$ssh_enabled },
+  rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
+  gpu:$gpu,
+  display_manager:$display_manager,
+  swap:$swap,
+  zswap: { enabled:$zswap_enabled, compressor:$zswap_compressor,
+    max_pool_percent:$zswap_max_pool_percent },
+  apparmor:$apparmor,
+  esp_count:$esp_count,
+  impermanence: { enabled:$impermanence_enabled,
+    dataset:$impermanence_dataset, mount:$impermanence_mount },
+  persist:$persist
+}'
+
+# _install_state_json_array — stdin lines as a compact JSON string array.
+_install_state_json_array() { jq -R . | jq -sc .; }
+
+# _install_state_host_profile_json <profile> — the assembled host profile, or
+# {} when there is none. load_profile prints core-only JSON *and* returns 1
+# when no host profile exists (graceful): capture stdout, ignore the status,
+# fall back to {} only when nothing printed. A `|| printf '{}'` would append a
+# second JSON value, corrupting the --argjson persist payload.
+_install_state_host_profile_json() {
+  local host_json
+  host_json="$(load_profile "$1" 2>/dev/null)" || true
+  printf '%s\n' "${host_json:-{\}}"
+}
+
+# _install_state_gpu_json — the resolved GPU vendor list (auto → detected
+# vendors) threaded to the chroot, where the GPU Configuration Module decides
+# whether to harden (ADR 0053). `${VAR+x}` guards the unset case under `set -u`
+# (empty → []).
+_install_state_gpu_json() {
+  if [[ ${ENVIRONMENT_GPU+x} && ${#ENVIRONMENT_GPU[@]} -gt 0 ]]; then
+    printf '%s\n' "${ENVIRONMENT_GPU[@]}" | _install_state_json_array
+  else
+    printf '[]\n'
+  fi
 }
 
 # install_state_write <path> <profile>
@@ -75,89 +125,57 @@ install_state_load() {
 # written into install-state.json comes from install_config_hostname,
 # which is the machine identity — not the profile name.
 install_state_write() {
-  local path="$1" profile="$2" host_json persist kernels
-  # load_profile prints core-only JSON *and* returns 1 when no host profile
-  # exists (graceful). Capture stdout, ignore the status, fall back to {} only
-  # when nothing printed. A `|| printf '{}'` would append a second JSON value,
-  # corrupting the --argjson persist payload below.
-  host_json="$(load_profile "$profile" 2>/dev/null)" || true
-  [[ -n "$host_json" ]] || host_json='{}'
-  persist="$(_install_state_persist_obj "$host_json")"
+  local path="$1" profile="$2" persist kernels locales keymaps
+  persist="$(_install_state_persist_obj \
+    "$(_install_state_host_profile_json "$profile")")"
   # Full Kernel Selection as a JSON array; KERNEL stays the scalar primary.
-  kernels="$(install_config_kernels | jq -R . | jq -sc .)"
+  kernels="$(install_config_kernels | _install_state_json_array)"
   # Locale/Keymap Selection as arrays (element 0 = default); the scalar
   # locale/keymap stay the primaries for back-compat consumers.
-  local locales keymaps
-  locales="$(install_config_locales | jq -R . | jq -sc .)"
-  keymaps="$(install_config_keymaps | jq -R . | jq -sc .)"
-  # Resolved GPU vendor list (auto → detected vendors) threaded to the chroot,
-  # where the GPU Configuration Module decides whether to harden (ADR 0053).
-  # `${VAR+x}` guards the unset case under `set -u` (empty → []).
-  local gpu_json='[]'
-  if [[ ${ENVIRONMENT_GPU+x} && ${#ENVIRONMENT_GPU[@]} -gt 0 ]]; then
-    gpu_json="$(printf '%s\n' "${ENVIRONMENT_GPU[@]}" | jq -R . | jq -sc .)"
-  fi
+  locales="$(install_config_locales | _install_state_json_array)"
+  keymaps="$(install_config_keymaps | _install_state_json_array)"
   jq -n \
-    --arg     hostname    "$(install_config_hostname)"               \
-    --arg     timezone    "$(install_config_timezone)"               \
-    --arg     locale      "$(install_config_locale)"                 \
-    --argjson locales     "$locales"                                 \
-    --arg     keymap      "$(install_config_keymap)"                 \
-    --argjson keymaps     "$keymaps"                                 \
-    --arg     console_font "$(install_config_console_font)"          \
-    --arg     kernel      "$(install_config_kernel)"                 \
-    --argjson kernels     "$kernels"                                 \
-    --arg     bootloader  "$(install_config_bootloader)"             \
-    --arg     root_shell  "$(install_config_root_shell)"             \
-    --arg     filesystem  "$(install_config_filesystem)"             \
-    --arg     rpool       "$LAYOUT_OS_POOL_NAME"                     \
-    --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                    \
-    --arg     hooks       "$LAYOUT_HOOKS"                            \
-    --argjson gpu         "$gpu_json"                               \
-    --arg     display_manager "${ENVIRONMENT_DISPLAY_MANAGER:-none}" \
-    --argjson ssh_enabled "$(install_config_ssh_enabled)"            \
-    --argjson swap        "$(install_config_swap_enabled)"           \
-    --argjson zswap_on    "$(install_config_zswap_enabled)"          \
-    --arg     zswap_comp  "$(install_config_zswap_compressor)"       \
-    --argjson zswap_pct   "$(install_config_zswap_max_pool_percent)" \
-    --argjson esp_count   "${#LAYOUT_ESP_PARTS[@]}"                  \
-    --argjson apparmor    "$(install_config_apparmor_enabled)"        \
-    --argjson imp_enabled "$(install_config_impermanence_enabled)"   \
-    --arg     imp_dataset "$(install_config_impermanence_dataset)"   \
-    --arg     imp_mount   "$(install_config_impermanence_mount)"     \
-    --argjson persist     "$persist"                                 \
-    '{
-      hostname:$hostname, timezone:$timezone,
-      locale:$locale, locales:$locales,
-      keymap:$keymap, keymaps:$keymaps,
-      console_font:$console_font,
-      kernel:$kernel, kernels:$kernels,
-      bootloader:$bootloader,
-      root_shell:$root_shell,
-      filesystem:$filesystem,
-      ssh:          { enabled:$ssh_enabled },
-      rpool:$rpool, root_cmdline:$root_cmdline, hooks:$hooks,
-      gpu:$gpu,
-      display_manager:$display_manager,
-      swap:$swap,
-      zswap: { enabled:$zswap_on, compressor:$zswap_comp,
-        max_pool_percent:$zswap_pct },
-      apparmor:$apparmor,
-      esp_count:$esp_count,
-      impermanence: { enabled:$imp_enabled, dataset:$imp_dataset,
-        mount:$imp_mount },
-      persist:$persist
-    }' > "$path"
+    --arg     hostname     "$(install_config_hostname)"               \
+    --arg     timezone     "$(install_config_timezone)"               \
+    --arg     locale       "$(install_config_locale)"                 \
+    --argjson locales      "$locales"                                 \
+    --arg     keymap       "$(install_config_keymap)"                 \
+    --argjson keymaps      "$keymaps"                                 \
+    --arg     console_font "$(install_config_console_font)"           \
+    --arg     kernel       "$(install_config_kernel)"                 \
+    --argjson kernels      "$kernels"                                 \
+    --arg     bootloader   "$(install_config_bootloader)"             \
+    --arg     root_shell   "$(install_config_root_shell)"             \
+    --arg     filesystem   "$(install_config_filesystem)"             \
+    --arg     rpool        "$LAYOUT_OS_POOL_NAME"                     \
+    --arg     root_cmdline "$LAYOUT_ROOT_CMDLINE"                     \
+    --arg     hooks        "$LAYOUT_HOOKS"                            \
+    --argjson gpu          "$(_install_state_gpu_json)"               \
+    --arg display_manager "${ENVIRONMENT_DISPLAY_MANAGER:-none}"      \
+    --argjson ssh_enabled  "$(install_config_ssh_enabled)"            \
+    --argjson swap         "$(install_config_swap_enabled)"           \
+    --argjson zswap_enabled "$(install_config_zswap_enabled)"         \
+    --arg zswap_compressor "$(install_config_zswap_compressor)"       \
+    --argjson zswap_max_pool_percent \
+      "$(install_config_zswap_max_pool_percent)"                      \
+    --argjson esp_count    "${#LAYOUT_ESP_PARTS[@]}"                  \
+    --argjson apparmor     "$(install_config_apparmor_enabled)"        \
+    --argjson impermanence_enabled \
+      "$(install_config_impermanence_enabled)"                        \
+    --arg impermanence_dataset "$(install_config_impermanence_dataset)" \
+    --arg impermanence_mount "$(install_config_impermanence_mount)"   \
+    --argjson persist      "$persist"                                 \
+    "$_INSTALL_STATE_TEMPLATE" > "$path"
 }
 
 # install_state_update <path> <jq-path> <json-value>
 # Mutates state JSON in place. <json-value> must be a JSON-encoded value
 # (caller responsibility — e.g. '"some string"', 'true', '42').
 install_state_update() {
-  local path="$1" jq_path="$2" value="$3" tmp
-  tmp="$(mktemp)"
-  jq --argjson v "$value" "${jq_path} = \$v" "$path" > "$tmp"
-  mv "$tmp" "$path"
+  local path="$1" jq_path="$2" value="$3" temporary_file
+  temporary_file="$(mktemp)"
+  jq --argjson v "$value" "${jq_path} = \$v" "$path" > "$temporary_file"
+  mv "$temporary_file" "$path"
 }
 
 # =============================================================================

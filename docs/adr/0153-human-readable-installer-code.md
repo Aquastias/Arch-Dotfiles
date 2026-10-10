@@ -1,7 +1,10 @@
 # ADR 0153: Human-readable installer code
 
 ## Status
-Accepted — design only; not yet implemented.
+Accepted — in progress (tickets in `.scratch/human-readable-installer/`).
+Amended 2026-10-10: `readlink` is the one symlink tool (`readlink -f` covers
+`realpath`); self-contained libs that cannot source their stdlib use
+`${path##*/}` or a private helper instead of the Commons path helpers.
 
 ## Context
 `.installer/` grew to ~43k lines of bash across 283 files. Names are

@@ -45,11 +45,11 @@ ROLLBACK_DATASETS=(
 # loops when impermanence is enabled; the `@blank` snapshot + boot rollback hook
 # operate on the same names. Pure: string emitter, no disk access.
 impermanence_common_btrfs_rollback_subvolumes() {
-  local entry suffix mp
+  local entry suffix mountpoint
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
-    mp="${entry#*:}"
-    printf '@%s %s\n' "$suffix" "$mp"
+    mountpoint="${entry#*:}"
+    printf '@%s %s\n' "$suffix" "$mountpoint"
   done
 }
 
@@ -72,32 +72,32 @@ impermanence_common_create_persist_dataset() {
 # Idempotent.
 impermanence_common_create_rollback_datasets() {
   local rpool="$1"
-  local entry suffix mp ds
+  local entry suffix mountpoint dataset
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
-    mp="${entry#*:}"
-    ds="$rpool/ROOT/$suffix"
-    zfs list -H -o name "$ds" >/dev/null 2>&1 && continue
-    zfs create -o mountpoint="$mp" -o canmount=on "$ds"
+    mountpoint="${entry#*:}"
+    dataset="$rpool/ROOT/$suffix"
+    zfs list -H -o name "$dataset" >/dev/null 2>&1 && continue
+    zfs create -o mountpoint="$mountpoint" -o canmount=on "$dataset"
   done
 }
 
 # The systemd unit a Persist Mount over $target must order After=, so the bind's
 # source/target are mounted first (ADR 0044). zfs: the single zfs-mount.service
 # (`zfs mount -a`). btrfs: each rollback subvol mounts via fstab as its own
-# <esc>.mount, so order After= the owning subvol's mount unit (longest rollback
-# mountpoint that is a path-prefix of $target); a path on no rollback subvol
-# lives on @ (root) → the root mount unit `-.mount`.
+# <escaped-path>.mount, so order After= the owning subvol's mount unit (longest
+# rollback mountpoint that is a path-prefix of $target); a path on no rollback
+# subvol lives on @ (root) → the root mount unit `-.mount`.
 impermanence_common_mount_after_unit() {
   local target="$1"
   if [[ "${FILESYSTEM:-zfs}" != "btrfs" ]]; then
     printf 'zfs-mount.service\n'; return 0
   fi
-  local entry mp best=""
+  local entry mountpoint best=""
   for entry in "${ROLLBACK_DATASETS[@]}"; do
-    mp="${entry#*:}"
-    if [[ "$target" == "$mp" || "$target" == "$mp"/* ]]; then
-      [[ ${#mp} -gt ${#best} ]] && best="$mp"
+    mountpoint="${entry#*:}"
+    if [[ "$target" == "$mountpoint" || "$target" == "$mountpoint"/* ]]; then
+      [[ ${#mountpoint} -gt ${#best} ]] && best="$mountpoint"
     fi
   done
   if [[ -z "$best" ]]; then
@@ -107,18 +107,18 @@ impermanence_common_mount_after_unit() {
   fi
 }
 
-# Write a bind-mount .mount unit at $units/<esc>.mount. systemd requires a
-# .mount unit be named after its Where= (the escaped mount-point path); any
-# other name loads as bad-setting and never mounts, so the unit MUST be
-# <esc>.mount, not persist-<esc>.mount.
+# Write a bind-mount .mount unit at $units/<escaped-path>.mount. systemd
+# requires a .mount unit be named after its Where= (the escaped mount-point
+# path); any other name loads as bad-setting and never mounts, so the unit MUST
+# be <escaped-path>.mount, not persist-<escaped-path>.mount.
 # $units defaults to the curated location under ${ROOT:-}/usr/lib/systemd/system.
 # Caller must export IMPERMANENCE_MOUNT.
 impermanence_common_write_mount_unit() {
   local target="$1"
   local units="${2:-${ROOT:-}/usr/lib/systemd/system}"
-  local esc unit after
-  esc="$(systemd-escape --path "$target")"
-  unit="$units/$esc.mount"
+  local escaped_path unit after
+  escaped_path="$(systemd-escape --path "$target")"
+  unit="$units/$escaped_path.mount"
   after="$(impermanence_common_mount_after_unit "$target")"
   mkdir -p "$units"
   cat > "$unit" <<UNIT
@@ -145,15 +145,25 @@ RequiredBy=local-fs.target
 UNIT
 }
 
-# Symlink <esc>.mount under $wants/. $wants defaults to the curated
+# Symlink <escaped-path>.mount under $wants/. $wants defaults to the curated
 # local-fs.target.wants alongside the curated unit dir.
 impermanence_common_link_wants() {
   local target="$1"
   local wants="${2:-${ROOT:-}/usr/lib/systemd/system/local-fs.target.wants}"
-  local esc
-  esc="$(systemd-escape --path "$target")"
+  local escaped_path
+  escaped_path="$(systemd-escape --path "$target")"
   mkdir -p "$wants"
-  ln -sf "../$esc.mount" "$wants/$esc.mount"
+  ln -sf "../$escaped_path.mount" "$wants/$escaped_path.mount"
+}
+
+# _impermanence_common_make_parent <path> — create <path>'s parent directory
+# (`mkdir -p "$(dirname <path>)"`; this file runs without a stdlib).
+_impermanence_common_make_parent() {
+  local path="$1" parent
+  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
+  parent="${path%/*}"
+  [[ "$path" == */* ]] || parent="."
+  mkdir -p "${parent:-/}"
 }
 
 # ── Persist Mount verbs (orchestrators) ─────────────────────────────────────
@@ -168,14 +178,18 @@ impermanence_common_link_wants() {
 impermanence_common_persist_apply() {
   local target="$1" kind="$2"
   local units="${3:-${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system}"
-  local conf="${4:-$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf}"
+  local config_file="${4:-}"
+  if [[ -z "$config_file" ]]; then
+    config_file="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/"
+    config_file+="impermanence-extensions.conf"
+  fi
   impermanence_common_write_mount_unit "$target" "$units"
   local mode entry
-  mkdir -p "$(dirname "$conf")"
+  _impermanence_common_make_parent "$config_file"
   [[ "$kind" == d ]] && mode=0755 || mode=0644
   entry="$(printf "%s %s %s root root - -" "$kind" "$target" "$mode")"
-  if [[ ! -f "$conf" ]] || ! grep -qxF "$entry" "$conf"; then
-    printf "%s\n" "$entry" >> "$conf"
+  if [[ ! -f "$config_file" ]] || ! grep -qxF "$entry" "$config_file"; then
+    printf "%s\n" "$entry" >> "$config_file"
   fi
 }
 
@@ -183,10 +197,10 @@ impermanence_common_persist_apply() {
 # impermanence_common_persist_apply; install-time callers skip this because the system is not
 # running yet.
 impermanence_common_persist_activate() {
-  local target="$1" esc
-  esc="$(systemd-escape --path "$target")"
+  local target="$1" escaped_path
+  escaped_path="$(systemd-escape --path "$target")"
   systemctl daemon-reload
-  systemctl start "$esc.mount"
+  systemctl start "$escaped_path.mount"
 }
 
 # ── Persist data-staging helpers ────────────────────────────────────────────
@@ -196,10 +210,10 @@ impermanence_common_persist_activate() {
 # until the Persist Mount covers it.
 impermanence_common_persist_stage_in_copy() {
   local target="$1"
-  local src="${IMPERMANENCE_ROOT}$target"
-  local dst="$IMPERMANENCE_MOUNT$target"
-  mkdir -p "$(dirname "$dst")"
-  cp -a "$src" "$dst"
+  local source_path="${IMPERMANENCE_ROOT}$target"
+  local destination="$IMPERMANENCE_MOUNT$target"
+  _impermanence_common_make_parent "$destination"
+  cp -a "$source_path" "$destination"
 }
 
 # Tear down the Persist Mount for $target: stop the unit, remove the unit
@@ -208,26 +222,26 @@ impermanence_common_persist_stage_in_copy() {
 # Idempotent. Also clears a legacy unit + wants link under
 # /persist/etc/systemd/system (pre-ADR 0144 extensions).
 impermanence_common_persist_unapply() {
-  local target="$1" esc dir found=0 conf tmp
-  esc="$(systemd-escape --path "$target")"
-  for dir in "${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system" \
+  local target="$1" escaped_path directory found=0 config_file temporary_file
+  escaped_path="$(systemd-escape --path "$target")"
+  for directory in "${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system" \
              "$IMPERMANENCE_MOUNT/etc/systemd/system"; do
-    rm -f "$dir/local-fs.target.wants/$esc.mount"
-    [[ -f "$dir/$esc.mount" ]] || continue
-    ((found)) || systemctl stop "$esc.mount"
-    rm -f "$dir/$esc.mount"; found=1
+    rm -f "$directory/local-fs.target.wants/$escaped_path.mount"
+    [[ -f "$directory/$escaped_path.mount" ]] || continue
+    ((found)) || systemctl stop "$escaped_path.mount"
+    rm -f "$directory/$escaped_path.mount"; found=1
   done
   ((found)) && systemctl daemon-reload
-  conf="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
-  if [[ -f "$conf" ]]; then
-    tmp="$(mktemp)"
+  config_file="$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf"
+  if [[ -f "$config_file" ]]; then
+    temporary_file="$(mktemp)"
     awk -v t="$target" '
       {
         if ($0 ~ "^[df] " t " ") next
         print
       }
-    ' "$conf" > "$tmp"
-    mv "$tmp" "$conf"
+    ' "$config_file" > "$temporary_file"
+    mv "$temporary_file" "$config_file"
   fi
 }
 
@@ -236,15 +250,15 @@ impermanence_common_persist_unapply() {
 # operator can recover from partial state without an error.
 impermanence_common_persist_restore_data() {
   local target="$1"
-  local src="$IMPERMANENCE_MOUNT$target"
-  local dst="${IMPERMANENCE_ROOT}$target"
-  if [[ ! -e "$src" ]]; then
-    echo "warning: no persisted data at $src; nothing to move back" >&2
+  local source_path="$IMPERMANENCE_MOUNT$target"
+  local destination="${IMPERMANENCE_ROOT}$target"
+  if [[ ! -e "$source_path" ]]; then
+    echo "warning: no persisted data at $source_path; nothing to move back" >&2
     return 0
   fi
-  mkdir -p "$(dirname "$dst")"
-  rm -rf "$dst"
-  mv "$src" "$dst"
+  _impermanence_common_make_parent "$destination"
+  rm -rf "$destination"
+  mv "$source_path" "$destination"
 }
 
 # Move live data at $target to the Persist Dataset (mv). Install-time only:
@@ -259,18 +273,18 @@ impermanence_common_persist_stage_in_move() {
   local target="$1"
   local live_root="${2:-${IMPERMANENCE_ROOT:-}}"
   local persist_root="${3:-$IMPERMANENCE_MOUNT}"
-  local src="$live_root$target"
-  local dst="$persist_root$target"
-  [[ -e "$src" ]] || return 0
-  if mountpoint -q "$src" 2>/dev/null; then
-    mkdir -p "$dst"
+  local source_path="$live_root$target"
+  local destination="$persist_root$target"
+  [[ -e "$source_path" ]] || return 0
+  if mountpoint -q "$source_path" 2>/dev/null; then
+    mkdir -p "$destination"
     (
       shopt -s dotglob nullglob
-      local entries=("$src"/*)
-      ((${#entries[@]})) && mv -- "${entries[@]}" "$dst"/
+      local entries=("$source_path"/*)
+      ((${#entries[@]})) && mv -- "${entries[@]}" "$destination"/
     )
   else
-    mkdir -p "$(dirname "$dst")"
-    mv "$src" "$dst"
+    _impermanence_common_make_parent "$destination"
+    mv "$source_path" "$destination"
   fi
 }

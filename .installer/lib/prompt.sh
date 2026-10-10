@@ -15,20 +15,21 @@
 # (default 1), and matching its confirmation. Writes into <out-var> via dynamic
 # scope — nothing on stdout, so do NOT wrap in $(...). Prompts/warnings to stderr.
 prompt_secret() {
-  local __var="$1" __label="$2" __min="${3:-1}" __p1 __p2
+  local __output_variable="$1" __label="$2" __minimum_length="${3:-1}"
+  local __first_entry __confirmation
   while true; do
-    read -rsp "  ${__label}: " __p1 </dev/tty; echo >&2
-    read -rsp "  Confirm ${__label}: " __p2 </dev/tty; echo >&2
-    if [[ -z "$__p1" ]]; then
+    read -rsp "  ${__label}: " __first_entry </dev/tty; echo >&2
+    read -rsp "  Confirm ${__label}: " __confirmation </dev/tty; echo >&2
+    if [[ -z "$__first_entry" ]]; then
       warn "Cannot be empty — try again."; continue
     fi
-    if (( ${#__p1} < __min )); then
-      warn "Must be at least ${__min} characters."; continue
+    if (( ${#__first_entry} < __minimum_length )); then
+      warn "Must be at least ${__minimum_length} characters."; continue
     fi
-    if [[ "$__p1" != "$__p2" ]]; then
+    if [[ "$__first_entry" != "$__confirmation" ]]; then
       warn "Values do not match — try again."; continue
     fi
-    printf -v "$__var" '%s' "$__p1"
+    printf -v "$__output_variable" '%s' "$__first_entry"
     return 0
   done
 }

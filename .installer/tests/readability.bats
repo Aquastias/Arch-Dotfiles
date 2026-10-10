@@ -420,16 +420,30 @@ RULES
   [ "$status" -eq 0 ]
 }
 
-@test "readlink reading a link target is fine; readlink -f is replace-tier" {
+@test "readlink is fine in any form; realpath is replace-tier" {
   make_repo
   cat > .installer/a.sh <<'SH'
 link_targets() {
   readlink /proc/self/root
   readlink -f ./relative
+  realpath ./relative
 }
 SH
   check_repo
   [ "$status" -ne 0 ]
-  [[ "$output" == *"tool: .installer/a.sh:3: readlink"* ]]
-  [[ "$output" != *"a.sh:2"* ]]
+  [[ "$output" == *"tool: .installer/a.sh:4: realpath"* ]]
+  [[ "$output" != *"a.sh:2"* && "$output" != *"a.sh:3"* ]]
+}
+
+@test "a here-string is not a heredoc: code after it is still scanned" {
+  make_repo
+  cat > .installer/a.sh <<'SH'
+split_words() {
+  read -r first second <<<"x y"
+  echo "$second" | head -n 1
+}
+SH
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"tool: .installer/a.sh:3: head"* ]]
 }

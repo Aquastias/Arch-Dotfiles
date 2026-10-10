@@ -5,9 +5,9 @@
 # tests/wipe/wipe-prior-state.bats.
 #
 # A failed 03-install.sh leaves the target's ZFS pools imported (altroot=/mnt)
-# and the ESP + datasets mounted under /mnt. detect_disks() then skips the disk
-# as "mounted". reset_prior_install_state() clears that first; the decision
-# hinges on wipe_prior_state_present(), tested here.
+# and the ESP + datasets mounted under /mnt. wipe_detect_disks() then skips the
+# disk as "mounted". wipe_reset_prior_install() clears that first; the decision
+# hinges on wipe_prior_install_present(), tested here.
 #
 # Strategy: source 02-wipe.sh (main() is guarded, so sourcing is inert) and
 # override the two injectable seams to simulate state without touching the host.
@@ -26,30 +26,30 @@ setup() {
 }
 
 @test "present: a partition mounted under /mnt (the ESP case)" {
-  _wipe_mounts_under_mount_root()  { echo "/mnt/boot/efi"; }
-  _wipe_pools_with_mount_root_altroot() { :; }
-  run wipe_prior_state_present
+  _prior_install_mounts_under_mount_root()  { echo "/mnt/boot/efi"; }
+  _prior_install_pools_with_mount_root_altroot() { :; }
+  run wipe_prior_install_present
   [ "$status" -eq 0 ]
 }
 
 @test "present: a pool imported with altroot=/mnt" {
-  _wipe_mounts_under_mount_root()  { :; }
-  _wipe_pools_with_mount_root_altroot() { echo rpool; echo dpool; }
-  run wipe_prior_state_present
+  _prior_install_mounts_under_mount_root()  { :; }
+  _prior_install_pools_with_mount_root_altroot() { echo rpool; echo dpool; }
+  run wipe_prior_install_present
   [ "$status" -eq 0 ]
 }
 
 @test "absent: nothing under /mnt and no /mnt-altroot pool" {
-  _wipe_mounts_under_mount_root()  { :; }
-  _wipe_pools_with_mount_root_altroot() { :; }
-  run wipe_prior_state_present
+  _prior_install_mounts_under_mount_root()  { :; }
+  _prior_install_pools_with_mount_root_altroot() { :; }
+  run wipe_prior_install_present
   [ "$status" -ne 0 ]
 }
 
-@test "_wipe_mounts_under_mount_root keeps /mnt mounts, excludes the live root /" {
+@test "mounts seam keeps /mnt mounts, excludes the live root /" {
   # Simulate findmnt's TARGET column: live root, archiso, and the install tree.
   findmnt() { printf '%s\n' / /run/archiso/bootmnt /mnt /mnt/boot/efi /mntfoo; }
-  run _wipe_mounts_under_mount_root
+  run _prior_install_mounts_under_mount_root
   [ "$status" -eq 0 ]
   grep -qx '/mnt'          <<<"$output"        # install root kept
   grep -qx '/mnt/boot/efi' <<<"$output"        # ESP kept
@@ -58,16 +58,17 @@ setup() {
   ! grep -qx '/mntfoo'               <<<"$output"   # no false prefix match
 }
 
-@test "_wipe_pools_with_mount_root_altroot selects only altroot=/mnt pools" {
+@test "pools seam selects only altroot=/mnt pools" {
   # Simulate `zpool list -H -o name,altroot`: rpool/dpool are the install
   # scratch (altroot /mnt); tank is a pre-existing pool that must be left alone.
   zpool() { printf '%s\t%s\n' rpool /mnt dpool /mnt tank -; }
-  run _wipe_pools_with_mount_root_altroot
+  run _prior_install_pools_with_mount_root_altroot
   [ "$status" -eq 0 ]
   grep -qx rpool <<<"$output"
   grep -qx dpool <<<"$output"
   ! grep -qx tank <<<"$output"
 }
 
-# The detect_disks live-medium exclusion + stdout-cleanliness regression moved
-# to wipe-live-medium.bats (enforcing setup), alongside the hard-guard tests.
+# The wipe_detect_disks live-medium exclusion + stdout-cleanliness regression
+# moved to wipe-live-medium.bats (enforcing setup), alongside the hard-guard
+# tests.

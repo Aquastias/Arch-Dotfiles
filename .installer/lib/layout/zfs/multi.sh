@@ -40,7 +40,7 @@
 #   _LAYOUT_IMPL_TOPOLOGIES[]  — associative: group name → topology string
 #   _LAYOUT_IMPL_DATA_POOL_NAMES[]  — ordered Standalone Data Pool names
 #   _LAYOUT_IMPL_DATA_POOL_DISKS[]  — associative: pool name → "disk1 ..."
-#   _LAYOUT_IMPL_DATA_POOL_TOPO[]   — associative: pool name → topology
+#   _LAYOUT_IMPL_DATA_POOL_TOPOLOGY[]   — associative: pool name → topology
 #   _LAYOUT_IMPL_DATA_POOL_MOUNT[]  — associative: pool name → mountpoint
 #   _LAYOUT_IMPL_DATA_POOL_ASHIFT[] — associative: pool name → ashift
 #   _LAYOUT_IMPL_DATA_POOL_PARTS[]  — associative: pool name → "part1 ..."

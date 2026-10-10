@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Integration tests for 02-wipe.sh's use of the Live-Medium Detector:
-#   - detect_disks never lists the live medium (and its stdout stays clean);
+#   - wipe_detect_disks never lists the live medium (its stdout stays clean);
 #   - assert_no_live_medium_targets is the belt-and-suspenders hard guard that
 #     aborts the wipe if a live-medium disk is somehow targeted.
 #
@@ -34,11 +34,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-# ── detect_disks exclusion (+ stdout-cleanliness regression) ─────────────────
-# detect_disks's stdout is captured verbatim as the wipe list, so the live
+# ── wipe_detect_disks exclusion (+ stdout-cleanliness regression) ─────────
+# wipe_detect_disks's stdout is captured verbatim as the wipe list, so the live
 # medium must never appear there and the "excluded" notice must stay on stderr.
 
-@test "detect_disks: excludes the live medium; stdout is device paths only" {
+@test "wipe_detect_disks: no live medium; stdout is device paths only" {
   live_medium_disks() { echo /dev/sdb; }         # sdb is the live USB
   info() { echo "[INFO] $*"; }                    # would leak if not >&2-routed
   warn() { echo "[WARN] $*"; }
@@ -48,7 +48,7 @@ setup() {
       *) : ;;                                      # no partitions for any disk
     esac
   }
-  local out; out="$(detect_disks 2>/dev/null)"    # stdout only, as caller sees
+  local out; out="$(wipe_detect_disks 2>/dev/null)"  # stdout, as caller sees
   [[ "$out" == *"/dev/sda"* ]]
   [[ "$out" == *"/dev/sdc"* ]]
   [[ "$out" != *"/dev/sdb"* ]]                     # live medium excluded

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
-# Tests for 02-wipe.sh's prior-state probe (_wipe_probe_disk) + skip_zeroed_disks.
+# Tests for the wipe's prior-state probe (wipe_probe_disk) and
+# wipe_skip_blank_disks (lib/wipe/probe.sh).
 #
 # An install-driven wipe is handed the install's resolved target set. That set
 # can name a disk that isn't present on the running machine (e.g. the config's
@@ -20,14 +21,14 @@ setup() {
   live_medium_contains_disk() { return 1; }
 }
 
-@test "_wipe_probe_disk: a non-existent disk → blank fact, no ERR trap" {
-  run _wipe_probe_disk /dev/no-such-disk-xyz
+@test "wipe_probe_disk: a non-existent disk → blank fact, no ERR trap" {
+  run wipe_probe_disk /dev/no-such-disk-xyz
   [ "$status" -eq 0 ]
   [ "$output" = "/dev/no-such-disk-xyz|0||0|0" ]
 }
 
-@test "skip_zeroed_disks: a non-existent target is dropped as blank, no crash" {
+@test "wipe_skip_blank_disks: a missing target is dropped as blank, no crash" {
   DISKS_TO_WIPE=(/dev/no-such-disk-xyz)
-  skip_zeroed_disks
+  wipe_skip_blank_disks
   [ "${#DISKS_TO_WIPE[@]}" -eq 0 ]
 }

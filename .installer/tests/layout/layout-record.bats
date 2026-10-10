@@ -16,7 +16,7 @@ with_model() {
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([tank0]='/dev/sda1' [_leftover]='/dev/sdb1 /dev/sdc1')
     declare -gA _LAYOUT_IMPL_TOPOLOGIES=([tank0]='mirror' [_leftover]='independent')
     declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT=([vault]='/mnt/vault')
-    declare -gA _LAYOUT_IMPL_DATA_POOL_TOPO=([vault]='raidz1')
+    declare -gA _LAYOUT_IMPL_DATA_POOL_TOPOLOGY=([vault]='raidz1')
     declare -ga _LAYOUT_IMPL_DATA_POOL_NAMES=(vault)
     declare -ga _LAYOUT_IMPL_LEFTOVER_DISKS=(/dev/sdb /dev/sdc)
     _LAYOUT_IMPL_OS_TOPOLOGY=none

@@ -100,18 +100,19 @@ _retry() {
   [[ "${1:-}" == "--" ]] && shift
   local -a backoff=()
   IFS=',' read -ra backoff <<< "$backoff_csv"
-  local n=0 rc=0
+  local attempt=0 rc=0
   while :; do
-    n=$((n + 1))
+    attempt=$((attempt + 1))
     # stderr markers: the Feature Audit folds a recovered attempt's errors
     # (ADR 0152); no error-shaped words, so the markers are never Findings
-    echo "[ATTEMPT] $n/$attempts $1" >&2
+    echo "[ATTEMPT] $attempt/$attempts $1" >&2
     # `&& return 0 || rc=$?` captures the command's own status (an `if` around
     # it would swallow it) while staying set -e-safe.
     "$@" && return 0 || rc=$?
-    (( n >= attempts )) && return "$rc"
-    echo "[RETRY] attempt $n/$attempts of $1 returned $rc; trying again" >&2
-    sleep "${backoff[n-1]:-0}"
+    (( attempt >= attempts )) && return "$rc"
+    echo "[RETRY] attempt $attempt/$attempts of $1 returned $rc;" \
+      "trying again" >&2
+    sleep "${backoff[attempt-1]:-0}"
   done
 }
 
@@ -121,10 +122,10 @@ _retry() {
 # config_required PATH [LABEL]
 # Required field — exits with a clear error if the field is missing or null.
 config_required() {
-  local v
-  v="$(jsonc_read_optional "$CONFIG_FILE" "$1")"
-  [[ -n "$v" ]] || error "Missing required config field: ${2:-$1}"
-  echo "$v"
+  local value
+  value="$(jsonc_read_optional "$CONFIG_FILE" "$1")"
+  [[ -n "$value" ]] || error "Missing required config field: ${2:-$1}"
+  echo "$value"
 }
 
 # config_optional PATH
@@ -143,11 +144,11 @@ part_name() {
   #   nvme0n1 + 1 → nvme0n1p1
   # SATA/SCSI kernel nodes do not:
   #   sda     + 1 → sda1
-  local disk="$1" num="$2"
+  local disk="$1" partition_number="$2"
   case "$disk" in
-  /dev/disk/*)       echo "${disk}-part${num}" ;;
-  *nvme* | *mmcblk*) echo "${disk}p${num}" ;;
-  *)                 echo "${disk}${num}" ;;
+  /dev/disk/*)       echo "${disk}-part${partition_number}" ;;
+  *nvme* | *mmcblk*) echo "${disk}p${partition_number}" ;;
+  *)                 echo "${disk}${partition_number}" ;;
   esac
 }
 
@@ -173,4 +174,11 @@ base_name() {
   [[ "$path" == / ]] || path="${path##*/}"
   [[ -n "$suffix" && "$path" != "$suffix" ]] && path="${path%"$suffix"}"
   printf '%s\n' "$path"
+}
+
+# join_words — stdin's words joined by single spaces on one line (a trim that
+# also folds lines), like `… | xargs` without its quote handling.
+join_words() {
+  awk '{ for (i = 1; i <= NF; i++) words = words (words == "" ? "" : " ") $i }
+       END { print words }'
 }

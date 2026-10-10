@@ -33,7 +33,7 @@ declare -F _zfs_redundant_size_mismatch >/dev/null 2>&1 \
 # shellcheck disable=SC2034  # consumed across the layout module + pool-owners
 _LAYOUT_IMPL_DATA_POOL_NAMES=()
 declare -gA _LAYOUT_IMPL_DATA_POOL_DISKS
-declare -gA _LAYOUT_IMPL_DATA_POOL_TOPO
+declare -gA _LAYOUT_IMPL_DATA_POOL_TOPOLOGY
 declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT
 declare -gA _LAYOUT_IMPL_DATA_POOL_ASHIFT
 declare -gA _LAYOUT_IMPL_DATA_POOL_PARTS
@@ -103,7 +103,7 @@ _add_data_pool() {
   shift 6
   _LAYOUT_IMPL_DATA_POOL_NAMES+=("$name")
   _LAYOUT_IMPL_DATA_POOL_DISKS["$name"]="$*"
-  _LAYOUT_IMPL_DATA_POOL_TOPO["$name"]="$topo"
+  _LAYOUT_IMPL_DATA_POOL_TOPOLOGY["$name"]="$topo"
   _LAYOUT_IMPL_DATA_POOL_MOUNT["$name"]="$mount"
   _LAYOUT_IMPL_DATA_POOL_ASHIFT["$name"]="$ashift"
   _LAYOUT_IMPL_DATA_POOL_FS["$name"]="$fs"
@@ -150,7 +150,7 @@ create_data_pools() {
   local name
   for name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
     local fs="${_LAYOUT_IMPL_DATA_POOL_FS[$name]:-zfs}"
-    local topo="${_LAYOUT_IMPL_DATA_POOL_TOPO[$name]:-stripe}"
+    local topo="${_LAYOUT_IMPL_DATA_POOL_TOPOLOGY[$name]:-stripe}"
     local mount="${_LAYOUT_IMPL_DATA_POOL_MOUNT[$name]}"
     local enc="${_LAYOUT_IMPL_DATA_POOL_ENC[$name]:-false}"
     local parts=()

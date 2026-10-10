@@ -49,9 +49,10 @@ picker_validate_layout() {
 #   rc 0 when the kernel node is a partition (sda1, vdb2, nvme0n1p1, mmcblk0p1,
 #   loop0p1) rather than a whole disk — partitions are never install targets.
 _picker_is_partition() {
-  local n="$1"
-  [[ "$n" =~ ^(sd|vd|hd|xvd)[a-z]+[0-9]+$ ]] && return 0
-  [[ "$n" =~ ^(nvme[0-9]+n[0-9]+|mmcblk[0-9]+|loop[0-9]+)p[0-9]+$ ]] && return 0
+  local kernel_name="$1"
+  [[ "$kernel_name" =~ ^(sd|vd|hd|xvd)[a-z]+[0-9]+$ ]] && return 0
+  [[ "$kernel_name" =~ ^(nvme[0-9]+n[0-9]+|mmcblk[0-9]+|loop[0-9]+)p[0-9]+$ ]] \
+    && return 0
   return 1
 }
 
@@ -83,26 +84,26 @@ picker_enum_disks() {
   [[ -d "$by_id" ]] || return 0
 
   # Whole-disk kernel bases to exclude (e.g. sdz), one per live-medium disk.
-  local live_bases=() d
-  while IFS= read -r d; do
-    [[ -n "$d" ]] && live_bases+=("$(basename "$d")")
+  local live_bases=() live_disk
+  while IFS= read -r live_disk; do
+    [[ -n "$live_disk" ]] && live_bases+=("${live_disk##*/}")
   done <<<"$live_set"
 
   # Keep the best (lowest-rank) alias per resolved kernel base; ties break on the
   # lexically smaller name so the choice is deterministic.
-  local link name target_base lb skip rank
+  local link name target_base live_base skip rank
   local -A best=() best_rank=()
   for link in "$by_id"/*; do
     [[ -L "$link" ]] || continue
     name="${link##*/}"
     # Partition aliases carry a -partN suffix (udev convention) — never a disk.
     [[ "$name" =~ -part[0-9]+$ ]] && continue
-    target_base="$(basename "$(readlink -f "$link")")"
+    target_base="$(readlink -f "$link")"; target_base="${target_base##*/}"
     _picker_is_partition "$target_base" && continue
 
     skip=""
-    for lb in "${live_bases[@]}"; do
-      [[ "$target_base" == "$lb" ]] && { skip=1; break; }
+    for live_base in "${live_bases[@]}"; do
+      [[ "$target_base" == "$live_base" ]] && { skip=1; break; }
     done
     [[ -n "$skip" ]] && continue
 
@@ -116,8 +117,10 @@ picker_enum_disks() {
     fi
   done
 
-  local k
-  for k in "${!best[@]}"; do printf '%s\n' "${best[$k]}"; done | sort
+  local kernel_base
+  for kernel_base in "${!best[@]}"; do
+    printf '%s\n' "${best[$kernel_base]}"
+  done | sort
 }
 
 # picker_disk_label <by-id-path>
@@ -127,14 +130,16 @@ picker_enum_disks() {
 #   <tail>. The by-id tail is always the segment after the last " · " so callers
 #   can parse the stable key back out of the label.
 picker_disk_label() {
-  local p="$1" tail dev sm
-  tail="${p##*/}"
-  dev="$(readlink -f "$p" 2>/dev/null)"
+  local by_id_path="$1" tail dev size_and_model
+  tail="${by_id_path##*/}"
+  dev="$(readlink -f "$by_id_path" 2>/dev/null)"
   [[ "$dev" == /dev/* ]] || dev=""
   if [[ -n "$dev" ]] \
-     && sm="$(lsblk -dno SIZE,MODEL "$dev" 2>/dev/null | head -1)" \
-     && [[ -n "${sm//[[:space:]]/}" ]]; then
-    printf '%s %s · %s' "$dev" "$(echo "$sm" | tr -s ' ')" "$tail"
+     && size_and_model="$(lsblk -dno SIZE,MODEL "$dev" 2>/dev/null \
+                          | awk 'NR == 1')" \
+     && [[ -n "${size_and_model//[[:space:]]/}" ]]; then
+    printf '%s %s · %s' "$dev" \
+      "$(awk '{ gsub(/ +/, " "); print }' <<<"$size_and_model")" "$tail"
   elif [[ -n "$dev" ]]; then
     printf '%s · %s' "$dev" "$tail"
   else
@@ -164,60 +169,68 @@ picker_assign_disks() {
   mode="$(jq -r '.mode // "multi"' <<<"$assignment")"
 
   case "$mode" in
-    single)
-      local -a disks
-      mapfile -t disks < <(jq -r '
-        if .disk then .disk elif .os_pool then .os_pool[]? else empty end
-      ' <<<"$assignment")
-      picker_validate_layout single "${#disks[@]}" || return 1
-      jq -n --argjson p "$profile" --arg disk "${disks[0]}" '
-        $p | .mode = "single" | .disk = $disk
-      '
-      ;;
+    single) _picker_assign_single "$profile" "$assignment" ;;
     multi)
       # Validate every declared group's picked-disk count up front (fail fast,
       # naming the offending group), then merge devices into the skeleton.
-      local topo i count
-      topo="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile")"
-      count="$(jq '(.os_pool // []) | length' <<<"$assignment")"
-      _picker_validate_group os_pool "$topo" "$count" || return 1
-
-      local n
-      n="$(jq '(.storage_groups // []) | length' <<<"$profile")"
-      for ((i = 0; i < n; i++)); do
-        topo="$(jq -r ".storage_groups[$i].topology // \"stripe\"" \
-          <<<"$profile")"
-        count="$(jq "(.storage_groups[$i] // []) | length" <<<"$assignment")"
-        _picker_validate_group "storage_groups[$i]" "$topo" "$count" \
-          || return 1
-      done
-
-      n="$(jq '(.data_pools // []) | length' <<<"$profile")"
-      for ((i = 0; i < n; i++)); do
-        topo="$(jq -r ".data_pools[$i].topology // \"stripe\"" <<<"$profile")"
-        count="$(jq "(.data_pools[$i] // []) | length" <<<"$assignment")"
-        _picker_validate_group "data_pools[$i]" "$topo" "$count" || return 1
-      done
-
-      # All groups valid — write each group's disks into the skeleton by index.
-      jq -n --argjson p "$profile" --argjson a "$assignment" '
-        def assign($key):
-          if (.[$key] | type) == "array"
-          then .[$key] = [ .[$key] | to_entries[]
-                           | .value + { disks: ($a[$key][.key] // []) } ]
-          else . end;
-        $p
-        | .mode = "multi"
-        | .os_pool = (.os_pool // {}) + { disks: ($a.os_pool // []) }
-        | assign("storage_groups")
-        | assign("data_pools")
-      '
+      _picker_validate_all_groups "$profile" "$assignment" || return 1
+      _picker_merge_multi "$profile" "$assignment"
       ;;
     *)
       echo "picker_assign_disks: unknown mode '$mode'" >&2
       return 1
       ;;
   esac
+}
+
+_picker_assign_single() {
+  local profile="$1" assignment="$2"
+  local -a disks
+  mapfile -t disks < <(jq -r '
+    if .disk then .disk elif .os_pool then .os_pool[]? else empty end
+  ' <<<"$assignment")
+  picker_validate_layout single "${#disks[@]}" || return 1
+  jq -n --argjson profile "$profile" --arg disk "${disks[0]}" '
+    $profile | .mode = "single" | .disk = $disk
+  '
+}
+
+_picker_validate_all_groups() {
+  local profile="$1" assignment="$2" topology count
+  topology="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile")"
+  count="$(jq '(.os_pool // []) | length' <<<"$assignment")"
+  _picker_validate_group os_pool "$topology" "$count" || return 1
+  _picker_validate_group_list storage_groups "$profile" "$assignment" \
+    || return 1
+  _picker_validate_group_list data_pools "$profile" "$assignment"
+}
+
+# _picker_validate_group_list <key> <profile> <assignment> — every group of
+# the profile's <key> array against its picked-disk count.
+_picker_validate_group_list() {
+  local key="$1" profile="$2" assignment="$3" group_count i topology count
+  group_count="$(jq --arg key "$key" '(.[$key] // []) | length' <<<"$profile")"
+  for ((i = 0; i < group_count; i++)); do
+    topology="$(jq -r ".${key}[$i].topology // \"stripe\"" <<<"$profile")"
+    count="$(jq "(.${key}[$i] // []) | length" <<<"$assignment")"
+    _picker_validate_group "${key}[$i]" "$topology" "$count" || return 1
+  done
+}
+
+# All groups valid — write each group's disks into the skeleton by index.
+_picker_merge_multi() {
+  jq -n --argjson profile "$1" --argjson assignment "$2" '
+    def assign($key):
+      if (.[$key] | type) == "array"
+      then .[$key] = [ .[$key] | to_entries[]
+                       | .value + { disks: ($assignment[$key][.key] // []) } ]
+      else . end;
+    $profile
+    | .mode = "multi"
+    | .os_pool = (.os_pool // {}) + { disks: ($assignment.os_pool // []) }
+    | assign("storage_groups")
+    | assign("data_pools")
+  '
 }
 
 # _picker_group_min <topology> <count>
@@ -228,11 +241,11 @@ picker_assign_disks() {
 #   none/single = exactly 1 (the single OS disk). Silent + returns 0 on ok;
 #   human-readable message on stderr + non-zero otherwise.
 _picker_group_min() {
-  local topo="$1" count="$2" min
-  case "$topo" in
+  local topology="$1" count="$2" min
+  case "$topology" in
     single | none)
       if (( count != 1 )); then
-        echo "$topo requires exactly 1 disk (got $count)" >&2
+        echo "$topology requires exactly 1 disk (got $count)" >&2
         return 1
       fi
       return 0
@@ -247,14 +260,14 @@ _picker_group_min() {
     raid0 | raid1)        min=2 ;;
     raid10)               min=4 ;;
     *)
-      echo "unknown topology '$topo' (expected: single, none, stripe," \
+      echo "unknown topology '$topology' (expected: single, none, stripe," \
            "independent, mirror, raidz, raidz1, raidz2, raid0, raid1," \
            "raid10)" >&2
       return 1
       ;;
   esac
   if (( count < min )); then
-    echo "$topo requires at least $min disk(s) (got $count)" >&2
+    echo "$topology requires at least $min disk(s) (got $count)" >&2
     return 1
   fi
 }
@@ -264,9 +277,9 @@ _picker_group_min() {
 #   (_picker_group_min), prefixing the group label so an under-populated group
 #   is named in the error.
 _picker_validate_group() {
-  local label="$1" topo="$2" count="$3" msg
-  if ! msg="$(_picker_group_min "$topo" "$count" 2>&1)"; then
-    echo "${label}: ${msg}" >&2
+  local label="$1" topology="$2" count="$3" message
+  if ! message="$(_picker_group_min "$topology" "$count" 2>&1)"; then
+    echo "${label}: ${message}" >&2
     return 1
   fi
 }
@@ -292,73 +305,79 @@ _picker_slice_json() {
 #   every other group must declare disk_count. Pure: reads its args only.
 picker_build_assignment() {
   local profile="$1"; shift
-  local -a disks=("$@")
-  local total=${#disks[@]}
-
-  # Per-group disk_count in declared order — os_pool, storage_groups[],
-  # data_pools[]. Validate presence as we go so a missing count names its group.
-  local -a counts=()
-  local topo dc n i sg_n dp_n
-
-  topo="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile")"
-  dc="$(jq -r '.os_pool.disk_count // ""' <<<"$profile")"
-  if [[ -z "$dc" ]]; then
-    case "$topo" in
-      none | single) dc=1 ;;
-      *) echo "picker_build_assignment: os_pool ('$topo') needs a disk_count" \
-              >&2; return 1 ;;
-    esac
-  fi
-  counts+=("$dc")
-
-  sg_n="$(jq '(.storage_groups // []) | length' <<<"$profile")"
-  for ((i = 0; i < sg_n; i++)); do
-    dc="$(jq -r ".storage_groups[$i].disk_count // \"\"" <<<"$profile")"
-    [[ -n "$dc" ]] \
-      || { echo "picker_build_assignment: storage_groups[$i] needs a" \
-                "disk_count" >&2; return 1; }
-    counts+=("$dc")
-  done
-
-  dp_n="$(jq '(.data_pools // []) | length' <<<"$profile")"
-  for ((i = 0; i < dp_n; i++)); do
-    dc="$(jq -r ".data_pools[$i].disk_count // \"\"" <<<"$profile")"
-    [[ -n "$dc" ]] \
-      || { echo "picker_build_assignment: data_pools[$i] needs a disk_count" \
-                >&2; return 1; }
-    counts+=("$dc")
-  done
-
-  local sum=0 c
-  for c in "${counts[@]}"; do sum=$((sum + c)); done
-  if (( total != sum )); then
-    echo "picker_build_assignment: expected $sum disk(s) (sum of declared" \
-         "disk_count), got $total" >&2
-    return 1
-  fi
+  local -a disks=("$@") counts=()
+  local counts_text storage_group_count data_pool_count
+  counts_text="$(_picker_declared_disk_counts "$profile")" || return 1
+  mapfile -t counts <<<"$counts_text"
+  _picker_check_disk_total "${#disks[@]}" "${counts[@]}" || return 1
+  storage_group_count="$(jq '(.storage_groups // []) | length' <<<"$profile")"
+  data_pool_count="$(jq '(.data_pools // []) | length' <<<"$profile")"
 
   # Slice the flat list into per-group JSON in the same declared order.
-  local off=0
-  local os_json sg_json="[]" dp_json="[]" slice
-  c="${counts[0]}"
-  os_json="$(_picker_slice_json "${disks[@]:off:c}")"
-  off=$((off + c))
-  for ((i = 0; i < sg_n; i++)); do
-    c="${counts[1 + i]}"
-    slice="$(_picker_slice_json "${disks[@]:off:c}")"
-    sg_json="$(jq --argjson s "$slice" '. + [$s]' <<<"$sg_json")"
-    off=$((off + c))
+  local offset=0 os_json storage_json="[]" data_json="[]" slice i count
+  count="${counts[0]}"
+  os_json="$(_picker_slice_json "${disks[@]:offset:count}")"
+  offset=$((offset + count))
+  for ((i = 0; i < storage_group_count; i++)); do
+    count="${counts[1 + i]}"
+    slice="$(_picker_slice_json "${disks[@]:offset:count}")"
+    storage_json="$(jq --argjson s "$slice" '. + [$s]' <<<"$storage_json")"
+    offset=$((offset + count))
   done
-  for ((i = 0; i < dp_n; i++)); do
-    c="${counts[1 + sg_n + i]}"
-    slice="$(_picker_slice_json "${disks[@]:off:c}")"
-    dp_json="$(jq --argjson s "$slice" '. + [$s]' <<<"$dp_json")"
-    off=$((off + c))
+  for ((i = 0; i < data_pool_count; i++)); do
+    count="${counts[1 + storage_group_count + i]}"
+    slice="$(_picker_slice_json "${disks[@]:offset:count}")"
+    data_json="$(jq --argjson s "$slice" '. + [$s]' <<<"$data_json")"
+    offset=$((offset + count))
   done
 
-  jq -n --argjson os "$os_json" --argjson sg "$sg_json" \
-        --argjson dp "$dp_json" \
-    '{ mode: "multi", os_pool: $os, storage_groups: $sg, data_pools: $dp }'
+  jq -n --argjson os "$os_json" --argjson storage "$storage_json" \
+        --argjson data "$data_json" \
+    '{ mode: "multi", os_pool: $os, storage_groups: $storage,
+       data_pools: $data }'
+}
+
+# _picker_declared_disk_counts <profile> — each group's disk_count, one per
+# line, in declared order: os_pool, storage_groups[], data_pools[]. A missing
+# count aborts naming its group; os_pool topology none/single defaults to 1.
+_picker_declared_disk_counts() {
+  local profile="$1" topology disk_count
+  topology="$(jq -r '.os_pool.topology // "stripe"' <<<"$profile")"
+  disk_count="$(jq -r '.os_pool.disk_count // ""' <<<"$profile")"
+  if [[ -z "$disk_count" ]]; then
+    case "$topology" in
+      none | single) disk_count=1 ;;
+      *) echo "picker_build_assignment: os_pool ('$topology') needs a" \
+              "disk_count" >&2; return 1 ;;
+    esac
+  fi
+  echo "$disk_count"
+  _picker_group_disk_counts storage_groups "$profile" || return 1
+  _picker_group_disk_counts data_pools "$profile"
+}
+
+_picker_group_disk_counts() {
+  local key="$1" profile="$2" group_count i disk_count
+  group_count="$(jq --arg key "$key" '(.[$key] // []) | length' <<<"$profile")"
+  for ((i = 0; i < group_count; i++)); do
+    disk_count="$(jq -r ".${key}[$i].disk_count // \"\"" <<<"$profile")"
+    [[ -n "$disk_count" ]] \
+      || { echo "picker_build_assignment: ${key}[$i] needs a disk_count" >&2
+           return 1; }
+    echo "$disk_count"
+  done
+}
+
+# _picker_check_disk_total <picked> <count>... — the picked disks must equal
+# the sum of the declared disk_counts.
+_picker_check_disk_total() {
+  local picked="$1" sum=0 count; shift
+  for count in "$@"; do sum=$((sum + count)); done
+  if (( picked != sum )); then
+    echo "picker_build_assignment: expected $sum disk(s) (sum of declared" \
+         "disk_count), got $picked" >&2
+    return 1
+  fi
 }
 
 # picker_format_disk_preview <by_id_path>

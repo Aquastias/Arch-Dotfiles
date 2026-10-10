@@ -78,35 +78,38 @@ _preflight_pacman() {
   pacman -Sy --noconfirm --needed "$@" >&2
 }
 
-# preflight_ensure_host_tools <cmd[:pkg]>... — returns 0 once every command
-# resolves; non-zero (guidance on stderr) if one is missing and uninstallable.
+# preflight_ensure_host_tools <command[:package]>... — returns 0 once
+# every command resolves; non-zero (guidance on stderr) if one is missing
+# and uninstallable.
 preflight_ensure_host_tools() {
-  local -a missing_cmds=() missing_pkgs=()
-  local spec cmd pkg
+  local -a missing_commands=() missing_packages=()
+  local spec command_name package_name
   for spec in "$@"; do
-    cmd="${spec%%:*}"
-    pkg="${spec#*:}"
-    [[ "$pkg" == "$spec" ]] && pkg="$cmd"
-    command_exists "$cmd" \
-      || { missing_cmds+=("$cmd"); missing_pkgs+=("$pkg"); }
+    command_name="${spec%%:*}"
+    package_name="${spec#*:}"
+    [[ "$package_name" == "$spec" ]] && package_name="$command_name"
+    command_exists "$command_name" \
+      || { missing_commands+=("$command_name")
+           missing_packages+=("$package_name"); }
   done
-  ((${#missing_pkgs[@]})) || return 0
+  ((${#missing_packages[@]})) || return 0
 
   echo -e "${YELLOW:-}[preflight]${NC:-} missing host tool(s):" \
-    "${missing_cmds[*]}" >&2
+    "${missing_commands[*]}" >&2
 
   # No pacman → not an Arch live medium (e.g. a dev box). Don't install; list
   # the packages to provide and stop.
   if ! command_exists pacman; then
     echo -e "${RED:-}[preflight]${NC:-} no pacman — not an Arch live medium." >&2
-    echo "  Install these packages and re-run: ${missing_pkgs[*]}" >&2
+    echo "  Install these packages and re-run: ${missing_packages[*]}" >&2
     return 1
   fi
 
   echo -e "${GREEN:-}[preflight]${NC:-} installing on live ISO:" \
-    "${missing_pkgs[*]}" >&2
-  if ! _preflight_pacman "${missing_pkgs[@]}"; then
-    echo -e "${RED:-}[preflight]${NC:-} pacman failed for: ${missing_pkgs[*]}" >&2
+    "${missing_packages[*]}" >&2
+  if ! _preflight_pacman "${missing_packages[@]}"; then
+    echo -e "${RED:-}[preflight]${NC:-} pacman failed for:" \
+      "${missing_packages[*]}" >&2
     echo "  Check the network (01-bootstrap-zfs.sh has iwctl notes)," \
       "then re-run." >&2
     return 1
@@ -114,13 +117,13 @@ preflight_ensure_host_tools() {
 
   # A stale mirror or a partial host can let pacman succeed yet leave a binary
   # absent — verify each originally-missing command resolves before we hand off.
-  local -a still=()
-  for cmd in "${missing_cmds[@]}"; do
-    command_exists "$cmd" || still+=("$cmd")
+  local -a still_missing=()
+  for command_name in "${missing_commands[@]}"; do
+    command_exists "$command_name" || still_missing+=("$command_name")
   done
-  if ((${#still[@]})); then
+  if ((${#still_missing[@]})); then
     echo -e "${RED:-}[preflight]${NC:-} still missing after install:" \
-      "${still[*]}" >&2
+      "${still_missing[*]}" >&2
     return 1
   fi
   return 0
