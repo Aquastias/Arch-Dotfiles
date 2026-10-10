@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for .installer/lib/layout/zfs/multi.sh — pure topology suggestion
 # functions.
-# suggest_os_topologies and suggest_storage_topologies have no system calls.
+# layout_suggest_os_topologies and layout_suggest_storage_topologies have no system calls.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -25,66 +25,66 @@ teardown() {
   rm -rf "$TEST_DIR"
 }
 
-# ── suggest_os_topologies ─────────────────────────────────────────────────────
+# ── layout_suggest_os_topologies ─────────────────────────────────────────────────────
 
-@test "suggest_os_topologies(1): emits exactly one line" {
-  run suggest_os_topologies 1
+@test "layout_suggest_os_topologies(1): emits exactly one line" {
+  run layout_suggest_os_topologies 1
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | wc -l)" -eq 1 ]
 }
 
-@test "suggest_os_topologies(1): the single option is none" {
-  run suggest_os_topologies 1
+@test "layout_suggest_os_topologies(1): the single option is none" {
+  run layout_suggest_os_topologies 1
   [ "$status" -eq 0 ]
   [[ "$output" == none* ]]
 }
 
-@test "suggest_os_topologies(2): first recommendation is mirror" {
-  run suggest_os_topologies 2
+@test "layout_suggest_os_topologies(2): first recommendation is mirror" {
+  run layout_suggest_os_topologies 2
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == mirror* ]]
 }
 
-@test "suggest_os_topologies(3): includes mirror as an option" {
-  run suggest_os_topologies 3
+@test "layout_suggest_os_topologies(3): includes mirror as an option" {
+  run layout_suggest_os_topologies 3
   [ "$status" -eq 0 ]
   [[ "$output" == *mirror* ]]
 }
 
-# ── suggest_storage_topologies ────────────────────────────────────────────────
+# ── layout_suggest_storage_topologies ────────────────────────────────────────────────
 
-@test "suggest_storage_topologies(1): first recommendation is independent" {
-  run suggest_storage_topologies 1
+@test "layout_suggest_storage_topologies(1): first recommendation is independent" {
+  run layout_suggest_storage_topologies 1
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == independent* ]]
 }
 
-@test "suggest_storage_topologies(2): first recommendation is mirror" {
-  run suggest_storage_topologies 2
+@test "layout_suggest_storage_topologies(2): first recommendation is mirror" {
+  run layout_suggest_storage_topologies 2
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == mirror* ]]
 }
 
-@test "suggest_storage_topologies(3): first recommendation is raidz1" {
-  run suggest_storage_topologies 3
+@test "layout_suggest_storage_topologies(3): first recommendation is raidz1" {
+  run layout_suggest_storage_topologies 3
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == raidz1* ]]
 }
 
-@test "suggest_storage_topologies(4): first recommendation is raidz1" {
-  run suggest_storage_topologies 4
+@test "layout_suggest_storage_topologies(4): first recommendation is raidz1" {
+  run layout_suggest_storage_topologies 4
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == raidz1* ]]
 }
 
-@test "suggest_storage_topologies(5): first recommendation is raidz2" {
-  run suggest_storage_topologies 5
+@test "layout_suggest_storage_topologies(5): first recommendation is raidz2" {
+  run layout_suggest_storage_topologies 5
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == raidz2* ]]
 }
 
-@test "suggest_storage_topologies(6): first recommendation is raidz2" {
-  run suggest_storage_topologies 6
+@test "layout_suggest_storage_topologies(6): first recommendation is raidz2" {
+  run layout_suggest_storage_topologies 6
   [ "$status" -eq 0 ]
   [[ "$(echo "$output" | head -1)" == raidz2* ]]
 }
@@ -159,7 +159,7 @@ JSONC
   [ "${#LAYOUT_DATA_POOL_NAMES[@]}" -eq 0 ]
 }
 
-# ── resolve_data_pools size warning (issue 04) ───────────────────────────────
+# ── layout_resolve_data_pools size warning (issue 04) ───────────────────────────────
 # Drives the plan step with a stubbed lsblk (so no real disks needed) and a
 # warn() that echoes to stdout, then asserts on the captured $output.
 
@@ -183,7 +183,7 @@ setup_data_pool_size_fixture() {
   }
 }
 
-@test "resolve_data_pools: warns on unequal-size mirror pool" {
+@test "layout_resolve_data_pools: warns on unequal-size mirror pool" {
   setup_data_pool_size_fixture
   write_multi_config '{
     "os_pool":{"pool_name":"rpool","disks":["/dev/osd"]},
@@ -191,14 +191,14 @@ setup_data_pool_size_fixture() {
     "data_pools":[{"name":"tank","topology":"mirror",
                    "disks":["/dev/da","/dev/db"]}]
   }'
-  run resolve_data_pools
+  run layout_resolve_data_pools
   [ "$status" -eq 0 ]
   [[ "$output" == *"WARN:"* ]]
   [[ "$output" == *"tank"* ]]
   [[ "$output" == *"100G"* ]]
 }
 
-@test "resolve_data_pools: silent on equal-size mirror pool" {
+@test "layout_resolve_data_pools: silent on equal-size mirror pool" {
   setup_data_pool_size_fixture
   write_multi_config '{
     "os_pool":{"pool_name":"rpool","disks":["/dev/osd"]},
@@ -206,40 +206,40 @@ setup_data_pool_size_fixture() {
     "data_pools":[{"name":"tank","topology":"mirror",
                    "disks":["/dev/da","/dev/dc"]}]
   }'
-  run resolve_data_pools
+  run layout_resolve_data_pools
   [ "$status" -eq 0 ]
   [[ "$output" != *"WARN:"* ]]
 }
 
-# ── _mount_is_reserved (pure, issue 03) ──────────────────────────────────────
+# ── _zfs_multi_mount_is_reserved (pure, issue 03) ──────────────────────────────────────
 
-@test "_mount_is_reserved: /home is reserved" {
-  run _mount_is_reserved /home
+@test "_zfs_multi_mount_is_reserved: /home is reserved" {
+  run _zfs_multi_mount_is_reserved /home
   [ "$status" -eq 0 ]
 }
 
-@test "_mount_is_reserved: / is reserved" {
-  run _mount_is_reserved /
+@test "_zfs_multi_mount_is_reserved: / is reserved" {
+  run _zfs_multi_mount_is_reserved /
   [ "$status" -eq 0 ]
 }
 
-@test "_mount_is_reserved: /var/log subtree is reserved" {
-  run _mount_is_reserved /var/log
+@test "_zfs_multi_mount_is_reserved: /var/log subtree is reserved" {
+  run _zfs_multi_mount_is_reserved /var/log
   [ "$status" -eq 0 ]
 }
 
-@test "_mount_is_reserved: /boot/efi subtree is reserved" {
-  run _mount_is_reserved /boot/efi
+@test "_zfs_multi_mount_is_reserved: /boot/efi subtree is reserved" {
+  run _zfs_multi_mount_is_reserved /boot/efi
   [ "$status" -eq 0 ]
 }
 
-@test "_mount_is_reserved: /data is not reserved" {
-  run _mount_is_reserved /data
+@test "_zfs_multi_mount_is_reserved: /data is not reserved" {
+  run _zfs_multi_mount_is_reserved /data
   [ "$status" -ne 0 ]
 }
 
-@test "_mount_is_reserved: /variable is not reserved (subtree, not prefix)" {
-  run _mount_is_reserved /variable
+@test "_zfs_multi_mount_is_reserved: /variable is not reserved (subtree, not prefix)" {
+  run _zfs_multi_mount_is_reserved /variable
   [ "$status" -ne 0 ]
 }
 
@@ -385,8 +385,8 @@ _find_block_device() {
 
 @test "layout_validate: data pool owner not a declared user aborts" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }
-  _layout_declared_users() { echo "alice bob"; }
+  layout_disk_exists() { return 0; }
+  _zfs_multi_declared_users() { echo "alice bob"; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -403,8 +403,8 @@ _find_block_device() {
 
 @test "layout_validate: data pool owner that is a declared user passes" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }
-  _layout_declared_users() { echo "alice bob"; }
+  layout_disk_exists() { return 0; }
+  _zfs_multi_declared_users() { echo "alice bob"; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -419,9 +419,9 @@ _find_block_device() {
 
 @test "layout_validate: data pool @group with no members aborts" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }
-  _layout_declared_users() { echo "alice" ; }
-  _layout_group_map() { printf '' ; }     # no group has any members
+  layout_disk_exists() { return 0; }
+  _zfs_multi_declared_users() { echo "alice" ; }
+  _zfs_multi_group_map() { printf '' ; }     # no group has any members
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -437,9 +437,9 @@ _find_block_device() {
 
 @test "layout_validate: data pool @group with members passes" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }
-  _layout_declared_users() { echo "alice bob" ; }
-  _layout_group_map() { printf 'family:alice,bob' ; }
+  layout_disk_exists() { return 0; }
+  _zfs_multi_declared_users() { echo "alice bob" ; }
+  _zfs_multi_group_map() { printf 'family:alice,bob' ; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -454,8 +454,8 @@ _find_block_device() {
 
 @test "layout_validate: storage group owner not a declared user aborts" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }
-  _layout_declared_users() { echo "alice" ; }
+  layout_disk_exists() { return 0; }
+  _zfs_multi_declared_users() { echo "alice" ; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -471,7 +471,7 @@ _find_block_device() {
 
 @test "layout_validate: valid data pools pass (mirror x2, stripe x1)" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
+  layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -610,7 +610,7 @@ _find_block_device() {
 
 @test "layout_validate: nested data pool mounts are allowed" {
   _LAYOUT_PHASE=0
-  _layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
+  layout_disk_exists() { return 0; }  # fake data-pool disks "exist"
   local osd; osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
     \"os_pool\":{\"pool_name\":\"rpool\",\"disks\":[\"${osd}\"]},
@@ -634,7 +634,7 @@ setup_leftover_fixture() {
   export CALLS MOUNT_ROOT="$TEST_DIR/mnt"
   mkdir -p "$MOUNT_ROOT"
 
-  # create_data_pools now dispatches every group (zfs included) through the Data
+  # layout_create_data_pools now dispatches every group (zfs included) through the Data
   # Group Formatter seam (data_formatter_source "$INSTALLER_DIR" <fs>), so the leaf must
   # be resolvable; the mocked zfs_create_pool/zfs/etc below survive its guarded
   # sources (they only load pools.sh when the primitive is not already a function).
@@ -664,7 +664,7 @@ setup_leftover_fixture() {
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
 
   # Empty line input → accept the default pool name.
-  _read_tty() { printf ''; }
+  _zfs_multi_read_tty() { printf ''; }
 
   # pick_option mimic (first word of a chosen option): choose own-pool (2nd
   # option) for any per-disk leftover prompt; option 1 (the OS disk) elsewhere.
@@ -709,7 +709,7 @@ JSONC
   layout_leftover_choice()    { LAYOUT_LEFTOVER_CHOICE=own; }
   layout_leftover_pool_name() { LAYOUT_LEFTOVER_POOL_NAME=seamdata; }
   # Prove the planner never falls back to a TTY read for the leftover.
-  _read_tty() { echo "TTY READ ATTEMPTED" >&2; return 1; }
+  _zfs_multi_read_tty() { echo "TTY READ ATTEMPTED" >&2; return 1; }
   cat >"$CONFIG_FILE" <<'JSONC'
 {
   "os_pool": { "pool_name": "rpool", "topology": "none",

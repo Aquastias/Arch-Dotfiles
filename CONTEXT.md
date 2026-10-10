@@ -858,7 +858,7 @@ paths and mode-specific topology before any work begins; exits via `error` on
 first failure. The active module is selected by `INSTALL_MODE` and sourced from
 `03-install.sh` **before** `validate_install_context` runs, so the dispatcher
 can call `layout_validate` on the active adapter. The seam wrappers enforce
-phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in
+phase ordering via `layout_enter_phase` / `layout_exit_phase` in
 `lib/layout/core.sh` (phases: validate→plan→partition→pools→esp); a verb called
 out of order aborts via `error` before any destructive operation. Mode-private
 globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,

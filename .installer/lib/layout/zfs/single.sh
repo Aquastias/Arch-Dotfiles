@@ -7,18 +7,18 @@
 #           zfs_create_os_datasets, zfs_ram_gib) already sourced.
 #
 # Provides:
-#   calculate_single_disk_layout — computes partition sizes,
+#   layout_calculate_single_disk — computes partition sizes,
 #                                  prints layout table
-#   partition_single_disk         — wipes disk, creates 3 GPT partitions
-#   create_single_pools           — creates rpool (OS) and dpool (storage)
-#   mount_single_esp              — mounts the ESP into MOUNT_ROOT
+#   layout_partition_single_disk         — wipes disk, creates 3 GPT partitions
+#   layout_create_single_pools           — creates rpool (OS) and dpool (storage)
+#   layout_mount_single_esp              — mounts the ESP into MOUNT_ROOT
 #   layout_validate       — seam: validates single-disk config inputs
 #   _layout_plan_mode     — plan hook (for layout_plan in plan.sh): wraps
-#                           calculate_single_disk_layout + publishes pool names
+#                           layout_calculate_single_disk + publishes pool names
 #   _layout_os_disks      — plan hook: the single OS disk (for ESP resolution)
-#   layout_partition      — seam: wraps partition_single_disk
-#   layout_create_pools   — seam: wraps create_single_pools
-#   layout_mount_esp      — seam: wraps mount_single_esp
+#   layout_partition      — seam: wraps layout_partition_single_disk
+#   layout_create_pools   — seam: wraps layout_create_single_pools
+#   layout_mount_esp      — seam: wraps layout_mount_single_esp
 #
 # INTERNAL STATE (do not reference outside this module):
 #   _LAYOUT_IMPL_DISK       — target disk device path
@@ -41,7 +41,7 @@ _LAYOUT_IMPL_OS_SECTORS=0
 # LAYOUT CALCULATION
 # =============================================================================
 
-calculate_single_disk_layout() {
+layout_calculate_single_disk() {
   # Determines the OS and storage partition sizes, validates the disk has
   # enough space, and prints the layout table.
   #
@@ -55,7 +55,7 @@ calculate_single_disk_layout() {
   section "Calculating Single-Disk Layout"
 
   _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
-  _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
+  layout_disk_exists "$_LAYOUT_IMPL_DISK" \
     || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
   # Use blockdev --getsize64 (bytes) for precision — avoids the truncation
@@ -70,22 +70,22 @@ calculate_single_disk_layout() {
   info "Disk: $_LAYOUT_IMPL_DISK —" \
        "${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
-  # ESP size in MiB (parsed from config, default 512M). parse_size_to_mib (core)
+  # ESP size in MiB (parsed from config, default 512M). layout_parse_size_to_mib (core)
   # keeps sub-GiB precision — the shared helper the non-ZFS spine already uses,
   # instead of a private re-implementation of the M/G case.
-  local esp_sz esp_mib
-  esp_sz="$(layout_resolve_esp_size)"
-  esp_mib="$(parse_size_to_mib "$esp_sz")"
+  local esp_size esp_mib
+  esp_size="$(layout_resolve_esp_size)"
+  esp_mib="$(layout_parse_size_to_mib "$esp_size")"
 
   # Usable MiB after ESP and 1 MiB alignment gaps (GPT header, partition gaps)
   local align_mib=2 # 1 MiB at start + 1 MiB guard at end
   local usable_mib=$((total_mib - esp_mib - align_mib))
 
   # ── Swap size ─────────────────────────────────────────────────────────────
-  local cfg_swap
-  cfg_swap="$(config_optional '.options.swap_size')"
+  local configured_swap_size
+  configured_swap_size="$(config_optional '.options.swap_size')"
   local swap_gib
-  if [[ -z "$cfg_swap" || "$cfg_swap" == "auto" ]]; then
+  if [[ -z "$configured_swap_size" || "$configured_swap_size" == "auto" ]]; then
     swap_gib=$((ram * 2))
     # Cap swap to 25% of disk for small disks so the OS still fits
     local swap_cap=$((total_gib / 4))
@@ -97,26 +97,26 @@ calculate_single_disk_layout() {
     fi
     info "Swap: ${swap_gib} GiB  (auto)"
   else
-    swap_gib="$(parse_size_to_gib "$cfg_swap")"
+    swap_gib="$(layout_parse_size_to_gib "$configured_swap_size")"
     info "Swap: ${swap_gib} GiB  (from config)"
   fi
 
   # ── OS partition size ─────────────────────────────────────────────────────
-  local cfg_os
-  cfg_os="$(config_optional '.os_size')"
+  local configured_os_size
+  configured_os_size="$(config_optional '.os_size')"
   local os_gib
-  if [[ -z "$cfg_os" || "$cfg_os" == "auto" ]]; then
+  if [[ -z "$configured_os_size" || "$configured_os_size" == "auto" ]]; then
     # Three candidates — pick the largest, but never exceed 85% of usable space
     # so there is always room for a storage partition.
     local floor=20                              # absolute minimum in GiB
     local ram_based=$((swap_gib + 20))          # swap + OS headroom
-    local pct=$((usable_mib * 80 / 100 / 1024)) # 80% of usable space
+    local percent_gib=$((usable_mib * 80 / 100 / 1024)) # 80% of usable space
     # Note: 80% gives ~31G on a 40G disk — enough for KDE + base + headroom.
     # Storage pool gets the remaining 20% (~8G) for user data.
 
     os_gib=$floor
     ((ram_based > os_gib)) && os_gib=$ram_based
-    ((pct > os_gib)) && os_gib=$pct
+    ((percent_gib > os_gib)) && os_gib=$percent_gib
 
     # Hard cap: never claim more than 90% of usable MiB
     local os_cap_mib=$((usable_mib * 90 / 100))
@@ -127,7 +127,7 @@ calculate_single_disk_layout() {
          "80%=$((usable_mib * 80 / 100 / 1024))G" \
          "→ ${os_gib}G (cap: ${os_cap_gib}G)"
   else
-    os_gib="$(parse_size_to_gib "$cfg_os")"
+    os_gib="$(layout_parse_size_to_gib "$configured_os_size")"
     info "OS size: ${os_gib} GiB  (from config)"
   fi
 
@@ -163,7 +163,7 @@ calculate_single_disk_layout() {
           "(${total_mib} MiB):${NC}"
   printf "    %-5s  %-14s  %s\n" "Part" "Size" "Purpose"
   printf "    %-5s  %-14s  %s\n" "----" "--------------" "-------"
-  printf "    %-5s  %-14s  %s\n" "p1" "${esp_sz}" "EFI System Partition (FAT32)"
+  printf "    %-5s  %-14s  %s\n" "p1" "${esp_size}" "EFI System Partition (FAT32)"
   printf "    %-5s  %-14s  %s\n" "p2" "${os_gib} GiB" \
     "ZFS rpool  —  / /home /var swap(${swap_gib}G)"
   printf "    %-5s  %-14s  %s\n" "p3" "~${stor_gib} GiB" "ZFS dpool  —  /data"
@@ -174,16 +174,16 @@ calculate_single_disk_layout() {
 # PARTITIONING
 # =============================================================================
 
-partition_single_disk() {
+layout_partition_single_disk() {
   section "Partitioning Single Disk"
   warn "ALL DATA ON $_LAYOUT_IMPL_DISK WILL BE DESTROYED."
   confirm "Confirm partitioning?"
 
-  local esp_sz
-  esp_sz="$(layout_resolve_esp_size)"
+  local esp_size
+  esp_size="$(layout_resolve_esp_size)"
 
   # Wipe + zap + create the ESP (partition 1) — shared with the multi ritual.
-  _zfs_partition_esp_start "$_LAYOUT_IMPL_DISK" "$esp_sz"
+  layout_zfs_partition_esp_start "$_LAYOUT_IMPL_DISK" "$esp_size"
 
   # GPT partition layout adds the two ZFS pool members:
   #   2  ZFS OS pool           (type bf00 = Solaris/ZFS)
@@ -213,31 +213,31 @@ partition_single_disk() {
 # ZFS POOL CREATION
 # =============================================================================
 
-create_single_pools() {
+layout_create_single_pools() {
   section "Creating ZFS Pools (single-disk)"
   zfs_encryption_options
 
-  local rp dp ashift mnt
-  rp="$(install_config_os_pool_name)"
-  dp="$(install_config_storage_pool_name)"
+  local root_pool data_pool ashift mountpoint
+  root_pool="$(install_config_os_pool_name)"
+  data_pool="$(install_config_storage_pool_name)"
   ashift="$(install_config_ashift)"
-  mnt="$(install_config_storage_mount)"
+  mountpoint="$(install_config_storage_mount)"
 
   # rpool — single partition, no RAID
-  zfs_create_pool "${rp}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
-  zfs_create_os_datasets "${rp}"
+  zfs_create_pool "${root_pool}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
+  zfs_create_os_datasets "${root_pool}"
 
   # dpool — the remaining partition; one dataset at the configured mount
-  zfs_create_pool "${dp}" "${ashift}" "${_LAYOUT_IMPL_STOR_PART}"
-  zfs create -o mountpoint="${mnt}" "${dp}/storage"
-  info "dpool '${dp}' → ${mnt}"
+  zfs_create_pool "${data_pool}" "${ashift}" "${_LAYOUT_IMPL_STOR_PART}"
+  zfs create -o mountpoint="${mountpoint}" "${data_pool}/storage"
+  info "dpool '${data_pool}' → ${mountpoint}"
 }
 
 # =============================================================================
 # ESP MOUNTING
 # =============================================================================
 
-mount_single_esp() {
+layout_mount_single_esp() {
   section "Mounting ESP"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
   mount "$_LAYOUT_IMPL_ESP_PART" "${MOUNT_ROOT}/boot/efi"
@@ -249,44 +249,44 @@ mount_single_esp() {
 # =============================================================================
 
 layout_validate() {
-  _layout_enter_phase validate
+  layout_enter_phase validate
   layout_validate_esp_size
-  local d
-  d="$(config_required '.disk' 'disk')"
-  _layout_disk_exists "$d" || error "Single disk not found: $d"
-  _layout_exit_phase validate
+  local disk
+  disk="$(config_required '.disk' 'disk')"
+  layout_disk_exists "$disk" || error "Single disk not found: $disk"
+  layout_exit_phase validate
 }
 
 # Mode hooks for the unified layout_plan (plan.sh). Phase bracketing, ESP
 # resolution and the plan contract are handled there.
 _layout_plan_mode() {
-  calculate_single_disk_layout
+  layout_calculate_single_disk
   # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(config_optional .os_pool_name)"
   LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
-  local _dp
-  _dp="$(config_optional .storage_pool_name)"
+  local _data_pool
+  _data_pool="$(config_optional .storage_pool_name)"
   # shellcheck disable=SC2034 # consumed by finalize.sh
-  LAYOUT_DATA_POOL_NAMES=("${_dp:-dpool}")
+  LAYOUT_DATA_POOL_NAMES=("${_data_pool:-dpool}")
 }
 
-# The single OS disk that receives the ESP. calculate_single_disk_layout (run by
+# The single OS disk that receives the ESP. layout_calculate_single_disk (run by
 # _layout_plan_mode) has already set _LAYOUT_IMPL_DISK by the time plan.sh asks.
 _layout_os_disks() { printf '%s\n' "$_LAYOUT_IMPL_DISK"; }
 layout_partition() {
-  _layout_enter_phase partition
-  partition_single_disk
-  _layout_verify_partition_contract
-  _layout_exit_phase partition
+  layout_enter_phase partition
+  layout_partition_single_disk
+  layout_verify_partition_contract
+  layout_exit_phase partition
 }
 layout_create_pools() {
-  _layout_enter_phase pools
-  create_single_pools
-  _layout_exit_phase pools
+  layout_enter_phase pools
+  layout_create_single_pools
+  layout_exit_phase pools
 }
 layout_mount_esp() {
-  _layout_enter_phase esp
-  mount_single_esp
-  _layout_exit_phase esp
+  layout_enter_phase esp
+  layout_mount_single_esp
+  layout_exit_phase esp
 }

@@ -11,30 +11,30 @@
 # operator types one secret per boot.
 #
 # The filesystem-specific bit — the mkfs command — is supplied by the per-fs
-# Data Group Formatter (lib/layout/<fs>/data.sh) as `_data_mkfs`, which this
+# Data Group Formatter (lib/layout/<fs>/data.sh) as `data_formatter_mkfs`, which this
 # core calls. The per-fs file sources this core.
 #
-# Pure cores (unit-tested): data_group_fstab_line. The orchestration
-# (data_group_create) is disk-touching and VM-gated, like the ZFS data-pool
+# Pure cores (unit-tested): layout_data_group_fstab_line. The orchestration
+# (data_formatter_create_group) is disk-touching and VM-gated, like the ZFS data-pool
 # path. Requires at call time: lib/common.sh (info/section/error), MOUNT_ROOT,
-# and the per-fs `_data_mkfs`.
+# and the per-fs `data_formatter_mkfs`.
 # =============================================================================
 
 # The per-group encryption plan emitter (keyfile/mapper/crypttab) — sibling.
 # shellcheck source=./datacrypt.sh
 source "${BASH_SOURCE[0]%/*}/datacrypt.sh"
-# The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
+# The shared `key=value` plan-field reader (layout_nonzfs_plan_field) lives in the
 # layout core; guard-source it so this formatter stands alone in its unit test.
-declare -F nonzfs_plan_field >/dev/null 2>&1 \
+declare -F layout_nonzfs_plan_field >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 # The /etc/fstab line a formatted data group contributes. <src> is the mount
 # source: `UUID=<fs-uuid>` for a plaintext group, or `/dev/mapper/crypt<name>`
 # for an encrypted one (crypttab opens the mapper from the keyfile first). pass
 # 2 = fsck after the root. Pure: a string transform.
-data_group_fstab_line() {
-  local src="$1" mount="$2" fs="$3"
-  printf '%s  %s  %s  defaults  0 2\n' "$src" "$mount" "$fs"
+layout_data_group_fstab_line() {
+  local source_device="$1" mount="$2" filesystem="$3"
+  printf '%s  %s  %s  defaults  0 2\n' "$source_device" "$mount" "$filesystem"
 }
 
 
@@ -43,7 +43,7 @@ data_group_fstab_line() {
 # single mapper — the verified path); a multi-disk group (only btrfs reaches >1,
 # the others are single-disk by validation) suffixes the index so its raid
 # assembles over distinct mappers crypt<name>0, crypt<name>1, …. Pure.
-data_group_mapper_name() {
+layout_data_group_mapper_name() {
   local name="$1" index="$2" total="$3"
   if ((total > 1)); then
     printf 'crypt%s%s\n' "$name" "$index"
@@ -55,7 +55,7 @@ data_group_mapper_name() {
 # Generate the group's 32-byte random keyfile at $abs (under the install root)
 # with 0600 perms. One primitive for every filesystem: LUKS takes it as a
 # keyslot, zfs as keyformat=raw.
-_data_gen_keyfile() {
+_nonzfs_data_generate_keyfile() {
   local abs="$1"
   install -Dm600 /dev/null "$abs"
   head -c32 /dev/urandom >"$abs"
@@ -63,70 +63,70 @@ _data_gen_keyfile() {
 
 # Disk-touching: format + mount one non-ZFS data group, appending its fstab and
 # (encrypted) crypttab lines to the layout record the chroot writers consume.
-#   data_group_create <fs> <name> <encrypted> <mount> <topology> <part...>
+#   data_formatter_create_group <fs> <name> <encrypted> <mount> <topology> <part...>
 # Plaintext groups mount by filesystem UUID. Encrypted groups are single-disk:
 # the partition is LUKS-formatted with the keyfile-on-root, opened as
 # crypt<name>, and the fs lives inside the mapper. btrfs may span several parts
-# with native topology (plaintext only this slice). Calls the per-fs _data_mkfs.
+# with native topology (plaintext only this slice). Calls the per-fs data_formatter_mkfs.
 # VM-gated, like the ZFS data-pool path.
-data_group_create() {
-  local fs="$1" name="$2" encrypted="$3" mount="$4" topology="$5"
+data_formatter_create_group() {
+  local filesystem="$1" name="$2" encrypted="$3" mount="$4" topology="$5"
   shift 5
   local parts=("$@")
-  local nl=$'\n'
-  section "Formatting Data Group '${name}' (${fs})"
+  local newline=$'\n'
+  section "Formatting Data Group '${name}' (${filesystem})"
 
   # The live ISO ships the mkfs tools but may not have the fs kernel module
   # loaded, so the freshly-formatted fs can't be mounted here without it (ext4
   # is built-in; xfs/btrfs are modules). Load it; harmless if built-in/loaded.
-  modprobe "$fs" 2>/dev/null || true
+  modprobe "$filesystem" 2>/dev/null || true
 
-  local target src
+  local target source_device
   local mkfs_inputs=()
   if [[ "$encrypted" == "true" && ${#parts[@]} -eq 1 ]]; then
     # ── single-disk encrypted (ext4/xfs/btrfs) — the verified path ──
     # keyfile path + mapper name are UUID-independent — read them up front so we
     # can format/open before the LUKS container UUID exists.
     local plan keyfile mapper
-    plan="$(data_group_crypto true "$fs" "$name" PENDING)"
-    keyfile="$(printf '%s\n' "$plan" | nonzfs_plan_field keyfile)"
-    mapper="$(printf '%s\n' "$plan" | nonzfs_plan_field mapper)"
+    plan="$(layout_data_group_crypto true "$filesystem" "$name" PENDING)"
+    keyfile="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field keyfile)"
+    mapper="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field mapper)"
 
-    _data_gen_keyfile "${MOUNT_ROOT}${keyfile}"
+    _nonzfs_data_generate_keyfile "${MOUNT_ROOT}${keyfile}"
     cryptsetup luksFormat --type luks2 --batch-mode \
       "${parts[0]}" "${MOUNT_ROOT}${keyfile}"
     cryptsetup open "${parts[0]}" "$mapper" \
       --key-file "${MOUNT_ROOT}${keyfile}"
     target="/dev/mapper/${mapper}"
-    src="$target"
+    source_device="$target"
     mkfs_inputs=("$target")
 
     local uuid crypttab
     uuid="$(blkid -s UUID -o value "${parts[0]}")" # LUKS container UUID
-    crypttab="$(data_group_crypto true "$fs" "$name" "$uuid" \
-      | nonzfs_plan_field crypttab)"
-    LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${nl}}${crypttab}"
+    crypttab="$(layout_data_group_crypto true "$filesystem" "$name" "$uuid" \
+      | layout_nonzfs_plan_field crypttab)"
+    LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${newline}}${crypttab}"
   elif [[ "$encrypted" == "true" ]]; then
     # ── multi-disk encrypted (btrfs raid over per-device LUKS mappers) ──
     # ext4/xfs are single-disk by validation, so only a btrfs group lands here.
     # One keyfile-on-root opens every device; each is wrapped as crypt<name><i>
     # and the raid is built over the mappers. crypttab auto-opens each at boot.
-    [[ "$fs" == "btrfs" ]] \
-      || error "Encrypted multi-disk data group '${name}' needs btrfs (got ${fs})."
+    [[ "$filesystem" == "btrfs" ]] \
+      || error "Encrypted multi-disk data group '${name}' needs btrfs (got ${filesystem})."
     local keyfile i part mapper uuid crypttab
-    keyfile="$(data_group_crypto true "$fs" "$name" PENDING \
-      | nonzfs_plan_field keyfile)"
-    _data_gen_keyfile "${MOUNT_ROOT}${keyfile}"
+    keyfile="$(layout_data_group_crypto true "$filesystem" "$name" PENDING \
+      | layout_nonzfs_plan_field keyfile)"
+    _nonzfs_data_generate_keyfile "${MOUNT_ROOT}${keyfile}"
     for i in "${!parts[@]}"; do
       part="${parts[$i]}"
-      mapper="$(data_group_mapper_name "$name" "$i" "${#parts[@]}")"
+      mapper="$(layout_data_group_mapper_name "$name" "$i" "${#parts[@]}")"
       cryptsetup luksFormat --type luks2 --batch-mode \
         "$part" "${MOUNT_ROOT}${keyfile}"
       cryptsetup open "$part" "$mapper" --key-file "${MOUNT_ROOT}${keyfile}"
       mkfs_inputs+=("/dev/mapper/${mapper}")
       uuid="$(blkid -s UUID -o value "$part")" # LUKS container UUID
       crypttab="${mapper}  UUID=${uuid}  ${keyfile}  luks"
-      LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${nl}}${crypttab}"
+      LAYOUT_CRYPTTAB="${LAYOUT_CRYPTTAB:+${LAYOUT_CRYPTTAB}${newline}}${crypttab}"
     done
     target="${mkfs_inputs[0]}"
   else
@@ -136,18 +136,18 @@ data_group_create() {
   fi
 
   _DATA_TOPOLOGY="$topology"
-  _data_mkfs "${mkfs_inputs[@]}"
+  data_formatter_mkfs "${mkfs_inputs[@]}"
 
   mkdir -p "${MOUNT_ROOT}${mount}"
   mount "$target" "${MOUNT_ROOT}${mount}"
 
   # A multi-disk btrfs (plaintext or encrypted) mounts by its single fs UUID;
   # single-disk encrypted keeps its mapper src (set above, verified).
-  if [[ -z "${src:-}" ]]; then
-    src="UUID=$(blkid -s UUID -o value "$target")"
+  if [[ -z "${source_device:-}" ]]; then
+    source_device="UUID=$(blkid -s UUID -o value "$target")"
   fi
   local fstab
-  fstab="$(data_group_fstab_line "$src" "$mount" "$fs")"
-  LAYOUT_FSTAB_EXTRA="${LAYOUT_FSTAB_EXTRA:+${LAYOUT_FSTAB_EXTRA}${nl}}${fstab}"
-  info "Data group '${name}' formatted → ${mount} (${fs})"
+  fstab="$(layout_data_group_fstab_line "$source_device" "$mount" "$filesystem")"
+  LAYOUT_FSTAB_EXTRA="${LAYOUT_FSTAB_EXTRA:+${LAYOUT_FSTAB_EXTRA}${newline}}${fstab}"
+  info "Data group '${name}' formatted → ${mount} (${filesystem})"
 }

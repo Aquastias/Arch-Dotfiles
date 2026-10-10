@@ -3,7 +3,7 @@
 # lib/layout/btrfs/subvol.sh — btrfs root subvolume layout (ADR 0043, issue 07)
 # =============================================================================
 # The pure declarations the btrfs Root Adapter iterates to create subvolumes,
-# mount them, and write fstab. `btrfs_root_subvols` is the single source of
+# mount them, and write fstab. `layout_btrfs_root_subvolumes` is the single source of
 # truth — the create loop and the fstab both read it, so they can't drift on
 # which subvol mounts where. A flat-@ layout: @ is the root subvolume; @home /
 # @log / @pkg / @snapshots split /home, the journal, the package cache, and
@@ -19,8 +19,8 @@ source "${BASH_SOURCE[0]%/*}/../../impermanence-common.sh"
 
 # Emit `<subvol> <mountpoint>` per line — @ (root) first so the adapter mounts
 # it before the nested subvols whose mountpoints live underneath it. The base OS
-# layout; impermanence's rollback subvols are appended by _btrfs_root_subvols_all.
-btrfs_root_subvols() {
+# layout; impermanence's rollback subvols are appended by _btrfs_subvol_all_root_subvolumes.
+layout_btrfs_root_subvolumes() {
   printf '%s\n' \
     "@ /" \
     "@home /home" \
@@ -32,7 +32,7 @@ btrfs_root_subvols() {
 # True when impermanence is enabled for this install. Guarded so the pure base
 # layout (unit tests that source only this file, no config accessors) reads as
 # disabled instead of erroring; the real layout phase always has the accessor.
-_btrfs_impermanence_on() {
+_btrfs_subvol_impermanence_on() {
   declare -F install_config_impermanence_enabled >/dev/null 2>&1 \
     && [[ "$(install_config_impermanence_enabled)" == "true" ]]
 }
@@ -41,9 +41,9 @@ _btrfs_impermanence_on() {
 # subvols, plus the curated rollback subvols (@etc/@opt/@srv/@usrlocal)
 # when impermanence is on so they are created+mounted before pacstrap AND land
 # in fstab (the impermanence bind units order After= these subvol mounts).
-_btrfs_root_subvols_all() {
-  btrfs_root_subvols
-  _btrfs_impermanence_on && impermanence_common_btrfs_rollback_subvolumes
+_btrfs_subvol_all_root_subvolumes() {
+  layout_btrfs_root_subvolumes
+  _btrfs_subvol_impermanence_on && impermanence_common_btrfs_rollback_subvolumes
   return 0
 }
 
@@ -51,20 +51,20 @@ _btrfs_root_subvols_all() {
 # source — `UUID=<fs-uuid>` (plaintext) or `/dev/mapper/cryptroot` (encrypted) —
 # identical for every subvol since they share the one btrfs filesystem; the
 # subvol= option is what differs. btrfs has no fsck, so dump/pass are 0 0. Pure.
-btrfs_subvol_fstab_line() {
-  local src="$1" mount="$2" subvol="$3"
-  printf '%s  %s  btrfs  rw,relatime,subvol=%s  0 0\n' "$src" "$mount" "$subvol"
+layout_btrfs_subvolume_fstab_line() {
+  local source_device="$1" mount="$2" subvol="$3"
+  printf '%s  %s  btrfs  rw,relatime,subvol=%s  0 0\n' "$source_device" "$mount" "$subvol"
 }
 
 # The full fstab block for the root subvolume layout: one line per subvol off the
 # shared mount <src> (`UUID=…` plaintext / `/dev/mapper/cryptroot` encrypted),
 # @ → / first. Shared by the single- and multi-disk btrfs adapters so both emit
 # identical fstab from the one layout. Pure.
-btrfs_root_fstab() {
-  local src="$1" subvol mnt out=""
-  while read -r subvol mnt; do
-    out+="${out:+$'\n'}$(btrfs_subvol_fstab_line "$src" "$mnt" "$subvol")"
-  done < <(_btrfs_root_subvols_all)
+layout_btrfs_root_fstab() {
+  local source_device="$1" subvol mountpoint out=""
+  while read -r subvol mountpoint; do
+    out+="${out:+$'\n'}$(layout_btrfs_subvolume_fstab_line "$source_device" "$mountpoint" "$subvol")"
+  done < <(_btrfs_subvol_all_root_subvolumes)
   printf '%s\n' "$out"
 }
 
@@ -72,17 +72,17 @@ btrfs_root_fstab() {
 # (single device or an assembled raid), then mount @ as the install root with the
 # nested subvols at their mountpoints underneath. Shared by the single- and
 # multi-disk btrfs adapters. Requires MOUNT_ROOT + btrfs-progs; VM-gated.
-_btrfs_create_and_mount_subvols() {
-  local root_dev="$1" subvol mnt
+layout_btrfs_create_and_mount_subvolumes() {
+  local root_dev="$1" subvol mountpoint
   mount "$root_dev" "$MOUNT_ROOT"
-  while read -r subvol mnt; do
+  while read -r subvol mountpoint; do
     btrfs subvolume create "${MOUNT_ROOT}/${subvol}"
-  done < <(_btrfs_root_subvols_all)
+  done < <(_btrfs_subvol_all_root_subvolumes)
   umount "$MOUNT_ROOT"
   mount -o subvol=@ "$root_dev" "$MOUNT_ROOT"
-  while read -r subvol mnt; do
+  while read -r subvol mountpoint; do
     [[ "$subvol" == "@" ]] && continue
-    mkdir -p "${MOUNT_ROOT}${mnt}"
-    mount -o "subvol=${subvol}" "$root_dev" "${MOUNT_ROOT}${mnt}"
-  done < <(_btrfs_root_subvols_all)
+    mkdir -p "${MOUNT_ROOT}${mountpoint}"
+    mount -o "subvol=${subvol}" "$root_dev" "${MOUNT_ROOT}${mountpoint}"
+  done < <(_btrfs_subvol_all_root_subvolumes)
 }

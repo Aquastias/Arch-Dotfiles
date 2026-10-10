@@ -37,6 +37,10 @@ interface layout_mount_esp
 interface _layout_plan_mode
 interface _layout_os_disks
 interface _layout_publish_boot
+interface _layout_verify_plan_contract
+interface root_adapter_for_kind
+interface root_adapter_source
+interface data_formatter_source
 interface root_adapter_mkfs
 interface root_adapter_fstype
 interface data_formatter_mkfs

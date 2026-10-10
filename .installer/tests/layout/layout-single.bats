@@ -52,10 +52,10 @@ setup() {
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
   zfs_ram_gib()             { echo 4; }
 
-  # Stand-in for calculate_single_disk_layout: populates the two pieces of
+  # Stand-in for layout_calculate_single_disk: populates the two pieces of
   # internal state that downstream seams need, without requiring a real block
   # device. Tests that exercise the real sizing math redefine it inline.
-  calculate_single_disk_layout() {
+  layout_calculate_single_disk() {
     _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
     _LAYOUT_IMPL_OS_SECTORS=$((30 * 1024 * 1024 * 2)) # ~30 GiB
   }
@@ -96,14 +96,14 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   [ "${LAYOUT_ESP_PARTS[0]}" = "/dev/sdz1" ]
 }
 
-# ── calculate_single_disk_layout: input validation ──────────────────────────
+# ── layout_calculate_single_disk: input validation ──────────────────────────
 
-@test "calculate_single_disk_layout: errors when .disk is not a block dev" {
+@test "layout_calculate_single_disk: errors when .disk is not a block dev" {
   write_config '{"disk":"/tmp/not-a-real-disk-xyz"}'
-  unset -f calculate_single_disk_layout
+  unset -f layout_calculate_single_disk
   # shellcheck source=../../lib/layout/zfs/single.sh
   source "$BATS_TEST_DIRNAME/../../lib/layout/zfs/single.sh"
-  run calculate_single_disk_layout
+  run layout_calculate_single_disk
   [ "$status" -ne 0 ]
   [[ "$output" == *"Disk not found"* ]]
 }

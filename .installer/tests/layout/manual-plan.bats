@@ -23,14 +23,14 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 # ── tracer: a minimal ESP + root assignment plans cleanly ───────────────────
 
 @test "plan: minimal ESP + root emits the device summary" {
-  run manual_partition_plan "[$ESP,$ROOT]"
+  run layout_manual_partition_plan "[$ESP,$ROOT]"
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | plan_field root_device)" = "/dev/sda2" ]
   [ "$(printf '%s\n' "$output" | plan_field esp_device)"  = "/dev/sda1" ]
 }
 
 @test "plan: parents mount before children (root before /boot/efi)" {
-  run manual_partition_plan "[$ESP,$ROOT]"
+  run layout_manual_partition_plan "[$ESP,$ROOT]"
   [ "$status" -eq 0 ]
   local mounts
   mounts="$(printf '%s\n' "$output" | grep -c '^mount')"
@@ -42,7 +42,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 }
 
 @test "plan: a mount record carries device, mountpoint, fs and format flag" {
-  run manual_partition_plan "[$ESP,$ROOT]"
+  run layout_manual_partition_plan "[$ESP,$ROOT]"
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | grep -qP '^mount\t/dev/sda2\t/\text4\ttrue$'
 }
@@ -51,7 +51,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 
 @test "plan: swap partition emits a swap record, not a mount" {
   local swap='{"device":"/dev/sda3","mountpoint":"[swap]","fs":"","format":true}'
-  run manual_partition_plan "[$ESP,$ROOT,$swap]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$swap]"
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | grep -qP '^swap\t/dev/sda3$'
   # [swap] never appears as a filesystem mount.
@@ -60,14 +60,14 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 
 @test "plan: a kept (format=false) partition is mounted without formatting" {
   local home='{"device":"/dev/sda3","mountpoint":"/home","fs":"xfs","format":false}'
-  run manual_partition_plan "[$ESP,$ROOT,$home]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$home]"
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | grep -qP '^mount\t/dev/sda3\t/home\txfs\tfalse$'
 }
 
 @test "plan: an unassigned partition (no mountpoint) is ignored" {
   local spare='{"device":"/dev/sda9","mountpoint":"","fs":"ext4","format":false}'
-  run manual_partition_plan "[$ESP,$ROOT,$spare]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$spare]"
   [ "$status" -eq 0 ]
   ! printf '%s\n' "$output" | grep -q '/dev/sda9'
 }
@@ -75,33 +75,33 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 # ── rejections: each names the offending condition ──────────────────────────
 
 @test "plan: no root is rejected" {
-  run manual_partition_plan "[$ESP]"
+  run layout_manual_partition_plan "[$ESP]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ [Rr]oot ]]
 }
 
 @test "plan: two roots is rejected" {
   local root2='{"device":"/dev/sdb1","mountpoint":"/","fs":"ext4","format":true}'
-  run manual_partition_plan "[$ESP,$ROOT,$root2]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$root2]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ [Rr]oot ]]
 }
 
 @test "plan: no ESP is rejected" {
-  run manual_partition_plan "[$ROOT]"
+  run layout_manual_partition_plan "[$ROOT]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ (ESP|/boot/efi) ]]
 }
 
 @test "plan: an ESP that is not FAT32 is rejected" {
   local badesp='{"device":"/dev/sda1","mountpoint":"/boot/efi","fs":"ext4","format":true}'
-  run manual_partition_plan "[$badesp,$ROOT]"
+  run layout_manual_partition_plan "[$badesp,$ROOT]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ fat32 ]]
 }
 
 @test "plan: an empty assignment is rejected (no root)" {
-  run manual_partition_plan "[]"
+  run layout_manual_partition_plan "[]"
   [ "$status" -ne 0 ]
 }
 
@@ -109,7 +109,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 
 @test "plan: an unsupported data filesystem is rejected, naming what's supported" {
   local bad='{"device":"/dev/sda3","mountpoint":"/home","fs":"ntfs","format":false}'
-  run manual_partition_plan "[$ESP,$ROOT,$bad]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$bad]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ ntfs ]]           # names the offending fs
   [[ "$output" =~ ext4 ]]           # and lists the supported ones
@@ -120,7 +120,7 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 
 @test "plan: an unsupported mountpoint is rejected" {
   local bad='{"device":"/dev/sda3","mountpoint":"/var","fs":"ext4","format":true}'
-  run manual_partition_plan "[$ESP,$ROOT,$bad]"
+  run layout_manual_partition_plan "[$ESP,$ROOT,$bad]"
   [ "$status" -ne 0 ]
   [[ "$output" =~ /var ]]
 }
@@ -128,21 +128,21 @@ ROOT='{"device":"/dev/sda2","mountpoint":"/","fs":"ext4","format":true}'
 # ── the non-fatal problems reporter (for the live menu) ─────────────────────
 
 @test "problems: a valid layout reports none (rc 0, empty)" {
-  run manual_partition_problems "[$ESP,$ROOT]"
+  run layout_manual_partition_problems "[$ESP,$ROOT]"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "problems: lists every issue at once without aborting" {
   local bad='{"device":"/dev/sda3","mountpoint":"/home","fs":"ntfs","format":false}'
-  run manual_partition_problems "[$ROOT,$bad]"   # missing ESP + bad fs
+  run layout_manual_partition_problems "[$ROOT,$bad]"   # missing ESP + bad fs
   [ "$status" -eq 1 ]
   [[ "$output" =~ /boot/efi ]]
   [[ "$output" =~ ntfs ]]
 }
 
 @test "supported: the data filesystems are exactly ext4/xfs/btrfs" {
-  run manual_supported_data_fs
+  run layout_manual_supported_data_filesystems
   [ "$output" = "ext4
 xfs
 btrfs" ]

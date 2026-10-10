@@ -14,7 +14,7 @@ source "${BASH_SOURCE[0]%/*}/../nonzfs/root.sh"
 
 # Format the root device xfs. -f: overwrite an existing signature (the spine
 # already wiped + repartitioned).
-_root_mkfs() { mkfs.xfs -f "$1"; }
+root_adapter_mkfs() { mkfs.xfs -f "$1"; }
 
 # The fstab fs-type column + log label for an xfs root.
-_root_fstype() { echo xfs; }
+root_adapter_fstype() { echo xfs; }

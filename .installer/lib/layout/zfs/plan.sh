@@ -20,8 +20,8 @@
 #   layout_leftover_pool_name DEF TAKEN… → sets LAYOUT_LEFTOVER_POOL_NAME
 #
 # Out-params mirror the house PICK_RESULT / POOL_NAME_RESULT style. The default
-# adapter wraps the existing pick_option / _prompt_pool_name seams.
-# Read by the multi adapter's resolve_leftover_disks (hence SC2034).
+# adapter wraps the existing pick_option / layout_prompt_pool_name seams.
+# Read by the multi adapter's layout_resolve_leftover_disks (hence SC2034).
 # shellcheck disable=SC2034
 LAYOUT_LEFTOVER_CHOICE=""
 # shellcheck disable=SC2034
@@ -39,7 +39,7 @@ layout_leftover_choice() {
 
 layout_leftover_pool_name() {
   local def="$1"; shift
-  _prompt_pool_name "$def" "$@"
+  layout_prompt_pool_name "$def" "$@"
   # shellcheck disable=SC2034
   LAYOUT_LEFTOVER_POOL_NAME="$POOL_NAME_RESULT"
 }

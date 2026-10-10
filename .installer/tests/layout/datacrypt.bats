@@ -20,7 +20,7 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── tracer: an unencrypted group emits an empty plan (false round-trips) ─────
 
 @test "crypto: encryption=false emits an all-empty plan" {
-  run data_group_crypto false ext4 tank ABCD
+  run layout_data_group_crypto false ext4 tank ABCD
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dc_field mapper)"      = "" ]
   [ "$(printf '%s\n' "$output" | dc_field keyfile)"     = "" ]
@@ -31,7 +31,7 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── encrypted LUKS group (ext4): keyfile on root + crypttab auto-open ────────
 
 @test "crypto: encrypted ext4 emits keyfile + mapper + crypttab, no zfs load" {
-  run data_group_crypto true ext4 tank ABCD
+  run layout_data_group_crypto true ext4 tank ABCD
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dc_field mapper)"  = "crypttank" ]
   [ "$(printf '%s\n' "$output" | dc_field keyfile)" \
@@ -44,7 +44,7 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 # Every non-zfs filesystem is LUKS (PRD): btrfs takes the crypttab path, not the
 # zfs key-load path.
 @test "crypto: encrypted btrfs is LUKS (crypttab, not zfs_keyload)" {
-  run data_group_crypto true btrfs vault FEED
+  run layout_data_group_crypto true btrfs vault FEED
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dc_field crypttab)" \
       = "cryptvault  UUID=FEED  /etc/cryptsetup-keys.d/vault.key  luks" ]
@@ -54,7 +54,7 @@ dc_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── encrypted zfs group: key-load options on the pool, no crypttab/mapper ────
 
 @test "crypto: encrypted zfs emits zfs_keyload + keyfile, no crypttab/mapper" {
-  run data_group_crypto true zfs tank UNUSED
+  run layout_data_group_crypto true zfs tank UNUSED
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dc_field keyfile)" \
       = "/etc/cryptsetup-keys.d/tank.key" ]

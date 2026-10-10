@@ -7,7 +7,7 @@
 # `rootflags=subvol=<subvol>` on top of the root= the shared non-ZFS emitter
 # produces (root=UUID plaintext / cryptdevice=…:cryptroot encrypted). The
 # initramfs HOOKS for a single-disk btrfs root are the shared, fs-blind
-# nonzfs_hooks — no zfs hook, and no btrfs-rollback hook yet (that lands with
+# layout_nonzfs_hooks — no zfs hook, and no btrfs-rollback hook yet (that lands with
 # impermanence in issue 08). Pure: no disk access.
 # =============================================================================
 
@@ -17,10 +17,10 @@ source "${BASH_SOURCE[0]%/*}/../nonzfs/boot.sh"
 # Root cmdline fragment for a btrfs root mounting <subvol> as /. Reuses the
 # shared non-ZFS root= (plaintext UUID or encrypted LUKS mapper), then appends
 # the subvolume selector the initramfs needs to mount the right subvol as root.
-btrfs_root_cmdline() {
+layout_btrfs_root_cmdline() {
   local uuid="$1" subvol="$2" encrypted="${3:-}"
   printf '%s rootflags=subvol=%s\n' \
-    "$(nonzfs_root_cmdline "$uuid" "$encrypted")" "$subvol"
+    "$(layout_nonzfs_root_cmdline "$uuid" "$encrypted")" "$subvol"
 }
 
 # mkinitcpio HOOKS for a btrfs root. A single-disk btrfs root mounts with the
@@ -32,10 +32,10 @@ btrfs_root_cmdline() {
 # curated subvols to @blank on boot; its run_hook needs the btrfs binary, so the
 # `btrfs` hook is also pulled in (a harmless scan on a single device, never
 # duplicated when multi-disk already added it).
-btrfs_hooks() {
+layout_btrfs_hooks() {
   local encrypted="${1:-}" multi="${2:-}" impermanence="${3:-}" hooks
   local ins=()
-  hooks="$(nonzfs_hooks "$encrypted")"
+  hooks="$(layout_nonzfs_hooks "$encrypted")"
   [[ "$multi" == "multi" ]] && ins+=("btrfs")
   if [[ "$impermanence" == "impermanence" ]]; then
     [[ "$multi" == "multi" ]] || ins+=("btrfs")

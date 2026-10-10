@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Validator-tier tests for the REAL initcpio HOOKS pipeline (ADR 0048, issue
-# 03): the active Root Layout Adapter's hook builder (nonzfs_hooks/btrfs_hooks)
+# 03): the active Root Layout Adapter's hook builder (layout_nonzfs_hooks/layout_btrfs_hooks)
 # → _initcpio_hooks_line (the chroot generator) → a real /etc/mkinitcpio.conf,
 # validated by REAL `mkinitcpio` building to /dev/null.
 #
@@ -38,7 +38,7 @@ setup() {
 JSON
 
   local l="$BATS_TEST_DIRNAME/../.."
-  # Real adapter hook builders (nonzfs_hooks / btrfs_hooks).
+  # Real adapter hook builders (layout_nonzfs_hooks / layout_btrfs_hooks).
   # shellcheck source=../../lib/layout/nonzfs/boot.sh
   source "$l/lib/layout/nonzfs/boot.sh"
   # shellcheck source=../../lib/layout/btrfs/boot.sh
@@ -77,22 +77,22 @@ _build_ok() {  # $1 = adapter HOOKS string
 }
 
 @test "ext4 root HOOKS build clean under mkinitcpio" {
-  _build_ok "$(nonzfs_hooks)"
+  _build_ok "$(layout_nonzfs_hooks)"
 }
 
 @test "encrypted ext4 HOOKS build clean under mkinitcpio" {
-  _build_ok "$(nonzfs_hooks encrypted)"
+  _build_ok "$(layout_nonzfs_hooks encrypted)"
 }
 
 # btrfs multi injects the stock `btrfs` hook (installed on any host), so this
 # builds for REAL here; the impermanence variant additionally needs the
 # project's `btrfs-rollback` hook and SKIPs off an archzfs env.
 @test "btrfs multi HOOKS build clean under mkinitcpio" {
-  _build_ok "$(btrfs_hooks "" multi)"
+  _build_ok "$(layout_btrfs_hooks "" multi)"
 }
 
 @test "btrfs single+impermanence HOOKS build clean under mkinitcpio" {
-  _build_ok "$(btrfs_hooks "" "" impermanence)"
+  _build_ok "$(layout_btrfs_hooks "" "" impermanence)"
 }
 
 # The zfs adapter builds HOOKS inline in lib/layout/zfs/plan.sh (no standalone
@@ -110,7 +110,7 @@ _build_ok() {  # $1 = adapter HOOKS string
 # pivot end-to-end. The regression gives that invariant teeth.
 
 @test "generator preserves encrypt/block before filesystems end-to-end" {
-  local line; line="$(_assemble_conf "$(nonzfs_hooks encrypted)")"
+  local line; line="$(_assemble_conf "$(layout_nonzfs_hooks encrypted)")"
   [[ "$line" =~ block.*encrypt.*filesystems ]]
 }
 

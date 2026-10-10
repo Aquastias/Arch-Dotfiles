@@ -24,7 +24,7 @@
 # Pure: string transforms on its arguments, no disk access.
 #
 # Public API:
-#   data_group_crypto <encrypted> <fs> <name> <uuid>
+#   layout_data_group_crypto <encrypted> <fs> <name> <uuid>
 #     <encrypted>  true|false — the group's per-group encryption decision.
 #     <fs>         the group's filesystem (zfs → key-load; else → crypttab).
 #     <name>       the group name (keyfile filename + mapper name).
@@ -33,14 +33,14 @@
 #       zfs_keyload (each empty when not applicable).
 # =============================================================================
 
-data_group_crypto() {
-  local encrypted="$1" fs="$2" name="$3" uuid="$4"
+layout_data_group_crypto() {
+  local encrypted="$1" filesystem="$2" name="$3" uuid="$4"
 
   local mapper="" keyfile="" crypttab="" zfs_keyload=""
 
   if [[ "$encrypted" == "true" ]]; then
     keyfile="/etc/cryptsetup-keys.d/${name}.key"
-    if [[ "$fs" == "zfs" ]]; then
+    if [[ "$filesystem" == "zfs" ]]; then
       # zfs is natively encrypted: the pool loads its raw key from the keyfile
       # (no dm-crypt mapper, no crypttab). Cipher matches the root pool's
       # zfs_encryption_options (aes-256-gcm).

@@ -21,7 +21,7 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
 
 @test "plan: root is the remainder after ESP + swap + alignment" {
   # 40 GiB = 40960 MiB; 512 ESP; 8192 swap; 2 MiB alignment guard.
-  run nonzfs_partition_plan 40960 512 8192
+  run layout_nonzfs_partition_plan 40960 512 8192
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | plan_field esp_mib)"  = "512" ]
   [ "$(printf '%s\n' "$output" | plan_field swap_mib)" = "8192" ]
@@ -29,7 +29,7 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
 }
 
 @test "plan: swap 0 means no swap partition; root absorbs the space" {
-  run nonzfs_partition_plan 40960 512 0
+  run layout_nonzfs_partition_plan 40960 512 0
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | plan_field swap_mib)" = "0" ]
   [ "$(printf '%s\n' "$output" | plan_field root_mib)" = "40446" ]
@@ -38,7 +38,7 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
 # ── slots: the plan is the single authority for partition numbering ─────────
 
 @test "plan: with swap, slots are ESP=1, swap=2, root=3" {
-  run nonzfs_partition_plan 40960 512 8192
+  run layout_nonzfs_partition_plan 40960 512 8192
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | plan_field esp_part_num)"  = "1" ]
   [ "$(printf '%s\n' "$output" | plan_field swap_part_num)" = "2" ]
@@ -46,7 +46,7 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
 }
 
 @test "plan: without swap, swap slot is empty and root moves to 2" {
-  run nonzfs_partition_plan 40960 512 0
+  run layout_nonzfs_partition_plan 40960 512 0
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | plan_field esp_part_num)"  = "1" ]
   [ "$(printf '%s\n' "$output" | plan_field swap_part_num)" = "" ]
@@ -55,7 +55,7 @@ plan_field() { grep -E "^$1=" | cut -d= -f2; }
 
 @test "plan: a root below the floor is rejected, naming the shortfall" {
   # 9 GiB disk, 512 ESP, 4096 swap → root ~4546 MiB < 8192 floor.
-  run nonzfs_partition_plan 9216 512 4096
+  run layout_nonzfs_partition_plan 9216 512 4096
   [ "$status" -ne 0 ]
   [[ "$output" =~ "floor" ]]
 }

@@ -14,7 +14,7 @@ source "${BASH_SOURCE[0]%/*}/../nonzfs/root.sh"
 
 # Format the root device ext4. -F: don't prompt over an old signature (the spine
 # already wiped + repartitioned).
-_root_mkfs() { mkfs.ext4 -F "$1"; }
+root_adapter_mkfs() { mkfs.ext4 -F "$1"; }
 
 # The fstab fs-type column + log label for an ext4 root.
-_root_fstype() { echo ext4; }
+root_adapter_fstype() { echo ext4; }

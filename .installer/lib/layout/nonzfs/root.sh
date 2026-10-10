@@ -10,9 +10,9 @@
 #
 # Everything here is filesystem-agnostic except two hooks the per-fs leaf
 # (lib/layout/<fs>/single.sh) supplies, mirroring the Data Group Formatter
-# pattern (nonzfs/data.sh + <fs>/data.sh's `_data_mkfs`):
-#   - _root_mkfs <dev>  → format the root device with the leaf's filesystem.
-#   - _root_fstype       → the fstab fs-type column + log label ("ext4"/"xfs").
+# pattern (nonzfs/data.sh + <fs>/data.sh's `data_formatter_mkfs`):
+#   - root_adapter_mkfs <dev>  → format the root device with the leaf's filesystem.
+#   - root_adapter_fstype       → the fstab fs-type column + log label ("ext4"/"xfs").
 # The leaf sources this spine, then defines those two functions.
 #
 # Reuses the shared layout core (lib/layout/core.sh) and the pure non-ZFS cores:
@@ -27,7 +27,7 @@
 #
 # INTERNAL STATE (do not reference outside this module):
 #   _LAYOUT_IMPL_DISK       — target disk device path
-#   _LAYOUT_IMPL_PLAN       — nonzfs_partition_plan output (slots + sizes)
+#   _LAYOUT_IMPL_PLAN       — layout_nonzfs_partition_plan output (slots + sizes)
 #   _LAYOUT_IMPL_ESP_PART   — ESP partition device
 #   _LAYOUT_IMPL_SWAP_PART  — swap partition device ("" when no swap)
 #   _LAYOUT_IMPL_ROOT_PART  — root partition device
@@ -57,14 +57,14 @@ _LAYOUT_IMPL_LUKS_ROOT_UUID=""
 
 # "encrypted" when the root filesystem is encrypted (LUKS), else "plain". Drives
 # device resolution, the boot emitters, and swap handling.
-_nzroot_enc_mode() {
+layout_nonzfs_encryption_mode() {
   [[ "$(install_config_encryption_enabled)" == "true" ]] \
     && echo encrypted || echo plain
 }
 
 # Resolve the swap *partition* size in MiB (0 = no swap). auto = RAM×2, capped
 # at 25% of the disk so the root still fits; an explicit size is honored.
-_nzroot_swap_mib() {
+layout_nonzfs_swap_mib() {
   local total_mib="$1"
   [[ "$(install_config_swap_enabled)" == "true" ]] || { echo 0; return; }
   local raw swap_mib cap
@@ -74,7 +74,7 @@ _nzroot_swap_mib() {
     cap=$(( total_mib / 4 ))
     ((swap_mib > cap)) && swap_mib=$cap
   else
-    swap_mib=$(( $(parse_size_to_gib "$raw") * 1024 ))
+    swap_mib=$(( $(layout_parse_size_to_gib "$raw") * 1024 ))
   fi
   echo "$swap_mib"
 }
@@ -84,33 +84,33 @@ _nzroot_swap_mib() {
 # =============================================================================
 
 layout_validate() {
-  _layout_enter_phase validate
+  layout_enter_phase validate
   layout_validate_esp_size
-  local d
-  d="$(config_required '.disk' 'disk')"
-  _layout_disk_exists "$d" \
-    || error "$(_root_fstype) single disk not found: $d"
-  _layout_exit_phase validate
+  local disk
+  disk="$(config_required '.disk' 'disk')"
+  layout_disk_exists "$disk" \
+    || error "$(root_adapter_fstype) single disk not found: $disk"
+  layout_exit_phase validate
 }
 
 # Plan hook: compute the partition split via the non-ZFS planner (the slot
 # authority) and publish the empty pool record (a non-ZFS root has no pools).
 _layout_plan_mode() {
-  local fstype; fstype="$(_root_fstype)"
+  local fstype; fstype="$(root_adapter_fstype)"
   section "Calculating ${fstype} Single-Disk Layout"
   _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
-  _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
+  layout_disk_exists "$_LAYOUT_IMPL_DISK" \
     || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
   local total_bytes total_mib esp_mib swap_mib
   total_bytes="$(blockdev --getsize64 "$_LAYOUT_IMPL_DISK")"
   total_mib=$((total_bytes / 1024 / 1024))
-  esp_mib="$(parse_size_to_mib "$(layout_resolve_esp_size)")"
-  swap_mib="$(_nzroot_swap_mib "$total_mib")"
-  _LAYOUT_IMPL_PLAN="$(nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
+  esp_mib="$(layout_parse_size_to_mib "$(layout_resolve_esp_size)")"
+  swap_mib="$(layout_nonzfs_swap_mib "$total_mib")"
+  _LAYOUT_IMPL_PLAN="$(layout_nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
 
   local root_mib
-  root_mib="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | nonzfs_plan_field root_mib)"
+  root_mib="$(printf '%s\n' "$_LAYOUT_IMPL_PLAN" | layout_nonzfs_plan_field root_mib)"
   info "Disk $_LAYOUT_IMPL_DISK: ESP ${esp_mib}M, swap ${swap_mib}M," \
        "root ${root_mib}M (${fstype})"
 
@@ -121,12 +121,12 @@ _layout_plan_mode() {
   LAYOUT_OS_POOL_NAME=""
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=()
-  resolve_data_pools
+  layout_resolve_data_pools
   # Publish any Standalone Data Pool names to export (finalize's ZFS branch
   # exports the zfs ones cleanly; non-zfs names are tolerated no-op exports).
-  local _dp
-  for _dp in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
-    LAYOUT_DATA_POOL_NAMES+=("$_dp")
+  local _data_pool
+  for _data_pool in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    LAYOUT_DATA_POOL_NAMES+=("$_data_pool")
   done
 }
 
@@ -138,19 +138,19 @@ _layout_os_disks() { printf '%s\n' "$_LAYOUT_IMPL_DISK"; }
 # post-LUKS UUID, so they are set in layout_create_pools.
 _layout_publish_boot() {
   # shellcheck disable=SC2034 # consumed by install_state_write
-  if [[ "$(_nzroot_enc_mode)" == "encrypted" ]]; then
-    LAYOUT_HOOKS="$(nonzfs_hooks encrypted)"
+  if [[ "$(layout_nonzfs_encryption_mode)" == "encrypted" ]]; then
+    LAYOUT_HOOKS="$(layout_nonzfs_hooks encrypted)"
   else
-    LAYOUT_HOOKS="$(nonzfs_hooks)"
+    LAYOUT_HOOKS="$(layout_nonzfs_hooks)"
   fi
 }
 
 # LUKS-format + open the root partition with the shared passphrase (collected by
 # zfs_collect_encryption_passphrase into ZFS_PASSPHRASE before any disk write — the same
 # seam the ZFS path uses). The opened mapper is /dev/mapper/cryptroot, which is
-# what nonzfs_root_devices resolved as root_dev.
-_nzroot_luks_open_root() {
-  section "Encrypting $(_root_fstype) Root (LUKS)"
+# what layout_nonzfs_root_devices resolved as root_dev.
+_nonzfs_root_luks_open() {
+  section "Encrypting $(root_adapter_fstype) Root (LUKS)"
   [[ -n "${ZFS_PASSPHRASE:-}" ]] \
     || error "Encrypted root but no passphrase collected (zfs_collect_encryption_passphrase)."
   printf '%s' "$ZFS_PASSPHRASE" \
@@ -162,62 +162,62 @@ _nzroot_luks_open_root() {
 }
 
 # Partition ONE disk as ESP (ef00) + optional swap (8200) + root/member (8300),
-# with the part numbers + sizes the non-ZFS planner emitted (nonzfs_partition_plan).
+# with the part numbers + sizes the non-ZFS planner emitted (layout_nonzfs_partition_plan).
 # The shared per-disk GPT ritual for the single ext4/xfs root spine AND the btrfs
 # multi adapter (one call per raid member) — formerly two byte-identical copies.
 # Wipes + zaps first; partprobes after. The caller mkfs.fat's the ESP.
-_nonzfs_partition_one_disk() {
+layout_nonzfs_partition_one_disk() {
   local disk="$1" plan="$2"
-  local esp_num swap_num root_num esp_mib swap_mib
-  esp_num="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_part_num)"
-  swap_num="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_part_num)"
-  root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
-  esp_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field esp_mib)"
-  swap_mib="$(printf '%s\n' "$plan" | nonzfs_plan_field swap_mib)"
+  local esp_number swap_number root_number esp_mib swap_mib
+  esp_number="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field esp_part_num)"
+  swap_number="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field swap_part_num)"
+  root_number="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field root_part_num)"
+  esp_mib="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field esp_mib)"
+  swap_mib="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field swap_mib)"
 
   wipefs -af "$disk"
   sgdisk --zap-all "$disk"
   # GPT: ESP (ef00) + optional Linux swap (8200) + Linux filesystem (8300, rest).
-  sgdisk -n"${esp_num}":0:+"${esp_mib}"M -t"${esp_num}":ef00 \
-    -c"${esp_num}":"EFI System" "$disk"
-  if [[ -n "$swap_num" ]]; then
-    sgdisk -n"${swap_num}":0:+"${swap_mib}"M -t"${swap_num}":8200 \
-      -c"${swap_num}":"swap" "$disk"
+  sgdisk -n"${esp_number}":0:+"${esp_mib}"M -t"${esp_number}":ef00 \
+    -c"${esp_number}":"EFI System" "$disk"
+  if [[ -n "$swap_number" ]]; then
+    sgdisk -n"${swap_number}":0:+"${swap_mib}"M -t"${swap_number}":8200 \
+      -c"${swap_number}":"swap" "$disk"
   fi
-  sgdisk -n"${root_num}":0:0 -t"${root_num}":8300 -c"${root_num}":"root" "$disk"
+  sgdisk -n"${root_number}":0:0 -t"${root_number}":8300 -c"${root_number}":"root" "$disk"
   partprobe "$disk"
 }
 
 layout_partition() {
-  _layout_enter_phase partition
-  section "Partitioning Single Disk ($(_root_fstype))"
+  layout_enter_phase partition
+  section "Partitioning Single Disk ($(root_adapter_fstype))"
   warn "ALL DATA ON $_LAYOUT_IMPL_DISK WILL BE DESTROYED."
   confirm "Confirm partitioning?"
 
-  _nonzfs_partition_one_disk "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN"
+  layout_nonzfs_partition_one_disk "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN"
   sleep 2
 
   # Resolve the device paths from the plan. Encrypted → root_dev/swap_dev are the
   # /dev/mapper/crypt* the resolver names; plaintext → the bare partitions.
-  local enc devs
-  enc="$(_nzroot_enc_mode)"
-  devs="$(nonzfs_root_devices "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN" "$enc")"
-  _LAYOUT_IMPL_ESP_PART="$(printf '%s\n' "$devs" | nonzfs_plan_field esp_part)"
-  _LAYOUT_IMPL_SWAP_PART="$(printf '%s\n' "$devs" | nonzfs_plan_field swap_part)"
-  _LAYOUT_IMPL_ROOT_PART="$(printf '%s\n' "$devs" | nonzfs_plan_field root_part)"
-  _LAYOUT_IMPL_ROOT_DEV="$(printf '%s\n' "$devs" | nonzfs_plan_field root_dev)"
-  _LAYOUT_IMPL_SWAP_DEV="$(printf '%s\n' "$devs" | nonzfs_plan_field swap_dev)"
+  local encryption devs
+  encryption="$(layout_nonzfs_encryption_mode)"
+  devs="$(layout_nonzfs_root_devices "$_LAYOUT_IMPL_DISK" "$_LAYOUT_IMPL_PLAN" "$encryption")"
+  _LAYOUT_IMPL_ESP_PART="$(printf '%s\n' "$devs" | layout_nonzfs_plan_field esp_part)"
+  _LAYOUT_IMPL_SWAP_PART="$(printf '%s\n' "$devs" | layout_nonzfs_plan_field swap_part)"
+  _LAYOUT_IMPL_ROOT_PART="$(printf '%s\n' "$devs" | layout_nonzfs_plan_field root_part)"
+  _LAYOUT_IMPL_ROOT_DEV="$(printf '%s\n' "$devs" | layout_nonzfs_plan_field root_dev)"
+  _LAYOUT_IMPL_SWAP_DEV="$(printf '%s\n' "$devs" | layout_nonzfs_plan_field swap_dev)"
 
   mkfs.fat -F32 -n EFI "$_LAYOUT_IMPL_ESP_PART"
   # Open the root LUKS container so root_dev (/dev/mapper/cryptroot) exists for
   # mkfs. Swap stays raw — crypttab random-keys it at boot (see create verb).
-  [[ "$enc" == "encrypted" ]] && _nzroot_luks_open_root
+  [[ "$encryption" == "encrypted" ]] && _nonzfs_root_luks_open
   info "Partitioned: ESP $_LAYOUT_IMPL_ESP_PART," \
        "root $_LAYOUT_IMPL_ROOT_DEV${_LAYOUT_IMPL_SWAP_DEV:+, swap $_LAYOUT_IMPL_SWAP_DEV}"
   # Standalone Data Pool disks (root-fs-agnostic, ADR 0027/0043).
-  partition_data_pools
-  _layout_verify_partition_contract
-  _layout_exit_phase partition
+  layout_partition_data_pools
+  layout_verify_partition_contract
+  layout_exit_phase partition
 }
 
 # Resolve the swap fstab tail + crypttab for the already-resolved swap device.
@@ -228,12 +228,12 @@ layout_partition() {
 # Encrypted swap is a random-key dm-crypt re-keyed each boot (hibernate out of
 # scope); the raw partition stays unformatted (crypttab's `swap` option formats
 # it at boot, PARTUUID stable across re-key). Plaintext swap is mkswap'd + by-UUID.
-_nzroot_swap_tail() {
-  local enc="$1"
+layout_nonzfs_swap_tail() {
+  local encryption="$1"
   _NZROOT_SWAP_FSTAB=""
   # shellcheck disable=SC2034 # consumed by write_crypttab (chroot.sh)
   LAYOUT_CRYPTTAB=""
-  if [[ "$enc" == "encrypted" ]]; then
+  if [[ "$encryption" == "encrypted" ]]; then
     [[ -n "$_LAYOUT_IMPL_SWAP_PART" ]] || return 0
     local swap_partuuid
     swap_partuuid="$(blkid -s PARTUUID -o value "$_LAYOUT_IMPL_SWAP_PART")"
@@ -254,49 +254,49 @@ _nzroot_swap_tail() {
 # the root at MOUNT_ROOT (so pacstrap installs into it), and — now the UUIDs
 # exist — publish the root cmdline + the fstab root/swap lines.
 layout_create_pools() {
-  _layout_enter_phase pools
-  local fstype; fstype="$(_root_fstype)"
+  layout_enter_phase pools
+  local fstype; fstype="$(root_adapter_fstype)"
   section "Formatting ${fstype} Root"
-  _root_mkfs "$_LAYOUT_IMPL_ROOT_DEV"
+  root_adapter_mkfs "$_LAYOUT_IMPL_ROOT_DEV"
   # The live ISO ships the mkfs tools but may not have the fs kernel module
   # loaded, so the freshly-formatted root can't be mounted here without it (ext4
   # is built-in; xfs/btrfs are modules). Load it; harmless if built-in/loaded.
   modprobe "$fstype" 2>/dev/null || true
   mount "$_LAYOUT_IMPL_ROOT_DEV" "$MOUNT_ROOT"
 
-  local enc extra
-  enc="$(_nzroot_enc_mode)"
-  if [[ "$enc" == "encrypted" ]]; then
+  local encryption extra
+  encryption="$(layout_nonzfs_encryption_mode)"
+  if [[ "$encryption" == "encrypted" ]]; then
     # Boot by the LUKS container UUID; the root fs lives inside the mapper, so
     # fstab references the mapper (the encrypt hook opens it before mount).
     # shellcheck disable=SC2034 # consumed by install_state_write
-    LAYOUT_ROOT_CMDLINE="$(nonzfs_root_cmdline "$_LAYOUT_IMPL_LUKS_ROOT_UUID" encrypted)"
+    LAYOUT_ROOT_CMDLINE="$(layout_nonzfs_root_cmdline "$_LAYOUT_IMPL_LUKS_ROOT_UUID" encrypted)"
     extra="# root"$'\n'"/dev/mapper/cryptroot  /  ${fstype}  rw,relatime  0 1"
   else
     local root_uuid
     root_uuid="$(blkid -s UUID -o value "$_LAYOUT_IMPL_ROOT_DEV")"
     # shellcheck disable=SC2034 # consumed by install_state_write
-    LAYOUT_ROOT_CMDLINE="$(nonzfs_root_cmdline "$root_uuid")"
+    LAYOUT_ROOT_CMDLINE="$(layout_nonzfs_root_cmdline "$root_uuid")"
     extra="# root"$'\n'"UUID=${root_uuid}  /  ${fstype}  rw,relatime  0 1"
   fi
   # Append the swap fstab tail + set LAYOUT_CRYPTTAB (shared with the btrfs
   # override; sets globals so command substitution can't trap them in a subshell).
-  _nzroot_swap_tail "$enc"
+  layout_nonzfs_swap_tail "$encryption"
   extra+="$_NZROOT_SWAP_FSTAB"
   # shellcheck disable=SC2034 # consumed by write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
   info "${fstype} root formatted + mounted at $MOUNT_ROOT"
   # Standalone Data Pools — each formatted by its own Data Group Formatter leaf
   # (zfs/ext4/xfs/btrfs) via the shared seam; a non-ZFS root can host any of them.
-  create_data_pools
-  _layout_exit_phase pools
+  layout_create_data_pools
+  layout_exit_phase pools
 }
 
 layout_mount_esp() {
-  _layout_enter_phase esp
+  layout_enter_phase esp
   section "Mounting ESP"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
   mount "$_LAYOUT_IMPL_ESP_PART" "${MOUNT_ROOT}/boot/efi"
   info "ESP: $_LAYOUT_IMPL_ESP_PART → /boot/efi"
-  _layout_exit_phase esp
+  layout_exit_phase esp
 }

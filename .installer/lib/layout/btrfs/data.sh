@@ -6,7 +6,7 @@
 # sources. btrfs carries native multi-disk topology (raid0/1/10), so its mkfs
 # may span several partitions; an absent/`single` topology is a single device.
 # Shared work lives in the non-ZFS Data Group Formatter core; this file provides
-# `_data_mkfs`, reading the core's `_DATA_TOPOLOGY` for the profile.
+# `data_formatter_mkfs`, reading the core's `_DATA_TOPOLOGY` for the profile.
 # =============================================================================
 
 # shellcheck source=../nonzfs/data.sh
@@ -14,11 +14,11 @@ source "${BASH_SOURCE[0]%/*}/../nonzfs/data.sh"
 
 # Format the data device(s) btrfs. With a real topology over multiple devices,
 # apply it to both data and metadata; otherwise a plain single-device mkfs.
-_data_mkfs() {
-  local topo="${_DATA_TOPOLOGY:-single}"
-  if [[ "$topo" == "single" || $# -eq 1 ]]; then
+data_formatter_mkfs() {
+  local topology="${_DATA_TOPOLOGY:-single}"
+  if [[ "$topology" == "single" || $# -eq 1 ]]; then
     mkfs.btrfs -f "$@"
   else
-    mkfs.btrfs -f -d "$topo" -m "$topo" "$@"
+    mkfs.btrfs -f -d "$topology" -m "$topology" "$@"
   fi
 }

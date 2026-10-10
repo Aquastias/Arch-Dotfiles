@@ -25,7 +25,7 @@ declare -F cfgstate_get >/dev/null 2>&1 \
 # The supported-filesystem / mountpoint source of truth + the validator live in
 # the back-end planner; the editor and its live problem notice read from there.
 # shellcheck source=../layout/manual/plan.sh
-declare -F manual_partition_problems >/dev/null 2>&1 \
+declare -F layout_manual_partition_problems >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../layout/manual/plan.sh"
 
 _MANUAL_ESP_GUID="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"   # EFI System Partition
@@ -124,7 +124,7 @@ manual_cycle_mountpoint() {
 # manual_cycle_fs <current> — the next data filesystem after <current> in the
 # supported cycle (ext4 → xfs → btrfs, wrapping); the first when <current> is
 # unknown. Only the filesystems the installer can build are offered, so the
-# editor can never author an unsupported one (manual_supported_data_fs is the
+# editor can never author an unsupported one (layout_manual_supported_data_filesystems is the
 # source of truth, from the planner). Pure.
 manual_cycle_fs() {
   local cur="$1" first="" found="" f
@@ -132,7 +132,7 @@ manual_cycle_fs() {
     [[ -z "$first" ]] && first="$f"
     [[ -n "$found" ]] && { printf '%s' "$f"; return; }
     [[ "$f" == "$cur" ]] && found=1
-  done < <(manual_supported_data_fs)
+  done < <(layout_manual_supported_data_filesystems)
   printf '%s' "$first"
 }
 

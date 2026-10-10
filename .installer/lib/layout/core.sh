@@ -14,9 +14,9 @@
 # =============================================================================
 
 # The root-fs-agnostic Standalone Data Pool orchestrator — every root adapter's
-# seam verbs call resolve/partition/create_data_pools from here (ADR 0027/0043).
+# seam verbs call resolve/partition/layout_create_data_pools from here (ADR 0027/0043).
 # shellcheck source=./data-pools.sh
-declare -F create_data_pools >/dev/null 2>&1 \
+declare -F layout_create_data_pools >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/data-pools.sh"
 
 # ESP budget model — kernel-aware sizing + the pre-install guard (ADR 0078).
@@ -27,7 +27,7 @@ declare -F esp_budget_auto_size >/dev/null 2>&1 \
 # ── ESP size (config) ────────────────────────────────────────────────────────
 
 # Number of selected kernels — the driver of the ESP budget.
-_layout_kernel_count() { install_config_kernels | grep -c .; }
+_core_kernel_count() { install_config_kernels | grep -c .; }
 
 # Reads .options.esp_size. The default `auto` is resolved to a kernel-and-fs
 # aware size (upward-only from the 2G floor) via
@@ -35,7 +35,7 @@ _layout_kernel_count() { install_config_kernels | grep -c .; }
 layout_resolve_esp_size() {
   local raw; raw="$(install_config_esp_size)"
   [[ "$raw" == auto ]] || { printf '%s\n' "$raw"; return 0; }
-  esp_budget_auto_size "$(_layout_kernel_count)" \
+  esp_budget_auto_size "$(_core_kernel_count)" \
     "$(install_config_filesystem)" "$(install_config_bootloader)"
 }
 
@@ -47,55 +47,55 @@ layout_validate_esp_size() {
   local raw size mib
   raw="$(install_config_esp_size)"
   size="$(layout_resolve_esp_size)"
-  mib="$(parse_size_to_mib "$size")"
+  mib="$(layout_parse_size_to_mib "$size")"
   ((mib >= 1024)) || error \
     "esp_size '${size}' is below the 1G floor for a resilient boot path" \
     "(ADR 0038). Set options.esp_size to at least 1G (default 2G)."
 
   [[ "$raw" == auto ]] && return 0
-  local n fs bl need
-  n="$(_layout_kernel_count)"
-  fs="$(install_config_filesystem)"
-  bl="$(install_config_bootloader)"
-  esp_budget_fits_mib "$mib" "$n" "$fs" "$bl" && return 0
-  need="$(esp_budget_auto_size "$n" "$fs" "$bl")"
-  error "esp_size '${size}' is too small for ${n} kernel(s) on ${bl}" \
+  local kernel_count filesystem bootloader need
+  kernel_count="$(_core_kernel_count)"
+  filesystem="$(install_config_filesystem)"
+  bootloader="$(install_config_bootloader)"
+  esp_budget_fits_mib "$mib" "$kernel_count" "$filesystem" "$bootloader" && return 0
+  need="$(esp_budget_auto_size "$kernel_count" "$filesystem" "$bootloader")"
+  error "esp_size '${size}' is too small for ${kernel_count} kernel(s) on ${bootloader}" \
     "(ADR 0078). Use at least ${need}, or set options.esp_size to auto."
 }
 
-# _layout_disk_exists <path> — 0 iff <path> is a present block device. The single
+# layout_disk_exists <path> — 0 iff <path> is a present block device. The single
 # seam behind every adapter's disk-existence probe (single/multi/nonzfs/btrfs),
 # so the check is overridable in unit tests that use fake disk paths and by the
 # no-VM Tier-1 assembly oracle (Combination Matrix, ADR 0046), which runs
 # validate_install_context without real disks. Production behaviour is `-b`.
-_layout_disk_exists() { [[ -b "$1" ]]; }
+layout_disk_exists() { [[ -b "$1" ]]; }
 
 # ── Size parsers ─────────────────────────────────────────────────────────────
 
 # Converts a size string ("512M", "80G", "2T") to integer GiB, rounded up.
-parse_size_to_gib() {
+layout_parse_size_to_gib() {
   local raw="${1^^}"
-  local num="${raw//[^0-9]/}"
+  local number="${raw//[^0-9]/}"
   local unit="${raw//[0-9]/}"
   case "$unit" in
-  M | MIB) echo $(((num + 1023) / 1024)) ;;
-  G | GIB) echo "$num" ;;
-  T | TIB) echo $((num * 1024)) ;;
+  M | MIB) echo $(((number + 1023) / 1024)) ;;
+  G | GIB) echo "$number" ;;
+  T | TIB) echo $((number * 1024)) ;;
   *) error "Cannot parse size string: '$1'" ;;
   esac
 }
 
 # Converts a size string ("512M", "2G", "1T") to integer MiB with no rounding
-# loss. Unlike parse_size_to_gib, this keeps sub-GiB precision so the ESP floor
+# loss. Unlike layout_parse_size_to_gib, this keeps sub-GiB precision so the ESP floor
 # can distinguish 512M from 1G.
-parse_size_to_mib() {
+layout_parse_size_to_mib() {
   local raw="${1^^}"
-  local num="${raw//[^0-9]/}"
+  local number="${raw//[^0-9]/}"
   local unit="${raw//[0-9]/}"
   case "$unit" in
-  M | MIB) echo "$num" ;;
-  G | GIB) echo $((num * 1024)) ;;
-  T | TIB) echo $((num * 1024 * 1024)) ;;
+  M | MIB) echo "$number" ;;
+  G | GIB) echo $((number * 1024)) ;;
+  T | TIB) echo $((number * 1024 * 1024)) ;;
   *) error "Cannot parse size string: '$1'" ;;
   esac
 }
@@ -106,7 +106,7 @@ parse_size_to_mib() {
 # partition plan, the device plan, and the per-group datacrypt plan all share
 # this line format). The single reader for all three — root.sh, devices.sh, and
 # data.sh used to each carry a byte-identical copy. Pure: grep + cut, no deps.
-nonzfs_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
+layout_nonzfs_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
 
 # ── Plan / partition contract (ESP — shared) ─────────────────────────────────
 
@@ -121,7 +121,7 @@ _layout_verify_plan_contract() {
 
 # Asserts layout_partition() populated LAYOUT_ESP_PARTS.
 # Call at end of every layout_partition().
-_layout_verify_partition_contract() {
+layout_verify_partition_contract() {
   ((${#LAYOUT_ESP_PARTS[@]} >= 1)) ||
     error "Layout contract: LAYOUT_ESP_PARTS must have ≥1 element" \
           "after layout_partition()"
@@ -131,14 +131,14 @@ _layout_verify_partition_contract() {
 # Layout phase lifecycle (ADR 0016)
 # =============================================================================
 # Single ordinal counter + two guards enforce seam-verb ordering. Adapters
-# bracket each verb with _layout_enter_phase / _layout_exit_phase. Out-of-order
+# bracket each verb with layout_enter_phase / layout_exit_phase. Out-of-order
 # calls abort via error before any destructive operation runs.
 #
 # Phase map (private): validate=1, plan=2, partition=3, pools=4, esp=5.
 # Seeded to 0 — the first callable phase is `validate` (ADR 0014).
 _LAYOUT_PHASE=0
 
-_layout_phase_ordinal() {
+_core_phase_ordinal() {
   case "$1" in
   validate)  echo 1 ;;
   plan)      echo 2 ;;
@@ -149,17 +149,17 @@ _layout_phase_ordinal() {
   esac
 }
 
-_layout_enter_phase() {
+layout_enter_phase() {
   local name="$1" ord
-  ord="$(_layout_phase_ordinal "$name")"
+  ord="$(_core_phase_ordinal "$name")"
   (( _LAYOUT_PHASE == ord - 1 )) ||
     error "Layout phase '$name' out of order:" \
           "_LAYOUT_PHASE=$_LAYOUT_PHASE, expected $((ord - 1))"
 }
 
-_layout_exit_phase() {
+layout_exit_phase() {
   local name="$1" ord
-  ord="$(_layout_phase_ordinal "$name")"
+  ord="$(_core_phase_ordinal "$name")"
   _LAYOUT_PHASE="$ord"
 }
 
@@ -191,12 +191,12 @@ _layout_publish_boot() {
 
 # Populates LAYOUT_ESP_PARTS from the adapter's ordered OS disks via part_name.
 # Pure: a string transform per disk, no block-device access. Primary at index 0.
-_layout_resolve_esp_parts() {
+_core_resolve_esp_parts() {
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_ESP_PARTS=()
-  local d
-  while IFS= read -r d; do
-    [[ -n "$d" ]] && LAYOUT_ESP_PARTS+=("$(part_name "$d" 1)")
+  local disk
+  while IFS= read -r disk; do
+    [[ -n "$disk" ]] && LAYOUT_ESP_PARTS+=("$(part_name "$disk" 1)")
   done < <(_layout_os_disks)
 }
 
@@ -204,10 +204,10 @@ _layout_resolve_esp_parts() {
 # planning hook, resolve the ESP partitions, publish the boot record, verify the
 # contract. Destructive verbs (partition / create / mount) stay in the adapter.
 layout_plan() {
-  _layout_enter_phase plan
+  layout_enter_phase plan
   _layout_plan_mode
-  _layout_resolve_esp_parts
+  _core_resolve_esp_parts
   _layout_publish_boot
   _layout_verify_plan_contract
-  _layout_exit_phase plan
+  layout_exit_phase plan
 }

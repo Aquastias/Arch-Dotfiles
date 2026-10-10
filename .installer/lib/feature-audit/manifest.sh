@@ -148,7 +148,7 @@ fa_validate_config() {
     source "$(root_adapter_source "$INSTALLER_DIR" \
       "$(install_config_filesystem)" "$INSTALL_MODE")"
     # shellcheck disable=SC2329 # called by validate_install_context
-    _layout_disk_exists() { return 0; }
+    layout_disk_exists() { return 0; }
     validate_install_context
   ) >"$f.log" 2>&1
   local rc=$?

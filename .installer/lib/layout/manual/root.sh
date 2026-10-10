@@ -18,7 +18,7 @@
 # boot emitters (a manual root is exactly a plain non-ZFS root by UUID).
 #
 # INTERNAL STATE (do not reference outside this module):
-#   _MANUAL_PLAN         — manual_partition_plan output (records + summary)
+#   _MANUAL_PLAN         — layout_manual_partition_plan output (records + summary)
 #   _MANUAL_ESP_DEV      — the ESP partition device (mounted at /boot/efi)
 #   _MANUAL_ROOT_DEV     — the root partition device (mounted at MOUNT_ROOT)
 #   _MANUAL_ESP_FORMAT   — "true" to mkfs the ESP, "false" to keep it (dualboot)
@@ -38,14 +38,14 @@ _MANUAL_ESP_FORMAT=""
 
 # mkfs one partition with the operator's chosen filesystem. -F/-f: don't prompt
 # over an existing signature (the operator asked to format it).
-_manual_mkfs() {
-  local fs="$1" dev="$2"
-  case "$fs" in
+layout_manual_mkfs() {
+  local filesystem="$1" dev="$2"
+  case "$filesystem" in
   ext4)  mkfs.ext4  -F "$dev" ;;
   xfs)   mkfs.xfs   -f "$dev" ;;
   btrfs) mkfs.btrfs -f "$dev" ;;
   fat32) mkfs.fat -F32 "$dev" ;;
-  *) error "Manual layout: unknown filesystem '${fs}' for ${dev}." ;;
+  *) error "Manual layout: unknown filesystem '${filesystem}' for ${dev}." ;;
   esac
 }
 
@@ -57,22 +57,22 @@ _manual_mkfs() {
 # planner purely for its side effect (it aborts on a missing/duplicate root or a
 # missing/non-FAT32 ESP).
 layout_validate() {
-  _layout_enter_phase validate
-  manual_partition_plan "$(install_config_partitions_json)" >/dev/null
-  _layout_exit_phase validate
+  layout_enter_phase validate
+  layout_manual_partition_plan "$(install_config_partitions_json)" >/dev/null
+  layout_exit_phase validate
 }
 
 # Plan: resolve the assignment into the LAYOUT_* record. No disk writes. The
 # root cmdline + fstab tail need post-mkfs UUIDs, so they are set in the create
 # verb; the hooks + ESP + empty pool record are knowable now.
 layout_plan() {
-  _layout_enter_phase plan
+  layout_enter_phase plan
   section "Manual Partitioning Layout"
-  _MANUAL_PLAN="$(manual_partition_plan "$(install_config_partitions_json)")"
+  _MANUAL_PLAN="$(layout_manual_partition_plan "$(install_config_partitions_json)")"
   _MANUAL_ESP_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | nonzfs_plan_field esp_device)"
+    | layout_nonzfs_plan_field esp_device)"
   _MANUAL_ROOT_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | nonzfs_plan_field root_device)"
+    | layout_nonzfs_plan_field root_device)"
   _MANUAL_ESP_FORMAT="$(printf '%s\n' "$_MANUAL_PLAN" \
     | awk -F'\t' '$1=="mount" && $3=="/boot/efi"{print $5}')"
 
@@ -86,65 +86,65 @@ layout_plan() {
   LAYOUT_ESP_PARTS=("$_MANUAL_ESP_DEV")
   # Plain non-ZFS HOOKS (no zfs, no encrypt).
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_HOOKS="$(nonzfs_hooks)"
+  LAYOUT_HOOKS="$(layout_nonzfs_hooks)"
 
   info "Manual layout: root $_MANUAL_ROOT_DEV, ESP $_MANUAL_ESP_DEV"
   _layout_verify_plan_contract
-  _layout_exit_phase plan
+  layout_exit_phase plan
 }
 
 # Partition: a no-op. The operator's cfdisk table already exists; we neither
 # wipe nor repartition. Settle the kernel's device view so the assigned
 # partitions are present before we format/mount them.
 layout_partition() {
-  _layout_enter_phase partition
+  layout_enter_phase partition
   section "Manual Partitioning (using the operator's table)"
   udevadm settle 2>/dev/null || true
-  _layout_verify_partition_contract
-  _layout_exit_phase partition
+  layout_verify_partition_contract
+  layout_exit_phase partition
 }
 
 # Create: format the marked partitions and mount the tree. Named for the seam
 # verb (there are no pools here). Mounts in plan order — root first, then deeper
 # paths — so parents mount before children; the ESP is left to layout_mount_esp.
 layout_create_pools() {
-  _layout_enter_phase pools
+  layout_enter_phase pools
   section "Formatting & mounting the manual layout"
 
-  local extra="" tag dev mnt fs fmt uuid opts fsck
-  while IFS=$'\t' read -r tag dev mnt fs fmt; do
+  local extra="" tag dev mountpoint filesystem format uuid mount_options fsck
+  while IFS=$'\t' read -r tag dev mountpoint filesystem format; do
     [[ "$tag" == "mount" ]] || continue
-    [[ "$mnt" == "/boot/efi" ]] && continue   # mounted by layout_mount_esp
-    if [[ "$fmt" == "true" ]]; then
-      _manual_mkfs "$fs" "$dev"
+    [[ "$mountpoint" == "/boot/efi" ]] && continue   # mounted by layout_mount_esp
+    if [[ "$format" == "true" ]]; then
+      layout_manual_mkfs "$filesystem" "$dev"
       # The live ISO may ship the mkfs tool without the fs module loaded.
-      modprobe "$fs" 2>/dev/null || true
+      modprobe "$filesystem" 2>/dev/null || true
     fi
-    if [[ "$mnt" == "/" ]]; then
+    if [[ "$mountpoint" == "/" ]]; then
       mount "$dev" "$MOUNT_ROOT"
-      opts="rw,relatime"; fsck=1
+      mount_options="rw,relatime"; fsck=1
     else
-      mkdir -p "${MOUNT_ROOT}${mnt}"
-      mount "$dev" "${MOUNT_ROOT}${mnt}"
-      opts="defaults"; fsck=2
+      mkdir -p "${MOUNT_ROOT}${mountpoint}"
+      mount "$dev" "${MOUNT_ROOT}${mountpoint}"
+      mount_options="defaults"; fsck=2
     fi
     uuid="$(blkid -s UUID -o value "$dev")"
-    extra+="# ${mnt}"$'\n'"UUID=${uuid}  ${mnt}  ${fs}  ${opts}  0 ${fsck}"$'\n'
-    info "  ${dev} → ${mnt} (${fs}$([[ "$fmt" == true ]] && echo ' fmt'))"
+    extra+="# ${mountpoint}"$'\n'"UUID=${uuid}  ${mountpoint}  ${filesystem}  ${mount_options}  0 ${fsck}"$'\n'
+    info "  ${dev} → ${mountpoint} (${filesystem}$([[ "$format" == true ]] && echo ' fmt'))"
   done <<< "$_MANUAL_PLAN"
 
   # Boot by the root filesystem's UUID (stable across device reshuffles).
   local root_uuid; root_uuid="$(blkid -s UUID -o value "$_MANUAL_ROOT_DEV")"
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_ROOT_CMDLINE="$(nonzfs_root_cmdline "$root_uuid")"
+  LAYOUT_ROOT_CMDLINE="$(layout_nonzfs_root_cmdline "$root_uuid")"
 
   # Swap partitions the operator cut (type 8200) and assigned [swap].
   while IFS=$'\t' read -r tag dev; do
     [[ "$tag" == "swap" ]] || continue
     mkswap "$dev"
     swapon "$dev" 2>/dev/null || true
-    local suuid; suuid="$(blkid -s UUID -o value "$dev")"
-    extra+="# swap"$'\n'"UUID=${suuid}  none  swap  defaults  0 0"$'\n'
+    local swap_uuid; swap_uuid="$(blkid -s UUID -o value "$dev")"
+    extra+="# swap"$'\n'"UUID=${swap_uuid}  none  swap  defaults  0 0"$'\n'
     info "  ${dev} → swap"
   done <<< "$_MANUAL_PLAN"
 
@@ -153,14 +153,14 @@ layout_create_pools() {
   # No LUKS on the manual path.
   # shellcheck disable=SC2034 # consumed by write_crypttab
   LAYOUT_CRYPTTAB=""
-  _layout_exit_phase pools
+  layout_exit_phase pools
 }
 
 # Mount the ESP. Format it only when the operator marked it (a kept ESP is a
 # shared/dual-boot partition we must not wipe). write_fstab writes its fstab
 # line from LAYOUT_ESP_PARTS.
 layout_mount_esp() {
-  _layout_enter_phase esp
+  layout_enter_phase esp
   section "Mounting ESP"
   [[ "$_MANUAL_ESP_FORMAT" == "true" ]] \
     && mkfs.fat -F32 -n EFI "$_MANUAL_ESP_DEV"
@@ -171,5 +171,5 @@ layout_mount_esp() {
   udevadm settle 2>/dev/null || true
   mount -t vfat "$_MANUAL_ESP_DEV" "${MOUNT_ROOT}/boot/efi"
   info "ESP: $_MANUAL_ESP_DEV → /boot/efi"
-  _layout_exit_phase esp
+  layout_exit_phase esp
 }

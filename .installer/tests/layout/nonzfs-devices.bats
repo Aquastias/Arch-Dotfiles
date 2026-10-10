@@ -6,7 +6,7 @@
 # the `luks_containers` list (what to luksFormat). The resolver does NOT decide
 # partition numbering itself — it reads the slots the planner emits, so the
 # planner is the single authority and the two can't drift. These tests feed a
-# real plan from nonzfs_partition_plan for that reason. Pure: no disk access —
+# real plan from layout_nonzfs_partition_plan for that reason. Pure: no disk access —
 # part_name's bus suffixing is its own concern, stubbed here as `<disk><num>`.
 
 setup() {
@@ -28,8 +28,8 @@ dev_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── tracer: plaintext, with swap → bare partitions off the plan's slots ─────
 
 @test "devices: plaintext+swap resolves bare parts from the plan slots" {
-  local plan; plan="$(nonzfs_partition_plan 40960 512 8192)"
-  run nonzfs_root_devices /dev/sda "$plan" plain
+  local plan; plan="$(layout_nonzfs_partition_plan 40960 512 8192)"
+  run layout_nonzfs_root_devices /dev/sda "$plan" plain
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dev_field esp_part)"  = "/dev/sda1" ]
   [ "$(printf '%s\n' "$output" | dev_field swap_part)" = "/dev/sda2" ]
@@ -44,8 +44,8 @@ dev_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── encrypted, with swap → root+swap behind the LUKS mappers ────────────────
 
 @test "devices: encrypted+swap resolves mappers and lists both containers" {
-  local plan; plan="$(nonzfs_partition_plan 40960 512 8192)"
-  run nonzfs_root_devices /dev/sda "$plan" encrypted
+  local plan; plan="$(layout_nonzfs_partition_plan 40960 512 8192)"
+  run layout_nonzfs_root_devices /dev/sda "$plan" encrypted
   [ "$status" -eq 0 ]
   # the raw partitions are unchanged; the resolved targets are the mappers.
   [ "$(printf '%s\n' "$output" | dev_field root_part)" = "/dev/sda3" ]
@@ -59,8 +59,8 @@ dev_field() { grep -E "^$1=" | cut -d= -f2-; }
 # ── no swap → plan puts root on slot 2; no swap fields, no swap container ────
 
 @test "devices: encrypted+noswap puts root on part2 with only a root container" {
-  local plan; plan="$(nonzfs_partition_plan 40960 512 0)"
-  run nonzfs_root_devices /dev/nvme0n1 "$plan" encrypted
+  local plan; plan="$(layout_nonzfs_partition_plan 40960 512 0)"
+  run layout_nonzfs_root_devices /dev/nvme0n1 "$plan" encrypted
   [ "$status" -eq 0 ]
   [ "$(printf '%s\n' "$output" | dev_field root_part)" = "/dev/nvme0n12" ]
   [ "$(printf '%s\n' "$output" | dev_field root_dev)"  = "/dev/mapper/cryptroot" ]

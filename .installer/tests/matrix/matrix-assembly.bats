@@ -5,7 +5,7 @@
 # install-print-config.bats + guided-emit.bats.
 #
 # The one physically-coupled check validate_install_context makes — the
-# block-device probe (_layout_disk_exists) — is stubbed here: disk existence is
+# block-device probe (layout_disk_exists) — is stubbed here: disk existence is
 # a Tier-2/VM concern with no combinatorial content, so Tier-1 exercises every
 # other validator against the real INSTALLER_DIR tree. Behaviour under test: the
 # cell
@@ -57,7 +57,7 @@ _matrix_validate_cell() {
   source "$adapter"
 
   # Tier-1 seam: disk existence is a VM concern, so assume present.
-  _layout_disk_exists() { return 0; }
+  layout_disk_exists() { return 0; }
 
   validate_install_context
 }

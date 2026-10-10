@@ -11,7 +11,7 @@
 # common.sh, available at call time.
 #
 # Public API:
-#   nonzfs_partition_plan <total_mib> <esp_mib> <swap_mib>
+#   layout_nonzfs_partition_plan <total_mib> <esp_mib> <swap_mib>
 #     → emits a `key=value` plan on stdout: sizes (esp_mib, swap_mib, root_mib)
 #       and the partition slots (esp_part_num, swap_part_num, root_part_num).
 #       swap_mib 0 means no swap partition: swap_part_num is empty and
@@ -28,7 +28,7 @@ _NONZFS_ROOT_FLOOR_MIB=8192
 # 1 MiB at the start + 1 MiB guard at the end (GPT header + alignment).
 _NONZFS_ALIGN_MIB=2
 
-nonzfs_partition_plan() {
+layout_nonzfs_partition_plan() {
   local total_mib="$1" esp_mib="$2" swap_mib="$3"
 
   ((esp_mib > 0)) || error "Partition plan: ESP size must be positive."
@@ -45,19 +45,19 @@ nonzfs_partition_plan() {
   # always 1; a swap partition (when sized) is 2 and pushes root to 3; with no
   # swap, root takes 2. Emitting these makes the plan the one place that decides
   # partition numbering.
-  local swap_part_num root_part_num
+  local swap_partition_number root_partition_number
   if ((swap_mib > 0)); then
-    swap_part_num=2
-    root_part_num=3
+    swap_partition_number=2
+    root_partition_number=3
   else
-    swap_part_num=""
-    root_part_num=2
+    swap_partition_number=""
+    root_partition_number=2
   fi
 
   printf 'esp_mib=%s\n' "$esp_mib"
   printf 'swap_mib=%s\n' "$swap_mib"
   printf 'root_mib=%s\n' "$root_mib"
   printf 'esp_part_num=%s\n' 1
-  printf 'swap_part_num=%s\n' "$swap_part_num"
-  printf 'root_part_num=%s\n' "$root_part_num"
+  printf 'swap_part_num=%s\n' "$swap_partition_number"
+  printf 'root_part_num=%s\n' "$root_partition_number"
 }

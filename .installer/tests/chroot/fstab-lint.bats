@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Validator-tier tests for the REAL fstab generators (ADR 0048, issue 04):
-# _chroot_fstab_generate (lib/chroot.sh, ESP entries) + btrfs_root_fstab and
-# data_group_fstab_line (the adapter tails). Their output is checked with a
+# _chroot_fstab_generate (lib/chroot.sh, ESP entries) + layout_btrfs_root_fstab and
+# layout_data_group_fstab_line (the adapter tails). Their output is checked with a
 # structural fstab lint (validators_fstab_lint) — field count, mountpoint
 # plausibility, dump/pass ranges, and no duplicate mountpoint across the whole
 # ASSEMBLED fstab, the thing nothing tests today (write_fstab concatenates ESP
@@ -47,21 +47,21 @@ teardown() { rm -rf "$TEST_DIR"; }
 # ── real adapter tails lint clean ────────────────────────────────────────────
 
 @test "btrfs root subvol fstab block lints clean" {
-  btrfs_root_fstab "UUID=$U1" > "$FSTAB"
+  layout_btrfs_root_fstab "UUID=$U1" > "$FSTAB"
   run validators_fstab_lint "$FSTAB"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
 
 @test "data-group fstab line lints clean" {
-  data_group_fstab_line "UUID=$U2" /mnt/tank ext4 > "$FSTAB"
+  layout_data_group_fstab_line "UUID=$U2" /mnt/tank ext4 > "$FSTAB"
   run validators_fstab_lint "$FSTAB"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
 
-# btrfs multi/encrypted roots feed the same btrfs_root_fstab a mapper <src>
+# btrfs multi/encrypted roots feed the same layout_btrfs_root_fstab a mapper <src>
 # (/dev/mapper/cryptroot) instead of a UUID — same generator, different device.
 @test "btrfs root fstab over a mapper src lints clean" {
-  btrfs_root_fstab /dev/mapper/cryptroot > "$FSTAB"
+  layout_btrfs_root_fstab /dev/mapper/cryptroot > "$FSTAB"
   run validators_fstab_lint "$FSTAB"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
@@ -70,7 +70,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "assembled ESP + btrfs root fstab lints clean, no mountpoint clash" {
   {
-    _chroot_fstab_generate "$U1"; echo; btrfs_root_fstab "UUID=$U2"
+    _chroot_fstab_generate "$U1"; echo; layout_btrfs_root_fstab "UUID=$U2"
   } > "$FSTAB"
   run validators_fstab_lint "$FSTAB"
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }

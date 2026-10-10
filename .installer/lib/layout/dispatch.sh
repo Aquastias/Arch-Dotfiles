@@ -24,45 +24,45 @@
 # the pool skeleton); otherwise fall through to the filesystem × mode table.
 # Pure: string transform on <os-dir>/<kind>/<fs>/<mode>, no disk access.
 root_adapter_for_kind() {
-  local dir="$1" kind="$2" fs="$3" mode="$4"
+  local directory="$1" kind="$2" filesystem="$3" mode="$4"
   if [[ "$kind" == "manual" ]]; then
-    printf '%s\n' "${dir}/lib/layout/manual/root.sh"
+    printf '%s\n' "${directory}/lib/layout/manual/root.sh"
   else
-    root_adapter_source "$dir" "$fs" "$mode"
+    root_adapter_source "$directory" "$filesystem" "$mode"
   fi
 }
 
 # Root Layout Adapter for <fs> × <mode>. The OS-disk owner.
 root_adapter_source() {
-  local dir="$1" fs="$2" mode="$3"
-  case "$fs" in
-  zfs) printf '%s\n' "${dir}/lib/layout/zfs/${mode}.sh" ;;
+  local directory="$1" filesystem="$2" mode="$3"
+  case "$filesystem" in
+  zfs) printf '%s\n' "${directory}/lib/layout/zfs/${mode}.sh" ;;
   # ext4 is single-disk only (the validation contract rejects disk_count > 1),
   # so its one adapter owns the OS disk regardless of mode.
-  ext4) printf '%s\n' "${dir}/lib/layout/ext4/single.sh" ;;
+  ext4) printf '%s\n' "${directory}/lib/layout/ext4/single.sh" ;;
   # xfs is the same single-disk shape as ext4 (validation rejects disk_count > 1),
   # so its one adapter owns the OS disk regardless of mode.
-  xfs) printf '%s\n' "${dir}/lib/layout/xfs/single.sh" ;;
+  xfs) printf '%s\n' "${directory}/lib/layout/xfs/single.sh" ;;
   # btrfs carries native multi-disk topology, so (like zfs) the mode keys the
   # adapter file: single.sh owns one disk; multi.sh (raid) lands in a later pass.
-  btrfs) printf '%s\n' "${dir}/lib/layout/btrfs/${mode}.sh" ;;
-  *) error "No root layout adapter for filesystem '${fs}'" \
+  btrfs) printf '%s\n' "${directory}/lib/layout/btrfs/${mode}.sh" ;;
+  *) error "No root layout adapter for filesystem '${filesystem}'" \
        "(ADR 0043 reserves it; zfs + ext4 + xfs + btrfs are implemented)." ;;
   esac
 }
 
 # Data Group Formatter for <fs>. Formats one data group; mode-independent. Every
-# filesystem — zfs included — is a peer leaf providing data_group_create (the ZFS
+# filesystem — zfs included — is a peer leaf providing data_formatter_create_group (the ZFS
 # leaf creates a zpool; the others mkfs a partition). The ZFS multi Root Adapter's
-# create_data_pools loop dispatches each group here.
+# layout_create_data_pools loop dispatches each group here.
 data_formatter_source() {
-  local dir="$1" fs="$2"
-  case "$fs" in
-  zfs) printf '%s\n' "${dir}/lib/layout/zfs/data.sh" ;;
-  ext4) printf '%s\n' "${dir}/lib/layout/ext4/data.sh" ;;
-  xfs) printf '%s\n' "${dir}/lib/layout/xfs/data.sh" ;;
-  btrfs) printf '%s\n' "${dir}/lib/layout/btrfs/data.sh" ;;
-  *) error "No data group formatter for filesystem '${fs}'" \
+  local directory="$1" filesystem="$2"
+  case "$filesystem" in
+  zfs) printf '%s\n' "${directory}/lib/layout/zfs/data.sh" ;;
+  ext4) printf '%s\n' "${directory}/lib/layout/ext4/data.sh" ;;
+  xfs) printf '%s\n' "${directory}/lib/layout/xfs/data.sh" ;;
+  btrfs) printf '%s\n' "${directory}/lib/layout/btrfs/data.sh" ;;
+  *) error "No data group formatter for filesystem '${filesystem}'" \
        "(zfs/ext4/xfs/btrfs are implemented)." ;;
   esac
 }

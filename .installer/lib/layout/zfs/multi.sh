@@ -7,26 +7,26 @@
 #           zfs_vdev_spec, zfs_ram_gib) already sourced.
 #
 # Provides:
-#   resolve_os_topology          — determines rpool topology; prompts if needed
-#   resolve_storage_topologies   — determines dpool group topologies; prompts
-#   partition_os_disks_multi     — partitions OS disk(s)
-#   partition_storage_disks_multi— partitions storage group disk(s)
-#   create_multi_rpool           — creates rpool with resolved topology
-#   create_multi_dpool           — creates dpool with all storage groups
-#   resolve_data_pools           — reads data_pools[] into internal state
-#   resolve_leftover_disks       — per-disk fold-vs-own-pool for topology=none
-#   partition_data_pools         — partitions Standalone Data Pool disk(s)
-#   create_data_pools            — creates each Standalone Data Pool + dataset
-#   mount_multi_esps             — mounts primary + secondary ESPs
+#   layout_resolve_os_topology          — determines rpool topology; prompts if needed
+#   layout_resolve_storage_topologies   — determines dpool group topologies; prompts
+#   layout_partition_os_disks_multi     — partitions OS disk(s)
+#   layout_partition_storage_disks_multi— partitions storage group disk(s)
+#   layout_create_multi_rpool           — creates rpool with resolved topology
+#   layout_create_multi_data_pool           — creates dpool with all storage groups
+#   layout_resolve_data_pools           — reads data_pools[] into internal state
+#   layout_resolve_leftover_disks       — per-disk fold-vs-own-pool for topology=none
+#   layout_partition_data_pools         — partitions Standalone Data Pool disk(s)
+#   layout_create_data_pools            — creates each Standalone Data Pool + dataset
+#   layout_mount_multi_esps             — mounts primary + secondary ESPs
 #   layout_validate  — seam: validates os_pool + storage_groups inputs
 #   _layout_plan_mode — plan hook (for layout_plan in plan.sh): wraps
-#                     resolve_os_topology; resolve_data_pools;
-#                     resolve_storage_topologies; resolve_leftover_disks
+#                     layout_resolve_os_topology; layout_resolve_data_pools;
+#                     layout_resolve_storage_topologies; layout_resolve_leftover_disks
 #   _layout_os_disks  — plan hook: ordered OS disks (for ESP resolution)
-#   layout_partition — seam: wraps partition_os_disks_multi;
-#                     partition_storage_disks_multi
-#   layout_create_pools   — seam: wraps create_multi_rpool; create_multi_dpool
-#   layout_mount_esp      — seam: wraps mount_multi_esps
+#   layout_partition — seam: wraps layout_partition_os_disks_multi;
+#                     layout_partition_storage_disks_multi
+#   layout_create_pools   — seam: wraps layout_create_multi_rpool; layout_create_multi_data_pool
+#   layout_mount_esp      — seam: wraps layout_mount_multi_esps
 #
 # INTERNAL STATE (do not reference outside this module):
 #   _LAYOUT_IMPL_ESP_PARTS[]         — ESP partitions on OS disks
@@ -48,7 +48,7 @@
 
 # shellcheck source=./common.sh
 source "${BASH_SOURCE[0]%/*}/common.sh"
-# create_data_pools dispatches each group through the Data Group Formatter seam.
+# layout_create_data_pools dispatches each group through the Data Group Formatter seam.
 declare -F data_formatter_source >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../dispatch.sh"
 
@@ -62,16 +62,16 @@ declare -gA _LAYOUT_IMPL_TOPOLOGIES
 # The Standalone Data Pool record + resolve/partition/create pipeline lives in
 # the root-fs-agnostic orchestrator (lib/layout/data-pools.sh, sourced by core);
 # this adapter's seam verbs call it, and the interactive leftover synthesis below
-# appends to it via _add_data_pool.
+# appends to it via layout_add_data_pool.
 
-# Out-param for _prompt_pool_name (mirrors PICK_RESULT house style).
+# Out-param for layout_prompt_pool_name (mirrors PICK_RESULT house style).
 POOL_NAME_RESULT=""
 
 # =============================================================================
 # OS TOPOLOGY SUGGESTIONS
 # =============================================================================
 
-suggest_os_topologies() {
+layout_suggest_os_topologies() {
   # Prints one suggested topology per line, recommended first.
   # 'none' = install on one disk, no RAID; other disks fold into dpool.
   local count="$1"
@@ -91,7 +91,7 @@ suggest_os_topologies() {
 # STORAGE TOPOLOGY SUGGESTIONS
 # =============================================================================
 
-suggest_storage_topologies() {
+layout_suggest_storage_topologies() {
   # Prints topology suggestions for a storage group based on disk count.
   local count="$1"
   case "$count" in
@@ -138,39 +138,39 @@ suggest_storage_topologies() {
 # OS TOPOLOGY RESOLUTION
 # =============================================================================
 
-resolve_os_topology() {
+layout_resolve_os_topology() {
   section "Resolving OS Pool Topology"
 
-  local cfg_topo
-  cfg_topo="$(config_optional '.os_pool.topology')"
+  local configured_topology
+  configured_topology="$(config_optional '.os_pool.topology')"
   local all_os=()
-  while IFS= read -r d; do all_os+=("$d"); done \
+  while IFS= read -r disk; do all_os+=("$disk"); done \
     < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
-  local cnt="${#all_os[@]}"
+  local disk_count="${#all_os[@]}"
 
-  if [[ -n "$cfg_topo" ]]; then
+  if [[ -n "$configured_topology" ]]; then
     # Topology set in config — use it directly without prompting
-    _LAYOUT_IMPL_OS_TOPOLOGY="$cfg_topo"
+    _LAYOUT_IMPL_OS_TOPOLOGY="$configured_topology"
     info "OS topology from config: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   else
     # Auto-suggest based on disk count and let user choose
-    echo -e "\n  ${BOLD}OS pool — ${cnt} disk(s):${NC}"
-    for d in "${all_os[@]}"; do
-      local s
-      s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-      printf "    %s  (%s)\n" "$d" "$s"
+    echo -e "\n  ${BOLD}OS pool — ${disk_count} disk(s):${NC}"
+    for disk in "${all_os[@]}"; do
+      local size
+      size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
+      printf "    %s  (%s)\n" "$disk" "$size"
     done
-    local opts=()
-    while IFS= read -r line; do opts+=("$line"); done \
-      < <(suggest_os_topologies "$cnt")
-    pick_option "Choose OS pool topology:" "${opts[@]}"
+    local choices=()
+    while IFS= read -r line; do choices+=("$line"); done \
+      < <(layout_suggest_os_topologies "$disk_count")
+    pick_option "Choose OS pool topology:" "${choices[@]}"
     _LAYOUT_IMPL_OS_TOPOLOGY="$PICK_RESULT"
     info "OS topology selected: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   fi
 
   # topology=none: pick one install disk, fold the rest into dpool
   if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
-    if ((cnt == 1)); then
+    if ((disk_count == 1)); then
       # Only one disk listed — no choice needed
       _LAYOUT_IMPL_OS_DISK="${all_os[0]}"
       _LAYOUT_IMPL_LEFTOVER_DISKS=()
@@ -178,22 +178,22 @@ resolve_os_topology() {
     else
       echo ""
       echo -e "  ${BOLD}Select the disk to install the OS on:${NC}"
-      local disk_opts=()
-      for d in "${all_os[@]}"; do
-        local s
-        s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-        local m
-        m="$(lsblk -dno MODEL "$d" 2>/dev/null | xargs || echo '')"
-        disk_opts+=("${d}  ${s}  ${m}")
+      local disk_choices=()
+      for disk in "${all_os[@]}"; do
+        local size
+        size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
+        local model
+        model="$(lsblk -dno MODEL "$disk" 2>/dev/null | xargs || echo '')"
+        disk_choices+=("${disk}  ${size}  ${model}")
       done
-      pick_option "Install OS on which disk?" "${disk_opts[@]}"
+      pick_option "Install OS on which disk?" "${disk_choices[@]}"
       _LAYOUT_IMPL_OS_DISK="$PICK_RESULT"
 
       # All other listed OS disks become storage leftovers
       _LAYOUT_IMPL_LEFTOVER_DISKS=()
-      for d in "${all_os[@]}"; do
-        [[ "$d" != "$_LAYOUT_IMPL_OS_DISK" ]] \
-          && _LAYOUT_IMPL_LEFTOVER_DISKS+=("$d")
+      for disk in "${all_os[@]}"; do
+        [[ "$disk" != "$_LAYOUT_IMPL_OS_DISK" ]] \
+          && _LAYOUT_IMPL_LEFTOVER_DISKS+=("$disk")
       done
 
       info "OS install disk   : ${_LAYOUT_IMPL_OS_DISK}"
@@ -207,41 +207,41 @@ resolve_os_topology() {
 # STORAGE TOPOLOGY RESOLUTION
 # =============================================================================
 
-resolve_storage_topologies() {
+layout_resolve_storage_topologies() {
   section "Resolving Storage Topologies"
 
   # ── Config-defined storage groups ─────────────────────────────────────────
-  local sg_count
-  sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  local storage_group_count
+  storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local i
-  for ((i = 0; i < sg_count; i++)); do
+  for ((i = 0; i < storage_group_count; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
-    local dc
-    dc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
-    local topo
-    topo="$(config_optional ".storage_groups[$i].topology")"
+    local disk_count
+    disk_count="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
+    local topology
+    topology="$(config_optional ".storage_groups[$i].topology")"
 
-    if [[ -n "$topo" ]]; then
-      _LAYOUT_IMPL_TOPOLOGIES["$name"]="$topo"
-      info "Group '${name}' (${dc} disk(s)): topology '${topo}' (from config)"
+    if [[ -n "$topology" ]]; then
+      _LAYOUT_IMPL_TOPOLOGIES["$name"]="$topology"
+      info "Group '${name}' (${disk_count} disk(s)): topology '${topology}' (from config)"
     else
-      local opts=()
-      while IFS= read -r line; do opts+=("$line"); done \
-        < <(suggest_storage_topologies "$dc")
-      echo -e "\n  ${BOLD}Storage group '${name}' — ${dc} disk(s):${NC}"
+      local choices=()
+      while IFS= read -r line; do choices+=("$line"); done \
+        < <(layout_suggest_storage_topologies "$disk_count")
+      echo -e "\n  ${BOLD}Storage group '${name}' — ${disk_count} disk(s):${NC}"
       while IFS= read -r disk; do
-        local s
-        s="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
-        printf "    %s  (%s)\n" "$disk" "$s"
+        local size
+        size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
+        printf "    %s  (%s)\n" "$disk" "$size"
       done < <(jsonc "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-      pick_option "Choose topology for '${name}':" "${opts[@]}"
+      pick_option "Choose topology for '${name}':" "${choices[@]}"
       _LAYOUT_IMPL_TOPOLOGIES["$name"]="$PICK_RESULT"
       info "Group '${name}': topology '${PICK_RESULT}' (selected)"
     fi
   done
   # Leftover OS disks (topology=none) are handled per-disk in
-  # resolve_leftover_disks (ADR 0027, issue 05), not as one group here.
+  # layout_resolve_leftover_disks (ADR 0027, issue 05), not as one group here.
 }
 
 # =============================================================================
@@ -253,55 +253,55 @@ resolve_storage_topologies() {
 # =============================================================================
 # ZFS-multi-specific: when OS topology is `none`, each leftover OS disk is folded
 # into the Combined Data Pool or synthesised as its own Standalone Data Pool via
-# _add_data_pool (the shared record verb in lib/layout/data-pools.sh).
+# layout_add_data_pool (the shared record verb in lib/layout/data-pools.sh).
 
-_next_default_pool_name() {
+_zfs_multi_next_default_pool_name() {
   # Lowest unused dataN name (data1, data2, …), skipping names already in the
   # data-pool structure (declarative entries + earlier interactive choices).
-  local k=1 cand n taken
+  local number=1 candidate existing_name taken
   while true; do
-    cand="data${k}"
+    candidate="data${number}"
     taken=false
-    for n in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
-      [[ "$n" == "$cand" ]] && { taken=true; break; }
+    for existing_name in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+      [[ "$existing_name" == "$candidate" ]] && { taken=true; break; }
     done
-    $taken || { printf '%s' "$cand"; return; }
-    ((k++))
+    $taken || { printf '%s' "$candidate"; return; }
+    ((number++))
   done
 }
 
-_read_tty() {
+_zfs_multi_read_tty() {
   # Overridable single-line reader (stubbed in tests). Prompt goes to the
   # terminal; the entered value is echoed to stdout.
-  local __ans
-  read -rp "$1" __ans </dev/tty
-  printf '%s' "$__ans"
+  local __answer
+  read -rp "$1" __answer </dev/tty
+  printf '%s' "$__answer"
 }
 
-_prompt_pool_name() {
+layout_prompt_pool_name() {
   # Prompts for a Standalone Data Pool name, looping until it passes
   # zfs_valid_pool_name and is not already taken; empty input accepts the
   # default. Sets POOL_NAME_RESULT. Honors INSTALL_UNATTENDED (uses default).
-  # Usage: _prompt_pool_name <default> [taken_name...]
-  local def="$1"
+  # Usage: layout_prompt_pool_name <default> [taken_name...]
+  local default_name="$1"
   shift
   local taken=("$@")
   if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    POOL_NAME_RESULT="$def"
-    info "Auto pool name (unattended): ${def}"
+    POOL_NAME_RESULT="$default_name"
+    info "Auto pool name (unattended): ${default_name}"
     return
   fi
-  local name reason n clash
+  local name reason existing_name clash
   while true; do
-    name="$(_read_tty "  Pool name [${def}]: ")"
-    [[ -z "$name" ]] && name="$def"
+    name="$(_zfs_multi_read_tty "  Pool name [${default_name}]: ")"
+    [[ -z "$name" ]] && name="$default_name"
     if ! reason="$(zfs_valid_pool_name "$name")"; then
       warn "Invalid pool name: ${reason}"
       continue
     fi
     clash=false
-    for n in "${taken[@]}"; do
-      [[ "$n" == "$name" ]] && { clash=true; break; }
+    for existing_name in "${taken[@]}"; do
+      [[ "$existing_name" == "$name" ]] && { clash=true; break; }
     done
     if $clash; then
       warn "Pool name '${name}' is already taken — choose another."
@@ -312,7 +312,7 @@ _prompt_pool_name() {
   done
 }
 
-resolve_leftover_disks() {
+layout_resolve_leftover_disks() {
   # Per-disk fold-vs-own-pool choice for leftover OS disks (topology=none with
   # 2+ OS disks). Fold → the Combined Data Pool 'dpool' (today's behaviour).
   # Own-pool → a single-disk stripe Standalone Data Pool synthesized into the
@@ -326,26 +326,26 @@ resolve_leftover_disks() {
 
   local all=("${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}")
   local folded=()
-  local d
-  for d in "${all[@]}"; do
-    local s
-    s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
+  local disk
+  for disk in "${all[@]}"; do
+    local size
+    size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
     # Ask the Leftover-Disk Adapter (plan.sh) rather than prompting directly, so
     # the planner stays pure and tests can substitute a non-interactive adapter.
-    layout_leftover_choice "$d" "$s"
+    layout_leftover_choice "$disk" "$size"
     if [[ "$LAYOUT_LEFTOVER_CHOICE" == "own" ]]; then
       local def
-      def="$(_next_default_pool_name)"
+      def="$(_zfs_multi_next_default_pool_name)"
       layout_leftover_pool_name "$def" "$rpool_name" dpool \
         "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"
-      local nm="$LAYOUT_LEFTOVER_POOL_NAME"
+      local pool_name="$LAYOUT_LEFTOVER_POOL_NAME"
       # A folded leftover disk becomes its own zfs pool (it shares the OS disk's
       # ZFS-ness; non-zfs leftovers are not synthesised here).
-      _add_data_pool "$nm" stripe "/data/${nm}" 12 zfs false "$d"
-      info "Leftover ${d} → standalone pool '${nm}' (stripe → /data/${nm})"
+      layout_add_data_pool "$pool_name" stripe "/data/${pool_name}" 12 zfs false "$disk"
+      info "Leftover ${disk} → standalone pool '${pool_name}' (stripe → /data/${pool_name})"
     else
-      folded+=("$d")
-      info "Leftover ${d} → Combined Data Pool 'dpool'"
+      folded+=("$disk")
+      info "Leftover ${disk} → Combined Data Pool 'dpool'"
     fi
   done
 
@@ -354,17 +354,17 @@ resolve_leftover_disks() {
   _LAYOUT_IMPL_LEFTOVER_DISKS=("${folded[@]}")
   ((${#folded[@]} > 0)) || return 0
 
-  local lc="${#folded[@]}"
-  local opts=()
-  while IFS= read -r line; do opts+=("$line"); done \
-    < <(suggest_storage_topologies "$lc")
-  echo -e "\n  ${BOLD}Folded leftover disks → dpool (${lc} disk(s)):${NC}"
-  for d in "${folded[@]}"; do
-    local s
-    s="$(lsblk -dno SIZE "$d" 2>/dev/null || echo '?')"
-    printf "    %s  (%s)\n" "$d" "$s"
+  local leftover_count="${#folded[@]}"
+  local choices=()
+  while IFS= read -r line; do choices+=("$line"); done \
+    < <(layout_suggest_storage_topologies "$leftover_count")
+  echo -e "\n  ${BOLD}Folded leftover disks → dpool (${leftover_count} disk(s)):${NC}"
+  for disk in "${folded[@]}"; do
+    local size
+    size="$(lsblk -dno SIZE "$disk" 2>/dev/null || echo '?')"
+    printf "    %s  (%s)\n" "$disk" "$size"
   done
-  pick_option "Choose topology for folded leftover disks in dpool:" "${opts[@]}"
+  pick_option "Choose topology for folded leftover disks in dpool:" "${choices[@]}"
   _LAYOUT_IMPL_TOPOLOGIES["_leftover"]="$PICK_RESULT"
   info "Folded leftover topology: ${PICK_RESULT}"
 }
@@ -373,10 +373,10 @@ resolve_leftover_disks() {
 # PARTITIONING
 # =============================================================================
 
-partition_os_disks_multi() {
+layout_partition_os_disks_multi() {
   section "Partitioning OS Disk(s)"
-  local esp_sz
-  esp_sz="$(layout_resolve_esp_size)"
+  local esp_size
+  esp_size="$(layout_resolve_esp_size)"
   _LAYOUT_IMPL_ESP_PARTS=()
   _LAYOUT_IMPL_ZFS_PARTS=()
 
@@ -393,7 +393,7 @@ partition_os_disks_multi() {
   for disk in "${rpool_disks[@]}"; do
     info "Partitioning OS disk: $disk"
     # Wipe + zap + create the ESP (partition 1) — shared with the single ritual.
-    _zfs_partition_esp_start "$disk" "$esp_sz"
+    layout_zfs_partition_esp_start "$disk" "$esp_size"
     # p2 — ZFS rpool (rest of disk)
     sgdisk -n2:0:0 -t2:bf00 -c2:"ZFS rpool" "$disk"
     partprobe "$disk"
@@ -411,14 +411,14 @@ partition_os_disks_multi() {
   # creates and formats the partitions whose paths the plan already resolved.
 }
 
-partition_storage_disks_multi() {
+layout_partition_storage_disks_multi() {
   section "Partitioning Storage Disk(s)"
 
   # Config-defined storage groups
-  local sg
-  sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  local storage_group
+  storage_group="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local i
-  for ((i = 0; i < sg; i++)); do
+  for ((i = 0; i < storage_group; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
     local parts=()
@@ -456,7 +456,7 @@ partition_storage_disks_multi() {
 # ZFS POOL CREATION
 # =============================================================================
 
-create_multi_rpool() {
+layout_create_multi_rpool() {
   section "Creating OS Pool (rpool)"
   zfs_encryption_options
 
@@ -479,15 +479,15 @@ create_multi_rpool() {
   zfs_create_os_datasets "${pool_name}"
 }
 
-create_multi_dpool() {
+layout_create_multi_data_pool() {
   section "Creating Data Pool (dpool)"
 
-  local sg
-  sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  local storage_group
+  storage_group="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   local has_left=false
   [[ -v "_LAYOUT_IMPL_STORAGE_PARTS[_leftover]" ]] && has_left=true
 
-  if ((sg == 0)) && ! $has_left; then
+  if ((storage_group == 0)) && ! $has_left; then
     info "No storage groups and no leftover disks — skipping dpool."
     return
   fi
@@ -496,31 +496,31 @@ create_multi_dpool() {
   # Collect vdev specs from all groups
   local all_vdevs=()
   local i
-  for ((i = 0; i < sg; i++)); do
+  for ((i = 0; i < storage_group; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
-    local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
+    local topology="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
     local parts
     read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
-    local vs
-    vs="$(zfs_vdev_spec "$topo" "${parts[@]}")"
+    local vdev_spec
+    vdev_spec="$(zfs_vdev_spec "$topology" "${parts[@]}")"
     # SC2206 (intentional): vs is a single string built from zfs_vdev_spec
     # output that we want word-split into separate vdev tokens (e.g.
     # "mirror /dev/sdb1 /dev/sdc1" → 3 array elements).
     # shellcheck disable=SC2206
-    all_vdevs+=($vs)
-    info "  Group '${name}': ${topo}  [${parts[*]}]"
+    all_vdevs+=($vdev_spec)
+    info "  Group '${name}': ${topology}  [${parts[*]}]"
   done
 
   if $has_left; then
-    local topo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
+    local topology="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
     local parts
     read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
-    local vs
-    vs="$(zfs_vdev_spec "$topo" "${parts[@]}")"
+    local vdev_spec
+    vdev_spec="$(zfs_vdev_spec "$topology" "${parts[@]}")"
     # shellcheck disable=SC2206  # see comment in loop above
-    all_vdevs+=($vs)
-    info "  Group '_leftover': ${topo}  [${parts[*]}]"
+    all_vdevs+=($vdev_spec)
+    info "  Group '_leftover': ${topology}  [${parts[*]}]"
   fi
 
   # Use the first storage group's ashift (all storage disks ideally match)
@@ -536,14 +536,14 @@ create_multi_dpool() {
   zfs create -o canmount=off -o mountpoint=none dpool/DATA
 
   # One dataset per config-defined group
-  for ((i = 0; i < sg; i++)); do
+  for ((i = 0; i < storage_group; i++)); do
     local name
     name="$(config_required ".storage_groups[$i].name")"
-    local mnt
-    mnt="$(config_required ".storage_groups[$i].mount")"
-    local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
+    local mountpoint
+    mountpoint="$(config_required ".storage_groups[$i].mount")"
+    local topology="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
 
-    if [[ "$topo" == "independent" ]]; then
+    if [[ "$topology" == "independent" ]]; then
       # Per-disk sub-datasets so each disk can be managed separately
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/${name}"
       local parts
@@ -551,20 +551,20 @@ create_multi_dpool() {
       local j
       for j in "${!parts[@]}"; do
         zfs create \
-          -o mountpoint="${mnt}/disk$((j + 1))" \
+          -o mountpoint="${mountpoint}/disk$((j + 1))" \
           "dpool/DATA/${name}/disk$((j + 1))"
-        info "  dpool/DATA/${name}/disk$((j + 1)) → ${mnt}/disk$((j + 1))"
+        info "  dpool/DATA/${name}/disk$((j + 1)) → ${mountpoint}/disk$((j + 1))"
       done
     else
-      zfs create -o mountpoint="${mnt}" "dpool/DATA/${name}"
-      info "  dpool/DATA/${name} → ${mnt}"
+      zfs create -o mountpoint="${mountpoint}" "dpool/DATA/${name}"
+      info "  dpool/DATA/${name} → ${mountpoint}"
     fi
   done
 
   # Dataset(s) for leftover OS disks
   if $has_left; then
-    local topo="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
-    if [[ "$topo" == "independent" ]]; then
+    local topology="${_LAYOUT_IMPL_TOPOLOGIES[_leftover]:-independent}"
+    if [[ "$topology" == "independent" ]]; then
       zfs create -o canmount=off -o mountpoint=none "dpool/DATA/extra"
       local parts
       read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
@@ -588,7 +588,7 @@ create_multi_dpool() {
 # ESP MOUNTING
 # =============================================================================
 
-mount_multi_esps() {
+layout_mount_multi_esps() {
   section "Mounting ESP(s)"
 
   # Primary ESP (first OS disk) → /boot/efi
@@ -609,17 +609,17 @@ mount_multi_esps() {
 # VALIDATION HELPERS (issue 03/04)
 # =============================================================================
 
-# _layout_disk_exists is the shared disk-existence seam from lib/layout/core.sh
+# layout_disk_exists is the shared disk-existence seam from lib/layout/core.sh
 # (sourced via zfs/common.sh); multi's existence checks call it directly.
 
-_layout_declared_users() {
+_zfs_multi_declared_users() {
   # Seam: declared usernames (space-separated, Primary User first) used to
   # validate `owners` lists. Reads the resolved host config; overridable in
   # unit tests so the owners checks don't need a real host config on disk.
   _pool_owners_declared_users
 }
 
-_layout_validate_owners() {
+_zfs_multi_validate_owners() {
   # Aborts the install when <owners> is invalid (pool-owners, ADR 0031): a
   # bare name must be a declared user; an @group must have ≥1 declared member.
   # No-op when owners is omitted — that case defaults to the Primary User, or
@@ -627,18 +627,18 @@ _layout_validate_owners() {
   local label="$1" owners="$2"
   [[ -n "${owners// }" ]] || return 0
   local reason
-  reason="$(zfs_pool_owners_validate "$owners" "$(_layout_declared_users)" \
-    "$(_layout_group_map)")" \
+  reason="$(zfs_pool_owners_validate "$owners" "$(_zfs_multi_declared_users)" \
+    "$(_zfs_multi_group_map)")" \
     || error "${label} ${reason}"
 }
 
-_layout_group_map() {
+_zfs_multi_group_map() {
   # Seam: "group:member1,member2" pairs for @group owners validation. Built
   # from User Configs; overridable in unit tests.
   _pool_owners_group_map
 }
 
-_mount_is_reserved() {
+_zfs_multi_mount_is_reserved() {
   # Returns 0 when the mountpoint shadows an OS/reserved dataset, so a data
   # pool can't break boot. Subtree semantics (not bare prefix): /var and
   # /boot match their whole subtree; /data, /variable etc. are free.
@@ -654,50 +654,50 @@ _mount_is_reserved() {
 # =============================================================================
 
 layout_validate() {
-  _layout_enter_phase validate
+  layout_enter_phase validate
   layout_validate_esp_size
-  local topo
-  topo="$(config_optional '.os_pool.topology')"
-  if [[ -n "$topo" ]]; then
-    case "$topo" in
+  local topology
+  topology="$(config_optional '.os_pool.topology')"
+  if [[ -n "$topology" ]]; then
+    case "$topology" in
     mirror | stripe | none) ;;
-    *) error "os_pool.topology must be mirror|stripe|none, got: '${topo}'" ;;
+    *) error "os_pool.topology must be mirror|stripe|none, got: '${topology}'" ;;
     esac
   fi
 
-  local cnt
-  cnt="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
-  ((cnt >= 1)) || error "os_pool.disks must list at least 1 disk."
+  local disk_count
+  disk_count="$(jsonc_strip "$CONFIG_FILE" | jq '.os_pool.disks | length')"
+  ((disk_count >= 1)) || error "os_pool.disks must list at least 1 disk."
 
-  local d
-  while IFS= read -r d; do
-    _layout_disk_exists "$d" || error "OS disk not found: $d"
+  local disk
+  while IFS= read -r disk; do
+    layout_disk_exists "$disk" || error "OS disk not found: $disk"
   done < <(jsonc_strip "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
 
-  local sg gname gdc i
-  sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
-  for ((i = 0; i < sg; i++)); do
-    gname="$(config_required ".storage_groups[$i].name")"
+  local storage_group group_name gdc i
+  storage_group="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
+  for ((i = 0; i < storage_group; i++)); do
+    group_name="$(config_required ".storage_groups[$i].name")"
     gdc="$(jsonc_strip "$CONFIG_FILE" \
       | jq ".storage_groups[$i].disks | length")"
-    ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
-    while IFS= read -r d; do
-      _layout_disk_exists "$d" || error "Group '${gname}' disk not found: $d"
+    ((gdc >= 1)) || error "Storage group '${group_name}' has no disks."
+    while IFS= read -r disk; do
+      layout_disk_exists "$disk" || error "Group '${group_name}' disk not found: $disk"
     done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".storage_groups[$i].disks[]")
-    _layout_validate_owners "Storage group '${gname}'" \
+    _zfs_multi_validate_owners "Storage group '${group_name}'" \
       "$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
   done
 
   # Standalone Data Pools (ADR 0027): topology must match the disk count and
   # cannot be none/independent. Pure check — no disk is touched here.
-  local dp dname dtopo ddc reason
-  dp="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
-  for ((i = 0; i < dp; i++)); do
-    dname="$(config_required ".data_pools[$i].name")"
-    if ! reason="$(zfs_valid_pool_name "$dname")"; then
+  local data_pool data_name data_topology ddc reason
+  data_pool="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
+  for ((i = 0; i < data_pool; i++)); do
+    data_name="$(config_required ".data_pools[$i].name")"
+    if ! reason="$(zfs_valid_pool_name "$data_name")"; then
       error "Data pool: ${reason}"
     fi
-    dtopo="$(jsonc_strip "$CONFIG_FILE" \
+    data_topology="$(jsonc_strip "$CONFIG_FILE" \
       | jq -r ".data_pools[$i].topology // \"stripe\"")"
     ddc="$(jsonc_strip "$CONFIG_FILE" \
       | jq "(.data_pools[$i].disks // []) | length")"
@@ -706,16 +706,16 @@ layout_validate() {
     # validation.sh, so the dispatch passes it through here (ADR 0043).
     local dfs
     dfs="$(install_config_data_pool_filesystem "$i")"
-    if ! reason="$(zfs_data_pool_topology_ok "$dfs" "$dtopo" "$ddc")"; then
-      error "Data pool '${dname}': ${reason}"
+    if ! reason="$(zfs_data_pool_topology_ok "$dfs" "$data_topology" "$ddc")"; then
+      error "Data pool '${data_name}': ${reason}"
     fi
-    _layout_validate_owners "Data pool '${dname}'" \
+    _zfs_multi_validate_owners "Data pool '${data_name}'" \
       "$(install_config_data_pool_owners "$i" | tr '\n' ' ')"
   done
 
   # Cross-cutting data-pool guards (only when data_pools are declared, so
   # existing multi configs without them are untouched).
-  if ((dp > 0)); then
+  if ((data_pool > 0)); then
     # Pool-name uniqueness across rpool + the Combined Data Pool (dpool) +
     # every Standalone Data Pool.
     local rpool_name dup
@@ -727,28 +727,28 @@ layout_validate() {
       "unique across rpool, dpool, and all data_pools."
 
     # Disk reuse across OS pool, storage groups, and data pools.
-    local ddisk
-    ddisk="$(jsonc_strip "$CONFIG_FILE" | jq -r '
+    local data_disk
+    data_disk="$(jsonc_strip "$CONFIG_FILE" | jq -r '
       [ (.os_pool.disks // [])[],
         (.storage_groups[]?.disks // [])[],
         (.data_pools[]?.disks // [])[] ] | .[]' \
       | sort | uniq -d | head -1)"
-    [[ -z "$ddisk" ]] || error "Disk '${ddisk}' is used in more than one" \
+    [[ -z "$data_disk" ]] || error "Disk '${data_disk}' is used in more than one" \
       "place (OS pool / storage group / data pool)."
 
     # Mount rules over all declared storage mounts (storage groups + data
     # pools, the latter defaulting to /data/<name>). None may shadow a
     # reserved OS path; no two may claim the same exact mountpoint. Nested
     # mounts (/data + /data/tank0) are fine — only exact dups are rejected.
-    local mounts=() m mdup
-    while IFS= read -r m; do
-      [[ -n "$m" ]] && mounts+=("$m")
+    local mounts=() mountpoint mdup
+    while IFS= read -r mountpoint; do
+      [[ -n "$mountpoint" ]] && mounts+=("$mountpoint")
     done < <(jsonc_strip "$CONFIG_FILE" | jq -r '
       [ (.storage_groups[]? | .mount // empty),
         (.data_pools[]? | .mount // ("/data/" + .name)) ] | .[]')
-    for m in "${mounts[@]}"; do
-      ! _mount_is_reserved "$m" \
-        || error "Mountpoint '${m}' is reserved for the OS — choose another."
+    for mountpoint in "${mounts[@]}"; do
+      ! _zfs_multi_mount_is_reserved "$mountpoint" \
+        || error "Mountpoint '${mountpoint}' is reserved for the OS — choose another."
     done
     mdup="$(printf '%s\n' "${mounts[@]}" | sort | uniq -d | head -1)"
     [[ -z "$mdup" ]] || error "Mountpoint '${mdup}' is claimed by more than" \
@@ -756,26 +756,26 @@ layout_validate() {
 
     # Every data-pool disk must exist before any destructive op (typo fails
     # safely). Last, so the name/topology/mount errors above surface first.
-    for ((i = 0; i < dp; i++)); do
-      dname="$(config_required ".data_pools[$i].name")"
-      while IFS= read -r d; do
-        _layout_disk_exists "$d" \
-          || error "Data pool '${dname}' disk not found: $d"
+    for ((i = 0; i < data_pool; i++)); do
+      data_name="$(config_required ".data_pools[$i].name")"
+      while IFS= read -r disk; do
+        layout_disk_exists "$disk" \
+          || error "Data pool '${data_name}' disk not found: $disk"
       done < <(jsonc_strip "$CONFIG_FILE" | jq -r ".data_pools[$i].disks[]?")
     done
   fi
-  _layout_exit_phase validate
+  layout_exit_phase validate
 }
 
 # Mode hooks for the unified layout_plan (plan.sh). Phase bracketing, ESP
 # resolution and the plan contract are handled there.
 _layout_plan_mode() {
-  resolve_os_topology
+  layout_resolve_os_topology
   # Declarative data_pools[] first, so interactive leftover naming can reject
   # collisions against them (uniqueness + default dataN numbering).
-  resolve_data_pools
-  resolve_storage_topologies
-  resolve_leftover_disks
+  layout_resolve_data_pools
+  layout_resolve_storage_topologies
+  layout_resolve_leftover_disks
   # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(config_required '.os_pool.pool_name')"
@@ -783,20 +783,20 @@ _layout_plan_mode() {
   # folded leftovers exist) plus every Standalone Data Pool.
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=()
-  local _sg_count
-  _sg_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
-  if ((_sg_count > 0)) || ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
+  local _storage_group_count
+  _storage_group_count="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
+  if ((_storage_group_count > 0)) || ((${#_LAYOUT_IMPL_LEFTOVER_DISKS[@]} > 0)); then
     LAYOUT_DATA_POOL_NAMES+=("dpool")
   fi
-  local _dp
-  for _dp in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
-    LAYOUT_DATA_POOL_NAMES+=("$_dp")
+  local _data_pool
+  for _data_pool in "${_LAYOUT_IMPL_DATA_POOL_NAMES[@]}"; do
+    LAYOUT_DATA_POOL_NAMES+=("$_data_pool")
   done
 }
 
 # Ordered OS disks that receive an ESP — primary first. topology=none installs
 # onto the one chosen disk; otherwise every os_pool disk is mirrored/striped and
-# each gets an ESP. resolve_os_topology (run by _layout_plan_mode) has set the
+# each gets an ESP. layout_resolve_os_topology (run by _layout_plan_mode) has set the
 # topology + chosen disk by the time plan.sh asks.
 _layout_os_disks() {
   if [[ "$_LAYOUT_IMPL_OS_TOPOLOGY" == "none" ]]; then
@@ -806,22 +806,22 @@ _layout_os_disks() {
   fi
 }
 layout_partition() {
-  _layout_enter_phase partition
-  partition_os_disks_multi
-  partition_storage_disks_multi
-  partition_data_pools
-  _layout_verify_partition_contract
-  _layout_exit_phase partition
+  layout_enter_phase partition
+  layout_partition_os_disks_multi
+  layout_partition_storage_disks_multi
+  layout_partition_data_pools
+  layout_verify_partition_contract
+  layout_exit_phase partition
 }
 layout_create_pools() {
-  _layout_enter_phase pools
-  create_multi_rpool
-  create_multi_dpool
-  create_data_pools
-  _layout_exit_phase pools
+  layout_enter_phase pools
+  layout_create_multi_rpool
+  layout_create_multi_data_pool
+  layout_create_data_pools
+  layout_exit_phase pools
 }
 layout_mount_esp() {
-  _layout_enter_phase esp
-  mount_multi_esps
-  _layout_exit_phase esp
+  layout_enter_phase esp
+  layout_mount_multi_esps
+  layout_exit_phase esp
 }

@@ -203,7 +203,7 @@ _pool_owners_acl_to_numeric() {
 # The runtime mountpoints to own for a pool/group. A non-independent pool is
 # one mountpoint; an `independent` storage group splits into per-disk child
 # datasets (<mount>/disk1 … <mount>/diskN) — the parent is canmount=off, so the
-# children are the writable datasets (mirrors create_multi_dpool's layout).
+# children are the writable datasets (mirrors layout_create_multi_data_pool's layout).
 _pool_owners_group_mounts() {
   local mount="$1" topology="$2" disk_count="$3"
   if [[ "$topology" == "independent" ]]; then
@@ -400,7 +400,7 @@ _pool_owners_apply_storage_groups() {
 }
 
 # Folded leftover OS disks → dpool/DATA/extra (interactive, no config entry)
-# — default to the Primary User. Topology mirrors create_multi_dpool's
+# — default to the Primary User. Topology mirrors layout_create_multi_data_pool's
 # leftover default (independent).
 _pool_owners_apply_leftover() {
   local users="$1" groupmap="$2"

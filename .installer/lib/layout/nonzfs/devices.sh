@@ -19,34 +19,34 @@
 # plan.sh's use of error()); no disk access.
 #
 # Public API:
-#   nonzfs_root_devices <disk> <plan> <plain|encrypted>
-#     <plan> is the key=value text from nonzfs_partition_plan.
+#   layout_nonzfs_root_devices <disk> <plan> <plain|encrypted>
+#     <plan> is the key=value text from layout_nonzfs_partition_plan.
 #     → emits a `key=value` plan on stdout: esp_part, swap_part (empty when no
 #       swap), root_part, root_dev, swap_dev (empty when no swap), and
 #       luks_containers (space-separated `<part>:<mapper>`, empty when plain).
 # =============================================================================
 
-# The shared `key=value` plan-field reader (nonzfs_plan_field) lives in the
+# The shared `key=value` plan-field reader (layout_nonzfs_plan_field) lives in the
 # layout core; guard-source it so this resolver stands alone in its unit test.
-declare -F nonzfs_plan_field >/dev/null 2>&1 \
+declare -F layout_nonzfs_plan_field >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
-nonzfs_root_devices() {
-  local disk="$1" plan="$2" enc="$3"
+layout_nonzfs_root_devices() {
+  local disk="$1" plan="$2" encryption="$3"
 
-  local esp_num swap_num root_num
-  esp_num="$(nonzfs_plan_field esp_part_num   <<<"$plan")"
-  swap_num="$(nonzfs_plan_field swap_part_num <<<"$plan")"
-  root_num="$(nonzfs_plan_field root_part_num <<<"$plan")"
+  local esp_number swap_number root_number
+  esp_number="$(layout_nonzfs_plan_field esp_part_num   <<<"$plan")"
+  swap_number="$(layout_nonzfs_plan_field swap_part_num <<<"$plan")"
+  root_number="$(layout_nonzfs_plan_field root_part_num <<<"$plan")"
 
   local esp_part swap_part root_part
-  esp_part="$(part_name "$disk" "$esp_num")"
-  root_part="$(part_name "$disk" "$root_num")"
+  esp_part="$(part_name "$disk" "$esp_number")"
+  root_part="$(part_name "$disk" "$root_number")"
   swap_part=""
-  [[ -n "$swap_num" ]] && swap_part="$(part_name "$disk" "$swap_num")"
+  [[ -n "$swap_number" ]] && swap_part="$(part_name "$disk" "$swap_number")"
 
   local root_dev="$root_part" swap_dev="$swap_part" luks_containers=""
-  if [[ "$enc" == "encrypted" ]]; then
+  if [[ "$encryption" == "encrypted" ]]; then
     root_dev="/dev/mapper/cryptroot"
     luks_containers="${root_part}:cryptroot"
     if [[ -n "$swap_part" ]]; then

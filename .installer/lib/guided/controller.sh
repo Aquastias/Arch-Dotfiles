@@ -2173,7 +2173,7 @@ guided_ctl_list() {
     # cfdisk hand-off, then one row per partition (device → mountpoint · fs).
     local _pj _probs
     _pj="$(cfgstate_get "$state" disk_config.partitions)"; _pj="${_pj:-[]}"
-    if _probs="$(manual_partition_problems "$_pj")"; then
+    if _probs="$(layout_manual_partition_problems "$_pj")"; then
       printf '✓ layout is valid — ready to Proceed\n'
     else
       printf '⚠ not installable: %s\n' \
@@ -2821,7 +2821,7 @@ _ctl_proceed_directive() {
   # with a header notice. The back-end validator is the ultimate hard stop.
   if manual_kind_active "$state"; then
     local _p; _p="$(cfgstate_get "$state" disk_config.partitions)"
-    manual_partition_problems "${_p:-[]}" >/dev/null || {
+    layout_manual_partition_problems "${_p:-[]}" >/dev/null || {
       echo "notice Manual layout not installable — fix it on Partitions ▸"
       return
     }

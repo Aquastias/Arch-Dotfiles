@@ -5,8 +5,8 @@
 # A native multi-disk btrfs raid root (single/raid0/raid1/raid10 over the disks
 # in os_pool.disks). Reuses the shared non-ZFS root spine (lib/layout/nonzfs/
 # root.sh) for its pure helpers — the per-disk partition planner
-# (nonzfs_partition_plan), the swap tail (_nzroot_swap_tail), the plan-field
-# reader (nonzfs_plan_field) — and the btrfs subvolume layout + boot emitters
+# (layout_nonzfs_partition_plan), the swap tail (layout_nonzfs_swap_tail), the plan-field
+# reader (layout_nonzfs_plan_field) — and the btrfs subvolume layout + boot emitters
 # (btrfs/subvol.sh, btrfs/boot.sh), but OVERRIDES the whole layout seam because a
 # raid root spans many disks: each disk gets `ESP + root` (the primary also gets
 # a dedicated swap partition), then mkfs.btrfs assembles the raid over every root
@@ -33,7 +33,7 @@ source "${BASH_SOURCE[0]%/*}/subvol.sh"
 # INTERNAL STATE (do not reference outside this module):
 _LAYOUT_BTRFS_DISKS=()        # OS disks (os_pool.disks), primary first
 _LAYOUT_BTRFS_TOPOLOGY=""     # single|raid0|raid1|raid10
-_LAYOUT_BTRFS_PLANS=()        # per-disk nonzfs_partition_plan output (parallel)
+_LAYOUT_BTRFS_PLANS=()        # per-disk layout_nonzfs_partition_plan output (parallel)
 _LAYOUT_BTRFS_ROOT_PARTS=()   # the btrfs raid member partition per disk
 _LAYOUT_BTRFS_ESP_PARTS=()    # the ESP partition per disk
 
@@ -42,7 +42,7 @@ _LAYOUT_BTRFS_ESP_PARTS=()    # the ESP partition per disk
 # =============================================================================
 
 layout_validate() {
-  _layout_enter_phase validate
+  layout_enter_phase validate
   layout_validate_esp_size
   [[ "$(install_config_encryption_enabled)" == "true" ]] && error \
     "Encrypted multi-disk btrfs root is unsupported: the classic mkinitcpio" \
@@ -51,23 +51,23 @@ layout_validate() {
   mapfile -t _LAYOUT_BTRFS_DISKS \
     < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
   ((${#_LAYOUT_BTRFS_DISKS[@]} >= 1)) || error "btrfs multi: no os_pool.disks."
-  local d
-  for d in "${_LAYOUT_BTRFS_DISKS[@]}"; do
-    _layout_disk_exists "$d" || error "btrfs multi: disk not found: $d"
+  local disk
+  for disk in "${_LAYOUT_BTRFS_DISKS[@]}"; do
+    layout_disk_exists "$disk" || error "btrfs multi: disk not found: $disk"
   done
   _LAYOUT_BTRFS_TOPOLOGY="$(config_optional '.os_pool.topology')"
   [[ -z "$_LAYOUT_BTRFS_TOPOLOGY" ]] && _LAYOUT_BTRFS_TOPOLOGY=single
-  local n="${#_LAYOUT_BTRFS_DISKS[@]}"
+  local disk_count="${#_LAYOUT_BTRFS_DISKS[@]}"
   case "$_LAYOUT_BTRFS_TOPOLOGY" in
   single) ;;
-  raid0 | raid1) ((n >= 2)) || error \
-    "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} root needs ≥2 disks (got ${n})." ;;
-  raid10) ((n >= 4 && n % 2 == 0)) || error \
-    "btrfs raid10 root needs an even count of ≥4 disks (got ${n})." ;;
+  raid0 | raid1) ((disk_count >= 2)) || error \
+    "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} root needs ≥2 disks (got ${disk_count})." ;;
+  raid10) ((disk_count >= 4 && disk_count % 2 == 0)) || error \
+    "btrfs raid10 root needs an even count of ≥4 disks (got ${disk_count})." ;;
   *) error "btrfs root topology '${_LAYOUT_BTRFS_TOPOLOGY}' invalid" \
     "(single/raid0/raid1/raid10)." ;;
   esac
-  _layout_exit_phase validate
+  layout_exit_phase validate
 }
 
 # Plan: a per-disk `ESP + [swap] + root` split (the primary alone carries swap),
@@ -76,20 +76,20 @@ layout_validate() {
 _layout_plan_mode() {
   section "Calculating btrfs Multi-Disk Layout (${_LAYOUT_BTRFS_TOPOLOGY})"
   local esp_mib
-  esp_mib="$(parse_size_to_mib "$(layout_resolve_esp_size)")"
+  esp_mib="$(layout_parse_size_to_mib "$(layout_resolve_esp_size)")"
   _LAYOUT_BTRFS_PLANS=()
   _LAYOUT_BTRFS_ROOT_PARTS=()
   _LAYOUT_BTRFS_ESP_PARTS=()
-  local i disk total_mib swap_mib plan root_num
+  local i disk total_mib swap_mib plan root_number
   for i in "${!_LAYOUT_BTRFS_DISKS[@]}"; do
     disk="${_LAYOUT_BTRFS_DISKS[$i]}"
     total_mib=$(( $(blockdev --getsize64 "$disk") / 1024 / 1024 ))
     swap_mib=0
-    ((i == 0)) && swap_mib="$(_nzroot_swap_mib "$total_mib")"
-    plan="$(nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
+    ((i == 0)) && swap_mib="$(layout_nonzfs_swap_mib "$total_mib")"
+    plan="$(layout_nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
     _LAYOUT_BTRFS_PLANS+=("$plan")
-    root_num="$(printf '%s\n' "$plan" | nonzfs_plan_field root_part_num)"
-    _LAYOUT_BTRFS_ROOT_PARTS+=("$(part_name "$disk" "$root_num")")
+    root_number="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field root_part_num)"
+    _LAYOUT_BTRFS_ROOT_PARTS+=("$(part_name "$disk" "$root_number")")
     _LAYOUT_BTRFS_ESP_PARTS+=("$(part_name "$disk" 1)")
   done
   info "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} over ${#_LAYOUT_BTRFS_DISKS[@]} disks:" \
@@ -107,14 +107,14 @@ _layout_os_disks() { printf '%s\n' "${_LAYOUT_BTRFS_DISKS[@]}"; }
 # the initramfs before the root mounts (plaintext — no encrypt hook). Under
 # impermanence (ADR 0044) the btrfs-rollback hook joins it before `filesystems`.
 _layout_publish_boot() {
-  local imp=""
-  [[ "$(install_config_impermanence_enabled)" == "true" ]] && imp=impermanence
+  local impermanence=""
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] && impermanence=impermanence
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_HOOKS="$(btrfs_hooks "" multi "$imp")"
+  LAYOUT_HOOKS="$(layout_btrfs_hooks "" multi "$impermanence")"
 }
 
 layout_partition() {
-  _layout_enter_phase partition
+  layout_enter_phase partition
   section "Partitioning ${#_LAYOUT_BTRFS_DISKS[@]} Disks" \
           "(btrfs ${_LAYOUT_BTRFS_TOPOLOGY})"
   warn "ALL DATA ON ${_LAYOUT_BTRFS_DISKS[*]} WILL BE DESTROYED."
@@ -125,32 +125,32 @@ layout_partition() {
   local i disk
   for i in "${!_LAYOUT_BTRFS_DISKS[@]}"; do
     disk="${_LAYOUT_BTRFS_DISKS[$i]}"
-    _nonzfs_partition_one_disk "$disk" "${_LAYOUT_BTRFS_PLANS[$i]}"
+    layout_nonzfs_partition_one_disk "$disk" "${_LAYOUT_BTRFS_PLANS[$i]}"
   done
   sleep 2
 
-  local idx
-  for idx in "${!_LAYOUT_BTRFS_ESP_PARTS[@]}"; do
-    mkfs.fat -F32 -n "EFI$((idx + 1))" "${_LAYOUT_BTRFS_ESP_PARTS[$idx]}"
+  local index
+  for index in "${!_LAYOUT_BTRFS_ESP_PARTS[@]}"; do
+    mkfs.fat -F32 -n "EFI$((index + 1))" "${_LAYOUT_BTRFS_ESP_PARTS[$index]}"
   done
 
   # Swap (primary disk only) → reuse the spine's swap tail via its state vars.
-  local pswap_num
-  pswap_num="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" | nonzfs_plan_field swap_part_num)"
-  if [[ -n "$pswap_num" ]]; then
-    _LAYOUT_IMPL_SWAP_PART="$(part_name "${_LAYOUT_BTRFS_DISKS[0]}" "$pswap_num")"
+  local primary_swap_number
+  primary_swap_number="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" | layout_nonzfs_plan_field swap_part_num)"
+  if [[ -n "$primary_swap_number" ]]; then
+    _LAYOUT_IMPL_SWAP_PART="$(part_name "${_LAYOUT_BTRFS_DISKS[0]}" "$primary_swap_number")"
     _LAYOUT_IMPL_SWAP_DEV="$_LAYOUT_IMPL_SWAP_PART"
   else
     _LAYOUT_IMPL_SWAP_PART=""; _LAYOUT_IMPL_SWAP_DEV=""
   fi
   info "Partitioned ${#_LAYOUT_BTRFS_DISKS[@]} disks;" \
        "raid members: ${_LAYOUT_BTRFS_ROOT_PARTS[*]}"
-  _layout_verify_partition_contract
-  _layout_exit_phase partition
+  layout_verify_partition_contract
+  layout_exit_phase partition
 }
 
 layout_create_pools() {
-  _layout_enter_phase pools
+  layout_enter_phase pools
   section "Formatting btrfs ${_LAYOUT_BTRFS_TOPOLOGY} Root + Subvolumes"
   modprobe btrfs 2>/dev/null || true
   # mkfs.btrfs across every member with the chosen profile for data + metadata;
@@ -166,26 +166,26 @@ layout_create_pools() {
   btrfs device scan || true
 
   local root_dev="${_LAYOUT_BTRFS_ROOT_PARTS[0]}"
-  _btrfs_create_and_mount_subvols "$root_dev"
+  layout_btrfs_create_and_mount_subvolumes "$root_dev"
 
-  local uuid src
+  local uuid source_device
   uuid="$(blkid -s UUID -o value "$root_dev")" # the btrfs fs UUID (all members)
-  src="UUID=${uuid}"
+  source_device="UUID=${uuid}"
   # shellcheck disable=SC2034 # consumed by install_state_write
-  LAYOUT_ROOT_CMDLINE="$(btrfs_root_cmdline "$uuid" @)"
-  _nzroot_swap_tail plain
+  LAYOUT_ROOT_CMDLINE="$(layout_btrfs_root_cmdline "$uuid" @)"
+  layout_nonzfs_swap_tail plain
   # shellcheck disable=SC2034 # consumed by write_fstab
-  LAYOUT_FSTAB_EXTRA="$(btrfs_root_fstab "$src")${_NZROOT_SWAP_FSTAB}"
+  LAYOUT_FSTAB_EXTRA="$(layout_btrfs_root_fstab "$source_device")${_NZROOT_SWAP_FSTAB}"
   info "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} root + subvolumes mounted at $MOUNT_ROOT"
-  _layout_exit_phase pools
+  layout_exit_phase pools
 }
 
 # Mount the primary disk's ESP (secondary ESPs are formatted spares this pass).
 layout_mount_esp() {
-  _layout_enter_phase esp
+  layout_enter_phase esp
   section "Mounting ESP"
   mkdir -p "${MOUNT_ROOT}/boot/efi"
   mount "${_LAYOUT_BTRFS_ESP_PARTS[0]}" "${MOUNT_ROOT}/boot/efi"
   info "Primary ESP: ${_LAYOUT_BTRFS_ESP_PARTS[0]} → /boot/efi"
-  _layout_exit_phase esp
+  layout_exit_phase esp
 }

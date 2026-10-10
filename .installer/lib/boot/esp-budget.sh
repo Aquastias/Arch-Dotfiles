@@ -61,7 +61,7 @@ esp_budget_fits_mib() {
 }
 
 # esp_budget_size_mib <size> — parse an esp_size string ("2G"/"512M"/bare) to
-# MiB. Deliberately mirrors layout core's parse_size_to_mib so this budget lib
+# MiB. Deliberately mirrors layout core's layout_parse_size_to_mib so this budget lib
 # stays standalone (layout/core.sh sources THIS; a back-dependency would loop).
 esp_budget_size_mib() {
   local size="${1^^}" number unit

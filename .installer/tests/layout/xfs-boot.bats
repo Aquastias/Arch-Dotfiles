@@ -3,7 +3,7 @@
 # shared non-ZFS root spine (lib/layout/nonzfs/root.sh). xfs is the same single-
 # disk shape as ext4; the only filesystem-specific bits are the mkfs command
 # (mkfs.xfs) and the fstab fs-type column, both supplied by this leaf as
-# `_root_mkfs` / `_root_fstype`. The boot record it publishes (ROOT_CMDLINE +
+# `root_adapter_mkfs` / `root_adapter_fstype`. The boot record it publishes (ROOT_CMDLINE +
 # HOOKS) comes from the shared, fs-blind emitters, so an xfs root boots by root
 # UUID (plaintext) or via the LUKS mapper (encrypted), exactly like ext4. Pure:
 # sourcing the leaf only defines functions; no disk access.
@@ -15,8 +15,8 @@ setup() {
 
 # ── the leaf's filesystem-specific contract ──────────────────────────────────
 
-@test "xfs leaf: _root_fstype is xfs (the fstab fs-type column)" {
-  run _root_fstype
+@test "xfs leaf: root_adapter_fstype is xfs (the fstab fs-type column)" {
+  run root_adapter_fstype
   [ "$status" -eq 0 ]
   [ "$output" = "xfs" ]
 }
@@ -24,13 +24,13 @@ setup() {
 # ── ROOT_CMDLINE the xfs root publishes (shared emitter) ─────────────────────
 
 @test "xfs root cmdline: plaintext boots by root UUID" {
-  run nonzfs_root_cmdline "1234-ABCD"
+  run layout_nonzfs_root_cmdline "1234-ABCD"
   [ "$status" -eq 0 ]
   [ "$output" = "root=UUID=1234-ABCD" ]
 }
 
 @test "xfs root cmdline: encrypted boots via the LUKS mapper" {
-  run nonzfs_root_cmdline "1234-ABCD" encrypted
+  run layout_nonzfs_root_cmdline "1234-ABCD" encrypted
   [ "$status" -eq 0 ]
   [ "$output" = "cryptdevice=UUID=1234-ABCD:cryptroot root=/dev/mapper/cryptroot" ]
 }
@@ -38,7 +38,7 @@ setup() {
 # ── HOOKS the xfs root publishes (shared emitter) ────────────────────────────
 
 @test "xfs root hooks: plaintext has block + filesystems, no zfs/encrypt" {
-  run nonzfs_hooks
+  run layout_nonzfs_hooks
   [ "$status" -eq 0 ]
   [[ "$output" =~ "block" ]]
   [[ "$output" =~ "filesystems" ]]
@@ -47,7 +47,7 @@ setup() {
 }
 
 @test "xfs root hooks: encrypted inserts encrypt between block and filesystems" {
-  run nonzfs_hooks encrypted
+  run layout_nonzfs_hooks encrypted
   [ "$status" -eq 0 ]
   [[ "$output" =~ ^(.*)block(.*)encrypt(.*)filesystems(.*)$ ]]
 }
