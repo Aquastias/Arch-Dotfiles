@@ -76,6 +76,7 @@ _changed_root_map() {
     .installer/tests/no-python.sh) echo "no-python.bats" ;;
     .installer/tests/readability.sh \
     | .installer/tests/readability-scan.awk \
+    | .installer/tests/readability-adr-links.awk \
     | .installer/tests/readability-baseline.txt) echo "readability.bats" ;;
     .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
     .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;

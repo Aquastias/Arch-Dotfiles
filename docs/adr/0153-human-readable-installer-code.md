@@ -41,8 +41,10 @@ every future change — human or agent — must follow
   `basename`/`dirname` in a Commons path helper. Merge repeated `jq` calls
   when the merged filter stays short. Never trade readability for one fewer
   binary.
-- **Linked ADRs.** Every `ADR NNNN` in tracked `.md` (except `docs/adr/`,
-  `.scratch/`, vendored `.agents/skills/`) is a relative link. Code comments
+- **Linked ADRs.** Every `ADR NNNN` in tracked `.md` (except
+  `.scratch/` and vendored `.agents/skills/`; ADR-to-ADR mentions included) is
+  a link — Markdown shortcut reference `[ADR NNNN]` plus a generated
+  definition block, so lines keep their width. Code comments
   keep plain `(ADR NNNN)`.
 - **Readability Lint** (`tests/readability.sh` + bats) enforces the above
   as a ratchet: a **Readability Baseline** lists today's violations; new

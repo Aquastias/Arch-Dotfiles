@@ -64,7 +64,12 @@ function link_mentions(text, line,   out, label, before, after, number) {
     } else {
       used[label] = 1
       if (mode == "check") report(line, label, label " is not a link")
-      out = out "[" label "]"
+      # `[ADR 0058]:` at a line start would read as a link definition; the
+      # collapsed form `[ADR 0058][]` renders the same and cannot.
+      if (out ~ /^[ \t]*$/ && substr(text, 1, 1) == ":")
+        out = out "[" label "][]"
+      else
+        out = out "[" label "]"
     }
     # A chained number — `ADR 0040/0043` — links each number after the slash.
     while (match(text, /^\/\[?[0-9][0-9][0-9][0-9]\]?/)) {
@@ -153,7 +158,7 @@ function finish_file(   n, label, prefix, sorted, total) {
 # starts_block(text) — text at a line start would become a list item,
 # heading, or blockquote, so a wrap must not leave it there.
 function starts_block(text) {
-  return text ~ /^([-*+>]|#+|[0-9]+[.)])([ \t]|$)/
+  return text ~ /^([-*+>]|#+|[0-9]+[.)])([ \t]|$)/ || text ~ /^\[[^]]*\]:/
 }
 
 # leading_text(line) — the indent a wrapped continuation of line keeps:
@@ -171,7 +176,8 @@ function leading_text(line,   prefix) {
 # continues_paragraph(line) — line is prose that wrapped text may join.
 function continues_paragraph(line) {
   return line !~ /^[ \t]*$/ && line !~ /^[ \t]*([-*+]|[0-9]+\.)[ \t]/ \
-    && line !~ /^[ \t]*(#|\||```|~~~|<!--|\[)/
+    && line !~ /^[ \t]*(#|\||```|~~~|<!--)/ \
+    && line !~ /^\[[^]]*\]:/
 }
 
 # rewrap_changed_lines() — linking adds two characters per mention; a

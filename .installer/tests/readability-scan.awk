@@ -66,7 +66,7 @@ function reset_file_state() {
   nested = 0          # "$(…)" depth inside double quotes
 }
 
-function finish_file(   top) {
+function finish_file() {
   if (current_file == "") return
   if (last_line > MAX_FILE_LINES)
     printf "%s\t%s\t%d\t%s\t%s\n", "file-length", current_file, 1, "-", \
@@ -209,7 +209,8 @@ function check_locals(code, line, exempt,   rest, count, n, names, name,
 }
 
 # A function opening: `name() {`, `function name {`, or a bats `@test`.
-function open_function(code, raw, line,   name, indent, rest, problems) {
+function open_function(code, raw, line,   name, indent, rest, problems,
+                       exempt) {
   if (match(code, /^[ \t]*@test[ \t]/)) {
     name = raw
     sub(/^[ \t]*@test[ \t]+["']/, "", name)

@@ -22,8 +22,7 @@ the live palette on the compositors while sitting on the seeded Sapphire under
 KDE. So **any TUI rendered through those 16 ANSI slots is automatically
 cohesive on both session classes**, for free — no new Noctalia template, no new
 [ADR-0109] seed point. This is exactly the `BAT_THEME=ansi` trick already noted
-in
-[ADR 0129]: the terminal is the single seam.
+in [ADR 0129][]: the terminal is the single seam.
 
 ## Decision
 

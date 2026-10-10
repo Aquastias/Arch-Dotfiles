@@ -346,3 +346,13 @@ make_adr_repo() {
   check_repo
   [ "$status" -eq 0 ]
 }
+
+@test "--fix-adr-links never turns a line-start mention into a definition" {
+  make_adr_repo
+  printf 'Noted in\nADR 0001: the seam.\n' > README.md
+  check_repo --fix-adr-links
+  run cat README.md
+  [ "${lines[1]}" = "[ADR 0001][]: the seam." ]
+  check_repo
+  [ "$status" -eq 0 ]
+}

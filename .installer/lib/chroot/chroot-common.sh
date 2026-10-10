@@ -50,7 +50,7 @@ ensure_login_shell_installed() {
   pacman -S --noconfirm --needed "$pkg"
 }
 
-# ── Path helpers (ADR 0153; twins in lib/shell/paths.sh) ──
+# ── Path helpers (ADR 0153) — one copy per world, never shared ──
 
 # parent_directory <path> — the directory holding <path>, like dirname.
 parent_directory() {

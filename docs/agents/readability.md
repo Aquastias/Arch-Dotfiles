@@ -135,6 +135,8 @@ Prefix rule switches on once approved.
      vocabulary (`info`, `confirm`, `parent_directory`);
    - a function named exactly its stem (`jsonc`, `finalize`);
    - bats files (test-local helpers);
+   - files defining no functions (program `install.sh` scripts, staged
+     chroot steps like `configure.sh`, DM adapters);
    - frozen external contracts: mkinitcpio hook API (`run_hook`,
      `run_latehook`, `build`, `help`).
 5. **Interface Functions** keep one shared name across backends (below).
