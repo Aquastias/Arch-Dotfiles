@@ -31,7 +31,7 @@ _bootloader_common_source loader-entries.sh ../boot/loader-entries.sh
 ESP="/boot/efi"
 
 # Primary Kernel (KERNELS[0] == KERNEL) drives every loader's default entry.
-PRIMARY_KBASE="$(kernel_pkg "$KERNEL")"
+PRIMARY_KBASE="$(kernel_package "$KERNEL")"
 
 # Microcode: the systemd-boot-style "initrd  /<img>" block (for file-based
 # loaders) and the bare image list (for efistub load-options). Rendered from the
@@ -102,7 +102,7 @@ bootloader_common_efistub_register() {
   local disk="$1" part="$2" suffix="$3" kb fallback_image options title
   local -a order=()
   for title in "${KERNELS[@]}"; do
-    kb="$(kernel_pkg "$title")"
+    kb="$(kernel_package "$title")"
     [[ "$kb" == "$PRIMARY_KBASE" ]] || order+=("$kb")
   done
   order+=("$PRIMARY_KBASE")

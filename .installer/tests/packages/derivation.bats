@@ -1,10 +1,10 @@
 #!/usr/bin/env bats
 # Tests for the shared pure package maps (base / gpu / audio / filesystem) and
 # the DRIFT GUARD that locks them: the same names must reach both callers — the
-# install path (collect_packages / resolve_environment) and the Package Resolver
-# (pkgres_resolve). A future re-hardcode in either caller fails here, not in a
-# VM. gpu is pinned to an explicit vendor so the guard stays deterministic and
-# headless (no lspci).
+# install path (package_list_collect / resolve_environment) and the Package
+# Resolver (package_resolver_resolve). A future re-hardcode in either caller
+# fails here, not in a VM. gpu is pinned to an explicit vendor so the guard
+# stays deterministic and headless (no lspci).
 
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
@@ -17,9 +17,9 @@ setup() {
   source "$INSTALLER_DIR/lib/packages/gpu.sh"
   source "$INSTALLER_DIR/lib/packages/audio.sh"
   source "$INSTALLER_DIR/lib/packages/filesystem.sh"
-  source "$INSTALLER_DIR/lib/packages/list.sh"
+  source "$INSTALLER_DIR/lib/packages/package-list.sh"
   source "$INSTALLER_DIR/lib/config/environment.sh"
-  source "$INSTALLER_DIR/lib/packages/resolver.sh"
+  source "$INSTALLER_DIR/lib/packages/package-resolver.sh"
   # Keep gpu resolution deterministic even if a test uses intel/auto.
   _gpu_lspci_output() { printf ''; }
 }
@@ -27,7 +27,7 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 write_config() { printf '%s\n' "$1" >"$CONFIG_FILE"; }
-res_src() { pkgres_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort -u; }
+res_src() { package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort -u; }
 
 # ── unit: base ──────────────────────────────────────────────────────────────
 
@@ -67,23 +67,23 @@ res_src() { pkgres_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort 
 
 # ── unit: filesystem ────────────────────────────────────────────────────────
 
-@test "fs_userland_packages: per-filesystem userland, ext4 empty" {
-  [ "$(fs_userland_packages zfs)" = "zfs-dkms zfs-utils" ]
-  [ "$(fs_userland_packages xfs)" = "xfsprogs" ]
-  [ "$(fs_userland_packages btrfs)" = "btrfs-progs" ]
-  [ -z "$(fs_userland_packages ext4)" ]
-  [ "$(luks_userland_packages)" = "cryptsetup" ]
+@test "filesystem_userland_packages: per-filesystem userland, ext4 empty" {
+  [ "$(filesystem_userland_packages zfs)" = "zfs-dkms zfs-utils" ]
+  [ "$(filesystem_userland_packages xfs)" = "xfsprogs" ]
+  [ "$(filesystem_userland_packages btrfs)" = "btrfs-progs" ]
+  [ -z "$(filesystem_userland_packages ext4)" ]
+  [ "$(filesystem_luks_userland_packages)" = "cryptsetup" ]
 }
 
 # ── drift guard: the shared names reach BOTH callers ─────────────────────────
 
-@test "drift: base set — module == resolver base == in collect_packages" {
+@test "drift: base set — module == resolver base == in package_list_collect" {
   local cfg='{"users":[],"options":{"kernel":"lts"}}'
   write_config "$cfg"
   # query side is exactly the module
   diff <(base_packages | sort -u) <(res_src "$cfg" base)
   # install side contains every base name
-  local out p; out="$(collect_packages)"
+  local out p; out="$(package_list_collect)"
   while IFS= read -r p; do grep -qx "$p" <<<"$out"; done < <(base_packages)
 }
 
@@ -111,10 +111,10 @@ res_src() { pkgres_resolve "$1" | awk -F'\t' -v s="$2" '$1==s{print $3}' | sort 
   local cfg='{"users":[],"options":{"kernel":"lts"},"filesystem":"zfs"}'
   write_config "$cfg"
   local p out
-  out="$(collect_packages)"
+  out="$(package_list_collect)"
   while IFS= read -r p; do
     [[ -n "$p" ]] || continue
     grep -qx "$p" <<<"$out"
     res_src "$cfg" zfs | grep -qx "$p"
-  done < <(fs_userland_packages zfs | tr ' ' '\n')
+  done < <(filesystem_userland_packages zfs | tr ' ' '\n')
 }

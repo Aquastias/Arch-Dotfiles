@@ -7,16 +7,16 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/packages/kernel.sh"
 }
 
-@test "kernel_pkg: maps every flavour token to its package base" {
-  [ "$(kernel_pkg lts)"      = "linux-lts" ]
-  [ "$(kernel_pkg default)"  = "linux" ]
-  [ "$(kernel_pkg zen)"      = "linux-zen" ]
-  [ "$(kernel_pkg hardened)" = "linux-hardened" ]
+@test "kernel_package: maps every flavour token to its package base" {
+  [ "$(kernel_package lts)"      = "linux-lts" ]
+  [ "$(kernel_package default)"  = "linux" ]
+  [ "$(kernel_package zen)"      = "linux-zen" ]
+  [ "$(kernel_package hardened)" = "linux-hardened" ]
 }
 
-@test "kernel_headers_pkg: appends -headers to the package base" {
-  [ "$(kernel_headers_pkg lts)"      = "linux-lts-headers" ]
-  [ "$(kernel_headers_pkg hardened)" = "linux-hardened-headers" ]
+@test "kernel_headers_package: appends -headers to the package base" {
+  [ "$(kernel_headers_package lts)"      = "linux-lts-headers" ]
+  [ "$(kernel_headers_package hardened)" = "linux-hardened-headers" ]
 }
 
 @test "kernel_is_valid_token: true for known, false for unknown" {
@@ -24,8 +24,8 @@ setup() {
   ! kernel_is_valid_token frobnicate
 }
 
-@test "kernel_pkg: unknown token aborts" {
-  run kernel_pkg frobnicate
+@test "kernel_package: unknown token aborts" {
+  run kernel_package frobnicate
   [ "$status" -ne 0 ]
 }
 

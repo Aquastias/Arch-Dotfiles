@@ -30,6 +30,8 @@ exempt-name .installer/lib/chroot/impermanence.sh info
 
 # Boundary-forced twin: preflight runs before common.sh is sourced.
 exempt-name .installer/lib/preflight.sh command_exists
+# Boundary-forced twin: chroot loaders source kernel.sh without common.sh.
+exempt-name .installer/lib/packages/kernel.sh error
 
 # Interface Functions: one name, implemented once per backend.
 interface layout_validate
@@ -66,3 +68,4 @@ api .installer/vm/lib/ vm_
 file .installer/lib/guided/shell.sh guided_ _guided_shell_
 file .installer/programs/**/audit.sh _probe_ _probe_
 file .installer/extras/**/audit*.sh _probe_ _probe_
+file .installer/lib/packages/package-resolver-desktop.sh package_resolver_ _package_resolver_

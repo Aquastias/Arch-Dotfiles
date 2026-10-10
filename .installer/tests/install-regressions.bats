@@ -16,5 +16,5 @@ R="$BATS_TEST_DIRNAME/.."
 
 @test "pacstrap is retried (one CDN blip must not end an install)" {
   grep -qE '^\s*_retry [0-9]+ "[0-9,]+" -- pacstrap ' \
-    "$R/lib/packages/list.sh"
+    "$R/lib/packages/package-list.sh"
 }

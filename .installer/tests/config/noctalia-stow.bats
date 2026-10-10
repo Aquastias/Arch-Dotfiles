@@ -25,7 +25,7 @@ setup() {
   CYCLE="$REPO/.local/bin/noctalia-cycle-palette"
   ENABLE="$REPO/.local/bin/noctalia-enable-plugins"
   BRIDGE="$REPO/.local/bin/noctalia-theme-bridge"
-  NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
+  NOCTALIA_SH="$BATS_TEST_DIRNAME/../../lib/packages/noctalia.sh"
   PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
   # The preset seeds /etc/skel through its sibling noctalia-skeleton.sh.
   SKEL="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-skeleton.sh"
@@ -285,7 +285,7 @@ EOF
   local enabled core
   enabled="$(awk '/^enabled = \[/{f=1;next} f&&/^\]/{f=0} f' "$CT" \
     | grep -oE '"[^"]+"' | tr -d '"' | sed 's#.*/##' | sort)"
-  core="$( (set +u; source "$NIRI_SH"; noctalia_core_plugins) | sort)"
+  core="$( (set +u; source "$NOCTALIA_SH"; noctalia_core_plugins) | sort)"
   [ -n "$enabled" ]
   [ "$enabled" = "$core" ]
 }
@@ -358,13 +358,13 @@ EOF
 
 @test "the base preset ships adw-gtk-theme for the GTK bridge (ADR 0102)" {
   # Package is adw-gtk-theme (extra); it ships the adw-gtk3-dark theme dir.
-  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \
+  ( set +u; source "$NOCTALIA_SH"; noctalia_preset_packages ) \
     | grep -qx 'adw-gtk-theme'
 }
 
 @test "the base preset ships inotify-tools for the Live Theme Bridge (0116)" {
   # inotifywait (inotify-tools, extra) drives the bridge's file watch.
-  ( set +u; source "$NIRI_SH"; noctalia_preset_packages ) \
+  ( set +u; source "$NOCTALIA_SH"; noctalia_preset_packages ) \
     | grep -qx 'inotify-tools'
 }
 

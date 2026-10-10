@@ -87,7 +87,7 @@ flowchart TD
       M4["zfs_collect_encryption_passphrase<br/>if encryption"]:::opt
       M5["secrets_load -> tmpfs<br/>if secrets"]:::opt
       M6["partition + volumes + esp"]:::act
-      M7["install_base (pacstrap)"]:::act
+      M7["package_list_install_base (pacstrap)"]:::act
       M8["zfs_verify (Module Guard)<br/>if any ZFS"]:::act
       M9["chroot_configure_system (chroot)"]:::act
       M10["runner_run_profiles<br/>users + programs + DE"]:::act

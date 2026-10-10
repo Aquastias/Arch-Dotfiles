@@ -234,7 +234,7 @@ sync_clock() {
 # 03's fallback share one copy (ADR 0023). Always DKMS on the live ISO: the ISO
 # ships headers for its own kernel, so the module always matches; pre-built
 # zfs-linux is pinned to a kernel version and almost never matches. The
-# installed system uses zfs-dkms too (lib/packages/list.sh).
+# installed system uses zfs-dkms too (lib/packages/package-list.sh).
 
 install_zfs() {
   section "Installing ZFS"

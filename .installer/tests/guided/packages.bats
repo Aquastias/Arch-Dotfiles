@@ -420,10 +420,10 @@ guard_registry() {
 }
 
 @test "origin labels: services + fonts point at their merged homes (ADR 0081)" {
-  [ "$(pkgres_source_origin printing)" = "Daemons" ]
-  [ "$(pkgres_source_origin bluetooth)" = "Daemons" ]
-  [ "$(pkgres_source_origin power)" = "Daemons" ]
-  [ "$(pkgres_source_origin fonts)" = "System" ]
+  [ "$(package_resolver_source_origin printing)" = "Daemons" ]
+  [ "$(package_resolver_source_origin bluetooth)" = "Daemons" ]
+  [ "$(package_resolver_source_origin power)" = "Daemons" ]
+  [ "$(package_resolver_source_origin fonts)" = "System" ]
 }
 
 @test "the derived section drills to a source's package list" {
@@ -488,11 +488,11 @@ guard_registry() {
   printf '%s\n' '{"environment":{"desktop":["kde"],"gpu":["amd"]}}' \
     > "$GUIDED_STATE_FILE"
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
-  source "$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh"
 
   local eff; eff="$(_ctl_effective "$(state)" "$(cat "$GUIDED_BASELINE_FILE")")"
   local direct menu
-  direct="$(pkgres_resolve "$eff" \
+  direct="$(package_resolver_resolve "$eff" \
     | awk -F'\t' '$2 == "derived" && $1 == "gpu" { print $3 }' | sort -u)"
   set_nav "$(nav_to_pkgderivedsrc Packages gpu)"
   menu="$(guided_ctl_list | sed 's/^ *//;s/ *$//' \

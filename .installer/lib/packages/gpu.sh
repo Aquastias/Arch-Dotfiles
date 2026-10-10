@@ -3,14 +3,17 @@
 # lib/packages/gpu.sh — GPU driver package map (pure, single source of truth)
 # =============================================================================
 # Maps a RESOLVED GPU vendor to its pacman driver set. Pure: no lspci, no
-# network, so both the pure Package Resolver (resolver.sh) and the impure
-# environment resolution (config/environment.sh) share one map and cannot drift.
+# network, so both the pure Package Resolver (package-resolver.sh) and the
+# impure environment resolution (config/environment.sh) share one map and cannot
+# drift.
 #
 # Detection (auto → vendor) and the intel pre-Broadwell refinement stay in the
 # install path (config/environment.sh); this map returns the deterministic
 # modern default. For intel that is intel-media-driver — the same value the
 # resolver reports; the pre-Broadwell libva-intel-driver downgrade is applied
 # only install-side, where lspci is available.
+#
+# Used by: lib/config/environment.sh, lib/packages/package-resolver.sh.
 # =============================================================================
 
 [[ -n "${_GPU_SH_SOURCED:-}" ]] && return 0

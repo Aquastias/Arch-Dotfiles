@@ -3,10 +3,15 @@
 # lib/packages/kernel.sh — Kernel Selection token table (single source of truth)
 # =============================================================================
 # Maps Kernel Selection flavour tokens to their kernel package + headers. The
-# one table here drives package install (host-side, lib/packages/list.sh), the
-# initramfs preset, and the bootloader default entry (chroot-side). Staged into
-# the chroot alongside install-state.sh so both sides share one mapping.
-# Adding a flavour is a one-line change. See ADR 0024.
+# one table here drives package install (host-side,
+# lib/packages/package-list.sh), the initramfs preset, and the bootloader
+# default entry (chroot-side). Staged into the chroot alongside install-state.sh
+# so both sides share one mapping. Adding a flavour is a one-line change. See
+# ADR 0024.
+#
+# Used by: 03-install.sh, lib/config/accessors.sh, lib/packages/package-list.sh,
+# lib/packages/package-resolver.sh; chroot: lib/chroot/bootloader-common.sh,
+# lib/chroot/initcpio.sh.
 # =============================================================================
 
 [[ -n "${_KERNEL_SH_SOURCED:-}" ]] && return 0
@@ -28,36 +33,37 @@ _KERNEL_TOKEN_MAP=(
 
 # Space-separated list of valid tokens — for error messages.
 kernel_valid_tokens() {
-  local spec t
+  local spec token
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r t _ <<< "$spec"
-    printf '%s ' "$t"
+    IFS='|' read -r token _ <<< "$spec"
+    printf '%s ' "$token"
   done
 }
 
 # True iff <token> is a known flavour.
 kernel_is_valid_token() {
-  local want="$1" spec t
+  local want="$1" spec token
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r t _ <<< "$spec"
-    [[ "$t" == "$want" ]] && return 0
+    IFS='|' read -r token _ <<< "$spec"
+    [[ "$token" == "$want" ]] && return 0
   done
   return 1
 }
 
-# kernel_pkg <token> → kernel package base (e.g. lts → linux-lts).
-kernel_pkg() {
-  local want="$1" spec t b
+# kernel_package <token> → kernel package base (e.g. lts → linux-lts).
+kernel_package() {
+  local want="$1" spec token base
   for spec in "${_KERNEL_TOKEN_MAP[@]}"; do
-    IFS='|' read -r t b <<< "$spec"
-    [[ "$t" == "$want" ]] && { printf '%s\n' "$b"; return 0; }
+    IFS='|' read -r token base <<< "$spec"
+    [[ "$token" == "$want" ]] && { printf '%s\n' "$base"; return 0; }
   done
   error "Unknown kernel token: '$want' (valid: $(kernel_valid_tokens))."
 }
 
-# kernel_headers_pkg <token> → matching headers package (e.g. linux-lts-headers).
-kernel_headers_pkg() {
-  printf '%s-headers\n' "$(kernel_pkg "$1")"
+# kernel_headers_package <token> → matching headers package
+# (e.g. linux-lts-headers).
+kernel_headers_package() {
+  printf '%s-headers\n' "$(kernel_package "$1")"
 }
 
 # kernel_bases_primary_first <primary-token> <token…> — the package bases to
@@ -65,11 +71,11 @@ kernel_headers_pkg() {
 # the Kernel Selection in order, each once. Loaders rendering per-kernel
 # entries (limine, grub) iterate this.
 kernel_bases_primary_first() {
-  local primary t kb
-  primary="$(kernel_pkg "$1")"; shift
+  local primary token kernel_base
+  primary="$(kernel_package "$1")"; shift
   printf '%s\n' "$primary"
-  for t in "$@"; do
-    kb="$(kernel_pkg "$t")"
-    [[ "$kb" == "$primary" ]] || printf '%s\n' "$kb"
+  for token in "$@"; do
+    kernel_base="$(kernel_package "$token")"
+    [[ "$kernel_base" == "$primary" ]] || printf '%s\n' "$kernel_base"
   done | awk '!seen[$0]++'
 }

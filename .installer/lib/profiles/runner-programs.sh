@@ -63,6 +63,8 @@ _runner_programs_install_user_program() {
     "$helper"
 }
 
+# Reads runner_run_profiles' system_programs (dynamic scope).
+# shellcheck disable=SC2154
 runner_install_host_programs() {
   local program
   for program in "${system_programs[@]}"; do

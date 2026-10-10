@@ -68,7 +68,7 @@ install.sh                  Entry point. Front-ends (--profile /
     │   └─ nonzfs/{root,boot,data,plan,devices,datacrypt}.sh
     ├─ lib/zfs/             pools.sh, module.sh, verify.sh,
     │                       pool-owners.sh
-    ├─ lib/packages/        list.sh (collect+pacstrap), base.sh
+    ├─ lib/packages/        package-list.sh (collect+pacstrap), base.sh
     │                       (Base Package List), kernel.sh, microcode.sh,
     │                       gpu.sh, audio.sh, filesystem.sh, iso-resolver.sh
     ├─ lib/boot/            esp-kernel-sync.sh, stray-kernel.sh,

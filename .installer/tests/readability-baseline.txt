@@ -1,9 +1,8 @@
+adr-link	CONTEXT.md	ADR 0069
 file-length	.installer/lib/config/validation.sh	-
 file-length	.installer/lib/feature-audit/live.sh	-
 file-length	.installer/lib/guided/controller.sh	-
 file-length	.installer/lib/guided/shell.sh	-
-file-length	.installer/lib/packages/list.sh	-
-file-length	.installer/lib/packages/resolver.sh	-
 file-length	.installer/tests/chroot/chroot-impermanence.bats	-
 file-length	.installer/tests/config/guided-menu.bats	-
 file-length	.installer/tests/config/install-config.bats	-
@@ -47,12 +46,6 @@ function-length	.installer/lib/guided/shell.sh	_guided_create_user
 function-length	.installer/lib/guided/shell.sh	_guided_resolve_assignment
 function-length	.installer/lib/guided/shell.sh	guided_run_persistent
 function-length	.installer/lib/matrix/pairwise.sh	matrix_pairwise
-function-length	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible
-function-length	.installer/lib/packages/list.sh	apply_pacman_options
-function-length	.installer/lib/packages/list.sh	collect_packages
-function-length	.installer/lib/packages/list.sh	install_base
-function-length	.installer/lib/packages/resolver.sh	_pkgres_de_packages
-function-length	.installer/lib/packages/resolver.sh	pkgres_resolve
 function-length	.installer/lib/wipe/execute.sh	run_parallel_wipe
 function-length	.installer/tests/extras/hyprland-adapter.bats	setup
 function-length	.installer/tests/extras/niri-adapter.bats	setup
@@ -435,18 +428,6 @@ function-name	.installer/lib/matrix/pairwise.sh	_pw_extend
 function-name	.installer/lib/matrix/pairwise.sh	_pw_forward
 function-name	.installer/lib/matrix/pairwise.sh	_pw_ok
 function-name	.installer/lib/matrix/pairwise.sh	_pw_row_json
-function-name	.installer/lib/packages/archive.sh	kver_to_pkgver
-function-name	.installer/lib/packages/archive.sh	pkg_archive_url
-function-name	.installer/lib/packages/archive.sh	pkg_ensure_version
-function-name	.installer/lib/packages/archive.sh	pkg_fetch_from_archive
-function-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_module_pkg
-function-name	.installer/lib/packages/filesystem.sh	fs_userland_packages
-function-name	.installer/lib/packages/kernel.sh	kernel_headers_pkg
-function-name	.installer/lib/packages/kernel.sh	kernel_pkg
-function-name	.installer/lib/packages/list.sh	reflector_country_args
-function-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages
-function-name	.installer/lib/packages/resolver.sh	_pkgres_noc_bool
-function-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps
 function-name	.installer/lib/wipe/progress.sh	progress_pct
 function-name	.installer/lib/wipe/progress.sh	_progress_si
 function-name	.installer/programs/backup/borg/audit.sh	_fa_borg_roundtrip
@@ -526,10 +507,6 @@ function-name	.installer/tests/layout/zfs-data.bats	dk_field
 function-name	.installer/tests/matrix/matrix-driver.bats	_pcell
 function-name	.installer/tests/matrix/matrix-smoke.bats	_pcell
 function-name	.installer/tests/no-python.bats	mk_repo
-function-name	.installer/tests/packages/archzfs-kernel.bats	pkg_fetch_from_archive
-function-name	.installer/tests/packages/archzfs-kernel.bats	pkg_fetch_from_archive
-function-name	.installer/tests/packages/archzfs-kernel.bats	pkg_fetch_from_archive
-function-name	.installer/tests/packages/archzfs-kernel.bats	pkg_fetch_from_archive
 function-name	.installer/tests/packages/archzfs-kernel.bats	_write_conf_with_pin
 function-name	.installer/tests/packages/derivation.bats	res_src
 function-name	.installer/tests/packages/resolver.bats	pkgs_of
@@ -1361,104 +1338,6 @@ local-name	.installer/lib/matrix/registry.sh	_matrix_registry_field:n
 local-name	.installer/lib/matrix/registry.sh	_matrix_registry_field:p
 local-name	.installer/lib/matrix/run.sh	matrix_run:args
 local-name	.installer/lib/matrix/synth.sh	matrix_cell_synthesize:n
-local-name	.installer/lib/packages/archive.sh	pkg_archive_url:pkg
-local-name	.installer/lib/packages/archive.sh	pkg_ensure_version:pkg
-local-name	.installer/lib/packages/archive.sh	pkg_ensure_version:tmp
-local-name	.installer/lib/packages/archive.sh	pkg_fetch_from_archive:pkg
-local-name	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo:cands
-local-name	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo:conf
-local-name	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo:hk
-local-name	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo:lk
-local-name	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo:repo_dir
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pin_cleanup:conf
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pin_prepare:ver
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pick_lts_version:mm
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pick_lts_version:mM
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pick_lts_version:sm
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pick_lts_version:sM
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pin_candidates:cm
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pin_candidates:cM
-local-name	.installer/lib/packages/archzfs-kernel.sh	archzfs_pin_candidates:v
-local-name	.installer/lib/packages/archzfs-kernel.sh	-:pkg_fetch_from_archive
-local-name	.installer/lib/packages/iso-resolver.sh	_iso_resolver_download:tmp
-local-name	.installer/lib/packages/iso-resolver.sh	iso_resolver_get:downloads_dir
-local-name	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:downloads_dir
-local-name	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:k_csv
-local-name	.installer/lib/packages/iso-resolver.sh	_iso_resolver_pick_compatible_release:max_mm
-local-name	.installer/lib/packages/iso-resolver.sh	_iso_resolver_resolve_url:dir_url
-local-name	.installer/lib/packages/kernel.sh	kernel_bases_primary_first:t
-local-name	.installer/lib/packages/kernel.sh	kernel_bases_primary_first:t
-local-name	.installer/lib/packages/kernel.sh	kernel_is_valid_token:t
-local-name	.installer/lib/packages/kernel.sh	kernel_pkg:b
-local-name	.installer/lib/packages/kernel.sh	kernel_pkg:t
-local-name	.installer/lib/packages/kernel.sh	kernel_valid_tokens:t
-local-name	.installer/lib/packages/list.sh	add_custom_repositories:opt
-local-name	.installer/lib/packages/list.sh	apply_audit_cache:conf
-local-name	.installer/lib/packages/list.sh	apply_audit_cache:tmp
-local-name	.installer/lib/packages/list.sh	apply_pacman_options:conf
-local-name	.installer/lib/packages/list.sh	apply_pacman_options:tmp
-local-name	.installer/lib/packages/list.sh	collect_packages:bootloader_pkgs
-local-name	.installer/lib/packages/list.sh	collect_packages:_bp
-local-name	.installer/lib/packages/list.sh	collect_packages:_cfg_json
-local-name	.installer/lib/packages/list.sh	collect_packages:_k
-local-name	.installer/lib/packages/list.sh	collect_packages:_k
-local-name	.installer/lib/packages/list.sh	collect_packages:kernel_pkgs
-local-name	.installer/lib/packages/list.sh	collect_packages:pkgs
-local-name	.installer/lib/packages/list.sh	collect_packages:tok
-local-name	.installer/lib/packages/list.sh	_custom_repo_siglevel:opt
-local-name	.installer/lib/packages/list.sh	enable_optional_repos:r
-local-name	.installer/lib/packages/list.sh	enable_optional_repos:r
-local-name	.installer/lib/packages/list.sh	-:fs_userland_packages
-local-name	.installer/lib/packages/list.sh	install_base:_country_args
-local-name	.installer/lib/packages/list.sh	prepend_custom_mirror_servers:ml
-local-name	.installer/lib/packages/list.sh	prepend_custom_mirror_servers:s
-local-name	.installer/lib/packages/list.sh	prepend_custom_mirror_servers:s
-local-name	.installer/lib/packages/list.sh	prepend_custom_mirror_servers:tmp
-local-name	.installer/lib/packages/list.sh	strip_audit_cache:conf
-local-name	.installer/lib/packages/list.sh	strip_audit_cache:tmp
-local-name	.installer/lib/packages/microcode.sh	microcode_present_initrds:dir
-local-name	.installer/lib/packages/resolver.sh	-:fs_userland_packages
-local-name	.installer/lib/packages/resolver.sh	-:kernel_pkg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:de
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:f
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:_kde_secs
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_de_packages:src
-local-name	.installer/lib/packages/resolver.sh	_pkgres_emit:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_emit:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_emit:src
-local-name	.installer/lib/packages/resolver.sh	_pkgres_has_secrets:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_has_secrets:u
-local-name	.installer/lib/packages/resolver.sh	_pkgres_niri_packages:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_niri_packages:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps:fn
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps:nj
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps:pl
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noctalia_preset:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noctalia_preset:nj
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noctalia_preset:p
-local-name	.installer/lib/packages/resolver.sh	_pkgres_noctalia_preset:slice_fn
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:_bl
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:bp
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:cfg
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:de
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:dm
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:dm_raw
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:fp
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:fs_all
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:mp
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:p
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:pp
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:prog
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:tok
-local-name	.installer/lib/packages/resolver.sh	pkgres_resolve:wp
-local-name	.installer/lib/packages/resolver.sh	pkgres_source_origin:e
-local-name	.installer/lib/packages/resolver.sh	pkgres_source_origin:e
-local-name	.installer/lib/packages/resolver.sh	pkgres_unresolved:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_user_shells:cfg
-local-name	.installer/lib/packages/resolver.sh	_pkgres_user_shells:u
 local-name	.installer/lib/wipe/execute.sh	run_parallel_wipe:n
 local-name	.installer/lib/wipe/execute.sh	teardown_lvm:vg
 local-name	.installer/lib/wipe/execute.sh	teardown_mdraid:md
@@ -2078,8 +1957,8 @@ local-name	.installer/tests/packages/archzfs-kernel.bats	@test build_repo: nothi
 local-name	.installer/tests/packages/archzfs-kernel.bats	@test cleanup is idempotent / no-op when the block is absent:conf
 local-name	.installer/tests/packages/archzfs-kernel.bats	@test cleanup removes the pin repo block, keeps other repos:conf
 local-name	.installer/tests/packages/derivation.bats	@test drift: audio — module == resolver == install globals (desktop present):cfg
-local-name	.installer/tests/packages/derivation.bats	@test drift: base set — module == resolver base == in collect_packages:cfg
-local-name	.installer/tests/packages/derivation.bats	@test drift: base set — module == resolver base == in collect_packages:p
+local-name	.installer/tests/packages/derivation.bats	@test drift: base set — module == resolver base == in package_list_collect:cfg
+local-name	.installer/tests/packages/derivation.bats	@test drift: base set — module == resolver base == in package_list_collect:p
 local-name	.installer/tests/packages/derivation.bats	@test drift: gpu (amd) — module == resolver == install globals:cfg
 local-name	.installer/tests/packages/derivation.bats	@test drift: zfs userland — module names reach resolver and install:cfg
 local-name	.installer/tests/packages/derivation.bats	@test drift: zfs userland — module names reach resolver and install:p
@@ -2111,7 +1990,7 @@ local-name	.installer/tests/packages/resolver.bats	@test noctalia set reports ba
 local-name	.installer/tests/packages/resolver.bats	@test noctalia set reports enriched plugin tool deps (ADR 0093/0094):n
 local-name	.installer/tests/packages/resolver.bats	@test noctalia set reports the shared preset on hyprland too (ADR 0097):n
 local-name	.installer/tests/packages/resolver.bats	@test noctalia set reports the work preset when wayland_shell defaults on:n
-local-name	.installer/tests/packages/resolver.bats	@test pkgres_sources lists every source the resolver can emit:s
+local-name	.installer/tests/packages/resolver.bats	@test package_resolver_sources lists every source the resolver can emit:s
 local-name	.installer/tests/packages/resolver.bats	@test Security and Backup Extras resolve from post_install:cfg
 local-name	.installer/tests/packages/resolver.bats	@test Security and Backup Extras resolve from post_install:sec
 local-name	.installer/tests/packages/resolver.bats	@test sops resolves for secrets under the hosts/vm + users/vm fallback:cfg
@@ -2381,7 +2260,6 @@ nesting	.installer/lib/guided/controller.sh	guided_ctl_list
 nesting	.installer/lib/matrix/generator.sh	matrix_tier1_cells
 nesting	.installer/lib/matrix/pairwise.sh	matrix_pairwise
 nesting	.installer/lib/matrix/pairwise.sh	_pw_forward
-nesting	.installer/lib/packages/resolver.sh	pkgres_resolve
 nesting	.installer/lib/wipe/execute.sh	run_parallel_wipe
 prefix	.installer/extras/desktop/audit-wlroots.sh	_fa_clip
 prefix	.installer/extras/desktop/audit-wlroots.sh	_fa_qt_env
@@ -2921,57 +2799,6 @@ prefix	.installer/lib/matrix/pairwise.sh	_pw_ok
 prefix	.installer/lib/matrix/pairwise.sh	_pw_row_json
 prefix	.installer/lib/matrix/registry.sh	_matrix_menu_paths
 prefix	.installer/lib/matrix/registry.sh	_matrix_registry_field
-prefix	.installer/lib/packages/archive.sh	kver_to_pkgver
-prefix	.installer/lib/packages/archive.sh	pkg_archive_url
-prefix	.installer/lib/packages/archive.sh	pkg_ensure_version
-prefix	.installer/lib/packages/archive.sh	pkg_fetch_from_archive
-prefix	.installer/lib/packages/archzfs-kernel.sh	_archzfs_fetch_archive_lts_versions
-prefix	.installer/lib/packages/archzfs-kernel.sh	_archzfs_fetch_lts_assets
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_module_pkg
-prefix	.installer/lib/packages/archzfs-kernel.sh	_archzfs_lts_pin_build_repo
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pin_cleanup
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pin_prepare
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pkgver
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_pick_lts_version
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_pin_candidates
-prefix	.installer/lib/packages/archzfs-kernel.sh	archzfs_resolve_lts_pin
-prefix	.installer/lib/packages/archzfs-kernel.sh	_mirror_lts_pkgver
-prefix	.installer/lib/packages/filesystem.sh	fs_userland_packages
-prefix	.installer/lib/packages/filesystem.sh	luks_userland_packages
-prefix	.installer/lib/packages/kernel.sh	error
-prefix	.installer/lib/packages/list.sh	add_custom_repositories
-prefix	.installer/lib/packages/list.sh	apply_audit_cache
-prefix	.installer/lib/packages/list.sh	apply_pacman_options
-prefix	.installer/lib/packages/list.sh	collect_packages
-prefix	.installer/lib/packages/list.sh	_custom_repo_siglevel
-prefix	.installer/lib/packages/list.sh	disable_checkspace
-prefix	.installer/lib/packages/list.sh	enable_optional_repos
-prefix	.installer/lib/packages/list.sh	_enable_pacman_repo
-prefix	.installer/lib/packages/list.sh	install_base
-prefix	.installer/lib/packages/list.sh	on_off
-prefix	.installer/lib/packages/list.sh	prepend_custom_mirror_servers
-prefix	.installer/lib/packages/list.sh	reflector_country_args
-prefix	.installer/lib/packages/list.sh	strip_audit_cache
-prefix	.installer/lib/packages/niri.sh	noctalia_core_plugins
-prefix	.installer/lib/packages/niri.sh	noctalia_hyprland_plugins
-prefix	.installer/lib/packages/niri.sh	noctalia_laptop_plugins
-prefix	.installer/lib/packages/niri.sh	noctalia_niri_plugins
-prefix	.installer/lib/packages/niri.sh	noctalia_plugin_deps
-prefix	.installer/lib/packages/niri.sh	noctalia_preset_packages
-prefix	.installer/lib/packages/resolver.sh	_pkgres_de_packages
-prefix	.installer/lib/packages/resolver.sh	_pkgres_emit
-prefix	.installer/lib/packages/resolver.sh	pkgres_excluded
-prefix	.installer/lib/packages/resolver.sh	_pkgres_has_secrets
-prefix	.installer/lib/packages/resolver.sh	_pkgres_jq
-prefix	.installer/lib/packages/resolver.sh	_pkgres_niri_packages
-prefix	.installer/lib/packages/resolver.sh	_pkgres_noc_bool
-prefix	.installer/lib/packages/resolver.sh	_pkgres_noc_plugin_deps
-prefix	.installer/lib/packages/resolver.sh	_pkgres_noctalia_preset
-prefix	.installer/lib/packages/resolver.sh	pkgres_resolve
-prefix	.installer/lib/packages/resolver.sh	pkgres_source_origin
-prefix	.installer/lib/packages/resolver.sh	pkgres_sources
-prefix	.installer/lib/packages/resolver.sh	pkgres_unresolved
-prefix	.installer/lib/packages/resolver.sh	_pkgres_user_shells
 prefix	.installer/lib/wipe/execute.sh	run_parallel_wipe
 prefix	.installer/lib/wipe/execute.sh	teardown_lvm
 prefix	.installer/lib/wipe/execute.sh	teardown_mdraid
@@ -3080,11 +2907,6 @@ sed-not-inplace	.installer/lib/feature-audit/binds-guest.sh	_fa_kwin_windows:sed
 sed-not-inplace	.installer/lib/feature-audit/check.sh	fa_audit_check:sed
 sed-not-inplace	.installer/lib/feature-audit/manifest.sh	fa_validate_config:sed
 sed-not-inplace	.installer/lib/guided/controller.sh	guided_ctl_list:sed
-sed-not-inplace	.installer/lib/packages/archzfs-kernel.sh	_archzfs_fetch_archive_lts_versions:sed
-sed-not-inplace	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pkgver:sed
-sed-not-inplace	.installer/lib/packages/iso-resolver.sh	_iso_resolver_fetch_archzfs_kernels:sed
-sed-not-inplace	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:sed
-sed-not-inplace	.installer/lib/packages/iso-resolver.sh	iso_resolver_verify_sha256:sed
 sed-not-inplace	.installer/programs/dev/nvim/audit.sh	_fa_live_plan:sed
 sed-not-inplace	.installer/tests/audit.sh	_check_program:sed
 sed-not-inplace	.installer/tests/audit.sh	-:sed
@@ -3203,11 +3025,6 @@ tool	.installer/lib/matrix/generator.sh	_matrix_tier2_constraints:tr
 tool	.installer/lib/matrix/pairwise.sh	matrix_pairwise:head
 tool	.installer/lib/matrix/registry.sh	matrix_registry_assert:comm
 tool	.installer/lib/matrix/registry.sh	matrix_registry_assert:comm
-tool	.installer/lib/packages/archzfs-kernel.sh	archzfs_lts_pkgver:tail
-tool	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:tr
-tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_pick_compatible_release:tail
-tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_resolve_url:head
-tool	.installer/lib/packages/list.sh	install_base:cut
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename
@@ -3415,7 +3232,7 @@ tool	.installer/tests/packages/resolver.bats	@test desktop and laptop resolve to
 tool	.installer/tests/packages/resolver.bats	@test desktop and laptop resolve to the same package set (all apps in core):cut
 tool	.installer/tests/packages/resolver.bats	@test desktop and laptop resolve to the same package set (all apps in core):wc
 tool	.installer/tests/packages/resolver.bats	@test desktop and laptop resolve to the same package set (all apps in core):wc
-tool	.installer/tests/packages/resolver.bats	@test pkgres_sources lists every source the resolver can emit:cut
+tool	.installer/tests/packages/resolver.bats	@test package_resolver_sources lists every source the resolver can emit:cut
 tool	.installer/tests/packages/resolver.bats	@test the real desktop profile resolves through the resolver:cut
 tool	.installer/tests/picker.bats	@test picker_enum_disks: empty live arg → every whole disk listed once:wc
 tool	.installer/tests/preflight.bats	@test cmd:pkg — installs the package name, not the command name:tr

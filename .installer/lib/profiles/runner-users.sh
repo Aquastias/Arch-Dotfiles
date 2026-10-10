@@ -113,6 +113,8 @@ CHROOT_AUTHKEYS
 
 # The Primary User (first in the list) gets the display name; the rest do not
 # (ADR 0121 — avatar/name is scoped to the Primary User).
+# Reads runner_run_profiles' users (dynamic scope).
+# shellcheck disable=SC2154
 runner_create_users() {
   local primary_fullname user index=0
   primary_fullname="$(install_config_fullname)"

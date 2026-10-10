@@ -113,7 +113,7 @@ setup() {
 @test "multiple mapped paths union and dedupe" {
   run select_changed_targets .installer/lib/packages/derivation.sh \
                              .installer/lib/zfs/pools.sh \
-                             .installer/lib/packages/resolver.sh
+                             .installer/lib/packages/package-resolver.sh
   [ "$output" != "--full" ]
   grep -qx 'packages' <<< "$output"
   grep -qx 'zfs' <<< "$output"

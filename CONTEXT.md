@@ -354,29 +354,30 @@ triad; the other session handoff files (secrets, userforms, history, pw buffers,
 session-undo, skip, list, result) are separate concerns not yet folded in.
 
 ### Package Resolver
-`.installer/lib/packages/resolver.sh`. The pure module answering "what actually
-lands on this machine?" — an Effective Config in, every package out, each tagged
-with its **source** and **layer**. The layer is provenance: `derived` for a
-computed set, or `core` vs `host` for an authored one, so the report answers "do
-I edit Host Core or this host profile?". Covers the authored slots, the [[Base
-Package List]], and every derived set: kernel and headers, bootloader, GPU
-drivers, audio, filesystem tools, ZFS/LUKS userland, login shells, the Plasma
-shell, KDE applications (+ apps_extra, plugins, AUR), the niri shell, the
-Noctalia preset, the display manager (`sddm` / `greetd` / `greetd-tuigreet`,
-keyed on the resolved `display_manager`; `sddm-kcm` stays with the KDE set — ADR
-0069), Security & Backup Extras, the toggle-derived printing/bluetooth/power
-daemons, mirrors, the Font Catalog, and secrets-activated `sops` — one ordered
-source table (`_PKGRES_SOURCES`) that also names the menu category driving each.
+`.installer/lib/packages/package-resolver.sh`. The pure module answering "what
+actually lands on this machine?" — an Effective Config in, every package out,
+each tagged with its **source** and **layer**. The layer is provenance:
+`derived` for a computed set, or `core` vs `host` for an authored one, so the
+report answers "do I edit Host Core or this host profile?". Covers the authored
+slots, the [[Base Package List]], and every derived set: kernel and headers,
+bootloader, GPU drivers, audio, filesystem tools, ZFS/LUKS userland, login
+shells, the Plasma shell, KDE applications (+ apps_extra, plugins, AUR), the
+niri shell, the Noctalia preset, the display manager (`sddm` / `greetd` /
+`greetd-tuigreet`, keyed on the resolved `display_manager`; `sddm-kcm` stays
+with the KDE set — ADR 0069), Security & Backup Extras, the toggle-derived
+printing/bluetooth/power daemons, mirrors, the Font Catalog, and
+secrets-activated `sops` — one ordered source table
+(`_PACKAGE_RESOLVER_SOURCES`) that also names the menu category driving each.
 Every input is declarative, so it makes **no pacman query and no network call**
 and stays deterministic and testable headless. Most paths that put a package on
 the system are derived, not authored — the answer is not fewer paths but a way
 to *query* the result. Consumed by `tools/explain-packages.sh`, the Guided
 Installer's read-only `derived` section, and the real-profile regression tests,
 so those three cannot drift. Excluded packages are reported separately by
-`pkgres_excluded` (read from the *authored* profile — the Layer Resolver strips
-the key once applied), and the sets that genuinely need the target hardware (GPU
-`auto`, CPU microcode) by `pkgres_unresolved`, so they are never faked as
-package names.
+`package_resolver_excluded` (read from the *authored* profile — the Layer
+Resolver strips the key once applied), and the sets that genuinely need the
+target hardware (GPU `auto`, CPU microcode) by `package_resolver_unresolved`, so
+they are never faked as package names.
 
 ### User Profile
 Declarative JSONC file at `.installer/users/<username>/profile.jsonc` (renamed
@@ -627,8 +628,8 @@ every install ([ADR 0089]). `reflector` is **not** declared in Host Core; the
 section is its sole menu home, filtered from the Programs pickers
 (`mirrors_owned_programs`) and reported by the resolver as `source=mirrors`
 (layer `derived`). Distinct from the install-time use of `reflector` (the ISO's
-copy ranks mirrors once during `install_base` from the operator's Mirror
-Countries) — this is the *installed system's* recurring refresh.
+copy ranks mirrors once during `package_list_install_base` from the operator's
+Mirror Countries) — this is the *installed system's* recurring refresh.
 
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived Host Program**, twinning [[Printing Service]]: a
@@ -1037,13 +1038,12 @@ direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
 loader binary; its manifest loader path is the kernel image itself ([ADR 0077]).
 
 ### Bootloader Manifest
-`.installer/lib/boot/bootloader.sh`. The pure token table — sourced host-side
-by the
-package resolver / list and staged into the chroot for the orchestrator —
+`.installer/lib/boot/bootloader.sh`. The pure token table — sourced host-side by
+the package resolver / list and staged into the chroot for the orchestrator —
 keying each `options.bootloader` value to its EFI loader path, package set, and
-ESP-entry style. The single source of truth that replaced the per-loader
-`if grub/else systemd` chains in `configure.sh`, `resolver.sh`, and `list.sh`
-([ADR 0077]).
+ESP-entry style. The single source of truth that replaced the per-loader `if
+grub/else systemd` chains in `configure.sh`, `package-resolver.sh`, and
+`package-list.sh` ([ADR 0077]).
 
 ### ESP Kernel Sync
 The pacman hook (`94-esp-kernel-sync.hook` →
@@ -1663,7 +1663,7 @@ The **unconditional** set pacstrapped onto every host regardless of config — t
 `openssh`, `cronie`, `efibootmgr`, `dosfstools`, `vim`, `git`, `sudo`, `rsync`,
 `jq`, `pacman-contrib`, `stow`, `man-db`, `man-pages`, `texinfo`). Now a shared
 pure module, `lib/packages/base.sh:base_packages`, and one of the [[Package
-Derivation Maps]] — consumed by **both** `lib/packages/list.sh:collect_packages`
+Derivation Maps]] — consumed by **both** `lib/packages/package-list.sh:package_list_collect`
 (install) and the [[Package Resolver]] (query), so the two can never disagree on
 what "base" is. Config-*conditional* additions (selected kernel + headers, CPU
 microcode, `zfs-dkms`/`zfs-utils`, `cryptsetup`, `xfsprogs`/`btrfs-progs`, GPU +
@@ -1680,24 +1680,25 @@ Module, not by a Program ([ADR 0026]).
 
 ### Package Derivation Maps
 The shared **pure** modules under `lib/packages/` that hold a package-name set
-once so the install path and the [[Package Resolver]] cannot drift:
-`base.sh` (`base_packages` — the [[Base Package List]]), `gpu.sh`
-(`gpu_vendor_packages <vendor>`), `audio.sh` (`audio_packages` — the PipeWire
-stack), and `filesystem.sh` (`fs_userland_packages <fs>` + `luks_userland_packages`),
-alongside the older-established `kernel.sh`, `boot/bootloader.sh`, and
-`config/fonts.sh`. Each maps an already-resolved input to package **names** only;
-the **decision** of which inputs apply, and any impure **detection**, stay with
-the caller — GPU vendor detection (`lspci`) and the intel pre-Broadwell
-refinement live in `config/environment.sh`, so the resolver stays headless and
-`environment.sh` owns the hardware edge. The pattern: extract the pure name list
-to a map both callers source, keep detection out of it. This is what lets the
-Package Resolver *query* the same names the installer *installs* rather than
-mirror a second hand-typed copy.
+once so the install path and the [[Package Resolver]] cannot drift: `base.sh`
+(`base_packages` — the [[Base Package List]]), `gpu.sh` (`gpu_vendor_packages
+<vendor>`), `audio.sh` (`audio_packages` — the PipeWire stack), and
+`filesystem.sh` (`filesystem_userland_packages <fs>` +
+`filesystem_luks_userland_packages`), alongside the older-established
+`kernel.sh`, `boot/bootloader.sh`, and `config/fonts.sh`. Each maps an
+already-resolved input to package **names** only; the **decision** of which
+inputs apply, and any impure **detection**, stay with the caller — GPU vendor
+detection (`lspci`) and the intel pre-Broadwell refinement live in
+`config/environment.sh`, so the resolver stays headless and `environment.sh`
+owns the hardware edge. The pattern: extract the pure name list to a map both
+callers source, keep detection out of it. This is what lets the Package Resolver
+*query* the same names the installer *installs* rather than mirror a second
+hand-typed copy.
 
-`collect_packages` reads `packages.repo` from the **Effective Config**, not by
-re-loading a committed profile keyed on hostname: the guided and inline-config
-front-ends have no `hosts/<hostname>/` directory to re-read, so anything they
-authored was silently dropped.
+`package_list_collect` reads `packages.repo` from the **Effective Config**, not
+by re-loading a committed profile keyed on hostname: the guided and
+inline-config front-ends have no `hosts/<hostname>/` directory to re-read, so
+anything they authored was silently dropped.
 
 ### Host Package List
 `packages` object in Host Core or a Host Profile with two authored fields:
@@ -2240,11 +2241,12 @@ _Avoid_: fast suite (that is the run mode, not the set).
 `extra-testing` ([ADR 0072]). Replaces the former `options.multilib` bool: the
 same choice plus the testing repos as one multi-select. Defaults to
 `["multilib"]` (the historical `multilib=true`); an explicit `[]` means no
-optional repos. Applied before pacstrap by `enable_optional_repos`, which
-uncomments the shipped `#[repo]` + `#Include` in the host `/etc/pacman.conf` in
-place (preserving Arch's testing-above-stable ordering), inherited by the target
-via the pacman.conf copy. `install_config_multilib` remains a back-compat shim
-("true" iff `multilib` is in the set).
+optional repos. Applied before pacstrap by
+`pacman_config_enable_optional_repositories`, which uncomments the shipped
+`#[repo]` + `#Include` in the host `/etc/pacman.conf` in place (preserving
+Arch's testing-above-stable ordering), inherited by the target via the
+pacman.conf copy. `install_config_multilib` remains a back-compat shim ("true"
+iff `multilib` is in the set).
 
 ### Custom Servers & Repositories
 Two operator-authored Mirrors & Repositories extras ([ADR 0072]).
@@ -2261,14 +2263,15 @@ list screens (a listing plus a `＋ Add …` action).
 The `options.pacman.*` object in a Host Profile — the pacman `[options]` block
 flags surfaced as a dedicated **Pacman** Configuration Category, sitting right
 after Mirrors & Repositories (both edit `pacman.conf`). Five bool toggles
-(`ilovecandy`, `color`, `verbose_pkg_lists` default on; `disable_download_timeout`,
-`no_progress_bar` default off) plus one int (`parallel_downloads`, default `5`),
-listed as toggle/text rows like every other section ([ADR 0074]). Applied
-**authoritatively** before pacstrap — each managed flag is uncommented/written
-when on and commented out when off, so the host `/etc/pacman.conf` always
-reflects the toggles regardless of what the ISO shipped; the target inherits it
-via the pacman.conf copy. Deliberately excludes `CheckSpace` (the ZFS path
-force-disables it via `disable_checkspace`) and `multilib` (owned by Optional
+(`ilovecandy`, `color`, `verbose_pkg_lists` default on;
+`disable_download_timeout`, `no_progress_bar` default off) plus one int
+(`parallel_downloads`, default `5`), listed as toggle/text rows like every other
+section ([ADR 0074]). Applied **authoritatively** before pacstrap — each managed
+flag is uncommented/written when on and commented out when off, so the host
+`/etc/pacman.conf` always reflects the toggles regardless of what the ISO
+shipped; the target inherits it via the pacman.conf copy. Deliberately excludes
+`CheckSpace` (the ZFS path force-disables it via
+`pacman_config_disable_checkspace`) and `multilib` (owned by Optional
 Repositories). Untouched lines (`SigLevel`, includes) are left intact.
 
 ### Locales Category

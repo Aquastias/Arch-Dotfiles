@@ -4,8 +4,9 @@
 # =============================================================================
 # The single source of truth for per-loader metadata, replacing the hardcoded
 # `if grub/else systemd` chains that used to live in configure.sh (secondary-ESP
-# loader path), resolver.sh, and list.sh (bootloader packages). Adding a loader
-# is one row group here plus its Bootloader Adapter — no branch grows.
+# loader path), package-resolver.sh, and package-list.sh (bootloader packages).
+# Adding a loader is one row group here plus its Bootloader Adapter — no branch
+# grows.
 #
 # Pure: name-in / string-out, no disk or state access. Sourced host-side by the
 # package resolver and package list, and staged into the chroot for the

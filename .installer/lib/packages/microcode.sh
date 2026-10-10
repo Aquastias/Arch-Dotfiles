@@ -9,6 +9,8 @@
 #
 # Pure helpers + one injectable seam (_microcode_cpuinfo) mirroring the GPU
 # resolution pattern in lib/config/environment.sh.
+#
+# Used by: 03-install.sh; chroot: lib/chroot/bootloader-common.sh.
 # =============================================================================
 
 # Map a CPU vendor token to its microcode package. Unknown / empty (e.g. a VM)
@@ -45,9 +47,9 @@ microcode_detect_vendor() {
 # produces no line, so a generated entry never references a missing initrd
 # (the dangling-reference class that panicked systemd-boot — ADR 0038).
 microcode_present_initrds() {
-  local dir="$1" img
+  local directory="$1" img
   for img in intel-ucode.img amd-ucode.img; do
-    [[ -f "$dir/$img" ]] && echo "initrd  /$img"
+    [[ -f "$directory/$img" ]] && echo "initrd  /$img"
   done
   return 0
 }

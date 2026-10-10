@@ -25,7 +25,7 @@ source "$_LIB_DIR/bootloader-common.sh"
 # Mirror every selected kernel's images onto the ESP (the "loader" is the kernel
 # itself), then the microcode.
 for _kernel in "${KERNELS[@]}"; do
-  bootloader_common_stage_kernel "$(kernel_pkg "$_kernel")" >/dev/null
+  bootloader_common_stage_kernel "$(kernel_package "$_kernel")" >/dev/null
 done
 bootloader_common_stage_microcode
 

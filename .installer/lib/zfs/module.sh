@@ -231,19 +231,20 @@ _module_ensure_kernel_headers() {
 
   # The pacman package version for this kernel release (mirror-then-archive
   # fetch is handled by the shared helper). Scenario B (mirror) and C (archive)
-  # both collapse into pkg_ensure_version.
+  # both collapse into archive_ensure_package_version.
   local package_version
-  package_version="$(kver_to_pkgver "$kernel_version")"
+  package_version="$(archive_kernel_version_to_package_version \
+    "$kernel_version")"
 
   info "Need ${headers_package}=${package_version}"
-  if pkg_ensure_version "$headers_package" "$package_version" \
+  if archive_ensure_package_version "$headers_package" "$package_version" \
      && [[ -d "$kernel_source" ]]; then
     info "Headers installed (${headers_package}=${package_version})."
   else
     error "Failed to install ${headers_package}=${package_version}.
   Tried the current mirror and the Arch Linux Archive.
   Check the archive manually:
-  $(pkg_archive_url "$headers_package" "$package_version")
+  $(archive_package_url "$headers_package" "$package_version")
   Or, if installed but ${kernel_source} is still missing:
   ls /usr/lib/modules/${kernel_version}/"
   fi

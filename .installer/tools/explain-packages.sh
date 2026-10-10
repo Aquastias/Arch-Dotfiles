@@ -22,8 +22,8 @@ export INSTALLER_DIR
 source "${INSTALLER_DIR}/lib/common.sh"
 # shellcheck source=../lib/config/profile.sh
 source "${INSTALLER_DIR}/lib/config/profile.sh"
-# shellcheck source=../lib/packages/resolver.sh
-source "${INSTALLER_DIR}/lib/packages/resolver.sh"
+# shellcheck source=../lib/packages/package-resolver.sh
+source "${INSTALLER_DIR}/lib/packages/package-resolver.sh"
 
 profile="${1:-}"
 mode="${2:-grouped}"
@@ -52,8 +52,8 @@ if ! effective="$(load_profile "$profile" 2>/dev/null)"; then
   fi
 fi
 
-resolved="$(pkgres_resolve "$effective")"
-unresolved="$(pkgres_unresolved "$effective")"
+resolved="$(package_resolver_resolve "$effective")"
+unresolved="$(package_resolver_unresolved "$effective")"
 
 # Exclusions are read from the AUTHORED profile, not the resolved one: the
 # Layer Resolver applies packages.exclude and then strips the key, so by the
@@ -62,7 +62,7 @@ unresolved="$(pkgres_unresolved "$effective")"
 authored="$(jsonc_strip "${INSTALLER_DIR}/hosts/${profile}/profile.jsonc" 2>/dev/null \
   || jsonc_strip "${INSTALLER_DIR}/hosts/vm/${profile}/profile.jsonc" 2>/dev/null \
   || printf '{}')"
-excluded="$(pkgres_excluded "$authored")"
+excluded="$(package_resolver_excluded "$authored")"
 
 case "$mode" in
 --flat)
@@ -91,7 +91,7 @@ while IFS= read -r src; do
   fmt -w 68 <<<"$pkgs" | tr '\n' ' ' | fold -s -w 68 \
     | sed 's/^/      /' | sed 's/[[:space:]]*$//'
   printf '\n'
-done < <(pkgres_sources)
+done < <(package_resolver_sources)
 
 total="$(cut -f3 <<<"$resolved" | sort -u | wc -l)"
 printf '  %s\n' "$(printf '─%.0s' {1..60})"

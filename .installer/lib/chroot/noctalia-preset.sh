@@ -35,12 +35,11 @@ declare -F parent_directory >/dev/null 2>&1 \
 # shellcheck source=./noctalia-skeleton.sh
 source "${BASH_SOURCE[0]%/*}/noctalia-skeleton.sh"
 
-
-# The pure Noctalia/niri package maps (preset base, core+slice plugins, deps),
+# The pure Noctalia package maps (preset base, core+slice plugins, deps),
 # shared with the Package Resolver so install and query cannot drift (ADR 0090).
 # shellcheck source=/dev/null
 declare -F noctalia_preset_packages >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../packages/niri.sh"
+  || source "${BASH_SOURCE[0]%/*}/../packages/noctalia.sh"
 
 # Community plugin source, pinned to one v5 commit (ADR 0093) — a single ref
 # covers the whole enriched set for every compositor (bump = one SHA).

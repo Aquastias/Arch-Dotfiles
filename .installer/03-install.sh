@@ -121,7 +121,7 @@ prepare_disks() {
 }
 
 install_system() {
-  install_base
+  package_list_install_base
   # Fail-fast before chroot config: every SELECTED kernel must have a ZFS
   # module, else mkinitcpio crashes later (ADR 0024). A stray kernel pulled in
   # as a dependency (not in options.kernel) is tolerated — warned, non-fatal
@@ -130,7 +130,7 @@ install_system() {
     local selected_kernel_packages=() kernel
     while IFS= read -r kernel; do
       [[ -n "$kernel" ]] || continue
-      selected_kernel_packages+=("$(kernel_pkg "$kernel")")
+      selected_kernel_packages+=("$(kernel_package "$kernel")")
     done < <(install_config_kernels)
     zfs_verify_target_modules "${MOUNT_ROOT:-/mnt}" \
       "${selected_kernel_packages[@]}"
@@ -141,7 +141,7 @@ install_system() {
 configure_users_and_programs() {
   runner_run_profiles
   # the Audit Cache (test-only) served the install; ship pacman.conf as is
-  strip_audit_cache "${MOUNT_ROOT:-/mnt}/etc/pacman.conf"
+  pacman_config_strip_audit_cache "${MOUNT_ROOT:-/mnt}/etc/pacman.conf"
 
   # Wipe the staged plaintext guided passwords now the Runner has consumed them.
   guided_secrets_cleanup
@@ -244,7 +244,7 @@ source_module "${SCRIPT_DIR}/lib/config/profile.sh"
 source_module "${SCRIPT_DIR}/lib/layout/dispatch.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pools.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/pool-owners.sh"
-source_module "${SCRIPT_DIR}/lib/packages/list.sh"
+source_module "${SCRIPT_DIR}/lib/packages/package-list.sh"
 source_module "${SCRIPT_DIR}/lib/zfs/verify.sh"
 source_module "${SCRIPT_DIR}/lib/chroot.sh"
 source_module "${SCRIPT_DIR}/lib/profiles/runner.sh"

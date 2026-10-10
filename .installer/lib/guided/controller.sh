@@ -102,9 +102,9 @@ declare -F guided_userform_get >/dev/null 2>&1 \
 # shellcheck source=mask.sh
 declare -F guided_mask_apply >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/mask.sh"
-# shellcheck source=../packages/resolver.sh
-declare -F pkgres_resolve >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../packages/resolver.sh"
+# shellcheck source=../packages/package-resolver.sh
+declare -F package_resolver_resolve >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../packages/package-resolver.sh"
 # shellcheck source=../config/seed.sh
 declare -F cfgstate_host_core >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/seed.sh"
@@ -1323,7 +1323,7 @@ _ctl_pkg_in_core() {
 # config (TSV: source, layer, package). The SAME resolver the CLI inspector
 # calls, so the menu's derived section and `explain-packages` cannot drift.
 _ctl_pkg_derived() {
-  pkgres_resolve "$1" 2>/dev/null | awk -F'\t' '$2 == "derived"'
+  package_resolver_resolve "$1" 2>/dev/null | awk -F'\t' '$2 == "derived"'
 }
 
 # _ctl_pkg_derived_total <effective> — unique derived package count.
@@ -1401,8 +1401,8 @@ _ctl_aur_preview() {
 }
 
 # The source → driving-category mapping lives with the source table in
-# resolver.sh (pkgres_source_origin), so a new derived source cannot render
-# here with a missing origin.
+# package-resolver.sh (package_resolver_source_origin), so a new derived source
+# cannot render here with a missing origin.
 
 # _ctl_bound_disks <state> — every by-id path already bound to ANY group (os +
 # storage + data pools, plus the single-disk root), one per line, so a disk
@@ -2072,8 +2072,8 @@ guided_ctl_list() {
         | sort -u | grep -c .)"
       [[ "$_dn" -gt 0 ]] || continue
       printf '%s ▸ %s   (from %s)\n' "$_dsrc" "$_dn" \
-        "$(pkgres_source_origin "$_dsrc")"
-    done < <(pkgres_sources 2>/dev/null)
+        "$(package_resolver_source_origin "$_dsrc")"
+    done < <(package_resolver_sources 2>/dev/null)
     _ctl_action_row "← Back" ;;
   pkgderivedsrc)
     # One derived source's package list. Not toggleable — these are

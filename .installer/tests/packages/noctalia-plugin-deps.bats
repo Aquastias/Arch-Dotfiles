@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# noctalia_plugin_deps (lib/packages/niri.sh, ADR 0093/0097): the repo
+# noctalia_plugin_deps (lib/packages/noctalia.sh, ADR 0093/0097): the repo
 # packages a Noctalia plugin's tools need.
 
 setup() {
-  source "$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/packages/noctalia.sh"
 }
 
 @test "no plugin pulls a power daemon (options.power.profile owns it)" {

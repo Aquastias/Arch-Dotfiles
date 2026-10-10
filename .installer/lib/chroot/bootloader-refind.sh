@@ -25,7 +25,7 @@ refind-install --root / 2>&1 | grep -v "world accessible" || true
 
 # Mirror every selected kernel's images onto the ESP; refind autodetects them.
 for _kernel in "${KERNELS[@]}"; do
-  bootloader_common_stage_kernel "$(kernel_pkg "$_kernel")" >/dev/null
+  bootloader_common_stage_kernel "$(kernel_package "$_kernel")" >/dev/null
 done
 bootloader_common_stage_microcode
 

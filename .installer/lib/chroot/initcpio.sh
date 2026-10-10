@@ -90,7 +90,7 @@ _initcpio_write_udev_override() {
 # Preset name = the Primary Kernel's package base (linux-lts/linux/linux-zen/
 # linux-hardened). mkinitcpio -P still builds every installed kernel's preset;
 # the custom fallback injection below stays Primary-Kernel-only (interim).
-PRESET_NAME="$(kernel_pkg "$KERNEL")"
+PRESET_NAME="$(kernel_package "$KERNEL")"
 INITRAMFS_FB="initramfs-${PRESET_NAME}-fallback.img"
 PRESET_FILE="/etc/mkinitcpio.d/${PRESET_NAME}.preset"
 
@@ -164,7 +164,7 @@ if command -v zpool >/dev/null 2>&1 && [[ -f "$_STRAY_SH" ]]; then
   STRAY_KERNEL_LIB_ONLY=1 source "$_STRAY_SH"
   _sel_bases=()
   for _kernel in "${KERNELS[@]}"; do
-    _sel_bases+=("$(kernel_pkg "$_kernel")")
+    _sel_bases+=("$(kernel_package "$_kernel")")
   done
   while IFS= read -r _preset; do
     [[ -n "$_preset" && -f "$_preset" ]] || continue
@@ -187,7 +187,7 @@ install -Dm755 "$_LIB_DIR/stray-kernel.sh" /usr/local/lib/archzfs/stray-kernel.s
 install -Dm644 "$_LIB_DIR/verify.sh" /usr/local/lib/archzfs/verify.sh
 
 for _kernel in "${KERNELS[@]}"; do
-  kernel_pkg "$_kernel"
+  kernel_package "$_kernel"
 done | sort -u >/usr/local/lib/archzfs/selected-kernels
 
 cat >/etc/pacman.d/hooks/97-stray-kernel-warn.hook <<'HOOK'

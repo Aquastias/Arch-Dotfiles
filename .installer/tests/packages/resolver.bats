@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/packages/resolver.sh — the Package Resolver.
+# Tests for .installer/lib/packages/package-resolver.sh — the Package Resolver.
 #
 # Pure JSON-in/TSV-out: every input is declarative, so the resolver needs no
 # pacman query and no network. Assertions are external — given this Effective
@@ -8,25 +8,25 @@
 setup() {
   export INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   source "$INSTALLER_DIR/lib/common.sh"
-  source "$INSTALLER_DIR/lib/packages/resolver.sh"
+  source "$INSTALLER_DIR/lib/packages/package-resolver.sh"
 }
 
 # pkgs_of <config> [source] — the resolved package names, optionally one source.
 pkgs_of() {
   if [[ -n "${2:-}" ]]; then
-    pkgres_resolve "$1" | awk -F'\t' -v s="$2" '$1 == s { print $3 }' | sort -u
+    package_resolver_resolve "$1" | awk -F'\t' -v s="$2" '$1 == s { print $3 }' | sort -u
   else
-    pkgres_resolve "$1" | cut -f3 | sort -u
+    package_resolver_resolve "$1" | cut -f3 | sort -u
   fi
 }
-src_of() { pkgres_resolve "$1" | awk -F'\t' -v p="$3" '$3 == p { print $1 }'; }
+src_of() { package_resolver_resolve "$1" | awk -F'\t' -v p="$3" '$3 == p { print $1 }'; }
 
 MIN='{"users":[],"options":{"kernel":["lts"]}}'
 
 # ── shape: source + layer on every line ─────────────────────────────────────
 
 @test "every resolved package carries a source and a layer" {
-  run pkgres_resolve "$MIN"
+  run package_resolver_resolve "$MIN"
   [ "$status" -eq 0 ]
   # three tab-separated fields on every line, layer ∈ {authored, derived}
   while IFS=$'\t' read -r s l p; do
@@ -56,8 +56,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
                                       "aur":{"misc":["brave-bin"]}}}'
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '$cfg'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '$cfg'"
   echo "$output" | grep -qP '^repo\tcore\thtop$'      # core declares it
   echo "$output" | grep -qP '^repo\thost\tripgrep$'   # this profile adds it
   echo "$output" | grep -qP '^aur\thost\tbrave-bin$'
@@ -69,8 +69,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   local t; t="$(mktemp -d)"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[],\"packages\":{\"repo\":{\"c\":[\"htop\"]}}}'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[],\"packages\":{\"repo\":{\"c\":[\"htop\"]}}}'"
   echo "$output" | grep -qP '^repo\tauthored\thtop$'
   rm -rf "$t"
 }
@@ -216,8 +216,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
     > "$t/extras/desktop/install-noctalia.jsonc"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"]}}'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[],\"environment\":{\"desktop\":[\"niri\"]}}'"
   echo "$output" | grep -qP '^noctalia\tderived\tupower$'
   rm -rf "$t"
 }
@@ -372,8 +372,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   printf '{"shell":"/bin/fish"}\n' > "$t/users/alice/profile.jsonc"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[\"alice\"]}' \
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[\"alice\"]}' \
       | awk -F'\t' '\$1 == \"login-shell\" { print \$3 }'"
   [ "$output" = "fish" ]
   rm -rf "$t"
@@ -385,8 +385,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   printf '{"shell":"/bin/zsh"}\n' > "$t/users/core/profile.jsonc"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[\"bob\"]}' \
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[\"bob\"]}' \
       | awk -F'\t' '\$1 == \"login-shell\" { print \$3 }'"
   [ "$output" = "zsh" ]
   rm -rf "$t"
@@ -420,16 +420,16 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   mkdir -p "$t/users/alice" "$t/hosts/box"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
       | awk -F'\t' '\$1 == \"sops\"'"
   [ -z "$output" ]
 
   printf '{}' > "$t/users/alice/secrets.json"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '{\"users\":[\"alice\"],\"system\":{\"hostname\":\"box\"}}' \
       | awk -F'\t' '\$1 == \"sops\" { print \$3 }'"
   echo "$output" | grep -qx sops
   rm -rf "$t"
@@ -442,16 +442,16 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   printf '{}' > "$t/hosts/vm/vmbox/secrets.json"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    _pkgres_has_secrets '$cfg'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    _package_resolver_has_secrets '$cfg'"
   [ "$status" -eq 0 ]
 
   rm "$t/hosts/vm/vmbox/secrets.json"
   printf '{}' > "$t/users/vm/bob/secrets.json"
   INSTALLER_DIR="$t" run bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    _pkgres_has_secrets '$cfg'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    _package_resolver_has_secrets '$cfg'"
   [ "$status" -eq 0 ]
   rm -rf "$t"
 }
@@ -461,7 +461,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 @test "excluded packages are reported separately and are not installed" {
   local cfg='{"users":[],"packages":{"repo":{"cli":["htop"]},
                                       "exclude":["fzf","btop"]}}'
-  run pkgres_excluded "$cfg"
+  run package_resolver_excluded "$cfg"
   [ "$output" = "$(printf 'btop\nfzf')" ]
   # and they are absent from the installed set
   local p; p="$(pkgs_of "$cfg")"
@@ -470,7 +470,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 }
 
 @test "a config with no exclusions reports none" {
-  run pkgres_excluded "$MIN"
+  run package_resolver_excluded "$MIN"
   [ -z "$output" ]
 }
 
@@ -478,8 +478,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 
 @test "the resolver is deterministic for a given config" {
   local a b
-  a="$(pkgres_resolve "$MIN")"
-  b="$(pkgres_resolve "$MIN")"
+  a="$(package_resolver_resolve "$MIN")"
+  b="$(package_resolver_resolve "$MIN")"
   [ "$a" = "$b" ]
 }
 
@@ -496,18 +496,18 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
   done
   run env PATH="$bin:$PATH" INSTALLER_DIR="$INSTALLER_DIR" bash -c "
     source '$BATS_TEST_DIRNAME/../../lib/common.sh'
-    source '$BATS_TEST_DIRNAME/../../lib/packages/resolver.sh'
-    pkgres_resolve '$MIN'"
+    source '$BATS_TEST_DIRNAME/../../lib/packages/package-resolver.sh'
+    package_resolver_resolve '$MIN'"
   rm -rf "$bin"
   [ "$status" -eq 0 ]
   [[ "$output" != *FORBIDDEN* ]]
   [ -n "$output" ]
 }
 
-@test "pkgres_sources lists every source the resolver can emit" {
+@test "package_resolver_sources lists every source the resolver can emit" {
   local declared emitted
-  declared="$(pkgres_sources | sort)"
-  emitted="$(pkgres_resolve '{"users":["a"],"environment":
+  declared="$(package_resolver_sources | sort)"
+  emitted="$(package_resolver_resolve '{"users":["a"],"environment":
     {"desktop":["kde"],"gpu":["amd"]},"options":{"bootloader":"grub"},
      "filesystem":"btrfs","packages":{"repo":{"c":["htop"]},
      "aur":{"m":["x"]}},"post_install":{"security":{"firewall":"ufw"},
@@ -524,7 +524,7 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 @test "the real desktop profile resolves through the resolver" {
   source "$INSTALLER_DIR/lib/config/profile.sh"
   local eff; eff="$(load_profile desktop)"
-  run pkgres_resolve "$eff"
+  run package_resolver_resolve "$eff"
   [ "$status" -eq 0 ]
   local p; p="$(cut -f3 <<<"$output" | sort -u)"
   grep -qx "steam"       <<<"$p"   # core
@@ -542,8 +542,8 @@ MIN='{"users":[],"options":{"kernel":["lts"]}}'
 @test "desktop and laptop resolve to the same package set (all apps in core)" {
   source "$INSTALLER_DIR/lib/config/profile.sh"
   local d l
-  d="$(pkgres_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
-  l="$(pkgres_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
+  d="$(package_resolver_resolve "$(load_profile desktop)" | cut -f3 | sort -u)"
+  l="$(package_resolver_resolve "$(load_profile laptop)"  | cut -f3 | sort -u)"
   [ "$(comm -13 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
   [ "$(comm -23 <(printf '%s\n' "$l") <(printf '%s\n' "$d") | wc -l)" -eq 0 ]
 }

@@ -22,4 +22,4 @@ entry script opens with a `main()` outline linked from `ARCHITECTURE.md`.
       Readability Lint green on each
 - [x] Any `CONTEXT.md` term touched renamed first; ADRs untouched; bugs found
       filed as separate tickets
-- [x] Full VM install green at ticket close
+- [ ] Full VM install green at ticket close (pending final VM check)

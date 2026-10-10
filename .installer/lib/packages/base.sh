@@ -3,10 +3,13 @@
 # lib/packages/base.sh — Base Package List (single source of truth)
 # =============================================================================
 # The always-installed set, independent of every config choice. One table here
-# drives package install (host-side, lib/packages/list.sh's collect_packages)
-# and the Package Resolver's query (lib/packages/resolver.sh's base source), so
-# the two can never disagree on what "base" is. Kernel, bootloader, and every
-# derived set live with their own concern; this is only the unconditional core.
+# drives package install (host-side, lib/packages/package-list.sh's
+# package_list_collect) and the Package Resolver's query
+# (lib/packages/package-resolver.sh's base source), so the two can never
+# disagree on what "base" is. Kernel, bootloader, and every derived set live
+# with their own concern; this is only the unconditional core.
+#
+# Used by: lib/packages/package-list.sh, lib/packages/package-resolver.sh.
 # =============================================================================
 
 [[ -n "${_BASE_SH_SOURCED:-}" ]] && return 0

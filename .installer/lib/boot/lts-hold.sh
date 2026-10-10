@@ -12,10 +12,11 @@
 # kernel upgrades normally. Non-blocking by construction: it only toggles
 # pacman's own IgnorePkg; it never aborts a transaction.
 #
-# Reuses the ceiling logic (archzfs_lts_pkgver / archzfs_pick_lts_version) from
-# archzfs-kernel.sh, staged alongside this script at /usr/local/lib/archzfs/.
-# Fail-safe: if the archzfs ceiling or the newest available version can't be
-# determined (e.g. offline), it leaves the current hold state untouched.
+# Reuses the ceiling logic (archzfs_kernel_lts_package_version /
+# archzfs_kernel_pick_lts_version) from archzfs-kernel.sh, staged alongside this
+# script at /usr/local/lib/archzfs/. Fail-safe: if the archzfs ceiling or the
+# newest available version can't be determined (e.g. offline), it leaves the
+# current hold state untouched.
 # =============================================================================
 
 # The comment that marks OUR IgnorePkg line, so we never touch an operator's.
@@ -59,8 +60,8 @@ _lts_hold_newest_available() {
 # Lib-only sourcing for tests: skip the runtime below.
 [[ "${LTS_HOLD_LIB_ONLY:-0}" == "1" ]] && return 0
 
-# Bring in the shared ceiling logic (defines archzfs_lts_pkgver /
-# archzfs_pick_lts_version). Staged next to this script on the target.
+# Bring in the shared ceiling logic (defines archzfs_kernel_lts_package_version
+# / archzfs_kernel_pick_lts_version). Staged next to this script on the target.
 _LTS_HOLD_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=../packages/archzfs-kernel.sh
 source "${_LTS_HOLD_DIR}/archzfs-kernel.sh"
@@ -68,15 +69,16 @@ source "${_LTS_HOLD_DIR}/archzfs-kernel.sh"
 _lts_hold_run() {
   local config_file="${LTS_HOLD_CONF:-/etc/pacman.conf}"
 
-  local ceiling; ceiling="$(archzfs_lts_pkgver)"
+  local ceiling; ceiling="$(archzfs_kernel_lts_package_version)"
   [[ -n "$ceiling" ]] || { echo "archzfs-lts-hold: no archzfs ceiling — leaving hold state unchanged." >&2; return 0; }
 
   local newest; newest="$(_lts_hold_newest_available)"
   [[ -n "$newest" ]] || { echo "archzfs-lts-hold: could not read newest linux-lts — leaving hold state unchanged." >&2; return 0; }
 
-  # archzfs_pick_lts_version prints the ceiling version when <newest> outruns it
-  # at the minor level (⇒ hold), nothing when newest is within the ceiling.
-  if [[ -n "$(archzfs_pick_lts_version "$ceiling" "$newest")" ]]; then
+  # archzfs_kernel_pick_lts_version prints the ceiling version when <newest>
+  # outruns it at the minor level (⇒ hold), nothing when newest is within the
+  # ceiling.
+  if [[ -n "$(archzfs_kernel_pick_lts_version "$ceiling" "$newest")" ]]; then
     lts_hold_set "$config_file" 1
     echo "archzfs-lts-hold: holding linux-lts — mirror ${newest} outruns archzfs ceiling ${ceiling}."
   else

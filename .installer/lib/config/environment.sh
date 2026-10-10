@@ -15,7 +15,7 @@
 
 # ── RESOLVED GLOBALS ─────────────────────────────────────────────────────────
 # Set by _resolve_env_validate; consumed by _resolve_env_gpu,
-# _resolve_env_audio, and collect_packages.
+# _resolve_env_audio, and package_list_collect.
 # shellcheck disable=SC2034
 ENVIRONMENT_DESKTOP=()
 # shellcheck disable=SC2034
@@ -44,12 +44,12 @@ ENVIRONMENT_WAYLAND_SHELL=""
 # shellcheck disable=SC2034
 ENVIRONMENT_STOCK=""
 
-# Set by _resolve_env_gpu; consumed by collect_packages.
-# Declared here so collect_packages can detect unresolved state.
+# Set by _resolve_env_gpu; consumed by package_list_collect.
+# Declared here so package_list_collect can detect unresolved state.
 GPU_PACMAN_PACKAGES=()
 GPU_PARU_PACKAGES=()
 
-# Set by _resolve_env_audio; consumed by collect_packages.
+# Set by _resolve_env_audio; consumed by package_list_collect.
 AUDIO_PACKAGES=()
 
 # ── VALID VALUE SETS ──────────────────────────────────────────────────────────

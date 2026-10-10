@@ -77,7 +77,8 @@ _section "1. Host-side lib modules"
 for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
           lib/config/lifecycle.sh lib/config/layers.sh \
           lib/config/environment.sh lib/config/validation.sh \
-          lib/packages/list.sh lib/chroot.sh lib/profiles/runner.sh lib/finalize.sh \
+          lib/packages/package-list.sh lib/chroot.sh lib/profiles/runner.sh \
+          lib/finalize.sh \
           lib/zfs/pools.sh lib/layout/zfs/single.sh lib/layout/zfs/multi.sh; do
   _file "${OS}/${f}" "${f}"
 done

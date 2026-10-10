@@ -1,9 +1,9 @@
 #!/usr/bin/env bats
-# Tests for apply_pacman_options in .installer/lib/packages/list.sh — the
-# authoritative
-# Pacman Options apply step (ADR 0074). Seam 2: run it against a fixture
-# `[options]` block and assert the resulting file. External behaviour only (the
-# file contents), never internals.
+# Tests for pacman_config_apply_options in
+# .installer/lib/packages/pacman-config.sh — the authoritative Pacman Options
+# apply step (ADR 0074). Seam 2: run it against a fixture `[options]` block and
+# assert the resulting file. External behaviour only (the file contents), never
+# internals.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -18,8 +18,8 @@ setup() {
 
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/packages/list.sh
-  source "$BATS_TEST_DIRNAME/../../lib/packages/list.sh"
+  # shellcheck source=../../lib/packages/pacman-config.sh
+  source "$BATS_TEST_DIRNAME/../../lib/packages/pacman-config.sh"
 
   # A realistic Arch [options] block followed by two repo sections.
   cat > "$CONF" <<'EOF'
@@ -50,7 +50,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: defaults enable Color/Verbose/ILoveCandy, keep NoProgressBar off" {
   write_cfg '{}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'Color' "$CONF"
   grep -qx 'VerbosePkgLists' "$CONF"
@@ -65,10 +65,10 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: leaves SigLevel, Include, CheckSpace and repo sections untouched" {
   write_cfg '{}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qxF 'SigLevel    = Required DatabaseOptional' "$CONF"
-  grep -qxF 'CheckSpace' "$CONF"          # owned by disable_checkspace, not us
+  grep -qxF 'CheckSpace' "$CONF"          # owned by pacman_config_disable_checkspace, not us
   grep -qxF '[core]' "$CONF"
   [ "$(grep -cF 'Include = /etc/pacman.d/mirrorlist' "$CONF")" -eq 2 ]
 }
@@ -77,7 +77,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: color=false comments Color, ilovecandy=false drops ILoveCandy" {
   write_cfg '{"options":{"pacman":{"color":false,"ilovecandy":false}}}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx '#Color' "$CONF"
   ! grep -qx 'Color' "$CONF"
@@ -86,7 +86,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: no_progress_bar=true uncomments the shipped #NoProgressBar" {
   write_cfg '{"options":{"pacman":{"no_progress_bar":true}}}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'NoProgressBar' "$CONF"
   ! grep -qx '#NoProgressBar' "$CONF"
@@ -96,7 +96,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: parallel_downloads=10 sets ParallelDownloads = 10" {
   write_cfg '{"options":{"pacman":{"parallel_downloads":10}}}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'ParallelDownloads = 10' "$CONF"
   ! grep -qx 'ParallelDownloads = 5' "$CONF"
@@ -106,7 +106,7 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: disable_download_timeout=true adds the flag" {
   write_cfg '{"options":{"pacman":{"disable_download_timeout":true}}}'
-  run apply_pacman_options "$CONF"
+  run pacman_config_apply_options "$CONF"
   [ "$status" -eq 0 ]
   grep -qx 'DisableDownloadTimeout' "$CONF"
 }
@@ -116,9 +116,9 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 @test "apply: running twice yields an identical file" {
   write_cfg '{"options":{"pacman":{"color":true,"ilovecandy":true,
     "no_progress_bar":false,"parallel_downloads":8}}}'
-  apply_pacman_options "$CONF"
+  pacman_config_apply_options "$CONF"
   cp "$CONF" "$TEST_DIR/after-first"
-  apply_pacman_options "$CONF"
+  pacman_config_apply_options "$CONF"
   diff "$TEST_DIR/after-first" "$CONF"
 }
 
@@ -126,6 +126,6 @@ write_cfg() { printf '%s\n' "$1" > "$CONFIG_FILE"; }
 
 @test "apply: a missing pacman.conf is a no-op" {
   write_cfg '{}'
-  run apply_pacman_options "$TEST_DIR/does-not-exist.conf"
+  run pacman_config_apply_options "$TEST_DIR/does-not-exist.conf"
   [ "$status" -eq 0 ]
 }

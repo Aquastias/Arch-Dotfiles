@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/packages/list.sh — collect_packages() logic.
-# install_base() is system-bound (pacstrap/reflector) and is not tested here.
+# Tests for .installer/lib/packages/package-list.sh — package_list_collect()
+# logic. package_list_install_base() is system-bound (pacstrap/reflector) and is
+# not tested here.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -10,8 +11,8 @@ setup() {
   source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"
-  # shellcheck source=../../lib/packages/list.sh
-  source "$BATS_TEST_DIRNAME/../../lib/packages/list.sh"
+  # shellcheck source=../../lib/packages/package-list.sh
+  source "$BATS_TEST_DIRNAME/../../lib/packages/package-list.sh"
   # shellcheck source=../../lib/config/environment.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/environment.sh"
 }
@@ -26,51 +27,51 @@ write_config() {
 
 # ── kernel selection ──────────────────────────────────────────────────────────
 
-@test "collect_packages: lts kernel includes linux-lts" {
+@test "package_list_collect: lts kernel includes linux-lts" {
   write_config '{"options": {"kernel": "lts"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^linux-lts$"
 }
 
-@test "collect_packages: lts kernel includes linux-lts-headers" {
+@test "package_list_collect: lts kernel includes linux-lts-headers" {
   write_config '{"options": {"kernel": "lts"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^linux-lts-headers$"
 }
 
-@test "collect_packages: lts kernel does not include rolling linux" {
+@test "package_list_collect: lts kernel does not include rolling linux" {
   write_config '{"options": {"kernel": "lts"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -qx "linux"
 }
 
-@test "collect_packages: default kernel includes linux" {
+@test "package_list_collect: default kernel includes linux" {
   write_config '{"options": {"kernel": "default"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "linux"
 }
 
-@test "collect_packages: default kernel includes linux-headers" {
+@test "package_list_collect: default kernel includes linux-headers" {
   write_config '{"options": {"kernel": "default"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^linux-headers$"
 }
 
-@test "collect_packages: missing kernel option defaults to lts" {
+@test "package_list_collect: missing kernel option defaults to lts" {
   write_config '{}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^linux-lts$"
 }
 
-@test "collect_packages: two-token list installs both kernels and headers" {
+@test "package_list_collect: two-token list installs both kernels and headers" {
   write_config '{"options":{"kernel":["default","lts"]}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "linux"
   echo "$output" | grep -qx "linux-headers"
@@ -78,16 +79,16 @@ write_config() {
   echo "$output" | grep -qx "linux-lts-headers"
 }
 
-@test "collect_packages: zfs-dkms appears exactly once for a multi-kernel list" {
+@test "package_list_collect: zfs-dkms appears exactly once for a multi-kernel list" {
   write_config '{"options":{"kernel":["default","lts"]}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | grep -cx "zfs-dkms")" -eq 1 ]
 }
 
-@test "collect_packages: a pure ext4 root pulls no ZFS userland (ADR 0043)" {
+@test "package_list_collect: a pure ext4 root pulls no ZFS userland (ADR 0043)" {
   write_config '{"filesystem":"ext4","options":{"kernel":"lts"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -qx "zfs-dkms"
   ! echo "$output" | grep -qx "zfs-utils"
@@ -95,16 +96,16 @@ write_config() {
 
 # ── bootloader selection ──────────────────────────────────────────────────────
 
-@test "collect_packages: grub bootloader includes grub" {
+@test "package_list_collect: grub bootloader includes grub" {
   write_config '{"options": {"bootloader": "grub"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^grub$"
 }
 
-@test "collect_packages: systemd-boot does not include grub" {
+@test "package_list_collect: systemd-boot does not include grub" {
   write_config '{"options": {"bootloader": "systemd-boot"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   ! echo "$output" | grep -q "^grub$"
 }
@@ -113,9 +114,9 @@ write_config() {
 # The enable path is system-bound (greps the host /etc/pacman.conf); only the
 # new config gate is unit-tested — it must short-circuit before any file touch.
 
-@test "enable_optional_repos: an empty set skips enabling" {
+@test "pacman_config_enable_optional_repositories: an empty set skips enabling" {
   write_config '{"options":{"optional_repos":[]}}'
-  run enable_optional_repos
+  run pacman_config_enable_optional_repositories
   [ "$status" -eq 0 ]
   echo "$output" | grep -qi "no optional repositories"
 }
@@ -127,28 +128,29 @@ write_config() {
   [ "$output" == "multilib" ]
 }
 
-@test "_custom_repo_siglevel: builds the pacman SigLevel value" {
-  [ "$(_custom_repo_siglevel Never TrustAll)" == "Never" ]
-  [ "$(_custom_repo_siglevel Optional TrustAll)" == "Optional TrustAll" ]
-  [ "$(_custom_repo_siglevel Required TrustedOnly)" == "Required TrustedOnly" ]
-  [ "$(_custom_repo_siglevel '' '')" == "Required TrustedOnly" ]
+@test "_pacman_config_custom_repository_siglevel: builds the pacman SigLevel value" {
+  [ "$(_pacman_config_custom_repository_siglevel Never TrustAll)" == "Never" ]
+  [ "$(_pacman_config_custom_repository_siglevel Optional TrustAll)" == "Optional TrustAll" ]
+  [ "$(_pacman_config_custom_repository_siglevel Required TrustedOnly)" == "Required TrustedOnly" ]
+  [ "$(_pacman_config_custom_repository_siglevel '' '')" == "Required TrustedOnly" ]
 }
 
-# ── reflector country args (issue 06): mirror_countries → --country ─────────
-# A pure helper so install_base (system-bound) stays untested while the arg
-# construction is covered. reflector takes a comma-separated --country value.
+# ── reflector country args (issue 06): mirror_countries → --country ───────── A
+# pure helper so package_list_install_base (system-bound) stays untested while
+# the arg construction is covered. reflector takes a comma-separated --country
+# value.
 
-@test "reflector_country_args: default five become one --country list" {
+@test "package_list_reflector_country_arguments: default five become one --country list" {
   write_config '{}'
-  run reflector_country_args
+  run package_list_reflector_country_arguments
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "--country" ]
   [ "${lines[1]}" = "Germany,Switzerland,Sweden,France,Romania" ]
 }
 
-@test "reflector_country_args: an explicit list is joined in order" {
+@test "package_list_reflector_country_arguments: an explicit list is joined in order" {
   write_config '{"options":{"mirror_countries":["Japan","Australia"]}}'
-  run reflector_country_args
+  run package_list_reflector_country_arguments
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = "--country" ]
   [ "${lines[1]}" = "Japan,Australia" ]
@@ -156,58 +158,59 @@ write_config() {
 
 # ── repo packages (the one authored repo slot) ────────────────────────────────
 
-@test "collect_packages: repo category packages appear in output" {
+@test "package_list_collect: repo category packages appear in output" {
   write_config '{"packages": {"repo": {"cli": ["ripgrep", "fd"]}}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^ripgrep$"
   echo "$output" | grep -q "^fd$"
 }
 
-@test "collect_packages: every repo category is flattened in" {
+@test "package_list_collect: every repo category is flattened in" {
   write_config \
     '{"packages": {"repo": {"cli": ["htop"], "media": ["vlc"]}}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^htop$"
   echo "$output" | grep -q "^vlc$"
 }
 
 # The guided extra-packages row writes packages.repo.extra into the Effective
-# Config; collect_packages reads it from there, so a typed name installs on
+# Config; package_list_collect reads it from there, so a typed name installs on
 # every front-end (no hosts/<hostname>/ re-read required).
-@test "collect_packages: the guided extra-packages category installs" {
+@test "package_list_collect: the guided extra-packages category installs" {
   write_config '{"packages": {"repo": {"extra": ["htop", "tmux"]}}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^htop$"
   echo "$output" | grep -q "^tmux$"
 }
 
-@test "collect_packages: absent packages block is fine" {
+@test "package_list_collect: absent packages block is fine" {
   write_config '{}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^base$"
 }
 
 # stow joined the Base Package List: the Runner stows dotfiles for every user
 # unconditionally, but no layer guaranteed the binary (R1).
-@test "collect_packages: stow is in the Base Package List" {
+@test "package_list_collect: stow is in the Base Package List" {
   write_config '{}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "stow"
 }
 
 # ── archzfs LTS ceiling pin wiring (ADR 0137) ─────────────────────────────────
-# collect_packages reads LTS_PIN_SPECS (exported by archzfs_lts_pin_prepare) and
-# swaps the bare lts token + headers for the version-pinned specs.
+# package_list_collect reads LTS_PIN_SPECS (exported by
+# archzfs_kernel_lts_pin_prepare) and swaps the bare lts token + headers for the
+# version-pinned specs.
 
-@test "collect_packages: LTS_PIN_SPECS swaps the bare lts token + headers" {
+@test "package_list_collect: LTS_PIN_SPECS swaps the bare lts token + headers" {
   write_config '{"options": {"kernel": "lts"}}'
   LTS_PIN_SPECS="linux-lts=6.18.52-1 linux-lts-headers=6.18.52-1" \
-    run collect_packages
+    run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "linux-lts=6.18.52-1"
   echo "$output" | grep -qx "linux-lts-headers=6.18.52-1"
@@ -216,19 +219,19 @@ write_config() {
   ! echo "$output" | grep -qx "linux-lts-headers"
 }
 
-@test "collect_packages: no LTS_PIN_SPECS → bare tokens survive (byte-identical)" {
+@test "package_list_collect: no LTS_PIN_SPECS → bare tokens survive (byte-identical)" {
   write_config '{"options": {"kernel": "lts"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "linux-lts"
   echo "$output" | grep -qx "linux-lts-headers"
   ! echo "$output" | grep -q "linux-lts="
 }
 
-@test "collect_packages: LTS pin leaves a non-lts flavour untouched" {
+@test "package_list_collect: LTS pin leaves a non-lts flavour untouched" {
   write_config '{"options": {"kernel": ["lts", "default"]}}'
   LTS_PIN_SPECS="linux-lts=6.18.52-1 linux-lts-headers=6.18.52-1" \
-    run collect_packages
+    run package_list_collect
   [ "$status" -eq 0 ]
   # the rolling kernel + headers are never rewritten
   echo "$output" | grep -qx "linux"
@@ -238,17 +241,17 @@ write_config() {
 
 # ── GPU and audio packages ────────────────────────────────────────────────────
 
-@test "collect_packages: environment.gpu=nvidia drivers appear in output" {
+@test "package_list_collect: environment.gpu=nvidia drivers appear in output" {
   write_config '{"environment": {"gpu": "nvidia"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^nvidia-open-dkms$"
   echo "$output" | grep -q "^nvidia-utils$"
 }
 
-@test "collect_packages: environment.desktop=kde pulls pipewire" {
+@test "package_list_collect: environment.desktop=kde pulls pipewire" {
   write_config '{"environment": {"desktop": "kde", "gpu": "nvidia"}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -q "^pipewire$"
   echo "$output" | grep -q "^wireplumber$"
@@ -259,18 +262,18 @@ write_config() {
 
 # ── universal infrastructure ──────────────────────────────────────────────────
 
-@test "collect_packages: base set includes cronie" {
+@test "package_list_collect: base set includes cronie" {
   write_config '{}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   echo "$output" | grep -qx "cronie"
 }
 
 # ── deduplication ─────────────────────────────────────────────────────────────
 
-@test "collect_packages: duplicate packages appear only once" {
+@test "package_list_collect: duplicate packages appear only once" {
   write_config '{"packages": {"extra": ["vim"]}}'
-  run collect_packages
+  run package_list_collect
   [ "$status" -eq 0 ]
   local count
   count="$(echo "$output" | grep -c "^vim$")"

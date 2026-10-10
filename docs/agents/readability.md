@@ -175,7 +175,8 @@ other file takes its stem); today's mismatches sit in the baseline.
 - `cfg` → `config_required`, `cfgo` → `config_optional` (Installer Stdlib).
 - `lib/preflight.sh` `command_exists` twin → kept (preflight runs before
   `common.sh` is sourced); exempt in `readability-prefixes.txt`.
-- `lib/packages/kernel.sh` `error` duplicate → dropped (stdlib's).
+- `lib/packages/kernel.sh` `error` fallback → kept (chroot loaders source it
+  without `common.sh`); exempt in `readability-prefixes.txt`.
 
 ### Per file
 
@@ -285,7 +286,11 @@ lib/packages/ (per-file stems)
 - `niri.sh`: `niri_core_packages` stays `niri_`; the Noctalia functions
   (shared with Hyprland) move to a new `noctalia.sh` → `noctalia_`
 - `resolver.sh` (Package Resolver) → rename `package-resolver.sh`;
-  `pkgres_` → `package_resolver_`
+  `pkgres_` → `package_resolver_`; its desktop/Noctalia sets split out to
+  `package-resolver-desktop.sh`, kept on `package_resolver_` by a `file`
+  rule
+- `list.sh`'s host pacman.conf edits split out to `pacman-config.sh` →
+  `pacman_config_` (its `[options]` awk program in `pacman-options.awk`)
 - `audio.sh`, `base.sh`, `gpu.sh`, `iso-resolver.sh`, `kernel.sh`,
   `microcode.sh` → `=`
 

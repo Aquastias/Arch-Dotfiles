@@ -43,7 +43,7 @@ EOF
 # images never collide on the ESP (ADR 0078). Default entries boot quietly on a
 # desktop (clean greeter VT); fallback entries stay verbose for diagnosis.
 for _kernel in "${KERNELS[@]}"; do
-  kbase="$(kernel_pkg "$_kernel")"
+  kbase="$(kernel_package "$_kernel")"
   fb="$(bootloader_common_stage_kernel "$kbase")"
   loader_entries_systemd_boot "Arch Linux (${kbase})" "$kbase" "$MICROCODE_INITRDS" \
     "initramfs-${kbase}.img" \

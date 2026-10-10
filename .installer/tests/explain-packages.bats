@@ -150,14 +150,14 @@ JSON
 }
 
 # The inspector and the menu's derived section must agree — same resolver.
-@test "explain-packages agrees with a direct pkgres_resolve call" {
+@test "explain-packages agrees with a direct package_resolver_resolve call" {
   run bash "$TOOL" laptop --flat
   [ "$status" -eq 0 ]
   local direct
   direct="$(cd "$OS" && INSTALLER_DIR="$OS" bash -c '
     source lib/common.sh
     source lib/config/profile.sh
-    source lib/packages/resolver.sh
-    pkgres_resolve "$(load_profile laptop)" | cut -f3 | sort -u')"
+    source lib/packages/package-resolver.sh
+    package_resolver_resolve "$(load_profile laptop)" | cut -f3 | sort -u')"
   [ "$output" = "$direct" ]
 }

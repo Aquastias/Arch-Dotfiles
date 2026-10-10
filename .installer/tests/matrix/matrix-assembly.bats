@@ -44,7 +44,7 @@ _matrix_validate_cell() {
   for m in lib/common.sh lib/config/categorized-list.sh \
     lib/config/post-install.sh lib/config/accessors.sh \
     lib/config/lifecycle.sh lib/config/layers.sh lib/config/profile.sh \
-    lib/layout/dispatch.sh lib/packages/list.sh lib/profiles/runner.sh \
+    lib/layout/dispatch.sh lib/packages/package-list.sh lib/profiles/runner.sh \
     lib/config/validation.sh; do
     source "$INSTALLER_DIR/$m"
   done
