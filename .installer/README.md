@@ -505,6 +505,7 @@ every boot without the USB.
 │   ├── run.sh              # BATS runner
 │   ├── shellcheck.sh       # Code quality checks
 │   ├── no-python.sh        # No-Python gate
+│   ├── readability.sh      # Readability Lint (ratchet, ADR 0153)
 │   ├── audit.sh
 │   ├── *.bats              # Unit + chroot test files
 │   ├── bats/               # Bundled BATS sources

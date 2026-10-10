@@ -58,3 +58,6 @@ a parenthetical keeping both concrete failure modes:
 `packages/iso-resolver.sh` header went 60 → ~26 lines: kept every API entry,
 every test seam, and the load-bearing why (the 403, the symlink scrape, the
 kernel major.minor compat rule); cut the surrounding prose.
+
+Naming, size, and tool rules for the code itself live in
+[readability.md](readability.md) (ADR 0153).

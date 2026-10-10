@@ -12,11 +12,11 @@ rule and doc-ADR-link rule come later (02, 04).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Lint + bats test modelled on the no-python gate; headline "repo clean
+- [x] Lint + bats test modelled on the no-python gate; headline "repo clean
       vs baseline" test plus fixture repos per rule (caught + allowed cases:
       acronyms, `i`/`j`/`rc`, `sed -i`, bats `@test` titles, jq `def`)
-- [ ] New violation → fail; stale baseline entry → fail
-- [ ] Baseline generated and committed; suite green
-- [ ] Agent doc + `CLAUDE.md` pointer, 80-col
+- [x] New violation → fail; stale baseline entry → fail
+- [x] Baseline generated and committed; suite green
+- [x] Agent doc + `CLAUDE.md` pointer, 80-col

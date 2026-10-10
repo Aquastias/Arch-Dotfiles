@@ -16,6 +16,16 @@ Single-context repo: one `CONTEXT.md` + `docs/adr/` at root. See `docs/agents/do
 
 Installer (`.installer/`) comments are compact: keep the non-obvious *why* + its `(ADR NNNN)` anchor, cut code-restatement and ADR duplication. See `docs/agents/comment-style.md`.
 
+### Readability
+
+Installer code must read without decoding (ADR 0153): no abbreviations (`pw`,
+`cfg`, `ctl`, `dir` → full words), a function's prefix names its file,
+`main()` outlines each entry script, files ≤ 500 lines, functions
+≤ ~50 lines / ≤ 3 nesting, one tool per job (jq JSON, awk text,
+grep filter — no `cut`/`tr`/`head`/…, `sed` only `-i`). Enforced by
+`.installer/tests/readability.sh` as a ratchet: new violations fail, the
+baseline only shrinks. See `docs/agents/readability.md`.
+
 ### Arch Wiki grounding
 
 Package/config/service decisions trace to the Arch Wiki — fetch the page, don't recall it. Covers program specs (`.installer/programs/`, per `PROGRAM_SPEC.md`) and bare `packages.*` additions. See `docs/agents/arch-wiki.md`.
