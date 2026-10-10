@@ -83,7 +83,7 @@ _lifecycle_mode_matches() {
     ((disk_count >= 1))
   else
     local value
-    value="$(cfgo "$signature")"
+    value="$(config_optional "$signature")"
     [[ -n "$value" ]]
   fi
 }
@@ -92,7 +92,7 @@ lifecycle_detect_mode() {
   section "Detecting Install Mode"
 
   local configured_mode
-  configured_mode="$(cfgo '.mode')"
+  configured_mode="$(config_optional '.mode')"
 
   if [[ -n "$configured_mode" ]]; then
     [[ -v "_LIFECYCLE_MODE_SIGNATURES[$configured_mode]" ]] ||
@@ -166,7 +166,7 @@ _lifecycle_print_os_disks() {
 
 _lifecycle_print_single_disk_plan() {
   local disk os_pool storage_pool storage_mount
-  disk="$(cfgo '.disk')"
+  disk="$(config_optional '.disk')"
   os_pool="$(install_config_os_pool_name)"
   storage_pool="$(install_config_storage_pool_name)"
   storage_mount="$(install_config_storage_mount)"
@@ -178,7 +178,7 @@ _lifecycle_print_single_disk_plan() {
 
 _lifecycle_print_multi_disk_plan() {
   local os_pool_name
-  os_pool_name="$(cfg '.os_pool.pool_name')"
+  os_pool_name="$(config_required '.os_pool.pool_name')"
   echo -e "\n  ${BOLD}Mode: multi-disk${NC}"
 
   # The detailed multi summary reads the ZFS multi adapter's internal state
@@ -186,7 +186,7 @@ _lifecycle_print_multi_disk_plan() {
   # root has none of that — print a simple topology + disk list instead.
   if [[ "$(install_config_filesystem)" != "zfs" ]]; then
     local topology
-    topology="$(cfgo '.os_pool.topology')"
+    topology="$(config_optional '.os_pool.topology')"
     [[ -z "$topology" ]] && topology=single
     echo -e "  ${BOLD}Root: $(install_config_filesystem) (${topology})${NC}"
     _lifecycle_print_os_disks
@@ -229,8 +229,8 @@ _lifecycle_print_zfs_data_pool() {
   echo -e "\n  ${BOLD}Data pool: dpool${NC}"
   local i group_name group_mount group_topology
   for ((i = 0; i < storage_group_count; i++)); do
-    group_name="$(cfg ".storage_groups[$i].name")"
-    group_mount="$(cfg ".storage_groups[$i].mount")"
+    group_name="$(config_required ".storage_groups[$i].name")"
+    group_mount="$(config_required ".storage_groups[$i].mount")"
     group_topology="$(layout_group_topology "$group_name")"
     printf "    '%-12s  → %-20s  topology: %s\n" \
       "${group_name}'" "$group_mount" "${group_topology:-?}"
@@ -251,7 +251,7 @@ _lifecycle_print_standalone_data_pools() {
   while IFS= read -r data_pool; do
     printf "    '%-12s  → %-20s  topology: %s\n" \
       "${data_pool}'" "$(layout_data_pool_mount "$data_pool")" \
-      "$(layout_data_pool_topo "$data_pool")"
+      "$(layout_data_pool_topology "$data_pool")"
   done <<<"$data_pool_names"
 }
 
@@ -301,7 +301,7 @@ _lifecycle_print_settings() {
   printf "  %-16s %s\n" "Hostname:" "$hostname"
   # Resolved, not raw (ADR 0118): shows the value that will actually apply
   # (explicit/guided → geo-IP autodetect → Europe/Bucharest), and never aborts
-  # on an absent field the way the required-field cfg reader would.
+  # on an absent field the way the required-field config_required reader would.
   printf "  %-16s %s\n" "Timezone:" "$(install_config_timezone)"
   printf "  %-16s %s\n" "Encryption:" "$encryption"
   printf "  %-16s %s\n" "Swap:" "$swap_enabled  (auto = RAM × 2)$zswap_note"

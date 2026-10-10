@@ -11,11 +11,11 @@
 # row — that is the declaration site. The hand-written specials below the
 # schema (notably Kernel Selection) each break the schema mould.
 #
-# Sourced by 03-install.sh after lib/common.sh (which provides cfgo).
+# Sourced by 03-install.sh after lib/common.sh (which provides config_optional).
 # =============================================================================
 
 # shellcheck source=../common.sh
-declare -F cfgo >/dev/null 2>&1 \
+declare -F config_optional >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../common.sh"
 
 # shellcheck source=../packages/kernel.sh
@@ -97,7 +97,7 @@ install_config_get() {
     [[ "$n" == "$name" ]] || continue
     v=""
     case "$t" in
-    scalar) v="$(cfgo "$p")" ;;
+    scalar) v="$(config_optional "$p")" ;;
     bool)
       v="$(jsonc_read "$CONFIG_FILE" "$p")"
       [[ "$v" == "null" ]] && v=""
@@ -158,7 +158,7 @@ install_config_apparmor_enabled() {
 # sourced by 03-install before the single persist call site; tests that stub
 # install_config_timezone override this (last definition wins).
 install_config_timezone() {
-  timezone_resolve "$(cfgo .)"
+  timezone_resolve "$(config_optional .)"
 }
 
 # =============================================================================
@@ -182,7 +182,7 @@ install_config_gpu() {
 # names the cipher seam: ZFS uses native AES, every other filesystem uses LUKS.
 # An explicit options.encryption_method wins.
 install_config_encryption_method() {
-  local v; v="$(cfgo '.options.encryption_method')"
+  local v; v="$(config_optional '.options.encryption_method')"
   if [[ -n "$v" ]]; then
     printf '%s\n' "$v"
   elif [[ "$(install_config_filesystem)" == "zfs" ]]; then
@@ -289,7 +289,7 @@ install_config_kernel() {
 }
 
 install_config_storage_group_ashift() {
-  local v; v="$(cfgo ".storage_groups[$1].ashift")"
+  local v; v="$(config_optional ".storage_groups[$1].ashift")"
   printf '%s\n' "${v:-12}"
 }
 
@@ -300,13 +300,13 @@ install_config_storage_groups_count() {
 
 # Storage Group name at index — emitted raw.
 install_config_storage_group_name() {
-  cfgo ".storage_groups[$1].name"
+  config_optional ".storage_groups[$1].name"
 }
 
 # Per-group filesystem (ADR 0043) — like the data_pool reader; absent inherits
 # the root `filesystem`.
 install_config_storage_group_filesystem() {
-  local v; v="$(cfgo ".storage_groups[$1].filesystem")"
+  local v; v="$(config_optional ".storage_groups[$1].filesystem")"
   printf '%s\n' "${v:-$(install_config_filesystem)}"
 }
 
@@ -342,18 +342,18 @@ install_config_data_pools_count() {
 
 # Pool name at index — the literal zpool name. Emitted raw.
 install_config_data_pool_name() {
-  cfgo ".data_pools[$1].name"
+  config_optional ".data_pools[$1].name"
 }
 
 # Topology at index — defaults to 'stripe'.
 install_config_data_pool_topology() {
-  local v; v="$(cfgo ".data_pools[$1].topology")"
+  local v; v="$(config_optional ".data_pools[$1].topology")"
   printf '%s\n' "${v:-stripe}"
 }
 
 # Mountpoint at index — defaults to /data/<name>.
 install_config_data_pool_mount() {
-  local v; v="$(cfgo ".data_pools[$1].mount")"
+  local v; v="$(config_optional ".data_pools[$1].mount")"
   if [[ -z "$v" ]]; then
     v="/data/$(install_config_data_pool_name "$1")"
   fi
@@ -362,7 +362,7 @@ install_config_data_pool_mount() {
 
 # Ashift at index — defaults to 12.
 install_config_data_pool_ashift() {
-  local v; v="$(cfgo ".data_pools[$1].ashift")"
+  local v; v="$(config_optional ".data_pools[$1].ashift")"
   printf '%s\n' "${v:-12}"
 }
 
@@ -374,7 +374,7 @@ install_config_data_pool_disks() {
 # Per-group filesystem (ADR 0043) — a Standalone Data Pool may pick its own
 # filesystem; absent inherits the root `filesystem`. An explicit value wins.
 install_config_data_pool_filesystem() {
-  local v; v="$(cfgo ".data_pools[$1].filesystem")"
+  local v; v="$(config_optional ".data_pools[$1].filesystem")"
   printf '%s\n' "${v:-$(install_config_filesystem)}"
 }
 
@@ -431,13 +431,13 @@ install_config_partitions_json() {
 
 # Per-partition fields at index — emitted raw.
 install_config_partition_device() {
-  cfgo ".disk_config.partitions[$1].device"
+  config_optional ".disk_config.partitions[$1].device"
 }
 install_config_partition_mountpoint() {
-  cfgo ".disk_config.partitions[$1].mountpoint"
+  config_optional ".disk_config.partitions[$1].mountpoint"
 }
 install_config_partition_fs() {
-  cfgo ".disk_config.partitions[$1].fs"
+  config_optional ".disk_config.partitions[$1].fs"
 }
 
 # Format flag — true unless explicitly false (a kept/reused partition).

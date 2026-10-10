@@ -15,7 +15,7 @@
 # demand. /usr/lib/systemd/system/<target>.wants/ is the canonical vendor-enable
 # path, lives on the never-rolled-back root dataset, and is always read at the
 # earliest boot transaction. Matches the impermanence curated-mount convention
-# (imp_link_wants writes /usr/lib/systemd/system/local-fs.target.wants/).
+# (impermanence_common_link_wants writes /usr/lib/systemd/system/local-fs.target.wants/).
 #
 # $1 (root) defaults to "" (production writes under /). Idempotent.
 sops_enable_runtime() {

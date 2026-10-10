@@ -21,8 +21,8 @@ jsonc() { jsonc_strip "$1"; }
 # jsonc_read FILE PATH → raw jq read; jq null for missing fields.
 jsonc_read() { jsonc_strip "$1" | jq -r "$2"; }
 
-# jsonc_read_opt FILE PATH → empty string if field is missing or null.
-jsonc_read_opt() { jsonc_strip "$1" | jq -r "$2 // empty"; }
+# jsonc_read_optional FILE PATH → empty string if field is missing or null.
+jsonc_read_optional() { jsonc_strip "$1" | jq -r "$2 // empty"; }
 
 # jsonc_append_to_array FILE SELECTOR VALUE
 #   Appends VALUE to the array at SELECTOR (e.g. ".persist.files"),

@@ -7,7 +7,7 @@
 # seam hooks, partition contract) was extracted to lib/layout/core.sh (ADR
 # 0043); this file keeps only the ZFS-specific plan contract and sources the
 # ZFS leftover-disk adapter + boot-record publisher in plan.sh.
-# Requires: lib/common.sh already sourced (provides cfgo, error, part_name).
+# Requires: lib/common.sh already sourced (provides config_optional, error, part_name).
 # =============================================================================
 
 # shellcheck source=../core.sh

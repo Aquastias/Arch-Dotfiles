@@ -104,8 +104,6 @@ function-length	.installer/vm/lib/seed-generator.sh	_seed_generator_render_guide
 function-length	.installer/vm/lib/seed-generator.sh	_seed_generator_rollback_firstboot_block
 function-length	.installer/vm/vm.sh	main
 function-name	.installer/02-wipe.sh	parse_args
-function-name	.installer/02-wipe.sh	_wipe_mounts_under_mnt
-function-name	.installer/02-wipe.sh	_wipe_pools_altroot_mnt
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/audit-wlroots.sh	_fa_xdg_dir
@@ -120,7 +118,6 @@ function-name	.installer/extras/desktop/kde/audit.sh	_fa_kde_scheme
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_clip
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_qt_env
 function-name	.installer/extras/desktop/niri/audit-fixtures/audit-wlroots.sh	_fa_xdg_dir
-function-name	.installer/install.sh	_install_on_err
 function-name	.installer/lib/aur-helper.sh	_aur_helper_repo_cmd
 function-name	.installer/lib/boot/loader-entries.sh	refind_linux_conf
 function-name	.installer/lib/chroot/bootloader-common.sh	blcommon_efistub_register
@@ -139,8 +136,6 @@ function-name	.installer/lib/chroot/noctalia-preset.sh	_noc_collect_plugins
 function-name	.installer/lib/chroot/noctalia-preset.sh	_noc_laptop
 function-name	.installer/lib/chroot/noctalia-preset.sh	_noc_seed_plugin
 function-name	.installer/lib/chroot/noctalia-preset.sh	_noc_vendor_plugin
-function-name	.installer/lib/common.sh	cfg
-function-name	.installer/lib/common.sh	cfgo
 function-name	.installer/lib/config/accessors.sh	install_config_partition_fs
 function-name	.installer/lib/config/config-apply.sh	ca_home_dir
 function-name	.installer/lib/config/config-apply.sh	ca_plan
@@ -336,7 +331,6 @@ function-name	.installer/lib/feature-audit/report.sh	_fa_render_skips
 function-name	.installer/lib/feature-audit/report.sh	_fa_render_visual
 function-name	.installer/lib/feature-audit/report.sh	fa_report
 function-name	.installer/lib/feature-audit/report.sh	_fa_variant_adrs
-function-name	.installer/lib/globals.sh	layout_data_pool_topo
 function-name	.installer/lib/guided/controller.sh	_ctl_action_row
 function-name	.installer/lib/guided/controller.sh	_ctl_add_data_pool
 function-name	.installer/lib/guided/controller.sh	_ctl_add_storage_group
@@ -495,13 +489,6 @@ function-name	.installer/lib/guided/controller.sh	guided_ctl_list
 function-name	.installer/lib/guided/controller.sh	guided_ctl_preview
 function-name	.installer/lib/guided/secrets-file.sh	guided_secretsfile_has_enc
 function-name	.installer/lib/guided/secrets-file.sh	guided_secretsfile_set_enc
-function-name	.installer/lib/impermanence-common.sh	imp_btrfs_rollback_subvols
-function-name	.installer/lib/impermanence-common.sh	imp_create_persist_dataset
-function-name	.installer/lib/impermanence-common.sh	imp_create_rollback_datasets
-function-name	.installer/lib/impermanence-common.sh	imp_link_wants
-function-name	.installer/lib/impermanence-common.sh	imp_mount_after_unit
-function-name	.installer/lib/impermanence-common.sh	imp_write_mount_unit
-function-name	.installer/lib/jsonc.sh	jsonc_read_opt
 function-name	.installer/lib/layout/manual/plan.sh	manual_supported_data_fs
 function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_enc_mode
 function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_luks_open_root
@@ -509,10 +496,6 @@ function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_swap_mib
 function-name	.installer/lib/layout/nonzfs/root.sh	_nzroot_swap_tail
 function-name	.installer/lib/layout/zfs/data.sh	zfs_data_pool_enc_opts
 function-name	.installer/lib/layout/zfs/multi.sh	create_multi_dpool
-function-name	.installer/lib/live-medium.sh	_lm_arch_label_parts
-function-name	.installer/lib/live-medium.sh	_lm_boot_part
-function-name	.installer/lib/live-medium.sh	_lm_iso9660_parts
-function-name	.installer/lib/live-medium.sh	_lm_parent_disk
 function-name	.installer/lib/matrix/pairwise.sh	_pw_extend
 function-name	.installer/lib/matrix/pairwise.sh	_pw_forward
 function-name	.installer/lib/matrix/pairwise.sh	_pw_ok
@@ -557,32 +540,14 @@ function-name	.installer/programs/system/zsh/audit.sh	_fa_zsh_fn
 function-name	.installer/programs/system/zsh/audit.sh	_fa_zsh_startup
 function-name	.installer/tests/audit.sh	_fn_in
 function-name	.installer/tests/chroot/initcpio-validate.bats	_assemble_conf
-function-name	.installer/tests/config/audio-resolution.bats	cfg
-function-name	.installer/tests/config/audio-resolution.bats	cfgo
-function-name	.installer/tests/config/environment-resolution.bats	cfg
-function-name	.installer/tests/config/environment-resolution.bats	cfgo
-function-name	.installer/tests/config/environment-validation.bats	cfg
-function-name	.installer/tests/config/environment-validation.bats	cfgo
-function-name	.installer/tests/config/gpu-resolution.bats	cfg
-function-name	.installer/tests/config/gpu-resolution.bats	cfgo
 function-name	.installer/tests/config/install-config.bats	set_path_cfg
 function-name	.installer/tests/config/install-config.bats	write_cfg
-function-name	.installer/tests/config/manual-disk-config.bats	cfg
-function-name	.installer/tests/config/manual-disk-config.bats	cfgo
 function-name	.installer/tests/config/noctalia-plugin-fetch.bats	_noc_seed_plugin
 function-name	.installer/tests/config/noctalia-plugin-fetch.bats	_noc_seed_plugin
 function-name	.installer/tests/config/pacman-apply.bats	write_cfg
-function-name	.installer/tests/config/validation-filesystem.bats	cfg
-function-name	.installer/tests/config/validation-filesystem.bats	cfgo
-function-name	.installer/tests/config/validation-group-filesystem.bats	cfg
-function-name	.installer/tests/config/validation-group-filesystem.bats	cfgo
-function-name	.installer/tests/config/validation-impermanence.bats	cfg
-function-name	.installer/tests/config/validation-impermanence.bats	cfgo
 function-name	.installer/tests/config/vscodium-program.bats	fmt_ext
-function-name	.installer/tests/config/zfs-presence.bats	cfgo
 function-name	.installer/tests/extras/environment-runner.bats	make_de_stub
 function-name	.installer/tests/extras/environment-runner.bats	make_dm_stub
-function-name	.installer/tests/feature-audit/check.bats	cfg
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_agent
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_agent
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_agent
@@ -619,7 +584,6 @@ function-name	.installer/tests/feature-audit/live-boot.bats	fa_wait_ssh
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_wait_ssh
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_wait_until
 function-name	.installer/tests/feature-audit/live-boot.bats	fa_wait_until
-function-name	.installer/tests/feature-audit/probe-lib.bats	cfg
 function-name	.installer/tests/guided/bind-all.bats	set_nav
 function-name	.installer/tests/guided/chrome.bats	set_nav
 function-name	.installer/tests/guided/controller.bats	set_nav
@@ -629,8 +593,6 @@ function-name	.installer/tests/guided/disk-bind.bats	set_nav
 function-name	.installer/tests/guided/manual-menu.bats	nav_disks
 function-name	.installer/tests/guided/manual-menu.bats	part_nav
 function-name	.installer/tests/guided/packages.bats	set_nav
-function-name	.installer/tests/guided/per-group-fs.bats	cfg
-function-name	.installer/tests/guided/per-group-fs.bats	cfgo
 function-name	.installer/tests/guided/per-group-fs.bats	set_nav
 function-name	.installer/tests/guided/profiles-menu.bats	set_nav
 function-name	.installer/tests/impermanence-tool.bats	seed_live_dir
@@ -639,20 +601,6 @@ function-name	.installer/tests/layout/layout-multi.bats	build_enc_opts
 function-name	.installer/tests/layout/layout-multi.bats	build_enc_opts
 function-name	.installer/tests/layout/layout-single.bats	build_enc_opts
 function-name	.installer/tests/layout/zfs-data.bats	dk_field
-function-name	.installer/tests/live-medium.bats	_lm_arch_label_parts
-function-name	.installer/tests/live-medium.bats	_lm_arch_label_parts
-function-name	.installer/tests/live-medium.bats	_lm_arch_label_parts
-function-name	.installer/tests/live-medium.bats	_lm_arch_label_parts
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_boot_part
-function-name	.installer/tests/live-medium.bats	_lm_iso9660_parts
-function-name	.installer/tests/live-medium.bats	_lm_iso9660_parts
-function-name	.installer/tests/live-medium.bats	_lm_iso9660_parts
-function-name	.installer/tests/live-medium.bats	_lm_iso9660_parts
 function-name	.installer/tests/matrix/matrix-driver.bats	_pcell
 function-name	.installer/tests/matrix/matrix-smoke.bats	_pcell
 function-name	.installer/tests/no-python.bats	mk_repo
@@ -669,12 +617,6 @@ function-name	.installer/tests/picker.bats	mk_dev
 function-name	.installer/tests/preflight.bats	_install_pkg
 function-name	.installer/tests/vm/profile-validate.bats	mk_host
 function-name	.installer/tests/vm/vm-reorder-disks.bats	_src_for
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_mounts_under_mnt
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_mounts_under_mnt
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_mounts_under_mnt
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_pools_altroot_mnt
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_pools_altroot_mnt
-function-name	.installer/tests/wipe-prior-install-state.bats	_wipe_pools_altroot_mnt
 function-name	.installer/tests/wipe/wipe-targets.bats	write_cfg
 function-name	.installer/tools/fetch-iso.sh	fetch_iso_out_dir
 function-name	.installer/tools/harden-boot.sh	_hb_drop_fallback
@@ -901,10 +843,9 @@ local-name	.installer/lib/chroot/zfs-import.sh	zfs_import_write_settle_overrides
 local-name	.installer/lib/chroot/zfs-import.sh	zfs_write_list_cache:dir
 local-name	.installer/lib/chroot/zfs-import.sh	zfs_write_load_key_template:dst
 local-name	.installer/lib/chroot/zfs-import.sh	zfs_write_mount_restart_dropin:d
-local-name	.installer/lib/common.sh	cfg:v
+local-name	.installer/lib/common.sh	config_required:v
 local-name	.installer/lib/common.sh	part_name:num
 local-name	.installer/lib/common.sh	_retry:n
-local-name	.installer/lib/config/accessors.sh	-:cfgo
 local-name	.installer/lib/config/accessors.sh	install_config_any_nonzfs_luks:n
 local-name	.installer/lib/config/accessors.sh	install_config_any_zfs:n
 local-name	.installer/lib/config/accessors.sh	install_config_data_pool_ashift:v
@@ -1253,7 +1194,6 @@ local-name	.installer/lib/feature-audit/report.sh	_fa_noise_tsv:f
 local-name	.installer/lib/feature-audit/report.sh	_fa_render_md:n
 local-name	.installer/lib/feature-audit/report.sh	fa_report:md
 local-name	.installer/lib/feature-audit/report.sh	_fa_variant_adrs:vs
-local-name	.installer/lib/globals.sh	layout_data_pool_topo:_LAYOUT_IMPL_DATA_POOL_TOPO
 local-name	.installer/lib/guided/controller.sh	-:cfgstate_get
 local-name	.installer/lib/guided/controller.sh	-:cfgstate_host_core
 local-name	.installer/lib/guided/controller.sh	-:cfgstore_state
@@ -1607,25 +1547,25 @@ local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:f
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:k
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:n
 local-name	.installer/lib/guided/userforms.sh	guided_userform_unset:tmp
-local-name	.installer/lib/impermanence-common.sh	imp_btrfs_rollback_subvols:mp
-local-name	.installer/lib/impermanence-common.sh	imp_create_rollback_datasets:ds
-local-name	.installer/lib/impermanence-common.sh	imp_create_rollback_datasets:mp
-local-name	.installer/lib/impermanence-common.sh	imp_link_wants:esc
-local-name	.installer/lib/impermanence-common.sh	imp_mount_after_unit:mp
-local-name	.installer/lib/impermanence-common.sh	imp_write_mount_unit:esc
-local-name	.installer/lib/impermanence-common.sh	persist_activate:esc
-local-name	.installer/lib/impermanence-common.sh	persist_apply:conf
-local-name	.installer/lib/impermanence-common.sh	persist_restore_data:dst
-local-name	.installer/lib/impermanence-common.sh	persist_restore_data:src
-local-name	.installer/lib/impermanence-common.sh	persist_stage_in_copy:dst
-local-name	.installer/lib/impermanence-common.sh	persist_stage_in_copy:src
-local-name	.installer/lib/impermanence-common.sh	persist_stage_in_move:dst
-local-name	.installer/lib/impermanence-common.sh	persist_stage_in_move:src
-local-name	.installer/lib/impermanence-common.sh	persist_unapply:conf
-local-name	.installer/lib/impermanence-common.sh	persist_unapply:dir
-local-name	.installer/lib/impermanence-common.sh	persist_unapply:dir
-local-name	.installer/lib/impermanence-common.sh	persist_unapply:esc
-local-name	.installer/lib/impermanence-common.sh	persist_unapply:tmp
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_btrfs_rollback_subvolumes:mp
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_create_rollback_datasets:ds
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_create_rollback_datasets:mp
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_link_wants:esc
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_mount_after_unit:mp
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_activate:esc
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_apply:conf
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_restore_data:dst
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_restore_data:src
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_copy:dst
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_copy:src
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_move:dst
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_move:src
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_unapply:conf
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_unapply:dir
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_unapply:dir
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_unapply:esc
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_persist_unapply:tmp
+local-name	.installer/lib/impermanence-common.sh	impermanence_common_write_mount_unit:esc
 local-name	.installer/lib/install-state.sh	install_state_load:var
 local-name	.installer/lib/install-state.sh	install_state_update:tmp
 local-name	.installer/lib/jsonc.sh	jsonc_append_to_array:tmp
@@ -1777,12 +1717,12 @@ local-name	.installer/lib/layout/zfs/single.sh	create_single_pools:rp
 local-name	.installer/lib/layout/zfs/single.sh	_layout_plan_mode:_dp
 local-name	.installer/lib/layout/zfs/single.sh	layout_validate:d
 local-name	.installer/lib/layout/zfs/single.sh	partition_single_disk:esp_sz
-local-name	.installer/lib/live-medium.sh	is_live_medium:d
+local-name	.installer/lib/live-medium.sh	_live_medium_boot_partition:src
+local-name	.installer/lib/live-medium.sh	live_medium_contains_disk:d
 local-name	.installer/lib/live-medium.sh	live_medium_disks:d
 local-name	.installer/lib/live-medium.sh	live_medium_disks:p
 local-name	.installer/lib/live-medium.sh	live_medium_disks:p
-local-name	.installer/lib/live-medium.sh	_lm_boot_part:src
-local-name	.installer/lib/live-medium.sh	_lm_parent_disk:pk
+local-name	.installer/lib/live-medium.sh	_live_medium_parent_disk:pk
 local-name	.installer/lib/matrix/assemble.sh	-:cfgstate_new
 local-name	.installer/lib/matrix/assemble.sh	-:cfgstate_seed_defaults
 local-name	.installer/lib/matrix/assemble.sh	matrix_cell_assemble:n
@@ -2650,12 +2590,12 @@ local-name	.installer/tests/guided/shell.bats	@test in-menu secrets feed the no-
 local-name	.installer/tests/guided/shell.bats	@test secrets: an enc passphrase in the handoff file lands in the manifest:f
 local-name	.installer/tests/guided/shell.bats	write_answers:f
 local-name	.installer/tests/guided/zfs-snapshot-lock.bats	@test apply: toggling zfs snapshots is a no-op without ZFS:st
-local-name	.installer/tests/impermanence-common.bats	@test imp_create_rollback_datasets: creates each dataset at its mountpoint:ds
-local-name	.installer/tests/impermanence-common.bats	@test imp_create_rollback_datasets: creates each dataset at its mountpoint:mp
-local-name	.installer/tests/impermanence-common.bats	@test imp_write_mount_unit: btrfs orders /etc/ssh After=etc.mount:u
-local-name	.installer/tests/impermanence-common.bats	@test imp_write_mount_unit: btrfs orders /usr/local After=usr-local.mount:u
-local-name	.installer/tests/impermanence-common.bats	@test imp_write_mount_unit: zfs orders After=zfs-mount.service (default):u
-local-name	.installer/tests/impermanence-common.bats	@test persist_apply: optional tmpfiles_file overrides default location:alt_conf
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_create_rollback_datasets: creates each dataset at its mountpoint:ds
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_create_rollback_datasets: creates each dataset at its mountpoint:mp
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_persist_apply: optional tmpfiles_file overrides default location:alt_conf
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_write_mount_unit: btrfs orders /etc/ssh After=etc.mount:u
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_write_mount_unit: btrfs orders /usr/local After=usr-local.mount:u
+local-name	.installer/tests/impermanence-common.bats	@test impermanence_common_write_mount_unit: zfs orders After=zfs-mount.service (default):u
 local-name	.installer/tests/impermanence-tool.bats	seed_all_curated_live:p
 local-name	.installer/tests/impermanence-tool.bats	seed_all_curated_live:p
 local-name	.installer/tests/impermanence-tool.bats	seed_all_curated_live:p
@@ -3424,16 +3364,6 @@ prefix	.installer/lib/feature-audit/report.sh	_fa_render_skips
 prefix	.installer/lib/feature-audit/report.sh	_fa_render_visual
 prefix	.installer/lib/feature-audit/report.sh	fa_report
 prefix	.installer/lib/feature-audit/report.sh	_fa_variant_adrs
-prefix	.installer/lib/globals.sh	layout_data_pool_mount
-prefix	.installer/lib/globals.sh	layout_data_pool_names
-prefix	.installer/lib/globals.sh	layout_data_pool_topo
-prefix	.installer/lib/globals.sh	layout_group_topology
-prefix	.installer/lib/globals.sh	layout_has_leftover
-prefix	.installer/lib/globals.sh	layout_leftover_disks
-prefix	.installer/lib/globals.sh	layout_leftover_parts
-prefix	.installer/lib/globals.sh	layout_os_disk
-prefix	.installer/lib/globals.sh	layout_os_topology
-prefix	.installer/lib/grub-common.sh	_grub_default_config
 prefix	.installer/lib/guided/controller.sh	_ctl_action_row
 prefix	.installer/lib/guided/controller.sh	_ctl_add_data_pool
 prefix	.installer/lib/guided/controller.sh	_ctl_add_storage_group
@@ -3647,18 +3577,6 @@ prefix	.installer/lib/guided/shell.sh	_guided_set_root_password
 prefix	.installer/lib/guided/shell.sh	_guided_sync_users
 prefix	.installer/lib/guided/shell.sh	_guided_user_names
 prefix	.installer/lib/guided/shell.sh	_guided_users_reset
-prefix	.installer/lib/impermanence-common.sh	imp_btrfs_rollback_subvols
-prefix	.installer/lib/impermanence-common.sh	imp_create_persist_dataset
-prefix	.installer/lib/impermanence-common.sh	imp_create_rollback_datasets
-prefix	.installer/lib/impermanence-common.sh	imp_link_wants
-prefix	.installer/lib/impermanence-common.sh	imp_mount_after_unit
-prefix	.installer/lib/impermanence-common.sh	imp_write_mount_unit
-prefix	.installer/lib/impermanence-common.sh	persist_activate
-prefix	.installer/lib/impermanence-common.sh	persist_apply
-prefix	.installer/lib/impermanence-common.sh	persist_restore_data
-prefix	.installer/lib/impermanence-common.sh	persist_stage_in_copy
-prefix	.installer/lib/impermanence-common.sh	persist_stage_in_move
-prefix	.installer/lib/impermanence-common.sh	persist_unapply
 prefix	.installer/lib/layout/btrfs/boot.sh	btrfs_hooks
 prefix	.installer/lib/layout/btrfs/boot.sh	btrfs_root_cmdline
 prefix	.installer/lib/layout/btrfs/data.sh	_data_mkfs
@@ -3742,11 +3660,6 @@ prefix	.installer/lib/layout/zfs/single.sh	calculate_single_disk_layout
 prefix	.installer/lib/layout/zfs/single.sh	create_single_pools
 prefix	.installer/lib/layout/zfs/single.sh	mount_single_esp
 prefix	.installer/lib/layout/zfs/single.sh	partition_single_disk
-prefix	.installer/lib/live-medium.sh	is_live_medium
-prefix	.installer/lib/live-medium.sh	_lm_arch_label_parts
-prefix	.installer/lib/live-medium.sh	_lm_boot_part
-prefix	.installer/lib/live-medium.sh	_lm_iso9660_parts
-prefix	.installer/lib/live-medium.sh	_lm_parent_disk
 prefix	.installer/lib/matrix/assemble.sh	_matrix_cell_mode
 prefix	.installer/lib/matrix/assemble.sh	_matrix_disk_devices
 prefix	.installer/lib/matrix/assemble.sh	_matrix_mode_for_topology
@@ -3825,7 +3738,6 @@ prefix	.installer/lib/packages/resolver.sh	pkgres_source_origin
 prefix	.installer/lib/packages/resolver.sh	pkgres_sources
 prefix	.installer/lib/packages/resolver.sh	pkgres_unresolved
 prefix	.installer/lib/packages/resolver.sh	_pkgres_user_shells
-prefix	.installer/lib/preflight.sh	command_exists
 prefix	.installer/lib/profiles/runner.sh	_profiles_apply_sysctl
 prefix	.installer/lib/profiles/runner.sh	_profiles_apply_user_config
 prefix	.installer/lib/profiles/runner.sh	_profiles_apply_user_groups
@@ -4172,10 +4084,10 @@ tool	.installer/lib/guided/shell.sh	guided_build:paste
 tool	.installer/lib/guided/shell.sh	_guided_materialize_users:tr
 tool	.installer/lib/guided/shell.sh	_guided_program_names:basename
 tool	.installer/lib/guided/shell.sh	_guided_user_names:basename
-tool	.installer/lib/impermanence-common.sh	persist_apply:dirname
-tool	.installer/lib/impermanence-common.sh	persist_restore_data:dirname
-tool	.installer/lib/impermanence-common.sh	persist_stage_in_copy:dirname
-tool	.installer/lib/impermanence-common.sh	persist_stage_in_move:dirname
+tool	.installer/lib/impermanence-common.sh	impermanence_common_persist_apply:dirname
+tool	.installer/lib/impermanence-common.sh	impermanence_common_persist_restore_data:dirname
+tool	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_copy:dirname
+tool	.installer/lib/impermanence-common.sh	impermanence_common_persist_stage_in_move:dirname
 tool	.installer/lib/layout/core.sh	-:cut
 tool	.installer/lib/layout/nonzfs/data.sh	_data_gen_keyfile:head
 tool	.installer/lib/layout/zfs/data.sh	data_group_create:cut
@@ -4192,7 +4104,7 @@ tool	.installer/lib/layout/zfs/multi.sh	layout_validate:uniq
 tool	.installer/lib/layout/zfs/multi.sh	layout_validate:uniq
 tool	.installer/lib/layout/zfs/multi.sh	layout_validate:uniq
 tool	.installer/lib/layout/zfs/multi.sh	resolve_os_topology:xargs
-tool	.installer/lib/live-medium.sh	_lm_parent_disk:head
+tool	.installer/lib/live-medium.sh	_live_medium_parent_disk:head
 tool	.installer/lib/matrix/driver.sh	_matrix_guard_gate:wc
 tool	.installer/lib/matrix/driver.sh	matrix_summary_format:column
 tool	.installer/lib/matrix/generator.sh	_matrix_tier2_constraints:tr
@@ -4381,7 +4293,7 @@ tool	.installer/tests/guided/mask.bats	@test typing a full secret one char at a 
 tool	.installer/tests/guided/packages.bats	@test the browser caches the derived set across extra toggles:head
 tool	.installer/tests/guided/packages.bats	@test the browser caches the derived set across extra toggles:head
 tool	.installer/tests/guided/packages.bats	@test the browser caches the derived set across extra toggles:tail
-tool	.installer/tests/impermanence-common.bats	@test persist_unapply: removes the tmpfiles entry; preserves other lines:dirname
+tool	.installer/tests/impermanence-common.bats	@test impermanence_common_persist_unapply: removes the tmpfiles entry; preserves other lines:dirname
 tool	.installer/tests/impermanence-tool.bats	seed_all_curated_live:dirname
 tool	.installer/tests/impermanence-tool.bats	seed_live_file:dirname
 tool	.installer/tests/impermanence-tool.bats	setup:dirname

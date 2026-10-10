@@ -73,7 +73,7 @@ run_enabled() {
 
 # ── cycle 2+3: datasets are NOT created here — done EARLY in the layout phase ─
 # Both the Persist Dataset and the Rollback Datasets are created before pacstrap
-# by imp_create_persist_dataset + imp_create_rollback_datasets (see
+# by impermanence_common_create_persist_dataset + impermanence_common_create_rollback_datasets (see
 # tests/impermanence-common.bats). Creating them in the Chroot Module is too
 # late: rollback datasets would miss pacstrap's content + the zfs-list.cache,
 # and the Persist Dataset would mount too late for the curated binds to restore

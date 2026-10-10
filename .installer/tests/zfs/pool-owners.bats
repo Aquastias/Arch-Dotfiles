@@ -279,8 +279,9 @@ GR
 # ("_leftover: unbound variable"). The predicate must be safe when absent.
 
 # The predicate now lives in the layout record interface (layout_has_leftover,
-# lib/globals.sh); pool-owners.sh sources it transitively. The record backing is
-# still _LAYOUT_IMPL_STORAGE_PARTS, so these fixtures drive the accessor.
+# lib/layout/state.sh); pool-owners.sh sources it transitively. The record
+# backing is still _LAYOUT_IMPL_STORAGE_PARTS, so these fixtures drive
+# the accessor.
 @test "leftover predicate: defined and safe in single mode (undeclared arrays)" {
   run bash -uc "source '$BATS_TEST_DIRNAME/../../lib/zfs/pool-owners.sh'
     declare -F layout_has_leftover >/dev/null || { echo NO_FN; exit 3; }

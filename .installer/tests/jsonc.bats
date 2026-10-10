@@ -56,25 +56,25 @@ write_file() {
   [ "$output" = "two" ]
 }
 
-# ── jsonc_read_opt ────────────────────────────────────────────────────────────
+# ── jsonc_read_optional ────────────────────────────────────────────────────────────
 
-@test "jsonc_read_opt: returns value for a present field" {
+@test "jsonc_read_optional: returns value for a present field" {
   write_file "$TEST_DIR/f.json" '{"options": {"kernel": "lts"}}'
-  run jsonc_read_opt "$TEST_DIR/f.json" '.options.kernel'
+  run jsonc_read_optional "$TEST_DIR/f.json" '.options.kernel'
   [ "$status" -eq 0 ]
   [ "$output" = "lts" ]
 }
 
-@test "jsonc_read_opt: returns empty string for a missing field" {
+@test "jsonc_read_optional: returns empty string for a missing field" {
   write_file "$TEST_DIR/f.json" '{}'
-  run jsonc_read_opt "$TEST_DIR/f.json" '.options.kernel'
+  run jsonc_read_optional "$TEST_DIR/f.json" '.options.kernel'
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
-@test "jsonc_read_opt: returns empty string for an explicit null field" {
+@test "jsonc_read_optional: returns empty string for an explicit null field" {
   write_file "$TEST_DIR/f.json" '{"options": {"kernel": null}}'
-  run jsonc_read_opt "$TEST_DIR/f.json" '.options.kernel'
+  run jsonc_read_optional "$TEST_DIR/f.json" '.options.kernel'
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }

@@ -18,9 +18,9 @@
 # =============================================================================
 
 # The resolved multi-disk layout is read through the layout_* record accessors
-# (lib/globals.sh) — never by naming the adapter-private _LAYOUT_IMPL_* here.
+# (lib/layout/state.sh) — never by naming the adapter-private _LAYOUT_IMPL_*.
 declare -F layout_has_leftover >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../globals.sh"
+  || source "${BASH_SOURCE[0]%/*}/../layout/state.sh"
 
 # Ownership mode for the pool:
 #   chown — plain `chown <base>:` (the common single-human case)
@@ -364,11 +364,11 @@ pool_owners_apply() {
   local sg i name topo dc
   sg="$(jsonc "$CONFIG_FILE" | jq '.storage_groups | length')"
   for ((i = 0; i < sg; i++)); do
-    name="$(cfg ".storage_groups[$i].name")"
-    mount="$(cfg ".storage_groups[$i].mount")"
+    name="$(config_required ".storage_groups[$i].name")"
+    mount="$(config_required ".storage_groups[$i].mount")"
     owners="$(install_config_storage_group_owners "$i" | tr '\n' ' ')"
     topo="$(layout_group_topology "$name")"
-    topo="${topo:-$(cfgo ".storage_groups[$i].topology")}"
+    topo="${topo:-$(config_optional ".storage_groups[$i].topology")}"
     topo="${topo:-stripe}"
     dc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
     _pool_owners_apply_pool "$name" "$mount" "$topo" "$dc" \

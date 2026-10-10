@@ -195,7 +195,7 @@ fi
 # =============================================================================
 _section "5. jsonc.sh function definitions"
 # =============================================================================
-for fn in jsonc jsonc_strip jsonc_read jsonc_read_opt; do
+for fn in jsonc jsonc_strip jsonc_read jsonc_read_optional; do
   _fn_in "$fn" "${OS}/lib/jsonc.sh"
 done
 

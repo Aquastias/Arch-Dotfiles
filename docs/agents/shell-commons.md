@@ -10,7 +10,8 @@ consumers. This keeps the two stdlib worlds from re-growing the duplication a
 
 - **Installer Stdlib** — `.installer/lib/common.sh`. Host-side install scripts and
   `lib/` modules. `info/warn/error/section`, `confirm`, `pick_option`,
-  `cfg/cfgo`, `part_name`, `command_exists`. **Not** sourced inside
+  `config_required`/`config_optional`, `part_name`, `command_exists`. **Not**
+  sourced inside
   `arch-chroot`.
 - **Shell Stdlib** — `.installer/lib/shell-stdlib.sh` → `lib/shell/*.sh`. Program
   Install Scripts, sourced once by the Program Runner via `$SHELL_COMMONS`.

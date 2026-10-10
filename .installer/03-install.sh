@@ -98,7 +98,7 @@ prepare_secrets() {
 
   trap secrets_cleanup EXIT
   local age_key_url
-  age_key_url="$(cfgo '.options.age_key_url')"
+  age_key_url="$(config_optional '.options.age_key_url')"
   [[ -n "$age_key_url" ]] && export SECRETS_KEY_URL="$age_key_url"
   secrets_load "$RESOLVED_HOST_PROFILE"
 }

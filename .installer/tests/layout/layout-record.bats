@@ -1,18 +1,18 @@
 #!/usr/bin/env bats
-# Tests for the Layout Record read interface (lib/globals.sh, ADR 0043): the
-# layout_* accessors that expose the multi-disk adapter's resolved model
+# Tests for the Layout Record read interface (lib/layout/state.sh, ADR 0043):
+# the layout_* accessors that expose the multi-disk adapter's resolved model
 # (per-group topology, standalone data pools, folded leftovers) so consumers
 # (lifecycle_print_summary, pool_owners_apply) depend on the interface, not
 # the adapter-private _LAYOUT_IMPL_* variables. Absence-safety is the crux: the
 # accessors must not arithmetic-abort an undeclared associative array under
 # `set -u` (single-disk / non-ZFS root), so every case runs under `set -u`.
 
-GLOBALS="$BATS_TEST_DIRNAME/../../lib/globals.sh"
+LAYOUT_STATE="$BATS_TEST_DIRNAME/../../lib/layout/state.sh"
 
 # Run a snippet with the record populated (the ZFS-multi model fixture).
 with_model() {
   bash -uc "
-    source '$GLOBALS'
+    source '$LAYOUT_STATE'
     declare -gA _LAYOUT_IMPL_STORAGE_PARTS=([tank0]='/dev/sda1' [_leftover]='/dev/sdb1 /dev/sdc1')
     declare -gA _LAYOUT_IMPL_TOPOLOGIES=([tank0]='mirror' [_leftover]='independent')
     declare -gA _LAYOUT_IMPL_DATA_POOL_MOUNT=([vault]='/mnt/vault')
@@ -25,7 +25,7 @@ with_model() {
 }
 
 # Run a snippet with NO model declared (single-disk / non-ZFS root).
-without_model() { bash -uc "source '$GLOBALS'; $1"; }
+without_model() { bash -uc "source '$LAYOUT_STATE'; $1"; }
 
 @test "layout_has_leftover: true when a _leftover storage part exists" {
   run with_model 'layout_has_leftover && echo YES || echo NO'
@@ -70,6 +70,6 @@ without_model() { bash -uc "source '$GLOBALS'; $1"; }
 @test "layout_data_pool_names + mount + topo" {
   run with_model 'layout_data_pool_names';        [ "$output" == "vault" ]
   run with_model 'layout_data_pool_mount vault';  [ "$output" == "/mnt/vault" ]
-  run with_model 'layout_data_pool_topo vault';   [ "$output" == "raidz1" ]
+  run with_model 'layout_data_pool_topology vault';   [ "$output" == "raidz1" ]
   run without_model 'layout_data_pool_names';     [ -z "$output" ]
 }

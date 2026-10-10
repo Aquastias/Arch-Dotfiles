@@ -347,7 +347,7 @@ _create_os_datasets() {
   local swap_on
   swap_on="$(install_config_swap_enabled)"
   local cfg_swap_sz
-  cfg_swap_sz="$(cfgo '.options.swap_size')"
+  cfg_swap_sz="$(config_optional '.options.swap_size')"
   local swap_arg
   if [[ -z "$cfg_swap_sz" || "$cfg_swap_sz" == "auto" ]]; then
     # auto = RAM × 2, which accommodates hibernation (suspend-to-disk)
@@ -389,9 +389,9 @@ _create_os_datasets() {
   # they never mount and the @blank rollback is a no-op. No-op when disabled.
   if [[ "$(install_config_impermanence_enabled)" == "true" ]]; then
     info "Impermanence enabled — creating Persist + Rollback Datasets on ${pool_name}."
-    imp_create_persist_dataset "$(install_config_impermanence_dataset)" \
+    impermanence_common_create_persist_dataset "$(install_config_impermanence_dataset)" \
                                "$(install_config_impermanence_mount)"
-    imp_create_rollback_datasets "${pool_name}"
+    impermanence_common_create_rollback_datasets "${pool_name}"
   fi
 
   if [[ "$swap_on" == "true" ]]; then

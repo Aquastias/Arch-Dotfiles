@@ -184,7 +184,7 @@ select_disks() {
 _wipe_probe_disk() {
   local disk="$1" is_live=0 sig="" nparts=0 nonzero=0
 
-  is_live_medium "$disk" && is_live=1
+  live_medium_contains_disk "$disk" && is_live=1
 
   # Only probe a real block device. A resolved target set may name a disk absent
   # here (another host's disks); report it blank rather than run lsblk/dd,
@@ -247,7 +247,7 @@ skip_zeroed_disks() {
 assert_no_live_medium_targets() {
   local disk
   for disk in "${DISKS_TO_WIPE[@]}"; do
-    if is_live_medium "$disk"; then
+    if live_medium_contains_disk "$disk"; then
       error "Refusing to wipe ${disk}: it is the live install medium."
     fi
   done
@@ -317,10 +317,10 @@ final_confirm() {
 # is non-destructive — no data erased, pools re-importable.
 
 # Injectable seams (overridden in tests).
-_wipe_mounts_under_mnt() {
+_wipe_mounts_under_mount_root() {
   findmnt -rno TARGET 2>/dev/null | grep -E '^/mnt(/|$)' || true
 }
-_wipe_pools_altroot_mnt() {
+_wipe_pools_with_mount_root_altroot() {
   command_exists zpool || return 0
   zpool list -H -o name,altroot 2>/dev/null \
     | awk '$2 ~ /^\/mnt(\/|$)/ {print $1}'
@@ -328,8 +328,8 @@ _wipe_pools_altroot_mnt() {
 
 # Returns 0 if a previous-install scratch state is present at /mnt.
 wipe_prior_state_present() {
-  [[ -n "$(_wipe_mounts_under_mnt)" ]] && return 0
-  [[ -n "$(_wipe_pools_altroot_mnt)" ]] && return 0
+  [[ -n "$(_wipe_mounts_under_mount_root)" ]] && return 0
+  [[ -n "$(_wipe_pools_with_mount_root_altroot)" ]] && return 0
   return 1
 }
 
@@ -338,8 +338,8 @@ reset_prior_install_state() {
 
   section "Previous Install Environment Detected"
   local _mounts _pools _line
-  _mounts="$(_wipe_mounts_under_mnt)"
-  _pools="$(_wipe_pools_altroot_mnt | xargs || true)"
+  _mounts="$(_wipe_mounts_under_mount_root)"
+  _pools="$(_wipe_pools_with_mount_root_altroot | xargs || true)"
   if [[ -n "$_mounts" ]]; then
     warn "Mounted under /mnt:"
     while IFS= read -r _line; do
@@ -377,7 +377,7 @@ reset_prior_install_state() {
     warn "Exporting pool '${_pool}'"
     zpool export "$_pool" 2>/dev/null \
       || zpool export -f "$_pool" 2>/dev/null || true
-  done < <(_wipe_pools_altroot_mnt)
+  done < <(_wipe_pools_with_mount_root_altroot)
 
   if wipe_prior_state_present; then
     warn "Some /mnt state remains — inspect: mount | grep /mnt ; zpool list"

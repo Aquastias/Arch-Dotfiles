@@ -19,7 +19,7 @@
 # the partition planner (nonzfs/plan.sh, the slot authority), the device
 # resolver (nonzfs/devices.sh), and the shared boot emitters (nonzfs/boot.sh).
 #
-# Requires (already sourced by 03-install.sh): lib/common.sh (cfg, part_name,
+# Requires (already sourced by 03-install.sh): lib/common.sh (config_required, part_name,
 # section/info/warn/confirm), lib/config/accessors.sh, lib/zfs/pools.sh
 # (ram_gib). Provides the seam: layout_validate, _layout_plan_mode,
 # _layout_os_disks, _layout_publish_boot, layout_partition, layout_create_pools,
@@ -68,7 +68,7 @@ _nzroot_swap_mib() {
   local total_mib="$1"
   [[ "$(install_config_swap_enabled)" == "true" ]] || { echo 0; return; }
   local raw swap_mib cap
-  raw="$(cfgo '.options.swap_size')"
+  raw="$(config_optional '.options.swap_size')"
   if [[ -z "$raw" || "$raw" == "auto" ]]; then
     swap_mib=$(( $(ram_gib) * 2 * 1024 ))
     cap=$(( total_mib / 4 ))
@@ -87,7 +87,7 @@ layout_validate() {
   _layout_enter_phase validate
   layout_validate_esp_size
   local d
-  d="$(cfg '.disk' 'disk')"
+  d="$(config_required '.disk' 'disk')"
   _layout_disk_exists "$d" \
     || error "$(_root_fstype) single disk not found: $d"
   _layout_exit_phase validate
@@ -98,7 +98,7 @@ layout_validate() {
 _layout_plan_mode() {
   local fstype; fstype="$(_root_fstype)"
   section "Calculating ${fstype} Single-Disk Layout"
-  _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
+  _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
   _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
     || error "Disk not found: $_LAYOUT_IMPL_DISK"
 

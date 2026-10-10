@@ -54,7 +54,7 @@ calculate_single_disk_layout() {
 
   section "Calculating Single-Disk Layout"
 
-  _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
+  _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
   _layout_disk_exists "$_LAYOUT_IMPL_DISK" \
     || error "Disk not found: $_LAYOUT_IMPL_DISK"
 
@@ -83,7 +83,7 @@ calculate_single_disk_layout() {
 
   # ── Swap size ─────────────────────────────────────────────────────────────
   local cfg_swap
-  cfg_swap="$(cfgo '.options.swap_size')"
+  cfg_swap="$(config_optional '.options.swap_size')"
   local swap_gib
   if [[ -z "$cfg_swap" || "$cfg_swap" == "auto" ]]; then
     swap_gib=$((ram * 2))
@@ -103,7 +103,7 @@ calculate_single_disk_layout() {
 
   # ── OS partition size ─────────────────────────────────────────────────────
   local cfg_os
-  cfg_os="$(cfgo '.os_size')"
+  cfg_os="$(config_optional '.os_size')"
   local os_gib
   if [[ -z "$cfg_os" || "$cfg_os" == "auto" ]]; then
     # Three candidates — pick the largest, but never exceed 85% of usable space
@@ -252,7 +252,7 @@ layout_validate() {
   _layout_enter_phase validate
   layout_validate_esp_size
   local d
-  d="$(cfg '.disk' 'disk')"
+  d="$(config_required '.disk' 'disk')"
   _layout_disk_exists "$d" || error "Single disk not found: $d"
   _layout_exit_phase validate
 }
@@ -263,10 +263,10 @@ _layout_plan_mode() {
   calculate_single_disk_layout
   # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_OS_POOL_NAME="$(cfgo .os_pool_name)"
+  LAYOUT_OS_POOL_NAME="$(config_optional .os_pool_name)"
   LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
   local _dp
-  _dp="$(cfgo .storage_pool_name)"
+  _dp="$(config_optional .storage_pool_name)"
   # shellcheck disable=SC2034 # consumed by finalize.sh
   LAYOUT_DATA_POOL_NAMES=("${_dp:-dpool}")
 }

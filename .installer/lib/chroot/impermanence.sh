@@ -21,8 +21,8 @@ info() { printf '[impermanence] %s\n' "$*" >&2; }
 
 # The Persist Dataset (rpool/persist) AND the Rollback Datasets
 # (rpool/ROOT/{etc,opt,root,srv,usrlocal}) are created EARLY, during
-# pool/dataset creation, by imp_create_persist_dataset +
-# imp_create_rollback_datasets (see lib/impermanence-common.sh). They must exist
+# pool/dataset creation, by impermanence_common_create_persist_dataset +
+# impermanence_common_create_rollback_datasets (see lib/impermanence-common.sh). They must exist
 # before pacstrap (so the OS populates the rollback datasets) and land in the
 # zfs-list.cache (so they mount at boot — the Persist Dataset early enough that
 # the curated Persist Mounts restore /etc state before dbus). This module only
@@ -46,10 +46,10 @@ _impermanence_apply_curated() {
   # @blank snapshot is genuinely blank of them; a bind restores them at
   # local-fs.target.
   for target in "${CURATED_DIRS[@]}"; do
-    persist_apply "$target" d "$units" "$conf"
-    imp_link_wants "$target" "$wants"
+    impermanence_common_persist_apply "$target" d "$units" "$conf"
+    impermanence_common_link_wants "$target" "$wants"
     if [[ -e "${ROOT:-}$target" ]]; then
-      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+      impermanence_common_persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
     else
       info "impermanence: skip missing curated source $target"
     fi
@@ -63,8 +63,8 @@ _impermanence_apply_curated() {
   # real, frozen-at-install values. The bind unit is still written — a harmless
   # redundant overlay of the identical value.
   for target in "${CURATED_FILES[@]}"; do
-    persist_apply "$target" f "$units" "$conf"
-    imp_link_wants "$target" "$wants"
+    impermanence_common_persist_apply "$target" f "$units" "$conf"
+    impermanence_common_link_wants "$target" "$wants"
     fsrc="${ROOT:-}$target"; fdst="${ROOT:-}${IMPERMANENCE_MOUNT}$target"
     if [[ -e "$fsrc" ]]; then
       mkdir -p "$(dirname "$fdst")"
@@ -111,20 +111,20 @@ _impermanence_apply_extensions() {
   local target
   for target in "${PERSIST_DIRECTORIES[@]:-}"; do
     [[ -z "$target" ]] && continue
-    persist_apply "$target" d "$units" "$conf"
-    imp_link_wants "$target" "$wants"
+    impermanence_common_persist_apply "$target" d "$units" "$conf"
+    impermanence_common_link_wants "$target" "$wants"
     if [[ -e "${ROOT:-}$target" ]]; then
-      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+      impermanence_common_persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
     else
       info "impermanence: skip missing extension source $target"
     fi
   done
   for target in "${PERSIST_FILES[@]:-}"; do
     [[ -z "$target" ]] && continue
-    persist_apply "$target" f "$units" "$conf"
-    imp_link_wants "$target" "$wants"
+    impermanence_common_persist_apply "$target" f "$units" "$conf"
+    impermanence_common_link_wants "$target" "$wants"
     if [[ -e "${ROOT:-}$target" ]]; then
-      persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
+      impermanence_common_persist_stage_in_move "$target" "${ROOT:-}" "${ROOT:-}${IMPERMANENCE_MOUNT}"
     else
       info "impermanence: skip missing extension source $target"
     fi
@@ -148,8 +148,8 @@ _impermanence_write_bootstrap() {
   : > "$f"
   for p in /etc/systemd/system /etc/tmpfiles.d; do
     printf "d %s 0755 root root - -\n" "$p" >> "$f"
-    imp_write_mount_unit "$p"
-    imp_link_wants "$p"
+    impermanence_common_write_mount_unit "$p"
+    impermanence_common_link_wants "$p"
     # Stage the live content onto the Persist Dataset so the bind EXPOSES the
     # install-time service enablements (sops-runtime, sshd, … live as symlinks
     # in /etc/systemd/system/*.target.wants/). Without this the bind covers

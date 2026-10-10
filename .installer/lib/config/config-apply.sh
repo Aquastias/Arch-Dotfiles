@@ -78,7 +78,7 @@ ca_stow_opt_in_list() {
   {
     for f in "$root"/*/*/config.jsonc; do
       [[ -f "$f" ]] || continue
-      [[ "$(jsonc_read_opt "$f" .stow_opt_in)" == true ]] || continue
+      [[ "$(jsonc_read_optional "$f" .stow_opt_in)" == true ]] || continue
       basename "$(dirname "$f")"
     done
   } | jq -R . | jq -s -c 'unique'

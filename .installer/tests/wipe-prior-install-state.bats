@@ -26,30 +26,30 @@ setup() {
 }
 
 @test "present: a partition mounted under /mnt (the ESP case)" {
-  _wipe_mounts_under_mnt()  { echo "/mnt/boot/efi"; }
-  _wipe_pools_altroot_mnt() { :; }
+  _wipe_mounts_under_mount_root()  { echo "/mnt/boot/efi"; }
+  _wipe_pools_with_mount_root_altroot() { :; }
   run wipe_prior_state_present
   [ "$status" -eq 0 ]
 }
 
 @test "present: a pool imported with altroot=/mnt" {
-  _wipe_mounts_under_mnt()  { :; }
-  _wipe_pools_altroot_mnt() { echo rpool; echo dpool; }
+  _wipe_mounts_under_mount_root()  { :; }
+  _wipe_pools_with_mount_root_altroot() { echo rpool; echo dpool; }
   run wipe_prior_state_present
   [ "$status" -eq 0 ]
 }
 
 @test "absent: nothing under /mnt and no /mnt-altroot pool" {
-  _wipe_mounts_under_mnt()  { :; }
-  _wipe_pools_altroot_mnt() { :; }
+  _wipe_mounts_under_mount_root()  { :; }
+  _wipe_pools_with_mount_root_altroot() { :; }
   run wipe_prior_state_present
   [ "$status" -ne 0 ]
 }
 
-@test "_wipe_mounts_under_mnt keeps /mnt mounts, excludes the live root /" {
+@test "_wipe_mounts_under_mount_root keeps /mnt mounts, excludes the live root /" {
   # Simulate findmnt's TARGET column: live root, archiso, and the install tree.
   findmnt() { printf '%s\n' / /run/archiso/bootmnt /mnt /mnt/boot/efi /mntfoo; }
-  run _wipe_mounts_under_mnt
+  run _wipe_mounts_under_mount_root
   [ "$status" -eq 0 ]
   grep -qx '/mnt'          <<<"$output"        # install root kept
   grep -qx '/mnt/boot/efi' <<<"$output"        # ESP kept
@@ -58,11 +58,11 @@ setup() {
   ! grep -qx '/mntfoo'               <<<"$output"   # no false prefix match
 }
 
-@test "_wipe_pools_altroot_mnt selects only altroot=/mnt pools" {
+@test "_wipe_pools_with_mount_root_altroot selects only altroot=/mnt pools" {
   # Simulate `zpool list -H -o name,altroot`: rpool/dpool are the install
   # scratch (altroot /mnt); tank is a pre-existing pool that must be left alone.
   zpool() { printf '%s\t%s\n' rpool /mnt dpool /mnt tank -; }
-  run _wipe_pools_altroot_mnt
+  run _wipe_pools_with_mount_root_altroot
   [ "$status" -eq 0 ]
   grep -qx rpool <<<"$output"
   grep -qx dpool <<<"$output"

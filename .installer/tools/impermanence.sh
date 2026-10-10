@@ -110,7 +110,7 @@ host_profile_file() {
   fi
   for f in "$d"/*/profile.jsonc "$d"/vm/*/profile.jsonc; do
     [[ -f "$f" ]] || continue
-    h="$(jsonc_read_opt "$f" .system.hostname)"
+    h="$(jsonc_read_optional "$f" .system.hostname)"
     [[ -n "$h" ]] || h="$(basename "$(dirname "$f")")"
     [[ "$h" == "$IMPERMANENCE_HOSTNAME" ]] && { echo "$f"; return 0; }
   done
@@ -167,13 +167,13 @@ cmd_add() {
   kind="$(path_kind "$target")"
   declare_in_host_profile "$target" "$kind"
   if ! (
-    persist_stage_in_copy "$target" &&
-    persist_apply "$target" "$kind" &&
-    imp_link_wants "$target" \
+    impermanence_common_persist_stage_in_copy "$target" &&
+    impermanence_common_persist_apply "$target" "$kind" &&
+    impermanence_common_link_wants "$target" \
       "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants" &&
-    persist_activate "$target"
+    impermanence_common_persist_activate "$target"
   ); then
-    persist_unapply "$target"
+    impermanence_common_persist_unapply "$target"
     rm -rf "$IMPERMANENCE_MOUNT$target"
     undeclare_in_host_profile "$target"
     return 1
@@ -202,10 +202,10 @@ cmd_remove() {
     echo "impermanence: '$target' is not persisted; no-op"
     return 0
   fi
-  persist_unapply "$target"
+  impermanence_common_persist_unapply "$target"
   undeclare_in_host_profile "$target"
   if (( move_back )); then
-    persist_restore_data "$target"
+    impermanence_common_persist_restore_data "$target"
   fi
 }
 
@@ -270,10 +270,10 @@ apply_defaults_add_one() {
     mkdir -p "$(dirname "$dst")"
     cp -a "$src" "$dst"
   fi
-  persist_unapply "$target"
-  imp_write_mount_unit "$target" \
+  impermanence_common_persist_unapply "$target"
+  impermanence_common_write_mount_unit "$target" \
     "${IMPERMANENCE_ROOT}/usr/lib/systemd/system"
-  imp_link_wants "$target" \
+  impermanence_common_link_wants "$target" \
     "${IMPERMANENCE_ROOT}/usr/lib/systemd/system/local-fs.target.wants"
 }
 

@@ -44,7 +44,7 @@ ROLLBACK_DATASETS=(
 # paths roll back. The btrfs adapter folds these into its create/mount/fstab
 # loops when impermanence is enabled; the `@blank` snapshot + boot rollback hook
 # operate on the same names. Pure: string emitter, no disk access.
-imp_btrfs_rollback_subvols() {
+impermanence_common_btrfs_rollback_subvolumes() {
   local entry suffix mp
   for entry in "${ROLLBACK_DATASETS[@]}"; do
     suffix="${entry%%:*}"
@@ -58,7 +58,7 @@ imp_btrfs_rollback_subvols() {
 # /etc/machine-id, host keys, the SOPS age key, etc. over the @blank-rolled-back
 # /etc before early services run — dbus-broker restart-loops on an empty
 # machine-id, so this ordering is load-bearing. Idempotent.
-imp_create_persist_dataset() {
+impermanence_common_create_persist_dataset() {
   local dataset="$1" mount="$2"
   zfs list -H -o name "$dataset" >/dev/null 2>&1 && return 0
   zfs create -o mountpoint="$mount" -o canmount=on "$dataset"
@@ -70,7 +70,7 @@ imp_create_persist_dataset() {
 # both SKIP canmount=noauto, so a noauto dataset never mounts and @blank rollback
 # no-ops. Creating them late would mount an empty dataset over a populated path.
 # Idempotent.
-imp_create_rollback_datasets() {
+impermanence_common_create_rollback_datasets() {
   local rpool="$1"
   local entry suffix mp ds
   for entry in "${ROLLBACK_DATASETS[@]}"; do
@@ -88,7 +88,7 @@ imp_create_rollback_datasets() {
 # <esc>.mount, so order After= the owning subvol's mount unit (longest rollback
 # mountpoint that is a path-prefix of $target); a path on no rollback subvol
 # lives on @ (root) → the root mount unit `-.mount`.
-imp_mount_after_unit() {
+impermanence_common_mount_after_unit() {
   local target="$1"
   if [[ "${FILESYSTEM:-zfs}" != "btrfs" ]]; then
     printf 'zfs-mount.service\n'; return 0
@@ -113,13 +113,13 @@ imp_mount_after_unit() {
 # <esc>.mount, not persist-<esc>.mount.
 # $units defaults to the curated location under ${ROOT:-}/usr/lib/systemd/system.
 # Caller must export IMPERMANENCE_MOUNT.
-imp_write_mount_unit() {
+impermanence_common_write_mount_unit() {
   local target="$1"
   local units="${2:-${ROOT:-}/usr/lib/systemd/system}"
   local esc unit after
   esc="$(systemd-escape --path "$target")"
   unit="$units/$esc.mount"
-  after="$(imp_mount_after_unit "$target")"
+  after="$(impermanence_common_mount_after_unit "$target")"
   mkdir -p "$units"
   cat > "$unit" <<UNIT
 [Unit]
@@ -147,7 +147,7 @@ UNIT
 
 # Symlink <esc>.mount under $wants/. $wants defaults to the curated
 # local-fs.target.wants alongside the curated unit dir.
-imp_link_wants() {
+impermanence_common_link_wants() {
   local target="$1"
   local wants="${2:-${ROOT:-}/usr/lib/systemd/system/local-fs.target.wants}"
   local esc
@@ -159,17 +159,17 @@ imp_link_wants() {
 # ── Persist Mount verbs (orchestrators) ─────────────────────────────────────
 
 # Write the Persist Mount unit for $target. No reload, no start — pair with
-# persist_activate when the running system should pick the unit up
-# immediately (runtime). Install-time callers skip persist_activate because
+# impermanence_common_persist_activate when the running system should pick the unit up
+# immediately (runtime). Install-time callers skip impermanence_common_persist_activate because
 # the system is not running.
 # Units default to /usr/lib: PID 1 plans boot before the /etc/systemd/system
 # bootstrap bind exists, so a unit (or wants link) only on /persist never
 # mounts at boot (ADR 0144).
-persist_apply() {
+impermanence_common_persist_apply() {
   local target="$1" kind="$2"
   local units="${3:-${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system}"
   local conf="${4:-$IMPERMANENCE_MOUNT/etc/tmpfiles.d/impermanence-extensions.conf}"
-  imp_write_mount_unit "$target" "$units"
+  impermanence_common_write_mount_unit "$target" "$units"
   local mode entry
   mkdir -p "$(dirname "$conf")"
   [[ "$kind" == d ]] && mode=0755 || mode=0644
@@ -180,9 +180,9 @@ persist_apply() {
 }
 
 # Reload systemd and start the Persist Mount for $target. Pairs with
-# persist_apply; install-time callers skip this because the system is not
+# impermanence_common_persist_apply; install-time callers skip this because the system is not
 # running yet.
-persist_activate() {
+impermanence_common_persist_activate() {
   local target="$1" esc
   esc="$(systemd-escape --path "$target")"
   systemctl daemon-reload
@@ -194,7 +194,7 @@ persist_activate() {
 # Copy live data at $target into the Persist Dataset (cp -a). Runtime-only:
 # the bind mount activates immediately and the original must remain visible
 # until the Persist Mount covers it.
-persist_stage_in_copy() {
+impermanence_common_persist_stage_in_copy() {
   local target="$1"
   local src="${IMPERMANENCE_ROOT}$target"
   local dst="$IMPERMANENCE_MOUNT$target"
@@ -204,10 +204,10 @@ persist_stage_in_copy() {
 
 # Tear down the Persist Mount for $target: stop the unit, remove the unit
 # file, remove the tmpfiles entry, daemon-reload. No data movement; pair
-# with persist_restore_data when the runtime caller wants `--yes` semantics.
+# with impermanence_common_persist_restore_data when the runtime caller wants `--yes` semantics.
 # Idempotent. Also clears a legacy unit + wants link under
 # /persist/etc/systemd/system (pre-ADR 0144 extensions).
-persist_unapply() {
+impermanence_common_persist_unapply() {
   local target="$1" esc dir found=0 conf tmp
   esc="$(systemd-escape --path "$target")"
   for dir in "${IMPERMANENCE_ROOT:-}/usr/lib/systemd/system" \
@@ -234,7 +234,7 @@ persist_unapply() {
 # Move data at $IMPERMANENCE_MOUNT$target back to ${IMPERMANENCE_ROOT}$target.
 # Used by runtime `remove --yes`. Missing source is a warned no-op so the
 # operator can recover from partial state without an error.
-persist_restore_data() {
+impermanence_common_persist_restore_data() {
   local target="$1"
   local src="$IMPERMANENCE_MOUNT$target"
   local dst="${IMPERMANENCE_ROOT}$target"
@@ -255,7 +255,7 @@ persist_restore_data() {
 # When $target is itself a mountpoint (a dataset/subvol mounted there), the
 # mountpoint directory can't be mv'd (EBUSY "Device or resource busy"). Move
 # its CONTENTS instead and leave the now-empty mountpoint for the bind to cover.
-persist_stage_in_move() {
+impermanence_common_persist_stage_in_move() {
   local target="$1"
   local live_root="${2:-${IMPERMANENCE_ROOT:-}}"
   local persist_root="${3:-$IMPERMANENCE_MOUNT}"

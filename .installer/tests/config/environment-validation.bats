@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for _resolve_env_validate() in lib/config/lifecycle.sh.
 #
-# Strategy: stub common.sh helpers (cfgo, jsonc, error, info, section, warn)
+# Strategy: stub common.sh helpers (config_optional, jsonc, error, info, section, warn)
 # so the module can be sourced without a live system. Happy-path tests call
 # _resolve_env_validate() directly and assert globals. Error-path tests use
 # `run` so error() exits the subshell rather than the test process.
@@ -12,8 +12,8 @@ setup() {
 
   # ── common.sh stubs ────────────────────────────────────────────────────────
   jsonc_strip() { cat "$1"; }
-  cfgo()    { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
-  cfg()     { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error()   { echo "ERROR: $*" >&2; exit 1; }
   info()    { :; }
   section() { :; }

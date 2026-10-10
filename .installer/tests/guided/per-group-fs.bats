@@ -13,13 +13,13 @@ setup() {
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
 
   # Validation harness stubs (mirror validation-group-filesystem.bats): the
-  # accessors read CONFIG_FILE via cfgo; error() exits so `run` captures a reject.
+  # accessors read CONFIG_FILE via config_optional; error() exits so `run` captures a reject.
   jsonc_strip() { cat "$1"; }
-  cfgo() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
-  cfg()  { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  config_required() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error() { echo "ERROR: $*" >&2; exit 1; }
   info() { :; }; section() { :; }; warn() { :; }
-  export -f jsonc_strip cfgo cfg error info section warn
+  export -f jsonc_strip config_optional config_required error info section warn
 
   source "$BATS_TEST_DIRNAME/../../lib/config/state.sh"
   source "$BATS_TEST_DIRNAME/../../lib/config/nav.sh"

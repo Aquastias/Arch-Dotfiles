@@ -142,7 +142,7 @@ resolve_os_topology() {
   section "Resolving OS Pool Topology"
 
   local cfg_topo
-  cfg_topo="$(cfgo '.os_pool.topology')"
+  cfg_topo="$(config_optional '.os_pool.topology')"
   local all_os=()
   while IFS= read -r d; do all_os+=("$d"); done \
     < <(jsonc "$CONFIG_FILE" | jq -r '.os_pool.disks[]')
@@ -216,11 +216,11 @@ resolve_storage_topologies() {
   local i
   for ((i = 0; i < sg_count; i++)); do
     local name
-    name="$(cfg ".storage_groups[$i].name")"
+    name="$(config_required ".storage_groups[$i].name")"
     local dc
     dc="$(jsonc "$CONFIG_FILE" | jq ".storage_groups[$i].disks | length")"
     local topo
-    topo="$(cfgo ".storage_groups[$i].topology")"
+    topo="$(config_optional ".storage_groups[$i].topology")"
 
     if [[ -n "$topo" ]]; then
       _LAYOUT_IMPL_TOPOLOGIES["$name"]="$topo"
@@ -322,7 +322,7 @@ resolve_leftover_disks() {
   section "Resolving Leftover Disks"
 
   local rpool_name
-  rpool_name="$(cfg '.os_pool.pool_name')"
+  rpool_name="$(config_required '.os_pool.pool_name')"
 
   local all=("${_LAYOUT_IMPL_LEFTOVER_DISKS[@]}")
   local folded=()
@@ -420,7 +420,7 @@ partition_storage_disks_multi() {
   local i
   for ((i = 0; i < sg; i++)); do
     local name
-    name="$(cfg ".storage_groups[$i].name")"
+    name="$(config_required ".storage_groups[$i].name")"
     local parts=()
     while IFS= read -r disk; do
       info "Partitioning storage disk: $disk  (group: ${name})"
@@ -461,7 +461,7 @@ create_multi_rpool() {
   build_enc_opts
 
   local pool_name
-  pool_name="$(cfg '.os_pool.pool_name')"
+  pool_name="$(config_required '.os_pool.pool_name')"
   local ashift; ashift="$(install_config_os_pool_ashift)"
 
   local vdev_spec
@@ -498,7 +498,7 @@ create_multi_dpool() {
   local i
   for ((i = 0; i < sg; i++)); do
     local name
-    name="$(cfg ".storage_groups[$i].name")"
+    name="$(config_required ".storage_groups[$i].name")"
     local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
     local parts
     read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
@@ -538,9 +538,9 @@ create_multi_dpool() {
   # One dataset per config-defined group
   for ((i = 0; i < sg; i++)); do
     local name
-    name="$(cfg ".storage_groups[$i].name")"
+    name="$(config_required ".storage_groups[$i].name")"
     local mnt
-    mnt="$(cfg ".storage_groups[$i].mount")"
+    mnt="$(config_required ".storage_groups[$i].mount")"
     local topo="${_LAYOUT_IMPL_TOPOLOGIES[$name]:-stripe}"
 
     if [[ "$topo" == "independent" ]]; then
@@ -657,7 +657,7 @@ layout_validate() {
   _layout_enter_phase validate
   layout_validate_esp_size
   local topo
-  topo="$(cfgo '.os_pool.topology')"
+  topo="$(config_optional '.os_pool.topology')"
   if [[ -n "$topo" ]]; then
     case "$topo" in
     mirror | stripe | none) ;;
@@ -677,7 +677,7 @@ layout_validate() {
   local sg gname gdc i
   sg="$(jsonc_strip "$CONFIG_FILE" | jq '.storage_groups | length')"
   for ((i = 0; i < sg; i++)); do
-    gname="$(cfg ".storage_groups[$i].name")"
+    gname="$(config_required ".storage_groups[$i].name")"
     gdc="$(jsonc_strip "$CONFIG_FILE" \
       | jq ".storage_groups[$i].disks | length")"
     ((gdc >= 1)) || error "Storage group '${gname}' has no disks."
@@ -693,7 +693,7 @@ layout_validate() {
   local dp dname dtopo ddc reason
   dp="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
   for ((i = 0; i < dp; i++)); do
-    dname="$(cfg ".data_pools[$i].name")"
+    dname="$(config_required ".data_pools[$i].name")"
     if ! reason="$(_zfs_valid_pool_name "$dname")"; then
       error "Data pool: ${reason}"
     fi
@@ -719,7 +719,7 @@ layout_validate() {
     # Pool-name uniqueness across rpool + the Combined Data Pool (dpool) +
     # every Standalone Data Pool.
     local rpool_name dup
-    rpool_name="$(cfg '.os_pool.pool_name')"
+    rpool_name="$(config_required '.os_pool.pool_name')"
     dup="$( { printf '%s\n' "$rpool_name" dpool
               jsonc_strip "$CONFIG_FILE" | jq -r '.data_pools[].name'
             } | sort | uniq -d | head -1)"
@@ -757,7 +757,7 @@ layout_validate() {
     # Every data-pool disk must exist before any destructive op (typo fails
     # safely). Last, so the name/topology/mount errors above surface first.
     for ((i = 0; i < dp; i++)); do
-      dname="$(cfg ".data_pools[$i].name")"
+      dname="$(config_required ".data_pools[$i].name")"
       while IFS= read -r d; do
         _layout_disk_exists "$d" \
           || error "Data pool '${dname}' disk not found: $d"
@@ -778,7 +778,7 @@ _layout_plan_mode() {
   resolve_leftover_disks
   # Publish the pool-name record (consumed by chroot.sh, finalize.sh).
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
-  LAYOUT_OS_POOL_NAME="$(cfg '.os_pool.pool_name')"
+  LAYOUT_OS_POOL_NAME="$(config_required '.os_pool.pool_name')"
   # LAYOUT_DATA_POOL_NAMES: the Combined Data Pool (when storage groups or
   # folded leftovers exist) plus every Standalone Data Pool.
   # shellcheck disable=SC2034 # consumed by finalize.sh

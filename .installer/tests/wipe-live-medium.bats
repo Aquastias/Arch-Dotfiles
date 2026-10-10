@@ -7,7 +7,7 @@
 # Enforcing setup: we source 02-wipe.sh and KEEP its `set -Eeuo pipefail` + ERR
 # trap. A failing assertion then trips _on_error (exit 1) and the test fails for
 # real — unlike wipe-prior-state.bats, whose `trap - ERR` blinds bats. The
-# Detector itself is overridden at the is_live_medium / live_medium_disks /
+# Detector itself is overridden at the live_medium_contains_disk / live_medium_disks /
 # seam level, so no real USB or block device is touched.
 
 setup() {
@@ -20,7 +20,7 @@ setup() {
 # ── Hard guard ──────────────────────────────────────────────────────────────
 
 @test "hard guard: wipe aborts and names the disk when a target is live" {
-  is_live_medium() { [[ "$1" == /dev/sdb ]]; }   # sdb is the live USB
+  live_medium_contains_disk() { [[ "$1" == /dev/sdb ]]; }   # sdb is the live USB
   DISKS_TO_WIPE=(/dev/sda /dev/sdb)
   run assert_no_live_medium_targets
   [ "$status" -ne 0 ]
@@ -28,7 +28,7 @@ setup() {
 }
 
 @test "hard guard: wipe proceeds when no target is the live medium" {
-  is_live_medium() { return 1; }                 # nothing is live
+  live_medium_contains_disk() { return 1; }                 # nothing is live
   DISKS_TO_WIPE=(/dev/sda /dev/sdc)
   run assert_no_live_medium_targets
   [ "$status" -eq 0 ]

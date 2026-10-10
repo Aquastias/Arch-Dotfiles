@@ -53,7 +53,7 @@ _validation_system_fields() {
   # load_profile and secrets_load.
   RESOLVED_HOST_PROFILE="$hostname"
 
-  cfg '.system.locale' 'system.locale'
+  config_required '.system.locale' 'system.locale'
   # Timezone is NOT required in the config (ADR 0118): it is resolved at persist
   # time — an explicit/guided value wins, else geo-IP autodetect, else
   # Europe/Bucharest — so an absent field is valid, not an error.
@@ -354,16 +354,16 @@ _validation_group_filesystems() {
     _validation_one_group "data pool" \
       "$(install_config_data_pool_name "$i")" \
       "$(install_config_data_pool_filesystem "$i")" \
-      "$(cfgo ".data_pools[$i].disk_count")" \
-      "$(cfgo ".data_pools[$i].topology")"
+      "$(config_optional ".data_pools[$i].disk_count")" \
+      "$(config_optional ".data_pools[$i].topology")"
   done
   count="$(install_config_storage_groups_count)"
   for ((i = 0; i < count; i++)); do
     _validation_one_group "storage group" \
       "$(install_config_storage_group_name "$i")" \
       "$(install_config_storage_group_filesystem "$i")" \
-      "$(cfgo ".storage_groups[$i].disk_count")" \
-      "$(cfgo ".storage_groups[$i].topology")"
+      "$(config_optional ".storage_groups[$i].disk_count")" \
+      "$(config_optional ".storage_groups[$i].topology")"
   done
 }
 

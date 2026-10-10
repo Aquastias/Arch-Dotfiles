@@ -158,7 +158,7 @@ _hb_pin_grub_default() {
       done 2>/dev/null
   )"
   [[ -n "$primary_base" ]] && primary_vmlinuz="/boot/vmlinuz-${primary_base}"
-  _grub_default_config "$pool_root" "$primary_vmlinuz" \
+  _grub_common_default_config "$pool_root" "$primary_vmlinuz" \
     >"$ROOT/etc/default/grub"
   ZPOOL_VDEV_NAME_PATH=YES grub-mkconfig -o "$ROOT/boot/grub/grub.cfg"
 }

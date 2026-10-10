@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # Validator-tier tests for the REAL impermanence mount-unit generator
-# (imp_write_mount_unit in lib/impermanence-common.sh), checked with the REAL
+# (impermanence_common_write_mount_unit in lib/impermanence-common.sh), checked with the REAL
 # `systemd-analyze verify` via the shared harness (ADR 0048, issue 01).
 #
 # This replaces the "grep the emitted file for Where=/Type=" shape assertions
@@ -29,7 +29,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   validators_skip_unless systemd-analyze
   local target esc
   for target in "${CURATED_FILES[@]}" "${CURATED_DIRS[@]}"; do
-    imp_write_mount_unit "$target" "$UNITS"
+    impermanence_common_write_mount_unit "$target" "$UNITS"
     esc="$(systemd-escape --path "$target")"
     run validators_verify_unit "$UNITS/$esc.mount"
     if [ "$status" -ne 0 ]; then
@@ -43,7 +43,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 # exact seam the persist-<esc>.mount bug broke.
 @test "a dotted path (/etc/tmpfiles.d) verifies clean" {
   validators_skip_unless systemd-analyze
-  imp_write_mount_unit /etc/tmpfiles.d "$UNITS"
+  impermanence_common_write_mount_unit /etc/tmpfiles.d "$UNITS"
   local esc; esc="$(systemd-escape --path /etc/tmpfiles.d)"
   run validators_verify_unit "$UNITS/$esc.mount"
   [ "$status" -eq 0 ]
@@ -57,7 +57,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "regression: a persist-<esc> misnamed unit is rejected" {
   validators_skip_unless systemd-analyze
-  imp_write_mount_unit /etc/ssh "$UNITS"
+  impermanence_common_write_mount_unit /etc/ssh "$UNITS"
   # Rename to the buggy scheme; contents (Where=/etc/ssh) unchanged.
   mv "$UNITS/etc-ssh.mount" "$UNITS/persist-etc-ssh.mount"
   run validators_verify_unit "$UNITS/persist-etc-ssh.mount"

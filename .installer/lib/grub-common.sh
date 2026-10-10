@@ -13,7 +13,7 @@
 # GRUB_TOP_LEVEL — 10_linux moves it to the front of the sorted list — so a
 # higher-versioned Stray Kernel cannot become the default boot entry (ADR 0038);
 # the stray stays a selectable entry. An empty <primary_vmlinuz> omits the pin.
-_grub_default_config() {
+_grub_common_default_config() {
   # <extra_default> is appended to GRUB_CMDLINE_LINUX_DEFAULT (e.g. the zswap
   # fragment); empty leaves the default cmdline as just "quiet".
   local pool_root="$1" primary_vmlinuz="$2" extra_default="${3:-}"

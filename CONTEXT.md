@@ -781,7 +781,8 @@ defaulting to nothing.
 `.installer/lib/common.sh`. Shared utility library for host-side install scripts
 and
 `lib/` modules — colour codes, `info/warn/error/section`, `confirm`,
-`pick_option`, `cfg/cfgo`, `part_name`, `command_exists`. **Not** sourced inside
+`pick_option`, `config_required`/`config_optional`, `part_name`,
+`command_exists`. **Not** sourced inside
 `arch-chroot` (that world uses `chroot-common.sh`). The installer-world twin of
 Shell Stdlib: same concepts, one stdlib per world, never shared across.
 

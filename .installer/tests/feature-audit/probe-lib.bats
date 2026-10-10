@@ -11,7 +11,7 @@ setup() {
   export FA_CONFIG="$BATS_TEST_TMPDIR/config.json"
 }
 
-cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
+write_variant_config() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 
 # ── check-level gates (probe lib) ───────────────────────────────────────────
 
@@ -28,20 +28,21 @@ cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 }
 
 @test "fa_stock: true only on a stock environment" {
-  cfg '{"environment":{"desktop":["hyprland"],"stock":true}}'
+  write_variant_config '{"environment":{"desktop":["hyprland"],"stock":true}}'
   run fa_stock; [ "$status" -eq 0 ]
-  cfg '{"environment":{"desktop":["hyprland"],"wayland_shell":"noctalia"}}'
+  write_variant_config \
+    '{"environment":{"desktop":["hyprland"],"wayland_shell":"noctalia"}}'
   run fa_stock; [ "$status" -ne 0 ]
 }
 
 @test "fa_has_shell: noctalia or absent (default) yes; none or stock no" {
-  cfg '{"environment":{"wayland_shell":"noctalia"}}'
+  write_variant_config '{"environment":{"wayland_shell":"noctalia"}}'
   run fa_has_shell; [ "$status" -eq 0 ]
-  cfg '{"environment":{}}'
+  write_variant_config '{"environment":{}}'
   run fa_has_shell; [ "$status" -eq 0 ]
-  cfg '{"environment":{"wayland_shell":"none"}}'
+  write_variant_config '{"environment":{"wayland_shell":"none"}}'
   run fa_has_shell; [ "$status" -ne 0 ]
-  cfg '{"environment":{"stock":true}}'
+  write_variant_config '{"environment":{"stock":true}}'
   run fa_has_shell; [ "$status" -ne 0 ]
 }
 
@@ -108,11 +109,11 @@ cfg() { printf '%s\n' "$1" > "$FA_CONFIG"; }
 # ── Host Core gate ──────────────────────────────────────────────────────────
 
 @test "fa_host_core: true unless the variant opts out of Host Core" {
-  cfg '{}'
+  write_variant_config '{}'
   fa_host_core
-  cfg '{"_audit":{"host_core":true}}'
+  write_variant_config '{"_audit":{"host_core":true}}'
   fa_host_core
-  cfg '{"_audit":{"host_core":false}}'
+  write_variant_config '{"_audit":{"host_core":false}}'
   ! fa_host_core
 }
 

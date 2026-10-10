@@ -171,7 +171,8 @@ other file takes its stem); today's mismatches sit in the baseline.
 ### Stdlib renames (words, no Prefix)
 
 - `cfg` → `config_required`, `cfgo` → `config_optional` (Installer Stdlib).
-- `lib/preflight.sh` `command_exists` duplicate → dropped (stdlib's).
+- `lib/preflight.sh` `command_exists` twin → kept (preflight runs before
+  `common.sh` is sourced); exempt in `readability-prefixes.txt`.
 - `lib/packages/kernel.sh` `error` duplicate → dropped (stdlib's).
 
 ### Per file
@@ -188,7 +189,7 @@ lib/
 - `impermanence-common.sh`: `imp_`, `persist_` → `impermanence_common_`
 - `install-state.sh`, `jsonc.sh`, `picker.sh`, `prompt.sh`, `secrets.sh`,
   `preflight.sh` → `=`
-- `live-medium.sh`: `_lm_`, `is_live_medium`, `live_medium_` →
+- `live-medium.sh`: `_lm_`, `live_medium_contains_disk`, `live_medium_` →
   `live_medium_` / `_live_medium_`
 
 lib/boot/

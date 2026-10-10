@@ -11,7 +11,7 @@
 # curated rollback subvols issue 08 adds per ADR 0044). Pure: no disk access.
 # =============================================================================
 
-# The curated rollback subvol list (imp_btrfs_rollback_subvols) lives in the
+# The curated rollback subvol list (impermanence_common_btrfs_rollback_subvolumes) lives in the
 # FS-agnostic impermanence lib; fold it in here under impermanence. Sourced only
 # (defines functions + the ROLLBACK_DATASETS source of truth, no side effects).
 # shellcheck source=../../impermanence-common.sh
@@ -43,7 +43,7 @@ _btrfs_impermanence_on() {
 # in fstab (the impermanence bind units order After= these subvol mounts).
 _btrfs_root_subvols_all() {
   btrfs_root_subvols
-  _btrfs_impermanence_on && imp_btrfs_rollback_subvols
+  _btrfs_impermanence_on && impermanence_common_btrfs_rollback_subvolumes
   return 0
 }
 

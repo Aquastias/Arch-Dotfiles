@@ -3,7 +3,7 @@
 # lib/common.sh — Shared utilities
 # =============================================================================
 # Sourced by 03-install.sh before any other module.
-# Provides: colour codes, output helpers, config accessors (cfg/cfgo),
+# Provides: colour codes, output helpers, config accessors (config_required/config_optional),
 #           interactive prompt helpers.
 #
 # Cross-module globals and the layout contract: see lib/globals.sh.
@@ -14,6 +14,8 @@
 source "${BASH_SOURCE[0]%/*}/jsonc.sh"
 # shellcheck source=./globals.sh
 source "${BASH_SOURCE[0]%/*}/globals.sh"
+# shellcheck source=./layout/state.sh
+source "${BASH_SOURCE[0]%/*}/layout/state.sh"
 # ── Colour codes ──────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -116,18 +118,18 @@ _retry() {
 # ── Config accessors ──────────────────────────────────────────────────────────
 # Both functions require CONFIG_FILE to be set before use.
 
-# cfg PATH [LABEL]
+# config_required PATH [LABEL]
 # Required field — exits with a clear error if the field is missing or null.
-cfg() {
+config_required() {
   local v
-  v="$(jsonc_read_opt "$CONFIG_FILE" "$1")"
+  v="$(jsonc_read_optional "$CONFIG_FILE" "$1")"
   [[ -n "$v" ]] || error "Missing required config field: ${2:-$1}"
   echo "$v"
 }
 
-# cfgo PATH
+# config_optional PATH
 # Optional field — returns empty string if the field is missing or null.
-cfgo() { jsonc_read_opt "$CONFIG_FILE" "$1"; }
+config_optional() { jsonc_read_optional "$CONFIG_FILE" "$1"; }
 
 # =============================================================================
 # DISK UTILITIES (shared between layout modules)

@@ -18,13 +18,13 @@
 # =============================================================================
 
 set -Eeuo pipefail
-_install_on_err() {
+_install_on_error() {
   # Only the top-level shell reports; `set -E` fires this inside command subs
   # too, which would double-print the same abort.
   (( BASH_SUBSHELL == 0 )) || return 0
   echo -e "\n\033[0;31m[install.sh]\033[0m aborted at line $1." >&2
 }
-trap '_install_on_err "$LINENO"' ERR
+trap '_install_on_error "$LINENO"' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

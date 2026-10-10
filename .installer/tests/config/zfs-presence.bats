@@ -11,9 +11,9 @@ setup() {
   export CONFIG_FILE="$TEST_DIR/install.jsonc"
   jsonc_strip() { cat "$1"; }
   jsonc_read() { jsonc_strip "$1" | jq -r "$2"; }
-  cfgo() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
+  config_optional() { jsonc_strip "$CONFIG_FILE" | jq -r "${1} // empty"; }
   error() { echo "ERROR: $*" >&2; exit 1; }
-  export -f jsonc_strip jsonc_read cfgo error
+  export -f jsonc_strip jsonc_read config_optional error
 
   # shellcheck source=../../lib/config/accessors.sh
   source "$BATS_TEST_DIRNAME/../../lib/config/accessors.sh"

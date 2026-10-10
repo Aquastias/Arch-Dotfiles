@@ -17,7 +17,7 @@ setup() {
   source "$BATS_TEST_DIRNAME/../02-wipe.sh"
   info() { :; }; warn() { :; }; section() { :; }
   # Avoid real blkid/findmnt scans for the live-medium check.
-  is_live_medium() { return 1; }
+  live_medium_contains_disk() { return 1; }
 }
 
 @test "_wipe_probe_disk: a non-existent disk → blank fact, no ERR trap" {

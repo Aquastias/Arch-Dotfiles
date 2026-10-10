@@ -56,7 +56,7 @@ setup() {
   # internal state that downstream seams need, without requiring a real block
   # device. Tests that exercise the real sizing math redefine it inline.
   calculate_single_disk_layout() {
-    _LAYOUT_IMPL_DISK="$(cfg '.disk' 'disk')"
+    _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
     _LAYOUT_IMPL_OS_SECTORS=$((30 * 1024 * 1024 * 2)) # ~30 GiB
   }
 }

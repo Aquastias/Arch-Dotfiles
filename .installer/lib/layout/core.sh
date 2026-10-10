@@ -10,7 +10,7 @@
 # `_layout_verify_plan_contract`.
 #
 # Sourced by lib/layout/zfs/common.sh and lib/layout/nonzfs/root.sh.
-# Requires: lib/common.sh already sourced (provides cfgo, error, part_name).
+# Requires: lib/common.sh already sourced (provides config_optional, error, part_name).
 # =============================================================================
 
 # The root-fs-agnostic Standalone Data Pool orchestrator — every root adapter's

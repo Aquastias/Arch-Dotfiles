@@ -23,7 +23,7 @@ manifest() {
     variants: $v, unverifiable: $u }' > "$M"
 }
 
-cfg() {
+variant_config() {
   bash -c "source '$INSTALLER_DIR/lib/jsonc.sh'
     source '$INSTALLER_DIR/lib/feature-audit/manifest.sh'
     INSTALLER_DIR='$INSTALLER_DIR' fa_variant_config '$1'"
@@ -38,7 +38,7 @@ cfg() {
 
 @test "patch reaches the resolved config (bootloader)" {
   manifest '[{"id":"limine","patch":{"options":{"bootloader":"limine"}}}]'
-  run cfg limine
+  run variant_config limine
   [ "$status" -eq 0 ]
   jq -e '.options.bootloader == "limine"' <<<"$output"
 }
@@ -46,7 +46,7 @@ cfg() {
 @test "patch applies before assembly: derived power daemon follows it" {
   manifest '[{"id":"ppd",
     "patch":{"options":{"power":{"profile":"power-profiles-daemon"}}}}]'
-  run cfg ppd
+  run variant_config ppd
   jq -e '(.host_programs | index("power-profiles-daemon"))
     and (.host_programs | index("tuned") | not)' <<<"$output"
 }
@@ -54,7 +54,7 @@ cfg() {
 @test "real host variant resolves through its own profile" {
   manifest '[{"id":"kde-pure","host":"kde-pure",
     "hardware":{"disks":[40],"ram_mb":6144,"vcpus":4}}]'
-  run cfg kde-pure
+  run variant_config kde-pure
   [ "$status" -eq 0 ]
   jq -e '.environment.stock == true' <<<"$output"
 }

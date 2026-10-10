@@ -18,10 +18,10 @@ setup() {
 # ── Signal: boot-mount parent disk ──────────────────────────────────────────
 
 @test "boot-mount: the boot partition's parent disk is the live medium" {
-  _lm_boot_part()        { echo /dev/sdb1; }
-  _lm_iso9660_parts()    { :; }
-  _lm_arch_label_parts() { :; }
-  # Real _lm_parent_disk runs; PKNAME resolves the kernel parent.
+  _live_medium_boot_partition()        { echo /dev/sdb1; }
+  _live_medium_iso9660_partitions()    { :; }
+  _live_medium_arch_label_partitions() { :; }
+  # Real _live_medium_parent_disk runs; PKNAME resolves the kernel parent.
   lsblk() { [[ "$*" == *"PKNAME"* ]] && echo sdb; }
   run live_medium_disks
   [ "$status" -eq 0 ]
@@ -31,8 +31,8 @@ setup() {
 # ── Signal: iso9660 (works unmounted — copytoram) ───────────────────────────
 
 @test "iso9660: a disk carrying an iso9660 partition is the live medium" {
-  _lm_boot_part()        { :; }            # nothing mounted (copytoram)
-  _lm_arch_label_parts() { :; }
+  _live_medium_boot_partition()        { :; }            # nothing mounted (copytoram)
+  _live_medium_arch_label_partitions() { :; }
   blkid() { [[ "$*" == *"TYPE=iso9660"* ]] && echo /dev/sdb1; }
   lsblk() { [[ "$*" == *"PKNAME /dev/sdb1"* ]] && echo sdb; }
   run live_medium_disks
@@ -43,9 +43,9 @@ setup() {
 # ── Robustness: by-label boot source ────────────────────────────────────────
 
 @test "by-label boot source resolves via the kernel parent, not digit-strip" {
-  _lm_boot_part()        { echo /dev/disk/by-label/ARCH_202401; }
-  _lm_iso9660_parts()    { :; }
-  _lm_arch_label_parts() { :; }
+  _live_medium_boot_partition()        { echo /dev/disk/by-label/ARCH_202401; }
+  _live_medium_iso9660_partitions()    { :; }
+  _live_medium_arch_label_partitions() { :; }
   # Stripping trailing digits would mangle the label path; PKNAME doesn't.
   lsblk() {
     [[ "$*" == *"PKNAME /dev/disk/by-label/ARCH_202401"* ]] && echo sdb
@@ -58,8 +58,8 @@ setup() {
 # ── Signal: ARCH_* archiso label (works unmounted) ──────────────────────────
 
 @test "ARCH_* label: a disk with an archiso label is the live medium" {
-  _lm_boot_part()     { :; }
-  _lm_iso9660_parts() { :; }
+  _live_medium_boot_partition()     { :; }
+  _live_medium_iso9660_partitions() { :; }
   blkid() {
     [[ "$*" == *"-o export"* ]] || return 0
     printf '%s\n' DEVNAME=/dev/sdb1 LABEL=ARCH_202401 TYPE=iso9660
@@ -73,7 +73,7 @@ setup() {
 # ── copytoram: unmounted USB still caught by the non-mount signals ───────────
 
 @test "copytoram: unmounted USB caught via iso9660 + ARCH_*, deduped" {
-  _lm_boot_part() { :; }                        # USB unmounted
+  _live_medium_boot_partition() { :; }                        # USB unmounted
   blkid() {
     case "$*" in
       *"TYPE=iso9660"*) echo /dev/sdb1 ;;
@@ -87,12 +87,12 @@ setup() {
 }
 
 # ── Regression: airootfs/copytoram boot must not trip the ERR trap ──────────
-# The other tests stub _lm_boot_part, so the real function's exit status was
+# The other tests stub _live_medium_boot_partition, so the real function's exit status was
 # never exercised. On an airootfs/copytoram boot (bootmnt unmounted, / is
 # "airootfs") its trailing `[[ ]] && echo` test is false; it must still exit 0
-# so `boot="$(_lm_boot_part)"` under `set -e` doesn't fire the wipe ERR trap
+# so `boot="$(_live_medium_boot_partition)"` under `set -e` doesn't fire the wipe ERR trap
 # ("Wipe script failed at line 59").
-@test "airootfs boot: _lm_boot_part exits 0 under set -e (no line-59 failure)" {
+@test "airootfs boot: _live_medium_boot_partition exits 0 under set -e (no line-59 failure)" {
   run bash -c '
     set -Eeuo pipefail
     trap "exit 42" ERR
@@ -106,15 +106,15 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-# ── Predicate: is_live_medium ───────────────────────────────────────────────
+# ── Predicate: live_medium_contains_disk ───────────────────────────────────────────────
 
-@test "is_live_medium: true for the live disk, false for a data disk" {
-  _lm_boot_part()        { echo /dev/sdb1; }
-  _lm_iso9660_parts()    { :; }
-  _lm_arch_label_parts() { :; }
+@test "live_medium_contains_disk: true for the live disk, false for a data disk" {
+  _live_medium_boot_partition()        { echo /dev/sdb1; }
+  _live_medium_iso9660_partitions()    { :; }
+  _live_medium_arch_label_partitions() { :; }
   lsblk() { [[ "$*" == *"PKNAME /dev/sdb1"* ]] && echo sdb; }
-  run is_live_medium /dev/sdb
+  run live_medium_contains_disk /dev/sdb
   [ "$status" -eq 0 ]
-  run is_live_medium /dev/sda
+  run live_medium_contains_disk /dev/sda
   [ "$status" -ne 0 ]
 }

@@ -25,6 +25,9 @@ exempt-name .installer/lib/chroot/impermanence.sh build
 exempt-name .installer/lib/chroot/impermanence.sh help
 exempt-name .installer/lib/chroot/initcpio.sh run_hook
 
+# Boundary-forced twin: preflight runs before common.sh is sourced.
+exempt-name .installer/lib/preflight.sh command_exists
+
 # Interface Functions: one name, implemented once per backend.
 interface layout_validate
 interface layout_plan
