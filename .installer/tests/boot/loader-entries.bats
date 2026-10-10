@@ -12,8 +12,8 @@ setup() {
 
 # ── systemd-boot ─────────────────────────────────────────────────────────────
 
-@test "sdboot_entry: renders title/linux/initrd/options in order" {
-  run sdboot_entry "Arch Linux (linux-lts)" linux-lts \
+@test "loader_entries_systemd_boot: renders title/linux/initrd/options in order" {
+  run loader_entries_systemd_boot "Arch Linux (linux-lts)" linux-lts \
     "initrd  /amd-ucode.img" initramfs-linux-lts.img "root=ZFS=rpool/ROOT rw"
   [ "$status" -eq 0 ]
   [ "$output" = "$(printf '%s\n' \
@@ -24,16 +24,16 @@ setup() {
     'options root=ZFS=rpool/ROOT rw')" ]
 }
 
-@test "sdboot_entry: per-kbase image path (multi-kernel names never collide)" {
-  run sdboot_entry "Arch Linux (linux-zen)" linux-zen \
+@test "loader_entries_systemd_boot: per-kbase image path (multi-kernel names never collide)" {
+  run loader_entries_systemd_boot "Arch Linux (linux-zen)" linux-zen \
     "" initramfs-linux-zen.img "root=ZFS=rpool/ROOT rw"
   [ "$status" -eq 0 ]
   [[ "$output" == *'linux   /vmlinuz-linux-zen'* ]]
   [[ "$output" == *'initrd  /initramfs-linux-zen.img'* ]]
 }
 
-@test "sdboot_entry: empty microcode omits the microcode initrd line" {
-  run sdboot_entry "t" linux "" initramfs-linux.img "root=x rw"
+@test "loader_entries_systemd_boot: empty microcode omits the microcode initrd line" {
+  run loader_entries_systemd_boot "t" linux "" initramfs-linux.img "root=x rw"
   [ "$status" -eq 0 ]
   # exactly one initrd line (the initramfs), no blank microcode line
   [ "$(grep -c '^initrd' <<<"$output")" -eq 1 ]
@@ -42,8 +42,8 @@ setup() {
 
 # ── limine ───────────────────────────────────────────────────────────────────
 
-@test "limine_entry: label, protocol, kernel, microcode+initramfs, cmdline" {
-  run limine_entry "Arch Linux (linux-lts)" linux-lts \
+@test "loader_entries_limine: label, protocol, kernel, microcode+initramfs, cmdline" {
+  run loader_entries_limine "Arch Linux (linux-lts)" linux-lts \
     "initrd  /amd-ucode.img" initramfs-linux-lts.img "root=ZFS=rpool rw"
   [ "$status" -eq 0 ]
   [[ "$output" == *'/Arch Linux (linux-lts)'* ]]
@@ -56,16 +56,16 @@ setup() {
   [[ "$output" == *'cmdline: root=ZFS=rpool rw'* ]]
 }
 
-@test "limine_entry: empty microcode omits the module line" {
-  run limine_entry "t" linux "" initramfs-linux.img "root=x rw"
+@test "loader_entries_limine: empty microcode omits the module line" {
+  run loader_entries_limine "t" linux "" initramfs-linux.img "root=x rw"
   [ "$status" -eq 0 ]
   [ "$(grep -c 'module_path' <<<"$output")" -eq 1 ]
 }
 
 # ── grub ─────────────────────────────────────────────────────────────────────
 
-@test "grub_entry: menuentry with ESP-root kernel, microcode first, cmdline" {
-  run grub_entry "Arch Linux (linux-lts)" linux-lts "amd-ucode.img" \
+@test "loader_entries_grub: menuentry with ESP-root kernel, microcode first, cmdline" {
+  run loader_entries_grub "Arch Linux (linux-lts)" linux-lts "amd-ucode.img" \
     initramfs-linux-lts.img "root=ZFS=rpool rw"
   [ "$status" -eq 0 ]
   [[ "$output" == *"menuentry 'Arch Linux (linux-lts)' {"* ]]
@@ -73,16 +73,16 @@ setup() {
   [[ "$output" == *'initrd /amd-ucode.img /initramfs-linux-lts.img'* ]]
 }
 
-@test "grub_entry: empty microcode loads just the initramfs" {
-  run grub_entry "t" linux "" initramfs-linux.img "root=x rw"
+@test "loader_entries_grub: empty microcode loads just the initramfs" {
+  run loader_entries_grub "t" linux "" initramfs-linux.img "root=x rw"
   [[ "$output" == *$'\n    initrd /initramfs-linux.img\n'* ]]
 }
 
 
 # ── refind ───────────────────────────────────────────────────────────────────
 
-@test "refind_linux_conf: one quoted sub-entry carrying the cmdline" {
-  run refind_linux_conf "root=ZFS=rpool/ROOT rw"
+@test "loader_entries_refind_linux_config: one quoted sub-entry carrying the cmdline" {
+  run loader_entries_refind_linux_config "root=ZFS=rpool/ROOT rw"
   [ "$status" -eq 0 ]
   [[ "$output" == *'"Boot with standard options"'* ]]
   [[ "$output" == *'"root=ZFS=rpool/ROOT rw"'* ]]
@@ -90,8 +90,8 @@ setup() {
 
 # ── efistub ──────────────────────────────────────────────────────────────────
 
-@test "efistub_load_options: microcode initrd(s) then initramfs then cmdline" {
-  run efistub_load_options initramfs-linux-lts.img "amd-ucode.img" \
+@test "loader_entries_efistub_options: microcode initrd(s) then initramfs then cmdline" {
+  run loader_entries_efistub_options initramfs-linux-lts.img "amd-ucode.img" \
     "root=ZFS=rpool rw"
   [ "$status" -eq 0 ]
   local want='initrd=\amd-ucode.img initrd=\initramfs-linux-lts.img'
@@ -99,14 +99,14 @@ setup() {
   [ "$output" = "$want" ]
 }
 
-@test "efistub_load_options: no microcode → just initramfs + cmdline" {
-  run efistub_load_options initramfs-linux.img "" "root=x rw"
+@test "loader_entries_efistub_options: no microcode → just initramfs + cmdline" {
+  run loader_entries_efistub_options initramfs-linux.img "" "root=x rw"
   [ "$status" -eq 0 ]
   [ "$output" = 'initrd=\initramfs-linux.img root=x rw' ]
 }
 
-@test "efistub_load_options: multiple microcode images each get an initrd=" {
-  run efistub_load_options initramfs-linux.img "intel-ucode.img amd-ucode.img" \
+@test "loader_entries_efistub_options: multiple microcode images each get an initrd=" {
+  run loader_entries_efistub_options initramfs-linux.img "intel-ucode.img amd-ucode.img" \
     "root=x rw"
   [ "$status" -eq 0 ]
   local want='initrd=\intel-ucode.img initrd=\amd-ucode.img'

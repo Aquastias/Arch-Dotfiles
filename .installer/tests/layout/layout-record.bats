@@ -2,7 +2,7 @@
 # Tests for the Layout Record read interface (lib/layout/state.sh, ADR 0043):
 # the layout_* accessors that expose the multi-disk adapter's resolved model
 # (per-group topology, standalone data pools, folded leftovers) so consumers
-# (lifecycle_print_summary, pool_owners_apply) depend on the interface, not
+# (lifecycle_print_summary, zfs_pool_owners_apply) depend on the interface, not
 # the adapter-private _LAYOUT_IMPL_* variables. Absence-safety is the crux: the
 # accessors must not arithmetic-abort an undeclared associative array under
 # `set -u` (single-disk / non-ZFS root), so every case runs under `set -u`.

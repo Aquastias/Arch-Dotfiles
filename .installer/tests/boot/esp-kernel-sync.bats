@@ -42,7 +42,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$BOOT/vmlinuz-linux"
   : >"$BOOT/initramfs-linux.img"
 
-  run esp_sync_planned_files "$ESP" "$BOOT"
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output vmlinuz-linux-lts
   in_output intel-ucode.img
@@ -61,7 +61,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$BOOT/amd-ucode.img"
   : >"$BOOT/vmlinuz-linux"; : >"$BOOT/initramfs-linux.img"  # stray
 
-  run esp_sync_planned_files "$ESP" "$BOOT"
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output vmlinuz-linux-lts
   in_output initramfs-linux-lts.img
@@ -75,7 +75,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 @test "planner omits an entry-referenced file missing from /boot" {
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
   : >"$BOOT/vmlinuz-linux-lts" # only this one exists in /boot
-  run esp_sync_planned_files "$ESP" "$BOOT"
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output vmlinuz-linux-lts
   ! in_output intel-ucode.img
@@ -91,7 +91,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$BOOT/initramfs-linux-lts.img"
   : >"$BOOT/initramfs-linux-lts-fallback.img"
 
-  run esp_sync_planned_files "$ESP" "$BOOT"
+  run esp_kernel_sync_planned_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   # vmlinuz-linux-lts is referenced by both entries — appears exactly once
   [ "$(grep -cxF vmlinuz-linux-lts <<<"$output")" -eq 1 ]
@@ -109,7 +109,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$BOOT/initramfs-linux-lts.img"
   : >"$BOOT/initramfs-linux-lts-fallback.img"
 
-  run esp_sync_critical_files "$ESP" "$BOOT"
+  run esp_kernel_sync_critical_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output vmlinuz-linux-lts
   in_output intel-ucode.img
@@ -126,7 +126,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$BOOT/initramfs-linux-lts.img"
   : >"$BOOT/initramfs-linux-lts-fallback.img"
 
-  run esp_sync_optional_files "$ESP" "$BOOT"
+  run esp_kernel_sync_optional_files "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   in_output initramfs-linux-lts-fallback.img
   ! in_output vmlinuz-linux-lts
@@ -138,7 +138,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 @test "install_critical success: dst byte-equals src, returns 0, no .new" {
   printf 'NEWIMG' >"$BOOT/src.img"
   printf 'OLDIMG' >"$ESP/dst.img"
-  run esp_sync_install_critical "$BOOT/src.img" "$ESP/dst.img"
+  run esp_kernel_sync_install_critical "$BOOT/src.img" "$ESP/dst.img"
   [ "$status" -eq 0 ]
   [ "$(cat "$ESP/dst.img")" = "NEWIMG" ]
   cmp -s "$BOOT/src.img" "$ESP/dst.img"
@@ -147,7 +147,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 
 @test "install_critical failure preserves old dst, non-zero, no .new" {
   printf 'OLDIMG' >"$ESP/dst.img"
-  run esp_sync_install_critical "$BOOT/missing.img" "$ESP/dst.img"
+  run esp_kernel_sync_install_critical "$BOOT/missing.img" "$ESP/dst.img"
   [ "$status" -ne 0 ]
   [ "$(cat "$ESP/dst.img")" = "OLDIMG" ] # prior good image intact
   [ ! -e "$ESP/dst.img.new" ]
@@ -159,7 +159,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   : >"$ESP/.vmlinuz-linux-lts.new"
   : >"$ESP/.initramfs-linux-lts.img.new"
   : >"$ESP/vmlinuz-linux-lts"
-  run esp_sync_orphan_temps "$ESP"
+  run esp_kernel_sync_orphan_temporaries "$ESP"
   [ "$status" -eq 0 ]
   in_output "$ESP/.vmlinuz-linux-lts.new"
   in_output "$ESP/.initramfs-linux-lts.img.new"
@@ -173,7 +173,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
   head -c 50 /dev/zero >"$BOOT/intel-ucode.img"
   head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
-  run esp_sync_needed_bytes "$ESP" "$BOOT"
+  run esp_kernel_sync_needed_bytes "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   [ "$output" -eq 550 ] # 100 + 50 + 200, plus 200 (largest) for temp+rename
 }
@@ -183,9 +183,9 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   head -c 100 /dev/zero >"$BOOT/vmlinuz-linux-lts"
   head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
   # needed = 100 + 200 + 200 (largest) = 500; ESP empty -> present = 0
-  run esp_sync_space_ok "$ESP" "$BOOT" 1000
+  run esp_kernel_sync_space_ok "$ESP" "$BOOT" 1000
   [ "$status" -eq 0 ]
-  run esp_sync_space_ok "$ESP" "$BOOT" 400
+  run esp_kernel_sync_space_ok "$ESP" "$BOOT" 400
   [ "$status" -ne 0 ]
 }
 
@@ -195,7 +195,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   head -c 200 /dev/zero >"$BOOT/initramfs-linux-lts.img"
   # only the initramfs already exists on the ESP (the vmlinuz is new)
   head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
-  run esp_sync_present_bytes "$ESP" "$BOOT"
+  run esp_kernel_sync_present_bytes "$ESP" "$BOOT"
   [ "$status" -eq 0 ]
   [ "$output" -eq 200 ]
 }
@@ -209,10 +209,10 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   head -c 200 /dev/zero >"$ESP/initramfs-linux-lts.img"
   # needed = 500; free + present >= needed  =>  free >= 200.
   # 250 used to fail the old free-only check (250 < 500); now it passes.
-  run esp_sync_space_ok "$ESP" "$BOOT" 250
+  run esp_kernel_sync_space_ok "$ESP" "$BOOT" 250
   [ "$status" -eq 0 ]
   # a genuinely-too-small ESP still fails: 150 + 300 = 450 < 500.
-  run esp_sync_space_ok "$ESP" "$BOOT" 150
+  run esp_kernel_sync_space_ok "$ESP" "$BOOT" 150
   [ "$status" -ne 0 ]
 }
 
@@ -222,13 +222,13 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   printf '%s\n' \
     "rpool/ROOT/arch / zfs rw 0 0" \
     "/dev/sda1 /boot/efi vfat rw 0 0" >"$BOOT/mounts"
-  run esp_sync_is_mountpoint /boot/efi "$BOOT/mounts"
+  run esp_kernel_sync_is_mountpoint /boot/efi "$BOOT/mounts"
   [ "$status" -eq 0 ]
   # the runtime passes the glob form with a trailing slash — still matches
-  run esp_sync_is_mountpoint /boot/efi/ "$BOOT/mounts"
+  run esp_kernel_sync_is_mountpoint /boot/efi/ "$BOOT/mounts"
   [ "$status" -eq 0 ]
   # a directory that is NOT mounted (ESP absent) fails
-  run esp_sync_is_mountpoint /boot/efi1 "$BOOT/mounts"
+  run esp_kernel_sync_is_mountpoint /boot/efi1 "$BOOT/mounts"
   [ "$status" -ne 0 ]
 }
 
@@ -236,19 +236,19 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   local s="$BOOT/sync.sh"
   printf '#!/usr/bin/env bash\necho hi\n' >"$s"
   chmod +x "$s"
-  run esp_sync_script_ok "$s"
+  run esp_kernel_sync_script_ok "$s"
   [ "$status" -eq 0 ]
 
   # no shebang -> would ENOEXEC under execv -> rejected
   printf '# not a shebang\necho hi\n' >"$s"
   chmod +x "$s"
-  run esp_sync_script_ok "$s"
+  run esp_kernel_sync_script_ok "$s"
   [ "$status" -ne 0 ]
 
   # shebang present but not executable -> rejected
   printf '#!/usr/bin/env bash\n' >"$s"
   chmod -x "$s"
-  run esp_sync_script_ok "$s"
+  run esp_kernel_sync_script_ok "$s"
   [ "$status" -ne 0 ]
 }
 
@@ -258,7 +258,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   _entry arch-zfs vmlinuz-linux-lts initramfs-linux-lts.img
   _entry arch-zfs-fallback vmlinuz-linux-lts initramfs-linux-lts-fallback.img
   # the fallback IMAGE is NOT on the ESP -> its entry must be pruned
-  run esp_sync_prune_dead_fallback_entries "$ESP"
+  run esp_kernel_sync_prune_dead_fallback_entries "$ESP"
   [ "$status" -eq 0 ]
   [ -f "$ESP/loader/entries/arch-zfs.conf" ]
   [ ! -f "$ESP/loader/entries/arch-zfs-fallback.conf" ]
@@ -267,7 +267,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
 @test "prune keeps a fallback entry whose image is present, returns 0" {
   _entry arch-zfs-fallback vmlinuz-linux-lts initramfs-linux-lts-fallback.img
   : >"$ESP/initramfs-linux-lts-fallback.img" # present -> keep the entry
-  run esp_sync_prune_dead_fallback_entries "$ESP"
+  run esp_kernel_sync_prune_dead_fallback_entries "$ESP"
   [ "$status" -eq 0 ]
   [ -f "$ESP/loader/entries/arch-zfs-fallback.conf" ]
 }
@@ -276,7 +276,7 @@ in_output() { grep -qxF "$1" <<<"$output"; }
   # the regression: the trailing *fallback* test used to leak status 1 here,
   # which became the sync hook's exit code ("command failed to execute").
   _entry arch-zfs vmlinuz-linux-lts intel-ucode.img initramfs-linux-lts.img
-  run esp_sync_prune_dead_fallback_entries "$ESP"
+  run esp_kernel_sync_prune_dead_fallback_entries "$ESP"
   [ "$status" -eq 0 ]
   [ -f "$ESP/loader/entries/arch-zfs.conf" ]
 }

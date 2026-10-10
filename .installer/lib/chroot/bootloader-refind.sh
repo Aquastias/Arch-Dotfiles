@@ -29,7 +29,7 @@ blcommon_stage_microcode
 
 # refind_linux.conf beside the kernels supplies the boot options for every
 # autodetected vmlinuz-*; refind pairs each with its initramfs + *-ucode.img.
-refind_linux_conf "$DEFAULT_OPTS" > "$ESP/refind_linux.conf"
+loader_entries_refind_linux_config "$DEFAULT_OPTS" > "$ESP/refind_linux.conf"
 
 # Pin the default menu selection to the Primary Kernel image.
 REFIND_CONF="$ESP/EFI/refind/refind.conf"

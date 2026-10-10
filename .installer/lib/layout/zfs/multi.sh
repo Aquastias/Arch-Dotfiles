@@ -3,8 +3,8 @@
 # lib/layout/zfs/multi.sh — Multi-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=multi.
-# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for _zpool_create,
-#           build_vdev_spec, ram_gib) already sourced.
+# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for zfs_create_pool,
+#           zfs_vdev_spec, zfs_ram_gib) already sourced.
 #
 # Provides:
 #   resolve_os_topology          — determines rpool topology; prompts if needed
@@ -280,7 +280,7 @@ _read_tty() {
 
 _prompt_pool_name() {
   # Prompts for a Standalone Data Pool name, looping until it passes
-  # _zfs_valid_pool_name and is not already taken; empty input accepts the
+  # zfs_valid_pool_name and is not already taken; empty input accepts the
   # default. Sets POOL_NAME_RESULT. Honors INSTALL_UNATTENDED (uses default).
   # Usage: _prompt_pool_name <default> [taken_name...]
   local def="$1"
@@ -295,7 +295,7 @@ _prompt_pool_name() {
   while true; do
     name="$(_read_tty "  Pool name [${def}]: ")"
     [[ -z "$name" ]] && name="$def"
-    if ! reason="$(_zfs_valid_pool_name "$name")"; then
+    if ! reason="$(zfs_valid_pool_name "$name")"; then
       warn "Invalid pool name: ${reason}"
       continue
     fi
@@ -458,25 +458,25 @@ partition_storage_disks_multi() {
 
 create_multi_rpool() {
   section "Creating OS Pool (rpool)"
-  build_enc_opts
+  zfs_encryption_options
 
   local pool_name
   pool_name="$(config_required '.os_pool.pool_name')"
   local ashift; ashift="$(install_config_os_pool_ashift)"
 
   local vdev_spec
-  vdev_spec="$(build_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" \
+  vdev_spec="$(zfs_vdev_spec "${_LAYOUT_IMPL_OS_TOPOLOGY}" \
     "${_LAYOUT_IMPL_ZFS_PARTS[@]}")"
 
   info "Pool: ${pool_name}  topology: ${_LAYOUT_IMPL_OS_TOPOLOGY}"
   info "vdev: ${vdev_spec}"
 
   # SC2086 (intentional): vdev_spec must be word-split into multiple args
-  # for _zpool_create (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args). Built
-  # from controlled inputs in build_vdev_spec, so word-splitting is safe.
+  # for zfs_create_pool (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args). Built
+  # from controlled inputs in zfs_vdev_spec, so word-splitting is safe.
   # shellcheck disable=SC2086
-  _zpool_create "${pool_name}" "${ashift}" $vdev_spec
-  _create_os_datasets "${pool_name}"
+  zfs_create_pool "${pool_name}" "${ashift}" $vdev_spec
+  zfs_create_os_datasets "${pool_name}"
 }
 
 create_multi_dpool() {
@@ -491,7 +491,7 @@ create_multi_dpool() {
     info "No storage groups and no leftover disks — skipping dpool."
     return
   fi
-  build_enc_opts
+  zfs_encryption_options
 
   # Collect vdev specs from all groups
   local all_vdevs=()
@@ -503,8 +503,8 @@ create_multi_dpool() {
     local parts
     read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[$name]}"
     local vs
-    vs="$(build_vdev_spec "$topo" "${parts[@]}")"
-    # SC2206 (intentional): vs is a single string built from build_vdev_spec
+    vs="$(zfs_vdev_spec "$topo" "${parts[@]}")"
+    # SC2206 (intentional): vs is a single string built from zfs_vdev_spec
     # output that we want word-split into separate vdev tokens (e.g.
     # "mirror /dev/sdb1 /dev/sdc1" → 3 array elements).
     # shellcheck disable=SC2206
@@ -517,7 +517,7 @@ create_multi_dpool() {
     local parts
     read -ra parts <<<"${_LAYOUT_IMPL_STORAGE_PARTS[_leftover]}"
     local vs
-    vs="$(build_vdev_spec "$topo" "${parts[@]}")"
+    vs="$(zfs_vdev_spec "$topo" "${parts[@]}")"
     # shellcheck disable=SC2206  # see comment in loop above
     all_vdevs+=($vs)
     info "  Group '_leftover': ${topo}  [${parts[*]}]"
@@ -530,7 +530,7 @@ create_multi_dpool() {
   # that must each become a separate argument to zpool create. Names are
   # internally generated so word-splitting is safe.
   # shellcheck disable=SC2068
-  _zpool_create "dpool" "${pashift}" ${all_vdevs[@]}
+  zfs_create_pool "dpool" "${pashift}" ${all_vdevs[@]}
 
   # ── Datasets ───────────────────────────────────────────────────────────────
   zfs create -o canmount=off -o mountpoint=none dpool/DATA
@@ -627,7 +627,7 @@ _layout_validate_owners() {
   local label="$1" owners="$2"
   [[ -n "${owners// }" ]] || return 0
   local reason
-  reason="$(pool_owners_validate "$owners" "$(_layout_declared_users)" \
+  reason="$(zfs_pool_owners_validate "$owners" "$(_layout_declared_users)" \
     "$(_layout_group_map)")" \
     || error "${label} ${reason}"
 }
@@ -694,7 +694,7 @@ layout_validate() {
   dp="$(jsonc_strip "$CONFIG_FILE" | jq '(.data_pools // []) | length')"
   for ((i = 0; i < dp; i++)); do
     dname="$(config_required ".data_pools[$i].name")"
-    if ! reason="$(_zfs_valid_pool_name "$dname")"; then
+    if ! reason="$(zfs_valid_pool_name "$dname")"; then
       error "Data pool: ${reason}"
     fi
     dtopo="$(jsonc_strip "$CONFIG_FILE" \
@@ -706,7 +706,7 @@ layout_validate() {
     # validation.sh, so the dispatch passes it through here (ADR 0043).
     local dfs
     dfs="$(install_config_data_pool_filesystem "$i")"
-    if ! reason="$(_data_pool_topology_ok "$dfs" "$dtopo" "$ddc")"; then
+    if ! reason="$(zfs_data_pool_topology_ok "$dfs" "$dtopo" "$ddc")"; then
       error "Data pool '${dname}': ${reason}"
     fi
     _layout_validate_owners "Data pool '${dname}'" \

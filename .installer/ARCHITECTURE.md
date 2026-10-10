@@ -84,7 +84,7 @@ flowchart TD
       M1["lifecycle_load_config<br/>filesystem × mode"]:::act
       M2["source fs adapter<br/>+ validate"]:::act
       M3{"plan + summary<br/>proceed?"}:::dec
-      M4["collect_enc_passphrase<br/>if encryption"]:::opt
+      M4["zfs_collect_encryption_passphrase<br/>if encryption"]:::opt
       M5["secrets_load -> tmpfs<br/>if secrets"]:::opt
       M6["partition + volumes + esp"]:::act
       M7["install_base (pacstrap)"]:::act

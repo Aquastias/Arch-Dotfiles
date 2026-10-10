@@ -21,8 +21,8 @@
 # global _LAYOUT_IMPL_DATA_POOL_ASHIFT.
 # =============================================================================
 
-# _zpool_create / build_vdev_spec / ENC_OPTS — the ZFS pool primitives.
-declare -F _zpool_create >/dev/null 2>&1 \
+# zfs_create_pool / zfs_vdev_spec / ZFS_ENCRYPTION_OPTIONS — the ZFS pool primitives.
+declare -F zfs_create_pool >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../../zfs/pools.sh"
 # The shared per-group crypto plan emitter (keyfile/mapper/crypttab) — sibling.
 declare -F data_group_crypto >/dev/null 2>&1 \
@@ -44,7 +44,7 @@ _zfs_gen_data_keyfile() {
 # shared per-group crypto plan (nonzfs/datacrypt.sh) into what the pool create
 # needs: a `keyfile=<path>` (where the caller must write the raw key) and the
 # `opts=<tokens>` (`-O encryption/keyformat/keylocation`) replacing the global
-# passphrase-prompt ENC_OPTS for this pool. Plaintext round-trips to empty both.
+# passphrase-prompt ZFS_ENCRYPTION_OPTIONS for this pool. Plaintext round-trips to empty both.
 # Pure: string transforms, no disk access.
 zfs_data_pool_enc_opts() {
   local encrypted="$1" name="$2"
@@ -80,27 +80,27 @@ data_group_create() {
   sel="$(zfs_data_pool_enc_opts "$encrypted" "$name")"
   keyfile="$(printf '%s\n' "$sel" | grep -E '^keyfile=' | cut -d= -f2-)"
   opts="$(printf '%s\n' "$sel" | grep -E '^opts=' | cut -d= -f2-)"
-  # ENC_OPTS is consumed by _zpool_create (the global it word-splits into the
+  # ZFS_ENCRYPTION_OPTIONS is consumed by zfs_create_pool (the global it word-splits into the
   # zpool create command); read -ra splits the controlled -O token string. It is
   # local so this pool's opts never leak into a later create.
-  local ENC_OPTS=()
+  local ZFS_ENCRYPTION_OPTIONS=()
   # shellcheck disable=SC2034
-  read -ra ENC_OPTS <<<"$opts"
+  read -ra ZFS_ENCRYPTION_OPTIONS <<<"$opts"
   [[ -n "$keyfile" ]] \
     && _zfs_gen_data_keyfile "${MOUNT_ROOT}${keyfile}" "${keyfile}"
 
   local vdev_spec
-  vdev_spec="$(build_vdev_spec "$topology" "${parts[@]}")"
+  vdev_spec="$(zfs_vdev_spec "$topology" "${parts[@]}")"
   info "Data pool: ${name}  topology: ${topology}"
   info "vdev: ${vdev_spec}"
 
   # SC2086 (intentional): vdev_spec must be word-split into multiple args for
-  # _zpool_create. Built from controlled inputs in build_vdev_spec.
+  # zfs_create_pool. Built from controlled inputs in zfs_vdev_spec.
   # shellcheck disable=SC2086
-  _zpool_create "${name}" "${ashift}" $vdev_spec
+  zfs_create_pool "${name}" "${ashift}" $vdev_spec
 
   # Data lives in one child dataset; the pool root stays unmounted
-  # (canmount=off from _zpool_create) — house style (ADR 0027).
+  # (canmount=off from zfs_create_pool) — house style (ADR 0027).
   zfs create -o mountpoint="${mount}" "${name}/data"
   info "  ${name}/data → ${mount}"
 }

@@ -29,9 +29,10 @@ _ZFS_VERIFY_SH_SOURCED=1
 # DKMS installs to <kver>/updates/dkms/zfs.ko*, archzfs prebuilts to
 # <kver>/extra/zfs.ko*; a recursive match on zfs.ko* covers any compression
 # suffix (.zst/.xz/none).
-_zfs_module_present() {
-  local kdir="$1"
-  find "$kdir" -type f -name 'zfs.ko*' -print -quit 2>/dev/null | grep -q .
+_verify_module_present() {
+  local kernel_directory="$1"
+  find "$kernel_directory" -type f -name 'zfs.ko*' -print -quit 2>/dev/null \
+    | grep -q .
 }
 
 # Pure helper: given a module tree (e.g. <target>/usr/lib/modules), print the
@@ -40,12 +41,12 @@ _zfs_module_present() {
 # kernels are enumerated from their `pkgbase` markers — no hardcoded list. No
 # DKMS rebuild is attempted; this only reports.
 zfs_kernels_missing_module() {
-  local modules_dir="${1:-/usr/lib/modules}"
-  local marker kdir
-  for marker in "$modules_dir"/*/pkgbase; do
+  local modules_directory="${1:-/usr/lib/modules}"
+  local marker kernel_directory
+  for marker in "$modules_directory"/*/pkgbase; do
     [[ -f "$marker" ]] || continue
-    kdir="${marker%/pkgbase}"
-    _zfs_module_present "$kdir" && continue
+    kernel_directory="${marker%/pkgbase}"
+    _verify_module_present "$kernel_directory" && continue
     printf '%s\n' "$(<"$marker")"
   done | sort -u
 }
@@ -56,15 +57,17 @@ zfs_kernels_missing_module() {
 # One per line, sorted-unique. No args ⇒ empty selection ⇒ empty abort set.
 zfs_missing_selected_kernels() {
   local missing_text="$1"; shift
-  local -A selected=(); local s
-  for s in "$@"; do selected["$s"]=1; done
-  local k
+  local -A selected=(); local selected_kernel
+  for selected_kernel in "$@"; do selected["$selected_kernel"]=1; done
+  local kernel
   # An `if` (not `[[…]] && printf`) so the loop body's last command always exits
   # 0 — otherwise a trailing stray makes the loop return 1, and under the
   # installer's `set -Eeuo pipefail` the `| sort -u` pipe (pipefail) then fails
   # the `$(…)` capture and aborts the guard.
-  while IFS= read -r k; do
-    if [[ -n "$k" && -n "${selected[$k]:-}" ]]; then printf '%s\n' "$k"; fi
+  while IFS= read -r kernel; do
+    if [[ -n "$kernel" && -n "${selected[$kernel]:-}" ]]; then
+      printf '%s\n' "$kernel"
+    fi
   done <<<"$missing_text" | sort -u
 }
 
@@ -92,11 +95,11 @@ zfs_verify_target_modules() {
 
   # Warn (non-fatal) about strays that lack a module — every missing kernel not
   # in the abort set.
-  local k
-  while IFS= read -r k; do
-    [[ -n "$k" ]] || continue
-    printf '%s\n' "$abort_set" | grep -qxF "$k" && continue
-    warn "Stray Kernel '${k}' has no zfs.ko — tolerated. It is not in the
+  local kernel
+  while IFS= read -r kernel; do
+    [[ -n "$kernel" ]] || continue
+    printf '%s\n' "$abort_set" | grep -qxF "$kernel" && continue
+    warn "Stray Kernel '${kernel}' has no zfs.ko — tolerated. It is not in the
   Kernel Selection, is dropped before mkinitcpio, never reaches the ESP, and is
   never the default boot; it will not block this install (ADR 0138)."
   done <<<"$missing"
@@ -104,7 +107,7 @@ zfs_verify_target_modules() {
   [[ -z "$abort_set" ]] && return 0
 
   local list
-  list="$(printf '%s' "$abort_set" | tr '\n' ' ')"
+  list="${abort_set//$'\n'/ }"
   list="${list% }"
   error "No ZFS kernel module was built for: ${list}.
   archzfs could not build zfs-dkms against this/these SELECTED kernel(s). Left

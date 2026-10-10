@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# lib/boot/bootloaders.sh — Bootloader Manifest (ADR 0077)
+# lib/boot/bootloader.sh — Bootloader Manifest (ADR 0077)
 # =============================================================================
 # The single source of truth for per-loader metadata, replacing the hardcoded
 # `if grub/else systemd` chains that used to live in configure.sh (secondary-ESP
@@ -30,8 +30,10 @@ bootloader_all() {
 
 # bootloader_is_valid <name> — rc 0 when the loader is known, rc 1 otherwise.
 bootloader_is_valid() {
-  local name="$1" l
-  while IFS= read -r l; do [[ "$l" == "$name" ]] && return 0; done \
+  local name="$1" known_loader
+  while IFS= read -r known_loader; do
+    [[ "$known_loader" == "$name" ]] && return 0
+  done \
     < <(bootloader_all)
   return 1
 }

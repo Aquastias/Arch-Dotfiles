@@ -13,15 +13,16 @@
 esp_stage_kernel() {
   local kbase="$1" esp="$2" boot="${ESP_STAGE_BOOT_DIR:-/boot}"
   local initramfs="initramfs-${kbase}.img"
-  local initramfs_fb="initramfs-${kbase}-fallback.img"
+  local fallback_initramfs="initramfs-${kbase}-fallback.img"
   cp "${boot}/vmlinuz-${kbase}" "$esp/"
   cp "${boot}/${initramfs}"     "$esp/"
-  if [[ ! -f "${boot}/${initramfs_fb}" ]]; then
+  if [[ ! -f "${boot}/${fallback_initramfs}" ]]; then
     { mkinitcpio -p "$kbase" -S autodetect \
-        || mkinitcpio -g "${boot}/${initramfs_fb}"; } >&2 2>/dev/null || true
+        || mkinitcpio -g "${boot}/${fallback_initramfs}"; } >&2 2>/dev/null \
+      || true
   fi
-  if [[ -f "${boot}/${initramfs_fb}" ]]; then
-    cp "${boot}/${initramfs_fb}" "$esp/"
-    printf '%s\n' "$initramfs_fb"
+  if [[ -f "${boot}/${fallback_initramfs}" ]]; then
+    cp "${boot}/${fallback_initramfs}" "$esp/"
+    printf '%s\n' "$fallback_initramfs"
   fi
 }

@@ -25,12 +25,12 @@ _LTS_HOLD_MARK='# archzfs-lts-hold'
 # [options] block of <conf>. Idempotent — any existing marked line is removed
 # first, so repeated calls converge. Never touches unmarked IgnorePkg lines.
 lts_hold_set() {
-  local conf="$1" want="$2"
-  [[ -f "$conf" ]] || return 0
-  sed -i "\|${_LTS_HOLD_MARK}\$|d" "$conf"
+  local config_file="$1" want="$2"
+  [[ -f "$config_file" ]] || return 0
+  sed -i "\|${_LTS_HOLD_MARK}\$|d" "$config_file"
   if [[ "$want" == 1 ]]; then
     sed -i "/^\[options\]/a IgnorePkg = linux-lts linux-lts-headers  ${_LTS_HOLD_MARK}" \
-      "$conf"
+      "$config_file"
   fi
 }
 
@@ -38,20 +38,22 @@ lts_hold_set() {
 # db sync that never touches the system's pacman db (checkupdates-style). Empty
 # on failure (offline / lookup error).
 _lts_hold_newest_available() {
-  local tmp; tmp="$(mktemp -d)" || return 1
+  local temporary_directory; temporary_directory="$(mktemp -d)" || return 1
   # pacman drops to its download user for fetches, which then can't write into a
   # root-owned 0700 tempdir. Mirror checkupdates(8): symlink the real local db
   # and make the tree writable by the download user.
-  mkdir -p "$tmp/sync"
-  ln -s /var/lib/pacman/local "$tmp/local" 2>/dev/null
-  chmod -R a+rwX "$tmp"
-  local ver=""
-  if pacman -Sy --dbpath "$tmp" --logfile /dev/null >/dev/null 2>&1; then
-    ver="$(pacman -Si --dbpath "$tmp" linux-lts 2>/dev/null \
+  mkdir -p "$temporary_directory/sync"
+  ln -s /var/lib/pacman/local "$temporary_directory/local" 2>/dev/null
+  chmod -R a+rwX "$temporary_directory"
+  local version=""
+  if pacman -Sy --dbpath "$temporary_directory" --logfile /dev/null \
+       >/dev/null 2>&1; then
+    version="$(pacman -Si --dbpath "$temporary_directory" linux-lts \
+      2>/dev/null \
       | awk '/^Version/{print $3; exit}')"
   fi
-  rm -rf "$tmp"
-  [[ -n "$ver" ]] && printf '%s\n' "$ver"
+  rm -rf "$temporary_directory"
+  [[ -n "$version" ]] && printf '%s\n' "$version"
 }
 
 # Lib-only sourcing for tests: skip the runtime below.
@@ -64,7 +66,7 @@ _LTS_HOLD_DIR="${BASH_SOURCE[0]%/*}"
 source "${_LTS_HOLD_DIR}/archzfs-kernel.sh"
 
 _lts_hold_run() {
-  local conf="${LTS_HOLD_CONF:-/etc/pacman.conf}"
+  local config_file="${LTS_HOLD_CONF:-/etc/pacman.conf}"
 
   local ceiling; ceiling="$(archzfs_lts_pkgver)"
   [[ -n "$ceiling" ]] || { echo "archzfs-lts-hold: no archzfs ceiling — leaving hold state unchanged." >&2; return 0; }
@@ -75,10 +77,10 @@ _lts_hold_run() {
   # archzfs_pick_lts_version prints the ceiling version when <newest> outruns it
   # at the minor level (⇒ hold), nothing when newest is within the ceiling.
   if [[ -n "$(archzfs_pick_lts_version "$ceiling" "$newest")" ]]; then
-    lts_hold_set "$conf" 1
+    lts_hold_set "$config_file" 1
     echo "archzfs-lts-hold: holding linux-lts — mirror ${newest} outruns archzfs ceiling ${ceiling}."
   else
-    lts_hold_set "$conf" 0
+    lts_hold_set "$config_file" 0
     echo "archzfs-lts-hold: linux-lts ${newest} within archzfs ceiling ${ceiling} — no hold."
   fi
 }

@@ -107,12 +107,12 @@ blcommon_efistub_register() {
   for kb in "${order[@]}"; do
     fb="initramfs-${kb}-fallback.img"
     if [[ -f "$ESP/$fb" ]]; then
-      opts="$(efistub_load_options "$fb" "$MICROCODE_IMGS" "$DEFAULT_OPTS")"
+      opts="$(loader_entries_efistub_options "$fb" "$MICROCODE_IMGS" "$DEFAULT_OPTS")"
       efibootmgr --create --disk "$disk" --part "$part" \
         --label "Arch (${kb} fallback${suffix:+ $suffix})" \
         --loader "\\vmlinuz-${kb}" --unicode "$opts" || true
     fi
-    opts="$(efistub_load_options "initramfs-${kb}.img" "$MICROCODE_IMGS" \
+    opts="$(loader_entries_efistub_options "initramfs-${kb}.img" "$MICROCODE_IMGS" \
       "${DEFAULT_OPTS}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}")"
     efibootmgr --create --disk "$disk" --part "$part" \
       --label "Arch (${kb}${suffix:+ $suffix})" \

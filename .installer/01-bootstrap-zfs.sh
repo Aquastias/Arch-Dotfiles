@@ -250,7 +250,7 @@ install_zfs() {
   fi
 
   # Remove any stale testing repo entries before touching pacman
-  _remove_stale_archzfs_testing
+  zfs_remove_stale_archzfs_testing
 
   # Always DKMS on the live ISO — compiles against the exact running kernel
   zfs_install_dkms "$kernel_version"

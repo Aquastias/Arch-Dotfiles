@@ -544,7 +544,7 @@ _seed_generator_render_guided_user_data() {
   # flow, the guided run does NOT preset INSTALL_ENC_PASSPHRASE (ADR 0059). That
   # preset is the highest precedence tier, so it would shadow the Secrets
   # Manifest and leave the menu's own passphrase path (manifest →
-  # collect_enc_passphrase → zpool create) untested. The guided menu authors the
+  # zfs_collect_encryption_passphrase → zpool create) untested. The guided menu authors the
   # manifest itself (unset → the 8-char default), so the encrypted pool is
   # created from the value the menu produces — the point of a guided smoke run.
   # Single backslash: these are substituted into the heredoc as-is (heredoc

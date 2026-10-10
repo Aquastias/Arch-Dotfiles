@@ -441,7 +441,7 @@ under `enc_passphrase` (never in Config State, Save, or Export); its one
 divergence from the password rows is that first entry must be **≥ 8 chars** —
 the ZFS `keyformat=passphrase` minimum. It is never gated (an unset passphrase
 defaults to `12345678`); toggling encryption off hides the `password` row but
-retains any stored value. The back end (`collect_enc_passphrase`) consumes it by
+retains any stored value. The back end (`zfs_collect_encryption_passphrase`) consumes it by
 precedence `INSTALL_ENC_PASSPHRASE` → guided manifest → unattended default →
 interactive prompt, so an interactive profile/manual install keeps the tty
 prompt while `--unattended` takes the default ([ADR 0059], extending
@@ -1037,7 +1037,7 @@ direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
 loader binary; its manifest loader path is the kernel image itself ([ADR 0077]).
 
 ### Bootloader Manifest
-`.installer/lib/boot/bootloaders.sh`. The pure token table — sourced host-side
+`.installer/lib/boot/bootloader.sh`. The pure token table — sourced host-side
 by the
 package resolver / list and staged into the chroot for the orchestrator —
 keying each `options.bootloader` value to its EFI loader path, package set, and
@@ -1684,7 +1684,7 @@ once so the install path and the [[Package Resolver]] cannot drift:
 `base.sh` (`base_packages` — the [[Base Package List]]), `gpu.sh`
 (`gpu_vendor_packages <vendor>`), `audio.sh` (`audio_packages` — the PipeWire
 stack), and `filesystem.sh` (`fs_userland_packages <fs>` + `luks_userland_packages`),
-alongside the older-established `kernel.sh`, `boot/bootloaders.sh`, and
+alongside the older-established `kernel.sh`, `boot/bootloader.sh`, and
 `config/fonts.sh`. Each maps an already-resolved input to package **names** only;
 the **decision** of which inputs apply, and any impure **detection**, stay with
 the caller — GPU vendor detection (`lspci`) and the intel pre-Broadwell

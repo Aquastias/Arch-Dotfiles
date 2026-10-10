@@ -40,7 +40,7 @@ esp_resilience_verify() {
   # Guard 1 — a critical copy that cannot complete must fail and leave the prior
   # image intact (the full-ESP path; a missing source stands in for ENOSPC).
   printf 'OLD' >"$esp/initramfs-linux-lts.img"
-  if esp_sync_install_critical "$boot/missing.img" \
+  if esp_kernel_sync_install_critical "$boot/missing.img" \
     "$esp/initramfs-linux-lts.img" 2>/dev/null; then
     echo "FAIL: install_critical did not fail on an impossible copy" >&2
     return 1
@@ -54,7 +54,7 @@ esp_resilience_verify() {
   mkdir -p "$mods/6.18-lts" "$mods/7.0-rolling"
   echo linux-lts >"$mods/6.18-lts/pkgbase"
   echo linux >"$mods/7.0-rolling/pkgbase"
-  [[ "$(stray_kernels "$mods" linux-lts)" == *linux* ]] || {
+  [[ "$(stray_kernel_list "$mods" linux-lts)" == *linux* ]] || {
     echo "FAIL: Stray Kernel was not detected" >&2
     return 1
   }

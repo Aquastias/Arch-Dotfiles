@@ -42,7 +42,7 @@ _CHROOT_STAGE_LIBCHROOT=(
   "lib/config/locale-parts.sh|locale-parts.sh"
   "lib/packages/kernel.sh|kernel.sh"
   "lib/packages/microcode.sh|microcode.sh"
-  "lib/boot/bootloaders.sh|bootloaders.sh"
+  "lib/boot/bootloader.sh|bootloader.sh"
   "lib/boot/loader-entries.sh|loader-entries.sh"
   "lib/boot/esp-kernel-sync.sh|esp-kernel-sync.sh"
   "lib/boot/stray-kernel.sh|stray-kernel.sh"

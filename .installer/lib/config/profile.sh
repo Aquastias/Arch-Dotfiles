@@ -44,9 +44,9 @@ declare -F power_inject >/dev/null 2>&1 \
 declare -F mirrors_inject >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/mirrors.sh"
 
-# shellcheck source=../boot/bootloaders.sh
+# shellcheck source=../boot/bootloader.sh
 declare -F bootloader_is_valid >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 
 # load_profile <name> — effective host config on stdout.
 # load_user_profile <name> — effective user config on stdout (symmetric).

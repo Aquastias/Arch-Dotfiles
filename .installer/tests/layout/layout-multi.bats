@@ -126,9 +126,9 @@ JSONC
   sleep()     { :; }
   part_name() { printf '%s%s' "$1" "$2"; }
 
-  build_enc_opts()      { :; }
-  _zpool_create()       { printf '_zpool_create %s\n'       "$*" >>"$CALLS"; }
-  _create_os_datasets() { printf '_create_os_datasets %s\n' "$*" >>"$CALLS"; }
+  zfs_encryption_options()      { :; }
+  zfs_create_pool()       { printf 'zfs_create_pool %s\n'       "$*" >>"$CALLS"; }
+  zfs_create_os_datasets() { printf 'zfs_create_os_datasets %s\n' "$*" >>"$CALLS"; }
   zfs()                 { printf 'zfs %s\n'                 "$*" >>"$CALLS"; }
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
 }
@@ -636,7 +636,7 @@ setup_leftover_fixture() {
 
   # create_data_pools now dispatches every group (zfs included) through the Data
   # Group Formatter seam (data_formatter_source "$INSTALLER_DIR" <fs>), so the leaf must
-  # be resolvable; the mocked _zpool_create/zfs/etc below survive its guarded
+  # be resolvable; the mocked zfs_create_pool/zfs/etc below survive its guarded
   # sources (they only load pools.sh when the primitive is not already a function).
   export INSTALLER_DIR; INSTALLER_DIR="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 
@@ -657,9 +657,9 @@ setup_leftover_fixture() {
   mkfs.fat()  { :; }
   mount()     { :; }
 
-  build_enc_opts()      { :; }
-  _zpool_create()       { printf '_zpool_create %s\n'       "$*" >>"$CALLS"; }
-  _create_os_datasets() { printf '_create_os_datasets %s\n' "$*" >>"$CALLS"; }
+  zfs_encryption_options()      { :; }
+  zfs_create_pool()       { printf 'zfs_create_pool %s\n'       "$*" >>"$CALLS"; }
+  zfs_create_os_datasets() { printf 'zfs_create_os_datasets %s\n' "$*" >>"$CALLS"; }
   zfs()                 { printf 'zfs %s\n'                 "$*" >>"$CALLS"; }
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
 
@@ -692,7 +692,7 @@ JSONC
   layout_create_pools
 
   # A standalone stripe pool 'data1' over the leftover disk's partition…
-  grep -q '^_zpool_create data1 12 /dev/osd21$' "$CALLS"
+  grep -q '^zfs_create_pool data1 12 /dev/osd21$' "$CALLS"
   # …with its data in a child dataset mounted at /data/data1.
   grep -q 'create -o mountpoint=/data/data1 data1/data' "$CALLS"
 }

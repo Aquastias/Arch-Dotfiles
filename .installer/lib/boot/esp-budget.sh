@@ -24,38 +24,39 @@ _ESP_BUDGET_FLOOR_MIB=2048      # ADR 0038's 2G default — auto never goes belo
 
 # esp_budget_need_mib <kernel_count> <fs> <loader> — estimated ESP need in MiB.
 esp_budget_need_mib() {
-  local n="$1" fs="$2" loader="$3"
+  local kernel_count="$1" filesystem="$2" loader="$3"
   local per=$(( _ESP_BUDGET_VMLINUZ_MIB + _ESP_BUDGET_DEFAULT_MIB \
                 + _ESP_BUDGET_FALLBACK_MIB ))
-  [[ "$fs" == zfs ]] && per=$(( per + _ESP_BUDGET_ZFS_MIB ))
+  [[ "$filesystem" == zfs ]] && per=$(( per + _ESP_BUDGET_ZFS_MIB ))
   # base + every selected kernel + transient sync headroom + one-kernel slack.
-  printf '%s\n' "$(( _ESP_BUDGET_BASE_MIB + n * per \
+  printf '%s\n' "$(( _ESP_BUDGET_BASE_MIB + kernel_count * per \
                      + _ESP_BUDGET_TRANSIENT_MIB + per ))"
 }
 
-# _esp_mib_to_size <mib> — a whole-GiB value prints as NG, otherwise NM.
-_esp_mib_to_size() {
-  local m="$1"
-  if (( m % 1024 == 0 )); then printf '%sG\n' "$(( m / 1024 ))"
-  else printf '%sM\n' "$m"; fi
+# _esp_budget_mib_to_size <mib> — a whole-GiB value prints as NG, otherwise NM.
+_esp_budget_mib_to_size() {
+  local mib="$1"
+  if (( mib % 1024 == 0 )); then printf '%sG\n' "$(( mib / 1024 ))"
+  else printf '%sM\n' "$mib"; fi
 }
 
 # esp_budget_auto_size <kernel_count> <fs> <loader> — the resolved esp_size
 # string: the need rounded up to 256 MiB, never below the 2G floor
 # (upward-only).
 esp_budget_auto_size() {
-  local n="$1" fs="$2" loader="$3" need mib
-  need="$(esp_budget_need_mib "$n" "$fs" "$loader")"
+  local kernel_count="$1" filesystem="$2" loader="$3" need mib
+  need="$(esp_budget_need_mib "$kernel_count" "$filesystem" "$loader")"
   mib=$(( (need + 255) / 256 * 256 ))
   (( mib < _ESP_BUDGET_FLOOR_MIB )) && mib=$_ESP_BUDGET_FLOOR_MIB
-  _esp_mib_to_size "$mib"
+  _esp_budget_mib_to_size "$mib"
 }
 
 # esp_budget_fits_mib <have_mib> <kernel_count> <fs> <loader> — rc 0 when an ESP
 # of <have_mib> holds the estimated need.
 esp_budget_fits_mib() {
-  local have="$1" n="$2" fs="$3" loader="$4"
-  local need; need="$(esp_budget_need_mib "$n" "$fs" "$loader")"
+  local have="$1" kernel_count="$2" filesystem="$3" loader="$4"
+  local need
+  need="$(esp_budget_need_mib "$kernel_count" "$filesystem" "$loader")"
   (( have >= need ))
 }
 
@@ -63,11 +64,11 @@ esp_budget_fits_mib() {
 # MiB. Deliberately mirrors layout core's parse_size_to_mib so this budget lib
 # stays standalone (layout/core.sh sources THIS; a back-dependency would loop).
 esp_budget_size_mib() {
-  local s="${1^^}" num unit
-  num="${s//[^0-9]/}"; unit="${s//[0-9]/}"
+  local size="${1^^}" number unit
+  number="${size//[^0-9]/}"; unit="${size//[0-9]/}"
   case "$unit" in
-  G | GIB) printf '%s\n' "$(( num * 1024 ))" ;;
-  *)       printf '%s\n' "${num:-0}" ;;   # M / MiB / bare → MiB
+  G | GIB) printf '%s\n' "$(( number * 1024 ))" ;;
+  *)       printf '%s\n' "${number:-0}" ;;   # M / MiB / bare → MiB
   esac
 }
 

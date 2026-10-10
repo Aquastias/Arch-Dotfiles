@@ -3,8 +3,8 @@
 # lib/layout/zfs/single.sh — Single-disk install layout
 # =============================================================================
 # Sourced by 03-install.sh when INSTALL_MODE=single.
-# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for _zpool_create,
-#           _create_os_datasets, ram_gib) already sourced.
+# Requires: lib/common.sh (for part_name), lib/zfs/pools.sh (for zfs_create_pool,
+#           zfs_create_os_datasets, zfs_ram_gib) already sourced.
 #
 # Provides:
 #   calculate_single_disk_layout — computes partition sizes,
@@ -66,7 +66,7 @@ calculate_single_disk_layout() {
   local total_mib=$((total_bytes / 1024 / 1024))
   local total_gib=$((total_mib / 1024))
   local ram
-  ram="$(ram_gib)"
+  ram="$(zfs_ram_gib)"
   info "Disk: $_LAYOUT_IMPL_DISK —" \
        "${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
@@ -215,7 +215,7 @@ partition_single_disk() {
 
 create_single_pools() {
   section "Creating ZFS Pools (single-disk)"
-  build_enc_opts
+  zfs_encryption_options
 
   local rp dp ashift mnt
   rp="$(install_config_os_pool_name)"
@@ -224,11 +224,11 @@ create_single_pools() {
   mnt="$(install_config_storage_mount)"
 
   # rpool — single partition, no RAID
-  _zpool_create "${rp}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
-  _create_os_datasets "${rp}"
+  zfs_create_pool "${rp}" "${ashift}" "${_LAYOUT_IMPL_OS_PART}"
+  zfs_create_os_datasets "${rp}"
 
   # dpool — the remaining partition; one dataset at the configured mount
-  _zpool_create "${dp}" "${ashift}" "${_LAYOUT_IMPL_STOR_PART}"
+  zfs_create_pool "${dp}" "${ashift}" "${_LAYOUT_IMPL_STOR_PART}"
   zfs create -o mountpoint="${mnt}" "${dp}/storage"
   info "dpool '${dp}' → ${mnt}"
 }

@@ -37,7 +37,7 @@ guided_secretsfile_set_user() {
 
 # guided_secretsfile_set_enc <file> <passphrase> — the ZFS/LUKS encryption
 # passphrase (ADR 0054). Same handoff file as the passwords; consumed pre-chroot
-# from the manifest by collect_enc_passphrase, never staged to install-state.
+# from the manifest by zfs_collect_encryption_passphrase, never staged to install-state.
 guided_secretsfile_set_enc() {
   local f="$1" pw="$2" tmp
   guided_secretsfile_init "$f"

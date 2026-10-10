@@ -191,7 +191,7 @@ lib/
 - `impermanence-common.sh`: `imp_`, `persist_` → `impermanence_common_`
 - `install-state.sh`, `jsonc.sh`, `picker.sh`, `prompt.sh`, `secrets.sh`,
   `preflight.sh` → `=`
-- `live-medium.sh`: `_lm_`, `live_medium_contains_disk`, `live_medium_` →
+- `live-medium.sh`: `_lm_`, `is_live_medium`, `live_medium_` →
   `live_medium_` / `_live_medium_`
 
 lib/boot/

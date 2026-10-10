@@ -37,9 +37,9 @@ declare -F categorized_list_parse >/dev/null 2>&1 \
 # shellcheck source=./kernel.sh
 declare -F kernel_pkg >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/kernel.sh"
-# shellcheck source=../boot/bootloaders.sh
+# shellcheck source=../boot/bootloader.sh
 declare -F bootloader_packages >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 # shellcheck source=../config/post-install.sh
 declare -F post_install_programs >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/post-install.sh"

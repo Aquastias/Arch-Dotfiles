@@ -28,10 +28,10 @@ _kernel() {
   fi
 }
 
-@test "stray_kernels reports installed kernels not in the selected set" {
+@test "stray_kernel_list reports installed kernels not in the selected set" {
   _kernel 6.18.35-1-lts linux-lts zfs
   _kernel 7.0.11-arch1-1 linux zfs
-  run stray_kernels "$MODULES" linux-lts
+  run stray_kernel_list "$MODULES" linux-lts
   [ "$status" -eq 0 ]
   grep -qxF linux <<<"$output"
   ! grep -qxF linux-lts <<<"$output"

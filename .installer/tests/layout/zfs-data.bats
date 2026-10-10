@@ -49,8 +49,8 @@ mock_create_env() {
   MOUNT_ROOT="$BATS_TEST_TMPDIR/root"; mkdir -p "$MOUNT_ROOT"
   info() { :; }
   section() { :; }
-  build_vdev_spec() { shift; printf 'VDEV[%s]' "$*"; }
-  _zpool_create() { echo "zpool_create name=$1 ashift=$2 vdev=$3" >>"$_TRACE"; }
+  zfs_vdev_spec() { shift; printf 'VDEV[%s]' "$*"; }
+  zfs_create_pool() { echo "zpool_create name=$1 ashift=$2 vdev=$3" >>"$_TRACE"; }
   _zfs_gen_data_keyfile() { echo "keyfile install=$1 live=$2" >>"$_TRACE"; }
   zfs() { echo "zfs $*" >>"$_TRACE"; }
 }

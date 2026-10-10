@@ -26,7 +26,7 @@
 # warning helper. Guard-sourced so this module stands alone for any root fs.
 declare -F data_formatter_source >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/dispatch.sh"
-declare -F _zfs_redundant_size_mismatch >/dev/null 2>&1 \
+declare -F zfs_redundant_size_mismatch >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../zfs/pools.sh"
 
 # ── The Standalone Data Pool record (populated by resolve + _add_data_pool) ───
@@ -80,7 +80,7 @@ resolve_data_pools() {
       bytes+=("$(lsblk -bdno SIZE "$bd" 2>/dev/null || echo 0)")
       human+=("$(lsblk -dno SIZE "$bd" 2>/dev/null || echo '?')")
     done
-    if _zfs_redundant_size_mismatch "$topo" "${bytes[@]}"; then
+    if zfs_redundant_size_mismatch "$topo" "${bytes[@]}"; then
       local mi=0 bi
       for bi in "${!bytes[@]}"; do
         ((bytes[bi] < bytes[mi])) && mi="$bi"

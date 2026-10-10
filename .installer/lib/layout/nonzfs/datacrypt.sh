@@ -43,7 +43,7 @@ data_group_crypto() {
     if [[ "$fs" == "zfs" ]]; then
       # zfs is natively encrypted: the pool loads its raw key from the keyfile
       # (no dm-crypt mapper, no crypttab). Cipher matches the root pool's
-      # build_enc_opts (aes-256-gcm).
+      # zfs_encryption_options (aes-256-gcm).
       zfs_keyload="-O encryption=aes-256-gcm -O keyformat=raw"
       zfs_keyload+=" -O keylocation=file://${keyfile}"
     else

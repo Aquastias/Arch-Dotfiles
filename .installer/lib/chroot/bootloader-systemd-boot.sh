@@ -43,12 +43,12 @@ EOF
 for _tok in "${KERNELS[@]}"; do
   kbase="$(kernel_pkg "$_tok")"
   fb="$(blcommon_stage_kernel "$kbase")"
-  sdboot_entry "Arch Linux (${kbase})" "$kbase" "$MICROCODE_INITRDS" \
+  loader_entries_systemd_boot "Arch Linux (${kbase})" "$kbase" "$MICROCODE_INITRDS" \
     "initramfs-${kbase}.img" \
     "${DEFAULT_OPTS}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}" \
     > "$ESP/loader/entries/arch-${kbase}.conf"
   if [[ -n "$fb" ]]; then
-    sdboot_entry "Arch Linux (${kbase} — fallback)" "$kbase" \
+    loader_entries_systemd_boot "Arch Linux (${kbase} — fallback)" "$kbase" \
       "$MICROCODE_INITRDS" "$fb" "$DEFAULT_OPTS" \
       > "$ESP/loader/entries/arch-${kbase}-fallback.conf"
   fi

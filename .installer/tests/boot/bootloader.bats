@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for .installer/lib/boot/bootloaders.sh — the Bootloader Manifest (ADR
+# Tests for .installer/lib/boot/bootloader.sh — the Bootloader Manifest (ADR
 # 0077).
 # Pure token table: options.bootloader value → EFI loader path, package set,
 # ESP-entry style, and whether the loader boots from the FAT ESP (ESP-mirroring)
@@ -7,7 +7,7 @@
 # and staged into the chroot for the orchestrator's secondary-ESP registration.
 
 setup() {
-  source "$BATS_TEST_DIRNAME/../../lib/boot/bootloaders.sh"
+  source "$BATS_TEST_DIRNAME/../../lib/boot/bootloader.sh"
 }
 
 # ── EFI loader path ──────────────────────────────────────────────────────────

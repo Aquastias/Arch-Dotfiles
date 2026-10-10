@@ -24,14 +24,14 @@ source "$_STRAY_VERIFY_SH"
 # Pure: print the pkgbase of every installed kernel (from
 # <modules_dir>/*/pkgbase markers) that is NOT in the selected set (the
 # remaining args) — the Stray Kernels — one per line, sorted-unique.
-stray_kernels() {
-  local modules_dir="$1"
+stray_kernel_list() {
+  local modules_directory="$1"
   shift
   local -A selected=()
-  local s
-  for s in "$@"; do selected["$s"]=1; done
+  local selected
+  for selected in "$@"; do selected["$selected"]=1; done
   local marker base
-  for marker in "$modules_dir"/*/pkgbase; do
+  for marker in "$modules_directory"/*/pkgbase; do
     [[ -f "$marker" ]] || continue
     base="$(<"$marker")"
     [[ -n "${selected[$base]:-}" ]] || printf '%s\n' "$base"
@@ -44,30 +44,33 @@ stray_kernels() {
 # vmlinuz but gets no initramfs (useless on a ZFS root), instead of crashing the
 # build on its zfs.ko-less preset (ADR 0138). One path per line.
 stray_kernel_presets() {
-  local modules_dir="$1" preset_dir="$2"; shift 2
+  local modules_directory="$1" preset_directory="$2"; shift 2
   local base
   # `if` (not `[[…]] && printf`) so the loop body always exits 0 — keeps the
   # function safe under the installer's `set -Eeuo pipefail`.
   while IFS= read -r base; do
-    if [[ -n "$base" ]]; then printf '%s/%s.preset\n' "$preset_dir" "$base"; fi
-  done < <(stray_kernels "$modules_dir" "$@")
+    [[ -n "$base" ]] || continue
+    printf '%s/%s.preset\n' "$preset_directory" "$base"
+  done < <(stray_kernel_list "$modules_directory" "$@")
 }
 
 # Warn (stderr) for each Stray Kernel and each kernel missing zfs.ko over
 # <modules_dir>, given the selected package bases. Never removes a kernel and
 # always returns 0 — it only informs.
 stray_kernel_warn() {
-  local modules_dir="$1"
+  local modules_directory="$1"
   shift
-  local k
-  while IFS= read -r k; do
-    [[ -n "$k" ]] && echo "WARNING: Stray Kernel '$k' is installed but not in" \
+  local kernel
+  while IFS= read -r kernel; do
+    [[ -n "$kernel" ]] && echo "WARNING: Stray Kernel '$kernel' is installed" \
+      "but not in" \
       "Kernel Selection — it wastes /boot space and never reaches the ESP." >&2
-  done < <(stray_kernels "$modules_dir" "$@")
-  while IFS= read -r k; do
-    [[ -n "$k" ]] && echo "WARNING: kernel '$k' has no zfs.ko — it could not" \
+  done < <(stray_kernel_list "$modules_directory" "$@")
+  while IFS= read -r kernel; do
+    [[ -n "$kernel" ]] && echo "WARNING: kernel '$kernel' has no zfs.ko —" \
+      "it could not" \
       "import the ZFS root if it were booted." >&2
-  done < <(zfs_kernels_missing_module "$modules_dir")
+  done < <(zfs_kernels_missing_module "$modules_directory")
   return 0
 }
 

@@ -18,9 +18,9 @@
 # shellcheck source=../config/categorized-list.sh
 declare -F categorized_list_parse >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/categorized-list.sh"
-# shellcheck source=../boot/bootloaders.sh
+# shellcheck source=../boot/bootloader.sh
 declare -F bootloader_packages >/dev/null 2>&1 \
-  || source "${BASH_SOURCE[0]%/*}/../boot/bootloaders.sh"
+  || source "${BASH_SOURCE[0]%/*}/../boot/bootloader.sh"
 # shellcheck source=../config/fonts.sh
 declare -F fonts_repo_packages >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../config/fonts.sh"
@@ -83,7 +83,7 @@ collect_packages() {
   # Base set from the shared Base Package List (lib/packages/base.sh) — the same
   # names the Package Resolver reports, so install and query cannot drift. The
   # kernel(s)+headers and bootloader package(s) come from their own token tables
-  # (kernel.sh / bootloaders.sh), also shared with the resolver. CPU microcode,
+  # (kernel.sh / bootloader.sh), also shared with the resolver. CPU microcode,
   # ZFS/LUKS/fs userland, GPU, and audio are appended below, config-conditional.
   local pkgs=()
   local _bp

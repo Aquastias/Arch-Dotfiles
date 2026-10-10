@@ -21,7 +21,7 @@
 #
 # Requires (already sourced by 03-install.sh): lib/common.sh (config_required, part_name,
 # section/info/warn/confirm), lib/config/accessors.sh, lib/zfs/pools.sh
-# (ram_gib). Provides the seam: layout_validate, _layout_plan_mode,
+# (zfs_ram_gib). Provides the seam: layout_validate, _layout_plan_mode,
 # _layout_os_disks, _layout_publish_boot, layout_partition, layout_create_pools,
 # layout_mount_esp.
 #
@@ -70,7 +70,7 @@ _nzroot_swap_mib() {
   local raw swap_mib cap
   raw="$(config_optional '.options.swap_size')"
   if [[ -z "$raw" || "$raw" == "auto" ]]; then
-    swap_mib=$(( $(ram_gib) * 2 * 1024 ))
+    swap_mib=$(( $(zfs_ram_gib) * 2 * 1024 ))
     cap=$(( total_mib / 4 ))
     ((swap_mib > cap)) && swap_mib=$cap
   else
@@ -146,13 +146,13 @@ _layout_publish_boot() {
 }
 
 # LUKS-format + open the root partition with the shared passphrase (collected by
-# collect_enc_passphrase into ZFS_PASSPHRASE before any disk write — the same
+# zfs_collect_encryption_passphrase into ZFS_PASSPHRASE before any disk write — the same
 # seam the ZFS path uses). The opened mapper is /dev/mapper/cryptroot, which is
 # what nonzfs_root_devices resolved as root_dev.
 _nzroot_luks_open_root() {
   section "Encrypting $(_root_fstype) Root (LUKS)"
   [[ -n "${ZFS_PASSPHRASE:-}" ]] \
-    || error "Encrypted root but no passphrase collected (collect_enc_passphrase)."
+    || error "Encrypted root but no passphrase collected (zfs_collect_encryption_passphrase)."
   printf '%s' "$ZFS_PASSPHRASE" \
     | cryptsetup luksFormat --type luks2 --batch-mode "$_LAYOUT_IMPL_ROOT_PART" -
   printf '%s' "$ZFS_PASSPHRASE" \

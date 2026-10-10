@@ -3,7 +3,7 @@
 # seams.
 #
 # Strategy: stub external commands (blockdev/wipefs/sgdisk/...) and the
-# zfs-pools.sh seam (_zpool_create / _create_os_datasets / build_enc_opts)
+# zfs-pools.sh seam (zfs_create_pool / zfs_create_os_datasets / zfs_encryption_options)
 # as bash fns appending argv to $CALLS. Assert only on $CALLS plus the
 # published LAYOUT_* state — never on _LAYOUT_IMPL_* internals.
 
@@ -45,12 +45,12 @@ setup() {
   part_name() { printf '%s%s' "$1" "$2"; }
 
   # zfs-pools.sh seams.
-  build_enc_opts()      { :; }
-  _zpool_create()       { printf '_zpool_create %s\n'       "$*" >>"$CALLS"; }
-  _create_os_datasets() { printf '_create_os_datasets %s\n' "$*" >>"$CALLS"; }
+  zfs_encryption_options()      { :; }
+  zfs_create_pool()       { printf 'zfs_create_pool %s\n'       "$*" >>"$CALLS"; }
+  zfs_create_os_datasets() { printf 'zfs_create_os_datasets %s\n' "$*" >>"$CALLS"; }
   zfs()                 { printf 'zfs %s\n'                 "$*" >>"$CALLS"; }
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
-  ram_gib()             { echo 4; }
+  zfs_ram_gib()             { echo 4; }
 
   # Stand-in for calculate_single_disk_layout: populates the two pieces of
   # internal state that downstream seams need, without requiring a real block
@@ -143,14 +143,14 @@ write_config() { printf '%s' "$1" >"$CONFIG_FILE"; }
   layout_plan
   layout_partition
   layout_create_pools
-  grep -qE "^_zpool_create ${LAYOUT_OS_POOL_NAME} 12 /dev/sdz2$" "$CALLS"
+  grep -qE "^zfs_create_pool ${LAYOUT_OS_POOL_NAME} 12 /dev/sdz2$" "$CALLS"
 }
 
 @test "layout_create_pools: creates data pool named in LAYOUT_DATA_POOL_NAMES" {
   layout_plan
   layout_partition
   layout_create_pools
-  grep -qE "^_zpool_create ${LAYOUT_DATA_POOL_NAMES[0]} 12 /dev/sdz3$" "$CALLS"
+  grep -qE "^zfs_create_pool ${LAYOUT_DATA_POOL_NAMES[0]} 12 /dev/sdz3$" "$CALLS"
 }
 
 @test "layout_create_pools: creates dpool/storage dataset at configured mount" {

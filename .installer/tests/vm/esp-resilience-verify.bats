@@ -19,7 +19,7 @@ setup() {
 @test "verify fails when a guard regresses (install_critical never fails)" {
   STUB="$(mktemp -d)/esp-kernel-sync.sh"
   cat >"$STUB" <<'EOF'
-esp_sync_install_critical() { cp -f "$1" "$2" 2>/dev/null; return 0; }
+esp_kernel_sync_install_critical() { cp -f "$1" "$2" 2>/dev/null; return 0; }
 [[ "${ESP_KERNEL_SYNC_LIB_ONLY:-0}" == "1" ]] && return 0
 EOF
   ESP_SYNC_SH="$STUB" run esp_resilience_verify

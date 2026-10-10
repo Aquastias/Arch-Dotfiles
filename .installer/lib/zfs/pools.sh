@@ -2,22 +2,20 @@
 # =============================================================================
 # lib/zfs/pools.sh — ZFS pool and dataset primitives
 # =============================================================================
-# Sourced by 03-install.sh.
+# Used by: 03-install.sh, lib/layout/zfs/*.sh.
 # Requires: lib/common.sh already sourced.
 #
 # Provides:
-#   install_zfs_tools_if_needed  — fallback ZFS install if bootstrap was skipped
-#   build_enc_opts               — populates ENC_OPTS array from config
-#   _zpool_create — creates a pool with standard Arch ZFS settings
-#   _create_os_datasets          — creates ROOT/arch, home, var, tmp, swap zvol
-#   build_vdev_spec              — converts (topology, parts) → vdev spec string
-#
-# GLOBALS:
-#   ENC_OPTS — array of -O encryption flags for zpool create;
-#                set by build_enc_opts
+#   zfs_install_tools_if_needed — fallback ZFS install if bootstrap was skipped
+#   zfs_ram_gib                 — installed RAM in whole GiB
+#   zfs_create_pool             — a pool with standard Arch ZFS settings
+#   zfs_create_os_datasets      — ROOT/arch, home, var, tmp, swap zvol
+#   zfs_vdev_spec               — (topology, parts) → vdev spec string
+#   zfs_valid_pool_name, zfs_data_pool_topology_ok,
+#   zfs_redundant_size_mismatch — layout validation helpers
+# Encryption (zfs_collect_encryption_passphrase, zfs_encryption_options) lives
+# in lib/zfs/encryption.sh, sourced below.
 # =============================================================================
-
-ENC_OPTS=() # populated by build_enc_opts(); consumed by _zpool_create()
 
 # Rollback Dataset list + early-create helper (impermanence). Guard-source so
 # re-sourcing (validation.sh also pulls it in) is a harmless no-op.
@@ -26,10 +24,15 @@ if ! declare -p ROLLBACK_DATASETS >/dev/null 2>&1; then
   source "${BASH_SOURCE[0]%/*}/../impermanence-common.sh"
 fi
 
-# Shared confirmed-secret reader used by collect_enc_passphrase.
+# Shared confirmed-secret reader used by zfs_collect_encryption_passphrase.
 # shellcheck source=../prompt.sh
 declare -F prompt_secret >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../prompt.sh"
+
+# The encryption passphrase + pool options (ZFS_ENCRYPTION_OPTIONS,
+# ZFS_PASSPHRASE); re-sourcing resets both, as before the split.
+# shellcheck source=./encryption.sh
+source "${BASH_SOURCE[0]%/*}/encryption.sh"
 
 # =============================================================================
 # FALLBACK ZFS INSTALL
@@ -40,7 +43,7 @@ declare -F prompt_secret >/dev/null 2>&1 \
 # so this path can never drift into the old bug where it pulled the wrong
 # kernel's headers and DKMS built a module modprobe could not find (ADR 0023).
 
-install_zfs_tools_if_needed() {
+zfs_install_tools_if_needed() {
   if lsmod | grep -q '^zfs '; then
     info "ZFS module already loaded — skipping tool install."
     return
@@ -50,8 +53,8 @@ install_zfs_tools_if_needed() {
   warn "ZFS kernel module is not loaded." \
        "01-bootstrap-zfs.sh normally loads it; running the fallback now."
 
-  local kver
-  kver="$(uname -r)"
+  local kernel_version
+  kernel_version="$(uname -r)"
 
   # Ensure the archzfs repo + signing key are present (idempotent — no-op if
   # bootstrap already added them).
@@ -60,7 +63,7 @@ install_zfs_tools_if_needed() {
   # Always DKMS on the live ISO, built against the EXACT running kernel using
   # the ISO's own headers — never an unpinned `pacman -S linux-headers`, which
   # would grab a newer kernel's headers and break the build.
-  zfs_install_dkms "$kver"
+  zfs_install_dkms "$kernel_version"
   zfs_load_module
 
   [[ -f /etc/hostid ]] || zgenhostid
@@ -71,93 +74,11 @@ install_zfs_tools_if_needed() {
 # RAM DETECTION (shared between layout modules)
 # =============================================================================
 
-ram_gib() {
+zfs_ram_gib() {
   # Returns total installed RAM in whole GiB (rounded up).
   local kib
   kib="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
   echo $(((kib + 1048575) / 1048576))
-}
-
-# =============================================================================
-# ENCRYPTION OPTIONS
-# =============================================================================
-
-# Global passphrase storage — set by collect_enc_passphrase(),
-# used by _zpool_create()
-ZFS_PASSPHRASE=""
-
-collect_enc_passphrase() {
-  # Resolves the ZFS/LUKS encryption passphrase before any pool creation and
-  # sets the global ZFS_PASSPHRASE used by _zpool_create via stdin pipe.
-  # Precedence (ADR 0054, 0059): INSTALL_ENC_PASSPHRASE preset → guided manifest
-  # → unattended default → interactive /dev/tty prompt (works regardless of
-  # stdin state).
-  local enc; enc="$(install_config_encryption_enabled)"
-  [[ "$enc" == "true" ]] || return 0
-
-  # Non-interactive seam (VM/test harness only): a preset passphrase skips the
-  # /dev/tty prompt so an encrypted install runs unattended. Operator installs
-  # leave INSTALL_ENC_PASSPHRASE unset and are prompted as before. ZFS itself
-  # still enforces the ≥8-char rule at pool creation.
-  if [[ -n "${INSTALL_ENC_PASSPHRASE:-}" ]]; then
-    ZFS_PASSPHRASE="$INSTALL_ENC_PASSPHRASE"
-    info "ZFS encryption passphrase taken from INSTALL_ENC_PASSPHRASE (preset)."
-    return 0
-  fi
-
-  # Guided seam (ADR 0054): the Guided Installer captures the passphrase inline
-  # and stages it in the no-SOPS manifest. Read it directly here — this runs
-  # before /mnt is mounted, so install-state's .guided_passwords is not yet
-  # written. A guided-captured passphrase skips the tty prompt.
-  local _man="${GUIDED_SECRETS_MANIFEST:-}" _gp
-  if [[ -n "$_man" && -s "$_man" ]]; then
-    _gp="$(jq -r '.enc_passphrase // ""' "$_man" 2>/dev/null)"
-    if [[ -n "$_gp" ]]; then
-      ZFS_PASSPHRASE="$_gp"
-      info "ZFS encryption passphrase taken from the Guided Installer."
-      return 0
-    fi
-  fi
-
-  # Unattended seam (ADR 0059): a non-interactive run with no preset and no
-  # guided manifest — e.g. `install.sh --profile <encrypted> -y` — takes the
-  # default passphrase instead of blocking on the tty prompt below. Gated on
-  # INSTALL_UNATTENDED on purpose: an interactive run still prompts, so a disk
-  # is never silently encrypted with a default the operator never saw. Mirrors
-  # the root-password default chroot.sh already gates on the same flag.
-  if [[ "${INSTALL_UNATTENDED:-0}" == "1" ]]; then
-    ZFS_PASSPHRASE="$INSTALL_DEFAULT_ENC_PASSPHRASE"
-    info "ZFS encryption passphrase defaulted (unattended)."
-    return 0
-  fi
-
-  section "ZFS Encryption Passphrase"
-  warn "Encryption is enabled. ALL data on the pools will be encrypted."
-  warn "This passphrase is required at EVERY boot." \
-       "Losing it means losing all data."
-  echo ""
-
-  # Shared confirmed-secret reader (lib/prompt.sh). ZFS enforces ≥8 at pool
-  # creation; we pre-check here for a friendlier retry.
-  prompt_secret ZFS_PASSPHRASE "ZFS passphrase" 8
-  info "Passphrase set. It will be applied to all encrypted pools."
-}
-
-build_enc_opts() {
-  # Populates ENC_OPTS global from config.
-  # The passphrase is NOT set here — it must be collected via
-  # collect_enc_passphrase() before pool creation, then piped via stdin.
-  ENC_OPTS=()
-  local enc; enc="$(install_config_encryption_enabled)"
-  if [[ "$enc" == "true" ]]; then
-    # keylocation=prompt means zpool create reads the passphrase from stdin.
-    # We pipe ZFS_PASSPHRASE to it in _zpool_create() below.
-    ENC_OPTS=(
-      -O encryption=aes-256-gcm
-      -O keyformat=passphrase
-      -O keylocation=prompt
-    )
-  fi
 }
 
 # =============================================================================
@@ -173,13 +94,13 @@ build_enc_opts() {
 # translating here fixes both the initramfs late-hook import and the post-boot
 # zfs-import-cache.service. (ADR 0028.)
 
-_zfs_dir_match() {
+_pools_directory_matches() {
   # Prints the symlink in <dir> that resolves to <target>, or empty if none.
   # Prefers a non-wwn id (ata-/nvme-/scsi-/partuuid), else a wwn-, each chosen
   # lexicographically for a deterministic result.
-  local dir="$1" target="$2" link pref="" wwn=""
-  [[ -d "$dir" ]] || return 0
-  for link in "$dir"/*; do
+  local directory="$1" target="$2" link pref="" wwn=""
+  [[ -d "$directory" ]] || return 0
+  for link in "$directory"/*; do
     [[ -e "$link" ]] || continue
     [[ "$(readlink -f "$link" 2>/dev/null)" == "$target" ]] || continue
     case "${link##*/}" in
@@ -190,7 +111,7 @@ _zfs_dir_match() {
   printf '%s' "${pref:-$wwn}"
 }
 
-_zfs_stable_part_path() {
+_pools_stable_partition_path() {
   # Resolves a partition device path to a stable symlink that points at the
   # same node, so the pool label + zpool.cache survive /dev/sdX reordering.
   # Tier 1: /dev/disk/by-id (matches the repo's zfs_import_dir convention).
@@ -203,24 +124,25 @@ _zfs_stable_part_path() {
   target="$(readlink -f "$part" 2>/dev/null)"
   [[ -n "$target" ]] || { printf '%s' "$part"; return; }
   local found
-  found="$(_zfs_dir_match "${ZFS_BYID_DIR:-/dev/disk/by-id}" "$target")"
+  found="$(_pools_directory_matches "${ZFS_BYID_DIR:-/dev/disk/by-id}" \
+    "$target")"
   [[ -n "$found" ]] && { printf '%s' "$found"; return; }
-  found="$(_zfs_dir_match \
+  found="$(_pools_directory_matches \
     "${ZFS_BYPARTUUID_DIR:-/dev/disk/by-partuuid}" "$target")"
   [[ -n "$found" ]] && { printf '%s' "$found"; return; }
   printf '%s' "$part"
 }
 
-_zpool_translate_vdev() {
+_pools_translate_vdev() {
   # Echoes a vdev spec with each device token mapped to its stable by-id path;
   # topology keywords (mirror/raidz.../log/cache/...) pass through untouched.
-  local out=() tok
-  for tok in "$@"; do
-    case "$tok" in
+  local out=() token
+  for token in "$@"; do
+    case "$token" in
     mirror | raidz | raidz1 | raidz2 | raidz3 | draid | draid[0-9]* \
       | spare | log | cache | special | dedup | stripe)
-      out+=("$tok") ;;
-    *) out+=("$(_zfs_stable_part_path "$tok")") ;;
+      out+=("$token") ;;
+    *) out+=("$(_pools_stable_partition_path "$token")") ;;
     esac
   done
   printf '%s' "${out[*]}"
@@ -231,39 +153,37 @@ _zpool_translate_vdev() {
 # =============================================================================
 
 # True when the given encryption opts read the key from an interactive prompt
-# (keylocation=prompt). _zpool_create pipes the boot passphrase via stdin ONLY
+# (keylocation=prompt). zfs_create_pool pipes the boot passphrase via stdin ONLY
 # then — the root pool (prompt) gets it; a keyfile-on-root data pool
 # (keylocation=file://…, ADR 0043) does not, so there is no second prompt. Empty
 # opts (a plaintext pool) are not a prompt. Pure: scans its arguments.
-_enc_opts_prompt() {
+_pools_prompt_encryption_options() {
   [[ " $* " == *" keylocation=prompt "* ]]
 }
 
-_zpool_create() {
-  # Creates a ZFS pool with standard Arch Linux settings.
-  #
-  # Usage: _zpool_create <pool_name> <ashift> <vdev_spec...>
-  #   pool_name   — e.g. rpool, dpool
-  #   ashift      — 12 (4K, SATA) or 13 (8K, NVMe)
-  #   vdev_spec   — e.g. "mirror /dev/sda1 /dev/sdb1" or "/dev/nvme0n1p2"
-  #
-  # Pool-level options (-o):
-  #   ashift      — physical sector size hint (critical for alignment)
-  #   autotrim    — enables automatic TRIM for SSDs/NVMe
-  #
-  # Dataset-level options (-O, inherited by all datasets in pool):
-  #   acltype=posixacl  — required for correct Linux ACL support
-  #   xattr=sa          — stores xattrs in inodes (faster than separate files)
-  #   dnodesize=auto    — allows larger dnodes for xattr-heavy workloads
-  #   compression=lz4 — transparent compression; near-zero CPU cost,
-  #                     saves ~20–40%
-  #   normalization=formD — Unicode normalization for filename compatibility
-  #   relatime=on     — atime only updated if mtime or ctime also
-  #                     changed (performance)
-  #   canmount=off      — pool root dataset should not be auto-mounted
-  #   mountpoint=none — no default mountpoint; individual datasets
-  #                     set their own
-
+# zfs_create_pool <pool_name> <ashift> <vdev_spec...> — a ZFS pool with
+# standard Arch Linux settings.
+#   pool_name   — e.g. rpool, dpool
+#   ashift      — 12 (4K, SATA) or 13 (8K, NVMe)
+#   vdev_spec   — e.g. "mirror /dev/sda1 /dev/sdb1" or "/dev/nvme0n1p2"
+#
+# Pool-level options (-o):
+#   ashift      — physical sector size hint (critical for alignment)
+#   autotrim    — enables automatic TRIM for SSDs/NVMe
+#
+# Dataset-level options (-O, inherited by all datasets in pool):
+#   acltype=posixacl  — required for correct Linux ACL support
+#   xattr=sa          — stores xattrs in inodes (faster than separate files)
+#   dnodesize=auto    — allows larger dnodes for xattr-heavy workloads
+#   compression=lz4 — transparent compression; near-zero CPU cost,
+#                     saves ~20–40%
+#   normalization=formD — Unicode normalization for filename compatibility
+#   relatime=on     — atime only updated if mtime or ctime also
+#                     changed (performance)
+#   canmount=off      — pool root dataset should not be auto-mounted
+#   mountpoint=none — no default mountpoint; individual datasets
+#                     set their own
+zfs_create_pool() {
   local pool_name="$1" ashift="$2"
   shift 2
   local vdev_spec="$*"
@@ -274,50 +194,39 @@ _zpool_create() {
   # exist. SC2086 (intentional): word-split the controlled vdev_spec into tokens.
   command_exists udevadm && udevadm settle 2>/dev/null || true
   # shellcheck disable=SC2086
-  vdev_spec="$(_zpool_translate_vdev $vdev_spec)"
+  vdev_spec="$(_pools_translate_vdev $vdev_spec)"
 
+  local -a create_options=(
+    -f
+    -o ashift="${ashift}"
+    -o autotrim=on
+    -O acltype=posixacl
+    -O xattr=sa
+    -O dnodesize=auto
+    -O compression=lz4
+    -O normalization=formD
+    -O relatime=on
+    -O canmount=off
+    -O mountpoint=none
+    "${ZFS_ENCRYPTION_OPTIONS[@]}"
+    -R "${MOUNT_ROOT}"
+    "${pool_name}"
+  )
   # SC2086 (intentional): vdev_spec must be word-split into multiple args
   # (e.g. "mirror /dev/sda1 /dev/sdb1" → 3 args to zpool create). It is built
-  # by build_vdev_spec() from controlled inputs (topology + partition paths)
+  # by zfs_vdev_spec() from controlled inputs (topology + partition paths)
   # so word-splitting is the desired behaviour here.
-  if _enc_opts_prompt "${ENC_OPTS[@]}"; then
+  if _pools_prompt_encryption_options "${ZFS_ENCRYPTION_OPTIONS[@]}"; then
     # Pipe the passphrase via stdin — zpool create reads it once when
     # keylocation=prompt is set. printf ensures no trailing newline issues. A
     # keyfile-on-root data pool (keylocation=file://…) is NOT piped — it loads
     # its key from the file, so the operator never types a second secret.
     # shellcheck disable=SC2086
-    printf '%s\n' "$ZFS_PASSPHRASE" | zpool create -f \
-      -o ashift="${ashift}" \
-      -o autotrim=on \
-      -O acltype=posixacl \
-      -O xattr=sa \
-      -O dnodesize=auto \
-      -O compression=lz4 \
-      -O normalization=formD \
-      -O relatime=on \
-      -O canmount=off \
-      -O mountpoint=none \
-      "${ENC_OPTS[@]}" \
-      -R "${MOUNT_ROOT}" \
-      "${pool_name}" \
-      $vdev_spec
+    printf '%s\n' "$ZFS_PASSPHRASE" \
+      | zpool create "${create_options[@]}" $vdev_spec
   else
     # shellcheck disable=SC2086
-    zpool create -f \
-      -o ashift="${ashift}" \
-      -o autotrim=on \
-      -O acltype=posixacl \
-      -O xattr=sa \
-      -O dnodesize=auto \
-      -O compression=lz4 \
-      -O normalization=formD \
-      -O relatime=on \
-      -O canmount=off \
-      -O mountpoint=none \
-      "${ENC_OPTS[@]}" \
-      -R "${MOUNT_ROOT}" \
-      "${pool_name}" \
-      $vdev_spec
+    zpool create "${create_options[@]}" $vdev_spec
   fi
 
   info "Pool '${pool_name}' created (ashift=${ashift})."
@@ -327,37 +236,46 @@ _zpool_create() {
 # OS DATASET CREATION (shared between single-disk and multi-disk modes)
 # =============================================================================
 
-_create_os_datasets() {
-  # Creates the standard Arch Linux ZFS dataset hierarchy inside pool_name.
-  # Called once for rpool in both single and multi mode.
-  #
-  # Dataset layout:
-  #   <pool>/ROOT              — container (canmount=off)
-  #   <pool>/ROOT/arch         — actual root filesystem (mountpoint=/)
-  #   <pool>/home              — user home directories
-  #   <pool>/var               — system state (atime=off for performance)
-  #   <pool>/var/log           — separate so log rotation can't fill root
-  #   <pool>/var/cache         — separate so package cache can be cleared safely
-  #   <pool>/tmp               — tmpfs-like (sync=off, no setuid/exec)
-  #   <pool>/swap              — swap zvol (if enabled)
-
+# zfs_create_os_datasets <pool_name> — the standard Arch Linux ZFS dataset
+# hierarchy inside pool_name. Called once for rpool in both single and multi
+# mode.
+#
+# Dataset layout:
+#   <pool>/ROOT              — container (canmount=off)
+#   <pool>/ROOT/arch         — actual root filesystem (mountpoint=/)
+#   <pool>/home              — user home directories
+#   <pool>/var               — system state (atime=off for performance)
+#   <pool>/var/log           — separate so log rotation can't fill root
+#   <pool>/var/cache         — separate so package cache can be cleared safely
+#   <pool>/tmp               — tmpfs-like (sync=off, no setuid/exec)
+#   <pool>/swap              — swap zvol (if enabled)
+zfs_create_os_datasets() {
   local pool_name="$1"
   section "Creating OS Datasets (${pool_name})"
 
-  local swap_on
+  local swap_on configured_swap_size swap_size
   swap_on="$(install_config_swap_enabled)"
-  local cfg_swap_sz
-  cfg_swap_sz="$(config_optional '.options.swap_size')"
-  local swap_arg
-  if [[ -z "$cfg_swap_sz" || "$cfg_swap_sz" == "auto" ]]; then
+  configured_swap_size="$(config_optional '.options.swap_size')"
+  if [[ -z "$configured_swap_size" || "$configured_swap_size" == "auto" ]]; then
     # auto = RAM × 2, which accommodates hibernation (suspend-to-disk)
-    swap_arg="$(($(ram_gib) * 2))G"
-    info "Swap size: ${swap_arg}  (RAM × 2, auto)"
+    swap_size="$(($(zfs_ram_gib) * 2))G"
+    info "Swap size: ${swap_size}  (RAM × 2, auto)"
   else
-    swap_arg="$cfg_swap_sz"
-    info "Swap size: ${swap_arg}  (from config)"
+    swap_size="$configured_swap_size"
+    info "Swap size: ${swap_size}  (from config)"
   fi
 
+  _pools_create_root_hierarchy "$pool_name"
+  _pools_create_impermanence_datasets "$pool_name"
+  if [[ "$swap_on" == "true" ]]; then
+    _pools_create_swap_zvol "$pool_name" "$swap_size"
+  fi
+
+  info "OS datasets created under '${pool_name}'."
+}
+
+_pools_create_root_hierarchy() {
+  local pool_name="$1"
   # ROOT container — not directly mountable
   zfs create -o canmount=off -o mountpoint=none "${pool_name}/ROOT"
 
@@ -381,54 +299,57 @@ _create_os_datasets() {
     -o exec=off \
     "${pool_name}/tmp"
   chmod 1777 "${MOUNT_ROOT}/tmp"
+}
 
-  # Impermanence: create the Rollback Datasets now — before pacstrap — so the OS
-  # install writes /etc, /root, … onto them (canmount=on → auto-mounted under
-  # MOUNT_ROOT) and they land in the zfs-list.cache built during chroot config.
-  # Creating them later (in the chroot module) leaves them noauto + uncached, so
-  # they never mount and the @blank rollback is a no-op. No-op when disabled.
-  if [[ "$(install_config_impermanence_enabled)" == "true" ]]; then
-    info "Impermanence enabled — creating Persist + Rollback Datasets on ${pool_name}."
-    impermanence_common_create_persist_dataset "$(install_config_impermanence_dataset)" \
-                               "$(install_config_impermanence_mount)"
-    impermanence_common_create_rollback_datasets "${pool_name}"
-  fi
+# Impermanence: create the Rollback Datasets now — before pacstrap — so the OS
+# install writes /etc, /root, … onto them (canmount=on → auto-mounted under
+# MOUNT_ROOT) and they land in the zfs-list.cache built during chroot config.
+# Creating them later (in the chroot module) leaves them noauto + uncached, so
+# they never mount and the @blank rollback is a no-op. No-op when disabled.
+_pools_create_impermanence_datasets() {
+  local pool_name="$1"
+  [[ "$(install_config_impermanence_enabled)" == "true" ]] || return 0
+  info "Impermanence enabled — creating Persist + Rollback Datasets on" \
+       "${pool_name}."
+  impermanence_common_create_persist_dataset \
+    "$(install_config_impermanence_dataset)" \
+    "$(install_config_impermanence_mount)"
+  impermanence_common_create_rollback_datasets "${pool_name}"
+}
 
-  if [[ "$swap_on" == "true" ]]; then
-    info "Creating swap zvol: ${swap_arg}"
-    # ZFS swap zvol best practices:
-    #   volblocksize = page size   — aligns with kernel memory pages
-    #   compression=zle           — zero-suppression; good for sparse swap pages
-    #   logbias=throughput        — sequential writes preferred
-    #   sync=always               — data integrity required for swap
-    #   primarycache=metadata     — don't cache swap data in ARC (wastes RAM)
-    #   secondarycache=none       — don't use L2ARC for swap
-    #   com.sun:auto-snapshot=false — never snapshot the swap zvol
-    zfs create \
-      -V "${swap_arg}" \
-      -b "$(getconf PAGESIZE)" \
-      -o compression=zle \
-      -o logbias=throughput \
-      -o sync=always \
-      -o primarycache=metadata \
-      -o secondarycache=none \
-      -o com.sun:auto-snapshot=false \
-      "${pool_name}/swap"
-    mkswap -f "/dev/zvol/${pool_name}/swap"
-  fi
-
-  info "OS datasets created under '${pool_name}'."
+# ZFS swap zvol best practices:
+#   volblocksize = page size   — aligns with kernel memory pages
+#   compression=zle           — zero-suppression; good for sparse swap pages
+#   logbias=throughput        — sequential writes preferred
+#   sync=always               — data integrity required for swap
+#   primarycache=metadata     — don't cache swap data in ARC (wastes RAM)
+#   secondarycache=none       — don't use L2ARC for swap
+#   com.sun:auto-snapshot=false — never snapshot the swap zvol
+_pools_create_swap_zvol() {
+  local pool_name="$1" swap_size="$2"
+  info "Creating swap zvol: ${swap_size}"
+  zfs create \
+    -V "${swap_size}" \
+    -b "$(getconf PAGESIZE)" \
+    -o compression=zle \
+    -o logbias=throughput \
+    -o sync=always \
+    -o primarycache=metadata \
+    -o secondarycache=none \
+    -o com.sun:auto-snapshot=false \
+    "${pool_name}/swap"
+  mkswap -f "/dev/zvol/${pool_name}/swap"
 }
 
 # =============================================================================
 # STORAGE VDEV SPEC BUILDER
 # =============================================================================
 
-build_vdev_spec() {
+zfs_vdev_spec() {
   # Converts a topology name and a list of partition paths into a zpool
   # vdev specification string suitable for passing to zpool create.
   #
-  # Usage: build_vdev_spec <topology> <part1> [part2] ...
+  # Usage: zfs_vdev_spec <topology> <part1> [part2] ...
   # Outputs: the vdev spec string (echoed to stdout)
   #
   # Topologies:
@@ -441,17 +362,17 @@ build_vdev_spec() {
   #                                             same as stripe at pool level
   #                                             but datasets are per-disk)
 
-  local topo="$1"
+  local topology="$1"
   shift
   local parts=("$@")
-  case "$topo" in
+  case "$topology" in
   mirror)      echo "mirror ${parts[*]}" ;;
   stripe)      echo "${parts[*]}" ;;
   none)        echo "${parts[0]}" ;;
   raidz1)      echo "raidz1 ${parts[*]}" ;;
   raidz2)      echo "raidz2 ${parts[*]}" ;;
   independent) echo "${parts[*]}" ;;
-  *)           error "Unknown topology: '$topo'" ;;
+  *)           error "Unknown topology: '$topology'" ;;
   esac
 }
 
@@ -459,20 +380,20 @@ build_vdev_spec() {
 # STANDALONE DATA POOL TOPOLOGY VALIDATION (ADR 0027)
 # =============================================================================
 
-_zfs_validate_pool_topology() {
+_pools_validate_topology() {
   # Pure check for a Standalone Data Pool's topology against its disk count.
   # Silent + returns 0 when valid; prints a reason + returns 1 when invalid.
   #
-  # Usage: _zfs_validate_pool_topology <topology> <disk_count>
+  # Usage: _pools_validate_topology <topology> <disk_count>
   #
-  # 'none' and 'independent' are rejected: build_vdev_spec maps 'none' to the
+  # 'none' and 'independent' are rejected: zfs_vdev_spec maps 'none' to the
   # first disk only (silently dropping the rest), and 'independent' has no
   # meaning for a single standalone pool. Operators are pointed to 'stripe'
   # (one non-redundant pool) or multiple data_pools[] entries (separate pools).
-  local topo="$1" count="$2" min
-  case "$topo" in
+  local topology="$1" count="$2" min
+  case "$topology" in
   none | independent)
-    printf '%s' "topology '${topo}' is not valid for a standalone data" \
+    printf '%s' "topology '${topology}' is not valid for a standalone data" \
       " pool; use 'stripe' for one non-redundant pool, or multiple" \
       " data_pools[] entries for separate pools"
     return 1
@@ -482,12 +403,12 @@ _zfs_validate_pool_topology() {
   raidz1) min=2 ;;
   raidz2) min=3 ;;
   *)
-    printf '%s' "unknown topology '${topo}'"
+    printf '%s' "unknown topology '${topology}'"
     return 1
     ;;
   esac
   if ((count < min)); then
-    printf '%s' "topology '${topo}' needs at least ${min} disk(s), got" \
+    printf '%s' "topology '${topology}' needs at least ${min} disk(s), got" \
       " ${count}"
     return 1
   fi
@@ -495,18 +416,18 @@ _zfs_validate_pool_topology() {
 }
 
 # Filesystem-aware Standalone Data Pool topology check (ADR 0043). A zfs pool
-# runs the native vdev validator (_zfs_validate_pool_topology); a non-zfs pool
+# runs the native vdev validator (_pools_validate_topology); a non-zfs pool
 # (btrfs/ext4/xfs) carries a native topology the zfs validator doesn't know
 # (e.g. btrfs raid1), and its validity was already gated by validation.sh's
 # _validation_topology_for_fs — so it passes here. Silent + 0 when ok; prints a
 # reason + returns 1 on a zfs mismatch. Pure.
-_data_pool_topology_ok() {
-  local fs="$1" topo="$2" count="$3"
-  [[ "$fs" == "zfs" ]] || return 0
-  _zfs_validate_pool_topology "$topo" "$count"
+zfs_data_pool_topology_ok() {
+  local filesystem="$1" topology="$2" count="$3"
+  [[ "$filesystem" == "zfs" ]] || return 0
+  _pools_validate_topology "$topology" "$count"
 }
 
-_zfs_valid_pool_name() {
+zfs_valid_pool_name() {
   # Pure check for a Standalone Data Pool name (the literal zpool name).
   # Silent + returns 0 when valid; prints a reason + returns 1 when not.
   # Rejects what `zpool create` would choke on: bad characters / leading
@@ -531,23 +452,23 @@ _zfs_valid_pool_name() {
   return 0
 }
 
-_zfs_redundant_size_mismatch() {
+zfs_redundant_size_mismatch() {
   # Pure decision: returns 0 (warn) when a redundant topology spans disks of
   # differing sizes — ZFS caps usable space to the smallest member. Returns
   # 1 (no warn) for stripe, a single disk, or equal-size redundant disks.
   #
-  # Usage: _zfs_redundant_size_mismatch <topology> <size1> [size2] ...
-  local topo="$1"
+  # Usage: zfs_redundant_size_mismatch <topology> <size1> [size2] ...
+  local topology="$1"
   shift
   local sizes=("$@")
-  case "$topo" in
+  case "$topology" in
   mirror | raidz1 | raidz2 | raidz3) ;;
   *) return 1 ;; # stripe / none / independent / unknown — never warn
   esac
   ((${#sizes[@]} >= 2)) || return 1
-  local first="${sizes[0]}" s
-  for s in "${sizes[@]}"; do
-    [[ "$s" != "$first" ]] && return 0
+  local first="${sizes[0]}" size
+  for size in "${sizes[@]}"; do
+    [[ "$size" != "$first" ]] && return 0
   done
   return 1
 }

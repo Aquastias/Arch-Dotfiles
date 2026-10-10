@@ -930,7 +930,7 @@ _guided_set_root_password() {
 # consumes: { root_password?, enc_passphrase?, users?: { <name>:{password} } }.
 # Built from the held-aside root + per-user passwords + encryption passphrase;
 # empty {} when nothing is set. The passphrase is read pre-chroot by
-# collect_enc_passphrase (ADR 0054), the rest staged into install-state. Pure:
+# zfs_collect_encryption_passphrase (ADR 0054), the rest staged into install-state. Pure:
 # reads the side state, emits JSON.
 _guided_secrets_manifest() {
   local manifest='{}' name

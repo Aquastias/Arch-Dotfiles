@@ -94,7 +94,7 @@ plan_and_confirm() {
 prepare_secrets() {
   # Collects the encryption passphrase once; piped to every zpool create so
   # all pools share one key.
-  collect_enc_passphrase
+  zfs_collect_encryption_passphrase
 
   trap secrets_cleanup EXIT
   local age_key_url
@@ -107,7 +107,7 @@ prepare_disks() {
   layout_partition
   # ZFS userland is only needed when some group is ZFS; a pure non-ZFS install
   # skips it (ADR 0043).
-  [[ "$(install_config_any_zfs)" == "true" ]] && install_zfs_tools_if_needed
+  [[ "$(install_config_any_zfs)" == "true" ]] && zfs_install_tools_if_needed
   layout_create_pools
   layout_mount_esp
 
@@ -149,7 +149,7 @@ configure_users_and_programs() {
   # Data-pool ownership (after users/groups exist, pools still mounted): make
   # /data pools writable by their owners + add ~/Disks/<pool> symlinks
   # (ADR 0031). Before impermanence so the symlinks land in /home.
-  pool_owners_apply
+  zfs_pool_owners_apply
 
   # Impermanence: after users + programs, before unmount.
   apply_impermanence

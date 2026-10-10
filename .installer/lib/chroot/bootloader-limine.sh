@@ -32,10 +32,10 @@ printf 'timeout: 4\n\n' > "$CONF"
 mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
   _fb="$(blcommon_stage_kernel "$_kb")"
-  limine_entry "Arch Linux (${_kb})" "$_kb" "$MICROCODE_INITRDS" \
+  loader_entries_limine "Arch Linux (${_kb})" "$_kb" "$MICROCODE_INITRDS" \
     "initramfs-${_kb}.img" "$DEFAULT_OPTS" >> "$CONF"
   if [[ -n "$_fb" ]]; then
-    limine_entry "Arch Linux (${_kb} — fallback)" "$_kb" \
+    loader_entries_limine "Arch Linux (${_kb} — fallback)" "$_kb" \
       "$MICROCODE_INITRDS" "$_fb" "$DEFAULT_OPTS" >> "$CONF"
   fi
 done

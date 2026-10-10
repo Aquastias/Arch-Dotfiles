@@ -29,10 +29,10 @@ printf 'set timeout=4\nset default=0\n\n' > "$CONF"
 mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
   _fb="$(blcommon_stage_kernel "$_kb")"
-  grub_entry "Arch Linux (${_kb})" "$_kb" "$MICROCODE_IMGS" \
+  loader_entries_grub "Arch Linux (${_kb})" "$_kb" "$MICROCODE_IMGS" \
     "initramfs-${_kb}.img" "$DEFAULT_OPTS" >> "$CONF"
   if [[ -n "$_fb" ]]; then
-    grub_entry "Arch Linux (${_kb} — fallback)" "$_kb" "$MICROCODE_IMGS" \
+    loader_entries_grub "Arch Linux (${_kb} — fallback)" "$_kb" "$MICROCODE_IMGS" \
       "$_fb" "$DEFAULT_OPTS" >> "$CONF"
   fi
 done

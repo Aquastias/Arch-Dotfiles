@@ -31,8 +31,8 @@ source "$_LIB_DIR/zfs-import.sh"
 
 # Bootloader Manifest — staged flat into lib-chroot; supplies the secondary-ESP
 # UEFI loader path per loader instead of an if-chain (ADR 0077).
-# shellcheck source=../boot/bootloaders.sh
-source "$_LIB_DIR/bootloaders.sh"
+# shellcheck source=../boot/bootloader.sh
+source "$_LIB_DIR/bootloader.sh"
 
 bash /root/lib-chroot/identity.sh
 # GPU hardening runs BEFORE initcpio so the single `mkinitcpio -P` bakes in the
