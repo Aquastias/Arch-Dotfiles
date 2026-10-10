@@ -7,8 +7,8 @@ with readable words. Never shared across worlds (Shell Commons).
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Helpers in all three worlds, named per the Readability Rules
-- [ ] Unit tests in each world's existing stdlib bats file
-- [ ] No call sites migrated yet (area tickets do that)
+- [x] Helpers in all three worlds, named per the Readability Rules
+- [x] Unit tests in each world's existing stdlib bats file
+- [x] No call sites migrated yet (area tickets do that)

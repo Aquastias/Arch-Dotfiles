@@ -58,6 +58,8 @@ _changed_is_broad_blast() {
 _changed_root_map() {
   case "$1" in
     .installer/lib/finalize.sh) echo "finalize.bats" ;;
+    .installer/lib/chroot/chroot-common.sh) echo "commons-paths.bats chroot" ;;
+    .installer/lib/shell/paths.sh) echo "commons-paths.bats shell" ;;
     .installer/lib/grub-common.sh) echo "grub-common.bats" ;;
     .installer/lib/impermanence-common.sh) echo "impermanence-common.bats" ;;
     .installer/lib/jsonc.sh) echo "jsonc.bats" ;;

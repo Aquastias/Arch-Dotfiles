@@ -148,3 +148,27 @@ part_name() {
   *)                 echo "${disk}${num}" ;;
   esac
 }
+
+# ── Path helpers (ADR 0153; twins in lib/shell/paths.sh) ──
+
+# parent_directory <path> — the directory holding <path>, like dirname.
+parent_directory() {
+  local path="$1"
+  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
+  if [[ "$path" != */* ]]; then
+    printf '.\n'
+    return 0
+  fi
+  path="${path%/*}"
+  while [[ "$path" == */ ]]; do path="${path%/}"; done
+  printf '%s\n' "${path:-/}"
+}
+
+# base_name <path> [suffix] — the last part of <path>, like basename.
+base_name() {
+  local path="$1" suffix="${2:-}"
+  while [[ "$path" == */ && "$path" != / ]]; do path="${path%/}"; done
+  [[ "$path" == / ]] || path="${path##*/}"
+  [[ -n "$suffix" && "$path" != "$suffix" ]] && path="${path%"$suffix"}"
+  printf '%s\n' "$path"
+}

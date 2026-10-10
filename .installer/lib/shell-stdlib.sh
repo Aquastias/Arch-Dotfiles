@@ -24,5 +24,7 @@ source "${_STDLIB_DIR}/packages.sh"
 source "${_STDLIB_DIR}/notifications.sh"
 # shellcheck source=./shell/runtime.sh
 source "${_STDLIB_DIR}/runtime.sh"
+# shellcheck source=./shell/paths.sh
+source "${_STDLIB_DIR}/paths.sh"
 
 unset _STDLIB_DIR

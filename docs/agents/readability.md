@@ -56,7 +56,10 @@ One tool per job. Never trade readability for one fewer binary.
 - **`sed`:** in-place edits (`sed -i`) only; other transforms go to `awk`.
 - **Replace:** `cut tr head tail wc paste comm uniq column bc xargs realpath
   readlink` → a core tool or builtin (`mapfile`, `${#array[@]}`, `printf`).
-  `basename`/`dirname` → the Commons path helpers for your world.
+  `basename`/`dirname` → `parent_directory` / `base_name`, defined in every
+  Commons world (Installer Stdlib, chroot common, Shell Stdlib). Before any
+  stdlib is sourced — a script locating its own directory — use the existing
+  idiom `"${BASH_SOURCE[0]%/*}"`.
 - Merge consecutive `jq` reads of one input into one program when the result
   stays short or is factored with named `def`s.
 
