@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for layout_nonzfs_plan_field (lib/layout/core.sh) — the single `key=value`
+# Tests for layout_plan_field (lib/layout/core.sh) — the single `key=value`
 # plan-text reader shared by the non-ZFS root spine (root.sh), the device
 # resolver (devices.sh), the data formatter (data.sh), and the btrfs multi
 # adapter. Formerly four byte-identical copies (_nzroot_field / _nonzfs_plan_
@@ -16,21 +16,21 @@ plan() {
     "keylocation=file:///etc/cryptsetup-keys.d/tank0.key" "root_mib=51200"
 }
 
-@test "layout_nonzfs_plan_field: reads a field's value" {
-  [ "$(plan | layout_nonzfs_plan_field root_part_num)" = "3" ]
-  [ "$(plan | layout_nonzfs_plan_field root_mib)" = "51200" ]
+@test "layout_plan_field: reads a field's value" {
+  [ "$(plan | layout_plan_field root_part_num)" = "3" ]
+  [ "$(plan | layout_plan_field root_mib)" = "51200" ]
 }
 
-@test "layout_nonzfs_plan_field: keeps a value containing '=' intact" {
-  [ "$(plan | layout_nonzfs_plan_field keylocation)" \
+@test "layout_plan_field: keeps a value containing '=' intact" {
+  [ "$(plan | layout_plan_field keylocation)" \
       = "file:///etc/cryptsetup-keys.d/tank0.key" ]
 }
 
-@test "layout_nonzfs_plan_field: absent field emits nothing" {
-  [ -z "$(plan | layout_nonzfs_plan_field missing)" ]
+@test "layout_plan_field: absent field emits nothing" {
+  [ -z "$(plan | layout_plan_field missing)" ]
 }
 
-@test "layout_nonzfs_plan_field: anchors to line start (no substring match)" {
+@test "layout_plan_field: anchors to line start (no substring match)" {
   # 'swap_part_num=2' must not match a query for the substring 'part_num'.
-  [ -z "$(plan | layout_nonzfs_plan_field part_num)" ]
+  [ -z "$(plan | layout_plan_field part_num)" ]
 }

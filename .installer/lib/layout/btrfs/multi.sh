@@ -6,7 +6,7 @@
 # in os_pool.disks). Reuses the shared non-ZFS root spine (lib/layout/nonzfs/
 # root.sh) for its pure helpers — the per-disk partition planner
 # (layout_nonzfs_partition_plan), the swap tail (layout_nonzfs_swap_tail), the plan-field
-# reader (layout_nonzfs_plan_field) — and the btrfs subvolume layout + boot emitters
+# reader (layout_plan_field) — and the btrfs subvolume layout + boot emitters
 # (btrfs/subvol.sh, btrfs/boot.sh), but OVERRIDES the whole layout seam because a
 # raid root spans many disks: each disk gets `ESP + root` (the primary also gets
 # a dedicated swap partition), then mkfs.btrfs assembles the raid over every root
@@ -88,7 +88,7 @@ _layout_plan_mode() {
     ((i == 0)) && swap_mib="$(layout_nonzfs_swap_mib "$total_mib")"
     plan="$(layout_nonzfs_partition_plan "$total_mib" "$esp_mib" "$swap_mib")"
     _LAYOUT_BTRFS_PLANS+=("$plan")
-    root_number="$(printf '%s\n' "$plan" | layout_nonzfs_plan_field root_part_num)"
+    root_number="$(printf '%s\n' "$plan" | layout_plan_field root_part_num)"
     _LAYOUT_BTRFS_ROOT_PARTS+=("$(part_name "$disk" "$root_number")")
     _LAYOUT_BTRFS_ESP_PARTS+=("$(part_name "$disk" 1)")
   done
@@ -136,7 +136,8 @@ layout_partition() {
 
   # Swap (primary disk only) → reuse the spine's swap tail via its state vars.
   local primary_swap_number
-  primary_swap_number="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" | layout_nonzfs_plan_field swap_part_num)"
+  primary_swap_number="$(printf '%s\n' "${_LAYOUT_BTRFS_PLANS[0]}" \
+    | layout_plan_field swap_part_num)"
   if [[ -n "$primary_swap_number" ]]; then
     _LAYOUT_IMPL_SWAP_PART="$(part_name "${_LAYOUT_BTRFS_DISKS[0]}" "$primary_swap_number")"
     _LAYOUT_IMPL_SWAP_DEV="$_LAYOUT_IMPL_SWAP_PART"

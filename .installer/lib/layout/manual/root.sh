@@ -70,9 +70,9 @@ layout_plan() {
   section "Manual Partitioning Layout"
   _MANUAL_PLAN="$(layout_manual_partition_plan "$(install_config_partitions_json)")"
   _MANUAL_ESP_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | layout_nonzfs_plan_field esp_device)"
+    | layout_plan_field esp_device)"
   _MANUAL_ROOT_DEV="$(printf '%s\n' "$_MANUAL_PLAN" \
-    | layout_nonzfs_plan_field root_device)"
+    | layout_plan_field root_device)"
   _MANUAL_ESP_FORMAT="$(printf '%s\n' "$_MANUAL_PLAN" \
     | awk -F'\t' '$1=="mount" && $3=="/boot/efi"{print $5}')"
 

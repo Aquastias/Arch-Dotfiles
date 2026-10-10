@@ -27,6 +27,9 @@ declare -F zfs_create_pool >/dev/null 2>&1 \
 # The shared per-group crypto plan emitter (keyfile/mapper/crypttab) — sibling.
 declare -F layout_data_group_crypto >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../nonzfs/datacrypt.sh"
+# The shared `key=value` plan-field reader (layout_plan_field) — layout core.
+declare -F layout_plan_field >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 # Write a Standalone Data Pool's 32-byte raw key to BOTH the install-tree path
 # (which persists into the booted system and survives impermanence rollback via
@@ -36,7 +39,7 @@ declare -F layout_data_group_crypto >/dev/null 2>&1 \
 _zfs_data_generate_keyfile() {
   local install_abs="$1" live_abs="$2"
   install -Dm600 /dev/null "$install_abs"
-  head -c32 /dev/urandom >"$install_abs"
+  dd if=/dev/urandom bs=32 count=1 status=none >"$install_abs"
   install -Dm600 "$install_abs" "$live_abs"
 }
 
@@ -54,8 +57,8 @@ layout_zfs_data_pool_encryption_options() {
     # zfs is the data pool's filesystem; the UUID arg is unused on the zfs path.
     local plan
     plan="$(layout_data_group_crypto true zfs "$name" UNUSED)"
-    keyfile="$(printf '%s\n' "$plan" | grep -E '^keyfile=' | cut -d= -f2-)"
-    options="$(printf '%s\n' "$plan" | grep -E '^zfs_keyload=' | cut -d= -f2-)"
+    keyfile="$(layout_plan_field keyfile <<<"$plan")"
+    options="$(layout_plan_field zfs_keyload <<<"$plan")"
   fi
 
   printf 'keyfile=%s\n' "$keyfile"
@@ -78,8 +81,8 @@ data_formatter_create_group() {
 
   local sel keyfile options
   sel="$(layout_zfs_data_pool_encryption_options "$encrypted" "$name")"
-  keyfile="$(printf '%s\n' "$sel" | grep -E '^keyfile=' | cut -d= -f2-)"
-  options="$(printf '%s\n' "$sel" | grep -E '^opts=' | cut -d= -f2-)"
+  keyfile="$(layout_plan_field keyfile <<<"$sel")"
+  options="$(layout_plan_field opts <<<"$sel")"
   # ZFS_ENCRYPTION_OPTIONS is consumed by zfs_create_pool (the global it word-splits into the
   # zpool create command); read -ra splits the controlled -O token string. It is
   # local so this pool's opts never leak into a later create.

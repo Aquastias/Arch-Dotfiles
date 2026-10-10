@@ -211,35 +211,35 @@ setup_data_pool_size_fixture() {
   [[ "$output" != *"WARN:"* ]]
 }
 
-# ── _zfs_multi_mount_is_reserved (pure, issue 03) ──────────────────────────────────────
+# ── _zfs_multi_validate_mount_is_reserved (pure, issue 03) ──────────────────────────────────────
 
-@test "_zfs_multi_mount_is_reserved: /home is reserved" {
-  run _zfs_multi_mount_is_reserved /home
+@test "_zfs_multi_validate_mount_is_reserved: /home is reserved" {
+  run _zfs_multi_validate_mount_is_reserved /home
   [ "$status" -eq 0 ]
 }
 
-@test "_zfs_multi_mount_is_reserved: / is reserved" {
-  run _zfs_multi_mount_is_reserved /
+@test "_zfs_multi_validate_mount_is_reserved: / is reserved" {
+  run _zfs_multi_validate_mount_is_reserved /
   [ "$status" -eq 0 ]
 }
 
-@test "_zfs_multi_mount_is_reserved: /var/log subtree is reserved" {
-  run _zfs_multi_mount_is_reserved /var/log
+@test "_zfs_multi_validate_mount_is_reserved: /var/log subtree is reserved" {
+  run _zfs_multi_validate_mount_is_reserved /var/log
   [ "$status" -eq 0 ]
 }
 
-@test "_zfs_multi_mount_is_reserved: /boot/efi subtree is reserved" {
-  run _zfs_multi_mount_is_reserved /boot/efi
+@test "_zfs_multi_validate_mount_is_reserved: /boot/efi subtree is reserved" {
+  run _zfs_multi_validate_mount_is_reserved /boot/efi
   [ "$status" -eq 0 ]
 }
 
-@test "_zfs_multi_mount_is_reserved: /data is not reserved" {
-  run _zfs_multi_mount_is_reserved /data
+@test "_zfs_multi_validate_mount_is_reserved: /data is not reserved" {
+  run _zfs_multi_validate_mount_is_reserved /data
   [ "$status" -ne 0 ]
 }
 
-@test "_zfs_multi_mount_is_reserved: /variable is not reserved (subtree, not prefix)" {
-  run _zfs_multi_mount_is_reserved /variable
+@test "_zfs_multi_validate_mount_is_reserved: /variable is not reserved (subtree, not prefix)" {
+  run _zfs_multi_validate_mount_is_reserved /variable
   [ "$status" -ne 0 ]
 }
 
@@ -386,7 +386,7 @@ _find_block_device() {
 @test "layout_validate: data pool owner not a declared user aborts" {
   _LAYOUT_PHASE=0
   layout_disk_exists() { return 0; }
-  _zfs_multi_declared_users() { echo "alice bob"; }
+  _zfs_multi_validate_declared_users() { echo "alice bob"; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -404,7 +404,7 @@ _find_block_device() {
 @test "layout_validate: data pool owner that is a declared user passes" {
   _LAYOUT_PHASE=0
   layout_disk_exists() { return 0; }
-  _zfs_multi_declared_users() { echo "alice bob"; }
+  _zfs_multi_validate_declared_users() { echo "alice bob"; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -420,8 +420,8 @@ _find_block_device() {
 @test "layout_validate: data pool @group with no members aborts" {
   _LAYOUT_PHASE=0
   layout_disk_exists() { return 0; }
-  _zfs_multi_declared_users() { echo "alice" ; }
-  _zfs_multi_group_map() { printf '' ; }     # no group has any members
+  _zfs_multi_validate_declared_users() { echo "alice" ; }
+  _zfs_multi_validate_group_map() { printf '' ; }     # no group has any members
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -438,8 +438,8 @@ _find_block_device() {
 @test "layout_validate: data pool @group with members passes" {
   _LAYOUT_PHASE=0
   layout_disk_exists() { return 0; }
-  _zfs_multi_declared_users() { echo "alice bob" ; }
-  _zfs_multi_group_map() { printf 'family:alice,bob' ; }
+  _zfs_multi_validate_declared_users() { echo "alice bob" ; }
+  _zfs_multi_validate_group_map() { printf 'family:alice,bob' ; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -455,7 +455,7 @@ _find_block_device() {
 @test "layout_validate: storage group owner not a declared user aborts" {
   _LAYOUT_PHASE=0
   layout_disk_exists() { return 0; }
-  _zfs_multi_declared_users() { echo "alice" ; }
+  _zfs_multi_validate_declared_users() { echo "alice" ; }
   local osd
   osd="$(_find_block_device)" || skip "no usable block device available"
   write_multi_config "{
@@ -664,7 +664,7 @@ setup_leftover_fixture() {
   zpool()               { printf 'zpool %s\n'               "$*" >>"$CALLS"; }
 
   # Empty line input → accept the default pool name.
-  _zfs_multi_read_tty() { printf ''; }
+  _zfs_multi_topology_read_tty() { printf ''; }
 
   # pick_option mimic (first word of a chosen option): choose own-pool (2nd
   # option) for any per-disk leftover prompt; option 1 (the OS disk) elsewhere.
@@ -709,7 +709,7 @@ JSONC
   layout_leftover_choice()    { LAYOUT_LEFTOVER_CHOICE=own; }
   layout_leftover_pool_name() { LAYOUT_LEFTOVER_POOL_NAME=seamdata; }
   # Prove the planner never falls back to a TTY read for the leftover.
-  _zfs_multi_read_tty() { echo "TTY READ ATTEMPTED" >&2; return 1; }
+  _zfs_multi_topology_read_tty() { echo "TTY READ ATTEMPTED" >&2; return 1; }
   cat >"$CONFIG_FILE" <<'JSONC'
 {
   "os_pool": { "pool_name": "rpool", "topology": "none",

@@ -105,8 +105,14 @@ layout_parse_size_to_mib() {
 # Read one field out of a `key=value` plan text on stdin (the non-ZFS root
 # partition plan, the device plan, and the per-group datacrypt plan all share
 # this line format). The single reader for all three — root.sh, devices.sh, and
-# data.sh used to each carry a byte-identical copy. Pure: grep + cut, no deps.
-layout_nonzfs_plan_field() { grep -E "^$1=" | cut -d= -f2-; }
+# data.sh used to each carry a byte-identical copy. Exits 1 when the key is
+# absent (as the grep it replaced did), so a missing field still fails.
+layout_plan_field() {
+  awk -v key="$1" '
+    index($0, key "=") == 1 { print substr($0, length(key) + 2); found = 1 }
+    END { exit !found }
+  '
+}
 
 # ── Plan / partition contract (ESP — shared) ─────────────────────────────────
 

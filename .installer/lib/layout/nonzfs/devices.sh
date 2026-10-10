@@ -26,18 +26,18 @@
 #       luks_containers (space-separated `<part>:<mapper>`, empty when plain).
 # =============================================================================
 
-# The shared `key=value` plan-field reader (layout_nonzfs_plan_field) lives in the
+# The shared `key=value` plan-field reader (layout_plan_field) lives in the
 # layout core; guard-source it so this resolver stands alone in its unit test.
-declare -F layout_nonzfs_plan_field >/dev/null 2>&1 \
+declare -F layout_plan_field >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/../core.sh"
 
 layout_nonzfs_root_devices() {
   local disk="$1" plan="$2" encryption="$3"
 
   local esp_number swap_number root_number
-  esp_number="$(layout_nonzfs_plan_field esp_part_num   <<<"$plan")"
-  swap_number="$(layout_nonzfs_plan_field swap_part_num <<<"$plan")"
-  root_number="$(layout_nonzfs_plan_field root_part_num <<<"$plan")"
+  esp_number="$(layout_plan_field esp_part_num   <<<"$plan")"
+  swap_number="$(layout_plan_field swap_part_num <<<"$plan")"
+  root_number="$(layout_plan_field root_part_num <<<"$plan")"
 
   local esp_part swap_part root_part
   esp_part="$(part_name "$disk" "$esp_number")"

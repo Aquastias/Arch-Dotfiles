@@ -41,17 +41,16 @@ _LAYOUT_IMPL_OS_SECTORS=0
 # LAYOUT CALCULATION
 # =============================================================================
 
+# Determines the OS and storage partition sizes, validates the disk has
+# enough space, and prints the layout table.
+#
+# OS partition size = max of three candidates:
+#   floor      = 40 GiB  (absolute minimum for a functional Arch install)
+#   ram-based  = swap_gib + 30 GiB  (accommodates full swap + OS overhead)
+#   percentage = 20% of disk  (scales naturally with larger disks)
+#
+# Storage partition = remainder after ESP + OS partition.
 layout_calculate_single_disk() {
-  # Determines the OS and storage partition sizes, validates the disk has
-  # enough space, and prints the layout table.
-  #
-  # OS partition size = max of three candidates:
-  #   floor      = 40 GiB  (absolute minimum for a functional Arch install)
-  #   ram-based  = swap_gib + 30 GiB  (accommodates full swap + OS overhead)
-  #   percentage = 20% of disk  (scales naturally with larger disks)
-  #
-  # Storage partition = remainder after ESP + OS partition.
-
   section "Calculating Single-Disk Layout"
 
   _LAYOUT_IMPL_DISK="$(config_required '.disk' 'disk')"
@@ -61,18 +60,17 @@ layout_calculate_single_disk() {
   # Use blockdev --getsize64 (bytes) for precision — avoids the truncation
   # error from sector-based math on disks that are not exact GiB multiples.
   # Virtual disks from virt-manager are often 1-2 MB short of a round GiB.
-  local total_bytes
+  local total_bytes ram
   total_bytes="$(blockdev --getsize64 "$_LAYOUT_IMPL_DISK")"
   local total_mib=$((total_bytes / 1024 / 1024))
   local total_gib=$((total_mib / 1024))
-  local ram
   ram="$(zfs_ram_gib)"
   info "Disk: $_LAYOUT_IMPL_DISK —" \
        "${total_mib} MiB (${total_gib} GiB)  |  RAM: ${ram} GiB"
 
-  # ESP size in MiB (parsed from config, default 512M). layout_parse_size_to_mib (core)
-  # keeps sub-GiB precision — the shared helper the non-ZFS spine already uses,
-  # instead of a private re-implementation of the M/G case.
+  # ESP size in MiB (parsed from config, default 512M). layout_parse_size_to_mib
+  # (core) keeps sub-GiB precision — the shared helper the non-ZFS spine
+  # already uses, instead of a private re-implementation of the M/G case.
   local esp_size esp_mib
   esp_size="$(layout_resolve_esp_size)"
   esp_mib="$(layout_parse_size_to_mib "$esp_size")"
@@ -81,60 +79,81 @@ layout_calculate_single_disk() {
   local align_mib=2 # 1 MiB at start + 1 MiB guard at end
   local usable_mib=$((total_mib - esp_mib - align_mib))
 
-  # ── Swap size ─────────────────────────────────────────────────────────────
-  local configured_swap_size
-  configured_swap_size="$(config_optional '.options.swap_size')"
-  local swap_gib
-  if [[ -z "$configured_swap_size" || "$configured_swap_size" == "auto" ]]; then
-    swap_gib=$((ram * 2))
-    # Cap swap to 25% of disk for small disks so the OS still fits
-    local swap_cap=$((total_gib / 4))
-    ((swap_cap < 2)) && swap_cap=2
-    if ((swap_gib > swap_cap)); then
-      warn "Swap auto (${swap_gib}G = RAM×2) capped to ${swap_cap}G" \
-           "on this small disk."
-      swap_gib=$swap_cap
-    fi
-    info "Swap: ${swap_gib} GiB  (auto)"
-  else
-    swap_gib="$(layout_parse_size_to_gib "$configured_swap_size")"
-    info "Swap: ${swap_gib} GiB  (from config)"
+  local swap_gib os_gib
+  _zfs_single_resolve_swap_gib swap_gib "$ram" "$total_gib"
+  _zfs_single_resolve_os_gib os_gib "$swap_gib" "$usable_mib"
+  _zfs_single_check_sizes "$os_gib" "$usable_mib"
+
+  # OS partition size in sectors for sgdisk (uses 512-byte sectors)
+  _LAYOUT_IMPL_OS_SECTORS=$((os_gib * 1024 * 1024 * 1024 / 512))
+
+  _zfs_single_print_layout "$total_mib" "$esp_size" "$os_gib" "$swap_gib" \
+    "$(( (usable_mib - os_gib * 1024) / 1024 ))"
+}
+
+# _zfs_single_resolve_swap_gib <out-var> <ram_gib> <disk_gib> — the swap size
+# in GiB: configured, or RAM × 2 capped to a quarter of a small disk.
+_zfs_single_resolve_swap_gib() {
+  local __swap_variable="$1" ram="$2" total_gib="$3" configured __swap_gib
+  configured="$(config_optional '.options.swap_size')"
+  if [[ -n "$configured" && "$configured" != "auto" ]]; then
+    __swap_gib="$(layout_parse_size_to_gib "$configured")"
+    info "Swap: ${__swap_gib} GiB  (from config)"
+    printf -v "$__swap_variable" '%s' "$__swap_gib"
+    return 0
   fi
-
-  # ── OS partition size ─────────────────────────────────────────────────────
-  local configured_os_size
-  configured_os_size="$(config_optional '.os_size')"
-  local os_gib
-  if [[ -z "$configured_os_size" || "$configured_os_size" == "auto" ]]; then
-    # Three candidates — pick the largest, but never exceed 85% of usable space
-    # so there is always room for a storage partition.
-    local floor=20                              # absolute minimum in GiB
-    local ram_based=$((swap_gib + 20))          # swap + OS headroom
-    local percent_gib=$((usable_mib * 80 / 100 / 1024)) # 80% of usable space
-    # Note: 80% gives ~31G on a 40G disk — enough for KDE + base + headroom.
-    # Storage pool gets the remaining 20% (~8G) for user data.
-
-    os_gib=$floor
-    ((ram_based > os_gib)) && os_gib=$ram_based
-    ((percent_gib > os_gib)) && os_gib=$percent_gib
-
-    # Hard cap: never claim more than 90% of usable MiB
-    local os_cap_mib=$((usable_mib * 90 / 100))
-    local os_cap_gib=$((os_cap_mib / 1024))
-    ((os_gib > os_cap_gib && os_cap_gib > 0)) && os_gib=$os_cap_gib
-
-    info "OS size (auto): floor=${floor}G ram-based=${ram_based}G" \
-         "80%=$((usable_mib * 80 / 100 / 1024))G" \
-         "→ ${os_gib}G (cap: ${os_cap_gib}G)"
-  else
-    os_gib="$(layout_parse_size_to_gib "$configured_os_size")"
-    info "OS size: ${os_gib} GiB  (from config)"
+  __swap_gib=$((ram * 2))
+  # Cap swap to 25% of disk for small disks so the OS still fits
+  local swap_cap=$((total_gib / 4))
+  ((swap_cap < 2)) && swap_cap=2
+  if ((__swap_gib > swap_cap)); then
+    warn "Swap auto (${__swap_gib}G = RAM×2) capped to ${swap_cap}G" \
+         "on this small disk."
+    __swap_gib=$swap_cap
   fi
+  info "Swap: ${__swap_gib} GiB  (auto)"
+  printf -v "$__swap_variable" '%s' "$__swap_gib"
+}
 
-  # ── Sanity checks ─────────────────────────────────────────────────────────
+# _zfs_single_resolve_os_gib <out-var> <swap_gib> <usable_mib> — the OS
+# partition in GiB: configured, or the largest of three candidates (never more
+# than 90% of usable space, so there is always room for a storage partition).
+_zfs_single_resolve_os_gib() {
+  local __os_variable="$1" swap_gib="$2" usable_mib="$3" configured __os_gib
+  configured="$(config_optional '.os_size')"
+  if [[ -n "$configured" && "$configured" != "auto" ]]; then
+    __os_gib="$(layout_parse_size_to_gib "$configured")"
+    info "OS size: ${__os_gib} GiB  (from config)"
+    printf -v "$__os_variable" '%s' "$__os_gib"
+    return 0
+  fi
+  local floor=20                              # absolute minimum in GiB
+  local ram_based=$((swap_gib + 20))          # swap + OS headroom
+  local percent_gib=$((usable_mib * 80 / 100 / 1024)) # 80% of usable space
+  # Note: 80% gives ~31G on a 40G disk — enough for KDE + base + headroom.
+  # Storage pool gets the remaining 20% (~8G) for user data.
+
+  __os_gib=$floor
+  ((ram_based > __os_gib)) && __os_gib=$ram_based
+  ((percent_gib > __os_gib)) && __os_gib=$percent_gib
+
+  # Hard cap: never claim more than 90% of usable MiB
+  local os_cap_mib=$((usable_mib * 90 / 100))
+  local os_cap_gib=$((os_cap_mib / 1024))
+  ((__os_gib > os_cap_gib && os_cap_gib > 0)) && __os_gib=$os_cap_gib
+
+  info "OS size (auto): floor=${floor}G ram-based=${ram_based}G" \
+       "80%=$((usable_mib * 80 / 100 / 1024))G" \
+       "→ ${__os_gib}G (cap: ${os_cap_gib}G)"
+  printf -v "$__os_variable" '%s' "$__os_gib"
+}
+
+# _zfs_single_check_sizes <os_gib> <usable_mib> — abort when the OS partition
+# leaves no useful storage partition, or is itself too small.
+_zfs_single_check_sizes() {
+  local os_gib="$1" usable_mib="$2"
   local os_mib=$((os_gib * 1024))
-  local stor_mib=$((usable_mib - os_mib))
-  local stor_gib=$((stor_mib / 1024))
+  local storage_mib=$((usable_mib - os_mib))
 
   if ((os_mib >= usable_mib)); then
     error "OS partition (${os_gib} GiB) leaves no room for storage on this disk.
@@ -142,8 +161,8 @@ layout_calculate_single_disk() {
   Fix: use a larger disk, or set a smaller 'os_size' in install.json."
   fi
 
-  if ((stor_mib < 512)); then
-    error "Storage partition would be only ${stor_mib} MiB" \
+  if ((storage_mib < 512)); then
+    error "Storage partition would be only ${storage_mib} MiB" \
           "— too small to be useful.
   Disk usable space: $((usable_mib / 1024)) GiB  |  OS: ${os_gib} GiB
   Fix: use a larger disk, or set a smaller 'os_size' in install.json."
@@ -153,20 +172,22 @@ layout_calculate_single_disk() {
     error "OS partition (${os_gib} GiB) is too small for Arch Linux + ZFS.
   Minimum recommended: 20 GiB. Use a larger disk."
   fi
+}
 
-  # OS partition size in sectors for sgdisk (uses 512-byte sectors)
-  _LAYOUT_IMPL_OS_SECTORS=$((os_mib * 1024 * 1024 / 512))
-
-  # ── Layout table ──────────────────────────────────────────────────────────
+_zfs_single_print_layout() {
+  local total_mib="$1" esp_size="$2" os_gib="$3" swap_gib="$4"
+  local storage_gib="$5"
   echo ""
   echo -e "  ${BOLD}Partition layout — $_LAYOUT_IMPL_DISK" \
           "(${total_mib} MiB):${NC}"
   printf "    %-5s  %-14s  %s\n" "Part" "Size" "Purpose"
   printf "    %-5s  %-14s  %s\n" "----" "--------------" "-------"
-  printf "    %-5s  %-14s  %s\n" "p1" "${esp_size}" "EFI System Partition (FAT32)"
+  printf "    %-5s  %-14s  %s\n" "p1" "${esp_size}" \
+    "EFI System Partition (FAT32)"
   printf "    %-5s  %-14s  %s\n" "p2" "${os_gib} GiB" \
     "ZFS rpool  —  / /home /var swap(${swap_gib}G)"
-  printf "    %-5s  %-14s  %s\n" "p3" "~${stor_gib} GiB" "ZFS dpool  —  /data"
+  printf "    %-5s  %-14s  %s\n" "p3" "~${storage_gib} GiB" \
+    "ZFS dpool  —  /data"
   echo ""
 }
 
@@ -265,10 +286,10 @@ _layout_plan_mode() {
   # shellcheck disable=SC2034 # consumed by chroot.sh / finalize.sh
   LAYOUT_OS_POOL_NAME="$(config_optional .os_pool_name)"
   LAYOUT_OS_POOL_NAME="${LAYOUT_OS_POOL_NAME:-rpool}"
-  local _data_pool
-  _data_pool="$(config_optional .storage_pool_name)"
+  local _data_pool_name
+  _data_pool_name="$(config_optional .storage_pool_name)"
   # shellcheck disable=SC2034 # consumed by finalize.sh
-  LAYOUT_DATA_POOL_NAMES=("${_data_pool:-dpool}")
+  LAYOUT_DATA_POOL_NAMES=("${_data_pool_name:-dpool}")
 }
 
 # The single OS disk that receives the ESP. layout_calculate_single_disk (run by
