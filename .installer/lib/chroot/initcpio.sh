@@ -2,10 +2,12 @@
 # lib/chroot/initcpio.sh — Chroot Configuration Module: initramfs
 # Runs inside arch-chroot. Reads install-state.json via install-state.sh.
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "initcpio"
+chroot_error_trap "initcpio"
 
 # shellcheck source=./install-state.sh
 STATE="${STATE:-/root/lib-chroot/install-state.json}"
@@ -49,8 +51,8 @@ _initcpio_hooks_line() {
 # in the set: its out-of-tree modules go in MODULES (ADR 0053), and the `kms`
 # hook would pull in nouveau (Arch Wiki: Kernel mode setting, NVIDIA).
 _initcpio_wants_kms() {
-  local g
-  for g in "$@"; do [[ "$g" == nvidia ]] && { echo false; return; }; done
+  local gpu
+  for gpu in "$@"; do [[ "$gpu" == nvidia ]] && { echo false; return; }; done
   echo true
 }
 
@@ -77,9 +79,9 @@ HOOK
 # before mkinitcpio builds the image.
 _initcpio_write_udev_override() {
   local root="${1:-}"
-  local dir="${root}/etc/initcpio/hooks"
-  mkdir -p "$dir"
-  _initcpio_udev_override > "${dir}/udev"
+  local directory="${root}/etc/initcpio/hooks"
+  mkdir -p "$directory"
+  _initcpio_udev_override > "${directory}/udev"
 }
 
 # Lib-only sourcing for tests: skip all side effects below.
@@ -115,7 +117,7 @@ unset _hooks_line
 if [[ "$IMPERMANENCE_ENABLED" == "true" ]]; then
     # shellcheck source=./impermanence.sh
     source "$_LIB_DIR/impermanence.sh"
-    _impermanence_write_rollback_hook
+    impermanence_boot_hooks_write_rollback
 fi
 
 # ── Fallback preset ───────────────────────────────────────────────────────────
@@ -161,7 +163,9 @@ if command -v zpool >/dev/null 2>&1 && [[ -f "$_STRAY_SH" ]]; then
   # shellcheck source=../boot/stray-kernel.sh
   STRAY_KERNEL_LIB_ONLY=1 source "$_STRAY_SH"
   _sel_bases=()
-  for _tok in "${KERNELS[@]}"; do _sel_bases+=("$(kernel_pkg "$_tok")"); done
+  for _kernel in "${KERNELS[@]}"; do
+    _sel_bases+=("$(kernel_pkg "$_kernel")")
+  done
   while IFS= read -r _preset; do
     [[ -n "$_preset" && -f "$_preset" ]] || continue
     echo "Stray Kernel preset ${_preset} not in Kernel Selection —" \
@@ -182,8 +186,8 @@ mkdir -p /usr/local/lib/archzfs /etc/pacman.d/hooks
 install -Dm755 "$_LIB_DIR/stray-kernel.sh" /usr/local/lib/archzfs/stray-kernel.sh
 install -Dm644 "$_LIB_DIR/verify.sh" /usr/local/lib/archzfs/verify.sh
 
-for _tok in "${KERNELS[@]}"; do
-  kernel_pkg "$_tok"
+for _kernel in "${KERNELS[@]}"; do
+  kernel_pkg "$_kernel"
 done | sort -u >/usr/local/lib/archzfs/selected-kernels
 
 cat >/etc/pacman.d/hooks/97-stray-kernel-warn.hook <<'HOOK'

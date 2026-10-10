@@ -74,7 +74,7 @@ layout_create_pools() {
 
   # fstab: the subvol block + the shared swap tail (also sets LAYOUT_CRYPTTAB).
   layout_nonzfs_swap_tail "$encryption"
-  # shellcheck disable=SC2034 # consumed by write_fstab
+  # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$(layout_btrfs_root_fstab "$source_device")${_NZROOT_SWAP_FSTAB}"
   info "btrfs root + subvolumes formatted, mounted at $MOUNT_ROOT"
   layout_exit_phase pools

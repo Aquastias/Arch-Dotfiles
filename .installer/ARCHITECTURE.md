@@ -89,9 +89,9 @@ flowchart TD
       M6["partition + volumes + esp"]:::act
       M7["install_base (pacstrap)"]:::act
       M8["zfs_verify (Module Guard)<br/>if any ZFS"]:::act
-      M9["configure_system (chroot)"]:::act
+      M9["chroot_configure_system (chroot)"]:::act
       M10["run_profiles<br/>users + programs + DE"]:::act
-      M11["apply_impermanence<br/>if impermanence"]:::opt
+      M11["chroot_apply_impermanence<br/>if impermanence"]:::opt
       M12["print machine age key<br/>if secrets"]:::opt
       M13["finalize: unmount + export"]:::act
       M1-->M2-->M3-->M4-->M5-->M6-->M7-->M8-->M9-->M10-->M11-->M12-->M13

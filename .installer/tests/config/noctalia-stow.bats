@@ -27,6 +27,8 @@ setup() {
   BRIDGE="$REPO/.local/bin/noctalia-theme-bridge"
   NIRI_SH="$BATS_TEST_DIRNAME/../../lib/packages/niri.sh"
   PRESET="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-preset.sh"
+  # The preset seeds /etc/skel through its sibling noctalia-skeleton.sh.
+  SKEL="$BATS_TEST_DIRNAME/../../lib/chroot/noctalia-skeleton.sh"
   CHROOT="$BATS_TEST_DIRNAME/../../lib/chroot.sh"
   QT6CT="$REPO/.config/qt6ct/qt6ct.conf"
   QT6CT_COLORS="$REPO/.config/qt6ct/colors"
@@ -109,10 +111,10 @@ setup() {
 # follow the shell palette. No longer gated on a KDE-free desktop set — on a
 # combined box kde.sh's KDE session reset reasserts BreezeDark under Plasma.
 @test "preset injects kcolorscheme unconditionally (ADR 0123)" {
-  grep -q '"kcolorscheme",' "$PRESET"
-  grep -q 'builtin_ids = ' "$PRESET"
+  grep -q '"kcolorscheme",' "$PRESET" "$SKEL"
+  grep -q 'builtin_ids = ' "$PRESET" "$SKEL"
   # the injection is no longer gated behind a KDE-free desktop set
-  ! grep -qF '!= *" kde "*' "$PRESET"
+  ! grep -qF '!= *" kde "*' "$PRESET" "$SKEL"
 }
 
 # ── config.toml: host-bound / dead content excluded ──────────────────────────
@@ -307,29 +309,29 @@ EOF
 @test "GTK settings.ini are seeded by the preset, not stowed (ADR 0104)" {
   [ ! -e "$REPO/.config/gtk-3.0/settings.ini" ]
   [ ! -e "$REPO/.config/gtk-4.0/settings.ini" ]
-  grep -q '\.config/gtk-3.0/settings.ini' "$PRESET"
-  grep -q '\.config/gtk-4.0/settings.ini' "$PRESET"
+  grep -q '\.config/gtk-3.0/settings.ini' "$PRESET" "$SKEL"
+  grep -q '\.config/gtk-4.0/settings.ini' "$PRESET" "$SKEL"
 }
 
 @test "seeded gtk-3.0 is adw-gtk3-dark + icons/font/dark (ADR 0102/0104)" {
-  grep -q '^gtk-theme-name=adw-gtk3-dark' "$PRESET"
-  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$PRESET"
-  grep -q '^gtk-font-name=' "$PRESET"
-  grep -q '^gtk-application-prefer-dark-theme=true' "$PRESET"
+  grep -q '^gtk-theme-name=adw-gtk3-dark' "$PRESET" "$SKEL"
+  grep -q '^gtk-icon-theme-name=Papirus-Dark' "$PRESET" "$SKEL"
+  grep -q '^gtk-font-name=' "$PRESET" "$SKEL"
+  grep -q '^gtk-application-prefer-dark-theme=true' "$PRESET" "$SKEL"
 }
 
 @test "seeded GTK config drops stale breeze cursor + host DPI (ADR 0098/0104)" {
   # /etc/skel is a system default: no per-host DPI, no dead breeze cursor.
-  run grep -qE 'breeze_cursors|gtk-xft-dpi' "$PRESET"
+  run grep -qE 'breeze_cursors|gtk-xft-dpi' "$PRESET" "$SKEL"
   [ "$status" -ne 0 ]
 }
 
 @test "seeded gtk-4.0 carries no theme name so libadwaita follows gtk.css" {
   # exactly one gtk-theme-name in the preset (the gtk-3.0 one) …
-  [ "$(grep -c '^gtk-theme-name=' "$PRESET")" -eq 1 ]
+  [ "$(cat "$PRESET" "$SKEL" | grep -c '^gtk-theme-name=')" -eq 1 ]
   # … and none after the gtk-4.0 seed begins (awk exits with that count).
   run awk '/gtk-4.0.settings/{f=1} f&&/^gtk-theme-name=/{c++} END{exit c}' \
-    "$PRESET"
+    "$SKEL"
   [ "$status" -eq 0 ]
 }
 
@@ -337,7 +339,7 @@ EOF
 # on a usable, interactive bar (the wizard is a modal panel that otherwise
 # blocks every bar click). Marker is state, not config — seeded, never stowed.
 @test "preset seeds the Noctalia setup-wizard-complete marker (first-run)" {
-  grep -q '\.local/state/noctalia/\.setup-complete' "$PRESET"
+  grep -q '\.local/state/noctalia/\.setup-complete' "$PRESET" "$SKEL"
 }
 
 # The stow'd compositor configs must NOT force software cursors (real hardware
@@ -345,9 +347,9 @@ EOF
 # by the preset ONLY when installing into a VM (virtio-gpu's cursor plane is
 # buggy). So: absent from the payload, gated on systemd-detect-virt in the seed.
 @test "software-cursor override is VM-gated in the preset, not in the payload" {
-  grep -q 'systemd-detect-virt' "$PRESET"
-  grep -q 'disable-cursor-plane' "$PRESET"
-  grep -q 'no_hardware_cursors' "$PRESET"
+  grep -q 'systemd-detect-virt' "$PRESET" "$SKEL"
+  grep -q 'disable-cursor-plane' "$PRESET" "$SKEL"
+  grep -q 'no_hardware_cursors' "$PRESET" "$SKEL"
   # NOT in the stow'd configs (real hardware keeps hardware cursors); run/status
   # so the negation actually fails the test (a bare `! grep` is errexit-exempt).
   run grep -rq 'no_hardware_cursors' "$REPO/.config/hypr"; [ "$status" -ne 0 ]
@@ -382,11 +384,12 @@ EOF
 # arrived and Qt/KDE apps rendered default white. The preset must SEED it (from
 # the curated dir) and chroot.sh must STAGE it into that dir, on both adapters.
 @test "preset seeds qt6ct.conf so a fresh box themes Qt apps (ADR 0108)" {
-  grep -q '\.config/qt6ct/qt6ct.conf' "$PRESET"
-  # staged into BOTH adapters' curated dirs (niri + hyprland): src+dst per block.
-  grep -q '_niri_cur' "$CHROOT"
-  grep -q '_hypr_cur' "$CHROOT"
-  [ "$(grep -c 'qt6ct/qt6ct.conf' "$CHROOT")" -ge 2 ]
+  grep -q '\.config/qt6ct/qt6ct.conf' "$PRESET" "$SKEL"
+  # staged into BOTH adapters' curated dirs (niri + hyprland) by the shared
+  # curated-payload helper.
+  grep -q '_chroot_stage_curated_compositor niri ' "$CHROOT"
+  grep -q '_chroot_stage_curated_compositor hyprland ' "$CHROOT"
+  grep -q 'qt6ct/qt6ct.conf' "$CHROOT"
 }
 
 # ADR 0108/0124: qt6ct.conf points at ~/.local/share/color-schemes/noctalia.colors,
@@ -394,8 +397,8 @@ EOF
 # kill the boot-race white flash + create the dir the bridge watches. Seed-only
 # (never a stowed repo file — Noctalia rewrites it → git dirt).
 @test "preset seeds a boot-race KColorScheme snapshot (ADR 0108/0124)" {
-  grep -q '\.local/share/color-schemes/noctalia.colors' "$PRESET"
-  grep -q '^\[Colors:Selection\]' "$PRESET"          # a real KColorScheme group
+  grep -q '\.local/share/color-schemes/noctalia.colors' "$PRESET" "$SKEL"
+  grep -q '^\[Colors:Selection\]' "$PRESET" "$SKEL"          # a real KColorScheme group
   # NOT a stowed repo file (Noctalia rewrites it → git dirt, ADR 0104).
   [ ! -e "$REPO/.local/share/color-schemes/noctalia.colors" ]
 }
@@ -404,8 +407,8 @@ EOF
 # the preset seeds its cache JSON so first boot resolves it OFFLINE (no
 # api.noctalia.dev). Seed-only, into the XDG_STATE community-palettes cache.
 @test "preset seeds the Sapphire palette JSON for offline first boot (ADR 0109)" {
-  grep -q 'community-palettes/Catppuccin%20Mocha%20Sapphire.json' "$PRESET"
-  grep -q '"mPrimary": "#74c7ec"' "$PRESET"
+  grep -q 'community-palettes/Catppuccin%20Mocha%20Sapphire.json' "$PRESET" "$SKEL"
+  grep -q '"mPrimary": "#74c7ec"' "$PRESET" "$SKEL"
   # not a stowed repo file (state, not config)
   [ ! -e "$REPO/.local/state/noctalia/community-palettes" ]
 }

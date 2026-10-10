@@ -736,7 +736,7 @@ via `arch-chroot`, then for each user merges user core + user profile and
 installs programs via `arch-chroot /mnt su - <username>` (AUR builds through
 the vetted paru pass, [[AUR Vetting]]), then runs the [[Config Apply Pass]]
 for that user and finally seeds `/etc/skel` + `/root`. Called by
-`03-install.sh` after `configure_system()`.
+`03-install.sh` after `chroot_configure_system()`.
 
 ### Single Entry Point
 `.installer/install.sh`. The one script a user runs from the Arch live CD after
@@ -975,7 +975,7 @@ udisks / ZFS import, root password, an extras runner (Desktop Environment +
 Display Manager Adapters, sharing the Noctalia preset); pacman config is inline
 in `configure.sh`. `impermanence.sh` is staged alongside but runs in its own
 later `arch-chroot` (after the Runner). `lib/chroot.sh` shrinks to live-ISO
-concerns: write_fstab, write_esp_mirror_hook, collect_passwords, and the single
+concerns: chroot_write_fstab, chroot_write_esp_mirror_hook, chroot_collect_passwords, and the single
 `arch-chroot` invocation that stages and runs `configure.sh`.
 
 ### Chroot Staging Manifest

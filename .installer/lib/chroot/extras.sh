@@ -12,17 +12,20 @@
 # scripts that were never shipped) is gone.
 set -Eeuo pipefail
 # shellcheck source=./chroot-common.sh
-source "$(dirname "${BASH_SOURCE[0]}")/chroot-common.sh"
-chroot_err_trap "extras"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
+source "$_LIB_DIR/chroot-common.sh"
+chroot_error_trap "extras"
 
 EXTRAS_DIR="${EXTRAS_DIR:-/root/extras}"
 
 # Environment Runner: dispatch to desktop/<de>/<de>.sh for each selected DE.
 read -ra _desktops <<< "${ENVIRONMENT_DESKTOP:-}"
-for _de in "${_desktops[@]}"; do
-  _adapter="${EXTRAS_DIR}/desktop/${_de}/${_de}.sh"
+for _desktop in "${_desktops[@]}"; do
+  _adapter="${EXTRAS_DIR}/desktop/${_desktop}/${_desktop}.sh"
   if [[ ! -f "$_adapter" ]]; then
-    echo "[ERROR] No adapter found for desktop '${_de}': ${_adapter}" >&2
+    echo "[ERROR] No adapter found for desktop '${_desktop}': ${_adapter}" >&2
     exit 1
   fi
   bash "$_adapter"

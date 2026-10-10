@@ -16,6 +16,11 @@
 # `systemd-udev-settle.service` removed from every `Requires=`/`After=` line. A
 # directive emptied by the removal is dropped entirely; all other content is
 # preserved verbatim (token-level removal, so combined lists keep their peers).
+# parent_directory / base_name — the chroot-world path helpers (sibling).
+# shellcheck source=./chroot-common.sh
+declare -F parent_directory >/dev/null 2>&1 \
+  || source "${BASH_SOURCE[0]%/*}/chroot-common.sh"
+
 zfs_import_strip_settle() {
   awk '
     /^(Requires|After)=/ {
@@ -43,17 +48,17 @@ zfs_import_strip_settle() {
 # never fabricate one).
 zfs_import_write_settle_overrides() {
   local root="${1:-}"
-  local svc src dst
-  for svc in zfs-import-cache zfs-import-scan; do
-    src="${root}/usr/lib/systemd/system/${svc}.service"
-    dst="${root}/etc/systemd/system/${svc}.service"
-    if [[ ! -f "$src" ]]; then
+  local service source_path destination
+  for service in zfs-import-cache zfs-import-scan; do
+    source_path="${root}/usr/lib/systemd/system/${service}.service"
+    destination="${root}/etc/systemd/system/${service}.service"
+    if [[ ! -f "$source_path" ]]; then
       printf '[zfs-import] %s not found — skipping settle override.\n' \
-        "$src" >&2
+        "$source_path" >&2
       continue
     fi
-    mkdir -p "$(dirname "$dst")"
-    zfs_import_strip_settle < "$src" > "$dst"
+    mkdir -p "$(parent_directory "$destination")"
+    zfs_import_strip_settle < "$source_path" > "$destination"
   done
 }
 
@@ -64,11 +69,11 @@ zfs_import_write_settle_overrides() {
 # configure.sh's `systemctl enable zfs-load-key@<pool>` needs this file. The
 # root pool is unlocked by the initramfs (keylocation=prompt) and must NOT use
 # this unit. <root> defaults to "" (the chroot's /); tests pass a temp root.
-zfs_write_load_key_template() {
+zfs_import_write_load_key_template() {
   local root="${1:-}"
-  local dst="${root}/etc/systemd/system/zfs-load-key@.service"
-  mkdir -p "$(dirname "$dst")"
-  cat > "$dst" <<'UNIT'
+  local destination="${root}/etc/systemd/system/zfs-load-key@.service"
+  mkdir -p "$(parent_directory "$destination")"
+  cat > "$destination" <<'UNIT'
 [Unit]
 Description=Load ZFS encryption key for %i
 Documentation=man:zfs-load-key(8)
@@ -97,22 +102,23 @@ UNIT
 # <dir> defaults to the live /etc/zfs/zfs-list.cache; tests pass a temp dir.
 # Best-effort (|| true): a pool that can't be listed leaves no cache file
 # (zfs-mount.service still mounts it).
-zfs_write_list_cache() {
-  local pool="$1" dir="${2:-/etc/zfs/zfs-list.cache}"
-  mkdir -p "$dir"
+zfs_import_write_list_cache() {
+  local pool="$1" directory="${2:-/etc/zfs/zfs-list.cache}"
+  mkdir -p "$directory"
   zfs list -H -t filesystem -o \
 name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid,nbmand,encroot,keylocation,org.openzfs.systemd:requires,org.openzfs.systemd:requires-mounts-for,org.openzfs.systemd:before,org.openzfs.systemd:after,org.openzfs.systemd:wanted-by,org.openzfs.systemd:required-by,org.openzfs.systemd:nofail,org.openzfs.systemd:ignore \
-    "$pool" 2>/dev/null > "${dir}/${pool}" || true
+    "$pool" 2>/dev/null > "${directory}/${pool}" || true
 }
 
-# zfs_write_mount_restart_dropin [root] — retry zfs-mount.service on failure:
-# `zfs mount -a` aborted once in libzfs's parallel mount (no-shell 20261007,
-# fnvlist_lookup_string), leaving datasets unmounted for the whole boot. A
-# oneshot allows Restart=on-failure (systemd.service(5)); bounded to 3 starts.
-zfs_write_mount_restart_dropin() {
-  local d="${1:-}/etc/systemd/system/zfs-mount.service.d"
-  mkdir -p "$d"
-  cat > "$d/10-restart.conf" <<'UNIT'
+# zfs_import_write_mount_restart_dropin [root] — retry zfs-mount.service on
+# failure: `zfs mount -a` aborted once in libzfs's parallel mount (no-shell
+# 20261007, fnvlist_lookup_string), leaving datasets unmounted for the whole
+# boot. A oneshot allows Restart=on-failure (systemd.service(5)); bounded to 3
+# starts.
+zfs_import_write_mount_restart_dropin() {
+  local directory="${1:-}/etc/systemd/system/zfs-mount.service.d"
+  mkdir -p "$directory"
+  cat > "$directory/10-restart.conf" <<'UNIT'
 [Unit]
 StartLimitIntervalSec=60
 StartLimitBurst=3

@@ -27,7 +27,7 @@ declare -F post_install_programs >/dev/null 2>&1 \
 
 # =============================================================================
 # RESOLVED GLOBALS — set during validate_install_context,
-# consumed by configure_system
+# consumed by chroot_configure_system
 # =============================================================================
 # shellcheck disable=SC2034 # consumed by validation.sh, profiles.sh, chroot.sh
 RESOLVED_HOSTNAME=""

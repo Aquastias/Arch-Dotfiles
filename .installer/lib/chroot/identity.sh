@@ -2,10 +2,12 @@
 # lib/chroot/identity.sh — Chroot Configuration Module: system identity
 # Runs inside arch-chroot. Reads install-state.json via install-state.sh.
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "identity"
+chroot_error_trap "identity"
 
 # shellcheck source=./install-state.sh
 STATE="${STATE:-/root/lib-chroot/install-state.json}"

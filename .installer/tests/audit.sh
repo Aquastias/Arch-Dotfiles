@@ -7,7 +7,7 @@
 #
 # Checks:
 #   1.  Host-side lib modules present
-#   2.  Staged file manifest  (configure_system copies)
+#   2.  Staged file manifest  (chroot_configure_system copies)
 #   3.  Chroot source chain   (extras → extras-common → common → jsonc/globals)
 #   4.  lib/chroot/ scripts present  (staged as /root/lib-chroot/)
 #   5.  jsonc.sh function definitions
@@ -83,9 +83,9 @@ for f in lib/common.sh lib/jsonc.sh lib/globals.sh \
 done
 
 # =============================================================================
-_section "2. Staged file manifest  (configure_system → /root/)"
+_section "2. Staged file manifest  (chroot_configure_system → /root/)"
 # =============================================================================
-# Files explicitly copied in lib/chroot.sh::configure_system():
+# Files explicitly copied in lib/chroot.sh::chroot_configure_system():
 #   lib/common.sh   → /root/lib/common.sh
 #   lib/jsonc.sh    → /root/lib/jsonc.sh
 #   lib/globals.sh  → /root/lib/globals.sh

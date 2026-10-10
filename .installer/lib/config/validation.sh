@@ -46,7 +46,7 @@ _validation_system_fields() {
   [[ "$hostname" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$ ]] ||
     error "Invalid hostname '${hostname}'." \
           "Use letters, digits, hyphens only (no leading/trailing hyphen)."
-  # shellcheck disable=SC2034 # consumed by configure_system() in chroot.sh
+  # shellcheck disable=SC2034 # consumed by chroot_configure_system() in chroot.sh
   RESOLVED_HOSTNAME="$hostname"
 
   # shellcheck disable=SC2034 # consumed by callers passing it to

@@ -24,6 +24,9 @@ exempt-name .installer/lib/chroot/impermanence.sh run_latehook
 exempt-name .installer/lib/chroot/impermanence.sh build
 exempt-name .installer/lib/chroot/impermanence.sh help
 exempt-name .installer/lib/chroot/initcpio.sh run_hook
+# The chroot impermanence module defines the `info` the shared impermanence
+# functions call (no stdlib in the chroot).
+exempt-name .installer/lib/chroot/impermanence.sh info
 
 # Boundary-forced twin: preflight runs before common.sh is sourced.
 exempt-name .installer/lib/preflight.sh command_exists

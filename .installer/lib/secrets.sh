@@ -138,7 +138,7 @@ secrets_load() {
 
 # secrets_persist_state
 # Writes secret tmpfs paths into /mnt/install-state.json (or $INSTALL_STATE).
-# Must run after the root pool is mounted, before configure_system.
+# Must run after the root pool is mounted, before chroot_configure_system.
 secrets_persist_state() {
   [[ -z "${_SECRETS_TMPFS:-}" ]] && return 0
 

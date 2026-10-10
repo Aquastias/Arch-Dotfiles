@@ -2,7 +2,7 @@
 # =============================================================================
 # lib/profiles/runner.sh — Host/user profile runner
 # =============================================================================
-# Sourced by 03-install.sh after configure_system().
+# Sourced by 03-install.sh after chroot_configure_system().
 # Requires: lib/common.sh and lib/config/layers.sh already sourced.
 #
 # Public API:

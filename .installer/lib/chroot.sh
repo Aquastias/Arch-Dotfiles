@@ -6,14 +6,16 @@
 # Requires: lib/common.sh and lib/install-state.sh already sourced.
 #
 # Provides:
-#   write_fstab           — writes /etc/fstab from LAYOUT_ESP_PARTS (1+ ESPs)
-#   write_esp_mirror_hook — installs a pacman hook that syncs secondary ESPs
-#   configure_system — seeds ZFS state, then runs the full chroot
+#   chroot_write_fstab           — writes /etc/fstab from LAYOUT_ESP_PARTS
+#                                  (1+ ESPs)
+#   chroot_write_esp_mirror_hook — installs a pacman hook that syncs
+#                                  secondary ESPs
+#   chroot_configure_system — seeds ZFS state, then runs the full chroot
 #                      configuration
 #
-# configure_system stages lib/chroot/ as /root/lib-chroot/ in the new root,
-# delegates install-state.json writing to install_state_write, passes ROOT_PW
-# via env var, then runs /root/lib-chroot/configure.sh.
+# chroot_configure_system stages lib/chroot/ as /root/lib-chroot/ in the new
+# root, delegates install-state.json writing to install_state_write, passes
+# ROOT_PW via env var, then runs /root/lib-chroot/configure.sh.
 # =============================================================================
 
 # Install State owns the credential-key resolution + SOPS gate. Source it if a
@@ -21,7 +23,7 @@
 # shellcheck source=./install-state.sh
 declare -F install_state_credential_path >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/install-state.sh"
-# Shared confirmed-secret reader used by collect_passwords.
+# Shared confirmed-secret reader used by chroot_collect_passwords.
 # shellcheck source=./prompt.sh
 declare -F prompt_secret >/dev/null 2>&1 \
   || source "${BASH_SOURCE[0]%/*}/prompt.sh"
@@ -74,18 +76,21 @@ _CHROOT_STAGE_EXTRAS_LIB=(
   # The shared Noctalia work-shell preset (ADR 0097), sourced by BOTH the niri
   # and Hyprland adapters — the one place the preset logic lives.
   "lib/chroot/noctalia-preset.sh|chroot/noctalia-preset.sh"
+  "lib/chroot/noctalia-skeleton.sh|chroot/noctalia-skeleton.sh"
+  # noctalia-preset.sh guard-sources this for its path helpers.
+  "lib/chroot/chroot-common.sh|chroot/chroot-common.sh"
 )
 
 # _chroot_stage <dst-root> <entry...>   entry = "src-rel|dst-rel"
 # Materializes manifest entries: copies each src (relative to SCRIPT_DIR) to
 # dst-root/dst-rel, creating parent dirs. The single copy path for staging.
 _chroot_stage() {
-  local dst_root="$1"; shift
-  local entry src dst
+  local destination_root="$1"; shift
+  local entry source_path destination
   for entry in "$@"; do
-    IFS='|' read -r src dst <<< "$entry"
-    mkdir -p "${dst_root}/$(dirname "$dst")"
-    cp "${SCRIPT_DIR}/${src}" "${dst_root}/${dst}"
+    IFS='|' read -r source_path destination <<< "$entry"
+    mkdir -p "${destination_root}/$(parent_directory "$destination")"
+    cp "${SCRIPT_DIR}/${source_path}" "${destination_root}/${destination}"
   done
 }
 
@@ -121,9 +126,9 @@ _chroot_fstab_generate() {
 # Resolves UUIDs from LAYOUT_ESP_PARTS via blkid, delegates to
 # _chroot_fstab_generate,
 # writes result to ${MOUNT_ROOT}/etc/fstab.
-write_fstab() {
+chroot_write_fstab() {
   local count="${#LAYOUT_ESP_PARTS[@]}"
-  ((count >= 1)) || error "write_fstab: LAYOUT_ESP_PARTS is empty."
+  ((count >= 1)) || error "chroot_write_fstab: LAYOUT_ESP_PARTS is empty."
   local -a uuids=()
   local part
   for part in "${LAYOUT_ESP_PARTS[@]}"; do
@@ -141,8 +146,8 @@ write_fstab() {
 # Writes /etc/crypttab from the active Root Layout Adapter's LAYOUT_CRYPTTAB
 # (ADR 0043) — the auto-opened non-root LUKS volumes (e.g. random-key swap on an
 # encrypted non-ZFS root). No-op when empty (plaintext, or ZFS native crypto).
-# Runs after pacstrap (so /etc exists), alongside write_fstab.
-write_crypttab() {
+# Runs after pacstrap (so /etc exists), alongside chroot_write_fstab.
+chroot_write_crypttab() {
   [[ -n "${LAYOUT_CRYPTTAB:-}" ]] || return 0
   printf '%s\n' "$LAYOUT_CRYPTTAB" >"${MOUNT_ROOT}/etc/crypttab"
   info "crypttab written."
@@ -152,7 +157,7 @@ write_crypttab() {
 # ESP MIRROR PACMAN HOOK
 # =============================================================================
 
-write_esp_mirror_hook() {
+chroot_write_esp_mirror_hook() {
   # Install a pacman hook that rsyncs the primary ESP to all secondary ESPs
   # after any kernel or systemd-boot update (Target = usr/lib/modules/*/vmlinuz
   # and usr/lib/systemd/boot/efi/*.efi), keeping every OS disk bootable.
@@ -214,7 +219,7 @@ HOOK
 # CHROOT CONFIGURATION
 # =============================================================================
 
-collect_passwords() {
+chroot_collect_passwords() {
   # Collects the root password interactively on the LIVE ISO terminal (before
   # entering the chroot where stdin is bound to the heredoc).
   # Returns a compact JSON object: {"root":"pw"}.
@@ -237,9 +242,10 @@ collect_passwords() {
   section "Set root password" >&2
 
   # Shared confirmed-secret reader (lib/prompt.sh).
-  local root_pw
-  prompt_secret root_pw "Password for root"
-  result="$(printf '%s' "$result" | jq --arg pw "$root_pw" '. + {root: $pw}')"
+  local root_password
+  prompt_secret root_password "Password for root"
+  result="$(printf '%s' "$result" \
+    | jq --arg pw "$root_password" '. + {root: $pw}')"
   printf '%s' "$result"
 }
 
@@ -249,14 +255,14 @@ collect_passwords() {
 # .secrets / .guided_passwords precedence (and the ADR 0025 gate) stays in the
 # Install State module — the schema's owner — not re-encoded here. Resolving
 # host-side also means the decrypted secret is never copied into the new root.
-#   _resolve_root_password <collected-pw> <secrets-install-state.json>
-_resolve_root_password() {
+#   _chroot_resolve_root_password <collected-pw> <secrets-install-state.json>
+_chroot_resolve_root_password() {
   local collected="$1" state="$2"
-  local sec_path sec_pw
-  sec_path="$(install_state_credential_path "$state" host)"
-  if [[ -n "$sec_path" && -f "$sec_path" ]]; then
-    sec_pw="$(jq -r '.root_password // empty' "$sec_path")"
-    [[ -n "$sec_pw" ]] && { printf '%s' "$sec_pw"; return; }
+  local secret_path secret_password
+  secret_path="$(install_state_credential_path "$state" host)"
+  if [[ -n "$secret_path" && -f "$secret_path" ]]; then
+    secret_password="$(jq -r '.root_password // empty' "$secret_path")"
+    [[ -n "$secret_password" ]] && { printf '%s' "$secret_password"; return; }
   fi
   printf '%s' "$collected"
 }
@@ -269,12 +275,12 @@ _resolve_root_password() {
 # empty, remove it so the hook falls back to scan import.
 _chroot_seed_zpool_cache() {
   local cache="$1"; shift
-  local p
-  mkdir -p "$(dirname "$cache")"
-  for p in "$@"; do
-    if ! zpool set cachefile="$cache" "$p" 2>/dev/null; then
+  local pool
+  mkdir -p "$(parent_directory "$cache")"
+  for pool in "$@"; do
+    if ! zpool set cachefile="$cache" "$pool" 2>/dev/null; then
       rm -f "$cache"
-      warn "zpool.cache could not be written for '$p' —" \
+      warn "zpool.cache could not be written for '$pool' —" \
            "zfs-import-scan will handle first boot."
       return 0
     fi
@@ -287,7 +293,7 @@ _chroot_seed_zpool_cache() {
   info "Seeded zpool.cache with: $*"
 }
 
-configure_system() {
+chroot_configure_system() {
   section "Configuring System (arch-chroot)"
 
   # pacstrap read the HOST pacman.conf (Optional Repositories, ADR 0072;
@@ -295,163 +301,148 @@ configure_system() {
   # every layout, or a non-ZFS install loses e.g. [multilib].
   cp /etc/pacman.conf "${MOUNT_ROOT}/etc/pacman.conf"
 
-  # ── Seed ZFS state into the new root (ZFS only) ───────────────────────────
-  # The pool cache and hostid must exist in the new system before the initramfs
-  # is built, otherwise the ZFS hook cannot import the pool at boot. A pure
-  # non-ZFS install has no zpool / hostid to seed (ADR 0043).
-  if command_exists zpool; then
-    local _pools=()
-    mapfile -t _pools < <(zpool list -H -o name)
-    _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${_pools[@]}"
-    cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
-  fi
+  _chroot_seed_zfs_state
+  _chroot_copy_extras
 
-  # ── Copy extras/ scripts for execution inside chroot ──────────────────────
-  if [[ -d "${SCRIPT_DIR}/extras" ]]; then
-    # rm first so cp -r is idempotent: otherwise an existing /root/extras nests
-    # the copy at /root/extras/extras/.
-    rm -rf "${MOUNT_ROOT}/root/extras"
-    cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
-    # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.
-    _chroot_stage "${MOUNT_ROOT}/root/lib" "${_CHROOT_STAGE_EXTRAS_LIB[@]}"
-    find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
-    # Stage the curated niri/Noctalia dotfiles (single source: the repo's
-    # .config/.local) into the niri adapter so it seeds /etc/skel (ADR 0095) —
-    # the extras tree is all the chroot adapter can reach. Repo-root is
-    # SCRIPT_DIR/.. (SCRIPT_DIR is .installer). Harmless when niri isn't chosen.
-    _niri_cur="${MOUNT_ROOT}/root/extras/desktop/niri/curated"
-    if [[ -f "${SCRIPT_DIR}/../.config/niri/config.kdl" ]]; then
-      install -Dm644 "${SCRIPT_DIR}/../.config/niri/config.kdl" \
-        "${_niri_cur}/.config/niri/config.kdl"
-      # Split config (ADR 0107): stage the conf.d/ part-file tree beside the
-      # entry manifest so the preset seeds it.
-      install -d "${_niri_cur}/.config/niri/conf.d"
-      install -m644 "${SCRIPT_DIR}/../.config/niri/conf.d/"* \
-        "${_niri_cur}/.config/niri/conf.d/"
-      install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
-        "${_niri_cur}/.config/noctalia/config.toml"
-      # User-template inputs (ADR 0128/0129): config.toml declares
-      # [theme.templates.user.*] whose input_path lives here; stage the dir so
-      # the preset seeds it — live palette-follow on seed-only boxes (pi + zsh),
-      # not just stow'd ones.
-      install -d "${_niri_cur}/.config/noctalia/templates"
-      install -m644 "${SCRIPT_DIR}/../.config/noctalia/templates/"* \
-        "${_niri_cur}/.config/noctalia/templates/"
-      install -d "${_niri_cur}/.local/bin"
-      install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
-        "${_niri_cur}/.local/bin/"
-      # pcmanfm-qt settings + its right-click actions (ADR 0100): the preset
-      # seeds these from the curated dir, so they must be staged too.
-      install -Dm644 "${SCRIPT_DIR}/../.config/pcmanfm-qt/lxqt/settings.conf" \
-        "${_niri_cur}/.config/pcmanfm-qt/lxqt/settings.conf"
-      install -d "${_niri_cur}/.local/share/file-manager/actions"
-      install -m644 \
-        "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
-        "${_niri_cur}/.local/share/file-manager/actions/"
-      # qt6ct.conf — the App Theming Bridge's Qt half (ADR 0102/0108): the preset
-      # seeds it from the curated dir, so it must be staged too (it was stow-only,
-      # so it never reached a fresh box — the white-Qt-apps bug, ADR 0108).
-      install -Dm644 "${SCRIPT_DIR}/../.config/qt6ct/qt6ct.conf" \
-        "${_niri_cur}/.config/qt6ct/qt6ct.conf"
-    fi
-    # Same single-source staging for Hyprland (ADR 0097): the Hyprland adapter
-    # seeds the SAME Noctalia payload niri does — the Noctalia-wired
-    # hyprland.lua plus the shared config.toml + noctalia-* helpers — so a
-    # Hyprland+Noctalia box gets a config.toml byte-identical to the niri one.
-    # Harmless when Hyprland isn't chosen.
-    _hypr_cur="${MOUNT_ROOT}/root/extras/desktop/hyprland/curated"
-    if [[ -f "${SCRIPT_DIR}/../.config/hypr/hyprland.lua" ]]; then
-      install -Dm644 "${SCRIPT_DIR}/../.config/hypr/hyprland.lua" \
-        "${_hypr_cur}/.config/hypr/hyprland.lua"
-      # Split config (ADR 0107): stage the conf.d/ part-file tree beside the
-      # entry manifest so the preset seeds it.
-      install -d "${_hypr_cur}/.config/hypr/conf.d"
-      install -m644 "${SCRIPT_DIR}/../.config/hypr/conf.d/"* \
-        "${_hypr_cur}/.config/hypr/conf.d/"
-      install -Dm644 "${SCRIPT_DIR}/../.config/noctalia/config.toml" \
-        "${_hypr_cur}/.config/noctalia/config.toml"
-      # User-template inputs (ADR 0128/0129): staged so the preset seeds them for
-      # live palette-follow on seed-only boxes (pi + zsh).
-      install -d "${_hypr_cur}/.config/noctalia/templates"
-      install -m644 "${SCRIPT_DIR}/../.config/noctalia/templates/"* \
-        "${_hypr_cur}/.config/noctalia/templates/"
-      install -d "${_hypr_cur}/.local/bin"
-      install -m755 "${SCRIPT_DIR}/../.local/bin/noctalia-"* \
-        "${_hypr_cur}/.local/bin/"
-      # pcmanfm-qt settings + its right-click actions (ADR 0100): the preset
-      # seeds these from the curated dir, so they must be staged too.
-      install -Dm644 "${SCRIPT_DIR}/../.config/pcmanfm-qt/lxqt/settings.conf" \
-        "${_hypr_cur}/.config/pcmanfm-qt/lxqt/settings.conf"
-      install -d "${_hypr_cur}/.local/share/file-manager/actions"
-      install -m644 \
-        "${SCRIPT_DIR}/../.local/share/file-manager/actions/"*.desktop \
-        "${_hypr_cur}/.local/share/file-manager/actions/"
-      # qt6ct.conf — the App Theming Bridge's Qt half (ADR 0102/0108): the preset
-      # seeds it from the curated dir, so it must be staged too (it was stow-only,
-      # so it never reached a fresh box — the white-Qt-apps bug, ADR 0108).
-      install -Dm644 "${SCRIPT_DIR}/../.config/qt6ct/qt6ct.conf" \
-        "${_hypr_cur}/.config/qt6ct/qt6ct.conf"
-    fi
-    info "Copied extras/ → /root/extras/"
-  else
-    warn "extras/ directory not found at ${SCRIPT_DIR}/extras" \
-         "— post-install scripts won't run."
-  fi
-
-  write_fstab
-  write_crypttab
-  write_esp_mirror_hook "${#LAYOUT_ESP_PARTS[@]}"
+  chroot_write_fstab
+  chroot_write_crypttab
+  chroot_write_esp_mirror_hook "${#LAYOUT_ESP_PARTS[@]}"
 
   # ── Collect passwords interactively HERE, before entering the chroot ─────
   # arch-chroot redirects stdin to the heredoc, so 'read' inside the chroot
   # cannot read from the terminal. We collect all passwords now, then pass
   # them in as a JSON string so chpasswd can set them non-interactively.
-  local passwords_json
-  passwords_json="$(collect_passwords)"
-
-  local root_pw
-  root_pw="$(printf '%s' "$passwords_json" | jq -r '.root')"
+  local passwords_json root_password
+  passwords_json="$(chroot_collect_passwords)"
+  root_password="$(printf '%s' "$passwords_json" | jq -r '.root')"
   # A Host Secret's .root_password overrides the collected/default value — one
   # value, resolved host-side, crosses into the chroot (no decrypted secret is
   # copied into the new root). The secrets-bearing state is /mnt/install-state
   # .json (written by the Secrets Module / guided seam), distinct from the chroot
   # config state under /root/lib-chroot.
-  root_pw="$(_resolve_root_password "$root_pw" "${MOUNT_ROOT}/install-state.json")"
+  root_password="$(_chroot_resolve_root_password "$root_password" \
+    "${MOUNT_ROOT}/install-state.json")"
 
-  # ── Stage Chroot Configuration Module ───────────────────────────────────
-  # lib/chroot/ as a tree, plus the flat siblings declared in the manifest.
+  _chroot_stage_configuration_module
+
+  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" \
+  ENVIRONMENT_WAYLAND_SHELL="${ENVIRONMENT_WAYLAND_SHELL:-}" \
+  ENVIRONMENT_STOCK="${ENVIRONMENT_STOCK:-}" \
+  ROOT_PW="$root_password" \
+    arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
+}
+
+# The pool cache and hostid must exist in the new system before the initramfs
+# is built, otherwise the ZFS hook cannot import the pool at boot. A pure
+# non-ZFS install has no zpool / hostid to seed (ADR 0043).
+_chroot_seed_zfs_state() {
+  command_exists zpool || return 0
+  local pools=()
+  mapfile -t pools < <(zpool list -H -o name)
+  _chroot_seed_zpool_cache "${MOUNT_ROOT}/etc/zfs/zpool.cache" "${pools[@]}"
+  cp /etc/hostid "${MOUNT_ROOT}/etc/hostid"
+}
+
+# Copy extras/ scripts (and the lib helpers they source) for execution inside
+# the chroot, plus the curated compositor payloads the DE adapters seed.
+_chroot_copy_extras() {
+  if [[ ! -d "${SCRIPT_DIR}/extras" ]]; then
+    warn "extras/ directory not found at ${SCRIPT_DIR}/extras" \
+         "— post-install scripts won't run."
+    return 0
+  fi
+  # rm first so cp -r is idempotent: otherwise an existing /root/extras nests
+  # the copy at /root/extras/extras/.
+  rm -rf "${MOUNT_ROOT}/root/extras"
+  cp -r "${SCRIPT_DIR}/extras" "${MOUNT_ROOT}/root/extras"
+  # Copy lib helpers so extras scripts can source jsonc(), extras-common, etc.
+  _chroot_stage "${MOUNT_ROOT}/root/lib" "${_CHROOT_STAGE_EXTRAS_LIB[@]}"
+  find "${MOUNT_ROOT}/root/extras" -name '*.sh' -exec chmod +x {} \;
+  # Stage the curated niri/Noctalia dotfiles (single source: the repo's
+  # .config/.local) into the niri adapter so it seeds /etc/skel (ADR 0095) —
+  # the extras tree is all the chroot adapter can reach. Same single-source
+  # staging for Hyprland (ADR 0097): it seeds the SAME Noctalia payload, so a
+  # Hyprland+Noctalia box gets a config.toml byte-identical to the niri one.
+  # Harmless when a compositor isn't chosen.
+  _chroot_stage_curated_compositor niri niri/config.kdl
+  _chroot_stage_curated_compositor hyprland hypr/hyprland.lua
+  info "Copied extras/ → /root/extras/"
+}
+
+# _chroot_stage_curated_compositor <adapter> <entry config> — stage the
+# compositor's entry config + its conf.d/ part files (split config, ADR 0107),
+# then the shared Noctalia payload, into the adapter's curated dir. Skipped
+# when the repo has no such entry config. Repo-root is SCRIPT_DIR/..
+# (SCRIPT_DIR is .installer).
+_chroot_stage_curated_compositor() {
+  local adapter="$1" entry="$2"
+  local repo="${SCRIPT_DIR}/.."
+  local curated="${MOUNT_ROOT}/root/extras/desktop/${adapter}/curated"
+  [[ -f "${repo}/.config/${entry}" ]] || return 0
+  install -Dm644 "${repo}/.config/${entry}" "${curated}/.config/${entry}"
+  local dropin_directory="${entry%/*}/conf.d"
+  install -d "${curated}/.config/${dropin_directory}"
+  install -m644 "${repo}/.config/${dropin_directory}/"* \
+    "${curated}/.config/${dropin_directory}/"
+  _chroot_stage_noctalia_payload "$curated"
+}
+
+# The Noctalia payload both compositor adapters seed from their curated dir.
+_chroot_stage_noctalia_payload() {
+  local curated="$1" repo="${SCRIPT_DIR}/.."
+  install -Dm644 "${repo}/.config/noctalia/config.toml" \
+    "${curated}/.config/noctalia/config.toml"
+  # User-template inputs (ADR 0128/0129): config.toml declares
+  # [theme.templates.user.*] whose input_path lives here; stage the dir so
+  # the preset seeds it — live palette-follow on seed-only boxes (pi + zsh),
+  # not just stow'd ones.
+  install -d "${curated}/.config/noctalia/templates"
+  install -m644 "${repo}/.config/noctalia/templates/"* \
+    "${curated}/.config/noctalia/templates/"
+  install -d "${curated}/.local/bin"
+  install -m755 "${repo}/.local/bin/noctalia-"* "${curated}/.local/bin/"
+  # pcmanfm-qt settings + its right-click actions (ADR 0100): the preset
+  # seeds these from the curated dir, so they must be staged too.
+  install -Dm644 "${repo}/.config/pcmanfm-qt/lxqt/settings.conf" \
+    "${curated}/.config/pcmanfm-qt/lxqt/settings.conf"
+  install -d "${curated}/.local/share/file-manager/actions"
+  install -m644 "${repo}/.local/share/file-manager/actions/"*.desktop \
+    "${curated}/.local/share/file-manager/actions/"
+  # qt6ct.conf — the App Theming Bridge's Qt half (ADR 0102/0108): the preset
+  # seeds it from the curated dir, so it must be staged too (it was stow-only,
+  # so it never reached a fresh box — the white-Qt-apps bug, ADR 0108).
+  install -Dm644 "${repo}/.config/qt6ct/qt6ct.conf" \
+    "${curated}/.config/qt6ct/qt6ct.conf"
+}
+
+# Stage the Chroot Configuration Module — lib/chroot/ as a tree, plus the flat
+# siblings declared in the manifest — and write its install-state.json.
+_chroot_stage_configuration_module() {
   rm -rf "${MOUNT_ROOT}/root/lib-chroot"
   cp -r "${SCRIPT_DIR}/lib/chroot" "${MOUNT_ROOT}/root/lib-chroot"
   _chroot_stage "${MOUNT_ROOT}/root/lib-chroot" "${_CHROOT_STAGE_LIBCHROOT[@]}"
   find "${MOUNT_ROOT}/root/lib-chroot" -name '*.sh' -exec chmod +x {} \;
 
-  # ── Write install-state.json via the Install State module ────────────────
   install_state_write \
     "${MOUNT_ROOT}/root/lib-chroot/install-state.json" \
     "$RESOLVED_HOST_PROFILE"
   chmod 600 "${MOUNT_ROOT}/root/lib-chroot/install-state.json"
-
-  ENVIRONMENT_DESKTOP="${ENVIRONMENT_DESKTOP[*]:-}" \
-  ENVIRONMENT_WAYLAND_SHELL="${ENVIRONMENT_WAYLAND_SHELL:-}" \
-  ENVIRONMENT_STOCK="${ENVIRONMENT_STOCK:-}" \
-  ROOT_PW="$root_pw" \
-    arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/configure.sh
 }
 
-# apply_impermanence
+# chroot_apply_impermanence
 # Runs the impermanence Chroot Configuration Module from the host after
 # run_profiles. Kept out of configure.sh because it moves /root into the
 # persist dataset, which would erase /root/lib-chroot/ before the Profiles
 # Runner can read it.
-apply_impermanence() {
+chroot_apply_impermanence() {
   [[ -d "${MOUNT_ROOT}/root/lib-chroot" ]] || return 0
   section "Applying Impermanence"
   # Tee to two logs: the target's /var/log (survives reboot, readable on
   # the booted system) and the live ISO's /tmp (readable immediately if
   # apply aborts and the system can't boot).
-  local tgt_log="${MOUNT_ROOT}/var/log/install-impermanence.log"
+  local target_log="${MOUNT_ROOT}/var/log/install-impermanence.log"
   local iso_log="/tmp/install-impermanence.log"
-  mkdir -p "$(dirname "$tgt_log")"
+  mkdir -p "$(parent_directory "$target_log")"
   arch-chroot "${MOUNT_ROOT}" bash /root/lib-chroot/impermanence.sh \
-    2>&1 | tee -a "$tgt_log" "$iso_log"
+    2>&1 | tee -a "$target_log" "$iso_log"
 }

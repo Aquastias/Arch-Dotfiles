@@ -6,10 +6,12 @@
 # the loader default. Shared staging / ESP-sync-hook install live in
 # bootloader-common.sh; the pure entry text is tested via loader-entries.sh.
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "bootloader-systemd"
+chroot_error_trap "bootloader-systemd"
 
 # bootloader-common sources install-state + loads STATE, then the kernel /
 # microcode / zswap / entry libs and computes the shared per-boot values.
@@ -40,9 +42,9 @@ EOF
 # One default + fallback entry per selected kernel, per-kbase filenames so the
 # images never collide on the ESP (ADR 0078). Default entries boot quietly on a
 # desktop (clean greeter VT); fallback entries stay verbose for diagnosis.
-for _tok in "${KERNELS[@]}"; do
-  kbase="$(kernel_pkg "$_tok")"
-  fb="$(blcommon_stage_kernel "$kbase")"
+for _kernel in "${KERNELS[@]}"; do
+  kbase="$(kernel_pkg "$_kernel")"
+  fb="$(bootloader_common_stage_kernel "$kbase")"
   loader_entries_systemd_boot "Arch Linux (${kbase})" "$kbase" "$MICROCODE_INITRDS" \
     "initramfs-${kbase}.img" \
     "${DEFAULT_OPTS}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}" \
@@ -53,7 +55,7 @@ for _tok in "${KERNELS[@]}"; do
       > "$ESP/loader/entries/arch-${kbase}-fallback.conf"
   fi
 done
-blcommon_stage_microcode
+bootloader_common_stage_microcode
 
-blcommon_install_esp_sync_hooks
+bootloader_common_install_esp_sync_hooks
 echo "systemd-boot installed."

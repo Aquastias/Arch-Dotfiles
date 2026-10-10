@@ -4,8 +4,11 @@
 # Run inside arch-chroot by profiles.sh::_profiles_create_user().
 set -Eeuo pipefail
 # shellcheck source=./chroot-common.sh
-source "$(dirname "${BASH_SOURCE[0]}")/chroot-common.sh"
-chroot_err_trap "create-user"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
+source "$_LIB_DIR/chroot-common.sh"
+chroot_error_trap "create-user"
 
 NAME="$1"; LOGIN_SHELL="$2"; GROUPS_CSV="$3"; PASSWORD="$4"
 SECRETS_FILE="${5:-}"
@@ -16,15 +19,15 @@ FULLNAME="${USER_FULLNAME:-}"
 # Groups like docker/libvirt/kvm are created by their packages, installed
 # later.  Filter to only groups that currently exist; the remainder are
 # applied by _profiles_apply_user_groups after program installation.
-filter_existing_groups() {
-  local csv="$1" existing="" g
+create_user_existing_groups() {
+  local csv="$1" existing="" group
   IFS=',' read -ra _ALL <<< "$csv"
-  for g in "${_ALL[@]}"; do
-    [[ -z "$g" ]] && continue
-    if getent group "$g" >/dev/null 2>&1; then
-      existing+="${g},"
+  for group in "${_ALL[@]}"; do
+    [[ -z "$group" ]] && continue
+    if getent group "$group" >/dev/null 2>&1; then
+      existing+="${group},"
     else
-      echo "  [create-user] group '${g}' absent —" \
+      echo "  [create-user] group '${group}' absent —" \
            "will reconcile after program install" >&2
     fi
   done
@@ -35,7 +38,7 @@ filter_existing_groups() {
 # the chosen shell's package (chroot-common.sh); bash/sh ship with base.
 ensure_login_shell_installed "$LOGIN_SHELL"
 
-PRESENT="$(filter_existing_groups "$GROUPS_CSV")"
+PRESENT="$(create_user_existing_groups "$GROUPS_CSV")"
 
 # GECOS comment arg, only when a display name was given (Primary User).
 _cflag=()

@@ -10,23 +10,23 @@
 # Requires _LIB_DIR + STATE set by the caller.
 # =============================================================================
 
-# _bl_src <staged-name> <dev-relpath> — source a lib whether staged flat into
-# lib-chroot or read from the dev tree.
-_bl_src() {
-  local s="$_LIB_DIR/$1"
-  [[ -f "$s" ]] || s="$_LIB_DIR/$2"
+# _bootloader_common_source <staged-name> <dev-relpath> — source a lib whether
+# staged flat into lib-chroot or read from the dev tree.
+_bootloader_common_source() {
+  local source_path="$_LIB_DIR/$1"
+  [[ -f "$source_path" ]] || source_path="$_LIB_DIR/$2"
   # shellcheck disable=SC1090
-  source "$s"
+  source "$source_path"
 }
-_bl_src install-state.sh  ../install-state.sh
+_bootloader_common_source install-state.sh  ../install-state.sh
 install_state_load "$STATE"
-_bl_src kernel.sh         ../packages/kernel.sh
-_bl_src microcode.sh      ../packages/microcode.sh
-_bl_src zswap.sh          ../boot/zswap.sh
-_bl_src lsm.sh            ../boot/lsm.sh
-_bl_src vm-video.sh       ../boot/vm-video.sh
-_bl_src esp-stage.sh      ../boot/esp-stage.sh
-_bl_src loader-entries.sh ../boot/loader-entries.sh
+_bootloader_common_source kernel.sh         ../packages/kernel.sh
+_bootloader_common_source microcode.sh      ../packages/microcode.sh
+_bootloader_common_source zswap.sh          ../boot/zswap.sh
+_bootloader_common_source lsm.sh            ../boot/lsm.sh
+_bootloader_common_source vm-video.sh       ../boot/vm-video.sh
+_bootloader_common_source esp-stage.sh      ../boot/esp-stage.sh
+_bootloader_common_source loader-entries.sh ../boot/loader-entries.sh
 
 ESP="/boot/efi"
 
@@ -66,16 +66,17 @@ QUIET_CMDLINE=""
 [[ -n "${ENVIRONMENT_DESKTOP:-}" ]] \
   && QUIET_CMDLINE="quiet loglevel=3 systemd.show_status=false"
 
-# blcommon_stage_kernel <kbase> — esp_stage_kernel onto this ESP: prints only
-# the fallback image name (or nothing) for the caller's entry.
-blcommon_stage_kernel() { esp_stage_kernel "$1" "$ESP"; }
+# bootloader_common_stage_kernel <kbase> — esp_stage_kernel onto this ESP:
+# prints only the fallback image name (or nothing) for the caller's entry.
+bootloader_common_stage_kernel() { esp_stage_kernel "$1" "$ESP"; }
 
-# blcommon_esp_disk_part [<esp-mount>] — print "<disk> <part>" for the ESP's
-# backing device, for efibootmgr --disk/--part. nvme/mmc use a `p<N>` partition
-# suffix, sata does not. Shared so no adapter hardcodes the partition number.
-blcommon_esp_disk_part() {
-  local mnt="${1:-$ESP}" dev disk part
-  dev="$(findmnt -n -o SOURCE "$mnt")"
+# bootloader_common_esp_disk_partition [<esp-mount>] — print "<disk> <part>" for
+# the ESP's backing device, for efibootmgr --disk/--part. nvme/mmc use a `p<N>`
+# partition suffix, sata does not. Shared so no adapter hardcodes the partition
+# number.
+bootloader_common_esp_disk_partition() {
+  local mountpoint="${1:-$ESP}" dev disk part
+  dev="$(findmnt -n -o SOURCE "$mountpoint")"
   if [[ "$dev" =~ nvme|mmcblk ]]; then
     disk="${dev%p[0-9]*}"; part="${dev##*p}"
   else
@@ -84,45 +85,48 @@ blcommon_esp_disk_part() {
   printf '%s %s\n' "$disk" "$part"
 }
 
-# blcommon_stage_microcode — copy the present vendor microcode image(s) to ESP.
-blcommon_stage_microcode() {
+# bootloader_common_stage_microcode — copy the present vendor microcode image(s)
+# to ESP.
+bootloader_common_stage_microcode() {
   [[ -f /boot/intel-ucode.img ]] && cp /boot/intel-ucode.img "$ESP/" || true
   [[ -f /boot/amd-ucode.img   ]] && cp /boot/amd-ucode.img   "$ESP/" || true
 }
 
-# blcommon_efistub_register <disk> <part> <label_suffix> — register one
+# bootloader_common_efistub_register <disk> <part> <label_suffix> — register one
 # efibootmgr entry per selected kernel (default + fallback), each pointing at
 # the ESP-mirrored kernel with initrd + cmdline load-options (efistub has no
 # loader binary). The Primary Kernel is registered LAST so its default entry
 # lands first in BootOrder. Shared by the efistub adapter (primary ESP) and the
 # secondary-ESP loop, so every disk carries identical entries (ADR 0078).
-blcommon_efistub_register() {
-  local disk="$1" part="$2" suffix="$3" kb fb opts t
+bootloader_common_efistub_register() {
+  local disk="$1" part="$2" suffix="$3" kb fallback_image options title
   local -a order=()
-  for t in "${KERNELS[@]}"; do
-    kb="$(kernel_pkg "$t")"
+  for title in "${KERNELS[@]}"; do
+    kb="$(kernel_pkg "$title")"
     [[ "$kb" == "$PRIMARY_KBASE" ]] || order+=("$kb")
   done
   order+=("$PRIMARY_KBASE")
   for kb in "${order[@]}"; do
-    fb="initramfs-${kb}-fallback.img"
-    if [[ -f "$ESP/$fb" ]]; then
-      opts="$(loader_entries_efistub_options "$fb" "$MICROCODE_IMGS" "$DEFAULT_OPTS")"
+    fallback_image="initramfs-${kb}-fallback.img"
+    if [[ -f "$ESP/$fallback_image" ]]; then
+      options="$(loader_entries_efistub_options "$fallback_image" \
+        "$MICROCODE_IMGS" "$DEFAULT_OPTS")"
       efibootmgr --create --disk "$disk" --part "$part" \
         --label "Arch (${kb} fallback${suffix:+ $suffix})" \
-        --loader "\\vmlinuz-${kb}" --unicode "$opts" || true
+        --loader "\\vmlinuz-${kb}" --unicode "$options" || true
     fi
-    opts="$(loader_entries_efistub_options "initramfs-${kb}.img" "$MICROCODE_IMGS" \
+    options="$(loader_entries_efistub_options "initramfs-${kb}.img" \
+      "$MICROCODE_IMGS" \
       "${DEFAULT_OPTS}${QUIET_CMDLINE:+ ${QUIET_CMDLINE}}")"
     efibootmgr --create --disk "$disk" --part "$part" \
       --label "Arch (${kb}${suffix:+ $suffix})" \
-      --loader "\\vmlinuz-${kb}" --unicode "$opts" || true
+      --loader "\\vmlinuz-${kb}" --unicode "$options" || true
   done
 }
 
-# blcommon_install_esp_sync_hooks — install the ESP Kernel Sync helper + the
-# pacman preflight/sync hooks every ESP-mirroring loader needs (ADR 0038).
-blcommon_install_esp_sync_hooks() {
+# bootloader_common_install_esp_sync_hooks — install the ESP Kernel Sync helper
+# + the pacman preflight/sync hooks every ESP-mirroring loader needs (ADR 0038).
+bootloader_common_install_esp_sync_hooks() {
   mkdir -p /etc/pacman.d/hooks
   install -Dm755 "$_LIB_DIR/esp-kernel-sync.sh" \
     /usr/local/lib/archzfs/esp-kernel-sync.sh

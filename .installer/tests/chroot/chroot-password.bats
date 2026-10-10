@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 # Tests for lib/chroot/password.sh — applies the FINAL root password from
 # ROOT_PW. The Host-Secret-over-collected precedence is resolved host-side
-# (chroot.sh:_resolve_root_password, covered in chroot-configure.bats), so this
+# (chroot.sh:_chroot_resolve_root_password, covered in chroot-configure.bats), so this
 # script has a single channel: whatever ROOT_PW carries is what root gets.
 
 setup() {

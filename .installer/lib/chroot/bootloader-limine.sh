@@ -7,10 +7,12 @@
 # NOTE: not exercised by unit tests; VM-matrix validated (the pure limine.conf
 # entry text is tested via lib/boot/loader-entries.sh).
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "bootloader-limine"
+chroot_error_trap "bootloader-limine"
 
 # bootloader-common sources install-state + loads STATE, then the kernel /
 # microcode / zswap / entry libs and computes the shared per-boot values.
@@ -21,7 +23,7 @@ source "$_LIB_DIR/bootloader-common.sh"
 # Deploy the limine EFI binary onto the ESP and register its UEFI entry.
 mkdir -p "$ESP/EFI/limine"
 cp /usr/share/limine/BOOTX64.EFI "$ESP/EFI/limine/limine_x64.efi"
-read -r _efi_disk _efi_part < <(blcommon_esp_disk_part)
+read -r _efi_disk _efi_part < <(bootloader_common_esp_disk_partition)
 efibootmgr --create --disk "$_efi_disk" --part "$_efi_part" --label "Limine" \
   --loader '\EFI\limine\limine_x64.efi' --unicode || true
 
@@ -31,7 +33,7 @@ CONF="$ESP/limine.conf"
 printf 'timeout: 4\n\n' > "$CONF"
 mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
-  _fb="$(blcommon_stage_kernel "$_kb")"
+  _fb="$(bootloader_common_stage_kernel "$_kb")"
   loader_entries_limine "Arch Linux (${_kb})" "$_kb" "$MICROCODE_INITRDS" \
     "initramfs-${_kb}.img" "$DEFAULT_OPTS" >> "$CONF"
   if [[ -n "$_fb" ]]; then
@@ -39,7 +41,7 @@ for _kb in "${_ordered[@]}"; do
       "$MICROCODE_INITRDS" "$_fb" "$DEFAULT_OPTS" >> "$CONF"
   fi
 done
-blcommon_stage_microcode
+bootloader_common_stage_microcode
 
-blcommon_install_esp_sync_hooks
+bootloader_common_install_esp_sync_hooks
 echo "Limine installed."

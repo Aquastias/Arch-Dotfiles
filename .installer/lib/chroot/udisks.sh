@@ -16,7 +16,7 @@ RULE
 # unread), so it is written unconditionally.
 udisks_write_zfs_ignore_rule() {
   local root="${1:-}"
-  local dir="${root}/etc/udev/rules.d"
-  mkdir -p "$dir"
-  udisks_zfs_ignore_rule > "${dir}/90-zfs-member-udisks-ignore.rules"
+  local directory="${root}/etc/udev/rules.d"
+  mkdir -p "$directory"
+  udisks_zfs_ignore_rule > "${directory}/90-zfs-member-udisks-ignore.rules"
 }

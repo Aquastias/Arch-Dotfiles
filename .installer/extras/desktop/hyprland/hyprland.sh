@@ -241,11 +241,11 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
       && "${ENVIRONMENT_STOCK:-}" != true ]]; then
   # NOC_* are the shared preset module's input contract (read by
   # lib/chroot/noctalia-preset.sh, sourced above); exported so it is explicit.
-  export NOC_JSON="$HYPR_JSON"
-  export NOC_SEED_ROOT="$SEED_ROOT"
-  export NOC_CURATED_DIR="$HYPR_CURATED_DIR"
-  export NOC_BAT_GLOB="${HYPR_BAT_GLOB:-/sys/class/power_supply/BAT*}"
-  export NOC_SLICE_FN=noctalia_hyprland_plugins
+  export NOCTALIA_JSON="$HYPR_JSON"
+  export NOCTALIA_SEED_ROOT="$SEED_ROOT"
+  export NOCTALIA_CURATED_DIR="$HYPR_CURATED_DIR"
+  export NOCTALIA_BATTERY_GLOB="${HYPR_BAT_GLOB:-/sys/class/power_supply/BAT*}"
+  export NOCTALIA_SLICE_FUNCTION=noctalia_hyprland_plugins
   _hc=".config/hypr/hyprland.lua"
   noctalia_preset_install "$_hc" "$_hc"
 fi

@@ -175,7 +175,7 @@ layout_create_pools() {
   # shellcheck disable=SC2034 # consumed by install_state_write
   LAYOUT_ROOT_CMDLINE="$(layout_btrfs_root_cmdline "$uuid" @)"
   layout_nonzfs_swap_tail plain
-  # shellcheck disable=SC2034 # consumed by write_fstab
+  # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$(layout_btrfs_root_fstab "$source_device")${_NZROOT_SWAP_FSTAB}"
   info "btrfs ${_LAYOUT_BTRFS_TOPOLOGY} root + subvolumes mounted at $MOUNT_ROOT"
   layout_exit_phase pools

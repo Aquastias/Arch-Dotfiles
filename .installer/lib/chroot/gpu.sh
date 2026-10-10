@@ -23,23 +23,23 @@ _GPU_NVIDIA_MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
 # _gpu_should_harden <vendor>... — 0 iff the vendor list contains BOTH amd and
 # nvidia (a hybrid laptop). Any single vendor, vm, or empty list → 1.
 _gpu_should_harden() {
-  local v has_amd=false has_nvidia=false
-  for v in "$@"; do
-    [[ "$v" == "amd" ]]    && has_amd=true
-    [[ "$v" == "nvidia" ]] && has_nvidia=true
+  local value has_amd=false has_nvidia=false
+  for value in "$@"; do
+    [[ "$value" == "amd" ]]    && has_amd=true
+    [[ "$value" == "nvidia" ]] && has_nvidia=true
   done
   [[ "$has_amd" == true && "$has_nvidia" == true ]]
 }
 
 # ── pure: text generators (one per artifact) ─────────────────────────────────
 
-# _gpu_modprobe_conf — /etc/modprobe.d/nvidia.conf content. modeset=1 is
+# _gpu_modprobe_config — /etc/modprobe.d/nvidia.conf content. modeset=1 is
 # required for Wayland/PRIME offload; fbdev=1 gives the dGPU an fbdev console.
 # PreserveVideoMemoryAllocations keeps VRAM across suspend/resume, and
 # TemporaryFilePath saves it under /var/tmp (disk) rather than the default /tmp,
 # which is tmpfs (RAM) — a RAM-backed save can fail on resume and black-screen.
 # DynamicPowerManagement=0x02 lets the idle dGPU reach D3cold (RTD3).
-_gpu_modprobe_conf() {
+_gpu_modprobe_config() {
   cat <<'CONF'
 # Hybrid AMD+NVIDIA hardening (ADR 0053) — managed by the installer.
 options nvidia_drm modeset=1 fbdev=1
@@ -50,11 +50,11 @@ blacklist nouveau
 CONF
 }
 
-# _gpu_amdgpu_conf — /etc/modprobe.d/amdgpu.conf content. The AMD iGPU drives
+# _gpu_amdgpu_config — /etc/modprobe.d/amdgpu.conf content. The AMD iGPU drives
 # the eDP panel; on Ryzen APUs Panel Self Refresh (PSR) often fails to relight
 # it after suspend → black screen on resume. dcdebugmask=0x10 disables PSR (the
 # DC_DISABLE_PSR bit), trading a little idle power for a reliable wake.
-_gpu_amdgpu_conf() {
+_gpu_amdgpu_config() {
   cat <<'CONF'
 # Hybrid AMD+NVIDIA hardening (ADR 0053) — managed by the installer.
 # Disable Panel Self Refresh: it black-screens the eDP panel on resume.
@@ -66,15 +66,15 @@ CONF
 # line for /etc/mkinitcpio.conf: the existing tokens with the NVIDIA modules
 # appended in order, skipping any already present (idempotent on re-run).
 _gpu_modules_line() {
-  local existing="$1" out=() seen tok m
+  local existing="$1" out=() seen token module
   # shellcheck disable=SC2206  # intentional word-split of the MODULES content
-  for tok in $existing; do out+=("$tok"); done
-  for m in "${_GPU_NVIDIA_MODULES[@]}"; do
+  for token in $existing; do out+=("$token"); done
+  for module in "${_GPU_NVIDIA_MODULES[@]}"; do
     seen=false
-    for tok in "${out[@]+"${out[@]}"}"; do
-      [[ "$tok" == "$m" ]] && { seen=true; break; }
+    for token in "${out[@]+"${out[@]}"}"; do
+      [[ "$token" == "$module" ]] && { seen=true; break; }
     done
-    [[ "$seen" == false ]] && out+=("$m")
+    [[ "$seen" == false ]] && out+=("$module")
   done
   printf 'MODULES=(%s)\n' "${out[*]+"${out[*]}"}"
 }
@@ -121,43 +121,46 @@ HOOK
 
 # _gpu_write_modprobe <root> — install the modprobe.d NVIDIA config.
 _gpu_write_modprobe() {
-  local root="${1:-}" dir="${1:-}/etc/modprobe.d"
-  mkdir -p "$dir"
-  _gpu_modprobe_conf > "${dir}/nvidia.conf"
+  local root="${1:-}" directory="${1:-}/etc/modprobe.d"
+  mkdir -p "$directory"
+  _gpu_modprobe_config > "${directory}/nvidia.conf"
 }
 
 # _gpu_write_amdgpu <root> — install the modprobe.d AMD config (PSR disable).
 _gpu_write_amdgpu() {
-  local dir="${1:-}/etc/modprobe.d"
-  mkdir -p "$dir"
-  _gpu_amdgpu_conf > "${dir}/amdgpu.conf"
+  local directory="${1:-}/etc/modprobe.d"
+  mkdir -p "$directory"
+  _gpu_amdgpu_config > "${directory}/amdgpu.conf"
 }
 
 # _gpu_write_udev_rule <root> — install the RTD3 udev rule.
 _gpu_write_udev_rule() {
-  local dir="${1:-}/etc/udev/rules.d"
-  mkdir -p "$dir"
-  _gpu_udev_rule > "${dir}/80-nvidia-pm.rules"
+  local directory="${1:-}/etc/udev/rules.d"
+  mkdir -p "$directory"
+  _gpu_udev_rule > "${directory}/80-nvidia-pm.rules"
 }
 
 # _gpu_write_pacman_hook <root> — install the initramfs-regen pacman hook.
 _gpu_write_pacman_hook() {
-  local dir="${1:-}/etc/pacman.d/hooks"
-  mkdir -p "$dir"
-  _gpu_pacman_hook > "${dir}/95-nvidia-initramfs.hook"
+  local directory="${1:-}/etc/pacman.d/hooks"
+  mkdir -p "$directory"
+  _gpu_pacman_hook > "${directory}/95-nvidia-initramfs.hook"
 }
 
 # _gpu_apply_modules <conf> — rewrite the MODULES=() line of an mkinitcpio.conf
 # in place, appending the NVIDIA modules (idempotent). Appends the line if the
 # file has none.
 _gpu_apply_modules() {
-  local conf="$1" existing newline
-  if grep -q '^MODULES=' "$conf"; then
-    existing="$(sed -n 's/^MODULES=(\(.*\))/\1/p' "$conf")"
+  local config_file="$1" existing newline
+  if grep -q '^MODULES=' "$config_file"; then
+    # The MODULES=(…) list, keeping any text after the closing paren.
+    existing="$(awk 'match($0, /^MODULES=\(.*\)/) {
+        print substr($0, 10, RLENGTH - 10) substr($0, RSTART + RLENGTH) }' \
+      "$config_file")"
     newline="$(_gpu_modules_line "$existing")"
-    sed -i "s|^MODULES=.*|${newline}|" "$conf"
+    sed -i "s|^MODULES=.*|${newline}|" "$config_file"
   else
-    _gpu_modules_line "" >> "$conf"
+    _gpu_modules_line "" >> "$config_file"
   fi
 }
 
@@ -174,11 +177,11 @@ _gpu_enable_services() {
 # separately in the side-effect block since systemctl isn't unit-testable. This
 # is the one entry point the side-effect block and the tests share.
 _gpu_harden() {
-  local root="$1" conf="$2"; shift 2
+  local root="$1" config_file="$2"; shift 2
   _gpu_should_harden "$@" || return 1
   _gpu_write_modprobe   "$root"
   _gpu_write_amdgpu     "$root"
-  _gpu_apply_modules    "$conf"
+  _gpu_apply_modules    "$config_file"
   _gpu_write_udev_rule  "$root"
   _gpu_write_pacman_hook "$root"
 }
@@ -186,10 +189,12 @@ _gpu_harden() {
 # Lib-only sourcing for tests: skip all side effects below.
 [[ "${GPU_LIB_ONLY:-0}" == "1" ]] && return 0
 
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "gpu"
+chroot_error_trap "gpu"
 
 # shellcheck source=./install-state.sh
 STATE="${STATE:-/root/lib-chroot/install-state.json}"

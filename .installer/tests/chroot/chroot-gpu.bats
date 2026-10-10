@@ -49,35 +49,35 @@ setup() {
 # ── modprobe.d config ───────────────────────────────────────────────────────
 
 @test "modprobe: sets nvidia_drm modeset + fbdev" {
-  run _gpu_modprobe_conf
+  run _gpu_modprobe_config
   [ "$status" -eq 0 ]
   [[ "$output" == *"options nvidia_drm modeset=1 fbdev=1"* ]]
 }
 
 @test "modprobe: preserves VRAM across suspend" {
-  run _gpu_modprobe_conf
+  run _gpu_modprobe_config
   [[ "$output" == *"NVreg_PreserveVideoMemoryAllocations=1"* ]]
 }
 
 @test "modprobe: enables fine-grained runtime power management" {
-  run _gpu_modprobe_conf
+  run _gpu_modprobe_config
   [[ "$output" == *"NVreg_DynamicPowerManagement=0x02"* ]]
 }
 
 @test "modprobe: saves preserved VRAM to disk (not tmpfs) on suspend" {
-  run _gpu_modprobe_conf
+  run _gpu_modprobe_config
   [[ "$output" == *"NVreg_TemporaryFilePath=/var/tmp"* ]]
 }
 
 @test "modprobe: blacklists nouveau" {
-  run _gpu_modprobe_conf
+  run _gpu_modprobe_config
   [[ "$output" == *"blacklist nouveau"* ]]
 }
 
 # ── amdgpu PSR (eDP panel black-screens on resume otherwise) ─────────────────
 
 @test "amdgpu: disables Panel Self Refresh via dcdebugmask" {
-  run _gpu_amdgpu_conf
+  run _gpu_amdgpu_config
   [ "$status" -eq 0 ]
   [[ "$output" == *"options amdgpu dcdebugmask=0x10"* ]]
 }

@@ -4,15 +4,17 @@
 # registers one efibootmgr entry per selected kernel + a fallback entry, each
 # pointing at the ESP-mirrored kernel with initrd + cmdline load-options. The
 # Primary Kernel boots by default (registered last → first in BootOrder). The
-# secondary-ESP loop in configure.sh reuses blcommon_efistub_register so every
-# OS disk carries the same entries.
-# NOTE: not exercised by unit tests; VM-matrix validated (the pure load-options
-# string is tested via lib/boot/loader-entries.sh).
+# secondary-ESP loop in configure.sh reuses bootloader_common_efistub_register
+# so every OS disk carries the same entries. NOTE: not exercised by unit tests;
+# VM-matrix validated (the pure load-options string is tested via
+# lib/boot/loader-entries.sh).
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "bootloader-efistub"
+chroot_error_trap "bootloader-efistub"
 
 # bootloader-common sources install-state + loads STATE, then the kernel /
 # microcode / zswap / entry libs and computes the shared per-boot values.
@@ -22,15 +24,15 @@ source "$_LIB_DIR/bootloader-common.sh"
 
 # Mirror every selected kernel's images onto the ESP (the "loader" is the kernel
 # itself), then the microcode.
-for _tok in "${KERNELS[@]}"; do
-  blcommon_stage_kernel "$(kernel_pkg "$_tok")" >/dev/null
+for _kernel in "${KERNELS[@]}"; do
+  bootloader_common_stage_kernel "$(kernel_pkg "$_kernel")" >/dev/null
 done
-blcommon_stage_microcode
+bootloader_common_stage_microcode
 
 # Resolve the primary ESP's disk + partition, then register the per-kernel
 # entries against it.
-read -r EFI_DISK EFI_PART < <(blcommon_esp_disk_part)
-blcommon_efistub_register "$EFI_DISK" "$EFI_PART" ""
+read -r EFI_DISK EFI_PART < <(bootloader_common_esp_disk_partition)
+bootloader_common_efistub_register "$EFI_DISK" "$EFI_PART" ""
 
-blcommon_install_esp_sync_hooks
+bootloader_common_install_esp_sync_hooks
 echo "EFISTUB installed."

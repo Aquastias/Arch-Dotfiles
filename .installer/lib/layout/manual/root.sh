@@ -8,7 +8,7 @@
 # the pure planner (manual/plan.sh), formats only the partitions marked
 # `format`, mounts them under MOUNT_ROOT (root first, then deeper paths, ESP
 # last), activates any [swap] partition, and publishes the plain (non-ZFS,
-# non-LUKS) boot record the FS-agnostic bootloader / initcpio / write_fstab
+# non-LUKS) boot record the FS-agnostic bootloader / initcpio / chroot_write_fstab
 # consume. There is no encryption, impermanence, or data-pool path here (they
 # are disabled the moment Manual Partitioning is toggled on).
 #
@@ -148,16 +148,16 @@ layout_create_pools() {
     info "  ${dev} → swap"
   done <<< "$_MANUAL_PLAN"
 
-  # shellcheck disable=SC2034 # consumed by write_fstab
+  # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
   # No LUKS on the manual path.
-  # shellcheck disable=SC2034 # consumed by write_crypttab
+  # shellcheck disable=SC2034 # consumed by chroot_write_crypttab
   LAYOUT_CRYPTTAB=""
   layout_exit_phase pools
 }
 
 # Mount the ESP. Format it only when the operator marked it (a kept ESP is a
-# shared/dual-boot partition we must not wipe). write_fstab writes its fstab
+# shared/dual-boot partition we must not wipe). chroot_write_fstab writes its fstab
 # line from LAYOUT_ESP_PARTS.
 layout_mount_esp() {
   layout_enter_phase esp

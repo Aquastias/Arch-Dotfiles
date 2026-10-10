@@ -150,6 +150,7 @@ function reset_file_state() {
   function_count = 0  # open-function stack size
   parens = 0          # open ( count, to find the end of a nested "$(…)"
   nested = 0          # "$(…)" depth inside double quotes
+  heredoc_lines = 0   # heredoc body lines seen so far in this file
 }
 
 function finish_file() {
@@ -331,6 +332,7 @@ function open_function(code, raw, line,   name, indent, rest, problems,
   function_count++
   function_name[function_count] = name
   function_start[function_count] = line
+  function_heredoc_lines[function_count] = heredoc_lines
   function_indent[function_count] = indent
   function_base[function_count] = depth
   function_peak[function_count] = 0
@@ -342,7 +344,8 @@ function close_function(code, line,   top, length_lines) {
   if (!function_count) return
   top = function_count
   if (code !~ ("^" function_indent[top] "\\}([ \t;<>|&]|$)")) return
-  length_lines = line - function_start[top] + 1
+  length_lines = line - function_start[top] + 1 \
+    - (heredoc_lines - function_heredoc_lines[top])
   if (!function_exempt[top]) {
     if (length_lines > MAX_FUNCTION_LINES)
       emit("function-length", function_start[top], function_name[top], \
@@ -369,6 +372,7 @@ FNR == 1 {
     check_line = raw
     if (heredoc_strip) sub(/^\t+/, "", check_line)
     if (check_line == heredoc_end) heredoc_end = ""
+    else heredoc_lines++   # data, not code: excluded from function length
     next
   }
 

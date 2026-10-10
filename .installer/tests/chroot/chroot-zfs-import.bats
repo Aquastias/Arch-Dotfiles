@@ -105,7 +105,7 @@ UNIT
   [ ! -e "$root/etc/systemd/system/zfs-import-cache.service" ]
 }
 
-# ── zfs_write_load_key_template (encrypted DATA pool boot key-load, ADR 0043) ─
+# ── zfs_import_write_load_key_template (encrypted DATA pool boot key-load, ADR 0043) ─
 # Upstream OpenZFS ships no zfs-load-key@.service; configure.sh enables it per
 # file-keyed encrypted data pool so the pool auto-loads its key from the keyfile
 # on the already-mounted root BEFORE zfs-mount.service mounts the datasets (no
@@ -113,21 +113,21 @@ UNIT
 
 @test "load_key_template: writes the zfs-load-key@ template under /etc" {
   local root="$BATS_TEST_TMPDIR/root"
-  run zfs_write_load_key_template "$root"
+  run zfs_import_write_load_key_template "$root"
   [ "$status" -eq 0 ]
   [ -f "$root/etc/systemd/system/zfs-load-key@.service" ]
 }
 
 @test "load_key_template: loads the instance key before zfs-mount.service" {
   local root="$BATS_TEST_TMPDIR/root"
-  zfs_write_load_key_template "$root"
+  zfs_import_write_load_key_template "$root"
   local u="$root/etc/systemd/system/zfs-load-key@.service"
   grep -q '^ExecStart=/usr/bin/zfs load-key %i' "$u"
   grep -q '^Before=zfs-mount.service' "$u"
   grep -q '^WantedBy=zfs-mount.service' "$u"
 }
 
-# ── zfs_write_list_cache (zfs-mount-generator cache, correct columns) ─────────
+# ── zfs_import_write_list_cache (zfs-mount-generator cache, correct columns) ─────────
 # The generator parses each cache line positionally with the OpenZFS cacher's
 # exact -o property set. The repo's old 8-column set was MISALIGNED (`readonly`
 # where the generator expects `devices`), so the generator bailed (exit 1). The
@@ -147,14 +147,14 @@ CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid
     done
     printf 'rpool\t/\toff\n'
   }
-  zfs_write_list_cache rpool "$dir"
+  zfs_import_write_list_cache rpool "$dir"
   [ "$(cat "$BATS_TEST_TMPDIR/cols")" = "$CANON_COLS" ]
 }
 
 @test "list_cache: writes the cache file named for the pool" {
   local dir="$BATS_TEST_TMPDIR/cache"
   zfs() { printf 'rpool\t/\toff\n'; }
-  zfs_write_list_cache rpool "$dir"
+  zfs_import_write_list_cache rpool "$dir"
   [ -f "$dir/rpool" ]
 }
 
@@ -162,7 +162,7 @@ CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid
 # race); a retry mounts what the crash left unmounted
 @test "mount_restart_dropin: zfs-mount retries on failure, bounded" {
   local r="$BATS_TEST_TMPDIR/root"
-  zfs_write_mount_restart_dropin "$r"
+  zfs_import_write_mount_restart_dropin "$r"
   local f="$r/etc/systemd/system/zfs-mount.service.d/10-restart.conf"
   grep -qx 'Restart=on-failure' "$f"
   grep -qx 'RestartSec=2' "$f"
@@ -171,6 +171,6 @@ CANON_COLS='name,mountpoint,canmount,atime,relatime,devices,exec,readonly,setuid
 }
 
 @test "configure enables the zfs-mount restart drop-in" {
-  grep -q 'zfs_write_mount_restart_dropin ""' \
+  grep -q 'zfs_import_write_mount_restart_dropin ""' \
     "$BATS_TEST_DIRNAME/../../lib/chroot/configure.sh"
 }

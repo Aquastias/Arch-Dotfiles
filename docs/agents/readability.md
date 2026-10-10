@@ -90,7 +90,7 @@ update `CONTEXT.md` first; ADRs are never edited for renames.
 | --- | --- |
 | `function-name` | abbreviated token in a function name |
 | `local-name` | abbreviated / single-letter `local`, `declare`, or `for` var |
-| `function-length` | function over 50 lines |
+| `function-length` | function over 50 lines (heredoc bodies not counted: data) |
 | `nesting` | keyword nesting deeper than 3 |
 | `file-length` | file over 500 lines |
 | `tool` | a replace-tier tool at command position |

@@ -447,3 +447,14 @@ SH
   [ "$status" -ne 0 ]
   [[ "$output" == *"tool: .installer/a.sh:3: head"* ]]
 }
+
+@test "heredoc bodies do not count toward function length" {
+  make_repo
+  {
+    printf 'write_template() {\n  cat <<EOT\n'
+    for n in $(seq 60); do printf 'template line\n'; done
+    printf 'EOT\n}\n'
+  } > .installer/a.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}

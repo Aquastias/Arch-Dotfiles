@@ -7,10 +7,12 @@
 # NOTE: not exercised by unit tests; VM-matrix validated (the pure entry text is
 # tested via lib/boot/loader-entries.sh).
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "bootloader-refind"
+chroot_error_trap "bootloader-refind"
 
 # bootloader-common sources install-state + loads STATE, then the kernel /
 # microcode / zswap / entry libs and computes the shared per-boot values.
@@ -22,10 +24,10 @@ source "$_LIB_DIR/bootloader-common.sh"
 refind-install --root / 2>&1 | grep -v "world accessible" || true
 
 # Mirror every selected kernel's images onto the ESP; refind autodetects them.
-for _tok in "${KERNELS[@]}"; do
-  blcommon_stage_kernel "$(kernel_pkg "$_tok")" >/dev/null
+for _kernel in "${KERNELS[@]}"; do
+  bootloader_common_stage_kernel "$(kernel_pkg "$_kernel")" >/dev/null
 done
-blcommon_stage_microcode
+bootloader_common_stage_microcode
 
 # refind_linux.conf beside the kernels supplies the boot options for every
 # autodetected vmlinuz-*; refind pairs each with its initramfs + *-ucode.img.
@@ -37,5 +39,5 @@ if [[ -f "$REFIND_CONF" ]]; then
   printf 'default_selection "vmlinuz-%s"\n' "$PRIMARY_KBASE" >> "$REFIND_CONF"
 fi
 
-blcommon_install_esp_sync_hooks
+bootloader_common_install_esp_sync_hooks
 echo "rEFInd installed."

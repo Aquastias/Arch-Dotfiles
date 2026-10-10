@@ -179,11 +179,14 @@ setup() {
   # config.toml declares the templates; their input files must reach /etc/skel
   # on a non-stowing box or Noctalia can't render them (live-follow no-ops).
   local chroot="$REPO/.installer/lib/chroot.sh"
-  local preset="$REPO/.installer/lib/chroot/noctalia-preset.sh"
+  local skel="$REPO/.installer/lib/chroot/noctalia-skeleton.sh"
   # staged into the curated dir for both wlroots adapters (niri + hyprland)
-  [ "$(grep -c 'noctalia/templates' "$chroot")" -ge 2 ]
-  # seeded curated -> /etc/skel by the preset
-  grep -q 'noctalia/templates' "$preset"
+  # by the shared curated-payload helper
+  grep -q '_chroot_stage_curated_compositor niri ' "$chroot"
+  grep -q '_chroot_stage_curated_compositor hyprland ' "$chroot"
+  grep -q 'noctalia/templates' "$chroot"
+  # seeded curated -> /etc/skel by the preset's skel module
+  grep -q 'noctalia/templates' "$skel"
 }
 
 @test "eza follows ANSI-16 via an EZA_COLORS export (no hex)" {

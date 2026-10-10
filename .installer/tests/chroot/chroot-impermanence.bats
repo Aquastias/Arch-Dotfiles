@@ -506,7 +506,7 @@ seed_curated() {
 
 @test "btrfs: writes install hook /usr/lib/initcpio/install/btrfs-rollback" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   local f="$FAKEROOT/usr/lib/initcpio/install/btrfs-rollback"
   [ -f "$f" ]
   grep -qE "^build\\(\\)" "$f"
@@ -515,14 +515,14 @@ seed_curated() {
 
 @test "btrfs: does NOT write the zfs-rollback hook" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   [ ! -f "$FAKEROOT/usr/lib/initcpio/install/zfs-rollback" ]
   [ ! -f "$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ]
 }
 
 @test "btrfs: runtime hook recreates each rollback subvol from @blank" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" n
   [ -f "$f" ]
   grep -qE "subvolume delete"   "$f"
@@ -534,7 +534,7 @@ seed_curated() {
 
 @test "btrfs: runtime hook fails closed on a missing @blank" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback"
   grep -qE "launch_interactive_shell|emergency" "$f"
   grep -qE "@blank" "$f"
@@ -542,7 +542,7 @@ seed_curated() {
 
 @test "btrfs: runtime hook mounts the btrfs top-level (subvolid=5)" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback"
   grep -qE "subvolid=5" "$f"
 }
@@ -555,7 +555,7 @@ seed_curated() {
 # the archzfs hook mounting the dataset hierarchy in the initramfs.
 @test "btrfs: runtime hook mounts rollback subvols under /new_root (latehook)" {
   export FILESYSTEM=btrfs
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   local f="$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" pair
   grep -qE "^run_latehook\(\)" "$f"
   grep -q "/new_root" "$f"
@@ -566,7 +566,7 @@ seed_curated() {
 
 @test "zfs: still writes the zfs-rollback hook (default FILESYSTEM)" {
   unset FILESYSTEM
-  _impermanence_write_rollback_hook
+  impermanence_boot_hooks_write_rollback
   [ -f "$FAKEROOT/usr/lib/initcpio/hooks/zfs-rollback" ]
   [ ! -f "$FAKEROOT/usr/lib/initcpio/hooks/btrfs-rollback" ]
 }

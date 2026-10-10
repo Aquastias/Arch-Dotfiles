@@ -7,9 +7,10 @@ R="$BATS_TEST_DIRNAME/.."
 @test "pacman.conf reaches the target on every layout, not only ZFS" {
   # ext4/btrfs installs lost [multilib] when the copy sat in the zpool branch
   local body cp zfs
-  body="$(sed -n '/^configure_system() {/,/^}/p' "$R/lib/chroot.sh")"
+  body="$(sed -n '/^chroot_configure_system() {/,/^}/p' "$R/lib/chroot.sh")"
   cp="$(grep -n 'cp /etc/pacman.conf' <<<"$body" | head -1 | cut -d: -f1)"
-  zfs="$(grep -n 'if command_exists zpool' <<<"$body" | cut -d: -f1)"
+  # the ZFS-only seeding is its own step; the copy must come before it
+  zfs="$(grep -n '_chroot_seed_zfs_state' <<<"$body" | cut -d: -f1)"
   [ -n "$cp" ] && [ -n "$zfs" ] && (( cp < zfs ))
 }
 

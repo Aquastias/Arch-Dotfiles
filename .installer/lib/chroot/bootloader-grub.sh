@@ -5,10 +5,12 @@
 # boots like limine: kernels staged on the ESP, its modules and a rendered
 # grub.cfg there too, no grub-mkconfig (it probes the ZFS root) (ADR 0078).
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "bootloader-grub"
+chroot_error_trap "bootloader-grub"
 
 STATE="${STATE:-/root/lib-chroot/install-state.json}"
 # shellcheck source=./bootloader-common.sh
@@ -28,7 +30,7 @@ CONF="$ESP/grub/grub.cfg"
 printf 'set timeout=4\nset default=0\n\n' > "$CONF"
 mapfile -t _ordered < <(kernel_bases_primary_first "$KERNEL" "${KERNELS[@]}")
 for _kb in "${_ordered[@]}"; do
-  _fb="$(blcommon_stage_kernel "$_kb")"
+  _fb="$(bootloader_common_stage_kernel "$_kb")"
   loader_entries_grub "Arch Linux (${_kb})" "$_kb" "$MICROCODE_IMGS" \
     "initramfs-${_kb}.img" "$DEFAULT_OPTS" >> "$CONF"
   if [[ -n "$_fb" ]]; then
@@ -36,6 +38,6 @@ for _kb in "${_ordered[@]}"; do
       "$_fb" "$DEFAULT_OPTS" >> "$CONF"
   fi
 done
-blcommon_stage_microcode
-blcommon_install_esp_sync_hooks
+bootloader_common_stage_microcode
+bootloader_common_install_esp_sync_hooks
 echo "GRUB installed (kernels + grub.cfg on the ESP)."

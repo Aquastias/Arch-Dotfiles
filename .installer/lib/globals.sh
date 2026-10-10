@@ -39,8 +39,8 @@ LAYOUT_DATA_POOL_NAMES=() # populated by layout_plan(); data pools to export
 # these before install_state_write so the bootloader + initcpio stay FS-blind.
 LAYOUT_ROOT_CMDLINE=""   # root= cmdline (zfs: root=ZFS=…; ext4: root=UUID=…)
 LAYOUT_HOOKS=""          # mkinitcpio HOOKS list (space-separated hook names)
-LAYOUT_FSTAB_EXTRA=""    # adapter's fstab tail appended by write_fstab
+LAYOUT_FSTAB_EXTRA=""    # adapter's fstab tail appended by chroot_write_fstab
                          # (zfs: auto-mount note; ext4: root + swap lines)
 LAYOUT_CRYPTTAB=""       # adapter's /etc/crypttab body (encrypted non-ZFS roots;
-                         # empty otherwise) written by write_crypttab
+                         # empty otherwise) written by chroot_write_crypttab
 

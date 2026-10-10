@@ -135,7 +135,7 @@ install_system() {
     zfs_verify_target_modules "${MOUNT_ROOT:-/mnt}" \
       "${selected_kernel_packages[@]}"
   fi
-  configure_system
+  chroot_configure_system
 }
 
 configure_users_and_programs() {
@@ -152,7 +152,7 @@ configure_users_and_programs() {
   zfs_pool_owners_apply
 
   # Impermanence: after users + programs, before unmount.
-  apply_impermanence
+  chroot_apply_impermanence
 }
 
 finish_install() {

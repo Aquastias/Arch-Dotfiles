@@ -5,9 +5,9 @@
 # enables for daemons every host receives regardless of config — network,
 # time, and cron (ADR 0026: cron is universal infrastructure, not a System
 # Program). Extracted into a function so the set is testable: stub systemctl,
-# call enable_base_services, assert each enable.
+# call base_services_enable, assert each enable.
 
-enable_base_services() {
+base_services_enable() {
   systemctl enable NetworkManager
   systemctl enable systemd-resolved
   systemctl enable systemd-timesyncd
@@ -29,7 +29,7 @@ enable_base_services() {
 # Optional daemons toggled by config. sshd is enabled only when
 # options.ssh.enabled=true (SSH_ENABLED in install-state); openssh is already
 # pacstrapped via the Base Package List, so this only flips the service.
-enable_optional_services() {
+base_services_enable_optional() {
   if [[ "${SSH_ENABLED:-false}" == "true" ]]; then
     systemctl enable sshd.service
   fi

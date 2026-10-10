@@ -4,7 +4,7 @@
 # layout_data_group_fstab_line (the adapter tails). Their output is checked with a
 # structural fstab lint (validators_fstab_lint) — field count, mountpoint
 # plausibility, dump/pass ranges, and no duplicate mountpoint across the whole
-# ASSEMBLED fstab, the thing nothing tests today (write_fstab concatenates ESP
+# ASSEMBLED fstab, the thing nothing tests today (chroot_write_fstab concatenates ESP
 # entries + the adapter's LAYOUT_FSTAB_EXTRA, and a clash only bites at boot).
 #
 # The existing chroot-fstab.bats keeps the business-value assertions (which UUID
@@ -66,7 +66,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   [ "$status" -eq 0 ] || { echo "$output"; return 1; }
 }
 
-# ── the ASSEMBLED fstab (ESP + btrfs root tail) — write_fstab's real shape ────
+# ── the ASSEMBLED fstab (ESP + btrfs root tail) — chroot_write_fstab's real shape ────
 
 @test "assembled ESP + btrfs root fstab lints clean, no mountpoint clash" {
   {

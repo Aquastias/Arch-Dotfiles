@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# _noc_vendor_plugin (lib/chroot/noctalia-preset.sh, ADR 0093): a Noctalia
+# _noctalia_preset_vendor_plugin (lib/chroot/noctalia-preset.sh, ADR 0093): a Noctalia
 # plugin fetch retries before giving up. Regression (Audit Run 20260929): one
 # network blip dropped a dozen plugins on the kernels/greetd variants.
 
@@ -10,16 +10,16 @@ setup() {
 }
 
 @test "a transient fetch failure is retried until it succeeds" {
-  _noc_seed_plugin() { local n; n=$(($(cat "$N") + 1)); echo "$n" > "$N"
+  _noctalia_preset_seed_plugin() { local n; n=$(($(cat "$N") + 1)); echo "$n" > "$N"
     ((n >= 2)); }
-  run _noc_vendor_plugin repo ref keymap
+  run _noctalia_preset_vendor_plugin repo ref keymap
   [ "$status" -eq 0 ]
   [ "$(cat "$N")" -eq 2 ]
 }
 
 @test "a persistent failure gives up after 3 tries" {
-  _noc_seed_plugin() { echo $(($(cat "$N") + 1)) > "$N"; return 1; }
-  run _noc_vendor_plugin repo ref keymap
+  _noctalia_preset_seed_plugin() { echo $(($(cat "$N") + 1)) > "$N"; return 1; }
+  run _noctalia_preset_vendor_plugin repo ref keymap
   [ "$status" -ne 0 ]
   [ "$(cat "$N")" -eq 3 ]
 }

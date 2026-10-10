@@ -57,7 +57,7 @@ setup() {
 
 # The generator is filesystem-agnostic (ADR 0043): it emits only ESP entries.
 # Filesystem-specific lines (the ZFS auto-mount note, or ext4 root/swap entries)
-# are appended by write_fstab from the adapter's LAYOUT_FSTAB_EXTRA.
+# are appended by chroot_write_fstab from the adapter's LAYOUT_FSTAB_EXTRA.
 @test "1 ESP: emits no filesystem-specific tail (ESP-only)" {
   run _chroot_fstab_generate "$UUID1"
   [[ ! "$output" =~ "zfs-mount-generator" ]]

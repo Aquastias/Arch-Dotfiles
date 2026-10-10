@@ -100,11 +100,11 @@ if [[ "${ENVIRONMENT_WAYLAND_SHELL:-}" == noctalia \
   # NOC_* are the shared preset module's input contract (read by
   # lib/chroot/noctalia-preset.sh, sourced above) — exported so the contract is
   # explicit and to satisfy the same-shell reader.
-  export NOC_JSON="$NIRI_JSON"
-  export NOC_SEED_ROOT="$SEED_ROOT"
-  export NOC_CURATED_DIR="$NIRI_CURATED_DIR"
-  export NOC_BAT_GLOB="${NIRI_BAT_GLOB:-/sys/class/power_supply/BAT*}"
-  export NOC_SLICE_FN=noctalia_niri_plugins
+  export NOCTALIA_JSON="$NIRI_JSON"
+  export NOCTALIA_SEED_ROOT="$SEED_ROOT"
+  export NOCTALIA_CURATED_DIR="$NIRI_CURATED_DIR"
+  export NOCTALIA_BATTERY_GLOB="${NIRI_BAT_GLOB:-/sys/class/power_supply/BAT*}"
+  export NOCTALIA_SLICE_FUNCTION=noctalia_niri_plugins
   noctalia_preset_install ".config/niri/config.kdl" ".config/niri/config.kdl"
 fi
 

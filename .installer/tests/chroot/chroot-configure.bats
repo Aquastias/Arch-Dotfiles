@@ -2,6 +2,9 @@
 # Tests for chroot.sh secrets staging helper
 
 setup() {
+  # The Installer Stdlib chroot.sh runs with (path helpers); stubs below win.
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   TEST_DIR="$(mktemp -d)"
   export MOUNT_ROOT="$TEST_DIR/mnt"
   mkdir -p "$MOUNT_ROOT/root/lib-chroot"
@@ -19,7 +22,7 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── _resolve_root_password ────────────────────────────────────────────────────
+# ── _chroot_resolve_root_password ────────────────────────────────────────────────────
 # The single host-side owner of the final root password: a Host Secret's
 # .root_password overrides the collected/default value; the .secrets /
 # .guided_passwords precedence is delegated to install_state_credential_path.
@@ -31,7 +34,7 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
   printf '{"root_password":"s3cr3t"}\n' > "$host_sec"
   printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
 
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$status" -eq 0 ]
   [ "$output" = "s3cr3t" ]
 }
@@ -41,7 +44,7 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
   printf '{"root_password":"guided"}\n' > "$host_sec"
   printf '{"guided_passwords":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
 
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "guided" ]
 }
 
@@ -50,24 +53,24 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
   printf '{"other_field":"value"}\n' > "$host_sec"
   printf '{"secrets":{"host":"%s"}}\n' "$host_sec" > "$(STATE)"
 
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "collected" ]
 }
 
 @test "falls back to the collected value when there is no secrets.host entry" {
   printf '{"secrets":{}}\n' > "$(STATE)"
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "collected" ]
 }
 
 @test "falls back to the collected value when the state file is absent" {
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "collected" ]
 }
 
 @test "falls back to the collected value when secrets.host points to a missing file" {
   printf '{"secrets":{"host":"/nonexistent/host-secrets.json"}}\n' > "$(STATE)"
-  run _resolve_root_password "collected" "$(STATE)"
+  run _chroot_resolve_root_password "collected" "$(STATE)"
   [ "$output" = "collected" ]
 }
 
@@ -104,7 +107,7 @@ STATE() { printf '%s' "$MOUNT_ROOT/install-state.json"; }
   [ ! -e "$MOUNT_ROOT/etc/zfs/zpool.cache" ]
 }
 
-# ── enable_base_services (lib/chroot/base-services.sh) ─────────────────────────
+# ── base_services_enable (lib/chroot/base-services.sh) ─────────────────────────
 # The Chroot Configuration Module enables the always-on base daemons through
 # this helper. Stub systemctl, source the helper, assert each enable lands.
 
@@ -116,44 +119,44 @@ _load_base_services() {
   source "$BATS_TEST_DIRNAME/../../lib/chroot/base-services.sh"
 }
 
-@test "enable_base_services enables NetworkManager, resolved, and timesyncd" {
+@test "base_services_enable enables NetworkManager, resolved, and timesyncd" {
   _load_base_services
-  enable_base_services
+  base_services_enable
   grep -qx "systemctl enable NetworkManager"    "$SYSCTL_LOG"
   grep -qx "systemctl enable systemd-resolved"  "$SYSCTL_LOG"
   grep -qx "systemctl enable systemd-timesyncd" "$SYSCTL_LOG"
 }
 
-@test "enable_base_services enables cronie alongside the base daemons" {
+@test "base_services_enable enables cronie alongside the base daemons" {
   _load_base_services
-  enable_base_services
+  base_services_enable
   grep -qx "systemctl enable cronie" "$SYSCTL_LOG"
 }
 
-# ── enable_optional_services: sshd toggle (issue 05) ─────────────────────────
+# ── base_services_enable_optional: sshd toggle (issue 05) ─────────────────────────
 # options.ssh.enabled flips sshd.service; openssh is already pacstrapped.
 
-@test "enable_optional_services enables sshd when SSH_ENABLED=true" {
+@test "base_services_enable_optional enables sshd when SSH_ENABLED=true" {
   _load_base_services
-  SSH_ENABLED=true enable_optional_services
+  SSH_ENABLED=true base_services_enable_optional
   grep -qx "systemctl enable sshd.service" "$SYSCTL_LOG"
 }
 
-@test "enable_optional_services does not enable sshd when SSH_ENABLED=false" {
+@test "base_services_enable_optional does not enable sshd when SSH_ENABLED=false" {
   _load_base_services
-  SSH_ENABLED=false enable_optional_services
+  SSH_ENABLED=false base_services_enable_optional
   ! grep -q "sshd" "$SYSCTL_LOG"
 }
 
-@test "enable_optional_services does not enable sshd when SSH_ENABLED unset" {
+@test "base_services_enable_optional does not enable sshd when SSH_ENABLED unset" {
   _load_base_services
-  enable_optional_services
+  base_services_enable_optional
   ! grep -q "sshd" "$SYSCTL_LOG"
 }
 
-@test "enable_base_services masks the network-online wait stall" {
+@test "base_services_enable masks the network-online wait stall" {
   _load_base_services
-  enable_base_services
+  base_services_enable
   grep -qx "systemctl mask systemd-networkd-wait-online.service" "$SYSCTL_LOG"
   grep -qx "systemctl mask NetworkManager-wait-online.service" "$SYSCTL_LOG"
 }

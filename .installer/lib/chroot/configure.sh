@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # lib/chroot/configure.sh — Chroot Configuration Module: orchestrator
-# Entry point run by configure_system() via:
+# Entry point run by chroot_configure_system() via:
 #   ROOT_PW="<pw>" arch-chroot /mnt bash /root/lib-chroot/configure.sh
 #
 # All non-secret params come from install-state.json
 # (written before arch-chroot).
 # ROOT_PW is passed as an env var — never written to disk.
 set -Eeuo pipefail
-_LIB_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Like dirname: a path with no slash means the current directory.
+_LIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_LIB_DIR" != "${BASH_SOURCE[0]}" ]] || _LIB_DIR=.
 # shellcheck source=./chroot-common.sh
 source "$_LIB_DIR/chroot-common.sh"
-chroot_err_trap "configure"
+chroot_error_trap "configure"
 
 # shellcheck source=./install-state.sh
 STATE="${STATE:-/root/lib-chroot/install-state.json}"
@@ -48,7 +50,7 @@ bash /root/lib-chroot/bootloader-"$BOOTLOADER".sh
 # The entry style comes from the Bootloader Manifest (ADR 0077): a loader-binary
 # loader (systemd-boot/grub/limine/refind) registers one --loader entry per
 # disk; efistub has no loader binary, so it re-emits its per-kernel entries per
-# disk via the shared blcommon_efistub_register (ADR 0078).
+# disk via the shared bootloader_common_efistub_register (ADR 0078).
 ESP_STYLE="$(bootloader_esp_style "$BOOTLOADER")"
 if [[ "$ESP_STYLE" == efistub ]]; then
     # shellcheck source=bootloader-common.sh
@@ -67,7 +69,7 @@ if [[ "$ESP_COUNT" -gt 1 ]]; then
             EFI_DISK="${EFI_DEV%[0-9]*}"; EFI_PART="${EFI_DEV##*[a-z]}"
         fi
         if [[ "$ESP_STYLE" == efistub ]]; then
-            blcommon_efistub_register "$EFI_DISK" "$EFI_PART" \
+            bootloader_common_efistub_register "$EFI_DISK" "$EFI_PART" \
                 "disk $((i+1))"
         else
             efibootmgr --create \
@@ -81,9 +83,9 @@ fi
 
 # ── Network, time & cron services ─────────────────────────────────────────────
 # Always-on base daemons (incl. cronie, ADR 0026) — see base-services.sh.
-enable_base_services
+base_services_enable
 # Optional daemons (sshd when options.ssh.enabled) — see base-services.sh.
-enable_optional_services
+base_services_enable_optional
 
 # /etc/resolv.conf is bind-mounted in the chroot — can't symlink it here.
 # Drop-in + tmpfiles rule create the stub symlink on first real boot.
@@ -124,7 +126,7 @@ if command -v zpool >/dev/null 2>&1; then
     # importer (ADR 0030).
     zfs_import_write_settle_overrides ""
     # retry a crashed `zfs mount -a` (no-shell 20261007)
-    zfs_write_mount_restart_dropin ""
+    zfs_import_write_mount_restart_dropin ""
 
     # ── Ongoing archzfs LTS ceiling hold (ADR 0139) ─────────────────────────
     # When linux-lts is selected, install a systemd timer that holds linux-lts
@@ -173,7 +175,7 @@ UNIT
     # re-prompt and hang). Ship the template (upstream ships none) and enable it
     # per file-keyed pool, ordered before zfs-mount.service.
     if zpool list -H -o name 2>/dev/null | grep -q .; then
-        zfs_write_load_key_template ""
+        zfs_import_write_load_key_template ""
         for _pool in $(zpool list -H -o name 2>/dev/null); do
             _kl="$(zfs get -H -o value keylocation "${_pool}" 2>/dev/null)"
             if [[ "$_kl" == file://* ]]; then
@@ -191,7 +193,7 @@ UNIT
     for _pool in $(zpool list -H -o name 2>/dev/null); do
         _kl="$(zfs get -H -o value keylocation "${_pool}" 2>/dev/null)"
         [[ "$_kl" == file://* ]] && continue
-        zfs_write_list_cache "$_pool"
+        zfs_import_write_list_cache "$_pool"
     done
     unset _pool _kl
 
@@ -206,7 +208,7 @@ fi
 
 # ── Swap ─────────────────────────────────────────────────────────────────────
 # A ZFS root puts swap on a zvol enabled here; a non-ZFS root already has its
-# swap *partition* in /etc/fstab (write_fstab wrote the adapter's
+# swap *partition* in /etc/fstab (chroot_write_fstab wrote the adapter's
 # LAYOUT_FSTAB_EXTRA), so there is nothing to enable.
 if [[ "$SWAP" == "true" && -n "$RPOOL" ]]; then
     SWAP_UNIT="$(systemd-escape --path "/dev/zvol/$RPOOL/swap").swap"
@@ -217,14 +219,14 @@ fi
 
 bash /root/lib-chroot/password.sh
 
-# Users are created by the Runner (lib/profiles/runner.sh) after configure_system()
-# returns — see ADRs 0001 and 0004.
+# Users are created by the Runner (lib/profiles/runner.sh) after
+# chroot_configure_system() returns — see ADRs 0001 and 0004.
 
 bash /root/lib-chroot/extras.sh
 
 # Impermanence is intentionally NOT invoked here — it moves /root into the
 # persist dataset, which would erase /root/lib-chroot/ before the Profiles
-# Runner can use it. apply_impermanence() runs it from the host after
+# Runner can use it. chroot_apply_impermanence() runs it from the host after
 # run_profiles. See ADRs 0001 and 0004.
 
 echo ""

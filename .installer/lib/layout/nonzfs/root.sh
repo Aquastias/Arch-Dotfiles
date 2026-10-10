@@ -6,7 +6,7 @@
 # OS disk out as `ESP + [swap] + root`, optionally LUKS-wraps the root, formats
 # it, mounts it at MOUNT_ROOT, and publishes the filesystem-blind boot record
 # (LAYOUT_ROOT_CMDLINE / LAYOUT_HOOKS) + the fstab/crypttab tail the FS-agnostic
-# bootloader / initcpio / write_fstab / write_crypttab consume.
+# bootloader / initcpio / chroot_write_fstab / chroot_write_crypttab consume.
 #
 # Everything here is filesystem-agnostic except two hooks the per-fs leaf
 # (lib/layout/<fs>/single.sh) supplies, mirroring the Data Group Formatter
@@ -231,7 +231,7 @@ layout_partition() {
 layout_nonzfs_swap_tail() {
   local encryption="$1"
   _NZROOT_SWAP_FSTAB=""
-  # shellcheck disable=SC2034 # consumed by write_crypttab (chroot.sh)
+  # shellcheck disable=SC2034 # consumed by chroot_write_crypttab (chroot.sh)
   LAYOUT_CRYPTTAB=""
   if [[ "$encryption" == "encrypted" ]]; then
     [[ -n "$_LAYOUT_IMPL_SWAP_PART" ]] || return 0
@@ -283,7 +283,7 @@ layout_create_pools() {
   # override; sets globals so command substitution can't trap them in a subshell).
   layout_nonzfs_swap_tail "$encryption"
   extra+="$_NZROOT_SWAP_FSTAB"
-  # shellcheck disable=SC2034 # consumed by write_fstab
+  # shellcheck disable=SC2034 # consumed by chroot_write_fstab
   LAYOUT_FSTAB_EXTRA="$extra"
   info "${fstype} root formatted + mounted at $MOUNT_ROOT"
   # Standalone Data Pools — each formatted by its own Data Group Formatter leaf

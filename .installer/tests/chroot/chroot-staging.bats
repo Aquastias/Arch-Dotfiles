@@ -4,6 +4,9 @@
 # the VM. Catches the lib-foldering breakage (a moved/renamed src) at bats time.
 
 setup() {
+  # The Installer Stdlib chroot.sh runs with (path helpers); stubs below win.
+  # shellcheck source=../../lib/common.sh
+  source "$BATS_TEST_DIRNAME/../../lib/common.sh"
   TEST_DIR="$(mktemp -d)"
   INSTALLER_DIR="$BATS_TEST_DIRNAME/../.."
   export SCRIPT_DIR="$INSTALLER_DIR"
