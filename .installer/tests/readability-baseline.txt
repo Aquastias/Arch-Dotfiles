@@ -4,7 +4,6 @@ file-length	.installer/lib/guided/controller.sh	-
 file-length	.installer/lib/guided/shell.sh	-
 file-length	.installer/lib/packages/list.sh	-
 file-length	.installer/lib/packages/resolver.sh	-
-file-length	.installer/lib/profiles/runner.sh	-
 file-length	.installer/tests/chroot/chroot-impermanence.bats	-
 file-length	.installer/tests/config/guided-menu.bats	-
 file-length	.installer/tests/config/install-config.bats	-
@@ -54,8 +53,6 @@ function-length	.installer/lib/packages/list.sh	collect_packages
 function-length	.installer/lib/packages/list.sh	install_base
 function-length	.installer/lib/packages/resolver.sh	_pkgres_de_packages
 function-length	.installer/lib/packages/resolver.sh	pkgres_resolve
-function-length	.installer/lib/profiles/runner.sh	runner_run_profiles
-function-length	.installer/lib/secrets.sh	secrets_load
 function-length	.installer/lib/wipe/execute.sh	run_parallel_wipe
 function-length	.installer/tests/extras/hyprland-adapter.bats	setup
 function-length	.installer/tests/extras/niri-adapter.bats	setup
@@ -3211,12 +3208,6 @@ tool	.installer/lib/packages/iso-resolver.sh	iso_resolver_get_zfs_compatible:tr
 tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_pick_compatible_release:tail
 tool	.installer/lib/packages/iso-resolver.sh	_iso_resolver_resolve_url:head
 tool	.installer/lib/packages/list.sh	install_base:cut
-tool	.installer/lib/profiles/runner.sh	_runner_bootstrap_rung:paste
-tool	.installer/lib/profiles/runner.sh	_runner_resolve_user_unit:head
-tool	.installer/lib/profiles/runner.sh	runner_stage_runtime:dirname
-tool	.installer/lib/secrets.sh	_secrets_find_key_device:head
-tool	.installer/lib/secrets.sh	secrets_persist_state:dirname
-tool	.installer/lib/shell-stdlib.sh	-:dirname
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename
 tool	.installer/lib/wipe/execute.sh	run_parallel_wipe:basename

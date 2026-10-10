@@ -26,6 +26,10 @@ _secrets_install_tools() {
   pacman -Sy --noconfirm --needed "${packages[@]}" >&2
 }
 
+# secrets_load <profile> — decrypt the host's and its declared users'
+# secrets.json into a tmpfs. Steps share the caller's locals (dynamic scope):
+# host_secrets, has_host, user_secrets, user_names, encrypted_age_key,
+# downloaded_key.
 secrets_load() {
   local profile="$1"
 
@@ -34,22 +38,7 @@ secrets_load() {
   [[ -f "$host_secrets" ]] \
     || host_secrets="${INSTALLER_DIR}/hosts/vm/${profile}/secrets.json"
   local -a user_secrets=() user_names=()
-
-  # Scope user secrets to the users this host declares (mirrors runner_run_profiles'
-  # .users[]), not every users/*/secrets.json in the repo. Otherwise a
-  # committed fixture such as users/vm/test/secrets.json would force every
-  # host to demand an age key. When load_profile is unavailable (unit
-  # tests sourcing this file standalone) no users are scoped in.
-  local host_json="" user user_file
-  if host_json="$(load_profile "$profile" 2>/dev/null)"; then
-    while IFS= read -r user; do
-      [[ -n "$user" ]] || continue
-      # VM users live under users/vm/<name>/ (fallback mirrors _profile_load).
-      user_file="${INSTALLER_DIR}/users/${user}/secrets.json"
-      [[ -f "$user_file" ]] || user_file="${INSTALLER_DIR}/users/vm/${user}/secrets.json"
-      [[ -f "$user_file" ]] && { user_secrets+=("$user_file"); user_names+=("$user"); }
-    done < <(printf '%s' "$host_json" | jq -r '.users[]?')
-  fi
+  _secrets_collect_user_secrets "$profile"
 
   local has_host=0
   [[ -f "$host_secrets" ]] && has_host=1
@@ -66,74 +55,111 @@ secrets_load() {
   # Something to decrypt → install age + sops on the live ISO on demand.
   _secrets_install_tools || return 1
 
-  local encrypted_age_key=""
-  local _downloaded_key=""
-
-  if [[ -n "${SECRETS_KEY_DEVICE:-}" ]]; then
-    encrypted_age_key="${SECRETS_KEY_DEVICE}/age/key.age"
-  elif key_device="$(_secrets_find_key_device 2>/dev/null)"; then
-    encrypted_age_key="${key_device}/age/key.age"
-  elif [[ -n "${SECRETS_KEY_URL:-}" ]]; then
-    _downloaded_key="$(mktemp --suffix=.age)"
-    echo "[secrets] downloading age key from ${SECRETS_KEY_URL}" >&2
-    if ! curl -fsSL "$SECRETS_KEY_URL" -o "$_downloaded_key"; then
-      echo "[secrets] failed to download age key" >&2
-      rm -f "$_downloaded_key"
-      return 1
-    fi
-    encrypted_age_key="$_downloaded_key"
-  else
-    echo "[secrets] no key source —" \
-         "plug in USB or set options.age_key_url in the host profile" >&2
-    return 1
-  fi
+  local encrypted_age_key="" downloaded_key=""
+  _secrets_locate_age_key || return 1
 
   _SECRETS_TMPFS="$(mktemp -d)"
   mount -t tmpfs -o size=10m,mode=700 tmpfs "$_SECRETS_TMPFS"
 
   local age_key="${_SECRETS_TMPFS}/keys.txt"
-  local _age_rc=0
-  if [[ -n "${SECRETS_AGE_PASSPHRASE:-}" ]]; then
-    # Non-interactive seam (VM/test harness only): age reads the passphrase from
-    # the tty, not stdin, so feed it through a pty via util-linux `script`
-    # (mirrors vm/fixtures/regenerate.sh). Operator installs leave
-    # SECRETS_AGE_PASSPHRASE unset and are prompted by age as before.
-    script -qc "age -d -o '$age_key' '$encrypted_age_key'" /dev/null \
-      <<< "${SECRETS_AGE_PASSPHRASE}"$'\n' >/dev/null 2>&1 || _age_rc=$?
-  else
-    age --decrypt -o "$age_key" "$encrypted_age_key" || _age_rc=$?
-  fi
-  if (( _age_rc != 0 )); then
-    echo "[secrets] age --decrypt failed —" \
-         "wrong passphrase, corrupt key, or missing 'age' binary" >&2
-    rm -f "$_downloaded_key"
-    secrets_cleanup
-    return 1
-  fi
-  rm -f "$_downloaded_key"
-  chmod 600 "$age_key"
-
-  if [[ $has_host -eq 1 ]]; then
-    local out="${_SECRETS_TMPFS}/host-secrets.json"
-    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$host_secrets" > "$out"; then
-      secrets_cleanup
-      return 1
-    fi
-    chmod 600 "$out"
-  fi
-
-  for i in "${!user_secrets[@]}"; do
-    local out="${_SECRETS_TMPFS}/${user_names[$i]}-secrets.json"
-    if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt \
-         "${user_secrets[$i]}" > "$out"; then
-      secrets_cleanup
-      return 1
-    fi
-    chmod 600 "$out"
-  done
+  _secrets_decrypt_age_key "$age_key" || return 1
+  _secrets_decrypt_files "$age_key" || return 1
 
   _SECRETS_HAS_HOST="$has_host"
   _SECRETS_USER_NAMES=("${user_names[@]+"${user_names[@]}"}")
+}
+
+# Scope user secrets to the users this host declares (mirrors
+# runner_run_profiles' .users[]), not every users/*/secrets.json in the repo.
+# Otherwise a committed fixture such as users/vm/test/secrets.json would force
+# every host to demand an age key. When load_profile is unavailable (unit
+# tests sourcing this file standalone) no users are scoped in.
+_secrets_collect_user_secrets() {
+  local profile="$1"
+  local host_json="" user user_file
+  host_json="$(load_profile "$profile" 2>/dev/null)" || return 0
+  while IFS= read -r user; do
+    [[ -n "$user" ]] || continue
+    # VM users live under users/vm/<name>/ (fallback mirrors _profile_load).
+    user_file="${INSTALLER_DIR}/users/${user}/secrets.json"
+    [[ -f "$user_file" ]] \
+      || user_file="${INSTALLER_DIR}/users/vm/${user}/secrets.json"
+    [[ -f "$user_file" ]] || continue
+    user_secrets+=("$user_file")
+    user_names+=("$user")
+  done < <(printf '%s' "$host_json" | jq -r '.users[]?')
+  return 0
+}
+
+# Sets the caller's encrypted_age_key (and downloaded_key when fetched from
+# SECRETS_KEY_URL): USB key device first, then the URL.
+_secrets_locate_age_key() {
+  local key_device
+  if [[ -n "${SECRETS_KEY_DEVICE:-}" ]]; then
+    encrypted_age_key="${SECRETS_KEY_DEVICE}/age/key.age"
+  elif key_device="$(_secrets_find_key_device 2>/dev/null)"; then
+    encrypted_age_key="${key_device}/age/key.age"
+  elif [[ -n "${SECRETS_KEY_URL:-}" ]]; then
+    downloaded_key="$(mktemp --suffix=.age)"
+    echo "[secrets] downloading age key from ${SECRETS_KEY_URL}" >&2
+    if ! curl -fsSL "$SECRETS_KEY_URL" -o "$downloaded_key"; then
+      echo "[secrets] failed to download age key" >&2
+      rm -f "$downloaded_key"
+      return 1
+    fi
+    encrypted_age_key="$downloaded_key"
+  else
+    echo "[secrets] no key source —" \
+         "plug in USB or set options.age_key_url in the host profile" >&2
+    return 1
+  fi
+}
+
+_secrets_decrypt_age_key() {
+  local age_key="$1"
+  local age_rc=0
+  if [[ -n "${SECRETS_AGE_PASSPHRASE:-}" ]]; then
+    # Non-interactive seam (VM/test harness only): age reads the passphrase
+    # from the tty, not stdin, so feed it through a pty via util-linux
+    # `script` (mirrors vm/fixtures/regenerate.sh). Operator installs leave
+    # SECRETS_AGE_PASSPHRASE unset and are prompted by age as before.
+    script -qc "age -d -o '$age_key' '$encrypted_age_key'" /dev/null \
+      <<< "${SECRETS_AGE_PASSPHRASE}"$'\n' >/dev/null 2>&1 || age_rc=$?
+  else
+    age --decrypt -o "$age_key" "$encrypted_age_key" || age_rc=$?
+  fi
+  if (( age_rc != 0 )); then
+    echo "[secrets] age --decrypt failed —" \
+         "wrong passphrase, corrupt key, or missing 'age' binary" >&2
+    rm -f "$downloaded_key"
+    secrets_cleanup
+    return 1
+  fi
+  rm -f "$downloaded_key"
+  chmod 600 "$age_key"
+}
+
+# Decrypts the host file (when present) and each user file into the tmpfs.
+_secrets_decrypt_files() {
+  local age_key="$1"
+  if [[ $has_host -eq 1 ]]; then
+    _secrets_decrypt_file "$age_key" "$host_secrets" \
+      "${_SECRETS_TMPFS}/host-secrets.json" || return 1
+  fi
+  local i
+  for i in "${!user_secrets[@]}"; do
+    _secrets_decrypt_file "$age_key" "${user_secrets[$i]}" \
+      "${_SECRETS_TMPFS}/${user_names[$i]}-secrets.json" || return 1
+  done
+}
+
+_secrets_decrypt_file() {
+  local age_key="$1" source="$2" out="$3"
+  if ! SOPS_AGE_KEY_FILE="$age_key" sops --decrypt "$source" > "$out"; then
+    secrets_cleanup
+    return 1
+  fi
+  chmod 600 "$out"
 }
 
 # secrets_persist_state
@@ -144,7 +170,7 @@ secrets_persist_state() {
 
   local state="${INSTALL_STATE:-/mnt/install-state.json}"
   local encoded_path
-  mkdir -p "$(dirname "$state")"
+  mkdir -p "$(parent_directory "$state")"
   [[ -f "$state" ]] || echo '{}' > "$state"
 
   install_state_update "$state" '.secrets' '{}'
@@ -162,7 +188,7 @@ secrets_persist_state() {
 _secrets_find_key_device() {
   local dev
   dev="$(lsblk -rno NAME,RM,TYPE 2>/dev/null \
-    | awk '$2==1 && $3=="disk" {print $1}' | head -1)"
+    | awk '$2==1 && $3=="disk" { print $1; exit }')"
   if [[ -z "$dev" ]]; then
     echo "[secrets] no removable device found" >&2
     return 1

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for profiles.sh secrets wire-up (_runner_resolve_user_secrets)
+# Tests for profiles.sh secrets wire-up (_runner_users_resolve_secrets)
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -21,7 +21,7 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-# ── _runner_resolve_user_secrets ────────────────────────────────────────────
+# ── _runner_users_resolve_secrets ────────────────────────────────────────────
 
 @test "returns chroot path and stages file when user secrets present" {
   local host_sec="$TEST_DIR/alice-secrets.json"
@@ -29,7 +29,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"secrets":{"users":{"alice":"%s"}}}\n' "$host_sec" \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _runner_resolve_user_secrets "alice"
+  run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ "$output" = "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
   [ -f "${MOUNT_ROOT}${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
@@ -38,7 +38,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 @test "returns empty when user has no secrets entry" {
   printf '{"secrets":{"users":{}}}\n' > "$MOUNT_ROOT/install-state.json"
 
-  run _runner_resolve_user_secrets "alice"
+  run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
@@ -51,7 +51,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"guided_passwords":{"users":{"alice":"%s"}}}\n' "$usr_sec" \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _runner_resolve_user_secrets "alice"
+  run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ "$output" = "${_RUNNER_RUNTIME_DIR}/secrets/alice-secrets.json" ]
   [ "$(jq -r '.password' \
@@ -63,13 +63,13 @@ teardown() { rm -rf "$TEST_DIR"; }
   printf '{"secrets":{"users":{"alice":"/nonexistent/alice-secrets.json"}}}\n' \
     > "$MOUNT_ROOT/install-state.json"
 
-  run _runner_resolve_user_secrets "alice"
+  run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
 @test "returns empty when install-state.json absent" {
-  run _runner_resolve_user_secrets "alice"
+  run _runner_users_resolve_secrets "alice"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }

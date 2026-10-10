@@ -1,7 +1,8 @@
 #!/usr/bin/env bats
-# Tests for _runner_write_authorized_keys — the SSH authorized_keys writer.
-# Regression: it must NOT stage through ${MOUNT_ROOT}/tmp, since on a ZFS
-# install /tmp is its own dataset (rpool/tmp) that mounts over the host's write.
+# Tests for _runner_users_write_authorized_keys — the SSH authorized_keys
+# writer. Regression: it must NOT stage through ${MOUNT_ROOT}/tmp, since on a
+# ZFS install /tmp is its own dataset (rpool/tmp) that mounts over the host's
+# write.
 
 setup() {
   TEST_DIR="$(mktemp -d)"
@@ -37,7 +38,7 @@ STUB
 teardown() { rm -rf "$TEST_DIR"; }
 
 @test "writes each key and never stages a host /tmp file" {
-  run _runner_write_authorized_keys aquastias \
+  run _runner_users_write_authorized_keys aquastias \
     '{"ssh_authorized_keys":["ssh-ed25519 AAAAONE a","ssh-ed25519 AAAATWO b"]}'
   [ "$status" -eq 0 ]
   [ -f "$FAKE_HOME/.ssh/authorized_keys" ]
@@ -48,13 +49,13 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "no-op when the user has no keys" {
-  run _runner_write_authorized_keys aquastias '{"ssh_authorized_keys":[]}'
+  run _runner_users_write_authorized_keys aquastias '{"ssh_authorized_keys":[]}'
   [ "$status" -eq 0 ]
   [ ! -e "$FAKE_HOME/.ssh/authorized_keys" ]
 }
 
 @test ".ssh is created private (0700 dir, 0600 file)" {
-  run _runner_write_authorized_keys aquastias \
+  run _runner_users_write_authorized_keys aquastias \
     '{"ssh_authorized_keys":["ssh-ed25519 AAAAKEY a"]}'
   [ "$status" -eq 0 ]
   [ "$(stat -c '%a' "$FAKE_HOME/.ssh")" = 700 ]

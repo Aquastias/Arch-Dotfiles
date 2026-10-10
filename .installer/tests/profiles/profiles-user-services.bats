@@ -21,17 +21,17 @@ setup() {
 
 teardown() { rm -rf "$TEST_DIR"; }
 
-@test "_runner_resolve_user_unit: finds a present unit" {
+@test "_runner_services_resolve_user_unit: finds a present unit" {
   mkdir -p "$MOUNT_ROOT/usr/lib/systemd/user"
   : > "$MOUNT_ROOT/usr/lib/systemd/user/foo.service"
-  run _runner_resolve_user_unit foo "$MOUNT_ROOT/usr/lib/systemd/user"
+  run _runner_services_resolve_user_unit foo "$MOUNT_ROOT/usr/lib/systemd/user"
   [ "$status" -eq 0 ]
   [[ "$output" == *"/foo.service" ]]
 }
 
-@test "_runner_resolve_user_unit: returns 1 when absent" {
+@test "_runner_services_resolve_user_unit: returns 1 when absent" {
   mkdir -p "$MOUNT_ROOT/usr/lib/systemd/user"
-  run _runner_resolve_user_unit ghost "$MOUNT_ROOT/usr/lib/systemd/user"
+  run _runner_services_resolve_user_unit ghost "$MOUNT_ROOT/usr/lib/systemd/user"
   [ "$status" -eq 1 ]
   [ -z "$output" ]
 }
@@ -41,7 +41,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   : > "$MOUNT_ROOT/usr/lib/systemd/user/foo.service"
   arch-chroot() { echo "arch-chroot $*" >> "$TEST_DIR/chroot.log"; }
 
-  run _runner_enable_profile_user_services alice '{"user_services":["foo"]}'
+  run runner_enable_profile_user_services alice '{"user_services":["foo"]}'
   [ "$status" -eq 0 ]
   [ -f "$TEST_DIR/chroot.log" ]
 }
@@ -50,7 +50,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   mkdir -p "$MOUNT_ROOT/usr/lib/systemd/user"
   arch-chroot() { :; }
 
-  run _runner_enable_profile_user_services alice \
+  run runner_enable_profile_user_services alice \
     '{"user_services":["ghost"]}'
   [ "$status" -ne 0 ]
   [[ "$output" == *"ghost"* ]]
@@ -58,7 +58,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 
 @test "enable_profile_user_services: no user_services is a no-op" {
   arch-chroot() { echo called >> "$TEST_DIR/chroot.log"; }
-  run _runner_enable_profile_user_services alice '{"programs":["neovim"]}'
+  run runner_enable_profile_user_services alice '{"programs":["neovim"]}'
   [ "$status" -eq 0 ]
   [ ! -f "$TEST_DIR/chroot.log" ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _runner_clone_dotfiles. Regression: the mktemp'd clone script is
+# Tests for runner_clone_dotfiles. Regression: the mktemp'd clone script is
 # root-owned 0600, so it must be made readable before the su'd user runs it —
 # else "bash: <tmp>: Permission denied" aborts the install (dotfiles_repo path).
 
@@ -25,7 +25,7 @@ setup() {
 teardown() { rm -rf "$TEST_DIR"; }
 
 @test "makes the clone script readable before running it as the user" {
-  run _runner_clone_dotfiles aquastias https://example/repo.git
+  run runner_clone_dotfiles aquastias https://example/repo.git
   [ "$status" -eq 0 ]
   [[ "$output" == *'chmod 0644 "$CLONE_SCRIPT"'* ]]
   # chmod must come BEFORE the su that runs it as the user.
@@ -37,7 +37,7 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "no-op when the host declares no dotfiles_repo" {
-  run _runner_clone_dotfiles aquastias ""
+  run runner_clone_dotfiles aquastias ""
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }

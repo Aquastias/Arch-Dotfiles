@@ -12,7 +12,7 @@
 
 # Resolve the AUR Helper on the current PATH: print `paru`/`yay` (paru
 # preferred), returning 0 when one exists; non-zero with no output when neither
-# does. The in-chroot, per-user counterpart is _runner_detect_user_helper.
+# does. The in-chroot, per-user counterpart is _runner_aur_detect_user_helper.
 aur_helper_detect() {
   local helper
   for helper in paru yay; do

@@ -56,6 +56,7 @@ interface _flow_render_user_data
 api .installer/lib/feature-audit/ feature_audit_
 api .installer/lib/guided/ guided_
 api .installer/lib/layout/ layout_
+api .installer/lib/profiles/ runner_
 api .installer/lib/matrix/ matrix_
 api .installer/lib/wipe/ wipe_
 api .installer/lib/zfs/ zfs_

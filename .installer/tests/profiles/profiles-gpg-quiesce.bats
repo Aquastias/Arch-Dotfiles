@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for _runner_quiesce_gpg — stops a user's gpg daemons at the end of
+# Tests for runner_quiesce_gpg — stops a user's gpg daemons at the end of
 # the chroot user phase. Regression: paru's key fetch starts keyboxd, which
 # holds public-keys.d/pubring.db.lock stamped with the ISO hostname (archiso).
 # gpg on the installed host can't prove that lock stale, so every later
@@ -48,7 +48,7 @@ teardown() { rm -rf "$TEST_DIR"; }
   : > "$kd/pubring.db"
   : > "$kd/pubring.db.lock"
   : > "$kd/.#lk0x00007fe068000c60.archiso.1470"
-  run _runner_quiesce_gpg aquastias
+  run runner_quiesce_gpg aquastias
   [ "$status" -eq 0 ]
   grep -q '^- aquastias -c gpgconf --kill all$' "$SU_LOG"
   [ ! -e "$kd/pubring.db.lock" ]
@@ -57,13 +57,13 @@ teardown() { rm -rf "$TEST_DIR"; }
 }
 
 @test "no-op when the user never ran gpg" {
-  run _runner_quiesce_gpg aquastias
+  run runner_quiesce_gpg aquastias
   [ "$status" -eq 0 ]
   [ ! -e "$SU_LOG" ]
 }
 
 @test "runner_run_profiles quiesces gpg before revoking the temp sudo" {
   local R="$BATS_TEST_DIRNAME/../../lib/profiles/runner.sh"
-  grep -A1 '_runner_quiesce_gpg "\$user"' "$R" \
-    | grep -q '_runner_revoke_temporary_sudo'
+  grep -A1 'runner_quiesce_gpg "\$user"' "$R" \
+    | grep -q 'runner_revoke_temporary_sudo'
 }

@@ -23,7 +23,7 @@ teardown() { rm -rf "$T"; }
 # ── install into the target ─────────────────────────────────────────────────
 
 @test "install: vetter, engine, data and seeded allowlist land in the target" {
-  _runner_install_aur_vet
+  runner_install_aur_vet
   [ -x "$MOUNT_ROOT/usr/local/bin/aur-vet" ]
   local f
   for f in scan.awk rules.tsv indicators.tsv campaigns.tsv sources.tsv; do
@@ -34,7 +34,7 @@ teardown() { rm -rf "$T"; }
 }
 
 @test "install: the installed vetter finds its system data (no repo beside)" {
-  _runner_install_aur_vet
+  runner_install_aur_vet
   run bash -c 'cd /tmp && "$1" --help' _ "$MOUNT_ROOT/usr/local/bin/aur-vet"
   [ "$status" -eq 0 ]
   run bash "$MOUNT_ROOT/usr/local/bin/aur-vet" nope
@@ -65,7 +65,7 @@ SH
 
 @test "rung: vets the clone (unattended) before makepkg" {
   _fake_rung_env 0
-  run _runner_bootstrap_rung alice paru-bin
+  run _runner_aur_bootstrap_rung alice paru-bin
   [ "$status" -eq 0 ]
   [ "$(grep -n aur-vet "$CALLS" | cut -d: -f1)" -lt \
     "$(grep -n makepkg "$CALLS" | cut -d: -f1)" ]
@@ -74,13 +74,13 @@ SH
 
 @test "rung: a full clone, so the previous commit is there to compare" {
   _fake_rung_env 0
-  run _runner_bootstrap_rung alice paru
+  run _runner_aur_bootstrap_rung alice paru
   ! grep -q -- "--depth" "$CALLS"
 }
 
 @test "rung: a vetter abort fails the rung and never runs makepkg" {
   _fake_rung_env 1
-  run _runner_bootstrap_rung alice paru
+  run _runner_aur_bootstrap_rung alice paru
   [ "$status" -ne 0 ]
   ! grep -q makepkg "$CALLS"
 }
@@ -89,7 +89,7 @@ SH
 
 @test "aur_install: yay is refused — vetting needs paru" {
   arch-chroot() { echo "$*" >> "$T/calls"; }
-  run _runner_aur_install alice yay pkg1
+  run runner_aur_install alice yay pkg1
   [ "$status" -ne 0 ]
   [[ "$output" == *"vetting needs paru"* ]]
   [ ! -e "$T/calls" ]
@@ -97,23 +97,23 @@ SH
 
 @test "aur_install: paru runs unattended so the hook never prompts" {
   arch-chroot() { echo "$*" >> "$T/calls"; }
-  _runner_aur_install alice paru pkg1
+  runner_aur_install alice paru pkg1
   grep -q "AUR_VET_UNATTENDED=1 paru -S --noconfirm --needed pkg1" "$T/calls"
 }
 
 @test "userprog: under yay the helper is repo-only; under paru unchanged" {
   resolve_program() { echo "cat/prog"; }
-  _runner_user_program_chroot() { echo "$4" > "$T/helper"; }
-  _runner_install_user_program alice prog yay
+  _runner_programs_user_program_chroot() { echo "$4" > "$T/helper"; }
+  _runner_programs_install_user_program alice prog yay
   [ "$(< "$T/helper")" = "yay --repo" ]
-  _runner_install_user_program alice prog paru
+  _runner_programs_install_user_program alice prog paru
   [ "$(< "$T/helper")" = "paru" ]
 }
 
 @test "userprog: program installs run the hook unattended" {
   resolve_program() { echo "cat/prog"; }
   arch-chroot() { cat > "$T/script"; }
-  _runner_install_user_program alice prog paru
+  _runner_programs_install_user_program alice prog paru
   grep -q "export AUR_VET_UNATTENDED=1" "$T/script"
 }
 
@@ -124,17 +124,17 @@ SH
   # "unknown option" and the build runs unhooked (seen in a VM run).
   printf '[options]\nBottomUp\nPreBuildCommand = foo\n\n[bin]\nSudo = doas\n' \
     > "$T/paru.conf"
-  _runner_wire_paru_hook "$T/paru.conf"
+  runner_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
   [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
     "$T/paru.conf")" = "[bin]" ]
-  _runner_wire_paru_hook "$T/paru.conf"
+  runner_wire_paru_hook "$T/paru.conf"
   [ "$(grep -c PreBuildCommand "$T/paru.conf")" -eq 1 ]
 }
 
 @test "paru.conf: a config without [bin] gains one (a #[bin] doesn't count)" {
   printf '[options]\nBottomUp\n\n#[bin]\n#Sudo = doas\n' > "$T/paru.conf"
-  _runner_wire_paru_hook "$T/paru.conf"
+  runner_wire_paru_hook "$T/paru.conf"
   [ "$(awk '/^\[/ { s = $0 } /^PreBuildCommand/ { print s }' \
     "$T/paru.conf")" = "[bin]" ]
   grep -qx 'BottomUp' "$T/paru.conf"
@@ -150,7 +150,7 @@ SH
 }
 
 @test "install: the installed vetter ignores test-only env overrides" {
-  _runner_install_aur_vet
+  runner_install_aur_vet
   mkdir -p "$T/fake-store"; : > "$T/fake-store/allow.tsv"
   run env AUR_VET_STORE="$T/fake-store" AUR_VET_DATA="$T/nope" \
     bash -c 'cd /tmp && "$1" export --check "$2"' _ \
@@ -159,12 +159,12 @@ SH
 }
 
 @test "paru.conf: a missing system paru.conf is created with the hook" {
-  _runner_wire_paru_hook "$T/etc-paru.conf" create
+  runner_wire_paru_hook "$T/etc-paru.conf" create
   grep -qx "PreBuildCommand = /usr/local/bin/aur-vet" "$T/etc-paru.conf"
 }
 
 @test "install: a login hook runs aur-vet doctor for every user" {
-  _runner_install_aur_vet
+  runner_install_aur_vet
   local f="$MOUNT_ROOT/etc/profile.d/aur-vet.sh"
   [ -f "$f" ]
   grep -q "/usr/local/bin/aur-vet doctor" "$f"

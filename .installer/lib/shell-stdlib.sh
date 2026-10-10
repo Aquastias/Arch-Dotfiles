@@ -10,7 +10,9 @@
 #   source "$SHELL_COMMONS/shell/output.sh"
 # =============================================================================
 
-_STDLIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/shell" && pwd)"
+_STDLIB_DIR="${BASH_SOURCE[0]%/*}"
+[[ "$_STDLIB_DIR" != "${BASH_SOURCE[0]}" ]] || _STDLIB_DIR=.
+_STDLIB_DIR="$(cd "$_STDLIB_DIR/shell" && pwd)"
 
 # shellcheck source=./shell/output.sh
 source "${_STDLIB_DIR}/output.sh"
