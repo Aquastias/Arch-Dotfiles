@@ -10,15 +10,17 @@ lint's Prefix rule switches on, existing mismatches baselined.
 
 **Blocked by:** 01 — Readability Lint
 
-**Status:** ready-for-human
+**Status:** done
 
-- [ ] Table covers every installer `.sh` (lib, entry scripts, vm, tools,
+- [x] Table covers every installer `.sh` (lib, entry scripts, vm, tools,
       extras, program install scripts)
-- [ ] Owner approved
-- [ ] Prefix rule + fixture tests (wrong/missing Prefix caught; Interface
+- [x] Owner approved
+- [x] Prefix rule + fixture tests (wrong/missing Prefix caught; Interface
       Function allowed); baseline updated; suite green
 
 ## Comments
 
 - Draft map written to `docs/agents/readability.md` (Prefix Map). Waiting on
   owner approval; Prefix lint rule lands after.
+- Owner approved the map (2026-10-10); niri.sh resolved as a split.
+  Prefix rule live; 917 existing mismatches baselined.

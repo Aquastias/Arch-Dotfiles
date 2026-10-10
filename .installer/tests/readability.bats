@@ -14,6 +14,9 @@ make_repo() {
   git config user.email t@t
   git config user.name t
   mkdir -p .installer/tests
+  # Non-prefix tests share a.sh; keep the Prefix rule out of their way.
+  printf 'exempt-file .installer/a.sh\n' \
+    > .installer/tests/readability-prefixes.txt
 }
 check_repo() {
   git add -A
@@ -353,6 +356,66 @@ make_adr_repo() {
   check_repo --fix-adr-links
   run cat README.md
   [ "${lines[1]}" = "[ADR 0001][]: the seam." ]
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "prefix: a public function must start with its file stem" {
+  make_repo
+  mkdir -p .installer/lib
+  printf 'history_load() { :; }\nload_history() { :; }\n' \
+    > .installer/lib/history.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"prefix: .installer/lib/history.sh:2: load_history"* ]]
+  [[ "$output" != *"history_load"* ]]
+}
+
+@test "prefix: a private function uses _<stem>_ and the stem itself is fine" {
+  make_repo
+  mkdir -p .installer/lib
+  printf 'finalize() { :; }\n_finalize_export() { :; }\n_export() { :; }\n' \
+    > .installer/lib/finalize.sh
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"prefix: .installer/lib/finalize.sh:3: _export"* ]]
+  [[ "$output" != *":1: finalize"* ]]
+  [[ "$output" != *"_finalize_export"* ]]
+}
+
+@test "prefix: a directory API lends its name; private keeps the subpath" {
+  make_repo
+  mkdir -p .installer/lib/layout/zfs
+  printf 'api .installer/lib/layout/ layout_\n' \
+    > .installer/tests/readability-prefixes.txt
+  printf 'layout_suggest_pools() { :; }\n_zfs_multi_read() { :; }\n' \
+    > .installer/lib/layout/zfs/multi.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "prefix: interface functions, exempt files and exempt names pass" {
+  make_repo
+  mkdir -p .installer/lib/layout/ext4 .installer/tools
+  cat > .installer/tests/readability-prefixes.txt <<'RULES'
+interface root_adapter_mkfs
+exempt-file .installer/tools/*.sh
+exempt-name .installer/lib/hook.sh run_hook
+RULES
+  printf 'root_adapter_mkfs() { :; }\n' > .installer/lib/layout/ext4/single.sh
+  printf 'parse_options() { :; }\n' > .installer/tools/fetch.sh
+  printf 'run_hook() { :; }\n' > .installer/lib/hook.sh
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "prefix: an explicit file rule overrides the stem" {
+  make_repo
+  mkdir -p .installer/lib/guided
+  printf 'file .installer/lib/guided/shell.sh guided_ _guided_shell_\n' \
+    > .installer/tests/readability-prefixes.txt
+  printf 'guided_run() { :; }\n_guided_shell_draw() { :; }\n' \
+    > .installer/lib/guided/shell.sh
   check_repo
   [ "$status" -eq 0 ]
 }

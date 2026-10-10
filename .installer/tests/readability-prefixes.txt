@@ -1,0 +1,57 @@
+# Prefix Map exceptions for the Readability Lint (ADR 0153; the full map is in
+# docs/agents/readability.md). Any file not matched here takes its stem as
+# Prefix: public <stem>_, private _<stem>_, and a function named <stem>.
+
+# Executables, never sourced: names must be words, no Prefix.
+exempt-file .installer/0*.sh
+exempt-file .installer/install.sh
+exempt-file .installer/tools/*.sh
+exempt-file .installer/vm/vm.sh
+exempt-file .installer/vm/vm-agent.sh
+exempt-file .installer/tests/*.sh
+exempt-file .installer/tests/vm/*.sh
+exempt-file .installer/programs/**/scripts/*.sh
+
+# Stdlibs: the base vocabulary (info, confirm, parent_directory).
+exempt-file .installer/lib/common.sh
+exempt-file .installer/lib/chroot/chroot-common.sh
+exempt-file .installer/lib/chroot/extras-common.sh
+exempt-file .installer/lib/shell/*.sh
+
+# mkinitcpio hook API — names fixed by mkinitcpio.
+exempt-name .installer/lib/chroot/impermanence.sh run_hook
+exempt-name .installer/lib/chroot/impermanence.sh run_latehook
+exempt-name .installer/lib/chroot/impermanence.sh build
+exempt-name .installer/lib/chroot/impermanence.sh help
+exempt-name .installer/lib/chroot/initcpio.sh run_hook
+
+# Interface Functions: one name, implemented once per backend.
+interface layout_validate
+interface layout_plan
+interface layout_partition
+interface layout_create_pools
+interface layout_mount_esp
+interface _layout_plan_mode
+interface _layout_os_disks
+interface _layout_publish_boot
+interface root_adapter_mkfs
+interface root_adapter_fstype
+interface data_formatter_mkfs
+interface data_formatter_create_group
+interface flow_run
+interface _flow_build_seed
+interface _flow_render_user_data
+
+# Directory APIs: public functions take the directory's name.
+api .installer/lib/feature-audit/ feature_audit_
+api .installer/lib/guided/ guided_
+api .installer/lib/layout/ layout_
+api .installer/lib/matrix/ matrix_
+api .installer/lib/wipe/ wipe_
+api .installer/lib/zfs/ zfs_
+api .installer/vm/lib/ vm_
+
+# Explicit overrides.
+file .installer/lib/guided/shell.sh guided_ _guided_shell_
+file .installer/programs/**/audit.sh _probe_ _probe_
+file .installer/extras/**/audit*.sh _probe_ _probe_

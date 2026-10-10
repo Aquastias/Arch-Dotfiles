@@ -50,6 +50,91 @@ BEGIN {
   for (n in list) block_opener[list[n]] = 1
   split("fi done esac", list, " ")
   for (n in list) block_closer[list[n]] = 1
+
+  load_prefix_rules()
+}
+
+# ── Prefix rule (Prefix Map, docs/agents/readability.md) ──────────────────
+# The rules file lists only the map's exceptions; every other file's Prefix is
+# its stem. Kinds (whitespace-separated):
+#   exempt-file <glob>                   no Prefix required
+#   exempt-name <glob> <function>        one frozen name (hook API)
+#   interface   <function>               shared across backends
+#   api         <directory/> <public>    directory API; private _<subpath>_
+#   file        <glob> <public> <private>
+
+function glob_regex(glob,   regex) {
+  regex = glob
+  gsub(/[.+?()^$|\[\]]/, "\\\\&", regex)
+  gsub(/\*\*/, "\001", regex)
+  gsub(/\*/, "[^/]*", regex)
+  gsub(/\001/, ".*", regex)
+  return "^" regex "$"
+}
+
+function load_prefix_rules(   row, field, count) {
+  if (prefix_rules == "") return
+  while ((getline row < prefix_rules) > 0) {
+    sub(/#.*$/, "", row)
+    count = split(row, field, /[ \t]+/)
+    if (field[1] == "") { for (n = 1; n < count; n++) field[n] = field[n + 1]
+                          count-- }
+    if (field[1] == "exempt-file")
+      exempt_file[++exempt_files] = glob_regex(field[2])
+    else if (field[1] == "exempt-name") {
+      exempt_name_file[++exempt_names] = glob_regex(field[2])
+      exempt_name[exempt_names] = field[3]
+    } else if (field[1] == "interface") interface_name[field[2]] = 1
+    else if (field[1] == "api") {
+      api_directory[++apis] = field[2]
+      api_public[apis] = field[3]
+    } else if (field[1] == "file") {
+      rule_file[++file_rules] = glob_regex(field[2])
+      rule_public[file_rules] = field[3]
+      rule_private[file_rules] = field[4]
+    }
+  }
+  close(prefix_rules)
+}
+
+function snake(text) {
+  sub(/\.(sh|bash)$/, "", text)
+  gsub(/[\/-]/, "_", text)
+  return text
+}
+
+# resolve_prefix() — sets prefix_exempt, public_prefix, private_prefix and
+# stem_function for the current file.
+function resolve_prefix(   n, stem) {
+  prefix_exempt = (FILENAME ~ /\.bats$/)
+  for (n = 1; n <= exempt_files; n++)
+    if (FILENAME ~ exempt_file[n]) prefix_exempt = 1
+  stem = FILENAME
+  sub(/^.*\//, "", stem)
+  stem_function = snake(stem)
+  public_prefix = stem_function "_"
+  private_prefix = "_" stem_function "_"
+  for (n = 1; n <= apis; n++)
+    if (index(FILENAME, api_directory[n]) == 1) {
+      public_prefix = api_public[n]
+      private_prefix = "_" \
+        snake(substr(FILENAME, length(api_directory[n]) + 1)) "_"
+    }
+  for (n = 1; n <= file_rules; n++)
+    if (FILENAME ~ rule_file[n]) {
+      public_prefix = rule_public[n]
+      private_prefix = rule_private[n]
+    }
+}
+
+function check_prefix(name, line,   n, want) {
+  if (prefix_exempt || (name in interface_name) || name == stem_function)
+    return
+  for (n = 1; n <= exempt_names; n++)
+    if (FILENAME ~ exempt_name_file[n] && name == exempt_name[n]) return
+  want = (substr(name, 1, 1) == "_") ? private_prefix : public_prefix
+  if (index(name, want) != 1)
+    emit("prefix", line, name, name " (want " want "…)")
 }
 
 function emit(rule, line, symbol, detail) {
@@ -237,6 +322,7 @@ function open_function(code, raw, line,   name, indent, rest, problems,
   if (name !~ /^@test / && !exempt) {
     problems = name_problems(name)
     if (problems != "") emit("function-name", line, name, problems)
+    check_prefix(name, line)
   }
   # One-liner: body closes on the same line.
   if (rest ~ /\{.*\}[ \t;]*$/ || rest ~ /\{.*\}[ \t]*[<>].*$/) return 1
@@ -271,6 +357,7 @@ FNR == 1 {
   finish_file()
   current_file = FILENAME
   reset_file_state()
+  resolve_prefix()
 }
 
 {

@@ -84,6 +84,7 @@ update `CONTEXT.md` first; ADRs are never edited for renames.
 | `file-length` | file over 500 lines |
 | `tool` | a replace-tier tool at command position |
 | `sed-not-inplace` | `sed` without `-i` |
+| `prefix` | a function name not starting with its file's Prefix |
 | `adr-link` | an `ADR NNNN` in a doc that is not a link |
 
 The allow/deny token lists live in the scanner's `BEGIN` block — extend them
@@ -112,9 +113,9 @@ exceptions (a `head` that cuts a stream on purpose), never to dodge a rename.
 
 ## Prefix Map
 
-**Status: draft — pending owner approval** (ticket 02 of
-`.scratch/human-readable-installer/`). Area tickets apply it; the lint's
-Prefix rule switches on once approved.
+**Status: approved.** Area tickets apply it. The lint's `prefix` rule reads
+the map's exceptions from `.installer/tests/readability-prefixes.txt` (every
+other file takes its stem); today's mismatches sit in the baseline.
 
 ### Rules behind the map
 
@@ -269,8 +270,8 @@ lib/packages/ (per-file stems)
   `archzfs_kernel_`
 - `filesystem.sh`: `fs_`, `luks_userland_packages` → `filesystem_`
 - `list.sh` → rename `package-list.sh`; `package_list_`
-- `niri.sh`: `niri_`, `noctalia_` → `niri_` (?) — or split a
-  `noctalia.sh`
+- `niri.sh`: `niri_core_packages` stays `niri_`; the Noctalia functions
+  (shared with Hyprland) move to a new `noctalia.sh` → `noctalia_`
 - `resolver.sh` (Package Resolver) → rename `package-resolver.sh`;
   `pkgres_` → `package_resolver_`
 - `audio.sh`, `base.sh`, `gpu.sh`, `iso-resolver.sh`, `kernel.sh`,

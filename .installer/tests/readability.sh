@@ -31,6 +31,8 @@ ADR_LINKER="$TESTS_DIR/readability-adr-links.awk"
 cd "$(git rev-parse --show-toplevel)"
 
 BASELINE="${READABILITY_BASELINE:-.installer/tests/readability-baseline.txt}"
+PREFIX_RULES=".installer/tests/readability-prefixes.txt"
+[[ -f "$PREFIX_RULES" ]] || PREFIX_RULES=""
 
 mode="check"
 case "${1:-}" in
@@ -72,7 +74,9 @@ adr_index() {
 violations() {
   local files
   mapfile -t files < <(scanned_files)
-  if ((${#files[@]})); then awk -f "$SCANNER" "${files[@]}"; fi
+  if ((${#files[@]})); then
+    awk -v prefix_rules="$PREFIX_RULES" -f "$SCANNER" "${files[@]}"
+  fi
   mapfile -t files < <(linked_docs)
   ((${#files[@]})) || return 0
   awk -v mode=check -v adr_index="$(adr_index)" -f "$ADR_LINKER" \

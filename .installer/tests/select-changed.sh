@@ -77,6 +77,7 @@ _changed_root_map() {
     .installer/tests/readability.sh \
     | .installer/tests/readability-scan.awk \
     | .installer/tests/readability-adr-links.awk \
+    | .installer/tests/readability-prefixes.txt \
     | .installer/tests/readability-baseline.txt) echo "readability.bats" ;;
     .installer/tools/explain-packages.sh) echo "explain-packages.bats" ;;
     .installer/tools/fetch-iso.sh) echo "fetch-iso.bats" ;;
