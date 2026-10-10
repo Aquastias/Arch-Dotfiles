@@ -1,9 +1,9 @@
 # Per-kernel boot entries and kernel-aware ESP auto-sizing
 
-Status: accepted (amends ADR 0038 — lifts its primary-only entry rule and its
-static `esp_size` default; amends ADR 0077 — supersedes its "keep primary-only"
-line and makes the efistub secondary-ESP entry concrete); amended 2026-10-02
-(grub auto ESP = the 1G floor)
+Status: accepted (amends [ADR 0038] — lifts its primary-only entry rule and its
+static `esp_size` default; amends [ADR 0077] — supersedes its "keep
+primary-only" line and makes the efistub secondary-ESP entry concrete); amended
+2026-10-02 (grub auto ESP = the 1G floor)
 
 Every Bootloader Adapter now boots **every selected kernel**, not just the
 Primary. The Kernel Selection already lands in install-state as the ordered
@@ -16,7 +16,7 @@ replacing the hardcoded `arch-zfs.conf`). `grub` (`grub-mkconfig`) and `refind`
 doing that — the only change is pinning the default to the Primary Kernel. All
 five loaders default-boot the Primary via their own mechanism (systemd
 `default`, `GRUB_DEFAULT`, `limine default_entry`, `refind default_selection`,
-efistub `BootOrder`). The Stray Kernel exclusion (ADR 0038) is unchanged: only
+efistub `BootOrder`). The Stray Kernel exclusion ([ADR 0038]) is unchanged: only
 Kernel-Selection kernels get entries, so ESP Kernel Sync — entry-driven —
 mirrors exactly the selected set and never a stray.
 
@@ -27,13 +27,13 @@ no loader binary, its secondary-ESP registration is not the single `--loader`
 entry the other loaders use: it re-emits the *same* per-kernel entries against
 each secondary disk's ESP. Primary registration and the secondary-ESP loop both
 call **one shared emit helper**, keyed off the Bootloader Manifest's
-`esp_style` (ADR 0077), so cmdline / initrd / microcode can never drift between
-disks and the entry count scales with `KERNELS` automatically.
+`esp_style` ([ADR 0077]), so cmdline / initrd / microcode can never drift
+between disks and the entry count scales with `KERNELS` automatically.
 
 `esp_size` gains an **`auto`** mode, which becomes the default. Auto-sizing is
 an **estimate**, not a measurement — the ESP is partitioned before pacstrap and
 mkinitcpio build any initramfs, so it cannot read real file sizes — and it is
-**upward-only**, never shrinking below ADR 0038's 2G:
+**upward-only**, never shrinking below [ADR 0038]'s 2G:
 
 ```
 need = base(~180M loaders + loader dir + microcode)
@@ -48,9 +48,9 @@ esp_size(auto) = max( 2G , roundup_256M(need) )
 `grub` is exempt from the whole budget: it reads `/boot` (ZFS or ext4) directly,
 so its ESP holds only the ~15M grub binary and takes a fixed small ESP. The
 per-kernel term applies only to the ESP-mirroring loaders (systemd-boot,
-efistub, limine, refind), tying the sizing to ADR 0077's loader taxonomy.
+efistub, limine, refind), tying the sizing to [ADR 0077]'s loader taxonomy.
 
-A **pre-install ESP budget guard** — the authoring-time twin of ADR 0038's
+A **pre-install ESP budget guard** — the authoring-time twin of [ADR 0038]'s
 runtime PreTransaction preflight — computes `need` and, when a numeric
 `esp_size` pin is below it, **blocks with an actionable error** surfaced live in
 the Guided Kernels / Disks screens (not only at Proceed). A pinned `esp_size` is
@@ -63,7 +63,7 @@ default + 205 fallback initramfs); four ZFS kernels with fallbacks + transient +
 slack ≈ **1.9G → ~2G**, so the full selectable set lands right at today's floor
 and auto-size only pushes *above* 2G when initramfs grow or a fifth kernel is
 ever added. The old 1G floor cannot hold the full set — the overflow class that
-ADR 0038 was written to prevent.
+[ADR 0038] was written to prevent.
 
 ## Considered options
 
@@ -71,12 +71,12 @@ ADR 0038 was written to prevent.
   operator-pinned disk-layout field; auto-size may only *default* it, never
   rewrite an explicit value. Too-small pins block loudly instead.
 - **Tight auto-size fitting exactly the selected kernels** — rejected: it throws
-  away the growth headroom ADR 0038 added on purpose, re-creating the
+  away the growth headroom [ADR 0038] added on purpose, re-creating the
   overflow-on-later-`pacman -S linux-zen` brick. Auto-size is therefore
   upward-only from 2G.
 - **Measure the built initramfs to size the ESP** — rejected: impossible by
   ordering (the ESP is partitioned before the initramfs exists). The estimate
-  is the only pre-partition option; ADR 0038's runtime preflight remains the
+  is the only pre-partition option; [ADR 0038]'s runtime preflight remains the
   truth-time backstop.
 - **UKI / secure-boot for efistub now** — deferred: UKI is a cross-loader
   signing/image concern (systemd-boot boots UKIs too), not an efistub feature.
@@ -89,11 +89,11 @@ ADR 0038 was written to prevent.
 
 ## Consequences
 
-- ADR 0038 amended: its "entries name only the Primary Kernel" rule is lifted;
+- [ADR 0038] amended: its "entries name only the Primary Kernel" rule is lifted;
   its static 2G `esp_size` default becomes `auto` (upward-only). The 1G value
   survives only as the absolute floor the auto budget builds on.
-- ADR 0077 amended: its "keep primary-only for now" line is superseded, and its
-  efistub `esp_style` secondary-entry note is now the concrete shared emit
+- [ADR 0077] amended: its "keep primary-only for now" line is superseded, and
+  its efistub `esp_style` secondary-entry note is now the concrete shared emit
   helper.
 - `systemd-boot` / `limine` / `efistub` adapters iterate `KERNELS`; entry
   filenames go per-kbase and the `arch-zfs.conf` hardcode is removed. `grub` /
@@ -108,7 +108,7 @@ ADR 0038 was written to prevent.
 ## Amendment (2026-10-02): grub's auto ESP is the 1G floor
 
 The first full Audit Run found grub uninstallable: `auto` resolved grub's
-"fixed small ESP" to 512M, and the absolute 1G floor (ADR 0038) rejected
+"fixed small ESP" to 512M, and the absolute 1G floor ([ADR 0038]) rejected
 it at validation. The two rules above contradicted each other. The floor
 wins: grub's `auto` ESP is now 1G. grub stays exempt from the per-kernel
 budget (it still reads `/boot` natively); only its fixed size moves.
@@ -129,3 +129,7 @@ root), so no os-prober. grub therefore joins the ESP-mirroring loaders and
 the per-kernel budget; the 2026-10-02 "grub = 1G" rule and the exemption
 above are superseded. Rejected: a grub2-compatible rpool (drops pool
 features and still forbids encryption); dropping grub.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[ADR 0038]: 0038-boot-path-resilience-small-esp.md
+[ADR 0077]: 0077-five-bootloaders-esp-mirroring-adapters.md

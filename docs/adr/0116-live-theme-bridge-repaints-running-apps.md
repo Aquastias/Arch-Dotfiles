@@ -1,14 +1,14 @@
 # Live Theme Bridge repaints running apps on wl-roots sessions
 
 ---
-Status: accepted. **Extends ADR 0102/0104/0108** (the App Theming Bridge). Those
-made the *files* follow any Noctalia palette; this makes *already-running* apps
-repaint without a relaunch. Does **not** overturn ADR 0104 — Plasma isolation is
-kept by confinement, not by excluding combined hosts. Facts traced live in the
-running `arch-combined` VM (niri session): a `builtin Gruvbox` set flipped the
-qt6ct base `#1e1e2e`→`#282828` and rewrote `gtk-{3,4}.0/noctalia.css`, proving
-file-following already works for any theme.
-Later decisions: corrected by ADR 0124; superseded by ADR 0123.
+Status: accepted. **Extends [ADR 0102]/[0104]/[0108]** (the App Theming Bridge).
+Those made the *files* follow any Noctalia palette; this makes *already-running*
+apps repaint without a relaunch. Does **not** overturn [ADR 0104] — Plasma
+isolation is kept by confinement, not by excluding combined hosts. Facts traced
+live in the running `arch-combined` VM (niri session): a `builtin Gruvbox` set
+flipped the qt6ct base `#1e1e2e`→`#282828` and rewrote
+`gtk-{3,4}.0/noctalia.css`, proving file-following already works for any theme.
+Later decisions: corrected by [ADR 0124]; superseded by [ADR 0123].
 
 **Verified end-to-end on the VM with screenshots + pixel sampling.** Two
 mechanism corrections came out of that testing and are folded in below: (a) the
@@ -21,7 +21,7 @@ GTK4): a running Wayland GTK app never re-reads the load-once user `gtk.css`, an
 GTK nudge is kept **best-effort** (it does fire for XWayland/X11 GTK apps).
 ---
 
-The App Theming Bridge (ADR 0102) writes Noctalia's palette into
+The App Theming Bridge ([ADR 0102]) writes Noctalia's palette into
 `qt6ct/colors/noctalia.conf` + `gtk-{3,4}.0/noctalia.css` on **every** palette
 change (builtin or community) — so a **newly-launched** Qt/GTK app already
 follows any theme. The gap is that **running** apps do not re-read those files:
@@ -46,7 +46,7 @@ Why nothing repaints today, per toolkit:
 Ship a **Live Theme Bridge**: a long-lived, compositor-session process
 (`~/.local/bin/noctalia-theme-bridge`) that `inotifywait`s the Noctalia-written
 color files and, on each write, nudges each toolkit to re-read — the runtime
-counterpart to ADR 0102's file-writing bridge.
+counterpart to [ADR 0102]'s file-writing bridge.
 
 1. **Trigger = inotify on the generated files**, not a Noctalia subscription.
    `noctalia msg` exposes `templates-apply`/`color-scheme-set` (to *cause* a
@@ -71,7 +71,7 @@ counterpart to ADR 0102's file-writing bridge.
      never overrides the mode Noctalia set. Dark/light still follows live for
      libadwaita apps via the portal.
    - **KColorScheme apps** (pure-compositor boxes, where `kcolorscheme` is on,
-     ADR 0108) already repaint live via the `KGlobalSettings` D-Bus notify
+     [ADR 0108]) already repaint live via the `KGlobalSettings` D-Bus notify
      Noctalia's `kde-color-scheme` post-action emits — no bridge work.
 
 3. **Launched from the compositor autostart**, not systemd-user: a
@@ -79,7 +79,7 @@ counterpart to ADR 0102's file-writing bridge.
    exec in hypr's `conf.d/autostart.lua`, beside `noctalia --daemon`. Hyprland
    runs via `start-hyprland`, deliberately **not** the systemd/uwsm session (ADR
    0070), so a user unit would reach niri but not Hyprland — the same reason
-   `QT_QPA_PLATFORMTHEME` is set per-compositor (ADR 0102).
+   `QT_QPA_PLATFORMTHEME` is set per-compositor ([ADR 0102]).
 
 4. **Fleet-wide, isolated by confinement — not excluded from combined boxes.**
    The bridge writes only compositor-private state (`qt6ct.conf`) and shared
@@ -91,10 +91,10 @@ counterpart to ADR 0102's file-writing bridge.
 5. **Combined boxes need a KDE-side GTK Breeze reset** — the compositor session
    leaves the shared `gsettings` `gtk-theme` at `adw-gtk3-dark` + a
    `noctalia.css` accent, and **`kde-gtk-config` does NOT auto-reset it on Plasma
-   login** (VM-verified — this **disproves ADR 0104's assumption**, and my first
-   pass which relied on it). Without a reset, GTK apps under Plasma inherit
-   Noctalia's accent (e.g. Gruvbox green in an otherwise-Breeze session). The KDE
-   adapter (`kde.sh`) therefore seeds a **KDE-only autostart**
+   login** (VM-verified — this **disproves [ADR 0104]'s assumption**, and my
+   first pass which relied on it). Without a reset, GTK apps under Plasma
+   inherit Noctalia's accent (e.g. Gruvbox green in an otherwise-Breeze
+   session). The KDE adapter (`kde.sh`) therefore seeds a **KDE-only autostart**
    (`~/.config/autostart/kde-gtk-breeze-reset.desktop`, `OnlyShowIn=KDE`) that
    sets `gtk-theme=Breeze` + `color-scheme=prefer-dark` on Plasma login. Seeded
    **only on a combined box** (`ENVIRONMENT_DESKTOP` has `niri`/`hyprland`) — on
@@ -105,9 +105,9 @@ counterpart to ADR 0102's file-writing bridge.
    next niri/Hyprland login. VM-verified across niri→KDE→hyprland reboots: every
    app is Breeze under Plasma, Noctalia-themed under the compositors, no leak.
 
-6. **Delivery mirrors ADR 0108.** The bridge script is a stow-owned dotfile
+6. **Delivery mirrors [ADR 0108].** The bridge script is a stow-owned dotfile
    **and** seeded to `/etc/skel` by `noctalia-preset.sh` (the installer never
-   stows, ADR 0095); `inotify-tools` (for `inotifywait`) joins
+   stows, [ADR 0095]); `inotify-tools` (for `inotifywait`) joins
    `noctalia_preset_packages`; the autostart lines join the curated
    per-compositor configs. The KDE Breeze reset is seeded by `kde.sh` via
    `_seed_write` (the existing KDE-autostart-seed pattern, beside
@@ -116,22 +116,23 @@ counterpart to ADR 0102's file-writing bridge.
 ## Considered options
 
 - **Rely on `kde-gtk-config` to auto-reset GTK to Breeze on Plasma login** (my
-  first pass, on ADR 0104's assumption) — **rejected after VM testing disproved
-  it**: `kde-gtk-config` did **not** reset `gtk-theme`/`gtk.css` on login here, so
-  GTK apps under Plasma showed Noctalia's accent. The **explicit KDE-side Breeze
-  reset** (Decision 5, the operator's original Q2 instinct) is the accepted fix.
+  first pass, on [ADR 0104]'s assumption) — **rejected after VM testing
+  disproved it**: `kde-gtk-config` did **not** reset `gtk-theme`/`gtk.css` on
+  login here, so GTK apps under Plasma showed Noctalia's accent. The **explicit
+  KDE-side Breeze reset** (Decision 5, the operator's original Q2 instinct) is
+  the accepted fix.
 - **Seed the KDE reset on every KDE box** (not just combined) — rejected: on a
   pure-KDE box it would override the operator's own GTK theme every login; gate
   it on `ENVIRONMENT_DESKTOP` carrying a compositor.
 - **Gate install on `ENVIRONMENT_DESKTOP` not containing `kde`** (like
-  `kcolorscheme`, ADR 0108) — rejected: with the bridge confined to the
+  `kcolorscheme`, [ADR 0108]) — rejected: with the bridge confined to the
   compositor autostart and Plasma self-healing, gating only denies live-repaint
   to a combined box's compositor session for zero isolation benefit.
 - **Wrap `noctalia-cycle-palette` to nudge apps** instead of a watcher —
   rejected: misses GUI-initiated palette changes, which never pass through that
   script.
 - **A systemd-user service** for supervision — rejected on the `start-hyprland`
-  fact above (ADR 0070); it would not reliably reach Hyprland.
+  fact above ([ADR 0070]); it would not reliably reach Hyprland.
 - **Chase GTK live palette on Wayland** (restart apps, or ship a
   `noctalia.css`-watching GTK module) — rejected as brittle / disproportionate;
   the load-once `gtk.css` + X11-only `colorreload` ceiling is a native-Wayland
@@ -153,8 +154,19 @@ counterpart to ADR 0102's file-writing bridge.
   script, `inotify-tools` in the preset (guarded by `noctalia-stow.bats` +
   resolver), and one combined-box-gated KDE autostart seed in `kde.sh` (guarded
   by `kde-adapter.bats`).
-- **Correction to ADR 0104:** its claim that `kde-gtk-config` "rewrites [the GTK
-  `settings.ini`] at every Plasma login" is not what happens on the current
+- **Correction to [ADR 0104]:** its claim that `kde-gtk-config` "rewrites [the
+  GTK `settings.ini`] at every Plasma login" is not what happens on the current
   fleet — GTK theme state persists across sessions and must be reset explicitly
-  (Decision 5). The rest of ADR 0104 (drop `kcolorscheme` on combined boxes;
+  (Decision 5). The rest of [ADR 0104] (drop `kcolorscheme` on combined boxes;
   `kdeglobals` stays Plasma-owned) stands and is confirmed.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[0104]: 0104-dual-session-app-theming-isolation.md
+[0108]: 0108-app-theming-bridge-reaches-fresh-installs.md
+[ADR 0070]: 0070-drop-hyprland-uwsm-session.md
+[ADR 0095]: 0095-curated-niri-config-served-via-skel.md
+[ADR 0102]: 0102-noctalia-owns-gtk-qt-app-theming.md
+[ADR 0104]: 0104-dual-session-app-theming-isolation.md
+[ADR 0108]: 0108-app-theming-bridge-reaches-fresh-installs.md
+[ADR 0123]: 0123-kcolorscheme-fleet-wide-with-kde-session-reset.md
+[ADR 0124]: 0124-qt6ct-applies-kcolorscheme-for-dolphin-accents.md

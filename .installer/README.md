@@ -2,14 +2,14 @@
 
 A fully scripted, config-driven Arch Linux installer. ZFS is the
 default root filesystem, with `btrfs`, `ext4`, and `xfs` selectable
-per install via a filesystem-keyed adapter axis (ADR 0040/0043).
+per install via a filesystem-keyed adapter axis ([ADR 0040]/[0043]).
 Supports single-disk laptops, multi-disk RAID desktops, optional
 encryption (ZFS-native AES or dm-crypt/LUKS), declarative host/user
 profiles, a KDE desktop, SOPS-encrypted secrets, and
 optional impermanence (rollback-to-blank on every boot, on the
 snapshotting filesystems ZFS and btrfs).
 
-Three front-ends drive one back-end (ADR 0036/0039): `install.sh
+Three front-ends drive one back-end ([ADR 0036]/[0039]): `install.sh
 --profile <name>` (author a profile, pick disks at install time),
 `install.sh <config-file>` (unattended, pre-assembled config), and a
 bare `install.sh` **Guided Installer** (an fzf TUI that builds an
@@ -93,7 +93,7 @@ Scripts inside `lib/chroot/` (staged into the new root and run by
 - `udisks.sh`           — udisks/mount policy
 - `bootloader-<name>.sh` — one per loader (`systemd-boot`, `grub`,
                           `efistub`, `limine`, `refind`), selected by
-                          `options.bootloader` (ADR 0077)
+                          `options.bootloader` ([ADR 0077])
 - `password.sh`         — root password (host secrets or prompt)
 - `create-user.sh`      — per-user creation (shell, groups,
                           sudo, password, SSH identity)
@@ -139,7 +139,7 @@ sudo dd if=~/Downloads/archlinux-<ver>-x86_64.iso of=/dev/sdX \
 > newer than `archzfs` tracks, so the latest ISO breaks the
 > installer's DKMS step. `fetch-iso.sh` resolves the newest
 > **archzfs-Compatible ISO** instead — see the term in `CONTEXT.md`
-> and ADR 0023.
+> and [ADR 0023].
 
 ### 2.2 Boot the Arch ISO
 
@@ -208,11 +208,11 @@ chmod +x install.sh
 A bare `./install.sh` (no `--profile`, no config file) launches the
 **Guided Installer** — an fzf menu that authors the whole machine
 interactively and assembles the effective config from your choices
-(ADR 0039). Use it for ad-hoc installs when no profile exists yet.
+([ADR 0039]). Use it for ad-hoc installs when no profile exists yet.
 
 `install.sh --profile <name>` validates the named Host Profile,
 resolves the disks interactively (§3), assembles the effective
-config in tmpfs (never committed — ADR 0036), then runs the three
+config in tmpfs (never committed — [ADR 0036]), then runs the three
 numbered scripts in order — bootstrap, wipe, install — confirming
 destructive steps as it goes. `-y` / `--unattended` bypasses every
 confirmation prompt (the hostname must already be set in the
@@ -260,7 +260,7 @@ The front-end:
    stripe ≥2, raidz1 ≥3, raidz2 ≥4). Single mode resolves one device.
 4. **Assembles** the effective config in tmpfs and hands it to the
    back-end. The hostname falls back to the profile directory name
-   when `system.hostname` is unset (ADR 0036).
+   when `system.hostname` is unset ([ADR 0036]).
 
 Everything else — bootloader, locale, timezone, keymap, kernel,
 environment, encryption, impermanence, pool/dataset names, ashift —
@@ -529,7 +529,7 @@ every boot without the USB.
 
 Profiles declare the pool **skeleton** — each group's `disk_count`,
 never device paths. `install.sh --profile` slices operator-picked
-disks onto the groups in declared order (ADR 0036/0037). See
+disks onto the groups in declared order ([ADR 0036]/[0037]). See
 `REFERENCE.md` § Profile Layout Examples for the full skeletons.
 
 ### 6.1 Laptop (single disk)
@@ -585,10 +585,10 @@ Set under `environment` in the host profile:
 
 Each desktop dispatches dynamically to `extras/desktop/<de>/
 <de>.sh`; the display manager is a separate `extras/dm/<dm>/<dm>.sh`
-adapter (ADR 0069). Audio (PipeWire) is auto-derived when any
+adapter ([ADR 0069]). Audio (PipeWire) is auto-derived when any
 desktop is selected; GPU drivers are auto-detected with `"auto"`.
 `display_manager: "auto"` is desktop-aware — SDDM when KDE is in the
-set, else greetd, and none for a desktop-less install (ADR 0091).
+set, else greetd, and none for a desktop-less install ([ADR 0091]).
 
 ### Impermanence
 
@@ -615,7 +615,7 @@ etc.) are bind-mounted from the Persist Dataset. See
 
 Hardening and backup tools are declared as **Security & Backup
 Extras** — structured `post_install` objects in the host profile
-(ADR 0041), not booleans and not `extras/` scripts. They are
+([ADR 0041]), not booleans and not `extras/` scripts. They are
 paru-based user programs (paru refuses root), so the Runner unions
 them into the **Primary User's** paru pass:
 
@@ -639,7 +639,7 @@ Each tool's existing Program Install Script runs unchanged. A host
 with no users cannot carry these — the Guided Installer aborts at
 the terminal action. (`sops` is separate — it is *secrets-activated*,
 not declared: the Runner installs it only when a `secrets.json`
-ships. See ADR 0025.)
+ships. See [ADR 0025].)
 
 ---
 
@@ -708,7 +708,7 @@ release (cached in `tests/vm/.vm-test/`).
 ### Combination Matrix (`tools/matrix.sh`)
 
 Two-tier "no menu combo errors on install" testing over the config
-axes derived from the menu (ADR 0046). Tier-1 is a no-VM exhaustive
+axes derived from the menu ([ADR 0046]). Tier-1 is a no-VM exhaustive
 storage sweep (assemble + validate, always-on bats); Tier-2 runs a
 pairwise-reduced + pinned set of cells as real VM installs through the
 positional config seam. `matrix.sh` mirrors `vm.sh` with three
@@ -758,3 +758,18 @@ sudo rsync -a /boot/efi/ /mnt/backup-esp/
 
 See `REFERENCE.md` for the complete config reference, all
 topology options, and advanced VM testing instructions.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[0037]: ../docs/adr/0037-per-group-disk-count-assignment.md
+[0039]: ../docs/adr/0039-guided-installer-profile-optional-front-end.md
+[0043]: ../docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[ADR 0023]: ../docs/adr/0023-archzfs-compatible-iso-not-latest.md
+[ADR 0025]: ../docs/adr/0025-secrets-activated-sops-program.md
+[ADR 0036]: ../docs/adr/0036-unified-profile-driven-host-config.md
+[ADR 0039]: ../docs/adr/0039-guided-installer-profile-optional-front-end.md
+[ADR 0040]: ../docs/adr/0040-filesystem-adapter-axis.md
+[ADR 0041]: ../docs/adr/0041-host-security-backup-via-primary-user-paru.md
+[ADR 0046]: ../docs/adr/0046-combination-matrix-two-tier-install-testing.md
+[ADR 0069]: ../docs/adr/0069-display-manager-is-an-operator-choice.md
+[ADR 0077]: ../docs/adr/0077-five-bootloaders-esp-mirroring-adapters.md
+[ADR 0091]: ../docs/adr/0091-desktop-aware-auto-display-manager.md

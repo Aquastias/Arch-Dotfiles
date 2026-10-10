@@ -1,28 +1,29 @@
 # TUI programs cohere via the terminal's 16 ANSI colors
 
 ---
-Status: accepted. Extends the theming cluster (ADR 0102/0116/0128/0129/0130);
-default palette per ADR 0109; program/package exclusivity ADR 0115;
-never-stow-a-runtime-rewritten-file per ADR 0104/0108. Neovim excluded.
-Later decisions: amended by ADR 0136.
+Status: accepted. Extends the theming cluster
+([ADR 0102]/[0116]/[0128]/[0129]/[0130]); default palette per [ADR 0109];
+program/package exclusivity [ADR 0115]; never-stow-a-runtime-rewritten-file per
+[ADR 0104]/[0108]. Neovim excluded. Later decisions: amended by [ADR 0136].
 ---
 
-Kitty now ships following Noctalia (ADR 0130), but the rest of the fleet's
+Kitty now ships following Noctalia ([ADR 0130]), but the rest of the fleet's
 shipped color CLIs/TUIs do not cohere. `eza` renders on its own built-in
 palette; `lazygit` and `yazi` are stock; `.p10k.zsh` still hardcodes two
 Catppuccin Mocha hexes (root/context); `htop` is stock. None of them follows a
 Noctalia palette change on the wl-roots compositors, and none is guaranteed to
-sit on the fleet default (Catppuccin Mocha Sapphire, ADR 0109) under KDE. Only
+sit on the fleet default (Catppuccin Mocha Sapphire, [ADR 0109]) under KDE. Only
 `fzf`, `zsh-syntax-highlighting` (both via the [[Zsh Theme Template]]), `pi`
-(ADR 0128), `btop` (Noctalia builtin) and the p10k **accent** already follow.
+([ADR 0128]), `btop` (Noctalia builtin) and the p10k **accent** already follow.
 
 The realization that makes this cheap: **kitty's generated `noctalia.conf`
-already owns the terminal's 16 ANSI colors** (ADR 0130) and makes them follow
+already owns the terminal's 16 ANSI colors** ([ADR 0130]) and makes them follow
 the live palette on the compositors while sitting on the seeded Sapphire under
 KDE. So **any TUI rendered through those 16 ANSI slots is automatically
 cohesive on both session classes**, for free — no new Noctalia template, no new
-ADR-0109 seed point. This is exactly the `BAT_THEME=ansi` trick already noted in
-ADR 0129: the terminal is the single seam.
+[ADR-0109] seed point. This is exactly the `BAT_THEME=ansi` trick already noted
+in
+[ADR 0129]: the terminal is the single seam.
 
 ## Decision
 
@@ -43,20 +44,20 @@ Per tool:
 - **`lazygit`** → a new seeded **and** stowable `system/lazygit` [[User
   Program]] carrying a `gui.theme` in ANSI color **names** (`red`, `green`, …,
   `default`). It **owns the `lazygit` package**, which therefore leaves core
-  `packages.shell` (Program/package exclusivity, ADR 0115), and gets a
+  `packages.shell` (Program/package exclusivity, [ADR 0115]), and gets a
   byte-drift test — the `system/kitty`/`system/zsh` shape. Restart-only (lazygit
   reads config at startup).
 - **`yazi`** → a new seeded **and** stowable `system/yazi` [[User Program]]
   carrying a `theme.toml` in yazi's **named** ANSI colors (it accepts names, not
-  numeric indices). Owns the `yazi` package (leaves `packages.shell`, ADR 0115),
-  byte-drift test. Restart-only.
+  numeric indices). Owns the `yazi` package (leaves `packages.shell`,
+  [ADR 0115]), byte-drift test. Restart-only.
 - **`.p10k.zsh`** → the two hardcoded Catppuccin Mocha hexes on the root/context
   segments are remapped to **ANSI-16 red/yellow** — semantically correct
   (warning), follows the palette live via the terminal, and removes the last
   stray hardcoded hex in the prompt. No new key in the `p10k-accent` template.
 - **`htop`** → left stock. `color_scheme=0` (Default) already renders through
   the terminal ANSI palette, and `htoprc` is **runtime-rewritten** by htop, so
-  stowing it would clobber/dirty the repo (the generated-file ban, ADR 0104) —
+  stowing it would clobber/dirty the repo (the generated-file ban, [ADR 0104]) —
   a non-stowable file for one line is not worth it.
 - **`bat`** → `BAT_THEME=ansi` stays as-is: latent (bat is not installed by any
   profile), harmless, and correct the moment bat ever ships.
@@ -64,7 +65,7 @@ Per tool:
   verified, no change.
 
 **Neovim is out of scope.** It is a full editor with its own colorscheme
-universe (a deliberate rose-pine, ADR 0093-era), not ANSI-driven; forcing it
+universe (a deliberate rose-pine, [ADR 0093]-era), not ANSI-driven; forcing it
 onto Sapphire/Noctalia-follow is a disproportionate, separate effort.
 
 The lazygit/yazi configs are **static, not Noctalia-generated** — nothing
@@ -74,7 +75,7 @@ are plainly **stowed and seeded**, with no gitignore/seed-only dance.
 ## Considered options
 
 - **A per-app Noctalia hex template for each tool** (the pi/zsh/kitty pattern) —
-  rejected: N new templates and N new ADR-0109 seed points, all duplicating
+  rejected: N new templates and N new [ADR-0109] seed points, all duplicating
   colors the terminal's 16 ANSI slots already carry. ANSI-16 is one seam that
   also hands us KDE isolation for free. Templates remain the fallback for a tool
   that genuinely can't do ANSI.
@@ -96,15 +97,32 @@ are plainly **stowed and seeded**, with no gitignore/seed-only dance.
 - Every shipped color TUI **except neovim** now follows a Noctalia palette
   change live on the compositors and sits on Catppuccin Mocha Sapphire under
   KDE — through **one seam** (the terminal's 16 ANSI colors), with **no new
-  Noctalia template and no new ADR-0109 seed point**.
+  Noctalia template and no new [ADR-0109] seed point**.
 - Repaint follows each tool's own reload model: `eza`/`fzf` on next render;
   `lazygit`/`yazi` and the p10k body on next launch — the bounded, relaunch-only
   limit the [[Zsh Theme Template]] already documents.
 - Two new [[User Program]]s (`system/lazygit`, `system/yazi`); `lazygit` and
-  `yazi` leave core `packages.shell` (ADR 0115); each gains a byte-drift test
+  `yazi` leave core `packages.shell` ([ADR 0115]); each gains a byte-drift test
   (the kitty/zsh precedent).
 - `system/zsh` gains an `EZA_COLORS` export; the two hardcoded Catppuccin hexes
   in `.p10k.zsh` are gone.
 - **New rule for future terminal-tool additions:** default to ANSI-16 following;
   reach for a Noctalia user-template only when the tool cannot express color
   through the terminal's 16 slots.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[0108]: 0108-app-theming-bridge-reaches-fresh-installs.md
+[0116]: 0116-live-theme-bridge-repaints-running-apps.md
+[0128]: 0128-pi-tui-follows-noctalia-via-user-template.md
+[0129]: 0129-zsh-follows-noctalia-via-user-template.md
+[0130]: 0130-kitty-fleet-wide-seeded-stowable-follows-noctalia.md
+[ADR 0093]: 0093-noctalia-enriched-plugin-preset-and-rose-pine-default.md
+[ADR 0102]: 0102-noctalia-owns-gtk-qt-app-theming.md
+[ADR 0104]: 0104-dual-session-app-theming-isolation.md
+[ADR 0109]: 0109-catppuccin-mocha-sapphire-default-seeded-offline.md
+[ADR 0115]: 0115-program-conflicts-mutual-exclusion.md
+[ADR 0128]: 0128-pi-tui-follows-noctalia-via-user-template.md
+[ADR 0129]: 0129-zsh-follows-noctalia-via-user-template.md
+[ADR 0130]: 0130-kitty-fleet-wide-seeded-stowable-follows-noctalia.md
+[ADR 0136]: 0136-neovim-follows-noctalia-via-base16-template.md
+[ADR-0109]: 0109-catppuccin-mocha-sapphire-default-seeded-offline.md

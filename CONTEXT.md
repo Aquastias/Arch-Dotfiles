@@ -24,21 +24,21 @@ keys, and the full pool skeleton — `mode` plus `os_pool` / `storage_groups[]` 
 **no device paths**. Disks are machine-physical and operator-picked at install
 time; the Pre-Install Picker maps them onto the declared groups to build the
 Effective Config. Validated against a closed schema at load — any unknown key at
-any depth aborts with its path (ADR 0036, amending ADR 0015). Independent of the
-machine's hostname (ADR 0020): a profile may pin one via `system.hostname`, or
-let the profile name serve as the default. Optionally ships Host Secrets
-alongside. VM-only fixtures live under `hosts/vm/<name>/` (users under
-`users/vm/`); the Profile Loader and secret lookups fall back there when
-`<kind>/<name>/` is absent, so they are still addressed by bare name.
+any depth aborts with its path ([ADR 0036], amending [ADR 0015]). Independent of
+the machine's hostname ([ADR 0020]): a profile may pin one via
+`system.hostname`, or let the profile name serve as the default. Optionally
+ships Host Secrets alongside. VM-only fixtures live under `hosts/vm/<name>/`
+(users under `users/vm/`); the Profile Loader and secret lookups fall back there
+when `<kind>/<name>/` is absent, so they are still addressed by bare name.
 
 ### Minimal Profile
 The committed `minimal` Host Profile (`.installer/hosts/minimal/`) — the
 desktop-less,
 bare base install, archinstall's "minimal" role. Selects no desktop
 (`environment.desktop: []`, so the display manager resolves to `none` and no DE
-adapter runs — ADR 0005) and opts out of Host Core's workstation Host Package
-List (`packages.inherit: false` — ADR 0056), leaving the installer's own base on
-a TTY. Not a new capability: no-desktop was always representable; this is the
+adapter runs — [ADR 0005]) and opts out of Host Core's workstation Host Package
+List (`packages.inherit: false` — [ADR 0056]), leaving the installer's own base
+on a TTY. Not a new capability: no-desktop was always representable; this is the
 canonical example of it. Guided reaches the same state from scratch (Host Core
 declares no desktop) or by seeding this profile. `packages.inherit: false` is
 host-scoped, so the user layer is made bare separately: the profile declares
@@ -49,16 +49,16 @@ GUI userland.
 ### Pure (Stock) Profiles
 The three committed `*-pure` Host Profiles — `kde-pure`, `hyprland-pure`,
 `niri-pure` (`.installer/hosts/<name>-pure/`) — each an upstream-**stock**
-single-desktop install (ADR 0112). Modelled on the Minimal Profile
+single-desktop install ([ADR 0112]). Modelled on the Minimal Profile
 (`packages.inherit: false`, `host_programs: []`, one operator-picked disk) but
 with one `environment.desktop` and `environment.stock: true`, so the DE lands as
 the distro's own default: KDE = the `plasma-meta` shell only (no curated apps,
-no captured settings seed — ADR 0087/0111), niri/Hyprland = the bare compositor
-(no Noctalia, no seeded config — the `wayland_shell: none` path). Reachable both
-as
+no captured settings seed — [ADR 0087]/[0111]), niri/Hyprland = the bare
+compositor (no Noctalia, no seeded config — the `wayland_shell: none` path).
+Reachable both as
 `install.sh --profile <name>-pure` and, for an ad-hoc run, via the Guided
 Installer's `stock` [[Cycle Field]] in the Environment category. Bluetooth stays
-enabled (a host-daemon toggle, not DE config — ADR 0080). The opposite of the
+enabled (a host-daemon toggle, not DE config — [ADR 0080]). The opposite of the
 opinionated default environment, not a new mechanism.
 
 ### Effective Config
@@ -70,7 +70,7 @@ paths the profile deliberately omits. Written to tmpfs by `install.sh
 <config-file>` path. Carries exactly the shape `03-install.sh` read from the
 retired `install.jsonc`, so the back-end never changed. The committed audit
 artifact is the Host Profile (disks excluded); this assembled artifact is
-transient by design (ADR 0036).
+transient by design ([ADR 0036]).
 
 ### Pre-Install Picker
 The interactive disk-resolution front-end of `install.sh --profile <name>`
@@ -84,7 +84,7 @@ Disk Wipe uses — boot-mount parent disk, `iso9660`/`ARCH_*` label, not
 string-matching). Single mode resolves one device; multi slices the picked set
 across the profile's declared `os_pool` / `storage_groups[]` / `data_pools[]`
 groups by each group's `disk_count`, in declared order, rendering the per-group
-mapping to stderr so a multi assignment is never implicit (ADR 0037). The
+mapping to stderr so a multi assignment is never implicit ([ADR 0037]). The
 assignment is validated against the min-disk table (mirror/stripe ≥2, raidz1 ≥3,
 raidz2 ≥4, none ≥2) and assembled into the Effective Config in tmpfs — `mode`
 and topology come from the profile, never re-prompted. `install.sh
@@ -100,7 +100,7 @@ the category divider, shown **unconditionally** — even on a repo with no
 committed profiles — that drills to a list of installable profiles; picking one
 merges its delta over Host Core into the Config State, then the operator tweaks
 or Proceeds — disks stay operator-picked), so guided is "from scratch **or** from
-a profile" per run (ADR 0055, superseding ADR 0039's require-a-profile
+a profile" per run ([ADR 0055], superseding [ADR 0039]'s require-a-profile
 rejection). Each profile row previews a **deep tree** of that machine (hostname,
 users → shell·groups, options incl. encryption/impermanence, environment,
 security, backup, disks). A `＋ New host (start blank)` row leads the picker: it
@@ -112,44 +112,44 @@ choices over Host Core (so the shared base — swappiness, base
 users, packages — still applies) and covers the full host schema. Secrets
 **default** and are never gated — root + per-user passwords to `12345`, the disk
 encryption passphrase to `12345678` (8 chars, because ZFS `keyformat=passphrase`
-rejects a shorter one at pool creation; accounts have no such floor — ADR 0059).
-The Users screen lists the account secrets for optional override; the disk
-passphrase is overridden on the Disks [[Encryption Editor]]. A resolvable age
-key decrypts committed secrets in their place (ADR 0055, superseding the ADR
-0051/0054 Proceed gate); both defaults are runtime-only and never enter Config
-State, Save, or Export. Unlike the Pre-Install Picker, which only
-resolves disks against an already-authored profile, the Guided Installer also
-authors the pool skeleton and every other machine property interactively.
-Navigation is non-destructive: a single in-session **Config State** holds only
-the operator's overrides over the computed defaults, so every screen is
-re-entrant, edits commit on confirm (never on `Esc`), changes survive moving
-between sections, and validation is deferred to the terminal actions. fzf is the uniform selection/navigation surface, now a **two-level** menu: a top
+rejects a shorter one at pool creation; accounts have no such floor —
+[ADR 0059]). The Users screen lists the account secrets for optional override;
+the disk passphrase is overridden on the Disks [[Encryption Editor]]. A
+resolvable age key decrypts committed secrets in their place ([ADR 0055],
+superseding the [ADR 0051]/[0054] Proceed gate); both defaults are runtime-only
+and never enter Config State, Save, or Export. Unlike the Pre-Install Picker,
+which only resolves disks against an already-authored profile, the Guided
+Installer also authors the pool skeleton and every other machine property
+interactively. Navigation is non-destructive: a single in-session **Config
+State** holds only the operator's overrides over the computed defaults, so every
+screen is re-entrant, edits commit on confirm (never on `Esc`), changes survive
+moving between sections, and validation is deferred to the terminal actions. fzf
+is the uniform selection/navigation surface, now a **two-level** menu: a top
 list of fourteen **Configuration Categories** in **install-flow order** under
 six non-selectable **bucket headers** — `GENERAL` (System, Locales, Users),
-`STORAGE & BOOT` (Disks, Bootloader, Kernels), `SOFTWARE` (Environment,
-Mirrors & Repositories, Pacman, Packages), `SERVICES` (Daemons),
-`SECURITY & DATA` (Security, Backup), `ADVANCED` (Expert) — each category
-opening a submenu of its fields, so a section name never repeats per row.
-(ADR 0071 established the two-level model; ADR 0081 re-cut it into buckets,
-renamed General → **System**, and merged the Printing/Bluetooth/Power service
-toggles into one category. ADR 0086 then renamed every category that echoed its
-bucket header — **Services** → **Daemons**, **Advanced** → **Expert** — and the
-`SYSTEM` bucket → **`GENERAL`** so `System` no longer repeats it.) The bucket
-headers, the divider, and
-the blank spacers between buckets are **inert** — the cursor auto-skips them
-(a fzf `focus` bind, ADR 0083), so only Profiles, a category, and the terminal
-actions are ever selected. Presentation is
+`STORAGE & BOOT` (Disks, Bootloader, Kernels), `SOFTWARE` (Environment, Mirrors
+& Repositories, Pacman, Packages), `SERVICES` (Daemons), `SECURITY & DATA`
+(Security, Backup), `ADVANCED` (Expert) — each category opening a submenu of its
+fields, so a section name never repeats per row. ([ADR 0071] established the
+two-level model; [ADR 0081] re-cut it into buckets, renamed General →
+**System**, and merged the Printing/Bluetooth/Power service toggles into one
+category. [ADR 0086] then renamed every category that echoed its bucket header —
+**Services** → **Daemons**, **Advanced** → **Expert** — and the `SYSTEM` bucket
+→ **`GENERAL`** so `System` no longer repeats it.) The bucket headers, the
+divider, and the blank spacers between buckets are **inert** — the cursor
+auto-skips them (a fzf `focus` bind, [ADR 0083]), so only Profiles, a category,
+and the terminal actions are ever selected. Presentation is
 **master-detail**: the fzf preview pane shows the highlighted item's live state,
 and the current selection is marked by the **triangle pointer (`▶`)** in the main
 list. On the **top screen** the pane shows only the highlighted category's own
 `key: value` fields with the `●` override dots — the category **parent column was
-dropped** (ADR 0082) as a duplicate of the bucketed main list. **Drill (category)
-screens** still show a **sibling-field column** (the category's fields, current
-marked, the rest dimmed) above the leaf detail — there it lists fields, not a
-copy of the main list. A leaf field previews its current value and allowed
-options; the Disks layout leaf previews the ZFS pool tree and the Users category
-its account table (both reusing the existing previews). Navigation stays
-drill-down (Enter deeper, Esc up) with a breadcrumb — archinstall's own
+dropped** ([ADR 0082]) as a duplicate of the bucketed main list. **Drill
+(category) screens** still show a **sibling-field column** (the category's
+fields, current marked, the rest dimmed) above the leaf detail — there it lists
+fields, not a copy of the main list. A leaf field previews its current value and
+allowed options; the Disks layout leaf previews the ZFS pool tree and the Users
+category its account table (both reusing the existing previews). Navigation
+stays drill-down (Enter deeper, Esc up) with a breadcrumb — archinstall's own
 behaviour. Every value list is an fzf list, and
 multi-select re-entry pre-marks prior picks; only free-text fields with nothing
 to enumerate (hostname, package names, sizes, URLs, `sysctl` pairs, persist
@@ -159,16 +159,16 @@ field|section|all) is bound to footer keybindings, not rows. Every **action
 row** (`＋ Create/Add …`, `✗ remove …`, `← Back`) renders as a visible list row
 in rich chrome, not just on the `^A`/`^X`/`Esc` accelerators — amending ADR
 0047's actions-on-keybindings split, whose hidden `＋ Create user` was
-undiscoverable on modern fzf (ADR 0063). The Users-screen `name — shell · pw`
+undiscoverable on modern fzf ([ADR 0063]). The Users-screen `name — shell · pw`
 rows preview a **full user panel** on hover (shell, sudo, groups, programs, git,
 SSH keys). Computed defaults
 seed an untouched run: hostname `eterniox`, `users[0]` = `aquastias` (Primary
 User), single-disk ZFS layout, locale `en_US.UTF-8` / timezone
 `Europe/Bucharest` / keymap `us`. The **baseline is loaded from Host Core**
-rather than hand-copying a few of its values (ADR 0058), so everything core
+rather than hand-copying a few of its values ([ADR 0058]), so everything core
 installs surfaces as a seeded-but-unmarked row — core's package list, once
 hand-copied and invisible. (`cups` was the original example; it has since become
-a toggle-derived Host Program with its own menu home — ADR 0079.) Core
+a toggle-derived Host Program with its own menu home — [ADR 0079].) Core
 therefore enters the pipeline exactly once; the
 emitter does not merge it again. The **Packages** category drills `repo` →
 category → package toggles (and `aur` likewise), with three-state provenance
@@ -196,7 +196,7 @@ replayed via `--profile`), **Export Effective Config** (write the
 device-baked artifact to an operator-chosen path *outside* the repo's `hosts/`
 tree, replayed via `install.sh <config-file>`), or **Abort** (an explicit
 action row, Esc-equivalent: quit the menu cleanly so `install.sh` skips the
-back-end — pre-destructive only, nothing on disk to undo; ADR 0077). The
+back-end — pre-destructive only, nothing on disk to undo; [ADR 0077]). The
 committed save strips disks;
 only the export carries them — preserving 0036's invariant that device paths are
 never committed as repo source of truth. The third front-end over the one
@@ -216,9 +216,9 @@ layout runs no post-menu pick. A bound pool carries an additive `devices[]` list
 and its `disk_count` is *derived* as the number bound; a counted pool carries only
 `disk_count`. `devices[]` is transient — it never reaches a validated artifact:
 Save Profile flattens it back to counts (`disk_count` = number bound, `devices`
-dropped), preserving the device-less profile invariant (ADR 0036); Proceed/Export
-lift it into the per-group assignment instead. Presets contribute a group's
-topology and name but never auto-bind
+dropped), preserving the device-less profile invariant ([ADR 0036]);
+Proceed/Export lift it into the per-group assignment instead. Presets contribute
+a group's topology and name but never auto-bind
 disks — binding which physical disk goes to which pool is always the operator's,
 one at a time.
 
@@ -235,7 +235,7 @@ re-cased row still resolves to the same underlying value.
 A Guided-Installer leaf whose whole value set is `true`/`false` and which
 therefore **flips in place** on the category screen — Enter advances to the
 other value and stays put (`echo refresh`), never drilling into the values
-submenu (ADR 0075). A field is a Cycle Field structurally, by its option set
+submenu ([ADR 0075]). A field is a Cycle Field structurally, by its option set
 being exactly `{true, false}` (`_ctl_is_cycle_field`), so a newly-added bare
 bool becomes one with no list to maintain. Scope is **bare bools only**: the
 five Pacman flags, Environment→stock, the three Security and two Backup bools,
@@ -276,40 +276,40 @@ a manual config resolves no wipe targets, so the table survives. Reversible and
 non-destructive to Config State like every other guided choice — auto↔manual
 toggles without losing either side's overrides — and its partition assignment is
 **transient**, never reaching a committed or exported artifact, mirroring the
-device-less invariant (ADR 0036). Because a hand-drawn table cannot be replayed
-from a committed file, manual is **Proceed-only**: no Save Profile, no Export,
-and it never appears on the `--profile` Pre-Install Picker or the unattended
-`install.sh <config-file>` path. Distinct from the predefined (auto) layouts,
-whose pool skeleton is the installer's default.
+device-less invariant ([ADR 0036]). Because a hand-drawn table cannot be
+replayed from a committed file, manual is **Proceed-only**: no Save Profile, no
+Export, and it never appears on the `--profile` Pre-Install Picker or the
+unattended `install.sh <config-file>` path. Distinct from the predefined (auto)
+layouts, whose pool skeleton is the installer's default.
 
 ### Host Core
 Declarative JSONC file at `.installer/hosts/core/profile.jsonc`. Declares the
 base set
 of users, Sysctl Defaults, **and the Host Package List** shared across all hosts
-(ADR 0056, amending ADR 0007 — whose "the lists are machine-specific" premise
-failed). ADR 0114 then went further: `desktop` and `laptop` run the **same**
-software (both are dev + gaming machines), so **every fleet package lives in
-core** and **both** host profiles carry no packages block — a host profile is
-now purely per-machine facts (hostname, impermanence, disk skeleton, GPU). The
-two machines are one software image plus hardware. Every Host Profile is
-resolved over core by the
-[[Layer Resolver]] — core applies first, then the host profile per the ADR 0057
-per-key classification. A host drops something core declares via
+([ADR 0056], amending [ADR 0007] — whose "the lists are machine-specific"
+premise failed). [ADR 0114] then went further: `desktop` and `laptop` run the
+**same** software (both are dev + gaming machines), so **every fleet package
+lives in core** and **both** host profiles carry no packages block — a host
+profile is now purely per-machine facts (hostname, impermanence, disk skeleton,
+GPU). The two machines are one software image plus hardware. Every Host Profile
+is resolved over core by the
+[[Layer Resolver]] — core applies first, then the host profile per the
+[ADR 0057] per-key classification. A host drops something core declares via
 `packages.exclude[]` or `host_programs_exclude[]`; the three VM fixtures opt
 out of the inherited package set wholesale with `packages.inherit: false`
 (which also drops core's base `host_programs`; they still inherit core's users
 and sysctl). Also the
-Guided Installer's menu baseline (ADR 0058), so everything core installs is
+Guided Installer's menu baseline ([ADR 0058]), so everything core installs is
 visible and deselectable in the menu. Core declares **five** free-standing base
 Host Programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
 0089); `cups`, once its sole entry, has since moved out to a toggle-derived Host
-Program with its own menu home (ADR 0079).
+Program with its own menu home ([ADR 0079]).
 
 ### Layer Resolver
 `.installer/lib/config/layer-resolver.sh`. The pure module answering "given Host
 Core and a host profile, what is the effective set?" — and the same for User
 Core and a user profile. Resolution is **per-key**, classified by unordered set
-versus ordered selection (ADR 0057): *additive* keys concat + dedupe and
+versus ordered selection ([ADR 0057]): *additive* keys concat + dedupe and
 `exclude` subtracts (`packages.repo.*`, `packages.aur.*`, `host_programs`,
 `users`, `persist.*`, `sysctl`, and user-side
 `groups`/`programs`/`ssh_authorized_keys`); *replace* keys are overwritten
@@ -382,17 +382,17 @@ package names.
 Declarative JSONC file at `.installer/users/<username>/profile.jsonc` (renamed
 from
 `config.jsonc` in step with the host side — profile = a host/user, config = a
-program spec; ADR 0036). Declares a user's shell, sudo access, groups, which
+program spec; [ADR 0036]). Declares a user's shell, sudo access, groups, which
 user-level programs are installed, and an optional `user_services` list enabled
 via `systemctl --user enable` after the user's programs and dotfiles are placed
 (a unit missing at enable time aborts with an actionable message). Optional
 fields: git identity, SSH authorized keys. `git` must be declared explicitly as
 a user program — it is not installed by default. Passwords are not stored in the
 profile — hardcoded as `12345` by default unless User Secrets override. User ↔
-Host-Program references (refining the old always-abort rule, ADR 0036): a
+Host-Program references (refining the old always-abort rule, [ADR 0036]): a
 user-level program may shadow a Host Program; referencing a Host Program the
 host already installs is a no-op; referencing one no host installs aborts with
-an actionable message — the `system` flag stays host-owned (ADR 0002). Applied
+an actionable message — the `system` flag stays host-owned ([ADR 0002]). Applied
 on top of User Core.
 
 ### User Editor
@@ -402,15 +402,15 @@ shown `name — shell · pw` with a `⚠` when unset, `＋ Create user`). Expose
 full User Profile — enabled/remove, shell,
 password, sudo, groups, git identity, SSH keys, programs. Edits are
 install-scoped: they bake into Proceed and Export but never rewrite a committed
-`users/<name>/profile.jsonc` (ADR 0051). A committed user's editor shows its
+`users/<name>/profile.jsonc` ([ADR 0051]). A committed user's editor shows its
 effective (core-merged) values while storing only a delta. A committed user can
 be *disabled* (excluded from the install) but not removed; only a session-created
 user is removable. A `⧉ Clone this user` row copies the source's effective
 account-shape (shell, sudo, groups, programs — never git identity, SSH keys, or
-password) into a new ad-hoc user and opens its editor (ADR 0064). Distinct from
-the User Profile, which is the committed file; the User Editor is the transient,
-per-install override surface over it. Root's account is a single Users-screen
-row opening the [[Root Editor]] (see [[Root Shell]]).
+password) into a new ad-hoc user and opens its editor ([ADR 0064]). Distinct
+from the User Profile, which is the committed file; the User Editor is the
+transient, per-install override surface over it. Root's account is a single
+Users-screen row opening the [[Root Editor]] (see [[Root Shell]]).
 
 ### Root Editor
 The Guided Installer sub-screen opened by Enter on the single `root — shell · pw`
@@ -418,49 +418,50 @@ row of the flattened Users screen — the root counterpart of the [[User Editor]
 symmetric with it so every account row opens its own editor. Collapses the two
 former Users-screen rows (`root password` + `root shell`) into one row and one
 editor exposing exactly `password` and `shell` (root has no groups/sudo/programs).
-The password is captured the inline-masked, type-twice-confirm way (ADR 0051) and
-stored in the no-SOPS manifest under the root role; `shell` cycles `/bin/bash` →
-`/bin/zsh` → `/bin/fish` (see [[Root Shell]]). Install-scoped like the User
-Editor: it bakes into Proceed/Export, never a committed file.
+The password is captured the inline-masked, type-twice-confirm way ([ADR 0051])
+and stored in the no-SOPS manifest under the root role; `shell` cycles
+`/bin/bash` → `/bin/zsh` → `/bin/fish` (see [[Root Shell]]). Install-scoped like
+the User Editor: it bakes into Proceed/Export, never a committed file.
 
 ### Encryption Editor
 The Guided Installer sub-editor reached from the single `Encryption ▸` row on
 the **Disks** screen (kept beneath the filesystem row, whose choice derives the
 cipher), which collapses the disk-encryption decision into one place: an
-enablement toggle plus the ZFS/LUKS passphrase (ADR 0059, superseding the
-separate `encryption` toggle + passphrase row of ADR 0054 and the Users-screen
-`Disk encryption` override of ADR 0055 — the Users screen is now accounts-only).
-The collapsed row summarises both facts — `on · <source>` (spelling the default,
-`on · custom`, `on · from age`) or `off`, plus the standard override dot.
-Modelled on the swap sub-editor, the Editor shows only `enabled` when off (a
-passphrase configures nothing then) and adds a `password` row when on; `enabled`
-cycles in place and setting a passphrase never flips it. The passphrase is
-captured the same inline-masked, type-twice-confirm way as the root/user
-passwords (ADR 0051) and stored in the no-SOPS Secrets Manifest under
-`enc_passphrase` (never in Config State, Save, or Export); its one divergence
-from the password rows is that first entry must be **≥ 8 chars** — the ZFS
-`keyformat=passphrase` minimum. It is never gated (an unset passphrase defaults
-to `12345678`); toggling encryption off hides the `password` row but retains any
-stored value. The back end (`collect_enc_passphrase`) consumes it by precedence
-`INSTALL_ENC_PASSPHRASE` → guided manifest → unattended default → interactive
-prompt, so an interactive profile/manual install keeps the tty prompt while
-`--unattended` takes the default (ADR 0059, extending ADR 0054).
+enablement toggle plus the ZFS/LUKS passphrase ([ADR 0059], superseding the
+separate `encryption` toggle + passphrase row of [ADR 0054] and the Users-screen
+`Disk encryption` override of [ADR 0055] — the Users screen is now
+accounts-only). The collapsed row summarises both facts — `on · <source>`
+(spelling the default, `on · custom`, `on · from age`) or `off`, plus the
+standard override dot. Modelled on the swap sub-editor, the Editor shows only
+`enabled` when off (a passphrase configures nothing then) and adds a `password`
+row when on; `enabled` cycles in place and setting a passphrase never flips it.
+The passphrase is captured the same inline-masked, type-twice-confirm way as the
+root/user passwords ([ADR 0051]) and stored in the no-SOPS Secrets Manifest
+under `enc_passphrase` (never in Config State, Save, or Export); its one
+divergence from the password rows is that first entry must be **≥ 8 chars** —
+the ZFS `keyformat=passphrase` minimum. It is never gated (an unset passphrase
+defaults to `12345678`); toggling encryption off hides the `password` row but
+retains any stored value. The back end (`collect_enc_passphrase`) consumes it by
+precedence `INSTALL_ENC_PASSPHRASE` → guided manifest → unattended default →
+interactive prompt, so an interactive profile/manual install keeps the tty
+prompt while `--unattended` takes the default ([ADR 0059], extending
+[ADR 0054]).
 
 ### Impermanence Editor
 The Guided Installer sub-editor reached from the single `Impermanence ▸ on/off`
 row on the **Disks** screen (with the standard override dot), which merges the
 enablement toggle and persist-directory management into one section — replacing
 the former inline `impermanence:` toggle plus a separate `Add persist directory`
-action row (ADR 0066). Modelled on the [[Encryption Editor]] / swap sub-editor,
-it collapses when off (only `enabled: off`); when on it shows `enabled: on`
-(strict-delta), one removable row per user-added persist directory, a read-only
-`curated defaults: N paths always persisted` line, and an `Add persist
-directory` action appending to `persist.directories`. Scope is directories only
-(`persist.files` and the ZFS-only `dataset`/`mount` stay file-editable);
-directories already stored are retained, not purged, when impermanence is
-toggled off. Menu surface only — the stored shape, install-time validation, the
-hybrid-GPU ban (ADR 0060), and rollback mechanics (ADR 0008 / 0044) are
-unchanged.
+action row ([ADR 0066]). Modelled on the [[Encryption Editor]] / swap
+sub-editor, it collapses when off (only `enabled: off`); when on it shows
+`enabled: on` (strict-delta), one removable row per user-added persist
+directory, a read-only `curated defaults: N paths always persisted` line, and an
+`Add persist directory` action appending to `persist.directories`. Scope is
+directories only (`persist.files` and the ZFS-only `dataset`/`mount` stay
+file-editable); directories already stored are retained, not purged, when
+impermanence is toggled off. Menu surface only — the stored shape, install-time
+validation, the hybrid-GPU ban ([ADR 0060]), and rollback mechanics ([ADR 0008]
+/ 0044) are unchanged.
 
 ### Root Shell
 The root login shell, chosen in the Guided Installer via the `shell` row of the
@@ -470,17 +471,18 @@ cycle the User Editor uses). Stored at Config State `options.root_shell` (defaul
 and a saved profile like any host option; not gated (it always has a valid
 default). Applied in the chroot by `lib/chroot/password.sh` (`chsh` root plus a
 missing-shell package install, mirroring `create-user.sh`), so root can never be
-left with an unusable login shell (ADR 0054). Caveat: when the `zsh` User
+left with an unusable login shell ([ADR 0054]). Caveat: when the `zsh` User
 Program is installed (User Core default), its install script later seeds
 `/root` with the static zsh theme + warmed zinit cache and `chsh`es root to zsh
-(red `root@host` prompt context), overriding a `bash`/`fish` choice (ADR 0146).
+(red `root@host` prompt context), overriding a `bash`/`fish` choice
+([ADR 0146]).
 
 ### User Core
 Declarative JSONC file at `.installer/users/core/profile.jsonc`. Declares the
 base set
 of programs, shell defaults, groups, and House Defaults shared across all users.
 Every User Profile is resolved over core by the [[Layer Resolver]] — core
-applies first, then the user profile per the ADR 0057 per-key classification
+applies first, then the user profile per the [ADR 0057] per-key classification
 (`groups`/`programs`/`ssh_authorized_keys` additive; `shell`/`sudo`/
 `user_services` replace). A user drops something core declares via
 `programs_exclude[]`; the two throwaway VM test users use it to drop the
@@ -489,8 +491,8 @@ interactive userland (zsh, kitty, virt-manager, pi, claude, …).
 The default `shell` is **`/bin/zsh`**: the fleet shell config is zsh, served by
 the `zsh` [[User Program]] in User Core's `programs` (its `home/` payload —
 `.zshrc`, `.zshenv`, `.zprofile`, `.zlogin`, `.zlogout`, `.zsh/`,
-`.zsh_aliases`, `.p10k.zsh` — placed by the [[Config Apply Pass]], ADR 0134;
-live palette via the [[Zsh Theme Template]], ADR 0129). `zsh` itself is not
+`.zsh_aliases`, `.p10k.zsh` — placed by the [[Config Apply Pass]], [ADR 0134];
+live palette via the [[Zsh Theme Template]], [ADR 0129]). `zsh` itself is not
 declared as a package: `ensure_login_shell_installed` pacman-installs a user's
 login shell when the binary is missing. The program pre-warms the zinit plugin
 cache at install, so first login needs no network. The two throwaway VM test
@@ -519,7 +521,7 @@ Dependency]] (`requires`) and [[Program Conflict]] (`conflicts`), and optional
 ### Program Dependency (`requires`)
 A `requires: [name, …]` array in a [[Program Config]] naming other Programs
 whose install-time setup — package **and** side effects (e.g. podman's
-subuid/subgid + linger) — must be in place before this one runs (ADR 0065).
+subuid/subgid + linger) — must be in place before this one runs ([ADR 0065]).
 Enforced at
 `validate_install_context` before any side effect: a required program must be a
 [[Host Program]] (installed before all user programs) or appear earlier in the
@@ -530,35 +532,37 @@ declares one (`["podman"]`).
 
 ### Program Conflict (`conflicts`)
 A `conflicts: [name, …]` array in a [[Program Config]] naming other Programs
-this one is mutually exclusive with, e.g. firewalld vs ufw (ADR 0115). Symmetric
-— declaring on one side is enough. Enforced at `validate_install_context` before
-any side effect, over the combined set that reaches a machine ([[Host Program]]s
-plus a user's own `programs`): a selection with both rivals aborts up front
-instead of one installing + enabling and the other failing mid-run. Any runtime
-`command_exists` guard in `install.sh` stays as defense-in-depth. Distinct from
-package-level conflicts, which pacman resolves; this models cross-[[Program]]
-exclusion the package manager cannot see.
+this one is mutually exclusive with, e.g. firewalld vs ufw ([ADR 0115]).
+Symmetric — declaring on one side is enough. Enforced at
+`validate_install_context` before any side effect, over the combined set that
+reaches a machine ([[Host Program]]s plus a user's own `programs`): a selection
+with both rivals aborts up front instead of one installing + enabling and the
+other failing mid-run. Any runtime `command_exists` guard in `install.sh` stays
+as defense-in-depth. Distinct from package-level conflicts, which pacman
+resolves; this models cross-[[Program]] exclusion the package manager cannot
+see.
 
 ### Host Program
 A program that requires root and is installed via pacman during the chroot
 phase — host-owned, not any user's (contrast [[User Program]]). Declared in the
-host's `host_programs` field (renamed from `system_programs` by ADR 0085,
-completing ADR 0084's deferral). Usually declared in a Host Profile or Host
+host's `host_programs` field (renamed from `system_programs` by [ADR 0085],
+completing [ADR 0084]'s deferral). Usually declared in a Host Profile or Host
 Core. Marked `"kind": "host"` in its program config (the `"system": true` bool
-became a `kind` enum, ADR 0085). Only official repo packages (no AUR) should be
-Host Programs. The registry now marks **twelve** programs `kind: host`, reaching
-the install four ways. **Authored**: Host Core declares five free-standing base
-host programs (`ccache`, `fwupd`, `gamemode`, `lact`, `smartmontools` — ADR
-0089), and a Host Profile declares `grub`. **Control-derived**, injected into
-`host_programs` at assembly and never in a committed list: `cups`/`bluetooth` by
-a Daemons toggle, `power-profiles-daemon`|`tuned` by the Power enum, `reflector`
-by the Mirrors & Repositories section (see [[Printing Service]] / [[Bluetooth
-Service]] / [[Power Profile]] / [[Mirror Service]] — ADR 0079/0080/0089).
+became a `kind` enum, [ADR 0085]). Only official repo packages (no AUR) should
+be Host Programs. The registry now marks **twelve** programs `kind: host`,
+reaching the install four ways. **Authored**: Host Core declares five
+free-standing base host programs (`ccache`, `fwupd`, `gamemode`, `lact`,
+`smartmontools` — [ADR 0089]), and a Host Profile declares `grub`.
+**Control-derived**, injected into `host_programs` at assembly and never in a
+committed list: `cups`/`bluetooth` by a Daemons toggle,
+`power-profiles-daemon`|`tuned` by the Power enum, `reflector` by the Mirrors &
+Repositories section (see [[Printing Service]] / [[Bluetooth Service]] / [[Power
+Profile]] / [[Mirror Service]] — [ADR 0079]/[0080]/[0089]).
 **Secrets-activated**: the sops Program, selected by the Runner when
-install-state records secrets (see SOPS Runtime Service, ADR 0025).
+install-state records secrets (see SOPS Runtime Service, [ADR 0025]).
 
 The `system` flag is carried by the [[Program Registry]] and is
-**authoritative** (ADR 0058): a program's name resolves to exactly one kind,
+**authoritative** ([ADR 0058]): a program's name resolves to exactly one kind,
 and that kind decides which slot may declare it. The Guided Installer's host
 `host_programs` picker offers only `kind: host` programs and the User
 Editor's `programs` picker only
@@ -570,13 +574,13 @@ A registry Program whose install is governed by a **dedicated menu control** —
 its control is the program's **sole home**, so it is never default-installed as
 a program and never listed in either Programs picker (host or User Editor).
 Generalizes the `*_owned_programs` filter that already delisted `cups` /
-`bluetooth` / `power-profiles-daemon` / `tuned` (ADR 0079/0080) into one
-`menu_owned_programs` union covering every control-owned program (ADR 0086):
+`bluetooth` / `power-profiles-daemon` / `tuned` ([ADR 0079]/[0080]) into one
+`menu_owned_programs` union covering every control-owned program ([ADR 0086]):
 `grub` (Bootloader enum), `firewalld` / `ufw` / `clamav` / `rkhunter` /
 `apparmor` (Security toggles), `borg` / `zfs-auto-snapshot` (Backup toggles),
 `sops` (secrets activation), and `reflector` (the Mirrors & Repositories
-section, ADR 0089 — its sole home, like cups' is Printing). The unconditional
-base host programs promoted under ADR 0089's rule (`ccache`, `fwupd`,
+section, [ADR 0089] — its sole home, like cups' is Printing). The unconditional
+base host programs promoted under [ADR 0089]'s rule (`ccache`, `fwupd`,
 `gamemode`, `lact`, `smartmontools`) are the exception — free-standing `kind:
 host` programs owned by no control; they install via Host Core's `host_programs`
 and are dropped from a bare install by `inherit: false`. Consequence: no `kind:
@@ -597,7 +601,7 @@ default — whether the program installs is still the control's call.
 The Guided-Installer toggle governing whether `cups` — the CUPS print daemon —
 is installed and its `cups.service` enabled. A single bool [[Cycle Field]]
 (default `true`, normalised-out when true) in the shared **Daemons**
-Configuration Category (ADR 0081; its own **Printing service** category
+Configuration Category ([ADR 0081]; its own **Printing service** category
 pre-merge), a service-enablement field rather than an identity field like
 System's hostname/timezone. `cups` is
 **not**
@@ -619,7 +623,7 @@ toggle-derived [[Printing Service]] it is **state-independent** — the section
 has no on/off bool; it always injects `reflector` into the Effective Config's
 `host_programs` at assembly time (`lib/config/mirrors.sh:mirrors_inject`), so
 the [[Runner]] installs the package and enables the weekly `reflector.timer` on
-every install (ADR 0089). `reflector` is **not** declared in Host Core; the
+every install ([ADR 0089]). `reflector` is **not** declared in Host Core; the
 section is its sole menu home, filtered from the Programs pickers
 (`mirrors_owned_programs`) and reported by the resolver as `source=mirrors`
 (layer `derived`). Distinct from the install-time use of `reflector` (the ISO's
@@ -629,23 +633,23 @@ Countries) — this is the *installed system's* recurring refresh.
 ### Bluetooth Service (`options.bluetooth.enabled`)
 The second **toggle-derived Host Program**, twinning [[Printing Service]]: a
 single bool [[Cycle Field]] (default `true`, normalised-out when true) in the
-shared **Daemons** Configuration Category (ADR 0081). On → a `bluetooth` program
-is injected into the Effective Config's `host_programs` at assembly time,
-installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
+shared **Daemons** Configuration Category ([ADR 0081]). On → a `bluetooth`
+program is injected into the Effective Config's `host_programs` at assembly
+time, installing `bluez` + `bluez-utils` and enabling `bluetooth.service`; off →
 genuinely absent. Owns only the **daemon layer**, never a GUI frontend: on KDE
 `bluez`/BlueDevil already arrive via `plasma-meta`, so the injection is a
 `--needed` no-op and the toggle's real contribution is *enabling the service*
 (nothing else does today). A Hyprland-session tray is a separate concern — the
 [[Desktop Environment Adapter]] for Hyprland ships `blueman` with a
 `NotShowIn=KDE` autostart, so a KDE session shows BlueDevil and a Hyprland
-session shows blueman (ADR 0080). Filtered from the Programs pickers like
+session shows blueman ([ADR 0080]). Filtered from the Programs pickers like
 `cups`; surfaces as `source=bluetooth` in the resolver.
 
 ### Power Profile (`options.power.profile`)
-The **enum** generalization of the toggle-derived pattern (ADR 0080, extending
+The **enum** generalization of the toggle-derived pattern ([ADR 0080], extending
 0079's bool): a choice field `none | power-profiles-daemon | tuned` (default
 `power-profiles-daemon`) in the shared **Daemons** Configuration Category
-(ADR 0081; its own **Power** category pre-merge).
+([ADR 0081]; its own **Power** category pre-merge).
 Unlike a bool toggle — which only decides *whether* a package lands — the value
 picks *which* daemon is injected and whose service is enabled
 (`power-profiles-daemon.service` / `tuned.service`); `tuned` additionally pulls
@@ -660,11 +664,11 @@ The curated multi-select font list, modelled on `options.kernel`: an enumerated
 option set (in `menu_enum_options`) that the operator TAB-checks, some
 pre-checked, resolved to packages before pacstrap. **Replaces**
 `packages.repo.fonts`, which is **deleted from Host Core** so a font has exactly
-one home (mirroring cups' removal from core, ADR 0079). The resolver is
+one home (mirroring cups' removal from core, [ADR 0079]). The resolver is
 repo+AUR aware — the lone AUR entry (`ttf-ms-fonts`, kept because
 `ttf-liberation` covers only Arial/Times/Courier metrics, not
 Verdana/Georgia/Tahoma) routes to the Primary-User paru pass. Lives as a leaf
-in the **System** Category (ADR 0080; renamed from General by ADR 0081), the
+in the **System** Category ([ADR 0080]; renamed from General by [ADR 0081]), the
 one non-identity resident there.
 Default-checked spans the Noto family (incl. `noto-fonts-cjk` for CJK glyphs),
 `ttf-liberation`, `ttf-dejavu`, `ttf-ms-fonts`, and the Nerd-patched monospace
@@ -701,23 +705,23 @@ alongside `INSTALLER_DIR` / `PROGRAMS` / `SHELL_COMMONS`, resolving it once at
 bootstrap. The "paru preferred, yay fallback" rule lives in one place —
 `_profiles_detect_helper` (`lib/aur-helper.sh`), shared with the standalone
 `tools/install-pkglist.sh`. Only exhausting all three rungs aborts, cleanly.
-Resolution is per user. Under [[AUR Vetting]] (ADR 0143) only `paru` builds from
-the AUR — its `PreBuildCommand` runs the vetter — so a user left on `yay` gets
-repo-only installs and the AUR pass refuses.
+Resolution is per user. Under [[AUR Vetting]] ([ADR 0143]) only `paru` builds
+from the AUR — its `PreBuildCommand` runs the vetter — so a user left on `yay`
+gets repo-only installs and the AUR pass refuses.
 
 ### AUR Vetting
 The pre-build review every AUR package (and each AUR dependency, recursively)
 must pass before it is built — installer and booted system alike. Stateless
-since ADR 0149: each build is scanned as it is then (clone, previous commit,
+since [ADR 0149]: each build is scanned as it is then (clone, previous commit,
 AUR RPC); nothing is pinned or re-approved later. Flags Indicators, heuristic
 red flags, [[Gained Finding]]s and trust signals; guarantees nothing, since
 fetched sources stay opaque. _Avoid_: PKGBUILD audit, AUR gate, malware scan,
-Vetted Commit (retired by ADR 0149).
+Vetted Commit (retired by [ADR 0149]).
 
 ### Gained Finding
 An [[AUR Vetting]] rule that fires more often in a file of a package's newest
 AUR commit than in the commit before it — the shape of an injected line.
-Escalated one severity tier (ADR 0149).
+Escalated one severity tier ([ADR 0149]).
 
 ### Indicator
 A known-bad marker from a past AUR incident (package, domain, command) kept in
@@ -727,7 +731,7 @@ the repo. _Avoid_: IOC, signature.
 `.installer/lib/profiles/runner.sh`. Reads host core + host profile (merged),
 validates
 program references (a user referencing a Host Program no host installs aborts;
-one the host already installs is a no-op — ADR 0036), installs Host Programs
+one the host already installs is a no-op — [ADR 0036]), installs Host Programs
 via `arch-chroot`, then for each user merges user core + user profile and
 installs programs via `arch-chroot /mnt su - <username>` (AUR builds through
 the vetted paru pass, [[AUR Vetting]]), then runs the [[Config Apply Pass]]
@@ -737,7 +741,7 @@ for that user and finally seeds `/etc/skel` + `/root`. Called by
 ### Single Entry Point
 `.installer/install.sh`. The one script a user runs from the Arch live CD after
 cloning
-the repo. Three front-ends over one back-end (ADR 0036): `install.sh --profile
+the repo. Three front-ends over one back-end ([ADR 0036]): `install.sh --profile
 <name>` (interactive — the Pre-Install Picker resolves disks and assembles the
 Effective Config in tmpfs; the user-facing path), `install.sh <config-file>`
 (the unattended seam consuming a pre-assembled Effective Config; the VM seed's
@@ -792,7 +796,7 @@ helpers) without their own source line.
 
 ### Readability Rules
 The naming, size, flow, and tool conventions every `.installer/` change
-follows (ADR 0153), written down in `docs/agents/readability.md`. A function's
+follows ([ADR 0153]), written down in `docs/agents/readability.md`. A function's
 name tells you its file (its **Prefix**) and whether it acts, tests, or
 prints.
 _Avoid_: style guide, coding standards (too broad — Comment Style is separate)
@@ -805,7 +809,7 @@ marks file-private. _Avoid_: namespace, module tag
 
 ### Prefix Map
 The approved old→new Prefix table (`fa_` → `feature_audit_`, `_ctl_` →
-`_controller_`, …) that the readability refactor applies (ADR 0153).
+`_controller_`, …) that the readability refactor applies ([ADR 0153]).
 
 ### Interface Function
 A function defined under the same name by every implementation of one
@@ -815,7 +819,7 @@ its glossary role, not its file (the one exception to Prefix).
 _Avoid_: hook, callback, polymorphic function
 
 ### Tool Tiers
-Which external commands installer code may call (ADR 0153): **core** (`jq`
+Which external commands installer code may call ([ADR 0153]): **core** (`jq`
 for JSON, `awk` for text, `grep` to filter, `sort`, file ops), **sed `-i`
 only**, and **replace** (`cut`, `tr`, `head`, `tail`, `wc`, … — rewrite with
 a core tool or a bash builtin).
@@ -832,7 +836,7 @@ _Avoid_: style check, linter (unqualified)
 truth for
 all installation logic: package install, non-config setup, service enabling.
 User config under the program's `home/` is placed by the [[Config Apply Pass]],
-not by `install.sh` (ADR 0134). Invoked
+not by `install.sh` ([ADR 0134]). Invoked
 by the Program Runner via `lib/profiles/program-runner.sh`, which validates staging, sources
 Shell Stdlib, then sources the install.sh in the same shell. Receives env vars
 `$INSTALLER_DIR`, `$PROGRAMS`, `$SHELL_COMMONS` (and, for User Programs,
@@ -858,8 +862,9 @@ phase ordering via `_layout_enter_phase` / `_layout_exit_phase` in
 out of order aborts via `error` before any destructive operation. Mode-private
 globals (`SINGLE_*`, `MULTI_*`, `OS_ESP_PARTS`, `STORAGE_PARTS`,
 `RESOLVED_TOPOLOGIES`) stay inside the module — consumers only read `LAYOUT_*`.
-Since the filesystem axis landed (ADR 0040/0043) this is the ZFS [[Root Layout
-Adapter]]; btrfs, ext4, xfs and manual adapters implement the same interface.
+Since the filesystem axis landed ([ADR 0040]/[0043]) this is the ZFS [[Root
+Layout Adapter]]; btrfs, ext4, xfs and manual adapters implement the same
+interface.
 
 ### Filesystem Adapter
 The seam that selects the on-disk filesystem. The top-level `filesystem`
@@ -877,9 +882,9 @@ differs. Impermanence and the Bootloader Adapter's `root=` are also
 filesystem-conditional: Impermanence is offered on the snapshotting filesystems
 ZFS and btrfs only (never ext4/xfs). The additive `options.encryption_method`
 (`native` | `luks`, default derived from `filesystem`) and the fs-keyed dispatch
-mean a new filesystem is an additive adapter, never a schema migration (ADR 0040,
-extended by ADR 0043). See [[Root Layout Adapter]] and [[Data Group Formatter]]
-for the dispatch split.
+mean a new filesystem is an additive adapter, never a schema migration
+([ADR 0040], extended by [ADR 0043]). See [[Root Layout Adapter]] and [[Data
+Group Formatter]] for the dispatch split.
 
 ### Root Layout Adapter
 The filesystem-and-mode-keyed half of the layout dispatch that owns the **OS
@@ -889,16 +894,16 @@ and hands the Bootloader Adapter the right `root=` (ZFS →
 `root=UUID=…`; btrfs adds `rootflags=subvol=…`). Selected by
 `root_adapter_source <fs> <mode>` (`lib/layout/<fs>/<mode>.sh`; ext4/xfs are
 single-disk regardless of mode), or `lib/layout/manual/root.sh` when
-`disk_config.kind` is `manual` ([[Manual Partitioning]], ADR 0073). The ZFS
+`disk_config.kind` is `manual` ([[Manual Partitioning]], [ADR 0073]). The ZFS
 single/multi Layout Modules became the ZFS Root Layout Adapter under
-`lib/layout/zfs/` (ADR 0043).
+`lib/layout/zfs/` ([ADR 0043]).
 
 ### Data Group Formatter
 The filesystem-keyed (mode-independent) half of the layout dispatch that formats
 **one** data group with *its* chosen filesystem — a group is just disks +
 topology + fs, with no single/multi notion. The multi-disk data-pool loop
 dispatches each group via `data_formatter_source <fs>`; ZFS's existing data-pool
-creation becomes the ZFS Data Group Formatter (ADR 0043).
+creation becomes the ZFS Data Group Formatter ([ADR 0043]).
 
 ### Storage Group
 A vdev (or set of per-disk vdevs) folded into the single Combined Data Pool in
@@ -926,7 +931,7 @@ the Pre-Install Picker. Topology is limited to
 `stripe`/`mirror`/`raidz1`/`raidz2`; `none` and `independent` are rejected —
 "each disk separate" is expressed as multiple entries, and "all disks, no
 redundancy" is `stripe`. Each entry may pick its own `filesystem` (default the
-root's) and opt into `encryption` independently (ADR 0043); the topology rules
+root's) and opt into `encryption` independently ([ADR 0043]); the topology rules
 above apply to ZFS/btrfs, while ext4/xfs groups are single-disk. Multi-disk
 only. Also producible interactively: when OS topology is `none`, each leftover
 disk may be chosen per-disk as its own Standalone Data Pool (named at the
@@ -949,7 +954,7 @@ member. Applied install-time after the Runner creates users + groups, on the
 host against the altroot-mounted paths, resolving each owner to a numeric
 UID/GID from the installed `/etc/passwd` + `/etc/group` (the live ISO has no
 knowledge of the chroot's users); ACL group grants use `g:<gid>:rwx` so
-membership stays dynamic. (ADR 0031.)
+membership stays dynamic. ([ADR 0031].)
 
 ### Program Runner
 `.installer/lib/profiles/program-runner.sh`. Wrapper invoked by the Runner inside arch-chroot for
@@ -992,7 +997,7 @@ sync). Also owns the credential keys `.secrets.*` (SOPS-backed) and
 `.guided_passwords.*` (the Guided no-SOPS injector): `install_state_credential_path`
 resolves a host/user role to its decrypted-file path with the precedence
 `.secrets` then `.guided_passwords`, and `install_state_activates_sops` is the
-`.secrets`-only gate that triggers the SOPS Runtime Service (ADR 0025) — the
+`.secrets`-only gate that triggers the SOPS Runtime Service ([ADR 0025]) — the
 Guided key deliberately never does. Consumers (the Chroot Configuration
 Module's host-secrets resolver, the Runner's user-secrets resolver) call these
 rather than re-encoding the jq, so the precedence and the SOPS-gate invariant
@@ -1003,10 +1008,10 @@ The seam selecting between Bootloader Adapters. The active adapter is chosen by
 `options.bootloader` in the Host Profile — one of `systemd-boot`, `grub`,
 `efistub`, `limine`, `refind` (default `systemd-boot`), a **closed set**
 validated at profile load against `menu_enum_options options.bootloader`, so an
-unknown loader aborts with its path (ADR 0077). The chroot orchestrator invokes
-`bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding a new bootloader
-means dropping in a new Bootloader Adapter plus one Bootloader Manifest row — no
-`if/elif` branches grow.
+unknown loader aborts with its path ([ADR 0077]). The chroot orchestrator
+invokes `bash /root/lib-chroot/bootloader-${BOOTLOADER}.sh`. Adding a new
+bootloader means dropping in a new Bootloader Adapter plus one Bootloader
+Manifest row — no `if/elif` branches grow.
 
 ### Bootloader Adapter
 `.installer/lib/chroot/bootloader-<name>.sh`. Concrete bootloader
@@ -1028,7 +1033,7 @@ load-options / `limine.conf` / `refind_linux.conf`) and loader-binary path,
 both carried by the Bootloader Manifest. `grub` is excluded — it reads ZFS
 natively and needs no ESP mirror to find its kernel. **efistub** is a
 direct-UEFI boot *method* (one `efibootmgr` entry per kernel + fallback), not a
-loader binary; its manifest loader path is the kernel image itself (ADR 0077).
+loader binary; its manifest loader path is the kernel image itself ([ADR 0077]).
 
 ### Bootloader Manifest
 `.installer/lib/boot/bootloaders.sh`. The pure token table — sourced host-side
@@ -1037,7 +1042,7 @@ package resolver / list and staged into the chroot for the orchestrator —
 keying each `options.bootloader` value to its EFI loader path, package set, and
 ESP-entry style. The single source of truth that replaced the per-loader
 `if grub/else systemd` chains in `configure.sh`, `resolver.sh`, and `list.sh`
-(ADR 0077).
+([ADR 0077]).
 
 ### ESP Kernel Sync
 The pacman hook (`94-esp-kernel-sync.hook` →
@@ -1069,16 +1074,17 @@ at config-load time; resolves into the derived `GPU_PACMAN_PACKAGES` and
 `AUDIO_PACKAGES` sets before pacstrap. These are internal, never authorable —
 they used to share the `packages.groups` namespace, which made a derived set
 look like something the operator declares; that key is gone and authoring it
-aborts at load (ADR 0056). Valid desktop values: `"kde"`, `"hyprland"`, `"niri"`
-(array-shaped, multi-select co-installs allowed; adding a DE stays
-zero-runner-change, ADR 0005/0062/0090). Valid GPU values: `"amd"`, `"nvidia"`,
-`"intel"`, `["amd", "nvidia"]`, or `"auto"`. Valid `display_manager` values:
-`"auto"` (default — desktop-aware: `sddm` when `kde` is present, else `greetd`
-for a KDE-free set; `none` if no desktop, ADR 0091), `"greetd"`, `"sddm"` (ADR
-0069). Valid `wayland_shell` values: `"noctalia"` (default) | `"none"`
-(compositor-agnostic — honored by both niri and Hyprland; ADR 0090/0097,
-renamed from `niri_shell` by 0097). The optional `stock` bool (default `false`,
-ADR 0112) installs every selected desktop **upstream-stock**: KDE = the
+aborts at load ([ADR 0056]). Valid desktop values: `"kde"`, `"hyprland"`,
+`"niri"` (array-shaped, multi-select co-installs allowed; adding a DE stays
+zero-runner-change, [ADR 0005]/[0062]/[0090]). Valid GPU values: `"amd"`,
+`"nvidia"`, `"intel"`, `["amd", "nvidia"]`, or `"auto"`. Valid `display_manager`
+values: `"auto"` (default — desktop-aware: `sddm` when `kde` is present, else
+`greetd` for a KDE-free set; `none` if no desktop, [ADR 0091]), `"greetd"`,
+`"sddm"` ([ADR 0069]). Valid `wayland_shell` values: `"noctalia"` (default) |
+`"none"` (compositor-agnostic — honored by both niri and Hyprland;
+[ADR 0090]/[0097], renamed from `niri_shell` by 0097). The optional `stock` bool
+(default `false`,
+[ADR 0112]) installs every selected desktop **upstream-stock**: KDE = the
 `plasma-meta` shell only (no curated apps, no captured settings seed), niri /
 Hyprland = the bare compositor (`stock` forces `wayland_shell: none`). It
 threads into the chroot as `ENVIRONMENT_STOCK` (read by the KDE adapter) and is
@@ -1089,38 +1095,38 @@ the previous schema.
 Script at `extras/desktop/<name>/<name>.sh`, optionally with a companion
 `install-<name>.jsonc` for per-component toggles (KDE has one for its app list;
 niri and Hyprland share `install-noctalia.jsonc` for the [[Wayland Shell
-Companion]] toggles — ADR 0097). Invoked
+Companion]] toggles — [ADR 0097]). Invoked
 dynamically by the Environment Runner based on `environment.desktop`. KDE,
-Hyprland, and niri are the three adapters (ADR 0090). Each adapter owns every
+Hyprland, and niri are the three adapters ([ADR 0090]). Each adapter owns every
 DE-tied package (apps, Qt plugins, AUR theming bridges) **and every DE-tied
 config default**: it installs its repo packages via pacman, writes its session
 files (and, for Hyprland, enables seatd), enables its services, and — for KDE —
 seeds the DE's look and per-app state into `/etc/skel` so a fresh login is
-ready, not first-run (ADR 0088). Since ADR 0111 the KDE look/state seed is the
-operator's **captured Plasma settings** — a curated, konsave-style set of
+ready, not first-run ([ADR 0088]). Since [ADR 0111] the KDE look/state seed is
+the operator's **captured Plasma settings** — a curated, konsave-style set of
 `~/.config` files (kdeglobals with its inline custom colour scheme, kwinrc,
-appletsrc, kglobalshortcutsrc incl. the Meta+X close bind — ADR 0113,
+appletsrc, kglobalshortcutsrc incl. the Meta+X close bind — [ADR 0113],
 klipperrc, kscreenlockerrc, ksmserverrc, dolphinrc, konsolerc,
 plasmarc/plasmashellrc, plasma-localerc) vendored under the adapter's `skel/`
-and copied **verbatim**, superseding ADR 0088's Breeze-Dark heredocs (its
+and copied **verbatim**, superseding [ADR 0088]'s Breeze-Dark heredocs (its
 non-captured GTK-cursor / SDDM / first-run seeds are retained). The
 host-specific monitor config (`kscreenrc`/`kwinoutputconfig.json`) is
-deliberately **not** vendored — resolution stays autodetected (ADR 0110). Under
-`environment.stock` (ADR 0112) the KDE adapter installs the shell only and seeds
-none of this, and the niri/Hyprland adapters seed nothing (their
+deliberately **not** vendored — resolution stays autodetected ([ADR 0110]).
+Under `environment.stock` ([ADR 0112]) the KDE adapter installs the shell only
+and seeds none of this, and the niri/Hyprland adapters seed nothing (their
 `wayland_shell: none` path). **Bibata Modern
 Ice** (`bibata-cursor-git`, one AUR package shipping both hyprcursor and Xcursor)
 is the seeded default cursor on all three adapters — KDE via `kcminputrc`, niri
 via its `cursor {}` node, Hyprland via `HYPRCURSOR_THEME` (Xcursor fallback);
-declared per-adapter `aur`, off headless hosts (ADR 0098). The KDE package set is **all data** in
-`install-kde.jsonc`, parsed in bool mode: the Plasma shell itself is
-`shell_packages` (gated by the `shell` bool), and the app set is split by
-provenance across `apps_list` (packages in the `kde-applications` group) and
-`apps_extra` (KDE-ecosystem repo packages outside that group — ADR 0087). The
+declared per-adapter `aur`, off headless hosts ([ADR 0098]). The KDE package set
+is **all data** in `install-kde.jsonc`, parsed in bool mode: the Plasma shell
+itself is `shell_packages` (gated by the `shell` bool), and the app set is split
+by provenance across `apps_list` (packages in the `kde-applications` group) and
+`apps_extra` (KDE-ecosystem repo packages outside that group — [ADR 0087]). The
 [[Package Resolver]] reads the same `install-kde.jsonc`, so what the adapter
 installs and what the resolver reports (source `kde-shell`) cannot drift — the
 shell list is no longer a fixed pacman line mirrored in the resolver. The display manager is **not** its concern
-(ADR 0069) — a separate [[Display Manager Adapter]] owns package, config, and
+([ADR 0069]) — a separate [[Display Manager Adapter]] owns package, config, and
 enable. AUR dependencies are not installed by the adapter — they are declared
 in an optional top-level `aur` field of `install-<name>.jsonc` (same 2-level
 Categorized List `{ category: { pkg: bool } }` shape as `apps_list`, validated
@@ -1130,36 +1136,36 @@ directory — no runner code changes.
 
 The **niri adapter** is core-only like Hyprland but leaner: the `niri` package
 ships its own session file + `niri-session` and pulls `seatd`, so it authors no
-launcher shim and no aquamarine DRM pin (ADR 0090). Both the niri and Hyprland
+launcher shim and no aquamarine DRM pin ([ADR 0090]). Both the niri and Hyprland
 adapters layer the same [[Wayland Shell Companion]], selected via
 `environment.wayland_shell` — the shared preset logic lives in
-`lib/chroot/noctalia-preset.sh`, sourced by both (ADR 0097).
+`lib/chroot/noctalia-preset.sh`, sourced by both ([ADR 0097]).
 
 ### Wayland Shell Companion
 The Noctalia desktop shell as the shared, menu-visible layer on **both** the
 niri and Hyprland installs — one environment, only the compositor differing (ADR
 0097). Selected via `environment.wayland_shell` (`noctalia` | `none`, default
 `noctalia`; meaningful for any wlroots compositor in the desktop set — renamed
-from `niri_shell` by ADR 0097). `none` = truly bare compositor, seeding nothing
-— symmetric for both (the operator's dotfiles own it). `noctalia` = the
+from `niri_shell` by [ADR 0097]). `none` = truly bare compositor, seeding
+nothing — symmetric for both (the operator's dotfiles own it). `noctalia` = the
 **prepared work preset**: the `noctalia` package (v5, `extra` repo — one package
 for bar, launcher, notifications, clipboard history, control center, lock,
 wallpaper, OSD) plus the session-completing gaps `kitty` + `brightnessctl`.
-Since ADR 0093 the preset is **enriched by default** with a curated,
+Since [ADR 0093] the preset is **enriched by default** with a curated,
 overlap-free plugin set — `keymap`, `sharednd`, `screen-toolkit`,
 `wl-screen-mirror`, `arch-updater`, `procmon`, `audio-switcher`, `file-search`,
 `shell-command`, `ssh-launcher`, `custom-shortcut`, `udiskie`, `todo`,
 `drive-health`, `eyecare`, `gamer-mode`, `cat`, `wallpaper-switcher`, plus
 `portctl`, `game-launcher`, `hotspot`, `bookmarks`, `llamanager`,
 `dns-switcher`, and laptop-gated `battery-power-management` + `battery-widget`.
-Compositor-specific plugins ship as a **per-compositor slice** (ADR 0097): the
+Compositor-specific plugins ship as a **per-compositor slice** ([ADR 0097]): the
 `niri-*` set (`niri-active-workspace`, `niri-animations`, `niri-displays`) on
 niri, the `hypr-*` set (`hypr-layout-switcher`, `hypr-submap`,
 `hypr-screen-mirror`) on Hyprland — same features, compositor-native backend.
-Since ADR 0094 the curated config is **single-source stow payload** at the repo
-root — the niri `config.kdl` glue (autostart `noctalia --daemon`; split into
-`conf.d/` part-files since ADR 0107), the `config.toml` look (Catppuccin Mocha
-sapphire palette — the community "Catppuccin Mocha Sapphire", ADR 0109
+Since [ADR 0094] the curated config is **single-source stow payload** at the
+repo root — the niri `config.kdl` glue (autostart `noctalia --daemon`; split
+into `conf.d/` part-files since [ADR 0107]), the `config.toml` look (Catppuccin
+Mocha sapphire palette — the community "Catppuccin Mocha Sapphire", [ADR 0109]
 superseding 0101's lavender / 0093's Rosé Pine, its cache JSON **seeded
 offline** so first boot needs no network — dark mode, `Noto Sans` UI font, the
 bundled wallpaper, the enabled-plugin list), the palette-cycle tile + script,
@@ -1173,15 +1179,15 @@ independently stowable by the operator. The plugin folders are separately
 widget geometry, wallpaper paths) stay out of the config so it is portable
 across hardware. Preset component bools — the shared plugins, the
 `niri`/`hyprland` slices, `laptop`, `cava`, `cliphist` — live in the shared
-`install-noctalia.jsonc` (renamed from `install-niri.jsonc` by ADR 0097), read
+`install-noctalia.jsonc` (renamed from `install-niri.jsonc` by [ADR 0097]), read
 by both adapters and the [[Package Resolver]], mirroring KDE's
-`install-kde.jsonc` (ADR 0087); toggling them off recovers the lean shell, and a
-drift guard keeps the config's enabled list equal to the vendored set. On
+`install-kde.jsonc` ([ADR 0087]); toggling them off recovers the lean shell, and
+a drift guard keeps the config's enabled list equal to the vendored set. On
 Hyprland the seeded compositor config is a **Noctalia-wired `hyprland.lua`**
-(Lua config, ADR 0105, split into `conf.d/` part-files by ADR 0107 — a
+(Lua config, [ADR 0105], split into `conf.d/` part-files by [ADR 0107] — a
 `hyprland.start` hook autostarts the shell; the shared launcher/lock keys route
 through Noctalia IPC), and `hyprlock` is dropped from core — Noctalia locks
-natively via `ext-session-lock-v1` (ADR 0097, superseding 0096). ADR **0100**
+natively via `ext-session-lock-v1` ([ADR 0097], superseding 0096). ADR **0100**
 extends "Noctalia locks natively" to the whole QoL layer: Noctalia v5 also owns
 **idle** (built-in `[idle.behavior.*]` — lock ~5 min, DPMS-off ~10 min,
 `lock_before_suspend`, auto-suspend laptop-on-battery only) and **polkit** (its
@@ -1192,45 +1198,45 @@ only agent in both sessions — a one-time verified, hardcoded pick, never two
 agents at once; neither wlroots adapter installs `polkit-kde-agent` any more
 (KDE keeps its own). The preset also ships **`pcmanfm-qt`**
 (compact layout, kitty-in-folder via `Terminal=kitty` / F4 / an "Open in kitty
-here" action, themed via the [[App Theming Bridge]], ADR 0102), and niri's
+here" action, themed via the [[App Theming Bridge]], [ADR 0102]), and niri's
 `config.kdl` gains `input`/`layout`/`window-rules` (never `output` —
-host-specific). If the ADR-0097 lock-then-suspend crash reproduces on Hyprland,
-that compositor alone flips to `hyprlock` + `hypridle`.
+host-specific). If the [ADR-0097] lock-then-suspend crash reproduces on
+Hyprland, that compositor alone flips to `hyprlock` + `hypridle`.
 
 ### App Theming Bridge
 The wiring that makes GTK and Qt apps follow the [[Wayland Shell Companion]]'s
-live palette on both compositors (ADR 0102). Noctalia's `gtk3`/`gtk4`/`qt`
+live palette on both compositors ([ADR 0102]). Noctalia's `gtk3`/`gtk4`/`qt`
 templates are the single source of app color; the bridge is the consuming half:
 `adw-gtk-theme` (repo, ships the `adw-gtk3-dark` theme) + `qt6ct-kde` (AUR) in
 the base preset, GTK `settings.ini`
-**seeded, not stowed** by the shared preset (ADR 0104 — `kde-gtk-config`
+**seeded, not stowed** by the shared preset ([ADR 0104] — `kde-gtk-config`
 rewrites them every Plasma login, and a stow symlink would dirty the repo:
 `adw-gtk3-dark` in gtk-3.0, **no** theme name in gtk-4.0 so libadwaita follows
 `gtk.css`), a `qt6ct.conf` pointing at Noctalia's `noctalia` scheme (Plasma
 ignores it, so it is compositor-private and safe to share), and
 `QT_QPA_PLATFORMTHEME=qt6ct` set **per-compositor** (niri `environment {}`,
 Hyprland `env =` — never `environment.d`, unreachable under `start-hyprland`,
-ADR 0070). `qt6ct.conf` is **seeded, not stowed** (ADR 0108): ADR 0102/0104 left
-it stow-only, but the installer never stows (ADR 0095), so it reached **no**
-fresh box and every Qt/KDE app rendered default white — the delivery bug 0108
-fixes by seeding it into `/etc/skel` (staged on both adapters) plus a **boot-race
-color snapshot** (seed-only, overwritten by Noctalia on first apply) closing the
-sub-second first-login window. The `kcolorscheme` template is **on for every
-Noctalia box**, combined included (ADR 0123, superseding ADR 0104/0108's
-combined-box drop): the preset injects it into the seeded `config.toml`, so
-under a compositor KColorScheme apps (Dolphin, Gwenview, Kate) follow any
-palette, and `qt6ct.conf` points at Noctalia's real KColorScheme file so accent
-roles follow too (ADR 0124). Plasma stays Breeze on a combined box by a
-login-time tug-of-war, not isolation: a KDE-only `kde-session-reset` autostart
-reasserts BreezeDark colours, the Breeze GTK theme and the KDE cursor on each
-Plasma login, and the Plasma login strips a `QT_QPA_PLATFORMTHEME=qt6ct` leaked
-into `systemd --user` by a compositor session (ADR 0122). Scope: GTK3, GTK4,
-Qt6 and KColorScheme everywhere; no GTK2/Qt5.
-Supersedes ADR 0062's "operator brings qt6ct". _Avoid_: matugen, uniform-look,
+[ADR 0070]). `qt6ct.conf` is **seeded, not stowed** ([ADR 0108]):
+[ADR 0102]/[0104] left it stow-only, but the installer never stows ([ADR 0095]),
+so it reached **no** fresh box and every Qt/KDE app rendered default white — the
+delivery bug 0108 fixes by seeding it into `/etc/skel` (staged on both adapters)
+plus a **boot-race color snapshot** (seed-only, overwritten by Noctalia on first
+apply) closing the sub-second first-login window. The `kcolorscheme` template is
+**on for every Noctalia box**, combined included ([ADR 0123], superseding
+[ADR 0104]/[0108]'s combined-box drop): the preset injects it into the seeded
+`config.toml`, so under a compositor KColorScheme apps (Dolphin, Gwenview, Kate)
+follow any palette, and `qt6ct.conf` points at Noctalia's real KColorScheme file
+so accent roles follow too ([ADR 0124]). Plasma stays Breeze on a combined box
+by a login-time tug-of-war, not isolation: a KDE-only `kde-session-reset`
+autostart reasserts BreezeDark colours, the Breeze GTK theme and the KDE cursor
+on each Plasma login, and the Plasma login strips a `QT_QPA_PLATFORMTHEME=qt6ct`
+leaked into `systemd --user` by a compositor session ([ADR 0122]). Scope: GTK3,
+GTK4, Qt6 and KColorScheme everywhere; no GTK2/Qt5.
+Supersedes [ADR 0062]'s "operator brings qt6ct". _Avoid_: matugen, uniform-look,
 `GTK_THEME` (breaks libadwaita).
 
 ### Live Theme Bridge
-The runtime counterpart to the [[App Theming Bridge]] (ADR 0116): the bridge
+The runtime counterpart to the [[App Theming Bridge]] ([ADR 0116]): the bridge
 above makes the *files* follow any Noctalia palette (builtin or community); this
 makes *already-running* apps repaint on a mid-session theme change instead of
 only on relaunch. A long-lived compositor-session process
@@ -1247,75 +1253,75 @@ the palette is in the load-once user `gtk.css`, and `kde-gtk-config`'s
 Dark/light still follows live for libadwaita. **KColorScheme** apps repaint for
 free via the `KGlobalSettings` D-Bus notify (now on every Noctalia box, ADR
 0123). Ships **fleet-wide** (`inotify-tools` in the preset, seeded **and**
-stowed like ADR 0108), **isolated by confinement**: it writes only
+stowed like [ADR 0108]), **isolated by confinement**: it writes only
 compositor-private `qt6ct.conf` + shared theme-name/dconf and runs **only** from
 the compositor autostart (never under Plasma), so `kdeglobals` and KDE-native
 apps stay Breeze on a combined box. GTK apps under Plasma are a separate matter:
 VM testing showed `kde-gtk-config` does **not** auto-reset the shared GTK theme
-on Plasma login (correcting ADR 0104), so a compositor session's
+on Plasma login (correcting [ADR 0104]), so a compositor session's
 `adw-gtk3-dark`+`noctalia.css` accent would leak into KDE. The KDE adapter
 (`kde.sh`) seeds a **combined-box- gated, KDE-only autostart**
 (`kde-session-reset.desktop`, `OnlyShowIn=KDE`, running
 `/usr/local/bin/kde-session-reset`) that reasserts `gtk-theme=Breeze` (and,
-since ADR 0123, BreezeDark colours + the KDE cursor) on Plasma login; the
+since [ADR 0123], BreezeDark colours + the KDE cursor) on Plasma login; the
 compositor side reasserts `adw-gtk3-dark` via Noctalia — symmetric, VM-verified
 across niri↔KDE↔hyprland. _Avoid_: relying on `kde-gtk-config` to auto-reset
 GTK, seeding the reset on pure KDE (clobbers the operator's theme), a
 `kde`-gated bridge install, wrapping `noctalia-cycle-palette` (misses the GUI),
-a systemd-user unit (unreachable under `start-hyprland`, ADR 0070).
+a systemd-user unit (unreachable under `start-hyprland`, [ADR 0070]).
 
 ### Pi Coding Agent
-The second coding agent shipped fleet-wide beside Claude Code (ADR 0127), placed
-in [[User Core]]'s `programs` so every real user on every host gets it.
+The second coding agent shipped fleet-wide beside Claude Code ([ADR 0127]),
+placed in [[User Core]]'s `programs` so every real user on every host gets it.
 Installed from the AUR prebuilt `pi-coding-agent-bin` as a [[User Program]]; its
 grep/find are ripgrep/fd-backed. The full `~/.pi/agent/` config lives in the pi
-Program's `home/` (ADR 0134): copied into `$HOME` + `/etc/skel` by the [[Config
-Apply Pass]] at install, stowed day-2 by the operator via `stow-configs.sh` (the
-installer never stows, ADR 0095). Provider is Anthropic via Claude Max OAuth
-(`/login`, per machine); `~/.pi/agent/auth.json` (`0600`) holds the tokens and
-is **gitignored, never stowed or seeded** — secrets stay out of the repo. Skills
-are the full mattpocock set, **vendored** (copied) into `.agents/skills/` via
-the Vercel `skills` CLI and auto-discovered by pi at `~/.agents/skills/` (no
-settings entry); refreshed by the operator with `npx skills@latest add
-mattpocock/skills`. The CLI writes a repo-root **`skills-lock.json`** (per-skill
-source + content hash), committed as the pin alongside the vendored tree. Pi's
-minimal core is topped up with three packages: **web** access (`pi-web-access` →
-the host's own SearXNG with a DuckDuckGo fallback), **todos**
-(`@juicesharp/rpiv-todo`), and **MCP** (`pi-mcp-adapter`, reading a Claude-style
-`mcpServers` JSON). Sub-agents and plan mode stay out — pi omits them by design
-and the vendored skills cover those workflows. _Avoid_: barebones pi, API-key
-auth, aliasing over `claude`.
+Program's `home/` ([ADR 0134]): copied into `$HOME` + `/etc/skel` by the
+[[Config Apply Pass]] at install, stowed day-2 by the operator via
+`stow-configs.sh` (the installer never stows, [ADR 0095]). Provider is Anthropic
+via Claude Max OAuth (`/login`, per machine); `~/.pi/agent/auth.json` (`0600`)
+holds the tokens and is **gitignored, never stowed or seeded** — secrets stay
+out of the repo. Skills are the full mattpocock set, **vendored** (copied) into
+`.agents/skills/` via the Vercel `skills` CLI and auto-discovered by pi at
+`~/.agents/skills/` (no settings entry); refreshed by the operator with `npx
+skills@latest add mattpocock/skills`. The CLI writes a repo-root
+**`skills-lock.json`** (per-skill source + content hash), committed as the pin
+alongside the vendored tree. Pi's minimal core is topped up with three packages:
+**web** access (`pi-web-access` → the host's own SearXNG with a DuckDuckGo
+fallback), **todos** (`@juicesharp/rpiv-todo`), and **MCP** (`pi-mcp-adapter`,
+reading a Claude-style `mcpServers` JSON). Sub-agents and plan mode stay out —
+pi omits them by design and the vendored skills cover those workflows. _Avoid_:
+barebones pi, API-key auth, aliasing over `claude`.
 
 ### Claude Code Config
 The fleet-served Claude Code setup: the `claude` [[User Program]] in User Core,
 whose `home/.claude/` ships a curated `settings.json`, `CLAUDE.md` and the
-`statusline.sh` (ADR 0133, single source per ADR 0134). The served settings
+`statusline.sh` ([ADR 0133], single source per [ADR 0134]). The served settings
 disable unused surface (claude.ai connectors, Remote Control, Artifacts,
 Workflows, claude.ai skill sync, telemetry) and pin the current Opus; the
-program's install bootstraps the Matt Pocock skill store (ADR 0142). Runtime
+program's install bootstraps the Matt Pocock skill store ([ADR 0142]). Runtime
 state and credentials are never tracked. _Avoid_: stowed `~/.claude`, claude.ai
 synced skills.
 
 ### Pi Theme Template
 The [[Wayland Shell Companion]]'s Noctalia user-template that makes the
-[[Pi Coding Agent]]'s TUI follow a live palette change (ADR 0128). A
+[[Pi Coding Agent]]'s TUI follow a live palette change ([ADR 0128]). A
 `[theme.templates.user.pi]` declaration maps Noctalia's 16 Material roles into
 pi's 53 color tokens, writing `~/.pi/agent/themes/noctalia.json`; pi hot-reloads
 its active theme file on write, so **no `post_hook` and no [[Live Theme Bridge]]
 change** is needed. The single `noctalia.json` is **seeded with Catppuccin Mocha
-Sapphire** (the fleet default, ADR 0109) and live-rewritten only in compositor
+Sapphire** (the fleet default, [ADR 0109]) and live-rewritten only in compositor
 sessions — so niri/Hyprland follow live while KDE (no template run) stays fixed
 on Catppuccin Mocha Sapphire, matching the [[App Theming Bridge]] isolation. The
-rewritten `noctalia.json` is **seed-only, never stowed** (gitignored, ADR 0104);
-only the static template input (`templates/pi.json`) is stowed. _Avoid_:
-per-palette static theme files, extending `noctalia-theme-bridge` for pi,
-stowing `noctalia.json`, `--use-theme light/dark` (follows only terminal
+rewritten `noctalia.json` is **seed-only, never stowed** (gitignored,
+[ADR 0104]); only the static template input (`templates/pi.json`) is stowed.
+_Avoid_: per-palette static theme files, extending `noctalia-theme-bridge` for
+pi, stowing `noctalia.json`, `--use-theme light/dark` (follows only terminal
 light/dark).
 
 ### Zsh Theme Template
 The [[Wayland Shell Companion]]'s Noctalia user-templates that make the
-interactive zsh shell follow a live palette change (ADR 0129), reusing the
-[[Pi Theme Template]] pattern (ADR 0128). Two `[theme.templates.user.*]` map
+interactive zsh shell follow a live palette change ([ADR 0129]), reusing the
+[[Pi Theme Template]] pattern ([ADR 0128]). Two `[theme.templates.user.*]` map
 Noctalia's Material roles into shell color: `zsh` writes
 `~/.zsh/themes/noctalia.zsh` (`FZF_DEFAULT_OPTS` + `ZSH_HIGHLIGHT_STYLES`),
 `p10k-accent` writes `~/.zsh/themes/p10k-accent.zsh` (only the accent-carrying
@@ -1324,7 +1330,7 @@ Powerlevel10k `*_FOREGROUND` keys — the prompt is otherwise the fixed committe
 running shell repaints on next shell / `zshreload`, not mid-session (env-var and
 prompt color are read at startup — the same relaunch-only limit the [[Live Theme
 Bridge]]'s KColorScheme apps have). Both files are **seeded with Catppuccin
-Mocha Sapphire** (the fleet default, ADR 0109) and live-rewritten only in
+Mocha Sapphire** (the fleet default, [ADR 0109]) and live-rewritten only in
 compositor sessions — niri/Hyprland follow, KDE stays fixed. The generated
 outputs are **seed-only, never stowed** (gitignored); only the template inputs
 (`templates/zsh.zsh`, `templates/p10k-accent.zsh`) are stowed. _Avoid_:
@@ -1333,15 +1339,15 @@ stowing the generated outputs.
 
 ### Kitty Config
 The fleet terminal's config (`~/.config/kitty/`), delivered like the [[Pi
-Coding Agent]] (ADR 0130): its config lives in the
-`system/kitty` [[User Program]]'s `home/` (ADR 0134) — copied into `$HOME` +
+Coding Agent]] ([ADR 0130]): its config lives in the
+`system/kitty` [[User Program]]'s `home/` ([ADR 0134]) — copied into `$HOME` +
 `/etc/skel` by the [[Config Apply Pass]], stowed day-2 via `stow-configs.sh`
-(the installer never stows, ADR 0095). The program **owns the
-`kitty` package** — Program/package exclusivity (ADR 0115) forced it out of core
-`packages.shell` — plus the `ttf-firacode-nerd` font, so `font_family FiraCode
-Nerd Font` keeps the Fira Code look with working Nerd glyphs; the [[Wayland
-Shell Companion]] preset's non-list package set still carries kitty for the
-compositor. `kitty.conf` is a pure manifest of `include`s ending in
+(the installer never stows, [ADR 0095]). The program **owns the
+`kitty` package** — Program/package exclusivity ([ADR 0115]) forced it out of
+core `packages.shell` — plus the `ttf-firacode-nerd` font, so `font_family
+FiraCode Nerd Font` keeps the Fira Code look with working Nerd glyphs; the
+[[Wayland Shell Companion]] preset's non-list package set still carries kitty
+for the compositor. `kitty.conf` is a pure manifest of `include`s ending in
 `themes/noctalia.conf` (the [[Kitty Theme Template]]'s output); all terminal
 **color** is owned by that generated file, so the split `conf/*.conf` carry
 non-color knobs only. _Avoid_: stock/unstowed kitty, the dead Nord palette,
@@ -1349,7 +1355,7 @@ non-color knobs only. _Avoid_: stock/unstowed kitty, the dead Nord palette,
 
 ### Kitty Theme Template
 The [[Wayland Shell Companion]]'s Noctalia user-template that makes kitty follow
-a live palette change (ADR 0130), reusing the [[Pi Theme Template]] pattern. A
+a live palette change ([ADR 0130]), reusing the [[Pi Theme Template]] pattern. A
 `[theme.templates.user.kitty]` declaration maps Noctalia's `terminal_*`/Material
 roles into kitty color, writing `~/.config/kitty/themes/noctalia.conf`, which
 `kitty.conf` `include`s; kitty's default config auto-reload repaints a running
@@ -1358,7 +1364,7 @@ needed. The builtin `kitty`
 template is **deliberately dropped from `builtin_ids`** because its `apply.sh`
 rewrites (clobbers) the stowed `kitty.conf` — a user-template only ever writes
 its output file. `noctalia.conf` is **seeded with Catppuccin Mocha Sapphire**
-(ADR 0109) and live-rewritten only in compositor sessions — niri/Hyprland
+([ADR 0109]) and live-rewritten only in compositor sessions — niri/Hyprland
 follow, KDE stays fixed. The generated output is **seed-only, never stowed**
 (the whole `.config/kitty/themes/` is gitignored); only the static template
 input (`templates/kitty.conf`) is stowed. _Avoid_: the builtin kitty template,
@@ -1367,12 +1373,12 @@ per-palette static theme files, stowing `noctalia.conf`.
 ### Neovim Config
 The fleet editor config (`~/.config/nvim/`): a **hand-rolled** Lua config on the
 `lazy.nvim` plugin manager — **not the LazyVim distro**, and not Neovim 0.12's
-built-in `vim.pack` (ADR 0135). Targets **stable Neovim 0.12.x** (Arch `extra`).
-Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns the editor
-toolchain as **system packages** (LSP servers, formatters, linters via repo/AUR
-— **no `mason`**, reusing the declarative `language-servers` convention), while
-the config tree lives in the program's `home/` (Config Apply Pass +
-`stow-configs.sh`, ADR 0134). Roster: blink.cmp,
+built-in `vim.pack` ([ADR 0135]). Targets **stable Neovim 0.12.x** (Arch
+`extra`). Delivered like [[Kitty Config]]: the `dev/nvim` [[User Program]] owns
+the editor toolchain as **system packages** (LSP servers, formatters, linters
+via repo/AUR — **no `mason`**, reusing the declarative `language-servers`
+convention), while the config tree lives in the program's `home/` (Config Apply
+Pass + `stow-configs.sh`, [ADR 0134]). Roster: blink.cmp,
 nvim-treesitter (+treesitter-context, +treesitter-textobjects — the latter a
 query-provider for mini.ai's `af`/`ac`), nvim-lspconfig, conform, nvim-lint,
 nvim-dap (+dap-ui/dap-python/dap-go), gitsigns, diffview, trouble, oil, snacks
@@ -1383,12 +1389,12 @@ mini.surround, nvim-ts-autotag, nvim-ts-context-commentstring (context-aware
 todo-comments, undotree, orgmode
 — **no noice, no `mason`, no multicursor plugin**. rest.nvim (kulala went
 private) pulls rock deps via lazy + **system luarocks**, no hererocks
-(ADR 0150). Editor UX adds native
+([ADR 0150]). Editor UX adds native
 **inlay hints** (default on, `<leader>uh`) + blink **signature help** and
 **native multi-cursor** (`cn`/`cN` + visual-block). Debugging is **nvim-dap**,
-adapters as **system packages** (ADR 0140); the per-language toolchain
+adapters as **system packages** ([ADR 0140]); the per-language toolchain
 (LSP/treesitter/formatter/linter/adapter) is driven by one **[[Language
-Registry]]** (ADR 0141). **Emmet** rides the `emmet_language_server` LSP —
+Registry]]** ([ADR 0141]). **Emmet** rides the `emmet_language_server` LSP —
 the abandoned `nvim-emmet` plugin is dropped. Real LSPs span the full
 web/systems set (**solid** rides the ts server; **Swift** is best-effort
 optional AUR sourcekit-lsp). Health bar: `:checkhealth` **zero ERROR**, LSPs on
@@ -1400,7 +1406,7 @@ visual-block suffice), the retired `nvim.bak` and its rose-pine default.
 
 ### Language Registry
 The single source of truth for [[Neovim Config]]'s per-language toolchain
-(ADR 0141): one table (`lua/config/languages.lua`) keyed by language, each row
+([ADR 0141]): one table (`lua/config/languages.lua`) keyed by language, each row
 declaring its `{ lsp, treesitter, formatter, linter, dap }`. The `lsp.lua` /
 `conform.lua` / `lint.lua` / `dap.lua` specs **consume** the table instead of
 carrying their own inline lists, so **adding a language is one row** and "what
@@ -1408,15 +1414,15 @@ is wired for X" is answered in one place. Data, not behaviour — each consumer
 still maps a row into its own plugin shape (`vim.lsp.enable`, conform's
 `formatters_by_ft`, nvim-lint's `linters_by_ft`, dap `adapters`/
 `configurations`). Debug adapters resolve to **system-package binaries**
-(codelldb/debugpy/delve/js-debug), never `mason` (ADR 0140). Every language
+(codelldb/debugpy/delve/js-debug), never `mason` ([ADR 0140]). Every language
 in use has a formatter. A row with `format_on_save = false` (shell/kdl/toml)
 formats on `<leader>cf` only, so hand-formatted repo files aren't rewritten on
-save (ADR 0151). _Avoid_:
+save ([ADR 0151]). _Avoid_:
 per-plugin inline language lists, duplicating a language across the four specs,
 `mason`/`mason-nvim-dap`.
 
 ### Neovim Theme Template
-The Noctalia-follow seam for [[Neovim Config]] (ADR 0136), amending the
+The Noctalia-follow seam for [[Neovim Config]] ([ADR 0136]), amending the
 [[ANSI-16 Following]] "Neovim is excluded" carve-out. A `follow_noctalia` Lua
 toggle, **default `false`**: off, nvim is static **Catppuccin Mocha + sapphire
 accent** (`#74c7ec`), switchable among the five Noctalia builtin palettes
@@ -1426,7 +1432,7 @@ live palette. Following reuses the [[Pi Theme Template]] pattern — a
 nvim **base16** file (truecolor, `termguicolors` on, accent from `primary`),
 which nvim `fs_event`-watches and re-applies **mid-session**, so **no
 `post_hook` and no [[Live Theme Bridge]] change** (like pi/kitty hot-reload).
-Seeded with Catppuccin Mocha Sapphire (ADR 0109), live-rewritten only in
+Seeded with Catppuccin Mocha Sapphire ([ADR 0109]), live-rewritten only in
 compositor sessions — niri/Hyprland follow, KDE stays fixed. The generated file
 is **seed-only, never stowed** (gitignored); only the static template input is
 stowed. _Avoid_: ANSI-16 following for nvim (heavy app → own template), parsing
@@ -1434,7 +1440,7 @@ kitty's `noctalia.conf`, a full 53-role map (base16 suffices), defaulting the
 toggle on.
 
 ### VSCodium Config
-The opt-in GUI-editor twin of [[Neovim Config]] (ADR 0148): the `dev/vscodium`
+The opt-in GUI-editor twin of [[Neovim Config]] ([ADR 0148]): the `dev/vscodium`
 [[User Program]] (not in User Core; Host Core serves no VSCodium) serving
 `vscodium-bin` with extensions from **Open VSX** only — never the MS
 Marketplace patch. **Parity** with the Neovim
@@ -1458,24 +1464,24 @@ extension list with no Registry link.
 
 ### ANSI-16 Following
 The cohesion mechanism for shipped terminal CLIs/TUIs that are **not** Noctalia
-templates (ADR 0132). Instead of a per-app [[Pi Theme Template]]-style hex
+templates ([ADR 0132]). Instead of a per-app [[Pi Theme Template]]-style hex
 template, the tool is pointed at the terminal's **16 ANSI colors**, which the
 [[Kitty Theme Template]] already makes follow a live Noctalia palette change on
 the compositors and sit on the seeded Catppuccin Mocha Sapphire under KDE (ADR
 0130/0109) — so cohesion **and** KDE isolation fall out of one seam, with **no
-new template and no new ADR-0109 seed point** (the tools carry no palette hex;
+new template and no new [ADR-0109] seed point** (the tools carry no palette hex;
 they defer to the terminal). Applies to `eza` (ANSI-16 `EZA_COLORS` export in
 the `system/zsh` program, covering the fields `LS_COLORS` misses),
 `lazygit`/`yazi` (ANSI color **names** in their configs, each a new seeded+
-stowable [[User Program]] that owns its package per ADR 0115), `htop`
+stowable [[User Program]] that owns its package per [ADR 0115]), `htop`
 (`color_scheme=0` Default, already ANSI — `htoprc` left unstowed as htop
 runtime-rewrites it), `bat` (`BAT_THEME=ansi`; installed by the `zsh` program),
 and `git`/`less`/`ripgrep`/`fd` (default ANSI). The two hardcoded Catppuccin
 hexes in `.p10k.zsh` (root/context) are remapped to ANSI red/yellow. Repaint
 follows each tool's reload model (`eza` next render; `lazygit`/`yazi`
 restart-only, like the [[Zsh Theme Template]] limit). **Neovim now follows via
-its own [[Neovim Theme Template]]** (ADR 0136, amending this) — a heavy app like
-pi warrants a dedicated template over the shared ANSI-16 slots; its
+its own [[Neovim Theme Template]]** ([ADR 0136], amending this) — a heavy app
+like pi warrants a dedicated template over the shared ANSI-16 slots; its
 `follow_noctalia` toggle is **off by default**, so out of the box nvim stays
 static Catppuccin Mocha Sapphire. Unlike the template outputs, the lazygit/yazi
 configs are static (nothing rewrites them), so they are **stowed and seeded**
@@ -1485,7 +1491,7 @@ slots; stowing a runtime-rewritten config (`htoprc`).
 
 ### Wayland Session XDG Dirs
 The standard XDG user dirs (`~/Desktop`, `~/Downloads`, …) plus a non-standard
-`~/Projects`, generated on **niri/Hyprland** sessions (ADR 0131).
+`~/Projects`, generated on **niri/Hyprland** sessions ([ADR 0131]).
 `xdg-user-dirs` is installed fleet-wide, but its `xdg-user-dirs-update` ships
 only as an
 `/etc/xdg/autostart/` entry, which Plasma runs and the wl-roots compositors do
@@ -1504,13 +1510,13 @@ The extras dispatcher in `lib/chroot/extras.sh`. Iterates the resolved
 `environment.desktop` array and invokes each Desktop Environment Adapter by
 directory convention (`extras/desktop/<de>/<de>.sh`), then invokes the resolved
 [[Display Manager Adapter]] (`extras/dm/<dm>/<dm>.sh`) — after the desktop loop,
-so every session file and seatd already exist (ADR 0069). No DE or DM names are
-hardcoded in the runner — dispatch is purely by convention. Security & Backup Extras are
-no longer dispatched here — they install via the Profile Runner's Primary-User
-paru pass (see Security & Backup Extras). AUR discovery for the
-selected DEs lives alongside this: for each desktop in the resolved array the
-installer reads that adapter's `aur` list and unions it (deduped) with the
-host's `packages.aur` into the Profiles Runner's single paru invocation, so
+so every session file and seatd already exist ([ADR 0069]). No DE or DM names
+are hardcoded in the runner — dispatch is purely by convention. Security &
+Backup Extras are no longer dispatched here — they install via the Profile
+Runner's Primary-User paru pass (see Security & Backup Extras). AUR discovery
+for the selected DEs lives alongside this: for each desktop in the resolved
+array the installer reads that adapter's `aur` list and unions it (deduped) with
+the host's `packages.aur` into the Profiles Runner's single paru invocation, so
 DE-tied AUR packages land only when their DE is selected.
 
 ### GPU Resolution
@@ -1518,9 +1524,9 @@ Translation of `environment.gpu` into driver packages at config-load time.
 `"auto"` uses `lspci` on the live ISO to detect all GPU vendors and resolves to
 a string or array. Hybrid configs (e.g., `["amd", "nvidia"]`) install per-vendor
 drivers; they no longer add `envycontrol` — the deterministic hybrid config is
-owned by the chroot GPU Configuration Module (see GPU Hardening, ADR 0053). The
-resolved vendor list is also threaded into install-state (`.gpu`) so the chroot
-can decide whether to harden. Resolved packages populate the derived
+owned by the chroot GPU Configuration Module (see GPU Hardening, [ADR 0053]).
+The resolved vendor list is also threaded into install-state (`.gpu`) so the
+chroot can decide whether to harden. Resolved packages populate the derived
 `GPU_PACMAN_PACKAGES` set before pacstrap.
 
 Vendor → package mapping:
@@ -1537,7 +1543,7 @@ Vendor → package mapping:
 ### GPU Hardening
 The deterministic AMD+NVIDIA hybrid configuration applied by the chroot **GPU
 Configuration Module** (`lib/chroot/gpu.sh`) when GPU Resolution detects **both**
-`amd` and `nvidia` (ADR 0053). Auto-gated on the resolved `.gpu` vendor list —
+`amd` and `nvidia` ([ADR 0053]). Auto-gated on the resolved `.gpu` vendor list —
 no config field. Runs before initcpio so the single `mkinitcpio -P` bakes it in.
 The set: a `modprobe.d` NVIDIA config (`nvidia_drm modeset=1 fbdev=1`,
 `NVreg_PreserveVideoMemoryAllocations`, `NVreg_DynamicPowerManagement`, `blacklist
@@ -1557,41 +1563,42 @@ Replaces the never-invoked `envycontrol` switcher.
 
 ### Display Manager
 Operator-selected via `environment.display_manager` — `auto` | `greetd` |
-`sddm`, default `auto` (ADR 0069, superseding ADR 0067's "greetd owns the DM
+`sddm`, default `auto` ([ADR 0069], superseding [ADR 0067]'s "greetd owns the DM
 whenever Hyprland is installed"). **Full symmetry**: any DM launches any DE —
 SDDM for Hyprland or KDE+Hyprland, greetd for KDE. This became a choice once
-**seatd** (ADR 0068) gave aquamarine DRM master independent of the DM; before
+**seatd** ([ADR 0068]) gave aquamarine DRM master independent of the DM; before
 that an SDDM-launched Hyprland session could not obtain master (atomic KMS
 commit `Permission denied`, retry-loop, black screen — kwin survived it, ADR
 0067), so greetd was *forced* whenever Hyprland was present. `auto` is
-**desktop-aware** (ADR 0091, superseding the fleet-wide-SDDM code and ADR 0069's
-stale body): `greetd` for a KDE-free non-empty desktop set (hyprland and/or
-niri), `sddm` when the set contains `kde`, and `none` when no desktop is
-selected. It is a smart default, not a lock — a concrete DM still overrides
-freely (seatd makes any DM launch any DE, so the pairing is preference, not
-constraint). A **concrete** DM with an empty desktop set aborts at config-load
-(a greeter with no session). Dispatched as a [[Display Manager Adapter]] by the
-Environment Runner after the desktop loop, so the choice is independent of DE
-adapter execution order. The DM adapter owns its package + config + enable; the
-DE adapters own the session files and seatd and no longer touch any DM. The
-greeter still sees a curated `/usr/local/share/wayland-sessions` (written by the
-Hyprland adapter) holding exactly the good sessions — its own `hyprland.desktop`
-(`env -u WAYLAND_DISPLAY -u DISPLAY start-hyprland`, the 0.53+ launcher; unset
-vars force aquamarine's DRM backend over its nested one), the **sole** Hyprland
-session, niri's packaged session (symlinked in by the niri adapter), and — on a
-KDE co-install — Plasma. The packaged `hyprland-uwsm.desktop` is deliberately
-not curated and `uwsm` is not installed (ADR 0070): its systemd-user
-`graphical.target` orchestration deadlocks on the first post-boot login under
-impermanence (ADR 0061 pre-starts `user@uid`), black-screening only the uwsm
-session while start-hyprland and Plasma work. Under impermanence the same
-display-manager login is used — no tty1 autologin — with the enablement mirrored
-onto the never-rolled-back `/usr/lib` tree via the DM-agnostic
-`display-manager.service` alias so it survives the rolled-back root (ADR 0061).
+**desktop-aware** ([ADR 0091], superseding the fleet-wide-SDDM code and
+[ADR 0069]'s stale body): `greetd` for a KDE-free non-empty desktop set
+(hyprland and/or niri), `sddm` when the set contains `kde`, and `none` when no
+desktop is selected. It is a smart default, not a lock — a concrete DM still
+overrides freely (seatd makes any DM launch any DE, so the pairing is
+preference, not constraint). A **concrete** DM with an empty desktop set aborts
+at config-load (a greeter with no session). Dispatched as a [[Display Manager
+Adapter]] by the Environment Runner after the desktop loop, so the choice is
+independent of DE adapter execution order. The DM adapter owns its package +
+config + enable; the DE adapters own the session files and seatd and no longer
+touch any DM. The greeter still sees a curated
+`/usr/local/share/wayland-sessions` (written by the Hyprland adapter) holding
+exactly the good sessions — its own `hyprland.desktop` (`env -u WAYLAND_DISPLAY
+-u DISPLAY start-hyprland`, the 0.53+ launcher; unset vars force aquamarine's
+DRM backend over its nested one), the **sole** Hyprland session, niri's packaged
+session (symlinked in by the niri adapter), and — on a KDE co-install — Plasma.
+The packaged `hyprland-uwsm.desktop` is deliberately not curated and `uwsm` is
+not installed ([ADR 0070]): its systemd-user `graphical.target` orchestration
+deadlocks on the first post-boot login under impermanence ([ADR 0061] pre-starts
+`user@uid`), black-screening only the uwsm session while start-hyprland and
+Plasma work. Under impermanence the same display-manager login is used — no tty1
+autologin — with the enablement mirrored onto the never-rolled-back `/usr/lib`
+tree via the DM-agnostic `display-manager.service` alias so it survives the
+rolled-back root ([ADR 0061]).
 
 ### Display Manager Adapter
 Script at `extras/dm/<name>/<name>.sh`, invoked by the Environment Runner after
-the desktop loop based on the resolved `environment.display_manager` (ADR 0069).
-Mirrors the [[Desktop Environment Adapter]] and Bootloader Adapter
+the desktop loop based on the resolved `environment.display_manager`
+([ADR 0069]). Mirrors the [[Desktop Environment Adapter]] and Bootloader Adapter
 convention-dispatch (no DM name is a literal in the runner). `greetd` and
 `sddm` are the two adapters. Each owns exactly its DM: **package install**,
 config, and `systemctl enable` — greetd writes `config.toml` pointing
@@ -1665,10 +1672,10 @@ Derivation Maps. What the **installer itself** needs, as distinct from the
 are different layers, not competing ones. A Host Package List is deduplicated
 against it at install time. `stow` belongs here so the operator's day-2
 `stow-configs.sh` works on every host (the installer itself never stows since
-ADR 0095; it was added when a Runner stow step still existed and VM fixtures hit
-`stow: command not found`). Universal infrastructure daemons whose package lives
-here (NetworkManager, cron) are enabled by the Chroot Configuration Module, not
-by a Program (ADR 0026).
+[ADR 0095]; it was added when a Runner stow step still existed and VM fixtures
+hit `stow: command not found`). Universal infrastructure daemons whose package
+lives here (NetworkManager, cron) are enabled by the Chroot Configuration
+Module, not by a Program ([ADR 0026]).
 
 ### Package Derivation Maps
 The shared **pure** modules under `lib/packages/` that hold a package-name set
@@ -1700,9 +1707,9 @@ list by the Categorized List Parser at install time. Categories are cosmetic;
 renaming `media` to `multimedia` does not change what installs. Shape,
 leaf-type, or category-name violations abort at config-load with the offending
 path. Declared in **Host Core** for what every machine shares and in a Host
-Profile for that machine's delta (ADR 0056). Deduplicated against base packages
-by the installer. AUR packages are installed once for the system via the first
-declared user's paru instance before any user programs run.
+Profile for that machine's delta ([ADR 0056]). Deduplicated against base
+packages by the installer. AUR packages are installed once for the system via
+the first declared user's paru instance before any user programs run.
 
 `repo` and `aur` are the **only** authored repo/AUR slots. `packages.extra[]`
 (which was `repo` without a category) and `packages.groups.*[]` (used by no
@@ -1712,7 +1719,7 @@ removed and now abort at load as unknown keys. The routing rule is mechanical:
 `host_programs`; yes and `kind: user` → user `programs`; no →
 `packages.repo` or `packages.aur`. A name is **either a Program or a package,
 never both**: an overlap aborts at config load naming the path and the correct
-slot (ADR 0058),
+slot ([ADR 0058]),
 which replaced a promotion rule that ran only in the Guided Installer's emit
 path and so made the same file install differently per front-end.
 
@@ -1721,7 +1728,7 @@ Resolver]] and stripped from the resolved output: `packages.exclude[]` and
 `host_programs_exclude[]` on a host profile, `programs_exclude[]` on a user
 profile, and `packages.inherit` (bool, default true — `false` drops the lower
 layer's packages and `host_programs`), plus the user-side `programs_inherit` and
-`config_exclude[]` (ADR 0134).
+`config_exclude[]` ([ADR 0134]).
 
 ### Sysctl Defaults
 `sysctl` object in Host Core (or a host-specific Host Profile), containing
@@ -1757,10 +1764,10 @@ an install — not part of the install flow itself. Currently: `save-pkglist.sh`
 `explain-packages.sh` (see Package Resolver), `impermanence.sh` (see
 Impermanence Tool), `fetch-iso.sh` (downloads + sha256-verifies the
 archzfs-Compatible ISO for USB prep), `harden-boot.sh` (boot-path retrofit for
-existing installs, ADR 0038), `matrix.sh` (the [[Combination Matrix]] runner)
+existing installs, [ADR 0038]), `matrix.sh` (the [[Combination Matrix]] runner)
 and `guided-preview.sh` (a live-fzf render harness for the Guided Installer).
 The pkglist tools take a **profile** name (a `hosts/<name>/` directory), not a
-hostname — ADR 0020 decoupled the two, and deriving the directory from
+hostname — [ADR 0020] decoupled the two, and deriving the directory from
 `$(hostname)` is what left `save-pkglist.sh` failing on every real machine. They
 fall back to `$SAVE_PKGLIST_PROFILE`, then `$(hostname)`, and name the available
 profiles when resolution fails.
@@ -1795,14 +1802,14 @@ ceiling, so ZFS is never built against a kernel newer than the ZFS source
 supports (the intermittent `BIO_MAX_PAGES` build failure). On a pure-`lts`
 install `zfs-dkms` is additionally swapped for archzfs's prebuilt
 `zfs-linux-lts` matching the pinned kernel, since archzfs's DKMS source can fail
-even at the ceiling (ADR 0137 amendment). Pinned from the current mirror when
+even at the ceiling ([ADR 0137] amendment). Pinned from the current mirror when
 possible, else pre-seeded from `archive.archlinux.org`. Owned by
 `lib/packages/archzfs-kernel.sh`. When the lookup is unreachable the target
 install proceeds unpinned and the ZFS Module Guard stays the backstop. Applies
-to the `lts` token only (ADR 0137).
+to the `lts` token only ([ADR 0137]).
 
 ### archzfs LTS Hold
-The ongoing counterpart to the archzfs LTS Ceiling pin (ADR 0139 extends ADR
+The ongoing counterpart to the archzfs LTS Ceiling pin ([ADR 0139] extends ADR
 0137). On the installed system a systemd timer (`archzfs-lts-hold.timer` →
 `/usr/local/lib/archzfs/lts-hold.sh`) toggles a marked
 `IgnorePkg = linux-lts linux-lts-headers  # archzfs-lts-hold` line in
@@ -1830,8 +1837,8 @@ Defaults to `lts`.
 The first token in the Kernel Selection. Drives the bootloader default boot
 entry and the initramfs preset/fallback logic — exposed to chroot modules as the
 scalar `KERNEL` (the full list is `KERNELS`). Every selected kernel gets its own
-boot entries (default + fallback, ADR 0078); the Primary Kernel is the one every
-loader boots by default.
+boot entries (default + fallback, [ADR 0078]); the Primary Kernel is the one
+every loader boots by default.
 
 ### ZFS Module Guard
 Post-pacstrap check, host-side, run before chroot configuration begins. Verifies
@@ -1842,19 +1849,19 @@ mid-`mkinitcpio` "module not found" failure into an early, explicit error naming
 the unsupported kernel. Necessary because Kernel Selection may include kernels
 newer than `archzfs` tracks (see archzfs-Compatible ISO). A **Stray Kernel**
 missing `zfs.ko` is *tolerated* here — warned, non-fatal — since it is never
-booted (ADR 0138 amends ADR 0024).
+booted ([ADR 0138] amends [ADR 0024]).
 
 ### Stray Kernel
 A kernel installed on a host but **not** in its Kernel Selection — e.g. a
 rolling `linux` pulled in out-of-band on an lts-only host. Boot-harmless under
 the hardened path: the ESP Kernel Sync mirrors only entry-referenced kernels, so
 a stray never reaches the ESP, loader entries name only Kernel-Selection kernels
-(ADR 0078), and under GRUB `GRUB_TOP_LEVEL` pins the Primary Kernel as default
+([ADR 0078]), and under GRUB `GRUB_TOP_LEVEL` pins the Primary Kernel as default
 so a higher-sorting stray cannot auto-boot. It still wastes ZFS `/boot` space
 and, lacking a buildable `zfs.ko`, would be a trap if booted. Surfaced — warned,
 never removed — by a non-blocking PostTransaction hook
 (`97-stray-kernel-warn.hook`) that reuses the ZFS Module Guard's
-`zfs.ko`-presence check (ADR 0038). Also tolerated at **install time** (ADR
+`zfs.ko`-presence check ([ADR 0038]). Also tolerated at **install time** (ADR
 0138): the ZFS Module Guard warns (never aborts) for a stray missing `zfs.ko`,
 and `mkinitcpio -P` skips a stray's preset so it gets no initramfs (a zfs-less
 initramfs cannot import a ZFS root) — the install completes even when a
@@ -1863,15 +1870,15 @@ an lts host.
 
 ### Impermanence
 Optional install-time feature that resets selected system directories to a clean
-state on every boot — ZFS dataset rollback (ADR 0008) or, on a btrfs root,
-per-path subvolume rollback (ADR 0044); never offered on ext4/xfs. Enabled by
+state on every boot — ZFS dataset rollback ([ADR 0008]) or, on a btrfs root,
+per-path subvolume rollback ([ADR 0044]); never offered on ext4/xfs. Enabled by
 `options.impermanence.enabled` in the Host Profile. When enabled, the installer
 creates a Persist Dataset, splits a set of Rollback Datasets out of the OS pool,
 takes a Blank Snapshot of each, and installs a Rollback Hook in initramfs.
 Inspired by NixOS impermanence; deliberately narrower in scope — Arch lacks a
 `/nix/store`-equivalent, so rolling back all of `/` would erase every pacman
 update, hence Impermanence targets `/etc`, `/opt`, `/srv`, `/usr/local` only
-(`/root` is persisted instead of rolled back, ADR 0144).
+(`/root` is persisted instead of rolled back, [ADR 0144]).
 
 ### Persist Dataset
 ZFS dataset (default `rpool/persist`, mounted at `/persist`) that holds all
@@ -1879,7 +1886,7 @@ state surviving across reboots when Impermanence is enabled. Name and mountpoint
 configurable via `options.impermanence.dataset` and `options.impermanence.mount`
 in the Host Profile. Must live on the same pool as `rpool/ROOT/arch` so the
 early-boot bind-mounts complete before `local-fs.target`. Holds the Persist
-Payload (tmpfiles snippets; the `.mount` units moved to `/usr/lib`, ADR 0144)
+Payload (tmpfiles snippets; the `.mount` units moved to `/usr/lib`, [ADR 0144])
 plus the actual data of every persisted path.
 
 ### Rollback Datasets
@@ -1929,7 +1936,7 @@ container mounts and `Before=local-fs.target` with
 Persist Defaults and host-declared Persist Extensions both ship as units (plus
 `local-fs.target.wants` links) under `/usr/lib/systemd/system/` — never rolled
 back and visible to PID 1's boot transaction, which a unit under the
-bind-mounted `/etc/systemd/system` is not (ADR 0144). Live data is staged onto
+bind-mounted `/etc/systemd/system` is not ([ADR 0144]). Live data is staged onto
 the Persist Dataset before the unit activates — moved at install time (the
 live path will be reset on next boot), copied at runtime (the bind mount
 activates immediately and covers the original).
@@ -1939,7 +1946,7 @@ Fixed list of system-identity paths the installer always persists when
 Impermanence is enabled. Files: `/etc/machine-id`, `/etc/hostname`,
 `/etc/locale.conf`, `/etc/vconsole.conf`, `/etc/adjtime`, `/etc/fstab`.
 Directories: `/etc/ssh`, `/etc/secrets`, `/etc/cryptsetup-keys.d`
-(data-group LUKS/zfs keyfiles, ADR 0043),
+(data-group LUKS/zfs keyfiles, [ADR 0043]),
 `/etc/NetworkManager/system-connections`, `/etc/sudoers.d`, `/etc/pacman.d`,
 `/root`. Loss of any of these breaks first reboot — host keys, Machine Age Key,
 hostname, network connections, fstab. Shipped as Persist Mount units under
@@ -1986,12 +1993,12 @@ directly — those are vendor-shipped.
 Top-level dotfile dirs in the repo (`.config/`, `.zsh/`, `.claude/`, plus loose
 home-relative files like `.zshrc`, `.p10k.zsh`) that GNU stow symlinks into each
 user's `$HOME` via `stow --no-folding */` during the Runner's dotfiles step.
-Layout groups files by destination path, not by program. Retired by ADR 0134:
+Layout groups files by destination path, not by program. Retired by [ADR 0134]:
 config now lives per-program in Program Config Trees (`home/`), applied by the
 Config Apply Pass and `stow-configs.sh`. The repo-root duplicates were removed
 program-by-program; the one leftover is `.claude/settings.json` (a dev-sandbox
 bind-mount, kept in sync with the claude Program by a drift guard). `.claude`
-stays tracked **selectively** (ADR 0133): only `settings.json` /
+stays tracked **selectively** ([ADR 0133]): only `settings.json` /
 `scripts/statusline.sh` / `CLAUDE.md` were ever committed (the latter two now
 under the claude Program's `home/`); Claude Code's runtime state stays
 gitignored, never wholesale.
@@ -2000,7 +2007,7 @@ gitignored, never wholesale.
 A Program's user-side config under `.installer/programs/<category>/<name>/home/`
 — a subtree mirroring `$HOME` (e.g. `home/.config/kitty/kitty.conf`). The folder
 layout *is* the manifest; there is no `src`/`dst` metadata, no variants (ADR
-0134, superseding ADR 0012's `configs/` + manifest + `configs@<variant>/`).
+0134, superseding [ADR 0012]'s `configs/` + manifest + `configs@<variant>/`).
 Optional — a Program without user config omits `home/` and is package-only.
 Discovered by convention: a `home/` dir present ⇒ the Program ships config. The
 single source; both the Config Apply Pass (install-time) and `stow-configs.sh`
@@ -2011,24 +2018,24 @@ single source; both the Config Apply Pass (install-time) and `stow-configs.sh`
 `ca_ships_home_list`, `ca_stow_selection`) that decides which selected Programs'
 `home/` config applies for a user: `apply = selected && ships_home(program) &&
 !config_exclude(program)`. No filesystem writes; the Runner Pass and
-`stow-configs.sh` share it (ADR 0134).
+`stow-configs.sh` share it ([ADR 0134]).
 
 ### Config Apply Pass
-The Runner step (ADR 0134) that applies config, decoupled from package install:
-`install.sh` installs the package, the Pass **copies** each planned Program's
-`home/` into the user's `$HOME` (a copy, not a symlink — the staged programs
-tree is ephemeral, ADR 0095) and seeds `/etc/skel` + `/root` scoped to the
-host's selected home-shippers. Runs after the user's programs install, before
-staging cleanup.
+The Runner step ([ADR 0134]) that applies config, decoupled from package
+install: `install.sh` installs the package, the Pass **copies** each planned
+Program's `home/` into the user's `$HOME` (a copy, not a symlink — the staged
+programs tree is ephemeral, [ADR 0095]) and seeds `/etc/skel` + `/root` scoped
+to the host's selected home-shippers. Runs after the user's programs install,
+before staging cleanup.
 
 ### config_exclude
-Per-user Profile key (array of program names, ADR 0134): install a Program's
+Per-user Profile key (array of program names, [ADR 0134]): install a Program's
 package but skip its config for that user. Empty/absent ⇒ every selected
 Program's config applies (no behaviour change). The install-time twin of
 `stow-configs.sh --except`.
 
 ### User Bareness (`programs_inherit`)
-A User Profile boolean (ADR 0134) — the user-layer twin of the host's
+A User Profile boolean ([ADR 0134]) — the user-layer twin of the host's
 `packages.inherit`. `programs_inherit: false` drops User Core's `programs`
 wholesale so a user starts with none, taking only what it names; scoped to
 `.programs` only (`groups`/`shell`/`sudo`/`ssh_authorized_keys` still inherit).
@@ -2036,11 +2043,11 @@ Sibling key — `programs` stays an array. The `server` user (Minimal Profile)
 uses it so a headless box carries no workstation userland.
 
 ### stow-configs.sh
-The operator's day-2 tool (`./stow-configs.sh` at the repo root, ADR 0134):
+The operator's day-2 tool (`./stow-configs.sh` at the repo root, [ADR 0134]):
 GNU-stows each Program's `home/` into `$HOME` from the persistent clone
 (`stow --adopt --no-folding`). Bare = every home-shipping Program; `<prog…>` a
 subset; `--except <prog…>` an opt-out. Same single source as the install-time
-Pass; the installer never stows (ADR 0095), the operator does.
+Pass; the installer never stows ([ADR 0095]), the operator does.
 
 ### VM Profile
 A JSONC file describing one virtual machine to provision for install testing or
@@ -2054,8 +2061,8 @@ source of truth; or an `install` block, either an inline Effective Config (a
 full assembled config, for test-only permutations with no real Host Profile) or
 the string `"repo"`, meaning the repo's designated default Host Profile named by
 the single harness constant `VM_DEFAULT_HOST_PROFILE` (default `arch-kde`),
-hostname patched — the smoke test that the shipped default installs (ADR 0036,
-amending ADR 0035). Profiles for persistent/usable VMs live under
+hostname patched — the smoke test that the shipped default installs ([ADR 0036],
+amending [ADR 0035]). Profiles for persistent/usable VMs live under
 `.installer/vm/profiles/<category>/`; test profiles live under
 `.installer/tests/vm/profiles/<category>/` and additionally carry verification
 expectations (pools, mounts, owners, boot checks). Grouped into Profile
@@ -2079,18 +2086,18 @@ debug a failing test case.
 
 ### Agent-Controllable VM
 A persistent-flow [[VM Harness]] VM provisioned so an AI agent can fully drive it
-over the harness SSH key (ADR 0117): DM-agnostic **autologin on by default** (sddm
-`[Autologin]` when KDE is in the set, greetd `[initial_session]` for a KDE-free
-compositor set — ADR 0069/0091), booting into the first compositor of the desktop
-set; `grim` (wlroots) + `spectacle` (KDE) screenshot tools guaranteed present;
-`inotify-tools` from the Noctalia preset (ADR 0116). SSH is the harness key,
-`sudo` takes the harness password `12345`. The `--testing` cells are **not**
-agent-controllable (single-shot, desktop-less, served by their sentinel/serial
-channel). The trade-off is a human loses the greeter session-picker on these
-boxes. Driven by the [[VM Agent Control]] CLI.
+over the harness SSH key ([ADR 0117]): DM-agnostic **autologin on by default**
+(sddm `[Autologin]` when KDE is in the set, greetd `[initial_session]` for a
+KDE-free compositor set — [ADR 0069]/[0091]), booting into the first compositor
+of the desktop set; `grim` (wlroots) + `spectacle` (KDE) screenshot tools
+guaranteed present; `inotify-tools` from the Noctalia preset ([ADR 0116]). SSH
+is the harness key, `sudo` takes the harness password `12345`. The `--testing`
+cells are **not** agent-controllable (single-shot, desktop-less, served by their
+sentinel/serial channel). The trade-off is a human loses the greeter
+session-picker on these boxes. Driven by the [[VM Agent Control]] CLI.
 
 ### VM Agent Control
-The host-side CLI `.installer/vm/vm-agent.sh` (sibling of `vm.sh`, ADR 0117)
+The host-side CLI `.installer/vm/vm-agent.sh` (sibling of `vm.sh`, [ADR 0117])
 that drives an [[Agent-Controllable VM]] over the harness key — the one home for
 the logic a live debugging session otherwise rediscovers by hand. Verbs:
 `session <niri|hyprland|kde>` (rewrite the agent autologin drop-in + reboot +
@@ -2103,7 +2110,7 @@ provisioned off), `lock`/`unlock` (`loginctl`), `greeter` (drop the agent
 autologin so the box boots to the DM greeter), `ssh`, `ready`. On an
 impermanence guest the autologin edits land on rolled-back `/etc`, so the CLI
 re-bakes `@blank` after them or they would vanish on reboot. Toolkit-test
-convention (ADR 0117): Qt → a KDE app (Dolphin default), GTK → any GTK app
+convention ([ADR 0117]): Qt → a KDE app (Dolphin default), GTK → any GTK app
 (agent's choice, `nm-connection-editor` default). Runs `virsh`/`ssh` the command
 sandbox often blocks, so `docs/agents/vm-sandbox.md`'s
 retry-with-sandbox-disabled rule applies. _Avoid_: a guest-side daemon (can't
@@ -2120,7 +2127,7 @@ disk-unlock prompt, matches it against the known prompt patterns (mkinitcpio
 known test passphrase **to the serial char device** — not via `virsh
 send-key`, because with `console=ttyS0` the prompt reads from `/dev/console`,
 not the emulated keyboard. Bounded retries fail into `ENCRYPTED-BOOT-FAIL`
-rather than a hang. Drives the real passphrase-unlock path (ADR 0046), so an
+rather than a hang. Drives the real passphrase-unlock path ([ADR 0046]), so an
 encrypted cell verifies as close to reality as a human at the prompt.
 
 ### Profile Category
@@ -2143,7 +2150,7 @@ disk-mode, per-group data-pool filesystem/encryption, kernel, bootloader,
 desktop, gpu, swap). Cells, their allowed values, and the exclusions between
 them are **derived from the menu's own option functions** (`_ctl_topologies_
 for_fs`, `menu_rows`, picker/validation), never a hand-kept duplicate, so an
-unreachable combination is one the menu never emits (ADR 0046). Covered in two
+unreachable combination is one the menu never emits ([ADR 0046]). Covered in two
 tiers: **Tier 1** assembles + `validate_install_context`-checks the *exhaustive*
 storage cluster with no VM (always-on in bats); **Tier 2** installs a
 **pairwise** (2-wise) subset plus a pinned seed list of historically-broken
@@ -2214,7 +2221,7 @@ incremental tests, affected tests.
 A changed source path whose blast radius is too wide for the directory mirror to
 narrow safely — `lib/common.sh`, `lib/install-state.sh`, widely-sourced config
 helpers (`accessors`, `categorized-list`, `store`), shared `tests/fixtures/*`,
-or the runner itself (`run.sh`, `select-changed.sh`) (ADR 0103). A
+or the runner itself (`run.sh`, `select-changed.sh`) ([ADR 0103]). A
 [[Change-Targeted Run]] that touches one widens to `--full` rather than risk
 missing coverage; an unmapped/unknown path is treated the same way (fail-safe).
 
@@ -2229,7 +2236,7 @@ _Avoid_: fast suite (that is the run mode, not the set).
 ### Optional Repositories
 `options.optional_repos[]` in a Host Profile — the pacman repos enabled beyond
 `core`/`extra`: any of `multilib`, `multilib-testing`, `core-testing`,
-`extra-testing` (ADR 0072). Replaces the former `options.multilib` bool: the
+`extra-testing` ([ADR 0072]). Replaces the former `options.multilib` bool: the
 same choice plus the testing repos as one multi-select. Defaults to
 `["multilib"]` (the historical `multilib=true`); an explicit `[]` means no
 optional repos. Applied before pacstrap by `enable_optional_repos`, which
@@ -2239,7 +2246,7 @@ via the pacman.conf copy. `install_config_multilib` remains a back-compat shim
 ("true" iff `multilib` is in the set).
 
 ### Custom Servers & Repositories
-Two operator-authored Mirrors & Repositories extras (ADR 0072).
+Two operator-authored Mirrors & Repositories extras ([ADR 0072]).
 `options.mirror_servers[]` is a list of custom pacman `Server =` URLs, written
 **above** the reflector-ranked mirrorlist (after `reflector --save`) so they are
 tried first. `options.custom_repositories[]` is a list of archinstall-style extra
@@ -2255,7 +2262,7 @@ flags surfaced as a dedicated **Pacman** Configuration Category, sitting right
 after Mirrors & Repositories (both edit `pacman.conf`). Five bool toggles
 (`ilovecandy`, `color`, `verbose_pkg_lists` default on; `disable_download_timeout`,
 `no_progress_bar` default off) plus one int (`parallel_downloads`, default `5`),
-listed as toggle/text rows like every other section (ADR 0074). Applied
+listed as toggle/text rows like every other section ([ADR 0074]). Applied
 **authoritatively** before pacstrap — each managed flag is uncommented/written
 when on and commented out when off, so the host `/etc/pacman.conf` always
 reflects the toggles regardless of what the ISO shipped; the target inherits it
@@ -2273,42 +2280,42 @@ never be doubled onto the locale. `encoding` offers only charsets valid for the
 chosen `language`. `console font` sets the virtual-console font. Its option
 lists are enumerated live from the installer medium, never hardcoded. Timezone
 is deliberately excluded — it is a clock setting, not localization, and lives in
-the **System** Category (ADR 0076/0081).
+the **System** Category ([ADR 0076]/[0081]).
 
 ### System Category
 The Guided Installer Configuration Category holding a machine's hostname,
 timezone, and the [[Font Catalog]] (`options.fonts`), first in the `GENERAL`
-bucket. Named General by ADR 0076 (once localization moved to the **Locales
-Category**) and re-broadened to "identity + fonts" by ADR 0080; ADR 0081 renamed
-it **System**, and ADR 0086 renamed the bucket above it to `GENERAL` so the two
-no longer echo. Fonts are the one non-identity resident; the service toggles
-(printing, bluetooth, power) live in the **Daemons** category (ADR 0081), so
-System never became a catch-all.
+bucket. Named General by [ADR 0076] (once localization moved to the **Locales
+Category**) and re-broadened to "identity + fonts" by [ADR 0080]; [ADR 0081]
+renamed it **System**, and [ADR 0086] renamed the bucket above it to `GENERAL`
+so the two no longer echo. Fonts are the one non-identity resident; the service
+toggles (printing, bluetooth, power) live in the **Daemons** category
+([ADR 0081]), so System never became a catch-all.
 _Avoid_: General (that is now the bucket name).
 
 ### Captured Plasma Settings
 The operator's `arch-combined` `~/.config` files vendored verbatim into
 `/etc/skel` by the KDE adapter so a fresh Plasma login is fully configured, not
-first-run (ADR 0111, extended by ADR 0120). A fixed, konsave-style file list —
-colour scheme, virtual desktops, kwin plugins/tiling, widget layout + settings,
-shortcuts, lock, klipper, plus (ADR 0120) Activities, power, default apps,
-window rules, welcome-version. A **point-in-time snapshot**: re-tweaking Plasma
-means re-capturing. Excludes the EDID-keyed monitor files (`kscreenrc`,
-`kwinoutputconfig.json`) — resolution stays autodetected (ADR 0110/0119).
+first-run ([ADR 0111], extended by [ADR 0120]). A fixed, konsave-style file list
+— colour scheme, virtual desktops, kwin plugins/tiling, widget layout +
+settings, shortcuts, lock, klipper, plus ([ADR 0120]) Activities, power, default
+apps, window rules, welcome-version. A **point-in-time snapshot**: re-tweaking
+Plasma means re-capturing. Excludes the EDID-keyed monitor files (`kscreenrc`,
+`kwinoutputconfig.json`) — resolution stays autodetected ([ADR 0110]/[0119]).
 _Avoid_: konsave profile, Plasma dotfiles.
 
 ### First-Login State
 The part of the "looks like `arch-combined`" guarantee that is **reconstructed**
 at install/first-login rather than verbatim-copied, because it has no capturable
-per-user `.config` home (ADR 0121): audio volume (a `wpctl` autostart), the SDDM
-login background (Horos, system theme), welcome-center suppression (dynamic
+per-user `.config` home ([ADR 0121]): audio volume (a `wpctl` autostart), the
+SDDM login background (Horos, system theme), welcome-center suppression (dynamic
 `LastSeenVersion`), the avatar + display name (AccountsService + GECOS, per
 primary user), and the per-Activity [[Kickoff Favorites]] (a run-once relink
-autostart — ADR 0126). Distinct from [[Captured Plasma Settings]], which are
+autostart — [ADR 0126]). Distinct from [[Captured Plasma Settings]], which are
 copied.
 
 ### Activity
-A KDE Plasma workspace context. This fleet seeds two (ADR 0120): **Default**
+A KDE Plasma workspace context. This fleet seeds two ([ADR 0120]): **Default**
 (`061c3ccc-…`, general) and **Dev** (`d71c2b09-…`, development). The set + names
 + icons are [[Captured Plasma Settings]] (`kactivitymanagerdrc`); their
 per-Activity resource links (favorites, recents) are not — those live in a
@@ -2320,32 +2327,162 @@ KActivities-linked resource — a `ResourceLink` row `(Activity-UUID | :global,
 agent, applications:<id>.desktop)` in
 `~/.local/share/kactivitymanagerd/resources/database` — **not** a `.config` key,
 so it is [[First-Login State]], relinked per [[Activity]] at first login via the
-launcher's own DBus call (ADR 0126). The appletsrc inline `favorites=` is only a
-legacy pre-port seed; `kactivitymanagerd-statsrc` `ordering=` only sorts links,
-it does not create them. _Distinct from_ the Task Manager's pinned `launchers=`,
-which is a plain captured appletsrc key.
+launcher's own DBus call ([ADR 0126]). The appletsrc inline `favorites=` is only
+a legacy pre-port seed; `kactivitymanagerd-statsrc` `ordering=` only sorts
+links, it does not create them. _Distinct from_ the Task Manager's pinned
+`launchers=`, which is a plain captured appletsrc key.
 
 ## Flagged ambiguities
 
-- "base packages" vs "core packages" — **re-resolved (ADR 0056)**: there are now
-  two shared bases and they are different layers, not competitors. The **Base
-  Package List** (the pure `lib/packages/base.sh:base_packages` map) is what the
-  *installer* needs on any host it builds. **Host Core**'s `packages` object is
-  what this *fleet* wants on every real machine. ADR 0007's rule that Host Core
-  carries no package list is **superseded**: its "machine-specific lists"
-  premise failed against the actual fleet (desktop and laptop run the same
-  software — ADR 0056, then ADR 0114 folding *all* fleet packages into core).
-  A VM fixture takes the first and opts out of the second via
-  `packages.inherit: false`. The ADR 0021 clause placing `extra-cmake-modules`
-  in Host Core is withdrawn (see ADR 0021 amendment); ECM is dropped entirely
-  since paru resolves makedepends at build time.
+- "base packages" vs "core packages" — **re-resolved ([ADR 0056])**: there are
+  now two shared bases and they are different layers, not competitors. The
+  **Base Package List** (the pure `lib/packages/base.sh:base_packages` map) is
+  what the *installer* needs on any host it builds. **Host Core**'s `packages`
+  object is what this *fleet* wants on every real machine. [ADR 0007]'s rule
+  that Host Core carries no package list is **superseded**: its
+  "machine-specific lists" premise failed against the actual fleet (desktop and
+  laptop run the same software — [ADR 0056], then [ADR 0114] folding *all* fleet
+  packages into core). A VM fixture takes the first and opts out of the second
+  via `packages.inherit: false`. The [ADR 0021] clause placing
+  `extra-cmake-modules` in Host Core is withdrawn (see [ADR 0021] amendment);
+  ECM is dropped entirely since paru resolves makedepends at build time.
 - DE packages in host configs — resolved: every package derivable from
   `environment.desktop` belongs to its **Desktop Environment Adapter**, not a
-  Host Profile (ADR 0021). KDE, Hyprland, and niri are the adapters (Hyprland
-  re-added ADR 0062 superseding the ADR 0050 removal; niri added ADR 0090).
-- `host_profile` now lives at one layer only (ADR 0036): it is a **VM Profile**
-  key naming a real host directory, which the unified Profile Loader resolves to
-  that machine's **Host Profile** (the picker assembles the **Effective Config**
-  against the VM's virtual disks). The former install-config `host_profile`
-  *field* is gone — a machine's identity is its profile directory name, i.e. the
-  `install.sh --profile <name>` argument.
+  Host Profile ([ADR 0021]). KDE, Hyprland, and niri are the adapters (Hyprland
+  re-added [ADR 0062] superseding the [ADR 0050] removal; niri added
+  [ADR 0090]).
+- `host_profile` now lives at one layer only ([ADR 0036]): it is a **VM
+  Profile** key naming a real host directory, which the unified Profile Loader
+  resolves to that machine's **Host Profile** (the picker assembles the
+  **Effective Config** against the VM's virtual disks). The former
+  install-config `host_profile` *field* is gone — a machine's identity is its
+  profile directory name, i.e. the `install.sh --profile <name>` argument.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[0043]: docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[0054]: docs/adr/0054-guided-encryption-passphrase-and-root-shell.md
+[0062]: docs/adr/0062-re-add-hyprland-adapter.md
+[0080]: docs/adr/0080-toggle-derived-bluetooth-power-fonts.md
+[0081]: docs/adr/0081-guided-install-flow-buckets-and-services-merge.md
+[0089]: docs/adr/0089-promote-config-hungry-packages-to-programs.md
+[0090]: docs/adr/0090-niri-adapter-with-noctalia-shell-preset.md
+[0091]: docs/adr/0091-desktop-aware-auto-display-manager.md
+[0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[0104]: docs/adr/0104-dual-session-app-theming-isolation.md
+[0108]: docs/adr/0108-app-theming-bridge-reaches-fresh-installs.md
+[0111]: docs/adr/0111-kde-adapter-seeds-captured-plasma-settings.md
+[0119]: docs/adr/0119-vm-seeds-full-hd-virtual-panel.md
+[ADR 0002]: docs/adr/0002-install-sh-source-of-truth-config-as-metadata.md
+[ADR 0005]: docs/adr/0005-desktop-environment-adapter-pattern.md
+[ADR 0007]: docs/adr/0007-host-package-list-and-sysctl-as-config-fields.md
+[ADR 0008]: docs/adr/0008-impermanence-via-zfs-dataset-rollback.md
+[ADR 0012]: docs/adr/0012-per-program-config-tree-with-variants.md
+[ADR 0015]: docs/adr/0015-install-config-schema-driven-accessors.md
+[ADR 0020]: docs/adr/0020-host-profile-decoupled-from-hostname.md
+[ADR 0021]: docs/adr/0021-de-adapter-owns-de-packages.md
+[ADR 0024]: docs/adr/0024-kernel-selection-list-and-zfs-module-guard.md
+[ADR 0025]: docs/adr/0025-secrets-activated-sops-program.md
+[ADR 0026]: docs/adr/0026-infra-daemons-in-base-package-list.md
+[ADR 0031]: docs/adr/0031-pool-owners-access-list-via-acls.md
+[ADR 0035]: docs/adr/0035-vm-profile-driven-harness.md
+[ADR 0036]: docs/adr/0036-unified-profile-driven-host-config.md
+[ADR 0037]: docs/adr/0037-per-group-disk-count-assignment.md
+[ADR 0038]: docs/adr/0038-boot-path-resilience-small-esp.md
+[ADR 0039]: docs/adr/0039-guided-installer-profile-optional-front-end.md
+[ADR 0040]: docs/adr/0040-filesystem-adapter-axis.md
+[ADR 0043]: docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[ADR 0044]: docs/adr/0044-btrfs-impermanence-per-path-rollback.md
+[ADR 0046]: docs/adr/0046-combination-matrix-two-tier-install-testing.md
+[ADR 0050]: docs/adr/0050-remove-hyprland-kde-sole-de.md
+[ADR 0051]: docs/adr/0051-guided-inline-masked-credentials-and-user-editor.md
+[ADR 0053]: docs/adr/0053-auto-hybrid-amd-nvidia-gpu-hardening.md
+[ADR 0054]: docs/adr/0054-guided-encryption-passphrase-and-root-shell.md
+[ADR 0055]: docs/adr/0055-guided-profiles-picker-and-default-secret-posture.md
+[ADR 0056]: docs/adr/0056-host-core-carries-packages.md
+[ADR 0057]: docs/adr/0057-per-key-merge-classification.md
+[ADR 0058]: docs/adr/0058-guided-package-surface.md
+[ADR 0059]: docs/adr/0059-guided-encryption-editor.md
+[ADR 0060]: docs/adr/0060-forbid-impermanence-on-hybrid-gpu.md
+[ADR 0061]: docs/adr/0061-impermanence-uses-real-display-manager.md
+[ADR 0062]: docs/adr/0062-re-add-hyprland-adapter.md
+[ADR 0063]: docs/adr/0063-guided-action-rows-stay-visible.md
+[ADR 0064]: docs/adr/0064-guided-clone-user.md
+[ADR 0065]: docs/adr/0065-program-requires-dependency-ordering.md
+[ADR 0066]: docs/adr/0066-guided-impermanence-editor.md
+[ADR 0067]: docs/adr/0067-greetd-owns-dm-when-hyprland-present.md
+[ADR 0068]: docs/adr/0068-hyprland-uses-seatd-for-drm-master.md
+[ADR 0069]: docs/adr/0069-display-manager-is-an-operator-choice.md
+[ADR 0070]: docs/adr/0070-drop-hyprland-uwsm-session.md
+[ADR 0071]: docs/adr/0071-guided-master-detail-and-moderate-taxonomy-recut.md
+[ADR 0072]: docs/adr/0072-mirrors-and-repositories-optional-custom-repos.md
+[ADR 0073]: docs/adr/0073-guided-manual-partitioning-disk-config-kind.md
+[ADR 0074]: docs/adr/0074-guided-pacman-options-category.md
+[ADR 0075]: docs/adr/0075-guided-inline-bool-cycle.md
+[ADR 0076]: docs/adr/0076-locales-category-recut.md
+[ADR 0077]: docs/adr/0077-five-bootloaders-esp-mirroring-adapters.md
+[ADR 0078]: docs/adr/0078-per-kernel-entries-and-kernel-aware-esp-autosize.md
+[ADR 0079]: docs/adr/0079-printing-service-toggle-derived-system-program.md
+[ADR 0080]: docs/adr/0080-toggle-derived-bluetooth-power-fonts.md
+[ADR 0081]: docs/adr/0081-guided-install-flow-buckets-and-services-merge.md
+[ADR 0082]: docs/adr/0082-top-screen-triangle-pointer-drops-parent-column.md
+[ADR 0083]: docs/adr/0083-focus-skip-inert-top-list-rows.md
+[ADR 0084]: docs/adr/0084-rename-system-program-to-host-program.md
+[ADR 0085]: docs/adr/0085-host-program-wire-format-migration.md
+[ADR 0086]: docs/adr/0086-menu-owned-programs-and-software-area.md
+[ADR 0087]: docs/adr/0087-kde-apps-extra-section-for-non-group-apps.md
+[ADR 0088]: docs/adr/0088-kde-adapter-seeds-de-defaults.md
+[ADR 0089]: docs/adr/0089-promote-config-hungry-packages-to-programs.md
+[ADR 0090]: docs/adr/0090-niri-adapter-with-noctalia-shell-preset.md
+[ADR 0091]: docs/adr/0091-desktop-aware-auto-display-manager.md
+[ADR 0093]: docs/adr/0093-noctalia-enriched-plugin-preset-and-rose-pine-default.md
+[ADR 0094]: docs/adr/0094-curated-noctalia-config-as-stow-owned-dotfile.md
+[ADR 0095]: docs/adr/0095-curated-niri-config-served-via-skel.md
+[ADR 0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[ADR 0098]: docs/adr/0098-bibata-modern-ice-seeded-cursor-default.md
+[ADR 0102]: docs/adr/0102-noctalia-owns-gtk-qt-app-theming.md
+[ADR 0103]: docs/adr/0103-change-targeted-test-runs-and-full-suite-green.md
+[ADR 0104]: docs/adr/0104-dual-session-app-theming-isolation.md
+[ADR 0105]: docs/adr/0105-hyprland-lua-config-migration.md
+[ADR 0107]: docs/adr/0107-curated-configs-split-into-conf-d.md
+[ADR 0108]: docs/adr/0108-app-theming-bridge-reaches-fresh-installs.md
+[ADR 0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md
+[ADR 0110]: docs/adr/0110-compositor-resolution-autodetected.md
+[ADR 0111]: docs/adr/0111-kde-adapter-seeds-captured-plasma-settings.md
+[ADR 0112]: docs/adr/0112-stock-environment-variants.md
+[ADR 0113]: docs/adr/0113-close-window-on-meta-x.md
+[ADR 0114]: docs/adr/0114-fleet-software-in-core-laptop-is-superset.md
+[ADR 0115]: docs/adr/0115-program-conflicts-mutual-exclusion.md
+[ADR 0116]: docs/adr/0116-live-theme-bridge-repaints-running-apps.md
+[ADR 0117]: docs/adr/0117-agent-controllable-vm.md
+[ADR 0120]: docs/adr/0120-kde-capture-extended-and-packaged-weather-widget.md
+[ADR 0121]: docs/adr/0121-kde-first-login-state-beyond-captured-config.md
+[ADR 0122]: docs/adr/0122-qt-platformtheme-leaks-into-plasma-via-user-env.md
+[ADR 0123]: docs/adr/0123-kcolorscheme-fleet-wide-with-kde-session-reset.md
+[ADR 0124]: docs/adr/0124-qt6ct-applies-kcolorscheme-for-dolphin-accents.md
+[ADR 0126]: docs/adr/0126-kde-per-activity-kickoff-favorites-reconstructed-at-first-login.md
+[ADR 0127]: docs/adr/0127-pi-coding-agent-fleet-wide-seeded-and-stowable.md
+[ADR 0128]: docs/adr/0128-pi-tui-follows-noctalia-via-user-template.md
+[ADR 0129]: docs/adr/0129-zsh-follows-noctalia-via-user-template.md
+[ADR 0130]: docs/adr/0130-kitty-fleet-wide-seeded-stowable-follows-noctalia.md
+[ADR 0131]: docs/adr/0131-xdg-user-dirs-generated-on-wlroots-sessions.md
+[ADR 0132]: docs/adr/0132-tui-programs-cohere-via-ansi-16.md
+[ADR 0133]: docs/adr/0133-claude-code-fleet-wide-seeded-and-stowable.md
+[ADR 0134]: docs/adr/0134-per-program-config-home-decoupled-from-install.md
+[ADR 0135]: docs/adr/0135-hand-rolled-neovim-on-lazynvim-system-lsp.md
+[ADR 0136]: docs/adr/0136-neovim-follows-noctalia-via-base16-template.md
+[ADR 0137]: docs/adr/0137-target-linux-lts-pinned-to-archzfs-ceiling.md
+[ADR 0138]: docs/adr/0138-stray-kernels-tolerated-at-install.md
+[ADR 0139]: docs/adr/0139-ongoing-archzfs-lts-ceiling-hold.md
+[ADR 0140]: docs/adr/0140-neovim-debugging-nvim-dap-system-adapters.md
+[ADR 0141]: docs/adr/0141-neovim-language-registry-drives-toolchain.md
+[ADR 0142]: docs/adr/0142-curated-claude-feature-set.md
+[ADR 0143]: docs/adr/0143-aur-vetting-vetted-commits.md
+[ADR 0144]: docs/adr/0144-persist-units-in-usr-lib-root-not-rolled-back.md
+[ADR 0146]: docs/adr/0146-zsh-program-owns-root-shell.md
+[ADR 0148]: docs/adr/0148-vscodium-opt-in-parity-twin-of-neovim-config.md
+[ADR 0149]: docs/adr/0149-aur-vetting-on-the-fly-without-vetted-commits.md
+[ADR 0150]: docs/adr/0150-rest-nvim-replaces-kulala-with-system-luarocks.md
+[ADR 0151]: docs/adr/0151-a-formatter-for-every-language-manual-for-hand-formatted.md
+[ADR 0153]: docs/adr/0153-human-readable-installer-code.md
+[ADR-0097]: docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[ADR-0109]: docs/adr/0109-catppuccin-mocha-sapphire-default-seeded-offline.md

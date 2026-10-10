@@ -3,7 +3,7 @@
 Complete configuration reference, concept explanations, and VM testing guide.
 ZFS is the default root filesystem; `btrfs`, `ext4`, and `xfs` are
 selectable via the top-level `filesystem` discriminator and a
-filesystem-keyed adapter axis (ADR 0040/0043). Sections below assume the
+filesystem-keyed adapter axis ([ADR 0040]/[0043]). Sections below assume the
 ZFS default unless noted.
 
 ---
@@ -30,7 +30,7 @@ ZFS default unless noted.
 
 ZFS is the default root filesystem. Pick another with `"filesystem":
 "btrfs" | "ext4" | "xfs"` at the top level of the profile (or a
-per-group `filesystem` on a data group — ADR 0043). ZFS and btrfs are
+per-group `filesystem` on a data group — [ADR 0043]). ZFS and btrfs are
 the snapshotting filesystems (native multi-disk topology + impermanence);
 ext4 and xfs are single-disk only. ZFS is a combined filesystem and
 volume manager with features not available in ext4/xfs:
@@ -117,7 +117,7 @@ declares a `disk_count`, resolved to disks at install time.
 
 `locale` and `keymap` accept a single string or an array whose first
 element is the default (extra entries are generated locales / available
-layouts — ADR 0036). Users are declared in the host profile's `users`
+layouts — [ADR 0036]). Users are declared in the host profile's `users`
 array, with one `users/<name>/profile.jsonc` each.
 
 ### `options`
@@ -125,7 +125,7 @@ array, with one `users/<name>/profile.jsonc` each.
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `kernel` | string \| array | `"lts"` | Flavour token(s): `lts`/`default`/`zen`/`hardened` |
-| `bootloader` | string | `"systemd-boot"` | `systemd-boot`/`grub`/`efistub`/`limine`/`refind` (ADR 0077) |
+| `bootloader` | string | `"systemd-boot"` | `systemd-boot`/`grub`/`efistub`/`limine`/`refind` ([ADR 0077]) |
 | `encryption` | bool | `false` | Encrypt OS volume (+ pools) |
 | `encryption_method` | string | *(fs-derived)* | `native` (ZFS AES) or `luks` (dm-crypt) |
 | `swap` | bool | `true` | Create swap (zvol on ZFS) |
@@ -135,15 +135,15 @@ array, with one `users/<name>/profile.jsonc` each.
 | `zswap.max_pool_percent` | int | `20` | zswap RAM budget (%) |
 | `esp_size` | string | `"2G"` | EFI partition size per OS disk |
 | `ssh.enabled` | bool | `false` | Enable + start sshd on the installed system |
-| `optional_repos` | array | `["multilib"]` | Extra pacman repos: `multilib`/`*-testing` (ADR 0072) |
+| `optional_repos` | array | `["multilib"]` | Extra pacman repos: `multilib`/`*-testing` ([ADR 0072]) |
 | `mirror_countries` | string \| array | *(near-DE set)* | `reflector --country` list |
-| `mirror_servers` | array | `[]` | Custom pacman `Server =` URLs, tried first (ADR 0072) |
-| `custom_repositories` | array | `[]` | Extra `{name,url,sign_check,sign_option}` repos (ADR 0072) |
-| `pacman.*` | object | *(see CONTEXT)* | pacman `[options]` flags + `parallel_downloads` (ADR 0074) |
-| `printing.enabled` | bool | `true` | Install `cups` + enable `cups.service` (ADR 0079) |
-| `bluetooth.enabled` | bool | `true` | Install `bluez` + enable `bluetooth.service` (ADR 0080) |
-| `power.profile` | string | `"power-profiles-daemon"` | `none`/`power-profiles-daemon`/`tuned` (ADR 0080) |
-| `fonts` | array | *(curated set)* | Font packages, multi-select (ADR 0080) |
+| `mirror_servers` | array | `[]` | Custom pacman `Server =` URLs, tried first ([ADR 0072]) |
+| `custom_repositories` | array | `[]` | Extra `{name,url,sign_check,sign_option}` repos ([ADR 0072]) |
+| `pacman.*` | object | *(see CONTEXT)* | pacman `[options]` flags + `parallel_downloads` ([ADR 0074]) |
+| `printing.enabled` | bool | `true` | Install `cups` + enable `cups.service` ([ADR 0079]) |
+| `bluetooth.enabled` | bool | `true` | Install `bluez` + enable `bluetooth.service` ([ADR 0080]) |
+| `power.profile` | string | `"power-profiles-daemon"` | `none`/`power-profiles-daemon`/`tuned` ([ADR 0080]) |
+| `fonts` | array | *(curated set)* | Font packages, multi-select ([ADR 0080]) |
 | `root_shell` | string | `"/bin/bash"` | Root login shell: `/bin/bash`/`/bin/zsh`/`/bin/fish` |
 | `age_key_url` | string | `""` | HTTPS URL for `.age` key (live-CD fallback) |
 | `impermanence.enabled` | bool | `false` | Rollback to `@blank` on every boot (ZFS/btrfs) |
@@ -151,7 +151,7 @@ array, with one `users/<name>/profile.jsonc` each.
 | `impermanence.mount` | string | `"/persist"` | Persist mountpoint |
 
 `encryption_method` defaults to `native` for ZFS and `luks` for every
-other filesystem; an explicit value wins (ADR 0040). Every selected
+other filesystem; an explicit value wins ([ADR 0040]). Every selected
 kernel is installed and ZFS-DKMS builds against each; the first token is
 the Primary Kernel (bootloader default). See § Kernel Selection in
 CONTEXT.md.
@@ -162,9 +162,9 @@ CONTEXT.md.
 |---|---|---|---|
 | `desktop` | string \| array | `[]` | `"kde"`/`"hyprland"`/`"niri"` (array = co-install), or `null` |
 | `gpu` | string \| array | `"auto"` | `"amd"`/`"nvidia"`/`"intel"`/array, or `"auto"` |
-| `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`sddm` (ADR 0069/0091) |
-| `wayland_shell` | string | `"noctalia"` | Noctalia work shell on niri/Hyprland: `noctalia`/`none` (ADR 0090/0097) |
-| `stock` | bool | `false` | Every desktop upstream-stock: KDE shell only, bare compositor (ADR 0112) |
+| `display_manager` | string | `"auto"` | `auto` (desktop-aware)/`greetd`/`sddm` ([ADR 0069]/[0091]) |
+| `wayland_shell` | string | `"noctalia"` | Noctalia work shell on niri/Hyprland: `noctalia`/`none` ([ADR 0090]/[0097]) |
+| `stock` | bool | `false` | Every desktop upstream-stock: KDE shell only, bare compositor ([ADR 0112]) |
 
 Each selected desktop dispatches to
 `extras/desktop/<de>/<de>.sh`. Audio (PipeWire) is auto-derived
@@ -174,7 +174,7 @@ desktop-aware: SDDM when KDE is present, else greetd — ADR
 0069/0091). GPU `"auto"` resolves all detected
 vendors and installs the right driver set (`vulkan-radeon`,
 `nvidia-open-dkms` — an amd+nvidia hybrid gets the deterministic
-GPU Configuration Module, not `envycontrol` (ADR 0053) —
+GPU Configuration Module, not `envycontrol` ([ADR 0053]) —
 `intel-media-driver` / `libva-intel-driver` by device
 generation, `mesa` only for VM GPUs).
 
@@ -227,8 +227,8 @@ Array of storage group objects. Each group becomes a vdev in `dpool`:
 | `ashift` | int | `12` | Sector size exponent |
 | `topology` | str | *(prompted)* | Storage topology. Auto if omitted |
 | `disk_count` | int | — | Number of disks assigned to this group |
-| `owners` | array | *(Primary User)* | Users / `@groups` granted access (ADR 0031) |
-| `filesystem` | string | *(inherits root)* | Per-group fs (ADR 0043); ext4/xfs = 1 disk |
+| `owners` | array | *(Primary User)* | Users / `@groups` granted access ([ADR 0031]) |
+| `filesystem` | string | *(inherits root)* | Per-group fs ([ADR 0043]); ext4/xfs = 1 disk |
 | `encryption` | bool | `false` | Per-group encryption, independent of root |
 
 Storage groups are ZFS-only today (they fold into one `dpool`); a
@@ -240,7 +240,7 @@ non-ZFS data disk is expressed as its own `data_pools[]` entry.
 
 Two fields, both **Categorized Lists** (`{ category: [pkgs] }` — the
 category keys are cosmetic, flattened to a sorted-unique set at install;
-ADR 0022):
+[ADR 0022]):
 
 | Field | Type | Description |
 |---|---|---|
@@ -268,7 +268,7 @@ names (`pacman -Ss <keyword>` on a running system to find them).
 
 ### `post_install`
 
-**Security & Backup Extras** (ADR 0041) — structured objects, not
+**Security & Backup Extras** ([ADR 0041]) — structured objects, not
 booleans. The selected tools are paru-based user programs the Runner
 unions into the **Primary User's** paru pass (paru refuses root):
 
@@ -292,7 +292,7 @@ unions into the **Primary User's** paru pass (paru refuses root):
 A host with **no users** cannot carry these (nothing to run paru as) —
 the Guided Installer aborts at the terminal action. `sops` is *not*
 listed here: it is secrets-activated (installed only when a
-`secrets.json` ships — ADR 0025).
+`secrets.json` ships — [ADR 0025]).
 
 ---
 
@@ -390,7 +390,7 @@ One disk, auto-partitioned ESP + rpool + dpool.
 
 Different-size disks, each its **own** pool (own failure domain) —
 contrast `storage_groups`, which fold into one shared `dpool`. Multi
-mode only. See ADR 0027.
+mode only. See [ADR 0027].
 
 ```jsonc
 {
@@ -512,7 +512,7 @@ The Environment Runner (`lib/chroot/extras.sh`) dispatches to
 `environment.desktop`. Three adapters ship today: KDE, Hyprland,
 and niri. The display manager is not an adapter's concern — it is
 a separate Display Manager Adapter (`extras/dm/<dm>/<dm>.sh`)
-selected by `environment.display_manager` (ADR 0069).
+selected by `environment.display_manager` ([ADR 0069]).
 
 **KDE Plasma 6 — `extras/desktop/kde/kde.sh`**
 
@@ -522,37 +522,37 @@ selected by `environment.display_manager` (ADR 0069).
   `kdeplasma-addons` — so nothing extra is seeded for widgets)
 - PipeWire audio stack (replaces PulseAudio)
 - The operator's captured Plasma settings seeded verbatim into
-  `/etc/skel` (ADR 0111): custom colour scheme, virtual desktops,
-  widgets, shortcuts (incl. Meta+X close — ADR 0113), lock, klipper
+  `/etc/skel` ([ADR 0111]): custom colour scheme, virtual desktops,
+  widgets, shortcuts (incl. Meta+X close — [ADR 0113]), lock, klipper
 - Noto fonts (covers Latin, CJK, emoji)
 
 Per-component toggles live in
 `extras/desktop/kde/install-kde.jsonc`. Under `environment.stock`
-(ADR 0112) the adapter installs the `plasma-meta` shell only — no
+([ADR 0112]) the adapter installs the `plasma-meta` shell only — no
 apps, no captured seed.
 
 **Hyprland — `extras/desktop/hyprland/hyprland.sh`**
 
-Core-only (ADR 0062): the compositor, both XDG portals, the
+Core-only ([ADR 0062]): the compositor, both XDG portals, the
 polkit agent, `wl-clipboard`, `seatd`, and the curated
 `start-hyprland` session. Companion tools come from dotfiles.
 
 **niri — `extras/desktop/niri/niri.sh`**
 
-Core-only (ADR 0090): `niri` (ships its own session, pulls
+Core-only ([ADR 0090]): `niri` (ships its own session, pulls
 `seatd`), both XDG portals, the polkit agent, `wl-clipboard`.
 An optional Noctalia work shell (`environment.wayland_shell` =
-`noctalia` | `none`, ADR 0097) layers on top — the Noctalia
+`noctalia` | `none`, [ADR 0097]) layers on top — the Noctalia
 package plus kitty, brightnessctl, a seeded `/etc/skel` niri
-config, and the curated plugin set (ADR 0093/0094). Toggles live
+config, and the curated plugin set ([ADR 0093]/[0094]). Toggles live
 in `extras/desktop/install-noctalia.jsonc`. Under
-`environment.stock` (ADR 0112) — or `wayland_shell: none` — the
+`environment.stock` ([ADR 0112]) — or `wayland_shell: none` — the
 box is bare: core only, nothing seeded.
 
 ### Backup — `programs/backup/`
 
 Declared as **Security & Backup Extras** — a `post_install.backup`
-object (ADR 0041), installed via the Primary User's paru pass:
+object ([ADR 0041]), installed via the Primary User's paru pass:
 
 ```jsonc
 // .installer/hosts/<name>/profile.jsonc
@@ -579,7 +579,7 @@ borgmatic --verbosity 1
 ### Security — `programs/security/`
 
 Declared as **Security & Backup Extras** — a `post_install.security`
-object (ADR 0041), installed via the Primary User's paru pass. `sops` is
+object ([ADR 0041]), installed via the Primary User's paru pass. `sops` is
 separate: it is secrets-activated (§ Secrets), not selected here.
 
 ```jsonc
@@ -599,16 +599,16 @@ separate: it is secrets-activated (§ Secrets), not selected here.
   tmpfs at `/run/secrets/` on every boot using the Machine Age
   Key. Required by any other program that reads
   `/run/secrets/<name>`. Secrets-activated (installed only when a
-  `secrets.json` ships — ADR 0025), never listed in `post_install`.
+  `secrets.json` ships — [ADR 0025]), never listed in `post_install`.
 
 ---
 
 ## Impermanence
 
 Rollback to a Blank Snapshot on every boot, on the snapshotting
-filesystems **ZFS and btrfs** (ext4/xfs cannot — ADR 0040/0044). On ZFS
+filesystems **ZFS and btrfs** (ext4/xfs cannot — [ADR 0040]/[0044]). On ZFS
 it rolls back datasets; on btrfs it mirrors the same path list as
-per-subvolume rollback (ADR 0044). When enabled, `/etc`, `/root`,
+per-subvolume rollback ([ADR 0044]). When enabled, `/etc`, `/root`,
 `/opt`, `/srv`, and `/usr/local` revert to `@blank` at every boot;
 anything not on the Persist Dataset disappears. Curated system-identity files (machine-id, SSH host
 keys, Machine Age Key, NetworkManager connections, ...) survive
@@ -712,7 +712,7 @@ under `tests/vm/` (cloud-init driven). The instructions below
 cover manual virt-manager runs; the reusable VMs under `vm/`
 (see `vm/README.md`) automate the same setup for repeated use.
 For exhaustive combination coverage across the menu axes, see the
-Combination Matrix (`tools/matrix.sh` + `lib/matrix/`, ADR 0046) —
+Combination Matrix (`tools/matrix.sh` + `lib/matrix/`, [ADR 0046]) —
 README § 8.
 
 ### Prerequisites
@@ -960,3 +960,34 @@ journalctl -b -u sddm    # Check SDDM startup errors
 systemctl status sddm
 journalctl -b | grep -i "plasma\|kwin\|sddm"
 ```
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[0043]: ../docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[0044]: ../docs/adr/0044-btrfs-impermanence-per-path-rollback.md
+[0091]: ../docs/adr/0091-desktop-aware-auto-display-manager.md
+[0094]: ../docs/adr/0094-curated-noctalia-config-as-stow-owned-dotfile.md
+[0097]: ../docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[ADR 0022]: ../docs/adr/0022-categorized-list-schema.md
+[ADR 0025]: ../docs/adr/0025-secrets-activated-sops-program.md
+[ADR 0027]: ../docs/adr/0027-standalone-data-pools.md
+[ADR 0031]: ../docs/adr/0031-pool-owners-access-list-via-acls.md
+[ADR 0036]: ../docs/adr/0036-unified-profile-driven-host-config.md
+[ADR 0040]: ../docs/adr/0040-filesystem-adapter-axis.md
+[ADR 0041]: ../docs/adr/0041-host-security-backup-via-primary-user-paru.md
+[ADR 0043]: ../docs/adr/0043-per-group-filesystem-and-layout-adapter-split.md
+[ADR 0044]: ../docs/adr/0044-btrfs-impermanence-per-path-rollback.md
+[ADR 0046]: ../docs/adr/0046-combination-matrix-two-tier-install-testing.md
+[ADR 0053]: ../docs/adr/0053-auto-hybrid-amd-nvidia-gpu-hardening.md
+[ADR 0062]: ../docs/adr/0062-re-add-hyprland-adapter.md
+[ADR 0069]: ../docs/adr/0069-display-manager-is-an-operator-choice.md
+[ADR 0072]: ../docs/adr/0072-mirrors-and-repositories-optional-custom-repos.md
+[ADR 0074]: ../docs/adr/0074-guided-pacman-options-category.md
+[ADR 0077]: ../docs/adr/0077-five-bootloaders-esp-mirroring-adapters.md
+[ADR 0079]: ../docs/adr/0079-printing-service-toggle-derived-system-program.md
+[ADR 0080]: ../docs/adr/0080-toggle-derived-bluetooth-power-fonts.md
+[ADR 0090]: ../docs/adr/0090-niri-adapter-with-noctalia-shell-preset.md
+[ADR 0093]: ../docs/adr/0093-noctalia-enriched-plugin-preset-and-rose-pine-default.md
+[ADR 0097]: ../docs/adr/0097-noctalia-as-shared-niri-hyprland-shell.md
+[ADR 0111]: ../docs/adr/0111-kde-adapter-seeds-captured-plasma-settings.md
+[ADR 0112]: ../docs/adr/0112-stock-environment-variants.md
+[ADR 0113]: ../docs/adr/0113-close-window-on-meta-x.md

@@ -3,11 +3,11 @@
 ## Status
 Accepted (implemented across `.scratch/unified-host-profile/` issues
 01-12, VM-verified; docs rewritten in issue 11). Supersedes the
-file split in ADR 0001 and ADR 0010 (the Pre-Install Picker is now the
+file split in [ADR 0001] and [ADR 0010] (the Pre-Install Picker is now the
 `install.sh --profile` front-end, not a separate `tools/pick.sh`); narrows
-ADR 0002's reach; amends ADR 0015 (open -> closed schema) and ADR 0035
+[ADR 0002]'s reach; amends [ADR 0015] (open -> closed schema) and [ADR 0035]
 (VM `install: "repo"` redefined).
-Later decisions: amended by ADR 0039, ADR 0073.
+Later decisions: amended by [ADR 0039], [ADR 0073].
 
 ## Context
 A machine is currently described by three files: `install.jsonc`
@@ -15,12 +15,12 @@ A machine is currently described by three files: `install.jsonc`
 per-host machine properties the picker copies through), and
 `hosts/<p>/config.jsonc` (users + system programs + packages). The
 glossary calls only the last one the "Host Profile," yet operators think
-of "the profile" as the whole machine. That three-file split (ADR 0001)
+of "the profile" as the whole machine. That three-file split ([ADR 0001])
 plus the template/assembled-config indirection is the main reason the
 architecture diagrams are hard to follow.
 
 Goal: one file per machine, a small un-bloated schema, and an install
-flow that reads like the VM harness (`vm.sh --profile`, ADR 0035).
+flow that reads like the VM harness (`vm.sh --profile`, [ADR 0035]).
 
 The one field that genuinely cannot live in a committed per-host file is
 `disks` -- it is machine-physical and operator-picked at install time
@@ -29,7 +29,7 @@ The one field that genuinely cannot live in a committed per-host file is
 ## Decision
 Collapse the three files into one unified per-host `profile.jsonc` under
 `.os/hosts/<name>/`, merged with `hosts/core/profile.jsonc` (core
-layering from ADR 0004 preserved). The user side renames in step for
+layering from [ADR 0004] preserved). The user side renames in step for
 symmetry: `users/<name>/config.jsonc` -> `users/<name>/profile.jsonc`
 (+ `users/core/profile.jsonc`). Programs keep `config.jsonc`. Files now
 match the nouns: `profile` = a host/user, `config` = a program spec.
@@ -51,7 +51,7 @@ are retired; the `host_profile` *field* is dropped (the directory name /
 
 Scope of the unified profile (resolved during design):
 - sops, display manager, cpu/microcode, and audio stay AUTOMATIC -- no
-  toggles added. Keeps ADR 0025 (sops secrets-activated); DM derived
+  toggles added. Keeps [ADR 0025] (sops secrets-activated); DM derived
   from the DE; both ucodes always installed; PipeWire when a DE is
   selected. Each added toggle would re-bloat the schema against the goal.
 - Add `options.ssh.enabled` (default false) -> enable `sshd.service`.
@@ -68,23 +68,23 @@ Scope of the unified profile (resolved during design):
   owners -- but NO device fields. The picker maps operator-picked disks
   onto the declared groups at assemble time (a new disk->group step,
   validated against the existing min-disk table).
-- No host `services` field -- services stay program-owned (ADR 0002).
+- No host `services` field -- services stay program-owned ([ADR 0002]).
   User profiles gain a user-level `systemctl --user enable` list; a unit
   not found at enable-time (after user programs + dotfiles are placed)
   aborts with an actionable message.
-- Programs are unchanged: ADR 0002 stays strict (metadata
+- Programs are unchanged: [ADR 0002] stays strict (metadata
   `config.jsonc` + mandatory `install.sh`).
 - "A host can have multiple profiles" means many named profiles exist
   and the install selects one (+ core) -- the existing decoupling of
-  ADR 0020, not multi-profile composition.
+  [ADR 0020], not multi-profile composition.
 
 User <-> system-program references (refines the old always-abort rule):
 - user-level programs may shadow a host program;
 - a user referencing a system program the host already installs -> no-op;
 - a user referencing a system program no host installs -> abort with an
-  actionable message. The `system` flag stays host-owned (ADR 0002).
+  actionable message. The `system` flag stays host-owned ([ADR 0002]).
 
-Closed-schema validation (amends ADR 0015): every authored config (host
+Closed-schema validation (amends [ADR 0015]): every authored config (host
 profile + core, user profile + core, program `config.jsonc`) is
 validated against a closed schema at load. Any unknown key at any depth
 aborts with its path, before any disk write. Implemented by completing
@@ -94,7 +94,7 @@ live-ISO dependency, one source so reads and validation can't drift.
 Program `config.jsonc` is in v1 scope (a typo'd `system` key silently
 misroutes a program system<->user).
 
-VM harness (amends ADR 0035): a VM Profile's `host_profile` resolves to
+VM harness (amends [ADR 0035]): a VM Profile's `host_profile` resolves to
 the unified `profile.jsonc` (the picker assembles it + virtual disks);
 the `install: "repo"` source is redefined to mean "the repo's designated
 default Host Profile," named by a single pointer constant in the harness
@@ -133,8 +133,21 @@ per-host profiles become the live examples.
 ## Amendment (2026-07-24)
 
 The keymap clause above references "the Hyprland adapter writes its own
-`kb_layout`". Hyprland is removed (ADR 0050); that sentence is
+`kb_layout`". Hyprland is removed ([ADR 0050]); that sentence is
 historical. KDE reads the shared `xorg.conf.d/00-keyboard.conf`, so
 `identity.sh`'s X11 keyboard config now covers the only desktop. The
 rest of the decision (locale/keymap arrays, element 0 as default) is
 unchanged.
+
+<!-- ADR links: generated by readability.sh --fix-adr-links -->
+[ADR 0001]: 0001-split-disk-config-from-software-config.md
+[ADR 0002]: 0002-install-sh-source-of-truth-config-as-metadata.md
+[ADR 0004]: 0004-core-configs-as-base-layer.md
+[ADR 0010]: 0010-pre-install-picker-as-separate-tool.md
+[ADR 0015]: 0015-install-config-schema-driven-accessors.md
+[ADR 0020]: 0020-host-profile-decoupled-from-hostname.md
+[ADR 0025]: 0025-secrets-activated-sops-program.md
+[ADR 0035]: 0035-vm-profile-driven-harness.md
+[ADR 0039]: 0039-guided-installer-profile-optional-front-end.md
+[ADR 0050]: 0050-remove-hyprland-kde-sole-de.md
+[ADR 0073]: 0073-guided-manual-partitioning-disk-config-kind.md

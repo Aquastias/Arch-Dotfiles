@@ -243,3 +243,106 @@ SH
   check_repo
   [ "$status" -eq 0 ]
 }
+
+# make_adr_repo: a repo with ADR 0001 and ADR 0002 to link to.
+make_adr_repo() {
+  make_repo
+  mkdir -p docs/adr
+  printf '# ADR 0001: First\n\nSee ADR 0002.\n' > docs/adr/0001-first.md
+  printf '# ADR 0002: Second\n' > docs/adr/0002-second.md
+}
+
+@test "catches an unlinked ADR mention in a doc" {
+  make_adr_repo
+  printf 'Why: ADR 0001.\n' > README.md
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adr-link: README.md:1: ADR 0001 is not a link"* ]]
+}
+
+@test "--fix-adr-links links mentions with a definition block" {
+  make_adr_repo
+  mkdir -p .installer
+  printf 'Why: ADR 0001 (and ADR-0002).\n' > .installer/README.md
+  check_repo --fix-adr-links
+  [ "$status" -eq 0 ]
+  run cat .installer/README.md
+  [[ "${lines[0]}" == "Why: [ADR 0001] (and [ADR-0002])." ]]
+  [[ "$output" == *"[ADR 0001]: ../docs/adr/0001-first.md"* ]]
+  [[ "$output" == *"[ADR-0002]: ../docs/adr/0002-second.md"* ]]
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "--fix-adr-links is idempotent" {
+  make_adr_repo
+  printf 'Why: ADR 0001.\n' > README.md
+  check_repo --fix-adr-links
+  cp README.md once.md
+  check_repo --fix-adr-links
+  run diff once.md README.md
+  [ "$status" -eq 0 ]
+}
+
+@test "an ADR's own number, code, and .scratch mentions need no link" {
+  make_adr_repo
+  printf '# ADR 0002: Second\n' > docs/adr/0002-second.md
+  printf 'Run `ADR 0001`.\n\n```\nADR 0001\n```\n' > README.md
+  mkdir -p .scratch/x
+  printf 'ADR 0001\n' > .scratch/x/spec.md
+  check_repo --fix-adr-links
+  check_repo
+  [ "$status" -eq 0 ]
+  run cat README.md
+  [[ "$output" != *"[ADR 0001]"* ]]
+}
+
+@test "a bracketed mention without a definition fails" {
+  make_adr_repo
+  printf 'Why: [ADR 0001].\n' > README.md
+  check_repo
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"adr-link: README.md:1: [ADR 0001] has no definition"* ]]
+}
+
+@test "--fix-adr-links rewraps a pushed line without splitting a link" {
+  make_adr_repo
+  local words="aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll"
+  words+=" mmmm xxxx"
+  printf "%s\n%s\n" "$words ADR 0001." "next line." > README.md
+  check_repo --fix-adr-links
+  run cat README.md
+  [ "${lines[0]}" = "$words" ]
+  [ "${lines[1]}" = "[ADR 0001]. next line." ]
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "--fix-adr-links uses bare file names between ADRs" {
+  make_adr_repo
+  check_repo --fix-adr-links
+  run cat docs/adr/0001-first.md
+  [[ "$output" == *"[ADR 0002]: 0002-second.md"* ]]
+}
+
+@test "--fix-adr-links links each number of a chained mention" {
+  make_adr_repo
+  printf 'Why: ADR 0001/0002.\n' > README.md
+  check_repo --fix-adr-links
+  run cat README.md
+  [ "${lines[0]}" = "Why: [ADR 0001]/[0002]." ]
+  [[ "$output" == *"[0002]: docs/adr/0002-second.md"* ]]
+  check_repo
+  [ "$status" -eq 0 ]
+}
+
+@test "--fix-adr-links never wraps a marker to a line start" {
+  make_adr_repo
+  local words="aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj kkkk llll"
+  printf "%s\n%s\n" "$words mmmm nnnn ADR 0001 + x" "next." > README.md
+  check_repo --fix-adr-links
+  run cat README.md
+  [ "${lines[1]}" = "[ADR 0001] + x next." ]
+  check_repo
+  [ "$status" -eq 0 ]
+}

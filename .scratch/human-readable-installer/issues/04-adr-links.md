@@ -8,9 +8,9 @@ doc rule enforces it.
 
 **Blocked by:** 01 — Readability Lint
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] All in-scope mentions linked, links resolve to existing files
-- [ ] Lint rule + fixtures (unlinked doc mention caught; `.scratch/` and
+- [x] All in-scope mentions linked, links resolve to existing files
+- [x] Lint rule + fixtures (unlinked doc mention caught; `.scratch/` and
       code comments allowed); suite green
-- [ ] No ADR body text changed beyond link markup
+- [x] No ADR body text changed beyond link markup
